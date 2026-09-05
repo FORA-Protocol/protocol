@@ -1,7 +1,7 @@
-// The Connect-unary JSON transport: POST /ramp.v1.<Service>/<Method>, JSON body.
+// The Connect-unary JSON transport: POST /fora.v1.<Service>/<Method>, JSON body.
 //
-// Every RAMP RPC is unary, so this is the whole protocol rather than a subset of it.
-// Full Connect framing exists for streaming, which RAMP has none of and would never use,
+// Every FORA RPC is unary, so this is the whole protocol rather than a subset of it.
+// Full Connect framing exists for streaming, which FORA has none of and would never use,
 // and it would drag in a protobuf binary codec this SDK deliberately does not have — the
 // Zod/Pydantic decision makes these clients JSON-only by design, not by omission.
 //
@@ -27,20 +27,20 @@ import {
 	connectCodeFromStatus,
 	kindOfConnectCode,
 	malformed,
-	RampCallError,
+	ForaCallError,
 } from "./errors.ts";
 
 /**
- * DEFAULT_MAX_RPC_READ_BYTES caps the response body a single RAMP call will read.
+ * DEFAULT_MAX_RPC_READ_BYTES caps the response body a single FORA call will read.
  *
- * A RAMP response for a realistic batch is small; the bound is what stops a peer —
+ * A FORA response for a realistic batch is small; the bound is what stops a peer —
  * including one an offer named — spending the caller's memory on its behalf. Mirrors the
  * Go client's DefaultMaxRPCReadBytes.
  */
 export const DEFAULT_MAX_RPC_READ_BYTES = 1 << 20; // 1 MiB
 
 /**
- * DEFAULT_CALL_TIMEOUT_MS bounds one call. A RAMP RPC is interactive — something is
+ * DEFAULT_CALL_TIMEOUT_MS bounds one call. A FORA RPC is interactive — something is
  * waiting on the other end — so a request that has not answered by now is more useful as
  * an error than as a hang. Mirrors the Go client's DefaultCallTimeout.
  */
@@ -82,7 +82,7 @@ export interface UnaryResponse {
  * An implementation MUST NOT follow redirects. Following one would re-sign the caller's
  * request for a target the peer chose, after the endpoint check had already passed — a
  * 3xx is an answer to be reported, never a hop to take. It MUST also refuse to read past
- * `maxBytes`, and signal that by throwing a RampCallError of kind `too_large`.
+ * `maxBytes`, and signal that by throwing a ForaCallError of kind `too_large`.
  */
 export type UnarySend = (req: UnaryRequest) => Promise<UnaryResponse>;
 
@@ -128,7 +128,7 @@ export interface UnaryCallOptions {
  */
 export function rpcURL(target: UnaryTarget): string {
 	// Joined through URL, not concatenated: a base carrying a query or a fragment would
-	// otherwise swallow the RPC path — "https://x.test?a=1" + "/ramp.v1.…" leaves the path
+	// otherwise swallow the RPC path — "https://x.test?a=1" + "/fora.v1.…" leaves the path
 	// inside the query string, and the call reaches the origin's root.
 	const base = target.baseURL.replace(/\/+$/, "");
 	const path = `/${target.service}/${target.method}`;
@@ -147,7 +147,7 @@ export function rpcURL(target: UnaryTarget): string {
 }
 
 /**
- * unaryCall sends one RAMP RPC and returns the peer's answer as parsed JSON.
+ * unaryCall sends one FORA RPC and returns the peer's answer as parsed JSON.
  *
  * The body is serialized ONCE and the same bytes are signed and sent: RFC 9530
  * Content-Digest covers the exact octets, so re-serializing between signing and sending
@@ -165,7 +165,7 @@ export async function unaryCall(opts: UnaryCallOptions): Promise<unknown> {
 	// refusing early is the point — a URL this client will not dial should cost no body
 	// encoding, no timer and no signature. requireScheme raises the resolvers' own
 	// SsrfBlockedError, which is deliberate, and this tier is what gives it a class. Every
-	// verb throws RampCallError and nothing else; an untyped throw here is one a caller
+	// verb throws ForaCallError and nothing else; an untyped throw here is one a caller
 	// branching on that contract drops silently.
 	if (opts.guarded === true) {
 		try {
@@ -173,7 +173,7 @@ export async function unaryCall(opts: UnaryCallOptions): Promise<unknown> {
 		} catch (cause) {
 			// Unreachable, matching what the delivery leg answers for the identical refusal
 			// and what Go answers when the same check fires inside its RoundTripper.
-			throw new RampCallError({ kind: "unreachable", op: opts.op, cause });
+			throw new ForaCallError({ kind: "unreachable", op: opts.op, cause });
 		}
 	}
 	const body = encodeBody(opts.op, opts.message);
@@ -257,16 +257,16 @@ async function signCall(
 		});
 		return signed.headers;
 	} catch (cause) {
-		throw new RampCallError({ kind: "not_signable", op, cause });
+		throw new ForaCallError({ kind: "not_signable", op, cause });
 	}
 }
 
-// asCallError classifies a failure the send raised. A RampCallError from the send (the
+// asCallError classifies a failure the send raised. A ForaCallError from the send (the
 // size cap, most often) is already classified and passes through; anything else is a peer
 // that did not answer.
-function asCallError(op: string, cause: unknown): RampCallError {
-	if (cause instanceof RampCallError) return cause;
-	return new RampCallError({ kind: "unreachable", op, cause });
+function asCallError(op: string, cause: unknown): ForaCallError {
+	if (cause instanceof ForaCallError) return cause;
+	return new ForaCallError({ kind: "unreachable", op, cause });
 }
 
 /**
@@ -298,7 +298,7 @@ export function refuseUnrequestedEncoding(
 	const raw = headers["content-encoding"];
 	const coding = (Array.isArray(raw) ? raw.join(",") : (raw ?? "")).trim().toLowerCase();
 	if (coding === "" || coding === "identity") return;
-	throw new RampCallError({
+	throw new ForaCallError({
 		kind: "malformed",
 		op,
 		status,
@@ -324,7 +324,7 @@ export function decodeResponse(op: string, response: UnaryResponse): unknown {
 	// verdict, and connect-go has no answer to mirror here because its transport follows
 	// redirects and never surfaces one.
 	if (response.status >= 300 && response.status < 400) {
-		throw new RampCallError({
+		throw new ForaCallError({
 			kind: "unreachable",
 			op,
 			status: response.status,
@@ -349,7 +349,7 @@ function parseJSON(op: string, response: UnaryResponse): unknown {
 	// The scan is lexical and shared with the registration-schema compiler, which reaches
 	// for it against a runtime that does overflow. Counting needs no recursion.
 	if (rawNestingDepth(response.body) > MAX_BODY_DEPTH) {
-		throw new RampCallError({
+		throw new ForaCallError({
 			kind: "malformed",
 			op,
 			status: response.status,
@@ -367,7 +367,7 @@ function parseJSON(op: string, response: UnaryResponse): unknown {
 		// and did not, which IS malformed.
 		if (response.status < 200 || response.status >= 300) {
 			const code = connectCodeFromStatus(response.status);
-			throw new RampCallError({
+			throw new ForaCallError({
 				kind: kindOfConnectCode(code),
 				op,
 				status: response.status,
@@ -375,7 +375,7 @@ function parseJSON(op: string, response: UnaryResponse): unknown {
 				cause,
 			});
 		}
-		throw new RampCallError({
+		throw new ForaCallError({
 			kind: "malformed",
 			op,
 			status: response.status,
@@ -388,7 +388,7 @@ function connectEnvelopeError(
 	op: string,
 	status: number,
 	payload: unknown,
-): RampCallError {
+): ForaCallError {
 	const envelope = isRecord(payload) ? payload : {};
 	// An envelope carrying no code is not a verdict the peer reached, so the STATUS decides
 	// the class — which is what connect-go does with the same answer. Reporting a draining
@@ -397,7 +397,7 @@ function connectEnvelopeError(
 	const named = typeof envelope["code"] === "string" ? envelope["code"] : "";
 	const code = named === "" ? connectCodeFromStatus(status) : named;
 	const detail = errorDetailFrom(envelope);
-	return new RampCallError({
+	return new ForaCallError({
 		kind: kindOfConnectCode(code),
 		op,
 		status,
@@ -508,7 +508,7 @@ function parseUnderWirePolicy<T>(
 		return parseWire<T>(schema, raw);
 	} catch (cause) {
 		if (cause instanceof WireNamingError) {
-			throw new RampCallError({
+			throw new ForaCallError({
 				kind: "malformed",
 				op,
 				reason: NOT_CANONICAL_WIRE_NAMING,

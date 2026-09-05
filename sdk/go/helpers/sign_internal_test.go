@@ -20,7 +20,7 @@ func newSignedReq(t *testing.T, body []byte, mutate func(*http.Request)) (*http.
 	if err != nil {
 		t.Fatal(err)
 	}
-	req, err := http.NewRequest(http.MethodPost, "https://broker.example/ramp.v1.BrokerService/Resolve", strings.NewReader(string(body)))
+	req, err := http.NewRequest(http.MethodPost, "https://broker.example/fora.v1.BrokerService/Resolve", strings.NewReader(string(body)))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,4 +1,4 @@
-"""The RAMP client's verbs (Python side) — mirror of sdk/ts/tests/client.test.ts.
+"""The FORA client's verbs (Python side) — mirror of sdk/ts/tests/client.test.ts.
 
 Driven through an INJECTED httpx transport rather than a socket: what is under test is the
 protocol behaviour — the URL, the envelope, the routing, the verification and the failure
@@ -20,13 +20,13 @@ import httpx
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-import ramp_sdk.sync as sync_client
-from ramp_sdk.client import Client, ClientConfig, NOT_CANONICAL_WIRE_NAMING
-from ramp_sdk.client import BrokerClient
-from ramp_sdk.client.errors import CallError, CallErrorKind
-from ramp_sdk.core import Mode, StaticOfferKeyResolver, Verifier, sign_offer_jcs
-from ramp_sdk.resolvers.errors import NoEndpointError
-from ramp_sdk.signing_transport import SigningTransport
+import fora_sdk.sync as sync_client
+from fora_sdk.client import Client, ClientConfig, NOT_CANONICAL_WIRE_NAMING
+from fora_sdk.client import BrokerClient
+from fora_sdk.client.errors import CallError, CallErrorKind
+from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier, sign_offer_jcs
+from fora_sdk.resolvers.errors import NoEndpointError
+from fora_sdk.signing_transport import SigningTransport
 
 REQUESTER = {"id": "agent-1", "domain": "agent.test", "type": "REQUESTER_TYPE_AGENT"}
 AGENT_SEED = bytes(range(32))
@@ -124,7 +124,7 @@ def test_addresses_the_connect_unary_path_and_stamps_the_envelope(face: Face) ->
     face.run(client.discover({"exchange": "exchange.test", "uris": ["https://site.test/a"]}))
 
     request = rec.seen[0]
-    assert str(request.url) == "https://exchange.test/ramp.v1.ExchangeService/DiscoverResources"
+    assert str(request.url) == "https://exchange.test/fora.v1.ExchangeService/DiscoverResources"
     assert request.headers["content-type"] == "application/json"
     assert request.headers["connect-protocol-version"] == "1"
     # The signing face runs over the exact body bytes.
@@ -242,7 +242,7 @@ def test_an_offer_whose_key_does_not_resolve_is_rejected_not_dropped(face: Face)
 def test_a_wire_offer_carrying_emitted_zero_values_still_verifies(face: Face) -> None:
     """The emitted wire form is NOT the signed form, and the client inverts it.
 
-    A RAMP Exchange serves proto-JSON with EmitUnpopulated, so what arrives carries
+    A FORA Exchange serves proto-JSON with EmitUnpopulated, so what arrives carries
     zero-valued scalars and empty repeateds the signature never covered. Verifying the
     wire object as-is fails every genuine offer.
     """
@@ -297,10 +297,10 @@ def test_a_connect_error_envelope_becomes_the_typed_failure(face: Face) -> None:
             "message": "balance too low",
             "details": [
                 {
-                    "type": "ramp.v1.ErrorDetail",
+                    "type": "fora.v1.ErrorDetail",
                     "value": "aWdub3JlZA",
                     "debug": {
-                        "domain": "ramp.v1.ExchangeService",
+                        "domain": "fora.v1.ExchangeService",
                         "message": "balance too low",
                         "transactionDenial": {"reason": "DENIAL_REASON_INSUFFICIENT_BALANCE"},
                     },
@@ -361,7 +361,7 @@ def _verified(public: bytes, offer: dict[str, Any]) -> Any:
 
 @pytest.mark.parametrize("face", FACES, ids=_IDS)
 def test_execute_sends_the_reflected_offer_and_a_verifying_acceptance(face: Face) -> None:
-    from ramp_sdk.core import verify_offer_acceptance_jcs
+    from fora_sdk.core import verify_offer_acceptance_jcs
 
     offer, public = _signed_offer()
     rec = Recorder({"ver": "1.0"})
@@ -370,7 +370,7 @@ def test_execute_sends_the_reflected_offer_and_a_verifying_acceptance(face: Face
     face.run(client.execute(_verified(public, offer), idempotency_key="idem-1"))
 
     body = rec.body()
-    assert str(rec.seen[0].url).endswith("/ramp.v1.ExchangeService/ExecuteTransaction")
+    assert str(rec.seen[0].url).endswith("/fora.v1.ExchangeService/ExecuteTransaction")
     assert body["idempotency_key"] == "idem-1"
     item = body["items"][0]
     assert item["offer"] == offer
@@ -450,7 +450,7 @@ def test_a_usage_report_goes_to_the_exchange_the_report_names(face: Face) -> Non
     face.run(client.report_usage({"exchange": "issuer.test", "transaction_id": "t-1"}))
 
     # Never the configured home Exchange: the destination came off the signed message.
-    assert str(rec.seen[0].url) == "https://api.issuer.test/ramp.v1.ExchangeService/ReportUsage"
+    assert str(rec.seen[0].url) == "https://api.issuer.test/fora.v1.ExchangeService/ReportUsage"
     body = rec.body()
     assert body["ver"] == "1.0"
     assert isinstance(body["idempotency_key"], str)
@@ -484,7 +484,7 @@ def test_a_dispute_is_routed_the_same_way(face: Face) -> None:
         )
     )
 
-    assert str(rec.seen[0].url).endswith("/ramp.v1.ExchangeService/DisputeTransaction")
+    assert str(rec.seen[0].url).endswith("/fora.v1.ExchangeService/DisputeTransaction")
 
 
 @pytest.mark.parametrize("face", FACES, ids=_IDS)
@@ -549,7 +549,7 @@ def test_a_whole_call_absence_reason_is_an_answer_not_a_failure(face: Face) -> N
 
     result = face.run(broker.resolve({"uris": ["https://site.test/a"]}))
 
-    assert str(rec.seen[0].url) == "https://broker.test/ramp.v1.BrokerService/Resolve"
+    assert str(rec.seen[0].url) == "https://broker.test/fora.v1.BrokerService/Resolve"
     assert result.absence_reason == "OFFER_ABSENCE_REASON_NOT_IN_CATALOG"
     assert result.groups == []
     # A DiscoveryResponse names no single Exchange; each offer carries its own.
@@ -592,7 +592,7 @@ def test_fetch_refuses_without_the_key_the_url_is_bound_to(face: Face) -> None:
 @pytest.mark.parametrize("face", FACES, ids=_IDS)
 def test_fetch_presents_the_proof_and_returns_the_bytes(face: Face) -> None:
     def respond(request: httpx.Request) -> httpx.Response:
-        assert request.headers["x-ramp-agent-key"]
+        assert request.headers["x-fora-agent-key"]
         assert request.headers["signature-input"].startswith("sig1=")
         return httpx.Response(
             200,
@@ -685,7 +685,7 @@ def test_fetch_proves_possession_of_the_signers_key_not_a_second_one(face: Face)
     client = face.client(_config(), recorder)
     face.run(client.fetch("https://edge.test/x"))
 
-    presented = recorder.seen[0].headers.get("x-ramp-agent-key")
+    presented = recorder.seen[0].headers.get("x-fora-agent-key")
     assert presented, "no proof header reached the edge"
     assert presented == expected, (
         "the delivery proof was minted under a key other than the request signer's"
@@ -707,7 +707,7 @@ def test_fetch_proves_possession_of_the_signers_key_not_a_second_one(face: Face)
     ],
 )
 def test_a_rate_limit_is_handed_back_as_the_peer_sent_it(reset_at: str) -> None:
-    from ramp_sdk.client import _verbs
+    from fora_sdk.client import _verbs
 
     plan = _verbs.Plan(
         op="discover", url="u", body=b"", headers={}, timeout=1.0, max_bytes=1 << 20, sent={}
@@ -729,7 +729,7 @@ def test_a_rate_limit_is_handed_back_as_the_peer_sent_it(reset_at: str) -> None:
 # ways. Answering from the wire made Python the odd one of the three: it said "300" where
 # they said 300, and kept a vendor key they both dropped.
 def test_a_rate_limits_other_members_are_the_decoded_ones() -> None:
-    from ramp_sdk.client import _verbs
+    from fora_sdk.client import _verbs
 
     plan = _verbs.Plan(
         op="discover", url="u", body=b"", headers={}, timeout=1.0, max_bytes=1 << 20, sent={}

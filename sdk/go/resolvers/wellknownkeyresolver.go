@@ -10,16 +10,16 @@ import (
 
 	jose "github.com/go-jose/go-jose/v4"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // WellKnownKeyResolver fetches a JWKS-shaped document from a URL (the publisher's
-// /.well-known/ramp.json keys) and caches resolved keys with a TTL. The wire form
+// /.well-known/fora.json keys) and caches resolved keys with a TTL. The wire form
 // is the RFC 7517 subset:
 //
 //	{"keys":[{"kid":"agent1.v1","kty":"OKP","crv":"Ed25519","x":"<base64url>"}]}
 //
-// NOTE: kid-matched keys in ramp.json are the pre-WBA-split identity shape.
+// NOTE: kid-matched keys in fora.json are the pre-WBA-split identity shape.
 // For party IDENTITY keys use WBAKeyResolver, which resolves the WBA directory
 // (WBADirectoryPath) by RFC 7638 thumbprint with validity windows and
 // revocation; this resolver remains for fixed-URL JWKS documents.
@@ -54,7 +54,7 @@ type WellKnownOptions struct {
 	// rejected here before any fetch.
 	Allow func(id string) bool
 	// Scheme is the URL scheme the WellKnownEndpointResolver uses to build
-	// {scheme}://{host}/.well-known/ramp.json (empty → "https"). Tests inject
+	// {scheme}://{host}/.well-known/fora.json (empty → "https"). Tests inject
 	// "http" to drive an httptest server. Unused by WellKnownKeyResolver, which
 	// is constructed with a full URL.
 	Scheme string

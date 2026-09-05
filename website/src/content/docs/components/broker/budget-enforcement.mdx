@@ -57,7 +57,7 @@ type BudgetTracker interface {
     CanAfford(amount float64, currency string) bool
 
     // Record logs a completed transaction against the session budget.
-    Record(ctx context.Context, cost *rampv1.Cost)
+    Record(ctx context.Context, cost *forav1.Cost)
 
     // Remaining returns the remaining budget for the session.
     Remaining(sessionID string) (float64, string)
@@ -91,7 +91,7 @@ For batch (multi-URI) queries, budget is consumed atomically for the batch total
 Once the batch `TransactionRequest` is sent and the `TransactionResponse` received, the Broker records the `total_cost` against the session and period budgets in a single operation.
 
 ```go
-func (b *inMemoryBudget) RecordBatch(ctx context.Context, totalCost *rampv1.Cost) {
+func (b *inMemoryBudget) RecordBatch(ctx context.Context, totalCost *forav1.Cost) {
     b.mu.Lock()
     defer b.mu.Unlock()
     b.current.spent += totalCost.Amount

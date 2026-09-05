@@ -5,7 +5,7 @@ description: "Automated dispute resolution for resource access micropayments -- 
 
 ## Design Principle
 
-Resource access in RAMP operates at $0.01--$0.10 per transaction. A single human reviewer spending 5 minutes costs $2.50 -- 25x to 250x the transaction value. **100% of routine disputes must be automated.** Manual review is reserved for aggregate fraud patterns, not individual transactions.
+Resource access in FORA operates at $0.01--$0.10 per transaction. A single human reviewer spending 5 minutes costs $2.50 -- 25x to 250x the transaction value. **100% of routine disputes must be automated.** Manual review is reserved for aggregate fraud patterns, not individual transactions.
 
 **The agent is the paying party. The burden of proof for delivery is on the provider/Exchange.** No proof of delivery = no payment. The inverse also applies: the agent cannot fabricate disputes without evidence.
 
@@ -158,4 +158,4 @@ Month 1--2 above threshold: warning. Month 3: remediation plan required. Month 4
 
 - [Content Attestation](/protocol/content-attestation/) -- how attestation levels determine auto-disputability
 - [Transaction Flow](/protocol/transaction-flow/) -- the transaction that precedes a dispute
-- [Proto: RAMP v1](/reference/proto-ramp/) -- full `DisputeRequest`/`DisputeResponse` message reference
+- [Proto: FORA v1](/reference/proto-fora/) -- full `DisputeRequest`/`DisputeResponse` message reference

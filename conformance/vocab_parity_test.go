@@ -3,7 +3,7 @@
 //
 // The per-file drift gate proves each generated vocab file matches its own
 // generator's output; it never proves the THREE generators (Go, Python, TS
-// rampvocab emitters) agree with each other. A bug in one emitter — a dropped or
+// foravocab emitters) agree with each other. A bug in one emitter — a dropped or
 // mistyped token in only the Zod or Pydantic output — passes the drift gate but
 // would hand consumers a different registry per language. This test reads the
 // token sets straight from the three generated files and requires them identical,

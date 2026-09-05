@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
-	"github.com/RAMP-Protocol/protocol/sdk/go/resolvers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
 // The knobs the tier below `connect` already had and the client had no way to
@@ -35,12 +35,12 @@ func TestWithSignWindow_ReachesTheEmittedSignature(t *testing.T) {
 	defer srv.Close()
 
 	sig := newSigningFixture(t)
-	client := rampconnect.NewClient(srv.URL,
-		rampconnect.WithSigner(sig.signer),
-		rampconnect.WithSignWindow(func() (int64, int64) { return created, expires }),
+	client := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSignWindow(func() (int64, int64) { return created, expires }),
 	)
 	// The call fails at the response; the signature was already on the wire.
-	_, _ = client.Discover(context.Background(), &rampv1.ResourceQuery{Uris: []string{"https://a.test/x"}})
+	_, _ = client.Discover(context.Background(), &forav1.ResourceQuery{Uris: []string{"https://a.test/x"}})
 
 	if got == "" {
 		t.Fatal("no Signature-Input reached the peer; the request was not signed")
@@ -63,8 +63,8 @@ func TestSignWindow_DefaultsWhenUnset(t *testing.T) {
 	defer srv.Close()
 
 	sig := newSigningFixture(t)
-	client := rampconnect.NewClient(srv.URL, rampconnect.WithSigner(sig.signer))
-	_, _ = client.Discover(context.Background(), &rampv1.ResourceQuery{Uris: []string{"https://a.test/x"}})
+	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(sig.signer))
+	_, _ = client.Discover(context.Background(), &forav1.ResourceQuery{Uris: []string{"https://a.test/x"}})
 
 	if !strings.Contains(got, "created=") || !strings.Contains(got, "expires=") {
 		t.Errorf("Signature-Input = %q, want a stamped window from the default", got)
@@ -83,28 +83,28 @@ func TestWithMaxContentBytes_BoundsTheFetchedBody(t *testing.T) {
 
 	sig := newSigningFixture(t)
 	opts := append(allowLoopback(t),
-		rampconnect.WithSigner(sig.signer),
-		rampconnect.WithAgentKey(sig.pub),
-		rampconnect.WithMaxContentBytes(16),
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithAgentKey(sig.pub),
+		foraconnect.WithMaxContentBytes(16),
 	)
-	client := rampconnect.NewClient("http://home.invalid", opts...)
+	client := foraconnect.NewClient("http://home.invalid", opts...)
 
 	_, err := client.Fetch(context.Background(), content.URL+"/doc")
-	var cerr *rampconnect.CallError
+	var cerr *foraconnect.CallError
 	if !errors.As(err, &cerr) {
 		t.Fatalf("error = %v, want a CallError", err)
 	}
-	if cerr.Kind != rampconnect.CallTooLarge {
+	if cerr.Kind != foraconnect.CallTooLarge {
 		t.Errorf("kind = %v, want CallTooLarge under a 16-byte cap", cerr.Kind)
 	}
 
 	// The same body under the default cap succeeds, so the refusal above is the
 	// supplied bound rather than something else about the response.
 	relaxed := append(allowLoopback(t),
-		rampconnect.WithSigner(sig.signer),
-		rampconnect.WithAgentKey(sig.pub),
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithAgentKey(sig.pub),
 	)
-	if _, err := rampconnect.NewClient("http://home.invalid", relaxed...).
+	if _, err := foraconnect.NewClient("http://home.invalid", relaxed...).
 		Fetch(context.Background(), content.URL+"/doc"); err != nil {
 		t.Fatalf("the same body under the default cap must succeed: %v", err)
 	}
@@ -126,11 +126,11 @@ func TestWithContentTimeout_BoundsTheFetch(t *testing.T) {
 
 	sig := newSigningFixture(t)
 	opts := append(allowLoopback(t),
-		rampconnect.WithSigner(sig.signer),
-		rampconnect.WithAgentKey(sig.pub),
-		rampconnect.WithContentTimeout(50*time.Millisecond),
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithAgentKey(sig.pub),
+		foraconnect.WithContentTimeout(50*time.Millisecond),
 	)
-	client := rampconnect.NewClient("http://home.invalid", opts...)
+	client := foraconnect.NewClient("http://home.invalid", opts...)
 
 	start := time.Now()
 	_, err := client.Fetch(context.Background(), content.URL+"/doc")
@@ -154,11 +154,11 @@ func TestReportUsage_KeepsAKeyTheCallerPutOnTheMessage(t *testing.T) {
 	origin := &groupExchange{}
 	domain, _ := selfAdvertisingExchange(t, sig, origin)
 
-	client := rampconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewClient("http://home.invalid",
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
 	const own = "app-owned-key-1"
-	report := &rampv1.UsageReport{
+	report := &forav1.UsageReport{
 		Exchange:       domain,
 		TransactionId:  "txn-1",
 		IdempotencyKey: own,
@@ -186,11 +186,11 @@ func TestWithProofWindow_ReachesTheFetchSignature(t *testing.T) {
 
 	sig := newSigningFixture(t)
 	opts := append(allowLoopback(t),
-		rampconnect.WithSigner(sig.signer),
-		rampconnect.WithAgentKey(sig.pub),
-		rampconnect.WithProofWindow(func() (int64, int64) { return created, expires }),
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithAgentKey(sig.pub),
+		foraconnect.WithProofWindow(func() (int64, int64) { return created, expires }),
 	)
-	if _, err := rampconnect.NewClient("http://home.invalid", opts...).
+	if _, err := foraconnect.NewClient("http://home.invalid", opts...).
 		Fetch(context.Background(), content.URL+"/doc"); err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
@@ -213,8 +213,8 @@ func TestProofWindow_DefaultsWhenUnset(t *testing.T) {
 
 	sig := newSigningFixture(t)
 	opts := append(allowLoopback(t),
-		rampconnect.WithSigner(sig.signer), rampconnect.WithAgentKey(sig.pub))
-	if _, err := rampconnect.NewClient("http://home.invalid", opts...).
+		foraconnect.WithSigner(sig.signer), foraconnect.WithAgentKey(sig.pub))
+	if _, err := foraconnect.NewClient("http://home.invalid", opts...).
 		Fetch(context.Background(), content.URL+"/doc"); err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}

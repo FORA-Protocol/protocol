@@ -1,6 +1,6 @@
 """Shared served-directory harness for the resolver integration suites.
 
-Per the RAMP testing doctrine the ported resolver faces are IO-BOUND, so the
+Per the FORA testing doctrine the ported resolver faces are IO-BOUND, so the
 suites drive them against a REAL in-process ``http.server.ThreadingHTTPServer``
 on 127.0.0.1:0 — never a mocked HTTP callable. The WBA suites inject
 ``loopback_client()`` (a plain, unguarded httpx.Client) so the guarded default
@@ -9,7 +9,7 @@ the WBA poller) are injected for determinism.
 
 This module imports ONLY the existing byte-parity-pinned SDK primitives
 (``thumbprint``, ``b64url_nopad``) and never the not-yet-existing
-``ramp_sdk.resolvers`` faces, so a RED run points at the missing faces rather
+``fora_sdk.resolvers`` faces, so a RED run points at the missing faces rather
 than at this fixture.
 """
 
@@ -28,15 +28,15 @@ import httpx
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-from ramp_sdk.b64 import b64url_nopad
-from ramp_sdk.thumbprint import thumbprint
+from fora_sdk.b64 import b64url_nopad
+from fora_sdk.thumbprint import thumbprint
 
 # Well-known paths the origin serves. The WBA directory path is the fixed Web Bot
 # Auth path; the JWKS key doc and the endpoint manifest sit on distinct paths so
-# the key face (fixed URL) and endpoint face (host-keyed ramp.json) never collide.
+# the key face (fixed URL) and endpoint face (host-keyed fora.json) never collide.
 WBA_DIR_PATH = "/.well-known/http-message-signatures-directory"
-REVOCATION_PATH = "/.well-known/ramp-key-revocations.json"
-MANIFEST_PATH = "/.well-known/ramp.json"
+REVOCATION_PATH = "/.well-known/fora-key-revocations.json"
+MANIFEST_PATH = "/.well-known/fora.json"
 JWKS_PATH = "/keys.json"
 
 # The shared anchor sits well inside the validity windows the active-key builders
@@ -173,7 +173,7 @@ def _resolve_route(state: _State, path: str) -> tuple[int, bytes] | None:  # noq
 
 class Origin:
     """A real in-process origin serving the WBA directory, revocation snapshot,
-    JWKS key doc, and ramp.json manifest. Each doc is independently settable so a
+    JWKS key doc, and fora.json manifest. Each doc is independently settable so a
     test can rotate keys, publish a new revocation snapshot, or force a 500."""
 
     def __init__(self) -> None:

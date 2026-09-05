@@ -457,7 +457,7 @@ wheels = [
 ]
 
 [[package]]
-name = "ramp-protocol-sdk"
+name = "fora-protocol-sdk"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [

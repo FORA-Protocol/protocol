@@ -1,6 +1,6 @@
 ---
 title: "Budget and Usage Reporting"
-description: "How the RAMP Agent SDK tracks budgets across three enforcement layers and automatically submits usage reports to Exchanges."
+description: "How the FORA Agent SDK tracks budgets across three enforcement layers and automatically submits usage reports to Exchanges."
 ---
 
 import DeferredSdkNoticeDetail from '../../../../components/DeferredSdkNoticeDetail.mdx';
@@ -82,10 +82,10 @@ atomic.AddInt64(&sessionSpent, int64(txn.Cost.Amount * 10000)) // fixed-point
 
 Tracks cumulative spend across a calendar period (e.g., 30 days). Persisted to survive restarts.
 
-**Default persistence**: local JSON file at `~/.ramp/budget/<scope>.json`:
+**Default persistence**: local JSON file at `~/.fora/budget/<scope>.json`:
 
 ```go
-// budget file: ~/.ramp/budget/user:u-12345.json
+// budget file: ~/.fora/budget/user:u-12345.json
 {
     "scope": "user:u-12345",
     "period_start": "2026-03-01T00:00:00Z",
@@ -139,8 +139,8 @@ func TestBudgetTracker_PerSession(t *testing.T) {
 
     // Fifth request: would exceed session limit
     err := bt.Check(0.10)
-    require.ErrorAs(t, err, &ramp.BudgetExceededError{})
-    assert.Equal(t, "per_session", err.(*ramp.BudgetExceededError).Layer)
+    require.ErrorAs(t, err, &fora.BudgetExceededError{})
+    assert.Equal(t, "per_session", err.(*fora.BudgetExceededError).Layer)
 }
 ```
 
@@ -175,7 +175,7 @@ type ReportingConfig struct {
 
 ```go
 type pendingReport struct {
-    Report   *rampv1.UsageReport
+    Report   *forav1.UsageReport
     Deadline time.Time       // obligation window end
     Retries  int
     NextTry  time.Time
@@ -217,7 +217,7 @@ The SDK populates attribution fields in the `UsageReport` when the caller provid
 When `AutoReport` is disabled, the caller is responsible for submitting usage reports:
 
 ```go
-resp, err := client.ReportUsage(ctx, ramp.UsageReport{
+resp, err := client.ReportUsage(ctx, fora.UsageReport{
     TransactionID: result.TransactionID,
     BillingID:     result.BillingID,
     Function:      "ai-input",
@@ -229,7 +229,7 @@ resp, err := client.ReportUsage(ctx, ramp.UsageReport{
 Previously `ReportUsage` returned only an error. In v1.0, it returns a `UsageReportResult` containing `ReportID`:
 
 ```go
-err := client.ReportUsage(ctx, ramp.UsageReport{
+err := client.ReportUsage(ctx, fora.UsageReport{
     TransactionID: result.TransactionID,
     BillingID:     result.BillingID,
     Function:      "ai-input",
@@ -267,7 +267,7 @@ If the context is cancelled before all reports are submitted, remaining reports 
 The SDK emits structured log events for every significant operation:
 
 ```go
-client, _ := ramp.NewClient(ramp.Config{
+client, _ := fora.NewClient(fora.Config{
     // ...
     Logger: slog.New(slog.NewJSONHandler(os.Stderr, nil)),
 })
@@ -277,20 +277,20 @@ client, _ := ramp.NewClient(ramp.Config{
 
 | Event | Level | Fields |
 |---|---|---|
-| `ramp.fetch.start` | Info | url, domain |
-| `ramp.discovery.cache_hit` | Debug | domain, exchange_count |
-| `ramp.discovery.cache_miss` | Info | domain |
-| `ramp.discovery.ramp_json` | Info | domain, exchange_count, latency_ms |
-| `ramp.supply.query` | Info | exchange, uri_count, latency_ms |
-| `ramp.selection.winner` | Info | exchange, offer_id, unit_cost, subscription_id |
-| `ramp.budget.check` | Debug | layer, limit, current, requested |
-| `ramp.budget.exceeded` | Warn | layer, limit, current, requested |
-| `ramp.transaction.execute` | Info | exchange, offer_id, latency_ms |
-| `ramp.transaction.denied` | Warn | exchange, reason |
-| `ramp.content.fetch` | Info | url, status_code, latency_ms, content_length |
-| `ramp.report.enqueue` | Debug | transaction_id, deadline |
-| `ramp.report.submit` | Info | transaction_id, accepted |
-| `ramp.report.failed` | Warn | transaction_id, error, retry_count |
+| `fora.fetch.start` | Info | url, domain |
+| `fora.discovery.cache_hit` | Debug | domain, exchange_count |
+| `fora.discovery.cache_miss` | Info | domain |
+| `fora.discovery.fora_json` | Info | domain, exchange_count, latency_ms |
+| `fora.supply.query` | Info | exchange, uri_count, latency_ms |
+| `fora.selection.winner` | Info | exchange, offer_id, unit_cost, subscription_id |
+| `fora.budget.check` | Debug | layer, limit, current, requested |
+| `fora.budget.exceeded` | Warn | layer, limit, current, requested |
+| `fora.transaction.execute` | Info | exchange, offer_id, latency_ms |
+| `fora.transaction.denied` | Warn | exchange, reason |
+| `fora.content.fetch` | Info | url, status_code, latency_ms, content_length |
+| `fora.report.enqueue` | Debug | transaction_id, deadline |
+| `fora.report.submit` | Info | transaction_id, accepted |
+| `fora.report.failed` | Warn | transaction_id, error, retry_count |
 
 ### Prometheus Metrics
 
@@ -298,14 +298,14 @@ The SDK exposes Prometheus-compatible metrics via an optional `metrics.Handler`:
 
 | Metric | Type | Description |
 |---|---|---|
-| `ramp_fetch_total` | Counter | Fetches by status (success, budget_exceeded, no_exchange, denied, error) |
-| `ramp_fetch_duration_seconds` | Histogram | End-to-end Fetch latency |
-| `ramp_supply_query_duration_seconds` | Histogram | Per-Exchange query latency |
-| `ramp_transaction_duration_seconds` | Histogram | Per-Exchange transaction latency |
-| `ramp_budget_spent_total` | Counter | Cumulative spend by currency |
-| `ramp_budget_remaining` | Gauge | Remaining budget by scope |
-| `ramp_reports_pending` | Gauge | Pending usage reports |
-| `ramp_reports_overdue` | Gauge | Reports past their deadline |
+| `fora_fetch_total` | Counter | Fetches by status (success, budget_exceeded, no_exchange, denied, error) |
+| `fora_fetch_duration_seconds` | Histogram | End-to-end Fetch latency |
+| `fora_supply_query_duration_seconds` | Histogram | Per-Exchange query latency |
+| `fora_transaction_duration_seconds` | Histogram | Per-Exchange transaction latency |
+| `fora_budget_spent_total` | Counter | Cumulative spend by currency |
+| `fora_budget_remaining` | Gauge | Remaining budget by scope |
+| `fora_reports_pending` | Gauge | Pending usage reports |
+| `fora_reports_overdue` | Gauge | Reports past their deadline |
 
 ## Security
 
@@ -319,7 +319,7 @@ The SDK exposes Prometheus-compatible metrics via an optional `metrics.Handler`:
 
 - All Exchange RPCs use HTTPS (TLS 1.2+)
 - Content fetch (signed URL) uses HTTPS
-- ramp.json discovery uses HTTPS
+- fora.json discovery uses HTTPS
 - No plaintext HTTP, even for localhost development (use `http://localhost` only with explicit opt-in)
 
 ### Test Categories

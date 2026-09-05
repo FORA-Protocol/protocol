@@ -1,4 +1,4 @@
-"""sdk/python/ramp_sdk/core offer-verify parity.
+"""sdk/python/fora_sdk/core offer-verify parity.
 
 Mirror of the sdk/ts core offer-verify parity suite. The L2 core Verifier splits
 received offers into {verified, rejected} by ed25519-verifying the canonical
@@ -15,7 +15,7 @@ proto-JSON option set, then ed25519-verifies, returning {verified, rejected} + t
 unforgeable VerifiedOffer.
 
 RED now for TWO expected reasons:
-  1. sdk/python/ramp_sdk/core does not exist yet (the Verifier import cannot
+  1. sdk/python/fora_sdk/core does not exist yet (the Verifier import cannot
      resolve).
   2. The shared offer-verify vector MATRIX
      sdk/go/helpers/testdata/offer-verify-vectors.json does not exist yet — the
@@ -36,8 +36,8 @@ import pytest
 
 from conftest import GO_TESTDATA, load_json
 
-# RED: sdk/python/ramp_sdk/core does not exist yet (TDD red).
-from ramp_sdk.core import Mode, StaticOfferKeyResolver, Verifier  # type: ignore[import-not-found]
+# RED: sdk/python/fora_sdk/core does not exist yet (TDD red).
+from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier  # type: ignore[import-not-found]
 
 # RED (also): the shared offer-verify vector matrix does not exist yet. The
 # implement step's Go emitter (JCS canonicalization) produces it; referencing it by

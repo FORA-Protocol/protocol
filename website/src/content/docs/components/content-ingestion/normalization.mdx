@@ -11,7 +11,7 @@ Higher-priority sources override lower-priority sources for the same path. Field
 
 ```go
 var sourceOrder = map[IngestionSource]int{
-    IngestionSourceRAMPSitemap: 1,
+    IngestionSourceFORASitemap: 1,
     IngestionSourceRSL:          2,
     IngestionSourceSitemap:      3,
     IngestionSourceHTMLCrawl:    4,
@@ -126,7 +126,7 @@ For URLs without token estimates from higher-priority sources, the pipeline craw
 The extraction flow:
 1. Check robots.txt (cached per domain)
 2. Rate limit (1 req/sec per domain)
-3. Fetch page with `RAMP-Exchange/1.0 (content-indexer)` user agent
+3. Fetch page with `FORA-Exchange/1.0 (content-indexer)` user agent
 4. Extract text using readability algorithm
 5. Count words and estimate tokens
 
@@ -169,8 +169,8 @@ Token estimation drives the unit_cost (cost per unit of consumption) metric used
 
 | Method | Source | Formula | Accuracy |
 |---|---|---|---|
-| Provider-provided tokens | RAMP sitemap `ramp:tokens` | Direct value | Best (provider knows their tokenizer) |
-| Provider-provided word count | RAMP sitemap `ramp:wordcount`, CoMP `text.wordcount`, RSL metadata | `tokens = wordcount * 1.32` | Good (+/-10%) |
+| Provider-provided tokens | FORA sitemap `fora:tokens` | Direct value | Best (provider knows their tokenizer) |
+| Provider-provided word count | FORA sitemap `fora:wordcount`, CoMP `text.wordcount`, RSL metadata | `tokens = wordcount * 1.32` | Good (+/-10%) |
 | HTML crawl extraction | Readability algorithm on fetched page | Extract text -> count words -> `* 1.32` | Good (+/-15%) |
 | CMS API word count | WordPress content field, Ghost html field | Strip HTML -> count words -> `* 1.32` | Good (+/-10%) |
 | Tenant default | Manual config | Configured average word count -> `* 1.32` | Rough (+/-30%) |

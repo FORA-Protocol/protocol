@@ -2,7 +2,7 @@ package connect
 
 // Transport-failure cross-language golden-vector emitter.
 //
-// The connect-error corpus next door records what a RAMP SERVICE says when it refuses:
+// The connect-error corpus next door records what a FORA SERVICE says when it refuses:
 // a Connect envelope with a code and a typed detail. This one records the other half —
 // what reaches a client when the answer did not come from the service at all.
 //
@@ -22,7 +22,7 @@ package connect
 // restates the mapping; if a future connect-go changes it, the drift gate reports it.
 //
 // Like the other emitters this is a verification no-op by default and (re)writes the file
-// under RAMP_UPDATE_VECTORS=1. It is TEST INFRASTRUCTURE, not the code under test.
+// under FORA_UPDATE_VECTORS=1. It is TEST INFRASTRUCTURE, not the code under test.
 
 import (
 	"context"
@@ -32,8 +32,8 @@ import (
 	"os"
 	"testing"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/vectorio"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 const transportFailureVectorsPath = "testdata/transport-failure-vectors.json"
@@ -86,7 +86,7 @@ func buildTransportFailureVectors(t *testing.T) []transportFailureVector {
 			_, _ = w.Write([]byte(c.body))
 		}))
 		client := NewClient(srv.URL)
-		_, err := client.Discover(context.Background(), &rampv1.ResourceQuery{Exchange: "exchange.test"})
+		_, err := client.Discover(context.Background(), &forav1.ResourceQuery{Exchange: "exchange.test"})
 		srv.Close()
 		if err == nil {
 			t.Fatalf("%s: the client accepted a %d answer", c.name, c.status)
@@ -110,7 +110,7 @@ func buildTransportFailureVectors(t *testing.T) []transportFailureVector {
 
 func TestGenerateTransportFailureVectors(t *testing.T) {
 	doc := map[string]any{"transport_failures": buildTransportFailureVectors(t)}
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		if err := vectorio.Write(transportFailureVectorsPath, doc); err != nil {
 			t.Fatalf("write %s: %v", transportFailureVectorsPath, err)
 		}
@@ -121,6 +121,6 @@ func TestGenerateTransportFailureVectors(t *testing.T) {
 		t.Fatalf("compare %s: %v", transportFailureVectorsPath, err)
 	}
 	if stale {
-		t.Fatalf("%s is stale — regenerate with RAMP_UPDATE_VECTORS=1", transportFailureVectorsPath)
+		t.Fatalf("%s is stale — regenerate with FORA_UPDATE_VECTORS=1", transportFailureVectorsPath)
 	}
 }

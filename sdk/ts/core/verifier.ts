@@ -58,7 +58,7 @@ export type Ed25519Verify = (
 
 // The module-private brand. Only code in this module can read/stamp it, so a
 // VerifiedOffer cannot be fabricated outside the core's verify path.
-const VERIFIED_BRAND: unique symbol = Symbol("ramp.core.VerifiedOffer");
+const VERIFIED_BRAND: unique symbol = Symbol("fora.core.VerifiedOffer");
 
 /**
  * VerifiedOffer wraps an offer that passed the core's fail-closed verification
@@ -270,7 +270,7 @@ export function canonicalOfferPayload(
 	delete stripped.signature_algorithm;
 	const jcs = canonicalize(stripped);
 	if (jcs === undefined)
-		throw new Error("ramp/core: offer is not JSON-serializable");
+		throw new Error("fora/core: offer is not JSON-serializable");
 	return utf8Bytes(jcs);
 }
 
@@ -387,7 +387,7 @@ export class Verifier {
 
 	// expired mirrors the Go oracle (core.Verifier.expired), fail-closed: an offer
 	// with no expires_at, or one whose expires_at cannot be parsed, is treated as
-	// EXPIRED — RAMP offers are minted now+TTL, so a missing/broken bound is
+	// EXPIRED — FORA offers are minted now+TTL, so a missing/broken bound is
 	// malformed bearer state, never an eternal grant. A present bound is inclusive
 	// at now (strictly-before is expired). The wire form is UTC, so an offset-less
 	// instant is read as UTC, not host-local.

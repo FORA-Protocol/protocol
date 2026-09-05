@@ -1,17 +1,17 @@
 ---
-title: "Extension: ramp-academic-v1"
+title: "Extension: fora-academic-v1"
 description: "Scholarly articles, preprints, and datasets extension profile — field vocabulary, conformance levels, and examples"
 ---
 
 ## Overview
 
-RAMP-Academic v1 defines the standardized `ext` field vocabulary for scholarly and academic content traded through the RAMP protocol. It covers journal articles, conference papers, book chapters, preprints, and datasets.
+FORA-Academic v1 defines the standardized `ext` field vocabulary for scholarly and academic content traded through the FORA protocol. It covers journal articles, conference papers, book chapters, preprints, and datasets.
 
 **Who should implement this profile:**
 
 - **Exchanges** serving academic content (aggregators like Semantic Scholar, OpenAlex; publisher platforms like Elsevier, Springer Nature; preprint servers like arXiv, bioRxiv)
 - **Brokers** building academic research workflows (literature review agents, systematic review tools, research assistants)
-- **Providers** publishing scholarly content who want their articles discoverable and transactable through RAMP
+- **Providers** publishing scholarly content who want their articles discoverable and transactable through FORA
 
 **Primary deployment scenario:** An AI agent needs 50 academic papers for a literature review. The papers are a mix of open access and paywalled articles from multiple publishers. Some are available through institutional subscriptions. The agent must verify no papers have been retracted and must obtain the correct version (Version of Record preferred, Author Accepted Manuscript acceptable).
 
@@ -28,14 +28,14 @@ RAMP-Academic v1 defines the standardized `ext` field vocabulary for scholarly a
 
 ## Profile Declaration
 
-An Exchange declares support for this profile by including `"ramp-academic-v1"` in its `WellKnownManifest.supported_profiles` array (`role=ROLE_EXCHANGE`). The manifest is served at `/.well-known/ramp.json` (`role=ROLE_EXCHANGE`).
+An Exchange declares support for this profile by including `"fora-academic-v1"` in its `WellKnownManifest.supported_profiles` array (`role=ROLE_EXCHANGE`). The manifest is served at `/.well-known/fora.json` (`role=ROLE_EXCHANGE`).
 
 ```json
 {
   "ver": "1.0",
   "domain": "academic-exchange.example.com",
   "name": "Example Academic Exchange",
-  "supported_profiles": ["ramp-academic-v1"],
+  "supported_profiles": ["fora-academic-v1"],
   "ext": {
     "academic.subject_coverage": ["medicine", "computer-science", "physics"],
     "academic.content_types": ["journal-article", "preprint", "book-chapter"],
@@ -158,7 +158,7 @@ These fields provide domain-specific evidence in academic content disputes. They
 
 ## Content Versioning
 
-Academic articles exist in multiple versions that differ in content, formatting, and legal status. RAMP-Academic models these using existing NISO and CrossRef conventions.
+Academic articles exist in multiple versions that differ in content, formatting, and legal status. FORA-Academic models these using existing NISO and CrossRef conventions.
 
 ### Version Lifecycle
 
@@ -194,7 +194,7 @@ Preprint ──peer review──> AAM ──publisher production──> VoR ─�
 
 | `academic.oa_status` | Publisher Paywalled? | Open License? | APC Charged? | Practical Meaning for Agent |
 |----------------------|---------------------|--------------|-------------|----------------------------|
-| `"gold"` | No (full OA journal) | Yes (CC-BY typical) | Usually yes | Free to access; RAMP Exchange MAY offer at `PRICING_MODEL_FREE` |
+| `"gold"` | No (full OA journal) | Yes (CC-BY typical) | Usually yes | Free to access; FORA Exchange MAY offer at `PRICING_MODEL_FREE` |
 | `"diamond"` | No (full OA journal) | Yes | No | Free to access and publish; no cost to anyone |
 | `"green"` | Yes (journal paywalled) | Varies | No (for repository copy) | Free copy available in a repository; VoR requires subscription |
 | `"hybrid"` | No (this article is OA) | Yes (CC-BY typical) | Yes (higher than gold) | Free to access; other articles in the same journal may be paywalled |
@@ -212,7 +212,7 @@ Preprint ──peer review──> AAM ──publisher production──> VoR ─�
 
 ## Institutional Access
 
-Academic content access often depends on institutional subscriptions. RAMP models this through the existing `Offer.subscription_id` field, extended with academic-specific context.
+Academic content access often depends on institutional subscriptions. FORA models this through the existing `Offer.subscription_id` field, extended with academic-specific context.
 
 ### Subscription Resolution Flow
 
@@ -246,15 +246,15 @@ Academic content access often depends on institutional subscriptions. RAMP model
 
 ## Usage Reporting
 
-RAMP's `ReportUsage` RPC handles per-transaction usage reporting. For Exchanges that also need COUNTER 5.1-compatible aggregate reporting, the following `UsageReport.ext` fields map RAMP transactions to COUNTER vocabulary.
+FORA's `ReportUsage` RPC handles per-transaction usage reporting. For Exchanges that also need COUNTER 5.1-compatible aggregate reporting, the following `UsageReport.ext` fields map FORA transactions to COUNTER vocabulary.
 
 | Key | Type | Required | Source Standard | Description |
 |-----|------|----------|-----------------|-------------|
-| `academic.counter_metric_type` | string | OPTIONAL | COUNTER 5.1 | COUNTER metric type for this transaction. Values: `"Total_Item_Requests"` (content downloaded/viewed), `"Unique_Item_Requests"` (unique items per session), `"Total_Item_Investigations"` (metadata viewed). Most RAMP transactions map to `"Total_Item_Requests"`. |
+| `academic.counter_metric_type` | string | OPTIONAL | COUNTER 5.1 | COUNTER metric type for this transaction. Values: `"Total_Item_Requests"` (content downloaded/viewed), `"Unique_Item_Requests"` (unique items per session), `"Total_Item_Investigations"` (metadata viewed). Most FORA transactions map to `"Total_Item_Requests"`. |
 | `academic.counter_access_type` | string | OPTIONAL | COUNTER 5.1 | How access was obtained. Values: `"Controlled"` (via subscription), `"Open"` (Gold/Diamond OA), `"Free_To_Read"` (Bronze or temporary free access). |
-| `academic.counter_access_method` | string | OPTIONAL | COUNTER 5.1 | Access method. Values: `"Regular"` (standard human or agent use), `"TDM"` (text and data mining). RAMP transactions for AI input SHOULD use `"TDM"`. |
+| `academic.counter_access_method` | string | OPTIONAL | COUNTER 5.1 | Access method. Values: `"Regular"` (standard human or agent use), `"TDM"` (text and data mining). FORA transactions for AI input SHOULD use `"TDM"`. |
 
-**Exchange action:** Aggregate `UsageReport` data with these COUNTER fields to produce COUNTER 5.1-compliant Title Reports (TR) and Item Reports (IR) for institutional subscribers. This enables libraries to see RAMP-mediated usage alongside traditional usage in their COUNTER reports.
+**Exchange action:** Aggregate `UsageReport` data with these COUNTER fields to produce COUNTER 5.1-compliant Title Reports (TR) and Item Reports (IR) for institutional subscribers. This enables libraries to see FORA-mediated usage alongside traditional usage in their COUNTER reports.
 
 ---
 
@@ -571,7 +571,7 @@ A Broker sends a batch query for 50 DOIs. This example shows two of the resultin
 An agent discovers post-transaction that a paper was retracted but the Exchange did not flag it.
 
 **DisputeRequest:**
-{/* ramp-validate: DisputeRequest */}
+{/* fora-validate: DisputeRequest */}
 ```json
 {
   "ver": "1.0",

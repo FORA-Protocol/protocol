@@ -1,7 +1,7 @@
 """Real-dial tests for the ONE env-driven best-effort guarded HTTP client factory,
 Python side (mirror of the Go reference guardedclient_fromenv_internal_test.go).
 
-``ramp_sdk.resolvers`` exposes EXACTLY ONE public guarded-client construction pair
+``fora_sdk.resolvers`` exposes EXACTLY ONE public guarded-client construction pair
 — ``guarded_client(**httpx_kwargs)`` / ``guarded_async_client(**httpx_kwargs)`` —
 driven by two orthogonal env flags:
 
@@ -24,8 +24,8 @@ import threading
 
 import pytest
 
-import ramp_sdk.resolvers as resolvers_pkg
-from ramp_sdk.resolvers._ssrf import SsrfError
+import fora_sdk.resolvers as resolvers_pkg
+from fora_sdk.resolvers._ssrf import SsrfError
 
 _ENV_SKIP_SSRF = "SKIP_SSRF"
 _ENV_ALLOW_INSECURE = "ALLOW_INSECURE"

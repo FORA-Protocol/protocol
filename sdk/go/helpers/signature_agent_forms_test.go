@@ -2,7 +2,7 @@ package helpers_test
 
 // Signature-Agent wire forms. Web Bot Auth defines the header value as an RFC
 // 8941 String, so the conformant form is QUOTED — quoting is not optional in
-// structured fields, a String has exactly one serialization. RAMP itself emits
+// structured fields, a String has exactly one serialization. FORA itself emits
 // the value bare, which is a Token rather than a String.
 //
 // Both forms must yield the same directory URI, on the VerifiedRequest and in the
@@ -18,7 +18,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 const wantDirectory = "https://agent.example"
@@ -35,7 +35,7 @@ func TestSignatureAgent_formsYieldSameDirectory(t *testing.T) {
 		header string
 	}{
 		{"quoted sf-string (Web Bot Auth conformant)", `"` + wantDirectory + `"`},
-		{"bare token (RAMP's own emission)", wantDirectory},
+		{"bare token (FORA's own emission)", wantDirectory},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			body := []byte(`{"resource_id":"r1"}`)
@@ -82,7 +82,7 @@ func TestSignatureAgent_quotedFormReachesResolver(t *testing.T) {
 
 // TestSignatureAgent_dictionaryFormNotUnwrapped pins a deliberate refusal, not an
 // oversight. The current directory draft makes Signature-Agent an sf-dictionary
-// (`agent2="https://…"`), and RAMP does not read it: the member value would have
+// (`agent2="https://…"`), and FORA does not read it: the member value would have
 // to be selected by the covered component's key param, and the same draft admits
 // a data: member that inlines an entire key directory into the header. Key
 // resolution here rests on FETCHING the directory from a location the signer had
@@ -104,7 +104,7 @@ func TestSignatureAgent_dictionaryFormNotUnwrapped(t *testing.T) {
 		t.Fatalf("VerifyRequest: %v", err)
 	}
 	if vr.SignatureAgent == wantDirectory {
-		t.Fatalf("SignatureAgent = %q: the sf-dictionary form was unwrapped, but RAMP does not support it", vr.SignatureAgent)
+		t.Fatalf("SignatureAgent = %q: the sf-dictionary form was unwrapped, but FORA does not support it", vr.SignatureAgent)
 	}
 	if vr.SignatureAgent != dictForm {
 		t.Errorf("SignatureAgent = %q; want the value passed through verbatim as %q", vr.SignatureAgent, dictForm)

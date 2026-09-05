@@ -19,8 +19,8 @@ export default defineConfig({
 	},
 	integrations: [
 		starlight({
-			title: 'RAMP Protocol',
-			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/RAMP-Protocol/protocol' }],
+			title: 'FORA Protocol',
+			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/FORA-Protocol/protocol' }],
 			plugins: [starlightMermaid(), starlightLinksValidator()],
 			components: {
 				Footer: './src/components/Footer.astro',
@@ -29,7 +29,7 @@ export default defineConfig({
 				{
 					label: 'Getting Started',
 					items: [
-						{ label: 'What is RAMP?', slug: 'getting-started/what-is-ramp' },
+						{ label: 'What is FORA?', slug: 'getting-started/what-is-fora' },
 						{ label: 'Live Demo', slug: 'getting-started/poc-walkthrough' },
 						{ label: 'For Providers', slug: 'getting-started/for-providers' },
 						{ label: 'For AI Agents', slug: 'getting-started/for-ai-agents' },
@@ -75,10 +75,10 @@ export default defineConfig({
 				{
 					label: 'Reference',
 					items: [
-						{ label: 'Proto: RAMP v1', slug: 'reference/proto-ramp' },
+						{ label: 'Proto: FORA v1', slug: 'reference/proto-fora' },
 						{ label: 'Proto: Admin v1', slug: 'reference/proto-admin' },
 						{ label: 'Standards & References', slug: 'reference/standards' },
-						{ label: 'ramp.json Example', slug: 'reference/ramp-json-example' },
+						{ label: 'fora.json Example', slug: 'reference/fora-json-example' },
 						{ label: 'Changelog', slug: 'reference/changelog' },
 					],
 				},

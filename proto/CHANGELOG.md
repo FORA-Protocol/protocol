@@ -1,4 +1,4 @@
-# RAMP Protocol Changelog
+# FORA Protocol Changelog
 
 ## Unreleased
 
@@ -162,7 +162,7 @@ account handle it hangs on, so a reader can never take an acceptance from a resp
 carries no account.
 
 **The TypeScript and Python SDKs gained a client, and it changed what they accept
-from a peer (no wire change; conformance-affecting).** Neither could SEND a RAMP
+from a peer (no wire change; conformance-affecting).** Neither could SEND a FORA
 request before; both now speak the Connect-unary JSON form the protocol's unary RPCs
 are fully described by. Seven consequences reach anyone re-pinning, and none of them
 moves a field, a message or an encoding — `buf breaking` reports nothing.
@@ -209,7 +209,7 @@ A **`null` means the field has no value**, and the TypeScript wire policy now re
 that way. The canonical wire is proto-JSON, where a null is a field's default — for **any**
 field, not only a message-typed one — so the policy drops it wherever the schema does not
 require a value, and leaves it for the schema to refuse where it does. `EmitUnpopulated` —
-what `connectserver`'s codec emits, and therefore what a RAMP Exchange serves — renders an
+what `connectserver`'s codec emits, and therefore what a FORA Exchange serves — renders an
 unpopulated non-optional field as `null` rather than omitting it, so `{"ext":null}` is the
 ordinary shape of a real response. (An unset **map** renders `{}`, and an unset `optional`
 field is omitted outright.) Every generated Zod schema rejected `null`, which meant a
@@ -227,12 +227,12 @@ about presence rather than type, and a shared corpus pins it in all three langua
 
 Where that policy lives matters to a consumer: the schemas themselves are unchanged, and
 `parseWire()` in `wire/base.ts` is what applies it — together with the naming refusal
-below. `@ramp-protocol/sdk` now exports `./wire/base` and `./wire/names` so a consumer of
+below. `@fora-protocol/sdk` now exports `./wire/base` and `./wire/names` so a consumer of
 the generated types can reach it; parse an answer off the wire with `parseWire(Schema, body)`
 rather than `Schema.safeParse(body)`.
 
 A **lowerCamelCase answer is refused**, at every depth, with the reason
-`not_canonical_wire_naming`. The RAMP wire is snake_case proto-JSON and the `json_name`
+`not_canonical_wire_naming`. The FORA wire is snake_case proto-JSON and the `json_name`
 alias is out of contract; a stock `connect-go` server that registers no `UseProtoNames`
 codec serves the alias, and the generated clients accept snake_case only and drop what
 they do not recognise — so such an answer parsed successfully into a message with every
@@ -610,7 +610,7 @@ accepted any string at all: `ResourceResponse.exchange`, `RequestConstraints.exc
 `UsageReport` promotion is — a value accepted today becomes a rejection — and it is done
 now because one value space with two contracts is the state that produces the bugs.
 `Requester.domain` earns it most: a verifier concatenates that value into
-`{domain}/.well-known/ramp.json` and fetches the result, so a smuggled path or query would
+`{domain}/.well-known/fora.json` and fetches the result, so a smuggled path or query would
 choose WHAT gets fetched, not merely from where.
 The port group spells the range out rather than counting digits: `:0` and `:99999` are
 refused like any other value that cannot name a listening service, where a `[0-9]{1,5}`
@@ -720,15 +720,15 @@ audience it breaks. What this change does instead is narrow what a conformant ma
 
 **Two shapes that are conformant today will be refused after this.** The first is an Exchange
 serving its API from a separate DOMAIN — a CDN, a hosting provider. The second is an Exchange on
-a separate PORT: a single-domain deployment serving `/.well-known/ramp.json` on its default port
+a separate PORT: a single-domain deployment serving `/.well-known/fora.json` on its default port
 and advertising `"endpoint": "https://exchange.example:8443/v1"` is refused, as is the mirror
 image (a portless endpoint under a manifest served on `:8443`) and a subdomain reached across
 ports. A single domain is therefore no longer sufficient on its own — the authority must match on
 both halves.
 
 Remedies, by shape. For a separate domain, front the API under a subdomain of the domain serving
-the `ramp.json`. For a separate port, either move the API onto the port the manifest is served
-from, or serve the manifest from the API's own authority — `https://exchange.example:8443/.well-known/ramp.json`
+the `fora.json`. For a separate port, either move the API onto the port the manifest is served
+from, or serve the manifest from the API's own authority — `https://exchange.example:8443/.well-known/fora.json`
 alongside `https://exchange.example:8443/v1`. Writing a scheme's default port out in full is NOT
 a mismatch and needs no change.
 
@@ -768,7 +768,7 @@ was not.
 (additive, no wire change).** `connect.Client` gained `ReportUsage`, `Dispute` and `Fetch`, and
 `connect.NewBrokerClient` gained `Resolve` — the client previously exposed `Discover` and
 `Execute` alone, so a caller needing any of the rest had to assemble its own from
-`rampv1connect` plus `core.NewSigningTransport`, which is the duplication the SDK exists to
+`forav1connect` plus `core.NewSigningTransport`, which is the duplication the SDK exists to
 remove. `Resolve` returns the same fail-closed `{verified, rejected}` split `Discover` does,
 through the same `core.Verifier`; `Fetch` performs proof-of-possession on an agent-bound URL and
 dials only through the SSRF-guarded client.
@@ -815,7 +815,7 @@ exact inverse of the read side normalizing an absent path to `""`.
 
 **Registration data becomes schema-enforceable: `WellKnownManifest.registration_schema`
 (field 29) + `REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA` (additive, no wire
-break).** An Exchange MAY publish, in its `ramp.json`, a JSON Schema (draft 2020-12, max
+break).** An Exchange MAY publish, in its `fora.json`, a JSON Schema (draft 2020-12, max
 16KB) describing the `registration_data` object it expects on `Register`. Publication and
 enforcement are one decision: an Exchange that publishes the schema validates incoming
 `registration_data` against it and refuses a non-conforming payload with the new failure
@@ -832,7 +832,7 @@ a remote `$ref` out of it — doing so would turn every reader into an SSRF vect
 a URL the schema's author chose — and a consumer SHOULD bound validation time and
 recursion depth, since draft 2020-12 `pattern` admits regexes with catastrophic
 backtracking. The 16KB cap is measured as the UTF-8 bytes of the member as served in
-`ramp.json`; an oversized schema SHOULD be rejected and its local pre-check skipped rather
+`fora.json`; an oversized schema SHOULD be rejected and its local pre-check skipped rather
 than truncated, which leaves the Exchange's own enforcement deciding exactly as it does
 when no schema is published. These are prose, not protovalidate rules: the field is a
 `Struct`, and no field-level rule can reach inside it.
@@ -868,9 +868,9 @@ contract's first repeated message field carrying its own `repeated.max_items`, a
 generator previously produced only scalar list items.
 
 **The `ver` envelope field states its contract, and the version string gets one owner
-(no wire change).** All 29 `ver` fields — 25 in `ramp.proto`, 4 in `admin.proto` — now name
+(no wire change).** All 29 `ver` fields — 25 in `fora.proto`, 4 in `admin.proto` — now name
 the expected value `"1.0"` and the receive-side rule. Before this, 27 of them said only
-"Protocol version" or "RAMP protocol version", and `DiscoveryResponse.ver` carried no comment
+"Protocol version" or "FORA protocol version", and `DiscoveryResponse.ver` carried no comment
 at all — 28 fields from which an integrator could not learn what to stamp. Only
 `WellKnownManifest.ver` named the value. The contract: senders MUST stamp `ver` from a single
 constant, and receivers treat it as **advisory** — `ver` is not an authenticity or
@@ -883,14 +883,14 @@ make every peer reject a `"1.1"` message outright, contradicting the
 reject-unrecognised-majors policy the manifest already states, and a major-version pattern
 would additionally make `ver` structurally required on every message — a wire change no
 consumer has asked for. The full reasoning is recorded under "Protocol version" in
-`ramp.proto`. `WellKnownManifest.ver` keeps its stronger MUST-equal rule and now says why it
-differs: it versions the `/.well-known/ramp.json` document schema, a namespace deliberately
+`fora.proto`. `WellKnownManifest.ver` keeps its stronger MUST-equal rule and now says why it
+differs: it versions the `/.well-known/fora.json` document schema, a namespace deliberately
 separate from the RPC envelope and not coupled to it.
 
-**SDK (all 3 languages): `ProtocolVersion` exported (additive, no wire change).** The RAMP
+**SDK (all 3 languages): `ProtocolVersion` exported (additive, no wire change).** The FORA
 `ver` value is now a public SDK symbol — `helpers.ProtocolVersion` in Go, `ProtocolVersion`
 in Python and TypeScript — pinned to the shared `wire-constants-vectors.json` oracle
-alongside the existing wire constants. It is the RAMP protocol version, not the Connect
+alongside the existing wire constants. It is the FORA protocol version, not the Connect
 transport version that `ConnectProtocolVersion` carries. Consumers import it instead of
 minting their own constant, so a protocol bump is one edit here plus a re-pin rather than a
 literal hunt across every message builder. Two structural guards keep the pair honest: a
@@ -922,12 +922,12 @@ superseded audit docs are deleted.
 **Go SDK: the network-fetching resolvers move `sdk/go/helpers` → `sdk/go/resolvers`
 (source move, no wire change).** The IO-bearing key/endpoint resolvers — the
 well-known JWKS resolver (`NewWellKnownKeyResolver`), the revocation-aware WBA
-directory resolver (`NewWBAKeyResolver`), the `ramp.json` endpoint resolver
+directory resolver (`NewWBAKeyResolver`), the `fora.json` endpoint resolver
 (`WellKnownEndpointResolver` / `NewWellKnownEndpointResolver` / `WellKnownOptions` /
 `ErrNoEndpoint`), and the SSRF-guarded fetch client — now live in the new L2 I/O
 package `sdk/go/resolvers`, one tier above the pure, IO-free `sdk/go/helpers`. This
 keeps every network dial out of the trust core (enforced by an io-leaf guard).
-Migration: import these from `github.com/RAMP-Protocol/protocol/sdk/go/resolvers`
+Migration: import these from `github.com/FORA-Protocol/protocol/sdk/go/resolvers`
 instead of `.../sdk/go/helpers`. **No alias shim is provided** — the move is a hard
 rename and the downstream app already compiles against the moved layout; consumers
 import the resolvers from `sdk/go/resolvers`. The pure `KeyResolver` interface and
@@ -1071,7 +1071,7 @@ deliberately carries no identifying field. Refused registrations use the
 pre-existing `ErrorDetail.registration_failure` / `RegistrationFailureReason`
 path, which until now had no RPC front door. Pre-v1 additive change.
 
-**Operator plane: new `ramp.admin.v1` package with `AdminService` (additive).**
+**Operator plane: new `fora.admin.v1` package with `AdminService` (additive).**
 Two full-replace, idempotent setters for Exchange operators —
 `SetTenantFeeRate(SetTenantFeeRateRequest) → SetTenantFeeRateResponse` and
 `SetReportingPolicy(SetReportingPolicyRequest) → SetReportingPolicyResponse`.
@@ -1097,7 +1097,7 @@ payload messages' numeric rules.
 **Biscuits removed; entitlement mechanism kept for JWT (breaking).** The Biscuit
 token format leaves the protocol — JWT is the sole entitlement/capability token
 format. The entitlement MECHANISM is unchanged and format-neutral: a capability
-token rides a covered header (renamed `X-RAMP-Entitlement-Biscuit` →
+token rides a covered header (renamed `X-FORA-Entitlement-Biscuit` →
 `X-Entitlement-Token`) whose signature-coverage the verifier enforces without
 ever parsing the token, so it holds identically for JWT. Removed only the
 biscuit-specific bits: the `token_format` value `"biscuit-v3"` (JWT stays the
@@ -1166,7 +1166,7 @@ canonical form the signature bytes are computed over. Accepted pre-v1 breaking c
 messages are renamed and the response is re-modeled to carry offers rather than
 a single transaction result:
 
-- **Renamed** `RAMPRequest` to `DiscoveryRequest` and `RAMPResponse` to
+- **Renamed** `FORARequest` to `DiscoveryRequest` and `FORAResponse` to
   `DiscoveryResponse` — the Agent-to-Broker request/response pair (Steps 1 and 6),
   the same pair carried by `BrokerService.Resolve`.
 - **Re-modeled** `DiscoveryResponse` as discovery-only. Removed the
@@ -1185,7 +1185,7 @@ This is an accepted breaking change pre-v1 freeze; `buf breaking` reports the
 deltas as expected.
 
 **WBA identity split — keys move to the WBA directory (breaking).** Identity keys
-are split out of `ramp.json` (`WellKnownManifest`) and into a pure WBA key
+are split out of `fora.json` (`WellKnownManifest`) and into a pure WBA key
 directory served at `{domain}/.well-known/http-message-signatures-directory`:
 
 - **Added** `WBAFile` (the WBA directory body) carrying the role's
@@ -1221,7 +1221,7 @@ prior snapshot mirrored a pre-final draft. Changes:
 - **Added** per-media taxonomy fields `cattax` (default 9), `cat`
   (`repeated int32`), and `language` (`repeated int32`, ISO-639-1) to `Text`,
   `Video`, `Image`, and `Audio`.
-- **Removed** the RAMP-invented fields that were not part of canonical CoMP:
+- **Removed** the FORA-invented fields that were not part of canonical CoMP:
   `Text.authority`, `Text.originality`, `Image.alt`, `Image.caption`,
   `Video/Image/Audio.c2pa`, and `Retrieval.ratelmt`.
 - **Added** `RETRIEVAL_AUTH_OTHER = 4` to the retrieval auth enum.
@@ -1233,9 +1233,9 @@ deltas as expected.
 
 ## v1.0.0 — Initial release
 
-First public release of the RAMP Protocol (Resource Access Metering Protocol):
+First public release of the FORA Protocol (Resource Access Metering Protocol):
 the wire format (protobuf under `proto/`), the generated Go and TypeScript SDKs
-(under `gen/`), and the specification site (under `website/`). RAMP extends IAB
+(under `gen/`), and the specification site (under `website/`). FORA extends IAB
 Tech Lab CoMP v1.0 and RSL 1.0 with resource discovery, transaction execution,
 post-usage reporting, dispute resolution, and provider domain verification —
 enough for an autonomous agent to negotiate licensed access to a publisher's
@@ -1247,7 +1247,7 @@ Highlights: a single `ExchangeService` (`DiscoverResources`,
 verification) with Brokers and agents as interchangeable clients; unit-agnostic
 metering; Ed25519 at every trust boundary, with RFC 9421 HTTP Message Signatures
 for request and hop authentication and JWS (RFC 7515) for offer and attestation
-signatures; a unified `/.well-known/ramp.json` (`WellKnownManifest`) served by
+signatures; a unified `/.well-known/fora.json` (`WellKnownManifest`) served by
 every role with inline RFC 7517 JWKs and explicit key-validity bounds;
 cryptographic content attestations with a structured dispute chain; multi-hop
 intermediary chains with agent- and exchange-published depth caps; and extension
@@ -1271,13 +1271,13 @@ default). The Offer JWS signs the entire canonical Offer, so `terms` and
 `pricing` are tamper-evident.
 
 **Proto-native vocabulary.** Every open vocabulary axis is defined in the proto
-and tooled by buf — no side-car JSON registry. The `(ramp.v1.vocab)` field
+and tooled by buf — no side-car JSON registry. The `(fora.v1.vocab)` field
 option (`FieldOptions` extension 50001) carries the registered bare tokens on
-`Pricing.unit` and `Quota.metric`; the `(ramp.v1.vocab_enum)` enum-value option
-(`EnumValueOptions` extension 50002, both in `ramp/v1/vocab.proto`) carries the
+`Pricing.unit` and `Quota.metric`; the `(fora.v1.vocab_enum)` enum-value option
+(`EnumValueOptions` extension 50002, both in `fora/v1/vocab.proto`) carries the
 function / geography / user-type tokens on the `RESTRICTION_KIND_FUNCTION` /
 `RESTRICTION_KIND_GEOGRAPHY` / `RESTRICTION_KIND_USER_TYPE` enum values. The
-`protoc-gen-rampvocab` buf plugin reads both options structurally and emits
+`protoc-gen-foravocab` buf plugin reads both options structurally and emits
 typed Go constants, `All`, and `IsRegistered` per axis under `gen/go/vocab/`
 (`pricingunits`, `quotametrics`, `functiontokens`, `geographytokens`,
 `usertypes`). Geography registers only the non-ISO specials (`*`, `EU`, `EEA`);
@@ -1298,13 +1298,13 @@ broadens to `DENIAL_REASON_DELEGATION_INVALID` (expiry is one of several ways a
 token fails to authorize). The enum is contiguous, with no reused numbers.
 
 **Delegation-claims profile.** The delegation token stays opaque on the wire;
-`token_format` only selects the verifier. RAMP defines a small registered
+`token_format` only selects the verifier. FORA defines a small registered
 claim/fact vocabulary mapping the same named concepts across JWT registered
 claims and Biscuit facts, so scope / expiry / spend caps mean the same thing to
 every verifier regardless of format. All vocabulary entries are optional except
 the mandatory subject/holder binding: the key that signs the RFC 9421 request
 MUST equal the token's holder key, which is what makes a leaked token not
-bearer-usable. Issuer-specific facts use a `vendor:` namespace; `ramp_`-prefixed
+bearer-usable. Issuer-specific facts use a `vendor:` namespace; `fora_`-prefixed
 names are reserved. Binding constraints are fail-closed (binding by default)
 unless explicitly marked advisory.
 

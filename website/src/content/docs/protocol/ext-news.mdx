@@ -1,11 +1,11 @@
 ---
-title: "Extension: ramp-news-v1"
+title: "Extension: fora-news-v1"
 description: "News, media, and podcast content extension profile — field vocabulary, conformance levels, and examples"
 ---
 
 ## Overview
 
-RAMP-News v1 defines a standardized vocabulary of `ext` field keys for news, media, and podcast content traded through RAMP Exchanges. It enables agents and Brokers to:
+FORA-News v1 defines a standardized vocabulary of `ext` field keys for news, media, and podcast content traded through FORA Exchanges. It enables agents and Brokers to:
 
 - **Discover** news resources by article type, topic, urgency, and publication date
 - **Evaluate** offers using editorial metadata (corrections, retractions, embargo status)
@@ -19,13 +19,13 @@ This profile is built entirely on existing industry standards: IPTC NewsML-G2, I
 
 - **Exchanges** serving news publishers, wire services, podcast networks, or broadcast media
 - **Brokers** that need to filter, rank, or deduplicate news content across Exchanges
-- **Agents** that consume news articles, podcast episodes, or broadcast content via RAMP
+- **Agents** that consume news articles, podcast episodes, or broadcast content via FORA
 
 ### Prerequisites
 
 Implementers must be familiar with:
 
-- RAMP protocol (`proto/ramp/v1/ramp.proto`)
+- FORA protocol (`proto/fora/v1/fora.proto`)
 - The `ext` field mechanism (`google.protobuf.Struct` on all major messages)
 - `ResourceIdentity`, `ResourceMutability`, and `ResourceAttestation` messages
 
@@ -33,7 +33,7 @@ Implementers must be familiar with:
 
 ## Profile Declaration
 
-An Exchange declares support for this profile by including `"ramp-news-v1"` in its `WellKnownManifest.supported_profiles` array (`role=ROLE_EXCHANGE`):
+An Exchange declares support for this profile by including `"fora-news-v1"` in its `WellKnownManifest.supported_profiles` array (`role=ROLE_EXCHANGE`):
 
 ```json
 {
@@ -41,8 +41,8 @@ An Exchange declares support for this profile by including `"ramp-news-v1"` in i
   "role": "ROLE_EXCHANGE",
   "domain": "news-exchange.example.com",
   "name": "Example News Exchange",
-  "supported_profiles": ["ramp-news-v1"],
-  "endpoint": "https://news-exchange.example.com/ramp/v1"
+  "supported_profiles": ["fora-news-v1"],
+  "endpoint": "https://news-exchange.example.com/fora/v1"
 }
 ```
 
@@ -183,13 +183,13 @@ News content introduces domain-specific dispute scenarios beyond the core `Dispu
 
 ## Exchange News Capabilities (`WellKnownManifest.ext`)
 
-Exchanges declaring `ramp-news-v1` support SHOULD populate these fields to describe their news-specific capabilities.
+Exchanges declaring `fora-news-v1` support SHOULD populate these fields to describe their news-specific capabilities.
 
 | Key | Type | Required | Source Standard | Description |
 |-----|------|----------|-----------------|-------------|
 | `news.supported_article_types` | string[] | Optional | Schema.org | Article types available in the catalog. Example: `["reportage", "analysis", "opinion"]`. Helps Brokers avoid querying an Exchange for article types it does not carry. |
-| `news.correction_propagation` | string | Optional | RAMP-News | How the Exchange handles corrections from publishers. Values: `realtime` (corrections reflected within minutes), `batch` (corrections reflected on next catalog refresh), `none` (Exchange does not track corrections). |
-| `news.podcast_support` | boolean | Optional | RAMP-News | Whether the Exchange catalogs podcast episodes. Brokers use this to route podcast queries efficiently. |
+| `news.correction_propagation` | string | Optional | FORA-News | How the Exchange handles corrections from publishers. Values: `realtime` (corrections reflected within minutes), `batch` (corrections reflected on next catalog refresh), `none` (Exchange does not track corrections). |
+| `news.podcast_support` | boolean | Optional | FORA-News | Whether the Exchange catalogs podcast episodes. Brokers use this to route podcast queries efficiently. |
 
 ---
 
@@ -281,7 +281,7 @@ For podcast episodes, the following `Offer.ext` fields provide audio-specific me
 
 ## Behavioral Conventions
 
-This section defines how RAMP core protocol features interact with news content.
+This section defines how FORA core protocol features interact with news content.
 
 ### ResourceMutability for News
 
@@ -313,7 +313,7 @@ The `Offer.data_as_of` field carries particular importance for news:
 
 ### Attribution in News
 
-News publishers have strong attribution requirements. The RAMP core `Usage.attribution` and `AttributionDetail` messages handle this:
+News publishers have strong attribution requirements. The FORA core `Usage.attribution` and `AttributionDetail` messages handle this:
 
 - `AttributionDetail.displayed_url` SHOULD be the article's `canonical_url`
 - `AttributionDetail.format` SHOULD be `CITATION_FORMAT_LINK` (inline link to source) or `CITATION_FORMAT_FOOTNOTE`
@@ -586,7 +586,7 @@ The Exchange returns an `OfferGroup` per URI. The Broker can then:
 
 ## Conformance Levels
 
-### Level 1: Basic (Minimum viable RAMP-News)
+### Level 1: Basic (Minimum viable FORA-News)
 
 An Exchange MUST implement:
 

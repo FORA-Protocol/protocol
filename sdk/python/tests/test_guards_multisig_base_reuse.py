@@ -3,13 +3,13 @@
 DISEASE: the RFC 9421 5-component request signature-base
 (@method @target-uri content-digest authorization signature-agent) is rendered by
 hardcoding those lines. Before the multisig work there was exactly ONE such
-renderer -- ``_signature_base`` in ``ramp_sdk/httpsig.py``. The multisig
+renderer -- ``_signature_base`` in ``fora_sdk/httpsig.py``. The multisig
 append/verify faces MUST compose that generalized builder (via its optional
 ``chain_link`` arg), NOT fork a second copy of the 5-line template. A fork is how
 a future covered-component change silently drifts one path out of byte-parity with
 the Go oracle.
 
-This guard pins the invariant class-level: exactly one module under ``ramp_sdk``
+This guard pins the invariant class-level: exactly one module under ``fora_sdk``
 renders the 5-component request base, and it is ``httpsig.py``. A new face that
 forks the template adds a second renderer and trips this guard.
 
@@ -28,7 +28,7 @@ from __future__ import annotations
 import pathlib
 import re
 
-_RAMP_SDK = pathlib.Path(__file__).resolve().parents[1] / "ramp_sdk"
+_FORA_SDK = pathlib.Path(__file__).resolve().parents[1] / "fora_sdk"
 _CANONICAL_RENDERER = "httpsig.py"
 
 # The three signature-base lines that distinguish the 5-component request base
@@ -48,7 +48,7 @@ def _renders_request_base(source: str) -> bool:
 def _request_base_renderers() -> list[str]:
     return [
         path.name
-        for path in sorted(_RAMP_SDK.glob("*.py"))
+        for path in sorted(_FORA_SDK.glob("*.py"))
         if _renders_request_base(path.read_text(encoding="utf8"))
     ]
 
@@ -58,13 +58,13 @@ class TestNoForkedRequestSignatureBase:
         assert _request_base_renderers() == [_CANONICAL_RENDERER]
 
     def test_multisig_verify_reuses_shared_base(self) -> None:
-        src = (_RAMP_SDK / "server_verify.py").read_text(encoding="utf8")
+        src = (_FORA_SDK / "server_verify.py").read_text(encoding="utf8")
         assert not _renders_request_base(src)
         # It must import + call the shared builder rather than re-render lines.
         assert "_signature_base" in src
 
     def test_append_face_reuses_shared_base(self) -> None:
-        src = (_RAMP_SDK / "httpsig.py").read_text(encoding="utf8")
+        src = (_FORA_SDK / "httpsig.py").read_text(encoding="utf8")
         assert "def append_signature" in src
         append_body = src[src.index("def append_signature") :]
         assert "_signature_base" in append_body

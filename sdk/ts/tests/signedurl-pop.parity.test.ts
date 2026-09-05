@@ -108,7 +108,7 @@ describe("sdk/ts RFC 9421 GET-PoP verify matches the Go signer vectors", () => {
 
   function headersFor(v: PopVector): Headers {
     const h = new Headers();
-    h.set("x-ramp-agent-key", v.presented_key_b64url);
+    h.set("x-fora-agent-key", v.presented_key_b64url);
     h.set("signature-input", v.signature_input);
     h.set("signature", v.signature);
     return h;

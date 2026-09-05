@@ -22,7 +22,7 @@ test_signrequest_parity.py; this file covers the two signature_agent shapes dire
 
 from __future__ import annotations
 
-from ramp_sdk.signing_transport import SigningTransport
+from fora_sdk.signing_transport import SigningTransport
 
 
 def _make_transport(*, signature_agent: str = "") -> SigningTransport:
@@ -43,7 +43,7 @@ def test_signature_agent_header_present_when_configured() -> None:
     transport = _make_transport(signature_agent="https://agent.example")
     signed = transport.sign_outbound(
         method="POST",
-        url="https://broker.example/ramp.v1/Discover",
+        url="https://broker.example/fora.v1/Discover",
         body=b'{"query":"x"}',
         authorization="",
     )
@@ -58,7 +58,7 @@ def test_signature_agent_covered_in_signature_input_when_configured() -> None:
     transport = _make_transport(signature_agent="https://agent.example")
     signed = transport.sign_outbound(
         method="POST",
-        url="https://broker.example/ramp.v1/Discover",
+        url="https://broker.example/fora.v1/Discover",
         body=b'{"query":"x"}',
         authorization="",
     )
@@ -86,7 +86,7 @@ def test_signature_agent_header_is_carried_empty_when_not_configured() -> None:
     transport = _make_transport(signature_agent="")
     signed = transport.sign_outbound(
         method="POST",
-        url="https://broker.example/ramp.v1/Discover",
+        url="https://broker.example/fora.v1/Discover",
         body=b'{"query":"x"}',
         authorization="",
     )

@@ -6,9 +6,9 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/gen/go/ramp/v1/rampv1connect"
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
 )
 
 // BrokerClient is the Connect client for BrokerService.
@@ -24,12 +24,12 @@ import (
 // cross-cutting interceptors, the same fail-closed offer Verifier — so the two
 // faces cannot drift in how they sign, correlate, validate or verify.
 type BrokerClient struct {
-	rpc      rampv1connect.BrokerServiceClient
+	rpc      forav1connect.BrokerServiceClient
 	verifier core.Verifier
 	// requester is the agent identity a Broker resolves the caller from. Held
 	// here rather than demanded on every request for the same reason the exchange
 	// client holds it: one client speaks for one agent.
-	requester *rampv1.Requester
+	requester *forav1.Requester
 }
 
 // NewBrokerClient builds a BrokerClient against a Broker's base URL. It accepts
@@ -59,7 +59,7 @@ func NewBrokerClient(baseURL string, opts ...ClientOption) *BrokerClient {
 	cfg := resolvedConfig(opts...)
 	httpClient, connectOpts, verifier := plumbing(cfg)
 	return &BrokerClient{
-		rpc:       rampv1connect.NewBrokerServiceClient(httpClient, baseURL, connectOpts...),
+		rpc:       forav1connect.NewBrokerServiceClient(httpClient, baseURL, connectOpts...),
 		verifier:  verifier,
 		requester: cfg.requester,
 	}
@@ -88,7 +88,7 @@ func NewBrokerClient(baseURL string, opts ...ClientOption) *BrokerClient {
 // refuses a request that names none, so leaving it to every caller to remember
 // would make the identity the client already holds useless exactly where it is
 // needed.
-func (b *BrokerClient) Resolve(ctx context.Context, req *rampv1.DiscoveryRequest) (core.DiscoveryResult, error) {
+func (b *BrokerClient) Resolve(ctx context.Context, req *forav1.DiscoveryRequest) (core.DiscoveryResult, error) {
 	const op = "resolve"
 	if req == nil {
 		return core.DiscoveryResult{}, malformed(op, errors.New("request is nil"))

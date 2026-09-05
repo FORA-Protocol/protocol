@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/resolvers"
+	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
 // gatedJwksOrigin serves a single JWKS document and counts every fetch, with an

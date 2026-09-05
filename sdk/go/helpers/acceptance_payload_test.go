@@ -3,7 +3,7 @@ package helpers_test
 import (
 	"testing"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 // The agent offer-acceptance wire envelope and its canonical signing payload
@@ -12,15 +12,15 @@ import (
 // (TransactionItem), so the Exchange can bind the agent to the exact offer it
 // is executing no matter how many brokers relayed the request.
 func TestAgentAcceptance_wireFieldsExist(t *testing.T) {
-	acc := &rampv1.AgentAcceptance{
+	acc := &forav1.AgentAcceptance{
 		Signature:          "deadbeef",
 		SignatureAlgorithm: "EdDSA",
 	}
 
 	// Items-only: each item carries a per-item acceptance alongside its
 	// reflected Offer (single-offer mode removed — a single offer is a 1-item list).
-	item := &rampv1.TransactionItem{
-		Offer:           &rampv1.Offer{OfferId: "of_2"},
+	item := &forav1.TransactionItem{
+		Offer:           &forav1.Offer{OfferId: "of_2"},
 		AgentAcceptance: acc,
 	}
 	if got := item.GetAgentAcceptance().GetSignature(); got != "deadbeef" {
@@ -44,7 +44,7 @@ func TestAgentAcceptance_wireFieldsExist(t *testing.T) {
 func TestAgentAcceptancePayload_fieldSetIsPinned(t *testing.T) {
 	want := []string{"offer_sig", "requester_id", "requester_domain", "idempotency_key"}
 
-	fields := (&rampv1.AgentAcceptancePayload{}).ProtoReflect().Descriptor().Fields()
+	fields := (&forav1.AgentAcceptancePayload{}).ProtoReflect().Descriptor().Fields()
 	if fields.Len() != len(want) {
 		t.Fatalf("AgentAcceptancePayload has %d fields, want %d %v; a field the "+
 			"canonicalizer does not assign is omitted from the signed bytes",

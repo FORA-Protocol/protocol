@@ -1,5 +1,5 @@
 ---
-title: "RAMP for AI Agents"
+title: "FORA for AI Agents"
 description: "How AI agents access any metered resource — articles, credit reports, drug databases, satellite imagery, court filings — through one protocol"
 ---
 
@@ -15,16 +15,16 @@ Every integration is bespoke. Every provider has its own discovery mechanism, pr
 
 The result: your agent is locked into whichever providers your developers happened to integrate. Adding a new resource type means weeks of custom work. Neither side scales.
 
-## What RAMP Gives You
+## What FORA Gives You
 
 **One protocol to discover, price, transact, deliver, verify, and dispute any metered resource from any participating Exchange.**
 
 ```go
 // News article
-article, _ := client.Fetch(ctx, "https://cdn.ramp-protocol.org/premium/article.html")
+article, _ := client.Fetch(ctx, "https://cdn.fora-protocol.org/premium/article.html")
 
 // Credit report
-report, _ := client.Fetch(ctx, "duns:123456789", ramp.WithProfile("ramp-credit-v1"))
+report, _ := client.Fetch(ctx, "duns:123456789", fora.WithProfile("fora-credit-v1"))
 
 // Drug interaction check
 interactions, _ := client.Fetch(ctx, "drugbank://ddi?drugs=DB00682,DB00331")
@@ -59,31 +59,31 @@ Steps 2-6 happen behind a single `Fetch()` call. Your agent sees one function. T
 
 ## What You Need
 
-**The RAMP Agent SDK** (Go, TypeScript, or Python):
+**The FORA Agent SDK** (Go, TypeScript, or Python):
 
 import { Aside } from '@astrojs/starlight/components';
 
 <Aside type="note">
 The SDK is not yet published to package registries. Use the working implementations directly from the repository:
 
-- **Go**: Import generated types from [`gen/go/`](https://github.com/RAMP-Protocol/protocol/tree/main/gen/go/) and the Connect-Go client from `gen/go/ramp/v1/rampv1connect`.
-- **TypeScript**: Validate messages with the generated Zod schemas from [`gen/ts/`](https://github.com/RAMP-Protocol/protocol/tree/main/gen/ts/). The npm package is not yet published.
-- **Python**: Parse messages with the generated Pydantic models from [`gen/python/`](https://github.com/RAMP-Protocol/protocol/tree/main/gen/python/). The PyPI package is not yet published.
+- **Go**: Import generated types from [`gen/go/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/go/) and the Connect-Go client from `gen/go/fora/v1/forav1connect`.
+- **TypeScript**: Validate messages with the generated Zod schemas from [`gen/ts/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/ts/). The npm package is not yet published.
+- **Python**: Parse messages with the generated Pydantic models from [`gen/python/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/python/). The PyPI package is not yet published.
 </Aside>
 
 Configure it with your agent identity, signing key, and budget:
 
 ```go
-client, _ := ramp.NewClient(ramp.Config{
+client, _ := fora.NewClient(fora.Config{
     AgentID:     "acme-research-bot",
     AgentDomain: "agents.acme.com",
-    SigningKey:  os.Getenv("RAMP_SIGNING_KEY"),
+    SigningKey:  os.Getenv("FORA_SIGNING_KEY"),
     SupportedProfiles: []string{
-        "ramp-news-v1",       // articles, podcasts, broadcasting
-        "ramp-academic-v1",   // journal papers, preprints, datasets
-        "ramp-legal-v1",      // legislation, case law, patents
+        "fora-news-v1",       // articles, podcasts, broadcasting
+        "fora-academic-v1",   // journal papers, preprints, datasets
+        "fora-legal-v1",      // legislation, case law, patents
     },
-    Budget: ramp.Budget{
+    Budget: fora.Budget{
         MaxPerRequest: 100.00,    // never pay more than $100 for one resource
         MaxPerSession: 500.00,    // cap at $500/session
         Currency:      "USD",
@@ -92,7 +92,7 @@ client, _ := ramp.NewClient(ramp.Config{
 ```
 
 The SDK handles:
-- **Exchange discovery** from provider `ramp.json` files or Broker routing
+- **Exchange discovery** from provider `fora.json` files or Broker routing
 - **Price comparison** across multiple Exchanges (if using a Broker)
 - **Budget enforcement** -- never exceed your per-request or per-session limits
 - **Ed25519 signing** -- every request is cryptographically signed with your key
@@ -107,17 +107,17 @@ Three v1 profiles exist:
 
 | Profile | Domains | Standards |
 |---------|---------|-----------|
-| **ramp-news-v1** | Articles, podcasts, live broadcasts | IPTC NewsML-G2, Podcasting 2.0, W3C TDMRep |
-| **ramp-academic-v1** | Journal papers, preprints, datasets | CrossRef, OpenAlex, JATS XML, COUNTER 5.1 |
-| **ramp-legal-v1** | Legislation, case law, patents | ELI, ECLI, Akoma Ntoso, WIPO ST.3/ST.16 |
+| **fora-news-v1** | Articles, podcasts, live broadcasts | IPTC NewsML-G2, Podcasting 2.0, W3C TDMRep |
+| **fora-academic-v1** | Journal papers, preprints, datasets | CrossRef, OpenAlex, JATS XML, COUNTER 5.1 |
+| **fora-legal-v1** | Legislation, case law, patents | ELI, ECLI, Akoma Ntoso, WIPO ST.3/ST.16 |
 
-Exchanges declare conformance in their manifest. When your agent declares `supported_profiles: ["ramp-academic-v1"]`, the Broker routes your query only to Exchanges that also declare `ramp-academic-v1`, and returned offers include profile-specific metadata (e.g., `academic.doi`, `academic.oa_status`, `academic.version`).
+Exchanges declare conformance in their manifest. When your agent declares `supported_profiles: ["fora-academic-v1"]`, the Broker routes your query only to Exchanges that also declare `fora-academic-v1`, and returned offers include profile-specific metadata (e.g., `academic.doi`, `academic.oa_status`, `academic.version`).
 
 If you omit `supported_profiles`, you get offers from all Exchanges -- useful for broad discovery, less useful for domain-specific queries.
 
 ## Identity and Authorization
 
-Every RAMP request carries a `Requester` message that tells the Exchange who you are and what you can access.
+Every FORA request carries a `Requester` message that tells the Exchange who you are and what you can access.
 
 ### Constructing a Requester
 
@@ -191,7 +191,7 @@ When a request is denied, the Exchange returns a specific `DenialReason` so your
 
 ## What It Costs
 
-Providers set their own prices. RAMP normalizes everything to `unit_cost` (effective cost per unit) so you can compare across providers regardless of their pricing model.
+Providers set their own prices. FORA normalizes everything to `unit_cost` (effective cost per unit) so you can compare across providers regardless of their pricing model.
 
 | Model | Unit | Example | Industry |
 |---|---|---|---|
@@ -218,7 +218,7 @@ If a request would exceed any limit, the SDK returns a `BudgetExceededError` **b
 
 ## Content Mutability and Data Freshness
 
-Not all resources are static files. RAMP classifies resources by mutability, which determines how your agent verifies delivered content:
+Not all resources are static files. FORA classifies resources by mutability, which determines how your agent verifies delivered content:
 
 | Mutability | Example | Hash Behavior | Agent Action |
 |---|---|---|---|
@@ -231,8 +231,8 @@ For dynamic resources, the `data_as_of` field on the Offer tells you when the da
 ```go
 // "I need a credit report updated within the last 7 days"
 report, _ := client.Fetch(ctx, "duns:123456789",
-    ramp.WithProfile("ramp-credit-v1"),
-    ramp.WithMaxDataAge(7 * 24 * time.Hour),
+    fora.WithProfile("fora-credit-v1"),
+    fora.WithMaxDataAge(7 * 24 * time.Hour),
 )
 ```
 
@@ -252,7 +252,7 @@ dois := []string{
     "doi:10.1001/jama.2024.5678",        // JAMA
     // ... 46 more DOIs
 }
-papers, _ := client.FetchBatch(ctx, dois, ramp.WithProfile("ramp-academic-v1"))
+papers, _ := client.FetchBatch(ctx, dois, fora.WithProfile("fora-academic-v1"))
 ```
 
 A due-diligence package pulling credit, legal, and property records:
@@ -270,12 +270,12 @@ The SDK groups identifiers by domain, sends one query per Exchange, and executes
 
 ## Streaming Delivery
 
-RAMP supports streaming resources (WebSocket, SSE, HLS, Icecast) via `DELIVERY_METHOD_STREAMING`. The flow is the same -- `ExecuteTransaction` returns a signed URL, but that URL points to a streaming endpoint.
+FORA supports streaming resources (WebSocket, SSE, HLS, Icecast) via `DELIVERY_METHOD_STREAMING`. The flow is the same -- `ExecuteTransaction` returns a signed URL, but that URL points to a streaming endpoint.
 
 ```go
 // Connect to a live MarketData quote feed
 stream, _ := client.Fetch(ctx, "marketdata://stream/equities/AAPL,MSFT,GOOGL",
-    ramp.WithDeliveryMethod(ramp.Streaming),
+    fora.WithDeliveryMethod(fora.Streaming),
 )
 
 // stream.URL points to a WebSocket endpoint
@@ -283,13 +283,13 @@ stream, _ := client.Fetch(ctx, "marketdata://stream/equities/AAPL,MSFT,GOOGL",
 // Usage is metered per minute of connection time
 ```
 
-Your agent connects and receives continuous data for the session duration. When the signed URL expires, request a new one through the same RAMP flow. The protocol handles session lifecycle -- heartbeat, reconnection, and concurrent connection limits are managed by the provider.
+Your agent connects and receives continuous data for the session duration. When the signed URL expires, request a new one through the same FORA flow. The protocol handles session lifecycle -- heartbeat, reconnection, and concurrent connection limits are managed by the provider.
 
 ## Direct vs. Brokered
 
 **Direct mode** (default): Your agent talks to each provider's Exchange directly. Simple. Works for known providers.
 
-**Brokered mode**: A RAMP Broker queries multiple Exchanges in parallel, deduplicates offers (same article on different sites), filters by freshness and profile compatibility, and picks the cheapest or highest-quality source. Better for cost optimization at scale and cross-domain queries.
+**Brokered mode**: A FORA Broker queries multiple Exchanges in parallel, deduplicates offers (same article on different sites), filters by freshness and profile compatibility, and picks the cheapest or highest-quality source. Better for cost optimization at scale and cross-domain queries.
 
 ## Content Attestation
 
@@ -329,19 +329,19 @@ The `report_id` is required on every `DisputeRequest` -- the Exchange rejects di
 
 ## MCP Access
 
-You can also access RAMP via MCP -- add the RAMP MCP server to your agent's tool configuration and discover/license content without a custom SDK. The MCP server exposes six tools (`discover_supply`, `execute_transaction`, `report_usage`, `dispute_transaction`, `check_health`, `get_rate_limit_status`) and handles protocol details (signing, field population, response simplification) automatically.
+You can also access FORA via MCP -- add the FORA MCP server to your agent's tool configuration and discover/license content without a custom SDK. The MCP server exposes six tools (`discover_supply`, `execute_transaction`, `report_usage`, `dispute_transaction`, `check_health`, `get_rate_limit_status`) and handles protocol details (signing, field population, response simplification) automatically.
 
 For Claude Desktop, add to your config:
 
 ```json
 {
   "mcpServers": {
-    "ramp": {
-      "command": "ramp-mcp-server",
+    "fora": {
+      "command": "fora-mcp-server",
       "args": ["--transport", "stdio"],
       "env": {
-        "RAMP_EXCHANGE_URL": "https://exchange.example.com",
-        "RAMP_PROXY_KEY_PATH": "/path/to/ed25519-private.pem"
+        "FORA_EXCHANGE_URL": "https://exchange.example.com",
+        "FORA_PROXY_KEY_PATH": "/path/to/ed25519-private.pem"
       }
     }
   }
@@ -352,19 +352,19 @@ See [MCP Server Overview](/components/mcp-server/overview/) for full details on 
 
 ## FAQ
 
-**What providers are on RAMP?**
-Any provider whose Exchange operator runs a RAMP Exchange. The protocol is open -- no central registry required.
+**What providers are on FORA?**
+Any provider whose Exchange operator runs a FORA Exchange. The protocol is open -- no central registry required.
 
-**What if the provider doesn't use RAMP?**
+**What if the provider doesn't use FORA?**
 The SDK returns `NoExchangeError`. Fall back to your existing content access strategy.
 
 **Is this legal?**
 Yes. Every transaction is explicitly authorized by the provider (via their Exchange) and cryptographically signed. You have a receipt for every piece of content.
 
 **What about robots.txt?**
-RAMP handles inference/RAG access (real-time, user-facing). `robots.txt` handles training crawlers. Different traffic types.
+FORA handles inference/RAG access (real-time, user-facing). `robots.txt` handles training crawlers. Different traffic types.
 
-**How does RAMP handle resources outside the three v1 profiles?**
+**How does FORA handle resources outside the three v1 profiles?**
 The core protocol is domain-agnostic. Extension profiles add domain-specific metadata but are not required. A Exchange can serve credit reports or satellite imagery without conforming to any profile -- the core fields (`unit_cost`, `unit`, `resource_mutability`, `data_as_of`) handle metering and verification for any resource type. New profiles are added by domain communities as adoption grows.
 
 ## Next Steps

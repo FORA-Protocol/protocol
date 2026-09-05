@@ -1,15 +1,15 @@
 ---
 title: "JSONL Ingestion Feed"
-description: "The line-oriented push feed publishers use to submit a catalog of resources and their licensing terms into a RAMP Exchange."
+description: "The line-oriented push feed publishers use to submit a catalog of resources and their licensing terms into a FORA Exchange."
 ---
 
 ## Overview
 
-The [discovery paths](/protocol/discovery-paths/) (RSL, sitemap, well-known, crawl, …) let an Exchange *pull* a publisher's licensing signals. The **JSONL feed** is the *push* counterpart: a publisher hands the Exchange a JSON-Lines file — **one resource per line** — and each line maps 1:1 onto a `ResourceEntry` and is submitted via `CatalogService.PushResources`. The reference client is the `ramp-ingest` binary.
+The [discovery paths](/protocol/discovery-paths/) (RSL, sitemap, well-known, crawl, …) let an Exchange *pull* a publisher's licensing signals. The **JSONL feed** is the *push* counterpart: a publisher hands the Exchange a JSON-Lines file — **one resource per line** — and each line maps 1:1 onto a `ResourceEntry` and is submitted via `CatalogService.PushResources`. The reference client is the `fora-ingest` binary.
 
 ```
 publisher feed (.jsonl, one resource/line)
-  └─► ramp-ingest   parse (typed, strict) · canonicalize tokens · sign (RFC 9421)
+  └─► fora-ingest   parse (typed, strict) · canonicalize tokens · sign (RFC 9421)
         └─► CatalogService.PushResources           ── ALL-OR-NOTHING ──
               │  trust:    caller key fetched from the WBA directory (/.well-known/http-message-signatures-directory); tenant derived from the publisher domain
               │  validate: protovalidate CEL owns term shape / presence / coherence; vocab membership is a warning

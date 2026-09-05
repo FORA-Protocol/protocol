@@ -32,9 +32,9 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/RAMP-Protocol/protocol/conformance"
-	rampadminv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/admin/v1"
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	"github.com/FORA-Protocol/protocol/conformance"
+	foraadminv1 "github.com/FORA-Protocol/protocol/gen/go/fora/admin/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 // Fixed well-known-type values so the canonical proto-JSON round-trip test
@@ -61,34 +61,34 @@ type Case struct {
 // a restatement of any rule. Auto-fill handles everything else; a message that
 // auto-fill cannot make valid AND has no seed fails the run loudly.
 func seeds() map[string]proto.Message {
-	pricing := func() *rampv1.Pricing {
-		return &rampv1.Pricing{Model: rampv1.PricingModel_PRICING_MODEL_FREE, Rate: "0"}
+	pricing := func() *forav1.Pricing {
+		return &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"}
 	}
 	// Exchange is presence-enforced on Offer (it is the execute-routing target
 	// and the audience statement of a TransactionRequest), so a seed without it
 	// is not a valid baseline — seeds bypass auto-fill entirely.
-	offer := func() *rampv1.Offer {
-		return &rampv1.Offer{OfferId: "offer-seed", Exchange: "exchange.example", Pricing: pricing()}
+	offer := func() *forav1.Offer {
+		return &forav1.Offer{OfferId: "offer-seed", Exchange: "exchange.example", Pricing: pricing()}
 	}
 	return map[string]proto.Message{
 		"Pricing":     pricing(),
-		"License":     &rampv1.License{Id: proto.String("CC-BY-4.0")},
-		"Restriction": &rampv1.Restriction{Kind: rampv1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"ai-input"}},
-		"Obligation": &rampv1.Obligation{
-			Kind:    rampv1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION,
-			Trigger: rampv1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+		"License":     &forav1.License{Id: proto.String("CC-BY-4.0")},
+		"Restriction": &forav1.Restriction{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"ai-input"}},
+		"Obligation": &forav1.Obligation{
+			Kind:    forav1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION,
+			Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
 		},
-		"Quota":                 &rampv1.Quota{Metric: "accesses", Limit: 1, Window: rampv1.QuotaWindow_QUOTA_WINDOW_DAILY},
-		"LicenseTerm":           &rampv1.LicenseTerm{Semantics: rampv1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: pricing()},
-		"AcceptableRestriction": &rampv1.AcceptableRestriction{Axis: rampv1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Values: []string{"ai-train"}},
-		"DisputeRequest":        &rampv1.DisputeRequest{IdempotencyKey: "idem-dr", Exchange: "exchange.example", Reason: rampv1.DisputeReason_DISPUTE_REASON_CONTENT_MISMATCH},
+		"Quota":                 &forav1.Quota{Metric: "accesses", Limit: 1, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY},
+		"LicenseTerm":           &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: pricing()},
+		"AcceptableRestriction": &forav1.AcceptableRestriction{Axis: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Values: []string{"ai-train"}},
+		"DisputeRequest":        &forav1.DisputeRequest{IdempotencyKey: "idem-dr", Exchange: "exchange.example", Reason: forav1.DisputeReason_DISPUTE_REASON_CONTENT_MISMATCH},
 		// Reflected-Offer execute contract (items-only): Offer is
 		// the required sub-message of TransactionItem (auto-fill needs its seed),
 		// and TransactionRequest needs a valid 1-item items[] baseline because its
 		// items field is now repeated.min_items=1 (single-offer mode removed).
 		"Offer":              offer(),
-		"TransactionRequest": &rampv1.TransactionRequest{IdempotencyKey: "idem-tx", Items: []*rampv1.TransactionItem{{Offer: offer()}}},
-		// ramp.admin.v1 payloads embedded (required) in the setter request/response
+		"TransactionRequest": &forav1.TransactionRequest{IdempotencyKey: "idem-tx", Items: []*forav1.TransactionItem{{Offer: offer()}}},
+		// fora.admin.v1 payloads embedded (required) in the setter request/response
 		// envelopes. RequiredFields MUST be exactly ["x"]: the repeated.unique
 		// duplicate_item edge appends the auto-filled good item (stringSamples[0]=="x")
 		// and relies on the baseline already holding it, so the mutant is ["x","x"].
@@ -99,9 +99,9 @@ func seeds() map[string]proto.Message {
 		// client that dropped it would stay green. The empty path is the
 		// whole-object failure (oneOf, minProperties) that belongs to no single
 		// member; seeding it pins that accept boundary in all three languages.
-		"RegistrationFailure": &rampv1.RegistrationFailure{
-			Reason: rampv1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA,
-			FieldErrors: []*rampv1.RegistrationFieldError{
+		"RegistrationFailure": &forav1.RegistrationFailure{
+			Reason: forav1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA,
+			FieldErrors: []*forav1.RegistrationFieldError{
 				{Path: "", Error: "matched 2 branches of oneOf, exactly 1 required"},
 			},
 		},
@@ -111,9 +111,9 @@ func seeds() map[string]proto.Message {
 		// shape a seed exists for. Seeding BOTH also keeps the terms_digest pattern
 		// mutants honest: they trip the pattern alone rather than the pattern and
 		// the cross-field rule together.
-		"WellKnownManifest": &rampv1.WellKnownManifest{
+		"WellKnownManifest": &forav1.WellKnownManifest{
 			Ver:         "1.0",
-			Role:        rampv1.Role_ROLE_EXCHANGE,
+			Role:        forav1.Role_ROLE_EXCHANGE,
 			Domain:      "exchange.example",
 			TermsUri:    proto.String("https://exchange.example/terms"),
 			TermsDigest: proto.String("sha256:" + strings.Repeat("ab", 32)),
@@ -124,14 +124,14 @@ func seeds() map[string]proto.Message {
 		// message CEL rule — an accepted digest hangs on an account. Seeding both keeps
 		// the terms_digest pattern mutants honest here too: they trip the pattern
 		// alone rather than the pattern and the cross-field rule together.
-		"GetAccountStatusResponse": &rampv1.GetAccountStatusResponse{
+		"GetAccountStatusResponse": &forav1.GetAccountStatusResponse{
 			Ver:         "1.0",
 			BillingRef:  "acct-seed",
 			Active:      true,
 			TermsDigest: proto.String("sha256:" + strings.Repeat("ab", 32)),
 		},
-		"TenantFeeRate":   &rampadminv1.TenantFeeRate{TenantId: "tenant-seed", FeeRateBps: 0},
-		"ReportingPolicy": &rampadminv1.ReportingPolicy{TenantId: "tenant-seed", RequiredFields: []string{"x"}},
+		"TenantFeeRate":   &foraadminv1.TenantFeeRate{TenantId: "tenant-seed", FeeRateBps: 0},
+		"ReportingPolicy": &foraadminv1.ReportingPolicy{TenantId: "tenant-seed", RequiredFields: []string{"x"}},
 	}
 }
 
@@ -263,7 +263,7 @@ func main() {
 // verdict. This is kept SEPARATE from cases.json on purpose — cases.json is the
 // FIELD-level corpus the generated Pydantic/Zod clients are tested against today,
 // and those clients do not yet enforce cross-field CEL (the symmetric gap noted
-// in ramp-sdk-api.md). The SDK L1 validator (helpers.Validate) is tested
+// in fora-sdk-api.md). The SDK L1 validator (helpers.Validate) is tested
 // against THIS file, and a future TS/Python L1 that authors the cross-field rules
 // by hand consumes it as their oracle — without breaking the field-level parity.
 func writeCrossField(v protovalidate.Validator) {
@@ -272,30 +272,30 @@ func writeCrossField(v protovalidate.Validator) {
 		msg  proto.Message
 		want string // the message CEL rule id this mutant must trip
 	}
-	freePricing := &rampv1.Pricing{Model: rampv1.PricingModel_PRICING_MODEL_FREE, Rate: "0"}
+	freePricing := &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"}
 	mutants := []mutant{
 		{
 			"Pricing/cel/per_unit_requires_unit",
-			&rampv1.Pricing{Model: rampv1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.05", Currency: "USD"},
+			&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.05", Currency: "USD"},
 			"pricing.per_unit.requires_unit",
 		},
 		{
 			"Pricing/cel/free_zero_rate",
-			&rampv1.Pricing{Model: rampv1.PricingModel_PRICING_MODEL_FREE, Rate: "5"},
+			&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "5"},
 			"pricing.free.zero_rate",
 		},
 		{
 			"License/cel/digest_required_with_uri",
-			&rampv1.License{Id: proto.String("CC-BY-4.0"), Uri: proto.String("https://example.com/license")},
+			&forav1.License{Id: proto.String("CC-BY-4.0"), Uri: proto.String("https://example.com/license")},
 			"license.digest_required_with_uri",
 		},
 		{
 			// field_errors is scoped to the schema refusal; any other reason
 			// carrying it publishes member detail that does not apply.
 			"RegistrationFailure/cel/field_errors_scoped_to_invalid_data",
-			&rampv1.RegistrationFailure{
-				Reason:      rampv1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE,
-				FieldErrors: []*rampv1.RegistrationFieldError{{Path: "/vat_id", Error: "required"}},
+			&forav1.RegistrationFailure{
+				Reason:      forav1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE,
+				FieldErrors: []*forav1.RegistrationFieldError{{Path: "/vat_id", Error: "required"}},
 			},
 			"registration_failure.field_errors_scoped_to_invalid_data",
 		},
@@ -303,9 +303,9 @@ func writeCrossField(v protovalidate.Validator) {
 			// The manifest mirror of the rule above: a digest with no document
 			// address cannot be checked against anything.
 			"WellKnownManifest/cel/terms_digest_requires_terms_uri",
-			&rampv1.WellKnownManifest{
+			&forav1.WellKnownManifest{
 				Ver:         "1.0",
-				Role:        rampv1.Role_ROLE_EXCHANGE,
+				Role:        forav1.Role_ROLE_EXCHANGE,
 				Domain:      "exchange.example",
 				TermsDigest: proto.String("sha256:" + strings.Repeat("ab", 32)),
 			},
@@ -317,7 +317,7 @@ func writeCrossField(v protovalidate.Validator) {
 			// from an accountless response would hold an acceptance for an account
 			// that does not exist.
 			"GetAccountStatusResponse/cel/terms_digest_requires_billing_ref",
-			&rampv1.GetAccountStatusResponse{
+			&forav1.GetAccountStatusResponse{
 				Ver:         "1.0",
 				TermsDigest: proto.String("sha256:" + strings.Repeat("ab", 32)),
 			},
@@ -325,27 +325,27 @@ func writeCrossField(v protovalidate.Validator) {
 		},
 		{
 			"Restriction/cel/permitted_prohibited_disjoint",
-			&rampv1.Restriction{Kind: rampv1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"ai-train"}, Prohibited: []string{"ai-train"}},
+			&forav1.Restriction{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"ai-train"}, Prohibited: []string{"ai-train"}},
 			"restriction.permitted_prohibited_disjoint",
 		},
 		{
 			"Obligation/cel/share_alike_requires_scope_license",
-			&rampv1.Obligation{Kind: rampv1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE, Trigger: rampv1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE},
+			&forav1.Obligation{Kind: forav1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE},
 			"obligation.share_alike.requires_scope_license",
 		},
 		{
 			"LicenseTerm/cel/reference_only_requires_uri",
-			&rampv1.LicenseTerm{Semantics: rampv1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY},
+			&forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY},
 			"license_term.reference_only.requires_uri",
 		},
 		{
 			"LicenseTerm/cel/one_restriction_per_kind",
-			&rampv1.LicenseTerm{
-				Semantics: rampv1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+			&forav1.LicenseTerm{
+				Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
 				Pricing:   freePricing,
-				Restrictions: []*rampv1.Restriction{
-					{Kind: rampv1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"ai-input"}},
-					{Kind: rampv1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"ai-train"}},
+				Restrictions: []*forav1.Restriction{
+					{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"ai-input"}},
+					{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"ai-train"}},
 				},
 			},
 			"license_term.one_restriction_per_kind",

@@ -1,15 +1,15 @@
-# sdk/python — RAMP SDK (ADR-020 tree sdk/{go,ts,python}/).
+# sdk/python — FORA SDK (ADR-020 tree sdk/{go,ts,python}/).
 #
-# The `ramp_sdk` import package bundles BOTH tiers in one distribution:
+# The `fora_sdk` import package bundles BOTH tiers in one distribution:
 #   L1 — stateless, IO-free protocol mechanics (thumbprint, signed-URL verify,
 #        RFC 9421 sign/verify + PoP, offer-acceptance, cross-field validation),
 #        byte-parity-guarded against the sdk/go oracle. This tier's IMPORT surface
-#        (ramp_sdk.core and the signing primitives) pulls no third-party HTTP
+#        (fora_sdk.core and the signing primitives) pulls no third-party HTTP
 #        client — it is dependency-free at the import level.
 #   L2 — the two IO-bearing trees, which DO take a maintained HTTP client
-#        (httpx/httpcore): the fetching resolvers (ramp_sdk.resolvers) for the WBA /
-#        well-known directory GETs, and the client (ramp_sdk.client, with
-#        ramp_sdk.sync as its blocking facade) for the RAMP RPCs and the delivery
+#        (httpx/httpcore): the fetching resolvers (fora_sdk.resolvers) for the WBA /
+#        well-known directory GETs, and the client (fora_sdk.client, with
+#        fora_sdk.sync as its blocking facade) for the FORA RPCs and the delivery
 #        fetch. The client refuses redirects where the resolvers follow them under a
 #        cap: every leg it dials carries a credential.
 # Because the two ship as one package, httpx/httpcore are HARD [project]
@@ -54,16 +54,16 @@ select = [
 # object or fewer returns would obscure the RFC 9421 / offer-acceptance contract
 # these functions transcribe. PLR0913 (arg count) and PLR0911 (return count) are
 # waived for exactly these crypto-primitive modules.
-"ramp_sdk/httpsig.py" = ["PLR0913", "PLR0911"]
+"fora_sdk/httpsig.py" = ["PLR0913", "PLR0911"]
 # The framework-agnostic server-verify entry mirrors the Go connectserver contract:
 # its keyword-only surface (method/url/body/headers + the injected resolver/replay
 # store/clock/ttl) is pinned by the parity test, and each fail-closed reject reason
 # (bad input, missing covered component, unresolvable key, crypto/window failure,
 # replay) is its own early return mirroring classify.go. Condensing either into a
 # params object or fewer returns would obscure the RFC 9421 verify contract it ports.
-"ramp_sdk/server_verify.py" = ["PLR0913", "PLR0911"]
-"ramp_sdk/pop.py" = ["PLR0913", "PLR0911"]
-"ramp_sdk/signedurl.py" = ["PLR0911"]
+"fora_sdk/server_verify.py" = ["PLR0913", "PLR0911"]
+"fora_sdk/pop.py" = ["PLR0913", "PLR0911"]
+"fora_sdk/signedurl.py" = ["PLR0911"]
 # The registration-schema face is three lexical scanners and a cost walk, and each is
 # a state machine whose branch and early-return count IS the rule it transcribes: the
 # pattern alphabet refuses a dozen distinct constructs, the cost walk charges each
@@ -71,22 +71,22 @@ select = [
 # way a reference can miss. All of them are pinned case-by-case by the shared
 # Go-oracle corpus, so condensing them into table lookups or fewer returns would move
 # the rule away from the place a reader checks it against the contract text.
-"ramp_sdk/regschema.py" = ["PLR0911", "PLR0912"]
-"ramp_sdk/acceptance.py" = ["PLR0913"]
+"fora_sdk/regschema.py" = ["PLR0911", "PLR0912"]
+"fora_sdk/acceptance.py" = ["PLR0913"]
 # CallError's constructor IS the client's failure contract: the class, the verb, and the
 # four things a caller branches on (status, the peer's reason token, the typed detail, the
 # cause). Every one of them is asserted by name in the client suite and by the Go oracle's
 # own CallError, so folding them into an options object would hide the contract behind a
 # second type that exists only to satisfy an argument count. PLR0913 is waived for exactly
 # this constructor.
-"ramp_sdk/client/errors.py" = ["PLR0913"]
+"fora_sdk/client/errors.py" = ["PLR0913"]
 # The L2 core mirrors the same crypto-primitive shape: the offer-verify _check
 # walks each fail-closed rejection reason as its own early return (resolver-miss,
 # bad-hex, sig-invalid, expired), and the acceptance verify keeps the four
 # offer/requester/idempotency binding fields as keyword args pinned by the shared
 # JCS oracle vectors. Condensing either would obscure the ADR-020 §4 contract.
 # PLR0911 (return count) and PLR0913 (arg count) are waived for exactly this module.
-"ramp_sdk/core.py" = ["PLR0911", "PLR0913"]
+"fora_sdk/core.py" = ["PLR0911", "PLR0913"]
 # The WBA resolver's constructor mirrors the Go WBAKeyResolverOptions: each of its
 # keyword-only seams (scheme/ttl/poll_interval/now/after/on_poll_armed/
 # on_poll_cycle/http) is an INDEPENDENT injection point pinned by the parity tests
@@ -94,7 +94,7 @@ select = [
 # cannot collapse into an options object without breaking the call sites the tests
 # fix. The poll jitter is not security-sensitive (mirrors Go math/rand). PLR0913
 # (arg count) and S311 (non-crypto random) are waived for exactly this module.
-"ramp_sdk/resolvers/wba.py" = ["PLR0913", "S311"]
+"fora_sdk/resolvers/wba.py" = ["PLR0913", "S311"]
 # SigningTransport exposes the sign-window seam as an INJECTION point: signer_seed
 # and keyid are identity, now/ttl_sec are the default clock+TTL, signature_agent is
 # the covered directory, and window is the injectable Window (mirroring the Go
@@ -102,7 +102,7 @@ select = [
 # signatures' expires cutoffs unique). Each is an independent seam the deterministic
 # regression pin fixes; collapsing them into an options object would break those
 # call sites. PLR0913 (arg count) is waived for exactly this constructor.
-"ramp_sdk/signing_transport.py" = ["PLR0913"]
+"fora_sdk/signing_transport.py" = ["PLR0913"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -110,7 +110,7 @@ strict = true
 mypy_path = "../../gen/python"
 # gen/python/wire/models.py is generated (buf/datamodel-codegen) and uses
 # constr(...)/conint(...) call-form annotations mypy flags; it is exempt (generated
-# code), so imports of it are type-checked silently — ramp_sdk's own surface stays
+# code), so imports of it are type-checked silently — fora_sdk's own surface stays
 # under full --strict.
 follow_imports = "silent"
 [build-system]
@@ -118,9 +118,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ramp-protocol-sdk"
+name = "fora-protocol-sdk"
 version = "0.0.0"
-description = "RAMP L1 protocol-mechanics helpers (thumbprint, signed-URL, RFC 9421 sign/verify + PoP, offer-acceptance, key-resolution). GREENFIELD — under construction."
+description = "FORA L1 protocol-mechanics helpers (thumbprint, signed-URL, RFC 9421 sign/verify + PoP, offer-acceptance, key-resolution). GREENFIELD — under construction."
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 dependencies = [
@@ -128,8 +128,8 @@ dependencies = [
   # Maintained HTTP client for the L2 fetching resolvers (WBA / well-known
   # directory GETs). It owns the response state machine (status, redirects, 1xx,
   # decompression) so the SDK never hand-rolls a transport; the SSRF guard is
-  # injected as an httpx transport (ramp_sdk.resolvers.ssrf_guard). The pure
-  # signing core (ramp_sdk.signing_transport) remains transport-neutral and
+  # injected as an httpx transport (fora_sdk.resolvers.ssrf_guard). The pure
+  # signing core (fora_sdk.signing_transport) remains transport-neutral and
   # imports no httpx — the dependency is scoped to the I/O layer.
   # Upper bounds are load-bearing, not hygiene: the SSRF guard attaches by
   # assigning transport._pool._network_backend — httpx/httpcore PRIVATE internals.
@@ -148,7 +148,7 @@ dependencies = [
   # canonicalizer half of the cross-language signing primitive.
   "rfc8785>=0.1.2",
   # Draft 2020-12 validation for the Exchange-published registration schema
-  # (ramp_sdk.regschema). Vetted rather than hand-rolled for the same reason as the
+  # (fora_sdk.regschema). Vetted rather than hand-rolled for the same reason as the
   # canonicalizer above; the floor is 4.23 because the `referencing` rewrite landed
   # in 4.18 and this SDK relies on an unresolvable reference FAILING rather than
   # being fetched. That backstop is belt-and-braces — regschema refuses a reference
@@ -161,11 +161,11 @@ dependencies = [
 test = [
   "pytest>=8",
   # jsonschema ships no inline annotations, so the stub package is what keeps
-  # ramp_sdk.regschema under the same --strict bar as the rest of the surface.
+  # fora_sdk.regschema under the same --strict bar as the rest of the surface.
   "types-jsonschema>=4.23",
 ]
 # The ASGI server-binding extra (FastAPI/Starlette) is deferred with its binding.
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["ramp_sdk*"]
+include = ["fora_sdk*"]

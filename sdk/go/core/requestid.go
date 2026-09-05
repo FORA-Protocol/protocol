@@ -22,7 +22,7 @@ type RequestIDFunc func() string
 func DefaultRequestID() string {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
-		return "ramp-req"
+		return "fora-req"
 	}
 	return hex.EncodeToString(b)
 }

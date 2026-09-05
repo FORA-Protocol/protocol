@@ -3,10 +3,10 @@ package helpers
 import (
 	"sort"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
-// Scopes / entitlements (ADR-020 §5, ramp-sdk-api.md "Scopes / entitlements").
+// Scopes / entitlements (ADR-020 §5, fora-sdk-api.md "Scopes / entitlements").
 // The subscriptions/entitlements a requester holds are a SUPPLIED credential:
 // the application hands the SDK what it holds and the SDK plumbs it into the
 // request (Requester.scopes / Delegation.scopes). The caller never constructs an
@@ -47,7 +47,7 @@ func NormalizeScopes(scopes []string) []string {
 
 // ApplyScopes sets the requester's held scopes (normalized). It is how the caller
 // supplies the entitlements it holds for a discover/resolve call.
-func ApplyScopes(r *rampv1.Requester, scopes ...string) {
+func ApplyScopes(r *forav1.Requester, scopes ...string) {
 	if r == nil {
 		return
 	}

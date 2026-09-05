@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 116 symbols at cross-language parity · 14 documented divergences · 174 Go-idiomatic exclusions · 33 conformance corpora, each tri-replayed.
+**At a glance:** 117 symbols at cross-language parity · 14 documented divergences · 174 Go-idiomatic exclusions · 33 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -94,6 +94,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `VerifyOfferAcceptance` | `verify_offer_acceptance_jcs` | `verifyOfferAcceptance` |
 | `VerifyRequest` | `verify_request` | `verifyRequestServer` |
 | `VerifyURLEd25519` | `verify_ed25519_signed_url` | `verifyEd25519SignedUrl` |
+| `WellKnownPath` | `WellKnownPath` | `WellKnownPath` |
 
 ### resolvers — L2 I/O (key/endpoint resolution, active-key, SSRF-guarded fetch)
 
@@ -146,7 +147,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | Go | python | ts |
 |---|---|---|
 | `BrokerClient` | `BrokerClient` | `BrokerClient` |
-| `CallError` | `CallError` | `RampCallError` |
+| `CallError` | `CallError` | `ForaCallError` |
 | `CallErrorKind` | `CallErrorKind` | `CallErrorKind` |
 | `Client` | `Client` | `Client` |
 | `DefaultCallTimeout` | `DEFAULT_CALL_TIMEOUT_SEC` | `DEFAULT_CALL_TIMEOUT_MS` |

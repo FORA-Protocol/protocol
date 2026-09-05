@@ -8,7 +8,7 @@ package resolvers
 // scheme) fails the parity suite instead of shipping as a single-language bypass.
 //
 // Verification no-op by default (asserts the committed files match a fresh emit);
-// (re)writes them under RAMP_UPDATE_VECTORS=1. This is TEST INFRASTRUCTURE. It
+// (re)writes them under FORA_UPDATE_VECTORS=1. This is TEST INFRASTRUCTURE. It
 // lives in the resolvers (L2) package because the SSRF guard it self-checks lives
 // here, alongside the transport that applies it.
 
@@ -213,7 +213,7 @@ func buildSSRFHostSetVectors(t *testing.T) []ssrfHostSetVector {
 
 // TestGenerateSSRFVectors emits the shared SSRF address + scheme + redirect +
 // host-set corpora. Verification no-op by default, (re)writes under
-// RAMP_UPDATE_VECTORS=1.
+// FORA_UPDATE_VECTORS=1.
 func TestGenerateSSRFVectors(t *testing.T) {
 	docs := []struct {
 		file string
@@ -231,7 +231,7 @@ func TestGenerateSSRFVectors(t *testing.T) {
 			t.Fatalf("marshal %s: %v", path, err)
 		}
 		want = append(want, '\n')
-		if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+		if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 			if err := os.WriteFile(path, want, 0o644); err != nil { //nolint:gosec // committed test vector
 				t.Fatalf("write %s: %v", path, err)
 			}
@@ -242,7 +242,7 @@ func TestGenerateSSRFVectors(t *testing.T) {
 			t.Fatalf("read %s: %v", path, err)
 		}
 		if string(got) != string(want) {
-			t.Fatalf("%s is stale; re-run with RAMP_UPDATE_VECTORS=1 to regenerate", path)
+			t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", path)
 		}
 	}
 }

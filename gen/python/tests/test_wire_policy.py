@@ -26,7 +26,7 @@ from pydantic import BaseModel, ValidationError
 from wire.base import JSON_NAME_ALIAS_ERROR
 from wire.models import Offer, ResourceResponse, TransactionResponse, UsageReportResponse
 
-# Captured from connectserver.EmitUnpopulatedJSONCodec() — the codec a RAMP deployment
+# Captured from connectserver.EmitUnpopulatedJSONCodec() — the codec a FORA deployment
 # registers. Every unset message field is `null`.
 CODEC_BODIES: list[tuple[str, type[BaseModel], str]] = [
     (

@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 // The shape both discovery verbs return.
@@ -33,14 +33,14 @@ type OfferGroupResult struct {
 	// existence of a resource must itself stay hidden, a responder MAY withhold
 	// the reason rather than confirm the resource exists. Distinguishing "absent"
 	// from the unspecified enum value is why this is a pointer.
-	AbsenceReason *rampv1.OfferAbsenceReason
+	AbsenceReason *forav1.OfferAbsenceReason
 	// DiscoveryMethod is how the responder found this URI, when it said.
-	DiscoveryMethod *rampv1.DiscoveryMethod
+	DiscoveryMethod *forav1.DiscoveryMethod
 	// RestrictionFilters names the restriction axes that drove a convenience
 	// pre-filter, when the absence reason is a restriction filter. Advisory
 	// diagnostics, not an enforcement verdict — but they tell an agent which axis
 	// to vary on a retry.
-	RestrictionFilters []rampv1.RestrictionKind
+	RestrictionFilters []forav1.RestrictionKind
 	// Result is the fail-closed split for this URI's offers.
 	Result
 }
@@ -57,7 +57,7 @@ type DiscoveryResult struct {
 	// Only a Broker resolve can set it: the Exchange's own discovery response has
 	// no whole-call reason field, so from Discover this is always nil and the
 	// per-URI groups carry everything the responder said.
-	AbsenceReason *rampv1.OfferAbsenceReason
+	AbsenceReason *forav1.OfferAbsenceReason
 	// Exchange is the canonical domain of the responding Exchange. Empty from a
 	// Broker resolve, whose response names no single Exchange — each offer carries
 	// its own issuing domain.
@@ -65,7 +65,7 @@ type DiscoveryResult struct {
 	// RateLimit is the caller's rate-limit standing, when the responder reported
 	// it, so an agent can throttle before a fan-out meets a hard limit. Nil from a
 	// Broker resolve, whose message has no such field.
-	RateLimit *rampv1.RateLimitInfo
+	RateLimit *forav1.RateLimitInfo
 }
 
 // Verified flattens every verified offer across all groups, for a caller that
@@ -100,7 +100,7 @@ func (d DiscoveryResult) Rejected() []RejectedOffer {
 // One Verifier sorts every group deliberately: it is stateless apart from the
 // injected resolver and clock, so a fresh one per group would mean N resolver
 // caches and N clock readings for a single logical answer.
-func (v Verifier) SortGroups(ctx context.Context, groups []*rampv1.OfferGroup) []OfferGroupResult {
+func (v Verifier) SortGroups(ctx context.Context, groups []*forav1.OfferGroup) []OfferGroupResult {
 	if len(groups) == 0 {
 		return nil
 	}

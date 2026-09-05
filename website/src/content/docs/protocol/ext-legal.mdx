@@ -1,11 +1,11 @@
 ---
-title: "Extension: ramp-legal-v1"
+title: "Extension: fora-legal-v1"
 description: "Legislation, case law, and patents extension profile — field vocabulary, conformance levels, and examples"
 ---
 
 ## Overview
 
-The RAMP-Legal v1 extension profile defines a vocabulary for the `ext` fields in RAMP protocol messages, enabling Exchanges, Brokers, and AI agents to discover, compare, transact, and verify legal content across three sub-domains:
+The FORA-Legal v1 extension profile defines a vocabulary for the `ext` fields in FORA protocol messages, enabling Exchanges, Brokers, and AI agents to discover, compare, transact, and verify legal content across three sub-domains:
 
 - **Legislation** -- EU regulations, directives, and decisions; US statutes and bills; UK acts; national laws. Supports amendment chains, point-in-time consolidation, and the EU's 24-language all-authentic model.
 - **Case law** -- US federal court filings (PACER/CM/ECF), EU Court of Justice decisions, national court opinions. Supports sealed access, citation treatment signals, and docket container navigation.
@@ -30,14 +30,14 @@ Every field in this profile traces to an existing industry standard (ELI, CELEX,
 
 ## Profile Declaration
 
-A Exchange declares support for this profile by including `"ramp-legal-v1"` in the `supported_profiles` field of its `WellKnownManifest` (`role=ROLE_EXCHANGE`):
+A Exchange declares support for this profile by including `"fora-legal-v1"` in the `supported_profiles` field of its `WellKnownManifest` (`role=ROLE_EXCHANGE`):
 
 ```json
 {
   "ver": "1.0",
   "domain": "legal.example.com",
   "name": "Legal Document Exchange",
-  "supported_profiles": ["ramp-legal-v1"],
+  "supported_profiles": ["fora-legal-v1"],
   "ext": {
     "legal.jurisdictions": ["EU", "US", "GB"],
     "legal.sub_domains": ["legislation", "case_law", "patents"]
@@ -216,7 +216,7 @@ These fields appear in `DisputeRequest.ext` to provide domain-specific evidence 
 
 ### Document lifecycle
 
-EU legislation follows a lifecycle from proposal to repeal. RAMP-Legal models this through the offer metadata fields:
+EU legislation follows a lifecycle from proposal to repeal. FORA-Legal models this through the offer metadata fields:
 
 ```
 Bill (status=pending) --> Adopted (in_force=in_force, consolidation_status=original)
@@ -243,9 +243,9 @@ The `ResourceMutability` for published official legislation is `STATIC` (the Off
 
 ### ELI FRBR levels
 
-ELI distinguishes three FRBR levels. RAMP maps these to separate offers:
+ELI distinguishes three FRBR levels. FORA maps these to separate offers:
 
-| FRBR Level | ELI term | RAMP representation |
+| FRBR Level | ELI term | FORA representation |
 |------------|----------|---------------------|
 | Work | `eli:LegalResource` | The abstract act, identified by `legal.legislation.eli` at the Work level. |
 | Expression | `eli:LegalExpression` | A language version, identified by `legal.language` + `legal.legislation.version_date`. Each expression is a separate Offer. |
@@ -257,7 +257,7 @@ ELI distinguishes three FRBR levels. RAMP maps these to separate offers:
 
 ### US federal court filings
 
-A US federal case is a container (docket) with many filings. RAMP models each filing as a separate resource (separate URI, separate Offer), with the docket number as a linking key:
+A US federal case is a container (docket) with many filings. FORA models each filing as a separate resource (separate URI, separate Offer), with the docket number as a linking key:
 
 - **Docket container**: Not an offer itself, but discoverable via `legal.case.docket_number`. The Broker queries with this docket number and receives offers for individual filings.
 - **Individual filing**: Each filing has its own URI. `legal.case.document_number` identifies it within the docket. `legal.case.filing_type` describes what kind of filing it is.
@@ -266,7 +266,7 @@ A US federal case is a container (docket) with many filings. RAMP models each fi
 
 Court-restricted documents use `legal.case.access_level`:
 
-| Value | Meaning | RAMP behavior |
+| Value | Meaning | FORA behavior |
 |-------|---------|---------------|
 | `public` | Available to all. | Normal transaction flow. |
 | `sealed` | Not available; court order required. | Exchange returns `CONTENT_BLOCKED` as `OfferAbsenceReason`. |
@@ -770,7 +770,7 @@ The agent sees the progression: A1 (published application) -> B1 (granted, now s
 
 An agent requested the German version of an EU directive but received French:
 
-{/* ramp-validate: DisputeRequest */}
+{/* fora-validate: DisputeRequest */}
 ```json
 {
   "ver": "1.0",
@@ -792,7 +792,7 @@ An agent requested the German version of an EU directive but received French:
 
 An agent requested legislation consolidated as of 2024-01-15 but received a version consolidated only through 2020-06-01:
 
-{/* ramp-validate: DisputeRequest */}
+{/* fora-validate: DisputeRequest */}
 ```json
 {
   "ver": "1.0",

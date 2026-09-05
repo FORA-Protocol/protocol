@@ -8,10 +8,10 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
-	"github.com/RAMP-Protocol/protocol/sdk/go/resolvers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
 // defaultProofWindow is how long a delivery-fetch proof stays valid.
@@ -24,7 +24,7 @@ const defaultProofWindow = 30 * time.Second
 // edgeErrorDomain is the ErrorDetail domain for a refusal by a delivery edge. It
 // is the failing surface, not the fetched resource: the field is a stable
 // grouping key for tooling, so it names the tier that refused.
-const edgeErrorDomain = "ramp.v1.Edge"
+const edgeErrorDomain = "fora.v1.Edge"
 
 // ReportUsage files a usage report with the Exchange that ISSUED the offer —
 // never through a Broker, and never to an address from configuration.
@@ -47,7 +47,7 @@ const edgeErrorDomain = "ramp.v1.Edge"
 // one pinned with WithIdempotencyKey, is left alone. That distinction matters: an
 // application that mints its own key for its own dedup would otherwise have it
 // silently discarded and see every retry counted as a second report.
-func (c *Client) ReportUsage(ctx context.Context, report *rampv1.UsageReport, opts ...CallOption) (*rampv1.UsageReportResponse, error) {
+func (c *Client) ReportUsage(ctx context.Context, report *forav1.UsageReport, opts ...CallOption) (*forav1.UsageReportResponse, error) {
 	const op = "report usage"
 	if report == nil {
 		return nil, malformed(op, errors.New("report is nil"))
@@ -85,7 +85,7 @@ func (c *Client) ReportUsage(ctx context.Context, report *rampv1.UsageReport, op
 // The dispute chain is a structural invariant: an agent must have filed a usage
 // report and received a report_id before it can dispute, so req.ReportId and
 // req.TransactionId both name links the Exchange already holds.
-func (c *Client) Dispute(ctx context.Context, req *rampv1.DisputeRequest, opts ...CallOption) (*rampv1.DisputeResponse, error) {
+func (c *Client) Dispute(ctx context.Context, req *forav1.DisputeRequest, opts ...CallOption) (*forav1.DisputeResponse, error) {
 	const op = "dispute"
 	if req == nil {
 		return nil, malformed(op, errors.New("request is nil"))

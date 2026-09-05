@@ -1,6 +1,6 @@
 package helpers_test
 
-// Structural SSOT guard for the RAMP protocol version — the Go analogue of the
+// Structural SSOT guard for the FORA protocol version — the Go analogue of the
 // reference implementation's own Ver-SSOT guard, lifted here because this is the
 // repository that DEFINES the wire and therefore the only place the value can be
 // owned once.
@@ -24,7 +24,7 @@ package helpers_test
 //
 // Scope note: this binds what this project emits. It cannot bind a third party —
 // `ver` carries no protovalidate rule and is advisory on receive by design. See
-// "Protocol version" in ramp.proto for that decision and its reasoning.
+// "Protocol version" in fora.proto for that decision and its reasoning.
 
 import (
 	"io/fs"
@@ -42,7 +42,7 @@ import (
 //
 // The struct-literal form is the whole scope, and widening it is not free: a
 // matcher that also read `x.Ver = "…"` would flag WellKnownManifest.Ver, whose
-// quoted literal is CORRECT — that field versions the /.well-known/ramp.json
+// quoted literal is CORRECT — that field versions the /.well-known/fora.json
 // document schema, a separate namespace stated MUST-equal and deliberately not
 // stamped from ProtocolVersion. Widening therefore needs a message-level
 // carve-out, not a looser regex.
@@ -101,9 +101,9 @@ func TestProtocolVersionSSOT_NoBareVerLiteral(t *testing.T) {
 
 func TestProtocolVersionSSOT_MetaPositive(t *testing.T) {
 	for _, src := range []string{
-		`&rampv1.TransactionResponse{Ver: "1.0"}`,
-		`&rampv1.ResourceQuery{Ver:"1.0"}`,
-		`msg := rampv1.UsageReport{Ver: "0.3", IdempotencyKey: k}`,
+		`&forav1.TransactionResponse{Ver: "1.0"}`,
+		`&forav1.ResourceQuery{Ver:"1.0"}`,
+		`msg := forav1.UsageReport{Ver: "0.3", IdempotencyKey: k}`,
 	} {
 		if !stampsBareVerLiteral(src) {
 			t.Errorf("detector missed a bare Ver literal: %q", src)
@@ -113,8 +113,8 @@ func TestProtocolVersionSSOT_MetaPositive(t *testing.T) {
 
 func TestProtocolVersionSSOT_MetaNegative(t *testing.T) {
 	for _, src := range []string{
-		`&rampv1.TransactionResponse{Ver: helpers.ProtocolVersion}`,
-		`&rampv1.TransactionResponse{Ver: req.GetVer()}`,
+		`&forav1.TransactionResponse{Ver: helpers.ProtocolVersion}`,
+		`&forav1.TransactionResponse{Ver: req.GetVer()}`,
 		`ProtocolVersion = "1.0"`,                // the declaration itself
 		`v := Verifier{Name: "x"}`,               // Verifier, not Ver
 		`o := VerifiedOffer{Signature: "sig"}`,   // VerifiedOffer, not Ver

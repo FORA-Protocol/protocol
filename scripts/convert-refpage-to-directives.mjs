@@ -8,7 +8,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { loadSchema } from '../website/plugins/proto-schema.mjs';
 
-const REF = new URL('../website/src/content/docs/reference/proto-ramp.mdx', import.meta.url);
+const REF = new URL('../website/src/content/docs/reference/proto-fora.mdx', import.meta.url);
 const apply = process.argv.includes('--apply');
 const { messages, services } = loadSchema();
 
@@ -43,5 +43,5 @@ for (let i = 0; i < lines.length; i++) {
 }
 
 console.log(`tables replaced: ${replaced} (messages+services)`);
-if (apply) { writeFileSync(REF, out.join('\n')); console.log('proto-ramp.mdx updated.'); }
+if (apply) { writeFileSync(REF, out.join('\n')); console.log('proto-fora.mdx updated.'); }
 else console.log('(dry run — re-run with --apply)');

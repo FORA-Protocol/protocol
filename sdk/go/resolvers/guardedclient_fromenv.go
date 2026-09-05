@@ -2,7 +2,7 @@ package resolvers
 
 // The ONE env-driven, best-effort SSRF-guarded HTTP client factory.
 //
-// NewGuardedClientFromEnv is the single public construction path every RAMP
+// NewGuardedClientFromEnv is the single public construction path every FORA
 // consumer uses for ANY third-party-influenceable fetch (WBA directory, content,
 // usage-report POST, well-known probe). Its behavior is driven by two orthogonal
 // env flags — nothing else. There is no deployment-stack allow-list, no config

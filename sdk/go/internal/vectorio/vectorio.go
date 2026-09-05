@@ -32,7 +32,7 @@ func Marshal(v any) ([]byte, error) {
 	return append(b, '\n'), nil
 }
 
-// Write replaces the corpus at path with v. Used only under RAMP_UPDATE_VECTORS=1.
+// Write replaces the corpus at path with v. Used only under FORA_UPDATE_VECTORS=1.
 func Write(path string, v any) error {
 	b, err := Marshal(v)
 	if err != nil {

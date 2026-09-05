@@ -177,7 +177,7 @@ sequenceDiagram
 
 | Delivery node | Enforces binding? | Behavior |
 |---|---|---|
-| Edge function (Cloudflare Workers, Lambda@Edge, Fastly Compute) | Yes | Full steps 1-4. RAMP reference implementations run here and **do** enforce. |
+| Edge function (Cloudflare Workers, Lambda@Edge, Fastly Compute) | Yes | Full steps 1-4. FORA reference implementations run here and **do** enforce. |
 | Bearer-only signed-URL CDN (CloudFront / S3 presigned, native Fastly) | No | Validates its own HMAC + expiry only; falls back to **HMAC + short TTL + TLS**. |
 
 Cost budget on a capable edge: HMAC-SHA256 (µs) + SHA-256 thumbprint (µs) + one Ed25519 verify (~50-100 µs) ≪ 1 ms, no socket. Because the RFC 9421 signature covers `@target-uri` + `created`, a captured fetch signature cannot be replayed against a different URL or outside the short TTL.

@@ -13,7 +13,7 @@ package resolvers_test
 //
 // DETERMINISM: every key is derived from a FIXED seed and every instant is a
 // FIXED constant, so re-running reproduces byte-identical output. Default
-// `go test` asserts the committed file matches a fresh emit; RAMP_UPDATE_VECTORS=1
+// `go test` asserts the committed file matches a fresh emit; FORA_UPDATE_VECTORS=1
 // rewrites it (same drift-gate shape as gen_vectors_test.go).
 
 import (
@@ -25,8 +25,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
-	"github.com/RAMP-Protocol/protocol/sdk/go/resolvers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
 // revMembershipJWK is one served directory key (snake_case, protojson shape).
@@ -127,13 +127,13 @@ func assertRevMembershipSemantics(t *testing.T, cases []revMembershipCase) {
 
 // TestGenerateRevocationMembershipVector emits the revocation-membership golden
 // vector. Default run asserts the committed file is byte-identical to a fresh
-// emit; RAMP_UPDATE_VECTORS=1 rewrites it.
+// emit; FORA_UPDATE_VECTORS=1 rewrites it.
 func TestGenerateRevocationMembershipVector(t *testing.T) {
 	t.Parallel()
 	vec := buildRevocationMembershipVector(t)
 	path := filepath.Join("testdata", "revocation-membership-vectors.json")
 
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		writeRevMembershipVector(t, path, vec)
 		return
 	}
@@ -147,7 +147,7 @@ func TestGenerateRevocationMembershipVector(t *testing.T) {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	if string(got) != string(want) {
-		t.Fatalf("%s is stale; re-run with RAMP_UPDATE_VECTORS=1 to regenerate", path)
+		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", path)
 	}
 }
 

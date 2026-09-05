@@ -13,13 +13,13 @@ import (
 	connectrpc "connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/gen/go/ramp/v1/rampv1connect"
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
-	rampserver "github.com/RAMP-Protocol/protocol/sdk/go/connectserver"
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
-	"github.com/RAMP-Protocol/protocol/sdk/go/resolvers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	foraserver "github.com/FORA-Protocol/protocol/sdk/go/connectserver"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
 // The four verbs this SDK was missing, plus the two shipped ones it had to fix,
@@ -33,18 +33,18 @@ import (
 // groupExchange serves a ResourceResponse in whichever offer representation a
 // test needs, and records the report and dispute it received.
 type groupExchange struct {
-	rampv1connect.UnimplementedExchangeServiceHandler
-	groups []*rampv1.OfferGroup
-	flat   []*rampv1.Offer
+	forav1connect.UnimplementedExchangeServiceHandler
+	groups []*forav1.OfferGroup
+	flat   []*forav1.Offer
 
-	gotReport  *rampv1.UsageReport
-	gotDispute *rampv1.DisputeRequest
+	gotReport  *forav1.UsageReport
+	gotDispute *forav1.DisputeRequest
 }
 
 func (g *groupExchange) DiscoverResources(
-	_ context.Context, _ *connectrpc.Request[rampv1.ResourceQuery],
-) (*connectrpc.Response[rampv1.ResourceResponse], error) {
-	return connectrpc.NewResponse(&rampv1.ResourceResponse{
+	_ context.Context, _ *connectrpc.Request[forav1.ResourceQuery],
+) (*connectrpc.Response[forav1.ResourceResponse], error) {
+	return connectrpc.NewResponse(&forav1.ResourceResponse{
 		Exchange:    "exchange.test",
 		Offers:      g.flat,
 		OfferGroups: g.groups,
@@ -52,41 +52,41 @@ func (g *groupExchange) DiscoverResources(
 }
 
 func (g *groupExchange) ReportUsage(
-	_ context.Context, req *connectrpc.Request[rampv1.UsageReport],
-) (*connectrpc.Response[rampv1.UsageReportResponse], error) {
+	_ context.Context, req *connectrpc.Request[forav1.UsageReport],
+) (*connectrpc.Response[forav1.UsageReportResponse], error) {
 	g.gotReport = req.Msg
-	return connectrpc.NewResponse(&rampv1.UsageReportResponse{
+	return connectrpc.NewResponse(&forav1.UsageReportResponse{
 		Ver: helpers.ProtocolVersion, ReportId: "report-1",
 	}), nil
 }
 
 func (g *groupExchange) DisputeTransaction(
-	_ context.Context, req *connectrpc.Request[rampv1.DisputeRequest],
-) (*connectrpc.Response[rampv1.DisputeResponse], error) {
+	_ context.Context, req *connectrpc.Request[forav1.DisputeRequest],
+) (*connectrpc.Response[forav1.DisputeResponse], error) {
 	g.gotDispute = req.Msg
-	return connectrpc.NewResponse(&rampv1.DisputeResponse{
+	return connectrpc.NewResponse(&forav1.DisputeResponse{
 		Ver: helpers.ProtocolVersion, DisputeId: proto.String("dispute-1"),
 	}), nil
 }
 
 // stubBroker serves one DiscoveryResponse.
 type stubBroker struct {
-	rampv1connect.UnimplementedBrokerServiceHandler
-	groups  []*rampv1.OfferGroup
-	absence *rampv1.OfferAbsenceReason
+	forav1connect.UnimplementedBrokerServiceHandler
+	groups  []*forav1.OfferGroup
+	absence *forav1.OfferAbsenceReason
 }
 
 func (b *stubBroker) Resolve(
-	_ context.Context, _ *connectrpc.Request[rampv1.DiscoveryRequest],
-) (*connectrpc.Response[rampv1.DiscoveryResponse], error) {
-	return connectrpc.NewResponse(&rampv1.DiscoveryResponse{
+	_ context.Context, _ *connectrpc.Request[forav1.DiscoveryRequest],
+) (*connectrpc.Response[forav1.DiscoveryResponse], error) {
+	return connectrpc.NewResponse(&forav1.DiscoveryResponse{
 		Ver: helpers.ProtocolVersion, OfferGroups: b.groups, AbsenceReason: b.absence,
 	}), nil
 }
 
-func serveExchange(t *testing.T, sig signingFixture, svc rampv1connect.ExchangeServiceHandler) *httptest.Server {
+func serveExchange(t *testing.T, sig signingFixture, svc forav1connect.ExchangeServiceHandler) *httptest.Server {
 	t.Helper()
-	path, h := rampserver.NewExchangeServiceHandler(svc, rampserver.WithKeyResolver(sig.resolver))
+	path, h := foraserver.NewExchangeServiceHandler(svc, foraserver.WithKeyResolver(sig.resolver))
 	mux := http.NewServeMux()
 	mux.Handle(path, h)
 	srv := httptest.NewServer(mux)
@@ -94,7 +94,7 @@ func serveExchange(t *testing.T, sig signingFixture, svc rampv1connect.ExchangeS
 	return srv
 }
 
-func absenceReason(r rampv1.OfferAbsenceReason) *rampv1.OfferAbsenceReason { return &r }
+func absenceReason(r forav1.OfferAbsenceReason) *forav1.OfferAbsenceReason { return &r }
 
 // ---------------------------------------------------------------------------
 // Discover: the two offer representations
@@ -106,22 +106,22 @@ func absenceReason(r rampv1.OfferAbsenceReason) *rampv1.OfferAbsenceReason { ret
 func TestDiscover_KeepsPerURIGroupsAndReasons(t *testing.T) {
 	sig := newSigningFixture(t)
 	offers := newOfferFixture(t)
-	srv := serveExchange(t, sig, &groupExchange{groups: []*rampv1.OfferGroup{
-		{Uri: "https://site.test/a", Offers: []*rampv1.Offer{offers.good}},
+	srv := serveExchange(t, sig, &groupExchange{groups: []*forav1.OfferGroup{
+		{Uri: "https://site.test/a", Offers: []*forav1.Offer{offers.good}},
 		{
 			Uri:           "https://site.test/b",
-			AbsenceReason: absenceReason(rampv1.OfferAbsenceReason_OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT),
+			AbsenceReason: absenceReason(forav1.OfferAbsenceReason_OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT),
 		},
 		{
 			Uri:                "https://site.test/c",
-			AbsenceReason:      absenceReason(rampv1.OfferAbsenceReason_OFFER_ABSENCE_REASON_RESTRICTION_FILTERED),
-			RestrictionFilters: []rampv1.RestrictionKind{rampv1.RestrictionKind_RESTRICTION_KIND_GEOGRAPHY},
+			AbsenceReason:      absenceReason(forav1.OfferAbsenceReason_OFFER_ABSENCE_REASON_RESTRICTION_FILTERED),
+			RestrictionFilters: []forav1.RestrictionKind{forav1.RestrictionKind_RESTRICTION_KIND_GEOGRAPHY},
 		},
 	}})
-	client := rampconnect.NewClient(srv.URL,
-		rampconnect.WithSigner(sig.signer), rampconnect.WithOfferKey(offers.exchangePub))
+	client := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(sig.signer), foraconnect.WithOfferKey(offers.exchangePub))
 
-	res, err := client.Discover(context.Background(), &rampv1.ResourceQuery{})
+	res, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err != nil {
 		t.Fatalf("Discover: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestDiscover_KeepsPerURIGroupsAndReasons(t *testing.T) {
 	// The refusal is an ANSWER: the agent can tell "acquire an entitlement and
 	// retry" from "give up" only because the reason survived.
 	if res.Groups[1].AbsenceReason == nil ||
-		*res.Groups[1].AbsenceReason != rampv1.OfferAbsenceReason_OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT {
+		*res.Groups[1].AbsenceReason != forav1.OfferAbsenceReason_OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT {
 		t.Errorf("group 1 absence reason = %v, want SCOPE_INSUFFICIENT", res.Groups[1].AbsenceReason)
 	}
 	if len(res.Groups[2].RestrictionFilters) != 1 {
@@ -154,13 +154,13 @@ func TestDiscover_GroupsWinOverTheFlatMirrorWithoutDoubleCounting(t *testing.T) 
 	sig := newSigningFixture(t)
 	offers := newOfferFixture(t)
 	srv := serveExchange(t, sig, &groupExchange{
-		groups: []*rampv1.OfferGroup{{Uri: "https://site.test/a", Offers: []*rampv1.Offer{offers.good}}},
-		flat:   []*rampv1.Offer{offers.good}, // the same offer, mirrored
+		groups: []*forav1.OfferGroup{{Uri: "https://site.test/a", Offers: []*forav1.Offer{offers.good}}},
+		flat:   []*forav1.Offer{offers.good}, // the same offer, mirrored
 	})
-	client := rampconnect.NewClient(srv.URL,
-		rampconnect.WithSigner(sig.signer), rampconnect.WithOfferKey(offers.exchangePub))
+	client := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(sig.signer), foraconnect.WithOfferKey(offers.exchangePub))
 
-	res, err := client.Discover(context.Background(), &rampv1.ResourceQuery{})
+	res, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err != nil {
 		t.Fatalf("Discover: %v", err)
 	}
@@ -178,12 +178,12 @@ func TestDiscover_GroupsWinOverTheFlatMirrorWithoutDoubleCounting(t *testing.T) 
 func TestDiscover_FlatFallback(t *testing.T) {
 	sig := newSigningFixture(t)
 	offers := newOfferFixture(t)
-	srv := serveExchange(t, sig, &groupExchange{flat: []*rampv1.Offer{offers.good}})
-	client := rampconnect.NewClient(srv.URL,
-		rampconnect.WithSigner(sig.signer), rampconnect.WithOfferKey(offers.exchangePub))
+	srv := serveExchange(t, sig, &groupExchange{flat: []*forav1.Offer{offers.good}})
+	client := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(sig.signer), foraconnect.WithOfferKey(offers.exchangePub))
 
 	single, err := client.Discover(context.Background(),
-		&rampv1.ResourceQuery{Uris: []string{"https://site.test/a"}})
+		&forav1.ResourceQuery{Uris: []string{"https://site.test/a"}})
 	if err != nil {
 		t.Fatalf("Discover: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestDiscover_FlatFallback(t *testing.T) {
 		t.Errorf("a single-URI flat answer takes that URI, got %+v", single.Groups)
 	}
 	multi, err := client.Discover(context.Background(),
-		&rampv1.ResourceQuery{Uris: []string{"https://site.test/a", "https://site.test/b"}})
+		&forav1.ResourceQuery{Uris: []string{"https://site.test/a", "https://site.test/b"}})
 	if err != nil {
 		t.Fatalf("Discover: %v", err)
 	}
@@ -209,20 +209,20 @@ func TestDiscover_FlatFallback(t *testing.T) {
 func TestExecute_SendsRequesterAndAVerifyingAcceptance(t *testing.T) {
 	sig := newSigningFixture(t)
 	offers := newOfferFixture(t)
-	origin := &groupExchange{groups: []*rampv1.OfferGroup{
-		{Uri: "https://site.test/a", Offers: []*rampv1.Offer{offers.good}},
+	origin := &groupExchange{groups: []*forav1.OfferGroup{
+		{Uri: "https://site.test/a", Offers: []*forav1.Offer{offers.good}},
 	}}
 	srv := serveExchange(t, sig, origin)
 
 	// One key signs the transport, the acceptance and any later fetch proof — the
 	// protocol carries a single agent identity, so the test uses a single key and
 	// verifies the acceptance against its public half.
-	client := rampconnect.NewClient(srv.URL,
-		rampconnect.WithSigner(sig.signer),
-		rampconnect.WithOfferKey(offers.exchangePub),
-		rampconnect.WithRequester(testRequester()),
+	client := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithOfferKey(offers.exchangePub),
+		foraconnect.WithRequester(testRequester()),
 	)
-	res, err := client.Discover(context.Background(), &rampv1.ResourceQuery{})
+	res, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err != nil {
 		t.Fatalf("Discover: %v", err)
 	}
@@ -230,12 +230,12 @@ func TestExecute_SendsRequesterAndAVerifyingAcceptance(t *testing.T) {
 
 	execOrigin := &recordingExecute{}
 	execSrv := serveExchange(t, sig, execOrigin)
-	execClient := rampconnect.NewClient(execSrv.URL,
-		rampconnect.WithSigner(sig.signer),
-		rampconnect.WithRequester(testRequester()),
+	execClient := foraconnect.NewClient(execSrv.URL,
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithRequester(testRequester()),
 	)
 	if _, err = execClient.Execute(context.Background(), verified,
-		rampconnect.WithIdempotencyKey("pinned-key")); err != nil {
+		foraconnect.WithIdempotencyKey("pinned-key")); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
 
@@ -268,21 +268,21 @@ func TestExecute_FailsClosedWithoutSendingAnything(t *testing.T) {
 	signedOffer := core.RejectedOffer{Offer: offers.good}.Unsafe()
 
 	tests := map[string]struct {
-		opts  []rampconnect.ClientOption
+		opts  []foraconnect.ClientOption
 		offer core.VerifiedOffer
 	}{
 		"no requester": {
-			[]rampconnect.ClientOption{rampconnect.WithSigner(sig.signer)}, signedOffer,
+			[]foraconnect.ClientOption{foraconnect.WithSigner(sig.signer)}, signedOffer,
 		},
 		"unsigned offer": {
-			[]rampconnect.ClientOption{
-				rampconnect.WithSigner(sig.signer), rampconnect.WithRequester(testRequester()),
+			[]foraconnect.ClientOption{
+				foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
 			}, unsigned,
 		},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			client := rampconnect.NewClient(srv.URL, tc.opts...)
+			client := foraconnect.NewClient(srv.URL, tc.opts...)
 			if _, err := client.Execute(context.Background(), tc.offer); err == nil {
 				t.Fatal("expected a refusal")
 			}
@@ -294,15 +294,15 @@ func TestExecute_FailsClosedWithoutSendingAnything(t *testing.T) {
 }
 
 type recordingExecute struct {
-	rampv1connect.UnimplementedExchangeServiceHandler
-	req *rampv1.TransactionRequest
+	forav1connect.UnimplementedExchangeServiceHandler
+	req *forav1.TransactionRequest
 }
 
 func (r *recordingExecute) ExecuteTransaction(
-	_ context.Context, req *connectrpc.Request[rampv1.TransactionRequest],
-) (*connectrpc.Response[rampv1.TransactionResponse], error) {
+	_ context.Context, req *connectrpc.Request[forav1.TransactionRequest],
+) (*connectrpc.Response[forav1.TransactionResponse], error) {
 	r.req = req.Msg
-	return connectrpc.NewResponse(&rampv1.TransactionResponse{Ver: helpers.ProtocolVersion}), nil
+	return connectrpc.NewResponse(&forav1.TransactionResponse{Ver: helpers.ProtocolVersion}), nil
 }
 
 // ---------------------------------------------------------------------------
@@ -312,23 +312,23 @@ func (r *recordingExecute) ExecuteTransaction(
 func TestBrokerResolve_SplitsThroughTheSameVerifier(t *testing.T) {
 	sig := newSigningFixture(t)
 	offers := newOfferFixture(t)
-	path, h := rampserver.NewBrokerServiceHandler(
-		&stubBroker{groups: []*rampv1.OfferGroup{{
+	path, h := foraserver.NewBrokerServiceHandler(
+		&stubBroker{groups: []*forav1.OfferGroup{{
 			Uri:    "https://site.test/a",
-			Offers: []*rampv1.Offer{offers.good, offers.doctored},
+			Offers: []*forav1.Offer{offers.good, offers.doctored},
 		}}},
-		rampserver.WithKeyResolver(sig.resolver),
+		foraserver.WithKeyResolver(sig.resolver),
 	)
 	mux := http.NewServeMux()
 	mux.Handle(path, h)
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	broker := rampconnect.NewBrokerClient(srv.URL,
-		rampconnect.WithSigner(sig.signer), rampconnect.WithOfferKey(offers.exchangePub),
-		rampconnect.WithRequester(testRequester()))
+	broker := foraconnect.NewBrokerClient(srv.URL,
+		foraconnect.WithSigner(sig.signer), foraconnect.WithOfferKey(offers.exchangePub),
+		foraconnect.WithRequester(testRequester()))
 	res, err := broker.Resolve(context.Background(),
-		&rampv1.DiscoveryRequest{Ver: helpers.ProtocolVersion})
+		&forav1.DiscoveryRequest{Ver: helpers.ProtocolVersion})
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -347,24 +347,24 @@ func TestBrokerResolve_SplitsThroughTheSameVerifier(t *testing.T) {
 // never an error.
 func TestBrokerResolve_WholeCallRefusalIsAnAnswer(t *testing.T) {
 	sig := newSigningFixture(t)
-	path, h := rampserver.NewBrokerServiceHandler(
-		&stubBroker{absence: absenceReason(rampv1.OfferAbsenceReason_OFFER_ABSENCE_REASON_NOT_AUTHORIZED)},
-		rampserver.WithKeyResolver(sig.resolver),
+	path, h := foraserver.NewBrokerServiceHandler(
+		&stubBroker{absence: absenceReason(forav1.OfferAbsenceReason_OFFER_ABSENCE_REASON_NOT_AUTHORIZED)},
+		foraserver.WithKeyResolver(sig.resolver),
 	)
 	mux := http.NewServeMux()
 	mux.Handle(path, h)
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	broker := rampconnect.NewBrokerClient(srv.URL, rampconnect.WithSigner(sig.signer),
-		rampconnect.WithRequester(testRequester()))
+	broker := foraconnect.NewBrokerClient(srv.URL, foraconnect.WithSigner(sig.signer),
+		foraconnect.WithRequester(testRequester()))
 	res, err := broker.Resolve(context.Background(),
-		&rampv1.DiscoveryRequest{Ver: helpers.ProtocolVersion})
+		&forav1.DiscoveryRequest{Ver: helpers.ProtocolVersion})
 	if err != nil {
 		t.Fatalf("a refusal must not be raised as an error: %v", err)
 	}
 	if res.AbsenceReason == nil ||
-		*res.AbsenceReason != rampv1.OfferAbsenceReason_OFFER_ABSENCE_REASON_NOT_AUTHORIZED {
+		*res.AbsenceReason != forav1.OfferAbsenceReason_OFFER_ABSENCE_REASON_NOT_AUTHORIZED {
 		t.Errorf("whole-call absence reason = %v, want NOT_AUTHORIZED", res.AbsenceReason)
 	}
 	if len(res.Groups) != 0 {
@@ -380,8 +380,8 @@ func TestBrokerResolve_WholeCallRefusalIsAnAnswer(t *testing.T) {
 func TestBrokerResolve_RefusesARequesterlessRequestLocally(t *testing.T) {
 	sig := newSigningFixture(t)
 	var hits atomic.Int64
-	path, h := rampserver.NewBrokerServiceHandler(
-		&stubBroker{}, rampserver.WithKeyResolver(sig.resolver))
+	path, h := foraserver.NewBrokerServiceHandler(
+		&stubBroker{}, foraserver.WithKeyResolver(sig.resolver))
 	mux := http.NewServeMux()
 	mux.Handle(path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hits.Add(1)
@@ -391,15 +391,15 @@ func TestBrokerResolve_RefusesARequesterlessRequestLocally(t *testing.T) {
 	defer srv.Close()
 
 	// Every option the face uses EXCEPT WithRequester.
-	broker := rampconnect.NewBrokerClient(srv.URL, rampconnect.WithSigner(sig.signer))
+	broker := foraconnect.NewBrokerClient(srv.URL, foraconnect.WithSigner(sig.signer))
 	_, err := broker.Resolve(context.Background(),
-		&rampv1.DiscoveryRequest{Ver: helpers.ProtocolVersion})
+		&forav1.DiscoveryRequest{Ver: helpers.ProtocolVersion})
 
-	var cerr *rampconnect.CallError
+	var cerr *foraconnect.CallError
 	if !errors.As(err, &cerr) {
 		t.Fatalf("error = %v, want a CallError", err)
 	}
-	if cerr.Kind != rampconnect.CallMalformed {
+	if cerr.Kind != foraconnect.CallMalformed {
 		t.Errorf("kind = %v, want CallMalformed — the request is unsendable, not refused", cerr.Kind)
 	}
 	if !strings.Contains(err.Error(), "WithRequester") {
@@ -415,14 +415,14 @@ func TestBrokerResolve_RefusesARequesterlessRequestLocally(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // selfAdvertisingExchange stands up ONE host serving both the Exchange's RPC
-// endpoint and its own /.well-known/ramp.json — which is what a real Exchange
+// endpoint and its own /.well-known/fora.json — which is what a real Exchange
 // does, and what the same-host check requires. The manifest advertises the
 // server's own origin, so the endpoint is anchored to the domain it was resolved
 // from. It returns the bare domain a report routes on, plus the well-known fetch
 // counter.
-func selfAdvertisingExchange(t *testing.T, sig signingFixture, svc rampv1connect.ExchangeServiceHandler) (string, *atomic.Int64) {
+func selfAdvertisingExchange(t *testing.T, sig signingFixture, svc forav1connect.ExchangeServiceHandler) (string, *atomic.Int64) {
 	t.Helper()
-	path, h := rampserver.NewExchangeServiceHandler(svc, rampserver.WithKeyResolver(sig.resolver))
+	path, h := foraserver.NewExchangeServiceHandler(svc, foraserver.WithKeyResolver(sig.resolver))
 	rpc := http.NewServeMux()
 	rpc.Handle(path, h)
 	// The manifest half is loopbackManifestServer's, so the self-advertising part
@@ -440,7 +440,7 @@ func selfAdvertisingExchange(t *testing.T, sig signingFixture, svc rampv1connect
 func crossHost(t *testing.T, endpoint string) string {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/.well-known/ramp.json" {
+		if r.URL.Path != "/.well-known/fora.json" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -458,12 +458,12 @@ func crossHost(t *testing.T, endpoint string) string {
 //
 // The well-known resolver is still injected, because reading a manifest over http
 // is a scheme choice rather than a guard opt-out.
-func allowLoopback(t *testing.T) []rampconnect.ClientOption {
+func allowLoopback(t *testing.T) []foraconnect.ClientOption {
 	t.Helper()
 	t.Setenv("SKIP_SSRF", "1")
 	t.Setenv("ALLOW_INSECURE", "1")
-	return []rampconnect.ClientOption{
-		rampconnect.WithEndpointResolver(resolvers.NewWellKnownEndpointResolver(
+	return []foraconnect.ClientOption{
+		foraconnect.WithEndpointResolver(resolvers.NewWellKnownEndpointResolver(
 			resolvers.WellKnownOptions{Scheme: "http", HTTP: http.DefaultClient})),
 	}
 }
@@ -473,13 +473,13 @@ func TestReportUsage_RoutesThroughTheIssuingExchangesOwnManifest(t *testing.T) {
 	origin := &groupExchange{}
 	domain, wkHits := selfAdvertisingExchange(t, sig, origin)
 
-	client := rampconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewClient("http://home.invalid",
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
-	report := &rampv1.UsageReport{
+	report := &forav1.UsageReport{
 		Exchange:      domain,
 		TransactionId: "txn-1",
-		Usage:         &rampv1.Usage{Function: []string{"ai-input"}},
+		Usage:         &forav1.Usage{Function: []string{"ai-input"}},
 	}
 	resp, err := client.ReportUsage(context.Background(), report)
 	if err != nil {
@@ -523,9 +523,9 @@ func TestReportUsage_RefusesUnroutableAddressesWithoutSending(t *testing.T) {
 	}
 	for name, domain := range tests {
 		t.Run(name, func(t *testing.T) {
-			client := rampconnect.NewClient("http://home.invalid",
-				append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
-			report := &rampv1.UsageReport{TransactionId: "txn-1"}
+			client := foraconnect.NewClient("http://home.invalid",
+				append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+			report := &forav1.UsageReport{TransactionId: "txn-1"}
 			if domain != "" {
 				report.Exchange = domain
 			}
@@ -533,8 +533,8 @@ func TestReportUsage_RefusesUnroutableAddressesWithoutSending(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected a refusal")
 			}
-			var cerr *rampconnect.CallError
-			if !errors.As(err, &cerr) || cerr.Kind != rampconnect.CallNotSent {
+			var cerr *foraconnect.CallError
+			if !errors.As(err, &cerr) || cerr.Kind != foraconnect.CallNotSent {
 				t.Fatalf("error = %v, want a CallNotSent CallError", err)
 			}
 		})
@@ -550,17 +550,17 @@ func TestDispute_RoutesLikeAReportAndStampsTheEnvelope(t *testing.T) {
 	origin := &groupExchange{}
 	domain, _ := selfAdvertisingExchange(t, sig, origin)
 
-	client := rampconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewClient("http://home.invalid",
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
-	req := &rampv1.DisputeRequest{
+	req := &forav1.DisputeRequest{
 		TransactionId: "txn-1",
 		ReportId:      "report-1",
 		Exchange:      domain,
-		Reason:        rampv1.DisputeReason_DISPUTE_REASON_DELIVERY_FAILED,
+		Reason:        forav1.DisputeReason_DISPUTE_REASON_DELIVERY_FAILED,
 	}
 	resp, err := client.Dispute(context.Background(), req,
-		rampconnect.WithIdempotencyKey("pinned"))
+		foraconnect.WithIdempotencyKey("pinned"))
 	if err != nil {
 		t.Fatalf("Dispute: %v", err)
 	}
@@ -582,13 +582,13 @@ func TestDispute_RoutesLikeAReportAndStampsTheEnvelope(t *testing.T) {
 // unroutable address either.
 func TestDispute_SharesTheRoutingRefusals(t *testing.T) {
 	sig := newSigningFixture(t)
-	client := rampconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewClient("http://home.invalid",
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
 	_, err := client.Dispute(context.Background(),
-		&rampv1.DisputeRequest{TransactionId: "txn-1", Exchange: "https://exchange.test"})
-	var cerr *rampconnect.CallError
-	if !errors.As(err, &cerr) || cerr.Kind != rampconnect.CallNotSent {
+		&forav1.DisputeRequest{TransactionId: "txn-1", Exchange: "https://exchange.test"})
+	var cerr *foraconnect.CallError
+	if !errors.As(err, &cerr) || cerr.Kind != foraconnect.CallNotSent {
 		t.Fatalf("error = %v, want a CallNotSent CallError", err)
 	}
 }
@@ -598,13 +598,13 @@ func TestDispute_SharesTheRoutingRefusals(t *testing.T) {
 // sent — the same shape ReportUsage already had, now reachable for disputes too.
 func TestDispute_RefusesAnUnaddressedRequest(t *testing.T) {
 	sig := newSigningFixture(t)
-	client := rampconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewClient("http://home.invalid",
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
 	_, err := client.Dispute(context.Background(),
-		&rampv1.DisputeRequest{TransactionId: "txn-1", ReportId: "report-1"})
-	var cerr *rampconnect.CallError
-	if !errors.As(err, &cerr) || cerr.Kind != rampconnect.CallNotSent {
+		&forav1.DisputeRequest{TransactionId: "txn-1", ReportId: "report-1"})
+	var cerr *foraconnect.CallError
+	if !errors.As(err, &cerr) || cerr.Kind != foraconnect.CallNotSent {
 		t.Fatalf("error = %v, want a CallNotSent CallError for a request with no exchange", err)
 	}
 }
@@ -631,10 +631,10 @@ func TestFetch_PresentsTheProofAndSurfacesATypedRefusal(t *testing.T) {
 	}))
 	defer content.Close()
 
-	client := rampconnect.NewClient("http://home.invalid",
+	client := foraconnect.NewClient("http://home.invalid",
 		append(allowLoopback(t),
-			rampconnect.WithSigner(sig.signer),
-			rampconnect.WithAgentKey(sig.pub),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithAgentKey(sig.pub),
 		)...)
 
 	got, err := client.Fetch(context.Background(), content.URL+"/doc?agent_id=tp")
@@ -654,19 +654,19 @@ func TestFetch_PresentsTheProofAndSurfacesATypedRefusal(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected the edge refusal to surface")
 	}
-	detail, ok := rampconnect.ErrorDetailFrom(err)
+	detail, ok := foraconnect.ErrorDetailFrom(err)
 	if !ok {
 		t.Fatalf("no typed detail on a refused fetch: %v", err)
 	}
 	if got := detail.GetRetrievalAuthFailure().GetReason(); got !=
-		rampv1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRED {
+		forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRED {
 		t.Errorf("typed reason = %v, want PROOF_EXPIRED", got)
 	}
 	// The domain names the failing SURFACE, not the fetched URL: it is a grouping
 	// key for tooling, and a per-URL value has unbounded cardinality and groups
 	// nothing. Asserted as the exact value the cross-language error-detail corpus
 	// uses, so a change here has to be a deliberate one.
-	if got := detail.GetDomain(); got != "ramp.v1.Edge" {
+	if got := detail.GetDomain(); got != "fora.v1.Edge" {
 		t.Errorf("detail domain = %q, want the delivery edge as the failing surface", got)
 	}
 }
@@ -675,12 +675,12 @@ func TestFetch_PresentsTheProofAndSurfacesATypedRefusal(t *testing.T) {
 // cannot fetch, and says so rather than presenting a proof the edge will refuse.
 func TestFetch_RefusesWithoutTheAgentPublicKey(t *testing.T) {
 	sig := newSigningFixture(t)
-	client := rampconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewClient("http://home.invalid",
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
 	_, err := client.Fetch(context.Background(), "http://cdn.invalid/doc")
-	var cerr *rampconnect.CallError
-	if !errors.As(err, &cerr) || cerr.Kind != rampconnect.CallNotSignable {
+	var cerr *foraconnect.CallError
+	if !errors.As(err, &cerr) || cerr.Kind != foraconnect.CallNotSignable {
 		t.Fatalf("error = %v, want a CallNotSignable CallError", err)
 	}
 }
@@ -702,8 +702,8 @@ func TestWithSignatureAgent_ReachesTheWireCovered(t *testing.T) {
 	sig := newSigningFixture(t)
 
 	var gotAgent, gotSigInput string
-	path, h := rampserver.NewExchangeServiceHandler(
-		&groupExchange{}, rampserver.WithKeyResolver(sig.resolver))
+	path, h := foraserver.NewExchangeServiceHandler(
+		&groupExchange{}, foraserver.WithKeyResolver(sig.resolver))
 	mux := http.NewServeMux()
 	mux.Handle(path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAgent, gotSigInput = r.Header.Get("Signature-Agent"), r.Header.Get("Signature-Input")
@@ -712,14 +712,14 @@ func TestWithSignatureAgent_ReachesTheWireCovered(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	client := rampconnect.NewClient(srv.URL,
-		rampconnect.WithSigner(sig.signer),
-		rampconnect.WithSignatureAgent(dir),
-		rampconnect.WithRequester(testRequester()))
+	client := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSignatureAgent(dir),
+		foraconnect.WithRequester(testRequester()))
 
 	// The call must SUCCEED: the header participates in the signature, so a value
 	// that reached the wire without being covered correctly would fail here.
-	if _, err := client.Discover(context.Background(), &rampv1.ResourceQuery{
+	if _, err := client.Discover(context.Background(), &forav1.ResourceQuery{
 		Uris: []string{"https://site.test/a"}, Ver: helpers.ProtocolVersion,
 	}); err != nil {
 		t.Fatalf("Discover: %v", err)
@@ -742,8 +742,8 @@ func TestWithSignatureAgent_BrokerClientStampsItToo(t *testing.T) {
 	sig := newSigningFixture(t)
 
 	var gotAgent string
-	path, h := rampserver.NewBrokerServiceHandler(
-		&stubBroker{}, rampserver.WithKeyResolver(sig.resolver))
+	path, h := foraserver.NewBrokerServiceHandler(
+		&stubBroker{}, foraserver.WithKeyResolver(sig.resolver))
 	mux := http.NewServeMux()
 	mux.Handle(path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAgent = r.Header.Get("Signature-Agent")
@@ -752,12 +752,12 @@ func TestWithSignatureAgent_BrokerClientStampsItToo(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	broker := rampconnect.NewBrokerClient(srv.URL,
-		rampconnect.WithSigner(sig.signer),
-		rampconnect.WithSignatureAgent(dir),
-		rampconnect.WithRequester(testRequester()))
+	broker := foraconnect.NewBrokerClient(srv.URL,
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSignatureAgent(dir),
+		foraconnect.WithRequester(testRequester()))
 	if _, err := broker.Resolve(context.Background(),
-		&rampv1.DiscoveryRequest{Ver: helpers.ProtocolVersion}); err != nil {
+		&forav1.DiscoveryRequest{Ver: helpers.ProtocolVersion}); err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
 	if gotAgent != dir {
@@ -784,11 +784,11 @@ func TestFetch_CarriesTheClientsCorrelationID(t *testing.T) {
 	}))
 	defer content.Close()
 
-	client := rampconnect.NewClient("http://home.invalid",
+	client := foraconnect.NewClient("http://home.invalid",
 		append(allowLoopback(t),
-			rampconnect.WithSigner(sig.signer),
-			rampconnect.WithAgentKey(sig.pub),
-			rampconnect.WithRequestIDFunc(func() string { return "req-from-the-caller" }),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithAgentKey(sig.pub),
+			foraconnect.WithRequestIDFunc(func() string { return "req-from-the-caller" }),
 		)...)
 
 	if _, err := client.Fetch(context.Background(), content.URL+"/doc?agent_id=tp"); err != nil {
@@ -812,9 +812,9 @@ func TestFetch_CorrelatesEvenWithNoMintConfigured(t *testing.T) {
 	}))
 	defer content.Close()
 
-	client := rampconnect.NewClient("http://home.invalid",
+	client := foraconnect.NewClient("http://home.invalid",
 		append(allowLoopback(t),
-			rampconnect.WithSigner(sig.signer), rampconnect.WithAgentKey(sig.pub),
+			foraconnect.WithSigner(sig.signer), foraconnect.WithAgentKey(sig.pub),
 		)...)
 
 	if _, err := client.Fetch(context.Background(), content.URL+"/doc?agent_id=tp"); err != nil {

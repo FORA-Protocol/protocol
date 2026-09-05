@@ -23,7 +23,7 @@ from resolvers_harness import (
     wba_jwk,
 )
 
-from ramp_sdk.resolvers import (
+from fora_sdk.resolvers import (
     KeyRevokedError,
     RevocationUnevaluatedError,
     WBAKeyResolver,

@@ -27,7 +27,7 @@ package helpers_test
 // question with the same inputs, which is the thing that was not true.
 //
 // Like the other emitters this is a verification no-op by default and (re)writes the file
-// under RAMP_UPDATE_VECTORS=1. It is TEST INFRASTRUCTURE, not the code under test.
+// under FORA_UPDATE_VECTORS=1. It is TEST INFRASTRUCTURE, not the code under test.
 
 import (
 	"encoding/hex"
@@ -36,7 +36,7 @@ import (
 	"testing"
 	"unicode"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/vectorio"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 const wireNamesVectorsPath = "testdata/wire-names-vectors.json"
@@ -137,7 +137,7 @@ func TestGenerateWireNamesVectors(t *testing.T) {
 		"snake_from_json_name": snakes,
 		"hex_decode":           hexes,
 	}
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		if err := vectorio.Write(wireNamesVectorsPath, doc); err != nil {
 			t.Fatalf("write %s: %v", wireNamesVectorsPath, err)
 		}
@@ -148,6 +148,6 @@ func TestGenerateWireNamesVectors(t *testing.T) {
 		t.Fatalf("read %s: %v", wireNamesVectorsPath, err)
 	}
 	if stale {
-		t.Fatalf("%s is stale; re-run with RAMP_UPDATE_VECTORS=1 to regenerate", wireNamesVectorsPath)
+		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", wireNamesVectorsPath)
 	}
 }

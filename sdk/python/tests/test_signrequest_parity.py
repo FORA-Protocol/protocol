@@ -5,7 +5,7 @@ The byte oracle is the Go SignRequest (sdk/go/helpers/sign.go) + buildSignatureB
 sdk/ts/core/sign-request.ts, and all three replay the same shared vector file
 sdk/go/helpers/testdata/sign-request-vectors.json.
 
-``ramp_sdk.httpsig.sign_request(...)`` MUST produce, byte-for-byte, the same signature
+``fora_sdk.httpsig.sign_request(...)`` MUST produce, byte-for-byte, the same signature
 base, Signature-Input and Signature the Go oracle emits — and MUST hand back the same
 header set a signed request carries, which is what emitted_headers pins.
 """
@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from conftest import GO_TESTDATA, load_json
 
-from ramp_sdk.httpsig import sign_request, verify_request
+from fora_sdk.httpsig import sign_request, verify_request
 
 #: The shared Go-emitted oracle every port replays.
 _SIGN_REQUEST_VECTORS_PATH = GO_TESTDATA / "sign-request-vectors.json"
@@ -72,7 +72,7 @@ def test_sign_outbound_emits_the_header_set_the_oracle_emits(
     hold a duplicate at all, so each value wraps to a one-element list: the shape says
     where a duplicate CAN arise, which is the merge in a transport wrapper, not here.
     """
-    from ramp_sdk.signing_transport import SigningTransport
+    from fora_sdk.signing_transport import SigningTransport
 
     created, expires = int(vector["created"]), int(vector["expires"])  # type: ignore[call-overload]
     transport = SigningTransport(
@@ -116,7 +116,7 @@ def test_sign_request_produces_byte_identical_signature(vector: dict[str, object
 
     # Full signature base is byte-identical to the Go oracle.
     assert result.signature_base == str(vector["signature_base"])
-    # Covered set is exactly the five RAMP components (no conditional 6th).
+    # Covered set is exactly the five FORA components (no conditional 6th).
     assert _EXPECTED_COVERED in result.signature_input
     # Signature-Input and Signature headers are byte-identical.
     assert result.signature_input == str(vector["signature_input"])

@@ -1,4 +1,4 @@
-# RAMP SDK — Go
+# FORA SDK — Go
 
 Layered protocol libraries co-located with the contract (ADR-020). The SDK is
 consumed off-commit from this repo; it imports the generated L0 wire types
@@ -6,9 +6,9 @@ directly with no `replace` directive.
 
 | Layer | Package | What it is |
 |---|---|---|
-| **L0** | `gen/go/ramp/v1`, `gen/go/vocab/*` | generated wire types (consumed, never rebuilt) |
+| **L0** | `gen/go/fora/v1`, `gen/go/vocab/*` | generated wire types (consumed, never rebuilt) |
 | **L1** | **`sdk/go/helpers`** | stateless, **IO-free** protocol helpers — RFC 9421/7638 crypto, offer/acceptance verify, static key resolution, validation |
-| L2 · I/O | **`sdk/go/resolvers`** | the network-fetching tier: well-known JWKS / WBA directory / `ramp.json` endpoint / offer-key resolvers + the SSRF-guarded HTTP client. Runs on a maintained `net/http` client behind the SSRF guard; composes L1, never the reverse |
+| L2 · I/O | **`sdk/go/resolvers`** | the network-fetching tier: well-known JWKS / WBA directory / `fora.json` endpoint / offer-key resolvers + the SSRF-guarded HTTP client. Runs on a maintained `net/http` client behind the SSRF guard; composes L1, never the reverse |
 | L2 · transport | `sdk/go/core` (transport-neutral: Verifier, {verified,rejected}, `DiscoveryResult` per-URI groups, VerifiedOffer guard, signing RoundTripper, ReplayStore — zero Connect) · `sdk/go/connect` (Connect **client** binding: `NewClient` + `NewBrokerClient` + the agent verbs **`Discover` · `Resolve` · `Execute` · `ReportUsage` · `Dispute` · `Fetch`** + client options + the `CallError` taxonomy + `ErrorDetailFrom`) · `sdk/go/connectserver` (Connect **server** binding: `NewExchangeServiceHandler` + server options + `AsConnectError` + `AttachErrorDetail`/`AttachDetail` + reject→code) | transport-neutral core + Connect client/server bindings (state injected) |
 | L3 | separate packages | framework adapters (convert, never replace) — later |
 
@@ -23,12 +23,12 @@ L1 file drags in a dialing surface, so the fetch surface cannot leak back down.
 
 Stateless, **no network IO** (no HTTP client, no dial), no secret custody, no state.
 The same code the Broker, Exchange, MCP, Edge, and external implementors build on.
-(The well-known JWKS, WBA-directory, and `ramp.json` endpoint fetches moved one tier
+(The well-known JWKS, WBA-directory, and `fora.json` endpoint fetches moved one tier
 up into `sdk/go/resolvers`; `helpers` keeps only the pure `KeyResolver` interface and
 the static resolver.)
 
 ```go
-import "github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+import "github.com/FORA-Protocol/protocol/sdk/go/helpers"
 ```
 
 **RFC 9421 request signing / verification** — the `Signer` interface signs the
@@ -84,7 +84,7 @@ moves into the SDK:
 binding, _ := helpers.SignAgentBinding(ctx, signer, agentPub, helpers.PoPOptions{
     URL: signedURL, Created: created, Expires: expires, // keep the window short
 })
-binding.Apply(req.Header) // X-RAMP-Agent-Key + Signature-Input + Signature
+binding.Apply(req.Header) // X-FORA-Agent-Key + Signature-Input + Signature
 ```
 
 **Routing predicates** — the two pure checks that precede a signed call to an
@@ -98,7 +98,7 @@ ok, _ := helpers.HostAnchored(exchangeDomain, endpoint) // label-boundary match
 
 **Audience check** — the other direction: a request arrived, does it name THIS
 Exchange? The signature does not already answer that: it proves the sender signed
-*the URL it dialled*, and that URL came out of a fetched, cached `ramp.json`, so a
+*the URL it dialled*, and that URL came out of a fetched, cached `fora.json`, so a
 poisoned resolution redirects the request while every signature still verifies.
 The body field says whom the sender meant. The check is pure, so it runs before
 any lookup:
@@ -145,7 +145,7 @@ arrived in a message; note that the client's own send path still vets with the w
 the rules live here once: 2020-12 only, same-document `$ref` only and no reference
 cycles, 16KB, 32 containers, 10,000 evaluations of work, and a `pattern` alphabet all
 three SDK languages express identically. `raw` is the schema's bytes **as served** in
-`ramp.json` — the size cap is defined over those:
+`fora.json` — the size cap is defined over those:
 
 ```go
 schema, verdict := helpers.CompileRegistrationSchema(raw)
@@ -171,7 +171,7 @@ nothing and cannot tell. The verdict is the only thing that separates the two ca
 fieldErrors := schema.Validate(req.GetRegistrationData().AsMap())
 if len(fieldErrors) > 0 {
     return helpers.RegistrationFailureDetail(domain, "registration_data does not conform",
-        rampv1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA,
+        forav1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA,
         fieldErrors...)
 }
 ```
@@ -197,13 +197,13 @@ lives here, behind a single SSRF-guarded HTTP client, so the pre-auth-reachable
 network surface never enters the pure trust core:
 
 ```go
-import "github.com/RAMP-Protocol/protocol/sdk/go/resolvers"
+import "github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 ```
 
 - **Key resolvers** — `NewWellKnownKeyResolver` (well-known JWKS, TTL cache),
   `NewWBAKeyResolver` (WBA directory, revocation/expiry-aware, with a `Run` poller).
 - **Endpoint resolver** — `NewWellKnownEndpointResolver` discovers an Exchange's
-  own service endpoint (`WellKnownManifest.endpoint`) from `/.well-known/ramp.json`,
+  own service endpoint (`WellKnownManifest.endpoint`) from `/.well-known/fora.json`,
   host-keyed and cached per host. Two sentinels, and the difference decides whether
   a caller should retry: `ErrNoEndpoint` when the manifest was read and advertises
   none, `ErrEndpointRefused` when it advertises one this resolver will not hand back

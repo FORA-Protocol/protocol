@@ -42,7 +42,7 @@ export interface SignInboundOptions {
  * signInbound produces a genuinely RFC 9421 GET-PoP-signed inbound Request over
  * @method + @target-uri, bound to the agent keypair's RFC 7638 thumbprint (keyid =
  * agent_id). It is the sign side the Hono server-verify binding accepts; it returns
- * a NEW Request carrying the X-RAMP-Agent-Key, Signature-Input, and Signature
+ * a NEW Request carrying the X-FORA-Agent-Key, Signature-Input, and Signature
  * headers (the Fetch Request is immutable — we clone + set headers, never mutate).
  *
  * The covered set is exactly ("@method" "@target-uri"), matching the L1 pop

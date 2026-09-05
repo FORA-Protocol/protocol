@@ -1,7 +1,7 @@
 // Safe validation of a published registration schema — TS port of the sdk/go
 // oracle (helpers/regschema.go).
 //
-// An Exchange MAY publish AccountRegistration.data_schema in its ramp.json: a JSON
+// An Exchange MAY publish AccountRegistration.data_schema in its fora.json: a JSON
 // Schema describing the RegisterRequest.registration_data it expects. Two parties
 // read that schema and MUST agree — the Exchange enforcing it on the way in, and a
 // client pre-checking a payload before it signs and sends one. A payload that
@@ -27,7 +27,7 @@ import { rawNestingDepth } from "./jsondepth";
 
 /**
  * maxRegistrationSchemaBytes is the published schema's size cap, measured as the
- * UTF-8 bytes of the data_schema member AS SERVED in ramp.json — which is why the
+ * UTF-8 bytes of the data_schema member AS SERVED in fora.json — which is why the
  * compile face takes raw bytes rather than a decoded document. A re-encoding is a
  * different length than what the origin sent, and the cap is defined over what the
  * origin sent.
@@ -1122,7 +1122,7 @@ function cmp(a: string, b: string): number {
  * compiles it.
  *
  * `raw` is the schema AS SERVED — the exact UTF-8 bytes of the data_schema member
- * in ramp.json — because maxRegistrationSchemaBytes is defined over those bytes.
+ * in fora.json — because maxRegistrationSchemaBytes is defined over those bytes.
  *
  * The schema is null unless the verdict is "accepted". Nothing throws: every way
  * this can fail is a property of the schema, and both callers need to know WHICH.
@@ -1153,7 +1153,7 @@ export function compileRegistrationSchema(raw: Uint8Array | string): {
 	// was malformed in the third. Refusing is the side that keeps the size cap above
 	// honest, since a stripped mark would make it count three bytes the schema does not
 	// contain, and a mark is only valid at the start of a JSON text, never inside the
-	// ramp.json member this schema lives in.
+	// fora.json member this schema lives in.
 	if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
 		return { schema: null, verdict: "malformed" };
 	}
@@ -1191,7 +1191,7 @@ export function compileRegistrationSchema(raw: Uint8Array | string): {
 
 	// strict:false because a published schema may legitimately carry keywords this
 	// version of Ajv does not know, and the robustness principle applies to those
-	// exactly as it does elsewhere in RAMP. allErrors because a refusal names EVERY
+	// exactly as it does elsewhere in FORA. allErrors because a refusal names EVERY
 	// offending member, not the first. validateFormats:false because format,
 	// contentEncoding and contentMediaType stay ANNOTATIONS — the three languages'
 	// libraries default differently, so leaving this to a default would make the

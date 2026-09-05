@@ -27,6 +27,14 @@
     {
       "name": "SignatureAgentHeader",
       "value": "Signature-Agent"
+    },
+    {
+      "name": "AgentKeyHeader",
+      "value": "X-FORA-Agent-Key"
+    },
+    {
+      "name": "WellKnownPath",
+      "value": "/.well-known/fora.json"
     }
   ]
 }

@@ -11,7 +11,7 @@ import (
 
 // Money is decimal at the surface and a canonical decimal string on the wire.
 //
-// RAMP money fields (Pricing.rate, Cost.amount, *.unit_cost) are exact decimal
+// FORA money fields (Pricing.rate, Cost.amount, *.unit_cost) are exact decimal
 // strings — never floats — to avoid binary rounding and to allow arbitrary
 // sub-cent precision. The wire form is constrained by protovalidate to the
 // pattern below: non-negative, no sign, no exponent, optional fractional part,
@@ -21,7 +21,7 @@ import (
 
 // moneyWire is the proto wire pattern for rate/amount/unit_cost. It mirrors the
 // protovalidate constraint `^([0-9]+([.][0-9]+)?)?$` exactly (kept in lockstep;
-// see ramp.proto Pricing.rate). The empty string is a valid wire value meaning
+// see fora.proto Pricing.rate). The empty string is a valid wire value meaning
 // "unset" — ParseMoney rejects it so callers check presence explicitly.
 var moneyWire = regexp.MustCompile(`^([0-9]+([.][0-9]+)?)?$`)
 
@@ -56,7 +56,7 @@ func ParseMoney(s string) (decimal.Decimal, error) {
 
 // FormatMoney renders an exact decimal as the canonical wire string: no sign,
 // no exponent, and insignificant trailing fractional zeros stripped ("0.050" ->
-// "0.05", "1.00" -> "1", "10" -> "10"). A negative value is rejected — RAMP
+// "0.05", "1.00" -> "1", "10" -> "10"). A negative value is rejected — FORA
 // money is non-negative. The result always satisfies the wire pattern.
 func FormatMoney(d decimal.Decimal) (string, error) {
 	if d.IsNegative() {

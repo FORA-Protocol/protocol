@@ -50,21 +50,21 @@ Each `CatalogEntry` maps to a protocol `OfferTemplate`. The content identity is 
 | `PubDate` | `comp.Text` | `pubdate` | ISO 8601 |
 | `Authors` | `comp.Text` | `author` | String array |
 | `SourceType` | `comp.Text` | `sourcetype` | 0=human, 1=ai, 2=hybrid |
-| `PricingModel` | `ramp.Pricing` | `model` | Enum mapping |
-| `Rate` | `ramp.Pricing` | `rate` | Decimal |
-| `Currency` | `ramp.Pricing` | `currency` | ISO 4217 |
-| `EstimatedTokens` | `ramp.Pricing` | `estimated_quantity` | `WordCount * 1.32` |
-| `Rate / EstimatedTokens` | `ramp.Pricing` | `unit_cost` | Computed at compilation |
-| `Domain + Path` | `ramp.ResourceIdentity` | `canonical_url` | Full URL |
-| `Permissions` | `ramp.Restriction` (kind `RESTRICTION_KIND_FUNCTION`, on `LicenseTerm.restrictions`) | `permitted` | From RSL permits (hyphenated tokens, e.g. `ai-input`) |
-| `Prohibitions` | `ramp.Restriction` (kind `RESTRICTION_KIND_FUNCTION`, on `LicenseTerm.restrictions`) | `prohibited` | From RSL prohibits (hyphenated tokens, e.g. `ai-train`) |
+| `PricingModel` | `fora.Pricing` | `model` | Enum mapping |
+| `Rate` | `fora.Pricing` | `rate` | Decimal |
+| `Currency` | `fora.Pricing` | `currency` | ISO 4217 |
+| `EstimatedTokens` | `fora.Pricing` | `estimated_quantity` | `WordCount * 1.32` |
+| `Rate / EstimatedTokens` | `fora.Pricing` | `unit_cost` | Computed at compilation |
+| `Domain + Path` | `fora.ResourceIdentity` | `canonical_url` | Full URL |
+| `Permissions` | `fora.Restriction` (kind `RESTRICTION_KIND_FUNCTION`, on `LicenseTerm.restrictions`) | `permitted` | From RSL permits (hyphenated tokens, e.g. `ai-input`) |
+| `Prohibitions` | `fora.Restriction` (kind `RESTRICTION_KIND_FUNCTION`, on `LicenseTerm.restrictions`) | `prohibited` | From RSL prohibits (hyphenated tokens, e.g. `ai-train`) |
 
 ## Pricing Attachment
 
 Pricing is attached at compilation time by the Pricer stage (Stage 4), which runs before compilation. The unit_cost (effective cost per unit) is computed during the mapping:
 
 ```go
-pricing := &rampv1.Pricing{
+pricing := &forav1.Pricing{
     Model:    mapPricingModel(entry.PricingModel),
     Rate:     entry.Rate,
     Currency: entry.Currency,
@@ -85,7 +85,7 @@ Pricing resolution follows this priority:
 Exchange config DB has pricing for this path/tenant?
 +-- YES -> Use authoritative private pricing (may vary per agent)
 |
-+-- NO -> Did RSL or RAMP sitemap provide pricing hints?
++-- NO -> Did RSL or FORA sitemap provide pricing hints?
          +-- YES -> Use as fallback defaults
          |
          +-- NO -> Use tenant-level default pricing

@@ -10,7 +10,7 @@ import { randomBytes } from "node:crypto";
 
 import { Agent } from "undici";
 
-import { RampCallError } from "../client/errors.ts";
+import { ForaCallError } from "../client/errors.ts";
 import { fetchContent } from "../client/content.ts";
 import { decodeResponse } from "../client/transport.ts";
 
@@ -27,8 +27,8 @@ describe("a redirect this client refused to follow", () => {
 			} catch (e) {
 				thrown = e;
 			}
-			expect(thrown).toBeInstanceOf(RampCallError);
-			expect((thrown as RampCallError).kind).toBe("unreachable");
+			expect(thrown).toBeInstanceOf(ForaCallError);
+			expect((thrown as ForaCallError).kind).toBe("unreachable");
 		});
 	}
 });
@@ -75,11 +75,11 @@ describe("the DELIVERY leg's own failures", () => {
 
 		expect(
 			failure,
-			"the dialer's own error escaped a verb that promises RampCallError and nothing else",
-		).toBeInstanceOf(RampCallError);
-		expect((failure as RampCallError).kind).toBe("unreachable");
+			"the dialer's own error escaped a verb that promises ForaCallError and nothing else",
+		).toBeInstanceOf(ForaCallError);
+		expect((failure as ForaCallError).kind).toBe("unreachable");
 		// The refusal reaches a log, and a delivery URL's query is the credential.
-		expect(String((failure as RampCallError).cause ?? "")).not.toContain("127.0.0.1");
+		expect(String((failure as ForaCallError).cause ?? "")).not.toContain("127.0.0.1");
 	}, 20000);
 });
 
@@ -111,12 +111,12 @@ describe("a redirect on the DELIVERY leg", () => {
 		const failure = (await fetchContent(`http://127.0.0.1:${port}/x`, {
 			keyPair: keys,
 			dispatcher: new Agent(),
-		}).catch((e: unknown) => e)) as RampCallError;
+		}).catch((e: unknown) => e)) as ForaCallError;
 		if (saved === undefined) delete process.env["ALLOW_INSECURE"];
 		else process.env["ALLOW_INSECURE"] = saved;
 		server.close();
 
-		expect(failure).toBeInstanceOf(RampCallError);
+		expect(failure).toBeInstanceOf(ForaCallError);
 		expect(failure.kind).toBe("unreachable");
 		expect(failure.reason, "a token was promoted out of a redirect body").toBeUndefined();
 	}, 20000);
@@ -142,9 +142,9 @@ describe("a dial the guard refused", () => {
 		const failure = (await fetchContent(
 			"https://localhost/a?token=live-credential-value",
 			{ keyPair: keys },
-		).catch((e: unknown) => e)) as RampCallError;
+		).catch((e: unknown) => e)) as ForaCallError;
 
-		expect(failure).toBeInstanceOf(RampCallError);
+		expect(failure).toBeInstanceOf(ForaCallError);
 		expect(failure.kind).toBe("unreachable");
 		expect(
 			failure.reason,

@@ -1,13 +1,13 @@
 ---
-title: "RAMP v1.0 Walkthrough"
-description: "End-to-end walkthrough of RAMP v1.0 with two scenarios: per-article access (no subscription) and subscription access with delegation (JWT). Shows identical SDK code for both paths."
+title: "FORA v1.0 Walkthrough"
+description: "End-to-end walkthrough of FORA v1.0 with two scenarios: per-article access (no subscription) and subscription access with delegation (JWT). Shows identical SDK code for both paths."
 ---
 
-> Complete walkthrough of RAMP v1.0 as of March 2026. Every field name, message structure, and authentication mechanism matches the current `ramp.proto`. Two scenarios demonstrate how the same protocol handles pay-per-article and subscription access.
+> Complete walkthrough of FORA v1.0 as of March 2026. Every field name, message structure, and authentication mechanism matches the current `fora.proto`. Two scenarios demonstrate how the same protocol handles pay-per-article and subscription access.
 
 ## Two Scenarios, One Protocol
 
-This walkthrough covers two real-world scenarios that exercise different parts of the RAMP v1.0 protocol:
+This walkthrough covers two real-world scenarios that exercise different parts of the FORA v1.0 protocol:
 
 | | Scenario A | Scenario B |
 |---|---|---|
@@ -31,10 +31,10 @@ An AI research agent at a startup wants a TechCrunch article about AI agents in 
 
 ### Step 1 — Discovery
 
-The agent resolves the target domain's RAMP configuration. Every RAMP-enabled domain publishes a machine-readable manifest at `/.well-known/ramp.json`:
+The agent resolves the target domain's FORA configuration. Every FORA-enabled domain publishes a machine-readable manifest at `/.well-known/fora.json`:
 
 ```bash
-curl -s https://techcrunch.com/.well-known/ramp.json | jq
+curl -s https://techcrunch.com/.well-known/fora.json | jq
 ```
 
 ```json
@@ -45,11 +45,11 @@ curl -s https://techcrunch.com/.well-known/ramp.json | jq
   "exchanges": [
     {
       "domain": "exchange.ssp-alpha.com",
-      "endpoint": "https://exchange.ssp-alpha.com/ramp/v1",
+      "endpoint": "https://exchange.ssp-alpha.com/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
-  "supported_profiles": ["ramp-news-v1"]
+  "supported_profiles": ["fora-news-v1"]
 }
 ```
 
@@ -59,9 +59,9 @@ The agent now knows which Exchange to query for TechCrunch content. The `support
 
 The agent sends a `ResourceQuery` to the Exchange with its identity in the `Requester` message. This is the v1.0 replacement for CoMP's `AISystem` — it carries identity, scopes, and optional delegation in a single envelope. The request is authenticated separately by an RFC 9421 HTTP Message Signature in the HTTP headers, not by a field in the message body.
 
-`POST https://exchange.ssp-alpha.com/ramp/v1/ramp.v1.ExchangeService/DiscoverResources`
+`POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
-{/* ramp-validate: ResourceQuery */}
+{/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
@@ -179,9 +179,9 @@ The Exchange looks up the article in its catalog and returns an offer. It does n
 
 The agent commits to the offer by sending the full signed `offer` back, reflected exactly as received at discovery:
 
-`POST https://exchange.ssp-alpha.com/ramp/v1/ramp.v1.ExchangeService/ExecuteTransaction`
+`POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
-{/* ramp-validate: TransactionRequest */}
+{/* fora-validate: TransactionRequest */}
 ```json
 {
   "ver": "1.0",
@@ -283,9 +283,9 @@ The CDN edge function verifies:
 
 Usage reporting is mandatory. The agent reports actual consumption:
 
-`POST https://exchange.ssp-alpha.com/ramp/v1/ramp.v1.ExchangeService/ReportUsage`
+`POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/ReportUsage`
 
-{/* ramp-validate: UsageReport */}
+{/* fora-validate: UsageReport */}
 ```json
 {
   "ver": "1.0",
@@ -330,10 +330,10 @@ A hedge fund's AI agent wants an NVIDIA earnings call transcript from MarketData
 
 ### Step 1 — Discovery
 
-Same pattern as Scenario A. The agent resolves MarketData's RAMP manifest:
+Same pattern as Scenario A. The agent resolves MarketData's FORA manifest:
 
 ```bash
-curl -s https://marketdata.example.com/.well-known/ramp.json | jq
+curl -s https://marketdata.example.com/.well-known/fora.json | jq
 ```
 
 ```json
@@ -344,11 +344,11 @@ curl -s https://marketdata.example.com/.well-known/ramp.json | jq
   "exchanges": [
     {
       "domain": "exchange.marketdata-data.com",
-      "endpoint": "https://exchange.marketdata-data.com/ramp/v1",
+      "endpoint": "https://exchange.marketdata-data.com/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
-  "supported_profiles": ["ramp-finance-v1"]
+  "supported_profiles": ["fora-finance-v1"]
 }
 ```
 
@@ -356,9 +356,9 @@ curl -s https://marketdata.example.com/.well-known/ramp.json | jq
 
 Here is where v1.0's `Requester` + `Delegation` model shows its power. The agent includes a delegation JWT that carries its subscription entitlement:
 
-`POST https://exchange.marketdata-data.com/ramp/v1/ramp.v1.ExchangeService/DiscoverResources`
+`POST https://exchange.marketdata-data.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
-{/* ramp-validate: ResourceQuery */}
+{/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
@@ -383,7 +383,7 @@ Here is where v1.0's `Requester` + `Delegation` model shows its power. The agent
       "token_format": "jwt"
     }
   },
-  "supported_profiles": ["ramp-finance-v1"]
+  "supported_profiles": ["fora-finance-v1"]
 }
 ```
 
@@ -415,7 +415,7 @@ The Exchange verifies the JWT chain:
 {
   "iss": "hedgefund.com",
   "scope": "earnings:NVDA",
-  "ramp_max_spend_cents": 10000,
+  "fora_max_spend_cents": 10000,
   "exp": 1798761599,
   "cnf": { "jkt": "<thumbprint of the agent's key>" }
 }
@@ -576,12 +576,12 @@ From the SDK, both scenarios use identical code. The `Requester` message carries
 
 ```go
 // Scenario A: no delegation — SDK sends Requester without delegation field
-result, err := ramp.Fetch(ctx, "https://techcrunch.com/2026/03/19/ai-agents-commerce.html")
+result, err := fora.Fetch(ctx, "https://techcrunch.com/2026/03/19/ai-agents-commerce.html")
 // result.Cost = 0.05
 // result.SubscriptionID = ""
 
 // Scenario B: delegation present — SDK includes the delegation JWT in Requester.delegation
-result, err := ramp.Fetch(ctx, "https://marketdata.example.com/earnings/NVDA/2026-Q1-transcript")
+result, err := fora.Fetch(ctx, "https://marketdata.example.com/earnings/NVDA/2026-Q1-transcript")
 // result.Cost = 0.00
 // result.SubscriptionID = "enterprise-sub-HF-001"
 ```
@@ -589,7 +589,7 @@ result, err := ramp.Fetch(ctx, "https://marketdata.example.com/earnings/NVDA/202
 The SDK carries the delegation token automatically when configured. The agent code does not branch on subscription vs. pay-per-article — the protocol handles the routing:
 
 ```go
-client := ramp.NewClient(ramp.Config{
+client := fora.NewClient(fora.Config{
     AgentID:   "hedge-bot",
     Domain:    "hedgefund.com",
     PrivateKey: ed25519PrivateKey,
@@ -609,7 +609,7 @@ result, err := client.Fetch(ctx, url)
 
 | Step | RPC | Scenario A (per-article) | Scenario B (subscription) |
 |------|-----|--------------------------|---------------------------|
-| 1 | — | `ramp.json` discovery | `ramp.json` discovery |
+| 1 | — | `fora.json` discovery | `fora.json` discovery |
 | 2 | `DiscoverResources` | `Requester` with no delegation | `Requester` with `Delegation` (JWT) |
 | 3 | — | Offer at $0.05 | Offer at $0.00 + `subscription_id` |
 | 4 | `ExecuteTransaction` | Charge $0.05, generate signed URL | Skip billing (subscription), generate signed URL |

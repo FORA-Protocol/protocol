@@ -22,8 +22,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 func mustCompile(t *testing.T, schema string) *helpers.RegistrationSchema {
@@ -131,8 +131,8 @@ func TestFieldErrorsAreAMessageTheWireAccepts(t *testing.T) {
 		t.Fatalf("got %d field errors, want the cap %d", len(fieldErrors), helpers.MaxRegistrationFieldErrors)
 	}
 	detail := helpers.RegistrationFailureDetail(
-		"ramp.v1.ExchangeService", "registration_data does not conform",
-		rampv1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA,
+		"fora.v1.ExchangeService", "registration_data does not conform",
+		forav1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA,
 		fieldErrors...)
 	if err := helpers.Validate(detail); err != nil {
 		t.Fatalf("the validator built a refusal the wire refuses: %v", err)
@@ -202,8 +202,8 @@ func TestClampedTextStaysValidUTF8(t *testing.T) {
 				pad, n, helpers.MaxRegistrationFieldErrorTextLen)
 		}
 		detail := helpers.RegistrationFailureDetail(
-			"ramp.v1.ExchangeService", "registration_data does not conform",
-			rampv1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA,
+			"fora.v1.ExchangeService", "registration_data does not conform",
+			forav1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA,
 			got...)
 		if _, err := proto.Marshal(detail); err != nil {
 			t.Errorf("pad=%d: the refusal does not serialize: %v", pad, err)
@@ -258,10 +258,10 @@ func TestTheCompilerRefusesToResolveAnythingOffThisProcess(t *testing.T) {
 	c := jsonschema.NewCompiler()
 	c.UseLoader(helpers.RefusingSchemaLoaderForTest())
 	c.DefaultDraft(jsonschema.Draft2020)
-	if err := c.AddResource("ramp:registration-data-schema", doc); err != nil {
+	if err := c.AddResource("fora:registration-data-schema", doc); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.Compile("ramp:registration-data-schema"); err == nil {
+	if _, err := c.Compile("fora:registration-data-schema"); err == nil {
 		t.Fatal("the compiler resolved a file:// reference — the SSRF backstop is not installed")
 	}
 }
@@ -392,7 +392,7 @@ func uncanonicalizableMembers(t *testing.T, position string) map[string]*structp
 	}
 }
 
-// TestOnlyTheRawStructEntryPointSeesTheUncanonicalizableClass is the ramp-4c7 half of the
+// TestOnlyTheRawStructEntryPointSeesTheUncanonicalizableClass is the fora-4c7 half of the
 // regression below: a Value with no kind set is the SECOND member of the class, and it
 // fails in exactly the same shape as a non-finite number. protojson refuses it, the raw
 // walk refuses it, and the map-based face accepts it — because AsMap renders an unset
@@ -495,7 +495,7 @@ func TestTheRawEntryPointPinsTheOrderOfItsChecks(t *testing.T) {
 		// Ranged over the WHOLE class, for the same reason the depth pair below is: the
 		// class has two members, and an order that held for one and not the other would
 		// be two different orders wearing one name. The unset-kind member is the one a
-		// test written before ramp-4c7 could not have covered, and it is also the one
+		// test written before fora-4c7 could not have covered, and it is also the one
 		// structpb.NewStruct cannot build — a Value with no kind set has to be written
 		// into the Struct directly.
 		for name, bad := range map[string]*structpb.Value{
@@ -529,7 +529,7 @@ func TestTheRawEntryPointPinsTheOrderOfItsChecks(t *testing.T) {
 		// once the payload is known to be walkable at all — and because the walk that
 		// finds a non-renderable value is the same walk the depth bound exists to stop.
 		//
-		// Ranged over the WHOLE class, not one member: ramp-4c7 added unset-kind beside
+		// Ranged over the WHOLE class, not one member: fora-4c7 added unset-kind beside
 		// non-finite, and an order that held for one and not the other would be two
 		// different orders wearing one name.
 		//
@@ -593,7 +593,7 @@ func TestAnAbsentPayloadIsAcceptedInEitherForm(t *testing.T) {
 	}
 	// A RegisterRequest that never set the field hands its getter a nil Struct, which is
 	// the path an Exchange actually takes.
-	var req *rampv1.RegisterRequest
+	var req *forav1.RegisterRequest
 	if got := helpers.CheckRegistrationDataStruct(req.GetRegistrationData()); got != helpers.RegistrationDataAccepted {
 		t.Errorf("unset field: verdict = %s, want accepted", got)
 	}

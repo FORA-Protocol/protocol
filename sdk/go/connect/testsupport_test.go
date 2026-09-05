@@ -6,7 +6,7 @@ package connect_test
 // the SDK orchestrates over (the KeyResolver-shaped middle), NOT a mock of the
 // code under test. The SDK owns the replay-check control-flow; the app owns the
 // store and its TTL policy (ADR-020 §3 / Core Invariant). Relocated verbatim from
-// sdk/go/ramp on the core/connect split (ramp.ReplayStore → core.ReplayStore).
+// sdk/go/fora on the core/connect split (fora.ReplayStore → core.ReplayStore).
 
 import (
 	"context"
@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -44,7 +44,7 @@ func loopbackManifestServer(t *testing.T, rest http.Handler) (string, *atomic.In
 		origin string
 	)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/.well-known/ramp.json", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/.well-known/fora.json", func(w http.ResponseWriter, _ *http.Request) {
 		hits.Add(1)
 		_ = json.NewEncoder(w).Encode(map[string]any{"endpoint": origin})
 	})
@@ -97,10 +97,10 @@ func timestampProto(t time.Time) *timestamppb.Timestamp {
 // carries a detached acceptance covering the requester, so a client that has not
 // been told who it is cannot buy — these tests supply one the way an application
 // would.
-func testRequester() *rampv1.Requester {
-	return &rampv1.Requester{
+func testRequester() *forav1.Requester {
+	return &forav1.Requester{
 		Id:     "https://agent.test",
 		Domain: "agent.test",
-		Type:   rampv1.RequesterType_REQUESTER_TYPE_AGENT,
+		Type:   forav1.RequesterType_REQUESTER_TYPE_AGENT,
 	}
 }

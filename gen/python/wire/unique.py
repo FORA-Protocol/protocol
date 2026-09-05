@@ -1,4 +1,4 @@
-# Code generated from the RAMP proto (via conformance/uniquegen). DO NOT EDIT.
+# Code generated from the FORA proto (via conformance/uniquegen). DO NOT EDIT.
 # Regenerate: scripts/gen-sdk-types.sh   Enforcement seam: wire/base.py
 """Message -> field names whose repeated items must be unique on the wire.
 

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 // Structural guard for the IO-leaf invariant.
 //
 // Two trees bear IO: the resolver faces (sdk/ts/resolvers/), which fetch JWKS / WBA
-// directories / ramp.json, and the client (sdk/ts/client/), which speaks the RAMP
+// directories / fora.json, and the client (sdk/ts/client/), which speaks the FORA
 // RPCs and the delivery fetch. Both dial over an injected transport whose default is
 // a maintained undici client with the SSRF guard. The pure L1/L2 tree (sdk/ts/core
 // + sdk/ts/src) is transport-neutral by contract — it owns no keys, opens no

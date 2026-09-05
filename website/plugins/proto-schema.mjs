@@ -2,7 +2,7 @@
 // `buf build`) and exposes the schema the docs need: enum values + their proto
 // comments (the canonical table descriptions), message field tables and service
 // RPC tables (same — values + comments, so the reference page is GENERATED, not
-// hand-typed), the vocabulary axes (the (ramp.v1.vocab)/(ramp.v1.vocab_enum)
+// hand-typed), the vocabulary axes (the (fora.v1.vocab)/(fora.v1.vocab_enum)
 // custom options), and the set of resolvable symbols for autolinking.
 //
 // It reads the descriptor as *data* via @bufbuild/protobuf — it is NOT the generated
@@ -33,7 +33,7 @@ const SCALAR = {
   15: 'sfixed32', 16: 'sfixed64', 17: 'sint32', 18: 'sint64',
 };
 
-// shortName(".ramp.v1.Cost") -> "Cost"; (".google.protobuf.Timestamp") -> "Timestamp".
+// shortName(".fora.v1.Cost") -> "Cost"; (".google.protobuf.Timestamp") -> "Timestamp".
 const shortName = (typeName) => typeName.slice(typeName.lastIndexOf('.') + 1);
 
 // Which proto element carries each docs vocabulary axis. The axis ids match what the
@@ -142,16 +142,16 @@ export function loadSchema() {
   // Vocabulary axes from the custom options, read via the registry (the vocab
   // extensions are declared in the descriptor, so getExtension decodes them).
   const reg = createFileRegistry(fds);
-  const vEnumExt = reg.getExtension('ramp.v1.vocab_enum');
-  const vFieldExt = reg.getExtension('ramp.v1.vocab');
+  const vEnumExt = reg.getExtension('fora.v1.vocab_enum');
+  const vFieldExt = reg.getExtension('fora.v1.vocab');
   const vocab = {};
   for (const [axis, src] of Object.entries(VOCAB_AXES)) {
     let opts;
     if (src.enum) {
-      opts = reg.getEnum(`ramp.v1.${src.enum}`)?.values.find((v) => v.name === src.value)?.proto.options;
+      opts = reg.getEnum(`fora.v1.${src.enum}`)?.values.find((v) => v.name === src.value)?.proto.options;
       vocab[axis] = opts ? (getExtension(opts, vEnumExt) ?? []) : [];
     } else {
-      opts = reg.getMessage(`ramp.v1.${src.message}`)?.fields.find((f) => f.name === src.field)?.proto.options;
+      opts = reg.getMessage(`fora.v1.${src.message}`)?.fields.find((f) => f.name === src.field)?.proto.options;
       vocab[axis] = opts ? (getExtension(opts, vFieldExt) ?? []) : [];
     }
   }

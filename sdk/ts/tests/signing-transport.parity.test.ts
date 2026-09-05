@@ -380,7 +380,7 @@ describe("createSigningTransport option behavior (ported from Go transport_optio
     });
 
     await signing(
-      "https://exchange.example.com/ramp.exchange.v1.ExchangeService/DiscoverResources",
+      "https://exchange.example.com/fora.exchange.v1.ExchangeService/DiscoverResources",
       { method: "POST", headers: {}, body: BODY },
     );
 
@@ -395,7 +395,7 @@ describe("createSigningTransport option behavior (ported from Go transport_optio
     const { send, calls } = capturingSend();
     const signing = createSigningTransport(send, { privKey, keyid, appendOnly: true });
 
-    await signing("https://exchange.example.com/ramp.x/Y", {
+    await signing("https://exchange.example.com/fora.x/Y", {
       method: "POST",
       headers: {},
       body: BODY,
@@ -415,7 +415,7 @@ describe("createSigningTransport option behavior (ported from Go transport_optio
     const upstream = await genSigner();
     const sig1 = await signRequest(upstream.privKey, {
       method: "POST",
-      url: "https://exchange.example.com/ramp.x/Y",
+      url: "https://exchange.example.com/fora.x/Y",
       body: BODY,
       authorization: "",
       signatureAgent: "",
@@ -427,7 +427,7 @@ describe("createSigningTransport option behavior (ported from Go transport_optio
     const { send, calls } = capturingSend();
     const signing = createSigningTransport(send, { privKey, keyid }); // no appendOnly
 
-    await signing("https://exchange.example.com/ramp.x/Y", {
+    await signing("https://exchange.example.com/fora.x/Y", {
       method: "POST",
       headers: {
         "content-digest": sig1.contentDigest,
@@ -454,7 +454,7 @@ describe("createSigningTransport option behavior (ported from Go transport_optio
       signatureAgent: dir,
     });
 
-    await signing("https://exchange.example.com/ramp.x/Y", {
+    await signing("https://exchange.example.com/fora.x/Y", {
       method: "POST",
       headers: {},
       body: BODY,
@@ -474,7 +474,7 @@ describe("createSigningTransport option behavior (ported from Go transport_optio
       signatureAgent: "https://broker.example.com",
     });
 
-    await signing("https://exchange.example.com/ramp.x/Y", {
+    await signing("https://exchange.example.com/fora.x/Y", {
       method: "POST",
       headers: { [SignatureAgentHeader]: agentDir },
       body: BODY,
@@ -494,7 +494,7 @@ describe("createSigningTransport option behavior (ported from Go transport_optio
     });
 
     await signing(
-      "https://exchange.example.com/ramp.exchange.v1.ExchangeService/DiscoverResources",
+      "https://exchange.example.com/fora.exchange.v1.ExchangeService/DiscoverResources",
       { method: "POST", headers: {}, body: BODY },
     );
 
@@ -504,7 +504,7 @@ describe("createSigningTransport option behavior (ported from Go transport_optio
     expect(bytesEqual((calls[0] as Captured).init.body, BODY)).toBe(true);
   });
 
-  it("predicate returning TRUE: signs even a non-/ramp path", async () => {
+  it("predicate returning TRUE: signs even a non-/fora path", async () => {
     const { privKey, keyid } = await genSigner();
     const { send, calls } = capturingSend();
     const signing = createSigningTransport(send, {
@@ -528,7 +528,7 @@ describe("createSigningTransport option behavior (ported from Go transport_optio
     const { send, calls } = capturingSend();
     const signing = createSigningTransport(send, { privKey, keyid });
 
-    await signing("https://exchange.example.com/ramp.x/Y", {
+    await signing("https://exchange.example.com/fora.x/Y", {
       method: "POST",
       headers: {},
       body: BODY,
@@ -544,7 +544,7 @@ describe("createSigningTransport option behavior (ported from Go transport_optio
     const { send, calls } = capturingSend();
     const signing = createSigningTransport(send, { privKey, keyid });
 
-    await signing("https://exchange.example.com/ramp.x/Y", {
+    await signing("https://exchange.example.com/fora.x/Y", {
       method: "GET",
       headers: {},
     });

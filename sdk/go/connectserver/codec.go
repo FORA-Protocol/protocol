@@ -17,18 +17,18 @@ import (
 // offer carries a zero Cost.amount" cannot be asserted when the field is omitted
 // entirely from the response. A non-optional MESSAGE field and a Struct are
 // not omitted when unset — protojson renders each as `null` under EmitUnpopulated, which is
-// what a JSON client has to accept from a conformant RAMP server. An unset MAP renders `{}`,
+// what a JSON client has to accept from a conformant FORA server. An unset MAP renders `{}`,
 // and a field declared `optional` is omitted outright along with an unpopulated oneof member
 // and an unset extension.
 //
-// Field names are snake_case (UseProtoNames=true) — the RAMP wire is snake_case
+// Field names are snake_case (UseProtoNames=true) — the FORA wire is snake_case
 // proto-JSON everywhere (proto field names, corpus, generated clients, and this
 // Connect codec).
 //
 // Unmarshal discards unknown fields (a newer client may send fields this
 // server's pin does not know) and rejects a zero-length payload.
 //
-// Emit-unpopulated is a RAMP-platform wire-policy choice, not a Connect
+// Emit-unpopulated is a FORA-platform wire-policy choice, not a Connect
 // universal, so the codec is OPT-IN: register it per handler via
 // WithEmitUnpopulated (SDK-wrapped mounts) or pass
 // connectrpc.WithCodec(EmitUnpopulatedJSONCodec()) directly to a raw generated
@@ -39,7 +39,7 @@ func EmitUnpopulatedJSONCodec() connectrpc.Codec {
 
 // WithEmitUnpopulated registers EmitUnpopulatedJSONCodec on the handler —
 // sugar over WithHandlerOptions(connectrpc.WithCodec(...)) so a service mount
-// selects the RAMP JSON wire policy without importing connectrpc.
+// selects the FORA JSON wire policy without importing connectrpc.
 func WithEmitUnpopulated() ServerOption {
 	return func(c *serverConfig) {
 		c.handlerOpts = append(c.handlerOpts, connectrpc.WithCodec(EmitUnpopulatedJSONCodec()))

@@ -1,20 +1,20 @@
 // Deterministic backfill: for every reference-page field whose DESCRIPTION lives
 // only in the hand-typed doc table (the proto field has no comment), port that
-// description back into proto/ramp/v1/ramp.proto as a leading `//` comment — so
+// description back into proto/fora/v1/fora.proto as a leading `//` comment — so
 // the proto becomes the single source and the reference page can be generated
 // from it with nothing lost.
 //
 // Usage:
 //   node scripts/backfill-proto-comments.mjs           # dry run: print the plan
-//   node scripts/backfill-proto-comments.mjs --apply   # edit ramp.proto in place
+//   node scripts/backfill-proto-comments.mjs --apply   # edit fora.proto in place
 //
 // Idempotent: it only fills fields the descriptor reports as comment-less, so a
 // second run (after regenerating the descriptor) is a no-op.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { loadSchema } from '../website/plugins/proto-schema.mjs';
 
-const PROTO = new URL('../proto/ramp/v1/ramp.proto', import.meta.url);
-const REF = new URL('../website/src/content/docs/reference/proto-ramp.mdx', import.meta.url);
+const PROTO = new URL('../proto/fora/v1/fora.proto', import.meta.url);
+const REF = new URL('../website/src/content/docs/reference/proto-fora.mdx', import.meta.url);
 const apply = process.argv.includes('--apply');
 
 // 1. Which (message, field) pairs have NO proto comment, per the descriptor.
@@ -103,8 +103,8 @@ if (unmatched.length) {
 if (!apply) {
   console.log('\n--- sample of what will be inserted (first 20) ---');
   for (const p of plan.slice(0, 20)) console.log(`  ${p.key.padEnd(40)} // ${p.desc.slice(0, 70)}`);
-  console.log('\n(dry run — re-run with --apply to write ramp.proto)');
+  console.log('\n(dry run — re-run with --apply to write fora.proto)');
 } else {
   writeFileSync(PROTO, out.join('\n'));
-  console.log('\nramp.proto updated.');
+  console.log('\nfora.proto updated.');
 }

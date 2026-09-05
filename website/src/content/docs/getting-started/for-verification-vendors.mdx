@@ -1,5 +1,5 @@
 ---
-title: "RAMP for Verification Vendors"
+title: "FORA for Verification Vendors"
 description: "How verification and quality assessment companies provide trusted attestations across any resource domain"
 ---
 
@@ -7,7 +7,7 @@ description: "How verification and quality assessment companies provide trusted 
 
 Every resource domain has a trust problem. When an AI agent sees three offers for the same resource from three different Exchanges, how does it choose? **Price alone creates a race to the bottom.** Independent verification lets premium resources command premium pricing.
 
-In advertising, companies like GumGum, IAS, and DoubleVerify solve this for content quality. But the verification role exists in every domain RAMP serves:
+In advertising, companies like GumGum, IAS, and DoubleVerify solve this for content quality. But the verification role exists in every domain FORA serves:
 
 | Domain | Verification Vendor | What They Verify |
 |---|---|---|
@@ -18,9 +18,9 @@ In advertising, companies like GumGum, IAS, and DoubleVerify solve this for cont
 | Financial | Compliance auditors | Data freshness, score model version, FCRA compliance |
 | Geospatial | Quality assessment services | Cloud cover, spatial resolution, AOI coverage |
 
-RAMP provides a single protocol envelope — `ResourceAttestation` — that works for all of them. The same signature scheme, the same push API, the same trust model.
+FORA provides a single protocol envelope — `ResourceAttestation` — that works for all of them. The same signature scheme, the same push API, the same trust model.
 
-## What RAMP Carries for You
+## What FORA Carries for You
 
 A `ResourceAttestation` is a signed envelope of claims from your company about a resource at a specific URI. You sign claims with your Ed25519 key, and agents verify the signature to trust your measurements without re-verifying.
 
@@ -89,17 +89,17 @@ Some verification is not optional. In several domains, independent verification 
 | Amendment incorporation | Legal/Legislative | Relying on non-consolidated legislation creates compliance risk |
 | Export control classification | Geospatial/Defense | Spatial resolution must be verified against ITAR/EAR thresholds |
 
-For these domains, `ResourceAttestation` is not a nice-to-have — it is the mechanism that makes RAMP transactions possible at all. An AI agent accessing a brain MRI without a de-identification attestation is a HIPAA violation. An agent pulling credit data without FCRA compliance verification exposes the consumer to regulatory action.
+For these domains, `ResourceAttestation` is not a nice-to-have — it is the mechanism that makes FORA transactions possible at all. An AI agent accessing a brain MRI without a de-identification attestation is a HIPAA violation. An agent pulling credit data without FCRA compliance verification exposes the consumer to regulatory action.
 
 ## Extension Profile Integration
 
-RAMP v1.0 defines **domain extension profiles** — standardized claim vocabularies for specific industries. As a verification vendor, you provide profile-specific claims in your `ResourceAttestation` entries:
+FORA v1.0 defines **domain extension profiles** — standardized claim vocabularies for specific industries. As a verification vendor, you provide profile-specific claims in your `ResourceAttestation` entries:
 
 | Profile | Example Verification Claims |
 |---|---|
-| `ramp-news-v1` | `news.correction_status: "current"`, `news.iptc_subject: ["04000000"]`, `news.content_state: "usable"` |
-| `ramp-academic-v1` | `academic.retraction_status: "not_retracted"`, `academic.oa_status: "gold"`, `academic.version: "VoR"` |
-| `ramp-legal-v1` | `legal.consolidation_current: true`, `legal.in_force: true`, `legal.amendment_count: 12` |
+| `fora-news-v1` | `news.correction_status: "current"`, `news.iptc_subject: ["04000000"]`, `news.content_state: "usable"` |
+| `fora-academic-v1` | `academic.retraction_status: "not_retracted"`, `academic.oa_status: "gold"`, `academic.version: "VoR"` |
+| `fora-legal-v1` | `legal.consolidation_current: true`, `legal.in_force: true`, `legal.amendment_count: 12` |
 
 Profile-specific claims use a namespaced format. Any Exchange that declares conformance to a profile (via `supported_profiles` in its manifest) will interpret your namespaced claims consistently. This is what makes interoperability work — your `academic.retraction_status` means the same thing on every conforming Exchange.
 
@@ -108,7 +108,7 @@ Profile-specific claims use a namespaced format. Any Exchange that declares conf
 You push signed `ResourceAttestation` entries to Exchanges via the **CatalogService API**:
 
 ```
-POST /ramp.v1.CatalogService/PushResources
+POST /fora.v1.CatalogService/PushResources
 
 {
   "tenant_id": "hearst-media",
@@ -195,7 +195,7 @@ Your Analysis Pipeline (crawlers, APIs, audit tools, QA systems)
 
 **Prerequisites:**
 
-1. **Publish your keys**: Host your Ed25519 public keys in your WBA directory — a JWK Set at `https://yourcompany.com/.well-known/http-message-signatures-directory` (inline RFC 7517 JWKs, each identified by its RFC 7638 thumbprint). Exchanges fetch this to verify your attestation signatures; keys no longer live in `ramp.json`. RAMP has no dedicated verifier role; a verifier publishes under its operator's role — a standalone verification vendor uses `ROLE_EXCHANGE`, and a self-attesting publisher uses `ROLE_PUBLISHER`. Expose your attestation claims schema in your `ramp.json` via `ext["ramp.attestation.claims_schema"]`.
+1. **Publish your keys**: Host your Ed25519 public keys in your WBA directory — a JWK Set at `https://yourcompany.com/.well-known/http-message-signatures-directory` (inline RFC 7517 JWKs, each identified by its RFC 7638 thumbprint). Exchanges fetch this to verify your attestation signatures; keys no longer live in `fora.json`. FORA has no dedicated verifier role; a verifier publishes under its operator's role — a standalone verification vendor uses `ROLE_EXCHANGE`, and a self-attesting publisher uses `ROLE_PUBLISHER`. Expose your attestation claims schema in your `fora.json` via `ext["fora.attestation.claims_schema"]`.
 2. **Be listed in `catalog_contributors`**: Each provider must list your domain in their `catalog_contributors` before you can push attestations for their content. The Exchange rejects pushes from unlisted contributors.
 3. **Register with Exchanges**: Ed25519 key exchange, then push data on whatever schedule makes sense — real-time on content publish, daily batch, triggered by provider CMS webhooks, or on regulatory audit cycles.
 
@@ -216,22 +216,22 @@ The protocol doesn't prescribe your business model. Options vary by domain:
 - **Exchange fee**: Exchange pays per-entry for quality enrichment or compliance verification
 - **Regulatory mandate**: Provider must have independent verification to participate (HIPAA, FCRA) — your service is a prerequisite
 - **Attribution-based**: Your domain appears as the `verifier` in every `ResourceAttestation` you sign — visible to all agents
-- **Existing relationship extension**: If you already provide verification services (ad-tech quality signals, CrossMark for publishers, compliance audits for financial institutions), RAMP adds a new distribution channel
+- **Existing relationship extension**: If you already provide verification services (ad-tech quality signals, CrossMark for publishers, compliance audits for financial institutions), FORA adds a new distribution channel
 
 ## Three-Layer Governance
 
-RAMP uses a three-layer governance model to prevent fragmentation:
+FORA uses a three-layer governance model to prevent fragmentation:
 
 | Layer | Scope | Example |
 |---|---|---|
-| **1. Core Proto** | Fields in `ramp.proto` | `resource_mutability`, `data_as_of` |
-| **2. Standard Extensions** | `ramp.*` namespace in ext | `ramp.compliance.dua_required` |
+| **1. Core Proto** | Fields in `fora.proto` | `resource_mutability`, `data_as_of` |
+| **2. Standard Extensions** | `fora.*` namespace in ext | `fora.compliance.dua_required` |
 | **3. Domain Profiles** | Domain namespace in ext | `news.iptc_guid`, `academic.doi` |
 
-Your attestation claims at Layer 3 are governed by the profile specification — each profile defines the claim names, types, and validation rules. This ensures interoperability: any Exchange that declares conformance to `ramp-news-v1` will interpret your `news.*` claims consistently.
+Your attestation claims at Layer 3 are governed by the profile specification — each profile defines the claim names, types, and validation rules. This ensures interoperability: any Exchange that declares conformance to `fora-news-v1` will interpret your `news.*` claims consistently.
 
 ## Next Steps
 
-1. Review the [CatalogService proto](/reference/proto-ramp/) for the full API
+1. Review the [CatalogService proto](/reference/proto-fora/) for the full API
 2. See the [Extension Profiles](/protocol/extension-profiles/) for domain-specific claim vocabularies
 3. Contact participating Exchanges to register as a verification vendor

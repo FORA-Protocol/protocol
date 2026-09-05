@@ -25,7 +25,7 @@ const BrokerKeyIDPrefix = "broker."
 // builds the signature base (covered components + parameters); the Signer signs
 // exactly those bytes. Splitting it this way means a KMS/HSM/remote signer
 // satisfies the same interface and the SDK never sees the private key — custody
-// stays with the application (ADR-020 §3, ramp-sdk-api.md "The core abstraction:
+// stays with the application (ADR-020 §3, fora-sdk-api.md "The core abstraction:
 // Signer").
 type Signer interface {
 	// KeyID is the RFC 9421 keyid the verifier resolves a public key for.
@@ -77,7 +77,7 @@ type SignOptions struct {
 	Expires int64
 }
 
-// SignRequest signs req with the RAMP covered-component set and mutates it in
+// SignRequest signs req with the FORA covered-component set and mutates it in
 // place: it sets Content-Digest over body, binds the Authorization header
 // (even when empty, so a later token injection is detected), builds the RFC
 // 9421 signature base, asks the Signer to sign it, and writes the
@@ -106,7 +106,7 @@ func SignRequest(ctx context.Context, req *http.Request, body []byte, signer Sig
 // existing one (forwarding chain). It preserves an existing
 // Content-Digest (only setting it when missing), binds Authorization, finds the
 // next label sig(N+1) and predecessor sigN, builds the chain-linked covered set
-// (the RAMP base plus "signature";key="sigN" so sig(N+1) commits to its
+// (the FORA base plus "signature";key="sigN" so sig(N+1) commits to its
 // predecessor), asks the Signer to sign, and APPENDS to the Signature-Input /
 // Signature headers. Appending to a request with no existing signatures produces
 // a sig1 byte-for-byte identical to SignRequest — single-sig is the N=1 case.
@@ -122,7 +122,7 @@ func AppendSignature(ctx context.Context, req *http.Request, body []byte, signer
 	prevLabel, hasPrev := findPrevLabel(req.Header)
 	params := sigParams{
 		Label:   findNextLabel(req.Header),
-		Covered: rampChainCoveredComponents(req, prevLabel, hasPrev),
+		Covered: foraChainCoveredComponents(req, prevLabel, hasPrev),
 		KeyID:   signer.KeyID(),
 		Alg:     signer.Algorithm(),
 		Created: opts.Created,

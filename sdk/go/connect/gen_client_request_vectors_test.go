@@ -23,7 +23,7 @@ package connect_test
 // Vectors are captured by driving the REAL client against a server that records what
 // arrived, so this records what the oracle does rather than a description of it.
 //
-// Verification no-op by default; (re)writes under RAMP_UPDATE_VECTORS=1. TEST
+// Verification no-op by default; (re)writes under FORA_UPDATE_VECTORS=1. TEST
 // INFRASTRUCTURE.
 
 import (
@@ -39,12 +39,12 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
-	rampserver "github.com/RAMP-Protocol/protocol/sdk/go/connectserver"
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/vectorio"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	foraserver "github.com/FORA-Protocol/protocol/sdk/go/connectserver"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 const clientRequestVectorsPath = "testdata/client-request-vectors.json"
@@ -79,7 +79,7 @@ func TestGenerateClientRequestVectors(t *testing.T) {
 			"same message legitimately renders differently.",
 		"vectors": buildClientRequestVectors(t),
 	}
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		if err := vectorio.Write(clientRequestVectorsPath, doc); err != nil {
 			t.Fatalf("write %s: %v", clientRequestVectorsPath, err)
 		}
@@ -90,7 +90,7 @@ func TestGenerateClientRequestVectors(t *testing.T) {
 		t.Fatalf("read %s: %v", clientRequestVectorsPath, err)
 	}
 	if stale {
-		t.Fatalf("%s is stale; re-run with RAMP_UPDATE_VECTORS=1 to regenerate",
+		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate",
 			clientRequestVectorsPath)
 	}
 }
@@ -101,7 +101,7 @@ type capturedRequest struct {
 	body map[string]any
 }
 
-// recordingOrigin answers every RAMP method with an empty JSON object and records the
+// recordingOrigin answers every FORA method with an empty JSON object and records the
 // path and body it was given. It is a bare handler rather than a generated one because
 // what is under test is what the CLIENT sent, and a generated handler would parse the
 // body away before this could read it.
@@ -118,8 +118,8 @@ func recordingOrigin(t *testing.T, seen *capturedRequest) *httptest.Server {
 
 func buildClientRequestVectors(t *testing.T) []clientRequestVector {
 	t.Helper()
-	requester := &rampv1.Requester{
-		Id: "agent-1", Domain: "agent.test", Type: rampv1.RequesterType_REQUESTER_TYPE_AGENT,
+	requester := &forav1.Requester{
+		Id: "agent-1", Domain: "agent.test", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT,
 	}
 	// The offer-derived leg dials a loopback recorder here. That leg exists precisely
 	// because the address comes off a signed message rather than configuration, and its
@@ -128,13 +128,13 @@ func buildClientRequestVectors(t *testing.T) []clientRequestVector {
 	t.Setenv("SKIP_SSRF", "1")
 	t.Setenv("ALLOW_INSECURE", "1")
 
-	// The client must speak the RAMP JSON wire for the recording server to read what it
+	// The client must speak the FORA JSON wire for the recording server to read what it
 	// sent, and in the naming the contract uses: connect-go's own JSON codec renders the
 	// lowerCamelCase json_name alias, which is out of contract.
-	baseOpts := []rampconnect.ClientOption{
-		rampconnect.WithRequester(requester),
-		rampconnect.WithClientOptions(
-			connectrpc.WithCodec(rampserver.EmitUnpopulatedJSONCodec()),
+	baseOpts := []foraconnect.ClientOption{
+		foraconnect.WithRequester(requester),
+		foraconnect.WithClientOptions(
+			connectrpc.WithCodec(foraserver.EmitUnpopulatedJSONCodec()),
 		),
 	}
 
@@ -143,15 +143,15 @@ func buildClientRequestVectors(t *testing.T) []clientRequestVector {
 	// same-host rule is what stops an offer redirecting a signed call — so the recorder's
 	// own host is what the offer-derived verbs address. It carries a port, which is why
 	// none of the recorded fields is the exchange.
-	capture := func(name, verb string, run func(client *rampconnect.Client, exchange string) error) {
+	capture := func(name, verb string, run func(client *foraconnect.Client, exchange string) error) {
 		t.Helper()
 		var seen capturedRequest
 		srv := recordingOrigin(t, &seen)
 		defer srv.Close()
 		host := strings.TrimPrefix(srv.URL, "http://")
-		opts := append(append([]rampconnect.ClientOption{}, baseOpts...),
-			rampconnect.WithEndpointResolver(fixedEndpoint{endpoint: srv.URL}))
-		if err := run(rampconnect.NewClient(srv.URL, opts...), host); err != nil {
+		opts := append(append([]foraconnect.ClientOption{}, baseOpts...),
+			foraconnect.WithEndpointResolver(fixedEndpoint{endpoint: srv.URL}))
+		if err := run(foraconnect.NewClient(srv.URL, opts...), host); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
 		key, _ := seen.body["idempotency_key"].(string)
@@ -164,33 +164,33 @@ func buildClientRequestVectors(t *testing.T) []clientRequestVector {
 		})
 	}
 
-	capture("discover", "discover", func(c *rampconnect.Client, exchange string) error {
-		_, err := c.Discover(context.Background(), &rampv1.ResourceQuery{Exchange: exchange})
+	capture("discover", "discover", func(c *foraconnect.Client, exchange string) error {
+		_, err := c.Discover(context.Background(), &forav1.ResourceQuery{Exchange: exchange})
 		return err
 	})
-	capture("discover_caller_ver_wins", "discover", func(c *rampconnect.Client, exchange string) error {
+	capture("discover_caller_ver_wins", "discover", func(c *foraconnect.Client, exchange string) error {
 		_, err := c.Discover(context.Background(),
-			&rampv1.ResourceQuery{Exchange: exchange, Ver: "9.9"})
+			&forav1.ResourceQuery{Exchange: exchange, Ver: "9.9"})
 		return err
 	})
-	capture("report_usage_key_minted", "reportUsage", func(c *rampconnect.Client, exchange string) error {
+	capture("report_usage_key_minted", "reportUsage", func(c *foraconnect.Client, exchange string) error {
 		_, err := c.ReportUsage(context.Background(),
-			&rampv1.UsageReport{Exchange: exchange, TransactionId: "t-1"})
+			&forav1.UsageReport{Exchange: exchange, TransactionId: "t-1"})
 		return err
 	})
-	capture("report_usage_caller_key_wins", "reportUsage", func(c *rampconnect.Client, exchange string) error {
-		_, err := c.ReportUsage(context.Background(), &rampv1.UsageReport{
+	capture("report_usage_caller_key_wins", "reportUsage", func(c *foraconnect.Client, exchange string) error {
+		_, err := c.ReportUsage(context.Background(), &forav1.UsageReport{
 			Exchange: exchange, TransactionId: "t-1", IdempotencyKey: pinnedKey,
 		})
 		return err
 	})
-	capture("dispute_key_pinned", "dispute", func(c *rampconnect.Client, exchange string) error {
-		_, err := c.Dispute(context.Background(), &rampv1.DisputeRequest{
+	capture("dispute_key_pinned", "dispute", func(c *foraconnect.Client, exchange string) error {
+		_, err := c.Dispute(context.Background(), &forav1.DisputeRequest{
 			Exchange:      exchange,
 			TransactionId: "t-1",
 			ReportId:      "r-1",
-			Reason:        rampv1.DisputeReason_DISPUTE_REASON_DELIVERY_FAILED,
-		}, rampconnect.WithIdempotencyKey(pinnedKey))
+			Reason:        forav1.DisputeReason_DISPUTE_REASON_DELIVERY_FAILED,
+		}, foraconnect.WithIdempotencyKey(pinnedKey))
 		return err
 	})
 	out = append(out, executeVector(t, baseOpts))
@@ -206,7 +206,7 @@ func buildClientRequestVectors(t *testing.T) []clientRequestVector {
 // `fetch` has no vector here and no envelope to record: it is a GET against an
 // already-issued URL, so nothing on that path mutates state and there is no key to pin.
 // What it does carry is pinned by content-fetch-vectors.json.
-func executeVector(t *testing.T, baseOpts []rampconnect.ClientOption) clientRequestVector {
+func executeVector(t *testing.T, baseOpts []foraconnect.ClientOption) clientRequestVector {
 	t.Helper()
 	sig := newSigningFixture(t)
 	offers := newOfferFixture(t)
@@ -214,13 +214,13 @@ func executeVector(t *testing.T, baseOpts []rampconnect.ClientOption) clientRequ
 	srv := recordingOrigin(t, &seen)
 	defer srv.Close()
 
-	client := rampconnect.NewClient(srv.URL, append(append([]rampconnect.ClientOption{}, baseOpts...),
-		rampconnect.WithSigner(sig.signer),
-		rampconnect.WithOfferKey(offers.exchangePub),
+	client := foraconnect.NewClient(srv.URL, append(append([]foraconnect.ClientOption{}, baseOpts...),
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithOfferKey(offers.exchangePub),
 	)...)
 	verified := verifyOne(t, offers)
 	if _, err := client.Execute(context.Background(), verified,
-		rampconnect.WithIdempotencyKey(pinnedKey)); err != nil {
+		foraconnect.WithIdempotencyKey(pinnedKey)); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	ver, _ := seen.body["ver"].(string)
@@ -241,7 +241,7 @@ func verifyOne(t *testing.T, offers offerFixture) core.VerifiedOffer {
 		core.Strict,
 		helpers.NewStaticKeyResolver(map[string]ed25519.PublicKey{"": offers.exchangePub}),
 		time.Now,
-	).Sort(context.Background(), []*rampv1.Offer{offers.good})
+	).Sort(context.Background(), []*forav1.Offer{offers.good})
 	if len(sorted.Verified) != 1 {
 		t.Fatalf("fixture offer did not verify: %+v", sorted.Rejected)
 	}
@@ -272,13 +272,13 @@ func requesterIDOf(body map[string]any) string {
 // brokerResolveVector captures the Broker's verb, which lives on its own client because a
 // Broker is not an Exchange: it fans a query out across the Exchanges it knows, so its
 // address is the Broker's and not any Exchange's.
-func brokerResolveVector(t *testing.T, opts []rampconnect.ClientOption) clientRequestVector {
+func brokerResolveVector(t *testing.T, opts []foraconnect.ClientOption) clientRequestVector {
 	t.Helper()
 	var seen capturedRequest
 	srv := recordingOrigin(t, &seen)
 	defer srv.Close()
-	if _, err := rampconnect.NewBrokerClient(srv.URL, opts...).
-		Resolve(context.Background(), &rampv1.DiscoveryRequest{}); err != nil {
+	if _, err := foraconnect.NewBrokerClient(srv.URL, opts...).
+		Resolve(context.Background(), &forav1.DiscoveryRequest{}); err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
 	ver, _ := seen.body["ver"].(string)

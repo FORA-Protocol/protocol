@@ -42,7 +42,7 @@ export class WireNamingError extends Error {
 	constructor(key: string, path: string) {
 		super(
 			`peer answered with the lowerCamelCase json_name alias (${join(path, key)}); the ` +
-				"RAMP wire is snake_case proto-JSON, so its answer cannot be read without " +
+				"FORA wire is snake_case proto-JSON, so its answer cannot be read without " +
 				"silently dropping every multiword field",
 		);
 		this.name = "WireNamingError";
@@ -64,7 +64,7 @@ export class WireNamingError extends Error {
  * takes the default the schema declares, which is what the oracle answers for the same
  * bytes. Where the schema DOES require a value the null is left in place for it to refuse.
  *
- * Both halves are load-bearing. EmitUnpopulated — what a RAMP Exchange serves — renders an
+ * Both halves are load-bearing. EmitUnpopulated — what a FORA Exchange serves — renders an
  * unpopulated non-optional message field as null rather than omitting it, so `{"ext":null}`
  * is the ordinary shape of a real response. It renders an unset Timestamp that way too, and
  * that is the case a narrower rule missed: the generator flattens a Timestamp to a string
@@ -73,9 +73,9 @@ export class WireNamingError extends Error {
  * outright. Pydantic spells all of these `X | None` and accepts the null, so reading
  * presence rather than type is what keeps the two languages on one wire.
  *
- * **A lowerCamelCase answer is REFUSED.** The RAMP wire is snake_case proto-JSON and the
+ * **A lowerCamelCase answer is REFUSED.** The FORA wire is snake_case proto-JSON and the
  * camelCase json_name alias is out of contract, so a conformant peer serves snake_case —
- * connect-go does that only when a codec with UseProtoNames is registered, which a RAMP
+ * connect-go does that only when a codec with UseProtoNames is registered, which a FORA
  * deployment does and a stock connect-go server does not. The generated schemas accept
  * snake_case only and STRIP what they do not recognise, so a camelCase answer would
  * otherwise parse SUCCESSFULLY into a message with every multiword field missing, and

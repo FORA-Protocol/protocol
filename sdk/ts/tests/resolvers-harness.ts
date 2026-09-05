@@ -1,7 +1,7 @@
 // Shared served-directory harness for the resolver integration suites
 // (resolvers-wellknown.integration.test.ts + resolvers-wba.integration.test.ts).
 //
-// Per the RAMP testing doctrine these resolvers are IO-BOUND, so the suites
+// Per the FORA testing doctrine these resolvers are IO-BOUND, so the suites
 // exercise them against a REAL in-process node:http server on 127.0.0.1:0 — never
 // a mocked fetch. The resolvers use their default global-fetch transport; only
 // the clock (and the poll timer/seams) are injected for determinism. This module
@@ -20,11 +20,11 @@ import { thumbprint } from "../src/thumbprint.ts";
 
 // Well-known paths the origin serves. The WBA directory path is the fixed Web
 // Bot Auth path; the JWKS key doc and the endpoint manifest sit on distinct
-// paths so the key face (fixed URL) and endpoint face (host-keyed ramp.json)
+// paths so the key face (fixed URL) and endpoint face (host-keyed fora.json)
 // never collide.
 export const WBA_DIR_PATH = "/.well-known/http-message-signatures-directory";
-export const REVOCATION_PATH = "/.well-known/ramp-key-revocations.json";
-export const MANIFEST_PATH = "/.well-known/ramp.json";
+export const REVOCATION_PATH = "/.well-known/fora-key-revocations.json";
+export const MANIFEST_PATH = "/.well-known/fora.json";
 export const JWKS_PATH = "/keys.json";
 
 /** A real Ed25519 key: raw 32-byte public key, its base64url `x`, and its RFC
@@ -111,7 +111,7 @@ interface OriginState {
 }
 
 /** A real in-process origin serving the WBA directory, revocation snapshot,
- * JWKS key doc, and ramp.json manifest. Each doc is independently settable so a
+ * JWKS key doc, and fora.json manifest. Each doc is independently settable so a
  * test can rotate keys, publish a new revocation snapshot, or force a 500. */
 export interface Origin {
 	url: string;

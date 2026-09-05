@@ -24,8 +24,8 @@ import pytest
 from conftest import GO_RESOLVERS_TESTDATA, load_json
 from wire.models import WBAFile
 
-from ramp_sdk.b64 import b64url_decode_strict
-from ramp_sdk.resolvers import (
+from fora_sdk.b64 import b64url_decode_strict
+from fora_sdk.resolvers import (
     active_ed25519_key,
     active_ed25519_key_screened,
     active_ed25519_key_with_expiry,

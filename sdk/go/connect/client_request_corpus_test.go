@@ -18,7 +18,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 func TestClientRequestCorpusReplay(t *testing.T) {
@@ -51,7 +51,7 @@ func TestClientRequestCorpusReplay(t *testing.T) {
 			// SHAPE too, not only against the recorded string: a Connect unary path is
 			// the fully-qualified service and the method, and a corpus that recorded a
 			// malformed one would agree with itself forever.
-			if !strings.HasPrefix(want.Path, "/ramp.v1.") || strings.Count(want.Path, "/") != 2 {
+			if !strings.HasPrefix(want.Path, "/fora.v1.") || strings.Count(want.Path, "/") != 2 {
 				t.Errorf("path %q is not /<fully-qualified service>/<method>", want.Path)
 			}
 			if want.Ver == "" {

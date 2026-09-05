@@ -38,8 +38,8 @@ from conftest import GO_TESTDATA, load_json
 
 # RED: ``verify_request_server`` does not exist yet on httpsig (TDD red). It is
 # the framework-agnostic single-sig server-verify entry.
-from ramp_sdk.httpsig import sign_request, verify_request_server  # type: ignore[attr-defined]
-from ramp_sdk.keyresolver import StaticKeyResolver
+from fora_sdk.httpsig import sign_request, verify_request_server  # type: ignore[attr-defined]
+from fora_sdk.keyresolver import StaticKeyResolver
 
 # The positive round-trip consumes the existing sign-request oracle vectors (the
 # same the request SIGNER produces); the negatives consume the Go-emitted
@@ -163,7 +163,7 @@ def test_live_signed_request_roundtrips_through_server_face() -> None:
 
     signed = sign_request(
         method="POST",
-        url="https://broker.example/ramp.v1.BrokerService/Fetch",
+        url="https://broker.example/fora.v1.BrokerService/Fetch",
         body=body,
         authorization="Bearer live-token",
         signer_seed=seed,
@@ -176,7 +176,7 @@ def test_live_signed_request_roundtrips_through_server_face() -> None:
     resolver = _RecordingResolver({"mcp.v1": pub})
     verdict = verify_request_server(
         method="POST",
-        url="https://broker.example/ramp.v1.BrokerService/Fetch",
+        url="https://broker.example/fora.v1.BrokerService/Fetch",
         body=body,
         headers={
             "content-digest": signed.content_digest,
@@ -300,7 +300,7 @@ def _live_signed_call(*, max_signature_age: int, window: int = 600) -> object:
     body = b'{"uri":"https://cdn.example/clamp"}'
     signed = sign_request(
         method="POST",
-        url="https://broker.example/ramp.v1.BrokerService/Fetch",
+        url="https://broker.example/fora.v1.BrokerService/Fetch",
         body=body,
         authorization="Bearer clamp-token",
         signer_seed=seed,
@@ -311,7 +311,7 @@ def _live_signed_call(*, max_signature_age: int, window: int = 600) -> object:
     )
     return verify_request_server(
         method="POST",
-        url="https://broker.example/ramp.v1.BrokerService/Fetch",
+        url="https://broker.example/fora.v1.BrokerService/Fetch",
         body=body,
         headers={
             "content-digest": signed.content_digest,

@@ -265,8 +265,8 @@ The critical path showing WAL integration:
 ```go
 func (s *ExchangeServer) ExecuteTransaction(
     ctx context.Context,
-    req *connect.Request[rampv1.TransactionRequest],
-) (*connect.Response[rampv1.TransactionResponse], error) {
+    req *connect.Request[forav1.TransactionRequest],
+) (*connect.Response[forav1.TransactionResponse], error) {
     msg := req.Msg
 
     // 1. Idempotency check

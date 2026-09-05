@@ -25,9 +25,9 @@ import httpx
 import pytest
 
 from conftest import GO_RESOLVERS_TESTDATA, load_json
-from ramp_sdk.client import Client, ClientConfig
-from ramp_sdk.signing_transport import SigningTransport
-from ramp_sdk.client.errors import CallError, CallErrorKind
+from fora_sdk.client import Client, ClientConfig
+from fora_sdk.signing_transport import SigningTransport
+from fora_sdk.client.errors import CallError, CallErrorKind
 
 _DOC = load_json(GO_RESOLVERS_TESTDATA / "content-fetch-vectors.json")
 _VECTORS = _DOC["vectors"]

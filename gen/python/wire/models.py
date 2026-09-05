@@ -1,4 +1,4 @@
-# Code generated from the RAMP proto (via JSON Schema). DO NOT EDIT.
+# Code generated from the FORA proto (via JSON Schema). DO NOT EDIT.
 # Regenerate: scripts/gen-sdk-types.sh   Base class / extension seam: wire/base.py
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from enum import Enum
 class AccountRegistration(WireModel):
     data_schema: dict[str, Any] | None = Field(
         None,
-        description='JSON Schema (draft 2020-12) describing the RegisterRequest.registration_data\n object this Exchange expects. This field is the single home of the\n enforce/pass-through contract, and publishing it IS the enforcement switch.\n Present: this Exchange validates registration_data against the schema and\n refuses a non-conforming payload with\n REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA, naming the offending\n members in RegistrationFailure.field_errors. Absent: registration_data is\n passed through to the system of record uninspected, so an Exchange that\n publishes no schema needs no change to stay conformant.\n\nThe gate above runs on ACCOUNT CREATION ONLY. A repeat registration, for an\n agent that already holds an account, is answered from the stored record and\n runs no schema check at all — it discards registration_data rather than\n validating it. That exception is stated here rather than left to the section\n above, because this field calls itself the single home of the contract and a\n reader who comes here for the whole rule would otherwise leave with the wrong\n one. See "Repeat registration" in the Agent Account Registration section for\n why, and for the other gates it applies to.\n\n Absent means the field carries no bytes, or only JSON whitespace — space, tab,\n carriage return and line feed, RFC 8259\'s four and no others. Nothing else\n counts, and the distinction is load-bearing rather than pedantic: this is the\n enforcement switch, so a byte sequence read as absent is one that turns\n validation OFF. A consumer that asked its own language what "blank" means got\n three different answers to the same document — U+00A0 and U+3000 are whitespace\n to some runtimes and not others, and a decoder that strips a byte order mark\n makes a mark followed by a space look like nothing at all. A document that is\n not empty and not JSON is malformed, which is a refusal; it is never silence.\n\n Safety rules, because a consumer reads this schema out of a THIRD PARTY\'s\n manifest and validates against it before any signature has been checked. A\n publisher MUST satisfy every rule below and a consumer MUST refuse a schema\n that does not. The bounds are stated here as numbers rather than left to each\n implementation on purpose: a schema is validated at both ends of the same\n registration, and a limit chosen privately by one side refuses payloads the\n other accepts.\n\n   Self-contained. Every $ref, $dynamicRef and $recursiveRef MUST be a\n   same-document reference — it begins with "#". A consumer MUST NOT resolve a\n   reference that leaves the document: doing so turns every reader into an\n   SSRF vector aimed at a URL the schema\'s author chose.\n\n   One dialect. $schema, wherever it appears in the document, MUST name\n   https://json-schema.org/draft/2020-12/schema (an empty fragment on the end\n   is the same value). A document declaring none is read as that dialect. An\n   older draft is refused rather than validated under semantics its author did\n   not intend.\n\n   Data is not schema. `const`, `enum`, `default` and `examples` hold arbitrary\n   JSON VALUES, and their contents are never read as keywords: a `const` whose\n   value happens to carry a "$ref" or "$schema" member states a value a payload\n   may equal, not a reference to resolve or a dialect to honour. Both rules\n   above therefore stop at those four keywords, and so does the pattern\n   alphabet. Their nesting still counts against the depth cap. Likewise the\n   child keys of `properties`, `patternProperties`, `$defs`, `definitions` and\n   `dependentSchemas` are NAMES rather than keywords, so a property called\n   "$ref" is a property.\n\n   Bounded size: 16KB, measured as the UTF-8 bytes of this member AS SERVED in\n   ramp.json.\n\n   One encoding. The bytes MUST be well-formed UTF-8 (RFC 8259 requires it for\n   interchange) and MUST NOT begin with a byte order mark. RFC 8259 forbids\n   ADDING a mark and lets a parser ignore one, so both policies conform and the\n   choice is made here rather than left to each implementation: parsers differ,\n   and one that strips a mark validates a different document — and counts three\n   bytes against the size cap that the schema does not contain. A consumer MUST\n   NOT repair ill-formed bytes either; substituting U+FFFD silently enforces a\n   schema nobody published. A mark is in any case only valid at the start of a\n   JSON text, and this is a member inside one.\n\n   Bounded depth: 32 nested JSON containers, counting the schema itself as the\n   first.\n\n   Bounded WORK: 10000 evaluations, counted statically over the SCHEMA — each\n   anyOf/oneOf/allOf branch and prefixItems entry costs its own subschema, and a\n   $ref costs its target. It is the cost of applying the schema at ONE location\n   in a payload, not of a whole payload: a subschema under `items` is counted\n   once here and evaluated once per element at runtime. The size and depth caps\n   do not bound it and are not a substitute for it: branches multiply along a\n   reference chain, so a 1.6KB schema five containers deep can cost tens of\n   millions of evaluations and tens of seconds against a two-member payload. A\n   definition nobody references costs nothing, so a document may carry a library\n   of them.\n\n   Bounded reference chains: 100 hops, counted as the longest path of $ref hops\n   rather than as the number of references the document contains. This is a\n   THIRD axis, and a flat chain of definitions shows why it has to be: each one\n   referring to the next is three JSON containers deep however long it is, so\n   the depth cap never sees it, and it costs one evaluation per link, so the\n   work cap does not either. What it does reach is the recursion a validator\n   performs while resolving the chain — a chain of a few hundred exhausted one\n   implementation\'s stack outright, on a document every other rule had passed.\n   A schema describing a business entity chains one or two references.\n\n   No reference cycles. A $ref chain MUST NOT return to a schema already on it.\n   The construct is legal JSON Schema and is how a recursive structure is\n   written, but its evaluation cost has no static bound and it is what makes a\n   validator recurse until it aborts. Registration data describes a business\n   entity, which is not a recursive shape.\n\n   A portable `pattern` alphabet, stated as what a pattern MAY contain rather\n   than as what it may not. A group MUST open with "(" or "(?:" and nothing\n   else; only the escapes \\$, \\(, \\), \\*, \\+, \\., \\/, \\?, \\D, \\W, \\[, \\\\, \\],\n   \\^, \\d, \\f, \\n, \\r, \\t, \\v, \\w, \\{, \\| and \\} MAY appear, together with \\xHH\n   carrying exactly two hexadecimal digits (spelled out rather than ranged, so a\n   conformance guard can check the set character by character); a counted repeat\n   MUST NOT exceed 1000 and MUST state its first bound, so "a{2,}" is admitted\n   and "a{,5}" is not; a "}" outside a bracket expression MUST close a counted\n   repeat, so a literal brace is written "\\}"; "[:" MUST NOT appear inside a\n   bracket expression; a bracket expression MUST close and MUST NOT open with\n   "]"; and a range endpoint MUST NOT be one of the shorthand classes ("[\\w-x]").\n\n   The two brace rules are there for the same reason as the bracket ones, and\n   were found the same way. "a{,5}" is five literal characters to RE2 and a\n   repeat of zero to five to Python, so both engines compile it and then\n   disagree about which payloads match — the silent kind. An unmatched "}" is a\n   literal to RE2 and to Python and a syntax error to ECMA-262 under the `u`\n   flag, which is the loud kind, and exactly what the unmatched "]" rule above\n   already refuses.\n\n   The direction of that rule is the rule. Draft 2020-12 patterns are ECMA-262,\n   but the engines implementations run do not agree on it, and the set they\n   disagree about has no end: it grows with every dialect and every library\n   version, so a list of forbidden escapes needs a new entry each time somebody\n   finds one, and until then the gap is open. The portable set is small and\n   closed, and an author who wants a construct outside it writes the characters\n   out instead.\n\n   Some of the disagreement is loud — RE2 refuses the lookaround, atomic groups\n   and backreferences ECMA allows, so a schema using them compiles for one\n   implementation and fails for another. The rest is SILENT, and is why this is\n   a MUST rather than a SHOULD: inline flags, Unicode property classes, text\n   anchors and POSIX bracket names are accepted by one engine and either refused\n   or read DIFFERENTLY by the next, so two conformant validators both compile\n   the pattern and then disagree about which payloads match it, with nothing\n   logged. `\\s` and `\\B` are the plainest examples — RE2 reads `\\s` as\n   [\\t\\n\\f\\r ], Python adds the vertical tab, and ECMA-262 adds that plus every\n   Unicode space separator; `\\B` finds no word boundary in the empty string for\n   RE2 and ECMA-262 and finds one for Python. An explicit character class says\n   what was meant and means it everywhere.\n\n   Where a pattern may appear. `pattern` states its regex as a value and\n   `patternProperties` states its regexes as KEYS; both are patterns and both\n   are held to the alphabet above. They are the only two keywords in the dialect\n   that carry one — `propertyNames` reaches the rule through the subschema it\n   applies.\n\n   No nested quantifiers. A quantified group MUST NOT have a body that can\n   itself repeat or branch: `(a+)+`, `(a|a)*` and `([a-z]+)*` are refused, while\n   `(?:ab)+` is admitted. This is the denial-of-service half of the pattern\n   rule, and it is deliberately SEPARATE from the alphabet above, because\n   excluding lookaround and backreferences does not cover it — catastrophic\n   backtracking needs neither. It has to be a publishing rule rather than a\n   runtime bound: a regex spin holds its interpreter, so a consumer cannot\n   reliably interrupt one it has already started.\n\n   Annotations stay annotations. A consumer MUST NOT assert format,\n   contentEncoding or contentMediaType. Libraries default differently on each,\n   and a schema whose verdict depends on which library read it has no single\n   answer.\n\n The value MUST be a JSON object. Draft 2020-12 also admits a bare boolean as a\n schema, but this field is a Struct and cannot carry one.\n\n A consumer that finds a schema breaking any of these MUST refuse it, and MUST\n then SKIP its local pre-check rather than repair or truncate the schema —\n leaving the Exchange\'s own enforcement the deciding check, exactly as when no\n schema is published. Refusing locally and declining to send would turn a rule\n about reading a third party\'s document into a denial of service against the\n consumer\'s own user. That is the CLIENT side. An Exchange that cannot compile\n its OWN configured schema is looking at a misconfiguration of its deployment,\n and MUST NOT advertise a schema it is not itself enforcing.',
+        description='JSON Schema (draft 2020-12) describing the RegisterRequest.registration_data\n object this Exchange expects. This field is the single home of the\n enforce/pass-through contract, and publishing it IS the enforcement switch.\n Present: this Exchange validates registration_data against the schema and\n refuses a non-conforming payload with\n REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA, naming the offending\n members in RegistrationFailure.field_errors. Absent: registration_data is\n passed through to the system of record uninspected, so an Exchange that\n publishes no schema needs no change to stay conformant.\n\nThe gate above runs on ACCOUNT CREATION ONLY. A repeat registration, for an\n agent that already holds an account, is answered from the stored record and\n runs no schema check at all — it discards registration_data rather than\n validating it. That exception is stated here rather than left to the section\n above, because this field calls itself the single home of the contract and a\n reader who comes here for the whole rule would otherwise leave with the wrong\n one. See "Repeat registration" in the Agent Account Registration section for\n why, and for the other gates it applies to.\n\n Absent means the field carries no bytes, or only JSON whitespace — space, tab,\n carriage return and line feed, RFC 8259\'s four and no others. Nothing else\n counts, and the distinction is load-bearing rather than pedantic: this is the\n enforcement switch, so a byte sequence read as absent is one that turns\n validation OFF. A consumer that asked its own language what "blank" means got\n three different answers to the same document — U+00A0 and U+3000 are whitespace\n to some runtimes and not others, and a decoder that strips a byte order mark\n makes a mark followed by a space look like nothing at all. A document that is\n not empty and not JSON is malformed, which is a refusal; it is never silence.\n\n Safety rules, because a consumer reads this schema out of a THIRD PARTY\'s\n manifest and validates against it before any signature has been checked. A\n publisher MUST satisfy every rule below and a consumer MUST refuse a schema\n that does not. The bounds are stated here as numbers rather than left to each\n implementation on purpose: a schema is validated at both ends of the same\n registration, and a limit chosen privately by one side refuses payloads the\n other accepts.\n\n   Self-contained. Every $ref, $dynamicRef and $recursiveRef MUST be a\n   same-document reference — it begins with "#". A consumer MUST NOT resolve a\n   reference that leaves the document: doing so turns every reader into an\n   SSRF vector aimed at a URL the schema\'s author chose.\n\n   One dialect. $schema, wherever it appears in the document, MUST name\n   https://json-schema.org/draft/2020-12/schema (an empty fragment on the end\n   is the same value). A document declaring none is read as that dialect. An\n   older draft is refused rather than validated under semantics its author did\n   not intend.\n\n   Data is not schema. `const`, `enum`, `default` and `examples` hold arbitrary\n   JSON VALUES, and their contents are never read as keywords: a `const` whose\n   value happens to carry a "$ref" or "$schema" member states a value a payload\n   may equal, not a reference to resolve or a dialect to honour. Both rules\n   above therefore stop at those four keywords, and so does the pattern\n   alphabet. Their nesting still counts against the depth cap. Likewise the\n   child keys of `properties`, `patternProperties`, `$defs`, `definitions` and\n   `dependentSchemas` are NAMES rather than keywords, so a property called\n   "$ref" is a property.\n\n   Bounded size: 16KB, measured as the UTF-8 bytes of this member AS SERVED in\n   fora.json.\n\n   One encoding. The bytes MUST be well-formed UTF-8 (RFC 8259 requires it for\n   interchange) and MUST NOT begin with a byte order mark. RFC 8259 forbids\n   ADDING a mark and lets a parser ignore one, so both policies conform and the\n   choice is made here rather than left to each implementation: parsers differ,\n   and one that strips a mark validates a different document — and counts three\n   bytes against the size cap that the schema does not contain. A consumer MUST\n   NOT repair ill-formed bytes either; substituting U+FFFD silently enforces a\n   schema nobody published. A mark is in any case only valid at the start of a\n   JSON text, and this is a member inside one.\n\n   Bounded depth: 32 nested JSON containers, counting the schema itself as the\n   first.\n\n   Bounded WORK: 10000 evaluations, counted statically over the SCHEMA — each\n   anyOf/oneOf/allOf branch and prefixItems entry costs its own subschema, and a\n   $ref costs its target. It is the cost of applying the schema at ONE location\n   in a payload, not of a whole payload: a subschema under `items` is counted\n   once here and evaluated once per element at runtime. The size and depth caps\n   do not bound it and are not a substitute for it: branches multiply along a\n   reference chain, so a 1.6KB schema five containers deep can cost tens of\n   millions of evaluations and tens of seconds against a two-member payload. A\n   definition nobody references costs nothing, so a document may carry a library\n   of them.\n\n   Bounded reference chains: 100 hops, counted as the longest path of $ref hops\n   rather than as the number of references the document contains. This is a\n   THIRD axis, and a flat chain of definitions shows why it has to be: each one\n   referring to the next is three JSON containers deep however long it is, so\n   the depth cap never sees it, and it costs one evaluation per link, so the\n   work cap does not either. What it does reach is the recursion a validator\n   performs while resolving the chain — a chain of a few hundred exhausted one\n   implementation\'s stack outright, on a document every other rule had passed.\n   A schema describing a business entity chains one or two references.\n\n   No reference cycles. A $ref chain MUST NOT return to a schema already on it.\n   The construct is legal JSON Schema and is how a recursive structure is\n   written, but its evaluation cost has no static bound and it is what makes a\n   validator recurse until it aborts. Registration data describes a business\n   entity, which is not a recursive shape.\n\n   A portable `pattern` alphabet, stated as what a pattern MAY contain rather\n   than as what it may not. A group MUST open with "(" or "(?:" and nothing\n   else; only the escapes \\$, \\(, \\), \\*, \\+, \\., \\/, \\?, \\D, \\W, \\[, \\\\, \\],\n   \\^, \\d, \\f, \\n, \\r, \\t, \\v, \\w, \\{, \\| and \\} MAY appear, together with \\xHH\n   carrying exactly two hexadecimal digits (spelled out rather than ranged, so a\n   conformance guard can check the set character by character); a counted repeat\n   MUST NOT exceed 1000 and MUST state its first bound, so "a{2,}" is admitted\n   and "a{,5}" is not; a "}" outside a bracket expression MUST close a counted\n   repeat, so a literal brace is written "\\}"; "[:" MUST NOT appear inside a\n   bracket expression; a bracket expression MUST close and MUST NOT open with\n   "]"; and a range endpoint MUST NOT be one of the shorthand classes ("[\\w-x]").\n\n   The two brace rules are there for the same reason as the bracket ones, and\n   were found the same way. "a{,5}" is five literal characters to RE2 and a\n   repeat of zero to five to Python, so both engines compile it and then\n   disagree about which payloads match — the silent kind. An unmatched "}" is a\n   literal to RE2 and to Python and a syntax error to ECMA-262 under the `u`\n   flag, which is the loud kind, and exactly what the unmatched "]" rule above\n   already refuses.\n\n   The direction of that rule is the rule. Draft 2020-12 patterns are ECMA-262,\n   but the engines implementations run do not agree on it, and the set they\n   disagree about has no end: it grows with every dialect and every library\n   version, so a list of forbidden escapes needs a new entry each time somebody\n   finds one, and until then the gap is open. The portable set is small and\n   closed, and an author who wants a construct outside it writes the characters\n   out instead.\n\n   Some of the disagreement is loud — RE2 refuses the lookaround, atomic groups\n   and backreferences ECMA allows, so a schema using them compiles for one\n   implementation and fails for another. The rest is SILENT, and is why this is\n   a MUST rather than a SHOULD: inline flags, Unicode property classes, text\n   anchors and POSIX bracket names are accepted by one engine and either refused\n   or read DIFFERENTLY by the next, so two conformant validators both compile\n   the pattern and then disagree about which payloads match it, with nothing\n   logged. `\\s` and `\\B` are the plainest examples — RE2 reads `\\s` as\n   [\\t\\n\\f\\r ], Python adds the vertical tab, and ECMA-262 adds that plus every\n   Unicode space separator; `\\B` finds no word boundary in the empty string for\n   RE2 and ECMA-262 and finds one for Python. An explicit character class says\n   what was meant and means it everywhere.\n\n   Where a pattern may appear. `pattern` states its regex as a value and\n   `patternProperties` states its regexes as KEYS; both are patterns and both\n   are held to the alphabet above. They are the only two keywords in the dialect\n   that carry one — `propertyNames` reaches the rule through the subschema it\n   applies.\n\n   No nested quantifiers. A quantified group MUST NOT have a body that can\n   itself repeat or branch: `(a+)+`, `(a|a)*` and `([a-z]+)*` are refused, while\n   `(?:ab)+` is admitted. This is the denial-of-service half of the pattern\n   rule, and it is deliberately SEPARATE from the alphabet above, because\n   excluding lookaround and backreferences does not cover it — catastrophic\n   backtracking needs neither. It has to be a publishing rule rather than a\n   runtime bound: a regex spin holds its interpreter, so a consumer cannot\n   reliably interrupt one it has already started.\n\n   Annotations stay annotations. A consumer MUST NOT assert format,\n   contentEncoding or contentMediaType. Libraries default differently on each,\n   and a schema whose verdict depends on which library read it has no single\n   answer.\n\n The value MUST be a JSON object. Draft 2020-12 also admits a bare boolean as a\n schema, but this field is a Struct and cannot carry one.\n\n A consumer that finds a schema breaking any of these MUST refuse it, and MUST\n then SKIP its local pre-check rather than repair or truncate the schema —\n leaving the Exchange\'s own enforcement the deciding check, exactly as when no\n schema is published. Refusing locally and declining to send would turn a rule\n about reading a third party\'s document into a denial of service against the\n consumer\'s own user. That is the CLIENT side. An Exchange that cannot compile\n its OWN configured schema is looking at a misconfiguration of its deployment,\n and MUST NOT advertise a schema it is not itself enforcing.',
     )
 
 
@@ -254,7 +254,7 @@ class DisputeRequest(WireModel):
     transaction_id: str | None = Field('', description='Transaction being disputed.')
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -282,11 +282,11 @@ class DomainVerificationChallenge(WireModel):
     )
     token: str | None = Field(
         '',
-        description='Opaque challenge token. Provider must serve this at:\n https://{domain}/.well-known/ramp-verify/{token}',
+        description='Opaque challenge token. Provider must serve this at:\n https://{domain}/.well-known/fora-verify/{token}',
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
     verification_url: str | None = Field(
         '', description='The exact URL the Exchange will fetch to verify.'
@@ -317,7 +317,7 @@ class DomainVerificationConfirmation(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -363,7 +363,7 @@ class DomainVerificationRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -383,7 +383,7 @@ class DomainVerificationResult(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -402,7 +402,7 @@ class GetAccountStatusRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -430,12 +430,12 @@ class GetAccountStatusResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
 class IngestionSource(Enum):
-    INGESTION_SOURCE_RAMP_SITEMAP = 'INGESTION_SOURCE_RAMP_SITEMAP'
+    INGESTION_SOURCE_FORA_SITEMAP = 'INGESTION_SOURCE_FORA_SITEMAP'
     INGESTION_SOURCE_RSL = 'INGESTION_SOURCE_RSL'
     INGESTION_SOURCE_SITEMAP = 'INGESTION_SOURCE_SITEMAP'
     INGESTION_SOURCE_HTML_CRAWL = 'INGESTION_SOURCE_HTML_CRAWL'
@@ -446,10 +446,10 @@ class IngestionSource(Enum):
 
 class JsonWebKey(WireModel):
     alg: str | None = Field(
-        '', description='Signing algorithm. RAMP v1.0: MUST be "EdDSA".'
+        '', description='Signing algorithm. FORA v1.0: MUST be "EdDSA".'
     )
-    crv: str | None = Field('', description='Curve. RAMP v1.0: MUST be "Ed25519".')
-    kty: str | None = Field('', description='Key type. RAMP v1.0: MUST be "OKP".')
+    crv: str | None = Field('', description='Curve. FORA v1.0: MUST be "Ed25519".')
+    kty: str | None = Field('', description='Key type. FORA v1.0: MUST be "OKP".')
     not_after: str | None = Field(
         '',
         description='RFC3339 timestamp. Key is invalid at and after this instant\n (strict upper bound).',
@@ -458,7 +458,7 @@ class JsonWebKey(WireModel):
         '', description='RFC3339 timestamp. Key is invalid before this instant.'
     )
     use: str | None = Field(
-        '', description='Intended key use. RAMP v1.0: MUST be "sig".'
+        '', description='Intended key use. FORA v1.0: MUST be "sig".'
     )
     x: str | None = Field(
         '', description='base64url-encoded 32-byte Ed25519 public key.'
@@ -591,7 +591,7 @@ class PushResourcesResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
     warnings: list[str] | None = Field(
         None,
@@ -634,7 +634,7 @@ class RefreshCatalogRequest(WireModel):
     tenant_id: str | None = Field('', description='Tenant identifier')
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -642,7 +642,7 @@ class RefreshCatalogResponse(WireModel):
     started: bool | None = Field(False, description='Whether the refresh was started')
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -674,7 +674,7 @@ class RegisterRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -694,7 +694,7 @@ class RegisterResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -743,7 +743,7 @@ class RemoveResourcesRequest(WireModel):
     tenant_id: str | None = Field('', description='Tenant identifier')
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -753,7 +753,7 @@ class RemoveResourcesResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -884,7 +884,7 @@ class ResourceAttestation(WireModel):
     )
     claims: dict[str, Any] | None = Field(
         None,
-        description='Signed claims about the resource (max 4KB). A JSON object containing\n whatever properties the attesting party can determine about the resource.\n Recommended claim names for interoperability:\n   estimated_quantity (integer): estimated consumption quantity (e.g., token count for text)\n   word_count (integer): word count (estimated_quantity ~ word_count * 1.32 for text)\n   language (string): ISO 639-1 language code\n   iab_categories (string[]): IAB Content Taxonomy 3.1 codes\n   content_hash (string): hash of content in "method:hexdigest" format\n   hash_method (string): algorithm used for content_hash\n Vendors MAY add vendor-specific claims (e.g., brand_safety, sentiment).\n The protocol does NOT define "quality score" — it is inherently subjective.\n If a vendor provides a proprietary score, the vendor defines what it means\n via their WellKnownManifest ext["ramp.attestation.claims_schema"].',
+        description='Signed claims about the resource (max 4KB). A JSON object containing\n whatever properties the attesting party can determine about the resource.\n Recommended claim names for interoperability:\n   estimated_quantity (integer): estimated consumption quantity (e.g., token count for text)\n   word_count (integer): word count (estimated_quantity ~ word_count * 1.32 for text)\n   language (string): ISO 639-1 language code\n   iab_categories (string[]): IAB Content Taxonomy 3.1 codes\n   content_hash (string): hash of content in "method:hexdigest" format\n   hash_method (string): algorithm used for content_hash\n Vendors MAY add vendor-specific claims (e.g., brand_safety, sentiment).\n The protocol does NOT define "quality score" — it is inherently subjective.\n If a vendor provides a proprietary score, the vendor defines what it means\n via their WellKnownManifest ext["fora.attestation.claims_schema"].',
     )
     keyid: str | None = Field(
         '',
@@ -970,7 +970,7 @@ class SetReportingPolicyRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in ramp.proto.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
     )
 
 
@@ -980,7 +980,7 @@ class SetReportingPolicyResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in ramp.proto.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
     )
 
 
@@ -1125,14 +1125,14 @@ class UsageReportResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
 class WBAFile(WireModel):
     keys: list[JsonWebKey] | None = Field(
         None,
-        description='RFC 7517 JWK Set "keys" member. RAMP v1: Ed25519 (OKP) keys, each with\n not_before/not_after RAMP extension members.',
+        description='RFC 7517 JWK Set "keys" member. FORA v1: Ed25519 (OKP) keys, each with\n not_before/not_after FORA extension members.',
     )
     revocation_url: str | None = Field(
         None,
@@ -1179,7 +1179,7 @@ class AuthorizedExchange(WireModel):
         ...,
         description='Canonical domain of the Exchange, in the shape "Request recipient" defines\n in the file header.',
     )
-    endpoint: str | None = Field('', description='RAMP ExchangeService endpoint URL.')
+    endpoint: str | None = Field('', description='FORA ExchangeService endpoint URL.')
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
         None,
@@ -1233,7 +1233,7 @@ class DisputeResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1286,7 +1286,7 @@ class Pricing(WireModel):
         | None
     ) = Field(
         None,
-        description='Metering basis — the "per what" of PER_UNIT pricing. REQUIRED when\n model = PER_UNIT. Custom units namespace as "vendor:unit". Ignored for\n FREE / FLAT.\n\nThe (ramp.v1.vocab) entries below are the SOLE authored source of the\n registered bare tokens. A buf plugin reads them structurally and emits the\n pricingunits constants + IsRegistered; ingest enforces membership from\n those. The CEL is STRUCTURE ONLY (empty / bare-form / vendor:namespaced) —\n it never lists the tokens, so it cannot drift from the registry.',
+        description='Metering basis — the "per what" of PER_UNIT pricing. REQUIRED when\n model = PER_UNIT. Custom units namespace as "vendor:unit". Ignored for\n FREE / FLAT.\n\nThe (fora.v1.vocab) entries below are the SOLE authored source of the\n registered bare tokens. A buf plugin reads them structurally and emits the\n pricingunits constants + IsRegistered; ingest enforces membership from\n those. The CEL is STRUCTURE ONLY (empty / bare-form / vendor:namespaced) —\n it never lists the tokens, so it cannot drift from the registry.',
     )
     unit_cost: constr(pattern=r'^([0-9]+([.][0-9]+)?)?$', max_length=32) | None = Field(
         None,
@@ -1303,7 +1303,7 @@ class Quota(WireModel):
         pattern=r'^([a-z0-9-]+|[A-Za-z0-9._-]+:[A-Za-z0-9._-]+)$', max_length=64
     ) = Field(
         ...,
-        description='The unit being capped — an open vocabulary axis.\n\nThe (ramp.v1.vocab) entries below are the SOLE authored source of the\n registered bare metric tokens. A buf plugin reads them structurally and\n emits the quotametrics constants + IsRegistered; ingest enforces membership\n from those. The CEL is STRUCTURE ONLY (non-empty bare token or\n vendor:namespaced) — it never lists the tokens, so it cannot drift.\n\n Token meanings:\n   display-words      Words of content text rendered to an end user.\n   impressions        Times the content is displayed to an end user.\n   tokens             LLM output tokens generated using this content.\n   input-tokens       LLM input tokens consumed from this content.\n   units-manufactured Physical units manufactured from this design/pattern.\n   accesses           Distinct content access / retrieval events.\n   copies             Digital or physical copies produced.\n   seats              Distinct named users licensed to access the content.',
+        description='The unit being capped — an open vocabulary axis.\n\nThe (fora.v1.vocab) entries below are the SOLE authored source of the\n registered bare metric tokens. A buf plugin reads them structurally and\n emits the quotametrics constants + IsRegistered; ingest enforces membership\n from those. The CEL is STRUCTURE ONLY (non-empty bare token or\n vendor:namespaced) — it never lists the tokens, so it cannot drift.\n\n Token meanings:\n   display-words      Words of content text rendered to an end user.\n   impressions        Times the content is displayed to an end user.\n   tokens             LLM output tokens generated using this content.\n   input-tokens       LLM input tokens consumed from this content.\n   units-manufactured Physical units manufactured from this design/pattern.\n   accesses           Distinct content access / retrieval events.\n   copies             Digital or physical copies produced.\n   seats              Distinct named users licensed to access the content.',
     )
     window: QuotaWindow = Field(
         ..., description='Time window over which the limit accumulates.'
@@ -1361,7 +1361,7 @@ class ResourceIdentity(WireModel):
     )
     c2pa_status: C2PAStatus | None = Field(
         None,
-        description='The full C2PA validation details (signer identity, trust list,\n action history, training/mining status) are carried in a\n ResourceAttestation with c2pa.* claims — see ramp-c2pa-v1 profile.',
+        description='The full C2PA validation details (signer identity, trust list,\n action history, training/mining status) are carried in a\n ResourceAttestation with c2pa.* claims — see fora-c2pa-v1 profile.',
     )
     canonical_url: str | None = Field(
         None,
@@ -1431,14 +1431,14 @@ class ResourceQuery(WireModel):
     )
     supported_profiles: list[str] | None = Field(
         None,
-        description='Domain extension profiles the caller understands.\n\nDeclares which ext field vocabularies the caller can parse and act on.\n The Exchange SHOULD include profile-specific ext fields in Offers\n when the caller declares support. The Exchange MAY skip expensive\n metadata computation (e.g., retraction checking, consolidation\n verification) when the caller does not declare the relevant profile.\n\n Absence means "send all available metadata" — Exchange MUST NOT\n withhold ext fields solely because the caller omitted this field.\n\n Values match the Exchange\'s WellKnownManifest.supported_profiles entries.\n Examples: ["ramp-news-v1", "ramp-academic-v1", "ramp-legal-v1"]',
+        description='Domain extension profiles the caller understands.\n\nDeclares which ext field vocabularies the caller can parse and act on.\n The Exchange SHOULD include profile-specific ext fields in Offers\n when the caller declares support. The Exchange MAY skip expensive\n metadata computation (e.g., retraction checking, consolidation\n verification) when the caller does not declare the relevant profile.\n\n Absence means "send all available metadata" — Exchange MUST NOT\n withhold ext fields solely because the caller omitted this field.\n\n Values match the Exchange\'s WellKnownManifest.supported_profiles entries.\n Examples: ["fora-news-v1", "fora-academic-v1", "fora-legal-v1"]',
     )
     uris: list[str] | None = Field(
         None, description='Resource URIs being queried.', max_length=256
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1479,7 +1479,7 @@ class SetTenantFeeRateRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in ramp.proto.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
     )
 
 
@@ -1487,7 +1487,7 @@ class SetTenantFeeRateResponse(WireModel):
     rate: TenantFeeRate = Field(..., description='The fee rate as persisted.')
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in ramp.proto.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
     )
 
 
@@ -1514,7 +1514,7 @@ class TransactionResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1544,7 +1544,7 @@ class Usage(WireModel):
     )
     function: list[str] | None = Field(
         None,
-        description='How the resource was used. Standard values: "ai-train", "ai-input",\n "ai-index", "search", "display". Multiple allowed.\n CoMP-specific values available via ramp-comp-v1 extension profile.',
+        description='How the resource was used. Standard values: "ai-train", "ai-input",\n "ai-index", "search", "display". Multiple allowed.\n CoMP-specific values available via fora-comp-v1 extension profile.',
     )
     subfn: list[str] | None = Field(
         None,
@@ -1585,7 +1585,7 @@ class UsageReport(WireModel):
     usage: Usage | None = Field(None, description='How the resource was actually used.')
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1673,7 +1673,7 @@ class WellKnownManifest(WireModel):
     )
     protocol_versions_supported: list[str] | None = Field(
         None,
-        description='Exchange-only. Supported RAMP protocol versions (e.g. ["1.0"]).',
+        description='Exchange-only. Supported FORA protocol versions (e.g. ["1.0"]).',
     )
     role: Role = Field(..., description='Role this manifest describes.')
     supported_auth_methods: list[AuthMethod] | None = Field(
@@ -1698,7 +1698,7 @@ class WellKnownManifest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version of THIS MANIFEST DOCUMENT\'s schema — a namespace\n separate from the RPC envelope `ver`, deliberately not coupled to it.\n MUST equal "1.0"; consumers REJECT unrecognised major versions.',
+        description='FORA protocol version of THIS MANIFEST DOCUMENT\'s schema — a namespace\n separate from the RPC envelope `ver`, deliberately not coupled to it.\n MUST equal "1.0"; consumers REJECT unrecognised major versions.',
     )
 
 
@@ -1729,7 +1729,7 @@ class DiscoveryRequest(WireModel):
     )
     supported_profiles: list[str] | None = Field(
         None,
-        description='Domain extension profiles the agent understands.\n\nThe Broker uses this to:\n   1. Route queries to Exchanges that support these profiles\n   2. Forward the profiles in ResourceQuery.supported_profiles\n   3. Include profile-specific ext fields when returning results\n\n Examples: ["ramp-academic-v1"] — agent working on literature review',
+        description='Domain extension profiles the agent understands.\n\nThe Broker uses this to:\n   1. Route queries to Exchanges that support these profiles\n   2. Forward the profiles in ResourceQuery.supported_profiles\n   3. Include profile-specific ext fields when returning results\n\n Examples: ["fora-academic-v1"] — agent working on literature review',
     )
     uris: list[str] | None = Field(
         None,
@@ -1738,7 +1738,7 @@ class DiscoveryRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1751,7 +1751,7 @@ class ErrorDetail(WireModel):
     )
     domain: str | None = Field(
         '',
-        description='Stable grouping for the failing surface, e.g. "ramp.v1.ExchangeService".\n Mirrors google.rpc.ErrorInfo.domain so generic tooling can group errors.',
+        description='Stable grouping for the failing surface, e.g. "fora.v1.ExchangeService".\n Mirrors google.rpc.ErrorInfo.domain so generic tooling can group errors.',
     )
     domain_verification_failure: DomainVerificationFailure | None = Field(
         None, description='`reason` oneof — domain verification failed'
@@ -1832,7 +1832,7 @@ class Offer(WireModel):
         max_length=260,
     ) = Field(
         ...,
-        description='REQUIRED. Bare host of the Exchange that issued this offer (e.g.\n "exchange.example" or "exchange.example:8081"), in the form "Request\n recipient" defines in the file header. This is the execute-routing target:\n the agent, or a relaying Broker, sends the ExecuteTransaction call for this\n offer to this Exchange, and a Broker relaying a mixed batch groups the items\n by this value. Because it is an ordinary Offer field it falls inside the\n signed bytes (see `signature` below — the signature covers every field\n except `signature` / `signature_algorithm`), so an intermediary cannot\n redirect the execute call to a different Exchange without invalidating the\n offer, and it is what retires the X-RAMP-Exchange-Endpoint transport header.\n It is also the audience statement of an ExecuteTransaction, which is why\n TransactionRequest carries no top-level `exchange`: on receipt, an Exchange\n MUST reject the request unless EVERY item\'s offer.exchange names its own\n domain. Presence is enforced because an empty value is unroutable — a\n relaying Broker has nothing to group or dial on, and the swap-protection\n above is vacuous when the signed bytes carry no recipient at all.',
+        description='REQUIRED. Bare host of the Exchange that issued this offer (e.g.\n "exchange.example" or "exchange.example:8081"), in the form "Request\n recipient" defines in the file header. This is the execute-routing target:\n the agent, or a relaying Broker, sends the ExecuteTransaction call for this\n offer to this Exchange, and a Broker relaying a mixed batch groups the items\n by this value. Because it is an ordinary Offer field it falls inside the\n signed bytes (see `signature` below — the signature covers every field\n except `signature` / `signature_algorithm`), so an intermediary cannot\n redirect the execute call to a different Exchange without invalidating the\n offer, and it is what retires the X-FORA-Exchange-Endpoint transport header.\n It is also the audience statement of an ExecuteTransaction, which is why\n TransactionRequest carries no top-level `exchange`: on receipt, an Exchange\n MUST reject the request unless EVERY item\'s offer.exchange names its own\n domain. Presence is enforced because an empty value is unroutable — a\n relaying Broker has nothing to group or dial on, and the swap-protection\n above is vacuous when the signed bytes carry no recipient at all.',
     )
     expires_at: AwareDatetime | None = Field(
         None, description='When this offer expires (ISO 8601).'
@@ -1915,7 +1915,7 @@ class OfferGroup(WireModel):
 class ResourceEntry(WireModel):
     attestations: list[ResourceAttestation] | None = Field(
         None,
-        description="Signed attestations about this resource entry.\n Same semantics as Offer.attestations — see ResourceAttestation message\n for verification levels and claim vocabulary. Attestations pushed via\n CatalogService are verified at push time: the Exchange checks that\n the attestation verifier is authorized to push for this provider\n (via catalog_contributors in the provider's WellKnownManifest) and validates the\n attestation signature against the verifier's public key from its WBA\n directory (the JWK Set at /.well-known/http-message-signatures-directory;\n the keyid is the key's RFC 7638 thumbprint). The verifier's ramp.json\n carries only its role, determined by the verifier's operator.",
+        description="Signed attestations about this resource entry.\n Same semantics as Offer.attestations — see ResourceAttestation message\n for verification levels and claim vocabulary. Attestations pushed via\n CatalogService are verified at push time: the Exchange checks that\n the attestation verifier is authorized to push for this provider\n (via catalog_contributors in the provider's WellKnownManifest) and validates the\n attestation signature against the verifier's public key from its WBA\n directory (the JWK Set at /.well-known/http-message-signatures-directory;\n the keyid is the key's RFC 7638 thumbprint). The verifier's fora.json\n carries only its role, determined by the verifier's operator.",
     )
     content_hash: str | None = Field(None, description='Content hash')
     content_id: str | None = Field(None, description='Content identifier')
@@ -1980,7 +1980,7 @@ class ResourceResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -2015,7 +2015,7 @@ class TransactionRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -2035,7 +2035,7 @@ class DiscoveryResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -2062,5 +2062,5 @@ class PushResourcesRequest(WireModel):
     tenant_id: str | None = Field('', description='Tenant identifier')
     ver: str | None = Field(
         '',
-        description='RAMP protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )

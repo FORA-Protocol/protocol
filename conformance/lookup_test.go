@@ -1,7 +1,7 @@
 // Package conformance — lookup_test.go holds the shared bare-name → message
 // resolution used by every corpus- and doc-example-driven test.
 //
-// The corpus (Case.Message) and the {/* ramp-validate: X */} doc markers carry
+// The corpus (Case.Message) and the {/* fora-validate: X */} doc markers carry
 // BARE message names — the same names the generated Pydantic/Zod classes use —
 // so resolution tries each contract package in order. Bare names are unique
 // across the packages; contract.go's AssertUniqueBareNames proves it (see

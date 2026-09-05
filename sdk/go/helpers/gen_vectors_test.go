@@ -14,7 +14,7 @@ package helpers
 // random source — so re-running the emitter reproduces byte-identical files
 // (drift-gated in CI alongside the generated artifacts).
 //
-// Default `go test` behaviour is a no-op unless RAMP_UPDATE_VECTORS=1 is set;
+// Default `go test` behaviour is a no-op unless FORA_UPDATE_VECTORS=1 is set;
 // the vectors are committed, and CI regenerates + diffs them. Living in
 // package helpers (internal test) lets the emitter reuse the unexported
 // signature-base machinery (buildSignatureBase / sigParams / plainComponents /
@@ -37,8 +37,8 @@ import (
 	"testing"
 	"time"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/vectorio"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 	"github.com/gowebpki/jcs"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -358,7 +358,7 @@ type offerVerifyDoc struct {
 // canonicalizes over (snake_case, enums-as-names, omit-unpopulated). Emitting the
 // vector's offer_json through the identical option set is what lets the port
 // reproduce JCS(protojson(offer)) byte-for-byte.
-func offerCanonicalProtoJSON(t *testing.T, offer *rampv1.Offer) json.RawMessage {
+func offerCanonicalProtoJSON(t *testing.T, offer *forav1.Offer) json.RawMessage {
 	t.Helper()
 	pj, err := canonicalSignJSONOptions.Marshal(offer)
 	if err != nil {
@@ -396,7 +396,7 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 	// signVerdict signs offer in place and records the verdict the real verifier
 	// reaches (against the pinned clock). tamper mutates the offer AFTER signing so
 	// the recorded verdict is a genuine reject.
-	emit := func(name string, offer *rampv1.Offer, tamper func(*rampv1.Offer)) offerVerifyVector {
+	emit := func(name string, offer *forav1.Offer, tamper func(*forav1.Offer)) offerVerifyVector {
 		offer.Exchange = exchange
 		sig, err := SignOffer(exPriv, offer)
 		if err != nil {
@@ -427,7 +427,7 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 	// by the dedicated vectors appended below.
 	future := timestamppb.New(time.Unix(expUnix, 0).UTC())
 
-	minimal := &rampv1.Offer{OfferId: "offer-minimal", ExpiresAt: future}
+	minimal := &forav1.Offer{OfferId: "offer-minimal", ExpiresAt: future}
 
 	structExt, err := structpb.NewStruct(map[string]any{
 		// >1 key, intentionally NOT in sorted order, to force JCS recursive key-sort.
@@ -438,24 +438,24 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 	if err != nil {
 		t.Fatalf("struct ext: %v", err)
 	}
-	structExtOffer := &rampv1.Offer{OfferId: "offer-struct", Ext: structExt, ExpiresAt: future}
+	structExtOffer := &forav1.Offer{OfferId: "offer-struct", Ext: structExt, ExpiresAt: future}
 
-	twoTimestamps := &rampv1.Offer{
+	twoTimestamps := &forav1.Offer{
 		OfferId:   "offer-two-ts",
 		ExpiresAt: timestamppb.New(time.Unix(expUnix, 0).UTC()),
 		DataAsOf:  timestamppb.New(time.Unix(1_699_990_000, 0).UTC()),
 	}
 
-	repeated := &rampv1.Offer{
+	repeated := &forav1.Offer{
 		OfferId:        "offer-repeated",
 		ExpiresAt:      future,
-		DeliveryMethod: rampv1.DeliveryMethod_DELIVERY_METHOD_DIRECT,
-		Pricing:        &rampv1.Pricing{Model: rampv1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.05", Currency: "USD"},
-		Terms: []*rampv1.LicenseTerm{
-			{Semantics: rampv1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Scopes: []string{"ai-train", "ai-infer"}},
-			{Semantics: rampv1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY, Scopes: []string{"resell"}},
+		DeliveryMethod: forav1.DeliveryMethod_DELIVERY_METHOD_DIRECT,
+		Pricing:        &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.05", Currency: "USD"},
+		Terms: []*forav1.LicenseTerm{
+			{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Scopes: []string{"ai-train", "ai-infer"}},
+			{Semantics: forav1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY, Scopes: []string{"resell"}},
 		},
-		Attestations: []*rampv1.ResourceAttestation{
+		Attestations: []*forav1.ResourceAttestation{
 			{Verifier: "verifier.example", Keyid: "v1", Uri: "https://verifier.example/a"},
 			{Verifier: "verifier2.example", Keyid: "v2", Uri: "https://verifier2.example/b"},
 		},
@@ -469,11 +469,11 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 		emit("repeated_terms_enum", repeated, nil),
 		// tamper_negative: sign a clean offer, then bump the price. The stored
 		// signature no longer matches the (tampered) offer_json, so the port rejects.
-		emit("tamper_negative", &rampv1.Offer{
+		emit("tamper_negative", &forav1.Offer{
 			OfferId:   "offer-tamper",
 			ExpiresAt: future,
-			Pricing:   &rampv1.Pricing{Model: rampv1.PricingModel_PRICING_MODEL_FLAT, Rate: "1.00", Currency: "USD"},
-		}, func(o *rampv1.Offer) {
+			Pricing:   &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1.00", Currency: "USD"},
+		}, func(o *forav1.Offer) {
 			o.Pricing.Rate = "999.00" // mutate AFTER signing → signature invalid
 		}),
 
@@ -482,14 +482,14 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 		// fail-closed contract so a port cannot silently regress to fail-open. ---
 
 		// fresh_at_now_inclusive: expires_at == now. Inclusive boundary → verified.
-		emit("fresh_at_now_inclusive", &rampv1.Offer{
+		emit("fresh_at_now_inclusive", &forav1.Offer{
 			OfferId:   "offer-fresh-now",
 			ExpiresAt: timestamppb.New(time.Unix(nowUnix, 0).UTC()),
 		}, nil),
 
 		// expired_past: valid signature, expires_at strictly before now → rejected
 		// on freshness (not signature).
-		emit("expired_past", &rampv1.Offer{
+		emit("expired_past", &forav1.Offer{
 			OfferId:   "offer-expired",
 			ExpiresAt: timestamppb.New(time.Unix(nowUnix-100, 0).UTC()),
 		}, nil),
@@ -497,7 +497,7 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 		// missing_expires_at: valid signature, NO expires_at. Fail-closed → rejected.
 		// This is the exact fail-open hole M-7 flagged: a port that returns "fresh"
 		// on a missing bound admits an unbounded bearer offer and breaks here.
-		emit("missing_expires_at", &rampv1.Offer{
+		emit("missing_expires_at", &forav1.Offer{
 			OfferId: "offer-no-expiry",
 		}, nil),
 	}
@@ -518,7 +518,7 @@ type wireCanonicalVector struct {
 }
 
 // wireEmitJSONOptions is the Connect wire emission the broker's codec produces:
-// snake_case proto names (UseProtoNames=true, the RAMP wire contract) plus
+// snake_case proto names (UseProtoNames=true, the FORA wire contract) plus
 // EmitUnpopulated (see sdk/go/connectserver codec).
 var wireEmitJSONOptions = protojson.MarshalOptions{EmitUnpopulated: true, UseProtoNames: true}
 
@@ -530,7 +530,7 @@ var wireEmitJSONOptions = protojson.MarshalOptions{EmitUnpopulated: true, UsePro
 // repeated message fields.
 func buildWireCanonicalVectors(t *testing.T) []wireCanonicalVector {
 	t.Helper()
-	emit := func(name string, offer *rampv1.Offer) wireCanonicalVector {
+	emit := func(name string, offer *forav1.Offer) wireCanonicalVector {
 		wirePJ, err := wireEmitJSONOptions.Marshal(offer)
 		if err != nil {
 			t.Fatalf("%s: wire proto-JSON marshal: %v", name, err)
@@ -560,42 +560,42 @@ func buildWireCanonicalVectors(t *testing.T) []wireCanonicalVector {
 	return []wireCanonicalVector{
 		// deliveryMethod is the zero enum: the wire renders
 		// DELIVERY_METHOD_UNSPECIFIED, the canonical form omits the field.
-		emit("unspecified_enum_pruned", &rampv1.Offer{
+		emit("unspecified_enum_pruned", &forav1.Offer{
 			OfferId:  "offer-wire-unspec",
 			Exchange: "exchange.example.com",
 		}),
 		// Pricing.unit is proto3 optional: set to "" it is presence-tracked and
 		// KEPT by the canonical form, while the sibling non-optional zero scalars
 		// the wire inflates are pruned.
-		emit("set_empty_optional_unit", &rampv1.Offer{
+		emit("set_empty_optional_unit", &forav1.Offer{
 			OfferId:  "offer-wire-unit",
 			Exchange: "exchange.example.com",
-			Pricing: &rampv1.Pricing{
-				Model:    rampv1.PricingModel_PRICING_MODEL_FREE,
+			Pricing: &forav1.Pricing{
+				Model:    forav1.PricingModel_PRICING_MODEL_FREE,
 				Currency: "EUR",
 				Unit:     proto.String(""),
 			},
 		}),
-		emit("struct_ext_multi_key", &rampv1.Offer{
+		emit("struct_ext_multi_key", &forav1.Offer{
 			OfferId:  "offer-wire-struct",
 			Exchange: "exchange.example.com",
 			Ext:      structExt,
 		}),
-		emit("two_timestamps", &rampv1.Offer{
+		emit("two_timestamps", &forav1.Offer{
 			OfferId:   "offer-wire-two-ts",
 			Exchange:  "exchange.example.com",
 			ExpiresAt: timestamppb.New(time.Unix(1_700_000_900, 0).UTC()),
 			DataAsOf:  timestamppb.New(time.Unix(1_699_990_000, 0).UTC()),
 		}),
-		emit("repeated_terms_enum", &rampv1.Offer{
+		emit("repeated_terms_enum", &forav1.Offer{
 			OfferId:        "offer-wire-repeated",
 			Exchange:       "exchange.example.com",
-			DeliveryMethod: rampv1.DeliveryMethod_DELIVERY_METHOD_DIRECT,
-			Pricing: &rampv1.Pricing{
-				Model: rampv1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.05", Currency: "USD",
+			DeliveryMethod: forav1.DeliveryMethod_DELIVERY_METHOD_DIRECT,
+			Pricing: &forav1.Pricing{
+				Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.05", Currency: "USD",
 			},
-			Terms: []*rampv1.LicenseTerm{
-				{Semantics: rampv1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Scopes: []string{"ai-train"}},
+			Terms: []*forav1.LicenseTerm{
+				{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Scopes: []string{"ai-train"}},
 			},
 		}),
 	}
@@ -637,7 +637,7 @@ func buildSignRequestVectors(t *testing.T) []signRequestVector {
 		{
 			name:           "post_with_authorization",
 			method:         "POST",
-			url:            "https://broker.example/ramp.v1.BrokerService/Fetch",
+			url:            "https://broker.example/fora.v1.BrokerService/Fetch",
 			body:           []byte(`{"uri":"https://cdn.example/doc"}`),
 			authorization:  "Bearer token-123",
 			signatureAgent: "https://agent.example",
@@ -647,7 +647,7 @@ func buildSignRequestVectors(t *testing.T) []signRequestVector {
 			// static-bootstrap empty-bind case, pinned cross-language.
 			name:          "post_empty_authorization_bound",
 			method:        "POST",
-			url:           "https://broker.example/ramp.v1.BrokerService/Fetch?trace=1",
+			url:           "https://broker.example/fora.v1.BrokerService/Fetch?trace=1",
 			body:          []byte(`{"uri":"https://cdn.example/other"}`),
 			authorization: "",
 		},
@@ -658,7 +658,7 @@ func buildSignRequestVectors(t *testing.T) []signRequestVector {
 			// forwarding path, which nothing recorded.
 			name:           "append_relay_leg",
 			method:         "POST",
-			url:            "https://broker.example/ramp.v1.BrokerService/Fetch",
+			url:            "https://broker.example/fora.v1.BrokerService/Fetch",
 			body:           []byte(`{"uri":"https://cdn.example/relayed"}`),
 			authorization:  "",
 			signatureAgent: "https://relay.example",
@@ -820,7 +820,7 @@ func signNegBaseWith(
 	t.Helper()
 	const (
 		method = "POST"
-		url    = "https://broker.example/ramp.v1.BrokerService/Fetch"
+		url    = "https://broker.example/fora.v1.BrokerService/Fetch"
 	)
 	body := []byte(`{"uri":"https://cdn.example/neg"}`)
 	req, err := http.NewRequest(method, url, nil)
@@ -1226,8 +1226,8 @@ func buildAcceptanceVectors(t *testing.T) []acceptanceVector {
 
 	out := make([]acceptanceVector, 0, len(specs))
 	for _, s := range specs {
-		offer := &rampv1.Offer{Signature: s.offerSig}
-		requester := &rampv1.Requester{Id: s.requesterID, Domain: s.requesterDomain}
+		offer := &forav1.Offer{Signature: s.offerSig}
+		requester := &forav1.Requester{Id: s.requesterID, Domain: s.requesterDomain}
 		canon, err := CanonicalAcceptanceBytes(offer, requester, s.idempotencyKey)
 		if err != nil {
 			t.Fatalf("%s: canonical: %v", s.name, err)
@@ -1288,7 +1288,7 @@ func readFile(t *testing.T, path string) []byte {
 
 // TestGenerateVectors emits the signed-URL and PoP golden vectors. It is a
 // verification no-op by default (asserts the committed files match what the
-// emitter would produce right now); with RAMP_UPDATE_VECTORS=1 it (re)writes
+// emitter would produce right now); with FORA_UPDATE_VECTORS=1 it (re)writes
 // them. This makes the emitter both the generator and its own drift gate.
 func TestGenerateVectors(t *testing.T) {
 	signedURLVectors := buildSignedURLVectors(t)
@@ -1327,7 +1327,7 @@ func TestGenerateVectors(t *testing.T) {
 	offerVerifyDocValue := offerVerifyDoc{Canonicalization: "jcs", Vectors: offerVerifyVectors}
 	wireCanonicalDoc := map[string]any{"canonicalization": "jcs", "vectors": wireCanonicalVectors}
 
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		writeJSON(t, signedURLPath, signedURLVectors)
 		writeJSON(t, popPath, popVectors)
 		writeJSON(t, signRequestPath, signRequestDoc)
@@ -1355,6 +1355,6 @@ func assertMatches(t *testing.T, path string, v any) {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	if stale {
-		t.Fatalf("%s is stale; re-run with RAMP_UPDATE_VECTORS=1 to regenerate", path)
+		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", path)
 	}
 }

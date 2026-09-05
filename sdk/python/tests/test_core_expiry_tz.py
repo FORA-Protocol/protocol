@@ -36,7 +36,7 @@ import time
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from ramp_sdk.core import (  # type: ignore[import-not-found]
+from fora_sdk.core import (  # type: ignore[import-not-found]
     Mode,
     StaticOfferKeyResolver,
     Verifier,

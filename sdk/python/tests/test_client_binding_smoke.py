@@ -17,9 +17,9 @@ crypto. This smoke pins the BINDING WIRING (client sign face + Verifier consumpt
 of a returned offer), the outermost surface MCP actually adopts.
 
 RED now for TWO expected reasons:
-  1. sdk/python/ramp_sdk/core does not exist yet (sign seam + Verifier import
+  1. sdk/python/fora_sdk/core does not exist yet (sign seam + Verifier import
      cannot resolve).
-  2. sdk/python/ramp_sdk/signing_transport (the outbound-sign face) does not exist
+  2. sdk/python/fora_sdk/signing_transport (the outbound-sign face) does not exist
      yet.
 Referencing both by their planned paths keeps this smoke RED until the implement
 step lands the core + httpx client binding.
@@ -30,15 +30,15 @@ from __future__ import annotations
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-# RED: sdk/python/ramp_sdk/core does not exist yet (TDD red).
-from ramp_sdk.core import (  # type: ignore[import-not-found]
+# RED: sdk/python/fora_sdk/core does not exist yet (TDD red).
+from fora_sdk.core import (  # type: ignore[import-not-found]
     Mode,
     StaticOfferKeyResolver,
     Verifier,
 )
 
 # RED (also): the opt-in httpx client binding does not exist yet.
-from ramp_sdk.signing_transport import SigningTransport  # type: ignore[import-not-found]
+from fora_sdk.signing_transport import SigningTransport  # type: ignore[import-not-found]
 
 
 def _raw_pub(priv: Ed25519PrivateKey) -> bytes:
@@ -55,7 +55,7 @@ def test_client_signs_outbound_request_via_core_sign_seam() -> None:
 
     signed = transport.sign_outbound(
         method="POST",
-        url="https://broker.example/ramp.v1/Discover",
+        url="https://broker.example/fora.v1/Discover",
         body=b'{"query":"x"}',
         authorization="",
     )

@@ -9,7 +9,7 @@
 # export gate (regenerate gen-sdk-types + drift + Pydantic/Zod parity + canonical
 # round-trip). The two run as SEPARATE CI workflows (proto-ci.yml + sdk-types-ci.yml,
 # path-filtered); locally they are one command. proto-ci.yml sets
-# RAMP_CI_SKIP_SDK_TYPES=1 so it keeps mirroring proto-ci only (sdk-types-ci.yml owns
+# FORA_CI_SKIP_SDK_TYPES=1 so it keeps mirroring proto-ci only (sdk-types-ci.yml owns
 # the sdk-types gate in CI); the block also self-skips if python3/npm are absent.
 #
 # Non-destructive: it does not modify your git index or working tree (the drift
@@ -107,11 +107,11 @@ fi
 # The generated Pydantic/Zod types export + its cross-language parity and canonical
 # round-trip. CI runs this as a SEPARATE, path-filtered workflow; locally it belongs in
 # the one command so a developer gets full coverage in a single run. proto-ci.yml sets
-# RAMP_CI_SKIP_SDK_TYPES=1 (sdk-types-ci.yml owns it there), and it self-skips if the
+# FORA_CI_SKIP_SDK_TYPES=1 (sdk-types-ci.yml owns it there), and it self-skips if the
 # python3/npm toolchain is absent.
-if [ "${RAMP_CI_SKIP_SDK_TYPES:-0}" = "1" ]; then
+if [ "${FORA_CI_SKIP_SDK_TYPES:-0}" = "1" ]; then
   step "sdk-types export gate"
-  note "skipped (RAMP_CI_SKIP_SDK_TYPES=1 — covered by sdk-types-ci.yml)"
+  note "skipped (FORA_CI_SKIP_SDK_TYPES=1 — covered by sdk-types-ci.yml)"
 elif ! command -v python3 >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
   step "sdk-types export gate"
   note "skipped — needs python3 + npm"
@@ -143,7 +143,7 @@ fi
 step "buf breaking (informational, pre-v1 — non-blocking)"
 # Matches CI: continue-on-error. Never affects the exit status.
 (cd proto && buf breaking \
-  --against 'https://github.com/RAMP-Protocol/protocol.git#branch=main,subdir=proto') \
+  --against 'https://github.com/FORA-Protocol/protocol.git#branch=main,subdir=proto') \
   || note "(informational only — does not gate)"
 
 if [ "$fail" -ne 0 ]; then

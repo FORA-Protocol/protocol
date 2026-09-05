@@ -7,9 +7,9 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// camelProtoFieldNames returns the set of camelCase json_names of every RAMP proto
+// camelProtoFieldNames returns the set of camelCase json_names of every FORA proto
 // field whose json_name differs from its snake_case proto name (i.e. the multiword
-// fields). These are the ONLY camelCase keys that are RAMP wire fields — a doc example
+// fields). These are the ONLY camelCase keys that are FORA wire fields — a doc example
 // keying one of them in camelCase is a wire↔client mismatch (dropped by the snake-only
 // clients; if the field is required, a hard reject). Single-word fields (amount, rate)
 // and non-proto content payloads (mcpServers, companyInfo, …) are intentionally absent.
@@ -37,7 +37,7 @@ var docJSONKeyRe = regexp.MustCompile(`"([a-zA-Z_][a-zA-Z0-9_]*)"\s*:`)
 
 // TestDocExamplesAreSnakeCase closes a harness blind spot: the wire is
 // snake_case proto-JSON, but nothing parsed doc code blocks through the client naming,
-// so camelCase RAMP field keys (e.g. required `idempotencyKey`) survived in walkthrough
+// so camelCase FORA field keys (e.g. required `idempotencyKey`) survived in walkthrough
 // examples and are hard-rejected by the generated clients. This fails if any doc code
 // fence uses the camelCase json_name of a real proto field as a JSON key.
 func TestDocExamplesAreSnakeCase(t *testing.T) {
@@ -47,7 +47,7 @@ func TestDocExamplesAreSnakeCase(t *testing.T) {
 			for _, m := range docJSONKeyRe.FindAllStringSubmatch(fence, -1) {
 				key := m[1]
 				if camel[key] {
-					t.Errorf("%s: doc example uses camelCase RAMP field key %q — the wire is snake_case proto-JSON; the snake-only clients drop it (and hard-reject if the field is required)", path, key)
+					t.Errorf("%s: doc example uses camelCase FORA field key %q — the wire is snake_case proto-JSON; the snake-only clients drop it (and hard-reject if the field is required)", path, key)
 				}
 			}
 		}

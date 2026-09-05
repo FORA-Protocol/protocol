@@ -3,7 +3,7 @@ package connectserver
 import (
 	"errors"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // RejectReason is the classified cause of a verify-gate rejection — the SDK-owned

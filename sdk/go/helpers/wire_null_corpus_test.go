@@ -12,7 +12,7 @@ import (
 	"os"
 	"testing"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -37,11 +37,11 @@ func TestWireNullCorpusReplay(t *testing.T) {
 			var m proto.Message
 			switch v.Message {
 			case "ResourceAttestation":
-				m = &rampv1.ResourceAttestation{}
+				m = &forav1.ResourceAttestation{}
 			case "RateLimitInfo":
-				m = &rampv1.RateLimitInfo{}
+				m = &forav1.RateLimitInfo{}
 			case "ResourceResponse":
-				m = &rampv1.ResourceResponse{}
+				m = &forav1.ResourceResponse{}
 			default:
 				t.Fatalf("no message wired for %q", v.Message)
 			}
@@ -58,7 +58,7 @@ func TestWireNullCorpusReplay(t *testing.T) {
 // corpus would be satisfied by a parser that accepted the null and left the field holding
 // anything at all, which is the divergence the other two languages are being held to.
 func TestWireNullCorpusReadsTheDefault(t *testing.T) {
-	var a rampv1.ResourceAttestation
+	var a forav1.ResourceAttestation
 	if err := protojson.Unmarshal([]byte(`{"keyid":null,"verifier":"v.test"}`), &a); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}

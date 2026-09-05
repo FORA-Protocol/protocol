@@ -54,7 +54,7 @@ type SubscriptionStatus struct {
     SubscriptionID string
     Active         bool
     QuotaRemaining int64
-    UnitValue      *rampv1.Cost // for subscription_unit_value (ASC 606 prepaid drawdown)
+    UnitValue      *forav1.Cost // for subscription_unit_value (ASC 606 prepaid drawdown)
 }
 
 type BillingAuthorizeRequest struct {
@@ -226,7 +226,7 @@ Pricing resolution follows a priority chain. The Exchange is the price authority
 // resolvePrice returns pricing for a content path.
 // Priority: Exchange config overrides > catalog pricing (from RSL/ingestion) > tenant defaults.
 // RSL pricing is a fallback hint; the Exchange is the price authority.
-func (tc *TenantCatalog) resolvePrice(path string) *rampv1.Pricing {
+func (tc *TenantCatalog) resolvePrice(path string) *forav1.Pricing {
     // 1. Check Exchange config overrides (price authority)
     if pricing, ok := tc.PricingOverrides[path]; ok {
         return pricing
@@ -291,7 +291,7 @@ When a requester has an active subscription with a tenant:
 
 ## Currency Model (v1)
 
-v1 Exchange operates in a **single currency** per deployment. All offers returned by DiscoverResources are denominated in that currency. No conversion logic is needed. The currency is declared via `base_currency` in the Exchange Manifest (`/.well-known/ramp.json`), enabling Brokers to perform cross-exchange price comparison.
+v1 Exchange operates in a **single currency** per deployment. All offers returned by DiscoverResources are denominated in that currency. No conversion logic is needed. The currency is declared via `base_currency` in the Exchange Manifest (`/.well-known/fora.json`), enabling Brokers to perform cross-exchange price comparison.
 
 ```go
 // ExchangeConfig includes the deployment currency.

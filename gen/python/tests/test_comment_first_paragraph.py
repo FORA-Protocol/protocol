@@ -6,7 +6,7 @@ key named `title` from the intermediate document, which cost two different thing
 
   * the head of every multi-paragraph comment. `Offer.signature` reached Pydantic and Zod
     describing the canonical-signing rules without ever saying the field IS the signature
-    or that it is required. Go was unaffected — ramp.pb.go carries the whole comment — so
+    or that it is required. Go was unaffected — fora.pb.go carries the whole comment — so
     the loss was visible only in these two clients.
   * three whole FIELDS. `Offer.title`, `ResourceEntry.title` and `UsageAsset.title` are
     proto fields whose NAME is `title`, so a blanket key-strip deleted them from
@@ -135,7 +135,7 @@ def test_message_comment_first_paragraph_reaches_the_zod_schemas():
     for head in (
         "Offer — A single resource offer from an Exchange.",
         "LicenseTerm — Universal licensing unit.",
-        "Requester — Universal identity for any RAMP client.",
+        "Requester — Universal identity for any FORA client.",
     ):
         assert head in source, (
             f"message comment head {head!r} is missing from the generated Zod schemas"

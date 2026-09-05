@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import pytest
 
-from ramp_sdk.client.content import vet_signed_url
-from ramp_sdk.client.errors import CallError, CallErrorKind
+from fora_sdk.client.content import vet_signed_url
+from fora_sdk.client.errors import CallError, CallErrorKind
 
 _CREDENTIAL = "live-credential-value"
 
@@ -54,9 +54,9 @@ def test_an_unusable_url_is_refused_without_echoing_it(name: str, url: str) -> N
 def test_a_delivery_redirect_is_unreachable_and_promotes_no_token(status: int) -> None:
     import httpx
 
-    from ramp_sdk import sync as blocking
-    from ramp_sdk.client import ClientConfig
-    from ramp_sdk.signing_transport import SigningTransport
+    from fora_sdk import sync as blocking
+    from fora_sdk.client import ClientConfig
+    from fora_sdk.signing_transport import SigningTransport
 
     def respond(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(

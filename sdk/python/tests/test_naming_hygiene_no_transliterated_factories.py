@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import ramp_sdk
+import fora_sdk
 
 # tests/ -> sdk/python -> sdk -> <repo>
 _REPO = Path(__file__).resolve().parents[3]
@@ -63,9 +63,9 @@ def test_no_transliterated_ts_factories_on_public_surface() -> None:
 
 def test_python_idempotency_generator_renamed() -> None:
     """Python exposes generate_idempotency_key, not the transliterated new_idempotency_key."""
-    assert "new_idempotency_key" not in ramp_sdk.__all__, (
+    assert "new_idempotency_key" not in fora_sdk.__all__, (
         "new_idempotency_key is still public — rename to generate_idempotency_key"
     )
-    assert "generate_idempotency_key" in ramp_sdk.__all__, (
+    assert "generate_idempotency_key" in fora_sdk.__all__, (
         "generate_idempotency_key not yet exported"
     )

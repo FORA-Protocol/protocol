@@ -28,7 +28,7 @@ sequenceDiagram
 
 ## RSL Generator
 
-The RSL generator produces valid RSL 1.0 XML from the compiled catalog. It maps RAMP protocol objects back to RSL elements:
+The RSL generator produces valid RSL 1.0 XML from the compiled catalog. It maps FORA protocol objects back to RSL elements:
 
 ```go
 type RSLGenerator struct {
@@ -86,13 +86,13 @@ func (g *RSLGenerator) Generate(
 }
 ```
 
-## RAMP to RSL Mapping
+## FORA to RSL Mapping
 
 ### PricingModel to RSL Payment Type
 
 `PricingModel` is the charging structure only (`FREE`, `PER_UNIT`, `FLAT`). The metering basis ("per what") is the open `Pricing.unit` vocabulary, which maps to the RSL payment type granularity.
 
-| RAMP PricingModel | RSL Payment Type |
+| FORA PricingModel | RSL Payment Type |
 |---|---|
 | `PricingModelFlat` | `purchase` |
 | `PricingModelPerUnit` (`unit: "tokens"`) | `use` |
@@ -145,22 +145,22 @@ GET /provider/{domain}/rsl.txt
 
 The provider's edge function fetches and caches this, serving it at the standard `/rsl.txt` path. Cache TTL matches the ingestion refresh interval (default: 24h for full refresh, 5m for incremental).
 
-## RAMP Sitemap Namespace (XSD)
+## FORA Sitemap Namespace (XSD)
 
-The formal schema definition for the RAMP sitemap namespace extension:
+The formal schema definition for the FORA sitemap namespace extension:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           xmlns:ramp="https://ramp.dev/sitemap/1.0"
-           targetNamespace="https://ramp.dev/sitemap/1.0"
+           xmlns:fora="https://fora.dev/sitemap/1.0"
+           targetNamespace="https://fora.dev/sitemap/1.0"
            elementFormDefault="qualified">
 
   <xs:annotation>
     <xs:documentation>
-      RAMP Sitemap Extension Schema v1.0
+      FORA Sitemap Extension Schema v1.0
       Extends standard Sitemap 0.9 with content monetization metadata.
-      Namespace: https://ramp.dev/sitemap/1.0
+      Namespace: https://fora.dev/sitemap/1.0
     </xs:documentation>
   </xs:annotation>
 
@@ -170,13 +170,13 @@ The formal schema definition for the RAMP sitemap namespace extension:
         <xs:element name="tokens" type="xs:positiveInteger" minOccurs="0"/>
         <xs:element name="content-id" type="xs:string" minOccurs="0"/>
         <xs:element name="wordcount" type="xs:positiveInteger" minOccurs="0"/>
-        <xs:element name="pricing-model" type="ramp:pricingModelType" minOccurs="0"/>
-        <xs:element name="rate" type="ramp:rateType" minOccurs="0"/>
+        <xs:element name="pricing-model" type="fora:pricingModelType" minOccurs="0"/>
+        <xs:element name="rate" type="fora:rateType" minOccurs="0"/>
         <xs:element name="permits" type="xs:string" minOccurs="0"/>
         <xs:element name="prohibits" type="xs:string" minOccurs="0"/>
-        <xs:element name="content-type" type="ramp:contentTypeType" minOccurs="0"/>
+        <xs:element name="content-type" type="fora:contentTypeType" minOccurs="0"/>
         <xs:element name="author" type="xs:string" minOccurs="0"/>
-        <xs:element name="source-type" type="ramp:sourceTypeType" minOccurs="0"/>
+        <xs:element name="source-type" type="fora:sourceTypeType" minOccurs="0"/>
       </xs:all>
     </xs:complexType>
   </xs:element>

@@ -22,7 +22,7 @@ from typing import Any
 import pytest
 from conftest import GO_RESOLVERS_TESTDATA, load_json
 
-from ramp_sdk.resolvers.offer_key_cache import _clamp_expiry
+from fora_sdk.resolvers.offer_key_cache import _clamp_expiry
 
 _CORPUS = load_json(GO_RESOLVERS_TESTDATA / "offer-key-clamp-vectors.json")
 

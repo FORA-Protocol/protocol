@@ -1,12 +1,12 @@
 ---
 // Landing page — overrides Starlight's default index
-// Links into Starlight docs at /getting-started/what-is-ramp/
+// Links into Starlight docs at /getting-started/what-is-fora/
 ---
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>RAMP Protocol — Open Transaction Protocol for AI Content Access</title>
+  <title>FORA Protocol — Open Transaction Protocol for AI Content Access</title>
   <meta name="description" content="The open protocol that turns blocked bots into paying customers. Discover, price, transact, deliver, verify — one protocol for any content." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -445,7 +445,7 @@
       background: #e8e8e8;
       color: #444;
     }
-    .nxm-node.ramp-hub {
+    .nxm-node.fora-hub {
       background: var(--accent);
       color: #fff;
       padding: 0.75rem 1.25rem;
@@ -749,7 +749,7 @@
     }
     .stack-row:last-child { border-bottom: none; }
 
-    .stack-row.stack-ramp {
+    .stack-row.stack-fora {
       background: rgba(79, 109, 245, 0.08);
       border: 1px solid rgba(79, 109, 245, 0.25);
       border-radius: 4px;
@@ -769,7 +769,7 @@
       font-weight: 600;
       color: var(--off-white);
     }
-    .stack-ramp .stack-name {
+    .stack-fora .stack-name {
       color: var(--accent);
     }
 
@@ -790,7 +790,7 @@
       white-space: nowrap;
     }
 
-    .standard-tag.ramp-tag {
+    .standard-tag.fora-tag {
       background: var(--accent);
       color: #fff;
       font-weight: 500;
@@ -959,21 +959,21 @@
   <!-- HERO -->
   <section class="hero">
     <nav class="hero-nav">
-      <a href="/" class="logo">ramp protocol</a>
+      <a href="/" class="logo">fora protocol</a>
       <ul class="nav-links">
-        <li><a href="/getting-started/what-is-ramp/">Docs</a></li>
+        <li><a href="/getting-started/what-is-fora/">Docs</a></li>
         <li><a href="/protocol/transaction-flow/">Protocol</a></li>
-        <li><a href="https://github.com/RAMP-Protocol/protocol">GitHub</a></li>
+        <li><a href="https://github.com/FORA-Protocol/protocol">GitHub</a></li>
       </ul>
     </nav>
 
     <div class="hero-content">
       <div class="hero-badge animate-in">Open Protocol · Apache 2.0</div>
       <h1 class="animate-in delay-1">AI agents consume content.<br><em>Nobody gets paid.</em></h1>
-      <p class="hero-sub animate-in delay-2">RAMP is the open transaction protocol that turns blocked bots into paying customers. Discover, price, transact, deliver, verify — one protocol for any content.</p>
+      <p class="hero-sub animate-in delay-2">FORA is the open transaction protocol that turns blocked bots into paying customers. Discover, price, transact, deliver, verify — one protocol for any content.</p>
       <div class="hero-buttons animate-in delay-3">
-        <a href="/getting-started/what-is-ramp/" class="btn btn-primary">Read the Docs</a>
-        <a href="https://github.com/RAMP-Protocol/protocol" class="btn btn-ghost">View on GitHub</a>
+        <a href="/getting-started/what-is-fora/" class="btn btn-primary">Read the Docs</a>
+        <a href="https://github.com/FORA-Protocol/protocol" class="btn btn-ghost">View on GitHub</a>
       </div>
     </div>
   </section>
@@ -981,7 +981,7 @@
   <!-- ARCHITECTURE FLOW (scenarios) -->
   <section class="arch-section">
     <div class="section-header">
-      <div class="section-label">How RAMP Works</div>
+      <div class="section-label">How FORA Works</div>
       <h2>Multiple scenarios. Same protocol. Click each step.</h2>
     </div>
 
@@ -1005,7 +1005,7 @@
     <div class="section-header">
       <div class="section-label">How It Works</div>
       <h2>Six steps. One protocol.</h2>
-      <p>Every RAMP transaction follows the same flow — regardless of content type, pricing model, or Exchange.</p>
+      <p>Every FORA transaction follows the same flow — regardless of content type, pricing model, or Exchange.</p>
     </div>
 
     <div class="flow-container">
@@ -1018,7 +1018,7 @@
           <div class="step-content">
             <div class="step-num">Step 1</div>
             <div class="step-title">Discover</div>
-            <div class="step-desc">Agent checks <code>/.well-known/ramp.json</code> — finds the Exchange endpoint for this publisher.</div>
+            <div class="step-desc">Agent checks <code>/.well-known/fora.json</code> — finds the Exchange endpoint for this publisher.</div>
             <a class="step-link" href="/protocol/discovery-paths/">Discovery Paths →</a>
           </div>
         </div>
@@ -1090,13 +1090,13 @@
   <!-- N×M vs N+M -->
   <section class="nxm-section">
     <div class="section-header" style="color: var(--near-black);">
-      <div class="section-label">The Problem RAMP Solves</div>
+      <div class="section-label">The Problem FORA Solves</div>
       <h2 style="color: var(--near-black);">Publishers locked behind walled gardens vs. open access</h2>
-      <p style="color: #777;">Today, publishers are gated behind exclusive platform deals. Agents need separate integrations for each. RAMP opens the market.</p>
+      <p style="color: #777;">Today, publishers are gated behind exclusive platform deals. Agents need separate integrations for each. FORA opens the market.</p>
     </div>
 
     <div class="nxm-grid">
-      <!-- Without RAMP -->
+      <!-- Without FORA -->
       <div class="nxm-panel without" id="nxmWithout">
         <div class="nxm-label">Today — walled gardens</div>
         <div class="nxm-diagram" id="diagramWithout" style="display:flex;justify-content:space-between;align-items:center;gap:0;padding:1.5rem 0;position:relative;">
@@ -1123,9 +1123,9 @@
         <div class="nxm-caption">Publishers locked behind exclusive platform deals. Each agent needs a separate proprietary integration. Publishers can't switch. Agents can't compare.</div>
       </div>
 
-      <!-- With RAMP -->
+      <!-- With FORA -->
       <div class="nxm-panel with" id="nxmWith">
-        <div class="nxm-label">With RAMP — open market</div>
+        <div class="nxm-label">With FORA — open market</div>
         <div class="nxm-diagram" id="diagramWith" style="display:flex;justify-content:space-between;align-items:center;gap:0;padding:1.5rem 0;position:relative;">
           <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
             <div class="nxm-node agent" data-nxm="a2" style="padding:0.3rem 0.5rem;font-size:0.625rem;">A1</div>
@@ -1133,7 +1133,7 @@
             <div class="nxm-node agent" data-nxm="a2" style="padding:0.3rem 0.5rem;font-size:0.625rem;">A3</div>
           </div>
           <div style="flex-shrink:0;">
-            <div class="nxm-node ramp-hub" data-nxm="ramp" style="padding:0.5rem 1rem;font-size:0.75rem;">RAMP</div>
+            <div class="nxm-node fora-hub" data-nxm="fora" style="padding:0.5rem 1rem;font-size:0.75rem;">FORA</div>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
             <div class="nxm-node" style="background:#4f6df5;color:#fff;font-size:0.6rem;font-weight:500;padding:0.25rem 0.5rem;" data-nxm="ex">Ex 1</div>
@@ -1175,7 +1175,7 @@
           </div>
           <div class="role-step">
             <div class="role-step-num">02</div>
-            <div class="role-step-text">Drop <code>ramp.json</code> at <code>/.well-known/</code> — declare which Exchanges can sell your content.</div>
+            <div class="role-step-text">Drop <code>fora.json</code> at <code>/.well-known/</code> — declare which Exchanges can sell your content.</div>
           </div>
           <div class="role-step">
             <div class="role-step-num">03</div>
@@ -1196,7 +1196,7 @@
         <div class="role-steps">
           <div class="role-step">
             <div class="role-step-num">01</div>
-            <div class="role-step-text">Add the RAMP SDK or MCP server to your agent. One dependency.</div>
+            <div class="role-step-text">Add the FORA SDK or MCP server to your agent. One dependency.</div>
           </div>
           <div class="role-step">
             <div class="role-step-num">02</div>
@@ -1233,7 +1233,7 @@
           </div>
           <div class="role-step">
             <div class="role-step-num">04</div>
-            <div class="role-step-text">Plug in your billing adapter — Stripe, x402, or custom. RAMP handles the transaction; you handle settlement.</div>
+            <div class="role-step-text">Plug in your billing adapter — Stripe, x402, or custom. FORA handles the transaction; you handle settlement.</div>
           </div>
           <div class="role-footer">Like an ad exchange, but for content &rarr;</div>
         </div>
@@ -1245,8 +1245,8 @@
   <section class="standards-section">
     <div class="section-header">
       <div class="section-label">Standards Interoperability</div>
-      <h2>RAMP doesn't replace anything. It connects everything.</h2>
-      <p>Every building block is an existing open standard. RAMP is the transaction layer that was missing.</p>
+      <h2>FORA doesn't replace anything. It connects everything.</h2>
+      <p>Every building block is an existing open standard. FORA is the transaction layer that was missing.</p>
     </div>
 
     <div class="stack-table">
@@ -1259,11 +1259,11 @@
           <span class="standard-tag">OpenAI Agents</span>
         </div>
       </div>
-      <div class="stack-row stack-ramp">
+      <div class="stack-row stack-fora">
         <div class="stack-layer">Layer 4</div>
         <div class="stack-name">Transaction &amp; Metering</div>
         <div class="stack-tags">
-          <span class="standard-tag ramp-tag">RAMP Protocol</span>
+          <span class="standard-tag fora-tag">FORA Protocol</span>
           <span class="stack-note">← this layer was empty</span>
         </div>
       </div>
@@ -1309,7 +1309,7 @@
     <div class="standards-feeds">
       <div class="feeds-row">
         <div class="feeds-group">
-          <div class="feeds-label">RAMP ingests</div>
+          <div class="feeds-label">FORA ingests</div>
           <div class="stack-tags">
             <span class="standard-tag feed-tag">RSL 1.0</span>
             <span class="standard-tag feed-tag">TDMRep</span>
@@ -1318,7 +1318,7 @@
           </div>
         </div>
         <div class="feeds-group">
-          <div class="feeds-label">RAMP signs with</div>
+          <div class="feeds-label">FORA signs with</div>
           <div class="stack-tags">
             <span class="standard-tag feed-tag">Ed25519</span>
             <span class="standard-tag feed-tag">JWS</span>
@@ -1327,7 +1327,7 @@
           </div>
         </div>
         <div class="feeds-group">
-          <div class="feeds-label">RAMP encodes with</div>
+          <div class="feeds-label">FORA encodes with</div>
           <div class="stack-tags">
             <span class="standard-tag feed-tag">Protobuf</span>
             <span class="standard-tag feed-tag">JSON</span>
@@ -1342,17 +1342,17 @@
   <!-- CTA -->
   <section class="cta-section">
     <h2>The fragmentation clock is running.</h2>
-    <p>Every bilateral deal signed today makes a universal standard harder tomorrow. RAMP is the open protocol — adopt it before the window closes.</p>
+    <p>Every bilateral deal signed today makes a universal standard harder tomorrow. FORA is the open protocol — adopt it before the window closes.</p>
     <div class="cta-buttons">
-      <a href="/getting-started/what-is-ramp/" class="btn btn-primary">Read the Docs</a>
+      <a href="/getting-started/what-is-fora/" class="btn btn-primary">Read the Docs</a>
       <a href="/protocol/transaction-flow/" class="btn btn-ghost">Protocol Spec</a>
-      <a href="https://github.com/RAMP-Protocol/protocol" class="btn btn-ghost">GitHub</a>
+      <a href="https://github.com/FORA-Protocol/protocol" class="btn btn-ghost">GitHub</a>
     </div>
   </section>
 
   <!-- FOOTER -->
   <footer class="site-footer">
-    <div class="footer-logo">ramp protocol</div>
+    <div class="footer-logo">fora protocol</div>
     <div class="footer-tagline">Open-source transaction protocol for AI content access</div>
     <div class="footer-license">
       Documentation licensed under <a href="https://creativecommons.org/licenses/by-nd/4.0/" target="_blank">CC BY-ND 4.0</a>.
@@ -1383,14 +1383,14 @@
         label: 'WellKnownManifest',
         link: '/protocol/discovery-paths/',
         linkText: 'Discovery Paths docs →',
-        json: `${c('// GET /.well-known/ramp.json')}
+        json: `${c('// GET /.well-known/fora.json')}
 ${b('{')}
   ${k('ver')}: ${s('1.1')},
   ${k('role')}: ${s('ROLE_PUBLISHER')},
   ${k('domain')}: ${s('example.com')},
   ${k('exchanges')}: ${b('[{')}
     ${k('domain')}: ${s('exchange.example.com')},
-    ${k('endpoint')}: ${s('/ramp/v1')},
+    ${k('endpoint')}: ${s('/fora/v1')},
     ${k('relationship')}: ${s('DIRECT')}
   ${b('}]')}
 ${b('}')}`
@@ -1605,13 +1605,13 @@ ${c('// → RESOLUTION_TYPE_CREDIT applied')}`
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       const agents = container.querySelectorAll('[data-nxm="a2"]');
-      const ramp = container.querySelector('[data-nxm="ramp"]');
+      const fora = container.querySelector('[data-nxm="fora"]');
       const exchanges = container.querySelectorAll('[data-nxm="ex"]');
 
-      if (!ramp) return;
-      const rampPos = nodeCenter(ramp, container);
+      if (!fora) return;
+      const foraPos = nodeCenter(fora, container);
 
-      // Agents → RAMP
+      // Agents → FORA
       ctx.strokeStyle = '#4f6df5';
       ctx.lineWidth = 1.5;
       ctx.globalAlpha = 0.4;
@@ -1619,16 +1619,16 @@ ${c('// → RESOLUTION_TYPE_CREDIT applied')}`
         const from = nodeCenter(a, container);
         ctx.beginPath();
         ctx.moveTo(from.r, from.y);
-        ctx.lineTo(rampPos.l, rampPos.y);
+        ctx.lineTo(foraPos.l, foraPos.y);
         ctx.stroke();
       });
 
-      // RAMP → Exchanges
+      // FORA → Exchanges
       ctx.globalAlpha = 0.5;
       exchanges.forEach(ex => {
         const to = nodeCenter(ex, container);
         ctx.beginPath();
-        ctx.moveTo(rampPos.r, rampPos.y);
+        ctx.moveTo(foraPos.r, foraPos.y);
         ctx.lineTo(to.l, to.y);
         ctx.stroke();
       });
@@ -1677,7 +1677,7 @@ ${c('// → RESOLUTION_TYPE_CREDIT applied')}`
 
     const scenarios = [
       { title: 'Web article access',
-        story: 'An AI research assistant needs a New York Times article for a user query. It tries to fetch the URL directly but hits the provider\u2019s edge function, which returns a 403 with a redirect to the RAMP Exchange. The agent discovers the article is available for $0.05, commits to the offer, receives a time-limited signed URL, fetches the full article from the provider\u2019s CDN, and reports how many tokens it consumed.',
+        story: 'An AI research assistant needs a New York Times article for a user query. It tries to fetch the URL directly but hits the provider\u2019s edge function, which returns a 403 with a redirect to the FORA Exchange. The agent discovers the article is available for $0.05, commits to the offer, receives a time-limited signed URL, fetches the full article from the provider\u2019s CDN, and reports how many tokens it consumed.',
         steps: [
         { from: 'Agent', to: 'Edge', exFrom: false, exTo: false, desc: '403 redirect to Exchange', link: '/protocol/discovery-paths/', linkText: 'Discovery Paths →',
           json: `${c('// Agent hits publisher URL, gets 403')}\n${c('// X-Content-Rules header → Exchange')}\n\n${b('{')}\n  ${k('status')}: ${n('403')},\n  ${k('header')}: ${s('X-Content-Rules')},\n  ${k('exchange')}: ${s('exchange.example.com')}\n${b('}')}`},
@@ -1697,10 +1697,10 @@ ${c('// → RESOLUTION_TYPE_CREDIT applied')}`
           json: `${c('// Post-usage report')}\n\n${b('{')}\n  ${k('transaction_id')}: ${s('txn-93a7f2')},\n  ${k('function')}: ${s('AI_INPUT')},\n  ${k('consumed_quantity')}: ${n('3247')},\n  ${k('consumed_unit')}: ${s('tokens')}\n${b('}')}`}
       ]},
       { title: 'Music sample licensing',
-        story: 'An AI music production tool needs a funk sample for a user\u2019s track. A song has two separate rights: the master recording (owned by the label or distributor) and the composition (owned by the songwriter\u2019s publisher). Traditionally, clearing both requires weeks of emails and lawyers. With RAMP, the Broker queries two Exchanges \u2014 one for masters, one for compositions \u2014 and returns both offers in one response. The agent licenses both for $0.03 total, fetches the audio file and the MIDI notation, and reports usage to each rights holder.',
+        story: 'An AI music production tool needs a funk sample for a user\u2019s track. A song has two separate rights: the master recording (owned by the label or distributor) and the composition (owned by the songwriter\u2019s publisher). Traditionally, clearing both requires weeks of emails and lawyers. With FORA, the Broker queries two Exchanges \u2014 one for masters, one for compositions \u2014 and returns both offers in one response. The agent licenses both for $0.03 total, fetches the audio file and the MIDI notation, and reports usage to each rights holder.',
         steps: [
         { from: 'Agent', to: 'Broker', exFrom: false, exTo: false, desc: 'Search: "funk loop 120bpm clearable for AI"', link: '/protocol/discovery-paths/', linkText: 'Discovery Paths →',
-          json: `${c('// AI music tool needs a sample')}\n${c('// Two rights needed: master + composition')}\n\n${b('{')}\n  ${k('query')}: ${s('funk loop 120bpm clearable')},\n  ${k('search_filters')}: ${b('{')}\n    ${k('music.genre')}: ${s('funk')},\n    ${k('music.bpm_range')}: ${s('115-125')}\n  ${b('}')},\n  ${k('supported_profiles')}: [${s('ramp-music-v1')}]\n${b('}')}`},
+          json: `${c('// AI music tool needs a sample')}\n${c('// Two rights needed: master + composition')}\n\n${b('{')}\n  ${k('query')}: ${s('funk loop 120bpm clearable')},\n  ${k('search_filters')}: ${b('{')}\n    ${k('music.genre')}: ${s('funk')},\n    ${k('music.bpm_range')}: ${s('115-125')}\n  ${b('}')},\n  ${k('supported_profiles')}: [${s('fora-music-v1')}]\n${b('}')}`},
         { from: 'Broker', to: 'Exchanges', exFrom: false, exTo: true, desc: 'Fan-out: label catalog + publishing catalog', link: '/protocol/transaction-flow/', linkText: 'Transaction Flow →',
           json: `${c('// Broker queries two Exchanges:')}\n${c('// Exchange A = label/distributor (masters)')}\n${c('// Exchange B = publisher (compositions)')}\n\n${c('// → Exchange A (DistroKid catalog)')}\n${b('{')}\n  ${k('uris')}: [${s('isrc:USRC11700001')}],\n  ${k('acceptable_restrictions')}: [${b('{')} ${k('axis')}: ${s('FUNCTION')}, ${k('values')}: [${s('ai-input')}] ${b('}')}]\n${b('}')}\n\n${c('// → Exchange B (Songtrust catalog)')}\n${b('{')}\n  ${k('uris')}: [${s('iswc:T-070.237.108-8')}],\n  ${k('acceptable_restrictions')}: [${b('{')} ${k('axis')}: ${s('FUNCTION')}, ${k('values')}: [${s('ai-input')}] ${b('}')}]\n${b('}')}`},
         { from: 'Exchanges', to: 'Broker', exFrom: true, exTo: false, desc: 'Two offers: master recording + composition', link: '/protocol/transaction-flow/', linkText: 'Multi-Exchange Offers →',

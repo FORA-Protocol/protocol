@@ -12,13 +12,13 @@
 // This file preserves CoMP field names, enum values, and semantics exactly.
 // Canonical V1 has no separate License object: all commercial/licensing terms
 // live on Scope (ause, pricetype, pricetier, unitprice, cur, country,
-// licensedur). RAMP extensions live in ramp/v1/ramp.proto, never here.
+// licensedur). FORA extensions live in fora/v1/fora.proto, never here.
 
 syntax = "proto3";
 
 package comp.v1;
 
-option go_package = "github.com/RAMP-Protocol/protocol/gen/go/comp/v1;compv1";
+option go_package = "github.com/FORA-Protocol/protocol/gen/go/comp/v1;compv1";
 
 import "google/protobuf/struct.proto";
 
@@ -45,7 +45,7 @@ message AISystem {
 // CoMP §aisystemuse.json
 message AISystemUse {
   // License ID — public agent identifier in CoMP. NOT a credential, and it
-  // has no counterpart field on the RAMP request. Request authentication is
+  // has no counterpart field on the FORA request. Request authentication is
   // an RFC 9421 HTTP Message Signature; the agent's key is resolved by its
   // domain, never by this id.
   string lid = 1;

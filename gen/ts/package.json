@@ -1,5 +1,5 @@
 {
-  "name": "@ramp-protocol/sdk",
+  "name": "@fora-protocol/sdk",
   "version": "1.0.0",
   "description": "Generated TypeScript types export: Zod schemas (./wire/schemas) + vocabulary constants (./vocab/*), generated from the proto via JSON Schema.",
   "license": "Apache-2.0",

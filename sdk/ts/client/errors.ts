@@ -38,7 +38,7 @@ export type CallErrorKind =
 	| "not_signable"
 	| "unknown";
 
-/** What a RampCallError carries beyond its message. */
+/** What a ForaCallError carries beyond its message. */
 export interface CallErrorInit {
 	kind: CallErrorKind;
 	/** The verb that failed, in the SDK's own words ("discover", "fetch content"). */
@@ -55,12 +55,12 @@ export interface CallErrorInit {
 }
 
 /**
- * RampCallError is the client's typed failure. Every verb throws this and nothing else,
- * so `instanceof RampCallError` is not a coin flip on the very type callers are told to
+ * ForaCallError is the client's typed failure. Every verb throws this and nothing else,
+ * so `instanceof ForaCallError` is not a coin flip on the very type callers are told to
  * branch on — which is what happens when a method yields a typed error where it declines
  * to send and a bare transport error where the peer refuses.
  */
-export class RampCallError extends Error {
+export class ForaCallError extends Error {
 	readonly kind: CallErrorKind;
 	readonly op: string;
 	readonly status: number | undefined;
@@ -69,7 +69,7 @@ export class RampCallError extends Error {
 
 	constructor(init: CallErrorInit) {
 		super(renderCallError(init), init.cause !== undefined ? { cause: init.cause } : undefined);
-		this.name = "RampCallError";
+		this.name = "ForaCallError";
 		this.kind = init.kind;
 		this.op = init.op;
 		this.status = init.status;
@@ -91,7 +91,7 @@ export class RampCallError extends Error {
 // renderCallError mirrors the Go failure renderer's shape (package, op, class, status,
 // reason, cause) so a log line reads the same whichever SDK produced it.
 function renderCallError(init: CallErrorInit): string {
-	const parts = [`ramp/client: ${init.op}: ${init.kind}`];
+	const parts = [`fora/client: ${init.op}: ${init.kind}`];
 	if (init.status !== undefined && init.status !== 0) {
 		parts.push(`status ${init.status}`);
 	}
@@ -107,14 +107,14 @@ function renderCallError(init: CallErrorInit): string {
 /** The refusal for an address that failed a routing check. Its own constructor because
  * every such refusal must state which check declined and must never carry a status:
  * nothing was sent, so there is nothing to report a status for. */
-export function notSent(op: string, cause: unknown): RampCallError {
-	return new RampCallError({ kind: "not_sent", op, cause });
+export function notSent(op: string, cause: unknown): ForaCallError {
+	return new ForaCallError({ kind: "not_sent", op, cause });
 }
 
 /** The refusal for a request that could not be assembled, or an answer that could not be
  * read as the protocol defines it. */
-export function malformed(op: string, cause: unknown): RampCallError {
-	return new RampCallError({ kind: "malformed", op, cause });
+export function malformed(op: string, cause: unknown): ForaCallError {
+	return new ForaCallError({ kind: "malformed", op, cause });
 }
 
 /**

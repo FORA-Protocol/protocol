@@ -1,4 +1,4 @@
-// The RAMP client: the six verbs an agent needs, over the Connect-unary JSON transport.
+// The FORA client: the six verbs an agent needs, over the Connect-unary JSON transport.
 //
 // TS port of sdk/go/connect (Client + BrokerClient). The transports differ — Go keeps
 // full connect-go, this speaks the unary JSON form — but that is an implementation
@@ -37,7 +37,7 @@ import {
 	UsageReportResponseSchema,
 } from "../../../gen/ts/wire/schemas.ts";
 import { type Content, fetchContent } from "./content.ts";
-import { malformed, RampCallError } from "./errors.ts";
+import { malformed, ForaCallError } from "./errors.ts";
 import type { EndpointResolver } from "./route.ts";
 import { vetExchangeEndpoint } from "./route.ts";
 import { createUnarySend } from "./send.ts";
@@ -52,8 +52,8 @@ import {
 	type Validation,
 } from "./transport.ts";
 
-const EXCHANGE_SERVICE = "ramp.v1.ExchangeService";
-const BROKER_SERVICE = "ramp.v1.BrokerService";
+const EXCHANGE_SERVICE = "fora.v1.ExchangeService";
+const BROKER_SERVICE = "fora.v1.BrokerService";
 
 /** How long a delivery-fetch proof stays valid, in seconds.
  *
@@ -364,7 +364,7 @@ async function discoveredGroups(
 /**
  * canonicalize inverts the wire emission of each offer before it is verified.
  *
- * A RAMP Exchange serves proto-JSON with EmitUnpopulated, so a wire offer carries
+ * A FORA Exchange serves proto-JSON with EmitUnpopulated, so a wire offer carries
  * zero-valued scalars, empty repeateds, null messages and *_UNSPECIFIED enums that the
  * SIGNED form does not — the signature covers the omit-unpopulated rendering. Verifying
  * the wire object as-is would fail every genuine offer, which is a fail-closed direction
@@ -467,7 +467,7 @@ async function execute(
 		// not_signable, matching what fetch answers for the same missing holder: a caller
 		// branching on the kind sees one condition under one class, whichever verb met it
 		// first.
-		throw new RampCallError({
+		throw new ForaCallError({
 			kind: "not_signable",
 			op,
 			cause: new Error(
@@ -506,7 +506,7 @@ async function execute(
 			r.opts.signer.privKey,
 		);
 	} catch (cause) {
-		throw new RampCallError({ kind: "not_signable", op, cause });
+		throw new ForaCallError({ kind: "not_signable", op, cause });
 	}
 	// Items-only wire shape: a single offer is the degenerate 1-element items list, each
 	// item reflecting its signed Offer back exactly as received at discovery. The
@@ -634,7 +634,7 @@ async function dispute(
 async function fetchVerb(r: Resolved, signedURL: string): Promise<Content> {
 	const op = "fetch content";
 	if (r.opts.signer === undefined) {
-		throw new RampCallError({
+		throw new ForaCallError({
 			kind: "not_signable",
 			op,
 			cause: new Error(
@@ -644,7 +644,7 @@ async function fetchVerb(r: Resolved, signedURL: string): Promise<Content> {
 		});
 	}
 	if (r.opts.agentPublicKey === undefined) {
-		throw new RampCallError({
+		throw new ForaCallError({
 			kind: "not_signable",
 			op,
 			cause: new Error(
@@ -748,7 +748,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 	return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-export { RampCallError } from "./errors.ts";
+export { ForaCallError } from "./errors.ts";
 export type { CallErrorKind } from "./errors.ts";
 export type { Content } from "./content.ts";
 export type { EndpointResolver } from "./route.ts";

@@ -1,9 +1,9 @@
 ---
 title: "Deployment"
-description: "Deployment models, environment configuration, secrets management, and provider onboarding for the RAMP Edge Function"
+description: "Deployment models, environment configuration, secrets management, and provider onboarding for the FORA Edge Function"
 ---
 
-The Edge Function is the only RAMP component that providers deploy. This page covers the deployment model, configuration, secrets management, and onboarding procedure.
+The Edge Function is the only FORA component that providers deploy. This page covers the deployment model, configuration, secrets management, and onboarding procedure.
 
 ## Provider Onboarding Flow
 
@@ -12,20 +12,20 @@ sequenceDiagram
     participant Provider as Provider
     participant MO as Exchange Operator
     participant CDN as Provider's CDN
-    participant RAMP as RAMP CLI
+    participant FORA as FORA CLI
 
     Provider->>MO: Sign resource access agreement
     MO-->>Provider: Exchange endpoint + credentials
 
-    Provider->>RAMP: ramp init --cdn cloudfront --exchange exchange.ssp.com
-    Note over RAMP: Generates edge function config<br/>Outputs CDN-specific deployment artifact
+    Provider->>FORA: fora init --cdn cloudfront --exchange exchange.ssp.com
+    Note over FORA: Generates edge function config<br/>Outputs CDN-specific deployment artifact
 
-    RAMP-->>Provider: EdgeConfigDocument + deployment instructions
+    FORA-->>Provider: EdgeConfigDocument + deployment instructions
 
     Provider->>CDN: Deploy edge function (platform-specific)
     Note over CDN: CloudFront: deploy CF Function + update behavior<br/>Cloudflare: wrangler deploy<br/>Akamai: upload EdgeWorker bundle<br/>Fastly: fastly compute deploy
 
-    Provider->>CDN: Verify: GET /.well-known/ramp.json
+    Provider->>CDN: Verify: GET /.well-known/fora.json
     CDN-->>Provider: 200 OK + WellKnownManifest
 
     Provider->>CDN: Verify: curl -A "GPTBot" /premium/article.html
@@ -38,12 +38,12 @@ The absolute minimum a provider needs to do:
 
 1. **Get an Exchange endpoint** from their Exchange operator (one-time business relationship).
 2. **Deploy the edge function** using the Terraform module or manual deployment (see below).
-3. **Verify** -- `curl -I https://techcrunch.com/.well-known/ramp.json` returns the manifest.
+3. **Verify** -- `curl -I https://techcrunch.com/.well-known/fora.json` returns the manifest.
 
 import { Aside } from '@astrojs/starlight/components';
 
 <Aside type="tip">
-The `@ramp/cli` tool is planned. For now, deploy manually using the [Terraform module](https://github.com/RAMP-Protocol/protocol/tree/main/terraform/aws-ramp-edge/) or follow the CDN-specific deployment steps below.
+The `@fora/cli` tool is planned. For now, deploy manually using the [Terraform module](https://github.com/FORA-Protocol/protocol/tree/main/terraform/aws-fora-edge/) or follow the CDN-specific deployment steps below.
 </Aside>
 
 Target: **under 10 minutes** from Exchange operator contract to live edge function.
@@ -54,23 +54,23 @@ The edge function is distributed in multiple formats to match provider deploymen
 
 ### Format 1: CloudFront Function (Reference Implementation)
 
-The reference implementation is a vanilla JavaScript CloudFront Function that handles bot detection, signed URL verification, and `ramp.json` serving.
+The reference implementation is a vanilla JavaScript CloudFront Function that handles bot detection, signed URL verification, and `fora.json` serving.
 
 <Aside type="note">
-The `@ramp/edge-function` npm package is planned. For now, use the reference implementation directly or deploy via the Terraform module.
+The `@fora/edge-function` npm package is planned. For now, use the reference implementation directly or deploy via the Terraform module.
 </Aside>
 
 ### Format 2: Terraform Module
 
 ```hcl
-module "ramp_edge" {
-  source = "github.com/RAMP-Protocol/protocol//terraform/aws-ramp-edge"
+module "fora_edge" {
+  source = "github.com/FORA-Protocol/protocol//terraform/aws-fora-edge"
 
   cloudfront_distribution_id = aws_cloudfront_distribution.main.id
-  exchange_endpoint       = "https://exchange.ssp.com/ramp/v1"
+  exchange_endpoint       = "https://exchange.ssp.com/fora/v1"
   exchange_domain         = "exchange.ssp.com"
   protected_paths            = ["/premium/*", "/archive/*"]
-  signing_key_pair_id        = aws_cloudfront_public_key.ramp.id
+  signing_key_pair_id        = aws_cloudfront_public_key.fora.id
 }
 ```
 
@@ -87,7 +87,7 @@ For providers who prefer click-to-deploy:
 ### Format 4: CLI Tool (Planned)
 
 <Aside type="caution">
-The `@ramp/cli` tool is planned but not yet available. For now, use the [Terraform module](https://github.com/RAMP-Protocol/protocol/tree/main/terraform/aws-ramp-edge/) for automated deployment.
+The `@fora/cli` tool is planned but not yet available. For now, use the [Terraform module](https://github.com/FORA-Protocol/protocol/tree/main/terraform/aws-fora-edge/) for automated deployment.
 </Aside>
 
 When available, the CLI will generate the platform-specific deployment artifact (CloudFront Function JS, Cloudflare Worker, etc.) and output deployment instructions.
@@ -98,13 +98,13 @@ When available, the CLI will generate the platform-specific deployment artifact 
 
 | Configuration Item | Source | Change Frequency | Example |
 |---|---|---|---|
-| Exchange endpoint URL | Provider-Exchange contract | Rarely (months) | `https://exchange.ssp.com/ramp/v1` |
+| Exchange endpoint URL | Provider-Exchange contract | Rarely (months) | `https://exchange.ssp.com/fora/v1` |
 | Exchange domain | Provider-Exchange contract | Rarely | `exchange.ssp.com` |
 | Provider relationship | Provider-Exchange contract | Rarely | `DIRECT` |
 | Provider domain | Deployment config | Never | `techcrunch.com` |
 | Contact email | Provider | Rarely | `licensing@techcrunch.com` |
 | Protected path patterns | Provider editorial policy | Monthly | `["/premium/*", "/archive/*"]` |
-| Bot User-Agent patterns | RAMP community list | Weekly | `["ClaudeBot", "GPTBot", ...]` |
+| Bot User-Agent patterns | FORA community list | Weekly | `["ClaudeBot", "GPTBot", ...]` |
 | Signing mode | Deployment architecture | Never | `"cdn-native"` or `"hmac"` |
 | HMAC secret | Security team | Quarterly (rotation) | `"hmac-secret-..."` |
 | Max URL TTL | Policy | Rarely | `300` (seconds) |
@@ -159,13 +159,13 @@ interface EdgeConfigDocument {
     contact?: string;
   };
 
-  /** Serving mode for ramp.json and rsl.txt. */
+  /** Serving mode for fora.json and rsl.txt. */
   serving_mode: "exchange" | "inline" | "kv" | "origin";
 
   /** Exchange API base URL (required when serving_mode is "exchange"). */
   exchange_api_url?: string;
 
-  /** Authorized Exchanges (becomes ramp.json exchanges[]). */
+  /** Authorized Exchanges (becomes fora.json exchanges[]). */
   exchanges: Array<{
     domain: string;
     endpoint: string;
@@ -240,23 +240,23 @@ npx wrangler secret put HMAC_SECRET
 
 ## ACME Domain Verification Challenge Serving (v1.0)
 
-During provider onboarding, the RAMP CLI writes ACME challenge tokens to the CDN's KV store. The edge function auto-serves these tokens at `/.well-known/ramp-verify/{token}`, eliminating the need for providers to manually place files on their origin server.
+During provider onboarding, the FORA CLI writes ACME challenge tokens to the CDN's KV store. The edge function auto-serves these tokens at `/.well-known/fora-verify/{token}`, eliminating the need for providers to manually place files on their origin server.
 
 ```
-ramp-cli writes to KV:
-  Key:   ramp-verify:{token}
+fora-cli writes to KV:
+  Key:   fora-verify:{token}
   Value: {token}
   TTL:   10 minutes
 
 Edge function route:
-  /.well-known/ramp-verify/* -> read from KV -> return as text/plain
+  /.well-known/fora-verify/* -> read from KV -> return as text/plain
 ```
 
 The Exchange fetches the challenge URL during `ConfirmDomainVerification` to prove the provider controls the domain. After verification succeeds, the challenge token is cleaned up from KV.
 
-For providers without the RAMP edge function deployed, `ramp-cli` provides fallback instructions to manually place the token file on their web server.
+For providers without the FORA edge function deployed, `fora-cli` provides fallback instructions to manually place the token file on their web server.
 
-## Configurable Serving Modes for ramp.json and rsl.txt
+## Configurable Serving Modes for fora.json and rsl.txt
 
 ```yaml
 serving_mode: "exchange"  # pull from Exchange API, cache in KV (recommended)
@@ -270,7 +270,7 @@ serving_mode: "exchange"  # pull from Exchange API, cache in KV (recommended)
 The edge function fetches both files from the Exchange API on cache miss. This is the recommended mode for providers registered with an Exchange.
 
 ```
-GET https://exchange.ssp-example.com/provider/techcrunch.com/ramp.json
+GET https://exchange.ssp-example.com/provider/techcrunch.com/fora.json
 GET https://exchange.ssp-example.com/provider/techcrunch.com/rsl.txt
 -> edge function caches in KV for TTL
 -> serves from KV on subsequent requests
@@ -283,18 +283,18 @@ Both files are baked into the edge function's environment variables or deploymen
 
 ```
 # Environment variables
-RAMP_PROVIDER=techcrunch.com
-RAMP_EXCHANGE_DOMAIN=exchange.ssp-example.com
-RAMP_EXCHANGE_ENDPOINT=https://exchange.ssp-example.com/ramp/v1
-RAMP_EXCHANGE_RELATIONSHIP=DIRECT
-RAMP_CONTACT=licensing@techcrunch.com
+FORA_PROVIDER=techcrunch.com
+FORA_EXCHANGE_DOMAIN=exchange.ssp-example.com
+FORA_EXCHANGE_ENDPOINT=https://exchange.ssp-example.com/fora/v1
+FORA_EXCHANGE_RELATIONSHIP=DIRECT
+FORA_CONTACT=licensing@techcrunch.com
 ```
 
-The edge function constructs ramp.json and rsl.txt at startup. Simplest approach, suitable for providers with a single Exchange relationship that changes infrequently.
+The edge function constructs fora.json and rsl.txt at startup. Simplest approach, suitable for providers with a single Exchange relationship that changes infrequently.
 
 **Mode: kv**
 
-The full ramp.json and rsl.txt content is stored in the CDN's edge KV (Workers KV, CloudFront KeyValueStore, EdgeKV, Fastly Config Store). A separate management process writes to KV when configuration changes.
+The full fora.json and rsl.txt content is stored in the CDN's edge KV (Workers KV, CloudFront KeyValueStore, EdgeKV, Fastly Config Store). A separate management process writes to KV when configuration changes.
 
 Advantage: configuration changes propagate to all edge locations without redeployment.
 
@@ -313,16 +313,16 @@ sequenceDiagram
     participant Cache as Edge Cache/KV
     participant MP as Exchange API
 
-    Agent->>Edge: GET /.well-known/ramp.json (or /rsl.txt)
+    Agent->>Edge: GET /.well-known/fora.json (or /rsl.txt)
 
     alt Cache hit (KV)
-        Edge->>Cache: lookup("ramp.json")
+        Edge->>Cache: lookup("fora.json")
         Cache-->>Edge: cached content
         Edge-->>Agent: 200 OK (from cache)
     else Cache miss
-        Edge->>MP: GET /provider/{domain}/ramp.json
-        MP-->>Edge: ramp.json content
-        Edge->>Cache: store("ramp.json", content, TTL=3600s)
+        Edge->>MP: GET /provider/{domain}/fora.json
+        MP-->>Edge: fora.json content
+        Edge->>Cache: store("fora.json", content, TTL=3600s)
         Edge-->>Agent: 200 OK (freshly fetched)
         Note over Edge: Background: also refresh rsl.txt<br/>if it shares the same TTL
     end
@@ -334,7 +334,7 @@ sequenceDiagram
 | `Cache-Control` sent to agent | `public, max-age=3600` | Agents cache locally, reducing edge load |
 | `Stale-While-Revalidate` | 86400s (1 day) | Serve stale while refreshing in background |
 | Invalidation trigger | KV write, env var change, manual purge | When provider updates Exchange config |
-| Applies to | Both ramp.json and rsl.txt | Same caching strategy for both files |
+| Applies to | Both fora.json and rsl.txt | Same caching strategy for both files |
 
 ## Preventing Edge Function Bypass
 
@@ -351,7 +351,7 @@ The edge function is only effective if all requests to protected content pass th
 
 After deployment, verify with these checks:
 
-1. `GET /.well-known/ramp.json` returns valid manifest with `200 OK`.
+1. `GET /.well-known/fora.json` returns valid manifest with `200 OK`.
 2. `GET /rsl.txt` returns valid RSL content with `200 OK`.
 3. `GET /premium/article.html` with bot User-Agent returns `403 + X-Content-Rules` header.
 4. `GET /premium/article.html` with valid signed URL returns `200`.

@@ -23,7 +23,7 @@ import (
 	protovalidate "buf.build/go/protovalidate"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	"github.com/RAMP-Protocol/protocol/conformance"
+	"github.com/FORA-Protocol/protocol/conformance"
 )
 
 func main() {
@@ -118,7 +118,7 @@ func zeroRejected(fd protoreflect.FieldDescriptor) bool {
 		}
 	}
 	// Loud guard: only int64 and int32 numeric rules are evaluated above (Quota.limit,
-	// the ramp.admin.v1 setters). A rule of another numeric kind would fall through as
+	// the fora.admin.v1 setters). A rule of another numeric kind would fall through as
 	// "zero is valid" — the field would not be marked required and the generated
 	// clients would accept an omission the Go server rejects. Fail instead of silently
 	// under-marking.

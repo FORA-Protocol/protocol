@@ -1,37 +1,37 @@
 ---
-title: "Extension: ramp-c2pa-v1"
+title: "Extension: fora-c2pa-v1"
 description: "C2PA content credentials integration — provenance verification, training/mining rights enforcement, and soft binding for dispute resolution"
 ---
 
 ## Overview
 
-RAMP-C2PA v1 integrates the C2PA (Coalition for Content Provenance and Authenticity) standard into RAMP, enabling agents and Exchanges to:
+FORA-C2PA v1 integrates the C2PA (Coalition for Content Provenance and Authenticity) standard into FORA, enabling agents and Exchanges to:
 
 - **Verify** content provenance — who created it, what tools were used, whether it's been modified
-- **Enforce** creator-declared training/mining restrictions commercially via RAMP access controls
+- **Enforce** creator-declared training/mining restrictions commercially via FORA access controls
 - **Resolve** disputes with stronger evidence using C2PA hard and soft content bindings
 - **Filter** for provenance-verified content at discovery time
 
-C2PA proves **what content IS** (provenance). RAMP manages **what you can DO with it** (commercial access). This profile bridges the two.
+C2PA proves **what content IS** (provenance). FORA manages **what you can DO with it** (commercial access). This profile bridges the two.
 
 ### Design Principle: Consume Results, Not Structures
 
-RAMP does not re-implement C2PA internals. C2PA has its own container format (JUMBF), its own PKI (X.509 certificates), and its own validation algorithm (COSE Sign1). This profile defines how **C2PA validation results** are carried in RAMP's existing attestation mechanism — not how to parse JUMBF or verify COSE signatures.
+FORA does not re-implement C2PA internals. C2PA has its own container format (JUMBF), its own PKI (X.509 certificates), and its own validation algorithm (COSE Sign1). This profile defines how **C2PA validation results** are carried in FORA's existing attestation mechanism — not how to parse JUMBF or verify COSE signatures.
 
-A **C2PA verification vendor** (the Exchange itself, or a third party like Truepic or a C2PA Trust List validator) validates the manifest and publishes results as a standard RAMP `ResourceAttestation`. C2PA-unaware agents benefit from the results without needing C2PA libraries.
+A **C2PA verification vendor** (the Exchange itself, or a third party like Truepic or a C2PA Trust List validator) validates the manifest and publishes results as a standard FORA `ResourceAttestation`. C2PA-unaware agents benefit from the results without needing C2PA libraries.
 
 ### Who Should Implement This
 
 - **Exchanges** serving content with C2PA credentials (news photos, AI-generated images, medical imaging, legal documents)
-- **Verification vendors** that validate C2PA manifests and bridge the results into RAMP attestations
+- **Verification vendors** that validate C2PA manifests and bridge the results into FORA attestations
 - **Agents** that need provenance assurance for high-stakes content (medical, legal, financial)
-- **Providers** that embed C2PA credentials in their content and want RAMP to enforce their training/mining declarations
+- **Providers** that embed C2PA credentials in their content and want FORA to enforce their training/mining declarations
 
 ### Prerequisites
 
 Implementers must be familiar with:
 
-- RAMP protocol (`proto/ramp/v1/ramp.proto`)
+- FORA protocol (`proto/fora/v1/fora.proto`)
 - `ResourceIdentity`, `ResourceAttestation`, and `LicenseTerm` / `Restriction` messages
 - The `ext` field mechanism (`google.protobuf.Struct`)
 - [C2PA Specification 2.3](https://spec.c2pa.org/specifications/2.3/specs/C2PA_Specification.html) (recommended, not required for consumers)
@@ -40,13 +40,13 @@ Implementers must be familiar with:
 
 ## Profile Declaration
 
-An Exchange declares support by including `"ramp-c2pa-v1"` in `WellKnownManifest.supported_profiles` (`role=ROLE_EXCHANGE`):
+An Exchange declares support by including `"fora-c2pa-v1"` in `WellKnownManifest.supported_profiles` (`role=ROLE_EXCHANGE`):
 
 ```json
 {
   "ver": "1.0",
   "domain": "exchange.example.com",
-  "supported_profiles": ["ramp-c2pa-v1"],
+  "supported_profiles": ["fora-c2pa-v1"],
   "accepted_verifiers": ["truepic.com", "contentcredentials.org"]
 }
 ```
@@ -55,7 +55,7 @@ An Exchange declares support by including `"ramp-c2pa-v1"` in `WellKnownManifest
 
 ## Core Proto Fields
 
-These fields are in the core `ramp.proto` (Layer 1), not in `ext`:
+These fields are in the core `fora.proto` (Layer 1), not in `ext`:
 
 ### ResourceIdentity
 
@@ -79,7 +79,7 @@ These fields are in the core `ramp.proto` (Layer 1), not in `ext`:
 
 ## Attestation Claims Vocabulary
 
-When a C2PA verification vendor validates a manifest, it publishes results as a RAMP `ResourceAttestation` with these standardized claim names:
+When a C2PA verification vendor validates a manifest, it publishes results as a FORA `ResourceAttestation` with these standardized claim names:
 
 ### Identity & Trust Claims
 
@@ -153,9 +153,9 @@ When a C2PA verification vendor validates a manifest, it publishes results as a 
 
 ## Rights Enforcement Mapping
 
-The Exchange SHOULD automatically map C2PA training/mining declarations to RAMP access restrictions:
+The Exchange SHOULD automatically map C2PA training/mining declarations to FORA access restrictions:
 
-| C2PA Assertion | RAMP Mapping |
+| C2PA Assertion | FORA Mapping |
 |----------------|-------------|
 | `c2pa.training_mining.training_allowed == false` | a `LicenseTerm.restrictions` entry `Restriction{kind: RESTRICTION_KIND_FUNCTION, prohibited: ["ai-train"]}` |
 | `c2pa.training_mining.mining_allowed == false` | a `LicenseTerm.restrictions` entry `Restriction{kind: RESTRICTION_KIND_FUNCTION, prohibited: ["ai-index"]}` |
@@ -163,14 +163,14 @@ The Exchange SHOULD automatically map C2PA training/mining declarations to RAMP 
 
 This creates a two-layer model:
 
-1. **Declaration layer** (C2PA): The content creator embeds their intent in the content itself. This travels with the content, even outside RAMP channels.
-2. **Term layer** (RAMP): The Exchange maps the C2PA declaration onto `LicenseTerm.restrictions` that ride on the offer. The agent self-selects the term it can honour and bears compliance (enforced downstream at accept → report → reconcile). As a convenience, an Exchange MAY pre-filter — an agent that volunteers `acceptable_restrictions: [{ axis: "RESTRICTION_KIND_FUNCTION", values: ["ai-train"] }]` on the query can ask to skip offers for content where training is prohibited so it doesn't pay to discover them — but that filter is advisory, not an enforcement guarantee.
+1. **Declaration layer** (C2PA): The content creator embeds their intent in the content itself. This travels with the content, even outside FORA channels.
+2. **Term layer** (FORA): The Exchange maps the C2PA declaration onto `LicenseTerm.restrictions` that ride on the offer. The agent self-selects the term it can honour and bears compliance (enforced downstream at accept → report → reconcile). As a convenience, an Exchange MAY pre-filter — an agent that volunteers `acceptable_restrictions: [{ axis: "RESTRICTION_KIND_FUNCTION", values: ["ai-train"] }]` on the query can ask to skip offers for content where training is prohibited so it doesn't pay to discover them — but that filter is advisory, not an enforcement guarantee.
 
 ---
 
 ## Dispute Enhancement
 
-C2PA content bindings strengthen RAMP's dispute resolution:
+C2PA content bindings strengthen FORA's dispute resolution:
 
 ### Hard Binding Disputes
 
@@ -193,9 +193,9 @@ When content is legitimately transcoded (image resized, PDF extracted to text) a
 
 ## Trust Bridging
 
-C2PA and RAMP use different PKI:
+C2PA and FORA use different PKI:
 
-| Aspect | C2PA | RAMP |
+| Aspect | C2PA | FORA |
 |--------|------|------|
 | Key format | X.509 certificates | Ed25519 JWKS |
 | Trust model | Centrally curated Trust Lists (CA hierarchy) | Decentralized (provider ↔ exchange manifests) |
@@ -205,16 +205,16 @@ C2PA and RAMP use different PKI:
 The verification vendor bridges these worlds:
 
 ```
-C2PA World                          RAMP World
+C2PA World                          FORA World
 ─────────────────                   ──────────────────
 X.509 cert chain                    Ed25519 JWKS
 COSE Sign1 signature    ──►        JWS EdDSA signature
-C2PA Trust List          Vendor     RAMP accepted_verifiers
+C2PA Trust List          Vendor     FORA accepted_verifiers
 JUMBF manifest          bridges     ResourceAttestation.claims
 RFC 3161 TSA                        attested_at timestamp
 ```
 
-The vendor's Ed25519 key (published in its WBA directory, the JWK Set at `/.well-known/http-message-signatures-directory`, and referenced by the attestation's RFC 7638 thumbprint `keyid`) attests to the results of X.509/COSE validation. RAMP has no dedicated verifier role; a verifier publishes under its operator's role (`ROLE_PUBLISHER` for a self-attesting publisher, `ROLE_EXCHANGE` for a standalone vendor). RAMP participants trust the vendor; the vendor trusts the C2PA Trust List. One-way bridge, clean separation.
+The vendor's Ed25519 key (published in its WBA directory, the JWK Set at `/.well-known/http-message-signatures-directory`, and referenced by the attestation's RFC 7638 thumbprint `keyid`) attests to the results of X.509/COSE validation. FORA has no dedicated verifier role; a verifier publishes under its operator's role (`ROLE_PUBLISHER` for a self-attesting publisher, `ROLE_EXCHANGE` for a standalone vendor). FORA participants trust the vendor; the vendor trusts the C2PA Trust List. One-way bridge, clean separation.
 
 ---
 
@@ -224,7 +224,7 @@ The vendor's Ed25519 key (published in its WBA directory, the JWK Set at `/.well
 
 - Populate `ResourceIdentity.c2pa_manifest` when content has C2PA credentials
 - Populate `c2pa_status` with validation result
-- Declare `"ramp-c2pa-v1"` in `WellKnownManifest.supported_profiles`
+- Declare `"fora-c2pa-v1"` in `WellKnownManifest.supported_profiles`
 
 ### Standard (Level B)
 
@@ -247,9 +247,9 @@ All of Level B, plus:
 
 ## Crypto Stack Compatibility
 
-Both C2PA and RAMP support Ed25519/EdDSA. A verification vendor that holds both an X.509 certificate (for C2PA signing) and an Ed25519 key (for RAMP attestation signing) can participate in both ecosystems.
+Both C2PA and FORA support Ed25519/EdDSA. A verification vendor that holds both an X.509 certificate (for C2PA signing) and an Ed25519 key (for FORA attestation signing) can participate in both ecosystems.
 
-| Algorithm | C2PA Support | RAMP Support |
+| Algorithm | C2PA Support | FORA Support |
 |-----------|-------------|-------------|
 | Ed25519 | Yes (EdDSA via COSE) | Yes (EdDSA via JWS) |
 | ECDSA P-256 | Yes | No |
@@ -261,5 +261,5 @@ Both C2PA and RAMP support Ed25519/EdDSA. A verification vendor that holds both 
 
 ## Relationship to Other Profiles
 
-- **ramp-news-v1**: News photos with C2PA credentials benefit from both profiles. The news profile tracks editorial metadata (corrections, retractions); the C2PA profile tracks content provenance (camera, edits, creator identity). They compose — an offer can carry both `news.*` and `c2pa.*` claims.
-- **ramp-comp-v1**: CoMP's `Video.c2pa`, `Image.c2pa`, and `Audio.c2pa` fields carry C2PA manifest URIs at the media asset level. This profile operates at the RAMP resource level — the `ResourceIdentity.c2pa_manifest` is the canonical pointer, independent of CoMP.
+- **fora-news-v1**: News photos with C2PA credentials benefit from both profiles. The news profile tracks editorial metadata (corrections, retractions); the C2PA profile tracks content provenance (camera, edits, creator identity). They compose — an offer can carry both `news.*` and `c2pa.*` claims.
+- **fora-comp-v1**: CoMP's `Video.c2pa`, `Image.c2pa`, and `Audio.c2pa` fields carry C2PA manifest URIs at the media asset level. This profile operates at the FORA resource level — the `ResourceIdentity.c2pa_manifest` is the canonical pointer, independent of CoMP.

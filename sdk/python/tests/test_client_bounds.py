@@ -27,10 +27,10 @@ from typing import TYPE_CHECKING, Any
 import httpx
 import pytest
 
-from ramp_sdk import sync as blocking
-from ramp_sdk.client import BrokerClient, Client, ClientConfig
-from ramp_sdk.client.errors import CallError, CallErrorKind
-from ramp_sdk.signing_transport import SigningTransport
+from fora_sdk import sync as blocking
+from fora_sdk.client import BrokerClient, Client, ClientConfig
+from fora_sdk.client.errors import CallError, CallErrorKind
+from fora_sdk.signing_transport import SigningTransport
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

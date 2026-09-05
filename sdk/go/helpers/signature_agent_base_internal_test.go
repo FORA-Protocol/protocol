@@ -62,7 +62,7 @@ func TestSignatureBase_quotedSignatureAgentKeepsItsQuotes(t *testing.T) {
 }
 
 // TestSignatureBase_bareSignatureAgentUnchanged is the other half: the bare form
-// RAMP itself emits must keep producing exactly the base it always did. Together
+// FORA itself emits must keep producing exactly the base it always did. Together
 // with the test above this pins that the two wire forms produce DIFFERENT bases —
 // which is correct, because they are different bytes, even though both surface
 // the same directory through signatureAgentOf.

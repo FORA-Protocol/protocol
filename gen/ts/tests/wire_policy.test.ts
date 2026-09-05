@@ -20,7 +20,7 @@ import {
   UsageReportResponseSchema,
 } from "../wire/schemas.ts";
 
-// Captured from connectserver.EmitUnpopulatedJSONCodec() — the codec a RAMP deployment
+// Captured from connectserver.EmitUnpopulatedJSONCodec() — the codec a FORA deployment
 // registers. Every unset message field is `null`, which is what the schemas alone reject.
 const CODEC_BODIES: Array<[string, { safeParse: (v: unknown) => { success: boolean } }, string]> = [
   ["ResourceResponse", ResourceResponseSchema,

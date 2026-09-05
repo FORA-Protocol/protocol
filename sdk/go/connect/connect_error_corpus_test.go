@@ -24,10 +24,10 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/gen/go/ramp/v1/rampv1connect"
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 func loadConnectErrorVectors(t *testing.T) []connectErrorVector {
@@ -55,7 +55,7 @@ func TestConnectErrorCorpusReplay(t *testing.T) {
 			if err == nil {
 				t.Fatalf("envelope %q produced no error", v.Name)
 			}
-			detail, ok := rampconnect.ErrorDetailFrom(err)
+			detail, ok := foraconnect.ErrorDetailFrom(err)
 			if ok != v.Expect.HasDetail {
 				t.Fatalf("ErrorDetailFrom has-detail = %v, want %v", ok, v.Expect.HasDetail)
 			}
@@ -87,7 +87,7 @@ func (v connectErrorVector) name() string { return v.Name }
 
 // reasonProjection reads the typed reason back through the real accessor, the same way
 // the emitter derived what the corpus claims.
-func reasonProjection(detail *rampv1.ErrorDetail) (string, string) {
+func reasonProjection(detail *forav1.ErrorDetail) (string, string) {
 	return expectationOf(detail).ReasonFrom, expectationOf(detail).ReasonEnum
 }
 
@@ -108,9 +108,9 @@ func callServing(t *testing.T, v connectErrorVector) error {
 
 	// The JSON codec is pinned: the corpus records a JSON envelope, and a client left on
 	// the default binary codec would ask for application/proto and never reach it.
-	client := rampv1connect.NewExchangeServiceClient(srv.Client(), srv.URL,
+	client := forav1connect.NewExchangeServiceClient(srv.Client(), srv.URL,
 		connectrpc.WithProtoJSON())
 	_, err = client.ExecuteTransaction(context.Background(),
-		connectrpc.NewRequest(&rampv1.TransactionRequest{}))
+		connectrpc.NewRequest(&forav1.TransactionRequest{}))
 	return err
 }

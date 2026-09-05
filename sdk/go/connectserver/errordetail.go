@@ -3,7 +3,7 @@ package connectserver
 import (
 	connectrpc "connectrpc.com/connect"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 // AttachErrorDetail builds the ADR-019 ErrorDetail envelope (the
@@ -23,7 +23,7 @@ import (
 //
 // It sits in the SERVER binding — a server EMITS a typed detail — alongside
 // AsConnectError, keeping connectrpc out of the transport-neutral L1 helpers. A
-// caller needing a typed reason oneof builds the *rampv1.ErrorDetail via the
+// caller needing a typed reason oneof builds the *forav1.ErrorDetail via the
 // helpers.*Detail builders and attaches it with AttachDetail below.
 func AttachErrorDetail(
 	cerr *connectrpc.Error,
@@ -41,8 +41,8 @@ func AttachErrorDetail(
 // so a caller that owns a typed reason oneof can set it on the RETURNED
 // (mutable) detail before attaching via AttachDetail — the envelope body then
 // has exactly one source across every service, whichever attach path follows.
-func NewErrorDetail(domain, message string, metadata map[string]string) *rampv1.ErrorDetail {
-	d := &rampv1.ErrorDetail{Domain: domain, Message: message}
+func NewErrorDetail(domain, message string, metadata map[string]string) *forav1.ErrorDetail {
+	d := &forav1.ErrorDetail{Domain: domain, Message: message}
 	if len(metadata) > 0 {
 		d.Metadata = metadata
 	}
@@ -55,7 +55,7 @@ func NewErrorDetail(domain, message string, metadata map[string]string) *rampv1.
 // NewErrorDetail/AddDetail dance in exactly one place for callers that build a
 // typed-reason detail themselves (via the helpers.*Detail builders) — the shape
 // AttachErrorDetail delegates to for the generic case.
-func AttachDetail(cerr *connectrpc.Error, d *rampv1.ErrorDetail) error {
+func AttachDetail(cerr *connectrpc.Error, d *forav1.ErrorDetail) error {
 	detail, err := connectrpc.NewErrorDetail(d)
 	if err != nil {
 		return cerr

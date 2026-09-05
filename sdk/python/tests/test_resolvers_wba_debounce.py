@@ -31,7 +31,7 @@ from resolvers_harness import (
     wba_file_json,
 )
 
-from ramp_sdk.resolvers import UnknownKeyError, WBAKeyResolver
+from fora_sdk.resolvers import UnknownKeyError, WBAKeyResolver
 
 _WBA_DIR_PATH = "/.well-known/http-message-signatures-directory"
 

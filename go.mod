@@ -1,4 +1,4 @@
-module github.com/RAMP-Protocol/protocol
+module github.com/FORA-Protocol/protocol
 
 go 1.26
 

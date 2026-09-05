@@ -16,7 +16,7 @@ The pipeline produces a `CatalogSnapshot` -- an immutable, in-memory data struct
 ```mermaid
 graph LR
     subgraph "Public Discovery Sources"
-        S1[RAMP Sitemap Extension]
+        S1[FORA Sitemap Extension]
         S2[RSL rsl.txt]
         S3[Standard Sitemap XML]
         S4[HTML Crawl + Readability]
@@ -79,7 +79,7 @@ The pipeline has two fundamentally distinct input streams:
 | Exchange config DB | Tenant-level and path-level pricing rules set by Exchange operator or provider | Authoritative |
 | Provider admin API | `POST /admin/pricing` -- providers update pricing programmatically | Authoritative |
 | Agent-specific agreements | Volume discounts, subscriptions, negotiated rates stored per agent/buyer | Highest (overrides defaults) |
-| RSL/sitemap hints | `<amount>`, `ramp:rate` -- treated as fallback defaults if no private pricing is configured | Lowest |
+| RSL/sitemap hints | `<amount>`, `fora:rate` -- treated as fallback defaults if no private pricing is configured | Lowest |
 
 ## Processing Stages
 

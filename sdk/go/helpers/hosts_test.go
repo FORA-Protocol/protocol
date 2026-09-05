@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // TestHostRuleRefusesDoubledColonsWhoeverBuildsIt pins that the doubled-colon

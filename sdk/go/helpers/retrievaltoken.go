@@ -1,13 +1,13 @@
 package helpers
 
 import (
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 // The delivery edge answers a refused fetch with a small JSON body carrying its
 // own refusal token — a string vocabulary, because the edge is a code-capable
 // worker with no protobuf runtime. RetrievalAuthFailureReason is the typed
-// counterpart, and ramp.proto records the token each value stands for.
+// counterpart, and fora.proto records the token each value stands for.
 //
 // Mapping the token back onto the enum is what lets a fetch refusal reach a
 // caller through the SAME typed vocabulary an RPC refusal does, instead of a
@@ -28,19 +28,19 @@ import (
 // An unmapped token still reaches the caller as the raw refusal string; only the
 // typed reason is withheld, which is the honest outcome when the wire cannot say
 // which failure occurred.
-var retrievalAuthFailureTokens = map[string]rampv1.RetrievalAuthFailureReason{
+var retrievalAuthFailureTokens = map[string]forav1.RetrievalAuthFailureReason{
 	// Signed-URL checks.
-	"expired":            rampv1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED,
-	"missing_exp":        rampv1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRY_MISSING,
-	"signature_mismatch": rampv1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_URL_SIGNATURE_MISMATCH,
+	"expired":            forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED,
+	"missing_exp":        forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRY_MISSING,
+	"signature_mismatch": forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_URL_SIGNATURE_MISMATCH,
 	// Proof-of-possession checks.
-	"missing_agent_key":   rampv1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_AGENT_KEY_MISSING,
-	"keyid_mismatch":      rampv1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_KEYID_MISMATCH,
-	"thumbprint_mismatch": rampv1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_THUMBPRINT_MISMATCH,
-	"pop_missing_created": rampv1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_PROOF_CREATED_MISSING,
-	"pop_missing_exp":     rampv1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRY_MISSING,
-	"pop_expired":         rampv1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRED,
-	"pop_sig_invalid":     rampv1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_PROOF_SIGNATURE_INVALID,
+	"missing_agent_key":   forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_AGENT_KEY_MISSING,
+	"keyid_mismatch":      forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_KEYID_MISMATCH,
+	"thumbprint_mismatch": forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_THUMBPRINT_MISMATCH,
+	"pop_missing_created": forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_PROOF_CREATED_MISSING,
+	"pop_missing_exp":     forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRY_MISSING,
+	"pop_expired":         forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRED,
+	"pop_sig_invalid":     forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_PROOF_SIGNATURE_INVALID,
 }
 
 // RetrievalAuthFailureReasonFromToken resolves a delivery edge's refusal token to
@@ -52,7 +52,7 @@ var retrievalAuthFailureTokens = map[string]rampv1.RetrievalAuthFailureReason{
 // Fail-closed by construction: the token arrives in a body written by the host
 // the fetch just went to, so an unrecognised value is never surfaced as a typed
 // protocol reason.
-func RetrievalAuthFailureReasonFromToken(token string) (rampv1.RetrievalAuthFailureReason, bool) {
+func RetrievalAuthFailureReasonFromToken(token string) (forav1.RetrievalAuthFailureReason, bool) {
 	reason, ok := retrievalAuthFailureTokens[token]
 	return reason, ok
 }

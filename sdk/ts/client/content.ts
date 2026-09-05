@@ -16,7 +16,7 @@ import { MAX_BODY_DEPTH, rawNestingDepth } from "../src/jsondepth.ts";
 import { RequestIDHeader } from "../src/wire.ts";
 import { IDENTITY_ENCODING, refuseUnrequestedEncoding } from "./transport.ts";
 import { requireScheme, skipSSRF, ssrfGuard } from "../resolvers/http.ts";
-import { RampCallError } from "./errors.ts";
+import { ForaCallError } from "./errors.ts";
 import { concat, reclaim } from "./send.ts";
 
 /**
@@ -56,7 +56,7 @@ const EDGE_REASON_TOKEN = /^[a-z][a-z0-9_]{0,63}$/;
 /** The ErrorDetail domain for a refusal by a delivery edge. It is the failing surface,
  * not the fetched resource: the field is a stable grouping key for tooling, so it names
  * the tier that refused. */
-const EDGE_ERROR_DOMAIN = "ramp.v1.Edge";
+const EDGE_ERROR_DOMAIN = "fora.v1.Edge";
 
 /** The range a TCP port has. A delivery URL naming one outside it names nothing
  * reachable, whatever a URL parser makes of the value. */
@@ -169,7 +169,7 @@ export async function fetchContent(
 			// body: a 302 carrying {"reason":"moved"} surfaced as though the edge had named
 			// a typed refusal.
 			if (response.statusCode >= 300 && response.statusCode < 400) {
-				throw new RampCallError({
+				throw new ForaCallError({
 					kind: "unreachable",
 					op,
 					status: response.statusCode,
@@ -189,12 +189,12 @@ export async function fetchContent(
 			// The answer arrived, and then went wrong: the deadline fired mid-body, or the
 			// connection reset under the read. Both raise the dialing library's own error
 			// out of the loop, and this leg had no catch of its own — so a caller branching
-			// on the contract this package states, that every verb raises RampCallError and
+			// on the contract this package states, that every verb raises ForaCallError and
 			// nothing else, silently dropped it. Measured before this: a mid-body deadline
 			// surfaced as a bare DOMException. The RPC legs route the identical case through
 			// their own classifier; this is that, plus the redaction only this leg needs,
 			// because a delivery URL carries a live credential in its query.
-			throw failure instanceof RampCallError ? failure : dialFailure(op, failure);
+			throw failure instanceof ForaCallError ? failure : dialFailure(op, failure);
 		} finally {
 			// Every exit, not every throw — including a future one that returns early.
 			reclaim(response.body);
@@ -266,8 +266,8 @@ function vetDialable(op: string, signedURL: string): void {
 
 // malformedURL names a fault in the VALUE without naming the value: a delivery URL's query
 // is a live credential, and this reaches a log.
-function malformedURL(op: string, what: string): RampCallError {
-	return new RampCallError({
+function malformedURL(op: string, what: string): ForaCallError {
+	return new ForaCallError({
 		kind: "malformed",
 		op,
 		cause: new Error(`${what} (value withheld: it carries a live credential)`),
@@ -302,7 +302,7 @@ async function mintProof(
 	} catch (cause) {
 		// The given URL is deliberately NOT echoed: this error reaches a log, and a
 		// delivery URL carries a live credential in its query.
-		throw new RampCallError({ kind: "not_signable", op, cause: redact(cause) });
+		throw new ForaCallError({ kind: "not_signable", op, cause: redact(cause) });
 	}
 	// The proof covers @target-uri as the VERBATIM string, while the request line carries
 	// whatever the URL re-serializes to. The signed-URL contract treats scheme/host/path
@@ -310,7 +310,7 @@ async function mintProof(
 	// a raw space in the path is the reachable case. The signature then cannot verify and
 	// the edge reports only an undifferentiated 403, so refusing here names the cause.
 	if (request.url !== signedURL) {
-		throw new RampCallError({
+		throw new ForaCallError({
 			kind: "malformed",
 			op,
 			cause: new Error(
@@ -338,7 +338,7 @@ async function edgeRefusal(
 	op: string,
 	status: number,
 	body: AsyncIterable<Uint8Array>,
-): Promise<RampCallError> {
+): Promise<ForaCallError> {
 	const token = await edgeReason(body);
 	const init = {
 		kind: "refused" as const,
@@ -346,9 +346,9 @@ async function edgeRefusal(
 		status,
 		...(token !== "" ? { reason: token } : {}),
 	};
-	if (token === "") return new RampCallError(init);
+	if (token === "") return new ForaCallError(init);
 	const detail = retrievalAuthFailureDetailOrUndefined(token);
-	return new RampCallError(
+	return new ForaCallError(
 		detail !== undefined ? { ...init, detail } : init,
 	);
 }
@@ -420,7 +420,7 @@ async function readBody(
 	for await (const chunk of body) {
 		total += chunk.length;
 		if (total > maxBytes) {
-			throw new RampCallError({
+			throw new ForaCallError({
 				kind: "too_large",
 				op,
 				cause: new Error(`body exceeds the ${maxBytes} byte cap`),
@@ -502,8 +502,8 @@ function redact(cause: unknown): Error {
 // this the two are indistinguishable to a caller. None of the three SDKs distinguishes
 // them, so the answer is now the same everywhere rather than better in one — telling them
 // apart is a change to the shared taxonomy, not to this function.
-function dialFailure(op: string, cause: unknown): RampCallError {
-	return new RampCallError({
+function dialFailure(op: string, cause: unknown): ForaCallError {
+	return new ForaCallError({
 		// A guard refusal is unreachable rather than not_sent, matching what Go answers for
 		// the same condition: there it surfaces through the RoundTripper, so the client
 		// reads it as a dial that did not happen. Both mean nothing was sent.

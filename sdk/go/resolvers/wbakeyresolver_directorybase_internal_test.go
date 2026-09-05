@@ -11,7 +11,7 @@ package resolvers
 //     the same verdict, or a composite resolver reads one of them as "directory
 //     down" instead of "not a directory".
 //
-// The data: scheme is the one the WBA directory draft permits and RAMP declines:
+// The data: scheme is the one the WBA directory draft permits and FORA declines:
 // it inlines the whole key directory, and key resolution rests on fetching it
 // from a location the signer had to control.
 
@@ -118,7 +118,7 @@ func TestDirectoryBase_refusesUnfetchable(t *testing.T) {
 			wantPhrase: "not a host",
 		},
 		{
-			// The sf-dictionary form RAMP does not read. Quotes and equals signs
+			// The sf-dictionary form FORA does not read. Quotes and equals signs
 			// are not host characters, so it cannot be mistaken for one.
 			name:       "sf-dictionary form is not a host",
 			ref:        `agent2="a.example"`,

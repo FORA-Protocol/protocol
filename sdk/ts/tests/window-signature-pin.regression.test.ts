@@ -23,7 +23,7 @@ async function fixedAgentKey(): Promise<CryptoKeyPair> {
 	]) as Promise<CryptoKeyPair>;
 }
 
-const TARGET = "https://edge.example/ramp.v1/resource";
+const TARGET = "https://edge.example/fora.v1/resource";
 // A fractional-millisecond now: floor(1_700_000_000_500 / 1000) = 1_700_000_000.
 const NOW_MS = 1_700_000_000_500;
 const TTL_SEC = 600;

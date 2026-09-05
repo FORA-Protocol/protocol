@@ -40,7 +40,7 @@ import (
 // window — so the vectors differ only in their signature chain and mutation.
 const (
 	msMethod   = http.MethodPost
-	msURL      = "https://exchange.example.com/ramp.v1.ExchangeService/ExecuteTransaction"
+	msURL      = "https://exchange.example.com/fora.v1.ExchangeService/ExecuteTransaction"
 	msAuth     = "Bearer chain-token"
 	msSigAgent = "https://agent.example"
 	msCreated  = int64(1_700_000_000)
@@ -482,7 +482,7 @@ func msCorruptFirstMember(sig string) string {
 // TestGenerateMultisigChainVectors emits the multisig forwarding-chain golden
 // corpus. Like TestGenerateVectors it is a verification no-op by default (asserts
 // the committed file matches a fresh emit) and (re)writes it under
-// RAMP_UPDATE_VECTORS=1 — the emitter is both generator and drift gate.
+// FORA_UPDATE_VECTORS=1 — the emitter is both generator and drift gate.
 func TestGenerateMultisigChainVectors(t *testing.T) {
 	vectors := buildMultisigChainVectors(t)
 	for _, v := range vectors {
@@ -491,7 +491,7 @@ func TestGenerateMultisigChainVectors(t *testing.T) {
 	path := filepath.Join("testdata", "multisig-chain-vectors.json")
 	doc := map[string]any{"vectors": vectors}
 
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		writeJSON(t, path, doc)
 		return
 	}

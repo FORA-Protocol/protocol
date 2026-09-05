@@ -141,7 +141,7 @@ function chainLinkFor(
 }
 
 /**
- * Verify an inbound MULTISIG forwarding-chain RAMP request; return a reason-tagged
+ * Verify an inbound MULTISIG forwarding-chain FORA request; return a reason-tagged
  * verdict carrying the verified keyids in chain order. Enforces the hop budget,
  * then the structural chain, then every hop's signature — in that precedence.
  */

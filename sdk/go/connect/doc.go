@@ -35,11 +35,11 @@
 // "connectrpc.com/connect", whose package is ALSO named "connect". Inside this
 // package the framework is aliased as `connectrpc "connectrpc.com/connect"` to
 // avoid the self-clash. A CONSUMER that imports BOTH this package
-// (github.com/RAMP-Protocol/protocol/sdk/go/connect) and connectrpc.com/connect
+// (github.com/FORA-Protocol/protocol/sdk/go/connect) and connectrpc.com/connect
 // MUST alias one of them, e.g.:
 //
 //	import (
-//		rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
+//		foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
 //		"connectrpc.com/connect"
 //	)
 package connect

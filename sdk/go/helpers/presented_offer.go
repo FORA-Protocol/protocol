@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 // ErrOfferExpired signals that a presented offer is not usable on freshness
@@ -27,9 +27,9 @@ var ErrOfferExpired = errors.New("helpers: offer expired")
 // Signature is checked first so freshness never leaks for a tampered offer.
 // Freshness uses the injected now (never the wall clock); expires_at is
 // inclusive, so now == expires_at is still valid. An offer with NO expires_at is
-// rejected fail-closed: RAMP offers are minted at discovery as now+TTL, so a
+// rejected fail-closed: FORA offers are minted at discovery as now+TTL, so a
 // missing expiry is a forever-token and unsafe to honor.
-func VerifyPresentedOffer(offer *rampv1.Offer, exchangePub ed25519.PublicKey, now time.Time) error {
+func VerifyPresentedOffer(offer *forav1.Offer, exchangePub ed25519.PublicKey, now time.Time) error {
 	if offer == nil {
 		return errors.New("helpers: offer is nil")
 	}

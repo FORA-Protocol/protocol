@@ -7,7 +7,7 @@ import (
 )
 
 // Why the agent-binding profile builds its own signature base instead of routing
-// through the RAMP one.
+// through the FORA one.
 //
 // buildSignatureBase reconstructs @target-uri from a PARSED URL, which re-encodes
 // the path and normalizes the host. The edge rebuilds its base from the raw
@@ -20,9 +20,9 @@ import (
 // popSignatureBase takes the verbatim string, so anyone tempted to "simplify" it
 // back onto the request type fails here with the reason attached.
 
-// rampBaseFor renders the RAMP base builder's view of the same two covered
+// foraBaseFor renders the FORA base builder's view of the same two covered
 // components, so the two builders can be compared directly.
-func rampBaseFor(t *testing.T, method, rawURL, keyID string, created, expires int64) string {
+func foraBaseFor(t *testing.T, method, rawURL, keyID string, created, expires int64) string {
 	t.Helper()
 	req, err := http.NewRequest(method, rawURL, nil)
 	if err != nil {
@@ -37,7 +37,7 @@ func rampBaseFor(t *testing.T, method, rawURL, keyID string, created, expires in
 		Expires: expires,
 	})
 	if err != nil {
-		t.Fatalf("build ramp signature base for %q: %v", rawURL, err)
+		t.Fatalf("build fora signature base for %q: %v", rawURL, err)
 	}
 	return base
 }
@@ -56,7 +56,7 @@ func popBaseFor(rawURL string) string {
 // Where the two builders agree, and it is a wider set than one might assume: a
 // URL value preserves host case, an explicit default port, and a raw space in the
 // path, so none of those is a reason for this profile to own a builder.
-func TestPopSignatureBase_AgreesWithRAMPBuilderOnStableURLs(t *testing.T) {
+func TestPopSignatureBase_AgreesWithFORABuilderOnStableURLs(t *testing.T) {
 	stable := map[string]string{
 		"ordinary delivery url": "https://cdn.example/doc?agent_id=" + baseTestKeyID,
 		"full signed query":     "https://cdn.example/a/b/c.html?exp=1700000600&kid=ex.v1&sig=abc",
@@ -67,7 +67,7 @@ func TestPopSignatureBase_AgreesWithRAMPBuilderOnStableURLs(t *testing.T) {
 	}
 	for name, rawURL := range stable {
 		t.Run(name, func(t *testing.T) {
-			want := rampBaseFor(t, http.MethodGet, rawURL, baseTestKeyID, baseTestCreated, baseTestExpires)
+			want := foraBaseFor(t, http.MethodGet, rawURL, baseTestKeyID, baseTestCreated, baseTestExpires)
 			if got := popBaseFor(rawURL); got != want {
 				t.Errorf("signature bases disagree on a stable URL\n got %q\nwant %q", got, want)
 			}
@@ -76,7 +76,7 @@ func TestPopSignatureBase_AgreesWithRAMPBuilderOnStableURLs(t *testing.T) {
 }
 
 // The one shape that genuinely diverges, and the reason this profile signs the
-// verbatim string: the RAMP builder reads the DECODED path off the URL value, so
+// verbatim string: the FORA builder reads the DECODED path off the URL value, so
 // every percent-escape in the path is expanded before it reaches the signed bytes.
 //
 // %2F is the sharpest case — it decodes to a real separator, so the signature
@@ -93,11 +93,11 @@ func TestPopSignatureBase_DivergesOnAPercentEncodedPath(t *testing.T) {
 	}
 	for name, rawURL := range tricky {
 		t.Run(name, func(t *testing.T) {
-			ramp := rampBaseFor(t, http.MethodGet, rawURL, baseTestKeyID, baseTestCreated, baseTestExpires)
+			fora := foraBaseFor(t, http.MethodGet, rawURL, baseTestKeyID, baseTestCreated, baseTestExpires)
 			pop := popBaseFor(rawURL)
-			if pop == ramp {
+			if pop == fora {
 				t.Errorf("expected the two builders to disagree on %q, but both produced %q — "+
-					"if the RAMP builder stopped decoding the path, this profile's verbatim contract needs rechecking",
+					"if the FORA builder stopped decoding the path, this profile's verbatim contract needs rechecking",
 					rawURL, pop)
 			}
 			// The profile's own base must carry the URL exactly as handed over.

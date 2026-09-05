@@ -3,7 +3,7 @@
 Mirrors sdk/ts/tests/transport-failure.parity.test.ts and the Go leg
 sdk/go/connect/transport_failure_corpus_test.go.
 
-The connect-error corpus records what a RAMP SERVICE says when it refuses. This one
+The connect-error corpus records what a FORA SERVICE says when it refuses. This one
 records the other half: what reaches a client when the answer did not come from the
 service at all — a load balancer draining, a gateway with no upstream, a proxy returning
 its own HTML page. None of those is a Connect envelope.
@@ -22,8 +22,8 @@ from typing import Any
 import pytest
 
 from conftest import GO_CONNECT_TESTDATA, load_json
-from ramp_sdk.client._call import decode
-from ramp_sdk.client.errors import CallError, CallErrorKind
+from fora_sdk.client._call import decode
+from fora_sdk.client.errors import CallError, CallErrorKind
 from wire.models import ResourceResponse
 
 _VECTORS: list[dict[str, Any]] = load_json(

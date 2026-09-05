@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 
-from ramp_sdk.resolvers._http import (
+from fora_sdk.resolvers._http import (
     _AsyncGuardedBackend,
     _GuardedBackend,
     _install_guarded_backend,

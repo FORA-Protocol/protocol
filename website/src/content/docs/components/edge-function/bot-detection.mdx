@@ -33,7 +33,7 @@ AI2Bot                  - Allen Institute for AI
 Diffbot                 - Diffbot
 Omgilibot               - Webz.io
 FacebookBot             - Meta
-ramp-ai-buyer          - RAMP protocol agent (self-identified)
+fora-ai-buyer          - FORA protocol agent (self-identified)
 ```
 
 The edge function maintains this list in configuration (KV store or inline config). The list is additive -- new bots are added, existing entries are never removed.
@@ -67,12 +67,12 @@ The edge function catches **cooperative AI bots** -- those that identify themsel
 
 | Layer | What It Catches | Mechanism |
 |---|---|---|
-| **Edge function** (RAMP) | Cooperative AI bots (ClaudeBot, GPTBot, etc.) | User-Agent string matching |
+| **Edge function** (FORA) | Cooperative AI bots (ClaudeBot, GPTBot, etc.) | User-Agent string matching |
 | **CDN WAF** | Everything else: disguised bots, credential stuffing, DDoS, scraping with spoofed UAs | Fingerprinting, behavioral analysis, rate limiting, ML models |
 
 The edge function is **additive** to the WAF, not a replacement. It must deploy alongside existing WAF rules without conflict.
 
-**Integration requirement**: The edge function runs *after* the WAF (or alongside it, depending on CDN architecture). WAF rules should not block requests to `/.well-known/ramp.json` or `/rsl.txt`, and should not interfere with signed URL parameters. Providers must allowlist these paths in their WAF configuration.
+**Integration requirement**: The edge function runs *after* the WAF (or alongside it, depending on CDN architecture). WAF rules should not block requests to `/.well-known/fora.json` or `/rsl.txt`, and should not interfere with signed URL parameters. Providers must allowlist these paths in their WAF configuration.
 
 ## CDN WAF Products by Platform
 
@@ -90,30 +90,30 @@ When a bot is detected on a protected path without a signed URL:
 ```http
 HTTP/1.1 403 Forbidden
 Content-Type: application/json
-X-Content-Rules: https://exchange.ssp-example.com/ramp/v1
+X-Content-Rules: https://exchange.ssp-example.com/fora/v1
 Cache-Control: no-store
 ```
 
 ```json
 {
   "error": "Licensed content. Negotiate access via the Exchange.",
-  "protocol": "RAMP",
+  "protocol": "FORA",
   "version": "1.0",
-  "info_url": "https://exchange.ssp-example.com/ramp/v1/info",
-  "ramp_json_url": "https://techcrunch.com/.well-known/ramp.json"
+  "info_url": "https://exchange.ssp-example.com/fora/v1/info",
+  "fora_json_url": "https://techcrunch.com/.well-known/fora.json"
 }
 ```
 
 **Header semantics**:
-- `X-Content-Rules` -- the Exchange info endpoint. This is the key discovery mechanism for bots that did not check `ramp.json`. The header value is a URL that the agent can `GET` to learn about available content and pricing.
+- `X-Content-Rules` -- the Exchange info endpoint. This is the key discovery mechanism for bots that did not check `fora.json`. The header value is a URL that the agent can `GET` to learn about available content and pricing.
 - `Cache-Control: no-store` -- the 403 should not be cached. Content availability may change.
 
 **Body semantics**:
 - `error` -- human/machine readable explanation.
-- `protocol` -- identifies this as a RAMP protocol response, not a generic 403.
+- `protocol` -- identifies this as a FORA protocol response, not a generic 403.
 - `version` -- protocol version for forward compatibility.
 - `info_url` -- same as `X-Content-Rules` header, in the body for agents that parse JSON responses.
-- `ramp_json_url` -- direct link to `ramp.json` so the agent can discover all authorized Exchanges, not just the one in `X-Content-Rules`.
+- `fora_json_url` -- direct link to `fora.json` so the agent can discover all authorized Exchanges, not just the one in `X-Content-Rules`.
 
 ## Classification Algorithm
 
@@ -145,9 +145,9 @@ If the same IP is generating more than N 403 responses per minute on protected p
 
 Target: **100 requests/minute per IP** before throttling.
 
-**Level 2: Per-IP rate limiting on ramp.json**
+**Level 2: Per-IP rate limiting on fora.json**
 
-ramp.json is cacheable, but an aggressive agent might poll it. Rate limit to **10 requests/minute per IP** and rely on `Cache-Control` for normal operation.
+fora.json is cacheable, but an aggressive agent might poll it. Rate limit to **10 requests/minute per IP** and rely on `Cache-Control` for normal operation.
 
 Rate limiting implementation:
 - **Cloudflare**: Use `request.cf.botManagement` and Cloudflare Rate Limiting rules (not in Worker code -- use platform rate limiting for efficiency).
@@ -157,4 +157,4 @@ Rate limiting implementation:
 
 ## Bot Pattern Updates
 
-The RAMP project should maintain a community-curated bot pattern list as a JSON file at a well-known URL (e.g., `https://ramp-protocol.org/bot-patterns.json`). Edge functions can periodically fetch updates from this list. The fetch happens on a timer (hourly), not per-request.
+The FORA project should maintain a community-curated bot pattern list as a JSON file at a well-known URL (e.g., `https://fora-protocol.org/bot-patterns.json`). Edge functions can periodically fetch updates from this list. The fetch happens on a timer (hourly), not per-request.

@@ -312,7 +312,7 @@ describe("sdk/ts multisig forwarding-chain append+verify mirrors the Go oracle",
   // Entitlement coverage is enforced PER HOP on the multisig path,
   // mirroring Go's verifySingleSignature (which runs enforceEntitlementCoverage)
   // being called per hop by VerifyMultisigRequest. A live 2-hop chain — whose
-  // covered set is the RAMP required-5 and NEVER commits to x-entitlement-token —
+  // covered set is the FORA required-5 and NEVER commits to x-entitlement-token —
   // carrying an X-Entitlement-Token header MUST be rejected "signature", exactly
   // like the single-sig neg_entitlement_uncovered vector. Without threading the
   // header into the per-hop verify this gate is dead on the multisig path.

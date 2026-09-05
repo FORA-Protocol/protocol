@@ -24,8 +24,8 @@ from typing import Any
 import httpx
 import pytest
 
-from ramp_sdk.core import Mode, Verifier
-from ramp_sdk.errordetail import error_detail_from, reason
+from fora_sdk.core import Mode, Verifier
+from fora_sdk.errordetail import error_detail_from, reason
 
 _HOSTILE = {"domain": 123, "message": ["not", "a", "string"]}
 _GOOD = {
@@ -36,7 +36,7 @@ _GOOD = {
 
 
 def _envelope(*debugs: dict[str, Any]) -> dict[str, Any]:
-    return {"details": [{"type": "ramp.v1.ErrorDetail", "debug": d} for d in debugs]}
+    return {"details": [{"type": "fora.v1.ErrorDetail", "debug": d} for d in debugs]}
 
 
 def test_a_debug_projection_that_does_not_decode_is_not_an_answer() -> None:
@@ -105,10 +105,10 @@ def test_a_details_member_that_is_not_a_list_of_entries(details: Any) -> None:
 
 def test_a_call_on_a_closed_client_is_a_typed_refusal() -> None:
     # httpx raises a bare RuntimeError here. Nothing was sent, which is what NOT_SENT means.
-    from ramp_sdk import sync as blocking
-    from ramp_sdk.client import ClientConfig
-    from ramp_sdk.client.errors import CallError, CallErrorKind
-    from ramp_sdk.signing_transport import SigningTransport
+    from fora_sdk import sync as blocking
+    from fora_sdk.client import ClientConfig
+    from fora_sdk.client.errors import CallError, CallErrorKind
+    from fora_sdk.signing_transport import SigningTransport
 
     config = ClientConfig(
         base_url="https://exchange.test",
@@ -145,8 +145,8 @@ def _response_nesting(total: int) -> str:
 
 
 def test_a_body_at_the_depth_bound_is_read() -> None:
-    from ramp_sdk._jsondepth import _MAX_BODY_DEPTH
-    from ramp_sdk.client._call import decode
+    from fora_sdk._jsondepth import _MAX_BODY_DEPTH
+    from fora_sdk.client._call import decode
     from wire.models import ResourceResponse
 
     msg = decode("discover", 200, _response_nesting(_MAX_BODY_DEPTH), ResourceResponse)
@@ -159,9 +159,9 @@ def test_a_body_at_the_depth_bound_is_read() -> None:
 # where a hostile peer is expected.
 @pytest.mark.parametrize("status", [200, 500])
 def test_a_body_one_past_the_depth_bound_is_refused_for_its_depth(status: int) -> None:
-    from ramp_sdk._jsondepth import _MAX_BODY_DEPTH
-    from ramp_sdk.client._call import decode
-    from ramp_sdk.client.errors import CallError
+    from fora_sdk._jsondepth import _MAX_BODY_DEPTH
+    from fora_sdk.client._call import decode
+    from fora_sdk.client.errors import CallError
 
     from wire.models import ResourceResponse
 
@@ -176,8 +176,8 @@ def test_a_body_one_past_the_depth_bound_is_refused_for_its_depth(status: int) -
 # far under the 1 MiB read cap, threw an untyped exception out of every verb.
 @pytest.mark.parametrize("status", [200, 500])
 def test_a_body_deep_enough_to_exhaust_the_parser_is_still_typed(status: int) -> None:
-    from ramp_sdk.client._call import decode
-    from ramp_sdk.client.errors import CallError
+    from fora_sdk.client._call import decode
+    from fora_sdk.client.errors import CallError
     from wire.models import ResourceResponse
 
     body = "[" * 20_000 + "]" * 20_000
@@ -193,10 +193,10 @@ def test_a_body_deep_enough_to_exhaust_the_parser_is_still_typed(status: int) ->
 # rather than a verdict. Measured: this raised RecursionError out of Client.fetch on one
 # supported interpreter and decoded fine on the next.
 def test_a_deeply_nested_refusal_body_is_a_typed_failure_with_no_token() -> None:
-    from ramp_sdk import sync as blocking
-    from ramp_sdk.client import ClientConfig
-    from ramp_sdk.client.errors import CallError, CallErrorKind
-    from ramp_sdk.signing_transport import SigningTransport
+    from fora_sdk import sync as blocking
+    from fora_sdk.client import ClientConfig
+    from fora_sdk.client.errors import CallError, CallErrorKind
+    from fora_sdk.signing_transport import SigningTransport
 
     # A WELL-FORMED refusal carrying a token the SDK would otherwise repeat, with the
     # nesting beside it. That is what separates the guard from the absence of one: drop the
@@ -231,7 +231,7 @@ def test_the_depth_bound_admits_every_real_message() -> None:
     """
     import pathlib
 
-    from ramp_sdk._jsondepth import _MAX_BODY_DEPTH, _raw_nesting_depth
+    from fora_sdk._jsondepth import _MAX_BODY_DEPTH, _raw_nesting_depth
 
     corpus = pathlib.Path(__file__).resolve().parents[3] / "conformance" / "corpus" / "cases.json"
     deepest = max(

@@ -11,22 +11,22 @@ so these parse-edge units are the correct level (parser primitives → unit test
 the RFC 8941 dictionary grammar requires.
 
 Faces under test (do NOT exist yet — RED):
-  ramp_sdk.multisig_parse.split_top_level_members — split one SFV dictionary
+  fora_sdk.multisig_parse.split_top_level_members — split one SFV dictionary
     header value on TOP-LEVEL commas, honoring quoted strings + backslash escapes
     (mirrors Go splitTopLevelMembers).
-  ramp_sdk.multisig_parse.raw_inner_by_label — the VERBATIM member value after
+  fora_sdk.multisig_parse.raw_inner_by_label — the VERBATIM member value after
     ``label=`` for each label (mirrors Go rawInnerByLabel), so each hop's base
     terminates with the signer's exact @signature-params bytes.
-  ramp_sdk.multisig_parse.parse_multisig_signature_input — full multi-label parse;
+  fora_sdk.multisig_parse.parse_multisig_signature_input — full multi-label parse;
     returns None (clean reject) on a malformed header, never a mis-slice.
 
-RED until ramp_sdk/multisig_parse.py exists: the import raises ImportError.
+RED until fora_sdk/multisig_parse.py exists: the import raises ImportError.
 """
 
 from __future__ import annotations
 
-# RED: ramp_sdk.multisig_parse does not exist yet (TDD red step).
-from ramp_sdk.multisig_parse import (  # type: ignore[import-not-found]
+# RED: fora_sdk.multisig_parse does not exist yet (TDD red step).
+from fora_sdk.multisig_parse import (  # type: ignore[import-not-found]
     parse_multisig_signature_input,
     raw_inner_by_label,
     split_top_level_members,

@@ -83,7 +83,7 @@ describe("sdk/ts ErrorDetail reader matches the sdk/go oracle vectors", () => {
 		});
 	}
 
-	it("errorDetailFrom locates the ramp.v1.ErrorDetail among a Connect error's details", () => {
+	it("errorDetailFrom locates the fora.v1.ErrorDetail among a Connect error's details", () => {
 		const v = vectors.find((x) => x.reason_field === "transaction_denial");
 		expect(v).toBeDefined();
 		const connectError = {
@@ -91,7 +91,7 @@ describe("sdk/ts ErrorDetail reader matches the sdk/go oracle vectors", () => {
 			message: v?.message,
 			details: [
 				{ type: "google.rpc.RetryInfo", debug: { retry_delay: "1s" } },
-				{ type: "ramp.v1.ErrorDetail", debug: v?.wire_json },
+				{ type: "fora.v1.ErrorDetail", debug: v?.wire_json },
 			],
 		};
 		const detail = errorDetailFrom(connectError);
@@ -100,7 +100,7 @@ describe("sdk/ts ErrorDetail reader matches the sdk/go oracle vectors", () => {
 		expect(reason(detail as NonNullable<typeof detail>)?.value).toBe(v?.reason_enum);
 	});
 
-	it("errorDetailFrom returns null when no RAMP detail is present", () => {
+	it("errorDetailFrom returns null when no FORA detail is present", () => {
 		expect(errorDetailFrom({ code: "internal", details: [] })).toBeNull();
 		expect(errorDetailFrom([{ type: "google.rpc.RetryInfo", debug: {} }])).toBeNull();
 	});

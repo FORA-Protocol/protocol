@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // legacyFourComponentSignature builds a real Ed25519 RFC 9421 signature whose
@@ -33,7 +33,7 @@ func legacyFourComponentSignature(t *testing.T, body []byte) (*http.Request, ed2
 	if err != nil {
 		t.Fatal(err)
 	}
-	req, err := http.NewRequest(http.MethodPost, "https://exchange.example/ramp.v1.ExchangeService/Execute", strings.NewReader(string(body)))
+	req, err := http.NewRequest(http.MethodPost, "https://exchange.example/fora.v1.ExchangeService/Execute", strings.NewReader(string(body)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func legacyFourComponentSignature(t *testing.T, body []byte) (*http.Request, ed2
 	inner := fmt.Sprintf(`("@method" "@target-uri" "content-digest" "authorization");keyid=%q;alg=%q;created=%d;expires=%d`,
 		"agent.v1", helpers.AlgEd25519, tCreated, tExpires)
 	base := "\"@method\": POST\n" +
-		"\"@target-uri\": https://exchange.example/ramp.v1.ExchangeService/Execute\n" +
+		"\"@target-uri\": https://exchange.example/fora.v1.ExchangeService/Execute\n" +
 		"\"content-digest\": " + req.Header.Get("Content-Digest") + "\n" +
 		"\"authorization\": \n" +
 		"\"@signature-params\": " + inner

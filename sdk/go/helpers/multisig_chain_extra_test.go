@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // Ported from v2 internal/httpsig/chain_test.go, re-expressed in the L1 idiom
@@ -21,7 +21,7 @@ import (
 // structural + cryptographic rejection vectors (strip / reorder / missing-link /
 // substituted-predecessor / hop-budget).
 
-const goldenChainTarget = "https://exchange.example/ramp.v1.ExchangeService/DiscoverResources"
+const goldenChainTarget = "https://exchange.example/fora.v1.ExchangeService/DiscoverResources"
 
 func fixedSigner(t *testing.T, keyID string, b byte) (helpers.Signer, ed25519.PublicKey) {
 	t.Helper()

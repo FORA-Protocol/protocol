@@ -11,7 +11,7 @@
 // from reading one side alone.
 //
 // Go folds this leg into its own FetchError; TypeScript and Python fold it into the
-// client's RampCallError, so a caller branches on one failure type for every verb. The
+// client's ForaCallError, so a caller branches on one failure type for every verb. The
 // projection the corpus records is the same either way, which is what makes the fold a
 // spelling difference rather than a divergence.
 import { describe, expect, it } from "vitest";
@@ -19,7 +19,7 @@ import { MockAgent, setGlobalDispatcher } from "undici";
 
 import { fetchContent, mimeTypeOf } from "../client/content.ts";
 import type { CallErrorKind } from "../client/errors.ts";
-import { RampCallError } from "../client/errors.ts";
+import { ForaCallError } from "../client/errors.ts";
 import vectorsFile from "../../go/resolvers/testdata/content-fetch-vectors.json";
 
 type ContentFetchVector = {
@@ -99,8 +99,8 @@ describe("sdk/ts reads a delivery answer the way the sdk/go oracle does", () => 
 				return;
 			}
 
-			const err = (await call.catch((e: unknown) => e)) as RampCallError;
-			expect(err).toBeInstanceOf(RampCallError);
+			const err = (await call.catch((e: unknown) => e)) as ForaCallError;
+			expect(err).toBeInstanceOf(ForaCallError);
 			expect(err.kind).toBe(FAILURE_KINDS[v.failure]);
 			// The empty token is the SDK declining to repeat what the publisher wrote.
 			expect(err.reason ?? "").toBe(v.reason);
@@ -134,9 +134,9 @@ describe("sdk/ts declines a URL the way the sdk/go oracle declines it", () => {
 		it(`${v.name}: ${v.failure}`, async () => {
 			const err = (await fetchContent(v.url, {
 				keyPair: await agentKeys(),
-			}).catch((e: unknown) => e)) as RampCallError;
+			}).catch((e: unknown) => e)) as ForaCallError;
 
-			expect(err).toBeInstanceOf(RampCallError);
+			expect(err).toBeInstanceOf(ForaCallError);
 			expect(err.kind).toBe(FAILURE_KINDS[v.failure]);
 			expect(err.reasonOf()).toBe(v.reason_of);
 			// The refusal reaches a log, and a delivery URL's query is a live credential.

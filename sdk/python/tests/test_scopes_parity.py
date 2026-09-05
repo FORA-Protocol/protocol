@@ -2,14 +2,14 @@
 
 Mirrors the sdk/ts sibling sdk/ts/tests/scopes.parity.test.ts.
 
-``ramp_sdk.scopes.normalize_scopes``/``scopes_subset`` MUST reproduce the sdk/go
+``fora_sdk.scopes.normalize_scopes``/``scopes_subset`` MUST reproduce the sdk/go
 oracle byte-for-byte. The shared vectors at
 sdk/go/helpers/testdata/scopes-vectors.json carry:
   - normalize: {input:[str], normalized:[str]|null}  (Go returns nil → JSON null
     for empty/all-empty input; the comparator treats null == []).
   - subset:    {sub:[str], super:[str], expected:bool}.
 
-RED now purely because ``ramp_sdk.scopes`` does not exist yet (the import below
+RED now purely because ``fora_sdk.scopes`` does not exist yet (the import below
 cannot resolve → collection error). The implement step adds that module.
 """
 
@@ -19,8 +19,8 @@ import pytest
 
 from conftest import GO_TESTDATA, load_json
 
-# RED: sdk/python/ramp_sdk/scopes.py does not exist yet (TDD red — missing face).
-from ramp_sdk.scopes import normalize_scopes, scopes_subset  # type: ignore[import-not-found]
+# RED: sdk/python/fora_sdk/scopes.py does not exist yet (TDD red — missing face).
+from fora_sdk.scopes import normalize_scopes, scopes_subset  # type: ignore[import-not-found]
 
 _VECTORS = load_json(GO_TESTDATA / "scopes-vectors.json")
 _NORMALIZE = _VECTORS["normalize"]

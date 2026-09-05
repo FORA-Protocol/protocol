@@ -1,10 +1,10 @@
-# RAMP
+# FORA
 
 Open transaction protocol for licensed AI content access.
 
 Built on [IAB Tech Lab CoMP v1.0](https://github.com/IABTechLab/CoMP) and [RSL 1.0](https://www.journalismai.info/programmes/responsible-ai/rsl); extends both with discovery, transaction execution, and settlement infrastructure so an autonomous agent can negotiate access to a publisher's content under that publisher's licensing terms, pay through an exchange, and produce a cryptographically auditable record of the transaction.
 
-📖 **Spec & docs:** [ramp-protocol.org](https://ramp-protocol.org) — start with the [proto reference](https://ramp-protocol.org/reference/proto-ramp/) · 🧩 **Reference implementation:** [RAMP-Protocol/reference-implementation](https://github.com/RAMP-Protocol/reference-implementation)
+📖 **Spec & docs:** [fora-protocol.org](https://fora-protocol.org) — start with the [proto reference](https://fora-protocol.org/reference/proto-fora/) · 🧩 **Reference implementation:** [FORA-Protocol/reference-implementation](https://github.com/FORA-Protocol/reference-implementation)
 
 > **v1.0.0 — pre-1.0 clean-cut.** This is the initial public release. The wire
 > format was finalized in a single clean pass with **no backward-compatibility
@@ -16,8 +16,8 @@ Built on [IAB Tech Lab CoMP v1.0](https://github.com/IABTechLab/CoMP) and [RSL 1
 
 ```
 proto/          Protocol buffer source — the wire format
-  ramp/v1/      RAMP messages and services
-  ramp/admin/v1/  AdminService — the Exchange operator/config plane
+  fora/v1/      FORA messages and services
+  fora/admin/v1/  AdminService — the Exchange operator/config plane
   comp/v1/      IAB CoMP v1.0 (1:1 mapping; included for reference)
   buf.yaml      Buf module config
 
@@ -28,18 +28,18 @@ gen/          Generated wire types (L0) — never hand-edited
 
 sdk/          Protocol SDK (L1/L2) — hand-written behavioral libraries, one per language
   go/         helpers · resolvers · core · connect · connectserver
-  python/     ramp_sdk
+  python/     fora_sdk
   ts/         src · resolvers · core · hono
   parity/     symbol-map.json — the cross-language API-surface parity source
 
-cmd/          Build tooling (Go) — protoc-gen-rampvocab (vocabulary codegen plugin)
+cmd/          Build tooling (Go) — protoc-gen-foravocab (vocabulary codegen plugin)
 website/      Documentation site (Astro Starlight)
 amplify.yml   AWS Amplify build configuration for the website
 ```
 
 ## Reference implementation
 
-A working multi-language stack — Exchange (Go), Broker (Go), Edge (TypeScript), and an MCP shim (Python) — lives at [`RAMP-Protocol/reference-implementation`](https://github.com/RAMP-Protocol/reference-implementation). It implements the protocol end-to-end against a deployed AWS demo at `*.demo.ramp-protocol.org`.
+A working multi-language stack — Exchange (Go), Broker (Go), Edge (TypeScript), and an MCP shim (Python) — lives at [`FORA-Protocol/reference-implementation`](https://github.com/FORA-Protocol/reference-implementation). It implements the protocol end-to-end against a deployed AWS demo at `*.demo.fora-protocol.org`.
 
 ## Wire types (generated)
 
@@ -51,26 +51,26 @@ TypeScript edge worker, cannot use protobuf natively). All three carry **registe
 vocabulary constants** per axis (`pricingunits`, `quotametrics`, `functiontokens`,
 `geographytokens`, `usertypes`) so consumers use typed constants and an
 `IsRegistered`/`isRegistered`/`is_registered` membership check instead of magic
-strings. The vocab is emitted from the single `(ramp.v1.vocab)` source in one pass, so
+strings. The vocab is emitted from the single `(fora.v1.vocab)` source in one pass, so
 the three languages cannot drift from each other.
 
 ### Go
 
 ```go
 import (
-    rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-    "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1/rampv1connect"
-    "github.com/RAMP-Protocol/protocol/gen/go/vocab/pricingunits"
+    forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+    "github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
+    "github.com/FORA-Protocol/protocol/gen/go/vocab/pricingunits"
 )
 ```
 
 ### TypeScript
 
-Zod schemas for every message are generated under [`gen/ts/wire/schemas.ts`](gen/ts/wire/schemas.ts) (validated message types; the edge worker uses them for request validation), with vocabulary constants under [`gen/ts/vocab/`](gen/ts/vocab); the [reference implementation](https://github.com/RAMP-Protocol/reference-implementation) shows them in use.
+Zod schemas for every message are generated under [`gen/ts/wire/schemas.ts`](gen/ts/wire/schemas.ts) (validated message types; the edge worker uses them for request validation), with vocabulary constants under [`gen/ts/vocab/`](gen/ts/vocab); the [reference implementation](https://github.com/FORA-Protocol/reference-implementation) shows them in use.
 
 ```typescript
-import { OfferSchema } from "@ramp-protocol/sdk/wire/schemas";
-import { pricingunits } from "@ramp-protocol/sdk/vocab/pricingunits";
+import { OfferSchema } from "@fora-protocol/sdk/wire/schemas";
+import { pricingunits } from "@fora-protocol/sdk/vocab/pricingunits";
 ```
 
 ### Python
@@ -98,9 +98,9 @@ The SDK is **layered the same way in every language** — full detail in
 | Layer | What it is | Go | Python | TypeScript |
 |---|---|---|---|---|
 | **L0** | generated wire types (consumed, never rebuilt) | `gen/go/…` | `wire.models` | `wire/schemas` |
-| **L1** | stateless, **IO-free** trust core — crypto sign/verify, canonicalization, money, scopes, thumbprint | `sdk/go/helpers` | `ramp_sdk` (`httpsig`, `signedurl`, `pop`, `money`, …) | `sdk/ts/src` |
-| **L2 · I/O** | the only tier that dials the network — key/endpoint/offer-key resolvers behind one SSRF-guarded client | `sdk/go/resolvers` | `ramp_sdk.resolvers` | `sdk/ts/resolvers` |
-| **L2 · transport** | transport-neutral composition + Connect bindings | `sdk/go/core` · `connect` · `connectserver` | `ramp_sdk.core` · `server_verify` | `sdk/ts/core` · `hono` |
+| **L1** | stateless, **IO-free** trust core — crypto sign/verify, canonicalization, money, scopes, thumbprint | `sdk/go/helpers` | `fora_sdk` (`httpsig`, `signedurl`, `pop`, `money`, …) | `sdk/ts/src` |
+| **L2 · I/O** | the only tier that dials the network — key/endpoint/offer-key resolvers behind one SSRF-guarded client | `sdk/go/resolvers` | `fora_sdk.resolvers` | `sdk/ts/resolvers` |
+| **L2 · transport** | transport-neutral composition + Connect bindings | `sdk/go/core` · `connect` · `connectserver` | `fora_sdk.core` · `server_verify` | `sdk/ts/core` · `hono` |
 
 Go is the reference/oracle; Python and TypeScript mirror it face-for-face. The exact
 public surface per language — every symbol and its cross-language counterpart, the

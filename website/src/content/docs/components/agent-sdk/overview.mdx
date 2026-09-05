@@ -1,6 +1,6 @@
 ---
 title: "Agent SDK Overview"
-description: "The RAMP Agent SDK is an embeddable library that gives AI agents one-liner content access -- a single Fetch call handling discovery, negotiation, transaction, delivery, budget enforcement, and usage reporting."
+description: "The FORA Agent SDK is an embeddable library that gives AI agents one-liner content access -- a single Fetch call handling discovery, negotiation, transaction, delivery, budget enforcement, and usage reporting."
 ---
 
 import DeferredSdkNoticeDetail from '../../../../components/DeferredSdkNoticeDetail.mdx';
@@ -11,7 +11,7 @@ import { Aside } from '@astrojs/starlight/components';
 
 ## What the SDK Provides
 
-The RAMP Agent SDK is a library that agent developers embed directly in their application process. It provides one-liner content access -- a single `Fetch(url)` call that handles discovery, negotiation, transaction, delivery, budget enforcement, and usage reporting behind the scenes.
+The FORA Agent SDK is a library that agent developers embed directly in their application process. It provides one-liner content access -- a single `Fetch(url)` call that handles discovery, negotiation, transaction, delivery, budget enforcement, and usage reporting behind the scenes.
 
 **The SDK IS a single-tenant Broker embedded as a library.** It contains the same components (Exchange Registry, Supply Discovery, Selection Engine, Budget Tracker, Usage Reporter) and the same logic as the standalone [Broker](/components/broker/overview/). The difference is deployment model, not architecture:
 
@@ -33,9 +33,9 @@ The SDK is the lowest-friction deployment model. An agent developer adds one dep
 ### Go (Primary)
 
 ```go
-package ramp
+package fora
 
-// NewClient creates a RAMP client with the given configuration.
+// NewClient creates a FORA client with the given configuration.
 // It initializes the Exchange registry, budget tracker, and
 // background reporting goroutine.
 func NewClient(cfg Config) (*Client, error)
@@ -64,11 +64,11 @@ func (c *Client) Close(ctx context.Context) error
 **Usage -- single URL:**
 
 ```go
-client, err := ramp.NewClient(ramp.Config{
+client, err := fora.NewClient(fora.Config{
     AgentID:     "research-bot",
     AgentDomain: "agent.example.com",
-    SigningKey:  os.Getenv("RAMP_SIGNING_KEY"),
-    Budget:      ramp.Budget{MaxPerRequest: 0.10, Currency: "USD"},
+    SigningKey:  os.Getenv("FORA_SIGNING_KEY"),
+    Budget:      fora.Budget{MaxPerRequest: 0.10, Currency: "USD"},
 })
 if err != nil {
     log.Fatal(err)
@@ -112,12 +112,12 @@ The TypeScript SDK ships in-repo and is CI-gated, but is not yet published to np
 
 ```typescript
 // npm package not yet published — illustrative
-import { RampClient } from "@ramp-protocol/agent-sdk";
+import { ForaClient } from "@fora-protocol/agent-sdk";
 
-const client = new RampClient({
+const client = new ForaClient({
     agentId: "research-bot",
     agentDomain: "agent.example.com",
-    signingKey: process.env.RAMP_SIGNING_KEY!,
+    signingKey: process.env.FORA_SIGNING_KEY!,
     budget: { maxPerRequest: 0.10, currency: "USD" },
 });
 
@@ -143,12 +143,12 @@ The Python SDK ships in-repo and is CI-gated, but is not yet published to PyPI; 
 
 ```python
 # PyPI package not yet published — illustrative
-from ramp_sdk import RampClient, Budget
+from fora_sdk import ForaClient, Budget
 
-client = RampClient(
+client = ForaClient(
     agent_id="research-bot",
     agent_domain="agent.example.com",
-    signing_key=os.environ["RAMP_SIGNING_KEY"],
+    signing_key=os.environ["FORA_SIGNING_KEY"],
     budget=Budget(max_per_request=0.10, currency="USD"),
 )
 
@@ -242,7 +242,7 @@ type Config struct {
     PreferredExchanges []string
 
     // Manually configured Exchange endpoints.
-    // If empty, the SDK discovers Exchanges via ramp.json.
+    // If empty, the SDK discovers Exchanges via fora.json.
     Exchanges []ExchangeConfig
 
     // Exchange discovery settings.
@@ -262,11 +262,11 @@ type Config struct {
 **Minimal configuration** (everything else uses sensible defaults):
 
 ```go
-client, _ := ramp.NewClient(ramp.Config{
+client, _ := fora.NewClient(fora.Config{
     AgentID:     "research-bot",
     AgentDomain: "agent.example.com",
-    SigningKey:  os.Getenv("RAMP_SIGNING_KEY"),
-    Budget:      ramp.Budget{MaxPerRequest: 0.10, Currency: "USD"},
+    SigningKey:  os.Getenv("FORA_SIGNING_KEY"),
+    Budget:      fora.Budget{MaxPerRequest: 0.10, Currency: "USD"},
 })
 ```
 
@@ -299,10 +299,10 @@ type Budget struct {
 
 ```go
 type DiscoveryConfig struct {
-    // Whether to auto-discover Exchanges via ramp.json. Default: true.
+    // Whether to auto-discover Exchanges via fora.json. Default: true.
     AutoDiscover bool
 
-    // Cache TTL for ramp.json responses. Default: 1 hour.
+    // Cache TTL for fora.json responses. Default: 1 hour.
     ParseJSONCacheTTL time.Duration
 
     // Whether to use 403 X-Content-Rules header as fallback. Default: true.
@@ -333,11 +333,11 @@ type HTTPConfig struct {
 The SDK contains the same components as the Broker, organized as in-process collaborators:
 
 ```
-RampClient
+ForaClient
   |
   +-- ExchangeRegistry
   |     Discovers and caches Exchange endpoints.
-  |     Sources: manual config, ramp.json auto-discovery, 403 fallback.
+  |     Sources: manual config, fora.json auto-discovery, 403 fallback.
   |     In-memory LRU with TTL-based refresh.
   |
   +-- SupplyDiscoverer
@@ -408,7 +408,7 @@ The concrete implementations differ in persistence strategy (in-memory vs Redis)
     +-------------------------+               +-------------------------+
     |    Agent SDK            |               |    Broker         |
     |                         |               |                        |
-    |  ramp.NewClient(cfg)   |               |  cmd/broker/     |
+    |  fora.NewClient(cfg)   |               |  cmd/broker/     |
     |  client.Fetch(url)      |               |  main.go               |
     |  client.FetchBatch(urls)|               |                        |
     |                         |               |  Connect RPC server    |
@@ -434,9 +434,9 @@ The concrete implementations differ in persistence strategy (in-memory vs Redis)
 
 | Language | Source | Status | Dependencies |
 |---|---|---|---|
-| Go | [`gen/go/`](https://github.com/RAMP-Protocol/protocol/tree/main/gen/go/) (types) + [`sdk/go/`](https://github.com/RAMP-Protocol/protocol/tree/main/sdk/go/) (the shipped hand-written SDK: `helpers`, `resolvers`, `core`, `connect`, `connectserver`) | Shipped and CI-gated | `connectrpc.com/connect` + `google.golang.org/protobuf` + stdlib |
-| TypeScript | [`gen/ts/`](https://github.com/RAMP-Protocol/protocol/tree/main/gen/ts/) (types) + [`sdk/ts/`](https://github.com/RAMP-Protocol/protocol/tree/main/sdk/ts/) (hand-written SDK: `src`, `core`, `resolvers`, `client`, `hono`) | Shipped and CI-gated; npm package not yet published | `zod` + `undici` + `ajv` + `canonicalize` (`hono` optional) |
-| Python | [`gen/python/`](https://github.com/RAMP-Protocol/protocol/tree/main/gen/python/) (types) + [`sdk/python/`](https://github.com/RAMP-Protocol/protocol/tree/main/sdk/python/) (hand-written SDK: `ramp_sdk`, `ramp_sdk.core`, `ramp_sdk.resolvers`, `ramp_sdk.client`, `ramp_sdk.sync`) | Shipped and CI-gated; PyPI package not yet published | `pydantic` + `httpx` + `cryptography` |
+| Go | [`gen/go/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/go/) (types) + [`sdk/go/`](https://github.com/FORA-Protocol/protocol/tree/main/sdk/go/) (the shipped hand-written SDK: `helpers`, `resolvers`, `core`, `connect`, `connectserver`) | Shipped and CI-gated | `connectrpc.com/connect` + `google.golang.org/protobuf` + stdlib |
+| TypeScript | [`gen/ts/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/ts/) (types) + [`sdk/ts/`](https://github.com/FORA-Protocol/protocol/tree/main/sdk/ts/) (hand-written SDK: `src`, `core`, `resolvers`, `client`, `hono`) | Shipped and CI-gated; npm package not yet published | `zod` + `undici` + `ajv` + `canonicalize` (`hono` optional) |
+| Python | [`gen/python/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/python/) (types) + [`sdk/python/`](https://github.com/FORA-Protocol/protocol/tree/main/sdk/python/) (hand-written SDK: `fora_sdk`, `fora_sdk.core`, `fora_sdk.resolvers`, `fora_sdk.client`, `fora_sdk.sync`) | Shipped and CI-gated; PyPI package not yet published | `pydantic` + `httpx` + `cryptography` |
 
 ### What Is Language-Specific vs Shared
 

@@ -2,16 +2,16 @@ package connectserver_test
 
 // Equivalence-gate suite for connectserver.EmitUnpopulatedJSONCodec()
 // (yxaeb Step 2). This suite is a verbatim copy of
-// internal/rampcodec/jsoncodec_test.go PLUS the MarshalAppend case added by
+// internal/foracodec/jsoncodec_test.go PLUS the MarshalAppend case added by
 // the architect's review finding (MEDIUM). All cases MUST fail today because
 // connectserver.EmitUnpopulatedJSONCodec() and connectserver.WithEmitUnpopulated()
 // do not exist yet — the compile error is the TDD-red state.
 //
 // The equivalence gate: every case here MUST pass against the SDK codec before
-// internal/rampcodec (and the two thin per-service forwarders) can be deleted.
+// internal/foracodec (and the two thin per-service forwarders) can be deleted.
 // No case may be weakened or removed during implementation.
 //
-// Binding pin: snake_case names (UseProtoNames=true). The RAMP wire is
+// Binding pin: snake_case names (UseProtoNames=true). The FORA wire is
 // snake_case proto-JSON everywhere — the proto field names, the corpus, the
 // generated clients, and this Connect codec. A stray UseProtoNames=false would
 // split the naming and reintroduce camelCase; that is the regression this guards.
@@ -20,8 +20,8 @@ import (
 	"strings"
 	"testing"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	rampserver "github.com/RAMP-Protocol/protocol/sdk/go/connectserver"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	foraserver "github.com/FORA-Protocol/protocol/sdk/go/connectserver"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -32,9 +32,9 @@ import (
 // form is observable — a camelCase hump would leak as quotaLimit.
 func TestSDKCodec_Marshal_EmitsZeroScalarsWithSnakeNames(t *testing.T) {
 	t.Parallel()
-	codec := rampserver.EmitUnpopulatedJSONCodec()
+	codec := foraserver.EmitUnpopulatedJSONCodec()
 
-	got, err := codec.Marshal(&rampv1.SubscriptionQuotaInfo{})
+	got, err := codec.Marshal(&forav1.SubscriptionQuotaInfo{})
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
@@ -53,13 +53,13 @@ func TestSDKCodec_Marshal_EmitsZeroScalarsWithSnakeNames(t *testing.T) {
 // TestSDKCodec_Marshal_OmitsUnsetExplicitPresence pins that proto3
 // explicit-presence fields (optional scalars, message fields) stay ABSENT when
 // unset even under EmitUnpopulated — the presence-based reads (unit_cost
-// et al.) depend on absence meaning unset (ported from internal/rampcodec
+// et al.) depend on absence meaning unset (ported from internal/foracodec
 // TestMarshal_OmitsUnsetExplicitPresence).
 func TestSDKCodec_Marshal_OmitsUnsetExplicitPresence(t *testing.T) {
 	t.Parallel()
-	codec := rampserver.EmitUnpopulatedJSONCodec()
+	codec := foraserver.EmitUnpopulatedJSONCodec()
 
-	got, err := codec.Marshal(&rampv1.Cost{})
+	got, err := codec.Marshal(&forav1.Cost{})
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
@@ -71,13 +71,13 @@ func TestSDKCodec_Marshal_OmitsUnsetExplicitPresence(t *testing.T) {
 
 // TestSDKCodec_Unmarshal_DiscardsUnknownFields pins the tolerant-reader half: a
 // payload carrying an unknown field parses cleanly (dropped), so a newer peer
-// does not break an older service (ported from internal/rampcodec
+// does not break an older service (ported from internal/foracodec
 // TestUnmarshal_DiscardsUnknownFields).
 func TestSDKCodec_Unmarshal_DiscardsUnknownFields(t *testing.T) {
 	t.Parallel()
-	codec := rampserver.EmitUnpopulatedJSONCodec()
+	codec := foraserver.EmitUnpopulatedJSONCodec()
 
-	var cost rampv1.Cost
+	var cost forav1.Cost
 	payload := []byte(`{"amount":"1.50","currency":"USD","someFutureField":"x"}`)
 	if err := codec.Unmarshal(payload, &cost); err != nil {
 		t.Fatalf("unmarshal with unknown field: %v (DiscardUnknown must drop it)", err)
@@ -88,12 +88,12 @@ func TestSDKCodec_Unmarshal_DiscardsUnknownFields(t *testing.T) {
 }
 
 // TestSDKCodec_Unmarshal_RejectsZeroLengthPayload pins the loud empty-body
-// rejection (ported from internal/rampcodec TestUnmarshal_RejectsZeroLengthPayload).
+// rejection (ported from internal/foracodec TestUnmarshal_RejectsZeroLengthPayload).
 func TestSDKCodec_Unmarshal_RejectsZeroLengthPayload(t *testing.T) {
 	t.Parallel()
-	codec := rampserver.EmitUnpopulatedJSONCodec()
+	codec := foraserver.EmitUnpopulatedJSONCodec()
 
-	var cost rampv1.Cost
+	var cost forav1.Cost
 	if err := codec.Unmarshal(nil, &cost); err == nil {
 		t.Fatal("unmarshal(nil) = nil error; want zero-length payload rejected")
 	}
@@ -101,18 +101,18 @@ func TestSDKCodec_Unmarshal_RejectsZeroLengthPayload(t *testing.T) {
 
 // TestSDKCodec_MarshalRoundTrip pins that a populated message survives
 // Marshal -> Unmarshal byte-for-byte at the field level (the codec pair is
-// self-consistent) (ported from internal/rampcodec TestMarshalRoundTrip).
+// self-consistent) (ported from internal/foracodec TestMarshalRoundTrip).
 func TestSDKCodec_MarshalRoundTrip(t *testing.T) {
 	t.Parallel()
-	codec := rampserver.EmitUnpopulatedJSONCodec()
+	codec := foraserver.EmitUnpopulatedJSONCodec()
 
 	uc := "0.25"
-	in := &rampv1.Cost{Amount: "2.50", Currency: "EUR", UnitCost: &uc}
+	in := &forav1.Cost{Amount: "2.50", Currency: "EUR", UnitCost: &uc}
 	raw, err := codec.Marshal(in)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
-	var out rampv1.Cost
+	var out forav1.Cost
 	if err := codec.Unmarshal(raw, &out); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
@@ -138,7 +138,7 @@ type marshalAppender interface {
 // because MarshalAppend has its own implementation path in the app codec).
 func TestSDKCodec_MarshalAppend_EmitsZeroScalarsWithSnakeNamesAndAppendsToPrefix(t *testing.T) {
 	t.Parallel()
-	raw := rampserver.EmitUnpopulatedJSONCodec()
+	raw := foraserver.EmitUnpopulatedJSONCodec()
 	// MarshalAppend is not part of the public connect.Codec interface; the
 	// concrete type implements it. Type-assert to the local marshalAppender
 	// mirror so this guard exercises the real method path.
@@ -148,7 +148,7 @@ func TestSDKCodec_MarshalAppend_EmitsZeroScalarsWithSnakeNamesAndAppendsToPrefix
 	}
 
 	prefix := []byte(`SENTINEL`)
-	got, err := codec.MarshalAppend(prefix, &rampv1.SubscriptionQuotaInfo{})
+	got, err := codec.MarshalAppend(prefix, &forav1.SubscriptionQuotaInfo{})
 	if err != nil {
 		t.Fatalf("MarshalAppend: %v", err)
 	}

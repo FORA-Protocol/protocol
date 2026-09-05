@@ -28,8 +28,8 @@ test('only the first mention of a standard is linked per page', () => {
   assert.equal(got.length, 1);
 });
 
-test('a term inside a compound prefix is not split-linked (RAMP-C2PA)', () => {
-  assert.equal(links(run(para(t('the RAMP-C2PA profile')))).length, 0);
+test('a term inside a compound prefix is not split-linked (FORA-C2PA)', () => {
+  assert.equal(links(run(para(t('the FORA-C2PA profile')))).length, 0);
 });
 
 test('a standard already linked to its canonical URL is not re-linked', () => {

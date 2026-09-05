@@ -13,10 +13,10 @@ hop-budget / broken-chain / tampered-predecessor rejections match the Go taxonom
 token-for-token. The shared Go emitter is the sole oracle.
 
 Faces under test (do NOT exist yet — RED):
-  - ``ramp_sdk.httpsig.append_signature`` — chains sig(N+1) onto a prior
+  - ``fora_sdk.httpsig.append_signature`` — chains sig(N+1) onto a prior
     (signature_input, signature) WITHOUT disturbing existing members; appending to
     an unsigned request (empty prev) is byte-identical to ``sign_request`` (N=1).
-  - ``ramp_sdk.server_verify.verify_multisig_request_server`` — parses ALL labels,
+  - ``fora_sdk.server_verify.verify_multisig_request_server`` — parses ALL labels,
     enforces the hop budget FIRST (hop_budget), the structural chain next
     (broken_chain), then verifies each hop (signature); returns a verdict carrying
     the verified keyids in chain order, never raises.
@@ -37,9 +37,9 @@ import pytest
 from conftest import GO_TESTDATA, load_json
 
 # RED: neither symbol exists yet (TDD red step).
-from ramp_sdk.httpsig import append_signature  # type: ignore[attr-defined]
-from ramp_sdk.keyresolver import StaticKeyResolver
-from ramp_sdk.server_verify import verify_multisig_request_server  # type: ignore[attr-defined]
+from fora_sdk.httpsig import append_signature  # type: ignore[attr-defined]
+from fora_sdk.keyresolver import StaticKeyResolver
+from fora_sdk.server_verify import verify_multisig_request_server  # type: ignore[attr-defined]
 
 _VECTORS = load_json(GO_TESTDATA / "multisig-chain-vectors.json")["vectors"]
 
@@ -133,7 +133,7 @@ def test_append_signature_reproduces_the_go_two_hop_chain_byte_identically() -> 
     # BYTE-IDENTITY: re-signing the chain live (sign_request sig1 + append_signature
     # sig2) under the Go hop seeds reproduces the Go-emitted Signature-Input and
     # Signature byte-for-byte — the cross-language chain-link contract.
-    from ramp_sdk.httpsig import sign_request
+    from fora_sdk.httpsig import sign_request
 
     v = _by_name("positive_two_hop")
     hops = v["hops"]  # type: ignore[index]
@@ -173,7 +173,7 @@ def test_append_signature_reproduces_the_go_two_hop_chain_byte_identically() -> 
 def test_append_to_unsigned_request_equals_sign_request_n1() -> None:
     # N=1 INVARIANT: appending to an unsigned request (empty prev) is byte-identical
     # to sign_request — the load-bearing single-sig-is-N=1 property.
-    from ramp_sdk.httpsig import sign_request
+    from fora_sdk.httpsig import sign_request
 
     v = _by_name("positive_two_hop")
     h1 = v["hops"][0]  # type: ignore[index]

@@ -27,7 +27,7 @@ type TenantConfig struct {
 
     // Pricing overrides (Exchange is the price authority — RSL pricing is a fallback hint)
     // Private pricing from Exchange config overrides RSL-derived pricing.
-    PricingOverrides map[string]*rampv1.Pricing // path pattern -> pricing
+    PricingOverrides map[string]*forav1.Pricing // path pattern -> pricing
 
     // Content delivery
     ContentBaseURL string  // CDN base URL (e.g., "https://cdn.techcrunch.com")
@@ -39,7 +39,7 @@ type TenantConfig struct {
     BindAgentID    bool // Whether to include agent identity in signed URL
 
     // Reporting policy
-    ReportingPolicy *rampv1.ReportingObligation
+    ReportingPolicy *forav1.ReportingObligation
 
     // Application-level abuse thresholds (volumetric rate limiting is at infra layer)
     MinQueryToTxnRatio float64 // If query:txn ratio drops below this, return 429 (e.g., 0.01)
@@ -115,7 +115,7 @@ Adding a new provider tenant requires:
 
 1. Adding a `TenantConfig` entry (config file, API, or database)
 2. Uploading the provider's CDN signing key to the secrets manager
-3. The provider dropping `ramp.json` pointing to this Exchange
+3. The provider dropping `fora.json` pointing to this Exchange
 4. The Exchange's RSL ingestion goroutine automatically discovers and builds the catalog
 
 No restart required if hot reload is enabled (see the Configuration page).
@@ -124,13 +124,13 @@ No restart required if hot reload is enabled (see the Configuration page).
 
 ## Provider Trust Verification
 
-The Exchange SHOULD periodically re-fetch `/.well-known/ramp.json` for each tenant's domains to confirm the provider still authorizes this Exchange to sell their resources. If the Exchange is removed from a provider's `ramp.json`:
+The Exchange SHOULD periodically re-fetch `/.well-known/fora.json` for each tenant's domains to confirm the provider still authorizes this Exchange to sell their resources. If the Exchange is removed from a provider's `fora.json`:
 
 - Revoke the tenant configuration
 - Stop serving offers for that provider's resources
 - Log the revocation for audit
 
-This is ongoing verification, not just onboarding. Providers can revoke authorization at any time by updating their `ramp.json`. The Exchange SHOULD check at least once per hour (configurable via tenant settings).
+This is ongoing verification, not just onboarding. Providers can revoke authorization at any time by updating their `fora.json`. The Exchange SHOULD check at least once per hour (configurable via tenant settings).
 
 ---
 
@@ -161,12 +161,12 @@ For managed providers, the Exchange supports automatic rotation on a configurabl
 
 ## Provider Manifest and RSL Endpoints
 
-The edge function expects to fetch `ramp.json` (WellKnownManifest, `role=ROLE_PUBLISHER`) and `rsl.txt` from the Exchange on behalf of provider domains. The Exchange generates these from its tenant catalog and serves them for edge caching.
+The edge function expects to fetch `fora.json` (WellKnownManifest, `role=ROLE_PUBLISHER`) and `rsl.txt` from the Exchange on behalf of provider domains. The Exchange generates these from its tenant catalog and serves them for edge caching.
 
 ### Endpoints
 
 ```
-GET /provider/{domain}/ramp.json
+GET /provider/{domain}/fora.json
 ```
 
 Returns a generated `WellKnownManifest` (`role=ROLE_PUBLISHER`) for the given domain. The manifest is built from the tenant's catalog configuration (pricing, access restrictions, exchange endpoint). Cached by the edge function with a TTL matching the tenant's `rsl_poll_interval`.

@@ -213,20 +213,20 @@ Resource ingestion is a background pipeline, separate from request handling. It 
 5. Atomic pointer swap into CatalogSnapshot
 ```
 
-### Sitemap Extension for RAMP
+### Sitemap Extension for FORA
 
 Providers can add token estimates and content IDs directly in sitemap.xml using XML namespace extensions:
 
 ```xml
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:ramp="https://ramp.ai/sitemap/1.0">
+        xmlns:fora="https://fora.ai/sitemap/1.0">
   <url>
     <loc>https://example.com/premium/article.html</loc>
     <lastmod>2026-03-14</lastmod>
-    <ramp:tokens>3300</ramp:tokens>
-    <ramp:content-id>article-2026-03-14-ai-infra</ramp:content-id>
-    <ramp:pricing-model>per_article</ramp:pricing-model>
-    <ramp:rate currency="USD">0.05</ramp:rate>
+    <fora:tokens>3300</fora:tokens>
+    <fora:content-id>article-2026-03-14-ai-infra</fora:content-id>
+    <fora:pricing-model>per_article</fora:pricing-model>
+    <fora:rate currency="USD">0.05</fora:rate>
   </url>
 </urlset>
 ```
@@ -241,7 +241,7 @@ For WordPress sites, the Exchange can poll the REST API (`/wp-json/wp/v2/posts`)
 
 The ingestion pipeline runs as a separate background process (not in the Exchange hot path):
 1. Crawl sitemap.xml -> discover content URLs
-2. For each URL: check for RAMP sitemap extensions -> use if present
+2. For each URL: check for FORA sitemap extensions -> use if present
 3. If no extensions: crawl HTML -> extract text (readability algorithm) -> count words -> estimate tokens
 4. Check rsl.txt -> merge pricing terms
 5. Build catalog entries with token estimates

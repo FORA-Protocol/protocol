@@ -12,7 +12,7 @@ import (
 // Addressed requests carry the recipient's bare domain in a body field. The RFC
 // 9421 signature does not already establish the recipient: it proves the sender
 // signed THE URL IT DIALLED, not that the URL was the right one. That dial target
-// is resolved from a fetched, cached /.well-known/ramp.json, so a poisoned or
+// is resolved from a fetched, cached /.well-known/fora.json, so a poisoned or
 // stale resolution redirects the request while every signature still verifies.
 // The field states whom the sender MEANT, independently of that resolution, and
 // the genuine recipient refuses a request that names someone else.

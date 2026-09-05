@@ -2,7 +2,7 @@
 
 Mirrors the sdk/ts sibling sdk/ts/tests/idempotency-validate.parity.test.ts.
 
-``ramp_sdk.idempotency.validate_idempotency_key`` MUST reproduce the sdk/go
+``fora_sdk.idempotency.validate_idempotency_key`` MUST reproduce the sdk/go
 oracle: the ONLY rule is non-empty (protocol min_len=1). The shared vectors at
 sdk/go/helpers/testdata/idempotency-validate-vectors.json carry {key, valid}.
 A valid key returns (does not raise); an empty key raises.
@@ -10,7 +10,7 @@ A valid key returns (does not raise); an empty key raises.
 NOTE: generate_idempotency_key MINT is random → NOT vector-gated (behaviour-tested in
 test_idempotency_behavior.py). This suite covers the pure VALIDATE face only.
 
-RED now purely because ``ramp_sdk.idempotency`` does not exist yet.
+RED now purely because ``fora_sdk.idempotency`` does not exist yet.
 """
 
 from __future__ import annotations
@@ -19,8 +19,8 @@ import pytest
 
 from conftest import GO_TESTDATA, load_json
 
-# RED: sdk/python/ramp_sdk/idempotency.py does not exist yet (TDD red).
-from ramp_sdk.idempotency import validate_idempotency_key  # type: ignore[import-not-found]
+# RED: sdk/python/fora_sdk/idempotency.py does not exist yet (TDD red).
+from fora_sdk.idempotency import validate_idempotency_key  # type: ignore[import-not-found]
 
 _VECTORS = load_json(GO_TESTDATA / "idempotency-validate-vectors.json")["vectors"]
 _VALID = [v for v in _VECTORS if v["valid"]]

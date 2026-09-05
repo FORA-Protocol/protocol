@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/hostredact"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/hostredact"
 )
 
 // Host and domain predicates: what a network party's value is allowed to be
@@ -144,7 +144,7 @@ func IsBareHost(ref string) (bool, error) {
 // One rule, three copies, all gated. These bytes are the protovalidate pattern
 // carried by the contract's recipient-addressing fields — the `exchange` field on
 // each addressed request, Offer.exchange and their neighbours, NOT every field in
-// ramp.proto that happens to hold a domain — so the check a client makes before
+// fora.proto that happens to hold a domain — so the check a client makes before
 // sending and the check the wire makes on arrival cannot answer differently. The
 // shared conformance vectors record the pattern beside the cases, and a guard in
 // the conformance tier holds it against the descriptor; which fields belong to

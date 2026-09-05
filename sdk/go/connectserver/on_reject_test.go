@@ -14,10 +14,10 @@ import (
 	"sync"
 	"testing"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
-	rampserver "github.com/RAMP-Protocol/protocol/sdk/go/connectserver"
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	foraserver "github.com/FORA-Protocol/protocol/sdk/go/connectserver"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
 )
 
 // capturedReject records the last (request, error) the gate observer received.
@@ -45,11 +45,11 @@ func serveWithOnReject(
 	t *testing.T, f serverFixture, replay core.ReplayStore, obs *capturedReject,
 ) *httptest.Server {
 	t.Helper()
-	path, h := rampserver.NewExchangeServiceHandler(
+	path, h := foraserver.NewExchangeServiceHandler(
 		f.origin,
-		rampserver.WithKeyResolver(f.resolver),
-		rampserver.WithReplayStore(replay),
-		rampserver.WithOnReject(obs.observe),
+		foraserver.WithKeyResolver(f.resolver),
+		foraserver.WithReplayStore(replay),
+		foraserver.WithOnReject(obs.observe),
 	)
 	mux := http.NewServeMux()
 	mux.Handle(path, h)
@@ -67,8 +67,8 @@ func TestOnReject_ReplayIsObservedAsErrReplayed(t *testing.T) {
 	obs := &capturedReject{}
 	srv := serveWithOnReject(t, f, alwaysReplayStore{}, obs)
 
-	client := rampconnect.NewClient(srv.URL, rampconnect.WithSigner(f.signer))
-	if _, err := client.Discover(context.Background(), &rampv1.ResourceQuery{}); err == nil {
+	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(f.signer))
+	if _, err := client.Discover(context.Background(), &forav1.ResourceQuery{}); err == nil {
 		t.Fatal("a replayed request must be rejected")
 	}
 
@@ -76,7 +76,7 @@ func TestOnReject_ReplayIsObservedAsErrReplayed(t *testing.T) {
 	if got == nil {
 		t.Fatal("WithOnReject observer was not called on a rejected request")
 	}
-	if !errors.Is(got, rampserver.ErrReplayed) {
+	if !errors.Is(got, foraserver.ErrReplayed) {
 		t.Fatalf("reject error not classifiable as a replay: %v", got)
 	}
 	if f.origin.hitCount() != 0 {
@@ -95,8 +95,8 @@ func TestOnReject_SignatureFailureIsObservedNotAsReplay(t *testing.T) {
 
 	// A client with NO signer: the request carries no RFC 9421 signature, so the
 	// verify face rejects it before any replay check.
-	client := rampconnect.NewClient(srv.URL)
-	if _, err := client.Discover(context.Background(), &rampv1.ResourceQuery{}); err == nil {
+	client := foraconnect.NewClient(srv.URL)
+	if _, err := client.Discover(context.Background(), &forav1.ResourceQuery{}); err == nil {
 		t.Fatal("an unsigned request must be rejected")
 	}
 
@@ -104,7 +104,7 @@ func TestOnReject_SignatureFailureIsObservedNotAsReplay(t *testing.T) {
 	if got == nil {
 		t.Fatal("WithOnReject observer was not called on an unsigned request")
 	}
-	if errors.Is(got, rampserver.ErrReplayed) {
+	if errors.Is(got, foraserver.ErrReplayed) {
 		t.Fatalf("an unsigned request must NOT classify as a replay: %v", got)
 	}
 }

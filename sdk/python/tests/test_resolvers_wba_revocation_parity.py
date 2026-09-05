@@ -22,7 +22,7 @@ import pytest
 from conftest import GO_RESOLVERS_TESTDATA, load_json
 from resolvers_harness import MutableClock, Origin, loopback_client, revocation_json, wba_file_json
 
-from ramp_sdk.resolvers import WBAKeyResolver
+from fora_sdk.resolvers import WBAKeyResolver
 
 _VECTOR = load_json(GO_RESOLVERS_TESTDATA / "revocation-membership-vectors.json")
 

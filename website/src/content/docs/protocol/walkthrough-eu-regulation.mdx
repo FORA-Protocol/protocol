@@ -1,9 +1,9 @@
 ---
 title: "Walkthrough: EU Regulation (Free vs Value-Added)"
-description: "Same legislation available free (EUR-Lex) and paid (Wolters Kluwer annotated), with ELI identifiers, multilingual support, and the ramp-legal-v1 extension profile."
+description: "Same legislation available free (EUR-Lex) and paid (Wolters Kluwer annotated), with ELI identifiers, multilingual support, and the fora-legal-v1 extension profile."
 ---
 
-> An AI agent needs the EU AI Act (Regulation 2024/1689). The same legislation is available FREE from EUR-Lex (official text) and for $85 from Wolters Kluwer (annotated, consolidated). RAMP enables transparent comparison -- the agent decides whether annotations are worth the price.
+> An AI agent needs the EU AI Act (Regulation 2024/1689). The same legislation is available FREE from EUR-Lex (official text) and for $85 from Wolters Kluwer (annotated, consolidated). FORA enables transparent comparison -- the agent decides whether annotations are worth the price.
 
 ## Scenario
 
@@ -26,12 +26,12 @@ Discovery -> ResourceQuery -> ResourceResponse -> ExecuteTransaction -> Fetch ->
 
 ## Step 1 -- Discovery
 
-The agent knows the EU AI Act's ELI URI: `http://data.europa.eu/eli/reg/2024/1689/oj`. The Broker resolves both providers' RAMP manifests.
+The agent knows the EU AI Act's ELI URI: `http://data.europa.eu/eli/reg/2024/1689/oj`. The Broker resolves both providers' FORA manifests.
 
 **EUR-Lex:**
 
 ```json
-// GET https://eur-lex.europa.eu/.well-known/ramp.json
+// GET https://eur-lex.europa.eu/.well-known/fora.json
 {
   "ver": "1.0",
   "provider": "eur-lex.europa.eu",
@@ -39,18 +39,18 @@ The agent knows the EU AI Act's ELI URI: `http://data.europa.eu/eli/reg/2024/168
   "exchanges": [
     {
       "domain": "exchange.eurlex.europa.eu",
-      "endpoint": "https://exchange.eurlex.europa.eu/ramp/v1",
+      "endpoint": "https://exchange.eurlex.europa.eu/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
-  "supported_profiles": ["ramp-legal-v1"]
+  "supported_profiles": ["fora-legal-v1"]
 }
 ```
 
 **Wolters Kluwer:**
 
 ```json
-// GET https://wolterskluwer.com/.well-known/ramp.json
+// GET https://wolterskluwer.com/.well-known/fora.json
 {
   "ver": "1.0",
   "provider": "wolterskluwer.com",
@@ -58,15 +58,15 @@ The agent knows the EU AI Act's ELI URI: `http://data.europa.eu/eli/reg/2024/168
   "exchanges": [
     {
       "domain": "exchange.wk-legal.com",
-      "endpoint": "https://exchange.wk-legal.com/ramp/v1",
+      "endpoint": "https://exchange.wk-legal.com/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
-  "supported_profiles": ["ramp-legal-v1"]
+  "supported_profiles": ["fora-legal-v1"]
 }
 ```
 
-Both Exchanges declare `ramp-legal-v1`, signaling support for legislation-specific `ext` fields (ELI, CELEX, consolidation status, amendment chains).
+Both Exchanges declare `fora-legal-v1`, signaling support for legislation-specific `ext` fields (ELI, CELEX, consolidation status, amendment chains).
 
 ---
 
@@ -74,9 +74,9 @@ Both Exchanges declare `ramp-legal-v1`, signaling support for legislation-specif
 
 The Broker fans out the same query to both Exchanges. The agent identifies the resource by its ELI URI and requests legal-profile metadata:
 
-`POST https://exchange.eurlex.europa.eu/ramp/v1/ramp.v1.ExchangeService/DiscoverResources`
+`POST https://exchange.eurlex.europa.eu/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
-{/* ramp-validate: ResourceQuery */}
+{/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
@@ -93,14 +93,14 @@ The Broker fans out the same query to both Exchanges. The agent identifies the r
   "acceptable_restrictions": [
     { "axis": "RESTRICTION_KIND_FUNCTION", "values": ["ai-input"] }
   ],
-  "supported_profiles": ["ramp-legal-v1"],
+  "supported_profiles": ["fora-legal-v1"],
   "ext": {
     "legal.legislation.language_preference": "en"
   }
 }
 ```
 
-The same `ResourceQuery` (with a different `id`) is sent to `exchange.wk-legal.com`. The `legal.legislation.language_preference` field (from the `ramp-legal-v1` profile) tells both Exchanges to return the English version. EU legislation exists in 24 official languages -- all equally authentic under EU treaty law.
+The same `ResourceQuery` (with a different `id`) is sent to `exchange.wk-legal.com`. The `legal.legislation.language_preference` field (from the `fora-legal-v1` profile) tells both Exchanges to return the English version. EU legislation exists in 24 official languages -- all equally authentic under EU treaty law.
 
 ---
 
@@ -335,9 +335,9 @@ The Broker presents both offers. The agent's choice depends on context:
 
 Assume the agent chooses EUR-Lex (free). The `ExecuteTransaction` follows the standard pattern:
 
-`POST https://exchange.eurlex.europa.eu/ramp/v1/ramp.v1.ExchangeService/ExecuteTransaction`
+`POST https://exchange.eurlex.europa.eu/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
-{/* ramp-validate: TransactionRequest */}
+{/* fora-validate: TransactionRequest */}
 ```json
 {
   "ver": "1.0",
@@ -433,9 +433,9 @@ If the agent had chosen the Wolters Kluwer offer instead, the signed URL would p
 
 Even for free access, usage reporting is required for transparency:
 
-`POST https://exchange.eurlex.europa.eu/ramp/v1/ramp.v1.ExchangeService/ReportUsage`
+`POST https://exchange.eurlex.europa.eu/fora/v1/fora.v1.ExchangeService/ReportUsage`
 
-{/* ramp-validate: UsageReport */}
+{/* fora-validate: UsageReport */}
 ```json
 {
   "ver": "1.0",
@@ -477,7 +477,7 @@ Free does not mean untracked. EUR-Lex gains visibility into how AI agents consum
 
 ### Same Content, Different Value
 
-EU legislation is **public domain** (Decision 2011/833/EU). The raw text is free from EUR-Lex. Wolters Kluwer's $85 price is for the **value-add**: expert annotations, 47 cross-references, and consolidated text that incorporates amendments. RAMP makes this transparent -- the agent compares both offers side by side and decides if the annotations are worth the cost.
+EU legislation is **public domain** (Decision 2011/833/EU). The raw text is free from EUR-Lex. Wolters Kluwer's $85 price is for the **value-add**: expert annotations, 47 cross-references, and consolidated text that incorporates amendments. FORA makes this transparent -- the agent compares both offers side by side and decides if the annotations are worth the cost.
 
 ### ELI URI as Universal Identifier
 
@@ -487,9 +487,9 @@ The [European Legislation Identifier](http://data.europa.eu/eli) (ELI) provides 
 
 The original OJ text is `STATIC` -- it was published once and never changes. The Wolters Kluwer consolidated version is `DYNAMIC` -- it evolves as amendments are incorporated. The `legal.legislation.consolidation_status` ext field tells the agent exactly what version it is getting: `original` vs `consolidated_to_2026-01-15`.
 
-### ramp-legal-v1 Extension Profile
+### fora-legal-v1 Extension Profile
 
-The `ramp-legal-v1` profile provides the vocabulary that makes this walkthrough possible:
+The `fora-legal-v1` profile provides the vocabulary that makes this walkthrough possible:
 
 | Ext field | Purpose |
 |---|---|
@@ -506,7 +506,7 @@ The `ramp-legal-v1` profile provides the vocabulary that makes this walkthrough 
 
 EUR-Lex carries a **Level 2** attestation from `publications.europa.eu` -- the EU's own Publications Office. For legislation, this is the highest possible authority: the entity that publishes the Official Journal is attesting to the content. Wolters Kluwer carries a **Level 1** (self) attestation -- trustworthy as a legal publisher, but not the authoritative source.
 
-### Free Access Still Flows Through RAMP
+### Free Access Still Flows Through FORA
 
 Even at $0, the full protocol pipeline applies: signed URLs, agent identity binding, usage reporting, and the dispute chain. This creates an audit trail that benefits both sides -- the agent proves it accessed content legitimately, and EUR-Lex gains aggregate usage intelligence.
 
@@ -514,8 +514,8 @@ Even at $0, the full protocol pipeline applies: signed URLs, agent identity bind
 
 ## Next Steps
 
-- [RAMP v1.0 Walkthrough](/protocol/walkthrough-v1) -- pay-per-article and subscription scenarios
+- [FORA v1.0 Walkthrough](/protocol/walkthrough-v1) -- pay-per-article and subscription scenarios
 - [Scenario Walkthrough](/protocol/scenario-walkthrough) -- multi-party narrative with Broker, dedup, and disputes
-- [Extension Profiles](/protocol/extension-profiles) -- how `ramp-legal-v1` and other profiles work
+- [Extension Profiles](/protocol/extension-profiles) -- how `fora-legal-v1` and other profiles work
 - [Resource Mutability](/protocol/content-mutability) -- STATIC vs DYNAMIC vs LIVE
 - [Content Attestation](/protocol/content-attestation) -- attestation levels and trust chains

@@ -25,7 +25,7 @@ from __future__ import annotations
 import pytest
 
 from conftest import GO_CONNECT_TESTDATA, load_json
-from ramp_sdk.errordetail import error_detail_from, reason
+from fora_sdk.errordetail import error_detail_from, reason
 
 _VECTORS = load_json(GO_CONNECT_TESTDATA / "connect-error-vectors.json")["vectors"]
 
@@ -91,10 +91,10 @@ def test_camel_case_debug_projection_is_decoded() -> None:
         "message": "balance too low",
         "details": [
             {
-                "type": "ramp.v1.ErrorDetail",
+                "type": "fora.v1.ErrorDetail",
                 "value": "aWdub3JlZA",
                 "debug": {
-                    "domain": "ramp.v1.ExchangeService",
+                    "domain": "fora.v1.ExchangeService",
                     "message": "balance too low",
                     "transactionDenial": {"reason": "DENIAL_REASON_INSUFFICIENT_BALANCE"},
                 },

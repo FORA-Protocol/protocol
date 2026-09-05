@@ -2,7 +2,7 @@
 
 Mirrors the sdk/ts sibling sdk/ts/tests/thumbprint.parity.test.ts in pytest.
 
-sdk/python `ramp_sdk.thumbprint(pubkey)` MUST reproduce, byte-for-byte, the
+sdk/python `fora_sdk.thumbprint(pubkey)` MUST reproduce, byte-for-byte, the
 RFC 7638 JWK Thumbprint the sdk/go oracle emits. The shared vectors at
 sdk/go/helpers/testdata/thumbprint-vectors.json are the cross-language guard:
 each entry is a base64url-no-pad raw 32-byte Ed25519 public key and its expected
@@ -11,9 +11,9 @@ JWK is `{"crv":"Ed25519","kty":"OKP","x":"<b64url-nopad(pubkey)>"}` with members
 in lexicographic order, no whitespace. The last vector uses the RFC 8032
 Ed25519 test-vector public key.
 
-RED now purely because `ramp_sdk` does not exist yet (the import below cannot
+RED now purely because `fora_sdk` does not exist yet (the import below cannot
 resolve → collection error). The implement step relocates the app's
-src/mcp/src/ramp_mcp_shim/thumbprint.py into sdk/python/ramp_sdk/thumbprint.py,
+src/mcp/src/fora_mcp_shim/thumbprint.py into sdk/python/fora_sdk/thumbprint.py,
 at which point this goes green with no change to the assertions.
 """
 
@@ -25,8 +25,8 @@ import pytest
 
 from conftest import GO_TESTDATA, load_json
 
-# RED: sdk/python/ramp_sdk/thumbprint.py does not exist yet (TDD red).
-from ramp_sdk.thumbprint import thumbprint  # type: ignore[import-not-found]
+# RED: sdk/python/fora_sdk/thumbprint.py does not exist yet (TDD red).
+from fora_sdk.thumbprint import thumbprint  # type: ignore[import-not-found]
 
 _VECTORS = load_json(GO_TESTDATA / "thumbprint-vectors.json")["vectors"]
 

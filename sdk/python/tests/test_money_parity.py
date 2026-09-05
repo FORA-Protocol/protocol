@@ -2,7 +2,7 @@
 
 Mirrors the sdk/ts sibling sdk/ts/tests/money.parity.test.ts.
 
-``ramp_sdk.money.canonicalize_money`` MUST reproduce the sdk/go oracle
+``fora_sdk.money.canonicalize_money`` MUST reproduce the sdk/go oracle
 byte-for-byte. The shared vectors at sdk/go/helpers/testdata/money-vectors.json
 carry {input, canonical, valid} derived from Go CanonicalizeMoney (Parse+Format).
 
@@ -12,7 +12,7 @@ small fraction (0.0000001 stays plain — where str(Decimal('0.0000001')) would
 give '1E-7'). The Python face MUST use plain formatting (format(d,'f')), not
 str(d). Invalid inputs (empty, negative, leading '+', '1e3', '.5') MUST raise.
 
-RED now purely because ``ramp_sdk.money`` does not exist yet (collection error).
+RED now purely because ``fora_sdk.money`` does not exist yet (collection error).
 """
 
 from __future__ import annotations
@@ -21,8 +21,8 @@ import pytest
 
 from conftest import GO_TESTDATA, load_json
 
-# RED: sdk/python/ramp_sdk/money.py does not exist yet (TDD red — missing face).
-from ramp_sdk.money import canonicalize_money  # type: ignore[import-not-found]
+# RED: sdk/python/fora_sdk/money.py does not exist yet (TDD red — missing face).
+from fora_sdk.money import canonicalize_money  # type: ignore[import-not-found]
 
 _VECTORS = load_json(GO_TESTDATA / "money-vectors.json")["vectors"]
 _VALID = [v for v in _VECTORS if v["valid"]]

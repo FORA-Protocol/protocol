@@ -198,19 +198,19 @@ def enumerate_python() -> set[str]:
     rather than in a namespace of ninety names. Reading each package's ``__all__`` is what
     keeps those in scope, the same way ``resolvers`` was brought in when it landed.
 
-    ``ramp_sdk.sync`` is read for the same reason: it is a public face a caller imports by
+    ``fora_sdk.sync`` is read for the same reason: it is a public face a caller imports by
     name, so a symbol existing only there would be invisible to this gate. Today it adds
     nothing — the blocking Client and BrokerClient carry the same names as their async
     twins, which the aggregator already exports — and reading it anyway is what keeps that
     true, because the alternative is discovering a sync-only export the day it ships. The
     test below pins the fact rather than the effect.
     """
-    import ramp_sdk
-    from ramp_sdk import client, resolvers
-    from ramp_sdk import sync as blocking
+    import fora_sdk
+    from fora_sdk import client, resolvers
+    from fora_sdk import sync as blocking
 
     return (
-        set(ramp_sdk.__all__)
+        set(fora_sdk.__all__)
         | set(resolvers.__all__)
         | set(client.__all__)
         | set(blocking.__all__)
@@ -287,7 +287,7 @@ def presence_failures(
         py = entry.get("python")
         ts = entry.get("ts")
         if py is not None and py not in py_surface:
-            failures.append(f"{key}: mapped Python name {py!r} absent from ramp_sdk surface")
+            failures.append(f"{key}: mapped Python name {py!r} absent from fora_sdk surface")
         if ts is not None and ts not in ts_surface:
             failures.append(f"{key}: mapped TS name {ts!r} absent from package.json exports")
     return failures
@@ -597,16 +597,16 @@ def test_staleness_bites_on_a_map_entry_with_no_go_symbol() -> None:
 def test_reading_the_sync_facade_is_load_bearing_or_it_is_not() -> None:
     """Say which, out loud, instead of leaving a no-op looking like coverage.
 
-    ``ramp_sdk.sync`` deliberately mirrors the async names, so enumerating it adds nothing
+    ``fora_sdk.sync`` deliberately mirrors the async names, so enumerating it adds nothing
     TODAY. That is the fact worth pinning: if a symbol ever exists only on the blocking
     face, this assertion fails and whoever added it learns the gate now covers them, rather
     than the enumeration silently doing nothing forever.
     """
-    import ramp_sdk
-    from ramp_sdk import client, resolvers
-    from ramp_sdk import sync as blocking
+    import fora_sdk
+    from fora_sdk import client, resolvers
+    from fora_sdk import sync as blocking
 
-    aggregated = set(ramp_sdk.__all__) | set(resolvers.__all__) | set(client.__all__)
+    aggregated = set(fora_sdk.__all__) | set(resolvers.__all__) | set(client.__all__)
     sync_only = set(blocking.__all__) - aggregated
     assert not sync_only, (
         "the blocking facade now exports names the async face does not: "

@@ -32,7 +32,7 @@ from typing import Any, get_args
 import pytest
 from conftest import GO_TESTDATA, load_json
 
-from ramp_sdk.regschema import (
+from fora_sdk.regschema import (
     MAX_PORTABLE_REPEAT,
     MAX_REGISTRATION_FIELD_ERROR_PATH_LEN,
     MAX_REGISTRATION_FIELD_ERROR_TEXT_LEN,
@@ -230,7 +230,7 @@ def test_the_refusing_registry_blocks_a_reference_the_scan_did_not_catch() -> No
     request — verified against a local listener before this was installed. The scan is
     the rule; a reference that escapes it must still not dial.
     """
-    from ramp_sdk.regschema import _REFUSING_REGISTRY
+    from fora_sdk.regschema import _REFUSING_REGISTRY
 
     import jsonschema
     import referencing.exceptions

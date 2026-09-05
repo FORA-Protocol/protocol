@@ -28,7 +28,7 @@ package helpers
 //
 // Like TestGenerateVectors this test is a verification no-op by default (it asserts
 // the committed file matches a fresh emit) and (re)writes under
-// RAMP_UPDATE_VECTORS=1 — the emitter is both generator and drift gate. It is TEST
+// FORA_UPDATE_VECTORS=1 — the emitter is both generator and drift gate. It is TEST
 // INFRASTRUCTURE, not the code under test.
 
 import (
@@ -690,7 +690,7 @@ func buildRegSchemaCompileVectors(t *testing.T) []compileVector {
 		// all three — Python and JavaScript strip it during the byte decode, Go does
 		// not. It is refused: a stripped mark would make the size cap count three
 		// bytes the schema does not contain, and a mark is only valid at the start of
-		// a JSON text, never inside ramp.json where this member lives.
+		// a JSON text, never inside fora.json where this member lives.
 		{"byte_order_mark_before_the_document", "\ufeff" + `{"type":"object"}`, SchemaMalformed},
 	}
 
@@ -1397,7 +1397,7 @@ func schemaVerdictVocabulary() []string {
 }
 
 // TestGenerateRegSchemaVectors emits the registration-schema golden corpus.
-// Verification no-op by default, (re)writes under RAMP_UPDATE_VECTORS=1.
+// Verification no-op by default, (re)writes under FORA_UPDATE_VECTORS=1.
 func TestGenerateRegSchemaVectors(t *testing.T) {
 	doc := map[string]any{
 		"dialect":                  RegistrationSchemaDialect,
@@ -1426,7 +1426,7 @@ func TestGenerateRegSchemaVectors(t *testing.T) {
 		"registration_data":             buildRegDataVectors(t),
 	}
 	path := filepath.Join("testdata", "registration-schema-vectors.json")
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		writeJSON(t, path, doc)
 		return
 	}

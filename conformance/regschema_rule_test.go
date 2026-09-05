@@ -29,7 +29,7 @@ package conformance
 //	The bounds on the SCHEMA itself — size, depth, dialect, the reference rule, the
 //	pattern alphabet — exist only as comment text. They are checked by reading the
 //	.proto SOURCE, because the generated descriptor does not retain source comments
-//	and because the comment is what a human integrating against RAMP actually
+//	and because the comment is what a human integrating against FORA actually
 //	reads. A number that moved in the SDK and not in the prose fails here.
 //
 // The proto is authoritative. On failure the contract has not moved to meet the

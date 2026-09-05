@@ -185,7 +185,7 @@
     "connect.CallError": {
       "allowlist_reason": null,
       "python": "CallError",
-      "ts": "RampCallError"
+      "ts": "ForaCallError"
     },
     "connect.CallErrorKind": {
       "allowlist_reason": null,
@@ -673,6 +673,11 @@
       "allowlist_reason": null,
       "python": "verify_ed25519_signed_url",
       "ts": "verifyEd25519SignedUrl"
+    },
+    "helpers.WellKnownPath": {
+      "allowlist_reason": null,
+      "python": "WellKnownPath",
+      "ts": "WellKnownPath"
     },
     "resolvers.ActiveEd25519Key": {
       "allowlist_reason": null,

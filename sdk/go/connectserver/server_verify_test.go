@@ -25,12 +25,12 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/gen/go/ramp/v1/rampv1connect"
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
-	rampserver "github.com/RAMP-Protocol/protocol/sdk/go/connectserver"
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	foraserver "github.com/FORA-Protocol/protocol/sdk/go/connectserver"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -42,14 +42,14 @@ import (
 // test prove the handler never runs on a rejected request (the side effect that
 // MUST be absent on the negative path).
 type echoExchange struct {
-	rampv1connect.UnimplementedExchangeServiceHandler
+	forav1connect.UnimplementedExchangeServiceHandler
 	mu   sync.Mutex
 	hits int
 }
 
 func (e *echoExchange) DiscoverResources(
-	ctx context.Context, _ *connectrpc.Request[rampv1.ResourceQuery],
-) (*connectrpc.Response[rampv1.ResourceResponse], error) {
+	ctx context.Context, _ *connectrpc.Request[forav1.ResourceQuery],
+) (*connectrpc.Response[forav1.ResourceResponse], error) {
 	// Like a real platform handler: no verified signature in context → typed
 	// Unauthenticated BEFORE any side effect (hits counts business effects only).
 	if helpers.FromContext(ctx) == nil {
@@ -58,7 +58,7 @@ func (e *echoExchange) DiscoverResources(
 	e.mu.Lock()
 	e.hits++
 	e.mu.Unlock()
-	return connectrpc.NewResponse(&rampv1.ResourceResponse{}), nil
+	return connectrpc.NewResponse(&forav1.ResourceResponse{}), nil
 }
 
 func (e *echoExchange) hitCount() int {
@@ -144,20 +144,20 @@ func newServerFixture(t *testing.T) serverFixture {
 // Discover and a fixed response from Execute — used by the two-call replay test so
 // the client can obtain a real VerifiedOffer to Execute twice.
 type offerExchange struct {
-	rampv1connect.UnimplementedExchangeServiceHandler
-	offer *rampv1.Offer
+	forav1connect.UnimplementedExchangeServiceHandler
+	offer *forav1.Offer
 }
 
 func (o *offerExchange) DiscoverResources(
-	_ context.Context, _ *connectrpc.Request[rampv1.ResourceQuery],
-) (*connectrpc.Response[rampv1.ResourceResponse], error) {
-	return connectrpc.NewResponse(&rampv1.ResourceResponse{Offers: []*rampv1.Offer{o.offer}}), nil
+	_ context.Context, _ *connectrpc.Request[forav1.ResourceQuery],
+) (*connectrpc.Response[forav1.ResourceResponse], error) {
+	return connectrpc.NewResponse(&forav1.ResourceResponse{Offers: []*forav1.Offer{o.offer}}), nil
 }
 
 func (o *offerExchange) ExecuteTransaction(
-	_ context.Context, _ *connectrpc.Request[rampv1.TransactionRequest],
-) (*connectrpc.Response[rampv1.TransactionResponse], error) {
-	return connectrpc.NewResponse(&rampv1.TransactionResponse{Ver: helpers.ProtocolVersion}), nil
+	_ context.Context, _ *connectrpc.Request[forav1.TransactionRequest],
+) (*connectrpc.Response[forav1.TransactionResponse], error) {
+	return connectrpc.NewResponse(&forav1.TransactionResponse{Ver: helpers.ProtocolVersion}), nil
 }
 
 // serve stands up the SDK-wrapped handler over httptest with the given replay
@@ -169,14 +169,14 @@ func (f serverFixture) serve(t *testing.T, replay core.ReplayStore) *httptest.Se
 
 // serveHandler wraps an arbitrary origin with the SDK server face.
 func serveHandler(
-	t *testing.T, origin rampv1connect.ExchangeServiceHandler,
+	t *testing.T, origin forav1connect.ExchangeServiceHandler,
 	resolver *helpers.StaticKeyResolver, replay core.ReplayStore,
 ) *httptest.Server {
 	t.Helper()
-	path, h := rampserver.NewExchangeServiceHandler(
+	path, h := foraserver.NewExchangeServiceHandler(
 		origin,
-		rampserver.WithKeyResolver(resolver),
-		rampserver.WithReplayStore(replay),
+		foraserver.WithKeyResolver(resolver),
+		foraserver.WithReplayStore(replay),
 	)
 	mux := http.NewServeMux()
 	mux.Handle(path, h)
@@ -199,8 +199,8 @@ func TestServerVerify_RejectsReplayViaInjectedStore(t *testing.T) {
 	f := newServerFixture(t)
 	srv := f.serve(t, alwaysReplayStore{}) // every nonce is a replay
 
-	client := rampconnect.NewClient(srv.URL, rampconnect.WithSigner(f.signer))
-	_, err := client.Discover(context.Background(), &rampv1.ResourceQuery{})
+	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(f.signer))
+	_, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err == nil {
 		t.Fatal("a replayed request must be rejected by the verify face")
 	}
@@ -224,18 +224,18 @@ func TestServerVerify_FirstRequestAcceptedReplayRejected(t *testing.T) {
 	replay := newCountingReplayStore()
 	srv := serveHandler(t, &offerExchange{offer: off.offer}, f.resolver, replay)
 
-	client := rampconnect.NewClient(srv.URL,
-		rampconnect.WithSigner(f.signer),
-		rampconnect.WithOfferKey(off.exchangePub),
+	client := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(f.signer),
+		foraconnect.WithOfferKey(off.exchangePub),
 		// A purchase carries a detached acceptance covering the requester, so a
 		// client that has not been told who it is cannot buy.
-		rampconnect.WithRequester(&rampv1.Requester{
+		foraconnect.WithRequester(&forav1.Requester{
 			Id:     "https://agent.test",
 			Domain: "agent.test",
-			Type:   rampv1.RequesterType_REQUESTER_TYPE_AGENT,
+			Type:   forav1.RequesterType_REQUESTER_TYPE_AGENT,
 		}),
 	)
-	res, err := client.Discover(context.Background(), &rampv1.ResourceQuery{})
+	res, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err != nil {
 		t.Fatalf("Discover: %v", err)
 	}
@@ -246,10 +246,10 @@ func TestServerVerify_FirstRequestAcceptedReplayRejected(t *testing.T) {
 
 	// Fixed idempotency key pins the nonce across both Execute calls so the second
 	// is a genuine replay of the first.
-	if _, err := client.Execute(context.Background(), verified, rampconnect.WithIdempotencyKey("fixed-nonce")); err != nil {
+	if _, err := client.Execute(context.Background(), verified, foraconnect.WithIdempotencyKey("fixed-nonce")); err != nil {
 		t.Fatalf("first Execute must be accepted: %v", err)
 	}
-	_, err = client.Execute(context.Background(), verified, rampconnect.WithIdempotencyKey("fixed-nonce"))
+	_, err = client.Execute(context.Background(), verified, foraconnect.WithIdempotencyKey("fixed-nonce"))
 	if err == nil {
 		t.Fatal("second Execute reusing the nonce must be rejected as a replay")
 	}
@@ -271,9 +271,9 @@ func TestServerVerify_RequestIDStampedOnRejectPath(t *testing.T) {
 	srv := f.serve(t, alwaysReplayStore{})
 
 	spy := &headerSpyTransport{next: core.NewSigningTransport(f.signer, http.DefaultTransport)}
-	client := rampv1connect.NewExchangeServiceClient(&http.Client{Transport: spy}, srv.URL)
+	client := forav1connect.NewExchangeServiceClient(&http.Client{Transport: spy}, srv.URL)
 
-	_, err := client.DiscoverResources(context.Background(), connectrpc.NewRequest(&rampv1.ResourceQuery{}))
+	_, err := client.DiscoverResources(context.Background(), connectrpc.NewRequest(&forav1.ResourceQuery{}))
 	if err == nil {
 		t.Fatal("replay must be rejected")
 	}
@@ -307,7 +307,7 @@ func (s *headerSpyTransport) RoundTrip(req *http.Request) (*http.Response, error
 
 type serverOffer struct {
 	exchangePub ed25519.PublicKey
-	offer       *rampv1.Offer
+	offer       *forav1.Offer
 }
 
 func signedOffer(t *testing.T) serverOffer {
@@ -316,10 +316,10 @@ func signedOffer(t *testing.T) serverOffer {
 	if err != nil {
 		t.Fatalf("exchange keygen: %v", err)
 	}
-	o := &rampv1.Offer{
+	o := &forav1.Offer{
 		OfferId:   "offer-1",
 		ExpiresAt: timestamppb.New(time.Now().Add(time.Hour)),
-		Pricing:   &rampv1.Pricing{Rate: "0.05", Currency: "USD"},
+		Pricing:   &forav1.Pricing{Rate: "0.05", Currency: "USD"},
 	}
 	sig, err := helpers.SignOffer(exPriv, o)
 	if err != nil {

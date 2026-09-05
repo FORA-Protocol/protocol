@@ -8,7 +8,7 @@ shared harness) through the resolver's default stdlib-urllib transport and
 asserts the resolved key/endpoint back out. Only the clock is injected.
 
 RED CONTRACT: the fetching faces + typed error classes live in
-``ramp_sdk.resolvers`` (IO kept OUT of ``ramp_sdk.core`` so its httpx-ban guard
+``fora_sdk.resolvers`` (IO kept OUT of ``fora_sdk.core`` so its httpx-ban guard
 stays green) and DO NOT EXIST YET. The import below raises ModuleNotFoundError,
 so the whole file is RED at collection until the next atom lands the faces — RED
 on the missing faces, not on a fixture error.
@@ -35,13 +35,13 @@ from resolvers_harness import (
     manifest_json,
 )
 
-# The static face already ships in ramp_sdk.keyresolver; it is exercised here for
+# The static face already ships in fora_sdk.keyresolver; it is exercised here for
 # parity with the Go static test.
-from ramp_sdk.keyresolver import StaticKeyResolver
+from fora_sdk.keyresolver import StaticKeyResolver
 
-# RED: ramp_sdk.resolvers does not exist yet (TDD red). The typed error
+# RED: fora_sdk.resolvers does not exist yet (TDD red). The typed error
 # classes and the fetching faces are the ported public surface.
-from ramp_sdk.resolvers import (  # type: ignore[import-not-found]
+from fora_sdk.resolvers import (  # type: ignore[import-not-found]
     DirectoryUnavailableError,
     EndpointRefusedError,
     NoEndpointError,
@@ -144,8 +144,8 @@ def test_wellknown_key_skips_malformed_entries_resolves_survivors() -> None:
 def test_endpoint_per_host_isolation() -> None:
     a = Origin()
     b = Origin()
-    ep_a = f"http://{a.host}/ramp.v1.ExchangeService"
-    ep_b = f"http://{b.host}/ramp.v1.ExchangeService"
+    ep_a = f"http://{a.host}/fora.v1.ExchangeService"
+    ep_b = f"http://{b.host}/fora.v1.ExchangeService"
     a.set_manifest(manifest_json(ep_a))
     b.set_manifest(manifest_json(ep_b))
     try:
@@ -162,7 +162,7 @@ def test_endpoint_per_host_isolation() -> None:
 
 def test_endpoint_cache_hit() -> None:
     origin = Origin()
-    ep = f"http://{origin.host}/ramp.v1.ExchangeService"
+    ep = f"http://{origin.host}/fora.v1.ExchangeService"
     origin.set_manifest(manifest_json(ep))
     try:
         r = WellKnownEndpointResolver(ttl=HOUR, scheme="http")
@@ -175,7 +175,7 @@ def test_endpoint_cache_hit() -> None:
 
 def test_endpoint_ttl_refresh() -> None:
     origin = Origin()
-    ep = f"http://{origin.host}/ramp.v1.ExchangeService"
+    ep = f"http://{origin.host}/fora.v1.ExchangeService"
     origin.set_manifest(manifest_json(ep))
     try:
         clock = MutableClock(ANCHOR)
@@ -333,7 +333,7 @@ def test_wellknown_key_concurrent_refresh_singleflight() -> None:
 # anything back, and before it caches.
 def test_endpoint_on_an_unrelated_host_is_refused() -> None:
     origin = Origin()
-    origin.set_manifest(manifest_json("https://cdn.other.example/ramp.v1.ExchangeService"))
+    origin.set_manifest(manifest_json("https://cdn.other.example/fora.v1.ExchangeService"))
     try:
         r = WellKnownEndpointResolver(ttl=HOUR, scheme="http")
         # A VERDICT, not a transport failure: the Exchange answered and the answer
@@ -349,12 +349,12 @@ def test_endpoint_carrying_credentials_is_refused_with_or_without_a_scheme() -> 
     try:
         r = WellKnownEndpointResolver(scheme="http")
         for ep in (
-            f"http://user:pass@{origin.host}/ramp.v1.ExchangeService",
+            f"http://user:pass@{origin.host}/fora.v1.ExchangeService",
             # Schemeless. A plain URL parse reads "user" as the scheme and finds no
             # userinfo at all, while the anchor check recovers the host and matches
             # it — so this is the shape a rule that reads the reference twice lets
             # through.
-            f"user:pass@{origin.host}/ramp.v1.ExchangeService",
+            f"user:pass@{origin.host}/fora.v1.ExchangeService",
         ):
             origin.set_manifest(manifest_json(ep))
             with pytest.raises(EndpointRefusedError):
@@ -365,14 +365,14 @@ def test_endpoint_carrying_credentials_is_refused_with_or_without_a_scheme() -> 
 
 def test_a_refused_endpoint_is_not_cached() -> None:
     origin = Origin()
-    origin.set_manifest(manifest_json("https://cdn.other.example/ramp.v1.ExchangeService"))
+    origin.set_manifest(manifest_json("https://cdn.other.example/fora.v1.ExchangeService"))
     try:
         r = WellKnownEndpointResolver(ttl=HOUR, scheme="http")
         with pytest.raises(EndpointRefusedError):
             r.resolve_endpoint(origin.host)
         # The Exchange fixes its manifest. A resolver that had cached the refused
         # value would keep refusing for the whole TTL.
-        ep = f"http://{origin.host}/ramp.v1.ExchangeService"
+        ep = f"http://{origin.host}/fora.v1.ExchangeService"
         origin.set_manifest(manifest_json(ep))
         assert r.resolve_endpoint(origin.host) == ep
     finally:
@@ -381,7 +381,7 @@ def test_a_refused_endpoint_is_not_cached() -> None:
 
 def test_a_host_that_is_not_bare_never_reaches_the_network() -> None:
     origin = Origin()
-    origin.set_manifest(manifest_json(f"http://{origin.host}/ramp.v1.ExchangeService"))
+    origin.set_manifest(manifest_json(f"http://{origin.host}/fora.v1.ExchangeService"))
     try:
         r = WellKnownEndpointResolver(scheme="http")
         # The fetch URL is built by concatenation, so a smuggled path would choose

@@ -1,6 +1,6 @@
 // sdk/ts outbound auto-sign transport — the TS sibling of Go
 // core.NewSigningTransport (sdk/go/core/transport.go) and Python
-// SigningTransport / SignedOutbound (sdk/python/ramp_sdk/signing_transport.py).
+// SigningTransport / SignedOutbound (sdk/python/fora_sdk/signing_transport.py).
 //
 // Core Invariant: this module is a pure ORCHESTRATION of the already
 // byte-parity-locked primitives signRequest / appendSignature (core/sign-request.ts)

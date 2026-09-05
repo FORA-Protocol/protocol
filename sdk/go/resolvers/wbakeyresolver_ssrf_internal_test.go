@@ -137,7 +137,7 @@ func TestSSRFGuardNilsProxy(t *testing.T) {
 // TestSSRFGuardNilsCustomTLSDialers: net/http prefers a transport's own TLS
 // dialer over DialContext for https, so a base carrying DialTLSContext (or the
 // legacy DialTLS) would take the dial through the caller's dialer and the
-// address pin would never run — on https, which is every RAMP leg. SSRFGuard
+// address pin would never run — on https, which is every FORA leg. SSRFGuard
 // must clear both, so a guarded client built over such a base still refuses a
 // loopback target at the dial seam.
 //

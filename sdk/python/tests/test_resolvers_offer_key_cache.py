@@ -16,7 +16,7 @@ from typing import Any
 from resolvers_harness import ANCHOR, HOUR, MutableClock, active_jwk, expired_jwk, make_key
 from wire.models import WBAFile
 
-from ramp_sdk.resolvers import CachedOfferKeyResolver
+from fora_sdk.resolvers import CachedOfferKeyResolver
 
 
 def _directory(keys: list[dict[str, Any]]) -> WBAFile:

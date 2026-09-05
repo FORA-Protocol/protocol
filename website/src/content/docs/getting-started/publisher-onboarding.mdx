@@ -1,6 +1,6 @@
 ---
 title: "Provider Onboarding"
-description: "ACME-style domain verification, CDN key provisioning, and catalog contributor setup for RAMP providers"
+description: "ACME-style domain verification, CDN key provisioning, and catalog contributor setup for FORA providers"
 ---
 
 ## Overview
@@ -11,7 +11,7 @@ Provider onboarding has three steps:
 2. **CDN signing key provisioning** -- get signing keys into the Exchange
 3. **Catalog contributor authorization** -- declare who can push resource metadata on your behalf
 
-Both steps can be completed in under an hour using `ramp-cli`.
+Both steps can be completed in under an hour using `fora-cli`.
 
 ## Two Deployment Models
 
@@ -25,7 +25,7 @@ The provider grants CDN access during onboarding. The Exchange generates keys, c
 
 ### Model B: Provider-Managed (Opt-In)
 
-The provider generates keys locally, pushes them to each Exchange via `ramp-cli`, and configures their own CDN.
+The provider generates keys locally, pushes them to each Exchange via `fora-cli`, and configures their own CDN.
 
 **Best for**: Multi-exchange providers who need control over key distribution.
 
@@ -34,7 +34,7 @@ The provider generates keys locally, pushes them to each Exchange via `ramp-cli`
 The flow adapts the ACME HTTP-01 challenge used by Let's Encrypt.
 
 ```
-ramp-cli                    Exchange                   Provider CDN
+fora-cli                    Exchange                   Provider CDN
     |                             |                           |
     |  1. RequestDomainVerification                           |
     |     { domain: "example.com" }                           |
@@ -47,7 +47,7 @@ ramp-cli                    Exchange                   Provider CDN
     |<------------------------------                          |
     |                             |                           |
     |  3. Place token at                                      |
-    |     /.well-known/ramp-verify/{token}                   |
+    |     /.well-known/fora-verify/{token}                   |
     |---------------------------------------------------->    |
     |                             |                           |
     |  4. ConfirmDomainVerification                           |
@@ -55,28 +55,28 @@ ramp-cli                    Exchange                   Provider CDN
     |                             |  5. Fetch verification_url|
     |                             |---------------------------->
     |                             |  6. Verify token + check  |
-    |                             |     ramp.json            |
+    |                             |     fora.json            |
     |                             |                           |
     |  7. DomainVerificationResult                            |
     |     { verified: true, key_id: "k-2026-03" }            |
     |<------------------------------                          |
 ```
 
-**Double protection**: The Exchange checks both the ACME challenge (domain control) and `ramp.json` authorization (exchange authorization). Both must pass.
+**Double protection**: The Exchange checks both the ACME challenge (domain control) and `fora.json` authorization (exchange authorization). Both must pass.
 
-## ramp-cli Commands
+## fora-cli Commands
 
 ### Generate a signing key
 
 ```bash
 # CloudFront (ECDSA P-256 recommended)
-ramp-cli key generate --cdn cloudfront --algorithm ecdsa-p256
+fora-cli key generate --cdn cloudfront --algorithm ecdsa-p256
 
 # Akamai (HMAC-SHA256)
-ramp-cli key generate --cdn akamai
+fora-cli key generate --cdn akamai
 
 # Fastly (HMAC-SHA256)
-ramp-cli key generate --cdn fastly
+fora-cli key generate --cdn fastly
 ```
 
 ### Push key to an Exchange
@@ -84,18 +84,18 @@ ramp-cli key generate --cdn fastly
 Includes ACME domain verification automatically:
 
 ```bash
-ramp-cli key push \
+fora-cli key push \
   --exchange mp.ssp.com \
   --domain techcrunch.com \
   --cdn cloudfront \
-  --key-file ./ramp-cloudfront-private.pem
+  --key-file ./fora-cloudfront-private.pem
 ```
 
 Output:
 ```
 Requesting domain verification for techcrunch.com...
 Challenge token: abc123def456
-Placing token at /.well-known/ramp-verify/abc123def456
+Placing token at /.well-known/fora-verify/abc123def456
   -> Edge function KV write: OK
 Confirming domain verification...
   -> Domain verified: techcrunch.com
@@ -107,7 +107,7 @@ Done.
 ### Rotate a key
 
 ```bash
-ramp-cli key rotate \
+fora-cli key rotate \
   --exchange mp.ssp.com \
   --cdn cloudfront \
   --drain-minutes 10
@@ -118,18 +118,18 @@ Four-phase zero-downtime rotation: PREPARE (generate new key, push to CDN) -> AC
 ### Check key status
 
 ```bash
-ramp-cli key status --exchange mp.ssp.com --domain techcrunch.com
+fora-cli key status --exchange mp.ssp.com --domain techcrunch.com
 ```
 
 ### Emergency revocation
 
 ```bash
-ramp-cli key revoke --exchange mp.ssp.com --key-id k-2026-03-18-cf
+fora-cli key revoke --exchange mp.ssp.com --key-id k-2026-03-18-cf
 ```
 
-## Configure ramp.json
+## Configure fora.json
 
-Set up `/.well-known/ramp.json` to authorize Exchanges and catalog contributors:
+Set up `/.well-known/fora.json` to authorize Exchanges and catalog contributors:
 
 ```json
 {
@@ -139,7 +139,7 @@ Set up `/.well-known/ramp.json` to authorize Exchanges and catalog contributors:
   "exchanges": [
     {
       "domain": "mp.ssp-alpha.com",
-      "endpoint": "https://mp.ssp-alpha.com/ramp/v1",
+      "endpoint": "https://mp.ssp-alpha.com/fora/v1",
       "relationship": "DIRECT"
     }
   ],
@@ -153,7 +153,7 @@ Set up `/.well-known/ramp.json` to authorize Exchanges and catalog contributors:
       "relationship": "verifier"
     }
   ],
-  "supported_profiles": ["ramp-news-v1"]
+  "supported_profiles": ["fora-news-v1"]
 }
 ```
 
@@ -161,7 +161,7 @@ The `catalog_contributors` field authorizes third parties to push attestations a
 
 ## Self-Attestation Keys (Optional)
 
-If you want to self-attest resources (Level 1 verification), publish your Ed25519 signing keys in your WBA directory — a JWK Set served at `/.well-known/http-message-signatures-directory`. Keys live here, not in `ramp.json`, and each is identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`) rather than a label:
+If you want to self-attest resources (Level 1 verification), publish your Ed25519 signing keys in your WBA directory — a JWK Set served at `/.well-known/http-message-signatures-directory`. Keys live here, not in `fora.json`, and each is identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`) rather than a label:
 
 ```json
 // GET /.well-known/http-message-signatures-directory
@@ -181,7 +181,7 @@ If you want to self-attest resources (Level 1 verification), publish your Ed2551
 }
 ```
 
-The claims schema stays in your `ramp.json` (`role=ROLE_PUBLISHER`, the same file as the previous step) under `ext["ramp.attestation.claims_schema"]`:
+The claims schema stays in your `fora.json` (`role=ROLE_PUBLISHER`, the same file as the previous step) under `ext["fora.attestation.claims_schema"]`:
 
 ```json
 {
@@ -189,7 +189,7 @@ The claims schema stays in your `ramp.json` (`role=ROLE_PUBLISHER`, the same fil
   "role": "ROLE_PUBLISHER",
   "domain": "nytimes.com",
   "ext": {
-    "ramp.attestation.claims_schema": {
+    "fora.attestation.claims_schema": {
       "content_hash": {
         "type": "string",
         "description": "SHA-256 hash of delivered content bytes"
@@ -220,10 +220,10 @@ CloudFront's asymmetric model provides the strongest security separation: the Ex
 
 | Step | Action | Time |
 |---|---|---|
-| 1 | Deploy RAMP edge function on CDN | 15 min |
-| 2 | Configure `ramp.json` with authorized Exchange(s) | 5 min |
+| 1 | Deploy FORA edge function on CDN | 15 min |
+| 2 | Configure `fora.json` with authorized Exchange(s) | 5 min |
 | 3 | Generate and push signing key (or grant CDN access) | 5--10 min |
-| 4 | (Optional) Add `catalog_contributors` to `ramp.json` | 5 min |
+| 4 | (Optional) Add `catalog_contributors` to `fora.json` | 5 min |
 | 5 | (Optional) Publish self-attestation keys in your WBA directory | 10 min |
 | **Total** | | **~30--45 min** |
 
@@ -231,4 +231,4 @@ CloudFront's asymmetric model provides the strongest security separation: the Ex
 
 - [Content Attestation](/protocol/content-attestation/) -- set up content attestation after onboarding
 - [For Providers](/getting-started/for-providers/) -- provider value proposition overview
-- [Proto: RAMP v1](/reference/proto-ramp/) -- `DomainVerification*` message reference
+- [Proto: FORA v1](/reference/proto-fora/) -- `DomainVerification*` message reference

@@ -23,8 +23,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from ramp_sdk.hosts import host_anchored, host_of
-from ramp_sdk.resolvers import EndpointRefusedError, WellKnownEndpointResolver
+from fora_sdk.hosts import host_anchored, host_of
+from fora_sdk.resolvers import EndpointRefusedError, WellKnownEndpointResolver
 
 _SECRET = "s3cr3t"  # noqa: S105 - a test fixture, not a credential
 

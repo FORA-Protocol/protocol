@@ -1,4 +1,4 @@
-// Package core is the transport-neutral L2 substance of the RAMP SDK: the unified
+// Package core is the transport-neutral L2 substance of the FORA SDK: the unified
 // offer Verifier, the fail-closed {verified, rejected} contract (Result), the
 // per-URI discovery shape both discovery verbs return (DiscoveryResult /
 // OfferGroupResult, sorted by Verifier.SortGroups), the unforgeable VerifiedOffer
@@ -12,7 +12,7 @@
 // flattening would erase both which resource was refused and the typed reason it
 // was — and those reasons are different agent actions, not shades of "none".
 //
-// core imports NOTHING from connectrpc: RAMP is an HTTP protocol, and this package
+// core imports NOTHING from connectrpc: FORA is an HTTP protocol, and this package
 // only needs net/http, so a team on grpc-go / plain net/http / any transport can
 // compose the Verifier, the signing transport, and the guard WITHOUT a Connect
 // dependency. The Connect bindings (sdk/go/connect for the client, sdk/go/connectserver

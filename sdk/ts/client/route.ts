@@ -15,7 +15,7 @@ import { EndpointRefused, NoEndpoint } from "./../resolvers/errors.ts";
 import { endpointRefusal } from "../src/endpoint-rule.ts";
 import { isBareHost } from "../src/hosts.ts";
 import { redactUserinfo } from "../src/host-ref.ts";
-import { RampCallError, notSent } from "./errors.ts";
+import { ForaCallError, notSent } from "./errors.ts";
 
 /**
  * EndpointResolver turns a signed exchange domain into the origin that Exchange
@@ -98,7 +98,7 @@ export async function vetExchangeEndpoint(
 		// Only a verdict is a refusal: the value was not a usable host, the host was not
 		// allowed, the manifest was read and advertises no endpoint at all, or it
 		// advertises one the resolver will not hand back.
-		throw new RampCallError({
+		throw new ForaCallError({
 			kind: isVerdict(cause) ? "not_sent" : "unreachable",
 			op,
 			cause: new Error(

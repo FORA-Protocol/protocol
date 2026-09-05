@@ -29,8 +29,8 @@ from wire.models import WBAFile
 if TYPE_CHECKING:
     import pytest
 
-from ramp_sdk.b64 import b64url_nopad
-from ramp_sdk.resolvers import active_ed25519_key, active_ed25519_key_with_expiry
+from fora_sdk.b64 import b64url_nopad
+from fora_sdk.resolvers import active_ed25519_key, active_ed25519_key_with_expiry
 
 
 # A future (not-yet-valid) window: entirely after the anchor.
@@ -151,7 +151,7 @@ def test_explicit_bound_exhaustion_returns_none_and_logs(
     fillers = [expired_jwk(make_key().x) for _ in range(10)]
     target = make_key()
     directory = _directory([*fillers, active_jwk(target.x)])
-    with caplog.at_level(logging.WARNING, logger="ramp_sdk.resolvers.wba"):
+    with caplog.at_level(logging.WARNING, logger="fora_sdk.resolvers.wba"):
         assert active_ed25519_key(directory, ANCHOR, max_scan=10) is None
     assert any("max_scan" in r.getMessage() for r in caplog.records)
 

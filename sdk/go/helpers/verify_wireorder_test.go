@@ -16,7 +16,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // wireOrderSignedRequest hand-rolls a cryptographically valid signature whose
@@ -28,7 +28,7 @@ func wireOrderSignedRequest(t *testing.T, body []byte) (*http.Request, ed25519.P
 	if err != nil {
 		t.Fatal(err)
 	}
-	req, err := http.NewRequest(http.MethodPost, "https://exchange.example/ramp.v1.ExchangeService/Execute", strings.NewReader(string(body)))
+	req, err := http.NewRequest(http.MethodPost, "https://exchange.example/fora.v1.ExchangeService/Execute", strings.NewReader(string(body)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func wireOrderSignedRequest(t *testing.T, body []byte) (*http.Request, ed25519.P
 	inner := fmt.Sprintf(`("@method" "@target-uri" "content-digest" "authorization" "signature-agent");created=%d;expires=%d;alg=%q;keyid=%q`,
 		tCreated, tExpires, helpers.AlgEd25519, "agent.v1")
 	base := "\"@method\": POST\n" +
-		"\"@target-uri\": https://exchange.example/ramp.v1.ExchangeService/Execute\n" +
+		"\"@target-uri\": https://exchange.example/fora.v1.ExchangeService/Execute\n" +
 		"\"content-digest\": " + req.Header.Get("Content-Digest") + "\n" +
 		"\"authorization\": \n" +
 		"\"signature-agent\": https://agent.example\n" +

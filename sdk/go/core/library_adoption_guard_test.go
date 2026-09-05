@@ -21,7 +21,7 @@ package core_test
 //
 // SCOPE — deliberately the sdk/go L2/L1 packages ONLY. A tree-wide ban on
 // hand-rolled sign/verify would false-fire on the app's internal/httpsig +
-// internal/ramphttpsig, which MUST still exist until their deletion in the
+// internal/forahttpsig, which MUST still exist until their deletion in the
 // downstream adoption ticket. The tree-wide guard belongs to that ticket; here the
 // guard is correctly scoped to the new canonical L2 substance.
 //
@@ -220,7 +220,7 @@ func TestConnectrpcFree_Meta_IgnoresCommentMention(t *testing.T) {
 }
 
 func TestConnectrpcFree_Meta_PassesCleanSource(t *testing.T) {
-	src := "package core\n\nimport (\n\t\"errors\"\n\n\trampv1 \"github.com/RAMP-Protocol/protocol/gen/go/ramp/v1\"\n)\n\nvar _ = errors.New\nvar _ *rampv1.ErrorDetail\n"
+	src := "package core\n\nimport (\n\t\"errors\"\n\n\tforav1 \"github.com/FORA-Protocol/protocol/gen/go/fora/v1\"\n)\n\nvar _ = errors.New\nvar _ *forav1.ErrorDetail\n"
 	if path, bad := importsConnectrpc(t, "synthetic.go", src); bad {
 		t.Fatalf("guard must PASS a connect-free file; flagged %q", path)
 	}

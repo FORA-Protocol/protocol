@@ -16,11 +16,11 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/gen/go/ramp/v1/rampv1connect"
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
-	rampserver "github.com/RAMP-Protocol/protocol/sdk/go/connectserver"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	foraserver "github.com/FORA-Protocol/protocol/sdk/go/connectserver"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // ---------------------------------------------------------------------------
@@ -30,19 +30,19 @@ import (
 // contextCapturingExchange wraps an echo exchange and records the
 // AllSignaturesFromContext value seen on each call to DiscoverResources.
 type contextCapturingExchange struct {
-	rampv1connect.UnimplementedExchangeServiceHandler
+	forav1connect.UnimplementedExchangeServiceHandler
 	mu   sync.Mutex
 	sigs []helpers.VerifiedRequest // last captured from AllSignaturesFromContext
 }
 
 func (e *contextCapturingExchange) DiscoverResources(
-	ctx context.Context, _ *connectrpc.Request[rampv1.ResourceQuery],
-) (*connectrpc.Response[rampv1.ResourceResponse], error) {
+	ctx context.Context, _ *connectrpc.Request[forav1.ResourceQuery],
+) (*connectrpc.Response[forav1.ResourceResponse], error) {
 	captured := helpers.AllSignaturesFromContext(ctx)
 	e.mu.Lock()
 	e.sigs = captured
 	e.mu.Unlock()
-	return connectrpc.NewResponse(&rampv1.ResourceResponse{}), nil
+	return connectrpc.NewResponse(&forav1.ResourceResponse{}), nil
 }
 
 func (e *contextCapturingExchange) capturedSigs() []helpers.VerifiedRequest {
@@ -53,14 +53,14 @@ func (e *contextCapturingExchange) capturedSigs() []helpers.VerifiedRequest {
 
 // brokerEcho is a minimal BrokerServiceHandler echo for the broker handler test.
 type brokerEcho struct {
-	rampv1connect.UnimplementedBrokerServiceHandler
+	forav1connect.UnimplementedBrokerServiceHandler
 	mu   sync.Mutex
 	hits int
 }
 
 func (b *brokerEcho) Resolve(
-	ctx context.Context, _ *connectrpc.Request[rampv1.DiscoveryRequest],
-) (*connectrpc.Response[rampv1.DiscoveryResponse], error) {
+	ctx context.Context, _ *connectrpc.Request[forav1.DiscoveryRequest],
+) (*connectrpc.Response[forav1.DiscoveryResponse], error) {
 	// Like a real platform handler: no verified signature in context → typed
 	// Unauthenticated BEFORE any side effect (hits counts business effects only).
 	if helpers.FromContext(ctx) == nil {
@@ -69,7 +69,7 @@ func (b *brokerEcho) Resolve(
 	b.mu.Lock()
 	b.hits++
 	b.mu.Unlock()
-	return connectrpc.NewResponse(&rampv1.DiscoveryResponse{}), nil
+	return connectrpc.NewResponse(&forav1.DiscoveryResponse{}), nil
 }
 
 func (b *brokerEcho) hitCount() int {
@@ -113,18 +113,18 @@ func TestServerVerify_ContextPopulated(t *testing.T) {
 	resolver := helpers.NewStaticKeyResolver(map[string]ed25519.PublicKey{keyID: pub})
 
 	origin := &contextCapturingExchange{}
-	path, h := rampserver.NewExchangeServiceHandler(
+	path, h := foraserver.NewExchangeServiceHandler(
 		origin,
-		rampserver.WithKeyResolver(resolver),
-		rampserver.WithReplayStore(newCountingReplayStore()),
+		foraserver.WithKeyResolver(resolver),
+		foraserver.WithReplayStore(newCountingReplayStore()),
 	)
 	mux := http.NewServeMux()
 	mux.Handle(path, h)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
-	client := rampconnect.NewClient(srv.URL, rampconnect.WithSigner(signer))
-	if _, err := client.Discover(context.Background(), &rampv1.ResourceQuery{}); err != nil {
+	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(signer))
+	if _, err := client.Discover(context.Background(), &forav1.ResourceQuery{}); err != nil {
 		t.Fatalf("Discover: %v", err)
 	}
 
@@ -147,7 +147,7 @@ func TestServerVerify_ContextPopulated(t *testing.T) {
 // Exchange handler. An unsigned request to the Broker's Resolve RPC must be
 // rejected with CodeUnauthenticated, and the origin handler must NOT run.
 //
-// COMPILE-RED reason: rampserver.NewBrokerServiceHandler is undefined on HEAD.
+// COMPILE-RED reason: foraserver.NewBrokerServiceHandler is undefined on HEAD.
 // The compile error is the TDD red for Gap 4.
 //
 // After Gap 4 fix: NewBrokerServiceHandler exists; this test compiles, runs, and
@@ -165,11 +165,11 @@ func TestServerVerify_BrokerHandlerRejectsUnsigned(t *testing.T) {
 
 	origin := &brokerEcho{}
 
-	// COMPILE ERROR on HEAD: rampserver.NewBrokerServiceHandler undefined.
-	path, h := rampserver.NewBrokerServiceHandler(
+	// COMPILE ERROR on HEAD: foraserver.NewBrokerServiceHandler undefined.
+	path, h := foraserver.NewBrokerServiceHandler(
 		origin,
-		rampserver.WithKeyResolver(resolver),
-		rampserver.WithReplayStore(alwaysReplayStore{}),
+		foraserver.WithKeyResolver(resolver),
+		foraserver.WithReplayStore(alwaysReplayStore{}),
 	)
 	mux := http.NewServeMux()
 	mux.Handle(path, h)
@@ -180,8 +180,8 @@ func TestServerVerify_BrokerHandlerRejectsUnsigned(t *testing.T) {
 	// transport). The seam passes an unsigned request through (typed-fault
 	// contract); the ORIGIN rejects it with CodeUnauthenticated before acting, so
 	// its business side effects (hits) stay absent.
-	brokerClient := rampv1connect.NewBrokerServiceClient(&http.Client{}, srv.URL)
-	_, err = brokerClient.Resolve(context.Background(), connectrpc.NewRequest(&rampv1.DiscoveryRequest{}))
+	brokerClient := forav1connect.NewBrokerServiceClient(&http.Client{}, srv.URL)
+	_, err = brokerClient.Resolve(context.Background(), connectrpc.NewRequest(&forav1.DiscoveryRequest{}))
 	if err == nil {
 		t.Fatal("unsigned request must be rejected by broker server face")
 	}

@@ -1,7 +1,7 @@
 // Package conformance — wire_naming_test.go guards the snake_case wire naming
 // contract forever.
 //
-// DECISION (feature/go-sdk-extraction): the RAMP wire is snake_case proto-JSON
+// DECISION (feature/go-sdk-extraction): the FORA wire is snake_case proto-JSON
 // everywhere — proto field names on the wire, in the corpus, and in the generated
 // clients. This guard fails if any JSON object key in the committed corpus files
 // contains a lowercase→uppercase transition (which is the defining property of

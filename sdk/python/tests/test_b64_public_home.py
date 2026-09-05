@@ -1,4 +1,4 @@
-"""ramp_sdk.b64 — the public base64url codec module and its top-level re-export."""
+"""fora_sdk.b64 — the public base64url codec module and its top-level re-export."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import base64
 
 import pytest
 
-from ramp_sdk.b64 import b64url_decode, b64url_decode_strict, b64url_nopad
+from fora_sdk.b64 import b64url_decode, b64url_decode_strict, b64url_nopad
 
 
 # ---- round-trip parity ---------------------------------------------------
@@ -79,11 +79,11 @@ def test_b64url_decode_strict_rejects_invalid_length() -> None:
 # ---- top-level re-export -------------------------------------------------
 
 
-def test_top_level_ramp_sdk_exports_b64url_nopad() -> None:
-    """ramp_sdk.__init__ re-exports b64url_nopad at the top level."""
+def test_top_level_fora_sdk_exports_b64url_nopad() -> None:
+    """fora_sdk.__init__ re-exports b64url_nopad at the top level."""
     # RED: __init__ currently does NOT import from .b64 (the module doesn't
     # exist yet), so this import also fails at collection time.
-    from ramp_sdk import b64url_nopad as top_b64url_nopad  # type: ignore[attr-defined]
+    from fora_sdk import b64url_nopad as top_b64url_nopad  # type: ignore[attr-defined]
 
     raw = bytes(range(16))
     assert top_b64url_nopad(raw) == b64url_nopad(raw)

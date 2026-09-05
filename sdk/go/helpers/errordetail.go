@@ -1,7 +1,7 @@
 package helpers
 
 import (
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 // ADR-019 error contract. Failure is a typed ErrorDetail attached to the
@@ -14,35 +14,35 @@ import (
 // reason maps to, ADR-019 §Consequences).
 //
 // These builders and the Reason accessor are transport-neutral (they touch only
-// generated *rampv1 types), so this L1 package imposes no Connect dependency on a
+// generated *forav1 types), so this L1 package imposes no Connect dependency on a
 // non-Connect consumer. The ErrorDetail↔Connect bridge — which builds/unwraps a
 // *connect.Error — lives in the Connect bindings, split by direction: the EMIT half
 // AsConnectError (next to the reject→connect.Code mapping) in the server binding
 // sdk/go/connectserver, and the READ half ErrorDetailFrom in the client binding
 // sdk/go/connect.
 
-func base(domain, message string) *rampv1.ErrorDetail {
-	return &rampv1.ErrorDetail{Domain: domain, Message: message}
+func base(domain, message string) *forav1.ErrorDetail {
+	return &forav1.ErrorDetail{Domain: domain, Message: message}
 }
 
 // TransactionDenialDetail builds an ErrorDetail carrying a typed DenialReason.
-func TransactionDenialDetail(domain, message string, reason rampv1.DenialReason) *rampv1.ErrorDetail {
+func TransactionDenialDetail(domain, message string, reason forav1.DenialReason) *forav1.ErrorDetail {
 	d := base(domain, message)
-	d.Reason = &rampv1.ErrorDetail_TransactionDenial{TransactionDenial: &rampv1.TransactionDenial{Reason: reason}}
+	d.Reason = &forav1.ErrorDetail_TransactionDenial{TransactionDenial: &forav1.TransactionDenial{Reason: reason}}
 	return d
 }
 
 // RetrievalAuthFailureDetail builds an ErrorDetail carrying a typed RetrievalAuthFailureReason.
-func RetrievalAuthFailureDetail(domain, message string, reason rampv1.RetrievalAuthFailureReason) *rampv1.ErrorDetail {
+func RetrievalAuthFailureDetail(domain, message string, reason forav1.RetrievalAuthFailureReason) *forav1.ErrorDetail {
 	d := base(domain, message)
-	d.Reason = &rampv1.ErrorDetail_RetrievalAuthFailure{RetrievalAuthFailure: &rampv1.RetrievalAuthFailure{Reason: reason}}
+	d.Reason = &forav1.ErrorDetail_RetrievalAuthFailure{RetrievalAuthFailure: &forav1.RetrievalAuthFailure{Reason: reason}}
 	return d
 }
 
 // CatalogRejectionDetail builds an ErrorDetail carrying a typed CatalogRejectionReason.
-func CatalogRejectionDetail(domain, message string, reason rampv1.CatalogRejectionReason) *rampv1.ErrorDetail {
+func CatalogRejectionDetail(domain, message string, reason forav1.CatalogRejectionReason) *forav1.ErrorDetail {
 	d := base(domain, message)
-	d.Reason = &rampv1.ErrorDetail_CatalogRejection{CatalogRejection: &rampv1.CatalogRejection{Reason: reason}}
+	d.Reason = &forav1.ErrorDetail_CatalogRejection{CatalogRejection: &forav1.CatalogRejection{Reason: reason}}
 	return d
 }
 
@@ -57,9 +57,9 @@ func CatalogRejectionDetail(domain, message string, reason rampv1.CatalogRejecti
 // (TransactionDenial.restriction_mismatches, CatalogRejection.rejected_paths) are
 // still caller-set post-construction. Passing field errors with any other reason
 // is a caller error — the field's contract says the list is empty otherwise.
-func RegistrationFailureDetail(domain, message string, reason rampv1.RegistrationFailureReason, fieldErrors ...*rampv1.RegistrationFieldError) *rampv1.ErrorDetail {
+func RegistrationFailureDetail(domain, message string, reason forav1.RegistrationFailureReason, fieldErrors ...*forav1.RegistrationFieldError) *forav1.ErrorDetail {
 	d := base(domain, message)
-	d.Reason = &rampv1.ErrorDetail_RegistrationFailure{RegistrationFailure: &rampv1.RegistrationFailure{
+	d.Reason = &forav1.ErrorDetail_RegistrationFailure{RegistrationFailure: &forav1.RegistrationFailure{
 		Reason:      reason,
 		FieldErrors: fieldErrors,
 	}}
@@ -67,32 +67,32 @@ func RegistrationFailureDetail(domain, message string, reason rampv1.Registratio
 }
 
 // DisputeFailureDetail builds an ErrorDetail carrying a typed DisputeFailureReason.
-func DisputeFailureDetail(domain, message string, reason rampv1.DisputeFailureReason) *rampv1.ErrorDetail {
+func DisputeFailureDetail(domain, message string, reason forav1.DisputeFailureReason) *forav1.ErrorDetail {
 	d := base(domain, message)
-	d.Reason = &rampv1.ErrorDetail_DisputeFailure{DisputeFailure: &rampv1.DisputeFailure{Reason: reason}}
+	d.Reason = &forav1.ErrorDetail_DisputeFailure{DisputeFailure: &forav1.DisputeFailure{Reason: reason}}
 	return d
 }
 
 // DomainVerificationFailureDetail builds an ErrorDetail carrying a typed DomainVerificationFailureReason.
-func DomainVerificationFailureDetail(domain, message string, reason rampv1.DomainVerificationFailureReason) *rampv1.ErrorDetail {
+func DomainVerificationFailureDetail(domain, message string, reason forav1.DomainVerificationFailureReason) *forav1.ErrorDetail {
 	d := base(domain, message)
-	d.Reason = &rampv1.ErrorDetail_DomainVerificationFailure{DomainVerificationFailure: &rampv1.DomainVerificationFailure{Reason: reason}}
+	d.Reason = &forav1.ErrorDetail_DomainVerificationFailure{DomainVerificationFailure: &forav1.DomainVerificationFailure{Reason: reason}}
 	return d
 }
 
 // UsageReportRejectionDetail builds an ErrorDetail carrying a typed UsageReportRejectionReason.
-func UsageReportRejectionDetail(domain, message string, reason rampv1.UsageReportRejectionReason) *rampv1.ErrorDetail {
+func UsageReportRejectionDetail(domain, message string, reason forav1.UsageReportRejectionReason) *forav1.ErrorDetail {
 	d := base(domain, message)
-	d.Reason = &rampv1.ErrorDetail_UsageReportRejection{UsageReportRejection: &rampv1.UsageReportRejection{Reason: reason}}
+	d.Reason = &forav1.ErrorDetail_UsageReportRejection{UsageReportRejection: &forav1.UsageReportRejection{Reason: reason}}
 	return d
 }
 
 // Reason returns the active typed reason enum from detail — one of
-// rampv1.DenialReason, RetrievalAuthFailureReason, CatalogRejectionReason,
+// forav1.DenialReason, RetrievalAuthFailureReason, CatalogRejectionReason,
 // RegistrationFailureReason, DisputeFailureReason, DomainVerificationFailureReason,
 // or UsageReportRejectionReason — or nil when no reason is set. Callers type-switch
 // on the result to branch on the failure, never on a string.
-func Reason(detail *rampv1.ErrorDetail) any {
+func Reason(detail *forav1.ErrorDetail) any {
 	switch {
 	case detail.GetTransactionDenial() != nil:
 		return detail.GetTransactionDenial().GetReason()

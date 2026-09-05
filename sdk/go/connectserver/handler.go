@@ -5,9 +5,9 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	"github.com/RAMP-Protocol/protocol/gen/go/ramp/v1/rampv1connect"
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
 )
 
 // NewExchangeServiceHandler builds the ExchangeService HTTP handler wrapped by the
@@ -22,9 +22,9 @@ import (
 // (body-bytes reason), NOT a connect.Interceptor; validate and error-detail ARE true
 // connect.Interceptors composed onto the generated handler. KeyResolver and
 // ReplayStore are injected by the application (ADR-020 §2/§3).
-func NewExchangeServiceHandler(svc rampv1connect.ExchangeServiceHandler, opts ...ServerOption) (string, http.Handler) {
+func NewExchangeServiceHandler(svc forav1connect.ExchangeServiceHandler, opts ...ServerOption) (string, http.Handler) {
 	cfg := resolveServerConfig(opts)
-	path, connectHandler := rampv1connect.NewExchangeServiceHandler(svc, cfg.connectHandlerOptions()...)
+	path, connectHandler := forav1connect.NewExchangeServiceHandler(svc, cfg.connectHandlerOptions()...)
 	// verify wraps the connect handler; request-id wraps verify (outermost).
 	wrapped := core.RequestIDMiddleware(cfg.requestID, verifyMiddleware(cfg, connectHandler))
 	return path, wrapped
@@ -34,12 +34,12 @@ func NewExchangeServiceHandler(svc rampv1connect.ExchangeServiceHandler, opts ..
 // SDK server face and returns the mount path and handler. It composes the same
 // stack as NewExchangeServiceHandler — request-id outermost, verify at the http
 // seam, validate/error-detail as connect interceptors — over the generated
-// BrokerService handler. Broker relay routes outside the /ramp. procedure
+// BrokerService handler. Broker relay routes outside the /fora. procedure
 // prefix are the application's own http surface and never pass through this
 // handler; they keep their bespoke verification.
-func NewBrokerServiceHandler(svc rampv1connect.BrokerServiceHandler, opts ...ServerOption) (string, http.Handler) {
+func NewBrokerServiceHandler(svc forav1connect.BrokerServiceHandler, opts ...ServerOption) (string, http.Handler) {
 	cfg := resolveServerConfig(opts)
-	path, connectHandler := rampv1connect.NewBrokerServiceHandler(svc, cfg.connectHandlerOptions()...)
+	path, connectHandler := forav1connect.NewBrokerServiceHandler(svc, cfg.connectHandlerOptions()...)
 	wrapped := core.RequestIDMiddleware(cfg.requestID, verifyMiddleware(cfg, connectHandler))
 	return path, wrapped
 }
@@ -59,8 +59,8 @@ func (cfg serverConfig) connectHandlerOptions() []connectrpc.HandlerOption {
 // definition (one engine for client and server, zero duplication).
 func handlerInterceptors(cfg serverConfig) []connectrpc.Interceptor {
 	var out []connectrpc.Interceptor
-	if cfg.validation == rampconnect.ValidationStrict {
-		if v, err := rampconnect.NewValidateInterceptor(); err == nil {
+	if cfg.validation == foraconnect.ValidationStrict {
+		if v, err := foraconnect.NewValidateInterceptor(); err == nil {
 			out = append(out, v)
 		}
 	}

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 func TestNewIdempotencyKey_formatAndUniqueness(t *testing.T) {

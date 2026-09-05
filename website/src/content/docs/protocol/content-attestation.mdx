@@ -81,15 +81,15 @@ message ResourceAttestation {
 
 ## Verifier Infrastructure
 
-Attestation signing keys do not live in `ramp.json`. Every party that signs attestations publishes its keys in its **WBA directory** — the JWK Set served at:
+Attestation signing keys do not live in `fora.json`. Every party that signs attestations publishes its keys in its **WBA directory** — the JWK Set served at:
 
 ```
 https://{verifier-domain}/.well-known/http-message-signatures-directory
 ```
 
-This is the same WebBotAuth directory endpoint RAMP uses for request-signing keys. An attestation's `keyid` is the RFC 7638 thumbprint of the key in this directory; a verifier rotates keys by adding new entries to the directory, and the thumbprint in `keyid` selects which one signed a given attestation. The `ramp.json` manifest still carries role and routing metadata, and the claims schema (what claim fields the verifier attests to) lives in `ext["ramp.attestation.claims_schema"]` — but the keys themselves are in the WBA directory.
+This is the same WebBotAuth directory endpoint FORA uses for request-signing keys. An attestation's `keyid` is the RFC 7638 thumbprint of the key in this directory; a verifier rotates keys by adding new entries to the directory, and the thumbprint in `keyid` selects which one signed a given attestation. The `fora.json` manifest still carries role and routing metadata, and the claims schema (what claim fields the verifier attests to) lives in `ext["fora.attestation.claims_schema"]` — but the keys themselves are in the WBA directory.
 
-RAMP has no dedicated verifier role: a verifier publishes under its operator's role — `ROLE_PUBLISHER` when a publisher self-attests, `ROLE_EXCHANGE` for a standalone verification vendor.
+FORA has no dedicated verifier role: a verifier publishes under its operator's role — `ROLE_PUBLISHER` when a publisher self-attests, `ROLE_EXCHANGE` for a standalone verification vendor.
 
 ### WBA Directory (verifier keys)
 
@@ -110,13 +110,13 @@ A self-attesting publisher's attestation-signing key, served from its WBA direct
       "not_after": "2026-12-31T23:59:59Z"
     }
   ],
-  "revocation_url": "https://nytimes.com/.well-known/ramp-invalidations.json"
+  "revocation_url": "https://nytimes.com/.well-known/fora-invalidations.json"
 }
 ```
 
 ### Manifest Format (verifier)
 
-A self-attesting publisher's `/.well-known/ramp.json` (`role=ROLE_PUBLISHER`) carries role, domain, and the claims schema — but no keys:
+A self-attesting publisher's `/.well-known/fora.json` (`role=ROLE_PUBLISHER`) carries role, domain, and the claims schema — but no keys:
 
 ```json
 {
@@ -124,7 +124,7 @@ A self-attesting publisher's `/.well-known/ramp.json` (`role=ROLE_PUBLISHER`) ca
   "role": "ROLE_PUBLISHER",
   "domain": "nytimes.com",
   "ext": {
-    "ramp.attestation.claims_schema": {
+    "fora.attestation.claims_schema": {
       "content_hash": {
         "type": "string",
         "description": "SHA-256 hash of delivered content bytes"
@@ -156,7 +156,7 @@ Key rotation follows the JWKS pattern: new keys are added to the WBA directory w
 | `hash_method` | string | No | Algorithm for `content_hash` |
 | `title` | string | No | Article headline |
 
-Only `estimated_quantity` and `content_hash` are auto-disputable -- they are objectively measurable and independently verifiable. Vendors may add proprietary claims (e.g., `brand_safety`, `sentiment`) documented in their manifest's `ext["ramp.attestation.claims_schema"]`.
+Only `estimated_quantity` and `content_hash` are auto-disputable -- they are objectively measurable and independently verifiable. Vendors may add proprietary claims (e.g., `brand_safety`, `sentiment`) documented in their manifest's `ext["fora.attestation.claims_schema"]`.
 
 ## Signature Computation
 
@@ -196,4 +196,4 @@ The protocol does not mandate a maximum attestation age. Suggested thresholds:
 
 - [Dispute Resolution](/protocol/dispute-resolution/) -- what happens when attestation claims don't match delivery
 - [Provider Onboarding](/getting-started/publisher-onboarding/) -- how to publish signing keys and push attestations
-- [Proto: RAMP v1](/reference/proto-ramp/) -- full `ResourceAttestation` message reference
+- [Proto: FORA v1](/reference/proto-fora/) -- full `ResourceAttestation` message reference

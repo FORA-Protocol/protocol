@@ -28,11 +28,11 @@ from typing import Any
 import httpx
 import pytest
 
-from ramp_sdk import sync as blocking
-from ramp_sdk.client import Client as AsyncClient
-from ramp_sdk.client import ClientConfig
-from ramp_sdk.client.errors import CallError, CallErrorKind
-from ramp_sdk.signing_transport import SigningTransport
+from fora_sdk import sync as blocking
+from fora_sdk.client import Client as AsyncClient
+from fora_sdk.client import ClientConfig
+from fora_sdk.client.errors import CallError, CallErrorKind
+from fora_sdk.signing_transport import SigningTransport
 
 _SEED = bytes(range(32))
 _REQUESTER = {"id": "agent-1", "domain": "agent.test", "type": "REQUESTER_TYPE_AGENT"}

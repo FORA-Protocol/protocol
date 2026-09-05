@@ -1,4 +1,4 @@
-// The RAMP client's verbs (TypeScript side) — mirror of the sdk/go connect suite.
+// The FORA client's verbs (TypeScript side) — mirror of the sdk/go connect suite.
 //
 // Driven through an INJECTED send rather than a socket: what is under test is the
 // protocol behaviour — the URL, the envelope, the routing, the verification and the
@@ -11,7 +11,7 @@ import {
 	createBrokerClient,
 	createClient,
 	NOT_CANONICAL_WIRE_NAMING,
-	RampCallError,
+	ForaCallError,
 	type UnaryRequest,
 	type UnarySend,
 } from "../client/index.ts";
@@ -74,7 +74,7 @@ describe("discover", () => {
 		await client.discover({ exchange: "exchange.test", uris: ["https://site.test/a"] });
 
 		expect(seen[0]?.url).toBe(
-			"https://exchange.test/ramp.v1.ExchangeService/DiscoverResources",
+			"https://exchange.test/fora.v1.ExchangeService/DiscoverResources",
 		);
 		expect(seen[0]?.headers["content-type"]).toBe("application/json");
 		expect(seen[0]?.headers["Connect-Protocol-Version"]).toBe("1");
@@ -260,9 +260,9 @@ describe("reading an answer", () => {
 			.discover({ exchange: "exchange.test" })
 			.catch((e: unknown) => e);
 
-		expect(err).toBeInstanceOf(RampCallError);
-		expect((err as RampCallError).kind).toBe("malformed");
-		expect((err as RampCallError).reasonOf()).toBe(NOT_CANONICAL_WIRE_NAMING);
+		expect(err).toBeInstanceOf(ForaCallError);
+		expect((err as ForaCallError).kind).toBe("malformed");
+		expect((err as ForaCallError).reasonOf()).toBe(NOT_CANONICAL_WIRE_NAMING);
 	});
 
 	it("turns a Connect error envelope into the typed failure, reason included", async () => {
@@ -272,10 +272,10 @@ describe("reading an answer", () => {
 				message: "balance too low",
 				details: [
 					{
-						type: "ramp.v1.ErrorDetail",
+						type: "fora.v1.ErrorDetail",
 						value: "aWdub3JlZA",
 						debug: {
-							domain: "ramp.v1.ExchangeService",
+							domain: "fora.v1.ExchangeService",
 							message: "balance too low",
 							transactionDenial: { reason: "DENIAL_REASON_INSUFFICIENT_BALANCE" },
 						},
@@ -288,7 +288,7 @@ describe("reading an answer", () => {
 
 		const err = (await client
 			.discover({ exchange: "exchange.test" })
-			.catch((e: unknown) => e)) as RampCallError;
+			.catch((e: unknown) => e)) as ForaCallError;
 
 		expect(err.kind).toBe("refused");
 		expect(err.status).toBe(403);
@@ -304,7 +304,7 @@ describe("reading an answer", () => {
 
 		const err = (await client
 			.discover({ exchange: "exchange.test" })
-			.catch((e: unknown) => e)) as RampCallError;
+			.catch((e: unknown) => e)) as ForaCallError;
 
 		expect(err.kind).toBe("unreachable");
 	});
@@ -315,7 +315,7 @@ describe("reading an answer", () => {
 
 		const err = (await client
 			.discover({ exchange: "exchange.test" })
-			.catch((e: unknown) => e)) as RampCallError;
+			.catch((e: unknown) => e)) as ForaCallError;
 
 		// Unreachable, not refused: this client did not follow the hop, so the call never
 		// reached a server that could decline it — and a redirect body carries nothing to
@@ -352,7 +352,7 @@ describe("execute", () => {
 
 		const body = bodyOf(seen[0] as UnaryRequest);
 		expect(seen[0]?.url).toBe(
-			"https://exchange.test/ramp.v1.ExchangeService/ExecuteTransaction",
+			"https://exchange.test/fora.v1.ExchangeService/ExecuteTransaction",
 		);
 		expect(body["idempotency_key"]).toBe("idem-1");
 		const items = body["items"] as Array<Record<string, unknown>>;
@@ -453,7 +453,7 @@ describe("the offer-derived leg", () => {
 		await client.reportUsage({ exchange: "issuer.test", transaction_id: "t-1" });
 
 		// Never the configured home Exchange: the destination came off the signed message.
-		expect(seen[0]?.url).toBe("https://api.issuer.test/ramp.v1.ExchangeService/ReportUsage");
+		expect(seen[0]?.url).toBe("https://api.issuer.test/fora.v1.ExchangeService/ReportUsage");
 		const body = bodyOf(seen[0] as UnaryRequest);
 		expect(body["ver"]).toBe("1.0");
 		expect(body["idempotency_key"]).toBeTypeOf("string");
@@ -488,7 +488,7 @@ describe("the offer-derived leg", () => {
 		});
 
 		expect(seen[0]?.url).toBe(
-			"https://api.issuer.test/ramp.v1.ExchangeService/DisputeTransaction",
+			"https://api.issuer.test/fora.v1.ExchangeService/DisputeTransaction",
 		);
 	});
 
@@ -502,7 +502,7 @@ describe("the offer-derived leg", () => {
 		for (const exchange of ["", "issuer.test/path", "https://issuer.test"]) {
 			const err = (await client
 				.reportUsage({ exchange })
-				.catch((e: unknown) => e)) as RampCallError;
+				.catch((e: unknown) => e)) as ForaCallError;
 			expect(err.kind).toBe("not_sent");
 		}
 		expect(seen).toHaveLength(0);
@@ -558,7 +558,7 @@ describe("the broker face", () => {
 
 		const result = await client.resolve({ uris: ["https://site.test/a"] });
 
-		expect(seen[0]?.url).toBe("https://broker.test/ramp.v1.BrokerService/Resolve");
+		expect(seen[0]?.url).toBe("https://broker.test/fora.v1.BrokerService/Resolve");
 		expect(result.absenceReason).toBe("OFFER_ABSENCE_REASON_NOT_IN_CATALOG");
 		expect(result.groups).toEqual([]);
 		// A DiscoveryResponse names no single Exchange; each offer carries its own.
@@ -626,7 +626,7 @@ describe("fetch", () => {
 
 		let presented: string | undefined;
 		const server = createServer((req, res) => {
-			presented = req.headers["x-ramp-agent-key"] as string | undefined;
+			presented = req.headers["x-fora-agent-key"] as string | undefined;
 			res.writeHead(200, { "content-type": "text/plain" });
 			res.end("body");
 		});

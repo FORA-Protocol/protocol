@@ -23,8 +23,8 @@ from typing import Any
 import pytest
 
 from conftest import GO_RESOLVERS_TESTDATA, load_json
-from ramp_sdk.client import CallError, CallErrorKind
-from ramp_sdk.client.route import vet_exchange_endpoint
+from fora_sdk.client import CallError, CallErrorKind
+from fora_sdk.client.route import vet_exchange_endpoint
 
 _VECTORS: list[dict[str, Any]] = load_json(
     GO_RESOLVERS_TESTDATA / "endpoint-vet-vectors.json"

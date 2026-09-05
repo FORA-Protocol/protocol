@@ -132,7 +132,7 @@ func TestHelpersConnectrpcFree_Meta_IgnoresCommentMention(t *testing.T) {
 }
 
 func TestHelpersConnectrpcFree_Meta_PassesCleanSource(t *testing.T) {
-	src := "package helpers\n\nimport (\n\t\"errors\"\n\n\trampv1 \"github.com/RAMP-Protocol/protocol/gen/go/ramp/v1\"\n)\n\nvar _ = errors.New\nvar _ *rampv1.ErrorDetail\n"
+	src := "package helpers\n\nimport (\n\t\"errors\"\n\n\tforav1 \"github.com/FORA-Protocol/protocol/gen/go/fora/v1\"\n)\n\nvar _ = errors.New\nvar _ *forav1.ErrorDetail\n"
 	if path, bad := importsConnectrpc(t, "synthetic.go", src); bad {
 		t.Fatalf("guard must PASS a connect-free file; flagged %q", path)
 	}

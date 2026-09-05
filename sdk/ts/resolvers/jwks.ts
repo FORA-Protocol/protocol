@@ -1,5 +1,5 @@
 // Ad-hoc JWKS decode for the well-known KEY document. The publisher's
-// ramp.json key set is the kid-carrying RFC 7517 subset
+// fora.json key set is the kid-carrying RFC 7517 subset
 // `{"keys":[{"kid","kty":"OKP","crv":"Ed25519","x":"<base64url>"}]}` — NOT the
 // gen JsonWebKey/WellKnownManifest schemas, which carry no `kid` and no JWK-set
 // (decoding through them would resolve ZERO keys). The gen schemas are reserved

@@ -32,7 +32,7 @@ import {
 
 /** The single public well-known path a WBA identity directory is served at (Web
  * Bot Auth; the identity half of the identity/commercial split — the commercial
- * overlay stays in /.well-known/ramp.json). The one shared copy across the whole SDK. */
+ * overlay stays in /.well-known/fora.json). The one shared copy across the whole SDK. */
 export const WBA_DIRECTORY_PATH =
 	"/.well-known/http-message-signatures-directory";
 

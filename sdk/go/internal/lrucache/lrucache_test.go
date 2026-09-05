@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/lrucache"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/lrucache"
 )
 
 // The bound is the security property worth pinning: both callers key on a host an

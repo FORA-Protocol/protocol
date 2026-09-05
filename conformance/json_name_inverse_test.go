@@ -2,7 +2,7 @@ package conformance
 
 // The lowerCamelCase→snake_case inverse must be exact for every contract field.
 //
-// One place on the RAMP wire is lowerCamelCase and cannot be made otherwise: the
+// One place on the FORA wire is lowerCamelCase and cannot be made otherwise: the
 // `debug` projection connect-go attaches to an error detail. It builds that projection
 // with its own protojson codec at default options, inside a method on an unexported
 // type, so no codec a server registers reaches it — the response BODY is snake_case and
@@ -134,7 +134,7 @@ var errorDetailOpenMapMembers = map[string]bool{"metadata": true}
 // while every test still passed, so the count is held here rather than left implicit in
 // two hand-written name sets.
 //
-// On failure: add the member to _OPEN_MAP_MEMBERS in sdk/python/ramp_sdk/errordetail.py
+// On failure: add the member to _OPEN_MAP_MEMBERS in sdk/python/fora_sdk/errordetail.py
 // and OPEN_MAP_MEMBERS in sdk/ts/src/errordetail.ts, then extend this set.
 func TestErrorDetailHasOneOpenMapMember(t *testing.T) {
 	mt, err := findContractMessage("ErrorDetail")

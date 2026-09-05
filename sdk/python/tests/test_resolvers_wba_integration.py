@@ -11,7 +11,7 @@ forward-progress cases run via Resolve + TTL-expiry (NO poller), so a poller-onl
 guard would fail them — only the poller test exercises the background Run poller,
 via the on_poll_armed/on_poll_cycle determinism seams.
 
-RED CONTRACT: ``ramp_sdk.resolvers`` does not exist yet — the file is RED at
+RED CONTRACT: ``fora_sdk.resolvers`` does not exist yet — the file is RED at
 collection on the missing faces, not on a fixture error.
 """
 
@@ -39,7 +39,7 @@ from resolvers_harness import (
 )
 
 # RED: the WBA face and its typed sentinels do not exist yet (TDD red).
-from ramp_sdk.resolvers import (  # type: ignore[import-not-found]
+from fora_sdk.resolvers import (  # type: ignore[import-not-found]
     DirectoryUnavailableError,
     KeyExpiredError,
     KeyRevokedError,

@@ -15,15 +15,15 @@ package resolvers
 // completeness gate walks are helpers/testdata and resolvers/testdata.
 //
 // Verification no-op by default (asserts the committed file matches a fresh
-// emit); (re)writes under RAMP_UPDATE_VECTORS=1. TEST INFRASTRUCTURE.
+// emit); (re)writes under FORA_UPDATE_VECTORS=1. TEST INFRASTRUCTURE.
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/endpointrule"
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/vectorio"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/endpointrule"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 // endpointVetVector is one Vet case: the host that SERVED the manifest, the
@@ -127,14 +127,14 @@ func buildEndpointVetVectors(t *testing.T) []endpointVetVector {
 }
 
 // TestGenerateEndpointVetVectors emits the endpoint-vet golden corpus.
-// Verification no-op by default, (re)writes under RAMP_UPDATE_VECTORS=1.
+// Verification no-op by default, (re)writes under FORA_UPDATE_VECTORS=1.
 func TestGenerateEndpointVetVectors(t *testing.T) {
 	doc := map[string]any{"endpoint_vet": buildEndpointVetVectors(t)}
 	path := filepath.Join("testdata", "endpoint-vet-vectors.json")
 	// The byte semantics — indent, trailing newline, mode — are shared rather than
 	// restated. A corpus is committed, so an emitter that rendered it differently
 	// would rewrite the whole file and report the change as drift.
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		if err := vectorio.Write(path, doc); err != nil {
 			t.Fatalf("write %s: %v", path, err)
 		}
@@ -145,6 +145,6 @@ func TestGenerateEndpointVetVectors(t *testing.T) {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	if stale {
-		t.Fatalf("%s is stale; re-run with RAMP_UPDATE_VECTORS=1 to regenerate", path)
+		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", path)
 	}
 }
