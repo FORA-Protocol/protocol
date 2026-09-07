@@ -45,6 +45,7 @@ import (
 	"github.com/FORA-Protocol/protocol/sdk/go/core"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
+	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
 const clientRequestVectorsPath = "testdata/client-request-vectors.json"
@@ -136,6 +137,12 @@ func buildClientRequestVectors(t *testing.T) []clientRequestVector {
 		foraconnect.WithClientOptions(
 			connectrpc.WithCodec(foraserver.EmitUnpopulatedJSONCodec()),
 		),
+		// Register reads an Exchange's published requirements before it signs. What
+		// this corpus records is the path and the envelope, so the read is stubbed
+		// out to an Exchange that publishes neither a terms digest nor a schema —
+		// the ordinary pass-through case, and the one that leaves the recorded body
+		// to the caller's own fields. Inert for every other verb.
+		foraconnect.WithRegistrationRequirements(publishesNothing{}),
 	}
 
 	var out []clientRequestVector
@@ -191,6 +198,20 @@ func buildClientRequestVectors(t *testing.T) []clientRequestVector {
 			ReportId:      "r-1",
 			Reason:        forav1.DisputeReason_DISPUTE_REASON_DELIVERY_FAILED,
 		}, foraconnect.WithIdempotencyKey(pinnedKey))
+		return err
+	})
+	capture("register", "register", func(c *foraconnect.Client, exchange string) error {
+		_, err := c.Register(context.Background(), &forav1.RegisterRequest{Exchange: exchange})
+		return err
+	})
+	capture("register_caller_ver_wins", "register", func(c *foraconnect.Client, exchange string) error {
+		_, err := c.Register(context.Background(),
+			&forav1.RegisterRequest{Exchange: exchange, Ver: "9.9"})
+		return err
+	})
+	capture("get_account_status", "getAccountStatus", func(c *foraconnect.Client, exchange string) error {
+		_, err := c.GetAccountStatus(context.Background(),
+			&forav1.GetAccountStatusRequest{Exchange: exchange})
 		return err
 	})
 	out = append(out, executeVector(t, baseOpts))
@@ -351,4 +372,15 @@ func brokerResolveVector(t *testing.T, opts []foraconnect.ClientOption) clientRe
 		Name: "resolve", Verb: "resolve", Path: seen.path, Ver: ver,
 		RequesterID: requesterIDOf(seen.body),
 	}
+}
+
+// publishesNothing is an Exchange that publishes neither a terms digest nor a
+// registration schema — the contract's ordinary pass-through case. It stands in
+// for the network read so this corpus records the envelope alone.
+type publishesNothing struct{}
+
+func (publishesNothing) ResolveRegistrationRequirements(
+	context.Context, string,
+) (resolvers.RegistrationRequirements, error) {
+	return resolvers.RegistrationRequirements{Verdict: helpers.SchemaNotPublished}, nil
 }

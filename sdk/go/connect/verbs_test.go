@@ -465,12 +465,23 @@ func TestBrokerResolve_RefusesARequesterlessRequestLocally(t *testing.T) {
 // counter.
 func selfAdvertisingExchange(t *testing.T, sig signingFixture, svc forav1connect.ExchangeServiceHandler) (string, *atomic.Int64) {
 	t.Helper()
+	return selfAdvertisingExchangeWith(t, sig, svc, nil)
+}
+
+// selfAdvertisingExchangeWith is the same host with extra manifest members, for
+// the account verbs, which read terms_digest and the published data_schema out of
+// the very document that advertises the endpoint.
+func selfAdvertisingExchangeWith(
+	t *testing.T, sig signingFixture, svc forav1connect.ExchangeServiceHandler,
+	extra func() map[string]any,
+) (string, *atomic.Int64) {
+	t.Helper()
 	path, h := foraserver.NewExchangeServiceHandler(svc, foraserver.WithKeyResolver(sig.resolver))
 	rpc := http.NewServeMux()
 	rpc.Handle(path, h)
 	// The manifest half is loopbackManifestServer's, so the self-advertising part
 	// is written once. This is the "a real RPC handler" case its catch-all takes.
-	return loopbackManifestServer(t, rpc)
+	return loopbackManifestServerWith(t, rpc, extra)
 }
 
 // crossHost serves a manifest advertising SOMEONE ELSE's origin — the case the
@@ -507,6 +518,10 @@ func allowLoopback(t *testing.T) []foraconnect.ClientOption {
 	t.Setenv("ALLOW_INSECURE", "1")
 	return []foraconnect.ClientOption{
 		foraconnect.WithEndpointResolver(resolvers.NewWellKnownEndpointResolver(
+			resolvers.WellKnownOptions{Scheme: "http", HTTP: http.DefaultClient})),
+		// The registration reader dials the same manifest over the same scheme, so
+		// it takes the same loopback posture. Inert for every verb but Register.
+		foraconnect.WithRegistrationRequirements(resolvers.NewWellKnownRequirementsReader(
 			resolvers.WellKnownOptions{Scheme: "http", HTTP: http.DefaultClient})),
 	}
 }

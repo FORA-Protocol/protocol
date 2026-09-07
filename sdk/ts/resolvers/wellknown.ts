@@ -10,7 +10,7 @@
 import { endpointRefusal } from "../src/endpoint-rule.ts";
 import { invalidHost } from "../src/host-ref.ts";
 import { isBareHost } from "../src/hosts.ts";
-import { manifestVersionRefusal } from "../src/wire.ts";
+import { manifestVersionRefusal, WellKnownPath } from "../src/wire.ts";
 import { DirectoryUnavailable, EndpointRefused, ManifestVersionRefused, NoEndpoint } from "./errors.ts";
 import { type FetchLike, defaultFetch, fetchStrict } from "./http.ts";
 import { ed25519KeysFromJwks } from "./jwks.ts";
@@ -179,7 +179,7 @@ class EndpointResolverImpl implements WellKnownEndpointResolver {
   private async fetchEndpoint(host: string): Promise<string> {
     const hit = this.cached(host);
     if (hit !== undefined) return hit; // filled while we queued behind the flight lock
-    const url = `${this.scheme}://${host}/.well-known/fora.json`;
+    const url = `${this.scheme}://${host}${WellKnownPath}`;
     const body = await fetchStrict(this.fetchFn, url);
     let doc: unknown;
     try {

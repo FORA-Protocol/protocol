@@ -21,8 +21,11 @@ from fora_sdk.resolvers._ssrf import SsrfError, blocked_address
 from fora_sdk.resolvers.errors import (
     DirectoryUnavailableError,
     EndpointRefusedError,
+    ExchangeNotPermittedError,
     KeyExpiredError,
     KeyRevokedError,
+    ManifestNotExchangeError,
+    ManifestUnusableError,
     ManifestVersionRefusedError,
     NoEndpointError,
     ResolverError,
@@ -30,6 +33,10 @@ from fora_sdk.resolvers.errors import (
     UnknownKeyError,
 )
 from fora_sdk.resolvers.offer_key_cache import CachedOfferKeyResolver, DirectoryFetch
+from fora_sdk.resolvers.registration_requirements import (
+    RegistrationRequirements,
+    WellKnownRequirementsReader,
+)
 from fora_sdk.resolvers.wba import (
     WBA_DIRECTORY_PATH,
     WBAKeyResolver,
@@ -47,10 +54,14 @@ __all__ = [
     "DirectoryFetch",
     "DirectoryUnavailableError",
     "EndpointRefusedError",
+    "ExchangeNotPermittedError",
     "KeyExpiredError",
     "KeyRevokedError",
+    "ManifestNotExchangeError",
+    "ManifestUnusableError",
     "ManifestVersionRefusedError",
     "NoEndpointError",
+    "RegistrationRequirements",
     "ResolverError",
     "RevocationUnevaluatedError",
     "SsrfError",
@@ -58,6 +69,7 @@ __all__ = [
     "WBAKeyResolver",
     "WellKnownEndpointResolver",
     "WellKnownKeyResolver",
+    "WellKnownRequirementsReader",
     "active_ed25519_key",
     "active_ed25519_key_screened",
     "active_ed25519_key_with_expiry",
