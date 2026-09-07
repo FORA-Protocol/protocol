@@ -245,20 +245,8 @@ fi
 # gradual-increase sense) appears anywhere — and no third-party package embeds it,
 # so every hit is the old brand and there is no allowlist to maintain. Note this
 # comment may not spell the token either: the guard scans its own file.
-#
-# The two exceptions are structural, not editorial. Both fixtures embed a demo
-# hostname INSIDE bytes a committed Ed25519 signature covers, and neither carries
-# a seed or an emitter to regenerate from, so renaming the hostname would leave a
-# fixture whose signature no longer matches its content. Worse, the consuming test
-# strips the signature before comparing, so nothing would fail. They are pinned
-# here by exact path: if either ever gains a regeneration path, delete its line and
-# let the guard take over.
 old_name='ra''mp'
-name_excludes=(
-  ':(exclude)sdk/python/tests/fixtures/offer_canonical_go.json'
-  ':(exclude)sdk/python/tests/fixtures/offer_wire_camel.json'
-)
-name_hits=$(git grep -niI "$old_name" -- . "${name_excludes[@]}" 2>/dev/null || true)
+name_hits=$(git grep -niI "$old_name" -- . 2>/dev/null || true)
 if [ -n "$name_hits" ]; then
   echo "::error::pre-rename '${old_name}' residue (the protocol is FORA):"
   echo "$name_hits"

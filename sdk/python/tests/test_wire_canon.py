@@ -10,11 +10,12 @@ strips ``signature``/``signature_algorithm`` by hand, exactly as
 
 Four behaviors pinned here:
 
-(a) LEGACY camelCase TOLERANCE — ``offer_wire_camel.json`` is a PRE-FLIP capture,
-    taken from the live e2e stack before the Connect wire moved to snake_case proto
+(a) LEGACY camelCase TOLERANCE — ``offer_wire_camel.json`` is adapted from a PRE-FLIP
+    capture from the live e2e stack before the Connect wire moved to snake_case proto
     names (``UseProtoNames=true``); ``offer_canonical_go.json`` is the Go canonical
-    form of the same offer. It is kept because the inversion must go on tolerating
-    the retired lowerCamel form. ``from_wire_offer`` on it produces a canonical dict
+    form of the same offer. The demo domains were renamed and the original signature
+    removed: this is unsigned canonicalization data. The inversion must go on
+    tolerating the retired lowerCamel form. ``from_wire_offer`` produces a canonical dict
     whose JCS (with ``signature``/``signature_algorithm`` stripped) equals the
     committed fixture byte-for-byte. The CURRENT wire is covered by (d).
 
@@ -71,13 +72,11 @@ _FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 def test_from_wire_offer_go_oracle_parity() -> None:
     """from_wire_offer(wire_camel) JCS-equals the committed Go canonical output.
 
-    The fixture pair was captured from the LIVE e2e stack BEFORE the Connect wire
-    moved to snake_case proto names: offer_wire_camel.json is a real demo offer
-    exactly as the Broker's Connect codec emitted it back then (camelCase,
-    EmitUnpopulated zero-inflation, ``unit:""`` set-empty optional), and
-    offer_canonical_go.json is the canonical form computed by the Go side
-    (protojson UseProtoNames + omit-unpopulated, then RFC 8785 JCS) — the byte
-    sequence the exchange's offer signature covers.
+    The fixture pair is adapted from a live e2e capture before the Connect wire
+    moved to snake_case: camelCase, EmitUnpopulated zero-inflation, and ``unit:""``
+    set-empty optional. Both fixtures use renamed demo domains; the original
+    signature was removed because it covered the old domains. These fixtures
+    exercise canonicalization only, not signature verification.
 
     The wire has since flipped to snake_case, so this pair no longer describes what
     a Broker emits; it is retained as the tolerance case, pinning that a lowerCamel
@@ -87,6 +86,7 @@ def test_from_wire_offer_go_oracle_parity() -> None:
     genuine offer signature would fail to verify in the Python shim.
     """
     wire = json.loads((_FIXTURES / "offer_wire_camel.json").read_text())
+    assert "signature" not in wire and "signatureAlgorithm" not in wire
     want = (_FIXTURES / "offer_canonical_go.json").read_text().strip()
 
     canon = from_wire_offer(wire)

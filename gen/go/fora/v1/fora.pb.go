@@ -1,4 +1,4 @@
-// FORA v1.0 — Resource Access Metering Protocol.
+// FORA v1.0 — Federated Open Resource Access.
 //
 // An open transaction protocol for licensed AI resource access. Extends
 // IAB Tech Lab CoMP v1.0 and RSL 1.0 with pricing, exchange orchestration,
