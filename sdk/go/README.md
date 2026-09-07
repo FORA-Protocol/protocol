@@ -9,7 +9,7 @@ directly with no `replace` directive.
 | **L0** | `gen/go/fora/v1`, `gen/go/vocab/*` | generated wire types (consumed, never rebuilt) |
 | **L1** | **`sdk/go/helpers`** | stateless, **IO-free** protocol helpers — RFC 9421/7638 crypto, offer/acceptance verify, static key resolution, validation |
 | L2 · I/O | **`sdk/go/resolvers`** | the network-fetching tier: well-known JWKS / WBA directory / `fora.json` endpoint / offer-key resolvers + the SSRF-guarded HTTP client. Runs on a maintained `net/http` client behind the SSRF guard; composes L1, never the reverse |
-| L2 · transport | `sdk/go/core` (transport-neutral: Verifier, {verified,rejected}, `DiscoveryResult` per-URI groups, VerifiedOffer guard, signing RoundTripper, ReplayStore — zero Connect) · `sdk/go/connect` (Connect **client** binding: `NewClient` + `NewBrokerClient` + the agent verbs **`Discover` · `Resolve` · `Execute` · `ReportUsage` · `Dispute` · `Fetch`** + client options + the `CallError` taxonomy + `ErrorDetailFrom`) · `sdk/go/connectserver` (Connect **server** binding: `NewExchangeServiceHandler` + server options + `AsConnectError` + `AttachErrorDetail`/`AttachDetail` + reject→code) | transport-neutral core + Connect client/server bindings (state injected) |
+| L2 · transport | `sdk/go/core` (transport-neutral: Verifier, {verified,rejected}, `DiscoveryResult` per-URI groups, VerifiedOffer guard, signing RoundTripper, ReplayStore — zero Connect) · `sdk/go/connect` (Connect **client** binding: `NewClient` + `NewBrokerClient` + `NewCatalogClient`; the agent verbs **`Discover` · `Resolve` · `Execute` · `ReportUsage` · `Dispute` · `Fetch`** and the publisher verbs **`PushResources` · `RemoveResources` · `RefreshCatalog`** + client options + the `CallError` taxonomy + `ErrorDetailFrom`) · `sdk/go/connectserver` (Connect **server** binding: `NewExchangeServiceHandler` + `NewBrokerServiceHandler` + `NewCatalogServiceHandler` + server options + `AsConnectError` + `AttachErrorDetail`/`AttachDetail` + the reject answer **`RejectCode` · `IsBodyTooLarge` · `WriteReject`**, the one place the 413/429/401 split and the error-envelope body are decided) | transport-neutral core + Connect client/server bindings (state injected) |
 | L3 | separate packages | framework adapters (convert, never replace) — later |
 
 The `L2` tier is split by kind: the **I/O** package (`resolvers`) is the only tier
@@ -43,6 +43,22 @@ _ = helpers.SignRequest(ctx, req, body, signer,
 vr, err := helpers.VerifyRequest(req, body, pub, helpers.VerifyOptions{})
 // ... or resolve the key via a KeyResolver (static in L1; well-known/WBA in L2 resolvers):
 vr, err = helpers.VerifyRequestResolved(ctx, req, body, resolver, helpers.VerifyOptions{})
+```
+
+**License-term pre-check** — the two tiers an Exchange applies to a pushed entry,
+runnable by a publisher before signing: the wire rules over the entry as given, then
+canonicalisation (RFC 8259 trim, ASCII-only fold, alias resolution through the generated
+vocabulary), then registry membership and canonical disjointness over a copy of its terms.
+The second of those is why the tier order matters: `permitted: ["scrape"]` with
+`prohibited: ["crawl"]` clears the boundary rule, which compares the tokens as written, and
+names one token once folded. Warning messages are the exact
+`PushResourcesResponse.warnings` strings; rule ids share the CEL-id namespace
+(`pricing.unit.registered`, `restriction.canonical_disjoint`, …):
+
+```go
+verdict := helpers.ValidateResourceEntry(entry)   // never modifies entry
+for _, v := range verdict.Violations { log.Println(v.Rule, v.Path, v.Message) }
+helpers.NormalizeResourceEntry(entry)             // the form the Exchange stores
 ```
 
 **Offer authenticity** — verify a received offer before selecting on it (the gap
@@ -204,12 +220,13 @@ import "github.com/FORA-Protocol/protocol/sdk/go/resolvers"
   `NewWBAKeyResolver` (WBA directory, revocation/expiry-aware, with a `Run` poller).
 - **Endpoint resolver** — `NewWellKnownEndpointResolver` discovers an Exchange's
   own service endpoint (`WellKnownManifest.endpoint`) from `/.well-known/fora.json`,
-  host-keyed and cached per host. Two sentinels, and the difference decides whether
-  a caller should retry: `ErrNoEndpoint` when the manifest was read and advertises
-  none, `ErrEndpointRefused` when it advertises one this resolver will not hand back
-  — on a host unrelated to the one that served the manifest, or carrying userinfo.
-  Both are verdicts, so both are final; anything else is a transport failure and
-  worth retrying. The key is an offer-supplied host, so the cache evicts
+  host-keyed and cached per host. Three sentinels, and the difference decides whether
+  a caller should retry: `ErrManifestVersionRefused` when the manifest was read and
+  carries a `ver` this reader does not accept (or none at all), `ErrNoEndpoint` when
+  it advertises no endpoint, `ErrEndpointRefused` when it advertises one this resolver
+  will not hand back — on a host unrelated to the one that served the manifest, or
+  carrying userinfo. All three are verdicts, so all three are final; anything else is
+  a transport failure and worth retrying. The key is an offer-supplied host, so the cache evicts
   least-recently-used at a fixed cap and concurrent lookups for one host coalesce to
   a single fetch.
 - **Active-key selection** — `ActiveEd25519Key` / `ActiveEd25519KeyWithExpiry` pick

@@ -103,7 +103,7 @@ The Exchange's offer-signing keys are **not** carried in `fora.json`. They live 
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `ver` | string | Yes | Schema version of this manifest **document** — a namespace separate from the RPC envelope `ver`, not coupled to it. MUST equal `"1.0"`; consumers reject unrecognised major versions |
+| `ver` | string | Yes | Version of this manifest **document**'s layout — `"1.0"`, stamped from the SDK's `WellKnownManifestVersion`, a namespace separate from the RPC envelope `ver` and never derived from it. A manifest layout change bumps both numbers; a protocol change that leaves the manifest untouched bumps only the envelope's. Consumers read it before any other member: a recognised major is accepted whatever the minor, an unrecognised major, a malformed value, or an absent `ver` is refused |
 | `role` | string | Yes | `ROLE_EXCHANGE` for an Exchange manifest |
 | `domain` | string | Yes | Canonical domain of this Exchange |
 | `name` | string | No | Human-readable Exchange name |
@@ -112,7 +112,7 @@ The Exchange's offer-signing keys are **not** carried in `fora.json`. They live 
 | `endpoint` | string | No | ExchangeService endpoint URL. **Must be on the host and port that serve this manifest, or a subdomain of that host on that port, and must not carry userinfo** — see [Endpoint host binding](#endpoint-host-binding) |
 | (offer-signing keys) | — | — | Not in `fora.json`. See the [WBA directory](#the-wba-directory) at `/.well-known/http-message-signatures-directory` |
 | `health_endpoint` | string | No | Health check endpoint URL |
-| `catalog_endpoint` | string | No | CatalogService endpoint URL |
+| `catalog_endpoint` | string | No | CatalogService endpoint URL, if the Exchange exposes the service. **Same binding as `endpoint`** — on the host and port that serve this manifest, or a subdomain of that host on that port, no userinfo — see [Endpoint host binding](#endpoint-host-binding). Unlike `endpoint`, no SDK reads or checks this field: the catalog address is configuration, so a deployment that does read it from a manifest **must apply the binding itself** before dialling. Absent means not exposed; a publisher's client does not fall back to `endpoint` |
 | `protocol_versions_supported` | string[] | No | Supported FORA protocol versions |
 | `pricing_models_supported` | string[] | No | Supported pricing models |
 | `delivery_methods_supported` | string[] | No | Supported delivery methods |

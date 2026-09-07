@@ -256,6 +256,7 @@ func buildWireConstantsVectors() []wireConstantVector {
 		{"ConnectProtocolVersionHeader", ConnectProtocolVersionHeader},
 		{"ConnectProtocolVersion", ConnectProtocolVersion},
 		{"ProtocolVersion", ProtocolVersion},
+		{"WellKnownManifestVersion", WellKnownManifestVersion},
 		{"RequestIDHeader", RequestIDHeader},
 		{"SignatureAgentHeader", SignatureAgentHeader},
 		{"AgentKeyHeader", AgentKeyHeader},

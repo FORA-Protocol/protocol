@@ -90,6 +90,11 @@ _CORPUS_SPECS: list[tuple[pathlib.Path, Callable[[Any], Any], str]] = [
     (GO_TESTDATA / "host-rule-vectors.json", lambda d: d["is_bare_host"], "is-bare-host"),
     (GO_TESTDATA / "host-rule-vectors.json", lambda d: d["host_anchored"], "host-anchored"),
     (
+        GO_TESTDATA / "manifest-version-vectors.json",
+        lambda d: d["manifest_version"],
+        "manifest-version",
+    ),
+    (
         GO_RESOLVERS_TESTDATA / "endpoint-vet-vectors.json",
         lambda d: d["endpoint_vet"],
         "endpoint-vet",
@@ -121,6 +126,11 @@ _CORPUS_SPECS: list[tuple[pathlib.Path, Callable[[Any], Any], str]] = [
         "content-fetch",
     ),
     (CONFORMANCE_CORPUS / "crossfield.json", _whole, "crossfield"),
+    (GO_TESTDATA / "licenseterm-vectors.json", lambda d: d["fold"], "licenseterm-fold"),
+    (GO_TESTDATA / "licenseterm-vectors.json", lambda d: d["normalize"], "licenseterm-normalize"),
+    (GO_TESTDATA / "licenseterm-vectors.json", lambda d: d["known"], "licenseterm-known"),
+    (GO_TESTDATA / "licenseterm-vectors.json", lambda d: d["validate"], "licenseterm-validate"),
+    (GO_TESTDATA / "licenseterm-vectors.json", lambda d: d["entry"], "licenseterm-entry"),
 ]
 
 

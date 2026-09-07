@@ -21,6 +21,7 @@ import (
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"github.com/FORA-Protocol/protocol/sdk/go/core"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -46,7 +47,7 @@ func loopbackManifestServer(t *testing.T, rest http.Handler) (string, *atomic.In
 	mux := http.NewServeMux()
 	mux.HandleFunc("/.well-known/fora.json", func(w http.ResponseWriter, _ *http.Request) {
 		hits.Add(1)
-		_ = json.NewEncoder(w).Encode(map[string]any{"endpoint": origin})
+		_ = json.NewEncoder(w).Encode(map[string]any{"ver": helpers.WellKnownManifestVersion, "endpoint": origin})
 	})
 	mux.Handle("/", rest)
 	srv := httptest.NewServer(mux)

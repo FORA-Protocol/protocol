@@ -45,6 +45,23 @@ class AgentAcceptancePayload(WireModel):
     )
 
 
+class AgentRequestAcceptanceItem(WireModel):
+    exchange: constr(min_length=1)
+    offer_sig: constr(min_length=1)
+
+
+class AgentRequestAcceptancePayload(WireModel):
+    idempotency_key: str | None = ''
+    items: list[AgentRequestAcceptanceItem] | None = Field(
+        None,
+        description="Complete original request order, before Broker fan-out. Capped at 256 —\n the same ceiling a discovery query's uris list carries, so one request\n can reference at most one offer per queried URI at the query cap. The Go\n verification helper enforces the same bound itself before doing any\n canonicalization work, because a verifier may run with wire validation\n off and the canonical rendering of an unbounded list is the expensive\n step an unauthenticated caller could otherwise buy for free.",
+        max_length=256,
+        min_length=1,
+    )
+    requester_domain: str | None = ''
+    requester_id: str | None = ''
+
+
 class AuthMethod(Enum):
     AUTH_METHOD_GNAP = 'AUTH_METHOD_GNAP'
     AUTH_METHOD_OAUTH_DPOP = 'AUTH_METHOD_OAUTH_DPOP'
@@ -294,7 +311,10 @@ class DomainVerificationChallenge(WireModel):
 
 
 class DomainVerificationConfirmation(WireModel):
-    cdn_type: str | None = Field(None, description='CDN type this key is for.')
+    cdn_type: str | None = Field(
+        None,
+        description='Which delivery-URL verification scheme this key is for: "edge-ed25519" (a\n code-capable edge that verifies the Ed25519 URL signature itself) or\n "cloudfront" (AWS CloudFront trusted key groups, RSA, verified natively by\n the CDN). One value per Exchange-side tenant signing scheme:\n "edge-ed25519" is ED25519, "cloudfront" is AWS_CLOUDFRONT_RSA.',
+    )
     domain: str | None = Field('', description='The domain being verified.')
     exchange: constr(
         pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
@@ -310,7 +330,7 @@ class DomainVerificationConfirmation(WireModel):
     )
     signing_key: str | None = Field(
         None,
-        description='Optional: signing key to register upon successful verification.\n If present, the key is registered atomically with verification.\n Key format depends on CDN type (PEM for CloudFront, hex for HMAC).',
+        description='Optional: the delivery endpoint\'s verification key, registered atomically\n with the domain on successful verification. PUBLIC key material only.\n The Exchange signs delivery URLs with a private key it holds and never\n publishes; a delivery endpoint verifies with the public half and holds\n nothing secret. Where the Exchange has to sign with a key the provider\n generated -- a CloudFront trusted key group is the provider\'s own AWS\n resource -- the private half is provisioned to the Exchange out of band\n and never travels in this field.\n\nFormat follows cdn_type: a PEM-encoded RSA public key for "cloudfront", or\n the base64url-encoded raw Ed25519 public key (the JWK "x" value) for\n "edge-ed25519".',
     )
     token: str | None = Field(
         '', description='The challenge token (echoed from DomainVerificationChallenge).'
@@ -579,7 +599,8 @@ class ProviderRelationship(Enum):
 
 class PushResourcesResponse(WireModel):
     accepted: conint(ge=-2147483648, le=2147483647) | None = Field(
-        None, description='Number of entries accepted'
+        None,
+        description="Number of entries accepted. A push is all-or-nothing, so a successful push\n stored every entry it carried and this is the submission's own size. A push\n that could not be applied is not a response at all: it travels as a non-OK\n transport error carrying ErrorDetail.catalog_rejection.",
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
@@ -587,7 +608,8 @@ class PushResourcesResponse(WireModel):
         description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
     )
     rejected: conint(ge=-2147483648, le=2147483647) | None = Field(
-        None, description='Number of entries rejected'
+        None,
+        description='Number of entries rejected. Structurally always 0 on this path, and kept for\n the same reason CATALOG_REJECTION_REASON_TERMS_LIMIT_EXCEEDED is kept: a\n rejection returns an error rather than a response, so there is no successful\n answer in which this can be non-zero. It remains meaningful only for a\n deployment that applies catalog rules somewhere the all-or-nothing rule above\n does not front. Do NOT read a zero here as "nothing failed" — read `accepted`.',
     )
     ver: str | None = Field(
         '',
@@ -595,7 +617,7 @@ class PushResourcesResponse(WireModel):
     )
     warnings: list[str] | None = Field(
         None,
-        description='Non-fatal issues encountered during ingestion.\n Examples: unrecognized vocab token in a Restriction (term accepted but flagged),\n           REFERENCE_ONLY term missing License.uri (informational).\n Warnings do not cause rejection — they are surfaced so publishers can fix\n their feeds without a hard failure.',
+        description="Non-fatal issues encountered during ingestion — the ingest tier's lint, which\n accepts the term and flags it. Examples: an unregistered bare restriction\n token on any axis, and an OBLIGATION_KIND_OTHER obligation with no detail.\n Warnings do not cause rejection; they are surfaced so publishers can fix their\n feeds without a hard failure. A condition that rejects is not a warning — a\n REFERENCE_ONLY term with no License.uri, for instance, is refused by\n license_term.reference_only.requires_uri and never reaches this list.",
     )
 
 
@@ -739,7 +761,15 @@ class RemoveResourcesRequest(WireModel):
         ...,
         description='REQUIRED. Bare host of the recipient this request is addressed to (e.g.\n "exchange.example" or "exchange.example:8081"). See "Request recipient" in\n the file header. Distinct from `tenant_id` above, which names a publisher\n tenant WITHIN an Exchange, not the Exchange itself.',
     )
-    paths: list[str] | None = Field(None, description='Paths to remove')
+    paths: (
+        list[constr(pattern=r'^/[^?#\x00-\x20\x7f]*$', min_length=1, max_length=2048)]
+        | None
+    ) = Field(
+        None,
+        description='Paths to remove — the absolute-path shape ResourceEntry.path carries, at\n least one and at most 256, the same batch bound PushResourcesRequest.entries\n carries and for the same reason.',
+        max_length=256,
+        min_length=1,
+    )
     tenant_id: str | None = Field('', description='Tenant identifier')
     ver: str | None = Field(
         '',
@@ -1159,6 +1189,20 @@ class AcceptableRestriction(WireModel):
     )
 
 
+class AgentRequestAcceptance(WireModel):
+    payload: AgentRequestAcceptancePayload = Field(
+        ...,
+        description='The signed payload is carried because a projected subrequest does not carry\n offers addressed to other Exchanges and therefore cannot reconstruct the\n original complete set by itself.',
+    )
+    signature: constr(min_length=1) = Field(
+        ...,
+        description='Hex-encoded detached Ed25519 signature over the canonical payload bytes.',
+    )
+    signature_algorithm: str | None = Field(
+        '', description='Signature algorithm; "EdDSA" for Ed25519.'
+    )
+
+
 class AttributionDetail(WireModel):
     displayed_url: str | None = Field(
         None, description='URL displayed to the user as the attribution link.'
@@ -1196,7 +1240,7 @@ class CatalogRejection(WireModel):
     )
     rejected_paths: list[str] | None = Field(
         None,
-        description='For partial-batch failures: the entry paths that were rejected.',
+        description='The entry paths the refusal is about. A catalog push is all-or-nothing, so\n these name which entries failed inside a submission that persisted nothing —\n they are not a list of what was dropped from an otherwise applied batch.',
     )
 
 
@@ -1448,7 +1492,8 @@ class Restriction(WireModel):
         description='Fail-closed by default. When false (the default), this restriction is\n BINDING: an agent that cannot evaluate every token in it — including an\n unknown vendor token — MUST decline the term. Set advisory = true to\n downgrade an unverifiable restriction to non-blocking. This deliberately\n inverts the COSE-`crit` opt-in default: a license restriction a consumer\n does not understand should stop it, not be silently ignored.',
     )
     kind: RestrictionKind = Field(
-        ..., description='Which dimension this restriction applies to.'
+        ...,
+        description="Which dimension this restriction applies to. Defined-only: the axis set is\n CLOSED, and a number outside it is refused rather than ignored. A custom\n axis is RESTRICTION_KIND_OTHER, whose meaning rides in permitted/prohibited,\n so a new number was never the extension mechanism — accepting one would\n admit a restriction no consumer can evaluate onto a term whose default is\n BINDING (see advisory below), which fails open on the axis a publisher most\n needs enforced. Closing the axis does NOT bound the cost of the one-per-kind\n rule below, and must not be read as doing so: a number this rule refuses is\n still distinct from every other, so that rule's all() finds no duplicate to\n stop on and walks the list in full anyway. Its cost is bounded by the size\n test the rule itself carries.",
     )
     permitted: (
         list[constr(pattern=r'^[A-Za-z0-9._:*-]+$', min_length=1, max_length=64)] | None
@@ -1613,7 +1658,8 @@ class WellKnownManifest(WireModel):
         description='Publisher-only. Authorized third-party catalog contributors.\n MUST be empty for non-publisher roles.',
     )
     catalog_endpoint: str | None = Field(
-        None, description='Exchange-only. CatalogService endpoint URL (if exposed).'
+        None,
+        description="Exchange-only. CatalogService endpoint URL (if exposed). It carries the\n same binding as endpoint: it MUST be on the same host AND PORT that serve\n this manifest, or on a subdomain of that host on that port, and MUST NOT\n carry userinfo. A consumer refuses a catalog endpoint anywhere else — a\n publisher's push is a signed call, and a manifest naming an unrelated host\n would redirect it to a party the signature never covered. The host match is\n on a full dot-delimited label boundary, and a port equal to the scheme's\n default and an omitted port are the SAME port. Absent means this Exchange\n does not expose CatalogService; a consumer does not fall back to endpoint.",
     )
     contact: str | None = Field(
         None, description='Contact email (licensing, integration, security).'
@@ -1698,7 +1744,7 @@ class WellKnownManifest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version of THIS MANIFEST DOCUMENT\'s schema — a namespace\n separate from the RPC envelope `ver`, deliberately not coupled to it.\n MUST equal "1.0"; consumers REJECT unrecognised major versions.',
+        description='Version of THIS MANIFEST DOCUMENT\'s layout — "1.0", stamped by the party\n that serves the document from the SDK\'s WellKnownManifestVersion, never from\n ProtocolVersion. A namespace separate from the RPC envelope `ver`: a change\n to this document\'s layout bumps both numbers, a protocol change that leaves\n the document untouched bumps only the envelope\'s, so a reader that parses\n only manifests upgrades when the manifest changes and at no other time.\n\nConsumers read `ver` before any other member. They ACCEPT a recognised\n MAJOR version whatever the MINOR — a minor revision of the manifest is\n additive, and a reader ignores members it does not know. They REJECT an\n unrecognised MAJOR, a value that is not MAJOR.MINOR, and an ABSENT `ver`:\n the document sits at a fixed, unversioned path and is read before any\n signature is checked, so a layout the reader cannot classify must not\n supply the endpoint a signed call is then sent to. The SDK endpoint\n resolvers apply this rule in all three languages, pinned to one corpus.',
     )
 
 
@@ -1785,7 +1831,9 @@ class LicenseTerm(WireModel):
         description='Governing license document. Authoritative for REFERENCE_ONLY terms, which\n MUST carry a License with a non-empty uri — a REFERENCE_ONLY term that\n references nothing is rejected at ingest.',
     )
     obligations: list[Obligation] | None = Field(
-        None, description='Post-use behavioral requirements.'
+        None,
+        description='Post-use behavioral requirements.\n At most 64, for the reason quotas carries.',
+        max_length=64,
     )
     part_label: str | None = Field(
         None,
@@ -1796,11 +1844,14 @@ class LicenseTerm(WireModel):
         description='Pricing for this term. REQUIRED for every term regardless of semantics —\n an agent cannot act on a priceless term, so absent Pricing is a validation\n error at ingest. model = FREE must be stated explicitly (absent Pricing is\n not free). A REFERENCE_ONLY term states its price here too; its License\n governs the human-readable terms but does not replace the machine-readable\n price.',
     )
     quotas: list[Quota] | None = Field(
-        None, description='Usage caps. The agent must not exceed any individual Quota.'
+        None,
+        description='Usage caps. The agent must not exceed any individual Quota.\n At most 64, the bound every per-message list in this contract carries when\n no rule walks it more than once. It bounds what one term may carry, not the\n work of checking one — a validator walks every element it is handed before\n the cap is reported, so the cost of checking is bounded at the transport.',
+        max_length=64,
     )
     restrictions: list[Restriction] | None = Field(
         None,
-        description='Usage restrictions (function, geography, user-type).\n Multiple restrictions are AND-combined — the agent must satisfy all of them.',
+        description="Usage restrictions (function, geography, user-type).\n Multiple restrictions are AND-combined — the agent must satisfy all of them.\n At most 8, and this list is the one of the three that does NOT carry the\n contract's usual 64: only one restriction per axis is valid, the axis enum\n is defined-only, so four is the longest conformant list and eight leaves\n room for an axis this version does not have. Like the caps on quotas and\n obligations, this one bounds the DOCUMENT — how many restrictions one term\n may carry — and not the work of checking it: a validator walks every element\n it is handed before any cardinality rule is reported, so an over-cap list is\n traversed in full on its way to being refused.\n\nWhat makes this list different is that one rule walks it against ITSELF. The\n one-per-kind rule below is quadratic, so it carries its own size test and\n stays silent above this cap; a conformance guard holds the two numbers equal,\n because a cap raised without the test would leave the lists in between\n unchecked for duplicate axes and accepted. The neighbouring disjointness rule\n on each element is quadratic only in that element's two token lists, both\n capped at 64, so its cost is bounded per restriction and linear across the\n list — it needs no such test.",
+        max_length=8,
     )
     scopes: list[str] | None = Field(
         None,
@@ -1851,7 +1902,8 @@ class Offer(WireModel):
         description='Resource identity for cross-exchange deduplication.\n Enables Brokers to recognize the same resource offered by\n different Exchanges and compare pricing.',
     )
     offer_id: str | None = Field(
-        '', description='Unique identifier for this offer, assigned by the Exchange.'
+        '',
+        description='Unique identifier for this offer, assigned by the Exchange.\n Opaque to the caller: not derived from the resource, its URL, or any\n other field, and carries no meaning beyond identifying this offer.\n Two offers for the same resource have different offer_ids.',
     )
     previews: list[Preview] | None = Field(
         None,
@@ -1866,11 +1918,11 @@ class Offer(WireModel):
     )
     signature: str | None = Field(
         '',
-        description="REQUIRED. JWS (alg=EdDSA) over the canonical serialization of the ENTIRE\n Offer — every field, including `pricing`, `terms` (the full licensing\n payload), `expires_at`, and `exchange`. Only `signature` and\n `signature_algorithm` are excluded from the signed bytes. `expires_at` is\n signed so the offer's validity window is integrity-protected: a relaying\n Broker cannot extend (or shorten) the TTL of a signed offer to replay it\n outside the window the Exchange intended.\n\nCANONICAL SIGNING (RFC 8785 JCS over canonical proto-JSON). The signed bytes\n are:\n\n     signed_payload = JCS( protojson(msg with signature +\n                                      signature_algorithm cleared) )\n\n i.e. render the message to canonical proto-JSON with the PINNED option set\n below, then apply RFC 8785 (JSON Canonicalization Scheme). Deterministic\n protobuf BINARY marshaling is explicitly NOT canonical across languages and\n versions (protobuf's own caveat), so it cannot be a cross-language signing\n primitive; JCS over proto-JSON can be reproduced by ANY language (Go, TS,\n Python) without a protobuf binary codec, so a broker/exchange/client in any\n language signs and verifies byte-identically. This same definition applies to\n the agent offer-acceptance signature (AgentAcceptance.signature).\n\n PINNED proto-JSON option set (the arbiter is the Go-emitted golden vector —\n whatever these options render MUST be byte-identical across all languages):\n   - enum values as NAME strings (not numbers);\n   - int64 / uint64 / fixed64 as decimal STRINGS;\n   - bytes as standard (padded) base64;\n   - google.protobuf.Timestamp / Duration per the proto-JSON WKT rules\n     (RFC 3339 string for Timestamp);\n   - unpopulated fields are OMITTED (never emitted as defaults);\n   - field naming is snake_case (the proto field name, UseProtoNames=true),\n     the naming every SDK target shares — wire, corpus, and signed form are all\n     snake_case;\n   - google.protobuf.Struct (`ext`) → a plain JSON object; JCS then sorts its\n     keys recursively, so the Struct case needs no special handling.\n\n UNKNOWN FIELDS. A canonicalizer either OMITS content it has no schema for or\n PRESERVES it, and the rule follows from which:\n\n   - OMITTING (e.g. proto-JSON, which emits only schema-defined fields): such a\n     canonicalizer CANNOT reproduce the signed bytes of a message carrying\n     unknown fields — what it renders silently drops part of what the signer\n     covered. It MUST refuse the message rather than emit the reduced bytes,\n     and a verifier built on it MUST reject rather than verify over them. The\n     refusal binds at EVERY depth: a nested message and each element of a\n     repeated or map field carries its own unknown-field set.\n   - PRESERVING (a canonicalizer that carries unrecognized members through):\n     it reproduces the signed bytes faithfully, so there is nothing to refuse.\n\n Either way an APPENDED field cannot pass: an omitting canonicalizer refuses\n the message, and a preserving one renders the appended member into bytes the\n signer never covered, so the signature fails. Without the refusal the omitting\n case would fail OPEN — an intermediary could add unknown fields to an\n already-signed message and leave its signature verifying, smuggling\n unauthenticated content through a message the recipient treats as verified.\n\n Extensions therefore ride in `ext` / `ext_critical`, which are defined fields\n and inside the signed bytes — never as undeclared field numbers.\n\n Because the signature covers `terms`, `pricing`, `expires_at`, and\n `exchange`, an intermediary (Broker) cannot tamper with price, restrictions,\n quotas, obligations, the expiry, the execute-routing target, or any\n licensing term without invalidating it.\n Agent SHOULD verify the signature (RFC 2119) against the Exchange's public\n key, and MUST reject an offer whose `expires_at` is in the past.",
+        description="REQUIRED. Hex-encoded detached Ed25519 signature over the canonical\n serialization of the ENTIRE Offer — every field, including `pricing`,\n `terms` (the full licensing payload), `expires_at`, and `exchange`. Only\n `signature` and `signature_algorithm` are excluded from the signed bytes.\n `expires_at` is signed so the offer's validity window is\n integrity-protected: a relaying Broker cannot extend (or shorten) the TTL\n of a signed offer to replay it outside the window the Exchange intended.\n\nCANONICAL SIGNING (RFC 8785 JCS over canonical proto-JSON). The signed bytes\n are:\n\n     signed_payload = JCS( protojson(msg with signature +\n                                      signature_algorithm cleared) )\n\n i.e. render the message to canonical proto-JSON with the PINNED option set\n below, then apply RFC 8785 (JSON Canonicalization Scheme). Deterministic\n protobuf BINARY marshaling is explicitly NOT canonical across languages and\n versions (protobuf's own caveat), so it cannot be a cross-language signing\n primitive; JCS over proto-JSON can be reproduced by ANY language (Go, TS,\n Python) without a protobuf binary codec, so a broker/exchange/client in any\n language signs and verifies byte-identically. This same definition applies to\n the agent offer-acceptance signature (AgentAcceptance.signature).\n\n PINNED proto-JSON option set (the arbiter is the Go-emitted golden vector —\n whatever these options render MUST be byte-identical across all languages):\n   - enum values as NAME strings (not numbers);\n   - int64 / uint64 / fixed64 as decimal STRINGS;\n   - bytes as standard (padded) base64;\n   - google.protobuf.Timestamp / Duration per the proto-JSON WKT rules\n     (RFC 3339 string for Timestamp);\n   - unpopulated fields are OMITTED (never emitted as defaults);\n   - field naming is snake_case (the proto field name, UseProtoNames=true),\n     the naming every SDK target shares — wire, corpus, and signed form are all\n     snake_case;\n   - google.protobuf.Struct (`ext`) → a plain JSON object; JCS then sorts its\n     keys recursively, so the Struct case needs no special handling.\n\n UNKNOWN FIELDS. A canonicalizer either OMITS content it has no schema for or\n PRESERVES it, and the rule follows from which:\n\n   - OMITTING (e.g. proto-JSON, which emits only schema-defined fields): such a\n     canonicalizer CANNOT reproduce the signed bytes of a message carrying\n     unknown fields — what it renders silently drops part of what the signer\n     covered. It MUST refuse the message rather than emit the reduced bytes,\n     and a verifier built on it MUST reject rather than verify over them. The\n     refusal binds at EVERY depth: a nested message and each element of a\n     repeated or map field carries its own unknown-field set.\n   - PRESERVING (a canonicalizer that carries unrecognized members through):\n     it reproduces the signed bytes faithfully, so there is nothing to refuse.\n\n Either way an APPENDED field cannot pass: an omitting canonicalizer refuses\n the message, and a preserving one renders the appended member into bytes the\n signer never covered, so the signature fails. Without the refusal the omitting\n case would fail OPEN — an intermediary could add unknown fields to an\n already-signed message and leave its signature verifying, smuggling\n unauthenticated content through a message the recipient treats as verified.\n\n Extensions therefore ride in `ext` / `ext_critical`, which are defined fields\n and inside the signed bytes — never as undeclared field numbers.\n\n Because the signature covers `terms`, `pricing`, `expires_at`, and\n `exchange`, an intermediary (Broker) cannot tamper with price, restrictions,\n quotas, obligations, the expiry, the execute-routing target, or any\n licensing term without invalidating it.\n Agent SHOULD verify the signature (RFC 2119) against the Exchange's public\n key, and MUST reject an offer whose `expires_at` is in the past.",
     )
     signature_algorithm: str | None = Field(
         '',
-        description="JWS algorithm. Always 'EdDSA' for Ed25519 via JWS Compact Serialization.",
+        description="JOSE/JWA algorithm identifier (RFC 8037 §3.1). Always 'EdDSA' for\n Ed25519. Advisory only: this field is cleared before the canonical\n payload is signed, so it is not covered by the signature.",
     )
     subscription_id: str | None = Field(
         None,
@@ -1916,11 +1968,23 @@ class ResourceEntry(WireModel):
     attestations: list[ResourceAttestation] | None = Field(
         None,
         description="Signed attestations about this resource entry.\n Same semantics as Offer.attestations — see ResourceAttestation message\n for verification levels and claim vocabulary. Attestations pushed via\n CatalogService are verified at push time: the Exchange checks that\n the attestation verifier is authorized to push for this provider\n (via catalog_contributors in the provider's WellKnownManifest) and validates the\n attestation signature against the verifier's public key from its WBA\n directory (the JWK Set at /.well-known/http-message-signatures-directory;\n the keyid is the key's RFC 7638 thumbprint). The verifier's fora.json\n carries only its role, determined by the verifier's operator.",
+        max_length=64,
     )
-    content_hash: str | None = Field(None, description='Content hash')
-    content_id: str | None = Field(None, description='Content identifier')
-    domain: str | None = Field('', description='Provider domain')
-    estimated_quantity: conint(ge=-2147483648, le=2147483647) | None = Field(
+    content_hash: constr(max_length=255) | None = Field(
+        None,
+        description='Content hash, carried as the publisher computed it — a bare hex digest or a\n "method:hexdigest" form; bounded in length, never format-checked, because\n hash_method names the algorithm.',
+    )
+    content_id: constr(max_length=255) | None = Field(
+        None, description='Content identifier'
+    )
+    domain: constr(
+        pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
+        max_length=260,
+    ) = Field(
+        ...,
+        description='Provider domain — the bare host the resource lives on, in the shape\n "Request recipient" defines in the file header: a port is allowed, a\n scheme, path, query or userinfo is not. With path it forms the catalog URI\n by concatenation, so a value carrying anything but a host would choose the\n URI rather than merely name the host.',
+    )
+    estimated_quantity: conint(ge=0, lt=2147483648) | None = Field(
         None, description='Estimated quantity in the metering unit'
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
@@ -1928,9 +1992,16 @@ class ResourceEntry(WireModel):
         None,
         description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
     )
-    hash_method: str | None = Field(None, description='Hash algorithm')
-    path: str | None = Field('', description='Content path')
-    provenance_source: str | None = Field(
+    hash_method: constr(max_length=64) | None = Field(
+        None, description='Hash algorithm'
+    )
+    path: constr(pattern=r'^/[^?#\x00-\x20\x7f]*$', min_length=1, max_length=2048) = (
+        Field(
+            ...,
+            description='Content path — an absolute URL path such as "/premium/article-42.html":\n starts with "/", carries no query or fragment delimiter, no whitespace and\n no control character, and is at most 2048 characters. Characters, not bytes:\n protovalidate\'s max_len counts Unicode code points, and the pattern admits\n non-ASCII, so a conformant path can exceed 2048 bytes.',
+        )
+    )
+    provenance_source: constr(max_length=260) | None = Field(
         None,
         description='Who provided this resource metadata. Creates audit trail for\n "where did this catalog entry come from?"',
     )
@@ -1946,10 +2017,11 @@ class ResourceEntry(WireModel):
     )
     terms: list[LicenseTerm] | None = Field(
         None,
-        description='Publisher-declared licensing terms for this resource.\n See LicenseTerm for the full model. For ENUMERATED terms, Pricing MUST\n be present. For REFERENCE_ONLY terms, License.uri is authoritative.\n The Exchange validates ENUMERATED terms at push time and surfaces them\n in Offer.terms on discovery.',
+        description='Publisher-declared licensing terms for this resource.\n See LicenseTerm for the full model. For ENUMERATED terms, Pricing MUST\n be present. For REFERENCE_ONLY terms, License.uri is authoritative.\n The Exchange validates ENUMERATED terms at push time and surfaces them\n in Offer.terms on discovery. At most 32 terms per entry, stated on the wire\n so every implementation refuses the same size. An over-cap entry refuses the\n whole submission, as every catalog rejection does; what being a wire rule\n changes is WHEN — the refusal now happens at the boundary, before any\n per-entry classification runs, which is why the rejection reason that named\n this cap can no longer be produced for a push.',
+        max_length=32,
     )
-    title: str | None = Field(None, description='Content title')
-    word_count: conint(ge=-2147483648, le=2147483647) | None = Field(
+    title: constr(max_length=512) | None = Field(None, description='Content title')
+    word_count: conint(ge=0, lt=2147483648) | None = Field(
         None, description='Word count'
     )
 
@@ -1996,6 +2068,10 @@ class TransactionItem(WireModel):
 
 
 class TransactionRequest(WireModel):
+    agent_request_acceptance: AgentRequestAcceptance | None = Field(
+        None,
+        description='Optional for wire compatibility. When present, an Exchange verifies this\n before creating or serving request-level idempotency state. A Broker MUST\n forward it unchanged on every projected subrequest. Older clients that omit\n it retain per-item execution semantics but receive no request-level claim.',
+    )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
         None,
@@ -2045,7 +2121,10 @@ class PushResourcesRequest(WireModel):
         description='Identity of the caller (who is pushing this data).\n The Exchange verifies this matches a registered CatalogService client.',
     )
     entries: list[ResourceEntry] | None = Field(
-        None, description='Content entries to push'
+        None,
+        description='Content entries to push. At least one: an empty push asks for nothing and\n is refused rather than answered with zero counts. At most 256, the bound a\n caller-chosen batch carries elsewhere in this contract (see ResourceQuery.uris)\n — it bounds one submission, so a larger feed is pushed in several. The cap is\n over entries because a submission is stored or refused whole, and a refusal\n names each entry that failed; it does not bound the work of checking a\n submission, which the recipient bounds at the transport.',
+        max_length=256,
+        min_length=1,
     )
     exchange: constr(
         pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
