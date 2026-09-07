@@ -42,21 +42,21 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 ### T5: Provider revenue skimming
 **Attack**: Exchange tells provider 1,000 transactions occurred; actually processed 1,500.
 **Countermeasure (reconciliation)**: **Three-sided reconciliation.** Provider's CDN logs, Exchange's transaction log, and usage reports must all agree.
-**Countermeasure (protocol)**: Signed URLs include transaction_id in URL parameters for CDN-to-Exchange reconciliation.
+**Countermeasure (protocol)**: Both sides record `signed_url_hash` — SHA-256 of the delivery URL verbatim. The Exchange stores it on the transaction and the delivery endpoint stores it on its delivery event, so the two logs join on a value neither side chooses.
 
 ### T6: Overly long signed URL expiry
 **Attack**: Exchange issues 24-hour URLs instead of 5-minute, enabling reuse.
-**Countermeasure (protocol)**: Protocol mandates maximum URL TTL (5 minutes). Provider's edge function enforces independently.
+**Countermeasure (protocol)**: The delivery endpoint refuses any URL whose `exp` has passed, and the Exchange issues short expiries -- five minutes in the reference flows. No verifier enforces a second, independent upper bound on the TTL: the only bound is the `exp` the Exchange signed, so a 24-hour URL is detected by reconciliation (T5), not refused at the edge. A provider who wants a hard ceiling has to add that check to its own edge function.
 
 ### T7: Signing key leakage
 **Attack**: Exchange shares signing keys with a preferred requester, enabling URL forgery.
-**Countermeasure (protocol)**: **Asymmetric signing.** Provider holds the private key; Exchange requests signed URLs from provider's signing service.
+**Countermeasure (protocol)**: **Asymmetric signing, with per-tenant key isolation.** The Exchange holds a separate private key per tenant, loaded from a key store at startup; the delivery endpoint verifies with the matching public key, published in the Exchange's key directory. This bounds the damage rather than preventing the act -- the attacker here is the Exchange, so no control the Exchange operates can stop it from exporting its own key. What the design gives you is that a leaked verification key forges nothing, a compromised edge cannot mint URLs, and a leaked tenant key forges URLs for that one tenant and no other. Detection is T5's job: forged fetches appear in the provider's delivery log and not in the Exchange's transaction log, and the two join on `signed_url_hash`.
 
 ## 2. Demand-Side Threats (Dishonest Agent / Requester)
 
 ### T8: Signed URL sharing
 **Attack**: Agent A pays, shares signed URL with Agents B, C, D before expiry.
-**Countermeasure (protocol)**: **Agent-bound signed URLs.** Embed the agent's RFC 7638 JWK Thumbprint (`agent_identity_hash`) in the HMAC-signed URL; a capable edge function requires the fetcher to present its public key + an RFC 9421 signature (proof-of-possession) and checks `thumbprint(presented key) == agent_identity_hash`. Implemented via `agent_identity_hash` on `TransactionResponse`.
+**Countermeasure (protocol)**: **Agent-bound signed URLs.** Embed the agent's RFC 7638 JWK Thumbprint (`agent_identity_hash`) as the URL's `agent_id` parameter, covered by the URL's Ed25519 signature; a capable edge function requires the fetcher to present its public key + an RFC 9421 signature (proof-of-possession) and checks `thumbprint(presented key) == agent_identity_hash`. Implemented via `agent_identity_hash` on `TransactionResponse`.
 
 ### T9: Systematic caching / content mirroring
 **Attack**: Agent fetches every article once, caches locally forever, never pays again.
@@ -116,6 +116,11 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 **Attack**: Broker logs every DiscoverResources query, sells the data.
 **Countermeasure**: Not solvable at protocol level. Data handling agreements required.
 
+### T-BRK-1: Request-set mutation during execute fan-out
+**Attack**: The agent commits to an ordered set of offers and hands execution to a Broker. While projecting the set into per-Exchange `ExecuteTransaction` subrequests, the Broker mutates it at the **item** level: it removes an item, appends one the agent never chose, reorders the items, or sends a valid subset first so the agent's idempotency key is consumed by a request the agent did not make — a later honest retry then replays the mutilated result instead of executing the real set.
+**Why the hop stack does not cover this**: The RFC 9421 forwarding-signature stack (T20, T-DEL-4) proves who forwarded a request that travels **byte-for-byte**. A projected subrequest is a new HTTP request the Broker authors and signs itself, so hop-chain integrity says nothing about which items the projected body carries — see [Projected execute requests](/protocol/authentication/#projected-execute-requests).
+**Countermeasure (protocol)**: **`TransactionRequest.agent_request_acceptance`.** The agent signs the complete ordered set of `(offer signature, exchange)` references plus the requester and idempotency key with its own Ed25519 key, and the Broker must forward the envelope unchanged on every subrequest. Each Exchange verifies the signature and requires its subrequest to equal the complete in-order projection of the signed set addressed to itself, **before** creating or serving any request-level idempotency state. A removed, appended, reordered, or subset request fails the projection check and claims nothing. The field is optional for wire compatibility: an older client that omits it keeps per-item execution semantics (each item still carries its own `agent_acceptance`) but gets no request-level set claim.
+
 ## 5. Third-Party Attacks
 
 ### T22: Exchange impersonation
@@ -172,7 +177,7 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 
 | Level | Threat IDs | What It Means |
 |---|---|---|
-| **Preventable at protocol level** | T3, T4, T5, T6, T7, T8, T9, T12, T16, T19, T22, T23, T24, T25, T26, T-ATT-1, T-ATT-2, T-ATT-3, T-ATT-5, T-DEL-1, T-DEL-2, T-DEL-3, T-DEL-4, T-DEL-5, T-DEL-6 | Protocol changes make the attack structurally impossible |
+| **Preventable at protocol level** | T3, T4, T5, T6, T7, T8, T9, T12, T16, T19, T22, T23, T24, T25, T26, T-BRK-1, T-ATT-1, T-ATT-2, T-ATT-3, T-ATT-5, T-DEL-1, T-DEL-2, T-DEL-3, T-DEL-4, T-DEL-5, T-DEL-6 | Protocol changes make the attack structurally impossible |
 | **Detectable via reconciliation** | T1, T2, T4, T5, T13, T14, T15, T17, T27, T-ATT-4 | Three-sided reconciliation catches it |
 | **Legal/contractual only** | T10, T11, T13, T17, T18, T20, T21, T28, T29, T30 | Can't enforce technically |
 
@@ -181,8 +186,10 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 ```
 Line 1: Protocol-level prevention
   Signed offers, content hashes, agent-bound URLs, idempotency keys,
-  holder-bound JWT delegation chain (cnf), RFC 9421 forwarding-chain verification
-  (stack of per-hop HTTP Message Signatures), subscription-level quota tracking
+  agent-signed request-set proof (request acceptance, verified before
+  idempotency state), holder-bound JWT delegation chain (cnf),
+  RFC 9421 forwarding-chain verification (stack of per-hop HTTP Message
+  Signatures), subscription-level quota tracking
   Makes attacks structurally impossible
 
 Line 2: Three-sided reconciliation

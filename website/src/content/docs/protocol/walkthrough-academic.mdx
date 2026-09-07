@@ -213,7 +213,7 @@ The Exchange resolves all 50 DOIs against its catalog, checks the delegation JWT
       "uri": "doi:10.48550/arXiv.2406.11838",
       "offers": [
         {
-          "offer_id": "offer-arxiv-2406-11838",
+          "offer_id": "c2e59d05-f026-4f84-9c97-67906b71a0ce",
           "exchange": "exchange.scholarsgate.com",
           "title": "MedViT: A Robust Vision Transformer for Medical Image Classification",
           "pricing": {
@@ -288,7 +288,7 @@ The Exchange resolves all 50 DOIs against its catalog, checks the delegation JWT
       "uri": "doi:10.1016/j.media.2024.103250",
       "offers": [
         {
-          "offer_id": "offer-elsevier-sub-103250",
+          "offer_id": "ba9b114a-1e5b-473c-886c-4b9ac9b89a9d",
           "exchange": "exchange.scholarsgate.com",
           "title": "TransUNet++: Rethinking Multi-Scale Feature Fusion for Medical Image Segmentation",
           "pricing": {
@@ -374,7 +374,7 @@ The Exchange resolves all 50 DOIs against its catalog, checks the delegation JWT
       "uri": "doi:10.1038/s41592-024-02401-5",
       "offers": [
         {
-          "offer_id": "offer-springer-paid-02401",
+          "offer_id": "92881d37-e18d-48d1-993b-51e4e5cea630",
           "exchange": "exchange.scholarsgate.com",
           "title": "CellViT: Vision Transformers for Precise Cell Segmentation and Classification",
           "pricing": {
@@ -448,7 +448,7 @@ The Exchange resolves all 50 DOIs against its catalog, checks the delegation JWT
       "uri": "doi:10.1038/s41592-024-02467-x",
       "offers": [
         {
-          "offer_id": "offer-springer-retracted-02467",
+          "offer_id": "470b02b2-3335-4ea5-a0d7-51095f59ddeb",
           "exchange": "exchange.scholarsgate.com",
           "title": "RETRACTED: Attention-Guided Pathology Detection via Self-Supervised Transformers",
           "pricing": {
@@ -641,7 +641,7 @@ The Broker commits to all 49 selected offers in a single batch `TransactionReque
   "items": [
     {
       "offer": {
-        "offer_id": "offer-arxiv-2406-11838",
+        "offer_id": "c2e59d05-f026-4f84-9c97-67906b71a0ce",
         "exchange": "exchange.scholarsgate.com",
         "title": "MedViT: A Robust Vision Transformer for Medical Image Classification",
         "pricing": {
@@ -667,7 +667,7 @@ The Broker commits to all 49 selected offers in a single batch `TransactionReque
     },
     {
       "offer": {
-        "offer_id": "offer-elsevier-sub-103250",
+        "offer_id": "ba9b114a-1e5b-473c-886c-4b9ac9b89a9d",
         "exchange": "exchange.scholarsgate.com",
         "title": "TransUNet++: Rethinking Multi-Scale Feature Fusion for Medical Image Segmentation",
         "pricing": {
@@ -706,7 +706,7 @@ The Exchange processes all 49 items in a single batch:
 4. **Balance check** — confirms `litrev-agent@cs.stanford.edu` has sufficient balance ($25.50 for 17 paid items).
 5. **Quota check** — confirms 49 accesses fit within the subscription's remaining quota (76,520).
 6. **WAL write** — records all 49 transactions in the write-ahead log before generating signed URLs (write-before-sign invariant).
-7. **Signed URL generation** — generates 49 HMAC-SHA256 signed URLs, each binding `agent_id` and `txn_id`.
+7. **Signed URL generation** — generates 49 Ed25519 signed URLs, each binding `agent_id`.
 
 Response (abbreviated — showing one item from each category):
 
@@ -715,10 +715,10 @@ Response (abbreviated — showing one item from each category):
   "ver": "1.0",
   "items": [
     {
-      "offer_id": "offer-arxiv-2406-11838",
+      "offer_id": "c2e59d05-f026-4f84-9c97-67906b71a0ce",
       "transaction_id": "txn-arxiv-001",
       "billing_id": "bill-arxiv-001",
-      "retrieval_endpoint": "https://cdn.arxiv.org/fora/2406.11838.pdf?expires=1742478600&agent_id=3c8f2a1d...&txn_id=txn-arxiv-001&sig=hmac-sha256-a1b2c3...",
+      "retrieval_endpoint": "https://cdn.arxiv.org/fora/2406.11838.pdf?agent_id=3c8f2a1d...&exp=1742478600&kid=pQ7wL2xB...&sig=a1b2c3...",
       "cost": {
         "amount": "0",
         "currency": "USD"
@@ -732,10 +732,10 @@ Response (abbreviated — showing one item from each category):
       }
     },
     {
-      "offer_id": "offer-elsevier-sub-103250",
+      "offer_id": "ba9b114a-1e5b-473c-886c-4b9ac9b89a9d",
       "transaction_id": "txn-elsevier-sub-001",
       "billing_id": "bill-elsevier-sub-001",
-      "retrieval_endpoint": "https://cdn.sciencedirect.com/fora/S1361841524001250.pdf?expires=1742478600&agent_id=3c8f2a1d...&txn_id=txn-elsevier-sub-001&sig=hmac-sha256-d4e5f6...",
+      "retrieval_endpoint": "https://cdn.sciencedirect.com/fora/S1361841524001250.pdf?agent_id=3c8f2a1d...&exp=1742478600&kid=pQ7wL2xB...&sig=d4e5f6...",
       "cost": {
         "amount": "0",
         "currency": "USD"
@@ -754,10 +754,10 @@ Response (abbreviated — showing one item from each category):
       }
     },
     {
-      "offer_id": "offer-springer-paid-02401",
+      "offer_id": "92881d37-e18d-48d1-993b-51e4e5cea630",
       "transaction_id": "txn-springer-paid-001",
       "billing_id": "bill-springer-paid-001",
-      "retrieval_endpoint": "https://cdn.nature.com/fora/s41592-024-02401-5.pdf?expires=1742478600&agent_id=3c8f2a1d...&txn_id=txn-springer-paid-001&sig=hmac-sha256-g7h8i9...",
+      "retrieval_endpoint": "https://cdn.nature.com/fora/s41592-024-02401-5.pdf?agent_id=3c8f2a1d...&exp=1742478600&kid=pQ7wL2xB...&sig=g7h8i9...",
       "cost": {
         "amount": "1.50",
         "currency": "USD"
@@ -794,7 +794,7 @@ Response (abbreviated — showing one item from each category):
 - **`total_cost`**: $25.50 for all 49 papers. The 12 free OA papers and 20 subscription papers cost $0.00 each.
 - **`subscription_unit_value`**: $1.50 on each subscription item. This is the imputed value for accounting purposes (ASC 606 prepaid drawdown). Stanford's subscription is "spending" this value even though the marginal cost is zero.
 - **`subscription_quota`**: After the transaction, 76,500 accesses remain (20 were consumed from the previous 76,520). The quota resets on April 1.
-- **Signed URLs**: Each URL is valid for 5 minutes (`expires_at`), contains the `agent_identity_hash` to prevent URL sharing, and embeds the `txn_id` for three-sided reconciliation (agent, Exchange, CDN).
+- **Signed URLs**: Each URL is valid for 5 minutes (`expires_at`), contains the `agent_identity_hash` to prevent URL sharing, and is recorded by its hash for three-sided reconciliation (agent, Exchange, CDN).
 
 The agent then fetches all 49 PDFs via the signed URLs. For each paper, because `resource_mutability` is `RESOURCE_MUTABILITY_STATIC`, the agent computes SHA-256 of the delivered PDF and compares against the `identity.content_hash` from the offer. A mismatch would be grounds for a `DisputeTransaction`.
 
@@ -879,7 +879,7 @@ Response:
 - **Agent to Exchange**: signed with an RFC 9421 HTTP Message Signature (alg=ed25519) in the HTTP headers
 - **Institutional delegation**: delegation JWT signed by `stanford.edu`'s Ed25519 key, holder-of-key bound via `cnf.jkt` (offline-verifiable)
 - **Exchange to Agent**: `exchange_signature` on each Offer (Ed25519, stateless verification)
-- **Signed URLs**: HMAC-SHA256 (Exchange-CDN shared secret, agent identity bound)
+- **Signed URLs**: Ed25519 (Exchange-signed, publicly verifiable, agent identity bound)
 - **Content integrity**: SHA-256 hash verification on all 49 delivered PDFs (`RESOURCE_MUTABILITY_STATIC`)
 
 **Key academic-specific capabilities demonstrated:**

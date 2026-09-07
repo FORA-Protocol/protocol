@@ -17,7 +17,7 @@ import {
 } from "../client/index.ts";
 import { createVerifier } from "../core/verifier.ts";
 import { signOffer } from "../src/offer-sign.ts";
-import { verifyOfferAcceptance } from "../src/acceptance.ts";
+import { verifyOfferAcceptance, verifyRequestAcceptance } from "../src/acceptance.ts";
 
 const REQUESTER = { id: "agent-1", domain: "agent.test", type: "REQUESTER_TYPE_AGENT" };
 
@@ -372,6 +372,58 @@ describe("execute", () => {
 				keys.publicKey,
 			),
 		).resolves.toBe(true);
+		// The request-level acceptance travels beside the per-item one. The wire
+		// payload must spell exactly what was signed, and the signature must
+		// verify the way a receiving Exchange would check it.
+		const requestAcceptance = body["agent_request_acceptance"] as Record<string, unknown>;
+		expect(requestAcceptance["payload"]).toEqual({
+			items: [{ offer_sig: offer["signature"], exchange: "exchange.test" }],
+			requester_id: REQUESTER.id,
+			requester_domain: REQUESTER.domain,
+			idempotency_key: "idem-1",
+		});
+		expect(requestAcceptance["signature_algorithm"]).toBe("EdDSA");
+		await expect(
+			verifyRequestAcceptance(
+				{
+					items: [{ offerSig: offer["signature"] as string, exchange: "exchange.test" }],
+					requesterId: REQUESTER.id,
+					requesterDomain: REQUESTER.domain,
+					idempotencyKey: "idem-1",
+				},
+				requestAcceptance["signature"] as string,
+				keys.publicKey,
+			),
+		).resolves.toBe(true);
+	});
+
+	it("omits the request acceptance when the offer names no exchange", async () => {
+		// An offer with no exchange cannot appear in a request-acceptance item
+		// (the item requires a recipient), so the client sends the request
+		// without the field. A wire-valid offer always names its exchange, so
+		// this path is reachable only through verification "off" — surfaced the
+		// same way the unsigned-offer test does, with request validation off
+		// for the same reason.
+		const { offer } = await signedOffer("");
+		const verifier = createVerifier("off", {
+			resolve: async () => undefined,
+			now: () => 0,
+		});
+		const surfaced = (await verifier.sort([offer])).verified[0];
+		const keys = await agentKeys();
+		const { send, seen } = recordingSend({ ver: "1.0" });
+		const client = createClient("https://exchange.test", {
+			requester: REQUESTER,
+			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			send,
+			validation: "off",
+		});
+
+		await client.execute(surfaced as NonNullable<typeof surfaced>, {
+			idempotencyKey: "idem-1",
+		});
+
+		expect(bodyOf(seen[0] as UnaryRequest)).not.toHaveProperty("agent_request_acceptance");
 	});
 
 	it("mints a fresh idempotency key when none is pinned", async () => {
@@ -535,6 +587,30 @@ describe("the offer-derived leg", () => {
 		await expect(
 			flakyClient.reportUsage({ exchange: "issuer.test" }),
 		).rejects.toMatchObject({ kind: "unreachable" });
+	});
+
+	it("does not send when the manifest's version is refused", async () => {
+		// A manifest whose version the reader refuses is a VERDICT: the manifest was
+		// fetched and parsed, and nothing about a retry changes the version served.
+		// Mirrors the Go taxonomy test for the same refusal.
+		const { ManifestVersionRefused } = await import("../resolvers/errors.ts");
+		const { send, seen } = recordingSend({});
+		const client = createClient("https://home.test", {
+			endpointResolver: {
+				resolveEndpoint: async () => {
+					throw new ManifestVersionRefused('ver "2.0" has major 2, accept major 1');
+				},
+			},
+			guardedSend: send,
+		});
+		const err = (await client
+			.reportUsage({ exchange: "issuer.test" })
+			.catch((e: unknown) => e)) as ForaCallError;
+		expect(err.kind).toBe("not_sent");
+		// The route flattens the resolver's error into the cause message; the
+		// refusal's wording must survive so an operator can tell it from an outage.
+		expect((err.cause as Error).message).toContain("accept major 1");
+		expect(seen).toHaveLength(0);
 	});
 });
 

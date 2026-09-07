@@ -195,6 +195,71 @@ func buildClientRequestVectors(t *testing.T) []clientRequestVector {
 	})
 	out = append(out, executeVector(t, baseOpts))
 	out = append(out, brokerResolveVector(t, baseOpts))
+	out = append(out, catalogVectors(t, baseOpts)...)
+	return out
+}
+
+// catalogVectors captures the publisher's three verbs, which live on their own
+// client because CatalogService is its own address — an Exchange advertises it
+// separately from the ExchangeService endpoint — and its caller is a different
+// party with a different key. They carry no idempotency key by design (the catalog
+// upsert and delete are naturally idempotent, so a key there would be ceremony)
+// and forward no requester (the caller is named by caller_id), so both columns
+// record empty: a client that minted a key or stamped the requester it was built
+// with would move them.
+func catalogVectors(t *testing.T, baseOpts []foraconnect.ClientOption) []clientRequestVector {
+	t.Helper()
+	var out []clientRequestVector
+	capture := func(name, verb string, run func(c *foraconnect.CatalogClient, exchange string) error) {
+		t.Helper()
+		var seen capturedRequest
+		srv := recordingOrigin(t, &seen)
+		defer srv.Close()
+		host := strings.TrimPrefix(srv.URL, "http://")
+		if err := run(foraconnect.NewCatalogClient(srv.URL, baseOpts...), host); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		ver, _ := seen.body["ver"].(string)
+		key, _ := seen.body["idempotency_key"].(string)
+		out = append(out, clientRequestVector{
+			Name: name, Verb: verb, Path: seen.path, Ver: ver,
+			IdempotencyKey: key, KeyMinted: false, RequesterID: requesterIDOf(seen.body),
+		})
+	}
+	entry := &forav1.ResourceEntry{Domain: "publisher.test", Path: "/x", Terms: []*forav1.LicenseTerm{{
+		Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+		Pricing:   &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"},
+	}}}
+	capture("push_resources", "pushResources", func(c *foraconnect.CatalogClient, exchange string) error {
+		_, err := c.PushResources(context.Background(), &forav1.PushResourcesRequest{
+			Exchange: exchange, TenantId: "tenant-1", CallerId: "publisher.test",
+			Entries: []*forav1.ResourceEntry{entry},
+		})
+		return err
+	})
+	// `ver` is filled only when the caller left it empty, on the catalog legs as on
+	// every other. Discovery had a case for that rule and the catalog verbs did not,
+	// so a port that stamped unconditionally — overwriting a version its caller chose
+	// deliberately — stayed green here while Go's own tests caught it.
+	capture("push_resources_caller_ver_wins", "pushResources", func(c *foraconnect.CatalogClient, exchange string) error {
+		_, err := c.PushResources(context.Background(), &forav1.PushResourcesRequest{
+			Exchange: exchange, TenantId: "tenant-1", CallerId: "publisher.test", Ver: "9.9",
+			Entries: []*forav1.ResourceEntry{entry},
+		})
+		return err
+	})
+	capture("remove_resources", "removeResources", func(c *foraconnect.CatalogClient, exchange string) error {
+		_, err := c.RemoveResources(context.Background(), &forav1.RemoveResourcesRequest{
+			Exchange: exchange, TenantId: "tenant-1", Paths: []string{"/x"},
+		})
+		return err
+	})
+	capture("refresh_catalog", "refreshCatalog", func(c *foraconnect.CatalogClient, exchange string) error {
+		_, err := c.RefreshCatalog(context.Background(), &forav1.RefreshCatalogRequest{
+			Exchange: exchange, TenantId: "tenant-1",
+		})
+		return err
+	})
 	return out
 }
 
@@ -239,7 +304,7 @@ func verifyOne(t *testing.T, offers offerFixture) core.VerifiedOffer {
 	t.Helper()
 	sorted := core.NewVerifier(
 		core.Strict,
-		helpers.NewStaticKeyResolver(map[string]ed25519.PublicKey{"": offers.exchangePub}),
+		helpers.NewStaticKeyResolver(map[string]ed25519.PublicKey{"exchange.test": offers.exchangePub}),
 		time.Now,
 	).Sort(context.Background(), []*forav1.Offer{offers.good})
 	if len(sorted.Verified) != 1 {

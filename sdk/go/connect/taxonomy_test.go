@@ -13,6 +13,7 @@ import (
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
@@ -88,7 +89,7 @@ func TestReportUsage_TransientResolveFailureIsUnreachable(t *testing.T) {
 // opposite branch of the same classification.
 func TestReportUsage_NoAdvertisedEndpointIsNotSent(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{}`)) // a manifest with no endpoint
+		_, _ = w.Write([]byte(`{"ver":"` + helpers.WellKnownManifestVersion + `"}`)) // a manifest with no endpoint
 	}))
 	defer srv.Close()
 
@@ -109,6 +110,35 @@ func TestReportUsage_NoAdvertisedEndpointIsNotSent(t *testing.T) {
 	}
 	if !errors.Is(err, resolvers.ErrNoEndpoint) {
 		t.Error("the resolver's sentinel must stay reachable through the classification")
+	}
+}
+
+// An Exchange whose manifest carries a document version this reader does not
+// accept is a VERDICT too: the manifest was fetched and parsed, and the reader
+// refuses to act on it. Nothing about a retry changes the version served.
+func TestReportUsage_UnacceptedManifestVersionIsNotSent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"ver":"2.0","endpoint":"` + "http://" + "exchange.invalid" + `"}`))
+	}))
+	defer srv.Close()
+
+	sig := newSigningFixture(t)
+	client := foraconnect.NewClient("http://home.invalid",
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+
+	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
+		Exchange:      strings.TrimPrefix(srv.URL, "http://"),
+		TransactionId: "txn-1",
+	})
+	var cerr *foraconnect.CallError
+	if !errors.As(err, &cerr) {
+		t.Fatalf("error = %v, want a CallError", err)
+	}
+	if cerr.Kind != foraconnect.CallNotSent {
+		t.Errorf("kind = %v, want CallNotSent — the manifest was read and its version refused", cerr.Kind)
+	}
+	if !errors.Is(err, resolvers.ErrManifestVersionRefused) {
+		t.Error("the resolver's version sentinel must stay reachable through the classification")
 	}
 }
 

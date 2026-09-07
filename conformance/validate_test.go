@@ -89,6 +89,16 @@ func TestProtovalidateConstraints(t *testing.T) {
 	runValidationCases(t, licensingCases())
 }
 
+// enumeratedTerms builds n minimal valid ENUMERATED terms, for the per-entry
+// terms cap cases.
+func enumeratedTerms(n int) []*forav1.LicenseTerm {
+	out := make([]*forav1.LicenseTerm, 0, n)
+	for i := 0; i < n; i++ {
+		out = append(out, &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: freePricing()})
+	}
+	return out
+}
+
 func licensingCases() []validationCase {
 	hex64 := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 	return []validationCase{
@@ -120,6 +130,33 @@ func licensingCases() []validationCase {
 		{"restriction permitted control-char rejected", &forav1.Restriction{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"bad\ttoken"}}, false, "string.pattern"},
 		{"restriction prohibited ok", &forav1.Restriction{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Prohibited: []string{"ai-train"}}, true, ""},
 		{"restriction prohibited space rejected", &forav1.Restriction{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Prohibited: []string{"ai train"}}, false, "string.pattern"},
+
+		// ResourceEntry envelope — the catalog URI is domain + path by
+		// concatenation, so both halves carry a shape; the lists carry caps.
+		{"resource entry minimal ok", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/premium/article-42.html"}, true, ""},
+		{"resource entry domain with port ok", &forav1.ResourceEntry{Domain: "edge:8787", Path: "/x"}, true, ""},
+		{"resource entry single-label domain ok", &forav1.ResourceEntry{Domain: "x", Path: "/x"}, true, ""},
+		{"resource entry domain with scheme rejected", &forav1.ResourceEntry{Domain: "https://publisher.example", Path: "/x"}, false, "string.pattern"},
+		{"resource entry domain with path rejected", &forav1.ResourceEntry{Domain: "publisher.example/premium", Path: "/x"}, false, "string.pattern"},
+		{"resource entry domain with userinfo rejected", &forav1.ResourceEntry{Domain: "u@publisher.example", Path: "/x"}, false, "string.pattern"},
+		{"resource entry empty domain rejected", &forav1.ResourceEntry{Domain: "", Path: "/x"}, false, "string.pattern"},
+		{"resource entry path without leading slash rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "premium/x"}, false, "string.pattern"},
+		{"resource entry path with query rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x?y=1"}, false, "string.pattern"},
+		{"resource entry path with fragment rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x#top"}, false, "string.pattern"},
+		{"resource entry path with space rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/a b"}, false, "string.pattern"},
+		{"resource entry empty path rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: ""}, false, "string.min_len"},
+		{"resource entry title at cap ok", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Title: proto.String(strings.Repeat("t", 512))}, true, ""},
+		{"resource entry title over cap rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Title: proto.String(strings.Repeat("t", 513))}, false, "string.max_len"},
+		{"resource entry negative word count rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", WordCount: proto.Int32(-1)}, false, "int32.gte"},
+		{"resource entry 32 terms ok", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Terms: enumeratedTerms(32)}, true, ""},
+		{"resource entry 33 terms rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Terms: enumeratedTerms(33)}, false, "repeated.max_items"},
+
+		// Catalog request lists — an empty push or removal asks for nothing.
+		{"push request with one entry ok", &forav1.PushResourcesRequest{Exchange: "exchange.example", Entries: []*forav1.ResourceEntry{{Domain: "publisher.example", Path: "/x"}}}, true, ""},
+		{"push request without entries rejected", &forav1.PushResourcesRequest{Exchange: "exchange.example"}, false, "repeated.min_items"},
+		{"remove request with one path ok", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Paths: []string{"/x"}}, true, ""},
+		{"remove request without paths rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example"}, false, "repeated.min_items"},
+		{"remove request relative path rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Paths: []string{"x"}}, false, "string.pattern"},
 
 		// Quota.metric format — bare-dashed or vendor:namespaced; empty rejected.
 		// window set so the only variable under test is metric.
@@ -324,6 +361,8 @@ var standardRuleIDs = map[string]bool{
 	"repeated.max_items": true,
 	"repeated.min_items": true,
 	"int64.gte":          true,
+	"int32.gte":          true,
+	"string.max_len":     true,
 	"string.min_len":     true,
 	"enum.not_in":        true,
 	"enum.defined_only":  true,
