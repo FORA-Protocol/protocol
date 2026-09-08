@@ -13,7 +13,7 @@ manifest and then checked, rather than taken on trust or, worse, read from confi
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from fora_sdk._endpoint_rule import endpoint_refusal
 from fora_sdk._hostref import _is_invalid_host_refusal
@@ -26,6 +26,13 @@ from fora_sdk.resolvers.errors import (
 )
 
 from .errors import CallError, CallErrorKind, not_sent
+
+if TYPE_CHECKING:
+    # Annotation only: the seam below answers a concrete value, and naming it here is
+    # what lets a checker see the terms digest before it is copied onto a field the
+    # request signature covers. Kept out of the runtime import graph because this
+    # module is the routing seam and needs none of the reader's own dependencies.
+    from fora_sdk.resolvers.registration_requirements import RegistrationRequirements
 
 
 @runtime_checkable
@@ -169,5 +176,7 @@ class RegistrationRequirementsReader(Protocol):
     transient.
     """
 
-    def resolve_registration_requirements(self, exchange: str) -> Any:  # pragma: no cover
+    def resolve_registration_requirements(
+        self, exchange: str
+    ) -> RegistrationRequirements:  # pragma: no cover
         ...
