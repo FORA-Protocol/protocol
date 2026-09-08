@@ -1,0 +1,142 @@
+name: release
+
+# Tag-triggered release of the Python and TypeScript SDKs (FORA-291).
+#   1. version gate: the tag equals every released manifest version
+#   2. the three CI workflows run on the exact tagged commit (workflow_call)
+#   3. build once into the GitHub Release; SHA256SUMS is the completeness marker
+#   4. publish per file to PyPI and npm through trusted publishing (OIDC), after
+#      approval in the `release` environment; existing files are digest-checked
+#   5. install from each registry in a clean environment; Go proxy resolves the tag
+# Rerunning the workflow on the same tag is the recovery procedure. The tag
+# never moves. No registry token is stored in the repository.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: tag equals every released manifest version
+        run: python3 scripts/release/check-versions.py "${GITHUB_REF_NAME#v}"
+
+  proto-ci:
+    needs: versions
+    uses: ./.github/workflows/proto-ci.yml
+    secrets: inherit
+  sdk-types-ci:
+    needs: versions
+    uses: ./.github/workflows/sdk-types-ci.yml
+    secrets: inherit
+  docs-ci:
+    needs: versions
+    uses: ./.github/workflows/docs-ci.yml
+    secrets: inherit
+
+  build:
+    needs: [proto-ci, sdk-types-ci, docs-ci]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # release assets
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sdk/ts/package-lock.json
+      - name: build once, or verify the existing release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/release/build.sh "$GITHUB_REF_NAME"
+
+  publish-pypi:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write # PyPI trusted publishing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: download the release files and verify SHA256SUMS
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/release/download.sh "$GITHUB_REF_NAME" release-dist
+      - name: publish fora-protocol, then fora-protocol-sdk
+        run: scripts/release/publish-pypi.sh release-dist "${GITHUB_REF_NAME#v}"
+
+  publish-npm:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing + provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: npm 11.5.1+ (trusted publishing)
+        run: npm install -g npm@11 && npm --version
+      - name: download the release files and verify SHA256SUMS
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/release/download.sh "$GITHUB_REF_NAME" release-dist
+      - name: publish @fora-protocol/sdk
+        run: scripts/release/publish-npm.sh "release-dist/fora-protocol-sdk-${GITHUB_REF_NAME#v}.tgz" "${GITHUB_REF_NAME#v}"
+
+  verify:
+    needs: [publish-pypi, publish-npm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # Registries can lag a publish by a minute or two; each check retries.
+      - name: PyPI wheels install and import
+        run: |
+          v=${GITHUB_REF_NAME#v}
+          for i in 1 2 3 4 5 6; do
+            scripts/release/smoke-python.sh "fora-protocol==$v" "fora-protocol-sdk==$v" && exit 0
+            sleep 30
+          done
+          exit 1
+      - name: PyPI sdists rebuild into working wheels
+        run: |
+          v=${GITHUB_REF_NAME#v}
+          mkdir sdists
+          for n in fora-protocol fora-protocol-sdk; do
+            url=$(curl -sf "https://pypi.org/pypi/$n/$v/json" | jq -r '.urls[] | select(.packagetype == "sdist") | .url')
+            curl -sfLo "sdists/$(basename "$url")" "$url"
+          done
+          scripts/release/smoke-python.sh sdists/*.tar.gz
+      - name: npm package installs, imports and typechecks
+        run: |
+          v=${GITHUB_REF_NAME#v}
+          for i in 1 2 3 4 5 6; do
+            scripts/release/smoke-npm.sh "@fora-protocol/sdk@$v" && exit 0
+            sleep 30
+          done
+          exit 1
+      - name: Go module proxy resolves the tag
+        env:
+          GOPROXY: https://proxy.golang.org
+          GOFLAGS: -mod=mod
+        run: |
+          cd "$(mktemp -d)" && go mod init probe >/dev/null
+          go list -m "github.com/FORA-Protocol/protocol@$GITHUB_REF_NAME"

@@ -30,3 +30,15 @@ assert isinstance(term.license, License)           # full nested hierarchy, type
 ```
 
 Install (from this directory): `pip install .`
+
+## Import names and PyPI
+
+The distribution is published on PyPI as `fora-protocol`. Its import packages are the
+generic top-level names `wire` and `vocab`, so it can collide with any other distribution
+that owns either name; install it into an environment that does not. This is a recorded
+tradeoff (FORA-291): a rename to a namespaced package would break every consumer that
+installs from this repository by git ref, so the names stay as they are.
+
+```sh
+pip install fora-protocol
+```

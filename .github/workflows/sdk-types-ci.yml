@@ -35,6 +35,9 @@ on:
   pull_request:
     paths: *paths
 
+  # Also callable from release.yml, so the tag release runs this gate on the
+  # exact tagged commit. The push/pull_request triggers above are unchanged.
+  workflow_call:
 jobs:
   sdk-types:
     runs-on: ubuntu-latest

@@ -206,11 +206,23 @@ wheels = [
 ]
 
 [[package]]
+name = "fora-protocol"
+version = "1.0.0"
+source = { editable = "../../gen/python" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.0" }]
+
+[[package]]
 name = "fora-protocol-sdk"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
+    { name = "fora-protocol" },
     { name = "httpcore" },
     { name = "httpx" },
     { name = "jsonschema" },
@@ -227,6 +239,7 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "cryptography", specifier = ">=44" },
+    { name = "fora-protocol", editable = "../../gen/python" },
     { name = "httpcore", specifier = ">=1.0,<2" },
     { name = "httpx", specifier = ">=0.27,<0.29" },
     { name = "jsonschema", specifier = ">=4.23" },

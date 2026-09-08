@@ -124,6 +124,11 @@ description = "FORA L1 protocol-mechanics helpers (thumbprint, signed-URL, RFC 9
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 dependencies = [
+  # The generated wire/vocab packages (gen/python), published to PyPI as
+  # fora-protocol. Pinned exactly: both distributions are built from the same
+  # tag and the release workflow refuses a tag whose version differs from this
+  # pin (scripts/release/check-versions.py).
+  "fora-protocol==1.0.0",
   "cryptography>=44",
   # Maintained HTTP client for the L2 fetching resolvers (WBA / well-known
   # directory GETs). It owns the response state machine (status, redirects, 1xx,
@@ -169,3 +174,9 @@ test = [
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["fora_sdk*"]
+
+# Development only: resolve fora-protocol from the in-repo gen/python tree so uv can
+# lock and sync before (and independently of) the PyPI release. uv sources never
+# reach the built wheel/sdist metadata, which keeps the exact PyPI pin above.
+[tool.uv.sources]
+fora-protocol = { path = "../../gen/python", editable = true }

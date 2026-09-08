@@ -19,11 +19,11 @@
 // Go oracle by the shared vectors at
 // sdk/go/helpers/testdata/registration-schema-vectors.json.
 
-import Ajv2020, { type ErrorObject, type ValidateFunction } from "ajv/dist/2020";
+import { Ajv2020, type ErrorObject, type ValidateFunction } from "ajv/dist/2020.js";
 import canonicalize from "canonicalize";
 
-import type { RegistrationFieldError as RegistrationFieldErrorShape } from "./errordetail";
-import { rawNestingDepth } from "./jsondepth";
+import type { RegistrationFieldError as RegistrationFieldErrorShape } from "./errordetail.ts";
+import { rawNestingDepth } from "./jsondepth.ts";
 
 /**
  * maxRegistrationSchemaBytes is the published schema's size cap, measured as the
@@ -129,7 +129,7 @@ export type SchemaVerdict = (typeof schemaVerdicts)[number];
 // re-exported here so a caller importing only this module still names one type.
 // Re-declaring it would be a third copy of an L0 shape that gen/ts already generates,
 // against ADR-020's "L0 is consumed, never rebuilt".
-export type { RegistrationFieldError } from "./errordetail";
+export type { RegistrationFieldError } from "./errordetail.ts";
 
 /** One failure before it is narrowed to the wire's two-field shape. */
 export interface SchemaViolation extends RegistrationFieldErrorShape {

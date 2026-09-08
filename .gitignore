@@ -12,3 +12,4 @@ research-*.md
 __pycache__/
 .sdk-types-work/
 *.egg-info/
+.stage/

@@ -14,6 +14,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Also callable from release.yml, so the tag release runs this gate on the
+  # exact tagged commit. The push/pull_request triggers above are unchanged.
+  workflow_call:
 
 jobs:
   proto:
