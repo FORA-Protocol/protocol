@@ -134,6 +134,22 @@ describe("register", () => {
     expect(seen).toHaveLength(0);
   });
 
+  // The member bound is defined over an OBJECT, and Object.keys on a string answers
+  // its character indices. Reached through a cast, a 65-character string was refused
+  // as having too many members — a bound it never reached and a count it does not
+  // have — which sends whoever reads that verdict looking for members to remove. It
+  // is still refused, by the schema check that owns the question of what shape the
+  // field may hold.
+  it("does not count a string payload's characters as members", async () => {
+    const { send, seen } = recordingSend({});
+    const err = await client(send)
+      .register({ exchange: "exchange.test", registration_data: "x".repeat(65) })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ForaCallError);
+    expect((err as ForaCallError).message).not.toContain("too_many_members");
+    expect(seen).toHaveLength(0);
+  });
+
   it("refuses an unaddressed request before signing", async () => {
     const { send, seen } = recordingSend({});
     for (const exchange of ["", "https://exchange.test", "exchange.test/path"]) {

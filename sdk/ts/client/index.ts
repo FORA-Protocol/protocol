@@ -780,8 +780,14 @@ async function register(
 	const op = "register";
 	const sent = stampVer(op, request);
 	requireRecipient(op, stringField(sent, "exchange"));
+	// Narrowed rather than asserted. The bounds below are defined over an OBJECT, and
+	// Object.keys on a string answers its character indices — so a cast let a string
+	// payload be refused as "too many members", a verdict about a bound it never
+	// reached and a member count it does not have. Go cannot express the state at all
+	// (the field is a Struct) and Python narrows the same way, so this is the port
+	// that had to say so.
 	const verdict = checkRegistrationData(
-		(sent.registration_data ?? null) as Record<string, unknown> | null,
+		isRecord(sent.registration_data) ? sent.registration_data : null,
 	);
 	if (verdict !== "accepted") {
 		throw malformed(op, new Error(`registration_data: ${verdict}`));
