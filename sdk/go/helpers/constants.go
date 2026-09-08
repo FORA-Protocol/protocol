@@ -46,6 +46,8 @@ const (
 	// per language, which is exactly the shape that lets one port drift silently.
 	// Named here so the wire-constants vectors can carry it and the Python and
 	// TypeScript parity suites replay it against this value.
+	// WellKnownManifestVersion versions the document's content; WellKnownPath
+	// specifies where it is served.
 	WellKnownPath = "/.well-known/fora.json"
 )
 

@@ -48,6 +48,8 @@ AgentKeyHeader = "X-FORA-Agent-Key"
 #: ``{scheme}://{host}{WellKnownPath}`` to learn the endpoint and the keys, so
 #: the three SDKs agreeing on it is the precondition for interop, not a
 #: tidiness concern.
+#: ``WellKnownManifestVersion`` versions the document's content; ``WellKnownPath``
+#: specifies where it is served.
 WellKnownPath = "/.well-known/fora.json"
 
 
