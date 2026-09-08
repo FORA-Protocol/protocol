@@ -410,6 +410,14 @@ def test_reader_refuses_a_manifest_that_is_not_an_exchange() -> None:
             reader.resolve_registration_requirements("exchange.test")
 
 
+def test_reader_accepts_the_role_as_a_number() -> None:
+    """proto-JSON lets an enum travel as its number, so a manifest that spells the role
+    that way is the same manifest. Go and TypeScript both pin this; Python did not, and
+    deleting the numeric arm left the whole suite green."""
+    reader, _ = _manifest_reader(_manifest(role=2))
+    assert reader.resolve_registration_requirements("exchange.test") is not None
+
+
 def test_reader_refuses_before_dialling() -> None:
     reader, hits = _manifest_reader(_manifest())
     with pytest.raises(ValueError):

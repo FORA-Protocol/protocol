@@ -265,6 +265,46 @@ def test_a_wire_offer_carrying_emitted_zero_values_still_verifies(face: Face) ->
 
 
 # ---------------------------------------------------------------------------
+# the freshness window, on the wire
+# ---------------------------------------------------------------------------
+#
+# ``ClientConfig.sign_window`` is the knob the signing tier already had and the client
+# had no way to reach. It is asserted on the BYTES THE PEER SEES rather than on the
+# config field, because an assertion that the option was set would pass against a client
+# that then dropped it on the way to the signer — which is the defect this closes.
+#
+# It is the documented remedy for repeat ``get_account_status`` calls: that request
+# carries no varying field, so two calls to one Exchange inside a wall-clock second sign
+# identical bytes and a peer screening replays refuses the second. Driven here through
+# discover, because what is under test is that the window reaches the signature at all.
+
+
+@pytest.mark.parametrize("face", FACES, ids=_IDS)
+def test_sign_window_reaches_the_emitted_signature(face: Face) -> None:
+    created, expires = 1_700_000_000, 1_700_000_030
+    rec = Recorder({"ver": "1.0", "exchange": "exchange.test"})
+    client = face.client(_config(sign_window=lambda: (created, expires)), rec)
+
+    face.run(client.discover({"exchange": "exchange.test", "uris": ["https://site.test/a"]}))
+
+    emitted = rec.seen[0].headers["signature-input"]
+    assert f"created={created}" in emitted, emitted
+    assert f"expires={expires}" in emitted, emitted
+
+
+@pytest.mark.parametrize("face", FACES, ids=_IDS)
+def test_sign_window_defaults_when_unset(face: Face) -> None:
+    """So the window is a default and not a requirement."""
+    rec = Recorder({"ver": "1.0", "exchange": "exchange.test"})
+    client = face.client(_config(), rec)
+
+    face.run(client.discover({"exchange": "exchange.test", "uris": ["https://site.test/a"]}))
+
+    emitted = rec.seen[0].headers["signature-input"]
+    assert "created=" in emitted and "expires=" in emitted, emitted
+
+
+# ---------------------------------------------------------------------------
 # reading an answer
 # ---------------------------------------------------------------------------
 
