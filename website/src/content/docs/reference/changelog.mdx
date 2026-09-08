@@ -6,7 +6,19 @@ description: "FORA protocol changelog"
 This page contains curated public release notes. For the exhaustive maintainer
 and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protocol/protocol/blob/main/proto/CHANGELOG.md).
 
-## Unreleased
+## v1.0.0 — Initial release
+
+First public release of the FORA Protocol (Federated Open Resource Access):
+the wire format, the generated Go and TypeScript SDKs, and this specification
+site. One protocol for discovering, pricing, transacting, delivering, and
+verifying access to any digital resource by an AI agent. The reasoning behind the
+major design decisions is recorded in [`docs/design-history.md`](https://github.com/FORA-Protocol/protocol/blob/main/docs/design-history.md).
+
+### Revisions to the pre-release draft
+
+The v1.0.0 tag was created after the draft below had been revised several times.
+These entries, newest first, record those revisions. A compatibility note inside
+an entry compares against the earlier draft, not against an earlier public release.
 
 **SDK endpoint resolvers enforce `WellKnownManifest.ver`, and the manifest version
 gets its own constant (SDK behaviour change; no wire change).** The
@@ -1580,14 +1592,6 @@ deltas as expected). Changes:
 
 The request-side model (`AISystem`/`AISystemUse`, `Function`, `SubFunction`,
 `AuthMethod`, `ScopeType`, `ContentType`) is unchanged.
-
-## v1.0.0 — Initial release
-
-First public release of the FORA Protocol (Federated Open Resource Access):
-the wire format, the generated Go and TypeScript SDKs, and this specification
-site. One protocol for discovering, pricing, transacting, delivering, and
-verifying access to any digital resource by an AI agent. The reasoning behind the
-major design decisions is recorded in [`docs/design-history.md`](https://github.com/FORA-Protocol/protocol/blob/main/docs/design-history.md).
 
 ### Core protocol
 
