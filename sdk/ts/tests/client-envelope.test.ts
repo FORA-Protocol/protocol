@@ -7,8 +7,8 @@ import { describe, expect, it } from "vitest";
 import { rpcURL } from "../client/transport.ts";
 
 describe("the RPC path is joined onto the base, not concatenated", () => {
-	const target = { service: "ramp.v1.ExchangeService", method: "DiscoverResources" };
-	const path = "/ramp.v1.ExchangeService/DiscoverResources";
+	const target = { service: "fora.v1.ExchangeService", method: "DiscoverResources" };
+	const path = "/fora.v1.ExchangeService/DiscoverResources";
 
 	it("a plain base", () => {
 		expect(rpcURL({ ...target, baseURL: "https://x.test" })).toBe(`https://x.test${path}`);

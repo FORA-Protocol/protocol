@@ -17,12 +17,12 @@ from __future__ import annotations
 import pathlib
 import re
 
-_RAMP_SDK = pathlib.Path(__file__).resolve().parents[1] / "ramp_sdk"
+_FORA_SDK = pathlib.Path(__file__).resolve().parents[1] / "fora_sdk"
 
 # The pre-migration inline form the sign site must no longer contain.
 _FORBIDDEN = re.compile(r"created\s*\+\s*self\._ttl_sec")
 _REQUIRED = (
-    re.compile(r"from\s+ramp_sdk\.window\s+import"),
+    re.compile(r"from\s+fora_sdk\.window\s+import"),
     re.compile(r"self\._window\(\)"),
 )
 
@@ -39,11 +39,11 @@ def _eval(source: str) -> list[str]:
 
 class TestWindowAdoption:
     def test_signing_transport_sources_window_not_inline_mint(self) -> None:
-        src = (_RAMP_SDK / "signing_transport.py").read_text(encoding="utf8")
+        src = (_FORA_SDK / "signing_transport.py").read_text(encoding="utf8")
         assert _eval(src) == []
 
     def test_window_module_exports_both_windows(self) -> None:
-        src = (_RAMP_SDK / "window.py").read_text(encoding="utf8")
+        src = (_FORA_SDK / "window.py").read_text(encoding="utf8")
         assert "def clock_window" in src
         assert "def monotonic_window" in src
 
@@ -53,12 +53,12 @@ class TestWindowAdoption:
         assert len(_eval(bad)) > 0
 
     def test_meta_negative_passes_window_form(self) -> None:
-        good = "from ramp_sdk.window import Window, clock_window\ncreated, expires = self._window()"
+        good = "from fora_sdk.window import Window, clock_window\ncreated, expires = self._window()"
         assert _eval(good) == []
 
     def test_meta_would_be_missed_catches_reformatted_mint(self) -> None:
         reformatted = (
-            "from ramp_sdk.window import clock_window\n"
+            "from fora_sdk.window import clock_window\n"
             "self._window()\n"
             "expires = created  +  self._ttl_sec\n"  # extra spaces
         )

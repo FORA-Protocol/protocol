@@ -1,13 +1,13 @@
 """Shared pytest fixtures/paths for the sdk/python parity suites.
 
-The parity suites assert sdk/python's `ramp_sdk` L1 helpers against the SHARED
+The parity suites assert sdk/python's `fora_sdk` L1 helpers against the SHARED
 Go-oracle vectors (never against copied app fixtures — Core Invariant). This
 module centralizes the on-disk locations of those shared corpora so every suite
 resolves them the same way, mirroring the sdk/ts sibling's relative-path imports
 (`../../go/helpers/testdata/*.json`, `../../../conformance/corpus/crossfield.json`).
 
 MINIMAL by intent: this file only exposes paths + a JSON loader. It creates no
-package state and imports nothing from `ramp_sdk` (which does not exist yet), so
+package state and imports nothing from `fora_sdk` (which does not exist yet), so
 it never masks the module-missing red the suites are meant to surface.
 """
 

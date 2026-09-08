@@ -1,6 +1,6 @@
-# RAMP TypeScript types export
+# FORA TypeScript types export
 
-A **types export**, not a full SDK: Zod schemas for every RAMP message + registered
+A **types export**, not a full SDK: Zod schemas for every FORA message + registered
 vocabulary constants. Generated from `proto/` via JSON Schema by
 `scripts/gen-sdk-types.sh` — do not edit by hand.
 
@@ -13,9 +13,9 @@ Contents:
   **Hand-written, not generated.** It holds `wire()`, which sets the unknown-field policy
   (default: strip, so a field from a newer protocol version is accepted and dropped), and
   **`parseWire()`**, which is how a message should be parsed. Two things are true of the
-  RAMP wire that a schema cannot express, and both live there: a `null` means the field
+  FORA wire that a schema cannot express, and both live there: a `null` means the field
   has no value — proto-JSON's own rule, so it applies wherever the schema does not require
-  one, and a RAMP Exchange serves those nulls because `EmitUnpopulated` renders an unset
+  one, and a FORA Exchange serves those nulls because `EmitUnpopulated` renders an unset
   field rather than omitting it — and a lowerCamelCase answer is refused at every depth
   rather than parsed into a message with every multiword field missing.
 - `wire/names.ts` — the rule that recovers a proto field name from protojson's
@@ -26,9 +26,9 @@ Contents:
   `canonical()` — an exact lookup; the SDK folds case before it looks up).
 
 ```typescript
-import { parseWire } from "@ramp-protocol/sdk/wire/base";
-import { OfferSchema } from "@ramp-protocol/sdk/wire/schemas";
-import { pricingunits } from "@ramp-protocol/sdk/vocab/pricingunits";
+import { parseWire } from "@fora-protocol/sdk/wire/base";
+import { OfferSchema } from "@fora-protocol/sdk/wire/schemas";
+import { pricingunits } from "@fora-protocol/sdk/vocab/pricingunits";
 
 // shape + per-field validation, under the wire policy
 const result = parseWire(OfferSchema, incomingJson);

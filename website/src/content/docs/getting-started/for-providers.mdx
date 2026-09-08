@@ -1,6 +1,6 @@
 ---
-title: "RAMP for Resource Providers"
-description: "How any organization with digital resources can expose them through RAMP — discover, price, deliver, and get paid for every AI access"
+title: "FORA for Resource Providers"
+description: "How any organization with digital resources can expose them through FORA — discover, price, deliver, and get paid for every AI access"
 ---
 
 ## The Problem You Have
@@ -9,11 +9,11 @@ You have valuable digital resources — articles, credit reports, court filings,
 
 For web-facing providers, the problem is even more immediate: AI bots are crawling your site right now, taking content and using it to answer questions while you get nothing.
 
-RAMP gives you a standard way to **expose, price, and deliver any digital resource** to any AI agent through any Exchange — one protocol, not a hundred integrations.
+FORA gives you a standard way to **expose, price, and deliver any digital resource** to any AI agent through any Exchange — one protocol, not a hundred integrations.
 
-## What RAMP Does for You
+## What FORA Does for You
 
-RAMP turns your resources into products that AI agents can discover, evaluate, purchase, and verify. Here's how:
+FORA turns your resources into products that AI agents can discover, evaluate, purchase, and verify. Here's how:
 
 1. **A Exchange catalogs your resources** with pricing, metadata, and attestations. AI agents query the Exchange, not your systems directly.
 
@@ -25,7 +25,7 @@ The specific deployment model depends on your resource type:
 
 | Provider Type | Resource | Delivery Model | Integration |
 |---|---|---|---|
-| News publisher | Articles, podcasts | CDN edge function blocks bots, redirects to Exchange | Edge function + `ramp.json` |
+| News publisher | Articles, podcasts | CDN edge function blocks bots, redirects to Exchange | Edge function + `fora.json` |
 | Academic publisher | Journal articles, preprints | Exchange proxies access to existing repository | Catalog push via API |
 | Data provider (D&B) | Credit reports | Exchange wraps existing API | API adapter |
 | Government agency | Court filings, legislation | Exchange indexes public + premium resources | Catalog push or crawl |
@@ -39,28 +39,28 @@ import { Aside } from '@astrojs/starlight/components';
 
 ### Model A: CDN Edge Function (Web-Facing Content)
 
-If your resources are served through a CDN — news articles, editorial content, research papers hosted on your site — deploy the RAMP edge function. This is the standard approach for CDN-hosted resources.
+If your resources are served through a CDN — news articles, editorial content, research papers hosted on your site — deploy the FORA edge function. This is the standard approach for CDN-hosted resources.
 
-**Nothing to deploy if your Exchange operator supports RAMP.** Your Exchange operator deploys the CDN edge function on your behalf and manages everything. You sign a contract, grant CDN access, done.
+**Nothing to deploy if your Exchange operator supports FORA.** Your Exchange operator deploys the CDN edge function on your behalf and manages everything. You sign a contract, grant CDN access, done.
 
-If you self-manage, deploy using the [Terraform module](https://github.com/RAMP-Protocol/protocol/tree/main/terraform/aws-ramp-edge/):
+If you self-manage, deploy using the [Terraform module](https://github.com/FORA-Protocol/protocol/tree/main/terraform/aws-fora-edge/):
 
 ```hcl
-module "ramp_edge" {
-  source = "github.com/RAMP-Protocol/protocol//terraform/aws-ramp-edge"
+module "fora_edge" {
+  source = "github.com/FORA-Protocol/protocol//terraform/aws-fora-edge"
 
   cloudfront_distribution_id = aws_cloudfront_distribution.main.id
-  exchange_endpoint       = "https://exchange.your-ssp.com/ramp/v1"
+  exchange_endpoint       = "https://exchange.your-ssp.com/fora/v1"
   exchange_domain         = "exchange.your-ssp.com"
   protected_paths            = ["/premium/*", "/archive/*"]
-  signing_key_pair_id        = aws_cloudfront_public_key.ramp.id
+  signing_key_pair_id        = aws_cloudfront_public_key.fora.id
 }
 ```
 
 The edge function does three things:
 - Blocks unauthorized AI bots and tells them where to buy access
 - Verifies signed URLs for bots that paid
-- Serves a `ramp.json` file declaring your Exchange relationships
+- Serves a `fora.json` file declaring your Exchange relationships
 
 **You don't change your CMS. You don't change your content workflow. You don't talk to AI companies directly.**
 
@@ -72,16 +72,16 @@ If your resources live behind an API — credit reports, drug interaction querie
 
 D&B's credit report API already exists. A Exchange operator builds an adapter that:
 1. Catalogs available report types with pricing (per-report, per-data-block)
-2. Accepts RAMP transactions from agents
+2. Accepts FORA transactions from agents
 3. Calls the D&B API on the agent's behalf
 4. Delivers the report through a signed URL
-5. Reports usage back through the RAMP billing chain
+5. Reports usage back through the FORA billing chain
 
-The provider's existing API doesn't change. The Exchange handles the RAMP protocol surface.
+The provider's existing API doesn't change. The Exchange handles the FORA protocol surface.
 
 **Example: EUR-Lex Legislation**
 
-A government agency like EUR-Lex can offer legislation through RAMP with tiered pricing:
+A government agency like EUR-Lex can offer legislation through FORA with tiered pricing:
 - Raw legislative text: `PRICING_MODEL_FREE` (public domain, but metered for usage tracking)
 - Annotated versions with ELI metadata and amendment chains: paid per document
 - Cross-referenced compilations: paid per page
@@ -90,7 +90,7 @@ The Exchange catalogs EUR-Lex content, sets pricing tiers, and handles delivery.
 
 **Example: TCIA Medical Imaging**
 
-The Cancer Imaging Archive (TCIA) hosts thousands of imaging studies (CT, MRI, PET). Through RAMP:
+The Cancer Imaging Archive (TCIA) hosts thousands of imaging studies (CT, MRI, PET). Through FORA:
 - A Exchange catalogs available studies with metadata (modality, body part, study date)
 - Agents query for specific imaging data ("brain MRI studies from 2024")
 - The Exchange mediates access to TCIA's DICOMweb endpoint
@@ -130,7 +130,7 @@ You can also publish an `rsl.txt` file on your domain to declare pricing and ter
 
 ## What Changes vs. Today
 
-| Today | With RAMP |
+| Today | With FORA |
 |---|---|
 | Build custom API integrations per consumer | One protocol handles all AI requesters |
 | No standard discovery mechanism | Agents find your resources through Exchange queries |
@@ -141,7 +141,7 @@ You can also publish an `rsl.txt` file on your domain to declare pricing and ter
 
 ## Content Mutability
 
-RAMP classifies your resources into three mutability levels. This drives how agents verify what they receive and how disputes work.
+FORA classifies your resources into three mutability levels. This drives how agents verify what they receive and how disputes work.
 
 | Level | Meaning | Hash Behavior | Provider Examples |
 |---|---|---|---|
@@ -169,41 +169,41 @@ Attestation is most useful for STATIC resources where the hash remains stable. F
 **Key provisioning uses ACME domain verification.** You prove you control your domain (just like getting a TLS certificate from Let's Encrypt), and the Exchange provisions your Ed25519 signing key:
 
 ```
-1. ramp-cli key push  -> Exchange issues ACME challenge
-2. Place challenge at   /.well-known/ramp-verify/{token}
+1. fora-cli key push  -> Exchange issues ACME challenge
+2. Place challenge at   /.well-known/fora-verify/{token}
 3. Exchange fetches  -> domain ownership proven
 4. Key is provisioned   -> ready to sign attestations
 ```
 
-**Key publication**: Your domain hosts a WBA directory — a JWK Set at `/.well-known/http-message-signatures-directory` — carrying your public keys (inline RFC 7517 Ed25519 JWKs, each identified by its RFC 7638 thumbprint). Agents and Exchanges fetch this to verify your attestation signatures; keys no longer live in `ramp.json`. RAMP has no dedicated verifier role; a verifier publishes under its operator's role — here `ROLE_PUBLISHER` for self-attestation.
+**Key publication**: Your domain hosts a WBA directory — a JWK Set at `/.well-known/http-message-signatures-directory` — carrying your public keys (inline RFC 7517 Ed25519 JWKs, each identified by its RFC 7638 thumbprint). Agents and Exchanges fetch this to verify your attestation signatures; keys no longer live in `fora.json`. FORA has no dedicated verifier role; a verifier publishes under its operator's role — here `ROLE_PUBLISHER` for self-attestation.
 
 **`catalog_contributors`**: You can authorize third-party verification vendors to push attestations on your behalf. Declare authorized contributors in your provider manifest. Only contributors listed in `catalog_contributors` can push resource metadata to the Exchange for your domain.
 
 ## Extension Profiles
 
-RAMP v1.0 uses domain extension profiles — standardized metadata vocabularies for specific industries. If your resources fall into one of these domains, your Exchange can enrich offers with profile-specific metadata that agents understand.
+FORA v1.0 uses domain extension profiles — standardized metadata vocabularies for specific industries. If your resources fall into one of these domains, your Exchange can enrich offers with profile-specific metadata that agents understand.
 
 | Profile | Scope | Key Metadata | Standards |
 |---|---|---|---|
-| **ramp-news-v1** | News articles, podcasts, broadcasting | IPTC subject codes, correction/retraction status, transcript linking | IPTC NewsML-G2, Podcasting 2.0, W3C TDMRep |
-| **ramp-academic-v1** | Scholarly articles, preprints, datasets | DOI, open access status, version lifecycle (preprint/AAM/VoR) | CrossRef, OpenAlex, COUNTER 5.1, CrossMark |
-| **ramp-legal-v1** | Legislation, case law, patents | Jurisdiction, amendment chains, ELI/ECLI identifiers, patent families | ELI, CELEX, ECLI, Akoma Ntoso, WIPO ST.3 |
+| **fora-news-v1** | News articles, podcasts, broadcasting | IPTC subject codes, correction/retraction status, transcript linking | IPTC NewsML-G2, Podcasting 2.0, W3C TDMRep |
+| **fora-academic-v1** | Scholarly articles, preprints, datasets | DOI, open access status, version lifecycle (preprint/AAM/VoR) | CrossRef, OpenAlex, COUNTER 5.1, CrossMark |
+| **fora-legal-v1** | Legislation, case law, patents | Jurisdiction, amendment chains, ELI/ECLI identifiers, patent families | ELI, CELEX, ECLI, Akoma Ntoso, WIPO ST.3 |
 
 Your provider manifest can declare `supported_profiles` to signal which profiles apply to your resources. The Exchange uses this to include the right metadata in offers.
 
-**No profile for your domain?** That's fine. RAMP's core protocol is domain-agnostic — pricing, delivery, attestation, and dispute all work without any extension profile. Profiles add richer metadata for agents that understand them, but they're not required. Data providers (credit, geospatial, pharma, medical) work with RAMP's core fields today. As communities develop, new profiles can be proposed through the extension governance process.
+**No profile for your domain?** That's fine. FORA's core protocol is domain-agnostic — pricing, delivery, attestation, and dispute all work without any extension profile. Profiles add richer metadata for agents that understand them, but they're not required. Data providers (credit, geospatial, pharma, medical) work with FORA's core fields today. As communities develop, new profiles can be proposed through the extension governance process.
 
-## The `ramp.json` Provider Manifest
+## The `fora.json` Provider Manifest
 
-Every provider with a web presence can host a `ramp.json` file at their domain root (like `ads.txt` for advertising). This file declares:
+Every provider with a web presence can host a `fora.json` file at their domain root (like `ads.txt` for advertising). This file declares:
 
 - Which Exchange(s) are authorized to sell your resources
 - Which extension profiles your resources support
 - Authorized catalog contributors
 
-Your public verification keys are published separately in your WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`), not in `ramp.json`.
+Your public verification keys are published separately in your WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`), not in `fora.json`.
 
-AI agents and Brokers read `ramp.json` to discover how to access your resources through RAMP.
+AI agents and Brokers read `fora.json` to discover how to access your resources through FORA.
 
 ## FAQ
 
@@ -211,23 +211,23 @@ AI agents and Brokers read `ramp.json` to discover how to access your resources 
 No. Your Exchange handles all requester relationships. AI companies buy from the Exchange, not from you directly.
 
 **What if I already have deals with some AI companies?**
-Those continue as subscription deals within RAMP. The agent gets access at $0/request under the subscription, and the Exchange tracks usage against the deal terms.
+Those continue as subscription deals within FORA. The agent gets access at $0/request under the subscription, and the Exchange tracks usage against the deal terms.
 
 **Does this only work for web content?**
-No. RAMP handles any digital resource — articles, credit reports, court filings, medical imaging, satellite data, drug databases, live feeds. The protocol is resource-agnostic. Web content served through a CDN is one deployment model; API-backed data products are another.
+No. FORA handles any digital resource — articles, credit reports, court filings, medical imaging, satellite data, drug databases, live feeds. The protocol is resource-agnostic. Web content served through a CDN is one deployment model; API-backed data products are another.
 
 **What about my robots.txt?**
-Keep it. `robots.txt` blocks training crawlers. RAMP handles real-time inference access (the agent needs a resource right now to complete a task). Different traffic, different treatment.
+Keep it. `robots.txt` blocks training crawlers. FORA handles real-time inference access (the agent needs a resource right now to complete a task). Different traffic, different treatment.
 
 **What if a bot ignores the CDN block?**
 The edge function runs on your CDN — bots can't bypass it. No signed URL = no content. For API-backed resources, the Exchange controls access directly.
 
 **What if there's no extension profile for my resource type?**
-RAMP's core protocol works without profiles. You get discovery, pricing, transactions, delivery, attestation, and disputes out of the box. Profiles add domain-specific metadata richness but aren't required.
+FORA's core protocol works without profiles. You get discovery, pricing, transactions, delivery, attestation, and disputes out of the box. Profiles add domain-specific metadata richness but aren't required.
 
 ## Next Steps
 
-1. **Web-facing content providers**: Ask your Exchange operator if they support RAMP. If yes, they deploy everything. If no, [self-service deployment](/architecture/deployment-models/) takes 15 minutes.
+1. **Web-facing content providers**: Ask your Exchange operator if they support FORA. If yes, they deploy everything. If no, [self-service deployment](/architecture/deployment-models/) takes 15 minutes.
 2. **Data and API providers**: Contact a [Exchange operator](/getting-started/for-exchange-operators/) to discuss integration.
 3. **All providers**: Review [How Money Flows](/getting-started/how-money-flows/) to understand the billing chain and pricing models.
 

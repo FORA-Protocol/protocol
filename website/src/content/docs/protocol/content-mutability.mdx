@@ -1,13 +1,13 @@
 ---
 title: "Resource Mutability"
-description: "How RAMP classifies resource stability (static, dynamic, live) to drive hash verification, freshness filtering, and dispute behavior"
+description: "How FORA classifies resource stability (static, dynamic, live) to drive hash verification, freshness filtering, and dispute behavior"
 ---
 
 ## The Problem
 
 An agent receives a content hash with an Offer and a different hash when it fetches the content. Is this tampering (dispute it) or a routine update (expected behavior)?
 
-Without a mutability signal, the agent cannot distinguish "content was tampered with" from "content was updated since the offer was generated." RAMP solves this with the `ResourceMutability` enum — set on the Offer's `ResourceIdentity.resource_mutability` and declarable at ingest via `ResourceEntry.resource_mutability` — and two freshness fields: `Offer.data_as_of` and `RequestConstraints.max_data_age`.
+Without a mutability signal, the agent cannot distinguish "content was tampered with" from "content was updated since the offer was generated." FORA solves this with the `ResourceMutability` enum — set on the Offer's `ResourceIdentity.resource_mutability` and declarable at ingest via `ResourceEntry.resource_mutability` — and two freshness fields: `Offer.data_as_of` and `RequestConstraints.max_data_age`.
 
 ## ResourceMutability Enum
 
@@ -212,4 +212,4 @@ No `content_hash` -- the content does not exist at offer time. The agent connect
 - [Content Attestation](/protocol/content-attestation/) -- how attestation interacts with mutability levels
 - [Dispute Resolution](/protocol/dispute-resolution/) -- auto-dispute rules per mutability level
 - [Extension Profiles](/protocol/extension-profiles/) -- how domain profiles define mutability conventions per content type
-- [Proto: RAMP v1](/reference/proto-ramp/) -- full `ResourceMutability` enum and field definitions
+- [Proto: FORA v1](/reference/proto-fora/) -- full `ResourceMutability` enum and field definitions

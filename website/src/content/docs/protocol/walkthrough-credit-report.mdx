@@ -1,9 +1,9 @@
 ---
 title: "Walkthrough: Business Credit Report"
-description: "DYNAMIC content mutability, multi-tier pricing offers, entity resolution, redistribution restrictions, and the ramp-credit-v1 extension profile."
+description: "DYNAMIC content mutability, multi-tier pricing offers, entity resolution, redistribution restrictions, and the fora-credit-v1 extension profile."
 ---
 
-> Complete walkthrough of RAMP v1.0 applied to business credit data. Demonstrates DYNAMIC content mutability, multi-tier offers (same resource at different completeness/price), entity resolution as a Broker concern, and redistribution restrictions enforced via signed URLs and agent identity binding.
+> Complete walkthrough of FORA v1.0 applied to business credit data. Demonstrates DYNAMIC content mutability, multi-tier offers (same resource at different completeness/price), entity resolution as a Broker concern, and redistribution restrictions enforced via signed URLs and agent identity binding.
 
 ## Scenario
 
@@ -11,7 +11,7 @@ description: "DYNAMIC content mutability, multi-tier pricing offers, entity reso
 **Broker**: `broker.legalcorp.com` — routes credit data requests to D&B's Exchange
 **Content**: Dun & Bradstreet business credit report for "Acme Corp."
 **Subscription**: None — the agent pays per report
-**Extension Profile**: `ramp-credit-v1` (D&B-specific business entity identifiers, credit scoring metadata)
+**Extension Profile**: `fora-credit-v1` (D&B-specific business entity identifiers, credit scoring metadata)
 
 The agent knows the company name ("Acme Corp.") but not the D-U-N-S number. The Broker handles entity resolution before querying the Exchange. The credit report is **DYNAMIC** — it changes as new trade data arrives.
 
@@ -19,7 +19,7 @@ The agent knows the company name ("Acme Corp.") but not the D-U-N-S number. The 
 
 ## Step 0 — Entity Resolution (Broker)
 
-Before any RAMP interaction, the Broker must convert the company name to a D-U-N-S number. This is a separate paid service with its own failure modes.
+Before any FORA interaction, the Broker must convert the company name to a D-U-N-S number. This is a separate paid service with its own failure modes.
 
 The Broker queries D&B's entity resolution API:
 
@@ -47,18 +47,18 @@ curl -s "https://plus.dnb.com/v1/match/cleanseMatch?name=Acme+Corp&countryISOAlp
 }
 ```
 
-**Cost**: $0.50 for the entity resolution call. The Broker absorbs this cost — it is not part of the RAMP transaction. If the resolution returns ambiguous matches (multiple candidates), the Broker must resolve the ambiguity before proceeding. RAMP does not handle entity resolution — it accesses resources that have known identifiers.
+**Cost**: $0.50 for the entity resolution call. The Broker absorbs this cost — it is not part of the FORA transaction. If the resolution returns ambiguous matches (multiple candidates), the Broker must resolve the ambiguity before proceeding. FORA does not handle entity resolution — it accesses resources that have known identifiers.
 
-The Broker now has the D-U-N-S number `123456789` and constructs a `duns:` URI for the RAMP query.
+The Broker now has the D-U-N-S number `123456789` and constructs a `duns:` URI for the FORA query.
 
 ---
 
 ## Step 1 — Discovery
 
-The Broker resolves D&B's RAMP configuration:
+The Broker resolves D&B's FORA configuration:
 
 ```bash
-curl -s https://dnb.com/.well-known/ramp.json | jq
+curl -s https://dnb.com/.well-known/fora.json | jq
 ```
 
 ```json
@@ -69,15 +69,15 @@ curl -s https://dnb.com/.well-known/ramp.json | jq
   "exchanges": [
     {
       "domain": "exchange.dnb.com",
-      "endpoint": "https://exchange.dnb.com/ramp/v1",
+      "endpoint": "https://exchange.dnb.com/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
-  "supported_profiles": ["ramp-credit-v1"]
+  "supported_profiles": ["fora-credit-v1"]
 }
 ```
 
-The `supported_profiles` field declares that D&B's Exchange understands the `ramp-credit-v1` extension profile. The Broker will forward this in the ResourceQuery so the Exchange includes credit-specific metadata in its response.
+The `supported_profiles` field declares that D&B's Exchange understands the `fora-credit-v1` extension profile. The Broker will forward this in the ResourceQuery so the Exchange includes credit-specific metadata in its response.
 
 ---
 
@@ -85,9 +85,9 @@ The `supported_profiles` field declares that D&B's Exchange understands the `ram
 
 The Broker sends a `ResourceQuery` with the resolved D-U-N-S number as a `duns:` URI. The `supported_profiles` field tells the Exchange to include credit-specific `ext` fields in the response.
 
-`POST https://exchange.dnb.com/ramp/v1/ramp.v1.ExchangeService/DiscoverResources`
+`POST https://exchange.dnb.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
-{/* ramp-validate: ResourceQuery */}
+{/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
@@ -104,7 +104,7 @@ The Broker sends a `ResourceQuery` with the resolved D-U-N-S number as a `duns:`
   "acceptable_restrictions": [
     { "axis": "RESTRICTION_KIND_FUNCTION", "values": ["ai-input"] }
   ],
-  "supported_profiles": ["ramp-credit-v1"],
+  "supported_profiles": ["fora-credit-v1"],
   "ext": {
     "max_data_age": "604800s"
   }
@@ -112,9 +112,9 @@ The Broker sends a `ResourceQuery` with the resolved D-U-N-S number as a `duns:`
 ```
 
 **Key fields:**
-- **`ResourceQuery.uris: ["duns:123456789"]`** — the D-U-N-S number as a URI. RAMP is URI-centric; the Broker performed entity resolution before this step.
+- **`ResourceQuery.uris: ["duns:123456789"]`** — the D-U-N-S number as a URI. FORA is URI-centric; the Broker performed entity resolution before this step.
 - **`acceptable_restrictions: [{ "axis": "RESTRICTION_KIND_FUNCTION", "values": ["ai-input"] }]`** — the function restrictions the agent is willing to accept. Here it accepts inference (`ai-input`) use.
-- **`supported_profiles: ["ramp-credit-v1"]`** — the Broker declares it understands the credit extension profile. The Exchange includes credit-specific `ext` fields (PAYDEX, trade count, score model) in the response.
+- **`supported_profiles: ["fora-credit-v1"]`** — the Broker declares it understands the credit extension profile. The Exchange includes credit-specific `ext` fields (PAYDEX, trade count, score model) in the response.
 - **`ext.max_data_age: "604800s"`** — freshness constraint. The agent needs a report updated within the last 7 days (604,800 seconds). The Exchange SHOULD exclude offers whose `data_as_of` is older than this threshold.
 - **`scopes: ["credit:read"]`** — the agent is authorized to read credit data. No subscription — pay-per-report pricing.
 
@@ -377,7 +377,7 @@ All three offers carry `resource_mutability: "RESOURCE_MUTABILITY_DYNAMIC"`. The
 
 ### Credit-Specific Attestation Claims
 
-The `ramp-credit-v1` profile defines attestation claims specific to business credit:
+The `fora-credit-v1` profile defines attestation claims specific to business credit:
 - **`credit.paydex_score: 72`** — D&B's trade payment index (1-100 scale, 80+ is good)
 - **`credit.trade_count: 45`** — number of trade payment experiences on file
 - **`credit.commercial_score: 580`** — D&B Commercial Credit Score (101-670 range)
@@ -398,9 +398,9 @@ The `rate_limit` on the response signals that D&B enforces per-caller rate limit
 
 The agent selects the **standard tier** ($61.99) — sufficient depth for due diligence without the premium cost of the comprehensive report. The agent sends the offer's `exchange_signature` back to the Exchange for stateless verification:
 
-`POST https://exchange.dnb.com/ramp/v1/ramp.v1.ExchangeService/ExecuteTransaction`
+`POST https://exchange.dnb.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
-{/* ramp-validate: TransactionRequest */}
+{/* fora-validate: TransactionRequest */}
 ```json
 {
   "ver": "1.0",
@@ -463,7 +463,7 @@ Response:
     {
       "transaction_id": "txn-dnb-acme-001",
       "billing_id": "bill-dnb-acme-001",
-      "retrieval_endpoint": "https://api.dnb.com/ramp/deliver/123456789/standard?agent_id=9c5f0d3e...&exp=1742475900&kid=hT4nR8yK...&sig=pQ7wF2sN9xC5tH1e...",
+      "retrieval_endpoint": "https://api.dnb.com/fora/deliver/123456789/standard?agent_id=9c5f0d3e...&exp=1742475900&kid=hT4nR8yK...&sig=pQ7wF2sN9xC5tH1e...",
       "cost": {
         "amount": "61.99",
         "currency": "USD"
@@ -489,7 +489,7 @@ The signed URL is valid for 5 minutes. The `agent_identity_hash` (the agent's RF
 The agent fetches the credit report via the signed URL:
 
 ```bash
-GET https://api.dnb.com/ramp/deliver/123456789/standard?agent_id=9c5f0d3e...&exp=1742475900&kid=hT4nR8yK...&sig=pQ7wF2sN9xC5tH1e...
+GET https://api.dnb.com/fora/deliver/123456789/standard?agent_id=9c5f0d3e...&exp=1742475900&kid=hT4nR8yK...&sig=pQ7wF2sN9xC5tH1e...
 ```
 
 D&B's delivery endpoint verifies:
@@ -522,7 +522,7 @@ The agent computes SHA-256 of the delivered JSON: `sha256:4d5e6f7890abcdef...`. 
 
 **Why?** Two new trade payment experiences were reported between offer generation (March 18) and fetch (March 19). The `tradeCount` changed from 45 to 47. The delivered bytes are different from what was hashed at offer time.
 
-**Agent behavior:** The agent checks `resource_mutability` from the offer's `ResourceIdentity`. It is `RESOURCE_MUTABILITY_DYNAMIC`. The RAMP protocol is explicit: for DYNAMIC resources, hash mismatch is expected and MUST NOT trigger automatic dispute. The `data_as_of` field (`2026-03-18T23:59:59Z`) confirms the offer was fresh within the agent's 7-day `max_data_age` requirement. The agent proceeds normally.
+**Agent behavior:** The agent checks `resource_mutability` from the offer's `ResourceIdentity`. It is `RESOURCE_MUTABILITY_DYNAMIC`. The FORA protocol is explicit: for DYNAMIC resources, hash mismatch is expected and MUST NOT trigger automatic dispute. The `data_as_of` field (`2026-03-18T23:59:59Z`) confirms the offer was fresh within the agent's 7-day `max_data_age` requirement. The agent proceeds normally.
 
 The agent could still dispute if the content were fundamentally wrong — wrong D-U-N-S number, wrong entity, or data older than the `max_data_age` constraint. But a hash mismatch alone is not disputable for DYNAMIC content.
 
@@ -532,9 +532,9 @@ The agent could still dispute if the content were fundamentally wrong — wrong 
 
 Usage reporting is mandatory. The agent reports actual consumption:
 
-`POST https://exchange.dnb.com/ramp/v1/ramp.v1.ExchangeService/ReportUsage`
+`POST https://exchange.dnb.com/fora/v1/fora.v1.ExchangeService/ReportUsage`
 
-{/* ramp-validate: UsageReport */}
+{/* fora-validate: UsageReport */}
 ```json
 {
   "ver": "1.0",
@@ -578,7 +578,7 @@ The `report_id` enables the dispute chain: if the agent needs to dispute this tr
 
 ### DYNAMIC Resource Mutability
 
-This is the defining characteristic of this walkthrough. Credit reports change continuously as new trade data, public filings, and financial statements are reported. The RAMP protocol handles this via:
+This is the defining characteristic of this walkthrough. Credit reports change continuously as new trade data, public filings, and financial statements are reported. The FORA protocol handles this via:
 
 | Feature | How It Works |
 |---|---|
@@ -589,24 +589,24 @@ This is the defining characteristic of this walkthrough. Credit reports change c
 
 ### Multi-Tier Offers
 
-RAMP's `OfferGroup` naturally supports multiple offers for the same resource at different price/completeness levels. The Broker or agent selects the appropriate tier based on the task requirements. The `credit.completeness` field in `ext` enables programmatic tier comparison.
+FORA's `OfferGroup` naturally supports multiple offers for the same resource at different price/completeness levels. The Broker or agent selects the appropriate tier based on the task requirements. The `credit.completeness` field in `ext` enables programmatic tier comparison.
 
 ### Entity Resolution as Broker Concern
 
-RAMP is URI-centric — it accesses resources by known identifier. Converting "Acme Corp." to `duns:123456789` is the Broker's job, with its own cost ($0.50), failure modes (ambiguous matches), and API credentials. This separation is by design: RAMP handles the metered content transaction, not the discovery and resolution that precedes it.
+FORA is URI-centric — it accesses resources by known identifier. Converting "Acme Corp." to `duns:123456789` is the Broker's job, with its own cost ($0.50), failure modes (ambiguous matches), and API credentials. This separation is by design: FORA handles the metered content transaction, not the discovery and resolution that precedes it.
 
 ### Redistribution Restrictions
 
-D&B's terms prohibit caching, compilation, and resale of credit data. RAMP enforces this at multiple levels:
+D&B's terms prohibit caching, compilation, and resale of credit data. FORA enforces this at multiple levels:
 
 1. **Function `Restriction`** in `LicenseTerm.restrictions` (`kind: RESTRICTION_KIND_FUNCTION`) — its `prohibited` list blocks training, indexing (and search for the comprehensive tier)
 2. **Agent identity binding** — the `agent_identity_hash` is embedded in the signed URL, preventing URL sharing between agents
 3. **Signed URL TTL** — 5-minute expiry prevents URL reuse
 4. **Usage reporting** — creates an audit trail of who accessed what, enabling post-hoc enforcement
 
-### Extension Profile: ramp-credit-v1
+### Extension Profile: fora-credit-v1
 
-The `ramp-credit-v1` profile defines:
+The `fora-credit-v1` profile defines:
 - **Identity vocabulary:** D-U-N-S, EIN, LEI in `ResourceIdentity.ext`
 - **Attestation claims:** `credit.paydex_score`, `credit.trade_count`, `credit.commercial_score`, `credit.financial_stress_score`, `credit.score_model`
 - **Offer metadata:** `credit.tier`, `credit.data_blocks`, `credit.completeness`
@@ -616,7 +616,7 @@ All credit-specific fields live in `ext` — the core protocol does not need cre
 
 ---
 
-## Comparison with Static Content (Scenario A from RAMP v1.0 Walkthrough)
+## Comparison with Static Content (Scenario A from FORA v1.0 Walkthrough)
 
 | Aspect | TechCrunch Article (Static) | D&B Credit Report (Dynamic) |
 |---|---|---|
@@ -634,7 +634,7 @@ All credit-specific fields live in `ext` — the core protocol does not need cre
 ## Next Steps
 
 - [Resource Mutability](/protocol/content-mutability) — STATIC vs DYNAMIC vs LIVE behavior in depth
-- [RAMP v1.0 Walkthrough](/protocol/walkthrough-v1) — per-article and subscription scenarios with static content
+- [FORA v1.0 Walkthrough](/protocol/walkthrough-v1) — per-article and subscription scenarios with static content
 - [Scenario Walkthrough](/protocol/scenario-walkthrough) — multi-party narrative with Broker, cross-provider dedup, and dispute resolution
 - [Extension Profiles](/protocol/extension-profiles) — how domain profiles define metadata vocabularies
 - [Transaction Flow](/protocol/transaction-flow) — step-by-step protocol specification

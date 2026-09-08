@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 // oneKeyDirectory returns a fetcher that answers every domain with a directory
@@ -25,7 +25,7 @@ func oneKeyDirectory(t *testing.T, now time.Time) OfferDirectoryFetcher {
 	if err != nil {
 		t.Fatalf("generate key: %v", err)
 	}
-	dir := &rampv1.WBAFile{Keys: []*rampv1.JsonWebKey{{
+	dir := &forav1.WBAFile{Keys: []*forav1.JsonWebKey{{
 		Kty:       "OKP",
 		Crv:       "Ed25519",
 		Use:       "sig",
@@ -34,7 +34,7 @@ func oneKeyDirectory(t *testing.T, now time.Time) OfferDirectoryFetcher {
 		NotBefore: now.Add(-time.Hour).UTC().Format(time.RFC3339),
 		NotAfter:  now.Add(time.Hour).UTC().Format(time.RFC3339),
 	}}}
-	return func(context.Context, string) (*rampv1.WBAFile, error) { return dir, nil }
+	return func(context.Context, string) (*forav1.WBAFile, error) { return dir, nil }
 }
 
 func TestOfferKeyCache_IsBoundedAtTheCap(t *testing.T) {

@@ -7,7 +7,7 @@ package connect_test
 // once a caller opts into strict validation, a proto-invalid request is rejected
 // with CodeInvalidArgument before it can be executed. Together they prove the
 // interceptor is present, wired via the option, and correct. Relocated verbatim
-// (assertions unchanged) from sdk/go/ramp on the core/connect split.
+// (assertions unchanged) from sdk/go/fora on the core/connect split.
 
 import (
 	"context"
@@ -15,9 +15,9 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
 )
 
 // TestWithValidation_StrictRejectsInvalidRequest pins that under
@@ -31,15 +31,15 @@ func TestWithValidation_StrictRejectsInvalidRequest(t *testing.T) {
 	sig := newSigningFixture(t)
 	off := newOfferFixture(t)
 	replay := newMemReplayStore()
-	srv := newVerifyingServer(t, sig, replay, []*rampv1.Offer{off.good})
+	srv := newVerifyingServer(t, sig, replay, []*forav1.Offer{off.good})
 
 	// Client A (validation Off) surfaces the offer so we can obtain a VerifiedOffer
 	// wrapping the proto-minimal fixture (no pricing.model).
-	surfacer := rampconnect.NewClient(srv.URL,
-		rampconnect.WithSigner(sig.signer), rampconnect.WithRequester(testRequester()),
-		rampconnect.WithVerification(core.Off),
+	surfacer := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithVerification(core.Off),
 	)
-	res, err := surfacer.Discover(context.Background(), &rampv1.ResourceQuery{})
+	res, err := surfacer.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err != nil {
 		t.Fatalf("Discover under Off verification must surface the offer: %v", err)
 	}
@@ -50,9 +50,9 @@ func TestWithValidation_StrictRejectsInvalidRequest(t *testing.T) {
 	// Client B opts into strict validation: its outbound Execute request reflects
 	// the model-less offer, which the bidirectional validate interceptor must reject
 	// with CodeInvalidArgument BEFORE the round-trip.
-	strict := rampconnect.NewClient(srv.URL,
-		rampconnect.WithSigner(sig.signer), rampconnect.WithRequester(testRequester()),
-		rampconnect.WithValidation(rampconnect.ValidationStrict),
+	strict := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithValidation(foraconnect.ValidationStrict),
 	)
 	_, err = strict.Execute(context.Background(), res.Verified()[0])
 	if err == nil {

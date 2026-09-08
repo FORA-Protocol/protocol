@@ -17,7 +17,7 @@
 import { describe, expect, it } from "vitest";
 
 import { vetExchangeEndpoint } from "../client/route.ts";
-import { RampCallError } from "../client/errors.ts";
+import { ForaCallError } from "../client/errors.ts";
 import vectorsFile from "../../go/resolvers/testdata/endpoint-vet-vectors.json";
 
 type EndpointVetVector = {
@@ -50,8 +50,8 @@ describe("an injected endpoint resolver does not get to skip the rule", () => {
 				await expect(call).resolves.toBe(v.endpoint);
 				return;
 			}
-			const err = (await call.catch((e: unknown) => e)) as RampCallError;
-			expect(err).toBeInstanceOf(RampCallError);
+			const err = (await call.catch((e: unknown) => e)) as ForaCallError;
+			expect(err).toBeInstanceOf(ForaCallError);
 			expect(err.kind, `${v.name} must be a verdict, not a transport failure`).toBe(
 				"not_sent",
 			);

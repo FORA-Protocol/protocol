@@ -14,7 +14,7 @@ import (
 )
 
 // Pure RFC 9421 request verification: given the request, its exact body bytes,
-// and the verifying public key, VerifyRequest enforces the RAMP covered-component
+// and the verifying public key, VerifyRequest enforces the FORA covered-component
 // policy and the created/expires window, then checks the Ed25519 signature. It
 // performs NO IO — key resolution is the caller's (the injected KeyResolver,
 // keyresolver.go) and the body is supplied, not read off req.Body — so it is the
@@ -69,7 +69,7 @@ type VerifyOptions struct {
 	// window a signer can set expires = now + 10y and, if the replay store is
 	// absent or forgotten, keep replaying the same bytes for years. 0 (default)
 	// means unbounded — back-compatible; a server-terminal consumer sets it (the
-	// RAMP target is minutes). A signature whose window exceeds it is rejected
+	// FORA target is minutes). A signature whose window exceeds it is rejected
 	// with ErrSignatureLifetimeTooLong before the Ed25519 check.
 	MaxSignatureAge time.Duration
 }
@@ -188,9 +188,9 @@ func verifySingleSignature(
 //	                      the value to be. Quoting is not optional in structured
 //	                      fields — a String has exactly one serialization — so this
 //	                      is the form a conformant signer sends.
-//	https://a.example     the bare form RAMP itself emits. Despite appearances this
+//	https://a.example     the bare form FORA itself emits. Despite appearances this
 //	                      is not "an unquoted string": it parses as a Token, since
-//	                      RFC 8941 tokens admit ":" and "/". Accepted so RAMP's own
+//	                      RFC 8941 tokens admit ":" and "/". Accepted so FORA's own
 //	                      legs keep verifying while signers migrate.
 //
 // Anything neither parser accepts is returned trimmed but otherwise verbatim, so
@@ -216,7 +216,7 @@ func verifySingleSignature(
 //
 // The spec's sf-dictionary form (`agent2="https://a.example"`) is deliberately
 // NOT read, and neither is the data: URI scheme that inlines a whole key
-// directory into the header. Both are refused as a matter of RAMP policy rather
+// directory into the header. Both are refused as a matter of FORA policy rather
 // than for want of a parser: an inline directory has no fetch location, and the
 // fetch location is the security boundary this SDK's key resolution rests on — a
 // signer that supplies its own directory is asserting its own keys. Such a value
@@ -453,7 +453,7 @@ func parseInputLabel(d *httpsfv.Dictionary, label string) (sigParams, error) {
 // coveredFromItem converts one structured-field item (a covered-component
 // identifier such as "@method" or "signature";key="sig1") into a
 // CoveredComponent. Only string-valued component params are carried (the
-// forwarding-chain key= param is the only one RAMP emits).
+// forwarding-chain key= param is the only one FORA emits).
 func coveredFromItem(item httpsfv.Item) (CoveredComponent, error) {
 	name, ok := item.Value.(string)
 	if !ok {

@@ -23,7 +23,7 @@ package resolvers
 //
 // DETERMINISM: every instant is a fixed offset from a fixed anchor, so re-running
 // reproduces byte-identical output. Default `go test` asserts the committed file
-// matches a fresh emit; RAMP_UPDATE_VECTORS=1 rewrites it (same drift-gate shape
+// matches a fresh emit; FORA_UPDATE_VECTORS=1 rewrites it (same drift-gate shape
 // as gen_active_key_vectors_test.go).
 
 import (
@@ -77,13 +77,13 @@ func buildOfferKeyClampCorpus() offerKeyClampCorpus {
 
 // TestGenerateOfferKeyClampVector emits the clamp golden vector. Default run
 // asserts the committed file is byte-identical to a fresh emit;
-// RAMP_UPDATE_VECTORS=1 rewrites it.
+// FORA_UPDATE_VECTORS=1 rewrites it.
 func TestGenerateOfferKeyClampVector(t *testing.T) {
 	t.Parallel()
 	corpus := buildOfferKeyClampCorpus()
 	path := filepath.Join("testdata", "offer-key-clamp-vectors.json")
 
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		writeOfferKeyClampVector(t, path, corpus)
 		return
 	}
@@ -97,7 +97,7 @@ func TestGenerateOfferKeyClampVector(t *testing.T) {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	if string(got) != string(want) {
-		t.Fatalf("%s is stale; re-run with RAMP_UPDATE_VECTORS=1 to regenerate", path)
+		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", path)
 	}
 }
 

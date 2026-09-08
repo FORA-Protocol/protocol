@@ -21,7 +21,7 @@ package resolvers
 //
 // DETERMINISM: the inputs are fixed literals, so re-running reproduces
 // byte-identical output. Default `go test` asserts the committed file matches a
-// fresh emit; RAMP_UPDATE_VECTORS=1 rewrites it (same drift-gate shape as
+// fresh emit; FORA_UPDATE_VECTORS=1 rewrites it (same drift-gate shape as
 // gen_offer_key_clamp_vectors_test.go).
 
 import (
@@ -65,14 +65,14 @@ func buildWBAURLCorpus() wbaURLCorpus {
 }
 
 // TestGenerateWBAURLVector emits the WBA-URL golden vector. Default run asserts
-// the committed file is byte-identical to a fresh emit; RAMP_UPDATE_VECTORS=1
+// the committed file is byte-identical to a fresh emit; FORA_UPDATE_VECTORS=1
 // rewrites it.
 func TestGenerateWBAURLVector(t *testing.T) {
 	t.Parallel()
 	corpus := buildWBAURLCorpus()
 	path := filepath.Join("testdata", "wba-url-vectors.json")
 
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		writeWBAURLVector(t, path, corpus)
 		return
 	}
@@ -86,7 +86,7 @@ func TestGenerateWBAURLVector(t *testing.T) {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	if string(got) != string(want) {
-		t.Fatalf("%s is stale; re-run with RAMP_UPDATE_VECTORS=1 to regenerate", path)
+		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", path)
 	}
 }
 

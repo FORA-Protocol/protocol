@@ -11,7 +11,7 @@ import (
 
 // RFC 7638 JWK Thumbprint of an Ed25519 public key, base64url-no-pad encoded.
 //
-// The thumbprint is the RAMP agent-identity value (ADR-009 D5, ADR-013 D4): the
+// The thumbprint is the FORA agent-identity value (ADR-009 D5, ADR-013 D4): the
 // Exchange embeds it in signed delivery URLs as the agent_id parameter, echoes
 // it on TransactionResponse.agent_identity_hash, and a capable delivery edge
 // recomputes it from the fetcher's presented key to enforce the binding.

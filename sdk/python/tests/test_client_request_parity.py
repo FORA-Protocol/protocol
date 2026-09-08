@@ -27,10 +27,10 @@ import httpx
 import pytest
 
 from conftest import GO_CONNECT_TESTDATA, load_json
-from ramp_sdk.client import BrokerClient, CatalogClient, Client, ClientConfig
-from ramp_sdk.core import Mode, StaticOfferKeyResolver, Verifier, sign_offer_jcs
-from ramp_sdk.idempotency import validate_idempotency_key
-from ramp_sdk.signing_transport import SigningTransport
+from fora_sdk.client import BrokerClient, CatalogClient, Client, ClientConfig
+from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier, sign_offer_jcs
+from fora_sdk.idempotency import validate_idempotency_key
+from fora_sdk.signing_transport import SigningTransport
 
 _VECTORS = load_json(GO_CONNECT_TESTDATA / "client-request-vectors.json")["vectors"]
 

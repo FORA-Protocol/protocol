@@ -1,24 +1,24 @@
 ---
 title: "Discovery Paths"
-description: "Six paths an AI agent can take to discover and enter the RAMP protocol flow, from proactive ramp.json lookup to subscription-based access."
+description: "Six paths an AI agent can take to discover and enter the FORA protocol flow, from proactive fora.json lookup to subscription-based access."
 ---
 
 ## Overview
 
-An AI agent can enter the RAMP flow through six paths. All paths converge on the same Exchange protocol -- the same `DiscoverResources`, `ExecuteTransaction`, and `ReportUsage` RPCs regardless of how discovery happened.
+An AI agent can enter the FORA flow through six paths. All paths converge on the same Exchange protocol -- the same `DiscoverResources`, `ExecuteTransaction`, and `ReportUsage` RPCs regardless of how discovery happened.
 
 | Path | Entry Point | Use Case |
 |---|---|---|
-| [A: Proactive Discovery](#path-a-proactive-discovery-via-rampjson) | `ramp.json` | Agent checks before accessing content |
+| [A: Proactive Discovery](#path-a-proactive-discovery-via-forajson) | `fora.json` | Agent checks before accessing content |
 | [B: Broker-Mediated](#path-b-broker-mediated-multi-exchange) | Broker | Agent delegates to multi-exchange router |
 | [C: Accidental Discovery](#path-c-accidental-discovery-via-edge-function-403) | 403 response | Wandering bot hits protected content |
 | [D: RSL-First](#path-d-agent-reads-rsl-directly) | `rsl.txt` | Agent reads terms, then finds Exchange |
 | [E: Batch Multi-URL](#path-e-batch-multi-url-acquisition) | Broker | Agent needs multiple resources at once |
 | [F: Subscription](#path-f-subscription-based-access) | Exchange | Agent has existing subscription deal |
 
-## Path A: Proactive Discovery via ramp.json
+## Path A: Proactive Discovery via fora.json
 
-The preferred path. The agent checks `/.well-known/ramp.json` before attempting to access content. No 403 needed, no wasted requests.
+The preferred path. The agent checks `/.well-known/fora.json` before attempting to access content. No 403 needed, no wasted requests.
 
 ```mermaid
 sequenceDiagram
@@ -26,7 +26,7 @@ sequenceDiagram
     participant PUB as Provider Domain
     participant MP as Exchange
 
-    Agent->>PUB: GET /.well-known/ramp.json
+    Agent->>PUB: GET /.well-known/fora.json
     PUB-->>Agent: WellKnownManifest (role=ROLE_PUBLISHER, exchange endpoints)
 
     Note over Agent: Content at /premium/* requires<br/>licensed access via exchange.ssp.com
@@ -52,23 +52,23 @@ sequenceDiagram
 
 | Step | Message | Standard |
 |---|---|---|
-| Check ramp.json | `WellKnownManifest` (role=ROLE_PUBLISHER) | **RAMP** (exchange routing) |
-| Discover supply | `ResourceQuery` / `ResourceResponse` | **RAMP** wrapping **RAMP Requester** |
-| Offers returned | `Offer` with `Package` + `Pricing` | **RAMP** Pricing + **CoMP** Package |
-| Content attestations | `Offer.attestations` | **RAMP** `ResourceAttestation` (replaces ResourceAttestation) |
-| Access restrictions | `Offer.terms[].restrictions` (`repeated Restriction`) | **RAMP** mapping of **RSL** permits/prohibits |
-| Execute transaction | `TransactionRequest` / `TransactionResponse` | **RAMP** (billing_id, signed URL) |
-| Fetch content | Signed URL on CDN | **RAMP** extension (signed URL delivery) |
-| Report usage | `UsageReport` | **RAMP** (mandatory) |
+| Check fora.json | `WellKnownManifest` (role=ROLE_PUBLISHER) | **FORA** (exchange routing) |
+| Discover supply | `ResourceQuery` / `ResourceResponse` | **FORA** wrapping **FORA Requester** |
+| Offers returned | `Offer` with `Package` + `Pricing` | **FORA** Pricing + **CoMP** Package |
+| Content attestations | `Offer.attestations` | **FORA** `ResourceAttestation` (replaces ResourceAttestation) |
+| Access restrictions | `Offer.terms[].restrictions` (`repeated Restriction`) | **FORA** mapping of **RSL** permits/prohibits |
+| Execute transaction | `TransactionRequest` / `TransactionResponse` | **FORA** (billing_id, signed URL) |
+| Fetch content | Signed URL on CDN | **FORA** extension (signed URL delivery) |
+| Report usage | `UsageReport` | **FORA** (mandatory) |
 
 ## Path B: Broker-Mediated Multi-Exchange
 
-The agent delegates to a RAMP Broker, which queries multiple Exchanges in parallel, compares offers, and selects the best deal.
+The agent delegates to a FORA Broker, which queries multiple Exchanges in parallel, compares offers, and selects the best deal.
 
 ```mermaid
 sequenceDiagram
     participant Agent as AI Agent
-    participant Orch as RAMP Broker
+    participant Orch as FORA Broker
     participant MPA as Exchange A
     participant MPB as Exchange B
     participant CDN as Provider CDN
@@ -102,18 +102,18 @@ sequenceDiagram
 
 | Step | Message | Standard |
 |---|---|---|
-| Agent to Broker | `DiscoveryRequest` with `RequestConstraints` | **RAMP** (budget, authorized exchanges) |
-| Broker to Exchanges | `ResourceQuery` (parallel fanout) | **RAMP** wrapping **RAMP Requester** |
-| Offer comparison | `Offer.pricing.unit_cost` | **RAMP** unit cost normalization |
-| Content dedup | `Offer.identity` (canonical_url, content_hash) | **RAMP** ResourceIdentity extension |
-| Content attestations | `Offer.attestations` | **RAMP** v1.0 `ResourceAttestation` |
-| Broker to Agent | `DiscoveryResponse` (offer_groups: signed offers per URI) | **RAMP** -- discovery only, no delivery |
-| Execute winning offer | `ExecuteTransaction` / `TransactionResponse` (signed URL + cost + billing_id) | **RAMP** (separate execute step, routed via `Offer.exchange`) |
-| Usage reporting | `UsageReport` to the winning Exchange | **RAMP** |
+| Agent to Broker | `DiscoveryRequest` with `RequestConstraints` | **FORA** (budget, authorized exchanges) |
+| Broker to Exchanges | `ResourceQuery` (parallel fanout) | **FORA** wrapping **FORA Requester** |
+| Offer comparison | `Offer.pricing.unit_cost` | **FORA** unit cost normalization |
+| Content dedup | `Offer.identity` (canonical_url, content_hash) | **FORA** ResourceIdentity extension |
+| Content attestations | `Offer.attestations` | **FORA** v1.0 `ResourceAttestation` |
+| Broker to Agent | `DiscoveryResponse` (offer_groups: signed offers per URI) | **FORA** -- discovery only, no delivery |
+| Execute winning offer | `ExecuteTransaction` / `TransactionResponse` (signed URL + cost + billing_id) | **FORA** (separate execute step, routed via `Offer.exchange`) |
+| Usage reporting | `UsageReport` to the winning Exchange | **FORA** |
 
 ## Path C: Accidental Discovery via Edge Function (403)
 
-A wandering bot hits protected content without knowing about RAMP. The edge function on the provider's CDN blocks it and points to the Exchange.
+A wandering bot hits protected content without knowing about FORA. The edge function on the provider's CDN blocks it and points to the Exchange.
 
 ```mermaid
 sequenceDiagram
@@ -150,15 +150,15 @@ sequenceDiagram
 
 | Step | Standard |
 |---|---|
-| 403 + `X-Content-Rules` header | **RAMP** extension (discovery mechanism -- not in CoMP or RSL) |
-| Exchange endpoint in header | Points to Exchange listed in `ramp.json` |
+| 403 + `X-Content-Rules` header | **FORA** extension (discovery mechanism -- not in CoMP or RSL) |
+| Exchange endpoint in header | Points to Exchange listed in `fora.json` |
 | All subsequent steps | Same as Path A |
 
-The edge function is the "barking dog" -- a fallback for bots that did not check `ramp.json` first.
+The edge function is the "barking dog" -- a fallback for bots that did not check `fora.json` first.
 
 ## Path D: Agent Reads RSL Directly
 
-An agent reads `rsl.txt` to understand terms, then uses `ramp.json` to find the Exchange for transacting. RSL tells the agent *what it costs*; RAMP tells it *where to pay*.
+An agent reads `rsl.txt` to understand terms, then uses `fora.json` to find the Exchange for transacting. RSL tells the agent *what it costs*; FORA tells it *where to pay*.
 
 ```mermaid
 sequenceDiagram
@@ -171,7 +171,7 @@ sequenceDiagram
 
     Note over Agent: /premium/* requires payment<br/>per-crawl: $0.05 USD<br/>permits: ai-input, search<br/>prohibits: ai-train
 
-    Agent->>PUB: GET /.well-known/ramp.json
+    Agent->>PUB: GET /.well-known/fora.json
     PUB-->>Agent: WellKnownManifest (role=ROLE_PUBLISHER, exchange endpoint)
 
     Agent->>MP: DiscoverResources -> ExecuteTransaction -> fetch content
@@ -184,9 +184,9 @@ sequenceDiagram
 | Step | Standard |
 |---|---|
 | Read rsl.txt | **RSL 1.0** -- terms declaration |
-| Read ramp.json | **RAMP** -- exchange routing |
+| Read fora.json | **FORA** -- exchange routing |
 | DiscoverResources | Exchange returns Offers with pricing derived from RSL |
-| Offer.terms[].restrictions | Maps RSL permits/prohibits to RAMP `Restriction` (kind `RESTRICTION_KIND_FUNCTION`) on each `LicenseTerm` |
+| Offer.terms[].restrictions | Maps RSL permits/prohibits to FORA `Restriction` (kind `RESTRICTION_KIND_FUNCTION`) on each `LicenseTerm` |
 
 ## Path E: Batch Multi-URL Acquisition
 
@@ -195,7 +195,7 @@ The agent needs multiple resources in a single request (e.g., RAG grounding acro
 ```mermaid
 sequenceDiagram
     participant Agent as AI Agent
-    participant Orch as RAMP Broker
+    participant Orch as FORA Broker
     participant MPA as Exchange A
     participant MPB as Exchange B
     participant CDN as Provider CDN
@@ -241,15 +241,15 @@ sequenceDiagram
 
 | Step | Message | Standard |
 |---|---|---|
-| Agent sends multi-URI request | `DiscoveryRequest` with multiple URIs | **RAMP** |
-| Broker fans out | `ResourceQuery` with multiple URIs (one query per Exchange) | **RAMP** wrapping **RAMP Requester** |
-| Exchange returns grouped offers | `ResourceResponse.offer_groups[]` with `OfferGroup` per URI | **RAMP** OfferGroup extension |
-| Broker returns offers to Agent | `DiscoveryResponse.offer_groups[]` (signed offers per URI) | **RAMP** -- discovery only, no delivery |
-| Empty OfferGroup diagnostic | `OfferGroup.absence_reason` (`OfferAbsenceReason` enum) | **RAMP** v1.0 -- per-URI diagnostic when no offers available |
-| Rate limit signaling | `ResourceResponse.rate_limit` (`RateLimitInfo`) | **RAMP** v1.0 -- proactive throttling for Broker fanout |
-| Batch transaction | `TransactionRequest.items[]` with `TransactionItem` per offer | **RAMP** batch extension |
-| Per-item results | `TransactionResponse.items[]` with `TransactionResultItem` per offer | **RAMP** batch extension |
-| Usage reporting | One `UsageReport` per resource (not per batch) | **RAMP** |
+| Agent sends multi-URI request | `DiscoveryRequest` with multiple URIs | **FORA** |
+| Broker fans out | `ResourceQuery` with multiple URIs (one query per Exchange) | **FORA** wrapping **FORA Requester** |
+| Exchange returns grouped offers | `ResourceResponse.offer_groups[]` with `OfferGroup` per URI | **FORA** OfferGroup extension |
+| Broker returns offers to Agent | `DiscoveryResponse.offer_groups[]` (signed offers per URI) | **FORA** -- discovery only, no delivery |
+| Empty OfferGroup diagnostic | `OfferGroup.absence_reason` (`OfferAbsenceReason` enum) | **FORA** v1.0 -- per-URI diagnostic when no offers available |
+| Rate limit signaling | `ResourceResponse.rate_limit` (`RateLimitInfo`) | **FORA** v1.0 -- proactive throttling for Broker fanout |
+| Batch transaction | `TransactionRequest.items[]` with `TransactionItem` per offer | **FORA** batch extension |
+| Per-item results | `TransactionResponse.items[]` with `TransactionResultItem` per offer | **FORA** batch extension |
+| Usage reporting | One `UsageReport` per resource (not per batch) | **FORA** |
 
 ### OfferAbsenceReason (v1.0)
 

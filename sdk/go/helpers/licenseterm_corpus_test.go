@@ -17,8 +17,8 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -81,13 +81,13 @@ func loadLicenseTermCorpus(t *testing.T) licenseTermCorpus {
 	return c
 }
 
-func kindOf(t *testing.T, name string) rampv1.RestrictionKind {
+func kindOf(t *testing.T, name string) forav1.RestrictionKind {
 	t.Helper()
-	n, ok := rampv1.RestrictionKind_value[name]
+	n, ok := forav1.RestrictionKind_value[name]
 	if !ok {
 		t.Fatalf("unknown RestrictionKind %q in corpus", name)
 	}
-	return rampv1.RestrictionKind(n)
+	return forav1.RestrictionKind(n)
 }
 
 func findingsOf(ws []helpers.RuleWarning) []corpusFinding {
@@ -141,7 +141,7 @@ func corpusCrossFieldRuleIDs(t *testing.T) map[string]bool {
 			walk(md.Messages())
 		}
 	}
-	walk(rampv1.File_ramp_v1_ramp_proto.Messages())
+	walk(forav1.File_fora_v1_fora_proto.Messages())
 	if len(ids) == 0 {
 		t.Fatal("no message-level CEL ids in the descriptor — every cross-field violation " +
 			"would be misclassified as field-level and the comparison would be vacuous")
@@ -159,7 +159,7 @@ func TestLicenseTermCorpus_Fold(t *testing.T) {
 
 func TestLicenseTermCorpus_Normalize(t *testing.T) {
 	for _, v := range loadLicenseTermCorpus(t).Normalize {
-		var term, want rampv1.LicenseTerm
+		var term, want forav1.LicenseTerm
 		if err := protojson.Unmarshal(v.Term, &term); err != nil {
 			t.Fatalf("%s: decode term: %v", v.Name, err)
 		}
@@ -185,7 +185,7 @@ func TestLicenseTermCorpus_Known(t *testing.T) {
 
 func TestLicenseTermCorpus_Validate(t *testing.T) {
 	for _, v := range loadLicenseTermCorpus(t).Validate {
-		var term rampv1.LicenseTerm
+		var term forav1.LicenseTerm
 		if err := protojson.Unmarshal(v.Term, &term); err != nil {
 			t.Fatalf("%s: decode term: %v", v.Name, err)
 		}
@@ -241,7 +241,7 @@ func TestLicenseTermCorpus_Entry(t *testing.T) {
 	celIDs := corpusCrossFieldRuleIDs(t)
 	termRuleIDs := corpusTermRuleIDs(t, corpus)
 	for _, v := range corpus.Entry {
-		var entry rampv1.ResourceEntry
+		var entry forav1.ResourceEntry
 		if err := protojson.Unmarshal(v.Entry, &entry); err != nil {
 			t.Fatalf("%s: decode entry: %v", v.Name, err)
 		}

@@ -15,7 +15,7 @@ import (
 // When a signed URL carries an agent_id — the RFC 7638 thumbprint of the key
 // that signed the offer acceptance — a code-capable edge requires the fetcher to
 // prove possession of that key, fully offline. The proof is two headers on the
-// GET: the raw public key in X-RAMP-Agent-Key, and an RFC 9421 signature over
+// GET: the raw public key in X-FORA-Agent-Key, and an RFC 9421 signature over
 // @method + @target-uri. The edge then enforces a three-way identity:
 //
 //	agent_id (URL) == keyid (Signature-Input) == thumbprint(presented key)
@@ -32,9 +32,9 @@ import (
 // base64url with no padding. ADR-013 chose a dedicated header over an inline JWK
 // in keyid: the edge hashes this value and requires the digest to equal the
 // URL's agent_id, so a fetcher cannot present one key while naming another.
-const AgentKeyHeader = "X-RAMP-Agent-Key"
+const AgentKeyHeader = "X-FORA-Agent-Key"
 
-// popLabel is the only signature label this profile emits. Unlike the RAMP
+// popLabel is the only signature label this profile emits. Unlike the FORA
 // request profile there is no forwarding chain here — a delivery fetch is a
 // single hop to the edge — so sigN>1 never arises and the label is fixed rather
 // than computed.
@@ -102,7 +102,7 @@ type PoPOptions struct {
 // tier stays free of any dialing surface, and so the emitted bytes can be
 // asserted directly against the shared cross-language vectors.
 type AgentBinding struct {
-	// AgentKey is the X-RAMP-Agent-Key value: base64url, no padding.
+	// AgentKey is the X-FORA-Agent-Key value: base64url, no padding.
 	AgentKey string
 	// SignatureInput is the full Signature-Input value, label included.
 	SignatureInput string
@@ -125,7 +125,7 @@ func (b AgentBinding) Apply(h http.Header) {
 // with newlines and with no trailing newline.
 //
 // It takes raw strings rather than a request value for the reason PoPOptions.URL
-// documents — the verbatim URL is the contract — and because the RAMP base
+// documents — the verbatim URL is the contract — and because the FORA base
 // builder in sigbase.go reconstructs @target-uri from a parsed URL's decoded
 // path, which is exactly the transformation this profile must not perform. The
 // two builders are pinned against each other in the internal base test: they
@@ -163,7 +163,7 @@ func popSignatureParams(keyID string, created, expires int64) string {
 // @method and @target-uri: a GET carries no body to digest, and the signed URL is
 // itself the credential, already covered by @target-uri, so there is no
 // Authorization header worth binding. That is why SignRequest cannot serve this
-// profile — it enforces the five-component RAMP set.
+// profile — it enforces the five-component FORA set.
 //
 // The key arrives as a Signer plus the public half rather than as a raw private
 // key: custody stays with the application (a KMS or HSM signer never exposes its

@@ -1,4 +1,4 @@
-# Packaging for the generated RAMP Python types export (mirrors gen/ts/package.json).
+# Packaging for the generated FORA Python types export (mirrors gen/ts/package.json).
 # wire/models.py and vocab/* are generated from proto/ by scripts/gen-sdk-types.sh — do
 # not edit them by hand. Only this file, README.md, and the hand-written wire/base.py
 # seam are authored.
@@ -7,7 +7,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ramp-protocol"
+name = "fora-protocol"
 version = "0.1.0"
 description = "Generated types export for Python: Pydantic v2 models (wire.models, extending wire.base.WireModel) + registered vocabulary constants (vocab.*), generated from the proto via JSON Schema."
 readme = "README.md"
@@ -19,8 +19,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://ramp-protocol.org"
-Source = "https://github.com/RAMP-Protocol/protocol"
+Homepage = "https://fora-protocol.org"
+Source = "https://github.com/FORA-Protocol/protocol"
 
 [tool.setuptools.packages.find]
 where = ["."]

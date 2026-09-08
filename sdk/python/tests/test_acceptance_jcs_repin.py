@@ -18,7 +18,7 @@ This re-pin suite asserts the Python core canonicalizes acceptance via JCS and
 produces byte-identical canonical bytes + signature to the REGENERATED Go oracle.
 It was authored RED, for TWO expected reasons — both since resolved, so the suite is
 green and the narrative below is history, not current state:
-  1. sdk/python/ramp_sdk/core (the JCS acceptance canonicalizer + sign/verify) did
+  1. sdk/python/fora_sdk/core (the JCS acceptance canonicalizer + sign/verify) did
      not exist yet.
   2. The regenerated acceptance vectors did not exist yet — acceptance-vectors.json
      was still the protobuf-binary form (no `canonical_jcs` field, no
@@ -38,7 +38,7 @@ from conftest import GO_TESTDATA, load_json
 
 # RED: the JCS acceptance canonicalizer + sign/verify live in the new core (do NOT
 # reuse the L1 protobuf-binary canonical_acceptance_payload — that is the OLD form).
-from ramp_sdk.core import (  # type: ignore[import-not-found]
+from fora_sdk.core import (  # type: ignore[import-not-found]
     jcs_acceptance_payload,
     sign_offer_acceptance_jcs,
     verify_offer_acceptance_jcs,

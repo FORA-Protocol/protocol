@@ -1,15 +1,15 @@
 ---
 title: "JSONL Ingestion Feed"
-description: "The line-oriented push feed publishers use to submit a catalog of resources and their licensing terms into a RAMP Exchange."
+description: "The line-oriented push feed publishers use to submit a catalog of resources and their licensing terms into a FORA Exchange."
 ---
 
 ## Overview
 
-The [discovery paths](/protocol/discovery-paths/) (RSL, sitemap, well-known, crawl, …) let an Exchange *pull* a publisher's licensing signals. The **JSONL feed** is the *push* counterpart: a publisher hands the Exchange a JSON-Lines file — **one resource per line** — and each line maps 1:1 onto a `ResourceEntry` and is submitted via `CatalogService.PushResources`. The reference client is the `ramp-ingest` binary.
+The [discovery paths](/protocol/discovery-paths/) (RSL, sitemap, well-known, crawl, …) let an Exchange *pull* a publisher's licensing signals. The **JSONL feed** is the *push* counterpart: a publisher hands the Exchange a JSON-Lines file — **one resource per line** — and each line maps 1:1 onto a `ResourceEntry` and is submitted via `CatalogService.PushResources`. The reference client is the `fora-ingest` binary.
 
 ```
 publisher feed (.jsonl, one resource/line)
-  └─► ramp-ingest   parse (typed, strict) · pre-check + canonicalize via the SDK · sign (RFC 9421)
+  └─► fora-ingest   parse (typed, strict) · pre-check + canonicalize via the SDK · sign (RFC 9421)
         └─► CatalogService.PushResources           ── ALL-OR-NOTHING ──
               │  trust:    caller key fetched from the WBA directory (/.well-known/http-message-signatures-directory); tenant derived from the publisher domain
               │  validate: wire tier (protovalidate: envelope rules + term shape / presence / coherence), then the ingest tier
@@ -69,10 +69,10 @@ Rules (enforced by protovalidate at the RPC boundary):
 
 ## Pre-validate with the SDK
 
-Both tiers the Exchange applies ship in the SDK, so a feed can be checked before anything is signed — `ramp-ingest` runs them for you, and a program that builds its own entries calls them itself; the catalog client does not. `validate_resource_entry` (Python), `validateResourceEntry` (TypeScript) and `helpers.ValidateResourceEntry` (Go) run the wire rules over the entry as given, then canonicalise a copy of its terms and run registry membership and the coherence lints; the verdict lists every violation with its rule id and field path — including the ones only the canonicalised form reveals — and the warnings the accepted terms would carry — the exact strings the Exchange puts in `PushResourcesResponse.warnings`. The normalising faces produce the canonical form the Exchange will store — `Generative-AI` becomes `ai-input`, `de` becomes `DE` — and they differ by language on purpose. `normalize_resource_entry` (Python) and `normalizeResourceEntry` (TypeScript) take a proto-JSON object and **return a new one**, leaving the input untouched. `helpers.NormalizeResourceEntry` (Go) takes a `*rampv1.ResourceEntry` and **rewrites it in place**, returning nothing: the Exchange normalises the entry it is about to persist, and an in-place face is what lets the canonical tokens reach the stored row and the offer projection without a second copy. Each is its language's idiom; the shared conformance corpus pins the output, which is the part that must agree.
+Both tiers the Exchange applies ship in the SDK, so a feed can be checked before anything is signed — `fora-ingest` runs them for you, and a program that builds its own entries calls them itself; the catalog client does not. `validate_resource_entry` (Python), `validateResourceEntry` (TypeScript) and `helpers.ValidateResourceEntry` (Go) run the wire rules over the entry as given, then canonicalise a copy of its terms and run registry membership and the coherence lints; the verdict lists every violation with its rule id and field path — including the ones only the canonicalised form reveals — and the warnings the accepted terms would carry — the exact strings the Exchange puts in `PushResourcesResponse.warnings`. The normalising faces produce the canonical form the Exchange will store — `Generative-AI` becomes `ai-input`, `de` becomes `DE` — and they differ by language on purpose. `normalize_resource_entry` (Python) and `normalizeResourceEntry` (TypeScript) take a proto-JSON object and **return a new one**, leaving the input untouched. `helpers.NormalizeResourceEntry` (Go) takes a `*forav1.ResourceEntry` and **rewrites it in place**, returning nothing: the Exchange normalises the entry it is about to persist, and an in-place face is what lets the canonical tokens reach the stored row and the offer projection without a second copy. Each is its language's idiom; the shared conformance corpus pins the output, which is the part that must agree.
 
 ```python
-from ramp_sdk import validate_resource_entry, normalize_resource_entry
+from fora_sdk import validate_resource_entry, normalize_resource_entry
 
 verdict = validate_resource_entry(entry)          # entry: the proto-JSON dict a line maps to
 if not verdict.ok:
@@ -83,7 +83,7 @@ for w in verdict.warnings:
 entry = normalize_resource_entry(entry)           # what the Exchange will store
 ```
 
-The check is advice about what the Exchange will say, not a substitute for it: the Exchange re-runs both tiers on every push, and its verdict decides. Pushing goes through the catalog client — `ramp_sdk.client.CatalogClient` (async; `ramp_sdk.sync.CatalogClient` blocking), `createCatalogClient`, `connect.NewCatalogClient` — which signs the request with the contributor key, stamps `ver`, and refuses before signing a request whose `exchange` is not a bare domain. See [Source 7: CatalogService API Push](/components/content-ingestion/sources/#source-7-catalogservice-api-push).
+The check is advice about what the Exchange will say, not a substitute for it: the Exchange re-runs both tiers on every push, and its verdict decides. Pushing goes through the catalog client — `fora_sdk.client.CatalogClient` (async; `fora_sdk.sync.CatalogClient` blocking), `createCatalogClient`, `connect.NewCatalogClient` — which signs the request with the contributor key, stamps `ver`, and refuses before signing a request whose `exchange` is not a bare domain. See [Source 7: CatalogService API Push](/components/content-ingestion/sources/#source-7-catalogservice-api-push).
 
 ## All-or-nothing
 

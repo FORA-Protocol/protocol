@@ -68,7 +68,7 @@ def field_type_names_from_descriptor(fds):
             walk(m.nested_type)
 
     for f in fds.file:
-        if f.package in ("ramp.v1", "ramp.admin.v1"):
+        if f.package in ("fora.v1", "fora.admin.v1"):
             walk(f.message_type)
     return out
 
@@ -89,7 +89,7 @@ def enum_names_from_descriptor(fds):
             walk_msgs(m.nested_type)
 
     for f in fds.file:
-        if f.package not in ("ramp.v1", "ramp.admin.v1"):
+        if f.package not in ("fora.v1", "fora.admin.v1"):
             continue
         take(f.enum_type)
         walk_msgs(f.message_type)
@@ -117,7 +117,7 @@ def carry_title(node, type_name):
     FIRST paragraph of any comment carrying a blank line — `Offer.signature` lost
     "REQUIRED. Hex-encoded detached Ed25519 signature over the canonical serialization of the ENTIRE Offer",
     so the generated types stated the canonical-signing rules without ever saying the
-    field is the signature or that it is required. Go was unaffected (ramp.pb.go carries
+    field is the signature or that it is required. Go was unaffected (fora.pb.go carries
     the whole comment), so the loss showed only in the Pydantic and Zod export.
 
     A type-derived title is still dropped: it repeats the field's own type name, so
@@ -364,7 +364,7 @@ def fix_refs(o):
     if isinstance(o, dict):
         r = o.get("$ref")
         if isinstance(r, str):
-            m = re.match(r"ramp\.(?:admin\.)?v1\.([A-Za-z0-9_]+)\.schema\.json$", r)
+            m = re.match(r"fora\.(?:admin\.)?v1\.([A-Za-z0-9_]+)\.schema\.json$", r)
             if m:
                 o = dict(o); o["$ref"] = "#/$defs/" + m.group(1)
                 return {k: fix_refs(v) for k, v in o.items()}
@@ -461,12 +461,26 @@ def main(src_dir, desc_path, out_file, required_path=None, unique_path=None):
     # (protoschema's default); the `.jsonschema.json` variant is the camelCase json_name
     # form. We consume snake_case: it is the one wire naming shared by the proto, the
     # docs, the corpus (protojson UseProtoNames=true), and both generated clients.
-    for f in sorted(glob.glob(os.path.join(src_dir, "ramp.v1.*.schema.json"))
-                    + glob.glob(os.path.join(src_dir, "ramp.admin.v1.*.schema.json"))):
+    matched = sorted(glob.glob(os.path.join(src_dir, "fora.v1.*.schema.json"))
+                     + glob.glob(os.path.join(src_dir, "fora.admin.v1.*.schema.json")))
+    # A package rename (or a moved src_dir) makes these globs match nothing. Every
+    # guard downstream tolerates an empty set, so without this the pipeline runs to
+    # completion on `defs = {}`, writes a valid-but-empty {"$defs": {}} and exits 0
+    # — the generated SDK types silently become an empty surface. Fail here instead:
+    # the package literals above are the only place this script knows the wire's
+    # name, so an empty match means they have drifted from the proto.
+    if not matched:
+        raise SystemExit(
+            f"merge_schema: no message schemas matched in {src_dir!r} — expected "
+            f"'fora.v1.*.schema.json' / 'fora.admin.v1.*.schema.json'. The proto "
+            f"package literals in this script have drifted from the generated "
+            f"schemas (a package rename?), or protoschema did not run."
+        )
+    for f in matched:
         base = os.path.basename(f)
         if "jsonschema" in base or ".strict." in base or ".bundle." in base:
             continue
-        name = re.sub(r"^ramp\.(?:admin\.)?v1\.", "", base.split(".schema")[0])
+        name = re.sub(r"^fora\.(?:admin\.)?v1\.", "", base.split(".schema")[0])
         d = resolve_titles(json.load(open(f)), name, field_types.get(name, {}))
         d.pop("$id", None); d.pop("$schema", None)
         defs[name] = d

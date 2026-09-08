@@ -8,7 +8,7 @@ package resolvers_test
 // FIRST window-active well-formed OKP/Ed25519 key whose x decodes to 32 bytes;
 // skip-and-continue past any failing key; ErrUnknownKey when no well-formed candidate
 // exists, ErrKeyExpired when a candidate existed but none was selectable. Pure logic
-// over a *rampv1.WBAFile — no HTTP origin. Reuses the file-local newSigningKey /
+// over a *forav1.WBAFile — no HTTP origin. Reuses the file-local newSigningKey /
 // wbaAnchor fixtures; intp lives in gen_active_key_vectors_test.go (same package).
 
 import (
@@ -21,23 +21,23 @@ import (
 	"testing"
 	"time"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/resolvers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
 // activeWindowJWK / expiredWindowJWK / futureWindowJWK build a directory JWK
 // member for the given x whose validity window straddles (or excludes) wbaAnchor.
-func activeWindowJWK(seed string) (ed25519.PublicKey, *rampv1.JsonWebKey) {
+func activeWindowJWK(seed string) (ed25519.PublicKey, *forav1.JsonWebKey) {
 	priv, jwk := newSigningKey(seed, wbaAnchor.Add(-time.Hour), wbaAnchor.Add(time.Hour))
 	return priv.Public().(ed25519.PublicKey), jwk
 }
 
-func expiredWindowJWK(seed string) *rampv1.JsonWebKey {
+func expiredWindowJWK(seed string) *forav1.JsonWebKey {
 	_, jwk := newSigningKey(seed, wbaAnchor.Add(-2*time.Hour), wbaAnchor.Add(-time.Hour))
 	return jwk
 }
 
-func futureWindowJWK(seed string) *rampv1.JsonWebKey {
+func futureWindowJWK(seed string) *forav1.JsonWebKey {
 	_, jwk := newSigningKey(seed, wbaAnchor.Add(time.Hour), wbaAnchor.Add(2*time.Hour))
 	return jwk
 }
@@ -45,7 +45,7 @@ func futureWindowJWK(seed string) *rampv1.JsonWebKey {
 // longWindowJWK is window-active at wbaAnchor with a FAR not_after (anchor +
 // 1000h), so a with-expiry test can assert a not_after distinct from the short
 // activeWindowJWK bound.
-func longWindowJWK(seed string) (ed25519.PublicKey, *rampv1.JsonWebKey) {
+func longWindowJWK(seed string) (ed25519.PublicKey, *forav1.JsonWebKey) {
 	priv, jwk := newSigningKey(seed, wbaAnchor.Add(-time.Hour), wbaAnchor.Add(1000*time.Hour))
 	return priv.Public().(ed25519.PublicKey), jwk
 }
@@ -54,15 +54,15 @@ func longWindowJWK(seed string) (ed25519.PublicKey, *rampv1.JsonWebKey) {
 // offset. The span (11:00..13:00) straddles wbaAnchor (12:00Z), so a parser that
 // wrongly accepted an offset-less bound would treat the key as active;
 // time.Parse(time.RFC3339) rejects it, so the key is inactive (fail closed).
-func naiveBoundsJWK(seed string) *rampv1.JsonWebKey {
+func naiveBoundsJWK(seed string) *forav1.JsonWebKey {
 	_, jwk := newSigningKey(seed, wbaAnchor.Add(-time.Hour), wbaAnchor.Add(time.Hour))
 	jwk.NotBefore = "2026-05-01T11:00:00"
 	jwk.NotAfter = "2026-05-01T13:00:00"
 	return jwk
 }
 
-func wbaDirectory(keys ...*rampv1.JsonWebKey) *rampv1.WBAFile {
-	return &rampv1.WBAFile{Keys: keys}
+func wbaDirectory(keys ...*forav1.JsonWebKey) *forav1.WBAFile {
+	return &forav1.WBAFile{Keys: keys}
 }
 
 func TestActiveEd25519Key_SelectsFirstActive(t *testing.T) {
@@ -130,12 +130,12 @@ func TestActiveEd25519Key_SkipsMalformedAndContinues(t *testing.T) {
 	good31 := base64.RawURLEncoding.EncodeToString(make([]byte, 31)) // decodes to 31 bytes
 	cases := []struct {
 		name   string
-		mutate func(*rampv1.JsonWebKey)
+		mutate func(*forav1.JsonWebKey)
 	}{
-		{"non-OKP kty", func(k *rampv1.JsonWebKey) { k.Kty = "RSA" }},
-		{"wrong crv", func(k *rampv1.JsonWebKey) { k.Crv = "P-256" }},
-		{"undecodable x", func(k *rampv1.JsonWebKey) { k.X = "!!!!" }},
-		{"wrong-length x", func(k *rampv1.JsonWebKey) { k.X = good31 }},
+		{"non-OKP kty", func(k *forav1.JsonWebKey) { k.Kty = "RSA" }},
+		{"wrong crv", func(k *forav1.JsonWebKey) { k.Crv = "P-256" }},
+		{"undecodable x", func(k *forav1.JsonWebKey) { k.X = "!!!!" }},
+		{"wrong-length x", func(k *forav1.JsonWebKey) { k.X = good31 }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -154,8 +154,8 @@ func TestActiveEd25519Key_SkipsMalformedAndContinues(t *testing.T) {
 	}
 }
 
-func tenExpiredFillers() []*rampv1.JsonWebKey {
-	fillers := make([]*rampv1.JsonWebKey, 0, 10)
+func tenExpiredFillers() []*forav1.JsonWebKey {
+	fillers := make([]*forav1.JsonWebKey, 0, 10)
 	for i := range 10 {
 		fillers = append(fillers, expiredWindowJWK(string(rune('A'+i))))
 	}
@@ -253,7 +253,7 @@ func TestActiveEd25519Key_NoneQualifies(t *testing.T) {
 	// → ErrKeyExpired. A nil directory is guarded (ErrUnknownKey, never a panic).
 	for _, tc := range []struct {
 		name    string
-		dir     *rampv1.WBAFile
+		dir     *forav1.WBAFile
 		wantErr error
 	}{
 		{"empty", wbaDirectory(), resolvers.ErrUnknownKey},

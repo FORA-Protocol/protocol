@@ -27,12 +27,12 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/gen/go/ramp/v1/rampv1connect"
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
-	rampserver "github.com/RAMP-Protocol/protocol/sdk/go/connectserver"
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	foraserver "github.com/FORA-Protocol/protocol/sdk/go/connectserver"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // ---------------------------------------------------------------------------
@@ -85,8 +85,8 @@ func newSigningFixture(t *testing.T) signingFixture {
 // (doctored). The server returns both; the SDK Verifier must sort them.
 type offerFixture struct {
 	exchangePub ed25519.PublicKey
-	good        *rampv1.Offer
-	doctored    *rampv1.Offer
+	good        *forav1.Offer
+	doctored    *forav1.Offer
 }
 
 // newOfferFixture mints two offers, signs the first with the exchange key and the
@@ -123,15 +123,15 @@ func newOfferFixture(t *testing.T) offerFixture {
 
 // sampleOffer builds a minimal, valid Offer carrying a future expiry so it is not
 // rejected on freshness grounds.
-func sampleOffer(id string) *rampv1.Offer {
-	return &rampv1.Offer{
+func sampleOffer(id string) *forav1.Offer {
+	return &forav1.Offer{
 		OfferId: id,
 		// A wire-valid offer always names its exchange, and the execute path
 		// signs a request acceptance only for offers that do — leaving this
 		// empty would route every test around the production branch.
 		Exchange:  "exchange.test",
 		ExpiresAt: timestampProto(time.Now().Add(1 * time.Hour)),
-		Pricing:   &rampv1.Pricing{Rate: "0.05", Currency: "USD"},
+		Pricing:   &forav1.Pricing{Rate: "0.05", Currency: "USD"},
 	}
 }
 
@@ -147,8 +147,8 @@ func sampleOffer(id string) *rampv1.Offer {
 // the seam verifies only requests that present a signature, and an unsigned
 // request reaches the handler, which rejects before acting.
 type stubExchange struct {
-	rampv1connect.UnimplementedExchangeServiceHandler
-	offers []*rampv1.Offer
+	forav1connect.UnimplementedExchangeServiceHandler
+	offers []*forav1.Offer
 	// gotExecute records the last TransactionRequest the origin observed, so a test
 	// can assert what the CLIENT put on the wire rather than only that the call
 	// succeeded. The SSOT guard bans a bare Ver literal but cannot see an OMITTED
@@ -159,11 +159,11 @@ type stubExchange struct {
 	// the write and the read are only ordered by luck today — one test issuing two
 	// calls, or a run under -race, is enough to lose that.
 	mu         sync.Mutex
-	gotExecute *rampv1.TransactionRequest
+	gotExecute *forav1.TransactionRequest
 }
 
 // lastExecute returns the last request the origin observed.
-func (s *stubExchange) lastExecute() *rampv1.TransactionRequest {
+func (s *stubExchange) lastExecute() *forav1.TransactionRequest {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.gotExecute
@@ -179,31 +179,31 @@ func requireVerified(ctx context.Context) error {
 }
 
 func (s *stubExchange) DiscoverResources(
-	ctx context.Context, _ *connectrpc.Request[rampv1.ResourceQuery],
-) (*connectrpc.Response[rampv1.ResourceResponse], error) {
+	ctx context.Context, _ *connectrpc.Request[forav1.ResourceQuery],
+) (*connectrpc.Response[forav1.ResourceResponse], error) {
 	if err := requireVerified(ctx); err != nil {
 		return nil, err
 	}
-	return connectrpc.NewResponse(&rampv1.ResourceResponse{Offers: s.offers}), nil
+	return connectrpc.NewResponse(&forav1.ResourceResponse{Offers: s.offers}), nil
 }
 
 func (s *stubExchange) ExecuteTransaction(
-	ctx context.Context, req *connectrpc.Request[rampv1.TransactionRequest],
-) (*connectrpc.Response[rampv1.TransactionResponse], error) {
+	ctx context.Context, req *connectrpc.Request[forav1.TransactionRequest],
+) (*connectrpc.Response[forav1.TransactionResponse], error) {
 	s.mu.Lock()
 	s.gotExecute = req.Msg
 	s.mu.Unlock()
 	if err := requireVerified(ctx); err != nil {
 		return nil, err
 	}
-	return connectrpc.NewResponse(&rampv1.TransactionResponse{Ver: helpers.ProtocolVersion}), nil
+	return connectrpc.NewResponse(&forav1.TransactionResponse{Ver: helpers.ProtocolVersion}), nil
 }
 
 // newVerifyingServer stands up an httptest server whose ExchangeService handler is
 // wrapped by the SDK server verify face (connectserver), resolving request-signing
 // keys through the injected resolver and deduping through the injected replay store.
 // This is the server side of the closed round-trip.
-func newVerifyingServer(t *testing.T, sig signingFixture, replay core.ReplayStore, offers []*rampv1.Offer) *httptest.Server {
+func newVerifyingServer(t *testing.T, sig signingFixture, replay core.ReplayStore, offers []*forav1.Offer) *httptest.Server {
 	t.Helper()
 	srv, _ := newVerifyingServerStub(t, sig, replay, offers)
 	return srv
@@ -212,13 +212,13 @@ func newVerifyingServer(t *testing.T, sig signingFixture, replay core.ReplayStor
 // newVerifyingServerStub is newVerifyingServer plus a handle on the origin, for
 // the tests that assert what the client actually SENT rather than only that the
 // round-trip succeeded.
-func newVerifyingServerStub(t *testing.T, sig signingFixture, replay core.ReplayStore, offers []*rampv1.Offer) (*httptest.Server, *stubExchange) {
+func newVerifyingServerStub(t *testing.T, sig signingFixture, replay core.ReplayStore, offers []*forav1.Offer) (*httptest.Server, *stubExchange) {
 	t.Helper()
 	origin := &stubExchange{offers: offers}
-	path, h := rampserver.NewExchangeServiceHandler(
+	path, h := foraserver.NewExchangeServiceHandler(
 		origin,
-		rampserver.WithKeyResolver(sig.resolver),
-		rampserver.WithReplayStore(replay),
+		foraserver.WithKeyResolver(sig.resolver),
+		foraserver.WithReplayStore(replay),
 	)
 	mux := http.NewServeMux()
 	mux.Handle(path, h)
@@ -247,12 +247,12 @@ func TestClientSign_RoundTripsThroughServerVerify(t *testing.T) {
 	replay := newMemReplayStore()
 	srv := newVerifyingServer(t, sig, replay, nil)
 
-	client := rampconnect.NewClient(srv.URL, rampconnect.WithSigner(sig.signer), rampconnect.WithRequester(testRequester()))
+	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()))
 
 	// Execute needs a VerifiedOffer; but this test only asserts transport
 	// acceptance, so a discover round-trip (empty offer set) is the minimal
 	// signed call. It must be accepted (no Unauthenticated).
-	_, err := client.Discover(context.Background(), &rampv1.ResourceQuery{})
+	_, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err != nil {
 		t.Fatalf("signed client Discover must be accepted by the verify face, got: %v", err)
 	}
@@ -269,8 +269,8 @@ func TestClientSign_NakedClientRejected(t *testing.T) {
 
 	// A naked Connect client built directly over the generated stub — no SDK sign
 	// face, so the request carries no RFC 9421 signature.
-	naked := rampv1connect.NewExchangeServiceClient(http.DefaultClient, srv.URL)
-	_, err := naked.DiscoverResources(context.Background(), connectrpc.NewRequest(&rampv1.ResourceQuery{}))
+	naked := forav1connect.NewExchangeServiceClient(http.DefaultClient, srv.URL)
+	_, err := naked.DiscoverResources(context.Background(), connectrpc.NewRequest(&forav1.ResourceQuery{}))
 	if err == nil {
 		t.Fatal("unsigned request must be rejected by the verify face")
 	}
@@ -292,14 +292,14 @@ func TestDiscover_SortsVerifiedAndRejected(t *testing.T) {
 	sig := newSigningFixture(t)
 	off := newOfferFixture(t)
 	replay := newMemReplayStore()
-	srv := newVerifyingServer(t, sig, replay, []*rampv1.Offer{off.good, off.doctored})
+	srv := newVerifyingServer(t, sig, replay, []*forav1.Offer{off.good, off.doctored})
 
-	client := rampconnect.NewClient(srv.URL,
-		rampconnect.WithSigner(sig.signer), rampconnect.WithRequester(testRequester()),
-		rampconnect.WithOfferKey(off.exchangePub), // exchange offer-verifying key
+	client := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithOfferKey(off.exchangePub), // exchange offer-verifying key
 	)
 
-	res, err := client.Discover(context.Background(), &rampv1.ResourceQuery{})
+	res, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err != nil {
 		t.Fatalf("Discover: %v", err)
 	}
@@ -331,14 +331,14 @@ func TestExecute_AcceptsVerifiedOffer(t *testing.T) {
 	sig := newSigningFixture(t)
 	off := newOfferFixture(t)
 	replay := newMemReplayStore()
-	srv := newVerifyingServer(t, sig, replay, []*rampv1.Offer{off.good})
+	srv := newVerifyingServer(t, sig, replay, []*forav1.Offer{off.good})
 
-	client := rampconnect.NewClient(srv.URL,
-		rampconnect.WithSigner(sig.signer), rampconnect.WithRequester(testRequester()),
-		rampconnect.WithOfferKey(off.exchangePub),
+	client := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithOfferKey(off.exchangePub),
 	)
 
-	res, err := client.Discover(context.Background(), &rampv1.ResourceQuery{})
+	res, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err != nil {
 		t.Fatalf("Discover: %v", err)
 	}
@@ -346,7 +346,7 @@ func TestExecute_AcceptsVerifiedOffer(t *testing.T) {
 		t.Fatalf("want 1 verified offer, got %d", len(res.Verified()))
 	}
 	// Execute takes ONLY a VerifiedOffer — this compiles because res.Verified()[0]
-	// is one. Passing res.Rejected()[0] (a RejectedOffer) or a raw *rampv1.Offer
+	// is one. Passing res.Rejected()[0] (a RejectedOffer) or a raw *forav1.Offer
 	// here would NOT compile; that guard is documented in doc_compileguard_test.go.
 	if _, err := client.Execute(context.Background(), res.Verified()[0]); err != nil {
 		t.Fatalf("Execute on a verified offer must succeed, got: %v", err)
@@ -354,7 +354,7 @@ func TestExecute_AcceptsVerifiedOffer(t *testing.T) {
 }
 
 // TestExecute_StampsProtocolVersion pins the send-side half of the ver contract
-// ("Protocol version" in ramp.proto): a sender MUST stamp ver, from the single
+// ("Protocol version" in fora.proto): a sender MUST stamp ver, from the single
 // constant. Execute builds the whole TransactionRequest, so the SDK is the sender
 // and owns the field — before this it shipped ver "" on every transaction.
 //
@@ -365,17 +365,17 @@ func TestExecute_StampsProtocolVersion(t *testing.T) {
 	t.Parallel()
 	sig := newSigningFixture(t)
 	off := newOfferFixture(t)
-	srv, origin := newVerifyingServerStub(t, sig, newMemReplayStore(), []*rampv1.Offer{off.good})
+	srv, origin := newVerifyingServerStub(t, sig, newMemReplayStore(), []*forav1.Offer{off.good})
 
-	client := rampconnect.NewClient(srv.URL,
-		rampconnect.WithSigner(sig.signer), rampconnect.WithRequester(testRequester()),
-		rampconnect.WithOfferKey(off.exchangePub),
+	client := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithOfferKey(off.exchangePub),
 	)
 
 	// Discover sends the caller's query unmodified, so this test is the sender for
 	// the discovery leg and stamps ver from the constant, as the contract requires.
 	res, err := client.Discover(context.Background(),
-		&rampv1.ResourceQuery{Ver: helpers.ProtocolVersion})
+		&forav1.ResourceQuery{Ver: helpers.ProtocolVersion})
 	if err != nil {
 		t.Fatalf("Discover: %v", err)
 	}
@@ -410,14 +410,14 @@ func TestRejectedOffer_RequiresUnsafeToExecute(t *testing.T) {
 	sig := newSigningFixture(t)
 	off := newOfferFixture(t)
 	replay := newMemReplayStore()
-	srv := newVerifyingServer(t, sig, replay, []*rampv1.Offer{off.doctored})
+	srv := newVerifyingServer(t, sig, replay, []*forav1.Offer{off.doctored})
 
-	client := rampconnect.NewClient(srv.URL,
-		rampconnect.WithSigner(sig.signer), rampconnect.WithRequester(testRequester()),
-		rampconnect.WithOfferKey(off.exchangePub),
+	client := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithOfferKey(off.exchangePub),
 	)
 
-	res, err := client.Discover(context.Background(), &rampv1.ResourceQuery{})
+	res, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err != nil {
 		t.Fatalf("Discover: %v", err)
 	}
@@ -445,13 +445,13 @@ func TestWithVerification_StrictRejectsUnverifiable(t *testing.T) {
 	sig := newSigningFixture(t)
 	off := newOfferFixture(t)
 	replay := newMemReplayStore()
-	srv := newVerifyingServer(t, sig, replay, []*rampv1.Offer{off.good})
+	srv := newVerifyingServer(t, sig, replay, []*forav1.Offer{off.good})
 
 	// No WithOfferKey → the client cannot resolve the exchange offer key, so even
 	// the genuinely-signed offer is UNVERIFIABLE and must be rejected under Strict.
-	client := rampconnect.NewClient(srv.URL, rampconnect.WithSigner(sig.signer), rampconnect.WithRequester(testRequester()))
+	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()))
 
-	res, err := client.Discover(context.Background(), &rampv1.ResourceQuery{})
+	res, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err != nil {
 		t.Fatalf("Discover: %v", err)
 	}
@@ -472,14 +472,14 @@ func TestWithVerification_OffSurfacesUnverified(t *testing.T) {
 	sig := newSigningFixture(t)
 	off := newOfferFixture(t)
 	replay := newMemReplayStore()
-	srv := newVerifyingServer(t, sig, replay, []*rampv1.Offer{off.good})
+	srv := newVerifyingServer(t, sig, replay, []*forav1.Offer{off.good})
 
-	client := rampconnect.NewClient(srv.URL,
-		rampconnect.WithSigner(sig.signer), rampconnect.WithRequester(testRequester()),
-		rampconnect.WithVerification(core.Off), // loud, named opt-out
+	client := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithVerification(core.Off), // loud, named opt-out
 	)
 
-	res, err := client.Discover(context.Background(), &rampv1.ResourceQuery{})
+	res, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err != nil {
 		t.Fatalf("Discover: %v", err)
 	}

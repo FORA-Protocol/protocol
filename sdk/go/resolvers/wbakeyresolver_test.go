@@ -20,9 +20,9 @@ import (
 	"testing"
 	"time"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
-	"github.com/RAMP-Protocol/protocol/sdk/go/resolvers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -32,7 +32,7 @@ import (
 var wbaAnchor = time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC)
 
 // wbaRevocationPath is the conventional path the test origin serves revocations.
-const wbaRevocationPath = "/.well-known/ramp-key-revocations.json"
+const wbaRevocationPath = "/.well-known/fora-key-revocations.json"
 
 // wbaDirPath is the WBA directory well-known path.
 const wbaDirPath = "/.well-known/http-message-signatures-directory"
@@ -605,12 +605,12 @@ func TestWBAKeyResolver_Revoked(t *testing.T) {
 // valid over [notBefore, notAfter). The key bytes are derived from the seed
 // string so the same seed always yields the same key across test runs. Keys
 // carry no kid — they are identified by RFC 7638 thumbprint.
-func newSigningKey(seed string, notBefore, notAfter time.Time) (ed25519.PrivateKey, *rampv1.JsonWebKey) {
+func newSigningKey(seed string, notBefore, notAfter time.Time) (ed25519.PrivateKey, *forav1.JsonWebKey) {
 	raw := make([]byte, ed25519.SeedSize)
 	copy(raw, []byte(seed))
 	priv := ed25519.NewKeyFromSeed(raw)
 	pub, _ := priv.Public().(ed25519.PublicKey)
-	jwk := &rampv1.JsonWebKey{
+	jwk := &forav1.JsonWebKey{
 		Kty:       "OKP",
 		Crv:       "Ed25519",
 		Use:       "sig",
@@ -634,17 +634,17 @@ func mustThumbprint(t *testing.T, pub ed25519.PublicKey) string {
 }
 
 // marshalWBA serializes a WBAFile (carrying keys) as canonical protojson.
-func marshalWBA(keys ...*rampv1.JsonWebKey) []byte {
-	f := &rampv1.WBAFile{Keys: keys}
+func marshalWBA(keys ...*forav1.JsonWebKey) []byte {
+	f := &forav1.WBAFile{Keys: keys}
 	raw, _ := (protojson.MarshalOptions{UseProtoNames: true}).Marshal(f)
 	return raw
 }
 
 // marshalWBAWithRevocation serializes a WBAFile carrying keys and a
 // revocation_url pointing at revURL.
-func marshalWBAWithRevocation(jwk *rampv1.JsonWebKey, revURL string) []byte {
-	f := &rampv1.WBAFile{
-		Keys:          []*rampv1.JsonWebKey{jwk},
+func marshalWBAWithRevocation(jwk *forav1.JsonWebKey, revURL string) []byte {
+	f := &forav1.WBAFile{
+		Keys:          []*forav1.JsonWebKey{jwk},
 		RevocationUrl: &revURL,
 	}
 	raw, _ := (protojson.MarshalOptions{UseProtoNames: true}).Marshal(f)
@@ -653,7 +653,7 @@ func marshalWBAWithRevocation(jwk *rampv1.JsonWebKey, revURL string) []byte {
 
 // marshalRevocation serializes a KeyRevocationList as canonical protojson.
 func marshalRevocation(asOf time.Time, revoked ...string) []byte {
-	list := &rampv1.KeyRevocationList{
+	list := &forav1.KeyRevocationList{
 		AsOf:    timestamppb.New(asOf.UTC()),
 		Revoked: revoked,
 	}

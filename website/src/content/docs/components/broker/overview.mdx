@@ -1,11 +1,11 @@
 ---
 title: "Broker Overview"
-description: "The RAMP Broker is a demand-side router that queries multiple Exchanges, compares offers, enforces budget, and selects the best resource deal for AI agents."
+description: "The FORA Broker is a demand-side router that queries multiple Exchanges, compares offers, enforces budget, and selects the best resource deal for AI agents."
 ---
 
 ## What the Broker Does
 
-The RAMP Broker is the optional demand-side router in the RAMP protocol. It sits with or near the AI agent, queries multiple Exchanges in parallel, compares offers, enforces budget, and selects the best deal. It is the "DSP" of metered resource access.
+The FORA Broker is the optional demand-side router in the FORA protocol. It sits with or near the AI agent, queries multiple Exchanges in parallel, compares offers, enforces budget, and selects the best deal. It is the "DSP" of metered resource access.
 
 **The Broker is optional.** Agents can talk directly to Exchanges using the same `DiscoverResources`/`ExecuteTransaction`/`UsageReport` RPCs. The Broker adds value through:
 
@@ -25,7 +25,7 @@ The Broker is composed of five internal components. Each is a Go interface with 
 
 ```mermaid
 graph TB
-    subgraph "RAMP Broker"
+    subgraph "FORA Broker"
         MR[Exchange Registry]
         SD[Supply Discovery<br/>parallel fanout]
         SE[Selection Engine]
@@ -52,7 +52,7 @@ graph TB
 
 | Component | Responsibility | State |
 |---|---|---|
-| **Exchange Registry** | Knows which Exchanges exist and their health status. Bootstraps from [Exchange Manifest](/protocol/exchange-manifest/) (`/.well-known/ramp.json`) instead of HEAD probes -- extracting endpoints, capabilities, and accepted verifiers in a single fetch | Long-lived, refreshed periodically |
+| **Exchange Registry** | Knows which Exchanges exist and their health status. Bootstraps from [Exchange Manifest](/protocol/exchange-manifest/) (`/.well-known/fora.json`) instead of HEAD probes -- extracting endpoints, capabilities, and accepted verifiers in a single fetch | Long-lived, refreshed periodically |
 | **Supply Discovery** | Fans out DiscoverResources RPCs to N Exchanges concurrently | Per-request, stateless |
 | **Selection Engine** | Deduplicates, ranks, filters, and selects the best offer | Per-request, stateless |
 | **Budget Tracker** | Tracks cumulative spend per session/period and enforces limits | Per-session in-memory, per-period in Redis |
@@ -63,7 +63,7 @@ graph TB
 `Resolve` is **discovery-only**. It gathers offers across Exchanges, selects the best per URI, and returns them as a `DiscoveryResponse` (one `OfferGroup` per requested URI). It does **not** execute or deliver — committing to an offer is a separate `ExecuteTransaction` call on the Exchange (see [Execution](#execution-separate-step) below).
 
 ```go
-func (o *Broker) Resolve(ctx context.Context, req *rampv1.DiscoveryRequest) (*rampv1.DiscoveryResponse, error) {
+func (o *Broker) Resolve(ctx context.Context, req *forav1.DiscoveryRequest) (*forav1.DiscoveryResponse, error) {
     // 1. Resolve which Exchanges to query
     exchanges := o.registry.Resolve(req.Constraints)
 
@@ -75,17 +75,17 @@ func (o *Broker) Resolve(ctx context.Context, req *rampv1.DiscoveryRequest) (*ra
     //    error — its group carries absence_reason and an empty offers list
     //    (mirrors OfferGroup from DiscoverResources). Non-OK errors are reserved
     //    for malformed requests, auth failures, and internal faults.
-    groups := make([]*rampv1.OfferGroup, 0, len(req.Uris))
+    groups := make([]*forav1.OfferGroup, 0, len(req.Uris))
     for _, uri := range req.Uris {
         selection, err := o.selector.SelectForURI(ctx, uri, responses, req.Constraints, o.budget)
         if err != nil {
-            groups = append(groups, &rampv1.OfferGroup{
+            groups = append(groups, &forav1.OfferGroup{
                 Uri:            uri,
                 AbsenceReason:  o.absenceReason(err).Enum(),
             })
             continue
         }
-        groups = append(groups, &rampv1.OfferGroup{
+        groups = append(groups, &forav1.OfferGroup{
             Uri:    uri,
             Offers: selection.Offers, // full signed Offers, forwarded unchanged
         })
@@ -93,7 +93,7 @@ func (o *Broker) Resolve(ctx context.Context, req *rampv1.DiscoveryRequest) (*ra
 
     // 4. Return the offers to the agent. The agent (or the Broker, on the agent's
     //    behalf) commits separately via ExecuteTransaction — see below.
-    return &rampv1.DiscoveryResponse{
+    return &forav1.DiscoveryResponse{
         OfferGroups: groups,
     }, nil
 }
@@ -108,7 +108,7 @@ After the agent picks an offer from the `DiscoveryResponse`, committing to it is
 // Broker on the agent's behalf. The per-transaction result — transaction_id,
 // billing_id, delivery_method, retrieval_endpoint, agent_identity_hash,
 // expires_at — is carried by TransactionResponse, not by DiscoveryResponse.
-func (o *Broker) Execute(ctx context.Context, offer *rampv1.Offer, req *rampv1.DiscoveryRequest) (*rampv1.TransactionResponse, error) {
+func (o *Broker) Execute(ctx context.Context, offer *forav1.Offer, req *forav1.DiscoveryRequest) (*forav1.TransactionResponse, error) {
     txn, err := o.discovery.Execute(ctx, offer.Exchange, offer, req) // routes to Offer.exchange
     if err != nil {
         return nil, err
@@ -137,7 +137,7 @@ A single-Exchange commit is the degenerate case: the projection is the whole set
 
 ## Request Signing and the Forwarding Signature Stack
 
-RAMP uses a two-layer signing model: the **agent's request signature** proves who originated the request, and the **forwarding signature stack** proves which intermediaries forwarded it.
+FORA uses a two-layer signing model: the **agent's request signature** proves who originated the request, and the **forwarding signature stack** proves which intermediaries forwarded it.
 
 ### Request Authentication
 
@@ -178,7 +178,7 @@ The Exchange verifies both layers:
 
 All signatures must pass. The Exchange counts the number of forwarding hops in the stack against `max_hops` / `max_intermediary_hops` and rejects requests that exceed the limit.
 
-The Broker publishes its keys in its WBA directory (the JWK Set at `{domain}/.well-known/http-message-signatures-directory`) — RFC 7517 Ed25519 JWKs, each identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`). Its `ramp.json` manifest uses the same format as agents (`role=ROLE_AGENT`). An Exchange verifies the Broker's signatures against keys it has loaded from that directory into its configured key set. The covered `Signature-Agent` header stays the agent's directory and does not point at the Broker's, so the Exchange must know the Broker — for example, through registration — before it can verify the hop.
+The Broker publishes its keys in its WBA directory (the JWK Set at `{domain}/.well-known/http-message-signatures-directory`) — RFC 7517 Ed25519 JWKs, each identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`). Its `fora.json` manifest uses the same format as agents (`role=ROLE_AGENT`). An Exchange verifies the Broker's signatures against keys it has loaded from that directory into its configured key set. The covered `Signature-Agent` header stays the agent's directory and does not point at the Broker's, so the Exchange must know the Broker — for example, through registration — before it can verify the hop.
 
 ## Profile-Based Routing
 
@@ -186,7 +186,7 @@ The Broker uses domain profiles to route queries to the right Exchanges.
 
 ### How It Works
 
-1. **Agent declares profiles** -- `DiscoveryRequest.supported_profiles` lists which domain extension profiles the agent understands (e.g., `["ramp-academic-v1"]`)
+1. **Agent declares profiles** -- `DiscoveryRequest.supported_profiles` lists which domain extension profiles the agent understands (e.g., `["fora-academic-v1"]`)
 2. **Broker filters Exchanges** -- the Exchange Registry checks each Exchange's `WellKnownManifest.supported_profiles` and routes queries only to Exchanges that support at least one of the requested profiles
 3. **Broker forwards profiles** -- the declared profiles are forwarded in `ResourceQuery.supported_profiles`, so the Exchange knows which profile-specific `ext` fields to include in offers
 4. **Exchange responds with profile data** -- the Exchange includes profile-specific metadata (e.g., retraction status, citation counts for academic content) only when the caller declares support
@@ -197,13 +197,13 @@ An agent working on a literature review sends:
 
 ```json
 {
-  "supported_profiles": ["ramp-academic-v1"]
+  "supported_profiles": ["fora-academic-v1"]
 }
 ```
 
 The Broker's Exchange Registry contains three Exchanges:
-- **academic-mp.example.com** -- `supported_profiles: ["ramp-academic-v1", "ramp-legal-v1"]`
-- **news-mp.example.com** -- `supported_profiles: ["ramp-news-v1"]`
+- **academic-mp.example.com** -- `supported_profiles: ["fora-academic-v1", "fora-legal-v1"]`
+- **news-mp.example.com** -- `supported_profiles: ["fora-news-v1"]`
 - **general-mp.example.com** -- `supported_profiles: []` (no profiles)
 
 The Broker queries only **academic-mp.example.com** (profile match) and **general-mp.example.com** (no profile restriction -- always included). It skips **news-mp.example.com** (no matching profile).
@@ -299,7 +299,7 @@ The Broker's internal `SupplySource` interface is the extension point for conten
 // v2: SearchSource (Exa, Tavily), RecommendationSource, etc.
 type SupplySource interface {
     // Query returns offers from this source matching the request.
-    Query(ctx context.Context, req *rampv1.ResourceQuery) (*rampv1.ResourceResponse, error)
+    Query(ctx context.Context, req *forav1.ResourceQuery) (*forav1.ResourceResponse, error)
 
     // Domain returns the source identifier (exchange domain or service name).
     Domain() string
@@ -309,7 +309,7 @@ type SupplySource interface {
 }
 ```
 
-The flow: search/recommendation produces URIs, the Broker looks up an Exchange for each URI's domain (via ramp.json), the Exchange provides pricing/offers, and the standard transaction flow continues. Discovery is upstream of transactions -- it produces URIs, not offers. The `OfferGroup.discovery_method` field tells the agent how each URI was found.
+The flow: search/recommendation produces URIs, the Broker looks up an Exchange for each URI's domain (via fora.json), the Exchange provides pricing/offers, and the standard transaction flow continues. Discovery is upstream of transactions -- it produces URIs, not offers. The `OfferGroup.discovery_method` field tells the agent how each URI was found.
 
 This positions the Broker as the natural integration point for agentic search -- agents that need content don't just request known URLs, they ask "find me articles about X" and the Broker discovers and prices the matching offers, returning them for the agent to commit to via a separate `ExecuteTransaction` call.
 
@@ -377,7 +377,7 @@ sequenceDiagram
 ## Go Module Structure
 
 ```
-github.com/RAMP-Protocol/protocol/broker/
+github.com/FORA-Protocol/protocol/broker/
     cmd/
         broker/           # Sidecar binary entrypoint
             main.go
@@ -387,7 +387,7 @@ github.com/RAMP-Protocol/protocol/broker/
             config.go           # Configuration loading
         registry/               # Exchange Registry
             registry.go         # ExchangeRegistry interface + in-memory impl
-            crawler.go          # ramp.json crawler
+            crawler.go          # fora.json crawler
             health.go           # Health checker
         discovery/              # Supply Discovery (parallel fanout)
             fanout.go           # FanOut implementation

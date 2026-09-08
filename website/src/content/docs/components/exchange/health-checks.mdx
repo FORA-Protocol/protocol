@@ -1,6 +1,6 @@
 ---
 title: "Health Checks"
-description: "Three-layer health checking for the RAMP Exchange -- gRPC health, HTTP liveness, and HTTP readiness with subsystem health matrix."
+description: "Three-layer health checking for the FORA Exchange -- gRPC health, HTTP liveness, and HTTP readiness with subsystem health matrix."
 ---
 
 ## Three Health Layers
@@ -84,7 +84,7 @@ containers:
     readinessProbe:
       grpc:
         port: 8080
-        service: "ramp.v1.ExchangeService"
+        service: "fora.v1.ExchangeService"
       periodSeconds: 10
       failureThreshold: 3
     livenessProbe:
@@ -98,7 +98,7 @@ containers:
 | Probe | Type | Rationale |
 |---|---|---|
 | **startupProbe** | HTTP `/readyz` | First catalog build can take minutes. HTTP gives subsystem detail for debugging slow starts |
-| **readinessProbe** | gRPC `ramp.v1.ExchangeService` | Once started, use gRPC-native probing. Removes pod from Service endpoints when unhealthy |
+| **readinessProbe** | gRPC `fora.v1.ExchangeService` | Once started, use gRPC-native probing. Removes pod from Service endpoints when unhealthy |
 | **livenessProbe** | HTTP `/healthz` | Lightweight -- no external I/O. Detects deadlocked processes |
 
 ## Broker Health Probing

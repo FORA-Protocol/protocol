@@ -13,7 +13,7 @@ import { snakeFromJsonName } from "./wire-names.ts";
 
 // ADR-019 ErrorDetail reader + typed detail builders (both halves of the contract).
 //
-// RAMP's failure envelope is a typed ErrorDetail attached to the transport error:
+// FORA's failure envelope is a typed ErrorDetail attached to the transport error:
 // the Connect/gRPC Code is the coarse class, the ErrorDetail oneof carries the
 // precise machine-readable reason. Clients branch on the typed reason, never on the
 // human `message` string.
@@ -47,7 +47,7 @@ import { snakeFromJsonName } from "./wire-names.ts";
 export type ErrorDetail = z.infer<typeof ErrorDetailSchema>;
 
 /** The fully-qualified proto name Connect stamps on an ErrorDetail transport detail. */
-export const ERROR_DETAIL_TYPE = "ramp.v1.ErrorDetail";
+export const ERROR_DETAIL_TYPE = "fora.v1.ErrorDetail";
 
 /**
  * The ErrorDetail `reason` oneof members, in proto field-number order (the same
@@ -118,12 +118,12 @@ const OPEN_MAP_MEMBERS = new Set(["metadata"]);
 /**
  * Rewrite a lowerCamelCase proto-JSON object into the proto's own field names.
  *
- * Connect's error-detail `debug` projection is the one place a RAMP payload arrives in
+ * Connect's error-detail `debug` projection is the one place a FORA payload arrives in
  * lowerCamelCase, and no server option changes it: connect-go renders it with its own
  * protojson codec at default options, inside a method on an unexported type, so the
- * snake_case codec a RAMP deployment registers reaches the response BODY and not the
+ * snake_case codec a FORA deployment registers reaches the response BODY and not the
  * error beside it. The generated ErrorDetailSchema accepts snake_case only — which is
- * the RAMP wire — and strips unknown keys, so without this the reason block is silently
+ * the FORA wire — and strips unknown keys, so without this the reason block is silently
  * dropped and a refusal the Exchange named precisely reads back as no reason at all.
  *
  * Values under an open map keep their keys verbatim: those are the emitter's, not the
@@ -167,10 +167,10 @@ function protoNames(payload: unknown, budget = MAX_DETAIL_DEPTH): unknown {
 }
 
 /**
- * Extract the first RAMP ErrorDetail from a Connect error (or its details array).
+ * Extract the first FORA ErrorDetail from a Connect error (or its details array).
  * `err` is either a Connect error object (carrying a `details` array) or the
  * details iterable itself. Each detail entry is the Connect wire form
- * `{ "type": "ramp.v1.ErrorDetail", ... }`; the ErrorDetail proto-JSON is read from
+ * `{ "type": "fora.v1.ErrorDetail", ... }`; the ErrorDetail proto-JSON is read from
  * the entry's `debug` projection (Connect includes it for JSON clients) or from a
  * `value` already decoded to an object. Returns null when `err` carries no
  * ErrorDetail — the TS analog of the Go `(detail, false)`.

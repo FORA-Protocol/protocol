@@ -10,22 +10,22 @@ import (
 	connectrpc "connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/gen/go/ramp/v1/rampv1connect"
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/failure"
-	"github.com/RAMP-Protocol/protocol/sdk/go/resolvers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/failure"
+	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
-// Client is the L2 low-tier RAMP Connect client: a configurable ExchangeService
+// Client is the L2 low-tier FORA Connect client: a configurable ExchangeService
 // client with the sign face composed as a signing RoundTripper and the
 // cross-cutting request-id / validate interceptors wired, plus the fail-closed
 // offer Verifier that sorts every discovered offer into {verified, rejected}. It
 // owns NO state — signer, keys, HTTP client, and verification policy are all
 // injected (ADR-020 §2/§3).
 type Client struct {
-	rpc      rampv1connect.ExchangeServiceClient
+	rpc      forav1connect.ExchangeServiceClient
 	verifier core.Verifier
 	cfg      clientConfig
 
@@ -49,11 +49,11 @@ func resolvedConfig(opts ...ClientOption) clientConfig {
 	return cfg
 }
 
-// DefaultMaxRPCReadBytes caps the response body a single RAMP call will read.
+// DefaultMaxRPCReadBytes caps the response body a single FORA call will read.
 // Connect
 // treats an unset cap as "any size" and compresses every exchange, so without one
 // a hostile or misconfigured peer can decompress an unbounded body into the
-// caller's memory. A RAMP response for a realistic batch is small; the bound is
+// caller's memory. A FORA response for a realistic batch is small; the bound is
 // what stops a peer — including one an offer named — spending the caller's memory
 // on its behalf. Override it per client with WithClientOptions.
 const DefaultMaxRPCReadBytes = 1 << 20 // 1 MiB
@@ -88,7 +88,7 @@ func NewClient(baseURL string, opts ...ClientOption) *Client {
 	cfg := resolvedConfig(opts...)
 	httpClient, connectOpts, verifier := plumbing(cfg)
 	return &Client{
-		rpc:      rampv1connect.NewExchangeServiceClient(httpClient, baseURL, connectOpts...),
+		rpc:      forav1connect.NewExchangeServiceClient(httpClient, baseURL, connectOpts...),
 		verifier: verifier,
 		cfg:      cfg,
 		// A SECOND signing client for the offer-derived leg, over the guarded
@@ -118,7 +118,7 @@ func NewClient(baseURL string, opts ...ClientOption) *Client {
 
 // signedHTTPClient returns an *http.Client whose transport is the SDK signing
 // RoundTripper wrapping base (preserving a custom proxy/mTLS transport
-// underneath). Redirects are refused: a RAMP RPC has no legitimate reason to be
+// underneath). Redirects are refused: a FORA RPC has no legitimate reason to be
 // redirected, and following one would re-sign the caller's request for a target
 // the peer chose — which would also move the destination after the endpoint check
 // had run.
@@ -155,9 +155,9 @@ func signingOptions(cfg clientConfig) []core.SigningOption {
 // one would re-sign the caller's request for a target the peer chose, after the
 // endpoint check had already passed.
 var refuseRPCRedirect = failure.RefuseRedirect(
-	"connect", "a RAMP call is never redirected", helpers.RedactURL)
+	"connect", "a FORA call is never redirected", helpers.RedactURL)
 
-// DefaultCallTimeout bounds one call on the offer-derived leg. A RAMP RPC is
+// DefaultCallTimeout bounds one call on the offer-derived leg. A FORA RPC is
 // interactive — something is waiting on the other end — so a request that has not
 // answered by now is more useful as an error than as a hang.
 const DefaultCallTimeout = 30 * time.Second
@@ -176,7 +176,7 @@ func offerDerivedClient(cfg clientConfig, base http.RoundTripper) *http.Client {
 	// caller's proxy, TLS dialer and redirect policy, and a jar is the same kind of
 	// ambient state: http.CookieJar is an interface, so what an arbitrary
 	// implementation sends to a host an offer named is not this package's to
-	// assume. A RAMP call carries its identity in the signature, never in a cookie.
+	// assume. A FORA call carries its identity in the signature, never in a cookie.
 	client.Jar = nil
 	return client
 }
@@ -219,7 +219,7 @@ func clientInterceptors(cfg clientConfig) []connectrpc.Interceptor {
 // purpose — the point of the field is to state whom the SENDER meant, and a
 // value the transport filled in from the address it was already dialling would
 // restate the dial target instead of checking it.
-func (c *Client) Discover(ctx context.Context, query *rampv1.ResourceQuery) (core.DiscoveryResult, error) {
+func (c *Client) Discover(ctx context.Context, query *forav1.ResourceQuery) (core.DiscoveryResult, error) {
 	const op = "discover"
 	if query == nil {
 		return core.DiscoveryResult{}, malformed(op, errors.New("query is nil"))
@@ -256,7 +256,7 @@ func (c *Client) Discover(ctx context.Context, query *rampv1.ResourceQuery) (cor
 // no URI of its own, so it takes the query's only URI when the query named
 // exactly one, and none otherwise — the SDK does not invent an attribution the
 // wire did not make.
-func (c *Client) discoveredGroups(ctx context.Context, query *rampv1.ResourceQuery, msg *rampv1.ResourceResponse) []core.OfferGroupResult {
+func (c *Client) discoveredGroups(ctx context.Context, query *forav1.ResourceQuery, msg *forav1.ResourceResponse) []core.OfferGroupResult {
 	if groups := msg.GetOfferGroups(); len(groups) > 0 {
 		return c.verifier.SortGroups(ctx, groups)
 	}
@@ -314,12 +314,12 @@ func idempotencyKeyFor(opts []CallOption, onMessage string) (string, error) {
 }
 
 // Execute commits to a VERIFIED offer and returns the transaction response. It
-// accepts ONLY a core.VerifiedOffer — passing a RejectedOffer or a raw *rampv1.Offer
+// accepts ONLY a core.VerifiedOffer — passing a RejectedOffer or a raw *forav1.Offer
 // is a COMPILE error (the unforgeable-VerifiedOffer guard). A per-call idempotency
 // key is minted fresh unless WithIdempotencyKey pins one. Execute builds the whole
 // TransactionRequest, so it also stamps ver from helpers.ProtocolVersion — the
 // caller neither supplies nor overrides it.
-func (c *Client) Execute(ctx context.Context, offer core.VerifiedOffer, opts ...CallOption) (*rampv1.TransactionResponse, error) {
+func (c *Client) Execute(ctx context.Context, offer core.VerifiedOffer, opts ...CallOption) (*forav1.TransactionResponse, error) {
 	const op = "execute"
 	if c.cfg.requester == nil {
 		return nil, malformed(op, errors.New(
@@ -357,13 +357,13 @@ func (c *Client) Execute(ctx context.Context, offer core.VerifiedOffer, opts ...
 	//
 	// ver comes from helpers.ProtocolVersion — the single owner of the protocol
 	// version across all three SDKs — never a literal, so a bump is one edit.
-	req := &rampv1.TransactionRequest{
+	req := &forav1.TransactionRequest{
 		Ver:            helpers.ProtocolVersion,
 		IdempotencyKey: key,
 		Requester:      c.cfg.requester,
-		Items: []*rampv1.TransactionItem{{
+		Items: []*forav1.TransactionItem{{
 			Offer: offer.Offer(),
-			AgentAcceptance: &rampv1.AgentAcceptance{
+			AgentAcceptance: &forav1.AgentAcceptance{
 				Signature:          acceptance,
 				SignatureAlgorithm: helpers.AcceptanceSignatureAlgorithm,
 			},
@@ -413,7 +413,7 @@ func stampEnvelope(ver, idempotencyKey *string, opts []CallOption) error {
 // and the requester is filled because both reference services resolve the calling
 // agent from it and refuse a request that names none, while the client already
 // holds that identity.
-func stampDiscovery(ver *string, requester **rampv1.Requester, configured *rampv1.Requester) {
+func stampDiscovery(ver *string, requester **forav1.Requester, configured *forav1.Requester) {
 	if *ver == "" {
 		*ver = helpers.ProtocolVersion
 	}

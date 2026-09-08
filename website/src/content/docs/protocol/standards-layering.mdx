@@ -1,18 +1,18 @@
 ---
 title: "Standards Layering"
-description: "How RSL, CoMP, and RAMP work together -- each standard does one thing well, and the three compose into a complete stack."
+description: "How RSL, CoMP, and FORA work together -- each standard does one thing well, and the three compose into a complete stack."
 ---
 
 ## Three Standards, One Stack
 
-RAMP does not replace RSL or CoMP. The three standards work together, each handling a distinct concern:
+FORA does not replace RSL or CoMP. The three standards work together, each handling a distinct concern:
 
 | Standard | What It Does | Provider Action | File / Endpoint |
 |---|---|---|---|
 | **RSL 1.0** | Declares licensing terms and pricing | Drop `rsl.txt` on domain | `rsl.txt` |
 | **CoMP v2.0** | Defines content metadata objects | (Used internally by Exchange) | -- |
 | **C2PA 2.x** | Content provenance and authenticity | Embed Content Credentials in assets | (In-asset or sidecar manifest) |
-| **RAMP** | Transaction protocol + discovery | Drop `ramp.json` on domain | `/.well-known/ramp.json` |
+| **FORA** | Transaction protocol + discovery | Drop `fora.json` on domain | `/.well-known/fora.json` |
 | **Content Attestation** | Cryptographic content verification | Publish keys in the WBA directory | `/.well-known/http-message-signatures-directory` |
 | **MCP Interface** | Convenience tool layer for MCP agents | Deploy MCP server | (MCP server binary) |
 
@@ -22,18 +22,18 @@ In plain terms:
 RSL                 = "Here's what my content costs and what you can do with it"
 CoMP                = "Here's how to describe content in a standard way"
 C2PA                = "Here's who created this content and its full edit history"
-RAMP               = "Here's where and how to buy it"
+FORA               = "Here's where and how to buy it"
 Content Attestation = "Here's cryptographic proof that the content is what it claims to be"
-MCP Interface       = "Here's how to access RAMP from any MCP-capable agent without an SDK"
+MCP Interface       = "Here's how to access FORA from any MCP-capable agent without an SDK"
 ```
 
-C2PA and RAMP are orthogonal: C2PA proves **what content IS** (provenance, creator identity, transformation history). RAMP manages **what you can DO with it** (commercial access, pricing, transaction, dispute). The [`ramp-c2pa-v1` extension profile](/protocol/ext-c2pa/) bridges them -- C2PA validation results are carried in RAMP attestations, and C2PA training/mining restrictions are enforced through RAMP access controls.
+C2PA and FORA are orthogonal: C2PA proves **what content IS** (provenance, creator identity, transformation history). FORA manages **what you can DO with it** (commercial access, pricing, transaction, dispute). The [`fora-c2pa-v1` extension profile](/protocol/ext-c2pa/) bridges them -- C2PA validation results are carried in FORA attestations, and C2PA training/mining restrictions are enforced through FORA access controls.
 
 ### WebBotAuth Compatibility
 
 The IETF [WebBotAuth working group](https://datatracker.ietf.org/wg/webbotauth/about/) (formed 2025, standards track targeting April 2026) is standardising cryptographic bot identity -- bots sign HTTP requests using RFC 9421 HTTP Message Signatures with Ed25519, and publish keys at a well-known endpoint. Cloudflare is already implementing it.
 
-**RAMP agents are automatically WebBotAuth-compliant.** RAMP uses the identical crypto stack: RFC 9421 HTTP Message Signatures, Ed25519 (EdDSA), and JWK-formatted keys at a well-known endpoint. When WebBotAuth ships as an RFC, RAMP agents will be recognised as authenticated bots by any CDN or origin server that implements it -- without any RAMP-specific integration on the publisher side. WebBotAuth solves identity (Layer 2); RAMP adds the transaction layer (Layer 4) on top of that identity.
+**FORA agents are automatically WebBotAuth-compliant.** FORA uses the identical crypto stack: RFC 9421 HTTP Message Signatures, Ed25519 (EdDSA), and JWK-formatted keys at a well-known endpoint. When WebBotAuth ships as an RFC, FORA agents will be recognised as authenticated bots by any CDN or origin server that implements it -- without any FORA-specific integration on the publisher side. WebBotAuth solves identity (Layer 2); FORA adds the transaction layer (Layer 4) on top of that identity.
 
 ## How They Compose
 
@@ -41,12 +41,12 @@ The IETF [WebBotAuth working group](https://datatracker.ietf.org/wg/webbotauth/a
 graph TB
     subgraph "Provider drops two files"
         RSL["rsl.txt<br/><i>Pricing, permits, prohibits</i>"]
-        PJ["ramp.json<br/><i>Exchange routing</i>"]
+        PJ["fora.json<br/><i>Exchange routing</i>"]
     end
 
     subgraph "Exchange"
         Ingest["Resource Ingestion<br/><i>Crawls rsl.txt, builds catalog</i>"]
-        Catalog["Resource Catalog<br/><i>CoMP Package + Scope objects<br/>with RAMP Pricing + Restrictions</i>"]
+        Catalog["Resource Catalog<br/><i>CoMP Package + Scope objects<br/>with FORA Pricing + Restrictions</i>"]
         RPC["ExchangeService RPCs<br/><i>DiscoverResources<br/>ExecuteTransaction<br/>ReportUsage</i>"]
     end
 
@@ -64,7 +64,7 @@ graph TB
 A provider that wants to monetize AI traffic does two things:
 
 1. **Drops `rsl.txt`** -- declares pricing and usage terms. The Exchange reads this file and builds its resource catalog from it.
-2. **Drops `ramp.json`** -- declares which Exchanges are authorized to sell this provider's resources. Agents read this file to find where to transact.
+2. **Drops `fora.json`** -- declares which Exchanges are authorized to sell this provider's resources. Agents read this file to find where to transact.
 
 Everything else is handled by the Exchange and the protocol.
 
@@ -74,7 +74,7 @@ Everything else is handled by the Exchange and the protocol.
 graph LR
     subgraph "Demand Side"
         Agent[AI Agent / LLM]
-        Orch[RAMP Broker<br/><i>optional</i>]
+        Orch[FORA Broker<br/><i>optional</i>]
     end
 
     subgraph "Supply Side"
@@ -92,45 +92,45 @@ graph LR
 
 | Role | Description | Standard |
 |---|---|---|
-| **AI Agent** | The LLM, RAG system, or agentic application that needs content. Authenticates via Ed25519 signatures. Identity is the RFC 9421 request signature and access is scopes + delegation. | CoMP: "Requesting Party". RAMP v1.0 uses the `Requester` message (not CoMP `AISystem`); CoMP's `lid` is a public agent identifier with no counterpart field on the RAMP request — not a credential. |
-| **RAMP Broker** | Optional demand-side router. Queries multiple Exchanges, compares offers by unit_cost, deduplicates by ResourceIdentity, enforces budget constraints. | RAMP v1.0: "RAMP Broker" |
-| **Exchange** | Exposes resource catalog with pricing. Authorizes transactions. Issues delivery instructions (signed URLs). | RAMP v1.0: "Exchange"; implementation of CoMP endpoints |
+| **AI Agent** | The LLM, RAG system, or agentic application that needs content. Authenticates via Ed25519 signatures. Identity is the RFC 9421 request signature and access is scopes + delegation. | CoMP: "Requesting Party". FORA v1.0 uses the `Requester` message (not CoMP `AISystem`); CoMP's `lid` is a public agent identifier with no counterpart field on the FORA request — not a credential. |
+| **FORA Broker** | Optional demand-side router. Queries multiple Exchanges, compares offers by unit_cost, deduplicates by ResourceIdentity, enforces budget constraints. | FORA v1.0: "FORA Broker" |
+| **Exchange** | Exposes resource catalog with pricing. Authorizes transactions. Issues delivery instructions (signed URLs). | FORA v1.0: "Exchange"; implementation of CoMP endpoints |
 | **Resource Provider** | The provider. Owns the resources, sets terms via RSL. | CoMP: "Content Owner"; RSL: "Licensor" |
 | **Resource Delivery Endpoint** | The CDN that serves resources. Verifies signed URLs natively. | CoMP: "Content Delivery Endpoint" |
-| **Edge Function** | Lightweight CDN function. Blocks unauthorized bots with 403 + `X-Content-Rules` header, redirects to Exchange. Passes through signed URL requests. | RAMP extension (not in CoMP or RSL) |
+| **Edge Function** | Lightweight CDN function. Blocks unauthorized bots with 403 + `X-Content-Rules` header, redirects to Exchange. Passes through signed URL requests. | FORA extension (not in CoMP or RSL) |
 
 ## RSL Integration
 
 The Exchange ingests the provider's `rsl.txt` to build its resource catalog:
 
 1. RSL declares terms (pricing, usage rules, path policies)
-2. The Exchange operationalizes those terms into live RAMP Offers
+2. The Exchange operationalizes those terms into live FORA Offers
 3. Provider manages one file (`rsl.txt`), Exchange does the rest
 
 RSL pricing is a **fallback hint and price ceiling**. The Exchange is the price authority. Private pricing (negotiated between provider and Exchange operator) may be lower than RSL's published rate but cannot exceed it.
 
 ```
-Provider drops rsl.txt + ramp.json on their domain
+Provider drops rsl.txt + fora.json on their domain
   -> Exchange crawls rsl.txt -> builds resource catalog with pricing
-  -> Agent checks ramp.json -> finds Exchange -> DiscoverResources
+  -> Agent checks fora.json -> finds Exchange -> DiscoverResources
   -> Exchange returns Offers derived from RSL terms
 ```
 
-RSL permits and prohibits map directly to RAMP `Restriction` entries carried on each `LicenseTerm.restrictions` (on `Offer.terms[]`):
+RSL permits and prohibits map directly to FORA `Restriction` entries carried on each `LicenseTerm.restrictions` (on `Offer.terms[]`):
 
-| RSL Term | RAMP Field |
+| RSL Term | FORA Field |
 |---|---|
 | `<permits type="usage">ai-input</permits>` | `terms[].restrictions: [{ kind: RESTRICTION_KIND_FUNCTION, permitted: ["ai-input"] }]` |
 | `<prohibits type="usage">ai-train</prohibits>` | `terms[].restrictions: [{ kind: RESTRICTION_KIND_FUNCTION, prohibited: ["ai-train"] }]` |
 | `<payment type="crawl" amount="0.05"/>` | `pricing.model: PRICING_MODEL_PER_UNIT, pricing.unit: "fetches", pricing.rate: 0.05` |
 
-Spellings other vocabularies use for the same tokens are accepted aliases, authored beside the tokens in the proto and canonicalised at ingest: AIPREF's `train-ai` is RAMP's `ai-train`, `scrape` is `crawl`, the industry's `generative-ai` is `ai-input`, and `tdm` is `text-and-data-mining`. A feed may carry either spelling; the catalog stores the registered token.
+Spellings other vocabularies use for the same tokens are accepted aliases, authored beside the tokens in the proto and canonicalised at ingest: AIPREF's `train-ai` is FORA's `ai-train`, `scrape` is `crawl`, the industry's `generative-ai` is `ai-input`, and `tdm` is `text-and-data-mining`. A feed may carry either spelling; the catalog stores the registered token.
 
 ## CoMP Integration
 
-IAB CoMP is **not** nested in RAMP's core messages. It is an **extension profile** (`ramp-comp-v1`) whose objects are carried as flat `comp.*` keys in `Offer.ext`. The RAMP core does not embed CoMP types: the core carries `Offer.title` plus `LicenseTerm` (on `Offer.terms[]`) for licensing, and the requester states `acceptable_restrictions` rather than a CoMP intended-use object.
+IAB CoMP is **not** nested in FORA's core messages. It is an **extension profile** (`fora-comp-v1`) whose objects are carried as flat `comp.*` keys in `Offer.ext`. The FORA core does not embed CoMP types: the core carries `Offer.title` plus `LicenseTerm` (on `Offer.terms[]`) for licensing, and the requester states `acceptable_restrictions` rather than a CoMP intended-use object.
 
-The `ramp-comp-v1` profile maps CoMP objects to `comp.*` extension keys:
+The `fora-comp-v1` profile maps CoMP objects to `comp.*` extension keys:
 
 | CoMP Object | Carried as (extension) |
 |---|---|
@@ -140,11 +140,11 @@ The `ramp-comp-v1` profile maps CoMP objects to `comp.*` extension keys:
 | `Retrieval` | `comp.retrieval.*` keys -- access method and endpoint (including signed URLs, CoMP v2.0 adds `ratelmt`) |
 | `License` | `comp.license.*` keys with `LicenseUse` enum (CoMP v2.0, from CoMP section license.json) |
 
-The requesting AI system is identified by the core `Requester` message (which replaces CoMP `AISystem` in RAMP v1.0). The core `Requester` does **not** nest a CoMP `RequesterUse`/`AISystemUse` or an `intended_use` field; intended use was removed. Instead, the request states `acceptable_restrictions` -- the restriction axes (e.g. `FUNCTION`) the requester is willing to accept.
+The requesting AI system is identified by the core `Requester` message (which replaces CoMP `AISystem` in FORA v1.0). The core `Requester` does **not** nest a CoMP `RequesterUse`/`AISystemUse` or an `intended_use` field; intended use was removed. Instead, the request states `acceptable_restrictions` -- the restriction axes (e.g. `FUNCTION`) the requester is willing to accept.
 
-RAMP adds its own objects on top of CoMP:
+FORA adds its own objects on top of CoMP:
 
-| RAMP Object | Purpose |
+| FORA Object | Purpose |
 |---|---|
 | `Pricing` | Rate, currency, pricing model, unit_cost normalization |
 | `Offer` | Wraps a CoMP Package with pricing, license terms (`terms[]`), identity, attestations, and exchange signature |
@@ -170,15 +170,15 @@ RAMP adds its own objects on top of CoMP:
 |       v                                                  |
 |  +----------+   Content metadata objects                 |
 |  | CoMP 2.0 |   Package, Scope, Retrieval, License,      |
-|  |          |   LicenseUse (RAMP v1.0 uses Requester     |
+|  |          |   LicenseUse (FORA v1.0 uses Requester     |
 |  |          |   in place of CoMP AISystem)                |
 |  +----+-----+                                            |
 |       | used by                                          |
 |       v                                                  |
 |  +------------------------------------------------------+|
-|  |                      RAMP                            ||
+|  |                      FORA                            ||
 |  |                                                       ||
-|  |  ramp.json --- Discovery (where to transact)         ||
+|  |  fora.json --- Discovery (where to transact)         ||
 |  |  Edge function - Fallback discovery (403 redirect)    ||
 |  |  DiscoverResources - Browse offers with unit_cost pricing  ||
 |  |  ExecuteTransaction - Buy content, get signed URL     ||
@@ -192,7 +192,7 @@ RAMP adds its own objects on top of CoMP:
 |  |  WBA directory ------- Verifier keys (v1.0)         ||
 |  |  ResourceMutability -- Static/Dynamic/Live resources    ||
 |  |  Streaming delivery - WebSocket/SSE/HLS (v1.0)       ||
-|  |  ramp.json (ROLE_EXCHANGE) - Exchange manifest (v1.0)||
+|  |  fora.json (ROLE_EXCHANGE) - Exchange manifest (v1.0)||
 |  |  MCP Server --------- Zero-SDK agent interface  (v1.0)||
 |  |                                                       ||
 |  +------------------------------------------------------+|
@@ -200,10 +200,10 @@ RAMP adds its own objects on top of CoMP:
 |  +------------------------------------------------------+|
 |  |              Extension Profiles                      ||
 |  |                                                       ||
-|  |  ramp-news-v1 ---- News, podcasts, broadcasting      ||
-|  |  ramp-academic-v1  Scholarly articles, datasets       ||
-|  |  ramp-legal-v1 --- Legislation, case law, patents     ||
-|  |  ramp-c2pa-v1 ---- C2PA provenance + rights bridge   ||
+|  |  fora-news-v1 ---- News, podcasts, broadcasting      ||
+|  |  fora-academic-v1  Scholarly articles, datasets       ||
+|  |  fora-legal-v1 --- Legislation, case law, patents     ||
+|  |  fora-c2pa-v1 ---- C2PA provenance + rights bridge   ||
 |  |  (Domain communities publish profile specs)           ||
 |  |                                                       ||
 |  +------------------------------------------------------+|
@@ -213,25 +213,25 @@ RAMP adds its own objects on top of CoMP:
 
 ## Extension Profile Governance
 
-RAMP uses a three-layer governance model to prevent fragmentation (the "USB-C problem" where technical compliance does not guarantee interoperability):
+FORA uses a three-layer governance model to prevent fragmentation (the "USB-C problem" where technical compliance does not guarantee interoperability):
 
 | Layer | Scope | Governance | Example |
 |---|---|---|---|
-| **1. Core Proto** | Fields in `ramp.proto` | Protocol version bump | `resource_mutability`, `data_as_of` |
-| **2. Standard Extensions** | `ramp.*` namespace in ext | Defined in RAMP spec | `ramp.compliance.dua_required` |
+| **1. Core Proto** | Fields in `fora.proto` | Protocol version bump | `resource_mutability`, `data_as_of` |
+| **2. Standard Extensions** | `fora.*` namespace in ext | Defined in FORA spec | `fora.compliance.dua_required` |
 | **3. Domain Profiles** | Domain namespace in ext | Published by domain communities | `news.iptc_guid`, `academic.doi` |
 
 **Layer 1** inclusion criteria: cross-cutting need across 30%+ of validated use cases, affects fundamental protocol behavior, meaning is consistent across domains.
 
-**Layer 2**: needed by multiple domains but too specialized for proto. Documented in the RAMP specification. Consumers SHOULD support.
+**Layer 2**: needed by multiple domains but too specialized for proto. Documented in the FORA specification. Consumers SHOULD support.
 
 **Layer 3**: domain-specific vocabularies. Each profile is a standalone specification defining ext field keys, attestation claim names, and behavioral conventions. Exchanges declare conformance via `supported_profiles` in their manifest.
 
-Three proto fields create a complete declaration chain: `DiscoveryRequest.supported_profiles` (agent to Broker), `ResourceQuery.supported_profiles` (Broker to Exchange), and `WellKnownManifest.supported_profiles` (Exchange self-description published at `/.well-known/ramp.json` with `role=ROLE_EXCHANGE`).
+Three proto fields create a complete declaration chain: `DiscoveryRequest.supported_profiles` (agent to Broker), `ResourceQuery.supported_profiles` (Broker to Exchange), and `WellKnownManifest.supported_profiles` (Exchange self-description published at `/.well-known/fora.json` with `role=ROLE_EXCHANGE`).
 
 ## Pricing Models and Delivery Methods
 
-RAMP v1.0 supports unit-agnostic pricing via `unit_cost` + `estimated_quantity` + `unit`, replacing the text-specific per-token pricing fields from earlier versions.
+FORA v1.0 supports unit-agnostic pricing via `unit_cost` + `estimated_quantity` + `unit`, replacing the text-specific per-token pricing fields from earlier versions.
 
 **Pricing models** are `PRICING_MODEL_FREE`, `PRICING_MODEL_PER_UNIT`, and `PRICING_MODEL_FLAT`. `PER_UNIT` is unit-agnostic — `Pricing.unit` names what is metered (`articles`, `fetches`, `pages`, `minutes`, `records`, `tokens`, …), so legal documents (pages), video/audio (minutes), and database records (records) are all priced through one model. Subscriptions are modeled as `FREE` + a `subscription:` scope on the `LicenseTerm` (settled off-protocol, access scope-gated); revenue settlement is off-protocol and not a pricing model.
 
@@ -239,32 +239,32 @@ RAMP v1.0 supports unit-agnostic pricing via `unit_cost` + `estimated_quantity` 
 
 ## Scope Boundary
 
-RAMP covers metered access to resources that exist before the transaction:
+FORA covers metered access to resources that exist before the transaction:
 
 - **In scope**: static resources (articles, papers, patents), dynamic resources (credit reports, drug databases), streaming resources (quote feeds, live broadcasts), database lookups (drug interactions, property records)
 - **Out of scope**: job execution where the transaction creates something new from agent input (translation, ML inference, document generation)
 
-**The test**: "Does the resource exist before the transaction?" If yes, RAMP applies. If the transaction creates something new, use a different protocol.
+**The test**: "Does the resource exist before the transaction?" If yes, FORA applies. If the transaction creates something new, use a different protocol.
 
 ## Discovery: Three Complementary Files
 
-Discovery uses three files that work together. RAMP itself defines one well-known file -- `/.well-known/ramp.json` -- which every participant serves; the `role` field says which participant it is (provider, exchange, agent, publisher). The other two are existing web standards:
+Discovery uses three files that work together. FORA itself defines one well-known file -- `/.well-known/fora.json` -- which every participant serves; the `role` field says which participant it is (provider, exchange, agent, publisher). The other two are existing web standards:
 
 ```
 robots.txt              -> who can crawl (existing standard)
 rsl.txt                 -> licensing terms and pricing signals (RSL 1.0)
-ramp.json              -> role-tagged WellKnownManifest (RAMP, all participants)
+fora.json              -> role-tagged WellKnownManifest (FORA, all participants)
 ```
 
-`/.well-known/ramp.json` is a static JSON file. When served by a provider it declares:
+`/.well-known/fora.json` is a static JSON file. When served by a provider it declares:
 - Which Exchanges are authorized to sell this provider's content (like `ads.txt`)
 - The endpoint for each Exchange
 - Which third parties are authorized to push catalog metadata (`catalog_contributors`, v1.0)
 
-A verification vendor serves its `ramp.json` (typically `role=ROLE_PUBLISHER`, or `role=ROLE_EXCHANGE` for a standalone vendor) declaring:
-- Supported claims schema in `ext["ramp.attestation.claims_schema"]` (what claim fields the verifier attests to). Its Ed25519 attestation-signing keys live in its WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`), referenced by RFC 7638 thumbprint (the attestation `keyid`)
+A verification vendor serves its `fora.json` (typically `role=ROLE_PUBLISHER`, or `role=ROLE_EXCHANGE` for a standalone vendor) declaring:
+- Supported claims schema in `ext["fora.attestation.claims_schema"]` (what claim fields the verifier attests to). Its Ed25519 attestation-signing keys live in its WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`), referenced by RFC 7638 thumbprint (the attestation `keyid`)
 
-An Exchange serves its `ramp.json` (`role=ROLE_EXCHANGE`) declaring:
+An Exchange serves its `fora.json` (`role=ROLE_EXCHANGE`) declaring:
 - ExchangeService endpoint URL; its offer-signing keys live in its WBA directory at `/.well-known/http-message-signatures-directory`
 - Supported protocol versions, pricing models, and delivery methods
 - Accepted verification vendors and hash methods
@@ -273,14 +273,14 @@ An Exchange serves its `ramp.json` (`role=ROLE_EXCHANGE`) declaring:
 ```json
 {
   "ver": "1.0",
-  "provider": "cdn.ramp-protocol.org",
+  "provider": "cdn.fora-protocol.org",
   "catalog_contributors": [
     { "domain": "gumgum.com", "relationship": "verifier" }
   ],
   "exchanges": [
     {
       "domain": "exchange.ssp-example.com",
-      "endpoint": "https://exchange.ssp-example.com/ramp/v1",
+      "endpoint": "https://exchange.ssp-example.com/fora/v1",
       "relationship": "DIRECT"
     }
   ]
@@ -289,32 +289,32 @@ An Exchange serves its `ramp.json` (`role=ROLE_EXCHANGE`) declaring:
 
 Content policy (what is licensed, what is free, what is blocked) lives in `rsl.txt` only -- no duplication.
 
-## RAMP in the Universal Agent Protocol Stack
+## FORA in the Universal Agent Protocol Stack
 
-RAMP occupies a specific layer in the emerging agent protocol stack:
+FORA occupies a specific layer in the emerging agent protocol stack:
 
 ```
-MCP (tool discovery)  →  RAMP (metered access)  →  Payment rails (settlement)
+MCP (tool discovery)  →  FORA (metered access)  →  Payment rails (settlement)
 ```
 
 | Layer | Protocol | Responsibility |
 |---|---|---|
-| **Discovery** | MCP | Agents discover RAMP Exchanges as MCP tools/resources. MCP provides the "how do I find available tools?" layer. |
-| **Metered Access** | RAMP | Handles supply discovery, pricing, transaction execution, resource delivery, and usage reporting. This is the core metered resource access layer. |
-| **Settlement** | x402, MPP, AP2, Stripe, etc. | Handles payment settlement. RAMP is payment-rail agnostic -- it issues transaction records; the settlement mechanism is an implementation choice. |
+| **Discovery** | MCP | Agents discover FORA Exchanges as MCP tools/resources. MCP provides the "how do I find available tools?" layer. |
+| **Metered Access** | FORA | Handles supply discovery, pricing, transaction execution, resource delivery, and usage reporting. This is the core metered resource access layer. |
+| **Settlement** | x402, MPP, AP2, Stripe, etc. | Handles payment settlement. FORA is payment-rail agnostic -- it issues transaction records; the settlement mechanism is an implementation choice. |
 
-This makes RAMP **Layer 4** in the emerging agent protocol stack: above transport (HTTP/gRPC), above identity (Ed25519 signatures), above tool discovery (MCP), and below payment settlement. RAMP is the protocol that answers "how does an agent pay for and receive licensed content?" without prescribing how the money moves.
+This makes FORA **Layer 4** in the emerging agent protocol stack: above transport (HTTP/gRPC), above identity (Ed25519 signatures), above tool discovery (MCP), and below payment settlement. FORA is the protocol that answers "how does an agent pay for and receive licensed content?" without prescribing how the money moves.
 
 ## Coexistence with edge-side ad insertion
 
-RAMP signed-URL verification at the edge is independent of Server-Side Ad Insertion (SSAI), the IAB Tech Lab standard for stitching ad creatives into a publisher's media stream -- see the [SSAI VAST Macros v1.0 specification](https://iabtechlab.com/wp-content/uploads/2020/11/IABTechLab_SSAI_VAST_Macros_v1.0-Nov-2020.pdf). The two run at different stages of the request (signature verification on viewer-request; SSAI on origin-response) and operate on different artefacts (URL query string vs response body). Every major CDN exposes a primitive that lets them run in series on the same distribution. RAMP does not preclude SSAI, and SSAI does not preclude RAMP.
+FORA signed-URL verification at the edge is independent of Server-Side Ad Insertion (SSAI), the IAB Tech Lab standard for stitching ad creatives into a publisher's media stream -- see the [SSAI VAST Macros v1.0 specification](https://iabtechlab.com/wp-content/uploads/2020/11/IABTechLab_SSAI_VAST_Macros_v1.0-Nov-2020.pdf). The two run at different stages of the request (signature verification on viewer-request; SSAI on origin-response) and operate on different artefacts (URL query string vs response body). Every major CDN exposes a primitive that lets them run in series on the same distribution. FORA does not preclude SSAI, and SSAI does not preclude FORA.
 
-The RAMP edge function itself is also not required for delivery: any surface that verifies the signed URL -- CDN-native (CloudFront trusted key groups), publisher-operated (an LLM-optimised origin serving Markdown), or vendor-operated -- satisfies the protocol. See [Edge Function Composition](/components/edge-function/composition/) for the per-CDN composition primitives, verified per-stage compute budgets, and the SSAI coexistence pattern.
+The FORA edge function itself is also not required for delivery: any surface that verifies the signed URL -- CDN-native (CloudFront trusted key groups), publisher-operated (an LLM-optimised origin serving Markdown), or vendor-operated -- satisfies the protocol. See [Edge Function Composition](/components/edge-function/composition/) for the per-CDN composition primitives, verified per-stage compute budgets, and the SSAI coexistence pattern.
 
 ## Next Steps
 
-- [Discovery Paths](/protocol/discovery-paths/) -- all the ways an agent can enter the RAMP flow
+- [Discovery Paths](/protocol/discovery-paths/) -- all the ways an agent can enter the FORA flow
 - [Transaction Flow](/protocol/transaction-flow/) -- the Exchange protocol in detail
 - [Authentication](/protocol/authentication/) -- Ed25519 signature chain and key announcement
-- [Role Composition](/protocol/role-composition/) -- how a single operator can run multiple RAMP roles
-- [Edge Function Composition](/components/edge-function/composition/) -- RAMP coexistence with SSAI and other edge logic
+- [Role Composition](/protocol/role-composition/) -- how a single operator can run multiple FORA roles
+- [Edge Function Composition](/components/edge-function/composition/) -- FORA coexistence with SSAI and other edge logic

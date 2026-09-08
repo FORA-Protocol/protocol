@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // Forward-chain: the agent ALWAYS signs its request (sig1); a relaying broker
@@ -18,7 +18,7 @@ import (
 func multisigReq(t *testing.T) (*http.Request, []byte) {
 	t.Helper()
 	body := []byte(`{"idempotency_key":"idem-1"}`)
-	req, err := http.NewRequest(http.MethodPost, "https://exchange.example.com/ramp.v1.ExchangeService/ExecuteTransaction", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, "https://exchange.example.com/fora.v1.ExchangeService/ExecuteTransaction", bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}

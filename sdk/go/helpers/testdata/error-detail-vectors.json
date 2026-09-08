@@ -3,20 +3,20 @@
   "vectors": [
     {
       "name": "domain_message_only",
-      "domain": "ramp.v1.ExchangeService",
+      "domain": "fora.v1.ExchangeService",
       "message": "internal error",
       "metadata": null,
       "reason_field": "",
       "reason_enum": "",
       "field_errors": null,
       "wire_json": {
-        "domain": "ramp.v1.ExchangeService",
+        "domain": "fora.v1.ExchangeService",
         "message": "internal error"
       }
     },
     {
       "name": "with_single_metadata",
-      "domain": "ramp.v1.CatalogService",
+      "domain": "fora.v1.CatalogService",
       "message": "quota exceeded",
       "metadata": {
         "limit": "100"
@@ -25,7 +25,7 @@
       "reason_enum": "",
       "field_errors": null,
       "wire_json": {
-        "domain": "ramp.v1.CatalogService",
+        "domain": "fora.v1.CatalogService",
         "message": "quota exceeded",
         "metadata": {
           "limit": "100"
@@ -34,27 +34,27 @@
     },
     {
       "name": "empty_metadata_omitted",
-      "domain": "ramp.v1.ExchangeService",
+      "domain": "fora.v1.ExchangeService",
       "message": "no metadata here",
       "metadata": {},
       "reason_field": "",
       "reason_enum": "",
       "field_errors": null,
       "wire_json": {
-        "domain": "ramp.v1.ExchangeService",
+        "domain": "fora.v1.ExchangeService",
         "message": "no metadata here"
       }
     },
     {
       "name": "transaction_denial_reason",
-      "domain": "ramp.v1.ExchangeService",
+      "domain": "fora.v1.ExchangeService",
       "message": "balance too low",
       "metadata": null,
       "reason_field": "transaction_denial",
       "reason_enum": "DENIAL_REASON_INSUFFICIENT_BALANCE",
       "field_errors": null,
       "wire_json": {
-        "domain": "ramp.v1.ExchangeService",
+        "domain": "fora.v1.ExchangeService",
         "message": "balance too low",
         "transaction_denial": {
           "reason": "DENIAL_REASON_INSUFFICIENT_BALANCE"
@@ -63,14 +63,14 @@
     },
     {
       "name": "transaction_denial_account_not_registered",
-      "domain": "ramp.v1.ExchangeService",
+      "domain": "fora.v1.ExchangeService",
       "message": "no account at this Exchange — call Register first",
       "metadata": null,
       "reason_field": "transaction_denial",
       "reason_enum": "DENIAL_REASON_ACCOUNT_NOT_REGISTERED",
       "field_errors": null,
       "wire_json": {
-        "domain": "ramp.v1.ExchangeService",
+        "domain": "fora.v1.ExchangeService",
         "message": "no account at this Exchange — call Register first",
         "transaction_denial": {
           "reason": "DENIAL_REASON_ACCOUNT_NOT_REGISTERED"
@@ -79,14 +79,14 @@
     },
     {
       "name": "retrieval_auth_failure_reason",
-      "domain": "ramp.v1.Edge",
+      "domain": "fora.v1.Edge",
       "message": "signed URL expired",
       "metadata": null,
       "reason_field": "retrieval_auth_failure",
       "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED",
       "field_errors": null,
       "wire_json": {
-        "domain": "ramp.v1.Edge",
+        "domain": "fora.v1.Edge",
         "message": "signed URL expired",
         "retrieval_auth_failure": {
           "reason": "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED"
@@ -95,7 +95,7 @@
     },
     {
       "name": "multi_key_metadata_with_reason",
-      "domain": "ramp.v1.ExchangeService",
+      "domain": "fora.v1.ExchangeService",
       "message": "rate limited",
       "metadata": {
         "alpha": "1",
@@ -106,7 +106,7 @@
       "reason_enum": "DENIAL_REASON_RATE_LIMITED",
       "field_errors": null,
       "wire_json": {
-        "domain": "ramp.v1.ExchangeService",
+        "domain": "fora.v1.ExchangeService",
         "message": "rate limited",
         "metadata": {
           "alpha": "1",
@@ -120,7 +120,7 @@
     },
     {
       "name": "catalog_rejection_reason",
-      "domain": "ramp.v1.CatalogService",
+      "domain": "fora.v1.CatalogService",
       "message": "not your tenant",
       "metadata": null,
       "reason_field": "catalog_rejection",
@@ -130,20 +130,20 @@
         "catalog_rejection": {
           "reason": "CATALOG_REJECTION_REASON_TENANT_MISMATCH"
         },
-        "domain": "ramp.v1.CatalogService",
+        "domain": "fora.v1.CatalogService",
         "message": "not your tenant"
       }
     },
     {
       "name": "registration_failure_reason",
-      "domain": "ramp.v1.RegistrationService",
+      "domain": "fora.v1.RegistrationService",
       "message": "domain not verified",
       "metadata": null,
       "reason_field": "registration_failure",
       "reason_enum": "REGISTRATION_FAILURE_REASON_DOMAIN_NOT_VERIFIED",
       "field_errors": null,
       "wire_json": {
-        "domain": "ramp.v1.RegistrationService",
+        "domain": "fora.v1.RegistrationService",
         "message": "domain not verified",
         "registration_failure": {
           "reason": "REGISTRATION_FAILURE_REASON_DOMAIN_NOT_VERIFIED"
@@ -152,7 +152,7 @@
     },
     {
       "name": "registration_failure_field_errors",
-      "domain": "ramp.v1.ExchangeService",
+      "domain": "fora.v1.ExchangeService",
       "message": "registration_data does not match the published data_schema",
       "metadata": null,
       "reason_field": "registration_failure",
@@ -168,7 +168,7 @@
         }
       ],
       "wire_json": {
-        "domain": "ramp.v1.ExchangeService",
+        "domain": "fora.v1.ExchangeService",
         "message": "registration_data does not match the published data_schema",
         "registration_failure": {
           "field_errors": [
@@ -186,14 +186,14 @@
     },
     {
       "name": "registration_failure_terms_digest_stale",
-      "domain": "ramp.v1.ExchangeService",
+      "domain": "fora.v1.ExchangeService",
       "message": "terms_digest does not match the currently published terms",
       "metadata": null,
       "reason_field": "registration_failure",
       "reason_enum": "REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE",
       "field_errors": null,
       "wire_json": {
-        "domain": "ramp.v1.ExchangeService",
+        "domain": "fora.v1.ExchangeService",
         "message": "terms_digest does not match the currently published terms",
         "registration_failure": {
           "reason": "REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE"
@@ -202,7 +202,7 @@
     },
     {
       "name": "dispute_failure_reason",
-      "domain": "ramp.v1.ExchangeService",
+      "domain": "fora.v1.ExchangeService",
       "message": "no such transaction",
       "metadata": null,
       "reason_field": "dispute_failure",
@@ -212,20 +212,20 @@
         "dispute_failure": {
           "reason": "DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND"
         },
-        "domain": "ramp.v1.ExchangeService",
+        "domain": "fora.v1.ExchangeService",
         "message": "no such transaction"
       }
     },
     {
       "name": "domain_verification_failure_reason",
-      "domain": "ramp.v1.ExchangeService",
+      "domain": "fora.v1.ExchangeService",
       "message": "challenge mismatch",
       "metadata": null,
       "reason_field": "domain_verification_failure",
       "reason_enum": "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_MISMATCH",
       "field_errors": null,
       "wire_json": {
-        "domain": "ramp.v1.ExchangeService",
+        "domain": "fora.v1.ExchangeService",
         "domain_verification_failure": {
           "reason": "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_MISMATCH"
         },
@@ -234,14 +234,14 @@
     },
     {
       "name": "usage_report_rejection_reason",
-      "domain": "ramp.v1.ExchangeService",
+      "domain": "fora.v1.ExchangeService",
       "message": "duplicate report",
       "metadata": null,
       "reason_field": "usage_report_rejection",
       "reason_enum": "USAGE_REPORT_REJECTION_REASON_DUPLICATE",
       "field_errors": null,
       "wire_json": {
-        "domain": "ramp.v1.ExchangeService",
+        "domain": "fora.v1.ExchangeService",
         "message": "duplicate report",
         "usage_report_rejection": {
           "reason": "USAGE_REPORT_REJECTION_REASON_DUPLICATE"

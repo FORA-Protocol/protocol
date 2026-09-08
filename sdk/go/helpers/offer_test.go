@@ -8,19 +8,19 @@ import (
 	"testing"
 	"time"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func sampleOffer() *rampv1.Offer {
-	return &rampv1.Offer{
+func sampleOffer() *forav1.Offer {
+	return &forav1.Offer{
 		OfferId: "of_1",
-		Pricing: &rampv1.Pricing{
-			Model:    rampv1.PricingModel_PRICING_MODEL_PER_UNIT,
+		Pricing: &forav1.Pricing{
+			Model:    forav1.PricingModel_PRICING_MODEL_PER_UNIT,
 			Rate:     "0.05",
 			Currency: "USD",
 		},
@@ -177,7 +177,7 @@ func TestCanonicalOfferBytes_nil(t *testing.T) {
 	}
 }
 
-// encodeWithUnknownField encodes msg and appends a field number no RAMP message
+// encodeWithUnknownField encodes msg and appends a field number no FORA message
 // defines — what a peer built against a newer schema emits, and equally what an
 // on-path party appends to a message it did not author.
 func encodeWithUnknownField(t *testing.T, msg proto.Message) []byte {
@@ -203,8 +203,8 @@ func embed(t *testing.T, host []byte, field protowire.Number, encoded []byte) []
 // rejection has to come from the unknown field itself, not from a visible
 // difference that would break the signature anyway.
 type unknownFieldCase struct {
-	clean    *rampv1.Offer
-	tampered *rampv1.Offer
+	clean    *forav1.Offer
+	tampered *forav1.Offer
 }
 
 // unknownFieldCases plants an unknown field at three depths: on the Offer itself,
@@ -214,8 +214,8 @@ type unknownFieldCase struct {
 func unknownFieldCases(t *testing.T) map[string]unknownFieldCase {
 	t.Helper()
 
-	decode := func(raw []byte) *rampv1.Offer {
-		var o rampv1.Offer
+	decode := func(raw []byte) *forav1.Offer {
+		var o forav1.Offer
 		if err := proto.Unmarshal(raw, &o); err != nil {
 			t.Fatal(err)
 		}
@@ -240,7 +240,7 @@ func unknownFieldCases(t *testing.T) map[string]unknownFieldCase {
 	// field lands inside the nested message. The shell carries every other field,
 	// so clean and tampered render identically.
 	base := sampleOffer()
-	shell := encode(&rampv1.Offer{OfferId: base.OfferId, ExpiresAt: base.ExpiresAt})
+	shell := encode(&forav1.Offer{OfferId: base.OfferId, ExpiresAt: base.ExpiresAt})
 	out["nested message"] = unknownFieldCase{
 		clean:    decode(embed(t, shell, offerPricingField, encode(base.Pricing))),
 		tampered: decode(embed(t, shell, offerPricingField, encodeWithUnknownField(t, base.Pricing))),
@@ -250,7 +250,7 @@ func unknownFieldCases(t *testing.T) map[string]unknownFieldCase {
 	// visibly and be rejected on a byte mismatch — passing the test for a reason
 	// that has nothing to do with the unknown field.
 	full := encode(sampleOffer())
-	att := &rampv1.ResourceAttestation{Verifier: "verifier.example.com", Uri: "https://example.com/a"}
+	att := &forav1.ResourceAttestation{Verifier: "verifier.example.com", Uri: "https://example.com/a"}
 	out["repeated element"] = unknownFieldCase{
 		clean:    decode(embed(t, full, offerAttestationsField, encode(att))),
 		tampered: decode(embed(t, full, offerAttestationsField, encodeWithUnknownField(t, att))),
@@ -410,7 +410,7 @@ func TestVerifyOffer_rejectsANewerCanonicalFormWhicheverCheckFires(t *testing.T)
 	peerSigned := append(baseCanon[:len(baseCanon)-1:len(baseCanon)-1], []byte(`,"zz_new_field":"7"}`)...)
 	peerSig := hex.EncodeToString(ed25519.Sign(priv, peerSigned))
 
-	var newer rampv1.Offer
+	var newer forav1.Offer
 	if err := proto.Unmarshal(encodeWithUnknownField(t, base), &newer); err != nil {
 		t.Fatal(err)
 	}

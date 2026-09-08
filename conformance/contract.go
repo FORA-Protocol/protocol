@@ -17,8 +17,8 @@ import (
 
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	rampadminv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/admin/v1"
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	foraadminv1 "github.com/FORA-Protocol/protocol/gen/go/fora/admin/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 // ContractFile is one proto package of the wire contract: its descriptor, its package
@@ -35,13 +35,13 @@ type ContractFile struct {
 // Contract is the wire contract, in bare-name resolution order.
 var Contract = []ContractFile{
 	{
-		Package: "ramp.v1",
-		File:    rampv1.File_ramp_v1_ramp_proto,
-		RefPage: "../website/src/content/docs/reference/proto-ramp.mdx",
+		Package: "fora.v1",
+		File:    forav1.File_fora_v1_fora_proto,
+		RefPage: "../website/src/content/docs/reference/proto-fora.mdx",
 	},
 	{
-		Package: "ramp.admin.v1",
-		File:    rampadminv1.File_ramp_admin_v1_admin_proto,
+		Package: "fora.admin.v1",
+		File:    foraadminv1.File_fora_admin_v1_admin_proto,
 		RefPage: "../website/src/content/docs/reference/proto-admin.mdx",
 	},
 }
@@ -86,7 +86,7 @@ func EachMessage(fn func(protoreflect.MessageDescriptor)) {
 // AssertUniqueBareNames reports an error when two contract packages define a message
 // with the same bare name. The corpus keys cases by bare short name (Case.Message ==
 // the generated class/schema name), the merged JSON-Schema $defs are keyed the same way,
-// and the {/* ramp-validate: X */} doc markers resolve the same way — a cross-package
+// and the {/* fora-validate: X */} doc markers resolve the same way — a cross-package
 // duplicate would silently collide in all three. Returned as an error, not a fatal, so
 // both a `package main` generator (which exits) and a test (which fails) can use it.
 func AssertUniqueBareNames() error {

@@ -71,7 +71,7 @@ function bytesToHex(bytes: Uint8Array): string {
 export function acceptancePayload(input: AcceptanceInput): Uint8Array<ArrayBuffer> {
 	if (input.offerSig === "") {
 		throw new Error(
-			"ramp/acceptance: cannot accept an unsigned offer (empty offer signature)",
+			"fora/acceptance: cannot accept an unsigned offer (empty offer signature)",
 		);
 	}
 	// proto omit-unpopulated: every empty string field is absent before JCS. The Go
@@ -92,7 +92,7 @@ export function acceptancePayload(input: AcceptanceInput): Uint8Array<ArrayBuffe
 	const obj = Object.fromEntries(Object.entries(payload).filter(([, v]) => v !== ""));
 	const jcs = canonicalize(obj);
 	if (jcs === undefined) {
-		throw new Error("ramp/acceptance: payload is not JSON-serializable");
+		throw new Error("fora/acceptance: payload is not JSON-serializable");
 	}
 	return utf8Bytes(jcs);
 }
@@ -152,16 +152,16 @@ export function requestAcceptancePayload(
 	input: RequestAcceptanceInput,
 ): Uint8Array<ArrayBuffer> {
 	if (input.items.length === 0) {
-		throw new Error("ramp/acceptance: request acceptance requires at least one item");
+		throw new Error("fora/acceptance: request acceptance requires at least one item");
 	}
 	const items = input.items.map((item, index) => {
 		if (item.offerSig === "") {
 			throw new Error(
-				`ramp/acceptance: request item ${index} has an empty offer signature`,
+				`fora/acceptance: request item ${index} has an empty offer signature`,
 			);
 		}
 		if (item.exchange === "") {
-			throw new Error(`ramp/acceptance: request item ${index} has an empty exchange`);
+			throw new Error(`fora/acceptance: request item ${index} has an empty exchange`);
 		}
 		return { offer_sig: item.offerSig, exchange: item.exchange };
 	});
@@ -176,7 +176,7 @@ export function requestAcceptancePayload(
 	);
 	const jcs = canonicalize(obj);
 	if (jcs === undefined) {
-		throw new Error("ramp/acceptance: request payload is not JSON-serializable");
+		throw new Error("fora/acceptance: request payload is not JSON-serializable");
 	}
 	return utf8Bytes(jcs);
 }

@@ -12,7 +12,7 @@ The Edge Function is defined as a platform-agnostic interface. Each CDN platform
  * Platform-agnostic Edge Function interface.
  * Each CDN adapter implements this contract.
  */
-interface RampEdgeHandler {
+interface ForaEdgeHandler {
   /**
    * Inspect an incoming request and decide: block, pass, or serve.
    */
@@ -53,13 +53,13 @@ interface EdgeKV {
 }
 
 interface EdgeConfig {
-  /** WellKnownManifest for ramp.json generation. */
+  /** WellKnownManifest for fora.json generation. */
   manifest: WellKnownManifest;
 
   /** RSL text content for /rsl.txt serving. */
   rslTxt: string;
 
-  /** Glob patterns that require a license (carry RAMP terms); all other paths
+  /** Glob patterns that require a license (carry FORA terms); all other paths
    * are open. Compiled from RSL/catalog entries — a local edge type, not a wire
    * message. */
   protectedPatterns: string[];
@@ -67,10 +67,10 @@ interface EdgeConfig {
   /** Exchange info endpoint URL for X-Content-Rules header. */
   exchangeInfoUrl: string;
 
-  /** Exchange API base URL for fetching ramp.json and rsl.txt. */
+  /** Exchange API base URL for fetching fora.json and rsl.txt. */
   exchangeApiUrl?: string;
 
-  /** Serving mode for ramp.json and rsl.txt. */
+  /** Serving mode for fora.json and rsl.txt. */
   servingMode: "exchange" | "inline" | "kv" | "origin";
 
   /** Bot User-Agent patterns to detect (regexes). */
@@ -112,7 +112,7 @@ interface EdgeConfig {
 ```mermaid
 graph LR
     subgraph "CloudFront Distribution"
-        CF_FUNC["CloudFront Function<br/>(viewer request)<br/>Bot detection + ramp.json + rsl.txt<br/>Signed URL passthrough"]
+        CF_FUNC["CloudFront Function<br/>(viewer request)<br/>Bot detection + fora.json + rsl.txt<br/>Signed URL passthrough"]
         BEHAVIOR["Cache Behavior<br/>trusted_key_groups<br/>for /premium/*"]
     end
 
@@ -126,7 +126,7 @@ graph LR
     LAMBDA --> DDB
 ```
 
-- **CloudFront Function** handles bot detection, ramp.json serving, and signature passthrough. CloudFront's `trusted_key_groups` on the cache behavior natively verifies RSA-signed URLs -- no custom code needed.
+- **CloudFront Function** handles bot detection, fora.json serving, and signature passthrough. CloudFront's `trusted_key_groups` on the cache behavior natively verifies RSA-signed URLs -- no custom code needed.
 - **Lambda@Edge** (optional) handles agent identity binding and single-use enforcement. These require network access (DynamoDB lookup) which CloudFront Functions cannot do.
 
 **What CloudFront does natively that you do not reimplement**:
@@ -136,7 +136,7 @@ graph LR
 
 **What you must implement in the function**:
 - Bot detection (User-Agent check against `botPatterns`).
-- ramp.json and rsl.txt serving.
+- fora.json and rsl.txt serving.
 - Custom parameters validation (agent_id binding).
 - Single-use enforcement (requires Lambda@Edge + DynamoDB, best-effort).
 - The 403 response body and `X-Content-Rules` header.
@@ -148,8 +148,8 @@ function handler(event) {
     var uri = request.uri;
     var qs = request.querystring;
 
-    // Serve ramp.json
-    if (uri === '/.well-known/ramp.json') {
+    // Serve fora.json
+    if (uri === '/.well-known/fora.json') {
         return {
             statusCode: 200,
             statusDescription: 'OK',
@@ -194,7 +194,7 @@ function handler(event) {
                 'content-type': { value: 'application/json' },
                 'x-content-rules': { value: EXCHANGE_INFO_URL }
             },
-            body: '{"error":"Licensed content. Negotiate access via the Exchange.","protocol":"RAMP","version":"1.0","info_url":"' + EXCHANGE_INFO_URL + '"}'
+            body: '{"error":"Licensed content. Negotiate access via the Exchange.","protocol":"FORA","version":"1.0","info_url":"' + EXCHANGE_INFO_URL + '"}'
         };
     }
 
@@ -227,7 +227,7 @@ function handler(event) {
 ```mermaid
 graph LR
     subgraph "Cloudflare Edge"
-        WORKER["Cloudflare Worker<br/>Bot detection<br/>ramp.json + rsl.txt serving<br/>Ed25519 signature verification<br/>Agent identity binding"]
+        WORKER["Cloudflare Worker<br/>Bot detection<br/>fora.json + rsl.txt serving<br/>Ed25519 signature verification<br/>Agent identity binding"]
         KV["Workers KV<br/>Config cache<br/>Bot pattern updates"]
         DO["Durable Object<br/>(optional)<br/>Single-use enforcement<br/>Atomic check-and-consume"]
     end
@@ -243,8 +243,8 @@ graph LR
 ## Akamai
 
 Akamai is not a supported target. Its EdgeAuth token scheme verifies with a secret shared
-with the CDN, which is the model RAMP deliberately does not use: every RAMP delivery
-endpoint verifies with a public key and holds nothing secret. Running RAMP on Akamai would
+with the CDN, which is the model FORA deliberately does not use: every FORA delivery
+endpoint verifies with a public key and holds nothing secret. Running FORA on Akamai would
 mean writing the Ed25519 verifier as an EdgeWorker, which the platform's 4 ms budget and
 2 MB handler memory make an open question rather than a supported path.
 
@@ -274,7 +274,7 @@ mean writing the Ed25519 verifier as an EdgeWorker, which the platform's 4 ms bu
 ```mermaid
 graph LR
     subgraph "Fastly Edge"
-        COMPUTE["Compute Service (WASM)<br/>Bot detection<br/>ramp.json + rsl.txt serving<br/>Ed25519 signature verification<br/>Agent identity binding<br/>Single-use enforcement"]
+        COMPUTE["Compute Service (WASM)<br/>Bot detection<br/>fora.json + rsl.txt serving<br/>Ed25519 signature verification<br/>Agent identity binding<br/>Single-use enforcement"]
         KV_STORE["KV Store<br/>Config + single-use tracking<br/>(strongly consistent in-POP)"]
         CONFIG_STORE["Config Store<br/>Signing keys, bot patterns"]
     end
@@ -288,7 +288,7 @@ graph LR
 | Feature | CloudFront Function | CloudFront + Lambda@Edge | Cloudflare Worker | Fastly Compute |
 |---|---|---|---|---|
 | Bot detection | Yes | Yes | Yes | Yes |
-| ramp.json + rsl.txt serving | Yes | Yes | Yes | Yes |
+| fora.json + rsl.txt serving | Yes | Yes | Yes | Yes |
 | Native signed URL verification | Yes (trusted_key_groups) | Yes (trusted_key_groups) | No (must implement) | No (must implement) |
 | Ed25519 signed-URL verification | No (1ms limit, no Ed25519) | Yes | Yes (native Web Crypto) | Yes (injected verifier) |
 | Agent identity binding | No (no network) | Yes | Yes | Yes |

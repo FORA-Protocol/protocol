@@ -76,7 +76,7 @@ describe("an empty covered header survives the transport", () => {
 					op: "discover",
 					target: {
 						baseURL: `http://127.0.0.1:${port}`,
-						service: "ramp.v1.ExchangeService",
+						service: "fora.v1.ExchangeService",
 						method: "DiscoverResources",
 					},
 					message: {},

@@ -28,7 +28,7 @@
 import { Agent, type Dispatcher, request as undiciRequest } from "undici";
 
 import { skipSSRF, ssrfGuard } from "../resolvers/http.ts";
-import { RampCallError } from "./errors.ts";
+import { ForaCallError } from "./errors.ts";
 import {
 	refuseUnrequestedEncoding,
 	type UnaryRequest,
@@ -104,7 +104,7 @@ export async function readBounded(
 	for await (const chunk of body) {
 		total += chunk.length;
 		if (total > maxBytes) {
-			throw new RampCallError({
+			throw new ForaCallError({
 				kind: "too_large",
 				op,
 				cause: new Error(`body exceeds the ${maxBytes} byte cap`),

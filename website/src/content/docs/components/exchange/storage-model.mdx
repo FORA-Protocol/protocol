@@ -65,14 +65,14 @@ type OfferTemplate struct {
     // Content metadata (from RSL + provider config).
     ContentPath   string
     Package       *compv1.Package
-    Pricing       *rampv1.Pricing
-    Identity      *rampv1.ResourceIdentity
+    Pricing       *forav1.Pricing
+    Identity      *forav1.ResourceIdentity
     // License terms carried on the offer. Each LicenseTerm carries
     // repeated Restriction (kinds: FUNCTION, GEOGRAPHY, USER_TYPE, ...).
     // Surfaced on Offer.terms[] for the agent to self-select; not a
     // server-side filter.
-    Terms         []*rampv1.LicenseTerm
-    DeliveryMethod rampv1.DeliveryMethod
+    Terms         []*forav1.LicenseTerm
+    DeliveryMethod forav1.DeliveryMethod
 }
 ```
 
@@ -246,7 +246,7 @@ type Obligation struct {
 
 **Storage**: Obligations are stored in the same durable store as transactions. The Reporting Tracker loads recent obligations (last 48h) into memory at startup for fast lookup. A background goroutine sweeps expired obligations every minute and transitions them to `Expired`.
 
-**Enforcement**: When ExecuteTransaction resolves the requester's billing reference, it queries the Reporting Tracker for any `Expired` obligations. If found, the transaction is rejected with a `CodePermissionDenied` error indicating outstanding reporting obligations. This is the enforcement mechanism described in the RAMP protocol specification.
+**Enforcement**: When ExecuteTransaction resolves the requester's billing reference, it queries the Reporting Tracker for any `Expired` obligations. If found, the transaction is rejected with a `CodePermissionDenied` error indicating outstanding reporting obligations. This is the enforcement mechanism described in the FORA protocol specification.
 
 ### Two Independent Metrics: Compliance Rate vs Token Accuracy
 
@@ -282,7 +282,7 @@ Providers get read-only access to all signed Offers issued for their content. Th
 - RSL pricing, when present, serves as the **price ceiling** — Offers exceeding the RSL-declared rate are detectable by comparing `offer_snapshot.pricing.rate` against the RSL terms
 - Private floor pricing is contractual between provider and Exchange, not protocol-enforced — the protocol provides the audit data, the contract governs the terms
 
-**Authentication**: Provider authenticates via a separate admin credential (not the RAMP protocol). The Exchange SHOULD enforce domain ownership verification (e.g., DNS TXT record or `ramp.json` presence) before granting audit access.
+**Authentication**: Provider authenticates via a separate admin credential (not the FORA protocol). The Exchange SHOULD enforce domain ownership verification (e.g., DNS TXT record or `fora.json` presence) before granting audit access.
 
 **Rate limiting**: Audit queries are read-only and hit the archival store (S3/Parquet via Athena or equivalent), not the hot transaction log. Rate limit to prevent abuse but allow bulk export for reconciliation.
 

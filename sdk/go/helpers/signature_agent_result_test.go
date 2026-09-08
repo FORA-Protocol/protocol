@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // TestVerifyRequest_signatureAgentOnResult pins that a verified request whose

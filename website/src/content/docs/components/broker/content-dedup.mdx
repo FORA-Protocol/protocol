@@ -14,7 +14,7 @@ Each Offer carries an optional `ResourceIdentity` that the Broker uses for dedup
 ```go
 // contentIdentityKey produces a deduplication key from layered identity fields.
 // Matching priority: iptc_guid > doi > content_hash > canonical_url
-func contentIdentityKey(id *rampv1.ResourceIdentity) string {
+func contentIdentityKey(id *forav1.ResourceIdentity) string {
     if id == nil {
         return uuid.NewString() // no identity = unique (no dedup)
     }

@@ -10,7 +10,7 @@ emitter):
   sdk/go/helpers/testdata/pop-vectors.json        (RFC 9421 GET-PoP output)
 
 This suite asserts sdk/python verify reaches the recorded verdict for each
-vector. It is RED now purely because sdk/python/ramp_sdk/{signedurl,pop}.py do
+vector. It is RED now purely because sdk/python/fora_sdk/{signedurl,pop}.py do
 not exist yet (imports cannot resolve → collection error).
 
 LOAD-BEARING (why vectors come from the Go signer, never hand-authored):
@@ -36,9 +36,9 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from conftest import GO_TESTDATA, load_json
 
-# RED: sdk/python/ramp_sdk/{signedurl,pop}.py do not exist yet (TDD red).
-from ramp_sdk.pop import verify_agent_binding  # type: ignore[import-not-found]
-from ramp_sdk.signedurl import verify_ed25519_signed_url  # type: ignore[import-not-found]
+# RED: sdk/python/fora_sdk/{signedurl,pop}.py do not exist yet (TDD red).
+from fora_sdk.pop import verify_agent_binding  # type: ignore[import-not-found]
+from fora_sdk.signedurl import verify_ed25519_signed_url  # type: ignore[import-not-found]
 
 _SIGNEDURL_VECTORS = load_json(GO_TESTDATA / "signedurl-vectors.json")
 _POP_VECTORS = load_json(GO_TESTDATA / "pop-vectors.json")
@@ -85,7 +85,7 @@ def test_pop_vector_file_is_nonempty() -> None:
 def _pop_headers(vector: dict[str, object]) -> dict[str, str]:
     """RFC 9421 PoP headers as the verifier receives them off the wire."""
     return {
-        "x-ramp-agent-key": str(vector["presented_key_b64url"]),
+        "x-fora-agent-key": str(vector["presented_key_b64url"]),
         "signature-input": str(vector["signature_input"]),
         "signature": str(vector["signature"]),
     }

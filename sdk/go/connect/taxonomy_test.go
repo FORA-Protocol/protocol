@@ -11,10 +11,10 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
-	"github.com/RAMP-Protocol/protocol/sdk/go/resolvers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
 // The failure taxonomy, and the branches of it a caller is told to act on.
@@ -31,14 +31,14 @@ import (
 // words together.
 func TestFailureTokens_AgreeAcrossTheTwoTiers(t *testing.T) {
 	pairs := []struct {
-		call  rampconnect.CallErrorKind
+		call  foraconnect.CallErrorKind
 		fetch resolvers.FetchFailure
 	}{
-		{rampconnect.CallRefused, resolvers.FetchRefused},
-		{rampconnect.CallUnreachable, resolvers.FetchUnreachable},
-		{rampconnect.CallTooLarge, resolvers.FetchTooLarge},
-		{rampconnect.CallNotSignable, resolvers.FetchNotSignable},
-		{rampconnect.CallMalformed, resolvers.FetchMalformed},
+		{foraconnect.CallRefused, resolvers.FetchRefused},
+		{foraconnect.CallUnreachable, resolvers.FetchUnreachable},
+		{foraconnect.CallTooLarge, resolvers.FetchTooLarge},
+		{foraconnect.CallNotSignable, resolvers.FetchNotSignable},
+		{foraconnect.CallMalformed, resolvers.FetchMalformed},
 	}
 	for _, p := range pairs {
 		if got, want := p.call.String(), p.fetch.String(); got != want {
@@ -47,7 +47,7 @@ func TestFailureTokens_AgreeAcrossTheTwoTiers(t *testing.T) {
 	}
 	// The value outside either set renders the same way too, so an unmapped
 	// classification never prints a bare integer.
-	if got := rampconnect.CallErrorKind(99).String(); got != "unknown" {
+	if got := foraconnect.CallErrorKind(99).String(); got != "unknown" {
 		t.Errorf("unnamed kind = %q, want \"unknown\"", got)
 	}
 	if got := resolvers.FetchFailure(99).String(); got != "unknown" {
@@ -67,18 +67,18 @@ func TestReportUsage_TransientResolveFailureIsUnreachable(t *testing.T) {
 	dead.Close()
 
 	sig := newSigningFixture(t)
-	client := rampconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewClient("http://home.invalid",
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
-	_, err := client.ReportUsage(context.Background(), &rampv1.UsageReport{
+	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      domain,
 		TransactionId: "txn-1",
 	})
-	var cerr *rampconnect.CallError
+	var cerr *foraconnect.CallError
 	if !errors.As(err, &cerr) {
 		t.Fatalf("error = %v, want a CallError", err)
 	}
-	if cerr.Kind != rampconnect.CallUnreachable {
+	if cerr.Kind != foraconnect.CallUnreachable {
 		t.Errorf("kind = %v, want CallUnreachable — a transport failure is retryable, "+
 			"and reporting it as a refusal tells a caller to give up", cerr.Kind)
 	}
@@ -94,18 +94,18 @@ func TestReportUsage_NoAdvertisedEndpointIsNotSent(t *testing.T) {
 	defer srv.Close()
 
 	sig := newSigningFixture(t)
-	client := rampconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewClient("http://home.invalid",
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
-	_, err := client.ReportUsage(context.Background(), &rampv1.UsageReport{
+	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      strings.TrimPrefix(srv.URL, "http://"),
 		TransactionId: "txn-1",
 	})
-	var cerr *rampconnect.CallError
+	var cerr *foraconnect.CallError
 	if !errors.As(err, &cerr) {
 		t.Fatalf("error = %v, want a CallError", err)
 	}
-	if cerr.Kind != rampconnect.CallNotSent {
+	if cerr.Kind != foraconnect.CallNotSent {
 		t.Errorf("kind = %v, want CallNotSent — the Exchange answered and advertises nothing", cerr.Kind)
 	}
 	if !errors.Is(err, resolvers.ErrNoEndpoint) {
@@ -123,18 +123,18 @@ func TestReportUsage_UnacceptedManifestVersionIsNotSent(t *testing.T) {
 	defer srv.Close()
 
 	sig := newSigningFixture(t)
-	client := rampconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewClient("http://home.invalid",
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
-	_, err := client.ReportUsage(context.Background(), &rampv1.UsageReport{
+	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      strings.TrimPrefix(srv.URL, "http://"),
 		TransactionId: "txn-1",
 	})
-	var cerr *rampconnect.CallError
+	var cerr *foraconnect.CallError
 	if !errors.As(err, &cerr) {
 		t.Fatalf("error = %v, want a CallError", err)
 	}
-	if cerr.Kind != rampconnect.CallNotSent {
+	if cerr.Kind != foraconnect.CallNotSent {
 		t.Errorf("kind = %v, want CallNotSent — the manifest was read and its version refused", cerr.Kind)
 	}
 	if !errors.Is(err, resolvers.ErrManifestVersionRefused) {
@@ -153,18 +153,18 @@ func TestSendError_ResourceExhaustedIsTooLarge(t *testing.T) {
 		_, _ = w.Write([]byte(`{"code":"resource_exhausted","message":"too big"}`))
 	}))
 
-	client := rampconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewClient("http://home.invalid",
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
-	_, err := client.ReportUsage(context.Background(), &rampv1.UsageReport{
+	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      domain,
 		TransactionId: "txn-1",
 	})
-	var cerr *rampconnect.CallError
+	var cerr *foraconnect.CallError
 	if !errors.As(err, &cerr) {
 		t.Fatalf("error = %v, want a CallError", err)
 	}
-	if cerr.Kind != rampconnect.CallTooLarge {
+	if cerr.Kind != foraconnect.CallTooLarge {
 		t.Errorf("kind = %v, want CallTooLarge for a resource-exhausted peer", cerr.Kind)
 	}
 	// The Connect error stays reachable underneath, so a caller that wants the
@@ -198,18 +198,18 @@ func TestSendError_CallerCancellationIsNotARefusal(t *testing.T) {
 		cancel()
 	}()
 
-	client := rampconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
-	_, err := client.ReportUsage(ctx, &rampv1.UsageReport{
+	client := foraconnect.NewClient("http://home.invalid",
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+	_, err := client.ReportUsage(ctx, &forav1.UsageReport{
 		Exchange:      domain,
 		TransactionId: "txn-1",
 	})
 
-	var cerr *rampconnect.CallError
+	var cerr *foraconnect.CallError
 	if !errors.As(err, &cerr) {
 		t.Fatalf("error = %v, want a CallError", err)
 	}
-	if cerr.Kind != rampconnect.CallUnreachable {
+	if cerr.Kind != foraconnect.CallUnreachable {
 		t.Errorf("kind = %v, want CallUnreachable — the caller gave up; the peer did not refuse", cerr.Kind)
 	}
 }

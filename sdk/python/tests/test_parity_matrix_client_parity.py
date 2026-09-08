@@ -7,7 +7,7 @@ docs/sdk-parity-matrix.md, so the gap could not silently reappear or be miscount
 because that was the part expected to change when the other two languages gained their
 client.
 
-They have. The divergence was never settled: every RAMP RPC is unary, and the API-surface
+They have. The divergence was never settled: every FORA RPC is unary, and the API-surface
 design specified a thin Connect-unary JSON client for both, carrying the same verb names —
 so what stayed divergent was the transport implementation, not the API. With the client
 shipped in all three, the failure this file guards against inverts. The risk is no longer

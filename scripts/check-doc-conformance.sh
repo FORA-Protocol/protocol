@@ -26,7 +26,7 @@ patterns=(
   # conformance candidate detector (TestDocMarkedExamplesValidate), not this
   # grep — do not widen these into a proximity pattern; it would
   # false-positive on the live account-handle prose (e.g. the
-  # ACCOUNT_INACTIVE comment in ramp.proto, which keeps the words "account (the"
+  # ACCOUNT_INACTIVE comment in fora.proto, which keeps the words "account (the"
   # between the possessive and the identifier so this pattern does not match it).
   '[Rr]equester\.billing\\?_ref' '[Rr]equester\.[Bb]illingRef'
   "[Rr]equester'?s?[[:space:]]+\`?billing\\\\?_ref"
@@ -63,7 +63,7 @@ patterns=(
   # token and the spaced prose form.
   'biscuit-''v2' 'Biscuit ''v2'
   # 'revshare' is intentionally NOT denylisted: it is a live CoMP ext identifier
-  # (comp.license[].revshare) and scope prefix (revshare:...). The retired RAMP
+  # (comp.license[].revshare) and scope prefix (revshare:...). The retired FORA
   # *pricing model* is guarded via the enum-constant patterns below instead.
   'PER_ACCESS' 'REVENUE_SHARE'
   'PRICING_MODEL_ATTRIBUTION' 'PRICING_MODEL_CONTRIBUTION'
@@ -78,7 +78,7 @@ patterns=(
   'req\.Aisystem' '\.Aisysuse\.'
   # Fields from the deleted AccessRestrictions message — express as Quota now.
   'max_display_words'
-  # Underscore function tokens — the registered RAMP vocabulary is dashed
+  # Underscore function tokens — the registered FORA vocabulary is dashed
   # (ai-input/ai-train/ai-index). Lowercase underscore forms are wrong; CoMP's
   # uppercase AI_INPUT enum is unaffected (case-sensitive). (CON-05)
   'ai_input' 'ai_train' 'ai_index'
@@ -98,7 +98,7 @@ patterns=(
   # any implementation ever producing one, and the wording was corrected
   # everywhere at once. These are the retired phrasings of that claim. The bare
   # token "JWS" stays legal: Delegation.token genuinely is a JWT (base64url-
-  # encoded JWS), and ramp.proto:1851 legitimately says "(NOT a JWS)".
+  # encoded JWS), and fora.proto:1851 legitimately says "(NOT a JWS)".
   'JWS \(alg=EdDSA\)' 'JWS \(EdDSA\)' 'JWS / Ed25519' 'EdDSA via JWS'
   'JWS EdDSA signature' 'JWS Compact Serialization on Offer'
   'JWS for content signatures' 'Offer JWS' 'JWS alg'
@@ -125,25 +125,25 @@ patterns=(
 # Files where naming a removed identifier is legitimate (they record history).
 exclude_re='(reference/changelog\.mdx|docs/design-history\.md|proto/CHANGELOG\.md)'
 
-# Search roots. `proto/ramp` is included so the gate also catches stale wire
+# Search roots. `proto/fora` is included so the gate also catches stale wire
 # identifiers / orphan comments in the source of truth itself (e.g.
-# a banner that survived the message it described). Only `proto/ramp` — NOT
+# a banner that survived the message it described). Only `proto/fora` — NOT
 # `proto/comp` — because comp.proto mirrors the external CoMP standard, which
-# has its own vocabulary (e.g. a legitimate `revshare` field) that the RAMP
+# has its own vocabulary (e.g. a legitimate `revshare` field) that the FORA
 # removal denylist must not police.
 # Authored documentation prose only — NOT website/src/data (data modules such as
 # standards.mjs, not authored prose) and NOT website/src/components (code).
-roots=(website/src/content docs proto/ramp)
+roots=(website/src/content docs proto/fora)
 
 status=0
 
 # Hard-coded paths the positive-fact checks below depend on. Assert up front so a
 # rename fails loudly here instead of silently skipping a check — a grep against a
 # missing file just yields no matches and would false-pass. (LR-02)
-proto_ramp='proto/ramp/v1/ramp.proto'
+proto_fora='proto/fora/v1/fora.proto'
 event_types='website/src/content/docs/components/transaction-log/event-types.mdx'
 auth='website/src/content/docs/protocol/authentication.mdx'
-for f in "$proto_ramp" "$event_types" "$auth"; do
+for f in "$proto_fora" "$event_types" "$auth"; do
   [ -f "$f" ] || { echo "::error::check-doc-conformance: required file missing (renamed? update this script): $f"; status=1; }
 done
 
@@ -182,7 +182,7 @@ done
 # (ERE, so it also works under BSD grep in ci-local) deliberately does NOT match
 # identifiers/URLs/tokens where the word is glued to `. _ / -`: the live CoMP
 # field `comp.seller`, code like `buyer_lid` / `QueryByBuyer`, `buyer.example.com`,
-# the `ramp-ai-buyer` user-agent, or the ordinary word "re·seller". Those are
+# the `fora-ai-buyer` user-agent, or the ordinary word "re·seller". Those are
 # protocol facts, not synonym drift. Each entry is "pattern#canonical" (`#`
 # delimiter, since the pattern itself contains `|`).
 bound_l='(^|[^A-Za-z0-9._/-])'
@@ -231,21 +231,21 @@ fi
 # only have searched the directive source, not the rendered values.)
 
 # Delegation-claim registry guard. The registered JWT claims are
-# named `ramp_<field>` where <field> is a Delegation proto field. Self-extending:
+# named `fora_<field>` where <field> is a Delegation proto field. Self-extending:
 # derive the registered claim names straight from the auth registry (the only
-# place `ramp_` underscored identifiers appear) and assert each maps to a real
+# place `fora_` underscored identifiers appear) and assert each maps to a real
 # field on the Delegation proto message — so a typo'd or orphaned registry claim
 # fails the build, and a newly-registered claim is checked automatically with no
 # hardcoded list to drift.
 # Scope the field lookup to the Delegation message body only — grepping the whole
-# proto would falsely accept e.g. `ramp_offer_id` (offer_id exists on
+# proto would falsely accept e.g. `fora_offer_id` (offer_id exists on
 # TransactionItem, not Delegation).
-deleg_block=$(awk '/^message Delegation \{/,/^\}/' "$proto_ramp")
+deleg_block=$(awk '/^message Delegation \{/,/^\}/' "$proto_fora")
 claim_n=0
 while read -r claim; do
   [ -z "$claim" ] && continue
   claim_n=$((claim_n + 1))
-  field=${claim#ramp_}
+  field=${claim#fora_}
   # Defensive: only [a-z_] field names are expected. Reject anything else rather
   # than interpolate it into the grep pattern below, so a future change to the
   # extraction regex can never smuggle a regex metacharacter into the match.
@@ -258,21 +258,21 @@ while read -r claim; do
     echo "::error::registered delegation claim '${claim}' has no matching '${field}' field on the Delegation proto message"
     status=1
   fi
-done < <(grep -oE 'ramp_[a-z][a-z_]*' "$auth" | sort -u)
+done < <(grep -oE 'fora_[a-z][a-z_]*' "$auth" | sort -u)
 if [ "$claim_n" -eq 0 ]; then
-  echo "::error::doc-conformance: no ramp_* delegation claims found in ${auth} — extraction drifted; this check would pass vacuously"
+  echo "::error::doc-conformance: no fora_* delegation claims found in ${auth} — extraction drifted; this check would pass vacuously"
   status=1
 fi
 
 # --- 3. Wrong-org references -----------------------------------------------
-# The project lives at github.com/RAMP-Protocol. The pre-rename org literal must not
+# The project lives at github.com/FORA-Protocol. The pre-rename org literal must not
 # appear anywhere — code, docs, config, copyright. The literal is built from two
 # pieces below so this script does not contain it verbatim, and therefore scans its
 # own file too (no self-exclusion blind spot).
 old_org='postin''dustria'
 org_hits=$(git grep -niF "$old_org" -- . 2>/dev/null || true)
 if [ -n "$org_hits" ]; then
-  echo "::error::stale '${old_org}' org reference (the project is github.com/RAMP-Protocol):"
+  echo "::error::stale '${old_org}' org reference (the project is github.com/FORA-Protocol):"
   echo "$org_hits"
   status=1
 fi

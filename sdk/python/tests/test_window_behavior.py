@@ -12,13 +12,13 @@ Two faces:
     within one wall-clock second, so no two back-to-back signatures share an
     expires cutoff (relay replay-store uniqueness).
 
-RED now purely because ``ramp_sdk.window`` does not exist yet.
+RED now purely because ``fora_sdk.window`` does not exist yet.
 """
 
 from __future__ import annotations
 
-# RED: sdk/python/ramp_sdk/window.py does not exist yet (TDD red — missing face).
-from ramp_sdk.window import clock_window, monotonic_window  # type: ignore[import-not-found]
+# RED: sdk/python/fora_sdk/window.py does not exist yet (TDD red — missing face).
+from fora_sdk.window import clock_window, monotonic_window  # type: ignore[import-not-found]
 
 
 def test_clock_window_truncates_created_and_adds_ttl() -> None:

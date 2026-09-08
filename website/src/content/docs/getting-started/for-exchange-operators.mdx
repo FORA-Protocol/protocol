@@ -1,6 +1,6 @@
 ---
-title: "RAMP for Exchange Operators"
-description: "How to operate a RAMP Exchange — aggregate resource catalogs, handle transactions, earn a margin"
+title: "FORA for Exchange Operators"
+description: "How to operate a FORA Exchange — aggregate resource catalogs, handle transactions, earn a margin"
 ---
 
 ## The Opportunity
@@ -9,7 +9,7 @@ Resource providers need a transaction layer but don't want to build one. Courts 
 
 You solve this by running an **Exchange**: aggregate their catalogs, handle discovery, pricing, and transactions, and earn a margin on every access. This is the aggregator pattern — the same model that drives SSPs in ad-tech, clearinghouses in finance, and distributors in publishing.
 
-RAMP was validated across **18 real-world scenarios** spanning 10 industries. The same protocol works for all of them:
+FORA was validated across **18 real-world scenarios** spanning 10 industries. The same protocol works for all of them:
 
 | Exchange Type | What You Aggregate | Providers | Example Operators |
 |---|---|---|---|
@@ -36,7 +36,7 @@ That's the whole protocol. Three RPCs. Your billing adapter plugs in where `Auth
 
 A media exchange meters in tokens. A legal exchange meters in pages. A medical exchange meters in studies. A geospatial exchange meters in sq_km. Same protocol, different units.
 
-RAMP pricing uses three fields: `unit_cost` (price per unit), `unit` (what's being metered), and `estimated_quantity` (how much the agent will consume). No assumption about what's being metered:
+FORA pricing uses three fields: `unit_cost` (price per unit), `unit` (what's being metered), and `estimated_quantity` (how much the agent will consume). No assumption about what's being metered:
 
 ```
 Exchange Type       Metering Unit       Example unit_cost
@@ -59,40 +59,40 @@ Your Exchange declares which domain profiles it supports in its manifest. This t
 
 ```json
 // Media exchange
-{ "supported_profiles": ["ramp-news-v1"] }
+{ "supported_profiles": ["fora-news-v1"] }
 
 // Academic exchange
-{ "supported_profiles": ["ramp-academic-v1"] }
+{ "supported_profiles": ["fora-academic-v1"] }
 
 // Legal exchange
-{ "supported_profiles": ["ramp-legal-v1"] }
+{ "supported_profiles": ["fora-legal-v1"] }
 
 // Multi-domain exchange
-{ "supported_profiles": ["ramp-news-v1", "ramp-academic-v1"] }
+{ "supported_profiles": ["fora-news-v1", "fora-academic-v1"] }
 ```
 
-Agents declare which profiles they understand. The Broker routes queries to Exchanges that support the requested profile. An academic research agent requesting `ramp-academic-v1` is routed to your Exchange if you declare that profile.
+Agents declare which profiles they understand. The Broker routes queries to Exchanges that support the requested profile. An academic research agent requesting `fora-academic-v1` is routed to your Exchange if you declare that profile.
 
 Profile conformance means your Exchange sets the required `ext` fields defined in the profile spec and validates them against the profile's JSON Schema:
 
 | Profile | Scope | What It Means for Your Exchange |
 |---|---|---|
-| `ramp-news-v1` | News, podcasts, broadcasting | Set IPTC subject codes, correction status, podcast metadata in offer ext fields |
-| `ramp-academic-v1` | Scholarly articles, preprints | Set DOI, OA status, version lifecycle in offer ext fields |
-| `ramp-legal-v1` | Legislation, case law, patents | Set jurisdiction, amendment chains, ELI/ECLI in offer ext fields |
+| `fora-news-v1` | News, podcasts, broadcasting | Set IPTC subject codes, correction status, podcast metadata in offer ext fields |
+| `fora-academic-v1` | Scholarly articles, preprints | Set DOI, OA status, version lifecycle in offer ext fields |
+| `fora-legal-v1` | Legislation, case law, patents | Set jurisdiction, amendment chains, ELI/ECLI in offer ext fields |
 
 A Exchange MAY implement zero, one, or multiple profiles. You can start with one domain and expand.
 
-## If You're an SSP: How RAMP Maps to Your Infrastructure
+## If You're an SSP: How FORA Maps to Your Infrastructure
 
-If you operate an SSP or ad exchange, RAMP maps directly to your existing concepts:
+If you operate an SSP or ad exchange, FORA maps directly to your existing concepts:
 
 ```
-Ad-Tech Concept          →  RAMP Equivalent
+Ad-Tech Concept          →  FORA Equivalent
 ─────────────────────────────────────────────
 SSP / Exchange           →  Exchange Node
 Publisher                →  Resource Provider
-ads.txt                  →  ramp.json (authorized providers)
+ads.txt                  →  fora.json (authorized providers)
 Bid Request              →  ResourceQuery
 Win Notification         →  TransactionRequest
 eCPM                     →  unit_cost (effective cost per unit)
@@ -106,7 +106,7 @@ Viewability Report       →  Usage Report
 - CDN access for provider domains
 - Revenue share agreements
 
-**RAMP adds:**
+**FORA adds:**
 - A Exchange service (Go binary, stateless, horizontally scalable)
 - An edge function deployed to provider CDNs (bot blocking + signed URL verification)
 - A resource catalog built from provider `rsl.txt` files and CMS integrations
@@ -119,7 +119,7 @@ For each provider, you:
 2. Ingest their `rsl.txt` to build a resource catalog with pricing
 3. Configure their pricing tier (the `rsl.txt` rate is a ceiling; your private rate can be lower)
 4. Authorize `catalog_contributors` -- third-party verification vendors the provider permits to push attestations for their content
-5. If applicable, deploy the RAMP edge function to their delivery endpoint (CDN, API gateway, PACS server) for signed URL verification
+5. If applicable, deploy the FORA edge function to their delivery endpoint (CDN, API gateway, PACS server) for signed URL verification
 6. Done. Their content is now available to AI requesters through your Exchange
 
 Providers deploy nothing themselves in the managed model. You manage everything. This is the [Exchange-Managed deployment model](/architecture/deployment-models/). Some providers (large publishers, data vendors) may prefer to manage their own delivery endpoint -- the protocol supports both.
@@ -131,7 +131,7 @@ AI companies register via your existing account management or a self-signup API:
 - **Enterprise**: Out-of-band key exchange during contract signing. You register their Ed25519 public key.
 - **Self-signup**: AI agent registers via API with their public key manifest. Per-request billing only (no subscription).
 
-You don't need bilateral deals with every AI company. Any agent that speaks the RAMP protocol can buy from your Exchange.
+You don't need bilateral deals with every AI company. Any agent that speaks the FORA protocol can buy from your Exchange.
 
 ## Requester Verification
 
@@ -183,7 +183,7 @@ When the requester holds a subscription (identifiable via the requester's `deleg
 
 ### New Denial Reasons to Implement
 
-RAMP defines identity- and entitlement-related denial reasons your Exchange MUST return when appropriate. The delegation/scope reasons:
+FORA defines identity- and entitlement-related denial reasons your Exchange MUST return when appropriate. The delegation/scope reasons:
 
 | Denial Reason | When to Return |
 |---|---|
@@ -202,7 +202,7 @@ And the entitlement/subscription family, for subscription-gated offers:
 | `DENIAL_REASON_SUBSCRIPTION_LAPSED` | The covering subscription contract has lapsed |
 | `DENIAL_REASON_ENTITLEMENT_NOT_GRANTED` | Subscription exists but no buyer-side grant ties this caller to it |
 
-This is the identity/entitlement subset with operator guidance; the complete, authoritative `DenialReason` enum is rendered from the proto on the [proto reference](/reference/proto-ramp/). For the full identity model specification — Requester fields, the JWT chain, scope format, and key management — see [Authentication](/protocol/authentication/).
+This is the identity/entitlement subset with operator guidance; the complete, authoritative `DenialReason` enum is rendered from the proto on the [proto reference](/reference/proto-fora/). For the full identity model specification — Requester fields, the JWT chain, scope format, and key management — see [Authentication](/protocol/authentication/).
 
 ## Attestation Verification
 
@@ -233,7 +233,7 @@ Delivery logs are the authoritative evidence source. They cannot be fabricated b
 
 As an Exchange operator, you are responsible for two additional capabilities:
 
-**Exchange Manifest** -- Your Exchange serves a machine-readable self-description at `/.well-known/ramp.json` (`role=ROLE_EXCHANGE`). This tells Brokers and agents what your Exchange supports (pricing models, delivery methods, accepted verifiers, endpoints) without trial-and-error. Your offer-signing keys are published separately in your WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`), not in `ramp.json`. The manifest includes:
+**Exchange Manifest** -- Your Exchange serves a machine-readable self-description at `/.well-known/fora.json` (`role=ROLE_EXCHANGE`). This tells Brokers and agents what your Exchange supports (pricing models, delivery methods, accepted verifiers, endpoints) without trial-and-error. Your offer-signing keys are published separately in your WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`), not in `fora.json`. The manifest includes:
 
 - **`base_currency`** (ISO 4217 code) -- the currency for all `unit_cost` values. Enables cross-exchange price comparison by the Broker. A legal exchange quoting in EUR and a media exchange quoting in USD can be compared when both declare their currency.
 - **`supported_profiles`** -- domain extension profiles your Exchange conforms to.
@@ -298,7 +298,7 @@ Implement these three methods against your existing billing system. The referenc
 
 ## Unit-Agnostic Pricing for Non-Text Resources
 
-RAMP uses a single unit-agnostic pricing model, `PRICING_MODEL_PER_UNIT`, for all metered resources. `Pricing.unit` names what is metered, so non-text resources are priced through the same model:
+FORA uses a single unit-agnostic pricing model, `PRICING_MODEL_PER_UNIT`, for all metered resources. `Pricing.unit` names what is metered, so non-text resources are priced through the same model:
 
 | Model | Unit | Use Case |
 |---|---|---|
@@ -310,9 +310,9 @@ Pricing is unit-agnostic: `unit_cost` replaces eCPT, `estimated_quantity` replac
 
 ## Streaming Delivery
 
-RAMP supports `DELIVERY_METHOD_STREAMING` for real-time connections (WebSocket, SSE, HLS, Icecast). Your Exchange generates a signed URL pointing to a streaming endpoint. The agent connects and receives continuous data. Stream mechanics (heartbeat, reconnection, concurrent connection limits) are managed by the provider, not the protocol.
+FORA supports `DELIVERY_METHOD_STREAMING` for real-time connections (WebSocket, SSE, HLS, Icecast). Your Exchange generates a signed URL pointing to a streaming endpoint. The agent connects and receives continuous data. Stream mechanics (heartbeat, reconnection, concurrent connection limits) are managed by the provider, not the protocol.
 
-Streaming transactions follow the same RAMP flow, but the signed URL has a longer TTL (streaming sessions last minutes/hours) and usage is reported in time-based units (minutes, hours).
+Streaming transactions follow the same FORA flow, but the signed URL has a longer TTL (streaming sessions last minutes/hours) and usage is reported in time-based units (minutes, hours).
 
 ## Next Steps
 

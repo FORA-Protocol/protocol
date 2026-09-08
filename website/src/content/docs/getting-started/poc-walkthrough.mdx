@@ -1,6 +1,6 @@
 ---
 title: "PoC Walkthrough"
-description: "End-to-end demonstration of the RAMP protocol using the live reference implementation. Follow along with curl or integrate the MCP tool into your AI agent."
+description: "End-to-end demonstration of the FORA protocol using the live reference implementation. Follow along with curl or integrate the MCP tool into your AI agent."
 ---
 
 import DeferredSdkNotice from '../../../components/DeferredSdkNotice.mdx';
@@ -10,12 +10,12 @@ import DeferredSdkNotice from '../../../components/DeferredSdkNotice.mdx';
 import { Aside } from '@astrojs/starlight/components';
 
 :::note[Reference Implementation]
-This walkthrough uses the live reference implementation with working curl examples. For the complete protocol flow with Requester identity, delegation (JWT), and subscription quotas, see the [RAMP v1.0 Walkthrough](/protocol/walkthrough-v1/).
+This walkthrough uses the live reference implementation with working curl examples. For the complete protocol flow with Requester identity, delegation (JWT), and subscription quotas, see the [FORA v1.0 Walkthrough](/protocol/walkthrough-v1/).
 :::
 
 ## What You'll See
 
-This walkthrough demonstrates the complete [RAMP transaction flow](/protocol/transaction-flow) against a **live reference [Exchange](/components/exchange/overview)** running on AWS. By the end, you will have:
+This walkthrough demonstrates the complete [FORA transaction flow](/protocol/transaction-flow) against a **live reference [Exchange](/components/exchange/overview)** running on AWS. By the end, you will have:
 
 1. Discovered available resource offers with pricing
 2. Executed a commercial transaction and received a signed URL
@@ -23,7 +23,7 @@ This walkthrough demonstrates the complete [RAMP transaction flow](/protocol/tra
 4. Reported usage back to the Exchange
 5. Optionally: integrated the MCP tool into Claude or another AI agent
 
-**Live Exchange endpoint**: `https://exchange.ramp-protocol.org`
+**Live Exchange endpoint**: `https://exchange.fora-protocol.org`
 
 <Aside type="note">
 This is a demonstration Exchange with sample content. No real money changes hands. The protocol, message formats, and cryptographic signatures are production-grade.
@@ -42,7 +42,7 @@ This is a demonstration Exchange with sample content. No real money changes hand
 ### Step 1: Check Exchange Health
 
 ```bash
-curl -s https://exchange.ramp-protocol.org/health | jq
+curl -s https://exchange.fora-protocol.org/health | jq
 ```
 
 ```json
@@ -54,10 +54,10 @@ curl -s https://exchange.ramp-protocol.org/health | jq
 
 ### Step 2: Retrieve Exchange Public Key
 
-The Exchange announces its [Ed25519](/protocol/authentication) public keys in its WBA directory — a JWK Set served at `/.well-known/http-message-signatures-directory`. Agents and Brokers fetch this and read `keys` to verify offer signatures — see [how authentication works across all RAMP boundaries](/protocol/authentication). Keys no longer live in `ramp.json`; each key is identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`).
+The Exchange announces its [Ed25519](/protocol/authentication) public keys in its WBA directory — a JWK Set served at `/.well-known/http-message-signatures-directory`. Agents and Brokers fetch this and read `keys` to verify offer signatures — see [how authentication works across all FORA boundaries](/protocol/authentication). Keys no longer live in `fora.json`; each key is identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`).
 
 ```bash
-curl -s https://exchange.ramp-protocol.org/.well-known/http-message-signatures-directory | jq
+curl -s https://exchange.fora-protocol.org/.well-known/http-message-signatures-directory | jq
 ```
 
 ```json
@@ -82,7 +82,7 @@ curl -s https://exchange.ramp-protocol.org/.well-known/http-message-signatures-d
 Query the Exchange for available resource offers. This is a [Connect-Go](https://connectrpc.com/) HTTP/JSON endpoint — standard POST with JSON body. The Exchange [looks up resources in its catalog](/components/exchange/overview), computes pricing, and signs each offer with Ed25519.
 
 ```bash
-curl -s -X POST https://exchange.ramp-protocol.org/ramp.v1.ExchangeService/DiscoverResources \
+curl -s -X POST https://exchange.fora-protocol.org/fora.v1.ExchangeService/DiscoverResources \
   -H "Content-Type: application/json" \
   -d '{
     "ver": "1.0",
@@ -91,7 +91,7 @@ curl -s -X POST https://exchange.ramp-protocol.org/ramp.v1.ExchangeService/Disco
       "name": "DemoAgent",
       "aisysuse": {
         "lid": "LIC-DEMO-001",
-        "uri": ["https://cdn.ramp-protocol.org/2024/01/15/ai-startups-funding"]
+        "uri": ["https://cdn.fora-protocol.org/2024/01/15/ai-startups-funding"]
       }
     }
   }' | jq
@@ -102,16 +102,16 @@ The response contains **OfferGroups** — one per requested URI — each with Ed
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.ramp-protocol.org",
+  "exchange": "exchange.fora-protocol.org",
   "offer_groups": [
     {
-      "uri": "https://cdn.ramp-protocol.org/2024/01/15/ai-startups-funding",
+      "uri": "https://cdn.fora-protocol.org/2024/01/15/ai-startups-funding",
       "offers": [
         {
           "offer_id": "46fedecb-5eaf-46f3-8f25-60db769c4205",
-          "exchange": "exchange.ramp-protocol.org",
+          "exchange": "exchange.fora-protocol.org",
           "ext": {
-            "comp.package_id": "pkg-cdn.ramp-protocol.org/2024/01/15/ai-startups-funding"
+            "comp.package_id": "pkg-cdn.fora-protocol.org/2024/01/15/ai-startups-funding"
           },
           "pricing": {
             "model": "PRICING_MODEL_PER_UNIT",
@@ -140,14 +140,14 @@ Key fields in each offer:
 - **pricing** — rate ($0.05/article), currency, estimated tokens. Pricing models are defined in the [protocol spec](/protocol/standards-layering) and follow [RSL conventions](/protocol/discovery-paths)
 - **exchange_signature** — [Ed25519 signature](/protocol/authentication) over the offer. Stateless: the Exchange can verify this signature on ExecuteTransaction without storing the offer
 - **reporting** — usage reporting is mandatory, due within 24 hours, must include `consumed_quantity`. See [how the billing cycle works](/getting-started/how-money-flows)
-- **title** — human-readable offer title, plus optional `ramp-comp-v1` `comp.*` ext fields (e.g. `comp.package_id`) carrying [IAB CoMP](/protocol/standards-layering) package metadata
+- **title** — human-readable offer title, plus optional `fora-comp-v1` `comp.*` ext fields (e.g. `comp.package_id`) carrying [IAB CoMP](/protocol/standards-layering) package metadata
 
 ### Step 4: Execute Transaction ([ExecuteTransaction RPC](/components/exchange/request-flows))
 
 Commit to an offer. Pass back the full signed `offer` from Step 3, reflected exactly as received. The Exchange [verifies the offer signature](/protocol/authentication) over the presented bytes (stateless — no reconstruct-from-catalog), [authorizes billing](/components/exchange/billing-adapter), writes the [transaction log](/components/exchange/storage-model) (WAL — write-before-sign invariant), and returns a **[signed URL](/components/edge-function/signed-url-verification)**.
 
 ```bash
-curl -s -X POST https://exchange.ramp-protocol.org/ramp.v1.ExchangeService/ExecuteTransaction \
+curl -s -X POST https://exchange.fora-protocol.org/fora.v1.ExchangeService/ExecuteTransaction \
   -H "Content-Type: application/json" \
   -d '{
     "ver": "1.0",
@@ -156,7 +156,7 @@ curl -s -X POST https://exchange.ramp-protocol.org/ramp.v1.ExchangeService/Execu
       {
         "offer": {
           "offer_id": "46fedecb-5eaf-46f3-8f25-60db769c4205",
-          "exchange": "exchange.ramp-protocol.org",
+          "exchange": "exchange.fora-protocol.org",
           "pricing": {
             "model": "PRICING_MODEL_PER_UNIT",
             "rate": "0.05",
@@ -187,7 +187,7 @@ Response:
     {
       "transaction_id": "txn-1773682700352684307",
       "billing_id": "bill-000002",
-      "retrieval_endpoint": "https://cdn.ramp-protocol.org/premium/article.html?agent_id=NzbLsXh8...C9Xs&exp=1773683000&kid=vJ3xR1mQ...&sig=k7Qm2xR9vT4nB8aL...",
+      "retrieval_endpoint": "https://cdn.fora-protocol.org/premium/article.html?agent_id=NzbLsXh8...C9Xs&exp=1773683000&kid=vJ3xR1mQ...&sig=k7Qm2xR9vT4nB8aL...",
       "cost": { "amount": "0.05", "currency": "USD" },
       "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
       "reporting_obligation": {
@@ -226,7 +226,7 @@ In production, the [edge function](/components/edge-function/overview) also perf
 Usage reporting is **mandatory**. The Exchange tracks compliance and will deny future transactions for agents with overdue reports (see [denial reasons](/protocol/transaction-flow)). The [Agent SDK](/components/agent-sdk/budget-reporting) handles this automatically.
 
 ```bash
-curl -s -X POST https://exchange.ramp-protocol.org/ramp.v1.ExchangeService/ReportUsage \
+curl -s -X POST https://exchange.fora-protocol.org/fora.v1.ExchangeService/ReportUsage \
   -H "Content-Type: application/json" \
   -d '{
     "ver": "1.0",
@@ -251,7 +251,7 @@ A denied single transaction is **not** a 200 success body — it travels as a no
 
 **Missing offer signature → DENIAL_REASON_SIGNATURE_INVALID:**
 ```bash
-curl -s -X POST https://exchange.ramp-protocol.org/ramp.v1.ExchangeService/ExecuteTransaction \
+curl -s -X POST https://exchange.fora-protocol.org/fora.v1.ExchangeService/ExecuteTransaction \
   -H "Content-Type: application/json" \
   -d '{"ver":"1.0","idempotency_key":"deny-001","items":[{"offer":{"offer_id":"d17ac02a-db4d-487b-83a8-27c26b6fbb8b"}}]}' | jq
 ```
@@ -289,12 +289,12 @@ See the full [threat model](/security/threat-model) for how these protections de
 
 ## Part 2: MCP Tool Integration
 
-The RAMP MCP tool (`commercial_web_fetch`) wraps the entire [fetch flow](/components/agent-sdk/fetch-flow) into a single tool call that AI agents can use transparently. It implements the same flow as the [Agent SDK](/components/agent-sdk/overview).
+The FORA MCP tool (`commercial_web_fetch`) wraps the entire [fetch flow](/components/agent-sdk/fetch-flow) into a single tool call that AI agents can use transparently. It implements the same flow as the [Agent SDK](/components/agent-sdk/overview).
 
 ### How It Works
 
 ```
-Agent calls: commercial_web_fetch(["https://cdn.ramp-protocol.org/2024/01/15/ai-startups-funding"])
+Agent calls: commercial_web_fetch(["https://cdn.fora-protocol.org/2024/01/15/ai-startups-funding"])
 
 MCP Tool internally:
   1. DiscoverResources → gets offers with pricing
@@ -315,7 +315,7 @@ Add to your MCP configuration (`.mcp.json` or Claude Desktop settings):
 ```json
 {
   "mcpServers": {
-    "ramp-ai-buyer": {
+    "fora-ai-buyer": {
       "type": "http",
       "url": "https://e2iwwg6o4byqlvn35pw3bkigpi0dkwll.lambda-url.us-east-1.on.aws/mcp"
     }
@@ -324,38 +324,38 @@ Add to your MCP configuration (`.mcp.json` or Claude Desktop settings):
 ```
 
 <Aside type="tip">
-This is a hosted MCP server — no installation, no auth, no configuration. Add the URL and your agent can immediately start accessing resources through the RAMP protocol. See [For AI Agents](/getting-started/for-ai-agents) for more integration options.
+This is a hosted MCP server — no installation, no auth, no configuration. Add the URL and your agent can immediately start accessing resources through the FORA protocol. See [For AI Agents](/getting-started/for-ai-agents) for more integration options.
 </Aside>
 
 ### Try It
 
 In Claude, ask:
 
-> Fetch the article at https://cdn.ramp-protocol.org/2024/01/15/ai-startups-funding using the commercial_web_fetch tool
+> Fetch the article at https://cdn.fora-protocol.org/2024/01/15/ai-startups-funding using the commercial_web_fetch tool
 
 The tool negotiates with the Exchange and returns:
 
 ```
---- Content from https://cdn.ramp-protocol.org/2024/01/15/ai-startups-funding ---
-[RAMP v1.0 | Cost: 0.0500 USD | Transaction: txn-1773682640975288995 |
+--- Content from https://cdn.fora-protocol.org/2024/01/15/ai-startups-funding ---
+[FORA v1.0 | Cost: 0.0500 USD | Transaction: txn-1773682640975288995 |
  Billing: bill-000001 | Usage reported: True]
 
 [Content delivered via Ed25519-signed URL + agent key proof-of-possession]
 
---- RAMP Cost Summary ---
+--- FORA Cost Summary ---
 Total data acquisition cost: $0.0500
 URLs processed: 1
-Exchange: https://exchange.ramp-protocol.org
+Exchange: https://exchange.fora-protocol.org
 ```
 
 ---
 
 ## Part 3: Batch Multi-URL Query
 
-RAMP supports querying multiple URLs in a single [DiscoverResources](/components/exchange/request-flows) request. Each URL gets its own OfferGroup with independent pricing:
+FORA supports querying multiple URLs in a single [DiscoverResources](/components/exchange/request-flows) request. Each URL gets its own OfferGroup with independent pricing:
 
 ```bash
-curl -s -X POST https://exchange.ramp-protocol.org/ramp.v1.ExchangeService/DiscoverResources \
+curl -s -X POST https://exchange.fora-protocol.org/fora.v1.ExchangeService/DiscoverResources \
   -H "Content-Type: application/json" \
   -d '{
     "ver": "1.0",
@@ -365,9 +365,9 @@ curl -s -X POST https://exchange.ramp-protocol.org/ramp.v1.ExchangeService/Disco
       "aisysuse": {
         "lid": "LIC-DEMO-001",
         "uri": [
-          "https://cdn.ramp-protocol.org/2024/01/15/ai-startups-funding",
-          "https://cdn.ramp-protocol.org/2024/02/20/cloud-computing-trends",
-          "https://cdn.ramp-protocol.org/2024/03/10/robotics-warehouse"
+          "https://cdn.fora-protocol.org/2024/01/15/ai-startups-funding",
+          "https://cdn.fora-protocol.org/2024/02/20/cloud-computing-trends",
+          "https://cdn.fora-protocol.org/2024/03/10/robotics-warehouse"
         ]
       }
     }
@@ -375,9 +375,9 @@ curl -s -X POST https://exchange.ramp-protocol.org/ramp.v1.ExchangeService/Disco
 ```
 
 ```json
-{ "uri": "https://cdn.ramp-protocol.org/2024/01/15/ai-startups-funding", "rate": "0.05" }
-{ "uri": "https://cdn.ramp-protocol.org/2024/02/20/cloud-computing-trends", "rate": "0.03" }
-{ "uri": "https://cdn.ramp-protocol.org/2024/03/10/robotics-warehouse", "rate": "0.04" }
+{ "uri": "https://cdn.fora-protocol.org/2024/01/15/ai-startups-funding", "rate": "0.05" }
+{ "uri": "https://cdn.fora-protocol.org/2024/02/20/cloud-computing-trends", "rate": "0.03" }
+{ "uri": "https://cdn.fora-protocol.org/2024/03/10/robotics-warehouse", "rate": "0.04" }
 ```
 
 In a real [Broker](/components/broker/overview) deployment, the [selection engine](/components/broker/selection-engine) would compare offers across multiple Exchanges and select the best combination based on price, quality, and [budget constraints](/components/broker/budget-enforcement).
@@ -389,7 +389,7 @@ In a real [Broker](/components/broker/overview) deployment, the [selection engin
 The reference implementation is open source. See the [Exchange component docs](/components/exchange/overview) for architecture details, or run it locally:
 
 ```bash
-git clone https://github.com/RAMP-Protocol/reference-implementation.git
+git clone https://github.com/FORA-Protocol/reference-implementation.git
 cd reference-implementation
 
 # Build and run the Exchange locally — follow the repo README for the current
@@ -397,7 +397,7 @@ cd reference-implementation
 
 # Once it's up, the Exchange answers:
 curl http://localhost:3000/health
-curl http://localhost:3000/.well-known/ramp.json
+curl http://localhost:3000/.well-known/fora.json
 ```
 
 For production deployment, see:
@@ -412,7 +412,7 @@ For production deployment, see:
 
 | Step | RPC | What Happens | Deep Dive |
 |------|-----|-------------|-----------|
-| 0 | — | Provider drops [`ramp.json`](/protocol/discovery-paths) on their domain | [Discovery Paths](/protocol/discovery-paths) |
+| 0 | — | Provider drops [`fora.json`](/protocol/discovery-paths) on their domain | [Discovery Paths](/protocol/discovery-paths) |
 | 1 | [`DiscoverResources`](/components/exchange/request-flows) | Agent queries Exchange for offers on URIs | [Request Flows](/components/exchange/request-flows) |
 | 2 | — | Agent/[Broker](/components/broker/overview) selects best offer | [Selection Engine](/components/broker/selection-engine) |
 | 3 | [`ExecuteTransaction`](/components/exchange/request-flows) | Agent commits to offer, receives [signed URL](/components/edge-function/signed-url-verification) | [Billing Adapter](/components/exchange/billing-adapter) |

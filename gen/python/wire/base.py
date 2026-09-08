@@ -18,7 +18,7 @@ from wire.unique import UNIQUE_ITEM_FIELDS
 
 #: Error ``type`` on the refusal below, so a caller can recognise it in
 #: ``ValidationError.errors()`` without matching on a message string.
-JSON_NAME_ALIAS_ERROR = "ramp_json_name_alias"
+JSON_NAME_ALIAS_ERROR = "fora_json_name_alias"
 
 
 class WireModel(BaseModel):
@@ -32,9 +32,9 @@ class WireModel(BaseModel):
     def _refuse_json_name_alias(cls, data: Any) -> Any:
         """Refuse a message whose field names are protojson's lowerCamelCase alias.
 
-        The RAMP wire is snake_case proto-JSON and the camelCase ``json_name`` alias is out
+        The FORA wire is snake_case proto-JSON and the camelCase ``json_name`` alias is out
         of contract, so a conformant peer serves snake_case — connect-go does that only
-        when a codec with UseProtoNames is registered, which a RAMP deployment does and a
+        when a codec with UseProtoNames is registered, which a FORA deployment does and a
         stock connect-go server does not. ``extra="ignore"`` above means such an answer
         would otherwise validate SUCCESSFULLY into a message with every multiword field
         missing, and nothing anywhere would say so.
@@ -65,7 +65,7 @@ class WireModel(BaseModel):
             if name != key and name in declared:
                 raise PydanticCustomError(
                     JSON_NAME_ALIAS_ERROR,
-                    "peer answered with the lowerCamelCase json_name alias ({key}); the RAMP "
+                    "peer answered with the lowerCamelCase json_name alias ({key}); the FORA "
                     "wire is snake_case proto-JSON, so its answer cannot be read without "
                     "silently dropping every multiword field",
                     {"key": key},

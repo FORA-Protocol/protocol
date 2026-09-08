@@ -1,17 +1,17 @@
 ---
 title: "Scenario Walkthrough"
-description: "End-to-end RAMP v1.0 walkthrough: provider setup, agent request, supply discovery, transaction, content fetch, usage reporting, dispute resolution, and reconciliation"
+description: "End-to-end FORA v1.0 walkthrough: provider setup, agent request, supply discovery, transaction, content fetch, usage reporting, dispute resolution, and reconciliation"
 ---
 
-> Definitive walkthrough of RAMP v1.0 as of March 2026. Every field name, signature algorithm, and endpoint matches the current `ramp.proto`.
+> Definitive walkthrough of FORA v1.0 as of March 2026. Every field name, signature algorithm, and endpoint matches the current `fora.proto`.
 
 ## Scenario
 
-**Agent**: Anthropic's Claude (`claude.ai`), running the RAMP Agent SDK
+**Agent**: Anthropic's Claude (`claude.ai`), running the FORA Agent SDK
 **Broker**: Anthropic's hosted Broker (`broker.anthropic.com`)
 **Subscription**: Anthropic has an annual deal with Hearst Media via SSP-Alpha exchange
 **Request**: Claude needs an article about AI regulation originally published by Hearst's TechCrunch (`techcrunch.com`), syndicated to The Verge (`theverge.com`) via SSP-Beta exchange
-**Extension Profiles**: Both Exchanges declare `supported_profiles: ["ramp-news-v1"]` in their manifests. The Broker forwards `supported_profiles` from the agent to enable profile-aware metadata in offers (e.g., `news.iptc_guid`, `news.correction_status`).
+**Extension Profiles**: Both Exchanges declare `supported_profiles: ["fora-news-v1"]` in their manifests. The Broker forwards `supported_profiles` from the agent to enable profile-aware metadata in offers (e.g., `news.iptc_guid`, `news.correction_status`).
 
 ---
 
@@ -19,7 +19,7 @@ description: "End-to-end RAMP v1.0 walkthrough: provider setup, agent request, s
 
 Before any agent request, providers configure their domains and Exchanges ingest content into catalogs.
 
-### 0a. Hearst (TechCrunch) — RSL + ramp.json
+### 0a. Hearst (TechCrunch) — RSL + fora.json
 
 **rsl.txt** — declares licensing terms and a maximum rate (price ceiling):
 
@@ -33,10 +33,10 @@ Before any agent request, providers configure their domains and Exchanges ingest
 </content>
 ```
 
-**ramp.json** — declares which Exchange is authorized to transact:
+**fora.json** — declares which Exchange is authorized to transact:
 
 ```json
-// GET https://techcrunch.com/.well-known/ramp.json
+// GET https://techcrunch.com/.well-known/fora.json
 {
   "ver": "1.0",
   "provider": "techcrunch.com",
@@ -44,7 +44,7 @@ Before any agent request, providers configure their domains and Exchanges ingest
   "exchanges": [
     {
       "domain": "exchange.ssp-alpha.com",
-      "endpoint": "https://exchange.ssp-alpha.com/ramp/v1",
+      "endpoint": "https://exchange.ssp-alpha.com/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ]
@@ -72,14 +72,14 @@ Anthropic publishes its agent's Ed25519 public key in its WBA directory (the JWK
       "not_after": "2026-12-31T23:59:59Z"
     }
   ],
-  "revocation_url": "https://claude.ai/.well-known/ramp-invalidations.json"
+  "revocation_url": "https://claude.ai/.well-known/fora-invalidations.json"
 }
 ```
 
-The `ramp.json` manifest still declares the role and contact, but the keys live in the WBA directory:
+The `fora.json` manifest still declares the role and contact, but the keys live in the WBA directory:
 
 ```json
-// GET https://claude.ai/.well-known/ramp.json
+// GET https://claude.ai/.well-known/fora.json
 {
   "ver": "1.0",
   "role": "ROLE_AGENT",
@@ -105,7 +105,7 @@ The Broker announces its key in its own WBA directory the same way:
       "not_after": "2026-12-31T23:59:59Z"
     }
   ],
-  "revocation_url": "https://broker.anthropic.com/.well-known/ramp-invalidations.json"
+  "revocation_url": "https://broker.anthropic.com/.well-known/fora-invalidations.json"
 }
 ```
 
@@ -175,13 +175,13 @@ BillingAdapter.CheckSubscription("acct_7f3e21c9", "hearst-media")
 1. The Verge reprinted the TechCrunch article (syndication deal):
    theverge.com/premium/ai-regulation-republish.html
 
-2. The Verge has ramp.json pointing to SSP-Beta:
+2. The Verge has fora.json pointing to SSP-Beta:
    {
      "ver": "1.0",
      "provider": "theverge.com",
      "exchanges": [{
        "domain": "exchange.ssp-beta.com",
-       "endpoint": "https://exchange.ssp-beta.com/ramp/v1",
+       "endpoint": "https://exchange.ssp-beta.com/fora/v1",
        "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
      }]
    }
@@ -220,7 +220,7 @@ Step 1: Parse domain -> "techcrunch.com"
 
 Step 2: ExchangeRegistry lookup
   - Cache miss for techcrunch.com
-  - Background: fetch https://techcrunch.com/.well-known/ramp.json
+  - Background: fetch https://techcrunch.com/.well-known/fora.json
   - Discovers: exchange.ssp-alpha.com is authorized (PROVIDER_RELATIONSHIP_DIRECT)
   - Caches: techcrunch.com -> [ssp-alpha]
 
@@ -235,15 +235,15 @@ Step 3: Prepare RFC 9421 HTTP Message Signature (alg=ed25519)
     directory at claude.ai/.well-known/http-message-signatures-directory
 ```
 
-**Key insight**: The SDK discovers Exchanges from the provider's `ramp.json`. It only finds the authorized Exchange for THAT domain. Cross-provider discovery (same article on different domains) requires either a hosted Broker that has crawled multiple providers' `ramp.json`, or the agent explicitly requesting multiple URLs across providers.
+**Key insight**: The SDK discovers Exchanges from the provider's `fora.json`. It only finds the authorized Exchange for THAT domain. Cross-provider discovery (same article on different domains) requires either a hosted Broker that has crawled multiple providers' `fora.json`, or the agent explicitly requesting multiple URLs across providers.
 
 ---
 
 ## Phase 2: Supply Discovery (Requester Identity, Subscription Detection, Content Attestations, Ed25519 Verification)
 
-The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-alpha.com/ramp/v1/ramp.v1.ExchangeService/DiscoverResources`:
+The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`:
 
-{/* ramp-validate: ResourceQuery */}
+{/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
@@ -438,7 +438,7 @@ The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-al
 
 If Anthropic uses its hosted Broker instead of the SDK directly, the Broker provides cross-provider intelligence. The agent sends a `DiscoveryRequest` to the Broker with multiple URIs (`BrokerService.Resolve` is discovery-only — it returns offers grouped by URI; execution happens later via a separate `ExecuteTransaction` call). Agent → Broker:
 
-{/* ramp-validate: DiscoveryRequest */}
+{/* fora-validate: DiscoveryRequest */}
 ```json
 {
   "ver": "1.0",
@@ -471,9 +471,9 @@ The Broker queries both Exchanges. For each forwarded request, the Broker:
 2. Preserves the agent's RFC 9421 HTTP Message Signature (its labeled signature stays in the `Signature`/`Signature-Input` headers)
 3. Adds its own labeled RFC 9421 HTTP Message Signature, covering the request plus the agent's prior signature (the ordered set of header signatures is the chain that proves the Broker forwarded it)
 
-Broker → SSP-Alpha (multi-URI batch query) — `POST https://exchange.ssp-alpha.com/ramp/v1/ramp.v1.ExchangeService/DiscoverResources`:
+Broker → SSP-Alpha (multi-URI batch query) — `POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`:
 
-{/* ramp-validate: ResourceQuery */}
+{/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
@@ -617,9 +617,9 @@ SDK or Broker commits to the subscription offer.
 
 ### Direct (SDK) request -- single signature in the headers:
 
-`POST https://exchange.ssp-alpha.com/ramp/v1/ramp.v1.ExchangeService/ExecuteTransaction`
+`POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
-{/* ramp-validate: TransactionRequest */}
+{/* fora-validate: TransactionRequest */}
 ```json
 {
   "ver": "1.0",
@@ -667,9 +667,9 @@ SDK or Broker commits to the subscription offer.
 
 ### Orchestrated request -- forwarding chain in the headers:
 
-`POST https://exchange.ssp-alpha.com/ramp/v1/ramp.v1.ExchangeService/ExecuteTransaction`
+`POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
-{/* ramp-validate: TransactionRequest */}
+{/* fora-validate: TransactionRequest */}
 ```json
 {
   "ver": "1.0",
@@ -821,7 +821,7 @@ Agent -> CDN: GET https://cdn.techcrunch.com/server/premium/ai-regulation-2026.h
               &exp=1710517800
               &kid=vJ3xR1mQ...
               &sig=k7Qm2xR9vT4nB8aL...
-              Header: X-RAMP-Agent-Key: <agent public key, base64url>
+              Header: X-FORA-Agent-Key: <agent public key, base64url>
               Header: Signature-Input: sig1=("@method" "@target-uri");keyid=...;alg="ed25519";created=...;expires=...
               Header: Signature: sig1=:<standard base64>:
 
@@ -850,9 +850,9 @@ CDN access log records:
 
 The SDK auto-submits a usage report (background, non-blocking). Usage reporting is mandatory for subscription transactions -- failure to report within the window triggers `DENIAL_REASON_REPORTING_OVERDUE` on subsequent transactions.
 
-`POST https://exchange.ssp-alpha.com/ramp/v1/ramp.v1.ExchangeService/ReportUsage`
+`POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/ReportUsage`
 
-{/* ramp-validate: UsageReport */}
+{/* fora-validate: UsageReport */}
 ```json
 {
   "ver": "1.0",
@@ -1019,7 +1019,7 @@ But if Hamming distance > threshold, or content is entirely different:
 ### Dispute Request
 
 ```json
-POST https://exchange.ssp-alpha.com/ramp/v1/ramp.v1.ExchangeService/DisputeTransaction
+POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/DisputeTransaction
 
 {
   "ver": "1.0",
@@ -1050,7 +1050,7 @@ Three-tier resolution: Tier 1 automated (&lt;1s, auto-disputable claims like CDN
 
 ## What the Broker Adds (Cross-Provider Intelligence)
 
-**Without Broker (SDK only)**: the agent found the article via SSP-Alpha (from `ramp.json`) and got the subscription deal. It never knew The Verge also had the article at $0.07 via SSP-Beta.
+**Without Broker (SDK only)**: the agent found the article via SSP-Alpha (from `fora.json`) and got the subscription deal. It never knew The Verge also had the article at $0.07 via SSP-Beta.
 
 **With Broker**: it queried both Exchanges, discovered the same article via iptc_guid match (confirmed by SimHash similarity), received attestation data from both sources, and still chose the subscription offer -- but now Anthropic has intelligence:
 

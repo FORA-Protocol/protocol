@@ -22,8 +22,8 @@ import (
 	"golang.org/x/sync/singleflight"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // WBA-resolution sentinels. AUTHORITY CONTRACT: the resolver surfaces these
@@ -63,7 +63,7 @@ var (
 
 // WBADirectoryPath is the well-known path a WBA identity directory is served
 // at (Web Bot Auth; the identity half of the split — the commercial
-// overlay stays in /.well-known/ramp.json).
+// overlay stays in /.well-known/fora.json).
 const WBADirectoryPath = "/.well-known/http-message-signatures-directory"
 
 // WBADirectoryURL builds the full WBA identity-directory URL from a scheme and an
@@ -248,7 +248,7 @@ func SSRFGuard(base *http.Transport) *http.Transport {
 	// guard always vets the real target.
 	base.Proxy = nil
 	// net/http prefers a transport's OWN TLS dialer over DialContext whenever the
-	// scheme is https — which is every RAMP leg — so a base carrying one would
+	// scheme is https — which is every FORA leg — so a base carrying one would
 	// take the dial through the caller's dialer and the pin below would never run.
 	// The control would be silently absent rather than weaker, so both the current
 	// and the legacy field are cleared. Dial needs no such treatment: DialContext
@@ -442,7 +442,7 @@ type WBAKeyResolver struct {
 }
 
 type wbaDirEntry struct {
-	file *rampv1.WBAFile
+	file *forav1.WBAFile
 	exp  time.Time
 }
 
@@ -599,7 +599,7 @@ func wbaNotify(hook func()) {
 // as "directory down" rather than "not a directory".
 //
 // The scheme that matters is data:, which the WBA directory draft §4.1 permits
-// and which embeds a whole key directory in the header. RAMP refuses it: key
+// and which embeds a whole key directory in the header. FORA refuses it: key
 // resolution rests on fetching the directory from a location the signer had to
 // control, so a signer shipping its own directory inline is asserting its own
 // keys. The draft does substitute a boundary there — a certificate chain (x5c
@@ -764,7 +764,7 @@ func requireHostForm(ref string) error {
 // wbaFile returns host's cached directory when fresh, else fetches, stores, and
 // primes its revocation snapshot. The per-call fetch is serialized under dirMu's
 // release via syncRefresh; a stale entry never blocks a fresh reader.
-func (r *WBAKeyResolver) wbaFile(ctx context.Context, base, host string) (*rampv1.WBAFile, error) {
+func (r *WBAKeyResolver) wbaFile(ctx context.Context, base, host string) (*forav1.WBAFile, error) {
 	r.dirMu.Lock()
 	if e, ok := r.dirCache[host]; ok && r.now().Before(e.exp) {
 		r.dirMu.Unlock()
@@ -796,7 +796,7 @@ func (r *WBAKeyResolver) beginSync(host string) bool {
 // coalesces to ONE in-flight fetch via singleflight — a thundering herd (many
 // callers crossing a TTL boundary, or an unknown-thumbprint burst) issues a
 // single GET and shares its result.
-func (r *WBAKeyResolver) syncRefresh(ctx context.Context, base, host string) (*rampv1.WBAFile, error) {
+func (r *WBAKeyResolver) syncRefresh(ctx context.Context, base, host string) (*forav1.WBAFile, error) {
 	v, err, _ := r.sf.Do(host, func() (any, error) {
 		f, ferr := r.fetchDirectory(ctx, base)
 		if ferr != nil {
@@ -812,7 +812,7 @@ func (r *WBAKeyResolver) syncRefresh(ctx context.Context, base, host string) (*r
 	if err != nil {
 		return nil, err
 	}
-	f, ok := v.(*rampv1.WBAFile)
+	f, ok := v.(*forav1.WBAFile)
 	if !ok {
 		return nil, fmt.Errorf("%w: internal fetch result type", ErrDirectoryUnavailable)
 	}
@@ -822,7 +822,7 @@ func (r *WBAKeyResolver) syncRefresh(ctx context.Context, base, host string) (*r
 // fetchDirectory GETs and decodes the WBA directory at base. Any transport,
 // status, or decode failure wraps ErrDirectoryUnavailable — see the sentinel
 // contract: a directory outage must stay distinguishable from an unknown key.
-func (r *WBAKeyResolver) fetchDirectory(ctx context.Context, base string) (*rampv1.WBAFile, error) {
+func (r *WBAKeyResolver) fetchDirectory(ctx context.Context, base string) (*forav1.WBAFile, error) {
 	return fetchWBAFile(ctx, r.http, base)
 }
 
@@ -835,12 +835,12 @@ func (r *WBAKeyResolver) getDoc(ctx context.Context, docURL string) ([]byte, err
 // WBAFile, wrapping any transport/status/decode failure in ErrDirectoryUnavailable.
 // It is the one fetch+decode path shared by WBAKeyResolver.fetchDirectory and the
 // domain-keyed offer-key fetcher (NewWBADirectoryFetcher), so the two never drift.
-func fetchWBAFile(ctx context.Context, client *http.Client, base string) (*rampv1.WBAFile, error) {
+func fetchWBAFile(ctx context.Context, client *http.Client, base string) (*forav1.WBAFile, error) {
 	raw, err := fetchWBADoc(ctx, client, base+WBADirectoryPath)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrDirectoryUnavailable, err)
 	}
-	var f rampv1.WBAFile
+	var f forav1.WBAFile
 	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(raw, &f); err != nil {
 		return nil, fmt.Errorf("%w: decode: %w", ErrDirectoryUnavailable, err)
 	}
@@ -922,7 +922,7 @@ func (r *WBAKeyResolver) Revoked(keyID string) bool {
 // place and is logged, never propagated (a stale-but-present snapshot is safer
 // than dropping revocations on a transient blip).
 func (r *WBAKeyResolver) refreshRevocationFor(
-	ctx context.Context, base, host string, f *rampv1.WBAFile,
+	ctx context.Context, base, host string, f *forav1.WBAFile,
 ) {
 	revURL := f.GetRevocationUrl()
 	if revURL == "" {
@@ -949,7 +949,7 @@ func (r *WBAKeyResolver) refreshRevocationFor(
 			"host", host, "revocation_url", revURL, "err", err)
 		return
 	}
-	var list rampv1.KeyRevocationList
+	var list forav1.KeyRevocationList
 	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(raw, &list); err != nil {
 		r.logger.WarnContext(ctx, "revocation decode failed",
 			"host", host, "revocation_url", revURL, "err", err)
@@ -986,7 +986,7 @@ func (r *WBAKeyResolver) refreshRevocationFor(
 
 func (r *WBAKeyResolver) refreshAllRevocations(ctx context.Context) {
 	r.dirMu.Lock()
-	entries := make(map[string]*rampv1.WBAFile, len(r.dirCache))
+	entries := make(map[string]*forav1.WBAFile, len(r.dirCache))
 	bases := make(map[string]string, len(r.dirCache))
 	for host, e := range r.dirCache {
 		entries[host] = e.file
@@ -1013,7 +1013,7 @@ func (r *WBAKeyResolver) jitteredInterval() time.Duration {
 // thumbprint (the RFC 9421 keyid) and whether it was found. Each key's
 // thumbprint is computed locally from its decoded public key; keys with an
 // undecodable x are skipped.
-func wbaKeyByThumbprint(f *rampv1.WBAFile, thumbprint string) (*rampv1.JsonWebKey, bool) {
+func wbaKeyByThumbprint(f *forav1.WBAFile, thumbprint string) (*forav1.JsonWebKey, bool) {
 	if f == nil || thumbprint == "" {
 		return nil, false
 	}
@@ -1035,7 +1035,7 @@ func wbaKeyByThumbprint(f *rampv1.WBAFile, thumbprint string) (*rampv1.JsonWebKe
 
 // wbaPublicKey decodes k's Ed25519 public key. Explicit post-unmarshal field
 // checks (kty/crv/x length) stand in for schema validation of the wire doc.
-func wbaPublicKey(k *rampv1.JsonWebKey) (ed25519.PublicKey, error) {
+func wbaPublicKey(k *forav1.JsonWebKey) (ed25519.PublicKey, error) {
 	if !strings.EqualFold(k.GetKty(), "OKP") || !strings.EqualFold(k.GetCrv(), "Ed25519") {
 		return nil, fmt.Errorf("resolvers: unsupported key type kty=%q crv=%q", k.GetKty(), k.GetCrv())
 	}
@@ -1105,7 +1105,7 @@ type ActiveKeyScanOptions struct {
 // (WBAKeyResolver.Revoked / a revocation snapshot); otherwise adopting this selector
 // defeats emergency revocation. Prefer ActiveEd25519KeyScreened, which folds that
 // screen into selection. This bare form is for non-verification callers only.
-func ActiveEd25519Key(directory *rampv1.WBAFile, now time.Time, opts ...ActiveKeyScanOptions) (ed25519.PublicKey, error) {
+func ActiveEd25519Key(directory *forav1.WBAFile, now time.Time, opts ...ActiveKeyScanOptions) (ed25519.PublicKey, error) {
 	pub, _, err := selectActiveEd25519Key(directory, now, nil, opts...)
 	return pub, err
 }
@@ -1125,7 +1125,7 @@ func ActiveEd25519Key(directory *rampv1.WBAFile, now time.Time, opts ...ActiveKe
 // it can return a window-active-but-revoked key. A VERIFICATION path MUST screen
 // the result against the revoked-thumbprint set, or use the revocation-aware
 // ActiveEd25519KeyWithExpiryScreened instead.
-func ActiveEd25519KeyWithExpiry(directory *rampv1.WBAFile, now time.Time, opts ...ActiveKeyScanOptions) (ed25519.PublicKey, time.Time, error) {
+func ActiveEd25519KeyWithExpiry(directory *forav1.WBAFile, now time.Time, opts ...ActiveKeyScanOptions) (ed25519.PublicKey, time.Time, error) {
 	return selectActiveEd25519Key(directory, now, nil, opts...)
 }
 
@@ -1144,7 +1144,7 @@ func ActiveEd25519KeyWithExpiry(directory *rampv1.WBAFile, now time.Time, opts .
 // WBAKeyResolver.Resolve keys on. Returns (nil, ErrUnknownKey) when no well-formed
 // candidate existed, else (nil, ErrKeyExpired) when every candidate was out of window
 // or revoked.
-func ActiveEd25519KeyScreened(directory *rampv1.WBAFile, now time.Time, revoked func(thumbprint string) bool, opts ...ActiveKeyScanOptions) (ed25519.PublicKey, error) {
+func ActiveEd25519KeyScreened(directory *forav1.WBAFile, now time.Time, revoked func(thumbprint string) bool, opts ...ActiveKeyScanOptions) (ed25519.PublicKey, error) {
 	pub, _, err := selectActiveEd25519Key(directory, now, revoked, opts...)
 	return pub, err
 }
@@ -1157,7 +1157,7 @@ func ActiveEd25519KeyScreened(directory *rampv1.WBAFile, now time.Time, revoked 
 // both window-active AND not revoked. `revoked` is REQUIRED (see the screened plain
 // face). Returns the same (ErrUnknownKey / ErrKeyExpired) not-found sentinels when no
 // examined, non-revoked key qualifies.
-func ActiveEd25519KeyWithExpiryScreened(directory *rampv1.WBAFile, now time.Time, revoked func(thumbprint string) bool, opts ...ActiveKeyScanOptions) (ed25519.PublicKey, time.Time, error) {
+func ActiveEd25519KeyWithExpiryScreened(directory *forav1.WBAFile, now time.Time, revoked func(thumbprint string) bool, opts ...ActiveKeyScanOptions) (ed25519.PublicKey, time.Time, error) {
 	return selectActiveEd25519Key(directory, now, revoked, opts...)
 }
 
@@ -1175,7 +1175,7 @@ func ActiveEd25519KeyWithExpiryScreened(directory *rampv1.WBAFile, now time.Time
 // (ErrKeyExpired) — mirroring WBAKeyResolver.Resolve's ErrUnknownKey/ErrKeyExpired
 // split. Reordering the two checks does NOT change WHICH key is selected (a selected
 // key must pass both regardless of order), so byte-parity with py/ts holds.
-func selectActiveEd25519Key(directory *rampv1.WBAFile, now time.Time, revoked func(thumbprint string) bool, opts ...ActiveKeyScanOptions) (ed25519.PublicKey, time.Time, error) {
+func selectActiveEd25519Key(directory *forav1.WBAFile, now time.Time, revoked func(thumbprint string) bool, opts ...ActiveKeyScanOptions) (ed25519.PublicKey, time.Time, error) {
 	var opt ActiveKeyScanOptions
 	if len(opts) > 0 {
 		opt = opts[0]
@@ -1259,7 +1259,7 @@ func activeKeyScanLogger(opt ActiveKeyScanOptions) *slog.Logger {
 // wbaKeyActiveAt reports whether now falls inside k's [not_before, not_after)
 // half-open validity window. A missing or unparseable bound makes the key
 // inactive — validity must be explicit.
-func wbaKeyActiveAt(k *rampv1.JsonWebKey, now time.Time) bool {
+func wbaKeyActiveAt(k *forav1.JsonWebKey, now time.Time) bool {
 	notBefore, err := time.Parse(time.RFC3339, k.GetNotBefore())
 	if err != nil {
 		return false

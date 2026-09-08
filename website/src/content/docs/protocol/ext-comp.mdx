@@ -1,18 +1,18 @@
 ---
-title: "Extension: ramp-comp-v1"
+title: "Extension: fora-comp-v1"
 description: "IAB CoMP metadata extension profile — Package, Function, Scope as optional ext fields"
 ---
 
 ## Purpose
 
-Maps IAB Tech Lab CoMP (Content Monetization Protocols, V1) fields into RAMP ext
+Maps IAB Tech Lab CoMP (Content Monetization Protocols, V1) fields into FORA ext
 conventions. This extension profile enables publishers and ad-tech participants to carry CoMP
-metadata alongside RAMP transactions without requiring the core protocol
+metadata alongside FORA transactions without requiring the core protocol
 to depend on CoMP.
 
-**Source of truth (immutable pin):** [CoMP V1 specification](https://github.com/IABTechLab/CoMP/blob/880238e0100b3d0d67d5afd7357a18fc21a97be5/CoMP-1.0.md) — IAB Tech Lab, finalized 2026-04-28; spec-file blob `aa8c796be7a9bcfa1189a1cf6c1ec50aa67a0f5f`. The `ramp-comp-v1` profile mirrors exactly this revision. (The `1.0-202604` release tag does not carry the spec; `main` does.)
+**Source of truth (immutable pin):** [CoMP V1 specification](https://github.com/IABTechLab/CoMP/blob/880238e0100b3d0d67d5afd7357a18fc21a97be5/CoMP-1.0.md) — IAB Tech Lab, finalized 2026-04-28; spec-file blob `aa8c796be7a9bcfa1189a1cf6c1ec50aa67a0f5f`. The `fora-comp-v1` profile mirrors exactly this revision. (The `1.0-202604` release tag does not carry the spec; `main` does.)
 
-Exchanges that declare `supported_profiles: ["ramp-comp-v1"]` include
+Exchanges that declare `supported_profiles: ["fora-comp-v1"]` include
 these ext fields in Offers and expect them in UsageReports.
 
 ## ext Fields
@@ -87,7 +87,7 @@ Canonical CoMP V1 folds licensing and pricing onto `Scope`; there is no separate
 :::note[No revenue-share field in CoMP V1]
 Earlier CoMP drafts carried a `License` array with a `revshare` rate (alongside
 `use`, `duration_months`, `maxword`). Canonical CoMP V1 removed that object and
-`comp.proto` mirrors the removal — there is no `revshare` field to carry. RAMP
+`comp.proto` mirrors the removal — there is no `revshare` field to carry. FORA
 likewise has no revenue-share pricing model: such arrangements are expressed with
 core primitives — a `Pricing{model: FREE}` term gated by an agreement scope (e.g.
 `scopes: ["revshare:publisher-x"]`) plus a `ReportingObligation`, settled
@@ -114,22 +114,22 @@ Each asset object carries its own taxonomy fields:
 
 ## Conformance
 
-An Exchange declaring `ramp-comp-v1` support MUST:
+An Exchange declaring `fora-comp-v1` support MUST:
 - Include `comp.package_id` on every Offer
 - Forward `comp.function` from the Function `Restriction` to UsageReport processing
 - Validate `comp.*` ext fields against this profile's schema
 
-An Agent using `ramp-comp-v1` MUST:
+An Agent using `fora-comp-v1` MUST:
 - Include `comp.function` in Usage when reporting
 
 ## Relationship to Core Protocol
 
-The core RAMP protocol carries universal fields:
+The core FORA protocol carries universal fields:
 - `Offer.title` — human-readable resource title
 - `LicenseTerm.restrictions[]` with `kind: RESTRICTION_KIND_FUNCTION` carrying `permitted` / `prohibited` — string-based (not CoMP enums)
 - `Usage.function` / `Usage.subfn` — string-based
 
-The `ramp-comp-v1` profile adds CoMP-specific semantics:
+The `fora-comp-v1` profile adds CoMP-specific semantics:
 - `comp.package_id` links to the CoMP package model
 - `comp.function` values map to CoMP Function enum integers
 - `comp.retrieval_*` maps to CoMP Retrieval message

@@ -1,10 +1,10 @@
 // sdk/ts framework-agnostic RFC 9421 single-signature SERVER-verify face — the
 // verify sibling of core/sign-request.ts and the TS port of sdk/go/connectserver's
 // single-sig verify path (verify.go / classify.go over helpers/verify.go +
-// sigbase.go). Where hono/middleware.ts::rampVerify is the edge-GET-PoP path
+// sigbase.go). Where hono/middleware.ts::foraVerify is the edge-GET-PoP path
 // (2-component, self-verifying, no resolver) and core/verifier.ts is OFFER verify
 // (JCS), this is the request-verify a Broker/Exchange built in TS wires behind its
-// framework: it parses the inbound Signature-Input/Signature, enforces the RAMP
+// framework: it parses the inbound Signature-Input/Signature, enforces the FORA
 // required-5 covered set + content-digest + created/expires window, resolves the
 // keyid through an INJECTED KeyResolver (the SDK owns no keys), runs the two-phase
 // replay check over an INJECTED store (the SDK owns no replay state), reads time
@@ -124,7 +124,7 @@ export interface VerifyVerdict {
 // (mirrors Go helpers.defaultMaxFutureSkew = 300s).
 const MAX_FUTURE_SKEW_SEC = 300;
 
-// The RAMP required covered set, lowercased (mirrors Go requiredCoveredComponents).
+// The FORA required covered set, lowercased (mirrors Go requiredCoveredComponents).
 const REQUIRED_COVERED: ReadonlySet<string> = new Set(COVERED_COMPONENTS);
 
 // The entitlement-token header in covered-component (lowercased) form
@@ -242,7 +242,7 @@ interface ParsedInput {
 
 /**
  * Parse `label=("c1" "c2" ...);keyid="..";alg="..";created=..;expires=..` — a
- * minimal RFC 8941-shaped parser for the SINGLE-SIG surface (one label, the RAMP
+ * minimal RFC 8941-shaped parser for the SINGLE-SIG surface (one label, the FORA
  * covered set, string-valued keyid/alg). It keeps the VERBATIM params tail so the
  * verify base terminates with the signer's exact @signature-params bytes (Go
  * RawInner), never a re-rendering.
@@ -413,7 +413,7 @@ export async function verifyParsedSignature(
 }
 
 /**
- * Verify an inbound single-signature RAMP request; return a reason-tagged verdict.
+ * Verify an inbound single-signature FORA request; return a reason-tagged verdict.
  *
  * Mirrors the Go connectserver single-sig verify order: required covered-set →
  * created/expires window → content-digest → key resolution → Ed25519 check over

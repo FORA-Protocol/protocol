@@ -7,13 +7,13 @@
 // the seam depends on cannot live in a tier above the seam. The SDK re-exports it, so
 // there is one implementation per language rather than one per caller.
 //
-// The RAMP wire is snake_case proto-JSON everywhere — proto field names, the corpus, the
+// The FORA wire is snake_case proto-JSON everywhere — proto field names, the corpus, the
 // generated clients — and the camelCase alias is out of contract. Two places still have to
 // reason about it:
 //
 //   - Connect's error-detail `debug` projection IS lowerCamelCase and cannot be made
 //     otherwise. connect-go renders it with its own protojson codec at default options,
-//     inside a method on an unexported type, so the snake_case codec a RAMP deployment
+//     inside a method on an unexported type, so the snake_case codec a FORA deployment
 //     registers reaches the response body and not the error beside it. That projection is
 //     normalized before parsing.
 //   - A response body from a server that registered no snake_case codec is lowerCamelCase

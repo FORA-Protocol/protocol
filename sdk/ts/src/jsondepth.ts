@@ -2,7 +2,7 @@
 //
 // Shared, because several readers need the same answer for the same reason and a second
 // transcription of a security rule is how the three languages drifted apart elsewhere.
-// TS mirror of sdk/python/ramp_sdk/_jsondepth.py.
+// TS mirror of sdk/python/fora_sdk/_jsondepth.py.
 //
 // Every JSON parser across the SDKs descends into a document, and what it does when the
 // document is deeper than it can descend is a property of the runtime rather than a

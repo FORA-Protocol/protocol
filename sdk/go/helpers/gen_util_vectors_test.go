@@ -22,7 +22,7 @@ package helpers
 //
 // Like TestGenerateVectors this test is a verification no-op by default (it
 // asserts the committed files match a fresh emit) and (re)writes them under
-// RAMP_UPDATE_VECTORS=1 — the emitter is both generator and drift gate. It is
+// FORA_UPDATE_VECTORS=1 — the emitter is both generator and drift gate. It is
 // TEST INFRASTRUCTURE, not the code under test.
 
 import (
@@ -239,8 +239,13 @@ func buildHashURLVectors(t *testing.T) []hashURLVector {
 	return out
 }
 
-// buildWireConstantsVectors emits the eight wire constants by REFERENCING the real
+// buildWireConstantsVectors emits the wire constants by REFERENCING the real
 // exported constants — never by re-typing their string values.
+//
+// AgentKeyHeader and WellKnownPath carry the protocol name in their VALUES, which
+// makes them the two that a rename can split. Every other constant here is
+// name-free and would survive a partial rename unnoticed; these two would not, so
+// they are the reason this vector set is a rename guard and not just a parity one.
 func buildWireConstantsVectors() []wireConstantVector {
 	return []wireConstantVector{
 		{"ContentTypeProto", ContentTypeProto},
@@ -251,12 +256,14 @@ func buildWireConstantsVectors() []wireConstantVector {
 		{"WellKnownManifestVersion", WellKnownManifestVersion},
 		{"RequestIDHeader", RequestIDHeader},
 		{"SignatureAgentHeader", SignatureAgentHeader},
+		{"AgentKeyHeader", AgentKeyHeader},
+		{"WellKnownPath", WellKnownPath},
 	}
 }
 
 // TestGenerateUtilVectors emits the utility-face golden corpus (scopes, money,
 // idempotency-validate, hashurl, wire-constants). Verification no-op by default,
-// (re)writes under RAMP_UPDATE_VECTORS=1.
+// (re)writes under FORA_UPDATE_VECTORS=1.
 func TestGenerateUtilVectors(t *testing.T) {
 	scopesDoc := map[string]any{
 		"normalize": buildScopesNormalizeVectors(),
@@ -279,7 +286,7 @@ func TestGenerateUtilVectors(t *testing.T) {
 	}
 	for _, d := range docs {
 		path := filepath.Join("testdata", d.file)
-		if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+		if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 			writeJSON(t, path, d.doc)
 			continue
 		}

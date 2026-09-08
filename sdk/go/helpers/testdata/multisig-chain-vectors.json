@@ -3,7 +3,7 @@
     {
       "name": "positive_two_hop",
       "method": "POST",
-      "url": "https://exchange.example.com/ramp.v1.ExchangeService/ExecuteTransaction",
+      "url": "https://exchange.example.com/fora.v1.ExchangeService/ExecuteTransaction",
       "body_hex": "7b226964656d706f74656e63795f6b6579223a226964656d2d31227d",
       "authorization": "Bearer chain-token",
       "signature_agent": "https://agent.example",
@@ -11,7 +11,7 @@
       "expires": 1700000600,
       "content_digest": "sha-256=:aqbQCL+PR0Yt3lChg8nyhajBCVVVwuDJL2CxMyU+zRg=:",
       "signature_input": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\");keyid=\"agent-demo.v1\";alg=\"ed25519\";created=1700000000;expires=1700000600, sig2=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\" \"signature\";key=\"sig1\");keyid=\"broker.relay.a\";alg=\"ed25519\";created=1700000000;expires=1700000600",
-      "signature": "sig1=:0qRXxXG54SUKDtWhYsn9x7ZTn2lsWqzj7xt3tOz6joTKv8Ufx8V2A36xeWQBf4aDcYRM1nDRBWCr2FFPAeZsCA==:, sig2=:BLrbl0o289i42DcSELpHoRgiFeeIYK97AbMgWBPAquTm1Ht4H0FqVnEXm8zl6pCrZ1E12ASqwr40uo45yxHXDQ==:",
+      "signature": "sig1=:QPKm8aZxrhKn9hEfTFpLHYL9kaPuwEYUM5etEboZqaZbVdNsx9qJseMFH+6Bg7I8mWhG1WBJ1hHjD6Ect7crCw==:, sig2=:R9ueZCNxZwtgie+PBCeP2gdXG2Z/JtMsd4ppz/Tgmpv/5DJpXXcvFylQG3F4ECHOakrM8FKf2ZR4QGx+TFtJCQ==:",
       "hops": [
         {
           "keyid": "agent-demo.v1",
@@ -35,7 +35,7 @@
     {
       "name": "hop_budget_three_over_two",
       "method": "POST",
-      "url": "https://exchange.example.com/ramp.v1.ExchangeService/ExecuteTransaction",
+      "url": "https://exchange.example.com/fora.v1.ExchangeService/ExecuteTransaction",
       "body_hex": "7b226964656d706f74656e63795f6b6579223a226964656d2d31227d",
       "authorization": "Bearer chain-token",
       "signature_agent": "https://agent.example",
@@ -43,7 +43,7 @@
       "expires": 1700000600,
       "content_digest": "sha-256=:aqbQCL+PR0Yt3lChg8nyhajBCVVVwuDJL2CxMyU+zRg=:",
       "signature_input": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\");keyid=\"agent-demo.v1\";alg=\"ed25519\";created=1700000000;expires=1700000600, sig2=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\" \"signature\";key=\"sig1\");keyid=\"broker.relay.a\";alg=\"ed25519\";created=1700000000;expires=1700000600, sig3=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\" \"signature\";key=\"sig2\");keyid=\"broker.relay.b\";alg=\"ed25519\";created=1700000000;expires=1700000600",
-      "signature": "sig1=:0qRXxXG54SUKDtWhYsn9x7ZTn2lsWqzj7xt3tOz6joTKv8Ufx8V2A36xeWQBf4aDcYRM1nDRBWCr2FFPAeZsCA==:, sig2=:BLrbl0o289i42DcSELpHoRgiFeeIYK97AbMgWBPAquTm1Ht4H0FqVnEXm8zl6pCrZ1E12ASqwr40uo45yxHXDQ==:, sig3=:NS11iZ/YPjcoq8ojrDrJ5vaCo8fX81Jo6GvrO7l8NOB3dK+beh6E3SqUWRmwBMRvj0Yjlg9zQq6HRogOwCazDA==:",
+      "signature": "sig1=:QPKm8aZxrhKn9hEfTFpLHYL9kaPuwEYUM5etEboZqaZbVdNsx9qJseMFH+6Bg7I8mWhG1WBJ1hHjD6Ect7crCw==:, sig2=:R9ueZCNxZwtgie+PBCeP2gdXG2Z/JtMsd4ppz/Tgmpv/5DJpXXcvFylQG3F4ECHOakrM8FKf2ZR4QGx+TFtJCQ==:, sig3=:s0f/HOVH1LsPWCpZGfFFs1iC5drT11ye7EuJ+pITtuwVFdT8ZuWvbb1IuQkDGb+r/Be5HwAW1Hl10Ui2AgayAQ==:",
       "hops": [
         {
           "keyid": "agent-demo.v1",
@@ -69,7 +69,7 @@
     {
       "name": "broken_chain_reordered",
       "method": "POST",
-      "url": "https://exchange.example.com/ramp.v1.ExchangeService/ExecuteTransaction",
+      "url": "https://exchange.example.com/fora.v1.ExchangeService/ExecuteTransaction",
       "body_hex": "7b226964656d706f74656e63795f6b6579223a226964656d2d31227d",
       "authorization": "Bearer chain-token",
       "signature_agent": "https://agent.example",
@@ -77,7 +77,7 @@
       "expires": 1700000600,
       "content_digest": "sha-256=:aqbQCL+PR0Yt3lChg8nyhajBCVVVwuDJL2CxMyU+zRg=:",
       "signature_input": "sig2=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\" \"signature\";key=\"sig1\");keyid=\"broker.relay.a\";alg=\"ed25519\";created=1700000000;expires=1700000600, sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\");keyid=\"agent-demo.v1\";alg=\"ed25519\";created=1700000000;expires=1700000600",
-      "signature": "sig2=:BLrbl0o289i42DcSELpHoRgiFeeIYK97AbMgWBPAquTm1Ht4H0FqVnEXm8zl6pCrZ1E12ASqwr40uo45yxHXDQ==:, sig1=:0qRXxXG54SUKDtWhYsn9x7ZTn2lsWqzj7xt3tOz6joTKv8Ufx8V2A36xeWQBf4aDcYRM1nDRBWCr2FFPAeZsCA==:",
+      "signature": "sig2=:R9ueZCNxZwtgie+PBCeP2gdXG2Z/JtMsd4ppz/Tgmpv/5DJpXXcvFylQG3F4ECHOakrM8FKf2ZR4QGx+TFtJCQ==:, sig1=:QPKm8aZxrhKn9hEfTFpLHYL9kaPuwEYUM5etEboZqaZbVdNsx9qJseMFH+6Bg7I8mWhG1WBJ1hHjD6Ect7crCw==:",
       "hops": [
         {
           "keyid": "agent-demo.v1",
@@ -98,7 +98,7 @@
     {
       "name": "broken_chain_stripped_middle",
       "method": "POST",
-      "url": "https://exchange.example.com/ramp.v1.ExchangeService/ExecuteTransaction",
+      "url": "https://exchange.example.com/fora.v1.ExchangeService/ExecuteTransaction",
       "body_hex": "7b226964656d706f74656e63795f6b6579223a226964656d2d31227d",
       "authorization": "Bearer chain-token",
       "signature_agent": "https://agent.example",
@@ -106,7 +106,7 @@
       "expires": 1700000600,
       "content_digest": "sha-256=:aqbQCL+PR0Yt3lChg8nyhajBCVVVwuDJL2CxMyU+zRg=:",
       "signature_input": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\");keyid=\"agent-demo.v1\";alg=\"ed25519\";created=1700000000;expires=1700000600, sig3=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\" \"signature\";key=\"sig2\");keyid=\"broker.relay.b\";alg=\"ed25519\";created=1700000000;expires=1700000600",
-      "signature": "sig1=:0qRXxXG54SUKDtWhYsn9x7ZTn2lsWqzj7xt3tOz6joTKv8Ufx8V2A36xeWQBf4aDcYRM1nDRBWCr2FFPAeZsCA==:, sig3=:NS11iZ/YPjcoq8ojrDrJ5vaCo8fX81Jo6GvrO7l8NOB3dK+beh6E3SqUWRmwBMRvj0Yjlg9zQq6HRogOwCazDA==:",
+      "signature": "sig1=:QPKm8aZxrhKn9hEfTFpLHYL9kaPuwEYUM5etEboZqaZbVdNsx9qJseMFH+6Bg7I8mWhG1WBJ1hHjD6Ect7crCw==:, sig3=:s0f/HOVH1LsPWCpZGfFFs1iC5drT11ye7EuJ+pITtuwVFdT8ZuWvbb1IuQkDGb+r/Be5HwAW1Hl10Ui2AgayAQ==:",
       "hops": [
         {
           "keyid": "agent-demo.v1",
@@ -132,7 +132,7 @@
     {
       "name": "broken_chain_missing_link",
       "method": "POST",
-      "url": "https://exchange.example.com/ramp.v1.ExchangeService/ExecuteTransaction",
+      "url": "https://exchange.example.com/fora.v1.ExchangeService/ExecuteTransaction",
       "body_hex": "7b226964656d706f74656e63795f6b6579223a226964656d2d31227d",
       "authorization": "Bearer chain-token",
       "signature_agent": "https://agent.example",
@@ -140,7 +140,7 @@
       "expires": 1700000600,
       "content_digest": "sha-256=:aqbQCL+PR0Yt3lChg8nyhajBCVVVwuDJL2CxMyU+zRg=:",
       "signature_input": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\");keyid=\"agent-demo.v1\";alg=\"ed25519\";created=1700000000;expires=1700000600, sig2=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\");keyid=\"broker.relay.a\";alg=\"ed25519\";created=1700000000;expires=1700000600",
-      "signature": "sig1=:0qRXxXG54SUKDtWhYsn9x7ZTn2lsWqzj7xt3tOz6joTKv8Ufx8V2A36xeWQBf4aDcYRM1nDRBWCr2FFPAeZsCA==:, sig2=:FgX+KenfK55LXYfBg/M5Nh1Od76SaEE+VlQVSghzjCgBfDuxco5601xJ/dNvq1tG9iX9cb/xgnUG8rnyRKv3CA==:",
+      "signature": "sig1=:QPKm8aZxrhKn9hEfTFpLHYL9kaPuwEYUM5etEboZqaZbVdNsx9qJseMFH+6Bg7I8mWhG1WBJ1hHjD6Ect7crCw==:, sig2=:SA4UUvrp7iolulVIOL9KVhpRw5KtQf0wn/HJqdU6P16m2aILGISiorzT2n/5iPqqpwQIf+81FlrhnNokNCINCw==:",
       "hops": [
         {
           "keyid": "agent-demo.v1",
@@ -161,7 +161,7 @@
     {
       "name": "tampered_predecessor",
       "method": "POST",
-      "url": "https://exchange.example.com/ramp.v1.ExchangeService/ExecuteTransaction",
+      "url": "https://exchange.example.com/fora.v1.ExchangeService/ExecuteTransaction",
       "body_hex": "7b226964656d706f74656e63795f6b6579223a226964656d2d31227d",
       "authorization": "Bearer chain-token",
       "signature_agent": "https://agent.example",
@@ -169,7 +169,7 @@
       "expires": 1700000600,
       "content_digest": "sha-256=:aqbQCL+PR0Yt3lChg8nyhajBCVVVwuDJL2CxMyU+zRg=:",
       "signature_input": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\");keyid=\"agent-demo.v1\";alg=\"ed25519\";created=1700000000;expires=1700000600, sig2=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\" \"signature\";key=\"sig1\");keyid=\"broker.relay.a\";alg=\"ed25519\";created=1700000000;expires=1700000600",
-      "signature": "sig1=:AqRXxXG54SUKDtWhYsn9x7ZTn2lsWqzj7xt3tOz6joTKv8Ufx8V2A36xeWQBf4aDcYRM1nDRBWCr2FFPAeZsCA==:, sig2=:BLrbl0o289i42DcSELpHoRgiFeeIYK97AbMgWBPAquTm1Ht4H0FqVnEXm8zl6pCrZ1E12ASqwr40uo45yxHXDQ==:",
+      "signature": "sig1=:APKm8aZxrhKn9hEfTFpLHYL9kaPuwEYUM5etEboZqaZbVdNsx9qJseMFH+6Bg7I8mWhG1WBJ1hHjD6Ect7crCw==:, sig2=:R9ueZCNxZwtgie+PBCeP2gdXG2Z/JtMsd4ppz/Tgmpv/5DJpXXcvFylQG3F4ECHOakrM8FKf2ZR4QGx+TFtJCQ==:",
       "hops": [
         {
           "keyid": "agent-demo.v1",
@@ -190,7 +190,7 @@
     {
       "name": "absent_authorization_two_hop",
       "method": "POST",
-      "url": "https://exchange.example.com/ramp.v1.ExchangeService/ExecuteTransaction",
+      "url": "https://exchange.example.com/fora.v1.ExchangeService/ExecuteTransaction",
       "body_hex": "7b226964656d706f74656e63795f6b6579223a226964656d2d31227d",
       "authorization": "",
       "signature_agent": "",
@@ -198,7 +198,7 @@
       "expires": 1700000600,
       "content_digest": "sha-256=:aqbQCL+PR0Yt3lChg8nyhajBCVVVwuDJL2CxMyU+zRg=:",
       "signature_input": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\");keyid=\"agent-demo.v1\";alg=\"ed25519\";created=1700000000;expires=1700000600, sig2=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\" \"signature\";key=\"sig1\");keyid=\"broker.relay.a\";alg=\"ed25519\";created=1700000000;expires=1700000600",
-      "signature": "sig1=:vW6CskK5mliLzIvHhnB0DyBEOqw8U8a2Tc0TUCbueWuJ2PcjlavAEJCDtMrzRjzAoYc+fnMOdfrhOSfbMkxJBw==:, sig2=:dsbeJE0blYPjSK7v5C/h9KswcFGfJ8N67qsqD7avPjn+nTsRgyCgyU5DtVs2D9yphZk7U1YgtZhysOcoR6rlDw==:",
+      "signature": "sig1=:54r7e2ai9T419lvdG8qW4UKE5R8BfgE3t3GIcE+Yr1GAAaAKCp3Rs5KkEruauFPWbF75evLaYBKa+t2f8pqEBA==:, sig2=:7UL8SnhFvF5iBlWfs3SqwjEU56Lr6pFotXjpGW37kUnZPbmFwHDpGvXlLw6uY+DiemrbmGoaQ10Nu5mWWtqIDA==:",
       "hops": [
         {
           "keyid": "agent-demo.v1",
@@ -222,7 +222,7 @@
     {
       "name": "absent_authorization_over_budget",
       "method": "POST",
-      "url": "https://exchange.example.com/ramp.v1.ExchangeService/ExecuteTransaction",
+      "url": "https://exchange.example.com/fora.v1.ExchangeService/ExecuteTransaction",
       "body_hex": "7b226964656d706f74656e63795f6b6579223a226964656d2d31227d",
       "authorization": "",
       "signature_agent": "",
@@ -230,7 +230,7 @@
       "expires": 1700000600,
       "content_digest": "sha-256=:aqbQCL+PR0Yt3lChg8nyhajBCVVVwuDJL2CxMyU+zRg=:",
       "signature_input": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\");keyid=\"agent-demo.v1\";alg=\"ed25519\";created=1700000000;expires=1700000600, sig2=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\" \"signature\";key=\"sig1\");keyid=\"broker.relay.a\";alg=\"ed25519\";created=1700000000;expires=1700000600, sig3=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\" \"signature\";key=\"sig2\");keyid=\"broker.relay.b\";alg=\"ed25519\";created=1700000000;expires=1700000600",
-      "signature": "sig1=:vW6CskK5mliLzIvHhnB0DyBEOqw8U8a2Tc0TUCbueWuJ2PcjlavAEJCDtMrzRjzAoYc+fnMOdfrhOSfbMkxJBw==:, sig2=:dsbeJE0blYPjSK7v5C/h9KswcFGfJ8N67qsqD7avPjn+nTsRgyCgyU5DtVs2D9yphZk7U1YgtZhysOcoR6rlDw==:, sig3=:0fKYDf52vrmaUc/3q7t8DuBlxXqD8OY+qoA2dWpc94xV3JUuh+T4JkoWFx6qtjyBPDhn2xqzYPurYGGYtQg+Bg==:",
+      "signature": "sig1=:54r7e2ai9T419lvdG8qW4UKE5R8BfgE3t3GIcE+Yr1GAAaAKCp3Rs5KkEruauFPWbF75evLaYBKa+t2f8pqEBA==:, sig2=:7UL8SnhFvF5iBlWfs3SqwjEU56Lr6pFotXjpGW37kUnZPbmFwHDpGvXlLw6uY+DiemrbmGoaQ10Nu5mWWtqIDA==:, sig3=:x3MiLH6sXmmvqVmz142WaE1Nt+bQDXZwkZKWRB+NN1L+NXQYHDcK4iIiqLVbwQZoneR2j7W9ueeFL1ZQOE+rDg==:",
       "hops": [
         {
           "keyid": "agent-demo.v1",
@@ -259,7 +259,7 @@
     {
       "name": "absent_signature_agent_reordered",
       "method": "POST",
-      "url": "https://exchange.example.com/ramp.v1.ExchangeService/ExecuteTransaction",
+      "url": "https://exchange.example.com/fora.v1.ExchangeService/ExecuteTransaction",
       "body_hex": "7b226964656d706f74656e63795f6b6579223a226964656d2d31227d",
       "authorization": "",
       "signature_agent": "",
@@ -267,7 +267,7 @@
       "expires": 1700000600,
       "content_digest": "sha-256=:aqbQCL+PR0Yt3lChg8nyhajBCVVVwuDJL2CxMyU+zRg=:",
       "signature_input": "sig2=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\" \"signature\";key=\"sig1\");keyid=\"broker.relay.a\";alg=\"ed25519\";created=1700000000;expires=1700000600, sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\");keyid=\"agent-demo.v1\";alg=\"ed25519\";created=1700000000;expires=1700000600",
-      "signature": "sig2=:dsbeJE0blYPjSK7v5C/h9KswcFGfJ8N67qsqD7avPjn+nTsRgyCgyU5DtVs2D9yphZk7U1YgtZhysOcoR6rlDw==:, sig1=:vW6CskK5mliLzIvHhnB0DyBEOqw8U8a2Tc0TUCbueWuJ2PcjlavAEJCDtMrzRjzAoYc+fnMOdfrhOSfbMkxJBw==:",
+      "signature": "sig2=:7UL8SnhFvF5iBlWfs3SqwjEU56Lr6pFotXjpGW37kUnZPbmFwHDpGvXlLw6uY+DiemrbmGoaQ10Nu5mWWtqIDA==:, sig1=:54r7e2ai9T419lvdG8qW4UKE5R8BfgE3t3GIcE+Yr1GAAaAKCp3Rs5KkEruauFPWbF75evLaYBKa+t2f8pqEBA==:",
       "hops": [
         {
           "keyid": "agent-demo.v1",
@@ -291,7 +291,7 @@
     {
       "name": "duplicate_authorization_two_hop",
       "method": "POST",
-      "url": "https://exchange.example.com/ramp.v1.ExchangeService/ExecuteTransaction",
+      "url": "https://exchange.example.com/fora.v1.ExchangeService/ExecuteTransaction",
       "body_hex": "7b226964656d706f74656e63795f6b6579223a226964656d2d31227d",
       "authorization": "",
       "signature_agent": "",
@@ -299,7 +299,7 @@
       "expires": 1700000600,
       "content_digest": "sha-256=:aqbQCL+PR0Yt3lChg8nyhajBCVVVwuDJL2CxMyU+zRg=:",
       "signature_input": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\");keyid=\"agent-demo.v1\";alg=\"ed25519\";created=1700000000;expires=1700000600, sig2=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\" \"signature\";key=\"sig1\");keyid=\"broker.relay.a\";alg=\"ed25519\";created=1700000000;expires=1700000600",
-      "signature": "sig1=:vW6CskK5mliLzIvHhnB0DyBEOqw8U8a2Tc0TUCbueWuJ2PcjlavAEJCDtMrzRjzAoYc+fnMOdfrhOSfbMkxJBw==:, sig2=:dsbeJE0blYPjSK7v5C/h9KswcFGfJ8N67qsqD7avPjn+nTsRgyCgyU5DtVs2D9yphZk7U1YgtZhysOcoR6rlDw==:",
+      "signature": "sig1=:54r7e2ai9T419lvdG8qW4UKE5R8BfgE3t3GIcE+Yr1GAAaAKCp3Rs5KkEruauFPWbF75evLaYBKa+t2f8pqEBA==:, sig2=:7UL8SnhFvF5iBlWfs3SqwjEU56Lr6pFotXjpGW37kUnZPbmFwHDpGvXlLw6uY+DiemrbmGoaQ10Nu5mWWtqIDA==:",
       "hops": [
         {
           "keyid": "agent-demo.v1",
@@ -323,7 +323,7 @@
     {
       "name": "canonical_case_two_hop",
       "method": "POST",
-      "url": "https://exchange.example.com/ramp.v1.ExchangeService/ExecuteTransaction",
+      "url": "https://exchange.example.com/fora.v1.ExchangeService/ExecuteTransaction",
       "body_hex": "7b226964656d706f74656e63795f6b6579223a226964656d2d31227d",
       "authorization": "Bearer chain-token",
       "signature_agent": "https://agent.example",
@@ -331,7 +331,7 @@
       "expires": 1700000600,
       "content_digest": "sha-256=:aqbQCL+PR0Yt3lChg8nyhajBCVVVwuDJL2CxMyU+zRg=:",
       "signature_input": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\");keyid=\"agent-demo.v1\";alg=\"ed25519\";created=1700000000;expires=1700000600, sig2=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\" \"signature\";key=\"sig1\");keyid=\"broker.relay.a\";alg=\"ed25519\";created=1700000000;expires=1700000600",
-      "signature": "sig1=:0qRXxXG54SUKDtWhYsn9x7ZTn2lsWqzj7xt3tOz6joTKv8Ufx8V2A36xeWQBf4aDcYRM1nDRBWCr2FFPAeZsCA==:, sig2=:BLrbl0o289i42DcSELpHoRgiFeeIYK97AbMgWBPAquTm1Ht4H0FqVnEXm8zl6pCrZ1E12ASqwr40uo45yxHXDQ==:",
+      "signature": "sig1=:QPKm8aZxrhKn9hEfTFpLHYL9kaPuwEYUM5etEboZqaZbVdNsx9qJseMFH+6Bg7I8mWhG1WBJ1hHjD6Ect7crCw==:, sig2=:R9ueZCNxZwtgie+PBCeP2gdXG2Z/JtMsd4ppz/Tgmpv/5DJpXXcvFylQG3F4ECHOakrM8FKf2ZR4QGx+TFtJCQ==:",
       "hops": [
         {
           "keyid": "agent-demo.v1",
@@ -363,7 +363,7 @@
     {
       "name": "duplicate_bound_two_hop",
       "method": "POST",
-      "url": "https://exchange.example.com/ramp.v1.ExchangeService/ExecuteTransaction",
+      "url": "https://exchange.example.com/fora.v1.ExchangeService/ExecuteTransaction",
       "body_hex": "7b226964656d706f74656e63795f6b6579223a226964656d2d31227d",
       "authorization": "Bearer first-line",
       "signature_agent": "https://agent.example",
@@ -371,7 +371,7 @@
       "expires": 1700000600,
       "content_digest": "sha-256=:aqbQCL+PR0Yt3lChg8nyhajBCVVVwuDJL2CxMyU+zRg=:",
       "signature_input": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\");keyid=\"agent-demo.v1\";alg=\"ed25519\";created=1700000000;expires=1700000600, sig2=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\" \"signature\";key=\"sig1\");keyid=\"broker.relay.a\";alg=\"ed25519\";created=1700000000;expires=1700000600",
-      "signature": "sig1=:Kt77n5r3svlm0dSysD2iqj5q792K+iW0+zRB5255vameOHLcACYbCDz20/I7MzSGIWgXxF8d+x6XjbeTzrBcDA==:, sig2=:QyRpTgQ8HfH1xOK7uUXoEFPZtNGSVqncnuWcvRfcrvUlygn2HfFhdokXmy4N6ym8taoHjv7jQAGFOP/eNVwTAQ==:",
+      "signature": "sig1=:mbpNRg3ce5uQPVY3EwI/iy5G3Ga1hR1Lng/qumprF6+mqfjyELFav4GmHThh5RHiq9n9sJp7MnDfV0GCSeq1CA==:, sig2=:vKYqHzk1MFsE1meVtnFyJ4urlqZokZ0QZSVTicKKC7VdRUojtnb882TT7f2zXZRdXvNFqGArFZG7dlEsxxxABA==:",
       "hops": [
         {
           "keyid": "agent-demo.v1",

@@ -3,7 +3,7 @@
 // Mirrors sdk/python/tests/test_transport_failure_parity.py and the Go leg
 // sdk/go/connect/transport_failure_corpus_test.go.
 //
-// The connect-error corpus records what a RAMP SERVICE says when it refuses. This one
+// The connect-error corpus records what a FORA SERVICE says when it refuses. This one
 // records the other half: what reaches a client when the answer did not come from the
 // service at all — a load balancer draining, a gateway with no upstream, a proxy returning
 // its own HTML page. None of those is a Connect envelope.
@@ -16,7 +16,7 @@
 // table.
 import { describe, expect, it } from "vitest";
 
-import { RampCallError } from "../client/errors.ts";
+import { ForaCallError } from "../client/errors.ts";
 import { decodeResponse } from "../client/transport.ts";
 import vectorsFile from "../../go/connect/testdata/transport-failure-vectors.json";
 
@@ -47,8 +47,8 @@ describe("an answer that did not come from the service", () => {
 			} catch (e) {
 				thrown = e;
 			}
-			expect(thrown).toBeInstanceOf(RampCallError);
-			const failure = thrown as RampCallError;
+			expect(thrown).toBeInstanceOf(ForaCallError);
+			const failure = thrown as ForaCallError;
 			expect(failure.kind, `${v.name}: oracle says ${v.kind}`).toBe(v.kind);
 			expect(failure.reason).toBe(v.reason);
 			// The label and the consequence are pinned together: comparing only the string

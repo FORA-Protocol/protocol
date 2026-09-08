@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 // ErrRequestAcceptanceSignatureInvalid signals that the agent did not sign the
@@ -23,7 +23,7 @@ const maxRequestAcceptanceItems = 256
 
 // RequestAcceptancePayload builds the complete ordered request-set payload an
 // agent signs before any Broker fan-out.
-func RequestAcceptancePayload(req *rampv1.TransactionRequest) (*rampv1.AgentRequestAcceptancePayload, error) {
+func RequestAcceptancePayload(req *forav1.TransactionRequest) (*forav1.AgentRequestAcceptancePayload, error) {
 	if req == nil {
 		return nil, errors.New("helpers: transaction request is nil")
 	}
@@ -33,7 +33,7 @@ func RequestAcceptancePayload(req *rampv1.TransactionRequest) (*rampv1.AgentRequ
 	if len(req.GetItems()) == 0 {
 		return nil, errors.New("helpers: transaction request has no items")
 	}
-	items := make([]*rampv1.AgentRequestAcceptanceItem, 0, len(req.GetItems()))
+	items := make([]*forav1.AgentRequestAcceptanceItem, 0, len(req.GetItems()))
 	for i, item := range req.GetItems() {
 		offer := item.GetOffer()
 		if offer == nil {
@@ -45,12 +45,12 @@ func RequestAcceptancePayload(req *rampv1.TransactionRequest) (*rampv1.AgentRequ
 		if offer.GetExchange() == "" {
 			return nil, fmt.Errorf("helpers: item %d offer exchange is empty", i)
 		}
-		items = append(items, &rampv1.AgentRequestAcceptanceItem{
+		items = append(items, &forav1.AgentRequestAcceptanceItem{
 			OfferSig: offer.GetSignature(),
 			Exchange: offer.GetExchange(),
 		})
 	}
-	return &rampv1.AgentRequestAcceptancePayload{
+	return &forav1.AgentRequestAcceptancePayload{
 		Items:           items,
 		RequesterId:     req.GetRequester().GetId(),
 		RequesterDomain: req.GetRequester().GetDomain(),
@@ -60,7 +60,7 @@ func RequestAcceptancePayload(req *rampv1.TransactionRequest) (*rampv1.AgentRequ
 
 // CanonicalRequestAcceptanceBytes returns the exact JCS(protojson(...)) bytes
 // covered by an AgentRequestAcceptance signature.
-func CanonicalRequestAcceptanceBytes(payload *rampv1.AgentRequestAcceptancePayload) ([]byte, error) {
+func CanonicalRequestAcceptanceBytes(payload *forav1.AgentRequestAcceptancePayload) ([]byte, error) {
 	if payload == nil {
 		return nil, errors.New("helpers: request-acceptance payload is nil")
 	}
@@ -83,7 +83,7 @@ func CanonicalRequestAcceptanceBytes(payload *rampv1.AgentRequestAcceptancePaylo
 }
 
 // SignRequestAcceptance signs req's complete ordered request set with priv.
-func SignRequestAcceptance(priv ed25519.PrivateKey, req *rampv1.TransactionRequest) (*rampv1.AgentRequestAcceptance, error) {
+func SignRequestAcceptance(priv ed25519.PrivateKey, req *forav1.TransactionRequest) (*forav1.AgentRequestAcceptance, error) {
 	if len(priv) != ed25519.PrivateKeySize {
 		return nil, fmt.Errorf("helpers: ed25519 private key must be %d bytes, got %d", ed25519.PrivateKeySize, len(priv))
 	}
@@ -95,7 +95,7 @@ func SignRequestAcceptance(priv ed25519.PrivateKey, req *rampv1.TransactionReque
 	if err != nil {
 		return nil, err
 	}
-	return &rampv1.AgentRequestAcceptance{
+	return &forav1.AgentRequestAcceptance{
 		Payload:            payload,
 		Signature:          hex.EncodeToString(ed25519.Sign(priv, canonical)),
 		SignatureAlgorithm: AcceptanceSignatureAlgorithm,
@@ -104,7 +104,7 @@ func SignRequestAcceptance(priv ed25519.PrivateKey, req *rampv1.TransactionReque
 
 // SignRequestAcceptanceWith is SignRequestAcceptance for a KMS/HSM-backed
 // Signer.
-func SignRequestAcceptanceWith(ctx context.Context, signer Signer, req *rampv1.TransactionRequest) (*rampv1.AgentRequestAcceptance, error) {
+func SignRequestAcceptanceWith(ctx context.Context, signer Signer, req *forav1.TransactionRequest) (*forav1.AgentRequestAcceptance, error) {
 	if signer == nil {
 		return nil, errors.New("helpers: request-acceptance signer is nil")
 	}
@@ -124,7 +124,7 @@ func SignRequestAcceptanceWith(ctx context.Context, signer Signer, req *rampv1.T
 	if err != nil {
 		return nil, fmt.Errorf("helpers: sign request acceptance: %w", err)
 	}
-	return &rampv1.AgentRequestAcceptance{
+	return &forav1.AgentRequestAcceptance{
 		Payload:            payload,
 		Signature:          hex.EncodeToString(sig),
 		SignatureAlgorithm: AcceptanceSignatureAlgorithm,
@@ -134,7 +134,7 @@ func SignRequestAcceptanceWith(ctx context.Context, signer Signer, req *rampv1.T
 // VerifyRequestAcceptance verifies the signature and the shared request
 // envelope fields. It deliberately does not apply a fan-out projection rule;
 // an Exchange must call VerifyRequestAcceptanceProjection instead.
-func VerifyRequestAcceptance(req *rampv1.TransactionRequest, acceptance *rampv1.AgentRequestAcceptance, pub ed25519.PublicKey) ([]byte, error) {
+func VerifyRequestAcceptance(req *forav1.TransactionRequest, acceptance *forav1.AgentRequestAcceptance, pub ed25519.PublicKey) ([]byte, error) {
 	if len(pub) != ed25519.PublicKeySize {
 		return nil, fmt.Errorf("helpers: ed25519 public key must be %d bytes, got %d", ed25519.PublicKeySize, len(pub))
 	}
@@ -175,7 +175,7 @@ func VerifyRequestAcceptance(req *rampv1.TransactionRequest, acceptance *rampv1.
 
 // VerifyRequestAcceptanceProjection additionally proves that req.items is the
 // complete ordered projection of the signed original set addressed to exchange.
-func VerifyRequestAcceptanceProjection(req *rampv1.TransactionRequest, acceptance *rampv1.AgentRequestAcceptance, exchange string, pub ed25519.PublicKey) ([]byte, error) {
+func VerifyRequestAcceptanceProjection(req *forav1.TransactionRequest, acceptance *forav1.AgentRequestAcceptance, exchange string, pub ed25519.PublicKey) ([]byte, error) {
 	// An empty subrequest must be refused outright: for an exchange the signed
 	// set never names, the projection is also empty, zero equals zero, and the
 	// comparison loop below would report a verified projection for a request
@@ -202,7 +202,7 @@ func VerifyRequestAcceptanceProjection(req *rampv1.TransactionRequest, acceptanc
 		verdict, err := CheckAudience(exchange, v)
 		return err == nil && verdict == AudienceAccepted
 	}
-	want := make([]*rampv1.AgentRequestAcceptanceItem, 0, len(req.GetItems()))
+	want := make([]*forav1.AgentRequestAcceptanceItem, 0, len(req.GetItems()))
 	for _, ref := range acceptance.GetPayload().GetItems() {
 		if namesExchange(ref.GetExchange()) {
 			want = append(want, ref)

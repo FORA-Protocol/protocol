@@ -1,4 +1,5 @@
 import { thumbprint } from "./thumbprint.ts";
+import { AgentKeyHeader } from "./wire.ts";
 import { decodeBase64Url, utf8Bytes } from "./base64url.ts";
 import { opaqueUrl } from "./opaque-url.ts";
 
@@ -9,7 +10,7 @@ import { opaqueUrl } from "./opaque-url.ts";
 // code-capable edge requires the fetcher to prove possession of the bound key —
 // fully offline:
 //
-//   1. present its raw Ed25519 public key in `X-RAMP-Agent-Key`, and
+//   1. present its raw Ed25519 public key in `X-FORA-Agent-Key`, and
 //   2. sign the GET with RFC 9421 over `@method` + `@target-uri`,
 //
 // and the edge enforces the 3-way identity:
@@ -23,7 +24,7 @@ import { opaqueUrl } from "./opaque-url.ts";
 // path. Byte-parity guard: the pop vectors are produced by the sdk/go signer
 // over the same @method/@target-uri base (sigbase.go buildSignatureBase).
 
-export const AGENT_KEY_HEADER = "x-ramp-agent-key";
+export const AGENT_KEY_HEADER = AgentKeyHeader.toLowerCase();
 
 const ED25519_PUBLIC_KEY_BYTES = 32;
 

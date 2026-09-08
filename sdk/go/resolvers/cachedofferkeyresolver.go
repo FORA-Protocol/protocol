@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/lrucache"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/lrucache"
 )
 
 // defaultOfferKeyTTL bounds how long a fetched offer-signing key is served from the
@@ -29,7 +29,7 @@ const maxCachedOfferKeys = 256
 // GETs scheme://domain[:port]/.well-known/http-message-signatures-directory through
 // an SSRF-guarded client, but an application injects its own (wrapping its shared
 // well-known fetch) and a test injects a directory table with no network.
-type OfferDirectoryFetcher func(ctx context.Context, domain string) (*rampv1.WBAFile, error)
+type OfferDirectoryFetcher func(ctx context.Context, domain string) (*forav1.WBAFile, error)
 
 // CachedOfferKeyResolverConfig wires a CachedOfferKeyResolver.
 type CachedOfferKeyResolverConfig struct {
@@ -154,7 +154,7 @@ func NewWBADirectoryFetcher(client *http.Client, scheme, port string) OfferDirec
 	if scheme == "" {
 		scheme = "https"
 	}
-	return func(ctx context.Context, domain string) (*rampv1.WBAFile, error) {
+	return func(ctx context.Context, domain string) (*forav1.WBAFile, error) {
 		host := domain
 		if port != "" {
 			host = net.JoinHostPort(domain, port)

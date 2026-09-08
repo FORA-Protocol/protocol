@@ -1,4 +1,4 @@
-// sdk/ts outbound RFC 9421 request signer over the full 5-component RAMP covered
+// sdk/ts outbound RFC 9421 request signer over the full 5-component FORA covered
 // set (@method @target-uri content-digest authorization signature-agent) — the
 // TS sibling of Go helpers.SignRequest and Python httpsig.sign_request. It signs
 // byte-identical to the shared Go oracle so a request signed in TS verifies
@@ -6,7 +6,7 @@
 //
 // This is the 5-component sibling of core/sign.ts::signInbound (the 2-component
 // GET PoP). It does NOT reuse pop.ts::signatureBase (hardcoded to 2 components);
-// it renders its own base, mirroring Python ramp_sdk/httpsig.py::sign_request.
+// it renders its own base, mirroring Python fora_sdk/httpsig.py::sign_request.
 //
 // created/expires are INJECTED unix seconds (L1-pure, no wall clock).
 // authorization + signature-agent are ALWAYS bound — an empty string still
@@ -21,7 +21,7 @@ import {
 } from "./multisig-parse.ts";
 import { stdBase64 } from "./sign.ts";
 
-// The RAMP request covered set: exactly these five, in this order. No conditional
+// The FORA request covered set: exactly these five, in this order. No conditional
 // biscuit component — it is bound only when an entitlement header is present,
 // which this signer's inputs never carry. Exported so the verify sibling
 // (core/verify-request.ts) enforces the SAME required set without duplicating it.
@@ -106,7 +106,7 @@ function signatureParams(
 	return `(${covered});keyid="${keyid}";alg="ed25519";created=${created};expires=${expires}`;
 }
 
-/** The covered request field values a 5-component RAMP signature base is built over. */
+/** The covered request field values a 5-component FORA signature base is built over. */
 export interface RequestBaseFields {
 	method: string;
 	url: string;
@@ -116,7 +116,7 @@ export interface RequestBaseFields {
 }
 
 /**
- * The RFC 9421 signature base over the RAMP 5-component covered set: one
+ * The RFC 9421 signature base over the FORA 5-component covered set: one
  * `"name": value` line per component, joined by "\n", terminated by
  * `"@signature-params": <sigParams>` with NO trailing newline. Empty
  * authorization/signature-agent still render (name + ": " + "") — the trailing
@@ -147,7 +147,7 @@ export function buildRequestSignatureBase(
 }
 
 /**
- * signRequest signs opts over the RAMP 5-component covered set with privKey and
+ * signRequest signs opts over the FORA 5-component covered set with privKey and
  * returns the RFC 9421 Content-Digest, Signature-Input, and Signature header
  * values plus the exact signature base the signature covers. The Signature is
  * `sig1=:<STANDARD-base64(sig)>:` (NOT b64url — do not unify with the thumbprint
@@ -194,7 +194,7 @@ export interface PriorSignatures {
 /**
  * appendSignature chains sig(N+1) onto `prev` WITHOUT disturbing existing members
  * (forwarding chain), the TS port of Go helpers.AppendSignature. It finds
- * the next label sig(N+1) and predecessor sigN, binds the RAMP base plus a
+ * the next label sig(N+1) and predecessor sigN, binds the FORA base plus a
  * `"signature";key="sigN"` link whose value is `:<std-base64(decoded predecessor
  * sig bytes)>:` (re-encoded canonically, NOT a wire splice), Ed25519-signs, and
  * returns the APPENDED Signature-Input / Signature strings. Appending to an

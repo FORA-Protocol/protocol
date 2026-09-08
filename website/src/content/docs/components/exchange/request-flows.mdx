@@ -47,8 +47,8 @@ sequenceDiagram
 ```go
 func (h *ExchangeHandler) DiscoverResources(
     ctx context.Context,
-    req *connect.Request[rampv1.ResourceQuery],
-) (*connect.Response[rampv1.ResourceResponse], error) {
+    req *connect.Request[forav1.ResourceQuery],
+) (*connect.Response[forav1.ResourceResponse], error) {
     // 1. Validate
     if err := validate(req.Msg); err != nil {
         return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -150,14 +150,14 @@ func (h *ExchangeHandler) DiscoverResources(
     // Each subscription offer includes SubscriptionQuotaInfo so agents can see
     // remaining quota before committing to a transaction.
     if subStatus != nil {
-        var subOffers []*rampv1.Offer
+        var subOffers []*forav1.Offer
         for _, offer := range offers {
-            subOffer := proto.Clone(offer).(*rampv1.Offer)
+            subOffer := proto.Clone(offer).(*forav1.Offer)
             // A subscription variant is a distinct offer, so it gets a fresh
             // opaque offer_id — never one derived from the base offer's id.
             subOffer.OfferId = "offer-" + ulid.Make().String()
             subOffer.SubscriptionId = proto.String(subStatus.SubscriptionID)
-            subOffer.Pricing = &rampv1.Pricing{
+            subOffer.Pricing = &forav1.Pricing{
                 Model:           offer.Pricing.Model,
                 Rate:            0, // zero marginal cost under subscription
                 Currency:        offer.Pricing.Currency,
@@ -201,20 +201,20 @@ func (h *ExchangeHandler) DiscoverResources(
     uris := req.Msg.Uris
     if len(uris) > 1 {
         // Batch mode: group offers by requested URI.
-        groups := make([]*rampv1.OfferGroup, 0, len(uris))
+        groups := make([]*forav1.OfferGroup, 0, len(uris))
         for _, uri := range uris {
-            var uriOffers []*rampv1.Offer
+            var uriOffers []*forav1.Offer
             for _, offer := range offers {
                 if offerMatchesURI(offer, uri) {
                     uriOffers = append(uriOffers, offer)
                 }
             }
-            groups = append(groups, &rampv1.OfferGroup{
+            groups = append(groups, &forav1.OfferGroup{
                 Uri:    uri,
                 Offers: uriOffers, // empty slice = resource not available for this URI
             })
         }
-        return connect.NewResponse(&rampv1.ResourceResponse{
+        return connect.NewResponse(&forav1.ResourceResponse{
             Ver:         helpers.ProtocolVersion,
             Exchange: h.exchangeDomain,
             OfferGroups: groups,
@@ -223,7 +223,7 @@ func (h *ExchangeHandler) DiscoverResources(
         // HTTP header, propagated across the request/response round-trip.
     }
 
-    return connect.NewResponse(&rampv1.ResourceResponse{
+    return connect.NewResponse(&forav1.ResourceResponse{
         Ver:         helpers.ProtocolVersion,
         Exchange: h.exchangeDomain,
         Offers:      offers,
@@ -231,7 +231,7 @@ func (h *ExchangeHandler) DiscoverResources(
 }
 ```
 
-**IAB Content Taxonomy**: When building offers, the DiscoverResources handler includes `iab_categories` from the catalog entry on each Offer. This enables agents and Brokers to filter offers by topic (e.g., "only finance resources"). Categories use IAB Content Taxonomy 3.1 codes and are populated during resource ingestion — either from RAMP sitemap extensions, CMS metadata, or third-party intelligence providers via CatalogService.
+**IAB Content Taxonomy**: When building offers, the DiscoverResources handler includes `iab_categories` from the catalog entry on each Offer. This enables agents and Brokers to filter offers by topic (e.g., "only finance resources"). Categories use IAB Content Taxonomy 3.1 codes and are populated during resource ingestion — either from FORA sitemap extensions, CMS metadata, or third-party intelligence providers via CatalogService.
 
 **Latency budget**: 10ms p50, 50ms p99. All in-memory. The only variable is offer count and serialization cost.
 
@@ -252,14 +252,14 @@ type RequesterRecord struct {
     RequesterID   string
     Domain        string
     PublicKey     ed25519.PublicKey
-    ManifestURL   string  // {domain}/.well-known/ramp.json
+    ManifestURL   string  // {domain}/.well-known/fora.json
     Subscriptions map[string]SubscriptionStatus  // tenantID -> status
 }
 ```
 
 ### Forwarding Chain Verification
 
-The forwarding chain lives entirely in the HTTP layer as a **stack of RFC 9421 HTTP Message Signatures** — there is no `intermediaries` field on the message. Each party that originates or forwards a `ResourceQuery` or `TransactionRequest` adds **one** labeled signature (`Signature` / `Signature-Input`, e.g. `ramp-agent`, `ramp-broker-1`) to the request headers. Each forwarder's signature covers the request essentials (`@method`, `@authority`, `@path`, `Content-Digest`) **plus the previous hop's signature**, so the ordered set of header signatures *is* the chain and cannot be reordered, dropped, or extended undetectably. The Exchange MUST:
+The forwarding chain lives entirely in the HTTP layer as a **stack of RFC 9421 HTTP Message Signatures** — there is no `intermediaries` field on the message. Each party that originates or forwards a `ResourceQuery` or `TransactionRequest` adds **one** labeled signature (`Signature` / `Signature-Input`, e.g. `fora-agent`, `fora-broker-1`) to the request headers. Each forwarder's signature covers the request essentials (`@method`, `@authority`, `@path`, `Content-Digest`) **plus the previous hop's signature**, so the ordered set of header signatures *is* the chain and cannot be reordered, dropped, or extended undetectably. The Exchange MUST:
 
 1. **Verify the requester's (originating) RFC 9421 HTTP Message Signature** — proves the original requester authorized the request. The `keyid` is the key's RFC 7638 thumbprint; the Exchange resolves the key in the requester's WBA directory at `{domain}/.well-known/http-message-signatures-directory` and verifies the Ed25519 signature.
 
@@ -302,13 +302,13 @@ See [Authentication](/protocol/authentication/) for the full delegation model.
 
 ### Provider Trust Verification
 
-The Exchange SHOULD periodically re-fetch `/.well-known/ramp.json` for each tenant's domains to confirm the provider still authorizes this Exchange to sell their resources. If the Exchange is removed from a provider's `ramp.json`:
+The Exchange SHOULD periodically re-fetch `/.well-known/fora.json` for each tenant's domains to confirm the provider still authorizes this Exchange to sell their resources. If the Exchange is removed from a provider's `fora.json`:
 
 - Revoke the tenant configuration
 - Stop serving offers for that provider's resources
 - Log the revocation for audit
 
-This is ongoing verification, not just onboarding. Providers can revoke authorization at any time by updating their `ramp.json`. The Exchange SHOULD check at least once per hour (configurable via tenant settings).
+This is ongoing verification, not just onboarding. Providers can revoke authorization at any time by updating their `fora.json`. The Exchange SHOULD check at least once per hour (configurable via tenant settings).
 
 ---
 
@@ -383,8 +383,8 @@ A transaction carries one or more `items` (items-only model): there is no single
 ```go
 func (h *ExchangeHandler) ExecuteTransaction(
     ctx context.Context,
-    req *connect.Request[rampv1.TransactionRequest],
-) (*connect.Response[rampv1.TransactionResponse], error) {
+    req *connect.Request[forav1.TransactionRequest],
+) (*connect.Response[forav1.TransactionResponse], error) {
     // 1. Validate
     if err := validate(req.Msg); err != nil {
         return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -429,10 +429,10 @@ func (h *ExchangeHandler) ExecuteTransaction(
             slog.String("reason", reason),
         )
         if len(req.Msg.Items) == 1 {
-            return nil, transactionDenied(rampv1.DenialReason_DENIAL_REASON_REPORTING_OVERDUE)
+            return nil, transactionDenied(forav1.DenialReason_DENIAL_REASON_REPORTING_OVERDUE)
         }
         // multi-element batch: mark every item overdue in-body, return 200
-        return connect.NewResponse(denyAllItems(req, rampv1.DenialReason_DENIAL_REASON_REPORTING_OVERDUE)), nil
+        return connect.NewResponse(denyAllItems(req, forav1.DenialReason_DENIAL_REASON_REPORTING_OVERDUE)), nil
     }
 
     // 4. Items-only pipeline. There is no separate single-offer branch: a single
@@ -446,18 +446,18 @@ func (h *ExchangeHandler) ExecuteTransaction(
     // carries no caller-written billing field, and the self-asserted id/domain
     // never select the account.
     billingRef := account.BillingRef
-    var resultItems []*rampv1.TransactionResultItem
+    var resultItems []*forav1.TransactionResultItem
     var totalAmount float64
     var currency string
 
     for _, item := range req.Msg.Items {
-        resultItem := &rampv1.TransactionResultItem{OfferId: item.Offer.OfferId}
+        resultItem := &forav1.TransactionResultItem{OfferId: item.Offer.OfferId}
 
         // deny records a per-item denial in-body for a batch, or — for a lone
         // 1-element request — bubbles it up as a non-OK transport error carrying
         // ErrorDetail.transaction_denial (the "single transaction" rule; the
         // transport code is the error CLASS, the ErrorDetail the typed reason).
-        deny := func(reason rampv1.DenialReason) (*connect.Response[rampv1.TransactionResponse], error, bool) {
+        deny := func(reason forav1.DenialReason) (*connect.Response[forav1.TransactionResponse], error, bool) {
             if singleItem {
                 return nil, transactionDenied(reason), true
             }
@@ -474,7 +474,7 @@ func (h *ExchangeHandler) ExecuteTransaction(
         //     offer-signing key and returns that same offer to read pricing from.
         offer, err := h.offerVerifier.Verify(item.Offer)
         if err != nil {
-            if resp, denyErr, done := deny(rampv1.DenialReason_DENIAL_REASON_SIGNATURE_INVALID); done {
+            if resp, denyErr, done := deny(forav1.DenialReason_DENIAL_REASON_SIGNATURE_INVALID); done {
                 return resp, denyErr
             }
             continue
@@ -483,7 +483,7 @@ func (h *ExchangeHandler) ExecuteTransaction(
         // Resolve tenant from the offer's Exchange domain (domain→tenant lookup)
         tenantCfg, err := h.tenants.ResolveFromDomain(offer.Exchange)
         if err != nil {
-            if resp, denyErr, done := deny(rampv1.DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE); done {
+            if resp, denyErr, done := deny(forav1.DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE); done {
                 return resp, denyErr
             }
             continue
@@ -496,7 +496,7 @@ func (h *ExchangeHandler) ExecuteTransaction(
             billingID = "sub-" + ulid.Make().String()
             amount = 0
             resultItem.SubscriptionId = proto.String(*offer.SubscriptionId)
-            resultItem.SubscriptionUnitValue = &rampv1.Cost{
+            resultItem.SubscriptionUnitValue = &forav1.Cost{
                 Amount:   offer.OriginalRate,
                 Currency: offer.Pricing.Currency,
                 UnitCost: offer.Pricing.UnitCost,
@@ -571,7 +571,7 @@ func (h *ExchangeHandler) ExecuteTransaction(
                 return nil, connect.NewError(connect.CodeInternal,
                     fmt.Errorf("transaction log write failed: %w", err))
             }
-            if resp, denyErr, done := deny(rampv1.DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE); done {
+            if resp, denyErr, done := deny(forav1.DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE); done {
                 return resp, denyErr
             }
             continue
@@ -594,7 +594,7 @@ func (h *ExchangeHandler) ExecuteTransaction(
                 return nil, connect.NewError(connect.CodeInternal,
                     fmt.Errorf("URL signing failed: %w", err))
             }
-            if resp, denyErr, done := deny(rampv1.DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE); done {
+            if resp, denyErr, done := deny(forav1.DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE); done {
                 return resp, denyErr
             }
             continue
@@ -622,7 +622,7 @@ func (h *ExchangeHandler) ExecuteTransaction(
         resultItem.BillingId = billingID
         resultItem.ResourceTitle = offer.Title // human-readable title echoed from the Offer
         resultItem.RetrievalEndpoint = proto.String(signedURL)
-        resultItem.Cost = &rampv1.Cost{
+        resultItem.Cost = &forav1.Cost{
             Amount:   amount,
             Currency: offer.Pricing.Currency,
             UnitCost: offer.Pricing.UnitCost,
@@ -639,11 +639,11 @@ func (h *ExchangeHandler) ExecuteTransaction(
     // 5. Build response — every per-result datum lives on its TransactionResultItem;
     //    the top-level fields carry only shared aggregate state. Correlation is not
     //    in the body — it rides the X-Request-ID HTTP header across the round-trip.
-    resp := &rampv1.TransactionResponse{
+    resp := &forav1.TransactionResponse{
         Ver:               helpers.ProtocolVersion,
         AgentIdentityHash: agentHash,
         Items:             resultItems,
-        TotalCost:         &rampv1.Cost{Amount: totalAmount, Currency: currency},
+        TotalCost:         &forav1.Cost{Amount: totalAmount, Currency: currency},
     }
 
     // 6. Cache for idempotency (keyed by the request's idempotency_key)
@@ -656,10 +656,10 @@ func (h *ExchangeHandler) ExecuteTransaction(
 // error, not a success body — the transport code is the error class, the
 // attached ErrorDetail carries the typed reason (and restriction_mismatches
 // when the reason is RESTRICTION_NOT_SATISFIED).
-func transactionDenied(reason rampv1.DenialReason, mismatches ...rampv1.RestrictionKind) error {
-    detail := &rampv1.ErrorDetail{
-        Reason: &rampv1.ErrorDetail_TransactionDenial{
-            TransactionDenial: &rampv1.TransactionDenial{
+func transactionDenied(reason forav1.DenialReason, mismatches ...forav1.RestrictionKind) error {
+    detail := &forav1.ErrorDetail{
+        Reason: &forav1.ErrorDetail_TransactionDenial{
+            TransactionDenial: &forav1.TransactionDenial{
                 Reason:                reason,
                 RestrictionMismatches: mismatches,
             },
@@ -735,8 +735,8 @@ sequenceDiagram
 ```go
 func (h *ExchangeHandler) ReportUsage(
     ctx context.Context,
-    req *connect.Request[rampv1.UsageReport],
-) (*connect.Response[rampv1.UsageReportResponse], error) {
+    req *connect.Request[forav1.UsageReport],
+) (*connect.Response[forav1.UsageReportResponse], error) {
     // 1. Validate
     if err := validate(req.Msg); err != nil {
         return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -766,7 +766,7 @@ func (h *ExchangeHandler) ReportUsage(
         return nil, usageReportRejected(result.Reason) // ErrorDetail.usage_report_rejection
     }
 
-    return connect.NewResponse(&rampv1.UsageReportResponse{
+    return connect.NewResponse(&forav1.UsageReportResponse{
         ReportId: result.ReportID,
     }), nil
 }
@@ -821,7 +821,7 @@ sequenceDiagram
 
 The loop checks each entry, but the verdict is not per-entry: a push is all-or-nothing, so a single failing entry refuses the submission and nothing is persisted. `rejected_paths` names which entries the refusal is about — it is reporting, not a list of what was dropped from an otherwise applied batch.
 
-**Rejection reasons** come from [`CatalogRejectionReason`](/reference/proto-ramp/#catalogrejectionreason). The ones this flow can produce are `CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR` (the caller is not authorized for the domain), `CATALOG_REJECTION_REASON_SIGNATURE_INVALID`, `CATALOG_REJECTION_REASON_DOMAIN_NOT_VERIFIED` and `CATALOG_REJECTION_REASON_MALFORMED_ENTRY`, which the envelope rules make the common one. The attestation-specific failures — a bad attestation signature, an unknown verifier, oversized claims — have no dedicated value in that enum; they travel in the refusal's human-readable message.
+**Rejection reasons** come from [`CatalogRejectionReason`](/reference/proto-fora/#catalogrejectionreason). The ones this flow can produce are `CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR` (the caller is not authorized for the domain), `CATALOG_REJECTION_REASON_SIGNATURE_INVALID`, `CATALOG_REJECTION_REASON_DOMAIN_NOT_VERIFIED` and `CATALOG_REJECTION_REASON_MALFORMED_ENTRY`, which the envelope rules make the common one. The attestation-specific failures — a bad attestation signature, an unknown verifier, oversized claims — have no dedicated value in that enum; they travel in the refusal's human-readable message.
 
 See [Content Attestation](/protocol/content-attestation/) for the full attestation system design.
 

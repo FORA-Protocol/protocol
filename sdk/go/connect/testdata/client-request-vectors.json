@@ -4,7 +4,7 @@
     {
       "name": "discover",
       "verb": "discover",
-      "path": "/ramp.v1.ExchangeService/DiscoverResources",
+      "path": "/fora.v1.ExchangeService/DiscoverResources",
       "ver": "1.0",
       "idempotency_key": "",
       "key_minted": false,
@@ -13,7 +13,7 @@
     {
       "name": "discover_caller_ver_wins",
       "verb": "discover",
-      "path": "/ramp.v1.ExchangeService/DiscoverResources",
+      "path": "/fora.v1.ExchangeService/DiscoverResources",
       "ver": "9.9",
       "idempotency_key": "",
       "key_minted": false,
@@ -22,7 +22,7 @@
     {
       "name": "report_usage_key_minted",
       "verb": "reportUsage",
-      "path": "/ramp.v1.ExchangeService/ReportUsage",
+      "path": "/fora.v1.ExchangeService/ReportUsage",
       "ver": "1.0",
       "idempotency_key": "",
       "key_minted": true,
@@ -31,7 +31,7 @@
     {
       "name": "report_usage_caller_key_wins",
       "verb": "reportUsage",
-      "path": "/ramp.v1.ExchangeService/ReportUsage",
+      "path": "/fora.v1.ExchangeService/ReportUsage",
       "ver": "1.0",
       "idempotency_key": "idem-pinned-1",
       "key_minted": false,
@@ -40,7 +40,7 @@
     {
       "name": "dispute_key_pinned",
       "verb": "dispute",
-      "path": "/ramp.v1.ExchangeService/DisputeTransaction",
+      "path": "/fora.v1.ExchangeService/DisputeTransaction",
       "ver": "1.0",
       "idempotency_key": "idem-pinned-1",
       "key_minted": false,
@@ -49,7 +49,7 @@
     {
       "name": "execute_key_pinned",
       "verb": "execute",
-      "path": "/ramp.v1.ExchangeService/ExecuteTransaction",
+      "path": "/fora.v1.ExchangeService/ExecuteTransaction",
       "ver": "1.0",
       "idempotency_key": "idem-pinned-1",
       "key_minted": false,
@@ -58,7 +58,7 @@
     {
       "name": "resolve",
       "verb": "resolve",
-      "path": "/ramp.v1.BrokerService/Resolve",
+      "path": "/fora.v1.BrokerService/Resolve",
       "ver": "1.0",
       "idempotency_key": "",
       "key_minted": false,
@@ -67,7 +67,7 @@
     {
       "name": "push_resources",
       "verb": "pushResources",
-      "path": "/ramp.v1.CatalogService/PushResources",
+      "path": "/fora.v1.CatalogService/PushResources",
       "ver": "1.0",
       "idempotency_key": "",
       "key_minted": false,
@@ -76,7 +76,7 @@
     {
       "name": "push_resources_caller_ver_wins",
       "verb": "pushResources",
-      "path": "/ramp.v1.CatalogService/PushResources",
+      "path": "/fora.v1.CatalogService/PushResources",
       "ver": "9.9",
       "idempotency_key": "",
       "key_minted": false,
@@ -85,7 +85,7 @@
     {
       "name": "remove_resources",
       "verb": "removeResources",
-      "path": "/ramp.v1.CatalogService/RemoveResources",
+      "path": "/fora.v1.CatalogService/RemoveResources",
       "ver": "1.0",
       "idempotency_key": "",
       "key_minted": false,
@@ -94,7 +94,7 @@
     {
       "name": "refresh_catalog",
       "verb": "refreshCatalog",
-      "path": "/ramp.v1.CatalogService/RefreshCatalog",
+      "path": "/fora.v1.CatalogService/RefreshCatalog",
       "ver": "1.0",
       "idempotency_key": "",
       "key_minted": false,

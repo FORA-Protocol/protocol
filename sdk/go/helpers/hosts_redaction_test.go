@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // No refusal message carries a credential.

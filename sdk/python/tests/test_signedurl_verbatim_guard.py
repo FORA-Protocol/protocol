@@ -17,7 +17,7 @@ over a URL whose host case, explicit :443, and path space/percent would be mangl
 by any urlsplit/urlunsplit normalization on EITHER side.
 
 RED now for reasons that are ALL intended:
-  1. sdk/python/ramp_sdk/signedurl.py has no ``sign_ed25519_signed_url`` face yet
+  1. sdk/python/fora_sdk/signedurl.py has no ``sign_ed25519_signed_url`` face yet
      (import fails → collection error).
   2. Even once the sign face lands, ``_canonical_message`` currently round-trips
      through ``urlsplit``/``urlunsplit`` (which can drop/alter host+path bytes). A
@@ -31,9 +31,9 @@ from __future__ import annotations
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-# RED: sdk/python/ramp_sdk/signedurl.py has no sign face yet (TDD red).
-from ramp_sdk.signedurl import sign_ed25519_signed_url  # type: ignore[attr-defined]
-from ramp_sdk.signedurl import verify_ed25519_signed_url
+# RED: sdk/python/fora_sdk/signedurl.py has no sign face yet (TDD red).
+from fora_sdk.signedurl import sign_ed25519_signed_url  # type: ignore[attr-defined]
+from fora_sdk.signedurl import verify_ed25519_signed_url
 
 # TRICKY URLs — mixed-case host, explicit :443, space and percent in the PATH.
 # These are exactly the inputs a urlsplit/urlunsplit-normalizing canonicalizer

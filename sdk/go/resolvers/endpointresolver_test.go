@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
-	"github.com/RAMP-Protocol/protocol/sdk/go/resolvers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
-// manifestHandler serves a /.well-known/ramp.json WellKnownManifest body whose
+// manifestHandler serves a /.well-known/fora.json WellKnownManifest body whose
 // top-level "endpoint" (proto field 12) is endpoint. It counts requests so a
 // test can prove a cache hit short-circuits the fetch. A nil endpoint omits the
 // field entirely, modeling an otherwise-valid manifest with no endpoint.
@@ -35,7 +35,7 @@ func manifestHandler(endpoint *string, hits *int) http.Handler {
 
 // hostOf returns the host:port of a httptest server so the host-keyed resolver
 // can be driven with the host as its ResolveEndpoint argument (the resolver
-// builds {scheme}://{host}/.well-known/ramp.json internally).
+// builds {scheme}://{host}/.well-known/fora.json internally).
 func hostOf(t *testing.T, srv *httptest.Server) string {
 	t.Helper()
 	u, err := url.Parse(srv.URL)
@@ -58,8 +58,8 @@ func TestWellKnownEndpointResolver_perHostIsolation(t *testing.T) {
 	defer srvA.Close()
 	srvB := httptest.NewServer(manifestHandler(&epB, nil))
 	defer srvB.Close()
-	epA = srvA.URL + "/ramp.v1.ExchangeService"
-	epB = srvB.URL + "/ramp.v1.ExchangeService"
+	epA = srvA.URL + "/fora.v1.ExchangeService"
+	epB = srvB.URL + "/fora.v1.ExchangeService"
 
 	r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{
 		TTL:    time.Hour,
@@ -89,7 +89,7 @@ func TestWellKnownEndpointResolver_cacheHit(t *testing.T) {
 	hits := 0
 	srv := httptest.NewServer(manifestHandler(&ep, &hits))
 	defer srv.Close()
-	ep = srv.URL + "/ramp.v1.ExchangeService"
+	ep = srv.URL + "/fora.v1.ExchangeService"
 
 	r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{
 		TTL:    time.Hour,
@@ -115,7 +115,7 @@ func TestWellKnownEndpointResolver_ttlRefresh(t *testing.T) {
 	hits := 0
 	srv := httptest.NewServer(manifestHandler(&ep, &hits))
 	defer srv.Close()
-	ep = srv.URL + "/ramp.v1.ExchangeService"
+	ep = srv.URL + "/fora.v1.ExchangeService"
 
 	now := time.Unix(1700000000, 0)
 	r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{
@@ -200,9 +200,9 @@ func TestWellKnownEndpointResolver_missingEndpointField(t *testing.T) {
 // to an unrelated PUBLIC host.
 func TestWellKnownEndpointResolver_refusesAnEndpointOnAnotherHost(t *testing.T) {
 	cases := map[string]string{
-		"unrelated host":       "https://evil.example/ramp.v1.ExchangeService",
-		"label-boundary trick": "https://evil-127.0.0.1.example/ramp.v1.ExchangeService",
-		"userinfo":             "https://user:pass@127.0.0.1/ramp.v1.ExchangeService",
+		"unrelated host":       "https://evil.example/fora.v1.ExchangeService",
+		"label-boundary trick": "https://evil-127.0.0.1.example/fora.v1.ExchangeService",
+		"userinfo":             "https://user:pass@127.0.0.1/fora.v1.ExchangeService",
 	}
 	for name, ep := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -253,7 +253,7 @@ func TestWellKnownEndpointResolver_refusesASchemelessEndpointCarryingCredentials
 		})
 	}
 
-	endpoint = "user:pass@" + host + "/ramp.v1.ExchangeService"
+	endpoint = "user:pass@" + host + "/fora.v1.ExchangeService"
 	got, err := newResolver().ResolveEndpoint(context.Background(), host)
 	if err == nil {
 		t.Fatalf("resolve returned %q; an endpoint carrying credentials must be refused", got)
@@ -264,7 +264,7 @@ func TestWellKnownEndpointResolver_refusesASchemelessEndpointCarryingCredentials
 
 	// The control. Same shape, same host, no credential — accepted, so the refusal
 	// above cannot be read as "a schemeless endpoint is refused".
-	endpoint = host + "/ramp.v1.ExchangeService"
+	endpoint = host + "/fora.v1.ExchangeService"
 	got, err = newResolver().ResolveEndpoint(context.Background(), host)
 	if err != nil {
 		t.Fatalf("resolve of the credential-free endpoint failed: %v", err)
@@ -280,7 +280,7 @@ func TestWellKnownEndpointResolver_refusesASchemelessEndpointCarryingCredentials
 func TestWellKnownEndpointResolver_refusesAnEndpointOnAnotherPort(t *testing.T) {
 	// Port 1 is not the manifest server's, and nothing is listening there, so a
 	// refusal arriving from anywhere but the rule would show up as a dial error.
-	endpoint := "http://127.0.0.1:1/ramp.v1.ExchangeService"
+	endpoint := "http://127.0.0.1:1/fora.v1.ExchangeService"
 	srv := httptest.NewServer(manifestHandler(&endpoint, nil))
 	defer srv.Close()
 
@@ -378,7 +378,7 @@ func TestWellKnownEndpointResolver_leaderCancellationDoesNotPoisonWaiters(t *tes
 		_ = json.NewEncoder(w).Encode(map[string]any{"ver": helpers.WellKnownManifestVersion, "endpoint": ep})
 	}))
 	defer srv.Close()
-	ep = srv.URL + "/ramp.v1.ExchangeService"
+	ep = srv.URL + "/fora.v1.ExchangeService"
 	host := hostOf(t, srv)
 
 	r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{

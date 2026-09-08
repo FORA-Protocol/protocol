@@ -95,10 +95,10 @@ describe("sdk/ts reads a Connect error envelope the way the sdk/go oracle does",
 			message: "balance too low",
 			details: [
 				{
-					type: "ramp.v1.ErrorDetail",
+					type: "fora.v1.ErrorDetail",
 					value: "aWdub3JlZA",
 					debug: {
-						domain: "ramp.v1.ExchangeService",
+						domain: "fora.v1.ExchangeService",
 						message: "balance too low",
 						transactionDenial: { reason: "DENIAL_REASON_INSUFFICIENT_BALANCE" },
 					},

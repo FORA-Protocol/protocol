@@ -18,25 +18,25 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/gen/go/ramp/v1/rampv1connect"
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
-	rampserver "github.com/RAMP-Protocol/protocol/sdk/go/connectserver"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	foraserver "github.com/FORA-Protocol/protocol/sdk/go/connectserver"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // catalogEcho is a minimal CatalogServiceHandler that, like a real Exchange, refuses
 // a caller the seam did not prove and otherwise counts the pushes it applied.
 type catalogEcho struct {
-	rampv1connect.UnimplementedCatalogServiceHandler
+	forav1connect.UnimplementedCatalogServiceHandler
 	mu      sync.Mutex
 	hits    int
 	callers []string
 }
 
 func (c *catalogEcho) PushResources(
-	ctx context.Context, req *connectrpc.Request[rampv1.PushResourcesRequest],
-) (*connectrpc.Response[rampv1.PushResourcesResponse], error) {
+	ctx context.Context, req *connectrpc.Request[forav1.PushResourcesRequest],
+) (*connectrpc.Response[forav1.PushResourcesResponse], error) {
 	sig := helpers.FromContext(ctx)
 	if sig == nil {
 		return nil, connectrpc.NewError(connectrpc.CodeUnauthenticated, errors.New("origin: unverified caller"))
@@ -45,7 +45,7 @@ func (c *catalogEcho) PushResources(
 	c.hits++
 	c.callers = append(c.callers, sig.KeyID)
 	c.mu.Unlock()
-	return connectrpc.NewResponse(&rampv1.PushResourcesResponse{
+	return connectrpc.NewResponse(&forav1.PushResourcesResponse{
 		Ver: helpers.ProtocolVersion, Accepted: int32(len(req.Msg.GetEntries())),
 	}), nil
 }
@@ -56,9 +56,9 @@ func (c *catalogEcho) snapshot() (int, []string) {
 	return c.hits, append([]string(nil), c.callers...)
 }
 
-func mountCatalog(t *testing.T, origin rampv1connect.CatalogServiceHandler, opts ...rampserver.ServerOption) *httptest.Server {
+func mountCatalog(t *testing.T, origin forav1connect.CatalogServiceHandler, opts ...foraserver.ServerOption) *httptest.Server {
 	t.Helper()
-	path, h := rampserver.NewCatalogServiceHandler(origin, opts...)
+	path, h := foraserver.NewCatalogServiceHandler(origin, opts...)
 	mux := http.NewServeMux()
 	mux.Handle(path, h)
 	srv := httptest.NewServer(mux)
@@ -66,12 +66,12 @@ func mountCatalog(t *testing.T, origin rampv1connect.CatalogServiceHandler, opts
 	return srv
 }
 
-func validPush() *rampv1.PushResourcesRequest {
-	return &rampv1.PushResourcesRequest{
+func validPush() *forav1.PushResourcesRequest {
+	return &forav1.PushResourcesRequest{
 		Exchange: "exchange.test", TenantId: "tenant-1", CallerId: "publisher.test",
-		Entries: []*rampv1.ResourceEntry{{Domain: "publisher.test", Path: "/x", Terms: []*rampv1.LicenseTerm{{
-			Semantics: rampv1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
-			Pricing:   &rampv1.Pricing{Model: rampv1.PricingModel_PRICING_MODEL_FREE, Rate: "0"},
+		Entries: []*forav1.ResourceEntry{{Domain: "publisher.test", Path: "/x", Terms: []*forav1.LicenseTerm{{
+			Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+			Pricing:   &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"},
 		}}}},
 	}
 }
@@ -84,9 +84,9 @@ func TestServerVerify_CatalogHandlerRejectsUnsigned(t *testing.T) {
 	}
 	resolver := helpers.NewStaticKeyResolver(map[string]ed25519.PublicKey{"publisher.v1": pub})
 	origin := &catalogEcho{}
-	srv := mountCatalog(t, origin, rampserver.WithKeyResolver(resolver), rampserver.WithReplayStore(alwaysReplayStore{}))
+	srv := mountCatalog(t, origin, foraserver.WithKeyResolver(resolver), foraserver.WithReplayStore(alwaysReplayStore{}))
 
-	raw := rampv1connect.NewCatalogServiceClient(&http.Client{}, srv.URL)
+	raw := forav1connect.NewCatalogServiceClient(&http.Client{}, srv.URL)
 	_, err = raw.PushResources(context.Background(), connectrpc.NewRequest(validPush()))
 	if err == nil {
 		t.Fatal("unsigned push must be rejected by the catalog server face")
@@ -112,9 +112,9 @@ func TestServerVerify_CatalogHandlerProvesTheSignerToTheOrigin(t *testing.T) {
 	}
 	resolver := helpers.NewStaticKeyResolver(map[string]ed25519.PublicKey{keyID: pub})
 	origin := &catalogEcho{}
-	srv := mountCatalog(t, origin, rampserver.WithKeyResolver(resolver), rampserver.WithReplayStore(newCountingReplayStore()))
+	srv := mountCatalog(t, origin, foraserver.WithKeyResolver(resolver), foraserver.WithReplayStore(newCountingReplayStore()))
 
-	client := rampconnect.NewCatalogClient(srv.URL, rampconnect.WithSigner(signer))
+	client := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(signer))
 	resp, err := client.PushResources(context.Background(), validPush())
 	if err != nil {
 		t.Fatalf("PushResources: %v", err)
@@ -145,20 +145,20 @@ func TestServerVerify_CatalogHandlerValidatesTheEnvelope(t *testing.T) {
 	resolver := helpers.NewStaticKeyResolver(map[string]ed25519.PublicKey{keyID: pub})
 	origin := &catalogEcho{}
 	srv := mountCatalog(t, origin,
-		rampserver.WithKeyResolver(resolver),
-		rampserver.WithReplayStore(newCountingReplayStore()),
-		rampserver.WithValidation(rampconnect.ValidationStrict),
+		foraserver.WithKeyResolver(resolver),
+		foraserver.WithReplayStore(newCountingReplayStore()),
+		foraserver.WithValidation(foraconnect.ValidationStrict),
 	)
 
-	client := rampconnect.NewCatalogClient(srv.URL, rampconnect.WithSigner(signer))
+	client := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(signer))
 	bad := validPush()
 	bad.Entries[0].Path = "no-leading-slash"
 	_, err = client.PushResources(context.Background(), bad)
 	if err == nil {
 		t.Fatal("a malformed entry must be refused")
 	}
-	var cerr *rampconnect.CallError
-	if !errors.As(err, &cerr) || cerr.Kind != rampconnect.CallRefused {
+	var cerr *foraconnect.CallError
+	if !errors.As(err, &cerr) || cerr.Kind != foraconnect.CallRefused {
 		t.Fatalf("error = %v, want a CallRefused CallError from the validate interceptor", err)
 	}
 	if hits, _ := origin.snapshot(); hits != 0 {
@@ -186,11 +186,11 @@ func TestServerVerify_CatalogHandlerDoesNotValidateByDefault(t *testing.T) {
 	resolver := helpers.NewStaticKeyResolver(map[string]ed25519.PublicKey{keyID: pub})
 	origin := &catalogEcho{}
 	srv := mountCatalog(t, origin,
-		rampserver.WithKeyResolver(resolver),
-		rampserver.WithReplayStore(newCountingReplayStore()),
+		foraserver.WithKeyResolver(resolver),
+		foraserver.WithReplayStore(newCountingReplayStore()),
 	)
 
-	client := rampconnect.NewCatalogClient(srv.URL, rampconnect.WithSigner(signer))
+	client := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(signer))
 	bad := validPush()
 	bad.Entries[0].Path = "no-leading-slash"
 	if _, err := client.PushResources(context.Background(), bad); err != nil {

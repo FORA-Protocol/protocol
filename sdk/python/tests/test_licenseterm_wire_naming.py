@@ -20,7 +20,7 @@ from typing import Any
 
 from wire.base import JSON_NAME_ALIAS_ERROR
 
-from ramp_sdk.licenseterm import validate_resource_entry
+from fora_sdk.licenseterm import validate_resource_entry
 
 _ALIAS_RULE = f"field.{JSON_NAME_ALIAS_ERROR}"
 

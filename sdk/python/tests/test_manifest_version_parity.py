@@ -21,8 +21,8 @@ import pytest
 from conftest import GO_TESTDATA, load_json
 from resolvers_harness import manifest_json
 
-from ramp_sdk.resolvers import ManifestVersionRefusedError, WellKnownEndpointResolver
-from ramp_sdk.wire import WellKnownManifestVersion, manifest_version_refusal
+from fora_sdk.resolvers import ManifestVersionRefusedError, WellKnownEndpointResolver
+from fora_sdk.wire import WellKnownManifestVersion, manifest_version_refusal
 
 _VECTORS = load_json(GO_TESTDATA / "manifest-version-vectors.json")["manifest_version"]
 _ACCEPTED = [v for v in _VECTORS if v["accepted"]]
@@ -30,7 +30,7 @@ _REFUSED = [v for v in _VECTORS if not v["accepted"]]
 _ABSENT = [v for v in _VECTORS if not v["present"]]
 
 _HOST = "exchange.example"
-_ENDPOINT = f"https://{_HOST}/ramp.v1.ExchangeService"
+_ENDPOINT = f"https://{_HOST}/fora.v1.ExchangeService"
 
 
 def _ver_of(vector: dict) -> str | None:

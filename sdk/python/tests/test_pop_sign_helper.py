@@ -1,4 +1,4 @@
-"""Sub-task A — ramp_sdk.pop.sign_agent_binding + top-level __all__.
+"""Sub-task A — fora_sdk.pop.sign_agent_binding + top-level __all__.
 
 The sign oracle is the pop-vectors.json 'valid' vector: it carries
 signer_seed_hex (the raw seed of the key that produced the stored signature),
@@ -14,7 +14,7 @@ import pytest
 
 from conftest import GO_TESTDATA, load_json
 
-from ramp_sdk.pop import sign_agent_binding, verify_agent_binding
+from fora_sdk.pop import sign_agent_binding, verify_agent_binding
 
 _POP_VECTORS = load_json(GO_TESTDATA / "pop-vectors.json")
 
@@ -90,7 +90,7 @@ def test_sign_then_verify_round_trips() -> None:
     )
 
     headers = {
-        "x-ramp-agent-key": presented_key,
+        "x-fora-agent-key": presented_key,
         "signature-input": sig_input_value,
         "signature": sig_value,
     }
@@ -128,7 +128,7 @@ def test_sign_agent_binding_rejects_when_expired(now_offset: int) -> None:
     )
 
     headers = {
-        "x-ramp-agent-key": presented_key,
+        "x-fora-agent-key": presented_key,
         "signature-input": sig_input_value,
         "signature": sig_value,
     }
@@ -146,11 +146,11 @@ def test_sign_agent_binding_rejects_when_expired(now_offset: int) -> None:
 # ---- top-level re-export -------------------------------------------------
 
 
-def test_sign_agent_binding_in_ramp_sdk_all() -> None:
-    """ramp_sdk.__all__ includes sign_agent_binding after the implement step."""
-    import ramp_sdk
+def test_sign_agent_binding_in_fora_sdk_all() -> None:
+    """fora_sdk.__all__ includes sign_agent_binding after the implement step."""
+    import fora_sdk
 
-    assert "sign_agent_binding" in ramp_sdk.__all__
+    assert "sign_agent_binding" in fora_sdk.__all__
 
 
 # ---- control bytes in the target URI -------------------------------------

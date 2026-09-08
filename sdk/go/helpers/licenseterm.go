@@ -7,16 +7,16 @@ import (
 	protovalidate "buf.build/go/protovalidate"
 	"google.golang.org/protobuf/proto"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/gen/go/vocab/functiontokens"
-	"github.com/RAMP-Protocol/protocol/gen/go/vocab/geographytokens"
-	"github.com/RAMP-Protocol/protocol/gen/go/vocab/pricingunits"
-	"github.com/RAMP-Protocol/protocol/gen/go/vocab/quotametrics"
-	"github.com/RAMP-Protocol/protocol/gen/go/vocab/usertypes"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/gen/go/vocab/functiontokens"
+	"github.com/FORA-Protocol/protocol/gen/go/vocab/geographytokens"
+	"github.com/FORA-Protocol/protocol/gen/go/vocab/pricingunits"
+	"github.com/FORA-Protocol/protocol/gen/go/vocab/quotametrics"
+	"github.com/FORA-Protocol/protocol/gen/go/vocab/usertypes"
 )
 
 // License-term canonicalisation and the ingest-tier checks (ADR-014; the
-// CatalogService contract in ramp.proto).
+// CatalogService contract in fora.proto).
 //
 // A pushed entry passes two tiers at the Exchange. The wire tier is
 // protovalidate — the ResourceEntry envelope rules and the LicenseTerm
@@ -124,13 +124,13 @@ func (v EntryVerdict) OK() bool { return len(v.Violations) == 0 }
 // resolved to its registered token. OTHER and any unknown axis carry custom,
 // registry-less tokens and are returned unchanged. Applying it twice is a fixed
 // point, which is what makes NormalizeLicenseTerm idempotent.
-func CanonicalRestrictionToken(kind rampv1.RestrictionKind, token string) string {
+func CanonicalRestrictionToken(kind forav1.RestrictionKind, token string) string {
 	switch kind {
-	case rampv1.RestrictionKind_RESTRICTION_KIND_FUNCTION:
+	case forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION:
 		return functiontokens.Canonical(asciiLower(trimJSONWhitespace(token)))
-	case rampv1.RestrictionKind_RESTRICTION_KIND_USER_TYPE:
+	case forav1.RestrictionKind_RESTRICTION_KIND_USER_TYPE:
 		return usertypes.Canonical(asciiLower(trimJSONWhitespace(token)))
-	case rampv1.RestrictionKind_RESTRICTION_KIND_GEOGRAPHY:
+	case forav1.RestrictionKind_RESTRICTION_KIND_GEOGRAPHY:
 		return geographytokens.Canonical(asciiUpper(trimJSONWhitespace(token)))
 	default:
 		return token
@@ -141,13 +141,13 @@ func CanonicalRestrictionToken(kind rampv1.RestrictionKind, token string) string
 // registered on its axis. GEOGRAPHY registers only the non-ISO specials and
 // admits any two-uppercase-letter ISO 3166-1 alpha-2 code structurally; OTHER
 // and any unknown axis carry no registry and are never known.
-func KnownRestrictionToken(kind rampv1.RestrictionKind, token string) bool {
+func KnownRestrictionToken(kind forav1.RestrictionKind, token string) bool {
 	switch kind {
-	case rampv1.RestrictionKind_RESTRICTION_KIND_FUNCTION:
+	case forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION:
 		return functiontokens.IsRegistered(token)
-	case rampv1.RestrictionKind_RESTRICTION_KIND_USER_TYPE:
+	case forav1.RestrictionKind_RESTRICTION_KIND_USER_TYPE:
 		return usertypes.IsRegistered(token)
-	case rampv1.RestrictionKind_RESTRICTION_KIND_GEOGRAPHY:
+	case forav1.RestrictionKind_RESTRICTION_KIND_GEOGRAPHY:
 		return geographytokens.IsRegistered(token) || isISOAlpha2(token)
 	default:
 		return false
@@ -161,7 +161,7 @@ func KnownRestrictionToken(kind rampv1.RestrictionKind, token string) bool {
 // ValidateLicenseTerm, whose checks read canonical tokens — all but the
 // disjointness check, which folds what it compares and so reaches the same
 // verdict on either form.
-func NormalizeLicenseTerm(term *rampv1.LicenseTerm) {
+func NormalizeLicenseTerm(term *forav1.LicenseTerm) {
 	for _, r := range term.GetRestrictions() {
 		kind := r.GetKind()
 		if !hasCanonicalRule(kind) {
@@ -178,7 +178,7 @@ func NormalizeLicenseTerm(term *rampv1.LicenseTerm) {
 
 // NormalizeResourceEntry applies NormalizeLicenseTerm to every term of the
 // entry, in place. Nil-safe.
-func NormalizeResourceEntry(entry *rampv1.ResourceEntry) {
+func NormalizeResourceEntry(entry *forav1.ResourceEntry) {
 	for _, t := range entry.GetTerms() {
 		NormalizeLicenseTerm(t)
 	}
@@ -207,7 +207,7 @@ func NormalizeResourceEntry(entry *rampv1.ResourceEntry) {
 // as written, and the rule below over the tokens the fold produces — so a term
 // the first clears can still fail the second, and a term that fails both is
 // reported by both.
-func ValidateLicenseTerm(term *rampv1.LicenseTerm) ([]RuleWarning, error) {
+func ValidateLicenseTerm(term *forav1.LicenseTerm) ([]RuleWarning, error) {
 	if unit := term.GetPricing().GetUnit(); bareUnregistered(unit, pricingunits.IsRegistered) {
 		return nil, &RuleViolation{
 			Rule:    RulePricingUnitRegistered,
@@ -246,7 +246,7 @@ func ValidateLicenseTerm(term *rampv1.LicenseTerm) ([]RuleWarning, error) {
 		}
 	}
 	for i, o := range term.GetObligations() {
-		if o.GetKind() == rampv1.ObligationKind_OBLIGATION_KIND_OTHER && o.GetDetail() == "" {
+		if o.GetKind() == forav1.ObligationKind_OBLIGATION_KIND_OTHER && o.GetDetail() == "" {
 			warnings = append(warnings, RuleWarning{
 				Rule:    RuleObligationOtherRequiresDetail,
 				Path:    fmt.Sprintf("obligations[%d].detail", i),
@@ -264,7 +264,7 @@ func ValidateLicenseTerm(term *rampv1.LicenseTerm) ([]RuleWarning, error) {
 // never modified. The Exchange stops at the first tier that fails; this face
 // reports both so a publisher fixes everything in one round. Paths are relative
 // to the entry ("terms[2].pricing.unit").
-func ValidateResourceEntry(entry *rampv1.ResourceEntry) EntryVerdict {
+func ValidateResourceEntry(entry *forav1.ResourceEntry) EntryVerdict {
 	var verdict EntryVerdict
 	if entry == nil {
 		verdict.Violations = append(verdict.Violations, RuleViolation{Rule: "required", Message: "entry is nil"})
@@ -284,7 +284,7 @@ func ValidateResourceEntry(entry *rampv1.ResourceEntry) EntryVerdict {
 			verdict.Violations = append(verdict.Violations, RuleViolation{Rule: "validator", Message: err.Error()})
 		}
 	}
-	normalized, ok := proto.Clone(entry).(*rampv1.ResourceEntry)
+	normalized, ok := proto.Clone(entry).(*forav1.ResourceEntry)
 	if !ok {
 		verdict.Violations = append(verdict.Violations, RuleViolation{Rule: "validator", Message: "entry could not be cloned"})
 		return verdict
@@ -335,7 +335,7 @@ func ValidateResourceEntry(entry *rampv1.ResourceEntry) EntryVerdict {
 // named above, which has no wire tier, it is the size of the request the server
 // agreed to read. Stating the cap alone would have claimed a bound that the one
 // deployment this check exists for does not have.
-func canonicalDisjointViolation(i int, r *rampv1.Restriction) *RuleViolation {
+func canonicalDisjointViolation(i int, r *forav1.Restriction) *RuleViolation {
 	prohibited := r.GetProhibited()
 	permitted := r.GetPermitted()
 	if len(prohibited) == 0 || len(permitted) == 0 {
@@ -363,7 +363,7 @@ func canonicalDisjointViolation(i int, r *rampv1.Restriction) *RuleViolation {
 
 // restrictionTokenWarning returns the warning for one restriction token, or
 // false when the token needs none (empty, vendor-namespaced, or registered).
-func restrictionTokenWarning(kind rampv1.RestrictionKind, tok, path string) (RuleWarning, bool) {
+func restrictionTokenWarning(kind forav1.RestrictionKind, tok, path string) (RuleWarning, bool) {
 	if tok == "" || isNamespacedToken(tok) || KnownRestrictionToken(kind, tok) {
 		return RuleWarning{}, false
 	}
@@ -376,11 +376,11 @@ func restrictionTokenWarning(kind rampv1.RestrictionKind, tok, path string) (Rul
 }
 
 // hasCanonicalRule reports whether an axis carries a canonicalisation rule.
-func hasCanonicalRule(kind rampv1.RestrictionKind) bool {
+func hasCanonicalRule(kind forav1.RestrictionKind) bool {
 	switch kind {
-	case rampv1.RestrictionKind_RESTRICTION_KIND_FUNCTION,
-		rampv1.RestrictionKind_RESTRICTION_KIND_USER_TYPE,
-		rampv1.RestrictionKind_RESTRICTION_KIND_GEOGRAPHY:
+	case forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION,
+		forav1.RestrictionKind_RESTRICTION_KIND_USER_TYPE,
+		forav1.RestrictionKind_RESTRICTION_KIND_GEOGRAPHY:
 		return true
 	default:
 		return false

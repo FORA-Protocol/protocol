@@ -13,12 +13,12 @@ import { createServer, type Server } from "node:http";
 import { describe, expect, it } from "vitest";
 
 import { fetchContent } from "../client/content.ts";
-import { RampCallError } from "../client/errors.ts";
+import { ForaCallError } from "../client/errors.ts";
 import { createClient } from "../client/index.ts";
 import { createUnarySend } from "../client/send.ts";
 import { unaryCall, type UnaryRequest } from "../client/transport.ts";
 
-const RPC_PATH = "/ramp.v1.ExchangeService/DiscoverResources";
+const RPC_PATH = "/fora.v1.ExchangeService/DiscoverResources";
 
 function unaryRequest(url: string): UnaryRequest {
 	return {
@@ -46,17 +46,17 @@ async function listening(): Promise<[Server, number]> {
  * back for the caller-specific checks.
  *
  * `.rejects.toThrow(/scheme/i)` is satisfied by any Error, which is how a refusal that had
- * stopped being a RampCallError passed this file unchanged. Every verb throws RampCallError
+ * stopped being a ForaCallError passed this file unchanged. Every verb throws ForaCallError
  * and nothing else; a test for a security refusal has to hold that, not just the wording.
  */
-async function refusalOf(run: () => Promise<unknown>): Promise<RampCallError> {
+async function refusalOf(run: () => Promise<unknown>): Promise<ForaCallError> {
 	const caught = await run().then(
 		() => undefined,
 		(e: unknown) => e,
 	);
 	expect(caught, "expected a refusal, got a result").toBeDefined();
-	expect(caught).toBeInstanceOf(RampCallError);
-	const failure = caught as RampCallError;
+	expect(caught).toBeInstanceOf(ForaCallError);
+	const failure = caught as ForaCallError;
 	expect(failure.kind).toBe("unreachable");
 	return failure;
 }
@@ -67,7 +67,7 @@ describe("the guarded RPC leg refuses plaintext", () => {
 	// leave with it — see the injected-send case below.
 	const target = (baseURL: string) => ({
 		baseURL,
-		service: "ramp.v1.ExchangeService",
+		service: "fora.v1.ExchangeService",
 		method: "DiscoverResources",
 	});
 
@@ -150,15 +150,15 @@ describe("the delivery leg refuses plaintext", () => {
 		const err = await fetchContent("http://edge.test/a?token=live-credential", {
 			keyPair: watched as never,
 		}).catch((e: unknown) => e);
-		expect(err).toBeInstanceOf(RampCallError);
-		expect((err as RampCallError).kind).toBe("unreachable");
+		expect(err).toBeInstanceOf(ForaCallError);
+		expect((err as ForaCallError).kind).toBe("unreachable");
 		expect(minted, "a proof was minted for a URL that was never dialable").toBe(0);
 	});
 
 	it("and does not echo the credential in its message", async () => {
 		const err = (await fetchContent("http://edge.test/a?token=live-credential", {
 			keyPair: (await keyPair) as CryptoKeyPair,
-		}).catch((e: unknown) => e)) as RampCallError;
+		}).catch((e: unknown) => e)) as ForaCallError;
 		expect(String(err.cause ?? "")).not.toContain("live-credential");
 	});
 });

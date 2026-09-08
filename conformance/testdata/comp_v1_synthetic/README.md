@@ -1,6 +1,6 @@
-# RAMP-authored CoMP V1 conformance fixtures — NOT verbatim spec examples
+# FORA-authored CoMP V1 conformance fixtures — NOT verbatim spec examples
 
-These JSON files are **RAMP-authored**, not vendored from the IAB Tech Lab
+These JSON files are **FORA-authored**, not vendored from the IAB Tech Lab
 specification. They exist solely to give `TestCompV1SyntheticCoverageRoundTrip`
 (`../../compexamples_test.go`) coverage of proto fields the published worked
 examples (in `../comp_v1_examples/`) leave unpopulated.

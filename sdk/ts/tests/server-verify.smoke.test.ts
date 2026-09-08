@@ -15,7 +15,7 @@
 // connectserver verify middleware).
 //
 import { describe, it, expect } from "vitest";
-import { rampVerify } from "../hono/middleware.ts";
+import { foraVerify } from "../hono/middleware.ts";
 
 // A trivial WebCrypto Ed25519 keypair helper — the binding's verify primitive is
 // WebCrypto by default (the same primitive the L1 pop/verify helpers use). The
@@ -33,7 +33,7 @@ describe("sdk/ts Hono server-verify binding (Edge's real consumer)", () => {
 
     // The opt-in Hono middleware over sdk/ts/core: verifies the inbound RFC 9421
     // signature at the HTTP seam and, on success, passes control to next().
-    const mw = rampVerify({});
+    const mw = foraVerify({});
 
     let reachedHandler = false;
     const next = async () => {
@@ -52,14 +52,14 @@ describe("sdk/ts Hono server-verify binding (Edge's real consumer)", () => {
   });
 
   it("an unsigned inbound request is denied and never reaches the guarded handler (fail-closed)", async () => {
-    const mw = rampVerify({});
+    const mw = foraVerify({});
 
     let reachedHandler = false;
     const next = async () => {
       reachedHandler = true;
     };
 
-    const nakedReq = new Request("https://edge.example/ramp.v1/resource", {
+    const nakedReq = new Request("https://edge.example/fora.v1/resource", {
       method: "GET",
     });
     const ctx = { req: { raw: nakedReq }, res: undefined as Response | undefined };
@@ -74,13 +74,13 @@ describe("sdk/ts Hono server-verify binding (Edge's real consumer)", () => {
 
 describe("sdk/ts Hono server-verify binding — takes no key resolver", () => {
   // These two cases pin that the binding takes no key resolver: the GET-PoP path
-  // is self-verifying via the presented key, so RampVerifyOptions deliberately
+  // is self-verifying via the presented key, so ForaVerifyOptions deliberately
   // has no resolver field (one existed once, was never read, and misled a
   // consumer assessment — these cases keep it from growing back unread).
-  it("a signed request PASSES through rampVerify called without a resolver (resolver is dead code)", async () => {
+  it("a signed request PASSES through foraVerify called without a resolver (resolver is dead code)", async () => {
     const kp = await generateAgentKey();
 
-    const mw = rampVerify({});
+    const mw = foraVerify({});
 
     let reachedHandler = false;
     const next = async () => {
@@ -97,15 +97,15 @@ describe("sdk/ts Hono server-verify binding — takes no key resolver", () => {
     expect(reachedHandler).toBe(true);
   });
 
-  it("an unsigned request is DENIED by rampVerify called without a resolver (fail-closed without resolver)", async () => {
-    const mw = rampVerify({});
+  it("an unsigned request is DENIED by foraVerify called without a resolver (fail-closed without resolver)", async () => {
+    const mw = foraVerify({});
 
     let reachedHandler = false;
     const next = async () => {
       reachedHandler = true;
     };
 
-    const nakedReq = new Request("https://edge.example/ramp.v1/resource", {
+    const nakedReq = new Request("https://edge.example/fora.v1/resource", {
       method: "GET",
     });
     const ctx = { req: { raw: nakedReq }, res: undefined as Response | undefined };
@@ -122,5 +122,5 @@ describe("sdk/ts Hono server-verify binding — takes no key resolver", () => {
 // sign-over-Fetch-Request seam.
 async function signInboundRequest(_kp: CryptoKeyPair): Promise<Request> {
   const { signInbound } = await import("../core/sign.ts");
-  return signInbound(_kp, "https://edge.example/ramp.v1/resource");
+  return signInbound(_kp, "https://edge.example/fora.v1/resource");
 }

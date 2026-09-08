@@ -11,8 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
 )
 
 // The transport guarantees the offer-derived leg claims, driven end to end.
@@ -39,24 +39,24 @@ func (f fixedEndpoint) ResolveEndpoint(_ context.Context, _ string) (string, err
 // this test is what proves the leg is guarded at all.
 func TestReportUsage_GuardRefusesAPrivateEndpoint(t *testing.T) {
 	sig := newSigningFixture(t)
-	client := rampconnect.NewClient("https://home.invalid",
-		rampconnect.WithSigner(sig.signer),
+	client := foraconnect.NewClient("https://home.invalid",
+		foraconnect.WithSigner(sig.signer),
 		// Anchored to the domain, so the check passes: localhost:1 advertises
 		// localhost:1. The PORT is named on both sides deliberately — anchoring
 		// compares it, so an endpoint on a port the exchange value does not carry
 		// would be refused by the routing check and this test would prove nothing
 		// about the guard. Only the dial-time address guard can refuse this.
-		rampconnect.WithEndpointResolver(fixedEndpoint{endpoint: "https://localhost:1"}),
+		foraconnect.WithEndpointResolver(fixedEndpoint{endpoint: "https://localhost:1"}),
 	)
 
-	_, err := client.ReportUsage(context.Background(), &rampv1.UsageReport{
+	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      "localhost:1",
 		TransactionId: "txn-1",
 	})
 	if err == nil {
 		t.Fatal("a signed report to a private address must be refused")
 	}
-	var cerr *rampconnect.CallError
+	var cerr *foraconnect.CallError
 	if !errors.As(err, &cerr) {
 		t.Fatalf("error = %v, want a CallError", err)
 	}
@@ -70,7 +70,7 @@ func TestReportUsage_GuardRefusesAPrivateEndpoint(t *testing.T) {
 // seam takes a base rather than a whole round-tripper.
 //
 // The TLS-dialer case is the one that matters: net/http prefers a transport's own
-// TLS dialer over DialContext on https, which is every RAMP leg, so a base
+// TLS dialer over DialContext on https, which is every FORA leg, so a base
 // carrying one would take the dial past the address pin entirely. An empty base
 // cannot express that, which is why it alone proved less than it appeared to.
 func TestReportUsage_GuardSurvivesACallerSuppliedTransport(t *testing.T) {
@@ -90,15 +90,15 @@ func TestReportUsage_GuardSurvivesACallerSuppliedTransport(t *testing.T) {
 	for name, base := range bases {
 		t.Run(name, func(t *testing.T) {
 			sig := newSigningFixture(t)
-			client := rampconnect.NewClient("https://home.invalid",
-				rampconnect.WithSigner(sig.signer),
-				rampconnect.WithGuardedBaseTransport(base),
-				rampconnect.WithEndpointResolver(fixedEndpoint{endpoint: "https://localhost:1"}),
+			client := foraconnect.NewClient("https://home.invalid",
+				foraconnect.WithSigner(sig.signer),
+				foraconnect.WithGuardedBaseTransport(base),
+				foraconnect.WithEndpointResolver(fixedEndpoint{endpoint: "https://localhost:1"}),
 			)
 
 			// Port named on both sides so the routing check passes and the dial is
 			// actually attempted; see the sibling test above.
-			_, err := client.ReportUsage(context.Background(), &rampv1.UsageReport{
+			_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 				Exchange:      "localhost:1",
 				TransactionId: "txn-1",
 			})
@@ -122,10 +122,10 @@ func TestFetch_GuardSurvivesACallerSuppliedTLSDialer(t *testing.T) {
 	defer content.Close()
 	tlsCfg := content.Client().Transport.(*http.Transport).TLSClientConfig
 
-	client := rampconnect.NewClient("https://home.invalid",
-		rampconnect.WithSigner(sig.signer),
-		rampconnect.WithAgentKey(sig.pub),
-		rampconnect.WithGuardedBaseTransport(&http.Transport{
+	client := foraconnect.NewClient("https://home.invalid",
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithAgentKey(sig.pub),
+		foraconnect.WithGuardedBaseTransport(&http.Transport{
 			TLSClientConfig: tlsCfg,
 			DialTLSContext: func(_ context.Context, network, addr string) (net.Conn, error) {
 				return tls.Dial(network, addr, tlsCfg)
@@ -153,27 +153,27 @@ func TestFetch_GuardSurvivesACallerSuppliedTLSDialer(t *testing.T) {
 // the resolver is a seam a caller can replace.
 func TestReportUsage_RefusesAnInjectedEndpointCarryingUserinfo(t *testing.T) {
 	sig := newSigningFixture(t)
-	client := rampconnect.NewClient("http://home.invalid",
+	client := foraconnect.NewClient("http://home.invalid",
 		append(allowLoopback(t),
-			rampconnect.WithSigner(sig.signer),
+			foraconnect.WithSigner(sig.signer),
 			// Anchored to the domain, so only the userinfo arm can refuse it.
-			rampconnect.WithEndpointResolver(fixedEndpoint{
+			foraconnect.WithEndpointResolver(fixedEndpoint{
 				endpoint: "http://agent:s3cret@exchange.test",
 			}),
 		)...)
 
-	_, err := client.ReportUsage(context.Background(), &rampv1.UsageReport{
+	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      "exchange.test",
 		TransactionId: "txn-1",
 	})
 	if err == nil {
 		t.Fatal("a signed report to an endpoint carrying credentials must be refused")
 	}
-	var cerr *rampconnect.CallError
+	var cerr *foraconnect.CallError
 	if !errors.As(err, &cerr) {
 		t.Fatalf("error = %v, want a CallError", err)
 	}
-	if cerr.Kind != rampconnect.CallNotSent {
+	if cerr.Kind != foraconnect.CallNotSent {
 		t.Errorf("kind = %v, want CallNotSent — nothing left the process", cerr.Kind)
 	}
 	if !strings.Contains(err.Error(), "userinfo") {
@@ -185,7 +185,7 @@ func TestReportUsage_RefusesAnInjectedEndpointCarryingUserinfo(t *testing.T) {
 	}
 }
 
-// A RAMP call is never legitimately redirected. Following one would re-sign the
+// A FORA call is never legitimately redirected. Following one would re-sign the
 // caller's request for a target the peer chose — after the endpoint check had
 // already passed, which is the window that check exists to close.
 func TestReportUsage_RefusesRedirectAndNeverContactsTheTarget(t *testing.T) {
@@ -202,10 +202,10 @@ func TestReportUsage_RefusesRedirectAndNeverContactsTheTarget(t *testing.T) {
 		http.Redirect(w, r, target.URL+"/stolen", http.StatusFound)
 	}))
 
-	client := rampconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewClient("http://home.invalid",
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
-	_, err := client.ReportUsage(context.Background(), &rampv1.UsageReport{
+	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      domain,
 		TransactionId: "txn-1",
 	})
@@ -232,18 +232,18 @@ func TestReportUsage_PeerRefusalIsATypedCallError(t *testing.T) {
 		_, _ = w.Write([]byte(`{"code":"permission_denied","message":"no"}`))
 	}))
 
-	client := rampconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewClient("http://home.invalid",
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
-	_, err := client.ReportUsage(context.Background(), &rampv1.UsageReport{
+	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      domain,
 		TransactionId: "txn-1",
 	})
-	var cerr *rampconnect.CallError
+	var cerr *foraconnect.CallError
 	if !errors.As(err, &cerr) {
 		t.Fatalf("error = %v, want a CallError on the send path too", err)
 	}
-	if cerr.Kind != rampconnect.CallRefused {
+	if cerr.Kind != foraconnect.CallRefused {
 		t.Errorf("kind = %v, want CallRefused for a peer that answered", cerr.Kind)
 	}
 	if cerr.ReasonOf() == "" {
@@ -255,8 +255,8 @@ func TestReportUsage_PeerRefusalIsATypedCallError(t *testing.T) {
 // public face of the type and were entirely uncovered.
 func TestCallError_Accessors(t *testing.T) {
 	cause := errors.New("underlying")
-	full := &rampconnect.CallError{
-		Kind: rampconnect.CallRefused, Op: "report usage",
+	full := &foraconnect.CallError{
+		Kind: foraconnect.CallRefused, Op: "report usage",
 		Status: http.StatusForbidden, Reason: "pop_expired", Err: cause,
 	}
 	msg := full.Error()
@@ -273,16 +273,16 @@ func TestCallError_Accessors(t *testing.T) {
 	}
 
 	// With no token from the peer, the class the SDK owns is the fallback.
-	bare := &rampconnect.CallError{Kind: rampconnect.CallNotSent, Op: "dispute"}
+	bare := &foraconnect.CallError{Kind: foraconnect.CallNotSent, Op: "dispute"}
 	if got := bare.ReasonOf(); got != "not_sent" {
 		t.Errorf("ReasonOf() = %q, want the failure class as the fallback", got)
 	}
-	if got := rampconnect.CallErrorKind(99).String(); got != "unknown" {
+	if got := foraconnect.CallErrorKind(99).String(); got != "unknown" {
 		t.Errorf("an unnamed kind renders as %q, want \"unknown\"", got)
 	}
 	// A status net/http does not know renders as the bare number rather than a
 	// truncated-looking "(HTTP 599 )".
-	odd := &rampconnect.CallError{Kind: rampconnect.CallRefused, Op: "fetch", Status: 599}
+	odd := &foraconnect.CallError{Kind: foraconnect.CallRefused, Op: "fetch", Status: 599}
 	if !strings.Contains(odd.Error(), "(HTTP 599)") {
 		t.Errorf("Error() = %q, want the bare status number", odd.Error())
 	}

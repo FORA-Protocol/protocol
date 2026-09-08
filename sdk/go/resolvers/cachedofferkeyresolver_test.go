@@ -16,13 +16,13 @@ import (
 	"testing"
 	"time"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/resolvers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
 // countingFetch returns a fetcher that always yields dir and records call count.
-func countingFetch(dir *rampv1.WBAFile, calls *atomic.Int64) resolvers.OfferDirectoryFetcher {
-	return func(_ context.Context, _ string) (*rampv1.WBAFile, error) {
+func countingFetch(dir *forav1.WBAFile, calls *atomic.Int64) resolvers.OfferDirectoryFetcher {
+	return func(_ context.Context, _ string) (*forav1.WBAFile, error) {
 		calls.Add(1)
 		return dir, nil
 	}
@@ -144,7 +144,7 @@ func TestCachedOfferKeyResolver_PropagatesFetchError(t *testing.T) {
 	t.Parallel()
 	sentinel := errors.New("directory unreachable")
 	r := resolvers.NewCachedOfferKeyResolver(resolvers.CachedOfferKeyResolverConfig{
-		Fetch: func(context.Context, string) (*rampv1.WBAFile, error) { return nil, sentinel },
+		Fetch: func(context.Context, string) (*forav1.WBAFile, error) { return nil, sentinel },
 		Now:   func() time.Time { return wbaAnchor },
 	})
 	_, err := r.Resolve(context.Background(), "ex")
@@ -158,7 +158,7 @@ func TestCachedOfferKeyResolver_RejectsWhenNoActiveKey(t *testing.T) {
 	// An all-retired directory yields no active key: the resolver surfaces
 	// ErrKeyExpired (fail-closed) rather than caching a nil key.
 	r := resolvers.NewCachedOfferKeyResolver(resolvers.CachedOfferKeyResolverConfig{
-		Fetch: func(context.Context, string) (*rampv1.WBAFile, error) {
+		Fetch: func(context.Context, string) (*forav1.WBAFile, error) {
 			return wbaDirectory(expiredWindowJWK("dead")), nil
 		},
 		Now: func() time.Time { return wbaAnchor },

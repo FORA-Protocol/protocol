@@ -28,7 +28,7 @@ package resolvers
 // the same projection through their own failure type.
 //
 // Verification no-op by default (asserts the committed file matches a fresh emit);
-// (re)writes under RAMP_UPDATE_VECTORS=1. TEST INFRASTRUCTURE.
+// (re)writes under FORA_UPDATE_VECTORS=1. TEST INFRASTRUCTURE.
 
 import (
 	"context"
@@ -39,8 +39,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/vectorio"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 // contentFetchVector is one delivery answer and what a client must read out of it.
@@ -193,7 +193,7 @@ func TestGenerateContentFetchVectors(t *testing.T) {
 		"vectors":      vectors,
 		"url_refusals": urlRefusals,
 	}
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		if err := vectorio.Write(path, doc); err != nil {
 			t.Fatalf("write %s: %v", path, err)
 		}
@@ -204,7 +204,7 @@ func TestGenerateContentFetchVectors(t *testing.T) {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	if stale {
-		t.Fatalf("%s is stale; re-run with RAMP_UPDATE_VECTORS=1 to regenerate", path)
+		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", path)
 	}
 }
 

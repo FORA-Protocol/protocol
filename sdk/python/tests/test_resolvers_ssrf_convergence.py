@@ -18,10 +18,10 @@ import time
 import httpx
 import pytest
 
-from ramp_sdk.resolvers import _http, _ssrf
-from ramp_sdk.resolvers._http import fetch_strict, guarded_client, ssrf_guard
-from ramp_sdk.resolvers._ssrf import MAX_REDIRECTS
-from ramp_sdk.resolvers.errors import DirectoryUnavailableError
+from fora_sdk.resolvers import _http, _ssrf
+from fora_sdk.resolvers._http import fetch_strict, guarded_client, ssrf_guard
+from fora_sdk.resolvers._ssrf import MAX_REDIRECTS
+from fora_sdk.resolvers.errors import DirectoryUnavailableError
 
 
 class _RedirectChainHandler(http.server.BaseHTTPRequestHandler):

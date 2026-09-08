@@ -30,7 +30,7 @@ package helpers
 //
 // Like TestGenerateVectors this test is a verification no-op by default (it asserts
 // the committed file matches a fresh emit) and (re)writes it under
-// RAMP_UPDATE_VECTORS=1 — the emitter is both generator and drift gate. It is TEST
+// FORA_UPDATE_VECTORS=1 — the emitter is both generator and drift gate. It is TEST
 // INFRASTRUCTURE, not the code under test.
 
 import (
@@ -42,7 +42,7 @@ import (
 
 	"google.golang.org/protobuf/encoding/protojson"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 // errorDetailVector is one ErrorDetail case: the field projection a reader MUST
@@ -76,7 +76,7 @@ type errorDetailFieldError struct {
 // getters, so the projection cannot drift from what the builder set. Returns nil
 // when the detail carries none (every non-registration vector, and a registration
 // refusal whose reason needs no member list).
-func fieldErrorProjection(d *rampv1.ErrorDetail) []errorDetailFieldError {
+func fieldErrorProjection(d *forav1.ErrorDetail) []errorDetailFieldError {
 	fes := d.GetRegistrationFailure().GetFieldErrors()
 	if len(fes) == 0 {
 		return nil
@@ -104,7 +104,7 @@ var errorDetailJSONOptions = protojson.MarshalOptions{
 // string. Returns ("", "") when no reason is set. The oneof key is derived from
 // which reason block is populated — the same switch helpers.Reason walks — so the
 // projection cannot drift from the accessor.
-func reasonProjection(d *rampv1.ErrorDetail) (field, enum string) {
+func reasonProjection(d *forav1.ErrorDetail) (field, enum string) {
 	r := Reason(d)
 	if r == nil {
 		return "", ""
@@ -139,7 +139,7 @@ func reasonProjection(d *rampv1.ErrorDetail) (field, enum string) {
 // deterministic — encoding/json sorts object keys on re-marshal, and protojson's
 // own output carries intentionally-unstable whitespace that must not leak into the
 // golden file.
-func wireOf(t *testing.T, d *rampv1.ErrorDetail) any {
+func wireOf(t *testing.T, d *forav1.ErrorDetail) any {
 	t.Helper()
 	pj, err := errorDetailJSONOptions.Marshal(d)
 	if err != nil {
@@ -152,10 +152,10 @@ func wireOf(t *testing.T, d *rampv1.ErrorDetail) any {
 	return v
 }
 
-// vectorFrom builds one vector from a REAL *rampv1.ErrorDetail: the projection is
+// vectorFrom builds one vector from a REAL *forav1.ErrorDetail: the projection is
 // read back through the real getters + helpers.Reason, and wire_json is the
 // canonical proto-JSON. Nothing is hand-authored.
-func vectorFrom(t *testing.T, name string, d *rampv1.ErrorDetail) errorDetailVector {
+func vectorFrom(t *testing.T, name string, d *forav1.ErrorDetail) errorDetailVector {
 	t.Helper()
 	field, enum := reasonProjection(d)
 	return errorDetailVector{
@@ -179,28 +179,28 @@ func vectorFrom(t *testing.T, name string, d *rampv1.ErrorDetail) errorDetailVec
 func buildErrorDetailVectors(t *testing.T) []errorDetailVector {
 	t.Helper()
 
-	domainOnly := &rampv1.ErrorDetail{
-		Domain:  "ramp.v1.ExchangeService",
+	domainOnly := &forav1.ErrorDetail{
+		Domain:  "fora.v1.ExchangeService",
 		Message: "internal error",
 	}
 
-	withMetadata := &rampv1.ErrorDetail{
-		Domain:   "ramp.v1.CatalogService",
+	withMetadata := &forav1.ErrorDetail{
+		Domain:   "fora.v1.CatalogService",
 		Message:  "quota exceeded",
 		Metadata: map[string]string{"limit": "100"},
 	}
 
 	// An explicitly-set empty map: proto3 map semantics omit it on the wire, so
 	// wire_json carries no "metadata" key and a reader extracts an empty/absent map.
-	emptyMetadata := &rampv1.ErrorDetail{
-		Domain:   "ramp.v1.ExchangeService",
+	emptyMetadata := &forav1.ErrorDetail{
+		Domain:   "fora.v1.ExchangeService",
 		Message:  "no metadata here",
 		Metadata: map[string]string{},
 	}
 
 	denial := TransactionDenialDetail(
-		"ramp.v1.ExchangeService", "balance too low",
-		rampv1.DenialReason_DENIAL_REASON_INSUFFICIENT_BALANCE)
+		"fora.v1.ExchangeService", "balance too low",
+		forav1.DenialReason_DENIAL_REASON_INSUFFICIENT_BALANCE)
 
 	// The register-first half of the denial split. It would otherwise reach no
 	// cross-language case at all: the corpus generator auto-fills the FIRST
@@ -211,30 +211,30 @@ func buildErrorDetailVectors(t *testing.T) []errorDetailVector {
 	// sub-fields stay caller-set — feeding one back through the builder here would
 	// assert a construction the builder does not perform.
 	denialNotRegistered := TransactionDenialDetail(
-		"ramp.v1.ExchangeService", "no account at this Exchange — call Register first",
-		rampv1.DenialReason_DENIAL_REASON_ACCOUNT_NOT_REGISTERED)
+		"fora.v1.ExchangeService", "no account at this Exchange — call Register first",
+		forav1.DenialReason_DENIAL_REASON_ACCOUNT_NOT_REGISTERED)
 
 	retrievalAuth := RetrievalAuthFailureDetail(
-		"ramp.v1.Edge", "signed URL expired",
-		rampv1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED)
+		"fora.v1.Edge", "signed URL expired",
+		forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED)
 
 	// Multi-key metadata + a typed reason together: the keys are authored
 	// out of sorted order to make the ordering case meaningful.
 	multiKey := TransactionDenialDetail(
-		"ramp.v1.ExchangeService", "rate limited",
-		rampv1.DenialReason_DENIAL_REASON_RATE_LIMITED)
+		"fora.v1.ExchangeService", "rate limited",
+		forav1.DenialReason_DENIAL_REASON_RATE_LIMITED)
 	multiKey.Metadata = map[string]string{"zeta": "3", "alpha": "1", "mid": "2"}
 
 	// The remaining five reason families, each built via its REAL typed *Detail
 	// builder so the corpus exercises the construct half of all seven families
 	// (transaction_denial + retrieval_auth_failure above complete the set).
 	catalogRejection := CatalogRejectionDetail(
-		"ramp.v1.CatalogService", "not your tenant",
-		rampv1.CatalogRejectionReason_CATALOG_REJECTION_REASON_TENANT_MISMATCH)
+		"fora.v1.CatalogService", "not your tenant",
+		forav1.CatalogRejectionReason_CATALOG_REJECTION_REASON_TENANT_MISMATCH)
 
 	registrationFailure := RegistrationFailureDetail(
-		"ramp.v1.RegistrationService", "domain not verified",
-		rampv1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_DOMAIN_NOT_VERIFIED)
+		"fora.v1.RegistrationService", "domain not verified",
+		forav1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_DOMAIN_NOT_VERIFIED)
 
 	// The schema-enforcement refusal: the one detail that carries per-member
 	// context, so it is the only vector proving a builder emits more than the
@@ -243,10 +243,10 @@ func buildErrorDetailVectors(t *testing.T) []errorDetailVector {
 	// that belongs to no single member, which is the boundary a client most
 	// plausibly gets wrong by treating "" as unset.
 	registrationInvalidData := RegistrationFailureDetail(
-		"ramp.v1.ExchangeService", "registration_data does not match the published data_schema",
-		rampv1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA,
-		&rampv1.RegistrationFieldError{Path: "/vat_id", Error: "must match ^[A-Z]{2}[0-9]+$"},
-		&rampv1.RegistrationFieldError{Path: "", Error: "matched 2 branches of oneOf, exactly 1 required"},
+		"fora.v1.ExchangeService", "registration_data does not match the published data_schema",
+		forav1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA,
+		&forav1.RegistrationFieldError{Path: "/vat_id", Error: "must match ^[A-Z]{2}[0-9]+$"},
+		&forav1.RegistrationFieldError{Path: "", Error: "matched 2 branches of oneOf, exactly 1 required"},
 	)
 
 	// The stale-terms refusal. It shares the registration_failure block with the
@@ -256,25 +256,25 @@ func buildErrorDetailVectors(t *testing.T) []errorDetailVector {
 	// client that never learned to decode it would stay green: the same gap the
 	// field-errors vector was added to close for its own branch.
 	registrationStaleTerms := RegistrationFailureDetail(
-		"ramp.v1.ExchangeService", "terms_digest does not match the currently published terms",
-		rampv1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE,
+		"fora.v1.ExchangeService", "terms_digest does not match the currently published terms",
+		forav1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE,
 	)
 
 	disputeFailure := DisputeFailureDetail(
-		"ramp.v1.ExchangeService", "no such transaction",
-		rampv1.DisputeFailureReason_DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND)
+		"fora.v1.ExchangeService", "no such transaction",
+		forav1.DisputeFailureReason_DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND)
 
 	domainVerificationFailure := DomainVerificationFailureDetail(
-		"ramp.v1.ExchangeService", "challenge mismatch",
-		rampv1.DomainVerificationFailureReason_DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_MISMATCH)
+		"fora.v1.ExchangeService", "challenge mismatch",
+		forav1.DomainVerificationFailureReason_DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_MISMATCH)
 
 	usageReportRejection := UsageReportRejectionDetail(
-		"ramp.v1.ExchangeService", "duplicate report",
-		rampv1.UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_DUPLICATE)
+		"fora.v1.ExchangeService", "duplicate report",
+		forav1.UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_DUPLICATE)
 
 	cases := []struct {
 		name string
-		d    *rampv1.ErrorDetail
+		d    *forav1.ErrorDetail
 	}{
 		{"domain_message_only", domainOnly},
 		{"with_single_metadata", withMetadata},
@@ -300,14 +300,14 @@ func buildErrorDetailVectors(t *testing.T) []errorDetailVector {
 
 // TestGenerateErrorDetailVectors emits the ErrorDetail golden corpus. Verification
 // no-op by default (asserts the committed file is byte-identical to a fresh emit);
-// (re)writes it under RAMP_UPDATE_VECTORS=1.
+// (re)writes it under FORA_UPDATE_VECTORS=1.
 func TestGenerateErrorDetailVectors(t *testing.T) {
 	doc := map[string]any{
 		"canonicalization": "proto-json-snake",
 		"vectors":          buildErrorDetailVectors(t),
 	}
 	path := filepath.Join("testdata", "error-detail-vectors.json")
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		writeJSON(t, path, doc)
 		return
 	}

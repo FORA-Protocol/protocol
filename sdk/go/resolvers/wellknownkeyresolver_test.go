@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
-	"github.com/RAMP-Protocol/protocol/sdk/go/resolvers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
 func jwksHandler(keys map[string]ed25519.PublicKey, hits *int) http.Handler {

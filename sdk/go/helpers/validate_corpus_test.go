@@ -12,8 +12,8 @@ import (
 	// conformance owns the contract package list (contract.go) and, by importing the
 	// generated packages, registers their types in protoregistry.GlobalTypes so a
 	// corpus case for any contract package resolves here. Test-only dependency.
-	"github.com/RAMP-Protocol/protocol/conformance"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/conformance"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // contractPackages are the proto packages a corpus message may come from, in

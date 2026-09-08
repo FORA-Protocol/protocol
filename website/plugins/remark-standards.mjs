@@ -11,7 +11,7 @@ import { visitParents, SKIP } from 'unist-util-visit-parents';
 import { STANDARDS } from '../src/data/standards.mjs';
 
 // Word boundary that also rejects a LEADING hyphen, so a term inside a compound
-// prefix isn't split (e.g. "C2PA" in "RAMP-C2PA" must not link), while still allowing
+// prefix isn't split (e.g. "C2PA" in "FORA-C2PA" must not link), while still allowing
 // a trailing hyphen so a compound head links (e.g. "biscuit" in "biscuit-v3"). The
 // trailing alnum rejection keeps "JWK" out of "JWKS" and "JWT" out of "JWTs".
 const boundary = (w) =>

@@ -18,16 +18,16 @@ test('resolved reference is autolinked to its anchor', () => {
 });
 
 // The reference pages are discovered (reference/proto-*.mdx), and a symbol links to the
-// page that documents IT — not to a hardcoded page. Before this, every ramp.admin.v1 symbol
+// page that documents IT — not to a hardcoded page. Before this, every fora.admin.v1 symbol
 // resolved in the descriptor yet linked nowhere, and nothing noticed.
 test('a symbol links to the page that documents it, per package', () => {
-  const rampSym = run(para('TransactionRequest'));
-  assert.ok(has(rampSym, (n) => n.type === 'link' && n.url === '/reference/proto-ramp/#transactionrequest'),
-    'a ramp.v1 symbol links to the ramp.v1 reference page');
+  const foraSym = run(para('TransactionRequest'));
+  assert.ok(has(foraSym, (n) => n.type === 'link' && n.url === '/reference/proto-fora/#transactionrequest'),
+    'a fora.v1 symbol links to the fora.v1 reference page');
 
   const adminSym = run(para('SetReportingPolicyRequest'));
   assert.ok(has(adminSym, (n) => n.type === 'link' && n.url === '/reference/proto-admin/#setreportingpolicyrequest'),
-    'a ramp.admin.v1 symbol links to the admin reference page, not to proto-ramp');
+    'a fora.admin.v1 symbol links to the admin reference page, not to proto-fora');
 });
 
 test('an admin Service.Method resolves and links to the admin page', () => {

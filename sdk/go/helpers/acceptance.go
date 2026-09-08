@@ -7,10 +7,10 @@ import (
 	"errors"
 	"fmt"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
-// Agent offer-acceptance (ramp.proto AgentAcceptance). An agent
+// Agent offer-acceptance (fora.proto AgentAcceptance). An agent
 // signs a DETACHED, content-bound acceptance over an accepted Offer; the
 // Exchange verifies it to bind the agent to the transaction (and binds the
 // delivery URL to the agent's key via its RFC 7638 thumbprint). Unlike the
@@ -51,7 +51,7 @@ var ErrAcceptanceSignatureInvalid = errors.New("helpers: offer-acceptance signat
 //
 // The canonical form is RFC 8785 JCS over canonical proto-JSON —
 // JCS(protojson(AgentAcceptancePayload)) — the same definition the offer signature
-// uses, stated normatively on Offer.signature in ramp.proto: snake_case proto field
+// uses, stated normatively on Offer.signature in fora.proto: snake_case proto field
 // names, enums as name strings, unpopulated fields omitted. AgentAcceptancePayload
 // carries no signature fields, so the clear-then-render step reduces to a plain
 // render. Any language (Go/TS/Python) reproduces the exact bytes from that
@@ -69,7 +69,7 @@ var ErrAcceptanceSignatureInvalid = errors.New("helpers: offer-acceptance signat
 // Fails closed on a nil offer, a nil requester, or an unsigned offer (empty
 // Offer.signature) — an empty anchor would let the acceptance float free of any
 // concrete offer.
-func CanonicalAcceptanceBytes(offer *rampv1.Offer, requester *rampv1.Requester, idempotencyKey string) ([]byte, error) {
+func CanonicalAcceptanceBytes(offer *forav1.Offer, requester *forav1.Requester, idempotencyKey string) ([]byte, error) {
 	if offer == nil {
 		return nil, errors.New("helpers: offer is nil")
 	}
@@ -79,7 +79,7 @@ func CanonicalAcceptanceBytes(offer *rampv1.Offer, requester *rampv1.Requester, 
 	if offer.GetSignature() == "" {
 		return nil, errors.New("helpers: cannot accept an unsigned offer (empty offer signature)")
 	}
-	payload := &rampv1.AgentAcceptancePayload{
+	payload := &forav1.AgentAcceptancePayload{
 		OfferSig:        offer.GetSignature(),
 		RequesterId:     requester.GetId(),
 		RequesterDomain: requester.GetDomain(),
@@ -92,7 +92,7 @@ func CanonicalAcceptanceBytes(offer *rampv1.Offer, requester *rampv1.Requester, 
 // offer with priv and returns the hex-encoded Ed25519 signature for the
 // AgentAcceptance.signature field. requester and idempotencyKey come from the
 // enclosing execute request.
-func SignOfferAcceptance(priv ed25519.PrivateKey, offer *rampv1.Offer, requester *rampv1.Requester, idempotencyKey string) (string, error) {
+func SignOfferAcceptance(priv ed25519.PrivateKey, offer *forav1.Offer, requester *forav1.Requester, idempotencyKey string) (string, error) {
 	if len(priv) != ed25519.PrivateKeySize {
 		return "", fmt.Errorf("helpers: ed25519 private key must be %d bytes, got %d", ed25519.PrivateKeySize, len(priv))
 	}
@@ -113,7 +113,7 @@ func SignOfferAcceptance(priv ed25519.PrivateKey, offer *rampv1.Offer, requester
 // The acceptance is signed with the same key that signs the caller's requests:
 // its thumbprint becomes the delivery URL's agent_id, which is what the edge
 // later requires proof of possession of.
-func SignOfferAcceptanceWith(ctx context.Context, signer Signer, offer *rampv1.Offer, requester *rampv1.Requester, idempotencyKey string) (string, error) {
+func SignOfferAcceptanceWith(ctx context.Context, signer Signer, offer *forav1.Offer, requester *forav1.Requester, idempotencyKey string) (string, error) {
 	if signer == nil {
 		return "", errors.New("helpers: acceptance signer is nil")
 	}
@@ -135,7 +135,7 @@ func SignOfferAcceptanceWith(ctx context.Context, signer Signer, offer *rampv1.O
 // VerifyOfferAcceptance verifies signatureHex (an AgentAcceptance.signature)
 // against the canonical acceptance payload for the offer, using pub. It returns
 // ErrAcceptanceSignatureInvalid on any mismatch (wrong key or tampered binding).
-func VerifyOfferAcceptance(offer *rampv1.Offer, requester *rampv1.Requester, idempotencyKey, signatureHex string, pub ed25519.PublicKey) error {
+func VerifyOfferAcceptance(offer *forav1.Offer, requester *forav1.Requester, idempotencyKey, signatureHex string, pub ed25519.PublicKey) error {
 	if len(pub) != ed25519.PublicKeySize {
 		return fmt.Errorf("helpers: ed25519 public key must be %d bytes, got %d", ed25519.PublicKeySize, len(pub))
 	}

@@ -1,6 +1,6 @@
-# RAMP Design History
+# FORA Design History
 
-RAMP v1.0 is presented as a single, cleanly designed protocol, but several of its
+FORA v1.0 is presented as a single, cleanly designed protocol, but several of its
 shapes are the result of deliberate reversals during design. This document
 records the *reasoning* behind the decisions that most shaped the wire format, so
 that the absence of the alternatives is understood as intentional rather than
@@ -15,11 +15,11 @@ moved all request authentication to RFC 9421 HTTP Message Signatures
 (`alg=ed25519`) and removed those fields. Two reasons drove this. First, signing
 the HTTP request rather than a serialized body means the signature covers exactly
 what the transport delivers — method, path, headers, content digest — and is
-verifiable by standard middleware and edge functions without RAMP-specific
+verifiable by standard middleware and edge functions without FORA-specific
 parsing. Second, multi-hop chains (Agent → Broker → … → Exchange) are the
 expected common case, not an exception. RFC 9421 lets each hop add its own
 `Signature` / `Signature-Input` entry independently, so a verifier checks each
-hop against the key it fetches from that hop's `/.well-known/ramp.json` — there is
+hop against the key it fetches from that hop's `/.well-known/fora.json` — there is
 no nested in-message co-signing scheme to define or version. Content that must
 outlive a single HTTP exchange — offers, attestations — keeps its signature as
 an in-message field: a detached Ed25519 signature over the RFC 8785 JCS
@@ -40,7 +40,7 @@ agent's identity (`agent_identity_hash`) and needs no return-path relay.
 
 ## Canonical signing: JCS over proto-JSON, not deterministic protobuf
 
-Three signed RAMP payloads cover a protobuf message: `Offer.signature`, the
+Three signed FORA payloads cover a protobuf message: `Offer.signature`, the
 agent's `AgentAcceptance.signature`, and the agent's
 `AgentRequestAcceptance.signature` — the request-set proof, added later and born
 directly onto the settled form. The first two originally covered deterministic
@@ -58,7 +58,7 @@ Deterministic protobuf marshaling is not actually canonical. Protobuf's own
 documentation disclaims byte stability across languages, across library versions,
 and in the presence of unknown fields — it is a best-effort local property, not a
 wire-format guarantee. That makes it unusable as the basis of a signature two
-independent implementations must agree on, which is precisely the RAMP case: an
+independent implementations must agree on, which is precisely the FORA case: an
 agent SDK signs, a broker relays, an Exchange verifies, and none of them need share
 a language. It also forces every verifier — including an edge worker or a browser
 client — to link a protobuf binary codec just to check a signature. JCS over
@@ -121,7 +121,7 @@ The selling intermediary was originally called a *marketplace*. We renamed it to
 *Exchange* throughout — service name, field names, enum values, and well-known
 filenames. "Marketplace" overloaded a term that, in the surrounding ad-tech and
 content-licensing world, implies a consumer-facing storefront and a particular
-business model. RAMP's intermediary is closer to a financial or advertising
+business model. FORA's intermediary is closer to a financial or advertising
 *exchange*: a neutral venue that matches buyers (agents and brokers) to priced
 inventory, clears a transaction, and produces an auditable settlement record. The
 narrower word sets the right expectation for implementers and avoids colliding
@@ -131,11 +131,11 @@ the time, the rename was taken as a clean break rather than carried as an alias.
 ## One unified `WellKnownManifest`, not per-role manifests
 
 Discovery initially used a different well-known document per role — a provider
-manifest, an exchange manifest at `ramp-exchange.json`, an agent key file at
-`ramp-agent.json`, a verifier file at `ramp-verifier.json`, plus a separate
+manifest, an exchange manifest at `fora-exchange.json`, an agent key file at
+`fora-agent.json`, a verifier file at `fora-verifier.json`, plus a separate
 `/marketplace/v1/keys` key endpoint. We collapsed all of them into a single
-`WellKnownManifest` served at `/.well-known/ramp.json` by every participant,
-role-tagged by a `role` enum. Every RAMP party already needs the same core thing
+`WellKnownManifest` served at `/.well-known/fora.json` by every participant,
+role-tagged by a `role` enum. Every FORA party already needs the same core thing
 at the same path: a domain, its public keys, and a contact. Maintaining four
 near-identical schemas and four fetch paths multiplied the discovery surface and
 the failure modes — which file do you fetch for a party that is both a publisher
@@ -428,7 +428,7 @@ a signature over another party's URL verify.
 The value is a bare host and never an endpoint URL. An endpoint in the payload
 would hand the caller the choice of where the next hop dials, which is the lever
 the resolver exists to remove: the endpoint always comes from the recipient's own
-`/.well-known/ramp.json`. Two messages are deliberately exempt. `DiscoveryRequest`
+`/.well-known/fora.json`. Two messages are deliberately exempt. `DiscoveryRequest`
 travels one direct hop and terminates at the Broker, which authors fresh
 per-Exchange `ResourceQuery` messages rather than forwarding it — and the agent
 could not name the recipients anyway, since choosing the fan-out set is the
@@ -499,8 +499,8 @@ plus a port will not land on the same number.
 ## CoMP as an extension; attestations instead of quality scores
 
 Two earlier couplings were undone. The core protocol no longer imports IAB CoMP;
-CoMP's Package/Function objects live in a `ramp-comp-v1` extension profile, and
-IAB metadata rides optionally in `ext`. Tying every RAMP message to the full CoMP
+CoMP's Package/Function objects live in a `fora-comp-v1` extension profile, and
+IAB metadata rides optionally in `ext`. Tying every FORA message to the full CoMP
 object graph forced implementers who needed only pricing and transactions to
 carry a large ad-tech schema; making it an extension keeps the core small and
 lets domain semantics layer in through profiles (news, academic, legal, pharma,
@@ -628,21 +628,21 @@ contiguous, with no gaps or reused numbers left by the removals.
 
 ## Delegation-claims profile: opaque token, bound holder
 
-Delegation tokens stay opaque on the wire — RAMP does not parse or re-encode the
+Delegation tokens stay opaque on the wire — FORA does not parse or re-encode the
 token, and `token_format` only names which verifier to run. But leaving the
 *meaning* of a token entirely to each issuer made delegations non-portable: an
 Exchange could verify a signature without agreeing on what the contained claims
 asserted. We added a small registered claim/fact vocabulary that maps the same
 named concepts across both supported formats (JWT registered claims ↔ Biscuit
 facts), so a delegation expresses scope, expiry, and spend caps in terms every
-RAMP verifier understands regardless of token format. Everything in the
+FORA verifier understands regardless of token format. Everything in the
 vocabulary is optional with one exception: the subject/holder binding is
 mandatory. The key that signs the RFC 9421 request MUST equal the holder key
 named in the token. That single requirement is what stops a leaked token from
 being bearer-usable — possession alone proves nothing, because the thief cannot
 produce a request signature under the bound key. The vocabulary is
 vendor-extensible through a `vendor:` namespace for issuer-specific facts, while
-`ramp_`-prefixed names are reserved for future registered claims so a vendor
+`fora_`-prefixed names are reserved for future registered claims so a vendor
 extension can never collide with one. Constraints are fail-closed by default: an
 unrecognized or unverifiable binding constraint denies the request rather than
 being skipped, unless the constraint is explicitly marked advisory — the same
@@ -658,7 +658,7 @@ binding-by-default posture the licensing restrictions take.
 
 At the time of this (now-reversed) decision, the default delegation
 `token_format` was moved from `biscuit-v2` to `"biscuit-v3"`, tracking the
-Biscuit specification's own v3 revision, and Biscuit v3 was the format RAMP
+Biscuit specification's own v3 revision, and Biscuit v3 was the format FORA
 implementations were expected to verify at v1. JWT was wire-permitted —
 `token_format` accepted it and the claim vocabulary mapped onto JWT registered
 claims — but its full verification path (proof-of-possession via `cnf`/DPoP, and
@@ -687,9 +687,9 @@ normative rule.
 
 ## Revenue share stays off-protocol
 
-CoMP's `License` carries a `revshare` rate next to `price`, and RAMP's
+CoMP's `License` carries a `revshare` rate next to `price`, and FORA's
 `PricingModel` was reduced to three charging structures (`FREE`, `PER_UNIT`,
-`FLAT`), so the conspicuous question is whether RAMP should add a
+`FLAT`), so the conspicuous question is whether FORA should add a
 `REVENUE_SHARE` model for parity. It does not, and the asymmetry is intentional.
 A `PricingModel` is the structure an Exchange can quote, sign, and compare at
 transaction time, each with a concrete `unit_cost`. A revenue share has no such
@@ -709,8 +709,8 @@ marginal cost, and reports usage; revenue is settled off-protocol from those
 reports. "Pay per crawl or take the revenue-share deal" is then just two
 `LicenseTerm`s on one resource, and the agent self-selects. CoMP parity is kept
 by mapping rather than duplication: a CoMP `revshare` rate rides through verbatim
-in the `ramp-comp-v1` ext (`comp.license[].revshare`), full fidelity for
-CoMP-aware parties and ignored by everyone else, while RAMP core stays
+in the `fora-comp-v1` ext (`comp.license[].revshare`), full fidelity for
+CoMP-aware parties and ignored by everyone else, while FORA core stays
 minimal and its signed offers stay price-comparable.
 
 ## JWT (holder-of-key) is the default delegation token; Biscuit is optional
@@ -724,7 +724,7 @@ minimal and its signed offers stay price-comparable.
 
 The delegation token started as a Biscuit (`token_format` defaulted to
 `"biscuit-v3"`), chosen for offline attenuation. Modelling the holder-binding
-guarantee end to end surfaced that the property RAMP actually depends on — "a
+guarantee end to end surfaced that the property FORA actually depends on — "a
 leaked token is not bearer-usable" — is proof-of-possession, not anything
 specific to Biscuit: it is the request-signing key matching a key named in the
 token, verified offline. A chain of `cnf`-bound JWTs delivers exactly that — the
@@ -736,12 +736,12 @@ offline under the issuer's key alone (intermediate keys ride in the JOSE header
 named) gives the same theft- and escalation-resistance as Biscuit's block chain.
 
 What Biscuit adds beyond this — in-token Datalog and deep in-place attenuation by
-mutually-distrusting intermediaries — RAMP does not use: the check set is fixed
+mutually-distrusting intermediaries — FORA does not use: the check set is fixed
 (scope coverage, expiry, caps, holder binding) and delegation chains are shallow.
 So `token_format` now defaults to `"jwt"`, and JWT is the one delegation
 technology a conformant implementation must support. `"biscuit-v3"` stays a
 permitted optional profile for deployments that genuinely want deep offline
-attenuation. The win is adoption: JWT is ubiquitous, so RAMP asks implementers to
+attenuation. The win is adoption: JWT is ubiquitous, so FORA asks implementers to
 take on no genuinely new token technology by default.
 
 ## Failure as a typed contract: `ErrorDetail`, not strings
@@ -812,7 +812,7 @@ surface on the resulting offer. The purely-administrative catalog messages
 payload, so extension slots there would be noise.
 
 Correlation, by contrast, was removed from the proto entirely. Earlier drafts
-carried a `request_id` ("originating RAMP request id, for traceability") on
+carried a `request_id` ("originating FORA request id, for traceability") on
 several requests and echoed it on responses — but it was dead weight: the
 implementations never read or wrote it. Correlation already flows the way
 signatures do, over the transport — an `X-Request-ID` header, minted or
@@ -823,7 +823,7 @@ protobuf belongs on the transport), a correlation id has no place in the message
 body. So every `request_id` field was deleted; per-hop and cross-system
 correlation ride on `X-Request-ID` — and, when distributed tracing is added, the
 W3C Trace Context `traceparent` / `tracestate` headers, which are the ecosystem
-standard rather than anything RAMP would hand-roll. The proto keeps only the
+standard rather than anything FORA would hand-roll. The proto keeps only the
 identifiers that are *acted on* or *persisted*: the settlement and evidence keys
 (`transaction_id`, `billing_id`, `report_id`, `dispute_id`) the Exchange assigns
 and the reconciliation chain joins on.
@@ -837,7 +837,7 @@ dedupes on it, stores it under a `UNIQUE` constraint, and threads it into the
 billing adapter so a replayed request cannot double-charge. By the rule that
 governs the whole wire format — what must outlive the HTTP exchange and survive a
 dispute stays a typed field — the idempotency key belongs in the message body,
-not a header. (This is where RAMP diverges from Stripe's header-based key: RAMP's
+not a header. (This is where FORA diverges from Stripe's header-based key: FORA's
 key is part of the signed, persisted, reconciled record, not a transport hint.)
 
 The mutating requests had been carrying this as a generically-named `id` — with
@@ -865,7 +865,7 @@ The documentation site derives everything it says about the contract from the
 
 **Why the descriptor.** Protobuf is self-describing: `buf build -o gen/descriptor.binpb`
 emits a `FileDescriptorSet` — the schema as data — carrying every message, field,
-enum, service, the custom options (`buf.validate` CEL, `(ramp.v1.vocab)`), and, with
+enum, service, the custom options (`buf.validate` CEL, `(fora.v1.vocab)`), and, with
 source info, the comments (`SourceCodeInfo`). It is the same artifact every code
 generator consumes, and it is complete and language-neutral. Crucially it is NOT the
 generated `gen/ts` runtime (which lacks protovalidate and strips comments) — we read
@@ -892,7 +892,7 @@ the single source — rendered to the table. To change a description, edit the p
 detour: it optimized for "Go-only, reuse the vocab Go packages" and so reimplemented a
 slugger that already exists (`github-slugger`), parsed a compiled format with regex
 instead of reading the descriptor, and rendered tables as opaque Astro components the
-autolink pass could not see into. All of it is deleted. `protoc-gen-rampvocab` and
+autolink pass could not see into. All of it is deleted. `protoc-gen-foravocab` and
 `gen/go/vocab` stay — they are a real Go-SDK surface the conformance suite uses
 (`pricingunits.IsRegistered`).
 
@@ -1040,7 +1040,7 @@ pure computation over bytes and dials nothing). The list is closed by review rat
 than by count: what the tier refuses is a DEPENDENCY THAT DIALS, not a dependency. It
 takes no HTTP client and does not dial the network: `sdk/go/helpers`
 never constructs an `http.Client`, `sdk/ts/core` imports neither `undici` nor a
-framework, and `ramp_sdk.core` imports no `httpx`. The I/O tier is where a network fetch
+framework, and `fora_sdk.core` imports no `httpx`. The I/O tier is where a network fetch
 lives, and there the rule inverts: it runs on a
 **maintained HTTP client** (Go `net/http`, TS `undici`, Python `httpx`) rather than a
 hand-rolled transport, because the client owns the response state machine (status,
@@ -1048,15 +1048,15 @@ redirects, 1xx, decompression) and the SDK should own only the SSRF check it inj
 as a connection-level hook.
 
 **The I/O tier is two trees per language, not one.** `sdk/{go,ts,python}/resolvers`
-came first and carries the pre-auth fetches — well-known JWKS, WBA directory, `ramp.json`
+came first and carries the pre-auth fetches — well-known JWKS, WBA directory, `fora.json`
 endpoint, offer-key resolution. The client tree — `sdk/go/connect`, `sdk/ts/client`, and
-`ramp_sdk/client` with `ramp_sdk/sync` as its blocking facade — is the second, and it is
+`fora_sdk/client` with `fora_sdk/sync` as its blocking facade — is the second, and it is
 IO-bearing for a different reason: it SENDS. Every leg it dials carries a credential, an
 RFC 9421 signature or a proof of possession bound to one URL, which is why it refuses
 redirects where the resolvers follow them under a cap, and why it splits its transport in
 two — a plain one for the operator-configured home Exchange, an address-guarded one for
 the legs whose host an offer named. The pure trees (`core`, `src`, the top-level
-`ramp_sdk` modules) may import neither, and a structural guard in each language enforces
+`fora_sdk` modules) may import neither, and a structural guard in each language enforces
 that: `sdk/ts/tests/resolvers-io-leaf.guard.test.ts`,
 `sdk/python/tests/test_guards_resolvers_io_leaf.py`.
 
@@ -1130,7 +1130,7 @@ The aliases had been a private Go map inside the Exchange, although the licensin
 own vocabulary table had always listed them beside the tokens (`train-ai` is AIPREF's
 spelling of `ai-train`, `generative-ai` the industry's spelling of `ai-input`), and the
 user-type aliases had no record outside the code at all. They are now
-`(ramp.v1.vocab_enum_alias)` entries on the enum values that carry the tokens, and the
+`(fora.v1.vocab_enum_alias)` entries on the enum values that carry the tokens, and the
 vocabulary plugin emits an alias map and a canonical lookup per axis into every SDK — an
 axis without aliases carries an empty map, so every axis has the same face. Codegen
 refuses what the lookup could not honour: an alias that is itself a token, a canonical
@@ -1450,7 +1450,7 @@ treatment as the client defaults recorded further down, and as `SignAgentBinding
 Go and Python faces take different custody and are mapped as plain counterparts.
 
 **`NormalizeLicenseTerm` and `NormalizeResourceEntry` rewrite in place in Go and return a
-copy in the ports.** Go takes a `*rampv1.LicenseTerm` and mutates it; the ports take a
+copy in the ports.** Go takes a `*forav1.LicenseTerm` and mutates it; the ports take a
 proto-JSON object and hand back a new one, leaving the input alone. Each is the idiom of
 its language, and the Go shape is load-bearing downstream rather than incidental: the
 Exchange normalises the entry it is about to persist, so an in-place face is what lets the
@@ -1616,7 +1616,7 @@ leaks even when the SDK's own message is already redacted.
 ## A usage report's destination comes off the message, not from configuration
 
 A usage report must reach the Exchange that ISSUED the offer, and that Exchange's
-address is read from its own `/.well-known/ramp.json` — never from configuration. A
+address is read from its own `/.well-known/fora.json` — never from configuration. A
 signature covers the `exchange` DOMAIN; it says nothing about where that domain's
 endpoint lives or where its DNS points.
 
@@ -1801,7 +1801,7 @@ default.
 ## What the manifest fetch does not guarantee, and why that is bounded
 
 The address a usage report goes to is read from the issuing Exchange's own
-`/.well-known/ramp.json`. That fetch runs on the guarded client, which FOLLOWS up
+`/.well-known/fora.json`. That fetch runs on the guarded client, which FOLLOWS up
 to five redirects — re-pinning the address and re-vetting the scheme at each hop,
 but not anchoring the host. So the party that answers for the manifest can be one
 a redirect chose, and the answer is cached per host for the TTL.
@@ -1906,7 +1906,7 @@ Two settings on a supplied transport are dropped rather than carried, because
 each would route the dial around the address check rather than under it: a proxy,
 which would have the dialer resolve and vet the PROXY instead of the destination,
 and a custom TLS dialer, which `net/http` prefers over the pinned dialer whenever
-the scheme is https — which is every RAMP leg. The second is the more dangerous
+the scheme is https — which is every FORA leg. The second is the more dangerous
 of the two because it fails silently and on the ordinary path: a transport that
 carries one dials wherever it likes and no error says the pin never ran. TLS
 itself stays configurable through `TLSClientConfig`, which is kept, so the

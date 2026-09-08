@@ -2,7 +2,7 @@
 // well-typed one.
 //
 // Neither case here has a shared vector, and neither can get one from the Go oracle:
-// the Go face takes a *rampv1.ResourceEntry, so "a string where an entry should be" is
+// the Go face takes a *forav1.ResourceEntry, so "a string where an entry should be" is
 // not a value it can construct, and Restriction.permitted is []string, so "a number
 // where a token should be" is not either — let alone marshal into a corpus. The behaviour is a
 // property of the two JSON ports, whose faces take whatever a caller parsed.

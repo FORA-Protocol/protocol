@@ -55,7 +55,7 @@ echo "==> 3/4 Pydantic v2 (datamodel-code-generator, --base-class + --collapse-r
   --input "$COMBINED" --input-file-type jsonschema \
   --output gen/python/wire/models.py --output-model-type pydantic_v2.BaseModel \
   --base-class wire.base.WireModel --collapse-root-models --formatters black \
-  --custom-file-header "# Code generated from the RAMP proto (via JSON Schema). DO NOT EDIT.
+  --custom-file-header "# Code generated from the FORA proto (via JSON Schema). DO NOT EDIT.
 # Regenerate: scripts/gen-sdk-types.sh   Base class / extension seam: wire/base.py"
 
 # Postprocess: drop the stray `class Model(RootModel[Any])` datamodel-codegen emits as

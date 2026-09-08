@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/RAMP-Protocol/protocol/gen/go/vocab/pricingunits"
+	"github.com/FORA-Protocol/protocol/gen/go/vocab/pricingunits"
 )
 
 // docRoots are scanned for example payloads. Paths are relative to this package
@@ -148,7 +148,7 @@ func TestDocSignatureAlgorithm(t *testing.T) {
 
 // TestDocNoBareVerLiteral: no Go example may stamp `ver` as a string literal.
 //
-// "Protocol version" in ramp.proto requires a sender to take the value from a
+// "Protocol version" in fora.proto requires a sender to take the value from a
 // single constant, never a literal, and the sdk/go SSOT guard enforces that in
 // source — but it walks sdk/go only, so the published Go samples were free to
 // teach the one form the spec forbids, and did. A reader copies a doc sample far

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from ramp_sdk.resolvers.wba import _wba_host_anchored
+from fora_sdk.resolvers.wba import _wba_host_anchored
 
 
 @pytest.mark.parametrize(

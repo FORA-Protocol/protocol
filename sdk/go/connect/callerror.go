@@ -5,8 +5,8 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/failure"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/failure"
 )
 
 // A refusal and a failure are different things, and a caller handles four
@@ -72,7 +72,7 @@ type CallError struct {
 	Op     string
 	Status int    // HTTP status when the peer answered; 0 otherwise
 	Reason string // the peer's own refusal token when it sent one
-	Detail *rampv1.ErrorDetail
+	Detail *forav1.ErrorDetail
 	Err    error
 }
 

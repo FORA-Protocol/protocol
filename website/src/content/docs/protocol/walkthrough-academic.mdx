@@ -1,9 +1,9 @@
 ---
 title: "Walkthrough: Academic Literature Review"
-description: "Batch 50-DOI query with mixed free/paid offers, institutional subscription detection, retraction flagging, and the ramp-academic-v1 extension profile."
+description: "Batch 50-DOI query with mixed free/paid offers, institutional subscription detection, retraction flagging, and the fora-academic-v1 extension profile."
 ---
 
-> Complete walkthrough of a 50-paper academic literature review using RAMP v1.0. Demonstrates batch DOI queries, mixed free/paid/subscription offers, retraction detection, and the `ramp-academic-v1` extension profile. Every field name and message structure matches the current `ramp.proto`.
+> Complete walkthrough of a 50-paper academic literature review using FORA v1.0. Demonstrates batch DOI queries, mixed free/paid/subscription offers, retraction detection, and the `fora-academic-v1` extension profile. Every field name and message structure matches the current `fora.proto`.
 
 ## Scenario
 
@@ -16,7 +16,7 @@ A university AI research agent needs 50 academic papers for a literature review 
 | **Elsevier** (no subscription) | Paywalled | 17 | $1.50/article |
 | **Springer Nature** | Paywalled, retracted | 1 | $1.50/article (flagged) |
 
-The agent carries a delegation JWT from the university, granting `academic:*` scope. The Broker resolves DOIs via OpenAlex, discovers Exchanges via `ramp.json`, and uses the `ramp-academic-v1` extension profile to access version, OA status, and retraction metadata.
+The agent carries a delegation JWT from the university, granting `academic:*` scope. The Broker resolves DOIs via OpenAlex, discovers Exchanges via `fora.json`, and uses the `fora-academic-v1` extension profile to access version, OA status, and retraction metadata.
 
 **Six-step flow:**
 
@@ -28,10 +28,10 @@ Discovery → ResourceQuery → ResourceResponse → Broker Selection → Batch 
 
 ## Step 1 — Discovery
 
-The Broker already has 50 DOIs from an OpenAlex search. It needs to find which Exchanges serve these publishers. Each publisher domain hosts a `ramp.json` manifest:
+The Broker already has 50 DOIs from an OpenAlex search. It needs to find which Exchanges serve these publishers. Each publisher domain hosts a `fora.json` manifest:
 
 ```bash
-curl -s https://www.elsevier.com/.well-known/ramp.json | jq
+curl -s https://www.elsevier.com/.well-known/fora.json | jq
 ```
 
 ```json
@@ -42,36 +42,36 @@ curl -s https://www.elsevier.com/.well-known/ramp.json | jq
   "exchanges": [
     {
       "domain": "exchange.scholarsgate.com",
-      "endpoint": "https://exchange.scholarsgate.com/ramp/v1",
+      "endpoint": "https://exchange.scholarsgate.com/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
-  "supported_profiles": ["ramp-academic-v1"]
+  "supported_profiles": ["fora-academic-v1"]
 }
 ```
 
 ```bash
-curl -s https://arxiv.org/.well-known/ramp.json | jq
+curl -s https://arxiv.org/.well-known/fora.json | jq
 ```
 
 ```json
 {
   "ver": "1.0",
   "provider": "arxiv.org",
-  "contact": "ramp@arxiv.org",
+  "contact": "fora@arxiv.org",
   "exchanges": [
     {
       "domain": "exchange.scholarsgate.com",
-      "endpoint": "https://exchange.scholarsgate.com/ramp/v1",
+      "endpoint": "https://exchange.scholarsgate.com/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
-  "supported_profiles": ["ramp-academic-v1"]
+  "supported_profiles": ["fora-academic-v1"]
 }
 ```
 
 ```bash
-curl -s https://www.springer.com/.well-known/ramp.json | jq
+curl -s https://www.springer.com/.well-known/fora.json | jq
 ```
 
 ```json
@@ -82,25 +82,25 @@ curl -s https://www.springer.com/.well-known/ramp.json | jq
   "exchanges": [
     {
       "domain": "exchange.scholarsgate.com",
-      "endpoint": "https://exchange.scholarsgate.com/ramp/v1",
+      "endpoint": "https://exchange.scholarsgate.com/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
-  "supported_profiles": ["ramp-academic-v1"]
+  "supported_profiles": ["fora-academic-v1"]
 }
 ```
 
-All three publishers route through the same academic aggregator Exchange (`exchange.scholarsgate.com`). This is the aggregator-as-Exchange pattern: academic aggregators (like Semantic Scholar, OpenAlex, or a commercial equivalent) already normalize metadata across publishers. RAMP gives them a standard protocol for what they already do. The Broker sends a single batch query instead of querying each publisher separately.
+All three publishers route through the same academic aggregator Exchange (`exchange.scholarsgate.com`). This is the aggregator-as-Exchange pattern: academic aggregators (like Semantic Scholar, OpenAlex, or a commercial equivalent) already normalize metadata across publishers. FORA gives them a standard protocol for what they already do. The Broker sends a single batch query instead of querying each publisher separately.
 
 ---
 
 ## Step 2 — ResourceQuery
 
-The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris`. The `Requester` carries the university's delegation JWT with `academic:*` scope, and the query declares support for `ramp-academic-v1` so the Exchange includes version, OA status, and retraction metadata in its response.
+The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris`. The `Requester` carries the university's delegation JWT with `academic:*` scope, and the query declares support for `fora-academic-v1` so the Exchange includes version, OA status, and retraction metadata in its response.
 
-`POST https://exchange.scholarsgate.com/ramp/v1/ramp.v1.ExchangeService/DiscoverResources`
+`POST https://exchange.scholarsgate.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
-{/* ramp-validate: ResourceQuery */}
+{/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
@@ -175,7 +175,7 @@ The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris
     "doi:10.1038/s41592-024-02467-x"
   ],
   "acceptable_restrictions": [{ "axis": "RESTRICTION_KIND_FUNCTION", "values": ["ai-input"] }],
-  "supported_profiles": ["ramp-academic-v1"]
+  "supported_profiles": ["fora-academic-v1"]
 }
 ```
 
@@ -189,14 +189,14 @@ The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris
     "iss": "stanford.edu",
     "sub": "inst-sub-stanford-2026",
     "scope": "academic:*",
-    "ramp_max_accesses": 100000,
-    "ramp_quota_period": "2592000s",
+    "fora_max_accesses": 100000,
+    "fora_quota_period": "2592000s",
     "exp": 1798761599,
     "cnf": { "jkt": "<thumbprint of the agent's key>" }
   }
   ```
   The Exchange verifies the JWT chain offline (no call to Stanford needed) — including the holder-binding step, that the request-signing key hashes to the delegation's `cnf.jkt` — confirms the subscription covers Elsevier content, and returns zero-cost offers for covered papers.
-- **`supported_profiles`** — `["ramp-academic-v1"]` tells the Exchange to include academic-specific `ext` fields (OA status, version, retraction status) and attestation claims. Without this declaration, the Exchange MAY skip expensive metadata computation like retraction checking.
+- **`supported_profiles`** — `["fora-academic-v1"]` tells the Exchange to include academic-specific `ext` fields (OA status, version, retraction status) and attestation claims. Without this declaration, the Exchange MAY skip expensive metadata computation like retraction checking.
 
 ---
 
@@ -547,9 +547,9 @@ The Exchange classified each of the 50 DOIs into one of four categories based on
 | **Paid (Springer + Elsevier)** | 17 | `PRICING_MODEL_PER_UNIT` | $1.50 | No subscription match, `academic.oa_status: "closed"` |
 | **Retracted (Springer)** | 1 | `PRICING_MODEL_PER_UNIT` | $1.50 | `academic.retraction_status: "retracted"` in `ext_critical` |
 
-### Extension Profile Fields (`ramp-academic-v1`)
+### Extension Profile Fields (`fora-academic-v1`)
 
-Because the ResourceQuery declared `supported_profiles: ["ramp-academic-v1"]`, every offer includes academic-specific metadata:
+Because the ResourceQuery declared `supported_profiles: ["fora-academic-v1"]`, every offer includes academic-specific metadata:
 
 - **`academic.oa_status`** — Open Access classification. Values: `gold` (fully OA), `green` (author self-archived), `hybrid` (OA in subscription journal), `bronze` (free-to-read but no license), `diamond` (no APC), `closed` (paywalled). The Broker uses this to prefer free sources.
 - **`academic.version`** — Article lifecycle stage. Values: `preprint` (author's original), `aam` (accepted author manuscript), `vor` (Version of Record, publisher-formatted). The Broker prefers VoR when available, falls back to preprint.
@@ -562,7 +562,7 @@ The retracted paper (DOI `10.1038/s41592-024-02467-x`) is immediately identifiab
 
 1. **Attestation claim**: `academic.retraction_status: "retracted"` in `ResourceAttestation.claims`, signed by `springer.com`.
 2. **Ext field**: `academic.retraction_status: "retracted"` in `Offer.ext`.
-3. **Critical signaling**: `ext_critical: ["academic.retraction_status"]` — the consumer MUST understand retraction semantics. An agent that does not support `ramp-academic-v1` would reject this offer with `OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION` rather than silently consuming a retracted paper.
+3. **Critical signaling**: `ext_critical: ["academic.retraction_status"]` — the consumer MUST understand retraction semantics. An agent that does not support `fora-academic-v1` would reject this offer with `OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION` rather than silently consuming a retracted paper.
 4. **Offer.title**: Prefixed with "RETRACTED:" as a human-readable signal.
 
 ### Content Identity and Dedup
@@ -615,9 +615,9 @@ The Broker also flags the retracted paper to the agent:
 
 The Broker commits to all 49 selected offers in a single batch `TransactionRequest`. Each item carries the full signed `offer`, reflected back exactly as received at discovery (stateless verification — the Exchange does not need to store offers).
 
-`POST https://exchange.scholarsgate.com/ramp/v1/ramp.v1.ExchangeService/ExecuteTransaction`
+`POST https://exchange.scholarsgate.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
-{/* ramp-validate: TransactionRequest */}
+{/* fora-validate: TransactionRequest */}
 ```json
 {
   "ver": "1.0",
@@ -718,7 +718,7 @@ Response (abbreviated — showing one item from each category):
       "offer_id": "c2e59d05-f026-4f84-9c97-67906b71a0ce",
       "transaction_id": "txn-arxiv-001",
       "billing_id": "bill-arxiv-001",
-      "retrieval_endpoint": "https://cdn.arxiv.org/ramp/2406.11838.pdf?agent_id=3c8f2a1d...&exp=1742478600&kid=pQ7wL2xB...&sig=a1b2c3...",
+      "retrieval_endpoint": "https://cdn.arxiv.org/fora/2406.11838.pdf?agent_id=3c8f2a1d...&exp=1742478600&kid=pQ7wL2xB...&sig=a1b2c3...",
       "cost": {
         "amount": "0",
         "currency": "USD"
@@ -735,7 +735,7 @@ Response (abbreviated — showing one item from each category):
       "offer_id": "ba9b114a-1e5b-473c-886c-4b9ac9b89a9d",
       "transaction_id": "txn-elsevier-sub-001",
       "billing_id": "bill-elsevier-sub-001",
-      "retrieval_endpoint": "https://cdn.sciencedirect.com/ramp/S1361841524001250.pdf?agent_id=3c8f2a1d...&exp=1742478600&kid=pQ7wL2xB...&sig=d4e5f6...",
+      "retrieval_endpoint": "https://cdn.sciencedirect.com/fora/S1361841524001250.pdf?agent_id=3c8f2a1d...&exp=1742478600&kid=pQ7wL2xB...&sig=d4e5f6...",
       "cost": {
         "amount": "0",
         "currency": "USD"
@@ -757,7 +757,7 @@ Response (abbreviated — showing one item from each category):
       "offer_id": "92881d37-e18d-48d1-993b-51e4e5cea630",
       "transaction_id": "txn-springer-paid-001",
       "billing_id": "bill-springer-paid-001",
-      "retrieval_endpoint": "https://cdn.nature.com/ramp/s41592-024-02401-5.pdf?agent_id=3c8f2a1d...&exp=1742478600&kid=pQ7wL2xB...&sig=g7h8i9...",
+      "retrieval_endpoint": "https://cdn.nature.com/fora/s41592-024-02401-5.pdf?agent_id=3c8f2a1d...&exp=1742478600&kid=pQ7wL2xB...&sig=g7h8i9...",
       "cost": {
         "amount": "1.50",
         "currency": "USD"
@@ -804,9 +804,9 @@ The agent then fetches all 49 PDFs via the signed URLs. For each paper, because 
 
 Usage reporting is mandatory for all 49 transactions. The agent submits an aggregated report with per-DOI consumption data:
 
-`POST https://exchange.scholarsgate.com/ramp/v1/ramp.v1.ExchangeService/ReportUsage`
+`POST https://exchange.scholarsgate.com/fora/v1/fora.v1.ExchangeService/ReportUsage`
 
-{/* ramp-validate: UsageReport */}
+{/* fora-validate: UsageReport */}
 ```json
 {
   "ver": "1.0",
@@ -868,7 +868,7 @@ Response:
 
 | Step | RPC | Free OA (12) | Subscription (20) | Paid (17) | Retracted (1) |
 |------|-----|---|---|---|---|
-| 1 | -- | `ramp.json` discovery | `ramp.json` discovery | `ramp.json` discovery | `ramp.json` discovery |
+| 1 | -- | `fora.json` discovery | `fora.json` discovery | `fora.json` discovery | `fora.json` discovery |
 | 2 | `DiscoverResources` | `Requester` with `academic:*` scope | Same + delegation JWT | Same | Same |
 | 3 | -- | Offers at $0, `oa_status: "gold"` | Offers at $0, `subscription_id` set | Offers at $1.50 | Offer with `retraction_status: "retracted"` in `ext_critical` |
 | 4 | -- | Broker selects (free) | Broker selects (free via sub) | Broker selects (cheapest) | Broker flags and excludes |
@@ -887,14 +887,14 @@ Response:
 - **Mixed pricing in single batch** -- FREE + subscription (FREE + subscription scope) + PER_UNIT in one transaction
 - **Institutional subscription via delegation JWT** -- offline-verifiable delegation, no call to Stanford
 - **Retraction flagging via `ext_critical`** -- consumers MUST understand retraction semantics or reject
-- **`ramp-academic-v1` profile** -- OA status, version lifecycle, peer review status, retraction metadata
+- **`fora-academic-v1` profile** -- OA status, version lifecycle, peer review status, retraction metadata
 - **Aggregator as Exchange** -- one Exchange serves content from multiple publishers
 
 ## Next Steps
 
-- [RAMP v1.0 Walkthrough](/protocol/walkthrough-v1/) -- per-article and subscription scenarios with news and financial content
+- [FORA v1.0 Walkthrough](/protocol/walkthrough-v1/) -- per-article and subscription scenarios with news and financial content
 - [Scenario Walkthrough](/protocol/scenario-walkthrough/) -- multi-party narrative with Broker, cross-provider dedup, and dispute resolution
-- [Extension Profiles](/protocol/extension-profiles/) -- `ramp-academic-v1`, `ramp-news-v1`, and `ramp-legal-v1` specifications
+- [Extension Profiles](/protocol/extension-profiles/) -- `fora-academic-v1`, `fora-news-v1`, and `fora-legal-v1` specifications
 - [Content Attestation](/protocol/content-attestation/) -- how attestation levels carry profile-specific claims
 - [Transaction Flow](/protocol/transaction-flow/) -- step-by-step protocol specification
 - [Authentication (Ed25519)](/protocol/authentication/) -- signature chains at every boundary

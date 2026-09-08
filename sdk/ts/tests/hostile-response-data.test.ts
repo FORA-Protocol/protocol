@@ -15,7 +15,7 @@ import { errorDetailFrom } from "../src/errordetail.ts";
 import { MAX_BODY_DEPTH } from "../src/jsondepth.ts";
 import { decodeResponse, parseMessage } from "../client/transport.ts";
 import { fetchContent } from "../client/content.ts";
-import { RampCallError } from "../client/errors.ts";
+import { ForaCallError } from "../client/errors.ts";
 import { ResourceResponseSchema } from "../../../gen/ts/wire/schemas.ts";
 
 const HOSTILE = { domain: 123, message: ["not", "a", "string"] };
@@ -26,7 +26,7 @@ const GOOD = {
 };
 
 const envelope = (...debugs: unknown[]) => ({
-	details: debugs.map((debug) => ({ type: "ramp.v1.ErrorDetail", debug })),
+	details: debugs.map((debug) => ({ type: "fora.v1.ErrorDetail", debug })),
 });
 
 describe("a debug projection a peer chose", () => {
@@ -67,7 +67,7 @@ describe("a debug projection deeper than the reader's bound", () => {
 
 	it("a key named __proto__ inside one is a member, not a prototype", () => {
 		const payload = JSON.parse(
-			'{"details":[{"type":"ramp.v1.ErrorDetail","debug":{"domain":"d","message":"m","__proto__":{"x":1}}}]}',
+			'{"details":[{"type":"fora.v1.ErrorDetail","debug":{"domain":"d","message":"m","__proto__":{"x":1}}}]}',
 		) as unknown;
 		expect(errorDetailFrom(payload)?.domain).toBe("d");
 	});
@@ -117,7 +117,7 @@ describe("a response body deeper than the bound", () => {
 					status,
 					body: responseNesting(MAX_BODY_DEPTH + 1),
 				});
-			expect(read).toThrow(RampCallError);
+			expect(read).toThrow(ForaCallError);
 			expect(read).toThrow(`deeper than ${MAX_BODY_DEPTH} containers`);
 		});
 	}
@@ -125,7 +125,7 @@ describe("a response body deeper than the bound", () => {
 
 // The delivery leg's own reader of a peer's bytes, bounded the same way. Driven through the
 // FULL verb rather than the reader, because what a deep body broke in the sibling was the
-// contract the verb states: every one of them throws RampCallError and nothing else.
+// contract the verb states: every one of them throws ForaCallError and nothing else.
 describe("a deeply nested delivery refusal body", () => {
 	it("yields no token, and the SDK's own class instead", async () => {
 		// A WELL-FORMED refusal carrying a token the SDK would otherwise repeat, with the
@@ -150,9 +150,9 @@ describe("a deeply nested delivery refusal body", () => {
 		const err = (await fetchContent("https://edge.test/x", {
 			keyPair: keys,
 			dispatcher: agent,
-		}).catch((e: unknown) => e)) as RampCallError;
+		}).catch((e: unknown) => e)) as ForaCallError;
 
-		expect(err).toBeInstanceOf(RampCallError);
+		expect(err).toBeInstanceOf(ForaCallError);
 		// The edge said no, so the class is the SDK's own — and the token, which is the one
 		// part of a refusal the SDK does not own, is absent rather than invented.
 		expect(err.kind).toBe("refused");

@@ -1,13 +1,13 @@
 ---
 title: "Walkthrough: Medical Imaging (Brain MRI)"
-description: "Pre-transaction compliance gate (DUA), multi-file DICOM delivery, de-identification attestation, per-study metering, and the ramp-medimg-v1 extension profile."
+description: "Pre-transaction compliance gate (DUA), multi-file DICOM delivery, de-identification attestation, per-study metering, and the fora-medimg-v1 extension profile."
 ---
 
-> Complete walkthrough of a regulated medical imaging transaction. Shows how RAMP handles pre-transaction legal gates, multi-file binary delivery, de-identification attestation, per-study metering, and regulatory dispute escalation — all via standard protocol messages plus the `ramp-medimg-v1` extension profile.
+> Complete walkthrough of a regulated medical imaging transaction. Shows how FORA handles pre-transaction legal gates, multi-file binary delivery, de-identification attestation, per-study metering, and regulatory dispute escalation — all via standard protocol messages plus the `fora-medimg-v1` extension profile.
 
 ## What Makes Medical Imaging Different
 
-Medical imaging stresses RAMP in ways that text content does not:
+Medical imaging stresses FORA in ways that text content does not:
 
 | Dimension | News Article (Scenario A) | Brain MRI Study |
 |---|---|---|
@@ -36,10 +36,10 @@ A research institution's AI agent (`neuro-bot` at `brainlab.edu`) needs a de-ide
 
 ## Step 1 — Discovery
 
-The agent resolves the imaging repository's RAMP configuration. TCIA publishes a machine-readable manifest:
+The agent resolves the imaging repository's FORA configuration. TCIA publishes a machine-readable manifest:
 
 ```bash
-curl -s https://imaging.tcia.org/.well-known/ramp.json | jq
+curl -s https://imaging.tcia.org/.well-known/fora.json | jq
 ```
 
 ```json
@@ -50,25 +50,25 @@ curl -s https://imaging.tcia.org/.well-known/ramp.json | jq
   "exchanges": [
     {
       "domain": "exchange.medimg-exchange.com",
-      "endpoint": "https://exchange.medimg-exchange.com/ramp/v1",
+      "endpoint": "https://exchange.medimg-exchange.com/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
-  "supported_profiles": ["ramp-medimg-v1"]
+  "supported_profiles": ["fora-medimg-v1"]
 }
 ```
 
-The `supported_profiles` field tells the agent that this Exchange speaks the medical imaging extension vocabulary. The agent knows to include `ramp-medimg-v1` in its query so the Exchange returns imaging-specific metadata (modality, sequences, field strength, de-identification method).
+The `supported_profiles` field tells the agent that this Exchange speaks the medical imaging extension vocabulary. The agent knows to include `fora-medimg-v1` in its query so the Exchange returns imaging-specific metadata (modality, sequences, field strength, de-identification method).
 
 ---
 
 ## Step 2 — ResourceQuery
 
-The agent sends a `ResourceQuery` using a DICOM-style URI that encodes the Study Instance UID. This is a non-web identifier — RAMP's URI field is not limited to HTTP URLs.
+The agent sends a `ResourceQuery` using a DICOM-style URI that encodes the Study Instance UID. This is a non-web identifier — FORA's URI field is not limited to HTTP URLs.
 
-`POST https://exchange.medimg-exchange.com/ramp/v1/ramp.v1.ExchangeService/DiscoverResources`
+`POST https://exchange.medimg-exchange.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
-{/* ramp-validate: ResourceQuery */}
+{/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
@@ -85,7 +85,7 @@ The agent sends a `ResourceQuery` using a DICOM-style URI that encodes the Study
   "acceptable_restrictions": [
     { "axis": "RESTRICTION_KIND_FUNCTION", "values": ["ai-input"] }
   ],
-  "supported_profiles": ["ramp-medimg-v1"]
+  "supported_profiles": ["fora-medimg-v1"]
 }
 ```
 
@@ -93,7 +93,7 @@ The agent sends a `ResourceQuery` using a DICOM-style URI that encodes the Study
 
 - **`ResourceQuery.uris`** — `dicom://study/1.2.840.113619.2.388.10180.7.2026.3.14.8.12.42` is a Study Instance UID, the globally unique identifier for a DICOM imaging study. The Broker resolved "brain MRI from TCIA TCGA-GBM collection, patient TCGA-06-0152" into this UID before querying the Exchange.
 - **`acceptable_restrictions`** — axis `FUNCTION` with value `ai-input` (inference), not `ai-train`. This distinction matters: training use requires a different DUA class and often carries different pricing.
-- **`supported_profiles`** — declares that the agent understands `ramp-medimg-v1` extension fields. The Exchange will include imaging-specific metadata in the response.
+- **`supported_profiles`** — declares that the agent understands `fora-medimg-v1` extension fields. The Exchange will include imaging-specific metadata in the response.
 
 ---
 
@@ -211,9 +211,9 @@ The Exchange looks up the study in TCIA's catalog, verifies the agent's identity
 
 The agent commits to the offer. Because `medimg.dua_required` was flagged as critical, the agent MUST include a valid DUA reference in `ext`. This is the pre-transaction compliance gate — the Exchange will reject the transaction if the DUA cannot be verified.
 
-`POST https://exchange.medimg-exchange.com/ramp/v1/ramp.v1.ExchangeService/ExecuteTransaction`
+`POST https://exchange.medimg-exchange.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
-{/* ramp-validate: TransactionRequest */}
+{/* fora-validate: TransactionRequest */}
 ```json
 {
   "ver": "1.0",
@@ -283,7 +283,7 @@ A denied transaction is not a 200 success body — it travels as a non-OK transp
 ```json
 {
   "message": "DUA-TCIA-2026-042 not found or does not cover brainlab.edu for ai-input",
-  "domain": "ramp.v1.ExchangeService",
+  "domain": "fora.v1.ExchangeService",
   "metadata": {
     "required_dua_type": "TCIA-Standard-v3",
     "apply_url": "https://imaging.tcia.org/access/dua-application"
@@ -456,9 +456,9 @@ The manifest is a JSON document listing all 847 DICOM instances grouped by serie
 
 The agent reports consumption after completing its analysis. Medical imaging uses per-study metering, not per-token:
 
-`POST https://exchange.medimg-exchange.com/ramp/v1/ramp.v1.ExchangeService/ReportUsage`
+`POST https://exchange.medimg-exchange.com/fora/v1/fora.v1.ExchangeService/ReportUsage`
 
-{/* ramp-validate: UsageReport */}
+{/* fora-validate: UsageReport */}
 ```json
 {
   "ver": "1.0",
@@ -513,9 +513,9 @@ Six weeks after the transaction, the research team discovers that one DICOM inst
 
 ### Filing the Dispute
 
-`POST https://exchange.medimg-exchange.com/ramp/v1/ramp.v1.ExchangeService/DisputeTransaction`
+`POST https://exchange.medimg-exchange.com/fora/v1/fora.v1.ExchangeService/DisputeTransaction`
 
-{/* ramp-validate: DisputeRequest */}
+{/* fora-validate: DisputeRequest */}
 ```json
 {
   "ver": "1.0",
@@ -587,9 +587,9 @@ The Exchange generates a regulatory incident ID, notifies the provider (TCIA), a
 | **Pre-transaction gate** | DUA reference in `ExecuteTransaction.ext` — Exchange denies transaction if DUA is invalid. |
 | **Multi-file delivery** | Manifest of 847 signed URLs with per-instance hashes and Merkle verification tree. |
 | **Merkle content hash** | `sha256-merkle` hash method enables partial verification without downloading all files. |
-| **Domain extension profile** | `ramp-medimg-v1` vocabulary: `medimg.*` claims in attestations, `compliance.*` fields in transactions. |
+| **Domain extension profile** | `fora-medimg-v1` vocabulary: `medimg.*` claims in attestations, `compliance.*` fields in transactions. |
 | **Per-record metering** | `PRICING_MODEL_PER_UNIT` with `unit: "records"` — one study = one billing unit regardless of file count. |
-| **Non-HTTP URI** | `dicom://study/...` — RAMP's URI field is not limited to web URLs. |
+| **Non-HTTP URI** | `dicom://study/...` — FORA's URI field is not limited to web URLs. |
 | **Extended reporting window** | 7-day reporting obligation (vs. 24 hours for text) accommodates batch analysis pipelines. |
 | **Regulatory dispute path** | Same `DisputeTransaction` RPC, but `ext_critical` elevates to regulatory incident handling. |
 
@@ -597,7 +597,7 @@ The Exchange generates a regulatory incident ID, notifies the provider (TCIA), a
 
 ## Next Steps
 
-- [RAMP v1.0 Walkthrough](/protocol/walkthrough-v1) — per-article and subscription access with delegation (JWT)
+- [FORA v1.0 Walkthrough](/protocol/walkthrough-v1) — per-article and subscription access with delegation (JWT)
 - [Extension Profiles](/protocol/extension-profiles) — how domain-specific metadata flows through `ext` fields
 - [Content Attestation](/protocol/content-attestation) — attestation levels and de-identification claims
 - [Resource Mutability](/protocol/content-mutability) — STATIC vs DYNAMIC vs LIVE

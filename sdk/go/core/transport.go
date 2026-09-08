@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // signWindow is the freshness TTL stamped on an outbound signature's
@@ -82,14 +82,14 @@ func WithSignatureAgent(dir string) SigningOption {
 // WithSignPredicate gates signing on fn: only requests for which fn returns
 // true are signed; everything else passes through unmodified. The default (no
 // predicate) signs every bodied request — the behavior existing callers rely
-// on. A RAMP application that shares one *http.Client across RAMP and non-RAMP
+// on. A FORA application that shares one *http.Client across FORA and non-FORA
 // traffic typically passes a procedure-namespace predicate such as
 //
 //	core.WithSignPredicate(func(r *http.Request) bool {
-//		return strings.HasPrefix(r.URL.Path, "/ramp.")
+//		return strings.HasPrefix(r.URL.Path, "/fora.")
 //	})
 //
-// mirroring the /ramp. procedure boundary the server-side verify seam already
+// mirroring the /fora. procedure boundary the server-side verify seam already
 // enforces.
 func WithSignPredicate(fn func(*http.Request) bool) SigningOption {
 	return func(t *signingTransport) { t.predicate = fn }

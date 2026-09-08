@@ -201,7 +201,7 @@ describe("a refusal above the read", () => {
 			const send = createUnarySend({ guarded: false });
 			for (let i = 0; i < REFUSALS; i++) {
 				const req: UnaryRequest = {
-					url: `${base}/ramp.v1.ExchangeService/DiscoverResources`,
+					url: `${base}/fora.v1.ExchangeService/DiscoverResources`,
 					headers: { "content-type": "application/json" },
 					body: new TextEncoder().encode("{}"),
 					signal: new AbortController().signal,

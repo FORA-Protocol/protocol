@@ -1,4 +1,4 @@
-// Money (ADR-020) — TS port of the sdk/go oracle (helpers/money.go). RAMP money
+// Money (ADR-020) — TS port of the sdk/go oracle (helpers/money.go). FORA money
 // fields (Pricing.rate, Cost.amount, *.unit_cost) are exact decimal strings —
 // never floats — constrained by protovalidate to the wire pattern below:
 // non-negative, no sign, no exponent, optional fractional part, empty string
@@ -8,7 +8,7 @@
 // LEADING integer zeros AND trailing fractional zeros + a bare trailing dot.
 
 // moneyWire mirrors the protovalidate constraint `^([0-9]+([.][0-9]+)?)?$`
-// exactly (kept in lockstep with ramp.proto Pricing.rate). The empty string
+// exactly (kept in lockstep with fora.proto Pricing.rate). The empty string
 // matches the pattern but is rejected by parseMoney as "unset".
 const moneyWire = /^([0-9]+([.][0-9]+)?)?$/;
 
@@ -22,7 +22,7 @@ export function parseMoney(s: string): string {
 	if (s === "") {
 		throw new Error("money: empty money string (field is unset)");
 	}
-	// Mirror protovalidate string.max_len = 32 (ramp.proto Pricing.rate) so a
+	// Mirror protovalidate string.max_len = 32 (fora.proto Pricing.rate) so a
 	// pattern-valid but over-length value is rejected here, not only server-side.
 	if (s.length > 32) {
 		throw new Error(`money: string length ${s.length} exceeds max 32`);
@@ -40,7 +40,7 @@ export function parseMoney(s: string): string {
  * sign, no exponent, insignificant LEADING integer zeros dropped ("007" -> "7",
  * "00.5" -> "0.5", "000" -> "0") and insignificant trailing fractional zeros +
  * a bare trailing dot stripped ("0.050" -> "0.05", "1.00" -> "1"). A negative
- * value is rejected — RAMP money is non-negative.
+ * value is rejected — FORA money is non-negative.
  */
 export function formatMoney(s: string): string {
 	if (s.startsWith("-")) {

@@ -1,5 +1,5 @@
 // The two well-known fetching faces: WellKnownKeyResolver (one fixed JWKS URL,
-// kid-keyed) and WellKnownEndpointResolver (host-keyed ramp.json → endpoint).
+// kid-keyed) and WellKnownEndpointResolver (host-keyed fora.json → endpoint).
 // Both port the Go oracle's lazy-fetch + TTL-cache + single-flight coalescing and
 // its fail-closed taxonomy: a fetch/decode failure throws DirectoryUnavailable;
 // an unknown kid is `undefined`; a manifest whose `ver` is not a recognised major
@@ -29,7 +29,7 @@ export interface WellKnownOptions {
 }
 
 /** Options for the endpoint resolver; adds the URL scheme used to build
- * `{scheme}://{host}/.well-known/ramp.json` (tests inject "http"). */
+ * `{scheme}://{host}/.well-known/fora.json` (tests inject "http"). */
 export interface EndpointOptions extends WellKnownOptions {
   scheme?: string;
 }
@@ -179,7 +179,7 @@ class EndpointResolverImpl implements WellKnownEndpointResolver {
   private async fetchEndpoint(host: string): Promise<string> {
     const hit = this.cached(host);
     if (hit !== undefined) return hit; // filled while we queued behind the flight lock
-    const url = `${this.scheme}://${host}/.well-known/ramp.json`;
+    const url = `${this.scheme}://${host}/.well-known/fora.json`;
     const body = await fetchStrict(this.fetchFn, url);
     let doc: unknown;
     try {

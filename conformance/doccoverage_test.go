@@ -8,7 +8,7 @@
 // absent from the reference page while every guard stayed green).
 //
 // This test closes it: it walks the descriptor and asserts the reference page
-// (reference/proto-ramp.mdx) documents every service+method, every top-level
+// (reference/proto-fora.mdx) documents every service+method, every top-level
 // message and its fields, and every enum. Scope is the descriptor, so a newly
 // added symbol is in scope the instant it exists. The only hand-maintained
 // surface is docCoverageExempt, which the test proves is necessary on every run.

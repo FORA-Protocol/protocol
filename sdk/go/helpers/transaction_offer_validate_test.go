@@ -3,8 +3,8 @@ package helpers_test
 import (
 	"testing"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // Regression test for the items-only collapse.
@@ -34,12 +34,12 @@ const minItemsRuleID = "repeated.min_items"
 // Exchange is presence-enforced: it is the execute-routing target, and a
 // TransactionRequest's audience statement is per item, so an offer without it is
 // unroutable and does not validate.
-func validOffer() *rampv1.Offer {
-	return &rampv1.Offer{
+func validOffer() *forav1.Offer {
+	return &forav1.Offer{
 		OfferId:  "of_valid_1",
 		Exchange: "exchange.example",
-		Pricing: &rampv1.Pricing{
-			Model: rampv1.PricingModel_PRICING_MODEL_FREE,
+		Pricing: &forav1.Pricing{
+			Model: forav1.PricingModel_PRICING_MODEL_FREE,
 			Rate:  "0",
 		},
 	}
@@ -48,9 +48,9 @@ func validOffer() *rampv1.Offer {
 // TestTransactionRequest_items_valid pins the happy path: a request whose items
 // each carry a valid offer passes validation (a single offer is a 1-item list).
 func TestTransactionRequest_items_valid(t *testing.T) {
-	req := &rampv1.TransactionRequest{
+	req := &forav1.TransactionRequest{
 		IdempotencyKey: "idem-items-1",
-		Items: []*rampv1.TransactionItem{
+		Items: []*forav1.TransactionItem{
 			{Offer: validOffer()},
 		},
 	}
@@ -63,7 +63,7 @@ func TestTransactionRequest_items_valid(t *testing.T) {
 // with no items is rejected (single-offer mode is gone — there is no other way to
 // commit an offer).
 func TestTransactionRequest_emptyItems_rejected(t *testing.T) {
-	req := &rampv1.TransactionRequest{
+	req := &forav1.TransactionRequest{
 		IdempotencyKey: "idem-empty-1",
 	}
 	err := helpers.Validate(req)
@@ -76,9 +76,9 @@ func TestTransactionRequest_emptyItems_rejected(t *testing.T) {
 // TestTransactionItem_missingOffer_rejected pins case: a TransactionItem with
 // no offer violates the field-level `required` rule on TransactionItem.offer.
 func TestTransactionItem_missingOffer_rejected(t *testing.T) {
-	req := &rampv1.TransactionRequest{
+	req := &forav1.TransactionRequest{
 		IdempotencyKey: "idem-item-missing-1",
-		Items: []*rampv1.TransactionItem{
+		Items: []*forav1.TransactionItem{
 			{}, // no offer — must fail the field-required rule
 		},
 	}
@@ -91,9 +91,9 @@ func TestTransactionItem_missingOffer_rejected(t *testing.T) {
 // TestTransactionRequest_multiItem_valid guards the Core Invariant: a multi-item
 // request — each item carries a valid offer — passes validation.
 func TestTransactionRequest_multiItem_valid(t *testing.T) {
-	req := &rampv1.TransactionRequest{
+	req := &forav1.TransactionRequest{
 		IdempotencyKey: "idem-multi-1",
-		Items: []*rampv1.TransactionItem{
+		Items: []*forav1.TransactionItem{
 			{Offer: validOffer()},
 			{Offer: validOffer()},
 		},

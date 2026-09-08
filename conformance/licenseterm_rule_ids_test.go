@@ -32,7 +32,7 @@ const licenseTermVectors = "../sdk/go/helpers/testdata/licenseterm-vectors.json"
 
 var errNoLicenseTermRules = errors.New(
 	"the license-term corpus carries no rule ids — regenerate it with " +
-		"RAMP_UPDATE_VECTORS=1 go test ./sdk/go/helpers/ -run TestGenerateLicenseTermVectors")
+		"FORA_UPDATE_VECTORS=1 go test ./sdk/go/helpers/ -run TestGenerateLicenseTermVectors")
 
 // sdkLicenseTermRuleIDs collects every rule id the corpus's validate and entry
 // lists report, as the set the three SDKs are pinned to.

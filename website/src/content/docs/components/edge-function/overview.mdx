@@ -1,9 +1,9 @@
 ---
 title: "Edge Function Overview"
-description: "CDN-level enforcement point for AI resource access in the RAMP protocol"
+description: "CDN-level enforcement point for AI resource access in the FORA protocol"
 ---
 
-The Edge Function is the provider-side enforcement point of the RAMP protocol. It runs on the provider's existing CDN infrastructure and is the only RAMP component that providers deploy. Everything else (Exchange, Broker, Client SDK) is deployed by Exchange operators, AI companies, or third parties.
+The Edge Function is the provider-side enforcement point of the FORA protocol. It runs on the provider's existing CDN infrastructure and is the only FORA component that providers deploy. Everything else (Exchange, Broker, Client SDK) is deployed by Exchange operators, AI companies, or third parties.
 
 ## What It Does
 
@@ -11,22 +11,22 @@ The Edge Function has three jobs:
 
 1. **Block unauthorized bots** -- detect AI crawlers hitting protected content without a signed URL and return `403 + X-Content-Rules` header pointing them to the Exchange.
 2. **Verify signed URL access** -- validate that incoming signed URLs are authentic, unexpired, bound to the correct agent identity, and (optionally) single-use.
-3. **Serve ramp.json and rsl.txt** -- generate, cache, and serve `/.well-known/ramp.json` and `/rsl.txt` so protocol-aware agents discover the Exchange without triggering a 403.
-4. **Serve verifier keys via the WBA directory (v1.0)** -- serve the JWK Set at `/.well-known/http-message-signatures-directory` for providers that self-attest resources. This publishes the provider's Ed25519 public keys in its WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`), with the claims schema in the `ramp.json` `ext["ramp.attestation.claims_schema"]`, so agents and Exchanges can verify attestation signatures. RAMP has no dedicated verifier role; a verifier publishes under its operator's role (`role=ROLE_PUBLISHER` when a publisher self-attests).
-5. **Serve ACME domain verification challenges (v1.0)** -- auto-serve challenge tokens at `/.well-known/ramp-verify/{token}` from the CDN's KV store during provider onboarding domain verification.
+3. **Serve fora.json and rsl.txt** -- generate, cache, and serve `/.well-known/fora.json` and `/rsl.txt` so protocol-aware agents discover the Exchange without triggering a 403.
+4. **Serve verifier keys via the WBA directory (v1.0)** -- serve the JWK Set at `/.well-known/http-message-signatures-directory` for providers that self-attest resources. This publishes the provider's Ed25519 public keys in its WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`), with the claims schema in the `fora.json` `ext["fora.attestation.claims_schema"]`, so agents and Exchanges can verify attestation signatures. FORA has no dedicated verifier role; a verifier publishes under its operator's role (`role=ROLE_PUBLISHER` when a publisher self-attests).
+5. **Serve ACME domain verification challenges (v1.0)** -- auto-serve challenge tokens at `/.well-known/fora-verify/{token}` from the CDN's KV store during provider onboarding domain verification.
 
 ## Single Deploy for Providers
 
 The absolute minimum a provider needs to do:
 
 1. **Get an Exchange endpoint** from their Exchange operator (one-time business relationship).
-2. **Deploy the edge function** using the [Terraform module](https://github.com/RAMP-Protocol/protocol/tree/main/terraform/aws-ramp-edge/).
-3. **Verify** -- `curl -I https://example.com/.well-known/ramp.json` returns the manifest.
+2. **Deploy the edge function** using the [Terraform module](https://github.com/FORA-Protocol/protocol/tree/main/terraform/aws-fora-edge/).
+3. **Verify** -- `curl -I https://example.com/.well-known/fora.json` returns the manifest.
 
 import { Aside } from '@astrojs/starlight/components';
 
 <Aside type="tip">
-The `@ramp/cli` tool is planned to automate this process. For now, deploy manually -- see [Edge Function Deployment](/components/edge-function/deployment/).
+The `@fora/cli` tool is planned to automate this process. For now, deploy manually -- see [Edge Function Deployment](/components/edge-function/deployment/).
 </Aside>
 
 Target: **under 10 minutes** from Exchange operator contract to live edge function.
@@ -40,15 +40,15 @@ The edge function deals exclusively with **signed URL verification**. It does NO
 
 One primitive, two audiences. Neither carries a shared secret.
 
-## How It Fits in the RAMP Architecture
+## How It Fits in the FORA Architecture
 
 The Edge Function sits at the CDN layer between AI agents and provider content. It intercepts requests before they reach origin servers.
 
 ```mermaid
 flowchart TD
-    REQ[Incoming Request] --> RAMP_JSON{Path = /.well-known/ramp.json?}
-    RAMP_JSON -->|Yes| SERVE_MANIFEST[Serve WellKnownManifest<br/>200 OK + Cache-Control]
-    RAMP_JSON -->|No| RSL_TXT{Path = /rsl.txt?}
+    REQ[Incoming Request] --> FORA_JSON{Path = /.well-known/fora.json?}
+    FORA_JSON -->|Yes| SERVE_MANIFEST[Serve WellKnownManifest<br/>200 OK + Cache-Control]
+    FORA_JSON -->|No| RSL_TXT{Path = /rsl.txt?}
     RSL_TXT -->|Yes| SERVE_RSL[Serve rsl.txt<br/>200 OK + Cache-Control]
     RSL_TXT -->|No| PROTECTED{Path matches<br/>protected pattern?}
     PROTECTED -->|No| PASSTHROUGH[Pass through to origin]
@@ -77,18 +77,18 @@ The decision logic is CDN-agnostic. Every adapter calls the same core function:
 
 ```
 handleRequest(ctx):
-  1. If path == "/.well-known/ramp.json":
+  1. If path == "/.well-known/fora.json":
        -> Serve cached WellKnownManifest JSON
        -> For self-attesting providers, the verifier keys live in the WBA
           directory (/.well-known/http-message-signatures-directory) and the
-          claims schema in ext["ramp.attestation.claims_schema"]
+          claims schema in ext["fora.attestation.claims_schema"]
        -> Return 200
 
   1b. If path == "/rsl.txt":
        -> Serve cached rsl.txt content
        -> Return 200
 
-  1d. If path starts with "/.well-known/ramp-verify/":
+  1d. If path starts with "/.well-known/fora-verify/":
        -> Read challenge token from KV store
        -> Return 200 + text/plain (ACME domain verification)
        -> Return 404 if token not found or expired
@@ -120,9 +120,9 @@ handleRequest(ctx):
 
 When an AI crawler requests protected content without signed URL parameters, the edge function detects the request is from a bot and returns `403 Forbidden` with an `X-Content-Rules` header pointing to the Exchange info endpoint. This is the "accidental discovery" path (Path C in the protocol flow). The 403 is not punitive -- it is a protocol handshake directing the bot to the correct transaction endpoint. See [Bot Detection](/components/edge-function/bot-detection/) for details.
 
-### ramp.json and rsl.txt Generation and Serving
+### fora.json and rsl.txt Generation and Serving
 
-The edge function serves `/.well-known/ramp.json` containing the `WellKnownManifest` message (`role=ROLE_PUBLISHER`) and `/rsl.txt` containing the machine-readable licensing signal. Both files are sourced from the same configuration (Exchange API, inline config, or KV store), cached aggressively with `Cache-Control: public, max-age=3600`.
+The edge function serves `/.well-known/fora.json` containing the `WellKnownManifest` message (`role=ROLE_PUBLISHER`) and `/rsl.txt` containing the machine-readable licensing signal. Both files are sourced from the same configuration (Exchange API, inline config, or KV store), cached aggressively with `Cache-Control: public, max-age=3600`.
 
 ### Signed URL Passthrough with Agent Identity Validation
 
@@ -149,7 +149,7 @@ Full functionality
 Single-use disabled, everything else works
   | Config refresh fails
 Stale config, core functionality preserved
-  | ramp.json generation fails
+  | fora.json generation fails
 Bot detection + 403 redirect still work
   | Verification key unavailable
 Bot detection works, paid access broken (503 verify_unavailable)

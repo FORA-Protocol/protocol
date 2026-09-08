@@ -6,8 +6,8 @@ import (
 	connectrpc "connectrpc.com/connect"
 	validate "connectrpc.com/validate"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // requestIDInterceptor is a true connect.Interceptor (header-level, so it does not

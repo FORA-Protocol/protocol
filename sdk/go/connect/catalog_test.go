@@ -11,11 +11,11 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/gen/go/ramp/v1/rampv1connect"
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
-	rampserver "github.com/RAMP-Protocol/protocol/sdk/go/connectserver"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	foraserver "github.com/FORA-Protocol/protocol/sdk/go/connectserver"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // The publisher's three verbs, driven through the outermost public surface: an
@@ -25,18 +25,18 @@ import (
 // recordingCatalog answers every catalog RPC and records what reached it. Like a
 // real Exchange it refuses a caller the verify seam did not prove.
 type recordingCatalog struct {
-	rampv1connect.UnimplementedCatalogServiceHandler
+	forav1connect.UnimplementedCatalogServiceHandler
 	mu      sync.Mutex
-	push    *rampv1.PushResourcesRequest
-	remove  *rampv1.RemoveResourcesRequest
-	refresh *rampv1.RefreshCatalogRequest
+	push    *forav1.PushResourcesRequest
+	remove  *forav1.RemoveResourcesRequest
+	refresh *forav1.RefreshCatalogRequest
 	hits    int
-	reject  *rampv1.ErrorDetail // when set, PushResources fails with this typed detail
+	reject  *forav1.ErrorDetail // when set, PushResources fails with this typed detail
 }
 
 func (c *recordingCatalog) PushResources(
-	ctx context.Context, req *connectrpc.Request[rampv1.PushResourcesRequest],
-) (*connectrpc.Response[rampv1.PushResourcesResponse], error) {
+	ctx context.Context, req *connectrpc.Request[forav1.PushResourcesRequest],
+) (*connectrpc.Response[forav1.PushResourcesResponse], error) {
 	if helpers.FromContext(ctx) == nil {
 		return nil, connectrpc.NewError(connectrpc.CodeUnauthenticated, errors.New("origin: unverified caller"))
 	}
@@ -46,17 +46,17 @@ func (c *recordingCatalog) PushResources(
 	c.push = req.Msg
 	if c.reject != nil {
 		cerr := connectrpc.NewError(connectrpc.CodeInvalidArgument, errors.New("push rejected"))
-		return nil, rampserver.AttachDetail(cerr, c.reject)
+		return nil, foraserver.AttachDetail(cerr, c.reject)
 	}
-	return connectrpc.NewResponse(&rampv1.PushResourcesResponse{
+	return connectrpc.NewResponse(&forav1.PushResourcesResponse{
 		Ver: helpers.ProtocolVersion, Accepted: int32(len(req.Msg.GetEntries())),
 		Warnings: []string{"unregistered RESTRICTION_KIND_FUNCTION restriction token \"flib\" (term accepted)"},
 	}), nil
 }
 
 func (c *recordingCatalog) RemoveResources(
-	ctx context.Context, req *connectrpc.Request[rampv1.RemoveResourcesRequest],
-) (*connectrpc.Response[rampv1.RemoveResourcesResponse], error) {
+	ctx context.Context, req *connectrpc.Request[forav1.RemoveResourcesRequest],
+) (*connectrpc.Response[forav1.RemoveResourcesResponse], error) {
 	if helpers.FromContext(ctx) == nil {
 		return nil, connectrpc.NewError(connectrpc.CodeUnauthenticated, errors.New("origin: unverified caller"))
 	}
@@ -64,14 +64,14 @@ func (c *recordingCatalog) RemoveResources(
 	defer c.mu.Unlock()
 	c.hits++
 	c.remove = req.Msg
-	return connectrpc.NewResponse(&rampv1.RemoveResourcesResponse{
+	return connectrpc.NewResponse(&forav1.RemoveResourcesResponse{
 		Ver: helpers.ProtocolVersion, Removed: int32(len(req.Msg.GetPaths())),
 	}), nil
 }
 
 func (c *recordingCatalog) RefreshCatalog(
-	ctx context.Context, req *connectrpc.Request[rampv1.RefreshCatalogRequest],
-) (*connectrpc.Response[rampv1.RefreshCatalogResponse], error) {
+	ctx context.Context, req *connectrpc.Request[forav1.RefreshCatalogRequest],
+) (*connectrpc.Response[forav1.RefreshCatalogResponse], error) {
 	if helpers.FromContext(ctx) == nil {
 		return nil, connectrpc.NewError(connectrpc.CodeUnauthenticated, errors.New("origin: unverified caller"))
 	}
@@ -79,7 +79,7 @@ func (c *recordingCatalog) RefreshCatalog(
 	defer c.mu.Unlock()
 	c.hits++
 	c.refresh = req.Msg
-	return connectrpc.NewResponse(&rampv1.RefreshCatalogResponse{Ver: helpers.ProtocolVersion, Started: true}), nil
+	return connectrpc.NewResponse(&forav1.RefreshCatalogResponse{Ver: helpers.ProtocolVersion, Started: true}), nil
 }
 
 func (c *recordingCatalog) hitCount() int {
@@ -89,9 +89,9 @@ func (c *recordingCatalog) hitCount() int {
 }
 
 // serveCatalog mounts the origin behind the SDK's own Catalog server binding.
-func serveCatalog(t *testing.T, sig signingFixture, svc rampv1connect.CatalogServiceHandler) *httptest.Server {
+func serveCatalog(t *testing.T, sig signingFixture, svc forav1connect.CatalogServiceHandler) *httptest.Server {
 	t.Helper()
-	path, h := rampserver.NewCatalogServiceHandler(svc, rampserver.WithKeyResolver(sig.resolver))
+	path, h := foraserver.NewCatalogServiceHandler(svc, foraserver.WithKeyResolver(sig.resolver))
 	mux := http.NewServeMux()
 	mux.Handle(path, h)
 	srv := httptest.NewServer(mux)
@@ -99,10 +99,10 @@ func serveCatalog(t *testing.T, sig signingFixture, svc rampv1connect.CatalogSer
 	return srv
 }
 
-func catalogEntry() *rampv1.ResourceEntry {
-	return &rampv1.ResourceEntry{Domain: "publisher.test", Path: "/premium/article-42.html", Terms: []*rampv1.LicenseTerm{{
-		Semantics: rampv1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
-		Pricing:   &rampv1.Pricing{Model: rampv1.PricingModel_PRICING_MODEL_FREE, Rate: "0"},
+func catalogEntry() *forav1.ResourceEntry {
+	return &forav1.ResourceEntry{Domain: "publisher.test", Path: "/premium/article-42.html", Terms: []*forav1.LicenseTerm{{
+		Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+		Pricing:   &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"},
 	}}}
 }
 
@@ -113,11 +113,11 @@ func TestCatalog_PushIsSignedStampedAndAnswered(t *testing.T) {
 	sig := newSigningFixture(t)
 	origin := &recordingCatalog{}
 	srv := serveCatalog(t, sig, origin)
-	client := rampconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
-	req := &rampv1.PushResourcesRequest{
+	req := &forav1.PushResourcesRequest{
 		Exchange: "exchange.test", TenantId: "tenant-1", CallerId: "publisher.test",
-		Entries: []*rampv1.ResourceEntry{catalogEntry()},
+		Entries: []*forav1.ResourceEntry{catalogEntry()},
 	}
 	resp, err := client.PushResources(context.Background(), req)
 	if err != nil {
@@ -143,9 +143,9 @@ func TestCatalog_RemoveAndRefreshKeepTheCallersVersion(t *testing.T) {
 	sig := newSigningFixture(t)
 	origin := &recordingCatalog{}
 	srv := serveCatalog(t, sig, origin)
-	client := rampconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
-	if _, err := client.RemoveResources(context.Background(), &rampv1.RemoveResourcesRequest{
+	if _, err := client.RemoveResources(context.Background(), &forav1.RemoveResourcesRequest{
 		Exchange: "exchange.test", TenantId: "tenant-1", Paths: []string{"/x"}, Ver: "9.9",
 	}); err != nil {
 		t.Fatalf("RemoveResources: %v", err)
@@ -153,7 +153,7 @@ func TestCatalog_RemoveAndRefreshKeepTheCallersVersion(t *testing.T) {
 	if origin.remove.GetVer() != "9.9" {
 		t.Errorf("remove ver = %q, want the caller's 9.9", origin.remove.GetVer())
 	}
-	resp, err := client.RefreshCatalog(context.Background(), &rampv1.RefreshCatalogRequest{
+	resp, err := client.RefreshCatalog(context.Background(), &forav1.RefreshCatalogRequest{
 		Exchange: "exchange.test", TenantId: "tenant-1",
 	})
 	if err != nil {
@@ -174,7 +174,7 @@ func TestCatalog_RefusesAnUnaddressedRequestBeforeSending(t *testing.T) {
 	sig := newSigningFixture(t)
 	origin := &recordingCatalog{}
 	srv := serveCatalog(t, sig, origin)
-	client := rampconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
 	// The last three are the reason this preflight uses the wire-domain rule rather
 	// than the routing one: every one of them is a perfectly usable HOST, so the
@@ -189,15 +189,15 @@ func TestCatalog_RefusesAnUnaddressedRequestBeforeSending(t *testing.T) {
 		"root_dot":     "exchange.test.",
 		"bracketed_ip": "[::1]:443",
 	} {
-		_, err := client.PushResources(context.Background(), &rampv1.PushResourcesRequest{
-			Exchange: exchange, TenantId: "tenant-1", Entries: []*rampv1.ResourceEntry{catalogEntry()},
+		_, err := client.PushResources(context.Background(), &forav1.PushResourcesRequest{
+			Exchange: exchange, TenantId: "tenant-1", Entries: []*forav1.ResourceEntry{catalogEntry()},
 		})
-		var cerr *rampconnect.CallError
-		if !errors.As(err, &cerr) || cerr.Kind != rampconnect.CallNotSent {
+		var cerr *foraconnect.CallError
+		if !errors.As(err, &cerr) || cerr.Kind != foraconnect.CallNotSent {
 			t.Errorf("%s: error = %v, want a CallNotSent CallError", name, err)
 		}
 	}
-	if _, err := client.RemoveResources(context.Background(), &rampv1.RemoveResourcesRequest{Paths: []string{"/x"}}); err == nil {
+	if _, err := client.RemoveResources(context.Background(), &forav1.RemoveResourcesRequest{Paths: []string{"/x"}}); err == nil {
 		t.Error("remove with no exchange must be refused")
 	}
 	if _, err := client.RefreshCatalog(context.Background(), nil); err == nil {
@@ -211,8 +211,8 @@ func TestCatalog_RefusesAnUnaddressedRequestBeforeSending(t *testing.T) {
 	// refuses everything. A port is part of a bare domain and a single-label host is
 	// one, both because the deployment's own catalog carries them.
 	for _, exchange := range []string{"exchange.test", "exchange.test:8443", "edge"} {
-		if _, err := client.PushResources(context.Background(), &rampv1.PushResourcesRequest{
-			Exchange: exchange, TenantId: "tenant-1", Entries: []*rampv1.ResourceEntry{catalogEntry()},
+		if _, err := client.PushResources(context.Background(), &forav1.PushResourcesRequest{
+			Exchange: exchange, TenantId: "tenant-1", Entries: []*forav1.ResourceEntry{catalogEntry()},
 		}); err != nil {
 			t.Errorf("exchange %q was refused: %v", exchange, err)
 		}
@@ -228,10 +228,10 @@ func TestCatalog_UnsignedPushNeverReachesTheOrigin(t *testing.T) {
 	sig := newSigningFixture(t)
 	origin := &recordingCatalog{}
 	srv := serveCatalog(t, sig, origin)
-	client := rampconnect.NewCatalogClient(srv.URL, allowLoopback(t)...)
+	client := foraconnect.NewCatalogClient(srv.URL, allowLoopback(t)...)
 
-	_, err := client.PushResources(context.Background(), &rampv1.PushResourcesRequest{
-		Exchange: "exchange.test", TenantId: "tenant-1", Entries: []*rampv1.ResourceEntry{catalogEntry()},
+	_, err := client.PushResources(context.Background(), &forav1.PushResourcesRequest{
+		Exchange: "exchange.test", TenantId: "tenant-1", Entries: []*forav1.ResourceEntry{catalogEntry()},
 	})
 	if err == nil {
 		t.Fatal("unsigned push must be refused")
@@ -246,26 +246,26 @@ func TestCatalog_UnsignedPushNeverReachesTheOrigin(t *testing.T) {
 func TestCatalog_TypedRejectionIsReadable(t *testing.T) {
 	sig := newSigningFixture(t)
 	origin := &recordingCatalog{reject: helpers.CatalogRejectionDetail(
-		"ramp.v1.CatalogService", "caller is not a contributor for publisher.test",
-		rampv1.CatalogRejectionReason_CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR)}
+		"fora.v1.CatalogService", "caller is not a contributor for publisher.test",
+		forav1.CatalogRejectionReason_CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR)}
 	srv := serveCatalog(t, sig, origin)
-	client := rampconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), rampconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
-	_, err := client.PushResources(context.Background(), &rampv1.PushResourcesRequest{
-		Exchange: "exchange.test", TenantId: "tenant-1", Entries: []*rampv1.ResourceEntry{catalogEntry()},
+	_, err := client.PushResources(context.Background(), &forav1.PushResourcesRequest{
+		Exchange: "exchange.test", TenantId: "tenant-1", Entries: []*forav1.ResourceEntry{catalogEntry()},
 	})
 	if err == nil {
 		t.Fatal("expected the rejection")
 	}
-	var cerr *rampconnect.CallError
-	if !errors.As(err, &cerr) || cerr.Kind != rampconnect.CallRefused {
+	var cerr *foraconnect.CallError
+	if !errors.As(err, &cerr) || cerr.Kind != foraconnect.CallRefused {
 		t.Fatalf("error = %v, want a CallRefused CallError", err)
 	}
-	detail, ok := rampconnect.ErrorDetailFrom(err)
+	detail, ok := foraconnect.ErrorDetailFrom(err)
 	if !ok {
 		t.Fatal("no typed ErrorDetail on the refusal")
 	}
-	if got := detail.GetCatalogRejection().GetReason(); got != rampv1.CatalogRejectionReason_CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR {
+	if got := detail.GetCatalogRejection().GetReason(); got != forav1.CatalogRejectionReason_CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR {
 		t.Errorf("reason = %v, want NOT_CATALOG_CONTRIBUTOR", got)
 	}
 }
@@ -277,11 +277,11 @@ func TestCatalog_TypedRejectionIsReadable(t *testing.T) {
 // pins the catalog leg to the same rule.
 func TestCatalog_RefusalRedactsACredentialInTheRecipient(t *testing.T) {
 	t.Parallel()
-	client := rampconnect.NewCatalogClient("https://exchange.test")
+	client := foraconnect.NewCatalogClient("https://exchange.test")
 
-	_, err := client.PushResources(context.Background(), &rampv1.PushResourcesRequest{
+	_, err := client.PushResources(context.Background(), &forav1.PushResourcesRequest{
 		Exchange: "publisher:s3cr3t@exchange.test", TenantId: "t", CallerId: "c",
-		Entries: []*rampv1.ResourceEntry{{Domain: "publisher.test", Path: "/x"}},
+		Entries: []*forav1.ResourceEntry{{Domain: "publisher.test", Path: "/x"}},
 	})
 	if err == nil {
 		t.Fatal("a recipient carrying userinfo was accepted")

@@ -7,15 +7,15 @@ crypto-random bytes → base64.RawURLEncoding (22 chars, no padding). The Python
 face ``generate_idempotency_key()`` MUST match that SHAPE: a 22-char base64url string,
 charset [-A-Za-z0-9_], no padding, and distinct across N calls (entropy).
 
-RED now purely because ``ramp_sdk.idempotency`` does not exist yet.
+RED now purely because ``fora_sdk.idempotency`` does not exist yet.
 """
 
 from __future__ import annotations
 
 import re
 
-# RED: sdk/python/ramp_sdk/idempotency.py does not exist yet (TDD red).
-from ramp_sdk.idempotency import generate_idempotency_key  # type: ignore[import-not-found]
+# RED: sdk/python/fora_sdk/idempotency.py does not exist yet (TDD red).
+from fora_sdk.idempotency import generate_idempotency_key  # type: ignore[import-not-found]
 
 _BASE64URL_22 = re.compile(r"^[-A-Za-z0-9_]{22}$")
 

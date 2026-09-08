@@ -1,6 +1,6 @@
 ---
 title: "Non-Functional Requirements"
-description: "RAMP performance, latency, throughput, durability, and cost targets modeled on ad-tech scale"
+description: "FORA performance, latency, throughput, durability, and cost targets modeled on ad-tech scale"
 ---
 
 ## Context: The Numbers That Drive Everything
@@ -12,7 +12,7 @@ description: "RAMP performance, latency, throughput, durability, and cost target
 - **4.2%** of all HTML page requests are from AI bots
 - ~80% is training crawl (bulk, erratic); ~20% is inference/RAG (real-time, user-facing)
 
-RAMP targets the **inference/RAG segment** -- real-time, per-request resource access where an agent needs a specific article to answer a user query.
+FORA targets the **inference/RAG segment** -- real-time, per-request resource access where an agent needs a specific article to answer a user query.
 
 **Inference traffic estimate**: 20% of 50B = ~10B requests/day = ~115K requests/second globally. A single large Exchange might handle 1-10% of this = **1K-10K RPS**.
 
@@ -23,7 +23,7 @@ RAMP targets the **inference/RAG segment** -- real-time, per-request resource ac
 - AWS RTB Fabric: sub-millisecond container-to-container communication
 - Production exchanges handle **millions of QPS**
 
-RAMP doesn't need ad-tech scale day one, but the architecture must not preclude it.
+FORA doesn't need ad-tech scale day one, but the architecture must not preclude it.
 
 ## Latency Requirements
 
@@ -33,7 +33,7 @@ Total agent-perceived latency target: **< 200ms end-to-end** for the transaction
 
 | Hop | Target (p50) | Target (p99) | Notes |
 |---|---|---|---|
-| Agent → ramp.json | 0ms | 0ms | Cached locally by agent |
+| Agent → fora.json | 0ms | 0ms | Cached locally by agent |
 | Agent → Exchange: DiscoverResources | **10ms** | **50ms** | In-memory catalog, no DB lookup |
 | Agent → Exchange: ExecuteTransaction | **20ms** | **100ms** | Billing adapter is the bottleneck |
 | Exchange → Billing Adapter: Authorize | **5ms** | **30ms** | Must be sync, pre-signing |
@@ -86,7 +86,7 @@ Total agent-perceived latency target: **< 200ms end-to-end** for the transaction
 | **Usage reports** | **Durable** | Must survive total node loss | Compliance enforcement |
 | **Signed URL issuance log** | **Durable** | Must survive total node loss | Reconciliation with CDN access logs |
 | **Resource catalog** | **Rebuildable** | Rebuild from RSL + provider config | In-memory for speed |
-| **ramp.json cache** | **Ephemeral** | Re-fetch from provider domain | Short TTL |
+| **fora.json cache** | **Ephemeral** | Re-fetch from provider domain | Short TTL |
 | **Per-period spend ledger** | **Durable** | Must survive Broker restart | Budget enforcement across sessions |
 | **Session budget state** | **Ephemeral** | Lost on Broker restart | Per-session scratch (derived from ledger) |
 

@@ -24,11 +24,11 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/gen/go/ramp/v1/rampv1connect"
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
-	rampserver "github.com/RAMP-Protocol/protocol/sdk/go/connectserver"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	foraserver "github.com/FORA-Protocol/protocol/sdk/go/connectserver"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // postRaw sends bytes straight at a procedure, bypassing the Connect client, so the
@@ -61,9 +61,9 @@ func TestReadCap_OversizeBodyIsRefusedBeforeTheOriginRuns(t *testing.T) {
 	t.Parallel()
 	origin := &catalogEcho{}
 	const capBytes = 64 << 10
-	srv := mountCatalog(t, origin, rampserver.WithMaxRequestBytes(capBytes))
+	srv := mountCatalog(t, origin, foraserver.WithMaxRequestBytes(capBytes))
 
-	resp := postRaw(t, srv.URL+"/ramp.v1.CatalogService/PushResources", oversizeJSON(capBytes*2))
+	resp := postRaw(t, srv.URL+"/fora.v1.CatalogService/PushResources", oversizeJSON(capBytes*2))
 
 	// Assert the SPECIFIC refusal, not merely "not 200": an unsigned request is
 	// refused anyway, so a status check alone would pass with no cap at all.
@@ -87,11 +87,11 @@ func TestReadCap_OversizeBodyIsRefusedBeforeTheOriginRuns(t *testing.T) {
 func TestReadCap_BodyWithinTheCapStillReachesVerification(t *testing.T) {
 	t.Parallel()
 	origin := &catalogEcho{}
-	srv := mountCatalog(t, origin, rampserver.WithMaxRequestBytes(64<<10))
+	srv := mountCatalog(t, origin, foraserver.WithMaxRequestBytes(64<<10))
 
 	// Comfortably under the cap, and unsigned: it must get PAST the size gate and
 	// be refused by verification instead. Proves the cap is not refusing everything.
-	resp := postRaw(t, srv.URL+"/ramp.v1.CatalogService/PushResources", oversizeJSON(128))
+	resp := postRaw(t, srv.URL+"/fora.v1.CatalogService/PushResources", oversizeJSON(128))
 
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("under-cap unsigned push: status = %d, want 401 — it must reach verification, "+
@@ -113,8 +113,8 @@ func TestReadCap_BodyWithinTheCapStillReachesVerification(t *testing.T) {
 // refused before anything is decompressed — which is precisely what the raw bound
 // exists to cover, and why the two bounds need separate cases.
 func gzipCatalogClient(
-	t *testing.T, origin *catalogEcho, opts ...rampserver.ServerOption,
-) *rampconnect.CatalogClient {
+	t *testing.T, origin *catalogEcho, opts ...foraserver.ServerOption,
+) *foraconnect.CatalogClient {
 	t.Helper()
 	pub, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
@@ -125,13 +125,13 @@ func gzipCatalogClient(
 	if err != nil {
 		t.Fatalf("signer: %v", err)
 	}
-	srv := mountCatalog(t, origin, append([]rampserver.ServerOption{
-		rampserver.WithKeyResolver(helpers.NewStaticKeyResolver(map[string]ed25519.PublicKey{keyID: pub})),
-		rampserver.WithReplayStore(newCountingReplayStore()),
+	srv := mountCatalog(t, origin, append([]foraserver.ServerOption{
+		foraserver.WithKeyResolver(helpers.NewStaticKeyResolver(map[string]ed25519.PublicKey{keyID: pub})),
+		foraserver.WithReplayStore(newCountingReplayStore()),
 	}, opts...)...)
-	return rampconnect.NewCatalogClient(srv.URL,
-		rampconnect.WithSigner(signer),
-		rampconnect.WithClientOptions(connectrpc.WithSendGzip()))
+	return foraconnect.NewCatalogClient(srv.URL,
+		foraconnect.WithSigner(signer),
+		foraconnect.WithClientOptions(connectrpc.WithSendGzip()))
 }
 
 // inflatingPush is a CONFORMANT push — 256 entries, the wire maximum, each with a
@@ -139,18 +139,18 @@ func gzipCatalogClient(
 // large decoded. That it is conformant is the point: the cap models the cost of
 // checking a submission, not its legality, so the shape that reaches it is an
 // ordinary large batch rather than a malformed one.
-func inflatingPush() *rampv1.PushResourcesRequest {
-	req := &rampv1.PushResourcesRequest{
+func inflatingPush() *forav1.PushResourcesRequest {
+	req := &forav1.PushResourcesRequest{
 		Ver: helpers.ProtocolVersion, Exchange: "exchange.test",
 		TenantId: "tenant-1", CallerId: "publisher.test",
 	}
 	for i := 0; i < 256; i++ {
-		req.Entries = append(req.Entries, &rampv1.ResourceEntry{
+		req.Entries = append(req.Entries, &forav1.ResourceEntry{
 			Domain: "publisher.test",
 			Path:   "/" + strings.Repeat("a", 2047),
-			Terms: []*rampv1.LicenseTerm{{
-				Semantics: rampv1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
-				Pricing:   &rampv1.Pricing{Model: rampv1.PricingModel_PRICING_MODEL_FREE, Rate: "0"},
+			Terms: []*forav1.LicenseTerm{{
+				Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+				Pricing:   &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"},
 			}},
 		})
 	}
@@ -168,7 +168,7 @@ func inflatingPush() *rampv1.PushResourcesRequest {
 func TestReadCap_CompressedRequestIsRefusedOnceInflated(t *testing.T) {
 	t.Parallel()
 	origin := &catalogEcho{}
-	client := gzipCatalogClient(t, origin, rampserver.WithMaxRequestBytes(64<<10))
+	client := gzipCatalogClient(t, origin, foraserver.WithMaxRequestBytes(64<<10))
 
 	_, err := client.PushResources(context.Background(), inflatingPush())
 
@@ -189,7 +189,7 @@ func TestReadCap_CompressedRequestIsRefusedOnceInflated(t *testing.T) {
 func TestReadCap_CompressedRequestWithinBothBoundsIsApplied(t *testing.T) {
 	t.Parallel()
 	origin := &catalogEcho{}
-	client := gzipCatalogClient(t, origin, rampserver.WithMaxRequestBytes(64<<10))
+	client := gzipCatalogClient(t, origin, foraserver.WithMaxRequestBytes(64<<10))
 
 	resp, err := client.PushResources(context.Background(), validPush())
 	if err != nil {
@@ -205,16 +205,16 @@ func TestReadCap_CompressedRequestWithinBothBoundsIsApplied(t *testing.T) {
 
 func TestReadCap_DefaultIsAppliedAndNonPositiveRestoresIt(t *testing.T) {
 	t.Parallel()
-	if rampserver.DefaultMaxRequestBytes <= 0 {
-		t.Fatalf("DefaultMaxRequestBytes = %d, want a positive cap", rampserver.DefaultMaxRequestBytes)
+	if foraserver.DefaultMaxRequestBytes <= 0 {
+		t.Fatalf("DefaultMaxRequestBytes = %d, want a positive cap", foraserver.DefaultMaxRequestBytes)
 	}
 	origin := &catalogEcho{}
 	// A non-positive override must restore the default, never disable the cap:
 	// a handler reading without a bound is the state the option exists to prevent.
-	srv := mountCatalog(t, origin, rampserver.WithMaxRequestBytes(0))
+	srv := mountCatalog(t, origin, foraserver.WithMaxRequestBytes(0))
 
-	resp := postRaw(t, srv.URL+"/ramp.v1.CatalogService/PushResources",
-		oversizeJSON(rampserver.DefaultMaxRequestBytes+(1<<20)))
+	resp := postRaw(t, srv.URL+"/fora.v1.CatalogService/PushResources",
+		oversizeJSON(foraserver.DefaultMaxRequestBytes+(1<<20)))
 
 	if resp.StatusCode != http.StatusRequestEntityTooLarge {
 		t.Fatalf("WithMaxRequestBytes(0): status = %d, want 413 — a non-positive value must "+
@@ -230,23 +230,23 @@ func TestReadCap_DefaultIsAppliedAndNonPositiveRestoresIt(t *testing.T) {
 func TestReadCap_AppliesToEveryHandlerBinding(t *testing.T) {
 	t.Parallel()
 	const capBytes = 32 << 10
-	opt := rampserver.WithMaxRequestBytes(capBytes)
+	opt := foraserver.WithMaxRequestBytes(capBytes)
 
-	exchangePath, exchangeHandler := rampserver.NewExchangeServiceHandler(
-		rampv1connect.UnimplementedExchangeServiceHandler{}, opt)
-	brokerPath, brokerHandler := rampserver.NewBrokerServiceHandler(
-		rampv1connect.UnimplementedBrokerServiceHandler{}, opt)
-	catalogPath, catalogHandler := rampserver.NewCatalogServiceHandler(
-		rampv1connect.UnimplementedCatalogServiceHandler{}, opt)
+	exchangePath, exchangeHandler := foraserver.NewExchangeServiceHandler(
+		forav1connect.UnimplementedExchangeServiceHandler{}, opt)
+	brokerPath, brokerHandler := foraserver.NewBrokerServiceHandler(
+		forav1connect.UnimplementedBrokerServiceHandler{}, opt)
+	catalogPath, catalogHandler := foraserver.NewCatalogServiceHandler(
+		forav1connect.UnimplementedCatalogServiceHandler{}, opt)
 
 	for _, tc := range []struct {
 		name, procedure string
 		mountPath       string
 		handler         http.Handler
 	}{
-		{"exchange", "/ramp.v1.ExchangeService/DiscoverResources", exchangePath, exchangeHandler},
-		{"broker", "/ramp.v1.BrokerService/DiscoverResources", brokerPath, brokerHandler},
-		{"catalog", "/ramp.v1.CatalogService/PushResources", catalogPath, catalogHandler},
+		{"exchange", "/fora.v1.ExchangeService/DiscoverResources", exchangePath, exchangeHandler},
+		{"broker", "/fora.v1.BrokerService/DiscoverResources", brokerPath, brokerHandler},
+		{"catalog", "/fora.v1.CatalogService/PushResources", catalogPath, catalogHandler},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

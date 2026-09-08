@@ -15,7 +15,7 @@ import (
 // sign→verify round-trip and what keeps this SDK byte-identical with the
 // service-internal implementation it relocates (ADR-020 §8).
 //
-// Coverage is the RAMP-required set: @method and @target-uri (bind the verb and
+// Coverage is the FORA-required set: @method and @target-uri (bind the verb and
 // destination so a signature cannot be replayed against another path),
 // content-digest (bind the body), and authorization (bind the bearer so a token
 // cannot be swapped under a signed envelope). x-entitlement-token is
@@ -125,7 +125,7 @@ func ContentDigest(body []byte) string {
 	return "sha-256=:" + base64.StdEncoding.EncodeToString(sum[:]) + ":"
 }
 
-// coveredFor returns the covered-component set for a request: the RAMP minimum
+// coveredFor returns the covered-component set for a request: the FORA minimum
 // plus the entitlement-token header when it is populated on req. All names are
 // lowercase so the rendered byte output is preserved.
 func coveredFor(req *http.Request) []CoveredComponent {
@@ -139,12 +139,12 @@ func coveredFor(req *http.Request) []CoveredComponent {
 	return plainComponents(names...)
 }
 
-// rampChainCoveredComponents returns the covered set for an appended signature
+// foraChainCoveredComponents returns the covered set for an appended signature
 // (sigN, N>1): the base set plus a forwarding-chain link
 // "signature";key="<prevLabel>" so sigN cryptographically commits to its
 // predecessor (RFC 9421 §2.4). When hasPrev is false it degrades to the
 // plain base set — identical to a sig1 covered set.
-func rampChainCoveredComponents(req *http.Request, prevLabel string, hasPrev bool) []CoveredComponent {
+func foraChainCoveredComponents(req *http.Request, prevLabel string, hasPrev bool) []CoveredComponent {
 	covered := coveredFor(req)
 	if hasPrev {
 		covered = append(covered, CoveredComponent{

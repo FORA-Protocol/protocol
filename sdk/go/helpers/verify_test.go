@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 const (
@@ -42,7 +42,7 @@ func signResolvedFixture(t *testing.T, body []byte, keyID, signatureAgent string
 		t.Fatal(err)
 	}
 	req, err := http.NewRequest(http.MethodPost,
-		"https://exchange.example/ramp.v1.ExchangeService/Execute", strings.NewReader(string(body)))
+		"https://exchange.example/fora.v1.ExchangeService/Execute", strings.NewReader(string(body)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func signFixture(t *testing.T, body []byte, mutate func(*http.Request)) (*http.R
 	if err != nil {
 		t.Fatal(err)
 	}
-	req, err := http.NewRequest(http.MethodPost, "https://exchange.example/ramp.v1.ExchangeService/Execute", strings.NewReader(string(body)))
+	req, err := http.NewRequest(http.MethodPost, "https://exchange.example/fora.v1.ExchangeService/Execute", strings.NewReader(string(body)))
 	if err != nil {
 		t.Fatal(err)
 	}

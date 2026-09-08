@@ -1,9 +1,9 @@
-// Package helpers is the RAMP SDK low-tier L1: stateless protocol helpers
-// built directly on the L0 generated wire types (github.com/RAMP-Protocol/protocol/gen/go).
+// Package helpers is the FORA SDK low-tier L1: stateless protocol helpers
+// built directly on the L0 generated wire types (github.com/FORA-Protocol/protocol/gen/go).
 //
 // # Layering (ADR-020)
 //
-//	L0  generated wire types          gen/go/ramp/v1, gen/go/vocab/*   (consumed, never rebuilt)
+//	L0  generated wire types          gen/go/fora/v1, gen/go/vocab/*   (consumed, never rebuilt)
 //	L1  stateless protocol helpers    THIS PACKAGE                     (no IO, no state, no transport)
 //	L2  transport-neutral core + Connect bindings  sdk/go/core; sdk/go/connect (client), sdk/go/connectserver (server)  (state injected)
 //	L3  framework adapters            separate packages                (convert, never replace)
@@ -27,7 +27,7 @@
 // safe to share across goroutines and trivial to unit-test, and it is the same
 // code the Broker, Exchange, MCP shim, Edge, and external implementors all build
 // on. This package is a relocation of the previously service-internal helpers
-// (internal/httpsig, internal/rampthumbprint, internal/rampwellknown,
+// (internal/httpsig, internal/forathumbprint, internal/forawellknown,
 // src/exchange/internal/signing), made into one reusable surface — the crypto is
 // kept byte-identical across the move (ADR-020 §8).
 package helpers

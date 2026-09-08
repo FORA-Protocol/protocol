@@ -1,6 +1,6 @@
 """The installable TypeScript surface — is a declared module actually reachable?
 
-This repo carries TWO manifests, both named ``@ramp-protocol/sdk-l1``:
+This repo carries TWO manifests, both named ``@fora-protocol/sdk-l1``:
 
 * ``sdk/ts/package.json`` — the development-time map, and what the symbol-level
   parity gate reads.

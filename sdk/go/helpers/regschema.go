@@ -17,12 +17,12 @@ import (
 
 	"google.golang.org/protobuf/types/known/structpb"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 // Safe validation of a published registration schema.
 //
-// An Exchange MAY publish AccountRegistration.data_schema in its ramp.json: a JSON
+// An Exchange MAY publish AccountRegistration.data_schema in its fora.json: a JSON
 // Schema describing the RegisterRequest.registration_data it expects. Two parties
 // read that schema and MUST agree — the Exchange enforcing it on the way in, and a
 // client pre-checking a payload before it signs and sends one. A payload that
@@ -78,7 +78,7 @@ import (
 // it sits in the IO-free tier and can run before any network or database is touched.
 
 // MaxRegistrationSchemaBytes is the published schema's size cap, measured as the
-// UTF-8 bytes of the data_schema member AS SERVED in ramp.json — which is why the
+// UTF-8 bytes of the data_schema member AS SERVED in fora.json — which is why the
 // compile face takes raw bytes rather than a decoded document. A re-encoding is a
 // different length than what the origin sent, and the cap is defined over what the
 // origin sent.
@@ -300,7 +300,7 @@ type RegistrationSchema struct {
 // and compiles it.
 //
 // raw is the schema AS SERVED — the exact UTF-8 bytes of the data_schema member in
-// ramp.json — because MaxRegistrationSchemaBytes is defined over those bytes.
+// fora.json — because MaxRegistrationSchemaBytes is defined over those bytes.
 //
 // The schema is non-nil only on SchemaAccepted. There is no error return: every way
 // this can fail is a property of the schema, and both callers need to know WHICH,
@@ -345,7 +345,7 @@ func CompileRegistrationSchema(raw []byte) (*RegistrationSchema, SchemaVerdict) 
 	// Refusing is the side that keeps MaxRegistrationSchemaBytes honest — a stripped
 	// mark would make the cap count three bytes that the schema does not contain. It
 	// also cannot legitimately occur on the wire: a mark is only valid at the start of
-	// a JSON text, and data_schema is a member INSIDE ramp.json.
+	// a JSON text, and data_schema is a member INSIDE fora.json.
 	if !utf8.Valid(raw) {
 		return nil, SchemaMalformed
 	}
@@ -394,7 +394,7 @@ func CompileRegistrationSchema(raw []byte) (*RegistrationSchema, SchemaVerdict) 
 	// format / contentEncoding / contentMediaType stay ANNOTATIONS, never assertions.
 	// The three languages' libraries default differently, so leaving this to a
 	// default would make the same document conform in one SDK and not in another.
-	const schemaURL = "ramp:registration-data-schema"
+	const schemaURL = "fora:registration-data-schema"
 	if err := c.AddResource(schemaURL, doc); err != nil {
 		return nil, SchemaUncompilable
 	}
@@ -473,7 +473,7 @@ func compileWithin(c *jsonschema.Compiler, url string, budget time.Duration) (*j
 // an Exchange, which must treat any verdict other than SchemaAccepted or
 // SchemaNotPublished as a misconfiguration of its own deployment. The verdict is the
 // only thing that separates the two, so an Exchange must not discard it.
-func (s *RegistrationSchema) Validate(data map[string]any) []*rampv1.RegistrationFieldError {
+func (s *RegistrationSchema) Validate(data map[string]any) []*forav1.RegistrationFieldError {
 	if s == nil || s.sch == nil {
 		return nil
 	}
@@ -487,9 +487,9 @@ func (s *RegistrationSchema) Validate(data map[string]any) []*rampv1.Registratio
 	if len(vs) == 0 {
 		return nil
 	}
-	out := make([]*rampv1.RegistrationFieldError, 0, len(vs))
+	out := make([]*forav1.RegistrationFieldError, 0, len(vs))
 	for _, v := range vs {
-		out = append(out, &rampv1.RegistrationFieldError{
+		out = append(out, &forav1.RegistrationFieldError{
 			Path:  v.Path,
 			Error: clampText(v.Text),
 		})

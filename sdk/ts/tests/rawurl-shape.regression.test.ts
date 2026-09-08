@@ -109,7 +109,7 @@ describe("GET-PoP verify accepts a Fastly-like URL-like object (verbatim @target
     const sig = new Uint8Array(await crypto.subtle.sign("Ed25519", priv, utf8Bytes(base)));
 
     const headers = new Headers();
-    headers.set("x-ramp-agent-key", encodeBase64Url(pubRaw));
+    headers.set("x-fora-agent-key", encodeBase64Url(pubRaw));
     headers.set("signature-input", `sig1=${rawParams}`);
     headers.set("signature", `sig1=:${encodeBase64Url(sig)}:`);
 

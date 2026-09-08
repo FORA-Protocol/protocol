@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // Ported from the v2 internal/httpsig/append_test.go behavioral spec, re-expressed
@@ -46,7 +46,7 @@ func TestAppendSignature_EmptyHeaders(t *testing.T) {
 	ctx := context.Background()
 	signer, pub := mustSigner(t, "agent.test")
 	body := []byte(`{"hello":"world"}`)
-	req := appendReq(t, "https://broker.example/ramp.v1.BrokerService/Resolve", body, "Bearer token123")
+	req := appendReq(t, "https://broker.example/fora.v1.BrokerService/Resolve", body, "Bearer token123")
 
 	now := time.Unix(1700000000, 0)
 	opts := helpers.SignOptions{Created: now.Unix(), Expires: now.Add(100 * time.Second).Unix()}
@@ -92,11 +92,11 @@ func TestAppendSignature_ByteIdenticalToSignRequest(t *testing.T) {
 	now := time.Unix(1700000000, 0)
 	opts := helpers.SignOptions{Created: now.Unix(), Expires: now.Add(100 * time.Second).Unix()}
 
-	reqSign := appendReq(t, "https://broker.example/ramp.v1.BrokerService/Resolve", body, "Bearer t")
+	reqSign := appendReq(t, "https://broker.example/fora.v1.BrokerService/Resolve", body, "Bearer t")
 	if err := helpers.SignRequest(ctx, reqSign, body, signerA, opts); err != nil {
 		t.Fatalf("SignRequest: %v", err)
 	}
-	reqAppend := appendReq(t, "https://broker.example/ramp.v1.BrokerService/Resolve", body, "Bearer t")
+	reqAppend := appendReq(t, "https://broker.example/fora.v1.BrokerService/Resolve", body, "Bearer t")
 	if err := helpers.AppendSignature(ctx, reqAppend, body, signerB, opts); err != nil {
 		t.Fatalf("AppendSignature: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestAppendSignature_ExistingSig1(t *testing.T) {
 	agentSigner, agentPub := mustSigner(t, "agent.test")
 	brokerSigner, brokerPub := mustSigner(t, helpers.BrokerKeyIDPrefix+"test")
 	body := []byte(`{"url":"https://publisher.example/content"}`)
-	req := appendReq(t, "https://broker.example/ramp.v1.BrokerService/Resolve", body, "Bearer agent-token")
+	req := appendReq(t, "https://broker.example/fora.v1.BrokerService/Resolve", body, "Bearer agent-token")
 
 	now := time.Unix(1700000000, 0)
 	opts := helpers.SignOptions{Created: now.Unix(), Expires: now.Add(100 * time.Second).Unix()}
@@ -154,7 +154,7 @@ func TestAppendSignature_TwiceAppends(t *testing.T) {
 	s2, p2 := mustSigner(t, helpers.BrokerKeyIDPrefix+"signer2")
 	s3, p3 := mustSigner(t, helpers.BrokerKeyIDPrefix+"signer3")
 	body := []byte(`{"relay":"chain"}`)
-	req := appendReq(t, "https://exchange.example/ramp.v1.ExchangeService/CreateOffer", body, "")
+	req := appendReq(t, "https://exchange.example/fora.v1.ExchangeService/CreateOffer", body, "")
 
 	now := time.Unix(1700000000, 0)
 	mk := func(d int64) helpers.SignOptions {
@@ -197,7 +197,7 @@ func TestAppendSignature_PreservesExistingHeaders(t *testing.T) {
 	s1, p1 := mustSigner(t, "first.test")
 	s2, _ := mustSigner(t, helpers.BrokerKeyIDPrefix+"second")
 	body := []byte(`{"test":"preserve"}`)
-	req := appendReq(t, "https://broker.example/ramp.v1.BrokerService/Resolve", body, "Bearer original-token")
+	req := appendReq(t, "https://broker.example/fora.v1.BrokerService/Resolve", body, "Bearer original-token")
 
 	now := time.Unix(1700000000, 0)
 	opts := helpers.SignOptions{Created: now.Unix(), Expires: now.Add(100 * time.Second).Unix()}

@@ -23,7 +23,7 @@ package helpers
 //
 // Like TestGenerateVectors this test is a verification no-op by default (it
 // asserts the committed file matches a fresh emit) and (re)writes under
-// RAMP_UPDATE_VECTORS=1 — the emitter is both generator and drift gate. It is
+// FORA_UPDATE_VECTORS=1 — the emitter is both generator and drift gate. It is
 // TEST INFRASTRUCTURE, not the code under test.
 
 import (
@@ -286,7 +286,7 @@ func buildAudienceVectors(t *testing.T) []audienceVector {
 
 // TestGenerateAudienceVectors emits the audience golden corpus (the bare-domain
 // shape and the audience check). Verification no-op by default, (re)writes under
-// RAMP_UPDATE_VECTORS=1.
+// FORA_UPDATE_VECTORS=1.
 func TestGenerateAudienceVectors(t *testing.T) {
 	doc := map[string]any{
 		"bare_domain_pattern": BareDomainPattern,
@@ -295,7 +295,7 @@ func TestGenerateAudienceVectors(t *testing.T) {
 		"audience":            buildAudienceVectors(t),
 	}
 	path := filepath.Join("testdata", "audience-vectors.json")
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		writeJSON(t, path, doc)
 		return
 	}

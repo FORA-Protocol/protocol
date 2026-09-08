@@ -20,8 +20,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/hostredact"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/hostredact"
 )
 
 // Vet reports whether endpoint may be used for host — the host that served the

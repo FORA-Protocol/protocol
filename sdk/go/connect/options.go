@@ -9,10 +9,10 @@ import (
 	connectrpc "connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
-	"github.com/RAMP-Protocol/protocol/sdk/go/resolvers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
 // clientConfig is the resolved set of injected holders a Client is built from.
@@ -29,7 +29,7 @@ type clientConfig struct {
 	requestID     core.RequestIDFunc
 	extra         []connectrpc.Interceptor
 
-	requester      *rampv1.Requester
+	requester      *forav1.Requester
 	agentKey       ed25519.PublicKey
 	proofWindow    core.Window
 	signWindow     core.Window
@@ -114,13 +114,13 @@ func WithInterceptors(is ...connectrpc.Interceptor) ClientOption {
 //
 // The message is cloned here, so a later mutation by the caller cannot reach a
 // request already in flight.
-func WithRequester(r *rampv1.Requester) ClientOption {
+func WithRequester(r *forav1.Requester) ClientOption {
 	return func(c *clientConfig) {
 		if r == nil {
 			c.requester = nil
 			return
 		}
-		cloned, ok := proto.Clone(r).(*rampv1.Requester)
+		cloned, ok := proto.Clone(r).(*forav1.Requester)
 		if !ok {
 			// Unreachable for a concrete message, but the fallback must be
 			// nil rather than whatever was configured before: keeping a stale

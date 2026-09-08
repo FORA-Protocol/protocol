@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from conftest import GO_TESTDATA, load_json
-from ramp_sdk.core import (
+from fora_sdk.core import (
     jcs_request_acceptance_payload,
     sign_request_acceptance_jcs,
     verify_request_acceptance_jcs,

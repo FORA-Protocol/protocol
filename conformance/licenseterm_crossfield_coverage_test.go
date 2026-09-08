@@ -124,7 +124,7 @@ func TestEveryReachableCrossFieldRuleHasAnEntryVector(t *testing.T) {
 			"A port walks to each of these messages by hand. Without a vector that makes one of them "+
 			"the entry's ONLY violation, a walk that stops reaching that message keeps every suite "+
 			"green. Add a case to buildLTEntryVectors carrying exactly this one violation and "+
-			"regenerate with RAMP_UPDATE_VECTORS=1.",
+			"regenerate with FORA_UPDATE_VECTORS=1.",
 			len(missing), entryReachableRoot, strings.Join(missing, "\n  "))
 	}
 

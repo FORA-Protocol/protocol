@@ -144,9 +144,9 @@ jobs:
       # Go-signed vectors + shared crossfield corpus, PLUS the L2 core + the outbound
       # sign face (offer-verify over JCS, VerifiedOffer guard, acceptance JCS
       # re-pin, SigningTransport). Consumes the generated Pydantic types from
-      # gen/python (PYTHONPATH) + sdk/python on the path so ramp_sdk.core /
-      # ramp_sdk.signing_transport resolve. rfc8785 = the vetted JCS lib the core
-      # composes; jsonschema = the vetted draft 2020-12 engine ramp_sdk.regschema runs
+      # gen/python (PYTHONPATH) + sdk/python on the path so fora_sdk.core /
+      # fora_sdk.signing_transport resolve. rfc8785 = the vetted JCS lib the core
+      # composes; jsonschema = the vetted draft 2020-12 engine fora_sdk.regschema runs
       # over an Exchange-published registration schema.
       - name: Python L1 + L2 core parity
         run: |

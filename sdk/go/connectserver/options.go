@@ -7,13 +7,13 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // replayTTL is the default window a nonce is remembered when the app does not set
-// one. It matches the RAMP RFC 9421 replay-window target (5 minutes); the app
+// one. It matches the FORA RFC 9421 replay-window target (5 minutes); the app
 // overrides it via WithReplayTTL, and owns the store itself.
 const replayTTL = 5 * time.Minute
 
@@ -84,7 +84,7 @@ type serverConfig struct {
 	maxSignatures   int
 	maxSignatureAge time.Duration
 	allowNoReplay   bool
-	validation      rampconnect.Validation
+	validation      foraconnect.Validation
 	requestID       core.RequestIDFunc
 	extra           []connectrpc.Interceptor
 	handlerOpts     []connectrpc.HandlerOption
@@ -170,7 +170,7 @@ func WithMaxRequestBytes(n int64) ServerOption {
 // shape it arrived in. ValidationOff is also the enum's ZERO VALUE, so a mount that
 // never names this option and one that explicitly opts out are the same request.
 // A deployment that wants the wire tier passes ValidationStrict on every mount.
-func WithValidation(v rampconnect.Validation) ServerOption {
+func WithValidation(v foraconnect.Validation) ServerOption {
 	return func(c *serverConfig) { c.validation = v }
 }
 
@@ -196,7 +196,7 @@ func WithHandlerOptions(opts ...connectrpc.HandlerOption) ServerOption {
 }
 
 // WithVerifyGate overrides which requests the seam verifies. The DEFAULT gates
-// every /ramp. procedure unconditionally (fail-closed). A service whose
+// every /fora. procedure unconditionally (fail-closed). A service whose
 // handlers own the typed Unauthenticated fault for UNSIGNED requests narrows
 // the gate to signature-presenting requests only:
 //
@@ -206,7 +206,7 @@ func WithHandlerOptions(opts ...connectrpc.HandlerOption) ServerOption {
 //
 // A request the gate declines is NOT rejected — it flows to the origin handler
 // unverified (helpers.FromContext returns nil there), so the handler decides.
-// The gate composes with the /ramp. procedure check; it cannot widen the seam
+// The gate composes with the /fora. procedure check; it cannot widen the seam
 // to non-procedure paths.
 func WithVerifyGate(gate func(*http.Request) bool) ServerOption {
 	return func(c *serverConfig) { c.verifyGate = gate }

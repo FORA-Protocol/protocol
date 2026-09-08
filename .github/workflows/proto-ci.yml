@@ -6,7 +6,7 @@ name: proto-ci
 #   - go build / vet / test the generated packages + tooling (incl. the
 #     conformance suite: protovalidate CEL evaluation + doc-example validation)
 # The regenerate-and-diff step is the load-bearing one: it fails the build if
-# committed `gen/` (Go + TS SDKs and the rampvocab constant packages) does not
+# committed `gen/` (Go + TS SDKs and the foravocab constant packages) does not
 # match a clean `buf generate` from the proto + plugin — i.e. someone changed
 # the proto/plugin without committing regenerated output, or hand-edited `gen/`.
 
@@ -44,4 +44,4 @@ jobs:
       - name: gating sequence (scripts/ci-local.sh)
         # sdk-types-ci.yml owns the Pydantic/Zod gate (path-filtered), so skip it here
         # and keep this job the proto mirror. Locally ci-local.sh runs both.
-        run: RAMP_CI_SKIP_SDK_TYPES=1 ./scripts/ci-local.sh
+        run: FORA_CI_SKIP_SDK_TYPES=1 ./scripts/ci-local.sh

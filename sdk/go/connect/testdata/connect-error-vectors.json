@@ -1,5 +1,5 @@
 {
-  "note": "Connect JSON error envelopes captured from a real connect-go handler. details[].debug is lowerCamelCase — connect-go builds it with its own protojson codec at default options, which no server codec replaces — while every RAMP message body is snake_case. details[].value is the base64 binary Any, which the JSON-only SDKs deliberately cannot open.",
+  "note": "Connect JSON error envelopes captured from a real connect-go handler. details[].debug is lowerCamelCase — connect-go builds it with its own protojson codec at default options, which no server codec replaces — while every FORA message body is snake_case. details[].value is the base64 binary Any, which the JSON-only SDKs deliberately cannot open.",
   "vectors": [
     {
       "name": "transaction_denial_insufficient_balance",
@@ -10,21 +10,21 @@
         "details": [
           {
             "debug": {
-              "domain": "ramp.v1.ExchangeService",
+              "domain": "fora.v1.ExchangeService",
               "message": "balance too low",
               "transactionDenial": {
                 "reason": "DENIAL_REASON_INSUFFICIENT_BALANCE"
               }
             },
-            "type": "ramp.v1.ErrorDetail",
-            "value": "Cg9iYWxhbmNlIHRvbyBsb3cSF3JhbXAudjEuRXhjaGFuZ2VTZXJ2aWNlUgIIAg"
+            "type": "fora.v1.ErrorDetail",
+            "value": "Cg9iYWxhbmNlIHRvbyBsb3cSF2ZvcmEudjEuRXhjaGFuZ2VTZXJ2aWNlUgIIAg"
           }
         ],
         "message": "balance too low"
       },
       "expect": {
         "has_detail": true,
-        "domain": "ramp.v1.ExchangeService",
+        "domain": "fora.v1.ExchangeService",
         "message": "balance too low",
         "metadata": null,
         "reason_field": "transaction_denial",
@@ -40,21 +40,21 @@
         "details": [
           {
             "debug": {
-              "domain": "ramp.v1.Edge",
+              "domain": "fora.v1.Edge",
               "message": "signed URL expired",
               "retrievalAuthFailure": {
                 "reason": "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED"
               }
             },
-            "type": "ramp.v1.ErrorDetail",
-            "value": "ChJzaWduZWQgVVJMIGV4cGlyZWQSDHJhbXAudjEuRWRnZXoCCAE"
+            "type": "fora.v1.ErrorDetail",
+            "value": "ChJzaWduZWQgVVJMIGV4cGlyZWQSDGZvcmEudjEuRWRnZXoCCAE"
           }
         ],
         "message": "signed URL expired"
       },
       "expect": {
         "has_detail": true,
-        "domain": "ramp.v1.Edge",
+        "domain": "fora.v1.Edge",
         "message": "signed URL expired",
         "metadata": null,
         "reason_field": "retrieval_auth_failure",
@@ -70,7 +70,7 @@
         "details": [
           {
             "debug": {
-              "domain": "ramp.v1.ExchangeService",
+              "domain": "fora.v1.ExchangeService",
               "message": "registration data rejected",
               "registrationFailure": {
                 "fieldErrors": [
@@ -82,15 +82,15 @@
                 "reason": "REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA"
               }
             },
-            "type": "ramp.v1.ErrorDetail",
-            "value": "ChpyZWdpc3RyYXRpb24gZGF0YSByZWplY3RlZBIXcmFtcC52MS5FeGNoYW5nZVNlcnZpY2ViOAgGEjQKFC9vcGVyYXRvci9sZWdhbF9uYW1lEhxyZXF1aXJlZCBwcm9wZXJ0eSBpcyBtaXNzaW5n"
+            "type": "fora.v1.ErrorDetail",
+            "value": "ChpyZWdpc3RyYXRpb24gZGF0YSByZWplY3RlZBIXZm9yYS52MS5FeGNoYW5nZVNlcnZpY2ViOAgGEjQKFC9vcGVyYXRvci9sZWdhbF9uYW1lEhxyZXF1aXJlZCBwcm9wZXJ0eSBpcyBtaXNzaW5n"
           }
         ],
         "message": "registration data rejected"
       },
       "expect": {
         "has_detail": true,
-        "domain": "ramp.v1.ExchangeService",
+        "domain": "fora.v1.ExchangeService",
         "message": "registration data rejected",
         "metadata": null,
         "reason_field": "registration_failure",
@@ -106,21 +106,21 @@
         "details": [
           {
             "debug": {
-              "domain": "ramp.v1.ExchangeService",
+              "domain": "fora.v1.ExchangeService",
               "message": "no such transaction",
               "usageReportRejection": {
                 "reason": "USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND"
               }
             },
-            "type": "ramp.v1.ErrorDetail",
-            "value": "ChNubyBzdWNoIHRyYW5zYWN0aW9uEhdyYW1wLnYxLkV4Y2hhbmdlU2VydmljZYIBAggB"
+            "type": "fora.v1.ErrorDetail",
+            "value": "ChNubyBzdWNoIHRyYW5zYWN0aW9uEhdmb3JhLnYxLkV4Y2hhbmdlU2VydmljZYIBAggB"
           }
         ],
         "message": "no such transaction"
       },
       "expect": {
         "has_detail": true,
-        "domain": "ramp.v1.ExchangeService",
+        "domain": "fora.v1.ExchangeService",
         "message": "no such transaction",
         "metadata": null,
         "reason_field": "usage_report_rejection",
@@ -139,18 +139,18 @@
               "disputeFailure": {
                 "reason": "DISPUTE_FAILURE_REASON_WINDOW_EXPIRED"
               },
-              "domain": "ramp.v1.ExchangeService",
+              "domain": "fora.v1.ExchangeService",
               "message": "dispute window closed"
             },
-            "type": "ramp.v1.ErrorDetail",
-            "value": "ChVkaXNwdXRlIHdpbmRvdyBjbG9zZWQSF3JhbXAudjEuRXhjaGFuZ2VTZXJ2aWNlagIIAw"
+            "type": "fora.v1.ErrorDetail",
+            "value": "ChVkaXNwdXRlIHdpbmRvdyBjbG9zZWQSF2ZvcmEudjEuRXhjaGFuZ2VTZXJ2aWNlagIIAw"
           }
         ],
         "message": "dispute window closed"
       },
       "expect": {
         "has_detail": true,
-        "domain": "ramp.v1.ExchangeService",
+        "domain": "fora.v1.ExchangeService",
         "message": "dispute window closed",
         "metadata": null,
         "reason_field": "dispute_failure",
@@ -169,18 +169,18 @@
               "catalogRejection": {
                 "reason": "CATALOG_REJECTION_REASON_MALFORMED_ENTRY"
               },
-              "domain": "ramp.v1.CatalogService",
+              "domain": "fora.v1.CatalogService",
               "message": "entry rejected"
             },
-            "type": "ramp.v1.ErrorDetail",
-            "value": "Cg5lbnRyeSByZWplY3RlZBIWcmFtcC52MS5DYXRhbG9nU2VydmljZVoCCAU"
+            "type": "fora.v1.ErrorDetail",
+            "value": "Cg5lbnRyeSByZWplY3RlZBIWZm9yYS52MS5DYXRhbG9nU2VydmljZVoCCAU"
           }
         ],
         "message": "entry rejected"
       },
       "expect": {
         "has_detail": true,
-        "domain": "ramp.v1.CatalogService",
+        "domain": "fora.v1.CatalogService",
         "message": "entry rejected",
         "metadata": null,
         "reason_field": "catalog_rejection",
@@ -196,21 +196,21 @@
         "details": [
           {
             "debug": {
-              "domain": "ramp.v1.ExchangeService",
+              "domain": "fora.v1.ExchangeService",
               "domainVerificationFailure": {
                 "reason": "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_NOT_FOUND"
               },
               "message": "challenge not found"
             },
-            "type": "ramp.v1.ErrorDetail",
-            "value": "ChNjaGFsbGVuZ2Ugbm90IGZvdW5kEhdyYW1wLnYxLkV4Y2hhbmdlU2VydmljZXICCAE"
+            "type": "fora.v1.ErrorDetail",
+            "value": "ChNjaGFsbGVuZ2Ugbm90IGZvdW5kEhdmb3JhLnYxLkV4Y2hhbmdlU2VydmljZXICCAE"
           }
         ],
         "message": "challenge not found"
       },
       "expect": {
         "has_detail": true,
-        "domain": "ramp.v1.ExchangeService",
+        "domain": "fora.v1.ExchangeService",
         "message": "challenge not found",
         "metadata": null,
         "reason_field": "domain_verification_failure",
@@ -226,18 +226,18 @@
         "details": [
           {
             "debug": {
-              "domain": "ramp.v1.ExchangeService",
+              "domain": "fora.v1.ExchangeService",
               "message": "internal error"
             },
-            "type": "ramp.v1.ErrorDetail",
-            "value": "Cg5pbnRlcm5hbCBlcnJvchIXcmFtcC52MS5FeGNoYW5nZVNlcnZpY2U"
+            "type": "fora.v1.ErrorDetail",
+            "value": "Cg5pbnRlcm5hbCBlcnJvchIXZm9yYS52MS5FeGNoYW5nZVNlcnZpY2U"
           }
         ],
         "message": "internal error"
       },
       "expect": {
         "has_detail": true,
-        "domain": "ramp.v1.ExchangeService",
+        "domain": "fora.v1.ExchangeService",
         "message": "internal error",
         "metadata": null,
         "reason_field": "",
@@ -253,7 +253,7 @@
         "details": [
           {
             "debug": {
-              "domain": "ramp.v1.ExchangeService",
+              "domain": "fora.v1.ExchangeService",
               "message": "slow down",
               "metadata": {
                 "retryAfterSeconds": "30"
@@ -262,15 +262,15 @@
                 "reason": "DENIAL_REASON_RATE_LIMITED"
               }
             },
-            "type": "ramp.v1.ErrorDetail",
-            "value": "CglzbG93IGRvd24SF3JhbXAudjEuRXhjaGFuZ2VTZXJ2aWNlGhcKEXJldHJ5QWZ0ZXJTZWNvbmRzEgIzMFICCAM"
+            "type": "fora.v1.ErrorDetail",
+            "value": "CglzbG93IGRvd24SF2ZvcmEudjEuRXhjaGFuZ2VTZXJ2aWNlGhcKEXJldHJ5QWZ0ZXJTZWNvbmRzEgIzMFICCAM"
           }
         ],
         "message": "slow down"
       },
       "expect": {
         "has_detail": true,
-        "domain": "ramp.v1.ExchangeService",
+        "domain": "fora.v1.ExchangeService",
         "message": "slow down",
         "metadata": {
           "retryAfterSeconds": "30"

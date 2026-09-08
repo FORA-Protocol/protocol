@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // ---------------------------------------------------------------------------
@@ -102,14 +102,14 @@ func TestWithWindow_InjectsCreatedExpiresIntoSignatureInput(t *testing.T) {
 		core.WithWindow(fixedWindow(wantCreated, wantExpires)),
 	)
 
-	req := bodiedRequest(t, "/ramp.exchange.v1.ExchangeService/DiscoverResources")
+	req := bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")
 	if _, err := tr.RoundTrip(req); err != nil {
 		t.Fatalf("RoundTrip: %v", err)
 	}
 
 	sigInput := cap.req.Header.Get("Signature-Input")
 	if sigInput == "" {
-		t.Fatal("Signature-Input must be present on a signed /ramp.* request")
+		t.Fatal("Signature-Input must be present on a signed /fora.* request")
 	}
 	wantC := `created=1700000000`
 	wantE := `expires=1700000300`
@@ -134,7 +134,7 @@ func TestWithAppendSigner_AppendsSigOnPreSignedRequest(t *testing.T) {
 	cap := &captureTransport{}
 	tr := core.NewSigningTransport(testSigner(t), cap, core.WithAppendSigner())
 
-	req := bodiedRequest(t, "/ramp.exchange.v1.ExchangeService/DiscoverResources")
+	req := bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")
 	// Pre-stamp a synthetic sig1 to simulate a relayed request.
 	req.Header.Set("Signature-Input", `sig1=("@method" "@target-uri");created=1700000000`)
 	req.Header.Set("Signature", `sig1=:AAAA:`)
@@ -165,7 +165,7 @@ func TestWithAppendSigner_AppendsSigOnFreshRequest(t *testing.T) {
 	cap := &captureTransport{}
 	tr := core.NewSigningTransport(testSigner(t), cap, core.WithAppendSigner())
 
-	req := bodiedRequest(t, "/ramp.exchange.v1.ExchangeService/DiscoverResources")
+	req := bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")
 	if _, err := tr.RoundTrip(req); err != nil {
 		t.Fatalf("RoundTrip: %v", err)
 	}
@@ -189,7 +189,7 @@ func TestWithSignatureAgent_SetsHeaderWhenAbsent(t *testing.T) {
 	const dir = "https://broker.example.com"
 	tr := core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent(dir))
 
-	req := bodiedRequest(t, "/ramp.exchange.v1.ExchangeService/DiscoverResources")
+	req := bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")
 	if _, err := tr.RoundTrip(req); err != nil {
 		t.Fatalf("RoundTrip: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestWithSignatureAgent_PreservesExistingHeader(t *testing.T) {
 		core.WithSignatureAgent("https://broker.example.com"),
 	)
 
-	req := bodiedRequest(t, "/ramp.exchange.v1.ExchangeService/DiscoverResources")
+	req := bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")
 	const agentDir = "https://agent.example.com"
 	req.Header.Set("Signature-Agent", agentDir)
 
@@ -236,7 +236,7 @@ func TestWithSignPredicate_SkipsSigningWhenFalse(t *testing.T) {
 	neverSign := func(_ *http.Request) bool { return false }
 	tr := core.NewSigningTransport(testSigner(t), cap, core.WithSignPredicate(neverSign))
 
-	req := bodiedRequest(t, "/ramp.exchange.v1.ExchangeService/DiscoverResources")
+	req := bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")
 	if _, err := tr.RoundTrip(req); err != nil {
 		t.Fatalf("RoundTrip: %v", err)
 	}
@@ -247,7 +247,7 @@ func TestWithSignPredicate_SkipsSigningWhenFalse(t *testing.T) {
 
 // TestWithSignPredicate_SignsWhenTrue pins that a transport built with
 // WithSignPredicate(alwaysSign) signs even a path that the default predicate
-// would not sign (i.e. a non-/ramp.* path).
+// would not sign (i.e. a non-/fora.* path).
 func TestWithSignPredicate_SignsWhenTrue(t *testing.T) {
 	t.Parallel()
 	cap := &captureTransport{}
@@ -276,7 +276,7 @@ func TestDefaultBehavior_SignsBodiedRequest(t *testing.T) {
 	cap := &captureTransport{}
 	tr := core.NewSigningTransport(testSigner(t), cap) // zero options
 
-	req := bodiedRequest(t, "/ramp.exchange.v1.ExchangeService/DiscoverResources")
+	req := bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")
 	if _, err := tr.RoundTrip(req); err != nil {
 		t.Fatalf("RoundTrip: %v", err)
 	}

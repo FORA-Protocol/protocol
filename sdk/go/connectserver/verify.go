@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // ErrReplayed is the verify-face sentinel for a nonce the injected ReplayStore
@@ -27,13 +27,13 @@ var ErrReplayed = errors.New("connectserver: request replayed within window")
 // handler's side effects are absent on the negative path (fail-closed).
 func verifyMiddleware(cfg serverConfig, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !isRampProcedure(r) || (cfg.verifyGate != nil && !cfg.verifyGate(r)) {
-			// The default gates every /ramp. procedure (fail-closed). An injected
+		if !isForaProcedure(r) || (cfg.verifyGate != nil && !cfg.verifyGate(r)) {
+			// The default gates every /fora. procedure (fail-closed). An injected
 			// WithVerifyGate can narrow the seam — e.g. to signature-presenting
 			// requests only, for a service whose handlers own the typed
 			// Unauthenticated fault for unsigned callers. A declined request
 			// flows to the origin handler UNVERIFIED (helpers.FromContext is nil
-			// there); the gate never widens the seam past /ramp. procedures.
+			// there); the gate never widens the seam past /fora. procedures.
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -145,18 +145,18 @@ func bufferBody(r *http.Request) ([]byte, error) {
 	return body, nil
 }
 
-// isRampProcedure reports whether r targets a RAMP Connect procedure — the signed
+// isForaProcedure reports whether r targets a FORA Connect procedure — the signed
 // surface. Health checks and well-known endpoints are intentionally left unsigned and
 // pass through unverified.
 //
-// The prefix spans EVERY ramp.* package, so it also matches the operator plane
-// (/ramp.admin.v1.AdminService/...). That plane carries no RFC 9421 request signing by
+// The prefix spans EVERY fora.* package, so it also matches the operator plane
+// (/fora.admin.v1.AdminService/...). That plane carries no RFC 9421 request signing by
 // design, and this gate is fail-closed — it denies any caller it cannot verify. Since an
 // admin request presents no signature, every admin call reaching this middleware is
 // rejected as unsigned (this is not an authz decision — the gate has no signer to verify).
-// Mount the generated rampadminv1connect handler directly, on its own internal listener,
+// Mount the generated foraadminv1connect handler directly, on its own internal listener,
 // never behind this seam (nor on a mux this middleware fronts). The SDK exports no
 // AdminService handler for exactly that reason.
-func isRampProcedure(r *http.Request) bool {
-	return r.URL != nil && strings.HasPrefix(r.URL.Path, "/ramp.")
+func isForaProcedure(r *http.Request) bool {
+	return r.URL != nil && strings.HasPrefix(r.URL.Path, "/fora.")
 }

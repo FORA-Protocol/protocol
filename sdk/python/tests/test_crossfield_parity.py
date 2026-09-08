@@ -8,14 +8,14 @@ fire for the WRONG reason. This suite asserts the reported cross-field RULE IDS,
 the direct analogue of the Go oracle's `contains(ValidationRuleIDs(err), want)`.
 
 Contract: expose
-`ramp_sdk.cross_field_rule_ids(message, json) -> list[str]`. For each corpus
+`fora_sdk.cross_field_rule_ids(message, json) -> list[str]`. For each corpus
 case in conformance/corpus/crossfield.json, assert each expected `rules[]` id
 (minus the co-emitted "required" presence rule protovalidate co-emits with
 reference_only.requires_uri) is CONTAINED in the extracted ids. To catch
 OVER-rejection, also drive >=1 VALID instance per message and assert it yields an
 EMPTY rule-id list.
 
-RED now purely because `ramp_sdk` does not exist yet (import cannot resolve →
+RED now purely because `fora_sdk` does not exist yet (import cannot resolve →
 collection error). The implement step composes the cross-field @model_validator
 layer onto the generated gen/python/wire/models.py classes, each emitting the
 stable rule-id, at which point this goes green with no change to the assertions.
@@ -35,9 +35,9 @@ from vocab.functiontokens import AI_INPUT, AI_TRAIN
 
 from conftest import CONFORMANCE_CORPUS, load_json
 
-# RED: sdk/python/ramp_sdk/crossfield.py (exposing cross_field_rule_ids) does not
+# RED: sdk/python/fora_sdk/crossfield.py (exposing cross_field_rule_ids) does not
 # exist yet (TDD red).
-from ramp_sdk import cross_field_rule_ids  # type: ignore[import-not-found]
+from fora_sdk import cross_field_rule_ids  # type: ignore[import-not-found]
 
 _CASES = load_json(CONFORMANCE_CORPUS / "crossfield.json")
 
@@ -222,7 +222,7 @@ def test_every_registered_rule_has_a_composed_model() -> None:
     failure being guarded is a MISSING model: a check that iterates over the models
     that exist can never see the one that was never created.
     """
-    from ramp_sdk import crossfield as _cf
+    from fora_sdk import crossfield as _cf
 
     composed = {n[: -len("CrossField")] for n in dir(_cf) if n.endswith("CrossField")}
     registered = set(_cf._RULES_BY_MESSAGE)  # noqa: SLF001
@@ -248,7 +248,7 @@ def test_the_composed_model_actually_refuses_a_corpus_mutant() -> None:
     """
     import pydantic
 
-    from ramp_sdk import crossfield as _cf
+    from fora_sdk import crossfield as _cf
 
     import wire.models as _wire
 

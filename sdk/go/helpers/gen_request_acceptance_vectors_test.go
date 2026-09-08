@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 type requestAcceptanceVectorItem struct {
@@ -53,12 +53,12 @@ func TestGenerateRequestAcceptanceVectors(t *testing.T) {
 	}
 	for i := range specs {
 		v := &specs[i]
-		req := &rampv1.TransactionRequest{
+		req := &forav1.TransactionRequest{
 			IdempotencyKey: v.IdempotencyKey,
-			Requester:      &rampv1.Requester{Id: v.RequesterID, Domain: v.RequesterDomain},
+			Requester:      &forav1.Requester{Id: v.RequesterID, Domain: v.RequesterDomain},
 		}
 		for _, item := range v.Items {
-			req.Items = append(req.Items, &rampv1.TransactionItem{Offer: &rampv1.Offer{
+			req.Items = append(req.Items, &forav1.TransactionItem{Offer: &forav1.Offer{
 				Signature: item.OfferSig, Exchange: item.Exchange,
 			}})
 		}
@@ -77,7 +77,7 @@ func TestGenerateRequestAcceptanceVectors(t *testing.T) {
 	}
 	doc := map[string]any{"canonicalization": "jcs", "vectors": specs}
 	path := filepath.Join("testdata", "request-acceptance-vectors.json")
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		writeJSON(t, path, doc)
 		return
 	}

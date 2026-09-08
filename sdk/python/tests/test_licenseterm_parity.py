@@ -2,7 +2,7 @@
 
 Mirrors the sdk/ts sibling sdk/ts/tests/licenseterm.parity.test.ts.
 
-``ramp_sdk.licenseterm`` MUST reproduce the sdk/go oracle. The shared vectors at
+``fora_sdk.licenseterm`` MUST reproduce the sdk/go oracle. The shared vectors at
 sdk/go/helpers/testdata/licenseterm-vectors.json carry five lists:
   - fold:      {name, kind, token, canonical}
   - normalize: {name, term, normalized}          (proto-JSON, snake_case)
@@ -21,7 +21,7 @@ from dataclasses import asdict
 import pytest
 from conftest import CONFORMANCE_CORPUS, GO_TESTDATA, load_json
 
-from ramp_sdk.licenseterm import (
+from fora_sdk.licenseterm import (
     RULE_PRICING_UNIT_REGISTERED,
     RULE_QUOTA_METRIC_REGISTERED,
     canonical_restriction_token,

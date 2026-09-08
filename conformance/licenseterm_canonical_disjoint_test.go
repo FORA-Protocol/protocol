@@ -11,7 +11,7 @@ package conformance
 // that re-listed that vocabulary would drift from it.
 //
 // So the rule exists twice — as SDK code, which is what the reference
-// implementations run, and as prose in ramp.proto, which is what a third-party
+// implementations run, and as prose in fora.proto, which is what a third-party
 // implementor reads. An implementor who read only the contract would otherwise
 // build an Exchange that stores the term this rule exists to refuse, and every
 // suite in every language would stay green. Nothing made the two agree; this
@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	rampProtoSource = "../proto/ramp/v1/ramp.proto"
+	foraProtoSource = "../proto/fora/v1/fora.proto"
 
 	// The two ids. They are deliberately different strings: one name per rule, which
 	// licenseterm_rule_ids_test.go enforces across the whole ingest-tier id set.
@@ -81,12 +81,12 @@ func messageBody(t *testing.T, src, decl string) string {
 	t.Helper()
 	start := strings.Index(src, decl)
 	if start < 0 {
-		t.Fatalf("%s: %q not found — the guard is reading the wrong file or the declaration was renamed", rampProtoSource, decl)
+		t.Fatalf("%s: %q not found — the guard is reading the wrong file or the declaration was renamed", foraProtoSource, decl)
 	}
 	rest := src[start:]
 	end := strings.Index(rest, "\n}\n")
 	if end < 0 {
-		t.Fatalf("%s: %q is never closed in column 1", rampProtoSource, decl)
+		t.Fatalf("%s: %q is never closed in column 1", foraProtoSource, decl)
 	}
 	return rest[:end]
 }
@@ -96,7 +96,7 @@ func docComment(t *testing.T, src, decl string) string {
 	t.Helper()
 	at := strings.Index(src, decl)
 	if at < 0 {
-		t.Fatalf("%s: %q not found", rampProtoSource, decl)
+		t.Fatalf("%s: %q not found", foraProtoSource, decl)
 	}
 	lines := strings.Split(src[:at], "\n")
 	// The declaration starts a line, so the split ends with the empty string before it.
@@ -122,9 +122,9 @@ func TestCanonicalDisjointRuleIsStatedByTheContract(t *testing.T) {
 			"and this guard would be holding the contract to a rule nothing runs", canonicalDisjointRuleID)
 	}
 
-	b, err := os.ReadFile(rampProtoSource)
+	b, err := os.ReadFile(foraProtoSource)
 	if err != nil {
-		t.Fatalf("read %s: %v", rampProtoSource, err)
+		t.Fatalf("read %s: %v", foraProtoSource, err)
 	}
 	src := string(b)
 

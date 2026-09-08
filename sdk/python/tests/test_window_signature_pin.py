@@ -17,11 +17,11 @@ changes the window, the assertions below fail.
 
 from __future__ import annotations
 
-from ramp_sdk.signing_transport import SigningTransport
+from fora_sdk.signing_transport import SigningTransport
 
 _SEED = bytes(range(1, 33))
 _KEYID = "agent.test.v1"
-_URL = "https://broker.example/ramp.v1/Discover"
+_URL = "https://broker.example/fora.v1/Discover"
 _BODY = b'{"query":"x"}'
 # A fractional-second now: int(1_700_000_000.987) == 1_700_000_000.
 _NOW = 1_700_000_000.987

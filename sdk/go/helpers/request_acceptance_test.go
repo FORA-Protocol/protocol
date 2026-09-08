@@ -8,18 +8,18 @@ import (
 
 	"buf.build/go/protovalidate"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
-func requestAcceptanceFixture() *rampv1.TransactionRequest {
-	return &rampv1.TransactionRequest{
+func requestAcceptanceFixture() *forav1.TransactionRequest {
+	return &forav1.TransactionRequest{
 		IdempotencyKey: "idem-1",
-		Requester:      &rampv1.Requester{Id: "agent-1", Domain: "agent.example"},
-		Items: []*rampv1.TransactionItem{
-			{Offer: &rampv1.Offer{Signature: "sig-a", Exchange: "one.example"}},
-			{Offer: &rampv1.Offer{Signature: "sig-b", Exchange: "two.example"}},
-			{Offer: &rampv1.Offer{Signature: "sig-c", Exchange: "one.example"}},
+		Requester:      &forav1.Requester{Id: "agent-1", Domain: "agent.example"},
+		Items: []*forav1.TransactionItem{
+			{Offer: &forav1.Offer{Signature: "sig-a", Exchange: "one.example"}},
+			{Offer: &forav1.Offer{Signature: "sig-b", Exchange: "two.example"}},
+			{Offer: &forav1.Offer{Signature: "sig-c", Exchange: "one.example"}},
 		},
 	}
 }
@@ -31,10 +31,10 @@ func TestRequestAcceptanceProjection_roundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	projected := &rampv1.TransactionRequest{
+	projected := &forav1.TransactionRequest{
 		IdempotencyKey: original.GetIdempotencyKey(),
 		Requester:      original.GetRequester(),
-		Items:          []*rampv1.TransactionItem{original.GetItems()[0], original.GetItems()[2]},
+		Items:          []*forav1.TransactionItem{original.GetItems()[0], original.GetItems()[2]},
 	}
 	if _, err := helpers.VerifyRequestAcceptanceProjection(projected, acceptance, "one.example", pub); err != nil {
 		t.Fatalf("verify exact projection: %v", err)
@@ -48,14 +48,14 @@ func TestRequestAcceptanceProjection_membershipAndOrderAreClosed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cases := map[string][]*rampv1.TransactionItem{
+	cases := map[string][]*forav1.TransactionItem{
 		"removed":   {original.GetItems()[0]},
 		"reordered": {original.GetItems()[2], original.GetItems()[0]},
 		"appended":  {original.GetItems()[0], original.GetItems()[2], original.GetItems()[0]},
 	}
 	for name, items := range cases {
 		t.Run(name, func(t *testing.T) {
-			projected := &rampv1.TransactionRequest{
+			projected := &forav1.TransactionRequest{
 				IdempotencyKey: original.GetIdempotencyKey(),
 				Requester:      original.GetRequester(),
 				Items:          items,
@@ -91,7 +91,7 @@ func TestRequestAcceptanceProjection_emptySubrequestRejected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	empty := &rampv1.TransactionRequest{
+	empty := &forav1.TransactionRequest{
 		IdempotencyKey: original.GetIdempotencyKey(),
 		Requester:      original.GetRequester(),
 	}
@@ -105,15 +105,15 @@ func TestRequestAcceptanceProjection_emptySubrequestRejected(t *testing.T) {
 // mixedSpellingFixture spells one Exchange identity three ways the SDK treats
 // as equal — bare, upper-cased, and with the HTTPS-default port written out —
 // plus one genuinely different party.
-func mixedSpellingFixture() *rampv1.TransactionRequest {
-	return &rampv1.TransactionRequest{
+func mixedSpellingFixture() *forav1.TransactionRequest {
+	return &forav1.TransactionRequest{
 		IdempotencyKey: "idem-1",
-		Requester:      &rampv1.Requester{Id: "agent-1", Domain: "agent.example"},
-		Items: []*rampv1.TransactionItem{
-			{Offer: &rampv1.Offer{Signature: "sig-a", Exchange: "one.example"}},
-			{Offer: &rampv1.Offer{Signature: "sig-b", Exchange: "ONE.EXAMPLE"}},
-			{Offer: &rampv1.Offer{Signature: "sig-c", Exchange: "one.example:443"}},
-			{Offer: &rampv1.Offer{Signature: "sig-d", Exchange: "two.example"}},
+		Requester:      &forav1.Requester{Id: "agent-1", Domain: "agent.example"},
+		Items: []*forav1.TransactionItem{
+			{Offer: &forav1.Offer{Signature: "sig-a", Exchange: "one.example"}},
+			{Offer: &forav1.Offer{Signature: "sig-b", Exchange: "ONE.EXAMPLE"}},
+			{Offer: &forav1.Offer{Signature: "sig-c", Exchange: "one.example:443"}},
+			{Offer: &forav1.Offer{Signature: "sig-d", Exchange: "two.example"}},
 		},
 	}
 }
@@ -129,7 +129,7 @@ func TestRequestAcceptanceProjection_equivalentSpellingsVerify(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	projected := &rampv1.TransactionRequest{
+	projected := &forav1.TransactionRequest{
 		IdempotencyKey: original.GetIdempotencyKey(),
 		Requester:      original.GetRequester(),
 		Items:          original.GetItems()[:3],
@@ -153,13 +153,13 @@ func TestRequestAcceptanceProjection_equivalentSpellingRemovalRejected(t *testin
 		t.Fatal(err)
 	}
 	for drop := 0; drop < 3; drop++ {
-		items := make([]*rampv1.TransactionItem, 0, 2)
+		items := make([]*forav1.TransactionItem, 0, 2)
 		for i, item := range original.GetItems()[:3] {
 			if i != drop {
 				items = append(items, item)
 			}
 		}
-		projected := &rampv1.TransactionRequest{
+		projected := &forav1.TransactionRequest{
 			IdempotencyKey: original.GetIdempotencyKey(),
 			Requester:      original.GetRequester(),
 			Items:          items,
@@ -172,7 +172,7 @@ func TestRequestAcceptanceProjection_equivalentSpellingRemovalRejected(t *testin
 	// verifier's own. Under raw equality the shrunken filter count would match
 	// and this would pass; under the identity rule the projection is three
 	// items and one is an incomplete forward.
-	rawOnly := &rampv1.TransactionRequest{
+	rawOnly := &forav1.TransactionRequest{
 		IdempotencyKey: original.GetIdempotencyKey(),
 		Requester:      original.GetRequester(),
 		Items:          original.GetItems()[:1],
@@ -188,12 +188,12 @@ func TestRequestAcceptanceProjection_portsAndMalformedValuesStayClosed(t *testin
 	pub, priv, _ := ed25519.GenerateKey(nil)
 
 	t.Run("port 80 is a different identity", func(t *testing.T) {
-		original := &rampv1.TransactionRequest{
+		original := &forav1.TransactionRequest{
 			IdempotencyKey: "idem-1",
-			Requester:      &rampv1.Requester{Id: "agent-1", Domain: "agent.example"},
-			Items: []*rampv1.TransactionItem{
-				{Offer: &rampv1.Offer{Signature: "sig-a", Exchange: "one.example"}},
-				{Offer: &rampv1.Offer{Signature: "sig-b", Exchange: "one.example:80"}},
+			Requester:      &forav1.Requester{Id: "agent-1", Domain: "agent.example"},
+			Items: []*forav1.TransactionItem{
+				{Offer: &forav1.Offer{Signature: "sig-a", Exchange: "one.example"}},
+				{Offer: &forav1.Offer{Signature: "sig-b", Exchange: "one.example:80"}},
 			},
 		}
 		acceptance, err := helpers.SignRequestAcceptance(priv, original)
@@ -226,12 +226,12 @@ func TestRequestAcceptanceProjection_portsAndMalformedValuesStayClosed(t *testin
 		if err != nil {
 			t.Fatal(err)
 		}
-		projected := &rampv1.TransactionRequest{
+		projected := &forav1.TransactionRequest{
 			IdempotencyKey: original.GetIdempotencyKey(),
 			Requester:      original.GetRequester(),
-			Items: []*rampv1.TransactionItem{
-				{Offer: &rampv1.Offer{Signature: "sig-a", Exchange: "https://one.example"}},
-				{Offer: &rampv1.Offer{Signature: "sig-c", Exchange: "one.example"}},
+			Items: []*forav1.TransactionItem{
+				{Offer: &forav1.Offer{Signature: "sig-a", Exchange: "https://one.example"}},
+				{Offer: &forav1.Offer{Signature: "sig-c", Exchange: "one.example"}},
 			},
 		}
 		if _, err := helpers.VerifyRequestAcceptanceProjection(projected, acceptance, "one.example", pub); !errors.Is(err, helpers.ErrRequestAcceptanceSignatureInvalid) {
@@ -242,16 +242,16 @@ func TestRequestAcceptanceProjection_portsAndMalformedValuesStayClosed(t *testin
 
 // oversizedFixture returns a request carrying n items, every one signed-offer
 // shaped, so payload construction succeeds and only the cap can refuse it.
-func oversizedFixture(n int) *rampv1.TransactionRequest {
-	items := make([]*rampv1.TransactionItem, n)
+func oversizedFixture(n int) *forav1.TransactionRequest {
+	items := make([]*forav1.TransactionItem, n)
 	for i := range items {
-		items[i] = &rampv1.TransactionItem{
-			Offer: &rampv1.Offer{Signature: "sig", Exchange: "one.example"},
+		items[i] = &forav1.TransactionItem{
+			Offer: &forav1.Offer{Signature: "sig", Exchange: "one.example"},
 		}
 	}
-	return &rampv1.TransactionRequest{
+	return &forav1.TransactionRequest{
 		IdempotencyKey: "idem-1",
-		Requester:      &rampv1.Requester{Id: "agent-1", Domain: "agent.example"},
+		Requester:      &forav1.Requester{Id: "agent-1", Domain: "agent.example"},
 		Items:          items,
 	}
 }
@@ -278,7 +278,7 @@ func TestRequestAcceptance_itemCapEnforcedBeforeCanonicalization(t *testing.T) {
 		t.Fatal("expected the item cap to refuse maximum+1")
 	}
 
-	fd := (&rampv1.AgentRequestAcceptancePayload{}).ProtoReflect().Descriptor().Fields().ByName("items")
+	fd := (&forav1.AgentRequestAcceptancePayload{}).ProtoReflect().Descriptor().Fields().ByName("items")
 	rules, err := protovalidate.ResolveFieldRules(fd)
 	if err != nil {
 		t.Fatal(err)
@@ -301,7 +301,7 @@ func TestRequestAcceptance_signatureCheckedBeforeCanonicalization(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	badHex := &rampv1.AgentRequestAcceptance{
+	badHex := &forav1.AgentRequestAcceptance{
 		Payload:            acceptance.GetPayload(),
 		Signature:          "not-hex",
 		SignatureAlgorithm: acceptance.GetSignatureAlgorithm(),
@@ -315,7 +315,7 @@ func TestRequestAcceptance_signatureCheckedBeforeCanonicalization(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	truncated := &rampv1.AgentRequestAcceptance{
+	truncated := &forav1.AgentRequestAcceptance{
 		Payload:            overPayload,
 		Signature:          "abcd", // valid hex, 2 bytes — not an Ed25519 signature
 		SignatureAlgorithm: acceptance.GetSignatureAlgorithm(),
@@ -330,10 +330,10 @@ func TestRequestAcceptance_signatureCheckedBeforeCanonicalization(t *testing.T) 
 // checked, so an acceptance cannot be transplanted onto another request.
 func TestRequestAcceptance_envelopeMismatchRejected(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
-	cases := map[string]func(*rampv1.TransactionRequest){
-		"different requester id":     func(r *rampv1.TransactionRequest) { r.Requester.Id = "agent-2" },
-		"different requester domain": func(r *rampv1.TransactionRequest) { r.Requester.Domain = "other.example" },
-		"different idempotency key":  func(r *rampv1.TransactionRequest) { r.IdempotencyKey = "idem-2" },
+	cases := map[string]func(*forav1.TransactionRequest){
+		"different requester id":     func(r *forav1.TransactionRequest) { r.Requester.Id = "agent-2" },
+		"different requester domain": func(r *forav1.TransactionRequest) { r.Requester.Domain = "other.example" },
+		"different idempotency key":  func(r *forav1.TransactionRequest) { r.IdempotencyKey = "idem-2" },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -402,7 +402,7 @@ func TestSignRequestAcceptanceWith_roundTripAndAlgorithmGate(t *testing.T) {
 
 func TestAgentRequestAcceptancePayload_fieldSetIsPinned(t *testing.T) {
 	want := []string{"items", "requester_id", "requester_domain", "idempotency_key"}
-	fields := (&rampv1.AgentRequestAcceptancePayload{}).ProtoReflect().Descriptor().Fields()
+	fields := (&forav1.AgentRequestAcceptancePayload{}).ProtoReflect().Descriptor().Fields()
 	if fields.Len() != len(want) {
 		t.Fatalf("AgentRequestAcceptancePayload has %d fields, want %d", fields.Len(), len(want))
 	}
@@ -415,7 +415,7 @@ func TestAgentRequestAcceptancePayload_fieldSetIsPinned(t *testing.T) {
 
 func TestAgentRequestAcceptanceItem_fieldSetIsPinned(t *testing.T) {
 	want := []string{"offer_sig", "exchange"}
-	fields := (&rampv1.AgentRequestAcceptanceItem{}).ProtoReflect().Descriptor().Fields()
+	fields := (&forav1.AgentRequestAcceptanceItem{}).ProtoReflect().Descriptor().Fields()
 	if fields.Len() != len(want) {
 		t.Fatalf("AgentRequestAcceptanceItem has %d fields, want %d", fields.Len(), len(want))
 	}

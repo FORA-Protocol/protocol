@@ -16,7 +16,7 @@ scheme/host/path — the ONLY permitted transform is deterministic query handlin
 divergence this contract eliminates.
 
 RED now for THREE expected reasons, all intended:
-  1. sdk/python/ramp_sdk/signedurl.py has no ``sign_ed25519_signed_url`` face yet
+  1. sdk/python/fora_sdk/signedurl.py has no ``sign_ed25519_signed_url`` face yet
      (import fails → collection error).
   2. The signed-URL vectors do not yet carry ``signer_seed_hex`` (Go-emitter
      extension is a later step), so a Python re-sign cannot reproduce the string.
@@ -32,8 +32,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from conftest import GO_TESTDATA, load_json
 
-# RED: sdk/python/ramp_sdk/signedurl.py has no sign face yet (TDD red).
-from ramp_sdk.signedurl import sign_ed25519_signed_url  # type: ignore[attr-defined]
+# RED: sdk/python/fora_sdk/signedurl.py has no sign face yet (TDD red).
+from fora_sdk.signedurl import sign_ed25519_signed_url  # type: ignore[attr-defined]
 
 _SIGNEDURL_VECTORS = load_json(GO_TESTDATA / "signedurl-vectors.json")
 

@@ -23,7 +23,7 @@ import (
 	protovalidate "buf.build/go/protovalidate"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	"github.com/RAMP-Protocol/protocol/conformance"
+	"github.com/FORA-Protocol/protocol/conformance"
 )
 
 func main() {

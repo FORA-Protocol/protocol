@@ -27,7 +27,7 @@ const refused = vectors.filter((v) => !v.accepted);
 const absent = vectors.filter((v) => !v.present);
 
 const HOST = "exchange.example";
-const ENDPOINT = `https://${HOST}/ramp.v1.ExchangeService`;
+const ENDPOINT = `https://${HOST}/fora.v1.ExchangeService`;
 
 /** The value the resolver sees: the string when present, undefined when absent. */
 const verOf = (v: ManifestVersionVector): string | undefined => (v.present ? v.ver : undefined);

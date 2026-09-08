@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 func TestNormalizeScopes(t *testing.T) {
@@ -23,7 +23,7 @@ func TestNormalizeScopes(t *testing.T) {
 }
 
 func TestApplyScopes(t *testing.T) {
-	r := &rampv1.Requester{Id: "agent"}
+	r := &forav1.Requester{Id: "agent"}
 	helpers.ApplyScopes(r, "news.read", "archive.read", "news.read")
 	if !reflect.DeepEqual(r.GetScopes(), []string{"archive.read", "news.read"}) {
 		t.Errorf("scopes = %v", r.GetScopes())

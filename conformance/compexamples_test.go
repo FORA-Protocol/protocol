@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
-	compv1 "github.com/RAMP-Protocol/protocol/gen/go/comp/v1"
+	compv1 "github.com/FORA-Protocol/protocol/gen/go/comp/v1"
 )
 
 // compExamplesDir holds the canonical CoMP V1 worked examples vendored verbatim
@@ -111,7 +111,7 @@ func roundTripExample(t *testing.T, dir, name string) []byte {
 	return raw
 }
 
-// syntheticExamplesDir holds RAMP-authored conformance fixtures that are NOT
+// syntheticExamplesDir holds FORA-authored conformance fixtures that are NOT
 // part of the verbatim IAB CoMP V1 worked-example set. The published examples
 // leave the Scope commercial block (ause/pricetype/pricetier/unitprice/cur/
 // country/licensedur) and the per-asset language/update fields unpopulated, so
@@ -181,13 +181,13 @@ var requiredSyntheticCoverage = map[string][]string{
 	},
 }
 
-// TestCompV1SyntheticCoverageRoundTrip round-trips the RAMP-authored fixtures
+// TestCompV1SyntheticCoverageRoundTrip round-trips the FORA-authored fixtures
 // with the same adversarial properties as the verbatim set, then asserts each
 // fixture still populates the proto fields it was authored to cover.
 func TestCompV1SyntheticCoverageRoundTrip(t *testing.T) {
 	files := jsonFilesIn(t, syntheticExamplesDir)
 	if len(files) == 0 {
-		t.Fatalf("no RAMP-authored synthetic fixtures found in %s", syntheticExamplesDir)
+		t.Fatalf("no FORA-authored synthetic fixtures found in %s", syntheticExamplesDir)
 	}
 
 	for _, name := range files {

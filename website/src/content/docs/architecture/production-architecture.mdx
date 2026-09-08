@@ -1,6 +1,6 @@
 ---
 title: "Production Architecture"
-description: "RAMP production architecture: components, roles, protocol flows, and technology decisions"
+description: "FORA production architecture: components, roles, protocol flows, and technology decisions"
 ---
 
 ## What We're Building
@@ -12,7 +12,7 @@ Open-source infrastructure components for metered resource access. Like Prebid.j
 | Component | Deployed By | Connects To (custom/proprietary) |
 |---|---|---|
 | **Exchange Node** | Exchange operator / Provider / 3rd party | Operator's billing, provider catalogs, resource delivery |
-| **RAMP Broker** | AI company / 3rd party | Agent's budget system, auth, multi-Exchange selection |
+| **FORA Broker** | AI company / 3rd party | Agent's budget system, auth, multi-Exchange selection |
 | **Agent SDK** | AI agent developers | Embedded in agent process; handles discovery, negotiation, resource fetch, budget, and usage reporting via one-liner `Fetch(url)` API |
 | **Edge Function** | Provider | Provider's CDN (CloudFront/Cloudflare/Fastly) |
 | **Client SDK** | AI agent developers | Low-level generated Connect client for direct Exchange RPC access (no orchestration logic) |
@@ -20,13 +20,13 @@ Open-source infrastructure components for metered resource access. Like Prebid.j
 ### Role Mapping (Ad-Tech Analogy)
 
 ```
-Ad Tech                    RAMP / CoMP                PoC Equivalent
+Ad Tech                    FORA / CoMP                PoC Equivalent
 ─────────────────────────────────────────────────────────────────────
 Browser (user)          →  AI Agent                  →  MCP Tool
 DSP SDK (prebid.js)     →  Agent SDK (embedded)      →  (not built yet)
-DSP server              →  RAMP Broker               →  (not built yet)
+DSP server              →  FORA Broker               →  (not built yet)
 SSP / Exchange          →  Exchange                  →  Gateway + Registry
-Provider               →  Resource Provider           →  demo.ramp-protocol.org
+Provider               →  Resource Provider           →  demo.fora-protocol.org
 CDN / Ad Creative       →  Resource Delivery Endpoint  →  CloudFront + S3
 ```
 
@@ -46,16 +46,16 @@ Without Broker (direct, single exchange):
 
 The Exchange doesn't know or care whether the request came from a Broker or directly from an agent. The HTTP/JSON protocol is identical.
 
-### RAMP Authentication
+### FORA Authentication
 
 Every party in the protocol authenticates via Ed25519 key pairs. Each party announces its public key on a domain it controls. Private keys never leave the owning party.
 
 | Party | Key Announcement | Signs | Verifier |
 |---|---|---|---|
-| **Requester** (Agent or other client) | signing keys in the WBA directory at `{domain}/.well-known/http-message-signatures-directory`; role manifest at `{domain}/.well-known/ramp.json` (`role=ROLE_AGENT`) | RFC 9421 HTTP Message Signature (Ed25519) over the HTTP request (`@method`, `@target-uri`, `content-digest` — request body bound via `content-digest`) | Exchange |
-| **Intermediary** (e.g. Broker) | signing keys in the WBA directory at `{domain}/.well-known/http-message-signatures-directory`; role manifest at `{domain}/.well-known/ramp.json` (`role=ROLE_AGENT`, same format) | each intermediary adds its own RFC 9421 HTTP Message Signature (Ed25519) to the request — the forwarding chain is the stack of signatures, each covering the request plus the prior hop's signature | Exchange |
-| **Exchange** | `{domain}/.well-known/ramp.json` (`role=ROLE_EXCHANGE`); offer-signing keys in the WBA directory at `{domain}/.well-known/http-message-signatures-directory` | `exchange_signature` on every Offer | Agent, Broker |
-| **Provider** | `{domain}/.well-known/ramp.json` (`role=ROLE_PUBLISHER`) | Authorization declaration (not signatures) | Agent, Exchange |
+| **Requester** (Agent or other client) | signing keys in the WBA directory at `{domain}/.well-known/http-message-signatures-directory`; role manifest at `{domain}/.well-known/fora.json` (`role=ROLE_AGENT`) | RFC 9421 HTTP Message Signature (Ed25519) over the HTTP request (`@method`, `@target-uri`, `content-digest` — request body bound via `content-digest`) | Exchange |
+| **Intermediary** (e.g. Broker) | signing keys in the WBA directory at `{domain}/.well-known/http-message-signatures-directory`; role manifest at `{domain}/.well-known/fora.json` (`role=ROLE_AGENT`, same format) | each intermediary adds its own RFC 9421 HTTP Message Signature (Ed25519) to the request — the forwarding chain is the stack of signatures, each covering the request plus the prior hop's signature | Exchange |
+| **Exchange** | `{domain}/.well-known/fora.json` (`role=ROLE_EXCHANGE`); offer-signing keys in the WBA directory at `{domain}/.well-known/http-message-signatures-directory` | `exchange_signature` on every Offer | Agent, Broker |
+| **Provider** | `{domain}/.well-known/fora.json` (`role=ROLE_PUBLISHER`) | Authorization declaration (not signatures) | Agent, Exchange |
 | **Verification Vendor** | WBA directory at `{domain}/.well-known/http-message-signatures-directory` | `ResourceAttestation.signature` on catalog content (v1.0) | Exchange, Agent |
 
 **Verification at Exchange:**
@@ -91,7 +91,7 @@ Dispute lifecycle: `FILED` -> `AUTO_RESOLVED` / `EVIDENCE_NEEDED` -> `UNDER_REVI
 
 ### Provider Domain Verification (v1.0)
 
-The `RequestDomainVerification` and `ConfirmDomainVerification` RPCs provide ACME HTTP-01 style domain verification for provider onboarding. Providers prove domain control before the Exchange accepts signing keys or configuration changes. The WBA directory at `/.well-known/http-message-signatures-directory` enables verification vendors to publish their Ed25519 keys (in its `keys`) for attestation validation. RAMP has no dedicated verifier role; a verifier publishes under its operator's role (`ROLE_PUBLISHER` for a self-attesting publisher, `ROLE_EXCHANGE` for a standalone vendor).
+The `RequestDomainVerification` and `ConfirmDomainVerification` RPCs provide ACME HTTP-01 style domain verification for provider onboarding. Providers prove domain control before the Exchange accepts signing keys or configuration changes. The WBA directory at `/.well-known/http-message-signatures-directory` enables verification vendors to publish their Ed25519 keys (in its `keys`) for attestation validation. FORA has no dedicated verifier role; a verifier publishes under its operator's role (`ROLE_PUBLISHER` for a self-attesting publisher, `ROLE_EXCHANGE` for a standalone vendor).
 
 ### Discovery: Three Complementary Standards
 
@@ -100,12 +100,12 @@ Provider-side discovery uses three files that work together:
 ```
 robots.txt     → who can crawl (existing standard)
 rsl.txt        → licensing terms and pricing signals (RSL 1.0)
-ramp.json     → where to transact (RAMP — new)
+fora.json     → where to transact (FORA — new)
 ```
 
-**Happy path** (agent knows about RAMP):
+**Happy path** (agent knows about FORA):
 ```
-Agent checks /.well-known/ramp.json → finds Exchange endpoint
+Agent checks /.well-known/fora.json → finds Exchange endpoint
   → DiscoverResources → TransactionRequest → gets signed URL
   → fetches content from CDN — edge function lets it through
 ```
@@ -115,12 +115,12 @@ Agent checks /.well-known/ramp.json → finds Exchange endpoint
 Agent crawls the web → hits provider CDN
   → edge function blocks it: 403 + X-Content-Rules header
   → discovers the Exchange for this content
-  → follows standard RAMP flow from here
+  → follows standard FORA flow from here
 ```
 
 ### Content Delivery (Outside Protocol Scope)
 
-The RAMP protocol covers discovery and negotiation -- not content delivery. How content reaches the agent after a successful transaction is an implementation concern between the Exchange and the provider's CDN.
+The FORA protocol covers discovery and negotiation -- not content delivery. How content reaches the agent after a successful transaction is an implementation concern between the Exchange and the provider's CDN.
 
 The `TransactionResponse` carries a `DeliveryMethod` hint and a `retrieval_endpoint` URL. What happens next is up to the implementation:
 
@@ -130,29 +130,29 @@ The `TransactionResponse` carries a `DeliveryMethod` hint and a `retrieval_endpo
 
 The protocol does not specify signed URL formats, CDN verification logic, or content transfer mechanisms. These are defined by each Exchange and Edge Function implementation.
 
-RAMP does, however, standardize the **failure vocabulary** for this step, not its mechanism: `RetrievalAuthFailureReason` gives a common enum for *why* a signed-URL or proof-of-possession check failed (expired, signature invalid, replay, …), so tooling can classify retrieval failures uniformly across implementations. It is never emitted by a RAMP RPC — it travels only as an out-of-band `ErrorDetail` (its `retrieval_auth_failure` reason block) from the edge — and naming the failure categories does not mandate how any Exchange or CDN performs the check. An edge returning a bare `403` is still conformant; the enum is the interoperable vocabulary available to those that choose to report a reason.
+FORA does, however, standardize the **failure vocabulary** for this step, not its mechanism: `RetrievalAuthFailureReason` gives a common enum for *why* a signed-URL or proof-of-possession check failed (expired, signature invalid, replay, …), so tooling can classify retrieval failures uniformly across implementations. It is never emitted by a FORA RPC — it travels only as an out-of-band `ErrorDetail` (its `retrieval_auth_failure` reason block) from the edge — and naming the failure categories does not mandate how any Exchange or CDN performs the check. An edge returning a bare `403` is still conformant; the enum is the interoperable vocabulary available to those that choose to report a reason.
 
 ### Streaming Delivery (v1.0)
 
-RAMP supports `DELIVERY_METHOD_STREAMING` for real-time resource access via WebSocket, SSE, HLS, or Icecast endpoints. The signed URL points to a streaming endpoint rather than a static resource.
+FORA supports `DELIVERY_METHOD_STREAMING` for real-time resource access via WebSocket, SSE, HLS, or Icecast endpoints. The signed URL points to a streaming endpoint rather than a static resource.
 
 **Session lifecycle:**
 1. `ExecuteTransaction` returns a signed URL with expiry (e.g., 2 hours)
 2. Agent connects to the streaming endpoint
 3. Agent receives data continuously
-4. URL expires -- agent re-requests through the same RAMP flow
+4. URL expires -- agent re-requests through the same FORA flow
 5. `ReportUsage`: `consumed_quantity` reported in minutes/hours via `consumed_unit`
 
-Stream mechanics (heartbeat, reconnection, concurrent connection limits) are managed by the provider, not the RAMP protocol.
+Stream mechanics (heartbeat, reconnection, concurrent connection limits) are managed by the provider, not the FORA protocol.
 
 ## Extension Profiles (v1.0)
 
-RAMP v1.0 introduces a three-layer extension architecture to prevent fragmentation:
+FORA v1.0 introduces a three-layer extension architecture to prevent fragmentation:
 
 | Layer | Scope | Governance | Example |
 |---|---|---|---|
-| **1. Core Proto** | Fields in `ramp.proto` | Protocol version bump | `resource_mutability`, `data_as_of` |
-| **2. Standard Extensions** | `ramp.*` namespace in ext | Defined in RAMP spec | `ramp.compliance.dua_required` |
+| **1. Core Proto** | Fields in `fora.proto` | Protocol version bump | `resource_mutability`, `data_as_of` |
+| **2. Standard Extensions** | `fora.*` namespace in ext | Defined in FORA spec | `fora.compliance.dua_required` |
 | **3. Domain Profiles** | Domain namespace in ext | Published by domain communities | `news.iptc_guid`, `academic.doi` |
 
 ### Profile Declaration Chain
@@ -161,17 +161,17 @@ Three proto fields create a complete declaration chain from agent to Exchange:
 
 - **`DiscoveryRequest.supported_profiles`** -- Agent declares profiles to Broker
 - **`ResourceQuery.supported_profiles`** -- Broker forwards to Exchange
-- **`WellKnownManifest.supported_profiles`** -- Exchange declares conformance in `/.well-known/ramp.json` (`role=ROLE_EXCHANGE`)
+- **`WellKnownManifest.supported_profiles`** -- Exchange declares conformance in `/.well-known/fora.json` (`role=ROLE_EXCHANGE`)
 
 ### v1 Domain Profiles
 
-Three domain extension profiles ship with RAMP v1.0:
+Three domain extension profiles ship with FORA v1.0:
 
 | Profile | Scope | Standards | Ext Keys |
 |---|---|---|---|
-| **ramp-news-v1** | News articles, podcasts, broadcasting | IPTC NewsML-G2, Schema.org, Podcasting 2.0, W3C TDMRep | 36 |
-| **ramp-academic-v1** | Scholarly articles, preprints, datasets | CrossRef, OpenAlex, JATS XML, COUNTER 5.1, CrossMark | 32 |
-| **ramp-legal-v1** | Legislation, case law, patents | ELI, CELEX, ECLI, Akoma Ntoso, WIPO ST.3/ST.16, CPC | 43 |
+| **fora-news-v1** | News articles, podcasts, broadcasting | IPTC NewsML-G2, Schema.org, Podcasting 2.0, W3C TDMRep | 36 |
+| **fora-academic-v1** | Scholarly articles, preprints, datasets | CrossRef, OpenAlex, JATS XML, COUNTER 5.1, CrossMark | 32 |
+| **fora-legal-v1** | Legislation, case law, patents | ELI, CELEX, ECLI, Akoma Ntoso, WIPO ST.3/ST.16, CPC | 43 |
 
 An Exchange MAY implement zero, one, or multiple profiles. Profile conformance means the Exchange sets the required ext fields defined in the profile spec and validates them against the profile's JSON Schema.
 
@@ -227,7 +227,7 @@ Cross-provider dedup is a **Broker-level concern**, not a protocol concern. The 
   │  ├─────────────────────┤ │       │
   │  │ Attestation Verifier│ │       │
   │  │ (v1.0: validates    │ │       │
-  │  │  ramp.json          │ │       │
+  │  │  fora.json          │ │       │
   │  │  signatures)        │ │       │
   │  ├─────────────────────┤ │       │
   │  │ Dispute Handler     │ │       │

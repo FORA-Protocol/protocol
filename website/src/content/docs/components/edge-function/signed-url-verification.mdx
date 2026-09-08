@@ -136,7 +136,7 @@ An agent registered through a custodial registry does **not** fetch. Its private
 
 ### What the fetcher presents
 
-1. Its **public key**, in the `X-RAMP-Agent-Key` header — raw Ed25519 key, base64url with no padding. The choice of carrier is security-irrelevant, because the thumbprint is locked by the URL signature.
+1. Its **public key**, in the `X-FORA-Agent-Key` header — raw Ed25519 key, base64url with no padding. The choice of carrier is security-irrelevant, because the thumbprint is locked by the URL signature.
 2. An **RFC 9421 HTTP Message Signature** over the retrieval request, covering exactly `@method` and `@target-uri`.
 
 The signature parameters are a wire contract, in this order:
@@ -169,7 +169,7 @@ sequenceDiagram
     Note over MP: T = RFC 7638 thumbprint(agent key)<br/>embed T as agent_id, Ed25519-sign the whole URL
     MP-->>Agent: retrieval_endpoint (?agent_id=T&kid=...&sig=...)<br/>+ agent_identity_hash = T
 
-    Agent->>Edge: GET retrieval_endpoint<br/>X-RAMP-Agent-Key + Signature-Input + Signature
+    Agent->>Edge: GET retrieval_endpoint<br/>X-FORA-Agent-Key + Signature-Input + Signature
     Note over Edge: 1. Ed25519-verify the URL (T untampered)<br/>2. Check exp<br/>3. thumbprint(presented key) == T<br/>4. Verify the RFC 9421 proof
     alt All four pass
         Edge-->>Agent: 200 OK + content
@@ -192,7 +192,7 @@ Refusals from the proof-of-possession check: `missing_agent_key`, `bad_agent_key
 
 | Delivery node | Enforces binding? | Behaviour |
 |---|---|---|
-| Edge function (Cloudflare Workers, Fastly Compute, Lambda@Edge) | Yes, by default | Full steps 1-4. RAMP reference implementations run here. |
+| Edge function (Cloudflare Workers, Fastly Compute, Lambda@Edge) | Yes, by default | Full steps 1-4. FORA reference implementations run here. |
 | CloudFront-native, or any bearer-only signed-URL CDN | No | Validates its own signature and expiry only; falls back to the URL signature + short TTL + TLS. |
 
 On a capable edge the check is on unless it is explicitly turned off: the configuration value must be the literal string `false` to disable it, and any other value — including an absent one — enforces. Turning it off is a downgrade to bearer security, and it is the reason the method gate above exists.
@@ -270,7 +270,7 @@ Configure a trusted key group on the cache behaviour for the protected path and 
 
 `agent_id` is set on the resource URL before signing, so the CloudFront signature covers it and a URL holder cannot swap the value. But CloudFront cannot run code at verification time, so it cannot require proof of possession. This path is **bearer-only**: whoever holds the URL can fetch until it expires. Publishers needing the binding enforced run a code-capable edge.
 
-Akamai is not a supported target. EdgeAuth is a symmetric token scheme built on a secret shared with the CDN, which is the model RAMP deliberately does not use.
+Akamai is not a supported target. EdgeAuth is a symmetric token scheme built on a secret shared with the CDN, which is the model FORA deliberately does not use.
 
 ## Single-Use URL Enforcement
 

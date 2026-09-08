@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/failure"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/failure"
 )
 
 // The content leg: fetching the bytes a signed delivery URL names, presenting the

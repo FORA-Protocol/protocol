@@ -5,9 +5,9 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	"github.com/RAMP-Protocol/protocol/gen/go/ramp/v1/rampv1connect"
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
 )
 
 // NewExchangeServiceHandler builds the ExchangeService HTTP handler wrapped by the
@@ -22,9 +22,9 @@ import (
 // (body-bytes reason), NOT a connect.Interceptor; validate and error-detail ARE true
 // connect.Interceptors composed onto the generated handler. KeyResolver and
 // ReplayStore are injected by the application (ADR-020 §2/§3).
-func NewExchangeServiceHandler(svc rampv1connect.ExchangeServiceHandler, opts ...ServerOption) (string, http.Handler) {
+func NewExchangeServiceHandler(svc forav1connect.ExchangeServiceHandler, opts ...ServerOption) (string, http.Handler) {
 	cfg := resolveServerConfig(opts)
-	path, connectHandler := rampv1connect.NewExchangeServiceHandler(svc, cfg.connectHandlerOptions()...)
+	path, connectHandler := forav1connect.NewExchangeServiceHandler(svc, cfg.connectHandlerOptions()...)
 	// verify wraps the connect handler; request-id wraps verify (outermost).
 	wrapped := core.RequestIDMiddleware(cfg.requestID, cfg.boundBody(verifyMiddleware(cfg, connectHandler)))
 	return path, wrapped
@@ -34,12 +34,12 @@ func NewExchangeServiceHandler(svc rampv1connect.ExchangeServiceHandler, opts ..
 // SDK server face and returns the mount path and handler. It composes the same
 // stack as NewExchangeServiceHandler — request-id outermost, verify at the http
 // seam, validate/error-detail as connect interceptors — over the generated
-// BrokerService handler. Broker relay routes outside the /ramp. procedure
+// BrokerService handler. Broker relay routes outside the /fora. procedure
 // prefix are the application's own http surface and never pass through this
 // handler; they keep their bespoke verification.
-func NewBrokerServiceHandler(svc rampv1connect.BrokerServiceHandler, opts ...ServerOption) (string, http.Handler) {
+func NewBrokerServiceHandler(svc forav1connect.BrokerServiceHandler, opts ...ServerOption) (string, http.Handler) {
 	cfg := resolveServerConfig(opts)
-	path, connectHandler := rampv1connect.NewBrokerServiceHandler(svc, cfg.connectHandlerOptions()...)
+	path, connectHandler := forav1connect.NewBrokerServiceHandler(svc, cfg.connectHandlerOptions()...)
 	wrapped := core.RequestIDMiddleware(cfg.requestID, cfg.boundBody(verifyMiddleware(cfg, connectHandler)))
 	return path, wrapped
 }
@@ -48,12 +48,12 @@ func NewBrokerServiceHandler(svc rampv1connect.BrokerServiceHandler, opts ...Ser
 // SDK server face and returns the mount path and handler — the exchange-operator
 // role's starting point for the publisher-facing RPCs. It composes the same
 // stack as NewExchangeServiceHandler over the generated CatalogService handler:
-// request-id outermost, verify at the http seam (every /ramp. procedure is
+// request-id outermost, verify at the http seam (every /fora. procedure is
 // gated, fail-closed, so an unsigned push never reaches the origin), validate and
 // error-detail as connect interceptors.
 //
 // What the binding gives is transport authentication, typed error emission, and —
-// WHEN THE APPLICATION ASKS FOR IT with WithValidation(rampconnect.ValidationStrict)
+// WHEN THE APPLICATION ASKS FOR IT with WithValidation(foraconnect.ValidationStrict)
 // — the contract's wire tier. That option is not the default (see the package doc):
 // the ResourceEntry envelope rules and the terms cap are refused at the boundary
 // only on a mount that passes it, which is what the retirement of the terms-limit
@@ -74,9 +74,9 @@ func NewBrokerServiceHandler(svc rampv1connect.BrokerServiceHandler, opts ...Ser
 // injected ReplayStore is the only replay control on this path. And RemoveResources
 // is destructive, so a stateless-edge deployment acknowledging WithoutReplayStore is
 // accepting replay of a delete within its signature window.
-func NewCatalogServiceHandler(svc rampv1connect.CatalogServiceHandler, opts ...ServerOption) (string, http.Handler) {
+func NewCatalogServiceHandler(svc forav1connect.CatalogServiceHandler, opts ...ServerOption) (string, http.Handler) {
 	cfg := resolveServerConfig(opts)
-	path, connectHandler := rampv1connect.NewCatalogServiceHandler(svc, cfg.connectHandlerOptions()...)
+	path, connectHandler := forav1connect.NewCatalogServiceHandler(svc, cfg.connectHandlerOptions()...)
 	wrapped := core.RequestIDMiddleware(cfg.requestID, cfg.boundBody(verifyMiddleware(cfg, connectHandler)))
 	return path, wrapped
 }
@@ -117,7 +117,7 @@ func (cfg serverConfig) boundBody(next http.Handler) http.Handler {
 // definition (one engine for client and server, zero duplication).
 func handlerInterceptors(cfg serverConfig) []connectrpc.Interceptor {
 	var out []connectrpc.Interceptor
-	if cfg.validation == rampconnect.ValidationStrict {
+	if cfg.validation == foraconnect.ValidationStrict {
 		// Panic rather than serve unvalidated. An application that passed
 		// ValidationStrict asked for the contract's wire tier; silently dropping it
 		// would hand back a handler that still serves, with the boundary rules the
@@ -126,7 +126,7 @@ func handlerInterceptors(cfg serverConfig) []connectrpc.Interceptor {
 		// descriptor compiled into the binary, so a failure here is a broken build,
 		// and it is caught at construction rather than on the first request. Same
 		// posture as the resolver that refuses to be built without a fetcher.
-		v, err := rampconnect.NewValidateInterceptor()
+		v, err := foraconnect.NewValidateInterceptor()
 		if err != nil {
 			panic("connectserver: WithValidation(ValidationStrict) was requested but the validator could not be built: " + err.Error())
 		}

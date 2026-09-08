@@ -18,7 +18,7 @@ The offer-sign half is UNAFFECTED by the signed-URL opaque-bytes decision: JCS
 over proto-JSON is already deterministic and cross-language byte-agreed.
 
 RED now for TWO expected reasons, both intended:
-  1. sdk/python/ramp_sdk/core.py has no ``sign_offer_jcs`` face yet (import fails
+  1. sdk/python/fora_sdk/core.py has no ``sign_offer_jcs`` face yet (import fails
      → collection error).
   2. The offer-verify vectors do not yet carry ``exchange_seed_hex`` (Go-emitter
      extension is a later step), so a Python re-sign cannot reproduce the hex.
@@ -35,10 +35,10 @@ from conftest import GO_TESTDATA, load_json
 
 # Reused, NOT reinvented: the verify-side canonical builder is the byte source of
 # truth (disease-scan ALLOWLIST #4). The sign face must produce the same bytes.
-from ramp_sdk.core import canonical_offer_payload
+from fora_sdk.core import canonical_offer_payload
 
-# RED: sdk/python/ramp_sdk/core.py has no offer SIGN face yet (TDD red).
-from ramp_sdk.core import sign_offer_jcs  # type: ignore[attr-defined]
+# RED: sdk/python/fora_sdk/core.py has no offer SIGN face yet (TDD red).
+from fora_sdk.core import sign_offer_jcs  # type: ignore[attr-defined]
 
 _VECTORS = load_json(GO_TESTDATA / "offer-verify-vectors.json")["vectors"]
 _POSITIVE = [v for v in _VECTORS if bool(v.get("expected_verified"))]

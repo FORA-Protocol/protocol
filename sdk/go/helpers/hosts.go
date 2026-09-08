@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/hostredact"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/hostredact"
 )
 
 // Host and domain predicates: what a network party's value is allowed to be

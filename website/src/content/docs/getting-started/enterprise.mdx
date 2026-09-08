@@ -1,6 +1,6 @@
 ---
 title: "Enterprise Access Management"
-description: "How enterprises deploy RAMP as an internal AI data gateway — agents access internal and external resources through one protocol with unified identity, scoping, and audit."
+description: "How enterprises deploy FORA as an internal AI data gateway — agents access internal and external resources through one protocol with unified identity, scoping, and audit."
 ---
 
 ## The Problem
@@ -35,11 +35,11 @@ The Broker is the single chokepoint. Every AI resource access — internal or ex
 
 ## Internal Exchange
 
-Your internal Exchange serves company resources through the same RAMP protocol as external Exchanges. No separate API, no separate auth scheme, no separate audit trail.
+Your internal Exchange serves company resources through the same FORA protocol as external Exchanges. No separate API, no separate auth scheme, no separate audit trail.
 
 Internal resources use `PRICING_MODEL_FREE` — no money changes hands — but every transaction is **logged** for:
 
-| Purpose | How RAMP Tracks It |
+| Purpose | How FORA Tracks It |
 |---------|--------------------|
 | **Cost allocation** | `budget_scope: "dept:engineering"` maps to your ERP cost centers |
 | **Compliance audit** | Ed25519-signed `UsageReport` records who, what, when, which agent |
@@ -58,20 +58,20 @@ Even at $0, the transaction creates an evidence chain. For regulated industries 
 
 ## Scope-Based Catalog Filtering
 
-Enterprise IAM maps user roles to RAMP scopes. The Exchange filters its catalog by those scopes. Resources outside the requester's scopes are denied with a diagnostic reason — no silent omission inside the enterprise.
+Enterprise IAM maps user roles to FORA scopes. The Exchange filters its catalog by those scopes. Resources outside the requester's scopes are denied with a diagnostic reason — no silent omission inside the enterprise.
 
 ### How It Works
 
 1. User authenticates via SSO (SAML/OIDC to enterprise IdP)
-2. Enterprise token service maps AD groups to RAMP scopes
+2. Enterprise token service maps AD groups to FORA scopes
 3. Service mints a delegation JWT signed by `iam.acme.com`'s Ed25519 key
-4. Agent carries this token in the `Delegation.token` field for all RAMP requests
+4. Agent carries this token in the `Delegation.token` field for all FORA requests
 5. Exchange verifies the authority JWT against IAM's published key
 6. Each requested URI is checked against the token's scopes
 
 ### Concrete Example
 
-Jane is a tax analyst. Her IAM roles map to these RAMP scopes: `tax:customer:read`, `legal:read`.
+Jane is a tax analyst. Her IAM roles map to these FORA scopes: `tax:customer:read`, `legal:read`.
 
 Her AI agent requests 5 internal resources:
 
@@ -87,7 +87,7 @@ The 3 denied URIs come back with `OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT` — t
 
 ## Token Minting Flow
 
-The enterprise token service bridges your existing IAM into RAMP's JWT-based authorization.
+The enterprise token service bridges your existing IAM into FORA's JWT-based authorization.
 
 ```
 ┌──────────────┐     SAML/OIDC     ┌──────────────┐
@@ -100,7 +100,7 @@ The enterprise token service bridges your existing IAM into RAMP's JWT-based aut
                                           │  • legal-viewers
                                           ▼
                                    ┌──────────────┐
-                                   │  RAMP Token   │
+                                   │  FORA Token   │
                                    │  Service      │
                                    │               │
                                    │  Maps groups   │
@@ -119,7 +119,7 @@ The enterprise token service bridges your existing IAM into RAMP's JWT-based aut
                                    └──────────────┘
 ```
 
-The authority JWT contains RAMP-specific claims:
+The authority JWT contains FORA-specific claims:
 
 ```json
 // Authority JWT claims (signed by iam.acme.com Ed25519 key)
@@ -127,7 +127,7 @@ The authority JWT contains RAMP-specific claims:
   "iss": "iam.acme.com",
   "sub": "jane@acme.com",
   "scope": "tax:customer:read legal:read",
-  "ramp_max_spend_cents": 100000,    // $1,000 department budget
+  "fora_max_spend_cents": 100000,    // $1,000 department budget
   "exp": 1774375200,                  // 2026-03-20T18:00:00Z, 2-hour session
   "cnf": { "jkt": "<thumbprint of the agent's key>" }
 }
@@ -149,8 +149,8 @@ Delegation {
 
 Key properties of this flow:
 
-- **No RAMP-specific password.** Users authenticate through existing SSO. The token service is the only component that needs RAMP awareness.
-- **Scopes derived from roles.** A single mapping table (`AD group → RAMP scopes`) governs all access. Update the mapping, and every future token reflects the change.
+- **No FORA-specific password.** Users authenticate through existing SSO. The token service is the only component that needs FORA awareness.
+- **Scopes derived from roles.** A single mapping table (`AD group → FORA scopes`) governs all access. Update the mapping, and every future token reflects the change.
 - **Time-bounded.** Tokens expire with the SSO session. A leaked token is useless after expiry.
 - **Spend-capped.** `max_spend_cents` prevents runaway costs. The Exchange tracks cumulative spend against this cap.
 
@@ -193,7 +193,7 @@ Resources carry classification labels in the `ext` field:
 
 ```json
 {
-  "ramp.classification": "confidential"
+  "fora.classification": "confidential"
 }
 ```
 
@@ -210,7 +210,7 @@ A user without `classification:confidential` in their scopes never sees confiden
 
 ## Audit Trail
 
-Every RAMP transaction is Ed25519-signed. This is not optional — it is part of the protocol.
+Every FORA transaction is Ed25519-signed. This is not optional — it is part of the protocol.
 
 The `UsageReport` records:
 
@@ -241,7 +241,7 @@ For compliance officers, this means:
 
 ## Deployment Phases
 
-### Phase 1: External resources through RAMP (weeks)
+### Phase 1: External resources through FORA (weeks)
 
 Deploy a Broker. Configure delegation JWT minting from your IAM. Route to external Exchanges (D&B, PACER, news). All external AI resource access flows through one protocol with unified identity and audit.
 
@@ -260,8 +260,8 @@ The Broker is your AI data gateway:
 
 ## Next Steps
 
-- [What Is RAMP?](/getting-started/what-is-ramp/) — the protocol overview
-- [Universal Data Layer](/getting-started/for-ai-platforms/) — the broader vision for RAMP as a single integration point
-- [Authentication (Ed25519)](/protocol/authentication/) — how RAMP's signature scheme works
+- [What Is FORA?](/getting-started/what-is-fora/) — the protocol overview
+- [Universal Data Layer](/getting-started/for-ai-platforms/) — the broader vision for FORA as a single integration point
+- [Authentication (Ed25519)](/protocol/authentication/) — how FORA's signature scheme works
 - [For AI Agents](/getting-started/for-ai-agents/) — SDK integration guide
 - [Transaction Flow](/protocol/transaction-flow/) — the full request-offer-deliver-report cycle

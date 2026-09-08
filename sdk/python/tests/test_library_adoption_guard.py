@@ -6,7 +6,7 @@ fixed byte contract, so a future edit cannot silently re-introduce the disease t
 port eliminated (a hand-rolled Pydantic wire mirror instead of the generated
 gen/python models, or a drifted canonical thumbprint JWK string).
 
-SCOPE — deliberately sdk/python/ramp_sdk ONLY. A tree-wide ban would false-fire on
+SCOPE — deliberately sdk/python/fora_sdk ONLY. A tree-wide ban would false-fire on
 the app modules, which MUST still exist until their deletion in the downstream
 adoption work. The behavioral guard for byte-parity is the parity
 suite (test_*_parity.py vs the Go oracle vectors); this file adds the source-level
@@ -18,7 +18,7 @@ from __future__ import annotations
 import pathlib
 from dataclasses import dataclass, field
 
-_SRC = pathlib.Path(__file__).resolve().parents[1] / "ramp_sdk"
+_SRC = pathlib.Path(__file__).resolve().parents[1] / "fora_sdk"
 
 
 @dataclass(frozen=True)
@@ -100,17 +100,17 @@ def test_meta_passes_clean_composed_source() -> None:
     assert eval_site(good, guard) == []
 
 
-# ---- sdk/python/ramp_sdk.core transport-neutrality guard ----
+# ---- sdk/python/fora_sdk.core transport-neutrality guard ----
 #
 # Mirror of the Go core "no connectrpc import" guard and the sdk/ts core guard. This
-# guards the PURE TRUST CORE (ramp_sdk.core): it must impose NOTHING beyond stdlib +
+# guards the PURE TRUST CORE (fora_sdk.core): it must impose NOTHING beyond stdlib +
 # cryptography + the vetted JCS lib — NO framework import, and NO HTTP client (no
 # httpx, no FastAPI/Starlette). This is the dependency-free-core half of the SDK's
 # split policy (docs/design-history.md, "SDK layering"): the maintained HTTP client
 # (httpx) is DELIBERATELY permitted, but only one tier up in the I/O resolvers layer
-# (ramp_sdk.resolvers), behind the SSRF guard — never in this core. So "no httpx" is a
+# (fora_sdk.resolvers), behind the SSRF guard — never in this core. So "no httpx" is a
 # property of the trust core alone, not of the whole SDK above L1. The framework
-# bindings (ramp_sdk.signing_transport) depend on core, never the reverse, so the
+# bindings (fora_sdk.signing_transport) depend on core, never the reverse, so the
 # forbidden imports are the FRAMEWORK names in core.py, and the required marker is that
 # offer-verify + acceptance compose the vetted rfc8785 JCS lib rather than
 # hand-rolling canonicalization.
@@ -128,9 +128,9 @@ def test_core_imports_no_framework_and_uses_vetted_jcs() -> None:
 
 def test_core_does_not_depend_on_the_binding() -> None:
     # One-directional: the binding composes core; core must not IMPORT the binding.
-    # (A prose mention of ramp_sdk.signing_transport in the module docstring is fine — it
+    # (A prose mention of fora_sdk.signing_transport in the module docstring is fine — it
     # is the import STATEMENT that would create the illegal reverse edge.)
     src = _read_source("core.py")
     assert "import signing_transport" not in src
-    assert "from ramp_sdk.signing_transport" not in src
-    assert "import ramp_sdk.signing_transport" not in src
+    assert "from fora_sdk.signing_transport" not in src
+    assert "import fora_sdk.signing_transport" not in src

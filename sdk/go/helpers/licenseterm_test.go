@@ -6,8 +6,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // These tests cover what the shared corpus cannot express from a JSON file:
@@ -17,12 +17,12 @@ import (
 
 func TestNormalizeLicenseTerm_IsNilSafeAndInPlace(t *testing.T) {
 	helpers.NormalizeLicenseTerm(nil)
-	helpers.NormalizeLicenseTerm(&rampv1.LicenseTerm{})
+	helpers.NormalizeLicenseTerm(&forav1.LicenseTerm{})
 	helpers.NormalizeResourceEntry(nil)
 
-	term := &rampv1.LicenseTerm{Restrictions: []*rampv1.Restriction{
-		{Kind: rampv1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{" Generative-AI "}, Prohibited: []string{"SCRAPE"}},
-		{Kind: rampv1.RestrictionKind_RESTRICTION_KIND_OTHER, Permitted: []string{" Left-Alone "}},
+	term := &forav1.LicenseTerm{Restrictions: []*forav1.Restriction{
+		{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{" Generative-AI "}, Prohibited: []string{"SCRAPE"}},
+		{Kind: forav1.RestrictionKind_RESTRICTION_KIND_OTHER, Permitted: []string{" Left-Alone "}},
 	}}
 	helpers.NormalizeLicenseTerm(term)
 	if got := term.Restrictions[0].Permitted[0]; got != "ai-input" {
@@ -37,7 +37,7 @@ func TestNormalizeLicenseTerm_IsNilSafeAndInPlace(t *testing.T) {
 }
 
 func TestValidateLicenseTerm_ReturnsATypedViolation(t *testing.T) {
-	term := &rampv1.LicenseTerm{Pricing: &rampv1.Pricing{Model: rampv1.PricingModel_PRICING_MODEL_PER_UNIT, Unit: proto.String("frobnications")}}
+	term := &forav1.LicenseTerm{Pricing: &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Unit: proto.String("frobnications")}}
 	warnings, err := helpers.ValidateLicenseTerm(term)
 	if err == nil {
 		t.Fatal("expected a violation")
@@ -64,11 +64,11 @@ func TestValidateResourceEntry_NeverMutatesAndIsNilSafe(t *testing.T) {
 	if v := helpers.ValidateResourceEntry(nil); v.OK() {
 		t.Error("a nil entry must not be OK")
 	}
-	entry := &rampv1.ResourceEntry{Domain: "publisher.example", Path: "/x", Terms: []*rampv1.LicenseTerm{{
-		Semantics: rampv1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
-		Pricing:   &rampv1.Pricing{Model: rampv1.PricingModel_PRICING_MODEL_FREE, Rate: "0"},
-		Restrictions: []*rampv1.Restriction{{
-			Kind: rampv1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"Generative-AI"},
+	entry := &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Terms: []*forav1.LicenseTerm{{
+		Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+		Pricing:   &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"},
+		Restrictions: []*forav1.Restriction{{
+			Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"Generative-AI"},
 		}},
 	}}}
 	snapshot := proto.Clone(entry)
@@ -88,9 +88,9 @@ func TestValidateResourceEntry_NeverMutatesAndIsNilSafe(t *testing.T) {
 }
 
 func TestValidateResourceEntry_ReportsBothTiersWithEntryPaths(t *testing.T) {
-	entry := &rampv1.ResourceEntry{Domain: "publisher.example", Path: "no-leading-slash", Terms: []*rampv1.LicenseTerm{
-		{Semantics: rampv1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: &rampv1.Pricing{Model: rampv1.PricingModel_PRICING_MODEL_FREE, Rate: "0"}},
-		{Semantics: rampv1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: &rampv1.Pricing{Model: rampv1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "1", Currency: "USD", Unit: proto.String("frobnications")}},
+	entry := &forav1.ResourceEntry{Domain: "publisher.example", Path: "no-leading-slash", Terms: []*forav1.LicenseTerm{
+		{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"}},
+		{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "1", Currency: "USD", Unit: proto.String("frobnications")}},
 	}}
 	verdict := helpers.ValidateResourceEntry(entry)
 	if verdict.OK() {
@@ -116,9 +116,9 @@ func TestValidateResourceEntry_ReportsBothTiersWithEntryPaths(t *testing.T) {
 // publisher's pre-check does not, and both must reach the same verdict. The value
 // table for the rule lives in the shared corpus.
 func TestValidateLicenseTerm_CanonicalDisjointIsIndifferentToFoldingFirst(t *testing.T) {
-	raw := func() *rampv1.LicenseTerm {
-		return &rampv1.LicenseTerm{Restrictions: []*rampv1.Restriction{{
-			Kind:       rampv1.RestrictionKind_RESTRICTION_KIND_FUNCTION,
+	raw := func() *forav1.LicenseTerm {
+		return &forav1.LicenseTerm{Restrictions: []*forav1.Restriction{{
+			Kind:       forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION,
 			Permitted:  []string{"scrape"},
 			Prohibited: []string{"crawl"},
 		}}}
@@ -153,13 +153,13 @@ func TestValidateLicenseTerm_CanonicalDisjointIsIndifferentToFoldingFirst(t *tes
 // counts restrictions per kind cannot be created or destroyed by it. That is
 // assumed by the split between the tiers; assert it rather than believe it.
 func TestNormalizeLicenseTerm_LeavesRestrictionKindAlone(t *testing.T) {
-	term := &rampv1.LicenseTerm{Restrictions: []*rampv1.Restriction{
-		{Kind: rampv1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"SCRAPE"}},
-		{Kind: rampv1.RestrictionKind_RESTRICTION_KIND_GEOGRAPHY, Permitted: []string{"us"}},
-		{Kind: rampv1.RestrictionKind_RESTRICTION_KIND_USER_TYPE, Prohibited: []string{"Personal"}},
-		{Kind: rampv1.RestrictionKind_RESTRICTION_KIND_OTHER, Permitted: []string{"Left-Alone"}},
+	term := &forav1.LicenseTerm{Restrictions: []*forav1.Restriction{
+		{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"SCRAPE"}},
+		{Kind: forav1.RestrictionKind_RESTRICTION_KIND_GEOGRAPHY, Permitted: []string{"us"}},
+		{Kind: forav1.RestrictionKind_RESTRICTION_KIND_USER_TYPE, Prohibited: []string{"Personal"}},
+		{Kind: forav1.RestrictionKind_RESTRICTION_KIND_OTHER, Permitted: []string{"Left-Alone"}},
 	}}
-	want := make([]rampv1.RestrictionKind, len(term.Restrictions))
+	want := make([]forav1.RestrictionKind, len(term.Restrictions))
 	for i, r := range term.Restrictions {
 		want[i] = r.GetKind()
 	}

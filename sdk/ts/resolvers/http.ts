@@ -266,7 +266,7 @@ export function guardedFetchFromEnv(): FetchLike {
 }
 
 /** Default transport for a resolver whose URL is caller-configured (well-known
- * JWKS / ramp.json): a plain fetch. It is NOT SSRF-guarded — the operator, not an
+ * JWKS / fora.json): a plain fetch. It is NOT SSRF-guarded — the operator, not an
  * attacker, chooses that URL, and an on-prem JWKS may legitimately be private.
  * Only the WBA resolver (whose host comes from the request-supplied
  * Signature-Agent, fetched pre-auth) defaults to `guardedFetch`, matching the Go

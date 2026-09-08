@@ -27,7 +27,7 @@ func NewServer(cfg *Config) *http.Server {
     mux := http.NewServeMux()
 
     handler := NewExchangeHandler(cfg)
-    path, h := rampv1connect.NewExchangeServiceHandler(handler)
+    path, h := forav1connect.NewExchangeServiceHandler(handler)
     mux.Handle(path, h)
 
     return &http.Server{
@@ -46,7 +46,7 @@ The resource catalog is read on every DiscoverResources call. Writes happen only
 
 ```go
 // Read path (hot — every DiscoverResources):
-func (c *Catalog) FindOffers(ctx context.Context, tenantID string, ais *compv1.AISystem) ([]*rampv1.Offer, error) {
+func (c *Catalog) FindOffers(ctx context.Context, tenantID string, ais *compv1.AISystem) ([]*forav1.Offer, error) {
     // Atomic load — no lock, no contention
     snapshot := c.current.Load()
     tenant, ok := snapshot.Tenants[tenantID]
@@ -180,7 +180,7 @@ type idempotencyShard struct {
 }
 
 type idempotencyEntry struct {
-    response  *rampv1.TransactionResponse
+    response  *forav1.TransactionResponse
     expiresAt time.Time
 }
 ```
@@ -221,7 +221,7 @@ Result: Two signed URLs issued for one billing event. CDN redeems one. No financ
 // Distributed idempotency check via Redis. The key is the request's
 // idempotency key (TransactionRequest.idempotency_key), not the wire
 // correlation id (which rides the X-Request-ID HTTP header).
-func (h *ExchangeHandler) checkIdempotency(ctx context.Context, idempotencyKey string) (*rampv1.TransactionResponse, error) {
+func (h *ExchangeHandler) checkIdempotency(ctx context.Context, idempotencyKey string) (*forav1.TransactionResponse, error) {
     // 1. Local LRU (fast path, no network)
     if cached, ok := h.localCache.Get(idempotencyKey); ok {
         return cached, nil

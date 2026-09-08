@@ -16,8 +16,8 @@ import asyncio
 
 import pytest
 
-from ramp_sdk.client import CatalogClient, ClientConfig
-from ramp_sdk.client.errors import CallError
+from fora_sdk.client import CatalogClient, ClientConfig
+from fora_sdk.client.errors import CallError
 
 CREDENTIAL = "s3cr3t"
 WITH_USERINFO = f"publisher:{CREDENTIAL}@exchange.test"

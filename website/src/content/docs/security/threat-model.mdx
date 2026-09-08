@@ -1,12 +1,12 @@
 ---
 title: "Threat Model"
-description: "RAMP threat model with 41 attack vectors and countermeasures, informed by 20 years of ad-tech fraud history"
+description: "FORA threat model with 41 attack vectors and countermeasures, informed by 20 years of ad-tech fraud history"
 ---
 
 ## Methodology
 
 Three independent adversarial analyses were conducted:
-1. **Ad-tech fraud history**: Every major fraud category from 20+ years of programmatic advertising, mapped to RAMP equivalents
+1. **Ad-tech fraud history**: Every major fraud category from 20+ years of programmatic advertising, mapped to FORA equivalents
 2. **Content licensing abuse brainstorm**: 56 attack vectors from each party's perspective (dishonest exchange, agent, provider, broker, attacker)
 3. **STRIDE security threat model**: Formal threat modeling of the protocol's technical surface
 
@@ -14,7 +14,7 @@ Three independent adversarial analyses were conducted:
 
 > **Every self-reported field gets gamed.** Any claim that is not cryptographically attested by a trusted party will be falsified if there's economic incentive.
 
-This single pattern accounts for most ad-tech fraud: domain spoofing (self-reported domain), geo spoofing (self-reported location), viewability fraud (self-reported measurement), and attribution fraud (self-reported conversion). RAMP must learn from this.
+This single pattern accounts for most ad-tech fraud: domain spoofing (self-reported domain), geo spoofing (self-reported location), viewability fraud (self-reported measurement), and attribution fraud (self-reported conversion). FORA must learn from this.
 
 ## 1. Supply-Side Threats (Dishonest Exchange Operator)
 
@@ -124,8 +124,8 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 ## 5. Third-Party Attacks
 
 ### T22: Exchange impersonation
-**Attack**: Attacker sets up fake Exchange, poisons ramp.json via DNS hijack.
-**Countermeasure (protocol)**: ramp.json served over HTTPS from provider's domain (TLS proves endorsement). Every Offer carries `exchange_signature` (Ed25519). Agent verifies against Exchange's public key.
+**Attack**: Attacker sets up fake Exchange, poisons fora.json via DNS hijack.
+**Countermeasure (protocol)**: fora.json served over HTTPS from provider's domain (TLS proves endorsement). Every Offer carries `exchange_signature` (Ed25519). Agent verifies against Exchange's public key.
 
 ### T23: Signed URL interception (MITM)
 **Attack**: Attacker intercepts TransactionResponse, steals signed URL.
@@ -144,7 +144,7 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 **Countermeasure (protocol)**: Per-partner rate limiting keyed on the **verified requester identity** (RFC 9421 request signature — domain/key). Anonymous queries rejected.
 
 ### T-EP-1: Manifest-advertised endpoint redirection
-**Attack**: A party that answers for `{domain}/.well-known/ramp.json` — the domain's operator, or anyone who can influence what a consumer reads there — advertises an `endpoint` on a host it controls, or on another port of the named host, or one carrying `user:password@` credentials. Every consumer that resolves that domain then sends signed calls (usage reports, disputes, execute) to the attacker's address, or stamps an `Authorization` header the SDK never chose. A dial-time SSRF guard raises no objection: the destination is an ordinary public host.
+**Attack**: A party that answers for `{domain}/.well-known/fora.json` — the domain's operator, or anyone who can influence what a consumer reads there — advertises an `endpoint` on a host it controls, or on another port of the named host, or one carrying `user:password@` credentials. Every consumer that resolves that domain then sends signed calls (usage reports, disputes, execute) to the attacker's address, or stamps an `Authorization` header the SDK never chose. A dial-time SSRF guard raises no objection: the destination is an ordinary public host.
 **Countermeasure (protocol)**: `WellKnownManifest.endpoint` states the binding as a **MUST** — the endpoint must be on the host **and port** that served the manifest, or a subdomain of that host on that port, and must not carry userinfo. The anchor is the host the consumer **fetched the document from**, never the self-asserted `domain` member inside it, since anchoring to a value the document supplies would let a hostile manifest validate itself. The host match is on a full dot-delimited label boundary, so `evil-a.com` is not under `a.com`.
 
 **Enforced below the caller, in all three SDKs.** The check runs inside the shared endpoint resolver, before the value is returned and before it is cached, so every consumer of that resolver inherits it rather than being trusted to remember. A refused endpoint surfaces as its own verdict, distinct from "no endpoint advertised" and from a transport failure, so a caller classifying retryability reads it as final. The rule is corpus-locked to shared conformance vectors the three SDKs replay, and a conformance guard holds the vectors to the normative text above — the two cannot drift apart silently.
@@ -155,7 +155,7 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 
 ### T27: Content arbitrage (buy low, resell high)
 **Attack**: Entity buys from Exchange A at $0.04, resells via own Exchange at $0.05.
-**Countermeasure (protocol)**: ResourceIdentity enables detection. ramp.json declares authorized providers.
+**Countermeasure (protocol)**: ResourceIdentity enables detection. fora.json declares authorized providers.
 
 ### T28: Free content laundering
 **Attack**: Scrape freely available content, package behind paywall as "premium."
@@ -206,7 +206,7 @@ Line 3: Legal/contractual enforcement
 ### T-ATT-1: Forged attestation injection
 
 **Attack**: Attacker crafts a fake `ResourceAttestation` with a fabricated `verifier` domain and pushes it via `CatalogService.PushResources`.
-**Countermeasure (protocol)**: Exchange verifies `caller_id` is listed in the provider's `catalog_contributors` (from `ramp.json`). Exchange verifies the attestation `signature` against the verifier's public key in its WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`). RAMP has no dedicated verifier role; a verifier publishes under its operator's role (`ROLE_PUBLISHER` for a self-attesting publisher, `ROLE_EXCHANGE` for a standalone vendor). Both checks must pass.
+**Countermeasure (protocol)**: Exchange verifies `caller_id` is listed in the provider's `catalog_contributors` (from `fora.json`). Exchange verifies the attestation `signature` against the verifier's public key in its WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`). FORA has no dedicated verifier role; a verifier publishes under its operator's role (`ROLE_PUBLISHER` for a self-attesting publisher, `ROLE_EXCHANGE` for a standalone vendor). Both checks must pass.
 
 ### T-ATT-2: Stale attestation exploitation
 
@@ -229,7 +229,7 @@ Line 3: Legal/contractual enforcement
 ### T-ATT-5: Catalog contributor spoofing
 
 **Attack**: Unauthorized party registers a domain similar to a legitimate verifier (e.g., `doub1everify.com`) and pushes attestations claiming to be a trusted vendor.
-**Countermeasure (protocol)**: `catalog_contributors` in `ramp.json` uses exact domain matching. The provider must explicitly list the contributor's domain. The Exchange fetches the WBA directory from the exact `verifier` domain in the attestation and verifies the signature against that domain's `keys` (the JWK Set at `/.well-known/http-message-signatures-directory`).
+**Countermeasure (protocol)**: `catalog_contributors` in `fora.json` uses exact domain matching. The provider must explicitly list the contributor's domain. The Exchange fetches the WBA directory from the exact `verifier` domain in the attestation and verifies the signature against that domain's `keys` (the JWK Set at `/.well-known/http-message-signatures-directory`).
 
 ## 8. Delegation and Authorization Threats
 
@@ -291,9 +291,9 @@ Line 3: Legal/contractual enforcement
 
 ## Comparison to Ad-Tech Fixes
 
-| Ad-Tech Fix | Year | RAMP Equivalent | Status |
+| Ad-Tech Fix | Year | FORA Equivalent | Status |
 |---|---|---|---|
-| ads.txt | 2017 | ramp.json (authorized providers) | In proto |
+| ads.txt | 2017 | fora.json (authorized providers) | In proto |
 | sellers.json | 2019 | Exchange identity in ResourceResponse | In proto |
 | SupplyChain Object | 2019 | exchange_signature on Offer | In proto |
 | ads.cert | 2020 | exchange_signature + content_integrity_hash | In proto |

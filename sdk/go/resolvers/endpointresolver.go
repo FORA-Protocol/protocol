@@ -12,9 +12,9 @@ import (
 	jose "github.com/go-jose/go-jose/v4"
 	"golang.org/x/sync/singleflight"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/endpointrule"
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/lrucache"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/endpointrule"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/lrucache"
 )
 
 // maxWellKnownDocBytes bounds the well-known / JWKS response body read. A hostile
@@ -23,7 +23,7 @@ import (
 // Python / TS 1 MiB well-known bound so the three SDKs agree on the ceiling.
 const maxWellKnownDocBytes = 1 << 20 // 1 MiB
 
-// ErrNoEndpoint signals that an Exchange's /.well-known/ramp.json was fetched and
+// ErrNoEndpoint signals that an Exchange's /.well-known/fora.json was fetched and
 // decoded successfully but advertises no endpoint (WellKnownManifest.endpoint,
 // proto field 12, absent). It is deliberately distinct from a transport or
 // decode failure: the manifest exists, the Exchange simply has not closed the
@@ -42,7 +42,7 @@ var ErrNoEndpoint = errors.New("resolvers: well-known manifest has no endpoint")
 var ErrEndpointRefused = errors.New("resolvers: well-known manifest advertises an unusable endpoint")
 
 // ErrManifestVersionRefused re-exports helpers.ErrManifestVersionRefused — the
-// verdict CheckWellKnownManifestVersion returns for a /.well-known/ramp.json
+// verdict CheckWellKnownManifestVersion returns for a /.well-known/fora.json
 // whose WellKnownManifest.ver this reader does not accept — so the endpoint
 // resolver's refusal is checkable from this package beside ErrNoEndpoint and
 // ErrEndpointRefused without a caller importing helpers directly. One sentinel
@@ -58,7 +58,7 @@ var ErrManifestVersionRefused = helpers.ErrManifestVersionRefused
 // through: one decoder for two document shapes, each face reading only its own
 // members. The key face (WellKnownKeyResolver) fetches a plain RFC 7517 JWK Set
 // from an operator-chosen URL and reads `keys`. The endpoint face
-// (WellKnownEndpointResolver) fetches /.well-known/ramp.json and reads the
+// (WellKnownEndpointResolver) fetches /.well-known/fora.json and reads the
 // WellKnownManifest projection — the document version (field 1) and the
 // self-advertised ExchangeService endpoint (field 12). A JWK Set carries no
 // manifest version, which is why the version gate is the endpoint face's alone.
@@ -133,7 +133,7 @@ const maxCachedEndpoints = 256
 const maxManifestFetch = 30 * time.Second
 
 // WellKnownEndpointResolver resolves an Exchange domain to its self-advertised
-// ExchangeService endpoint by fetching https://{host}/.well-known/ramp.json and
+// ExchangeService endpoint by fetching https://{host}/.well-known/fora.json and
 // reading WellKnownManifest.endpoint. Unlike WellKnownKeyResolver (one fixed
 // URL), it is HOST-KEYED: a Broker resolves an arbitrary, signature-covered
 // Offer.exchange host per request, so the cache, TTL freshness, and single-flight
@@ -165,7 +165,7 @@ type endpointEntry struct {
 //
 // The endpoint host is REQUEST-DERIVED: a Broker resolves a per-request,
 // signature-covered Offer.exchange host and this resolver fetches that host's
-// /.well-known/ramp.json. That is the same threat shape as the WBA directory
+// /.well-known/fora.json. That is the same threat shape as the WBA directory
 // fetch — a caller-influenced host reached over the network — so the default
 // client is SSRF-guarded (NewGuardedClientFromEnv), NOT the unguarded
 // http.DefaultClient. (The fixed-URL WellKnownKeyResolver stays on
@@ -268,7 +268,7 @@ func (r *WellKnownEndpointResolver) ResolveEndpoint(ctx context.Context, host st
 		if ep, ok := r.cached(host); ok {
 			return ep, nil // another goroutine fetched while we waited
 		}
-		url := r.scheme + "://" + host + "/.well-known/ramp.json"
+		url := r.scheme + "://" + host + helpers.WellKnownPath
 		doc, ferr := fetchWellKnownDoc(fetchCtx, r.http, url)
 		if ferr != nil {
 			return "", ferr

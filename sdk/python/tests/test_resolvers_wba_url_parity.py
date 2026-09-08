@@ -17,7 +17,7 @@ with the Go/TS builders byte-for-byte at the seam the three languages must never
 disagree on: https-default, explicit-http, host-with-port, and IPv6 pass-through
 of an already-bracketed host.
 
-TDD-red: ``wba_directory_url`` does not exist in ``ramp_sdk.resolvers`` yet, and
+TDD-red: ``wba_directory_url`` does not exist in ``fora_sdk.resolvers`` yet, and
 ``sdk/go/resolvers/testdata/wba-url-vectors.json`` is not emitted yet — so both
 the import and the corpus load fail until the builder + corpus land.
 """
@@ -29,8 +29,8 @@ from typing import Any
 import pytest
 from conftest import GO_RESOLVERS_TESTDATA, load_json
 
-# RED: `wba_directory_url` is not defined/exported from ramp_sdk.resolvers yet.
-from ramp_sdk.resolvers import wba_directory_url  # type: ignore[attr-defined]
+# RED: `wba_directory_url` is not defined/exported from fora_sdk.resolvers yet.
+from fora_sdk.resolvers import wba_directory_url  # type: ignore[attr-defined]
 
 # RED: the Go emitter has not produced this corpus yet → load_json raises
 # FileNotFoundError at import time, failing collection for the RIGHT reason.

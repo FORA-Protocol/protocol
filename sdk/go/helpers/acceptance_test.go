@@ -6,14 +6,14 @@ import (
 	"errors"
 	"testing"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 	"google.golang.org/protobuf/proto"
 )
 
-func acceptanceFixture() (*rampv1.Offer, *rampv1.Requester, string) {
-	offer := &rampv1.Offer{OfferId: "of_1", Signature: "ex-offer-sig-hex", SignatureAlgorithm: "EdDSA"}
-	requester := &rampv1.Requester{Id: "agent-1", Domain: "agent.example.com"}
+func acceptanceFixture() (*forav1.Offer, *forav1.Requester, string) {
+	offer := &forav1.Offer{OfferId: "of_1", Signature: "ex-offer-sig-hex", SignatureAlgorithm: "EdDSA"}
+	requester := &forav1.Requester{Id: "agent-1", Domain: "agent.example.com"}
 	return offer, requester, "idem-1"
 }
 
@@ -68,7 +68,7 @@ func TestVerifyOfferAcceptance_economicsRebound(t *testing.T) {
 	// offer_sig; this proves the full real-signature chain.)
 	exPub, exPriv, _ := ed25519.GenerateKey(nil) // Exchange offer-signing key
 	agentPub, agentPriv, _ := ed25519.GenerateKey(nil)
-	requester := &rampv1.Requester{Id: "agent-1", Domain: "agent.example.com"}
+	requester := &forav1.Requester{Id: "agent-1", Domain: "agent.example.com"}
 	const idem = "idem-econ"
 	_ = exPub
 
@@ -111,7 +111,7 @@ func TestVerifyOfferAcceptance_wrongKeyRejected(t *testing.T) {
 func TestSignOfferAcceptance_emptyOfferSignatureRejected(t *testing.T) {
 	_, priv, _ := ed25519.GenerateKey(nil)
 	_, requester, idem := acceptanceFixture()
-	unsigned := &rampv1.Offer{OfferId: "of_1"} // no Signature
+	unsigned := &forav1.Offer{OfferId: "of_1"} // no Signature
 	if _, err := helpers.SignOfferAcceptance(priv, unsigned, requester, idem); err == nil {
 		t.Fatal("expected error signing acceptance over an unsigned offer (empty anchor)")
 	}
@@ -157,7 +157,7 @@ func TestCanonicalAcceptanceBytes_failsClosed(t *testing.T) {
 	}
 	// An unsigned offer is an empty anchor: the acceptance would float free of any
 	// concrete offer, so the bytes are refused rather than produced.
-	unsigned := &rampv1.Offer{OfferId: "of_1"}
+	unsigned := &forav1.Offer{OfferId: "of_1"}
 	if _, err := helpers.CanonicalAcceptanceBytes(unsigned, requester, idem); err == nil {
 		t.Error("unsigned offer (empty offer signature) should error")
 	}

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ramp_sdk.core import (
+from fora_sdk.core import (
     DiscoveryResult,
     Mode,
     OfferGroupResult,

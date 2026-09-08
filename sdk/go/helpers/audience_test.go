@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // The case-by-case verdict table lives in the shared conformance vectors, which

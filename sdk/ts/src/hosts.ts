@@ -11,7 +11,7 @@
 // Addressed requests carry the recipient's bare domain in a body field. The RFC
 // 9421 signature does not already establish the recipient: it proves the sender
 // signed THE URL IT DIALLED, not that the URL was the right one. That dial target
-// is resolved from a fetched, cached /.well-known/ramp.json, so a poisoned or
+// is resolved from a fetched, cached /.well-known/fora.json, so a poisoned or
 // stale resolution redirects the request while every signature still verifies.
 // The field states whom the sender MEANT, independently of that resolution.
 //
@@ -30,7 +30,7 @@ import { anchoredParsed, parseRef } from "./host-ref.ts";
  * with an optional ":port", never a URL. It carries the same bytes as the Go
  * `helpers.BareDomainPattern` and as the protovalidate pattern on the contract's
  * recipient-addressing fields — the `exchange` field on each addressed request,
- * `Offer.exchange` and their neighbours, not every field in ramp.proto that
+ * `Offer.exchange` and their neighbours, not every field in fora.proto that
  * happens to hold a domain. One rule, so the check a client makes before sending
  * and the check the wire makes on arrival cannot answer differently. The parity
  * suite asserts these bytes against the shared vectors.

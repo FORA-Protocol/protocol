@@ -22,7 +22,7 @@ package helpers
 // Same contract as the audience emitter: every recorded verdict is DERIVED by
 // calling the REAL face, each case still carries the verdict its AUTHOR intended,
 // and the emitter refuses to write a file where the two disagree. Verification
-// no-op by default, (re)writes under RAMP_UPDATE_VECTORS=1.
+// no-op by default, (re)writes under FORA_UPDATE_VECTORS=1.
 
 import (
 	"os"
@@ -459,7 +459,7 @@ func buildHostAnchoredVectors(t *testing.T) []hostAnchoredVector {
 
 // TestGenerateHostRuleVectors emits the host-rule golden corpus (host extraction,
 // the plain-hostname predicate, and the anchor rule). Verification no-op by
-// default, (re)writes under RAMP_UPDATE_VECTORS=1.
+// default, (re)writes under FORA_UPDATE_VECTORS=1.
 func TestGenerateHostRuleVectors(t *testing.T) {
 	doc := map[string]any{
 		"host_of":       buildHostOfVectors(t),
@@ -467,7 +467,7 @@ func TestGenerateHostRuleVectors(t *testing.T) {
 		"host_anchored": buildHostAnchoredVectors(t),
 	}
 	path := filepath.Join("testdata", "host-rule-vectors.json")
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		writeJSON(t, path, doc)
 		return
 	}

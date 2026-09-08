@@ -2,7 +2,7 @@
 
 Mirrors the sdk/ts sibling sdk/ts/tests/audience.parity.test.ts.
 
-``ramp_sdk.hosts.is_bare_domain`` and ``ramp_sdk.hosts.check_audience`` MUST
+``fora_sdk.hosts.is_bare_domain`` and ``fora_sdk.hosts.check_audience`` MUST
 reproduce the sdk/go oracle (helpers/hosts.go, helpers/audience.go). The shared
 vectors at sdk/go/helpers/testdata/audience-vectors.json carry the bare-domain
 rule ITSELF (pattern + length bound) beside the case lists, so this suite asserts
@@ -24,7 +24,7 @@ from __future__ import annotations
 import pytest
 
 from conftest import GO_TESTDATA, load_json
-from ramp_sdk.hosts import (
+from fora_sdk.hosts import (
     BARE_DOMAIN_PATTERN,
     MAX_BARE_DOMAIN_LEN,
     check_audience,

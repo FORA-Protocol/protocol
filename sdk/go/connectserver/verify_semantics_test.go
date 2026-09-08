@@ -3,7 +3,7 @@ package connectserver_test
 // Contract tests for two verify-face semantics the platform pins (each was a
 // platform-integration regression before being encoded here):
 //
-//  1. GATE PREDICATE — a /ramp. request that carries NO Signature-Input is not
+//  1. GATE PREDICATE — a /fora. request that carries NO Signature-Input is not
 //     seam-rejected: it reaches the origin handler, which owns the typed
 //     Unauthenticated fault (the ADR-019 ErrorDetail contract). Only a request
 //     that presents a signature is verified at the seam.
@@ -24,28 +24,28 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RAMP-Protocol/protocol/gen/go/ramp/v1/rampv1connect"
-	rampserver "github.com/RAMP-Protocol/protocol/sdk/go/connectserver"
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
+	foraserver "github.com/FORA-Protocol/protocol/sdk/go/connectserver"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 // serveHandlerWithOpts mirrors serveHandler but lets a test add extra server
 // options (e.g. a narrowed verify gate).
 func serveHandlerWithOpts(
-	t *testing.T, origin rampv1connect.ExchangeServiceHandler,
+	t *testing.T, origin forav1connect.ExchangeServiceHandler,
 	resolver *helpers.StaticKeyResolver, replay core.ReplayStore,
-	extra ...rampserver.ServerOption,
+	extra ...foraserver.ServerOption,
 ) *httptest.Server {
 	t.Helper()
-	opts := append([]rampserver.ServerOption{
-		rampserver.WithKeyResolver(resolver),
-		rampserver.WithReplayStore(replay),
+	opts := append([]foraserver.ServerOption{
+		foraserver.WithKeyResolver(resolver),
+		foraserver.WithReplayStore(replay),
 	}, extra...)
-	path, h := rampserver.NewExchangeServiceHandler(origin, opts...)
+	path, h := foraserver.NewExchangeServiceHandler(origin, opts...)
 	mux := http.NewServeMux()
 	mux.Handle(path, h)
 	srv := httptest.NewServer(mux)
@@ -53,7 +53,7 @@ func serveHandlerWithOpts(
 }
 
 // TestServerVerify_DefaultGateRejectsUnsigned pins the DEFAULT: with no
-// injected gate, every /ramp. procedure is verified — an unsigned request is
+// injected gate, every /fora. procedure is verified — an unsigned request is
 // seam-rejected fail-closed and never reaches the origin.
 func TestServerVerify_DefaultGateRejectsUnsigned(t *testing.T) {
 	f := newServerFixture(t)
@@ -81,7 +81,7 @@ func TestServerVerify_DefaultGateRejectsUnsigned(t *testing.T) {
 	}
 }
 
-const discoverProcedure = "/ramp.v1.ExchangeService/DiscoverResources"
+const discoverProcedure = "/fora.v1.ExchangeService/DiscoverResources"
 
 // signedDiscover builds a signed POST to the Discover procedure over body with
 // the given created/expires window.
@@ -101,7 +101,7 @@ func signedDiscover(t *testing.T, srvURL string, f serverFixture, body []byte, c
 
 func discoverBody(t *testing.T) []byte {
 	t.Helper()
-	raw, err := protojson.Marshal(&rampv1.ResourceQuery{Ver: helpers.ProtocolVersion})
+	raw, err := protojson.Marshal(&forav1.ResourceQuery{Ver: helpers.ProtocolVersion})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func discoverBody(t *testing.T) []byte {
 }
 
 // TestServerVerify_UnsignedRequestReachesHandler pins the injectable gate: with
-// WithVerifyGate narrowed to signature-presenting requests, an unsigned /ramp.
+// WithVerifyGate narrowed to signature-presenting requests, an unsigned /fora.
 // request is NOT rejected at the seam — it reaches the origin, which owns the
 // typed Unauthenticated fault and rejects before acting. The origin's marker in
 // the error body proves the rejection came from the handler, not the seam's
@@ -118,7 +118,7 @@ func discoverBody(t *testing.T) []byte {
 func TestServerVerify_UnsignedRequestReachesHandler(t *testing.T) {
 	f := newServerFixture(t)
 	srv := serveHandlerWithOpts(t, f.origin, f.resolver, newCountingReplayStore(),
-		rampserver.WithVerifyGate(func(r *http.Request) bool {
+		foraserver.WithVerifyGate(func(r *http.Request) bool {
 			return r.Header.Get("Signature-Input") != ""
 		}))
 	defer srv.Close()

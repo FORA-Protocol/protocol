@@ -25,8 +25,8 @@ import pytest
 
 from conftest import GO_TESTDATA, load_json
 
-# RED before the reader exists: ramp_sdk.errordetail is a missing module (collection error).
-from ramp_sdk.errordetail import (  # type: ignore[import-not-found]
+# RED before the reader exists: fora_sdk.errordetail is a missing module (collection error).
+from fora_sdk.errordetail import (  # type: ignore[import-not-found]
     REASON_FIELDS,
     error_detail_from,
     parse_error_detail,
@@ -74,7 +74,7 @@ def test_reader_extracts_go_projection(vector: dict) -> None:
 
 
 def test_error_detail_from_locates_detail_among_connect_error_details() -> None:
-    """The ErrorDetailFrom-contract analog: find the ramp.v1.ErrorDetail in a
+    """The ErrorDetailFrom-contract analog: find the fora.v1.ErrorDetail in a
     Connect error's details array (skipping foreign details) and parse it."""
     vector = next(v for v in _VECTORS if v["reason_field"] == "transaction_denial")
     connect_error = {
@@ -82,7 +82,7 @@ def test_error_detail_from_locates_detail_among_connect_error_details() -> None:
         "message": vector["message"],
         "details": [
             {"type": "google.rpc.RetryInfo", "debug": {"retry_delay": "1s"}},
-            {"type": "ramp.v1.ErrorDetail", "debug": vector["wire_json"]},
+            {"type": "fora.v1.ErrorDetail", "debug": vector["wire_json"]},
         ],
     }
     detail = error_detail_from(connect_error)
@@ -93,6 +93,6 @@ def test_error_detail_from_locates_detail_among_connect_error_details() -> None:
     assert got.value == vector["reason_enum"]
 
 
-def test_error_detail_from_returns_none_without_ramp_detail() -> None:
+def test_error_detail_from_returns_none_without_fora_detail() -> None:
     assert error_detail_from({"code": "internal", "details": []}) is None
     assert error_detail_from([{"type": "google.rpc.RetryInfo", "debug": {}}]) is None

@@ -1,6 +1,6 @@
 ---
 title: "Fetch Flow"
-description: "Step-by-step walkthrough of how the RAMP Agent SDK discovers, transacts, and fetches licensed content -- from URL to delivered content."
+description: "Step-by-step walkthrough of how the FORA Agent SDK discovers, transacts, and fetches licensed content -- from URL to delivered content."
 ---
 
 import DeferredSdkNoticeDetail from '../../../../components/DeferredSdkNoticeDetail.mdx';
@@ -21,10 +21,10 @@ client.Fetch(ctx, "https://techcrunch.com/premium/article.html")
   |     ExchangeRegistry.Resolve(domain)
   |       - Check in-memory cache for domain -> Exchange mappings
   |       - Cache hit: return known Exchange endpoints
-  |       - Cache miss: fetch https://techcrunch.com/.well-known/ramp.json
+  |       - Cache miss: fetch https://techcrunch.com/.well-known/fora.json
   |         - Parse WellKnownManifest, extract authorized Exchanges
   |         - Cache result (TTL: 1 hour, configurable)
-  |         - If ramp.json fetch fails: attempt direct GET to URL
+  |         - If fora.json fetch fails: attempt direct GET to URL
   |           - If 403 + X-Content-Rules header: extract Exchange endpoint
   |           - If 403 without header or non-403: return NoExchangeError
   |
@@ -108,7 +108,7 @@ client.Fetch(ctx, "https://techcrunch.com/premium/article.html")
 |---|---|---|---|
 | Parse domain | &lt;1ms | &lt;1ms | String operation |
 | Resolve Exchanges (cache hit) | &lt;1ms | &lt;1ms | In-memory lookup |
-| Resolve Exchanges (cache miss) | 50ms | 200ms | HTTP fetch of ramp.json |
+| Resolve Exchanges (cache miss) | 50ms | 200ms | HTTP fetch of fora.json |
 | Pre-flight budget check | &lt;1ms | &lt;1ms | In-memory arithmetic |
 | DiscoverResources RPC | 10ms | 50ms | Per NFR targets |
 | Select best offer | &lt;1ms | &lt;1ms | In-memory sort |
@@ -186,11 +186,11 @@ client.FetchBatch(ctx, [url1, url2, url3])
 ## Code Example: Single URL
 
 ```go
-client, err := ramp.NewClient(ramp.Config{
+client, err := fora.NewClient(fora.Config{
     AgentID:     "research-bot",
     AgentDomain: "agent.example.com",
-    SigningKey:  os.Getenv("RAMP_SIGNING_KEY"),
-    Budget:      ramp.Budget{MaxPerRequest: 0.10, Currency: "USD"},
+    SigningKey:  os.Getenv("FORA_SIGNING_KEY"),
+    Budget:      fora.Budget{MaxPerRequest: 0.10, Currency: "USD"},
 })
 if err != nil {
     log.Fatal(err)
@@ -282,14 +282,14 @@ type ExchangeTimeoutError struct {
 | Error | Recovery | User Impact |
 |---|---|---|
 | `BudgetExceededError` | None -- intentional constraint | Caller adjusts budget or skips URL |
-| `NoExchangeError` | Retry after TTL, or configure Exchange manually | Content not available via RAMP |
-| `NoOfferError` | None -- content genuinely unavailable | Caller falls back to non-RAMP access |
+| `NoExchangeError` | Retry after TTL, or configure Exchange manually | Content not available via FORA |
+| `NoOfferError` | None -- content genuinely unavailable | Caller falls back to non-FORA access |
 | `TransactionDeniedError` (RATE_LIMITED) | Automatic retry with backoff | Transparent if retry succeeds |
 | `TransactionDeniedError` (REPORTING_OVERDUE) | Flush pending reports, retry | SDK logs warning |
 | `TransactionDeniedError` (other) | None -- terminal | Caller handles denial |
 | `ContentFetchError` | Retry once (signed URL may be CDN-transient) | Transparent if retry succeeds |
 | `ExchangeTimeoutError` | Retry with longer deadline | Caller may increase timeout |
-| `EndpointRefused` (`EndpointRefusedError`, `ErrEndpointRefused`) | **None -- terminal.** The Exchange answered and the answer is unusable: it advertises an endpoint on a host or port that did not serve its manifest, or one carrying userinfo. Retrying re-reads the same manifest | Content not available via this Exchange until its operator fixes `ramp.json` |
+| `EndpointRefused` (`EndpointRefusedError`, `ErrEndpointRefused`) | **None -- terminal.** The Exchange answered and the answer is unusable: it advertises an endpoint on a host or port that did not serve its manifest, or one carrying userinfo. Retrying re-reads the same manifest | Content not available via this Exchange until its operator fixes `fora.json` |
 
 ## State Management
 
@@ -300,7 +300,7 @@ type ExchangeTimeoutError struct {
 - **Value**: list of authorized Exchange endpoints with trust level
 - **TTL**: configurable, default 1 hour
 - **Capacity**: LRU eviction at 10,000 domains (configurable)
-- **Cold start**: first request to a new domain incurs ramp.json fetch latency
+- **Cold start**: first request to a new domain incurs fora.json fetch latency
 
 ### Budget Tracker
 
@@ -312,7 +312,7 @@ Three enforcement layers, checked in order:
 | **Per-session** | Client instance lifetime | In-memory counter | Resets on `NewClient` |
 | **Per-period** | Calendar period (e.g. 30 days) | Local file or Redis | Survives restarts |
 
-Per-period persistence: by default, the SDK writes period budget state to a local JSON file (`~/.ramp/budget/<scope>.json`). For multi-process agents, configure a shared Redis instance via `Config.Budget.RedisURL`.
+Per-period persistence: by default, the SDK writes period budget state to a local JSON file (`~/.fora/budget/<scope>.json`). For multi-process agents, configure a shared Redis instance via `Config.Budget.RedisURL`.
 
 ### Usage Reporter
 
@@ -331,7 +331,7 @@ design: no such package ships today, and the sample below is written against the
 planned API rather than the shipped one.
 
 ```go
-import "example.com/ramp-agent-sdk/testutil" // planned; not a shipped package
+import "example.com/fora-agent-sdk/testutil" // planned; not a shipped package
 
 func TestAgentLogic(t *testing.T) {
     mock := testutil.NewMockExchange(testutil.MockConfig{
@@ -345,17 +345,17 @@ func TestAgentLogic(t *testing.T) {
     })
     defer mock.Close()
 
-    client, _ := ramp.NewClient(ramp.Config{
+    client, _ := fora.NewClient(fora.Config{
         AgentID:     "test-agent",
         AgentDomain: "agent.example.test",
         SigningKey:  "test-key",
-        Budget:      ramp.Budget{MaxPerRequest: 1.00, Currency: "USD"},
-        Exchanges: []ramp.ExchangeConfig{{
+        Budget:      fora.Budget{MaxPerRequest: 1.00, Currency: "USD"},
+        Exchanges: []fora.ExchangeConfig{{
             Domain:   "mock.exchange.test",
             Endpoint: mock.URL(),
-            Trust:    ramp.TrustVerified,
+            Trust:    fora.TrustVerified,
         }},
-        Discovery: ramp.DiscoveryConfig{AutoDiscover: false},
+        Discovery: fora.DiscoveryConfig{AutoDiscover: false},
     })
     defer client.Close(context.Background())
 

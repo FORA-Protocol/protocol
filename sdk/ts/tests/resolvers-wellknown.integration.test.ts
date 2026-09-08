@@ -180,8 +180,8 @@ describe("createWellKnownEndpointResolver", () => {
 	it("resolves each host to its OWN endpoint (per-host cache isolation)", async () => {
 		const a = await startOrigin();
 		const b = await startOrigin();
-		const epA = `http://${a.host}/ramp.v1.ExchangeService`;
-		const epB = `http://${b.host}/ramp.v1.ExchangeService`;
+		const epA = `http://${a.host}/fora.v1.ExchangeService`;
+		const epB = `http://${b.host}/fora.v1.ExchangeService`;
 		a.setManifest(manifestJson(epA));
 		b.setManifest(manifestJson(epB));
 		try {
@@ -199,7 +199,7 @@ describe("createWellKnownEndpointResolver", () => {
 
 	it("serves the second resolve for the same host from cache", async () => {
 		const origin = await startOrigin();
-		const ep = `http://${origin.host}/ramp.v1.ExchangeService`;
+		const ep = `http://${origin.host}/fora.v1.ExchangeService`;
 		origin.setManifest(manifestJson(ep));
 		try {
 			const r = createWellKnownEndpointResolver({ ttlMs: HOUR_MS, scheme: "http", fetch: loopbackFetch });
@@ -213,7 +213,7 @@ describe("createWellKnownEndpointResolver", () => {
 
 	it("refetches after the TTL expires", async () => {
 		const origin = await startOrigin();
-		const ep = `http://${origin.host}/ramp.v1.ExchangeService`;
+		const ep = `http://${origin.host}/fora.v1.ExchangeService`;
 		origin.setManifest(manifestJson(ep));
 		try {
 			let now = ANCHOR_MS;
@@ -258,7 +258,7 @@ describe("createWellKnownEndpointResolver", () => {
 		// answer Go and Python give — not a DirectoryUnavailable the client would retry.
 		for (const ver of ["1", "null", '{"major":1}']) {
 			const origin = await startOrigin();
-			const ep = `http://${origin.host}/ramp.v1.ExchangeService`;
+			const ep = `http://${origin.host}/fora.v1.ExchangeService`;
 			origin.setManifest(`{"ver":${ver},"role":"ROLE_EXCHANGE","endpoint":"${ep}"}`);
 			try {
 				const r = createWellKnownEndpointResolver({ scheme: "http", fetch: loopbackFetch });
@@ -289,7 +289,7 @@ describe("createWellKnownEndpointResolver", () => {
 	// actually asks — before it hands anything back, and before it caches.
 	it("refuses an endpoint on a host unrelated to the one that served the manifest", async () => {
 		const origin = await startOrigin();
-		origin.setManifest(manifestJson("https://cdn.other.example/ramp.v1.ExchangeService"));
+		origin.setManifest(manifestJson("https://cdn.other.example/fora.v1.ExchangeService"));
 		try {
 			const r = createWellKnownEndpointResolver({ ttlMs: HOUR_MS, scheme: "http", fetch: loopbackFetch });
 			// A VERDICT, not a transport failure: the Exchange answered and the answer
@@ -305,12 +305,12 @@ describe("createWellKnownEndpointResolver", () => {
 		try {
 			const r = createWellKnownEndpointResolver({ scheme: "http", fetch: loopbackFetch });
 			for (const ep of [
-				`http://user:pass@${origin.host}/ramp.v1.ExchangeService`,
+				`http://user:pass@${origin.host}/fora.v1.ExchangeService`,
 				// Schemeless. A plain URL parse reads "user" as the scheme and finds no
 				// userinfo at all, while the anchor check recovers the host and matches
 				// it — so this is the shape a rule that reads the reference twice lets
 				// through.
-				`user:pass@${origin.host}/ramp.v1.ExchangeService`,
+				`user:pass@${origin.host}/fora.v1.ExchangeService`,
 			]) {
 				origin.setManifest(manifestJson(ep));
 				await expect(r.resolveEndpoint(origin.host)).rejects.toBeInstanceOf(EndpointRefused);
@@ -322,13 +322,13 @@ describe("createWellKnownEndpointResolver", () => {
 
 	it("does not cache a refused endpoint", async () => {
 		const origin = await startOrigin();
-		origin.setManifest(manifestJson("https://cdn.other.example/ramp.v1.ExchangeService"));
+		origin.setManifest(manifestJson("https://cdn.other.example/fora.v1.ExchangeService"));
 		try {
 			const r = createWellKnownEndpointResolver({ ttlMs: HOUR_MS, scheme: "http", fetch: loopbackFetch });
 			await expect(r.resolveEndpoint(origin.host)).rejects.toBeInstanceOf(EndpointRefused);
 			// The Exchange fixes its manifest. A resolver that had cached the refused
 			// value would keep refusing for the whole TTL.
-			const ep = `http://${origin.host}/ramp.v1.ExchangeService`;
+			const ep = `http://${origin.host}/fora.v1.ExchangeService`;
 			origin.setManifest(manifestJson(ep));
 			expect(await r.resolveEndpoint(origin.host)).toBe(ep);
 		} finally {
@@ -338,7 +338,7 @@ describe("createWellKnownEndpointResolver", () => {
 
 	it("refuses to resolve a host that is not a bare host", async () => {
 		const origin = await startOrigin();
-		origin.setManifest(manifestJson(`http://${origin.host}/ramp.v1.ExchangeService`));
+		origin.setManifest(manifestJson(`http://${origin.host}/fora.v1.ExchangeService`));
 		try {
 			const r = createWellKnownEndpointResolver({ scheme: "http", fetch: loopbackFetch });
 			// The fetch URL is built by concatenation, so a smuggled path would choose

@@ -24,8 +24,8 @@ from typing import Any
 import pytest
 
 from conftest import GO_TESTDATA, load_json
-from ramp_sdk._wire_names import snake_from_json_name
-from ramp_sdk.core import Mode, StaticOfferKeyResolver, Verifier
+from fora_sdk._wire_names import snake_from_json_name
+from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier
 
 _DOC = load_json(GO_TESTDATA / "wire-names-vectors.json")
 _SNAKE: list[dict[str, Any]] = _DOC["snake_from_json_name"]
@@ -86,7 +86,7 @@ def test_a_value_only_a_lenient_decoder_would_accept_does_not_verify() -> None:
     """
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-    from ramp_sdk.core import sign_offer_acceptance_jcs, verify_offer_acceptance_jcs
+    from fora_sdk.core import sign_offer_acceptance_jcs, verify_offer_acceptance_jcs
 
     seed = bytes(range(32))
     public = base64.b64encode(

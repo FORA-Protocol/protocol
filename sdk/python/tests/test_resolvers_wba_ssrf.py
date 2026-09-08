@@ -19,21 +19,21 @@ import httpx
 import pytest
 from conftest import GO_RESOLVERS_TESTDATA, load_json
 
-from ramp_sdk.resolvers import _ssrf
-from ramp_sdk.resolvers._http import (
+from fora_sdk.resolvers import _ssrf
+from fora_sdk.resolvers._http import (
     fetch_soft,
     fetch_strict,
     guarded_async_client,
     guarded_client,
     ssrf_guard,
 )
-from ramp_sdk.resolvers._ssrf import (
+from fora_sdk.resolvers._ssrf import (
     SsrfError,
     allowed_scheme,
     blocked_address,
     redirect_chain_refused,
 )
-from ramp_sdk.resolvers.errors import DirectoryUnavailableError
+from fora_sdk.resolvers.errors import DirectoryUnavailableError
 
 # The shared adversarial corpora (Go emits, all SDKs consume — never edited here).
 _ADDRESS_VECTORS = load_json(GO_RESOLVERS_TESTDATA / "ssrf-address-vectors.json")["vectors"]

@@ -5,7 +5,7 @@ package conformance
 // Every message of the wire contract carries `ver` at field 1, and the value is
 // "1.0". That was true before this guard existed too — but only ONE of the 29
 // fields said so: WellKnownManifest.ver. Of the other 28, twenty-seven read only
-// "Protocol version" or "RAMP protocol version", and DiscoveryResponse.ver
+// "Protocol version" or "FORA protocol version", and DiscoveryResponse.ver
 // carried no comment at all.
 // Nobody removed those statements; they were never written, because a per-field
 // doc obligation that lives only in a reviewer's head is complete the day it is
@@ -24,7 +24,7 @@ package conformance
 // This guard binds the comments; the value itself is owned one tier out, by the
 // SDK's ProtocolVersion constant. Neither can bind a third party — `ver` is
 // deliberately advisory on the wire, with no protovalidate rule. See "Protocol
-// version" in ramp.proto for why.
+// version" in fora.proto for why.
 //
 // The expected value is READ from that owner rather than restated here. This
 // package cannot import sdk/go — nothing in conformance depends on sdk/, by
@@ -59,7 +59,7 @@ var (
 // stale, and an entry whose comment has since adopted the standard advisory
 // wording fails as a no-longer-needed exemption.
 var verExemptMessages = map[string]string{
-	"WellKnownManifest": "the /.well-known/ramp.json document's own layout version — a separate " +
+	"WellKnownManifest": "the /.well-known/fora.json document's own layout version — a separate " +
 		"namespace from the RPC envelope, gated on its MAJOR by consumers rather than advisory; " +
 		"its expected value is the SDK's WellKnownManifestVersion, not ProtocolVersion",
 }
@@ -112,7 +112,7 @@ func wireConstant(name string) func() (string, error) {
 }
 
 var (
-	// protocolVersion is the RAMP protocol version the SDK exports.
+	// protocolVersion is the FORA protocol version the SDK exports.
 	protocolVersion = wireConstant("ProtocolVersion")
 	// manifestVersion is the SDK's WellKnownManifestVersion. It is a separate
 	// lookup on purpose: the two constants are separate namespaces, and a guard
@@ -174,7 +174,7 @@ func collectVerFields(t *testing.T) []verField {
 	t.Helper()
 	var out []verField
 	for _, cf := range Contract {
-		// Contract carries the descriptor path (e.g. "ramp/v1/ramp.proto"); the
+		// Contract carries the descriptor path (e.g. "fora/v1/fora.proto"); the
 		// buf module root is ../proto relative to this package's test dir.
 		path := filepath.Join("..", "proto", cf.File.Path())
 		b, err := os.ReadFile(path)
@@ -268,7 +268,7 @@ func TestVerContractDetectors_MetaPositive(t *testing.T) {
 	token := expectedVersionToken(t)
 	// Built from the token rather than a baked literal, so these fixtures cannot
 	// drift away from the real comments on a version bump.
-	std := "// RAMP protocol version — " + token + ". Stamped by the sender from a single " +
+	std := "// FORA protocol version — " + token + ". Stamped by the sender from a single " +
 		`// constant; advisory on receive. See "Protocol version" in the file header.`
 	if !statesExpectedValue(std, token) {
 		t.Error("detector missed the expected value in the standard comment")
@@ -306,7 +306,7 @@ func TestVerExpectedValueComesFromTheSDK(t *testing.T) {
 	if token == other {
 		t.Fatalf("the SDK version collides with this test's counter-example %s; pick another", other)
 	}
-	if statesExpectedValue("// RAMP protocol version — "+other+". advisory on receive.", token) {
+	if statesExpectedValue("// FORA protocol version — "+other+". advisory on receive.", token) {
 		t.Errorf("a comment naming %s satisfied the check against %s — the guard is not anchored to the SDK constant", other, token)
 	}
 }
@@ -315,7 +315,7 @@ func TestVerContractDetectors_MetaNegative(t *testing.T) {
 	token := expectedVersionToken(t)
 	for _, c := range []string{
 		"// Protocol version",
-		"// RAMP protocol version.",
+		"// FORA protocol version.",
 		"",
 	} {
 		if statesExpectedValue(c, token) {

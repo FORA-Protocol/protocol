@@ -1,6 +1,6 @@
 ---
 title: "Transaction Flow"
-description: "The four Exchange RPCs that form the core RAMP protocol: DiscoverResources, ExecuteTransaction, ReportUsage, and DisputeTransaction."
+description: "The four Exchange RPCs that form the core FORA protocol: DiscoverResources, ExecuteTransaction, ReportUsage, and DisputeTransaction."
 ---
 
 ## The Exchange Protocol
@@ -17,7 +17,7 @@ Without Broker (direct, single exchange):
 
 ## Multi-Hop Routing
 
-Multi-hop is the common case, not the exception. A request typically travels `Agent -> Broker -> ... -> Exchange`, and the broker layer may itself be more than one hop. The forwarding chain lives entirely in the HTTP layer as a **stack of [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) HTTP Message Signatures** — there is no in-message hop list. Each party that originates or forwards the request adds **one** labeled signature (`Signature` / `Signature-Input`, e.g. `ramp-agent`, `ramp-broker-1`). Each forwarder's signature covers the request essentials (`@method`, `@authority`, `@path`, `Content-Digest`) **plus the previous hop's signature**, so the chain is ordered and tamper-evident: no hop can be reordered, dropped, or inserted without invalidating a downstream signature. The `keyid` on each signature is the key's RFC 7638 thumbprint. The request carries **one** covered `Signature-Agent` header — the agent's WBA directory at `{domain}/.well-known/http-message-signatures-directory`, forwarded unchanged by every relay — so the Exchange resolves the agent's key there, and takes each forwarding hop's key from the key set it is configured with (for example, Brokers registered with it). The Exchange verifies **every** signature and confirms the chain is contiguous. The ordered set of signatures *is* the forwarding chain.
+Multi-hop is the common case, not the exception. A request typically travels `Agent -> Broker -> ... -> Exchange`, and the broker layer may itself be more than one hop. The forwarding chain lives entirely in the HTTP layer as a **stack of [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) HTTP Message Signatures** — there is no in-message hop list. Each party that originates or forwards the request adds **one** labeled signature (`Signature` / `Signature-Input`, e.g. `fora-agent`, `fora-broker-1`). Each forwarder's signature covers the request essentials (`@method`, `@authority`, `@path`, `Content-Digest`) **plus the previous hop's signature**, so the chain is ordered and tamper-evident: no hop can be reordered, dropped, or inserted without invalidating a downstream signature. The `keyid` on each signature is the key's RFC 7638 thumbprint. The request carries **one** covered `Signature-Agent` header — the agent's WBA directory at `{domain}/.well-known/http-message-signatures-directory`, forwarded unchanged by every relay — so the Exchange resolves the agent's key there, and takes each forwarding hop's key from the key set it is configured with (for example, Brokers registered with it). The Exchange verifies **every** signature and confirms the chain is contiguous. The ordered set of signatures *is* the forwarding chain.
 
 **Chain-depth caps.** Two fields bound how deep a chain may go:
 
@@ -31,13 +31,13 @@ Multi-hop is the common case, not the exception. A request typically travels `Ag
 The agent or Broker queries the Exchange to discover available content and pricing.
 
 ```
-POST /ramp.v1.ExchangeService/DiscoverResources
+POST /fora.v1.ExchangeService/DiscoverResources
 Content-Type: application/json
 ```
 
 ### Request (`ResourceQuery`)
 
-{/* ramp-validate: ResourceQuery */}
+{/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
@@ -48,7 +48,7 @@ Content-Type: application/json
     "type": "REQUESTER_TYPE_AGENT",
     "scopes": ["*"]
   },
-  "uris": ["https://cdn.ramp-protocol.org/premium/ai-infrastructure.html"],
+  "uris": ["https://cdn.fora-protocol.org/premium/ai-infrastructure.html"],
   "acceptable_restrictions": [{ "axis": "RESTRICTION_KIND_FUNCTION", "values": ["ai-input"] }]
 }
 ```
@@ -74,7 +74,7 @@ Key fields:
       "title": "The Future of AI Infrastructure",
       "ext": {
         "comp.package_id": "PKG-TC-AI-INFRA",
-        "comp.seller": "cdn.ramp-protocol.org",
+        "comp.seller": "cdn.fora-protocol.org",
         "comp.citation_required": true,
         "comp.content_types": ["CONTENT_TYPE_TEXT"],
         "comp.retrieval_type": ["RETRIEVAL_TYPE_HTML"]
@@ -94,7 +94,7 @@ Key fields:
         "required_fields": ["transaction_id", "function", "consumed_quantity"]
       },
       "identity": {
-        "canonical_url": "https://cdn.ramp-protocol.org/premium/ai-infrastructure.html",
+        "canonical_url": "https://cdn.fora-protocol.org/premium/ai-infrastructure.html",
         "iptc_guid": "urn:newsml:ap.org:20260310:ai-infra-001"
       },
       "terms": [
@@ -115,7 +115,7 @@ Key fields:
       ],
       "previews": [
         {
-          "url": "https://cdn.ramp-protocol.org/preview/ai-infrastructure-snippet.txt",
+          "url": "https://cdn.fora-protocol.org/preview/ai-infrastructure-snippet.txt",
           "media_type": "text/plain",
           "size": "sample"
         }
@@ -128,8 +128,8 @@ Key fields:
 ```
 
 Each `Offer` includes:
-- `Offer.title` (human-readable) plus optional `ramp-comp-v1` `comp.*` ext fields carrying CoMP package metadata (`comp.package_id`, `comp.seller`, `comp.citation_required`, `comp.content_types`, `comp.retrieval_type`)
-- RAMP `Pricing` with the rate, currency, and normalized unit_cost
+- `Offer.title` (human-readable) plus optional `fora-comp-v1` `comp.*` ext fields carrying CoMP package metadata (`comp.package_id`, `comp.seller`, `comp.citation_required`, `comp.content_types`, `comp.retrieval_type`)
+- FORA `Pricing` with the rate, currency, and normalized unit_cost
 - `ResourceIdentity` for cross-exchange deduplication
 - `LicenseTerm` entries on `terms[]`, each carrying `restrictions` (`repeated Restriction`) derived from the provider's RSL terms
 - `ReportingObligation` defining post-usage reporting requirements
@@ -146,7 +146,7 @@ When requesting multiple URIs, the response uses `offer_groups` instead of `offe
   "exchange": "exchange.ssp-example.com",
   "offer_groups": [
     {
-      "uri": "https://cdn.ramp-protocol.org/premium/ai-infrastructure.html",
+      "uri": "https://cdn.fora-protocol.org/premium/ai-infrastructure.html",
       "offers": [
         {
           "offer_id": "9d5735d7-1f17-4801-8dcf-7cac0b7b32b0",
@@ -158,7 +158,7 @@ When requesting multiple URIs, the response uses `offer_groups` instead of `offe
       ]
     },
     {
-      "uri": "https://cdn.ramp-protocol.org/premium/gpu-shortage-2026.html",
+      "uri": "https://cdn.fora-protocol.org/premium/gpu-shortage-2026.html",
       "offers": [
         {
           "offer_id": "89636cda-93f6-460e-af7f-2b6aef0f491b",
@@ -170,7 +170,7 @@ When requesting multiple URIs, the response uses `offer_groups` instead of `offe
       ]
     },
     {
-      "uri": "https://cdn.ramp-protocol.org/premium/openai-funding.html",
+      "uri": "https://cdn.fora-protocol.org/premium/openai-funding.html",
       "offers": []
     }
   ]
@@ -270,13 +270,13 @@ When the requester holds a subscription, the Exchange attaches `SubscriptionQuot
 The agent or Broker commits to a selected offer, receiving a signed URL for content delivery.
 
 ```
-POST /ramp.v1.ExchangeService/ExecuteTransaction
+POST /fora.v1.ExchangeService/ExecuteTransaction
 Content-Type: application/json
 ```
 
 ### Request (`TransactionRequest`)
 
-{/* ramp-validate: TransactionRequest */}
+{/* fora-validate: TransactionRequest */}
 ```json
 {
   "ver": "1.0",
@@ -325,7 +325,7 @@ The request may also carry `agent_request_acceptance` — the agent's detached E
       "transaction_id": "txn-mp-93a7f2",
       "billing_id": "bill-93a7f2-001",
       "resource_title": "The Future of AI Infrastructure",
-      "retrieval_endpoint": "https://cdn.ramp-protocol.org/server/premium/ai-infrastructure.html?Expires=1773451434&Key-Pair-Id=KXYZ&Signature=abc123...",
+      "retrieval_endpoint": "https://cdn.fora-protocol.org/server/premium/ai-infrastructure.html?Expires=1773451434&Key-Pair-Id=KXYZ&Signature=abc123...",
       "cost": {
         "amount": "0.05",
         "currency": "USD",
@@ -362,7 +362,7 @@ The `retrieval_endpoint` is a CDN signed URL bound to `agent_identity_hash`. A b
 
 For batch transactions, use the `items` array:
 
-{/* ramp-validate: TransactionRequest */}
+{/* fora-validate: TransactionRequest */}
 ```json
 {
   "ver": "1.0",
@@ -408,7 +408,7 @@ For batch transactions, use the `items` array:
       "offer_id": "9d5735d7-1f17-4801-8dcf-7cac0b7b32b0",
       "transaction_id": "txn-mp-batch-001",
       "billing_id": "bill-batch-001",
-      "retrieval_endpoint": "https://cdn.ramp-protocol.org/server/premium/ai-infrastructure.html?Signature=...",
+      "retrieval_endpoint": "https://cdn.fora-protocol.org/server/premium/ai-infrastructure.html?Signature=...",
       "cost": { "amount": "0.05", "currency": "USD" },
       "expires_at": "2026-03-14T02:30:00Z"
     },
@@ -416,7 +416,7 @@ For batch transactions, use the `items` array:
       "offer_id": "89636cda-93f6-460e-af7f-2b6aef0f491b",
       "transaction_id": "txn-mp-batch-002",
       "billing_id": "bill-batch-002",
-      "retrieval_endpoint": "https://cdn.ramp-protocol.org/server/premium/gpu-shortage.html?Signature=...",
+      "retrieval_endpoint": "https://cdn.fora-protocol.org/server/premium/gpu-shortage.html?Signature=...",
       "cost": { "amount": "0.05", "currency": "USD" },
       "expires_at": "2026-03-14T02:30:00Z"
     }
@@ -437,7 +437,7 @@ Each item gets its own `transaction_id`, `billing_id`, and signed URL. Batch tra
     {
       "transaction_id": "txn-sub-001",
       "billing_id": "bill-sub-001",
-      "retrieval_endpoint": "https://cdn.ramp-protocol.org/server/premium/ai-infrastructure.html?Signature=...",
+      "retrieval_endpoint": "https://cdn.fora-protocol.org/server/premium/ai-infrastructure.html?Signature=...",
       "cost": { "amount": "0", "currency": "USD" },
       "subscription_id": "SUB-12345",
       "subscription_unit_value": { "amount": "0.05", "currency": "USD", "unit_cost": "0.00001515" },
@@ -453,13 +453,13 @@ Each item gets its own `transaction_id`, `billing_id`, and signed URL. Batch tra
 After content has been used, the agent submits a usage report. When `ReportingObligation.required` is set on the offer, reporting is mandatory -- failure to report within the window may trigger `DENIAL_REASON_REPORTING_OVERDUE` on subsequent transactions.
 
 ```
-POST /ramp.v1.ExchangeService/ReportUsage
+POST /fora.v1.ExchangeService/ReportUsage
 Content-Type: application/json
 ```
 
 ### Request (`UsageReport`)
 
-{/* ramp-validate: UsageReport */}
+{/* fora-validate: UsageReport */}
 ```json
 {
   "ver": "1.0",
@@ -476,7 +476,7 @@ Content-Type: application/json
   },
   "timestamp": "2026-03-14T01:45:00Z",
   "assets": [{
-    "uri": "https://cdn.ramp-protocol.org/premium/ai-infrastructure.html",
+    "uri": "https://cdn.fora-protocol.org/premium/ai-infrastructure.html",
     "title": "The Future of AI Infrastructure",
     "package_id": "PKG-TC-AI-INFRA"
   }]
@@ -503,7 +503,7 @@ A successful response carries the Exchange-assigned `report_id` (the handle the 
 
 ## Content Delivery (Outside Protocol Scope)
 
-The RAMP protocol covers discovery, negotiation, and transaction execution. Content delivery is outside protocol scope -- it is handled by the Exchange implementation and the provider's CDN.
+The FORA protocol covers discovery, negotiation, and transaction execution. Content delivery is outside protocol scope -- it is handled by the Exchange implementation and the provider's CDN.
 
 The `TransactionResponse` carries two relevant fields:
 
@@ -514,14 +514,14 @@ How the agent actually retrieves content (signed URLs, access tokens, inline con
 
 ### Streaming Delivery
 
-RAMP supports `DELIVERY_METHOD_STREAMING` for real-time resource access (WebSocket, SSE, HLS, Icecast). The signed URL points to a streaming endpoint. Stream mechanics (heartbeat, reconnection, concurrent connection limits) are managed by the provider, not the RAMP protocol.
+FORA supports `DELIVERY_METHOD_STREAMING` for real-time resource access (WebSocket, SSE, HLS, Icecast). The signed URL points to a streaming endpoint. Stream mechanics (heartbeat, reconnection, concurrent connection limits) are managed by the provider, not the FORA protocol.
 
 **Session lifecycle:**
 
 1. `ExecuteTransaction` returns a signed URL with expiry (e.g., 2 hours)
 2. Agent connects to the stream endpoint
 3. Agent receives data continuously
-4. URL expires -- agent re-requests through the same RAMP flow
+4. URL expires -- agent re-requests through the same FORA flow
 5. `ReportUsage`: `consumed_quantity` in minutes/hours, `consumed_unit` matching the offer's unit
 
 Streaming applies to live broadcasts, quote feeds, monitoring feeds, and any resource where content is delivered continuously rather than as a single fetch.
@@ -564,7 +564,7 @@ Three independent records -- CDN logs, Exchange transactions, usage reports -- t
 
 ## Consistency Model
 
-RAMP uses **at-most-once with reconciliation**, same as OpenRTB:
+FORA uses **at-most-once with reconciliation**, same as OpenRTB:
 
 - Idempotency keys on every `TransactionRequest` (prevent double-charge on retry)
 - "Authorize first, deliver second" ordering (do not issue signed URL until billing succeeds)
@@ -576,13 +576,13 @@ RAMP uses **at-most-once with reconciliation**, same as OpenRTB:
 When delivered content does not match what was promised, the agent files a dispute. The agent MUST file a `UsageReport` before disputing -- `DisputeRequest.report_id` is required.
 
 ```
-POST /ramp.v1.ExchangeService/DisputeTransaction
+POST /fora.v1.ExchangeService/DisputeTransaction
 Content-Type: application/json
 ```
 
 ### Request (`DisputeRequest`)
 
-{/* ramp-validate: DisputeRequest */}
+{/* fora-validate: DisputeRequest */}
 ```json
 {
   "ver": "1.0",

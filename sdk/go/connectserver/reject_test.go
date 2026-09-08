@@ -17,8 +17,8 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	rampserver "github.com/RAMP-Protocol/protocol/sdk/go/connectserver"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	foraserver "github.com/FORA-Protocol/protocol/sdk/go/connectserver"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // TestWriteReject_MountAnswerIsTheExportedWriterAnswer is the load-bearing one. A
@@ -29,9 +29,9 @@ import (
 func TestWriteReject_MountAnswerIsTheExportedWriterAnswer(t *testing.T) {
 	t.Parallel()
 	const capBytes = 64 << 10
-	srv := mountCatalog(t, &catalogEcho{}, rampserver.WithMaxRequestBytes(capBytes))
+	srv := mountCatalog(t, &catalogEcho{}, foraserver.WithMaxRequestBytes(capBytes))
 
-	resp := postRaw(t, srv.URL+"/ramp.v1.CatalogService/PushResources", oversizeJSON(capBytes*2))
+	resp := postRaw(t, srv.URL+"/fora.v1.CatalogService/PushResources", oversizeJSON(capBytes*2))
 	mountBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read mount body: %v", err)
@@ -41,7 +41,7 @@ func TestWriteReject_MountAnswerIsTheExportedWriterAnswer(t *testing.T) {
 	// buffering ReadAll fails with exactly this, unwrapped.
 	overCap := &http.MaxBytesError{Limit: capBytes}
 	rec := httptest.NewRecorder()
-	rampserver.WriteReject(rec, rampserver.RejectCode(overCap), overCap)
+	foraserver.WriteReject(rec, foraserver.RejectCode(overCap), overCap)
 
 	if rec.Code != resp.StatusCode {
 		t.Errorf("status: writer = %d, mount = %d — the mount answers from a different writer",
@@ -66,14 +66,14 @@ func TestRejectCode_ClassifiesEachRejectionClass(t *testing.T) {
 		{"over-cap body wrapped", fmt.Errorf("read: %w", &http.MaxBytesError{Limit: 1}), connectrpc.CodeResourceExhausted},
 		{"hop budget", helpers.ErrTooManyHops, connectrpc.CodeResourceExhausted},
 		{"hop budget wrapped", fmt.Errorf("gate: %w", helpers.ErrTooManyHops), connectrpc.CodeResourceExhausted},
-		{"replay", rampserver.ErrReplayed, connectrpc.CodeUnauthenticated},
+		{"replay", foraserver.ErrReplayed, connectrpc.CodeUnauthenticated},
 		{"broken chain", helpers.ErrBrokenSignatureChain, connectrpc.CodeUnauthenticated},
 		{"broken chain wrapped", fmt.Errorf("verify: %w", helpers.ErrBrokenSignatureChain), connectrpc.CodeUnauthenticated},
 		{"unclassified", errors.New("bad signature"), connectrpc.CodeUnauthenticated},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := rampserver.RejectCode(tc.err); got != tc.want {
+			if got := foraserver.RejectCode(tc.err); got != tc.want {
 				t.Errorf("RejectCode(%v) = %v, want %v", tc.err, got, tc.want)
 			}
 		})
@@ -101,7 +101,7 @@ func TestWriteReject_StatusAgreesWithTheCodeItIsGiven(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			rampserver.WriteReject(rec, tc.code, tc.err)
+			foraserver.WriteReject(rec, tc.code, tc.err)
 			if rec.Code != tc.want {
 				t.Errorf("status = %d, want %d — the status and the body must name one verdict",
 					rec.Code, tc.want)
@@ -135,7 +135,7 @@ func TestWriteReject_CodeOutsideTheSeamIsRefusedNotTranslated(t *testing.T) {
 	} {
 		t.Run(code.String(), func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			rampserver.WriteReject(rec, code, errors.New("refused"))
+			foraserver.WriteReject(rec, code, errors.New("refused"))
 			if rec.Code != http.StatusUnauthorized {
 				t.Errorf("code %v answered %d, want 401 — a verdict the seam does not model is refused, never translated",
 					code, rec.Code)
@@ -158,7 +158,7 @@ func TestWriteReject_NeverAnswersSuccess(t *testing.T) {
 	t.Parallel()
 	for code := connectrpc.Code(0); code <= connectrpc.Code(20); code++ {
 		rec := httptest.NewRecorder()
-		rampserver.WriteReject(rec, code, errors.New("refused"))
+		foraserver.WriteReject(rec, code, errors.New("refused"))
 		if rec.Code < 400 {
 			t.Errorf("code %v answered %d — a reject writer must never answer success", code, rec.Code)
 		}
@@ -172,7 +172,7 @@ func TestWriteReject_BodyCarriesOnlyCodeAndMessage(t *testing.T) {
 	t.Parallel()
 	err := errors.New("signature verification failed")
 	rec := httptest.NewRecorder()
-	rampserver.WriteReject(rec, connectrpc.CodeUnauthenticated, err)
+	foraserver.WriteReject(rec, connectrpc.CodeUnauthenticated, err)
 
 	var body map[string]any
 	if uerr := json.Unmarshal(rec.Body.Bytes(), &body); uerr != nil {
@@ -207,7 +207,7 @@ func TestIsBodyTooLarge_MatchesTheStdlibSignalOnly(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := rampserver.IsBodyTooLarge(tc.err); got != tc.want {
+			if got := foraserver.IsBodyTooLarge(tc.err); got != tc.want {
 				t.Errorf("IsBodyTooLarge(%v) = %v, want %v", tc.err, got, tc.want)
 			}
 		})

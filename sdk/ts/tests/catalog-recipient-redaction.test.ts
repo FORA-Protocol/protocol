@@ -12,7 +12,7 @@
 // Mirrors sdk/python/tests/test_catalog_recipient_redaction.py.
 import { describe, expect, it } from "vitest";
 import { createCatalogClient } from "../client/index.ts";
-import { RampCallError } from "../client/errors.ts";
+import { ForaCallError } from "../client/errors.ts";
 
 const CREDENTIAL = "s3cr3t";
 const WITH_USERINFO = `publisher:${CREDENTIAL}@exchange.test`;
@@ -39,11 +39,11 @@ describe("the catalog client's recipient check", () => {
 			(e: unknown) => e,
 		);
 
-		expect(err).toBeInstanceOf(RampCallError);
-		expect((err as RampCallError).kind).toBe("not_sent");
+		expect(err).toBeInstanceOf(ForaCallError);
+		expect((err as ForaCallError).kind).toBe("not_sent");
 		// The whole rendered failure, not just its cause: a credential leaked into any
 		// part of what a caller sees is the leak this test exists to catch.
-		const text = `${String(err)} ${String((err as RampCallError).cause ?? "")}`;
+		const text = `${String(err)} ${String((err as ForaCallError).cause ?? "")}`;
 		expect(text).not.toContain(CREDENTIAL);
 		expect(text).toContain("[redacted]");
 	});
@@ -55,9 +55,9 @@ describe("the catalog client's recipient check", () => {
 				() => undefined,
 				(e: unknown) => e,
 			);
-			expect(err).toBeInstanceOf(RampCallError);
-			expect((err as RampCallError).kind).toBe("not_sent");
-			expect(String((err as RampCallError).cause)).toContain("is not a bare domain");
+			expect(err).toBeInstanceOf(ForaCallError);
+			expect((err as ForaCallError).kind).toBe("not_sent");
+			expect(String((err as ForaCallError).cause)).toContain("is not a bare domain");
 		},
 	);
 

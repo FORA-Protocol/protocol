@@ -1,7 +1,7 @@
 // sdk/ts outbound RFC 9421 request-SIGN byte-parity against the shared Go oracle.
 //
 // Go (helpers.SignRequest + buildSignatureBase) and Python (httpsig.sign_request)
-// already sign the full 5-component RAMP covered set
+// already sign the full 5-component FORA covered set
 // (@method @target-uri content-digest authorization signature-agent); sdk/ts has
 // no outbound request signer yet (core/sign.ts::signInbound covers only the
 // 2-component GET PoP). This suite pins the not-yet-existing TS 5-component
@@ -11,7 +11,7 @@
 //
 // Byte contract (Go oracle = sdk/go/helpers/sign.go::SignRequest +
 // sdk/go/helpers/sigbase.go::buildSignatureBase; mirrored by Python
-// ramp_sdk/httpsig.py::sign_request):
+// fora_sdk/httpsig.py::sign_request):
 //   - covered set is EXACTLY the 5 components in order
 //     @method @target-uri content-digest authorization signature-agent
 //     (no conditional biscuit component);
@@ -157,7 +157,7 @@ describe("sdk/ts request signer matches the shared Go oracle (byte-identical)", 
       expect(result.contentDigest).toBe(v.content_digest);
     });
 
-    it(`${v.name}: Signature-Input covers exactly the 5 RAMP components`, async () => {
+    it(`${v.name}: Signature-Input covers exactly the 5 FORA components`, async () => {
       const priv = await importSigningKey(v.signer_seed_hex);
       const result = await signRequest(priv, options);
       expect(result.signatureInput).toContain(EXPECTED_COVERED);

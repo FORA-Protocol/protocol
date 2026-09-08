@@ -2,7 +2,7 @@ package helpers
 
 // Go replay of the shared ErrorDetail corpus (error-detail-vectors.json). This is
 // the Go leg of the cross-language replay: it parses each vector's canonical
-// proto-JSON wire form into a *rampv1.ErrorDetail and asserts the extracted
+// proto-JSON wire form into a *forav1.ErrorDetail and asserts the extracted
 // projection (domain, message, metadata, typed reason) matches the recorded
 // oracle. The Python (test_errordetail_parity.py) and TS (errordetail.parity.
 // test.ts) replays parse the SAME wire_json into their generated ErrorDetail
@@ -22,7 +22,7 @@ import (
 
 	"google.golang.org/protobuf/encoding/protojson"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 func loadErrorDetailCorpus(t *testing.T) []errorDetailVector {
@@ -54,7 +54,7 @@ func TestErrorDetailCorpusReplay(t *testing.T) {
 			if err != nil {
 				t.Fatalf("re-marshal wire_json: %v", err)
 			}
-			var got rampv1.ErrorDetail
+			var got forav1.ErrorDetail
 			if err := protojson.Unmarshal(wireBytes, &got); err != nil {
 				t.Fatalf("protojson unmarshal wire_json: %v", err)
 			}
@@ -76,7 +76,7 @@ func TestErrorDetailCorpusReplay(t *testing.T) {
 // are equal (proto3 omits an empty repeated field on the wire). The empty path is
 // asserted positionally, so a decoder that drops "" as unset fails here rather
 // than shifting the list silently.
-func assertFieldErrorsEqual(t *testing.T, got *rampv1.ErrorDetail, want []errorDetailFieldError) {
+func assertFieldErrorsEqual(t *testing.T, got *forav1.ErrorDetail, want []errorDetailFieldError) {
 	t.Helper()
 	fes := got.GetRegistrationFailure().GetFieldErrors()
 	if len(fes) != len(want) {
@@ -109,7 +109,7 @@ func assertMetadataEqual(t *testing.T, got, want map[string]string) {
 
 // assertReasonEqual checks the typed reason extracted via the REAL helpers.Reason
 // matches the recorded oneof key + enum NAME (both "" ⇒ no reason).
-func assertReasonEqual(t *testing.T, d *rampv1.ErrorDetail, wantField, wantEnum string) {
+func assertReasonEqual(t *testing.T, d *forav1.ErrorDetail, wantField, wantEnum string) {
 	t.Helper()
 	r := Reason(d)
 	if wantField == "" {

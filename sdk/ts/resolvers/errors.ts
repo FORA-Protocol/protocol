@@ -87,7 +87,7 @@ export class EndpointRefused extends ResolverError {
   }
 }
 
-/** A /.well-known/ramp.json was fetched and parsed but carries a
+/** A /.well-known/fora.json was fetched and parsed but carries a
  * WellKnownManifest.ver this resolver does not accept: an unrecognised major
  * version, a value that is not MAJOR.MINOR, or no version at all. The rule is
  * manifestVersionRefusal in src/wire.ts.

@@ -5,7 +5,7 @@ description: "Three-layer identity model: Requester identity with Ed25519 signat
 
 ## Overview
 
-RAMP authentication answers three questions for every request:
+FORA authentication answers three questions for every request:
 
 1. **Who are you?** — Requester identity, proven by Ed25519 signature over a domain-bound key
 2. **What can you access?** — Scopes carried in the request (and optionally in a delegation token)
@@ -15,7 +15,7 @@ These three layers are independent. A public agent with no delegation still auth
 
 ## Requester Identity
 
-Every RAMP request carries a `Requester` message that identifies who is making the request.
+Every FORA request carries a `Requester` message that identifies who is making the request.
 
 ### Fields
 
@@ -38,7 +38,7 @@ Every RAMP request carries a `Requester` message that identifies who is making t
 
 The Exchange resolves a requester's public key by fetching its WBA directory — the JWK Set at `{directory}/.well-known/http-message-signatures-directory` — and selecting the `JsonWebKey` whose RFC 7638 thumbprint matches the request signature's `keyid`.
 
-The `{directory}` comes from the **`Signature-Agent` header**, not from the `Requester` message and not from the `ramp.json` manifest. That header is a covered component of the signature, so the pointer the Exchange follows is one the signer committed to and an attacker cannot repoint it under a valid signature. This is what makes the lookup meaningful: the `keyid` is only a key thumbprint — proof that the signer holds the key, not a claim about who they are — so it is the directory publishing that key that establishes whose key it is.
+The `{directory}` comes from the **`Signature-Agent` header**, not from the `Requester` message and not from the `fora.json` manifest. That header is a covered component of the signature, so the pointer the Exchange follows is one the signer committed to and an attacker cannot repoint it under a valid signature. This is what makes the lookup meaningful: the `keyid` is only a key thumbprint — proof that the signer holds the key, not a claim about who they are — so it is the directory publishing that key that establishes whose key it is.
 
 ```json
 // GET https://research.acme.com/.well-known/http-message-signatures-directory
@@ -55,7 +55,7 @@ The `{directory}` comes from the **`Signature-Agent` header**, not from the `Req
       "not_after": "2026-10-01T00:00:00Z"
     }
   ],
-  "revocation_url": "https://research.acme.com/.well-known/ramp-invalidations.json"
+  "revocation_url": "https://research.acme.com/.well-known/fora-invalidations.json"
 }
 ```
 
@@ -63,19 +63,19 @@ This ties cryptographic identity to DNS ownership — if you control the domain,
 
 ### The WBA Directory Endpoint
 
-Signing keys are published in a dedicated WBA directory at `/.well-known/http-message-signatures-directory`, separate from the role manifest at `/.well-known/ramp.json`. It is a pure JWK Set (`Content-Type: application/jwk-set+json`): a `keys` array of Ed25519 JWKs plus an optional `revocation_url`. Each key is identified by its RFC 7638 thumbprint (the value carried as the RFC 9421 `keyid`), so the directory carries no `kid` labels. Every RAMP participant — agent, exchange, broker, publisher — serves one.
+Signing keys are published in a dedicated WBA directory at `/.well-known/http-message-signatures-directory`, separate from the role manifest at `/.well-known/fora.json`. It is a pure JWK Set (`Content-Type: application/jwk-set+json`): a `keys` array of Ed25519 JWKs plus an optional `revocation_url`. Each key is identified by its RFC 7638 thumbprint (the value carried as the RFC 9421 `keyid`), so the directory carries no `kid` labels. Every FORA participant — agent, exchange, broker, publisher — serves one.
 
 ### WebBotAuth Compatibility (IETF)
 
-RAMP's authentication stack is automatically compatible with the IETF [WebBotAuth](https://datatracker.ietf.org/wg/webbotauth/about/) working group specification (standards track, targeting April 2026). Both use:
+FORA's authentication stack is automatically compatible with the IETF [WebBotAuth](https://datatracker.ietf.org/wg/webbotauth/about/) working group specification (standards track, targeting April 2026). Both use:
 
 - **RFC 9421 HTTP Message Signatures** for request signing
 - **Ed25519 (EdDSA)** as the signature algorithm
 - **JWK-formatted keys** at well-known endpoints
 
-When WebBotAuth ships as an RFC, RAMP agents will be recognised as authenticated bots by any CDN or origin server that implements it (Cloudflare is already deploying). No changes to RAMP's authentication are required -- the crypto is identical.
+When WebBotAuth ships as an RFC, FORA agents will be recognised as authenticated bots by any CDN or origin server that implements it (Cloudflare is already deploying). No changes to FORA's authentication are required -- the crypto is identical.
 
-WebBotAuth solves identity ("this bot is who it claims to be"). RAMP adds the transaction layer on top of that identity ("this bot is authorised to access this content at this price").
+WebBotAuth solves identity ("this bot is who it claims to be"). FORA adds the transaction layer on top of that identity ("this bot is authorised to access this content at this price").
 
 ### Signature Verification
 
@@ -102,7 +102,7 @@ If verification fails, the Exchange rejects the request. No fallback, no degrade
 
 The delegation token is a **JWT** (the default and fully-specified format) that is **holder-of-key bound**: the grant is tied to a specific key via the [RFC 7800](https://www.rfc-editor.org/rfc/rfc7800) `cnf` confirmation claim, and the holder proves possession by signing the request with that key (the same RFC 9421 signature it already sends). The token is *not* a bearer credential — copying it is useless without the matching private key.
 
-> **Why not a plain bearer JWT?** A bearer JWT is usable by anyone who holds it, and it can't be narrowed for a sub-agent without a round trip to the issuer. RAMP fixes both with one mechanism: `cnf` holder-of-key binding (theft-resistance) plus **chained `cnf` JWTs** (offline delegation). A principal narrows a grant for an agent by issuing a child JWT — no call back to the original issuer.
+> **Why not a plain bearer JWT?** A bearer JWT is usable by anyone who holds it, and it can't be narrowed for a sub-agent without a round trip to the issuer. FORA fixes both with one mechanism: `cnf` holder-of-key binding (theft-resistance) plus **chained `cnf` JWTs** (offline delegation). A principal narrows a grant for an agent by issuing a child JWT — no call back to the original issuer.
 
 ### Holder-of-key, not bearer
 
@@ -144,7 +144,7 @@ The `scopes` field is a convenience mirror — the Exchange MAY use it for fast 
 
 ### Delegation-Claims Profile
 
-The `token`'s claims are the **authoritative** source of the grant (the plaintext `Delegation` fields are only the convenience mirror). RAMP defines a small **registered claim vocabulary** — the same registered-tokens + optional-fields + vendor-namespace pattern used elsewhere in the protocol:
+The `token`'s claims are the **authoritative** source of the grant (the plaintext `Delegation` fields are only the convenience mirror). FORA defines a small **registered claim vocabulary** — the same registered-tokens + optional-fields + vendor-namespace pattern used elsewhere in the protocol:
 
 | Claim | JWT claim | Required? | Meaning |
 |---|---|---|---|
@@ -152,17 +152,17 @@ The `token`'s claims are the **authoritative** source of the grant (the plaintex
 | issuer | `iss` | Yes | Who granted it (resource owner / principal). |
 | `scope` | `scope` | No | Granted scopes (space-delimited; segment-wise matching — see [Scope Matching](#scope-matching)). |
 | `exp` | `exp` | No (recommended) | Expiry. |
-| `max_spend_cents` | `ramp_max_spend_cents` | No | Spend cap (currency minor units). |
-| `max_accesses` | `ramp_max_accesses` | No | Access-count cap. |
-| `quota_period` | `ramp_quota_period` | No | Counter reset period. |
+| `max_spend_cents` | `fora_max_spend_cents` | No | Spend cap (currency minor units). |
+| `max_accesses` | `fora_max_accesses` | No | Access-count cap. |
+| `quota_period` | `fora_quota_period` | No | Counter reset period. |
 
 Rules:
 
 - **Everything except the holder binding (`cnf`) is optional.** An issuer that only wants scope + expiry sets just those; absent caps mean "no cap from the delegation" (the Exchange's own limits still apply).
 - **Vendors MAY add namespaced claims** (`vendor:claim`).
 - **Constraints fail closed.** A claim a verifier cannot evaluate is **binding by default** — it MUST reject rather than ignore (a dropped constraint would fail *open*, granting more than intended). This mirrors [`Restriction.advisory`](/protocol/licensing-terms/): the issuer may mark a custom claim *advisory* to downgrade it to ignorable. (The issuer lists the mandatory-to-understand claims; an unrecognized non-advisory claim is rejected.)
-- **`ramp_`-prefixed claim names are reserved** for this registry. Vendors MUST use their own `vendor:` namespace and MUST NOT define `ramp_*` names, so registered claims can never be shadowed.
-- **Claim values keep their home encoding.** RFC-registered claims use the encoding their RFC defines — `exp` is a NumericDate (seconds since epoch, RFC 7519). `ramp_*` claims mirror a `Delegation` field and use that field's proto-JSON encoding — for example, `ramp_quota_period` is a Duration string in seconds (`"2592000s"`), the same form the [`quota_period` field](/reference/proto-ramp/#delegation) carries on the wire.
+- **`fora_`-prefixed claim names are reserved** for this registry. Vendors MUST use their own `vendor:` namespace and MUST NOT define `fora_*` names, so registered claims can never be shadowed.
+- **Claim values keep their home encoding.** RFC-registered claims use the encoding their RFC defines — `exp` is a NumericDate (seconds since epoch, RFC 7519). `fora_*` claims mirror a `Delegation` field and use that field's proto-JSON encoding — for example, `fora_quota_period` is a Duration string in seconds (`"2592000s"`), the same form the [`quota_period` field](/reference/proto-fora/#delegation) carries on the wire.
 
 > **Token format.** The delegation token is a **holder-bound JWT** — `token_format: "jwt"` is the sole format conformant implementations support. Multi-hop attenuation is expressed as a chain of `cnf`-linked child JWTs (each signed by the key its parent named, each narrowing scope), and the holder binding always applies (the request-signing key must match the holder the token is sealed to).
 
@@ -235,7 +235,7 @@ When delegation verification fails, the Exchange returns a specific denial reaso
 | TypeScript | `jose` | EdDSA, runs in Node and the browser |
 | Python | `PyJWT` (+ `cryptography`) | EdDSA |
 
-All use Ed25519 natively — the same key type as RAMP identity signatures — so the delegation token and the RFC 9421 request signature share one key type and one library surface.
+All use Ed25519 natively — the same key type as FORA identity signatures — so the delegation token and the RFC 9421 request signature share one key type and one library surface.
 
 ## Scope-Based Access
 
@@ -331,7 +331,7 @@ Delegation is unchanged by projection: the holder-binding check still matches th
 
 ### Why headers, not message fields
 
-Request signatures are [RFC 9421 HTTP Message Signatures](https://www.rfc-editor.org/rfc/rfc9421), carried in HTTP headers — **not** fields on any protobuf message. This separates **identity semantics** (the `Requester` message: who is making the request, scopes, delegation) from **cryptographic proof** (the HTTP signature attesting the request is authentic). No RAMP message has ever carried a request-signature field; the protobuf body carries identity only, and the forwarding chain is likewise a stack of labeled RFC 9421 signatures rather than an in-message hop list (see [Multi-hop forwarding](#multi-hop-forwarding)).
+Request signatures are [RFC 9421 HTTP Message Signatures](https://www.rfc-editor.org/rfc/rfc9421), carried in HTTP headers — **not** fields on any protobuf message. This separates **identity semantics** (the `Requester` message: who is making the request, scopes, delegation) from **cryptographic proof** (the HTTP signature attesting the request is authentic). No FORA message has ever carried a request-signature field; the protobuf body carries identity only, and the forwarding chain is likewise a stack of labeled RFC 9421 signatures rather than an in-message hop list (see [Multi-hop forwarding](#multi-hop-forwarding)).
 
 ### How RFC 9421 Signatures Work
 
@@ -350,7 +350,7 @@ The Exchange verifies the signature by reconstructing the signed content from th
 An agent sends a signed request directly to the Exchange:
 
 ```http
-POST /ramp.v1.ExchangeService/DiscoverResources HTTP/1.1
+POST /fora.v1.ExchangeService/DiscoverResources HTTP/1.1
 Content-Type: application/json
 Content-Digest: sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
 Authorization:
@@ -363,7 +363,7 @@ The `Signature-Input` header declares:
 - **Label**: `agent` — identifies this signature in multi-signature scenarios
 - **Covered components**: `@method` (POST), `@target-uri` (the RPC path), `content-digest` (body hash), `authorization` (bound even when empty, as above), `signature-agent` (the key directory)
 - **keyid**: the RFC 7638 thumbprint of the agent's key — resolved in the WBA directory named by `Signature-Agent`
-- **alg**: `ed25519` — same key type used throughout RAMP
+- **alg**: `ed25519` — same key type used throughout FORA
 - **created / expires**: the validity window; both are required and a signature outside it is refused
 
 The `Signature-Agent` value may also arrive quoted — `"https://research.acme.com"` — which is the RFC 8941 String form Web Bot Auth specifies. Both spellings name the same directory. The bytes are signed exactly as sent, so a relay forwarding the header must not rewrite it.
@@ -373,7 +373,7 @@ The `Signature-Agent` value may also arrive quoted — `"https://research.acme.c
 When a request passes through a Broker, each hop adds its own signature. The Broker signs over the same components plus the agent's existing signature, creating a verifiable chain:
 
 ```http
-POST /ramp.v1.ExchangeService/DiscoverResources HTTP/1.1
+POST /fora.v1.ExchangeService/DiscoverResources HTTP/1.1
 Content-Type: application/json
 Content-Digest: sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
 Authorization:
@@ -392,12 +392,12 @@ RFC 9421 is the **only** request-authentication mechanism. A request without a v
 
 ## Retrieval-URL Identity Binding
 
-A signed `retrieval_endpoint` returned by a transaction is, by default, a bearer token: anyone holding it before `expires_at` can fetch. RAMP **optionally** binds the URL to the purchasing agent, DPoP-style ([RFC 9449](https://www.rfc-editor.org/rfc/rfc9449)):
+A signed `retrieval_endpoint` returned by a transaction is, by default, a bearer token: anyone holding it before `expires_at` can fetch. FORA **optionally** binds the URL to the purchasing agent, DPoP-style ([RFC 9449](https://www.rfc-editor.org/rfc/rfc9449)):
 
 - The Exchange embeds `agent_identity_hash` — the [RFC 7638](https://www.rfc-editor.org/rfc/rfc7638) JWK Thumbprint (SHA-256) of the agent's Ed25519 request-signing key — as the URL's `agent_id` query parameter, which the URL signature covers, and echoes it on the execute-path response (`TransactionResponse.agent_identity_hash`, produced directly by the Exchange — the Broker is not in the execute response path for this field).
 - A capable delivery endpoint (edge function) verifies the binding without contacting the fetcher's directory: verify the URL's Ed25519 signature against the Exchange's published public key (proves the hash is Exchange-issued and untampered), then require the fetcher to present its public key and an RFC 9421 signature over the retrieval request, and check `thumbprint(presented key) == agent_identity_hash`. The fetcher's key arrives in the request, so no JWKS fetch is needed for it. The edge does resolve `kid` to the Exchange's public key, from a cached directory or from keys pinned in its configuration.
 - Bound to the request-signing key of whoever fetches, never to the principal/delegation, and exactly one key per transaction. Who that is depends on where the key lives: an agent embedding the SDK holds its own key and fetches for itself, while a custodial agent never fetches at all -- its identity service holds the key and fetches on its behalf. Either way the fetcher is the key holder, which is what the edge checks.
-- Enforcement is **NOT mandatory**: a CDN that cannot run code uses its native signed-URL scheme (a CloudFront RSA canned policy, for example) + short TTL + TLS. RAMP reference implementations run on edge functions and **do** enforce it.
+- Enforcement is **NOT mandatory**: a CDN that cannot run code uses its native signed-URL scheme (a CloudFront RSA canned policy, for example) + short TTL + TLS. FORA reference implementations run on edge functions and **do** enforce it.
 
 See [Signed URL Verification](/components/edge-function/signed-url-verification) for the full edge-function verification flow and the stolen-URL threat analysis.
 
@@ -407,7 +407,7 @@ See [Signed URL Verification](/components/edge-function/signed-url-verification)
 
 A research bot queries a public Exchange. No delegation token, no special scopes — it gets whatever is publicly available.
 
-{/* ramp-validate: ResourceQuery */}
+{/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
@@ -420,7 +420,7 @@ A research bot queries a public Exchange. No delegation token, no special scopes
     "scopes": []
   },
   "uris": [
-    "https://cdn.ramp-protocol.org/premium/ai-funding-roundup"
+    "https://cdn.fora-protocol.org/premium/ai-funding-roundup"
   ],
   "acceptable_restrictions": [
     { "axis": "RESTRICTION_KIND_FUNCTION", "values": ["SUMMARIZE"] }
@@ -434,7 +434,7 @@ The Exchange verifies the signature by fetching the WBA directory at `research.a
 
 A financial analysis agent carries a MarketData-issued delegation JWT that grants access to subscription-tier data. `delegation.token` is a `bytes` field, so proto-JSON carries the compact JWS base64-encoded (decoded here for illustration: `eyJhbGciOiJFZERTQSJ9.<claims: iss, scope, exp, cnf.jkt>.<sig>`).
 
-{/* ramp-validate: ResourceQuery */}
+{/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
@@ -479,7 +479,7 @@ The Exchange:
 
 An internal agent at a law firm carries a delegation JWT issued by the firm's IAM system, granting access to legal and credit resources.
 
-{/* ramp-validate: ResourceQuery */}
+{/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
@@ -519,7 +519,7 @@ The internal Exchange verifies the delegation JWT against `iam.kirkland.com`'s p
 
 The Kirkland legal agent from the previous example delegates to a sub-agent that only needs credit data. It issues a child delegation JWT (bound to the sub-agent's key) that removes legal access and lowers the spend cap.
 
-{/* ramp-validate: ResourceQuery */}
+{/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
@@ -565,9 +565,9 @@ The Exchange verifies the full JWT chain: IAM signed the authority JWT; the pare
 
 ### Where Keys Are Published
 
-Every party publishes its keys in **one** place — its WBA directory at `{domain}/.well-known/http-message-signatures-directory`, a pure JWK Set. The role manifest at `{domain}/.well-known/ramp.json` (role-tagged) announces *which* party the `{domain}` is; the WBA directory holds its keys. There are no per-role key files; keys are inline JWKs identified by their RFC 7638 thumbprint.
+Every party publishes its keys in **one** place — its WBA directory at `{domain}/.well-known/http-message-signatures-directory`, a pure JWK Set. The role manifest at `{domain}/.well-known/fora.json` (role-tagged) announces *which* party the `{domain}` is; the WBA directory holds its keys. There are no per-role key files; keys are inline JWKs identified by their RFC 7638 thumbprint.
 
-| Party | Key Endpoint (WBA directory) | Role (in `ramp.json`) |
+| Party | Key Endpoint (WBA directory) | Role (in `fora.json`) |
 |---|---|---|
 | Agent / Requester | `{domain}/.well-known/http-message-signatures-directory` | `ROLE_AGENT` |
 | Intermediary | `{domain}/.well-known/http-message-signatures-directory` | `ROLE_AGENT` |
@@ -591,7 +591,7 @@ Every party publishes its keys in **one** place — its WBA directory at `{domai
       "not_after": "2026-10-01T00:00:00Z"
     }
   ],
-  "revocation_url": "https://agents.kirkland.com/.well-known/ramp-invalidations.json"
+  "revocation_url": "https://agents.kirkland.com/.well-known/fora-invalidations.json"
 }
 ```
 
@@ -612,7 +612,7 @@ Each `JsonWebKey` carries RFC3339 `not_before` / `not_after` bounds. The window 
 
 ### Caching Contract
 
-The WBA directory (`/.well-known/http-message-signatures-directory`) and `/.well-known/ramp.json` MAY be cached by consumers and CDNs for routine periods (minutes to hours) — keys rotate slowly and carry explicit bounds. The `revocation_url` body, by contrast, SHOULD be served with a short or zero freshness lifetime (e.g. `Cache-Control: max-age=60`, or `no-store`) so the 300s revocation poll is not defeated by an intermediary cache.
+The WBA directory (`/.well-known/http-message-signatures-directory`) and `/.well-known/fora.json` MAY be cached by consumers and CDNs for routine periods (minutes to hours) — keys rotate slowly and carry explicit bounds. The `revocation_url` body, by contrast, SHOULD be served with a short or zero freshness lifetime (e.g. `Cache-Control: max-age=60`, or `no-store`) so the 300s revocation poll is not defeated by an intermediary cache.
 
 Enforcement is operational, not protocol-guaranteed: a consumer that grants access against a stale revocation set bears that as its own business risk — it is not a protocol deficiency.
 

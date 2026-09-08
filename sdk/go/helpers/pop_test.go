@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // The agent-binding sign face. The positive assertion is a replay of the shared
@@ -132,7 +132,7 @@ func TestSignAgentBinding_ReproducesSharedVector(t *testing.T) {
 		t.Errorf("Signature\n got %q\nwant %q", got.Signature, v.Signature)
 	}
 	if got.AgentKey != v.PresentedKeyB64URL {
-		t.Errorf("X-RAMP-Agent-Key got %q, want %q", got.AgentKey, v.PresentedKeyB64URL)
+		t.Errorf("X-FORA-Agent-Key got %q, want %q", got.AgentKey, v.PresentedKeyB64URL)
 	}
 }
 

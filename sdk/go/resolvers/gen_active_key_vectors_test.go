@@ -25,7 +25,7 @@ package resolvers_test
 // DETERMINISM: every key is derived from a FIXED seed and every instant is a
 // FIXED offset from wbaAnchor, so re-running reproduces byte-identical output.
 // Default `go test` asserts the committed file matches a fresh emit;
-// RAMP_UPDATE_VECTORS=1 rewrites it (same drift-gate shape as
+// FORA_UPDATE_VECTORS=1 rewrites it (same drift-gate shape as
 // gen_revocation_membership_vectors_test.go).
 
 import (
@@ -42,8 +42,8 @@ import (
 	"testing"
 	"time"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/resolvers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
 // discardActiveKeyLog silences the selector's bounded-exhaustion warning during
@@ -96,7 +96,7 @@ type kb struct {
 
 func rfc(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 
-func toAKJWK(j *rampv1.JsonWebKey) activeKeyJWK {
+func toAKJWK(j *forav1.JsonWebKey) activeKeyJWK {
 	return activeKeyJWK{Kty: j.GetKty(), Crv: j.GetCrv(), X: j.GetX(), NotBefore: j.GetNotBefore(), NotAfter: j.GetNotAfter()}
 }
 
@@ -191,13 +191,13 @@ func buildVector(t *testing.T, label, note string, maxScan *int, keys []kb, want
 // non-screened path stays locked by the same vector.
 func buildScreenedVector(t *testing.T, label, note string, maxScan *int, keys []kb, revoked []string, wantIndex int) activeKeyVector {
 	t.Helper()
-	jwks := make([]*rampv1.JsonWebKey, len(keys))
+	jwks := make([]*forav1.JsonWebKey, len(keys))
 	aks := make([]activeKeyJWK, len(keys))
 	for i, k := range keys {
-		jwks[i] = &rampv1.JsonWebKey{Kty: k.jwk.Kty, Crv: k.jwk.Crv, X: k.jwk.X, NotBefore: k.jwk.NotBefore, NotAfter: k.jwk.NotAfter}
+		jwks[i] = &forav1.JsonWebKey{Kty: k.jwk.Kty, Crv: k.jwk.Crv, X: k.jwk.X, NotBefore: k.jwk.NotBefore, NotAfter: k.jwk.NotAfter}
 		aks[i] = k.jwk
 	}
-	dir := &rampv1.WBAFile{Keys: jwks}
+	dir := &forav1.WBAFile{Keys: jwks}
 	var opts []resolvers.ActiveKeyScanOptions
 	if maxScan != nil {
 		opts = []resolvers.ActiveKeyScanOptions{{MaxScan: maxScan, Logger: discardActiveKeyLog()}}
@@ -420,14 +420,14 @@ func buildActiveKeyCorpus(t *testing.T) activeKeyCorpus {
 }
 
 // TestGenerateActiveKeyVector emits the active-key golden vector. Default run
-// asserts the committed file is byte-identical to a fresh emit; RAMP_UPDATE_VECTORS=1
+// asserts the committed file is byte-identical to a fresh emit; FORA_UPDATE_VECTORS=1
 // rewrites it.
 func TestGenerateActiveKeyVector(t *testing.T) {
 	t.Parallel()
 	corpus := buildActiveKeyCorpus(t)
 	path := filepath.Join("testdata", "active-ed25519-key-vectors.json")
 
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		writeActiveKeyVector(t, path, corpus)
 		return
 	}
@@ -441,7 +441,7 @@ func TestGenerateActiveKeyVector(t *testing.T) {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	if string(got) != string(want) {
-		t.Fatalf("%s is stale; re-run with RAMP_UPDATE_VECTORS=1 to regenerate", path)
+		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", path)
 	}
 }
 

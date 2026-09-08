@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
-	"github.com/RAMP-Protocol/protocol/sdk/go/resolvers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
 // versionedManifestHandler serves a manifest with a caller-chosen `ver`. A nil
@@ -42,14 +42,14 @@ func TestWellKnownEndpointResolver_acceptsASameMajorHigherMinor(t *testing.T) {
 	ver := "1.1"
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		versionedManifestHandler(&ver, srv.URL+"/ramp.v1.ExchangeService", nil).ServeHTTP(w, r)
+		versionedManifestHandler(&ver, srv.URL+"/fora.v1.ExchangeService", nil).ServeHTTP(w, r)
 	}))
 	defer srv.Close()
 	got, err := newVersionTestResolver().ResolveEndpoint(context.Background(), hostOf(t, srv))
 	if err != nil {
 		t.Fatalf("resolve failed: %v; a same-major manifest must be accepted", err)
 	}
-	if want := srv.URL + "/ramp.v1.ExchangeService"; got != want {
+	if want := srv.URL + "/fora.v1.ExchangeService"; got != want {
 		t.Errorf("resolve = %q, want %q", got, want)
 	}
 }
@@ -62,7 +62,7 @@ func TestWellKnownEndpointResolver_refusesAnUnrecognisedMajorAndDoesNotCacheIt(t
 	var hits int
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		versionedManifestHandler(&ver, srv.URL+"/ramp.v1.ExchangeService", &hits).ServeHTTP(w, r)
+		versionedManifestHandler(&ver, srv.URL+"/fora.v1.ExchangeService", &hits).ServeHTTP(w, r)
 	}))
 	defer srv.Close()
 	r := newVersionTestResolver()
@@ -93,7 +93,7 @@ func TestWellKnownEndpointResolver_refusesAnUnrecognisedMajorAndDoesNotCacheIt(t
 func TestWellKnownEndpointResolver_refusesAManifestWithNoVersion(t *testing.T) {
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		versionedManifestHandler(nil, srv.URL+"/ramp.v1.ExchangeService", nil).ServeHTTP(w, r)
+		versionedManifestHandler(nil, srv.URL+"/fora.v1.ExchangeService", nil).ServeHTTP(w, r)
 	}))
 	defer srv.Close()
 	got, err := newVersionTestResolver().ResolveEndpoint(context.Background(), hostOf(t, srv))
@@ -136,7 +136,7 @@ func TestWellKnownEndpointResolver_refusesANonStringVersionAsAVerdict(t *testing
 		t.Run(tc.name, func(t *testing.T) {
 			var srv *httptest.Server
 			srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				_, _ = fmt.Fprintf(w, tc.doc, srv.URL+"/ramp.v1.ExchangeService")
+				_, _ = fmt.Fprintf(w, tc.doc, srv.URL+"/fora.v1.ExchangeService")
 			}))
 			defer srv.Close()
 			_, err := newVersionTestResolver().ResolveEndpoint(context.Background(), hostOf(t, srv))

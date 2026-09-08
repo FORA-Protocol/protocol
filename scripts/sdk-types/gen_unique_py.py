@@ -18,7 +18,7 @@ same conformance/uniquegen manifest, which reads Go protovalidate.
 import json
 import sys
 
-HEADER = """# Code generated from the RAMP proto (via conformance/uniquegen). DO NOT EDIT.
+HEADER = """# Code generated from the FORA proto (via conformance/uniquegen). DO NOT EDIT.
 # Regenerate: scripts/gen-sdk-types.sh   Enforcement seam: wire/base.py
 \"\"\"Message -> field names whose repeated items must be unique on the wire.
 

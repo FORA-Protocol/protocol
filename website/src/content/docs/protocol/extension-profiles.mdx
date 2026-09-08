@@ -5,7 +5,7 @@ description: "Three-layer governance model for domain-specific metadata, with st
 
 ## Why Extension Profiles?
 
-The RAMP protocol handles universal resource access mechanics: discovery, pricing, transaction, delivery, attestation, dispute. But different industries need domain-specific metadata. A news Exchange needs to track article corrections and retractions. An academic Exchange needs to flag retracted papers and model open access status. A legal Exchange needs amendment chains and patent family navigation.
+The FORA protocol handles universal resource access mechanics: discovery, pricing, transaction, delivery, attestation, dispute. But different industries need domain-specific metadata. A news Exchange needs to track article corrections and retractions. An academic Exchange needs to flag retracted papers and model open access status. A legal Exchange needs amendment chains and patent family navigation.
 
 Putting all of this into the core proto would create a bloated spec that no single implementer needs in full. Leaving it entirely unstructured would create the "USB-C problem" -- technical compliance without interoperability. Extension profiles solve this with a three-layer governance model.
 
@@ -13,19 +13,19 @@ Putting all of this into the core proto would create a bloated spec that no sing
 
 | Layer | Scope | Governance | Example |
 |---|---|---|---|
-| **1. Core Proto** | Fields in `ramp.proto` | Protocol version bump | `resource_mutability`, `data_as_of`, `unit_cost` |
-| **2. Standard Extensions** | `ramp.*` namespace in `ext` | Defined in RAMP spec | `ramp.compliance.dua_required` |
+| **1. Core Proto** | Fields in `fora.proto` | Protocol version bump | `resource_mutability`, `data_as_of`, `unit_cost` |
+| **2. Standard Extensions** | `fora.*` namespace in `ext` | Defined in FORA spec | `fora.compliance.dua_required` |
 | **3. Domain Profiles** | Domain namespace in `ext` | Published by domain communities | `news.iptc_guid`, `academic.doi`, `legal.legislation.eli` |
 
 ### Layer 1: Core Proto
 
-Fields included in the protobuf definition (`ramp.proto`). These are cross-cutting needs validated across 30%+ of use cases, affect fundamental protocol behavior, and have consistent meaning across all domains.
+Fields included in the protobuf definition (`fora.proto`). These are cross-cutting needs validated across 30%+ of use cases, affect fundamental protocol behavior, and have consistent meaning across all domains.
 
 Examples: `ResourceMutability`, `data_as_of`, `max_data_age`, `unit_cost`, `estimated_quantity`.
 
 ### Layer 2: Standard Extensions
 
-Needed by multiple domains but too specialized for the proto. Documented in the RAMP specification. Carried in the `ext` field (a `google.protobuf.Struct`) on protocol messages. Consumers SHOULD support these when present.
+Needed by multiple domains but too specialized for the proto. Documented in the FORA specification. Carried in the `ext` field (a `google.protobuf.Struct`) on protocol messages. Consumers SHOULD support these when present.
 
 ### Layer 3: Domain Profiles
 
@@ -47,9 +47,9 @@ Agent                    Broker                 Exchange
   │                          │                            │
   │  DiscoveryRequest        │                            │
   │  supported_profiles:     │  ResourceQuery               │
-  │  ["ramp-academic-v1"]    │  supported_profiles:       │  WellKnownManifest
-  │ ─────────────────────►   │  ["ramp-academic-v1"]      │  supported_profiles:
-  │                          │ ────────────────────────►   │  ["ramp-academic-v1"]
+  │  ["fora-academic-v1"]    │  supported_profiles:       │  WellKnownManifest
+  │ ─────────────────────►   │  ["fora-academic-v1"]      │  supported_profiles:
+  │                          │ ────────────────────────►   │  ["fora-academic-v1"]
   │                          │                            │
   │                          │  ◄──── Offers with         │
   │  ◄──── Filtered offers   │        academic.* ext      │
@@ -58,14 +58,14 @@ Agent                    Broker                 Exchange
 
 ### WellKnownManifest.supported_profiles (field 23)
 
-The Exchange declares which domain extension profiles it conforms to. Published in `/.well-known/ramp.json` (`role=ROLE_EXCHANGE`). The Broker reads this at discovery time to route queries to capable Exchanges.
+The Exchange declares which domain extension profiles it conforms to. Published in `/.well-known/fora.json` (`role=ROLE_EXCHANGE`). The Broker reads this at discovery time to route queries to capable Exchanges.
 
 ```json
 {
   "ver": "1.0",
   "domain": "academic-exchange.example.com",
   "name": "Example Academic Exchange",
-  "supported_profiles": ["ramp-academic-v1"],
+  "supported_profiles": ["fora-academic-v1"],
   "base_currency": "USD"
 }
 ```
@@ -86,7 +86,7 @@ The agent declares profiles to the Broker. The Broker uses this for:
 
 ## Critical Extension Signaling (`ext_critical`)
 
-Every RAMP message that carries an `ext` field also carries `ext_critical` (field 90) -- a list of ext keys that the consumer **MUST** understand. If a consumer encounters a key in `ext_critical` that it does not recognize, it **MUST** reject the message.
+Every FORA message that carries an `ext` field also carries `ext_critical` (field 90) -- a list of ext keys that the consumer **MUST** understand. If a consumer encounters a key in `ext_critical` that it does not recognize, it **MUST** reject the message.
 
 ### The COSE `crit` Pattern
 
@@ -99,7 +99,7 @@ This design follows the `crit` header parameter from [RFC 9052 (COSE)](https://w
 | **SOAP** | `mustUnderstand` attribute | Boolean flag per header block |
 | **CoAP** (RFC 7252) | Odd/even option numbers | Option number parity determines criticality |
 
-RAMP adopts the COSE enumeration approach: the sender lists which ext keys are critical in a given message, rather than marking criticality on the key definition itself.
+FORA adopts the COSE enumeration approach: the sender lists which ext keys are critical in a given message, rather than marking criticality on the key definition itself.
 
 ### Behavior
 
@@ -144,9 +144,9 @@ Profile specs define the defaults, but the sender always has final say -- `ext_c
 
 ## Standard Profiles
 
-Five extension profile specifications have been developed for RAMP v1.0, each grounded in existing industry standards.
+Five extension profile specifications have been developed for FORA v1.0, each grounded in existing industry standards.
 
-### ramp-news-v1
+### fora-news-v1
 
 **Scope:** News articles, podcasts, broadcasting
 
@@ -159,7 +159,7 @@ Five extension profile specifications have been developed for RAMP v1.0, each gr
 
 The news profile models the complete article lifecycle: `usable` (may be published) to `canceled` (killed, terminal). Corrections increment `news.version` while keeping the `news.iptc_guid` stable, enabling agents to track the same story across versions and Exchanges.
 
-### ramp-academic-v1
+### fora-academic-v1
 
 **Scope:** Scholarly articles, preprints, datasets
 
@@ -182,7 +182,7 @@ Preprint ──peer review──> AAM ──publisher production──> VoR ─�
 
 Every published version is `STATIC` -- corrections and retractions create new resources with new DOIs, linked via `academic.related_works`.
 
-### ramp-legal-v1
+### fora-legal-v1
 
 **Scope:** Legislation, case law, patents (cross-jurisdiction)
 
@@ -194,7 +194,7 @@ Every published version is `STATIC` -- corrections and retractions create new re
 
 The legal profile uses sub-domain namespacing: `legal.legislation.*` for statutes, `legal.case.*` for court filings, `legal.patent.*` for patents. This keeps the field vocabulary organized while allowing a single Exchange to serve all three sub-domains.
 
-### ramp-comp-v1
+### fora-comp-v1
 
 **Scope:** CoMP (Content Monetization Protocols, V1) metadata -- optional extension for Exchanges that carry CoMP-originated content objects
 
@@ -207,27 +207,27 @@ The legal profile uses sub-domain namespacing: `legal.legislation.*` for statute
 
 CoMP metadata is carried as flat `comp.<field>` scalar keys in the `ext` Struct on protocol messages — not as a nested `comp` object. Exchanges that support IAB CoMP include keys such as `comp.package_id`, `comp.scope_type`, and `comp.allowed_use` (see [ext-comp](/protocol/ext-comp/) for the authoritative key list). Exchanges that don't use CoMP simply omit these keys, and consumers that don't understand CoMP safely ignore them.
 
-### ramp-c2pa-v1
+### fora-c2pa-v1
 
-**Scope:** C2PA content provenance integration -- bridges C2PA Content Credentials into RAMP attestations and access controls
+**Scope:** C2PA content provenance integration -- bridges C2PA Content Credentials into FORA attestations and access controls
 
 | Property | Detail |
 |---|---|
 | **Core proto fields** | `c2pa_manifest`, `c2pa_status` (C2PAStatus enum), `soft_binding`, `soft_binding_method` on ResourceIdentity |
 | **Attestation claims** | 16 standardized `c2pa.*` claim names covering identity, trust, provenance, rights, and content binding |
 | **Standards** | C2PA 2.x, COSE Sign1 (RFC 9052), X.509, JUMBF (ISO 19566-5), RFC 3161 |
-| **Key capabilities** | C2PA manifest validation bridged to RAMP attestations; `c2pa.training_mining` mapped to a `LicenseTerm.restrictions` `Restriction{kind: RESTRICTION_KIND_FUNCTION, prohibited: [...]}`; soft binding for post-transcoding dispute resolution; TSA-grade temporal claims |
+| **Key capabilities** | C2PA manifest validation bridged to FORA attestations; `c2pa.training_mining` mapped to a `LicenseTerm.restrictions` `Restriction{kind: RESTRICTION_KIND_FUNCTION, prohibited: [...]}`; soft binding for post-transcoding dispute resolution; TSA-grade temporal claims |
 | **Conformance levels** | Level A (status + URI), Level B (bridged attestation + rights enforcement), Level C (full provenance + soft binding + TSA) |
 
-C2PA proves **what content IS** (provenance, creator, edit history). RAMP manages **what you can DO with it** (pricing, transaction, dispute). This profile bridges the two: a C2PA verification vendor validates the manifest using X.509/COSE and publishes the results as a RAMP `ResourceAttestation` signed with Ed25519. C2PA-unaware agents benefit from the validation results and rights enforcement without needing JUMBF or COSE libraries.
+C2PA proves **what content IS** (provenance, creator, edit history). FORA manages **what you can DO with it** (pricing, transaction, dispute). This profile bridges the two: a C2PA verification vendor validates the manifest using X.509/COSE and publishes the results as a FORA `ResourceAttestation` signed with Ed25519. C2PA-unaware agents benefit from the validation results and rights enforcement without needing JUMBF or COSE libraries.
 
-See the [full ramp-c2pa-v1 specification](/protocol/ext-c2pa/).
+See the [full fora-c2pa-v1 specification](/protocol/ext-c2pa/).
 
 ## Creating a New Profile
 
 A domain community creates a new profile by publishing a specification that defines:
 
-1. **Profile name** -- format: `ramp-{domain}-v{version}` (e.g., `ramp-pharma-v1`)
+1. **Profile name** -- format: `fora-{domain}-v{version}` (e.g., `fora-pharma-v1`)
 2. **Ext field vocabulary** -- namespaced keys for each protocol message (`{domain}.field_name`)
 3. **Attestation claims** -- domain-specific claim names for `ResourceAttestation.claims`
 4. **Behavioral conventions** -- how `ResourceMutability`, `data_as_of`, `DeliveryMethod`, and pricing interact with domain content
@@ -249,8 +249,8 @@ Each profile SHOULD publish a JSON Schema at `docs/protocol/extensions/{profile-
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ramp-protocol.org/extensions/ramp-example-v1/schema.json",
-  "title": "RAMP-Example v1 Extension Profile",
+  "$id": "https://fora-protocol.org/extensions/fora-example-v1/schema.json",
+  "title": "FORA-Example v1 Extension Profile",
   "type": "object",
   "properties": {
     "example.field_name": {
@@ -283,4 +283,4 @@ Profiles define domain-specific dispute fields in `DisputeRequest.ext`. These su
 - [Content Attestation](/protocol/content-attestation/) -- how attestations carry profile-specific claims
 - [Resource Mutability](/protocol/content-mutability/) -- how mutability interacts with domain-specific content
 - [Exchange Manifest](/protocol/exchange-manifest/) -- where Exchanges declare profile support
-- [Proto: RAMP v1](/reference/proto-ramp/) -- full proto reference including `supported_profiles` fields
+- [Proto: FORA v1](/reference/proto-fora/) -- full proto reference including `supported_profiles` fields

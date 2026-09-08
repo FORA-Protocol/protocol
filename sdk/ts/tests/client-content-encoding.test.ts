@@ -15,7 +15,7 @@ import { gzipSync } from "node:zlib";
 import { createServer, type Server } from "node:http";
 import { describe, expect, it } from "vitest";
 
-import { RampCallError } from "../client/errors.ts";
+import { ForaCallError } from "../client/errors.ts";
 import { fetchContent } from "../client/content.ts";
 import { createUnarySend } from "../client/send.ts";
 import { unaryCall, type UnaryRequest } from "../client/transport.ts";
@@ -70,7 +70,7 @@ describe("content coding", () => {
 				op: "discover",
 				target: {
 					baseURL: `http://127.0.0.1:${port}`,
-					service: "ramp.v1.ExchangeService",
+					service: "fora.v1.ExchangeService",
 					method: "DiscoverResources",
 				},
 				message: {},
@@ -105,9 +105,9 @@ describe("content coding", () => {
 				unaryRequest(`http://127.0.0.1:${port}/x`),
 			).catch((e: unknown) => e),
 		);
-		expect(failure).toBeInstanceOf(RampCallError);
-		expect((failure as RampCallError).kind).toBe("malformed");
-		expect(String((failure as RampCallError).cause ?? "")).toContain("content-encoding");
+		expect(failure).toBeInstanceOf(ForaCallError);
+		expect((failure as ForaCallError).kind).toBe("malformed");
+		expect(String((failure as ForaCallError).cause ?? "")).toContain("content-encoding");
 		server.close();
 	});
 
@@ -126,9 +126,9 @@ describe("content coding", () => {
 				(e: unknown) => e,
 			),
 		);
-		expect(failure).toBeInstanceOf(RampCallError);
-		expect((failure as RampCallError).kind).toBe("malformed");
-		expect(String((failure as RampCallError).cause ?? "")).toContain("content-encoding");
+		expect(failure).toBeInstanceOf(ForaCallError);
+		expect((failure as ForaCallError).kind).toBe("malformed");
+		expect(String((failure as ForaCallError).cause ?? "")).toContain("content-encoding");
 		server.close();
 	});
 

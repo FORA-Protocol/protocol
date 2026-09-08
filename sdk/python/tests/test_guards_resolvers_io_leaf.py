@@ -1,20 +1,20 @@
 """Structural guard for the IO-leaf invariant.
 
-Three packages bear IO: the resolver faces (``ramp_sdk/resolvers/``), which fetch
-JWKS / WBA directories / ramp.json, and the client (``ramp_sdk/client/``) with its
-blocking facade (``ramp_sdk/sync/``), which speak the RAMP RPCs and the delivery
+Three packages bear IO: the resolver faces (``fora_sdk/resolvers/``), which fetch
+JWKS / WBA directories / fora.json, and the client (``fora_sdk/client/``) with its
+blocking facade (``fora_sdk/sync/``), which speak the FORA RPCs and the delivery
 fetch. All of them dial over an injected transport whose default is a maintained
 ``httpx`` client with the SSRF guard. The pure L1 modules (``core``, ``httpsig``,
 ``pop``, ``server_verify``, ``keyresolver``, ``thumbprint``, ``b64``, ...) are
 transport-neutral by contract -- they own no keys, open no sockets, and MUST NOT
 depend on any of them. Dependency flows one way only: the IO packages ->
 pure-modules (they reuse thumbprint, b64, the signing and verifying faces), never
-the reverse. A pure module that imports ``ramp_sdk.resolvers``,
-``ramp_sdk.client``, ``httpx``, or raw ``urllib`` would drag IO into the
+the reverse. A pure module that imports ``fora_sdk.resolvers``,
+``fora_sdk.client``, ``httpx``, or raw ``urllib`` would drag IO into the
 transport-neutral core -- the httpx dependency is scoped to the IO tree -- and is
 exactly the regression this guard bans.
 
-The pure set is the TOP-LEVEL ``ramp_sdk/*.py`` modules; the IO packages are
+The pure set is the TOP-LEVEL ``fora_sdk/*.py`` modules; the IO packages are
 subpackages and so are outside it by construction. ``__init__.py`` is the public
 aggregator and legitimately re-exports every face, so it is excluded too.
 """
@@ -24,10 +24,10 @@ from __future__ import annotations
 import ast
 import pathlib
 
-_RAMP_SDK = pathlib.Path(__file__).resolve().parents[1] / "ramp_sdk"
+_FORA_SDK = pathlib.Path(__file__).resolve().parents[1] / "fora_sdk"
 
 # The public aggregator re-exports every face, so it is outside the pure set.
-# Everything else under ramp_sdk/*.py is the pure, transport-neutral set; the IO
+# Everything else under fora_sdk/*.py is the pure, transport-neutral set; the IO
 # packages are subpackages and so are outside it by construction.
 _NON_PURE = {"__init__.py"}
 
@@ -39,9 +39,9 @@ _NON_PURE = {"__init__.py"}
 # module reaching for it would silently diverge from the Go and TypeScript ports. No
 # guarded module imports it, and exclusion lists in this repo only shrink.
 _BANNED = (
-    "ramp_sdk.resolvers",
-    "ramp_sdk.client",
-    "ramp_sdk.sync",
+    "fora_sdk.resolvers",
+    "fora_sdk.client",
+    "fora_sdk.sync",
     "httpx",
     "httpcore",
     "urllib",
@@ -66,9 +66,9 @@ def _imports_io(source: str) -> bool:
         elif isinstance(node, ast.ImportFrom):
             module = node.module or ""
             if node.level:
-                # Guarded modules sit directly in ramp_sdk/, so a relative
-                # import resolves against the ramp_sdk package.
-                module = f"ramp_sdk.{module}" if module else "ramp_sdk"
+                # Guarded modules sit directly in fora_sdk/, so a relative
+                # import resolves against the fora_sdk package.
+                module = f"fora_sdk.{module}" if module else "fora_sdk"
             if _hits(module) or any(
                 _hits(f"{module}.{alias.name}" if module else alias.name)
                 for alias in node.names
@@ -78,7 +78,7 @@ def _imports_io(source: str) -> bool:
 
 
 def _pure_modules() -> list[pathlib.Path]:
-    return [p for p in sorted(_RAMP_SDK.glob("*.py")) if p.name not in _NON_PURE]
+    return [p for p in sorted(_FORA_SDK.glob("*.py")) if p.name not in _NON_PURE]
 
 
 class TestResolverIoLeaf:
@@ -87,16 +87,16 @@ class TestResolverIoLeaf:
         assert offenders == []
 
     def test_resolvers_reuse_pure_primitives(self) -> None:
-        wba = (_RAMP_SDK / "resolvers" / "wba.py").read_text(encoding="utf8")
+        wba = (_FORA_SDK / "resolvers" / "wba.py").read_text(encoding="utf8")
         assert "thumbprint" in wba
-        http = (_RAMP_SDK / "resolvers" / "_http.py").read_text(encoding="utf8")
+        http = (_FORA_SDK / "resolvers" / "_http.py").read_text(encoding="utf8")
         # The IO tree is where the maintained httpx client legitimately lives.
         assert "httpx" in http
 
     # --- meta-tests: exercise the detector against synthetic source ----------
     def test_meta_positive_catches_resolvers_import(self) -> None:
-        assert _imports_io("from ramp_sdk.resolvers import WBAKeyResolver")
-        assert _imports_io("from ramp_sdk import resolvers")
+        assert _imports_io("from fora_sdk.resolvers import WBAKeyResolver")
+        assert _imports_io("from fora_sdk import resolvers")
         assert _imports_io("from . import resolvers")
         assert _imports_io("from .resolvers import WBAKeyResolver")
 
@@ -104,19 +104,19 @@ class TestResolverIoLeaf:
         # The client and its blocking facade are the SECOND IO-bearing tree, and a
         # policy entry of their own: no pure module imports either today, so only
         # these asserts notice if the ban is dropped.
-        assert _imports_io("from ramp_sdk.client import Client")
-        assert _imports_io("from ramp_sdk import client")
-        assert _imports_io("import ramp_sdk.client")
+        assert _imports_io("from fora_sdk.client import Client")
+        assert _imports_io("from fora_sdk import client")
+        assert _imports_io("import fora_sdk.client")
         assert _imports_io("from . import client")
         assert _imports_io("from .client import Client")
-        assert _imports_io("from ramp_sdk.client.content import fetch_content")
+        assert _imports_io("from fora_sdk.client.content import fetch_content")
 
     def test_meta_positive_catches_sync_facade_import(self) -> None:
-        assert _imports_io("from ramp_sdk import sync")
-        assert _imports_io("from ramp_sdk.sync import Client")
-        assert _imports_io("import ramp_sdk.sync")
+        assert _imports_io("from fora_sdk import sync")
+        assert _imports_io("from fora_sdk.sync import Client")
+        assert _imports_io("import fora_sdk.sync")
         assert _imports_io("from . import sync")
-        assert _imports_io("import os, ramp_sdk.sync")
+        assert _imports_io("import os, fora_sdk.sync")
 
     def test_meta_positive_catches_httpx_import(self) -> None:
         assert _imports_io("import httpx")
@@ -152,7 +152,7 @@ class TestResolverIoLeaf:
         assert _imports_io("import os, \\\n    urllib.request")
 
     def test_meta_negative_passes_pure_import(self) -> None:
-        assert not _imports_io("from ramp_sdk.thumbprint import thumbprint")
+        assert not _imports_io("from fora_sdk.thumbprint import thumbprint")
         assert not _imports_io("import os, sys")
         # A prose mention is not an import; only real import statements count.
         assert not _imports_io("x = 'urllib.parse strips tab/CR/LF'")

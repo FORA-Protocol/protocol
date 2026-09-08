@@ -25,24 +25,24 @@ const ED25519_PUBLIC_KEY_BYTES = 32;
  * structurally (not imported from Hono) so the core-adjacent binding stays free of
  * a hard Hono runtime import while remaining drop-in for a real Hono `Context`.
  */
-export interface RampVerifyContext {
+export interface ForaVerifyContext {
 	req: { raw: Request };
 	res: Response | undefined;
 }
 
-export type RampVerifyNext = () => Promise<void> | void;
+export type ForaVerifyNext = () => Promise<void> | void;
 
 /** Options for the server-verify binding. The clock + verify primitive are
  * injected exactly as the core Verifier's are; the binding owns no state. The
  * GET-PoP path is self-verifying via the presented key, so no key resolver is
  * accepted — a resolver here would be dead weight the middleware never reads. */
-export interface RampVerifyOptions {
+export interface ForaVerifyOptions {
 	now?: () => number;
 	verifyEd25519?: Ed25519Verify;
 }
 
 /**
- * rampVerify builds the opt-in Hono server-verify middleware. On an inbound
+ * foraVerify builds the opt-in Hono server-verify middleware. On an inbound
  * request it verifies the RFC 9421 GET PoP through the L1 verifyAgentBinding; on
  * success it calls next() (the guarded handler runs); on failure it sets a 403 deny
  * response and does NOT call next() (fail-closed).
@@ -56,9 +56,9 @@ export interface RampVerifyOptions {
  * URL-bound verification on this middleware would silently accept any
  * self-consistent presenter.
  */
-export function rampVerify(
-	opts: RampVerifyOptions,
-): (ctx: RampVerifyContext, next: RampVerifyNext) => Promise<void> {
+export function foraVerify(
+	opts: ForaVerifyOptions,
+): (ctx: ForaVerifyContext, next: ForaVerifyNext) => Promise<void> {
 	return async (ctx, next) => {
 		const req = ctx.req.raw;
 

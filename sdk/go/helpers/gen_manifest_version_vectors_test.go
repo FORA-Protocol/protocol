@@ -14,7 +14,7 @@ package helpers
 // member must drive the ABSENT case through that path, not through "".
 //
 // Verification no-op by default (asserts the committed file matches a fresh
-// emit); (re)writes under RAMP_UPDATE_VECTORS=1. TEST INFRASTRUCTURE.
+// emit); (re)writes under FORA_UPDATE_VECTORS=1. TEST INFRASTRUCTURE.
 
 import (
 	"os"
@@ -74,7 +74,7 @@ func buildManifestVersionVectors(t *testing.T) []manifestVersionVector {
 func TestGenerateManifestVersionVectors(t *testing.T) {
 	doc := map[string]any{"manifest_version": buildManifestVersionVectors(t)}
 	path := filepath.Join("testdata", "manifest-version-vectors.json")
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		writeJSON(t, path, doc)
 		return
 	}

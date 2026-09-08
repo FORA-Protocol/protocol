@@ -21,12 +21,12 @@ package connect_test
 import (
 	"context"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	rampconnect "github.com/RAMP-Protocol/protocol/sdk/go/connect"
-	"github.com/RAMP-Protocol/protocol/sdk/go/core"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
 )
 
-func compileGuardDemo(client *rampconnect.Client, res core.Result) {
+func compileGuardDemo(client *foraconnect.Client, res core.Result) {
 	ctx := context.Background()
 
 	// OK: Execute accepts a VerifiedOffer produced by the SDK verify path.
@@ -36,14 +36,14 @@ func compileGuardDemo(client *rampconnect.Client, res core.Result) {
 	// core.RejectedOffer) as core.VerifiedOffer value in argument to client.Execute
 	_, _ = client.Execute(ctx, res.Rejected[0])
 
-	// want-compile-error: cannot use a raw *rampv1.Offer as core.VerifiedOffer
+	// want-compile-error: cannot use a raw *forav1.Offer as core.VerifiedOffer
 	// value in argument to client.Execute
-	raw := &rampv1.Offer{OfferId: "forged"}
+	raw := &forav1.Offer{OfferId: "forged"}
 	_, _ = client.Execute(ctx, raw)
 
 	// want-compile-error: cannot populate a core.VerifiedOffer via a composite
 	// literal — the wrapped `offer` field is unexported, so an app cannot inject its
-	// own *rampv1.Offer. Only the SDK verify path (core.Verifier.Sort) or the
+	// own *forav1.Offer. Only the SDK verify path (core.Verifier.Sort) or the
 	// explicit RejectedOffer.Unsafe escape can mint one carrying an offer. (An empty
 	// core.VerifiedOffer{} literal is legal Go but carries a nil offer, so it is
 	// inert — the guard is that you cannot SET the offer from outside core.)

@@ -7,10 +7,10 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/gen/go/ramp/v1/rampv1connect"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/hostredact"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/hostredact"
 )
 
 // CatalogClient is the Connect client for CatalogService — the publisher role's
@@ -37,7 +37,7 @@ import (
 // same redirect refusal, the same request-id and validate interceptors, the
 // same read cap — so the faces cannot drift in how they sign or correlate.
 type CatalogClient struct {
-	rpc rampv1connect.CatalogServiceClient
+	rpc forav1connect.CatalogServiceClient
 }
 
 // NewCatalogClient builds a CatalogClient against an Exchange's catalog endpoint.
@@ -58,7 +58,7 @@ func NewCatalogClient(baseURL string, opts ...ClientOption) *CatalogClient {
 	cfg := resolvedConfig(opts...)
 	httpClient, connectOpts, _ := plumbing(cfg)
 	return &CatalogClient{
-		rpc: rampv1connect.NewCatalogServiceClient(httpClient, baseURL, connectOpts...),
+		rpc: forav1connect.NewCatalogServiceClient(httpClient, baseURL, connectOpts...),
 	}
 }
 
@@ -79,7 +79,7 @@ func NewCatalogClient(baseURL string, opts ...ClientOption) *CatalogClient {
 // Exchange's own run is the deciding one. A push it refuses as a whole comes
 // back as a non-OK call whose typed reason, when the Exchange attaches one, is
 // readable through ErrorDetailFrom as a CatalogRejection.
-func (c *CatalogClient) PushResources(ctx context.Context, req *rampv1.PushResourcesRequest) (*rampv1.PushResourcesResponse, error) {
+func (c *CatalogClient) PushResources(ctx context.Context, req *forav1.PushResourcesRequest) (*forav1.PushResourcesResponse, error) {
 	const op = "push resources"
 	if req == nil {
 		return nil, malformed(op, errors.New("request is nil"))
@@ -102,7 +102,7 @@ func (c *CatalogClient) PushResources(ctx context.Context, req *rampv1.PushResou
 // RemoveResources removes the catalog entries the request's paths name. Same
 // envelope rule as PushResources: `ver` filled when empty, no idempotency key,
 // `exchange` required and refused locally when it is not a bare domain.
-func (c *CatalogClient) RemoveResources(ctx context.Context, req *rampv1.RemoveResourcesRequest) (*rampv1.RemoveResourcesResponse, error) {
+func (c *CatalogClient) RemoveResources(ctx context.Context, req *forav1.RemoveResourcesRequest) (*forav1.RemoveResourcesResponse, error) {
 	const op = "remove resources"
 	if req == nil {
 		return nil, malformed(op, errors.New("request is nil"))
@@ -124,7 +124,7 @@ func (c *CatalogClient) RemoveResources(ctx context.Context, req *rampv1.RemoveR
 
 // RefreshCatalog asks the Exchange to refresh the tenant's catalog from its
 // configured sources. Same envelope rule as PushResources.
-func (c *CatalogClient) RefreshCatalog(ctx context.Context, req *rampv1.RefreshCatalogRequest) (*rampv1.RefreshCatalogResponse, error) {
+func (c *CatalogClient) RefreshCatalog(ctx context.Context, req *forav1.RefreshCatalogRequest) (*forav1.RefreshCatalogResponse, error) {
 	const op = "refresh catalog"
 	if req == nil {
 		return nil, malformed(op, errors.New("request is nil"))

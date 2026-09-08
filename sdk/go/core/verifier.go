@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // Mode selects offer-verification strictness. Strict (the default) is fail-closed:
@@ -28,7 +28,7 @@ const (
 // ErrOfferExpired signals an offer whose expires_at is in the past. Verification
 // is fail-closed on freshness as well as signature: an expired offer is rejected
 // even if its signature is genuine (ADR-020 §4 "verify everything").
-var ErrOfferExpired = errors.New("ramp: offer expires_at is in the past")
+var ErrOfferExpired = errors.New("fora: offer expires_at is in the past")
 
 // VerifiedOffer wraps an Offer that has passed the SDK's fail-closed verification
 // (genuine exchange signature, not expired) — OR was surfaced under
@@ -37,22 +37,22 @@ var ErrOfferExpired = errors.New("ramp: offer expires_at is in the past")
 // composite literal: the only way to obtain a VerifiedOffer is the SDK verify path
 // or the explicit .Unsafe() escape. That is what makes Client.Execute(ctx,
 // VerifiedOffer) a real COMPILE guard rather than a runtime check a caller can
-// forget (ADR-020 §4, ramp-sdk-api.md compile-time guard).
+// forget (ADR-020 §4, fora-sdk-api.md compile-time guard).
 type VerifiedOffer struct {
-	offer *rampv1.Offer
+	offer *forav1.Offer
 }
 
-// Offer returns the wrapped, verified *rampv1.Offer for read access (id, pricing,
+// Offer returns the wrapped, verified *forav1.Offer for read access (id, pricing,
 // terms). It is a getter, not a constructor — reading a VerifiedOffer is fine;
 // only minting one is gated.
-func (v VerifiedOffer) Offer() *rampv1.Offer { return v.offer }
+func (v VerifiedOffer) Offer() *forav1.Offer { return v.offer }
 
 // RejectedOffer is an offer the Verifier could NOT accept: the wrapped Offer plus
 // the Reason it failed (signature invalid, expired, no resolvable key). It is
 // VISIBLE — the application learns which offers failed and why — but not directly
 // executable. Acting on it requires the explicit .Unsafe() escape.
 type RejectedOffer struct {
-	Offer  *rampv1.Offer
+	Offer  *forav1.Offer
 	Reason error
 }
 
@@ -65,7 +65,7 @@ func (r RejectedOffer) Unsafe() VerifiedOffer { return VerifiedOffer{offer: r.Of
 // Result is the fail-closed {verified, rejected} contract every discover/resolve
 // call returns. Neither list is silently dropped: a caller can act on Verified and
 // inspect Rejected (count + reason). It is the canonical cross-language shape
-// (ramp-sdk-api.md); Go/TS add the VerifiedOffer compile guard on top.
+// (fora-sdk-api.md); Go/TS add the VerifiedOffer compile guard on top.
 type Result struct {
 	Verified []VerifiedOffer
 	Rejected []RejectedOffer
@@ -96,7 +96,7 @@ func NewVerifier(mode Mode, resolver helpers.KeyResolver, now func() time.Time) 
 // every offer is surfaced verified with no check. Under Strict each offer is
 // verified against its resolved exchange key and its expiry — a failure of either
 // lands it in Rejected with the reason.
-func (v Verifier) Sort(ctx context.Context, offers []*rampv1.Offer) Result {
+func (v Verifier) Sort(ctx context.Context, offers []*forav1.Offer) Result {
 	res := Result{}
 	for _, off := range offers {
 		if v.mode == Off {
@@ -116,7 +116,7 @@ func (v Verifier) Sort(ctx context.Context, offers []*rampv1.Offer) Result {
 // signature, and enforce the not-in-the-past expiry. Any step failing rejects the
 // offer (fail-closed) — including an unresolvable key, so an offer the client
 // cannot key is rejected under Strict rather than trusted.
-func (v Verifier) check(ctx context.Context, off *rampv1.Offer) error {
+func (v Verifier) check(ctx context.Context, off *forav1.Offer) error {
 	pub, err := v.resolver.Resolve(ctx, off.GetExchange())
 	if err != nil {
 		return err
@@ -131,13 +131,13 @@ func (v Verifier) check(ctx context.Context, off *rampv1.Offer) error {
 }
 
 // expired reports whether off is stale on freshness grounds. Fail-closed: an
-// offer that carries NO expires_at is treated as expired, not eternal — RAMP
+// offer that carries NO expires_at is treated as expired, not eternal — FORA
 // offers are minted at discovery as now+TTL, so a missing bound is malformed
 // bearer state, never an open-ended grant. A present expires_at is inclusive:
 // now == expires_at is still fresh, only strictly-before is expired. The wire
 // Timestamp is always UTC (protobuf Timestamp.AsTime()), so there is no
 // host-local-vs-UTC ambiguity here — the string-parsing ports must match it.
-func expired(off *rampv1.Offer, now time.Time) bool {
+func expired(off *forav1.Offer, now time.Time) bool {
 	ts := off.GetExpiresAt()
 	if ts == nil {
 		return true

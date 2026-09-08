@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // Fixed timestamps (no time.Now()). sampleOffer() expires_at is 1700000300.

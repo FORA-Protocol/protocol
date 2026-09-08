@@ -1759,7 +1759,7 @@
       "normalized": {}
     }
   ],
-  "note": "Go-emitted oracle for the ingest-tier license-term checks. fold: CanonicalRestrictionToken; normalize: NormalizeLicenseTerm (idempotent); known: KnownRestrictionToken; validate: ValidateLicenseTerm over canonical terms; entry: ValidateResourceEntry (wire tier over the raw entry, then the ingest tier over a canonicalised copy). Messages are the exact strings the Exchange puts in PushResourcesResponse.warnings. Regenerate with RAMP_UPDATE_VECTORS=1 go test ./sdk/go/helpers/ -run TestGenerateLicenseTermVectors.",
+  "note": "Go-emitted oracle for the ingest-tier license-term checks. fold: CanonicalRestrictionToken; normalize: NormalizeLicenseTerm (idempotent); known: KnownRestrictionToken; validate: ValidateLicenseTerm over canonical terms; entry: ValidateResourceEntry (wire tier over the raw entry, then the ingest tier over a canonicalised copy). Messages are the exact strings the Exchange puts in PushResourcesResponse.warnings. Regenerate with FORA_UPDATE_VECTORS=1 go test ./sdk/go/helpers/ -run TestGenerateLicenseTermVectors.",
   "validate": [
     {
       "name": "reference_only_with_restrictions_accepted",

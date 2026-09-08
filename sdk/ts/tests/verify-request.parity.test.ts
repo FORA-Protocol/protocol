@@ -3,7 +3,7 @@
 // of scope — the multisig verify sibling owns it).
 //
 // Today sdk/ts has NO framework-agnostic request-verify: hono/middleware.ts's
-// rampVerify is edge-GET-PoP-scoped (2-component, self-verifying, no resolver)
+// foraVerify is edge-GET-PoP-scoped (2-component, self-verifying, no resolver)
 // and core/verifier.ts is OFFER verify (JCS), a different concern. This suite
 // pins the NEW core/verify-request.ts — the verify sibling of the just-landed
 // core/sign-request.ts — which must mirror sdk/go/connectserver semantics
@@ -248,7 +248,7 @@ describe("sdk/ts full-RPC single-sig server-verify mirrors the Go connectserver 
 
     const signed = await signRequest(priv, {
       method: "POST",
-      url: "https://broker.example/ramp.v1.BrokerService/Fetch",
+      url: "https://broker.example/fora.v1.BrokerService/Fetch",
       body,
       authorization: "Bearer live-token",
       signatureAgent: "https://agent.example",
@@ -265,7 +265,7 @@ describe("sdk/ts full-RPC single-sig server-verify mirrors the Go connectserver 
 
     const verdict = await verifyRequestServer({
       method: "POST",
-      url: "https://broker.example/ramp.v1.BrokerService/Fetch",
+      url: "https://broker.example/fora.v1.BrokerService/Fetch",
       body,
       headers: {
         "content-digest": signed.contentDigest,
@@ -360,7 +360,7 @@ describe("sdk/ts full-RPC single-sig server-verify mirrors the Go connectserver 
       ) as Uint8Array<ArrayBuffer>;
       const signed = await signRequest(priv, {
         method: "POST",
-        url: "https://broker.example/ramp.v1.BrokerService/Fetch",
+        url: "https://broker.example/fora.v1.BrokerService/Fetch",
         body,
         authorization: "Bearer live-token",
         signatureAgent: "https://agent.example",
@@ -373,7 +373,7 @@ describe("sdk/ts full-RPC single-sig server-verify mirrors the Go connectserver 
       });
       const verdict = await verifyRequestServer({
         method: "POST",
-        url: "https://broker.example/ramp.v1.BrokerService/Fetch",
+        url: "https://broker.example/fora.v1.BrokerService/Fetch",
         body,
         headers: {
           "content-digest": signed.contentDigest,

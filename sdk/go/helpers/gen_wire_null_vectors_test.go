@@ -2,7 +2,7 @@ package helpers
 
 // Golden-vector emitter for the null half of the wire policy.
 //
-// proto-JSON spells "this field has no value" as null, and the codec a RAMP Exchange runs
+// proto-JSON spells "this field has no value" as null, and the codec a FORA Exchange runs
 // puts that on the wire: EmitUnpopulated renders an unset non-optional field as null rather
 // than omitting it. Every SDK has to READ that, and the corpus is what says so in one place
 // for all three.
@@ -28,7 +28,7 @@ import (
 
 	"github.com/gowebpki/jcs"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -88,22 +88,22 @@ func buildWireNullVectors(t *testing.T) []wireNullVector {
 			"attestation_without_an_attested_at",
 			"ResourceAttestation",
 			"an unset Timestamp renders as null; the type generator flattens it to a string schema, so a rule written for message-typed fields refuses it",
-			&rampv1.ResourceAttestation{Verifier: "v.test"},
+			&forav1.ResourceAttestation{Verifier: "v.test"},
 		),
 		emit(
 			"rate_limit_without_a_reset_time",
 			"RateLimitInfo",
 			"the same unset Timestamp, on the message every discovery answer that reports a rate limit carries",
-			&rampv1.RateLimitInfo{Limit: 300, Remaining: 299},
+			&forav1.RateLimitInfo{Limit: 300, Remaining: 299},
 		),
 		emit(
 			"response_carrying_a_rate_limit_without_a_reset_time",
 			"ResourceResponse",
 			"one unset Timestamp one level down refuses the WHOLE answer, which is what a caller actually meets",
-			&rampv1.ResourceResponse{
+			&forav1.ResourceResponse{
 				Ver:       ProtocolVersion,
 				Exchange:  "exchange.test",
-				RateLimit: &rampv1.RateLimitInfo{Limit: 300, Remaining: 299},
+				RateLimit: &forav1.RateLimitInfo{Limit: 300, Remaining: 299},
 			},
 		),
 		{
@@ -123,22 +123,22 @@ func acceptedByOracle(t *testing.T, name, message string, body []byte) bool {
 	var m proto.Message
 	switch message {
 	case "ResourceAttestation":
-		m = &rampv1.ResourceAttestation{}
+		m = &forav1.ResourceAttestation{}
 	case "RateLimitInfo":
-		m = &rampv1.RateLimitInfo{}
+		m = &forav1.RateLimitInfo{}
 	case "ResourceResponse":
-		m = &rampv1.ResourceResponse{}
+		m = &forav1.ResourceResponse{}
 	default:
 		t.Fatalf("%s: no oracle wired for message %q", name, message)
 	}
 	// Default read options: the wire contract adds nothing on the way in, so this is the
-	// same parse a RAMP server performs on a request and a client on a response.
+	// same parse a FORA server performs on a request and a client on a response.
 	return protojson.Unmarshal(body, m) == nil
 }
 
 func TestGenerateWireNullVectors(t *testing.T) {
 	doc := map[string]any{"vectors": buildWireNullVectors(t)}
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		writeJSON(t, filepath.FromSlash(wireNullVectorsPath), doc)
 		return
 	}

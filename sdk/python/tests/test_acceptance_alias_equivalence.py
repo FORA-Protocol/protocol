@@ -1,11 +1,11 @@
-"""Sub-task B (TDD red) — ramp_sdk.acceptance aliases to JCS core; old symbols produce
+"""Sub-task B (TDD red) — fora_sdk.acceptance aliases to JCS core; old symbols produce
 the JCS bytes, not the superseded deterministic-protobuf bytes.
 
 MUST FAIL TODAY because:
-  - ramp_sdk.sign_offer_acceptance still delegates to the proto-binary
+  - fora_sdk.sign_offer_acceptance still delegates to the proto-binary
     canonical_acceptance_payload (acceptance.py), NOT to the JCS form in
-    ramp_sdk.core.sign_offer_acceptance_jcs.
-  - ramp_sdk.canonical_acceptance_payload returns proto-binary bytes beginning
+    fora_sdk.core.sign_offer_acceptance_jcs.
+  - fora_sdk.canonical_acceptance_payload returns proto-binary bytes beginning
     with proto field tags (0x0a …), not a UTF-8 JCS string.
 
 The test is parametrized over acceptance-vectors.json (canonicalization="jcs")
@@ -21,11 +21,11 @@ import pytest
 from conftest import GO_TESTDATA, load_json
 
 # The JCS forms — these already exist in core.py and are the CANONICAL names.
-from ramp_sdk.core import jcs_acceptance_payload, sign_offer_acceptance_jcs
+from fora_sdk.core import jcs_acceptance_payload, sign_offer_acceptance_jcs
 
 # The OLD top-level symbols — today they point at the proto-binary form and
 # will be redirected to the JCS forms in the implement step.
-from ramp_sdk import (
+from fora_sdk import (
     canonical_acceptance_payload,
     sign_offer_acceptance,
 )
@@ -36,7 +36,7 @@ _VECTORS = _DOC["vectors"]
 
 @pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])
 def test_sign_offer_acceptance_alias_equals_jcs_core(vector: dict[str, object]) -> None:
-    """ramp_sdk.sign_offer_acceptance is byte-identical to ramp_sdk.core.sign_offer_acceptance_jcs.
+    """fora_sdk.sign_offer_acceptance is byte-identical to fora_sdk.core.sign_offer_acceptance_jcs.
 
     FAILING today because acceptance.py's sign_offer_acceptance uses the proto-binary
     canonical_acceptance_payload, while core's sign_offer_acceptance_jcs uses
@@ -69,7 +69,7 @@ def test_sign_offer_acceptance_alias_equals_jcs_core(vector: dict[str, object]) 
 def test_canonical_acceptance_payload_alias_equals_jcs_payload(
     vector: dict[str, object],
 ) -> None:
-    """ramp_sdk.canonical_acceptance_payload matches ramp_sdk.core.jcs_acceptance_payload.
+    """fora_sdk.canonical_acceptance_payload matches fora_sdk.core.jcs_acceptance_payload.
 
     FAILING today because canonical_acceptance_payload returns the proto-binary
     varint-encoded wire bytes (0x0a …), NOT the UTF-8 JCS bytes the JCS oracle produces.
@@ -96,7 +96,7 @@ def test_canonical_acceptance_payload_alias_equals_jcs_payload(
 def test_sign_offer_acceptance_matches_oracle_signature_hex(
     vector: dict[str, object],
 ) -> None:
-    """ramp_sdk.sign_offer_acceptance produces the oracle signature_hex.
+    """fora_sdk.sign_offer_acceptance produces the oracle signature_hex.
 
     The oracle (acceptance-vectors.json) was regenerated to JCS; the old proto-binary
     form produces a DIFFERENT hex.  After the redirect, the alias must match.

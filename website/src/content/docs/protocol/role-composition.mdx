@@ -1,11 +1,11 @@
 ---
 title: "Role Composition"
-description: "How a single operator can run multiple RAMP roles (Agent, Broker, Exchange, Publisher) under one corporate root without breaking the protocol's trust model."
+description: "How a single operator can run multiple FORA roles (Agent, Broker, Exchange, Publisher) under one corporate root without breaking the protocol's trust model."
 ---
 
 ## Roles are compositional, not exclusive
 
-RAMP defines four roles via the `Role` enum in `WellKnownManifest`:
+FORA defines four roles via the `Role` enum in `WellKnownManifest`:
 
 | Role | Responsibility |
 |---|---|
@@ -18,9 +18,9 @@ A single operator MAY run more than one role, and the protocol is designed so th
 
 ## Multi-role operators
 
-Operators that already span the demand and supply sides of digital content distribution map naturally onto multiple RAMP roles. Typical patterns:
+Operators that already span the demand and supply sides of digital content distribution map naturally onto multiple FORA roles. Typical patterns:
 
-| Operator surface | RAMP role | `WellKnownManifest` domain |
+| Operator surface | FORA role | `WellKnownManifest` domain |
 |---|---|---|
 | Agentic product (LLM assistant, copilot, research agent) | `ROLE_AGENT` | `agent.example.com` |
 | Owned-and-operated publishing properties | `ROLE_PUBLISHER` | `news.example.com` |

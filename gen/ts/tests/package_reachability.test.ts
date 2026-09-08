@@ -21,7 +21,7 @@ const manifest = JSON.parse(
 	readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
 ) as { exports: Record<string, string> };
 
-// Captured from connectserver.EmitUnpopulatedJSONCodec() — the codec a RAMP deployment
+// Captured from connectserver.EmitUnpopulatedJSONCodec() — the codec a FORA deployment
 // registers on every JSON-serving listener.
 const CODEC_BODY =
 	'{"ver":"", "exchange":"exchange.test", "offers":[], "offer_groups":[], "ext":null, "ext_critical":[]}';

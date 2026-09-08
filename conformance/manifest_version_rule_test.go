@@ -38,7 +38,7 @@ type manifestVersionCase struct {
 
 var errNoManifestVersionVectors = errors.New(
 	"the manifest-version corpus is missing or empty — regenerate it with " +
-		"RAMP_UPDATE_VECTORS=1 go test ./sdk/go/helpers/ -run TestGenerateManifestVersionVectors")
+		"FORA_UPDATE_VECTORS=1 go test ./sdk/go/helpers/ -run TestGenerateManifestVersionVectors")
 
 var sdkManifestVersionCases = sync.OnceValues(func() ([]manifestVersionCase, error) {
 	b, err := os.ReadFile(manifestVersionVectors)

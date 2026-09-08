@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 func TestStaticKeyResolver(t *testing.T) {
@@ -32,7 +32,7 @@ func TestVerifyRequestResolved_endToEnd(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
 	signer, _ := helpers.NewEd25519Signer("ex.v1", priv)
 	body := []byte(`{"x":1}`)
-	req, _ := http.NewRequest(http.MethodPost, "https://e.example/ramp.v1.S/M", strings.NewReader(string(body)))
+	req, _ := http.NewRequest(http.MethodPost, "https://e.example/fora.v1.S/M", strings.NewReader(string(body)))
 	if err := helpers.SignRequest(context.Background(), req, body, signer, helpers.SignOptions{Created: tCreated, Expires: tExpires}); err != nil {
 		t.Fatal(err)
 	}

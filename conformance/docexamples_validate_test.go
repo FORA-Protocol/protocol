@@ -86,10 +86,10 @@ func TestDocOfferIDExamplesUseUUIDv4(t *testing.T) {
 }
 
 // markedFenceRe captures every ```json fence together with an OPTIONAL
-// `{/* ramp-validate: MessageName */}` MDX comment on the line above it. A
+// `{/* fora-validate: MessageName */}` MDX comment on the line above it. A
 // marked fence is validated as a real instance of that message; an unmarked one
 // is checked by the candidate detector below.
-var markedFenceRe = regexp.MustCompile("(?s)(?:\\{/\\* ramp-validate: ([A-Za-z0-9]+) \\*/\\}\\s*\\n)?```json[ \t]*\\n(.*?)```")
+var markedFenceRe = regexp.MustCompile("(?s)(?:\\{/\\* fora-validate: ([A-Za-z0-9]+) \\*/\\}\\s*\\n)?```json[ \t]*\\n(.*?)```")
 
 // langFenceRe matches every fenced code block and captures its language tag,
 // so the candidate scan below can tell a ```json fence (where marking is the
@@ -141,8 +141,8 @@ func requestCandidateKey(top map[string]json.RawMessage, inJSONFence bool) strin
 }
 
 // TestDocMarkedExamplesValidate: a ```json fence marked with
-// `{/* ramp-validate: MessageName */}` MUST strict-unmarshal (unknown fields
-// rejected) into ramp.v1.<MessageName> and pass protovalidate — examples are
+// `{/* fora-validate: MessageName */}` MUST strict-unmarshal (unknown fields
+// rejected) into fora.v1.<MessageName> and pass protovalidate — examples are
 // INSTANCES of the contract, not lookalike prose. Completeness has three
 // guards: an anti-vacuity floor (>=2 marked fences), a candidate detector for
 // unmarked ```json fences (any balanced object carrying a
@@ -177,7 +177,7 @@ func TestDocMarkedExamplesValidate(t *testing.T) {
 						continue
 					}
 					if key := requestCandidateKey(top, true); key != "" {
-						flag(path, "unmarked ```json request example (top-level \""+key+"\") — add {/* ramp-validate: <MessageName> */} above the fence (and move any POST/verb line out of the fence)")
+						flag(path, "unmarked ```json request example (top-level \""+key+"\") — add {/* fora-validate: <MessageName> */} above the fence (and move any POST/verb line out of the fence)")
 						break
 					}
 				}
@@ -186,16 +186,16 @@ func TestDocMarkedExamplesValidate(t *testing.T) {
 			marked++
 			mt, err := findContractMessage(name)
 			if err != nil {
-				flag(path, "ramp-validate names unknown message "+name)
+				flag(path, "fora-validate names unknown message "+name)
 				continue
 			}
 			msg := mt.New().Interface()
 			if err := protojson.Unmarshal([]byte(body), msg); err != nil {
-				flag(path, "ramp-validate:"+name+" example does not parse as proto-JSON: "+firstLine(err.Error()))
+				flag(path, "fora-validate:"+name+" example does not parse as proto-JSON: "+firstLine(err.Error()))
 				continue
 			}
 			if err := v.Validate(msg); err != nil {
-				flag(path, "ramp-validate:"+name+" example fails protovalidate: "+firstLine(err.Error()))
+				flag(path, "fora-validate:"+name+" example fails protovalidate: "+firstLine(err.Error()))
 			}
 		}
 		// Non-JSON fences: a request payload embedded in a curl -d or a
@@ -246,7 +246,7 @@ func TestRequestCandidateDetectorFires(t *testing.T) {
 		{"curl-embedded requester", "curl -X POST https://x/v1/DiscoverResources -d '{\"requester\": {\"id\": \"p\"}}'", "requester", false},
 		{"curl transaction payload is items-only-guarded, not marking-forced", "curl -X POST https://x/v1/ExecuteTransaction -d '{\"idempotency_key\": \"k\", \"items\": []}'", "", false},
 		{"non-request object", "{\"resources\": [{\"uri\": \"https://x/a\"}]}", "", true},
-		{"non-JSON body yields no spans", "Type: rampv1.RequesterType_REQUESTER_TYPE_AGENT", "", false},
+		{"non-JSON body yields no spans", "Type: forav1.RequesterType_REQUESTER_TYPE_AGENT", "", false},
 	}
 	for _, c := range cases {
 		got := ""
@@ -320,7 +320,7 @@ func balancedJSONObjects(s string) []string {
 // The items-only collapse moved the single offer into items[].offer
 // and the per-result data into items[] TransactionResultItem. A transaction
 // example carrying any of these at the TOP LEVEL is the removed single-offer
-// shape. Detection is positive-keyed so non-transaction JSON (ramp.json, JWKS,
+// shape. Detection is positive-keyed so non-transaction JSON (fora.json, JWKS,
 // ErrorDetail) is never touched: idempotency_key marks a request; results /
 // agent_identity_hash / total_cost mark a response.
 var (

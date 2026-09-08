@@ -11,7 +11,7 @@ package helpers
 //
 // Like TestGenerateVectors this test is a verification no-op by default (it
 // asserts the committed file matches a fresh emit) and (re)writes it under
-// RAMP_UPDATE_VECTORS=1 — the emitter is both generator and drift gate. It is
+// FORA_UPDATE_VECTORS=1 — the emitter is both generator and drift gate. It is
 // TEST INFRASTRUCTURE, not the code under test.
 
 import (
@@ -28,10 +28,10 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/gen/go/vocab/functiontokens"
-	"github.com/RAMP-Protocol/protocol/gen/go/vocab/geographytokens"
-	"github.com/RAMP-Protocol/protocol/gen/go/vocab/usertypes"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/gen/go/vocab/functiontokens"
+	"github.com/FORA-Protocol/protocol/gen/go/vocab/geographytokens"
+	"github.com/FORA-Protocol/protocol/gen/go/vocab/usertypes"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
@@ -156,7 +156,7 @@ func ltCrossFieldRuleIDs(t *testing.T) map[string]bool {
 			walk(md.Messages())
 		}
 	}
-	walk(rampv1.File_ramp_v1_ramp_proto.Messages())
+	walk(forav1.File_fora_v1_fora_proto.Messages())
 	if len(ids) == 0 {
 		t.Fatal("no message-level CEL ids found in the descriptor — the classification below " +
 			"would silently call every cross-field violation field-level")
@@ -214,11 +214,11 @@ func ltWarningsOf(ws []RuleWarning) []ltFinding {
 }
 
 const (
-	ltKindFunction    = rampv1.RestrictionKind_RESTRICTION_KIND_FUNCTION
-	ltKindGeography   = rampv1.RestrictionKind_RESTRICTION_KIND_GEOGRAPHY
-	ltKindUserType    = rampv1.RestrictionKind_RESTRICTION_KIND_USER_TYPE
-	ltKindOther       = rampv1.RestrictionKind_RESTRICTION_KIND_OTHER
-	ltKindUnspecified = rampv1.RestrictionKind_RESTRICTION_KIND_UNSPECIFIED
+	ltKindFunction    = forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION
+	ltKindGeography   = forav1.RestrictionKind_RESTRICTION_KIND_GEOGRAPHY
+	ltKindUserType    = forav1.RestrictionKind_RESTRICTION_KIND_USER_TYPE
+	ltKindOther       = forav1.RestrictionKind_RESTRICTION_KIND_OTHER
+	ltKindUnspecified = forav1.RestrictionKind_RESTRICTION_KIND_UNSPECIFIED
 )
 
 // buildLTFoldVectors emits the CanonicalRestrictionToken corpus. The non-ASCII
@@ -228,7 +228,7 @@ const (
 func buildLTFoldVectors() []ltFoldVector {
 	cases := []struct {
 		name  string
-		kind  rampv1.RestrictionKind
+		kind  forav1.RestrictionKind
 		token string
 	}{
 		{"function_alias_tdm", ltKindFunction, "tdm"},
@@ -282,20 +282,20 @@ func ltSortedAliases(aliases map[string]string) []string {
 // underscores, which the vocabulary generator enforces.
 func ltCaseToken(token string) string { return strings.ReplaceAll(token, "-", "_") }
 
-func ltRestriction(kind rampv1.RestrictionKind, permitted, prohibited []string) *rampv1.Restriction {
-	return &rampv1.Restriction{Kind: kind, Permitted: permitted, Prohibited: prohibited}
+func ltRestriction(kind forav1.RestrictionKind, permitted, prohibited []string) *forav1.Restriction {
+	return &forav1.Restriction{Kind: kind, Permitted: permitted, Prohibited: prohibited}
 }
 
-func ltPerUnitPricing(unit string) *rampv1.Pricing {
-	return &rampv1.Pricing{Model: rampv1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.07", Currency: "USD", Unit: proto.String(unit)}
+func ltPerUnitPricing(unit string) *forav1.Pricing {
+	return &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.07", Currency: "USD", Unit: proto.String(unit)}
 }
 
-func ltFreePricing() *rampv1.Pricing {
-	return &rampv1.Pricing{Model: rampv1.PricingModel_PRICING_MODEL_FREE, Rate: "0"}
+func ltFreePricing() *forav1.Pricing {
+	return &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"}
 }
 
-func ltEnumerated(pricing *rampv1.Pricing, mutate func(t *rampv1.LicenseTerm)) *rampv1.LicenseTerm {
-	t := &rampv1.LicenseTerm{Semantics: rampv1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: pricing}
+func ltEnumerated(pricing *forav1.Pricing, mutate func(t *forav1.LicenseTerm)) *forav1.LicenseTerm {
+	t := &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: pricing}
 	if mutate != nil {
 		mutate(t)
 	}
@@ -309,55 +309,55 @@ func buildLTNormalizeVectors(t *testing.T) []ltNormalizeVector {
 	t.Helper()
 	cases := []struct {
 		name string
-		term *rampv1.LicenseTerm
+		term *forav1.LicenseTerm
 	}{
-		{"function_permitted_aliases", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindFunction, []string{"generative-ai", "train-ai", "tdm"}, nil)}
+		{"function_permitted_aliases", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindFunction, []string{"generative-ai", "train-ai", "tdm"}, nil)}
 		})},
-		{"function_prohibited_aliases", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindFunction, nil, []string{"scrape", "copy", "adapt", "derivative"})}
+		{"function_prohibited_aliases", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindFunction, nil, []string{"scrape", "copy", "adapt", "derivative"})}
 		})},
-		{"function_mixed_case_padding", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindFunction, []string{"  Generative-AI ", "AI-INPUT"}, nil)}
+		{"function_mixed_case_padding", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindFunction, []string{"  Generative-AI ", "AI-INPUT"}, nil)}
 		})},
-		{"user_type_aliases", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindUserType, []string{"personal", "business", "enterprise"}, nil)}
+		{"user_type_aliases", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindUserType, []string{"personal", "business", "enterprise"}, nil)}
 		})},
-		{"geography_upper", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindGeography, []string{"us", " de ", "eu", "*"}, nil)}
+		{"geography_upper", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindGeography, []string{"us", " de ", "eu", "*"}, nil)}
 		})},
-		{"other_untouched", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindOther, []string{"Custom-Token", "  Spaced  "}, nil)}
+		{"other_untouched", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindOther, []string{"Custom-Token", "  Spaced  "}, nil)}
 		})},
-		{"function_unknown_lowercased", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindFunction, []string{"Search", "Display"}, nil)}
+		{"function_unknown_lowercased", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindFunction, []string{"Search", "Display"}, nil)}
 		})},
-		{"three_axes_at_once", ltEnumerated(ltPerUnitPricing("tokens"), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{
+		{"three_axes_at_once", ltEnumerated(ltPerUnitPricing("tokens"), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{
 				ltRestriction(ltKindFunction, []string{"TDM"}, []string{"Scrape"}),
 				ltRestriction(ltKindGeography, []string{"gb", "eea"}, nil),
 				ltRestriction(ltKindOther, []string{"Left-Alone"}, nil),
 			}
-			x.Quotas = []*rampv1.Quota{{Metric: "tokens", Limit: 10, Window: rampv1.QuotaWindow_QUOTA_WINDOW_DAILY}}
+			x.Quotas = []*forav1.Quota{{Metric: "tokens", Limit: 10, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY}}
 			x.Scopes = []string{"Subscription:Premium"}
 		})},
-		{"restriction_without_tokens", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindFunction, nil, nil)}
+		{"restriction_without_tokens", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindFunction, nil, nil)}
 		})},
-		{"non_ascii_untouched", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindFunction, []string{"KEEP", " tdm"}, nil)}
+		{"non_ascii_untouched", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindFunction, []string{"KEEP", " tdm"}, nil)}
 		})},
-		{"empty_term", &rampv1.LicenseTerm{}},
+		{"empty_term", &forav1.LicenseTerm{}},
 	}
 	out := make([]ltNormalizeVector, 0, len(cases))
 	for _, c := range cases {
 		input := ltProtoJSON(t, c.term)
-		once, ok := proto.Clone(c.term).(*rampv1.LicenseTerm)
+		once, ok := proto.Clone(c.term).(*forav1.LicenseTerm)
 		if !ok {
 			t.Fatalf("%s: clone", c.name)
 		}
 		NormalizeLicenseTerm(once) // REAL face
-		twice, ok := proto.Clone(once).(*rampv1.LicenseTerm)
+		twice, ok := proto.Clone(once).(*forav1.LicenseTerm)
 		if !ok {
 			t.Fatalf("%s: clone", c.name)
 		}
@@ -374,7 +374,7 @@ func buildLTNormalizeVectors(t *testing.T) []ltNormalizeVector {
 func buildLTKnownVectors() []ltKnownVector {
 	cases := []struct {
 		name  string
-		kind  rampv1.RestrictionKind
+		kind  forav1.RestrictionKind
 		token string
 	}{
 		{"function_registered", ltKindFunction, "ai-train"},
@@ -411,86 +411,86 @@ func buildLTKnownVectors() []ltKnownVector {
 // buildLTValidateVectors emits the ValidateLicenseTerm corpus over canonical terms.
 func buildLTValidateVectors(t *testing.T) []ltValidateVector {
 	t.Helper()
-	licenseURI := func() *rampv1.License {
-		return &rampv1.License{Uri: proto.String("https://example.com/license.txt"), UriDigest: proto.String("sha256:" + ltRepeatHex(64))}
+	licenseURI := func() *forav1.License {
+		return &forav1.License{Uri: proto.String("https://example.com/license.txt"), UriDigest: proto.String("sha256:" + ltRepeatHex(64))}
 	}
 	type validateCase struct {
 		name string
-		term *rampv1.LicenseTerm
+		term *forav1.LicenseTerm
 	}
 	cases := []validateCase{
-		{"reference_only_with_restrictions_accepted", &rampv1.LicenseTerm{
-			Semantics: rampv1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY, License: licenseURI(), Pricing: ltPerUnitPricing("accesses"),
-			Restrictions: []*rampv1.Restriction{ltRestriction(ltKindFunction, []string{"ai-train"}, nil)},
+		{"reference_only_with_restrictions_accepted", &forav1.LicenseTerm{
+			Semantics: forav1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY, License: licenseURI(), Pricing: ltPerUnitPricing("accesses"),
+			Restrictions: []*forav1.Restriction{ltRestriction(ltKindFunction, []string{"ai-train"}, nil)},
 		}},
-		{"reference_only_bare_accepted", &rampv1.LicenseTerm{
-			Semantics: rampv1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY, License: licenseURI(), Pricing: ltPerUnitPricing("accesses"),
+		{"reference_only_bare_accepted", &forav1.LicenseTerm{
+			Semantics: forav1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY, License: licenseURI(), Pricing: ltPerUnitPricing("accesses"),
 		}},
 		{"pricing_unit_unregistered_rejected", ltEnumerated(ltPerUnitPricing("frobnications"), nil)},
 		{"pricing_unit_registered_accepted", ltEnumerated(ltPerUnitPricing("tokens"), nil)},
 		{"pricing_unit_namespaced_accepted", ltEnumerated(ltPerUnitPricing("acme:widgets"), nil)},
 		{"pricing_unit_empty_not_checked", ltEnumerated(ltFreePricing(), nil)},
 		{"pricing_unit_uppercase_rejected", ltEnumerated(ltPerUnitPricing("TOKENS"), nil)},
-		{"quota_metric_unregistered_rejected", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Quotas = []*rampv1.Quota{{Metric: "frobnications", Limit: 10, Window: rampv1.QuotaWindow_QUOTA_WINDOW_DAILY}}
+		{"quota_metric_unregistered_rejected", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Quotas = []*forav1.Quota{{Metric: "frobnications", Limit: 10, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY}}
 		})},
-		{"quota_metric_second_quota_rejected", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Quotas = []*rampv1.Quota{
-				{Metric: "tokens", Limit: 10, Window: rampv1.QuotaWindow_QUOTA_WINDOW_DAILY},
-				{Metric: "frobnications", Limit: 10, Window: rampv1.QuotaWindow_QUOTA_WINDOW_DAILY},
+		{"quota_metric_second_quota_rejected", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Quotas = []*forav1.Quota{
+				{Metric: "tokens", Limit: 10, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY},
+				{Metric: "frobnications", Limit: 10, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY},
 			}
 		})},
-		{"quota_metric_registered_accepted", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Quotas = []*rampv1.Quota{{Metric: "tokens", Limit: 10, Window: rampv1.QuotaWindow_QUOTA_WINDOW_DAILY}}
+		{"quota_metric_registered_accepted", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Quotas = []*forav1.Quota{{Metric: "tokens", Limit: 10, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY}}
 		})},
-		{"quota_metric_namespaced_accepted", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Quotas = []*rampv1.Quota{{Metric: "acme:widgets", Limit: 10, Window: rampv1.QuotaWindow_QUOTA_WINDOW_DAILY}}
+		{"quota_metric_namespaced_accepted", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Quotas = []*forav1.Quota{{Metric: "acme:widgets", Limit: 10, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY}}
 		})},
-		{"pricing_unit_checked_before_quota", ltEnumerated(ltPerUnitPricing("frobnications"), func(x *rampv1.LicenseTerm) {
-			x.Quotas = []*rampv1.Quota{{Metric: "gizmos", Limit: 10, Window: rampv1.QuotaWindow_QUOTA_WINDOW_DAILY}}
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindFunction, []string{"flibbertigibbet"}, nil)}
+		{"pricing_unit_checked_before_quota", ltEnumerated(ltPerUnitPricing("frobnications"), func(x *forav1.LicenseTerm) {
+			x.Quotas = []*forav1.Quota{{Metric: "gizmos", Limit: 10, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY}}
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindFunction, []string{"flibbertigibbet"}, nil)}
 		})},
-		{"distinct_kinds_disjoint_tokens_accepted", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{
+		{"distinct_kinds_disjoint_tokens_accepted", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{
 				ltRestriction(ltKindFunction, []string{"ai-train"}, []string{"search"}),
 				ltRestriction(ltKindGeography, []string{"US"}, nil),
 			}
 		})},
-		{"unregistered_token_advisory_warns", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{{Kind: ltKindFunction, Permitted: []string{"flibbertigibbet"}, Advisory: true}}
+		{"unregistered_token_advisory_warns", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{{Kind: ltKindFunction, Permitted: []string{"flibbertigibbet"}, Advisory: true}}
 		})},
-		{"unregistered_token_binding_also_only_warns", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{{Kind: ltKindFunction, Permitted: []string{"flibbertigibbet"}, Advisory: false}}
+		{"unregistered_token_binding_also_only_warns", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{{Kind: ltKindFunction, Permitted: []string{"flibbertigibbet"}, Advisory: false}}
 		})},
-		{"registered_token_binding_accepted_cleanly", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{{Kind: ltKindFunction, Permitted: []string{"ai-train"}, Advisory: false}}
+		{"registered_token_binding_accepted_cleanly", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{{Kind: ltKindFunction, Permitted: []string{"ai-train"}, Advisory: false}}
 		})},
-		{"namespaced_token_bypasses_membership_on_other", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindOther, []string{"acme:custom-use"}, nil)}
+		{"namespaced_token_bypasses_membership_on_other", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindOther, []string{"acme:custom-use"}, nil)}
 		})},
-		{"bare_token_on_other_warns", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindOther, []string{"custom-use"}, nil)}
+		{"bare_token_on_other_warns", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindOther, []string{"custom-use"}, nil)}
 		})},
-		{"warnings_in_report_order", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{
+		{"warnings_in_report_order", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{
 				ltRestriction(ltKindFunction, []string{"ai-train", "flib"}, []string{"blib"}),
 				ltRestriction(ltKindGeography, []string{"US", "usa"}, nil),
 				ltRestriction(ltKindUserType, []string{"robots"}, nil),
 			}
-			x.Obligations = []*rampv1.Obligation{
-				{Kind: rampv1.ObligationKind_OBLIGATION_KIND_OTHER, Trigger: rampv1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE},
-				{Kind: rampv1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION, Trigger: rampv1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE},
-				{Kind: rampv1.ObligationKind_OBLIGATION_KIND_OTHER, Trigger: rampv1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE},
+			x.Obligations = []*forav1.Obligation{
+				{Kind: forav1.ObligationKind_OBLIGATION_KIND_OTHER, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE},
+				{Kind: forav1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE},
+				{Kind: forav1.ObligationKind_OBLIGATION_KIND_OTHER, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE},
 			}
 		})},
-		{"other_obligation_without_detail_warns", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Obligations = []*rampv1.Obligation{{Kind: rampv1.ObligationKind_OBLIGATION_KIND_OTHER, Trigger: rampv1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE}}
+		{"other_obligation_without_detail_warns", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Obligations = []*forav1.Obligation{{Kind: forav1.ObligationKind_OBLIGATION_KIND_OTHER, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE}}
 		})},
-		{"other_obligation_with_detail_accepted", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Obligations = []*rampv1.Obligation{{Kind: rampv1.ObligationKind_OBLIGATION_KIND_OTHER, Trigger: rampv1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE, Detail: proto.String("see appendix B")}}
+		{"other_obligation_with_detail_accepted", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Obligations = []*forav1.Obligation{{Kind: forav1.ObligationKind_OBLIGATION_KIND_OTHER, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE, Detail: proto.String("see appendix B")}}
 		})},
-		{"attribution_obligation_without_detail_accepted", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Obligations = []*rampv1.Obligation{{Kind: rampv1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION, Trigger: rampv1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE}}
+		{"attribution_obligation_without_detail_accepted", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Obligations = []*forav1.Obligation{{Kind: forav1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE}}
 		})},
 		// A restriction with no kind. The wire tier refuses it — kind is not_in [0] —
 		// but this face runs the ingest tier alone, so the warning is reached and its
@@ -499,10 +499,10 @@ func buildLTValidateVectors(t *testing.T) []ltValidateVector {
 		// would leave a gap where the kind should be. The messages here are the exact
 		// bytes an Exchange puts in warnings[], so the difference is what a publisher
 		// is told, not a rendering detail.
-		{"unregistered_token_without_kind_names_the_unset_enum", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{{Permitted: []string{"flibbertigibbet"}}}
+		{"unregistered_token_without_kind_names_the_unset_enum", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{{Permitted: []string{"flibbertigibbet"}}}
 		})},
-		{"empty_term_accepted", &rampv1.LicenseTerm{}},
+		{"empty_term_accepted", &forav1.LicenseTerm{}},
 
 		// The canonical-disjointness reject. The alias pairs are derived below; these
 		// are the shapes a table of aliases cannot express.
@@ -510,52 +510,52 @@ func buildLTValidateVectors(t *testing.T) []ltValidateVector {
 		// Two ALIASES of one token, neither of them the registered spelling — the
 		// pairing the derived cases never produce, because they always pair an alias
 		// with its canonical form.
-		{"restriction_two_aliases_of_one_token_collide_rejected", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindFunction, []string{"adapt"}, []string{"derivative"})}
+		{"restriction_two_aliases_of_one_token_collide_rejected", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindFunction, []string{"adapt"}, []string{"derivative"})}
 		})},
 		// Case folding alone, with no alias in sight: the axis that folds DOWN, and
 		// the axis that folds UP and registers no aliases at all.
-		{"restriction_function_case_collides_rejected", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindFunction, []string{"CRAWL"}, []string{"crawl"})}
+		{"restriction_function_case_collides_rejected", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindFunction, []string{"CRAWL"}, []string{"crawl"})}
 		})},
-		{"restriction_geography_case_collides_rejected", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindGeography, []string{"us"}, []string{"US"})}
+		{"restriction_geography_case_collides_rejected", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindGeography, []string{"us"}, []string{"US"})}
 		})},
 		// An axis with no canonicalisation rule at all. The check still runs there:
 		// the fold returns the token unchanged and the comparison is plain equality,
 		// which is the only tier a term meets on a server that never asked for the
 		// wire tier.
-		{"restriction_other_axis_exact_duplicate_rejected", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindOther, []string{"custom-use"}, []string{"custom-use"})}
+		{"restriction_other_axis_exact_duplicate_rejected", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindOther, []string{"custom-use"}, []string{"custom-use"})}
 		})},
 		// The RFC 8259 trim is part of the fold, so it can collide two spellings too.
 		// Only a direct caller can reach this: the wire pattern forbids whitespace in
 		// a token, so an entry carrying it never gets as far as the ingest tier.
-		{"restriction_padded_token_collides_after_trim_rejected", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindFunction, []string{" crawl "}, []string{"crawl"})}
+		{"restriction_padded_token_collides_after_trim_rejected", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindFunction, []string{" crawl "}, []string{"crawl"})}
 		})},
 		// The other side of the rule: folding must not invent a collision. The
 		// alias-bearing form of this case is an ENTRY vector, not one of these —
 		// see alias_disjoint_after_fold_accepted for why.
-		{"restriction_namespaced_tokens_disjoint_accepted", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindOther, []string{"acme:read"}, []string{"acme:write"})}
+		{"restriction_namespaced_tokens_disjoint_accepted", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindOther, []string{"acme:read"}, []string{"acme:write"})}
 		})},
 		// Scan order, both across restrictions and within one. A term with more than
 		// one collision reports exactly one, and which one is not left to chance.
-		{"restriction_second_restriction_collides_rejected", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{
+		{"restriction_second_restriction_collides_rejected", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{
 				ltRestriction(ltKindFunction, []string{"ai-train"}, []string{"search"}),
 				ltRestriction(ltKindUserType, []string{"personal"}, []string{"individual"}),
 			}
 		})},
-		{"restriction_collision_reports_first_permitted_site", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindFunction,
+		{"restriction_collision_reports_first_permitted_site", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindFunction,
 				[]string{"tdm", "scrape"}, []string{"crawl", "text-and-data-mining"})}
 		})},
 		// Precedence against the checks that run before it.
-		{"quota_metric_checked_before_restriction_collision", ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-			x.Quotas = []*rampv1.Quota{{Metric: "frobnications", Limit: 10, Window: rampv1.QuotaWindow_QUOTA_WINDOW_DAILY}}
-			x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindFunction, []string{"scrape"}, []string{"crawl"})}
+		{"quota_metric_checked_before_restriction_collision", ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+			x.Quotas = []*forav1.Quota{{Metric: "frobnications", Limit: 10, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY}}
+			x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindFunction, []string{"scrape"}, []string{"crawl"})}
 		})},
 	}
 
@@ -572,7 +572,7 @@ func buildLTValidateVectors(t *testing.T) []ltValidateVector {
 	// how this rule's own defect reached the catalog.
 	for _, axis := range []struct {
 		name    string
-		kind    rampv1.RestrictionKind
+		kind    forav1.RestrictionKind
 		aliases map[string]string
 	}{
 		{"function", ltKindFunction, functiontokens.Aliases},
@@ -583,8 +583,8 @@ func buildLTValidateVectors(t *testing.T) []ltValidateVector {
 			canonical := axis.aliases[alias]
 			cases = append(cases, validateCase{
 				fmt.Sprintf("restriction_alias_%s_%s_collides_rejected", axis.name, ltCaseToken(alias)),
-				ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-					x.Restrictions = []*rampv1.Restriction{ltRestriction(axis.kind, []string{alias}, []string{canonical})}
+				ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+					x.Restrictions = []*forav1.Restriction{ltRestriction(axis.kind, []string{alias}, []string{canonical})}
 				}),
 			})
 		}
@@ -611,9 +611,9 @@ func buildLTValidateVectors(t *testing.T) []ltValidateVector {
 // the two tiers in the Exchange's order, over the entry exactly as given.
 func buildLTEntryVectors(t *testing.T) []ltEntryVector {
 	t.Helper()
-	entry := func(mutate func(e *rampv1.ResourceEntry)) *rampv1.ResourceEntry {
-		e := &rampv1.ResourceEntry{Domain: "publisher.example", Path: "/premium/article-42.html",
-			Terms: []*rampv1.LicenseTerm{ltEnumerated(ltFreePricing(), nil)}}
+	entry := func(mutate func(e *forav1.ResourceEntry)) *forav1.ResourceEntry {
+		e := &forav1.ResourceEntry{Domain: "publisher.example", Path: "/premium/article-42.html",
+			Terms: []*forav1.LicenseTerm{ltEnumerated(ltFreePricing(), nil)}}
 		if mutate != nil {
 			mutate(e)
 		}
@@ -621,12 +621,12 @@ func buildLTEntryVectors(t *testing.T) []ltEntryVector {
 	}
 	cases := []struct {
 		name  string
-		entry *rampv1.ResourceEntry
+		entry *forav1.ResourceEntry
 	}{
 		{"valid_minimal", entry(nil)},
-		{"domain_with_port_and_single_label_accepted", entry(func(e *rampv1.ResourceEntry) { e.Domain = "edge:8787" })},
-		{"alias_resolved_before_membership_no_warning", entry(func(e *rampv1.ResourceEntry) {
-			e.Terms[0].Restrictions = []*rampv1.Restriction{ltRestriction(ltKindFunction, []string{"Generative-AI"}, nil)}
+		{"domain_with_port_and_single_label_accepted", entry(func(e *forav1.ResourceEntry) { e.Domain = "edge:8787" })},
+		{"alias_resolved_before_membership_no_warning", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0].Restrictions = []*forav1.Restriction{ltRestriction(ltKindFunction, []string{"Generative-AI"}, nil)}
 		})},
 		// Folding must not invent a collision, recorded here rather than in the
 		// per-term list because only the composed face answers what an Exchange
@@ -636,27 +636,27 @@ func buildLTEntryVectors(t *testing.T) []ltEntryVector {
 		// warning this records is the one a publisher is really sent. Its neighbour
 		// above pins the same asymmetry for membership; this one pins it for
 		// disjointness.
-		{"alias_disjoint_after_fold_accepted", entry(func(e *rampv1.ResourceEntry) {
-			e.Terms[0].Restrictions = []*rampv1.Restriction{
+		{"alias_disjoint_after_fold_accepted", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0].Restrictions = []*forav1.Restriction{
 				ltRestriction(ltKindFunction, []string{"scrape"}, []string{"ai-train"}),
 			}
 		})},
-		{"unknown_token_warns_with_entry_path", entry(func(e *rampv1.ResourceEntry) {
-			e.Terms = append(e.Terms, ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-				x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindFunction, []string{"ai-train", "flibbertigibbet"}, nil)}
+		{"unknown_token_warns_with_entry_path", entry(func(e *forav1.ResourceEntry) {
+			e.Terms = append(e.Terms, ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+				x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindFunction, []string{"ai-train", "flibbertigibbet"}, nil)}
 			}))
 		})},
-		{"structural_path_without_slash", entry(func(e *rampv1.ResourceEntry) { e.Path = "premium/article-42.html" })},
-		{"structural_empty_domain", entry(func(e *rampv1.ResourceEntry) { e.Domain = "" })},
-		{"structural_domain_with_scheme", entry(func(e *rampv1.ResourceEntry) { e.Domain = "https://publisher.example" })},
-		{"structural_padded_token_fails_wire_before_fold", entry(func(e *rampv1.ResourceEntry) {
-			e.Terms[0].Restrictions = []*rampv1.Restriction{ltRestriction(ltKindGeography, []string{" de "}, nil)}
+		{"structural_path_without_slash", entry(func(e *forav1.ResourceEntry) { e.Path = "premium/article-42.html" })},
+		{"structural_empty_domain", entry(func(e *forav1.ResourceEntry) { e.Domain = "" })},
+		{"structural_domain_with_scheme", entry(func(e *forav1.ResourceEntry) { e.Domain = "https://publisher.example" })},
+		{"structural_padded_token_fails_wire_before_fold", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0].Restrictions = []*forav1.Restriction{ltRestriction(ltKindGeography, []string{" de "}, nil)}
 		})},
-		{"structural_term_without_pricing", entry(func(e *rampv1.ResourceEntry) {
+		{"structural_term_without_pricing", entry(func(e *forav1.ResourceEntry) {
 			e.Terms[0].Pricing = nil
 		})},
-		{"structural_nested_cel_only", entry(func(e *rampv1.ResourceEntry) {
-			e.Terms = append(e.Terms, ltEnumerated(&rampv1.Pricing{Model: rampv1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.05", Currency: "USD"}, nil))
+		{"structural_nested_cel_only", entry(func(e *forav1.ResourceEntry) {
+			e.Terms = append(e.Terms, ltEnumerated(&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.05", Currency: "USD"}, nil))
 		})},
 		// One case per cross-field rule reachable from an entry. Before these, the
 		// only nested-CEL case was a Pricing one, so the three sites a port walks to
@@ -667,13 +667,13 @@ func buildLTEntryVectors(t *testing.T) []ltEntryVector {
 		// across languages. Each also stays far under the list bounds, or the
 		// cardinality rule would fire too and be classified as field-level, masking
 		// the rule the case exists to isolate.
-		{"cross_field_restriction_permitted_prohibited_overlap", entry(func(e *rampv1.ResourceEntry) {
-			e.Terms[0].Restrictions = []*rampv1.Restriction{
+		{"cross_field_restriction_permitted_prohibited_overlap", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0].Restrictions = []*forav1.Restriction{
 				ltRestriction(ltKindFunction, []string{"ai-train"}, []string{"ai-train"}),
 			}
 		})},
-		{"cross_field_license_term_one_restriction_per_kind", entry(func(e *rampv1.ResourceEntry) {
-			e.Terms[0].Restrictions = []*rampv1.Restriction{
+		{"cross_field_license_term_one_restriction_per_kind", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0].Restrictions = []*forav1.Restriction{
 				ltRestriction(ltKindFunction, []string{"ai-train"}, nil),
 				ltRestriction(ltKindFunction, []string{"crawl"}, nil),
 			}
@@ -684,78 +684,78 @@ func buildLTEntryVectors(t *testing.T) []ltEntryVector {
 		// evaluate this rule themselves, so without a vector here a port that kept
 		// reporting it would diverge from the wire with every suite green. Duplicate
 		// kinds throughout, so the rule WOULD fire were the list short enough.
-		{"structural_over_cap_restrictions_silences_one_per_kind", entry(func(e *rampv1.ResourceEntry) {
+		{"structural_over_cap_restrictions_silences_one_per_kind", entry(func(e *forav1.ResourceEntry) {
 			for i := 0; i < 9; i++ {
 				e.Terms[0].Restrictions = append(e.Terms[0].Restrictions,
 					ltRestriction(ltKindFunction, []string{"ai-train"}, nil))
 			}
 		})},
-		{"cross_field_license_term_reference_only_requires_uri", entry(func(e *rampv1.ResourceEntry) {
-			e.Terms[0].Semantics = rampv1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY
+		{"cross_field_license_term_reference_only_requires_uri", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0].Semantics = forav1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY
 		})},
-		{"cross_field_obligation_share_alike_requires_scope_license", entry(func(e *rampv1.ResourceEntry) {
-			e.Terms[0].Obligations = []*rampv1.Obligation{{
-				Kind:    rampv1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE,
-				Trigger: rampv1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+		{"cross_field_obligation_share_alike_requires_scope_license", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0].Obligations = []*forav1.Obligation{{
+				Kind:    forav1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE,
+				Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
 			}}
 		})},
-		{"cross_field_pricing_free_zero_rate", entry(func(e *rampv1.ResourceEntry) {
-			e.Terms[0].Pricing = &rampv1.Pricing{
-				Model: rampv1.PricingModel_PRICING_MODEL_FREE, Rate: "0.05", Currency: "USD",
+		{"cross_field_pricing_free_zero_rate", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0].Pricing = &forav1.Pricing{
+				Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0.05", Currency: "USD",
 			}
 		})},
-		{"cross_field_license_digest_required_with_uri", entry(func(e *rampv1.ResourceEntry) {
-			e.Terms[0].License = &rampv1.License{Id: proto.String("CC-BY-4.0"), Uri: proto.String("https://publisher.example/licence")}
+		{"cross_field_license_digest_required_with_uri", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0].License = &forav1.License{Id: proto.String("CC-BY-4.0"), Uri: proto.String("https://publisher.example/licence")}
 		})},
 		// The same License rule reached through the OTHER path a port must walk —
 		// an obligation's scope_license. A walk that reaches terms[].license but not
 		// terms[].obligations[].scope_license passes the case above and fails here.
-		{"cross_field_license_digest_required_via_scope_license", entry(func(e *rampv1.ResourceEntry) {
-			e.Terms[0].Obligations = []*rampv1.Obligation{{
-				Kind:         rampv1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE,
-				Trigger:      rampv1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
-				ScopeLicense: &rampv1.License{Id: proto.String("CC-BY-SA-4.0"), Uri: proto.String("https://publisher.example/sa")},
+		{"cross_field_license_digest_required_via_scope_license", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0].Obligations = []*forav1.Obligation{{
+				Kind:         forav1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE,
+				Trigger:      forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+				ScopeLicense: &forav1.License{Id: proto.String("CC-BY-SA-4.0"), Uri: proto.String("https://publisher.example/sa")},
 			}}
 		})},
-		{"structural_too_many_terms", entry(func(e *rampv1.ResourceEntry) {
+		{"structural_too_many_terms", entry(func(e *forav1.ResourceEntry) {
 			for len(e.Terms) < 33 {
 				e.Terms = append(e.Terms, ltEnumerated(ltFreePricing(), nil))
 			}
 		})},
-		{"term_reject_pricing_unit", entry(func(e *rampv1.ResourceEntry) {
+		{"term_reject_pricing_unit", entry(func(e *forav1.ResourceEntry) {
 			e.Terms[0] = ltEnumerated(ltPerUnitPricing("frobnications"), nil)
 		})},
-		{"term_reject_second_term_quota", entry(func(e *rampv1.ResourceEntry) {
-			e.Terms = append(e.Terms, ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-				x.Quotas = []*rampv1.Quota{{Metric: "gizmos", Limit: 1, Window: rampv1.QuotaWindow_QUOTA_WINDOW_DAILY}}
+		{"term_reject_second_term_quota", entry(func(e *forav1.ResourceEntry) {
+			e.Terms = append(e.Terms, ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+				x.Quotas = []*forav1.Quota{{Metric: "gizmos", Limit: 1, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY}}
 			}))
 		})},
-		{"term_reject_drops_that_terms_warnings", entry(func(e *rampv1.ResourceEntry) {
-			e.Terms[0] = ltEnumerated(ltPerUnitPricing("frobnications"), func(x *rampv1.LicenseTerm) {
-				x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindFunction, []string{"flibbertigibbet"}, nil)}
+		{"term_reject_drops_that_terms_warnings", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0] = ltEnumerated(ltPerUnitPricing("frobnications"), func(x *forav1.LicenseTerm) {
+				x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindFunction, []string{"flibbertigibbet"}, nil)}
 			})
-			e.Terms = append(e.Terms, ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-				x.Obligations = []*rampv1.Obligation{{Kind: rampv1.ObligationKind_OBLIGATION_KIND_OTHER, Trigger: rampv1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE}}
+			e.Terms = append(e.Terms, ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+				x.Obligations = []*forav1.Obligation{{Kind: forav1.ObligationKind_OBLIGATION_KIND_OTHER, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE}}
 			}))
 		})},
-		{"structural_and_term_reject_both_reported", entry(func(e *rampv1.ResourceEntry) {
+		{"structural_and_term_reject_both_reported", entry(func(e *forav1.ResourceEntry) {
 			e.Path = "x"
 			e.Terms[0] = ltEnumerated(ltPerUnitPricing("frobnications"), nil)
 		})},
 		// The ingest tier catching what the wire tier cleared. The entry is
 		// wire-conformant — two different strings — so the boundary rule reports
 		// nothing and the reject arrives with an entry-relative path.
-		{"term_reject_restriction_canonical_disjoint", entry(func(e *rampv1.ResourceEntry) {
-			e.Terms[0] = ltEnumerated(ltFreePricing(), func(x *rampv1.LicenseTerm) {
-				x.Restrictions = []*rampv1.Restriction{ltRestriction(ltKindFunction, []string{"scrape"}, []string{"crawl"})}
+		{"term_reject_restriction_canonical_disjoint", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0] = ltEnumerated(ltFreePricing(), func(x *forav1.LicenseTerm) {
+				x.Restrictions = []*forav1.Restriction{ltRestriction(ltKindFunction, []string{"scrape"}, []string{"crawl"})}
 			})
 		})},
-		{"no_terms_accepted", entry(func(e *rampv1.ResourceEntry) { e.Terms = nil })},
+		{"no_terms_accepted", entry(func(e *forav1.ResourceEntry) { e.Terms = nil })},
 	}
 	celIDs := ltCrossFieldRuleIDs(t)
 	// render is how the case's entry is spelled into the corpus. The verdict is
 	// taken from the MESSAGE either way, so the spelling is the only variable.
-	emit := func(name string, e *rampv1.ResourceEntry, render func(*testing.T, proto.Message) json.RawMessage) ltEntryVector {
+	emit := func(name string, e *forav1.ResourceEntry, render func(*testing.T, proto.Message) json.RawMessage) ltEntryVector {
 		before := render(t, e)
 		verdict := ValidateResourceEntry(e) // REAL face
 		if after := render(t, e); string(after) != string(before) {
@@ -787,14 +787,14 @@ func buildLTEntryVectors(t *testing.T) []ltEntryVector {
 	// written in the compact spelling, where the null never appears.
 	for _, c := range []struct {
 		name  string
-		entry *rampv1.ResourceEntry
+		entry *forav1.ResourceEntry
 	}{
 		{"wire_form_minimal_entry", entry(nil)},
-		{"wire_form_entry_with_restrictions_and_obligations", entry(func(e *rampv1.ResourceEntry) {
-			e.Terms[0].Restrictions = []*rampv1.Restriction{ltRestriction(ltKindFunction, []string{"ai-train"}, nil)}
-			e.Terms[0].Obligations = []*rampv1.Obligation{{
-				Kind:    rampv1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION,
-				Trigger: rampv1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+		{"wire_form_entry_with_restrictions_and_obligations", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0].Restrictions = []*forav1.Restriction{ltRestriction(ltKindFunction, []string{"ai-train"}, nil)}
+			e.Terms[0].Obligations = []*forav1.Obligation{{
+				Kind:    forav1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION,
+				Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
 			}}
 		})},
 	} {
@@ -813,14 +813,14 @@ func ltRepeatHex(n int) string {
 }
 
 // TestGenerateLicenseTermVectors emits the license-term golden corpus.
-// Verification no-op by default, (re)writes under RAMP_UPDATE_VECTORS=1.
+// Verification no-op by default, (re)writes under FORA_UPDATE_VECTORS=1.
 func TestGenerateLicenseTermVectors(t *testing.T) {
 	doc := map[string]any{
 		"note": "Go-emitted oracle for the ingest-tier license-term checks. fold: CanonicalRestrictionToken; " +
 			"normalize: NormalizeLicenseTerm (idempotent); known: KnownRestrictionToken; validate: ValidateLicenseTerm over " +
 			"canonical terms; entry: ValidateResourceEntry (wire tier over the raw entry, then the ingest tier over a " +
 			"canonicalised copy). Messages are the exact strings the Exchange puts in PushResourcesResponse.warnings. " +
-			"Regenerate with RAMP_UPDATE_VECTORS=1 go test ./sdk/go/helpers/ -run TestGenerateLicenseTermVectors.",
+			"Regenerate with FORA_UPDATE_VECTORS=1 go test ./sdk/go/helpers/ -run TestGenerateLicenseTermVectors.",
 		"fold":      buildLTFoldVectors(),
 		"normalize": buildLTNormalizeVectors(t),
 		"known":     buildLTKnownVectors(),
@@ -828,7 +828,7 @@ func TestGenerateLicenseTermVectors(t *testing.T) {
 		"entry":     buildLTEntryVectors(t),
 	}
 	path := filepath.Join("testdata", filepath.Base(licenseTermVectorsPath))
-	if os.Getenv("RAMP_UPDATE_VECTORS") == "1" {
+	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
 		writeJSON(t, path, doc)
 		return
 	}

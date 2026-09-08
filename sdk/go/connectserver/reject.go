@@ -7,8 +7,8 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // RejectCode maps a verify-face rejection sentinel to the Connect code returned to
@@ -109,11 +109,11 @@ func WriteReject(w http.ResponseWriter, code connectrpc.Code, err error) {
 // Message becomes the error string. It lives in the SERVER binding (the emit
 // direction: a server EMITS a typed error detail) — not the transport-neutral L1
 // helpers — so a non-Connect consumer of helpers/core compiles zero connectrpc; the
-// neutral *rampv1.ErrorDetail builders and Reason stay in helpers, and this is where
+// neutral *forav1.ErrorDetail builders and Reason stay in helpers, and this is where
 // the ErrorDetail meets the Connect transport. The read direction (ErrorDetailFrom)
 // lives in the client binding sdk/go/connect.
-func AsConnectError(code connectrpc.Code, detail *rampv1.ErrorDetail) *connectrpc.Error {
-	msg := "ramp error"
+func AsConnectError(code connectrpc.Code, detail *forav1.ErrorDetail) *connectrpc.Error {
+	msg := "fora error"
 	if detail.GetMessage() != "" {
 		msg = detail.GetMessage()
 	}

@@ -8,12 +8,12 @@ import (
 
 	connectrpc "connectrpc.com/connect"
 
-	"github.com/RAMP-Protocol/protocol/gen/go/ramp/v1/rampv1connect"
-	"github.com/RAMP-Protocol/protocol/sdk/go/helpers"
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/endpointrule"
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/hostredact"
-	"github.com/RAMP-Protocol/protocol/sdk/go/internal/lrucache"
-	"github.com/RAMP-Protocol/protocol/sdk/go/resolvers"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/endpointrule"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/hostredact"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/lrucache"
+	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
 // Routing a call to the Exchange that issued an offer.
@@ -137,20 +137,20 @@ const maxPooledExchanges = 256
 type exchangePool struct {
 	http    connectrpc.HTTPClient
 	opts    []connectrpc.ClientOption
-	clients *lrucache.Cache[string, rampv1connect.ExchangeServiceClient]
+	clients *lrucache.Cache[string, forav1connect.ExchangeServiceClient]
 }
 
 func newExchangePool(httpClient *http.Client, opts ...connectrpc.ClientOption) *exchangePool {
 	return &exchangePool{
 		http:    httpClient,
 		opts:    opts,
-		clients: lrucache.New[string, rampv1connect.ExchangeServiceClient](maxPooledExchanges),
+		clients: lrucache.New[string, forav1connect.ExchangeServiceClient](maxPooledExchanges),
 	}
 }
 
 // clientFor returns the cached client for origin, creating it on first use.
-func (p *exchangePool) clientFor(origin string) rampv1connect.ExchangeServiceClient {
-	return p.clients.GetOrCreate(origin, func(o string) rampv1connect.ExchangeServiceClient {
-		return rampv1connect.NewExchangeServiceClient(p.http, o, p.opts...)
+func (p *exchangePool) clientFor(origin string) forav1connect.ExchangeServiceClient {
+	return p.clients.GetOrCreate(origin, func(o string) forav1connect.ExchangeServiceClient {
+		return forav1connect.NewExchangeServiceClient(p.http, o, p.opts...)
 	})
 }

@@ -25,7 +25,7 @@ Uses `errgroup.Group` with a semaphore for bounded concurrency and `context.With
 func (d *Discovery) FanOut(
     ctx context.Context,
     exchanges []ExchangeEntry,
-    req *rampv1.DiscoveryRequest,
+    req *forav1.DiscoveryRequest,
 ) []FanOutResult {
 
     // Hard deadline: don't wait longer than this for any Exchange.
@@ -108,10 +108,10 @@ Pre-established HTTP/2 connections to each Exchange. Connect-Go clients are crea
 ```go
 type ClientPool struct {
     mu      sync.RWMutex
-    clients map[string]rampv1connect.ExchangeServiceClient
+    clients map[string]forav1connect.ExchangeServiceClient
 }
 
-func (p *ClientPool) GetOrCreate(mp ExchangeEntry) rampv1connect.ExchangeServiceClient {
+func (p *ClientPool) GetOrCreate(mp ExchangeEntry) forav1connect.ExchangeServiceClient {
     p.mu.RLock()
     if c, ok := p.clients[mp.Domain]; ok {
         p.mu.RUnlock()
@@ -137,7 +137,7 @@ func (p *ClientPool) GetOrCreate(mp ExchangeEntry) rampv1connect.ExchangeService
         Timeout: 5 * time.Second, // connection-level timeout
     }
 
-    client := rampv1connect.NewExchangeServiceClient(httpClient, mp.Endpoint)
+    client := forav1connect.NewExchangeServiceClient(httpClient, mp.Endpoint)
     p.clients[mp.Domain] = client
     return client
 }
@@ -191,7 +191,7 @@ type SelectionEngine interface {
     Select(
         ctx context.Context,
         responses []FanOutResult,
-        constraints *rampv1.RequestConstraints,
+        constraints *forav1.RequestConstraints,
         budget BudgetTracker,
     ) (*Selection, error)
 
@@ -200,14 +200,14 @@ type SelectionEngine interface {
     SelectBatch(
         ctx context.Context,
         responses []FanOutResult,
-        constraints *rampv1.RequestConstraints,
+        constraints *forav1.RequestConstraints,
         budget BudgetTracker,
     ) (*BatchSelection, error)
 }
 
 type Selection struct {
     Exchange ExchangeEntry
-    Offer       *rampv1.Offer
+    Offer       *forav1.Offer
     Rationale   SelectionRationale
 }
 
@@ -240,7 +240,7 @@ The Broker may help the agent by annotating which term it can honour, but it doe
 // honourableTerm returns the first LicenseTerm whose restrictions the agent
 // can honour, given its declared function. It does NOT drop the offer when no
 // term matches -- the offer is still surfaced; the agent decides.
-func honourableTerm(offer *rampv1.Offer, declaredFunction string) *rampv1.LicenseTerm {
+func honourableTerm(offer *forav1.Offer, declaredFunction string) *forav1.LicenseTerm {
     for _, term := range offer.Terms {
         if restrictionsHonoured(term.Restrictions, declaredFunction) {
             return term
@@ -249,9 +249,9 @@ func honourableTerm(offer *rampv1.Offer, declaredFunction string) *rampv1.Licens
     return nil
 }
 
-func restrictionsHonoured(restrictions []*rampv1.Restriction, declaredFunction string) bool {
+func restrictionsHonoured(restrictions []*forav1.Restriction, declaredFunction string) bool {
     for _, r := range restrictions {
-        if r.Kind != rampv1.RestrictionKind_RESTRICTION_KIND_FUNCTION {
+        if r.Kind != forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION {
             continue // geography / user-type evaluated by the agent against its own context
         }
         // If prohibited contains the declared function, this term cannot be honoured.
@@ -283,7 +283,7 @@ func restrictionsHonoured(restrictions []*rampv1.Restriction, declaredFunction s
 The agent's `DiscoveryRequest.constraints` specifies budget and preference limits.
 
 ```go
-func filterByConstraints(offers []rankedOffer, c *rampv1.RequestConstraints, budget BudgetTracker) []rankedOffer {
+func filterByConstraints(offers []rankedOffer, c *forav1.RequestConstraints, budget BudgetTracker) []rankedOffer {
     var passed []rankedOffer
     for _, o := range offers {
         p := o.Offer.Pricing
@@ -330,7 +330,7 @@ The same article may be offered by multiple Exchanges (e.g., an AP wire story av
 ```go
 // contentIdentityKey produces a deduplication key from layered identity fields.
 // Matching priority: iptc_guid > doi > content_hash > canonical_url
-func contentIdentityKey(id *rampv1.ResourceIdentity) string {
+func contentIdentityKey(id *forav1.ResourceIdentity) string {
     if id == nil {
         return uuid.NewString() // no identity = unique (no dedup)
     }
@@ -369,7 +369,7 @@ After deduplication, remaining offers are ranked by a multi-factor scoring engin
 6. **Business relationships.** The agent declares known relationships via `RequestConstraints`.
 
 ```go
-func (e *defaultEngine) rankOffers(offers []rankedOffer, constraints *rampv1.RequestConstraints) []rankedOffer {
+func (e *defaultEngine) rankOffers(offers []rankedOffer, constraints *forav1.RequestConstraints) []rankedOffer {
     for i := range offers {
         score := 0.0
 
@@ -426,7 +426,7 @@ func unitCostOf(o rankedOffer) float64 {
 The Broker SHOULD verify `exchange_signature` on the winning Offer before proceeding. This prevents an Exchange from tampering with its own offer fields after signing.
 
 ```go
-func verifyOfferSignature(offer *rampv1.Offer, exchange string, pubKeys map[string]ed25519.PublicKey) error {
+func verifyOfferSignature(offer *forav1.Offer, exchange string, pubKeys map[string]ed25519.PublicKey) error {
     if offer.Signature == "" {
         return fmt.Errorf("offer signature is required but empty")
     }
@@ -447,7 +447,7 @@ The default selection policy is "lowest unit_cost wins." Production deployments 
 ```go
 type SelectionPolicy interface {
     // Rank orders offers by preference. Index 0 is the winner.
-    Rank(offers []rankedOffer, constraints *rampv1.RequestConstraints) []rankedOffer
+    Rank(offers []rankedOffer, constraints *forav1.RequestConstraints) []rankedOffer
 }
 
 // Built-in policies
@@ -461,7 +461,7 @@ The policy is set at Broker construction time, not per-request. Per-request beha
 
 ## Exchange Authorization Verification
 
-Before executing a transaction, the Broker SHOULD verify that the Exchange is authorized by the provider whose content is being licensed. This is the RAMP equivalent of ads.txt verification in programmatic advertising.
+Before executing a transaction, the Broker SHOULD verify that the Exchange is authorized by the provider whose content is being licensed. This is the FORA equivalent of ads.txt verification in programmatic advertising.
 
 ```go
 func (o *Broker) verifyExchangeAuthorization(
@@ -471,7 +471,7 @@ func (o *Broker) verifyExchangeAuthorization(
 ) (bool, error) {
     manifest, err := o.parseJSONCache.Get(ctx, contentDomain)
     if err != nil {
-        return false, fmt.Errorf("fetching ramp.json for %s: %w", contentDomain, err)
+        return false, fmt.Errorf("fetching fora.json for %s: %w", contentDomain, err)
     }
     for _, authorized := range manifest.AuthorizedExchanges {
         if authorized.Domain == exchangeDomain {
@@ -492,7 +492,7 @@ Every selection decision is logged with full rationale for audit:
 type SelectionLog struct {
     // Broker-internal audit key correlating this decision to the inbound request.
     // Request/response correlation rides the X-Request-ID HTTP header, not a message field.
-    RAMPRequestID       string              `json:"ramp_request_id"`
+    FORARequestID       string              `json:"fora_request_id"`
     Timestamp           time.Time           `json:"timestamp"`
     ExchangesQueried []string            `json:"exchanges_queried"`
     ExchangesResponded []string          `json:"exchanges_responded"`
@@ -511,7 +511,7 @@ type SelectionLog struct {
 
 ## Transparency and Auditability
 
-The Broker is an intermediary. RAMP addresses transparency through:
+The Broker is an intermediary. FORA addresses transparency through:
 
 ### Signed Offer Pass-Through
 

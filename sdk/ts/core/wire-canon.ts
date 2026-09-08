@@ -1,12 +1,12 @@
 // sdk/ts/core — the wire→canonical offer inversion (the from-wire canonicalizer).
 // Companion to the Verifier's canonicalOfferPayload: that face clears the two
 // signature fields and JCS-es an ALREADY-canonical offer; THIS face reconstructs
-// the canonical form from the RAMP Connect WIRE offer (proto3-JSON with
+// the canonical form from the FORA Connect WIRE offer (proto3-JSON with
 // EmitUnpopulated — zero-valued scalars, empty repeateds, null messages, and
 // *_UNSPECIFIED enums all present). Every TS client verifying a wire offer must
 // invert the wire emission BEFORE canonicalOfferPayload, never call it on raw wire.
 //
-// Mirror of sdk/python ramp_sdk.wire_canon.from_wire_offer. Its presence rules are
+// Mirror of sdk/python fora_sdk.wire_canon.from_wire_offer. Its presence rules are
 // SCHEMA-AWARE, driven by the generated gen/ts OfferSchema exactly as the Python
 // side reads them from the gen/python model field defaults:
 //
@@ -41,7 +41,7 @@ interface AnyZod {
 }
 
 // Sentinel: this field is omitted entirely by the canonical marshal.
-const OMIT: unique symbol = Symbol("ramp.core.wire-canon.omit");
+const OMIT: unique symbol = Symbol("fora.core.wire-canon.omit");
 
 const CAMEL_BOUNDARY = /([a-z0-9])([A-Z])/g;
 const UNSPECIFIED_ENUM = /^[A-Z][A-Z0-9_]*_UNSPECIFIED$/;
@@ -58,7 +58,7 @@ function zdef(schema: AnyZod): ZodDef {
 function innerOf(schema: AnyZod): AnyZod {
 	const d = zdef(schema);
 	const inner = d.innerType ?? d.type ?? d.schema;
-	if (inner === undefined) throw new Error("ramp/core: zod wrapper has no inner type");
+	if (inner === undefined) throw new Error("fora/core: zod wrapper has no inner type");
 	return inner;
 }
 

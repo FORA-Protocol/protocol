@@ -10,9 +10,9 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// Canonical signing payload (ADR-020 §4, ramp.proto "canonical signing" note).
+// Canonical signing payload (ADR-020 §4, fora.proto "canonical signing" note).
 //
-// Both signed RAMP payloads — the Offer signature and the agent's detached
+// Both signed FORA payloads — the Offer signature and the agent's detached
 // offer-acceptance — cover a canonical serialization of a protobuf message. As of
 // the JCS switch that canonical form is:
 //
@@ -25,7 +25,7 @@ import (
 // CAN be reproduced by any language (Go/TS/Python) without a protobuf binary codec.
 // Go keeps protobuf and the wire format unchanged — ONLY the signed bytes change.
 //
-// PINNED proto-JSON option set (documented in proto/ramp.proto):
+// PINNED proto-JSON option set (documented in proto/fora.proto):
 //   - enums as NAME strings (protojson default; UseEnumNumbers=false)
 //   - int64/uint64/fixed64 as strings (protojson default)
 //   - bytes as std base64 (protojson default)

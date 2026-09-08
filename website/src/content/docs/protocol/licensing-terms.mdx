@@ -1,12 +1,12 @@
 ---
 title: "Licensing Terms"
-description: "How RAMP models resource licensing: terms, restrictions, quotas, and obligations"
+description: "How FORA models resource licensing: terms, restrictions, quotas, and obligations"
 ---
 
 
 ## Overview
 
-RAMP introduces the **Universal Licensing Core**: a structured, cross-domain-portable model for expressing commercial licensing terms on any digital resource. A resource carries zero or more `LicenseTerm` entries — each term is a complete, self-contained access arrangement. Having multiple terms for a single resource is the normal case, not the exception.
+FORA introduces the **Universal Licensing Core**: a structured, cross-domain-portable model for expressing commercial licensing terms on any digital resource. A resource carries zero or more `LicenseTerm` entries — each term is a complete, self-contained access arrangement. Having multiple terms for a single resource is the normal case, not the exception.
 
 The model was designed to cover a wide range of content types and legal arrangements: news articles, stock photos, academic papers, music recordings, patent design files, datasets, and software. The same proto shapes appear at both ends of the pipeline:
 
@@ -43,9 +43,9 @@ A `Restriction` constrains one licensing dimension:
 
 | Kind | What it constrains | Vocabulary source |
 |---|---|---|
-| `FUNCTION` | What the agent may do with the resource | `(ramp.v1.vocab_enum)` on `RESTRICTION_KIND_FUNCTION` |
-| `GEOGRAPHY` | Where the agent is operating | `(ramp.v1.vocab_enum)` on `RESTRICTION_KIND_GEOGRAPHY` |
-| `USER_TYPE` | What kind of entity the agent represents | `(ramp.v1.vocab_enum)` on `RESTRICTION_KIND_USER_TYPE` |
+| `FUNCTION` | What the agent may do with the resource | `(fora.v1.vocab_enum)` on `RESTRICTION_KIND_FUNCTION` |
+| `GEOGRAPHY` | Where the agent is operating | `(fora.v1.vocab_enum)` on `RESTRICTION_KIND_GEOGRAPHY` |
+| `USER_TYPE` | What kind of entity the agent represents | `(fora.v1.vocab_enum)` on `RESTRICTION_KIND_USER_TYPE` |
 
 The token lists are authored as proto-native buf options on the `RestrictionKind` enum values (no side-car JSON registry); the `functiontokens` / `geographytokens` / `usertypes` constant packages and their `IsRegistered` checks are generated from them.
 
@@ -78,7 +78,7 @@ Unknown tokens during ingest produce a `PushResourcesResponse.warnings[]` entry 
 A `Quota` caps how much a licensee may consume before a term expires or must be renegotiated. Quotas gate term validity — they are not billing quantities. Billing is handled by `Pricing`.
 
 Each quota has:
-- `metric` — the unit being capped (a registered token from the `(ramp.v1.vocab)` option on `Quota.metric`, or a `vendor:` namespaced custom).
+- `metric` — the unit being capped (a registered token from the `(fora.v1.vocab)` option on `Quota.metric`, or a `vendor:` namespaced custom).
 - `limit` — the maximum value in the given window.
 - `window` — `HOURLY`, `DAILY`, `MONTHLY`, or `TOTAL` (lifetime cap, never resets).
 
@@ -109,7 +109,7 @@ Key distinction from the retired pricing model values: attribution is not a paym
 
 ## Revenue-share arrangements
 
-RAMP has no revenue-share pricing model, and that is deliberate. `PricingModel` covers the three *charging structures* an Exchange can quote, sign, and compare at transaction time — `FREE`, `PER_UNIT`, `FLAT` — each with a concrete `unit_cost`. A revenue share has no transaction-time price: the rate and its reconciliation are an **off-protocol agreement** between the agent and the publisher. Encoding it as a pricing model would either be a bare label with no rate (the agent still has to ask "what share?") or would pull the commercial terms of that agreement into the signed, cross-exchange-comparable `Pricing` — which the protocol never enforces and would make offers no longer price-comparable.
+FORA has no revenue-share pricing model, and that is deliberate. `PricingModel` covers the three *charging structures* an Exchange can quote, sign, and compare at transaction time — `FREE`, `PER_UNIT`, `FLAT` — each with a concrete `unit_cost`. A revenue share has no transaction-time price: the rate and its reconciliation are an **off-protocol agreement** between the agent and the publisher. Encoding it as a pricing model would either be a bare label with no rate (the agent still has to ask "what share?") or would pull the commercial terms of that agreement into the signed, cross-exchange-comparable `Pricing` — which the protocol never enforces and would make offers no longer price-comparable.
 
 Instead, a revenue-share arrangement is expressed with primitives already in the core, exactly like a subscription:
 
@@ -119,7 +119,7 @@ Instead, a revenue-share arrangement is expressed with primitives already in the
 
 So "pay per crawl **or** enter the revenue-share deal" is just two `LicenseTerm`s on the same resource: a public `PER_UNIT` term and a scope-gated `FREE` term. The agent self-selects. This is the same shape as the [academic dataset subscription example](#academic-dataset--seat-quota--share-alike) below.
 
-For CoMP interop, a CoMP `revshare` rate is carried verbatim in the `ramp-comp-v1` ext (`comp.license[].revshare`) rather than mapped onto a pricing model — see [CoMP extension](/protocol/ext-comp/#license-on-offerext). Parity by mapping, not by duplication.
+For CoMP interop, a CoMP `revshare` rate is carried verbatim in the `fora-comp-v1` ext (`comp.license[].revshare`) rather than mapped onto a pricing model — see [CoMP extension](/protocol/ext-comp/#license-on-offerext). Parity by mapping, not by duplication.
 
 ## Metering modes
 
@@ -257,10 +257,10 @@ The institutional subscription is settled off-protocol; access is gated on-proto
 
 The open vocabulary axes are **proto-native** — each registered token list is authored once, as buf custom options directly on the field or enum value that uses it (no side-car JSON registry):
 
-- function / geography / user-type tokens — `(ramp.v1.vocab_enum)` on the `RESTRICTION_KIND_FUNCTION` / `RESTRICTION_KIND_GEOGRAPHY` / `RESTRICTION_KIND_USER_TYPE` enum values
-- quota metrics — `(ramp.v1.vocab)` on `Quota.metric`
-- pricing units — `(ramp.v1.vocab)` on `Pricing.unit`
+- function / geography / user-type tokens — `(fora.v1.vocab_enum)` on the `RESTRICTION_KIND_FUNCTION` / `RESTRICTION_KIND_GEOGRAPHY` / `RESTRICTION_KIND_USER_TYPE` enum values
+- quota metrics — `(fora.v1.vocab)` on `Quota.metric`
+- pricing units — `(fora.v1.vocab)` on `Pricing.unit`
 
-The `protoc-gen-rampvocab` buf plugin reads these options structurally and generates a typed constant package per axis (`functiontokens`, `geographytokens`, `usertypes`, `quotametrics`, `pricingunits`) with an `IsRegistered` membership check, an `Aliases` map and a `Canonical` lookup; the constants, the membership check, the aliases and the validation all derive from the single authored list and cannot drift. Aliases are `(ramp.v1.vocab_enum_alias)` entries beside the tokens (`train-ai=ai-train`, `generative-ai=ai-input`, `scrape=crawl`, `tdm=text-and-data-mining`, `copy=reproduce`, `adapt=modify`, `derivative=modify`; `personal=individual`, `business=commercial_entity`, `enterprise=commercial_entity`), rendered in the tables above from the same descriptor option. Geography registers only the non-ISO specials (`*`, `EU`, `EEA`); ISO 3166-1 alpha-2 codes are conventional and checked at ingest. On the wire, `Restriction.permitted`/`prohibited` tokens carry only a structural bound (1–64 chars, no whitespace/control characters) — code-level membership is an ingest concern, consistent with the rest of the licensing invariants.
+The `protoc-gen-foravocab` buf plugin reads these options structurally and generates a typed constant package per axis (`functiontokens`, `geographytokens`, `usertypes`, `quotametrics`, `pricingunits`) with an `IsRegistered` membership check, an `Aliases` map and a `Canonical` lookup; the constants, the membership check, the aliases and the validation all derive from the single authored list and cannot drift. Aliases are `(fora.v1.vocab_enum_alias)` entries beside the tokens (`train-ai=ai-train`, `generative-ai=ai-input`, `scrape=crawl`, `tdm=text-and-data-mining`, `copy=reproduce`, `adapt=modify`, `derivative=modify`; `personal=individual`, `business=commercial_entity`, `enterprise=commercial_entity`), rendered in the tables above from the same descriptor option. Geography registers only the non-ISO specials (`*`, `EU`, `EEA`); ISO 3166-1 alpha-2 codes are conventional and checked at ingest. On the wire, `Restriction.permitted`/`prohibited` tokens carry only a structural bound (1–64 chars, no whitespace/control characters) — code-level membership is an ingest concern, consistent with the rest of the licensing invariants.
 
 Unknown bare **restriction** tokens at ingestion produce `PushResourcesResponse.warnings[]` entries — they do not cause rejection. This allows publishers to use new vocabulary tokens (or `vendor:` namespaced customs) before the registry is updated, at the cost of a non-enforced restriction on older Exchange deployments. The metering axes are not in that bargain: an unregistered bare `Pricing.unit` or `Quota.metric` is a hard reject, because the metering basis is what an agent is charged or capped by and no transactable offer can be made on an unknown one.

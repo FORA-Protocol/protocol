@@ -20,7 +20,7 @@ import (
 	protovalidate "buf.build/go/protovalidate"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	rampv1 "github.com/RAMP-Protocol/protocol/gen/go/ramp/v1"
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 // thisFieldRe extracts `this.<field>` references from a CEL expression.
@@ -120,7 +120,7 @@ func TestRequiredEnumDiscriminatorsRejectZero(t *testing.T) {
 		if !rejects {
 			zero := fd.Enum().Values().Get(0).Name()
 			t.Errorf("%s is a required discriminator (enum zero %s is the UNSPECIFIED sentinel) but nothing rejects the zero value on the wire.\n"+
-				"  Add a message CEL `this.%s != ramp.v1.%s.%s` with id %q, or allow-list it in zeroAllowed with a reason.",
+				"  Add a message CEL `this.%s != fora.v1.%s.%s` with id %q, or allow-list it in zeroAllowed with a reason.",
 				key, zero, fd.Name(), fd.Enum().Name(), zero,
 				messageSnake(string(md.Name()))+"."+string(fd.Name())+"_specified")
 		}
@@ -259,11 +259,11 @@ func TestInvariantHelpers(t *testing.T) {
 		}
 	}
 
-	disputeReason := fieldEnum(t, (&rampv1.DisputeRequest{}).ProtoReflect().Descriptor(), "reason")
+	disputeReason := fieldEnum(t, (&forav1.DisputeRequest{}).ProtoReflect().Descriptor(), "reason")
 	if !enumZeroIsUnspecified(disputeReason) {
 		t.Error("enumZeroIsUnspecified(DisputeReason) = false, want true")
 	}
-	pricingMetering := fieldEnum(t, (&rampv1.Pricing{}).ProtoReflect().Descriptor(), "metering")
+	pricingMetering := fieldEnum(t, (&forav1.Pricing{}).ProtoReflect().Descriptor(), "metering")
 	if enumZeroIsUnspecified(pricingMetering) {
 		t.Error("enumZeroIsUnspecified(PricingMetering) = true, want false (zero is ONLINE, a real value)")
 	}
@@ -272,16 +272,16 @@ func TestInvariantHelpers(t *testing.T) {
 	// allow-listed AcceptableRestriction.axis (it is genuinely unenforced). If
 	// this ever returns true, TestRequiredEnumDiscriminatorsRejectZero is passing
 	// for the wrong reason.
-	ar := (&rampv1.AcceptableRestriction{}).ProtoReflect().Descriptor()
+	ar := (&forav1.AcceptableRestriction{}).ProtoReflect().Descriptor()
 	if fieldRejectsZero(ar, ar.Fields().ByName("axis")) {
 		t.Error("fieldRejectsZero(AcceptableRestriction.axis) = true, want false (anti-vacuity control: it is genuinely unenforced)")
 	}
 	// And it MUST return true for both enforcement shapes.
-	cr := (&rampv1.CatalogRejection{}).ProtoReflect().Descriptor()
+	cr := (&forav1.CatalogRejection{}).ProtoReflect().Descriptor()
 	if !fieldRejectsZero(cr, cr.Fields().ByName("reason")) {
 		t.Error("fieldRejectsZero(CatalogRejection.reason) = false, want true (field-level not_in:[0])")
 	}
-	pr := (&rampv1.Pricing{}).ProtoReflect().Descriptor()
+	pr := (&forav1.Pricing{}).ProtoReflect().Descriptor()
 	if !fieldRejectsZero(pr, pr.Fields().ByName("model")) {
 		t.Error("fieldRejectsZero(Pricing.model) = false, want true (field-level enum not_in:[0])")
 	}
@@ -305,7 +305,7 @@ func fieldEnum(t *testing.T, md protoreflect.MessageDescriptor, field string) pr
 // pinned: pre-v1, removed numbers return to the free pool (no `reserved`
 // statements until v1.0.0 is tagged).
 func TestRequesterBillingRefStaysRemoved(t *testing.T) {
-	md := (&rampv1.Requester{}).ProtoReflect().Descriptor()
+	md := (&forav1.Requester{}).ProtoReflect().Descriptor()
 	if fd := md.Fields().ByName("billing_ref"); fd != nil {
 		t.Errorf("Requester regained a billing_ref field (number %d) — billing keys on the verified caller identity, never a request field", fd.Number())
 	}
@@ -322,14 +322,14 @@ func TestRequesterBillingRefStaysRemoved(t *testing.T) {
 // ResourceIdentity.resource_mutability is deliberately singular (no presence): it is
 // required on every signed Offer, so its zero must always be rejected. Pin both halves.
 func TestResourceMutabilityPresenceContract(t *testing.T) {
-	entry := (&rampv1.ResourceEntry{}).ProtoReflect().Descriptor()
+	entry := (&forav1.ResourceEntry{}).ProtoReflect().Descriptor()
 	if fd := entry.Fields().ByName("resource_mutability"); fd == nil {
 		t.Fatal("ResourceEntry has no resource_mutability field")
 	} else if !fd.HasPresence() {
 		t.Error("ResourceEntry.resource_mutability lost explicit presence — restore the `optional` keyword; " +
 			"without it an omitted hint is a present zero and not_in:[0] rejects every feed that omits the field")
 	}
-	identity := (&rampv1.ResourceIdentity{}).ProtoReflect().Descriptor()
+	identity := (&forav1.ResourceIdentity{}).ProtoReflect().Descriptor()
 	if fd := identity.Fields().ByName("resource_mutability"); fd == nil {
 		t.Fatal("ResourceIdentity has no resource_mutability field")
 	} else if fd.HasPresence() {

@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// ErrManifestVersionRefused signals that a /.well-known/ramp.json document
+// ErrManifestVersionRefused signals that a /.well-known/fora.json document
 // carries a WellKnownManifest.ver this reader does not accept: a major version
 // it does not implement, a value that is not MAJOR.MINOR, or no version at all.
 //
