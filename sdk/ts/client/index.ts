@@ -88,7 +88,6 @@ const CATALOG_SERVICE = "fora.v1.CatalogService";
  * anyone who observes the request can repeat it. */
 export const DEFAULT_PROOF_WINDOW_SEC = 30;
 
-/** Everything a client is built from. Every field is injected; the client owns none of it. */
 /** Reports what one Exchange asks of a registration.
  *
  * An interface for the same two reasons the endpoint seam is one: a test can drive a
@@ -104,7 +103,8 @@ export const DEFAULT_PROOF_WINDOW_SEC = 30;
  * contract rather than an implementation detail. A failure that is a VERDICT — the domain
  * is unusable, the deployment excludes it, the document served is not an Exchange's, or it
  * is one this reader cannot use — MUST throw the resolver tier's ExchangeNotPermitted,
- * ManifestNotExchange or ManifestUnusable, or the invalid-host error isBareHost raises;
+ * ManifestNotExchange or ManifestUnusable, or the invalid-host error raised for a
+ * value that is not a bare domain;
  * those surface as `not_sent`, which tells the caller not to retry. Anything else is read
  * as a transport failure and reported as `unreachable`, i.e. worth retrying. An
  * implementation that throws a bare error for a refusal therefore has its final answer
@@ -126,6 +126,7 @@ export interface RegistrationRequirementsReader {
 	resolveRegistrationRequirements(exchange: string): Promise<RegistrationRequirements>;
 }
 
+/** Everything a client is built from. Every field is injected; the client owns none of it. */
 export interface ClientOptions {
 	/** The RFC 9421 request signer. Custody stays with the application — the SDK receives
 	 * a non-extractable CryptoKey and the keyid it signs under, never key bytes. */
@@ -1046,14 +1047,22 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 // ---------------------------------------------------------------------------
+// The agent's account: ExchangeService
+// ---------------------------------------------------------------------------
+
+/** The answer to a registration: the account handle this Exchange minted, and the terms
+ * revision it recorded against it. */
+export type RegisterResponse = z.infer<typeof RegisterResponseSchema>;
+
+/** The answer to an account-status read. An empty account handle is a NORMAL answer: it
+ * means this agent holds no account at that Exchange yet. */
+export type GetAccountStatusResponse = z.infer<typeof GetAccountStatusResponseSchema>;
+
+// ---------------------------------------------------------------------------
 // The publisher's verbs: CatalogService
 // ---------------------------------------------------------------------------
 
 /** The answer to a catalog push: accepted/rejected counts and the warnings the accepted terms carry. */
-export type RegisterResponse = z.infer<typeof RegisterResponseSchema>;
-
-export type GetAccountStatusResponse = z.infer<typeof GetAccountStatusResponseSchema>;
-
 export type PushResourcesResponse = z.infer<typeof PushResourcesResponseSchema>;
 /** The answer to a catalog removal. */
 export type RemoveResourcesResponse = z.infer<typeof RemoveResourcesResponseSchema>;
@@ -1131,11 +1140,15 @@ function stampVer(op: string, message: Record<string, unknown>): Record<string, 
 	return sent;
 }
 
-// The predicate is isBareDomain, the SHAPE rule, not the routing rule isBareHost.
-// Nothing dials this value — a catalog client is built against an address the
-// publisher configured — so the only question it answers is whether the value is the
-// form the contract admits, which is the protovalidate pattern `exchange` carries and
-// the same rule the Exchange's own audience check applies on arrival. The routing
+// Serves the catalog verbs and the two account verbs, and asks only the SHAPE question.
+//
+// The predicate is isBareDomain, the SHAPE rule, not the routing rule isBareHost. The
+// only question it answers is whether the value is the form the contract admits, which
+// is the protovalidate pattern `exchange` carries and the same rule the Exchange's own
+// audience check applies on arrival. Whether the value can be DIALLED is a separate
+// question with a separate answer: a catalog client is built against an address the
+// publisher configured and never asks it, while the account verbs resolve this domain
+// through its own manifest and ask it there, under the routing predicate. The routing
 // predicate is deliberately wider: an underscore, a trailing root dot and a bracketed
 // IPv6 literal are all usable hosts and none of them is a value this field may hold,
 // so vetting with it would sign and send a request the recipient can only refuse.

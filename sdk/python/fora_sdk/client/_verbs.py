@@ -793,13 +793,18 @@ def _stamp_ver(op: str, message: dict[str, Any]) -> dict[str, Any]:
 
 
 def _require_recipient(op: str, exchange: str) -> None:
-    """Refuse a catalog request whose recipient is missing or not a bare domain.
+    """Refuse a request whose recipient is missing or not a bare domain.
+
+    Serves the catalog verbs and the two account verbs, and asks only the SHAPE question.
 
     The predicate is :func:`is_bare_domain`, the SHAPE rule, not the routing rule
-    :func:`is_bare_host`. Nothing dials this value — a catalog client is built against an
-    address the publisher configured — so the only question it answers is whether the
-    value is the form the contract admits, which is the protovalidate pattern ``exchange``
-    carries and the same rule the Exchange's own audience check applies on arrival. The
+    :func:`is_bare_host`. The only question it answers is whether the value is the form
+    the contract admits, which is the protovalidate pattern ``exchange`` carries and the
+    same rule the Exchange's own audience check applies on arrival. Whether the value can
+    be DIALLED is a separate question with a separate answer: a catalog client is built
+    against an address the publisher configured and never asks it, while the account verbs
+    resolve this domain through its own manifest and ask it there, under the routing
+    predicate. The
     routing predicate is deliberately wider: an underscore, a trailing root dot and a
     bracketed IPv6 literal are all usable hosts and none of them is a value this field may
     hold, so vetting with it would sign and send a request the recipient can only refuse.

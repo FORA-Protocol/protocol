@@ -121,8 +121,8 @@ func manifestVer(raw json.RawMessage) string {
 }
 
 // accountRegistration is the manifest block describing how to open an account.
-// Only data_schema is read; field 2 is reserved in the contract for a future web
-// registration mode, which this SDK does not act on.
+// Only data_schema is read; any member the block gains later is ignored here, which
+// is the robustness rule this document is read under.
 type accountRegistration struct {
 	// DataSchema is kept as raw bytes because every cap the registration-schema
 	// rules state is defined over the bytes AS SERVED. Decoding and re-encoding
