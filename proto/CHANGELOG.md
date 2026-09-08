@@ -74,9 +74,10 @@ validating the whole manifest, or refusing a version — held a permanent refusa
 reported as transient and a caller retried indefinitely. One consequence for anyone
 re-pinning: this is a fourth verdict on that seam, and a classifier branching only on the
 older three drops it into its transport-failure bucket and retries something that will
-never succeed; add the new sentinel alongside. The SDK's own reader never returns it —
-an off-spec optional member still reads as absent, and an undecodable document is still a
-transport failure — so nothing changes for a caller that injects no reader. Python also
+never succeed; add the new sentinel alongside. The SDK's own reader returns it for one thing, a
+document version it cannot classify; its other two disappointments are unchanged — an
+off-spec optional member still reads as absent, and an undecodable document is still a
+transport failure. Python also
 stops treating an unrelated `ValueError` as a verdict on both the routing and the account
 leg: the invalid-host refusal is recognised by its wording now, as TypeScript already did,
 so an injected seam raising `json.JSONDecodeError` is retryable there as it is in the
@@ -99,6 +100,19 @@ reader added here spelled it inline in all three. All four sites read the consta
 Nothing observable changes; what it forecloses is a drift that fails as a misfetch from
 the right host rather than as an error.
 
+*Also in this change, from review:* the requirements reader now applies the manifest
+version gate before it reads any other member, in all three languages — see the entry
+below, whose scope this widens. That also settles a divergence the three shipped with: a
+manifest body of bare `null` was a final refusal in Go and a retryable transport failure
+in both ports, so the same bytes told one caller to stop and another to keep trying
+against a third party's origin. The Python requirements seam is typed with the value it
+answers rather than `Any`; TypeScript narrows `registration_data` instead of asserting its
+shape, so a string payload is no longer reported as carrying too many members; and the
+`peer_message` rule — the field carries a sentence the peer emitted and nothing else — is
+pinned by two corpora replayed in all three languages instead of by three hand-written
+suites. `ClientConfig.sign_window` and the numeric proto-JSON role form gain the Python
+tests they shipped without.
+
 *Parity record:* six new mapped symbols and one Go-idiomatic exclusion; the reader's Go
 factory folds into the Python class constructor as every other `NewX` does, so the
 shrink-only allowlist baseline moves 16 → 17 as a reviewed bump under that one recorded
@@ -113,9 +127,10 @@ protocol version (a manifest layout change bumps both; a protocol change alone
 bumps only `ProtocolVersion`). Go `helpers.CheckWellKnownManifestVersion` /
 `helpers.ErrManifestVersionRefused`, Python `manifest_version_refusal` /
 `ManifestVersionRefusedError`, TS `manifestVersionRefusal` / `ManifestVersionRefused`
-carry the pure rule; the endpoint resolvers apply it on the endpoint face only and
-wrap the refusal as `resolvers.ErrManifestVersionRefused` (same name in each
-port), which the client tier classifies as not-sent. A `ver` that is not a JSON
+carry the pure rule. The endpoint resolvers apply it and wrap the refusal as
+`resolvers.ErrManifestVersionRefused` (same name in each port), which the client
+tier classifies as not-sent; the registration-requirements reader applies the same
+rule and answers its own seam's verdict, added later in this section. A `ver` that is not a JSON
 string is refused as absent — a verdict, not a decode failure to retry — and the
 value a refusal echoes is clipped to 64 characters, in all three languages. The
 key resolvers are unchanged — they read JWK Set documents, not manifests — and a
