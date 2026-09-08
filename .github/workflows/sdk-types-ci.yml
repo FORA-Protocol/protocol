@@ -142,6 +142,15 @@ jobs:
           npm install
           npm test
 
+      # The peer range is zod ^3.23.0 || ^4.0.0 and the lockfile pins Zod 3, so the
+      # same typecheck and suite run again under Zod 4 (fora-acw.2.1). The published
+      # package's own dual-major check is scripts/release/smoke-npm.sh.
+      - name: TypeScript typecheck + suite under Zod 4
+        working-directory: sdk/ts
+        run: |
+          npm install --no-save zod@4
+          npm test
+
       # sdk/python L1 helpers (thumbprint, signed-URL verify, RFC 9421 sign/verify +
       # PoP, offer-acceptance, cross-field Pydantic) byte-parity against the same
       # Go-signed vectors + shared crossfield corpus, PLUS the L2 core + the outbound

@@ -366,11 +366,13 @@ export function validateLicenseTerm(term: Obj): TermVerdict {
 	return { violation: null, warnings };
 }
 
-function zodPath(path: (string | number)[]): string {
+// Zod 3 types an issue path as (string | number)[]; Zod 4 widens it to PropertyKey[].
+// A symbol segment cannot occur on a JSON document, so it is rendered by name.
+function zodPath(path: readonly PropertyKey[]): string {
 	let out = "";
 	for (const seg of path) {
 		if (typeof seg === "number") out += `[${seg}]`;
-		else out = out === "" ? seg : `${out}.${seg}`;
+		else out = out === "" ? String(seg) : `${out}.${String(seg)}`;
 	}
 	return out;
 }
