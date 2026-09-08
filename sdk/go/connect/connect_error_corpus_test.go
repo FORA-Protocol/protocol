@@ -17,6 +17,7 @@ package connect_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -58,6 +59,12 @@ func TestConnectErrorCorpusReplay(t *testing.T) {
 			detail, ok := foraconnect.ErrorDetailFrom(err)
 			if ok != v.Expect.HasDetail {
 				t.Fatalf("ErrorDetailFrom has-detail = %v, want %v", ok, v.Expect.HasDetail)
+			}
+			// BEFORE the early return, because the row that carries no detail is the one
+			// this column exists for: its envelope has a `message` of its own and the
+			// client must still report none.
+			if got := peerMessageServing(t, v); got != v.PeerMessage {
+				t.Errorf("peer message = %q, want %q", got, v.PeerMessage)
 			}
 			if !ok {
 				return
@@ -113,4 +120,36 @@ func callServing(t *testing.T, v connectErrorVector) error {
 	_, err = client.ExecuteTransaction(context.Background(),
 		connectrpc.NewRequest(&forav1.TransactionRequest{}))
 	return err
+}
+
+// peerMessageServing serves the same recorded envelope and reads the peer's sentence back
+// off the CLIENT's own failure, which is where the field lives — one tier above the
+// ErrorDetail the rest of this replay projects.
+//
+// The rule it pins is provenance: the field carries a message the PEER emitted and
+// nothing else. A transport's synthesized text is not that. connect-go writes a status
+// line where a fetch-based client writes nothing, so a client filling the field from the
+// envelope would make its value a property of the language rather than of the answer —
+// which is the drift a shared corpus exists to catch, and could not have caught while
+// each language was faithfully reporting its own transport.
+func peerMessageServing(t *testing.T, v connectErrorVector) string {
+	t.Helper()
+	body, err := json.Marshal(v.Envelope)
+	if err != nil {
+		t.Fatalf("re-encode envelope: %v", err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", helpers.ContentTypeJSON)
+		w.WriteHeader(v.HTTPStatus)
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	_, derr := foraconnect.NewClient(srv.URL).Discover(
+		context.Background(), &forav1.ResourceQuery{Exchange: "exchange.test"})
+	var callErr *foraconnect.CallError
+	if !errors.As(derr, &callErr) {
+		t.Fatalf("the client did not report a typed failure: %v", derr)
+	}
+	return callErr.PeerMessage
 }

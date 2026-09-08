@@ -72,6 +72,12 @@ type precheckVector struct {
 	//: each comes from each language's validator library and is documented
 	//: non-authoritative, so pinning it here would pin an accident.
 	FieldErrorPaths []string `json:"field_error_paths"`
+	//: The peer's own sentence, which for every row here is EMPTY. These details are
+	//: authored by this SDK, and the field exists so a consumer can attribute prose to a
+	//: remote party — so a sentence of ours reaching it would make the field a liar. Both
+	//: ports once derived it from any detail at hand, including these; the column is what
+	//: notices if that comes back.
+	PeerMessage string `json:"peer_message"`
 }
 
 // edgeRefusalVector is one delivery-edge refusal, promoted from the edge's own token into
@@ -91,6 +97,12 @@ type edgeRefusalVector struct {
 	ReasonField string `json:"reason_field"`
 	//: The reason enum's name.
 	ReasonEnum string `json:"reason_enum"`
+	//: The peer's own sentence, which for every row here is EMPTY. These details are
+	//: authored by this SDK, and the field exists so a consumer can attribute prose to a
+	//: remote party — so a sentence of ours reaching it would make the field a liar. Both
+	//: ports once derived it from any detail at hand, including these; the column is what
+	//: notices if that comes back.
+	PeerMessage string `json:"peer_message"`
 }
 
 func TestGenerateSynthesizedDetailVectors(t *testing.T) {
@@ -158,6 +170,7 @@ func buildPrecheckVectors(t *testing.T) []precheckVector {
 			ReasonField:     field,
 			ReasonEnum:      enum,
 			FieldErrorPaths: paths,
+			PeerMessage:     cerr.PeerMessage,
 		})
 	}
 	return out
@@ -190,7 +203,9 @@ func buildEdgeRefusalVectors(t *testing.T) []edgeRefusalVector {
 	out := make([]edgeRefusalVector, 0, len(tokens))
 	for _, token := range tokens {
 		cerr := refusedByTheEdge(t, token)
-		vector := edgeRefusalVector{Name: "edge_" + token, ReasonToken: token}
+		vector := edgeRefusalVector{
+			Name: "edge_" + token, ReasonToken: token, PeerMessage: cerr.PeerMessage,
+		}
 		if detail, ok := foraconnect.ErrorDetailFrom(cerr); ok {
 			vector.Domain = detail.GetDomain()
 			vector.Message = detail.GetMessage()

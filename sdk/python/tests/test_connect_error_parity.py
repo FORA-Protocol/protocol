@@ -22,10 +22,15 @@ against what the wire does rather than against a description of it.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from conftest import GO_CONNECT_TESTDATA, load_json
+from fora_sdk.client._call import decode
+from fora_sdk.client.errors import CallError
 from fora_sdk.errordetail import error_detail_from, reason
+from wire.models import ResourceResponse
 
 _VECTORS = load_json(GO_CONNECT_TESTDATA / "connect-error-vectors.json")["vectors"]
 
@@ -48,6 +53,19 @@ def test_reader_extracts_go_projection_from_the_envelope(vector: dict) -> None:
         f"{vector['name']}: code {vector['code']!r} maps to {vector['http_status']}, "
         "which is not an error status"
     )
+
+    # BEFORE the early return, because the row that carries no detail is the one this
+    # column exists for: its envelope has a ``message`` of its own and the client must
+    # still report none. The field lives on the CallError, one tier above the detail the
+    # rest of this replay projects, so it is read off a real decode.
+    #
+    # The rule is provenance: it carries a message the PEER emitted and nothing else. A
+    # transport's synthesized text is not that — connect-go writes a status line where
+    # this client writes nothing — so filling the field from the envelope would make its
+    # value a property of the language rather than of the answer.
+    with pytest.raises(CallError) as caught:
+        decode("discover", vector["http_status"], json.dumps(vector["envelope"]), ResourceResponse)
+    assert (caught.value.peer_message or "") == vector["peer_message"], vector["name"]
 
     if not expect["has_detail"]:
         assert detail is None, "an envelope carrying no ErrorDetail must read as none"

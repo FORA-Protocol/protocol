@@ -29,6 +29,7 @@ interface PrecheckVector {
 	reason_field: string;
 	reason_enum: string;
 	field_error_paths: string[];
+	peer_message: string;
 }
 
 interface EdgeRefusalVector {
@@ -38,6 +39,7 @@ interface EdgeRefusalVector {
 	message: string;
 	reason_field: string;
 	reason_enum: string;
+	peer_message: string;
 }
 
 const { registration_precheck: precheckVectors, edge_refusal: edgeVectors } =
@@ -57,7 +59,13 @@ function noSend(): UnarySend {
 /** Assert the detail on `err` matches what the oracle recorded for `v`. */
 function expectsRecordedDetail(
 	err: ForaCallError,
-	v: { domain: string; message: string; reason_field: string; reason_enum: string },
+	v: {
+		domain: string;
+		message: string;
+		reason_field: string;
+		reason_enum: string;
+		peer_message: string;
+	},
 ): void {
 	expect(err.detail).toBeDefined();
 	const detail = err.detail as NonNullable<typeof err.detail>;
@@ -69,6 +77,10 @@ function expectsRecordedDetail(
 	const got = reason(detail);
 	expect(got?.field).toBe(v.reason_field);
 	expect(got?.value).toBe(v.reason_enum);
+	// Nothing this SDK wrote itself is attributed to a peer. Every detail in this corpus
+	// is one the SDK authored, so the recorded peer_message is empty on every row; this
+	// port once derived the field from whatever detail was at hand, including these.
+	expect(err.peerMessage ?? "").toBe(v.peer_message);
 }
 
 describe("the registration pre-check's synthesized detail", () => {

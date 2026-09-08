@@ -110,3 +110,27 @@ func TestSynthesizedDetailCorpus_EdgeRowsAgreeWithTheTokenTable(t *testing.T) {
 			"case where guessing is the failure, so it is the one a corpus must hold")
 	}
 }
+
+// Nothing this SDK wrote itself is attributed to a peer.
+//
+// PeerMessage exists so a consumer can read a remote party's own sentence as a value
+// instead of parsing it out of a rendered error. Every detail in this corpus is one the
+// SDK authored — the content leg's sentence around an edge's token, the registration
+// pre-check's around schema failures — so every row's peer_message is empty, and a
+// non-empty one means the field has started carrying our words under a remote party's
+// name. Both ports shipped exactly that once, deriving it from whatever detail was at
+// hand; this is the row that fails if it comes back.
+func TestSynthesizedDetailCorpus_NothingWeWroteIsAttributedToAPeer(t *testing.T) {
+	precheck, edge := loadSynthesizedDetailCorpus(t)
+
+	for _, v := range precheck {
+		if v.PeerMessage != "" {
+			t.Errorf("%s: peer_message = %q; this detail is the SDK's own", v.Name, v.PeerMessage)
+		}
+	}
+	for _, v := range edge {
+		if v.PeerMessage != "" {
+			t.Errorf("%s: peer_message = %q; this detail is the SDK's own", v.Name, v.PeerMessage)
+		}
+	}
+}

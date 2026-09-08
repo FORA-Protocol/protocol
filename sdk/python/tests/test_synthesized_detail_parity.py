@@ -68,6 +68,10 @@ def _assert_recorded_detail(err: CallError, vector: dict[str, Any]) -> None:
     got = reason(detail)
     assert got is not None
     assert got.value == vector["reason_enum"]
+    # Nothing this SDK wrote itself is attributed to a peer. Every detail in this corpus
+    # is one the SDK authored, so the recorded peer_message is empty on every row; this
+    # port once derived the field from whatever detail was at hand, including these.
+    assert (err.peer_message or "") == vector["peer_message"]
 
 
 @pytest.mark.parametrize("face", FACES, ids=_IDS)

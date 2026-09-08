@@ -29,7 +29,8 @@
         "metadata": null,
         "reason_field": "transaction_denial",
         "reason_enum": "DENIAL_REASON_INSUFFICIENT_BALANCE"
-      }
+      },
+      "peer_message": "balance too low"
     },
     {
       "name": "retrieval_auth_failure_url_expired",
@@ -59,7 +60,8 @@
         "metadata": null,
         "reason_field": "retrieval_auth_failure",
         "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED"
-      }
+      },
+      "peer_message": "signed URL expired"
     },
     {
       "name": "registration_failure_with_field_errors",
@@ -95,7 +97,8 @@
         "metadata": null,
         "reason_field": "registration_failure",
         "reason_enum": "REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA"
-      }
+      },
+      "peer_message": "registration data rejected"
     },
     {
       "name": "usage_report_rejection",
@@ -125,7 +128,8 @@
         "metadata": null,
         "reason_field": "usage_report_rejection",
         "reason_enum": "USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND"
-      }
+      },
+      "peer_message": "no such transaction"
     },
     {
       "name": "dispute_failure",
@@ -155,7 +159,8 @@
         "metadata": null,
         "reason_field": "dispute_failure",
         "reason_enum": "DISPUTE_FAILURE_REASON_WINDOW_EXPIRED"
-      }
+      },
+      "peer_message": "dispute window closed"
     },
     {
       "name": "catalog_rejection",
@@ -185,7 +190,8 @@
         "metadata": null,
         "reason_field": "catalog_rejection",
         "reason_enum": "CATALOG_REJECTION_REASON_MALFORMED_ENTRY"
-      }
+      },
+      "peer_message": "entry rejected"
     },
     {
       "name": "domain_verification_failure",
@@ -215,7 +221,8 @@
         "metadata": null,
         "reason_field": "domain_verification_failure",
         "reason_enum": "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_NOT_FOUND"
-      }
+      },
+      "peer_message": "challenge not found"
     },
     {
       "name": "generic_detail_no_reason",
@@ -242,7 +249,8 @@
         "metadata": null,
         "reason_field": "",
         "reason_enum": ""
-      }
+      },
+      "peer_message": "internal error"
     },
     {
       "name": "metadata_keys_are_caller_chosen",
@@ -277,7 +285,8 @@
         },
         "reason_field": "transaction_denial",
         "reason_enum": "DENIAL_REASON_RATE_LIMITED"
-      }
+      },
+      "peer_message": "slow down"
     },
     {
       "name": "no_detail_attached",
@@ -294,7 +303,8 @@
         "metadata": null,
         "reason_field": "",
         "reason_enum": ""
-      }
+      },
+      "peer_message": ""
     }
   ]
 }

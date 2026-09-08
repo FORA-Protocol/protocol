@@ -6,7 +6,8 @@
       "domain": "fora.v1.Edge",
       "message": "delivery refused: expired",
       "reason_field": "retrieval_auth_failure",
-      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED"
+      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED",
+      "peer_message": ""
     },
     {
       "name": "edge_missing_exp",
@@ -14,7 +15,8 @@
       "domain": "fora.v1.Edge",
       "message": "delivery refused: missing_exp",
       "reason_field": "retrieval_auth_failure",
-      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRY_MISSING"
+      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRY_MISSING",
+      "peer_message": ""
     },
     {
       "name": "edge_signature_mismatch",
@@ -22,7 +24,8 @@
       "domain": "fora.v1.Edge",
       "message": "delivery refused: signature_mismatch",
       "reason_field": "retrieval_auth_failure",
-      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_URL_SIGNATURE_MISMATCH"
+      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_URL_SIGNATURE_MISMATCH",
+      "peer_message": ""
     },
     {
       "name": "edge_missing_agent_key",
@@ -30,7 +33,8 @@
       "domain": "fora.v1.Edge",
       "message": "delivery refused: missing_agent_key",
       "reason_field": "retrieval_auth_failure",
-      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_AGENT_KEY_MISSING"
+      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_AGENT_KEY_MISSING",
+      "peer_message": ""
     },
     {
       "name": "edge_keyid_mismatch",
@@ -38,7 +42,8 @@
       "domain": "fora.v1.Edge",
       "message": "delivery refused: keyid_mismatch",
       "reason_field": "retrieval_auth_failure",
-      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_KEYID_MISMATCH"
+      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_KEYID_MISMATCH",
+      "peer_message": ""
     },
     {
       "name": "edge_thumbprint_mismatch",
@@ -46,7 +51,8 @@
       "domain": "fora.v1.Edge",
       "message": "delivery refused: thumbprint_mismatch",
       "reason_field": "retrieval_auth_failure",
-      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_THUMBPRINT_MISMATCH"
+      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_THUMBPRINT_MISMATCH",
+      "peer_message": ""
     },
     {
       "name": "edge_pop_missing_created",
@@ -54,7 +60,8 @@
       "domain": "fora.v1.Edge",
       "message": "delivery refused: pop_missing_created",
       "reason_field": "retrieval_auth_failure",
-      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_CREATED_MISSING"
+      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_CREATED_MISSING",
+      "peer_message": ""
     },
     {
       "name": "edge_pop_missing_exp",
@@ -62,7 +69,8 @@
       "domain": "fora.v1.Edge",
       "message": "delivery refused: pop_missing_exp",
       "reason_field": "retrieval_auth_failure",
-      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRY_MISSING"
+      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRY_MISSING",
+      "peer_message": ""
     },
     {
       "name": "edge_pop_expired",
@@ -70,7 +78,8 @@
       "domain": "fora.v1.Edge",
       "message": "delivery refused: pop_expired",
       "reason_field": "retrieval_auth_failure",
-      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRED"
+      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRED",
+      "peer_message": ""
     },
     {
       "name": "edge_pop_sig_invalid",
@@ -78,7 +87,8 @@
       "domain": "fora.v1.Edge",
       "message": "delivery refused: pop_sig_invalid",
       "reason_field": "retrieval_auth_failure",
-      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_SIGNATURE_INVALID"
+      "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_SIGNATURE_INVALID",
+      "peer_message": ""
     },
     {
       "name": "edge_missing_sig",
@@ -86,7 +96,8 @@
       "domain": "",
       "message": "",
       "reason_field": "",
-      "reason_enum": ""
+      "reason_enum": "",
+      "peer_message": ""
     },
     {
       "name": "edge_url_expired",
@@ -94,7 +105,8 @@
       "domain": "",
       "message": "",
       "reason_field": "",
-      "reason_enum": ""
+      "reason_enum": "",
+      "peer_message": ""
     }
   ],
   "note": "Typed error details this SDK builds itself rather than receiving, captured from the real Go client. Each row records what the three languages must author identically: the failing surface, the sentence and the typed reason. Field errors are recorded as PATHS and never as text — the text comes from a different validator library in each language and the contract calls it non-authoritative.",
@@ -112,7 +124,8 @@
       "field_error_paths": [
         "",
         "/vat_id"
-      ]
+      ],
+      "peer_message": ""
     },
     {
       "name": "whole_object_only",
@@ -126,7 +139,8 @@
       "reason_enum": "REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA",
       "field_error_paths": [
         ""
-      ]
+      ],
+      "peer_message": ""
     }
   ]
 }
