@@ -4,7 +4,10 @@ import {
   createWellKnownRequirementsReader,
   ExchangeNotPermitted,
   ManifestNotExchange,
+  ManifestUnusable,
+  ManifestVersionRefused,
 } from "../resolvers/index.ts";
+import { WellKnownManifestVersion } from "../src/wire.ts";
 
 const SCHEMA = `{"type":"object","required":["legal_entity"],"properties":{"legal_entity":{"type":"string"}}}`;
 
@@ -19,7 +22,12 @@ function serve(body: string): { fetch: typeof fetch; hits: () => number } {
 }
 
 function manifest(extra: Record<string, unknown> = {}, role: unknown = "ROLE_EXCHANGE"): string {
-  return JSON.stringify({ role, endpoint: "https://exchange.test", ...extra });
+  return JSON.stringify({
+    ver: WellKnownManifestVersion,
+    role,
+    endpoint: "https://exchange.test",
+    ...extra,
+  });
 }
 
 const reader = (body: string, allow?: (d: string) => boolean) => {
@@ -81,7 +89,9 @@ describe("the registration-requirements reader", () => {
   // Exchange refuses it, or a client pre-checks against a schema nobody enforces.
   it("measures the schema over the served bytes, not a re-encoding", async () => {
     const padded = `{"type":"object",${" ".repeat(20_000)}"title":"x"}`;
-    const body = `{"role":"ROLE_EXCHANGE","account_registration":{"data_schema":${padded}}}`;
+    const body =
+      `{"ver":"${WellKnownManifestVersion}","role":"ROLE_EXCHANGE",` +
+      `"account_registration":{"data_schema":${padded}}}`;
     const { r } = reader(body);
     const got = await r.resolveRegistrationRequirements("exchange.test");
     expect(got.verdict).toBe("too_large");
@@ -104,9 +114,10 @@ describe("the registration-requirements reader", () => {
       manifest({}, "ROLE_BROKER"),
       manifest({}, "ROLE_AGENT"),
       manifest({}, "ROLE_PUBLISHER"),
-      // No role at all. The contract makes the field required, so reading silence
-      // as assent would leave the check advisory.
-      `{"endpoint":"https://exchange.test"}`,
+      // No role at all, on a well-versioned document: the version gate passes, so
+      // what refuses it is the role check. The contract makes the field required,
+      // so reading silence as assent would leave the check advisory.
+      `{"ver":"${WellKnownManifestVersion}","endpoint":"https://exchange.test"}`,
     ]) {
       const { r } = reader(body);
       await expect(r.resolveRegistrationRequirements("exchange.test")).rejects.toBeInstanceOf(
@@ -118,5 +129,36 @@ describe("the registration-requirements reader", () => {
   it("accepts the role as a proto-JSON number", async () => {
     const { r } = reader(manifest({}, 2));
     await expect(r.resolveRegistrationRequirements("exchange.test")).resolves.toBeDefined();
+  });
+
+  // A document whose version this reader cannot classify is refused before any other
+  // member is read — the contract's rule for every consumer of this document, not only
+  // for the face that reads an endpoint out of it. The digest it would otherwise return
+  // is copied onto a field the request signature covers.
+  //
+  // The bare `null` row is here because the three languages used to disagree about it:
+  // Go reached "not an Exchange" and both ports raised a transport failure, so the same
+  // bytes were a final refusal in one language and a retry-forever in the other two.
+  describe("a document version it cannot classify", () => {
+    for (const [name, body] of [
+      ["absent", `{"role":"ROLE_EXCHANGE","endpoint":"https://exchange.test"}`],
+      ["unrecognised major", `{"ver":"2.0","role":"ROLE_EXCHANGE"}`],
+      ["not MAJOR.MINOR", `{"ver":"v1","role":"ROLE_EXCHANGE"}`],
+      ["not a string", `{"ver":1,"role":"ROLE_EXCHANGE"}`],
+      ["a bare null document", `null`],
+    ] as const) {
+      it(`is refused: ${name}`, async () => {
+        const { r } = reader(body);
+        const err = await r
+          .resolveRegistrationRequirements("exchange.test")
+          .then(() => undefined)
+          .catch((e: unknown) => e);
+        expect(err).toBeInstanceOf(ManifestUnusable);
+        // The seams' vocabularies are disjoint, and this is where that is kept true: a
+        // caller classifying against the ENDPOINT contract must not reach a registration
+        // verdict through its class.
+        expect(err).not.toBeInstanceOf(ManifestVersionRefused);
+      });
+    }
   });
 });

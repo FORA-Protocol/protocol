@@ -21,9 +21,11 @@ from fora_sdk.resolvers import (
     ExchangeNotPermittedError,
     ManifestNotExchangeError,
     ManifestUnusableError,
+    ManifestVersionRefusedError,
     RegistrationRequirements,
     WellKnownRequirementsReader,
 )
+from fora_sdk.wire import WellKnownManifestVersion
 
 _ENDPOINT = "https://exchange.test"
 _DIGEST = "sha256:" + "ab" * 32
@@ -388,7 +390,11 @@ def _manifest_reader(body: str) -> tuple[WellKnownRequirementsReader, list[int]]
 
 
 def _manifest(**extra: Any) -> str:
-    doc: dict[str, Any] = {"role": "ROLE_EXCHANGE", "endpoint": _ENDPOINT}
+    doc: dict[str, Any] = {
+        "ver": WellKnownManifestVersion,
+        "role": "ROLE_EXCHANGE",
+        "endpoint": _ENDPOINT,
+    }
     doc.update(extra)
     return json.dumps(doc)
 
@@ -403,7 +409,9 @@ def test_reader_fetches_afresh_on_every_read() -> None:
 def test_reader_refuses_a_manifest_that_is_not_an_exchange() -> None:
     for body in (
         _manifest(role="ROLE_BROKER"),
-        json.dumps({"endpoint": _ENDPOINT}),
+        # A well-versioned document naming no role at all: the version gate passes, so
+        # what refuses it is the role check and not something upstream of it.
+        json.dumps({"ver": WellKnownManifestVersion, "endpoint": _ENDPOINT}),
     ):
         reader, _ = _manifest_reader(body)
         with pytest.raises(ManifestNotExchangeError):
@@ -416,6 +424,34 @@ def test_reader_accepts_the_role_as_a_number() -> None:
     deleting the numeric arm left the whole suite green."""
     reader, _ = _manifest_reader(_manifest(role=2))
     assert reader.resolve_registration_requirements("exchange.test") is not None
+
+
+@pytest.mark.parametrize(
+    ("name", "body"),
+    [
+        ("absent", '{"role":"ROLE_EXCHANGE","endpoint":"https://exchange.test"}'),
+        ("unrecognised major", '{"ver":"2.0","role":"ROLE_EXCHANGE"}'),
+        ("not MAJOR.MINOR", '{"ver":"v1","role":"ROLE_EXCHANGE"}'),
+        ("not a string", '{"ver":1,"role":"ROLE_EXCHANGE"}'),
+        ("a bare null document", "null"),
+    ],
+)
+def test_reader_refuses_a_document_version_it_cannot_classify(name: str, body: str) -> None:
+    """A document whose version this reader cannot classify is refused before any other
+    member is read — the contract's rule for every consumer of this document, not only for
+    the face that reads an endpoint out of it. The digest it would otherwise return is
+    copied onto a field the request signature covers.
+
+    The bare ``null`` row is here because the three languages used to disagree about it:
+    Go reached "not an Exchange" and both ports raised a transport failure, so the same
+    bytes were a final refusal in one language and a retry-forever in the other two."""
+    reader, _ = _manifest_reader(body)
+    with pytest.raises(ManifestUnusableError) as caught:
+        reader.resolve_registration_requirements("exchange.test")
+    # The seams' vocabularies are disjoint, and this is where that is kept true: a caller
+    # classifying against the ENDPOINT contract must not reach a registration verdict
+    # through its sentinel.
+    assert not isinstance(caught.value, ManifestVersionRefusedError), name
 
 
 def test_reader_refuses_before_dialling() -> None:
@@ -439,7 +475,10 @@ def test_reader_measures_the_schema_over_the_served_bytes() -> None:
     that would minify under it must be refused here exactly as the Exchange refuses it,
     or a client pre-checks against a schema nobody enforces."""
     padded = '{"type":"object",' + " " * 20_000 + '"title":"x"}'
-    body = '{"role":"ROLE_EXCHANGE","account_registration":{"data_schema":' + padded + "}}"
+    body = (
+        '{"ver":"' + WellKnownManifestVersion + '","role":"ROLE_EXCHANGE",'
+        '"account_registration":{"data_schema":' + padded + "}}"
+    )
     reader, _ = _manifest_reader(body)
     got = reader.resolve_registration_requirements("exchange.test")
     assert got.verdict == "too_large"

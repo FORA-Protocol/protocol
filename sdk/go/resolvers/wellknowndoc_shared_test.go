@@ -146,8 +146,9 @@ func TestWellKnownDoc_anOffSpecOptionalMemberReadsAsAbsent(t *testing.T) {
 func TestWellKnownDoc_toleranceDoesNotSwallowAConformantMember(t *testing.T) {
 	digest := "sha256:" + repeat64("cd")
 	srv := httptest.NewServer(literalManifest(fmt.Sprintf(
-		`{"role":"ROLE_EXCHANGE","endpoint":"https://exchange.test","terms_digest":%q,`+
-			`"account_registration":{"data_schema":%s}}`, digest, acceptedSchema), nil))
+		`{"ver":%q,"role":"ROLE_EXCHANGE","endpoint":"https://exchange.test","terms_digest":%q,`+
+			`"account_registration":{"data_schema":%s}}`,
+		helpers.WellKnownManifestVersion, digest, acceptedSchema), nil))
 	defer srv.Close()
 
 	got, err := loopbackReader(nil).ResolveRegistrationRequirements(

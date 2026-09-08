@@ -27,8 +27,13 @@ import {
   type RegistrationSchema,
   type SchemaVerdict,
 } from "../src/regschema.ts";
-import { WellKnownPath } from "../src/wire.ts";
-import { DirectoryUnavailable, ExchangeNotPermitted, ManifestNotExchange } from "./errors.ts";
+import { manifestVersionRefusal, WellKnownPath } from "../src/wire.ts";
+import {
+  DirectoryUnavailable,
+  ExchangeNotPermitted,
+  ManifestNotExchange,
+  ManifestUnusable,
+} from "./errors.ts";
 import { type FetchLike, fetchStrict, guardedFetchFromEnv } from "./http.ts";
 
 /** What one Exchange asks of a registration. Both members are optional in the
@@ -95,6 +100,11 @@ export function createWellKnownRequirementsReader(
       // difference bites: nothing upstream has run the contract's rule, and the URL
       // below is built by concatenation, so a value carrying a path or userinfo
       // would choose WHAT is fetched rather than merely where from.
+      //
+      // The document's own version is read BEFORE any other member below, which is the
+      // rule the contract states for every consumer of this document and not only for
+      // the face that reads an endpoint out of it. A layout this reader cannot classify
+      // does not get to supply a terms digest that a request signature then covers.
       if (!isBareDomain(exchange)) {
         throw invalidHost(exchange, "not a bare domain");
       }
@@ -109,8 +119,20 @@ export function createWellKnownRequirementsReader(
       } catch (err) {
         throw new DirectoryUnavailable(`manifest decode ${url}`, { cause: err });
       }
-      if (doc === null || typeof doc !== "object" || Array.isArray(doc)) {
-        throw new DirectoryUnavailable(`manifest at ${url} is not a JSON object`);
+      // The document version gate, before any other member is read — the contract's own
+      // ordering, and the same call the sibling endpoint face makes. A document that is
+      // not an object carries no `ver`, so it is refused here as an absent one rather
+      // than through a guard of its own: a body of bare `null` is a body with no
+      // version, whatever else it is, and giving it a separate answer is what made the
+      // three languages disagree about it.
+      //
+      // The refusal wears THIS seam's verdict, never the endpoint seam's
+      // ManifestVersionRefused. The two vocabularies are disjoint on purpose: one
+      // answers whether an endpoint may be dialled, this one whether a document can be
+      // read for what a registration owes.
+      const versionRefusal = manifestVersionRefusal((doc as { ver?: unknown } | null)?.ver);
+      if (versionRefusal !== undefined) {
+        throw new ManifestUnusable(versionRefusal);
       }
       if (!describesExchange(doc)) {
         throw new ManifestNotExchange(`host=${exchange}`);

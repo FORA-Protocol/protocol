@@ -162,6 +162,11 @@ func NewWellKnownRequirementsReader(opts WellKnownOptions) *WellKnownRequirement
 // a leading or trailing hyphen, an underscore and a bracketed IPv6 literal are all
 // usable hosts that the wire rule refuses.
 //
+// The document's own version is read BEFORE any other member, which is the rule the
+// contract states for every consumer of this document and not only for the face that
+// reads an endpoint out of it. A layout this reader cannot classify does not get to
+// supply a terms digest that a request signature then covers.
+//
 // A refused schema is never an error. The verdict is returned alongside a nil
 // Schema, because the contract requires a client that cannot check locally to send
 // anyway and let the Exchange decide.
@@ -186,6 +191,20 @@ func (r *WellKnownRequirementsReader) ResolveRegistrationRequirements(
 	if err != nil {
 		return RegistrationRequirements{}, fmt.Errorf(
 			"resolvers: registration requirements for %q: %w", exchange, err)
+	}
+	// The document version gate, before any other member is read — the contract's own
+	// ordering, and the same gate the endpoint face runs. It is applied per face rather
+	// than inside fetchWellKnownDoc because the key face shares that fetch and may be
+	// pointed at a document carrying no manifest version at all.
+	//
+	// The refusal wears THIS seam's verdict, not the endpoint seam's sentinel. The two
+	// vocabularies are disjoint on purpose: one answers whether an endpoint may be
+	// dialled, this one whether a document can be read for what a registration owes.
+	// %v rather than %w on the inner error keeps it that way — the reason text reaches
+	// the operator, and ErrManifestVersionRefused stays unreachable through errors.Is
+	// on this seam, which is what stops a caller classifying against the wrong contract.
+	if verr := helpers.CheckWellKnownManifestVersion(manifestVer(doc.Ver)); verr != nil {
+		return RegistrationRequirements{}, fmt.Errorf("%w: %v", ErrManifestUnusable, verr)
 	}
 	if !doc.describesExchange() {
 		return RegistrationRequirements{}, fmt.Errorf("%w: host=%q", ErrManifestNotExchange, exchange)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,7 +22,11 @@ func requirementsManifest(role string, digest *string, schema json.RawMessage, h
 		if hits != nil {
 			*hits++
 		}
-		doc := map[string]any{"role": role, "endpoint": "https://exchange.test"}
+		doc := map[string]any{
+			"ver":      helpers.WellKnownManifestVersion,
+			"role":     role,
+			"endpoint": "https://exchange.test",
+		}
 		if digest != nil {
 			doc["terms_digest"] = *digest
 		}
@@ -192,22 +197,25 @@ func TestRequirements_refusesAManifestThatIsNotAnExchange(t *testing.T) {
 	}
 }
 
-// The sentinel this reader never raises, asserted rather than assumed.
+// The two disappointments this reader does NOT turn into a verdict, asserted rather
+// than assumed.
 //
-// ErrManifestUnusable exists for a reader STRICTER than this one. The two ways a
-// manifest disappoints this one are both deliberate non-errors, and each is a
-// decision another test would not notice being reversed: an off-spec member reads
-// as absent so one of them cannot fail a document the endpoint and key faces would
-// have read, and a document that does not decode is a transport failure because the
-// next fetch may decode. Raising the verdict for either would make this reader
+// It refuses a document whose VERSION it cannot classify — see the test below — and
+// nothing else reaches ErrManifestUnusable. These two are deliberate non-errors, and
+// each is a decision another test would not notice being reversed: an off-spec member
+// reads as absent so one of them cannot fail a document the endpoint and key faces
+// would have read, and a document that does not decode is a transport failure because
+// the next fetch may decode. Raising the verdict for either would make this reader
 // refuse finally where it currently tolerates or retries.
-func TestRequirements_neverRaisesTheUnusableVerdictItself(t *testing.T) {
+func TestRequirements_theToleratedDisappointmentsAreNotVerdicts(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		body string
 	}{
-		// Both optional members carrying a type the contract does not admit.
-		{"off-spec members", `{"role":"ROLE_EXCHANGE","terms_digest":7,` +
+		// Both optional members carrying a type the contract does not admit. The
+		// version is well formed, so what the row measures is the members alone.
+		{"off-spec members", `{"ver":"` + helpers.WellKnownManifestVersion +
+			`","role":"ROLE_EXCHANGE","terms_digest":7,` +
 			`"account_registration":"not an object"}`},
 		{"not JSON at all", `<html>502 Bad Gateway</html>`},
 		{"truncated mid-document", `{"role":"ROLE_EXCHANGE","terms_`},
@@ -233,13 +241,60 @@ func TestRequirements_neverRaisesTheUnusableVerdictItself(t *testing.T) {
 // role that way is the same manifest.
 func TestRequirements_acceptsTheRoleAsANumber(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"role":2,"endpoint":"https://exchange.test"}`))
+		_, _ = fmt.Fprintf(w, `{"ver":%q,"role":2,"endpoint":"https://exchange.test"}`,
+			helpers.WellKnownManifestVersion)
 	}))
 	defer srv.Close()
 
 	if _, err := loopbackReader(nil).ResolveRegistrationRequirements(
 		context.Background(), hostOf(t, srv)); err != nil {
 		t.Fatalf("numeric role refused: %v", err)
+	}
+}
+
+// A document whose version this reader cannot classify is refused before any other
+// member is read — the contract's rule for every consumer of this document, not only
+// for the face that reads an endpoint out of it. The digest this reader would
+// otherwise return is copied onto a field the request signature covers.
+//
+// The bare `null` row is here because the three languages used to disagree about it:
+// Go reached "not an Exchange" and both ports raised a transport failure, so the same
+// bytes were a final refusal in one language and a retry-forever in the other two.
+// Reading the version first collapses that: a body with no version is a body with no
+// version, whatever else it is.
+func TestRequirements_refusesADocumentVersionItCannotClassify(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{"absent", `{"role":"ROLE_EXCHANGE","endpoint":"https://exchange.test"}`},
+		{"unrecognised major", `{"ver":"2.0","role":"ROLE_EXCHANGE"}`},
+		{"not MAJOR.MINOR", `{"ver":"v1","role":"ROLE_EXCHANGE"}`},
+		{"not a string", `{"ver":1,"role":"ROLE_EXCHANGE"}`},
+		{"a bare null document", `null`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(
+				func(w http.ResponseWriter, _ *http.Request) {
+					_, _ = w.Write([]byte(tc.body))
+				}))
+			defer srv.Close()
+
+			_, err := loopbackReader(nil).ResolveRegistrationRequirements(
+				context.Background(), hostOf(t, srv))
+			if !errors.Is(err, resolvers.ErrManifestUnusable) {
+				t.Fatalf("err = %v, want it to carry ErrManifestUnusable", err)
+			}
+			// The seams' vocabularies are disjoint, and this is where that is kept
+			// true. Wrapping the inner error instead of formatting it would make the
+			// ENDPOINT seam's sentinel reachable here, and a caller classifying
+			// against the endpoint contract would then read a registration verdict
+			// through it.
+			if errors.Is(err, resolvers.ErrManifestVersionRefused) {
+				t.Errorf("err = %v carries the endpoint seam's ErrManifestVersionRefused; "+
+					"this seam answers with its own verdict", err)
+			}
+		})
 	}
 }
 

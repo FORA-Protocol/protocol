@@ -40,10 +40,11 @@ from fora_sdk.resolvers.errors import (
     DirectoryUnavailableError,
     ExchangeNotPermittedError,
     ManifestNotExchangeError,
+    ManifestUnusableError,
 )
 from fora_sdk._hostref import _invalid_host
 from fora_sdk.resolvers.wellknown import AllowFn
-from fora_sdk.wire import WellKnownPath
+from fora_sdk.wire import WellKnownPath, manifest_version_refusal
 
 __all__ = [
     "RegistrationRequirements",
@@ -118,6 +119,11 @@ class WellKnownRequirementsReader:
         below is built by concatenation, so a value carrying a path or userinfo would
         choose WHAT is fetched rather than merely where from.
 
+        The document's own version is read BEFORE any other member, which is the rule the
+        contract states for every consumer of this document and not only for the face
+        that reads an endpoint out of it. A layout this reader cannot classify does not
+        get to supply a terms digest that a request signature then covers.
+
         A refused schema is never an exception: the verdict is returned alongside a
         ``None`` schema, because the contract requires a client that cannot check
         locally to send anyway and let the Exchange decide.
@@ -138,8 +144,20 @@ class WellKnownRequirementsReader:
             doc = json.loads(body)
         except ValueError as exc:
             raise DirectoryUnavailableError(f"manifest decode {url}") from exc
-        if not isinstance(doc, dict):
-            raise DirectoryUnavailableError(f"manifest at {url} is not a JSON object")
+        # The document version gate, before any other member is read — the contract's own
+        # ordering, and the same call the sibling endpoint face makes. A document that is
+        # not an object carries no ``ver``, so it is refused here as an absent one rather
+        # than through a guard of its own: a body of bare ``null`` is a body with no
+        # version, whatever else it is, and giving it a separate answer is what made the
+        # three languages disagree about it.
+        #
+        # The refusal wears THIS seam's verdict, never the endpoint seam's
+        # ``ManifestVersionRefusedError``. The two vocabularies are disjoint on purpose:
+        # one answers whether an endpoint may be dialled, this one whether a document can
+        # be read for what a registration owes.
+        refusal = manifest_version_refusal(doc.get("ver") if isinstance(doc, dict) else None)
+        if refusal is not None:
+            raise ManifestUnusableError(refusal)
         if not _describes_exchange(doc):
             raise ManifestNotExchangeError(f"host={exchange}")
         digest = doc.get("terms_digest")
