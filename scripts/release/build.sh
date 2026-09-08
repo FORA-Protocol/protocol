@@ -12,7 +12,18 @@ set -euo pipefail
 tag=$1; out=${2:-release-dist}; version=${tag#v}
 here=$(cd "$(dirname "$0")" && pwd); root=$(cd "$here/../.." && pwd)
 
-if gh release download "$tag" --pattern SHA256SUMS --dir "$(mktemp -d)" 2>/dev/null; then
+# Ask for the asset list explicitly. A 404 means no release yet (the marker is
+# absent). Any other error is fatal: "could not ask GitHub" must never be read
+# as "the marker is absent", or a transient failure would rebuild and overwrite
+# a complete set.
+if names=$(gh api "repos/{owner}/{repo}/releases/tags/$tag" --jq '.assets[].name' 2>&1); then
+  :
+elif [[ "$names" == *"HTTP 404"* ]]; then
+  names=""
+else
+  echo "::error::cannot read release $tag: $names"; exit 1
+fi
+if grep -qx SHA256SUMS <<<"$names"; then
   echo "SHA256SUMS is on release $tag: verifying the existing assets, building nothing"
   exec "$here/download.sh" "$tag" "$out"
 fi
