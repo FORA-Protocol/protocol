@@ -317,11 +317,12 @@ func (r refusingRequirements) ResolveRegistrationRequirements(
 // this deployment or the Exchange refused is FINAL, anything else is a transport
 // failure worth retrying. Without the split a caller retries a refusal forever.
 //
-// All four verdicts are reachable only through an INJECTED reader — the verb's own
-// recipient check runs the host rule first, the SDK's reader applies the next two
-// itself, and it never returns the fourth at all — which is exactly why they need a
-// test: nothing else exercises them, and a consumer that injects a reader is the
-// case this classification exists for.
+// The SDK's own reader reaches the last three itself — the middle two for the
+// document it was handed, and ErrManifestUnusable for a version it cannot classify
+// — and only the host refusal is normally out of reach, because the verb's own
+// recipient check runs that rule first. An INJECTED reader can reach all four, which
+// is the case this classification exists for, and driving them through one is what
+// makes each arm exercised rather than merely present.
 func TestRegister_ClassifiesARefusedRequirementsRead(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -334,8 +335,11 @@ func TestRegister_ClassifiesARefusedRequirementsRead(t *testing.T) {
 			resolvers.ErrExchangeNotPermitted), foraconnect.CallNotSent},
 		{"the document is not an Exchange's", fmt.Errorf("%w: wrong role",
 			resolvers.ErrManifestNotExchange), foraconnect.CallNotSent},
-		{"a stricter reader cannot use the document", fmt.Errorf("%w: ver 2.0",
-			resolvers.ErrManifestUnusable), foraconnect.CallNotSent},
+		// The SDK's own reader answers exactly this for a version it cannot classify,
+		// and a stricter one reaches the same word for the rest of a document it
+		// refuses. One arm, both callers.
+		{"the document cannot be read for what a registration owes",
+			fmt.Errorf("%w: ver 2.0", resolvers.ErrManifestUnusable), foraconnect.CallNotSent},
 		{"the read never completed", errors.New("connection reset"),
 			foraconnect.CallUnreachable},
 	} {

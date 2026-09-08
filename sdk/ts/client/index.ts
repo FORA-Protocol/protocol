@@ -110,10 +110,18 @@ export const DEFAULT_PROOF_WINDOW_SEC = 30;
  * implementation that throws a bare error for a refusal therefore has its final answer
  * retried indefinitely.
  *
- * ManifestUnusable is the one an implementation stricter than the SDK's own reaches for.
- * That reader refuses three things and treats every other disappointment as absence or as
- * a transport failure; one that validates the whole document, or refuses a version, is
- * holding a final answer this seam would otherwise report as transient. */
+ * ManifestUnusable is the seam's word for "the document arrived and cannot be read for
+ * what a registration owes". The SDK's own reader reaches it for a document version it
+ * cannot classify, and treats its other two disappointments as absence or as a transport
+ * failure. An implementation STRICTER than that one — validating the whole document, or
+ * applying a narrower version rule — reaches for the same word, and would otherwise hold
+ * a final answer this seam reported as transient.
+ *
+ * Note which class that is NOT. ManifestVersionRefused belongs to the endpoint seam and
+ * is absent from the list above on purpose: the two vocabularies are disjoint, one
+ * answering whether an endpoint may be dialled and this one whether a document can be
+ * read. An implementation that throws the endpoint class for a version refusal here has
+ * its verdict read as a transport failure. */
 export interface RegistrationRequirementsReader {
 	resolveRegistrationRequirements(exchange: string): Promise<RegistrationRequirements>;
 }
@@ -861,10 +869,12 @@ async function applyRegistrationRequirements(
 		// transport failure worth retrying. The same split the routing tier makes, and
 		// the same causes: a value that is not a host will not become one on a later
 		// attempt either, and a document that arrived unusable arrives unusable again.
-		// The verb's own recipient check runs the host rule first, and the SDK's own
-		// reader never throws ManifestUnusable at all — so these reach here only through
-		// an INJECTED reader, and classifying its refusal as retryable would have a
-		// caller retry a verdict.
+		// The SDK's own reader throws all three itself — the middle two for the document
+		// it was handed, and ManifestUnusable for a version it cannot classify — and an
+		// INJECTED reader stricter than it reaches the same three. Only the invalid-host
+		// refusal is normally out of reach here, because the verb's own recipient check
+		// runs that rule first. Classifying any of them as retryable would have a caller
+		// retry a verdict.
 		if (
 			err instanceof ExchangeNotPermitted ||
 			err instanceof ManifestNotExchange ||

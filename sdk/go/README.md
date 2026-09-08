@@ -242,14 +242,19 @@ import "github.com/FORA-Protocol/protocol/sdk/go/resolvers"
   one Exchange asks of a registration — the terms revision submitting one accepts and
   the schema its `registration_data` must match — from the same
   `/.well-known/fora.json`, and holds NO document cache: the contract requires the
-  digest to come from a freshly fetched manifest. Three
+  digest to come from a freshly fetched manifest. It reads the document's `ver` before
+  any other member, exactly as the endpoint face does — the rule is stated for every
+  consumer of this document, and a layout no reader can classify must not supply a
+  terms digest a request signature then covers. Three
   sentinels, same retry question as above: `ErrExchangeNotPermitted` when the
   deployment's own overlay excluded the domain before anything was dialled,
   `ErrManifestNotExchange` when the document describes another role, and
-  `ErrManifestUnusable` — which this reader never raises, and which exists because the
-  seam is injectable: a reader stricter than this one needs a way to say its refusal is
-  final. All three are verdicts; anything else is a transport failure and worth
-  retrying. An off-spec optional member reads as ABSENT rather than failing the
+  `ErrManifestUnusable` when the document cannot be read for what a registration owes —
+  which is what a refused version answers, and what a reader stricter than this one
+  reaches for, since the seam is injectable. All three are verdicts; anything else is a
+  transport failure and worth retrying. Note that `ErrManifestVersionRefused` is NOT in
+  that set: it belongs to the endpoint seam, and the two vocabularies are disjoint on
+  purpose. An off-spec optional member reads as ABSENT rather than failing the
   document, because the projection is shared with the two faces above.
 - **Active-key selection** — `ActiveEd25519Key` / `ActiveEd25519KeyWithExpiry` pick
   an identity's window-active key by document order; the `…Screened` variants fold in

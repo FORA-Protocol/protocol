@@ -130,10 +130,11 @@ describe("createWellKnownKeyResolver", () => {
 	// whole publisher key set; survivors still resolve, bad entries become
 	// unknown (undefined).
 	it("is not gated on a manifest version", async () => {
-		// The manifest version gate is the endpoint face's alone. A key document is
-		// a plain JWK Set, not a manifest: it carries no WellKnownManifest.ver, and
-		// one that happens to carry a `ver` the endpoint face would refuse still
-		// resolves keys. Pins that decision — gating the key face fails here.
+		// The manifest version gate belongs to the two MANIFEST faces, and this is
+		// not one of them. A key document is a plain JWK Set: it carries no
+		// WellKnownManifest.ver, and one that happens to carry a `ver` those faces
+		// would refuse still resolves keys. Pins that decision — gating the key face
+		// fails here.
 		const k = await makeKey();
 		for (const verMember of ["", '"ver":"2.0",', '"ver":1,']) {
 			origin = await startOrigin();

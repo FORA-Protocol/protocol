@@ -638,10 +638,12 @@ def _apply_registration_requirements(cfg: ClientConfig, op: str, sent: dict[str,
     exchange = _str_field(sent, "exchange")
     try:
         reqs = reader.resolve_registration_requirements(exchange)
-    # Every verdict this seam admits, and each is reachable only through an INJECTED
-    # reader: the verb's own recipient check runs the host rule first, the SDK's own
-    # reader raises the middle two itself, and it never raises ManifestUnusableError at
-    # all. Calling any of them retryable would have a caller retry a verdict.
+    # Every verdict this seam admits. The SDK's own reader raises all three itself —
+    # the middle two for the document it was handed, and ManifestUnusableError for a
+    # version it cannot classify — and an INJECTED reader stricter than it reaches the
+    # same three. Only the invalid-host refusal is normally out of reach here, because
+    # the verb's own recipient check runs that rule first. Calling any of them
+    # retryable would have a caller retry a verdict.
     except (
         ExchangeNotPermittedError,
         ManifestNotExchangeError,

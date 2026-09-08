@@ -169,11 +169,19 @@ class RegistrationRequirementsReader(Protocol):
     and reported as ``UNREACHABLE``, i.e. worth retrying. An implementation that raises
     a bare exception for a refusal therefore has its final answer retried indefinitely.
 
-    ``ManifestUnusableError`` is the one an implementation stricter than the SDK's own
-    reaches for. That reader refuses three things and treats every other disappointment
-    as absence or as a transport failure; one that validates the whole document, or
-    refuses a version, is holding a final answer this seam would otherwise report as
-    transient.
+    ``ManifestUnusableError`` is the seam's word for "the document arrived and cannot be
+    read for what a registration owes". The SDK's own reader reaches it for a document
+    version it cannot classify, and treats its other two disappointments as absence or as
+    a transport failure. An implementation STRICTER than that one — validating the whole
+    document, or applying a narrower version rule — reaches for the same word, and would
+    otherwise hold a final answer this seam reported as transient.
+
+    Note which class that is NOT.
+    :class:`~fora_sdk.resolvers.errors.ManifestVersionRefusedError` belongs to the
+    endpoint seam and is absent from the list above on purpose: the two vocabularies are
+    disjoint, one answering whether an endpoint may be dialled and this one whether a
+    document can be read. An implementation that raises the endpoint class for a version
+    refusal here has its verdict read as a transport failure.
     """
 
     def resolve_registration_requirements(

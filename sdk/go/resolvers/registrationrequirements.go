@@ -30,19 +30,30 @@ var ErrManifestNotExchange = errors.New("resolvers: well-known manifest does not
 // use it. It is a VERDICT and not a failed read: the bytes were served, and the
 // next attempt gets the same ones, so a caller told to retry retries forever.
 //
-// This reader never returns it. Its own refusals are the three above, and the two
-// ways a manifest can disappoint it are both deliberate non-errors: a member
-// carrying a type the contract does not admit reads as ABSENT, because the
+// This reader returns it for exactly ONE thing: a document whose version it cannot
+// classify. That is the contract's own first question about this document, asked
+// before any other member is read, and a layout no reader can classify is not a
+// disappointment about one member — it is the whole document being unreadable for
+// what a registration owes.
+//
+// The other two ways a manifest can disappoint it stay deliberate non-errors: a
+// member carrying a type the contract does not admit reads as ABSENT, because the
 // projection is shared with the endpoint and key faces and one off-spec member
 // must not fail a document the other two would have read; and a document that
 // does not decode at all is a transport failure, because a proxy serving an error
 // page under a 200 may well not be serving one on the next try.
 //
-// It exists because this seam is injectable and a reader stricter than this one
-// has to be able to say so. A reader that validates the whole manifest against a
-// schema, or refuses a version, holds a refusal that is final and had no way to
-// declare it — and a refusal a caller cannot tell from an outage is one it retries
-// against a third party's origin until something else stops it.
+// It is ALSO the word for a reader stricter than this one, which is why the seam
+// admits it at all. This seam is injectable, and a reader that validates the whole
+// manifest against a schema — or applies a version rule narrower than this one —
+// holds a refusal that is final and would otherwise have no way to declare it, and
+// a refusal a caller cannot tell from an outage is one it retries against a third
+// party's origin until something else stops it.
+//
+// It is deliberately NOT the endpoint seam's ErrManifestVersionRefused. The two
+// seams' vocabularies are disjoint: that one answers whether an endpoint may be
+// dialled, this one whether a document can be read for what a registration owes.
+// A version refusal reached through this seam therefore wears this word.
 var ErrManifestUnusable = errors.New("resolvers: well-known manifest cannot be used by this reader")
 
 // RegistrationRequirements is what one Exchange asks of a registration: the terms

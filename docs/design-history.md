@@ -1780,15 +1780,27 @@ inferred from whatever implementation the reader has at hand. `ErrManifestUnusab
 it. The document arrived, this reader cannot use it, and the next fetch returns the same
 bytes.
 
-**The SDK's own reader never raises it, and that is the point rather than an omission.**
-The two ways a manifest disappoints that reader are both deliberate non-errors, and each
-is load-bearing somewhere else. An optional member carrying a type the contract does not
-admit reads as ABSENT, because the projection is shared with the endpoint and key faces
-and one off-spec member must not fail a document those two would have read fine. A
-document that does not decode at all is a transport failure, because a proxy serving an
-error page under a 200 may well not be serving one on the next attempt, and the leg that
-shares this classification carries usage reports, where a wrongly-permanent refusal loses
-money. Both stay. The sentinel exists for the reader the SDK did not write.
+**The SDK's own reader raises it for exactly one thing, and its two other
+disappointments stay deliberate non-errors.** An optional member carrying a type the
+contract does not admit reads as ABSENT, because the projection is shared with the
+endpoint and key faces and one off-spec member must not fail a document those two would
+have read fine. A document that does not decode at all is a transport failure, because a
+proxy serving an error page under a 200 may well not be serving one on the next attempt,
+and the leg that shares this classification carries usage reports, where a
+wrongly-permanent refusal loses money. Both stay.
+
+What the reader does answer with it is a document version it cannot classify. That was
+not true when this section was first written — the version gate lived only on the
+endpoint face, and this reader was described as never reaching the sentinel at all. The
+correction is recorded under "The manifest version is a question about the document, not
+about the endpoint" below; the shape of the argument here is unchanged by it. A version
+refusal is not a disappointment about one optional member, which is what the two
+tolerated cases are. It is the whole document being unreadable for what a registration
+owes, which is the sentence this sentinel already carried.
+
+The sentinel therefore has two callers rather than one, and that costs nothing: it still
+exists for the reader the SDK did not write, and a reader stricter than this one reaches
+for the same word.
 
 **The endpoint seam's sentinels were not reused, and no sentinel was shared between the
 two seams.** Their vocabularies are disjoint on purpose: one answers "can this endpoint be
@@ -1797,16 +1809,71 @@ verdicts of each are properties of its own question. The single sentinel both se
 is the invalid-host refusal, and only because it is the L1 host predicate both
 implementations run rather than a verdict either of them reaches. Widening the
 requirements seam to the endpoint seam's version refusal would have been the first
-crossing, and it would have said a manifest version is a registration concern, which it is
-not — a reader that refuses one now has a verdict of its own shape to wrap.
+crossing, and it would have said a manifest version is an endpoint concern wherever it is
+read — a reader that refuses one has a verdict of its own shape to wrap.
+
+That last clause is now load-bearing rather than hypothetical. The SDK's own requirements
+reader refuses a version, and it wraps `ErrManifestUnusable` to say so: the same
+condition, answered in each seam's own vocabulary, rather than one sentinel travelling
+between them. Each language asserts the endpoint sentinel stays unreachable from the
+requirements seam, because the crossing is one letter wide — wrapping the inner error
+instead of formatting it — and nothing else would notice.
 
 **One cost, named because it is real and recurring.** A sentinel set is an allowlist, and
 an implementation that does not know a member exists gets its answer misread — which has
-now happened three times on this seam and its sibling. The alternative shape already ships
+now happened four times on this seam and its sibling. The alternative shape already ships
 one tier over: the content fetch returns a classified error whose finality the caller
 reads off a field, so an implementation declares its verdict instead of guessing which
 sentinel to wrap. Moving these two seams to that shape is the change that would close this
 rather than document it.
+
+## The manifest version is a question about the document, not about the endpoint
+
+The `/.well-known/fora.json` version rule is stated for consumers, not for one face: read
+`ver` before any other member, accept a recognised major whatever the minor, refuse an
+unrecognised major, a malformed value, and an absent one. The reason is the document's
+position rather than any particular use of it — it sits at a fixed, unversioned path and
+is read before any signature is checked, so a layout the reader cannot classify has not
+earned the right to be acted on.
+
+Three SDK faces read that document. Two of them read the manifest projection, and only one
+of those applied the rule. The registration-requirements reader went straight to
+`terms_digest` and the published `data_schema`, and the digest it returned is copied onto
+`RegisterRequest.terms_digest`, where the request signature covers it. So an unclassifiable
+layout could not supply an endpoint but could supply a value a signature then vouched for,
+which is the same objection one clause down.
+
+It was not a decision, and the tree recorded the gap in three places without anyone reading
+them together: the field comment said the endpoint resolvers apply the rule, the shared
+projection's own comment said the gate "is the endpoint face's alone" while a third face
+decoded through it, and the sentinel doc for the requirements seam listed "or refuses a
+version" as something only a stricter reader would ever do.
+
+**The gate is applied per FACE, not inside the shared fetch.** All three faces go through
+one fetch-and-decode, and putting the rule there would have been the shorter change. The
+key face reads a plain JWK Set, which carries no manifest version and never will, so a
+shared gate would refuse it for lacking a member its shape does not have. Two callers
+stating the rule is the honest arrangement here; the corpus underneath them is what keeps
+the two statements from drifting, because the verdict function is one pure rule pinned in
+all three languages.
+
+**A second divergence closed itself.** The two ports had guarded for "the body is not a
+JSON object" and answered a transport failure, where Go's struct decode swallowed a bare
+`null` and reached "this is not an Exchange". So the same bytes were a final refusal in
+one language and an endless retry in the other two — against a third party's origin, which
+is the outcome all three doc-blocks on that file warn about. Reading the version first
+removes the guard along with the disagreement: a body with no version is a body with no
+version, whatever else it is, and that is one answer in three languages. It also leaves
+each port's reader shaped like its own endpoint sibling, which is where the ordering came
+from in the first place.
+
+**The refusal wears the requirements seam's word.** See the section above for why the two
+seams' vocabularies stay disjoint. The practical consequence is one letter: the inner
+error is FORMATTED into the message rather than wrapped, so the endpoint seam's sentinel
+does not become reachable through this one, and each language pins that with a test. A
+caller classifying against the endpoint contract would otherwise read a registration
+verdict through it — which is exactly the confusion the first external implementation of
+this seam is living with today, in the other direction.
 
 ## The peer's token is ours to trust; the peer's sentence is only ours to carry
 

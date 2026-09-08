@@ -54,14 +54,20 @@ var ErrEndpointRefused = errors.New("resolvers: well-known manifest advertises a
 // other member is read, are stated once on WellKnownManifest.ver in the proto.
 var ErrManifestVersionRefused = helpers.ErrManifestVersionRefused
 
-// wellKnownDoc is the JSON projection the two well-known resolvers decode
-// through: one decoder for two document shapes, each face reading only its own
-// members. The key face (WellKnownKeyResolver) fetches a plain RFC 7517 JWK Set
-// from an operator-chosen URL and reads `keys`. The endpoint face
-// (WellKnownEndpointResolver) fetches /.well-known/fora.json and reads the
-// WellKnownManifest projection — the document version (field 1) and the
-// self-advertised ExchangeService endpoint (field 12). A JWK Set carries no
-// manifest version, which is why the version gate is the endpoint face's alone.
+// wellKnownDoc is the JSON projection the three well-known faces decode through:
+// one decoder for two document shapes, each face reading only its own members. The
+// key face (WellKnownKeyResolver) fetches a plain RFC 7517 JWK Set from an
+// operator-chosen URL and reads `keys`. The endpoint face
+// (WellKnownEndpointResolver) and the registration-requirements face
+// (WellKnownRequirementsReader) both fetch /.well-known/fora.json and read the
+// WellKnownManifest projection — the document version (field 1), the
+// self-advertised ExchangeService endpoint (field 12), and the members a
+// registration owes.
+//
+// The version gate belongs to the two MANIFEST faces, and is applied by each of
+// them rather than inside fetchWellKnownDoc: a JWK Set carries no manifest version,
+// so gating in the shared fetch would refuse the key face's document for lacking a
+// member its shape never has.
 //
 // Ver is held raw rather than as a string so a document whose `ver` is not a
 // JSON string still decodes: the gate then refuses it as a verdict — the answer

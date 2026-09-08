@@ -118,13 +118,25 @@ export class ManifestNotExchange extends ResolverError {
  * failed read: the bytes were served, and the next attempt gets the same ones, so
  * a caller told to retry retries forever.
  *
- * The SDK's own requirements reader never throws it. The two ways a manifest can
- * disappoint that reader are both deliberate non-errors: a member carrying a type
- * the contract does not admit reads as ABSENT, because the projection is shared
- * with the endpoint and key faces, and a document that does not parse at all is a
- * transport failure. This class exists because the reader seam is injectable and
- * one stricter than the SDK's own — validating the whole document, or refusing a
- * version — has to be able to say its refusal is final. */
+ * The SDK's own requirements reader throws it for exactly ONE thing: a document
+ * whose version it cannot classify. That is the contract's own first question about
+ * this document, asked before any other member is read, and a layout no reader can
+ * classify is not a disappointment about one member — it is the whole document being
+ * unreadable for what a registration owes.
+ *
+ * The other two ways a manifest can disappoint that reader stay deliberate
+ * non-errors: a member carrying a type the contract does not admit reads as ABSENT,
+ * because the projection is shared with the endpoint and key faces, and a document
+ * that does not parse at all is a transport failure.
+ *
+ * It is ALSO the word for a reader stricter than the SDK's own, which is why the
+ * seam admits it at all: that seam is injectable, and a reader validating the whole
+ * document — or applying a version rule narrower than this one — has to be able to
+ * say its refusal is final.
+ *
+ * Deliberately NOT `ManifestVersionRefused`, which belongs to the endpoint seam. The
+ * two vocabularies are disjoint: that one answers whether an endpoint may be dialled,
+ * this one whether a document can be read for what a registration owes. */
 export class ManifestUnusable extends ResolverError {
   constructor(message: string, options?: { cause?: unknown }) {
     super(message, options);
