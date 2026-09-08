@@ -14,8 +14,14 @@ FORA protocol SDK for TypeScript. One package with three layers:
 npm install @fora-protocol/sdk zod
 ```
 
-`zod` is a peer dependency. `hono` is an optional peer dependency, needed only for
-`@fora-protocol/sdk/hono`. Requires Node 22 or later (the resolvers use `node:dns`).
+`zod` is a peer dependency (Zod 3.23 or later, or Zod 4). `hono` is an optional peer
+dependency, needed only for `@fora-protocol/sdk/hono`.
+
+Runtime: Node 22 or later (the resolvers use `node:dns`).
+
+TypeScript: the generated schema types ship as `.ts` source and compile under your
+compiler settings. They compile with `target` `ES2020` or later and that target's default
+`lib`; no extra `lib` entries are needed. The release smoke test checks this floor.
 
 ```ts
 import { thumbprint } from "@fora-protocol/sdk/thumbprint";

@@ -8,6 +8,7 @@
 #   - compiles a strict NodeNext TypeScript consumer against the installed types
 #     with skipLibCheck false AND true, including type probes: inferred schema
 #     types are not `any`, valid assignments pass, invalid ones fail.
+#   - compiles the same consumer at target ES2020 with the default lib (the floor).
 #   scripts/release/smoke-npm.sh path/to/fora-protocol-sdk-1.2.3.tgz
 #   scripts/release/smoke-npm.sh @fora-protocol/sdk@1.2.3
 # ZOD_VERSIONS overrides the matrix (default: the peer-range floor, latest 3, latest 4).
@@ -97,5 +98,15 @@ JSON
     npx tsc -p tsconfig.json
     echo "TypeScript consumer + type probes compile (skipLibCheck: $skip)"
   done
+  # The generated schemas ship as .ts source, so they compile under the consumer's
+  # settings. target ES2020 with its DEFAULT lib (no "lib" list) is the floor the
+  # README promises; an ES2021+ API in shipped source fails here (fora-acw.2.2).
+  cat > tsconfig.json <<JSON
+{ "compilerOptions": { "module": "NodeNext", "moduleResolution": "NodeNext", "strict": true,
+    "noEmit": true, "skipLibCheck": false, "types": ["node"], "target": "ES2020" },
+  "files": ["consumer.ts"] }
+JSON
+  npx tsc -p tsconfig.json
+  echo "TypeScript consumer compiles at target ES2020 with the default lib"
 done
 echo "smoke-npm ok: $spec"

@@ -9,6 +9,10 @@ name: release
 #   5. install from each registry in a clean environment; Go proxy resolves the tag
 # Rerunning the workflow on the same tag is the recovery procedure. The tag
 # never moves. No registry token is stored in the repository.
+# The publish jobs verify the release assets against the SHA256SUMS content the
+# build job emitted (job output), so a replaced asset or marker between build
+# and approval fails publication. This pins bytes within one run only; a full
+# rerun reads the release as its starting point.
 
 on:
   push:
@@ -16,6 +20,14 @@ on:
 
 permissions:
   contents: read
+
+# One run per tag at a time: two builders on one tag could interleave asset
+# uploads with the marker. Mutual exclusion only: GitHub keeps one pending run
+# per group and a newer pending run replaces the older one; a rerun on the same
+# tag is idempotent, so nothing is lost. Never cancel a build mid-upload.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   versions:
@@ -43,6 +55,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # release assets
+    outputs:
+      sha256sums: ${{ steps.build.outputs.sha256sums }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -51,7 +65,8 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: sdk/ts/package-lock.json
-      - name: build once, or verify the existing release assets
+      - id: build
+        name: build once, or verify the existing release assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: scripts/release/build.sh "$GITHUB_REF_NAME"
@@ -66,10 +81,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - name: download the release files and verify SHA256SUMS
+      - name: download the release files and verify them against the build job's SHA256SUMS
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/release/download.sh "$GITHUB_REF_NAME" release-dist
+          SHA256SUMS: ${{ needs.build.outputs.sha256sums }}
+        run: scripts/release/download.sh "$GITHUB_REF_NAME" release-dist "$SHA256SUMS"
       - name: publish fora-protocol, then fora-protocol-sdk
         run: scripts/release/publish-pypi.sh release-dist "${GITHUB_REF_NAME#v}"
 
@@ -88,10 +104,11 @@ jobs:
           registry-url: https://registry.npmjs.org
       - name: npm 11.5.1+ (trusted publishing)
         run: npm install -g npm@11 && npm --version
-      - name: download the release files and verify SHA256SUMS
+      - name: download the release files and verify them against the build job's SHA256SUMS
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/release/download.sh "$GITHUB_REF_NAME" release-dist
+          SHA256SUMS: ${{ needs.build.outputs.sha256sums }}
+        run: scripts/release/download.sh "$GITHUB_REF_NAME" release-dist "$SHA256SUMS"
       - name: publish @fora-protocol/sdk
         run: scripts/release/publish-npm.sh "release-dist/fora-protocol-sdk-${GITHUB_REF_NAME#v}.tgz" "${GITHUB_REF_NAME#v}"
 
