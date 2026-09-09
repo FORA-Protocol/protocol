@@ -35,15 +35,14 @@ Update these authored version values to `X.Y.Z`:
 | File | Value |
 | --- | --- |
 | `package.json` | `version` |
-| `gen/ts/package.json` | `version` |
-| `sdk/ts/package.json` | `version` |
 | `gen/python/pyproject.toml` | `project.version` |
 | `sdk/python/pyproject.toml` | `project.version` |
 | `sdk/python/pyproject.toml` | the exact `fora-protocol==X.Y.Z` dependency |
 
 Do not change `website/package.json`; the website has an independent version.
 
-Use npm to update each TypeScript manifest and its lockfile together:
+Use npm to update each TypeScript manifest and its lockfile together. Do not edit
+these two `package.json` files first:
 
 ```bash
 (cd gen/ts && npm version X.Y.Z --no-git-tag-version)
@@ -60,7 +59,7 @@ uv lock --project sdk/python
 Check the result from the repository root:
 
 ```bash
-python3 scripts/release/check-versions.py X.Y.Z
+uv run --no-project --python '>=3.11' python scripts/release/check-versions.py X.Y.Z
 git diff --check
 git diff
 ```
@@ -76,7 +75,7 @@ the version gate once more:
 ```bash
 git switch main
 git pull --ff-only
-python3 scripts/release/check-versions.py X.Y.Z
+uv run --no-project --python '>=3.11' python scripts/release/check-versions.py X.Y.Z
 git status --short
 ```
 
@@ -111,8 +110,10 @@ Also confirm that the GitHub Release contains exactly the files listed by
 
 ## Recover a failed release
 
-Never move, delete, or recreate the tag. Fix external configuration if necessary,
-then rerun the failed workflow for the same tag.
+Never move, delete, or recreate the tag. If external configuration caused the
+failure, fix it and rerun the failed workflow for the same tag. If the tagged
+workflow or release code is defective, fix it in a pull request and release the
+next patch version.
 
 The release scripts are idempotent per file:
 
