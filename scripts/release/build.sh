@@ -5,7 +5,8 @@
 #   present: download and verify the existing assets, build nothing.
 #   absent:  the assets are from an incomplete run and nothing has used them
 #            (publish jobs require SHA256SUMS), so build, smoke-test, replace
-#            them, then upload SHA256SUMS last.
+#            them, then upload SHA256SUMS last. build-artifacts.sh writes the
+#            SHA256SUMS before its smoke tests; this script only uploads it.
 # A complete set is never overwritten. Needs gh (GH_TOKEN), uv, node, npm.
 # Either way the verified SHA256SUMS content becomes the step output `sha256sums`
 # when GITHUB_OUTPUT is set; the publish jobs pin their download to it.
@@ -46,8 +47,10 @@ out=$(cd "$out" && pwd)
 # The lookup above already answered whether the release exists; a second
 # "view || create" would read any failure of view as "absent".
 $release_exists || gh release create "$tag" --verify-tag --title "$tag" --generate-notes
-gh release upload "$tag" --clobber "$out"/*
-(cd "$out" && sha256sum $("$here/files.sh" "$version") > SHA256SUMS)
+# The five release files by name, never the directory glob: SHA256SUMS is in the
+# same directory and must be the last upload, after every file it lists.
+files=(); while read -r f; do files+=("$out/$f"); done < <("$here/files.sh" "$version")
+gh release upload "$tag" --clobber "${files[@]}"
 gh release upload "$tag" "$out/SHA256SUMS"
 emit_sums
 echo "release $tag: assets and SHA256SUMS uploaded"

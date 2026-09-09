@@ -17,6 +17,9 @@ name: release
 # every tool to an exact version: the build and publish jobs hold this
 # workflow's OIDC identity, so a retargeted tag or a bad tool release could
 # otherwise publish under the project's names.
+# No checkout keeps the job token in .git/config (persist-credentials: false):
+# no job needs a git credential after checkout, and the build job's contents:
+# write token must not be readable by the dependencies the smoke tests install.
 
 on:
   push:
@@ -38,6 +41,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: tag equals every released manifest version
         run: python3 scripts/release/check-versions.py "${GITHUB_REF_NAME#v}"
 
@@ -63,6 +68,8 @@ jobs:
       sha256sums: ${{ steps.build.outputs.sha256sums }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
           version: 0.12.11
@@ -90,6 +97,8 @@ jobs:
       id-token: write # PyPI trusted publishing
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
           version: 0.12.11
@@ -110,6 +119,8 @@ jobs:
       id-token: write # npm trusted publishing + provenance
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
@@ -129,6 +140,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
           version: 0.12.11
