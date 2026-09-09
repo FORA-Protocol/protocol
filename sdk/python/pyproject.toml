@@ -119,7 +119,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fora-protocol-sdk"
-version = "1.0.0"
+version = "1.0.1"
 description = "FORA protocol SDK for Python: the IO-free protocol mechanics (thumbprint, signed-URL verification, RFC 9421 request signing and verification, offer and acceptance signatures, cross-field validation), the key and endpoint resolvers and the Connect-unary JSON client."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -130,7 +130,7 @@ dependencies = [
   # fora-protocol. Pinned exactly: both distributions are built from the same
   # tag and the release workflow refuses a tag whose version differs from this
   # pin (scripts/release/check-versions.py).
-  "fora-protocol==1.0.0",
+  "fora-protocol==1.0.1",
   "cryptography>=44",
   # Maintained HTTP client for the L2 fetching resolvers (WBA / well-known
   # directory GETs). It owns the response state machine (status, redirects, 1xx,
