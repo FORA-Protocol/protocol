@@ -47,7 +47,8 @@ case "$1" in
     f="$NPM/fora-protocol-sdk-${2##*@}.tgz"
     if [ ! -e "$f" ]; then echo "npm ERR! code E404" >&2; exit 1; fi
     echo "sha512-$(openssl dgst -sha512 -binary "$f" | base64 | tr -d '\n')" ;;
-  publish) mkdir -p "$NPM"; cp "$2" "$NPM/" ;;
+  publish) [[ "$2" = /* ]] || { echo "npm ERR! publish requires an absolute tarball path" >&2; exit 2; }
+    mkdir -p "$NPM"; cp "$2" "$NPM/" ;;
 esac
 STUB
 cat > "$work/bin/gh" <<'STUB'

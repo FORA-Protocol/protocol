@@ -30,6 +30,7 @@ staged=$(node -p "require('$root/sdk/ts/dist/package.json').version")
 if [ "$staged" != "$version" ]; then
   echo "::error::staged npm manifest version $staged differs from version $version"; exit 1
 fi
+npm publish --dry-run "$out/fora-protocol-sdk-$version.tgz" --access public --provenance --loglevel error
 (cd "$out" && sha256sum $("$here/files.sh" "$version") > SHA256SUMS)
 
 "$here/smoke-python.sh" "$out"/*.whl
