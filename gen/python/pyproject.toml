@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fora-protocol"
-version = "1.0.2"
+version = "1.0.3"
 description = "Generated types export for Python: Pydantic v2 models (wire.models, extending wire.base.WireModel) + registered vocabulary constants (vocab.*), generated from the proto via JSON Schema."
 readme = "README.md"
 requires-python = ">=3.9"

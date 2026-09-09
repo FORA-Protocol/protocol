@@ -1,6 +1,6 @@
 {
   "name": "@fora-protocol/sdk-types",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "description": "Generated TypeScript types export: Zod schemas (./wire/schemas) + vocabulary constants (./vocab/*), generated from the proto via JSON Schema. Not published on its own: it ships inside @fora-protocol/sdk (built by sdk/ts/scripts/build.mjs), which exports these subpaths unchanged.",
   "license": "Apache-2.0",

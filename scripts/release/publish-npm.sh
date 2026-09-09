@@ -7,6 +7,7 @@
 #   scripts/release/publish-npm.sh release-dist/fora-protocol-sdk-1.2.3.tgz 1.2.3
 set -euo pipefail
 tarball=$1; version=$2
+tarball=$(cd "$(dirname "$tarball")" && pwd)/$(basename "$tarball")
 
 staged=$(tar -xzOf "$tarball" package/package.json | jq -r .version)
 if [ "$staged" != "$version" ]; then
