@@ -134,9 +134,7 @@ jobs:
       - name: publish @fora-protocol/sdk
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }} # temporary: bootstrap the first publish; drop once trusted publishing is configured on npm
-        run: scripts/release/publish-npm.sh \
-          "release-dist/fora-protocol-sdk-${GITHUB_REF_NAME#v}.tgz" \
-          "${GITHUB_REF_NAME#v}"
+        run: scripts/release/publish-npm.sh "release-dist/fora-protocol-sdk-${GITHUB_REF_NAME#v}.tgz" "${GITHUB_REF_NAME#v}"
 
   verify:
     needs: [publish-pypi, publish-npm]

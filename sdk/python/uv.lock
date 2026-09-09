@@ -207,7 +207,7 @@ wheels = [
 
 [[package]]
 name = "fora-protocol"
-version = "1.0.1"
+version = "1.0.2"
 source = { editable = "../../gen/python" }
 dependencies = [
     { name = "pydantic" },
@@ -218,7 +218,7 @@ requires-dist = [{ name = "pydantic", specifier = ">=2.0" }]
 
 [[package]]
 name = "fora-protocol-sdk"
-version = "1.0.1"
+version = "1.0.2"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
