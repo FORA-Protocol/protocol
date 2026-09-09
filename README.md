@@ -6,6 +6,9 @@ Built on [IAB Tech Lab CoMP v1.0](https://github.com/IABTechLab/CoMP) and [RSL 1
 
 📖 **Spec & docs:** [fora-protocol.org](https://fora-protocol.org) — start with the [proto reference](https://fora-protocol.org/reference/proto-fora/) · 🧩 **Reference implementation:** [FORA-Protocol/reference-implementation](https://github.com/FORA-Protocol/reference-implementation)
 
+Maintainers: see [RELEASING.md](RELEASING.md) for the version, tag, registry, and
+recovery procedure.
+
 > **v1.0.0 — pre-1.0 clean-cut.** This is the initial public release. The wire
 > format was finalized in a single clean pass with **no backward-compatibility
 > guarantees** to any pre-release draft — there are no prior external clients to
