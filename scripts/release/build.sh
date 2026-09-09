@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build once, across reruns (FORA-291).
+# Build once, across reruns.
 # The GitHub Release for the tag is the artifact store and SHA256SUMS is the
 # completeness marker, uploaded last and listing exactly the expected files.
 #   present: download and verify the existing assets, build nothing.
@@ -9,10 +9,12 @@
 # A complete set is never overwritten. Needs gh (GH_TOKEN), uv, node, npm.
 # Either way the verified SHA256SUMS content becomes the step output `sha256sums`
 # when GITHUB_OUTPUT is set; the publish jobs pin their download to it.
+# The token is used only to read and write the release. The build and the smoke
+# tests (build-artifacts.sh) run with it removed from the environment.
 #   scripts/release/build.sh v1.2.3 [out-dir]
 set -euo pipefail
 tag=$1; out=${2:-release-dist}; version=${tag#v}
-here=$(cd "$(dirname "$0")" && pwd); root=$(cd "$here/../.." && pwd)
+here=$(cd "$(dirname "$0")" && pwd)
 
 emit_sums() {
   [ -n "${GITHUB_OUTPUT:-}" ] || return 0
@@ -23,10 +25,11 @@ emit_sums() {
 # absent). Any other error is fatal: "could not ask GitHub" must never be read
 # as "the marker is absent", or a transient failure would rebuild and overwrite
 # a complete set.
+release_exists=true
 if names=$(gh api "repos/{owner}/{repo}/releases/tags/$tag" --jq '.assets[].name' 2>&1); then
   :
 elif [[ "$names" == *"HTTP 404"* ]]; then
-  names=""
+  names=""; release_exists=false
 else
   echo "::error::cannot read release $tag: $names"; exit 1
 fi
@@ -37,24 +40,12 @@ if grep -qx SHA256SUMS <<<"$names"; then
 fi
 
 echo "no SHA256SUMS on release $tag: building"
-rm -rf "$out"; mkdir -p "$out"; out=$(cd "$out" && pwd)
-uv build --out-dir "$out" "$root/gen/python"
-uv build --out-dir "$out" "$root/sdk/python"
-(cd "$root/sdk/ts" && npm ci --no-audit --no-fund && npm run build && npm pack ./dist --pack-destination "$out")
+env -u GH_TOKEN -u GITHUB_TOKEN "$here/build-artifacts.sh" "$version" "$out"
+out=$(cd "$out" && pwd)
 
-if [ "$(ls "$out" | sort)" != "$("$here/files.sh" "$version" | sort)" ]; then
-  echo "::error::built files differ from the expected set:"; ls "$out"; exit 1
-fi
-staged=$(node -p "require('$root/sdk/ts/dist/package.json').version")
-if [ "$staged" != "$version" ]; then
-  echo "::error::staged npm manifest version $staged differs from tag $tag"; exit 1
-fi
-
-"$here/smoke-python.sh" "$out"/*.whl
-"$here/smoke-python.sh" "$out"/*.tar.gz
-"$here/smoke-npm.sh" "$out"/*.tgz
-
-gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --verify-tag --title "$tag" --generate-notes
+# The lookup above already answered whether the release exists; a second
+# "view || create" would read any failure of view as "absent".
+$release_exists || gh release create "$tag" --verify-tag --title "$tag" --generate-notes
 gh release upload "$tag" --clobber "$out"/*
 (cd "$out" && sha256sum $("$here/files.sh" "$version") > SHA256SUMS)
 gh release upload "$tag" "$out/SHA256SUMS"

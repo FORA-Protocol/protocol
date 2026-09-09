@@ -84,10 +84,21 @@ jobs:
           python -m pip install -q "pydantic>=2.0" pytest
           PYTHONPATH=gen/python pytest gen/python/tests -q
 
+      # `npm test` here typechecks wire/ and vocab/ at target ES2020 with the default
+      # lib first (gen/ts/tsconfig.json): these files ship as source inside
+      # @fora-protocol/sdk and compile under the consumer's settings.
       - name: TypeScript (Zod) parity
         working-directory: gen/ts
         run: |
           npm install
+          npm test
+
+      # The peer range is zod ^3.23.0 || ^4.0.0 and the lockfile pins Zod 3, so the
+      # typecheck and the parity suite run again under Zod 4.
+      - name: TypeScript (Zod) parity under Zod 4
+        working-directory: gen/ts
+        run: |
+          npm install --no-save zod@4
           npm test
 
       # Canonical proto-JSON interop: each client re-serializes every valid corpus
@@ -116,6 +127,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
 
       # Drift gate: the emitter re-derives the vectors from FIXED seeds/timestamps and
       # fails if the committed testdata differs (deterministic, no time.Now()/random).
@@ -143,13 +155,23 @@ jobs:
           npm test
 
       # The peer range is zod ^3.23.0 || ^4.0.0 and the lockfile pins Zod 3, so the
-      # same typecheck and suite run again under Zod 4 (fora-acw.2.1). The published
-      # package's own dual-major check is scripts/release/smoke-npm.sh.
+      # same typecheck and suite run again under Zod 4. sdk/ts/vitest.config.ts keeps
+      # the whole process on this one Zod copy. The published package's own
+      # dual-major check is scripts/release/smoke-npm.sh.
       - name: TypeScript typecheck + suite under Zod 4
         working-directory: sdk/ts
         run: |
           npm install --no-save zod@4
           npm test
+
+      # The release artifact set, built and smoke-tested by the same script the tag
+      # release uses: the staged NodeNext compile, the file set, the staged manifest
+      # version and the consumer smoke tests all fail here, on the pull request,
+      # instead of on the protected tag. Skipped on a tag: the release build job
+      # runs the same script for real.
+      - name: build and smoke-test the release artifact set
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        run: scripts/release/build-artifacts.sh "$(node -p "require('./sdk/ts/package.json').version")" release-dist
 
       # sdk/python L1 helpers (thumbprint, signed-URL verify, RFC 9421 sign/verify +
       # PoP, offer-acceptance, cross-field Pydantic) byte-parity against the same

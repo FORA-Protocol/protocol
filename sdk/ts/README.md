@@ -19,9 +19,10 @@ dependency, needed only for `@fora-protocol/sdk/hono`.
 
 Runtime: Node 22 or later (the resolvers use `node:dns`).
 
-TypeScript: the generated schema types ship as `.ts` source and compile under your
-compiler settings. They compile with `target` `ES2020` or later and that target's default
-`lib`; no extra `lib` entries are needed. The release smoke test checks this floor.
+TypeScript: 5.7 or later (the declarations use the `Uint8Array<ArrayBuffer>` generic).
+The generated schema types ship as `.ts` source and compile under your compiler settings.
+They compile with `target` `ES2020` or later and that target's default `lib`; no extra
+`lib` entries are needed. The release smoke test checks both floors.
 
 ```ts
 import { thumbprint } from "@fora-protocol/sdk/thumbprint";

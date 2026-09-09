@@ -36,8 +36,9 @@ execFileSync("npx", ["tsc", "-p", "tsconfig.build.json"], { cwd: pkgDir, stdio: 
 // infers against whichever Zod the consumer installed, as the git-install path
 // always has. The `.ts` import suffixes become `.js` so the copies resolve under
 // NodeNext without allowImportingTsExtensions; every `.js` next to them exists.
-// The sdk/ts declarations import the schemas by `.js` path, which TypeScript
-// resolves to these `.ts` files once the `.d.ts` files are gone.
+// The sdk/ts declarations keep their `.ts` specifiers for the schemas (tsc does not
+// rewrite specifiers inside `.d.ts` output); TypeScript resolves those to these
+// `.ts` files once the `.d.ts` files are gone.
 const walk = (dir) =>
   readdirSync(dir, { withFileTypes: true, recursive: true })
     .filter((e) => e.isFile())

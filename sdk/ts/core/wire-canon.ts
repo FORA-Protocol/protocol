@@ -30,11 +30,17 @@ import { OfferSchema } from "../../../gen/ts/wire/schemas.ts";
 
 // A structural view of the pieces of a Zod schema this inversion reads — enough to
 // walk the generated OfferSchema tree without coupling to the zod value import.
+// Both Zod majors are read: Zod 3 names the kind in `typeName` ("ZodOptional") and
+// Zod 4 in `type` ("optional"), where `type` is the array ELEMENT in Zod 3. A
+// refinement is a ZodEffects wrapper in Zod 3 and the same object in Zod 4; a
+// transform is ZodEffects in Zod 3 and a pipe in Zod 4.
 interface ZodDef {
-	readonly typeName: string;
-	readonly innerType?: AnyZod;
-	readonly type?: AnyZod;
-	readonly schema?: AnyZod;
+	readonly typeName?: string; // Zod 3 kind
+	readonly type?: AnyZod | string; // Zod 3: array element or branded inner; Zod 4: kind
+	readonly innerType?: AnyZod; // optional/default/nullable, both majors
+	readonly schema?: AnyZod; // Zod 3 effects
+	readonly element?: AnyZod; // Zod 4 array
+	readonly in?: AnyZod; // Zod 4 pipe
 }
 interface AnyZod {
 	readonly _def: ZodDef;
@@ -47,17 +53,27 @@ const CAMEL_BOUNDARY = /([a-z0-9])([A-Z])/g;
 const UNSPECIFIED_ENUM = /^[A-Z][A-Z0-9_]*_UNSPECIFIED$/;
 
 // Wrapper node types that decorate a field without changing its wire identity.
-const WRAPPERS = new Set(["ZodOptional", "ZodDefault", "ZodNullable", "ZodBranded", "ZodEffects"]);
+const WRAPPERS = new Set(["ZodOptional", "ZodDefault", "ZodNullable", "ZodBranded", "ZodEffects", "ZodPipe"]);
 
 function zdef(schema: AnyZod): ZodDef {
 	return schema._def;
 }
 
+// kindOf reads the node kind in Zod 3 spelling for both majors: Zod 4's "optional"
+// becomes "ZodOptional", so one vocabulary drives the walk.
+function kindOf(schema: AnyZod): string {
+	const d = zdef(schema);
+	if (d.typeName !== undefined) return d.typeName;
+	const t = typeof d.type === "string" ? d.type : "";
+	return `Zod${t.charAt(0).toUpperCase()}${t.slice(1)}`;
+}
+
 // innerOf peels one wrapper: ZodOptional/ZodDefault/ZodNullable expose `innerType`,
-// ZodArray/ZodBranded expose `type`, ZodEffects exposes `schema` — mutually exclusive.
+// Zod 3 ZodArray/ZodBranded expose `type`, Zod 3 ZodEffects exposes `schema`, Zod 4
+// arrays expose `element` and Zod 4 pipes `in` — mutually exclusive.
 function innerOf(schema: AnyZod): AnyZod {
 	const d = zdef(schema);
-	const inner = d.innerType ?? d.type ?? d.schema;
+	const inner = d.innerType ?? d.schema ?? d.element ?? d.in ?? (typeof d.type === "object" ? d.type : undefined);
 	if (inner === undefined) throw new Error("fora/core: zod wrapper has no inner type");
 	return inner;
 }
@@ -71,7 +87,7 @@ function shapeOf(schema: AnyZod): Record<string, AnyZod> {
 // still detectable as repeated (the element is unwrapped separately).
 function coreType(schema: AnyZod): AnyZod {
 	let s = schema;
-	while (WRAPPERS.has(zdef(s).typeName)) s = innerOf(s);
+	while (WRAPPERS.has(kindOf(s))) s = innerOf(s);
 	return s;
 }
 
@@ -79,10 +95,10 @@ function coreType(schema: AnyZod): AnyZod {
 // is proto3 presence-tracked (keep its zero value); `.default(...)` or a bare
 // required field is non-optional (drop its zero value).
 function isPresenceTracked(schema: AnyZod): boolean {
-	const t = zdef(schema).typeName;
+	const t = kindOf(schema);
 	if (t === "ZodOptional") return true;
 	if (t === "ZodDefault") return false;
-	if (t === "ZodNullable" || t === "ZodBranded" || t === "ZodEffects") {
+	if (t === "ZodNullable" || t === "ZodBranded" || t === "ZodEffects" || t === "ZodPipe") {
 		return isPresenceTracked(innerOf(schema));
 	}
 	return false;
@@ -109,10 +125,10 @@ function canonScalar(value: unknown, presence: boolean): unknown {
 function canonField(field: AnyZod, value: unknown): unknown {
 	if (value === null) return OMIT; // unset message/Struct (EmitUnpopulated renders null)
 	const core = coreType(field);
-	const kind = zdef(core).typeName;
+	const kind = kindOf(core);
 	if (Array.isArray(value)) {
 		const elem = kind === "ZodArray" ? coreType(innerOf(core)) : undefined;
-		const elemIsMessage = elem !== undefined && zdef(elem).typeName === "ZodObject";
+		const elemIsMessage = elem !== undefined && kindOf(elem) === "ZodObject";
 		const items = value.map((v) =>
 			elemIsMessage && elem !== undefined && isPlainObject(v) ? canonMessage(elem, v) : v,
 		);

@@ -1,6 +1,6 @@
 name: release
 
-# Tag-triggered release of the Python and TypeScript SDKs (FORA-291).
+# Tag-triggered release of the Python and TypeScript SDKs.
 #   1. version gate: the tag equals every released manifest version
 #   2. the three CI workflows run on the exact tagged commit (workflow_call)
 #   3. build once into the GitHub Release; SHA256SUMS is the completeness marker
@@ -13,6 +13,10 @@ name: release
 # build job emitted (job output), so a replaced asset or marker between build
 # and approval fails publication. This pins bytes within one run only; a full
 # rerun reads the release as its starting point.
+# Every external action is pinned to a commit SHA (the tag is the comment) and
+# every tool to an exact version: the build and publish jobs hold this
+# workflow's OIDC identity, so a retargeted tag or a bad tool release could
+# otherwise publish under the project's names.
 
 on:
   push:
@@ -33,7 +37,7 @@ jobs:
   versions:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: tag equals every released manifest version
         run: python3 scripts/release/check-versions.py "${GITHUB_REF_NAME#v}"
 
@@ -58,13 +62,19 @@ jobs:
     outputs:
       sha256sums: ${{ steps.build.outputs.sha256sums }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          version: 0.12.11
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: sdk/ts/package-lock.json
+      # build.sh uses the token only to read and write the release. The build and
+      # the smoke tests (build-artifacts.sh) run under it WITHOUT the token: they
+      # install dependencies from the registry, and nothing that comes from there
+      # may see the token or touch the artifact set before the checksums exist.
       - id: build
         name: build once, or verify the existing release assets
         env:
@@ -79,8 +89,10 @@ jobs:
       contents: read
       id-token: write # PyPI trusted publishing
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          version: 0.12.11
       - name: download the release files and verify them against the build job's SHA256SUMS
         env:
           GH_TOKEN: ${{ github.token }}
@@ -97,13 +109,13 @@ jobs:
       contents: read
       id-token: write # npm trusted publishing + provenance
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-      - name: npm 11.5.1+ (trusted publishing)
-        run: npm install -g npm@11 && npm --version
+      - name: npm 11.5.1+ (trusted publishing), exact version
+        run: npm install -g npm@11.19.1 && npm --version
       - name: download the release files and verify them against the build job's SHA256SUMS
         env:
           GH_TOKEN: ${{ github.token }}
@@ -116,12 +128,14 @@ jobs:
     needs: [publish-pypi, publish-npm]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          version: 0.12.11
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
       # Registries can lag a publish by a minute or two; each check retries.
@@ -134,6 +148,7 @@ jobs:
           done
           exit 1
       - name: PyPI sdists rebuild into working wheels
+        shell: bash # pipefail: a failed JSON lookup must not read as an empty URL
         run: |
           v=${GITHUB_REF_NAME#v}
           mkdir sdists

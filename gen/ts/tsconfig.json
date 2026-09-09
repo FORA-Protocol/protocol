@@ -1,0 +1,18 @@
+{
+  // Typecheck only. These files ship as TypeScript SOURCE inside @fora-protocol/sdk
+  // and compile under the consumer's settings, so they are held to the floor the
+  // sdk/ts README promises: target ES2020 with that target's DEFAULT lib (no "lib"
+  // list here on purpose). An ES2021+ API used in wire/ or vocab/ fails this
+  // typecheck on the pull request instead of on the release tag.
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": ["wire/**/*", "vocab/**/*"]
+}
