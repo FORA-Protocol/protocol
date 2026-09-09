@@ -245,7 +245,19 @@ export function crossFieldRuleIds(message: string, json: unknown): string[] {
 // field-level validation, so a field error never masquerades as a cross-field
 // verdict (and vice versa).
 
-function attach<T extends z.ZodTypeAny>(schema: T, message: string): z.ZodEffects<T> {
+/**
+ * The cross-field composition of a generated schema: exactly what `superRefine`
+ * returns on it. Spelled as the method's own return type, not as a Zod class,
+ * so the published declaration holds under both supported majors — Zod 3 returns
+ * a ZodEffects wrapper, Zod 4 returns the schema's own class — while keeping the
+ * schema's output and input inference.
+ */
+export type CrossField<T extends z.ZodTypeAny> = ReturnType<T["superRefine"]>;
+
+function attach<T extends z.ZodTypeAny>(schema: T, message: string): CrossField<T> {
+  // Inside the generic, `superRefine` is typed on ZodTypeAny (Output and Input
+  // both `any`), which the compiler cannot relate to the deferred ReturnType;
+  // each exported constant below is annotated with the concrete CrossField.
   return schema.superRefine((value, ctx) => {
     for (const ruleId of crossFieldRuleIds(message, value)) {
       ctx.addIssue({
@@ -254,17 +266,17 @@ function attach<T extends z.ZodTypeAny>(schema: T, message: string): z.ZodEffect
         params: { ruleId } satisfies CrossFieldIssueParams,
       });
     }
-  });
+  }) as CrossField<T>;
 }
 
-export const GetAccountStatusResponseCrossFieldSchema = attach(
+export const GetAccountStatusResponseCrossFieldSchema: CrossField<typeof GetAccountStatusResponseSchema> = attach(
   GetAccountStatusResponseSchema,
   "GetAccountStatusResponse",
 );
-export const LicenseCrossFieldSchema = attach(LicenseSchema, "License");
-export const LicenseTermCrossFieldSchema = attach(LicenseTermSchema, "LicenseTerm");
-export const ObligationCrossFieldSchema = attach(ObligationSchema, "Obligation");
-export const PricingCrossFieldSchema = attach(PricingSchema, "Pricing");
-export const RestrictionCrossFieldSchema = attach(RestrictionSchema, "Restriction");
-export const RegistrationFailureCrossFieldSchema = attach(RegistrationFailureSchema, "RegistrationFailure");
-export const WellKnownManifestCrossFieldSchema = attach(WellKnownManifestSchema, "WellKnownManifest");
+export const LicenseCrossFieldSchema: CrossField<typeof LicenseSchema> = attach(LicenseSchema, "License");
+export const LicenseTermCrossFieldSchema: CrossField<typeof LicenseTermSchema> = attach(LicenseTermSchema, "LicenseTerm");
+export const ObligationCrossFieldSchema: CrossField<typeof ObligationSchema> = attach(ObligationSchema, "Obligation");
+export const PricingCrossFieldSchema: CrossField<typeof PricingSchema> = attach(PricingSchema, "Pricing");
+export const RestrictionCrossFieldSchema: CrossField<typeof RestrictionSchema> = attach(RestrictionSchema, "Restriction");
+export const RegistrationFailureCrossFieldSchema: CrossField<typeof RegistrationFailureSchema> = attach(RegistrationFailureSchema, "RegistrationFailure");
+export const WellKnownManifestCrossFieldSchema: CrossField<typeof WellKnownManifestSchema> = attach(WellKnownManifestSchema, "WellKnownManifest");

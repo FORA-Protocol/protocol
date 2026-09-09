@@ -114,6 +114,8 @@ export function parseWire<T>(
 	return { success: true, data: parsed.data as T };
 }
 
+const hasOwn = (o: object, k: PropertyKey): boolean => Object.prototype.hasOwnProperty.call(o, k);
+
 /**
  * underWirePolicy returns `value` with the wire policy applied, refusing a non-canonical
  * field name. Exported so a guard can drive the policy without a parse behind it.
@@ -138,12 +140,14 @@ export function underWirePolicy(schema: unknown, value: unknown, path: string): 
 	const shape = core.shape as Record<string, z.ZodTypeAny>;
 	const out: Record<string, unknown> = {};
 	for (const [key, member] of Object.entries(value as Record<string, unknown>)) {
-		// hasOwn, not `shape[key] !== undefined`: a key like "__proto__" or "constructor"
-		// resolves to an inherited member of Object.prototype, which would read as a
-		// declared field and hand the walk something that is not a schema.
-		if (!Object.hasOwn(shape, key)) {
+		// own-property check, not `shape[key] !== undefined`: a key like "__proto__" or
+		// "constructor" resolves to an inherited member of Object.prototype, which would
+		// read as a declared field and hand the walk something that is not a schema.
+		// hasOwnProperty.call, not Object.hasOwn: this file ships as source and compiles
+		// under the consumer's lib; Object.hasOwn needs lib ES2022.
+		if (!hasOwn(shape, key)) {
 			const name = snakeFromJsonName(key);
-			if (name !== key && Object.hasOwn(shape, name)) throw new WireNamingError(key, path);
+			if (name !== key && hasOwn(shape, name)) throw new WireNamingError(key, path);
 			// defineProperty, not assignment: a key named "__proto__" would replace this
 			// object's prototype and create no member, so the value would never be walked
 			// and the schema would then read declared keys back through the prototype

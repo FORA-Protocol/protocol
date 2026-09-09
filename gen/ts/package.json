@@ -1,7 +1,8 @@
 {
-  "name": "@fora-protocol/sdk",
+  "name": "@fora-protocol/sdk-types",
   "version": "1.0.0",
-  "description": "Generated TypeScript types export: Zod schemas (./wire/schemas) + vocabulary constants (./vocab/*), generated from the proto via JSON Schema.",
+  "private": true,
+  "description": "Generated TypeScript types export: Zod schemas (./wire/schemas) + vocabulary constants (./vocab/*), generated from the proto via JSON Schema. Not published on its own: it ships inside @fora-protocol/sdk (built by sdk/ts/scripts/build.mjs), which exports these subpaths unchanged.",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
@@ -11,12 +12,14 @@
     "./vocab/*": "./vocab/*.ts"
   },
   "scripts": {
-    "test": "vitest run"
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "tsc -p tsconfig.json && vitest run"
   },
   "peerDependencies": {
     "zod": "^3.23.0 || ^4.0.0"
   },
   "devDependencies": {
+    "typescript": "^6.0.3",
     "vitest": "^2.1.0",
     "zod": "^3.23.0"
   }

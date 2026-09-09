@@ -25,6 +25,9 @@ on:
       - 'gen/descriptor.binpb'
       - '.github/workflows/docs-ci.yml'
 
+  # Also callable from release.yml, so the tag release runs this gate on the
+  # exact tagged commit. The push/pull_request triggers above are unchanged.
+  workflow_call:
 jobs:
   docs:
     runs-on: ubuntu-latest

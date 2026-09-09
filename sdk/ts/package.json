@@ -36,7 +36,8 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --strict --noEmit",
-    "test": "tsc -p tsconfig.json --strict --noEmit && vitest run"
+    "test": "tsc -p tsconfig.json --strict --noEmit && vitest run",
+    "build": "node scripts/build.mjs"
   },
   "dependencies": {
     "ajv": "^8.20.0",

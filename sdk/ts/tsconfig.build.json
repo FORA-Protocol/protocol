@@ -1,0 +1,26 @@
+{
+  // Emit config for the published @fora-protocol/sdk package. scripts/build.mjs
+  // copies gen/ts and sdk/ts into .stage/ (same relative layout, so the
+  // ../../../gen/ts imports stay inside the package) and compiles from there.
+  // gen/ts resolves its bare `zod` import by walking up to this package's
+  // node_modules, so the `paths` workaround of tsconfig.json is not needed here.
+  // tsconfig.json (typecheck, noEmit, includes tests) is unchanged.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rewriteRelativeImportExtensions": true,
+    "declaration": true,
+    "rootDir": ".stage",
+    "outDir": "dist",
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "isolatedModules": true
+  },
+  "include": [".stage/**/*"]
+}

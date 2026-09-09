@@ -35,6 +35,9 @@ on:
   pull_request:
     paths: *paths
 
+  # Also callable from release.yml, so the tag release runs this gate on the
+  # exact tagged commit. The push/pull_request triggers above are unchanged.
+  workflow_call:
 jobs:
   sdk-types:
     runs-on: ubuntu-latest
@@ -81,10 +84,23 @@ jobs:
           python -m pip install -q "pydantic>=2.0" pytest
           PYTHONPATH=gen/python pytest gen/python/tests -q
 
+      # `npm test` here typechecks wire/ and vocab/ at target ES2020 with the default
+      # lib first (gen/ts/tsconfig.json): these files ship as source inside
+      # @fora-protocol/sdk and compile under the consumer's settings.
       - name: TypeScript (Zod) parity
         working-directory: gen/ts
         run: |
           npm install
+          npm test
+
+      # The peer range is zod ^3.23.0 || ^4.0.0 and the lockfile pins Zod 3, so the
+      # typecheck and the parity suite run again under Zod 4.
+      - name: TypeScript (Zod) parity under Zod 4
+        working-directory: gen/ts
+        run: |
+          npm install --no-save zod@4
+          v=$(node -p "require('zod/package.json').version")
+          case "$v" in 4.*) echo "zod $v" ;; *) echo "::error::zod@4 requested, installed $v"; exit 1 ;; esac
           npm test
 
       # Canonical proto-JSON interop: each client re-serializes every valid corpus
@@ -113,6 +129,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      # Same commit and uv version as release.yml: this workflow is part of the
+      # release path (workflow_call), so the pull request must build with the
+      # same uv as the tag.
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          version: 0.12.11
 
       # Drift gate: the emitter re-derives the vectors from FIXED seeds/timestamps and
       # fails if the committed testdata differs (deterministic, no time.Now()/random).
@@ -138,6 +160,41 @@ jobs:
         run: |
           npm install
           npm test
+
+      # The peer range is zod ^3.23.0 || ^4.0.0 and the lockfile pins Zod 3, so the
+      # same typecheck and suite run again under Zod 4. sdk/ts/vitest.config.ts keeps
+      # the whole process on this one Zod copy. The published package's own
+      # dual-major check is scripts/release/smoke-npm.sh.
+      - name: TypeScript typecheck + suite under Zod 4
+        working-directory: sdk/ts
+        run: |
+          npm install --no-save zod@4
+          v=$(node -p "require('zod/package.json').version")
+          case "$v" in 4.*) echo "zod $v" ;; *) echo "::error::zod@4 requested, installed $v"; exit 1 ;; esac
+          npm test
+
+      # The release version gate, on the pull request: every released manifest
+      # and the fora-protocol pin must agree, so a release-preparation change
+      # that bumps some of them fails here and not after the tag exists (the
+      # tag ruleset forbids moving it).
+      - name: every released manifest agrees on the version
+        run: python3 scripts/release/check-versions.py "$(node -p "require('./sdk/ts/package.json').version")"
+
+      # The release artifact set, built and smoke-tested by the same script the tag
+      # release uses: the staged NodeNext compile, the file set, the staged manifest
+      # version and the consumer smoke tests all fail here, on the pull request,
+      # instead of on the protected tag. Skipped on a tag: the release build job
+      # runs the same script for real.
+      - name: build and smoke-test the release artifact set
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        run: scripts/release/build-artifacts.sh "$(node -p "require('./sdk/ts/package.json').version")" release-dist
+
+      # The release scripts' decisions (absent -> upload, same digest -> skip,
+      # different digest -> fail, lookup failure -> fail, marker present -> no
+      # rebuild, failed upload -> no marker) against stub registries. The tag
+      # run only ever takes the happy path.
+      - name: release script decisions against stub registries
+        run: scripts/release/test-decisions.sh
 
       # sdk/python L1 helpers (thumbprint, signed-URL verify, RFC 9421 sign/verify +
       # PoP, offer-acceptance, cross-field Pydantic) byte-parity against the same
