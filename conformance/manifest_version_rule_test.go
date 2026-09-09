@@ -9,7 +9,8 @@ package conformance
 // structurally required on every message that embeds the manifest, and an exact
 // match would refuse the additive minor revisions the rule exists to admit. So the
 // contract's whole statement of the rule is prose in the field's comment, and the
-// enforcement is code in three SDK endpoint resolvers.
+// enforcement is code in the SDK faces that read a manifest — the endpoint
+// resolver and the registration-requirements reader — in all three languages.
 //
 // Between them sits the shared corpus, which pins the three implementations to each
 // other. This file pins both to the prose, the same construction as

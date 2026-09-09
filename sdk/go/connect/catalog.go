@@ -153,8 +153,10 @@ func stampVer(ver *string) {
 	}
 }
 
-// requireRecipient refuses a catalog request that names no recipient, or one
-// whose recipient is not a bare domain, BEFORE anything is signed or sent. The
+// requireRecipient refuses a request that names no recipient, or one whose
+// recipient is not a bare domain, BEFORE anything is signed or sent. It serves the
+// catalog verbs and the two account verbs, which is why it asks only the shape
+// question — see below. The
 // field is required on the wire and the Exchange rejects a request that names
 // someone else, so an unaddressed request can only be refused; refusing it here
 // names the remedy instead of relaying a validation failure from a round trip
@@ -162,10 +164,13 @@ func stampVer(ver *string) {
 // report or a dispute with no routable recipient gets.
 //
 // The predicate is IsBareDomain, the SHAPE rule, not the routing rule IsBareHost.
-// Nothing dials this value — a catalog client is built against an address the
-// publisher configured — so the only question it answers is whether the value is
-// the form the contract admits, which is the protovalidate pattern `exchange`
-// carries and the same rule the Exchange's own audience check applies on arrival.
+// The only question it answers is whether the value is the form the contract
+// admits, which is the protovalidate pattern `exchange` carries and the same rule
+// the Exchange's own audience check applies on arrival. Whether the value can be
+// DIALLED is a separate question with a separate answer: a catalog client is built
+// against an address the publisher configured and never asks it, while the account
+// verbs resolve this domain through its own manifest and ask it there, under the
+// routing predicate.
 // The routing predicate is deliberately wider: an underscore, a trailing root dot
 // and a bracketed IPv6 literal are all usable hosts and none of them is a value
 // this field may hold, so vetting with it would sign and send a request the

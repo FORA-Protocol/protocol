@@ -26,6 +26,7 @@ import {
   signRequestAcceptance,
   ACCEPTANCE_SIGNATURE_ALGORITHM,
 } from "../src/acceptance.ts";
+import { registrationFailureDetail } from "../src/errordetail.ts";
 import { redactUserinfo } from "../src/host-ref.ts";
 import { isBareDomain } from "../src/hosts.ts";
 import { generateIdempotencyKey } from "../src/idempotency.ts";
@@ -35,10 +36,14 @@ import {
 	DiscoveryResponseSchema,
 	DisputeRequestSchema,
 	DisputeResponseSchema,
+	GetAccountStatusRequestSchema,
+	GetAccountStatusResponseSchema,
 	PushResourcesRequestSchema,
 	PushResourcesResponseSchema,
 	RefreshCatalogRequestSchema,
 	RefreshCatalogResponseSchema,
+	RegisterRequestSchema,
+	RegisterResponseSchema,
 	RemoveResourcesRequestSchema,
 	RemoveResourcesResponseSchema,
 	ResourceQuerySchema,
@@ -50,8 +55,16 @@ import {
 } from "../../../gen/ts/wire/schemas.ts";
 import { type Content, fetchContent } from "./content.ts";
 import { malformed, notSent, ForaCallError } from "./errors.ts";
+import { checkRegistrationData } from "../src/regschema.ts";
+import {
+	createWellKnownRequirementsReader,
+	ExchangeNotPermitted,
+	ManifestNotExchange,
+	ManifestUnusable,
+	type RegistrationRequirements,
+} from "../resolvers/index.ts";
 import type { EndpointResolver } from "./route.ts";
-import { vetExchangeEndpoint } from "./route.ts";
+import { isInvalidHostRefusal, vetExchangeEndpoint } from "./route.ts";
 import { createUnarySend } from "./send.ts";
 import {
 	DEFAULT_CALL_TIMEOUT_MS,
@@ -74,6 +87,44 @@ const CATALOG_SERVICE = "fora.v1.CatalogService";
  * the proof covers only the method and the URL, so for as long as the window is open
  * anyone who observes the request can repeat it. */
 export const DEFAULT_PROOF_WINDOW_SEC = 30;
+
+/** Reports what one Exchange asks of a registration.
+ *
+ * An interface for the same two reasons the endpoint seam is one: a test can drive a
+ * registration without standing up a manifest server, and this module has no way to
+ * accept a terms digest or a schema from configuration — the only way to skip the read
+ * is to set `terms_digest` on the request, where the signature covers it.
+ *
+ * An implementation MUST NOT serve the answer from a cache. The contract requires a
+ * registering client to read the digest from a freshly fetched manifest, so a cached one
+ * breaks the rule the field exists to record.
+ *
+ * An implementation's FAILURE decides how a caller is told to react, so it is part of the
+ * contract rather than an implementation detail. A failure that is a VERDICT — the domain
+ * is unusable, the deployment excludes it, the document served is not an Exchange's, or it
+ * is one this reader cannot use — MUST throw the resolver tier's ExchangeNotPermitted,
+ * ManifestNotExchange or ManifestUnusable, or the invalid-host error raised for a
+ * value that is not a bare domain;
+ * those surface as `not_sent`, which tells the caller not to retry. Anything else is read
+ * as a transport failure and reported as `unreachable`, i.e. worth retrying. An
+ * implementation that throws a bare error for a refusal therefore has its final answer
+ * retried indefinitely.
+ *
+ * ManifestUnusable is the seam's word for "the document arrived and cannot be read for
+ * what a registration owes". The SDK's own reader reaches it for a document version it
+ * cannot classify, and treats its other two disappointments as absence or as a transport
+ * failure. An implementation STRICTER than that one — validating the whole document, or
+ * applying a narrower version rule — reaches for the same word, and would otherwise hold
+ * a final answer this seam reported as transient.
+ *
+ * Note which class that is NOT. ManifestVersionRefused belongs to the endpoint seam and
+ * is absent from the list above on purpose: the two vocabularies are disjoint, one
+ * answering whether an endpoint may be dialled and this one whether a document can be
+ * read. An implementation that throws the endpoint class for a version refusal here has
+ * its verdict read as a transport failure. */
+export interface RegistrationRequirementsReader {
+	resolveRegistrationRequirements(exchange: string): Promise<RegistrationRequirements>;
+}
 
 /** Everything a client is built from. Every field is injected; the client owns none of it. */
 export interface ClientOptions {
@@ -109,6 +160,20 @@ export interface ClientOptions {
 	/** Turns an offer's exchange domain into that Exchange's own advertised origin. Never
 	 * configuration — a usage report and a dispute go where the signed offer says. */
 	endpointResolver?: EndpointResolver;
+	/** Reports what one Exchange asks of a registration — the terms revision submitting
+	 * one accepts, and the schema its registration_data must match. Defaults to the
+	 * well-known reader over the SSRF-guarded transport, built once with this client:
+	 * the domain comes off the request rather than from configuration, so it is the
+	 * request-derived provenance that takes the guarded default.
+	 *
+	 * The reader it takes holds no document cache, and that is the point rather than an
+	 * implementation detail: the contract requires a registering client to read the terms
+	 * digest from a FRESHLY fetched manifest, so an implementation serving it from a
+	 * cache breaks the rule the field exists to record. There is deliberately no option
+	 * to supply a digest or a schema directly — a caller managing its own requirements
+	 * sets `terms_digest` on the request, which suppresses the read and says so on the
+	 * message the signature covers. */
+	registrationRequirements?: RegistrationRequirementsReader;
 	/** The WBA directory origin this client signs as. */
 	signatureAgent?: string;
 	/** The RFC 9421 freshness window stamped on every outbound call. */
@@ -169,6 +234,13 @@ export interface Client {
 		opts?: CallOptions,
 	): Promise<UsageReportResponse>;
 	dispute(request: Record<string, unknown>, opts?: CallOptions): Promise<DisputeResponse>;
+	/** Create this agent's account at the Exchange the request names. Takes no
+	 * CallOptions: the message carries no idempotency key, because registering again
+	 * returns the same account handle. */
+	register(request: Record<string, unknown>): Promise<RegisterResponse>;
+	/** Read whether this agent's account at the named Exchange is active. An empty
+	 * `billing_ref` is a NORMAL answer — no account there yet. */
+	getAccountStatus(request: Record<string, unknown>): Promise<GetAccountStatusResponse>;
 	fetch(signedURL: string): Promise<Content>;
 }
 
@@ -184,6 +256,11 @@ interface Resolved {
 	verifier: Verifier;
 	send: UnarySend;
 	guardedSend: UnarySend;
+	/** The SEAM, not the concrete reader: an injected one and the default are the
+	 * same thing to every caller below here. Resolved alongside the transports
+	 * because the default holds a dispatcher, so building it per call would open
+	 * one per registration and close none. */
+	requirements: RegistrationRequirementsReader;
 	signer: CallSigner | undefined;
 }
 
@@ -211,6 +288,8 @@ function resolve(opts: ClientOptions): Resolved {
 		verifier,
 		send: opts.send ?? createUnarySend({ guarded: false }),
 		guardedSend: opts.guardedSend ?? createUnarySend({ guarded: true }),
+		requirements:
+			opts.registrationRequirements ?? createWellKnownRequirementsReader(),
 		signer,
 	};
 }
@@ -255,6 +334,8 @@ export function createClient(baseURL: string, options: ClientOptions = {}): Clie
 		execute: (offer, opts) => execute(r, baseURL, offer, opts ?? {}),
 		reportUsage: (report, opts) => reportUsage(r, report, opts ?? {}),
 		dispute: (request, opts) => dispute(r, request, opts ?? {}),
+		register: (request) => register(r, request),
+		getAccountStatus: (request) => getAccountStatus(r, request),
 		fetch: (signedURL) => fetchVerb(r, signedURL),
 	};
 }
@@ -661,6 +742,182 @@ async function dispute(
 	return parseMessage(op, raw, DisputeResponseSchema);
 }
 
+// ---------------------------------------------------------------------------
+// The account-setup verbs
+//
+// They route like a usage report, not like discovery. An account is per-Exchange,
+// and which Exchange is the agent's choice PER CALL: a target routinely arrives at
+// runtime — a denial names where to register — rather than from configuration. So
+// the destination is read off the request's own `exchange` field and resolved
+// through that Exchange's own manifest, over the guarded leg.
+//
+// Neither message carries an idempotency key, so neither verb takes CallOptions.
+// ---------------------------------------------------------------------------
+
+/** The ErrorDetail domain for a refusal THIS CLIENT computed, before anything was
+ * sent. It names the failing surface, which here is the client's own tier: the
+ * Exchange never saw the request, so naming it would attribute a local verdict to a
+ * party that reached none. The naming rule the value follows — a Service suffix for
+ * an RPC service that exists in the contract, a bare noun for a tier that does not —
+ * is recorded on the Go oracle's edgeErrorDomain, beside EDGE_ERROR_DOMAIN's twin. */
+const CLIENT_ERROR_DOMAIN = "fora.v1.Client";
+
+/**
+ * register creates the calling agent's account at the Exchange the request names.
+ *
+ * The caller's identity is the request SIGNATURE. Nothing in the message says who is
+ * registering, and the business payload is not an identity claim.
+ *
+ * Four bounds on `registration_data` are checked before anything is signed, in the order
+ * the contract fixes, because a limit that exists to stop work belongs before the work it
+ * would stop — including before the manifest read.
+ *
+ * `terms_digest` is filled only when the caller left it ABSENT, from a freshly fetched
+ * manifest, and the payload is pre-checked against the schema that manifest publishes. A
+ * caller that sets the field is managing its own requirements and gets neither.
+ *
+ * A schema this SDK refuses never becomes a local veto: refusing locally and declining to
+ * send would turn a rule about reading a third party's document into a denial of service
+ * against the caller's own user, so an unusable schema is skipped and the Exchange
+ * decides. A usable schema the payload fails is the pre-check working, and that request is
+ * refused here with the offending members named.
+ */
+async function register(
+	r: Resolved,
+	request: Record<string, unknown>,
+): Promise<RegisterResponse> {
+	const op = "register";
+	const sent = stampVer(op, request);
+	requireRecipient(op, stringField(sent, "exchange"));
+	// Narrowed rather than asserted. The bounds below are defined over an OBJECT, and
+	// Object.keys on a string answers its character indices — so a cast let a string
+	// payload be refused as "too many members", a verdict about a bound it never
+	// reached and a member count it does not have. Go cannot express the state at all
+	// (the field is a Struct) and Python narrows the same way, so this is the port
+	// that had to say so.
+	const verdict = checkRegistrationData(
+		isRecord(sent.registration_data) ? sent.registration_data : null,
+	);
+	if (verdict !== "accepted") {
+		throw malformed(op, new Error(`registration_data: ${verdict}`));
+	}
+	if (sent.terms_digest === undefined || sent.terms_digest === null) {
+		await applyRegistrationRequirements(r, op, sent);
+	}
+	const endpoint = await vetExchangeEndpoint(
+		r.opts.endpointResolver,
+		stringField(sent, "exchange"),
+		op,
+	);
+	validateRequest(op, sent, RegisterRequestSchema, r.opts.validation ?? "strict");
+	const raw = await call(r, op, endpoint, EXCHANGE_SERVICE, "Register", sent, true);
+	return parseMessage(op, raw, RegisterResponseSchema);
+}
+
+/**
+ * getAccountStatus reports whether the calling agent's account at the named Exchange is
+ * active.
+ *
+ * The request carries no field identifying the caller — the Exchange resolves the account
+ * from the verified signature — so `exchange` is the only thing that says which account is
+ * being asked about. An empty `billing_ref` in the answer is a NORMAL answer: no account
+ * there yet.
+ *
+ * A caveat worth knowing before calling this in a loop. The request has no varying field,
+ * so two calls to the same Exchange inside one wall-clock second sign IDENTICAL bytes, and
+ * a peer screening replays on (key id, signature) refuses the second. This verb does not
+ * choose the freshness window for you, because a window is one instance per client rather
+ * than per call: pass `monotonicWindow` as `signWindow` when repeat calls are expected.
+ */
+async function getAccountStatus(
+	r: Resolved,
+	request: Record<string, unknown>,
+): Promise<GetAccountStatusResponse> {
+	const op = "get account status";
+	const sent = stampVer(op, request);
+	requireRecipient(op, stringField(sent, "exchange"));
+	const endpoint = await vetExchangeEndpoint(
+		r.opts.endpointResolver,
+		stringField(sent, "exchange"),
+		op,
+	);
+	validateRequest(op, sent, GetAccountStatusRequestSchema, r.opts.validation ?? "strict");
+	const raw = await call(r, op, endpoint, EXCHANGE_SERVICE, "GetAccountStatus", sent, true);
+	return parseMessage(op, raw, GetAccountStatusResponseSchema);
+}
+
+/**
+ * applyRegistrationRequirements reads what the Exchange asks of a registration and applies
+ * it to the request being built.
+ *
+ * A failed READ refuses the registration rather than sending without a digest. Guessing
+ * here is not the cautious option: an Exchange that publishes a digest refuses a
+ * registration that omits one, so sending anyway trades a local failure the caller can act
+ * on for a remote one it cannot.
+ */
+async function applyRegistrationRequirements(
+	r: Resolved,
+	op: string,
+	sent: Record<string, unknown>,
+): Promise<void> {
+	let reqs: RegistrationRequirements;
+	try {
+		reqs = await r.requirements.resolveRegistrationRequirements(
+			stringField(sent, "exchange"),
+		);
+	} catch (err) {
+		// A value this deployment or the Exchange refused is FINAL; anything else is a
+		// transport failure worth retrying. The same split the routing tier makes, and
+		// the same causes: a value that is not a host will not become one on a later
+		// attempt either, and a document that arrived unusable arrives unusable again.
+		// The SDK's own reader throws all three itself — the middle two for the document
+		// it was handed, and ManifestUnusable for a version it cannot classify — and an
+		// INJECTED reader stricter than it reaches the same three. Only the invalid-host
+		// refusal is normally out of reach here, because the verb's own recipient check
+		// runs that rule first. Classifying any of them as retryable would have a caller
+		// retry a verdict.
+		if (
+			err instanceof ExchangeNotPermitted ||
+			err instanceof ManifestNotExchange ||
+			err instanceof ManifestUnusable ||
+			isInvalidHostRefusal(err)
+		) {
+			throw notSent(op, err);
+		}
+		throw new ForaCallError({ kind: "unreachable", op, cause: err });
+	}
+	if (reqs.termsDigest !== undefined) {
+		sent.terms_digest = reqs.termsDigest;
+	}
+	// A null validator means "nothing to enforce", which is the behaviour the contract
+	// requires both when the Exchange publishes no schema and when it publishes one this
+	// SDK refused. One branch, deliberately.
+	const fails = reqs.schema?.validate(sent.registration_data ?? {}) ?? [];
+	if (fails.length > 0) {
+		// An empty path addresses the whole object, which is how a missing required
+		// member and every other whole-object failure is reported. Rendering a bare
+		// ": ..." there would read as a member with no name.
+		const named = fails.map((f) => (f.path ? `${f.path}: ${f.error}` : f.error)).join("; ");
+		// The failures travel as a typed detail, not only as prose. An Exchange attaches
+		// this same list when it refuses the same payload, so a consumer that renders one
+		// refusal renders both, and nothing has to parse the members back out of a
+		// sentence.
+		throw new ForaCallError({
+			kind: "malformed",
+			op,
+			cause: new Error(
+				`registration_data does not match the schema ${stringField(sent, "exchange")} publishes: ${named}`,
+			),
+			detail: registrationFailureDetail(
+				CLIENT_ERROR_DOMAIN,
+				"registration_data does not match the published data_schema",
+				"REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA",
+				fails,
+			),
+		});
+	}
+}
+
 /**
  * fetch retrieves the content a signed delivery URL names, presenting proof of possession
  * of the agent key that URL is bound to.
@@ -790,6 +1047,18 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 // ---------------------------------------------------------------------------
+// The agent's account: ExchangeService
+// ---------------------------------------------------------------------------
+
+/** The answer to a registration: the account handle this Exchange minted, and the terms
+ * revision it recorded against it. */
+export type RegisterResponse = z.infer<typeof RegisterResponseSchema>;
+
+/** The answer to an account-status read. An empty account handle is a NORMAL answer: it
+ * means this agent holds no account at that Exchange yet. */
+export type GetAccountStatusResponse = z.infer<typeof GetAccountStatusResponseSchema>;
+
+// ---------------------------------------------------------------------------
 // The publisher's verbs: CatalogService
 // ---------------------------------------------------------------------------
 
@@ -871,11 +1140,15 @@ function stampVer(op: string, message: Record<string, unknown>): Record<string, 
 	return sent;
 }
 
-// The predicate is isBareDomain, the SHAPE rule, not the routing rule isBareHost.
-// Nothing dials this value — a catalog client is built against an address the
-// publisher configured — so the only question it answers is whether the value is the
-// form the contract admits, which is the protovalidate pattern `exchange` carries and
-// the same rule the Exchange's own audience check applies on arrival. The routing
+// Serves the catalog verbs and the two account verbs, and asks only the SHAPE question.
+//
+// The predicate is isBareDomain, the SHAPE rule, not the routing rule isBareHost. The
+// only question it answers is whether the value is the form the contract admits, which
+// is the protovalidate pattern `exchange` carries and the same rule the Exchange's own
+// audience check applies on arrival. Whether the value can be DIALLED is a separate
+// question with a separate answer: a catalog client is built against an address the
+// publisher configured and never asks it, while the account verbs resolve this domain
+// through its own manifest and ask it there, under the routing predicate. The routing
 // predicate is deliberately wider: an underscore, a trailing root dot and a bracketed
 // IPv6 literal are all usable hosts and none of them is a value this field may hold,
 // so vetting with it would sign and send a request the recipient can only refuse.

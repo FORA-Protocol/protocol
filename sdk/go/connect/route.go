@@ -49,6 +49,45 @@ type EndpointResolver interface {
 	ResolveEndpoint(ctx context.Context, host string) (string, error)
 }
 
+// RegistrationRequirementsReader reports what one Exchange asks of a registration.
+// It is an interface for the same two reasons the endpoint seam is one: a test can
+// drive a registration without standing up a manifest server, and this package has
+// no way to accept a terms digest or a schema from configuration — the only way to
+// skip the read is to set RegisterRequest.terms_digest, where the signature covers
+// it.
+//
+// An implementation MUST NOT serve the answer from a cache. The contract requires a
+// registering client to read the digest from a freshly fetched manifest, so a cached
+// one breaks the rule the field exists to record.
+//
+// Its ERROR decides how a caller is told to react, as the endpoint seam's does. A
+// failure that is a VERDICT — the domain is unusable, the deployment excludes it,
+// the document served is not an Exchange's, or it is one this reader cannot use —
+// MUST wrap helpers.ErrInvalidHost, resolvers.ErrExchangeNotPermitted,
+// resolvers.ErrManifestNotExchange or resolvers.ErrManifestUnusable; those four
+// surface as CallNotSent, which tells the caller not to retry. Anything else is read
+// as a transport failure and reported as CallUnreachable, i.e. worth retrying. An
+// implementation that returns a bare error for a refusal therefore has its final
+// answer retried indefinitely.
+//
+// ErrManifestUnusable is the seam's word for "the document arrived and cannot be
+// read for what a registration owes". The SDK's own reader reaches it for a document
+// version it cannot classify, and treats its other two disappointments as absence or
+// as a transport failure. An implementation STRICTER than that one — validating the
+// whole document, or applying a narrower version rule — reaches for the same word,
+// and would otherwise hold a final answer this seam reported as transient.
+//
+// Note which sentinel that is NOT. resolvers.ErrManifestVersionRefused belongs to the
+// endpoint seam and is absent from the four above on purpose: the two vocabularies
+// are disjoint, one answering whether an endpoint may be dialled and this one whether
+// a document can be read. An implementation that wraps the endpoint sentinel for a
+// version refusal here has its verdict read as a transport failure.
+type RegistrationRequirementsReader interface {
+	ResolveRegistrationRequirements(
+		ctx context.Context, exchange string,
+	) (resolvers.RegistrationRequirements, error)
+}
+
 // vetExchangeEndpoint resolves exchangeDomain to an origin a signed call may be
 // sent to, or refuses — naming the check that declined, and classifying it by
 // CAUSE. "The Exchange said no", "we could not reach it" and "we refused to dial

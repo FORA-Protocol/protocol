@@ -54,14 +54,20 @@ var ErrEndpointRefused = errors.New("resolvers: well-known manifest advertises a
 // other member is read, are stated once on WellKnownManifest.ver in the proto.
 var ErrManifestVersionRefused = helpers.ErrManifestVersionRefused
 
-// wellKnownDoc is the JSON projection the two well-known resolvers decode
-// through: one decoder for two document shapes, each face reading only its own
-// members. The key face (WellKnownKeyResolver) fetches a plain RFC 7517 JWK Set
-// from an operator-chosen URL and reads `keys`. The endpoint face
-// (WellKnownEndpointResolver) fetches /.well-known/fora.json and reads the
-// WellKnownManifest projection — the document version (field 1) and the
-// self-advertised ExchangeService endpoint (field 12). A JWK Set carries no
-// manifest version, which is why the version gate is the endpoint face's alone.
+// wellKnownDoc is the JSON projection the three well-known faces decode through:
+// one decoder for two document shapes, each face reading only its own members. The
+// key face (WellKnownKeyResolver) fetches a plain RFC 7517 JWK Set from an
+// operator-chosen URL and reads `keys`. The endpoint face
+// (WellKnownEndpointResolver) and the registration-requirements face
+// (WellKnownRequirementsReader) both fetch /.well-known/fora.json and read the
+// WellKnownManifest projection — the document version (field 1), the
+// self-advertised ExchangeService endpoint (field 12), and the members a
+// registration owes.
+//
+// The version gate belongs to the two MANIFEST faces, and is applied by each of
+// them rather than inside fetchWellKnownDoc: a JWK Set carries no manifest version,
+// so gating in the shared fetch would refuse the key face's document for lacking a
+// member its shape never has.
 //
 // Ver is held raw rather than as a string so a document whose `ver` is not a
 // JSON string still decodes: the gate then refuses it as a verdict — the answer
@@ -76,6 +82,29 @@ type wellKnownDoc struct {
 	jose.JSONWebKeySet
 	Ver      json.RawMessage `json:"ver"`
 	Endpoint string          `json:"endpoint"`
+
+	// Role, terms_digest and the account_registration block are read by the
+	// registration-requirements face alone. They ride in this shared projection
+	// because one fetch decodes the whole document and a second struct over the
+	// same bytes would be a second place for the member names to drift.
+	//
+	// All three are RAW, for the same reason `ver` above is: a typed field here
+	// would make every face fail on a member only one of them reads. A manifest
+	// publishing terms_digest as a number would fail the whole decode, and a
+	// decode failure is classified as a transport failure — retryable — so an
+	// Exchange with one off-spec member would turn every usage report and every
+	// key resolution against it into an endless retry. Raw bytes move that
+	// question to the face that asks it, where a member of the wrong type is
+	// simply absent. See termsDigest and registrationSchemaBytes, which is also
+	// where the two ports already put it.
+	//
+	// NONE of them is ever cached: the endpoint cache stores the endpoint string
+	// and nothing else, so a caller cannot reach a stale digest through any face
+	// in this package. That is a property the terms_digest rule depends on — see
+	// WellKnownRequirementsReader.
+	Role                json.RawMessage `json:"role"`
+	TermsDigest         json.RawMessage `json:"terms_digest"`
+	AccountRegistration json.RawMessage `json:"account_registration"`
 }
 
 // manifestVer is the string the version rule reads out of the raw `ver` member.
@@ -89,6 +118,17 @@ func manifestVer(raw json.RawMessage) string {
 		return ""
 	}
 	return s
+}
+
+// accountRegistration is the manifest block describing how to open an account.
+// Only data_schema is read; any member the block gains later is ignored here, which
+// is the robustness rule this document is read under.
+type accountRegistration struct {
+	// DataSchema is kept as raw bytes because every cap the registration-schema
+	// rules state is defined over the bytes AS SERVED. Decoding and re-encoding
+	// would change the length the size cap measures and the number formatting the
+	// canonical form pins.
+	DataSchema json.RawMessage `json:"data_schema"`
 }
 
 // fetchWellKnownDoc GETs url and decodes the well-known manifest. It is the one

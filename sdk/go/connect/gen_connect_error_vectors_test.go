@@ -36,6 +36,7 @@ package connect_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -47,6 +48,7 @@ import (
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
 	"github.com/FORA-Protocol/protocol/sdk/go/connectserver"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
@@ -71,6 +73,17 @@ type connectErrorVector struct {
 	// Expect is the projection every SDK must extract. A vector carrying no detail
 	// leaves HasDetail false and the rest empty — "no ErrorDetail" is an answer.
 	Expect connectErrorExpectation `json:"expect"`
+	// PeerMessage is the peer's own sentence as the CLIENT reports it, not as the
+	// envelope spells it. It is the typed detail's developer message and nothing else:
+	// EMPTY when no detail is attached, even where the envelope carries a `message` of
+	// its own, because that text is the transport's rather than a FORA service's —
+	// connect-go writes a status line there where a fetch-based client writes nothing,
+	// so filling the field from it would make its value a property of the language.
+	//
+	// Top-level rather than inside Expect, which projects the ErrorDetail: this is a
+	// property of the CallError one tier up. The column gate reads top-level keys, so
+	// placing it here is also what obliges all three replays to assert it.
+	PeerMessage string `json:"peer_message"`
 }
 
 // connectErrorExpectation mirrors the error-detail corpus's projection so the two read
@@ -206,13 +219,14 @@ func buildConnectErrorVectors(t *testing.T) []connectErrorVector {
 	cases := connectErrorCases()
 	out := make([]connectErrorVector, 0, len(cases))
 	for _, c := range cases {
-		status, envelope := captureEnvelope(t, c)
+		status, envelope, peerMessage := captureEnvelope(t, c)
 		out = append(out, connectErrorVector{
-			Name:       c.name,
-			Code:       c.code.String(),
-			HTTPStatus: status,
-			Envelope:   envelope,
-			Expect:     expectationOf(c.detail),
+			Name:        c.name,
+			Code:        c.code.String(),
+			HTTPStatus:  status,
+			Envelope:    envelope,
+			Expect:      expectationOf(c.detail),
+			PeerMessage: peerMessage,
 		})
 	}
 	return out
@@ -258,7 +272,7 @@ func expectationOf(detail *forav1.ErrorDetail) connectErrorExpectation {
 // whitespace deliberately, and the committed corpus is byte-compared. Re-encoding
 // through encoding/json (which sorts object keys) makes the file stable while leaving
 // the KEYS — the whole point of this corpus — exactly as connect-go spelled them.
-func captureEnvelope(t *testing.T, c errorCase) (int, any) {
+func captureEnvelope(t *testing.T, c errorCase) (int, any, string) {
 	t.Helper()
 	// The FORA JSON codec is registered so the capture is the shape a FORA deployment
 	// actually serves. It changes response BODIES to snake_case and leaves the error
@@ -292,7 +306,19 @@ func captureEnvelope(t *testing.T, c errorCase) (int, any) {
 	if err := json.Unmarshal(body, &envelope); err != nil {
 		t.Fatalf("parse envelope %q: %v", body, err)
 	}
-	return resp.StatusCode, envelope
+
+	// The peer's sentence, CAPTURED FROM THE REAL CLIENT against this same handler
+	// rather than derived from the detail the server attached. Derived, the column would
+	// restate `expect.message` on every row and assert nothing; captured, it records
+	// what a caller actually reads — including on the row where the envelope carries a
+	// message and the client reports none.
+	_, derr := foraconnect.NewClient(srv.URL).Discover(
+		context.Background(), &forav1.ResourceQuery{Exchange: "exchange.test"})
+	var callErr *foraconnect.CallError
+	if !errors.As(derr, &callErr) {
+		t.Fatalf("%s: the client did not report a typed failure: %v", c.name, derr)
+	}
+	return resp.StatusCode, envelope, callErr.PeerMessage
 }
 
 // failingExchange answers ExecuteTransaction with one classified failure.
@@ -304,6 +330,18 @@ type failingExchange struct {
 func (f *failingExchange) ExecuteTransaction(
 	context.Context, *connectrpc.Request[forav1.TransactionRequest],
 ) (*connectrpc.Response[forav1.TransactionResponse], error) {
+	cerr := connectrpc.NewError(f.c.code, errStatic(f.c.msg))
+	if f.c.detail == nil {
+		return nil, cerr
+	}
+	return nil, connectserver.AttachDetail(cerr, f.c.detail)
+}
+
+// DiscoverResources answers the same classified failure, so the peer message can be
+// captured from a real client verb against this same handler.
+func (f *failingExchange) DiscoverResources(
+	context.Context, *connectrpc.Request[forav1.ResourceQuery],
+) (*connectrpc.Response[forav1.ResourceResponse], error) {
 	cerr := connectrpc.NewError(f.c.code, errStatic(f.c.msg))
 	if f.c.detail == nil {
 		return nil, cerr

@@ -213,9 +213,9 @@ def test_endpoint_decode_failure_raises_directory_unavailable() -> None:
 
 
 def test_wellknown_key_is_not_gated_on_a_manifest_version() -> None:
-    """The manifest version gate is the endpoint face's alone. A key document is a
-    plain JWK Set, not a manifest: it carries no ``WellKnownManifest.ver``, and one
-    that happens to carry a ``ver`` the endpoint face would refuse still resolves
+    """The manifest version gate belongs to the two MANIFEST faces, and this is not one
+    of them. A key document is a plain JWK Set: it carries no ``WellKnownManifest.ver``,
+    and one that happens to carry a ``ver`` those faces would refuse still resolves
     keys. Pins that decision — gating the key face fails here."""
     k = make_key()
     for ver_member in ("", '"ver":"2.0",', '"ver":1,'):

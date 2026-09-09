@@ -7362,8 +7362,15 @@ type WellKnownManifest struct {
 	// unrecognised MAJOR, a value that is not MAJOR.MINOR, and an ABSENT `ver`:
 	// the document sits at a fixed, unversioned path and is read before any
 	// signature is checked, so a layout the reader cannot classify must not
-	// supply the endpoint a signed call is then sent to. The SDK endpoint
-	// resolvers apply this rule in all three languages, pinned to one corpus.
+	// supply anything a signed call then carries — the endpoint that call is sent
+	// to, or the terms_digest it echoes and its signature covers.
+	//
+	// It binds every consumer of this document rather than one use of it. In the
+	// SDK that is both manifest-reading faces, in all three languages — the
+	// endpoint resolver and the registration-requirements reader — each applying
+	// it at its own call site, pinned to one corpus. The key face is exempt
+	// because it reads a plain JWK Set, which carries no version of this document
+	// and never will.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Role this manifest describes.
 	Role Role `protobuf:"varint,2,opt,name=role,proto3,enum=fora.v1.Role" json:"role,omitempty"`

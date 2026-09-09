@@ -66,6 +66,57 @@ class EndpointRefusedError(ResolverError):
     """
 
 
+class ExchangeNotPermittedError(ResolverError):
+    """The deployment's allow overlay excluded this Exchange domain, before anything
+    was dialled.
+
+    It says nothing about whether the Exchange exists or answers, only that this
+    deployment declined to ask, so the remedy is a configuration change rather than a
+    retry. Peer of Go ``ErrExchangeNotPermitted`` / TS ``ExchangeNotPermitted``.
+    """
+
+
+class ManifestNotExchangeError(ResolverError):
+    """The document served at the domain's well-known path describes some other role.
+
+    Registration requirements are an Exchange's to publish, so a manifest claiming to
+    be an agent, a broker or a publisher is refused rather than read for members it
+    has no business carrying. A manifest naming no role at all is refused the same
+    way: the field is required by the contract, and reading silence as assent would
+    make the check advisory. Peer of Go ``ErrManifestNotExchange`` / TS
+    ``ManifestNotExchange``.
+    """
+
+
+class ManifestUnusableError(ResolverError):
+    """The document arrived and this reader cannot use it.
+
+    A VERDICT and not a failed read: the bytes were served, and the next attempt gets
+    the same ones, so a caller told to retry retries forever.
+
+    The SDK's own :class:`~fora_sdk.resolvers.WellKnownRequirementsReader` raises it for
+    exactly ONE thing: a document whose version it cannot classify. That is the
+    contract's own first question about this document, asked before any other member is
+    read, and a layout no reader can classify is not a disappointment about one member —
+    it is the whole document being unreadable for what a registration owes.
+
+    The other two ways a manifest can disappoint that reader stay deliberate non-errors:
+    a member carrying a type the contract does not admit reads as ABSENT, because the
+    projection is shared with the endpoint and key faces, and a document that does not
+    decode at all is a transport failure.
+
+    It is ALSO the word for a reader stricter than the SDK's own, which is why the seam
+    admits it at all: that seam is injectable, and a reader validating the whole document
+    — or applying a version rule narrower than this one — has to be able to say its
+    refusal is final.
+
+    Deliberately NOT :class:`ManifestVersionRefusedError`, which belongs to the endpoint
+    seam. The two vocabularies are disjoint: that one answers whether an endpoint may be
+    dialled, this one whether a document can be read for what a registration owes. Peer
+    of Go ``ErrManifestUnusable`` / TS ``ManifestUnusable``.
+    """
+
+
 class ManifestVersionRefusedError(ResolverError):
     """A ``/.well-known/fora.json`` was fetched and parsed but carries a
     ``WellKnownManifest.ver`` this resolver does not accept: an unrecognised major

@@ -8,8 +8,8 @@ directly with no `replace` directive.
 |---|---|---|
 | **L0** | `gen/go/fora/v1`, `gen/go/vocab/*` | generated wire types (consumed, never rebuilt) |
 | **L1** | **`sdk/go/helpers`** | stateless, **IO-free** protocol helpers — RFC 9421/7638 crypto, offer/acceptance verify, static key resolution, validation |
-| L2 · I/O | **`sdk/go/resolvers`** | the network-fetching tier: well-known JWKS / WBA directory / `fora.json` endpoint / offer-key resolvers + the SSRF-guarded HTTP client. Runs on a maintained `net/http` client behind the SSRF guard; composes L1, never the reverse |
-| L2 · transport | `sdk/go/core` (transport-neutral: Verifier, {verified,rejected}, `DiscoveryResult` per-URI groups, VerifiedOffer guard, signing RoundTripper, ReplayStore — zero Connect) · `sdk/go/connect` (Connect **client** binding: `NewClient` + `NewBrokerClient` + `NewCatalogClient`; the agent verbs **`Discover` · `Resolve` · `Execute` · `ReportUsage` · `Dispute` · `Fetch`** and the publisher verbs **`PushResources` · `RemoveResources` · `RefreshCatalog`** + client options + the `CallError` taxonomy + `ErrorDetailFrom`) · `sdk/go/connectserver` (Connect **server** binding: `NewExchangeServiceHandler` + `NewBrokerServiceHandler` + `NewCatalogServiceHandler` + server options + `AsConnectError` + `AttachErrorDetail`/`AttachDetail` + the reject answer **`RejectCode` · `IsBodyTooLarge` · `WriteReject`**, the one place the 413/429/401 split and the error-envelope body are decided) | transport-neutral core + Connect client/server bindings (state injected) |
+| L2 · I/O | **`sdk/go/resolvers`** | the network-fetching tier: well-known JWKS / WBA directory / `fora.json` endpoint / offer-key resolvers, the uncached registration-requirements reader, + the SSRF-guarded HTTP client. Runs on a maintained `net/http` client behind the SSRF guard; composes L1, never the reverse |
+| L2 · transport | `sdk/go/core` (transport-neutral: Verifier, {verified,rejected}, `DiscoveryResult` per-URI groups, VerifiedOffer guard, signing RoundTripper, ReplayStore — zero Connect) · `sdk/go/connect` (Connect **client** binding: `NewClient` + `NewBrokerClient` + `NewCatalogClient`; the agent verbs **`Discover` · `Resolve` · `Execute` · `ReportUsage` · `Dispute` · `Fetch`**, the account-setup verbs **`Register` · `GetAccountStatus`** and the publisher verbs **`PushResources` · `RemoveResources` · `RefreshCatalog`** + client options + the `CallError` taxonomy + `ErrorDetailFrom`) · `sdk/go/connectserver` (Connect **server** binding: `NewExchangeServiceHandler` + `NewBrokerServiceHandler` + `NewCatalogServiceHandler` + server options + `AsConnectError` + `AttachErrorDetail`/`AttachDetail` + the reject answer **`RejectCode` · `IsBodyTooLarge` · `WriteReject`**, the one place the 413/429/401 split and the error-envelope body are decided) | transport-neutral core + Connect client/server bindings (state injected) |
 | L3 | separate packages | framework adapters (convert, never replace) — later |
 
 The `L2` tier is split by kind: the **I/O** package (`resolvers`) is the only tier
@@ -198,7 +198,16 @@ whole object) plus the violated constraint. The text states the constraint and
 refusal travels back over the wire, so the validating library's own messages, which
 quote the failing value, are deliberately not used. The list is deduplicated by
 pointer and keyword and sorted before the 64-item cap, so the same entries survive in
-every language.
+every language. The POINTERS survive identically; the constraint text does not, and
+the contract says so of that field — it is validator-defined and not stable across
+implementations, so branch on the pointer and the typed reason, never on the prose.
+
+The client's own pre-check returns this same list, on the `CallError` it refuses with,
+as a `RegistrationFailure` detail reachable through `ErrorDetailFrom`. That is
+deliberate: an agent developer's tooling renders the Exchange's refusal and the local
+one through the same code, and a structured list on one side and a sentence on the
+other would read as two different problems. Its `domain` names the client rather than
+the Exchange, which never saw the request.
 
 **Also:** RFC 7638 `Thumbprint`, ADR-019 `ErrorDetail` constructors +
 `AsConnectError`/`ErrorDetailFrom`/`Reason`, `NewIdempotencyKey`, scope helpers,
@@ -229,6 +238,24 @@ import "github.com/FORA-Protocol/protocol/sdk/go/resolvers"
   a transport failure and worth retrying. The key is an offer-supplied host, so the cache evicts
   least-recently-used at a fixed cap and concurrent lookups for one host coalesce to
   a single fetch.
+- **Registration-requirements reader** — `NewWellKnownRequirementsReader` reads what
+  one Exchange asks of a registration — the terms revision submitting one accepts and
+  the schema its `registration_data` must match — from the same
+  `/.well-known/fora.json`, and holds NO document cache: the contract requires the
+  digest to come from a freshly fetched manifest. It reads the document's `ver` before
+  any other member, exactly as the endpoint face does — the rule is stated for every
+  consumer of this document, and a layout no reader can classify must not supply a
+  terms digest a request signature then covers. Three
+  sentinels, same retry question as above: `ErrExchangeNotPermitted` when the
+  deployment's own overlay excluded the domain before anything was dialled,
+  `ErrManifestNotExchange` when the document describes another role, and
+  `ErrManifestUnusable` when the document cannot be read for what a registration owes —
+  which is what a refused version answers, and what a reader stricter than this one
+  reaches for, since the seam is injectable. All three are verdicts; anything else is a
+  transport failure and worth retrying. Note that `ErrManifestVersionRefused` is NOT in
+  that set: it belongs to the endpoint seam, and the two vocabularies are disjoint on
+  purpose. An off-spec optional member reads as ABSENT rather than failing the
+  document, because the projection is shared with the two faces above.
 - **Active-key selection** — `ActiveEd25519Key` / `ActiveEd25519KeyWithExpiry` pick
   an identity's window-active key by document order; the `…Screened` variants fold in
   a revoked-thumbprint screen. `NewCachedOfferKeyResolver` caches the selected offer

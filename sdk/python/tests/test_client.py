@@ -265,6 +265,46 @@ def test_a_wire_offer_carrying_emitted_zero_values_still_verifies(face: Face) ->
 
 
 # ---------------------------------------------------------------------------
+# the freshness window, on the wire
+# ---------------------------------------------------------------------------
+#
+# ``ClientConfig.sign_window`` is the knob the signing tier already had and the client
+# had no way to reach. It is asserted on the BYTES THE PEER SEES rather than on the
+# config field, because an assertion that the option was set would pass against a client
+# that then dropped it on the way to the signer — which is the defect this closes.
+#
+# It is the documented remedy for repeat ``get_account_status`` calls: that request
+# carries no varying field, so two calls to one Exchange inside a wall-clock second sign
+# identical bytes and a peer screening replays refuses the second. Driven here through
+# discover, because what is under test is that the window reaches the signature at all.
+
+
+@pytest.mark.parametrize("face", FACES, ids=_IDS)
+def test_sign_window_reaches_the_emitted_signature(face: Face) -> None:
+    created, expires = 1_700_000_000, 1_700_000_030
+    rec = Recorder({"ver": "1.0", "exchange": "exchange.test"})
+    client = face.client(_config(sign_window=lambda: (created, expires)), rec)
+
+    face.run(client.discover({"exchange": "exchange.test", "uris": ["https://site.test/a"]}))
+
+    emitted = rec.seen[0].headers["signature-input"]
+    assert f"created={created}" in emitted, emitted
+    assert f"expires={expires}" in emitted, emitted
+
+
+@pytest.mark.parametrize("face", FACES, ids=_IDS)
+def test_sign_window_defaults_when_unset(face: Face) -> None:
+    """So the window is a default and not a requirement."""
+    rec = Recorder({"ver": "1.0", "exchange": "exchange.test"})
+    client = face.client(_config(), rec)
+
+    face.run(client.discover({"exchange": "exchange.test", "uris": ["https://site.test/a"]}))
+
+    emitted = rec.seen[0].headers["signature-input"]
+    assert "created=" in emitted and "expires=" in emitted, emitted
+
+
+# ---------------------------------------------------------------------------
 # reading an answer
 # ---------------------------------------------------------------------------
 
@@ -571,6 +611,29 @@ def test_a_resolver_verdict_is_final_and_its_transport_failure_is_not(face: Face
 
 
 @pytest.mark.parametrize("face", FACES, ids=_IDS)
+def test_an_unrelated_value_error_from_a_resolver_is_not_a_verdict(face: Face) -> None:
+    """The invalid-host refusal is a bare ValueError in this port, and the routing leg
+    once matched that TYPE. json.JSONDecodeError subclasses ValueError, so an injected
+    resolver that could not parse a document had its transport failure reported as a
+    permanent verdict — where the oracle and TypeScript both call it retryable. The
+    refusal is recognised by its wording now, through the one predicate the account leg
+    also uses.
+    """
+
+    class Unparsed:
+        def resolve_endpoint(self, host: str) -> str:  # noqa: ARG002
+            raise ValueError("expecting value: line 1 column 1 (char 0)")
+
+    with pytest.raises(CallError) as caught:
+        face.run(
+            face.client(_config(endpoint_resolver=Unparsed()), Recorder({})).report_usage(
+                {"exchange": "issuer.test"}
+            )
+        )
+    assert caught.value.kind is CallErrorKind.UNREACHABLE
+
+
+@pytest.mark.parametrize("face", FACES, ids=_IDS)
 def test_an_unaccepted_manifest_version_is_not_sent(face: Face) -> None:
     """A manifest whose version the reader refuses is a VERDICT: the manifest was
     fetched and parsed, and nothing about a retry changes the version served.
@@ -682,7 +745,7 @@ def test_fetch_presents_the_proof_and_returns_the_bytes(face: Face) -> None:
 @pytest.mark.parametrize("face", FACES, ids=_IDS)
 def test_an_edge_refusal_carries_its_typed_reason(face: Face) -> None:
     def respond(request: httpx.Request) -> httpx.Response:  # noqa: ARG001
-        return httpx.Response(403, json={"error": "denied", "reason": "url_expired"})
+        return httpx.Response(403, json={"error": "denied", "reason": "expired"})
 
     transport = httpx.MockTransport(respond)
     config = _config()
@@ -697,7 +760,7 @@ def test_an_edge_refusal_carries_its_typed_reason(face: Face) -> None:
 
     err = excinfo.value
     assert err.kind is CallErrorKind.REFUSED
-    assert err.reason_of() == "url_expired"
+    assert err.reason_of() == "expired"
     assert err.detail is not None
     assert (
         err.detail.retrieval_auth_failure.reason.value

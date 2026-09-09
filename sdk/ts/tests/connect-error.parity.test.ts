@@ -20,6 +20,8 @@
 // against what the wire does rather than against a description of it.
 import { describe, it, expect } from "vitest";
 import { errorDetailFrom, reason } from "../src/errordetail.ts";
+import { ForaCallError } from "../client/errors.ts";
+import { decodeResponse } from "../client/transport.ts";
 import vectorsFile from "../../go/connect/testdata/connect-error-vectors.json";
 
 type ConnectErrorVector = {
@@ -35,6 +37,7 @@ type ConnectErrorVector = {
 		reason_field: string;
 		reason_enum: string;
 	};
+	peer_message: string;
 };
 type VectorsFile = { note: string; vectors: ConnectErrorVector[] };
 
@@ -60,6 +63,28 @@ describe("sdk/ts reads a Connect error envelope the way the sdk/go oracle does",
 	for (const v of vectors) {
 		it(`extracts the Go projection: ${v.name}`, () => {
 			const detail = errorDetailFrom(v.envelope);
+
+			// BEFORE the early return, because the row that carries no detail is the one
+			// this column exists for: its envelope has a `message` of its own and the
+			// client must still report none. The field lives on the ForaCallError, one
+			// tier above the detail the rest of this replay projects.
+			//
+			// The rule is provenance: it carries a message the PEER emitted and nothing
+			// else. A transport's synthesized text is not that — connect-go writes a
+			// status line where this client writes nothing — so filling the field from
+			// the envelope would make its value a property of the language rather than
+			// of the answer.
+			let thrown: unknown;
+			try {
+				decodeResponse("discover", {
+					status: v.http_status,
+					body: JSON.stringify(v.envelope),
+				});
+			} catch (e) {
+				thrown = e;
+			}
+			expect(thrown, v.name).toBeInstanceOf(ForaCallError);
+			expect((thrown as ForaCallError).peerMessage ?? "").toBe(v.peer_message);
 
 			if (!v.expect.has_detail) {
 				expect(detail).toBeNull();
