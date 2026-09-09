@@ -132,7 +132,11 @@ jobs:
           SHA256SUMS: ${{ needs.build.outputs.sha256sums }}
         run: scripts/release/download.sh "$GITHUB_REF_NAME" release-dist "$SHA256SUMS"
       - name: publish @fora-protocol/sdk
-        run: scripts/release/publish-npm.sh "release-dist/fora-protocol-sdk-${GITHUB_REF_NAME#v}.tgz" "${GITHUB_REF_NAME#v}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }} # temporary: bootstrap the first publish; drop once trusted publishing is configured on npm
+        run: scripts/release/publish-npm.sh \
+          "release-dist/fora-protocol-sdk-${GITHUB_REF_NAME#v}.tgz" \
+          "${GITHUB_REF_NAME#v}"
 
   verify:
     needs: [publish-pypi, publish-npm]
