@@ -189,6 +189,13 @@ jobs:
         if: "!startsWith(github.ref, 'refs/tags/')"
         run: scripts/release/build-artifacts.sh "$(node -p "require('./sdk/ts/package.json').version")" release-dist
 
+      # The release scripts' decisions (absent -> upload, same digest -> skip,
+      # different digest -> fail, lookup failure -> fail, marker present -> no
+      # rebuild, failed upload -> no marker) against stub registries. The tag
+      # run only ever takes the happy path.
+      - name: release script decisions against stub registries
+        run: scripts/release/test-decisions.sh
+
       # sdk/python L1 helpers (thumbprint, signed-URL verify, RFC 9421 sign/verify +
       # PoP, offer-acceptance, cross-field Pydantic) byte-parity against the same
       # Go-signed vectors + shared crossfield corpus, PLUS the L2 core + the outbound
