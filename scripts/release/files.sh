@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The release artifact set for a version, one file name per line (FORA-291).
+# The release artifact set for a version, one file name per line.
 # Derived from the manifests: wheel + sdist for fora-protocol (gen/python) and
 # fora-protocol-sdk (sdk/python), and the @fora-protocol/sdk tarball.
 #   scripts/release/files.sh 1.2.3

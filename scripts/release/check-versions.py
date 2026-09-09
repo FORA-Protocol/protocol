@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Release version gate (FORA-291).
+"""Release version gate.
 
 The tag version must equal the version in every released manifest, and the
 fora-protocol pin in sdk/python must equal it too (the two Python distributions

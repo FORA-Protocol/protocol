@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test for the published Python packages (FORA-291).
+# Smoke test for the published Python packages.
 # Installs the given requirements into a fresh virtualenv outside the checkout,
 # with no PYTHONPATH, imports fora_sdk and calls one L1 function. Arguments are
 # wheel paths, sdist paths (each sdist is first rebuilt into a wheel in an

@@ -144,7 +144,7 @@ export function underWirePolicy(schema: unknown, value: unknown, path: string): 
 		// "constructor" resolves to an inherited member of Object.prototype, which would
 		// read as a declared field and hand the walk something that is not a schema.
 		// hasOwnProperty.call, not Object.hasOwn: this file ships as source and compiles
-		// under the consumer's lib; Object.hasOwn needs lib ES2022 (fora-acw.2.2).
+		// under the consumer's lib; Object.hasOwn needs lib ES2022.
 		if (!hasOwn(shape, key)) {
 			const name = snakeFromJsonName(key);
 			if (name !== key && hasOwn(shape, name)) throw new WireNamingError(key, path);
