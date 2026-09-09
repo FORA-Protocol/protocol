@@ -46,18 +46,17 @@ jobs:
       - name: tag equals every released manifest version
         run: python3 scripts/release/check-versions.py "${GITHUB_REF_NAME#v}"
 
+  # No secrets are passed: the only secret the called workflows use is
+  # GITHUB_TOKEN, which a called workflow receives without `secrets: inherit`.
   proto-ci:
     needs: versions
     uses: ./.github/workflows/proto-ci.yml
-    secrets: inherit
   sdk-types-ci:
     needs: versions
     uses: ./.github/workflows/sdk-types-ci.yml
-    secrets: inherit
   docs-ci:
     needs: versions
     uses: ./.github/workflows/docs-ci.yml
-    secrets: inherit
 
   build:
     needs: [proto-ci, sdk-types-ci, docs-ci]
@@ -152,11 +151,15 @@ jobs:
         with:
           go-version-file: go.mod
       # Registries can lag a publish by a minute or two; each check retries.
-      - name: PyPI wheels install and import
+      # Only the SDK is requested: PyPI must resolve fora-protocol through the
+      # SDK's exact pin, which is the resolution a consumer's install performs
+      # and the one no pre-publish check can (both files are handed to it).
+      - name: PyPI wheel installs and imports, with fora-protocol resolved from PyPI
         run: |
           v=${GITHUB_REF_NAME#v}
           for i in 1 2 3 4 5 6; do
-            scripts/release/smoke-python.sh "fora-protocol==$v" "fora-protocol-sdk==$v" && exit 0
+            scripts/release/smoke-python.sh "fora-protocol-sdk==$v" && exit 0
+
             sleep 30
           done
           exit 1

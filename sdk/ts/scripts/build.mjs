@@ -9,7 +9,7 @@
 //    pointed at the compiled files, plus the generated schemas and vocabulary.
 //    This manifest is the only one named @fora-protocol/sdk; npm pack / publish
 //    run against dist/.
-import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -59,6 +59,19 @@ const compiled = (prefix, target, typesExt) => {
 const exports = {};
 for (const [subpath, target] of Object.entries(sdkPkg.exports)) exports[subpath] = compiled("sdk/ts", target, ".d.ts");
 for (const [subpath, target] of Object.entries(genPkg.exports)) exports[subpath] = compiled("gen/ts", target, ".ts");
+
+// Every export target must exist in dist/. The export map is derived from the
+// manifests but the staged directory list above is hand-written, so a subpath
+// in a directory that is not staged would publish as ERR_MODULE_NOT_FOUND.
+const missing = [];
+for (const [subpath, t] of Object.entries(exports)) {
+  const stems = subpath.endsWith("/*")
+    ? readdirSync(join(dist, dirname(t.default))).filter((f) => f.endsWith(".js")).map((f) => f.slice(0, -3))
+    : [""];
+  if (stems.length === 0) missing.push(subpath);
+  for (const stem of stems) for (const f of [t.types, t.default]) if (!existsSync(join(dist, f.replace("*", stem)))) missing.push(f.replace("*", stem));
+}
+if (missing.length > 0) throw new Error(`export targets missing from dist/: ${missing.join(", ")}`);
 
 const manifest = {
   name: "@fora-protocol/sdk",

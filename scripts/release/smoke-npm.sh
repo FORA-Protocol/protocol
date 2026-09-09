@@ -40,11 +40,15 @@ for zod in ${ZOD_VERSIONS:-3.23.0 3 4}; do
   echo '{ "name": "smoke", "private": true, "type": "module" }' > package.json
   npm install --ignore-scripts --no-audit --no-fund --loglevel=error "$spec" "zod@$zod" "typescript@$typescript" "@types/node@$types_node" >/dev/null
   installed=$(node -p "require('zod/package.json').version")
+  # A full version must resolve exactly; a bare major must resolve within it.
+  case "$zod" in *.*) ok=$([ "$installed" = "$zod" ] && echo 1) ;; *) ok=$([[ "$installed" == "$zod."* ]] && echo 1) ;; esac
+  [ -n "$ok" ] || { echo "::error::requested zod@$zod, installed $installed"; exit 1; }
   echo "== zod $installed"
 
   cp "$vectors" vectors.json
   cat > check.mjs <<'JS'
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { dirname } from "node:path";
 import canonicalize from "canonicalize";
 import { thumbprint } from "@fora-protocol/sdk/thumbprint";
 import { createClient } from "@fora-protocol/sdk/client";
@@ -71,7 +75,18 @@ if (vectors.length === 0) throw new Error("no wire-canonical vectors");
 for (const v of vectors) {
   if (canonicalize(fromWireOffer(v.wire_json)) !== canonicalize(v.canonical_json)) throw new Error(`wire-canonical vector ${v.name} differs from the Go oracle`);
 }
-console.log(`plain Node import + validation + ${vectors.length} wire-canonical vectors ok`);
+// every declared subpath loads under plain Node: a subpath the build staged
+// nothing for is ERR_MODULE_NOT_FOUND for the consumer and nothing else here
+// imports it. The vocab wildcard expands against the installed directory.
+const pkgDir = "node_modules/@fora-protocol/sdk";
+const subpaths = Object.entries(JSON.parse(readFileSync(`${pkgDir}/package.json`, "utf8")).exports).flatMap(([sub, t]) => {
+  if (!sub.endsWith("/*")) return [sub];
+  const stems = readdirSync(`${pkgDir}/${dirname(t.default)}`).filter((f) => f.endsWith(".js")).map((f) => f.slice(0, -3));
+  if (stems.length === 0) throw new Error(`${sub} expands to nothing`);
+  return stems.map((s) => sub.replace("*", s));
+});
+for (const sub of subpaths) await import(`@fora-protocol/sdk${sub.slice(1)}`);
+console.log(`plain Node import of ${subpaths.length} subpaths + validation + ${vectors.length} wire-canonical vectors ok`);
 JS
   node check.mjs
 

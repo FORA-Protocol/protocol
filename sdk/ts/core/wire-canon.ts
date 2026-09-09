@@ -60,12 +60,17 @@ function zdef(schema: AnyZod): ZodDef {
 }
 
 // kindOf reads the node kind in Zod 3 spelling for both majors: Zod 4's "optional"
-// becomes "ZodOptional", so one vocabulary drives the walk.
-function kindOf(schema: AnyZod): string {
+// becomes "ZodOptional", so one vocabulary drives the walk. A node with neither
+// spelling is a Zod this module does not read; it throws rather than returning a
+// kind nothing matches, which would silently drop presence-tracked zero values
+// from the canonical form and fail signature verification without a cause.
+export function kindOf(schema: AnyZod): string {
 	const d = zdef(schema);
 	if (d.typeName !== undefined) return d.typeName;
-	const t = typeof d.type === "string" ? d.type : "";
-	return `Zod${t.charAt(0).toUpperCase()}${t.slice(1)}`;
+	if (typeof d.type !== "string") {
+		throw new Error("fora/core: zod node has neither typeName (Zod 3) nor a string type (Zod 4)");
+	}
+	return `Zod${d.type.charAt(0).toUpperCase()}${d.type.slice(1)}`;
 }
 
 // innerOf peels one wrapper: ZodOptional/ZodDefault/ZodNullable expose `innerType`,

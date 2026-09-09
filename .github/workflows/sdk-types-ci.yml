@@ -99,6 +99,8 @@ jobs:
         working-directory: gen/ts
         run: |
           npm install --no-save zod@4
+          v=$(node -p "require('zod/package.json').version")
+          case "$v" in 4.*) echo "zod $v" ;; *) echo "::error::zod@4 requested, installed $v"; exit 1 ;; esac
           npm test
 
       # Canonical proto-JSON interop: each client re-serializes every valid corpus
@@ -127,7 +129,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: astral-sh/setup-uv@v6
+      # Same commit and uv version as release.yml: this workflow is part of the
+      # release path (workflow_call), so the pull request must build with the
+      # same uv as the tag.
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          version: 0.12.11
 
       # Drift gate: the emitter re-derives the vectors from FIXED seeds/timestamps and
       # fails if the committed testdata differs (deterministic, no time.Now()/random).
@@ -162,7 +169,16 @@ jobs:
         working-directory: sdk/ts
         run: |
           npm install --no-save zod@4
+          v=$(node -p "require('zod/package.json').version")
+          case "$v" in 4.*) echo "zod $v" ;; *) echo "::error::zod@4 requested, installed $v"; exit 1 ;; esac
           npm test
+
+      # The release version gate, on the pull request: every released manifest
+      # and the fora-protocol pin must agree, so a release-preparation change
+      # that bumps some of them fails here and not after the tag exists (the
+      # tag ruleset forbids moving it).
+      - name: every released manifest agrees on the version
+        run: python3 scripts/release/check-versions.py "$(node -p "require('./sdk/ts/package.json').version")"
 
       # The release artifact set, built and smoke-tested by the same script the tag
       # release uses: the staged NodeNext compile, the file set, the staged manifest
