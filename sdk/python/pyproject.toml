@@ -18,7 +18,7 @@
 # version ceilings below (httpx<0.29, httpcore<2, guarding the private-internals
 # SSRF seam) bind EVERY install transitively, including consumers that declare
 # httpx directly. So "dependency-free" describes the L1 import surface, NOT the
-# package install. The PyPI dist name defers to the L2/publish work.
+# package install. Published to PyPI as fora-protocol-sdk.
 #
 # Vetted libs the port uses (the app is the quality bar — do NOT hand-roll
 # crypto/canonicalization): cryptography>=44, pydantic>=2.9. The generated Pydantic
@@ -114,15 +114,17 @@ mypy_path = "../../gen/python"
 # under full --strict.
 follow_imports = "silent"
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"] # license-files (PEP 639)
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "fora-protocol-sdk"
 version = "1.0.0"
-description = "FORA L1 protocol-mechanics helpers (thumbprint, signed-URL, RFC 9421 sign/verify + PoP, offer-acceptance, key-resolution). GREENFIELD — under construction."
+description = "FORA protocol SDK for Python: the IO-free protocol mechanics (thumbprint, signed-URL verification, RFC 9421 request signing and verification, offer and acceptance signatures, cross-field validation), the key and endpoint resolvers and the Connect-unary JSON client."
+readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 dependencies = [
   # The generated wire/vocab packages (gen/python), published to PyPI as
   # fora-protocol. Pinned exactly: both distributions are built from the same
@@ -171,9 +173,19 @@ test = [
 ]
 # The ASGI server-binding extra (FastAPI/Starlette) is deferred with its binding.
 
+[project.urls]
+Homepage = "https://fora-protocol.org"
+Source = "https://github.com/FORA-Protocol/protocol"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["fora_sdk*"]
+
+# The inline-types marker, in the wheel and the sdist: without it mypy reports
+# "missing library stubs or py.typed marker" and every symbol becomes Any.
+[tool.setuptools.package-data]
+fora_sdk = ["py.typed"]
+
 
 # Development only: resolve fora-protocol from the in-repo gen/python tree so uv can
 # lock and sync before (and independently of) the PyPI release. uv sources never
