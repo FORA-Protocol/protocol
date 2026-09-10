@@ -200,6 +200,29 @@ export function createCachedOfferKeyResolver(
  * lever (mirrors Go NewWBADirectoryFetcher). Tests inject a loopback fetch; apps
  * may inject a fetch wrapping their shared well-known client.
  */
+/**
+ * joinDirectoryHost joins an exchange domain and a configured port into the
+ * authority the directory URL is built on.
+ *
+ * Port of the Go oracle `joinDirectoryHost`
+ * (sdk/go/resolvers/cachedofferkeyresolver.go), held to it by the tri-language
+ * wba-join-vectors.json corpus that resolvers-wba-join.parity.test.ts replays.
+ *
+ * An empty port leaves the domain alone so the scheme default applies. Otherwise
+ * the rule is Go's `net.JoinHostPort`: a host containing a colon is wrapped in
+ * brackets, with no check for brackets it already carries, so `[::1]` becomes
+ * `[[::1]]:8443`. That input cannot arrive through a validated offer —
+ * Offer.exchange is constrained to a bare domain with an optional numeric port —
+ * and the corpus pins it so the three SDKs cannot answer different URLs for the
+ * same exchange. This previously interpolated without bracketing, which disagreed
+ * with Go for every IPv6 host.
+ */
+function joinDirectoryHost(domain: string, port: string): string {
+	if (port === "") return domain;
+	if (domain.includes(":")) return `[${domain}]:${port}`;
+	return `${domain}:${port}`;
+}
+
 export function createWBAOfferDirectoryFetch(
 	opts: { fetch?: FetchLike; scheme?: string; port?: string } = {},
 ): OfferDirectoryFetch {
@@ -208,8 +231,10 @@ export function createWBAOfferDirectoryFetch(
 	const port = opts.port ?? "";
 	return async (domain: string) => {
 		try {
-			const host = port !== "" ? `${domain}:${port}` : domain;
-			const body = await fetchStrict(fetchFn, wbaDirectoryURL(scheme, host));
+			const body = await fetchStrict(
+				fetchFn,
+				wbaDirectoryURL(scheme, joinDirectoryHost(domain, port)),
+			);
 			return WBAFileSchema.parse(JSON.parse(body));
 		} catch {
 			return undefined;

@@ -32,7 +32,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from resolvers_harness import (
@@ -45,10 +45,14 @@ from resolvers_harness import (
     wba_jwk,
 )
 
+from fora_sdk.b64 import b64url_nopad
 from fora_sdk.core import sign_offer_jcs
 from fora_sdk.pop import verify_agent_binding
 from fora_sdk.signedurl import sign_ed25519_signed_url, verify_ed25519_signed_url
 from fora_sdk.thumbprint import thumbprint
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 DISCOVER_PATH = "/fora.v1.ExchangeService/DiscoverResources"
 EXECUTE_PATH = "/fora.v1.ExchangeService/ExecuteTransaction"
@@ -68,12 +72,15 @@ class FakeExchange:
     domain: str
     url: str
     content: bytes
+    #: Stops the origin's server thread. Set by `fake_exchange`, which is the only
+    #: constructor — typed as a required callable rather than `Any = None`, so a
+    #: FakeExchange built without one is a type error here instead of "NoneType is not
+    #: callable" raised from `close()` at the end of a test.
+    _shutdown: Callable[[], None]
     seen: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
 
     def close(self) -> None:
         self._shutdown()
-
-    _shutdown: Any = None
 
 
 def _signed_offer(*, seed: bytes, exchange: str, uri: str) -> dict[str, Any]:
@@ -84,10 +91,19 @@ def _signed_offer(*, seed: bytes, exchange: str, uri: str) -> dict[str, Any]:
     signature over the canonical projection of whatever it received, so signing the
     canonical form is the only thing that agrees with it.
     """
+    # `identity.canonical_url` is how an Offer names its resource. Offer has no `uri`
+    # field — that one belongs to OfferGroup, which carries it below — and signing a
+    # field the schema does not define would have this harness prove the example
+    # against a message no Exchange can send.
     offer: dict[str, Any] = {
         "offer_id": "offer-1",
         "exchange": exchange,
-        "uri": uri,
+        "identity": {
+            "canonical_url": uri,
+            # Required, and {not_in:[0]} — an Exchange must state mutability
+            # explicitly rather than leave it UNSPECIFIED.
+            "resource_mutability": "RESOURCE_MUTABILITY_STATIC",
+        },
         "expires_at": rfc3339(datetime.now(UTC) + _SLACK),
     }
     signature, algorithm = sign_offer_jcs(seed=seed, offer=offer)
@@ -156,8 +172,6 @@ class _Exchange:
 
 
 def _b64(raw: bytes) -> str:
-    from fora_sdk.b64 import b64url_nopad
-
     return b64url_nopad(raw)
 
 
@@ -201,6 +215,19 @@ def _make_handler(state: _Exchange) -> type[BaseHTTPRequestHandler]:
                 return
             self._send(404, b"", "application/json")
 
+        def _refuse(self, token: str) -> None:
+            """Answer a delivery refusal the way the edge protocol defines it.
+
+            The body is ``{"error": ..., "reason": ...}`` and the reason is the SHORT
+            token the checkers themselves emit — "expired", "thumbprint_mismatch",
+            "pop_sig_invalid". That is the edge's own vocabulary, and
+            ``fora_sdk.client.content`` is what maps it onto the protocol's
+            RetrievalAuthFailureReason. Passing the verifier's own reason through is
+            also what a real edge does, so a refusal here is one the SDK can read
+            instead of a string invented for the test.
+            """
+            self._json(403, {"error": "delivery refused", "reason": token})
+
         def _deliver(self) -> None:
             """The delivery edge: verify the signed URL, then the proof of possession.
 
@@ -215,7 +242,7 @@ def _make_handler(state: _Exchange) -> type[BaseHTTPRequestHandler]:
                 target, now=now, resolve_key=lambda _kid: state.delivery_pub
             )
             if not verdict.valid or verdict.expired:
-                self._json(403, {"reason": "RETRIEVAL_AUTH_FAILURE_REASON_SIGNATURE_INVALID"})
+                self._refuse(verdict.reason or "signature_mismatch")
                 return
             headers = {k.lower(): v for k, v in self.headers.items()}
             proof = verify_agent_binding(
@@ -226,7 +253,7 @@ def _make_handler(state: _Exchange) -> type[BaseHTTPRequestHandler]:
                 now=now,
             )
             if not proof.ok:
-                self._json(403, {"reason": "RETRIEVAL_AUTH_FAILURE_REASON_AGENT_KEY_MISMATCH"})
+                self._refuse(proof.reason or "pop_sig_invalid")
                 return
             self._send(200, state.content, "text/plain; charset=utf-8")
 

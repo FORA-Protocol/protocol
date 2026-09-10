@@ -40,6 +40,7 @@ DIFFER per language — that difference is the subject.
 
 from __future__ import annotations
 
+import asyncio
 import http.server
 import threading
 from collections.abc import Callable
@@ -48,6 +49,7 @@ from typing import Any
 import pytest
 
 from fora_sdk.resolvers import (
+    create_wba_offer_directory_fetch,
     WellKnownEndpointResolver,
     WellKnownKeyResolver,
     WellKnownRequirementsReader,
@@ -110,6 +112,15 @@ def _requirements(host: str) -> Any:
     return WellKnownRequirementsReader(scheme="http").resolve_registration_requirements(host)
 
 
+def _offer_directory(host: str) -> Any:
+    fetch = create_wba_offer_directory_fetch(scheme="http")
+
+    async def go() -> Any:
+        return await fetch(host)
+
+    return asyncio.run(go())
+
+
 #: ``reaches`` is True where the default is the PLAIN client.
 _ROWS = [
     pytest.param(
@@ -131,6 +142,14 @@ _ROWS = [
         False,
         "its host is a RegisterRequest.exchange domain, named by the caller per call",
         id="requirements reader dials guarded",
+    ),
+    pytest.param(
+        _offer_directory,
+        False,
+        "its host is an Offer.exchange domain read off an offer, and the directory is "
+        "fetched BEFORE that offer's signature is checked, so an unguarded default "
+        "would be a pre-auth SSRF lever",
+        id="offer-directory fetch dials guarded",
     ),
 ]
 

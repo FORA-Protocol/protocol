@@ -23,13 +23,10 @@ import urllib.parse
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
 
+import httpx
 from pydantic import ValidationError
 from wire.models import JsonWebKey, KeyRevocationList, WBAFile
-
-if TYPE_CHECKING:
-    import httpx
 
 from fora_sdk.b64 import b64url_decode_strict
 from fora_sdk.hosts import host_anchored
@@ -44,6 +41,31 @@ from fora_sdk.resolvers.errors import (
 from fora_sdk.thumbprint import thumbprint
 
 WBA_DIRECTORY_PATH = "/.well-known/http-message-signatures-directory"
+
+
+def _get_wba_directory(http: httpx.Client, url: str) -> WBAFile:
+    """GET ``url`` and decode the body as a :class:`WBAFile`.
+
+    The ONE place Python turns a directory URL into a directory. Both faces that need
+    one call it: :meth:`WBAKeyResolver._fetch_directory` on the signature-verification
+    path, and :func:`~fora_sdk.resolvers.offer_key_cache.create_wba_offer_directory_fetch`
+    on the offer-key path. Go shares a single ``fetchWBAFile`` between the same two
+    call sites for the same reason, so the two paths cannot drift apart.
+
+    Every failure leaves as :class:`DirectoryUnavailableError`, which is what lets each
+    caller make its own raise-or-contain choice against ONE exception type.
+    ``fetch_strict`` already folds in every transport failure and every non-200. This
+    adds the two arms it does not cover: a body that is not a valid directory, and a
+    URL that cannot be built at all.
+    """
+    try:
+        body = fetch_strict(http, url)
+    except httpx.InvalidURL as exc:
+        raise DirectoryUnavailableError(f"malformed directory url {url!r}") from exc
+    try:
+        return WBAFile.model_validate_json(body)
+    except ValidationError as exc:
+        raise DirectoryUnavailableError("wba directory decode") from exc
 
 
 def wba_directory_url(scheme: str, host: str) -> str:
@@ -296,11 +318,7 @@ class WBAKeyResolver:
             pending.event.set()
 
     def _fetch_directory(self, base: str) -> WBAFile:
-        body = fetch_strict(self._http, base + WBA_DIRECTORY_PATH)
-        try:
-            return WBAFile.model_validate_json(body)
-        except ValidationError as exc:
-            raise DirectoryUnavailableError("wba directory decode") from exc
+        return _get_wba_directory(self._http, base + WBA_DIRECTORY_PATH)
 
     def _is_revoked(self, host: str, thumbprint_key: str) -> bool:
         with self._rev_lock:

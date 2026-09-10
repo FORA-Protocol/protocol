@@ -29,8 +29,7 @@ from resolvers_harness import (
     wba_jwk,
 )
 
-from fora_sdk.resolvers import create_wba_offer_directory_fetch, wba_directory_url
-from fora_sdk.resolvers.offer_key_cache import _join_host_port
+from fora_sdk.resolvers import create_wba_offer_directory_fetch
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -100,19 +99,52 @@ def test_unreachable_origin_is_contained_as_none(origin: Origin) -> None:
     assert _run(origin) is None
 
 
-def test_default_client_is_guarded(origin: Origin) -> None:
-    """With no injected client the fetch refuses a loopback target.
+def test_default_client_is_guarded(origin: Origin, monkeypatch: pytest.MonkeyPatch) -> None:
+    """With no injected client the fetch refuses a loopback target on ADDRESS alone.
 
-    This is the assertion that the SSRF-guarded default was not quietly swapped for
-    a plain one: the exchange domain arrives inside an offer, so the party choosing
-    this address is not the party running the process. A guarded refusal is a
-    transport failure, so it surfaces through the same None as everything else —
-    which is why the positive case above must inject, and why this case is what
-    proves the default.
+    This is the assertion that the SSRF-guarded default was not quietly swapped for a
+    plain one: the exchange domain arrives inside an offer, so the party choosing this
+    address is not the party running the process.
+
+    Two independent gates can refuse this fetch. The scheme gate rejects plaintext
+    http, and the address guard rejects 127.0.0.1. An earlier version of this test
+    asked for ``scheme="http"`` and asserted None, which the scheme gate alone
+    satisfied — so the address guard, the half this test exists to pin, could have
+    been removed with the test still passing. Two things fix that. ALLOW_INSECURE is
+    SET, which opens the scheme gate and leaves the address guard as the only thing
+    that can refuse. And SKIP_SSRF is cleared rather than inherited, so a developer
+    with it exported does not see a pass that means nothing.
     """
+    for name in ("SKIP_SSRF", "HTTP_PROXY", "HTTPS_PROXY"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("ALLOW_INSECURE", "true")
+
     _serve_directory(origin)
     fetch = create_wba_offer_directory_fetch(scheme="http")
     assert asyncio.run(fetch(origin.host)) is None
+
+
+def test_the_guarded_default_reaches_a_permitted_address(
+    origin: Origin, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same wiring with the address guard OFF resolves the directory.
+
+    Without this, ``test_default_client_is_guarded`` could pass because the fetch is
+    broken for some unrelated reason rather than because the guard refused. Turning
+    the one guard under test off and getting the directory back is what shows the
+    refusal above came from the address check and from nothing else.
+    """
+    x = _serve_directory(origin)
+    for name in ("HTTP_PROXY", "HTTPS_PROXY"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("ALLOW_INSECURE", "true")
+    monkeypatch.setenv("SKIP_SSRF", "true")
+
+    fetch = create_wba_offer_directory_fetch(scheme="http")
+    wba = asyncio.run(fetch(origin.host))
+
+    assert wba is not None
+    assert [k.x for k in wba.keys] == [x]
 
 
 def test_an_injected_port_is_joined_onto_a_bare_domain(origin: Origin) -> None:
@@ -130,38 +162,3 @@ def test_an_injected_port_is_joined_onto_a_bare_domain(origin: Origin) -> None:
 
     assert wba is not None
     assert [k.x for k in wba.keys] == [x]
-
-
-def test_the_dialled_url_is_the_shared_builders() -> None:
-    """The fetch dials exactly what wba_directory_url emits, https by default.
-
-    Asserted through the builder rather than a dial, because the string is what the
-    tri-language ``wba-url-vectors.json`` corpus pins and the Go oracle emits. An
-    unset scheme means https on both sides.
-    """
-    assert wba_directory_url("", "exchange.example") == (
-        "https://exchange.example/.well-known/http-message-signatures-directory"
-    )
-    assert wba_directory_url("http", "exchange.example:8443").startswith(
-        "http://exchange.example:8443/"
-    )
-
-
-@pytest.mark.parametrize(
-    ("host", "port", "expected"),
-    [
-        ("::1", "8443", "[::1]:8443"),
-        ("::1", "", "::1"),
-        ("[::1]", "8443", "[::1]:8443"),
-        ("exchange.example", "8443", "exchange.example:8443"),
-        ("exchange.example", "", "exchange.example"),
-    ],
-)
-def test_host_and_port_join_as_net_joinhostport_does(host: str, port: str, expected: str) -> None:
-    """A bare IPv6 literal gains brackets before the port, as Go's join does.
-
-    The authority form requires them; without brackets the port reads as another
-    hextet and the dial goes somewhere else entirely. An empty port leaves the host
-    untouched so the scheme default applies.
-    """
-    assert _join_host_port(host, port) == expected

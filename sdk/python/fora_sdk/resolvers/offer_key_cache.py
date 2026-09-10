@@ -24,13 +24,20 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
-import httpx
 from wire.models import WBAFile
 
-from fora_sdk.resolvers._http import fetch_strict, guarded_client
+from fora_sdk.resolvers._http import guarded_client
 from fora_sdk.resolvers.errors import DirectoryUnavailableError
-from fora_sdk.resolvers.wba import active_ed25519_key_with_expiry_screened, wba_directory_url
+from fora_sdk.resolvers.wba import (
+    _get_wba_directory,
+    active_ed25519_key_with_expiry_screened,
+    wba_directory_url,
+)
+
+if TYPE_CHECKING:
+    import httpx
 
 _DEFAULT_TTL_SECONDS = 300
 
@@ -129,16 +136,24 @@ class CachedOfferKeyResolver:
 
 
 def _join_host_port(host: str, port: str) -> str:
-    """Join ``host`` and ``port``, bracketing a bare IPv6 literal.
+    """Join ``host`` and ``port`` into the authority the directory URL is built on.
 
-    Mirrors the Go oracle's ``net.JoinHostPort``: an empty port leaves the host
-    alone so the scheme default applies, and an IPv6 literal gains the brackets the
-    authority form requires. The TypeScript twin interpolates without bracketing;
-    Go is the oracle, so this follows Go.
+    Port of the Go oracle ``joinDirectoryHost``
+    (``sdk/go/resolvers/cachedofferkeyresolver.go``), and held to it by the
+    tri-language ``wba-join-vectors.json`` corpus that
+    ``tests/test_resolvers_wba_join_parity.py`` replays.
+
+    An empty port leaves the host alone so the scheme default applies. Otherwise the
+    rule is ``net.JoinHostPort``'s: a host containing a colon is wrapped in brackets,
+    with no check for brackets it already carries, so ``[::1]`` becomes
+    ``[[::1]]:8443``. That input cannot arrive through a validated offer —
+    ``Offer.exchange`` is constrained to a bare domain with an optional numeric port,
+    so neither a bracket nor a bare IPv6 literal passes — and the corpus pins it so
+    the three SDKs cannot answer different URLs for the same exchange.
     """
     if port == "":
         return host
-    if ":" in host and not host.startswith("["):
+    if ":" in host:
         return f"[{host}]:{port}"
     return f"{host}:{port}"
 
@@ -189,15 +204,15 @@ def create_wba_offer_directory_fetch(
     async def fetch(domain: str) -> WBAFile | None:
         url = wba_directory_url(scheme, _join_host_port(domain, port))
         try:
-            body = await asyncio.to_thread(fetch_strict, client, url)
-            return WBAFile.model_validate_json(body)
-        except (DirectoryUnavailableError, httpx.InvalidURL, ValueError):
-            # DirectoryUnavailableError already folds in every transport failure and
-            # every non-200: fetch_strict maps httpx.HTTPError, OSError (SsrfError is
-            # one, so is the deadline's TimeoutError) and the status check onto it.
-            # ValueError covers a body that is not JSON and, through pydantic's
-            # ValidationError, one that is JSON but not a directory. InvalidURL covers
-            # a domain that cannot form a URL at all.
+            return await asyncio.to_thread(_get_wba_directory, client, url)
+        except DirectoryUnavailableError:
+            # ONE exception type covers the whole contract, because
+            # _get_wba_directory is the shared GET-and-decode and it folds every arm
+            # into this error: fetch_strict maps httpx.HTTPError and OSError (SsrfError
+            # is one, so is the deadline's TimeoutError) plus any non-200, and the
+            # helper adds the malformed-URL and not-a-directory arms on top. Catching a
+            # list of families here is what let the docstring's "every failure" drift
+            # away from what the code actually contained.
             return None
 
     return fetch
