@@ -70,10 +70,10 @@ _GO_PACKAGES = ("helpers", "resolvers", "core", "connect", "connectserver")
 #     docs/sdk-parity-matrix.md reached via decision_anchor (the three connectserver
 #     handler bindings).
 #   * PARTIAL gap (one language present, the other genuinely absent) — backed by an
-#     inline allowlist_reason naming the one-sided divergence. The 10 partial gaps are
+#     inline allowlist_reason naming the one-sided divergence. The 13 partial gaps are
 #     all language-idiom folds absorbed from the old BASELINE_PY_ONLY_GAP ratchet —
-#     seven Go NewX constructor funcs that fold into Python class constructors, and
-#     three Go/TS options types that fold into Python constructor kwargs. Each carries
+#     Go NewX constructor funcs that fold into Python class constructors, and Go/TS
+#     options types that fold into Python constructor kwargs. Each carries
 #     a per-entry reason; none is a symbol Python is missing. (The two former
 #     ErrUnknownKey partial gaps are RESOLVED: TS now exports the UnknownKey error
 #     class, completing the resolver error taxonomy in all three languages.)
@@ -93,7 +93,16 @@ _GO_PACKAGES = ("helpers", "resolvers", "core", "connect", "connectserver")
 # under it again: the registration-requirements reader's Go factory folds into the Python
 # class constructor exactly as every other NewX does, and its reason is that same
 # recorded one. One entry, one already-recorded class, and the bump is the review tell.
-BASELINE_ALLOWLIST = 17
+#
+# Then 17 -> 16, a RESOLUTION rather than a fold: resolvers.NewWBADirectoryFetcher now
+# maps to Python's create_wba_offer_directory_fetch. Its allowlist reason had claimed the
+# face folded into "the Python WBAKeyResolver's injected directory-fetch seam (constructor
+# default)", and that was false in three ways at once — WBAKeyResolver takes no fetch
+# argument, the seam described belongs to CachedOfferKeyResolver on a different resolution
+# path, and that one has no default at all. The gate could not catch it, because it checks
+# the mapping and never the prose. Shipping the factory makes the entry a real 1:1 mapping
+# and the ratchet tightens with it.
+BASELINE_ALLOWLIST = 16
 
 # HARD ZERO (was a shrink-only ratchet at 19) — undocumented TS-present / Python-null
 # gaps. The PRESENCE check skips nulls, so absent this ceiling a NEW Python-null gap
@@ -654,4 +663,65 @@ def test_the_sync_facade_exports_every_class_it_defines() -> None:
         f"the blocking facade defines {sorted(missing)} but does not export them. A public "
         "class absent from __all__ is unreachable through `from fora_sdk.sync import *` and "
         "invisible to the surface gate, which reads this module through __all__."
+    )
+
+
+# --------------------------------------------------------------------------- #
+# (vi) RATIONALE TRUTH — an allowlist reason that names a Python face must be
+#      naming one that exists
+# --------------------------------------------------------------------------- #
+_CTOR_CLAIM_RE = re.compile(r"\b([A-Z][A-Za-z0-9_]*)\(\.\.\.\)")
+
+
+def test_every_python_null_rationale_names_a_real_python_face() -> None:
+    """A reason that says the Go face "folds into ``Foo(...)``" must mean a live ``Foo``.
+
+    This is the assertion the gate was missing, and its absence let a false reason ship
+    and sit there. ``resolvers.NewWBADirectoryFetcher`` justified its Python null by
+    naming "the Python WBAKeyResolver's injected directory-fetch seam (constructor
+    default)". That sentence was wrong three times over: ``WBAKeyResolver.__init__``
+    takes no ``fetch`` argument, the seam it described belongs to
+    ``CachedOfferKeyResolver`` on a different resolution path, and that one had no
+    default at all. Every other check here reads the MAPPING, so all of them passed
+    while the prose said something untrue about the code.
+
+    What this pins is the checkable half of such a claim: the constructor it names is
+    exported, and it is a class. Whether that class carries the right SEAM is not
+    mechanically checkable from prose — but a reason naming a face that does not exist
+    is the shape the false one took, and it is now caught.
+    """
+    import importlib
+    import inspect
+
+    parity_map = _load_map()
+    surface = enumerate_python()
+
+    modules = [
+        importlib.import_module(m) for m in ("fora_sdk", "fora_sdk.client", "fora_sdk.resolvers")
+    ]
+    checked = 0
+    for key, entry in parity_map["symbols"].items():
+        reason = entry.get("allowlist_reason")
+        if entry.get("python") is not None or not reason:
+            continue
+        for claimed in _CTOR_CLAIM_RE.findall(reason):
+            checked += 1
+            assert claimed in surface, (
+                f"{key}: its allowlist reason names {claimed}(...) as the Python face it "
+                f"folds into, but {claimed} is not on the public Python surface. Either "
+                "the reason is describing code that does not exist, or the face is "
+                "missing an export."
+            )
+            resolved = next(
+                (getattr(m, claimed) for m in modules if hasattr(m, claimed)),
+                None,
+            )
+            assert resolved is not None and inspect.isclass(resolved), (
+                f"{key}: its reason calls {claimed}(...) a constructor, but {claimed} is "
+                f"not a class ({resolved!r})."
+            )
+
+    assert checked, (
+        "no allowlist reason named a Python constructor — this check has gone vacuous, "
+        "which means either the reasons changed shape or the regex stopped matching them."
     )

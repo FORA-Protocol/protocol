@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 145 symbols at cross-language parity · 17 documented divergences · 184 Go-idiomatic exclusions · 37 conformance corpora, each tri-replayed.
+**At a glance:** 146 symbols at cross-language parity · 16 documented divergences · 184 Go-idiomatic exclusions · 37 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -140,6 +140,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `ErrRevocationUnevaluated` | `RevocationUnevaluatedError` | `RevocationUnevaluated` |
 | `ErrUnknownKey` | `UnknownKeyError` | `UnknownKey` |
 | `NewGuardedClientFromEnv` | `guarded_client` | `guardedFetchFromEnv` |
+| `NewWBADirectoryFetcher` | `create_wba_offer_directory_fetch` | `createWBAOfferDirectoryFetch` |
 | `OfferDirectoryFetcher` | `DirectoryFetch` | `OfferDirectoryFetch` |
 | `RegistrationRequirements` | `RegistrationRequirements` | `RegistrationRequirements` |
 | `SSRFGuard` | `ssrf_guard` | `ssrfGuard` |
@@ -212,7 +213,6 @@ Deliberate, reason-backed asymmetries. The allowlist is **shrink-only** — a ne
 | `helpers.NewStaticKeyResolver` | — | `createStaticKeyResolver` | Go NewStaticKeyResolver factory folds into the Python class constructor (StaticKeyResolver(...)); idiomatic Python exposes the class, not a separate factory symbol. TS keeps the createStaticKeyResolver factory. |
 | `resolvers.CachedOfferKeyResolverConfig` | — | `CachedOfferKeyResolverOptions` | Go config struct / TS options object folds into Python constructor keyword arguments (CachedOfferKeyResolver(...)); idiomatic Python has no separate options type. |
 | `resolvers.NewCachedOfferKeyResolver` | — | `createCachedOfferKeyResolver` | Go NewCachedOfferKeyResolver factory folds into the Python class constructor (CachedOfferKeyResolver(...)); idiomatic Python exposes the class, not a separate factory symbol. TS keeps the createCachedOfferKeyResolver factory. |
-| `resolvers.NewWBADirectoryFetcher` | — | `createWBAOfferDirectoryFetch` | Go's default OfferDirectoryFetcher factory folds into the Python WBAKeyResolver's injected directory-fetch seam (constructor default); no separate public factory symbol exists. TS keeps the createWBAOfferDirectoryFetch factory. |
 | `resolvers.NewWBAKeyResolver` | — | `createWBAKeyResolver` | Go NewWBAKeyResolver factory folds into the Python class constructor (WBAKeyResolver(...)); idiomatic Python exposes the class, not a separate factory symbol. TS keeps the createWBAKeyResolver factory. |
 | `resolvers.NewWellKnownEndpointResolver` | — | `createWellKnownEndpointResolver` | Go NewWellKnownEndpointResolver factory folds into the Python class constructor (WellKnownEndpointResolver(...)); idiomatic Python exposes the class, not a separate factory symbol. TS keeps the createWellKnownEndpointResolver factory. |
 | `resolvers.NewWellKnownKeyResolver` | — | `createWellKnownKeyResolver` | Go NewWellKnownKeyResolver factory folds into the Python class constructor (WellKnownKeyResolver(...)); idiomatic Python exposes the class, not a separate factory symbol. TS keeps the createWellKnownKeyResolver factory. |
