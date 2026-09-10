@@ -2,7 +2,7 @@
 
 Open transaction protocol for licensed AI content access.
 
-Built on [IAB Tech Lab CoMP v1.0](https://github.com/IABTechLab/CoMP) and [RSL 1.0](https://www.journalismai.info/programmes/responsible-ai/rsl); extends both with discovery, transaction execution, and settlement infrastructure so an autonomous agent can negotiate access to a publisher's content under that publisher's licensing terms, pay through an exchange, and produce a cryptographically auditable record of the transaction.
+Built on [IAB Tech Lab CoMP V1](https://github.com/IABTechLab/CoMP/blob/880238e0100b3d0d67d5afd7357a18fc21a97be5/CoMP-1.0.md) and [RSL 1.0](https://rslstandard.org/rsl); extends both with discovery, transaction execution, and settlement infrastructure so an autonomous agent can negotiate access to a publisher's content under that publisher's licensing terms, pay through an exchange, and produce a cryptographically auditable record of the transaction.
 
 📖 **Spec & docs:** [fora-protocol.org](https://fora-protocol.org) — start with the [proto reference](https://fora-protocol.org/reference/proto-fora/) · 🧩 **Reference implementation:** [FORA-Protocol/reference-implementation](https://github.com/FORA-Protocol/reference-implementation)
 
@@ -27,13 +27,34 @@ recovery procedure.
 > the procedure, and [`docs/design-history.md`](docs/design-history.md) for the
 > rationale behind the major design decisions.
 
+## Standards and versions
+
+What FORA builds on, and exactly how much of each it uses. Both upstreams are on their
+first release; neither has published a successor.
+
+| Standard | Version we use | How FORA uses it |
+|---|---|---|
+| **IAB Tech Lab CoMP** | **V1**, finalized 2026-04-28. Pinned to the immutable blob [`880238e…/CoMP-1.0.md`](https://github.com/IABTechLab/CoMP/blob/880238e0100b3d0d67d5afd7357a18fc21a97be5/CoMP-1.0.md) — the `1.0-202604` release tag does not carry the spec | 1:1 mapping in [`proto/comp/v1/comp.proto`](proto/comp/v1/comp.proto), field names, enum values and semantics preserved. Surfaced to agents as the `fora-comp-v1` extension profile |
+| **RSL** | **1.0** (`RSL-SPEC-1.0`, Recommendation, published 2025-12-10), namespace [`rslstandard.org/rsl`](https://rslstandard.org/rsl) | Vocabulary source, not a parsed format: RSL's AI-use terms seed FORA's `FUNCTION` restriction tokens, and `INGESTION_SOURCE_RSL` names it as a catalog source. FORA neither defines nor parses RSL documents |
+| **FORA wire** | **1.0** — the `ver` field, proto packages `fora.v1`, `fora.admin.v1`, `comp.v1` | This repository |
+| **Connect** | protocol version **1** | The RPC binding the SDKs speak |
+| **JSON Schema** | draft **2020-12** | The dialect an Exchange's published `registration_data` schema must use |
+
+`fora-comp-v1` is a **FORA profile version and not CoMP's**. The two are deliberately
+decoupled, so the profile id stays `fora-comp-v1` for as long as it tracks CoMP V1 —
+there is no `fora-comp-v2` to rename it to.
+
+The signature and canonicalization standards carry no version of their own; they are
+listed with their canonical links on the
+[References page](https://fora-protocol.org/reference/standards/).
+
 ## What's in this repo
 
 ```
 proto/          Protocol buffer source — the wire format
   fora/v1/      FORA messages and services
   fora/admin/v1/  AdminService — the Exchange operator/config plane
-  comp/v1/      IAB CoMP v1.0 (1:1 mapping; included for reference)
+  comp/v1/      IAB CoMP V1 (1:1 mapping; included for reference)
   buf.yaml      Buf module config
 
 gen/          Generated wire types (L0) — never hand-edited
