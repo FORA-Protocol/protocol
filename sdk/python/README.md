@@ -288,18 +288,77 @@ client refuses to guess:
   origin that Exchange advertises for itself. A usage report goes where the signed offer
   says, never where configuration says, so this is not an optional convenience.
 
-The rest are bounds and seams with working defaults: `call_timeout_sec`,
-`max_rpc_read_bytes`, `content_timeout_sec`, `max_content_bytes`, `sign_window`,
-`proof_window`, `request_id`, `validation`, `registration_requirements`.
+The rest are bounds and seams with working defaults:
+
+| Field | Default | What it bounds |
+|---|---|---|
+| `call_timeout_sec` | `30.0` | one RPC, end to end |
+| `max_rpc_read_bytes` | `1048576` (1 MiB) | an RPC response body |
+| `content_timeout_sec` | `30.0` | the delivery fetch as a whole; its remainder is carried across the legs of one `fetch` |
+| `max_content_bytes` | `8388608` (8 MiB) | one fetched body, buffered whole |
+| `proof_window` | 30 s | validity of the proof of possession a bound fetch presents |
+| `sign_window` | the signer's own window (600 s) | validity of an outbound request signature. Set it to a `monotonic_window`, **one instance per client**, if your peer screens replays by (key id, signature) — timestamps have one-second resolution, so two identical requests inside a second otherwise sign to the same bytes |
+| `request_id` | `None`, meaning **no header is sent** | mints the `X-Request-ID` correlation value |
+| `validation` | `"strict"` | whether an outbound message is checked against its generated model before it is sent. Orthogonal to offer verification, which is about what comes back |
+| `registration_requirements` | a reader built on the guarded client, once per client | where `register` reads an Exchange's terms revision and registration schema. It holds no document cache on purpose: the contract requires the terms digest to come from a freshly fetched manifest |
+
+**Build a client once and reuse it.** `ClientConfig`, the resolvers and the `Verifier`
+are all designed to be shared: the endpoint resolver caches each Exchange's manifest
+behind its own locks, the offer-key resolver caches keys with a TTL, and the client owns
+HTTP connection pools that `close()` releases. One per process, or one per Exchange, is
+the shape to aim for — not one per purchase. The one thing that must not be shared across
+processes is the signing key.
+
+### The verbs
+
+Requests are plain dicts in proto-JSON **snake_case**; a camelCase key is refused as
+malformed rather than silently ignored. Responses are the generated Pydantic models from
+`wire.models`.
+
+| Verb | Send | Get back |
+|---|---|---|
+| `discover(query)` | `exchange`, `uris`, optional filters | `DiscoveryResult`: `groups` (one per requested URI, each with `uri`, `result.verified`, `result.rejected`, `absence_reason`), plus `exchange` and `rate_limit`. `verified()` and `rejected()` flatten across groups |
+| `execute(offer, *, idempotency_key=None)` | a `VerifiedOffer` — nothing else is accepted | `TransactionResponse`: `items`, each with `transaction_id`, `billing_id`, `retrieval_endpoint`, `expires_at`, `cost` |
+| `fetch(signed_url)` | one `retrieval_endpoint` | `Content`: `url`, `mime_type`, `body` |
+| `report_usage(report, *, idempotency_key=None)` | `exchange`, `transaction_id`, `billing_id`, `usage` | `UsageReportResponse`: `report_id`, which a later dispute must cite |
+| `dispute(request, *, idempotency_key=None)` | `exchange`, `transaction_id`, `report_id`, `reason` | `DisputeResponse` |
+| `register(request)` / `get_account_status(request)` | account setup with an Exchange | `RegisterResponse` / `GetAccountStatusResponse` |
+
+A rejected offer keeps both the offer and the `reason` it was refused, so a caller can
+tell a bad signature from an unresolvable Exchange. A group with no offers at all keeps
+its `absence_reason` instead, and the distinction matters: "not in the catalogue" means
+give up, "scope insufficient" means acquire an entitlement and retry, and "content
+blocked" means never retry.
+
+**Where a URI comes from** is not the SDK's job. `discover` asks one Exchange about URIs
+you already have — from your own crawl frontier, a publisher's catalogue, or a Broker.
+`BrokerClient.resolve` is the fan-out case: it asks a Broker, which queries the Exchanges
+it knows and relays back what they offered, so a caller with no idea which Exchange sells
+a resource starts there rather than with `discover`.
 
 Failures arrive as one `CallError` carrying a `CallErrorKind` — `NOT_SENT`, `REFUSED`,
 `UNREACHABLE`, `MALFORMED`, `TOO_LARGE`, `NOT_SIGNABLE`, `UNKNOWN` — plus the peer's own
 reason token and, when the peer sent one, a typed `ErrorDetail`. One failure type for
-every verb, so a caller branches in one place.
+every verb, so a caller branches in one place. `NOT_SENT` is worth singling out: it means
+the client refused before anything left the process, so retrying without changing
+something will fail the same way.
 
 `BrokerClient` carries `resolve` for brokered discovery, and `CatalogClient` carries the
 publisher verbs. Both take the same `ClientConfig`, because a publisher addresses a
 different endpoint with a different key.
+
+### Running against a local Exchange
+
+Three environment variables, and they are read at call time so a test can set them:
+
+| Variable | Effect |
+|---|---|
+| `FORA_WELLKNOWN_SCHEME=http` | the resolvers read manifests and directories over plaintext. Consumer-side: the SDK never reads it for you, which is why the example above passes `scheme=` explicitly |
+| `ALLOW_INSECURE=true` | the scheme gate permits a plaintext `http` origin. Needed for the RPC and delivery legs, which check the scheme ABOVE the transport, so injecting a client is not enough |
+| `SKIP_SSRF=true` | the dial-time address guard is dropped, so loopback and private addresses are reachable |
+
+All three default to the guarded, https-only posture. Set them for a sandbox, never in
+production — together they remove the whole pre-auth SSRF defence.
 
 ---
 
