@@ -64,11 +64,13 @@ Steps 2-6 happen behind a single `Fetch()` call. Your agent sees one function. T
 import { Aside } from '@astrojs/starlight/components';
 
 <Aside type="note">
-The SDK is not yet published to package registries. Use the working implementations directly from the repository:
+Install the SDK rather than building against the generated types directly -- it carries the
+RFC 9421 signing, the thumbprint derivation and the offer verification you would otherwise
+re-derive:
 
-- **Go**: Import generated types from [`gen/go/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/go/) and the Connect-Go client from `gen/go/fora/v1/forav1connect`.
-- **TypeScript**: Validate messages with the generated Zod schemas from [`gen/ts/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/ts/). The npm package is not yet published.
-- **Python**: Parse messages with the generated Pydantic models from [`gen/python/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/python/). The PyPI package is not yet published.
+- **Go**: `go get github.com/FORA-Protocol/protocol@v1.0.3`, then import `sdk/go/connect` and `sdk/go/helpers`. See the [Go README](https://github.com/FORA-Protocol/protocol/blob/main/sdk/go/README.md).
+- **TypeScript**: `npm install @fora-protocol/sdk`. The generated Zod schemas ship inside it.
+- **Python**: `pip install fora-protocol-sdk`. See the [Python README](https://github.com/FORA-Protocol/protocol/blob/main/sdk/python/README.md), whose worked example is executed by the package's own test suite.
 </Aside>
 
 Configure it with your agent identity, signing key, and budget:
