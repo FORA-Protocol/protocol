@@ -10,7 +10,7 @@ FORA does not replace RSL or CoMP. The three standards work together, each handl
 | Standard | What It Does | Provider Action | File / Endpoint |
 |---|---|---|---|
 | **RSL 1.0** | Declares licensing terms and pricing | Drop `rsl.txt` on domain | `rsl.txt` |
-| **CoMP v2.0** | Defines content metadata objects | (Used internally by Exchange) | -- |
+| **CoMP V1** | Defines content metadata objects | (Used internally by Exchange) | -- |
 | **C2PA 2.x** | Content provenance and authenticity | Embed Content Credentials in assets | (In-asset or sidecar manifest) |
 | **FORA** | Transaction protocol + discovery | Drop `fora.json` on domain | `/.well-known/fora.json` |
 | **Content Attestation** | Cryptographic content verification | Publish keys in the WBA directory | `/.well-known/http-message-signatures-directory` |
@@ -132,13 +132,21 @@ IAB CoMP is **not** nested in FORA's core messages. It is an **extension profile
 
 The `fora-comp-v1` profile maps CoMP objects to `comp.*` extension keys:
 
+The keys are FLAT -- `comp.<name>`, not a nested `comp.package.*` namespace -- because
+`Offer.ext` is a `google.protobuf.Struct` and one level keeps the projection readable.
+The full key list is on [CoMP Extension Profile](/protocol/ext-comp/).
+
 | CoMP Object | Carried as (extension) |
 |---|---|
-| `Package` | `comp.package.*` keys in `Offer.ext` -- describes the content unit |
-| `Scope` | `comp.scope.*` keys in `Offer.ext` -- content type and filtering metadata |
-| `Text`, `Video`, `Image`, `Audio` | `comp.scope.<type>.*` keys (CoMP v2.0 adds `Text.authority`/`originality`, `Image.alt`/`caption`, C2PA on media types) |
-| `Retrieval` | `comp.retrieval.*` keys -- access method and endpoint (including signed URLs, CoMP v2.0 adds `ratelmt`) |
-| `License` | `comp.license.*` keys with `LicenseUse` enum (CoMP v2.0, from CoMP section license.json) |
+| `Package` | `comp.package_id`, `comp.title`, `comp.packager`, `comp.seller`, `comp.license_url`, `comp.report_url` -- describes the content unit |
+| `Scope` | `comp.scope_type`, `comp.scope_max`, `comp.content_types`, `comp.language`, `comp.countries`, plus the commercial terms CoMP V1 folds onto Scope: `comp.allowed_use`, `comp.price_type`, `comp.price_tier`, `comp.unit_price`, `comp.currency`, `comp.license_duration_days` |
+| `Text`, `Video`, `Image`, `Audio` | the per-media taxonomy keys `comp.cattax` and `comp.cat` |
+| `Retrieval` | `comp.retrieval_type`, `comp.retrieval_auth`, `comp.retrieval_endpoint` -- access method and endpoint, including signed URLs |
+
+CoMP V1 has **no separate License object.** Every commercial and licensing term lives on
+`Scope` (`ause`, `pricetype`, `pricetier`, `unitprice`, `cur`, `country`, `licensedur`),
+which is why the licensing keys above sit in the `Scope` row. `proto/comp/v1/comp.proto`
+records the same thing at the top of the file.
 
 The requesting AI system is identified by the core `Requester` message (which replaces CoMP `AISystem` in FORA v1.0). The core `Requester` does **not** nest a CoMP `RequesterUse`/`AISystemUse` or an `intended_use` field; intended use was removed. Instead, the request states `acceptable_restrictions` -- the restriction axes (e.g. `FUNCTION`) the requester is willing to accept.
 
@@ -169,9 +177,9 @@ FORA adds its own objects on top of CoMP:
 |       | ingested by                                      |
 |       v                                                  |
 |  +----------+   Content metadata objects                 |
-|  | CoMP 2.0 |   Package, Scope, Retrieval, License,      |
-|  |          |   LicenseUse (FORA v1.0 uses Requester     |
-|  |          |   in place of CoMP AISystem)                |
+|  | CoMP V1  |   Package, Scope, Retrieval,               |
+|  |          |   Text/Video/Image/Audio (FORA v1.0        |
+|  |          |   uses Requester for CoMP AISystem)         |
 |  +----+-----+                                            |
 |       | used by                                          |
 |       v                                                  |

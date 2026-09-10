@@ -73,33 +73,46 @@ re-derive:
 - **Python**: `pip install fora-protocol-sdk`. See the [Python README](https://github.com/FORA-Protocol/protocol/blob/main/sdk/python/README.md), whose worked example is executed by the package's own test suite.
 </Aside>
 
-Configure it with your agent identity, signing key, and budget:
+Build a client with your identity and the keys it signs with. The base URL comes from
+the Exchange's own `/.well-known/fora.json` rather than from configuration:
 
 ```go
-client, _ := fora.NewClient(fora.Config{
-    AgentID:     "acme-research-bot",
-    AgentDomain: "agents.acme.com",
-    SigningKey:  os.Getenv("FORA_SIGNING_KEY"),
+endpoints := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{})
+
+client := connect.NewClient(baseURL,
+    connect.WithSigner(signer),           // RFC 9421 request signing; custody stays yours
+    connect.WithAgentKey(agentPublic),    // the public half a bound delivery fetch presents
+    connect.WithRequester(requester),     // who this agent says it is
+    connect.WithOfferKey(exchangePublic), // the key this Exchange signs offers with
+    connect.WithEndpointResolver(endpoints),
+)
+```
+
+Which domains you work in is a property of each query rather than of the client, so it
+goes on the `ResourceQuery`:
+
+```go
+found, err := client.Discover(ctx, &forav1.ResourceQuery{
+    Exchange: "exchange.example",
+    Uris:     []string{"https://publisher.example/article"},
     SupportedProfiles: []string{
-        "fora-news-v1",       // articles, podcasts, broadcasting
-        "fora-academic-v1",   // journal papers, preprints, datasets
-        "fora-legal-v1",      // legislation, case law, patents
-    },
-    Budget: fora.Budget{
-        MaxPerRequest: 100.00,    // never pay more than $100 for one resource
-        MaxPerSession: 500.00,    // cap at $500/session
-        Currency:      "USD",
+        "fora-news-v1",     // articles, podcasts, broadcasting
+        "fora-academic-v1", // journal papers, preprints, datasets
+        "fora-legal-v1",    // legislation, case law, patents
     },
 })
 ```
 
 The SDK handles:
-- **Exchange discovery** from provider `fora.json` files or Broker routing
-- **Price comparison** across multiple Exchanges (if using a Broker)
-- **Budget enforcement** -- never exceed your per-request or per-session limits
-- **Ed25519 signing** -- every request is cryptographically signed with your key
-- **Usage reporting** -- mandatory post-access reports submitted automatically
-- **Profile routing** -- `supported_profiles` tells the Broker which domains you work in
+- **Endpoint discovery** -- an Exchange's API address read from its own `fora.json`, and usage reports routed back to whichever Exchange issued the offer
+- **Offer verification** -- every offer's signature checked against the issuing Exchange's published key before you can buy it, and a rejected offer keeps its reason
+- **Ed25519 signing** -- every request signed with your key under RFC 9421
+- **Bound delivery** -- the delivery URL is tied to your key and the client presents the matching proof of possession, so a copied link fetches nothing
+- **Profile routing** -- `supported_profiles` on the query tells a Broker which domains you work in
+
+Two things the SDK does **not** do, both part of a deferred layer: there is no spend cap
+of any kind, and usage reports are not submitted automatically -- you call `ReportUsage`
+yourself. See [Budget and Usage Reporting](/components/agent-sdk/budget-reporting/).
 
 ## Extension Profiles
 

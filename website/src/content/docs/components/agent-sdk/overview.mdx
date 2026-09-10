@@ -5,12 +5,10 @@ description: "The FORA Agent SDK is an embeddable library that gives AI agents o
 
 import DeferredSdkNoticeDetail from '../../../../components/DeferredSdkNoticeDetail.mdx';
 
-import { Aside } from '@astrojs/starlight/components';
-
 
 ## What the SDK Provides
 
-The FORA Agent SDK is a library that agent developers embed directly in their application process, in Go, TypeScript or Python. What ships today is the client below: four verbs -- discover, execute, fetch, report -- with offer verification, RFC 9421 request signing and a bound delivery fetch built in. A convenience layer above it, collapsing all four into a single `Fetch(url)` that also enforces a spend cap, is designed but not implemented; the sections from [v1.0 Capabilities](#v10-capabilities) onward describe that layer.
+The FORA Agent SDK is a library that agent developers embed directly in their application process, in Go, TypeScript or Python. What ships today is the client below: four verbs -- discover, execute, fetch, report -- with offer verification, RFC 9421 request signing and a bound delivery fetch built in. A convenience layer above it, collapsing all four into a single `Fetch(url)` that also enforces a spend cap, is designed but not implemented. The sections from [v1.0 Capabilities](#v10-capabilities) to [Relationship to the Broker](#relationship-to-the-broker) describe that layer; [Language Bindings](#language-bindings) and [Version Strategy](#version-strategy) below them describe what ships today.
 
 **The SDK IS a single-tenant Broker embedded as a library.** It contains the same components (Exchange Registry, Supply Discovery, Selection Engine, Budget Tracker, Usage Reporter) and the same logic as the standalone [Broker](/components/broker/overview/). The difference is deployment model, not architecture:
 
@@ -42,6 +40,7 @@ Full per-language references live beside the code: [Go](https://github.com/FORA-
 ```go
 import (
     forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+    "github.com/FORA-Protocol/protocol/gen/go/vocab/functiontokens"
     "github.com/FORA-Protocol/protocol/sdk/go/connect"
     "github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
@@ -86,6 +85,13 @@ _, err = client.ReportUsage(ctx, &forav1.UsageReport{
     Exchange:      "exchange.example",
     TransactionId: item.GetTransactionId(),
     BillingId:     item.GetBillingId(),
+    // What was actually used. ConsumedQuantity is the billed quantity, so a report
+    // without it bills nothing. Function tokens come from the generated vocabulary
+    // rather than a string literal.
+    Usage: &forav1.Usage{
+        ConsumedQuantity: int32(len(content)),
+        Function:         []string{functiontokens.AiInput},
+    },
 })
 ```
 
@@ -101,13 +107,23 @@ plus the peer's own reason token and, when it sent one, a typed detail reachable
 ```typescript
 import { createClient } from "@fora-protocol/sdk/client";
 import { rejectedOffers, verifiedOffers } from "@fora-protocol/sdk/core";
-import { createWellKnownEndpointResolver } from "@fora-protocol/sdk/resolvers";
+import {
+  createCachedOfferKeyResolver,
+  createWBAOfferDirectoryFetch,
+  createWellKnownEndpointResolver,
+} from "@fora-protocol/sdk/resolvers";
+// Offer-signing keys come from the issuing Exchange's Web Bot Auth directory --
+// the only place they are published. The directory fetch is SSRF-guarded by default,
+// because the exchange domain arrives inside an offer.
+const offerKeys = createCachedOfferKeyResolver({
+  fetch: createWBAOfferDirectoryFetch({}),
+});
 
 const client = createClient(baseURL, {
   signer: { privKey, keyid },        // a non-extractable CryptoKey; key bytes never enter the SDK
   agentPublicKey,                    // the public half a bound delivery fetch presents
   requester,
-  resolveOfferKey: async (exchange) => offerKeys.get(exchange),
+  resolveOfferKey: async (exchange) => offerKeys.resolve(exchange),
   endpointResolver: createWellKnownEndpointResolver({}),
 });
 
@@ -130,6 +146,11 @@ await client.reportUsage({
   exchange: "exchange.example",
   transaction_id: item.transaction_id,
   billing_id: item.billing_id,
+  // consumed_quantity is the billed quantity, so a report without `usage` bills
+  // nothing. `function` is optional and is omitted here: the published
+  // @fora-protocol/sdk exposes no vocabulary entry point, and a token spelled by hand
+  // is exactly what the typed constants exist to prevent.
+  usage: { consumed_quantity: content.length },
 });
 ```
 
@@ -148,10 +169,14 @@ from fora_sdk.resolvers import (
     CachedOfferKeyResolver,
     WellKnownEndpointResolver,
     create_wba_offer_directory_fetch,
+    guarded_client,
 )
 from fora_sdk.sync import Client, ClientConfig
+from vocab.functiontokens import AI_INPUT
 
-endpoints = WellKnownEndpointResolver()
+# The endpoint resolver's host comes off an offer, so a third party chose it. Its
+# default client is still the plain one, so pass the guarded client explicitly.
+endpoints = WellKnownEndpointResolver(http=guarded_client())
 
 # Offer-signing keys come from the issuing Exchange's Web Bot Auth directory --
 # the only place they are published.
@@ -185,6 +210,9 @@ with Client(config) as client:
             "exchange": "exchange.example",
             "transaction_id": item.transaction_id,
             "billing_id": item.billing_id,
+            # consumed_quantity is the billed quantity, so a report without "usage"
+            # bills nothing. Function tokens come from the generated vocabulary.
+            "usage": {"consumed_quantity": len(content.body), "function": [AI_INPUT]},
         }
     )
 ```
@@ -291,9 +319,12 @@ type Config struct {
 }
 ```
 
-**Minimal configuration** (everything else uses sensible defaults):
+**Minimal configuration** as the deferred layer designs it. `fora.NewClient` and
+`fora.Budget` do not exist; the shipped constructor is `connect.NewClient(baseURL,
+opts...)`, shown under [Public API](#public-api) above.
 
 ```go
+// Planned layer. Not callable today.
 client, _ := fora.NewClient(fora.Config{
     AgentID:     "research-bot",
     AgentDomain: "agent.example.com",

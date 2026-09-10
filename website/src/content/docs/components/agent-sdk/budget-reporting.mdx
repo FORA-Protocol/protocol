@@ -9,7 +9,15 @@ import DeferredSdkNoticeDetail from '../../../../components/DeferredSdkNoticeDet
 
 ## Budget Management
 
-The SDK enforces three budget layers, checked in order before any network call is made. A budget-exceeded condition never reaches the wire.
+**No spend cap ships in any language.** There is no `Budget` type, no tracker and no
+enforcement in `sdk/go`, `sdk/ts` or `fora_sdk`; grepping for "budget" in the Python
+client finds `content_timeout_sec`, which is a per-call TIME budget carried across the
+legs of one fetch, not money. Everything in this half of the page is the design for the
+deferred layer. The reporting half below it is different -- `ReportUsage` ships, and
+[Manual Reporting](#manual-reporting) shows its real shape.
+
+The design: three budget layers, checked in order before any network call is made, so a
+budget-exceeded condition never reaches the wire.
 
 ### Budget Enforcement Layers
 
@@ -123,6 +131,9 @@ type BudgetExceededError struct {
 
 ### Budget Tracker Tests
 
+Written against the planned `budget` package, which does not exist. It is here as the
+design's own account of what the tracker owes, not as a test anyone can run.
+
 ```go
 func TestBudgetTracker_PerSession(t *testing.T) {
     bt := budget.NewTracker(budget.Config{
@@ -214,28 +225,32 @@ The SDK populates attribution fields in the `UsageReport` when the caller provid
 
 ### Manual Reporting
 
-When `AutoReport` is disabled, the caller is responsible for submitting usage reports:
+Auto-reporting belongs to the deferred layer. `ReportUsage` itself **ships**, in all
+three languages, and this is its real shape:
 
 ```go
-resp, err := client.ReportUsage(ctx, fora.UsageReport{
-    TransactionID: result.TransactionID,
-    BillingID:     result.BillingID,
-    Function:      "ai-input",
-    TokenCount:    1500,
+resp, err := client.ReportUsage(ctx, &forav1.UsageReport{
+    Exchange:      "exchange.example",  // the Exchange that issued the offer
+    TransactionId: item.GetTransactionId(),
+    BillingId:     item.GetBillingId(),
+    Usage: &forav1.Usage{
+        // ConsumedQuantity is the billed quantity, so a report without Usage
+        // bills nothing. Function tokens come from the generated vocabulary.
+        ConsumedQuantity: int32(len(content.Body)),
+        Function:         []string{functiontokens.AiInput},
+    },
 })
-// resp.ReportID is needed for any subsequent dispute
+if err != nil {
+    return err
+}
+// resp.GetReportId() is what a later dispute references.
 ```
 
-Previously `ReportUsage` returned only an error. In v1.0, it returns a `UsageReportResult` containing `ReportID`:
-
-```go
-err := client.ReportUsage(ctx, fora.UsageReport{
-    TransactionID: result.TransactionID,
-    BillingID:     result.BillingID,
-    Function:      "ai-input",
-    TokenCount:    1500,
-})
-```
+The report is a `forav1.UsageReport` -- the generated wire type -- rather than an
+SDK-specific struct, and the verb returns a `*forav1.UsageReportResponse` carrying
+`report_id`. The client routes the report to the Exchange the offer named, resolved
+from that Exchange's own manifest, never to whatever base URL happened to be
+configured.
 
 ### Reporting Obligations
 
@@ -249,16 +264,14 @@ The SDK tracks these obligations automatically. If an Exchange denies a future t
 
 ### Shutdown Behavior
 
-`client.Close(ctx)` blocks until all pending usage reports are submitted or the context is cancelled:
+A `Close(ctx)` that blocks while a background queue drains belongs to the deferred
+layer, along with the queue itself. The shipped client holds no report queue: every
+`ReportUsage` call is one RPC that has either been accepted or returned an error by
+the time it returns, so there is nothing pending at shutdown and nothing to lose.
 
-```go
-// Graceful shutdown -- flushes all pending reports
-ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-defer cancel()
-err := client.Close(ctx)
-```
-
-If the context is cancelled before all reports are submitted, remaining reports are lost. The Exchange will track them as overdue.
+The Python client is a context manager (`with Client(config) as client:`) and closes
+its HTTP transport on exit. The Go client borrows the `*http.Client` you give it
+through `connect.WithHTTPClient`, so its lifetime stays yours.
 
 ## Observability
 
@@ -266,12 +279,24 @@ If the context is cancelled before all reports are submitted, remaining reports 
 
 The SDK emits structured log events for every significant operation:
 
+The log events below belong to the deferred layer. The shipped client takes no
+logger: it emits no log lines of its own, on the view that a library writing to a
+process's log stream is the application's decision rather than the library's.
+
+Observing the shipped client is done with a Connect interceptor, which sees every
+RPC on its way out and back:
+
 ```go
-client, _ := fora.NewClient(fora.Config{
-    // ...
-    Logger: slog.New(slog.NewJSONHandler(os.Stderr, nil)),
-})
+client := connect.NewClient(baseURL,
+    connect.WithInterceptors(loggingInterceptor),
+    // ... signer, requester, keys, endpoint resolver
+)
 ```
+
+What a failed call gives you to log is on
+[Fetch Flow](/components/agent-sdk/fetch-flow/#error-types): `CallError.Kind` for the
+class, `ReasonOf()` for the peer's own token, and `connect.ErrorDetailFrom` for the
+typed reason when the peer sent one.
 
 ### Key Log Events
 
