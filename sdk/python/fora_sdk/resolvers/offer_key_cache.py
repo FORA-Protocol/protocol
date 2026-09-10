@@ -25,9 +25,12 @@ import asyncio
 from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, datetime
 
+import httpx
 from wire.models import WBAFile
 
-from fora_sdk.resolvers.wba import active_ed25519_key_with_expiry_screened
+from fora_sdk.resolvers._http import fetch_strict, guarded_client
+from fora_sdk.resolvers.errors import DirectoryUnavailableError
+from fora_sdk.resolvers.wba import active_ed25519_key_with_expiry_screened, wba_directory_url
 
 _DEFAULT_TTL_SECONDS = 300
 
@@ -123,3 +126,78 @@ class CachedOfferKeyResolver:
             self._cache[ex] = (key, expiry)
             out[ex] = key
         return out
+
+
+def _join_host_port(host: str, port: str) -> str:
+    """Join ``host`` and ``port``, bracketing a bare IPv6 literal.
+
+    Mirrors the Go oracle's ``net.JoinHostPort``: an empty port leaves the host
+    alone so the scheme default applies, and an IPv6 literal gains the brackets the
+    authority form requires. The TypeScript twin interpolates without bracketing;
+    Go is the oracle, so this follows Go.
+    """
+    if port == "":
+        return host
+    if ":" in host and not host.startswith("["):
+        return f"[{host}]:{port}"
+    return f"{host}:{port}"
+
+
+def create_wba_offer_directory_fetch(
+    *,
+    http: httpx.Client | None = None,
+    scheme: str = "",
+    port: str = "",
+) -> DirectoryFetch:
+    """The default :data:`DirectoryFetch`: GET one exchange's Web Bot Auth directory
+    and decode the ``WBAFile``.
+
+    Port of the Go oracle's ``NewWBADirectoryFetcher(client, scheme, port)`` and the
+    TypeScript ``createWBAOfferDirectoryFetch({fetch, scheme, port})``. An exchange's
+    offer-signing key is published ONLY here — not in ``fora.json`` — so this fetch is
+    what makes an offer verifiable at all. Until it existed every Python integrator
+    hand-wrote it, including the fail-closed contract below, which is the part that is
+    easy to get wrong.
+
+    ``http`` defaults to the SSRF-guarded :func:`~fora_sdk.resolvers._http.guarded_client`.
+    Which default a fetch takes follows its URL's PROVENANCE: the exchange domain
+    arrives inside an offer, so the party choosing the address is not the party running
+    the process. A caller that must reach a private directory injects its own client,
+    the same escape hatch the other resolver faces expose. Empty ``scheme`` means https
+    and empty ``port`` means the scheme default; the URL is built by
+    :func:`~fora_sdk.resolvers.wba.wba_directory_url`, so it is the exact string the
+    tri-language ``wba-url-vectors.json`` corpus pins.
+
+    **Every failure is contained as None and none is raised.** That is
+    :data:`DirectoryFetch`'s contract rather than a preference:
+    :meth:`CachedOfferKeyResolver.prefetch` gathers these calls through
+    ``asyncio.gather`` WITHOUT ``return_exceptions``, so one raised error abandons the
+    whole batch instead of leaving a single exchange unresolved. An unresolvable
+    exchange is simply absent from the map, and the Verifier then rejects that
+    exchange's offers fail-closed.
+
+    The GET runs on a worker thread because the guarded client is synchronous.
+    :mod:`fora_sdk.client` records the reason for that shape: an async twin of each
+    blocking tier would be a Python-only public face with no Go or TypeScript
+    counterpart, for a seam a thread already crosses correctly. Crossing with a thread
+    also keeps the 1 MiB body bound and the overall wall-clock deadline that
+    :func:`~fora_sdk.resolvers._http.fetch_strict` already applies — a hand-written
+    ``await client.get(...)`` has neither.
+    """
+    client = http if http is not None else guarded_client()
+
+    async def fetch(domain: str) -> WBAFile | None:
+        url = wba_directory_url(scheme, _join_host_port(domain, port))
+        try:
+            body = await asyncio.to_thread(fetch_strict, client, url)
+            return WBAFile.model_validate_json(body)
+        except (DirectoryUnavailableError, httpx.InvalidURL, ValueError):
+            # DirectoryUnavailableError already folds in every transport failure and
+            # every non-200: fetch_strict maps httpx.HTTPError, OSError (SsrfError is
+            # one, so is the deadline's TimeoutError) and the status check onto it.
+            # ValueError covers a body that is not JSON and, through pydantic's
+            # ValidationError, one that is JSON but not a directory. InvalidURL covers
+            # a domain that cannot form a URL at all.
+            return None
+
+    return fetch

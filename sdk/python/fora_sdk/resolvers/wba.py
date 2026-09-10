@@ -56,13 +56,13 @@ def wba_directory_url(scheme: str, host: str) -> str:
     It mirrors the sdk/go ``WBADirectoryURL`` oracle byte-for-byte, locked by the
     tri-replayed ``wba-url-vectors.json`` corpus.
 
-    Consumer note: Python has no default WBA directory fetcher — the
-    ``_fetch_directory`` seam carries an already-joined ``base`` and appends
-    :data:`WBA_DIRECTORY_PATH` directly, so this builder has no inline production
-    call-site inside the SDK. Its production consumer is the app cleanup that
-    replaces the three hand-rolled ``{scheme}://{host}{WBA_PATH}`` copies with this
-    one function; for a pure string function with no remaining inline copy, the
-    tri-language corpus is the sanctioned arithmetic proof.
+    Its production call-site inside the SDK is
+    :func:`~fora_sdk.resolvers.offer_key_cache.create_wba_offer_directory_fetch`, the
+    default offer-directory fetch, which joins any port onto the host and hands the
+    result here. :class:`WBAKeyResolver` does NOT use it: that class's
+    ``_fetch_directory`` seam receives an already-joined ``base`` and appends
+    :data:`WBA_DIRECTORY_PATH` directly, so the two paths reach the same URL by
+    different routes. The tri-language corpus is what holds them to the same answer.
     """
     if scheme == "":
         scheme = "https"
