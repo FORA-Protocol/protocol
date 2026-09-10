@@ -140,11 +140,20 @@ else
   ./scripts/check-canonical.sh || fail=1
 fi
 
-step "buf breaking (informational, pre-v1 — non-blocking)"
-# Matches CI: continue-on-error. Never affects the exit status.
+step "buf breaking (GATING — the v1 wire promise)"
+# fora.v1 is released and installed from public registries, so the wire format is
+# no longer ours to change freely: within v1 the proto is additive only. This is
+# the check that holds that, and it GATES — a README promising compatibility over
+# an informational check is a promise nothing keeps.
+#
+# Compared against the v1.0.0 TAG, not against main. Against main it would only
+# catch a break introduced since the last merge, and drift that accumulated across
+# several merges would pass every time while the released contract quietly moved.
+# The tag is what consumers actually installed, so the tag is what a compatibility
+# claim has to be measured from.
 (cd proto && buf breaking \
-  --against 'https://github.com/FORA-Protocol/protocol.git#branch=main,subdir=proto') \
-  || note "(informational only — does not gate)"
+  --against 'https://github.com/FORA-Protocol/protocol.git#tag=v1.0.0,subdir=proto') \
+  || fail=1
 
 if [ "$fail" -ne 0 ]; then
   printf '\n\033[31m==> CI-local: FAIL\033[0m\n'
