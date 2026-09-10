@@ -40,6 +40,8 @@ if TYPE_CHECKING:
 
 _README = Path(__file__).resolve().parents[1] / "README.md"
 _MARKER = "<!-- fora:agent-example"
+_FACES_OPEN = "<!-- fora:l1-faces"
+_FACES_CLOSE = "<!-- /fora:l1-faces -->"
 _FENCE = "```python"
 
 #: The agent key the example signs with. Any 32 bytes; fixed so a failure reproduces.
@@ -200,3 +202,45 @@ def test_every_symbol_the_example_imports_is_public() -> None:
         if alias.name.startswith("_") or re.search(r"\._", node.module or "")
     ]
     assert not private, f"the README example reaches into private API: {private}"
+
+
+# --------------------------------------------------------------------------- #
+# The README's PROSE, not just its code block
+# --------------------------------------------------------------------------- #
+_BACKTICKED = re.compile(r"`([a-z_][a-z0-9_]*)`")
+
+
+def _marked_faces_source() -> str:
+    """The README text between the l1-faces markers."""
+    text = _README.read_text(encoding="utf-8")
+    opens = text.count(_FACES_OPEN)
+    assert opens == 1, f"expected exactly one {_FACES_OPEN!r} marker, found {opens}"
+    start = text.index(_FACES_OPEN)
+    end = text.index(_FACES_CLOSE, start)
+    return text[start:end]
+
+
+def test_every_l1_face_the_readme_names_in_prose_exists() -> None:
+    """A name the README lists as an L1 face must be one.
+
+    The code block is executed, so a rename there fails loudly. The prose was not
+    checked at all, and it drifted: the L1 inventory listed `redact_url`, which is a Go
+    face (`helpers.RedactURL`) with no Python counterpart anywhere. Nothing caught it,
+    because every other check in this suite reads the executable block.
+
+    The check is scoped to a marked region rather than the whole file, because most
+    backticks in this README quote wire field names, environment variables and JSON
+    keys rather than Python symbols. Widening the markers widens the guard; the answer
+    to a name that fails here is to ship it or to stop claiming it, never to move it
+    outside the markers.
+    """
+    import fora_sdk
+
+    named = sorted(set(_BACKTICKED.findall(_marked_faces_source())))
+    assert named, "the l1-faces region names nothing — the markers or the regex moved"
+
+    missing = [n for n in named if not hasattr(fora_sdk, n)]
+    assert not missing, (
+        f"the README lists {missing} as L1 faces, but they are not on the public "
+        f"fora_sdk surface. Either export them or remove the claim."
+    )

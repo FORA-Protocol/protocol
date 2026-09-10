@@ -7,9 +7,9 @@ no I/O can be used on their own.
 | Layer | Module | What it is |
 |---|---|---|
 | **L0** | `wire.models`, `vocab.*` | generated wire types, from the separate `fora-protocol` distribution (consumed, never rebuilt) |
-| **L1** | **`fora_sdk`** (top level) | stateless, **IO-free** protocol mechanics — RFC 9421/7638 crypto, offer and acceptance signatures, signed URLs, validation. Byte-parity-guarded against the `sdk/go` oracle |
-| L2 · I/O | **`fora_sdk.resolvers`** | the only tier that dials the network: Web Bot Auth directories, well-known JWKS and `fora.json`, plus the SSRF-guarded HTTP client every one of them runs on |
-| L2 · transport | `fora_sdk.core` (transport-neutral: `Verifier`, `VerifiedOffer`, `DiscoveryResult`, `Window`) · `fora_sdk.client` (the async Connect-unary JSON client: the agent verbs **`discover` · `execute` · `report_usage` · `dispute` · `fetch`**, the account-setup verbs **`register` · `get_account_status`**, the broker verb **`resolve`** and the publisher verbs **`push_resources` · `remove_resources` · `refresh_catalog`**) · `fora_sdk.sync` (the same faces, blocking) · `fora_sdk.server_verify` (the server side of RFC 9421) | state is injected, never owned |
+| **L1** | **`fora_sdk`** (top level) | stateless, **IO-free** protocol mechanics — RFC 9421/7638 crypto, offer and acceptance signatures, signed URLs, validation. Includes `fora_sdk.core` (transport-neutral: `Verifier`, `VerifiedOffer`, `DiscoveryResult`), `fora_sdk.window` (`Window`) and `fora_sdk.server_verify` (the server side of RFC 9421). Byte-parity-guarded against the `sdk/go` oracle |
+| L2 · I/O | **`fora_sdk.resolvers`** | the only tier that dials the network: Web Bot Auth directories, well-known JWKS and `fora.json`, plus the SSRF-guarded HTTP client. Which faces take that client by default is decided by URL provenance, below — `WellKnownEndpointResolver` is the one request-derived face that still defaults to a plain client |
+| L2 · transport | `fora_sdk.client` (the async Connect-unary JSON client: the agent verbs **`discover` · `execute` · `report_usage` · `dispute` · `fetch`**, the account-setup verbs **`register` · `get_account_status`**, the broker verb **`resolve`** and the publisher verbs **`push_resources` · `remove_resources` · `refresh_catalog`**) · `fora_sdk.sync` (the same faces, blocking) | state is injected, never owned |
 
 ```sh
 pip install fora-protocol-sdk
@@ -49,10 +49,12 @@ from fora_sdk.resolvers import (
     CachedOfferKeyResolver,
     WellKnownEndpointResolver,
     create_wba_offer_directory_fetch,
+    guarded_client,
 )
 from fora_sdk.signing_transport import SigningTransport
 from fora_sdk.sync import Client, ClientConfig
 from fora_sdk.thumbprint import thumbprint
+from vocab.functiontokens import AI_INPUT
 
 # This agent's identity, as it states it to an Exchange.
 AGENT = {"id": "agent-1", "domain": "agent.example", "type": "REQUESTER_TYPE_AGENT"}
@@ -72,12 +74,25 @@ def buy_and_fetch(*, exchange: str, uri: str, seed: bytes) -> bytes:
     # 2. Where this Exchange serves its API, read from its own /.well-known/fora.json
     #    rather than from configuration. The same resolver later routes the usage report
     #    back to whichever Exchange issued the offer.
-    endpoints = WellKnownEndpointResolver(scheme=SCHEME)
+    #
+    #    The client is passed in rather than left to default. This resolver's host comes
+    #    off an offer, so a third party chose it, and its default is still the plain
+    #    client — the one request-derived face that has not caught up with the rule.
+    endpoints = WellKnownEndpointResolver(scheme=SCHEME, http=guarded_client())
 
     # 3. Offer-signing keys, from the Exchange's Web Bot Auth directory — the only place
-    #    they are published. Fetched, revocation-screened and TTL-cached, then frozen
-    #    into the map the (synchronous) Verifier resolves against. STRICT plus a map that
-    #    resolves nothing rejects every offer: that is the fail-closed posture, not a bug.
+    #    they are published. Fetched and TTL-cached with each entry's expiry clamped to
+    #    the key's own not_after, then frozen into the map the (synchronous) Verifier
+    #    resolves against. STRICT plus a map that resolves nothing rejects every offer:
+    #    that is the fail-closed posture, not a bug.
+    #
+    #    `revoked` is NOT passed, and that is a choice worth making deliberately. It
+    #    screens a candidate key by thumbprint against a revocation snapshot, so leaving
+    #    it out waives emergency revocation. It is defensible here because this function
+    #    fetches the directory and spends the keys inside one call. A client that holds
+    #    its key map for hours must pass a revoked-set predicate, and must re-run the
+    #    prefetch rather than freeze one map for its lifetime — a frozen map keeps
+    #    serving a key after its TTL and its not_after have both passed.
     directory = CachedOfferKeyResolver(fetch=create_wba_offer_directory_fetch(scheme=SCHEME))
     keys = asyncio.run(directory.prefetch([exchange]))
     verifier = Verifier(
@@ -100,7 +115,7 @@ def buy_and_fetch(*, exchange: str, uri: str, seed: bytes) -> bytes:
         found = client.discover({"exchange": exchange, "uris": [uri]})
         offers = found.verified()
         if not offers:
-            refused = [r.reason for group in found.groups for r in group.result.rejected]
+            refused = [r.reason for r in found.rejected()]
             raise RuntimeError(f"no verifiable offer for {uri}: {refused}")
 
         # 5. Buy it. execute() accepts only a verified offer, so an unverified one
@@ -118,7 +133,7 @@ def buy_and_fetch(*, exchange: str, uri: str, seed: bytes) -> bytes:
                 "exchange": exchange,
                 "transaction_id": item.transaction_id,
                 "billing_id": item.billing_id,
-                "usage": {"consumed_quantity": len(content.body), "function": ["ai-input"]},
+                "usage": {"consumed_quantity": len(content.body), "function": [AI_INPUT]},
             }
         )
 
@@ -219,17 +234,22 @@ that — it proves the sender signed the URL it dialled, and that URL came out o
 manifest, so a poisoned resolution redirects the request while every signature still
 verifies.
 
+<!-- fora:l1-faces — every backticked name between these markers is resolved against
+     the package by sdk/python/tests/test_readme_agent_example.py. Extend the region
+     to cover more of this document; do not add names outside it to dodge the check. -->
 **Also:** `errordetail` (the typed error taxonomy and its constructors),
-`generate_idempotency_key`, `apply_scopes`, `hash_url`, `monotonic_window`, and
-`redact_url` — a signed URL carries its credential in the query, so never log one raw.
+`generate_idempotency_key`, `apply_scopes`, `hash_url` and `monotonic_window`.
+<!-- /fora:l1-faces -->
 
 ---
 
 ## L2 · I/O — `fora_sdk.resolvers`
 
 The network-fetching tier. Everything that dials a host a third party can influence lives
-here, behind one SSRF-guarded HTTP client, so the pre-auth-reachable network surface never
-enters the pure core.
+here, so the pre-auth-reachable network surface never enters the pure core. Almost all of it
+dials through one SSRF-guarded HTTP client; `WellKnownEndpointResolver` is the exception
+and still defaults to a plain one, which is a known gap rather than a decision. Pass it
+`http=guarded_client()` until that default changes, as the example above does.
 
 - **Key resolvers** — `WellKnownKeyResolver` (well-known JWKS, TTL-cached) and
   `WBAKeyResolver` (Web Bot Auth directory, revocation- and expiry-aware, with a
@@ -349,13 +369,14 @@ different endpoint with a different key.
 
 ### Running against a local Exchange
 
-Three environment variables, and they are read at call time so a test can set them:
+Three environment variables. WHEN each is read matters, because setting one after the
+object that reads it was built has no effect:
 
 | Variable | Effect |
 |---|---|
 | `FORA_WELLKNOWN_SCHEME=http` | the resolvers read manifests and directories over plaintext. Consumer-side: the SDK never reads it for you, which is why the example above passes `scheme=` explicitly |
 | `ALLOW_INSECURE=true` | the scheme gate permits a plaintext `http` origin. Needed for the RPC and delivery legs, which check the scheme ABOVE the transport, so injecting a client is not enough |
-| `SKIP_SSRF=true` | the dial-time address guard is dropped, so loopback and private addresses are reachable |
+| `SKIP_SSRF=true` | the dial-time address guard is dropped, so loopback and private addresses are reachable. Read when `guarded_client` BUILDS a client, so set it before constructing a resolver |
 
 All three default to the guarded, https-only posture. Set them for a sandbox, never in
 production — together they remove the whole pre-auth SSRF defence.
