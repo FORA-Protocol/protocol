@@ -104,7 +104,13 @@ class _GuardedBackend(httpcore.SyncBackend):
         # a resolved-reserved one, so it cannot be a pre-auth DNS oracle.
         try:
             infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
-        except OSError as exc:
+        except (OSError, UnicodeError) as exc:
+            # UnicodeError, not only OSError: getaddrinfo IDNA-encodes the name first,
+            # and a label over 63 characters fails there with UnicodeEncodeError. That
+            # is not a resolution answer, so it must refuse like any other name the
+            # guard cannot resolve rather than escape as a raw codec error. The domain
+            # reaches here off an UNVERIFIED offer, and Offer.exchange puts no
+            # per-label limit on it.
             raise _ssrf.refusal(host) from exc
         if not infos or any(_ssrf.blocked_address(info[4][0]) for info in infos):
             # Fail closed on a MIXED public/reserved answer too (any-reserved rule).
@@ -385,10 +391,19 @@ def fetch_strict(client: httpx.Client, url: str) -> bytes:
     status is a fail-closed halt: the taxonomy a composite relies on to
     distinguish an outage from an unknown key. A blocked SSRF target surfaces here
     as an outage, never a valid empty doc.
+
+    ``httpx.InvalidURL`` and ``ValueError`` are folded in HERE, at the one place every
+    caller passes through, rather than by each caller. ``url`` is built from a domain
+    that arrives off an UNVERIFIED offer, and two wire-valid domains make httpx raise
+    something that is neither an ``HTTPError`` nor an ``OSError``: a malformed ``xn--``
+    A-label makes ``URL.host`` raise ``idna.IDNAError`` while building the request, and
+    an over-long label raises ``UnicodeEncodeError``. Both are ``ValueError``
+    subclasses. Leaving them to escape made a single bad exchange raise out of a caller
+    that had promised to contain it.
     """
     try:
         status, body = _get_bounded(client, url)
-    except (httpx.HTTPError, OSError) as exc:
+    except (httpx.HTTPError, httpx.InvalidURL, OSError, ValueError) as exc:
         raise DirectoryUnavailableError(f"fetch {url}") from exc
     if status != _HTTP_OK:
         raise DirectoryUnavailableError(f"status {status} for {url}")
@@ -399,11 +414,14 @@ def fetch_soft(client: httpx.Client, url: str) -> bytes | None:
     """Best-effort GET: body on 200, else None.
 
     The revocation refresh uses this so a fetch blip leaves the prior snapshot in
-    place (a stale-but-present snapshot is safer than dropping revocations).
+    place (a stale-but-present snapshot is safer than dropping revocations). It
+    absorbs the same set ``fetch_strict`` folds, for the same reason: the host comes
+    off untrusted input, so a name httpx cannot encode must leave a stale snapshot in
+    place rather than raise into the refresh.
     """
     try:
         status, body = _get_bounded(client, url)
-    except (httpx.HTTPError, OSError):
+    except (httpx.HTTPError, httpx.InvalidURL, OSError, ValueError):
         return None
     if status != _HTTP_OK:
         return None

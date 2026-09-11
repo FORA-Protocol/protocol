@@ -59,6 +59,14 @@ from vocab.functiontokens import AI_INPUT
 # This agent's identity, as it states it to an Exchange.
 AGENT = {"id": "agent-1", "domain": "agent.example", "type": "REQUESTER_TYPE_AGENT"}
 
+# Where THIS agent publishes its own signing key, as a JWK Set at
+# {AGENT_DIRECTORY}/.well-known/http-message-signatures-directory. The Exchange reads
+# this value off the covered Signature-Agent header, fetches that directory and looks
+# for the key whose RFC 7638 thumbprint equals the keyid below. Publish before you
+# call: an agent that names no directory has no key an Exchange can resolve, and the
+# call is refused with a 401 after it was routed, signed and sent.
+AGENT_DIRECTORY = f"https://{AGENT['domain']}"
+
 # https in production. A local sandbox serving plaintext sets FORA_WELLKNOWN_SCHEME=http,
 # and ALLOW_INSECURE=true for the guarded transports.
 SCHEME = os.environ.get("FORA_WELLKNOWN_SCHEME", "https")
@@ -68,8 +76,14 @@ def buy_and_fetch(*, exchange: str, uri: str, seed: bytes) -> bytes:
     """Discover an offer for `uri`, buy it, fetch the bytes, and report the usage."""
     # 1. Identity. The RFC 9421 keyid IS the RFC 7638 thumbprint of the agent's public
     #    key, which is also the value a delivery URL gets bound to. One key, one name.
+    #
+    #    signature_agent names the directory that key is published in. It is a COVERED
+    #    component, so the signature binds it whether or not it is set, and leaving it
+    #    unset signs an EMPTY value that no Exchange can resolve a key from.
     public = Ed25519PrivateKey.from_private_bytes(seed).public_key().public_bytes_raw()
-    signer = SigningTransport(signer_seed=seed, keyid=thumbprint(public))
+    signer = SigningTransport(
+        signer_seed=seed, keyid=thumbprint(public), signature_agent=AGENT_DIRECTORY
+    )
 
     # 2. Where this Exchange serves its API, read from its own /.well-known/fora.json
     #    rather than from configuration. The same resolver later routes the usage report
@@ -174,10 +188,17 @@ bytes; `verify_request` checks a received one against a key you hold, and
 including the multi-signature relay chain:
 
 ```python
-signed = sign_request(method="POST", url=url, body=body, seed=seed, keyid=keyid)
+now = int(time.time())
+signed = sign_request(
+    method="POST", url=url, body=body,
+    authorization="",                    # covered, and sent even when empty
+    signer_seed=seed, keyid=keyid,
+    created=now, expires=now + 300,      # the freshness window, minted by the caller
+    signature_agent=agent_directory,     # covered; empty means no resolvable key
+)
 verdict = verify_request_server(
     method="POST", url=url, body=body, headers=headers,
-    resolver=resolver, replay=replay_store, now=lambda: int(time.time()),
+    resolver=resolver, replay_store=replay_store, now=now,
 )
 ```
 

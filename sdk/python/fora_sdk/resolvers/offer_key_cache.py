@@ -103,6 +103,14 @@ class CachedOfferKeyResolver:
         clamped to ``min(now + ttl, not_after)``. An unresolvable exchange (fetch
         returned None, no active/non-revoked key) is simply absent from the map — the
         Verifier then rejects its offers fail-closed.
+
+        ONE exchange never costs the others their keys. The injected fetch is contracted
+        to return None rather than raise, but this gathers with ``return_exceptions=True``
+        and treats a raised exception as "absent" anyway, because the domains in this
+        batch come off UNVERIFIED offers: a single hostile or relayed offer must not be
+        able to empty the whole map and have every legitimate exchange's offers rejected.
+        The contract is what the default fetch upholds; this is what makes the batch hold
+        for any fetch at all.
         """
         now_dt = self._now()
         now = now_dt.timestamp()
@@ -117,9 +125,11 @@ class CachedOfferKeyResolver:
                 misses.append(ex)
         if not misses:
             return out
-        results = await asyncio.gather(*(self._fetch(ex) for ex in misses))
+        results = await asyncio.gather(
+            *(self._fetch(ex) for ex in misses), return_exceptions=True
+        )
         for ex, wba in zip(misses, results, strict=True):
-            if wba is None:
+            if wba is None or isinstance(wba, BaseException):
                 continue
             selected = active_ed25519_key_with_expiry_screened(wba, now_dt, self._revoked)
             if selected is None:
@@ -215,8 +225,14 @@ def create_wba_offer_directory_fetch(
         url = wba_directory_url(scheme, _join_host_port(domain, port))
         try:
             return await asyncio.to_thread(_get_wba_directory, client, url)
-        except DirectoryUnavailableError:
-            # ONE exception type covers the whole contract, because
+        except Exception:
+            # EVERY exception, because the seam's contract is absolute: a
+            # DirectoryFetch returns None and never raises, so a caller batching
+            # several exchanges keeps the rest when one fails. TypeScript's
+            # createWBAOfferDirectoryFetch contains the same way, with a bare `catch`;
+            # Go's seam is (file, error) and returns the error for that one domain.
+            #
+            # DirectoryUnavailableError is the expected arrival, because
             # _get_wba_directory is the shared GET-and-decode and it folds every arm
             # into this error: fetch_strict maps httpx.HTTPError and OSError (SsrfError
             # is one, so is the deadline's TimeoutError) plus any non-200, and the

@@ -51,6 +51,12 @@ _SEED = bytes(range(32))
 #: party even if something in the chain tried to dial it.
 _URI = "https://publisher.example/article"
 
+#: The WBA directory the example says it publishes its key in. The fake Exchange is
+#: told to trust exactly this origin, so it can resolve the keyid off the covered
+#: Signature-Agent header the way a real one does. Kept in step with the README by
+#: test_the_readme_names_the_directory_the_exchange_resolves_against below.
+_AGENT_DIRECTORY = "https://agent.example"
+
 
 def _example_source() -> str:
     """The README's marked python block, verbatim.
@@ -117,7 +123,7 @@ def _load(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
 @pytest.fixture
 def exchange() -> Iterator[FakeExchange]:
-    ex = fake_exchange(agent_seed=_SEED)
+    ex = fake_exchange(agent_seed=_SEED, agent_directory=_AGENT_DIRECTORY)
     yield ex
     ex.close()
 
@@ -170,7 +176,9 @@ def test_the_example_fails_closed(
     Both surface through the example's own error branch, so this also exercises the
     handling the README documents rather than only the SDK underneath it.
     """
-    ex = fake_exchange(agent_seed=_SEED, **{flag: flag != "serve_directory"})
+    ex = fake_exchange(
+        agent_seed=_SEED, agent_directory=_AGENT_DIRECTORY, **{flag: flag != "serve_directory"}
+    )
     try:
         namespace = _load(monkeypatch)
         with pytest.raises(RuntimeError) as excinfo:
@@ -244,3 +252,48 @@ def test_every_l1_face_the_readme_names_in_prose_exists() -> None:
         f"the README lists {missing} as L1 faces, but they are not on the public "
         f"fora_sdk surface. Either export them or remove the claim."
     )
+
+
+def test_the_readme_names_the_directory_the_exchange_resolves_against(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The README's AGENT_DIRECTORY is the origin the fake Exchange trusts.
+
+    The two are written in different files, and the suite is only meaningful while they
+    agree: if the README moved to another origin and this module did not, every RPC
+    would be refused and the failure would look like a broken harness rather than a
+    README that changed.
+    """
+    namespace = _load(monkeypatch)
+
+    assert namespace["AGENT_DIRECTORY"] == _AGENT_DIRECTORY
+
+
+def test_an_agent_that_names_no_directory_is_refused(
+    exchange: FakeExchange, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Drop signature_agent and the first RPC fails, with nothing bought.
+
+    This is the negative path for the whole identity step, and it is the failure a
+    reader following the README used to walk into. Signature-Agent defaults to empty,
+    the signature covers it either way, and an Exchange reading an empty value has no
+    directory to fetch the caller's key from. The reference Exchange answers 401.
+
+    Asserted through the README's own entry point with one constructor argument
+    removed, rather than by driving the transport directly, so it fails if the README
+    stops passing the argument at all.
+    """
+    namespace = _load(monkeypatch)
+    transport = namespace["SigningTransport"]
+
+    def unnamed(*, signer_seed: bytes, keyid: str, signature_agent: str = "") -> Any:
+        # Ignore what the README passes: sign as an agent that published nothing.
+        _ = signature_agent
+        return transport(signer_seed=signer_seed, keyid=keyid)
+
+    namespace["SigningTransport"] = unnamed
+
+    with pytest.raises(Exception, match="unauthenticated|401"):
+        namespace["buy_and_fetch"](exchange=exchange.domain, uri=_URI, seed=_SEED)
+
+    assert exchange.seen == [], "nothing may be bought by a caller the Exchange cannot identify"

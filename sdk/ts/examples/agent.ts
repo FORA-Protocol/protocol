@@ -56,6 +56,14 @@ export async function buy(
 		requester, // who this agent says it is
 		resolveOfferKey: async (exchange) => offerKeys.resolve(exchange),
 		endpointResolver: createWellKnownEndpointResolver({}),
+		// The WBA directory where THIS agent publishes its own signing key, as a JWK
+		// Set at {origin}/.well-known/http-message-signatures-directory. The Exchange
+		// reads it off the covered Signature-Agent header and looks there for the key
+		// whose RFC 7638 thumbprint equals the keyid. Signature-Agent is covered
+		// whether or not it is set, so leaving this out signs an EMPTY value that no
+		// Exchange can resolve a key from, and the call is refused with a 401 after it
+		// was routed, signed and sent. Publish the directory before you call.
+		signatureAgent: "https://agent.example",
 	});
 	// fora:/example client
 
@@ -73,8 +81,12 @@ export async function buy(
 			"fora-legal-v1", // legislation, case law, patents
 		],
 	});
-	const offers = verifiedOffers(found);
-	if (offers.length === 0) {
+	// Take the offer out of the array and check THAT, rather than checking the
+	// length and indexing after. The SDK compiles under noUncheckedIndexedAccess,
+	// where offers[0] is VerifiedOffer | undefined however the length was checked,
+	// so the second form needs a non-null assertion and this one needs nothing.
+	const offer = verifiedOffers(found)[0];
+	if (offer === undefined) {
 		throw new Error(`no verifiable offer: ${JSON.stringify(rejectedOffers(found))}`);
 	}
 	// fora:/example discover
@@ -82,7 +94,7 @@ export async function buy(
 	// fora:example execute
 	// 2. Buy. Execute accepts only a verified offer, so an unverified one cannot be
 	//    paid for by mistake.
-	const tx = await client.execute(offers[0]!);
+	const tx = await client.execute(offer);
 	const item = tx.items?.[0];
 	if (!item?.retrieval_endpoint) {
 		throw new Error("the Exchange delivered no retrieval endpoint");
