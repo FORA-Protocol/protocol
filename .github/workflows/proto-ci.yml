@@ -42,8 +42,9 @@ jobs:
       # buf lint, regenerates gen/ and fails on drift (tracked OR untracked files),
       # go build/vet/test (incl. the conformance suite: protovalidate CEL evaluation
       # + doc-example validation), the doc-conformance gate, and buf breaking
-      # (informational, pre-v1). The remark docs-guard step self-skips here because
-      # node_modules is absent; docs-ci.yml owns the docs build.
+      # (GATING against the v1.0.0 tag — the v1 wire promise). The remark docs-guard
+      # step self-skips here because node_modules is absent; docs-ci.yml owns the
+      # docs build.
       - name: gating sequence (scripts/ci-local.sh)
         # sdk-types-ci.yml owns the Pydantic/Zod gate (path-filtered), so skip it here
         # and keep this job the proto mirror. Locally ci-local.sh runs both.

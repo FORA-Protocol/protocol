@@ -64,40 +64,35 @@ Steps 2-6 happen behind a single `Fetch()` call. Your agent sees one function. T
 import { Aside } from '@astrojs/starlight/components';
 
 <Aside type="note">
-The SDK is not yet published to package registries. Use the working implementations directly from the repository:
+Install the SDK rather than building against the generated types directly -- it carries the
+RFC 9421 signing, the thumbprint derivation and the offer verification you would otherwise
+re-derive:
 
-- **Go**: Import generated types from [`gen/go/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/go/) and the Connect-Go client from `gen/go/fora/v1/forav1connect`.
-- **TypeScript**: Validate messages with the generated Zod schemas from [`gen/ts/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/ts/). The npm package is not yet published.
-- **Python**: Parse messages with the generated Pydantic models from [`gen/python/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/python/). The PyPI package is not yet published.
+- **Go**: `go get github.com/FORA-Protocol/protocol@latest`, then import `sdk/go/connect` and `sdk/go/helpers`. See the [Go README](https://github.com/FORA-Protocol/protocol/blob/main/sdk/go/README.md).
+- **TypeScript**: `npm install @fora-protocol/sdk`. The generated Zod schemas ship inside it.
+- **Python**: `pip install fora-protocol-sdk`. See the [Python README](https://github.com/FORA-Protocol/protocol/blob/main/sdk/python/README.md), whose worked example is executed by the package's own test suite.
 </Aside>
 
-Configure it with your agent identity, signing key, and budget:
+Build a client with your identity and the keys it signs with. The base URL comes from
+the Exchange's own `/.well-known/fora.json` rather than from configuration:
 
-```go
-client, _ := fora.NewClient(fora.Config{
-    AgentID:     "acme-research-bot",
-    AgentDomain: "agents.acme.com",
-    SigningKey:  os.Getenv("FORA_SIGNING_KEY"),
-    SupportedProfiles: []string{
-        "fora-news-v1",       // articles, podcasts, broadcasting
-        "fora-academic-v1",   // journal papers, preprints, datasets
-        "fora-legal-v1",      // legislation, case law, patents
-    },
-    Budget: fora.Budget{
-        MaxPerRequest: 100.00,    // never pay more than $100 for one resource
-        MaxPerSession: 500.00,    // cap at $500/session
-        Currency:      "USD",
-    },
-})
-```
+::example{file="sdk/go/examples/agent/agent.go" regions="client" lang="go"}
+
+Which domains you work in is a property of each query rather than of the client, so it
+goes on the `ResourceQuery`:
+
+::example{file="sdk/go/examples/agent/agent.go" regions="discover" lang="go"}
 
 The SDK handles:
-- **Exchange discovery** from provider `fora.json` files or Broker routing
-- **Price comparison** across multiple Exchanges (if using a Broker)
-- **Budget enforcement** -- never exceed your per-request or per-session limits
-- **Ed25519 signing** -- every request is cryptographically signed with your key
-- **Usage reporting** -- mandatory post-access reports submitted automatically
-- **Profile routing** -- `supported_profiles` tells the Broker which domains you work in
+- **Endpoint discovery** -- an Exchange's API address read from its own `fora.json`, and usage reports routed back to whichever Exchange issued the offer
+- **Offer verification** -- every offer's signature checked against the issuing Exchange's published key before you can buy it, and a rejected offer keeps its reason
+- **Ed25519 signing** -- every request signed with your key under RFC 9421
+- **Bound delivery** -- the delivery URL is tied to your key and the client presents the matching proof of possession, so a copied link fetches nothing
+- **Profile routing** -- `supported_profiles` on the query tells a Broker which domains you work in
+
+Two things the SDK does **not** do, both part of a deferred layer: there is no spend cap
+of any kind, and usage reports are not submitted automatically -- you call `ReportUsage`
+yourself. See [Budget and Usage Reporting](/components/agent-sdk/budget-reporting/).
 
 ## Extension Profiles
 

@@ -572,35 +572,58 @@ The `subscription_unit_value` ($0.15) is the imputed value of this access for ac
 
 ## Developer's Perspective: Same Code, Both Paths
 
-From the SDK, both scenarios use identical code. The `Requester` message carries the delegation (if present), and the SDK handles everything transparently:
+Both scenarios use identical agent code. The `Requester` message carries the
+delegation when there is one, and every pricing decision is the Exchange's — the agent
+never branches on subscription versus pay-per-article.
+
+The delegation is set once, on the `Requester` the client sends with every call:
 
 ```go
-// Scenario A: no delegation — SDK sends Requester without delegation field
-result, err := fora.Fetch(ctx, "https://techcrunch.com/2026/03/19/ai-agents-commerce.html")
-// result.Cost = 0.05
-// result.SubscriptionID = ""
+requester := &forav1.Requester{
+    Id:     "hedge-bot",
+    Domain: "hedgefund.com",
+    Type:   forav1.RequesterType_REQUESTER_TYPE_AGENT,
+    // Scenario A: leave Delegation nil.
+    // Scenario B: attach the delegation the principal issued.
+    Delegation: &forav1.Delegation{
+        PrincipalDomain: "marketdata.example.com",
+        PrincipalId:     "enterprise-sub-HF-001",
+        Scopes:          []string{"earnings:*"},
+        Token:           delegationToken,
+        TokenFormat:     "jwt",
+    },
+}
 
-// Scenario B: delegation present — SDK includes the delegation JWT in Requester.delegation
-result, err := fora.Fetch(ctx, "https://marketdata.example.com/earnings/NVDA/2026-Q1-transcript")
-// result.Cost = 0.00
-// result.SubscriptionID = "enterprise-sub-HF-001"
+client := connect.NewClient(baseURL,
+    connect.WithSigner(signer),
+    connect.WithAgentKey(agentPublic),
+    connect.WithRequester(requester),
+    connect.WithOfferKey(exchangePublic),
+    connect.WithEndpointResolver(endpoints),
+)
 ```
 
-The SDK carries the delegation token automatically when configured. The agent code does not branch on subscription vs. pay-per-article — the protocol handles the routing:
+The discovery and purchase calls are then byte-for-byte the same in both scenarios.
+What differs is only what comes back:
 
 ```go
-client := fora.NewClient(fora.Config{
-    AgentID:   "hedge-bot",
-    Domain:    "hedgefund.com",
-    PrivateKey: ed25519PrivateKey,
-    // If delegation is set, SDK includes it in every Requester message.
-    // If not set, SDK sends Requester without delegation.
-    Delegation: delegationJWT, // nil for Scenario A, populated for Scenario B
+found, err := client.Discover(ctx, &forav1.ResourceQuery{
+    Exchange: "exchange.example",
+    Uris:     []string{articleURL},
 })
+if err != nil {
+    return err
+}
+tx, err := client.Execute(ctx, found.Verified()[0])
+if err != nil {
+    return err
+}
+item := tx.GetItems()[0]
 
-// This call works identically in both scenarios.
-// The Exchange decides the pricing path based on the Requester.
-result, err := client.Fetch(ctx, url)
+// Scenario A: item.GetCost().GetAmount() is "0.05", GetSubscriptionId() is empty.
+// Scenario B: item.GetCost().GetAmount() is "0", GetSubscriptionId() is
+//             "enterprise-sub-HF-001", and GetSubscriptionUnitValue() carries the
+//             attributed value.
 ```
 
 ---

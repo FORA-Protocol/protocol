@@ -185,44 +185,52 @@ client.FetchBatch(ctx, [url1, url2, url3])
 
 ## Code Example: Single URL
 
-```go
-client, err := fora.NewClient(fora.Config{
-    AgentID:     "research-bot",
-    AgentDomain: "agent.example.com",
-    SigningKey:  os.Getenv("FORA_SIGNING_KEY"),
-    Budget:      fora.Budget{MaxPerRequest: 0.10, Currency: "USD"},
-})
-if err != nil {
-    log.Fatal(err)
-}
-defer client.Close(ctx)
+Everything above this section describes the planned one-call layer. This section and
+the next show the **shipped** client, which does the same work in four verbs. Both
+run in Go, TypeScript and Python; the Go form is below, and the
+[Python README](https://github.com/FORA-Protocol/protocol/blob/main/sdk/python/README.md)
+carries the same flow with its example executed by the package's own test suite.
 
-result, err := client.Fetch(ctx, "https://techcrunch.com/premium/article.html")
-if err != nil {
-    log.Fatal(err)
-}
-fmt.Println(result.Content)    // HTML content
-fmt.Println(result.Cost)       // 0.05 USD
-fmt.Println(result.BillingID)  // bill-93a7f2-001
-```
+::example{file="sdk/go/examples/agent/agent.go" regions="imports,client,discover,execute,fetch,report" lang="go"}
 
-## Code Example: Batch
+## Code Example: Several URLs
+
+The single-call `FetchBatch` above is part of the deferred layer. What ships is the
+part that matters most for round trips: `ResourceQuery.uris` is a repeated field, so
+one Discover call covers every URI you want from one Exchange. Purchase and delivery
+are then per offer.
 
 ```go
-results, err := client.FetchBatch(ctx, []string{
-    "https://techcrunch.com/premium/ai-infrastructure.html",
-    "https://techcrunch.com/premium/gpu-shortage-2026.html",
-    "https://arstechnica.com/premium/quantum-computing.html",
+found, err := client.Discover(ctx, &forav1.ResourceQuery{
+    Exchange: "exchange.example",
+    Uris: []string{
+        "https://publisher.example/ai-infrastructure",
+        "https://publisher.example/gpu-shortage-2026",
+        "https://publisher.example/quantum-computing",
+    },
 })
 if err != nil {
-    log.Fatal(err)
+    return err
 }
-for _, r := range results {
-    if r.Err != nil {
-        fmt.Printf("FAILED %s: %v\n", r.URL, r.Err)
+
+// One group per requested URI, each carrying its verified offers and, for the
+// rest, the reason they were refused. A URI that yielded no offers at all is not
+// a rejection -- it appears in Groups with an absence reason.
+for _, group := range found.Groups {
+    if len(group.Result.Verified) == 0 {
         continue
     }
-    fmt.Printf("OK %s -- %s %.4f\n", r.URL, r.Content[:80], r.Cost.Amount)
+    tx, err := client.Execute(ctx, group.Result.Verified[0])
+    if err != nil {
+        return err
+    }
+    item := tx.GetItems()[0]
+
+    content, err := client.Fetch(ctx, item.GetRetrievalEndpoint())
+    if err != nil {
+        return err
+    }
+    _ = content
 }
 ```
 
@@ -232,64 +240,65 @@ All errors are typed. The caller can switch on error type for programmatic handl
 
 ### Error Types
 
+Two error types cover every verb, so a caller branches in one place rather than
+switching over a family of per-failure structs.
+
 ```go
-// BudgetExceededError -- the request would exceed a budget constraint.
-// Returned BEFORE any network call is made.
-type BudgetExceededError struct {
-    Layer     string  // "per_request", "per_session", "per_period"
-    Limit     float64
-    Current   float64
-    Requested float64
-    Currency  string
+// CallError -- every RPC verb (Discover, Execute, ReportUsage, Dispute, Register,
+// GetAccountStatus) fails with this one type.
+type CallError struct {
+    Kind   CallErrorKind       // the class; branch on this
+    Op     string              // the verb that failed
+    Status int                 // HTTP status when the peer answered, 0 otherwise
+    Reason string              // the peer's own refusal token when it sent one
+    Detail *forav1.ErrorDetail // the peer's typed reason when it sent one
+    // PeerMessage is the developer message on the peer's typed reason.
+    // NON-AUTHORITATIVE and unbounded -- branch on Kind or on the typed reason,
+    // never on this text.
+    PeerMessage string
+    Err         error
 }
 
-// NoExchangeError -- no Exchange found for this domain.
-type NoExchangeError struct {
-    Domain string
-    Cause  error
-}
+// CallErrorKind values, from sdk/go/connect/callerror.go.
+const (
+    CallUnknown     CallErrorKind = iota
+    CallRefused                   // the server answered and said no
+    CallUnreachable               // the server did not answer
+    CallNotSent                   // THIS SDK declined to send
+    CallMalformed                 // the request could not be built or signed faithfully
+    CallTooLarge                  // the response body was past the configured cap
+    CallNotSignable               // a signature or proof could not be produced
+)
 
-// NoOfferError -- Exchanges responded but no offer matches.
-type NoOfferError struct {
-    URL          string
-    Exchanges []string
-}
-
-// TransactionDeniedError -- Exchange denied the transaction.
-type TransactionDeniedError struct {
-    Reason      DenialReason // ACCOUNT_NOT_REGISTERED, ACCOUNT_INACTIVE, DELEGATION_INVALID, etc.
-    Exchange string       // from TransactionDenial.exchange -- the domain to pass to the SDK's Register verb
-    OfferID     string
-}
-
-// ContentFetchError -- signed URL fetch failed.
-type ContentFetchError struct {
-    URL        string
-    SignedURL  string
-    StatusCode int
-    Cause      error
-}
-
-// ExchangeTimeoutError -- all Exchanges timed out.
-type ExchangeTimeoutError struct {
-    Exchanges []string
-    Deadline     time.Duration
+// FetchError -- the delivery leg (client.Fetch) fails with this.
+type FetchError struct {
+    Failure FetchFailure // FetchRefused, FetchUnreachable, FetchTooLarge,
+                         // FetchNotSignable, FetchMalformed
+    Op      string
+    Status  int    // HTTP status when the edge answered, 0 otherwise
+    Reason  string // the edge's own refusal token when it sent one
+    Err     error
 }
 ```
 
+Both carry `ReasonOf()`, which answers the peer's own token when it sent one and the
+failure class otherwise. `connect.ErrorDetailFrom(err)` pulls the typed
+`ErrorDetail` out of any error that carries one. `resolvers.ErrEndpointRefused` is a
+sentinel reachable through `errors.Is`.
+
 ### Error Recovery Strategy
 
-| Error | Recovery | User Impact |
+| Failure | Recovery | User Impact |
 |---|---|---|
-| `BudgetExceededError` | None -- intentional constraint | Caller adjusts budget or skips URL |
-| `NoExchangeError` | Retry after TTL, or configure Exchange manually | Content not available via FORA |
-| `NoOfferError` | None -- content genuinely unavailable | Caller falls back to non-FORA access |
-| `TransactionDeniedError` (RATE_LIMITED) | Automatic retry with backoff | Transparent if retry succeeds |
-| `TransactionDeniedError` (REPORTING_OVERDUE) | Flush pending reports, retry | SDK logs warning |
-| `TransactionDeniedError` (other) | None -- terminal | Caller handles denial |
-| `ContentFetchError` | Retry once (signed URL may be CDN-transient) | Transparent if retry succeeds |
-| `ExchangeTimeoutError` | Retry with longer deadline | Caller may increase timeout |
-| `EndpointRefused` (`EndpointRefusedError`, `ErrEndpointRefused`) | **None -- terminal.** The Exchange answered and the answer is unusable: it advertises an endpoint on a host or port that did not serve its manifest, or one carrying userinfo. Retrying re-reads the same manifest | Content not available via this Exchange until its operator fixes `fora.json` |
+| `CallNotSent` | **None -- terminal.** The SDK refused before anything left the process, so retrying unchanged fails the same way | Caller fixes the address, the key or the requester |
+| `CallUnreachable` | Retry with backoff | Transparent if the retry succeeds |
+| `CallRefused` | Depends on the typed reason -- read it with `connect.ErrorDetailFrom` | A denial reason such as `DENIAL_REASON_REPORTING_OVERDUE` tells the caller what to fix |
+| `CallMalformed` | **None -- terminal.** The request could not be built or signed faithfully | Caller fixes the message |
+| `CallTooLarge` | Raise `WithMaxContentBytes`, or ask for less | Caller decides whether the body is legitimate |
+| `CallNotSignable` | **None -- terminal.** No signature or proof could be produced | Caller fixes key custody or the signing window |
+| `FetchRefused` | Read `Reason` -- the edge's own token says whether the URL expired or the proof did not match | An expired delivery URL means buying again |
+| `FetchUnreachable` | Retry once; a signed URL may be CDN-transient | Transparent if the retry succeeds |
+| `ErrEndpointRefused` (`errors.Is`) | **None -- terminal.** The Exchange answered and the answer is unusable: it advertises an endpoint on a host or port that did not serve its manifest, or one carrying userinfo. Retrying re-reads the same manifest | Content not available via this Exchange until its operator fixes `fora.json` |
 
 ## State Management
 
@@ -323,45 +332,21 @@ Per-period persistence: by default, the SDK writes period budget state to a loca
 - **Shutdown**: `client.Close()` blocks until all pending reports are submitted or context is cancelled
 - **Overflow**: if channel is full, the oldest report is dropped and a warning is logged
 
-## Testing with Mock Exchange
+## Testing Agent Code
 
-The design pairs the high-tier client with a `MockExchange` for testing agent code
-without network calls. Like the rest of this page it is part of the deferred
-design: no such package ships today, and the sample below is written against the
-planned API rather than the shipped one.
+No mock-Exchange package ships in any language, and the `testutil` helper the
+deferred design pairs with the high-tier client does not exist. Writing an example
+against it here would put an import on this page that nothing can resolve.
 
-```go
-import "example.com/fora-agent-sdk/testutil" // planned; not a shipped package
+What the SDKs' own suites do instead, and what works today: stand up a real
+in-process origin and point the client at it. The Exchange side is a plain HTTP
+server that serves `/.well-known/fora.json`, serves the Web Bot Auth directory,
+answers the three RPC paths, and signs what it answers with the SDK's own
+primitives -- `sign_offer_jcs` for the offer and `sign_ed25519_signed_url` for the
+delivery URL in Python, `helpers.SignOffer` and `helpers.SignURLEd25519` in
+Go. Signing with the SDK rather than with a hand-written signature is what makes the
+test prove an Exchange would have been accepted, instead of proving the calls did
+not panic.
 
-func TestAgentLogic(t *testing.T) {
-    mock := testutil.NewMockExchange(testutil.MockConfig{
-        Offers: map[string][]testutil.MockOffer{
-            "https://example.com/article.html": {{
-                OfferID: "offer-1",
-                Rate:    0.05,
-                Content: "<html>Premium article content</html>",
-            }},
-        },
-    })
-    defer mock.Close()
-
-    client, _ := fora.NewClient(fora.Config{
-        AgentID:     "test-agent",
-        AgentDomain: "agent.example.test",
-        SigningKey:  "test-key",
-        Budget:      fora.Budget{MaxPerRequest: 1.00, Currency: "USD"},
-        Exchanges: []fora.ExchangeConfig{{
-            Domain:   "mock.exchange.test",
-            Endpoint: mock.URL(),
-            Trust:    fora.TrustVerified,
-        }},
-        Discovery: fora.DiscoveryConfig{AutoDiscover: false},
-    })
-    defer client.Close(context.Background())
-
-    result, err := client.Fetch(context.Background(), "https://example.com/article.html")
-    require.NoError(t, err)
-    assert.Contains(t, result.Content, "Premium article")
-    assert.Equal(t, 0.05, result.Cost.Amount)
-}
-```
+`sdk/python/tests/exchange_harness.py` is a worked example of exactly that, in under
+300 lines, and it is what executes the Python README's agent example on every run.

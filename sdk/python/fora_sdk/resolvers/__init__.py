@@ -32,7 +32,11 @@ from fora_sdk.resolvers.errors import (
     RevocationUnevaluatedError,
     UnknownKeyError,
 )
-from fora_sdk.resolvers.offer_key_cache import CachedOfferKeyResolver, DirectoryFetch
+from fora_sdk.resolvers.offer_key_cache import (
+    CachedOfferKeyResolver,
+    DirectoryFetch,
+    create_wba_offer_directory_fetch,
+)
 from fora_sdk.resolvers.registration_requirements import (
     RegistrationRequirements,
     WellKnownRequirementsReader,
@@ -76,6 +80,7 @@ __all__ = [
     "active_ed25519_key_with_expiry_screened",
     "async_ssrf_guard",
     "blocked_address",
+    "create_wba_offer_directory_fetch",
     "guarded_async_client",
     "guarded_client",
     "ssrf_guard",

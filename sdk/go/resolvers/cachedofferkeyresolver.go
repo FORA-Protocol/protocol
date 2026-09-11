@@ -155,10 +155,37 @@ func NewWBADirectoryFetcher(client *http.Client, scheme, port string) OfferDirec
 		scheme = "https"
 	}
 	return func(ctx context.Context, domain string) (*forav1.WBAFile, error) {
-		host := domain
-		if port != "" {
-			host = net.JoinHostPort(domain, port)
-		}
-		return fetchWBAFile(ctx, client, scheme+"://"+host)
+		return fetchWBAFile(ctx, client, scheme+"://"+joinDirectoryHost(domain, port))
 	}
+}
+
+// joinDirectoryHost joins an exchange domain and a configured port into the
+// authority the directory URL is built on. It is the ORACLE for the fetcher-level
+// port join: sdk/python and sdk/ts replay wba-join-vectors.json (emitted by running
+// this function) and must reproduce it for every vector, so the three SDKs cannot
+// answer a different URL for the same exchange.
+//
+// An empty port leaves the domain alone so the scheme default applies. Otherwise
+// net.JoinHostPort does the join, which brackets ANY host containing a colon. That
+// covers two shapes: a host that already carries brackets, giving [[::1]]:8443, and
+// a host that already carries a port, giving [exchange.example:8443]:9000.
+//
+// The first cannot arrive through a validated offer. Offer.exchange
+// (proto/fora/v1/fora.proto) is constrained to a bare domain with an OPTIONAL
+// NUMERIC PORT, so no bracket and no bare IPv6 literal passes. The second is
+// reachable in production, because that optional port is exactly what admits
+// "exchange.example:8443" — the spelling the field's own doc comment uses as its
+// example. An Exchange whose offers name a port, read by a fetcher configured with a
+// port of its own, joins to an authority no transport accepts. The directory is then
+// never fetched and every offer from that Exchange fails to verify, silently, down
+// the fail-closed path.
+//
+// The vectors pin all of it, dialability included: three SDKs agreeing on an
+// unreachable URL is a property worth having, and three SDKs quietly disagreeing is
+// not.
+func joinDirectoryHost(domain, port string) string {
+	if port == "" {
+		return domain
+	}
+	return net.JoinHostPort(domain, port)
 }

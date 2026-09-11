@@ -1,0 +1,47 @@
+{
+  "note": "fetcher-level host+port join, produced by the sdk/go joinDirectoryHost oracle (net.JoinHostPort, empty port passes through); go/py/ts all replay it and must match every vector, dialable included",
+  "vectors": [
+    {
+      "label": "empty-port",
+      "domain": "exchange.example",
+      "port": "",
+      "expected_host": "exchange.example",
+      "dialable": true
+    },
+    {
+      "label": "plain-domain",
+      "domain": "exchange.example",
+      "port": "8443",
+      "expected_host": "exchange.example:8443",
+      "dialable": true
+    },
+    {
+      "label": "bare-ipv6",
+      "domain": "::1",
+      "port": "8443",
+      "expected_host": "[::1]:8443",
+      "dialable": true
+    },
+    {
+      "label": "bracketed-ipv6",
+      "domain": "[::1]",
+      "port": "8443",
+      "expected_host": "[[::1]]:8443",
+      "dialable": false
+    },
+    {
+      "label": "domain-with-port",
+      "domain": "exchange.example:8443",
+      "port": "9000",
+      "expected_host": "[exchange.example:8443]:9000",
+      "dialable": false
+    },
+    {
+      "label": "empty-port-bare-ipv6",
+      "domain": "::1",
+      "port": "",
+      "expected_host": "::1",
+      "dialable": false
+    }
+  ]
+}

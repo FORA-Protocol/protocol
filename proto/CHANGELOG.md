@@ -5,7 +5,7 @@
 First public release of the FORA Protocol (Federated Open Resource Access):
 the wire format (protobuf under `proto/`), the generated Go and TypeScript SDKs
 (under `gen/`), and the specification site (under `website/`). FORA extends IAB
-Tech Lab CoMP v1.0 and RSL 1.0 with resource discovery, transaction execution,
+Tech Lab CoMP V1 and RSL 1.0 with resource discovery, transaction execution,
 post-usage reporting, dispute resolution, and provider domain verification —
 enough for an autonomous agent to negotiate licensed access to a publisher's
 resources through an Exchange and produce a cryptographically auditable record of

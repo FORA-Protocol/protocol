@@ -24,10 +24,20 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from wire.models import WBAFile
 
-from fora_sdk.resolvers.wba import active_ed25519_key_with_expiry_screened
+from fora_sdk.resolvers._http import guarded_client
+from fora_sdk.resolvers.errors import DirectoryUnavailableError
+from fora_sdk.resolvers.wba import (
+    _get_wba_directory,
+    active_ed25519_key_with_expiry_screened,
+    wba_directory_url,
+)
+
+if TYPE_CHECKING:
+    import httpx
 
 _DEFAULT_TTL_SECONDS = 300
 
@@ -123,3 +133,96 @@ class CachedOfferKeyResolver:
             self._cache[ex] = (key, expiry)
             out[ex] = key
         return out
+
+
+def _join_host_port(host: str, port: str) -> str:
+    """Join ``host`` and ``port`` into the authority the directory URL is built on.
+
+    Port of the Go oracle ``joinDirectoryHost``
+    (``sdk/go/resolvers/cachedofferkeyresolver.go``), and held to it by the
+    tri-language ``wba-join-vectors.json`` corpus that
+    ``tests/test_resolvers_wba_join_parity.py`` replays.
+
+    An empty port leaves the host alone so the scheme default applies. Otherwise the
+    rule is ``net.JoinHostPort``'s: a host containing a colon is wrapped in brackets,
+    with no check for what the host already carries. That covers two shapes. A host
+    already carrying brackets becomes ``[[::1]]:8443``, and a host already carrying a
+    port becomes ``[exchange.example:8443]:9000``.
+
+    The first cannot arrive through a validated offer: ``Offer.exchange`` is
+    constrained to a bare domain with an OPTIONAL NUMERIC PORT, so no bracket and no
+    bare IPv6 literal passes. The second is reachable in production, because that
+    optional port is exactly what admits ``exchange.example:8443`` — the spelling the
+    field's own doc comment uses as its example. An Exchange whose offers name a
+    port, read by a fetch configured with a port of its own, joins to an authority
+    httpx refuses. The directory is then never fetched and every offer from that
+    Exchange fails to verify, silently, down the fail-closed path.
+
+    The corpus pins all of it, dialability included, so the three SDKs cannot answer
+    different URLs for the same exchange.
+    """
+    if port == "":
+        return host
+    if ":" in host:
+        return f"[{host}]:{port}"
+    return f"{host}:{port}"
+
+
+def create_wba_offer_directory_fetch(
+    *,
+    http: httpx.Client | None = None,
+    scheme: str = "",
+    port: str = "",
+) -> DirectoryFetch:
+    """The default :data:`DirectoryFetch`: GET one exchange's Web Bot Auth directory
+    and decode the ``WBAFile``.
+
+    Port of the Go oracle's ``NewWBADirectoryFetcher(client, scheme, port)`` and the
+    TypeScript ``createWBAOfferDirectoryFetch({fetch, scheme, port})``. An exchange's
+    offer-signing key is published ONLY here — not in ``fora.json`` — so this fetch is
+    what makes an offer verifiable at all. Until it existed every Python integrator
+    hand-wrote it, including the fail-closed contract below, which is the part that is
+    easy to get wrong.
+
+    ``http`` defaults to the SSRF-guarded :func:`~fora_sdk.resolvers._http.guarded_client`.
+    Which default a fetch takes follows its URL's PROVENANCE: the exchange domain
+    arrives inside an offer, so the party choosing the address is not the party running
+    the process. A caller that must reach a private directory injects its own client,
+    the same escape hatch the other resolver faces expose. Empty ``scheme`` means https
+    and empty ``port`` means the scheme default; the URL is built by
+    :func:`~fora_sdk.resolvers.wba.wba_directory_url`, so it is the exact string the
+    tri-language ``wba-url-vectors.json`` corpus pins.
+
+    **Every failure is contained as None and none is raised.** That is
+    :data:`DirectoryFetch`'s contract rather than a preference:
+    :meth:`CachedOfferKeyResolver.prefetch` gathers these calls through
+    ``asyncio.gather`` WITHOUT ``return_exceptions``, so one raised error abandons the
+    whole batch instead of leaving a single exchange unresolved. An unresolvable
+    exchange is simply absent from the map, and the Verifier then rejects that
+    exchange's offers fail-closed.
+
+    The GET runs on a worker thread because the guarded client is synchronous.
+    :mod:`fora_sdk.client` records the reason for that shape: an async twin of each
+    blocking tier would be a Python-only public face with no Go or TypeScript
+    counterpart, for a seam a thread already crosses correctly. Crossing with a thread
+    also keeps the 1 MiB body bound and the overall wall-clock deadline that
+    :func:`~fora_sdk.resolvers._http.fetch_strict` already applies — a hand-written
+    ``await client.get(...)`` has neither.
+    """
+    client = http if http is not None else guarded_client()
+
+    async def fetch(domain: str) -> WBAFile | None:
+        url = wba_directory_url(scheme, _join_host_port(domain, port))
+        try:
+            return await asyncio.to_thread(_get_wba_directory, client, url)
+        except DirectoryUnavailableError:
+            # ONE exception type covers the whole contract, because
+            # _get_wba_directory is the shared GET-and-decode and it folds every arm
+            # into this error: fetch_strict maps httpx.HTTPError and OSError (SsrfError
+            # is one, so is the deadline's TimeoutError) plus any non-200, and the
+            # helper adds the malformed-URL and not-a-directory arms on top. Catching a
+            # list of families here is what let the docstring's "every failure" drift
+            # away from what the code actually contained.
+            return None
+
+    return fetch

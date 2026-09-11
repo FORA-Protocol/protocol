@@ -43,14 +43,18 @@ TS object factories carry the create* prefix and value generators the generate* 
 
 from __future__ import annotations
 
+import inspect
 import json
 import re
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 # JSON shapes read out of symbol-map.json.
 ParityMap = dict[str, Any]
@@ -70,10 +74,10 @@ _GO_PACKAGES = ("helpers", "resolvers", "core", "connect", "connectserver")
 #     docs/sdk-parity-matrix.md reached via decision_anchor (the three connectserver
 #     handler bindings).
 #   * PARTIAL gap (one language present, the other genuinely absent) — backed by an
-#     inline allowlist_reason naming the one-sided divergence. The 10 partial gaps are
+#     inline allowlist_reason naming the one-sided divergence. The 13 partial gaps are
 #     all language-idiom folds absorbed from the old BASELINE_PY_ONLY_GAP ratchet —
-#     seven Go NewX constructor funcs that fold into Python class constructors, and
-#     three Go/TS options types that fold into Python constructor kwargs. Each carries
+#     Go NewX constructor funcs that fold into Python class constructors, and Go/TS
+#     options types that fold into Python constructor kwargs. Each carries
 #     a per-entry reason; none is a symbol Python is missing. (The two former
 #     ErrUnknownKey partial gaps are RESOLVED: TS now exports the UnknownKey error
 #     class, completing the resolver error taxonomy in all three languages.)
@@ -93,7 +97,16 @@ _GO_PACKAGES = ("helpers", "resolvers", "core", "connect", "connectserver")
 # under it again: the registration-requirements reader's Go factory folds into the Python
 # class constructor exactly as every other NewX does, and its reason is that same
 # recorded one. One entry, one already-recorded class, and the bump is the review tell.
-BASELINE_ALLOWLIST = 17
+#
+# Then 17 -> 16, a RESOLUTION rather than a fold: resolvers.NewWBADirectoryFetcher now
+# maps to Python's create_wba_offer_directory_fetch. Its allowlist reason had claimed the
+# face folded into "the Python WBAKeyResolver's injected directory-fetch seam (constructor
+# default)", and that was false in three ways at once — WBAKeyResolver takes no fetch
+# argument, the seam described belongs to CachedOfferKeyResolver on a different resolution
+# path, and that one has no default at all. The gate could not catch it, because it checks
+# the mapping and never the prose. Shipping the factory makes the entry a real 1:1 mapping
+# and the ratchet tightens with it.
+BASELINE_ALLOWLIST = 16
 
 # HARD ZERO (was a shrink-only ratchet at 19) — undocumented TS-present / Python-null
 # gaps. The PRESENCE check skips nulls, so absent this ceiling a NEW Python-null gap
@@ -198,6 +211,18 @@ def enumerate_go() -> dict[str, str]:
     return out
 
 
+#: The public Python modules the surface gate reads, in one place. Both
+#: ``enumerate_python`` and the rationale-truth guard below resolve names through this
+#: list; keeping two copies is how they came to disagree, with ``fora_sdk.sync`` present
+#: in one and absent from the other.
+def _public_modules() -> list[ModuleType]:
+    import fora_sdk
+    from fora_sdk import client, resolvers
+    from fora_sdk import sync as blocking
+
+    return [fora_sdk, resolvers, client, blocking]
+
+
 def enumerate_python() -> set[str]:
     """The public Python surface: the aggregator plus each IO package's own ``__all__``.
 
@@ -213,16 +238,7 @@ def enumerate_python() -> set[str]:
     true, because the alternative is discovering a sync-only export the day it ships. The
     test below pins the fact rather than the effect.
     """
-    import fora_sdk
-    from fora_sdk import client, resolvers
-    from fora_sdk import sync as blocking
-
-    return (
-        set(fora_sdk.__all__)
-        | set(resolvers.__all__)
-        | set(client.__all__)
-        | set(blocking.__all__)
-    )
+    return {name for mod in _public_modules() for name in mod.__all__}
 
 
 _TS_INLINE_RE = re.compile(
@@ -654,4 +670,145 @@ def test_the_sync_facade_exports_every_class_it_defines() -> None:
         f"the blocking facade defines {sorted(missing)} but does not export them. A public "
         "class absent from __all__ is unreachable through `from fora_sdk.sync import *` and "
         "invisible to the surface gate, which reads this module through __all__."
+    )
+
+
+# --------------------------------------------------------------------------- #
+# (vi) RATIONALE TRUTH — a Python-null entry must justify itself in a shape this
+#      gate can CHECK, and the face it names must match the signature it claims
+# --------------------------------------------------------------------------- #
+#
+# The hole this closes. ``resolvers.NewWBADirectoryFetcher`` justified its Python null
+# by naming "the Python WBAKeyResolver's injected directory-fetch seam (constructor
+# default)". That sentence was wrong three times over: ``WBAKeyResolver.__init__`` takes
+# no ``fetch`` argument, the seam it described belongs to ``CachedOfferKeyResolver`` on a
+# different resolution path, and that one had no default at all. Every check above reads
+# the MAPPING, so all of them passed while the prose said something untrue about the code.
+#
+# The first version of this guard matched ``Foo(...)`` and checked the named class. It
+# would NOT have caught that reason, which spells no ``Foo(...)`` anywhere — so a reason
+# written as free prose was still unchecked, which is precisely the shape that shipped.
+# The fix is to make the SHAPE mandatory: a Python-null reason must parse as one of the
+# three forms below, and a reason this gate cannot parse fails it.
+
+#: A Go ``NewFoo`` factory that folds into the Python class ``Foo``.
+_CTOR_FOLD_RE = re.compile(
+    r"folds into the Python class constructor \(([A-Z][A-Za-z0-9_]*)\(\.\.\.\)\)"
+)
+#: A Go config/options struct that folds into one or more Python constructors' kwargs.
+_OPTIONS_FOLD_RE = re.compile(r"folds into Python constructor keyword arguments \((.+?)\);")
+#: A deliberate one-sided gap with its decision recorded in the parity matrix.
+_OPEN_DECISION_RE = re.compile(r"OPEN DECISION in docs/sdk-parity-matrix\.md")
+#: Class names inside an options-fold's parenthesised list.
+_CLASS_RE = re.compile(r"([A-Z][A-Za-z0-9_]*)\(\.\.\.\)")
+
+
+def _resolve_public_class(name: str) -> Any:
+    for mod in _public_modules():
+        if hasattr(mod, name):
+            return getattr(mod, name)
+    return None
+
+
+def _assert_named_class_is_real(key: str, claimed: str, surface: set[str]) -> None:
+    """The named face is exported, is a class, and takes keyword arguments."""
+    assert claimed in surface, (
+        f"{key}: its allowlist reason names {claimed}(...) as the Python face it folds "
+        f"into, but {claimed} is not on the public Python surface. Either the reason "
+        "describes code that does not exist, or the face is missing an export."
+    )
+    resolved = _resolve_public_class(claimed)
+    assert resolved is not None and inspect.isclass(resolved), (
+        f"{key}: its reason calls {claimed}(...) a constructor, but {claimed} is not a "
+        f"class ({resolved!r})."
+    )
+    params = inspect.signature(resolved.__init__).parameters
+    kwargs = [
+        p
+        for p in params.values()
+        if p.kind in (p.KEYWORD_ONLY, p.POSITIONAL_OR_KEYWORD) and p.name != "self"
+    ]
+    assert kwargs, (
+        f"{key}: its reason says the Go face folds into {claimed}'s constructor, but "
+        f"{claimed}.__init__ takes no arguments to fold into."
+    )
+
+
+def test_every_python_null_rationale_parses_and_names_a_real_face() -> None:
+    """A Python-null entry must justify itself in one of three checkable shapes.
+
+    A reason that parses as none of them fails, which is what stops the next free-prose
+    justification from sitting unread. For the two fold shapes the named class must be
+    exported, be a class, and have constructor arguments for the Go face to fold into —
+    so a reason naming a face that cannot carry the seam it claims is caught.
+    """
+    parity_map = _load_map()
+    surface = enumerate_python()
+
+    unparsed: list[str] = []
+    checked = 0
+    for key, entry in parity_map["symbols"].items():
+        if entry.get("python") is not None:
+            continue
+        reason = entry.get("allowlist_reason")
+        if not reason:
+            continue
+
+        ctor = _CTOR_FOLD_RE.search(reason)
+        options = _OPTIONS_FOLD_RE.search(reason)
+        if ctor:
+            _assert_named_class_is_real(key, ctor.group(1), surface)
+            checked += 1
+        elif options:
+            classes = _CLASS_RE.findall(options.group(1))
+            assert classes, f"{key}: its options-fold reason names no Python constructor."
+            for claimed in classes:
+                _assert_named_class_is_real(key, claimed, surface)
+            checked += 1
+        elif _OPEN_DECISION_RE.search(reason):
+            checked += 1
+        else:
+            unparsed.append(key)
+
+    assert not unparsed, (
+        "these Python-null entries justify themselves in prose this gate cannot check: "
+        f"{unparsed}. A reason must either name the Python constructor the Go face folds "
+        "into — 'folds into the Python class constructor (Foo(...))' or 'folds into "
+        "Python constructor keyword arguments (Foo(...))' — or record the gap as an "
+        "'OPEN DECISION in docs/sdk-parity-matrix.md'. Free prose is how a false "
+        "rationale shipped and sat unread."
+    )
+    assert checked, (
+        "no Python-null entry carried a reason — this check has gone vacuous, which "
+        "means either the reasons changed shape or the map stopped using nulls."
+    )
+
+
+def test_the_go_factory_and_the_python_class_it_folds_into_share_a_name() -> None:
+    """``pkg.NewFoo`` must fold into ``Foo``, not into some other class.
+
+    The second way the false rationale was wrong: it named ``WBAKeyResolver`` while
+    describing a seam that belongs to ``CachedOfferKeyResolver``. Checking that the class
+    exists does not catch that. Checking that a ``NewFoo`` entry names ``Foo`` does.
+    """
+    parity_map = _load_map()
+
+    mismatched: list[str] = []
+    for key, entry in parity_map["symbols"].items():
+        if entry.get("python") is not None:
+            continue
+        reason = entry.get("allowlist_reason") or ""
+        ctor = _CTOR_FOLD_RE.search(reason)
+        if not ctor:
+            continue
+        go_name = key.split(".", 1)[-1]
+        if not go_name.startswith("New"):
+            continue
+        if go_name.removeprefix("New") != ctor.group(1):
+            mismatched.append(f"{key} -> {ctor.group(1)}(...)")
+
+    assert not mismatched, (
+        "these entries fold a Go NewX factory into a Python class with a different name: "
+        f"{mismatched}. Either the reason names the wrong class, or the pair genuinely "
+        "differs and the reason must say why instead of using the NewX-fold wording."
     )

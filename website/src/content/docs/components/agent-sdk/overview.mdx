@@ -5,13 +5,10 @@ description: "The FORA Agent SDK is an embeddable library that gives AI agents o
 
 import DeferredSdkNoticeDetail from '../../../../components/DeferredSdkNoticeDetail.mdx';
 
-import { Aside } from '@astrojs/starlight/components';
-
-<DeferredSdkNoticeDetail />
 
 ## What the SDK Provides
 
-The FORA Agent SDK is a library that agent developers embed directly in their application process. It provides one-liner content access -- a single `Fetch(url)` call that handles discovery, negotiation, transaction, delivery, budget enforcement, and usage reporting behind the scenes.
+The FORA Agent SDK is a library that agent developers embed directly in their application process, in Go, TypeScript or Python. What ships today is the client below: four verbs -- discover, execute, fetch, report -- with offer verification, RFC 9421 request signing and a bound delivery fetch built in. A convenience layer above it, collapsing all four into a single `Fetch(url)` that also enforces a spend cap, is designed but not implemented. The sections from [v1.0 Capabilities](#v10-capabilities) to [Relationship to the Broker](#relationship-to-the-broker) describe that layer; [Language Bindings](#language-bindings) and [Version Strategy](#version-strategy) below them describe what ships today.
 
 **The SDK IS a single-tenant Broker embedded as a library.** It contains the same components (Exchange Registry, Supply Discovery, Selection Engine, Budget Tracker, Usage Reporter) and the same logic as the standalone [Broker](/components/broker/overview/). The difference is deployment model, not architecture:
 
@@ -26,144 +23,57 @@ The FORA Agent SDK is a library that agent developers embed directly in their ap
 | **Usage reporting** | Automatic (background, non-blocking) | Agent submits via RPC | Agent submits via RPC |
 | **Who operates** | Agent developer | Agent operator (ops team) | SaaS provider |
 
-The SDK is the lowest-friction deployment model. An agent developer adds one dependency, passes their license key and budget, and calls `Fetch`. No sidecar process, no YAML, no infrastructure.
+The SDK is the lowest-friction deployment model: one dependency, no sidecar process, no YAML, no infrastructure.
 
 ## Public API
 
-### Go (Primary)
+The shipped client is the same four verbs in all three languages: **discover** an offer,
+**execute** the purchase, **fetch** the delivered bytes, **report** what was used. Each
+returns the offers already sorted into verified and rejected, so an offer that did not
+verify is never handed back as usable.
 
-```go
-package fora
+Full per-language references live beside the code: [Go](https://github.com/FORA-Protocol/protocol/blob/main/sdk/go/README.md),
+[Python](https://github.com/FORA-Protocol/protocol/blob/main/sdk/python/README.md).
 
-// NewClient creates a FORA client with the given configuration.
-// It initializes the Exchange registry, budget tracker, and
-// background reporting goroutine.
-func NewClient(cfg Config) (*Client, error)
+None of the three blocks below is written on this page. Each one is pulled in from a
+file the build already checks: the Go example is compiled by `go build ./...`, the
+TypeScript example by `tsc --strict --noEmit`, and the Python example is extracted and
+RUN against an in-process Exchange by the package's test suite. A rename in the SDK that
+an example does not follow fails a gate instead of reaching a reader.
 
-// Fetch acquires licensed content for a single URL.
-// Handles discovery, negotiation, transaction, content fetch,
-// and usage reporting. Returns the content and cost.
-func (c *Client) Fetch(ctx context.Context, url string) (*FetchResult, error)
+### Go
 
-// FetchBatch acquires licensed content for multiple URLs.
-// All URIs are sent in a single ResourceQuery per Exchange.
-// Budget is enforced across the total batch cost.
-func (c *Client) FetchBatch(ctx context.Context, urls []string) ([]*FetchResult, error)
+::example{file="sdk/go/examples/agent/agent.go" regions="imports,client,discover,execute,fetch,report" lang="go"}
 
-// ReportUsage manually submits a usage report for a completed fetch.
-// Not needed when AutoReport is enabled (the default) -- the SDK
-// reports automatically after each successful Fetch.
-func (c *Client) ReportUsage(ctx context.Context, report UsageReport) error
-
-// Close shuts down the client, flushing any pending usage reports
-// and releasing resources. Blocks until all reports are submitted
-// or the context is cancelled.
-func (c *Client) Close(ctx context.Context) error
-```
-
-**Usage -- single URL:**
-
-```go
-client, err := fora.NewClient(fora.Config{
-    AgentID:     "research-bot",
-    AgentDomain: "agent.example.com",
-    SigningKey:  os.Getenv("FORA_SIGNING_KEY"),
-    Budget:      fora.Budget{MaxPerRequest: 0.10, Currency: "USD"},
-})
-if err != nil {
-    log.Fatal(err)
-}
-defer client.Close(ctx)
-
-result, err := client.Fetch(ctx, "https://techcrunch.com/premium/article.html")
-if err != nil {
-    log.Fatal(err)
-}
-fmt.Println(result.Content)    // HTML content
-fmt.Println(result.Cost)       // 0.05 USD
-fmt.Println(result.BillingID)  // bill-93a7f2-001
-```
-
-**Usage -- batch:**
-
-```go
-results, err := client.FetchBatch(ctx, []string{
-    "https://techcrunch.com/premium/ai-infrastructure.html",
-    "https://techcrunch.com/premium/gpu-shortage-2026.html",
-    "https://arstechnica.com/premium/quantum-computing.html",
-})
-if err != nil {
-    log.Fatal(err)
-}
-for _, r := range results {
-    if r.Err != nil {
-        fmt.Printf("FAILED %s: %v\n", r.URL, r.Err)
-        continue
-    }
-    fmt.Printf("OK %s -- %s %.4f\n", r.URL, r.Content[:80], r.Cost.Amount)
-}
-```
+`Discover` returns a `core.DiscoveryResult`: one group per requested URI, each carrying
+its verified offers and, for the rest, the reason they were refused. Failures across every
+verb arrive as one `connect.CallError` with a `CallErrorKind` -- `CallNotSent`,
+`CallRefused`, `CallUnreachable`, `CallMalformed`, `CallTooLarge`, `CallNotSignable` --
+plus the peer's own reason token and, when it sent one, a typed detail reachable through
+`connect.ErrorDetailFrom`.
 
 ### TypeScript
 
-<Aside type="note">
-The TypeScript SDK ships in-repo and is CI-gated, but is not yet published to npm; the example below is illustrative.
-</Aside>
+::example{file="sdk/ts/examples/agent.ts" regions="imports,client,discover,execute,fetch,report" lang="typescript"}
 
-```typescript
-// npm package not yet published — illustrative
-import { ForaClient } from "@fora-protocol/agent-sdk";
-
-const client = new ForaClient({
-    agentId: "research-bot",
-    agentDomain: "agent.example.com",
-    signingKey: process.env.FORA_SIGNING_KEY!,
-    budget: { maxPerRequest: 0.10, currency: "USD" },
-});
-
-// Single URL
-const result = await client.fetch("https://techcrunch.com/premium/article.html");
-console.log(result.content, result.cost);
-
-// Batch
-const results = await client.fetchBatch([url1, url2, url3]);
-for (const r of results) {
-    console.log(r.url, r.content, r.cost);
-}
-
-// Cleanup -- flushes pending reports
-await client.close();
-```
+Offer verification defaults to `"strict"`, and a client given no way to resolve offer keys
+resolves none -- so it rejects every offer, with a reason. That is the fail-closed default,
+and on a first run it looks exactly like a broken stack.
 
 ### Python
 
-<Aside type="note">
-The Python SDK ships in-repo and is CI-gated, but is not yet published to PyPI; the example below is illustrative.
-</Aside>
+::example{file="sdk/python/README.md" fence="agent-example" lang="python"}
 
-```python
-# PyPI package not yet published — illustrative
-from fora_sdk import ForaClient, Budget
+That block is the [Python README](https://github.com/FORA-Protocol/protocol/blob/main/sdk/python/README.md)'s
+example, pulled in from that file rather than copied. The package's own test suite
+extracts the same block and runs it against an in-process Exchange, so a name that stops
+resolving fails a test.
 
-client = ForaClient(
-    agent_id="research-bot",
-    agent_domain="agent.example.com",
-    signing_key=os.environ["FORA_SIGNING_KEY"],
-    budget=Budget(max_per_request=0.10, currency="USD"),
-)
+`fora_sdk.client.Client` is the same surface with `await`; `fora_sdk.sync` is a blocking
+facade over a synchronous HTTP client rather than an `asyncio.run` wrapper, which would
+break inside a running event loop.
 
-# Single URL
-result = client.fetch("https://techcrunch.com/premium/article.html")
-print(result.content, result.cost)
-
-# Batch
-results = client.fetch_batch([url1, url2, url3])
-for r in results:
-    print(r.url, r.content, r.cost)
-
-# Cleanup
-client.close()
-```
+<DeferredSdkNoticeDetail />
 
 ## v1.0 Capabilities
 
@@ -259,9 +169,12 @@ type Config struct {
 }
 ```
 
-**Minimal configuration** (everything else uses sensible defaults):
+**Minimal configuration** as the deferred layer designs it. `fora.NewClient` and
+`fora.Budget` do not exist; the shipped constructor is `connect.NewClient(baseURL,
+opts...)`, shown under [Public API](#public-api) above.
 
 ```go
+// Planned layer. Not callable today.
 client, _ := fora.NewClient(fora.Config{
     AgentID:     "research-bot",
     AgentDomain: "agent.example.com",
@@ -333,7 +246,7 @@ type HTTPConfig struct {
 The SDK contains the same components as the Broker, organized as in-process collaborators:
 
 ```
-ForaClient
+Agent SDK (planned layer)
   |
   +-- ExchangeRegistry
   |     Discovers and caches Exchange endpoints.
@@ -435,8 +348,8 @@ The concrete implementations differ in persistence strategy (in-memory vs Redis)
 | Language | Source | Status | Dependencies |
 |---|---|---|---|
 | Go | [`gen/go/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/go/) (types) + [`sdk/go/`](https://github.com/FORA-Protocol/protocol/tree/main/sdk/go/) (the shipped hand-written SDK: `helpers`, `resolvers`, `core`, `connect`, `connectserver`) | Shipped and CI-gated | `connectrpc.com/connect` + `google.golang.org/protobuf` + stdlib |
-| TypeScript | [`gen/ts/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/ts/) (types) + [`sdk/ts/`](https://github.com/FORA-Protocol/protocol/tree/main/sdk/ts/) (hand-written SDK: `src`, `core`, `resolvers`, `client`, `hono`) | Shipped and CI-gated; npm package not yet published | `zod` + `undici` + `ajv` + `canonicalize` (`hono` optional) |
-| Python | [`gen/python/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/python/) (types) + [`sdk/python/`](https://github.com/FORA-Protocol/protocol/tree/main/sdk/python/) (hand-written SDK: `fora_sdk`, `fora_sdk.core`, `fora_sdk.resolvers`, `fora_sdk.client`, `fora_sdk.sync`) | Shipped and CI-gated; PyPI package not yet published | `pydantic` + `httpx` + `cryptography` |
+| TypeScript | [`gen/ts/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/ts/) (types) + [`sdk/ts/`](https://github.com/FORA-Protocol/protocol/tree/main/sdk/ts/) (hand-written SDK: `src`, `core`, `resolvers`, `client`, `hono`) | Shipped; published to npm as [`@fora-protocol/sdk`](https://www.npmjs.com/package/@fora-protocol/sdk) :sdk-version | `zod` + `undici` + `ajv` + `canonicalize` (`hono` optional) |
+| Python | [`gen/python/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/python/) (types) + [`sdk/python/`](https://github.com/FORA-Protocol/protocol/tree/main/sdk/python/) (hand-written SDK: `fora_sdk`, `fora_sdk.core`, `fora_sdk.resolvers`, `fora_sdk.client`, `fora_sdk.sync`) | Shipped; published to PyPI as [`fora-protocol-sdk`](https://pypi.org/project/fora-protocol-sdk/) :sdk-version | `pydantic` + `httpx` + `cryptography` |
 
 Every language also ships the account-setup role: `Register` and `GetAccountStatus` on the agent client (`Register`/`GetAccountStatus`, `register`/`getAccountStatus`, `register`/`get_account_status`), addressed by the Exchange domain on the request rather than by a configured origin, alongside the reader that fetches an Exchange's published registration requirements afresh on every read (`resolvers.NewWellKnownRequirementsReader`, `createWellKnownRequirementsReader`, `WellKnownRequirementsReader`). That reader applies the manifest version gate before it reads anything else, the same rule and the same shared corpus as the endpoint resolver — a document whose layout no reader can classify supplies neither the published schema nor the terms digest a registration echoes. A payload the client's own schema pre-check refuses comes back carrying the same typed `RegistrationFailure` detail the Exchange would have attached, so one renderer serves both sides of the refusal.
 

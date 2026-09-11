@@ -921,8 +921,8 @@
       "ts": "guardedFetchFromEnv"
     },
     "resolvers.NewWBADirectoryFetcher": {
-      "allowlist_reason": "Go's default OfferDirectoryFetcher factory folds into the Python WBAKeyResolver's injected directory-fetch seam (constructor default); no separate public factory symbol exists. TS keeps the createWBAOfferDirectoryFetch factory.",
-      "python": null,
+      "allowlist_reason": null,
+      "python": "create_wba_offer_directory_fetch",
       "ts": "createWBAOfferDirectoryFetch"
     },
     "resolvers.NewWBAKeyResolver": {

@@ -188,6 +188,39 @@ export function createCachedOfferKeyResolver(
 }
 
 /**
+ * joinDirectoryHost joins an exchange domain and a configured port into the
+ * authority the directory URL is built on.
+ *
+ * Port of the Go oracle `joinDirectoryHost`
+ * (sdk/go/resolvers/cachedofferkeyresolver.go), held to it by the tri-language
+ * wba-join-vectors.json corpus that resolvers-wba-join.parity.test.ts replays.
+ *
+ * An empty port leaves the domain alone so the scheme default applies. Otherwise
+ * the rule is Go's `net.JoinHostPort`: a host containing a colon is wrapped in
+ * brackets, with no check for what the host already carries. That covers two
+ * shapes. A host already carrying brackets becomes `[[::1]]:8443`, and a host
+ * already carrying a port becomes `[exchange.example:8443]:9000`.
+ *
+ * The first cannot arrive through a validated offer: Offer.exchange is constrained
+ * to a bare domain with an OPTIONAL NUMERIC PORT, so no bracket and no bare IPv6
+ * literal passes. The second is reachable in production, because that optional port
+ * is exactly what admits `exchange.example:8443` — the spelling the field's own doc
+ * comment uses as its example. An Exchange whose offers name a port, read by a
+ * fetch configured with a port of its own, joins to an authority no URL parser
+ * accepts. The directory is then never fetched and every offer from that Exchange
+ * fails to verify, silently, down the fail-closed path.
+ *
+ * The corpus pins all of it, dialability included, so the three SDKs cannot answer
+ * different URLs for the same exchange. This previously interpolated without
+ * bracketing, which disagreed with Go for every IPv6 host.
+ */
+function joinDirectoryHost(domain: string, port: string): string {
+	if (port === "") return domain;
+	if (domain.includes(":")) return `[${domain}]:${port}`;
+	return `${domain}:${port}`;
+}
+
+/**
  * createWBAOfferDirectoryFetch returns the default {@link OfferDirectoryFetch}: it
  * GETs {scheme}://{domain}[:{port}]{WBA_DIRECTORY_PATH} (built by the shared
  * wbaDirectoryURL) and parses the body as a WBAFile, returning `undefined` on ANY
@@ -208,8 +241,10 @@ export function createWBAOfferDirectoryFetch(
 	const port = opts.port ?? "";
 	return async (domain: string) => {
 		try {
-			const host = port !== "" ? `${domain}:${port}` : domain;
-			const body = await fetchStrict(fetchFn, wbaDirectoryURL(scheme, host));
+			const body = await fetchStrict(
+				fetchFn,
+				wbaDirectoryURL(scheme, joinDirectoryHost(domain, port)),
+			);
 			return WBAFileSchema.parse(JSON.parse(body));
 		} catch {
 			return undefined;
