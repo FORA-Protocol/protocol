@@ -9,7 +9,14 @@
     // relative to this file, no baseUrl needed). vitest already resolves zod
     // from the package root at runtime; this only closes the type-check gap.
     "paths": {
-      "zod": ["./node_modules/zod"]
+      "zod": ["./node_modules/zod"],
+      // examples/ imports the package by its PUBLISHED specifier, because that is
+      // what a reader installs and what the documentation site shows. These map it
+      // back to this tree so the type check is against the code under review rather
+      // than against whatever is in node_modules.
+      "@fora-protocol/sdk/client": ["./client/index.ts"],
+      "@fora-protocol/sdk/core": ["./core/verifier.ts"],
+      "@fora-protocol/sdk/resolvers": ["./resolvers/index.ts"]
     },
     "lib": ["ES2023", "DOM"],
     "types": ["vitest/globals", "node"],
@@ -35,6 +42,7 @@
     "client/**/*",
     "hono/**/*",
     "resolvers/**/*",
-    "tests/**/*"
+    "tests/**/*",
+    "examples/**/*"
   ]
 }

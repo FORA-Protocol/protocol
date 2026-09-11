@@ -272,8 +272,8 @@ resp, err := client.PushResources(ctx, &forav1.PushResourcesRequest{
 ```
 
 ```typescript
-import { createCatalogClient } from "@fora-protocol/sdk-l1/client";
-import { validateResourceEntry } from "@fora-protocol/sdk-l1/licenseterm";
+import { createCatalogClient } from "@fora-protocol/sdk/client";
+import { validateResourceEntry } from "@fora-protocol/sdk/licenseterm";
 
 const client = createCatalogClient(catalogEndpoint, { signer: contributorSigner });
 const verdict = validateResourceEntry(entry);

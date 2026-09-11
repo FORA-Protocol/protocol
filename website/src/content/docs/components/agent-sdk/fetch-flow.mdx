@@ -191,66 +191,7 @@ run in Go, TypeScript and Python; the Go form is below, and the
 [Python README](https://github.com/FORA-Protocol/protocol/blob/main/sdk/python/README.md)
 carries the same flow with its example executed by the package's own test suite.
 
-```go
-import (
-    forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
-    "github.com/FORA-Protocol/protocol/gen/go/vocab/functiontokens"
-    "github.com/FORA-Protocol/protocol/sdk/go/connect"
-    "github.com/FORA-Protocol/protocol/sdk/go/resolvers"
-)
-
-// The endpoint an Exchange serves comes from its own /.well-known/fora.json,
-// never from configuration.
-endpoints := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{})
-
-client := connect.NewClient(baseURL,
-    connect.WithSigner(signer),           // RFC 9421 request signing; custody stays yours
-    connect.WithAgentKey(agentPublic),    // the public half a bound fetch presents
-    connect.WithRequester(requester),
-    connect.WithOfferKey(exchangePublic),
-    connect.WithEndpointResolver(endpoints),
-)
-
-// 1. Discover. Offers arrive already sorted into verified and rejected, and a
-//    rejected one keeps the reason it was refused.
-found, err := client.Discover(ctx, &forav1.ResourceQuery{
-    Exchange: "exchange.example",
-    Uris:     []string{"https://publisher.example/article"},
-})
-if err != nil {
-    return err
-}
-offers := found.Verified()
-if len(offers) == 0 {
-    return fmt.Errorf("no verifiable offer: %v", found.Rejected())
-}
-
-// 2. Buy. Execute accepts only a verified offer, so an unverified one cannot be
-//    paid for by mistake.
-tx, err := client.Execute(ctx, offers[0])
-if err != nil {
-    return err
-}
-item := tx.GetItems()[0]
-
-// 3. Fetch. The delivery URL is bound to the agent's key and the client presents
-//    the matching proof of possession, so a copied link fetches nothing.
-content, err := client.Fetch(ctx, item.GetRetrievalEndpoint())
-if err != nil {
-    return err
-}
-
-// 4. Report what was used. ConsumedQuantity is the billed quantity.
-_, err = client.ReportUsage(ctx, &forav1.UsageReport{
-    Exchange:      "exchange.example",
-    TransactionId: item.GetTransactionId(),
-    BillingId:     item.GetBillingId(),
-    Usage: &forav1.Usage{
-        ConsumedQuantity: int32(len(content.Body)),
-        Function:         []string{functiontokens.AiInput},
-    },
-})
-```
+::example{file="sdk/go/examples/agent/agent.go" regions="imports,client,discover,execute,fetch,report" lang="go"}
 
 ## Code Example: Several URLs
 
@@ -402,7 +343,7 @@ in-process origin and point the client at it. The Exchange side is a plain HTTP
 server that serves `/.well-known/fora.json`, serves the Web Bot Auth directory,
 answers the three RPC paths, and signs what it answers with the SDK's own
 primitives -- `sign_offer_jcs` for the offer and `sign_ed25519_signed_url` for the
-delivery URL in Python, `helpers.SignOfferJCS` and `helpers.SignEd25519SignedURL` in
+delivery URL in Python, `helpers.SignOffer` and `helpers.SignURLEd25519` in
 Go. Signing with the SDK rather than with a hand-written signature is what makes the
 test prove an Exchange would have been accepted, instead of proving the calls did
 not panic.

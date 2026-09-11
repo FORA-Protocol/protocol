@@ -228,23 +228,7 @@ The SDK populates attribution fields in the `UsageReport` when the caller provid
 Auto-reporting belongs to the deferred layer. `ReportUsage` itself **ships**, in all
 three languages, and this is its real shape:
 
-```go
-resp, err := client.ReportUsage(ctx, &forav1.UsageReport{
-    Exchange:      "exchange.example",  // the Exchange that issued the offer
-    TransactionId: item.GetTransactionId(),
-    BillingId:     item.GetBillingId(),
-    Usage: &forav1.Usage{
-        // ConsumedQuantity is the billed quantity, so a report without Usage
-        // bills nothing. Function tokens come from the generated vocabulary.
-        ConsumedQuantity: int32(len(content.Body)),
-        Function:         []string{functiontokens.AiInput},
-    },
-})
-if err != nil {
-    return err
-}
-// resp.GetReportId() is what a later dispute references.
-```
+::example{file="sdk/go/examples/agent/agent.go" regions="report" lang="go"}
 
 The report is a `forav1.UsageReport` -- the generated wire type -- rather than an
 SDK-specific struct, and the verb returns a `*forav1.UsageReportResponse` carrying
@@ -260,7 +244,12 @@ Each transaction may carry a `ReportingObligation` that specifies:
 - The reporting window (deadline by which the report must be submitted)
 - What fields are required in the report
 
-The SDK tracks these obligations automatically. If an Exchange denies a future transaction with `DENIAL_REASON_REPORTING_OVERDUE`, the SDK flushes pending reports and retries.
+Tracking those deadlines belongs to the deferred layer. The obligation itself
+ships: it arrives on the transaction item as `reporting_obligation`, an ordinary
+generated wire field you can read. The shipped client starts no timer over it and
+keeps no queue, so meeting the window is the application's job. If an Exchange
+denies a later transaction with `DENIAL_REASON_REPORTING_OVERDUE`, that reason
+arrives on the denial and the application decides what to re-send.
 
 ### Shutdown Behavior
 

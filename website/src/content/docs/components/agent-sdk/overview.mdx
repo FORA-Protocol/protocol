@@ -35,65 +35,15 @@ verify is never handed back as usable.
 Full per-language references live beside the code: [Go](https://github.com/FORA-Protocol/protocol/blob/main/sdk/go/README.md),
 [Python](https://github.com/FORA-Protocol/protocol/blob/main/sdk/python/README.md).
 
+None of the three blocks below is written on this page. Each one is pulled in from a
+file the build already checks: the Go example is compiled by `go build ./...`, the
+TypeScript example by `tsc --strict --noEmit`, and the Python example is extracted and
+RUN against an in-process Exchange by the package's test suite. A rename in the SDK that
+an example does not follow fails a gate instead of reaching a reader.
+
 ### Go
 
-```go
-import (
-    forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
-    "github.com/FORA-Protocol/protocol/gen/go/vocab/functiontokens"
-    "github.com/FORA-Protocol/protocol/sdk/go/connect"
-    "github.com/FORA-Protocol/protocol/sdk/go/resolvers"
-)
-
-// The endpoint an Exchange serves comes from its own /.well-known/fora.json,
-// never from configuration; the same resolver routes usage reports back to
-// whichever Exchange issued the offer.
-endpoints := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{})
-
-client := connect.NewClient(baseURL,
-    connect.WithSigner(signer),          // RFC 9421 request signing; custody stays yours
-    connect.WithAgentKey(agentPublic),   // the public half a bound fetch presents
-    connect.WithRequester(requester),    // who this agent says it is
-    connect.WithOfferKey(exchangePublic),// the key offers from this Exchange are signed with
-    connect.WithEndpointResolver(endpoints),
-)
-
-found, err := client.Discover(ctx, &forav1.ResourceQuery{
-    Exchange: "exchange.example",
-    Uris:     []string{"https://publisher.example/article"},
-})
-if err != nil {
-    return err
-}
-offers := found.Verified()
-if len(offers) == 0 {
-    return fmt.Errorf("no verifiable offer: %v", found.Rejected())
-}
-
-tx, err := client.Execute(ctx, offers[0])
-if err != nil {
-    return err
-}
-item := tx.GetItems()[0]
-
-content, err := client.Fetch(ctx, item.GetRetrievalEndpoint())
-if err != nil {
-    return err
-}
-
-_, err = client.ReportUsage(ctx, &forav1.UsageReport{
-    Exchange:      "exchange.example",
-    TransactionId: item.GetTransactionId(),
-    BillingId:     item.GetBillingId(),
-    // What was actually used. ConsumedQuantity is the billed quantity, so a report
-    // without it bills nothing. Function tokens come from the generated vocabulary
-    // rather than a string literal.
-    Usage: &forav1.Usage{
-        ConsumedQuantity: int32(len(content)),
-        Function:         []string{functiontokens.AiInput},
-    },
-})
-```
+::example{file="sdk/go/examples/agent/agent.go" regions="imports,client,discover,execute,fetch,report" lang="go"}
 
 `Discover` returns a `core.DiscoveryResult`: one group per requested URI, each carrying
 its verified offers and, for the rest, the reason they were refused. Failures across every
@@ -104,55 +54,7 @@ plus the peer's own reason token and, when it sent one, a typed detail reachable
 
 ### TypeScript
 
-```typescript
-import { createClient } from "@fora-protocol/sdk/client";
-import { rejectedOffers, verifiedOffers } from "@fora-protocol/sdk/core";
-import {
-  createCachedOfferKeyResolver,
-  createWBAOfferDirectoryFetch,
-  createWellKnownEndpointResolver,
-} from "@fora-protocol/sdk/resolvers";
-// Offer-signing keys come from the issuing Exchange's Web Bot Auth directory --
-// the only place they are published. The directory fetch is SSRF-guarded by default,
-// because the exchange domain arrives inside an offer.
-const offerKeys = createCachedOfferKeyResolver({
-  fetch: createWBAOfferDirectoryFetch({}),
-});
-
-const client = createClient(baseURL, {
-  signer: { privKey, keyid },        // a non-extractable CryptoKey; key bytes never enter the SDK
-  agentPublicKey,                    // the public half a bound delivery fetch presents
-  requester,
-  resolveOfferKey: async (exchange) => offerKeys.resolve(exchange),
-  endpointResolver: createWellKnownEndpointResolver({}),
-});
-
-const found = await client.discover({
-  exchange: "exchange.example",
-  uris: ["https://publisher.example/article"],
-});
-const offers = verifiedOffers(found);
-if (offers.length === 0) {
-  throw new Error(`no verifiable offer: ${JSON.stringify(rejectedOffers(found))}`);
-}
-
-const tx = await client.execute(offers[0]);
-const item = tx.items?.[0];
-if (!item?.retrieval_endpoint) throw new Error("the Exchange delivered no retrieval endpoint");
-
-const content = await client.fetch(item.retrieval_endpoint);
-
-await client.reportUsage({
-  exchange: "exchange.example",
-  transaction_id: item.transaction_id,
-  billing_id: item.billing_id,
-  // consumed_quantity is the billed quantity, so a report without `usage` bills
-  // nothing. `function` is optional and is omitted here: the published
-  // @fora-protocol/sdk exposes no vocabulary entry point, and a token spelled by hand
-  // is exactly what the typed constants exist to prevent.
-  usage: { consumed_quantity: content.length },
-});
-```
+::example{file="sdk/ts/examples/agent.ts" regions="imports,client,discover,execute,fetch,report" lang="typescript"}
 
 Offer verification defaults to `"strict"`, and a client given no way to resolve offer keys
 resolves none -- so it rejects every offer, with a reason. That is the fail-closed default,
@@ -160,68 +62,16 @@ and on a first run it looks exactly like a broken stack.
 
 ### Python
 
-```python
-import asyncio
-import time
+::example{file="sdk/python/README.md" fence="agent-example" lang="python"}
 
-from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier
-from fora_sdk.resolvers import (
-    CachedOfferKeyResolver,
-    WellKnownEndpointResolver,
-    create_wba_offer_directory_fetch,
-    guarded_client,
-)
-from fora_sdk.sync import Client, ClientConfig
-from vocab.functiontokens import AI_INPUT
-
-# The endpoint resolver's host comes off an offer, so a third party chose it. Its
-# default client is still the plain one, so pass the guarded client explicitly.
-endpoints = WellKnownEndpointResolver(http=guarded_client())
-
-# Offer-signing keys come from the issuing Exchange's Web Bot Auth directory --
-# the only place they are published.
-directory = CachedOfferKeyResolver(fetch=create_wba_offer_directory_fetch())
-keys = asyncio.run(directory.prefetch(["exchange.example"]))
-
-config = ClientConfig(
-    base_url=endpoints.resolve_endpoint("exchange.example"),
-    signer=signer,
-    requester=requester,
-    verifier=Verifier(
-        mode=Mode.STRICT,
-        resolver=StaticOfferKeyResolver(keys),
-        now=lambda: int(time.time()),
-    ),
-    endpoint_resolver=endpoints,
-)
-
-with Client(config) as client:
-    found = client.discover(
-        {"exchange": "exchange.example", "uris": ["https://publisher.example/article"]}
-    )
-    offers = found.verified()
-    if not offers:
-        raise RuntimeError(f"no verifiable offer: {[r.reason for r in found.rejected()]}")
-
-    item = client.execute(offers[0]).items[0]
-    content = client.fetch(item.retrieval_endpoint)
-    client.report_usage(
-        {
-            "exchange": "exchange.example",
-            "transaction_id": item.transaction_id,
-            "billing_id": item.billing_id,
-            # consumed_quantity is the billed quantity, so a report without "usage"
-            # bills nothing. Function tokens come from the generated vocabulary.
-            "usage": {"consumed_quantity": len(content.body), "function": [AI_INPUT]},
-        }
-    )
-```
+That block is the [Python README](https://github.com/FORA-Protocol/protocol/blob/main/sdk/python/README.md)'s
+example, pulled in from that file rather than copied. The package's own test suite
+extracts the same block and runs it against an in-process Exchange, so a name that stops
+resolving fails a test.
 
 `fora_sdk.client.Client` is the same surface with `await`; `fora_sdk.sync` is a blocking
 facade over a synchronous HTTP client rather than an `asyncio.run` wrapper, which would
-break inside a running event loop. The complete worked example, including identity setup,
-is in the [Python README](https://github.com/FORA-Protocol/protocol/blob/main/sdk/python/README.md)
--- and it is executed by the package's own test suite, so every name in it resolves.
+break inside a running event loop.
 
 <DeferredSdkNoticeDetail />
 

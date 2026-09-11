@@ -76,32 +76,12 @@ re-derive:
 Build a client with your identity and the keys it signs with. The base URL comes from
 the Exchange's own `/.well-known/fora.json` rather than from configuration:
 
-```go
-endpoints := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{})
-
-client := connect.NewClient(baseURL,
-    connect.WithSigner(signer),           // RFC 9421 request signing; custody stays yours
-    connect.WithAgentKey(agentPublic),    // the public half a bound delivery fetch presents
-    connect.WithRequester(requester),     // who this agent says it is
-    connect.WithOfferKey(exchangePublic), // the key this Exchange signs offers with
-    connect.WithEndpointResolver(endpoints),
-)
-```
+::example{file="sdk/go/examples/agent/agent.go" regions="client" lang="go"}
 
 Which domains you work in is a property of each query rather than of the client, so it
 goes on the `ResourceQuery`:
 
-```go
-found, err := client.Discover(ctx, &forav1.ResourceQuery{
-    Exchange: "exchange.example",
-    Uris:     []string{"https://publisher.example/article"},
-    SupportedProfiles: []string{
-        "fora-news-v1",     // articles, podcasts, broadcasting
-        "fora-academic-v1", // journal papers, preprints, datasets
-        "fora-legal-v1",    // legislation, case law, patents
-    },
-})
-```
+::example{file="sdk/go/examples/agent/agent.go" regions="discover" lang="go"}
 
 The SDK handles:
 - **Endpoint discovery** -- an Exchange's API address read from its own `fora.json`, and usage reports routed back to whichever Exchange issued the offer
