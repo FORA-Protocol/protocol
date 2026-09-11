@@ -115,3 +115,38 @@ def test_absent_when_fetch_unresolvable() -> None:
     cache = CachedOfferKeyResolver(fetch=fetch, now=MutableClock(ANCHOR))
     assert asyncio.run(cache.prefetch(["ex"])) == {}
     assert fetch.calls == 1
+
+
+class _RaisingFetch:
+    """An injected fetcher that resolves one domain and blows up on another."""
+
+    def __init__(self, table: dict[str, WBAFile], explodes: str) -> None:
+        self._table = table
+        self._explodes = explodes
+
+    async def __call__(self, domain: str) -> WBAFile | None:
+        if domain == self._explodes:
+            raise RuntimeError(f"the fetch for {domain} raised")
+        return self._table.get(domain)
+
+
+def test_one_raising_exchange_does_not_cost_the_others_their_keys() -> None:
+    """A raised fetch leaves that exchange absent and every other key intact.
+
+    The domains in a batch come off UNVERIFIED offers, so a hostile Exchange or a
+    Broker relaying one chooses them. Gathering without ``return_exceptions`` meant a
+    single such domain raised out of ``prefetch``, the caller got no map at all, and
+    every legitimate exchange in the same batch had its offers rejected for want of a
+    key. Integrity held — nothing false was verified — but availability did not.
+
+    The default fetch is contracted to return None rather than raise, and it does.
+    This asserts the batch survives an injected fetch that breaks that contract
+    anyway, because one seam's bug must not become every exchange's outage.
+    """
+    key = make_key()
+    fetch = _RaisingFetch({"good": _directory([active_jwk(key.x)])}, explodes="bad")
+    cache = CachedOfferKeyResolver(fetch=fetch, now=MutableClock(ANCHOR), ttl_seconds=60)
+
+    out = asyncio.run(cache.prefetch(["bad", "good"]))
+
+    assert out == {"good": key.raw_pub}, "the raising exchange must be absent, not fatal"

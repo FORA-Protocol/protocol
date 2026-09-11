@@ -320,3 +320,56 @@ class _OkHandler(http.server.BaseHTTPRequestHandler):
 
     def log_message(self, *_args: object) -> None:  # silence the test server
         return
+
+
+@pytest.mark.parametrize(
+    ("name", "domain"),
+    [
+        ("over_long_label", "a" * 64 + ".example"),
+        ("malformed_a_label", "xn--zz.example"),
+    ],
+)
+def test_a_name_the_idna_codec_refuses_is_a_directory_outage(name: str, domain: str) -> None:
+    """``fetch_strict`` folds a name httpx cannot encode into DirectoryUnavailableError.
+
+    This is the SHARED fold, asserted at the shared layer rather than through a caller
+    that contains everything anyway. Both WBA paths pass through here — the offer-key
+    fetch and ``WBAKeyResolver`` — and only one of them has a catch of its own, so a
+    raw codec error escaping this function reaches an application through the other.
+
+    Both domains satisfy the ``Offer.exchange`` pattern in proto/fora/v1/fora.proto,
+    which bounds the whole value and the character set but sets no per-label limit and
+    cannot tell a valid ``xn--`` A-label from an invalid one. They fail in different
+    places: the over-long label inside ``socket.getaddrinfo``, which IDNA-encodes
+    before resolving, and the malformed A-label in ``URL.host`` while the request is
+    still being built. Neither raise is an ``OSError`` or an ``httpx.HTTPError``.
+    """
+    client = guarded_client()
+    try:
+        with pytest.raises(DirectoryUnavailableError):
+            fetch_strict(client, f"https://{domain}/.well-known/http-message-signatures-directory")
+    finally:
+        client.close()
+
+
+@pytest.mark.parametrize(
+    ("name", "domain"),
+    [
+        ("over_long_label", "a" * 64 + ".example"),
+        ("malformed_a_label", "xn--zz.example"),
+    ],
+)
+def test_the_same_name_leaves_the_soft_fetch_as_none(name: str, domain: str) -> None:
+    """``fetch_soft`` absorbs it too, so a revocation refresh keeps its snapshot.
+
+    The soft fetch exists so a blip leaves the prior revocation snapshot in place. A
+    raised codec error there would drop revocations instead, which fails OPEN.
+    """
+    client = guarded_client()
+    try:
+        assert (
+            fetch_soft(client, f"https://{domain}/.well-known/http-message-signatures-directory")
+            is None
+        )
+    finally:
+        client.close()

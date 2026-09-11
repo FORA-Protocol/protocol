@@ -54,14 +54,11 @@ def _get_wba_directory(http: httpx.Client, url: str) -> WBAFile:
 
     Every failure leaves as :class:`DirectoryUnavailableError`, which is what lets each
     caller make its own raise-or-contain choice against ONE exception type.
-    ``fetch_strict`` already folds in every transport failure and every non-200. This
-    adds the two arms it does not cover: a body that is not a valid directory, and a
-    URL that cannot be built at all.
+    ``fetch_strict`` folds in every transport failure, every non-200, and every way the
+    URL itself can be refused — a malformed A-label and an over-long label included.
+    This adds the one arm it does not cover: a body that is not a valid directory.
     """
-    try:
-        body = fetch_strict(http, url)
-    except httpx.InvalidURL as exc:
-        raise DirectoryUnavailableError(f"malformed directory url {url!r}") from exc
+    body = fetch_strict(http, url)
     try:
         return WBAFile.model_validate_json(body)
     except ValidationError as exc:

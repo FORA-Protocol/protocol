@@ -3,10 +3,14 @@
 
 Two properties matter and they pull in opposite directions, which is why they are
 tested together. The fetch must RESOLVE a reachable directory into a ``WBAFile``,
-and it must CONTAIN every failure as ``None`` rather than raise — the contract
-``CachedOfferKeyResolver.prefetch`` depends on, because it gathers these calls
-through ``asyncio.gather`` without ``return_exceptions`` and one raised error
-abandons the whole batch.
+and it must CONTAIN every failure as ``None`` rather than raise.
+
+"Every failure" is meant literally, and the domain is the reason. It arrives off an
+UNVERIFIED offer, so a hostile or relayed offer chooses it, and ``Offer.exchange``
+puts no per-label length limit on it and allows any ``xn--`` spelling. Two such
+domains used to escape as raw codec errors rather than as ``None``, and
+``CachedOfferKeyResolver.prefetch`` gathers these calls, so one of them emptied the
+map for every other exchange in the batch.
 
 Driven against the real in-process origin from ``resolvers_harness``, never a mocked
 HTTP callable: the face under test is IO-bound and the doctrine is that its transport
@@ -162,3 +166,51 @@ def test_an_injected_port_is_joined_onto_a_bare_domain(origin: Origin) -> None:
 
     assert wba is not None
     assert [k.x for k in wba.keys] == [x]
+
+
+@pytest.mark.parametrize(
+    ("name", "domain"),
+    [
+        ("over_long_label", "a" * 64 + ".example"),
+        ("malformed_a_label", "xn--zz.example"),
+    ],
+)
+def test_a_wire_valid_domain_httpx_cannot_encode_is_contained_as_none(
+    name: str, domain: str
+) -> None:
+    """A domain the proto accepts but the IDNA codec refuses returns None.
+
+    Both of these satisfy the ``Offer.exchange`` pattern in proto/fora/v1/fora.proto:
+    the pattern bounds the whole value at 260 characters and constrains the character
+    set, but it sets no per-label limit and it cannot tell a valid ``xn--`` A-label
+    from an invalid one. So both can arrive inside an offer that a Broker relayed and
+    nothing has verified yet.
+
+    What each one does to httpx is different, and that is why both are here. The
+    over-long label fails inside ``socket.getaddrinfo``, which IDNA-encodes the name
+    before resolving, so it surfaces from the SSRF guard's backend. The malformed
+    A-label fails earlier, in ``URL.host`` while the request is still being built.
+    Neither raise is an ``OSError`` or an ``httpx.HTTPError``; both are ``ValueError``
+    subclasses, which is what let them past a fold that listed only the first two.
+
+    No origin and no injected client: these never reach a transport, so the guarded
+    default is the honest thing to run them against.
+    """
+    fetch = create_wba_offer_directory_fetch(scheme="https")
+    assert asyncio.run(fetch(domain)) is None, f"{name} should be contained as None"
+
+
+def test_an_injected_client_that_raises_is_contained_as_none() -> None:
+    """The contract holds for an injected transport too, not only the default.
+
+    The factory promises None and never raises, and ``prefetch`` batches on that
+    promise. An application that hands in a client it has already closed gets a
+    ``RuntimeError`` out of httpx, which is neither a transport error nor a value
+    error, so the fold at ``fetch_strict`` does not see it. Containing it is the
+    factory's own job.
+    """
+    closed = loopback_client()
+    closed.close()
+
+    fetch = create_wba_offer_directory_fetch(http=closed, scheme="http")
+    assert asyncio.run(fetch("127.0.0.1:1")) is None
