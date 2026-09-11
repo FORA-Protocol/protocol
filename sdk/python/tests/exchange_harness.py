@@ -11,9 +11,13 @@ which imports the shared document builders rather than restating them.
 **Everything it answers is really signed, and everything an agent sends is really
 checked.** The offer carries a signature the strict Verifier resolves against the key
 this origin publishes in its directory; the delivery URL is bound to the agent's
-thumbprint and the edge refuses a fetch whose proof does not present that key. Without
-that, a test could only prove the calls did not raise — not that an Exchange would have
-accepted them.
+thumbprint and the edge refuses a fetch whose proof does not present that key; and every
+one of the three RPCs is verified with ``verify_request_server`` before it is answered,
+resolving the caller's key through the covered Signature-Agent header exactly as the
+protocol's Key Lookup section describes. Without that, a test could only prove the calls
+did not raise — not that an Exchange would have accepted them. The RPC leg went
+unverified for a while, and in that window an example could ship a client no real
+Exchange would authenticate and the suite stayed green.
 
 **The exchange domain IS the origin string** (``127.0.0.1:<port>``), and that is
 load-bearing rather than convenient. It passes ``is_bare_domain``, so the wire fields
@@ -47,7 +51,9 @@ from resolvers_harness import (
 
 from fora_sdk.b64 import b64url_nopad
 from fora_sdk.core import sign_offer_jcs
+from fora_sdk.keyresolver import StaticKeyResolver
 from fora_sdk.pop import verify_agent_binding
+from fora_sdk.server_verify import verify_request_server
 from fora_sdk.signedurl import sign_ed25519_signed_url, verify_ed25519_signed_url
 from fora_sdk.thumbprint import thumbprint
 
@@ -113,7 +119,15 @@ def _signed_offer(*, seed: bytes, exchange: str, uri: str) -> dict[str, Any]:
 class _Exchange:
     """The mutable state one running origin serves."""
 
-    def __init__(self, *, agent_thumbprint: str, content: bytes, tamper_offer: bool) -> None:
+    def __init__(
+        self,
+        *,
+        agent_thumbprint: str,
+        agent_public: bytes,
+        agent_directory: str,
+        content: bytes,
+        tamper_offer: bool,
+    ) -> None:
         self.offer_key = Ed25519PrivateKey.generate()
         self.offer_seed = self.offer_key.private_bytes_raw()
         self.offer_pub = self.offer_key.public_key().public_bytes_raw()
@@ -121,12 +135,35 @@ class _Exchange:
         self.delivery_seed = self.delivery_key.private_bytes_raw()
         self.delivery_pub = self.delivery_key.public_key().public_bytes_raw()
         self.agent_thumbprint = agent_thumbprint
+        self.agent_public = agent_public
+        self.agent_directory = agent_directory
         self.content = content
         self.tamper_offer = tamper_offer
         self.serve_directory = True
         self.domain = ""
         self.url = ""
         self.seen: list[tuple[str, dict[str, Any]]] = []
+
+    def keys_published_at(self, signature_agent: str) -> StaticKeyResolver:
+        """The keys this Exchange can resolve for a caller naming ``signature_agent``.
+
+        A real Exchange reads the covered Signature-Agent header, fetches the WBA
+        directory at that origin and selects the JsonWebKey whose RFC 7638 thumbprint
+        matches the keyid. This is that lookup with the fetch collapsed, because the
+        agent's directory is not dialable from an in-process test: the ONE directory
+        this Exchange knows about is the one it was told to trust.
+
+        An empty or unknown Signature-Agent therefore resolves NOTHING, which is the
+        point. Signature-Agent defaults to empty in every SDK, the signature covers it
+        either way, and an agent that never names its directory has no key an Exchange
+        can find. The protocol says so — see the Key Lookup section of
+        website/src/content/docs/protocol/authentication.mdx — and the reference
+        Exchange answers 401. Before this, the harness verified no RPC signature at
+        all, so the README could ship that exact mistake and the suite stayed silent.
+        """
+        if not signature_agent or signature_agent.strip('"') != self.agent_directory:
+            return StaticKeyResolver({})
+        return StaticKeyResolver({self.agent_thumbprint: self.agent_public})
 
     def directory(self) -> str:
         now = datetime.now(UTC)
@@ -257,8 +294,28 @@ def _make_handler(state: _Exchange) -> type[BaseHTTPRequestHandler]:
                 return
             self._send(200, state.content, "text/plain; charset=utf-8")
 
+        def _verify_signature(self, raw: bytes) -> str | None:
+            """Verify the RFC 9421 signature on this request; return a reason if bad."""
+            headers = {k.lower(): v for k, v in self.headers.items()}
+            verdict = verify_request_server(
+                method="POST",
+                url=f"http://{self.headers.get('host', state.domain)}{self.path}",
+                body=raw,
+                headers=headers,
+                resolver=state.keys_published_at(headers.get("signature-agent", "")),
+                now=int(time.time()),
+            )
+            return None if verdict.valid else (verdict.reason or "invalid signature")
+
         def do_POST(self) -> None:
             raw = self.rfile.read(int(self.headers.get("content-length") or 0))
+            reason = self._verify_signature(raw)
+            if reason is not None:
+                # The reference Exchange answers 401 here, and the SDK's own
+                # WithSignatureAgent doc predicts the symptom: "a 401 from a healthy
+                # Exchange" for a client that never named its directory.
+                self._json(401, {"code": "unauthenticated", "message": reason})
+                return
             try:
                 body = json.loads(raw or b"{}")
             except ValueError:
@@ -284,6 +341,7 @@ def _make_handler(state: _Exchange) -> type[BaseHTTPRequestHandler]:
 def fake_exchange(
     *,
     agent_seed: bytes,
+    agent_directory: str,
     content: bytes = b"the licensed bytes",
     tamper_offer: bool = False,
     serve_directory: bool = True,
@@ -301,7 +359,11 @@ def fake_exchange(
     """
     agent_public = Ed25519PrivateKey.from_private_bytes(agent_seed).public_key().public_bytes_raw()
     state = _Exchange(
-        agent_thumbprint=thumbprint(agent_public), content=content, tamper_offer=tamper_offer
+        agent_thumbprint=thumbprint(agent_public),
+        agent_public=agent_public,
+        agent_directory=agent_directory,
+        content=content,
+        tamper_offer=tamper_offer,
     )
     state.serve_directory = serve_directory
 

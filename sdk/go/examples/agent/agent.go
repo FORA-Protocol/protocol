@@ -56,6 +56,14 @@ func buy(
 		connect.WithRequester(requester),     // who this agent says it is
 		connect.WithOfferKey(exchangePublic), // the key this Exchange signs offers with
 		connect.WithEndpointResolver(endpoints),
+		// The WBA directory where THIS agent publishes its own signing key, as a JWK
+		// Set at {origin}/.well-known/http-message-signatures-directory. The Exchange
+		// reads it off the covered Signature-Agent header and looks there for the key
+		// whose RFC 7638 thumbprint equals the keyid. Signature-Agent is covered
+		// whether or not it is set, so leaving this out signs an EMPTY value that no
+		// Exchange can resolve a key from, and the call is refused with a 401 after it
+		// was routed, signed and sent. Publish the directory before you call.
+		connect.WithSignatureAgent("https://agent.example"),
 	)
 	// fora:/example client
 
