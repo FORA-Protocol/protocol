@@ -166,13 +166,23 @@ func NewWBADirectoryFetcher(client *http.Client, scheme, port string) OfferDirec
 // answer a different URL for the same exchange.
 //
 // An empty port leaves the domain alone so the scheme default applies. Otherwise
-// net.JoinHostPort does the join, which brackets ANY host containing a colon —
-// including one that already carries brackets, giving [[::1]]:8443. That input
-// cannot arrive through a validated offer: Offer.exchange (proto/fora/v1/fora.proto)
-// is constrained to a bare domain with an optional numeric port, so neither a
-// bracket nor a bare IPv6 literal passes. The vectors pin the behavior anyway,
-// because three SDKs agreeing on an unreachable URL is a property worth having and
-// three SDKs quietly disagreeing is not.
+// net.JoinHostPort does the join, which brackets ANY host containing a colon. That
+// covers two shapes: a host that already carries brackets, giving [[::1]]:8443, and
+// a host that already carries a port, giving [exchange.example:8443]:9000.
+//
+// The first cannot arrive through a validated offer. Offer.exchange
+// (proto/fora/v1/fora.proto) is constrained to a bare domain with an OPTIONAL
+// NUMERIC PORT, so no bracket and no bare IPv6 literal passes. The second is
+// reachable in production, because that optional port is exactly what admits
+// "exchange.example:8443" — the spelling the field's own doc comment uses as its
+// example. An Exchange whose offers name a port, read by a fetcher configured with a
+// port of its own, joins to an authority no transport accepts. The directory is then
+// never fetched and every offer from that Exchange fails to verify, silently, down
+// the fail-closed path.
+//
+// The vectors pin all of it, dialability included: three SDKs agreeing on an
+// unreachable URL is a property worth having, and three SDKs quietly disagreeing is
+// not.
 func joinDirectoryHost(domain, port string) string {
 	if port == "" {
 		return domain

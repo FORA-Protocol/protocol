@@ -9,13 +9,20 @@ exchange domain resolved to different URLs depending on the SDK.
 
 ``sdk/go/resolvers/testdata/wba-join-vectors.json`` is what ends that. It is emitted
 by RUNNING the Go ``joinDirectoryHost`` oracle, and this module replays it. Each
-vector is ``{label, domain, port, expected_host}``.
+vector is ``{label, domain, port, expected_host, dialable}``.
 
 Asserted through ``create_wba_offer_directory_fetch``, never through the private
 join helper. Two things are proved that way instead of one: the join agrees with Go,
 AND the fetch really builds its URL from the shared ``wba_directory_url`` builder
 rather than from a string of its own. The transport records the URL httpx actually
 constructed, so the assertion is on a dialed request rather than on a return value.
+
+Three of the oracle's answers do not form a URL at all, and which vectors those are
+comes from the corpus's ``dialable`` field rather than from asking httpx here. The
+oracle decides it, so all three replays branch on one value. When each suite asked
+its own URL parser, this one asserted the fetch dials nothing while the TypeScript
+one asserted the malformed string is dialled, and the file meant to end a three-way
+split carried two answers.
 """
 
 from __future__ import annotations
@@ -63,6 +70,9 @@ _CORPUS = load_json(GO_RESOLVERS_TESTDATA / "wba-join-vectors.json")
 #   - domain-with-port    : a domain already carrying a port is treated as a
 #                           colon-bearing host and bracketed
 #   - empty-port-bare-ipv6: an empty port wins over the colon rule
+# Each vector also carries ``dialable``: whether that joined authority forms a URL a
+# transport accepts. Three of the six do not, and the contract for those is that the
+# fetch dials nothing and returns None.
 _REQUIRED_LABELS = frozenset(
     {
         "empty-port",
@@ -124,19 +134,15 @@ def test_the_fetch_dials_the_host_the_go_oracle_joins(
     which is also the only coverage the ``httpx.InvalidURL`` arm of the failure
     contract has, so it is asserted here rather than assumed.
 
-    Which branch a vector takes is decided by asking httpx whether the URL parses,
-    not by a hand-kept list of labels, so a corpus change moves the expectation with
-    it.
+    Which branch a vector takes comes from the corpus's ``dialable`` field, which the
+    Go oracle emits by handing the built URL to ``http.NewRequest`` — the same check
+    its own fetcher runs. Asking httpx instead would let this suite and the
+    TypeScript one drift onto different expectations, and would let a future httpx
+    that accepts ``https://[[::1]]:8443/`` quietly move the expectation with it.
     """
     rec, client = recorder
     expected_url = wba_directory_url("https", vec["expected_host"])
-
-    try:
-        httpx.URL(expected_url)
-    except httpx.InvalidURL:
-        dialable = False
-    else:
-        dialable = True
+    dialable: bool = vec["dialable"]
 
     fetch = create_wba_offer_directory_fetch(http=client, scheme="https", port=vec["port"])
     result = _run(fetch, vec["domain"])

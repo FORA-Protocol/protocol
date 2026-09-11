@@ -145,11 +145,21 @@ def _join_host_port(host: str, port: str) -> str:
 
     An empty port leaves the host alone so the scheme default applies. Otherwise the
     rule is ``net.JoinHostPort``'s: a host containing a colon is wrapped in brackets,
-    with no check for brackets it already carries, so ``[::1]`` becomes
-    ``[[::1]]:8443``. That input cannot arrive through a validated offer —
-    ``Offer.exchange`` is constrained to a bare domain with an optional numeric port,
-    so neither a bracket nor a bare IPv6 literal passes — and the corpus pins it so
-    the three SDKs cannot answer different URLs for the same exchange.
+    with no check for what the host already carries. That covers two shapes. A host
+    already carrying brackets becomes ``[[::1]]:8443``, and a host already carrying a
+    port becomes ``[exchange.example:8443]:9000``.
+
+    The first cannot arrive through a validated offer: ``Offer.exchange`` is
+    constrained to a bare domain with an OPTIONAL NUMERIC PORT, so no bracket and no
+    bare IPv6 literal passes. The second is reachable in production, because that
+    optional port is exactly what admits ``exchange.example:8443`` — the spelling the
+    field's own doc comment uses as its example. An Exchange whose offers name a
+    port, read by a fetch configured with a port of its own, joins to an authority
+    httpx refuses. The directory is then never fetched and every offer from that
+    Exchange fails to verify, silently, down the fail-closed path.
+
+    The corpus pins all of it, dialability included, so the three SDKs cannot answer
+    different URLs for the same exchange.
     """
     if port == "":
         return host
