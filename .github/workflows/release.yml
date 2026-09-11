@@ -178,11 +178,22 @@ jobs:
       - name: npm package installs, imports and typechecks
         run: |
           v=${GITHUB_REF_NAME#v}
-          for i in 1 2 3 4 5 6; do
-            scripts/release/smoke-npm.sh "@fora-protocol/sdk@$v" && exit 0
-            sleep 30
+          # npm needs a longer window than PyPI. The version reaches the
+          # registry right away, but the CDN in front of it keeps serving the
+          # old package metadata for several minutes, and there is no supported
+          # way to ask it for a fresh copy. So wait for the new version to show
+          # up in the exact document "npm install" resolves against (same URL,
+          # same Accept header), then run the smoke test once. A real smoke
+          # failure then fails immediately instead of being retried for the
+          # whole window.
+          for i in $(seq 1 15); do
+            curl -sf -H 'Accept: application/vnd.npm.install-v1+json' \
+              https://registry.npmjs.org/@fora-protocol/sdk \
+              | jq -e --arg v "$v" '.versions[$v]' >/dev/null && break
+            [ "$i" = 15 ] && { echo "::error::@fora-protocol/sdk@$v not visible on npm after 5 minutes"; exit 1; }
+            sleep 20
           done
-          exit 1
+          scripts/release/smoke-npm.sh "@fora-protocol/sdk@$v"
       - name: Go module proxy resolves the tag
         env:
           GOPROXY: https://proxy.golang.org
