@@ -11,16 +11,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <style>
+  <style is:global>
     :root {
       --accent: #4f6df5;
+      --accent-text: #9aaeff;
       --accent-glow: #4f6df533;
       --accent-dark: #3d58d6;
       --black: #0a0a0f;
       --near-black: #12121a;
       --dark: #1a1a26;
       --mid: #2a2a3a;
-      --gray: #8888a0;
+      --gray: #a5a5b8;
       --light-gray: #c0c0d0;
       --off-white: #e8e8f0;
       --white: #f5f5fa;
@@ -48,16 +49,9 @@
       flex-direction: column;
       position: relative;
       overflow: hidden;
-    }
-
-    .hero::before {
-      content: '';
-      position: absolute;
-      inset: 0;
       background:
         radial-gradient(ellipse 80% 60% at 50% 0%, var(--accent-glow) 0%, transparent 70%),
         linear-gradient(180deg, var(--near-black) 0%, var(--black) 100%);
-      pointer-events: none;
     }
 
     .hero-nav {
@@ -111,15 +105,17 @@
     }
 
     .hero-badge {
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      color: var(--accent);
+      font-family: var(--sans);
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--white);
       text-transform: uppercase;
-      letter-spacing: 0.15em;
+      letter-spacing: 0.04em;
       margin-bottom: 1.5rem;
-      padding: 0.4rem 1rem;
-      border: 1px solid var(--accent);
-      border-radius: 2px;
+      padding: 0.5rem 1.125rem;
+      border: 1px solid #8192ca;
+      background: transparent;
+      border-radius: 999px;
     }
 
     .hero h1 {
@@ -132,7 +128,7 @@
     }
     .hero h1 em {
       font-style: normal;
-      color: var(--accent);
+      color: var(--accent-text);
     }
 
     .hero-sub {
@@ -203,11 +199,12 @@
     }
 
     .section-label {
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      color: var(--accent);
+      font-family: var(--sans);
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--light-gray);
       text-transform: uppercase;
-      letter-spacing: 0.15em;
+      letter-spacing: 0.1em;
       margin-bottom: 0.75rem;
     }
 
@@ -244,19 +241,16 @@
       display: flex;
       gap: 1rem;
       padding: 1rem 0;
-      opacity: 0.35;
-      transition: opacity 0.5s, transform 0.5s;
+      border-bottom: 1px solid var(--mid);
+      transition: background 0.2s;
       position: relative;
       cursor: pointer;
     }
     .flow-step:hover {
-      opacity: 0.7;
+      background: var(--near-black);
     }
     .flow-step.active {
-      opacity: 1;
-    }
-    .flow-step.active:hover {
-      opacity: 1;
+      background: var(--near-black);
     }
 
     .step-indicator {
@@ -296,23 +290,30 @@
     }
 
     .step-num {
-      font-family: var(--mono);
-      font-size: 0.6875rem;
-      color: var(--accent);
+      font-family: var(--sans);
+      font-size: 0.875rem;
+      color: var(--accent-text);
       text-transform: uppercase;
       letter-spacing: 0.1em;
       margin-bottom: 0.25rem;
     }
 
     .step-title {
-      font-size: 1.0625rem;
+      font-size: 1.125rem;
+      font-family: inherit;
+      text-align: left;
+      background: none;
+      border: 0;
+      cursor: pointer;
+      padding: 0.25rem 0;
       font-weight: 600;
       color: var(--white);
       margin-bottom: 0.25rem;
     }
 
     .step-desc {
-      font-size: 0.9375rem;
+      font-size: 1rem;
+      overflow-wrap: anywhere;
       color: var(--gray);
       line-height: 1.5;
     }
@@ -329,15 +330,13 @@
     .step-link {
       display: inline-block;
       margin-top: 0.375rem;
-      font-family: var(--mono);
-      font-size: 0.6875rem;
-      color: var(--accent);
+      font-family: var(--sans);
+      font-size: 0.9375rem;
+      color: var(--accent-text);
       text-decoration: none;
-      opacity: 0;
-      transition: opacity 0.3s;
+      line-height: 1.6;
     }
     .step-link:hover { text-decoration: underline; }
-    .flow-step.active .step-link { opacity: 1; }
 
     /* Flow JSON preview */
     .flow-json {
@@ -354,15 +353,6 @@
       top: 2rem;
       align-self: start;
     }
-
-    .flow-json {
-      transition: opacity 0.3s;
-    }
-    .flow-json.fading { opacity: 0.3; }
-
-    /* JSON syntax colors are applied via inline styles in JS
-       because Astro scopes class-based CSS and dynamically
-       injected innerHTML won't have the scoping attributes. */
 
     /* ========= NxM SECTION ========= */
     .nxm-section {
@@ -483,11 +473,14 @@
       display: flex;
       justify-content: center;
       gap: 0.5rem;
+      flex-wrap: wrap;
       margin-bottom: 2rem;
     }
     .arch-tab {
-      font-family: var(--mono);
-      font-size: 0.75rem;
+      font-family: var(--sans);
+      font-size: 1rem;
+      font-weight: 600;
+      min-height: 44px;
       padding: 0.5rem 1.25rem;
       background: var(--dark);
       border: 1px solid var(--mid);
@@ -515,7 +508,7 @@
       max-width: 1000px;
       margin: 0 auto;
       display: grid;
-      grid-template-columns: 1fr 340px;
+      grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
       gap: 2rem;
     }
 
@@ -523,11 +516,18 @@
       display: flex;
       flex-direction: column;
       gap: 0;
+      min-width: 0;
     }
 
     /* Each step row: number | from → to | description */
     .arch-step-row {
-      display: flex;
+      display: grid;
+      grid-template-columns: 2rem 12rem minmax(0, 1fr);
+      width: 100%;
+      font: inherit;
+      text-align: left;
+      background: transparent;
+      color: var(--off-white);
       align-items: center;
       gap: 0.75rem;
       padding: 0.625rem 0.75rem;
@@ -545,13 +545,13 @@
     }
 
     .arch-step-num {
-      width: 1.625rem;
-      height: 1.625rem;
+      width: 2rem;
+      height: 2rem;
       border-radius: 50%;
       background: var(--mid);
       color: var(--gray);
-      font-family: var(--mono);
-      font-size: 0.625rem;
+      font-family: var(--sans);
+      font-size: 0.875rem;
       font-weight: 500;
       display: flex;
       align-items: center;
@@ -570,12 +570,13 @@
       align-items: center;
       gap: 0.25rem;
       flex-shrink: 0;
-      min-width: 10rem;
+      flex-wrap: wrap;
+      min-width: 0;
     }
 
     .arch-party {
-      font-family: var(--mono);
-      font-size: 0.625rem;
+      font-family: var(--sans);
+      font-size: 0.875rem;
       padding: 0.2rem 0.4rem;
       border-radius: 2px;
       background: var(--dark);
@@ -597,10 +598,11 @@
       font-size: 0.75rem;
       flex-shrink: 0;
     }
-    .arch-step-row.active .arch-step-arrow { color: var(--accent); }
+    .arch-step-row.active .arch-step-arrow { color: var(--accent-text); }
 
     .arch-step-desc {
-      font-size: 0.75rem;
+      font-size: 1rem;
+      overflow-wrap: anywhere;
       color: var(--gray);
       line-height: 1.4;
     }
@@ -619,14 +621,19 @@
       align-self: start;
       position: sticky;
       top: 2rem;
-      transition: opacity 0.3s;
       min-height: 200px;
+      min-width: 0;
     }
 
-    @media (max-width: 768px) {
+    @media (max-width: 1000px) {
       .arch-container { grid-template-columns: 1fr; }
       .arch-detail { position: static; }
-      .arch-step { right: -1.5rem !important; }
+    }
+
+    @media (max-width: 600px) {
+      .arch-step-row { grid-template-columns: 2rem minmax(0, 1fr); }
+      .arch-step-num { grid-row: span 2; }
+      .arch-step-desc { grid-column: 2; }
     }
 
     /* ========= ROLES SECTION ========= */
@@ -653,39 +660,30 @@
       position: relative;
       overflow: hidden;
     }
-    .role-card:hover, .role-card.expanded {
+    .role-card:hover, .role-card[open] {
       border-color: var(--accent);
       background: var(--dark);
     }
 
     .role-icon {
       font-size: 1.5rem;
-      margin-bottom: 1rem;
     }
 
     .role-title {
       font-size: 1.125rem;
       font-weight: 600;
       color: var(--white);
-      margin-bottom: 0.5rem;
     }
 
     .role-teaser {
-      font-size: 0.8125rem;
+      font-size: 1rem;
       color: var(--gray);
       line-height: 1.5;
       margin-bottom: 0;
-      transition: margin 0.3s;
     }
-    .role-card.expanded .role-teaser { margin-bottom: 1.25rem; }
 
     .role-steps {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.4s ease;
-    }
-    .role-card.expanded .role-steps {
-      max-height: 20rem;
+      margin-top: 1.25rem;
     }
 
     .role-step {
@@ -696,16 +694,16 @@
     }
 
     .role-step-num {
-      font-family: var(--mono);
-      font-size: 0.6875rem;
-      color: var(--accent);
+      font-family: var(--sans);
+      font-size: 0.875rem;
+      color: var(--accent-text);
       font-weight: 500;
       flex-shrink: 0;
       padding-top: 0.125rem;
     }
 
     .role-step-text {
-      font-size: 0.8125rem;
+      font-size: 1rem;
       color: var(--light-gray);
       line-height: 1.5;
     }
@@ -719,14 +717,11 @@
     }
 
     .role-footer {
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      color: var(--accent);
+      font-family: var(--sans);
+      font-size: 0.9375rem;
+      color: var(--accent-text);
       margin-top: 0.5rem;
-      opacity: 0;
-      transition: opacity 0.3s;
     }
-    .role-card.expanded .role-footer { opacity: 1; }
 
     /* ========= STANDARDS STACK ========= */
     .standards-section {
@@ -735,16 +730,16 @@
     }
 
     .stack-table {
-      max-width: 720px;
+      max-width: 1000px;
       margin: 0 auto 2.5rem;
     }
 
     .stack-row {
       display: grid;
-      grid-template-columns: 4rem 10rem 1fr;
+      grid-template-columns: 5rem 13rem minmax(0, 1fr);
       gap: 0.75rem;
       align-items: center;
-      padding: 0.5rem 0.75rem;
+      padding: 1rem 0.75rem;
       border-bottom: 1px solid var(--mid);
     }
     .stack-row:last-child { border-bottom: none; }
@@ -758,19 +753,19 @@
     }
 
     .stack-layer {
-      font-family: var(--mono);
-      font-size: 0.625rem;
+      font-family: var(--sans);
+      font-size: 0.875rem;
       color: var(--gray);
       text-transform: uppercase;
     }
 
     .stack-name {
-      font-size: 0.8125rem;
+      font-size: 1rem;
       font-weight: 600;
       color: var(--off-white);
     }
     .stack-fora .stack-name {
-      color: var(--accent);
+      color: var(--accent-text);
     }
 
     .stack-tags {
@@ -781,8 +776,8 @@
     }
 
     .standard-tag {
-      font-family: var(--mono);
-      font-size: 0.6875rem;
+      font-family: var(--sans);
+      font-size: 0.9375rem;
       color: var(--light-gray);
       padding: 0.2rem 0.5rem;
       background: var(--dark);
@@ -797,13 +792,13 @@
     }
 
     .stack-note {
-      font-size: 0.6875rem;
-      color: var(--accent);
+      font-size: 0.9375rem;
+      color: var(--accent-text);
       font-style: italic;
     }
 
     .standards-feeds {
-      max-width: 720px;
+      max-width: 1000px;
       margin: 0 auto;
       text-align: center;
     }
@@ -821,8 +816,8 @@
     }
 
     .feeds-label {
-      font-family: var(--mono);
-      font-size: 0.625rem;
+      font-family: var(--sans);
+      font-size: 0.875rem;
       color: var(--gray);
       text-transform: uppercase;
       letter-spacing: 0.1em;
@@ -836,9 +831,9 @@
     }
 
     .feeds-link {
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      color: var(--accent);
+      font-family: var(--sans);
+      font-size: 1rem;
+      color: var(--accent-text);
       text-decoration: none;
     }
     .feeds-link:hover { text-decoration: underline; }
@@ -912,7 +907,7 @@
       line-height: 1.6;
     }
     .footer-license a {
-      color: var(--accent);
+      color: var(--accent-text);
       text-decoration: underline;
     }
 
@@ -922,7 +917,7 @@
       .nav-links { display: none; }
       .hero-content { padding: 3rem 1.5rem; }
       .flow-container { grid-template-columns: 1fr; }
-      .flow-json { display: none; }
+      .flow-json { position: static; }
       .nxm-grid { grid-template-columns: 1fr; }
       .roles-grid { grid-template-columns: 1fr; }
       .role-card { padding: 1.5rem; }
@@ -943,15 +938,78 @@
     .delay-3 { animation-delay: 0.3s; }
     .delay-4 { animation-delay: 0.4s; }
 
-    @keyframes pulse-dot {
-      0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
-      50% { box-shadow: 0 0 16px 4px var(--accent-glow); }
-    }
-    .flow-step.active .step-dot {
-      animation: pulse-dot 2s ease infinite;
+    :is(a, button, summary):focus-visible {
+      outline: 2px solid var(--accent-text);
+      outline-offset: 5px;
     }
 
-    /* Canvas lines drawn by JS — no SVG animation needed */
+    .nxm-section .section-label { color: #555568; }
+    .role-card summary {
+      display: grid;
+      grid-template-columns: 1.5rem minmax(0, 1fr);
+      align-items: center;
+      column-gap: 0.5rem;
+      row-gap: 0.75rem;
+      list-style: none;
+      cursor: pointer;
+    }
+    .role-title, .role-teaser { display: block; }
+    .role-step-text { min-width: 0; overflow-wrap: anywhere; }
+    .role-card summary::marker { content: ''; }
+    .role-card summary::-webkit-details-marker { display: none; }
+    .role-card summary .role-teaser { grid-column: 1 / -1; }
+    .flow-container > * { min-width: 0; }
+    .payload-code { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .payload-label, .payload-link, .payload-desc { font-family: var(--sans); }
+    .payload-label {
+      display: block;
+      color: var(--light-gray);
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+    .payload-desc { font-size: 1rem; color: var(--light-gray); margin-bottom: 1rem; }
+    .payload-link {
+      display: block;
+      margin-top: 1rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--mid);
+      font-size: 0.9375rem;
+      color: var(--accent-text);
+    }
+    .arch-transfer {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .arch-transfer .arch-party { padding: 0.75rem; white-space: normal; }
+    .transfer-line { flex: 1; min-width: 1rem; height: 2px; background: var(--mid); }
+    .transfer-line::after {
+      content: '';
+      display: block;
+      width: 100%;
+      height: 2px;
+      background: var(--accent-text);
+      transform-origin: left;
+      animation: transfer 0.6s ease-out both;
+    }
+    @keyframes transfer { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+    @media (max-width: 768px) {
+      .arch-detail { padding: 1rem; }
+      .arch-step-row { padding: 0.75rem; }
+      .stack-row { gap: 0.75rem; }
+      .standards-feeds .stack-tags { justify-content: center; }
+    }
+    @media (max-width: 400px) {
+      .arch-section, .flow-section, .roles-section, .standards-section, .nxm-section { padding-left: 1rem; padding-right: 1rem; }
+      .nxm-panel { padding: 1rem 0.5rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -968,7 +1026,7 @@
     </nav>
 
     <div class="hero-content">
-      <div class="hero-badge animate-in">Open Protocol · Apache 2.0</div>
+      <div class="hero-badge">Open Protocol · Apache 2.0</div>
       <h1 class="animate-in delay-1">AI agents consume content.<br><em>Nobody gets paid.</em></h1>
       <p class="hero-sub animate-in delay-2">FORA is the open transaction protocol that turns blocked bots into paying customers. Discover, price, transact, deliver, verify — one protocol for any content.</p>
       <div class="hero-buttons animate-in delay-3">
@@ -986,8 +1044,8 @@
     </div>
 
     <div class="arch-tabs">
-      <button class="arch-tab active" id="archTab0" onclick="switchScenario(0)">Web article access</button>
-      <button class="arch-tab" id="archTab1" onclick="switchScenario(1)">Music sample licensing</button>
+      <button class="arch-tab active" aria-pressed="true" id="archTab0" onclick="switchScenario(0)">Web article access</button>
+      <button class="arch-tab" aria-pressed="false" id="archTab1" onclick="switchScenario(1)">Music sample licensing</button>
     </div>
 
     <div class="arch-story" id="archStory"></div>
@@ -1017,7 +1075,7 @@
           </div>
           <div class="step-content">
             <div class="step-num">Step 1</div>
-            <div class="step-title">Discover</div>
+            <button type="button" class="step-title" aria-controls="flowJson">Discover</button>
             <div class="step-desc">Agent checks <code>/.well-known/fora.json</code> — finds the Exchange endpoint for this publisher.</div>
             <a class="step-link" href="/protocol/discovery-paths/">Discovery Paths →</a>
           </div>
@@ -1029,7 +1087,7 @@
           </div>
           <div class="step-content">
             <div class="step-num">Step 2</div>
-            <div class="step-title">Query</div>
+            <button type="button" class="step-title" aria-controls="flowJson">Query</button>
             <div class="step-desc">Agent calls <code>DiscoverResources</code> — Exchange returns signed Offers with pricing, attestations, and previews.</div>
             <a class="step-link" href="/protocol/transaction-flow/">Transaction Flow →</a>
           </div>
@@ -1041,7 +1099,7 @@
           </div>
           <div class="step-content">
             <div class="step-num">Step 3</div>
-            <div class="step-title">Transact</div>
+            <button type="button" class="step-title" aria-controls="flowJson">Transact</button>
             <div class="step-desc">Agent commits via <code>ExecuteTransaction</code> — gets a signed delivery URL and <code>billing_id</code>.</div>
             <a class="step-link" href="/protocol/transaction-flow/#rpc-2-executetransaction">ExecuteTransaction →</a>
           </div>
@@ -1053,7 +1111,7 @@
           </div>
           <div class="step-content">
             <div class="step-num">Step 4</div>
-            <div class="step-title">Deliver</div>
+            <button type="button" class="step-title" aria-controls="flowJson">Deliver</button>
             <div class="step-desc">Agent fetches from CDN via signed URL. Time-limited, identity-bound, <code>content_hash</code> verifiable.</div>
             <a class="step-link" href="/protocol/content-attestation/">Content Attestation →</a>
           </div>
@@ -1065,7 +1123,7 @@
           </div>
           <div class="step-content">
             <div class="step-num">Step 5</div>
-            <div class="step-title">Report</div>
+            <button type="button" class="step-title" aria-controls="flowJson">Report</button>
             <div class="step-desc">Agent calls <code>ReportUsage</code> — reports actual consumption: tokens, pages, minutes, records.</div>
             <a class="step-link" href="/protocol/transaction-flow/#rpc-3-reportusage">ReportUsage →</a>
           </div>
@@ -1076,7 +1134,7 @@
           </div>
           <div class="step-content">
             <div class="step-num">Step 6</div>
-            <div class="step-title">Dispute</div>
+            <button type="button" class="step-title" aria-controls="flowJson">Dispute</button>
             <div class="step-desc">If content doesn't match — <code>DisputeTransaction</code> triggers automated 3-tier resolution.</div>
             <a class="step-link" href="/protocol/dispute-resolution/">Dispute Resolution →</a>
           </div>
@@ -1164,10 +1222,12 @@
     </div>
 
     <div class="roles-grid">
-      <div class="role-card" onclick="toggleRole(this)">
-        <div class="role-icon">&#9881;</div>
-        <div class="role-title">I'm a Publisher</div>
-        <div class="role-teaser">Stop losing revenue to AI scrapers. Monetize every bot visit without changing your CMS.</div>
+      <details class="role-card" name="roles">
+        <summary>
+          <span class="role-icon">&#9881;</span>
+          <span class="role-title">I'm a Publisher</span>
+          <span class="role-teaser">Stop losing revenue to AI scrapers. Monetize every bot visit without changing your CMS.</span>
+        </summary>
         <div class="role-steps">
           <div class="role-step">
             <div class="role-step-num">01</div>
@@ -1187,12 +1247,14 @@
           </div>
           <div class="role-footer">Two files and one function &rarr;</div>
         </div>
-      </div>
+      </details>
 
-      <div class="role-card" onclick="toggleRole(this)">
-        <div class="role-icon">&#9881;</div>
-        <div class="role-title">I Run AI Agents</div>
-        <div class="role-teaser">Access premium content legally with one protocol. No scraping, no legal risk, any Exchange.</div>
+      <details class="role-card" name="roles">
+        <summary>
+          <span class="role-icon">&#9881;</span>
+          <span class="role-title">I Run AI Agents</span>
+          <span class="role-teaser">Access premium content legally with one protocol. No scraping, no legal risk, any Exchange.</span>
+        </summary>
         <div class="role-steps">
           <div class="role-step">
             <div class="role-step-num">01</div>
@@ -1212,12 +1274,14 @@
           </div>
           <div class="role-footer">One API, any Exchange &rarr;</div>
         </div>
-      </div>
+      </details>
 
-      <div class="role-card" onclick="toggleRole(this)">
-        <div class="role-icon">&#9881;</div>
-        <div class="role-title">I Run an Exchange</div>
-        <div class="role-teaser">Aggregate provider catalogs. Handle transactions. Earn a margin on every access.</div>
+      <details class="role-card" name="roles">
+        <summary>
+          <span class="role-icon">&#9881;</span>
+          <span class="role-title">I Run an Exchange</span>
+          <span class="role-teaser">Aggregate provider catalogs. Handle transactions. Earn a margin on every access.</span>
+        </summary>
         <div class="role-steps">
           <div class="role-step">
             <div class="role-step-num">01</div>
@@ -1237,7 +1301,7 @@
           </div>
           <div class="role-footer">Like an ad exchange, but for content &rarr;</div>
         </div>
-      </div>
+      </details>
     </div>
   </section>
 
@@ -1362,15 +1426,13 @@
 
   <script is:inline>
     // Per-step JSON payloads
-    // Inline style helpers (Astro scopes class CSS, so dynamic innerHTML needs inline styles)
+    // Syntax colors for the example payloads
     const K = 'color:#9cdcfe';       // key
     const S = 'color:#7ec8a0';       // string
     const N = 'color:#d4a56a';       // number
-    const B = 'color:#666';          // brace
-    const C = 'color:#555;font-style:italic'; // comment
-    const SIG = 'color:#4f6df5;opacity:0.8';  // signature (accent)
-    const LINK = 'display:block;margin-top:1rem;padding-top:0.75rem;border-top:1px solid #2a2a3a;font-family:Instrument Sans,sans-serif;font-size:0.75rem;color:#4f6df5;text-decoration:none';
-    const LABEL = 'font-family:Instrument Sans,sans-serif;font-size:0.6875rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#4f6df5;margin-bottom:1rem;display:block';
+    const B = 'color:#a5a5b8';          // brace
+    const C = 'color:#a5a5b8;font-style:italic'; // comment
+    const SIG = 'color:#9aaeff';  // signature (accent)
 
     const k = (v) => `<span style="${K}">"${v}"</span>`;
     const s = (v) => `<span style="${S}">"${v}"</span>`;
@@ -1469,48 +1531,21 @@ ${c('// → RESOLUTION_TYPE_CREDIT applied')}`
 
     const steps = document.querySelectorAll('.flow-step');
     const jsonPanel = document.getElementById('flowJson');
-    let currentStep = 0;
-    let autoTimer = null;
-
     function setActiveStep(index) {
-      currentStep = index;
-      steps.forEach(s => s.classList.remove('active'));
-      steps[currentStep].classList.add('active');
-
-      // Fade JSON, swap content, fade back
-      jsonPanel.classList.add('fading');
-      setTimeout(() => {
-        const payload = stepPayloads[currentStep];
-        jsonPanel.innerHTML = `<span style="${LABEL}">${payload.label}</span>\n${payload.json}\n<a style="${LINK}" href="${payload.link}">${payload.linkText}</a>`;
-        jsonPanel.classList.remove('fading');
-      }, 200);
+      steps.forEach((step, i) => {
+        step.classList.toggle('active', i === index);
+        step.querySelector('button').setAttribute('aria-pressed', String(i === index));
+      });
+      const payload = stepPayloads[index];
+      jsonPanel.innerHTML = `<span class="payload-label">${payload.label}</span><pre class="payload-code">${payload.json}</pre><a class="payload-link" href="${payload.link}">${payload.linkText}</a>`;
     }
 
-    function advanceStep() {
-      setActiveStep((currentStep + 1) % steps.length);
-    }
-
-    // Click to select a step (pauses auto-advance, resumes after 8s)
     steps.forEach((step, i) => {
-      step.addEventListener('click', () => {
-        setActiveStep(i);
-        clearInterval(autoTimer);
-        autoTimer = setInterval(advanceStep, 4000);
+      step.addEventListener('click', (event) => {
+        if (!event.target.closest('a')) setActiveStep(i);
       });
     });
-
-    // Start auto-advance
-    autoTimer = setInterval(advanceStep, 2500);
-
-    // Initialize first step JSON
     setActiveStep(0);
-
-    // Role card expand/collapse
-    function toggleRole(card) {
-      const wasExpanded = card.classList.contains('expanded');
-      document.querySelectorAll('.role-card').forEach(c => c.classList.remove('expanded'));
-      if (!wasExpanded) card.classList.add('expanded');
-    }
 
     // Draw lines between actual DOM node positions on canvas
     function drawLines() {
@@ -1665,15 +1700,12 @@ ${c('// → RESOLUTION_TYPE_CREDIT applied')}`
     // ========= Architecture Flow =========
     const archDetailEl = document.getElementById('archDetailInner');
     const archStepsList = document.getElementById('archStepsList');
-    let currentArchStep = 0;
     let currentScenario = 0;
 
-    // party(name, isExchange) → styled inline tag
     function party(name, isEx) {
-      if (isEx) return `<span style="font-family:var(--mono);font-size:0.75rem;padding:0.25rem 0.5rem;border-radius:2px;background:#4f6df5;border:1px solid #4f6df5;color:#fff;white-space:nowrap;">${name}</span>`;
-      return `<span style="font-family:var(--mono);font-size:0.75rem;padding:0.25rem 0.5rem;border-radius:2px;background:#1a1a26;border:1px solid #2a2a3a;color:#c0c0d0;white-space:nowrap;">${name}</span>`;
+      return `<span class="arch-party${isEx ? ' exchange' : ''}">${name}</span>`;
     }
-    const arrow = '<span style="color:#8888a0;font-size:0.875rem;margin:0 0.25rem;">→</span>';
+    const arrow = '<span class="arch-step-arrow" aria-hidden="true">→</span>';
 
     const scenarios = [
       { title: 'Web article access',
@@ -1718,47 +1750,27 @@ ${c('// → RESOLUTION_TYPE_CREDIT applied')}`
       ]}
     ];
 
-    const ROW_BASE = 'display:flex;align-items:center;gap:0.75rem;padding:0.625rem 0.75rem;cursor:pointer;border-radius:4px;border:1px solid transparent;transition:all 0.2s;';
-    const ROW_ACTIVE = ROW_BASE + 'background:rgba(79,109,245,0.08);border-color:rgba(79,109,245,0.3);';
-    const NUM_BASE = 'width:1.75rem;height:1.75rem;border-radius:50%;background:#2a2a3a;color:#8888a0;font-family:DM Mono,monospace;font-size:0.75rem;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.3s;';
-    const NUM_ACTIVE = NUM_BASE.replace('background:#2a2a3a;color:#8888a0','background:#4f6df5;color:#fff') + 'box-shadow:0 0 10px rgba(79,109,245,0.2);';
-    const PARTIES = 'display:flex;align-items:center;gap:0.3rem;flex-shrink:0;min-width:11rem;';
-    const DESC_BASE = 'font-size:0.875rem;color:#8888a0;line-height:1.5;';
-    const DESC_ACTIVE = 'font-size:0.875rem;color:#c0c0d0;line-height:1.5;';
-
     function renderArchSteps() {
-      const scenario = scenarios[currentScenario];
-      let html = '';
-      scenario.steps.forEach((step, i) => {
-        const isActive = i === currentArchStep;
-        html += `<div style="${isActive ? ROW_ACTIVE : ROW_BASE}" onclick="setArchStep(${i},true)" onmouseenter="this.style.background='#1a1a26'" onmouseleave="this.style.background='${isActive ? 'rgba(79,109,245,0.08)' : 'transparent'}'">
-          <div style="${isActive ? NUM_ACTIVE : NUM_BASE}">${i + 1}</div>
-          <div style="${PARTIES}">${party(step.from, step.exFrom)}${arrow}${party(step.to, step.exTo)}</div>
-          <div style="${isActive ? DESC_ACTIVE : DESC_BASE}">${step.desc}</div>
-        </div>`;
+      archStepsList.innerHTML = scenarios[currentScenario].steps.map((step, i) => `
+        <button type="button" class="arch-step-row" aria-controls="archDetail" onclick="setArchStep(${i})">
+          <span class="arch-step-num">${i + 1}</span>
+          <span class="arch-step-parties">${party(step.from, step.exFrom)}${arrow}${party(step.to, step.exTo)}</span>
+          <span class="arch-step-desc">${step.desc}</span>
+        </button>`).join('');
+    }
+
+    function setArchStep(index) {
+      const step = scenarios[currentScenario].steps[index];
+      archStepsList.querySelectorAll('button').forEach((row, i) => {
+        row.classList.toggle('active', i === index);
+        row.setAttribute('aria-pressed', String(i === index));
       });
-      archStepsList.innerHTML = html;
-    }
-
-    function stopArchAuto() {
-      clearInterval(archTimer);
-      archTimer = null;
-    }
-
-    function setArchStep(index, fromUser) {
-      if (fromUser) stopArchAuto();
-      currentArchStep = index;
-      const scenario = scenarios[currentScenario];
-      const step = scenario.steps[index];
-
-      // Update active row
-      renderArchSteps();
-
-      // Update detail panel
-      const stepLabel = `<span style="display:block;margin-bottom:0.75rem;font-family:Instrument Sans,sans-serif;font-size:0.6875rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#4f6df5;">Step ${index+1} — ${step.from} → ${step.to}</span>`;
-      const descLine = `<span style="font-size:0.6875rem;color:#8888a0;display:block;margin-bottom:0.5rem;">${step.desc}</span>`;
-      const docLink = `<a style="display:block;margin-top:0.75rem;padding-top:0.5rem;border-top:1px solid #2a2a3a;font-family:Instrument Sans,sans-serif;font-size:0.75rem;color:#4f6df5;text-decoration:none;" href="${step.link}">${step.linkText}</a>`;
-      archDetailEl.innerHTML = `${stepLabel}${descLine}\n${step.json}\n${docLink}`;
+      archDetailEl.innerHTML = `
+        <span class="payload-label">Step ${index + 1} — ${step.from} → ${step.to}</span>
+        <div class="arch-transfer" aria-hidden="true">${party(step.from, step.exFrom)}<span class="transfer-line"></span>${party(step.to, step.exTo)}</div>
+        <p class="payload-desc">${step.desc}</p>
+        <pre class="payload-code">${step.json}</pre>
+        <a class="payload-link" href="${step.link}">${step.linkText}</a>`;
     }
 
     function renderStory() {
@@ -1767,27 +1779,20 @@ ${c('// → RESOLUTION_TYPE_CREDIT applied')}`
     }
 
     function switchScenario(idx) {
-      stopArchAuto();
       currentScenario = idx;
-      currentArchStep = 0;
       document.getElementById('archTab0').classList.toggle('active', idx === 0);
       document.getElementById('archTab1').classList.toggle('active', idx === 1);
+      document.getElementById('archTab0').setAttribute('aria-pressed', String(idx === 0));
+      document.getElementById('archTab1').setAttribute('aria-pressed', String(idx === 1));
       renderStory();
       renderArchSteps();
       setArchStep(0);
-    }
-
-    let archTimer = null;
-    function advanceArchStep() {
-      const scenario = scenarios[currentScenario];
-      setArchStep((currentArchStep + 1) % scenario.steps.length);
     }
 
     // Init
     renderStory();
     renderArchSteps();
     setArchStep(0);
-    archTimer = setInterval(advanceArchStep, 5000);
   </script>
 
 </body>
