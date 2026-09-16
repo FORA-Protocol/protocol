@@ -146,6 +146,42 @@
       justify-content: center;
     }
 
+    .hero-resources {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.75rem;
+      margin-top: clamp(3.5rem, 6vw, 4.5rem);
+    }
+    .hero-resources-label {
+      width: 100%;
+      margin-bottom: 0.5rem;
+      text-align: center;
+      color: var(--gray);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .hero-resources a {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-height: 44px;
+      padding: 0.5rem 0.875rem;
+      border: 1px solid var(--mid);
+      border-radius: 999px;
+      background: var(--near-black);
+      color: var(--light-gray);
+      font-size: 0.875rem;
+      font-weight: 500;
+      text-decoration: none;
+    }
+    .hero-resources a:hover {
+      border-color: var(--accent-text);
+      color: var(--white);
+    }
+
     .btn {
       display: inline-flex;
       align-items: center;
@@ -1033,6 +1069,13 @@
         <a href="/getting-started/what-is-fora/" class="btn btn-primary">Read the Docs</a>
         <a href="https://github.com/FORA-Protocol/protocol" class="btn btn-ghost">View on GitHub</a>
       </div>
+      <nav class="hero-resources" aria-labelledby="hero-resources-label">
+        <p class="hero-resources-label" id="hero-resources-label">Build with FORA</p>
+        <a target="_blank" rel="noopener noreferrer" title="Opens in a new tab" href="https://www.npmjs.com/package/@fora-protocol/sdk"><img src="/icons/typescript.svg" alt="" width="20" height="20" />TypeScript SDK</a>
+        <a target="_blank" rel="noopener noreferrer" title="Opens in a new tab" href="https://pypi.org/project/fora-protocol-sdk/"><img src="/icons/python.svg" alt="" width="20" height="20" />Python SDK</a>
+        <a target="_blank" rel="noopener noreferrer" title="Opens in a new tab" href="https://pkg.go.dev/github.com/FORA-Protocol/protocol/sdk/go"><img src="/icons/go.svg" alt="" width="20" height="20" />Go SDK</a>
+        <a target="_blank" rel="noopener noreferrer" title="Opens in a new tab" href="https://github.com/FORA-Protocol/reference-implementation"><img src="/icons/github.svg" alt="" width="20" height="20" />Reference App</a>
+      </nav>
     </div>
   </section>
 
