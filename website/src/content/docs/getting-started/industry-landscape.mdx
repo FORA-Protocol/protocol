@@ -42,7 +42,6 @@ The open transaction protocol that completes the stack.
 - ACME-style provider onboarding with domain verification and CDN key provisioning
 - Layers on RSL (ingests `rsl.txt` for pricing) and CoMP (wraps CoMP objects in transaction messages)
 - Multi-exchange architecture with an optional Broker for cross-exchange comparison
-- Originated from the Prebid LLM Content Monetization Committee
 
 ## Closed Platforms
 
@@ -112,17 +111,6 @@ The test: "Does the resource exist before the transaction?" If yes, it is a FORA
 
 **Out of scope:** translation, ML inference, document generation. A Exchange offering these should use a different protocol. However, a pre-computed translation database (translations as resources) is a valid FORA use case.
 
-## The Prebid LLM Group
-
-FORA originated from the Prebid LLM Content Monetization Committee, an industry group within Prebid (the open-source header bidding platform). The committee is in its early stages, with no working implementations yet beyond FORA.
-
-The Prebid connection is significant:
-
-- Prebid is the dominant open-source infrastructure for programmatic advertising
-- SSPs and providers already run Prebid infrastructure
-- FORA leverages the same architectural patterns (multi-exchange competition, real-time bidding, pluggable adapters)
-- When Prebid adopts a resource access standard, it will have immediate distribution across the ad-tech ecosystem
-
 ## Timeline
 
 | Date | Event |
@@ -132,7 +120,6 @@ The Prebid connection is significant:
 | March 2026 | IAB CoMP v1.0 released for public comment |
 | March 2026 | FORA v1.0: metering generalization, streaming delivery, content mutability, extension profiles, CoMP alignment |
 | April 2026 | IAB CoMP public comment period closes |
-| 2026 Q2+ | Prebid LLM Committee evaluating working implementations |
 
 ## The Window for Open Standards
 
