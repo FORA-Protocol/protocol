@@ -66,9 +66,19 @@ func seeds() map[string]proto.Message {
 	}
 	// Exchange is presence-enforced on Offer (it is the execute-routing target
 	// and the audience statement of a TransactionRequest), so a seed without it
-	// is not a valid baseline — seeds bypass auto-fill entirely.
+	// is not a valid baseline — seeds bypass auto-fill entirely. terms is bounded
+	// to exactly one: an offer IS one licensing arrangement, so the baseline
+	// carries the single term it sells rather than an empty list.
 	offer := func() *forav1.Offer {
-		return &forav1.Offer{OfferId: "offer-seed", Exchange: "exchange.example", Pricing: pricing()}
+		return &forav1.Offer{
+			OfferId:  "offer-seed",
+			Exchange: "exchange.example",
+			Pricing:  pricing(),
+			Terms: []*forav1.LicenseTerm{{
+				Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+				Pricing:   pricing(),
+			}},
+		}
 	}
 	return map[string]proto.Message{
 		"Pricing":     pricing(),

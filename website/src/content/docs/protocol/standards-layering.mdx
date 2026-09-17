@@ -116,7 +116,7 @@ Provider drops rsl.txt + fora.json on their domain
   -> Exchange returns Offers derived from RSL terms
 ```
 
-RSL permits and prohibits map directly to FORA `Restriction` entries carried on each `LicenseTerm.restrictions` (on `Offer.terms[]`):
+RSL permits and prohibits map directly to FORA `Restriction` entries carried on each `LicenseTerm.restrictions` (on that term's own offer, at `Offer.terms[0]`):
 
 | RSL Term | FORA Field |
 |---|---|
@@ -128,7 +128,7 @@ Spellings other vocabularies use for the same tokens are accepted aliases, autho
 
 ## CoMP Integration
 
-IAB CoMP is **not** nested in FORA's core messages. It is an **extension profile** (`fora-comp-v1`) whose objects are carried as flat `comp.*` keys in `Offer.ext`. The FORA core does not embed CoMP types: the core carries `Offer.title` plus `LicenseTerm` (on `Offer.terms[]`) for licensing, and the requester states `acceptable_restrictions` rather than a CoMP intended-use object.
+IAB CoMP is **not** nested in FORA's core messages. It is an **extension profile** (`fora-comp-v1`) whose objects are carried as flat `comp.*` keys in `Offer.ext`. The FORA core does not embed CoMP types: the core carries `Offer.title` plus the single `LicenseTerm` the offer sells (at `Offer.terms[0]`) for licensing, and the requester states `acceptable_restrictions` rather than a CoMP intended-use object.
 
 The `fora-comp-v1` profile maps CoMP objects to `comp.*` extension keys:
 
@@ -158,7 +158,7 @@ FORA adds its own objects on top of CoMP:
 | `Offer` | Wraps a CoMP Package with pricing, license terms (`terms[]`), identity, attestations, and exchange signature |
 | `ResourceIdentity` | Cross-exchange content deduplication (canonical URL, IPTC GUID, SimHash) |
 | `ResourceAttestation` | Signed claim envelope for content integrity verification (v1.0, replaces ContentQuality) |
-| `LicenseTerm` / `Restriction` | Permitted/prohibited functions (and geography/user-type) mapped from RSL, carried on `Offer.terms[].restrictions` |
+| `LicenseTerm` / `Restriction` | Permitted/prohibited functions (and geography/user-type) mapped from RSL, carried on `Offer.terms[0].restrictions` |
 | `ReportingObligation` | Usage reporting requirements and deadlines |
 | `ResourceMutability` | Signals whether resource is static, dynamic, or live -- drives hash verification behavior (v1.0) |
 | `OfferAbsenceReason` | Per-URI diagnostic when no offers available (v1.0) |

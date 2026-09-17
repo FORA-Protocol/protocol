@@ -1934,7 +1934,9 @@ class Offer(WireModel):
     )
     terms: list[LicenseTerm] | None = Field(
         None,
-        description="Licensing terms for this offer, sourced from the publisher's ResourceEntry.\n Multiple terms when the resource has different arrangements by use case.\n See: Universal Licensing Core section.",
+        description="The licensing term this offer sells, sourced from the publisher's\n ResourceEntry. EXACTLY ONE, and the bound is enforced rather than asked\n for: an offer IS a single licensing arrangement, so N terms on a resource\n project to N offers on that resource, each selling one of them — see\n `pricing` above. An offer with no term would be an offer projected from\n nothing, which is why the floor is one and not zero. The field is\n `repeated` because it shipped that way in v1 and renumbering a released\n field is not available to us, so the cardinality rides as a validation\n rule instead. `ResourceEntry.terms` is the plural side, bounded at 32: a\n resource carries many terms, an offer sells one of them.\n\nThe distinction is not cosmetic. `pricing` is what a Broker ranks on and\n what execute charges, so a term that is not on its own offer has no price\n a Broker can compare and no offer_id an agent can buy. Fusing several\n terms onto one offer makes every term but the first unsellable — a\n dual-licensed resource sells only under whichever arrangement the\n publisher happened to store first.\n\n Where a term is reachable only under an existing subscription, its offer\n carries `subscription_id` and prices at zero marginal cost; the terms a\n requester may see at all are selected by `LicenseTerm.scopes`.\n\n See: Universal Licensing Core section.",
+        max_length=1,
+        min_length=1,
     )
     title: str | None = Field(
         None, description='Resource title (human-readable, for display/logging).'

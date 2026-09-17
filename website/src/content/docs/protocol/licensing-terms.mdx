@@ -11,7 +11,7 @@ FORA introduces the **Universal Licensing Core**: a structured, cross-domain-por
 The model was designed to cover a wide range of content types and legal arrangements: news articles, stock photos, academic papers, music recordings, patent design files, datasets, and software. The same proto shapes appear at both ends of the pipeline:
 
 - **Ingestion** (`ResourceEntry.terms`) — publishers declare terms when pushing resources into an Exchange catalog via `CatalogService.PushResources`.
-- **Emission** (`Offer.terms`) — the Exchange surfaces those same terms to agents on `DiscoverResources`, unchanged. No translation or reformulation.
+- **Emission** (`Offer.terms`) — the Exchange projects each term the requester is entitled to onto its own offer, and carries that term on it unchanged. No translation or reformulation. A resource with three eligible terms answers `DiscoverResources` with three offers, one per term.
 
 ## Why multiple terms per resource?
 
@@ -29,7 +29,7 @@ Every `LicenseTerm` has a `TermSemantics` value:
 
 `Pricing` is required on **every** term regardless of semantics — absent Pricing is a validation error, and `model = FREE` must be stated explicitly (absent Pricing is not free). An agent cannot act on a priceless term, so the machine-readable price is always present even when the rest of the terms are deferred to a document.
 
-**`ENUMERATED`** — the machine fields (`restrictions`, `quotas`, `obligations`) are the complete, authoritative expression of the term. They must be internally consistent (a term may not contradict itself), are validated and normalized at ingest — the same checks ship in the SDK as a publisher pre-check (`ValidateResourceEntry` / `NormalizeLicenseTerm` and their Python and TypeScript twins) — and are surfaced on every offer. Restrictions are not an Exchange-side gate the requester must pass to see a term: discovery returns every scope-covered term and the agent self-selects the one whose restrictions it can honour, bearing compliance; enforcement happens downstream at usage reconciliation. An Exchange or Broker MAY, as a convenience, pre-filter offers using attributes the requester volunteers (function / geography / user-type), but that is advisory, not enforcement. So if a term declares `ai-train` prohibited, that prohibition rides on the offer and binds the transaction the agent accepts.
+**`ENUMERATED`** — the machine fields (`restrictions`, `quotas`, `obligations`) are the complete, authoritative expression of the term. They must be internally consistent (a term may not contradict itself), are validated and normalized at ingest — the same checks ship in the SDK as a publisher pre-check (`ValidateResourceEntry` / `NormalizeLicenseTerm` and their Python and TypeScript twins) — and are surfaced on every offer. Restrictions are not an Exchange-side gate the requester must pass to see a term: discovery returns an offer for every scope-covered term and the agent chooses the offer whose restrictions it can honour, bearing compliance; enforcement happens downstream at usage reconciliation. An Exchange or Broker MAY, as a convenience, pre-filter offers using attributes the requester volunteers (function / geography / user-type), but that is advisory, not enforcement. So if a term declares `ai-train` prohibited, that prohibition rides on the offer and binds the transaction the agent accepts.
 
 **`REFERENCE_ONLY`** — the document at `License.uri` (which must be present) is the authoritative, complete source for `restrictions`, `quotas`, and `obligations`, and the agent must fetch and read it before using the resource. The machine fields are **optional** in this mode — the publisher MAY send `Pricing` alone — but any `restrictions`/`quotas`/`obligations` they **do** include must be accurate: they MUST NOT contradict the referenced document, and whatever is expressed **is** enforced, exactly as under ENUMERATED. Because `License.uri` is always present for REFERENCE_ONLY, `License.uri_digest` (a `method:hexdigest` pin of the document) MUST be present so the agent can verify the fetched bytes match what was offered. The same requirement applies to any ENUMERATED term that carries a `uri` (mutable or not) — a pinned digest is what makes the referenced document tamper-evident. `Pricing` is still stated machine-readably. This mode is designed for complex license arrangements (music rights, patent portfolios, MCPS/PRS collective management agreements) whose terms cannot be fully enumerated in a machine-readable form.
 
@@ -57,7 +57,7 @@ Each restriction carries:
 
 **A token cannot be both permitted and prohibited** on one axis, and that is checked twice, over two readings of the same lists. At the RPC boundary `restriction.permitted_prohibited_disjoint` compares the tokens **as written**, because it runs over the request exactly as received. At ingest, after canonicalisation, `restriction.canonical_disjoint` compares what the fold produced. The second is not a repetition: several tokens have more than one accepted spelling, so `permitted: ["scrape"]` with `prohibited: ["crawl"]` — or `["us"]` against `["US"]` — names one token on both sides while passing the first check. Both refuse the term.
 
-**Reading a restriction**: a value is in-scope when it matches at least one `permitted[]` token AND matches none of the `prohibited[]` tokens. Multiple restrictions on the same term are AND-combined — the agent must satisfy all of them. The agent applies this itself when self-selecting a term; the Exchange does not pre-filter terms against requester attributes.
+**Reading a restriction**: a value is in-scope when it matches at least one `permitted[]` token AND matches none of the `prohibited[]` tokens. Multiple restrictions on the same term are AND-combined — the agent must satisfy all of them. The agent applies this itself when choosing between the offers a resource yields; the Exchange does not pre-filter terms against requester attributes.
 
 **Standard function tokens** (rendered from the proto at build, not hand-listed):
 
@@ -117,7 +117,7 @@ Instead, a revenue-share arrangement is expressed with primitives already in the
 - Gated by an agreement scope, e.g. `scopes: ["revshare:publisher-x"]`. The agent that has signed the deal holds a delegation JWT carrying the matching scope; everyone else never sees the term.
 - A `ReportingObligation` (the offer-level reporting requirement) so usage is reported. Revenue is then settled off-protocol from those reports.
 
-So "pay per crawl **or** enter the revenue-share deal" is just two `LicenseTerm`s on the same resource: a public `PER_UNIT` term and a scope-gated `FREE` term. The agent self-selects. This is the same shape as the [academic dataset subscription example](#academic-dataset--seat-quota--share-alike) below.
+So "pay per crawl **or** enter the revenue-share deal" is just two `LicenseTerm`s on the same resource: a public `PER_UNIT` term and a scope-gated `FREE` term. They reach the agent as two offers, and the agent buys one of them. This is the same shape as the [academic dataset subscription example](#academic-dataset--seat-quota--share-alike) below.
 
 For CoMP interop, a CoMP `revshare` rate is carried verbatim in the `fora-comp-v1` ext (`comp.license[].revshare`) rather than mapped onto a pricing model — see [CoMP extension](/protocol/ext-comp/#license-on-offerext). Parity by mapping, not by duplication.
 
@@ -161,7 +161,7 @@ obligations:
     detail: "Cite TechCrunch at the original URL"
 ```
 
-An academic RAG agent matches Term 1. A commercial legal research platform matches Term 2. The Exchange surfaces both terms in `Offer.terms`; the agent picks the applicable one and transacts.
+An academic RAG agent matches Term 1. A commercial legal research platform matches Term 2. The Exchange emits one offer per term, each priced from the term it carries; the agent picks the applicable **offer**, signs it, and executes it.
 
 ### Stock photo — impressions quota + perpetual license
 
@@ -230,7 +230,7 @@ pricing: { model: FLAT, rate: 500.00, currency: "USD" }
 
 `Pricing` is required even on a `REFERENCE_ONLY` term — the human-readable terms live in the referenced document, but the machine-readable price is always stated.
 
-The Exchange surfaces both terms. A sophisticated agent checks the REFERENCE_ONLY term to verify the machine-enumerable Term 1 matches the authoritative document before committing.
+The Exchange emits an offer for each. A sophisticated agent reads the REFERENCE_ONLY offer's term to verify the machine-enumerable Term 1 matches the authoritative document before committing to either offer.
 
 ### Academic dataset — seat quota + share-alike
 

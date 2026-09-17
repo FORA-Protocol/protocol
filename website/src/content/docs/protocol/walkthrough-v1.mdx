@@ -92,7 +92,7 @@ The agent sends a `ResourceQuery` to the Exchange with its identity in the `Requ
 
 ### Step 3 — ResourceResponse
 
-The Exchange looks up the article in its catalog and returns an offer. It does not filter the offer against the query's `acceptable_restrictions` — the restrictions ride on the offer's terms, and the agent self-selects the term whose `RESTRICTION_KIND_FUNCTION` permitted list covers its intended use (`ai-input`); enforcement happens downstream at accept → report → reconcile:
+The Exchange looks up the article in its catalog and returns one offer for each term the requester is entitled to. It does not filter those offers against the query's `acceptable_restrictions` — the restrictions ride on each offer's own term, and the agent chooses the offer whose `RESTRICTION_KIND_FUNCTION` permitted list covers its intended use (`ai-input`); enforcement happens downstream at accept → report → reconcile:
 
 ```json
 {
@@ -208,6 +208,19 @@ The agent commits to the offer by sending the full signed `offer` back, reflecte
           "hash_method": "sha256",
           "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
         },
+        "terms": [
+          {
+            "semantics": "TERM_SEMANTICS_ENUMERATED",
+            "pricing": {
+              "model": "PRICING_MODEL_PER_UNIT",
+              "rate": "0.05",
+              "currency": "USD",
+              "unit_cost": "0.0000156",
+              "estimated_quantity": 3200,
+              "unit": "accesses"
+            }
+          }
+        ],
         "signature": "base64-ed25519-offer-sig...",
         "signature_algorithm": "EdDSA"
       },

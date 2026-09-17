@@ -339,7 +339,7 @@ sequenceDiagram
         MPB-->>Orch: ResourceResponse (2 offers)
     end
 
-    Note over Orch: Selection Engine:<br/>5 offers received<br/>4 expose a term the agent can honour (Offer.terms[].restrictions)<br/>3 pass RequestConstraints<br/>2 after dedup (1 AP article from both)<br/>Rank by unit_cost: MP-A offer leads
+    Note over Orch: Selection Engine:<br/>5 offers received<br/>4 carry a term the agent can honour (Offer.terms[0].restrictions)<br/>3 pass RequestConstraints<br/>2 after dedup (1 AP article from both)<br/>Rank by unit_cost: MP-A offer leads
 
     Note over Orch: Budget Tracker (advisory):<br/>Session spent $0.12 of $1.00<br/>Best offer: $0.05<br/>Within budget
 

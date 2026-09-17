@@ -27,7 +27,7 @@ sequenceDiagram
 
     Note over SD: Lookup URI(s) in radix trie
     Note over SD: Filter catalog by requester.scopes
-    Note over SD: Attach LicenseTerm.restrictions to each Offer<br/>(surfaced on Offer.terms[]; agent self-selects, no server-side filter)
+    Note over SD: One Offer per entitled LicenseTerm<br/>(restrictions ride on that offer's term; the agent chooses an offer, no server-side filter)
     Note over SD: Build []Offer from templates + live pricing
 
     SD-->>Handler: []Offer

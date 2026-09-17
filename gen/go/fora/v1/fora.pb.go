@@ -2731,8 +2731,28 @@ type Offer struct {
 	// Spotify (preview_url to 30s clip), IIIF (parameterized image URLs),
 	// and OpenRTB native (img.url + dimensions).
 	Previews []*Preview `protobuf:"bytes,18,rep,name=previews,proto3" json:"previews,omitempty"`
-	// Licensing terms for this offer, sourced from the publisher's ResourceEntry.
-	// Multiple terms when the resource has different arrangements by use case.
+	// The licensing term this offer sells, sourced from the publisher's
+	// ResourceEntry. EXACTLY ONE, and the bound is enforced rather than asked
+	// for: an offer IS a single licensing arrangement, so N terms on a resource
+	// project to N offers on that resource, each selling one of them — see
+	// `pricing` above. An offer with no term would be an offer projected from
+	// nothing, which is why the floor is one and not zero. The field is
+	// `repeated` because it shipped that way in v1 and renumbering a released
+	// field is not available to us, so the cardinality rides as a validation
+	// rule instead. `ResourceEntry.terms` is the plural side, bounded at 32: a
+	// resource carries many terms, an offer sells one of them.
+	//
+	// The distinction is not cosmetic. `pricing` is what a Broker ranks on and
+	// what execute charges, so a term that is not on its own offer has no price
+	// a Broker can compare and no offer_id an agent can buy. Fusing several
+	// terms onto one offer makes every term but the first unsellable — a
+	// dual-licensed resource sells only under whichever arrangement the
+	// publisher happened to store first.
+	//
+	// Where a term is reachable only under an existing subscription, its offer
+	// carries `subscription_id` and prices at zero marginal cost; the terms a
+	// requester may see at all are selected by `LicenseTerm.scopes`.
+	//
 	// See: Universal Licensing Core section.
 	Terms []*LicenseTerm `protobuf:"bytes,19,rep,name=terms,proto3" json:"terms,omitempty"`
 	// Extension point
@@ -10013,7 +10033,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x04unit\x18\x06 \x01(\tH\x01R\x04unit\x88\x01\x01B\f\n" +
 	"\n" +
 	"_resets_atB\a\n" +
-	"\x05_unit\"\xb5\t\n" +
+	"\x05_unit\"\xc1\t\n" +
 	"\x05Offer\x12\x19\n" +
 	"\boffer_id\x18\x01 \x01(\tR\aofferId\x12\x19\n" +
 	"\x05title\x18\x02 \x01(\tH\x00R\x05title\x88\x01\x01\x12*\n" +
@@ -10033,8 +10053,9 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\n" +
 	"data_as_of\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampH\x05R\bdataAsOf\x88\x01\x01\x12M\n" +
 	"\x12subscription_quota\x18\x11 \x03(\v2\x1e.fora.v1.SubscriptionQuotaInfoR\x11subscriptionQuota\x12,\n" +
-	"\bpreviews\x18\x12 \x03(\v2\x10.fora.v1.PreviewR\bpreviews\x12*\n" +
-	"\x05terms\x18\x13 \x03(\v2\x14.fora.v1.LicenseTermR\x05terms\x12)\n" +
+	"\bpreviews\x18\x12 \x03(\v2\x10.fora.v1.PreviewR\bpreviews\x126\n" +
+	"\x05terms\x18\x13 \x03(\v2\x14.fora.v1.LicenseTermB\n" +
+	"\xbaH\a\x92\x01\x04\b\x01\x10\x01R\x05terms\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
 	"\fext_critical\x18Z \x03(\tR\vextCriticalB\b\n" +
 	"\x06_titleB\f\n" +
