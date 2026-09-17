@@ -23,7 +23,7 @@ import foraFetch from '../../../assets/walkthrough/13-fora-fetch-succeeds.png';
 
 You can run the whole protocol today, from a chat window, in about five minutes. No signup fee, no contract, no card. This page walks the demo as a user sees it, and shows the protocol call sitting under each screen.
 
-The short version: there is a demo publisher whose content **refuses AI agents at the door**. You will watch an agent get turned away, then watch the same agent buy a licence and read the same bytes — signed, priced, and reported.
+You will add the demo MCP server to Claude, get an agent identity, register with the Exchange, and fetch a licensed article — discovering the offer, executing the transaction and filing the usage report along the way. Each step shows the protocol call it makes, so you can do the same thing from code afterwards.
 
 <Aside type="caution" title="It is a demonstration, not a service">
 Licensed content is fictional sample data with no real rights attached. Balances are test money, so nothing is billed or owed. The deployment can be reset without notice, which removes accounts, registrations and transaction history.
@@ -172,23 +172,11 @@ Now the point of all this. Ask Claude to fetch an article from the demo publishe
 
 <Image src={directFetch} alt="Claude reporting that it could not fetch the page because the site blocked its request as automated traffic." />
 
-It is refused. The edge in front of the demo publisher runs bot detection, and a request it judges to be an AI agent gets a `403` — the posture a growing number of publishers have adopted.
+The fetch is refused. The edge in front of the demo publisher runs bot detection, and it judged this request to be an AI agent.
 
-What trips that judgement is a policy decision, not a fixed rule. A declared agent user-agent is the loudest signal, but the edge weighs others too — address reputation, request shape, TLS fingerprint — so the same user-agent can pass from one origin and fail from another. Trying it yourself is informative rather than definitive:
+That is the situation FORA is for, so it is worth being precise about it: the edge is a heuristic, not a wall. It weighs the declared user-agent along with address reputation, request shape and TLS fingerprint, so results vary by where you call from — a plain `curl` from a residential address will usually be served. The demo is not trying to be impenetrable. It is set up so the agent path is the one that works reliably, which is the path the next step takes.
 
-```bash
-URL=https://demo.fora-protocol.org/articles/philosophers/md/leucippus.md
-
-curl -s -o /dev/null -w '%{http_code}\n' \
-  -A 'ClaudeBot/1.0 (+claudebot@anthropic.com)' "$URL"
-```
-
-A plain `curl` from a residential address often sails through, because nothing about it looks suspicious enough to the edge. That is not a hole in the demo; it is the whole problem in miniature.
-
-<Aside title="Getting through is not the same as being allowed">
-Bot detection is a heuristic, and heuristics are an arms race: the publisher tightens, the crawler blends in, and neither side arrives anywhere. But whether a request slips past the edge has no bearing on whether the agent is permitted to use what it took.
-
-This content is licensed. The publisher's manifest names the Exchange that holds its terms:
+The publisher points at the Exchange that carries its catalog:
 
 ```bash
 curl -s https://demo.fora-protocol.org/.well-known/fora.json
@@ -207,11 +195,6 @@ curl -s https://demo.fora-protocol.org/.well-known/fora.json
 }
 ```
 
-Those terms carry restrictions, quotas and obligations — what the content may be used for, how often, and what has to be reported afterwards. A bot that defeats the heuristic and takes the bytes has accepted none of them. It is not a clever fetch; it is licensed material taken outside its licence, and the fact that the door happened to be unlocked is not a defence.
-
-So FORA's claim is not that content is unreachable. It is that **refusing and taking are the only two moves on offer, and neither one is lawful access**. The next step adds the third: accept a term, pay its price, and leave a record that both sides can audit.
-</Aside>
-
 ## 6. Buy the licence instead
 
 Ask for the same URL again, and let the agent use the protocol.
@@ -225,7 +208,7 @@ Four calls, and the article arrives:
 3. *Fetch* — the delivery edge verifies that signed URL and serves the bytes. The same bytes the door refused.
 4. **`Fora report`** (`ExchangeService.ReportUsage`) — the offer carried a `ReportingObligation`, so the agent files a report and gets back a `UsageReportResponse.report_id`.
 
-That last step is the one people skip when they imagine this problem. The licence is not only permission to read; it carries obligations, and the protocol makes discharging them part of the transaction rather than a promise.
+Step 4 is not optional bookkeeping. The offer's `ReportingObligation` states what has to be filed and by when, and the Exchange tracks whether it was — an account with overdue reports can be denied on its next transaction with `DENIAL_REASON_REPORTING_OVERDUE`.
 
 <Aside type="tip" title="An offer sells exactly one term">
 A resource with three licensing arrangements yields three offers, each priced from the term it sells. The agent chooses an *offer*, not a term, and executes that. See [Licensing terms](/protocol/licensing-terms/).
@@ -294,9 +277,19 @@ Then:
 - [Transaction flow](/protocol/transaction-flow/) — the full message sequence with payloads
 - [Authentication](/protocol/authentication/) — what each signature covers, and why
 
-## What you just proved
+## What to try next
 
-- An agent can obtain a **verifiable network identity** in minutes, with a published key and a revocation path.
-- A publisher can **refuse agents wholesale** and still sell to them, without allow-lists or bilateral contracts.
-- Access is **priced, signed and reported**, with the accepted terms pinned by digest at registration.
-- None of it required a human in the loop after consent — and none of it required the publisher to know who you are in advance.
+The connector stays on your account, so the catalog is open to experiment with:
+
+- **Ask for something priced.** Not every term is free. Ask Claude to discover offers for a Harmonia Records track and compare what comes back against the Stoa Press essays.
+- **Ask for several URIs at once.** `ExchangeService.DiscoverResources` takes up to 256 in one call, and answers with an `OfferGroup` per URI.
+- **Check your account.** `Fora status` returns your balance and registration state without spending anything.
+- **Watch a refusal.** Ask for a URI that is not in the catalog. The Exchange answers `OK` with `OfferGroup.absence_reason` set rather than erroring — "no result" is a successful answer.
+- **Point it at your own key.** The MCP server signs for you; an agent that holds its own key and publishes its own directory is the same participant. See [For AI Agents](/getting-started/for-ai-agents/).
+
+Where to read further:
+
+- [What is FORA?](/getting-started/what-is-fora/) — the model in one page
+- [Transaction flow](/protocol/transaction-flow/) — every message in the sequence, with payloads
+- [Licensing terms](/protocol/licensing-terms/) — how terms become offers
+- [MCP Server](/components/mcp-server/overview/) — what the connector you just added actually does
