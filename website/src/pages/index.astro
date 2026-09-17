@@ -1,6 +1,7 @@
 ---
 // Landing page — overrides Starlight's default index
 // Links into Starlight docs at /getting-started/what-is-fora/
+import { BUILD_LINKS } from '../consts';
 ---
 <html lang="en">
 <head>
@@ -1071,10 +1072,9 @@
       </div>
       <nav class="hero-resources" aria-labelledby="hero-resources-label">
         <p class="hero-resources-label" id="hero-resources-label">Build with FORA</p>
-        <a target="_blank" rel="noopener noreferrer" title="Opens in a new tab" href="https://www.npmjs.com/package/@fora-protocol/sdk"><img src="/icons/typescript.svg" alt="" width="20" height="20" />TypeScript SDK</a>
-        <a target="_blank" rel="noopener noreferrer" title="Opens in a new tab" href="https://pypi.org/project/fora-protocol-sdk/"><img src="/icons/python.svg" alt="" width="20" height="20" />Python SDK</a>
-        <a target="_blank" rel="noopener noreferrer" title="Opens in a new tab" href="https://pkg.go.dev/github.com/FORA-Protocol/protocol/sdk/go"><img src="/icons/go.svg" alt="" width="20" height="20" />Go SDK</a>
-        <a target="_blank" rel="noopener noreferrer" title="Opens in a new tab" href="https://github.com/FORA-Protocol/reference-implementation"><img src="/icons/github.svg" alt="" width="20" height="20" />Reference App</a>
+        {BUILD_LINKS.map((p) => (
+          <a target="_blank" rel="noopener noreferrer" title="Opens in a new tab" href={p.url}><img src={p.icon} alt="" width="20" height="20" />{p.label}</a>
+        ))}
       </nav>
     </div>
   </section>
