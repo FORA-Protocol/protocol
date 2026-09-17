@@ -1,0 +1,70 @@
+---
+// The top navigation for the bespoke pages under src/pages/.
+// Shared so the landing page and the onboarding preview cannot drift apart.
+//
+// `current` marks the entry for the page being rendered, which the publisher
+// preview design calls for.
+interface Props {
+  current?: 'publishers';
+}
+const { current } = Astro.props;
+---
+<nav class="hero-nav">
+  <a href="/" class="logo">fora protocol</a>
+  <ul class="nav-links">
+    <li><a href="/getting-started/what-is-fora/">Docs</a></li>
+    <li><a href="/protocol/transaction-flow/">Protocol</a></li>
+    <li>
+      <a
+        href="/publishers/onboarding/"
+        class={current === 'publishers' ? 'on' : undefined}
+        aria-current={current === 'publishers' ? 'page' : undefined}
+      >Publishers</a>
+    </li>
+    <li><a href="https://github.com/FORA-Protocol/protocol">GitHub</a></li>
+  </ul>
+</nav>
+
+<style>
+  .hero-nav {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 2.5rem;
+    max-width: 1280px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .logo {
+    font-family: var(--sans);
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    text-decoration: none;
+    color: var(--off-white);
+    text-transform: lowercase;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+  }
+  .nav-links a {
+    color: var(--gray);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--off-white); }
+  .nav-links a.on { color: var(--off-white); }
+
+  @media (max-width: 768px) {
+    .hero-nav { padding: 1rem 1.5rem; }
+    .nav-links { display: none; }
+  }
+</style>

@@ -1,5 +1,5 @@
 // @ts-check
-import { defineConfig } from 'astro/config';
+import { defineConfig, envField } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import starlightMermaid from '@pasqal-io/starlight-client-mermaid';
 import starlightLinksValidator from 'starlight-links-validator';
@@ -10,6 +10,36 @@ import remarkStandards from './plugins/remark-standards.mjs';
 import remarkVersion from './plugins/remark-version.mjs';
 
 export default defineConfig({
+	env: {
+		schema: {
+			// Base URL of the publisher onboarding preview service, including any
+			// path prefix it is mounted under. The onboarding page appends
+			// `/v1/preview`. Declared here rather than hardcoded so a host or
+			// prefix change is a build-environment value, not a code edit; the
+			// default is the deployed service, so a clean checkout builds and
+			// runs with nothing set. Astro loads env with an empty prefix, so the
+			// name needs no `PUBLIC_` and a plain build variable is picked up.
+			FORA_ONBOARDING_API_BASE: envField.string({
+				context: 'client',
+				access: 'public',
+				default: 'https://pub-onboarding.demo.fora-protocol.org/onboarding',
+			}),
+			// The Exchange the preview page shows onboarding into. It appears in
+			// the generated manifest, so it must match the Exchange the preview
+			// service is configured against.
+			FORA_EXCHANGE_DOMAIN: envField.string({
+				context: 'client',
+				access: 'public',
+				default: 'exchange.example',
+			}),
+			// Where a publisher behind an unsupported CDN reaches us.
+			FORA_PUBLISHER_CONTACT_URL: envField.string({
+				context: 'client',
+				access: 'public',
+				default: 'mailto:publishers@fora-protocol.org',
+			}),
+		},
+	},
 	markdown: {
 		// remarkExample: replace ::example{file=… regions=…|fence=…} with the named slice
 		//   of a file an existing gate compiles or runs — so a code block on the site

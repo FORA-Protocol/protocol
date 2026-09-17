@@ -1,0 +1,49 @@
+---
+// The footer for the bespoke pages under src/pages/.
+// The Starlight docs pages have their own footer in components/Footer.astro.
+---
+<footer class="site-footer">
+  <div class="footer-logo">fora protocol</div>
+  <div class="footer-tagline">Open-source transaction protocol for AI content access</div>
+  <div class="footer-license">
+    Documentation licensed under <a href="https://creativecommons.org/licenses/by-nd/4.0/" target="_blank">CC BY-ND 4.0</a>.
+    Protocol specification and implementation licensed under <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank">Apache 2.0</a>.
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    background: var(--near-black);
+    border-top: 1px solid var(--mid);
+    padding: 2.5rem 2rem;
+    text-align: center;
+  }
+
+  .footer-logo {
+    font-family: var(--sans);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: var(--off-white);
+    text-transform: lowercase;
+    margin-bottom: 0.5rem;
+  }
+
+  .footer-tagline {
+    font-size: 0.8125rem;
+    color: var(--gray);
+    margin-bottom: 0.75rem;
+  }
+
+  .footer-license {
+    font-size: 0.6875rem;
+    color: var(--gray);
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  .footer-license a {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+</style>

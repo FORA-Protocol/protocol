@@ -1,6 +1,9 @@
 ---
 // Landing page — overrides Starlight's default index
 // Links into Starlight docs at /getting-started/what-is-fora/
+import SiteNav from '../components/SiteNav.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+import '../styles/brand.css';
 ---
 <html lang="en">
 <head>
@@ -12,35 +15,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
-    :root {
-      --accent: #4f6df5;
-      --accent-glow: #4f6df533;
-      --accent-dark: #3d58d6;
-      --black: #0a0a0f;
-      --near-black: #12121a;
-      --dark: #1a1a26;
-      --mid: #2a2a3a;
-      --gray: #8888a0;
-      --light-gray: #c0c0d0;
-      --off-white: #e8e8f0;
-      --white: #f5f5fa;
-      --bg-light: #fafafa;
-      --mono: 'DM Mono', monospace;
-      --sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
-    html { scroll-behavior: smooth; }
-
-    body {
-      font-family: var(--sans);
-      color: var(--off-white);
-      background: var(--black);
-      overflow-x: hidden;
-      -webkit-font-smoothing: antialiased;
-    }
-
     /* ========= HERO ========= */
     .hero {
       min-height: 100vh;
@@ -59,42 +33,6 @@
         linear-gradient(180deg, var(--near-black) 0%, var(--black) 100%);
       pointer-events: none;
     }
-
-    .hero-nav {
-      position: relative;
-      z-index: 10;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1.5rem 2.5rem;
-      max-width: 1280px;
-      margin: 0 auto;
-      width: 100%;
-    }
-
-    .logo {
-      font-family: var(--sans);
-      font-size: 1.125rem;
-      font-weight: 600;
-      letter-spacing: -0.03em;
-      text-decoration: none;
-      color: var(--off-white);
-      text-transform: lowercase;
-    }
-
-    .nav-links {
-      display: flex;
-      gap: 2rem;
-      list-style: none;
-    }
-    .nav-links a {
-      color: var(--gray);
-      text-decoration: none;
-      font-size: 0.875rem;
-      font-weight: 500;
-      transition: color 0.2s;
-    }
-    .nav-links a:hover { color: var(--off-white); }
 
     .hero-content {
       position: relative;
@@ -148,37 +86,6 @@
       gap: 1rem;
       flex-wrap: wrap;
       justify-content: center;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem 1.75rem;
-      font-family: var(--sans);
-      font-size: 0.9375rem;
-      font-weight: 600;
-      text-decoration: none;
-      border-radius: 3px;
-      transition: all 0.2s;
-    }
-    .btn-primary {
-      background: var(--accent);
-      color: #fff;
-      border: 1px solid var(--accent);
-    }
-    .btn-primary:hover {
-      background: var(--accent-dark);
-      border-color: var(--accent-dark);
-    }
-    .btn-ghost {
-      background: transparent;
-      color: var(--off-white);
-      border: 1px solid var(--mid);
-    }
-    .btn-ghost:hover {
-      border-color: var(--gray);
-      background: var(--dark);
     }
 
     /* ========= FLOW SECTION ========= */
@@ -728,6 +635,15 @@
     }
     .role-card.expanded .role-footer { opacity: 1; }
 
+    .role-footer-link {
+      display: block;
+      text-decoration: none;
+      visibility: hidden;
+    }
+    .role-card.expanded .role-footer-link { visibility: visible; }
+    .role-footer-link:hover,
+    .role-footer-link:focus-visible { text-decoration: underline; }
+
     /* ========= STANDARDS STACK ========= */
     .standards-section {
       background: var(--near-black);
@@ -880,46 +796,8 @@
       flex-wrap: wrap;
     }
 
-    /* ========= FOOTER ========= */
-    .site-footer {
-      background: var(--near-black);
-      border-top: 1px solid var(--mid);
-      padding: 2.5rem 2rem;
-      text-align: center;
-    }
-
-    .footer-logo {
-      font-family: var(--sans);
-      font-size: 1rem;
-      font-weight: 600;
-      letter-spacing: -0.03em;
-      color: var(--off-white);
-      text-transform: lowercase;
-      margin-bottom: 0.5rem;
-    }
-
-    .footer-tagline {
-      font-size: 0.8125rem;
-      color: var(--gray);
-      margin-bottom: 0.75rem;
-    }
-
-    .footer-license {
-      font-size: 0.6875rem;
-      color: var(--gray);
-      max-width: 600px;
-      margin: 0 auto;
-      line-height: 1.6;
-    }
-    .footer-license a {
-      color: var(--accent);
-      text-decoration: underline;
-    }
-
     /* ========= RESPONSIVE ========= */
     @media (max-width: 768px) {
-      .hero-nav { padding: 1rem 1.5rem; }
-      .nav-links { display: none; }
       .hero-content { padding: 3rem 1.5rem; }
       .flow-container { grid-template-columns: 1fr; }
       .flow-json { display: none; }
@@ -958,14 +836,7 @@
 
   <!-- HERO -->
   <section class="hero">
-    <nav class="hero-nav">
-      <a href="/" class="logo">fora protocol</a>
-      <ul class="nav-links">
-        <li><a href="/getting-started/what-is-fora/">Docs</a></li>
-        <li><a href="/protocol/transaction-flow/">Protocol</a></li>
-        <li><a href="https://github.com/FORA-Protocol/protocol">GitHub</a></li>
-      </ul>
-    </nav>
+    <SiteNav />
 
     <div class="hero-content">
       <div class="hero-badge animate-in">Open Protocol · Apache 2.0</div>
@@ -1185,7 +1056,8 @@
             <div class="role-step-num">04</div>
             <div class="role-step-text">Done. Blocked bots become paying customers. No CMS changes. No new infrastructure.</div>
           </div>
-          <div class="role-footer">Two files and one function &rarr;</div>
+          <a class="role-footer role-footer-link" href="/publishers/onboarding/"
+             onclick="event.stopPropagation()">Check your site &rarr;</a>
         </div>
       </div>
 
@@ -1351,14 +1223,7 @@
   </section>
 
   <!-- FOOTER -->
-  <footer class="site-footer">
-    <div class="footer-logo">fora protocol</div>
-    <div class="footer-tagline">Open-source transaction protocol for AI content access</div>
-    <div class="footer-license">
-      Documentation licensed under <a href="https://creativecommons.org/licenses/by-nd/4.0/" target="_blank">CC BY-ND 4.0</a>.
-      Protocol specification and implementation licensed under <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank">Apache 2.0</a>.
-    </div>
-  </footer>
+  <SiteFooter />
 
   <script is:inline>
     // Per-step JSON payloads
