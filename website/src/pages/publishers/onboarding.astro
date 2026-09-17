@@ -1,0 +1,1070 @@
+---
+// Public onboarding preview. A visitor enters a domain and sees the CDN we
+// detect, every step to go live, and a sample catalog record built from one of
+// their own articles. Nothing is stored and no account is created here.
+//
+// The layout, copy and styling follow the design attached to the ticket. This
+// page sits outside the Starlight docs shell on purpose: it continues the
+// landing page's funnel rather than the documentation.
+import SiteNav from '../../components/SiteNav.astro';
+import SiteFooter from '../../components/SiteFooter.astro';
+import '../../styles/brand.css';
+---
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FORA Publisher Preview</title>
+  <meta name="description" content="Enter your domain and see what AI agents would pay for on your site: the CDN we detected, every step to go live, and a sample of your catalog exactly as an Exchange would list it." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!--
+    is:global, not Astro's default scoping. The result section is built by the
+    page script with innerHTML, so those nodes never carry the astro-* scope
+    class and a scoped rule would never match them. This stylesheet is emitted
+    for this page alone, so global here means "this page", not "the site".
+  -->
+  <style is:global>
+    /* Syntax colours for the generated manifest and catalog record, plus the
+       two result states. The shared palette is in styles/brand.css. */
+    :root {
+      --key: #9cdcfe;
+      --str: #7ec8a0;
+      --num: #d4a56a;
+      --brace: #666;
+      --warn: #e0a458;
+      --bad: #e74c3c;
+      color-scheme: dark;
+    }
+
+    body { font-size: 16px; line-height: 1.55; }
+    a { color: var(--accent); }
+    code, pre, kbd { font-family: var(--mono); }
+    h1, h2, h3 { text-wrap: balance; letter-spacing: -.02em; color: var(--white); }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .wrap { max-width: 1100px; margin: 0 auto; padding-inline: clamp(16px, 4vw, 40px); }
+
+    /* The shared nav is laid out for the landing page's wider column; line it
+       up with this page's measure. */
+    .hero-nav {
+      max-width: 1100px;
+      padding: 1.5rem clamp(16px, 4vw, 40px);
+    }
+
+    /* hero */
+    .hero-head {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, var(--near-black) 0%, var(--black) 100%);
+    }
+    .hero-head:before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-head .wrap, .hero-head nav { position: relative; z-index: 1; }
+    .hero-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+      gap: 3rem;
+      align-items: center;
+      padding-block: 3rem 4.5rem;
+    }
+    .badge {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: .75rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .15em;
+      padding: .4rem 1rem;
+      border: 1px solid var(--accent);
+      border-radius: 2px;
+      margin-bottom: 1.5rem;
+    }
+    .hero-body h1 {
+      font-size: clamp(2rem, 4.6vw, 3.25rem);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -.03em;
+      margin-bottom: 1.25rem;
+    }
+    .hero-body h1 em { font-style: normal; color: var(--accent); }
+    .hero-body p.sub { font-size: 1.125rem; color: var(--gray); line-height: 1.6; max-width: 36rem; }
+    .trust {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem 1.5rem;
+      margin-top: 1.75rem;
+      font-family: var(--mono);
+      font-size: .75rem;
+      color: var(--gray);
+      letter-spacing: .04em;
+    }
+    .trust span:before { content: "·"; color: var(--accent); margin-right: .5rem; }
+
+    /* form panel */
+    .panel { background: var(--near-black); border: 1px solid var(--mid); border-radius: 4px; padding: 1.5rem; }
+    .panel h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; }
+    .field { display: flex; flex-direction: column; gap: .375rem; margin-bottom: 1rem; }
+    .field label { font-size: .8125rem; font-weight: 600; color: var(--light-gray); }
+    .field label small { font-weight: 400; color: var(--gray); }
+    .field input {
+      background: var(--black);
+      border: 1px solid var(--mid);
+      border-radius: 3px;
+      color: var(--white);
+      font-family: var(--mono);
+      font-size: .9375rem;
+      padding: .7rem .875rem;
+      width: 100%;
+    }
+    .field input::placeholder { color: #5a5a70; }
+    .field input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-glow); }
+    .field input[aria-invalid="true"] { border-color: var(--bad); }
+    .field-error { font-size: .75rem; color: #f0a08c; }
+    .field-error:empty { display: none; }
+    .hint { font-size: .75rem; color: var(--gray); margin-top: .5rem; line-height: 1.5; }
+
+    /* The shared .btn family is in brand.css; these are the additions this
+       design needs. */
+    .btn { padding: .75rem 1.5rem; border: 1px solid transparent; cursor: pointer; }
+    .btn-primary, .btn-ghost { border-width: 1px; border-style: solid; }
+    .btn-block { width: 100%; }
+    .btn[disabled] { opacity: .6; cursor: progress; }
+
+    /* sections */
+    section.block { padding-block: 4.5rem; border-top: 1px solid var(--dark); }
+    .label {
+      font-family: var(--mono);
+      font-size: .75rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .15em;
+      margin-bottom: .75rem;
+    }
+
+    /* result */
+    #result[hidden] { display: none; }
+    .result-head {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: .5rem 1rem;
+      margin-bottom: 1rem;
+    }
+    .result-head .label { margin: 0; }
+    .result-head .label b { color: var(--white); font-weight: 500; text-transform: none; letter-spacing: 0; }
+    .result-head .hint { margin: 0; }
+    #result { padding-block: 2rem 3.5rem; scroll-margin-top: 0; }
+    .card { background: var(--near-black); border: 1px solid var(--mid); border-radius: 4px; padding: 1.5rem; }
+    .card h3 { font-size: 1.0625rem; font-weight: 600; margin-bottom: .25rem; }
+    .cdn-row { display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      font-family: var(--mono);
+      font-size: .75rem;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      padding: .3rem .7rem;
+      border-radius: 2px;
+      border: 1px solid;
+    }
+    .pill.ok { color: var(--str); border-color: #7ec8a066; background: #7ec8a014; }
+    .pill.none { color: var(--warn); border-color: #e0a45866; background: #e0a45814; }
+    .pill.bad { color: var(--bad); border-color: #e74c3c66; background: #e74c3c14; }
+    .pill i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; display: inline-block; }
+    .card p { color: var(--gray); font-size: .9375rem; }
+    .card p code { font-family: var(--mono); font-size: .85em; color: var(--str); background: #7ec8a01a; padding: .1rem .35rem; border-radius: 2px; }
+    .evidence { margin-top: 1rem; border-top: 1px solid var(--mid); padding-top: .875rem; }
+    .evidence .k {
+      font-family: var(--mono);
+      font-size: .6875rem;
+      color: var(--gray);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: .5rem;
+    }
+    .evidence dl {
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      gap: .3rem 1rem;
+      font-family: var(--mono);
+      font-size: .75rem;
+    }
+    .evidence dt { color: var(--key); }
+    .evidence dd { color: var(--light-gray); overflow-wrap: anywhere; }
+
+    /* path */
+    .path { list-style: none; padding: 0; display: flex; flex-direction: column; margin-top: 1rem; }
+    .path > li {
+      display: grid;
+      grid-template-columns: 3.5rem minmax(0, 1fr);
+      padding-block: 2.25rem;
+      border-top: 1px solid var(--dark);
+    }
+    .path > li:first-child { border-top: 0; padding-top: .5rem; }
+    #step-1 { scroll-margin-top: 1rem; }
+    .path .n { font-family: var(--mono); font-size: .8125rem; color: var(--accent); letter-spacing: .1em; padding-top: .45rem; }
+    .path h3 { font-size: 1.3rem; font-weight: 600; margin-bottom: .6rem; }
+    .path .body { color: var(--gray); font-size: .9875rem; line-height: 1.6; }
+    .path .body > p { max-width: 46rem; }
+    .path .body > p + p { margin-top: .75rem; }
+    .path .body code { font-family: var(--mono); font-size: .85em; color: var(--str); background: #7ec8a01a; padding: .1rem .35rem; border-radius: 2px; }
+    .kv {
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      gap: .35rem 1.25rem;
+      margin-top: 1rem;
+      font-size: .875rem;
+      max-width: 46rem;
+    }
+    .kv dt {
+      font-family: var(--mono);
+      font-size: .6875rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--light-gray);
+      padding-top: .2rem;
+    }
+    .kv dd { color: var(--gray); }
+    .embed { margin-top: 1.25rem; }
+
+    /* sample */
+    .sample { margin-block: 1.25rem; }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+      background: var(--near-black);
+      border: 1px solid var(--mid);
+      border-bottom: 0;
+      border-radius: 4px 4px 0 0;
+      padding: 1.25rem 1.5rem;
+    }
+    .ctl { display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
+    .ctl .k { font-family: var(--mono); font-size: .6875rem; color: var(--gray); letter-spacing: .1em; text-transform: uppercase; }
+    .seg { display: inline-flex; border: 1px solid var(--mid); border-radius: 3px; overflow: hidden; position: relative; }
+    .seg label {
+      flex: 1;
+      text-align: center;
+      font-size: .8125rem;
+      font-weight: 500;
+      padding: .45rem .6rem;
+      cursor: pointer;
+      color: var(--gray);
+      background: var(--black);
+    }
+    .seg input { position: absolute; opacity: 0; pointer-events: none; }
+    .seg input:checked + label { background: var(--accent); color: #fff; }
+    .seg input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .price { display: flex; align-items: center; border: 1px solid var(--mid); border-radius: 3px; background: var(--black); overflow: hidden; }
+    .price span { font-family: var(--mono); font-size: .8125rem; color: var(--gray); padding: 0 .6rem; border-right: 1px solid var(--mid); }
+    .price input {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: 0;
+      color: var(--white);
+      font-family: var(--mono);
+      font-size: .9375rem;
+      padding: .45rem .6rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .price input:disabled { color: #5a5a70; }
+    .checks { display: flex; flex-direction: column; gap: .35rem; }
+    .checks label { display: flex; align-items: center; gap: .5rem; font-size: .875rem; color: var(--light-gray); cursor: pointer; }
+    .checks input { accent-color: var(--accent); width: 15px; height: 15px; }
+    .switch { display: flex; align-items: center; gap: .6rem; font-size: .875rem; color: var(--light-gray); cursor: pointer; padding-top: .15rem; }
+    .switch input {
+      appearance: none;
+      width: 34px;
+      height: 20px;
+      border-radius: 10px;
+      background: var(--mid);
+      position: relative;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background .2s;
+    }
+    .switch input:after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--light-gray);
+      transition: transform .2s;
+    }
+    .switch input:checked { background: var(--accent); }
+    .switch input:checked:after { transform: translateX(14px); background: #fff; }
+    .codebox { background: var(--black); border: 1px solid var(--mid); border-radius: 0 0 4px 4px; }
+    .cmd {
+      background: var(--black);
+      border: 1px solid var(--mid);
+      border-radius: 4px;
+      padding: 1rem 1.25rem;
+      font-family: var(--mono);
+      font-size: .8rem;
+      line-height: 1.55;
+      color: var(--light-gray);
+      overflow-x: auto;
+      white-space: pre;
+      max-width: 46rem;
+    }
+    .card .cmd { max-width: none; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .card .cmd .c { display: inline; }
+    .cmd .c { color: #5a5a70; }
+    .cmd .p { color: var(--accent); }
+    .cmd .k { color: var(--key); }
+    .cmd .s { color: var(--str); }
+    .cmd .n { color: var(--num); }
+    .cmd .b { color: var(--brace); }
+    /* The offer an agent receives, as an outline rather than a JSON dump. */
+    .offer {
+      padding: 1.25rem 1.5rem;
+      font-family: var(--mono);
+      font-size: .875rem;
+      line-height: 1.75;
+      color: var(--light-gray);
+      overflow-x: auto;
+    }
+    .offer[aria-busy="true"] { opacity: .5; transition: opacity .15s; }
+    /* Depth is the indent alone -- no bullets, no dashes. */
+    .offer ul { list-style: none; margin: 0; padding-left: 0; }
+    .offer ul ul { padding-left: 1.75rem; }
+    .offer.unreadable {
+      font-family: var(--sans);
+      border-top: 1px solid var(--mid);
+      border-radius: 4px;
+    }
+    .offer .unreadable-head {
+      color: var(--warn);
+      font-weight: 600;
+      margin-bottom: .35rem;
+    }
+    .offer .unreadable-detail { color: var(--light-gray); max-width: 46rem; }
+    .controls[hidden] { display: none; }
+    .offer .lbl { color: var(--key); }
+    .offer .lbl:after { content: ":"; color: var(--brace); }
+    .offer .val { color: var(--str); }
+
+    /* contact + faq */
+    .cta { background: var(--near-black); border: 1px solid var(--mid); border-radius: 4px; padding: 2.5rem; max-width: 44rem; }
+    .cta h2 { font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: .75rem; }
+    .cta p { color: var(--gray); margin-bottom: 1.5rem; }
+    .cta .btns { display: flex; gap: .75rem; flex-wrap: wrap; }
+    .contact-form {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0 1.25rem;
+    }
+    .contact-form .field { margin-bottom: .75rem; }
+    .contact-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: .75rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: .5rem;
+    }
+    .contact-actions button { border: 0; }
+    .contact-actions .btn[disabled] { opacity: .6; cursor: progress; }
+    .contact-note {
+      grid-column: 1 / -1;
+      font-size: .875rem;
+      margin-top: .75rem;
+      overflow-wrap: anywhere;
+    }
+    .contact-note:empty { display: none; }
+    .contact-note.sent { color: var(--str); }
+    .contact-note.failed { color: #f0a08c; }
+    .contact-form .hint { grid-column: 1 / -1; }
+    @media (max-width: 560px) {
+      .contact-form { grid-template-columns: 1fr; }
+      .contact-actions .btn { width: 100%; justify-content: center; }
+    }
+    .faq { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem; }
+    .faq div h3 { font-size: 1rem; font-weight: 600; margin-bottom: .4rem; }
+    .faq div p { font-size: .9rem; color: var(--gray); }
+
+    .note { font-size: .8125rem; color: var(--gray); border-left: 2px solid var(--mid); padding-left: .75rem; margin-top: 1rem; }
+    .notes { list-style: none; padding: 0; margin: 1.25rem 0 0; display: grid; gap: .5rem; }
+    .notes:empty { display: none; }
+    .notes li {
+      font-size: .8125rem;
+      color: var(--light-gray);
+      border-left: 2px solid var(--warn);
+      padding-left: .75rem;
+      overflow-wrap: anywhere;
+    }
+    .terms-source {
+      font-size: .8125rem;
+      color: var(--gray);
+      background: var(--near-black);
+      border: 1px solid var(--mid);
+      border-top: 0;
+      border-bottom: 0;
+      padding: 0 1.5rem .75rem;
+      margin: 0;
+    }
+    .terms-source:empty { display: none; }
+
+    @media (max-width: 900px) {
+      .hero-body { grid-template-columns: 1fr; }
+      .path > li { grid-template-columns: 2rem minmax(0, 1fr); }
+      .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .faq { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      .controls { grid-template-columns: 1fr; }
+      .cta { padding: 1.5rem; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  </style>
+</head>
+<body>
+
+<header class="hero-head">
+  <SiteNav current="publishers" />
+  <div class="wrap">
+    <div class="hero-body">
+      <div>
+        <span class="badge">For publishers · See it before you commit</span>
+        <h1>See what AI agents would <em>pay for</em> on your site. Before you sign anything.</h1>
+        <p class="sub">Enter your domain. On one screen you get the CDN we detected, every step to go live, and a sample of your catalog exactly as an Exchange would list it. Talk to us only when you like what you see.</p>
+        <div class="trust">
+          <span>No CMS changes</span>
+          <span>One function on your CDN</span>
+          <span>You set the price</span>
+          <span>No keys to manage</span>
+        </div>
+      </div>
+
+      <form class="panel" id="preview-form" autocomplete="off" novalidate>
+        <h2>Preview your onboarding</h2>
+        <div class="field">
+          <label for="domain">Your domain</label>
+          <input id="domain" name="domain" inputmode="url" spellcheck="false" autocapitalize="none" maxlength="253" placeholder="publisher.example" aria-describedby="domain-error" value="demo.fora-protocol.org" required />
+          <p class="field-error" id="domain-error"></p>
+        </div>
+        <div class="field">
+          <label for="article">One article URL <small>· optional</small></label>
+          <input id="article" name="article" inputmode="url" spellcheck="false" maxlength="2048" placeholder="https://publisher.example/news/…" aria-describedby="article-error" />
+          <p class="field-error" id="article-error"></p>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit" id="go">Show my onboarding path</button>
+        <p class="hint">The preview reads your public sitemap and licensing document if you publish them, and your response headers. Nothing else. No crawl, no cookies, nothing stored.</p>
+      </form>
+    </div>
+  </div>
+</header>
+
+<main>
+  <p id="status" class="sr-only" role="status"></p>
+
+  <section class="block" id="failure" hidden>
+    <div class="wrap">
+      <div class="card" id="failure-card" tabindex="-1"></div>
+    </div>
+  </section>
+
+  <section class="block" id="result" hidden>
+    <div class="wrap">
+      <div class="result-head">
+        <span class="label">Your onboarding path · <b id="r-domain"></b></span>
+        <span class="hint" id="r-meta"></span>
+      </div>
+      <ol class="path">
+        <li id="step-1">
+          <span class="n">01</span>
+          <div>
+            <h3>Tell us about your site</h3>
+            <div class="body">
+              <p>Send us the form at the end of this page and we take it from there. What we need to know about the site: the domain<span id="s1-domain"></span>, which paths carry licensed content (a prefix such as <code>/news/</code>, or the whole site), and where we read your catalog from: a sitemap, which says where your resources are, and a licensing document, which says what they cost. That is an <code>rsl.txt</code> beside the sitemap, or whatever address your <code>robots.txt</code> points at. We read both, because they answer different questions and neither stands in for the other. If you publish neither yet, we generate what is missing. Nothing is deployed at this point: we only gather what it takes to produce your files in the next steps.</p>
+              <dl class="kv"><dt>You send</dt><dd>your name, an address to reply to, and the domain</dd><dt>You get</dt><dd>an answer from us with the manifest for your domain</dd></dl>
+            </div>
+          </div>
+        </li>
+        <li>
+          <span class="n">02</span>
+          <div>
+            <h3>Serve the manifest we generate. That is your proof of domain control.</h3>
+            <div class="body">
+              <p>From step 1 we generate the exact <code>/.well-known/fora.json</code> for your domain: a short JSON file naming the Exchange allowed to sell your content and naming us as the catalog contributor, so we can push your catalog on your behalf. You put that one file on your domain, next to your sitemap, or let the edge package from step 3 serve it from its configuration. The Exchange fetches it; when it is reachable and matches what you told us, your domain goes live. There is no separate verification e-mail, DNS record or key to manage, because only the domain owner can place that file.</p>
+              <div class="cmd embed" id="manifest"></div>
+              <dl class="kv"><dt>We generate</dt><dd>the manifest, byte for byte</dd><dt>You do</dt><dd>put one file on your domain</dd><dt>Result</dt><dd>account active, catalog ingestion authorized</dd></dl>
+            </div>
+          </div>
+        </li>
+        <li id="step-cdn">
+          <span class="n">03</span>
+          <div>
+            <h3 id="cdn-title">Deploy the edge package on your CDN</h3>
+            <div class="body">
+              <p>The edge package is one function on the CDN that already fronts your domain. It checks the signed delivery URL on every request to a licensed path, lets a paying agent through to your origin, and sends an unlicensed bot to the Exchange instead of blocking it. Your CMS and origin do not change. We looked at your DNS and response headers to see which CDN you run:</p>
+              <div class="embed card" id="cdn-card"></div>
+            </div>
+          </div>
+        </li>
+        <li>
+          <span class="n">04</span>
+          <div>
+            <h3>Set your terms. Ingestion runs on its own from here.</h3>
+            <div class="body">
+              <p>Terms are what agents may do with an article and at what price: search, AI input, AI training; free or per access in EUR; attribution or not. If your site already publishes a licensing document, the controls below open on the terms it states: we read them and fill this in for you, which is how it should be — your own file is the source, not a form. Below is the offer an agent receives for one of your articles under those terms, built from <span id="s4-source">your catalog source</span> just now. Change a control and the Exchange rebuilds the offer.</p>
+              <!--
+                The warnings sit here rather than at the top of the result:
+                every one of them is about what could or could not be read for
+                the terms and the offer, which is what the controls below act
+                on. Next to them they are context; above the path they were a
+                banner about nothing in particular.
+              -->
+              <ul class="notes" id="r-warnings"></ul>
+              <div class="sample">
+                <div class="controls" id="sample-controls" aria-label="Terms controls">
+                  <div class="ctl">
+                    <span class="k" id="k-model">Pricing model</span>
+                    <div class="seg" role="radiogroup" aria-labelledby="k-model">
+                      <input type="radio" name="model" id="m-free" value="free" checked /><label for="m-free">Free</label>
+                      <input type="radio" name="model" id="m-paid" value="per_unit" /><label for="m-paid">Per access</label>
+                    </div>
+                  </div>
+                  <div class="ctl">
+                    <span class="k">Price per access</span>
+                    <div class="price"><span>EUR</span><input id="price" type="number" min="0" step="0.01" value="0.02" disabled aria-label="Price per access in EUR" /></div>
+                  </div>
+                  <div class="ctl">
+                    <span class="k">Allowed uses</span>
+                    <div class="checks">
+                      <label><input type="checkbox" id="u-search" checked /> Search</label>
+                      <label><input type="checkbox" id="u-ai-input" checked /> AI input <small style="color:var(--gray)">(RAG, answers)</small></label>
+                      <label><input type="checkbox" id="u-ai-train" /> AI training</label>
+                    </div>
+                  </div>
+                  <div class="ctl">
+                    <span class="k">Attribution</span>
+                    <label class="switch"><input type="checkbox" id="attr" checked /> Required on every use</label>
+                  </div>
+                </div>
+                <p class="terms-source" id="terms-source"></p>
+                <div class="codebox">
+                  <div class="offer" id="offer" tabindex="0" aria-label="The offer an agent receives" aria-busy="false"></div>
+                </div>
+              </div>
+              <p>As soon as terms are saved, we ingest your catalog automatically, one record per article: the sitemap gives us the resources, your licensing document gives us their terms, and both are re-read as you publish. There is nothing to run and nothing to upload. From this point every bot that hits a licensed path meets your terms, and paying agents get through with a signed URL. Blocked bots become paying customers.</p>
+              <dl class="kv"><dt>You set</dt><dd>terms, changeable any time</dd><dt>We do</dt><dd>ingest and refresh the catalog as the contributor named in your manifest</dd><dt>Result</dt><dd>your articles listed with your terms, discoverable and payable by agents</dd></dl>
+            </div>
+          </div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="block" id="contact">
+    <div class="wrap">
+      <div class="cta">
+        <div class="label">Liked the preview?</div>
+        <h2>Contact us and we start step 1.</h2>
+        <p>Tell us where to reply and we take it from there: we generate your manifest and your edge package, and ingest your catalog once your terms are set. You place one file and one function. The conversation costs nothing.</p>
+
+        <form id="contact-form" class="contact-form" novalidate>
+          <div class="field">
+            <label for="contact-name">Your name</label>
+            <input id="contact-name" name="name" type="text" maxlength="200" autocomplete="name" required aria-describedby="contact-name-error" />
+            <p class="field-error" id="contact-name-error"></p>
+          </div>
+          <div class="field">
+            <label for="contact-email">Your email</label>
+            <input id="contact-email" name="email" type="email" maxlength="254" autocomplete="email" spellcheck="false" required aria-describedby="contact-email-error" />
+            <p class="field-error" id="contact-email-error"></p>
+          </div>
+          <div class="contact-actions">
+            <button type="submit" id="contact-send" class="btn btn-primary">Send</button>
+            <a class="btn btn-ghost" href="/getting-started/publisher-onboarding/">Read the publisher guide</a>
+          </div>
+          <p class="contact-note" id="contact-note" role="status"></p>
+          <p class="hint" id="contact-hint">We send your name, your address and the domain you previewed to our team. Nothing else, and this page keeps no copy.</p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="faq">
+    <div class="wrap">
+      <div class="faq">
+        <div><h3>Do I have to change my CMS?</h3><p>No. The catalog is built from a sitemap and a licensing document on your domain, and the edge function runs on your CDN. Your origin serves pages exactly as it does today.</p></div>
+        <div><h3>Who holds the keys?</h3><p>We do. Your manifest names us as the catalog contributor, so we push and refresh your catalog for you, and we hold the URL-signing key. For CloudFront only its public half goes into your trusted key group. You never handle key material; the one thing you place is the manifest.</p></div>
+        <div><h3>What does it cost?</h3><p>You set the price per access, or make content free for some uses. The Exchange takes its fee only on paid accesses. The preview and the conversation cost nothing.</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<SiteFooter />
+
+<!--
+  A bundled script, not is:inline: it imports the preview client and the
+  configured service URL from astro:env, and is:inline would skip the bundler
+  and leave both unresolved.
+-->
+<script>
+  import {
+    FORA_ONBOARDING_API_BASE,
+    FORA_PUBLISHER_CONTACT_URL,
+  } from 'astro:env/client';
+  import { buildPreviewRequest } from '../../lib/onboarding/request.mjs';
+  import { fetchPreview } from '../../lib/onboarding/preview-client.mjs';
+  import { CDN_INTEGRATIONS } from '../../lib/onboarding/cdn-integrations.mjs';
+  import { OFFERED_USES, partitionUses } from '../../lib/onboarding/terms-vocab.mjs';
+  import { DEFAULT_DOMAIN, sourcePhrase } from '../../lib/onboarding/default-preview.mjs';
+  import { highlightJson } from '../../lib/onboarding/record.mjs';
+  import { offerOutline, resolvedControls, unreadableSentence } from '../../lib/onboarding/offer-outline.mjs';
+  import { buildContactRequest, sendContact } from '../../lib/onboarding/contact.mjs';
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  const state = { domain: '', preview: null, inFlight: null };
+
+  // ---- the preview API -----------------------------------------------------
+  // The single seam where the preview service is called. It answers with its
+  // own shape; this maps it onto what the page renders.
+  async function previewOnboarding(domain, articleUrl, controls) {
+    const built = buildPreviewRequest({ domain, articleUrl, controls });
+    if (!built.ok) return { error: { field: built.field, headline: built.message, detail: '' } };
+
+    if (state.inFlight) state.inFlight.abort();
+    const controller = new AbortController();
+    state.inFlight = controller;
+
+    const outcome = await fetchPreview({
+      fetchImpl: window.fetch.bind(window),
+      baseUrl: FORA_ONBOARDING_API_BASE,
+      body: built.body,
+      signal: controller.signal,
+    });
+    // Only the call that still owns the slot clears it. An older call settling
+    // late would otherwise wipe a newer one's controller, after which the next
+    // request has nothing to cancel and the two run side by side.
+    if (state.inFlight === controller) state.inFlight = null;
+
+    if (outcome.aborted) return { aborted: true };
+    if (!outcome.ok) return { error: outcome.failure };
+
+    const data = outcome.data;
+    const page = data.page ?? {};
+    return {
+      domain: built.body.domain,
+      cdn: data.cdn?.provider ?? 'none',
+      // The service names what it looked at (a header, a DNS record) and what it
+      // found there. The name is the useful half, so that is the key.
+      evidence: (Array.isArray(data.cdn?.evidence) ? data.cdn.evidence : [])
+        .filter((e) => e && typeof e === 'object')
+        .map((e) => [String(e.name || e.source || ''), String(e.value ?? '')])
+        .filter(([name]) => name !== ''),
+      articles: [{
+        url: String(page.canonical_url ?? page.url ?? `https://${built.body.domain}/`),
+        title: String(page.title ?? ''),
+      }],
+      source: String(page.source ?? ''),
+      unreadable: page.unreadable ?? null,
+      // The manifest the service generated for this domain. It is not rebuilt
+      // here: fora.v1.WellKnownManifest says what the file must carry, the
+      // service builds it from that, and a second copy written in a page is a
+      // copy that drifts. This one was wrong in four ways before it was
+      // deleted -- ver, role, the exchange relationship, and where
+      // supported_profiles belongs.
+      manifest: manifestFromSteps(data.steps),
+      termsSource: String(data.terms_source ?? ''),
+      termsDocument: String(data.detected_terms?.document_url ?? ''),
+      offer: data.offer ?? null,
+      warnings: Array.isArray(data.warnings) ? data.warnings.map(String) : [],
+    };
+  }
+
+  // manifestFromSteps finds the step that carries the file to serve.
+  function manifestFromSteps(steps) {
+    if (!Array.isArray(steps)) return null;
+    const step = steps.find((entry) => entry && typeof entry === 'object' && entry.manifest);
+    return step ? step.manifest : null;
+  }
+
+  // ---- terms from the controls --------------------------------------------
+  // The offer is built by the Exchange, so the controls travel with the request
+  // rather than being applied to a record here. Until the visitor touches one,
+  // no terms are sent and the service resolves them from the site's own rsl.txt.
+  let termsTouched = false;
+
+  function controlState() {
+    if (!termsTouched) return null;
+    const { functions } = partitionUses((token) => $(`u-${token}`).checked);
+    return {
+      pricingModel: document.querySelector('input[name="model"]:checked').value,
+      rate: $('price').value,
+      offeredFunctions: OFFERED_USES,
+      permittedFunctions: functions,
+      attributionRequired: $('attr').checked,
+    };
+  }
+
+  // ---- rendering -----------------------------------------------------------
+  // A site that publishes an rsl.txt has already stated its terms, so the
+  // controls open on those rather than on a default nobody chose. Only until
+  // the visitor changes one: from then on the controls are theirs and a
+  // rebuilt offer must not move them.
+  function syncControls() {
+    const controls = resolvedControls(state.preview?.offer, OFFERED_USES);
+    const note = $('terms-source');
+
+    if (state.preview?.unreadable) {
+      note.textContent = '';
+      return;
+    }
+    if (!controls) {
+      note.textContent = '';
+      return;
+    }
+
+    $(controls.pricingModel === 'free' ? 'm-free' : 'm-paid').checked = true;
+    $('price').disabled = controls.pricingModel === 'free';
+    if (controls.rate) $('price').value = controls.rate;
+    for (const token of OFFERED_USES) {
+      $(`u-${token}`).checked = controls.permittedFunctions.includes(token);
+    }
+    $('attr').checked = controls.attributionRequired;
+
+    if (state.preview.termsSource === 'detected') {
+      const where = state.preview.termsDocument;
+      note.textContent = where
+        ? `These are the terms your licensing document already states. We read them at ${where}.`
+        : 'These are the terms your licensing document already states. We read them and filled this in.';
+    } else {
+      note.textContent = 'Your site does not state terms yet, so these are FORA defaults. Change them and the offer follows.';
+    }
+  }
+
+  function renderOffer() {
+    const host = $('offer');
+    host.textContent = '';
+    if (!state.preview) return;
+
+    // No page, no offer: an offer prices a resource, and this one could not be
+    // read. The controls go with it, because changing terms cannot produce one.
+    const unreadable = state.preview.unreadable;
+    $('sample-controls').hidden = Boolean(unreadable);
+    if (unreadable) {
+      host.classList.add('unreadable');
+      const heading = document.createElement('p');
+      heading.className = 'unreadable-head';
+      heading.textContent = 'We cannot show an offer for this page';
+      const detail = document.createElement('p');
+      detail.className = 'unreadable-detail';
+      detail.textContent = unreadableSentence(unreadable);
+      host.append(heading, detail);
+      return;
+    }
+
+    host.classList.remove('unreadable');
+    host.append(outlineList(offerOutline(state.preview.offer).nodes));
+  }
+
+  // Built as nodes, never as markup: every value here came from the service,
+  // which read it off a site the visitor named.
+  function outlineList(nodes) {
+    const list = document.createElement('ul');
+    for (const node of nodes) {
+      const item = document.createElement('li');
+      if (node.label) {
+        const label = document.createElement('span');
+        label.className = 'lbl';
+        label.textContent = node.label;
+        item.append(label);
+      }
+      if (node.value !== undefined) {
+        const value = document.createElement('span');
+        value.className = 'val';
+        value.textContent = ` ${node.value}`;
+        item.append(value);
+      }
+      if (node.children) item.append(outlineList(node.children));
+      list.append(item);
+    }
+    return list;
+  }
+
+  function renderManifest() {
+    const d = state.domain;
+    const manifest = state.preview?.manifest;
+    if (!manifest) {
+      $('manifest').textContent =
+        'We could not generate your discovery document for this domain. Ask us and we will send it.';
+    } else {
+      $('manifest').innerHTML = `<span class="c"># https://${esc(d)}/.well-known/fora.json  (we generate this for you)</span>\n`
+        + highlightJson(JSON.stringify(manifest, null, 2));
+    }
+    // The domain reads as a value, so it gets the same inline-code treatment as
+    // the paths and filenames around it. Built as nodes rather than markup:
+    // the domain is whatever the visitor typed.
+    const s1 = $('s1-domain');
+    s1.textContent = '';
+    const domainCode = document.createElement('code');
+    domainCode.textContent = state.domain;
+    s1.append(document.createTextNode(' ('), domainCode, document.createTextNode(')'));
+  }
+
+  function renderCdn() {
+    const d = esc(state.domain);
+    const c = CDN_INTEGRATIONS[state.preview.cdn];
+    $('cdn-title').textContent = c ? `Deploy the edge package on ${c.name}` : 'Deploy the edge package on your CDN';
+
+    let html;
+    if (c) {
+      html = `<div class="cdn-row"><span class="pill ok"><i></i>${esc(c.name)} detected</span></div>`
+        + `<h3>Integration path: ${esc(c.scheme)} signed URLs</h3><p>${esc(c.path)}</p>`
+        + `<p style="margin-top:1.25rem">${c.take(d)}</p>`
+        + `<pre class="cmd" style="margin-top:.75rem">${c.deploy(d).map(([kind, line]) => (
+          kind === '#'
+            ? `<span class="c">${esc(line)}</span>`
+            : `<span class="p">$</span> ${esc(line).replace(/(#.*)$/, '<span class="c">$1</span>')}`
+        )).join('\n')}</pre>`;
+    } else {
+      html = '<div class="cdn-row"><span class="pill none"><i></i>No supported CDN detected</span></div>'
+        + '<h3>We will size this one with you</h3>'
+        + '<p>CloudFront, Cloudflare and Fastly are supported today. If your site sits behind another CDN or none, tell us what fronts it and we will map the integration together. The catalog side of your preview is unaffected.</p>'
+        + `<p style="margin-top:1rem"><a class="btn btn-ghost" href="${esc(FORA_PUBLISHER_CONTACT_URL)}">Contact us about ${d}</a></p>`;
+    }
+
+    if (state.preview.evidence.length) {
+      html += '<div class="evidence"><div class="k">What we read</div><dl>'
+        + state.preview.evidence.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')
+        + '</dl></div>';
+    }
+    $('cdn-card').innerHTML = html;
+  }
+
+  function renderAll() {
+    $('failure').hidden = true;
+    $('r-domain').textContent = state.domain;
+    $('r-meta').textContent = `${readList(state.preview)} read just now · nothing is stored`;
+
+    // What the service could not read is its own notice, not a footnote glued
+    // onto the line above: each warning is a separate thing to act on.
+    const warnings = $('r-warnings');
+    warnings.textContent = '';
+    for (const warning of state.preview.warnings) {
+      const item = document.createElement('li');
+      item.textContent = warning;
+      warnings.append(item);
+    }
+    $('s4-source').textContent = sourcePhrase(state.preview.source);
+    renderCdn();
+    renderManifest();
+    if (!termsTouched) syncControls();
+    renderOffer();
+    $('result').hidden = false;
+    $('status').textContent = `Preview ready for ${state.domain}.`;
+  }
+
+  function renderFailure(failure) {
+    if (failure.field) {
+      setFieldError(failure.field, failure.headline);
+      $(failure.field)?.focus();
+      return;
+    }
+    $('result').hidden = true;
+    const card = $('failure-card');
+    card.innerHTML = `<div class="cdn-row"><span class="pill bad"><i></i>${esc(failure.kind ?? 'error')}</span></div>`
+      + `<h3>${esc(failure.headline)}</h3>`
+      + (failure.detail ? `<p>${esc(failure.detail)}</p>` : '')
+      + (failure.violations?.length
+        ? `<div class="evidence"><div class="k">What the Exchange said</div><dl>${
+          failure.violations.map((v) => `<dt>${esc(v.path || 'terms')}</dt><dd>${esc(v.message)}</dd>`).join('')
+        }</dl></div>`
+        : '');
+    $('failure').hidden = false;
+    card.focus();
+    $('status').textContent = `${failure.headline}. ${failure.detail ?? ''}`;
+  }
+
+  // What the check actually read. The sitemap side and the rsl.txt side answer
+  // different questions -- where the resources are, and what they cost -- so
+  // both are named when both were found.
+  function readList(preview) {
+    const parts = [sourcePhrase(preview.source)];
+    if (preview.termsSource === 'detected') parts.push('your licensing document');
+    parts.push('your response headers');
+    const last = parts.pop();
+    const list = `${parts.join(', ')} and ${last}`;
+    return list.charAt(0).toUpperCase() + list.slice(1);
+  }
+
+  function setFieldError(fieldId, message) {
+    const input = $(fieldId);
+    const slot = $(`${fieldId}-error`);
+    if (slot) slot.textContent = message ?? '';
+    if (input) {
+      if (message) input.setAttribute('aria-invalid', 'true');
+      else input.removeAttribute('aria-invalid');
+    }
+  }
+
+  // ---- wiring --------------------------------------------------------------
+  // One path for both the preview the page opens on and the one a visitor asks
+  // for, so the opening result is a live check like any other.
+  async function runPreview({ scrollToPath, keepTerms = false }) {
+    setFieldError('domain', '');
+    setFieldError('article', '');
+    // A different site has different terms, so the controls start over: the
+    // request carries none, the service resolves them from that site's own
+    // rsl.txt, and syncControls puts the answer back into the form.
+    if (!keepTerms) termsTouched = false;
+
+    const button = $('go');
+    button.disabled = true;
+    button.textContent = 'Reading your site…';
+    $('status').textContent = 'Reading your site.';
+
+    const preview = await previewOnboarding($('domain').value, $('article').value, controlState());
+
+    button.disabled = false;
+    button.textContent = 'Show my onboarding path';
+
+    if (preview.aborted) return;
+    if (preview.error) { renderFailure(preview.error); return; }
+
+    state.domain = preview.domain;
+    state.preview = preview;
+    renderAll();
+    if (scrollToPath) {
+      $('step-1').scrollIntoView({
+        behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'start',
+      });
+    }
+  }
+
+  $('preview-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    void runPreview({ scrollToPath: true });
+  });
+
+  // Typing a new domain or article invalidates the terms on screen: they belong
+  // to the site that was checked, not to the one being typed.
+  function resetTermsOnNewTarget() {
+    termsTouched = false;
+    $('terms-source').textContent = '';
+  }
+
+  // Changing a control costs a round trip, because the Exchange builds the
+  // offer. Debounce so a burst of clicks is one request, and leave the previous
+  // offer on screen, dimmed, rather than blanking it.
+  const TERMS_DEBOUNCE_MS = 400;
+  let termsTimer = 0;
+
+  function scheduleTermsRefresh() {
+    // Once the visitor edits a control the terms are theirs, and the line above
+    // the offer must stop crediting the site's own file for them.
+    if (!termsTouched) {
+      $('terms-source').textContent = 'These are the terms you set here. Your site keeps whatever it states today.';
+    }
+    termsTouched = true;
+    window.clearTimeout(termsTimer);
+    $('offer').setAttribute('aria-busy', 'true');
+    termsTimer = window.setTimeout(async () => {
+      const preview = await previewOnboarding($('domain').value, $('article').value, controlState());
+      $('offer').setAttribute('aria-busy', 'false');
+      if (preview.aborted) return;
+      if (preview.error) { renderFailure(preview.error); return; }
+      state.domain = preview.domain;
+      state.preview = preview;
+      renderAll();
+    }, TERMS_DEBOUNCE_MS);
+  }
+
+  document.querySelectorAll('input[name="model"]').forEach((radio) => radio.addEventListener('change', () => {
+    $('price').disabled = document.querySelector('input[name="model"]:checked').value === 'free';
+    setFieldError('price', '');
+    scheduleTermsRefresh();
+  }));
+  ['price', 'attr', ...OFFERED_USES.map((token) => `u-${token}`)]
+    .forEach((id) => $(id).addEventListener('input', scheduleTermsRefresh));
+  $('domain').addEventListener('input', () => { setFieldError('domain', ''); resetTermsOnNewTarget(); });
+  $('article').addEventListener('input', () => { setFieldError('article', ''); resetTermsOnNewTarget(); });
+
+  // ---- the enquiry form ---------------------------------------------------
+  let contactInFlight = null;
+
+  $('contact-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    setFieldError('contact-name', '');
+    setFieldError('contact-email', '');
+
+    const built = buildContactRequest({
+      name: $('contact-name').value,
+      email: $('contact-email').value,
+      // The domain of the preview they just read, which is what makes the
+      // enquiry worth answering. It is the checked one, not whatever is being
+      // typed in the form above.
+      domain: state.domain,
+    });
+    if (!built.ok) {
+      setFieldError(built.field, built.message);
+      $(built.field)?.focus();
+      return;
+    }
+
+    const note = $('contact-note');
+    const button = $('contact-send');
+    note.className = 'contact-note';
+    note.textContent = '';
+    button.disabled = true;
+    button.textContent = 'Sending…';
+
+    if (contactInFlight) contactInFlight.abort();
+    const controller = new AbortController();
+    contactInFlight = controller;
+
+    const outcome = await sendContact({
+      fetchImpl: window.fetch.bind(window),
+      baseUrl: FORA_ONBOARDING_API_BASE,
+      body: built.body,
+      signal: controller.signal,
+    });
+    if (contactInFlight === controller) contactInFlight = null;
+
+    button.disabled = false;
+    button.textContent = 'Send';
+    if (outcome.aborted) return;
+
+    if (outcome.ok) {
+      note.className = 'contact-note sent';
+      note.textContent = 'Sent. We will reply to the address you gave us.';
+      $('contact-form').reset();
+      return;
+    }
+    note.className = 'contact-note failed';
+    note.textContent = `${outcome.failure.headline}. ${outcome.failure.detail}`;
+  });
+
+  for (const id of ['contact-name', 'contact-email']) {
+    $(id).addEventListener('input', () => setFieldError(id, ''));
+  }
+
+  // The page opens on a live preview of the demo domain, so the onboarding path
+  // is on screen before the visitor types anything.
+  if (!$('domain').value.trim()) $('domain').value = DEFAULT_DOMAIN;
+  void runPreview({ scrollToPath: false });
+</script>
+
+</body>
+</html>
