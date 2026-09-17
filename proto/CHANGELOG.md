@@ -1,6 +1,6 @@
 # FORA Protocol Changelog
 
-## Unreleased
+## v1.0.5
 
 **An offer sells exactly one licensing term (documentation correction; no wire
 change; behaviour-affecting for Exchanges).** `Offer.pricing` has said since the
@@ -48,8 +48,7 @@ Implementations that emit one fused offer per resource are non-conforming and
 must project one signed offer per entitled term, each carrying that term's
 `pricing`, in stored order. Where a term is reachable only under an existing
 subscription its offer carries `subscription_id` at zero marginal cost; which
-terms a requester may see at all is decided by `LicenseTerm.scopes`. The
-reference implementation's correction is tracked separately in FORA-316.
+terms a requester may see at all is decided by `LicenseTerm.scopes`.
 
 ## v1.0.0 — Initial release
 
