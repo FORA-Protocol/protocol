@@ -24,14 +24,6 @@ export default defineConfig({
 				access: 'public',
 				default: 'https://pub-onboarding.demo.fora-protocol.org/onboarding',
 			}),
-			// The Exchange the preview page shows onboarding into. It appears in
-			// the generated manifest, so it must match the Exchange the preview
-			// service is configured against.
-			FORA_EXCHANGE_DOMAIN: envField.string({
-				context: 'client',
-				access: 'public',
-				default: 'exchange.example',
-			}),
 			// Where a publisher behind an unsupported CDN reaches us.
 			FORA_PUBLISHER_CONTACT_URL: envField.string({
 				context: 'client',

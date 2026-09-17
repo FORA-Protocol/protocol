@@ -621,14 +621,13 @@ import '../../styles/brand.css';
   import {
     FORA_ONBOARDING_API_BASE,
     FORA_PUBLISHER_CONTACT_URL,
-    FORA_EXCHANGE_DOMAIN,
   } from 'astro:env/client';
   import { buildPreviewRequest } from '../../lib/onboarding/request.mjs';
   import { fetchPreview } from '../../lib/onboarding/preview-client.mjs';
   import { CDN_INTEGRATIONS } from '../../lib/onboarding/cdn-integrations.mjs';
   import { OFFERED_USES, partitionUses } from '../../lib/onboarding/terms-vocab.mjs';
   import { DEFAULT_DOMAIN, sourcePhrase } from '../../lib/onboarding/default-preview.mjs';
-  import { highlightJson, manifestFor } from '../../lib/onboarding/record.mjs';
+  import { highlightJson } from '../../lib/onboarding/record.mjs';
   import { offerOutline, resolvedControls, unreadableSentence } from '../../lib/onboarding/offer-outline.mjs';
   import { buildContactRequest, sendContact } from '../../lib/onboarding/contact.mjs';
 
@@ -679,11 +678,25 @@ import '../../styles/brand.css';
       }],
       source: String(page.source ?? ''),
       unreadable: page.unreadable ?? null,
+      // The manifest the service generated for this domain. It is not rebuilt
+      // here: fora.v1.WellKnownManifest says what the file must carry, the
+      // service builds it from that, and a second copy written in a page is a
+      // copy that drifts. This one was wrong in four ways before it was
+      // deleted -- ver, role, the exchange relationship, and where
+      // supported_profiles belongs.
+      manifest: manifestFromSteps(data.steps),
       termsSource: String(data.terms_source ?? ''),
       termsDocument: String(data.detected_terms?.document_url ?? ''),
       offer: data.offer ?? null,
       warnings: Array.isArray(data.warnings) ? data.warnings.map(String) : [],
     };
+  }
+
+  // manifestFromSteps finds the step that carries the file to serve.
+  function manifestFromSteps(steps) {
+    if (!Array.isArray(steps)) return null;
+    const step = steps.find((entry) => entry && typeof entry === 'object' && entry.manifest);
+    return step ? step.manifest : null;
   }
 
   // ---- terms from the controls --------------------------------------------
@@ -791,8 +804,14 @@ import '../../styles/brand.css';
 
   function renderManifest() {
     const d = state.domain;
-    $('manifest').innerHTML = `<span class="c"># https://${esc(d)}/.well-known/fora.json  (we generate this for you)</span>\n`
-      + highlightJson(JSON.stringify(manifestFor(d, FORA_EXCHANGE_DOMAIN), null, 2));
+    const manifest = state.preview?.manifest;
+    if (!manifest) {
+      $('manifest').textContent =
+        'We could not generate your discovery document for this domain. Ask us and we will send it.';
+    } else {
+      $('manifest').innerHTML = `<span class="c"># https://${esc(d)}/.well-known/fora.json  (we generate this for you)</span>\n`
+        + highlightJson(JSON.stringify(manifest, null, 2));
+    }
     // The domain reads as a value, so it gets the same inline-code treatment as
     // the paths and filenames around it. Built as nodes rather than markup:
     // the domain is whatever the visitor typed.

@@ -1,24 +1,9 @@
-// The manifest the console generates for a domain, and the helpers that print
-// it as coloured JSON. The offer an agent receives is not JSON on this page --
-// see offer-outline.mjs. Pure: no DOM, no fetch.
-
-/**
- * The /.well-known/fora.json the console generates for a domain. It names the
- * Exchange allowed to sell the content, and names the Exchange as the catalog
- * contributor so it can push the catalog on the publisher's behalf.
- */
-export function manifestFor(domain, exchangeDomain) {
-	return {
-		version: '1',
-		exchanges: [{
-			domain: exchangeDomain,
-			endpoint: `https://${exchangeDomain}`,
-			supported_profiles: ['fora-news-v1'],
-			ext: { resource_owner_id: domain },
-		}],
-		catalog_contributors: [{ domain: exchangeDomain, relationship: 'operator' }],
-	};
-}
+// Printing a JSON document as coloured, escaped HTML.
+//
+// The documents themselves come from the service: fora.v1.WellKnownManifest
+// says what a discovery document must carry, and a page that writes its own
+// copy writes one that drifts. The offer is not JSON here at all -- see
+// offer-outline.mjs. Pure: no DOM, no fetch.
 
 /** Escape for HTML text content. */
 export function escapeHtml(text) {

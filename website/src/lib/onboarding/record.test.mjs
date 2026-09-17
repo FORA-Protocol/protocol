@@ -1,16 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { escapeHtml, highlightJson, manifestFor } from './record.mjs';
-
-test('the manifest names the Exchange as seller and as catalog contributor', () => {
-	const manifest = manifestFor('publisher.example', 'exchange.example');
-	assert.equal(manifest.version, '1');
-	assert.equal(manifest.exchanges[0].domain, 'exchange.example');
-	assert.equal(manifest.exchanges[0].endpoint, 'https://exchange.example');
-	assert.equal(manifest.exchanges[0].ext.resource_owner_id, 'publisher.example');
-	assert.deepEqual(manifest.catalog_contributors, [{ domain: 'exchange.example', relationship: 'operator' }]);
-});
+import { escapeHtml, highlightJson } from './record.mjs';
 
 test('escapeHtml neutralises markup in a value', () => {
 	assert.equal(escapeHtml('<img src=x onerror="a">'), '&lt;img src=x onerror=&quot;a&quot;&gt;');
