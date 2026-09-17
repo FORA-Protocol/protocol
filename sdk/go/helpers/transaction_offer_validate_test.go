@@ -35,13 +35,20 @@ const minItemsRuleID = "repeated.min_items"
 // TransactionRequest's audience statement is per item, so an offer without it is
 // unroutable and does not validate.
 func validOffer() *forav1.Offer {
+	free := &forav1.Pricing{
+		Model: forav1.PricingModel_PRICING_MODEL_FREE,
+		Rate:  "0",
+	}
 	return &forav1.Offer{
 		OfferId:  "of_valid_1",
 		Exchange: "exchange.example",
-		Pricing: &forav1.Pricing{
-			Model: forav1.PricingModel_PRICING_MODEL_FREE,
-			Rate:  "0",
-		},
+		Pricing:  free,
+		// terms is bounded to exactly one: an offer sells a single licensing
+		// arrangement, so a valid offer always carries the term it sells.
+		Terms: []*forav1.LicenseTerm{{
+			Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+			Pricing:   free,
+		}},
 	}
 }
 

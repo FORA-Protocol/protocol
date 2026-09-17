@@ -151,7 +151,7 @@ For single-URI queries, five stages are executed sequentially on the combined of
 
 ```mermaid
 graph LR
-    A[Collect all Offers<br/>from N Exchanges] --> B[Surface term restrictions<br/>agent self-selects honourable term]
+    A[Collect all Offers<br/>from N Exchanges] --> B[One offer per term<br/>agent chooses an honourable offer]
     B --> C[Filter by<br/>RequestConstraints]
     C --> D[Deduplicate by<br/>ResourceIdentity]
     D --> E[Rank by unit_cost<br/>lowest wins]
@@ -230,9 +230,9 @@ type SelectionRationale struct {
 }
 ```
 
-## Stage 1: Surface Term Restrictions (Agent Self-Selects)
+## Stage 1: Surface Offer Restrictions (Agent Chooses an Offer)
 
-Restrictions ride on the offer, not on a broker-side filter. Each `Offer.terms[]` entry is a `LicenseTerm` carrying `repeated Restriction` (with kinds like `RESTRICTION_KIND_FUNCTION`, `RESTRICTION_KIND_GEOGRAPHY`, `RESTRICTION_KIND_USER_TYPE`). The Broker does **not** match a requester's self-declared attributes (function, geography, user type) against these restrictions to drop offers. Instead it surfaces the restrictions on each offer's terms; the agent self-selects the term whose restrictions it can honour. Real enforcement happens downstream at accept -> report -> reconcile.
+Restrictions ride on the offer, not on a broker-side filter. Each offer's single `terms[0]` entry is a `LicenseTerm` carrying `repeated Restriction` (with kinds like `RESTRICTION_KIND_FUNCTION`, `RESTRICTION_KIND_GEOGRAPHY`, `RESTRICTION_KIND_USER_TYPE`). The Broker does **not** match a requester's self-declared attributes (function, geography, user type) against these restrictions to drop offers. Instead it surfaces the restrictions carried on each offer's own term; the agent chooses the offer whose restrictions it can honour. Real enforcement happens downstream at accept -> report -> reconcile.
 
 The Broker may help the agent by annotating which term it can honour, but it does not silently remove offers whose terms carry restrictions. The function-token vocabulary is the hyphenated string form (`ai-train`, `ai-index`, `ai-input`, `crawl`, `search`, ...).
 

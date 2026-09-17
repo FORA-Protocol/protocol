@@ -513,6 +513,12 @@ SSP-Alpha returns `offer_groups` (batch mode -- multiple URIs in query):
           "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit": "accesses", "unit_cost": "0.00001515", "estimated_quantity": 3300 },
           "identity": { "canonical_url": "https://techcrunch.com/premium/ai-regulation-2026.html", "iptc_guid": "urn:newsml:techcrunch:20260315:ai-reg-001", "content_hash": "a1b2c3d4e5f6...", "hash_method": "simhash-v1" },
           "attestations": [{ "verifier": "gumgum.com", "claims": { "estimated_quantity": 3300, "word_count": 2500 }, "signature": "..." }],
+          "terms": [
+            {
+              "semantics": "TERM_SEMANTICS_ENUMERATED",
+              "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit": "accesses", "unit_cost": "0.00001515", "estimated_quantity": 3300 }
+            }
+          ],
           "signature": "base64-ed25519-sig-A...",
           "signature_algorithm": "EdDSA"
         },
@@ -524,6 +530,12 @@ SSP-Alpha returns `offer_groups` (batch mode -- multiple URIs in query):
           "identity": { "canonical_url": "https://techcrunch.com/premium/ai-regulation-2026.html", "iptc_guid": "urn:newsml:techcrunch:20260315:ai-reg-001", "content_hash": "a1b2c3d4e5f6...", "hash_method": "simhash-v1" },
           "attestations": [{ "verifier": "gumgum.com", "claims": { "estimated_quantity": 3300, "word_count": 2500 }, "signature": "..." }],
           "reporting": { "required": true, "window": "86400s", "required_fields": ["transaction_id", "function", "consumed_quantity"] },
+          "terms": [
+            {
+              "semantics": "TERM_SEMANTICS_ENUMERATED",
+              "pricing": { "model": "PRICING_MODEL_FREE", "rate": "0", "currency": "USD", "unit_cost": "0", "estimated_quantity": 3300 }
+            }
+          ],
           "signature": "base64-ed25519-sig-B...",
           "signature_algorithm": "EdDSA"
         }
@@ -557,6 +569,12 @@ Note: SSP-Alpha returns an empty `offers` array for the `theverge.com` URI with 
         "hash_method": "simhash-v1"
       },
       "attestations": [{ "verifier": "gumgum.com", "claims": { "estimated_quantity": 3100, "word_count": 2350 }, "signature": "..." }],
+      "terms": [
+        {
+          "semantics": "TERM_SEMANTICS_ENUMERATED",
+          "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.07", "currency": "USD", "unit": "accesses", "unit_cost": "0.00002258", "estimated_quantity": 3100 }
+        }
+      ],
       "signature": "base64-ed25519-sig-C...",
       "signature_algorithm": "EdDSA"
     }
@@ -653,6 +671,18 @@ SDK or Broker commits to the subscription offer.
           "hash_method": "simhash-v1",
           "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
         },
+        "terms": [
+          {
+            "semantics": "TERM_SEMANTICS_ENUMERATED",
+            "pricing": {
+              "model": "PRICING_MODEL_FREE",
+              "rate": "0",
+              "currency": "USD",
+              "unit_cost": "0",
+              "estimated_quantity": 3300
+            }
+          }
+        ],
         "signature": "base64-ed25519-sig-B...",
         "signature_algorithm": "EdDSA"
       },
@@ -703,6 +733,18 @@ SDK or Broker commits to the subscription offer.
           "hash_method": "simhash-v1",
           "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
         },
+        "terms": [
+          {
+            "semantics": "TERM_SEMANTICS_ENUMERATED",
+            "pricing": {
+              "model": "PRICING_MODEL_FREE",
+              "rate": "0",
+              "currency": "USD",
+              "unit_cost": "0",
+              "estimated_quantity": 3300
+            }
+          }
+        ],
         "signature": "base64-ed25519-sig-B...",
         "signature_algorithm": "EdDSA"
       },
@@ -961,6 +1003,12 @@ Response includes signed Offer snapshots for every transaction:
         "exchange": "exchange.ssp-alpha.com",
         "pricing": { "model": "PRICING_MODEL_FREE", "rate": "0", "currency": "USD" },
         "subscription_id": "SUB-ANTHROPIC-HEARST-2026",
+        "terms": [
+          {
+            "semantics": "TERM_SEMANTICS_ENUMERATED",
+            "pricing": { "model": "PRICING_MODEL_FREE", "rate": "0", "currency": "USD" }
+          }
+        ],
         "signature": "base64-ed25519-sig-B...",
         "signature_algorithm": "EdDSA"
       },

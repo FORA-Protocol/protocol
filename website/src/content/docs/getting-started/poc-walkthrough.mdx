@@ -126,6 +126,18 @@ The response contains **OfferGroups** — one per requested URI — each with Ed
             "window": "86400s",
             "required_fields": ["consumed_quantity"]
           },
+          "terms": [
+            {
+              "semantics": "TERM_SEMANTICS_ENUMERATED",
+              "pricing": {
+                "model": "PRICING_MODEL_PER_UNIT",
+                "rate": "0.05",
+                "currency": "USD",
+                "estimated_quantity": 2000,
+                "unit": "accesses"
+              }
+            }
+          ],
           "signature": "ae77b181...32607e08",
           "signature_algorithm": "EdDSA"
         }
@@ -166,6 +178,18 @@ curl -s -X POST https://exchange.fora-protocol.org/fora.v1.ExchangeService/Execu
           },
           "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
           "expires_at": "2026-03-16T17:43:20Z",
+          "terms": [
+            {
+              "semantics": "TERM_SEMANTICS_ENUMERATED",
+              "pricing": {
+                "model": "PRICING_MODEL_PER_UNIT",
+                "rate": "0.05",
+                "currency": "USD",
+                "estimated_quantity": 2000,
+                "unit": "accesses"
+              }
+            }
+          ],
           "signature": "ae77b181...32607e08",
           "signature_algorithm": "EdDSA"
         },

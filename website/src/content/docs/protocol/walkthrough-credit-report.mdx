@@ -428,6 +428,19 @@ The agent selects the **standard tier** ($61.99) — sufficient depth for due di
           "hash_method": "sha256",
           "resource_mutability": "RESOURCE_MUTABILITY_DYNAMIC"
         },
+        "terms": [
+          {
+            "semantics": "TERM_SEMANTICS_ENUMERATED",
+            "pricing": {
+              "model": "PRICING_MODEL_PER_UNIT",
+              "rate": "61.99",
+              "currency": "USD",
+              "unit_cost": "61.99",
+              "estimated_quantity": 1,
+              "unit": "records"
+            }
+          }
+        ],
         "signature": "base64-ed25519-dnb-offer-std-sig...",
         "signature_algorithm": "EdDSA"
       },

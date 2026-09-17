@@ -261,7 +261,7 @@ Agent SDK (planned layer)
   +-- SelectionEngine
   |     Ranks offers: subscription > preferred MP > lowest unit_cost.
   |     Deduplicates by ResourceIdentity across Exchanges.
-  |     Self-selects the Offer.terms[] term whose restrictions the agent can honour.
+  |     Chooses the Offer whose term the agent can honour (one offer per term).
   |
   +-- BudgetTracker
   |     Per-request: reject if offer > MaxPerRequest.

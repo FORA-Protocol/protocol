@@ -69,7 +69,7 @@ type OfferTemplate struct {
     Identity      *forav1.ResourceIdentity
     // License terms carried on the offer. Each LicenseTerm carries
     // repeated Restriction (kinds: FUNCTION, GEOGRAPHY, USER_TYPE, ...).
-    // Surfaced on Offer.terms[] for the agent to self-select; not a
+    // Each entitled term becomes its own Offer, carrying that term; not a
     // server-side filter.
     Terms         []*forav1.LicenseTerm
     DeliveryMethod forav1.DeliveryMethod

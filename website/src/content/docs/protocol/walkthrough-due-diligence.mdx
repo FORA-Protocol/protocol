@@ -354,6 +354,18 @@ Each Exchange returns offers in its domain-specific pricing model. The Broker ag
           "identity": {
             "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
           },
+          "terms": [
+            {
+              "semantics": "TERM_SEMANTICS_ENUMERATED",
+              "pricing": {
+                "model": "PRICING_MODEL_PER_UNIT",
+                "rate": "0.10",
+                "currency": "USD",
+                "estimated_quantity": 32,
+                "unit": "pages"
+              }
+            }
+          ],
           "signature": "base64-ed25519-legal-offer-sig-002...",
           "signature_algorithm": "EdDSA",
           "ext": {
@@ -382,6 +394,18 @@ Each Exchange returns offers in its domain-specific pricing model. The Broker ag
           "identity": {
             "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
           },
+          "terms": [
+            {
+              "semantics": "TERM_SEMANTICS_ENUMERATED",
+              "pricing": {
+                "model": "PRICING_MODEL_PER_UNIT",
+                "rate": "0.10",
+                "currency": "USD",
+                "estimated_quantity": 28,
+                "unit": "pages"
+              }
+            }
+          ],
           "signature": "base64-ed25519-legal-offer-sig-003...",
           "signature_algorithm": "EdDSA",
           "ext": {
@@ -545,6 +569,19 @@ The Broker sends batch `TransactionRequest` to each Exchange. One request per Ex
           "canonical_url": "https://creditdata.com/reports/duns/123456789",
           "resource_mutability": "RESOURCE_MUTABILITY_DYNAMIC"
         },
+        "terms": [
+          {
+            "semantics": "TERM_SEMANTICS_ENUMERATED",
+            "pricing": {
+              "model": "PRICING_MODEL_PER_UNIT",
+              "rate": "61.99",
+              "currency": "USD",
+              "unit_cost": "61.99",
+              "estimated_quantity": 1,
+              "unit": "records"
+            }
+          }
+        ],
         "signature": "base64-ed25519-credit-offer-sig...",
         "signature_algorithm": "EdDSA"
       }
@@ -590,6 +627,19 @@ The Broker sends batch `TransactionRequest` to each Exchange. One request per Ex
           "hash_method": "sha256",
           "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
         },
+        "terms": [
+          {
+            "semantics": "TERM_SEMANTICS_ENUMERATED",
+            "pricing": {
+              "model": "PRICING_MODEL_PER_UNIT",
+              "rate": "0.10",
+              "currency": "USD",
+              "unit_cost": "0.10",
+              "estimated_quantity": 45,
+              "unit": "pages"
+            }
+          }
+        ],
         "signature": "base64-ed25519-legal-offer-sig-001...",
         "signature_algorithm": "EdDSA"
       }
@@ -610,6 +660,18 @@ The Broker sends batch `TransactionRequest` to each Exchange. One request per Ex
         "identity": {
           "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
         },
+        "terms": [
+          {
+            "semantics": "TERM_SEMANTICS_ENUMERATED",
+            "pricing": {
+              "model": "PRICING_MODEL_PER_UNIT",
+              "rate": "0.10",
+              "currency": "USD",
+              "estimated_quantity": 32,
+              "unit": "pages"
+            }
+          }
+        ],
         "signature": "base64-ed25519-legal-offer-sig-002...",
         "signature_algorithm": "EdDSA"
       }
@@ -630,6 +692,18 @@ The Broker sends batch `TransactionRequest` to each Exchange. One request per Ex
         "identity": {
           "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
         },
+        "terms": [
+          {
+            "semantics": "TERM_SEMANTICS_ENUMERATED",
+            "pricing": {
+              "model": "PRICING_MODEL_PER_UNIT",
+              "rate": "0.10",
+              "currency": "USD",
+              "estimated_quantity": 28,
+              "unit": "pages"
+            }
+          }
+        ],
         "signature": "base64-ed25519-legal-offer-sig-003...",
         "signature_algorithm": "EdDSA"
       }
