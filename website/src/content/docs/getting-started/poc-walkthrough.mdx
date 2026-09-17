@@ -116,11 +116,11 @@ Once connected, five tools appear — the protocol verbs.
 
 | Tool | RPC |
 |---|---|
-| `Fora discover` | `DiscoverResources` |
-| `Fora execute` | `ExecuteTransaction` |
-| `Fora register` | `Register` |
-| `Fora report` | `ReportUsage` |
-| `Fora status` | `GetAccountStatus` |
+| `Fora discover` | `ExchangeService.DiscoverResources` |
+| `Fora execute` | `ExchangeService.ExecuteTransaction` |
+| `Fora register` | `ExchangeService.Register` |
+| `Fora report` | `ExchangeService.ReportUsage` |
+| `Fora status` | `ExchangeService.GetAccountStatus` |
 
 ## 3. The demo publisher
 
@@ -164,7 +164,7 @@ curl -s https://exchange.demo.fora-protocol.org/.well-known/fora.json
 }
 ```
 
-`legal_entity` required, `email` optional — exactly what the agent reported back. The `terms_digest` it echoed is the one above: registration records **which revision of the terms you accepted**, by digest, so neither side can later disagree about what was agreed.
+`legal_entity` required, `email` optional — exactly what the agent reported back. The digest it echoed is `WellKnownManifest.terms_digest` from the manifest above: registration records **which revision of the terms you accepted**, by digest, so neither side can later disagree about what was agreed. The manifest also advertises `WellKnownManifest.supported_profiles` and `WellKnownManifest.base_currency`, which is how an agent knows what the Exchange speaks before it sends anything.
 
 ## 5. Watch the door close
 
@@ -198,10 +198,10 @@ Ask for the same URL again, and let the agent use the protocol.
 
 Four calls, and the article arrives:
 
-1. **`Fora discover`** — the Exchange returns an offer per licensing term available to you. This one is free under the Stoa Press AI License.
-2. **`Fora execute`** — the agent presents the signed offer it chose. The Exchange verifies the signature and answers with a signed retrieval URL.
+1. **`Fora discover`** (`ExchangeService.DiscoverResources`) — the Exchange returns an offer per licensing term available to you. This one is free under the Stoa Press AI License.
+2. **`Fora execute`** (`ExchangeService.ExecuteTransaction`) — the agent presents the signed offer it chose. The Exchange verifies `Offer.signature` and answers with a signed retrieval URL in `TransactionResultItem.retrieval_endpoint`.
 3. *Fetch* — the delivery edge verifies that signed URL and serves the bytes. The same bytes the door refused.
-4. **`Fora report`** — the licence carried a usage-reporting obligation, so the agent files a report and gets back a `report_id`.
+4. **`Fora report`** (`ExchangeService.ReportUsage`) — the offer carried a `ReportingObligation`, so the agent files a report and gets back a `UsageReportResponse.report_id`.
 
 That last step is the one people skip when they imagine this problem. The licence is not only permission to read; it carries obligations, and the protocol makes discharging them part of the transaction rather than a promise.
 
