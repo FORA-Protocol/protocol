@@ -6,6 +6,57 @@ description: "FORA protocol changelog"
 This page contains curated public release notes. For the exhaustive maintainer
 and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protocol/protocol/blob/main/proto/CHANGELOG.md).
 
+## Unreleased
+
+**An offer sells exactly one licensing term (documentation correction; no wire
+change; behaviour-affecting for Exchanges).** `Offer.pricing` has said since the
+licensing core landed that "each projected LicenseTerm yields its own offer" and
+that a multi-term resource "produces multiple separate offers, one per term —
+never one offer with a 'headline' picked among them." `Offer.terms` said the
+opposite two hundred lines later: "Multiple terms when the resource has different
+arrangements by use case." Both sentences shipped in v1.0.0. The second is now
+corrected to state what the first always required, and to say why the cardinality
+is load-bearing rather than stylistic.
+
+`pricing` is the field a Broker ranks on and the field execute charges. A term
+that does not sit on its own offer therefore has no price a Broker can compare
+and no `offer_id` an agent can name, so fusing several terms onto one offer makes
+every term after the first unsellable — a dual-licensed resource sells only under
+whichever arrangement the publisher happened to store first. That is the whole
+reason the rule exists, and it was not written down anywhere the contradiction
+could be caught.
+
+The bound is now ENFORCED rather than asked for: `Offer.terms` carries
+`repeated.min_items = 1` and `repeated.max_items = 1` — exactly one, not at most
+one. An offer with no term would be an offer projected from nothing, so the floor
+is one; a fused offer fails validation at the boundary instead of travelling as a
+documented-but-unchecked violation. A rule stated only in prose is a rule nothing
+keeps, and this one went three months contradicting its own neighbour precisely
+because no gate watched it. The validation corpus gains an `Offer/terms/too_many`
+case, replayed by the Go, Python and TypeScript suites, so the ceiling is
+cross-language verified; the floor announced itself immediately by rejecting the
+corpus generator's own baseline Offer, which carried no term.
+
+No field is added, removed, renamed, renumbered or retyped, and `buf breaking`
+against the v1.0.0 tag is clean: `terms` is still field 19, still `repeated`,
+still `LicenseTerm`. It stays `repeated` because renumbering a released field is
+not available within v1, so the cardinality rides as a validation rule instead.
+N terms on a resource project to N offers on that resource, each selling one of
+them. `ResourceEntry.terms` remains genuinely plural,
+bounded at 32 as before: a resource carries many terms, an offer sells one of
+them, and nothing about ingestion changes.
+
+An Exchange that emits a fused offer will now fail validation where its consumers
+mount it, which is the intended effect: the tightening is what surfaces the
+non-conformance rather than leaving it to be read about.
+
+Implementations that emit one fused offer per resource are non-conforming and
+must project one signed offer per entitled term, each carrying that term's
+`pricing`, in stored order. Where a term is reachable only under an existing
+subscription its offer carries `subscription_id` at zero marginal cost; which
+terms a requester may see at all is decided by `LicenseTerm.scopes`. The
+reference implementation's correction is tracked separately in FORA-316.
+
 ## v1.0.0 — Initial release
 
 First public release of the FORA Protocol (Federated Open Resource Access):
