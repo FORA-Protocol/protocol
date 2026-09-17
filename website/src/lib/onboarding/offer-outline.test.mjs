@@ -132,6 +132,8 @@ test('an empty field is left out rather than shown blank', () => {
 	assert.deepEqual(outline.nodes[0], { label: 'title', value: 'A' }, 'a one-word title is not mistaken for an enum');
 });
 
+// The protocol gives an offer exactly one term, so this is the tolerant path,
+// not the expected one: a service on an older protocol must not lose terms.
 test('two terms each get their own group', () => {
 	const outline = offerOutline({
 		...PAID_OFFER,

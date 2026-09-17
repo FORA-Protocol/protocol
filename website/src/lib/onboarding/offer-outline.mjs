@@ -325,6 +325,12 @@ function termField(key, value, term) {
 	return generic(key, value);
 }
 
+// An offer carries exactly one term: fora.v1.Offer bounds the field to one, and
+// a resource licensed several ways yields one offer per term rather than one
+// offer listing them all. The grouped form below is therefore not the shape to
+// expect -- it is what this page does if a service pinned to an older protocol
+// sends more, because showing all of them beats dropping the ones after the
+// first.
 function termsNode(terms) {
 	const list = Array.isArray(terms) ? terms : [];
 	if (list.length === 0) return { label: label('terms'), value: 'none stated' };
