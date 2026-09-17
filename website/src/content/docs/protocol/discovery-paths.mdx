@@ -56,7 +56,7 @@ sequenceDiagram
 | Discover supply | `ResourceQuery` / `ResourceResponse` | **FORA** wrapping **FORA Requester** |
 | Offers returned | `Offer` with `Package` + `Pricing` | **FORA** Pricing + **CoMP** Package |
 | Content attestations | `Offer.attestations` | **FORA** `ResourceAttestation` (replaces ResourceAttestation) |
-| Access restrictions | `Offer.terms[].restrictions` (`repeated Restriction`) | **FORA** mapping of **RSL** permits/prohibits |
+| Access restrictions | `Offer.terms[0].restrictions` (`repeated Restriction`) | **FORA** mapping of **RSL** permits/prohibits |
 | Execute transaction | `TransactionRequest` / `TransactionResponse` | **FORA** (billing_id, signed URL) |
 | Fetch content | Signed URL on CDN | **FORA** extension (signed URL delivery) |
 | Report usage | `UsageReport` | **FORA** (mandatory) |
@@ -186,7 +186,7 @@ sequenceDiagram
 | Read rsl.txt | **RSL 1.0** -- terms declaration |
 | Read fora.json | **FORA** -- exchange routing |
 | DiscoverResources | Exchange returns Offers with pricing derived from RSL |
-| Offer.terms[].restrictions | Maps RSL permits/prohibits to FORA `Restriction` (kind `RESTRICTION_KIND_FUNCTION`) on each `LicenseTerm` |
+| Offer.terms[0].restrictions | Maps RSL permits/prohibits to FORA `Restriction` (kind `RESTRICTION_KIND_FUNCTION`) on the offer's `LicenseTerm` |
 
 ## Path E: Batch Multi-URL Acquisition
 
@@ -257,7 +257,7 @@ When an `OfferGroup` has no offers, the `absence_reason` field explains why. Thi
 
 ::proto-enum{name=OfferAbsenceReason}
 
-`RESTRICTION_FILTERED` reports an optional **convenience pre-filter** matched to the restriction attributes the requester volunteered (function / geography / user-type); the filtered axes are listed in `OfferGroup.restriction_filters` using the same `RestrictionKind` vocabulary the terms carry — not an enforcement verdict: restrictions ride on the offer and the agent self-selects (see [Licensing terms](/protocol/licensing-terms/)).
+`RESTRICTION_FILTERED` reports an optional **convenience pre-filter** matched to the restriction attributes the requester volunteered (function / geography / user-type); the filtered axes are listed in `OfferGroup.restriction_filters` using the same `RestrictionKind` vocabulary the terms carry — not an enforcement verdict: restrictions ride on each offer's own term and the agent chooses among the offers (see [Licensing terms](/protocol/licensing-terms/)).
 
 ### RateLimitInfo (v1.0)
 

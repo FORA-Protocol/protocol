@@ -758,10 +758,33 @@ message Offer {
   // and OpenRTB native (img.url + dimensions).
   repeated Preview previews = 18;
 
-  // Licensing terms for this offer, sourced from the publisher's ResourceEntry.
-  // Multiple terms when the resource has different arrangements by use case.
+  // The licensing term this offer sells, sourced from the publisher's
+  // ResourceEntry. EXACTLY ONE, and the bound is enforced rather than asked
+  // for: an offer IS a single licensing arrangement, so N terms on a resource
+  // project to N offers on that resource, each selling one of them — see
+  // `pricing` above. An offer with no term would be an offer projected from
+  // nothing, which is why the floor is one and not zero. The field is
+  // `repeated` because it shipped that way in v1 and renumbering a released
+  // field is not available to us, so the cardinality rides as a validation
+  // rule instead. `ResourceEntry.terms` is the plural side, bounded at 32: a
+  // resource carries many terms, an offer sells one of them.
+  //
+  // The distinction is not cosmetic. `pricing` is what a Broker ranks on and
+  // what execute charges, so a term that is not on its own offer has no price
+  // a Broker can compare and no offer_id an agent can buy. Fusing several
+  // terms onto one offer makes every term but the first unsellable — a
+  // dual-licensed resource sells only under whichever arrangement the
+  // publisher happened to store first.
+  //
+  // Where a term is reachable only under an existing subscription, its offer
+  // carries `subscription_id` and prices at zero marginal cost; the terms a
+  // requester may see at all are selected by `LicenseTerm.scopes`.
+  //
   // See: Universal Licensing Core section.
-  repeated LicenseTerm terms = 19;
+  repeated LicenseTerm terms = 19 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.max_items = 1
+  ];
 
   // Extension point
   google.protobuf.Struct ext = 15;

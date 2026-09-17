@@ -267,8 +267,8 @@ func TestIdempotencyKeyRequired(t *testing.T) {
 
 func idempotencyCases() []validationCase {
 	return []validationCase{
-		{"transaction empty key rejected", &forav1.TransactionRequest{IdempotencyKey: "", Items: []*forav1.TransactionItem{{Offer: &forav1.Offer{OfferId: "of_1", Exchange: exampleExchange, Pricing: freePricing()}}}}, false, "string.min_len"},
-		{"transaction key ok", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-1", Items: []*forav1.TransactionItem{{Offer: &forav1.Offer{OfferId: "of_1", Exchange: exampleExchange, Pricing: freePricing()}}}}, true, ""},
+		{"transaction empty key rejected", &forav1.TransactionRequest{IdempotencyKey: "", Items: []*forav1.TransactionItem{{Offer: &forav1.Offer{OfferId: "of_1", Exchange: exampleExchange, Pricing: freePricing(), Terms: freeTerms()}}}}, false, "string.min_len"},
+		{"transaction key ok", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-1", Items: []*forav1.TransactionItem{{Offer: &forav1.Offer{OfferId: "of_1", Exchange: exampleExchange, Pricing: freePricing(), Terms: freeTerms()}}}}, true, ""},
 		{"transaction empty items rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-empty"}, false, "repeated.min_items"},
 		{"usage report empty key rejected", &forav1.UsageReport{IdempotencyKey: "", Exchange: exampleExchange}, false, "string.min_len"},
 		{"usage report key ok", &forav1.UsageReport{IdempotencyKey: "idem-ur-1", Exchange: exampleExchange}, true, ""},
@@ -285,6 +285,16 @@ const exampleExchange = "exchange.example"
 
 func freePricing() *forav1.Pricing {
 	return &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"}
+}
+
+// freeTerms is the single term a valid Offer sells. Offer.terms is bounded to
+// exactly one — an offer IS one licensing arrangement — so a fixture offer
+// carries the term it sells rather than an empty list.
+func freeTerms() []*forav1.LicenseTerm {
+	return []*forav1.LicenseTerm{{
+		Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+		Pricing:   freePricing(),
+	}}
 }
 
 func gen65() []string {

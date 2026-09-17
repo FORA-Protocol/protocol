@@ -9,13 +9,14 @@
 
 :root {
   --accent: #4f6df5;
+  --accent-text: #9aaeff;
   --accent-glow: #4f6df533;
   --accent-dark: #3d58d6;
   --black: #0a0a0f;
   --near-black: #12121a;
   --dark: #1a1a26;
   --mid: #2a2a3a;
-  --gray: #8888a0;
+  --gray: #a5a5b8;
   --light-gray: #c0c0d0;
   --off-white: #e8e8f0;
   --white: #f5f5fa;

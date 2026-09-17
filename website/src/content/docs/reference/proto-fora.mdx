@@ -435,7 +435,7 @@ See [`/protocol/licensing-terms`](/protocol/licensing-terms/) for a full concept
 
 ### LicenseTerm
 
-One complete access arrangement for a resource. Lives at both ingestion (`ResourceEntry.terms`) and emission (`Offer.terms`).
+One complete access arrangement for a resource. Lives at both ingestion (`ResourceEntry.terms`, many per resource) and emission (`Offer.terms`, exactly one per offer).
 
 Validation rules (wire-enforced via protovalidate unless noted). A parenthetical
 code is the cross-field CEL rule `id:` that enforces the rule (e.g. `license_term.reference_only.requires_uri`); single-field rules use protovalidate's standard constraints (`enum.not_in`, `string.pattern`, …).
@@ -460,7 +460,7 @@ Identifies the governing license document for a `LicenseTerm`.
 
 A single constraint on one licensing dimension: function (what), geography (where), or user-type (who).
 
-**Reading a restriction**: a value is in-scope when it matches at least one `permitted[]` token AND none of the `prohibited[]` tokens. Empty `permitted[]` = any value permitted on this axis. Restrictions ride on the offer; the agent self-selects the term it can honour (the Exchange does not pre-filter terms against requester attributes).
+**Reading a restriction**: a value is in-scope when it matches at least one `permitted[]` token AND none of the `prohibited[]` tokens. Empty `permitted[]` = any value permitted on this axis. Restrictions ride on the offer, which carries exactly one term; the agent chooses among the offers a resource yields, one per entitled term (the Exchange does not pre-filter terms against requester attributes).
 
 **Vocabulary sources**: proto-native — `(fora.v1.vocab_enum)` on the `RESTRICTION_KIND_FUNCTION` / `RESTRICTION_KIND_GEOGRAPHY` / `RESTRICTION_KIND_USER_TYPE` enum values (no side-car JSON registry).
 
