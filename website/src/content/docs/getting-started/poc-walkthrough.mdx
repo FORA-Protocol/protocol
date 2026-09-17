@@ -172,22 +172,44 @@ Now the point of all this. Ask Claude to fetch an article from the demo publishe
 
 <Image src={directFetch} alt="Claude reporting that it could not fetch the page because the site blocked its request as automated traffic." />
 
-It is refused. The publisher serves that content happily to a browser and refuses it to an AI agent, which is a real posture a growing number of publishers have adopted.
+It is refused. The edge in front of the demo publisher runs bot detection, and a request it judges to be an AI agent gets a `403` — the posture a growing number of publishers have adopted.
 
-You can reproduce the asymmetry in two commands:
+What trips that judgement is a policy decision, not a fixed rule. A declared agent user-agent is the loudest signal, but the edge weighs others too — address reputation, request shape, TLS fingerprint — so the same user-agent can pass from one origin and fail from another. Trying it yourself is informative rather than definitive:
 
 ```bash
 URL=https://demo.fora-protocol.org/articles/philosophers/md/leucippus.md
 
-curl -s -o /dev/null -w '%{http_code}\n' -A 'Mozilla/5.0' "$URL"
-# 200
-
-curl -s -o /dev/null -w '%{http_code}\n' -A 'ClaudeBot/1.0 (+claudebot@anthropic.com)' "$URL"
-# 403
+curl -s -o /dev/null -w '%{http_code}\n' \
+  -A 'ClaudeBot/1.0 (+claudebot@anthropic.com)' "$URL"
 ```
 
-<Aside title="What is being refused, precisely">
-Not you — your *agent*. The block is on the agent user-agent, not on the network or the content. FORA's claim is not that content is unreachable; it is that an agent has no way to *transact* for it. That is the gap the next step closes.
+A plain `curl` from a residential address often sails through, because nothing about it looks suspicious enough to the edge. That is not a hole in the demo; it is the whole problem in miniature.
+
+<Aside title="Getting through is not the same as being allowed">
+Bot detection is a heuristic, and heuristics are an arms race: the publisher tightens, the crawler blends in, and neither side arrives anywhere. But whether a request slips past the edge has no bearing on whether the agent is permitted to use what it took.
+
+This content is licensed. The publisher's manifest names the Exchange that holds its terms:
+
+```bash
+curl -s https://demo.fora-protocol.org/.well-known/fora.json
+```
+
+```json
+{
+  "ver": "1.0",
+  "role": "ROLE_PUBLISHER",
+  "domain": "demo.fora-protocol.org",
+  "exchanges": [{
+    "domain": "exchange.demo.fora-protocol.org",
+    "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
+  }],
+  "supported_profiles": ["fora-news-v1"]
+}
+```
+
+Those terms carry restrictions, quotas and obligations — what the content may be used for, how often, and what has to be reported afterwards. A bot that defeats the heuristic and takes the bytes has accepted none of them. It is not a clever fetch; it is licensed material taken outside its licence, and the fact that the door happened to be unlocked is not a defence.
+
+So FORA's claim is not that content is unreachable. It is that **refusing and taking are the only two moves on offer, and neither one is lawful access**. The next step adds the third: accept a term, pay its price, and leave a record that both sides can audit.
 </Aside>
 
 ## 6. Buy the licence instead
