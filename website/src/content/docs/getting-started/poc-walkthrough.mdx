@@ -5,6 +5,7 @@ description: "Try FORA right now: connect the demo MCP server to Claude, registe
 
 import { Aside } from '@astrojs/starlight/components';
 import { Image } from 'astro:assets';
+import { PACKAGES } from '../../../consts';
 
 import addConnector from '../../../assets/walkthrough/01-add-connector.png';
 import connectorAuth from '../../../assets/walkthrough/02-connector-auth.png';
@@ -240,7 +241,32 @@ with `query.json`:
 }
 ```
 
-`ExecuteTransaction` and `ReportUsage` follow the same shape. Rather than hand-rolling the RFC 9421 signature, use an SDK — Go, TypeScript and Python are published, and each ships the signing transport, the offer verifier and the usage-report client:
+`ExecuteTransaction` and `ReportUsage` follow the same shape. Rather than hand-rolling the RFC 9421 signature, use an SDK. All three are published, and each ships the signing transport, the offer verifier and the usage-report client:
+
+<table>
+  <thead>
+    <tr><th>Language</th><th>Package</th><th>Install</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Go</td>
+      <td><a href={PACKAGES.go.url} target="_blank" rel="noopener noreferrer"><code>{PACKAGES.go.coordinate}</code></a></td>
+      <td><code>go get {PACKAGES.go.coordinate}</code></td>
+    </tr>
+    <tr>
+      <td>TypeScript</td>
+      <td><a href={PACKAGES.ts.url} target="_blank" rel="noopener noreferrer"><code>{PACKAGES.ts.coordinate}</code></a></td>
+      <td><code>npm install {PACKAGES.ts.coordinate}</code></td>
+    </tr>
+    <tr>
+      <td>Python</td>
+      <td><a href={PACKAGES.python.url} target="_blank" rel="noopener noreferrer"><code>{PACKAGES.python.coordinate}</code></a></td>
+      <td><code>pip install {PACKAGES.python.coordinate}</code></td>
+    </tr>
+  </tbody>
+</table>
+
+Then:
 
 - [Agent SDK overview](/components/agent-sdk/overview/) — the client faces and how they compose
 - [Transaction flow](/protocol/transaction-flow/) — the full message sequence with payloads
