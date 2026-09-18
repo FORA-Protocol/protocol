@@ -1,0 +1,116 @@
+{
+  "domain": "publisher.example",
+  "cdn": {
+    "provider": "none",
+    "integration": "none",
+    "evidence": []
+  },
+  "page": {
+    "url": "https://publisher.example/news/example-article",
+    "canonical_url": "https://publisher.example/news/example-article",
+    "title": "Example Publisher Article",
+    "source": "sitemap"
+  },
+  "detected_terms": null,
+  "terms_source": "default",
+  "offer": {
+    "title": "Example Publisher Article",
+    "pricing": {
+      "model": "PRICING_MODEL_FREE",
+      "rate": "0",
+      "currency": "EUR"
+    },
+    "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
+    "identity": {
+      "canonical_url": "https://publisher.example/news/example-article",
+      "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
+    },
+    "exchange": "exchange.demo.fora-protocol.org",
+    "terms": [
+      {
+        "semantics": "TERM_SEMANTICS_ENUMERATED",
+        "restrictions": [
+          {
+            "kind": "RESTRICTION_KIND_FUNCTION",
+            "permitted": [
+              "search",
+              "ai-input"
+            ],
+            "prohibited": [
+              "ai-train"
+            ]
+          }
+        ],
+        "pricing": {
+          "model": "PRICING_MODEL_FREE",
+          "rate": "0",
+          "currency": "EUR"
+        }
+      }
+    ]
+  },
+  "sample_feed": "{\"domain\":\"publisher.example\",\"path\":\"/news/example-article\",\"title\":\"Example Publisher Article\",\"terms\":[{\"semantics\":\"enumerated\",\"functions\":[\"search\",\"ai-input\"],\"prohibited_functions\":[\"ai-train\"],\"pricing\":{\"model\":\"free\",\"rate\":\"0\",\"currency\":\"EUR\"}}]}\n",
+  "steps": [
+    {
+      "id": "register",
+      "title": "Register and describe your site",
+      "summary": "Tell us the domain, which paths carry licensed content, and the terms you want. Registration creates your account on the Exchange and records you as the party who gets paid. Nothing is published yet and nothing changes on your site."
+    },
+    {
+      "id": "manifest",
+      "title": "Serve your discovery document at publisher.example/.well-known/fora.json",
+      "summary": "This document is how an AI agent that is refused access learns who sells that access and where to negotiate. The Exchange reads it too: it names the account that gets paid, and who may add content to the catalogue on your behalf. Serving it is also how you prove the domain is yours, so it is the step that activates your account. The edge package in the next step serves this document for you, which is why its routes have to cover the well-known paths.",
+      "commands": [
+        {
+          "label": "Check what you are serving",
+          "run": "curl -s https://publisher.example/.well-known/fora.json",
+          "expect": "The document below, with \"role\": \"ROLE_PUBLISHER\" and your own domain."
+        }
+      ],
+      "manifest": {
+        "ver": "1.0",
+        "role": "ROLE_PUBLISHER",
+        "domain": "publisher.example",
+        "exchanges": [
+          {
+            "domain": "exchange.demo.fora-protocol.org",
+            "endpoint": "https://exchange.demo.fora-protocol.org",
+            "relationship": "PROVIDER_RELATIONSHIP_DIRECT",
+            "ext": {
+              "resource_owner_id": "<the account id you receive when you register>"
+            }
+          }
+        ],
+        "supported_profiles": [
+          "fora-news-v1"
+        ]
+      }
+    },
+    {
+      "id": "edge",
+      "title": "Deploy the edge package on your CDN",
+      "summary": "No supported CDN was detected for this mock site. Tell us what serves your website so we can help plan the integration."
+    },
+    {
+      "id": "terms",
+      "title": "Set your terms",
+      "summary": "Choose what an agent may do with your content and what it costs. The terms travel with every offer, so an agent knows the price and the permitted uses before it asks for anything. You can change them later; new offers carry the new terms."
+    }
+  ],
+  "vocabulary": {
+    "pricing_models": [
+      "free",
+      "per_unit"
+    ],
+    "permitted_functions": [
+      "search",
+      "ai-input",
+      "ai-index",
+      "ai-train",
+      "crawl"
+    ],
+    "currency": "EUR",
+    "unit": "fetches"
+  },
+  "warnings": null
+}

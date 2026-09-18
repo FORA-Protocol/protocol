@@ -134,7 +134,7 @@ import '../../styles/brand.css';
        design needs. */
     .btn { padding: .75rem 1.5rem; border: 1px solid transparent; cursor: pointer; }
     .btn-primary, .btn-ghost { border-width: 1px; border-style: solid; }
-    .btn-block { width: 100%; }
+    .btn-block { width: 100%; justify-content: center; }
     .btn[disabled] { opacity: .6; cursor: progress; }
 
     /* sections */
@@ -429,7 +429,7 @@ import '../../styles/brand.css';
       .controls { grid-template-columns: 1fr; }
       .cta { padding: 1.5rem; }
     }
-    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
   </style>
 </head>
 <body>
@@ -454,7 +454,7 @@ import '../../styles/brand.css';
         <h2>Preview your onboarding</h2>
         <div class="field">
           <label for="domain">Your domain</label>
-          <input id="domain" name="domain" inputmode="url" spellcheck="false" autocapitalize="none" maxlength="253" placeholder="publisher.example" aria-describedby="domain-error" value="demo.fora-protocol.org" required />
+          <input id="domain" name="domain" inputmode="url" spellcheck="false" autocapitalize="none" maxlength="253" placeholder="publisher.example" aria-describedby="domain-error" value={import.meta.env.DEV ? 'publisher.example' : 'demo.fora-protocol.org'} required />
           <p class="field-error" id="domain-error"></p>
         </div>
         <div class="field">
@@ -462,8 +462,8 @@ import '../../styles/brand.css';
           <input id="article" name="article" inputmode="url" spellcheck="false" maxlength="2048" placeholder="https://publisher.example/news/…" aria-describedby="article-error" />
           <p class="field-error" id="article-error"></p>
         </div>
-        <button class="btn btn-primary btn-block" type="submit" id="go">Show my onboarding path</button>
-        <p class="hint">The preview reads your public sitemap and licensing document if you publish them, and your response headers. Nothing else. No crawl, no cookies, nothing stored.</p>
+        <button class="btn btn-primary btn-block" type="submit" id="go">See my onboarding steps</button>
+        <p class="hint">The preview checks your public sitemap and licensing document, if available. No crawling, no cookies, and nothing stored.</p>
       </form>
     </div>
   </div>
@@ -488,10 +488,12 @@ import '../../styles/brand.css';
         <li id="step-1">
           <span class="n">01</span>
           <div>
-            <h3>Tell us about your site</h3>
+            <h3><a href="#contact">Register</a> and tell us about your websites</h3>
             <div class="body">
-              <p>Send us the form at the end of this page and we take it from there. What we need to know about the site: the domain<span id="s1-domain"></span>, which paths carry licensed content (a prefix such as <code>/news/</code>, or the whole site), and where we read your catalog from: a sitemap, which says where your resources are, and a licensing document, which says what they cost. That is an <code>rsl.txt</code> beside the sitemap, or whatever address your <code>robots.txt</code> points at. We read both, because they answer different questions and neither stands in for the other. If you publish neither yet, we generate what is missing. Nothing is deployed at this point: we only gather what it takes to produce your files in the next steps.</p>
-              <dl class="kv"><dt>You send</dt><dd>your name, an address to reply to, and the domain</dd><dt>You get</dt><dd>an answer from us with the manifest for your domain</dd></dl>
+              <p>Create your publisher account and tell us about the websites you want to connect. For each website, we need its domain<span id="s1-domain"></span>, which paths carry licensed content (a prefix such as <code>/news/</code>, or the whole site), and where we can find your catalog and licensing terms.</p>
+              <p>Your sitemap tells us where your resources are; your licensing document tells us what they cost. This can be an <code>rsl.txt</code> beside the sitemap or a document at the address your <code>robots.txt</code> points to. We read both because they answer different questions.</p>
+              <p>If you have not published these files yet, we generate what is missing. Nothing is deployed at this stage: we gather the details needed to prepare each website’s files in the next steps.</p>
+              <dl class="kv"><dt>You provide</dt><dd>website domains, content paths, catalog and licensing sources</dd><dt>You get</dt><dd>a publisher account with your websites ready for the next step</dd></dl>
             </div>
           </div>
         </li>
@@ -500,7 +502,8 @@ import '../../styles/brand.css';
           <div>
             <h3>Serve the manifest we generate. That is your proof of domain control.</h3>
             <div class="body">
-              <p>From step 1 we generate the exact <code>/.well-known/fora.json</code> for your domain: a short JSON file naming the Exchange allowed to sell your content and naming us as the catalog contributor, so we can push your catalog on your behalf. You put that one file on your domain, next to your sitemap, or let the edge package from step 3 serve it from its configuration. The Exchange fetches it; when it is reachable and matches what you told us, your domain goes live. There is no separate verification e-mail, DNS record or key to manage, because only the domain owner can place that file.</p>
+              <p>From step 1 we generate the exact <code>/.well-known/fora.json</code> for your domain: a short JSON file naming the Exchange allowed to sell your content and naming us as the catalog contributor, so we can push your catalog on your behalf.</p>
+              <p>You put that one file on your domain or let the edge package from step 3 serve it from its configuration. Serving this file on your domain lets the Exchange verify that you control the website.</p>
               <div class="cmd embed" id="manifest"></div>
               <dl class="kv"><dt>We generate</dt><dd>the manifest, byte for byte</dd><dt>You do</dt><dd>put one file on your domain</dd><dt>Result</dt><dd>account active, catalog ingestion authorized</dd></dl>
             </div>
@@ -511,7 +514,8 @@ import '../../styles/brand.css';
           <div>
             <h3 id="cdn-title">Deploy the edge package on your CDN</h3>
             <div class="body">
-              <p>The edge package is one function on the CDN that already fronts your domain. It checks the signed delivery URL on every request to a licensed path, lets a paying agent through to your origin, and sends an unlicensed bot to the Exchange instead of blocking it. Your CMS and origin do not change. We looked at your DNS and response headers to see which CDN you run:</p>
+              <p>The edge package is one function on the CDN that already fronts your domain. It checks the signed delivery URL on every request to a licensed path, lets a paying agent through to your origin, and sends an unlicensed bot to the Exchange instead of blocking it.</p>
+              <p>Your CMS and origin do not change. We looked at your DNS and response headers to see which CDN you run:</p>
               <div class="embed card" id="cdn-card"></div>
             </div>
           </div>
@@ -519,9 +523,11 @@ import '../../styles/brand.css';
         <li>
           <span class="n">04</span>
           <div>
-            <h3>Set your terms. Ingestion runs on its own from here.</h3>
+            <h3>Set your terms and preview your offer</h3>
             <div class="body">
-              <p>Terms are what agents may do with an article and at what price: search, AI input, AI training; free or per access in EUR; attribution or not. If your site already publishes a licensing document, the controls below open on the terms it states: we read them and fill this in for you, which is how it should be — your own file is the source, not a form. Below is the offer an agent receives for one of your articles under those terms, built from <span id="s4-source">your catalog source</span> just now. Change a control and the Exchange rebuilds the offer.</p>
+              <p>Choose what agents may do with your content — search, AI input, or AI training — and at what price: free or per access. You can also require attribution.</p>
+              <p>If your website publishes a licensing document, we use its terms to fill in the controls below. Adjusting them here only changes the preview; it does not update your website or publish your content to the catalog.</p>
+              <p>Below is a sample offer showing how an agent would see your content and terms. Change a control to update it.</p>
               <!--
                 The warnings sit here rather than at the top of the result:
                 every one of them is about what could or could not be read for
@@ -573,9 +579,9 @@ import '../../styles/brand.css';
   <section class="block" id="contact">
     <div class="wrap">
       <div class="cta">
-        <div class="label">Liked the preview?</div>
-        <h2>Contact us and we start step 1.</h2>
-        <p>Tell us where to reply and we take it from there: we generate your manifest and your edge package, and ingest your catalog once your terms are set. You place one file and one function. The conversation costs nothing.</p>
+        <div class="label">Ready to get started?</div>
+        <h2>Register as a publisher</h2>
+        <p>Leave your name and email to start registration. We’ll help you add your websites, set your licensing terms, and prepare the files you need to go live.</p>
 
         <form id="contact-form" class="contact-form" novalidate>
           <div class="field">
@@ -589,11 +595,11 @@ import '../../styles/brand.css';
             <p class="field-error" id="contact-email-error"></p>
           </div>
           <div class="contact-actions">
-            <button type="submit" id="contact-send" class="btn btn-primary">Send</button>
-            <a class="btn btn-ghost" href="/getting-started/publisher-onboarding/">Read the publisher guide</a>
+            <button type="submit" id="contact-send" class="btn btn-primary">Start registration</button>
+            <a class="btn btn-ghost" href="/getting-started/publisher-onboarding/" target="_blank" rel="noopener noreferrer">Read the publisher guide</a>
           </div>
           <p class="contact-note" id="contact-note" role="status"></p>
-          <p class="hint" id="contact-hint">We send your name, your address and the domain you previewed to our team. Nothing else, and this page keeps no copy.</p>
+          <p class="hint" id="contact-hint">We send your name, email, and the domain you previewed to our team to help you register.</p>
         </form>
       </div>
     </div>
@@ -620,7 +626,6 @@ import '../../styles/brand.css';
 <script>
   import {
     FORA_ONBOARDING_API_BASE,
-    FORA_PUBLISHER_CONTACT_URL,
   } from 'astro:env/client';
   import { buildPreviewRequest } from '../../lib/onboarding/request.mjs';
   import { fetchPreview } from '../../lib/onboarding/preview-client.mjs';
@@ -647,7 +652,10 @@ import '../../styles/brand.css';
     const controller = new AbortController();
     state.inFlight = controller;
 
-    const outcome = await fetchPreview({
+    // ponytail: fixed local preview while CORS is blocked; remove this mock branch once access works.
+    const outcome = import.meta.env.DEV
+      ? { ok: true, data: (await import('../../lib/onboarding/preview-mock.json')).default }
+      : await fetchPreview({
       fetchImpl: window.fetch.bind(window),
       baseUrl: FORA_ONBOARDING_API_BASE,
       body: built.body,
@@ -664,7 +672,7 @@ import '../../styles/brand.css';
     const data = outcome.data;
     const page = data.page ?? {};
     return {
-      domain: built.body.domain,
+      domain: import.meta.env.DEV ? data.domain : built.body.domain,
       cdn: data.cdn?.provider ?? 'none',
       // The service names what it looked at (a header, a DNS record) and what it
       // found there. The name is the useful half, so that is the key.
@@ -832,20 +840,16 @@ import '../../styles/brand.css';
       html = `<div class="cdn-row"><span class="pill ok"><i></i>${esc(c.name)} detected</span></div>`
         + `<h3>Integration path: ${esc(c.scheme)} signed URLs</h3><p>${esc(c.path)}</p>`
         + `<p style="margin-top:1.25rem">${c.take(d)}</p>`
-        + `<pre class="cmd" style="margin-top:.75rem">${c.deploy(d).map(([kind, line]) => (
-          kind === '#'
-            ? `<span class="c">${esc(line)}</span>`
-            : `<span class="p">$</span> ${esc(line).replace(/(#.*)$/, '<span class="c">$1</span>')}`
-        )).join('\n')}</pre>`;
+        + `<p style="margin-top:.75rem">${esc(c.guidance)}</p>`;
     } else {
       html = '<div class="cdn-row"><span class="pill none"><i></i>No supported CDN detected</span></div>'
-        + '<h3>We will size this one with you</h3>'
-        + '<p>CloudFront, Cloudflare and Fastly are supported today. If your site sits behind another CDN or none, tell us what fronts it and we will map the integration together. The catalog side of your preview is unaffected.</p>'
-        + `<p style="margin-top:1rem"><a class="btn btn-ghost" href="${esc(FORA_PUBLISHER_CONTACT_URL)}">Contact us about ${d}</a></p>`;
+        + '<h3>We’ll help you connect your website</h3>'
+        + '<p>CloudFront, Cloudflare, and Fastly are supported today. If you use another CDN — or no CDN — start registration and we’ll help you find the right setup.</p>'
+        + '<p style="margin-top:1rem"><a class="btn btn-primary" href="#contact">Start registration</a></p>';
     }
 
     if (state.preview.evidence.length) {
-      html += '<div class="evidence"><div class="k">What we read</div><dl>'
+      html += '<div class="evidence"><div class="k">How we detected your CDN</div><dl>'
         + state.preview.evidence.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')
         + '</dl></div>';
     }
@@ -866,7 +870,6 @@ import '../../styles/brand.css';
       item.textContent = warning;
       warnings.append(item);
     }
-    $('s4-source').textContent = sourcePhrase(state.preview.source);
     renderCdn();
     renderManifest();
     if (!termsTouched) syncControls();
@@ -875,13 +878,25 @@ import '../../styles/brand.css';
     $('status').textContent = `Preview ready for ${state.domain}.`;
   }
 
-  function renderFailure(failure) {
+  function renderFailure(failure, { scrollToContact = false } = {}) {
     if (failure.field) {
       setFieldError(failure.field, failure.headline);
       $(failure.field)?.focus();
       return;
     }
     $('result').hidden = true;
+    if (failure.kind === 'network') {
+      $('failure').hidden = true;
+      $('status').textContent = '';
+      if (scrollToContact) {
+        $('contact-name').focus({ preventScroll: true });
+        $('contact').scrollIntoView({
+          behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+          block: 'start',
+        });
+      }
+      return;
+    }
     const card = $('failure-card');
     card.innerHTML = `<div class="cdn-row"><span class="pill bad"><i></i>${esc(failure.kind ?? 'error')}</span></div>`
       + `<h3>${esc(failure.headline)}</h3>`
@@ -937,10 +952,10 @@ import '../../styles/brand.css';
     const preview = await previewOnboarding($('domain').value, $('article').value, controlState());
 
     button.disabled = false;
-    button.textContent = 'Show my onboarding path';
+    button.textContent = 'See my onboarding steps';
 
     if (preview.aborted) return;
-    if (preview.error) { renderFailure(preview.error); return; }
+    if (preview.error) { renderFailure(preview.error, { scrollToContact: scrollToPath }); return; }
 
     state.domain = preview.domain;
     state.preview = preview;
@@ -1043,7 +1058,7 @@ import '../../styles/brand.css';
     if (contactInFlight === controller) contactInFlight = null;
 
     button.disabled = false;
-    button.textContent = 'Send';
+    button.textContent = 'Start registration';
     if (outcome.aborted) return;
 
     if (outcome.ok) {
