@@ -454,7 +454,7 @@ import '../../styles/brand.css';
         <h2>Preview your onboarding</h2>
         <div class="field">
           <label for="domain">Your domain</label>
-          <input id="domain" name="domain" inputmode="url" spellcheck="false" autocapitalize="none" maxlength="253" placeholder="publisher.example" aria-describedby="domain-error" value={import.meta.env.DEV ? 'publisher.example' : 'demo.fora-protocol.org'} required />
+          <input id="domain" name="domain" inputmode="url" spellcheck="false" autocapitalize="none" maxlength="253" placeholder="publisher.example" aria-describedby="domain-error" value="demo.fora-protocol.org" required />
           <p class="field-error" id="domain-error"></p>
         </div>
         <div class="field">
@@ -652,10 +652,7 @@ import '../../styles/brand.css';
     const controller = new AbortController();
     state.inFlight = controller;
 
-    // ponytail: fixed local preview while CORS is blocked; remove this mock branch once access works.
-    const outcome = import.meta.env.DEV
-      ? { ok: true, data: (await import('../../lib/onboarding/preview-mock.json')).default }
-      : await fetchPreview({
+    const outcome = await fetchPreview({
       fetchImpl: window.fetch.bind(window),
       baseUrl: FORA_ONBOARDING_API_BASE,
       body: built.body,
@@ -672,7 +669,7 @@ import '../../styles/brand.css';
     const data = outcome.data;
     const page = data.page ?? {};
     return {
-      domain: import.meta.env.DEV ? data.domain : built.body.domain,
+      domain: built.body.domain,
       cdn: data.cdn?.provider ?? 'none',
       // The service names what it looked at (a header, a DNS record) and what it
       // found there. The name is the useful half, so that is the key.

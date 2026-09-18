@@ -28,29 +28,6 @@ const functions = ['renderFailure', 'runPreview'].map((name) =>
   page.match(new RegExp(`  (?:async )?function ${name}\\([^]*?\\n  \\}`))[0],
 ).join('\n');
 
-test('the temporary preview uses the fixture only in development', async () => {
-  const selection = page.match(/const outcome = import\.meta\.env\.DEV[^]*?\n    \}\);/)[0]
-    .replace('import.meta.env.DEV', 'development')
-    .replace("import('../../lib/onboarding/preview-mock.json')", 'loadMock()');
-  for (const development of [true, false]) {
-    let requests = 0;
-    let imports = 0;
-    const outcome = await runInNewContext(`(async () => { ${selection} return outcome; })()`, {
-      development,
-      loadMock: async () => {
-        imports++;
-        return { default: JSON.parse(readFileSync(new URL('./preview-mock.json', import.meta.url), 'utf8')) };
-      },
-      fetchPreview: async () => { requests++; return { ok: true, data: { domain: 'live.example' } }; },
-      window: { fetch() {} }, FORA_ONBOARDING_API_BASE: '', built: { body: {} }, controller: {},
-    });
-    assert.equal(outcome.data.domain, development ? 'publisher.example' : 'live.example');
-    if (development) assert.equal(outcome.data.cdn.provider, 'none');
-    assert.equal(requests, development ? 0 : 1);
-    assert.equal(imports, development ? 1 : 0);
-  }
-});
-
 test('network failures stay quiet on load and lead to contact only after submitting', async () => {
   for (const scrollToPath of [false, true]) {
     for (const reducedMotion of [false, true]) {
