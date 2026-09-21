@@ -1,11 +1,5 @@
 ---
-// Public onboarding preview. A visitor enters a domain and sees the CDN we
-// detect, every step to go live, and a sample catalog record built from one of
-// their own articles. Nothing is stored and no account is created here.
-//
-// The layout, copy and styling follow the design attached to the ticket. This
-// page sits outside the Starlight docs shell on purpose: it continues the
-// landing page's funnel rather than the documentation.
+// Public agent preview: one page URL, its service-generated offer and configuration.
 import SiteNav from '../../components/SiteNav.astro';
 import SiteFooter from '../../components/SiteFooter.astro';
 import '../../styles/brand.css';
@@ -14,8 +8,8 @@ import '../../styles/brand.css';
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>FORA Publisher Preview</title>
-  <meta name="description" content="Enter your domain and see what AI agents would pay for on your site: the CDN we detected, every step to go live, and a sample of your catalog exactly as an Exchange would list it." />
+  <title>FORA Agent Preview</title>
+  <meta name="description" content="See what an AI agent gets for your page. Preview its content, licensing terms, and FORA configuration." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -95,18 +89,6 @@ import '../../styles/brand.css';
     }
     .hero-body h1 em { font-style: normal; color: var(--accent); }
     .hero-body p.sub { font-size: 1.125rem; color: var(--gray); line-height: 1.6; max-width: 36rem; }
-    .trust {
-      display: flex;
-      flex-wrap: wrap;
-      gap: .5rem 1.5rem;
-      margin-top: 1.75rem;
-      font-family: var(--mono);
-      font-size: .75rem;
-      color: var(--gray);
-      letter-spacing: .04em;
-    }
-    .trust span:before { content: "·"; color: var(--accent); margin-right: .5rem; }
-
     /* form panel */
     .panel { background: var(--near-black); border: 1px solid var(--mid); border-radius: 4px; padding: 1.5rem; }
     .panel h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; }
@@ -158,13 +140,14 @@ import '../../styles/brand.css';
       gap: .5rem 1rem;
       margin-bottom: 1rem;
     }
-    .result-head .label { margin: 0; }
-    .result-head .label b { color: var(--white); font-weight: 500; text-transform: none; letter-spacing: 0; }
-    .result-head .hint { margin: 0; }
+    .result-head h2 { font-size: 1.6rem; overflow-wrap: anywhere; }
+    .preview-meta { color: var(--gray); font-size: .875rem; margin-top: .75rem; overflow-wrap: anywhere; }
+    #preview-title { overflow-wrap: anywhere; }
+    #preview-heading { scroll-margin-top: 1rem; }
+    #preview-notes { margin-block: 1rem; color: var(--gray); }
     #result { padding-block: 2rem 3.5rem; scroll-margin-top: 0; }
     .card { background: var(--near-black); border: 1px solid var(--mid); border-radius: 4px; padding: 1.5rem; }
     .card h3 { font-size: 1.0625rem; font-weight: 600; margin-bottom: .25rem; }
-    .cdn-row { display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem; }
     .pill {
       display: inline-flex;
       align-items: center;
@@ -180,7 +163,6 @@ import '../../styles/brand.css';
     .pill.ok { color: var(--str); border-color: #7ec8a066; background: #7ec8a014; }
     .pill.none { color: var(--warn); border-color: #e0a45866; background: #e0a45814; }
     .pill.bad { color: var(--bad); border-color: #e74c3c66; background: #e74c3c14; }
-    .pill i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; display: inline-block; }
     .card p { color: var(--gray); font-size: .9375rem; }
     .card p code { font-family: var(--mono); font-size: .85em; color: var(--str); background: #7ec8a01a; padding: .1rem .35rem; border-radius: 2px; }
     .evidence { margin-top: 1rem; border-top: 1px solid var(--mid); padding-top: .875rem; }
@@ -202,39 +184,10 @@ import '../../styles/brand.css';
     .evidence dt { color: var(--key); }
     .evidence dd { color: var(--light-gray); overflow-wrap: anywhere; }
 
-    /* path */
-    .path { list-style: none; padding: 0; display: flex; flex-direction: column; margin-top: 1rem; }
-    .path > li {
-      display: grid;
-      grid-template-columns: 3.5rem minmax(0, 1fr);
-      padding-block: 2.25rem;
-      border-top: 1px solid var(--dark);
-    }
-    .path > li:first-child { border-top: 0; padding-top: .5rem; }
-    #step-1 { scroll-margin-top: 1rem; }
-    .path .n { font-family: var(--mono); font-size: .8125rem; color: var(--accent); letter-spacing: .1em; padding-top: .45rem; }
-    .path h3 { font-size: 1.3rem; font-weight: 600; margin-bottom: .6rem; }
-    .path .body { color: var(--gray); font-size: .9875rem; line-height: 1.6; }
-    .path .body > p { max-width: 46rem; }
-    .path .body > p + p { margin-top: .75rem; }
-    .path .body code { font-family: var(--mono); font-size: .85em; color: var(--str); background: #7ec8a01a; padding: .1rem .35rem; border-radius: 2px; }
-    .kv {
-      display: grid;
-      grid-template-columns: max-content minmax(0, 1fr);
-      gap: .35rem 1.25rem;
-      margin-top: 1rem;
-      font-size: .875rem;
-      max-width: 46rem;
-    }
-    .kv dt {
-      font-family: var(--mono);
-      font-size: .6875rem;
-      letter-spacing: .1em;
-      text-transform: uppercase;
-      color: var(--light-gray);
-      padding-top: .2rem;
-    }
-    .kv dd { color: var(--gray); }
+    /* configuration */
+    .configuration { border-top: 1px solid var(--dark); margin-top: 2rem; padding-top: 2rem; }
+    .configuration h2 { font-size: 1.6rem; margin-bottom: .75rem; }
+    .configuration > p { color: var(--gray); max-width: 46rem; }
     .embed { margin-top: 1.25rem; }
 
     /* sample */
@@ -358,14 +311,13 @@ import '../../styles/brand.css';
     .offer .lbl:after { content: ":"; color: var(--brace); }
     .offer .val { color: var(--str); }
 
-    /* contact + faq */
+    /* contact */
     .cta { background: var(--near-black); border: 1px solid var(--mid); border-radius: 4px; padding: 2.5rem; max-width: 44rem; }
     .cta h2 { font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: .75rem; }
     .cta p { color: var(--gray); margin-bottom: 1.5rem; }
-    .cta .btns { display: flex; gap: .75rem; flex-wrap: wrap; }
     .contact-form {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: 1fr;
       gap: 0 1.25rem;
     }
     .contact-form .field { margin-bottom: .75rem; }
@@ -393,9 +345,6 @@ import '../../styles/brand.css';
       .contact-form { grid-template-columns: 1fr; }
       .contact-actions .btn { width: 100%; justify-content: center; }
     }
-    .faq { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem; }
-    .faq div h3 { font-size: 1rem; font-weight: 600; margin-bottom: .4rem; }
-    .faq div p { font-size: .9rem; color: var(--gray); }
 
     .note { font-size: .8125rem; color: var(--gray); border-left: 2px solid var(--mid); padding-left: .75rem; margin-top: 1rem; }
     .notes { list-style: none; padding: 0; margin: 1.25rem 0 0; display: grid; gap: .5rem; }
@@ -421,9 +370,7 @@ import '../../styles/brand.css';
 
     @media (max-width: 900px) {
       .hero-body { grid-template-columns: 1fr; }
-      .path > li { grid-template-columns: 2rem minmax(0, 1fr); }
       .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .faq { grid-template-columns: 1fr; }
     }
     @media (max-width: 560px) {
       .controls { grid-template-columns: 1fr; }
@@ -439,31 +386,20 @@ import '../../styles/brand.css';
   <div class="wrap">
     <div class="hero-body">
       <div>
-        <span class="badge">For publishers · See it before you commit</span>
-        <h1>See what AI agents would <em>pay for</em> on your site. Before you sign anything.</h1>
-        <p class="sub">Enter your domain. On one screen you get the CDN we detected, every step to go live, and a sample of your catalog exactly as an Exchange would list it. Talk to us only when you like what you see.</p>
-        <div class="trust">
-          <span>No CMS changes</span>
-          <span>One function on your CDN</span>
-          <span>You set the price</span>
-          <span>No keys to manage</span>
-        </div>
+        <span class="badge">For publishers · Agent preview</span>
+        <h1>See what an AI agent <em>gets for your page.</em></h1>
+        <p class="sub">Preview your content and licensing terms. Try different permissions and prices, then see the configuration behind them.</p>
       </div>
 
       <form class="panel" id="preview-form" autocomplete="off" novalidate>
-        <h2>Preview your onboarding</h2>
+        <h2>Preview your page</h2>
         <div class="field">
-          <label for="domain">Your domain</label>
-          <input id="domain" name="domain" inputmode="url" spellcheck="false" autocapitalize="none" maxlength="253" placeholder="publisher.example" aria-describedby="domain-error" value="demo.fora-protocol.org" required />
-          <p class="field-error" id="domain-error"></p>
+          <label for="url">Paste any page of your website</label>
+          <input id="url" name="url" type="url" inputmode="url" spellcheck="false" autocapitalize="none" maxlength="2048" placeholder="https://publisher.example/news/…" aria-describedby="url-error" required />
+          <p class="field-error" id="url-error"></p>
         </div>
-        <div class="field">
-          <label for="article">One article URL <small>· optional</small></label>
-          <input id="article" name="article" inputmode="url" spellcheck="false" maxlength="2048" placeholder="https://publisher.example/news/…" aria-describedby="article-error" />
-          <p class="field-error" id="article-error"></p>
-        </div>
-        <button class="btn btn-primary btn-block" type="submit" id="go">See my onboarding steps</button>
-        <p class="hint">The preview checks your public sitemap and licensing document, if available. No crawling, no cookies, and nothing stored.</p>
+        <button class="btn btn-primary btn-block" type="submit" id="go">Show me</button>
+        <p class="hint">We read the page and its public licensing document, if available. This preview changes nothing on your site.</p>
       </form>
     </div>
   </div>
@@ -481,139 +417,81 @@ import '../../styles/brand.css';
   <section class="block" id="result" hidden>
     <div class="wrap">
       <div class="result-head">
-        <span class="label">Your onboarding path · <b id="r-domain"></b></span>
-        <span class="hint" id="r-meta"></span>
+        <h2 id="preview-heading" tabindex="-1">Agent preview · <span id="r-domain"></span></h2>
+        <span class="pill" id="cdn-badge"></span>
       </div>
-      <ol class="path">
-        <li id="step-1">
-          <span class="n">01</span>
-          <div>
-            <h3><a href="#contact">Register</a> and tell us about your websites</h3>
-            <div class="body">
-              <p>Create your publisher account and tell us about the websites you want to connect. For each website, we need its domain<span id="s1-domain"></span>, which paths carry licensed content (a prefix such as <code>/news/</code>, or the whole site), and where we can find your catalog and licensing terms.</p>
-              <p>Your sitemap tells us where your resources are; your licensing document tells us what they cost. This can be an <code>rsl.txt</code> beside the sitemap or a document at the address your <code>robots.txt</code> points to. We read both because they answer different questions.</p>
-              <p>If you have not published these files yet, we generate what is missing. Nothing is deployed at this stage: we gather the details needed to prepare each website’s files in the next steps.</p>
-              <dl class="kv"><dt>You provide</dt><dd>website domains, content paths, catalog and licensing sources</dd><dt>You get</dt><dd>a publisher account with your websites ready for the next step</dd></dl>
+      <h3 id="preview-title"></h3>
+      <p class="preview-meta">Source: <a id="preview-source"></a><br />Checked: <time id="preview-checked"></time></p>
+      <p class="note" id="content-status"></p>
+      <p class="hint">Adjust the controls to preview different terms. This does not publish content or configure your site.</p>
+      <div class="sample">
+        <div class="controls" id="sample-controls" aria-label="Terms controls">
+          <div class="ctl">
+            <span class="k" id="k-model">Pricing model</span>
+            <div class="seg" role="radiogroup" aria-labelledby="k-model">
+              <input type="radio" name="model" id="m-free" value="free" checked /><label for="m-free">Free</label>
+              <input type="radio" name="model" id="m-paid" value="per_unit" /><label for="m-paid">Per access</label>
             </div>
           </div>
-        </li>
-        <li>
-          <span class="n">02</span>
-          <div>
-            <h3>Serve the manifest we generate. That is your proof of domain control.</h3>
-            <div class="body">
-              <p>From step 1 we generate the exact <code>/.well-known/fora.json</code> for your domain: a short JSON file naming the Exchange allowed to sell your content and naming us as the catalog contributor, so we can push your catalog on your behalf.</p>
-              <p>You put that one file on your domain or let the edge package from step 3 serve it from its configuration. Serving this file on your domain lets the Exchange verify that you control the website.</p>
-              <div class="cmd embed" id="manifest"></div>
-              <dl class="kv"><dt>We generate</dt><dd>the manifest, byte for byte</dd><dt>You do</dt><dd>put one file on your domain</dd><dt>Result</dt><dd>account active, catalog ingestion authorized</dd></dl>
+          <div class="ctl">
+            <span class="k">Price per access</span>
+            <div class="price"><span>EUR</span><input id="price" type="number" min="0" step="0.01" value="0.02" disabled aria-label="Price per access in EUR" /></div>
+          </div>
+          <div class="ctl">
+            <span class="k">Allowed uses</span>
+            <div class="checks">
+              <label><input type="checkbox" id="u-search" checked /> Search</label>
+              <label><input type="checkbox" id="u-ai-input" checked /> AI input <small style="color:var(--gray)">(RAG, answers)</small></label>
+              <label><input type="checkbox" id="u-ai-train" /> AI training</label>
             </div>
           </div>
-        </li>
-        <li id="step-cdn">
-          <span class="n">03</span>
-          <div>
-            <h3 id="cdn-title">Deploy the edge package on your CDN</h3>
-            <div class="body">
-              <p>The edge package is one function on the CDN that already fronts your domain. It checks the signed delivery URL on every request to a licensed path, lets a paying agent through to your origin, and sends an unlicensed bot to the Exchange instead of blocking it.</p>
-              <p>Your CMS and origin do not change. We looked at your DNS and response headers to see which CDN you run:</p>
-              <div class="embed card" id="cdn-card"></div>
-            </div>
+          <div class="ctl">
+            <span class="k">Attribution</span>
+            <label class="switch"><input type="checkbox" id="attr" checked /> Required on every use</label>
           </div>
-        </li>
-        <li>
-          <span class="n">04</span>
-          <div>
-            <h3>Set your terms and preview your offer</h3>
-            <div class="body">
-              <p>Choose what agents may do with your content — search, AI input, or AI training — and at what price: free or per access. You can also require attribution.</p>
-              <p>If your website publishes a licensing document, we use its terms to fill in the controls below. Adjusting them here only changes the preview; it does not update your website or publish your content to the catalog.</p>
-              <p>Below is a sample offer showing how an agent would see your content and terms. Change a control to update it.</p>
-              <!--
-                The warnings sit here rather than at the top of the result:
-                every one of them is about what could or could not be read for
-                the terms and the offer, which is what the controls below act
-                on. Next to them they are context; above the path they were a
-                banner about nothing in particular.
-              -->
-              <ul class="notes" id="r-warnings"></ul>
-              <div class="sample">
-                <div class="controls" id="sample-controls" aria-label="Terms controls">
-                  <div class="ctl">
-                    <span class="k" id="k-model">Pricing model</span>
-                    <div class="seg" role="radiogroup" aria-labelledby="k-model">
-                      <input type="radio" name="model" id="m-free" value="free" checked /><label for="m-free">Free</label>
-                      <input type="radio" name="model" id="m-paid" value="per_unit" /><label for="m-paid">Per access</label>
-                    </div>
-                  </div>
-                  <div class="ctl">
-                    <span class="k">Price per access</span>
-                    <div class="price"><span>EUR</span><input id="price" type="number" min="0" step="0.01" value="0.02" disabled aria-label="Price per access in EUR" /></div>
-                  </div>
-                  <div class="ctl">
-                    <span class="k">Allowed uses</span>
-                    <div class="checks">
-                      <label><input type="checkbox" id="u-search" checked /> Search</label>
-                      <label><input type="checkbox" id="u-ai-input" checked /> AI input <small style="color:var(--gray)">(RAG, answers)</small></label>
-                      <label><input type="checkbox" id="u-ai-train" /> AI training</label>
-                    </div>
-                  </div>
-                  <div class="ctl">
-                    <span class="k">Attribution</span>
-                    <label class="switch"><input type="checkbox" id="attr" checked /> Required on every use</label>
-                  </div>
-                </div>
-                <p class="terms-source" id="terms-source"></p>
-                <div class="codebox">
-                  <div class="offer" id="offer" tabindex="0" aria-label="The offer an agent receives" aria-busy="false"></div>
-                </div>
-              </div>
-              <p>As soon as terms are saved, we ingest your catalog automatically, one record per article: the sitemap gives us the resources, your licensing document gives us their terms, and both are re-read as you publish. There is nothing to run and nothing to upload. From this point every bot that hits a licensed path meets your terms, and paying agents get through with a signed URL. Blocked bots become paying customers.</p>
-              <dl class="kv"><dt>You set</dt><dd>terms, changeable any time</dd><dt>We do</dt><dd>ingest and refresh the catalog as the contributor named in your manifest</dd><dt>Result</dt><dd>your articles listed with your terms, discoverable and payable by agents</dd></dl>
-            </div>
-          </div>
-        </li>
-      </ol>
+        </div>
+        <p class="terms-source" id="terms-source"></p>
+        <div class="codebox">
+          <div class="offer" id="offer" tabindex="0" aria-label="The offer an agent receives" aria-busy="false"></div>
+        </div>
+      </div>
+      <details id="preview-notes">
+        <summary>Check details</summary>
+        <ul class="notes" id="r-warnings"></ul>
+      </details>
+      <section class="configuration" aria-labelledby="configuration-heading">
+        <h2 id="configuration-heading">How do you configure it?</h2>
+        <p>This generated <code>fora.json</code> describes your site’s connection to an Exchange. It is a preview; nothing has been installed or activated.</p>
+        <div class="cmd embed" id="manifest"></div>
+        <div class="embed card" id="cdn-card"></div>
+      </section>
     </div>
   </section>
 
   <section class="block" id="contact">
     <div class="wrap">
       <div class="cta">
-        <div class="label">Ready to get started?</div>
-        <h2>Register as a publisher</h2>
-        <p>Leave your name and email to start registration. We’ll help you add your websites, set your licensing terms, and prepare the files you need to go live.</p>
+        <div class="label">Interested?</div>
+        <h2>Get notified when you can connect your site</h2>
+        <p>Leave your email for connection updates. This registers your interest; it does not create an account or connect your site.</p>
 
         <form id="contact-form" class="contact-form" novalidate>
-          <div class="field">
-            <label for="contact-name">Your name</label>
-            <input id="contact-name" name="name" type="text" maxlength="200" autocomplete="name" required aria-describedby="contact-name-error" />
-            <p class="field-error" id="contact-name-error"></p>
-          </div>
           <div class="field">
             <label for="contact-email">Your email</label>
             <input id="contact-email" name="email" type="email" maxlength="254" autocomplete="email" spellcheck="false" required aria-describedby="contact-email-error" />
             <p class="field-error" id="contact-email-error"></p>
           </div>
           <div class="contact-actions">
-            <button type="submit" id="contact-send" class="btn btn-primary">Start registration</button>
+            <button type="submit" id="contact-send" class="btn btn-primary">Notify me</button>
             <a class="btn btn-ghost" href="/getting-started/publisher-onboarding/" target="_blank" rel="noopener noreferrer">Read the publisher guide</a>
           </div>
           <p class="contact-note" id="contact-note" role="status"></p>
-          <p class="hint" id="contact-hint">We send your name, email, and the domain you previewed to our team to help you register.</p>
+          <p class="hint" id="contact-hint">We send your email and the domain you previewed to our team.</p>
         </form>
       </div>
     </div>
   </section>
 
-  <section class="block" id="faq">
-    <div class="wrap">
-      <div class="faq">
-        <div><h3>Do I have to change my CMS?</h3><p>No. The catalog is built from a sitemap and a licensing document on your domain, and the edge function runs on your CDN. Your origin serves pages exactly as it does today.</p></div>
-        <div><h3>Who holds the keys?</h3><p>We do. Your manifest names us as the catalog contributor, so we push and refresh your catalog for you, and we hold the URL-signing key. For CloudFront only its public half goes into your trusted key group. You never handle key material; the one thing you place is the manifest.</p></div>
-        <div><h3>What does it cost?</h3><p>You set the price per access, or make content free for some uses. The Exchange takes its fee only on paid accesses. The preview and the conversation cost nothing.</p></div>
-      </div>
-    </div>
-  </section>
 </main>
 
 <SiteFooter />
@@ -627,11 +505,11 @@ import '../../styles/brand.css';
   import {
     FORA_ONBOARDING_API_BASE,
   } from 'astro:env/client';
-  import { buildPreviewRequest } from '../../lib/onboarding/request.mjs';
+  import { buildPagePreviewRequest, previewPageUrl, withPreviewPageUrl } from '../../lib/onboarding/request.mjs';
   import { fetchPreview } from '../../lib/onboarding/preview-client.mjs';
-  import { CDN_INTEGRATIONS } from '../../lib/onboarding/cdn-integrations.mjs';
+  import { cdnPresentation } from '../../lib/onboarding/cdn-integrations.mjs';
   import { OFFERED_USES, partitionUses } from '../../lib/onboarding/terms-vocab.mjs';
-  import { DEFAULT_DOMAIN, sourcePhrase } from '../../lib/onboarding/default-preview.mjs';
+  import { previewDetails } from '../../lib/onboarding/default-preview.mjs';
   import { highlightJson } from '../../lib/onboarding/record.mjs';
   import { offerOutline, resolvedControls, unreadableSentence } from '../../lib/onboarding/offer-outline.mjs';
   import { buildContactRequest, sendContact } from '../../lib/onboarding/contact.mjs';
@@ -639,69 +517,31 @@ import '../../styles/brand.css';
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  const state = { domain: '', preview: null, inFlight: null };
+  const state = { domain: '', url: '', preview: null, inFlight: null, requestId: 0 };
 
   // ---- the preview API -----------------------------------------------------
   // The single seam where the preview service is called. It answers with its
   // own shape; this maps it onto what the page renders.
-  async function previewOnboarding(domain, articleUrl, controls) {
-    const built = buildPreviewRequest({ domain, articleUrl, controls });
-    if (!built.ok) return { error: { field: built.field, headline: built.message, detail: '' } };
-
-    if (state.inFlight) state.inFlight.abort();
+  async function previewOnboarding(body) {
     const controller = new AbortController();
     state.inFlight = controller;
 
     const outcome = await fetchPreview({
       fetchImpl: window.fetch.bind(window),
       baseUrl: FORA_ONBOARDING_API_BASE,
-      body: built.body,
+      body,
       signal: controller.signal,
     });
     // Only the call that still owns the slot clears it. An older call settling
     // late would otherwise wipe a newer one's controller, after which the next
     // request has nothing to cancel and the two run side by side.
-    if (state.inFlight === controller) state.inFlight = null;
+    if (state.inFlight !== controller) return { aborted: true };
+    state.inFlight = null;
 
     if (outcome.aborted) return { aborted: true };
     if (!outcome.ok) return { error: outcome.failure };
 
-    const data = outcome.data;
-    const page = data.page ?? {};
-    return {
-      domain: built.body.domain,
-      cdn: data.cdn?.provider ?? 'none',
-      // The service names what it looked at (a header, a DNS record) and what it
-      // found there. The name is the useful half, so that is the key.
-      evidence: (Array.isArray(data.cdn?.evidence) ? data.cdn.evidence : [])
-        .filter((e) => e && typeof e === 'object')
-        .map((e) => [String(e.name || e.source || ''), String(e.value ?? '')])
-        .filter(([name]) => name !== ''),
-      articles: [{
-        url: String(page.canonical_url ?? page.url ?? `https://${built.body.domain}/`),
-        title: String(page.title ?? ''),
-      }],
-      source: String(page.source ?? ''),
-      unreadable: page.unreadable ?? null,
-      // The manifest the service generated for this domain. It is not rebuilt
-      // here: fora.v1.WellKnownManifest says what the file must carry, the
-      // service builds it from that, and a second copy written in a page is a
-      // copy that drifts. This one was wrong in four ways before it was
-      // deleted -- ver, role, the exchange relationship, and where
-      // supported_profiles belongs.
-      manifest: manifestFromSteps(data.steps),
-      termsSource: String(data.terms_source ?? ''),
-      termsDocument: String(data.detected_terms?.document_url ?? ''),
-      offer: data.offer ?? null,
-      warnings: Array.isArray(data.warnings) ? data.warnings.map(String) : [],
-    };
-  }
-
-  // manifestFromSteps finds the step that carries the file to serve.
-  function manifestFromSteps(steps) {
-    if (!Array.isArray(steps)) return null;
-    const step = steps.find((entry) => entry && typeof entry === 'object' && entry.manifest);
-    return step ? step.manifest : null;
+    return previewDetails(outcome.data, body.article_url, new Date().toISOString(), body.domain);
   }
 
   // ---- terms from the controls --------------------------------------------
@@ -729,16 +569,7 @@ import '../../styles/brand.css';
   // rebuilt offer must not move them.
   function syncControls() {
     const controls = resolvedControls(state.preview?.offer, OFFERED_USES);
-    const note = $('terms-source');
-
-    if (state.preview?.unreadable) {
-      note.textContent = '';
-      return;
-    }
-    if (!controls) {
-      note.textContent = '';
-      return;
-    }
+    if (!controls || !state.preview.hasOffer) return;
 
     $(controls.pricingModel === 'free' ? 'm-free' : 'm-paid').checked = true;
     $('price').disabled = controls.pricingModel === 'free';
@@ -748,14 +579,6 @@ import '../../styles/brand.css';
     }
     $('attr').checked = controls.attributionRequired;
 
-    if (state.preview.termsSource === 'detected') {
-      const where = state.preview.termsDocument;
-      note.textContent = where
-        ? `These are the terms your licensing document already states. We read them at ${where}.`
-        : 'These are the terms your licensing document already states. We read them and filled this in.';
-    } else {
-      note.textContent = 'Your site does not state terms yet, so these are FORA defaults. Change them and the offer follows.';
-    }
   }
 
   function renderOffer() {
@@ -765,16 +588,17 @@ import '../../styles/brand.css';
 
     // No page, no offer: an offer prices a resource, and this one could not be
     // read. The controls go with it, because changing terms cannot produce one.
-    const unreadable = state.preview.unreadable;
-    $('sample-controls').hidden = Boolean(unreadable);
-    if (unreadable) {
+    $('sample-controls').hidden = !state.preview.hasOffer;
+    if (!state.preview.hasOffer) {
       host.classList.add('unreadable');
       const heading = document.createElement('p');
       heading.className = 'unreadable-head';
       heading.textContent = 'We cannot show an offer for this page';
       const detail = document.createElement('p');
       detail.className = 'unreadable-detail';
-      detail.textContent = unreadableSentence(unreadable);
+      detail.textContent = state.preview.contentRead
+        ? 'The page was read, but the service returned no agent package.'
+        : unreadableSentence(state.preview.unreadable);
       host.append(heading, detail);
       return;
     }
@@ -814,36 +638,15 @@ import '../../styles/brand.css';
       $('manifest').textContent =
         'We could not generate your discovery document for this domain. Ask us and we will send it.';
     } else {
-      $('manifest').innerHTML = `<span class="c"># https://${esc(d)}/.well-known/fora.json  (we generate this for you)</span>\n`
+      $('manifest').innerHTML = `<span class="c"># https://${esc(d)}/.well-known/fora.json  (configuration preview)</span>\n`
         + highlightJson(JSON.stringify(manifest, null, 2));
     }
-    // The domain reads as a value, so it gets the same inline-code treatment as
-    // the paths and filenames around it. Built as nodes rather than markup:
-    // the domain is whatever the visitor typed.
-    const s1 = $('s1-domain');
-    s1.textContent = '';
-    const domainCode = document.createElement('code');
-    domainCode.textContent = state.domain;
-    s1.append(document.createTextNode(' ('), domainCode, document.createTextNode(')'));
   }
 
   function renderCdn() {
-    const d = esc(state.domain);
-    const c = CDN_INTEGRATIONS[state.preview.cdn];
-    $('cdn-title').textContent = c ? `Deploy the edge package on ${c.name}` : 'Deploy the edge package on your CDN';
-
-    let html;
-    if (c) {
-      html = `<div class="cdn-row"><span class="pill ok"><i></i>${esc(c.name)} detected</span></div>`
-        + `<h3>Integration path: ${esc(c.scheme)} signed URLs</h3><p>${esc(c.path)}</p>`
-        + `<p style="margin-top:1.25rem">${c.take(d)}</p>`
-        + `<p style="margin-top:.75rem">${esc(c.guidance)}</p>`;
-    } else {
-      html = '<div class="cdn-row"><span class="pill none"><i></i>No supported CDN detected</span></div>'
-        + '<h3>We’ll help you connect your website</h3>'
-        + '<p>CloudFront, Cloudflare, and Fastly are supported today. If you use another CDN — or no CDN — start registration and we’ll help you find the right setup.</p>'
-        + '<p style="margin-top:1rem"><a class="btn btn-primary" href="#contact">Start registration</a></p>';
-    }
+    const cdn = cdnPresentation(state.preview.cdn);
+    let html = `<h3>${esc(cdn.title)}</h3><p>${esc(cdn.description)}</p>`
+      + `<p class="note">${esc(cdn.guidance)}</p>`;
 
     if (state.preview.evidence.length) {
       html += '<div class="evidence"><div class="k">How we detected your CDN</div><dl>'
@@ -856,7 +659,20 @@ import '../../styles/brand.css';
   function renderAll() {
     $('failure').hidden = true;
     $('r-domain').textContent = state.domain;
-    $('r-meta').textContent = `${readList(state.preview)} read just now · nothing is stored`;
+    const preview = state.preview;
+    $('preview-title').textContent = preview.title;
+    $('preview-source').textContent = preview.sourceUrl;
+    $('preview-source').setAttribute('href', preview.sourceUrl);
+    $('preview-checked').dateTime = preview.checkedAt;
+    $('preview-checked').textContent = new Date(preview.checkedAt).toLocaleString();
+    $('content-status').textContent = preview.contentRead
+      ? 'Page content read from your site. The package below is an unsigned preview.'
+      : unreadableSentence(preview.unreadable);
+    $('terms-source').textContent = preview.termsNote
+      + (preview.termsSource === 'detected' && preview.termsDocument ? ` Source: ${preview.termsDocument}` : '');
+    const cdn = cdnPresentation(preview.cdn);
+    $('cdn-badge').textContent = cdn.badge;
+    $('cdn-badge').className = `pill ${cdn.tone}`;
 
     // What the service could not read is its own notice, not a footnote glued
     // onto the line above: each warning is a separate thing to act on.
@@ -867,6 +683,7 @@ import '../../styles/brand.css';
       item.textContent = warning;
       warnings.append(item);
     }
+    $('preview-notes').hidden = preview.warnings.length === 0;
     renderCdn();
     renderManifest();
     if (!termsTouched) syncControls();
@@ -875,28 +692,17 @@ import '../../styles/brand.css';
     $('status').textContent = `Preview ready for ${state.domain}.`;
   }
 
-  function renderFailure(failure, { scrollToContact = false } = {}) {
+  function renderFailure(failure, { moveFocus = false } = {}) {
     if (failure.field) {
-      setFieldError(failure.field, failure.headline);
-      $(failure.field)?.focus();
+      const field = failure.field === 'rate' ? 'price' : failure.field;
+      setFieldError(field, failure.headline);
+      $('status').textContent = failure.headline;
+      if (moveFocus) $(field)?.focus();
       return;
     }
     $('result').hidden = true;
-    if (failure.kind === 'network') {
-      $('failure').hidden = true;
-      $('status').textContent = '';
-      if (scrollToContact) {
-        $('contact-name').focus({ preventScroll: true });
-        $('contact').scrollIntoView({
-          behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-          block: 'start',
-        });
-      }
-      return;
-    }
     const card = $('failure-card');
-    card.innerHTML = `<div class="cdn-row"><span class="pill bad"><i></i>${esc(failure.kind ?? 'error')}</span></div>`
-      + `<h3>${esc(failure.headline)}</h3>`
+    card.innerHTML = `<h3>${esc(failure.headline)}</h3>`
       + (failure.detail ? `<p>${esc(failure.detail)}</p>` : '')
       + (failure.violations?.length
         ? `<div class="evidence"><div class="k">What the Exchange said</div><dl>${
@@ -904,20 +710,8 @@ import '../../styles/brand.css';
         }</dl></div>`
         : '');
     $('failure').hidden = false;
-    card.focus();
-    $('status').textContent = `${failure.headline}. ${failure.detail ?? ''}`;
-  }
-
-  // What the check actually read. The sitemap side and the rsl.txt side answer
-  // different questions -- where the resources are, and what they cost -- so
-  // both are named when both were found.
-  function readList(preview) {
-    const parts = [sourcePhrase(preview.source)];
-    if (preview.termsSource === 'detected') parts.push('your licensing document');
-    parts.push('your response headers');
-    const last = parts.pop();
-    const list = `${parts.join(', ')} and ${last}`;
-    return list.charAt(0).toUpperCase() + list.slice(1);
+    if (moveFocus) card.focus();
+    $('status').textContent = `${failure.headline} ${failure.detail ?? ''}`;
   }
 
   function setFieldError(fieldId, message) {
@@ -931,34 +725,57 @@ import '../../styles/brand.css';
   }
 
   // ---- wiring --------------------------------------------------------------
-  // One path for both the preview the page opens on and the one a visitor asks
-  // for, so the opening result is a live check like any other.
-  async function runPreview({ scrollToPath, keepTerms = false }) {
-    setFieldError('domain', '');
-    setFieldError('article', '');
-    // A different site has different terms, so the controls start over: the
-    // request carries none, the service resolves them from that site's own
-    // rsl.txt, and syncControls puts the answer back into the form.
-    if (!keepTerms) termsTouched = false;
-
+  // Explicit submissions, shared links and controls use the same request path.
+  async function runPreview({ explicit = false, keepTerms = false } = {}) {
+    window.clearTimeout(termsTimer);
+    const requestId = ++state.requestId;
+    state.inFlight?.abort();
+    state.inFlight = null;
+    setFieldError('url', '');
+    $('failure').hidden = true;
     const button = $('go');
+    const built = buildPagePreviewRequest({
+      url: keepTerms ? state.url : $('url').value,
+      controls: keepTerms ? controlState() : null,
+    });
+    if (!built.ok) {
+      button.disabled = false;
+      button.textContent = 'Show me';
+      $('preview-form').setAttribute('aria-busy', 'false');
+      $('offer').setAttribute('aria-busy', 'false');
+      renderFailure({ field: built.field, headline: built.message }, { moveFocus: explicit });
+      return;
+    }
+    if (!keepTerms) {
+      // A submitted page starts with its own detected terms or demo defaults.
+      termsTouched = false;
+      history.replaceState(history.state, '', withPreviewPageUrl(window.location.href, built.body.article_url));
+      $('result').hidden = true;
+    }
     button.disabled = true;
-    button.textContent = 'Reading your site…';
-    $('status').textContent = 'Reading your site.';
+    button.textContent = 'Reading your page…';
+    $('preview-form').setAttribute('aria-busy', 'true');
+    $('status').textContent = 'Reading your page.';
 
-    const preview = await previewOnboarding($('domain').value, $('article').value, controlState());
+    const preview = await previewOnboarding(built.body);
+    if (requestId !== state.requestId) return;
 
     button.disabled = false;
-    button.textContent = 'See my onboarding steps';
+    button.textContent = 'Show me';
+    $('preview-form').setAttribute('aria-busy', 'false');
+    $('offer').setAttribute('aria-busy', 'false');
 
     if (preview.aborted) return;
-    if (preview.error) { renderFailure(preview.error, { scrollToContact: scrollToPath }); return; }
+    if (preview.error) { renderFailure(preview.error, { moveFocus: explicit }); return; }
 
     state.domain = preview.domain;
+    state.url = built.body.article_url;
     state.preview = preview;
     renderAll();
-    if (scrollToPath) {
-      $('step-1').scrollIntoView({
+    if (explicit) {
+      const heading = $('preview-heading');
+      heading.focus({ preventScroll: true });
+      heading.scrollIntoView({
         behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
         block: 'start',
       });
@@ -967,15 +784,8 @@ import '../../styles/brand.css';
 
   $('preview-form').addEventListener('submit', (event) => {
     event.preventDefault();
-    void runPreview({ scrollToPath: true });
+    void runPreview({ explicit: true });
   });
-
-  // Typing a new domain or article invalidates the terms on screen: they belong
-  // to the site that was checked, not to the one being typed.
-  function resetTermsOnNewTarget() {
-    termsTouched = false;
-    $('terms-source').textContent = '';
-  }
 
   // Changing a control costs a round trip, because the Exchange builds the
   // offer. Debounce so a burst of clicks is one request, and leave the previous
@@ -984,23 +794,19 @@ import '../../styles/brand.css';
   let termsTimer = 0;
 
   function scheduleTermsRefresh() {
+    if (!state.url || $('result').hidden) return;
     // Once the visitor edits a control the terms are theirs, and the line above
     // the offer must stop crediting the site's own file for them.
     if (!termsTouched) {
-      $('terms-source').textContent = 'These are the terms you set here. Your site keeps whatever it states today.';
+      $('terms-source').textContent = 'Your preview controls override the terms shown here. Your site is unchanged.';
     }
     termsTouched = true;
     window.clearTimeout(termsTimer);
+    state.inFlight?.abort();
+    state.inFlight = null;
+    ++state.requestId;
     $('offer').setAttribute('aria-busy', 'true');
-    termsTimer = window.setTimeout(async () => {
-      const preview = await previewOnboarding($('domain').value, $('article').value, controlState());
-      $('offer').setAttribute('aria-busy', 'false');
-      if (preview.aborted) return;
-      if (preview.error) { renderFailure(preview.error); return; }
-      state.domain = preview.domain;
-      state.preview = preview;
-      renderAll();
-    }, TERMS_DEBOUNCE_MS);
+    termsTimer = window.setTimeout(() => void runPreview({ keepTerms: true }), TERMS_DEBOUNCE_MS);
   }
 
   document.querySelectorAll('input[name="model"]').forEach((radio) => radio.addEventListener('change', () => {
@@ -1010,19 +816,16 @@ import '../../styles/brand.css';
   }));
   ['price', 'attr', ...OFFERED_USES.map((token) => `u-${token}`)]
     .forEach((id) => $(id).addEventListener('input', scheduleTermsRefresh));
-  $('domain').addEventListener('input', () => { setFieldError('domain', ''); resetTermsOnNewTarget(); });
-  $('article').addEventListener('input', () => { setFieldError('article', ''); resetTermsOnNewTarget(); });
+  $('url').addEventListener('input', () => setFieldError('url', ''));
 
   // ---- the enquiry form ---------------------------------------------------
   let contactInFlight = null;
 
   $('contact-form').addEventListener('submit', async (event) => {
     event.preventDefault();
-    setFieldError('contact-name', '');
     setFieldError('contact-email', '');
 
     const built = buildContactRequest({
-      name: $('contact-name').value,
       email: $('contact-email').value,
       // The domain of the preview they just read, which is what makes the
       // enquiry worth answering. It is the checked one, not whatever is being
@@ -1052,15 +855,16 @@ import '../../styles/brand.css';
       body: built.body,
       signal: controller.signal,
     });
-    if (contactInFlight === controller) contactInFlight = null;
+    if (contactInFlight !== controller) return;
+    contactInFlight = null;
 
     button.disabled = false;
-    button.textContent = 'Start registration';
+    button.textContent = 'Notify me';
     if (outcome.aborted) return;
 
     if (outcome.ok) {
       note.className = 'contact-note sent';
-      note.textContent = 'Sent. We will reply to the address you gave us.';
+      note.textContent = 'Thanks — your interest has been sent to our team.';
       $('contact-form').reset();
       return;
     }
@@ -1068,14 +872,13 @@ import '../../styles/brand.css';
     note.textContent = `${outcome.failure.headline}. ${outcome.failure.detail}`;
   });
 
-  for (const id of ['contact-name', 'contact-email']) {
-    $(id).addEventListener('input', () => setFieldError(id, ''));
-  }
+  $('contact-email').addEventListener('input', () => setFieldError('contact-email', ''));
 
-  // The page opens on a live preview of the demo domain, so the onboarding path
-  // is on screen before the visitor types anything.
-  if (!$('domain').value.trim()) $('domain').value = DEFAULT_DOMAIN;
-  void runPreview({ scrollToPath: false });
+  const sharedUrl = previewPageUrl(window.location.href);
+  if (sharedUrl !== null) {
+    $('url').value = sharedUrl;
+    void runPreview();
+  }
 </script>
 
 </body>

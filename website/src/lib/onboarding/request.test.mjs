@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import * as request from './request.mjs';
 
 import {
 	MAX_BODY_BYTES,
@@ -10,6 +11,91 @@ import {
 	normalizeArticleUrl,
 	normalizeDomain,
 } from './request.mjs';
+
+const pageInput = (url = 'https://example.com/News/Story?x=One%2FTwo&x=3#Details', controls = null) => ({ url, controls });
+
+test('one page URL derives the service domain without losing its path, query or fragment', () => {
+	assert.equal(typeof request.buildPagePreviewRequest, 'function');
+	for (const [url, domain, articleUrl] of [
+		['  https://EXAMPLE.com:443/News/Story?x=One%2FTwo&x=3#Details  ', 'example.com', pageInput().url],
+		['http://example.com:80/Case?x=1+2', 'example.com', 'http://example.com/Case?x=1+2'],
+	]) {
+		assert.deepEqual(request.buildPagePreviewRequest(pageInput(url)), {
+			ok: true,
+			body: { domain, article_url: articleUrl },
+		});
+	}
+});
+
+// FORA-329 service API.md requires a bare domain with no port; the old
+// :8080 acceptance above was superseded by the supplied service contract.
+test('the one-URL service adapter rejects non-default ports before sending', () => {
+	for (const url of ['http://example.com:8080/a', 'https://example.com:8443/a', 'https://example.com:80/a']) {
+		const built = request.buildPagePreviewRequest(pageInput(url));
+		assert.equal(built.ok, false, url);
+		assert.equal(built.field, 'url');
+		assert.ok(built.message);
+		assert.equal(built.body, undefined);
+	}
+});
+
+test('the page URL is required, HTTP(S), and contains no credentials', () => {
+	assert.equal(typeof request.buildPagePreviewRequest, 'function');
+	for (const url of [null, '', '  ', 'example.com/a', '/a', 'not a URL', 'ftp://example.com/a',
+		'https://localhost/a', 'https://-example.com/a', 'https://user:secret@example.com/a', 'https://user@example.com/a']) {
+		const built = request.buildPagePreviewRequest(pageInput(url));
+		assert.equal(built.ok, false, `reject ${JSON.stringify(url)}`);
+		assert.equal(built.field, 'url');
+		assert.ok(built.message);
+		assert.equal(built.body, undefined);
+	}
+	assert.equal(request.buildPagePreviewRequest().ok, false);
+});
+
+test('page URLs accept the 2048-character boundary and reject anything longer', () => {
+	assert.equal(typeof request.buildPagePreviewRequest, 'function');
+	const prefix = 'https://example.com/';
+	const url = prefix + 'a'.repeat(2048 - prefix.length);
+	assert.equal(request.buildPagePreviewRequest(pageInput(url)).ok, true);
+	const built = request.buildPagePreviewRequest(pageInput(`${url}a`));
+	assert.equal(built.ok, false);
+	assert.equal(built.field, 'url');
+});
+
+test('the one-URL request retains terms and their validation through the existing wire contract', () => {
+	assert.equal(typeof request.buildPagePreviewRequest, 'function');
+	const controls = { pricingModel: 'per_unit', rate: '0.002', offeredFunctions: ['search', 'ai-train'], permittedFunctions: ['search'], attributionRequired: true };
+	const built = request.buildPagePreviewRequest(pageInput(undefined, controls));
+	assert.deepEqual(built, {
+		ok: true,
+		body: {
+			domain: 'example.com', article_url: pageInput().url,
+			terms: { pricing_model: 'per_unit', rate: '0.002', permitted_functions: ['search'], prohibited_functions: ['ai-train'], attribution_required: true },
+		},
+	});
+	const invalid = request.buildPagePreviewRequest(pageInput(undefined, { ...controls, rate: '0' }));
+	assert.equal(invalid.ok, false);
+	assert.equal(invalid.field, 'rate');
+});
+
+test('shared page URLs round-trip once while retaining unrelated landing query and hash', () => {
+	assert.equal(typeof request.previewPageUrl, 'function');
+	assert.equal(typeof request.withPreviewPageUrl, 'function');
+	const landing = 'https://fora.example/publishers/onboarding?campaign=one&campaign=two&url=old&url=older#preview';
+	const page = 'https://example.com/News/Story?a=One%2FTwo&a=3&next=https%3A%2F%2Fother.example%2F&space=hello+world#Details';
+	const shared = request.withPreviewPageUrl(landing, page);
+	assert.equal(typeof shared, 'string');
+	const parsed = new URL(shared);
+	assert.equal(parsed.origin + parsed.pathname, 'https://fora.example/publishers/onboarding');
+	assert.equal(parsed.hash, '#preview');
+	assert.deepEqual(parsed.searchParams.getAll('campaign'), ['one', 'two']);
+	assert.deepEqual(parsed.searchParams.getAll('url'), [page]);
+	assert.deepEqual([...new Set(parsed.searchParams.keys())].sort(), ['campaign', 'url']);
+	assert.equal(request.previewPageUrl(shared), page);
+	assert.equal(request.previewPageUrl('https://fora.example/publishers/onboarding'), null);
+	assert.equal(request.previewPageUrl('https://fora.example/publishers/onboarding?url='), '');
+	assert.equal(request.previewPageUrl('https://fora.example/publishers/onboarding?url=not+a+URL'), 'not a URL');
+});
 
 test('normalizeDomain reduces what a visitor pastes to a bare host', () => {
 	assert.equal(normalizeDomain('example.com'), 'example.com');

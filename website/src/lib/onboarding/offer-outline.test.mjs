@@ -191,27 +191,15 @@ test('an offer with no terms leaves the controls alone', () => {
 	assert.equal(resolvedControls(undefined, ['search']), null);
 });
 
-test('an unreadable page is explained, and bot protection is named as such', () => {
-	assert.match(
-		unreadableSentence({ reason: 'bot_protection', status: 403 }),
-		/automated traffic/,
-	);
-	assert.match(
-		unreadableSentence({ reason: 'bot_protection', status: 403 }),
-		/Your readers reach it; we do not\./,
-	);
-	assert.match(unreadableSentence({ reason: 'refused', status: 403 }), /declined.*403/);
-	assert.match(unreadableSentence({ reason: 'not_found', status: 404 }), /nothing at that address/);
-	assert.match(unreadableSentence({ reason: 'server_error', status: 500 }), /answered 500/);
+// FORA-329 explicitly replaces reason-specific visitor copy with one read failure.
+test('all documented unreadable reasons share useful read-failure copy', () => {
+	for (const reason of ['bot_protection', 'refused', 'not_found', 'server_error', 'unexpected_status']) {
+		assert.equal(unreadableSentence({ reason, status: 403 }), 'We couldn’t read this page. Try again or use another page.');
+	}
 });
 
-test('a reason this page has never heard of still reads as a sentence', () => {
-	const sentence = unreadableSentence({ reason: 'teapot', status: 418 });
-	assert.match(sentence, /418/);
-	assert.ok(sentence.endsWith('.'));
-});
-
-test('a missing status does not leave a gap in the sentence', () => {
-	assert.equal(unreadableSentence({ reason: 'refused' }), 'Your site declined to serve this page, so we could not read it.');
-	assert.match(unreadableSentence({}), /something other than a page/);
+test('unknown unreadable reasons and missing statuses retain the shared message', () => {
+	for (const unreadable of [{ reason: 'teapot', status: 418 }, { reason: 'refused' }, {}]) {
+		assert.equal(unreadableSentence(unreadable), 'We couldn’t read this page. Try again or use another page.');
+	}
 });

@@ -72,6 +72,38 @@ export function normalizeArticleUrl(raw) {
 	return parsed.toString();
 }
 
+/** Build the existing service request from the page's single URL field. */
+export function buildPagePreviewRequest({ url, controls } = {}) {
+	const text = String(url ?? '').trim();
+	const articleUrl = normalizeArticleUrl(text);
+	if (!articleUrl || text.length > 2048) {
+		return { ok: false, field: 'url', message: 'Enter a full page URL starting with https:// or http://, up to 2048 characters.' };
+	}
+	const page = new URL(articleUrl);
+	if (page.port) {
+		return { ok: false, field: 'url', message: 'Use a public page URL without a custom port.' };
+	}
+	if (page.username || page.password) {
+		return { ok: false, field: 'url', message: 'Use a public page URL without a username or password.' };
+	}
+	const built = buildPreviewRequest({ domain: page.host, articleUrl, controls });
+	if (!built.ok && (built.field === 'domain' || built.field === 'article')) {
+		return { ...built, field: 'url' };
+	}
+	return built;
+}
+
+/** Missing and explicitly empty parameters remain distinct for validation. */
+export function previewPageUrl(landingUrl) {
+	return new URL(landingUrl).searchParams.get('url');
+}
+
+export function withPreviewPageUrl(landingUrl, pageUrl) {
+	const landing = new URL(landingUrl);
+	landing.searchParams.set('url', pageUrl);
+	return landing.toString();
+}
+
 /**
  * Turn a price into the plain decimal string the service expects.
  *

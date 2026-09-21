@@ -107,8 +107,8 @@ export function describeFailure({ status, body, networkError } = {}) {
 	if (status === 502 || kind === 'upstream') {
 		return {
 			kind: 'upstream',
-			headline: 'We could not read your site',
-			detail: serviceMessage || 'Your site did not answer in a way we could use. Check it is reachable from the public internet.',
+			headline: 'We couldn’t read this page.',
+			detail: 'Try again or use another page.',
 			retryable: true,
 			cooldownMs: 0,
 			violations,
@@ -118,8 +118,8 @@ export function describeFailure({ status, body, networkError } = {}) {
 	if (status === 504 || kind === 'timeout') {
 		return {
 			kind: 'timeout',
-			headline: 'Your site took too long to answer',
-			detail: 'Try again in a moment.',
+			headline: 'We couldn’t read this page.',
+			detail: 'Try again or use another page.',
 			retryable: true,
 			cooldownMs: 0,
 			violations,

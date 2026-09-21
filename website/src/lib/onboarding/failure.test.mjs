@@ -39,12 +39,12 @@ test('the rate limit asks the visitor to wait and sets a cooldown', () => {
 	assert.equal(failure.cooldownMs, RATE_LIMIT_COOLDOWN_MS);
 });
 
-test('each error kind gets its own wording', () => {
+test('error kinds remain distinct while content-read failures share wording', () => {
 	const cases = [
 		[400, 'invalid_request', 'invalid_request', 'We could not read that request'],
 		[422, 'terms_rejected', 'terms_rejected', 'The Exchange would refuse those terms'],
-		[502, 'upstream', 'upstream', 'We could not read your site'],
-		[504, 'timeout', 'timeout', 'Your site took too long to answer'],
+		[502, 'upstream', 'upstream', 'We couldn’t read this page.'],
+		[504, 'timeout', 'timeout', 'We couldn’t read this page.'],
 		[500, 'internal', 'internal', 'Something went wrong on our side'],
 	];
 	for (const [status, kind, expectedKind, expectedHeadline] of cases) {
@@ -102,4 +102,19 @@ test('violations arrive with their control already resolved', () => {
 test('a response with no violations array yields an empty list, never undefined', () => {
 	assert.deepEqual(describeFailure({ status: 500, body: {} }).violations, []);
 	assert.deepEqual(describeFailure({ status: 500, body: { violations: 'nope' } }).violations, []);
+});
+
+// FORA-329 shared copy covers both service timeout budgets, not just one.
+test('upstream and both timeout budgets share retry guidance without exposing raw errors', () => {
+	for (const [status, kind, error] of [
+		[502, 'upstream', 'address refused'],
+		[504, 'timeout', 'site did not answer in time'],
+		[504, 'timeout', 'preview ran out of time'],
+	]) {
+		const failure = describeFailure({ status, body: { kind, error } });
+		assert.equal(failure.kind, kind);
+		assert.equal(failure.headline, 'We couldn’t read this page.');
+		assert.equal(failure.detail, 'Try again or use another page.');
+		assert.equal(failure.retryable, true);
+	}
 });
