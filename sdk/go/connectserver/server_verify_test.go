@@ -215,7 +215,7 @@ func TestServerVerify_RejectsReplayViaInjectedStore(t *testing.T) {
 // TestServerVerify_FirstRequestAcceptedReplayRejected pins the two-call replay
 // contract through the real client→server path: the client discovers a genuinely
 // signed offer, obtains an SDK-minted VerifiedOffer, and Executes it twice reusing
-// the SAME idempotency key. The first Execute is accepted (nonce new), the second
+// the SAME idempotency key and signing window. The first Execute is accepted (nonce new), the second
 // is rejected as a replay by the injected store. First accepted, second rejected.
 func TestServerVerify_FirstRequestAcceptedReplayRejected(t *testing.T) {
 	t.Parallel()
@@ -223,9 +223,11 @@ func TestServerVerify_FirstRequestAcceptedReplayRejected(t *testing.T) {
 	off := signedOffer(t)
 	replay := newCountingReplayStore()
 	srv := serveHandler(t, &offerExchange{offer: off.offer}, f.resolver, replay)
+	now := time.Now()
 
 	client := foraconnect.NewClient(srv.URL,
 		foraconnect.WithSigner(f.signer),
+		foraconnect.WithSignWindow(core.ClockWindow(func() time.Time { return now }, 5*time.Minute)),
 		foraconnect.WithOfferKey(off.exchangePub),
 		// A purchase carries a detached acceptance covering the requester, so a
 		// client that has not been told who it is cannot buy.
@@ -244,8 +246,8 @@ func TestServerVerify_FirstRequestAcceptedReplayRejected(t *testing.T) {
 	}
 	verified := res.Verified()[0]
 
-	// Fixed idempotency key pins the nonce across both Execute calls so the second
-	// is a genuine replay of the first.
+	// The fixed key pins the body; the fixed window pins the signature. Both
+	// must match for a genuine replay, even across a wall-clock second boundary.
 	if _, err := client.Execute(context.Background(), verified, foraconnect.WithIdempotencyKey("fixed-nonce")); err != nil {
 		t.Fatalf("first Execute must be accepted: %v", err)
 	}
