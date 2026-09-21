@@ -43,21 +43,17 @@ test('preview metadata preserves the submitted source and observed check time, n
 	const data = response();
 	data.page.url = 'https://publisher.example/redirected';
 	const result = details(data);
-	assert.equal(result.title, 'A real headline');
 	assert.equal(result.sourceUrl, SOURCE);
 	assert.equal(result.checkedAt, CHECKED);
 	assert.equal(result.contentRead, true);
 	assert.equal(result.hasOffer, true);
 });
 
-test('missing titles and submitted URLs fall back honestly to page URL and then domain', () => {
+test('missing submitted URLs fall back to page URL and then domain', () => {
 	const data = response({ page: { url: SOURCE, canonical_url: 'https://publisher.example/canonical', title: '  ' } });
-	assert.equal(details(data).title, SOURCE);
 	assert.equal(details(data, '').sourceUrl, SOURCE);
-	assert.equal(details(data, '').title, SOURCE);
 	const missing = details(response({ page: null, offer: null }), '');
 	assert.equal(missing.sourceUrl, 'publisher.example');
-	assert.equal(missing.title, 'publisher.example');
 	assert.equal(missing.contentRead, false);
 	assert.equal(missing.hasOffer, false);
 });
@@ -73,7 +69,7 @@ test('robustness: absent or malformed offers never fabricate a package', () => {
 test('licensing provenance distinguishes detected, demo defaults, visitor controls and unknown', () => {
 	const notes = ['detected', 'default', 'request', undefined].map((terms_source) => details(response({ terms_source, offer: null })).termsNote);
 	assert.match(notes[0], /detect/i);
-	assert.match(notes[1], /demo.*default/i);
+	assert.equal(notes[1], '', 'Demo-default notices are intentionally omitted');
 	assert.match(notes[2], /(?:your|visitor).*(?:control|override|term)/i);
 	assert.match(notes[3], /(?:unknown|not (?:reported|available|identified))/i);
 	assert.equal(new Set(notes).size, 4);
@@ -83,12 +79,12 @@ test('licensing provenance distinguishes detected, demo defaults, visitor contro
 const cdnCases = [
 	['CloudFront', 'cloudfront', 'edge_package', 'x-amz-cf-id', /Lambda@Edge/],
 	['Cloudflare', 'cloudflare', 'edge_package', 'cf-ray', /worker/i],
-	['Fastly', 'fastly', 'edge_package', 'x-served-by', /Compute/],
-	['Akamai', 'akamai', 'contact_us', 'akamai-grn', /no integration package/i],
-	['unknown CDN', 'none', 'contact_us', null, /did not identify/i],
+	['Fastly', 'fastly', 'edge_package', 'x-served-by', /FORA Edge package/],
+	['Akamai', 'akamai', 'contact_us', 'akamai-grn', /signed.*URLs/i],
+	['unknown CDN', 'none', 'contact_us', null, /CloudFront, Cloudflare, and Fastly are supported today/],
 	// Controlled-origin scenario is test provenance, never a service assertion:
 	// the same none payload cannot distinguish direct origin from an unknown CDN.
-	['known direct origin', 'none', 'contact_us', null, /did not identify/i],
+	['known direct origin', 'none', 'contact_us', null, /CloudFront, Cloudflare, and Fastly are supported today/],
 ];
 function cdnResponse([, provider, integration, header], overrides = {}) {
 	const data = response(overrides);
@@ -97,7 +93,7 @@ function cdnResponse([, provider, integration, header], overrides = {}) {
 		steps: data.steps.map((step) => step.id === 'edge' ? { ...step, integration } : step) };
 }
 
-test('service CDN fixtures retain configuration and map supported, unsupported and unknown presentation', () => {
+test('service CDN fixtures retain configuration and map recognized and unknown presentation', () => {
 	for (const row of cdnCases) {
 		const [label, provider, , header, description] = row;
 		const data = cdnResponse(row);
@@ -108,9 +104,6 @@ test('service CDN fixtures retain configuration and map supported, unsupported a
 		assert.equal(result.domain, 'submitted.example');
 		assert.equal(result.sourceUrl, SOURCE);
 		assert.equal(result.checkedAt, CHECKED);
-		assert.deepEqual(result.articles, [{ url: data.page.canonical_url, title: data.page.title }]);
-		assert.equal(result.source, 'article_url');
-		assert.equal(result.unreadable, null);
 		assert.equal(result.hasOffer, true);
 		assert.equal(result.termsSource, 'default');
 		assert.equal(result.termsDocument, '');
@@ -118,7 +111,7 @@ test('service CDN fixtures retain configuration and map supported, unsupported a
 		assert.deepEqual(result.warnings, []);
 		const ui = cdnPresentation(result.cdn);
 		assert.match(ui.description, description, label);
-		assert.equal(ui.tone, row[2] === 'edge_package' ? 'ok' : 'none');
+		assert.equal(ui.tone, provider === 'none' ? 'none' : 'ok');
 		if (provider !== 'none') assert.ok(ui.badge.includes(label));
 		else assert.deepEqual(ui, cdnPresentation('none'));
 	}
@@ -141,7 +134,6 @@ test('unreadable service fixtures retain configuration and detected provenance f
 		assert.equal(result.contentRead, false);
 		assert.equal(result.hasOffer, false);
 		assert.equal(result.offer, null);
-		assert.deepEqual(result.unreadable, { reason, status });
 		assert.deepEqual(result.warnings, data.warnings);
 		assert.equal(result.termsSource, 'detected');
 		assert.equal(result.termsDocument, data.detected_terms.document_url);

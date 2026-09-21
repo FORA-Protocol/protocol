@@ -3,7 +3,8 @@ export const CDN_INTEGRATIONS = {
 	fastly: {
 		name: 'Fastly',
 		scheme: 'Ed25519',
-		path: 'Ed25519 signed delivery URLs, verified by the FORA Compute package on the Fastly service that already fronts your domain.',
+		path: 'The FORA Edge package checks the Exchange’s signed URLs before allowing access to your licensed content.',
+		guidance: 'We’ll provide the package and guide you through connecting it to your Fastly service, choosing which paths to protect, and testing access before going live.',
 	},
 	cloudflare: {
 		name: 'Cloudflare',
@@ -22,20 +23,23 @@ export function cdnPresentation(provider) {
 	const integration = Object.hasOwn(CDN_INTEGRATIONS, provider) ? CDN_INTEGRATIONS[provider] : null;
 	if (integration) return {
 		badge: `${integration.name} detected`, tone: 'ok',
+		evidenceIntro: `We recognized ${integration.name}-specific patterns:`,
 		title: `Integration path: ${integration.scheme} signed URLs`,
 		description: integration.path,
-		guidance: 'We’ll provide a CDN package and setup instructions when connections open.',
+		guidance: integration.guidance ?? 'We’ll provide a CDN package and setup instructions tailored to your site. Setup includes choosing the content paths to license and checking that ordinary visitors can still browse normally.',
 	};
 	if (provider === 'akamai') return {
-		badge: 'Akamai detected', tone: 'none',
-		title: 'Integration not yet supported',
-		description: 'We recognized Akamai, but there is no integration package for it yet.',
-		guidance: 'Leave your email below to register your interest.',
+		badge: 'Akamai detected', tone: 'ok',
+		evidenceIntro: 'We recognized Akamai-specific patterns:',
+		title: 'Integration path: Signed delivery URLs',
+		description: 'We’ll configure your Akamai integration to check the Exchange’s signed URLs before allowing access to your licensed content.',
+		guidance: 'We’ll provide the package and guide you through connecting it to your Akamai service, choosing which paths to protect, and testing access before going live.',
 	};
 	return {
 		badge: 'We couldn’t identify your CDN', tone: 'none',
-		title: 'Integration to be confirmed',
-		description: 'The available evidence did not identify a supported network.',
-		guidance: 'Leave your email below to register your interest.',
+		evidenceIntro: 'We found these network signals:',
+		title: 'We’ll help you connect your website',
+		description: 'CloudFront, Cloudflare, and Fastly are supported today. If you use another CDN — or no CDN — leave your email below and we’ll help you find the right setup.',
+		guidance: '',
 	};
 }

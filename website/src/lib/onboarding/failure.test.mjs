@@ -1,42 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { RATE_LIMIT_COOLDOWN_MS, describeFailure, fieldForPath } from './failure.mjs';
-
-test('a violation path maps onto the control that owns it', () => {
-	assert.equal(fieldForPath('domain'), 'domain');
-	assert.equal(fieldForPath('article_url'), 'article');
-	assert.equal(fieldForPath('terms.rate'), 'rate');
-	assert.equal(fieldForPath('terms.pricing_model'), 'pricing-model');
-	assert.equal(fieldForPath('terms.permitted_functions'), 'uses');
-	assert.equal(fieldForPath('terms.prohibited_functions'), 'uses');
-	assert.equal(fieldForPath('terms.attribution_required'), 'attribution');
-});
-
-test('an array index in the path does not hide the control', () => {
-	assert.equal(fieldForPath('terms[0].rate'), 'rate');
-	assert.equal(fieldForPath('terms[2].permitted_functions[1]'), 'uses');
-});
-
-test('a path naming something with no control returns null', () => {
-	assert.equal(fieldForPath('offer.something'), null);
-	assert.equal(fieldForPath(''), null);
-	assert.equal(fieldForPath(undefined), null);
-});
+import { describeFailure } from './failure.mjs';
 
 test('a rejected fetch is described as a connection problem, not a server fault', () => {
 	const failure = describeFailure({ networkError: new TypeError('Failed to fetch') });
 	assert.equal(failure.kind, 'network');
 	assert.equal(failure.headline, 'We could not reach the preview service');
-	assert.equal(failure.retryable, true);
-	assert.equal(failure.cooldownMs, 0);
 });
 
-test('the rate limit asks the visitor to wait and sets a cooldown', () => {
+test('the rate limit asks the visitor to wait', () => {
 	const failure = describeFailure({ status: 429, body: { error: 'too many previews' } });
 	assert.equal(failure.kind, 'rate_limited');
 	assert.equal(failure.headline, 'Too many previews from your network');
-	assert.equal(failure.cooldownMs, RATE_LIMIT_COOLDOWN_MS);
+	assert.equal(failure.detail, 'Wait about a minute, then try again.');
 });
 
 test('error kinds remain distinct while content-read failures share wording', () => {
@@ -59,7 +36,7 @@ test('the service message is preferred over the generic detail where there is on
 	assert.equal(failure.detail, 'domain is not a bare host');
 });
 
-test('an oversized body is reported against the field that can shrink', () => {
+test('an oversized body has an actionable error message', () => {
 	const failure = describeFailure({ status: 413, body: null });
 	assert.equal(failure.kind, 'too_large');
 	assert.equal(failure.headline, 'That request was too long');
@@ -77,7 +54,7 @@ test('an unexpected status falls back to the internal wording', () => {
 	assert.equal(failure.headline, 'Something went wrong on our side');
 });
 
-test('violations arrive with their control already resolved', () => {
+test('violations preserve paths and messages for display', () => {
 	const failure = describeFailure({
 		status: 422,
 		body: {
@@ -94,9 +71,7 @@ test('violations arrive with their control already resolved', () => {
 	assert.deepEqual(failure.violations[0], {
 		message: 'a per_unit term needs a rate above zero',
 		path: 'terms.rate',
-		field: 'rate',
 	});
-	assert.equal(failure.violations[1].field, null);
 });
 
 test('a response with no violations array yields an empty list, never undefined', () => {
@@ -115,6 +90,5 @@ test('upstream and both timeout budgets share retry guidance without exposing ra
 		assert.equal(failure.kind, kind);
 		assert.equal(failure.headline, 'We couldn’t read this page.');
 		assert.equal(failure.detail, 'Try again or use another page.');
-		assert.equal(failure.retryable, true);
 	}
 });

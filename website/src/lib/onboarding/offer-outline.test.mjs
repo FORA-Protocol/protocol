@@ -9,7 +9,6 @@ import {
 	resolvedControls,
 	sentenceList,
 	singularUnit,
-	unreadableSentence,
 	useLabel,
 } from './offer-outline.mjs';
 
@@ -192,14 +191,3 @@ test('an offer with no terms leaves the controls alone', () => {
 });
 
 // FORA-329 explicitly replaces reason-specific visitor copy with one read failure.
-test('all documented unreadable reasons share useful read-failure copy', () => {
-	for (const reason of ['bot_protection', 'refused', 'not_found', 'server_error', 'unexpected_status']) {
-		assert.equal(unreadableSentence({ reason, status: 403 }), 'We couldn’t read this page. Try again or use another page.');
-	}
-});
-
-test('unknown unreadable reasons and missing statuses retain the shared message', () => {
-	for (const unreadable of [{ reason: 'teapot', status: 418 }, { reason: 'refused' }, {}]) {
-		assert.equal(unreadableSentence(unreadable), 'We couldn’t read this page. Try again or use another page.');
-	}
-});

@@ -41,12 +41,13 @@ test('the one-URL service adapter rejects non-default ports before sending', () 
 
 test('the page URL is required, HTTP(S), and contains no credentials', () => {
 	assert.equal(typeof request.buildPagePreviewRequest, 'function');
-	for (const url of [null, '', '  ', 'example.com/a', '/a', 'not a URL', 'ftp://example.com/a',
+	for (const url of [null, '', '  ', '/a', 'not a URL', 'ftp://example.com/a',
 		'https://localhost/a', 'https://-example.com/a', 'https://user:secret@example.com/a', 'https://user@example.com/a']) {
 		const built = request.buildPagePreviewRequest(pageInput(url));
 		assert.equal(built.ok, false, `reject ${JSON.stringify(url)}`);
 		assert.equal(built.field, 'url');
 		assert.ok(built.message);
+		assert.doesNotMatch(built.message, /2048/);
 		assert.equal(built.body, undefined);
 	}
 	assert.equal(request.buildPagePreviewRequest().ok, false);
@@ -60,6 +61,19 @@ test('page URLs accept the 2048-character boundary and reject anything longer', 
 	const built = request.buildPagePreviewRequest(pageInput(`${url}a`));
 	assert.equal(built.ok, false);
 	assert.equal(built.field, 'url');
+	assert.match(built.message, /2048/);
+});
+
+test('bare domains gain HTTPS while preserving page paths and queries', () => {
+	for (const url of ['demo.fora-protocol.org', 'example.com/News?x=One%2FTwo&x=3']) {
+		const expected = new URL(`https://${url}`);
+		assert.deepEqual(request.buildPagePreviewRequest(pageInput(url)), {
+			ok: true, body: { domain: expected.hostname, article_url: expected.href },
+		});
+	}
+	for (const url of ['user@example.com', 'javascript:example.com', 'example..com', 'not a domain.com']) {
+		assert.equal(request.buildPagePreviewRequest(pageInput(url)).ok, false, url);
+	}
 });
 
 test('the one-URL request retains terms and their validation through the existing wire contract', () => {

@@ -218,11 +218,6 @@ export function quotaSentence(quota) {
 	return window && window !== 'not stated' ? `${head} per ${window}` : head;
 }
 
-/** Shared content-read failure; the service retains the detailed reason. */
-export function unreadableSentence() {
-	return 'We couldn’t read this page. Try again or use another page.';
-}
-
 /**
  * The terms the Exchange resolved, in the shape the controls hold them.
  *

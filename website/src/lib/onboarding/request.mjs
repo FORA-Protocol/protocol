@@ -75,9 +75,13 @@ export function normalizeArticleUrl(raw) {
 /** Build the existing service request from the page's single URL field. */
 export function buildPagePreviewRequest({ url, controls } = {}) {
 	const text = String(url ?? '').trim();
-	const articleUrl = normalizeArticleUrl(text);
-	if (!articleUrl || text.length > 2048) {
-		return { ok: false, field: 'url', message: 'Enter a full page URL starting with https:// or http://, up to 2048 characters.' };
+	if (text.length > 2048) {
+		return { ok: false, field: 'url', message: 'That address is too long. Use up to 2048 characters.' };
+	}
+	const bareDomain = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.?(?:[/?#]|$)/i.test(text);
+	const articleUrl = normalizeArticleUrl(bareDomain ? `https://${text}` : text);
+	if (!articleUrl) {
+		return { ok: false, field: 'url', message: 'Enter a website domain or a page URL starting with https:// or http://.' };
 	}
 	const page = new URL(articleUrl);
 	if (page.port) {

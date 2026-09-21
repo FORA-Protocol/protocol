@@ -20,8 +20,8 @@ import '../../styles/brand.css';
     for this page alone, so global here means "this page", not "the site".
   -->
   <style is:global>
-    /* Syntax colours for the generated manifest and catalog record, plus the
-       two result states. The shared palette is in styles/brand.css. */
+    /* Syntax colours for the generated manifest and offer, plus the
+       result states. The shared palette is in styles/brand.css. */
     :root {
       --key: #9cdcfe;
       --str: #7ec8a0;
@@ -94,7 +94,6 @@ import '../../styles/brand.css';
     .panel h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; }
     .field { display: flex; flex-direction: column; gap: .375rem; margin-bottom: 1rem; }
     .field label { font-size: .8125rem; font-weight: 600; color: var(--light-gray); }
-    .field label small { font-weight: 400; color: var(--gray); }
     .field input {
       background: var(--black);
       border: 1px solid var(--mid);
@@ -142,12 +141,12 @@ import '../../styles/brand.css';
     }
     .result-head h2 { font-size: 1.6rem; overflow-wrap: anywhere; }
     .preview-meta { color: var(--gray); font-size: .875rem; margin-top: .75rem; overflow-wrap: anywhere; }
-    #preview-title { overflow-wrap: anywhere; }
+    #content-status { font-size: 1rem; }
     #preview-heading { scroll-margin-top: 1rem; }
-    #preview-notes { margin-block: 1rem; color: var(--gray); }
     #result { padding-block: 2rem 3.5rem; scroll-margin-top: 0; }
     .card { background: var(--near-black); border: 1px solid var(--mid); border-radius: 4px; padding: 1.5rem; }
     .card h3 { font-size: 1.0625rem; font-weight: 600; margin-bottom: .25rem; }
+    .card .pill { margin-bottom: .75rem; }
     .pill {
       display: inline-flex;
       align-items: center;
@@ -162,10 +161,9 @@ import '../../styles/brand.css';
     }
     .pill.ok { color: var(--str); border-color: #7ec8a066; background: #7ec8a014; }
     .pill.none { color: var(--warn); border-color: #e0a45866; background: #e0a45814; }
-    .pill.bad { color: var(--bad); border-color: #e74c3c66; background: #e74c3c14; }
     .card p { color: var(--gray); font-size: .9375rem; }
-    .card p code { font-family: var(--mono); font-size: .85em; color: var(--str); background: #7ec8a01a; padding: .1rem .35rem; border-radius: 2px; }
     .evidence { margin-top: 1rem; border-top: 1px solid var(--mid); padding-top: .875rem; }
+    .evidence p { margin-bottom: .75rem; }
     .evidence .k {
       font-family: var(--mono);
       font-size: .6875rem;
@@ -188,11 +186,16 @@ import '../../styles/brand.css';
     .configuration { border-top: 1px solid var(--dark); margin-top: 2rem; padding-top: 2rem; }
     .configuration h2 { font-size: 1.6rem; margin-bottom: .75rem; }
     .configuration > p { color: var(--gray); max-width: 46rem; }
+    .configuration h3 { margin-top: 1.75rem; margin-bottom: .5rem; }
+    .configuration > p code { color: var(--str); background: #7ec8a01a; padding: .1rem .35rem; border-radius: 2px; }
+    .configuration .cmd { max-width: none; width: 100%; }
+    .configuration .card h3 { margin-top: 0; }
     .embed { margin-top: 1.25rem; }
 
     /* sample */
     .sample { margin-block: 1.25rem; }
     .controls {
+      min-width: 0;
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 1rem;
@@ -274,10 +277,7 @@ import '../../styles/brand.css';
       white-space: pre;
       max-width: 46rem;
     }
-    .card .cmd { max-width: none; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .card .cmd .c { display: inline; }
     .cmd .c { color: #5a5a70; }
-    .cmd .p { color: var(--accent); }
     .cmd .k { color: var(--key); }
     .cmd .s { color: var(--str); }
     .cmd .n { color: var(--num); }
@@ -295,24 +295,15 @@ import '../../styles/brand.css';
     /* Depth is the indent alone -- no bullets, no dashes. */
     .offer ul { list-style: none; margin: 0; padding-left: 0; }
     .offer ul ul { padding-left: 1.75rem; }
-    .offer.unreadable {
-      font-family: var(--sans);
-      border-top: 1px solid var(--mid);
-      border-radius: 4px;
-    }
-    .offer .unreadable-head {
-      color: var(--warn);
-      font-weight: 600;
-      margin-bottom: .35rem;
-    }
-    .offer .unreadable-detail { color: var(--light-gray); max-width: 46rem; }
-    .controls[hidden] { display: none; }
+    #offer-unavailable { margin-top: 1.25rem; }
+    #offer-unavailable h3 { color: var(--warn); }
+    #offer-unavailable p { margin-bottom: 0; }
     .offer .lbl { color: var(--key); }
     .offer .lbl:after { content: ":"; color: var(--brace); }
     .offer .val { color: var(--str); }
 
     /* contact */
-    .cta { background: var(--near-black); border: 1px solid var(--mid); border-radius: 4px; padding: 2.5rem; max-width: 44rem; }
+    .cta { background: var(--near-black); border: 1px solid var(--mid); border-radius: 4px; padding: 2.5rem 2.5rem 2rem; max-width: 44rem; }
     .cta h2 { font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: .75rem; }
     .cta p { color: var(--gray); margin-bottom: 1.5rem; }
     .contact-form {
@@ -330,7 +321,6 @@ import '../../styles/brand.css';
       margin-top: .5rem;
     }
     .contact-actions button { border: 0; }
-    .contact-actions .btn[disabled] { opacity: .6; cursor: progress; }
     .contact-note {
       grid-column: 1 / -1;
       font-size: .875rem;
@@ -340,9 +330,8 @@ import '../../styles/brand.css';
     .contact-note:empty { display: none; }
     .contact-note.sent { color: var(--str); }
     .contact-note.failed { color: #f0a08c; }
-    .contact-form .hint { grid-column: 1 / -1; }
+    .contact-form .hint { grid-column: 1 / -1; margin-bottom: 0; }
     @media (max-width: 560px) {
-      .contact-form { grid-template-columns: 1fr; }
       .contact-actions .btn { width: 100%; justify-content: center; }
     }
 
@@ -392,10 +381,10 @@ import '../../styles/brand.css';
       </div>
 
       <form class="panel" id="preview-form" autocomplete="off" novalidate>
-        <h2>Preview your page</h2>
+        <h2>Try your website</h2>
         <div class="field">
           <label for="url">Paste any page of your website</label>
-          <input id="url" name="url" type="url" inputmode="url" spellcheck="false" autocapitalize="none" maxlength="2048" placeholder="https://publisher.example/news/…" aria-describedby="url-error" required />
+          <input id="url" name="url" type="url" inputmode="url" spellcheck="false" autocapitalize="none" placeholder="https://publisher.example/news/…" aria-describedby="url-error" required />
           <p class="field-error" id="url-error"></p>
         </div>
         <button class="btn btn-primary btn-block" type="submit" id="go">Show me</button>
@@ -417,15 +406,16 @@ import '../../styles/brand.css';
   <section class="block" id="result" hidden>
     <div class="wrap">
       <div class="result-head">
-        <h2 id="preview-heading" tabindex="-1">Agent preview · <span id="r-domain"></span></h2>
-        <span class="pill" id="cdn-badge"></span>
+        <h2 id="preview-heading" tabindex="-1">What an AI agent gets from this page</h2>
       </div>
-      <h3 id="preview-title"></h3>
       <p class="preview-meta">Source: <a id="preview-source"></a><br />Checked: <time id="preview-checked"></time></p>
-      <p class="note" id="content-status"></p>
-      <p class="hint">Adjust the controls to preview different terms. This does not publish content or configure your site.</p>
-      <div class="sample">
-        <div class="controls" id="sample-controls" aria-label="Terms controls">
+      <p class="hint" id="content-status">This preview shows what an agent receives under your license. Adjust the controls below to explore different terms.</p>
+      <div class="card" id="offer-unavailable" hidden>
+        <h3>We cannot show an offer for this page</h3>
+        <p id="offer-unavailable-detail"></p>
+      </div>
+      <div class="sample" id="sample">
+        <fieldset class="controls" aria-label="Terms controls">
           <div class="ctl">
             <span class="k" id="k-model">Pricing model</span>
             <div class="seg" role="radiogroup" aria-labelledby="k-model">
@@ -449,20 +439,21 @@ import '../../styles/brand.css';
             <span class="k">Attribution</span>
             <label class="switch"><input type="checkbox" id="attr" checked /> Required on every use</label>
           </div>
-        </div>
+        </fieldset>
         <p class="terms-source" id="terms-source"></p>
         <div class="codebox">
           <div class="offer" id="offer" tabindex="0" aria-label="The offer an agent receives" aria-busy="false"></div>
         </div>
       </div>
-      <details id="preview-notes">
-        <summary>Check details</summary>
-        <ul class="notes" id="r-warnings"></ul>
-      </details>
+      <ul class="notes" id="r-warnings"></ul>
       <section class="configuration" aria-labelledby="configuration-heading">
         <h2 id="configuration-heading">How do you configure it?</h2>
-        <p>This generated <code>fora.json</code> describes your site’s connection to an Exchange. It is a preview; nothing has been installed or activated.</p>
+        <p>The configuration has two parts: a discovery file that identifies your Exchange, and a CDN integration that checks access to licensed content.</p>
+        <h3>Step 1 · Publish the discovery file we generate for you</h3>
+        <p>We’ll generate your <code>fora.json</code> with the Exchange details already filled in. You publish it at <code>/.well-known/fora.json</code> on your domain so agents and Exchanges can find it. Below is a preview for the domain you provided.</p>
         <div class="cmd embed" id="manifest"></div>
+        <h3>Step 2 · Connect your CDN</h3>
+        <p>Your CDN checks signed delivery URLs before granting access to licensed content. The integration works in front of your existing site. The detected network determines the integration path below.</p>
         <div class="embed card" id="cdn-card"></div>
       </section>
     </div>
@@ -472,8 +463,8 @@ import '../../styles/brand.css';
     <div class="wrap">
       <div class="cta">
         <div class="label">Interested?</div>
-        <h2>Get notified when you can connect your site</h2>
-        <p>Leave your email for connection updates. This registers your interest; it does not create an account or connect your site.</p>
+        <h2>Let’s connect your site</h2>
+        <p>Leave your email and we’ll get in touch about the next steps.</p>
 
         <form id="contact-form" class="contact-form" novalidate>
           <div class="field">
@@ -482,7 +473,7 @@ import '../../styles/brand.css';
             <p class="field-error" id="contact-email-error"></p>
           </div>
           <div class="contact-actions">
-            <button type="submit" id="contact-send" class="btn btn-primary">Notify me</button>
+            <button type="submit" id="contact-send" class="btn btn-primary">Get in touch</button>
             <a class="btn btn-ghost" href="/getting-started/publisher-onboarding/" target="_blank" rel="noopener noreferrer">Read the publisher guide</a>
           </div>
           <p class="contact-note" id="contact-note" role="status"></p>
@@ -510,12 +501,11 @@ import '../../styles/brand.css';
   import { cdnPresentation } from '../../lib/onboarding/cdn-integrations.mjs';
   import { OFFERED_USES, partitionUses } from '../../lib/onboarding/terms-vocab.mjs';
   import { previewDetails } from '../../lib/onboarding/default-preview.mjs';
-  import { highlightJson } from '../../lib/onboarding/record.mjs';
-  import { offerOutline, resolvedControls, unreadableSentence } from '../../lib/onboarding/offer-outline.mjs';
+  import { escapeHtml as esc, highlightJson } from '../../lib/onboarding/record.mjs';
+  import { offerOutline, resolvedControls } from '../../lib/onboarding/offer-outline.mjs';
   import { buildContactRequest, sendContact } from '../../lib/onboarding/contact.mjs';
 
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   const state = { domain: '', url: '', preview: null, inFlight: null, requestId: 0 };
 
@@ -586,25 +576,13 @@ import '../../styles/brand.css';
     host.textContent = '';
     if (!state.preview) return;
 
-    // No page, no offer: an offer prices a resource, and this one could not be
-    // read. The controls go with it, because changing terms cannot produce one.
-    $('sample-controls').hidden = !state.preview.hasOffer;
-    if (!state.preview.hasOffer) {
-      host.classList.add('unreadable');
-      const heading = document.createElement('p');
-      heading.className = 'unreadable-head';
-      heading.textContent = 'We cannot show an offer for this page';
-      const detail = document.createElement('p');
-      detail.className = 'unreadable-detail';
-      detail.textContent = state.preview.contentRead
-        ? 'The page was read, but the service returned no agent package.'
-        : unreadableSentence(state.preview.unreadable);
-      host.append(heading, detail);
-      return;
-    }
-
-    host.classList.remove('unreadable');
-    host.append(outlineList(offerOutline(state.preview.offer).nodes));
+    $('sample').hidden = !state.preview.hasOffer;
+    $('offer-unavailable').hidden = state.preview.hasOffer;
+    $('content-status').hidden = !state.preview.hasOffer;
+    $('offer-unavailable-detail').textContent = state.preview.contentRead
+      ? 'Page content was read successfully, but no agent package was returned.'
+      : 'We couldn’t read this page. Try again or use another page.';
+    if (state.preview.hasOffer) host.append(outlineList(offerOutline(state.preview.offer).nodes));
   }
 
   // Built as nodes, never as markup: every value here came from the service,
@@ -645,11 +623,12 @@ import '../../styles/brand.css';
 
   function renderCdn() {
     const cdn = cdnPresentation(state.preview.cdn);
-    let html = `<h3>${esc(cdn.title)}</h3><p>${esc(cdn.description)}</p>`
-      + `<p class="note">${esc(cdn.guidance)}</p>`;
+    let html = `<span class="pill ${esc(cdn.tone)}">${esc(cdn.badge)}</span>`
+      + `<h3>${esc(cdn.title)}</h3><p>${esc(cdn.description)}</p>`
+      + (cdn.guidance ? `<p class="note">${esc(cdn.guidance)}</p>` : '');
 
     if (state.preview.evidence.length) {
-      html += '<div class="evidence"><div class="k">How we detected your CDN</div><dl>'
+      html += `<div class="evidence"><p>How we detected your CDN? ${esc(cdn.evidenceIntro)}</p><dl>`
         + state.preview.evidence.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')
         + '</dl></div>';
     }
@@ -658,32 +637,21 @@ import '../../styles/brand.css';
 
   function renderAll() {
     $('failure').hidden = true;
-    $('r-domain').textContent = state.domain;
     const preview = state.preview;
-    $('preview-title').textContent = preview.title;
     $('preview-source').textContent = preview.sourceUrl;
     $('preview-source').setAttribute('href', preview.sourceUrl);
     $('preview-checked').dateTime = preview.checkedAt;
     $('preview-checked').textContent = new Date(preview.checkedAt).toLocaleString();
-    $('content-status').textContent = preview.contentRead
-      ? 'Page content read from your site. The package below is an unsigned preview.'
-      : unreadableSentence(preview.unreadable);
     $('terms-source').textContent = preview.termsNote
       + (preview.termsSource === 'detected' && preview.termsDocument ? ` Source: ${preview.termsDocument}` : '');
-    const cdn = cdnPresentation(preview.cdn);
-    $('cdn-badge').textContent = cdn.badge;
-    $('cdn-badge').className = `pill ${cdn.tone}`;
 
-    // What the service could not read is its own notice, not a footnote glued
-    // onto the line above: each warning is a separate thing to act on.
     const warnings = $('r-warnings');
     warnings.textContent = '';
-    for (const warning of state.preview.warnings) {
+    for (const warning of preview.contentRead ? preview.warnings : []) {
       const item = document.createElement('li');
       item.textContent = warning;
       warnings.append(item);
     }
-    $('preview-notes').hidden = preview.warnings.length === 0;
     renderCdn();
     renderManifest();
     if (!termsTouched) syncControls();
@@ -747,6 +715,7 @@ import '../../styles/brand.css';
       return;
     }
     if (!keepTerms) {
+      $('url').value = built.body.article_url;
       // A submitted page starts with its own detected terms or demo defaults.
       termsTouched = false;
       history.replaceState(history.state, '', withPreviewPageUrl(window.location.href, built.body.article_url));
@@ -859,7 +828,7 @@ import '../../styles/brand.css';
     contactInFlight = null;
 
     button.disabled = false;
-    button.textContent = 'Notify me';
+    button.textContent = 'Get in touch';
     if (outcome.aborted) return;
 
     if (outcome.ok) {
