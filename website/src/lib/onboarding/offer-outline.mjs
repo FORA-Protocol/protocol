@@ -219,33 +219,6 @@ export function quotaSentence(quota) {
 }
 
 /**
- * What stands in place of the offer when the page could not be read.
- *
- * The service names the case in page.unreadable; this turns it into the
- * sentence a publisher reads. Bot protection gets its own wording because it is
- * the one refusal they cannot fix by changing the page: their readers reach it
- * and this check does not.
- */
-export function unreadableSentence(unreadable) {
-	const status = Number(unreadable?.status) || 0;
-	switch (unreadable?.reason) {
-		case 'bot_protection':
-			return 'The network in front of your site turned our check away as automated traffic, '
-				+ 'so we could not read this page. Your readers reach it; we do not.';
-		case 'refused':
-			return `Your site declined to serve this page${status ? ` and answered ${status}` : ''}, `
-				+ 'so we could not read it.';
-		case 'not_found':
-			return 'There is nothing at that address, so there is no page for us to read.';
-		case 'server_error':
-			return `Your site answered ${status || 'an error'} for this page, so we could not read it.`;
-		default:
-			return `Your site answered ${status || 'something other than a page'} for this address, `
-				+ 'so we could not read it.';
-	}
-}
-
-/**
  * The terms the Exchange resolved, in the shape the controls hold them.
  *
  * When a site publishes an rsl.txt the service reads its terms and builds the

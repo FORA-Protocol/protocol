@@ -45,7 +45,7 @@ test('an error status comes back as a described failure, not a throw', async () 
 	});
 	assert.equal(outcome.ok, false);
 	assert.equal(outcome.failure.kind, 'rate_limited');
-	assert.ok(outcome.failure.cooldownMs > 0);
+	assert.equal(outcome.failure.detail, 'Wait about a minute, then try again.');
 });
 
 test('a rejected fetch becomes the network failure', async () => {

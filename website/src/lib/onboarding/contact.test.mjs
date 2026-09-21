@@ -3,122 +3,104 @@ import assert from 'node:assert/strict';
 
 import {
 	CONTACT_PATH,
-	MAX_NAME_LENGTH,
+	MAX_EMAIL_LENGTH,
 	buildContactRequest,
 	describeContactFailure,
-	hasLineBreak,
 	looksLikeEmail,
 	sendContact,
 } from './contact.mjs';
 
-test('the body carries only the three fields the service accepts', () => {
-	const built = buildContactRequest({ name: 'Olena', email: 'olena@x.example', domain: 'x.example' });
-	assert.equal(built.ok, true);
-	assert.deepEqual(Object.keys(built.body).sort(), ['domain', 'email', 'name']);
+const interest = (overrides = {}) => ({ email: 'olena@x.example', ...overrides });
+const response = (status = 202, body = { status: 'sent' }) =>
+	new Response(JSON.stringify(body), { status });
+const send = (fetchImpl, options = {}) => sendContact({
+	fetchImpl, baseUrl: 'https://host.example/onboarding/', body: interest(), ...options,
 });
-
-test('a preview that named no domain sends none rather than an empty one', () => {
-	const built = buildContactRequest({ name: 'Olena', email: 'olena@x.example', domain: '   ' });
-	assert.equal(built.ok, true);
-	assert.equal('domain' in built.body, false);
-});
-
-test('the name and the address are trimmed', () => {
-	const built = buildContactRequest({ name: '  Olena  ', email: '  olena@x.example  ' });
-	assert.equal(built.body.name, 'Olena');
-	assert.equal(built.body.email, 'olena@x.example');
-});
-
-test('a line break is refused before the request leaves the browser', () => {
-	for (const enquiry of [
-		{ name: 'Olena\r\nBcc: someone@elsewhere.example', email: 'olena@x.example' },
-		{ name: 'Olena\nBcc: someone@elsewhere.example', email: 'olena@x.example' },
-		{ name: 'Olena', email: 'olena@x.example\r\nBcc: a@b.example' },
-	]) {
-		const built = buildContactRequest(enquiry);
-		assert.equal(built.ok, false, `accepted ${JSON.stringify(enquiry)}`);
-	}
-});
-
-test('what an enquiry must carry, reported against the input it belongs to', () => {
-	const cases = [
-		[{ email: 'olena@x.example' }, 'contact-name'],
-		[{ name: '   ', email: 'olena@x.example' }, 'contact-name'],
-		[{ name: 'a'.repeat(MAX_NAME_LENGTH + 1), email: 'olena@x.example' }, 'contact-name'],
-		[{ name: 'Olena' }, 'contact-email'],
-		[{ name: 'Olena', email: 'olena-at-x' }, 'contact-email'],
-		[{ name: 'Olena', email: 'olena@x' }, 'contact-email'],
-	];
-	for (const [enquiry, field] of cases) {
-		const built = buildContactRequest(enquiry);
-		assert.equal(built.ok, false, `accepted ${JSON.stringify(enquiry)}`);
-		assert.equal(built.field, field);
-		assert.ok(built.message.endsWith('.'), 'the message reads as a sentence');
-	}
-});
-
-test('looksLikeEmail catches the obvious miss and lets an ordinary address through', () => {
-	for (const good of ['a@b.example', 'olena.kovalenko@news.publisher.example', "o'brien@x.example"]) {
-		assert.equal(looksLikeEmail(good), true, good);
-	}
-	for (const bad of ['', 'a@b', 'a b@c.example', 'a@@b.example', 'no-at-sign.example']) {
-		assert.equal(looksLikeEmail(bad), false, JSON.stringify(bad));
-	}
-});
-
-test('hasLineBreak sees both kinds', () => {
-	assert.equal(hasLineBreak('a\r\nb'), true);
-	assert.equal(hasLineBreak('a\nb'), true);
-	assert.equal(hasLineBreak('a b'), false);
-});
-
-test('a sent enquiry posts JSON to the contact path', async () => {
-	const calls = [];
-	const outcome = await sendContact({
-		fetchImpl: async (url, init) => {
-			calls.push({ url, init });
-			return { ok: true, status: 202, json: async () => ({ status: 'sent' }) };
-		},
-		baseUrl: 'https://host.example/onboarding/',
-		body: { name: 'Olena', email: 'olena@x.example' },
-	});
-	assert.equal(outcome.ok, true);
-	assert.equal(calls[0].url, `https://host.example/onboarding${CONTACT_PATH}`);
-	assert.equal(calls[0].init.method, 'POST');
-	assert.equal(calls[0].init.headers['Content-Type'], 'application/json');
-});
-
-test('each failure the service can answer with reads as its own sentence', () => {
-	assert.match(describeContactFailure({ status: 429 }).headline, /Too many messages/);
-	assert.match(describeContactFailure({ status: 503, body: { error: 'this deployment takes no enquiries' } }).detail,
-		/takes no enquiries/);
-	assert.match(describeContactFailure({ status: 400, body: { error: 'a name is required' } }).detail, /name is required/);
-	assert.match(describeContactFailure({ status: 500 }).headline, /did not go/);
-	assert.match(describeContactFailure({ networkError: new TypeError('failed') }).detail, /did not get through/);
-});
-
-test('a non-2xx comes back as a failure, not a throw', async () => {
-	const outcome = await sendContact({
-		fetchImpl: async () => ({ ok: false, status: 429, json: async () => ({ error: 'too many' }) }),
-		baseUrl: 'https://host.example',
-		body: {},
-	});
+const assertFailure = (outcome) => {
 	assert.equal(outcome.ok, false);
-	assert.match(outcome.failure.headline, /Too many messages/);
+	assert.ok(outcome.failure.headline.length > 0);
+	assert.ok(outcome.failure.detail.length > 0);
+};
+
+test('email-only interest omits name even when supplied and includes an optional preview domain', () => {
+	for (const name of [undefined, 'Olena', 'ignored\r\nname']) {
+		assert.deepEqual(buildContactRequest(interest({ name, domain: ' x.example ' })), {
+			ok: true, body: interest({ domain: 'x.example' }),
+		});
+	}
+	for (const domain of [undefined, '', '   ']) {
+		assert.deepEqual(buildContactRequest(interest({ email: '  olena@x.example  ', domain })), {
+			ok: true, body: interest(),
+		});
+	}
 });
 
-test('a cancelled send is reported as aborted, never as a failure', async () => {
+test('email validation reports missing, malformed and overlong addresses against the email input', () => {
+	for (const email of [undefined, null, '', '   ', 'olena-at-x', 'olena@x', 'a b@c.example', 'a@@b.example', `${'a'.repeat(MAX_EMAIL_LENGTH)}@b.example`]) {
+		assert.equal(looksLikeEmail(email), false, JSON.stringify(email));
+		const built = buildContactRequest(interest({ email }));
+		assert.equal(built.ok, false, JSON.stringify(email));
+		assert.equal(built.field, 'contact-email');
+		assert.ok(built.message.length > 0);
+	}
+	for (const email of ['a@b.example', "o'brien@x.example", `${'a'.repeat(MAX_EMAIL_LENGTH - 10)}@b.example`]) {
+		assert.equal(looksLikeEmail(email), true, email);
+		assert.equal(buildContactRequest(interest({ email })).ok, true);
+	}
+});
+
+test('raw email CR and LF are refused before trimming', () => {
+	for (const email of ['\rolena@x.example', 'olena@x.example\n', '\r\nolena@x.example\r\n', 'olena\n@x.example']) {
+		assert.equal(looksLikeEmail(email), false, JSON.stringify(email));
+		const built = buildContactRequest(interest({ email }));
+		assert.equal(built.ok, false, JSON.stringify(email));
+		assert.equal(built.field, 'contact-email');
+	}
+});
+
+test('interest posts the exact email-only JSON body and signal to the contact path', async () => {
 	const controller = new AbortController();
-	const outcome = await sendContact({
-		fetchImpl: async () => {
-			controller.abort();
-			const error = new Error('aborted');
-			error.name = 'AbortError';
-			throw error;
-		},
-		baseUrl: 'https://host.example',
-		body: {},
-		signal: controller.signal,
-	});
-	assert.deepEqual(outcome, { aborted: true });
+	const built = buildContactRequest(interest({ name: 'ignored', domain: 'x.example' }));
+	assert.equal(built.ok, true);
+	let request;
+	const outcome = await send(async (url, init) => {
+		request = { url, init };
+		return response();
+	}, { body: built.body, signal: controller.signal });
+	assert.deepEqual(outcome, { ok: true });
+	assert.equal(request.url, `https://host.example/onboarding${CONTACT_PATH}`);
+	assert.equal(request.init.method, 'POST');
+	assert.equal(request.init.headers['Content-Type'], 'application/json');
+	assert.deepEqual(JSON.parse(request.init.body), interest({ domain: 'x.example' }));
+	assert.equal(request.init.signal, controller.signal);
+});
+
+test('only HTTP 202 with status sent confirms relay acceptance', async () => {
+	assert.deepEqual(await send(async () => response()), { ok: true });
+	for (const invalid of [response(200), response(202, { status: 'queued' }), response(202, {}), response(202, null), new Response('', { status: 202 }), new Response('{', { status: 202 })]) {
+		assertFailure(await send(async () => invalid));
+	}
+});
+
+test('rejected requests and network errors return readable failures', async () => {
+	for (const status of [400, 429, 500, 503]) {
+		assertFailure(await send(async () => response(status, { error: 'Request rejected.' })));
+	}
+	const outcome = await send(async () => { throw new TypeError('offline'); });
+	assertFailure(outcome);
+	assert.match(outcome.failure.detail, /try again/i);
+	assert.match(describeContactFailure({ status: 429 }).headline, /Too many messages/);
+	assert.equal(describeContactFailure({ status: 400, body: { error: 'Invalid email.' } }).detail, 'Invalid email.');
+});
+
+test('a cancelled send is reported as aborted', async () => {
+	const controller = new AbortController();
+	assert.deepEqual(await send(async (_url, init) => {
+		assert.equal(init.signal, controller.signal);
+		controller.abort();
+		throw new DOMException('aborted', 'AbortError');
+	}, { signal: controller.signal }), { aborted: true });
+	assert.deepEqual(await send(async () => {
+		throw new DOMException('aborted', 'AbortError');
+	}), { aborted: true });
 });

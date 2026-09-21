@@ -1,58 +1,61 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { runInNewContext } from 'node:vm';
-import { CDN_INTEGRATIONS } from './cdn-integrations.mjs';
+import * as integrations from './cdn-integrations.mjs';
 
-const page = readFileSync(new URL('../../pages/publishers/onboarding.astro', import.meta.url), 'utf8');
-test('CDNs render deployment guidance or a registration link when unsupported', () => {
-  const render = page.match(/  function renderCdn\([^]*?\n  \}/)[0];
-  for (const cdn of [...Object.keys(CDN_INTEGRATIONS), 'none']) {
-    const elements = { 'cdn-title': {}, 'cdn-card': {} };
-    runInNewContext(`${render}\nrenderCdn();`, {
-      $: (id) => elements[id], esc: String, CDN_INTEGRATIONS,
-      state: { domain: 'demo.fora-protocol.org', preview: { cdn, evidence: [] } },
-    });
-    const html = elements['cdn-card'].innerHTML;
-    if (cdn === 'none') {
-      assert.match(html, /class="btn btn-primary" href="#contact">Start registration<\/a>/);
-      assert.doesNotMatch(html, /mailto:|preview is unaffected/);
-    } else {
-      assert.match(html, /Follow the deployment guide/);
-    }
-    assert.doesNotMatch(html, /<pre|create-public-key|fora-public-key\.pem|fastly compute deploy|wrangler deploy|Then, once/);
+function presentation(provider) {
+  assert.equal(typeof integrations.cdnPresentation, 'function', 'CDN presentation must expose a pure provider mapping');
+  const result = integrations.cdnPresentation(provider);
+  for (const field of ['badge', 'tone', 'title', 'description', 'guidance']) {
+    assert.equal(typeof result[field], 'string', `${field} must be text`);
+    if (field !== 'guidance') assert.ok(result[field].trim(), `${field} must not be empty`);
   }
+  return result;
+}
+
+test('supported providers identify their distinct integration and promise future instructions', () => {
+  const descriptions = new Set();
+  for (const [provider, name, integration] of [
+    ['cloudfront', 'CloudFront', /Lambda@Edge/],
+    ['cloudflare', 'Cloudflare', /worker/i],
+    ['fastly', 'Fastly', /FORA Edge package/],
+  ]) {
+    const result = presentation(provider);
+    assert.ok(result.badge.includes(name), `${provider} badge must name its CDN`);
+    assert.match(result.description, integration);
+    assert.match(result.guidance, /packages?/i);
+    assert.match(result.guidance, /instructions?|guide you/i);
+    assert.match(result.guidance, /will|[’']ll|later|future/i);
+    assert.doesNotMatch(result.guidance, /\bdownload\b|\bdeploy\b|follow the deployment guide|publisher console/i);
+    descriptions.add(result.description);
+  }
+  assert.equal(descriptions.size, 3);
 });
 
-const functions = ['renderFailure', 'runPreview'].map((name) =>
-  page.match(new RegExp(`  (?:async )?function ${name}\\([^]*?\\n  \\}`))[0],
-).join('\n');
+test('CloudFront preserves both verification choices without selecting a default', () => {
+  const result = presentation('cloudfront');
+  assert.equal(result.title, 'Integration path: Edge verification or RSA signed URLs');
+  assert.equal(result.description, 'The Exchange signs delivery URLs. Your Lambda@Edge function can verify them using the Exchange’s Ed25519 public key, or CloudFront can verify RSA signed URLs natively through a trusted key group configured in your AWS account.');
+  assert.doesNotMatch(result.guidance, /default|recommend.*RSA|use RSA/i);
+});
 
-test('network failures stay quiet on load and lead to contact only after submitting', async () => {
-  for (const scrollToPath of [false, true]) {
-    for (const reducedMotion of [false, true]) {
-      const scrolls = [];
-      const focuses = [];
-      const elements = Object.fromEntries(['domain', 'article', 'go', 'status', 'result', 'failure', 'contact', 'contact-name']
-        .map((id) => [id, {
-          value: 'example.com', hidden: false,
-          focus: (options) => focuses.push({ id, ...options }),
-          scrollIntoView: (options) => scrolls.push({ id, ...options }),
-        }]));
-      await runInNewContext(`${functions}\nrunPreview({ scrollToPath });`, {
-        $: (id) => elements[id],
-        setFieldError() {}, controlState() {},
-        previewOnboarding: async () => ({ error: { kind: 'network' } }),
-        matchMedia: () => ({ matches: reducedMotion }),
-        scrollToPath,
-      });
-      assert.equal(elements.failure.hidden, true);
-      assert.equal(elements.result.hidden, true);
-      assert.equal(elements.status.textContent, '');
-      assert.equal(elements.go.disabled, false);
-      assert.deepEqual(focuses, scrollToPath ? [{ id: 'contact-name', preventScroll: true }] : []);
-      assert.deepEqual(scrolls, scrollToPath
-        ? [{ id: 'contact', behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' }] : []);
-    }
+test('Akamai uses the same detected styling and promises setup guidance', () => {
+  const result = presentation('akamai');
+  assert.match(result.badge, /Akamai/);
+  assert.equal(result.tone, 'ok');
+  assert.match(result.title, /^Integration path:/);
+  assert.match(result.guidance, /We’ll provide the package/);
+  assert.doesNotMatch(`${result.title} ${result.description}`, /not yet supported|no integration package/i);
+  assert.notEqual(result.badge, presentation('none').badge);
+  assert.doesNotMatch(`${result.description} ${result.guidance}`, /\bdownload\b|\bdeploy\b|start registration/i);
+});
+
+test('absent, unexpected, prototype and hostile provider tokens share an honest unknown outcome', () => {
+  const unknown = presentation('none');
+  assert.equal(unknown.badge, 'We couldn’t identify your CDN');
+  assert.match(unknown.description, /leave your email below/i);
+  assert.equal(unknown.guidance, '', 'Unknown CDN guidance is included in the main paragraph');
+  assert.doesNotMatch(`${unknown.title} ${unknown.description} ${unknown.guidance}`, /start registration/i);
+  for (const provider of [undefined, null, '', 'unknown', 'unexpected-provider', 'constructor', 'toString', '__proto__', '<img src=x onerror=alert(1)>']) {
+    assert.deepEqual(presentation(provider), unknown, `Unexpected provider ${String(provider)} must not be echoed or treated as detected`);
   }
 });
