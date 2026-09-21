@@ -22,8 +22,8 @@ export const CDN_INTEGRATIONS = {
 	},
 	cloudfront: {
 		name: 'CloudFront',
-		scheme: 'RSA',
-		path: 'RSA signed URLs, verified natively by CloudFront through a trusted key group. The Exchange signs delivery URLs. CloudFront verifies them using a public key configured in your AWS account.',
+		scheme: 'Edge verification or RSA',
+		path: 'The Exchange signs delivery URLs. Your Lambda@Edge function can verify them using the Exchange’s Ed25519 public key, or CloudFront can verify RSA signed URLs natively through a trusted key group configured in your AWS account.',
 		take: () => 'Download your edge package (<code>fora-edge-lambda.zip</code>) from the publisher console. It includes the configuration for your distribution.',
 		guidance: 'Follow the deployment guide to connect the package to your CloudFront distribution and configure access verification. Before going live, check that your discovery document is publicly accessible, ordinary visitors can browse normally, and AI agents need valid paid access to licensed content.',
 	},
