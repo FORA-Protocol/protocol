@@ -1,4 +1,6 @@
-// Email-only interest enquiry. The service accepts an omitted name.
+// Email-only interest enquiry. The service accepts an omitted name. The page
+// adds what the visitor previewed: the domain, the page URL and any terms
+// they changed, all optional on the service side.
 
 /** The path the enquiry posts to, relative to the configured service base. */
 export const CONTACT_PATH = '/v1/contact';
@@ -29,10 +31,13 @@ export function looksLikeEmail(value) {
 /**
  * Build the enquiry body.
  *
+ * `preview` is the body of the last preview request the service answered, so
+ * the enquiry names the same domain, page and terms the visitor just looked at.
+ *
  * Returns { ok: true, body } or { ok: false, field, message }, where field is
  * the id of the input the message belongs under.
  */
-export function buildContactRequest({ email, domain } = {}) {
+export function buildContactRequest({ email, preview } = {}) {
 	const address = String(email ?? '').trim();
 	if (address === '') {
 		return { ok: false, field: 'contact-email', message: 'Tell us where to reply.' };
@@ -42,8 +47,9 @@ export function buildContactRequest({ email, domain } = {}) {
 	}
 
 	const body = { email: address };
-	const site = String(domain ?? '').trim();
-	if (site !== '') body.domain = site;
+	for (const key of ['domain', 'article_url', 'terms']) {
+		if (preview?.[key]) body[key] = preview[key];
+	}
 	return { ok: true, body };
 }
 

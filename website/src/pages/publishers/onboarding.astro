@@ -477,7 +477,7 @@ import '../../styles/brand.css';
             <a class="btn btn-ghost" href="/getting-started/publisher-onboarding/" target="_blank" rel="noopener noreferrer">Read the publisher guide</a>
           </div>
           <p class="contact-note" id="contact-note" role="status"></p>
-          <p class="hint" id="contact-hint">We send your email and the domain you previewed to our team.</p>
+          <p class="hint" id="contact-hint">We send your email, the page you previewed and any terms you changed to our team.</p>
         </form>
       </div>
     </div>
@@ -507,7 +507,7 @@ import '../../styles/brand.css';
 
   const $ = (id) => document.getElementById(id);
 
-  const state = { domain: '', url: '', preview: null, inFlight: null, requestId: 0 };
+  const state = { domain: '', url: '', request: null, preview: null, inFlight: null, requestId: 0 };
 
   // ---- the preview API -----------------------------------------------------
   // The single seam where the preview service is called. It answers with its
@@ -739,6 +739,7 @@ import '../../styles/brand.css';
 
     state.domain = preview.domain;
     state.url = built.body.article_url;
+    state.request = built.body;
     state.preview = preview;
     renderAll();
     if (explicit) {
@@ -796,10 +797,10 @@ import '../../styles/brand.css';
 
     const built = buildContactRequest({
       email: $('contact-email').value,
-      // The domain of the preview they just read, which is what makes the
-      // enquiry worth answering. It is the checked one, not whatever is being
-      // typed in the form above.
-      domain: state.domain,
+      // The preview they just read, which is what makes the enquiry worth
+      // answering. It is the answered request, not whatever is being typed in
+      // the form above.
+      preview: state.request,
     });
     if (!built.ok) {
       setFieldError(built.field, built.message);
