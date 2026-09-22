@@ -16,6 +16,8 @@ const manifest = {
 		relationship: 'PROVIDER_RELATIONSHIP_DIRECT',
 		ext: { resource_owner_id: '<the account id you receive when you register>' } }],
 };
+// What the page shows: the same file without the per-exchange `ext` placeholder.
+const shownManifest = { ...manifest, exchanges: manifest.exchanges.map(({ ext, ...exchange }) => exchange) };
 const response = (overrides = {}) => ({
 	domain: 'publisher.example',
 	page: { url: SOURCE, canonical_url: 'https://publisher.example/canonical', title: '  A real headline  ', source: 'article_url' },
@@ -99,7 +101,7 @@ test('service CDN fixtures retain configuration and map recognized and unknown p
 		const data = cdnResponse(row);
 		const result = preview.previewDetails(data, SOURCE, CHECKED, 'submitted.example');
 		assert.equal(result.cdn, provider, label);
-		assert.equal(result.manifest, manifest, label);
+		assert.deepEqual(result.manifest, shownManifest, label);
 		assert.equal(result.offer, data.offer, label);
 		assert.equal(result.domain, 'submitted.example');
 		assert.equal(result.sourceUrl, SOURCE);
@@ -129,7 +131,7 @@ test('unreadable service fixtures retain configuration and detected provenance f
 			warnings: ['The page could not be read.'],
 		});
 		const result = details(data);
-		assert.equal(result.manifest, manifest, `${row[0]}: ${reason}`);
+		assert.deepEqual(result.manifest, shownManifest, `${row[0]}: ${reason}`);
 		assert.equal(result.cdn, row[1]);
 		assert.equal(result.contentRead, false);
 		assert.equal(result.hasOffer, false);
