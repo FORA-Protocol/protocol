@@ -32,8 +32,8 @@ const { current } = Astro.props;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.5rem 2.5rem;
-    max-width: 1280px;
+    padding: 1.5rem clamp(16px, 4vw, 40px);
+    max-width: 1100px;
     margin: 0 auto;
     width: 100%;
   }
@@ -64,7 +64,7 @@ const { current } = Astro.props;
   .nav-links a.on { color: var(--off-white); }
 
   @media (max-width: 768px) {
-    .hero-nav { padding: 1rem 1.5rem; }
+    .hero-nav { padding-block: 1rem; }
     .nav-links { display: none; }
   }
 </style>
