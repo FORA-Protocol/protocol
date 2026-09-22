@@ -669,9 +669,7 @@ import '../styles/brand.css';
     .role-footer-link {
       display: block;
       text-decoration: none;
-      visibility: hidden;
     }
-    .role-card.expanded .role-footer-link { visibility: visible; }
     .role-footer-link:hover,
     .role-footer-link:focus-visible { text-decoration: underline; }
 
@@ -938,7 +936,7 @@ import '../styles/brand.css';
       <p class="hero-sub animate-in delay-2">FORA is the open transaction protocol that turns blocked bots into paying customers. Discover, price, transact, deliver, verify — one protocol for any content.</p>
       <div class="hero-buttons animate-in delay-3">
         <a href="/getting-started/what-is-fora/" class="btn btn-primary">Read the Docs</a>
-        <a href="https://github.com/FORA-Protocol/protocol" class="btn btn-ghost">View on GitHub</a>
+        <a href="https://github.com/FORA-Protocol/protocol" target="_blank" rel="noopener noreferrer" class="btn btn-ghost">View on GitHub</a>
       </div>
       <nav class="hero-resources" aria-labelledby="hero-resources-label">
         <p class="hero-resources-label" id="hero-resources-label">Build with FORA</p>
@@ -1158,8 +1156,7 @@ import '../styles/brand.css';
             <div class="role-step-num">04</div>
             <div class="role-step-text">Done. Blocked bots become paying customers. No CMS changes. No new infrastructure.</div>
           </div>
-          <a class="role-footer role-footer-link" href="/publishers/onboarding/"
-             onclick="event.stopPropagation()">Preview your page &rarr;</a>
+          <a class="role-footer role-footer-link" href="/publishers/onboarding/" target="_blank" rel="noopener noreferrer">Preview your page &rarr;</a>
         </div>
       </details>
 
@@ -1186,7 +1183,7 @@ import '../styles/brand.css';
             <div class="role-step-num">04</div>
             <div class="role-step-text">If content doesn't match, <code>DisputeTransaction</code> triggers automatic resolution. Cryptographic evidence, not arguments.</div>
           </div>
-          <div class="role-footer">One API, any Exchange &rarr;</div>
+          <a class="role-footer role-footer-link" href="/getting-started/for-ai-agents/" target="_blank" rel="noopener noreferrer">One API, any Exchange &rarr;</a>
         </div>
       </details>
 
@@ -1213,7 +1210,7 @@ import '../styles/brand.css';
             <div class="role-step-num">04</div>
             <div class="role-step-text">Plug in your billing adapter — Stripe, x402, or custom. FORA handles the transaction; you handle settlement.</div>
           </div>
-          <div class="role-footer">Like an ad exchange, but for content &rarr;</div>
+          <a class="role-footer role-footer-link" href="/getting-started/for-exchange-operators/" target="_blank" rel="noopener noreferrer">Like an ad exchange, but for content &rarr;</a>
         </div>
       </details>
     </div>
