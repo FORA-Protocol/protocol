@@ -425,7 +425,8 @@ import '../../styles/brand.css';
           </div>
           <div class="ctl">
             <span class="k">Price per access</span>
-            <div class="price"><span>EUR</span><input id="price" type="number" min="0" step="0.01" value="0.02" disabled aria-label="Price per access in EUR" /></div>
+            <div class="price"><span>EUR</span><input id="price" type="number" min="0" step="0.000001" value="0.02" disabled aria-label="Price per access in EUR" aria-describedby="price-error" /></div>
+            <p class="field-error" id="price-error" aria-live="polite"></p>
           </div>
           <div class="ctl">
             <span class="k">Allowed uses</span>
@@ -573,6 +574,7 @@ import '../../styles/brand.css';
 
   function renderOffer() {
     const host = $('offer');
+    host.hidden = false;
     host.textContent = '';
     if (!state.preview) return;
 
@@ -664,6 +666,7 @@ import '../../styles/brand.css';
     if (failure.field) {
       const field = failure.field === 'rate' ? 'price' : failure.field;
       setFieldError(field, failure.headline);
+      if (field === 'price') $('offer').hidden = true;
       $('status').textContent = failure.headline;
       if (moveFocus) $(field)?.focus();
       return;
@@ -700,6 +703,7 @@ import '../../styles/brand.css';
     state.inFlight?.abort();
     state.inFlight = null;
     setFieldError('url', '');
+    setFieldError('price', '');
     $('failure').hidden = true;
     const button = $('go');
     const built = buildPagePreviewRequest({
@@ -784,7 +788,13 @@ import '../../styles/brand.css';
     setFieldError('price', '');
     scheduleTermsRefresh();
   }));
-  ['price', 'attr', ...OFFERED_USES.map((token) => `u-${token}`)]
+  $('price').addEventListener('input', () => {
+    const input = $('price');
+    const capped = input.value.replace(/(\.\d{6})\d+/, '$1');
+    if (input.value !== capped) input.value = capped;
+    scheduleTermsRefresh();
+  });
+  ['attr', ...OFFERED_USES.map((token) => `u-${token}`)]
     .forEach((id) => $(id).addEventListener('input', scheduleTermsRefresh));
   $('url').addEventListener('input', () => setFieldError('url', ''));
 
