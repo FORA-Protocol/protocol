@@ -5,6 +5,7 @@ import * as request from './request.mjs';
 import {
 	MAX_BODY_BYTES,
 	bodyByteLength,
+	buildPagePreviewRequest,
 	buildPreviewRequest,
 	formatRate,
 	isZeroRate,
@@ -163,6 +164,18 @@ test('formatRate refuses a value that is not a non-negative decimal', () => {
 	assert.equal(formatRate('abc'), null);
 	assert.equal(formatRate(''), null);
 	assert.equal(formatRate('1.2345678'), null, 'more than six decimals is a typo, not a price');
+});
+
+test('page controls reject excess price precision and recover with all selected uses', () => {
+	const controls = { pricingModel: 'per_unit', rate: '0.02111123',
+		offeredFunctions: ['search', 'ai-input', 'ai-train'], permittedFunctions: ['ai-input', 'ai-train'] };
+	const invalid = buildPagePreviewRequest({ url: 'https://example.com/', controls });
+	assert.equal(invalid.field, 'rate');
+	assert.match(invalid.message, /six decimal places/);
+	const valid = buildPagePreviewRequest({ url: 'https://example.com/', controls: { ...controls, rate: '0.021111' } });
+	assert.equal(valid.body.terms.rate, '0.021111');
+	assert.deepEqual(valid.body.terms.permitted_functions, ['ai-input', 'ai-train']);
+	assert.deepEqual(valid.body.terms.prohibited_functions, ['search']);
 });
 
 test('isZeroRate recognises zero in every spelling formatRate can produce', () => {

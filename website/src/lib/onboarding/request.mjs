@@ -219,7 +219,7 @@ function buildTerms(controls) {
 			return {
 				ok: false,
 				field: 'rate',
-				message: 'Enter a price as a plain number, for example 0.002.',
+				message: 'Enter a price with up to six decimal places, for example 0.002.',
 			};
 		}
 		if (isZeroRate(rate)) {
