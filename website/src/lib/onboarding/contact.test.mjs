@@ -11,6 +11,8 @@ import {
 } from './contact.mjs';
 
 const interest = (overrides = {}) => ({ email: 'olena@x.example', ...overrides });
+const terms = { pricing_model: 'per_unit', rate: '0.02', permitted_functions: ['search'], prohibited_functions: ['ai-train'], attribution_required: true };
+const previewed = { domain: 'x.example', article_url: 'https://x.example/news/story', terms };
 const response = (status = 202, body = { status: 'sent' }) =>
 	new Response(JSON.stringify(body), { status });
 const send = (fetchImpl, options = {}) => sendContact({
@@ -22,14 +24,17 @@ const assertFailure = (outcome) => {
 	assert.ok(outcome.failure.detail.length > 0);
 };
 
-test('email-only interest omits name even when supplied and includes an optional preview domain', () => {
+test('interest carries the previewed domain, page and terms, omits name, and sends only what the preview had', () => {
 	for (const name of [undefined, 'Olena', 'ignored\r\nname']) {
-		assert.deepEqual(buildContactRequest(interest({ name, domain: ' x.example ' })), {
-			ok: true, body: interest({ domain: 'x.example' }),
+		assert.deepEqual(buildContactRequest(interest({ name, preview: previewed })), {
+			ok: true, body: interest(previewed),
 		});
 	}
-	for (const domain of [undefined, '', '   ']) {
-		assert.deepEqual(buildContactRequest(interest({ email: '  olena@x.example  ', domain })), {
+	assert.deepEqual(buildContactRequest(interest({ preview: { domain: 'x.example', article_url: previewed.article_url } })), {
+		ok: true, body: interest({ domain: 'x.example', article_url: previewed.article_url }),
+	});
+	for (const preview of [undefined, null, {}, { domain: '', article_url: '', terms: null }]) {
+		assert.deepEqual(buildContactRequest(interest({ email: '  olena@x.example  ', preview })), {
 			ok: true, body: interest(),
 		});
 	}
@@ -58,9 +63,9 @@ test('raw email CR and LF are refused before trimming', () => {
 	}
 });
 
-test('interest posts the exact email-only JSON body and signal to the contact path', async () => {
+test('interest posts the exact JSON body and signal to the contact path', async () => {
 	const controller = new AbortController();
-	const built = buildContactRequest(interest({ name: 'ignored', domain: 'x.example' }));
+	const built = buildContactRequest(interest({ name: 'ignored', preview: previewed }));
 	assert.equal(built.ok, true);
 	let request;
 	const outcome = await send(async (url, init) => {
@@ -71,7 +76,7 @@ test('interest posts the exact email-only JSON body and signal to the contact pa
 	assert.equal(request.url, `https://host.example/onboarding${CONTACT_PATH}`);
 	assert.equal(request.init.method, 'POST');
 	assert.equal(request.init.headers['Content-Type'], 'application/json');
-	assert.deepEqual(JSON.parse(request.init.body), interest({ domain: 'x.example' }));
+	assert.deepEqual(JSON.parse(request.init.body), interest(previewed));
 	assert.equal(request.init.signal, controller.signal);
 });
 

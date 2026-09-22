@@ -12,6 +12,12 @@ export function previewDetails(data, sourceUrl, checkedAt, submittedDomain = dat
 	};
 	const manifestStep = Array.isArray(data.steps)
 		? data.steps.find((entry) => entry && typeof entry === 'object' && entry.manifest) : null;
+	// The per-exchange `ext` block holds an account id placeholder that is only
+	// filled in at registration, so the preview shows the file without it.
+	const manifest = manifestStep?.manifest ?? null;
+	const shownManifest = manifest && Array.isArray(manifest.exchanges)
+		? { ...manifest, exchanges: manifest.exchanges.map(({ ext, ...exchange }) => exchange) }
+		: manifest;
 	return {
 		sourceUrl: source, checkedAt, contentRead, hasOffer,
 		termsNote: Object.hasOwn(notes, data.terms_source) ? notes[data.terms_source] : 'Licensing source not reported.',
@@ -22,7 +28,7 @@ export function previewDetails(data, sourceUrl, checkedAt, submittedDomain = dat
 			.map((entry) => [String(entry.name || entry.source || ''), String(entry.value ?? '')])
 			.filter(([name]) => name !== ''),
 		// Preserve the service-generated file independently of CDN or page access.
-		manifest: manifestStep?.manifest ?? null,
+		manifest: shownManifest,
 		termsSource: String(data.terms_source ?? ''),
 		termsDocument: String(data.detected_terms?.document_url ?? ''),
 		offer: data.offer ?? null,
