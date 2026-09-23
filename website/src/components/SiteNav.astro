@@ -9,9 +9,20 @@ interface Props {
 }
 const { current } = Astro.props;
 ---
-<nav class="hero-nav">
+<nav class="hero-nav" aria-label="Main">
   <a href="/" class="logo">fora protocol</a>
-  <ul class="nav-links">
+  <button
+    type="button"
+    class="menu-btn"
+    aria-label="Menu"
+    aria-expanded="false"
+    aria-controls="site-nav-links"
+  >
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+    </svg>
+  </button>
+  <ul id="site-nav-links" class="nav-links">
     <li><a href="/getting-started/what-is-fora/">Docs</a></li>
     <li><a href="/protocol/transaction-flow/">Protocol</a></li>
     <li>
@@ -24,11 +35,13 @@ const { current } = Astro.props;
     <li><a href="https://github.com/FORA-Protocol/protocol">GitHub</a></li>
   </ul>
 </nav>
+<div class="nav-spacer" aria-hidden="true"></div>
 
 <style>
   .hero-nav {
     position: relative;
-    z-index: 10;
+    /* Above page content (the home hero uses 10), so the mobile menu covers it. */
+    z-index: 20;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -65,8 +78,111 @@ const { current } = Astro.props;
   .nav-links a:hover { color: var(--off-white); }
   .nav-links a.on { color: var(--off-white); }
 
+  .menu-btn, .nav-spacer { display: none; }
+
+  /* Narrow screens. Without the script, the links move to their own row under
+     the logo and wrap if they do not fit, so every destination stays reachable.
+     The script sets data-menu, which turns the links into a menu behind the
+     button. */
   @media (max-width: 768px) {
-    .hero-nav { padding-block: 1rem; }
-    .nav-links { display: none; }
+    .hero-nav {
+      flex-wrap: wrap;
+      row-gap: 0.75rem;
+      padding-block: 1rem;
+    }
+    .nav-links {
+      flex-wrap: wrap;
+      gap: 0.25rem 1rem;
+      width: 100%;
+    }
+    /* Taller tap targets for touch. */
+    .nav-links a { display: inline-block; padding-block: 0.25rem; }
+
+    /* The menu bar stays at the top while the page scrolls, so the menu
+       can be opened from anywhere. The spacer keeps its place in the page. */
+    .hero-nav[data-menu] {
+      position: fixed;
+      inset: 0 0 auto 0;
+      height: 4.5rem;
+      padding-block: 0;
+      background: rgba(10, 10, 15, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .hero-nav[data-menu] + .nav-spacer {
+      display: block;
+      flex-shrink: 0;
+      height: 4.5rem;
+    }
+    /* In-page anchors must not end up under the fixed bar. */
+    :global(html:has(.hero-nav[data-menu])) { scroll-padding-top: 4.5rem; }
+
+    .hero-nav[data-menu] .menu-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      background: none;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      color: var(--off-white);
+      cursor: pointer;
+    }
+    .hero-nav[data-menu] .menu-btn:focus-visible {
+      outline: 2px solid var(--off-white);
+      outline-offset: 2px;
+    }
+    .hero-nav[data-menu] .nav-links {
+      position: absolute;
+      top: 100%;
+      left: clamp(16px, 4vw, 40px);
+      right: clamp(16px, 4vw, 40px);
+      width: auto;
+      flex-direction: column;
+      gap: 0;
+      padding: 0.5rem;
+      background: var(--dark);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+    }
+    .hero-nav[data-menu='closed'] .nav-links { display: none; }
+    .hero-nav[data-menu] .nav-links a {
+      display: block;
+      padding: 0.75rem;
+      font-size: 1rem;
+    }
   }
 </style>
+
+<script>
+  // Mobile menu. The button and the dropdown styles apply only at the mobile
+  // breakpoint, so this has no effect on desktop.
+  const nav = document.querySelector<HTMLElement>('.hero-nav');
+  const btn = nav?.querySelector<HTMLButtonElement>('.menu-btn');
+  if (nav && btn) {
+    const setOpen = (open: boolean) => {
+      nav.dataset.menu = open ? 'open' : 'closed';
+      btn.setAttribute('aria-expanded', String(open));
+    };
+    setOpen(false);
+
+    btn.addEventListener('click', () => setOpen(nav.dataset.menu !== 'open'));
+    nav.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && nav.dataset.menu === 'open') {
+        setOpen(false);
+        btn.focus();
+      }
+    });
+    // Close when keyboard focus moves out of the nav, or on a click outside it.
+    nav.addEventListener('focusout', (e) => {
+      if (e.relatedTarget && !nav.contains(e.relatedTarget as Node)) setOpen(false);
+    });
+    document.addEventListener('click', (e) => {
+      if (!nav.contains(e.target as Node)) setOpen(false);
+    });
+    // A menu left open on a narrow window must not stay "expanded" on desktop.
+    matchMedia('(min-width: 769px)').addEventListener('change', () => setOpen(false));
+  }
+</script>
