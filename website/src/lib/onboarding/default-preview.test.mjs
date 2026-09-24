@@ -23,9 +23,9 @@ const response = (overrides = {}) => ({
 	page: { url: SOURCE, canonical_url: 'https://publisher.example/canonical', title: '  A real headline  ', source: 'article_url' },
 	cdn: { provider: 'none', integration: 'contact_us', evidence: null },
 	warnings: null,
-	offer: { exchange: 'exchange.example', title: 'A real headline', pricing, terms,
+	offers: [{ exchange: 'exchange.example', title: 'A real headline', pricing, terms,
 		delivery_method: 'DELIVERY_METHOD_INSTRUCTIONS',
-		identity: { canonical_url: 'https://publisher.example/canonical', resource_mutability: 'RESOURCE_MUTABILITY_STATIC' } },
+		identity: { canonical_url: 'https://publisher.example/canonical', resource_mutability: 'RESOURCE_MUTABILITY_STATIC' } }],
 	detected_terms: null,
 	sample_feed: JSON.stringify({ domain: 'publisher.example', path: '/canonical', title: 'A real headline',
 		terms: [{ semantics: 'enumerated', pricing: { model: 'free', rate: '0', currency: 'EUR' },
@@ -54,22 +54,27 @@ test('preview metadata preserves the submitted source and observed check time, n
 test('missing submitted URLs fall back to page URL and then domain', () => {
 	const data = response({ page: { url: SOURCE, canonical_url: 'https://publisher.example/canonical', title: '  ' } });
 	assert.equal(details(data, '').sourceUrl, SOURCE);
-	const missing = details(response({ page: null, offer: null }), '');
+	const missing = details(response({ page: null, offers: [] }), '');
 	assert.equal(missing.sourceUrl, 'publisher.example');
 	assert.equal(missing.contentRead, false);
 	assert.equal(missing.hasOffer, false);
 });
 
 test('robustness: absent or malformed offers never fabricate a package', () => {
-	for (const offer of [undefined, null, {}, [], 'not an offer']) {
-		const result = details(response({ offer }));
-		assert.equal(result.contentRead, true);
-		assert.equal(result.hasOffer, false);
+	for (const offers of [undefined, null, [], [null], [{}], [[]], ['not an offer'], 'not a list', {}]) {
+		const result = details(response({ offers }));
+		assert.equal(result.contentRead, true, JSON.stringify(offers));
+		assert.equal(result.hasOffer, false, JSON.stringify(offers));
+		assert.equal(result.offer, null, JSON.stringify(offers));
 	}
+	// The shape before `offers`, kept until the deployed service moves over.
+	const legacy = details(response({ offers: undefined, offer: response().offers[0] }));
+	assert.equal(legacy.hasOffer, true);
+	assert.equal(legacy.offer.title, 'A real headline');
 });
 
 test('licensing provenance distinguishes detected, demo defaults, visitor controls and unknown', () => {
-	const notes = ['detected', 'default', 'request', undefined].map((terms_source) => details(response({ terms_source, offer: null })).termsNote);
+	const notes = ['detected', 'default', 'request', undefined].map((terms_source) => details(response({ terms_source, offers: [] })).termsNote);
 	assert.match(notes[0], /detect/i);
 	assert.equal(notes[1], '', 'Demo-default notices are intentionally omitted');
 	assert.match(notes[2], /(?:your|visitor).*(?:control|override|term)/i);
@@ -102,7 +107,7 @@ test('service CDN fixtures retain configuration and map recognized and unknown p
 		const result = preview.previewDetails(data, SOURCE, CHECKED, 'submitted.example');
 		assert.equal(result.cdn, provider, label);
 		assert.deepEqual(result.manifest, shownManifest, label);
-		assert.equal(result.offer, data.offer, label);
+		assert.equal(result.offer, data.offers[0], label);
 		assert.equal(result.domain, 'submitted.example');
 		assert.equal(result.sourceUrl, SOURCE);
 		assert.equal(result.checkedAt, CHECKED);
@@ -125,7 +130,7 @@ test('unreadable service fixtures retain configuration and detected provenance f
 	]) {
 		const data = cdnResponse(row, {
 			page: { url: SOURCE, canonical_url: SOURCE, title: '', source: 'article_url', unreadable: { reason, status } },
-			offer: null, sample_feed: '', terms_source: 'detected',
+			offers: [], sample_feed: '', terms_source: 'detected',
 			detected_terms: { source: 'rsl', document_url: 'https://publisher.example/rsl.txt',
 				content_url: 'https://publisher.example/*', terms, warnings: null },
 			warnings: ['The page could not be read.'],
@@ -134,6 +139,7 @@ test('unreadable service fixtures retain configuration and detected provenance f
 		assert.deepEqual(result.manifest, shownManifest, `${row[0]}: ${reason}`);
 		assert.equal(result.cdn, row[1]);
 		assert.equal(result.contentRead, false);
+		assert.deepEqual(result.unreadable, { reason, status });
 		assert.equal(result.hasOffer, false);
 		assert.equal(result.offer, null);
 		assert.deepEqual(result.warnings, data.warnings);
@@ -155,4 +161,50 @@ test('null and empty lists normalize equally and unavailable manifests are never
 	data.steps = data.steps.map(({ manifest, ...step }) => step);
 	data.warnings = ['the discovery document could not be built for this preview'];
 	assert.equal(details(data).manifest, null);
+});
+
+test('a blocked page keeps the offer the service built from the terms, marked unreadable', () => {
+	const offer = { ...response().offers[0], title: '[Placeholder] Article title' };
+	const data = cdnResponse(cdnCases[3], {
+		page: { url: SOURCE, canonical_url: SOURCE, title: '', source: 'article_url', unreadable: { reason: 'bot_protection', status: 403 } },
+		offers: [offer],
+	});
+	data.page.title = '[Placeholder] Article title';
+	data.page.title_source = 'placeholder';
+	const result = details(data);
+	assert.equal(result.contentRead, false);
+	assert.deepEqual(result.unreadable, { reason: 'bot_protection', status: 403 });
+	assert.equal(result.titlePlaceholder, true);
+	assert.equal(result.hasOffer, true);
+	assert.equal(result.offer, offer);
+	const readable = details(response());
+	assert.equal(readable.unreadable, null, 'a readable page carries no unreadable block');
+	assert.equal(readable.titlePlaceholder, false, 'a title read from the site is not a placeholder');
+	const untitled = details(response({
+		page: { ...response().page, title: 'Your article title', title_source: 'placeholder' },
+		warnings: ['the page gave no title, so the offer carries a placeholder in its place', 'no licensing document was found'],
+	}));
+	assert.equal(untitled.contentRead, true);
+	assert.equal(untitled.titlePlaceholder, true, 'a readable page with no title still marks the placeholder');
+	assert.deepEqual(untitled.warnings, ['no licensing document was found'], 'the placeholder sentence is said once, by the page');
+	assert.deepEqual(details(response({ warnings: ['a placeholder mention on a titled page'] })).warnings,
+		['a placeholder mention on a titled page'], 'nothing is dropped when the title was read');
+	for (const title_source of [undefined, 'page', 'PLACEHOLDER', 'constructor']) {
+		assert.equal(details(response({ page: { ...response().page, title_source } })).titlePlaceholder, false, String(title_source));
+	}
+});
+
+test('the unreadable note names the CDN and status, and only suggests a retry when one can help', () => {
+	const blocked = preview.unreadableNote({ reason: 'bot_protection', status: 403 }, 'akamai');
+	assert.match(blocked, /^Akamai blocked our request as automated traffic \(HTTP 403\)/);
+	assert.doesNotMatch(blocked, /try again/i);
+	assert.match(preview.unreadableNote({ reason: 'refused', status: 401 }, 'none'), /^The network in front of your site refused our request \(HTTP 401\)/);
+	const missing = preview.unreadableNote({ reason: 'not_found', status: 404 }, 'cloudflare');
+	assert.match(missing, /does not exist \(HTTP 404\)/);
+	assert.match(missing, /try again or use another page/i);
+	for (const unreadable of [null, {}, { reason: 'something_new' }, { reason: '__proto__', status: 'x' }]) {
+		const note = preview.unreadableNote(unreadable, 'fastly');
+		assert.match(note, /^We couldn’t read this page, so we could not read the article/);
+		assert.doesNotMatch(note, /HTTP/);
+	}
 });

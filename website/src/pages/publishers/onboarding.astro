@@ -331,7 +331,8 @@ import '../../styles/brand.css';
     .note { font-size: .8125rem; color: var(--gray); border-left: 2px solid var(--mid); padding-left: .75rem; margin-top: 1rem; }
     .notes { list-style: none; padding: 0; margin: 1.25rem 0 0; display: grid; gap: .5rem; }
     .notes:empty { display: none; }
-    .notes li {
+    .warning { margin-top: 1rem; }
+    .notes li, .warning {
       font-size: .8125rem;
       color: var(--light-gray);
       border-left: 2px solid var(--warn);
@@ -403,6 +404,7 @@ import '../../styles/brand.css';
       </div>
       <p class="preview-meta">Source: <a id="preview-source"></a><br />Checked: <time id="preview-checked"></time></p>
       <p class="hint" id="content-status">This preview shows what an agent receives under your license. Adjust the controls below to explore different terms.</p>
+      <p class="warning" id="offer-placeholder" hidden></p>
       <div class="card" id="offer-unavailable" hidden>
         <h3>We cannot show an offer for this page</h3>
         <p id="offer-unavailable-detail"></p>
@@ -494,7 +496,7 @@ import '../../styles/brand.css';
   import { fetchPreview } from '../../lib/onboarding/preview-client.mjs';
   import { cdnPresentation } from '../../lib/onboarding/cdn-integrations.mjs';
   import { OFFERED_USES, partitionUses } from '../../lib/onboarding/terms-vocab.mjs';
-  import { previewDetails } from '../../lib/onboarding/default-preview.mjs';
+  import { previewDetails, unreadableNote } from '../../lib/onboarding/default-preview.mjs';
   import { escapeHtml as esc, highlightJson } from '../../lib/onboarding/record.mjs';
   import { offerOutline, resolvedControls } from '../../lib/onboarding/offer-outline.mjs';
   import { buildContactRequest, sendContact } from '../../lib/onboarding/contact.mjs';
@@ -571,13 +573,23 @@ import '../../styles/brand.css';
     host.textContent = '';
     if (!state.preview) return;
 
-    $('sample').hidden = !state.preview.hasOffer;
-    $('offer-unavailable').hidden = state.preview.hasOffer;
-    $('content-status').hidden = !state.preview.hasOffer;
-    $('offer-unavailable-detail').textContent = state.preview.contentRead
-      ? 'Page content was read successfully, but no agent package was returned.'
-      : 'We couldn’t read this page. Try again or use another page.';
-    if (state.preview.hasOffer) host.append(outlineList(offerOutline(state.preview.offer).nodes));
+    const { hasOffer, unreadable, titlePlaceholder, cdn } = state.preview;
+    $('sample').hidden = !hasOffer;
+    $('offer-unavailable').hidden = hasOffer;
+    $('content-status').hidden = !hasOffer;
+    $('offer-unavailable-detail').textContent = unreadable
+      ? unreadableNote(unreadable, cdn)
+      : state.preview.contentRead
+        ? 'Page content was read successfully, but no agent package was returned.'
+        : 'We couldn’t read this page. Try again or use another page.';
+    // The offer is built from the terms, not the page text, so a page that
+    // was blocked or had no title still gets one, with a placeholder title.
+    const placeholder = $('offer-placeholder');
+    placeholder.hidden = !(hasOffer && titlePlaceholder);
+    placeholder.textContent = hasOffer && titlePlaceholder
+      ? `${unreadable ? unreadableNote(unreadable, cdn) : 'Your site gave no title for this page.'} The offer title below is a placeholder; everything else in the offer is real.`
+      : '';
+    if (hasOffer) host.append(outlineList(offerOutline(state.preview.offer).nodes));
   }
 
   // Built as nodes, never as markup: every value here came from the service,

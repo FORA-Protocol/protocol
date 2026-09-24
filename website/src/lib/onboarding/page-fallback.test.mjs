@@ -59,3 +59,11 @@ test('absent, unexpected, prototype and hostile provider tokens share an honest 
     assert.deepEqual(presentation(provider), unknown, `Unexpected provider ${String(provider)} must not be echoed or treated as detected`);
   }
 });
+
+test('cdnName gives the visitor-facing name for recognized providers and nothing for the rest', () => {
+  assert.equal(integrations.cdnName('cloudflare'), 'Cloudflare');
+  assert.equal(integrations.cdnName('akamai'), 'Akamai');
+  for (const provider of [undefined, 'none', 'unexpected-provider', 'constructor', '__proto__']) {
+    assert.equal(integrations.cdnName(provider), '', String(provider));
+  }
+});
