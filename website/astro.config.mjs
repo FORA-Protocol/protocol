@@ -10,6 +10,16 @@ import remarkStandards from './plugins/remark-standards.mjs';
 import remarkVersion from './plugins/remark-version.mjs';
 
 export default defineConfig({
+	vite: {
+		server: {
+			// Dev only. The preview service does not answer cross-origin calls from
+			// localhost, so `.env.development` points the page at this path and
+			// the dev server forwards it to the deployed service.
+			proxy: {
+				'/onboarding': { target: 'https://pub-onboarding.demo.fora-protocol.org', changeOrigin: true },
+			},
+		},
+	},
 	env: {
 		schema: {
 			// Base URL of the publisher onboarding preview service, including any

@@ -18,6 +18,12 @@ export const CDN_INTEGRATIONS = {
 	},
 };
 
+/** The CDN as a visitor would name it, or '' when none was recognized. */
+export function cdnName(provider) {
+	if (Object.hasOwn(CDN_INTEGRATIONS, provider)) return CDN_INTEGRATIONS[provider].name;
+	return provider === 'akamai' ? 'Akamai' : '';
+}
+
 /** The same provider interpretation drives the result badge and configuration. */
 export function cdnPresentation(provider) {
 	const integration = Object.hasOwn(CDN_INTEGRATIONS, provider) ? CDN_INTEGRATIONS[provider] : null;
