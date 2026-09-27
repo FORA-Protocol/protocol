@@ -6,7 +6,9 @@ sdk/go type (profiles/music/music.go). The profile is one nested JSON object at
 The profile's JSON Schema, ``music-v1.schema.json``, defines the valid shape
 (label format, ISRC pattern, bpm and duration bounds). It is published at
 https://fora-protocol.org/protocol/ext-music/. Validate against it when the input
-is untrusted.
+is untrusted. The label pattern uses ``\\p{...}`` classes that Python's ``re`` does
+not support, so plain ``jsonschema.validate()`` fails on it. The "Validating in
+Python" section of that page shows a validator that uses the ``regex`` package.
 
 Presence follows the profile: an absent key means unknown (an absent ``vocals``
 is never ``False``), and an empty list means known to be empty. Consumers ignore

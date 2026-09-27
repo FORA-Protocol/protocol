@@ -196,6 +196,46 @@ The schema is `music-v1.schema.json` (JSON Schema Draft 2020-12). It allows unkn
 }
 ```
 
+### Validating in Python
+
+The label pattern uses Unicode property classes (`\p{Z}`, `\p{Lu}`, `\p{Lt}`). JSON Schema allows them, because it uses ECMA-262 regular expressions. Python's `re` module does not support them. The standard `pattern` check of the Python `jsonschema` package uses `re`, so `jsonschema.validate()` fails on any object that has a label field, with the error `bad escape \p`.
+
+Validators in Go and JavaScript that follow ECMA-262, such as `santhosh-tekuri/jsonschema` and Ajv 8, need no change.
+
+In Python, replace the `pattern` check with one that uses the `regex` package, which supports these classes. Install both packages:
+
+```sh
+pip install jsonschema regex
+```
+
+Then build the validator from the extended class, and use it for every check. Do not call `jsonschema.validate()` directly, because it uses the standard `pattern` check.
+
+```python
+import json
+
+import regex
+from jsonschema import Draft202012Validator, ValidationError, validators
+
+
+def _unicode_pattern(validator, pattern, instance, schema):
+    # Replaces the standard "pattern" check, which uses Python's re module.
+    # The regex module supports the \p{...} classes that the label pattern uses.
+    if validator.is_type(instance, "string") and not regex.search(pattern, instance):
+        yield ValidationError(f"{instance!r} does not match {pattern!r}")
+
+
+MusicValidator = validators.extend(Draft202012Validator, {"pattern": _unicode_pattern})
+
+with open("music-v1.schema.json", encoding="utf-8") as f:
+    validator = MusicValidator(json.load(f))
+
+music = {"genre": "Jazz", "bpm": 90}
+for error in validator.iter_errors(music):
+    print(f"{error.json_path}: {error.message}")
+```
+
+This prints the error for the upper-case label `Jazz`. Save the schema above as `music-v1.schema.json` before you run it.
+
 ## Out of scope
 
 - Rights-model fields: composition ownership, royalty splits, clearance.
