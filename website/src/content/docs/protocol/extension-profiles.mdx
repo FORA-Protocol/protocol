@@ -225,16 +225,16 @@ See the [full fora-c2pa-v1 specification](/protocol/ext-c2pa/).
 
 ### fora-music-v1
 
-**Scope:** Music recordings -- discovery metadata for one recording (1.0-draft)
+**Scope:** Music recordings -- discovery metadata for one recording
 
 | Property | Detail |
 |---|---|
-| **Ext fields** | One nested object at `Offer.ext.music` with ten optional fields: `artist`, `isrc`, `genre`, `mood`, `instruments`, `suitable_for`, `energy`, `vocals`, `bpm`, `duration_seconds` |
-| **Search filters** | Eight flat `music.*` keys in `DiscoveryRequest.search_filters`, for example `music.genre` and `music.bpm_range` |
-| **Validation** | The Broker validates the matching fields when it loads its catalog feed. The Exchange forwards `ext.music` unchanged and does not validate it. |
+| **Ext fields** | Ten optional `music.*` keys in `Offer.ext`: `music.artist`, `music.isrc`, `music.genre`, `music.mood`, `music.instruments`, `music.suitable_for`, `music.energy`, `music.vocals`, `music.bpm`, `music.duration_seconds` |
+| **Search filters** | Eight `music.*` keys in `DiscoveryRequest.search_filters`, for example `music.genre` and `music.bpm_range` |
+| **Validation** | The Broker validates the matching fields when it loads its catalog feed. The Exchange forwards the `music.*` keys unchanged and does not validate them. |
 | **SDK types** | Go `profiles/music`, TypeScript `@fora-protocol/sdk/music`, Python `fora_sdk.music` |
 
-The music profile is not a rights model. It has no fields for composition ownership, royalty splits or clearance, and permission to use a recording comes only from the offer's license terms. Unlike the other profiles, it uses one nested object instead of flat `<profile>.<field>` keys. The Broker does not route requests to Exchanges by this profile.
+The music profile is not a rights model. It has no fields for composition ownership, royalty splits or clearance, and permission to use a recording comes only from the offer's license terms. The Broker does not route requests to Exchanges by this profile.
 
 See the [full fora-music-v1 specification](/protocol/ext-music/).
 
