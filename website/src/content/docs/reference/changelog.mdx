@@ -9,16 +9,17 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 ## v1.0.6
 
 **Typed view of the fora-music-v1 extension profile (SDK addition; no wire
-change).** The Go, TypeScript and Python SDKs gain a type for the
-`Offer.ext.music` object that the fora-music-v1 profile defines:
+change).** The Go, TypeScript and Python SDKs gain a type for the flat
+`music.<field>` keys of `Offer.ext` that the fora-music-v1 profile defines, for
+example `music.genre`:
 
 - Go: `github.com/FORA-Protocol/protocol/sdk/go/profiles/music` (`music.Music`,
   `music.ProfileID`)
 - TypeScript: `@fora-protocol/sdk/music` (`Music`, `ProfileID`)
 - Python: `fora_sdk.music` (`Music`, `PROFILE_ID`)
 
-The types keep the profile's presence rules: an absent field stays absent (an
-absent `vocals` is never `false`), and an empty list stays `[]`. They do not
+The types keep the profile's presence rules: an absent key stays absent (an
+absent `music.vocals` is never `false`), and an empty list stays `[]`. They do not
 validate values; the profile's JSON Schema, `music-v1.schema.json`, does. The
 proto is unchanged: `Offer.ext` is still a `google.protobuf.Struct`, and the type
 is a view over it. The three SDKs share one set of round-trip cases, and the

@@ -1,52 +1,57 @@
 {
-  "_comment": "Round-trip cases for the fora-music-v1 typed view. Each case decodes input into the typed view and encodes it again; the result must equal output (key order does not matter). The Go, TS and Python tests read this file. The all_fields case names every field of the profile.",
+  "_comment": "Round-trip cases for the fora-music-v1 typed view. Each case decodes input (an Offer.ext object) into the typed view and encodes it again; the result must equal output (key order does not matter). The Go, TS and Python tests read this file. The all_fields case names every key of the profile.",
   "cases": [
     {
       "name": "all_fields",
       "input": {
-        "artist": "Example Ensemble",
-        "isrc": "USXXX2300011",
-        "genre": "electronica",
-        "mood": ["grooving", "mysterious"],
-        "instruments": ["synths", "percussion"],
-        "suitable_for": ["podcast", "game"],
-        "energy": "medium",
-        "vocals": true,
-        "bpm": 124,
-        "duration_seconds": 60.03
+        "music.artist": "Example Ensemble",
+        "music.isrc": "USXXX2300011",
+        "music.genre": "electronica",
+        "music.mood": ["grooving", "mysterious"],
+        "music.instruments": ["synths", "percussion"],
+        "music.suitable_for": ["podcast", "game"],
+        "music.energy": "medium",
+        "music.vocals": true,
+        "music.bpm": 124,
+        "music.duration_seconds": 60.03
       },
       "output": {
-        "artist": "Example Ensemble",
-        "isrc": "USXXX2300011",
-        "genre": "electronica",
-        "mood": ["grooving", "mysterious"],
-        "instruments": ["synths", "percussion"],
-        "suitable_for": ["podcast", "game"],
-        "energy": "medium",
-        "vocals": true,
-        "bpm": 124,
-        "duration_seconds": 60.03
+        "music.artist": "Example Ensemble",
+        "music.isrc": "USXXX2300011",
+        "music.genre": "electronica",
+        "music.mood": ["grooving", "mysterious"],
+        "music.instruments": ["synths", "percussion"],
+        "music.suitable_for": ["podcast", "game"],
+        "music.energy": "medium",
+        "music.vocals": true,
+        "music.bpm": 124,
+        "music.duration_seconds": 60.03
       }
     },
     {
       "name": "absent_vocals_and_lists",
-      "input": {"genre": "jazz", "bpm": 90},
-      "output": {"genre": "jazz", "bpm": 90}
+      "input": {"music.genre": "jazz", "music.bpm": 90},
+      "output": {"music.genre": "jazz", "music.bpm": 90}
     },
     {
       "name": "explicit_vocals_false",
-      "input": {"vocals": false},
-      "output": {"vocals": false}
+      "input": {"music.vocals": false},
+      "output": {"music.vocals": false}
     },
     {
       "name": "empty_lists",
-      "input": {"mood": [], "instruments": [], "suitable_for": []},
-      "output": {"mood": [], "instruments": [], "suitable_for": []}
+      "input": {"music.mood": [], "music.instruments": [], "music.suitable_for": []},
+      "output": {"music.mood": [], "music.instruments": [], "music.suitable_for": []}
     },
     {
-      "name": "unknown_field_dropped",
-      "input": {"genre": "funk", "iswc": "T-034524680-1"},
-      "output": {"genre": "funk"}
+      "name": "unknown_keys_dropped",
+      "input": {"music.genre": "funk", "music.iswc": "T-034524680-1", "news.section": "Culture"},
+      "output": {"music.genre": "funk"}
+    },
+    {
+      "name": "nested_music_object_is_unknown",
+      "input": {"music": {"genre": "funk", "bpm": 120}},
+      "output": {}
     },
     {
       "name": "empty_object",

@@ -11,16 +11,16 @@ import { type Music, ProfileID } from "../src/music.ts";
 import casesFile from "../../go/profiles/music/testdata/music-cases.json";
 
 const MUSIC_FIELDS: Record<keyof Music, true> = {
-	artist: true,
-	isrc: true,
-	genre: true,
-	mood: true,
-	instruments: true,
-	suitable_for: true,
-	energy: true,
-	vocals: true,
-	bpm: true,
-	duration_seconds: true,
+	"music.artist": true,
+	"music.isrc": true,
+	"music.genre": true,
+	"music.mood": true,
+	"music.instruments": true,
+	"music.suitable_for": true,
+	"music.energy": true,
+	"music.vocals": true,
+	"music.bpm": true,
+	"music.duration_seconds": true,
 };
 
 type Case = { name: string; input: Record<string, unknown>; output: Record<string, unknown> };

@@ -1,6 +1,6 @@
 // The typed view of the fora-music-v1 extension profile — TS mirror of the sdk/go
-// type (profiles/music/music.go). The profile is one nested JSON object at
-// Offer.ext.music.
+// type (profiles/music/music.go). The profile is a set of flat music.<field> keys
+// in Offer.ext, for example "music.genre".
 //
 // Music is a type, not a validator: a value cast from JSON.parse is not checked.
 // The profile's JSON Schema, music-v1.schema.json, defines the valid shape (label
@@ -8,30 +8,31 @@
 // https://fora-protocol.org/protocol/ext-music/. Validate against it when the
 // input is untrusted.
 //
-// Presence follows the profile: an absent field means unknown (an absent vocals is
-// never false), and an empty array means known to be empty. Consumers ignore
-// fields they do not know.
+// Presence follows the profile: an absent key means unknown (an absent
+// "music.vocals" is never false), and an empty array means known to be empty.
+// Consumers ignore keys they do not know. A nested "music" object is not part of
+// the profile.
 
-/** The profile identifier an Exchange lists in ExchangeManifest.supported_profiles. */
+/** The profile identifier an Exchange lists in WellKnownManifest.supported_profiles. */
 export const ProfileID = "fora-music-v1";
 
-/** The Offer.ext.music object. Every field is optional. */
+/** The music.<field> keys of Offer.ext. Every key is optional. */
 export interface Music {
 	/** Display credit. Not a matching input. */
-	artist?: string;
+	"music.artist"?: string;
 	/** ISRC of the source recording, also for an excerpt. Not a matching input. */
-	isrc?: string;
+	"music.isrc"?: string;
 	/** One primary genre label. */
-	genre?: string;
-	mood?: string[];
-	instruments?: string[];
+	"music.genre"?: string;
+	"music.mood"?: string[];
+	"music.instruments"?: string[];
 	/** Editorial suitability. It gives no permission to use the asset. */
-	suitable_for?: string[];
-	energy?: "low" | "medium" | "high";
+	"music.suitable_for"?: string[];
+	"music.energy"?: "low" | "medium" | "high";
 	/** True when the delivered asset contains any audible human voice. */
-	vocals?: boolean;
+	"music.vocals"?: boolean;
 	/** Tempo in whole beats per minute. */
-	bpm?: number;
+	"music.bpm"?: number;
 	/** Duration of the delivered asset, not of the source recording. */
-	duration_seconds?: number;
+	"music.duration_seconds"?: number;
 }
