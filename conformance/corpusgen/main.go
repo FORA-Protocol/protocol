@@ -361,6 +361,63 @@ func writeCrossField(v protovalidate.Validator) {
 			"get_account_status_response.terms_digest_requires_billing_ref",
 		},
 		{
+			// A balance belongs to an account, so it needs the account handle.
+			"GetAccountStatusResponse/cel/balances_requires_billing_ref",
+			&forav1.GetAccountStatusResponse{
+				Ver:      "1.0",
+				Balances: []*forav1.Cost{{Amount: "10.00", Currency: "EUR"}},
+			},
+			"get_account_status_response.balances_requires_billing_ref",
+		},
+		{
+			// Cost.amount accepts "", but a balance entry without an amount says
+			// nothing.
+			"GetAccountStatusResponse/cel/balances_entry_complete/empty_amount",
+			&forav1.GetAccountStatusResponse{
+				Ver:        "1.0",
+				BillingRef: "acct-1",
+				Balances:   []*forav1.Cost{{Amount: "", Currency: "EUR"}},
+			},
+			"get_account_status_response.balances_entry_complete",
+		},
+		{
+			"GetAccountStatusResponse/cel/balances_entry_complete/lowercase_currency",
+			&forav1.GetAccountStatusResponse{
+				Ver:        "1.0",
+				BillingRef: "acct-1",
+				Balances:   []*forav1.Cost{{Amount: "10.00", Currency: "eur"}},
+			},
+			"get_account_status_response.balances_entry_complete",
+		},
+		{
+			"GetAccountStatusResponse/cel/balances_no_unit_cost",
+			&forav1.GetAccountStatusResponse{
+				Ver:        "1.0",
+				BillingRef: "acct-1",
+				Balances:   []*forav1.Cost{{Amount: "10.00", Currency: "EUR", UnitCost: proto.String("0.01")}},
+			},
+			"get_account_status_response.balances_no_unit_cost",
+		},
+		{
+			// unit_cost is proto3 optional: an empty string still counts as set.
+			"GetAccountStatusResponse/cel/balances_no_unit_cost/empty_string",
+			&forav1.GetAccountStatusResponse{
+				Ver:        "1.0",
+				BillingRef: "acct-1",
+				Balances:   []*forav1.Cost{{Amount: "10.00", Currency: "EUR", UnitCost: proto.String("")}},
+			},
+			"get_account_status_response.balances_no_unit_cost",
+		},
+		{
+			"GetAccountStatusResponse/cel/balances_currency_unique",
+			&forav1.GetAccountStatusResponse{
+				Ver:        "1.0",
+				BillingRef: "acct-1",
+				Balances:   []*forav1.Cost{{Amount: "10.00", Currency: "EUR"}, {Amount: "5.00", Currency: "EUR"}},
+			},
+			"get_account_status_response.balances_currency_unique",
+		},
+		{
 			"Restriction/cel/permitted_prohibited_disjoint",
 			&forav1.Restriction{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"ai-train"}, Prohibited: []string{"ai-train"}},
 			"restriction.permitted_prohibited_disjoint",

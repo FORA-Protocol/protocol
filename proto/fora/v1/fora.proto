@@ -4165,6 +4165,33 @@ message GetAccountStatusResponse {
     message: "terms_digest is only allowed when billing_ref is set"
     expression: "this.terms_digest == '' || this.billing_ref != ''"
   };
+  // A balance belongs to an account, so balances need the account handle, the
+  // same way terms_digest does.
+  option (buf.validate.message).cel = {
+    id: "get_account_status_response.balances_requires_billing_ref"
+    message: "balances is only allowed when billing_ref is set"
+    expression: "this.balances.size() == 0 || this.billing_ref != ''"
+  };
+  // Cost.amount accepts an empty string and Cost.currency has no rule, because
+  // offers and budgets use Cost too. A balance entry needs both, so the rule is
+  // stated here and Cost stays unchanged.
+  option (buf.validate.message).cel = {
+    id: "get_account_status_response.balances_entry_complete"
+    message: "each balances entry needs a non-empty amount and a three-letter upper-case ISO 4217 currency"
+    expression: "this.balances.all(b, b.amount != '' && b.currency.matches('^[A-Z]{3}$'))"
+  };
+  option (buf.validate.message).cel = {
+    id: "get_account_status_response.balances_no_unit_cost"
+    message: "balances entries must not set unit_cost"
+    expression: "this.balances.all(b, !has(b.unit_cost))"
+  };
+  // repeated.unique works only on scalar lists, so uniqueness by currency is a
+  // CEL rule.
+  option (buf.validate.message).cel = {
+    id: "get_account_status_response.balances_currency_unique"
+    message: "balances must hold at most one entry per currency"
+    expression: "this.balances.map(b, b.currency).unique()"
+  };
 
   // FORA protocol version — "1.0". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
@@ -4203,6 +4230,21 @@ message GetAccountStatusResponse {
   optional string terms_digest = 4 [
     (buf.validate.field).string.pattern = "^(sha256:[0-9a-f]{64}|sha384:[0-9a-f]{96}|sha512:[0-9a-f]{128})?$"
   ];
+
+  // The amount the account can spend now, one entry per currency. Holds for
+  // pending transactions are already subtracted. Each amount is an exact decimal
+  // string and is never negative. The list holds at most one entry per currency,
+  // and its order has no meaning. unit_cost is never set.
+  //
+  // The value is a snapshot. It does not guarantee that the next execute passes
+  // the balance check: another transaction can spend the funds first.
+  //
+  // An empty list means the Exchange does not report balances. It does NOT mean
+  // a zero balance. The same holds for a currency missing from a non-empty list:
+  // that balance is not reported, it is not zero. An Exchange that reports a
+  // zero balance sends the entry with amount "0". Balances are only allowed when
+  // billing_ref is set.
+  repeated Cost balances = 5;
 
   // Extension point
   google.protobuf.Struct ext = 15;

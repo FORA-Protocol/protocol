@@ -283,7 +283,7 @@ The connector stays on your account, so the catalog is open to experiment with:
 
 - **Ask for something priced.** Not every term is free. Ask Claude to discover offers for a Harmonia Records track and compare what comes back against the Stoa Press essays.
 - **Ask for several URIs at once.** `ExchangeService.DiscoverResources` takes up to 256 in one call, and answers with an `OfferGroup` per URI.
-- **Check your account.** `Fora status` returns your balance and registration state without spending anything.
+- **Check your account.** `Fora status` returns your registration state without spending anything.
 - **Watch a refusal.** Ask for a URI that is not in the catalog. The Exchange answers `OK` with `OfferGroup.absence_reason` set rather than erroring — "no result" is a successful answer.
 - **Point it at your own key.** The MCP server signs for you; an agent that holds its own key and publishes its own directory is the same participant. See [For AI Agents](/getting-started/for-ai-agents/).
 

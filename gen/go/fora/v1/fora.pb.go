@@ -9231,6 +9231,20 @@ type GetAccountStatusResponse struct {
 	// repeat Register will not tell it — a repeat is answered from the stored record
 	// and runs no gate at all.
 	TermsDigest *string `protobuf:"bytes,4,opt,name=terms_digest,json=termsDigest,proto3,oneof" json:"terms_digest,omitempty"`
+	// The amount the account can spend now, one entry per currency. Holds for
+	// pending transactions are already subtracted. Each amount is an exact decimal
+	// string and is never negative. The list holds at most one entry per currency,
+	// and its order has no meaning. unit_cost is never set.
+	//
+	// The value is a snapshot. It does not guarantee that the next execute passes
+	// the balance check: another transaction can spend the funds first.
+	//
+	// An empty list means the Exchange does not report balances. It does NOT mean
+	// a zero balance. The same holds for a currency missing from a non-empty list:
+	// that balance is not reported, it is not zero. An Exchange that reports a
+	// zero balance sends the entry with amount "0". Balances are only allowed when
+	// billing_ref is set.
+	Balances []*Cost `protobuf:"bytes,5,rep,name=balances,proto3" json:"balances,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
 	// Critical extension keys (COSE crit pattern, RFC 9052).
@@ -9298,6 +9312,13 @@ func (x *GetAccountStatusResponse) GetTermsDigest() string {
 		return *x.TermsDigest
 	}
 	return ""
+}
+
+func (x *GetAccountStatusResponse) GetBalances() []*Cost {
+	if x != nil {
+		return x.Balances
+	}
+	return nil
 }
 
 func (x *GetAccountStatusResponse) GetExt() *structpb.Struct {
@@ -10623,16 +10644,21 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x03ver\x18\x01 \x01(\tR\x03ver\x12\xd7\x01\n" +
 	"\bexchange\x18\x02 \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\bexchange\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
-	"\fext_critical\x18Z \x03(\tR\vextCritical\"\xe8\x03\n" +
+	"\fext_critical\x18Z \x03(\tR\vextCritical\"\xb7\t\n" +
 	"\x18GetAccountStatusResponse\x12\x10\n" +
 	"\x03ver\x18\x01 \x01(\tR\x03ver\x12\x1f\n" +
 	"\vbilling_ref\x18\x02 \x01(\tR\n" +
 	"billingRef\x12\x16\n" +
 	"\x06active\x18\x03 \x01(\bR\x06active\x12p\n" +
 	"\fterms_digest\x18\x04 \x01(\tBH\xbaHErC2A^(sha256:[0-9a-f]{64}|sha384:[0-9a-f]{96}|sha512:[0-9a-f]{128})?$H\x00R\vtermsDigest\x88\x01\x01\x12)\n" +
+	"\bbalances\x18\x05 \x03(\v2\r.fora.v1.CostR\bbalances\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
-	"\fext_critical\x18Z \x03(\tR\vextCritical:\xaf\x01\xbaH\xab\x01\x1a\xa8\x01\n" +
-	"=get_account_status_response.terms_digest_requires_billing_ref\x124terms_digest is only allowed when billing_ref is set\x1a1this.terms_digest == '' || this.billing_ref != ''B\x0f\n" +
+	"\fext_critical\x18Z \x03(\tR\vextCritical:\xd3\x06\xbaH\xcf\x06\x1a\xa8\x01\n" +
+	"=get_account_status_response.terms_digest_requires_billing_ref\x124terms_digest is only allowed when billing_ref is set\x1a1this.terms_digest == '' || this.billing_ref != ''\x1a\xa2\x01\n" +
+	"9get_account_status_response.balances_requires_billing_ref\x120balances is only allowed when billing_ref is set\x1a3this.balances.size() == 0 || this.billing_ref != ''\x1a\xdd\x01\n" +
+	"3get_account_status_response.balances_entry_complete\x12\\each balances entry needs a non-empty amount and a three-letter upper-case ISO 4217 currency\x1aHthis.balances.all(b, b.amount != '' && b.currency.matches('^[A-Z]{3}$'))\x1a\x85\x01\n" +
+	"1get_account_status_response.balances_no_unit_cost\x12'balances entries must not set unit_cost\x1a'this.balances.all(b, !has(b.unit_cost))\x1a\x94\x01\n" +
+	"4get_account_status_response.balances_currency_unique\x121balances must hold at most one entry per currency\x1a)this.balances.map(b, b.currency).unique()B\x0f\n" +
 	"\r_terms_digest\"\x88\x06\n" +
 	"\vErrorDetail\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x12\x16\n" +
@@ -11165,53 +11191,54 @@ var file_fora_v1_fora_proto_depIdxs = []int32{
 	100, // 127: fora.v1.RegisterRequest.ext:type_name -> google.protobuf.Struct
 	100, // 128: fora.v1.RegisterResponse.ext:type_name -> google.protobuf.Struct
 	100, // 129: fora.v1.GetAccountStatusRequest.ext:type_name -> google.protobuf.Struct
-	100, // 130: fora.v1.GetAccountStatusResponse.ext:type_name -> google.protobuf.Struct
-	98,  // 131: fora.v1.ErrorDetail.metadata:type_name -> fora.v1.ErrorDetail.MetadataEntry
-	90,  // 132: fora.v1.ErrorDetail.transaction_denial:type_name -> fora.v1.TransactionDenial
-	91,  // 133: fora.v1.ErrorDetail.catalog_rejection:type_name -> fora.v1.CatalogRejection
-	92,  // 134: fora.v1.ErrorDetail.registration_failure:type_name -> fora.v1.RegistrationFailure
-	94,  // 135: fora.v1.ErrorDetail.dispute_failure:type_name -> fora.v1.DisputeFailure
-	95,  // 136: fora.v1.ErrorDetail.domain_verification_failure:type_name -> fora.v1.DomainVerificationFailure
-	96,  // 137: fora.v1.ErrorDetail.retrieval_auth_failure:type_name -> fora.v1.RetrievalAuthFailure
-	97,  // 138: fora.v1.ErrorDetail.usage_report_rejection:type_name -> fora.v1.UsageReportRejection
-	13,  // 139: fora.v1.TransactionDenial.reason:type_name -> fora.v1.DenialReason
-	3,   // 140: fora.v1.TransactionDenial.restriction_mismatches:type_name -> fora.v1.RestrictionKind
-	22,  // 141: fora.v1.CatalogRejection.reason:type_name -> fora.v1.CatalogRejectionReason
-	23,  // 142: fora.v1.RegistrationFailure.reason:type_name -> fora.v1.RegistrationFailureReason
-	93,  // 143: fora.v1.RegistrationFailure.field_errors:type_name -> fora.v1.RegistrationFieldError
-	24,  // 144: fora.v1.DisputeFailure.reason:type_name -> fora.v1.DisputeFailureReason
-	25,  // 145: fora.v1.DomainVerificationFailure.reason:type_name -> fora.v1.DomainVerificationFailureReason
-	26,  // 146: fora.v1.RetrievalAuthFailure.reason:type_name -> fora.v1.RetrievalAuthFailureReason
-	27,  // 147: fora.v1.UsageReportRejection.reason:type_name -> fora.v1.UsageReportRejectionReason
-	29,  // 148: fora.v1.ExchangeService.DiscoverResources:input_type -> fora.v1.ResourceQuery
-	51,  // 149: fora.v1.ExchangeService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
-	64,  // 150: fora.v1.ExchangeService.ReportUsage:input_type -> fora.v1.UsageReport
-	79,  // 151: fora.v1.ExchangeService.DisputeTransaction:input_type -> fora.v1.DisputeRequest
-	81,  // 152: fora.v1.ExchangeService.RequestDomainVerification:input_type -> fora.v1.DomainVerificationRequest
-	83,  // 153: fora.v1.ExchangeService.ConfirmDomainVerification:input_type -> fora.v1.DomainVerificationConfirmation
-	85,  // 154: fora.v1.ExchangeService.Register:input_type -> fora.v1.RegisterRequest
-	87,  // 155: fora.v1.ExchangeService.GetAccountStatus:input_type -> fora.v1.GetAccountStatusRequest
-	56,  // 156: fora.v1.CatalogService.PushResources:input_type -> fora.v1.PushResourcesRequest
-	59,  // 157: fora.v1.CatalogService.RemoveResources:input_type -> fora.v1.RemoveResourcesRequest
-	61,  // 158: fora.v1.CatalogService.RefreshCatalog:input_type -> fora.v1.RefreshCatalogRequest
-	69,  // 159: fora.v1.BrokerService.Resolve:input_type -> fora.v1.DiscoveryRequest
-	30,  // 160: fora.v1.ExchangeService.DiscoverResources:output_type -> fora.v1.ResourceResponse
-	53,  // 161: fora.v1.ExchangeService.ExecuteTransaction:output_type -> fora.v1.TransactionResponse
-	68,  // 162: fora.v1.ExchangeService.ReportUsage:output_type -> fora.v1.UsageReportResponse
-	80,  // 163: fora.v1.ExchangeService.DisputeTransaction:output_type -> fora.v1.DisputeResponse
-	82,  // 164: fora.v1.ExchangeService.RequestDomainVerification:output_type -> fora.v1.DomainVerificationChallenge
-	84,  // 165: fora.v1.ExchangeService.ConfirmDomainVerification:output_type -> fora.v1.DomainVerificationResult
-	86,  // 166: fora.v1.ExchangeService.Register:output_type -> fora.v1.RegisterResponse
-	88,  // 167: fora.v1.ExchangeService.GetAccountStatus:output_type -> fora.v1.GetAccountStatusResponse
-	58,  // 168: fora.v1.CatalogService.PushResources:output_type -> fora.v1.PushResourcesResponse
-	60,  // 169: fora.v1.CatalogService.RemoveResources:output_type -> fora.v1.RemoveResourcesResponse
-	62,  // 170: fora.v1.CatalogService.RefreshCatalog:output_type -> fora.v1.RefreshCatalogResponse
-	78,  // 171: fora.v1.BrokerService.Resolve:output_type -> fora.v1.DiscoveryResponse
-	160, // [160:172] is the sub-list for method output_type
-	148, // [148:160] is the sub-list for method input_type
-	148, // [148:148] is the sub-list for extension type_name
-	148, // [148:148] is the sub-list for extension extendee
-	0,   // [0:148] is the sub-list for field type_name
+	55,  // 130: fora.v1.GetAccountStatusResponse.balances:type_name -> fora.v1.Cost
+	100, // 131: fora.v1.GetAccountStatusResponse.ext:type_name -> google.protobuf.Struct
+	98,  // 132: fora.v1.ErrorDetail.metadata:type_name -> fora.v1.ErrorDetail.MetadataEntry
+	90,  // 133: fora.v1.ErrorDetail.transaction_denial:type_name -> fora.v1.TransactionDenial
+	91,  // 134: fora.v1.ErrorDetail.catalog_rejection:type_name -> fora.v1.CatalogRejection
+	92,  // 135: fora.v1.ErrorDetail.registration_failure:type_name -> fora.v1.RegistrationFailure
+	94,  // 136: fora.v1.ErrorDetail.dispute_failure:type_name -> fora.v1.DisputeFailure
+	95,  // 137: fora.v1.ErrorDetail.domain_verification_failure:type_name -> fora.v1.DomainVerificationFailure
+	96,  // 138: fora.v1.ErrorDetail.retrieval_auth_failure:type_name -> fora.v1.RetrievalAuthFailure
+	97,  // 139: fora.v1.ErrorDetail.usage_report_rejection:type_name -> fora.v1.UsageReportRejection
+	13,  // 140: fora.v1.TransactionDenial.reason:type_name -> fora.v1.DenialReason
+	3,   // 141: fora.v1.TransactionDenial.restriction_mismatches:type_name -> fora.v1.RestrictionKind
+	22,  // 142: fora.v1.CatalogRejection.reason:type_name -> fora.v1.CatalogRejectionReason
+	23,  // 143: fora.v1.RegistrationFailure.reason:type_name -> fora.v1.RegistrationFailureReason
+	93,  // 144: fora.v1.RegistrationFailure.field_errors:type_name -> fora.v1.RegistrationFieldError
+	24,  // 145: fora.v1.DisputeFailure.reason:type_name -> fora.v1.DisputeFailureReason
+	25,  // 146: fora.v1.DomainVerificationFailure.reason:type_name -> fora.v1.DomainVerificationFailureReason
+	26,  // 147: fora.v1.RetrievalAuthFailure.reason:type_name -> fora.v1.RetrievalAuthFailureReason
+	27,  // 148: fora.v1.UsageReportRejection.reason:type_name -> fora.v1.UsageReportRejectionReason
+	29,  // 149: fora.v1.ExchangeService.DiscoverResources:input_type -> fora.v1.ResourceQuery
+	51,  // 150: fora.v1.ExchangeService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
+	64,  // 151: fora.v1.ExchangeService.ReportUsage:input_type -> fora.v1.UsageReport
+	79,  // 152: fora.v1.ExchangeService.DisputeTransaction:input_type -> fora.v1.DisputeRequest
+	81,  // 153: fora.v1.ExchangeService.RequestDomainVerification:input_type -> fora.v1.DomainVerificationRequest
+	83,  // 154: fora.v1.ExchangeService.ConfirmDomainVerification:input_type -> fora.v1.DomainVerificationConfirmation
+	85,  // 155: fora.v1.ExchangeService.Register:input_type -> fora.v1.RegisterRequest
+	87,  // 156: fora.v1.ExchangeService.GetAccountStatus:input_type -> fora.v1.GetAccountStatusRequest
+	56,  // 157: fora.v1.CatalogService.PushResources:input_type -> fora.v1.PushResourcesRequest
+	59,  // 158: fora.v1.CatalogService.RemoveResources:input_type -> fora.v1.RemoveResourcesRequest
+	61,  // 159: fora.v1.CatalogService.RefreshCatalog:input_type -> fora.v1.RefreshCatalogRequest
+	69,  // 160: fora.v1.BrokerService.Resolve:input_type -> fora.v1.DiscoveryRequest
+	30,  // 161: fora.v1.ExchangeService.DiscoverResources:output_type -> fora.v1.ResourceResponse
+	53,  // 162: fora.v1.ExchangeService.ExecuteTransaction:output_type -> fora.v1.TransactionResponse
+	68,  // 163: fora.v1.ExchangeService.ReportUsage:output_type -> fora.v1.UsageReportResponse
+	80,  // 164: fora.v1.ExchangeService.DisputeTransaction:output_type -> fora.v1.DisputeResponse
+	82,  // 165: fora.v1.ExchangeService.RequestDomainVerification:output_type -> fora.v1.DomainVerificationChallenge
+	84,  // 166: fora.v1.ExchangeService.ConfirmDomainVerification:output_type -> fora.v1.DomainVerificationResult
+	86,  // 167: fora.v1.ExchangeService.Register:output_type -> fora.v1.RegisterResponse
+	88,  // 168: fora.v1.ExchangeService.GetAccountStatus:output_type -> fora.v1.GetAccountStatusResponse
+	58,  // 169: fora.v1.CatalogService.PushResources:output_type -> fora.v1.PushResourcesResponse
+	60,  // 170: fora.v1.CatalogService.RemoveResources:output_type -> fora.v1.RemoveResourcesResponse
+	62,  // 171: fora.v1.CatalogService.RefreshCatalog:output_type -> fora.v1.RefreshCatalogResponse
+	78,  // 172: fora.v1.BrokerService.Resolve:output_type -> fora.v1.DiscoveryResponse
+	161, // [161:173] is the sub-list for method output_type
+	149, // [149:161] is the sub-list for method input_type
+	149, // [149:149] is the sub-list for extension type_name
+	149, // [149:149] is the sub-list for extension extendee
+	0,   // [0:149] is the sub-list for field type_name
 }
 
 func init() { file_fora_v1_fora_proto_init() }
