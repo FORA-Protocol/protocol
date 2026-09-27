@@ -1,0 +1,57 @@
+{
+  "_comment": "Round-trip cases for the fora-music-v1 typed view. Each case decodes input into the typed view and encodes it again; the result must equal output (key order does not matter). The Go, TS and Python tests read this file. The all_fields case names every field of the profile.",
+  "cases": [
+    {
+      "name": "all_fields",
+      "input": {
+        "artist": "Example Ensemble",
+        "isrc": "USXXX2300011",
+        "genre": "electronica",
+        "mood": ["grooving", "mysterious"],
+        "instruments": ["synths", "percussion"],
+        "suitable_for": ["podcast", "game"],
+        "energy": "medium",
+        "vocals": true,
+        "bpm": 124,
+        "duration_seconds": 60.03
+      },
+      "output": {
+        "artist": "Example Ensemble",
+        "isrc": "USXXX2300011",
+        "genre": "electronica",
+        "mood": ["grooving", "mysterious"],
+        "instruments": ["synths", "percussion"],
+        "suitable_for": ["podcast", "game"],
+        "energy": "medium",
+        "vocals": true,
+        "bpm": 124,
+        "duration_seconds": 60.03
+      }
+    },
+    {
+      "name": "absent_vocals_and_lists",
+      "input": {"genre": "jazz", "bpm": 90},
+      "output": {"genre": "jazz", "bpm": 90}
+    },
+    {
+      "name": "explicit_vocals_false",
+      "input": {"vocals": false},
+      "output": {"vocals": false}
+    },
+    {
+      "name": "empty_lists",
+      "input": {"mood": [], "instruments": [], "suitable_for": []},
+      "output": {"mood": [], "instruments": [], "suitable_for": []}
+    },
+    {
+      "name": "unknown_field_dropped",
+      "input": {"genre": "funk", "iswc": "T-034524680-1"},
+      "output": {"genre": "funk"}
+    },
+    {
+      "name": "empty_object",
+      "input": {},
+      "output": {}
+    }
+  ]
+}

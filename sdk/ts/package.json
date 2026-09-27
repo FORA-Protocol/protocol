@@ -20,6 +20,7 @@
     "./hosts": "./src/hosts.ts",
     "./regschema": "./src/regschema.ts",
     "./licenseterm": "./src/licenseterm.ts",
+    "./music": "./src/music.ts",
     "./wire": "./src/wire.ts",
     "./core": "./core/verifier.ts",
     "./core/wire-canon": "./core/wire-canon.ts",
