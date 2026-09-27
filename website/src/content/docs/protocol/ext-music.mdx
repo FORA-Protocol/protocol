@@ -9,7 +9,7 @@ FORA-Music v1 defines a standardized vocabulary of `ext` field keys for music re
 
 - **Discover** recordings by genre, mood, instruments, suitability, energy, vocals, tempo and duration
 - **Filter** a catalog search with required `music.*` constraints in `DiscoveryRequest.search_filters`
-- **Identify** the source recording of a delivered file by its ISRC
+- **Find** a specific recording by its ISRC, and identify the source recording of a delivered file
 
 The profile is recording-discovery metadata. It is not a rights model: it has no fields for composition ownership, royalty splits or clearance. Permission to use a recording comes only from the offer's [license terms](/protocol/licensing-terms/).
 
@@ -54,12 +54,12 @@ The Broker does not route requests by `supported_profiles`.
 
 ## Field Summary
 
-This profile defines **10 field names** and **8 search filter keys**. Every key is namespaced with `music.`, and all keys are optional.
+This profile defines **10 field names** and **9 search filter keys**. Every key is namespaced with `music.`, and all keys are optional.
 
 | Message | Field Count | Purpose |
 |---------|-------------|---------|
-| `Offer.ext` | 10 | Recording metadata on an offer: 2 descriptive fields and 8 fields used for matching |
-| `DiscoveryRequest.search_filters` | 8 | Required constraints on a catalog search |
+| `Offer.ext` | 10 | Recording metadata on an offer: 1 descriptive field and 9 fields used for matching |
+| `DiscoveryRequest.search_filters` | 9 | Required constraints on a catalog search |
 
 ---
 
@@ -74,7 +74,7 @@ The search filter keys use the same names: `music.genre` filters on the field wh
 | Key | Type | Required | Used for Matching | Description |
 |-----|------|----------|-------------------|-------------|
 | `music.artist` | string | Optional | No | Display credit. Case is preserved. It does not identify the publisher, the rights owner or a contributor. |
-| `music.isrc` | string | Optional | No | ISRC of the **source recording**: 12 characters without hyphens (`^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$`). When the delivered file is an excerpt or an edit, `isrc` still names the source recording. |
+| `music.isrc` | string | Optional | Yes | ISRC of the **source recording**: 12 characters without hyphens (`^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$`). When the delivered file is an excerpt or an edit, `isrc` still names the source recording. |
 | `music.genre` | label | Optional | Yes | One primary genre. |
 | `music.mood` | label[] | Optional | Yes | Moods. |
 | `music.instruments` | label[] | Optional | Yes | Instruments heard in the file. Category labels such as `brass` or `strings` are valid. |
@@ -84,7 +84,7 @@ The search filter keys use the same names: `music.genre` filters on the field wh
 | `music.bpm` | integer | Optional | Yes | Tempo in beats per minute, 1 or more. Fractional BPM is not supported. |
 | `music.duration_seconds` | number | Optional | Yes | Duration of the **delivered file**, more than 0. For a 60-second excerpt it is the excerpt's duration (for example `60.03`), not the duration of the source recording. |
 
-`artist` and `isrc` are descriptive. No search filter refers to them.
+`artist` is descriptive. No search filter refers to it. `isrc` is used only by the `music.isrc` filter, as an exact match.
 
 ### Labels
 
@@ -119,6 +119,7 @@ An agent can limit a catalog search with `DiscoveryRequest.search_filters`. The 
 
 | Key | Type | Required | Description |
 |-----|------|----------|-------------|
+| `music.isrc` | string or string[] | Optional | ISRC, 12 upper-case characters without hyphens (`^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$`). The match is exact. An array must not be empty. Example: `"USXXX2300011"`. |
 | `music.genre` | label or label[] | Optional | Genre. An array must not be empty. Example: `"cinematic"`, `["jazz", "blues"]`. |
 | `music.mood` | label or label[] | Optional | Mood. An array must not be empty. Example: `"calm"`. |
 | `music.instruments` | label or label[] | Optional | Instruments. An array must not be empty. Example: `["piano", "strings"]`. |
@@ -134,9 +135,10 @@ A range key is the name of the field it limits, followed by `_range`.
 
 - Filters are required. A track must match every filter key. When a key has several values, the track must match at least one of them. In other words, the values of one key are combined with OR, and the keys are combined with AND.
 - A track with an unknown field does not match a filter on that field.
+- `music.isrc` matches a track only when the track's `music.isrc` is exactly one of the given values. The Broker never reads an ISRC from the free-text `query`, so only this filter finds a track by its ISRC.
 - The Broker also reads tags from the free-text `query`. These tags are preferences, and they apply only to the tracks that pass every filter. Among those tracks, the tracks that match the most query tags come first. When no passing track matches a query tag, or the query has no known tag, the Broker returns every track that passes the filters. A query tag never adds a track that fails a filter.
 - When both the filters and the query give bounds for the same field, the Broker uses the overlap of the two ranges. If the ranges do not overlap, no track matches.
-- A request with filters and no `query` does not call the query model. This includes a request with only `music.bpm_range` or `music.duration_seconds_range`.
+- A request with filters and no `query` does not call the query model. This includes a request with only `music.isrc`, `music.bpm_range` or `music.duration_seconds_range`.
 - A valid filter value that no track has, for example `music.genre: "funk"` in a catalog without funk, matches no track. The answer is `NOT_IN_CATALOG`. The Broker never drops such a filter.
 
 ### Order of Checks and Errors
@@ -145,7 +147,7 @@ The Broker checks a request in this order:
 
 1. **Explicit URIs come first.** When the request lists `uris`, the Broker resolves them and ignores `query` and `search_filters`. It does not validate the filters, and the query discovery switch does not apply.
 2. **Unknown keys are ignored.** A key that this profile does not define is ignored, for example `music.tempo` or a key of another profile.
-3. **Invalid values are rejected.** A defined key with a value outside its format rejects the request with `INVALID_ARGUMENT`, and no search runs. Examples: `music.bpm_range: "fast"`, an upper-case label, an empty array.
+3. **Invalid values are rejected.** A defined key with a value outside its format rejects the request with `INVALID_ARGUMENT`, and no search runs. Examples: `music.bpm_range: "fast"`, an upper-case label, an ISRC with hyphens or lower-case letters, an empty array.
 4. **A search input is required.** A request with no `uris`, no `query` and no defined filter key is rejected with `INVALID_ARGUMENT`. This is the same as a request with neither `query` nor `uris`.
 5. **Filters need catalog search.** When the Broker's query discovery is switched off, a request with a defined filter key is rejected with `UNIMPLEMENTED`. The Broker in this configuration cannot apply the filters, and it must not return results that ignore them. The code is not `INVALID_ARGUMENT`, because the request is valid. It is not `FAILED_PRECONDITION`, because the caller cannot change the Broker's configuration.
 
@@ -158,7 +160,7 @@ The Broker checks a request in this order:
 | Party | What it checks |
 |---|---|
 | The [JSON Schema](#json-schema) | The shape of all ten fields, including the ISRC format and the label format. |
-| Broker | The eight matching fields, when it loads its catalog feed. An invalid matching field fails the load, and the error names the record and the field. The Broker does not read `artist` and `isrc`. |
+| Broker | The nine matching fields, when it loads its catalog feed. An invalid matching field fails the load, and the error names the record and the field. The Broker does not read `artist`. |
 | Exchange | Nothing. It forwards the `music.*` keys unchanged inside the signed offer, so the offer signature covers every key, including unknown ones. |
 
 ### Tempo Groups

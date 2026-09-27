@@ -27,7 +27,8 @@ __all__ = ["PROFILE_ID", "Music"]
 PROFILE_ID = "fora-music-v1"
 
 #: The ``music.<field>`` keys of ``Offer.ext``. Every key is optional.
-#: ``music.artist`` and ``music.isrc`` are descriptive, not matching inputs.
+#: ``music.artist`` is descriptive, not a matching input. Only the ``music.isrc``
+#: filter matches ``music.isrc``, as an exact match.
 #: ``music.duration_seconds`` is the duration of the delivered asset.
 Music = TypedDict(
     "Music",

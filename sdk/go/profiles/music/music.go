@@ -25,7 +25,8 @@ const ProfileID = "fora-music-v1"
 type Music struct {
 	// Artist is a display credit. It is not a matching input.
 	Artist *string `json:"music.artist,omitempty"`
-	// ISRC names the source recording, also for an excerpt. It is not a matching input.
+	// ISRC names the source recording, also for an excerpt. Only the music.isrc filter
+	// matches it, as an exact match.
 	ISRC *string `json:"music.isrc,omitempty"`
 	// Genre is one primary genre label.
 	Genre       *string  `json:"music.genre,omitempty"`

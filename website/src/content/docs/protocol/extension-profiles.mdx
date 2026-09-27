@@ -230,7 +230,7 @@ See the [full fora-c2pa-v1 specification](/protocol/ext-c2pa/).
 | Property | Detail |
 |---|---|
 | **Ext fields** | Ten optional `music.*` keys in `Offer.ext`: `music.artist`, `music.isrc`, `music.genre`, `music.mood`, `music.instruments`, `music.suitable_for`, `music.energy`, `music.vocals`, `music.bpm`, `music.duration_seconds` |
-| **Search filters** | Eight `music.*` keys in `DiscoveryRequest.search_filters`, for example `music.genre` and `music.bpm_range` |
+| **Search filters** | Nine `music.*` keys in `DiscoveryRequest.search_filters`, for example `music.genre`, `music.bpm_range` and the exact-match `music.isrc` |
 | **Validation** | The Broker validates the matching fields when it loads its catalog feed. The Exchange forwards the `music.*` keys unchanged and does not validate them. |
 | **SDK types** | Go `profiles/music`, TypeScript `@fora-protocol/sdk/music`, Python `fora_sdk.music` |
 

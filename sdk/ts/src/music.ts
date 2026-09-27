@@ -20,7 +20,7 @@ export const ProfileID = "fora-music-v1";
 export interface Music {
 	/** Display credit. Not a matching input. */
 	"music.artist"?: string;
-	/** ISRC of the source recording, also for an excerpt. Not a matching input. */
+	/** ISRC of the source recording, also for an excerpt. Only the music.isrc filter matches it, as an exact match. */
 	"music.isrc"?: string;
 	/** One primary genre label. */
 	"music.genre"?: string;
