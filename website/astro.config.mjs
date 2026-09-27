@@ -72,7 +72,8 @@ export default defineConfig({
 					label: 'Getting Started',
 					items: [
 						{ label: 'What is FORA?', slug: 'getting-started/what-is-fora' },
-						{ label: 'Live Demo', slug: 'getting-started/poc-walkthrough' },
+						{ label: 'Live Demo: First Licence', slug: 'getting-started/poc-walkthrough' },
+						{ label: 'Live Demo: Music', slug: 'getting-started/live-demo-music' },
 						{ label: 'For Providers', slug: 'getting-started/for-providers' },
 						{ label: 'Publisher Onboarding', slug: 'getting-started/publisher-onboarding' },
 						{ label: 'For AI Agents', slug: 'getting-started/for-ai-agents' },
