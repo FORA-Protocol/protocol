@@ -72,7 +72,7 @@ export default defineConfig({
 					label: 'Getting Started',
 					items: [
 						{ label: 'What is FORA?', slug: 'getting-started/what-is-fora' },
-						{ label: 'Live Demo', slug: 'getting-started/poc-walkthrough' },
+						{ label: 'Live Demo: First Licence', slug: 'getting-started/poc-walkthrough' },
 						{ label: 'For Providers', slug: 'getting-started/for-providers' },
 						{ label: 'Publisher Onboarding', slug: 'getting-started/publisher-onboarding' },
 						{ label: 'For AI Agents', slug: 'getting-started/for-ai-agents' },
@@ -97,6 +97,7 @@ export default defineConfig({
 						{ label: 'Ext: Legal', slug: 'protocol/ext-legal' },
 						{ label: 'Ext: CoMP', slug: 'protocol/ext-comp' },
 						{ label: 'Ext: C2PA', slug: 'protocol/ext-c2pa' },
+						{ label: 'Ext: Music', slug: 'protocol/ext-music' },
 					],
 				},
 				{

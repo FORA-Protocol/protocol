@@ -1,6 +1,27 @@
 # FORA Protocol Changelog
 
-## Unreleased
+## v1.0.6
+
+**Typed view of the fora-music-v1 extension profile (SDK addition; no wire
+change).** The Go, TypeScript and Python SDKs gain a type for the flat
+`music.<field>` keys of `Offer.ext` that the fora-music-v1 profile defines, for
+example `music.genre`:
+
+- Go: `github.com/FORA-Protocol/protocol/sdk/go/profiles/music` (`music.Music`,
+  `music.ProfileID`)
+- TypeScript: `@fora-protocol/sdk/music` (`Music`, `ProfileID`)
+- Python: `fora_sdk.music` (`Music`, `PROFILE_ID`)
+
+The types keep the profile's presence rules: an absent key stays absent (an
+absent `music.vocals` is never `false`), and an empty list stays `[]`. They do not
+validate values; the profile's JSON Schema, `music-v1.schema.json`, does. The
+proto is unchanged: `Offer.ext` is still a `google.protobuf.Struct`, and the type
+is a view over it. The three SDKs share one set of round-trip cases, and the
+API-surface parity gate now covers the new Go package.
+
+The website gains the [fora-music-v1 page](https://fora-protocol.org/protocol/ext-music/): the ten fields,
+the label rules, who validates what, and the nine `music.*` search filter keys
+with their matching rules and error codes.
 
 **`GetAccountStatusResponse` reports the account's balance (additive field; no
 behaviour change for Exchanges that leave it empty).** An agent could ask an

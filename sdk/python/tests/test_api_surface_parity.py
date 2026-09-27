@@ -7,7 +7,7 @@ byte diverged because the face simply was not there. This gate closes that hole 
 the symbol side.
 
 Go is the oracle. Every exported Go symbol under
-``sdk/go/{helpers,resolvers,core,connect,connectserver}`` must be, in
+``sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music}`` must be, in
 ``sdk/parity/symbol-map.json``, EITHER
 
   * a ``symbols`` entry — mapped to the public Python and/or TS name (or null where a
@@ -66,7 +66,7 @@ _SDK_TS = _REPO_ROOT / "sdk" / "ts"
 _MAP_PATH = _REPO_ROOT / "sdk" / "parity" / "symbol-map.json"
 _MATRIX = _REPO_ROOT / "docs" / "sdk-parity-matrix.md"
 
-_GO_PACKAGES = ("helpers", "resolvers", "core", "connect", "connectserver")
+_GO_PACKAGES = ("helpers", "resolvers", "core", "connect", "connectserver", "profiles/music")
 
 # RATCHET — this baseline may only ever DECREASE. Each allowlisted symbol is a
 # deliberate, DOCUMENTED cross-language divergence, in one of two flavors:
@@ -217,10 +217,10 @@ def enumerate_go() -> dict[str, str]:
 #: in one and absent from the other.
 def _public_modules() -> list[ModuleType]:
     import fora_sdk
-    from fora_sdk import client, resolvers
+    from fora_sdk import client, music, resolvers
     from fora_sdk import sync as blocking
 
-    return [fora_sdk, resolvers, client, blocking]
+    return [fora_sdk, resolvers, client, blocking, music]
 
 
 def enumerate_python() -> set[str]:

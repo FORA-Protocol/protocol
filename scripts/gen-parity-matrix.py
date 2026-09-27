@@ -67,13 +67,14 @@ _SKIP_DIR_PARTS = frozenset(
 )
 
 # Human-readable package headings, in the order Go layers them (L1 -> L2 -> server).
-_PKG_ORDER = ["helpers", "resolvers", "core", "connect", "connectserver"]
+_PKG_ORDER = ["helpers", "resolvers", "core", "connect", "connectserver", "profiles/music"]
 _PKG_TITLE = {
     "helpers": "helpers — L1 pure primitives (crypto, canonicalization, money, scopes, license terms)",
     "resolvers": "resolvers — L2 I/O (key/endpoint resolution, active-key, SSRF-guarded fetch)",
     "core": "core — L2 composition (verifier, signing transport, windows, replay)",
     "connect": "connect — Connect client + interceptors",
     "connectserver": "connectserver — server-verify handler binding",
+    "profiles/music": "profiles/music — the fora-music-v1 extension profile type",
 }
 
 
@@ -132,7 +133,7 @@ def _render(parity_map: dict) -> str:
     w("     Drift-gated in scripts/ci-local.sh. Narrative/rationale: docs/design-history.md. -->")
     w("")
     w(
-        "Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver}`); "
+        "Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music}`); "
         "Python and TS mirror it. This document is **generated** from the same two "
         "artifacts CI already enforces against the code, so it cannot drift from the "
         "real surface — a mismatch fails the API-surface gate or the corpus-completeness "
