@@ -191,12 +191,45 @@ function wellKnownManifestRules(o: Obj): string[] {
  * WellKnownManifest rule above, asked of the read side.
  */
 function getAccountStatusResponseRules(o: Obj): string[] {
+  const out: string[] = [];
   const termsDigest = str(field(o, "terms_digest"));
   const billingRef = str(field(o, "billing_ref"));
   if (termsDigest !== "" && billingRef === "") {
-    return ["get_account_status_response.terms_digest_requires_billing_ref"];
+    out.push("get_account_status_response.terms_digest_requires_billing_ref");
   }
-  return [];
+  const balances = field(o, "balances");
+  if (Array.isArray(balances) && balances.length > 0) {
+    out.push(...balancesRules(balances, billingRef));
+  }
+  return out;
+}
+
+/**
+ * GetAccountStatusResponse balances rules:
+ *  - balances_requires_billing_ref: `this.balances.size() == 0 || this.billing_ref != ''`
+ *  - balances_entry_complete:
+ *    `this.balances.all(b, b.amount != '' && b.currency.matches('^[A-Z]{3}$'))`
+ *  - balances_no_unit_cost: `this.balances.all(b, !has(b.unit_cost))`
+ *  - balances_currency_unique: `this.balances.map(b, b.currency).unique()`
+ *
+ * unit_cost is proto3 optional, so a present empty string counts as set, the
+ * same as `has()` in protovalidate.
+ */
+function balancesRules(balances: unknown[], billingRef: string): string[] {
+  const out: string[] = [];
+  const entries = balances.map((b) => asObj(b) ?? {});
+  if (billingRef === "") out.push("get_account_status_response.balances_requires_billing_ref");
+  if (!entries.every((b) => str(field(b, "amount")) !== "" && /^[A-Z]{3}$/.test(str(field(b, "currency"))))) {
+    out.push("get_account_status_response.balances_entry_complete");
+  }
+  if (entries.some((b) => field(b, "unit_cost") !== undefined && field(b, "unit_cost") !== null)) {
+    out.push("get_account_status_response.balances_no_unit_cost");
+  }
+  const currencies = entries.map((b) => str(field(b, "currency")));
+  if (new Set(currencies).size !== currencies.length) {
+    out.push("get_account_status_response.balances_currency_unique");
+  }
+  return out;
 }
 
 /**

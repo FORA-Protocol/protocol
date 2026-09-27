@@ -298,7 +298,7 @@ Read-only check of whether the calling agent's account is active. Deliberately c
 
 ### GetAccountStatusResponse
 
-The account's current state. `billing_ref` is empty when the calling agent has no account yet.
+The account's current state. `billing_ref` is empty when the calling agent has no account yet, and `balances` lists what the account can spend now, one entry per currency. An empty `balances` list means the Exchange does not report balances, not a zero balance.
 
 ::proto-message{name=GetAccountStatusResponse}
 

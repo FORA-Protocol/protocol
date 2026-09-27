@@ -46,6 +46,9 @@ _PRICING_MODEL_PER_UNIT = "PRICING_MODEL_PER_UNIT"
 _MAX_RESTRICTIONS = 8
 
 _ZERO_RATE_RE = re.compile(r"^0+([.]0+)?$")
+# Used with fullmatch: Python's "$" also matches before a trailing newline, the
+# CEL (RE2) "$" does not.
+_CURRENCY_RE = re.compile(r"[A-Z]{3}")
 
 
 # ---- tolerant field accessors ---------------------------------------------
@@ -166,11 +169,44 @@ def _get_account_status_response_rules(o: dict[str, Any]) -> list[str]:
     reading an acceptance for an account that does not exist. Mirror of the
     WellKnownManifest rule above, asked of the read side.
     """
+    out: list[str] = []
     terms_digest = _str(_field(o, "terms_digest"))
     billing_ref = _str(_field(o, "billing_ref"))
     if terms_digest != "" and billing_ref == "":
-        return ["get_account_status_response.terms_digest_requires_billing_ref"]
-    return []
+        out.append("get_account_status_response.terms_digest_requires_billing_ref")
+    balances = _field(o, "balances")
+    if isinstance(balances, list) and balances:
+        out.extend(_balances_rules(balances, billing_ref))
+    return out
+
+
+def _balances_rules(balances: list[Any], billing_ref: str) -> list[str]:
+    """GetAccountStatusResponse balances rules.
+
+    - balances_requires_billing_ref: ``this.balances.size() == 0 || this.billing_ref != ''``
+    - balances_entry_complete:
+      ``this.balances.all(b, b.amount != '' && b.currency.matches('^[A-Z]{3}$'))``
+    - balances_no_unit_cost: ``this.balances.all(b, !has(b.unit_cost))``
+    - balances_currency_unique: ``this.balances.map(b, b.currency).unique()``
+
+    unit_cost is proto3 optional, so a present empty string counts as set, the
+    same as ``has()`` in protovalidate.
+    """
+    out: list[str] = []
+    entries = [_as_obj(b) or {} for b in balances]
+    if billing_ref == "":
+        out.append("get_account_status_response.balances_requires_billing_ref")
+    if not all(
+        _str(_field(b, "amount")) != "" and _CURRENCY_RE.fullmatch(_str(_field(b, "currency")))
+        for b in entries
+    ):
+        out.append("get_account_status_response.balances_entry_complete")
+    if any(_field(b, "unit_cost") is not None for b in entries):
+        out.append("get_account_status_response.balances_no_unit_cost")
+    currencies = [_str(_field(b, "currency")) for b in entries]
+    if len(set(currencies)) != len(currencies):
+        out.append("get_account_status_response.balances_currency_unique")
+    return out
 
 
 def _registration_failure_rules(o: dict[str, Any]) -> list[str]:

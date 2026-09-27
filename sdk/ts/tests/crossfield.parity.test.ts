@@ -194,6 +194,38 @@ const validInstances: { name: string; message: string; json: unknown }[] = [
     json: { ver: "1.0", billing_ref: "", active: false },
   },
   {
+    // balances: one complete entry per currency, with the account it belongs to.
+    name: "GetAccountStatusResponse with balances in two currencies",
+    message: "GetAccountStatusResponse",
+    json: {
+      ver: "1.0",
+      billing_ref: "acct-1",
+      active: true,
+      balances: [
+        { amount: "10.00", currency: "EUR" },
+        { amount: "12.50", currency: "USD" },
+      ],
+    },
+  },
+  {
+    // A reported zero is an entry with amount "0", not an empty amount.
+    name: "GetAccountStatusResponse with a zero balance",
+    message: "GetAccountStatusResponse",
+    json: { ver: "1.0", billing_ref: "acct-1", active: true, balances: [{ amount: "0", currency: "EUR" }] },
+  },
+  {
+    // An empty list means "not reported" and is always allowed.
+    name: "GetAccountStatusResponse with an empty balances list",
+    message: "GetAccountStatusResponse",
+    json: { ver: "1.0", billing_ref: "acct-1", active: true, balances: [] },
+  },
+  {
+    // An inactive account can still report its balance.
+    name: "GetAccountStatusResponse inactive account with balances",
+    message: "GetAccountStatusResponse",
+    json: { ver: "1.0", billing_ref: "acct-1", active: false, balances: [{ amount: "10.00", currency: "EUR" }] },
+  },
+  {
     // terms_digest_requires_terms_uri: a digest WITH the address it pins.
     name: "WellKnownManifest with terms_uri+terms_digest",
     message: "WellKnownManifest",
