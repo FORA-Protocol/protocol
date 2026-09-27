@@ -13,6 +13,8 @@ Python" section of that page shows a validator that uses the ``regex`` package.
 
 Presence follows the profile: an absent key means unknown (an absent
 ``music.vocals`` is never ``False``), and an empty list means known to be empty.
+``music.bpm`` is typed ``int``, but after ``json.loads`` it can be a ``float`` with no
+fractional part, for example ``90.0``: the schema accepts that as an integer.
 Consumers ignore keys they do not know. A nested ``music`` object is not part of
 the profile.
 """

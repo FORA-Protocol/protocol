@@ -54,6 +54,16 @@
       "output": {}
     },
     {
+      "name": "bpm_whole_number_with_fraction",
+      "input": {"music.bpm": 90.0},
+      "output": {"music.bpm": 90}
+    },
+    {
+      "name": "bpm_whole_number_with_exponent",
+      "input": {"music.bpm": 1e2},
+      "output": {"music.bpm": 100}
+    },
+    {
       "name": "empty_object",
       "input": {},
       "output": {}
