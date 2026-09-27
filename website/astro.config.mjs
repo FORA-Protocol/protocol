@@ -98,6 +98,7 @@ export default defineConfig({
 						{ label: 'Ext: Legal', slug: 'protocol/ext-legal' },
 						{ label: 'Ext: CoMP', slug: 'protocol/ext-comp' },
 						{ label: 'Ext: C2PA', slug: 'protocol/ext-c2pa' },
+						{ label: 'Ext: Music', slug: 'protocol/ext-music' },
 					],
 				},
 				{

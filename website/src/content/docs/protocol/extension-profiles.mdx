@@ -144,7 +144,7 @@ Profile specs define the defaults, but the sender always has final say -- `ext_c
 
 ## Standard Profiles
 
-Five extension profile specifications have been developed for FORA v1.0, each grounded in existing industry standards.
+Six extension profile specifications have been developed for FORA v1.0. Five of them are grounded in existing industry standards. The music profile is a small set of discovery fields.
 
 ### fora-news-v1
 
@@ -222,6 +222,21 @@ CoMP metadata is carried as flat `comp.<field>` scalar keys in the `ext` Struct 
 C2PA proves **what content IS** (provenance, creator, edit history). FORA manages **what you can DO with it** (pricing, transaction, dispute). This profile bridges the two: a C2PA verification vendor validates the manifest using X.509/COSE and publishes the results as a FORA `ResourceAttestation` signed with Ed25519. C2PA-unaware agents benefit from the validation results and rights enforcement without needing JUMBF or COSE libraries.
 
 See the [full fora-c2pa-v1 specification](/protocol/ext-c2pa/).
+
+### fora-music-v1
+
+**Scope:** Music recordings -- discovery metadata for one recording (1.0-draft)
+
+| Property | Detail |
+|---|---|
+| **Ext fields** | One nested object at `Offer.ext.music` with ten optional fields: `artist`, `isrc`, `genre`, `mood`, `instruments`, `suitable_for`, `energy`, `vocals`, `bpm`, `duration_seconds` |
+| **Search filters** | Eight flat `music.*` keys in `DiscoveryRequest.search_filters`, for example `music.genre` and `music.bpm_range` |
+| **Validation** | The Broker validates the matching fields when it loads its catalog feed. The Exchange forwards `ext.music` unchanged and does not validate it. |
+| **SDK types** | Go `profiles/music`, TypeScript `@fora-protocol/sdk/music`, Python `fora_sdk.music` |
+
+The music profile is not a rights model. It has no fields for composition ownership, royalty splits or clearance, and permission to use a recording comes only from the offer's license terms. Unlike the other profiles, it uses one nested object instead of flat `<profile>.<field>` keys. The Broker does not route requests to Exchanges by this profile.
+
+See the [full fora-music-v1 specification](/protocol/ext-music/).
 
 ## Creating a New Profile
 

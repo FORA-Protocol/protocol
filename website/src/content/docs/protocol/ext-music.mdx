@@ -1,0 +1,210 @@
+---
+title: "Extension: fora-music-v1"
+description: "Music recording discovery profile — the ext.music object, its fields, and the music search filters"
+---
+
+**Version:** 1.0-draft. The field list and the filter keys can still change before 1.0.
+
+## Overview
+
+The fora-music-v1 profile describes one music recording, so that an agent can find recordings by genre, mood, instruments, tempo and similar facets.
+
+The profile is recording-discovery metadata. It is not a rights model: it has no fields for composition ownership, royalty splits or clearance. Permission to use a recording comes only from the offer's [license terms](/protocol/licensing-terms/).
+
+## Declaring the profile
+
+An Exchange declares the profile by listing `"fora-music-v1"` in `ExchangeManifest.supported_profiles`.
+
+For this profile, the declaration means one thing: the Exchange forwards the publisher's `ext.music` object unchanged inside the signed offer. The Exchange does not validate `ext.music`. This is narrower than the general rule in [Extension Profiles](/protocol/extension-profiles/), which says that an Exchange validates profile fields against the profile's JSON Schema.
+
+The Broker does not route requests by `supported_profiles`.
+
+## The ext.music object
+
+The profile is one nested JSON object at `Offer.ext.music`. In a [catalog feed](/protocol/jsonl-ingestion/) record it is the `ext.music` object. The Exchange copies the record's `ext` into `Offer.ext` before it signs the offer.
+
+```json
+{
+  "ext": {
+    "music": {
+      "artist": "Example Ensemble",
+      "isrc": "USXXX2300011",
+      "genre": "electronica",
+      "mood": ["grooving", "mysterious"],
+      "instruments": ["synths", "percussion"],
+      "suitable_for": ["podcast", "game"],
+      "energy": "medium",
+      "vocals": false,
+      "bpm": 124,
+      "duration_seconds": 60.03
+    }
+  }
+}
+```
+
+The news, academic and legal profiles use flat `<profile>.<field>` keys in `Offer.ext`, for example `news.section`. The music profile uses one nested object instead, because the music catalog feeds and the Broker's catalog search already use it. The [CoMP](/protocol/ext-comp/) data that an Exchange renders is also a nested object (`Offer.ext.comp`).
+
+The [search filter](#search-filters) keys are flat, for example `music.genre`, because `DiscoveryRequest.search_filters` defines its keys as `<profile>.<field>`.
+
+## Fields
+
+Every field is optional.
+
+| Field | Type | Used for matching | Meaning |
+|---|---|---|---|
+| `artist` | string | no | Display credit. Case is preserved. It does not identify the publisher, the rights owner or a contributor. |
+| `isrc` | string | no | ISRC of the **source recording**: 12 characters without hyphens (`^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$`). When the delivered file is an excerpt or an edit, `isrc` still names the source recording. |
+| `genre` | label | yes | One primary genre. |
+| `mood` | label[] | yes | Moods. |
+| `instruments` | label[] | yes | Instruments heard in the file. Category labels such as `brass` or `strings` are valid. |
+| `suitable_for` | label[] | yes | Editorial suitability, for example `vlog`, `documentary` or `trailer`. It does not give permission to use the file. |
+| `energy` | `"low"`, `"medium"` or `"high"` | yes | Editorial energy level. It does not depend on `bpm`. |
+| `vocals` | boolean | yes | See [Vocals](#vocals). |
+| `bpm` | integer, 1 or more | yes | Tempo in beats per minute. Fractional BPM is not supported. |
+| `duration_seconds` | number, more than 0 | yes | Duration of the **delivered file**. For a 60-second excerpt it is the excerpt's duration (for example `60.03`), not the duration of the source recording. |
+
+`artist` and `isrc` are descriptive. No search filter refers to them. The other eight fields are used for matching.
+
+### Labels
+
+`genre`, `mood`, `instruments` and `suitable_for` hold labels. A label:
+
+- is not empty;
+- has no whitespace at the start or at the end;
+- has no upper-case or title-case letter.
+
+Both rules use Unicode. Whitespace includes the non-breaking space. Upper case and title case are the Unicode categories Lu and Lt, so `électronique` is a label and `Électronique` is not.
+
+Consumers do no stemming and no singular/plural matching, so `guitar` and `guitars` are different labels. The feed must use one label for one thing.
+
+### Vocals
+
+`vocals` describes the delivered file. It is `true` when the file contains any human voice that can be heard: sung lyrics, wordless singing, choir or spoken word. It is `false` only when the file contains no human voice.
+
+The definition is broad on purpose. An agent that filters on `vocals: false` usually needs a track that does not compete with narration, and any voice does.
+
+### Absent, empty and null
+
+- An absent field means "unknown". An absent `vocals` never means `false`.
+- An empty array means "known to be empty". It is different from an absent array.
+- `null` is not a valid value, and the schema rejects it. A publisher leaves out an unknown field. A consumer that receives `null` treats the field as absent.
+- Consumers ignore fields they do not know. A publisher can send other fields, for example other rights or release identifiers, and consumers still work. A field is added to this profile when a consumer uses it.
+
+Tempo groups such as slow, medium and fast are Broker behavior. They are not part of the profile.
+
+## Who validates what
+
+| Party | What it checks |
+|---|---|
+| The [JSON Schema](#json-schema) | The shape of all ten fields, including the ISRC format and the label format. |
+| Broker | The eight matching fields, when it loads its catalog feed. An invalid matching field fails the load, and the error names the record and the field. The Broker does not read `artist` and `isrc`. |
+| Exchange | Nothing. It forwards `ext.music` unchanged inside the signed offer, so the offer signature covers every field, including unknown ones. |
+
+## Search filters
+
+An agent can limit a catalog search with `DiscoveryRequest.search_filters`. The Broker answers these filters only when its catalog search (query discovery) is switched on.
+
+### Keys and values
+
+| Key | Value | Example |
+|---|---|---|
+| `music.genre` | a label, or a non-empty array of labels | `"cinematic"`, `["jazz", "blues"]` |
+| `music.mood` | a label, or a non-empty array of labels | `"calm"` |
+| `music.instruments` | a label, or a non-empty array of labels | `["piano", "strings"]` |
+| `music.suitable_for` | a label, or a non-empty array of labels | `"trailer"` |
+| `music.energy` | `low`, `medium` or `high`, or a non-empty array of them | `"high"` |
+| `music.vocals` | a boolean | `false` |
+| `music.bpm_range` | a string `MIN-MAX`, `MIN-` or `-MAX` with positive integers. Both bounds are inclusive, and `MIN` is not greater than `MAX`. | `"115-125"`, `"120-"` |
+| `music.duration_seconds_range` | a string `MIN-MAX`, `MIN-` or `-MAX` with positive numbers of seconds. Both bounds are inclusive, and `MIN` is not greater than `MAX`. | `"30-90"`, `"-60.5"` |
+
+A range key is the name of the field it limits, followed by `_range`.
+
+For example, this request asks for funk tracks between 115 and 125 BPM with no vocals:
+
+```json
+{
+  "query": "upbeat background music for a cooking video",
+  "search_filters": {
+    "music.genre": "funk",
+    "music.bpm_range": "115-125",
+    "music.vocals": false
+  }
+}
+```
+
+### How filters match
+
+- Filters are required. A track must match every filter key. When a key has several values, the track must match at least one of them. In other words, the values of one key are combined with OR, and the keys are combined with AND.
+- A track with an unknown field does not match a filter on that field.
+- The Broker also reads tags from the free-text `query`. These tags are preferences, and they apply only to the tracks that pass every filter. Among those tracks, the tracks that match the most query tags come first. When no passing track matches a query tag, or the query has no known tag, the Broker returns every track that passes the filters. A query tag never adds a track that fails a filter.
+- When both the filters and the query give bounds for the same field, the Broker uses the overlap of the two ranges. If the ranges do not overlap, no track matches.
+- A request with filters and no `query` does not call the query model. This includes a request with only `music.bpm_range` or `music.duration_seconds_range`.
+- A valid filter value that no track has, for example `music.genre: "funk"` in a catalog without funk, matches no track. The answer is `NOT_IN_CATALOG`. The Broker never drops such a filter.
+
+### Order of checks and errors
+
+The Broker checks a request in this order:
+
+1. **Explicit URIs come first.** When the request lists `uris`, the Broker resolves them and ignores `query` and `search_filters`. It does not validate the filters, and the query discovery switch does not apply.
+2. **Unknown keys are ignored.** A key that this profile does not define is ignored, for example `music.tempo` or a key of another profile.
+3. **Invalid values are rejected.** A defined key with a value outside its format rejects the request with `INVALID_ARGUMENT`, and no search runs. Examples: `music.bpm_range: "fast"`, an upper-case label, an empty array.
+4. **A search input is required.** A request with no `uris`, no `query` and no defined filter key is rejected with `INVALID_ARGUMENT`. This is the same as a request with neither `query` nor `uris`.
+5. **Filters need catalog search.** When the Broker's query discovery is switched off, a request with a defined filter key is rejected with `UNIMPLEMENTED`. The Broker in this configuration cannot apply the filters, and it must not return results that ignore them. The code is not `INVALID_ARGUMENT`, because the request is valid. It is not `FAILED_PRECONDITION`, because the caller cannot change the Broker's configuration.
+
+## SDK types
+
+The SDKs have a typed view of the `ext.music` object:
+
+| Language | Import | Names |
+|---|---|---|
+| Go | `github.com/FORA-Protocol/protocol/sdk/go/profiles/music` | `music.Music`, `music.ProfileID` |
+| TypeScript | `@fora-protocol/sdk/music` | `Music`, `ProfileID` |
+| Python | `fora_sdk.music` | `Music`, `PROFILE_ID` |
+
+The types keep the rules from [Absent, empty and null](#absent-empty-and-null): an absent field stays absent, and an empty list stays an empty list. The types do not validate the values. Use the JSON Schema to validate input that you do not trust.
+
+## JSON Schema
+
+The schema is `music-v1.schema.json` (JSON Schema Draft 2020-12). It allows unknown fields.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fora-protocol.org/schemas/music/v1/music-v1.schema.json",
+  "title": "fora-music-v1 — the Offer.ext.music object",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "artist": { "type": "string", "minLength": 1 },
+    "isrc": { "type": "string", "pattern": "^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$" },
+    "genre": { "$ref": "#/$defs/Label" },
+    "mood": { "$ref": "#/$defs/Labels" },
+    "instruments": { "$ref": "#/$defs/Labels" },
+    "suitable_for": { "$ref": "#/$defs/Labels" },
+    "energy": { "enum": ["low", "medium", "high"] },
+    "vocals": { "type": "boolean" },
+    "bpm": { "type": "integer", "minimum": 1 },
+    "duration_seconds": { "type": "number", "exclusiveMinimum": 0 }
+  },
+  "$defs": {
+    "Label": {
+      "type": "string",
+      "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$"
+    },
+    "Labels": { "type": "array", "items": { "$ref": "#/$defs/Label" } }
+  }
+}
+```
+
+## Out of scope
+
+- Rights-model fields: composition ownership, royalty splits, clearance.
+- Rights and release identifiers other than ISRC: ISWC, ISNI, IPI, UPC, GRid, ISAN, EIDR, HFA. Publishers can send them as unknown fields.
+- Broker routing by `supported_profiles`.
+- Validation of `ext.music` by the Exchange.
+
+## Next steps
+
+- [Live Demo: Music](/getting-started/live-demo-music/) — an agent finds a track and buys a licence to use it in a video
+- [Extension Profiles](/protocol/extension-profiles/) — how profiles work in general
+- [JSONL Ingestion](/protocol/jsonl-ingestion/) — the catalog feed format that carries `ext.music`
