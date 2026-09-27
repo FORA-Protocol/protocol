@@ -52,7 +52,7 @@ The licence document open in a browser, showing the three sections.
 </Aside>
 
 <Aside title="What a licence looks like to the protocol">
-Each licence is one `LicenseTerm` on the track, and the Exchange emits one offer per term. The term summarises the licence in machine-readable fields: who may use the track and for what (restrictions), for how many productions (quotas), the price, and what the buyer must do after release (obligations: credits, notices, a cue sheet). It points to the licence document by `uri`, pinned with a `uri_digest`, so the text cannot change after the offer is signed. All three licences are a one-time flat fee with metering `NONE`, so no usage report follows the purchase. See [Licensing Terms](/protocol/licensing-terms/).
+Each licence is one `LicenseTerm` on the track, and the Exchange emits one offer per term. The term summarises the licence in machine-readable fields: who may use the track and for what (restrictions), for how many productions (quotas), the price, and what the licensee must do after release (obligations: credits, notices, a cue sheet). It points to the licence document by `uri`, pinned with a `uri_digest`, so the text cannot change after the offer is signed. All three licences are a one-time flat fee with metering `NONE`, so no usage report follows the purchase. See [Licensing Terms](/protocol/licensing-terms/).
 </Aside>
 
 ## First run: a personal YouTube video
@@ -99,7 +99,7 @@ This is the grant the agent buys, section 2 of the Online Creator licence in the
 
 > For EUR 29 in demo funds, the offer models a non-exclusive, worldwide, perpetual right to synchronize the identified sound recording and its musical composition into one personal YouTube video and stream that completed video online. Necessary production copies, trimming, fades and mixing under dialogue are included. Platform ad-revenue monetization of the personal video is allowed. The fee is charged once for the one production, not per view, stream or download.
 
-The rest of the section covers what a music licensing professional checks next. The grant covers both the recording and the composition, so there is nothing else to clear. It does not cover performance royalties paid through collecting societies. It excludes client work, sponsorship, paid promotion and AI training. The buyer must credit the track's real creator, and record the published video URL for Content ID clearance.
+The rest of the section covers what a music licensing professional checks next. The grant covers both the recording and the composition, so there is nothing else to clear. It does not cover performance royalties paid through collecting societies. It excludes client work, sponsorship, paid promotion and AI training. The licensee must credit the track's real creator, and record the published video URL for Content ID clearance.
 
 The Exchange does not check who the customer is. The agent picks the licence from what it was told about the customer, and the person who gave the task is responsible for that statement being true. In the second run, this is the only thing that changes.
 
@@ -141,7 +141,7 @@ The €29 comes from the agent's test balance. The Exchange has no call that let
 The balance before and after the purchase, with €29 debited, read from the billing backend (for example with `agent-balances.sh`).
 </Aside>
 
-In the Live Demo, the agent filed a usage report after it read the article. Here, FORA requires nothing after the purchase. The offer is a one-time flat fee with metering `NONE`, so there is no usage report. The licence itself can still ask the buyer to do things, but that is between the buyer and the publisher, not part of the protocol.
+In the Live Demo, the agent filed a usage report after it read the article. Here, FORA requires nothing after the purchase. The offer is a one-time flat fee with metering `NONE`, so there is no usage report. The licence itself can still ask the licensee to do things, but that is between the licensee and the publisher, not part of the protocol.
 
 <Aside title="What happened under the purchase">
 1. **`Fora execute`** (`ExchangeService.ExecuteTransaction`) — the agent sends back the signed offer it chose. The Exchange verifies `Offer.signature`, so the terms and price cannot have changed since discovery. It charges the balance and returns `transaction_id`, `billing_id` and a signed `retrieval_endpoint`.
