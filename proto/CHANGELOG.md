@@ -1,5 +1,24 @@
 # FORA Protocol Changelog
 
+## v1.0.7
+
+**The Go music type accepts a whole-number `music.bpm` written as `90.0`
+(SDK fix; no wire change).** `music.Music` refused `{"music.bpm": 90.0}` and
+`{"music.bpm": 1e2}`, because its `BPM` field is an `*int` and `encoding/json`
+accepts only integer literals for an int. The profile's JSON Schema accepts both
+values: JSON Schema counts a number with no fractional part as an integer. The
+value also appears in practice. `Offer.ext` is a `google.protobuf.Struct`, which
+stores every number as a double, and some encoders, for example Python's
+`json_format`, write 90 as `90.0`. A schema-valid offer therefore failed to decode.
+
+`Music` now has an `UnmarshalJSON` method. It decodes every field as before, and
+it reads `music.bpm` as a number: a whole number becomes the `int`, and a
+fractional value such as `90.5`, a string or a value outside the `int` range is
+still an error. `BPM` stays `*int`, so the Go API does not change. The shared
+round-trip cases gain `90.0` and `1e2`. The TypeScript and Python types do not
+decode, so they need no change. The Python docstring now says that `music.bpm`
+can be a whole-number `float` after `json.loads`.
+
 ## v1.0.6
 
 **Typed view of the fora-music-v1 extension profile (SDK addition; no wire

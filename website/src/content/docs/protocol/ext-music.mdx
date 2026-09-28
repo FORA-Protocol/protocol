@@ -263,7 +263,7 @@ The SDKs have a typed view of the `music.*` keys of `Offer.ext`:
 | TypeScript | `@fora-protocol/sdk/music` | `Music`, `ProfileID` |
 | Python | `fora_sdk.music` | `Music`, `PROFILE_ID` |
 
-The types keep the rules from [Absent, Empty and Null](#absent-empty-and-null): an absent key stays absent, and an empty list stays an empty list. Decoding an `Offer.ext` into the Go type keeps only the `music.*` keys. The types do not validate the values. Use the JSON Schema to validate input that you do not trust.
+The types keep the rules from [Absent, Empty and Null](#absent-empty-and-null): an absent key stays absent, and an empty list stays an empty list. Decoding an `Offer.ext` into the Go type keeps only the `music.*` keys. A `music.bpm` written as a whole number with a fraction or an exponent, for example `90.0` or `1e2`, is valid, because JSON Schema counts it as an integer. The Go type accepts it as `90` or `100`. The types do not validate the values. Use the JSON Schema to validate input that you do not trust.
 
 ---
 

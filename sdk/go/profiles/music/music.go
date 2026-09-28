@@ -17,6 +17,12 @@
 // offer signature covers them.
 package music
 
+import (
+	"encoding/json"
+	"fmt"
+	"math"
+)
+
 // ProfileID is the profile identifier an Exchange lists in
 // WellKnownManifest.supported_profiles.
 const ProfileID = "fora-music-v1"
@@ -42,4 +48,43 @@ type Music struct {
 	BPM *int `json:"music.bpm,omitempty"`
 	// DurationSeconds is the duration of the delivered asset, not of the source recording.
 	DurationSeconds *float64 `json:"music.duration_seconds,omitempty"`
+}
+
+// UnmarshalJSON decodes m as encoding/json does, with one difference: music.bpm
+// also accepts a whole number written with a fraction or an exponent, for example
+// 90.0 or 1e2. JSON Schema counts such a number as an integer, and a
+// google.protobuf.Struct stores every number as a double, so some encoders write
+// 90.0 for 90. A bpm with a fractional part, a string or a value outside the int
+// range is still an error.
+func (m *Music) UnmarshalJSON(data []byte) error {
+	type plain Music // no methods, so the embedded decode does not recurse
+	var aux struct {
+		*plain
+		// A shallower field wins over plain's BPM for the same JSON key.
+		BPM json.RawMessage `json:"music.bpm"`
+	}
+	aux.plain = (*plain)(m)
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	switch {
+	case aux.BPM == nil:
+		return nil
+	case string(aux.BPM) == "null":
+		m.BPM = nil
+		return nil
+	}
+	var n int
+	if err := json.Unmarshal(aux.BPM, &n); err == nil {
+		m.BPM = &n
+		return nil
+	}
+	var f float64
+	if err := json.Unmarshal(aux.BPM, &f); err != nil ||
+		f != math.Trunc(f) || math.Abs(f) > 1<<53 {
+		return fmt.Errorf("music: music.bpm must be a whole number, got %s", aux.BPM)
+	}
+	n = int(f)
+	m.BPM = &n
+	return nil
 }
