@@ -10,9 +10,9 @@
      Regenerate:  python3 scripts/gen-parity-matrix.py
      Drift-gated in scripts/ci-local.sh. Narrative/rationale: docs/design-history.md. -->
 
-Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
+Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 146 symbols at cross-language parity · 16 documented divergences · 184 Go-idiomatic exclusions · 38 conformance corpora, each tri-replayed.
+**At a glance:** 148 symbols at cross-language parity · 16 documented divergences · 184 Go-idiomatic exclusions · 38 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -190,6 +190,13 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | Go | python | ts |
 |---|---|---|
 | `RejectReason` | `RejectReason` | `RejectReason` |
+
+### profiles/music — the fora-music-v1 extension profile type
+
+| Go | python | ts |
+|---|---|---|
+| `Music` | `Music` | `Music` |
+| `ProfileID` | `PROFILE_ID` | `ProfileID` |
 
 ## Documented divergences & DECISIONs
 

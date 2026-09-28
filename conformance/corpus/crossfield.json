@@ -1,5 +1,117 @@
 [
   {
+    "id": "GetAccountStatusResponse/cel/balances_currency_unique",
+    "message": "GetAccountStatusResponse",
+    "valid": false,
+    "rules": [
+      "get_account_status_response.balances_currency_unique"
+    ],
+    "json": {
+      "balances": [
+        {
+          "amount": "10.00",
+          "currency": "EUR"
+        },
+        {
+          "amount": "5.00",
+          "currency": "EUR"
+        }
+      ],
+      "billing_ref": "acct-1",
+      "ver": "1.0"
+    }
+  },
+  {
+    "id": "GetAccountStatusResponse/cel/balances_entry_complete/empty_amount",
+    "message": "GetAccountStatusResponse",
+    "valid": false,
+    "rules": [
+      "get_account_status_response.balances_entry_complete"
+    ],
+    "json": {
+      "balances": [
+        {
+          "currency": "EUR"
+        }
+      ],
+      "billing_ref": "acct-1",
+      "ver": "1.0"
+    }
+  },
+  {
+    "id": "GetAccountStatusResponse/cel/balances_entry_complete/lowercase_currency",
+    "message": "GetAccountStatusResponse",
+    "valid": false,
+    "rules": [
+      "get_account_status_response.balances_entry_complete"
+    ],
+    "json": {
+      "balances": [
+        {
+          "amount": "10.00",
+          "currency": "eur"
+        }
+      ],
+      "billing_ref": "acct-1",
+      "ver": "1.0"
+    }
+  },
+  {
+    "id": "GetAccountStatusResponse/cel/balances_no_unit_cost",
+    "message": "GetAccountStatusResponse",
+    "valid": false,
+    "rules": [
+      "get_account_status_response.balances_no_unit_cost"
+    ],
+    "json": {
+      "balances": [
+        {
+          "amount": "10.00",
+          "currency": "EUR",
+          "unit_cost": "0.01"
+        }
+      ],
+      "billing_ref": "acct-1",
+      "ver": "1.0"
+    }
+  },
+  {
+    "id": "GetAccountStatusResponse/cel/balances_no_unit_cost/empty_string",
+    "message": "GetAccountStatusResponse",
+    "valid": false,
+    "rules": [
+      "get_account_status_response.balances_no_unit_cost"
+    ],
+    "json": {
+      "balances": [
+        {
+          "amount": "10.00",
+          "currency": "EUR",
+          "unit_cost": ""
+        }
+      ],
+      "billing_ref": "acct-1",
+      "ver": "1.0"
+    }
+  },
+  {
+    "id": "GetAccountStatusResponse/cel/balances_requires_billing_ref",
+    "message": "GetAccountStatusResponse",
+    "valid": false,
+    "rules": [
+      "get_account_status_response.balances_requires_billing_ref"
+    ],
+    "json": {
+      "balances": [
+        {
+          "amount": "10.00",
+          "currency": "EUR"
+        }
+      ],
+      "ver": "1.0"
+    }
+  },
+  {
     "id": "GetAccountStatusResponse/cel/terms_digest_requires_billing_ref",
     "message": "GetAccountStatusResponse",
     "valid": false,

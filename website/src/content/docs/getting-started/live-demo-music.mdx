@@ -483,7 +483,7 @@ Nothing in this demo is specific to Harmonia. Its whole catalog is one JSONL fee
 }
 ```
 
-The publisher, or a catalog contributor it authorizes, pushes the feed to an Exchange. The Exchange turns each term into a signed offer, and the Broker builds its search index from the `music.*` fields in `ext` of the same feed. The publisher does not integrate with any agent. Any agent that speaks FORA can find the tracks, read the terms and buy a licence.
+The publisher, or a catalog contributor it authorizes, pushes the feed to an Exchange. The Exchange turns each term into a signed offer, and the Broker builds its search index from the `music.*` fields in `ext` of the same feed. These fields follow the [fora-music-v1 profile](/protocol/ext-music/), which defines each field and the search filters an agent can send. The publisher does not integrate with any agent. Any agent that speaks FORA can find the tracks, read the terms and buy a licence.
 
 The Exchange can be run for you by an operator, or you can run your own. See [Deployment Models](/architecture/deployment-models/) for the options, [Publisher Onboarding](/getting-started/publisher-onboarding/) for the setup, and [JSONL Ingestion](/protocol/jsonl-ingestion/) for the feed format.
 
@@ -492,5 +492,6 @@ The Exchange can be run for you by an operator, or you can run your own. See [De
 - [Live Demo: First Licence](/getting-started/poc-walkthrough/) — the setup this page skips, and the protocol calls in more detail
 - [Licensing Terms](/protocol/licensing-terms/) — how terms become offers, and what `reference_only` means
 - [Transaction Flow](/protocol/transaction-flow/) — every message of discovery and purchase, with payloads
+- [Extension: fora-music-v1](/protocol/ext-music/) — the `music.*` fields and the music search filters
 - [Broker Overview](/components/broker/overview/) — how the Broker searches and ranks offers
 - [Publisher Onboarding](/getting-started/publisher-onboarding/) — how a catalog gets onto an Exchange

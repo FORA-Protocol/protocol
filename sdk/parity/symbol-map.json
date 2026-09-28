@@ -1,5 +1,5 @@
 {
-  "_comment": "Symbol-level Go->Python->TS API-surface parity map. Go is the oracle (sdk/go/{helpers,resolvers,core,connect,connectserver}). One entry per Go public symbol (pkg-qualified). 'python'/'ts' hold the mapped public name or null when that language exposes no public symbol of that name. allowlist_reason marks a deliberate documented divergence (shrink-only). Enforced by sdk/python/tests/test_api_surface_parity.py. TS object factories use the create* prefix and value generators use generate* (Go NewX stays idiomatic); the guarded-client names (guarded_client/guarded_async_client vs guardedFetchFromEnv) are a documented idiomatic divergence, not a transliteration.",
+  "_comment": "Symbol-level Go->Python->TS API-surface parity map. Go is the oracle (sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music}). One entry per Go public symbol (pkg-qualified). 'python'/'ts' hold the mapped public name or null when that language exposes no public symbol of that name. allowlist_reason marks a deliberate documented divergence (shrink-only). Enforced by sdk/python/tests/test_api_surface_parity.py. TS object factories use the create* prefix and value generators use generate* (Go NewX stays idiomatic); the guarded-client names (guarded_client/guarded_async_client vs guardedFetchFromEnv) are a documented idiomatic divergence, not a transliteration.",
   "go_exclusions": {
     "connect.CallMalformed": "Member of the mapped connect.CallErrorKind enum. Go declares each as a package-level constant; Python spells it CallErrorKind.<NAME> and TypeScript as a member of the CallErrorKind literal union, so neither is a top-level export the surface enumerator can see. The TYPE carries the parity claim and the shared corpora pin the values.",
     "connect.CallNotSent": "Member of the mapped connect.CallErrorKind enum. Go declares each as a package-level constant; Python spells it CallErrorKind.<NAME> and TypeScript as a member of the CallErrorKind literal union, so neither is a top-level export the surface enumerator can see. The TYPE carries the parity claim and the shared corpora pin the values.",
@@ -999,6 +999,16 @@
       "allowlist_reason": null,
       "python": "WellKnownRequirementsReader",
       "ts": "WellKnownRequirementsReader"
+    },
+    "profiles/music.Music": {
+      "allowlist_reason": null,
+      "python": "Music",
+      "ts": "Music"
+    },
+    "profiles/music.ProfileID": {
+      "allowlist_reason": null,
+      "python": "PROFILE_ID",
+      "ts": "ProfileID"
     }
   }
 }
