@@ -23,7 +23,9 @@ Let's continue the [Live Demo](/getting-started/poc-walkthrough/) with a case fr
 
 Today, licensing music for a video is manual work: every library has its own tiers and terms, and it is easy to buy the wrong one. An agent can do this work only if it can read and compare the terms before it pays.
 
-The scenario we recorded: an AI agent is editing a short talking-head video and needs background music. It searches the Harmonia Records catalog through FORA, reads the three licences offered for the track it picks, buys one and places the audio on the timeline. Then we give it the same task again, but tell it the video is for a different customer. The first video is for the creator's own YouTube channel, the second for a broadcaster's programme. Same track, same agent, same catalog — and the agent buys a different licence, because the one that fits a personal channel does not cover broadcast.
+The scenario we recorded: an AI agent is editing a short video clip and needs background music. It searches the Harmonia Records catalog through FORA, reads the three licences offered for the track it picks, buys one and places the audio on the timeline. Then we give it the same task again, but with a different customer and a different use. The first video is for the creator's own YouTube channel, the second for a broadcaster's programme. Same track, same agent, same catalog — and the agent buys a different licence, because the one that fits a personal channel does not cover broadcast.
+
+In short: for the personal YouTube video, the agent buys Online Creator for €29, and the licence asks it to record the video URL for Content ID. For the broadcast programme, it buys Broadcast for €450, and the licence asks for a cue sheet. See the [full comparison](#side-by-side) at the end of the page.
 
 Each step shows the screen and the protocol call under it, so you can see which part of the protocol does the work.
 
@@ -42,9 +44,11 @@ The agent is Claude Desktop with two MCP servers connected:
 - **The FORA demo MCP server**, with an agent identity that is already registered with the Exchange. This is the same setup as in the Live Demo: [add the server](/getting-started/poc-walkthrough/#1-add-the-demo-mcp-server), [get an identity](/getting-started/poc-walkthrough/#2-connect-and-get-an-identity) and [register with the Exchange](/getting-started/poc-walkthrough/#4-register-with-the-exchange). We do not repeat those steps here.
 - **DaVinci Resolve (the free version) with the [davinci-resolve-mcp](https://github.com/samuelgursky/davinci-resolve-mcp) bridge**, so the agent can work in the editing project: import the audio, place it on the timeline and add markers.
 
+The editing project holds a 40-second clip from [Tears of Steel](https://mango.blender.org/): two people talk on a bridge. The music goes under their conversation.
+
 ## The catalog and its three licences
 
-In FORA, the licence is not hidden behind the checkout. Each way a publisher is willing to license a resource is a *term*, and the Exchange turns every term into an offer that it signs. The full licence text sits at a public URL, so a person or an agent can read it before paying.
+In FORA, the licence is not hidden behind the checkout. For each licence a publisher sells, the Exchange creates an offer with the price and the main terms, and signs it. The full licence text is at a public URL, so a person or an agent can read it before paying.
 
 The music comes from Harmonia Records, one of the fictional publishers on [demo.fora-protocol.org](https://demo.fora-protocol.org). Its catalog lists instrumental background tracks with the fields people search music by: genre, mood, tempo, energy, vocals, instruments and what the track suits. The catalog shows no prices, because a price belongs to a licence, not to a track.
 
@@ -61,7 +65,7 @@ For the same reason, [one plain-language licence document](https://demo.fora-pro
 <Image src={licenceDocument} alt="The Harmonia licence document open in a browser at demo.fora-protocol.org/licensing/harmonia/music-v0.1.txt. Its opening lines say it contains three alternative licences: EUR 29 Online Creator, EUR 450 Broadcast, EUR 1200 Advertising." />
 
 <Aside title="What a licence looks like to the protocol">
-Each licence is one `LicenseTerm` on the track, and the Exchange emits one offer per term. The term summarises the licence in machine-readable fields: who may use the track and for what (restrictions), for how many productions (quotas), the price, and what the licensee must do after release (obligations: credits, notices, a cue sheet). It points to the licence document by `uri`, pinned with a `uri_digest`, so the text cannot change after the offer is signed. All three licences are a one-time flat fee with metering `NONE`, so no usage report follows the purchase. See [Licensing Terms](/protocol/licensing-terms/).
+Each licence is one `LicenseTerm` on the track, and the Exchange emits one offer per term. The term summarises the licence in machine-readable fields: who may use the track and for what (restrictions), for how many productions (quotas), the price, and what the licensee must do after release (obligations: credits, notices, a cue sheet). It points to the licence document by `uri`, with a `uri_digest` of the text. The file at the URL can still change, but anyone can compare it with the digest and see that it is not the text the offer was signed with. All three licences are a one-time flat fee with metering `NONE`, and none of them requires a usage report. See [Licensing Terms](/protocol/licensing-terms/).
 </Aside>
 
 ## First run: a personal YouTube video
@@ -74,7 +78,7 @@ The creator asks the agent for music:
 >
 > Find calm background music in the FORA demo catalog, with mysterious mood, no vocals, for this video. I will trim the track to fit the clip. Show me the license options for the best track, compare them for my use, pick the one that fits, and explain why the others do not fit.
 
-The agent does not know the catalog or the track names. It describes what it needs, and the Broker finds the tracks that match. The search returned a few tracks, and the best match is Ancient Rite by Kevin MacLeod: calm, low energy and a slow tempo that stays under a conversation.
+The agent does not know the catalog or the track names. It describes what it needs, and the FORA search service finds the tracks that match. The search returned a few tracks, and the best match is Ancient Rite by Kevin MacLeod: calm, low energy and a slow tempo that stays under a conversation.
 
 <Image src={searchResults} alt="Claude Desktop reply: two matching tracks, Ancient Rite and Mesmerizing Galaxy, compared by mood, energy, tempo, instruments and length. The agent picks Ancient Rite and shows a table of its three licence options: Online Creator EUR 29, Broadcast EUR 450, Advertising EUR 1200." />
 
@@ -90,7 +94,10 @@ search_filters: {"music.vocals": false, "music.mood": "mysterious"}
 
 The Broker's `Resolve` call does the rest. The Broker reads search fields from the text — mood, vocals, duration and so on — matches them and the filters against the `music.*` fields that Harmonia's catalog feed carries in `ext` for each track, and ranks the results. For each track it returns one `OfferGroup` with the Exchange's signed offers, unchanged. `Resolve` only discovers; buying is a separate call to the Exchange. See [Broker: natural language](/components/broker/overview/#3-natural-language).
 
-This is what came back in the recorded run, shortened:
+<details>
+<summary>What came back in the recorded run</summary>
+
+This is the answer, shortened:
 
 ```jsonc
 {
@@ -127,6 +134,8 @@ This is what came back in the recorded run, shortened:
 ```
 
 Each track comes back as one `OfferGroup`. This is the group for Ancient Rite: three offers, each with its own price and its own Exchange signature. The next step shows the Online Creator term in full.
+
+</details>
 </Aside>
 
 ### 2. Reading the terms
@@ -145,12 +154,17 @@ This is the grant the agent buys, section 2 of the Online Creator licence in the
 
 > For EUR 29 in demo funds, the offer models a non-exclusive, worldwide, perpetual right to synchronize the identified sound recording and its musical composition into one personal YouTube video and stream that completed video online. Necessary production copies, trimming, fades and mixing under dialogue are included. Platform ad-revenue monetization of the personal video is allowed. The fee is charged once for the one production, not per view, stream or download.
 
-The rest of the section covers what a music licensing professional checks next. The grant covers both the recording and the composition, so there is nothing else to clear. It does not cover performance royalties paid through collecting societies. It excludes client work, sponsorship, paid promotion and AI training. The licensee must credit the track's real creator, and record the published video URL for Content ID clearance.
+The rest of the section covers what a music licensing professional checks next. The grant covers both the recording rights and the composition rights, for the use it names. It does not cover performance royalties paid through collecting societies. It excludes client work, sponsorship, paid promotion and AI training. The licensee must credit the track's real creator, and record the published video URL for Content ID clearance.
 
-The Exchange does not check who the customer is. The agent picks the licence from what it was told about the customer, and the person who gave the task is responsible for that statement being true. In the second run, this is the only thing that changes.
+The Exchange does not check who the customer is. The agent picks the licence from what it was told about the customer and the use, and the person who gave the task is responsible for that statement being true. In the second run, the customer and the use change, and nothing else.
 
 <Aside title="The same term, as the protocol sees it">
-This is the Online Creator term from the offer the agent received, with the digest shortened:
+The Online Creator term has `TERM_SEMANTICS_REFERENCE_ONLY`. This means the licence document is the authoritative text, and the machine-readable fields summarise it. The agent can filter on the fields, but it must read the document before it uses the track. The term's `NOTICE` obligation points the agent to the Online Creator section of the shared document. See [Term semantics](/protocol/licensing-terms/#term-semantics).
+
+<details>
+<summary>The Online Creator term</summary>
+
+This is the term from the offer the agent received, with the digest shortened:
 
 ```json
 {
@@ -188,13 +202,12 @@ This is the Online Creator term from the offer the agent received, with the dige
 }
 ```
 
-The `NOTICE` obligation points the agent to the Online Creator section of the shared licence document. `TERM_SEMANTICS_REFERENCE_ONLY` means the licence document is the authoritative text, and the machine-readable fields summarise it. The agent can filter on the fields, but it must read the document before it uses the track. See [Term semantics](/protocol/licensing-terms/#term-semantics).
+</details>
 </Aside>
 
 ### 3. Buying the licence
 
-The agent buys the Online Creator offer. The Exchange confirms the purchase and returns a transaction ID, a billing ID and a signed link to the audio file. The link is valid for five minutes.
-The agent downloads the MP3 through that link and checks that its SHA-256 hash matches the `content_hash` in the offer.
+The agent buys the Online Creator offer. The Exchange confirms the purchase and returns a transaction ID, a billing ID and a signed link to the audio file. The link is valid for five minutes. The agent downloads the MP3 through that link and checks that it is exactly the file the offer describes.
 
 <Image src={purchaseYoutube} alt="Claude Desktop reply: the signed delivery URL, which expires at 13:58:16 UTC, about five minutes after the purchase, and a table with the track, the Online Creator licence, the EUR 29 cost, the transaction ID and the billing ID. The agent notes it fetched a new offer before buying, because the search offers had expired." />
 
@@ -208,13 +221,18 @@ The €29 comes from the agent's test balance. The agent reads its balance with 
 
 <Image src={balanceAfter} alt="Claude Desktop reply: the spendable balance is 971 EUR at 13:58:48 UTC, exactly 1000 minus 29, so the Online Creator purchase was charged once." />
 
-In the Live Demo, the agent filed a usage report after it read the article. Here, FORA requires nothing after the purchase. The offer is a one-time flat fee with metering `NONE`, so there is no usage report. The licence itself can still ask the licensee to do things, but that is between the licensee and the publisher, not part of the protocol.
+In the Live Demo, the agent filed a usage report after it read the article. This purchase requires no usage report: the Exchange's answer contains no reporting obligation. The licence's credit and Content ID obligations still apply, but they are between the licensee and the publisher, not part of the protocol.
 
 <Aside title="What happened under the purchase">
 1. **`Fora execute`** (`ExchangeService.ExecuteTransaction`) — the agent sends back the signed offer it chose. The Exchange verifies `Offer.signature`, so the terms and price cannot have changed since discovery. It charges the balance and returns `transaction_id`, `billing_id` and a signed `retrieval_endpoint`.
-2. *Fetch* — the signed URL carries the agent's key thumbprint (`agent_id`) and an expiry time (`exp`). The delivery edge checks the signature and the expiry, and serves the MP3. An edge can also check that the request comes from the agent the URL was issued to. The demo edge has this check turned off, so on the demo anyone with the link can download the file until it expires.
+2. *Fetch* — the signed URL carries the agent's key thumbprint (`agent_id`) and an expiry time (`exp`). The delivery edge checks the signature and the expiry, and serves the MP3. An edge can also check that the request comes from the agent the URL was issued to. The demo edge has this check turned off, so on the demo anyone with the link can download the file until it expires. After the download, the agent compares the file's SHA-256 hash with `content_hash` in the offer.
 
 An offer is valid for five minutes. The offers from the search had expired before the purchase, so the agent asked for the track's offers again and bought a new Online Creator offer. It has a new ID and a new signature, but the same terms and price.
+
+`reporting_obligation` in the answer is empty, so no `ReportUsage` call follows. See [ExecuteTransaction](/protocol/transaction-flow/#rpc-2-executetransaction).
+
+<details>
+<summary>The request and the answer</summary>
 
 This is what the agent sent, shortened:
 
@@ -257,7 +275,7 @@ And what the Exchange returned, with the URL signature shortened:
 }
 ```
 
-`reporting_obligation` is empty, so no `ReportUsage` call follows. See [ExecuteTransaction](/protocol/transaction-flow/#rpc-2-executetransaction).
+</details>
 </Aside>
 
 ### 4. Placing the music on the timeline
@@ -275,9 +293,12 @@ This step has nothing to do with FORA. It is here because it shows that the down
 
 ### 5. Keeping the receipt
 
-The agent does not keep a receipt on its own. We asked it to, and it wrote the receipt in two places: as a note on a timeline marker in the Resolve project, and as `license-receipt.json` next to the project. The receipt holds everything that identifies the purchase: the transaction and billing IDs, the track, the offer, the licence name with the digest of its document, the price, the time, and the Exchange's signature over the offer. The second run shows the marker in the timeline.
+The agent does not keep a receipt on its own. We asked it to, and it wrote the receipt in two places: as a note on a timeline marker in the Resolve project, and as `license-receipt.json` next to the project. The receipt holds everything that identifies the purchase: the transaction and billing IDs, the track, the offer, the licence name with a fingerprint of its document, the price, the time, and the Exchange's signature over the offer. The second run shows the marker in the timeline.
 
-This is `license-receipt.json` from the run, shortened:
+<details>
+<summary>`license-receipt.json` from the first run</summary>
+
+This is the receipt, shortened:
 
 ```jsonc
 {
@@ -317,6 +338,8 @@ This is `license-receipt.json` from the run, shortened:
 
 The time in the receipt is the agent's estimate, and the receipt says so. The Exchange's own records carry the real time.
 
+</details>
+
 The agent wrote this file itself, so the file alone proves nothing. It is useful because each value in it can be checked against a record the agent does not control:
 
 - **The offer signature** proves which terms and price the Exchange offered. Anyone can verify it with the Exchange's public key. The licence digest ties those terms to the exact licence text.
@@ -327,7 +350,12 @@ The agent wrote this file itself, so the file alone proves nothing. It is useful
 
 None of this proves that Harmonia owns the rights, that Content ID was cleared, or that any real money was paid.
 
-The transaction ID is the key to all of these records. With it, the demo operator collects the evidence from every party in the purchase — the Exchange, the Broker and the delivery edge — and checks that the records agree with each other. This is the evidence for the first purchase. The tenant line and the correlator column are left out, and long values are shortened:
+The transaction ID is the key to all of these records. With it, the demo operator collects the evidence from every party in the purchase — the Exchange, the Broker and the delivery edge — and checks that the records agree with each other. For the first purchase, all seven checks pass.
+
+<details>
+<summary>The evidence for the first purchase</summary>
+
+This is the demo operator's report. The tenant line and the correlator column are left out, and long values are shortened:
 
 ```text
 FORA evidence chain
@@ -363,6 +391,8 @@ ASSERTIONS
 7 of 7 checked assertions hold.
 ```
 
+</details>
+
 The evidence does not include billing: the €29 charge is shown by the balance before and after the purchase.
 
 ## Second run: a broadcast programme
@@ -375,7 +405,7 @@ We start again with the same project and the same agent. This time the editor sa
 >
 > Find calm background music, no vocals, for this segment. I will trim the track to fit the clip. Show me the license options for the best track, compare them for this use, pick the one that fits, and explain why the others do not fit.
 
-The search returns a few calm tracks with no vocals. The best match for a documentary is again Ancient Rite, and the Exchange returns the same three offers at the same prices. Nothing in the catalog has changed.
+The prompt says 60 seconds, but the project holds the same 40-second clip as in the first run, and the agent trims the track to it. The search returns a few calm tracks with no vocals. The best match for a documentary is again Ancient Rite, and the Exchange returns the same three offers at the same prices. Nothing in the catalog has changed.
 
 ### 2. Reading the terms again
 
@@ -402,6 +432,9 @@ The rest of the run repeats the first one. The agent buys the Broadcast offer, a
 <Image src={balanceAfterBroadcast} alt="Claude Desktop reply: the spendable balance is 521 EUR at 14:09:16 UTC. A table lists the start of the session at 1000 EUR, the Online Creator purchase at minus 29 and the Broadcast purchase at minus 450." />
 
 <Image src={receiptMarkerBroadcast} alt="DaVinci Resolve timeline marker with the note Music license receipt: Ancient Rite by Kevin MacLeod, Harmonia Broadcast, EUR 450, with the transaction ID, billing ID, offer ID, purchase time, the verified file SHA-256, the scope for Northwind Television, the obligations, and a note that the demo offer grants no real rights." />
+
+<details>
+<summary>`license-receipt.json` from the second run</summary>
 
 This is the second receipt, shortened to the fields that differ from the first one:
 
@@ -431,6 +464,8 @@ This is the second receipt, shortened to the fields that differ from the first o
 }
 ```
 
+</details>
+
 The agent added `licensee_note` on its own. The same demo account bought both licences, first as an individual and then for Northwind Television. The agent points out that the licensee on record is the account's owner, and that the Exchange did not check who the account acts for. This is the limit described in the previous step, and the receipt records it.
 
 ### 4. The cue sheet
@@ -439,11 +474,11 @@ The Broadcast licence adds an obligation that the Online Creator licence does no
 
 The licence is clear that the €450 does not include those royalties. The sync fee pays for putting the music into the programme. Performance royalties are a separate payment, made through the broadcaster's arrangement with the collecting societies.
 
-This demo does not create a cue sheet. There is no real programme and no broadcaster to send it to. In a real production, the cue sheet is prepared when the edit is final and delivered to the broadcaster. Like the credit in the first run, it is an obligation of the licence, not of FORA: metering is `NONE`, and no usage report follows either purchase.
+This demo does not create a cue sheet. There is no real programme and no broadcaster to send it to. In a real production, the cue sheet is prepared when the edit is final and delivered to the broadcaster. Like the credit in the first run, it is an obligation of the licence, not of FORA. Neither purchase asks for a usage report.
 
 ## Side by side
 
-Same track, same agent, same catalog, same three offers. The only thing that changed between the runs is what the agent was told about the customer.
+Same track, same agent, same catalog, same three offers. The only thing that changed between the runs is what the agent was told about the customer and the intended use.
 
 | | Personal YouTube video | Broadcast programme |
 |---|---|---|
@@ -453,11 +488,11 @@ Same track, same agent, same catalog, same three offers. The only thing that cha
 | **Obligations** | Record the video URL for Content ID | Cue sheet; performance royalties not included |
 | **Rejected** | <ul><li>**Broadcast**: the customer is an individual</li><li>**Advertising**: not an ad</li></ul> | <ul><li>**Online Creator**: individuals only, no broadcast</li><li>**Advertising**: not an ad</li></ul> |
 
-All three licences share the same base: one production, worldwide and perpetual; the recording and the composition in one grant; a credit to the track's real creator; no AI training; a one-time flat fee with metering `NONE`.
+All three licences share the same base: one production, worldwide and perpetual; the recording and the composition in one grant; a credit to the track's real creator; no AI training; a one-time flat fee with no usage reports.
 
 ## For catalog owners
 
-Nothing in this demo is specific to Harmonia. Its whole catalog is one JSONL feed, with one line per track. Each line describes the audio file, the search fields, the licence document with its digest, and the terms the publisher sells. This is the line for one of the tracks, shortened:
+Nothing in this demo is specific to Harmonia. Its whole catalog is one file, called a feed, with one line per track. Each line describes the audio file, the search fields, the licence document, and the licences the publisher sells with their prices. This is the line for one of the tracks, shortened:
 
 ```jsonc
 {
@@ -495,3 +530,10 @@ The Exchange can be run for you by an operator, or you can run your own. See [De
 - [Extension: fora-music-v1](/protocol/ext-music/) — the `music.*` fields and the music search filters
 - [Broker Overview](/components/broker/overview/) — how the Broker searches and ranks offers
 - [Publisher Onboarding](/getting-started/publisher-onboarding/) — how a catalog gets onto an Exchange
+
+## Credits
+
+- **Video:** [Tears of Steel](https://mango.blender.org/download/), (CC) Blender Foundation | [mango.blender.org](https://mango.blender.org/), licensed under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). A 40-second excerpt is used, with music added under the dialogue.
+- **Music:** Ancient Rite by Kevin MacLeod ([incompetech.com](https://incompetech.com)), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The track is trimmed to the clip, faded out and mixed under the dialogue.
+
+The video and the music are real works under Creative Commons licences. The Online Creator and Broadcast licences bought in this demo are fictional Harmonia examples, paid with test money. They do not license Tears of Steel or the music. The Blender Foundation does not endorse FORA.
