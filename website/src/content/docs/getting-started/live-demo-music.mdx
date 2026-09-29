@@ -46,6 +46,18 @@ The deployment can be reset without notice, which removes accounts, registration
   <a href="https://fora-protocol-media.s3.us-east-1.amazonaws.com/videos/live-demo-music.mp4">Download the walkthrough video</a>
 </video>
 
+## Agent-ready licensing without custom development
+
+Harmonia Records (the fictional music publisher in this demo) wrote no code. It described its catalog in one file, called a feed, and pushed that file to the Exchange. After a one-time setup of its domain and CDN, FORA gives the catalog everything the agent uses on this page:
+
+- **Search.** Agents find tracks by genre, mood, tempo and other music fields.
+- **Terms an agent can read.** Each license becomes a signed offer with the price and the main terms. The full license text is at a public URL.
+- **Payment.** The Exchange checks the offer, charges the agent's account and records the transaction.
+- **Delivery.** The agent gets a short-lived signed download link. The CDN checks the link before it serves the file.
+- **Evidence.** Each purchase leaves signed records that anyone can check later.
+
+The catalog owner does not integrate with any agent. Any agent that speaks FORA can find the tracks, read the terms and buy a license. [What the feed looks like](#for-catalog-owners) is shown at the end of the page.
+
 ## The setup
 
 The agent is Claude Desktop with two MCP servers connected:
@@ -501,7 +513,7 @@ All three licenses share the same base: one production, worldwide and perpetual;
 
 ## For catalog owners
 
-Nothing in this demo is specific to Harmonia. Its whole catalog is one file, called a feed, with one line per track. Each line describes the audio file, the search fields, the license document, and the licenses the publisher sells with their prices. This is the line for one of the tracks, shortened:
+Nothing in this demo is specific to Harmonia. Each line of its feed describes the audio file, the search fields, the license document, and the licenses the publisher sells with their prices. This is the line for one of the tracks, shortened:
 
 ```jsonc
 {
@@ -527,7 +539,7 @@ Nothing in this demo is specific to Harmonia. Its whole catalog is one file, cal
 }
 ```
 
-The publisher, or a catalog contributor it authorizes, pushes the feed to an Exchange. The Exchange turns each term into a signed offer, and the Broker builds its search index from the `music.*` fields in `ext` of the same feed. These fields follow the [fora-music-v1 profile](/protocol/ext-music/), which defines each field and the search filters an agent can send. The publisher does not integrate with any agent. Any agent that speaks FORA can find the tracks, read the terms and buy a license.
+The publisher, or a catalog contributor it authorizes, pushes the feed to an Exchange. The Exchange turns each term into a signed offer, and the Broker builds its search index from the `music.*` fields in `ext` of the same feed. These fields follow the [fora-music-v1 profile](/protocol/ext-music/), which defines each field and the search filters an agent can send.
 
 The Exchange can be run for you by an operator, or you can run your own. See [Deployment Models](/architecture/deployment-models/) for the options, [Publisher Onboarding](/getting-started/publisher-onboarding/) for the setup, and [JSONL Ingestion](/protocol/jsonl-ingestion/) for the feed format.
 
