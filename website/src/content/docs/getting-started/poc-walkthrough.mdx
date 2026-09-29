@@ -114,13 +114,15 @@ Once connected, five tools appear — the protocol verbs.
 
 <Image src={tools} alt="Connected FORA connector listing five tools: Fora discover, execute, register, report and status." />
 
-| Tool | RPC |
+| Tool | Where the call goes |
 |---|---|
-| `Fora discover` | `ExchangeService.DiscoverResources` |
-| `Fora execute` | `ExchangeService.ExecuteTransaction` |
-| `Fora register` | `ExchangeService.Register` |
-| `Fora report` | `ExchangeService.ReportUsage` |
-| `Fora status` | `ExchangeService.GetAccountStatus` |
+| `Fora discover` | `BrokerService.Resolve`, via the Broker |
+| `Fora execute` | the Broker's execute relay |
+| `Fora register` | `ExchangeService.Register`, direct to the Exchange |
+| `Fora report` | `ExchangeService.ReportUsage`, direct to the offer's Exchange |
+| `Fora status` | `ExchangeService.GetAccountStatus`, direct to the Exchange |
+
+Two of them traverse the Broker and three go straight to an Exchange. Registration has to be direct, because the Exchange binds your account to your identity using your own inbound signature, and the Broker relay would re-sign that hop with its own key. See [Identity Service](/components/identity/overview/) for the rest of that reasoning.
 
 ## 3. The demo publisher
 
@@ -292,4 +294,4 @@ Where to read further:
 - [What is FORA?](/getting-started/what-is-fora/) — the model in one page
 - [Transaction flow](/protocol/transaction-flow/) — every message in the sequence, with payloads
 - [Licensing terms](/protocol/licensing-terms/) — how terms become offers
-- [MCP Server](/components/mcp-server/overview/) — what the connector you just added actually does
+- [Identity Service](/components/identity/overview/) — what the connector you just added actually does

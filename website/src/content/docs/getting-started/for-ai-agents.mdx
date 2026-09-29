@@ -324,26 +324,27 @@ The `report_id` is required on every `DisputeRequest` -- the Exchange rejects di
 
 ## MCP Access
 
-You can also access FORA via MCP -- add the FORA MCP server to your agent's tool configuration and discover/license content without a custom SDK. The MCP server exposes six tools (`discover_supply`, `execute_transaction`, `report_usage`, `dispute_transaction`, `check_health`, `get_rate_limit_status`) and handles protocol details (signing, field population, response simplification) automatically.
+You can also reach FORA over MCP, with no SDK and no key of your own. The [Identity Service](/components/identity/overview/) hosts an MCP endpoint, mints and custodies an Ed25519 key for you, publishes your key directory on a subdomain it gives you, and signs every protocol request on your behalf.
 
-For Claude Desktop, add to your config:
+It is a hosted HTTP endpoint rather than a local command, so there is nothing to install and no key file to configure. Point an MCP client at it and it discovers how to authenticate:
 
-```json
-{
-  "mcpServers": {
-    "fora": {
-      "command": "fora-mcp-server",
-      "args": ["--transport", "stdio"],
-      "env": {
-        "FORA_EXCHANGE_URL": "https://exchange.example.com",
-        "FORA_PROXY_KEY_PATH": "/path/to/ed25519-private.pem"
-      }
-    }
-  }
-}
+```
+https://mcp.demo.fora-protocol.org/mcp
 ```
 
-See [MCP Server Overview](/components/mcp-server/overview/) for full details on deployment, authentication, and tool schemas.
+The endpoint answers an unauthenticated request with `401` and the OAuth metadata that says where to send the user. The client registers itself dynamically, the developer signs in, and five tools appear:
+
+| Tool | Verb |
+|---|---|
+| `fora_register` | open an account at an Exchange and accept its terms |
+| `fora_status` | list this agent's accounts |
+| `fora_discover` | find offers by URL, by query, or by filter |
+| `fora_execute` | license offers and get the content back |
+| `fora_report` | file the usage report an offer's terms require |
+
+Custody is the trade. The service holds your private key and, by default, fetches the licensed bytes for you — which is what makes the delivery URL's key binding satisfiable at all when you hold no key. An agent that holds its own key and publishes its own directory is the same participant to an Exchange and avoids that trade entirely; the rest of this page is that path.
+
+See [Identity Service](/components/identity/overview/) for the custody model, the key lifecycle, and what the service costs you in trust.
 
 ## FAQ
 
