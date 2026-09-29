@@ -48,7 +48,9 @@ The deployment can be reset without notice, which removes accounts, registration
 
 ## Agent-ready licensing without custom development
 
-Harmonia Records (the fictional music publisher in this demo) wrote no code. It described its catalog in one file, called a feed, and pushed that file to the Exchange. After a one-time setup of its domain and CDN, FORA gives the catalog everything the agent uses on this page:
+Harmonia Records (the fictional music publisher in this demo) wrote no code. It described its catalog in one file, called a feed, and pushed that file to the Exchange. See the [example feed](#for-catalog-owners) at the end of the page.
+
+After a one-time setup of its domain and CDN, FORA gives the catalog everything the agent uses on this page:
 
 - **Search.** Agents find tracks by genre, mood, tempo and other music fields.
 - **Terms an agent can read.** Each license becomes a signed offer with the price and the main terms. The full license text is at a public URL, so an agent can read it before it pays.
@@ -56,7 +58,37 @@ Harmonia Records (the fictional music publisher in this demo) wrote no code. It 
 - **Delivery.** The agent gets a short-lived signed download link. The CDN checks the link before it serves the file.
 - **Evidence.** Each purchase leaves signed records that anyone can check later.
 
-The publisher does not integrate with any agent. Any agent that speaks FORA can find the tracks, read the terms and buy a license. [What the feed looks like](#for-catalog-owners) is shown at the end of the page.
+The catalog owner publishes one feed, and FORA handles discovery, purchase and delivery for compatible AI agents. Here's how the pieces fit together:
+
+```mermaid
+flowchart LR
+    subgraph SUPPLY["Catalog owner"]
+        PUB["<b>Music publisher</b><br/>Tracks, licenses<br/>and prices"]
+    end
+
+    subgraph FORA["FORA"]
+        direction TB
+        I["<b>Publish offers</b><br/>Creates signed offers<br/>from the catalog feed"] --> D["<b>Find music</b><br/>Returns matching tracks<br/>and license offers"] --> L["<b>Complete purchase</b><br/>Validates the offer<br/>and processes payment"] --> DL["<b>Deliver music</b><br/>Provides a temporary<br/>download link"]
+    end
+
+    subgraph DEMAND["User and AI agent"]
+        direction TB
+        U(["<b>User</b><br/>“Find music for my video”"])
+        AG["<b>AI agent</b><br/>Chooses a license for<br/>the intended use and buys it"]
+        OUT["<b>Track, license<br/>and purchase record</b><br/>Use within the agreed terms"]
+        U --> AG --> OUT
+    end
+
+    SUPPLY -- "Publishes tracks, licenses and prices" --> FORA
+    FORA <-- "Finds music, compares licenses and buys" --> DEMAND
+
+    style SUPPLY fill:none,stroke:#94A3B8,stroke-width:1px
+    style DEMAND fill:none,stroke:#94A3B8,stroke-width:1px
+    style FORA   fill:none,stroke:#3B82F6,stroke-width:1.5px
+
+    linkStyle default stroke:#94A3B8,stroke-width:1.2px
+    linkStyle 5,6 stroke:#3B82F6,stroke-width:2px
+```
 
 ## The setup
 
