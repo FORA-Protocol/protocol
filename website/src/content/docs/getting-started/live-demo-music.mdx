@@ -46,9 +46,53 @@ The deployment can be reset without notice, which removes accounts, registration
   <a href="https://fora-protocol-media.s3.us-east-1.amazonaws.com/videos/live-demo-music.mp4">Download the walkthrough video</a>
 </video>
 
+## Agent-ready licensing without custom development
+
+Harmonia Records (the fictional music publisher in this demo) wrote no code. It described its catalog in one file, called a feed, and pushed that file to the Exchange. See the [example feed](#for-catalog-owners) at the end of the page.
+
+After a one-time setup of its domain and CDN, FORA gives the catalog everything the agent uses on this page:
+
+- **Search.** Agents find tracks by genre, mood, tempo and other music fields.
+- **Terms an agent can read.** Each license becomes a signed offer with the price and the main terms. The full license text is at a public URL, so an agent can read it before it pays.
+- **Payment.** The Exchange checks the offer, charges the agent's account and records the transaction.
+- **Delivery.** The agent gets a short-lived signed download link. The CDN checks the link before it serves the file.
+- **Evidence.** Each purchase leaves signed records that anyone can check later.
+
+The catalog owner publishes one feed, and FORA handles discovery, purchase and delivery for compatible AI agents. Here's how the pieces fit together:
+
+```mermaid
+flowchart LR
+    subgraph SUPPLY["Catalog owner"]
+        PUB["<b>Music publisher</b><br/>Tracks, licenses<br/>and prices"]
+    end
+
+    subgraph FORA["FORA"]
+        direction TB
+        I["<b>Publish offers</b><br/>Creates signed offers<br/>from the catalog feed"] --> D["<b>Find music</b><br/>Returns matching tracks<br/>and license offers"] --> L["<b>Complete purchase</b><br/>Validates the offer<br/>and processes payment"] --> DL["<b>Deliver music</b><br/>Provides a temporary<br/>download link"]
+    end
+
+    subgraph DEMAND["User and AI agent"]
+        direction TB
+        U(["<b>User</b><br/>“Find music for my video”"])
+        AG["<b>AI agent</b><br/>Chooses a license for<br/>the intended use and buys it"]
+        OUT["<b>Track, license<br/>and purchase record</b><br/>Use within the agreed terms"]
+        U --> AG --> OUT
+    end
+
+    SUPPLY -- "Publishes tracks, licenses and prices" --> FORA
+    FORA <-- "Finds music, compares licenses and buys" --> DEMAND
+
+    style SUPPLY fill:none,stroke:#94A3B8,stroke-width:1px
+    style DEMAND fill:none,stroke:#94A3B8,stroke-width:1px
+    style FORA   fill:none,stroke:#3B82F6,stroke-width:1.5px
+
+    linkStyle default stroke:#94A3B8,stroke-width:1.2px
+    linkStyle 5,6 stroke:#3B82F6,stroke-width:2px
+```
+
 ## The setup
 
-The agent is Claude Desktop with two MCP servers connected:
+For this demo, we used Claude Desktop with two MCP servers connected:
 
 - **The FORA demo MCP server**, with an agent identity that is already registered with the Exchange. This is the same setup as in the Live Demo: [add the server](/getting-started/poc-walkthrough/#1-add-the-demo-mcp-server), [get an identity](/getting-started/poc-walkthrough/#2-connect-and-get-an-identity) and [register with the Exchange](/getting-started/poc-walkthrough/#4-register-with-the-exchange). We do not repeat those steps here.
 - **DaVinci Resolve (the free version) with the [davinci-resolve-mcp](https://github.com/samuelgursky/davinci-resolve-mcp) bridge**, so the agent can work in the editing project: import the audio, place it on the timeline and add markers.
@@ -57,9 +101,7 @@ The editing project holds a 40-second clip from [Tears of Steel](https://mango.b
 
 ## The catalog and its three licenses
 
-In FORA, the license is not hidden behind the checkout. For each license a publisher sells, the Exchange creates an offer with the price and the main terms, and signs it. The full license text is at a public URL, so a person or an agent can read it before paying.
-
-The music comes from Harmonia Records, one of the fictional publishers on [demo.fora-protocol.org](https://demo.fora-protocol.org). Its catalog lists instrumental background tracks with the fields people search music by: genre, mood, tempo, energy, vocals, instruments and what the track suits. The catalog shows no prices, because a price belongs to a license, not to a track.
+Harmonia's catalog is on [demo.fora-protocol.org](https://demo.fora-protocol.org). It lists instrumental background tracks with the fields people search music by: genre, mood, tempo, energy, vocals, instruments and what the track suits. The catalog shows no prices, because a price belongs to a license, not to a track.
 
 <Image src={catalog} alt="Harmonia Records catalog page: a table of Kevin MacLeod tracks under CC BY 4.0, with columns for genre, mood, bpm, energy, vocals, use, instrument and length in seconds." />
 
@@ -501,7 +543,7 @@ All three licenses share the same base: one production, worldwide and perpetual;
 
 ## For catalog owners
 
-Nothing in this demo is specific to Harmonia. Its whole catalog is one file, called a feed, with one line per track. Each line describes the audio file, the search fields, the license document, and the licenses the publisher sells with their prices. This is the line for one of the tracks, shortened:
+Nothing in this demo is specific to Harmonia. Each line of its feed describes the audio file, the search fields, the license document, and the licenses the publisher sells with their prices. This is the line for one of the tracks, shortened:
 
 ```jsonc
 {
@@ -527,7 +569,7 @@ Nothing in this demo is specific to Harmonia. Its whole catalog is one file, cal
 }
 ```
 
-The publisher, or a catalog contributor it authorizes, pushes the feed to an Exchange. The Exchange turns each term into a signed offer, and the Broker builds its search index from the `music.*` fields in `ext` of the same feed. These fields follow the [fora-music-v1 profile](/protocol/ext-music/), which defines each field and the search filters an agent can send. The publisher does not integrate with any agent. Any agent that speaks FORA can find the tracks, read the terms and buy a license.
+The publisher, or a catalog contributor it authorizes, pushes the feed to an Exchange. The Exchange turns each term into a signed offer, and the Broker builds its search index from the `music.*` fields in `ext` of the same feed. These fields follow the [fora-music-v1 profile](/protocol/ext-music/), which defines each field and the search filters an agent can send.
 
 The Exchange can be run for you by an operator, or you can run your own. See [Deployment Models](/architecture/deployment-models/) for the options, [Publisher Onboarding](/getting-started/publisher-onboarding/) for the setup, and [JSONL Ingestion](/protocol/jsonl-ingestion/) for the feed format.
 
