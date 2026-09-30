@@ -43,6 +43,7 @@ type SignRequestVector = {
   keyid: string;
   created: number;
   expires: number;
+  nonce?: string; // RFC 9421 nonce the oracle signed with; absent when none
   signer_seed_hex: string; // 32-byte Ed25519 seed the oracle signed with
   pubkey_b64url: string; // b64url-nopad raw 32-byte Ed25519 public key
   content_digest: string;
@@ -143,6 +144,7 @@ describe("sdk/ts request signer matches the shared Go oracle (byte-identical)", 
       keyid: v.keyid,
       created: v.created,
       expires: v.expires,
+      nonce: v.nonce ?? "",
     };
 
     it(`${v.name}: signature base is byte-identical to the Go oracle`, async () => {

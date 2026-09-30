@@ -9,11 +9,11 @@ import (
 // stamp on the next outbound signature. It is invoked once per signed request.
 // Both values matter: SignRequest/AppendSignature receive created and expires
 // from the caller — the multisig verifier rejects any signature missing
-// created. An implementation may return monotonically increasing values to
-// keep each on-the-wire signature unique (the relay's replay-store uniqueness
-// need — see MonotonicWindow) or a wall-clock instant plus a fixed TTL
-// (ClockWindow); created and expires should derive from the same source so a
-// deterministic-clock test stays inside the verifier's freshness window.
+// created. An implementation may return a wall-clock instant plus a fixed TTL
+// (ClockWindow) or monotonically increasing values (MonotonicWindow); created
+// and expires should derive from the same source so a deterministic-clock test
+// stays inside the verifier's freshness window. The signing transport makes each
+// signature unique with a fresh nonce, whatever the window returns.
 type Window func() (created, expires int64)
 
 // ClockWindow returns the plain production Window: it stamps each outbound
@@ -31,8 +31,10 @@ func ClockWindow(now func() time.Time, ttl time.Duration) Window {
 // MonotonicWindow returns a Window whose expires cutoff is strictly increasing
 // across calls: it tracks now+ttl but, when a burst of requests lands in the
 // same wall-clock second, bumps expires by one second per call so no two
-// back-to-back signatures share a (keyid, expires) pair. This keeps identical
-// relay requests from colliding in the server's replay store. created tracks
+// back-to-back signatures share a (keyid, expires) pair. The signing transport
+// no longer needs this for uniqueness: every signature carries a fresh nonce,
+// so ClockWindow is enough. Note that during a burst expires − created grows
+// past ttl, which a verifier with WithMaxSignatureAge(ttl) refuses. created tracks
 // now() — the pair stays clock-consistent for any caller that reads created.
 // Safe for concurrent RoundTrips: the running maximum is held in an atomic
 // updated by compare-and-swap. To adapt an application clock interface with a

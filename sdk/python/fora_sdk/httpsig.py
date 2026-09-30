@@ -50,6 +50,11 @@ _COVERED_COMPONENTS: tuple[str, ...] = (
 #: this (mirrors the Go verifier's defaultMaxFutureSkew).
 _MAX_FUTURE_SKEW_SEC = 300
 
+# A non-empty nonce may use only base64url characters. Go and TypeScript apply
+# the same rule, so a nonce one SDK accepts is written as the same bytes by all
+# three, and a quote cannot end the quoted parameter early.
+_NONCE_RE = re.compile(r"[A-Za-z0-9_-]*")
+
 
 @dataclass(frozen=True)
 class SignedRequest:
@@ -95,6 +100,8 @@ def _signature_params(
     created: int,
     expires: int,
     chain_link_token: str | None = None,
+    *,
+    nonce: str = "",
 ) -> str:
     # The optional forwarding-chain token (``"signature";key="sigN"``) is appended
     # as the LAST covered component and rendered VERBATIM — it already carries its
@@ -104,7 +111,12 @@ def _signature_params(
     if chain_link_token is not None:
         tokens.append(chain_link_token)
     covered_list = " ".join(tokens)
-    return f'({covered_list});keyid="{keyid}";alg="ed25519";created={created};expires={expires}'
+    params = f'({covered_list});keyid="{keyid}";alg="ed25519";created={created};expires={expires}'
+    if not _NONCE_RE.fullmatch(nonce):
+        raise ValueError("nonce must use only base64url characters")
+    # Empty nonce emits nothing: byte-identical to a signature made before the
+    # parameter existed (mirrors Go renderParamsTail).
+    return params + f';nonce="{nonce}"' if nonce else params
 
 
 def _signature_base(
@@ -144,6 +156,7 @@ def sign_request(
     created: int,
     expires: int,
     signature_agent: str = "",
+    nonce: str = "",
 ) -> SignedRequest:
     """Sign a request over the FORA covered set; return the RFC 9421 headers.
 
@@ -154,9 +167,16 @@ def sign_request(
     ``signature_agent`` is the signer's WBA key-directory URL, bound the same
     way (empty string for the static bootstrap path), mirroring Go's
     ``bindSignatureAgent``.
+
+    ``nonce``, when non-empty, is emitted as the RFC 9421 ``nonce`` parameter.
+    Ed25519 is deterministic and the timestamps have one-second resolution, so
+    identical requests signed in the same second produce the same signature and a
+    replay store refuses the second. The helper reads no RNG: a caller that needs
+    unique signatures supplies a fresh nonce (``SigningTransport`` does). A
+    non-empty nonce must use only base64url characters, or ``ValueError`` is raised.
     """
     digest_header = content_digest(body)
-    sig_params = _signature_params(_COVERED_COMPONENTS, keyid, created, expires)
+    sig_params = _signature_params(_COVERED_COMPONENTS, keyid, created, expires, nonce=nonce)
     base = _signature_base(
         method=method,
         url=url,
@@ -191,6 +211,7 @@ def append_signature(
     keyid: str,
     created: int,
     expires: int,
+    nonce: str = "",
 ) -> SignedRequest:
     """Chain sig(N+1) onto ``prev_signature_input``/``prev_signature`` WITHOUT
     disturbing existing members of the forwarding chain, the Python port of Go
@@ -201,7 +222,8 @@ def append_signature(
     predecessor sig bytes)>:`` (re-encoded canonically, NOT a wire splice),
     Ed25519-signs, and returns the APPENDED Signature-Input / Signature. Appending
     to an unsigned request (empty prev) produces a sig1 byte-for-byte identical to
-    ``sign_request`` — single-sig is the N=1 case.
+    ``sign_request`` — single-sig is the N=1 case. ``nonce`` is as in
+    ``sign_request``.
     """
     digest_header = content_digest(body)
     has_prev = prev_signature_input != ""
@@ -218,7 +240,9 @@ def append_signature(
         chain_link_token = f'"signature";key="{prev_label}"'
         chain_link = (chain_link_token, ":" + base64.b64encode(prev_bytes).decode() + ":")
 
-    sig_params = _signature_params(_COVERED_COMPONENTS, keyid, created, expires, chain_link_token)
+    sig_params = _signature_params(
+        _COVERED_COMPONENTS, keyid, created, expires, chain_link_token, nonce=nonce
+    )
     base = _signature_base(
         method=method,
         url=url,

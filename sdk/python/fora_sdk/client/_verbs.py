@@ -127,11 +127,9 @@ class ClientConfig:
     #: The RFC 9421 freshness window stamped on every outbound REQUEST signature.
     #:
     #: Named here as well as on the signer so the knob sits at the same tier it does in
-    #: Go and TypeScript. A deployment with its own freshness policy sets it; so does one
-    #: whose peer screens replays on (key id, signature), since timestamps have
-    #: one-second resolution and two identical requests inside a second otherwise sign to
-    #: the same bytes — ``monotonic_window`` keeps each signature unique for exactly
-    #: that, and must be ONE INSTANCE PER CLIENT rather than one per call.
+    #: Go and TypeScript. A deployment with its own freshness policy sets it. It is not
+    #: needed for uniqueness: every request signature carries a fresh RFC 9421 nonce, so
+    #: two identical requests inside one second still sign to different bytes.
     sign_window: Window | None = None
     #: Mints the X-Request-ID correlation value. ``None`` sends no header.
     request_id: Callable[[], str] | None = None
@@ -602,12 +600,10 @@ def plan_get_account_status(cfg: ClientConfig, request: dict[str, Any]) -> Plan:
     account from the verified signature — so ``exchange`` is the only thing that says
     which account is being asked about.
 
-    A caveat worth knowing before calling this in a loop. The request has no varying
-    field, so two calls to the same Exchange inside one wall-clock second sign IDENTICAL
-    bytes, and a peer screening replays on (key id, signature) refuses the second. This
-    verb does not choose the freshness window for you, because a window is one instance
-    per client rather than per call: set ``ClientConfig.sign_window`` to a
-    ``monotonic_window`` when repeat calls are expected.
+    Safe to call in a loop. The request has no varying field, but every request
+    signature carries a fresh RFC 9421 nonce, so two calls to the same Exchange inside
+    one wall-clock second still sign different bytes and a peer screening replays on
+    (key id, signature) accepts both.
     """
     op = "get account status"
     sent = _stamp_ver(op, request)

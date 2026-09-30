@@ -27,9 +27,11 @@ export function clockWindow(now: () => number, ttlSec: number): Window {
  * monotonicWindow returns a Window whose expires cutoff strictly increases
  * across calls: it tracks floor(now()) + ttlSec but, when a burst of requests
  * lands in the same wall-clock second, bumps expires by one second per call so
- * no two back-to-back signatures share an (keyid, expires) pair — keeping
- * identical relay requests from colliding in the server's replay store. created
- * tracks floor(now()), so the pair stays clock-consistent.
+ * no two back-to-back signatures share an (keyid, expires) pair. The signing
+ * transport no longer needs this for uniqueness: every signature carries a fresh
+ * nonce, so clockWindow is enough. During a burst expires − created grows past
+ * ttlSec, which a verifier with maxSignatureAge = ttlSec refuses. created tracks
+ * floor(now()), so the pair stays clock-consistent.
  *
  * ONE INSTANCE PER CLIENT, never one per call. The running maximum is the whole
  * mechanism: a window created per request starts from zero, cannot see the

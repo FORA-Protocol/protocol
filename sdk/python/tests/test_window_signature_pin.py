@@ -37,6 +37,8 @@ def _sign() -> dict[str, str]:
         now=lambda: _NOW,
         ttl_sec=_TTL,
     )
+    # The nonce is random per signature; pin it so the bytes are comparable.
+    transport._nonce = lambda: "AAECAwQFBgcICQoLDA0ODw"
     return transport.sign_outbound(
         method="POST", url=_URL, body=_BODY, authorization=""
     ).headers

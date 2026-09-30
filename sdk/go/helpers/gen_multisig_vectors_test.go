@@ -64,6 +64,9 @@ type multisigHop struct {
 	KeyID        string `json:"keyid"`
 	PubkeyB64URL string `json:"pubkey_b64url"`
 	SeedHex      string `json:"seed_hex"`
+	// Nonce is the RFC 9421 nonce this hop signed with; absent for a hop that
+	// signed without one.
+	Nonce string `json:"nonce,omitempty"`
 }
 
 // multisigChainVector is one forwarding-chain case: the full wire request (all
@@ -108,6 +111,7 @@ type multisigChainVector struct {
 type hopSpec struct {
 	keyID    string
 	seedByte byte
+	nonce    string
 }
 
 // signMultisigChain builds a request and signs the given hops: hop[0] via the
@@ -150,9 +154,9 @@ func signMultisigChainOverLines(
 		req.Header.Add("Authorization", line)
 	}
 	req.Header.Set(SignatureAgentHeader, signatureAgent)
-	opts := SignOptions{Created: msCreated, Expires: msExpires}
 	out := make([]multisigHop, 0, len(hops))
 	for i, h := range hops {
+		opts := SignOptions{Created: msCreated, Expires: msExpires, Nonce: h.nonce}
 		seed := fixedSeed(h.seedByte)
 		signer, serr := NewEd25519SignerFromSeed(h.keyID, seed)
 		if serr != nil {
@@ -172,6 +176,7 @@ func signMultisigChainOverLines(
 			KeyID:        h.keyID,
 			PubkeyB64URL: b64urlNoPad(pub),
 			SeedHex:      hex.EncodeToString(seed),
+			Nonce:        h.nonce,
 		})
 	}
 	return req, out
@@ -218,13 +223,22 @@ func buildMultisigChainVectors(t *testing.T) []multisigChainVector {
 	t.Helper()
 	body := []byte(`{"idempotency_key":"idem-1"}`)
 
-	agent := hopSpec{msAgentKeyID, 0x90}
-	brokerA := hopSpec{msBrokerAKeyID, 0x91}
-	brokerB := hopSpec{msBrokerBKeyID, 0x92}
+	agent := hopSpec{keyID: msAgentKeyID, seedByte: 0x90}
+	brokerA := hopSpec{keyID: msBrokerAKeyID, seedByte: 0x91}
+	brokerB := hopSpec{keyID: msBrokerBKeyID, seedByte: 0x92}
 
 	// positive_two_hop: agent(sig1) + broker(sig2), unbounded budget → verifies.
 	req2, hops2 := signMultisigChain(t, body, []hopSpec{agent, brokerA})
 	positive := mkChainVector("positive_two_hop", req2, hops2, body, 0)
+
+	// positive_two_hop_nonce: the same chain with a fixed RFC 9421 nonce on each
+	// hop, as the signing transports emit. Pins the nonce's place in the
+	// parameter tail and that a verifier accepts it.
+	agentN, brokerAN := agent, brokerA
+	agentN.nonce = "AAECAwQFBgcICQoLDA0ODw"
+	brokerAN.nonce = "EBESExQVFhcYGRobHB0eHw"
+	reqN, hopsN := signMultisigChain(t, body, []hopSpec{agentN, brokerAN})
+	positiveNonce := mkChainVector("positive_two_hop_nonce", reqN, hopsN, body, 0)
 
 	// hop_budget_three_over_two: a valid 3-hop chain verified under MaxSignatures=2
 	// → ErrTooManyHops before any crypto (hop_budget precedence).
@@ -323,7 +337,7 @@ func buildMultisigChainVectors(t *testing.T) []multisigChainVector {
 	dupBound.ExtraHeaders = map[string]string{"Authorization": "Bearer second-line"}
 
 	out := []multisigChainVector{
-		positive, hopBudget, reordered, stripped, missingLink, tampered,
+		positive, positiveNonce, hopBudget, reordered, stripped, missingLink, tampered,
 		absentTwoHop, absentOverBudget, absentReordered,
 		dupTwoHop, canonCase, dupBound,
 	}

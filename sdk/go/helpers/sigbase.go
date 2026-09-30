@@ -81,6 +81,7 @@ type sigParams struct {
 	Alg     string
 	Created int64
 	Expires int64
+	Nonce   string
 	// RawInner is the VERBATIM member value from the wire Signature-Input
 	// (everything after "label="). RFC 9421 §2.5 terminates the signature base
 	// with this exact byte sequence — parameter order and spacing are the
@@ -208,6 +209,9 @@ func renderParamsTail(p sigParams) string {
 	}
 	if p.Expires != 0 {
 		fmt.Fprintf(&b, ";expires=%d", p.Expires)
+	}
+	if p.Nonce != "" {
+		fmt.Fprintf(&b, ";nonce=\"%s\"", p.Nonce)
 	}
 	return b.String()
 }

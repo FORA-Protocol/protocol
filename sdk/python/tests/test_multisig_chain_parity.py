@@ -129,13 +129,15 @@ def test_positive_two_hop_verifies_and_returns_keyids_in_order() -> None:
     assert list(verdict.keyids) == list(v["expected_keyids"])  # type: ignore[attr-defined]
 
 
-def test_append_signature_reproduces_the_go_two_hop_chain_byte_identically() -> None:
+@pytest.mark.parametrize("name", ["positive_two_hop", "positive_two_hop_nonce"])
+def test_append_signature_reproduces_the_go_two_hop_chain_byte_identically(name: str) -> None:
     # BYTE-IDENTITY: re-signing the chain live (sign_request sig1 + append_signature
     # sig2) under the Go hop seeds reproduces the Go-emitted Signature-Input and
-    # Signature byte-for-byte — the cross-language chain-link contract.
+    # Signature byte-for-byte — the cross-language chain-link contract. The nonce
+    # case also pins each hop's RFC 9421 nonce in the parameter tail.
     from fora_sdk.httpsig import sign_request
 
-    v = _by_name("positive_two_hop")
+    v = _by_name(name)
     hops = v["hops"]  # type: ignore[index]
     h1, h2 = hops[0], hops[1]  # type: ignore[index]
     body = bytes.fromhex(str(v["body_hex"]))
@@ -150,6 +152,7 @@ def test_append_signature_reproduces_the_go_two_hop_chain_byte_identically() -> 
         created=int(v["created"]),  # type: ignore[call-overload]
         expires=int(v["expires"]),  # type: ignore[call-overload]
         signature_agent=str(v["signature_agent"]),
+        nonce=str(h1.get("nonce", "")),  # type: ignore[union-attr]
     )
 
     chained = append_signature(
@@ -164,6 +167,7 @@ def test_append_signature_reproduces_the_go_two_hop_chain_byte_identically() -> 
         keyid=str(h2["keyid"]),
         created=int(v["created"]),  # type: ignore[call-overload]
         expires=int(v["expires"]),  # type: ignore[call-overload]
+        nonce=str(h2.get("nonce", "")),  # type: ignore[union-attr]
     )
 
     assert chained.signature_input == str(v["signature_input"])

@@ -173,12 +173,12 @@ func WithProofWindow(w core.Window) ClientOption {
 // 9421 REQUEST signature — the home Exchange, the Broker, and the leg that routes
 // to the Exchange an offer named. The default is five minutes from the wall clock.
 //
-// Two reasons an application supplies its own. A deployment with a shorter
-// freshness policy sets its own TTL, and through this option the value it already
-// reads from configuration keeps meaning something. And a peer that screens
-// replays on (key id, signature) refuses a repeat: signature timestamps have
-// one-second resolution, so two identical requests inside one second sign to the
-// same bytes. core.MonotonicWindow keeps each signature unique for exactly that.
+// A deployment with a shorter freshness policy sets its own TTL, and through this
+// option the value it already reads from configuration keeps meaning something.
+// The window is not needed for uniqueness: every request signature carries a
+// fresh RFC 9421 nonce, so two identical requests inside one second still sign to
+// different bytes and a peer that screens replays on (key id, signature) accepts
+// both.
 //
 // Distinct from WithProofWindow, which stamps a delivery-fetch proof rather than a
 // request signature. Both take a core.Window; neither substitutes for the other.

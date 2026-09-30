@@ -278,6 +278,8 @@ type signRequestVector struct {
 	KeyID          string `json:"keyid"`
 	Created        int64  `json:"created"`
 	Expires        int64  `json:"expires"`
+	// Nonce is the RFC 9421 nonce passed to the signer; absent when none was.
+	Nonce          string `json:"nonce,omitempty"`
 	SignerSeedHex  string `json:"signer_seed_hex"`
 	PubkeyB64URL   string `json:"pubkey_b64url"`
 	ContentDigest  string `json:"content_digest"`
@@ -632,6 +634,8 @@ func buildSignRequestVectors(t *testing.T) []signRequestVector {
 		// bindAuthorization / bindSignatureAgent, so the emitted set is pinned for
 		// the forwarding leg too, not only the originating one.
 		appendOnly bool
+		// nonce is passed as SignOptions.Nonce; empty signs without one.
+		nonce string
 	}
 	specs := []spec{
 		{
@@ -664,6 +668,37 @@ func buildSignRequestVectors(t *testing.T) []signRequestVector {
 			signatureAgent: "https://relay.example",
 			appendOnly:     true,
 		},
+		{
+			// A fixed nonce, as the signing transports emit a random one. Pins
+			// where the nonce sits in the parameter tail.
+			name:           "post_with_nonce",
+			method:         "POST",
+			url:            "https://broker.example/fora.v1.BrokerService/Fetch",
+			body:           []byte(`{"uri":"https://cdn.example/doc"}`),
+			authorization:  "Bearer token-123",
+			signatureAgent: "https://agent.example",
+			nonce:          "AAECAwQFBgcICQoLDA0ODw",
+		},
+		{
+			// The empty-bind case with a nonce, so transport tests that pin the
+			// nonce still cover an empty Authorization and Signature-Agent.
+			name:          "post_empty_authorization_bound_with_nonce",
+			method:        "POST",
+			url:           "https://broker.example/fora.v1.BrokerService/Fetch?trace=1",
+			body:          []byte(`{"uri":"https://cdn.example/other"}`),
+			authorization: "",
+			nonce:         "ICEiIyQlJicoKSorLC0uLw",
+		},
+		{
+			name:           "append_relay_leg_with_nonce",
+			method:         "POST",
+			url:            "https://broker.example/fora.v1.BrokerService/Fetch",
+			body:           []byte(`{"uri":"https://cdn.example/relayed"}`),
+			authorization:  "",
+			signatureAgent: "https://relay.example",
+			appendOnly:     true,
+			nonce:          "EBESExQVFhcYGRobHB0eHw",
+		},
 	}
 
 	out := make([]signRequestVector, 0, len(specs))
@@ -689,6 +724,7 @@ func buildSignRequestVectors(t *testing.T) []signRequestVector {
 			Alg:     AlgEd25519,
 			Created: created,
 			Expires: expires,
+			Nonce:   s.nonce,
 		}
 		// SignRequest sets Content-Digest + binds Authorization + writes headers;
 		// buildSignatureBase over the same params reproduces the exact base bytes.
@@ -696,7 +732,7 @@ func buildSignRequestVectors(t *testing.T) []signRequestVector {
 		if s.appendOnly {
 			sign = AppendSignature
 		}
-		if err := sign(context.Background(), req, s.body, signer, SignOptions{Created: created, Expires: expires}); err != nil {
+		if err := sign(context.Background(), req, s.body, signer, SignOptions{Created: created, Expires: expires, Nonce: s.nonce}); err != nil {
 			t.Fatalf("%s: sign: %v", s.name, err)
 		}
 		base, err := buildSignatureBase(req, params)
@@ -720,6 +756,7 @@ func buildSignRequestVectors(t *testing.T) []signRequestVector {
 			KeyID:          keyid,
 			Created:        created,
 			Expires:        expires,
+			Nonce:          s.nonce,
 			SignerSeedHex:  hex.EncodeToString(seed),
 			PubkeyB64URL:   b64urlNoPad(pub),
 			ContentDigest:  req.Header.Get("Content-Digest"),
