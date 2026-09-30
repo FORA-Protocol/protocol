@@ -1,5 +1,81 @@
 # FORA Protocol Changelog
 
+## v1.0.7
+
+**The Go music type accepts a whole-number `music.bpm` written as `90.0`
+(SDK fix; no wire change).** `music.Music` refused `{"music.bpm": 90.0}` and
+`{"music.bpm": 1e2}`, because its `BPM` field is an `*int` and `encoding/json`
+accepts only integer literals for an int. The profile's JSON Schema accepts both
+values: JSON Schema counts a number with no fractional part as an integer. The
+value also appears in practice. `Offer.ext` is a `google.protobuf.Struct`, which
+stores every number as a double, and some encoders, for example Python's
+`json_format`, write 90 as `90.0`. A schema-valid offer therefore failed to decode.
+
+`Music` now has an `UnmarshalJSON` method. It decodes every field as before, and
+it reads `music.bpm` as a number: a whole number becomes the `int`, and a
+fractional value such as `90.5`, a string or a value outside the `int` range is
+still an error. `BPM` stays `*int`, so the Go API does not change. The shared
+round-trip cases gain `90.0` and `1e2`. The TypeScript and Python types do not
+decode, so they need no change. The Python docstring now says that `music.bpm`
+can be a whole-number `float` after `json.loads`.
+
+## v1.0.6
+
+**Typed view of the fora-music-v1 extension profile (SDK addition; no wire
+change).** The Go, TypeScript and Python SDKs gain a type for the flat
+`music.<field>` keys of `Offer.ext` that the fora-music-v1 profile defines, for
+example `music.genre`:
+
+- Go: `github.com/FORA-Protocol/protocol/sdk/go/profiles/music` (`music.Music`,
+  `music.ProfileID`)
+- TypeScript: `@fora-protocol/sdk/music` (`Music`, `ProfileID`)
+- Python: `fora_sdk.music` (`Music`, `PROFILE_ID`)
+
+The types keep the profile's presence rules: an absent key stays absent (an
+absent `music.vocals` is never `false`), and an empty list stays `[]`. They do not
+validate values; the profile's JSON Schema, `music-v1.schema.json`, does. The
+proto is unchanged: `Offer.ext` is still a `google.protobuf.Struct`, and the type
+is a view over it. The three SDKs share one set of round-trip cases, and the
+API-surface parity gate now covers the new Go package.
+
+The website gains the [fora-music-v1 page](https://fora-protocol.org/protocol/ext-music/): the ten fields,
+the label rules, who validates what, and the nine `music.*` search filter keys
+with their matching rules and error codes.
+
+**`GetAccountStatusResponse` reports the account's balance (additive field; no
+behaviour change for Exchanges that leave it empty).** An agent could ask an
+Exchange whether its account exists and is active, but not how much it can spend.
+The only way to learn that the balance was too low was a refused execute with
+`DENIAL_REASON_INSUFFICIENT_BALANCE`. The new field `repeated Cost balances = 5`
+closes that gap.
+
+Each entry is the amount the account can spend now in one currency, with holds for
+pending transactions already subtracted. The amount is an exact decimal string and
+is never negative. The value is a snapshot: it does not guarantee that the next
+execute passes the balance check.
+
+An empty list means the Exchange does not report balances. It does not mean a zero
+balance. A currency missing from a non-empty list is also not reported, not zero.
+An Exchange that reports a zero balance sends the entry with amount `"0"`.
+
+`Cost` is shared with offers and budgets, where an empty amount and a free-form
+currency stay valid, so `Cost` itself is unchanged. Four message-level rules on
+`GetAccountStatusResponse` state what a balance entry needs:
+
+- `get_account_status_response.balances_requires_billing_ref`: balances are only
+  allowed when `billing_ref` is set, the same as `terms_digest`.
+- `get_account_status_response.balances_entry_complete`: every entry has a
+  non-empty amount and a three-letter upper-case ISO 4217 currency.
+- `get_account_status_response.balances_no_unit_cost`: no entry sets `unit_cost`.
+  An empty string counts as set.
+- `get_account_status_response.balances_currency_unique`: at most one entry per
+  currency.
+
+The cross-field corpus gains one case per rule, plus separate cases for an
+invalid currency and an empty `unit_cost`. The TypeScript and Python SDKs apply
+the same four rules. Field number 5 was unused, and `buf breaking` against the
+v1.0.0 tag is clean.
+
 ## v1.0.5
 
 **An offer sells exactly one licensing term (documentation correction; no wire

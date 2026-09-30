@@ -5,9 +5,9 @@ description: "How a content marketplace maps onto FORA roles: your catalog, sear
 
 import { Aside } from '@astrojs/starlight/components';
 
-A content marketplace built in-house has one front door. Each AI company that wants the content arrives through a conversation, a contract, an API key, and an integration written against that one API. The work does not compound: the tenth buyer costs roughly what the first one cost, and buyers who never make contact have no way to find the catalog at all.
+A content marketplace built in-house has one front door. Each AI company that wants the content arrives through a conversation, a contract, an API key, and an integration written against that one API. The work does not compound: the tenth AI company costs roughly what the first one cost, and the ones that never make contact have no way to find the catalog at all.
 
-FORA is an open transaction layer for metered resource access. A buyer that speaks the protocol can discover the catalog, read the price, accept the terms and pay per access, with no bilateral deal first.
+FORA is an open transaction layer for metered resource access. A licensee that speaks the protocol can discover the catalog, read the price, accept the terms and pay per access, with no bilateral deal first.
 
 Adopting it does not mean replacing what is already built. A marketplace and a FORA deployment need the same underlying pieces, and three of the four already exist in any working marketplace.
 
@@ -23,17 +23,17 @@ In FORA this is the query a Broker relays. The Broker passes an agent's question
 In FORA this is the delivery node. Often it is already the right shape: an origin returning Markdown or plain text, stripped of page chrome for machine readers, is what the protocol expects a delivery node to be.
 
 **4. Access control and billing.**
-This is the one FORA extends rather than replaces. Today it is an API key per buyer and an invoice at month end. FORA adds verifiable identity, authorization per access, and a record of each access, while the existing key-based path keeps working underneath.
+This is the one FORA extends rather than replaces. Today it is an API key per customer and an invoice at month end. FORA adds verifiable identity, authorization per access, and a record of each access, while the existing key-based path keeps working underneath.
 
 ### What happens to the API key
 
-The key does not go away, and buyers do not have to abandon the credential scheme their organization already runs.
+The key does not go away, and a licensee does not have to abandon the credential scheme its organization already runs.
 
-Inside FORA, every request is signed: RFC 9421 HTTP Message Signatures over Ed25519, with each party's public key published in a [WebBotAuth directory](/protocol/authentication/#the-wba-directory-endpoint). That is strong identity, and it is not what an enterprise buyer wants to implement from scratch.
+Inside FORA, every request is signed: RFC 9421 HTTP Message Signatures over Ed25519, with each party's public key published in a [WebBotAuth directory](/protocol/authentication/#the-wba-directory-endpoint). That is strong identity, and it is not what an enterprise licensee wants to implement from scratch.
 
-So the reference implementation puts an [Identity Service](/components/identity/overview/) at the boundary and does the conversion there. Outside, a developer signs in with OpenID Connect, the same standard their company already uses for everything else. The reference deployment runs a stock Zitadel for this, with no custom plugins, so another OIDC provider drops into the same slot. Inside, the service holds each agent's signing key and publishes the public half where other parties can verify it. The buyer brings the credential they have; FORA gets the signature it needs.
+So the reference implementation puts an [Identity Service](/components/identity/overview/) at the boundary and does the conversion there. Outside, a developer signs in with OpenID Connect, the same standard their company already uses for everything else. The reference deployment runs a stock Zitadel for this, with no custom plugins, so another OIDC provider drops into the same slot. Inside, the service holds each agent's signing key and publishes the public half where other parties can verify it. The licensee brings the credential it already has; FORA gets the signature it needs.
 
-The effect is more ways in rather than a different way in. The catalog becomes reachable through the FORA SDKs and through MCP, which places it inside the agent tooling buyers already run, with no integration code on their side at all.
+The effect is more ways in rather than a different way in. The catalog becomes reachable through the FORA SDKs and through MCP, which places it inside the agent tooling licensees already run, with no integration code on their side at all.
 
 ## How the pieces fit
 
@@ -67,18 +67,18 @@ flowchart LR
 1. An agent arrives through the SDK or through MCP. It signs in with the credential scheme it already has, and the Identity Service gives it a signing key FORA recognizes.
 2. It asks a Broker for content. The Broker relays the question to the existing search and reads back the ranked items.
 3. The Exchange turns those items into priced offers, drawing on a catalog loaded from the publisher's feed.
-4. The buyer accepts an offer and receives a signed, expiring URL, good for that resource and often bound to that buyer.
-5. The buyer presents the signed URL at the delivery origin, which verifies it and serves the content.
+4. The licensee accepts an offer and receives a signed, expiring URL, good for that resource and often bound to that licensee.
+5. The licensee presents the signed URL at the delivery origin, which verifies it and serves the content.
 
 ## What the transaction layer adds
 
-**A priced offer before the fetch.** The buyer receives a signed quote for one resource, carrying the price, the terms and an expiry, and accepts or declines. Price attaches to the item rather than to the contract, so it can vary by resource, by buyer type, or by intended use.
+**A priced offer before the fetch.** The licensee receives a signed quote for one resource, carrying the price, the terms and an expiry, and accepts or declines. Price attaches to the item rather than to the contract, so it can vary by resource, by licensee type, or by intended use.
 
 **A record per access.** Each transaction produces a billing record and each delivery produces a usage report. Together they give who fetched what, when, under which offer, at which price, and how much was consumed after delivery. A monthly request count against an API key cannot produce that last figure.
 
-**Logs that reconcile.** A single access leaves three independent records: the Exchange ledger, the delivery node's access log, and the buyer's usage report. They are expected to agree, and disagreement is the audit signal. A dispute then carries evidence rather than assertion. [Transaction Flow](/protocol/transaction-flow/) covers how the three line up.
+**Logs that reconcile.** A single access leaves three independent records: the Exchange ledger, the delivery node's access log, and the licensee's usage report. They are expected to agree, and disagreement is the audit signal. A dispute then carries evidence rather than assertion. [Transaction Flow](/protocol/transaction-flow/) covers how the three line up.
 
-**Licensing the request can be checked against.** A contract already states what a buyer may do: summarize but not train, display with attribution, no redistribution, a cap per month, not outside certain countries. Nothing checks that at the moment of access, because the contract is a document and the request is an HTTP GET. FORA carries those clauses on the resource as machine-readable terms, making the license a condition on the transaction.
+**Licensing the request can be checked against.** A contract already states what a licensee may do: summarize but not train, display with attribution, no redistribution, a cap per month, not outside certain countries. Nothing checks that at the moment of access, because the contract is a document and the request is an HTTP GET. FORA carries those clauses on the resource as machine-readable terms, making the license a condition on the transaction.
 
 <Aside type="note" title="Scope">
 FORA authorizes, meters, signs and records. It does not move money. Settlement stays between the publisher and the Exchange operator, off-protocol, on whichever rail is already in use.
@@ -110,8 +110,8 @@ FORA needs to know what the catalog contains. Marketplace APIs are usually quest
 
 ## What stays with the publisher
 
-- **The corpus and the ranking.** FORA never holds the bytes. Delivery is by instruction: the Exchange hands the buyer a signed URL pointing at the publisher's origin.
-- **The price and the terms.** Per resource, per buyer type, per permitted use. The publisher sets them and the Exchange enforces what was set.
+- **The corpus and the ranking.** FORA never holds the bytes. Delivery is by instruction: the Exchange hands the licensee a signed URL pointing at the publisher's origin.
+- **The price and the terms.** Per resource, per licensee type, per permitted use. The publisher sets them and the Exchange enforces what was set.
 - **The Exchange seat.** Roles in FORA are compositional rather than exclusive, so a publisher can run its own Exchange over its own catalog and keep the transaction layer in-house. [Role Composition](/protocol/role-composition/) covers how the trust model holds when one operator wears several hats.
 - **Existing deals.** Nothing here interferes with a bilateral contract, a bulk corpus arrangement or a direct API customer. FORA covers per-access licensing for agents at inference time; it is not a bulk delivery channel.
 
@@ -119,7 +119,7 @@ FORA needs to know what the catalog contains. Marketplace APIs are usually quest
 
 Today the license lives in a signed agreement, enforced by trust and an annual audit. Under FORA the clauses move onto the resource itself, in a form the transaction is checked against.
 
-- **Restrictions** limit who may buy and what they may do: by intended use, by buyer type, by country.
+- **Restrictions** limit who may license a resource and what they may do with it: by intended use, by licensee type, by country.
 - **Obligations** survive the sale: carry the byline, keep the copyright notice, link back.
 - **Quotas** cap volume: items per month, words, seats.
 
@@ -127,7 +127,7 @@ Unrecognized restriction values are carried through and reported as warnings. A 
 
 ## Next steps
 
-- [Live Demo](/getting-started/poc-walkthrough/) — discover, transact and fetch, end to end, from a chat window
+- [Live Demo: First License](/getting-started/poc-walkthrough/) — discover, transact and fetch, end to end, from a chat window
 - [For Resource Providers](/getting-started/for-providers/) — deployment models by provider type
 - [Role Composition](/protocol/role-composition/) — running an Exchange alongside a catalog
 - [JSONL Ingestion](/protocol/jsonl-ingestion/) — the catalog feed format

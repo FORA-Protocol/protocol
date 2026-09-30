@@ -430,6 +430,10 @@ class GetAccountStatusResponse(WireModel):
     active: bool | None = Field(
         False, description='Whether the account is currently active.'
     )
+    balances: list[Cost] | None = Field(
+        None,
+        description='The amount the account can spend now, one entry per currency. Holds for\n pending transactions are already subtracted. Each amount is an exact decimal\n string and is never negative. The list holds at most one entry per currency,\n and its order has no meaning. unit_cost is never set.\n\nThe value is a snapshot. It does not guarantee that the next execute passes\n the balance check: another transaction can spend the funds first.\n\n An empty list means the Exchange does not report balances. It does NOT mean\n a zero balance. The same holds for a currency missing from a non-empty list:\n that balance is not reported, it is not zero. An Exchange that reports a\n zero balance sends the entry with amount "0". Balances are only allowed when\n billing_ref is set.',
+    )
     billing_ref: str | None = Field(
         '',
         description='The account handle minted at registration (see RegisterResponse.billing_ref).\n Empty when the calling agent has no account yet.',

@@ -1,0 +1,72 @@
+{
+  "_comment": "Round-trip cases for the fora-music-v1 typed view. Each case decodes input (an Offer.ext object) into the typed view and encodes it again; the result must equal output (key order does not matter). The Go, TS and Python tests read this file. The all_fields case names every key of the profile.",
+  "cases": [
+    {
+      "name": "all_fields",
+      "input": {
+        "music.artist": "Example Ensemble",
+        "music.isrc": "USXXX2300011",
+        "music.genre": "electronica",
+        "music.mood": ["grooving", "mysterious"],
+        "music.instruments": ["synths", "percussion"],
+        "music.suitable_for": ["podcast", "game"],
+        "music.energy": "medium",
+        "music.vocals": true,
+        "music.bpm": 124,
+        "music.duration_seconds": 60.03
+      },
+      "output": {
+        "music.artist": "Example Ensemble",
+        "music.isrc": "USXXX2300011",
+        "music.genre": "electronica",
+        "music.mood": ["grooving", "mysterious"],
+        "music.instruments": ["synths", "percussion"],
+        "music.suitable_for": ["podcast", "game"],
+        "music.energy": "medium",
+        "music.vocals": true,
+        "music.bpm": 124,
+        "music.duration_seconds": 60.03
+      }
+    },
+    {
+      "name": "absent_vocals_and_lists",
+      "input": {"music.genre": "jazz", "music.bpm": 90},
+      "output": {"music.genre": "jazz", "music.bpm": 90}
+    },
+    {
+      "name": "explicit_vocals_false",
+      "input": {"music.vocals": false},
+      "output": {"music.vocals": false}
+    },
+    {
+      "name": "empty_lists",
+      "input": {"music.mood": [], "music.instruments": [], "music.suitable_for": []},
+      "output": {"music.mood": [], "music.instruments": [], "music.suitable_for": []}
+    },
+    {
+      "name": "unknown_keys_dropped",
+      "input": {"music.genre": "funk", "music.iswc": "T-034524680-1", "news.section": "Culture"},
+      "output": {"music.genre": "funk"}
+    },
+    {
+      "name": "nested_music_object_is_unknown",
+      "input": {"music": {"genre": "funk", "bpm": 120}},
+      "output": {}
+    },
+    {
+      "name": "bpm_whole_number_with_fraction",
+      "input": {"music.bpm": 90.0},
+      "output": {"music.bpm": 90}
+    },
+    {
+      "name": "bpm_whole_number_with_exponent",
+      "input": {"music.bpm": 1e2},
+      "output": {"music.bpm": 100}
+    },
+    {
+      "name": "empty_object",
+      "input": {},
+      "output": {}
+    }
+  ]
+}

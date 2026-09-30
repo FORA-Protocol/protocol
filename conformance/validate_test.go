@@ -227,6 +227,58 @@ func licensingCases() []validationCase {
 			BillingRef:  "acct-1",
 			TermsDigest: proto.String("sha256:" + strings.Repeat("ab", 32)),
 		}, true, ""},
+		// balances: one complete entry per currency, only with an account.
+		{"get_account_status_response balances without billing_ref rejected", &forav1.GetAccountStatusResponse{
+			Balances: []*forav1.Cost{{Amount: "10.00", Currency: "EUR"}},
+		}, false, "get_account_status_response.balances_requires_billing_ref"},
+		{"get_account_status_response balances empty amount rejected", &forav1.GetAccountStatusResponse{
+			BillingRef: "acct-1",
+			Balances:   []*forav1.Cost{{Currency: "EUR"}},
+		}, false, "get_account_status_response.balances_entry_complete"},
+		{"get_account_status_response balances lowercase currency rejected", &forav1.GetAccountStatusResponse{
+			BillingRef: "acct-1",
+			Balances:   []*forav1.Cost{{Amount: "10.00", Currency: "eur"}},
+		}, false, "get_account_status_response.balances_entry_complete"},
+		{"get_account_status_response balances four-letter currency rejected", &forav1.GetAccountStatusResponse{
+			BillingRef: "acct-1",
+			Balances:   []*forav1.Cost{{Amount: "10.00", Currency: "EURO"}},
+		}, false, "get_account_status_response.balances_entry_complete"},
+		{"get_account_status_response balances unit_cost rejected", &forav1.GetAccountStatusResponse{
+			BillingRef: "acct-1",
+			Balances:   []*forav1.Cost{{Amount: "10.00", Currency: "EUR", UnitCost: proto.String("0.01")}},
+		}, false, "get_account_status_response.balances_no_unit_cost"},
+		// unit_cost is proto3 optional: an empty string still counts as set.
+		{"get_account_status_response balances empty unit_cost rejected", &forav1.GetAccountStatusResponse{
+			BillingRef: "acct-1",
+			Balances:   []*forav1.Cost{{Amount: "10.00", Currency: "EUR", UnitCost: proto.String("")}},
+		}, false, "get_account_status_response.balances_no_unit_cost"},
+		{"get_account_status_response balances duplicate currency rejected", &forav1.GetAccountStatusResponse{
+			BillingRef: "acct-1",
+			Balances:   []*forav1.Cost{{Amount: "10.00", Currency: "EUR"}, {Amount: "5.00", Currency: "EUR"}},
+		}, false, "get_account_status_response.balances_currency_unique"},
+		// A negative amount is refused by the nested Cost.amount pattern.
+		{"get_account_status_response balances negative amount rejected", &forav1.GetAccountStatusResponse{
+			BillingRef: "acct-1",
+			Balances:   []*forav1.Cost{{Amount: "-1", Currency: "EUR"}},
+		}, false, "string.pattern"},
+		{"get_account_status_response balances two currencies ok", &forav1.GetAccountStatusResponse{
+			BillingRef: "acct-1",
+			Active:     true,
+			Balances:   []*forav1.Cost{{Amount: "10.00", Currency: "EUR"}, {Amount: "12.50", Currency: "USD"}},
+		}, true, ""},
+		{"get_account_status_response balances zero amount ok", &forav1.GetAccountStatusResponse{
+			BillingRef: "acct-1",
+			Active:     true,
+			Balances:   []*forav1.Cost{{Amount: "0", Currency: "EUR"}},
+		}, true, ""},
+		{"get_account_status_response no balances ok", &forav1.GetAccountStatusResponse{
+			BillingRef: "acct-1",
+			Active:     true,
+		}, true, ""},
+		{"get_account_status_response balances on inactive account ok", &forav1.GetAccountStatusResponse{
+			BillingRef: "acct-1",
+			Balances:   []*forav1.Cost{{Amount: "10.00", Currency: "EUR"}},
+		}, true, ""},
 		{"well_known_manifest terms_digest with terms_uri ok", &forav1.WellKnownManifest{
 			Role:        forav1.Role_ROLE_EXCHANGE,
 			TermsUri:    proto.String("https://exchange.example/terms"),

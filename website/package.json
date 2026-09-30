@@ -8,7 +8,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "test": "node --test plugins/*.test.mjs"
+    "test": "node --test plugins/*.test.mjs src/lib/onboarding/*.test.mjs"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.38.1",

@@ -1,0 +1,870 @@
+---
+// Public agent preview: one page URL, its service-generated offer and configuration.
+import SiteNav from '../../components/SiteNav.astro';
+import SiteFooter from '../../components/SiteFooter.astro';
+import '../../styles/brand.css';
+---
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FORA Agent Preview</title>
+  <meta name="description" content="See what an AI agent gets for your page. Preview its content, licensing terms, and FORA configuration." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!--
+    is:global, not Astro's default scoping. The result section is built by the
+    page script with innerHTML, so those nodes never carry the astro-* scope
+    class and a scoped rule would never match them. This stylesheet is emitted
+    for this page alone, so global here means "this page", not "the site".
+  -->
+  <style is:global>
+    /* Syntax colours for the generated manifest and offer, plus the
+       result states. The shared palette is in styles/brand.css. */
+    :root {
+      --key: #9cdcfe;
+      --str: #7ec8a0;
+      --num: #d4a56a;
+      --brace: #666;
+      --warn: #e0a458;
+      --bad: #e74c3c;
+      color-scheme: dark;
+    }
+
+    body { font-size: 16px; line-height: 1.55; }
+    a { color: var(--accent); }
+    code, pre, kbd { font-family: var(--mono); }
+    h1, h2, h3 { text-wrap: balance; letter-spacing: -.02em; color: var(--white); }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .wrap { max-width: 1100px; margin: 0 auto; padding-inline: clamp(16px, 4vw, 40px); }
+
+    /* hero */
+    .hero-head {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, var(--near-black) 0%, var(--black) 100%);
+    }
+    .hero-head:before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-head .wrap { position: relative; z-index: 1; }
+    .hero-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+      gap: 3rem;
+      align-items: center;
+      padding-block: 3rem 4.5rem;
+    }
+    .badge {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: .75rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .15em;
+      padding: .4rem 1rem;
+      border: 1px solid var(--accent);
+      border-radius: 2px;
+      margin-bottom: 1.5rem;
+    }
+    .hero-body h1 {
+      font-size: clamp(2rem, 4.6vw, 3.25rem);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -.03em;
+      margin-bottom: 1.25rem;
+    }
+    .hero-body h1 em { font-style: normal; color: var(--accent); }
+    .hero-body p.sub { font-size: 1.125rem; color: var(--gray); line-height: 1.6; max-width: 36rem; }
+    /* form panel */
+    .panel { background: var(--near-black); border: 1px solid var(--mid); border-radius: 4px; padding: 1.5rem; }
+    .panel h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; }
+    .field { display: flex; flex-direction: column; gap: .375rem; margin-bottom: 1rem; }
+    .field label { font-size: .8125rem; font-weight: 600; color: var(--light-gray); }
+    .field input {
+      background: var(--black);
+      border: 1px solid var(--mid);
+      border-radius: 3px;
+      color: var(--white);
+      font-family: var(--mono);
+      font-size: .9375rem;
+      padding: .7rem .875rem;
+      width: 100%;
+    }
+    .field input::placeholder { color: #5a5a70; }
+    .field input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-glow); }
+    .field input[aria-invalid="true"] { border-color: var(--bad); }
+    .field-error { font-size: .75rem; color: #f0a08c; }
+    .field-error:empty { display: none; }
+    .hint { font-size: .75rem; color: var(--gray); margin-top: .5rem; line-height: 1.5; }
+
+    /* The shared .btn family is in brand.css; these are the additions this
+       design needs. */
+    .btn { padding: .75rem 1.5rem; border: 1px solid transparent; cursor: pointer; }
+    .btn-primary, .btn-ghost { border-width: 1px; border-style: solid; }
+    .btn-block { width: 100%; justify-content: center; }
+    .btn[disabled] { opacity: .6; cursor: progress; }
+
+    /* sections */
+    section.block { padding-block: 4.5rem; border-top: 1px solid var(--dark); }
+    .label {
+      font-family: var(--mono);
+      font-size: .75rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .15em;
+      margin-bottom: .75rem;
+    }
+
+    /* result */
+    #result[hidden] { display: none; }
+    .result-head {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: .5rem 1rem;
+      margin-bottom: 1rem;
+    }
+    .result-head h2 { font-size: 1.6rem; overflow-wrap: anywhere; }
+    .preview-meta { color: var(--gray); font-size: .875rem; margin-top: .75rem; overflow-wrap: anywhere; }
+    #content-status { font-size: 1rem; }
+    #preview-heading { scroll-margin-top: 1rem; }
+    #result { padding-block: 2rem 3.5rem; scroll-margin-top: 0; }
+    .card { background: var(--near-black); border: 1px solid var(--mid); border-radius: 4px; padding: 1.5rem; }
+    .card h3 { font-size: 1.0625rem; font-weight: 600; margin-bottom: .25rem; }
+    .card .pill { margin-bottom: .75rem; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      font-family: var(--mono);
+      font-size: .75rem;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      padding: .3rem .7rem;
+      border-radius: 2px;
+      border: 1px solid;
+    }
+    .pill.ok { color: var(--str); border-color: #7ec8a066; background: #7ec8a014; }
+    .pill.none { color: var(--warn); border-color: #e0a45866; background: #e0a45814; }
+    .card p { color: var(--gray); font-size: .9375rem; }
+    .evidence { margin-top: 1rem; border-top: 1px solid var(--mid); padding-top: .875rem; }
+    .evidence p { margin-bottom: .75rem; }
+    .evidence .k {
+      font-family: var(--mono);
+      font-size: .6875rem;
+      color: var(--gray);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: .5rem;
+    }
+    .evidence dl {
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      gap: .3rem 1rem;
+      font-family: var(--mono);
+      font-size: .75rem;
+    }
+    .evidence dt { color: var(--key); }
+    .evidence dd { color: var(--light-gray); overflow-wrap: anywhere; }
+
+    /* configuration */
+    .configuration { border-top: 1px solid var(--dark); margin-top: 2rem; padding-top: 2rem; }
+    .configuration h2 { font-size: 1.6rem; margin-bottom: .75rem; }
+    .configuration > p { color: var(--gray); max-width: 46rem; }
+    .configuration h3 { margin-top: 1.75rem; margin-bottom: .5rem; }
+    .configuration > p code { color: var(--str); background: #7ec8a01a; padding: .1rem .35rem; border-radius: 2px; }
+    .configuration .cmd { max-width: none; width: 100%; }
+    .configuration .card h3 { margin-top: 0; }
+    .embed { margin-top: 1.25rem; }
+
+    /* sample */
+    .sample { margin-block: 1.25rem; }
+    .controls {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+      background: var(--near-black);
+      border: 1px solid var(--mid);
+      border-bottom: 0;
+      border-radius: 4px 4px 0 0;
+      padding: 1.25rem 1.5rem;
+    }
+    .ctl { display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
+    .ctl .k { font-family: var(--mono); font-size: .6875rem; color: var(--gray); letter-spacing: .1em; text-transform: uppercase; }
+    .seg { display: inline-flex; border: 1px solid var(--mid); border-radius: 3px; overflow: hidden; position: relative; }
+    .seg label {
+      flex: 1;
+      text-align: center;
+      font-size: .8125rem;
+      font-weight: 500;
+      padding: .45rem .6rem;
+      cursor: pointer;
+      color: var(--gray);
+      background: var(--black);
+    }
+    .seg input { position: absolute; opacity: 0; pointer-events: none; }
+    .seg input:checked + label { background: var(--accent); color: #fff; }
+    .seg input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .price { display: flex; align-items: center; border: 1px solid var(--mid); border-radius: 3px; background: var(--black); overflow: hidden; }
+    .price span { font-family: var(--mono); font-size: .8125rem; color: var(--gray); padding: 0 .6rem; border-right: 1px solid var(--mid); }
+    .price input {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: 0;
+      color: var(--white);
+      font-family: var(--mono);
+      font-size: .9375rem;
+      padding: .45rem .6rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .price input:disabled { color: #5a5a70; }
+    .checks { display: flex; flex-direction: column; gap: .35rem; }
+    .checks label { display: flex; align-items: center; gap: .5rem; font-size: .875rem; color: var(--light-gray); cursor: pointer; }
+    .checks input { accent-color: var(--accent); width: 15px; height: 15px; }
+    .switch { display: flex; align-items: center; gap: .6rem; font-size: .875rem; color: var(--light-gray); cursor: pointer; padding-top: .15rem; }
+    .switch input {
+      appearance: none;
+      width: 34px;
+      height: 20px;
+      border-radius: 10px;
+      background: var(--mid);
+      position: relative;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background .2s;
+    }
+    .switch input:after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--light-gray);
+      transition: transform .2s;
+    }
+    .switch input:checked { background: var(--accent); }
+    .switch input:checked:after { transform: translateX(14px); background: #fff; }
+    .codebox { background: var(--black); border: 1px solid var(--mid); border-radius: 0 0 4px 4px; }
+    .cmd {
+      background: var(--black);
+      border: 1px solid var(--mid);
+      border-radius: 4px;
+      padding: 1rem 1.25rem;
+      font-family: var(--mono);
+      font-size: .8rem;
+      line-height: 1.55;
+      color: var(--light-gray);
+      overflow-x: auto;
+      white-space: pre;
+      max-width: 46rem;
+    }
+    .cmd .c { color: #5a5a70; }
+    .cmd .k { color: var(--key); }
+    .cmd .s { color: var(--str); }
+    .cmd .n { color: var(--num); }
+    .cmd .b { color: var(--brace); }
+    /* The offer an agent receives, as an outline rather than a JSON dump. */
+    .offer {
+      padding: 1.25rem 1.5rem;
+      font-family: var(--mono);
+      font-size: .875rem;
+      line-height: 1.75;
+      color: var(--light-gray);
+      overflow-x: auto;
+    }
+    .offer[aria-busy="true"] { opacity: .5; transition: opacity .15s; }
+    /* Depth is the indent alone -- no bullets, no dashes. */
+    .offer ul { list-style: none; margin: 0; padding-left: 0; }
+    .offer ul ul { padding-left: 1.75rem; }
+    #offer-unavailable { margin-top: 1.25rem; }
+    #offer-unavailable h3 { color: var(--warn); }
+    #offer-unavailable p { margin-bottom: 0; }
+    .offer .lbl { color: var(--key); }
+    .offer .lbl:after { content: ":"; color: var(--brace); }
+    .offer .val { color: var(--str); }
+
+    /* contact */
+    .cta { background: var(--near-black); border: 1px solid var(--mid); border-radius: 4px; padding: 2.5rem 2.5rem 2rem; max-width: 44rem; }
+    .cta h2 { font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: .75rem; }
+    .cta p { color: var(--gray); margin-bottom: 1.5rem; }
+    .contact-form {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0 1.25rem;
+    }
+    .contact-form .field { margin-bottom: .75rem; }
+    .contact-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: .75rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: .5rem;
+    }
+    .contact-actions button { border: 0; }
+    .contact-note {
+      grid-column: 1 / -1;
+      font-size: .875rem;
+      margin-top: .75rem;
+      overflow-wrap: anywhere;
+    }
+    .contact-note:empty { display: none; }
+    .contact-note.sent { color: var(--str); }
+    .contact-note.failed { color: #f0a08c; }
+    .contact-form .hint { grid-column: 1 / -1; margin-bottom: 0; }
+    @media (max-width: 560px) {
+      .contact-actions .btn { width: 100%; justify-content: center; }
+    }
+
+    .note { font-size: .8125rem; color: var(--gray); border-left: 2px solid var(--mid); padding-left: .75rem; margin-top: 1rem; }
+    .notes { list-style: none; padding: 0; margin: 1.25rem 0 0; display: grid; gap: .5rem; }
+    .notes:empty { display: none; }
+    .warning { margin-top: 1rem; }
+    .notes li, .warning {
+      font-size: .8125rem;
+      color: var(--light-gray);
+      border-left: 2px solid var(--warn);
+      padding-left: .75rem;
+      overflow-wrap: anywhere;
+    }
+    .terms-source {
+      font-size: .8125rem;
+      color: var(--gray);
+      background: var(--near-black);
+      border: 1px solid var(--mid);
+      border-top: 0;
+      border-bottom: 0;
+      padding: 0 1.5rem .75rem;
+      margin: 0;
+    }
+    .terms-source:empty { display: none; }
+
+    @media (max-width: 900px) {
+      .hero-body { grid-template-columns: 1fr; }
+      .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 560px) {
+      .controls { grid-template-columns: 1fr; }
+      .cta { padding: 1.5rem; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
+  </style>
+</head>
+<body>
+
+<header class="hero-head">
+  <SiteNav current="publishers" />
+  <div class="wrap">
+    <div class="hero-body">
+      <div>
+        <span class="badge">For publishers · Agent preview</span>
+        <h1>See what an AI agent <em>gets for your page.</em></h1>
+        <p class="sub">Preview your content and licensing terms. Try different permissions and prices, then see the configuration behind them.</p>
+      </div>
+
+      <form class="panel" id="preview-form" autocomplete="off" novalidate>
+        <h2>Try your website</h2>
+        <div class="field">
+          <label for="url">Paste any page of your website</label>
+          <input id="url" name="url" type="url" inputmode="url" spellcheck="false" autocapitalize="none" placeholder="https://publisher.example/news/…" aria-describedby="url-error" required />
+          <p class="field-error" id="url-error"></p>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit" id="go">Show me</button>
+        <p class="hint">We read the page and its public licensing document, if available. This preview changes nothing on your site.</p>
+      </form>
+    </div>
+  </div>
+</header>
+
+<main>
+  <p id="status" class="sr-only" role="status"></p>
+
+  <section class="block" id="failure" hidden>
+    <div class="wrap">
+      <div class="card" id="failure-card" tabindex="-1"></div>
+    </div>
+  </section>
+
+  <section class="block" id="result" hidden>
+    <div class="wrap">
+      <div class="result-head">
+        <h2 id="preview-heading" tabindex="-1">What an AI agent gets from this page</h2>
+      </div>
+      <p class="preview-meta">Source: <a id="preview-source"></a><br />Checked: <time id="preview-checked"></time></p>
+      <p class="hint" id="content-status">This preview shows what an agent receives under your license. Adjust the controls below to explore different terms.</p>
+      <p class="warning" id="offer-placeholder" hidden></p>
+      <div class="card" id="offer-unavailable" hidden>
+        <h3>We cannot show an offer for this page</h3>
+        <p id="offer-unavailable-detail"></p>
+      </div>
+      <div class="sample" id="sample">
+        <fieldset class="controls" aria-label="Terms controls">
+          <div class="ctl">
+            <span class="k" id="k-model">Pricing model</span>
+            <div class="seg" role="radiogroup" aria-labelledby="k-model">
+              <input type="radio" name="model" id="m-free" value="free" checked /><label for="m-free">Free</label>
+              <input type="radio" name="model" id="m-paid" value="per_unit" /><label for="m-paid">Per access</label>
+            </div>
+          </div>
+          <div class="ctl">
+            <span class="k">Price per access</span>
+            <div class="price"><span>EUR</span><input id="price" type="number" min="0" step="0.000001" value="0.02" disabled aria-label="Price per access in EUR" aria-describedby="price-error" /></div>
+            <p class="field-error" id="price-error" aria-live="polite"></p>
+          </div>
+          <div class="ctl">
+            <span class="k">Allowed uses</span>
+            <div class="checks">
+              <label><input type="checkbox" id="u-search" checked /> Search</label>
+              <label><input type="checkbox" id="u-ai-input" checked /> AI input <small style="color:var(--gray)">(RAG, answers)</small></label>
+              <label><input type="checkbox" id="u-ai-train" /> AI training</label>
+            </div>
+          </div>
+          <div class="ctl">
+            <span class="k">Attribution</span>
+            <label class="switch"><input type="checkbox" id="attr" checked /> Required on every use</label>
+          </div>
+        </fieldset>
+        <p class="terms-source" id="terms-source"></p>
+        <div class="codebox">
+          <div class="offer" id="offer" tabindex="0" aria-label="The offer an agent receives" aria-busy="false"></div>
+        </div>
+      </div>
+      <ul class="notes" id="r-warnings"></ul>
+      <section class="configuration" aria-labelledby="configuration-heading">
+        <h2 id="configuration-heading">How do you configure it?</h2>
+        <p>The configuration has two parts: a discovery file that identifies your Exchange, and a CDN integration that checks access to licensed content.</p>
+        <h3>Step 1 · Publish the discovery file we generate for you</h3>
+        <p>We’ll generate your <code>fora.json</code> with the Exchange details already filled in. You publish it at <code>/.well-known/fora.json</code> on your domain so agents and Exchanges can find it. Below is a preview for the domain you provided.</p>
+        <div class="cmd embed" id="manifest"></div>
+        <h3>Step 2 · Connect your CDN</h3>
+        <p>Your CDN checks signed delivery URLs before granting access to licensed content. The integration works in front of your existing site. The detected network determines the integration path below.</p>
+        <div class="embed card" id="cdn-card"></div>
+      </section>
+    </div>
+  </section>
+
+  <section class="block" id="contact">
+    <div class="wrap">
+      <div class="cta">
+        <div class="label">Interested?</div>
+        <h2>Let’s connect your site</h2>
+        <p>Leave your email and we’ll get in touch about the next steps.</p>
+
+        <form id="contact-form" class="contact-form" novalidate>
+          <div class="field">
+            <label for="contact-email">Your email</label>
+            <input id="contact-email" name="email" type="email" maxlength="254" autocomplete="email" spellcheck="false" required aria-describedby="contact-email-error" />
+            <p class="field-error" id="contact-email-error"></p>
+          </div>
+          <div class="contact-actions">
+            <button type="submit" id="contact-send" class="btn btn-primary">Get in touch</button>
+            <a class="btn btn-ghost" href="/getting-started/publisher-onboarding/" target="_blank" rel="noopener noreferrer">Read the publisher guide</a>
+          </div>
+          <p class="contact-note" id="contact-note" role="status"></p>
+          <p class="hint" id="contact-hint">We send your email, the page you previewed and any terms you changed to our team.</p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<SiteFooter />
+
+<!--
+  A bundled script, not is:inline: it imports the preview client and the
+  configured service URL from astro:env, and is:inline would skip the bundler
+  and leave both unresolved.
+-->
+<script>
+  import {
+    FORA_ONBOARDING_API_BASE,
+  } from 'astro:env/client';
+  import { buildPagePreviewRequest, previewPageUrl, withPreviewPageUrl } from '../../lib/onboarding/request.mjs';
+  import { fetchPreview } from '../../lib/onboarding/preview-client.mjs';
+  import { cdnPresentation } from '../../lib/onboarding/cdn-integrations.mjs';
+  import { OFFERED_USES, partitionUses } from '../../lib/onboarding/terms-vocab.mjs';
+  import { previewDetails, unreadableNote } from '../../lib/onboarding/default-preview.mjs';
+  import { escapeHtml as esc, highlightJson } from '../../lib/onboarding/record.mjs';
+  import { offerOutline, resolvedControls } from '../../lib/onboarding/offer-outline.mjs';
+  import { buildContactRequest, sendContact } from '../../lib/onboarding/contact.mjs';
+
+  const $ = (id) => document.getElementById(id);
+
+  const state = { domain: '', url: '', request: null, preview: null, inFlight: null, requestId: 0 };
+
+  // ---- the preview API -----------------------------------------------------
+  // The single seam where the preview service is called. It answers with its
+  // own shape; this maps it onto what the page renders.
+  async function previewOnboarding(body) {
+    const controller = new AbortController();
+    state.inFlight = controller;
+
+    const outcome = await fetchPreview({
+      fetchImpl: window.fetch.bind(window),
+      baseUrl: FORA_ONBOARDING_API_BASE,
+      body,
+      signal: controller.signal,
+    });
+    // Only the call that still owns the slot clears it. An older call settling
+    // late would otherwise wipe a newer one's controller, after which the next
+    // request has nothing to cancel and the two run side by side.
+    if (state.inFlight !== controller) return { aborted: true };
+    state.inFlight = null;
+
+    if (outcome.aborted) return { aborted: true };
+    if (!outcome.ok) return { error: outcome.failure };
+
+    return previewDetails(outcome.data, body.article_url, new Date().toISOString(), body.domain);
+  }
+
+  // ---- terms from the controls --------------------------------------------
+  // The offer is built by the Exchange, so the controls travel with the request
+  // rather than being applied to a record here. Until the visitor touches one,
+  // no terms are sent and the service resolves them from the site's own rsl.txt.
+  let termsTouched = false;
+
+  function controlState() {
+    if (!termsTouched) return null;
+    const { functions } = partitionUses((token) => $(`u-${token}`).checked);
+    return {
+      pricingModel: document.querySelector('input[name="model"]:checked').value,
+      rate: $('price').value,
+      offeredFunctions: OFFERED_USES,
+      permittedFunctions: functions,
+      attributionRequired: $('attr').checked,
+    };
+  }
+
+  // ---- rendering -----------------------------------------------------------
+  // A site that publishes an rsl.txt has already stated its terms, so the
+  // controls open on those rather than on a default nobody chose. Only until
+  // the visitor changes one: from then on the controls are theirs and a
+  // rebuilt offer must not move them.
+  function syncControls() {
+    const controls = resolvedControls(state.preview?.offer, OFFERED_USES);
+    if (!controls || !state.preview.hasOffer) return;
+
+    $(controls.pricingModel === 'free' ? 'm-free' : 'm-paid').checked = true;
+    $('price').disabled = controls.pricingModel === 'free';
+    if (controls.rate) $('price').value = controls.rate;
+    for (const token of OFFERED_USES) {
+      $(`u-${token}`).checked = controls.permittedFunctions.includes(token);
+    }
+    $('attr').checked = controls.attributionRequired;
+
+  }
+
+  function renderOffer() {
+    const host = $('offer');
+    host.hidden = false;
+    host.textContent = '';
+    if (!state.preview) return;
+
+    const { hasOffer, unreadable, titlePlaceholder, cdn } = state.preview;
+    $('sample').hidden = !hasOffer;
+    $('offer-unavailable').hidden = hasOffer;
+    $('content-status').hidden = !hasOffer;
+    $('offer-unavailable-detail').textContent = unreadable
+      ? unreadableNote(unreadable, cdn)
+      : state.preview.contentRead
+        ? 'Page content was read successfully, but no agent package was returned.'
+        : 'We couldn’t read this page. Try again or use another page.';
+    // The offer is built from the terms, not the page text, so a page that
+    // was blocked or had no title still gets one, with a placeholder title.
+    const placeholder = $('offer-placeholder');
+    placeholder.hidden = !(hasOffer && titlePlaceholder);
+    placeholder.textContent = hasOffer && titlePlaceholder
+      ? `${unreadable ? unreadableNote(unreadable, cdn) : 'Your site gave no title for this page.'} The offer title below is a placeholder; everything else in the offer is real.`
+      : '';
+    if (hasOffer) host.append(outlineList(offerOutline(state.preview.offer).nodes));
+  }
+
+  // Built as nodes, never as markup: every value here came from the service,
+  // which read it off a site the visitor named.
+  function outlineList(nodes) {
+    const list = document.createElement('ul');
+    for (const node of nodes) {
+      const item = document.createElement('li');
+      if (node.label) {
+        const label = document.createElement('span');
+        label.className = 'lbl';
+        label.textContent = node.label;
+        item.append(label);
+      }
+      if (node.value !== undefined) {
+        const value = document.createElement('span');
+        value.className = 'val';
+        value.textContent = ` ${node.value}`;
+        item.append(value);
+      }
+      if (node.children) item.append(outlineList(node.children));
+      list.append(item);
+    }
+    return list;
+  }
+
+  function renderManifest() {
+    const d = state.domain;
+    const manifest = state.preview?.manifest;
+    if (!manifest) {
+      $('manifest').textContent =
+        'We could not generate your discovery document for this domain. Ask us and we will send it.';
+    } else {
+      $('manifest').innerHTML = `<span class="c"># https://${esc(d)}/.well-known/fora.json  (configuration preview)</span>\n`
+        + highlightJson(JSON.stringify(manifest, null, 2));
+    }
+  }
+
+  function renderCdn() {
+    const cdn = cdnPresentation(state.preview.cdn);
+    let html = `<span class="pill ${esc(cdn.tone)}">${esc(cdn.badge)}</span>`
+      + `<h3>${esc(cdn.title)}</h3><p>${esc(cdn.description)}</p>`
+      + (cdn.guidance ? `<p class="note">${esc(cdn.guidance)}</p>` : '');
+
+    if (state.preview.evidence.length) {
+      html += `<div class="evidence"><p>How we detected your CDN? ${esc(cdn.evidenceIntro)}</p><dl>`
+        + state.preview.evidence.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')
+        + '</dl></div>';
+    }
+    $('cdn-card').innerHTML = html;
+  }
+
+  function renderAll() {
+    $('failure').hidden = true;
+    const preview = state.preview;
+    $('preview-source').textContent = preview.sourceUrl;
+    $('preview-source').setAttribute('href', preview.sourceUrl);
+    $('preview-checked').dateTime = preview.checkedAt;
+    $('preview-checked').textContent = new Date(preview.checkedAt).toLocaleString();
+    $('terms-source').textContent = preview.termsNote
+      + (preview.termsSource === 'detected' && preview.termsDocument ? ` Source: ${preview.termsDocument}` : '');
+
+    const warnings = $('r-warnings');
+    warnings.textContent = '';
+    for (const warning of preview.contentRead ? preview.warnings : []) {
+      const item = document.createElement('li');
+      item.textContent = warning;
+      warnings.append(item);
+    }
+    renderCdn();
+    renderManifest();
+    if (!termsTouched) syncControls();
+    renderOffer();
+    $('result').hidden = false;
+    $('status').textContent = `Preview ready for ${state.domain}.`;
+  }
+
+  function renderFailure(failure, { moveFocus = false } = {}) {
+    if (failure.field) {
+      const field = failure.field === 'rate' ? 'price' : failure.field;
+      setFieldError(field, failure.headline);
+      if (field === 'price') $('offer').hidden = true;
+      $('status').textContent = failure.headline;
+      if (moveFocus) $(field)?.focus();
+      return;
+    }
+    $('result').hidden = true;
+    const card = $('failure-card');
+    card.innerHTML = `<h3>${esc(failure.headline)}</h3>`
+      + (failure.detail ? `<p>${esc(failure.detail)}</p>` : '')
+      + (failure.violations?.length
+        ? `<div class="evidence"><div class="k">What the Exchange said</div><dl>${
+          failure.violations.map((v) => `<dt>${esc(v.path || 'terms')}</dt><dd>${esc(v.message)}</dd>`).join('')
+        }</dl></div>`
+        : '');
+    $('failure').hidden = false;
+    if (moveFocus) card.focus();
+    $('status').textContent = `${failure.headline} ${failure.detail ?? ''}`;
+  }
+
+  function setFieldError(fieldId, message) {
+    const input = $(fieldId);
+    const slot = $(`${fieldId}-error`);
+    if (slot) slot.textContent = message ?? '';
+    if (input) {
+      if (message) input.setAttribute('aria-invalid', 'true');
+      else input.removeAttribute('aria-invalid');
+    }
+  }
+
+  // ---- wiring --------------------------------------------------------------
+  // Explicit submissions, shared links and controls use the same request path.
+  async function runPreview({ explicit = false, keepTerms = false } = {}) {
+    window.clearTimeout(termsTimer);
+    const requestId = ++state.requestId;
+    state.inFlight?.abort();
+    state.inFlight = null;
+    setFieldError('url', '');
+    setFieldError('price', '');
+    $('failure').hidden = true;
+    const button = $('go');
+    const built = buildPagePreviewRequest({
+      url: keepTerms ? state.url : $('url').value,
+      controls: keepTerms ? controlState() : null,
+    });
+    if (!built.ok) {
+      button.disabled = false;
+      button.textContent = 'Show me';
+      $('preview-form').setAttribute('aria-busy', 'false');
+      $('offer').setAttribute('aria-busy', 'false');
+      renderFailure({ field: built.field, headline: built.message }, { moveFocus: explicit });
+      return;
+    }
+    if (!keepTerms) {
+      $('url').value = built.body.article_url;
+      // A submitted page starts with its own detected terms or demo defaults.
+      termsTouched = false;
+      history.replaceState(history.state, '', withPreviewPageUrl(window.location.href, built.body.article_url));
+      $('result').hidden = true;
+    }
+    button.disabled = true;
+    button.textContent = 'Reading your page…';
+    $('preview-form').setAttribute('aria-busy', 'true');
+    $('status').textContent = 'Reading your page.';
+
+    const preview = await previewOnboarding(built.body);
+    if (requestId !== state.requestId) return;
+
+    button.disabled = false;
+    button.textContent = 'Show me';
+    $('preview-form').setAttribute('aria-busy', 'false');
+    $('offer').setAttribute('aria-busy', 'false');
+
+    if (preview.aborted) return;
+    if (preview.error) { renderFailure(preview.error, { moveFocus: explicit }); return; }
+
+    state.domain = preview.domain;
+    state.url = built.body.article_url;
+    state.request = built.body;
+    state.preview = preview;
+    renderAll();
+    if (explicit) {
+      const heading = $('preview-heading');
+      heading.focus({ preventScroll: true });
+      heading.scrollIntoView({
+        behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'start',
+      });
+    }
+  }
+
+  $('preview-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    void runPreview({ explicit: true });
+  });
+
+  // Changing a control costs a round trip, because the Exchange builds the
+  // offer. Debounce so a burst of clicks is one request, and leave the previous
+  // offer on screen, dimmed, rather than blanking it.
+  const TERMS_DEBOUNCE_MS = 400;
+  let termsTimer = 0;
+
+  function scheduleTermsRefresh() {
+    if (!state.url || $('result').hidden) return;
+    // Once the visitor edits a control the terms are theirs, and the line above
+    // the offer must stop crediting the site's own file for them.
+    if (!termsTouched) {
+      $('terms-source').textContent = 'Your preview controls override the terms shown here. Your site is unchanged.';
+    }
+    termsTouched = true;
+    window.clearTimeout(termsTimer);
+    state.inFlight?.abort();
+    state.inFlight = null;
+    ++state.requestId;
+    $('offer').setAttribute('aria-busy', 'true');
+    termsTimer = window.setTimeout(() => void runPreview({ keepTerms: true }), TERMS_DEBOUNCE_MS);
+  }
+
+  document.querySelectorAll('input[name="model"]').forEach((radio) => radio.addEventListener('change', () => {
+    $('price').disabled = document.querySelector('input[name="model"]:checked').value === 'free';
+    setFieldError('price', '');
+    scheduleTermsRefresh();
+  }));
+  $('price').addEventListener('input', () => {
+    const input = $('price');
+    const capped = input.value.replace(/(\.\d{6})\d+/, '$1');
+    if (input.value !== capped) input.value = capped;
+    scheduleTermsRefresh();
+  });
+  ['attr', ...OFFERED_USES.map((token) => `u-${token}`)]
+    .forEach((id) => $(id).addEventListener('input', scheduleTermsRefresh));
+  $('url').addEventListener('input', () => setFieldError('url', ''));
+
+  // ---- the enquiry form ---------------------------------------------------
+  let contactInFlight = null;
+
+  $('contact-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    setFieldError('contact-email', '');
+
+    const built = buildContactRequest({
+      email: $('contact-email').value,
+      // The preview they just read, which is what makes the enquiry worth
+      // answering. It is the answered request, not whatever is being typed in
+      // the form above.
+      preview: state.request,
+    });
+    if (!built.ok) {
+      setFieldError(built.field, built.message);
+      $(built.field)?.focus();
+      return;
+    }
+
+    const note = $('contact-note');
+    const button = $('contact-send');
+    note.className = 'contact-note';
+    note.textContent = '';
+    button.disabled = true;
+    button.textContent = 'Sending…';
+
+    if (contactInFlight) contactInFlight.abort();
+    const controller = new AbortController();
+    contactInFlight = controller;
+
+    const outcome = await sendContact({
+      fetchImpl: window.fetch.bind(window),
+      baseUrl: FORA_ONBOARDING_API_BASE,
+      body: built.body,
+      signal: controller.signal,
+    });
+    if (contactInFlight !== controller) return;
+    contactInFlight = null;
+
+    button.disabled = false;
+    button.textContent = 'Get in touch';
+    if (outcome.aborted) return;
+
+    if (outcome.ok) {
+      note.className = 'contact-note sent';
+      note.textContent = 'Thanks — your interest has been sent to our team.';
+      $('contact-form').reset();
+      return;
+    }
+    note.className = 'contact-note failed';
+    note.textContent = `${outcome.failure.headline}. ${outcome.failure.detail}`;
+  });
+
+  $('contact-email').addEventListener('input', () => setFieldError('contact-email', ''));
+
+  const sharedUrl = previewPageUrl(window.location.href);
+  if (sharedUrl !== null) {
+    $('url').value = sharedUrl;
+    void runPreview();
+  }
+</script>
+
+</body>
+</html>
