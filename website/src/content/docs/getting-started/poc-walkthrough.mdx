@@ -114,13 +114,15 @@ Once connected, five tools appear — the protocol verbs.
 
 <Image src={tools} alt="Connected FORA connector listing five tools: Fora discover, execute, register, report and status." />
 
-| Tool | RPC |
+| Tool | Where the call goes |
 |---|---|
-| `Fora discover` | `ExchangeService.DiscoverResources` |
-| `Fora execute` | `ExchangeService.ExecuteTransaction` |
-| `Fora register` | `ExchangeService.Register` |
-| `Fora report` | `ExchangeService.ReportUsage` |
-| `Fora status` | `ExchangeService.GetAccountStatus` |
+| `Fora discover` | `BrokerService.Resolve`, via the Broker |
+| `Fora execute` | the Broker's execute relay |
+| `Fora register` | `ExchangeService.Register`, direct to the Exchange |
+| `Fora report` | `ExchangeService.ReportUsage`, direct to the offer's Exchange |
+| `Fora status` | `ExchangeService.GetAccountStatus`, direct to the Exchange |
+
+Two of them traverse the Broker and three go straight to an Exchange. Registration has to be direct, because the Exchange binds your account to your identity using your own inbound signature, and the Broker relay would re-sign that hop with its own key. See [Identity Service](/components/identity/overview/) for the rest of that reasoning.
 
 ## 3. The demo publisher
 
@@ -201,14 +203,15 @@ Ask for the same URL again, and let the agent use the protocol.
 
 <Image src={foraFetch} alt="Claude discovering the offer, executing the transaction, reporting usage, and then displaying the full licensed article." />
 
-Four calls, and the article arrives:
+Three tool calls, and the article arrives:
 
-1. **`Fora discover`** (`ExchangeService.DiscoverResources`) — the Exchange returns an offer per licensing term available to you. This one is free under the Stoa Press AI License.
-2. **`Fora execute`** (`ExchangeService.ExecuteTransaction`) — the agent presents the signed offer it chose. The Exchange verifies `Offer.signature` and answers with a signed retrieval URL in `TransactionResultItem.retrieval_endpoint`.
-3. *Fetch* — the delivery edge verifies that signed URL and serves the bytes. The same bytes the door refused.
-4. **`Fora report`** (`ExchangeService.ReportUsage`) — the offer carried a `ReportingObligation`, so the agent files a report and gets back a `UsageReportResponse.report_id`.
+1. **`Fora discover`** (`BrokerService.Resolve`, via the Broker) — the Broker asks the Exchange, which returns an offer per licensing term available to you. This one is free under the Stoa Press AI License.
+2. **`Fora execute`** (the Broker's execute relay) — the agent chooses a signed offer, and the Broker relays the purchase to the Exchange. The Exchange verifies `Offer.signature` and answers with a signed retrieval URL in `TransactionResultItem.retrieval_endpoint`. The MCP server then fetches the content from that URL itself, because only it holds the key the URL is bound to. The delivery edge verifies the URL and serves the bytes, the same bytes the door refused, and the article comes back in the tool result.
+3. **`Fora report`** (`ExchangeService.ReportUsage`, direct to the offer's Exchange) — the offer carried a `ReportingObligation`, so the agent files a report and gets back a `UsageReportResponse.report_id`.
 
-Step 4 is not optional bookkeeping. The offer's `ReportingObligation` states what has to be filed and by when, and the Exchange tracks whether it was — an account with overdue reports can be denied on its next transaction with `DENIAL_REASON_REPORTING_OVERDUE`.
+See [Why the service fetches the content](/components/identity/overview/#why-the-service-fetches-the-content) for the reason the fetch happens inside `Fora execute`.
+
+Step 3 is not optional bookkeeping. The offer's `ReportingObligation` states what has to be filed and by when, and the Exchange tracks whether it was — an account with overdue reports can be denied on its next transaction with `DENIAL_REASON_REPORTING_OVERDUE`.
 
 <Aside type="tip" title="An offer sells exactly one term">
 A resource with three licensing arrangements yields three offers, each priced from the term it sells. The agent chooses an *offer*, not a term, and executes that. See [Licensing terms](/protocol/licensing-terms/).
@@ -282,7 +285,7 @@ Then:
 The connector stays on your account, so the catalog is open to experiment with:
 
 - **Ask for something priced.** Not every term is free. Ask Claude to discover offers for a Harmonia Records track and compare what comes back against the Stoa Press essays.
-- **Ask for several URIs at once.** `ExchangeService.DiscoverResources` takes up to 256 in one call, and answers with an `OfferGroup` per URI.
+- **Ask for several URIs at once.** `Fora discover` takes up to 256 in one call, and answers with an `OfferGroup` per URI.
 - **Check your account.** `Fora status` returns your registration state without spending anything.
 - **Watch a refusal.** Ask for a URI that is not in the catalog. The Exchange answers `OK` with `OfferGroup.absence_reason` set rather than erroring — "no result" is a successful answer.
 - **Point it at your own key.** The MCP server signs for you; an agent that holds its own key and publishes its own directory is the same participant. See [For AI Agents](/getting-started/for-ai-agents/).
@@ -292,4 +295,4 @@ Where to read further:
 - [What is FORA?](/getting-started/what-is-fora/) — the model in one page
 - [Transaction flow](/protocol/transaction-flow/) — every message in the sequence, with payloads
 - [Licensing terms](/protocol/licensing-terms/) — how terms become offers
-- [MCP Server](/components/mcp-server/overview/) — what the connector you just added actually does
+- [Identity Service](/components/identity/overview/) — what the connector you just added actually does
