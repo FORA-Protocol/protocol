@@ -76,7 +76,7 @@ export default defineConfig({
 						{ label: 'Live Demo: Music', slug: 'getting-started/live-demo-music' },
 						{ label: 'For Providers', slug: 'getting-started/for-providers' },
 						{ label: 'Publisher Onboarding', slug: 'getting-started/publisher-onboarding' },
-						{ label: 'If You Already Have a Marketplace', slug: 'getting-started/existing-marketplace' },
+						{ label: 'For Content Marketplaces', slug: 'getting-started/existing-marketplace' },
 						{ label: 'For AI Agents', slug: 'getting-started/for-ai-agents' },
 						{ label: 'How Money Flows', slug: 'getting-started/how-money-flows' },
 					],
