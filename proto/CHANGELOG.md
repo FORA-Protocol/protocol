@@ -13,20 +13,26 @@ The signing transports now add a fresh `nonce` to every signature: Go
 `core.NewSigningTransport`, Python `SigningTransport.sign_outbound` and TypeScript
 `signOutbound` / `createSigningTransport`. The nonce is 16 random bytes from the
 platform's cryptographic RNG, encoded as base64url. If random generation fails,
-nothing is signed or sent. Resending the same signed bytes is still a replay and
-is still refused.
+nothing is signed or sent. A transport never signs without a nonce: a TypeScript `nonce` option that
+returns an empty string is refused.
+Resending the same signed bytes is still a replay and is still refused.
 
 The signing helpers take an optional nonce: `helpers.SignOptions.Nonce` (Go), the
 `nonce` keyword of `sign_request` / `append_signature` (Python), and
 `SignRequestOptions.nonce` (TypeScript). Without it they produce the same bytes as
 before, and they still read no clock and no RNG, so a caller that uses them
-directly and needs unique signatures must pass its own nonce.
+directly and needs unique signatures must pass its own nonce. A non-empty nonce
+must use only base64url characters (`A-Z a-z 0-9 - _`). Otherwise signing fails:
+Go returns `helpers.ErrInvalidNonce`, Python raises `ValueError` and TypeScript
+throws. Without this check, a quote in the nonce ended the quoted parameter early,
+and the three SDKs wrote different bytes.
 
 Verifiers need no change. The v1.0.7 verifiers in all three SDKs already accept a
 signature with a nonce, and a signature without one is still accepted. The window
 APIs (`MonotonicWindow`, `monotonic_window`, `monotonicWindow`) are unchanged but
 are no longer needed for uniqueness. The shared test vectors gain nonce cases:
-`post_with_nonce`, `append_relay_leg_with_nonce` and `positive_two_hop_nonce`.
+`post_with_nonce`, `post_empty_authorization_bound_with_nonce`,
+`append_relay_leg_with_nonce` and `positive_two_hop_nonce`.
 
 ## v1.0.7
 

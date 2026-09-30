@@ -6,7 +6,8 @@
 // nonce removes that collision and that replay protection still holds.
 
 import { describe, expect, it } from "vitest";
-import { signRequest } from "../core/sign-request.ts";
+import { createClient, type UnaryRequest } from "../client/index.ts";
+import { appendSignature, signRequest } from "../core/sign-request.ts";
 import { createSigningTransport, type OutboundInit } from "../core/signing-transport.ts";
 import {
 	type ReplayStore,
@@ -59,7 +60,7 @@ async function fixture() {
 	// A fixed window: created/expires are identical on every signature, the
 	// collision condition.
 	const window = () => [CREATED, EXPIRES] as [number, number];
-	return { privKey: kp.privateKey, keyid, verify, sent, send, window };
+	return { privKey: kp.privateKey, pub, store, keyid, verify, sent, send, window };
 }
 
 describe("signing transport nonce", () => {
@@ -140,5 +141,88 @@ describe("signing transport nonce", () => {
 		});
 		await expect(signing(URL, { method: "POST", body: BODY })).rejects.toThrow("entropy");
 		expect(f.sent).toHaveLength(0);
+	});
+
+	it("refuses a nonce source that returns an empty nonce and sends nothing", async () => {
+		const f = await fixture();
+		const signing = createSigningTransport(f.send, {
+			privKey: f.privKey,
+			keyid: f.keyid,
+			window: f.window,
+			nonce: () => "",
+		});
+		await expect(signing(URL, { method: "POST", body: BODY })).rejects.toThrow("empty nonce");
+		expect(f.sent).toHaveLength(0);
+	});
+});
+
+describe("signing helpers nonce validation", () => {
+	// A quote would end the quoted parameter early, and the SDKs would write
+	// different bytes for the same input. Go and Python test the same cases.
+	it.each(['abc";expires=1', "a\\b", "a b", "abc=", "a+b/c", "\u00e9"])(
+		"rejects %j in signRequest and appendSignature",
+		async (nonce) => {
+			const { privKey, keyid } = await fixture();
+			const opts = {
+				method: "POST",
+				url: URL,
+				body: BODY,
+				authorization: "",
+				signatureAgent: "",
+				keyid,
+				created: CREATED,
+				expires: EXPIRES,
+				nonce,
+			};
+			await expect(signRequest(privKey, opts)).rejects.toThrow("base64url");
+			await expect(
+				appendSignature(privKey, { signatureInput: "", signature: "" }, opts),
+			).rejects.toThrow("base64url");
+		},
+	);
+});
+
+describe("client verbs sign with a fresh nonce", () => {
+	// createClient signs through signOutbound directly, not through
+	// createSigningTransport, so this is the only test of that default.
+	it("accepts two identical getAccountStatus calls in the same second", async () => {
+		const f = await fixture();
+		const seen: UnaryRequest[] = [];
+		const verdicts: unknown[] = [];
+		const send = async (req: UnaryRequest) => {
+			seen.push(req);
+			const verdict = await verifyRequestServer({
+				method: "POST",
+				url: req.url,
+				body: req.body,
+				headers: req.headers as VerifyRequestHeaders,
+				resolve: { resolve: (k) => (k === f.keyid ? f.pub : undefined) },
+				replayStore: f.store,
+				now: () => CREATED + 10,
+				maxSignatureAge: EXPIRES - CREATED,
+			});
+			verdicts.push(verdict);
+			return { status: 200, body: JSON.stringify({ ver: "1.0", billing_ref: "acct-1", active: true }) };
+		};
+		const client = createClient("https://home.invalid", {
+			endpointResolver: { resolveEndpoint: async () => "https://exchange.test" },
+			send,
+			guardedSend: send,
+			signer: { privKey: f.privKey, keyid: f.keyid },
+			signWindow: f.window,
+		});
+
+		await client.getAccountStatus({ exchange: "exchange.test" });
+		await client.getAccountStatus({ exchange: "exchange.test" });
+
+		expect(verdicts).toEqual([{ valid: true }, { valid: true }]);
+		const [first, second] = seen as [UnaryRequest, UnaryRequest];
+		const in1 = first.headers["signature-input"] ?? "";
+		const in2 = second.headers["signature-input"] ?? "";
+		expect(NONCE.exec(in1)?.[1]).toBeDefined();
+		expect(NONCE.exec(in1)?.[1]).not.toBe(NONCE.exec(in2)?.[1]);
+		expect(first.headers.signature).not.toBe(second.headers.signature);
+		// Only the nonce differs: created/expires are unchanged.
+		expect(in1.replace(NONCE, "")).toBe(in2.replace(NONCE, ""));
 	});
 });

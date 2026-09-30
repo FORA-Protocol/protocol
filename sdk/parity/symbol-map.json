@@ -97,6 +97,7 @@
     "helpers.ErrExpired": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.ErrFutureCreated": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.ErrInvalidHost": "Go errors.Is sentinel for an unusable host reference; py/ts raise/throw instead of exporting sentinels.",
+    "helpers.ErrInvalidNonce": "Go errors.Is sentinel for a nonce outside the base64url alphabet; py raises ValueError and ts throws instead of exporting sentinels.",
     "helpers.ErrInvalidKeyLength": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.ErrInvalidPoPInput": "Go errors.Is sentinel for a proof input that cannot be written into a signature base; py/ts raise/throw instead of exporting sentinels.",
     "helpers.ErrKeyIDMismatch": "Go errors.Is sentinel for a keyid that is not the presented key's thumbprint; py/ts raise/throw instead of exporting sentinels.",

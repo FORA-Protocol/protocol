@@ -12,12 +12,12 @@ Verifier (in the app, not here).
 
 from __future__ import annotations
 
-import base64
 import secrets
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from fora_sdk.b64 import b64url_nopad
 from fora_sdk.core import sign_offer_acceptance_jcs
 from fora_sdk.core import sign_request_acceptance_jcs
 from fora_sdk.httpsig import sign_request
@@ -41,7 +41,7 @@ def _new_nonce() -> str:
     ``secrets`` reads the OS CSPRNG and raises when it cannot; the error
     propagates, so nothing is signed and nothing is sent without a nonce.
     """
-    return base64.urlsafe_b64encode(secrets.token_bytes(_NONCE_BYTES)).rstrip(b"=").decode()
+    return b64url_nopad(secrets.token_bytes(_NONCE_BYTES))
 
 
 @dataclass(frozen=True)
@@ -99,7 +99,7 @@ class SigningTransport:
         # historical inline ``int(self._now())`` mint.
         self._window = window or clock_window(self._now, self._ttl_sec)
         # Nonce source for each request signature. Tests replace it to get
-        # deterministic bytes; returning "" signs without a nonce.
+        # deterministic bytes. sign_outbound refuses an empty nonce.
         self._nonce: Callable[[], str] = _new_nonce
 
     def sign_offer_acceptance(
@@ -190,6 +190,10 @@ class SigningTransport:
         both. Resending the returned headers unchanged is still a replay.
         """
         created, expires = (window or self._window)()
+        nonce = self._nonce()
+        if not nonce:
+            # A missing nonce brings back the same-second collision: never sign without one.
+            raise ValueError("signing transport: nonce source returned an empty nonce")
         signed = sign_request(
             method=method,
             url=url,
@@ -200,7 +204,7 @@ class SigningTransport:
             created=created,
             expires=expires,
             signature_agent=self._signature_agent,
-            nonce=self._nonce(),
+            nonce=nonce,
         )
         # EVERY covered header, at exactly the value that entered the signature base —
         # empty values included. See docs/design-history.md,

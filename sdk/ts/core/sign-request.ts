@@ -49,7 +49,8 @@ export interface SignRequestOptions {
 	// one-second resolution, so identical requests signed in the same second get the
 	// same signature and a replay store refuses the second. The signer reads no RNG:
 	// a caller that needs unique signatures passes a fresh nonce (the signing
-	// transport does). Absent or "" emits no nonce, byte-identical to before.
+	// transport does). Absent or "" emits no nonce, byte-identical to before. A
+	// non-empty nonce must use only base64url characters, or signing throws.
 	nonce?: string;
 }
 
@@ -112,6 +113,11 @@ function signatureParams(
 	if (chainLinkToken !== undefined) tokens.push(chainLinkToken);
 	const covered = tokens.join(" ");
 	const params = `(${covered});keyid="${keyid}";alg="ed25519";created=${created};expires=${expires}`;
+	// Only base64url characters, the same rule as Go and Python: a quote would end
+	// the quoted parameter early, and the SDKs would write different bytes.
+	if (!/^[A-Za-z0-9_-]*$/.test(nonce)) {
+		throw new Error("sign-request: nonce must use only base64url characters");
+	}
 	return nonce === "" ? params : `${params};nonce="${nonce}"`;
 }
 

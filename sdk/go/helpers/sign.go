@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -79,7 +80,8 @@ func (s *ed25519Signer) Sign(_ context.Context, base []byte) ([]byte, error) {
 // one is refused as a replay. A fresh nonce per signature makes each signature
 // unique. The helpers read no RNG: a caller that needs unique signatures supplies
 // the nonce (the signing transport does). Empty emits no nonce, byte-identical to
-// a signature made before the parameter existed.
+// a signature made before the parameter existed. A non-empty nonce must use only
+// base64url characters (A-Z a-z 0-9 - _), or signing fails with ErrInvalidNonce.
 type SignOptions struct {
 	Created int64
 	Expires int64
@@ -170,10 +172,28 @@ const (
 	sigWriteAppend
 )
 
+// ErrInvalidNonce is returned when SignOptions.Nonce has a character outside the
+// base64url alphabet. The Go, Python and TypeScript SDKs apply the same rule, so
+// a nonce that one SDK accepts is written as the same bytes by all three.
+var ErrInvalidNonce = errors.New("helpers: nonce must use only base64url characters")
+
+// validNonce reports whether n is empty or uses only base64url characters.
+func validNonce(n string) bool {
+	for _, c := range n {
+		if (c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-' && c != '_' {
+			return false
+		}
+	}
+	return true
+}
+
 // signWithParams builds the signature base for params, signs it via signer, and
 // writes the Signature-Input / Signature headers per mode. Shared by SignRequest
 // and AppendSignature so base construction and header emission live in one place.
 func signWithParams(ctx context.Context, req *http.Request, params sigParams, signer Signer, mode sigWriteMode) error {
+	if !validNonce(params.Nonce) {
+		return ErrInvalidNonce
+	}
 	base, err := buildSignatureBase(req, params)
 	if err != nil {
 		return err

@@ -211,7 +211,7 @@ func renderParamsTail(p sigParams) string {
 		fmt.Fprintf(&b, ";expires=%d", p.Expires)
 	}
 	if p.Nonce != "" {
-		fmt.Fprintf(&b, ";nonce=%q", p.Nonce)
+		fmt.Fprintf(&b, ";nonce=\"%s\"", p.Nonce)
 	}
 	return b.String()
 }

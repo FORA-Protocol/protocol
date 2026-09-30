@@ -178,7 +178,9 @@ describe("createSigningTransport replays the shared Go sign-request vectors byte
     expect(agents.has("https://agent.example")).toBe(true);
   });
 
-  for (const v of doc.vectors) {
+  // The transport refuses to sign without a nonce, so it replays only the
+  // vectors signed with one; the signRequest parity tests replay every vector.
+  for (const v of doc.vectors.filter((x) => x.nonce !== undefined)) {
     it(`${v.name}: transport stamps Content-Digest/Signature-Input/Signature === Go oracle AND forwards the body unmodified`, async () => {
       const { send, calls } = capturingSend();
       const priv = await importSigningKey(v.signer_seed_hex);
@@ -190,8 +192,7 @@ describe("createSigningTransport replays the shared Go sign-request vectors byte
         privKey: priv,
         keyid: v.keyid,
         window: () => [v.created, v.expires] as [number, number],
-        // The transport mints a random nonce per signature; pin it to the
-        // vector's ("" for a vector signed without one).
+        // The transport mints a random nonce per signature; pin it to the vector's.
         nonce: () => v.nonce ?? "",
         ...(v.signature_agent !== ""
           ? { signatureAgent: v.signature_agent }
@@ -257,7 +258,9 @@ describe("createSigningTransport replays the shared Go sign-request vectors byte
 describe("signOutbound returns the RFC 9421 header set byte-identical to the Go oracle", () => {
   const doc = signRequestVectors as { vectors: SignRequestVector[] };
 
-  for (const v of doc.vectors) {
+  // The transport refuses to sign without a nonce, so it replays only the
+  // vectors signed with one; the signRequest parity tests replay every vector.
+  for (const v of doc.vectors.filter((x) => x.nonce !== undefined)) {
     it(`${v.name}: header core matches the oracle and returns the body unchanged`, async () => {
       const priv = await importSigningKey(v.signer_seed_hex);
       const body = hexToBytes(v.body_hex);
@@ -310,8 +313,8 @@ describe("createSigningTransport append/relay path mirrors the Go multisig chain
     return v;
   };
 
-  it("positive_two_hop: appendOnly transport chains sig2 AND preserves the upstream Signature-Agent (set-if-absent)", async () => {
-    const v = byName("positive_two_hop");
+  it("positive_two_hop_nonce: appendOnly transport chains sig2 AND preserves the upstream Signature-Agent (set-if-absent)", async () => {
+    const v = byName("positive_two_hop_nonce");
     const h1 = v.hops[0] as MultisigHop;
     const h2 = v.hops[1] as MultisigHop;
     const body = hexToBytes(v.body_hex);
@@ -328,6 +331,7 @@ describe("createSigningTransport append/relay path mirrors the Go multisig chain
       keyid: h1.keyid,
       created: v.created,
       expires: v.expires,
+      nonce: h1.nonce ?? "",
     });
 
     // The relay/broker transport carries its OWN directory origin. Set-if-absent

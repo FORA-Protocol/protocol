@@ -680,6 +680,16 @@ func buildSignRequestVectors(t *testing.T) []signRequestVector {
 			nonce:          "AAECAwQFBgcICQoLDA0ODw",
 		},
 		{
+			// The empty-bind case with a nonce, so transport tests that pin the
+			// nonce still cover an empty Authorization and Signature-Agent.
+			name:          "post_empty_authorization_bound_with_nonce",
+			method:        "POST",
+			url:           "https://broker.example/fora.v1.BrokerService/Fetch?trace=1",
+			body:          []byte(`{"uri":"https://cdn.example/other"}`),
+			authorization: "",
+			nonce:         "ICEiIyQlJicoKSorLC0uLw",
+		},
+		{
 			name:           "append_relay_leg_with_nonce",
 			method:         "POST",
 			url:            "https://broker.example/fora.v1.BrokerService/Fetch",

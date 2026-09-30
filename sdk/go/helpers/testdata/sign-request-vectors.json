@@ -138,6 +138,41 @@
       }
     },
     {
+      "name": "post_empty_authorization_bound_with_nonce",
+      "method": "POST",
+      "url": "https://broker.example/fora.v1.BrokerService/Fetch?trace=1",
+      "body_hex": "7b22757269223a2268747470733a2f2f63646e2e6578616d706c652f6f74686572227d",
+      "authorization": "",
+      "signature_agent": "",
+      "keyid": "mcp.v1",
+      "created": 1700000000,
+      "expires": 1700000600,
+      "nonce": "ICEiIyQlJicoKSorLC0uLw",
+      "signer_seed_hex": "55565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f7071727374",
+      "pubkey_b64url": "rGv1a5oEriM-jaKs3KzrFzzn4Hb180dA4XuZ0bAs_gk",
+      "content_digest": "sha-256=:aMcs/yVBJDEdGJoNVijbTFPQEOduCYgZWzCBIw5eTyg=:",
+      "signature_base": "\"@method\": POST\n\"@target-uri\": https://broker.example/fora.v1.BrokerService/Fetch?trace=1\n\"content-digest\": sha-256=:aMcs/yVBJDEdGJoNVijbTFPQEOduCYgZWzCBIw5eTyg=:\n\"authorization\": \n\"signature-agent\": \n\"@signature-params\": (\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\");keyid=\"mcp.v1\";alg=\"ed25519\";created=1700000000;expires=1700000600;nonce=\"ICEiIyQlJicoKSorLC0uLw\"",
+      "signature_input": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\");keyid=\"mcp.v1\";alg=\"ed25519\";created=1700000000;expires=1700000600;nonce=\"ICEiIyQlJicoKSorLC0uLw\"",
+      "signature": "sig1=:63GUhCwCop15BkT9DuZrrkaS5l+SHAb5ccMuIA4lVWHyE5KEcw3bcKMKI9PpbHYsDUgUinTEI/k090XjS82QBA==:",
+      "emitted_headers": {
+        "authorization": [
+          ""
+        ],
+        "content-digest": [
+          "sha-256=:aMcs/yVBJDEdGJoNVijbTFPQEOduCYgZWzCBIw5eTyg=:"
+        ],
+        "signature": [
+          "sig1=:63GUhCwCop15BkT9DuZrrkaS5l+SHAb5ccMuIA4lVWHyE5KEcw3bcKMKI9PpbHYsDUgUinTEI/k090XjS82QBA==:"
+        ],
+        "signature-agent": [
+          ""
+        ],
+        "signature-input": [
+          "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\");keyid=\"mcp.v1\";alg=\"ed25519\";created=1700000000;expires=1700000600;nonce=\"ICEiIyQlJicoKSorLC0uLw\""
+        ]
+      }
+    },
+    {
       "name": "append_relay_leg_with_nonce",
       "method": "POST",
       "url": "https://broker.example/fora.v1.BrokerService/Fetch",

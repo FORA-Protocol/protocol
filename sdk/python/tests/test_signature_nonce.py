@@ -56,8 +56,9 @@ def _transport() -> SigningTransport:
     return SigningTransport(signer_seed=_SEED, keyid=_KEYID, window=lambda: (_CREATED, _EXPIRES))
 
 
-def _sign() -> dict[str, str]:
-    return _transport().sign_outbound(method="POST", url=_URL, body=_BODY, authorization="").headers
+def _sign(transport: SigningTransport | None = None) -> dict[str, str]:
+    transport = transport or _transport()
+    return transport.sign_outbound(method="POST", url=_URL, body=_BODY, authorization="").headers
 
 
 class _Server:
@@ -80,7 +81,10 @@ class _Server:
 
 def test_identical_requests_get_unique_signatures_and_both_pass() -> None:
     server = _Server()
-    first, second = _sign(), _sign()
+    # One transport for both requests: a nonce made once per transport instead of
+    # once per signature would make these two requests collide.
+    transport = _transport()
+    first, second = _sign(transport), _sign(transport)
 
     n1 = _NONCE.search(first["signature-input"])
     n2 = _NONCE.search(second["signature-input"])
@@ -151,3 +155,28 @@ def test_rng_failure_raises_and_signs_nothing() -> None:
     transport._nonce = broken
     with pytest.raises(OSError):
         transport.sign_outbound(method="POST", url=_URL, body=_BODY, authorization="")
+
+
+def test_empty_nonce_source_is_refused() -> None:
+    transport = _transport()
+    transport._nonce = lambda: ""
+    with pytest.raises(ValueError, match="empty nonce"):
+        transport.sign_outbound(method="POST", url=_URL, body=_BODY, authorization="")
+
+
+@pytest.mark.parametrize("nonce", ['abc";expires=1', "a\\b", "a b", "abc=", "a+b/c", "\u00e9"])
+def test_helper_rejects_nonce_outside_base64url(nonce: str) -> None:
+    # A quote would end the quoted parameter early, and the SDKs would write
+    # different bytes for the same input. Go and TS test the same cases.
+    with pytest.raises(ValueError, match="base64url"):
+        sign_request(
+            method="POST",
+            url=_URL,
+            body=_BODY,
+            authorization="",
+            signer_seed=_SEED,
+            keyid=_KEYID,
+            created=_CREATED,
+            expires=_EXPIRES,
+            nonce=nonce,
+        )

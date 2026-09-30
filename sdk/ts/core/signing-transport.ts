@@ -110,8 +110,8 @@ export interface SignOutboundOptions {
 	// Prior signature state carried by the incoming request (the relay/chain path).
 	prior?: PriorSignatures;
 	// Nonce source, called once per signature; defaults to 16 random bytes,
-	// base64url. Replace it only for deterministic output in tests: returning ""
-	// signs without a nonce, and identical requests in one second then collide.
+	// base64url. Replace it only for deterministic output in tests. An empty nonce
+	// is refused: without one, identical requests in one second collide.
 	nonce?: () => string;
 }
 
@@ -137,6 +137,10 @@ export async function signOutbound(
 	o: SignOutboundOptions,
 ): Promise<SignedOutbound> {
 	const [created, expires] = (o.window ?? defaultWindow())();
+	const nonce = (o.nonce ?? newNonce)();
+	if (nonce === "") {
+		throw new Error("signing transport: nonce source returned an empty nonce");
+	}
 	const signOpts: SignRequestOptions = {
 		method: o.method,
 		url: o.url,
@@ -146,7 +150,7 @@ export async function signOutbound(
 		keyid: o.keyid,
 		created,
 		expires,
-		nonce: (o.nonce ?? newNonce)(),
+		nonce,
 	};
 	const prior = o.prior ?? { signatureInput: "", signature: "" };
 	const chained = (o.appendOnly ?? false) || prior.signature !== "";
@@ -270,7 +274,7 @@ export function createSigningTransport<R>(
 			window,
 			appendOnly: opts.appendOnly ?? false,
 			prior,
-			nonce: opts.nonce ?? newNonce,
+			...(opts.nonce !== undefined ? { nonce: opts.nonce } : {}),
 		});
 
 		// Forward the SAME body bytes (body integrity — buffer for the digest

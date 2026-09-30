@@ -50,6 +50,11 @@ _COVERED_COMPONENTS: tuple[str, ...] = (
 #: this (mirrors the Go verifier's defaultMaxFutureSkew).
 _MAX_FUTURE_SKEW_SEC = 300
 
+# A non-empty nonce may use only base64url characters. Go and TypeScript apply
+# the same rule, so a nonce one SDK accepts is written as the same bytes by all
+# three, and a quote cannot end the quoted parameter early.
+_NONCE_RE = re.compile(r"[A-Za-z0-9_-]*")
+
 
 @dataclass(frozen=True)
 class SignedRequest:
@@ -107,6 +112,8 @@ def _signature_params(
         tokens.append(chain_link_token)
     covered_list = " ".join(tokens)
     params = f'({covered_list});keyid="{keyid}";alg="ed25519";created={created};expires={expires}'
+    if not _NONCE_RE.fullmatch(nonce):
+        raise ValueError("nonce must use only base64url characters")
     # Empty nonce emits nothing: byte-identical to a signature made before the
     # parameter existed (mirrors Go renderParamsTail).
     return params + f';nonce="{nonce}"' if nonce else params
@@ -165,7 +172,8 @@ def sign_request(
     Ed25519 is deterministic and the timestamps have one-second resolution, so
     identical requests signed in the same second produce the same signature and a
     replay store refuses the second. The helper reads no RNG: a caller that needs
-    unique signatures supplies a fresh nonce (``SigningTransport`` does).
+    unique signatures supplies a fresh nonce (``SigningTransport`` does). A
+    non-empty nonce must use only base64url characters, or ``ValueError`` is raised.
     """
     digest_header = content_digest(body)
     sig_params = _signature_params(_COVERED_COMPONENTS, keyid, created, expires, nonce=nonce)

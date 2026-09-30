@@ -44,9 +44,6 @@ type signingTransport struct {
 	// predicate gates which requests are signed (WithSignPredicate). The
 	// default signs every bodied request — the pre-option compat contract.
 	predicate func(*http.Request) bool
-	// nonce supplies the RFC 9421 nonce for each signature. The default is
-	// newNonce; tests replace it to get deterministic bytes.
-	nonce func() string
 }
 
 // nonceBytes is the entropy per signature nonce (128 bits, 22 base64url chars).
@@ -132,7 +129,6 @@ func NewSigningTransport(signer helpers.Signer, base http.RoundTripper, opts ...
 		base:   base,
 		signer: signer,
 		window: ClockWindow(time.Now, signWindow),
-		nonce:  newNonce,
 	}
 	for _, opt := range opts {
 		opt(t)
@@ -175,7 +171,7 @@ func (t *signingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 // degrades to a fresh sig1 when no incoming signature is present.
 func (t *signingTransport) sign(ctx context.Context, req *http.Request, body []byte) error {
 	created, expires := t.window()
-	opts := helpers.SignOptions{Created: created, Expires: expires, Nonce: t.nonce()}
+	opts := helpers.SignOptions{Created: created, Expires: expires, Nonce: newNonce()}
 	if t.appendOnly || req.Header.Get("Signature") != "" {
 		return helpers.AppendSignature(ctx, req, body, t.signer, opts)
 	}

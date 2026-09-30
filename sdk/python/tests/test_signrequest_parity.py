@@ -25,6 +25,9 @@ from fora_sdk.httpsig import sign_request, verify_request
 #: The shared Go-emitted oracle every port replays.
 _SIGN_REQUEST_VECTORS_PATH = GO_TESTDATA / "sign-request-vectors.json"
 _VECTORS = load_json(_SIGN_REQUEST_VECTORS_PATH)["vectors"]
+# The transport refuses to sign without a nonce, so it replays only the vectors
+# signed with one. The helper tests below replay every vector.
+_NONCE_VECTORS = [v for v in _VECTORS if v.get("nonce")]
 
 # The covered set the emitter MUST use: exactly these five (signature-agent
 # joined with the WBA split), no conditional biscuit component.
@@ -50,7 +53,7 @@ def test_sign_request_vector_file_exists_and_covers_empty_authorization() -> Non
     )
 
 
-@pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])
+@pytest.mark.parametrize("vector", _NONCE_VECTORS, ids=[v["name"] for v in _NONCE_VECTORS])
 def test_sign_outbound_emits_the_header_set_the_oracle_emits(
     vector: dict[str, object],
 ) -> None:
@@ -82,8 +85,8 @@ def test_sign_outbound_emits_the_header_set_the_oracle_emits(
         window=lambda: (created, expires),
     )
     # The transport mints a random nonce per signature; pin it to the vector's
-    # ("" for a vector signed without one) so the bytes are comparable.
-    transport._nonce = lambda: str(vector.get("nonce", ""))
+    # so the bytes are comparable.
+    transport._nonce = lambda: str(vector["nonce"])
     signed = transport.sign_outbound(
         method=str(vector["method"]),
         url=str(vector["url"]),
