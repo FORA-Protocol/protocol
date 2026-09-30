@@ -365,6 +365,7 @@ The `Signature-Input` header declares:
 - **keyid**: the RFC 7638 thumbprint of the agent's key — resolved in the WBA directory named by `Signature-Agent`
 - **alg**: `ed25519` — same key type used throughout FORA
 - **created / expires**: the validity window; both are required and a signature outside it is refused
+- **nonce** (optional): a random value that makes each signature unique. The example above has none, and verifiers do not require it. See [Replay protection](#replay-protection)
 
 The `Signature-Agent` value may also arrive quoted — `"https://research.acme.com"` — which is the RFC 8941 String form Web Bot Auth specifies. Both spellings name the same directory. The bytes are signed exactly as sent, so a relay forwarding the header must not rewrite it.
 
@@ -385,6 +386,24 @@ Signature: agent=:dGVzdC1zaWduYXR1cmUtYWdlbnQ=:, broker=:dGVzdC1zaWduYXR1cmUtYnJ
 Each labeled signature (`agent`, `broker`) is independently verifiable. The Exchange checks every signature in the `Signature` header against the corresponding `keyid` in `Signature-Input`.
 
 Note that the Broker's covered set adds `"signature";key="agent"`, a reference to the agent's signature. That is what makes the hops a chain rather than a set: the Broker commits to the exact signature it received, so a relay cannot strip or reorder the hop in front of it. `Signature-Agent` stays the **agent's** directory and is forwarded unchanged — the Broker's own key is found by its `keyid` thumbprint, not by that header.
+
+### Replay protection
+
+A verifier that keeps a replay store refuses a signature it has already accepted. The store key is the key ID plus the signature bytes.
+
+Ed25519 signatures are deterministic, and `created` and `expires` are whole seconds. So two identical requests signed in the same second, with no nonce, get the same signature, and the verifier refuses the second one as a replay, although the client sent it on purpose.
+
+To prevent this, the SDK signing transports (Go, Python and TypeScript) add an RFC 9421 `nonce` parameter to every signature by default:
+
+```http
+Signature-Input: agent=(...);keyid="kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k";alg="ed25519";created=1700000000;expires=1700000300;nonce="q3Jd0tZ4H2mV8xRk1pWc9A"
+```
+
+- The nonce is 16 random bytes from the platform's cryptographic RNG, encoded as base64url without padding.
+- Each new signing attempt gets a fresh nonce, so a client retry that signs the request again is not refused as a replay. Idempotency keys protect the business operation from running twice.
+- Sending the same signed bytes again is still a replay, and the verifier refuses it.
+- Verifiers do not require a nonce. A signature without one is still accepted.
+- The low-level signing helpers (`SignRequest` / `AppendSignature` and their Python and TypeScript equivalents) do not generate a nonce. A caller that uses them directly and needs unique signatures must pass its own fresh nonce.
 
 ### No fallback
 

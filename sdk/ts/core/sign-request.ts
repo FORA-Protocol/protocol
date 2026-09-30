@@ -45,6 +45,12 @@ export interface SignRequestOptions {
 	keyid: string;
 	created: number;
 	expires: number;
+	// RFC 9421 nonce parameter. Ed25519 is deterministic and created/expires have
+	// one-second resolution, so identical requests signed in the same second get the
+	// same signature and a replay store refuses the second. The signer reads no RNG:
+	// a caller that needs unique signatures passes a fresh nonce (the signing
+	// transport does). Absent or "" emits no nonce, byte-identical to before.
+	nonce?: string;
 }
 
 /**
@@ -91,19 +97,22 @@ export interface ChainLink {
 }
 
 // The @signature-params inner list: the covered components then keyid/alg/
-// created/expires, RFC 9421 order — byte-identical to Go signatureInputInner. An
-// optional chain-link token appends as the final covered component (sigN, N>1),
-// defaulting absent so the single-sig (N=1) inner list stays byte-identical.
+// created/expires/nonce, RFC 9421 order — byte-identical to Go signatureInputInner.
+// An optional chain-link token appends as the final covered component (sigN, N>1),
+// defaulting absent so the single-sig (N=1) inner list stays byte-identical. An
+// empty nonce emits nothing.
 function signatureParams(
 	keyid: string,
 	created: number,
 	expires: number,
+	nonce: string,
 	chainLinkToken?: string,
 ): string {
 	const tokens = COVERED_COMPONENTS.map((c) => `"${c}"`);
 	if (chainLinkToken !== undefined) tokens.push(chainLinkToken);
 	const covered = tokens.join(" ");
-	return `(${covered});keyid="${keyid}";alg="ed25519";created=${created};expires=${expires}`;
+	const params = `(${covered});keyid="${keyid}";alg="ed25519";created=${created};expires=${expires}`;
+	return nonce === "" ? params : `${params};nonce="${nonce}"`;
 }
 
 /** The covered request field values a 5-component FORA signature base is built over. */
@@ -158,7 +167,7 @@ export async function signRequest(
 	opts: SignRequestOptions,
 ): Promise<SignedRequest> {
 	const digestHeader = await contentDigest(opts.body);
-	const sigParams = signatureParams(opts.keyid, opts.created, opts.expires);
+	const sigParams = signatureParams(opts.keyid, opts.created, opts.expires, opts.nonce ?? "");
 	const base = buildRequestSignatureBase(
 		{
 			method: opts.method,
@@ -223,7 +232,13 @@ export async function appendSignature(
 		chainLink = { token: chainLinkToken, value: `:${stdBase64(prevBytes)}:` };
 	}
 
-	const sigParams = signatureParams(opts.keyid, opts.created, opts.expires, chainLinkToken);
+	const sigParams = signatureParams(
+		opts.keyid,
+		opts.created,
+		opts.expires,
+		opts.nonce ?? "",
+		chainLinkToken,
+	);
 	const base = buildRequestSignatureBase(
 		{
 			method: opts.method,

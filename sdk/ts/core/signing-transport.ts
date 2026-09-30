@@ -23,6 +23,7 @@
 // always-stamp): TS carries the relay/append chain, where an upstream sig1 already
 // covers its own Signature-Agent value and must never be overwritten.
 
+import { encodeBase64Url } from "../src/base64url.ts";
 import { SignatureAgentHeader } from "../src/wire.ts";
 import {
 	appendSignature,
@@ -39,6 +40,16 @@ const DEFAULT_WINDOW_TTL_SEC = 300;
 
 function defaultWindow(): Window {
 	return clockWindow(() => Date.now() / 1000, DEFAULT_WINDOW_TTL_SEC);
+}
+
+// Entropy per signature nonce (128 bits, 22 base64url chars), matching Go.
+const NONCE_BYTES = 16;
+
+// A fresh RFC 9421 nonce from the platform CSPRNG, base64url without padding.
+// getRandomValues throws when it cannot produce random bytes; the error
+// propagates, so nothing is signed or sent without a nonce.
+function newNonce(): string {
+	return encodeBase64Url(crypto.getRandomValues(new Uint8Array(NONCE_BYTES)));
 }
 
 // Case-insensitive header lookup over a plain header record. Incoming requests may
@@ -98,6 +109,10 @@ export interface SignOutboundOptions {
 	appendOnly?: boolean;
 	// Prior signature state carried by the incoming request (the relay/chain path).
 	prior?: PriorSignatures;
+	// Nonce source, called once per signature; defaults to 16 random bytes,
+	// base64url. Replace it only for deterministic output in tests: returning ""
+	// signs without a nonce, and identical requests in one second then collide.
+	nonce?: () => string;
 }
 
 /** The RFC 9421 header set (plus the untouched body) a signed request carries. */
@@ -131,6 +146,7 @@ export async function signOutbound(
 		keyid: o.keyid,
 		created,
 		expires,
+		nonce: (o.nonce ?? newNonce)(),
 	};
 	const prior = o.prior ?? { signatureInput: "", signature: "" };
 	const chained = (o.appendOnly ?? false) || prior.signature !== "";
@@ -198,6 +214,10 @@ export interface SigningTransportOptions {
 	appendOnly?: boolean;
 	signatureAgent?: string;
 	predicate?: (req: OutboundRequest) => boolean;
+	// Nonce source for each signature (see SignOutboundOptions.nonce). Every signed
+	// request gets a fresh nonce by default, so identical requests in the same second
+	// are not refused as replays. Resending signed bytes unchanged is still a replay.
+	nonce?: () => string;
 }
 
 /**
@@ -250,6 +270,7 @@ export function createSigningTransport<R>(
 			window,
 			appendOnly: opts.appendOnly ?? false,
 			prior,
+			nonce: opts.nonce ?? newNonce,
 		});
 
 		// Forward the SAME body bytes (body integrity — buffer for the digest

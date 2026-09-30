@@ -212,12 +212,14 @@ func TestServerVerify_RejectsReplayViaInjectedStore(t *testing.T) {
 	}
 }
 
-// TestServerVerify_FirstRequestAcceptedReplayRejected pins the two-call replay
+// TestServerVerify_ReExecuteWithSameKeyAndWindowPassesGate pins the two-call
 // contract through the real client→server path: the client discovers a genuinely
 // signed offer, obtains an SDK-minted VerifiedOffer, and Executes it twice reusing
-// the SAME idempotency key and signing window. The first Execute is accepted (nonce new), the second
-// is rejected as a replay by the injected store. First accepted, second rejected.
-func TestServerVerify_FirstRequestAcceptedReplayRejected(t *testing.T) {
+// the SAME idempotency key and signing window. Each Execute is a new signing
+// attempt with a fresh RFC 9421 nonce, so both pass the transport gate; the
+// handler owns dedup on the idempotency key. Resending the exact signed bytes is
+// still a replay (TestSigningTransport_NonceMakesIdenticalRequestsUnique).
+func TestServerVerify_ReExecuteWithSameKeyAndWindowPassesGate(t *testing.T) {
 	t.Parallel()
 	f := newServerFixture(t)
 	off := signedOffer(t)
@@ -246,17 +248,12 @@ func TestServerVerify_FirstRequestAcceptedReplayRejected(t *testing.T) {
 	}
 	verified := res.Verified()[0]
 
-	// The fixed key pins the body; the fixed window pins the signature. Both
-	// must match for a genuine replay, even across a wall-clock second boundary.
-	if _, err := client.Execute(context.Background(), verified, foraconnect.WithIdempotencyKey("fixed-nonce")); err != nil {
-		t.Fatalf("first Execute must be accepted: %v", err)
-	}
-	_, err = client.Execute(context.Background(), verified, foraconnect.WithIdempotencyKey("fixed-nonce"))
-	if err == nil {
-		t.Fatal("second Execute reusing the nonce must be rejected as a replay")
-	}
-	if got := connectrpc.CodeOf(err); got != connectrpc.CodeUnauthenticated {
-		t.Fatalf("replay: want CodeUnauthenticated, got %v (err=%v)", got, err)
+	// The fixed key pins the body and the fixed window pins created/expires, so
+	// only the nonce tells the two signatures apart.
+	for i := range 2 {
+		if _, err := client.Execute(context.Background(), verified, foraconnect.WithIdempotencyKey("fixed-key")); err != nil {
+			t.Fatalf("Execute %d must pass the transport gate: %v", i+1, err)
+		}
 	}
 }
 

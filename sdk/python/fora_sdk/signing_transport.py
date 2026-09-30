@@ -12,6 +12,8 @@ Verifier (in the app, not here).
 
 from __future__ import annotations
 
+import base64
+import secrets
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -28,6 +30,18 @@ if TYPE_CHECKING:
 # Default proof window (seconds) for the created/expires params when the caller does
 # not inject an explicit window.
 _DEFAULT_TTL_SEC = 600
+
+# Entropy per signature nonce (128 bits, 22 base64url chars).
+_NONCE_BYTES = 16
+
+
+def _new_nonce() -> str:
+    """A fresh RFC 9421 nonce: 16 random bytes, base64url without padding.
+
+    ``secrets`` reads the OS CSPRNG and raises when it cannot; the error
+    propagates, so nothing is signed and nothing is sent without a nonce.
+    """
+    return base64.urlsafe_b64encode(secrets.token_bytes(_NONCE_BYTES)).rstrip(b"=").decode()
 
 
 @dataclass(frozen=True)
@@ -84,6 +98,9 @@ class SigningTransport:
         # seconds, so the @signature-params bytes stay byte-identical to the
         # historical inline ``int(self._now())`` mint.
         self._window = window or clock_window(self._now, self._ttl_sec)
+        # Nonce source for each request signature. Tests replace it to get
+        # deterministic bytes; returning "" signs without a nonce.
+        self._nonce: Callable[[], str] = _new_nonce
 
     def sign_offer_acceptance(
         self,
@@ -167,6 +184,10 @@ class SigningTransport:
         the application having to rebuild its signer. It must be ONE INSTANCE held by the
         caller rather than a fresh one per call: a monotonic window carries the running
         maximum that makes each signature unique, and one built per request has none.
+
+        Every call signs with a fresh RFC 9421 nonce, so two identical requests in the
+        same second still produce different signatures and a replay store accepts
+        both. Resending the returned headers unchanged is still a replay.
         """
         created, expires = (window or self._window)()
         signed = sign_request(
@@ -179,6 +200,7 @@ class SigningTransport:
             created=created,
             expires=expires,
             signature_agent=self._signature_agent,
+            nonce=self._nonce(),
         )
         # EVERY covered header, at exactly the value that entered the signature base —
         # empty values included. See docs/design-history.md,

@@ -72,9 +72,18 @@ func (s *ed25519Signer) Sign(_ context.Context, base []byte) ([]byte, error) {
 
 // SignOptions tune SignRequest. Created/Expires are injected (L1 reads no clock)
 // as unix-seconds; the verifier enforces the window against its own clock.
+//
+// Nonce, when set, is emitted as the RFC 9421 nonce parameter. Ed25519 is
+// deterministic and created/expires have one-second resolution, so two identical
+// requests signed in the same second produce the same signature and the second
+// one is refused as a replay. A fresh nonce per signature makes each signature
+// unique. The helpers read no RNG: a caller that needs unique signatures supplies
+// the nonce (the signing transport does). Empty emits no nonce, byte-identical to
+// a signature made before the parameter existed.
 type SignOptions struct {
 	Created int64
 	Expires int64
+	Nonce   string
 }
 
 // SignRequest signs req with the FORA covered-component set and mutates it in
@@ -98,6 +107,7 @@ func SignRequest(ctx context.Context, req *http.Request, body []byte, signer Sig
 		Alg:     signer.Algorithm(),
 		Created: opts.Created,
 		Expires: opts.Expires,
+		Nonce:   opts.Nonce,
 	}
 	return signWithParams(ctx, req, params, signer, sigWriteSet)
 }
@@ -127,6 +137,7 @@ func AppendSignature(ctx context.Context, req *http.Request, body []byte, signer
 		Alg:     signer.Algorithm(),
 		Created: opts.Created,
 		Expires: opts.Expires,
+		Nonce:   opts.Nonce,
 	}
 	return signWithParams(ctx, req, params, signer, sigWriteAppend)
 }

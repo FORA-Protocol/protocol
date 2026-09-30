@@ -338,7 +338,7 @@ The rest are bounds and seams with working defaults:
 | `content_timeout_sec` | `30.0` | the delivery fetch as a whole; its remainder is carried across the legs of one `fetch` |
 | `max_content_bytes` | `8388608` (8 MiB) | one fetched body, buffered whole |
 | `proof_window` | 30 s | validity of the proof of possession a bound fetch presents |
-| `sign_window` | the signer's own window (600 s) | validity of an outbound request signature. Set it to a `monotonic_window`, **one instance per client**, if your peer screens replays by (key id, signature) — timestamps have one-second resolution, so two identical requests inside a second otherwise sign to the same bytes |
+| `sign_window` | the signer's own window (600 s) | validity of an outbound request signature. It is not needed for uniqueness: every request signature carries a fresh RFC 9421 nonce, so two identical requests inside one second still sign to different bytes |
 | `request_id` | `None`, meaning **no header is sent** | mints the `X-Request-ID` correlation value |
 | `validation` | `"strict"` | whether an outbound message is checked against its generated model before it is sent. Orthogonal to offer verification, which is about what comes back |
 | `registration_requirements` | a reader built on the guarded client, once per client | where `register` reads an Exchange's terms revision and registration schema. It holds no document cache on purpose: the contract requires the terms digest to come from a freshly fetched manifest |

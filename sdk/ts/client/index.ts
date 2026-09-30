@@ -176,7 +176,8 @@ export interface ClientOptions {
 	registrationRequirements?: RegistrationRequirementsReader;
 	/** The WBA directory origin this client signs as. */
 	signatureAgent?: string;
-	/** The RFC 9421 freshness window stamped on every outbound call. */
+	/** The RFC 9421 freshness window stamped on every outbound call. Not needed for
+	 * uniqueness: every request signature carries a fresh nonce. */
 	signWindow?: Window;
 	/** The freshness window stamped on a delivery-fetch proof. */
 	proofWindow?: Window;
@@ -823,11 +824,10 @@ async function register(
  * being asked about. An empty `billing_ref` in the answer is a NORMAL answer: no account
  * there yet.
  *
- * A caveat worth knowing before calling this in a loop. The request has no varying field,
- * so two calls to the same Exchange inside one wall-clock second sign IDENTICAL bytes, and
- * a peer screening replays on (key id, signature) refuses the second. This verb does not
- * choose the freshness window for you, because a window is one instance per client rather
- * than per call: pass `monotonicWindow` as `signWindow` when repeat calls are expected.
+ * Safe to call in a loop. The request has no varying field, but every request signature
+ * carries a fresh RFC 9421 nonce, so two calls to the same Exchange inside one wall-clock
+ * second still sign different bytes and a peer screening replays on (key id, signature)
+ * accepts both.
  */
 async function getAccountStatus(
 	r: Resolved,

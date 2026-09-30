@@ -81,6 +81,9 @@ def test_sign_outbound_emits_the_header_set_the_oracle_emits(
         signature_agent=str(vector["signature_agent"]),
         window=lambda: (created, expires),
     )
+    # The transport mints a random nonce per signature; pin it to the vector's
+    # ("" for a vector signed without one) so the bytes are comparable.
+    transport._nonce = lambda: str(vector.get("nonce", ""))
     signed = transport.sign_outbound(
         method=str(vector["method"]),
         url=str(vector["url"]),
@@ -112,6 +115,7 @@ def test_sign_request_produces_byte_identical_signature(vector: dict[str, object
         created=int(vector["created"]),  # type: ignore[arg-type]
         expires=int(vector["expires"]),  # type: ignore[arg-type]
         signature_agent=str(vector.get("signature_agent", "")),
+        nonce=str(vector.get("nonce", "")),
     )
 
     # Full signature base is byte-identical to the Go oracle.

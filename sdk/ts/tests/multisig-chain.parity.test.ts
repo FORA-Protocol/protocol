@@ -41,6 +41,7 @@ type MultisigHop = {
   keyid: string;
   pubkey_b64url: string;
   seed_hex: string;
+  nonce?: string;
 };
 
 // A Go-emitted forwarding-chain vector: the full wire request (all labels), the
@@ -197,8 +198,9 @@ describe("sdk/ts multisig forwarding-chain append+verify mirrors the Go oracle",
   // BYTE-IDENTITY: re-signing the chain live (signRequest sig1 + appendSignature
   // sig2) under the Go hop seeds reproduces the Go-emitted Signature-Input and
   // Signature byte-for-byte — the cross-language chain-link contract.
-  it("appendSignature reproduces the Go 2-hop chain byte-identically", async () => {
-    const v = byName("positive_two_hop");
+  // The nonce case also pins each hop's RFC 9421 nonce in the parameter tail.
+  it.each(["positive_two_hop", "positive_two_hop_nonce"])("appendSignature reproduces the Go 2-hop chain byte-identically (%s)", async (name) => {
+    const v = byName(name);
     const h1 = hopAt(v, 0);
     const h2 = hopAt(v, 1);
     const body = hexToBytes(v.body_hex);
@@ -212,6 +214,7 @@ describe("sdk/ts multisig forwarding-chain append+verify mirrors the Go oracle",
       keyid: h1.keyid,
       created: v.created,
       expires: v.expires,
+      nonce: h1.nonce ?? "",
     });
 
     const chained = await appendSignature(
@@ -226,6 +229,7 @@ describe("sdk/ts multisig forwarding-chain append+verify mirrors the Go oracle",
         keyid: h2.keyid,
         created: v.created,
         expires: v.expires,
+        nonce: h2.nonce ?? "",
       },
     );
 

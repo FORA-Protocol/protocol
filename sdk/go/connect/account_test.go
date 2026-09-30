@@ -627,19 +627,15 @@ func TestAccountVerbs_RefuseARedirect(t *testing.T) {
 	}
 }
 
-// A status request carries no varying field, so two calls inside one wall-clock
-// second sign IDENTICAL bytes — signature timestamps have one-second resolution —
-// and a peer screening replays on (key id, signature) refuses the second.
+// A status request carries no varying field, and signature timestamps have
+// one-second resolution. Before the signing transport stamped a nonce, two calls
+// inside one second signed IDENTICAL bytes and a peer screening replays on
+// (key id, signature) refused the second. The fresh nonce per signature makes
+// each call unique under either window.
 //
-// This is a behaviour test rather than a corpus row on purpose: the hazard cannot
-// be expressed as bytes, because demonstrating it needs two sequential calls
-// against a server holding a replay store.
-//
-// The SDK does not pick the window for the caller. A window is one instance per
-// CLIENT rather than per call — it carries the running maximum that makes each
-// signature unique — so the choice belongs to whoever builds the client, and both
-// halves of that choice are pinned here.
-func TestGetAccountStatus_IdenticalRequestsCollideUnlessTheWindowMoves(t *testing.T) {
+// This is a behaviour test rather than a corpus row on purpose: it needs two
+// sequential calls against a server holding a replay store.
+func TestGetAccountStatus_IdenticalRequestsInOneSecondAreAccepted(t *testing.T) {
 	// One reading, shared by both calls, so they land in the SAME second — which is
 	// the condition under test. It has to be a real instant rather than a fixed
 	// one, because the server verifies freshness against its own clock.
@@ -673,19 +669,13 @@ func TestGetAccountStatus_IdenticalRequestsCollideUnlessTheWindowMoves(t *testin
 		return err
 	}
 
-	t.Run("a plain clock window collides", func(t *testing.T) {
-		err := call(t, core.ClockWindow(frozen, 5*time.Minute))
-		if err == nil {
-			t.Fatal("the second identical call was accepted; the hazard this documents is gone " +
-				"and the verb doc plus the monotonic case below need revisiting")
-		}
-		var cerr *foraconnect.CallError
-		if !errors.As(err, &cerr) || cerr.Kind != foraconnect.CallRefused {
-			t.Fatalf("err = %v, want a refusal from the peer", err)
+	t.Run("a plain clock window", func(t *testing.T) {
+		if err := call(t, core.ClockWindow(frozen, 5*time.Minute)); err != nil {
+			t.Fatalf("the second identical call was refused under a clock window: %v", err)
 		}
 	})
 
-	t.Run("a monotonic window does not", func(t *testing.T) {
+	t.Run("a monotonic window", func(t *testing.T) {
 		if err := call(t, core.MonotonicWindow(frozen, 5*time.Minute)); err != nil {
 			t.Fatalf("the second call was refused under a monotonic window: %v", err)
 		}

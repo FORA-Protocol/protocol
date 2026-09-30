@@ -3,6 +3,8 @@ package core
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"io"
 	"net/http"
 	"time"
@@ -42,15 +44,31 @@ type signingTransport struct {
 	// predicate gates which requests are signed (WithSignPredicate). The
 	// default signs every bodied request — the pre-option compat contract.
 	predicate func(*http.Request) bool
+	// nonce supplies the RFC 9421 nonce for each signature. The default is
+	// newNonce; tests replace it to get deterministic bytes.
+	nonce func() string
+}
+
+// nonceBytes is the entropy per signature nonce (128 bits, 22 base64url chars).
+const nonceBytes = 16
+
+// newNonce returns a fresh random nonce, base64url without padding. Since Go
+// 1.24 crypto/rand.Read never returns an error: on entropy failure it crashes
+// the process. That is the intended fail-closed behavior: a missing or
+// predictable nonce must never be sent.
+func newNonce() string {
+	b := make([]byte, nonceBytes)
+	_, _ = rand.Read(b)
+	return base64.RawURLEncoding.EncodeToString(b)
 }
 
 // SigningOption customizes the signing transport built by NewSigningTransport.
 type SigningOption func(*signingTransport)
 
 // WithWindow replaces the default freshness window (time.Now + 5 minutes) with
-// a caller-supplied source of the RFC 9421 (created, expires) pair. Use
-// ClockWindow for a plain wall-clock TTL and MonotonicWindow for the relay
-// path's replay-store uniqueness requirement.
+// a caller-supplied source of the RFC 9421 (created, expires) pair, for example
+// ClockWindow with the deployment's own TTL. Signature uniqueness does not
+// depend on the window: every signature carries a fresh nonce.
 func WithWindow(w Window) SigningOption {
 	return func(t *signingTransport) { t.window = w }
 }
@@ -61,9 +79,9 @@ func WithWindow(w Window) SigningOption {
 // This is the relay caller's mode: AppendSignature degrades to a plain sig1
 // when no incoming signature is present and appends a forwarding-chain-linked
 // sigN+1 when one is, so a single always-append branch serves both the
-// broker-originated and the relayed call. Pair it with MonotonicWindow so
-// identical back-to-back relay requests do not collide in the server's replay
-// store.
+// broker-originated and the relayed call. Each appended signature carries a
+// fresh nonce, so identical back-to-back relay requests do not collide in the
+// server's replay store.
 func WithAppendSigner() SigningOption {
 	return func(t *signingTransport) { t.appendOnly = true }
 }
@@ -114,6 +132,7 @@ func NewSigningTransport(signer helpers.Signer, base http.RoundTripper, opts ...
 		base:   base,
 		signer: signer,
 		window: ClockWindow(time.Now, signWindow),
+		nonce:  newNonce,
 	}
 	for _, opt := range opts {
 		opt(t)
@@ -149,12 +168,14 @@ func (t *signingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	return t.base.RoundTrip(req)
 }
 
-// sign selects the single-sig or chain branch and stamps the freshness window.
+// sign selects the single-sig or chain branch and stamps the freshness window
+// and a fresh nonce. The nonce makes every signature unique, so two identical
+// requests in the same second are not refused as replays of each other.
 // The appendOnly branch (WithAppendSigner) always chains: AppendSignature
 // degrades to a fresh sig1 when no incoming signature is present.
 func (t *signingTransport) sign(ctx context.Context, req *http.Request, body []byte) error {
 	created, expires := t.window()
-	opts := helpers.SignOptions{Created: created, Expires: expires}
+	opts := helpers.SignOptions{Created: created, Expires: expires, Nonce: t.nonce()}
 	if t.appendOnly || req.Header.Get("Signature") != "" {
 		return helpers.AppendSignature(ctx, req, body, t.signer, opts)
 	}

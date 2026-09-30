@@ -53,6 +53,8 @@ type SignRequestVector = {
   keyid: string;
   created: number;
   expires: number;
+  /** RFC 9421 nonce the oracle signed with; absent when it signed without one. */
+  nonce?: string;
   signer_seed_hex: string;
   content_digest: string;
   signature_input: string;
@@ -71,7 +73,7 @@ function asEmitted(h: Record<string, string>): Record<string, string[]> {
   return Object.fromEntries(Object.entries(h).map(([k, v]) => [k, [v]]));
 }
 
-type MultisigHop = { keyid: string; pubkey_b64url: string; seed_hex: string };
+type MultisigHop = { keyid: string; pubkey_b64url: string; seed_hex: string; nonce?: string };
 type MultisigChainVector = {
   name: string;
   method: string;
@@ -188,6 +190,9 @@ describe("createSigningTransport replays the shared Go sign-request vectors byte
         privKey: priv,
         keyid: v.keyid,
         window: () => [v.created, v.expires] as [number, number],
+        // The transport mints a random nonce per signature; pin it to the
+        // vector's ("" for a vector signed without one).
+        nonce: () => v.nonce ?? "",
         ...(v.signature_agent !== ""
           ? { signatureAgent: v.signature_agent }
           : {}),
@@ -265,6 +270,7 @@ describe("signOutbound returns the RFC 9421 header set byte-identical to the Go 
         authorization: v.authorization,
         signatureAgent: v.signature_agent,
         window: () => [v.created, v.expires] as [number, number],
+        nonce: () => v.nonce ?? "",
       });
 
       expect(out.headers["content-digest"]).toBe(v.content_digest);
@@ -332,6 +338,7 @@ describe("createSigningTransport append/relay path mirrors the Go multisig chain
       privKey: await importSigningKey(h2.seed_hex),
       keyid: h2.keyid,
       window: () => [v.created, v.expires] as [number, number],
+      nonce: () => h2.nonce ?? "",
       appendOnly: true,
       signatureAgent: "https://broker.example.com",
     });

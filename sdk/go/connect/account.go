@@ -124,14 +124,10 @@ func (c *Client) Register(
 // published now; comparing the two is how an agent discovers that an operator's
 // terms moved under an account it already holds.
 //
-// A caveat worth knowing before calling this in a loop. The request has no varying
-// field, so two calls to the same Exchange inside one wall-clock second sign
-// IDENTICAL bytes — signature timestamps have one-second resolution — and a peer
-// screening replays on (key id, signature) refuses the second as a duplicate. This
-// verb does not choose the freshness window for you, because a window is one
-// instance per client rather than per call and the choice belongs to whoever built
-// the client: pass core.MonotonicWindow through WithSignWindow when repeat calls
-// are expected.
+// Safe to call in a loop. The request has no varying field, but every request
+// signature carries a fresh RFC 9421 nonce, so two calls to the same Exchange inside
+// one wall-clock second still sign different bytes and a peer screening replays on
+// (key id, signature) accepts both.
 func (c *Client) GetAccountStatus(
 	ctx context.Context, req *forav1.GetAccountStatusRequest,
 ) (*forav1.GetAccountStatusResponse, error) {
