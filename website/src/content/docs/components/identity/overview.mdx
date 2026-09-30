@@ -47,11 +47,15 @@ The account row is the authoritative record of registration, and sign-up reserve
 | `/.well-known/fora-key-revocations.json` | Key revocation list | `application/json` |
 | `/.well-known/fora.json` | FORA role marker | `application/json` |
 
-Two properties of the directory are load-bearing. It is assembled as a real JWK Set with a JOSE library rather than marshalled from FORA's protobuf. The audience is any Web Bot Auth verifier on the open internet, and those implement RFC 7517, not `fora.v1`. And its **order matters**: keys come out newest-first, and a consumer resolving an identity without a known thumbprint takes the first active key in document order.
+Two properties of the directory are load-bearing. It is assembled as a real JWK Set with a JOSE library rather than marshalled from FORA's protobuf. The audience is any Web Bot Auth verifier on the open internet, and those implement RFC 7517, not `fora.v1`. And keys come out **newest-first**, which matters for the signing tie-break described below.
 
 Keys carry no `kid`. Identity is the RFC 7638 thumbprint, so entries are deduplicated on the JWK `x` member actually emitted into the document. The FORA-specific `not_before` / `not_after` validity window is spliced onto each key as an extension member, which a generic verifier ignores.
 
-A verifier and this service have to agree on which key is current, so the rule is worth stating exactly. A key is active when the present instant falls inside the **half-open** window `[not_before, not_after)`. Where more than one key qualifies — which is the normal state during a rotation overlap — the **first active key in document order** is the current one, and document order is newest-first. The SDK resolvers apply that rule on the consumer side and ship conformance vectors for it.
+A key is active when the present instant falls inside the **half-open** window `[not_before, not_after)`. During a rotation overlap more than one key is active. Which key is used then depends on the operation:
+
+- **Signing.** The service signs with the first active key in document order, so the newest key is used. This is an SDK tie-break, not a protocol rule.
+- **HTTP signature verification.** The verifier uses the key whose RFC 7638 thumbprint matches the signature's `keyid`, if that key is active and not revoked. Document order plays no part. A signature made with the older key stays valid until that key's window closes.
+- **Detached acceptance verification.** A detached acceptance carries no `keyid`, so the verifier tries every Ed25519 key that is currently valid in the requester's directory.
 
 The agent's `fora.json` is a role marker and nothing more: `ver`, `role: ROLE_AGENT`, `domain`. The publisher-only fields do not apply to an agent, and **no identity key appears in it** — keys live in the Web Bot Auth directory. A verifier resolves that directory from the covered `Signature-Agent` header, so the overlay is never an input to authentication.
 
@@ -140,7 +144,7 @@ The interface hands back a `crypto.Signer` rather than the private key, so a str
 
 Keys are addressed by `{subdomain, thumbprint}` together. The agent's durable identity is its subdomain; the thumbprint selects which of that agent's keys is meant. An account keyed on the thumbprint alone would be orphaned by the agent's first rotation.
 
-Both halves of that pair are public — they are what the directory publishes — so knowing them entitles nobody to anything. Export is reached from the operator CLI rather than any public endpoint, so there is no untrusted caller to authorize and no request-supplied subdomain to abuse. A developer can export and graduate to self-custody.
+Both halves of that pair are public — they are what the directory publishes — so knowing them entitles nobody to anything. There is no public endpoint that returns key material. At the implementation baseline the operator CLI offers only `revoke`; it has no export command. An export alone would not give self-custody anyway, because the custody store would still hold a copy of the key. To move an agent to self-custody, rotate it to a key the service never held.
 
 ## Rotation and revocation
 
@@ -154,7 +158,9 @@ Because an account is linked to the agent's subdomain rather than to a single ke
 A consumer that meets an unknown thumbprint treats it as *unknown*, not as *revoked*. Dropping a key from the directory therefore revokes nothing. Emergency revocation must publish to the revocation list.
 </Aside>
 
-Both paths call an invalidation hook that drops the subdomain's cached documents, so a key change shows up in the served directory and revocation list at once instead of waiting out a cache TTL.
+Rotation runs inside the server process, so it clears the cached documents and the new key shows up in the served directory at once. Revocation through the operator CLI is different. At the implementation baseline, the CLI runs as a separate process and cannot clear the running server's cache. The service can keep serving the old directory and revocation list for up to 300 seconds, the default cache TTL.
+
+That is only the publication delay. Each verifier sees the change when it next fetches the directory or revocation list, and that depends on its own cache. The total time until every verifier rejects a revoked key can therefore be longer, and no single bound applies.
 
 ## Deployment shape
 
