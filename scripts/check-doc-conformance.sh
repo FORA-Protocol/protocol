@@ -185,6 +185,12 @@ done
 # the `fora-ai-buyer` user-agent, or the ordinary word "re·seller". Those are
 # protocol facts, not synonym drift. Each entry is "pattern#canonical" (`#`
 # delimiter, since the pattern itself contains `|`).
+#
+# The canonical term is the one the proto uses, and it is the right fix on a
+# spec or reference page. On a publisher-facing page it is the wrong register:
+# nobody writing for a revenue lead should put "Requester" in a sentence. Use
+# "licensee" there, which is what the music walkthrough settled on, and keep
+# Requester/Provider for prose that is already talking about the wire.
 bound_l='(^|[^A-Za-z0-9._/-])'
 bound_r='([^A-Za-z0-9._/-]|$)'
 vocab=(
@@ -196,7 +202,7 @@ for entry in "${vocab[@]}"; do
   assert_ere "$p" || { status=1; continue; }
   hits=$(grep -rEn -- "$p" "${roots[@]}" 2>/dev/null | grep -Ev "$exclude_re" || true)
   if [ -n "$hits" ]; then
-    echo "::error::non-canonical role vocabulary (prose) — use '${canon}' (Requester/Provider are the standard role terms):"
+    echo "::error::non-canonical role vocabulary (prose) — use '${canon}', or 'licensee' on a publisher-facing page (Requester/Provider are the wire's role terms):"
     echo "$hits"
     status=1
   fi
