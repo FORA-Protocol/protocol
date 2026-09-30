@@ -6,6 +6,8 @@ name: docs-ci
 #     an unknown proto reference)
 #   - npm run build: astro build runs the remark-proto guard (build FAILS on an
 #     unknown reference / hand-typed enum table) and starlight-links-validator
+#   - npm run routes:check: a URL that main served must still answer, either as
+#     a route or as a rule in website/redirects.json (applied by amplify.yml)
 # Everything reads the committed gen/descriptor.binpb — no buf, no Go, no prebuild.
 # Complements proto-ci (which gates the committed descriptor against the proto);
 # together they chain docs -> descriptor -> proto.
@@ -51,3 +53,12 @@ jobs:
 
       - name: build (remark guard + link validator)
         run: npm run build
+
+      # The link validator above only sees links inside the site. This sees the
+      # other half: a URL that main served and this branch does not. Needs main
+      # fetched, which the shallow checkout above does not provide.
+      - name: fetch main for the route comparison
+        run: git fetch --depth=1 origin main
+
+      - name: route retirement gate
+        run: npm run routes:check
