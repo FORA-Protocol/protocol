@@ -1,6 +1,6 @@
 # FORA Protocol Changelog
 
-## Unreleased
+## v1.0.8
 
 **Request signatures carry an RFC 9421 `nonce` (SDK fix; no wire change for
 verifiers).** Ed25519 signatures are deterministic, and `created` and `expires`
