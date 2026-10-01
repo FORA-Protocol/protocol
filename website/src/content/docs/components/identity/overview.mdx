@@ -19,7 +19,7 @@ The binary is two layers, and the split is deliberate:
 The core is independently useful — it provisions Web Bot Auth identity for any agent — and FORA is its first consumer.
 
 <Aside type="note" title="This page describes shipped code">
-Implementation baseline: the reference implementation at `a7061fce` (2026-09-29). This service replaced an earlier Python proxy that held one shared key and took an API key per caller; nothing of that design survives.
+Implementation baseline: the reference implementation at `cbf2d3a0` (2026-10-01). This service replaced an earlier Python proxy that held one shared key and took an API key per caller; nothing of that design survives.
 </Aside>
 
 ## Why an agent needs this at all
@@ -121,6 +121,16 @@ A few input details worth knowing:
 - `fora_discover` accepts `uris`, a free-form `query`, and `search_filters`, and needs at least one of the three. An empty filter object counts as absent. Offers are verified before the agent sees them, because an agent on this surface runs no verifier of its own.
 - `fora_execute` takes the offers unchanged, an `idempotency_key`, and `embed_content` (see below). A single offer is a batch of one.
 - `fora_register` takes the target Exchange and a `fields` object whose shape that Exchange publishes in its own `fora.json`. Submitting a registration accepts that Exchange's terms at the revision its digest names, and the call echoes the digest so the acceptance records which revision was agreed.
+
+## MCP transport
+
+The endpoint is `/mcp` and speaks MCP over Streamable HTTP. It is stateless: every request is served on its own, and no MCP session state is kept between requests.
+
+- **Protocol versions.** The endpoint accepts `2026-07-28`, `2025-11-25`, `2025-06-18`, `2025-03-26` and `2024-11-05`. A `2026-07-28` client starts with `server/discover` and sends no handshake. A client on an older version may send `initialize` first, but the endpoint does not require it. A request whose `Mcp-Protocol-Version` header names any other version is refused with `400`.
+- **No session.** The endpoint issues no `Mcp-Session-Id` and does not need one.
+- **POST only.** An authenticated `GET` or `DELETE` returns `405` with `Allow: POST`, so there is no server-to-client event stream and no session to delete. A JSON-RPC request is answered with one `application/json` body. A notification is accepted with an empty `202`.
+- **Load balancing.** Any instance can serve any request, so a load balancer needs no session affinity.
+- **Headers on `2026-07-28`.** Each request carries its method in the `Mcp-Method` header and, on a tool call, the tool name in `Mcp-Name`. It also carries its protocol version in the request's `_meta`. A request where any of these is missing, or does not match the body, is refused with `400`.
 
 ## Why the service fetches the content
 
