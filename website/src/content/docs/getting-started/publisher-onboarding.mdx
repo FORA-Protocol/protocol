@@ -6,7 +6,7 @@ description: "Register your site on the publisher console: publish one file, ins
 import { Aside, LinkButton } from '@astrojs/starlight/components';
 import { FORA_PUBLISHER_CONSOLE_URL } from 'astro:env/client';
 
-The publisher console takes your site from registration to its first sale. You tell it your domain and your terms, and it generates the two things that run on your side: a discovery file and an edge package for your CDN. You place one file and one function. From then on, AI agents pay for your pages and your readers are unaffected.
+The publisher console takes your site from registration to its first sale. You tell it your domain and your terms, and it generates the two things that run on your side: a discovery document and an edge package for your CDN. You place one file and one function. From then on, AI agents pay for your pages and your readers are unaffected.
 
 You generate no keys and you never push a catalog. The operator, the company that runs the console and the Exchange, imports your pages from your sitemap. Registering costs nothing. Start at the <a href={FORA_PUBLISHER_CONSOLE_URL}>publisher console</a>.
 
@@ -47,21 +47,25 @@ If the domain is already registered to another publisher, the console says so. I
 
 ### Publish a file
 
-The console generates your `fora.json`. Download it and serve it, unchanged, at `https://<your-domain>/.well-known/fora.json`, then press "Check".
+The console generates your `fora.json`. Download it and serve it, unchanged, at `https://<your-domain>/.well-known/fora.json`. The console checks for it as soon as you open this step, and "Next" unlocks once the file is found and matches.
 
-The file proves that the domain is yours. It also names the Exchange that sells access to your pages, the account that gets paid, and the operator's catalog contributor, which imports your pages (see [Keys and your catalog](#keys-and-your-catalog)). The [fora.json example](/reference/fora-json-example/) explains each field.
+The file proves that the domain is yours. It also names the Exchange that sells access to your pages, the account that gets paid, and the operator's catalog contributor, which imports your pages (see [Keys and your catalog](#keys-and-your-catalog)). The [fora.json example](/reference/fora-json-example/) describes the standard fields. The account that gets paid is an entry of the operator's own, in the `ext` of the Exchange's entry, which the example does not cover.
 
 The check reads the file from your domain. It does not test delivery through your CDN; the next step checks part of that. If the file does not match yet, the console says why. The fix is always the same: serve the downloaded file exactly as it is, then press "Check again".
 
 ### Install the package
 
-The package is the one function you place. It runs in front of your licensed paths: it lets people and search crawlers through, refuses AI agents that have no license, and accepts an agent that comes back with the signed address the Exchange gave it. The console builds it for your domain, with your settings already in it. It holds no secret; it fetches the Exchange's public keys.
+The package is the one function you place. It runs in front of your licensed paths: it lets people and search crawlers through, refuses AI agents that identify themselves and have no license, and accepts an agent that comes back with the signed address the Exchange gave it. The console builds it for your domain, with your settings already in it. It holds no secret; it fetches the Exchange's public keys.
+
+The package recognizes AI agents mainly by the name they give, so a scraper that passes itself off as a browser or a search crawler gets through. Keep your CDN's bot protection for those (see [Bot Detection](/components/edge-function/bot-detection/#bot-classification-tiers)), but do not let it refuse AI agents that announce themselves: that refuses paying agents too, and the console's package check cannot pass.
 
 The console shows the commands for your network.
 
 #### Cloudflare
 
 Download `fora-cloudflare.zip`. It holds the Worker and its `wrangler.toml`, with your settings and your route already filled in. Unpack it and deploy it with Wrangler.
+
+The route covers your whole hostname, because the Worker also serves your discovery document at `/.well-known/fora.json`, built from the settings in the package. From then on, that copy is the one your domain serves.
 
 <Aside type="caution">
 Keep your DNS records proxied through Cloudflare, or requests never reach the Worker.
@@ -75,13 +79,15 @@ Download `fora-lambda-edge.zip`. It holds the function, with your settings besid
 2. Publish a version of it. CloudFront attaches a published version, never `$LATEST`.
 3. In your distribution, edit the cache behavior for your licensed paths and add that version as a viewer-request association.
 
+The function also answers `/.well-known/fora.json` from its settings, but only for requests that reach it. If the cache behavior you attached it to also handles that path, as the default behavior does, its copy is the one your domain serves; otherwise your origin keeps serving your file.
+
 <Aside type="caution">
 Leave the distribution's own signed-URL check off. The function does the checking.
 </Aside>
 
 #### Check the package
 
-Once the package is deployed, the console checks your live site, asking both as an AI agent and as an ordinary browser. It confirms three things: an agent without a license is refused, people and search crawlers are let through, and your discovery document is still served. You can go on once the package is confirmed and no check has failed. These checks do not complete a paid delivery.
+Once the package is deployed, the console checks your live site, asking both as an AI agent and as an ordinary browser. It confirms three things: an AI agent that identifies itself and has no license is refused, people and search crawlers are let through, and your discovery document is still served. You can go on once the package is confirmed and no check has failed. These checks do not complete a paid delivery.
 
 If your discovery document stops answering after you deploy, the package's routes have to cover the well-known paths as well.
 
@@ -97,7 +103,7 @@ If your site publishes an RSL licensing file, the form opens on the terms it sta
 
 Pages of your domain that were in the catalog before automatic import, for example from a feed, keep their own terms unless you tick "Replace the terms of pages that are already in the catalog". Their titles and descriptions are kept either way.
 
-Press "Finish setup". The console reads your file once more and saves the domain. The domain's page then shows your terms and "Your setup files", which you can download again. The console does not let you change the terms yet.
+Press "Finish setup". The console reads your discovery document once more and saves the domain. The domain's page then shows your terms and "Your setup files", which you can download again. The console does not let you change the terms yet.
 
 ## After setup
 
@@ -105,14 +111,14 @@ The operator imports your pages on a schedule. Each run reads your sitemap and l
 
 The rest of the console shows what your pages earn:
 
-- "Overview" totals your sales for a period: transactions, gross, the exchange fee and net.
-- "Transactions" lists each sale, filterable by domain and by usage-report status. On a sale's page, "Verify" checks both Ed25519 signatures in your browser: the Exchange's on the offer and the agent's on its acceptance.
+- "Overview" totals your sales for a period: transactions, gross, the Exchange fee and net.
+- "Transactions" lists each sale, filterable by domain and by usage-report status. On a sale's page, "Verify" checks both Ed25519 signatures in your browser, against the keys recorded with the transaction: the Exchange's on the offer and the agent's on its acceptance.
 - "Income" shows daily totals, with "Download CSV".
 - "My domains" lists your domains and your terms with the Exchange, such as its fee. The operator sets those.
 
 ## Keys and your catalog
 
-You generate no keys and upload none, and you never push your catalog yourself. The operator holds the catalog contributor key that imports your pages, and your `fora.json` authorizes the operator's contributor to do that for your domain. Keep the file as the console generated it: removing that authorization stops the import, and nothing on the Exchange side can restore it. The edge package holds no secret either; it fetches the Exchange's public keys.
+You generate no keys and upload none, and you never push your catalog yourself. The operator holds the catalog contributor key that imports your pages, and your discovery document authorizes the operator's contributor to do that for your domain. Serve it as the console generated it: removing that authorization stops the import, and nothing on the Exchange side can restore it. Where the edge package answers `/.well-known/fora.json` (see [Install the package](#install-the-package)), the document comes from the package's settings, so editing your file changes nothing there: a change goes into those settings, and the package is deployed again. The edge package holds no secret either; it fetches the Exchange's public keys.
 
 ## If your network is not supported
 
@@ -122,7 +128,7 @@ The console sets up sites served by Cloudflare or AWS CloudFront. For any other 
 
 A publisher console is the operator's tool, not part of the protocol. Where an operator runs FORA without one, a publisher sets up the same pieces directly:
 
-- The discovery file: the [fora.json example](/reference/fora-json-example/) and the field reference in [Exchange Manifest](/protocol/exchange-manifest/).
+- The discovery document: the [fora.json example](/reference/fora-json-example/) and the field reference in [Exchange Manifest](/protocol/exchange-manifest/).
 - The edge function: [Edge function deployment](/components/edge-function/deployment/).
 - The catalog, pushed with a contributor key that the publisher's `fora.json` authorizes: [Pushing with the Publisher SDK](/components/content-ingestion/sources/#pushing-with-the-publisher-sdk) and the [JSONL Ingestion Feed](/protocol/jsonl-ingestion/).
 - Self-attestation with the publisher's own signing key: [Content Attestation](/protocol/content-attestation/).
