@@ -34,6 +34,20 @@ export default defineConfig({
 				access: 'public',
 				default: 'https://pub-onboarding.demo.fora-protocol.org/onboarding',
 			}),
+			// Where the onboarding page's register button and the publisher guide
+			// send a publisher: the console root, which signs a visitor in, or lets
+			// them create an account, before anything else. The default is the
+			// console's address on fora-protocol.org, which redirects to wherever
+			// the console runs, so moving the console changes that redirect rather
+			// than this site. Astro validates a value set in the build environment
+			// but never the default, so the default must itself be an https URL.
+			FORA_PUBLISHER_CONSOLE_URL: envField.string({
+				context: 'client',
+				access: 'public',
+				url: true,
+				startsWith: 'https://',
+				default: 'https://console.fora-protocol.org/',
+			}),
 			// Where a publisher behind an unsupported CDN reaches us.
 			FORA_PUBLISHER_CONTACT_URL: envField.string({
 				context: 'client',
