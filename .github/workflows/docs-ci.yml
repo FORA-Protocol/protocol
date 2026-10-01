@@ -46,9 +46,6 @@ jobs:
 
       - name: Debug OIDC claims
         run: |
-          echo "GitHub Context:"
-          echo '${{ toJson(github) }}' | jq .
-          echo ""
           echo "Event: ${{ github.event_name }}"
           echo "Ref: ${{ github.ref }}"
           echo "SHA: ${{ github.sha }}"
