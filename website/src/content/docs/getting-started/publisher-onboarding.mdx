@@ -1,246 +1,139 @@
 ---
-title: "Provider Onboarding"
-description: "ACME-style domain verification, CDN key provisioning, and catalog contributor setup for FORA providers"
+title: "Publisher Onboarding"
+description: "Register your site on the publisher console: publish one file, install one package on your CDN and set your terms. The operator imports your catalog from your sitemap."
 ---
 
-## Overview
+import { Aside, LinkButton } from '@astrojs/starlight/components';
+import { FORA_PUBLISHER_CONSOLE_URL } from 'astro:env/client';
 
-Provider onboarding has three steps:
+The publisher console takes your site from registration to its first sale. You tell it your domain and your terms, and it generates the two things that run on your side: a discovery document and an edge package for your CDN. You place one file and one function. From then on, AI agents pay for your pages and your readers are unaffected.
 
-1. **Domain verification** -- prove you control the domain (ACME HTTP-01 pattern)
-2. **CDN signing key provisioning** -- get signing keys into the Exchange
-3. **Catalog contributor authorization** -- declare who can push resource metadata on your behalf
+You generate no keys and you never push a catalog. The operator, the company that runs the console and the Exchange, imports your pages from your sitemap. Registering costs nothing. Start at the <a href={FORA_PUBLISHER_CONSOLE_URL}>publisher console</a>.
 
-Both steps can be completed in under an hour using `fora-cli`.
+## Before you start
 
-## Two Deployment Models
+- Your domain is served by Cloudflare or AWS CloudFront, the two networks the console sets up. For any other network, see [If your network is not supported](#if-your-network-is-not-supported).
+- You can publish a file at `/.well-known/fora.json` on that domain.
+- You can deploy to your CDN account: a Worker on Cloudflare, or a Lambda@Edge function on CloudFront.
+- Your site has a sitemap, at `/sitemap.xml` or named on a `Sitemap:` line in `robots.txt`. The console finds it by itself. Without one, your pages are not imported automatically.
 
-### Model A: Exchange-Managed (Default)
+## Create your account
 
-The provider grants CDN access during onboarding. The Exchange generates keys, configures the CDN, and rotates keys automatically on a 90-day schedule.
+<LinkButton href={FORA_PUBLISHER_CONSOLE_URL}>Register on the publisher console</LinkButton>
 
-**Best for**: Single-exchange providers who want zero operational overhead.
+The console sends you to its sign-in page first, and that page also lets you create an account. Register with an email address and a password, or with a Google account.
 
-**What you provide**: IAM role (CloudFront), API credentials (Fastly).
+An account made with an email address needs confirming. Open the message you receive, follow the link, then sign in again. Until you do, the console shows only "Please confirm your email address". A Google account arrives already confirmed.
 
-### Model B: Provider-Managed (Opt-In)
+## Add your domain
 
-The provider generates keys locally, pushes them to each Exchange via `fora-cli`, and configures their own CDN.
+Once you are signed in, the console offers "Add your first domain". Press "Add domain" to start. The setup has five steps: "Your business", "Your domain", "Publish a file", "Install the package" and "Set your terms".
 
-**Best for**: Multi-exchange providers who need control over key distribution.
+<Aside type="note">
+Nothing about your domain is saved until you press "Finish setup" in the last step. Only your business name is kept along the way.
+</Aside>
 
-## Domain Verification Flow
+### Your business
 
-The flow adapts the ACME HTTP-01 challenge used by Let's Encrypt.
+The console asks for your business name once, before your first domain. It is the name your payments are made out to, and you cannot change it in the console later.
 
-```
-fora-cli                    Exchange                   Provider CDN
-    |                             |                           |
-    |  1. RequestDomainVerification                           |
-    |     { domain: "example.com" }                           |
-    |------------------------------>                          |
-    |                             |  Generate challenge token |
-    |                             |                           |
-    |  2. DomainVerificationChallenge                         |
-    |     { token: "abc123...",                               |
-    |       expires_at: +10min }                              |
-    |<------------------------------                          |
-    |                             |                           |
-    |  3. Place token at                                      |
-    |     /.well-known/fora-verify/{token}                   |
-    |---------------------------------------------------->    |
-    |                             |                           |
-    |  4. ConfirmDomainVerification                           |
-    |------------------------------>                          |
-    |                             |  5. Fetch verification_url|
-    |                             |---------------------------->
-    |                             |  6. Verify token + check  |
-    |                             |     fora.json            |
-    |                             |                           |
-    |  7. DomainVerificationResult                            |
-    |     { verified: true, key_id: "k-2026-03" }            |
-    |<------------------------------                          |
-```
+### Your domain
 
-**Double protection**: The Exchange checks both the ACME challenge (domain control) and `fora.json` authorization (exchange authorization). Both must pass.
+Enter the hostname only, such as `www.example.com`, with no `https://` in front and no path after it, then press "Check". The console works out which CDN serves the domain, because that decides how the rest of the setup goes.
 
-## fora-cli Commands
+Under "Licensed paths", list the parts of the domain you license, separated by commas, like `/articles/, /archive/`. Leave the field empty to license the whole domain.
 
-### Generate a signing key
+If the domain is already registered to another publisher, the console says so. If it is yours, ask the operator to transfer it.
 
-```bash
-# A code-capable edge (Cloudflare, Fastly, Lambda@Edge) verifies Ed25519
-fora-cli key generate --cdn edge-ed25519
+### Publish a file
 
-# AWS CloudFront verifies RSA natively, via a trusted key group
-fora-cli key generate --cdn cloudfront --algorithm rsa-2048
-```
+The console generates your `fora.json`. Download it and serve it, unchanged, at `https://<your-domain>/.well-known/fora.json`. The console checks for it as soon as you open this step, and "Next" unlocks once the file is found and matches.
 
-### Push key to an Exchange
+The file proves that the domain is yours. It also names the Exchange that sells access to your pages, the account that gets paid, and the operator's catalog contributor, which imports your pages (see [Keys and your catalog](#keys-and-your-catalog)). The [fora.json example](/reference/fora-json-example/) describes the standard fields. The account that gets paid is an entry of the operator's own, in the `ext` of the Exchange's entry, which the example does not cover.
 
-Includes ACME domain verification automatically:
+The check reads the file from your domain. It does not test delivery through your CDN; the next step checks part of that. If the file does not match yet, the console says why. The fix is always the same: serve the downloaded file exactly as it is, then press "Check again".
 
-```bash
-fora-cli key push \
-  --exchange mp.ssp.com \
-  --domain techcrunch.com \
-  --cdn cloudfront \
-  --public-key ./fora-cloudfront-public.pem
-```
+### Install the package
 
-The push carries the public half only -- it is what
-[`DomainVerificationConfirmation.signing_key`](/reference/proto-fora/#domainverificationconfirmation)
-registers. The Exchange signs delivery URLs, so under Model B it also needs the
-private half; that is delivered to the Exchange operator through their key
-provisioning channel, never through this RPC. Under Model A the Exchange
-generates both halves itself and the question does not arise.
+The package is the one function you place. It runs in front of your licensed paths: it lets people and search crawlers through, refuses AI agents that identify themselves and have no license, and accepts an agent that comes back with the signed address the Exchange gave it. The console builds it for your domain, with your settings already in it. It holds no secret; it fetches the Exchange's public keys.
 
-Output:
-```
-Requesting domain verification for techcrunch.com...
-Challenge token: abc123def456
-Placing token at /.well-known/fora-verify/abc123def456
-  -> Edge function KV write: OK
-Confirming domain verification...
-  -> Domain verified: techcrunch.com
-  -> Key registered: k-2026-03-18-cf
-  -> Valid until: 2026-06-18T00:00:00Z
-Done.
-```
+The package recognizes AI agents mainly by the name they give, so a scraper that passes itself off as a browser or a search crawler gets through. Keep your CDN's bot protection for those (see [Bot Detection](/components/edge-function/bot-detection/#bot-classification-tiers)), but do not let it refuse AI agents that announce themselves: that refuses paying agents too, and the console's package check cannot pass.
 
-### Rotate a key
+The console shows the commands for your network.
 
-```bash
-fora-cli key rotate \
-  --exchange mp.ssp.com \
-  --cdn cloudfront \
-  --drain-minutes 10
-```
+#### Cloudflare
 
-Four-phase zero-downtime rotation: PREPARE (generate new key, push to CDN) -> ACTIVATE (switch signer) -> DRAIN (wait for old URLs to expire) -> CLEANUP (remove old key).
+Download `fora-cloudflare.zip`. It holds the Worker and its `wrangler.toml`, with your settings and your route already filled in. Unpack it and deploy it with Wrangler.
 
-### Check key status
+The route covers your whole hostname, because the Worker also serves your discovery document at `/.well-known/fora.json`, built from the settings in the package. From then on, that copy is the one your domain serves.
 
-```bash
-fora-cli key status --exchange mp.ssp.com --domain techcrunch.com
-```
+<Aside type="caution">
+Keep your DNS records proxied through Cloudflare, or requests never reach the Worker.
+</Aside>
 
-### Emergency revocation
+#### AWS CloudFront
 
-```bash
-fora-cli key revoke --exchange mp.ssp.com --key-id k-2026-03-18-cf
-```
+Download `fora-lambda-edge.zip`. It holds the function, with your settings beside it, because Lambda@Edge takes no environment variables. Then:
 
-## Configure fora.json
+1. Create the function from the package in the `us-east-1` region, with a role that Lambda@Edge can assume.
+2. Publish a version of it. CloudFront attaches a published version, never `$LATEST`.
+3. In your distribution, edit the cache behavior for your licensed paths and add that version as a viewer-request association.
 
-Set up `/.well-known/fora.json` to authorize Exchanges and catalog contributors:
+The function also answers `/.well-known/fora.json` from its settings, but only for requests that reach it. If the cache behavior you attached it to also handles that path, as the default behavior does, its copy is the one your domain serves; otherwise your origin keeps serving your file.
 
-```json
-{
-  "ver": "1.0",
-  "provider": "nytimes.com",
-  "contact": "licensing@nytimes.com",
-  "exchanges": [
-    {
-      "domain": "mp.ssp-alpha.com",
-      "endpoint": "https://mp.ssp-alpha.com/fora/v1",
-      "relationship": "DIRECT"
-    }
-  ],
-  "catalog_contributors": [
-    {
-      "domain": "doubleverify.com",
-      "relationship": "verifier"
-    },
-    {
-      "domain": "gumgum.com",
-      "relationship": "verifier"
-    }
-  ],
-  "supported_profiles": ["fora-news-v1"]
-}
-```
+<Aside type="caution">
+Leave the distribution's own signed-URL check off. The function does the checking.
+</Aside>
 
-The `catalog_contributors` field authorizes third parties to push attestations and catalog metadata for your resources via `CatalogService.PushResources`.
+#### Check the package
 
-## Push Your Catalog with the SDK
+Once the package is deployed, the console checks your live site, asking both as an AI agent and as an ordinary browser. It confirms three things: an AI agent that identifies itself and has no license is refused, people and search crawlers are let through, and your discovery document is still served. You can go on once the package is confirmed and no check has failed. These checks do not complete a paid delivery.
 
-Whatever your source material — a JSONL feed, a sitemap, an RSL file, a crawl, a CMS plugin — it converges on one `ResourceEntry` per resource, and the SDK owns the rest: the shape, the Exchange's own validation run for you to call before you push, and the push itself.
+If your discovery document stops answering after you deploy, the package's routes have to cover the well-known paths as well.
 
-1. Build a `ResourceEntry` per resource: `domain` (your bare host), `path` (an absolute URL path), the metadata you have, and one or more `terms` — every term carries a `pricing` (`model: FREE` is stated, never implied).
-2. Pre-check it with `validate_resource_entry` (Python), `validateResourceEntry` (TypeScript) or `helpers.ValidateResourceEntry` (Go). The verdict lists every rule the Exchange would refuse the entry on, with its field path, and the warnings the accepted terms would carry — the exact strings that come back in `PushResourcesResponse.warnings`. Token spellings and aliases (`generative-ai` → `ai-input`, `de` → `DE`) are canonicalised for you — which is also why a term must stay disjoint **after** canonicalisation: `permitted: ["scrape"]` with `prohibited: ["crawl"]` names one token on both sides and is refused.
-3. Push with the catalog client — `fora_sdk.client.CatalogClient`, `createCatalogClient`, `connect.NewCatalogClient` — built against the CatalogService address you have configured for that Exchange, and your contributor signing key. The address is configuration, the way the agent client's home Exchange is: nobody but you named it, so the client dials only what you gave it. An Exchange MAY advertise the address as `catalog_endpoint` in its `/.well-known/fora.json`, and a deployment that reads it from there MUST itself check the binding that field states — same host and port as the manifest, or a subdomain of that host on that port, no userinfo — before dialling it; a manifest naming an unrelated host would otherwise redirect a signed push to a party the signature never covered. Set `exchange` to the Exchange's bare domain, `tenant_id` to your tenant and `caller_id` to your domain; the client stamps `ver`, signs the request with your key and refuses before signing a request whose `exchange` is not a bare domain — the shape the wire rule admits, which is narrower than a usable host.
+### Set your terms
 
-A push is all-or-nothing: an entry that fails a hard rule refuses the whole submission with the offending entry named, and nothing is persisted. Warnings never block. The pre-check is advice about what the Exchange will say; the Exchange re-runs both tiers on every push and its verdict decides. Worked examples in all three languages are in [Source 7: CatalogService API Push](/components/content-ingestion/sources/#source-7-catalogservice-api-push); the feed format is in [JSONL Ingestion Feed](/protocol/jsonl-ingestion/).
+Choose what an AI agent may do with your pages and what it pays. This is what an agent is offered when it asks for one of them.
 
-## Self-Attestation Keys (Optional)
+- Price: "Free" or "Charge". Charge fills in a default price per unit, in the Exchange's currency, and you can change it.
+- Uses: "Search" (listing and linking your pages), "AI input" (answers and retrieval, quoting your pages) and "AI training" (training a model on your pages).
+- Attribution: "Required" means every use must credit you.
 
-If you want to self-attest resources (Level 1 verification), publish your Ed25519 signing keys in your WBA directory — a JWK Set served at `/.well-known/http-message-signatures-directory`. Keys live here, not in `fora.json`, and each is identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`) rather than a label:
+If your site publishes an RSL licensing file, the form opens on the terms it states. Otherwise it opens on free, with search and AI input allowed and AI training not.
 
-```json
-// GET /.well-known/http-message-signatures-directory
-// Content-Type: application/jwk-set+json
-{
-  "keys": [
-    {
-      "kty": "OKP",
-      "crv": "Ed25519",
-      "use": "sig",
-      "alg": "EdDSA",
-      "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
-      "not_before": "2026-01-01T00:00:00Z",
-      "not_after": "2026-12-31T23:59:59Z"
-    }
-  ]
-}
-```
+Pages of your domain that were in the catalog before automatic import, for example from a feed, keep their own terms unless you tick "Replace the terms of pages that are already in the catalog". Their titles and descriptions are kept either way.
 
-The claims schema stays in your `fora.json` (`role=ROLE_PUBLISHER`, the same file as the previous step) under `ext["fora.attestation.claims_schema"]`:
+Press "Finish setup". The console reads your discovery document once more and saves the domain. The domain's page then shows your terms and "Your setup files", which you can download again. The console does not let you change the terms yet.
 
-```json
-{
-  "ver": "1.0",
-  "role": "ROLE_PUBLISHER",
-  "domain": "nytimes.com",
-  "ext": {
-    "fora.attestation.claims_schema": {
-      "content_hash": {
-        "type": "string",
-        "description": "SHA-256 hash of delivered content bytes"
-      },
-      "estimated_quantity": {
-        "type": "integer",
-        "description": "Token count computed by NYT CMS"
-      }
-    }
-  }
-}
-```
+## After setup
 
-See [Content Attestation](/protocol/content-attestation/) for the full attestation system design.
+The operator imports your pages on a schedule. Each run reads your sitemap and lists the pages on your domain that fall within your licensed paths, with the terms you set. A page whose address carries a query string is left out. Imported pages appear under "Catalog" in the console; until the first import has run, it says "Nothing is listed yet."
 
-## CDN Key Types
+The rest of the console shows what your pages earn:
 
-| Delivery endpoint | `cdn_type` | Key Type | Algorithm |
-|---|---|---|---|
-| Edge function (Cloudflare, Fastly, Lambda@Edge) | `edge-ed25519` | Asymmetric | Ed25519 |
-| AWS CloudFront | `cloudfront` | Asymmetric | RSA-2048 |
+- "Overview" totals your sales for a period: transactions, gross, the Exchange fee and net.
+- "Transactions" lists each sale, filterable by domain and by usage-report status. On a sale's page, "Verify" checks both Ed25519 signatures in your browser, against the keys recorded with the transaction: the Exchange's on the offer and the agent's on its acceptance.
+- "Income" shows daily totals, with "Download CSV".
+- "My domains" lists your domains and your terms with the Exchange, such as its fee. The operator sets those.
 
-Both are asymmetric, so the separation is universal: the Exchange holds the private key for signing and the delivery endpoint holds only the public key for verification. What differs is whether the delivery endpoint can run code — and therefore whether it can enforce agent identity binding. CloudFront verifies natively but cannot, so its URLs are bearer credentials; an edge function does both.
+## Keys and your catalog
 
-## Onboarding Checklist
+You generate no keys and upload none, and you never push your catalog yourself. The operator holds the catalog contributor key that imports your pages, and your discovery document authorizes the operator's contributor to do that for your domain. Serve it as the console generated it: removing that authorization stops the import, and nothing on the Exchange side can restore it. Where the edge package answers `/.well-known/fora.json` (see [Install the package](#install-the-package)), the document comes from the package's settings, so editing your file changes nothing there: a change goes into those settings, and the package is deployed again. The edge package holds no secret either; it fetches the Exchange's public keys.
 
-| Step | Action | Time |
-|---|---|---|
-| 1 | Deploy FORA edge function on CDN | 15 min |
-| 2 | Configure `fora.json` with authorized Exchange(s) | 5 min |
-| 3 | Generate and push signing key (or grant CDN access) | 5--10 min |
-| 4 | (Optional) Add `catalog_contributors` to `fora.json` | 5 min |
-| 5 | (Optional) Publish self-attestation keys in your WBA directory | 10 min |
-| **Total** | | **~30--45 min** |
+## If your network is not supported
 
-## Next Steps
+The console sets up sites served by Cloudflare or AWS CloudFront. For any other network, or when it cannot tell which network serves your domain, it stops at the domain step and shows an address to write to. A site behind a service that hides its origin can end up here too, so write even if you do use one of the two.
 
-- [Content Attestation](/protocol/content-attestation/) -- set up content attestation after onboarding
-- [For Providers](/getting-started/for-providers/) -- provider value proposition overview
-- [Proto: FORA v1](/reference/proto-fora/) -- `DomainVerification*` message reference
+## Without a publisher console
+
+A publisher console is the operator's tool, not part of the protocol. Where an operator runs FORA without one, a publisher sets up the same pieces directly:
+
+- The discovery document: the [fora.json example](/reference/fora-json-example/) and the field reference in [Exchange Manifest](/protocol/exchange-manifest/).
+- The edge function: [Edge function deployment](/components/edge-function/deployment/).
+- The catalog, pushed with a contributor key that the publisher's `fora.json` authorizes: [Pushing with the Publisher SDK](/components/content-ingestion/sources/#pushing-with-the-publisher-sdk) and the [JSONL Ingestion Feed](/protocol/jsonl-ingestion/).
+- Self-attestation with the publisher's own signing key: [Content Attestation](/protocol/content-attestation/).
+
+## Next steps
+
+- [How Money Flows](/getting-started/how-money-flows/) — how a sale is priced, settled and paid out
+- [Live Demo: First License](/getting-started/poc-walkthrough/) — an AI agent finding, licensing and using a page

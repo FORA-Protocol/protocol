@@ -571,7 +571,7 @@ Nothing in this demo is specific to Harmonia. Each line of its feed describes th
 
 The publisher, or a catalog contributor it authorizes, pushes the feed to an Exchange. The Exchange turns each term into a signed offer, and the Broker builds its search index from the `music.*` fields in `ext` of the same feed. These fields follow the [fora-music-v1 profile](/protocol/ext-music/), which defines each field and the search filters an agent can send.
 
-The Exchange can be run for you by an operator, or you can run your own. See [Deployment Models](/architecture/deployment-models/) for the options, [Publisher Onboarding](/getting-started/publisher-onboarding/) for the setup, and [JSONL Ingestion](/protocol/jsonl-ingestion/) for the feed format.
+The Exchange can be run for you by an operator, or you can run your own. See [Deployment Models](/architecture/deployment-models/) for the options, [Publisher Onboarding](/getting-started/publisher-onboarding/#without-a-publisher-console) for what a publisher sets up to push its own feed, and [JSONL Ingestion](/protocol/jsonl-ingestion/) for the feed format.
 
 ## Further reading
 
@@ -580,7 +580,7 @@ The Exchange can be run for you by an operator, or you can run your own. See [De
 - [Transaction Flow](/protocol/transaction-flow/) — every message of discovery and purchase, with payloads
 - [Extension: fora-music-v1](/protocol/ext-music/) — the `music.*` fields and the music search filters
 - [Broker Overview](/components/broker/overview/) — how the Broker searches and ranks offers
-- [Publisher Onboarding](/getting-started/publisher-onboarding/) — how a catalog gets onto an Exchange
+- [CatalogService API Push](/components/content-ingestion/sources/#source-7-catalogservice-api-push) — how a publisher, or a contributor it authorizes, pushes a catalog to an Exchange
 
 ## Credits
 

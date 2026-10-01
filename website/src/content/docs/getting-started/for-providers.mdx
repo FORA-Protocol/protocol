@@ -159,7 +159,7 @@ As a provider, you can sign claims about your own resources — Level 1 self-att
 
 1. You compute a SHA-256 hash of the resource content at publish time (or catalog push time)
 2. You sign a `ResourceAttestation` with your Ed25519 key, covering the content hash, quantity estimates, and other claims
-3. The attestation is pushed to the Exchange via `CatalogService.PushResources` — the SDK's catalog client in Go, TypeScript or Python signs and sends it; run `ValidateResourceEntry` (or its Python/TypeScript twin) on each entry first, which the SDK also ships (see [Publisher Onboarding](/getting-started/publisher-onboarding/#push-your-catalog-with-the-sdk))
+3. The attestation is pushed to the Exchange via `CatalogService.PushResources` — the SDK's catalog client in Go, TypeScript or Python signs and sends it; run `ValidateResourceEntry` (or its Python/TypeScript twin) on each entry first, which the SDK also ships (see [Pushing with the Publisher SDK](/components/content-ingestion/sources/#pushing-with-the-publisher-sdk))
 4. When an agent fetches your resource, it can recompute the hash and verify the match
 
 <Aside type="note">
@@ -220,14 +220,14 @@ No. FORA handles any digital resource — articles, credit reports, court filing
 Keep it. `robots.txt` blocks training crawlers. FORA handles real-time inference access (the agent needs a resource right now to complete a task). Different traffic, different treatment.
 
 **What if a bot ignores the CDN block?**
-The edge function runs on your CDN — bots can't bypass it. No signed URL = no content. For API-backed resources, the Exchange controls access directly.
+The edge function runs on your CDN, so a bot cannot route around it, and an AI agent that announces itself gets no content without a signed URL. A scraper that disguises itself as a browser is your CDN bot protection's job: see [Bot Detection](/components/edge-function/bot-detection/#bot-classification-tiers). For API-backed resources, the Exchange controls access directly.
 
 **What if there's no extension profile for my resource type?**
 FORA's core protocol works without profiles. You get discovery, pricing, transactions, delivery, attestation, and disputes out of the box. Profiles add domain-specific metadata richness but aren't required.
 
 ## Next Steps
 
-1. **Web-facing content providers**: Ask your Exchange operator if they support FORA. If yes, they deploy everything. If no, [self-service deployment](/architecture/deployment-models/) takes 15 minutes.
+1. **Web-facing content providers**: Where your Exchange operator runs a publisher console, register your site there; [Publisher Onboarding](/getting-started/publisher-onboarding/) walks you through it. Otherwise, ask your Exchange operator if they support FORA. If yes, they deploy everything. If no, [self-service deployment](/architecture/deployment-models/) takes 15 minutes.
 2. **Data and API providers**: Contact a [Exchange operator](/getting-started/for-exchange-operators/) to discuss integration.
 3. **All providers**: Review [How Money Flows](/getting-started/how-money-flows/) to understand the billing chain and pricing models.
 

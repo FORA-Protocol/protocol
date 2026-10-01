@@ -2290,3 +2290,35 @@ of it.
 The shared-projection argument these faces rest on depends on this. One fetch decodes the
 whole well-known document and each face reads its own members off that single projection,
 which is only sound while every face is fetching the same path.
+
+## A publisher proves its domain with the manifest it serves
+
+The contract carries `RequestDomainVerification` and `ConfirmDomainVerification`, an
+ACME-style challenge in which the publisher places a token and the Exchange fetches it.
+The publisher guide does not walk through them, because the console publishers onboard
+through proves the domain another way: from the `fora.json` the domain serves. One fetch
+of that document answers three questions at once. It shows the publisher controls the
+domain, it names the account that gets paid, and it lists the catalog contributor the
+publisher authorizes. The account travels as a `resource_owner_id` key in the Exchange
+entry's `ext`, which the v1 contract does not define: the console writes it and its
+Exchange reads it. The Exchange reads the document fresh at registration and again at
+every catalog push, there through a short-lived cache, so the proof keeps being renewed
+rather than being a token checked once and remembered.
+
+The catalog key follows from who runs the import. Pages are imported automatically, by
+the operator, from the sitemap the console found at registration, so the operator holds
+the contributor key and serves its directory from a host of its own; the publisher
+generates and uploads no key. Authorization stays with the publisher: the manifest the
+domain serves names the operator's contributor host, and removing it refuses the imports
+that follow, once the Exchange's cached copy has expired, with nothing on the Exchange
+side able to restore it. What counts is the document the domain serves, not the file the
+console hands over: an edge package in front of `/.well-known/fora.json` answers that
+address itself, from the same values held in its settings, so there the authorization
+lives in those settings. The edge package carries no secret either; it fetches the
+Exchange's public keys.
+
+Neither choice removes anything from the contract. The domain-verification RPCs stay in
+v1 for deployments that verify that way, and a publisher that pushes its own catalog with
+its own key still can, because the push path accepts any contributor the manifest names.
+What changed is which path the publisher guide describes: the guide follows the console,
+not the other way round.
