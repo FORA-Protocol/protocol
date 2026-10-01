@@ -56,8 +56,14 @@ jobs:
           echo "Run ID: ${{ github.run_id }}"
           echo "Run Number: ${{ github.run_number }}"
           echo ""
-          echo "AWS Role ARN: ${{ secrets.AWS_ROLE_ARN }}"
-          echo "AWS Region: ${{ secrets.AWS_REGION }}"
+          echo "Checking OIDC token availability..."
+          if [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+            echo "OIDC token is available"
+            echo "Request URL: $ACTIONS_ID_TOKEN_REQUEST_URL"
+          else
+            echo "OIDC token is NOT available - this is the problem!"
+            echo "Check if workflow has 'permissions: id-token: write'"
+          fi
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@bfb7dd8bb70aaa904cdc53cb6bae2fd43e78589b # v4.0.2
@@ -65,7 +71,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
           audience: sts.amazonaws.com
-          disable-session-tags: true
+          role-skip-session-tagging: true
           role-duration-seconds: 900
 
       - uses: actions/setup-node@v4
