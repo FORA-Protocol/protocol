@@ -7,7 +7,7 @@ Three deployment models cover the full provider spectrum: enterprise providers w
 
 ## Provider Onboarding: Domain Verification (v1.0)
 
-Before any deployment model, the provider must prove domain ownership via ACME HTTP-01 style verification. This is handled by `fora-cli`:
+Before any deployment model, the provider must prove it controls its domain. With the contract's domain-verification RPCs, that is an ACME HTTP-01 style challenge, handled by `fora-cli`:
 
 1. Provider runs `fora-cli verify --domain techcrunch.com --exchange exchange.ssp-alpha.com`
 2. CLI calls `RequestDomainVerification` -- Exchange returns a challenge token
@@ -16,6 +16,8 @@ Before any deployment model, the provider must prove domain ownership via ACME H
 5. If verified: Exchange accepts subsequent operations (signing key registration, catalog pushes) for this domain
 
 The Exchange also checks `fora.json` to verify it is listed as an authorized exchange for this provider -- providing double protection.
+
+An Exchange can instead take the `fora.json` the domain serves as that proof, as the Exchange behind a publisher console does; [Publisher Onboarding](/getting-started/publisher-onboarding/) describes that path.
 
 ### catalog_contributors in fora.json
 
