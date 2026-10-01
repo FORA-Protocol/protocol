@@ -2,6 +2,7 @@
 // Public agent preview: one page URL, its service-generated offer and configuration.
 import SiteNav from '../../components/SiteNav.astro';
 import SiteFooter from '../../components/SiteFooter.astro';
+import { FORA_PUBLISHER_CONSOLE_URL } from 'astro:env/client';
 import '../../styles/brand.css';
 ---
 <html lang="en">
@@ -104,10 +105,10 @@ import '../../styles/brand.css';
     .field-error:empty { display: none; }
     .hint { font-size: .75rem; color: var(--gray); margin-top: .5rem; line-height: 1.5; }
 
-    /* The shared .btn family is in brand.css; these are the additions this
-       design needs. */
-    .btn { padding: .75rem 1.5rem; border: 1px solid transparent; cursor: pointer; }
-    .btn-primary, .btn-ghost { border-width: 1px; border-style: solid; }
+    /* The shared .btn family is in brand.css, each variant's border included,
+       so nothing here may reset a border; these are the additions this design
+       needs. */
+    .btn { padding: .75rem 1.5rem; cursor: pointer; }
     .btn-block { width: 100%; justify-content: center; }
     .btn[disabled] { opacity: .6; cursor: progress; }
 
@@ -295,38 +296,13 @@ import '../../styles/brand.css';
     .offer .lbl:after { content: ":"; color: var(--brace); }
     .offer .val { color: var(--str); }
 
-    /* contact */
+    /* register */
     .cta { background: var(--near-black); border: 1px solid var(--mid); border-radius: 4px; padding: 2.5rem 2.5rem 2rem; max-width: 44rem; }
     .cta h2 { font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: .75rem; }
     .cta p { color: var(--gray); margin-bottom: 1.5rem; }
-    .contact-form {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 0 1.25rem;
-    }
-    .contact-form .field { margin-bottom: .75rem; }
-    .contact-actions {
-      grid-column: 1 / -1;
-      display: flex;
-      gap: .75rem;
-      flex-wrap: wrap;
-      align-items: center;
-      margin-top: .5rem;
-    }
-    .contact-actions button { border: 0; }
-    .contact-note {
-      grid-column: 1 / -1;
-      font-size: .875rem;
-      margin-top: .75rem;
-      overflow-wrap: anywhere;
-    }
-    .contact-note:empty { display: none; }
-    .contact-note.sent { color: var(--str); }
-    .contact-note.failed { color: #f0a08c; }
-    .contact-form .hint { grid-column: 1 / -1; margin-bottom: 0; }
-    @media (max-width: 560px) {
-      .contact-actions .btn { width: 100%; justify-content: center; }
-    }
+    .cta-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+    /* On a narrow screen the longer label wraps; keep both lines centred. */
+    .cta-actions .btn { text-align: center; text-wrap: balance; }
 
     .note { font-size: .8125rem; color: var(--gray); border-left: 2px solid var(--mid); padding-left: .75rem; margin-top: 1rem; }
     .notes { list-style: none; padding: 0; margin: 1.25rem 0 0; display: grid; gap: .5rem; }
@@ -358,6 +334,7 @@ import '../../styles/brand.css';
     @media (max-width: 560px) {
       .controls { grid-template-columns: 1fr; }
       .cta { padding: 1.5rem; }
+      .cta-actions .btn { width: 100%; justify-content: center; }
     }
     @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
   </style>
@@ -455,26 +432,16 @@ import '../../styles/brand.css';
     </div>
   </section>
 
-  <section class="block" id="contact">
+  <section class="block" id="register" aria-labelledby="register-heading">
     <div class="wrap">
       <div class="cta">
-        <div class="label">Interested?</div>
-        <h2>Let’s connect your site</h2>
-        <p>Leave your email and we’ll get in touch about the next steps.</p>
-
-        <form id="contact-form" class="contact-form" novalidate>
-          <div class="field">
-            <label for="contact-email">Your email</label>
-            <input id="contact-email" name="email" type="email" maxlength="254" autocomplete="email" spellcheck="false" required aria-describedby="contact-email-error" />
-            <p class="field-error" id="contact-email-error"></p>
-          </div>
-          <div class="contact-actions">
-            <button type="submit" id="contact-send" class="btn btn-primary">Get in touch</button>
-            <a class="btn btn-ghost" href="/getting-started/publisher-onboarding/" target="_blank" rel="noopener noreferrer">Read the publisher guide</a>
-          </div>
-          <p class="contact-note" id="contact-note" role="status"></p>
-          <p class="hint" id="contact-hint">We send your email, the page you previewed and any terms you changed to our team.</p>
-        </form>
+        <div class="label">Liked the preview?</div>
+        <h2 id="register-heading">Register to start step 1.</h2>
+        <p>The publisher console generates your manifest and your edge package from what you enter, and ingests your catalog once your terms are set. You place one file and one function. Nothing is charged for registering.</p>
+        <div class="cta-actions">
+          <a class="btn btn-primary" href={FORA_PUBLISHER_CONSOLE_URL} target="_blank" rel="noopener noreferrer">Register on the publisher console<span class="sr-only"> (opens in a new tab)</span></a>
+          <a class="btn btn-ghost" href="/getting-started/publisher-onboarding/" target="_blank" rel="noopener noreferrer">Read the publisher guide<span class="sr-only"> (opens in a new tab)</span></a>
+        </div>
       </div>
     </div>
   </section>
@@ -499,11 +466,10 @@ import '../../styles/brand.css';
   import { previewDetails, unreadableNote } from '../../lib/onboarding/default-preview.mjs';
   import { escapeHtml as esc, highlightJson } from '../../lib/onboarding/record.mjs';
   import { offerOutline, resolvedControls } from '../../lib/onboarding/offer-outline.mjs';
-  import { buildContactRequest, sendContact } from '../../lib/onboarding/contact.mjs';
 
   const $ = (id) => document.getElementById(id);
 
-  const state = { domain: '', url: '', request: null, preview: null, inFlight: null, requestId: 0 };
+  const state = { domain: '', url: '', preview: null, inFlight: null, requestId: 0 };
 
   // ---- the preview API -----------------------------------------------------
   // The single seam where the preview service is called. It answers with its
@@ -748,7 +714,6 @@ import '../../styles/brand.css';
 
     state.domain = preview.domain;
     state.url = built.body.article_url;
-    state.request = built.body;
     state.preview = preview;
     renderAll();
     if (explicit) {
@@ -802,62 +767,6 @@ import '../../styles/brand.css';
   ['attr', ...OFFERED_USES.map((token) => `u-${token}`)]
     .forEach((id) => $(id).addEventListener('input', scheduleTermsRefresh));
   $('url').addEventListener('input', () => setFieldError('url', ''));
-
-  // ---- the enquiry form ---------------------------------------------------
-  let contactInFlight = null;
-
-  $('contact-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    setFieldError('contact-email', '');
-
-    const built = buildContactRequest({
-      email: $('contact-email').value,
-      // The preview they just read, which is what makes the enquiry worth
-      // answering. It is the answered request, not whatever is being typed in
-      // the form above.
-      preview: state.request,
-    });
-    if (!built.ok) {
-      setFieldError(built.field, built.message);
-      $(built.field)?.focus();
-      return;
-    }
-
-    const note = $('contact-note');
-    const button = $('contact-send');
-    note.className = 'contact-note';
-    note.textContent = '';
-    button.disabled = true;
-    button.textContent = 'Sending…';
-
-    if (contactInFlight) contactInFlight.abort();
-    const controller = new AbortController();
-    contactInFlight = controller;
-
-    const outcome = await sendContact({
-      fetchImpl: window.fetch.bind(window),
-      baseUrl: FORA_ONBOARDING_API_BASE,
-      body: built.body,
-      signal: controller.signal,
-    });
-    if (contactInFlight !== controller) return;
-    contactInFlight = null;
-
-    button.disabled = false;
-    button.textContent = 'Get in touch';
-    if (outcome.aborted) return;
-
-    if (outcome.ok) {
-      note.className = 'contact-note sent';
-      note.textContent = 'Thanks — your interest has been sent to our team.';
-      $('contact-form').reset();
-      return;
-    }
-    note.className = 'contact-note failed';
-    note.textContent = `${outcome.failure.headline}. ${outcome.failure.detail}`;
-  });
-
-  $('contact-email').addEventListener('input', () => setFieldError('contact-email', ''));
 
   const sharedUrl = previewPageUrl(window.location.href);
   if (sharedUrl !== null) {
