@@ -18,10 +18,6 @@ The binary is two layers, and the split is deliberate:
 
 The core is independently useful — it provisions Web Bot Auth identity for any agent — and FORA is its first consumer.
 
-<Aside type="note" title="This page describes shipped code">
-Implementation baseline: the reference implementation at `a7061fce` (2026-09-29). This service replaced an earlier Python proxy that held one shared key and took an API key per caller; nothing of that design survives.
-</Aside>
-
 ## Why an agent needs this at all
 
 FORA's authentication is holder-of-key. A verifier resolves the signer's public key from a directory at the signer's own origin, named in a covered `Signature-Agent` header. It then matches the signature's `keyid` against the [RFC 7638](https://www.rfc-editor.org/rfc/rfc7638) thumbprint of a key in that directory. Nothing about that is FORA-specific — it is the Web Bot Auth shape, so a FORA-provisioned agent is verifiable by any Web Bot Auth origin, not only by an Exchange.
@@ -122,6 +118,16 @@ A few input details worth knowing:
 - `fora_execute` takes the offers unchanged, an `idempotency_key`, and `embed_content` (see below). A single offer is a batch of one.
 - `fora_register` takes the target Exchange and a `fields` object whose shape that Exchange publishes in its own `fora.json`. Submitting a registration accepts that Exchange's terms at the revision its digest names, and the call echoes the digest so the acceptance records which revision was agreed.
 
+## MCP transport
+
+The endpoint is `/mcp` and speaks MCP over Streamable HTTP. It is stateless: every request is served on its own, and no MCP session state is kept between requests.
+
+- **Protocol versions.** The endpoint accepts `2026-07-28`, `2025-11-25`, `2025-06-18`, `2025-03-26` and `2024-11-05`. A `2026-07-28` client starts with `server/discover` and sends no handshake. A client on an older version may send `initialize` first, but the endpoint does not require it. A request whose `Mcp-Protocol-Version` header names any other version is refused with `400`.
+- **No session.** The endpoint issues no `Mcp-Session-Id` and does not need one.
+- **POST only.** An authenticated `GET` or `DELETE` returns `405` with `Allow: POST`, so there is no server-to-client event stream and no session to delete. A JSON-RPC request is answered with one `application/json` body. A notification is accepted with an empty `202`.
+- **Load balancing.** Any instance can serve any request, so a load balancer needs no session affinity.
+- **Headers on `2026-07-28`.** Each request carries its method in the `Mcp-Method` header and, on a tool call, the tool name in `Mcp-Name`. It also carries its protocol version in the request's `_meta`. A request where any of these is missing, or does not match the body, is refused with `400`.
+
 ## Why the service fetches the content
 
 Two decisions collided here, and the resolution is worth understanding before deploying this.
@@ -144,7 +150,7 @@ The interface hands back a `crypto.Signer` rather than the private key, so a str
 
 Keys are addressed by `{subdomain, thumbprint}` together. The agent's durable identity is its subdomain; the thumbprint selects which of that agent's keys is meant. An account keyed on the thumbprint alone would be orphaned by the agent's first rotation.
 
-Both halves of that pair are public — they are what the directory publishes — so knowing them entitles nobody to anything. There is no public endpoint that returns key material. At the implementation baseline the operator CLI offers only `revoke`; it has no export command. An export alone would not give self-custody anyway, because the custody store would still hold a copy of the key. To move an agent to self-custody, rotate it to a key the service never held.
+Both halves of that pair are public — they are what the directory publishes — so knowing them entitles nobody to anything. There is no public endpoint that returns key material. The operator CLI offers only `revoke`; it has no export command. An export alone would not give self-custody anyway, because the custody store would still hold a copy of the key. To move an agent to self-custody, rotate it to a key the service never held.
 
 ## Rotation and revocation
 
@@ -158,7 +164,7 @@ Because an account is linked to the agent's subdomain rather than to a single ke
 A consumer that meets an unknown thumbprint treats it as *unknown*, not as *revoked*. Dropping a key from the directory therefore revokes nothing. Emergency revocation must publish to the revocation list.
 </Aside>
 
-Rotation runs inside the server process, so it clears the cached documents and the new key shows up in the served directory at once. Revocation through the operator CLI is different. At the implementation baseline, the CLI runs as a separate process and cannot clear the running server's cache. The service can keep serving the old directory and revocation list for up to 300 seconds, the default cache TTL.
+Rotation runs inside the server process, so it clears the cached documents and the new key shows up in the served directory at once. Revocation through the operator CLI is different. The CLI runs as a separate process and cannot clear the running server's cache. The service can keep serving the old directory and revocation list for up to 300 seconds, the default cache TTL.
 
 That is only the publication delay. Each verifier sees the change when it next fetches the directory or revocation list, and that depends on its own cache. The total time until every verifier rejects a revoked key can therefore be longer, and no single bound applies.
 
