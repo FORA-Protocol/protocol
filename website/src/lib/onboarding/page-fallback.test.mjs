@@ -68,7 +68,8 @@ test('only an unidentified CDN offers the contact link, and the mapping carries 
     assert.equal(presentation(provider).contact, '', `${provider} needs no contact link`);
   }
   const unknown = presentation('none');
-  assert.equal(unknown.contact, 'Write to us');
+  assert.equal(integrations.CONTACT_LABEL, 'Write to us');
+  assert.equal(unknown.contact, integrations.CONTACT_LABEL, 'One label for every contact link on the page');
   for (const value of Object.values(unknown)) {
     assert.doesNotMatch(value, /mailto:|https?:\/\//, 'The page supplies the contact address, never the mapping');
   }

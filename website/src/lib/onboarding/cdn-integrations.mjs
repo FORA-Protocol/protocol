@@ -25,9 +25,18 @@ export function cdnName(provider) {
 }
 
 /**
+ * The label of the page's links to the publisher contact address: on the CDN
+ * card when no network was identified, and in the note shown when no discovery
+ * document could be generated. The page owns the address; this module owns the
+ * words.
+ */
+export const CONTACT_LABEL = 'Write to us';
+
+/**
  * The same provider interpretation drives the result badge and configuration.
- * `contact` labels a link to the publisher contact address, or is '' when the
- * outcome needs none; the page owns the address, so this mapping stays pure.
+ * `contact` is CONTACT_LABEL when the outcome needs a link to the publisher
+ * contact address, or '' when it needs none; the page owns the address, so this
+ * mapping stays pure.
  */
 export function cdnPresentation(provider) {
 	const integration = Object.hasOwn(CDN_INTEGRATIONS, provider) ? CDN_INTEGRATIONS[provider] : null;
@@ -53,6 +62,6 @@ export function cdnPresentation(provider) {
 		title: 'We’ll help you connect your website',
 		description: 'CloudFront, Cloudflare, and Fastly are supported today. If you use another CDN — or no CDN — write to us and we’ll help you find the right setup.',
 		guidance: '',
-		contact: 'Write to us',
+		contact: CONTACT_LABEL,
 	};
 }
