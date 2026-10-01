@@ -139,9 +139,9 @@ Every incoming request carries a `Requester` message with an Ed25519 signature. 
 
 ### Signature Verification
 
-1. Extract the `domain` from the `Requester` message
-2. Fetch the requester's public key from their WBA directory (the JWK Set at `{domain}/.well-known/http-message-signatures-directory`, `role=ROLE_AGENT`), identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`)
-3. Verify the RFC 9421 HTTP Message Signature (alg=ed25519) on the request — it covers the HTTP request components (`@method`, `@target-uri`, `content-digest`, and the signature parameters), so the request body (the serialized `Requester`/query) is bound via `content-digest`. There is no in-message body-tuple signature.
+1. Read the `Signature-Agent` member the request signature covers. It names the requester's origin; the self-asserted `Requester.domain` is never used to find keys
+2. Fetch the requester's public key from its key directory (the JWK Set at `{origin}/.well-known/http-message-signatures-directory`, `role=ROLE_AGENT`), identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`)
+3. Verify the RFC 9421 HTTP Message Signature (alg=ed25519) on the request. It follows the [Web Bot Auth profile](/protocol/authentication/#the-web-bot-auth-profile) and covers `@method`, `@target-uri`, `content-digest`, `authorization` and the `Signature-Agent` member, so the request body (the serialized `Requester`/query) is bound via `content-digest`. There is no in-message body-tuple signature.
 4. Reject the request if verification fails — no fallback, no degraded mode
 
 Key caching is recommended. Fetch keys with a TTL and re-fetch periodically to handle key rotation without per-request overhead.

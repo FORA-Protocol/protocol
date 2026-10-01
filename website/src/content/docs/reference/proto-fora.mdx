@@ -324,7 +324,7 @@ How to open an account at an Exchange, published as the optional `account_regist
 
 ### WBAFile
 
-The pure WBA directory, served at `/.well-known/http-message-signatures-directory` (`Content-Type: application/jwk-set+json`). Holds each participant's inline signing keys and an optional emergency-revocation pointer. Keys are identified by their RFC 7638 thumbprint (the RFC 9421 `keyid`).
+The pure WBA directory, served at `/.well-known/http-message-signatures-directory` (`Content-Type: application/http-message-signatures-directory+json`). Holds each participant's inline signing keys and an optional emergency-revocation pointer. Keys are identified by their RFC 7638 thumbprint (the RFC 9421 `keyid`). Each key carries `alg` `EdDSA`, the JOSE name RFC 7517 defines, which is a known, deliberate deviation from WG-00 §5.5.1 (see [Key Directory](/protocol/authentication/#key-directory)).
 
 | Field | Type | Number | Description |
 |---|---|---|---|

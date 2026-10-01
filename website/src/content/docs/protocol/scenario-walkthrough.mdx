@@ -59,7 +59,7 @@ Anthropic publishes its agent's Ed25519 public key in its WBA directory (the JWK
 
 ```json
 // GET https://claude.ai/.well-known/http-message-signatures-directory
-// Content-Type: application/jwk-set+json
+// Content-Type: application/http-message-signatures-directory+json
 {
   "keys": [
     {
@@ -92,7 +92,7 @@ The Broker announces its key in its own WBA directory the same way:
 
 ```json
 // GET https://broker.anthropic.com/.well-known/http-message-signatures-directory
-// Content-Type: application/jwk-set+json
+// Content-Type: application/http-message-signatures-directory+json
 {
   "keys": [
     {
@@ -265,9 +265,10 @@ The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-al
 ```
 1. Validate request (proto validation) -> pass
 2. Verify the RFC 9421 HTTP Message Signature (alg=ed25519) on the request:
-   a. Read the covered Signature-Agent header -> "claude.ai"
-   b. Fetch the WBA directory at
-      claude.ai/.well-known/http-message-signatures-directory,
+   a. Read the Signature-Agent member the signature covers
+      -> agent="https://claude.ai"
+   b. Fetch the key directory at
+      https://claude.ai/.well-known/http-message-signatures-directory,
       select the key whose RFC 7638 thumbprint matches the keyid
    c. Verify the signature against public key -> pass
 3. Resolve tenant: techcrunch.com -> Hearst Media tenant
@@ -495,7 +496,7 @@ Broker → SSP-Alpha (multi-URI batch query) — `POST https://exchange.ssp-alph
 
 The forwarding chain travels in the HTTP headers, not the request body: the agent's labeled RFC 9421 signature and the Broker's labeled RFC 9421 signature both sit in the `Signature`/`Signature-Input` headers. The agent's signature covers `@target-uri` against the Exchange's endpoint -- the final recipient -- not the Broker's relay URL. SSP-Alpha's Exchange verifies the full stack:
 1. The agent's RFC 9421 HTTP Message Signature (alg=ed25519) -- fetch public key from the WBA directory at `claude.ai/.well-known/http-message-signatures-directory`, Ed25519 verify
-2. Each forwarding hop's labeled RFC 9421 HTTP Message Signature -- for each one, look up the public key by its `keyid` thumbprint in the key set the Exchange is configured with (`Signature-Agent` stays the agent's directory, so a hop's key is not discovered through it), Ed25519 verify (each hop signs the request plus the prior hop's signature)
+2. Each forwarding hop's labeled RFC 9421 HTTP Message Signature -- for each one, look up the public key by its `keyid` thumbprint in the key directory named by that hop's own `Signature-Agent` member, Ed25519 verify (each hop signs the request plus the prior hop's signature; see [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding))
 
 SSP-Alpha returns `offer_groups` (batch mode -- multiple URIs in query):
 
@@ -757,7 +758,7 @@ SDK or Broker commits to the subscription offer.
 }
 ```
 
-The request body is identical to the direct case; the forwarding chain lives in the HTTP headers. The Broker preserves the agent's labeled RFC 9421 signature and adds its own labeled RFC 9421 signature (covering the request plus the agent's signature) to the `Signature`/`Signature-Input` headers. The Exchange verifies both: the agent's identity (via the agent's RFC 9421 HTTP Message Signature, alg=ed25519, + public key fetched from the agent's WBA directory at `claude.ai/.well-known/http-message-signatures-directory`) and each forwarding hop (via that hop's labeled RFC 9421 signature + the hop's public key, selected by its `keyid` thumbprint from the key set the Exchange is configured with).
+The request body is identical to the direct case; the forwarding chain lives in the HTTP headers. The Broker preserves the agent's labeled RFC 9421 signature and adds its own labeled RFC 9421 signature (covering the request plus the agent's signature) to the `Signature`/`Signature-Input` headers. The Exchange verifies both: the agent's identity (via the agent's RFC 9421 HTTP Message Signature, alg=ed25519, + public key fetched from the agent's WBA directory at `claude.ai/.well-known/http-message-signatures-directory`) and each forwarding hop (via that hop's labeled RFC 9421 signature + the hop's public key, selected by its `keyid` thumbprint in the key directory named by the hop's own `Signature-Agent` member).
 
 ### Inside SSP-Alpha's Exchange
 
@@ -766,12 +767,12 @@ The request body is identical to the direct case; the forwarding chain lives in 
 2. Verify the RFC 9421 HTTP Message Signature (alg=ed25519) on the request:
    - Fetch public key from the WBA directory at
      claude.ai/.well-known/http-message-signatures-directory
-     (domain from the covered Signature-Agent header, key by keyid thumbprint)
+     (origin from the covered Signature-Agent member, key by keyid thumbprint)
    - Ed25519 verify -> pass
 2b. Verify forwarding signature chain (if any forwarding hops added labeled signatures):
    - For each hop's labeled RFC 9421 signature: look up the public key by its
-     keyid thumbprint in the Exchange's configured key set (Signature-Agent
-     stays the agent's directory)
+     keyid thumbprint in the key directory named by that hop's own
+     Signature-Agent member
    - Ed25519 verify each hop's signature -> pass
 2c. Verify `agent_request_acceptance` when the request carries it (this example
    omits the optional field): Ed25519 verify the signed request set against the
@@ -864,7 +865,8 @@ Agent -> CDN: GET https://cdn.techcrunch.com/server/premium/ai-regulation-2026.h
               &kid=vJ3xR1mQ...
               &sig=k7Qm2xR9vT4nB8aL...
               Header: X-FORA-Agent-Key: <agent public key, base64url>
-              Header: Signature-Input: sig1=("@method" "@target-uri");keyid=...;alg="ed25519";created=...;expires=...
+              Header: Signature-Agent: sig1="https://claude.ai"
+              Header: Signature-Input: sig1=("@method" "@target-uri" "signature-agent";key="sig1");created=...;expires=...;keyid=...;alg="ed25519";nonce=...;tag="web-bot-auth"
               Header: Signature: sig1=:<standard base64>:
 
 Edge Function:
@@ -873,8 +875,8 @@ Edge Function:
   3. Verify the Ed25519 signature over "GET\n<URL without sig, query sorted>" -> PASS
   4. Check expiry: exp > now? -> PASS (URL valid for 5 minutes)
   5. Check agent identity binding:
-     thumbprint(presented public key) == agent_id? -> PASS
-     Verify the RFC 9421 signature with that key (proof of possession) -> PASS
+     thumbprint(presented public key) == agent_id == keyid? -> PASS
+     Verify the Web Bot Auth signature with that key (proof of possession) -> PASS
      (The agent must hold the private half; presenting the public key is not enough)
   6. Strip agent_id, exp, kid, sig -> CDN serves content from S3/origin
 

@@ -87,7 +87,7 @@ The agent sends a `ResourceQuery` to the Exchange with its identity in the `Requ
 - **`ResourceQuery.uris`** — the specific resources being requested (a sibling of `requester`, not part of the identity envelope).
 - **`acceptable_restrictions`** — the query's restriction tolerances (here axis `FUNCTION` with `ai-input`); a sibling of `requester`.
 - **`scopes`** — `["*"]` means unrestricted public access. No subscription, no entitlement filtering.
-- **Request signature** — an RFC 9421 HTTP Message Signature over the HTTP request (method, target URI, and a `Content-Digest` of the body), carried in the `Signature` / `Signature-Input` headers. Proves the request came from this agent. The `Requester` message itself carries no signature field.
+- **Request signature** — an RFC 9421 HTTP Message Signature over the HTTP request (method, target URI, a `Content-Digest` of the body, the `Authorization` header and the agent's `Signature-Agent` member), carried in the `Signature` / `Signature-Input` / `Signature-Agent` headers and made to the [Web Bot Auth profile](/protocol/authentication/#the-web-bot-auth-profile). Proves the request came from this agent. The `Requester` message itself carries no signature field.
 - **No `delegation` field** — this agent acts on its own behalf, not under a delegated credential.
 
 ### Step 3 — ResourceResponse
