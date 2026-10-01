@@ -30,6 +30,11 @@ on:
   # Also callable from release.yml, so the tag release runs this gate on the
   # exact tagged commit. The push/pull_request triggers above are unchanged.
   workflow_call:
+
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   docs:
     runs-on: ubuntu-latest
@@ -38,6 +43,12 @@ jobs:
         working-directory: website
     steps:
       - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196a26abfa31b106a0bd2 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - uses: actions/setup-node@v4
         with:
