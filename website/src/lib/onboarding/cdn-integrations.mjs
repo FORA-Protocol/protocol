@@ -24,7 +24,11 @@ export function cdnName(provider) {
 	return provider === 'akamai' ? 'Akamai' : '';
 }
 
-/** The same provider interpretation drives the result badge and configuration. */
+/**
+ * The same provider interpretation drives the result badge and configuration.
+ * `contact` labels a link to the publisher contact address, or is '' when the
+ * outcome needs none; the page owns the address, so this mapping stays pure.
+ */
 export function cdnPresentation(provider) {
 	const integration = Object.hasOwn(CDN_INTEGRATIONS, provider) ? CDN_INTEGRATIONS[provider] : null;
 	if (integration) return {
@@ -33,6 +37,7 @@ export function cdnPresentation(provider) {
 		title: `Integration path: ${integration.scheme} signed URLs`,
 		description: integration.path,
 		guidance: integration.guidance ?? 'We’ll provide a CDN package and setup instructions tailored to your site. Setup includes choosing the content paths to license and checking that ordinary visitors can still browse normally.',
+		contact: '',
 	};
 	if (provider === 'akamai') return {
 		badge: 'Akamai detected', tone: 'ok',
@@ -40,12 +45,14 @@ export function cdnPresentation(provider) {
 		title: 'Integration path: Signed delivery URLs',
 		description: 'We’ll configure your Akamai integration to check the Exchange’s signed URLs before allowing access to your licensed content.',
 		guidance: 'We’ll provide the package and guide you through connecting it to your Akamai service, choosing which paths to protect, and testing access before going live.',
+		contact: '',
 	};
 	return {
 		badge: 'We couldn’t identify your CDN', tone: 'none',
 		evidenceIntro: 'We found these network signals:',
 		title: 'We’ll help you connect your website',
-		description: 'CloudFront, Cloudflare, and Fastly are supported today. If you use another CDN — or no CDN — leave your email below and we’ll help you find the right setup.',
+		description: 'CloudFront, Cloudflare, and Fastly are supported today. If you use another CDN — or no CDN — write to us and we’ll help you find the right setup.',
 		guidance: '',
+		contact: 'Write to us',
 	};
 }

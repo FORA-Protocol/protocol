@@ -48,7 +48,9 @@ export default defineConfig({
 				startsWith: 'https://',
 				default: 'https://console.fora-protocol.org/',
 			}),
-			// Where a publisher behind an unsupported CDN reaches us.
+			// Where a publisher reaches us when the preview cannot take them further:
+			// a CDN the preview does not recognize, or a domain it could not
+			// generate a discovery document for.
 			FORA_PUBLISHER_CONTACT_URL: envField.string({
 				context: 'client',
 				access: 'public',

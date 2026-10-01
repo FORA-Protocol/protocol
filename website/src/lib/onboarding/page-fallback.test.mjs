@@ -2,12 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as integrations from './cdn-integrations.mjs';
 
+const MAY_BE_EMPTY = new Set(['guidance', 'contact']);
+
 function presentation(provider) {
   assert.equal(typeof integrations.cdnPresentation, 'function', 'CDN presentation must expose a pure provider mapping');
   const result = integrations.cdnPresentation(provider);
-  for (const field of ['badge', 'tone', 'title', 'description', 'guidance']) {
+  for (const field of ['badge', 'tone', 'title', 'description', 'guidance', 'contact']) {
     assert.equal(typeof result[field], 'string', `${field} must be text`);
-    if (field !== 'guidance') assert.ok(result[field].trim(), `${field} must not be empty`);
+    if (!MAY_BE_EMPTY.has(field)) assert.ok(result[field].trim(), `${field} must not be empty`);
   }
   return result;
 }
@@ -52,11 +54,23 @@ test('Akamai uses the same detected styling and promises setup guidance', () => 
 test('absent, unexpected, prototype and hostile provider tokens share an honest unknown outcome', () => {
   const unknown = presentation('none');
   assert.equal(unknown.badge, 'We couldn’t identify your CDN');
-  assert.match(unknown.description, /leave your email below/i);
+  assert.match(unknown.description, /write to us/i);
+  assert.doesNotMatch(unknown.description, /\bbelow\b|leave your email/i, 'The page has no form below to point at');
   assert.equal(unknown.guidance, '', 'Unknown CDN guidance is included in the main paragraph');
   assert.doesNotMatch(`${unknown.title} ${unknown.description} ${unknown.guidance}`, /start registration/i);
   for (const provider of [undefined, null, '', 'unknown', 'unexpected-provider', 'constructor', 'toString', '__proto__', '<img src=x onerror=alert(1)>']) {
     assert.deepEqual(presentation(provider), unknown, `Unexpected provider ${String(provider)} must not be echoed or treated as detected`);
+  }
+});
+
+test('only an unidentified CDN offers the contact link, and the mapping carries no address', () => {
+  for (const provider of ['cloudfront', 'cloudflare', 'fastly', 'akamai']) {
+    assert.equal(presentation(provider).contact, '', `${provider} needs no contact link`);
+  }
+  const unknown = presentation('none');
+  assert.equal(unknown.contact, 'Write to us');
+  for (const value of Object.values(unknown)) {
+    assert.doesNotMatch(value, /mailto:|https?:\/\//, 'The page supplies the contact address, never the mapping');
   }
 });
 
