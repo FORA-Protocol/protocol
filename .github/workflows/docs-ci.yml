@@ -65,9 +65,8 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
           audience: sts.amazonaws.com
-          output-credentials: false
+          disable-session-tags: true
           role-duration-seconds: 900
-          role-session-name: github-actions-${{ github.run_id }}
 
       - uses: actions/setup-node@v4
         with:
