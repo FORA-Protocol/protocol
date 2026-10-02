@@ -203,7 +203,7 @@ This is entirely offline — no callback to the issuer. The verifier needs only 
 
 **Binding across hops.** Each delegation re-binds to the next holder's key (`cnf.jkt` of the child = the next agent), so at every hop the bound key is whoever now signs the request. The chain of JWT signatures carries the binding forward — there is no point at which the token reverts to bearer form.
 
-**Which signature binds in a brokered request.** A forwarded request carries more than one RFC 9421 signature (the agent's, plus a hop signature from each intermediary). The holder-binding check always matches the **terminal holder** — the key named in the *final* delegation's `cnf.jkt`. In the **default broker pass-through** case the broker is a pure relay: it forwards the agent's delegation unchanged, the agent remains the terminal holder, and the **agent's** request signature is the one that must match `cnf.jkt` (the broker's hop signature is provenance only). Only if the agent explicitly **delegated to the broker** (the broker issues a child JWT bound to its own key and signs the request) does the broker become the terminal holder and its signature bind. Intermediaries never silently become the holder.
+**Which signature binds in a brokered request.** A forwarded request can carry more than one RFC 9421 signature (the agent's, plus one from each intermediary). The holder-binding check always matches the **terminal holder** — the key named in the *final* delegation's `cnf.jkt`. A relay that forwards the request unchanged forwards the agent's delegation unchanged, the agent remains the terminal holder, and the **agent's** request signature is the one that must match `cnf.jkt` (the relay's signature is provenance only). FORA's Broker re-packages the request and is its wire signer, so the check matches the Broker's key: a delegated request through a Broker requires the agent to have explicitly **delegated to the Broker** (the Broker holds a child JWT bound to its own key), the same rule [Projected execute requests](#projected-execute-requests) states. Intermediaries never silently become the holder.
 
 ### Delegation Denial Reasons
 
@@ -277,32 +277,40 @@ This distinction prevents information leakage on public Exchanges while allowing
 
 ## Multi-hop forwarding
 
-When a request passes through forwarding parties (e.g., Agent to Broker to Exchange), the forwarding chain is **not** carried in the message body at all. It lives entirely in the HTTP headers as a stack of [RFC 9421 HTTP Message Signatures](https://www.rfc-editor.org/rfc/rfc9421). This section is the one place the chain is specified; other pages refer to it.
+When a request passes through a forwarding party (e.g., Agent to Broker to Exchange), nothing about the forwarding is carried in the message body. Each party signs the request it sends with its own labeled [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) signature in the HTTP headers. This section is the one place the rules for forwarding parties are specified; other pages refer to it.
 
 ### How It Works
 
-Each party that originates or forwards the request adds **one** labeled signature, and every one of them is a conformant WG-00 signature in its own right ([The Web Bot Auth Profile](#the-web-bot-auth-profile)):
+The agent signs first, under its own label (`sig1` in the examples on this page), and adds a member under that label to `Signature-Agent`, naming its directory. Every party after it adds its own label (`sig2` for the first hop in the examples), its own `Signature-Agent` member naming **its own** directory, and a signature that is a conformant WG-00 signature in its own right ([The Web Bot Auth Profile](#the-web-bot-auth-profile)). What that signature covers depends on whether the party changed the request. WG-00 §5.2.2 draws the line: a signer MAY cover another signature, and if it covers `"signature";key=X` it MUST also cover `"signature-input";key=X` and every component listed there. A signer that cannot, because it changed a value the inner signature was computed over, MUST NOT cover the inner signature. It signs the request on its own terms, and the inner signature is left untouched.
 
-1. The agent signs first, under its own label (`sig1` in the examples on this page). It adds a member under that label to `Signature-Agent`, naming its directory.
-2. Each forwarding hop adds its own label (`sig2` for the first hop in the examples), its own `Signature-Agent` member naming **its own** directory, and a signature that covers:
-   - the request components FORA requires on the route: `@method`, `@target-uri`, `content-digest` and `authorization`;
-   - its own member, `"signature-agent";key="<its label>"`;
-   - the previous hop's signature, `"signature";key="<previous label>"`, together with `"signature-input";key="<previous label>"` and every component the previous signature lists, which includes the previous hop's own `Signature-Agent` member. WG-00 §5.2.2 requires this union. A signature value alone does not identify the message it was computed over, so a hop that covered only the value would still verify after the headers were moved onto a different request.
-3. A hop accepts only a request whose `Signature-Agent` is a dictionary. It cannot add its own member to the legacy single-string form without changing the bytes the agent's signature covers, so it refuses that form and answers with `Accept-Signature` asking for the dictionary form ([What a FORA verifier accepts](#what-a-fora-verifier-accepts)).
-4. A hop never changes a value an earlier signature covers. It forwards the earlier `Signature-Agent` members, `Signature-Input` members and `Signature` members unchanged, and appends its own. A hop that has to change a covered value (a new body, for example) is not forwarding: see [Projected execute requests](#projected-execute-requests).
+#### A relay that re-packages the request: FORA's Broker
 
-Because every signature commits to the signature before it, the ordered set of signatures **is** the forwarding chain: it is tamper-evident and order-bound. You cannot reorder, remove, or insert a hop without breaking the chain. There is no separate per-hop timestamp or payload-signature field — the RFC 9421 signature itself carries that proof.
+FORA's Broker re-packages every request it relays. It posts to the Exchange's URL with a new body, so the values the agent's signature covers change, and WG-00 §5.2.2 forbids it to cover the agent's signature. The Broker signs its own request on its own terms:
 
-On a verbatim-forwarded path the agent signs `@target-uri` against the final recipient's endpoint (the Exchange), not the relay URL it dials. A message that terminates at the Broker, such as a `DiscoveryRequest`, is not forwarded: there the Broker is the final recipient and the agent signs the Broker's URL.
+1. Its signature covers its own request components, `@method`, `@target-uri`, `content-digest` and `authorization`, and exactly one `Signature-Agent` member, its own `"signature-agent";key="<its label>"`.
+2. It leaves the agent's `Signature-Agent` member, `Signature-Input` member and `Signature` member untouched, and never covers them. The agent's signature was computed over the request the agent sent, so it does not verify against the re-packaged request, and the Exchange does not rely on it.
+3. It appends its own member to `Signature-Agent`, which it can do only when the header is a dictionary. It refuses the legacy single-string form and answers with `Accept-Signature` asking for the dictionary form ([What a FORA verifier accepts](#what-a-fora-verifier-accepts)).
 
-The Exchange verifies the full chain by:
+The Exchange authenticates the wire caller as the Broker. Its proof that the agent consented to a transaction does not travel in the transport layer at all: it is the `AgentAcceptance` the agent signed into each item of the body, together with `agent_request_acceptance` for the ordered set ([Projected execute requests](#projected-execute-requests)). Those detached signatures verify against the agent's directory however the request travelled, so they do not depend on the topology. A discovery query moves no money and carries no consent.
 
-1. Reading each labeled signature and its `keyid` from `Signature` / `Signature-Input`
-2. For each signature, resolving its `keyid` (an RFC 7638 thumbprint) in the key directory that **its own** `Signature-Agent` member names, at `{origin}/.well-known/http-message-signatures-directory`. A verifier MUST NOT attribute a signature to a member that signature does not cover (WG-00 §5.2.2)
-3. Verifying every signature independently against its own covered components and its own key, and confirming each later hop covers the prior hop's `Signature`, its `Signature-Input` member and every component it lists, plus the hop's own `Signature-Agent` member
-4. Enforcing depth caps — `RequestConstraints.max_hops` and `WellKnownManifest.max_intermediary_hops` — by **counting the signatures** in the stack
+Every Broker signature covers exactly one `Signature-Agent` member, so single-member WBA verifiers, such as Cloudflare's `web-bot-auth` library, accept it.
 
-Verifying a hop's signature proves which party forwarded the request. Whether that party may forward to this Exchange at all is the Exchange's own policy: an Exchange MAY accept forwarding hops only from Brokers registered with it.
+#### A relay that forwards the request unchanged
+
+A party that forwards a request unchanged in every component a previous signature covers MAY cover that signature. If it does, its signature covers its own request components, its own `Signature-Agent` member, and the previous signature: `"signature";key="<previous label>"`, `"signature-input";key="<previous label>"` and every component that signature lists, which includes the previous signer's `Signature-Agent` member. It forwards the earlier `Signature-Agent`, `Signature-Input` and `Signature` members unchanged and appends its own. On such a path the agent signs `@target-uri` against the final recipient's endpoint, not the relay URL it dials.
+
+When every hop covers the signature before it this way, the ordered set of signatures **is** the forwarding chain: it is tamper-evident and order-bound, and no hop can be reordered, removed or inserted without breaking a later signature. This applies only to unchanged forwarding. A re-packaging Broker does not chain; it starts a new request.
+
+### Verification at the Exchange
+
+The Exchange:
+
+1. Reads each labeled signature and its `keyid` from `Signature` / `Signature-Input`
+2. Resolves each signature's `keyid` (an RFC 7638 thumbprint) in the key directory that **its own** covered `Signature-Agent` member names, at `{origin}/.well-known/http-message-signatures-directory`. A verifier MUST NOT attribute a signature to a member that signature does not cover (WG-00 §5.2.2)
+3. Verifies each signature independently against its own covered components and its own key. It authenticates the caller by the signature of the party that sent the request, the last label added. On unchanged forwarding it also confirms that each hop covers the signature before it, its `Signature-Input` member and every component it lists. A signature left untouched by a re-packaging Broker is not attributed to anyone
+4. Enforces depth caps — `RequestConstraints.max_hops` and `WellKnownManifest.max_intermediary_hops` — by **counting the signatures** in the stack
+
+Verifying a hop's signature proves which party sent the request. Whether that party may send to this Exchange at all is the Exchange's own policy: an Exchange MAY accept requests from forwarding parties only when they are Brokers registered with it.
 
 When only the agent's signature is present, the agent is querying the Exchange directly — no broker was involved.
 
@@ -310,7 +318,7 @@ See [Multi-Hop Example (Broker)](#multi-hop-example-broker) below for the concre
 
 ### Projected execute requests
 
-The hop-signature stack above applies to requests forwarded **byte-for-byte**. Projection is the other case. When a Broker splits a mixed-Exchange `TransactionRequest` into per-Exchange subrequests, each subrequest has a new body, so the agent's original signature — which covered the original body through `Content-Digest` — cannot travel with it. There is no way to forward a projected body under the agent's HTTP signature, and the protocol does not ask for one.
+Projection is one form of the re-packaging described above. When a Broker splits a mixed-Exchange `TransactionRequest` into per-Exchange subrequests, each subrequest has a new body, so the agent's original signature — which covered the original body through `Content-Digest` — cannot travel with it. There is no way to forward a projected body under the agent's HTTP signature, and the protocol does not ask for one.
 
 Instead, each projected subrequest is a **new HTTP request its sender authors**. The projecting party — a Broker, or the agent itself when it splits its own set — computes the subrequest's `Content-Digest` and signs it with its own RFC 9421 signature, exactly as any sender does. The Exchange authenticates the wire caller as that sender.
 
@@ -327,7 +335,7 @@ Delegation is unchanged by projection: the holder-binding check still matches th
 
 ### Why headers, not message fields
 
-Request signatures are [RFC 9421 HTTP Message Signatures](https://www.rfc-editor.org/rfc/rfc9421), carried in HTTP headers — **not** fields on any protobuf message. This separates **identity semantics** (the `Requester` message: who is making the request, scopes, delegation) from **cryptographic proof** (the HTTP signature attesting the request is authentic). No FORA message has ever carried a request-signature field; the protobuf body carries identity only, and the forwarding chain is likewise a stack of labeled RFC 9421 signatures rather than an in-message hop list (see [Multi-hop forwarding](#multi-hop-forwarding)).
+Request signatures are [RFC 9421 HTTP Message Signatures](https://www.rfc-editor.org/rfc/rfc9421), carried in HTTP headers — **not** fields on any protobuf message. This separates **identity semantics** (the `Requester` message: who is making the request, scopes, delegation) from **cryptographic proof** (the HTTP signature attesting the request is authentic). No FORA message has ever carried a request-signature field; the protobuf body carries identity only, and forwarding is likewise carried in labeled RFC 9421 signatures rather than an in-message hop list (see [Multi-hop forwarding](#multi-hop-forwarding)).
 
 ### How RFC 9421 Signatures Work
 
@@ -396,7 +404,7 @@ The edge still verifies offline. The fetcher also presents its raw public key in
 
 Agents in the field run many WBA libraries and some send earlier forms of the protocol. A FORA verifier accepts the following, which WG-00 permits:
 
-- **The legacy `Signature-Agent` form, on a direct single-hop call only.** A bare structured-field String (`Signature-Agent: "https://research.acme.com"`), covered as plain `"signature-agent"`. The verifier treats it as a dictionary with one member whose key is the label of the signature covering it. A relay refuses this form, because it cannot add its own member without breaking the agent's signature, and answers with `Accept-Signature` asking for the dictionary form, as in the example below. FORA signers never send this form.
+- **The legacy `Signature-Agent` form, on a direct single-hop call only.** A bare structured-field String (`Signature-Agent: "https://research.acme.com"`), covered as plain `"signature-agent"`. The verifier treats it as a dictionary with one member whose key is the label of the signature covering it. A relay refuses this form, because it has to append its own member to the agent's `Signature-Agent` header and a String cannot take a second member, and answers with `Accept-Signature` asking for the dictionary form, as in the example below. FORA signers never send this form.
 - **A member key different from the signature label.** Signers use a member key equal to the label, but the verifier follows whichever member the signature covers, `"signature-agent";key="<member>"`, whatever the label is called.
 - **No `nonce`.** WG-00 sets no nonce requirement.
 - **A `type` parameter equal to `directory`** on the member. A member with any other `type` value is ignored, as WG-00 §5.2.1 requires.
@@ -452,42 +460,36 @@ The bytes are signed exactly as sent, so a relay forwarding the request must not
 
 ### Multi-Hop Example (Broker)
 
-The same request after a Broker has forwarded it. The Broker's directory is `https://broker.example`, and its signature is made with the RFC 9421 Appendix B.1.4 test key. The body and the agent's headers are unchanged. The Broker appended one member to each of `Signature-Agent`, `Signature-Input` and `Signature`:
+The request after a Broker has re-packaged it for the Exchange. The Broker's directory is `https://broker.example`, and its signature is made with the RFC 9421 Appendix B.1.4 test key. The Broker posted a new body (it added a `deadline`), so the agent's `sig1` headers, carried untouched from the single-hop example, no longer match this request. The Broker appended one member to each of `Signature-Agent`, `Signature-Input` and `Signature`, and its `sig2` covers only its own request and its own member:
 
 ```http
 POST /fora.v1.ExchangeService/DiscoverResources HTTP/1.1
 Host: exchange.example
 Content-Type: application/json
-Content-Length: 203
-Content-Digest: sha-256=:9D9PY/hvL0Rukm8JVOveoHYVBWp5iAhJcGnCSuyJlPo=:
+Content-Length: 221
+Content-Digest: sha-256=:FKKQPDds8rayE2fEUjhwSCgsyuVv4pmrHLM6S0MiZQM=:
 Authorization:
 Signature-Agent: sig1="https://research.acme.com", sig2="https://broker.example"
-Signature-Input: sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=1790812800;expires=1790813100;keyid="kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k";alg="ed25519";nonce="TsrHAzO3DzKC9fj7sOvG6npFB86tAdaQ1XH4pBDIAPmZ93MbjGmCgXXhEyx-lC4CG6yY3ZwTqAVPC6LEeNMXIg";tag="web-bot-auth", sig2=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1" "signature-input";key="sig1" "signature";key="sig1" "signature-agent";key="sig2");created=1790812801;expires=1790813101;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";alg="ed25519";nonce="7jwqQ5Qo8ytp-rXrRXvOS6tktBBVNJ1Rds5Ypdvh2L3QwG_335-eo89DX7NoxoLuwpT-4uz2aEaIZEzqlKbNIg";tag="web-bot-auth"
-Signature: sig1=:pDSMjqSLlVFpCP9YsWvGE0AcqsU1JEWhq1fRryL9tC/SF42A4KIxItxZG5evIcQjraFVROW/zOdW2UhSXdjFBQ==:, sig2=:aBbWd4a2KZp9fT81GfKP+qnA41V+BAM6vcgH3JdLrUjvcIFOUcaVphDvy1LmjGQ/6C97IlZWzwAT0FZtFwpYCA==:
+Signature-Input: sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=1790812800;expires=1790813100;keyid="kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k";alg="ed25519";nonce="TsrHAzO3DzKC9fj7sOvG6npFB86tAdaQ1XH4pBDIAPmZ93MbjGmCgXXhEyx-lC4CG6yY3ZwTqAVPC6LEeNMXIg";tag="web-bot-auth", sig2=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig2");created=1790812801;expires=1790813101;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";alg="ed25519";nonce="7jwqQ5Qo8ytp-rXrRXvOS6tktBBVNJ1Rds5Ypdvh2L3QwG_335-eo89DX7NoxoLuwpT-4uz2aEaIZEzqlKbNIg";tag="web-bot-auth"
+Signature: sig1=:pDSMjqSLlVFpCP9YsWvGE0AcqsU1JEWhq1fRryL9tC/SF42A4KIxItxZG5evIcQjraFVROW/zOdW2UhSXdjFBQ==:, sig2=:uswnfvODkwLt3viBYqH0CLxIMlB10SoAv03NatqQGRH/22M9/cPYiffJUjWEmJxyJgu7baklvz59fZSJoJ3rCw==:
 ```
 
-The body is the same 203 bytes as in the single-hop example.
+The body is these 221 bytes, with no trailing newline:
 
-Each labeled signature (`sig1` from the agent, `sig2` from the Broker) is verified independently, against the key its `keyid` selects in the directory its own `Signature-Agent` member names. The agent's signature still verifies, because adding the `sig2` member does not change the `sig1` member it covers.
+{/* fora-validate: ResourceQuery */}
+```json
+{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42","domain":"research.acme.com","type":"REQUESTER_TYPE_AGENT"},"uris":["https://publisher.example/premium/ai-funding-roundup"],"deadline":"0.4s"}
+```
 
-The Broker's covered set is what makes the hops a chain rather than a set. It covers `"signature";key="sig1"`, so it commits to the exact signature it received, and a relay cannot strip or reorder the hop in front of it. It also covers `"signature-input";key="sig1"` and every component the agent's signature lists, including the agent's `sig1` member, as WG-00 §5.2.2 requires, so the agent's signature cannot be lifted onto a different request under the Broker's.
-
-:::note
-Some WBA libraries, for example Cloudflare's `web-bot-auth` 0.2.0, refuse a signature that covers more than one `Signature-Agent` member, contrary to WG-00 §5.2.2. Such a library refuses the Broker's `sig2` above. This does not affect delivery: a relay hop's signature is verified by the Exchange, not by a CDN, and the agent's own `sig1` covers one member and passes such libraries on every hop.
-:::
-
-The signature base the Broker signed is:
+The Exchange verifies `sig2` against the key its `keyid` selects in the directory the `sig2` member names, and authenticates the caller as the Broker. `sig1` covers the agent's original body through its `content-digest`, so it does not verify against this request, and the Exchange attributes nothing to it. The signature base the Broker signed is:
 
 ```
 "@method": POST
 "@target-uri": https://exchange.example/fora.v1.ExchangeService/DiscoverResources
-"content-digest": sha-256=:9D9PY/hvL0Rukm8JVOveoHYVBWp5iAhJcGnCSuyJlPo=:
+"content-digest": sha-256=:FKKQPDds8rayE2fEUjhwSCgsyuVv4pmrHLM6S0MiZQM=:
 "authorization": 
-"signature-agent";key="sig1": "https://research.acme.com"
-"signature-input";key="sig1": ("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=1790812800;expires=1790813100;keyid="kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k";alg="ed25519";nonce="TsrHAzO3DzKC9fj7sOvG6npFB86tAdaQ1XH4pBDIAPmZ93MbjGmCgXXhEyx-lC4CG6yY3ZwTqAVPC6LEeNMXIg";tag="web-bot-auth"
-"signature";key="sig1": :pDSMjqSLlVFpCP9YsWvGE0AcqsU1JEWhq1fRryL9tC/SF42A4KIxItxZG5evIcQjraFVROW/zOdW2UhSXdjFBQ==:
 "signature-agent";key="sig2": "https://broker.example"
-"@signature-params": ("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1" "signature-input";key="sig1" "signature";key="sig1" "signature-agent";key="sig2");created=1790812801;expires=1790813101;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";alg="ed25519";nonce="7jwqQ5Qo8ytp-rXrRXvOS6tktBBVNJ1Rds5Ypdvh2L3QwG_335-eo89DX7NoxoLuwpT-4uz2aEaIZEzqlKbNIg";tag="web-bot-auth"
+"@signature-params": ("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig2");created=1790812801;expires=1790813101;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";alg="ed25519";nonce="7jwqQ5Qo8ytp-rXrRXvOS6tktBBVNJ1Rds5Ypdvh2L3QwG_335-eo89DX7NoxoLuwpT-4uz2aEaIZEzqlKbNIg";tag="web-bot-auth"
 ```
 
 ### Replay protection

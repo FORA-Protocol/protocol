@@ -68,9 +68,9 @@ func (h *ExchangeHandler) DiscoverResources(
     }
 
     // 2. Requester identity. Verification already happened at the HTTP seam:
-    //    the SDK's verify middleware checked every RFC 9421 signature — the
-    //    requester's and the whole forwarding chain (the chain rules are in
-    //    Authentication > Multi-hop forwarding) — resolving each signer's key
+    //    the SDK's verify middleware checked the RFC 9421 signatures — the
+    //    sender's, and on unchanged forwarding the chain behind it (the rules
+    //    are in Authentication > Multi-hop forwarding) — resolving each signer's key
     //    by its signed keyid (an RFC 7638 thumbprint) in the key directory
     //    named by the `Signature-Agent` member that signature covers. The
     //    self-asserted Requester.domain field never drives key lookup.
@@ -256,34 +256,36 @@ type RequesterRecord struct {
 }
 ```
 
-### Forwarding Chain Verification
+### Forwarding Verification
 
-The forwarding chain lives entirely in the HTTP layer as a **stack of RFC 9421 HTTP Message Signatures** — there is no `intermediaries` field on the message. Each party that originates or forwards a `ResourceQuery` or `TransactionRequest` adds **one** labeled signature that conforms to Web Bot Auth to the request headers, with its own `Signature-Agent` member. Each forwarder's signature covers the request components FORA requires **plus the previous hop's signature**, so the ordered set of header signatures *is* the chain and cannot be reordered, dropped, or extended undetectably. The covered components and the chain rules are specified once, in [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding). The Exchange MUST:
+Nothing about the route is carried in the message: there is no `intermediaries` field. Each party that sends a `ResourceQuery` or `TransactionRequest` signs it with **one** labeled signature that conforms to Web Bot Auth, with its own `Signature-Agent` member. The rules are specified once, in [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding). In short:
 
-1. **Verify the requester's (originating) RFC 9421 HTTP Message Signature** — proves the original requester authorized the request. The `keyid` is the key's RFC 7638 thumbprint; the Exchange resolves the key in the requester's key directory at `{origin}/.well-known/http-message-signatures-directory`, where `{origin}` is the requester's `Signature-Agent` member, and verifies the Ed25519 signature.
+- **A Broker re-packages the request.** It posts to the Exchange's URL with a new body, so it does not cover the agent's signature. Its signature covers its own request components and only its own `Signature-Agent` member, and the agent's signature headers travel untouched. The agent's consent to a transaction is the `AgentAcceptance` the agent signed into each item of the body (with `agent_request_acceptance` for the ordered set), which verifies against the agent's directory whatever the route.
+- **A party that forwards unchanged MAY cover the previous signature.** If it does, it covers that signature's `Signature-Input` member and every component it lists as well, and the ordered set of such signatures forms a tamper-evident chain.
 
-2. **Verify every forwarding signature in the stack** — proves each intermediary (e.g., Broker) handled the request. For each labeled signature, the Exchange resolves its `keyid` thumbprint in the key directory named by that hop's own `Signature-Agent` member, verifies the Ed25519 signature, and confirms it covers the prior hop's `Signature`, `Signature-Input` member and every component that signature lists, so the chain is contiguous and ordered. Whether a hop may forward to this Exchange at all is the Exchange's own policy, for example only Brokers registered with it.
+The Exchange MUST:
 
-All signatures must pass for the request to proceed. If any verification fails — or the chain is not contiguous — the Exchange rejects the request with `CodeUnauthenticated`.
+1. **Verify the sender's signature** — the last label added. The `keyid` is the key's RFC 7638 thumbprint; the Exchange resolves the key in the key directory at `{origin}/.well-known/http-message-signatures-directory`, where `{origin}` is the `Signature-Agent` member that signature covers, verifies the Ed25519 signature, and authenticates the caller as that party. Whether a Broker may send to this Exchange at all is the Exchange's own policy, for example only Brokers registered with it.
+2. **On unchanged forwarding, verify every earlier signature and the chain.** Each earlier signature is verified independently in the same way, and each later one must cover the signature before it, its `Signature-Input` member and every component it lists. A signature that a re-packaging Broker left untouched is not attributed to anyone.
+3. **Verify `AgentAcceptance` on an execute request**, against the requester's directory, as [Projected execute requests](/protocol/authentication/#projected-execute-requests) describes.
 
-When only the originating signature is present, the requester is calling the Exchange directly — no intermediary was involved. Chain depth is bounded by `RequestConstraints.max_hops` (agent-set) and `WellKnownManifest.max_intermediary_hops` (Exchange-published); the Exchange counts the signatures in the stack against these caps.
+If a signature the Exchange relies on fails — or an unchanged-forwarding chain is not contiguous — the Exchange rejects the request with `CodeUnauthenticated`.
+
+When only the agent's signature is present, the requester is calling the Exchange directly — no intermediary was involved. Depth is bounded by `RequestConstraints.max_hops` (agent-set) and `WellKnownManifest.max_intermediary_hops` (Exchange-published); the Exchange counts the signatures in the stack against these caps.
 
 ```go
-// Forwarding-chain verification runs in the SDK's verify middleware at the
-// HTTP seam, before any handler — the ordered stack of RFC 9421 HTTP
-// Message Signatures in the request headers IS the chain. The middleware:
-//   1. Parses the Signature / Signature-Input headers into ordered, labeled hops.
-//   2. Verifies the originating (requester) signature against the key in
-//      the key directory its Signature-Agent member names, at
+// Request-signature verification runs in the SDK's verify middleware at the
+// HTTP seam, before any handler. The middleware:
+//   1. Parses the Signature / Signature-Input headers into labeled signatures.
+//   2. Verifies the sender's signature (the last label) against the key in
+//      the directory its own Signature-Agent member names, at
 //      {origin}/.well-known/http-message-signatures-directory.
-//   3. For each subsequent labeled signature, resolves its keyid in the
-//      directory named by that hop's own Signature-Agent member, verifies the
-//      Ed25519 signature, and confirms it covers the prior hop's signature
-//      (contiguous + ordered).
-//   4. Counts the hops against max_hops / max_intermediary_hops.
+//   3. On unchanged forwarding, verifies each earlier signature the same way
+//      and confirms each later one covers the one before it.
+//   4. Counts the signatures against max_hops / max_intermediary_hops.
 // Any failure rejects the request with CodeUnauthenticated before the handler
-// runs. The handler reads the proven hops from the context:
-hops := helpers.AllSignaturesFromContext(ctx) // sig1..sigN, in chain order
+// runs. The handler reads the proven signatures from the context:
+hops := helpers.AllSignaturesFromContext(ctx)
 ```
 
 ### Delegation Verification

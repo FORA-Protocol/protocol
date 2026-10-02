@@ -135,40 +135,38 @@ The sequence:
 
 A single-Exchange commit is the degenerate case: the projection is the whole set, and the SDK clients attach the acceptance there too.
 
-## Request Signing and the Forwarding Signature Stack
+## Request Signing
 
-FORA uses a two-layer signing model: the **agent's request signature** proves who originated the request, and the **forwarding signature stack** proves which intermediaries forwarded it.
+FORA uses a two-layer model: the **agent's request signature** authenticates the agent to the Broker, and the **Broker's own signature** authenticates the Broker to the Exchange. The agent's consent to a transaction travels in the body, not in the headers.
 
 ### Request Authentication
 
-The `Requester` message carries identity and entitlements only (`id`, `domain`, `type`, `scopes`, optional `delegation`) — it has **no** signature field. The request is authenticated by an RFC 9421 HTTP Message Signature (alg=ed25519) carried in the headers and made to the [Web Bot Auth profile](/protocol/authentication/#the-web-bot-auth-profile). The Exchange verifies it against the public key published in the signer's key directory at `{origin}/.well-known/http-message-signatures-directory`, with the origin taken from the `Signature-Agent` member the signature covers.
+The `Requester` message carries identity and entitlements only (`id`, `domain`, `type`, `scopes`, optional `delegation`) — it has **no** signature field. The request is authenticated by an RFC 9421 HTTP Message Signature (alg=ed25519) carried in the headers and made to the [Web Bot Auth profile](/protocol/authentication/#the-web-bot-auth-profile). A verifier checks it against the public key published in the signer's key directory at `{origin}/.well-known/http-message-signatures-directory`, with the origin taken from the `Signature-Agent` member the signature covers.
 
-The Broker passes `Requester` through unchanged -- it never modifies the requester's identity, scopes, or delegation -- and adds its own forwarding signature in the headers (see below).
+The Broker passes `Requester` through unchanged -- it never modifies the requester's identity, scopes, or delegation.
 
-### Forwarding Signature Stack (RFC 9421)
+### The Broker Signs Its Own Request (RFC 9421)
 
-Multi-hop forwarding is carried entirely in the HTTP headers, not in the message body. Each forwarding party adds one labeled RFC 9421 HTTP Message Signature, itself a Web Bot Auth signature, covering the request **and the prior hop's signature**. The ordered set of these labeled signatures *is* the forwarding chain -- there is no `intermediaries` field on `ResourceQuery`. The covered components and verification steps are specified once, in [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding).
+The Broker re-packages every request it relays: it posts to the Exchange's URL with a new body. The values the agent's signature covers therefore change, and WG-00 §5.2.2 forbids the Broker to cover the agent's signature. The Broker signs its own request on its own terms, as [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding) specifies:
 
-Each labeled signature, via its RFC 9421 signature parameters, effectively records:
+- **Label and member** -- it appends its own label and its own `Signature-Agent` member, naming its directory. It can append only to a dictionary, so it refuses a request whose `Signature-Agent` is the legacy single string and answers with `Accept-Signature` asking for the dictionary form.
+- **`keyid`** -- the Broker's RFC 7638 thumbprint, resolved in the key directory its own `Signature-Agent` member names
+- **`created`** -- when the Broker sent the request
+- **the covered components** -- its own request components (`@method`, `@target-uri`, `content-digest`, `authorization`) and only its own `Signature-Agent` member. It never covers the agent's `Signature-Agent`, `Signature-Input` or `Signature` members, and leaves them untouched.
 
-- **`keyid`** -- the intermediary's RFC 7638 thumbprint, resolved in the key directory that the intermediary's own `Signature-Agent` member names
-- **`created`** -- timestamp of when the intermediary forwarded the request
-- the covered components -- the request components FORA requires, the intermediary's own `Signature-Agent` member, and the preceding hop's `Signature` together with its `Signature-Input` member and every component it lists (WG-00 §5.2.2), chaining the hops together
-
-When the agent queries an Exchange directly, there are no forwarding signatures. When the request passes through a Broker, the Broker adds one labeled signature to the stack.
+Because the Broker's signature covers exactly one `Signature-Agent` member, single-member WBA verifiers such as Cloudflare's `web-bot-auth` library accept it. The Broker does not build a chain of signatures: its request is a new request.
 
 ```go
-// Broker adds one labeled RFC 9421 signature to the outgoing request headers when forwarding.
-func (o *Broker) signHop(req *http.Request, prevLabel string) {
-    label := "broker"
-    // Append this hop's own Signature-Agent member; the earlier members stay
-    // byte-for-byte as they arrived, because earlier signatures cover them.
+// Broker signs the re-packaged request it sends to an Exchange.
+func (o *Broker) signOutbound(req *http.Request) {
+    label := o.nextLabel(req) // e.g. "sig2" when the agent's "sig1" is present
+    // Append this Broker's own Signature-Agent member. The agent's member,
+    // Signature-Input and Signature are left untouched and are not covered.
     req.Header.Set("Signature-Agent",
-        req.Header.Get("Signature-Agent")+`, broker="https://`+o.domain+`"`)
-    // Covers the request components, this hop's own member, and the previous
-    // hop's Signature, its Signature-Input member and every component it
-    // lists (WG-00 §5.2.2), chaining this hop to the one before it.
-    sigInput, sig := o.rfc9421Sign(req, prevLabel, label) // Ed25519, keyid=o.thumbprint, tag="web-bot-auth"
+        req.Header.Get("Signature-Agent")+`, `+label+`="https://`+o.domain+`"`)
+    // Covers @method, @target-uri, content-digest, authorization and only
+    // "signature-agent";key=<label>.
+    sigInput, sig := o.rfc9421Sign(req, label) // Ed25519, keyid=o.thumbprint, tag="web-bot-auth"
     req.Header.Add("Signature-Input", sigInput)
     req.Header.Add("Signature", sig)
 }
@@ -176,14 +174,14 @@ func (o *Broker) signHop(req *http.Request, prevLabel string) {
 
 ### Exchange Verification
 
-The Exchange verifies both layers:
+The Exchange verifies:
 
-1. **Requester signature** -- verified against the public key in the agent's key directory at `{origin}/.well-known/http-message-signatures-directory` (origin from the agent's `Signature-Agent` member, key selected by the `keyid` thumbprint)
-2. **The forwarding signature stack** -- each labeled RFC 9421 signature is verified against the key its `keyid` thumbprint selects in the directory named by that hop's own `Signature-Agent` member, and the chained coverage is checked hop-by-hop.
+1. **The Broker's signature** -- against the key its `keyid` thumbprint selects in the directory named by the Broker's own `Signature-Agent` member. The Exchange authenticates the caller as the Broker. The agent's signature headers were computed over the request the agent sent, so they do not verify against the re-packaged request, and the Exchange attributes nothing to them.
+2. **The agent's consent** -- on an execute request, the `AgentAcceptance` the agent signed into each item, and `agent_request_acceptance` over the ordered set, both verified against the agent's directory. They do not depend on the route the request took. See [Projected execute requests](/protocol/authentication/#projected-execute-requests).
 
-All signatures must pass. The Exchange counts the number of forwarding hops in the stack against `max_hops` / `max_intermediary_hops` and rejects requests that exceed the limit.
+The Exchange counts the signatures in the stack against `max_hops` / `max_intermediary_hops` and rejects requests that exceed the limit. A delegated request reaches an Exchange through a Broker only when the agent has delegated to the Broker's key, because the Broker is the wire signer.
 
-The Broker publishes its keys in its WBA directory (the JWK Set at `{domain}/.well-known/http-message-signatures-directory`) — RFC 7517 Ed25519 JWKs, each identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`). Its `fora.json` manifest uses the same format as agents (`role=ROLE_AGENT`). The Broker names that directory in its own `Signature-Agent` member on every request it forwards, so an Exchange resolves the Broker's key the same way it resolves any signer's. Whether the Exchange accepts the Broker as a forwarding hop is a separate decision, and it is the Exchange's own policy: it may, for example, require the Broker to be registered with it.
+The Broker publishes its keys in its WBA directory (the JWK Set at `{domain}/.well-known/http-message-signatures-directory`) — RFC 7517 Ed25519 JWKs, each identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`). Its `fora.json` manifest uses the same format as agents (`role=ROLE_AGENT`). The Broker names that directory in its own `Signature-Agent` member on every request it sends, so an Exchange resolves the Broker's key the same way it resolves any signer's. Whether the Exchange accepts requests from the Broker is a separate decision, and it is the Exchange's own policy: it may, for example, require the Broker to be registered with it.
 
 ## Profile-Based Routing
 
@@ -376,7 +374,7 @@ sequenceDiagram
 | **Same protocol, transparent proxy** | The Exchange cannot distinguish Broker-mediated requests from direct agent requests. No special Exchange support needed. |
 | **Signed offer pass-through** | Exchange signatures cover pricing fields. The Broker cannot inflate prices without invalidating the signature. |
 | **Advisory budget enforcement** | The Broker pre-filters transactions by budget, but the Exchange is the authoritative enforcement point. No overspend occurs because the Exchange is the gatekeeper. |
-| **Ed25519 + forwarding signature stack** | Requester signs the HTTP request with an RFC 9421 HTTP Message Signature that follows the Web Bot Auth profile (covering `@method`/`@target-uri`/`content-digest`/`authorization` and its `Signature-Agent` member); Broker adds one labeled RFC 9421 HTTP Message Signature (covering the request plus the prior hop's signature) to the header stack. Exchange verifies both layers and counts hops against `max_hops` / `max_intermediary_hops`. Public keys discoverable via the WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`). |
+| **Ed25519 request signatures, consent in the body** | Requester signs the HTTP request with an RFC 9421 HTTP Message Signature that follows the Web Bot Auth profile (covering `@method`/`@target-uri`/`content-digest`/`authorization` and its `Signature-Agent` member). The Broker re-packages the request and signs it with its own labeled signature, covering its own request and only its own `Signature-Agent` member. The Exchange authenticates the Broker, takes the agent's consent from the `AgentAcceptance` in the body, and counts signatures against `max_hops` / `max_intermediary_hops`. Public keys discoverable via the WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`). |
 | **Partial results are normal** | If 3 of 5 Exchanges respond within the deadline, the Broker proceeds with 3 responses. Availability of any individual Exchange does not block the system. |
 
 ## Go Module Structure

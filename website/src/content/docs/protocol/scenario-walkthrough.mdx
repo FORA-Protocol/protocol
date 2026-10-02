@@ -465,12 +465,12 @@ If Anthropic uses its hosted Broker instead of the SDK directly, the Broker prov
 }
 ```
 
-### Broker Fans Out with a Header Signature Chain
+### Broker Fans Out with Its Own Signed Requests
 
-The Broker queries both Exchanges. For each forwarded request, the Broker:
+The Broker queries both Exchanges. For each Exchange, the Broker re-packages the request (here it batches the URIs and sets its own `deadline`) and:
 1. Preserves the agent's original `requester` message
-2. Preserves the agent's RFC 9421 HTTP Message Signature (its labeled signature stays in the `Signature`/`Signature-Input` headers)
-3. Adds its own labeled RFC 9421 HTTP Message Signature, covering the request plus the agent's prior signature (the ordered set of header signatures is the chain that proves the Broker forwarded it)
+2. Leaves the agent's RFC 9421 signature headers untouched and does not cover them, because the request they were computed over has changed
+3. Signs its own request with its own labeled RFC 9421 HTTP Message Signature, covering its own request components and only its own `Signature-Agent` member
 
 Broker → SSP-Alpha (multi-URI batch query) — `POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`:
 
@@ -494,9 +494,7 @@ Broker → SSP-Alpha (multi-URI batch query) — `POST https://exchange.ssp-alph
 }
 ```
 
-The forwarding chain travels in the HTTP headers, not the request body: the agent's labeled RFC 9421 signature and the Broker's labeled RFC 9421 signature both sit in the `Signature`/`Signature-Input` headers. The agent's signature covers `@target-uri` against the Exchange's endpoint -- the final recipient -- not the Broker's relay URL. SSP-Alpha's Exchange verifies the full stack:
-1. The agent's RFC 9421 HTTP Message Signature (alg=ed25519) -- fetch public key from the WBA directory at `claude.ai/.well-known/http-message-signatures-directory`, Ed25519 verify
-2. Each forwarding hop's labeled RFC 9421 HTTP Message Signature -- for each one, look up the public key by its `keyid` thumbprint in the key directory named by that hop's own `Signature-Agent` member, Ed25519 verify (each hop signs the request plus the prior hop's signature; see [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding))
+Both labeled signatures sit in the `Signature`/`Signature-Input` headers, but only the Broker's covers this request. SSP-Alpha's Exchange verifies the Broker's signature -- it looks up the public key by its `keyid` thumbprint in the key directory named by the Broker's own `Signature-Agent` member, Ed25519 verifies, and authenticates the caller as the Broker. The agent's untouched signature does not match the re-packaged request, and the Exchange attributes nothing to it. A discovery query moves no money, so it carries no agent consent; see [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding).
 
 SSP-Alpha returns `offer_groups` (batch mode -- multiple URIs in query):
 
@@ -696,7 +694,7 @@ SDK or Broker commits to the subscription offer.
 }
 ```
 
-### Orchestrated request -- forwarding chain in the headers:
+### Orchestrated request -- the Broker signs, the agent's consent is in the body:
 
 `POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
@@ -758,22 +756,20 @@ SDK or Broker commits to the subscription offer.
 }
 ```
 
-The request body is identical to the direct case; the forwarding chain lives in the HTTP headers. The Broker preserves the agent's labeled RFC 9421 signature and adds its own labeled RFC 9421 signature (covering the request plus the agent's signature) to the `Signature`/`Signature-Input` headers. The Exchange verifies both: the agent's identity (via the agent's RFC 9421 HTTP Message Signature, alg=ed25519, + public key fetched from the agent's WBA directory at `claude.ai/.well-known/http-message-signatures-directory`) and each forwarding hop (via that hop's labeled RFC 9421 signature + the hop's public key, selected by its `keyid` thumbprint in the key directory named by the hop's own `Signature-Agent` member).
+The Broker posts this request to the Exchange as its own: it signs it with its own labeled RFC 9421 signature, covering its own request components and only its own `Signature-Agent` member, and leaves the agent's signature headers untouched. The Exchange authenticates the caller as the Broker (its public key selected by `keyid` thumbprint in the directory the Broker's own `Signature-Agent` member names). The agent's consent is the `agent_acceptance` on the item, which the Exchange verifies against the agent's key in its directory at `claude.ai/.well-known/http-message-signatures-directory`. This example carries no delegation; a delegated request through a Broker needs the agent to have delegated to the Broker's key.
 
 ### Inside SSP-Alpha's Exchange
 
 ```
 1. Validate request (proto validation) -> pass
-2. Verify the RFC 9421 HTTP Message Signature (alg=ed25519) on the request:
-   - Fetch public key from the WBA directory at
-     claude.ai/.well-known/http-message-signatures-directory
-     (origin from the covered Signature-Agent member, key by keyid thumbprint)
-   - Ed25519 verify -> pass
-2b. Verify forwarding signature chain (if any forwarding hops added labeled signatures):
-   - For each hop's labeled RFC 9421 signature: look up the public key by its
-     keyid thumbprint in the key directory named by that hop's own
-     Signature-Agent member
-   - Ed25519 verify each hop's signature -> pass
+2. Verify the sender's RFC 9421 HTTP Message Signature (alg=ed25519), the
+   Broker's label:
+   - Fetch the Broker's public key from the directory its own covered
+     Signature-Agent member names (key by keyid thumbprint)
+   - Ed25519 verify -> pass; the caller is the Broker
+   - The agent's untouched signature is not attributed to anyone
+2b. Verify the agent's agent_acceptance on each item against the agent's key
+   in claude.ai/.well-known/http-message-signatures-directory -> pass
 2c. Verify `agent_request_acceptance` when the request carries it (this example
    omits the optional field): Ed25519 verify the signed request set against the
    requester's published agent key, then require this request's items to be the

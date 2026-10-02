@@ -42,15 +42,21 @@ specifies the profile in one place, and the other pages refer to it:
   is not an https origin, and answer a missing component with `Accept-Signature`
   listing what they require. `Signature-Agent` is never empty; an empty
   `Authorization` stays valid.
-- Each forwarding hop adds its own `Signature-Agent` member and a signature that
-  covers the request components, its own member, and the previous hop's
-  `Signature` together with its `Signature-Input` member and every component it
-  lists, as WG-00 §5.2.2 requires. Some WBA libraries, for example Cloudflare's
-  `web-bot-auth` 0.2.0, refuse a signature that covers more than one
-  `Signature-Agent` member; that affects only the hop signature, which the
-  Exchange verifies, while the agent's own signature passes them on every hop.
-  The Exchange resolves each hop's key in the directory that hop names, not in a
-  configured key set.
+- Forwarding follows WG-00 §5.2.2. A party that forwards a request unchanged
+  in every component a previous signature covers MAY cover that signature, and
+  then covers its `Signature-Input` and every component it lists as well. A relay
+  that re-packages the request signs its own request on its own terms. FORA's
+  Broker re-packages every request (it posts to the Exchange's URL with a new
+  body), so its signature covers its own request components and only its own
+  `Signature-Agent` member, and it leaves the agent's signature headers
+  untouched. Every Broker signature therefore carries exactly one
+  `Signature-Agent` member and passes single-member WBA verifiers such as
+  Cloudflare's `web-bot-auth`. The Exchange authenticates the caller as the
+  Broker and takes the agent's consent to a transaction from the
+  `AgentAcceptance` signed into the body, which does not depend on the route. A
+  delegated request through a Broker needs the agent to have delegated to the
+  Broker's key. The Exchange resolves each signer's key in the directory that
+  signer names, not in a configured key set.
 - The retrieval proof of possession at the publisher edge is a full Web Bot Auth
   signature plus `@method` and `@target-uri`. The edge keeps verifying offline
   with the key in `X-FORA-Agent-Key`, which it accepts only when its thumbprint
@@ -66,9 +72,9 @@ specifies the profile in one place, and the other pages refer to it:
   Message Signatures names (`ed25519`); FORA follows RFC 7517 and Cloudflare's
   reference library. It is the only deviation from WG-00.
 
-Authentication includes a complete signed request, the same request after a
-Broker hop, and a signed directory response, all with real values that can be
-verified.
+Authentication includes a complete signed request, the request a Broker
+re-packaged and signed for the Exchange, and a signed directory response, all
+with real values that can be verified.
 
 **Upcoming profile change (not in this release).** The SDKs released as v1.0.8
 do not implement the profile. They send `Signature-Agent` as a bare URL, set no

@@ -17,7 +17,7 @@ Without Broker (direct, single exchange):
 
 ## Multi-Hop Routing
 
-Multi-hop is the common case, not the exception. A request typically travels `Agent -> Broker -> ... -> Exchange`, and the broker layer may itself be more than one hop. The forwarding chain lives entirely in the HTTP layer as a **stack of [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) HTTP Message Signatures** — there is no in-message hop list. Each party that originates or forwards the request adds **one** labeled signature, and each is a conformant [Web Bot Auth](/protocol/authentication/#the-web-bot-auth-profile) signature with its own `Signature-Agent` member naming its own key directory. Each forwarder's signature covers the request components FORA requires on the route **plus the previous hop's signature**, so the chain is ordered and tamper-evident: no hop can be reordered, dropped, or inserted without invalidating a downstream signature. The Exchange resolves each signature's key in the directory that signature's own member names, verifies **every** signature, and confirms the chain is contiguous. The ordered set of signatures *is* the forwarding chain. The exact covered components and the verification steps are specified once, in [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding).
+Multi-hop is the common case, not the exception. A request typically travels `Agent -> Broker -> ... -> Exchange`, and the broker layer may itself be more than one hop. Nothing about the route is carried in the message body: each party signs the request it sends with one labeled [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) signature in the HTTP headers, a conformant [Web Bot Auth](/protocol/authentication/#the-web-bot-auth-profile) signature with its own `Signature-Agent` member naming its own key directory. FORA's Broker re-packages each request: it posts to the Exchange's URL with a new body, so it does not cover the agent's signature. It signs its own request on its own terms, covering its own request components and only its own `Signature-Agent` member, and leaves the agent's signature headers untouched. The Exchange authenticates the caller as the Broker, and takes the agent's consent to a transaction from the `AgentAcceptance` the agent signed into the body, which does not depend on the route. A party that forwards a request unchanged MAY instead cover the previous signature, and only then does the ordered set of signatures form a tamper-evident forwarding chain. The Exchange resolves each signature's key in the directory that signature's own member names. Both cases and the verification steps are specified once, in [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding).
 
 **Chain-depth caps.** Two fields bound how deep a chain may go:
 
@@ -59,7 +59,7 @@ Key fields:
 - `acceptable_restrictions` -- the restrictions the agent is willing to accept, grouped by axis; axis `FUNCTION` carries the intended use (RAG, training, search, etc.)
 - `requester.scopes` -- entitlement scopes; `["*"]` means unrestricted public access
 - billing carries no request field: the Exchange resolves the caller's account (the `billing_ref` minted at `ExchangeService.Register`) from the verified request signature, never from anything the caller sends
-- request authentication -- an RFC 9421 HTTP Message Signature over the request that follows the [Web Bot Auth profile](/protocol/authentication/#the-web-bot-auth-profile) (the agent's key is published in its key directory); when the request is forwarded, each hop adds its own labeled HTTP Message Signature, and the ordered stack of these header signatures is the forwarding chain (no in-message hop list)
+- request authentication -- an RFC 9421 HTTP Message Signature over the request that follows the [Web Bot Auth profile](/protocol/authentication/#the-web-bot-auth-profile) (the agent's key is published in its key directory); when a Broker relays the request, it re-packages it and signs it with its own labeled HTTP Message Signature (no in-message hop list)
 
 ### Response (`ResourceResponse`)
 
@@ -380,7 +380,7 @@ The `retrieval_endpoint` is a CDN signed URL bound to `agent_identity_hash`. A b
 ### What Happens Inside the Exchange
 
 1. Validate request (proto validation)
-2. Verify the sender's RFC 9421 HTTP Message Signature (alg=ed25519) in the request headers — the agent's on a direct request, a projecting Broker's on a projected one — and each prior hop signature if present
+2. Verify the sender's RFC 9421 HTTP Message Signature (alg=ed25519) in the request headers — the agent's on a direct request, the Broker's on a request a Broker re-packaged — and, only on unchanged forwarding, each earlier signature the sender covered
 3. Verify `agent_request_acceptance` when present: the signature, and that this request's items are the complete in-order projection of the signed set addressed to this Exchange. This runs **before** the idempotency lookup — request-level idempotency state is never created or served for a request whose set claim has not been proven, otherwise a mutated request could consume the key and a later honest retry would replay its result
 4. Check idempotency key (prevent double-charge on retry)
 5. Verify offer signature (reconstruct offer from signed token)
