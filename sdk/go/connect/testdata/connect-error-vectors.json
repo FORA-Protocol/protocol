@@ -225,6 +225,36 @@
       "peer_message": "challenge not found"
     },
     {
+      "name": "request_auth_failure_signature_stale",
+      "code": "unauthenticated",
+      "http_status": 401,
+      "envelope": {
+        "code": "unauthenticated",
+        "details": [
+          {
+            "debug": {
+              "message": "helpers: signature expired",
+              "requestAuthFailure": {
+                "reason": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE"
+              }
+            },
+            "type": "fora.v1.ErrorDetail",
+            "value": "ChpoZWxwZXJzOiBzaWduYXR1cmUgZXhwaXJlZIoBAggD"
+          }
+        ],
+        "message": "helpers: signature expired"
+      },
+      "expect": {
+        "has_detail": true,
+        "domain": "",
+        "message": "helpers: signature expired",
+        "metadata": null,
+        "reason_field": "request_auth_failure",
+        "reason_enum": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE"
+      },
+      "peer_message": "helpers: signature expired"
+    },
+    {
       "name": "generic_detail_no_reason",
       "code": "internal",
       "http_status": 500,

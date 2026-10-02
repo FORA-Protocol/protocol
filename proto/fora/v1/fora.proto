@@ -4275,8 +4275,8 @@ message GetAccountStatusResponse {
 // of failure: *Denial is an access decision (a transaction was denied),
 // *Rejection is a submission refused (catalog push, usage report), and *Failure
 // is an operation that could not complete (registration, dispute, domain
-// verification, retrieval auth). The distinction is deliberate; do not flatten
-// these to a single suffix.
+// verification, retrieval auth, request auth). The distinction is deliberate;
+// do not flatten these to a single suffix.
 //
 // The per-domain reason enums here are the single source of truth that replaces
 // the hand-rolled Go "Kind" enums (Exchange, Broker), the catalog free-text
@@ -4322,6 +4322,8 @@ message ErrorDetail {
     RetrievalAuthFailure retrieval_auth_failure = 15;
     // `reason` oneof — ReportUsage filing rejected
     UsageReportRejection usage_report_rejection = 16;
+    // `reason` oneof — RFC 9421 request signature on an RPC refused
+    RequestAuthFailure request_auth_failure = 17;
   }
 }
 
@@ -4563,6 +4565,27 @@ enum UsageReportRejectionReason {
 message UsageReportRejection {
   // The rejection reason (defined-only, non-zero)
   UsageReportRejectionReason reason = 1 [
+    (buf.validate.field).enum = {defined_only: true, not_in: [0]}
+  ];
+}
+
+// RequestAuthFailureReason — why the RFC 9421 HTTP message signature on an RPC
+// request failed verification, refused with the Connect code UNAUTHENTICATED.
+// Deliberately coarse: each value names what the caller does next, never which
+// validation step failed, so a refusal tells a forger nothing about how far its
+// request got. Distinct from RetrievalAuthFailureReason, which covers the
+// signed-URL / proof-of-possession check at the delivery edge, not an RPC.
+enum RequestAuthFailureReason {
+  REQUEST_AUTH_FAILURE_REASON_UNSPECIFIED = 0;  // unset — rejected at ingest
+  REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING = 1;  // no signature, or none that parses; remedy: sign the request
+  REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID = 2;  // the signature does not verify: bad signature, unresolvable key, content-digest mismatch, required covered component missing
+  REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE = 3;    // outside its created/expires window, or already used (replay); remedy: re-sign now
+}
+
+// RequestAuthFailure — an RPC request's HTTP message signature was refused.
+message RequestAuthFailure {
+  // The failure reason (defined-only, non-zero)
+  RequestAuthFailureReason reason = 1 [
     (buf.validate.field).enum = {defined_only: true, not_in: [0]}
   ];
 }

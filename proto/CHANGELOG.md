@@ -25,6 +25,44 @@ Python-only for now; Go and TypeScript parity follows.**
   `signing_transport_for(key, directory)` returns a `SigningTransport` that signs as
   that key.
 
+**A request-signature refusal carries a typed reason (additive wire change).**
+An RPC request whose RFC 9421 HTTP message signature failed verification was
+refused as Connect `unauthenticated` with only a message, such as
+`helpers: missing Signature-Input header`. The contract tells clients to branch on
+a typed reason and never on the message, and `ErrorDetail` had no reason for this
+failure. It now has one: a new `reason` oneof member,
+`RequestAuthFailure request_auth_failure = 17`, whose `RequestAuthFailureReason` is
+one of three values:
+
+- `SIGNATURE_MISSING`: no signature, or none that parses. Sign the request.
+- `SIGNATURE_INVALID`: the signature does not verify, for example a bad
+  signature, a key that cannot be resolved, a content-digest mismatch or a
+  required covered component that is missing.
+- `SIGNATURE_STALE`: the signature is outside its `created`/`expires` window, or
+  was already used. Sign the request again, now.
+
+The values are deliberately coarse: each names what the caller does next, never
+which validation step failed, so a refusal tells a forger nothing about how far
+its request got.
+
+The Go server binding attaches the detail. `connectserver.WriteReject`, which the
+verify seam of `NewExchangeServiceHandler`, `NewBrokerServiceHandler` and
+`NewCatalogServiceHandler` answers with, now adds one `fora.v1.ErrorDetail` to the
+`details` of every `unauthenticated` refusal. The reason comes from the
+verification error: a missing or malformed `Signature-Input` or `Signature` is
+`SIGNATURE_MISSING`; an expired signature, one created in the future, or a replay
+(`connectserver.ErrReplayed`) is `SIGNATURE_STALE`; every other error, including
+one the mapping does not know, is `SIGNATURE_INVALID`. The detail's `domain` is
+empty, because the writer is not given the request and cannot name the service.
+The envelope's `code` and `message` are unchanged, and a `resource_exhausted`
+refusal still carries no detail.
+
+The detail builders gain `helpers.RequestAuthFailureDetail` (Go),
+`request_auth_failure_detail` (Python) and `requestAuthFailureDetail`
+(TypeScript), and the readers (`helpers.Reason`, `reason`) return the new enum.
+The Python and TypeScript SDKs have no RPC refusal writer, so they read this
+detail but do not emit it.
+
 ## v1.0.8
 
 **Request signatures carry an RFC 9421 `nonce` (SDK fix; no wire change for

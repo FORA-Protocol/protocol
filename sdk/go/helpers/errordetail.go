@@ -87,10 +87,18 @@ func UsageReportRejectionDetail(domain, message string, reason forav1.UsageRepor
 	return d
 }
 
+// RequestAuthFailureDetail builds an ErrorDetail carrying a typed RequestAuthFailureReason.
+func RequestAuthFailureDetail(domain, message string, reason forav1.RequestAuthFailureReason) *forav1.ErrorDetail {
+	d := base(domain, message)
+	d.Reason = &forav1.ErrorDetail_RequestAuthFailure{RequestAuthFailure: &forav1.RequestAuthFailure{Reason: reason}}
+	return d
+}
+
 // Reason returns the active typed reason enum from detail — one of
 // forav1.DenialReason, RetrievalAuthFailureReason, CatalogRejectionReason,
 // RegistrationFailureReason, DisputeFailureReason, DomainVerificationFailureReason,
-// or UsageReportRejectionReason — or nil when no reason is set. Callers type-switch
+// UsageReportRejectionReason, or RequestAuthFailureReason — or nil when no reason
+// is set. Callers type-switch
 // on the result to branch on the failure, never on a string.
 func Reason(detail *forav1.ErrorDetail) any {
 	switch {
@@ -108,6 +116,8 @@ func Reason(detail *forav1.ErrorDetail) any {
 		return detail.GetDomainVerificationFailure().GetReason()
 	case detail.GetUsageReportRejection() != nil:
 		return detail.GetUsageReportRejection().GetReason()
+	case detail.GetRequestAuthFailure() != nil:
+		return detail.GetRequestAuthFailure().GetReason()
 	default:
 		return nil
 	}

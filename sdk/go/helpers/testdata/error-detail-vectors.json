@@ -247,6 +247,54 @@
           "reason": "USAGE_REPORT_REJECTION_REASON_DUPLICATE"
         }
       }
+    },
+    {
+      "name": "request_auth_failure_signature_missing",
+      "domain": "fora.v1.ExchangeService",
+      "message": "helpers: missing Signature-Input header",
+      "metadata": null,
+      "reason_field": "request_auth_failure",
+      "reason_enum": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING",
+      "field_errors": null,
+      "wire_json": {
+        "domain": "fora.v1.ExchangeService",
+        "message": "helpers: missing Signature-Input header",
+        "request_auth_failure": {
+          "reason": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING"
+        }
+      }
+    },
+    {
+      "name": "request_auth_failure_signature_invalid",
+      "domain": "fora.v1.ExchangeService",
+      "message": "helpers: required covered component missing: @target-uri",
+      "metadata": null,
+      "reason_field": "request_auth_failure",
+      "reason_enum": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID",
+      "field_errors": null,
+      "wire_json": {
+        "domain": "fora.v1.ExchangeService",
+        "message": "helpers: required covered component missing: @target-uri",
+        "request_auth_failure": {
+          "reason": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID"
+        }
+      }
+    },
+    {
+      "name": "request_auth_failure_signature_stale",
+      "domain": "fora.v1.ExchangeService",
+      "message": "helpers: signature expired",
+      "metadata": null,
+      "reason_field": "request_auth_failure",
+      "reason_enum": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE",
+      "field_errors": null,
+      "wire_json": {
+        "domain": "fora.v1.ExchangeService",
+        "message": "helpers: signature expired",
+        "request_auth_failure": {
+          "reason": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE"
+        }
+      }
     }
   ]
 }

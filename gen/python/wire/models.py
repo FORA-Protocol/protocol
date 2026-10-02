@@ -834,6 +834,18 @@ class ReportingPolicy(WireModel):
     )
 
 
+class RequestAuthFailureReason(Enum):
+    REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING = (
+        'REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING'
+    )
+    REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID = (
+        'REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID'
+    )
+    REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE = (
+        'REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE'
+    )
+
+
 class RequestConstraints(WireModel):
     budget_period: str | None = Field(
         None,
@@ -1369,6 +1381,12 @@ class RegistrationFailure(WireModel):
     )
 
 
+class RequestAuthFailure(WireModel):
+    reason: RequestAuthFailureReason = Field(
+        ..., description='The failure reason (defined-only, non-zero)'
+    )
+
+
 class Requester(WireModel):
     delegation: Delegation | None = Field(
         None,
@@ -1816,6 +1834,10 @@ class ErrorDetail(WireModel):
     )
     registration_failure: RegistrationFailure | None = Field(
         None, description='`reason` oneof — agent/provider registration refused'
+    )
+    request_auth_failure: RequestAuthFailure | None = Field(
+        None,
+        description='`reason` oneof — RFC 9421 request signature on an RPC refused',
     )
     retrieval_auth_failure: RetrievalAuthFailure | None = Field(
         None,

@@ -1944,6 +1944,64 @@ func (UsageReportRejectionReason) EnumDescriptor() ([]byte, []int) {
 	return file_fora_v1_fora_proto_rawDescGZIP(), []int{27}
 }
 
+// RequestAuthFailureReason — why the RFC 9421 HTTP message signature on an RPC
+// request failed verification, refused with the Connect code UNAUTHENTICATED.
+// Deliberately coarse: each value names what the caller does next, never which
+// validation step failed, so a refusal tells a forger nothing about how far its
+// request got. Distinct from RetrievalAuthFailureReason, which covers the
+// signed-URL / proof-of-possession check at the delivery edge, not an RPC.
+type RequestAuthFailureReason int32
+
+const (
+	RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_UNSPECIFIED       RequestAuthFailureReason = 0 // unset — rejected at ingest
+	RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING RequestAuthFailureReason = 1 // no signature, or none that parses; remedy: sign the request
+	RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID RequestAuthFailureReason = 2 // the signature does not verify: bad signature, unresolvable key, content-digest mismatch, required covered component missing
+	RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE   RequestAuthFailureReason = 3 // outside its created/expires window, or already used (replay); remedy: re-sign now
+)
+
+// Enum value maps for RequestAuthFailureReason.
+var (
+	RequestAuthFailureReason_name = map[int32]string{
+		0: "REQUEST_AUTH_FAILURE_REASON_UNSPECIFIED",
+		1: "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING",
+		2: "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID",
+		3: "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE",
+	}
+	RequestAuthFailureReason_value = map[string]int32{
+		"REQUEST_AUTH_FAILURE_REASON_UNSPECIFIED":       0,
+		"REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING": 1,
+		"REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID": 2,
+		"REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE":   3,
+	}
+)
+
+func (x RequestAuthFailureReason) Enum() *RequestAuthFailureReason {
+	p := new(RequestAuthFailureReason)
+	*p = x
+	return p
+}
+
+func (x RequestAuthFailureReason) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RequestAuthFailureReason) Descriptor() protoreflect.EnumDescriptor {
+	return file_fora_v1_fora_proto_enumTypes[28].Descriptor()
+}
+
+func (RequestAuthFailureReason) Type() protoreflect.EnumType {
+	return &file_fora_v1_fora_proto_enumTypes[28]
+}
+
+func (x RequestAuthFailureReason) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RequestAuthFailureReason.Descriptor instead.
+func (RequestAuthFailureReason) EnumDescriptor() ([]byte, []int) {
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{28}
+}
+
 // AcceptableRestriction — the limits a query operates within on one restriction
 // axis, expressed in the same RestrictionKind vocabulary that terms use. The
 // Exchange/Broker MAY pre-select offers whose term restrictions fall within
@@ -9366,6 +9424,7 @@ type ErrorDetail struct {
 	//	*ErrorDetail_DomainVerificationFailure
 	//	*ErrorDetail_RetrievalAuthFailure
 	//	*ErrorDetail_UsageReportRejection
+	//	*ErrorDetail_RequestAuthFailure
 	Reason        isErrorDetail_Reason `protobuf_oneof:"reason"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -9492,6 +9551,15 @@ func (x *ErrorDetail) GetUsageReportRejection() *UsageReportRejection {
 	return nil
 }
 
+func (x *ErrorDetail) GetRequestAuthFailure() *RequestAuthFailure {
+	if x != nil {
+		if x, ok := x.Reason.(*ErrorDetail_RequestAuthFailure); ok {
+			return x.RequestAuthFailure
+		}
+	}
+	return nil
+}
+
 type isErrorDetail_Reason interface {
 	isErrorDetail_Reason()
 }
@@ -9531,6 +9599,11 @@ type ErrorDetail_UsageReportRejection struct {
 	UsageReportRejection *UsageReportRejection `protobuf:"bytes,16,opt,name=usage_report_rejection,json=usageReportRejection,proto3,oneof"`
 }
 
+type ErrorDetail_RequestAuthFailure struct {
+	// `reason` oneof — RFC 9421 request signature on an RPC refused
+	RequestAuthFailure *RequestAuthFailure `protobuf:"bytes,17,opt,name=request_auth_failure,json=requestAuthFailure,proto3,oneof"`
+}
+
 func (*ErrorDetail_TransactionDenial) isErrorDetail_Reason() {}
 
 func (*ErrorDetail_CatalogRejection) isErrorDetail_Reason() {}
@@ -9544,6 +9617,8 @@ func (*ErrorDetail_DomainVerificationFailure) isErrorDetail_Reason() {}
 func (*ErrorDetail_RetrievalAuthFailure) isErrorDetail_Reason() {}
 
 func (*ErrorDetail_UsageReportRejection) isErrorDetail_Reason() {}
+
+func (*ErrorDetail_RequestAuthFailure) isErrorDetail_Reason() {}
 
 // TransactionDenial — ExecuteTransaction could not complete. Carries the denial
 // reason the response body no longer holds (denial_reason / restriction_mismatches
@@ -9996,6 +10071,52 @@ func (x *UsageReportRejection) GetReason() UsageReportRejectionReason {
 		return x.Reason
 	}
 	return UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_UNSPECIFIED
+}
+
+// RequestAuthFailure — an RPC request's HTTP message signature was refused.
+type RequestAuthFailure struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The failure reason (defined-only, non-zero)
+	Reason        RequestAuthFailureReason `protobuf:"varint,1,opt,name=reason,proto3,enum=fora.v1.RequestAuthFailureReason" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RequestAuthFailure) Reset() {
+	*x = RequestAuthFailure{}
+	mi := &file_fora_v1_fora_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RequestAuthFailure) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestAuthFailure) ProtoMessage() {}
+
+func (x *RequestAuthFailure) ProtoReflect() protoreflect.Message {
+	mi := &file_fora_v1_fora_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestAuthFailure.ProtoReflect.Descriptor instead.
+func (*RequestAuthFailure) Descriptor() ([]byte, []int) {
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *RequestAuthFailure) GetReason() RequestAuthFailureReason {
+	if x != nil {
+		return x.Reason
+	}
+	return RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_UNSPECIFIED
 }
 
 var File_fora_v1_fora_proto protoreflect.FileDescriptor
@@ -10659,7 +10780,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"3get_account_status_response.balances_entry_complete\x12\\each balances entry needs a non-empty amount and a three-letter upper-case ISO 4217 currency\x1aHthis.balances.all(b, b.amount != '' && b.currency.matches('^[A-Z]{3}$'))\x1a\x85\x01\n" +
 	"1get_account_status_response.balances_no_unit_cost\x12'balances entries must not set unit_cost\x1a'this.balances.all(b, !has(b.unit_cost))\x1a\x94\x01\n" +
 	"4get_account_status_response.balances_currency_unique\x121balances must hold at most one entry per currency\x1a)this.balances.map(b, b.currency).unique()B\x0f\n" +
-	"\r_terms_digest\"\x88\x06\n" +
+	"\r_terms_digest\"\xd9\x06\n" +
 	"\vErrorDetail\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x12\x16\n" +
 	"\x06domain\x18\x02 \x01(\tR\x06domain\x12>\n" +
@@ -10671,7 +10792,8 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x0fdispute_failure\x18\r \x01(\v2\x17.fora.v1.DisputeFailureH\x00R\x0edisputeFailure\x12d\n" +
 	"\x1bdomain_verification_failure\x18\x0e \x01(\v2\".fora.v1.DomainVerificationFailureH\x00R\x19domainVerificationFailure\x12U\n" +
 	"\x16retrieval_auth_failure\x18\x0f \x01(\v2\x1d.fora.v1.RetrievalAuthFailureH\x00R\x14retrievalAuthFailure\x12U\n" +
-	"\x16usage_report_rejection\x18\x10 \x01(\v2\x1d.fora.v1.UsageReportRejectionH\x00R\x14usageReportRejection\x1a;\n" +
+	"\x16usage_report_rejection\x18\x10 \x01(\v2\x1d.fora.v1.UsageReportRejectionH\x00R\x14usageReportRejection\x12O\n" +
+	"\x14request_auth_failure\x18\x11 \x01(\v2\x1b.fora.v1.RequestAuthFailureH\x00R\x12requestAuthFailure\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\b\n" +
@@ -10708,6 +10830,9 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x06reason\"_\n" +
 	"\x14UsageReportRejection\x12G\n" +
 	"\x06reason\x18\x01 \x01(\x0e2#.fora.v1.UsageReportRejectionReasonB\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x06reason\"[\n" +
+	"\x12RequestAuthFailure\x12E\n" +
+	"\x06reason\x18\x01 \x01(\x0e2!.fora.v1.RequestAuthFailureReasonB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x06reason*\xb6\x01\n" +
 	"\x0fDiscoveryMethod\x12 \n" +
 	"\x1cDISCOVERY_METHOD_UNSPECIFIED\x10\x00\x12\x1d\n" +
@@ -10924,7 +11049,12 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"'USAGE_REPORT_REJECTION_REASON_DUPLICATE\x10\x02\x120\n" +
 	",USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED\x10\x03\x129\n" +
 	"5USAGE_REPORT_REJECTION_REASON_MISSING_REQUIRED_FIELDS\x10\x04\x12+\n" +
-	"'USAGE_REPORT_REJECTION_REASON_MALFORMED\x10\x052\xa0\x05\n" +
+	"'USAGE_REPORT_REJECTION_REASON_MALFORMED\x10\x05*\xde\x01\n" +
+	"\x18RequestAuthFailureReason\x12+\n" +
+	"'REQUEST_AUTH_FAILURE_REASON_UNSPECIFIED\x10\x00\x121\n" +
+	"-REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING\x10\x01\x121\n" +
+	"-REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID\x10\x02\x12/\n" +
+	"+REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE\x10\x032\xa0\x05\n" +
 	"\x0fExchangeService\x12F\n" +
 	"\x11DiscoverResources\x12\x16.fora.v1.ResourceQuery\x1a\x19.fora.v1.ResourceResponse\x12O\n" +
 	"\x12ExecuteTransaction\x12\x1b.fora.v1.TransactionRequest\x1a\x1c.fora.v1.TransactionResponse\x12A\n" +
@@ -10954,8 +11084,8 @@ func file_fora_v1_fora_proto_rawDescGZIP() []byte {
 	return file_fora_v1_fora_proto_rawDescData
 }
 
-var file_fora_v1_fora_proto_enumTypes = make([]protoimpl.EnumInfo, 28)
-var file_fora_v1_fora_proto_msgTypes = make([]protoimpl.MessageInfo, 71)
+var file_fora_v1_fora_proto_enumTypes = make([]protoimpl.EnumInfo, 29)
+var file_fora_v1_fora_proto_msgTypes = make([]protoimpl.MessageInfo, 72)
 var file_fora_v1_fora_proto_goTypes = []any{
 	(DiscoveryMethod)(0),                   // 0: fora.v1.DiscoveryMethod
 	(OfferAbsenceReason)(0),                // 1: fora.v1.OfferAbsenceReason
@@ -10985,260 +11115,264 @@ var file_fora_v1_fora_proto_goTypes = []any{
 	(DomainVerificationFailureReason)(0),   // 25: fora.v1.DomainVerificationFailureReason
 	(RetrievalAuthFailureReason)(0),        // 26: fora.v1.RetrievalAuthFailureReason
 	(UsageReportRejectionReason)(0),        // 27: fora.v1.UsageReportRejectionReason
-	(*AcceptableRestriction)(nil),          // 28: fora.v1.AcceptableRestriction
-	(*ResourceQuery)(nil),                  // 29: fora.v1.ResourceQuery
-	(*ResourceResponse)(nil),               // 30: fora.v1.ResourceResponse
-	(*OfferGroup)(nil),                     // 31: fora.v1.OfferGroup
-	(*RateLimitInfo)(nil),                  // 32: fora.v1.RateLimitInfo
-	(*SubscriptionQuotaInfo)(nil),          // 33: fora.v1.SubscriptionQuotaInfo
-	(*Offer)(nil),                          // 34: fora.v1.Offer
-	(*ResourceIdentity)(nil),               // 35: fora.v1.ResourceIdentity
-	(*ResourceAttestation)(nil),            // 36: fora.v1.ResourceAttestation
-	(*License)(nil),                        // 37: fora.v1.License
-	(*Restriction)(nil),                    // 38: fora.v1.Restriction
-	(*Quota)(nil),                          // 39: fora.v1.Quota
-	(*Obligation)(nil),                     // 40: fora.v1.Obligation
-	(*LicenseTerm)(nil),                    // 41: fora.v1.LicenseTerm
-	(*Preview)(nil),                        // 42: fora.v1.Preview
-	(*Pricing)(nil),                        // 43: fora.v1.Pricing
-	(*Requester)(nil),                      // 44: fora.v1.Requester
-	(*Delegation)(nil),                     // 45: fora.v1.Delegation
-	(*AgentAcceptance)(nil),                // 46: fora.v1.AgentAcceptance
-	(*AgentRequestAcceptance)(nil),         // 47: fora.v1.AgentRequestAcceptance
-	(*AgentRequestAcceptanceItem)(nil),     // 48: fora.v1.AgentRequestAcceptanceItem
-	(*AgentRequestAcceptancePayload)(nil),  // 49: fora.v1.AgentRequestAcceptancePayload
-	(*AgentAcceptancePayload)(nil),         // 50: fora.v1.AgentAcceptancePayload
-	(*TransactionRequest)(nil),             // 51: fora.v1.TransactionRequest
-	(*TransactionItem)(nil),                // 52: fora.v1.TransactionItem
-	(*TransactionResponse)(nil),            // 53: fora.v1.TransactionResponse
-	(*TransactionResultItem)(nil),          // 54: fora.v1.TransactionResultItem
-	(*Cost)(nil),                           // 55: fora.v1.Cost
-	(*PushResourcesRequest)(nil),           // 56: fora.v1.PushResourcesRequest
-	(*ResourceEntry)(nil),                  // 57: fora.v1.ResourceEntry
-	(*PushResourcesResponse)(nil),          // 58: fora.v1.PushResourcesResponse
-	(*RemoveResourcesRequest)(nil),         // 59: fora.v1.RemoveResourcesRequest
-	(*RemoveResourcesResponse)(nil),        // 60: fora.v1.RemoveResourcesResponse
-	(*RefreshCatalogRequest)(nil),          // 61: fora.v1.RefreshCatalogRequest
-	(*RefreshCatalogResponse)(nil),         // 62: fora.v1.RefreshCatalogResponse
-	(*ReportingObligation)(nil),            // 63: fora.v1.ReportingObligation
-	(*UsageReport)(nil),                    // 64: fora.v1.UsageReport
-	(*AttributionDetail)(nil),              // 65: fora.v1.AttributionDetail
-	(*Usage)(nil),                          // 66: fora.v1.Usage
-	(*UsageAsset)(nil),                     // 67: fora.v1.UsageAsset
-	(*UsageReportResponse)(nil),            // 68: fora.v1.UsageReportResponse
-	(*DiscoveryRequest)(nil),               // 69: fora.v1.DiscoveryRequest
-	(*RequestConstraints)(nil),             // 70: fora.v1.RequestConstraints
-	(*JsonWebKey)(nil),                     // 71: fora.v1.JsonWebKey
-	(*AccountRegistration)(nil),            // 72: fora.v1.AccountRegistration
-	(*WellKnownManifest)(nil),              // 73: fora.v1.WellKnownManifest
-	(*WBAFile)(nil),                        // 74: fora.v1.WBAFile
-	(*KeyRevocationList)(nil),              // 75: fora.v1.KeyRevocationList
-	(*CatalogContributor)(nil),             // 76: fora.v1.CatalogContributor
-	(*AuthorizedExchange)(nil),             // 77: fora.v1.AuthorizedExchange
-	(*DiscoveryResponse)(nil),              // 78: fora.v1.DiscoveryResponse
-	(*DisputeRequest)(nil),                 // 79: fora.v1.DisputeRequest
-	(*DisputeResponse)(nil),                // 80: fora.v1.DisputeResponse
-	(*DomainVerificationRequest)(nil),      // 81: fora.v1.DomainVerificationRequest
-	(*DomainVerificationChallenge)(nil),    // 82: fora.v1.DomainVerificationChallenge
-	(*DomainVerificationConfirmation)(nil), // 83: fora.v1.DomainVerificationConfirmation
-	(*DomainVerificationResult)(nil),       // 84: fora.v1.DomainVerificationResult
-	(*RegisterRequest)(nil),                // 85: fora.v1.RegisterRequest
-	(*RegisterResponse)(nil),               // 86: fora.v1.RegisterResponse
-	(*GetAccountStatusRequest)(nil),        // 87: fora.v1.GetAccountStatusRequest
-	(*GetAccountStatusResponse)(nil),       // 88: fora.v1.GetAccountStatusResponse
-	(*ErrorDetail)(nil),                    // 89: fora.v1.ErrorDetail
-	(*TransactionDenial)(nil),              // 90: fora.v1.TransactionDenial
-	(*CatalogRejection)(nil),               // 91: fora.v1.CatalogRejection
-	(*RegistrationFailure)(nil),            // 92: fora.v1.RegistrationFailure
-	(*RegistrationFieldError)(nil),         // 93: fora.v1.RegistrationFieldError
-	(*DisputeFailure)(nil),                 // 94: fora.v1.DisputeFailure
-	(*DomainVerificationFailure)(nil),      // 95: fora.v1.DomainVerificationFailure
-	(*RetrievalAuthFailure)(nil),           // 96: fora.v1.RetrievalAuthFailure
-	(*UsageReportRejection)(nil),           // 97: fora.v1.UsageReportRejection
-	nil,                                    // 98: fora.v1.ErrorDetail.MetadataEntry
-	(*durationpb.Duration)(nil),            // 99: google.protobuf.Duration
-	(*structpb.Struct)(nil),                // 100: google.protobuf.Struct
-	(*timestamppb.Timestamp)(nil),          // 101: google.protobuf.Timestamp
+	(RequestAuthFailureReason)(0),          // 28: fora.v1.RequestAuthFailureReason
+	(*AcceptableRestriction)(nil),          // 29: fora.v1.AcceptableRestriction
+	(*ResourceQuery)(nil),                  // 30: fora.v1.ResourceQuery
+	(*ResourceResponse)(nil),               // 31: fora.v1.ResourceResponse
+	(*OfferGroup)(nil),                     // 32: fora.v1.OfferGroup
+	(*RateLimitInfo)(nil),                  // 33: fora.v1.RateLimitInfo
+	(*SubscriptionQuotaInfo)(nil),          // 34: fora.v1.SubscriptionQuotaInfo
+	(*Offer)(nil),                          // 35: fora.v1.Offer
+	(*ResourceIdentity)(nil),               // 36: fora.v1.ResourceIdentity
+	(*ResourceAttestation)(nil),            // 37: fora.v1.ResourceAttestation
+	(*License)(nil),                        // 38: fora.v1.License
+	(*Restriction)(nil),                    // 39: fora.v1.Restriction
+	(*Quota)(nil),                          // 40: fora.v1.Quota
+	(*Obligation)(nil),                     // 41: fora.v1.Obligation
+	(*LicenseTerm)(nil),                    // 42: fora.v1.LicenseTerm
+	(*Preview)(nil),                        // 43: fora.v1.Preview
+	(*Pricing)(nil),                        // 44: fora.v1.Pricing
+	(*Requester)(nil),                      // 45: fora.v1.Requester
+	(*Delegation)(nil),                     // 46: fora.v1.Delegation
+	(*AgentAcceptance)(nil),                // 47: fora.v1.AgentAcceptance
+	(*AgentRequestAcceptance)(nil),         // 48: fora.v1.AgentRequestAcceptance
+	(*AgentRequestAcceptanceItem)(nil),     // 49: fora.v1.AgentRequestAcceptanceItem
+	(*AgentRequestAcceptancePayload)(nil),  // 50: fora.v1.AgentRequestAcceptancePayload
+	(*AgentAcceptancePayload)(nil),         // 51: fora.v1.AgentAcceptancePayload
+	(*TransactionRequest)(nil),             // 52: fora.v1.TransactionRequest
+	(*TransactionItem)(nil),                // 53: fora.v1.TransactionItem
+	(*TransactionResponse)(nil),            // 54: fora.v1.TransactionResponse
+	(*TransactionResultItem)(nil),          // 55: fora.v1.TransactionResultItem
+	(*Cost)(nil),                           // 56: fora.v1.Cost
+	(*PushResourcesRequest)(nil),           // 57: fora.v1.PushResourcesRequest
+	(*ResourceEntry)(nil),                  // 58: fora.v1.ResourceEntry
+	(*PushResourcesResponse)(nil),          // 59: fora.v1.PushResourcesResponse
+	(*RemoveResourcesRequest)(nil),         // 60: fora.v1.RemoveResourcesRequest
+	(*RemoveResourcesResponse)(nil),        // 61: fora.v1.RemoveResourcesResponse
+	(*RefreshCatalogRequest)(nil),          // 62: fora.v1.RefreshCatalogRequest
+	(*RefreshCatalogResponse)(nil),         // 63: fora.v1.RefreshCatalogResponse
+	(*ReportingObligation)(nil),            // 64: fora.v1.ReportingObligation
+	(*UsageReport)(nil),                    // 65: fora.v1.UsageReport
+	(*AttributionDetail)(nil),              // 66: fora.v1.AttributionDetail
+	(*Usage)(nil),                          // 67: fora.v1.Usage
+	(*UsageAsset)(nil),                     // 68: fora.v1.UsageAsset
+	(*UsageReportResponse)(nil),            // 69: fora.v1.UsageReportResponse
+	(*DiscoveryRequest)(nil),               // 70: fora.v1.DiscoveryRequest
+	(*RequestConstraints)(nil),             // 71: fora.v1.RequestConstraints
+	(*JsonWebKey)(nil),                     // 72: fora.v1.JsonWebKey
+	(*AccountRegistration)(nil),            // 73: fora.v1.AccountRegistration
+	(*WellKnownManifest)(nil),              // 74: fora.v1.WellKnownManifest
+	(*WBAFile)(nil),                        // 75: fora.v1.WBAFile
+	(*KeyRevocationList)(nil),              // 76: fora.v1.KeyRevocationList
+	(*CatalogContributor)(nil),             // 77: fora.v1.CatalogContributor
+	(*AuthorizedExchange)(nil),             // 78: fora.v1.AuthorizedExchange
+	(*DiscoveryResponse)(nil),              // 79: fora.v1.DiscoveryResponse
+	(*DisputeRequest)(nil),                 // 80: fora.v1.DisputeRequest
+	(*DisputeResponse)(nil),                // 81: fora.v1.DisputeResponse
+	(*DomainVerificationRequest)(nil),      // 82: fora.v1.DomainVerificationRequest
+	(*DomainVerificationChallenge)(nil),    // 83: fora.v1.DomainVerificationChallenge
+	(*DomainVerificationConfirmation)(nil), // 84: fora.v1.DomainVerificationConfirmation
+	(*DomainVerificationResult)(nil),       // 85: fora.v1.DomainVerificationResult
+	(*RegisterRequest)(nil),                // 86: fora.v1.RegisterRequest
+	(*RegisterResponse)(nil),               // 87: fora.v1.RegisterResponse
+	(*GetAccountStatusRequest)(nil),        // 88: fora.v1.GetAccountStatusRequest
+	(*GetAccountStatusResponse)(nil),       // 89: fora.v1.GetAccountStatusResponse
+	(*ErrorDetail)(nil),                    // 90: fora.v1.ErrorDetail
+	(*TransactionDenial)(nil),              // 91: fora.v1.TransactionDenial
+	(*CatalogRejection)(nil),               // 92: fora.v1.CatalogRejection
+	(*RegistrationFailure)(nil),            // 93: fora.v1.RegistrationFailure
+	(*RegistrationFieldError)(nil),         // 94: fora.v1.RegistrationFieldError
+	(*DisputeFailure)(nil),                 // 95: fora.v1.DisputeFailure
+	(*DomainVerificationFailure)(nil),      // 96: fora.v1.DomainVerificationFailure
+	(*RetrievalAuthFailure)(nil),           // 97: fora.v1.RetrievalAuthFailure
+	(*UsageReportRejection)(nil),           // 98: fora.v1.UsageReportRejection
+	(*RequestAuthFailure)(nil),             // 99: fora.v1.RequestAuthFailure
+	nil,                                    // 100: fora.v1.ErrorDetail.MetadataEntry
+	(*durationpb.Duration)(nil),            // 101: google.protobuf.Duration
+	(*structpb.Struct)(nil),                // 102: google.protobuf.Struct
+	(*timestamppb.Timestamp)(nil),          // 103: google.protobuf.Timestamp
 }
 var file_fora_v1_fora_proto_depIdxs = []int32{
 	3,   // 0: fora.v1.AcceptableRestriction.axis:type_name -> fora.v1.RestrictionKind
-	44,  // 1: fora.v1.ResourceQuery.requester:type_name -> fora.v1.Requester
-	28,  // 2: fora.v1.ResourceQuery.acceptable_restrictions:type_name -> fora.v1.AcceptableRestriction
-	99,  // 3: fora.v1.ResourceQuery.deadline:type_name -> google.protobuf.Duration
-	100, // 4: fora.v1.ResourceQuery.ext:type_name -> google.protobuf.Struct
-	34,  // 5: fora.v1.ResourceResponse.offers:type_name -> fora.v1.Offer
-	31,  // 6: fora.v1.ResourceResponse.offer_groups:type_name -> fora.v1.OfferGroup
-	32,  // 7: fora.v1.ResourceResponse.rate_limit:type_name -> fora.v1.RateLimitInfo
-	100, // 8: fora.v1.ResourceResponse.ext:type_name -> google.protobuf.Struct
-	34,  // 9: fora.v1.OfferGroup.offers:type_name -> fora.v1.Offer
+	45,  // 1: fora.v1.ResourceQuery.requester:type_name -> fora.v1.Requester
+	29,  // 2: fora.v1.ResourceQuery.acceptable_restrictions:type_name -> fora.v1.AcceptableRestriction
+	101, // 3: fora.v1.ResourceQuery.deadline:type_name -> google.protobuf.Duration
+	102, // 4: fora.v1.ResourceQuery.ext:type_name -> google.protobuf.Struct
+	35,  // 5: fora.v1.ResourceResponse.offers:type_name -> fora.v1.Offer
+	32,  // 6: fora.v1.ResourceResponse.offer_groups:type_name -> fora.v1.OfferGroup
+	33,  // 7: fora.v1.ResourceResponse.rate_limit:type_name -> fora.v1.RateLimitInfo
+	102, // 8: fora.v1.ResourceResponse.ext:type_name -> google.protobuf.Struct
+	35,  // 9: fora.v1.OfferGroup.offers:type_name -> fora.v1.Offer
 	0,   // 10: fora.v1.OfferGroup.discovery_method:type_name -> fora.v1.DiscoveryMethod
 	1,   // 11: fora.v1.OfferGroup.absence_reason:type_name -> fora.v1.OfferAbsenceReason
 	3,   // 12: fora.v1.OfferGroup.restriction_filters:type_name -> fora.v1.RestrictionKind
-	101, // 13: fora.v1.RateLimitInfo.reset_at:type_name -> google.protobuf.Timestamp
-	99,  // 14: fora.v1.RateLimitInfo.window:type_name -> google.protobuf.Duration
-	101, // 15: fora.v1.SubscriptionQuotaInfo.resets_at:type_name -> google.protobuf.Timestamp
-	43,  // 16: fora.v1.Offer.pricing:type_name -> fora.v1.Pricing
+	103, // 13: fora.v1.RateLimitInfo.reset_at:type_name -> google.protobuf.Timestamp
+	101, // 14: fora.v1.RateLimitInfo.window:type_name -> google.protobuf.Duration
+	103, // 15: fora.v1.SubscriptionQuotaInfo.resets_at:type_name -> google.protobuf.Timestamp
+	44,  // 16: fora.v1.Offer.pricing:type_name -> fora.v1.Pricing
 	9,   // 17: fora.v1.Offer.delivery_method:type_name -> fora.v1.DeliveryMethod
-	63,  // 18: fora.v1.Offer.reporting:type_name -> fora.v1.ReportingObligation
-	101, // 19: fora.v1.Offer.expires_at:type_name -> google.protobuf.Timestamp
-	35,  // 20: fora.v1.Offer.identity:type_name -> fora.v1.ResourceIdentity
-	36,  // 21: fora.v1.Offer.attestations:type_name -> fora.v1.ResourceAttestation
-	101, // 22: fora.v1.Offer.data_as_of:type_name -> google.protobuf.Timestamp
-	33,  // 23: fora.v1.Offer.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
-	42,  // 24: fora.v1.Offer.previews:type_name -> fora.v1.Preview
-	41,  // 25: fora.v1.Offer.terms:type_name -> fora.v1.LicenseTerm
-	100, // 26: fora.v1.Offer.ext:type_name -> google.protobuf.Struct
+	64,  // 18: fora.v1.Offer.reporting:type_name -> fora.v1.ReportingObligation
+	103, // 19: fora.v1.Offer.expires_at:type_name -> google.protobuf.Timestamp
+	36,  // 20: fora.v1.Offer.identity:type_name -> fora.v1.ResourceIdentity
+	37,  // 21: fora.v1.Offer.attestations:type_name -> fora.v1.ResourceAttestation
+	103, // 22: fora.v1.Offer.data_as_of:type_name -> google.protobuf.Timestamp
+	34,  // 23: fora.v1.Offer.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
+	43,  // 24: fora.v1.Offer.previews:type_name -> fora.v1.Preview
+	42,  // 25: fora.v1.Offer.terms:type_name -> fora.v1.LicenseTerm
+	102, // 26: fora.v1.Offer.ext:type_name -> google.protobuf.Struct
 	12,  // 27: fora.v1.ResourceIdentity.resource_mutability:type_name -> fora.v1.ResourceMutability
 	11,  // 28: fora.v1.ResourceIdentity.c2pa_status:type_name -> fora.v1.C2PAStatus
-	100, // 29: fora.v1.ResourceIdentity.ext:type_name -> google.protobuf.Struct
-	101, // 30: fora.v1.ResourceAttestation.attested_at:type_name -> google.protobuf.Timestamp
-	100, // 31: fora.v1.ResourceAttestation.claims:type_name -> google.protobuf.Struct
+	102, // 29: fora.v1.ResourceIdentity.ext:type_name -> google.protobuf.Struct
+	103, // 30: fora.v1.ResourceAttestation.attested_at:type_name -> google.protobuf.Timestamp
+	102, // 31: fora.v1.ResourceAttestation.claims:type_name -> google.protobuf.Struct
 	3,   // 32: fora.v1.Restriction.kind:type_name -> fora.v1.RestrictionKind
 	4,   // 33: fora.v1.Quota.window:type_name -> fora.v1.QuotaWindow
 	5,   // 34: fora.v1.Obligation.kind:type_name -> fora.v1.ObligationKind
 	6,   // 35: fora.v1.Obligation.trigger:type_name -> fora.v1.ObligationTrigger
-	37,  // 36: fora.v1.Obligation.scope_license:type_name -> fora.v1.License
-	37,  // 37: fora.v1.LicenseTerm.license:type_name -> fora.v1.License
+	38,  // 36: fora.v1.Obligation.scope_license:type_name -> fora.v1.License
+	38,  // 37: fora.v1.LicenseTerm.license:type_name -> fora.v1.License
 	2,   // 38: fora.v1.LicenseTerm.semantics:type_name -> fora.v1.TermSemantics
-	38,  // 39: fora.v1.LicenseTerm.restrictions:type_name -> fora.v1.Restriction
-	39,  // 40: fora.v1.LicenseTerm.quotas:type_name -> fora.v1.Quota
-	40,  // 41: fora.v1.LicenseTerm.obligations:type_name -> fora.v1.Obligation
-	43,  // 42: fora.v1.LicenseTerm.pricing:type_name -> fora.v1.Pricing
+	39,  // 39: fora.v1.LicenseTerm.restrictions:type_name -> fora.v1.Restriction
+	40,  // 40: fora.v1.LicenseTerm.quotas:type_name -> fora.v1.Quota
+	41,  // 41: fora.v1.LicenseTerm.obligations:type_name -> fora.v1.Obligation
+	44,  // 42: fora.v1.LicenseTerm.pricing:type_name -> fora.v1.Pricing
 	7,   // 43: fora.v1.Pricing.model:type_name -> fora.v1.PricingModel
 	8,   // 44: fora.v1.Pricing.metering:type_name -> fora.v1.PricingMetering
 	10,  // 45: fora.v1.Requester.type:type_name -> fora.v1.RequesterType
-	45,  // 46: fora.v1.Requester.delegation:type_name -> fora.v1.Delegation
-	100, // 47: fora.v1.Requester.ext:type_name -> google.protobuf.Struct
-	101, // 48: fora.v1.Delegation.expires_at:type_name -> google.protobuf.Timestamp
-	99,  // 49: fora.v1.Delegation.quota_period:type_name -> google.protobuf.Duration
-	100, // 50: fora.v1.Delegation.ext:type_name -> google.protobuf.Struct
-	49,  // 51: fora.v1.AgentRequestAcceptance.payload:type_name -> fora.v1.AgentRequestAcceptancePayload
-	48,  // 52: fora.v1.AgentRequestAcceptancePayload.items:type_name -> fora.v1.AgentRequestAcceptanceItem
-	44,  // 53: fora.v1.TransactionRequest.requester:type_name -> fora.v1.Requester
-	52,  // 54: fora.v1.TransactionRequest.items:type_name -> fora.v1.TransactionItem
-	47,  // 55: fora.v1.TransactionRequest.agent_request_acceptance:type_name -> fora.v1.AgentRequestAcceptance
-	100, // 56: fora.v1.TransactionRequest.ext:type_name -> google.protobuf.Struct
-	34,  // 57: fora.v1.TransactionItem.offer:type_name -> fora.v1.Offer
-	46,  // 58: fora.v1.TransactionItem.agent_acceptance:type_name -> fora.v1.AgentAcceptance
-	54,  // 59: fora.v1.TransactionResponse.items:type_name -> fora.v1.TransactionResultItem
-	55,  // 60: fora.v1.TransactionResponse.total_cost:type_name -> fora.v1.Cost
-	33,  // 61: fora.v1.TransactionResponse.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
-	100, // 62: fora.v1.TransactionResponse.ext:type_name -> google.protobuf.Struct
-	55,  // 63: fora.v1.TransactionResultItem.cost:type_name -> fora.v1.Cost
-	55,  // 64: fora.v1.TransactionResultItem.subscription_unit_value:type_name -> fora.v1.Cost
+	46,  // 46: fora.v1.Requester.delegation:type_name -> fora.v1.Delegation
+	102, // 47: fora.v1.Requester.ext:type_name -> google.protobuf.Struct
+	103, // 48: fora.v1.Delegation.expires_at:type_name -> google.protobuf.Timestamp
+	101, // 49: fora.v1.Delegation.quota_period:type_name -> google.protobuf.Duration
+	102, // 50: fora.v1.Delegation.ext:type_name -> google.protobuf.Struct
+	50,  // 51: fora.v1.AgentRequestAcceptance.payload:type_name -> fora.v1.AgentRequestAcceptancePayload
+	49,  // 52: fora.v1.AgentRequestAcceptancePayload.items:type_name -> fora.v1.AgentRequestAcceptanceItem
+	45,  // 53: fora.v1.TransactionRequest.requester:type_name -> fora.v1.Requester
+	53,  // 54: fora.v1.TransactionRequest.items:type_name -> fora.v1.TransactionItem
+	48,  // 55: fora.v1.TransactionRequest.agent_request_acceptance:type_name -> fora.v1.AgentRequestAcceptance
+	102, // 56: fora.v1.TransactionRequest.ext:type_name -> google.protobuf.Struct
+	35,  // 57: fora.v1.TransactionItem.offer:type_name -> fora.v1.Offer
+	47,  // 58: fora.v1.TransactionItem.agent_acceptance:type_name -> fora.v1.AgentAcceptance
+	55,  // 59: fora.v1.TransactionResponse.items:type_name -> fora.v1.TransactionResultItem
+	56,  // 60: fora.v1.TransactionResponse.total_cost:type_name -> fora.v1.Cost
+	34,  // 61: fora.v1.TransactionResponse.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
+	102, // 62: fora.v1.TransactionResponse.ext:type_name -> google.protobuf.Struct
+	56,  // 63: fora.v1.TransactionResultItem.cost:type_name -> fora.v1.Cost
+	56,  // 64: fora.v1.TransactionResultItem.subscription_unit_value:type_name -> fora.v1.Cost
 	13,  // 65: fora.v1.TransactionResultItem.denial_reason:type_name -> fora.v1.DenialReason
 	3,   // 66: fora.v1.TransactionResultItem.restriction_mismatches:type_name -> fora.v1.RestrictionKind
-	101, // 67: fora.v1.TransactionResultItem.expires_at:type_name -> google.protobuf.Timestamp
+	103, // 67: fora.v1.TransactionResultItem.expires_at:type_name -> google.protobuf.Timestamp
 	9,   // 68: fora.v1.TransactionResultItem.delivery_method:type_name -> fora.v1.DeliveryMethod
-	63,  // 69: fora.v1.TransactionResultItem.reporting_obligation:type_name -> fora.v1.ReportingObligation
-	57,  // 70: fora.v1.PushResourcesRequest.entries:type_name -> fora.v1.ResourceEntry
-	100, // 71: fora.v1.PushResourcesRequest.ext:type_name -> google.protobuf.Struct
+	64,  // 69: fora.v1.TransactionResultItem.reporting_obligation:type_name -> fora.v1.ReportingObligation
+	58,  // 70: fora.v1.PushResourcesRequest.entries:type_name -> fora.v1.ResourceEntry
+	102, // 71: fora.v1.PushResourcesRequest.ext:type_name -> google.protobuf.Struct
 	14,  // 72: fora.v1.ResourceEntry.source:type_name -> fora.v1.IngestionSource
-	101, // 73: fora.v1.ResourceEntry.provenance_timestamp:type_name -> google.protobuf.Timestamp
-	36,  // 74: fora.v1.ResourceEntry.attestations:type_name -> fora.v1.ResourceAttestation
-	41,  // 75: fora.v1.ResourceEntry.terms:type_name -> fora.v1.LicenseTerm
+	103, // 73: fora.v1.ResourceEntry.provenance_timestamp:type_name -> google.protobuf.Timestamp
+	37,  // 74: fora.v1.ResourceEntry.attestations:type_name -> fora.v1.ResourceAttestation
+	42,  // 75: fora.v1.ResourceEntry.terms:type_name -> fora.v1.LicenseTerm
 	12,  // 76: fora.v1.ResourceEntry.resource_mutability:type_name -> fora.v1.ResourceMutability
-	100, // 77: fora.v1.ResourceEntry.ext:type_name -> google.protobuf.Struct
-	100, // 78: fora.v1.PushResourcesResponse.ext:type_name -> google.protobuf.Struct
-	99,  // 79: fora.v1.ReportingObligation.window:type_name -> google.protobuf.Duration
-	100, // 80: fora.v1.ReportingObligation.ext:type_name -> google.protobuf.Struct
-	66,  // 81: fora.v1.UsageReport.usage:type_name -> fora.v1.Usage
-	101, // 82: fora.v1.UsageReport.timestamp:type_name -> google.protobuf.Timestamp
-	67,  // 83: fora.v1.UsageReport.assets:type_name -> fora.v1.UsageAsset
-	100, // 84: fora.v1.UsageReport.ext:type_name -> google.protobuf.Struct
+	102, // 77: fora.v1.ResourceEntry.ext:type_name -> google.protobuf.Struct
+	102, // 78: fora.v1.PushResourcesResponse.ext:type_name -> google.protobuf.Struct
+	101, // 79: fora.v1.ReportingObligation.window:type_name -> google.protobuf.Duration
+	102, // 80: fora.v1.ReportingObligation.ext:type_name -> google.protobuf.Struct
+	67,  // 81: fora.v1.UsageReport.usage:type_name -> fora.v1.Usage
+	103, // 82: fora.v1.UsageReport.timestamp:type_name -> google.protobuf.Timestamp
+	68,  // 83: fora.v1.UsageReport.assets:type_name -> fora.v1.UsageAsset
+	102, // 84: fora.v1.UsageReport.ext:type_name -> google.protobuf.Struct
 	15,  // 85: fora.v1.AttributionDetail.format:type_name -> fora.v1.CitationFormat
-	65,  // 86: fora.v1.Usage.attribution:type_name -> fora.v1.AttributionDetail
-	100, // 87: fora.v1.UsageReportResponse.ext:type_name -> google.protobuf.Struct
-	44,  // 88: fora.v1.DiscoveryRequest.requester:type_name -> fora.v1.Requester
-	28,  // 89: fora.v1.DiscoveryRequest.acceptable_restrictions:type_name -> fora.v1.AcceptableRestriction
-	70,  // 90: fora.v1.DiscoveryRequest.constraints:type_name -> fora.v1.RequestConstraints
-	100, // 91: fora.v1.DiscoveryRequest.search_filters:type_name -> google.protobuf.Struct
-	100, // 92: fora.v1.DiscoveryRequest.ext:type_name -> google.protobuf.Struct
-	55,  // 93: fora.v1.RequestConstraints.max_price:type_name -> fora.v1.Cost
+	66,  // 86: fora.v1.Usage.attribution:type_name -> fora.v1.AttributionDetail
+	102, // 87: fora.v1.UsageReportResponse.ext:type_name -> google.protobuf.Struct
+	45,  // 88: fora.v1.DiscoveryRequest.requester:type_name -> fora.v1.Requester
+	29,  // 89: fora.v1.DiscoveryRequest.acceptable_restrictions:type_name -> fora.v1.AcceptableRestriction
+	71,  // 90: fora.v1.DiscoveryRequest.constraints:type_name -> fora.v1.RequestConstraints
+	102, // 91: fora.v1.DiscoveryRequest.search_filters:type_name -> google.protobuf.Struct
+	102, // 92: fora.v1.DiscoveryRequest.ext:type_name -> google.protobuf.Struct
+	56,  // 93: fora.v1.RequestConstraints.max_price:type_name -> fora.v1.Cost
 	9,   // 94: fora.v1.RequestConstraints.delivery_preference:type_name -> fora.v1.DeliveryMethod
-	55,  // 95: fora.v1.RequestConstraints.period_budget:type_name -> fora.v1.Cost
-	99,  // 96: fora.v1.RequestConstraints.budget_period:type_name -> google.protobuf.Duration
-	99,  // 97: fora.v1.RequestConstraints.max_data_age:type_name -> google.protobuf.Duration
-	100, // 98: fora.v1.AccountRegistration.data_schema:type_name -> google.protobuf.Struct
+	56,  // 95: fora.v1.RequestConstraints.period_budget:type_name -> fora.v1.Cost
+	101, // 96: fora.v1.RequestConstraints.budget_period:type_name -> google.protobuf.Duration
+	101, // 97: fora.v1.RequestConstraints.max_data_age:type_name -> google.protobuf.Duration
+	102, // 98: fora.v1.AccountRegistration.data_schema:type_name -> google.protobuf.Struct
 	16,  // 99: fora.v1.WellKnownManifest.role:type_name -> fora.v1.Role
-	77,  // 100: fora.v1.WellKnownManifest.exchanges:type_name -> fora.v1.AuthorizedExchange
-	76,  // 101: fora.v1.WellKnownManifest.catalog_contributors:type_name -> fora.v1.CatalogContributor
+	78,  // 100: fora.v1.WellKnownManifest.exchanges:type_name -> fora.v1.AuthorizedExchange
+	77,  // 101: fora.v1.WellKnownManifest.catalog_contributors:type_name -> fora.v1.CatalogContributor
 	7,   // 102: fora.v1.WellKnownManifest.pricing_models_supported:type_name -> fora.v1.PricingModel
 	9,   // 103: fora.v1.WellKnownManifest.delivery_methods_supported:type_name -> fora.v1.DeliveryMethod
 	18,  // 104: fora.v1.WellKnownManifest.supported_auth_methods:type_name -> fora.v1.AuthMethod
-	72,  // 105: fora.v1.WellKnownManifest.account_registration:type_name -> fora.v1.AccountRegistration
-	100, // 106: fora.v1.WellKnownManifest.ext:type_name -> google.protobuf.Struct
-	71,  // 107: fora.v1.WBAFile.keys:type_name -> fora.v1.JsonWebKey
-	101, // 108: fora.v1.KeyRevocationList.as_of:type_name -> google.protobuf.Timestamp
+	73,  // 105: fora.v1.WellKnownManifest.account_registration:type_name -> fora.v1.AccountRegistration
+	102, // 106: fora.v1.WellKnownManifest.ext:type_name -> google.protobuf.Struct
+	72,  // 107: fora.v1.WBAFile.keys:type_name -> fora.v1.JsonWebKey
+	103, // 108: fora.v1.KeyRevocationList.as_of:type_name -> google.protobuf.Timestamp
 	17,  // 109: fora.v1.AuthorizedExchange.relationship:type_name -> fora.v1.ProviderRelationship
-	100, // 110: fora.v1.AuthorizedExchange.ext:type_name -> google.protobuf.Struct
-	31,  // 111: fora.v1.DiscoveryResponse.offer_groups:type_name -> fora.v1.OfferGroup
+	102, // 110: fora.v1.AuthorizedExchange.ext:type_name -> google.protobuf.Struct
+	32,  // 111: fora.v1.DiscoveryResponse.offer_groups:type_name -> fora.v1.OfferGroup
 	1,   // 112: fora.v1.DiscoveryResponse.absence_reason:type_name -> fora.v1.OfferAbsenceReason
-	100, // 113: fora.v1.DiscoveryResponse.ext:type_name -> google.protobuf.Struct
+	102, // 113: fora.v1.DiscoveryResponse.ext:type_name -> google.protobuf.Struct
 	19,  // 114: fora.v1.DisputeRequest.reason:type_name -> fora.v1.DisputeReason
-	100, // 115: fora.v1.DisputeRequest.ext:type_name -> google.protobuf.Struct
-	99,  // 116: fora.v1.DisputeResponse.estimated_resolution:type_name -> google.protobuf.Duration
+	102, // 115: fora.v1.DisputeRequest.ext:type_name -> google.protobuf.Struct
+	101, // 116: fora.v1.DisputeResponse.estimated_resolution:type_name -> google.protobuf.Duration
 	20,  // 117: fora.v1.DisputeResponse.status:type_name -> fora.v1.DisputeStatus
 	21,  // 118: fora.v1.DisputeResponse.resolution:type_name -> fora.v1.ResolutionType
-	100, // 119: fora.v1.DisputeResponse.ext:type_name -> google.protobuf.Struct
-	100, // 120: fora.v1.DomainVerificationRequest.ext:type_name -> google.protobuf.Struct
-	101, // 121: fora.v1.DomainVerificationChallenge.expires_at:type_name -> google.protobuf.Timestamp
-	100, // 122: fora.v1.DomainVerificationChallenge.ext:type_name -> google.protobuf.Struct
-	100, // 123: fora.v1.DomainVerificationConfirmation.ext:type_name -> google.protobuf.Struct
-	101, // 124: fora.v1.DomainVerificationResult.valid_until:type_name -> google.protobuf.Timestamp
-	100, // 125: fora.v1.DomainVerificationResult.ext:type_name -> google.protobuf.Struct
-	100, // 126: fora.v1.RegisterRequest.registration_data:type_name -> google.protobuf.Struct
-	100, // 127: fora.v1.RegisterRequest.ext:type_name -> google.protobuf.Struct
-	100, // 128: fora.v1.RegisterResponse.ext:type_name -> google.protobuf.Struct
-	100, // 129: fora.v1.GetAccountStatusRequest.ext:type_name -> google.protobuf.Struct
-	55,  // 130: fora.v1.GetAccountStatusResponse.balances:type_name -> fora.v1.Cost
-	100, // 131: fora.v1.GetAccountStatusResponse.ext:type_name -> google.protobuf.Struct
-	98,  // 132: fora.v1.ErrorDetail.metadata:type_name -> fora.v1.ErrorDetail.MetadataEntry
-	90,  // 133: fora.v1.ErrorDetail.transaction_denial:type_name -> fora.v1.TransactionDenial
-	91,  // 134: fora.v1.ErrorDetail.catalog_rejection:type_name -> fora.v1.CatalogRejection
-	92,  // 135: fora.v1.ErrorDetail.registration_failure:type_name -> fora.v1.RegistrationFailure
-	94,  // 136: fora.v1.ErrorDetail.dispute_failure:type_name -> fora.v1.DisputeFailure
-	95,  // 137: fora.v1.ErrorDetail.domain_verification_failure:type_name -> fora.v1.DomainVerificationFailure
-	96,  // 138: fora.v1.ErrorDetail.retrieval_auth_failure:type_name -> fora.v1.RetrievalAuthFailure
-	97,  // 139: fora.v1.ErrorDetail.usage_report_rejection:type_name -> fora.v1.UsageReportRejection
-	13,  // 140: fora.v1.TransactionDenial.reason:type_name -> fora.v1.DenialReason
-	3,   // 141: fora.v1.TransactionDenial.restriction_mismatches:type_name -> fora.v1.RestrictionKind
-	22,  // 142: fora.v1.CatalogRejection.reason:type_name -> fora.v1.CatalogRejectionReason
-	23,  // 143: fora.v1.RegistrationFailure.reason:type_name -> fora.v1.RegistrationFailureReason
-	93,  // 144: fora.v1.RegistrationFailure.field_errors:type_name -> fora.v1.RegistrationFieldError
-	24,  // 145: fora.v1.DisputeFailure.reason:type_name -> fora.v1.DisputeFailureReason
-	25,  // 146: fora.v1.DomainVerificationFailure.reason:type_name -> fora.v1.DomainVerificationFailureReason
-	26,  // 147: fora.v1.RetrievalAuthFailure.reason:type_name -> fora.v1.RetrievalAuthFailureReason
-	27,  // 148: fora.v1.UsageReportRejection.reason:type_name -> fora.v1.UsageReportRejectionReason
-	29,  // 149: fora.v1.ExchangeService.DiscoverResources:input_type -> fora.v1.ResourceQuery
-	51,  // 150: fora.v1.ExchangeService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
-	64,  // 151: fora.v1.ExchangeService.ReportUsage:input_type -> fora.v1.UsageReport
-	79,  // 152: fora.v1.ExchangeService.DisputeTransaction:input_type -> fora.v1.DisputeRequest
-	81,  // 153: fora.v1.ExchangeService.RequestDomainVerification:input_type -> fora.v1.DomainVerificationRequest
-	83,  // 154: fora.v1.ExchangeService.ConfirmDomainVerification:input_type -> fora.v1.DomainVerificationConfirmation
-	85,  // 155: fora.v1.ExchangeService.Register:input_type -> fora.v1.RegisterRequest
-	87,  // 156: fora.v1.ExchangeService.GetAccountStatus:input_type -> fora.v1.GetAccountStatusRequest
-	56,  // 157: fora.v1.CatalogService.PushResources:input_type -> fora.v1.PushResourcesRequest
-	59,  // 158: fora.v1.CatalogService.RemoveResources:input_type -> fora.v1.RemoveResourcesRequest
-	61,  // 159: fora.v1.CatalogService.RefreshCatalog:input_type -> fora.v1.RefreshCatalogRequest
-	69,  // 160: fora.v1.BrokerService.Resolve:input_type -> fora.v1.DiscoveryRequest
-	30,  // 161: fora.v1.ExchangeService.DiscoverResources:output_type -> fora.v1.ResourceResponse
-	53,  // 162: fora.v1.ExchangeService.ExecuteTransaction:output_type -> fora.v1.TransactionResponse
-	68,  // 163: fora.v1.ExchangeService.ReportUsage:output_type -> fora.v1.UsageReportResponse
-	80,  // 164: fora.v1.ExchangeService.DisputeTransaction:output_type -> fora.v1.DisputeResponse
-	82,  // 165: fora.v1.ExchangeService.RequestDomainVerification:output_type -> fora.v1.DomainVerificationChallenge
-	84,  // 166: fora.v1.ExchangeService.ConfirmDomainVerification:output_type -> fora.v1.DomainVerificationResult
-	86,  // 167: fora.v1.ExchangeService.Register:output_type -> fora.v1.RegisterResponse
-	88,  // 168: fora.v1.ExchangeService.GetAccountStatus:output_type -> fora.v1.GetAccountStatusResponse
-	58,  // 169: fora.v1.CatalogService.PushResources:output_type -> fora.v1.PushResourcesResponse
-	60,  // 170: fora.v1.CatalogService.RemoveResources:output_type -> fora.v1.RemoveResourcesResponse
-	62,  // 171: fora.v1.CatalogService.RefreshCatalog:output_type -> fora.v1.RefreshCatalogResponse
-	78,  // 172: fora.v1.BrokerService.Resolve:output_type -> fora.v1.DiscoveryResponse
-	161, // [161:173] is the sub-list for method output_type
-	149, // [149:161] is the sub-list for method input_type
-	149, // [149:149] is the sub-list for extension type_name
-	149, // [149:149] is the sub-list for extension extendee
-	0,   // [0:149] is the sub-list for field type_name
+	102, // 119: fora.v1.DisputeResponse.ext:type_name -> google.protobuf.Struct
+	102, // 120: fora.v1.DomainVerificationRequest.ext:type_name -> google.protobuf.Struct
+	103, // 121: fora.v1.DomainVerificationChallenge.expires_at:type_name -> google.protobuf.Timestamp
+	102, // 122: fora.v1.DomainVerificationChallenge.ext:type_name -> google.protobuf.Struct
+	102, // 123: fora.v1.DomainVerificationConfirmation.ext:type_name -> google.protobuf.Struct
+	103, // 124: fora.v1.DomainVerificationResult.valid_until:type_name -> google.protobuf.Timestamp
+	102, // 125: fora.v1.DomainVerificationResult.ext:type_name -> google.protobuf.Struct
+	102, // 126: fora.v1.RegisterRequest.registration_data:type_name -> google.protobuf.Struct
+	102, // 127: fora.v1.RegisterRequest.ext:type_name -> google.protobuf.Struct
+	102, // 128: fora.v1.RegisterResponse.ext:type_name -> google.protobuf.Struct
+	102, // 129: fora.v1.GetAccountStatusRequest.ext:type_name -> google.protobuf.Struct
+	56,  // 130: fora.v1.GetAccountStatusResponse.balances:type_name -> fora.v1.Cost
+	102, // 131: fora.v1.GetAccountStatusResponse.ext:type_name -> google.protobuf.Struct
+	100, // 132: fora.v1.ErrorDetail.metadata:type_name -> fora.v1.ErrorDetail.MetadataEntry
+	91,  // 133: fora.v1.ErrorDetail.transaction_denial:type_name -> fora.v1.TransactionDenial
+	92,  // 134: fora.v1.ErrorDetail.catalog_rejection:type_name -> fora.v1.CatalogRejection
+	93,  // 135: fora.v1.ErrorDetail.registration_failure:type_name -> fora.v1.RegistrationFailure
+	95,  // 136: fora.v1.ErrorDetail.dispute_failure:type_name -> fora.v1.DisputeFailure
+	96,  // 137: fora.v1.ErrorDetail.domain_verification_failure:type_name -> fora.v1.DomainVerificationFailure
+	97,  // 138: fora.v1.ErrorDetail.retrieval_auth_failure:type_name -> fora.v1.RetrievalAuthFailure
+	98,  // 139: fora.v1.ErrorDetail.usage_report_rejection:type_name -> fora.v1.UsageReportRejection
+	99,  // 140: fora.v1.ErrorDetail.request_auth_failure:type_name -> fora.v1.RequestAuthFailure
+	13,  // 141: fora.v1.TransactionDenial.reason:type_name -> fora.v1.DenialReason
+	3,   // 142: fora.v1.TransactionDenial.restriction_mismatches:type_name -> fora.v1.RestrictionKind
+	22,  // 143: fora.v1.CatalogRejection.reason:type_name -> fora.v1.CatalogRejectionReason
+	23,  // 144: fora.v1.RegistrationFailure.reason:type_name -> fora.v1.RegistrationFailureReason
+	94,  // 145: fora.v1.RegistrationFailure.field_errors:type_name -> fora.v1.RegistrationFieldError
+	24,  // 146: fora.v1.DisputeFailure.reason:type_name -> fora.v1.DisputeFailureReason
+	25,  // 147: fora.v1.DomainVerificationFailure.reason:type_name -> fora.v1.DomainVerificationFailureReason
+	26,  // 148: fora.v1.RetrievalAuthFailure.reason:type_name -> fora.v1.RetrievalAuthFailureReason
+	27,  // 149: fora.v1.UsageReportRejection.reason:type_name -> fora.v1.UsageReportRejectionReason
+	28,  // 150: fora.v1.RequestAuthFailure.reason:type_name -> fora.v1.RequestAuthFailureReason
+	30,  // 151: fora.v1.ExchangeService.DiscoverResources:input_type -> fora.v1.ResourceQuery
+	52,  // 152: fora.v1.ExchangeService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
+	65,  // 153: fora.v1.ExchangeService.ReportUsage:input_type -> fora.v1.UsageReport
+	80,  // 154: fora.v1.ExchangeService.DisputeTransaction:input_type -> fora.v1.DisputeRequest
+	82,  // 155: fora.v1.ExchangeService.RequestDomainVerification:input_type -> fora.v1.DomainVerificationRequest
+	84,  // 156: fora.v1.ExchangeService.ConfirmDomainVerification:input_type -> fora.v1.DomainVerificationConfirmation
+	86,  // 157: fora.v1.ExchangeService.Register:input_type -> fora.v1.RegisterRequest
+	88,  // 158: fora.v1.ExchangeService.GetAccountStatus:input_type -> fora.v1.GetAccountStatusRequest
+	57,  // 159: fora.v1.CatalogService.PushResources:input_type -> fora.v1.PushResourcesRequest
+	60,  // 160: fora.v1.CatalogService.RemoveResources:input_type -> fora.v1.RemoveResourcesRequest
+	62,  // 161: fora.v1.CatalogService.RefreshCatalog:input_type -> fora.v1.RefreshCatalogRequest
+	70,  // 162: fora.v1.BrokerService.Resolve:input_type -> fora.v1.DiscoveryRequest
+	31,  // 163: fora.v1.ExchangeService.DiscoverResources:output_type -> fora.v1.ResourceResponse
+	54,  // 164: fora.v1.ExchangeService.ExecuteTransaction:output_type -> fora.v1.TransactionResponse
+	69,  // 165: fora.v1.ExchangeService.ReportUsage:output_type -> fora.v1.UsageReportResponse
+	81,  // 166: fora.v1.ExchangeService.DisputeTransaction:output_type -> fora.v1.DisputeResponse
+	83,  // 167: fora.v1.ExchangeService.RequestDomainVerification:output_type -> fora.v1.DomainVerificationChallenge
+	85,  // 168: fora.v1.ExchangeService.ConfirmDomainVerification:output_type -> fora.v1.DomainVerificationResult
+	87,  // 169: fora.v1.ExchangeService.Register:output_type -> fora.v1.RegisterResponse
+	89,  // 170: fora.v1.ExchangeService.GetAccountStatus:output_type -> fora.v1.GetAccountStatusResponse
+	59,  // 171: fora.v1.CatalogService.PushResources:output_type -> fora.v1.PushResourcesResponse
+	61,  // 172: fora.v1.CatalogService.RemoveResources:output_type -> fora.v1.RemoveResourcesResponse
+	63,  // 173: fora.v1.CatalogService.RefreshCatalog:output_type -> fora.v1.RefreshCatalogResponse
+	79,  // 174: fora.v1.BrokerService.Resolve:output_type -> fora.v1.DiscoveryResponse
+	163, // [163:175] is the sub-list for method output_type
+	151, // [151:163] is the sub-list for method input_type
+	151, // [151:151] is the sub-list for extension type_name
+	151, // [151:151] is the sub-list for extension extendee
+	0,   // [0:151] is the sub-list for field type_name
 }
 
 func init() { file_fora_v1_fora_proto_init() }
@@ -11291,6 +11425,7 @@ func file_fora_v1_fora_proto_init() {
 		(*ErrorDetail_DomainVerificationFailure)(nil),
 		(*ErrorDetail_RetrievalAuthFailure)(nil),
 		(*ErrorDetail_UsageReportRejection)(nil),
+		(*ErrorDetail_RequestAuthFailure)(nil),
 	}
 	file_fora_v1_fora_proto_msgTypes[62].OneofWrappers = []any{}
 	type x struct{}
@@ -11298,8 +11433,8 @@ func file_fora_v1_fora_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fora_v1_fora_proto_rawDesc), len(file_fora_v1_fora_proto_rawDesc)),
-			NumEnums:      28,
-			NumMessages:   71,
+			NumEnums:      29,
+			NumMessages:   72,
 			NumExtensions: 0,
 			NumServices:   3,
 		},

@@ -651,6 +651,11 @@
       "python": "REGISTRATION_SCHEMA_DIALECT",
       "ts": "registrationSchemaDialect"
     },
+    "helpers.RequestAuthFailureDetail": {
+      "allowlist_reason": null,
+      "python": "request_auth_failure_detail",
+      "ts": "requestAuthFailureDetail"
+    },
     "helpers.RequestIDHeader": {
       "allowlist_reason": null,
       "python": "RequestIDHeader",

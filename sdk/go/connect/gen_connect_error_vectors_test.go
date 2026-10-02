@@ -171,6 +171,17 @@ func connectErrorCases() []errorCase {
 				forav1.DomainVerificationFailureReason_DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_NOT_FOUND),
 		},
 		{
+			// The request-signature refusal. The verify seam writes it with
+			// connectserver.WriteReject rather than through a handler; a test in that
+			// package holds the writer's envelope equal to what connect-go writes for
+			// the same error, which is what this capture records. The domain is empty
+			// because that writer is handed no request and so cannot name a service.
+			name: "request_auth_failure_signature_stale",
+			code: connectrpc.CodeUnauthenticated, msg: "helpers: signature expired",
+			detail: helpers.RequestAuthFailureDetail("", "helpers: signature expired",
+				forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE),
+		},
+		{
 			name: "generic_detail_no_reason",
 			code: connectrpc.CodeInternal, msg: "internal error",
 			detail: connectserver.NewErrorDetail(exchangeDomain, "internal error", nil),
@@ -261,6 +272,8 @@ func expectationOf(detail *forav1.ErrorDetail) connectErrorExpectation {
 		exp.ReasonFrom, exp.ReasonEnum = "retrieval_auth_failure", r.String()
 	case forav1.UsageReportRejectionReason:
 		exp.ReasonFrom, exp.ReasonEnum = "usage_report_rejection", r.String()
+	case forav1.RequestAuthFailureReason:
+		exp.ReasonFrom, exp.ReasonEnum = "request_auth_failure", r.String()
 	}
 	return exp
 }

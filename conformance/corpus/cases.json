@@ -14930,6 +14930,34 @@
     }
   },
   {
+    "id": "RequestAuthFailure/reason/not_in",
+    "message": "RequestAuthFailure",
+    "valid": false,
+    "rules": [
+      "enum.not_in"
+    ],
+    "json": {}
+  },
+  {
+    "id": "RequestAuthFailure/reason/undefined",
+    "message": "RequestAuthFailure",
+    "valid": false,
+    "rules": [
+      "enum.defined_only"
+    ],
+    "json": {
+      "reason": 4
+    }
+  },
+  {
+    "id": "RequestAuthFailure/valid",
+    "message": "RequestAuthFailure",
+    "valid": true,
+    "json": {
+      "reason": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING"
+    }
+  },
+  {
     "id": "RequestConstraints/exchanges/item_killer#0",
     "message": "RequestConstraints",
     "valid": false,

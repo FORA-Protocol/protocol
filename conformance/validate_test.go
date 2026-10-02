@@ -403,6 +403,8 @@ func errorDetailCases() []validationCase {
 		{"retrieval_auth_failure unspecified rejected", &forav1.RetrievalAuthFailure{Reason: forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_UNSPECIFIED}, false, "enum.not_in"},
 		{"usage_report_rejection valid", &forav1.UsageReportRejection{Reason: forav1.UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_DUPLICATE}, true, ""},
 		{"usage_report_rejection unspecified rejected", &forav1.UsageReportRejection{Reason: forav1.UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_UNSPECIFIED}, false, "enum.not_in"},
+		{"request_auth_failure valid", &forav1.RequestAuthFailure{Reason: forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE}, true, ""},
+		{"request_auth_failure unspecified rejected", &forav1.RequestAuthFailure{Reason: forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_UNSPECIFIED}, false, "enum.not_in"},
 
 		// ErrorDetail wrapper: carries a generic class (no typed reason) or a valid
 		// typed detail; a nested invalid reason fails through the wrapper.

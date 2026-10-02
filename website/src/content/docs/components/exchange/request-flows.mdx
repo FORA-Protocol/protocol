@@ -265,7 +265,7 @@ The forwarding chain lives entirely in the HTTP layer as a **stack of RFC 9421 H
 
 2. **Verify every forwarding signature in the stack** — proves each intermediary (e.g., Broker) handled the request. For each labeled signature, the Exchange resolves its `keyid` thumbprint in the key set it is configured with (the covered `Signature-Agent` header stays the agent's directory, so a hop's key is not discovered through it), verifies the Ed25519 signature, and confirms it covers the prior hop's signature so the chain is contiguous and ordered.
 
-All signatures must pass for the request to proceed. If any verification fails — or the chain is not contiguous — the Exchange rejects the request with `CodeUnauthenticated`.
+All signatures must pass for the request to proceed. If any verification fails — or the chain is not contiguous — the Exchange rejects the request with `CodeUnauthenticated`. The refusal carries an `ErrorDetail` whose `request_auth_failure` block holds a [`RequestAuthFailureReason`](/reference/proto-fora/#requestauthfailurereason): `SIGNATURE_MISSING` (sign the request), `SIGNATURE_INVALID` (the signature does not verify) or `SIGNATURE_STALE` (sign it again, now). The reason names what the caller does next, never which check failed.
 
 When only the originating signature is present, the requester is calling the Exchange directly — no intermediary was involved. Chain depth is bounded by `RequestConstraints.max_hops` (agent-set) and `WellKnownManifest.max_intermediary_hops` (Exchange-published); the Exchange counts the signatures in the stack against these caps.
 

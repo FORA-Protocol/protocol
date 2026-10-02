@@ -11,7 +11,7 @@ metadata, and the typed reason if present) from an error and branch on the reaso
 enum. That is the Python peer of the Go client binding's ``ErrorDetailFrom`` + the
 transport-neutral ``helpers.Reason`` accessor (sdk/go/connect + sdk/go/helpers).
 
-WRITE half — the seven typed ``*_detail`` builders below are the Python peers of the
+WRITE half — the eight typed ``*_detail`` builders below are the Python peers of the
 Go ``helpers.*Detail`` constructors (sdk/go/helpers/errordetail.go). Each builds an
 ``ErrorDetail`` carrying exactly one typed reason oneof block from
 ``(domain, message, reason)``, mirroring Go one-for-one: the builder sets ONLY the
@@ -45,6 +45,7 @@ from wire.models import (
     DomainVerificationFailureReason,
     ErrorDetail,
     RegistrationFailureReason,
+    RequestAuthFailureReason,
     RetrievalAuthFailureReason,
     UsageReportRejectionReason,
 )
@@ -69,6 +70,7 @@ REASON_FIELDS: tuple[str, ...] = (
     "domain_verification_failure",
     "retrieval_auth_failure",
     "usage_report_rejection",
+    "request_auth_failure",
 )
 
 
@@ -320,3 +322,14 @@ def usage_report_rejection_detail(
     rejected).
     """
     return _reason_detail(domain, message, "usage_report_rejection", reason)
+
+
+def request_auth_failure_detail(
+    domain: str, message: str, reason: RequestAuthFailureReason
+) -> ErrorDetail:
+    """Build an ErrorDetail carrying a typed RequestAuthFailureReason.
+
+    Python peer of Go ``helpers.RequestAuthFailureDetail`` (the RFC 9421 HTTP
+    message signature on an RPC request failed verification).
+    """
+    return _reason_detail(domain, message, "request_auth_failure", reason)

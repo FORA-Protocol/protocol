@@ -5,6 +5,7 @@ import type {
 	DisputeFailureReasonSchema,
 	DomainVerificationFailureReasonSchema,
 	RegistrationFailureReasonSchema,
+	RequestAuthFailureReasonSchema,
 	RetrievalAuthFailureReasonSchema,
 	UsageReportRejectionReasonSchema,
 } from "../../../gen/ts/wire/schemas.ts";
@@ -24,7 +25,7 @@ import { snakeFromJsonName } from "./wire-names.ts";
 // peer of the Go client binding's ErrorDetailFrom plus the transport-neutral
 // helpers.Reason accessor (sdk/go/connect + sdk/go/helpers).
 //
-// WRITE half — the seven typed *Detail builders below are the TS peers of the Go
+// WRITE half — the eight typed *Detail builders below are the TS peers of the Go
 // helpers.*Detail constructors (sdk/go/helpers/errordetail.go). Each builds an
 // ErrorDetail carrying exactly one typed reason oneof block from
 // (domain, message, reason), mirroring Go one-for-one: the builder sets ONLY the
@@ -62,6 +63,7 @@ export const REASON_FIELDS = [
 	"domain_verification_failure",
 	"retrieval_auth_failure",
 	"usage_report_rejection",
+	"request_auth_failure",
 ] as const;
 
 export type ReasonField = (typeof REASON_FIELDS)[number];
@@ -229,6 +231,10 @@ export type DomainVerificationFailureReason = z.infer<
 export type UsageReportRejectionReason = z.infer<
 	typeof UsageReportRejectionReasonSchema
 >;
+/** RPC request-signature (RFC 9421) failure reason. */
+export type RequestAuthFailureReason = z.infer<
+	typeof RequestAuthFailureReasonSchema
+>;
 
 /**
  * Build an ErrorDetail carrying a typed DenialReason (ExecuteTransaction denial).
@@ -373,5 +379,22 @@ export function usageReportRejectionDetail(
 		domain,
 		message,
 		usage_report_rejection: { reason },
+	});
+}
+
+/**
+ * Build an ErrorDetail carrying a typed RequestAuthFailureReason.
+ * TS peer of Go `helpers.RequestAuthFailureDetail` (the RFC 9421 HTTP message
+ * signature on an RPC request failed verification).
+ */
+export function requestAuthFailureDetail(
+	domain: string,
+	message: string,
+	reason: RequestAuthFailureReason,
+): ErrorDetail {
+	return ErrorDetailSchema.parse({
+		domain,
+		message,
+		request_auth_failure: { reason },
 	});
 }

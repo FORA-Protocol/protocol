@@ -30,7 +30,7 @@ import (
 var outOfBandRoots = map[string]string{
 	"WellKnownManifest": "served at /.well-known/fora.json by every participant (capabilities, role; identity keys moved to WBAFile)",
 	"WBAFile":           "served at /.well-known/http-message-signatures-directory — the pure WBA JWK Set (identity keys + revocation_url)",
-	"ErrorDetail":       "the transport-error envelope; carries the seven typed failure reasons",
+	"ErrorDetail":       "the transport-error envelope; carries the eight typed failure reasons",
 	"KeyRevocationList": "served key-revocation document (thumbprint list), fetched out of band from WBAFile.revocation_url",
 	"AgentAcceptancePayload": "canonical signing structure for AgentAcceptance; never sent on the wire — it fixes the field set the signer and verifier canonicalize (RFC 8785 JCS over canonical proto-JSON) to derive byte-identical signed bytes",
 }

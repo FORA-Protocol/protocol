@@ -544,6 +544,12 @@ A usage report could not be accepted.
 
 ::proto-message{name=UsageReportRejection}
 
+### RequestAuthFailure
+
+The RFC 9421 HTTP message signature on an RPC request failed verification, refused with the Connect code `unauthenticated`. Distinct from `RetrievalAuthFailure`, which reports the signed-URL / proof-of-possession check at the delivery edge.
+
+::proto-message{name=RequestAuthFailure}
+
 ### CatalogRejectionReason
 
 ::proto-enum{name=CatalogRejectionReason numbers}
@@ -569,6 +575,12 @@ Single-sources the delivery-edge token unions (signed-URL checks in `verify.ts`,
 ### UsageReportRejectionReason
 
 ::proto-enum{name=UsageReportRejectionReason numbers}
+
+### RequestAuthFailureReason
+
+Deliberately coarse: each value names what the caller does next (sign the request, fix the signature, or re-sign now), never which validation step failed, so a refusal does not tell a forger how far its request got.
+
+::proto-enum{name=RequestAuthFailureReason numbers}
 
 ## Enums
 
