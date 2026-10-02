@@ -29,11 +29,11 @@ MCP Interface       = "Here's how to access FORA from any MCP-capable agent with
 
 C2PA and FORA are orthogonal: C2PA proves **what content IS** (provenance, creator identity, transformation history). FORA manages **what you can DO with it** (commercial access, pricing, transaction, dispute). The [`fora-c2pa-v1` extension profile](/protocol/ext-c2pa/) bridges them -- C2PA validation results are carried in FORA attestations, and C2PA training/mining restrictions are enforced through FORA access controls.
 
-### WebBotAuth Compatibility
+### Web Bot Auth Conformance
 
-The IETF [WebBotAuth working group](https://datatracker.ietf.org/wg/webbotauth/about/) (formed 2025, standards track targeting April 2026) is standardising cryptographic bot identity -- bots sign HTTP requests using RFC 9421 HTTP Message Signatures with Ed25519, and publish keys at a well-known endpoint. Cloudflare is already implementing it.
+The IETF [webbotauth working group](https://datatracker.ietf.org/wg/webbotauth/about/) is standardising cryptographic bot identity: bots sign HTTP requests with RFC 9421 HTTP Message Signatures and publish their keys in a directory at a well-known path. Its only adopted document is [draft-ietf-webbotauth-httpsig-protocol-00](https://datatracker.ietf.org/doc/draft-ietf-webbotauth-httpsig-protocol/00/) (1 September 2026), and that version is the one FORA targets.
 
-**FORA agents are automatically WebBotAuth-compliant.** FORA uses the identical crypto stack: RFC 9421 HTTP Message Signatures, Ed25519 (EdDSA), and JWK-formatted keys at a well-known endpoint. When WebBotAuth ships as an RFC, FORA agents will be recognised as authenticated bots by any CDN or origin server that implements it -- without any FORA-specific integration on the publisher side. WebBotAuth solves identity (Layer 2); FORA adds the transaction layer (Layer 4) on top of that identity.
+Every FORA request signature is a conformant signature under that draft, so a CDN or origin that verifies Web Bot Auth can verify a FORA agent without FORA-specific integration. In the other direction, FORA accepts signatures from any Web Bot Auth library, provided that on a FORA RPC the signature also covers the request method, target URI, body digest and `Authorization` header. FORA asks for those components through Web Bot Auth's own `Accept-Signature` mechanism. Conformance does not come from sharing the cryptography: it depends on the header forms, the covered components, the signature parameters and the directory format, which [Authentication](/protocol/authentication/#the-web-bot-auth-profile) specifies, together with FORA's one deliberate departure from the draft. The SDKs released as v1.0.8 do not implement that profile yet, and Authentication lists the differences. Web Bot Auth solves identity (Layer 2); FORA adds the transaction layer (Layer 4) on top of that identity.
 
 ## How They Compose
 

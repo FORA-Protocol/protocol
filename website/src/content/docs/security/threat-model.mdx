@@ -110,7 +110,7 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 
 ### T20: Kickback-driven offer selection
 **Attack**: Broker always routes to a specific Exchange regardless of pricing.
-**Countermeasure (protocol)**: Agent can bypass Broker and query Exchanges directly. Each forwarding party adds its own RFC 9421 HTTP Message Signature to the request — covering the request plus the prior hop's signature — so the ordered stack of signatures in the HTTP headers is a tamper-evident forwarding chain that provides non-repudiation. Reordering, dropping, or inserting a hop breaks a downstream signature, and the Exchange verifies the whole stack.
+**Countermeasure (protocol)**: Agent can bypass Broker and query Exchanges directly. A Broker signs every request it sends alone, with its own RFC 9421 HTTP Message Signature, so the Exchange knows which Broker sent it and the Broker cannot deny it. The agent's consent to a transaction is the `AgentAcceptance` it signed into the body, which a Broker cannot alter or forge, and `agent_request_acceptance` binds the full ordered set of offers the agent chose.
 
 ### T21: Query intelligence harvesting
 **Attack**: Broker logs every DiscoverResources query, sells the data.
@@ -118,7 +118,7 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 
 ### T-BRK-1: Request-set mutation during execute fan-out
 **Attack**: The agent commits to an ordered set of offers and hands execution to a Broker. While projecting the set into per-Exchange `ExecuteTransaction` subrequests, the Broker mutates it at the **item** level: it removes an item, appends one the agent never chose, reorders the items, or sends a valid subset first so the agent's idempotency key is consumed by a request the agent did not make — a later honest retry then replays the mutilated result instead of executing the real set.
-**Why the hop stack does not cover this**: The RFC 9421 forwarding-signature stack (T20, T-DEL-4) proves who forwarded a request that travels **byte-for-byte**. A projected subrequest is a new HTTP request the Broker authors and signs itself, so hop-chain integrity says nothing about which items the projected body carries — see [Projected execute requests](/protocol/authentication/#projected-execute-requests).
+**Why the transport signature does not cover this**: The Broker's RFC 9421 signature (T20, T-DEL-4) proves which Broker sent a subrequest. A projected subrequest is a new HTTP request the Broker authors and signs alone, so that signature says nothing about whether the projected body carries the items the agent chose — see [Projected execute requests](/protocol/authentication/#projected-execute-requests).
 **Countermeasure (protocol)**: **`TransactionRequest.agent_request_acceptance`.** The agent signs the complete ordered set of `(offer signature, exchange)` references plus the requester and idempotency key with its own Ed25519 key, and the Broker must forward the envelope unchanged on every subrequest. Each Exchange verifies the signature and requires its subrequest to equal the complete in-order projection of the signed set addressed to itself, **before** creating or serving any request-level idempotency state. A removed, appended, reordered, or subset request fails the projection check and claims nothing. The field is optional for wire compatibility: an older client that omits it keeps per-item execution semantics (each item still carries its own `agent_acceptance`) but gets no request-level set claim.
 
 ## 5. Third-Party Attacks
@@ -188,8 +188,8 @@ Line 1: Protocol-level prevention
   Signed offers, content hashes, agent-bound URLs, idempotency keys,
   agent-signed request-set proof (request acceptance, verified before
   idempotency state), holder-bound JWT delegation chain (cnf),
-  RFC 9421 forwarding-chain verification (stack of per-hop HTTP Message
-  Signatures), subscription-level quota tracking
+  RFC 9421 request signatures from every sender (with chain verification
+  on unchanged forwarding), subscription-level quota tracking
   Makes attacks structurally impossible
 
 Line 2: Three-sided reconciliation
@@ -251,7 +251,7 @@ Line 3: Legal/contractual enforcement
 ### T-DEL-4: Forwarding chain forgery
 
 **Attack**: Attacker inserts a fake hop into the forwarding chain, claiming to be a trusted Broker to gain access or inject misleading provenance — or reorders or drops an existing hop.
-**Countermeasure (protocol)**: **The forwarding chain is a stack of RFC 9421 HTTP Message Signatures (Ed25519).** Each forwarding party adds one labeled signature covering the request plus the prior hop's signature, so the chain is tamper-evident. Exchange verifies every signature on the request against the signer's published public key in its WBA directory (the JWK Set at `{domain}/.well-known/http-message-signatures-directory`), the key identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`), and verifies the whole stack. A forged, reordered, dropped, or inserted hop breaks a downstream signature, causing the entire request to be rejected.
+**Countermeasure (protocol)**: **Every sender signs its own request (RFC 9421, Ed25519).** A Broker originates discovery queries and re-packages execute requests, and signs each alone with its own key, so it cannot claim to be another Broker: the Exchange verifies that signature against the key in the directory the Broker's own `Signature-Agent` member names (the JWK Set at `{origin}/.well-known/http-message-signatures-directory`, the key identified by its RFC 7638 thumbprint, the RFC 9421 `keyid`). The agent's identity and consent on a purchase cannot be forged or moved onto another request, because they are the `AgentAcceptance` signed into the body over the offer signature, requester and idempotency key. Where a party forwards a request unchanged and covers the signature before it, a forged, reordered, dropped or inserted hop breaks a later signature and the request is rejected. See [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding).
 
 ### T-DEL-5: Scope pollution
 
