@@ -18,8 +18,10 @@ loss-free against Go protojson.
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any, Literal
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 
+import httpx
 from pydantic import ValidationError
 from wire.base import JSON_NAME_ALIAS_ERROR
 
@@ -42,8 +44,6 @@ from .errors import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from pydantic import BaseModel
 
     from fora_sdk.signing_transport import SigningTransport
@@ -75,14 +75,25 @@ def rpc_url(base_url: str, service: str, method: str) -> str:
     return f"{base_url.rstrip('/')}/{service}/{method}"
 
 
+#: The pre-signing hook: receives the request the SDK is about to sign and returns the
+#: request to sign and send instead. See ``ClientConfig.before_sign``.
+BeforeSign = Callable[[httpx.Request], httpx.Request]
+
+
+class SigningSettings(Protocol):
+    """The signing knobs ``prepare`` reads. ``ClientConfig`` satisfies it as it stands."""
+
+    signer: SigningTransport | None
+    request_id: Callable[[], str] | None
+    sign_window: Window | None
+    before_sign: BeforeSign | None
+
+
 def prepare(
     op: str,
     url: str,
     message: Any,
-    *,
-    signer: SigningTransport | None,
-    request_id: Callable[[], str] | None,
-    sign_window: Window | None = None,
+    settings: SigningSettings,
 ) -> tuple[bytes, dict[str, str]]:
     """Render one request to the bytes that are both signed and sent.
 
@@ -101,20 +112,64 @@ def prepare(
     # here can be mistaken for part of the proof. The correlation id is not covered and is
     # not meant to be: it identifies the request in two sets of logs, it authorises
     # nothing.
-    if request_id is not None:
-        headers[RequestIDHeader] = request_id()
-    if signer is not None:
+    if settings.request_id is not None:
+        headers[RequestIDHeader] = settings.request_id()
+    if settings.before_sign is not None:
+        body, headers = _apply_before_sign(op, url, body, headers, settings.before_sign)
+    if settings.signer is not None:
         try:
-            signed = signer.sign_outbound(
-                method="POST", url=url, body=body, authorization="", window=sign_window
+            signed = settings.signer.sign_outbound(
+                method="POST", url=url, body=body, authorization="", window=settings.sign_window
             )
         except Exception as exc:  # custody can fail any way it likes
             # NOT_SIGNABLE, matching what the content leg answers for the same missing
             # holder: a caller branching on the kind sees one condition under one class,
             # whichever verb met it first.
             raise CallError(CallErrorKind.NOT_SIGNABLE, op, cause=exc) from exc
+        if settings.before_sign is not None:
+            # The signer owns every header it emits. Derived from what it emitted, not
+            # listed, so the refused set cannot drift from the signer.
+            owned = {name.lower() for name in signed.headers}
+            clash = sorted(name for name in headers if name.lower() in owned)
+            if clash:
+                raise malformed(op, f"before_sign set headers the signer owns: {clash}")
         headers.update(signed.headers)
     return body, headers
+
+
+# Headers httpx computes from the request itself. A hook's request carries them, and a
+# patched body would otherwise travel with a stale length.
+_TRANSPORT_HEADERS = frozenset({"host", "content-length"})
+
+
+def _apply_before_sign(
+    op: str, url: str, body: bytes, headers: dict[str, str], hook: BeforeSign
+) -> tuple[bytes, dict[str, str]]:
+    """Hand the request to the caller's hook; return the body and headers it chose.
+
+    The request object exists only for this call. The method and URL stay the ones the
+    SDK planned: the address checks and the routing were decided on them.
+    """
+    request = httpx.Request("POST", url, content=body, headers=headers)
+    try:
+        returned = hook(request)
+        if not isinstance(returned, httpx.Request):
+            raise malformed(op, "before_sign must return an httpx.Request")
+        # Read inside the guard: a request whose body cannot be read synchronously is a
+        # hook failure, refused like the others rather than escaping as an httpx error.
+        new_body = returned.read()
+    except CallError:
+        raise
+    except Exception as exc:  # the hook is caller code and may fail any way it likes
+        raise malformed(op, exc) from exc
+    if returned.method != "POST" or returned.url != httpx.URL(url):
+        raise malformed(op, "before_sign must not change the request method or URL")
+    kept = {
+        name: value
+        for name, value in returned.headers.items()
+        if name.lower() not in _TRANSPORT_HEADERS
+    }
+    return new_body, kept
 
 
 #: Whether a request is checked against its generated model before it is signed and sent.
@@ -132,9 +187,7 @@ def prepare(
 Validation = Literal["strict", "off"]
 
 
-def validate_request(
-    op: str, message: Any, model: type[BaseModel], validation: Validation
-) -> None:
+def validate_request(op: str, message: Any, model: type[BaseModel], validation: Validation) -> None:
     """Refuse a request the protocol would reject anyway, before it costs a signature and
     a round trip.
 
@@ -260,12 +313,14 @@ def _parse_json(op: str, status: int, body: str) -> Any:
         # is broken" class. A 2xx that is not JSON is a different thing: the service
         # claimed to answer and did not, which IS malformed.
         if not _HTTP_OK <= status < _HTTP_MULTIPLE_CHOICES:
+            code = connect_code_from_status(status)
             raise CallError(
-                kind_of_connect_code(connect_code_from_status(status)),
+                kind_of_connect_code(code),
                 op,
                 status=status,
-                reason=connect_code_from_status(status),
+                reason=code,
                 cause=exc,
+                code=code,
             ) from exc
         raise CallError(CallErrorKind.MALFORMED, op, status=status, cause=exc) from exc
 
@@ -295,6 +350,7 @@ def _connect_envelope_error(op: str, status: int, payload: Any) -> CallError:
         # content leg, whose detail this SDK writes itself.
         peer_message=detail.message if detail is not None and detail.message else "",
         cause=message if isinstance(message, str) else None,
+        code=code,
     )
 
 

@@ -6,6 +6,31 @@ description: "FORA protocol changelog"
 This page contains curated public release notes. For the exhaustive maintainer
 and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protocol/protocol/blob/main/proto/CHANGELOG.md).
 
+## Unreleased
+
+**Python SDK: four additions for callers that test FORA services through the SDK.
+Python-only for now; Go and TypeScript parity follows.**
+
+- `ClientConfig.before_sign` is called with every request just before it is signed,
+  as an `httpx.Request`. The request it returns is what gets signed and sent, and
+  the reply is decoded as usual, so a test can send a deliberately altered message
+  through the SDK's own signer and decoder. The hook cannot change the method or
+  URL, and cannot set a header the signer emits. Either refuses the call with
+  `CallError(MALFORMED)`.
+- `CallError.code` holds the Connect code of a peer's answer: from an error
+  envelope, or from a non-JSON error status classified by its code. It is `None`
+  for a local failure, a refused redirect and the content leg, whose refusals are
+  edge tokens. `reason` is unchanged.
+- Every verb that takes a request accepts the generated wire model as well as a
+  dict. `to_wire(model)` renders a model as the JSON object the SDK sends: only the
+  fields the caller set, under their proto field names. A model and the equivalent
+  dict reach the wire as the same bytes.
+- `generate_key()` returns a fresh Ed25519 key and its RFC 7638 thumbprint.
+  `directory_document(keys)` returns the Web Bot Auth key-directory JSON for a key
+  set, each key carrying the validity window the SDK's resolver requires.
+  `signing_transport_for(key, directory)` returns a `SigningTransport` that signs as
+  that key.
+
 ## v1.0.8
 
 **Request signatures carry an RFC 9421 `nonce` (SDK fix; no wire change for

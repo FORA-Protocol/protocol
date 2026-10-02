@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import httpx
 
@@ -75,6 +75,8 @@ if TYPE_CHECKING:
     )
 
     from fora_sdk.core import DiscoveryResult, VerifiedOffer
+
+    from ._verbs import RequestMessage
 
 __all__ = [
     "DEFAULT_CALL_TIMEOUT_SEC",
@@ -212,7 +214,7 @@ class Client(_Face):
     ) -> None:
         super().__init__(config, http)
 
-    async def discover(self, query: dict[str, Any]) -> DiscoveryResult:
+    async def discover(self, query: RequestMessage) -> DiscoveryResult:
         """Issue DiscoverResources and return one group per requested URI, each carrying
         the fail-closed {verified, rejected} split.
 
@@ -237,7 +239,7 @@ class Client(_Face):
         return _verbs.finish_execute(plan, status, body)
 
     async def report_usage(
-        self, report: dict[str, Any], *, idempotency_key: str | None = None
+        self, report: RequestMessage, *, idempotency_key: str | None = None
     ) -> UsageReportResponse:
         """File a usage report with the Exchange that ISSUED the offer."""
         plan = await asyncio.to_thread(
@@ -247,7 +249,7 @@ class Client(_Face):
         return _verbs.finish_report_usage(plan, status, body)
 
     async def dispute(
-        self, request: dict[str, Any], *, idempotency_key: str | None = None
+        self, request: RequestMessage, *, idempotency_key: str | None = None
     ) -> DisputeResponse:
         """File a dispute with the Exchange that issued the offer."""
         plan = await asyncio.to_thread(
@@ -256,7 +258,7 @@ class Client(_Face):
         status, body = await self._send(plan)
         return _verbs.finish_dispute(plan, status, body)
 
-    async def register(self, request: dict[str, Any]) -> RegisterResponse:
+    async def register(self, request: RequestMessage) -> RegisterResponse:
         """Create this agent's account at the Exchange the request names.
 
         Takes no idempotency key: the message carries none, because registering again
@@ -269,7 +271,7 @@ class Client(_Face):
         return _verbs.finish_register(plan, status, body)
 
     async def get_account_status(
-        self, request: dict[str, Any]
+        self, request: RequestMessage
     ) -> GetAccountStatusResponse:
         """Read whether this agent's account at the named Exchange is active.
 
@@ -371,7 +373,7 @@ class BrokerClient(_Face):
     ) -> None:
         super().__init__(config, http)
 
-    async def resolve(self, request: dict[str, Any]) -> DiscoveryResult:
+    async def resolve(self, request: RequestMessage) -> DiscoveryResult:
         """Run discovery through the Broker, which fans out to the Exchanges it knows."""
         plan = _verbs.plan_resolve(self._config, request)
         status, body = await self._send(plan)
@@ -402,19 +404,19 @@ class CatalogClient(_Face):
     ) -> None:
         super().__init__(config, http)
 
-    async def push_resources(self, request: dict[str, Any]) -> PushResourcesResponse:
+    async def push_resources(self, request: RequestMessage) -> PushResourcesResponse:
         """Push or update catalog entries."""
         plan = await asyncio.to_thread(_verbs.plan_push_resources, self._config, request)
         status, body = await self._send(plan)
         return _verbs.finish_push_resources(plan, status, body)
 
-    async def remove_resources(self, request: dict[str, Any]) -> RemoveResourcesResponse:
+    async def remove_resources(self, request: RequestMessage) -> RemoveResourcesResponse:
         """Remove the catalog entries the request's paths name."""
         plan = await asyncio.to_thread(_verbs.plan_remove_resources, self._config, request)
         status, body = await self._send(plan)
         return _verbs.finish_remove_resources(plan, status, body)
 
-    async def refresh_catalog(self, request: dict[str, Any]) -> RefreshCatalogResponse:
+    async def refresh_catalog(self, request: RequestMessage) -> RefreshCatalogResponse:
         """Ask the Exchange to refresh the tenant's catalog from its configured sources."""
         plan = await asyncio.to_thread(_verbs.plan_refresh_catalog, self._config, request)
         status, body = await self._send(plan)

@@ -11,6 +11,11 @@ constant and the check that reads it sit together.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pydantic import BaseModel
+
 #: Content-Type for binary protobuf bodies.
 ContentTypeProto = "application/proto"
 #: Content-Type for canonical proto-JSON bodies.
@@ -108,3 +113,15 @@ _MAX_ECHOED_VER = 64
 
 def _echo_ver(ver: str) -> str:
     return ver if len(ver) <= _MAX_ECHOED_VER else ver[:_MAX_ECHOED_VER] + "..."
+
+
+def to_wire(model: BaseModel) -> dict[str, Any]:
+    """Render a generated wire model as the JSON object the SDK sends.
+
+    Only the fields the caller set are rendered, under their proto field names. A
+    declared default such as ``ver: ""`` stays off the wire: sending it would put a field
+    on the message the caller never set, and an empty ``ver`` reads as a protocol version
+    the sender does not speak. Every verb that accepts a model serializes it here, so a
+    model and the equivalent dict reach the wire as the same bytes.
+    """
+    return model.model_dump(mode="json", exclude_unset=True)

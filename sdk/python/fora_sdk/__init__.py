@@ -93,6 +93,7 @@ from .httpsig import (
     verify_request_server,
 )
 from .idempotency import generate_idempotency_key, validate_idempotency_key
+from .identity import directory_document, generate_key, signing_transport_for
 from .keyresolver import KeyResolver, StaticKeyResolver
 from .licenseterm import (
     RULE_OBLIGATION_OTHER_REQUIRES_DETAIL,
@@ -163,6 +164,7 @@ from .wire import (
     WellKnownManifestVersion,
     WellKnownPath,
     manifest_version_refusal,
+    to_wire,
 )
 
 __all__ = [
@@ -237,9 +239,9 @@ __all__ = [
     "Verifier",
     "WBAKeyResolver",
     "WBA_DIRECTORY_PATH",
-    "WellKnownManifestVersion",
     "WellKnownEndpointResolver",
     "WellKnownKeyResolver",
+    "WellKnownManifestVersion",
     "WellKnownPath",
     "Window",
     "append_signature",
@@ -257,21 +259,23 @@ __all__ = [
     "compile_registration_schema",
     "content_digest",
     "cross_field_rule_ids",
+    "directory_document",
     "dispute_failure_detail",
     "domain_verification_failure_detail",
     "error_detail_from",
     "format_money",
     "generate_idempotency_key",
+    "generate_key",
     "hash_url",
     "host_anchored",
     "host_of",
     "is_bare_domain",
     "is_bare_host",
     "is_safe_schema_pattern",
-    "manifest_version_refusal",
     "jcs_acceptance_payload",
     "jcs_request_acceptance_payload",
     "known_restriction_token",
+    "manifest_version_refusal",
     "monotonic_window",
     "normalize_license_term",
     "normalize_resource_entry",
@@ -287,9 +291,11 @@ __all__ = [
     "sign_offer_acceptance",
     "sign_offer_acceptance_jcs",
     "sign_offer_jcs",
-    "sign_request_acceptance_jcs",
     "sign_request",
+    "sign_request_acceptance_jcs",
+    "signing_transport_for",
     "thumbprint",
+    "to_wire",
     "transaction_denial_detail",
     "usage_report_rejection_detail",
     "validate_idempotency_key",
@@ -300,8 +306,8 @@ __all__ = [
     "verify_multisig_request_server",
     "verify_offer_acceptance",
     "verify_offer_acceptance_jcs",
-    "verify_request_acceptance_jcs",
     "verify_request",
+    "verify_request_acceptance_jcs",
     "verify_request_server",
     "wba_directory_url",
 ]

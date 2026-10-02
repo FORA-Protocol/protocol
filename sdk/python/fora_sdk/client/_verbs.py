@@ -15,6 +15,7 @@ import copy
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
+from pydantic import BaseModel
 from wire.models import (
     DiscoveryRequest,
     DiscoveryResponse,
@@ -59,10 +60,11 @@ from fora_sdk.resolvers import (
     guarded_client,
 )
 from fora_sdk.window import Window
-from fora_sdk.wire import ProtocolVersion
+from fora_sdk.wire import ProtocolVersion, to_wire
 from fora_sdk.wire_canon import from_wire_offer
 
 from ._call import (
+    BeforeSign,
     DEFAULT_CALL_TIMEOUT_SEC,
     DEFAULT_MAX_RPC_READ_BYTES,
     Validation,
@@ -92,6 +94,10 @@ if TYPE_CHECKING:
 EXCHANGE_SERVICE = "fora.v1.ExchangeService"
 BROKER_SERVICE = "fora.v1.BrokerService"
 CATALOG_SERVICE = "fora.v1.CatalogService"
+
+
+#: A request a verb accepts: the generated wire model, or the equivalent dict.
+RequestMessage = dict[str, Any] | BaseModel
 
 
 @dataclass
@@ -133,6 +139,12 @@ class ClientConfig:
     sign_window: Window | None = None
     #: Mints the X-Request-ID correlation value. ``None`` sends no header.
     request_id: Callable[[], str] | None = None
+    #: Called with every request just before it is signed, as an ``httpx.Request``; the
+    #: request it returns is what gets signed and sent, and the reply is decoded as usual.
+    #: For a test that must send a deliberately altered message through the SDK's own
+    #: signer and decoder. The method and URL cannot change, and a header the signer
+    #: emits cannot be set: either refuses the call as malformed.
+    before_sign: BeforeSign | None = None
     #: The freshness window stamped on a delivery-fetch proof.
     proof_window: Window | None = None
     max_rpc_read_bytes: int = DEFAULT_MAX_RPC_READ_BYTES
@@ -176,9 +188,7 @@ class _NullOfferKeyResolver:
         return None
 
 
-_NULL_VERIFIER = Verifier(
-    mode=Mode.STRICT, resolver=_NullOfferKeyResolver(), now=lambda: 0
-)
+_NULL_VERIFIER = Verifier(mode=Mode.STRICT, resolver=_NullOfferKeyResolver(), now=lambda: 0)
 
 
 @dataclass(frozen=True)
@@ -195,8 +205,9 @@ class Plan:
     #: and so goes over the address-guarded transport. Mirrors the Go client, which keeps
     #: a second guarded client for exactly these two verbs.
     guarded: bool = False
-    #: The message as sent, kept so the finish step can read the query back (the flat
-    #: fallback's attribution needs the URIs the caller asked about).
+    #: The caller's message, before any ``before_sign`` hook altered it. Kept so the
+    #: finish step can read the query back: the flat fallback's attribution needs the
+    #: URIs the caller asked about.
     sent: dict[str, Any] = field(default_factory=dict)
 
 
@@ -205,7 +216,7 @@ class Plan:
 # ---------------------------------------------------------------------------
 
 
-def plan_discover(cfg: ClientConfig, query: dict[str, Any]) -> Plan:
+def plan_discover(cfg: ClientConfig, query: RequestMessage) -> Plan:
     """Assemble DiscoverResources.
 
     The query is CLONED before ``ver`` and the requester are filled in, so the message the
@@ -317,7 +328,7 @@ def _canonicalize_group(group: Any) -> Any:
 # ---------------------------------------------------------------------------
 
 
-def plan_resolve(cfg: ClientConfig, request: dict[str, Any]) -> Plan:
+def plan_resolve(cfg: ClientConfig, request: RequestMessage) -> Plan:
     """Assemble the Broker's Resolve.
 
     It carries no idempotency key. Pure discovery buys nothing and changes nothing, so
@@ -364,9 +375,7 @@ def finish_resolve(cfg: ClientConfig, plan: Plan, status: int, body: str) -> Dis
 # ---------------------------------------------------------------------------
 
 
-def plan_execute(
-    cfg: ClientConfig, offer: VerifiedOffer, idempotency_key: str | None
-) -> Plan:
+def plan_execute(cfg: ClientConfig, offer: VerifiedOffer, idempotency_key: str | None) -> Plan:
     """Assemble ExecuteTransaction for a VERIFIED offer.
 
     It accepts ONLY a VerifiedOffer — the construction token is module-private to the
@@ -377,9 +386,7 @@ def plan_execute(
     """
     op = "execute"
     if cfg.requester is None:
-        raise malformed(
-            op, "no requester configured; an Exchange resolves who is buying from it"
-        )
+        raise malformed(op, "no requester configured; an Exchange resolves who is buying from it")
     if cfg.signer is None:
         # NOT_SIGNABLE, matching what fetch answers for the same missing holder: a caller
         # branching on the kind sees one condition under one class, whichever verb met it
@@ -468,7 +475,7 @@ def finish_execute(plan: Plan, status: int, body: str) -> TransactionResponse:
 
 
 def plan_report_usage(
-    cfg: ClientConfig, report: dict[str, Any], idempotency_key: str | None
+    cfg: ClientConfig, report: RequestMessage, idempotency_key: str | None
 ) -> Plan:
     """Assemble a usage report for the Exchange that ISSUED the offer — never through a
     Broker, and never to an address from configuration.
@@ -496,9 +503,7 @@ def finish_report_usage(plan: Plan, status: int, body: str) -> UsageReportRespon
     return decode(plan.op, status, body, UsageReportResponse)  # type: ignore[no-any-return]
 
 
-def plan_dispute(
-    cfg: ClientConfig, request: dict[str, Any], idempotency_key: str | None
-) -> Plan:
+def plan_dispute(cfg: ClientConfig, request: RequestMessage, idempotency_key: str | None) -> Plan:
     """Assemble a dispute for the issuing Exchange, over the same vetted routing a usage
     report takes.
 
@@ -530,7 +535,7 @@ class _OfferDerived:
 def _plan_offer_derived(
     cfg: ClientConfig,
     verb: _OfferDerived,
-    message: dict[str, Any],
+    message: RequestMessage,
     idempotency_key: str | None,
 ) -> Plan:
     # Discovery and execute keep the plain transport, because their address is the
@@ -558,7 +563,7 @@ def _plan_offer_derived(
 _CLIENT_ERROR_DOMAIN = "fora.v1.Client"
 
 
-def plan_register(cfg: ClientConfig, request: dict[str, Any]) -> Plan:
+def plan_register(cfg: ClientConfig, request: RequestMessage) -> Plan:
     """Assemble a registration for the Exchange the request names.
 
     The caller's identity is the request SIGNATURE. Nothing in the message says who is
@@ -593,7 +598,7 @@ def finish_register(plan: Plan, status: int, body: str) -> RegisterResponse:
     return decode(plan.op, status, body, RegisterResponse)  # type: ignore[no-any-return]
 
 
-def plan_get_account_status(cfg: ClientConfig, request: dict[str, Any]) -> Plan:
+def plan_get_account_status(cfg: ClientConfig, request: RequestMessage) -> Plan:
     """Assemble a status read for the Exchange the request names.
 
     The request carries no field identifying the caller — the Exchange resolves the
@@ -608,9 +613,7 @@ def plan_get_account_status(cfg: ClientConfig, request: dict[str, Any]) -> Plan:
     op = "get account status"
     sent = _stamp_ver(op, request)
     _require_recipient(op, _str_field(sent, "exchange"))
-    return _plan_routed_keyless(
-        cfg, _Routed(op, GetAccountStatusRequest, "GetAccountStatus"), sent
-    )
+    return _plan_routed_keyless(cfg, _Routed(op, GetAccountStatusRequest, "GetAccountStatus"), sent)
 
 
 def finish_get_account_status(plan: Plan, status: int, body: str) -> GetAccountStatusResponse:
@@ -733,7 +736,7 @@ _REMOVE_RESOURCES = _CatalogVerb("remove resources", RemoveResourcesRequest, "Re
 _REFRESH_CATALOG = _CatalogVerb("refresh catalog", RefreshCatalogRequest, "RefreshCatalog")
 
 
-def plan_push_resources(cfg: ClientConfig, request: dict[str, Any]) -> Plan:
+def plan_push_resources(cfg: ClientConfig, request: RequestMessage) -> Plan:
     """Assemble PushResources. See :func:`_plan_catalog` for the envelope rule."""
     return _plan_catalog(cfg, _PUSH_RESOURCES, request)
 
@@ -742,7 +745,7 @@ def finish_push_resources(plan: Plan, status: int, body: str) -> PushResourcesRe
     return decode(plan.op, status, body, PushResourcesResponse)
 
 
-def plan_remove_resources(cfg: ClientConfig, request: dict[str, Any]) -> Plan:
+def plan_remove_resources(cfg: ClientConfig, request: RequestMessage) -> Plan:
     """Assemble RemoveResources. See :func:`_plan_catalog` for the envelope rule."""
     return _plan_catalog(cfg, _REMOVE_RESOURCES, request)
 
@@ -751,7 +754,7 @@ def finish_remove_resources(plan: Plan, status: int, body: str) -> RemoveResourc
     return decode(plan.op, status, body, RemoveResourcesResponse)
 
 
-def plan_refresh_catalog(cfg: ClientConfig, request: dict[str, Any]) -> Plan:
+def plan_refresh_catalog(cfg: ClientConfig, request: RequestMessage) -> Plan:
     """Assemble RefreshCatalog. See :func:`_plan_catalog` for the envelope rule."""
     return _plan_catalog(cfg, _REFRESH_CATALOG, request)
 
@@ -760,7 +763,7 @@ def finish_refresh_catalog(plan: Plan, status: int, body: str) -> RefreshCatalog
     return decode(plan.op, status, body, RefreshCatalogResponse)
 
 
-def _plan_catalog(cfg: ClientConfig, verb: _CatalogVerb, message: dict[str, Any]) -> Plan:
+def _plan_catalog(cfg: ClientConfig, verb: _CatalogVerb, message: RequestMessage) -> Plan:
     """The one shape all three catalog verbs share.
 
     The request is CLONED before ``ver`` is stamped (fill-when-empty; the caller's value
@@ -781,7 +784,7 @@ def _plan_catalog(cfg: ClientConfig, verb: _CatalogVerb, message: dict[str, Any]
     return _plan(cfg, _Route(op, cfg.base_url, CATALOG_SERVICE, verb.method), sent)
 
 
-def _stamp_ver(op: str, message: dict[str, Any]) -> dict[str, Any]:
+def _stamp_ver(op: str, message: RequestMessage) -> dict[str, Any]:
     sent = _clone(op, message)
     if _str_field(sent, "ver") == "":
         sent["ver"] = ProtocolVersion
@@ -822,7 +825,7 @@ def _require_recipient(op: str, exchange: str) -> None:
 
 
 def _stamp_discovery(
-    op: str, message: dict[str, Any], requester: dict[str, Any] | None
+    op: str, message: RequestMessage, requester: dict[str, Any] | None
 ) -> dict[str, Any]:
     """Fill the envelope a DISCOVERY call carries, which is the mutating envelope minus
     the idempotency key: pure discovery buys nothing and changes nothing, so there is no
@@ -842,7 +845,7 @@ def _stamp_discovery(
 
 
 def _stamp_envelope(
-    op: str, message: dict[str, Any], idempotency_key: str | None
+    op: str, message: RequestMessage, idempotency_key: str | None
 ) -> dict[str, Any]:
     """Fill the two envelope fields the protocol requires on a state-mutating call,
     WITHOUT overwriting what the caller already set.
@@ -886,10 +889,16 @@ def _rate_limit(parsed: Any, wire: Any) -> dict[str, Any] | None:
     return standing
 
 
-def _clone(op: str, message: dict[str, Any]) -> dict[str, Any]:
+def _clone(op: str, message: RequestMessage) -> dict[str, Any]:
     """Copy a caller's message so the SDK can stamp its envelope without touching what the
     caller still holds. A deep copy, because the envelope fields are top-level but a
-    caller re-using a nested object across calls must not see it change either."""
+    caller re-using a nested object across calls must not see it change either.
+
+    A generated model is rendered through :func:`to_wire` instead, which already returns
+    a fresh object. This is the one point every dict-taking verb passes through, so a
+    model and the equivalent dict are serialized the same way exactly once."""
+    if isinstance(message, BaseModel):
+        return to_wire(message)
     try:
         return copy.deepcopy(dict(message))
     except Exception as exc:  # a message that cannot be copied cannot be sent
@@ -906,19 +915,10 @@ class _Route:
     method: str
 
 
-def _plan(
-    cfg: ClientConfig, route: _Route, sent: dict[str, Any], *, guarded: bool = False
-) -> Plan:
+def _plan(cfg: ClientConfig, route: _Route, sent: dict[str, Any], *, guarded: bool = False) -> Plan:
     op = route.op
     url = rpc_url(route.base_url, route.service, route.method)
-    body, headers = prepare(
-        op,
-        url,
-        sent,
-        signer=cfg.signer,
-        request_id=cfg.request_id,
-        sign_window=cfg.sign_window,
-    )
+    body, headers = prepare(op, url, sent, cfg)
     return Plan(
         op=op,
         url=url,
@@ -929,7 +929,6 @@ def _plan(
         guarded=guarded,
         sent=sent,
     )
-
 
 
 def _str_field(record: dict[str, Any] | None, key: str) -> str:

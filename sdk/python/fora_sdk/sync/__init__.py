@@ -13,7 +13,7 @@ the send, and nothing else. That is what keeps the two faces from becoming two d
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import httpx
 
@@ -50,6 +50,7 @@ if TYPE_CHECKING:
         UsageReportResponse,
     )
 
+    from fora_sdk.client._verbs import RequestMessage
     from fora_sdk.core import DiscoveryResult, VerifiedOffer
 
 __all__ = ["BrokerClient", "CatalogClient", "Client", "ClientConfig"]
@@ -152,7 +153,7 @@ class Client(_Face):
     def __init__(self, config: ClientConfig, *, http: httpx.Client | None = None) -> None:
         super().__init__(config, http)
 
-    def discover(self, query: dict[str, Any]) -> DiscoveryResult:
+    def discover(self, query: RequestMessage) -> DiscoveryResult:
         plan = _verbs.plan_discover(self._config, query)
         status, body = self._send(plan)
         return _verbs.finish_discover(self._config, plan, status, body)
@@ -165,25 +166,25 @@ class Client(_Face):
         return _verbs.finish_execute(plan, status, body)
 
     def report_usage(
-        self, report: dict[str, Any], *, idempotency_key: str | None = None
+        self, report: RequestMessage, *, idempotency_key: str | None = None
     ) -> UsageReportResponse:
         plan = _verbs.plan_report_usage(self._config, report, idempotency_key)
         status, body = self._send(plan)
         return _verbs.finish_report_usage(plan, status, body)
 
     def dispute(
-        self, request: dict[str, Any], *, idempotency_key: str | None = None
+        self, request: RequestMessage, *, idempotency_key: str | None = None
     ) -> DisputeResponse:
         plan = _verbs.plan_dispute(self._config, request, idempotency_key)
         status, body = self._send(plan)
         return _verbs.finish_dispute(plan, status, body)
 
-    def register(self, request: dict[str, Any]) -> RegisterResponse:
+    def register(self, request: RequestMessage) -> RegisterResponse:
         plan = _verbs.plan_register(self._config, request)
         status, body = self._send(plan)
         return _verbs.finish_register(plan, status, body)
 
-    def get_account_status(self, request: dict[str, Any]) -> GetAccountStatusResponse:
+    def get_account_status(self, request: RequestMessage) -> GetAccountStatusResponse:
         plan = _verbs.plan_get_account_status(self._config, request)
         status, body = self._send(plan)
         return _verbs.finish_get_account_status(plan, status, body)
@@ -242,7 +243,7 @@ class BrokerClient(_Face):
     def __init__(self, config: ClientConfig, *, http: httpx.Client | None = None) -> None:
         super().__init__(config, http)
 
-    def resolve(self, request: dict[str, Any]) -> DiscoveryResult:
+    def resolve(self, request: RequestMessage) -> DiscoveryResult:
         plan = _verbs.plan_resolve(self._config, request)
         status, body = self._send(plan)
         return _verbs.finish_resolve(self._config, plan, status, body)
@@ -254,17 +255,17 @@ class CatalogClient(_Face):
     def __init__(self, config: ClientConfig, *, http: httpx.Client | None = None) -> None:
         super().__init__(config, http)
 
-    def push_resources(self, request: dict[str, Any]) -> PushResourcesResponse:
+    def push_resources(self, request: RequestMessage) -> PushResourcesResponse:
         plan = _verbs.plan_push_resources(self._config, request)
         status, body = self._send(plan)
         return _verbs.finish_push_resources(plan, status, body)
 
-    def remove_resources(self, request: dict[str, Any]) -> RemoveResourcesResponse:
+    def remove_resources(self, request: RequestMessage) -> RemoveResourcesResponse:
         plan = _verbs.plan_remove_resources(self._config, request)
         status, body = self._send(plan)
         return _verbs.finish_remove_resources(plan, status, body)
 
-    def refresh_catalog(self, request: dict[str, Any]) -> RefreshCatalogResponse:
+    def refresh_catalog(self, request: RequestMessage) -> RefreshCatalogResponse:
         plan = _verbs.plan_refresh_catalog(self._config, request)
         status, body = self._send(plan)
         return _verbs.finish_refresh_catalog(plan, status, body)
