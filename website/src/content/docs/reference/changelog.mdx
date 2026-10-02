@@ -35,27 +35,36 @@ specifies the profile in one place, and the other pages refer to it:
 - Signers use a `Signature-Agent` member key equal to the signature label.
   Verifiers also accept a member key that differs from the label, a signature
   without a nonce, and a member with `type=directory`. The legacy sf-string
-  `Signature-Agent` is accepted on a direct single-hop call only: a relay
-  refuses it, because it cannot add its own member without breaking the agent's
+  `Signature-Agent` is accepted on a direct single-hop call only: a party that
+  forwards a request unchanged refuses it, because it cannot add its own member without breaking the agent's
   signature, and answers with `Accept-Signature` asking for the dictionary form.
   Verifiers refuse a signature with no `tag`, and a `Signature-Agent` member that
   is not an https origin, and answer a missing component with `Accept-Signature`
   listing what they require. `Signature-Agent` is never empty; an empty
   `Authorization` stays valid.
-- Forwarding follows WG-00 §5.2.2. A party that forwards a request unchanged
-  in every component a previous signature covers MAY cover that signature, and
-  then covers its `Signature-Input` and every component it lists as well. A relay
-  that re-packages the request signs its own request on its own terms. FORA's
-  Broker re-packages every request (it posts to the Exchange's URL with a new
-  body), so its signature covers its own request components and only its own
-  `Signature-Agent` member, and it leaves the agent's signature headers
-  untouched. Every Broker signature therefore carries exactly one
-  `Signature-Agent` member and passes single-member WBA verifiers such as
-  Cloudflare's `web-bot-auth`. The Exchange authenticates the caller as the
-  Broker and takes the agent's consent to a transaction from the
-  `AgentAcceptance` signed into the body, which does not depend on the route. A
-  delegated request through a Broker needs the agent to have delegated to the
-  Broker's key. The Exchange resolves each signer's key in the directory that
+- Forwarding follows WG-00 §5.2.2 as the general rule: a party that forwards a
+  request unchanged in every component an earlier signature covers MAY cover
+  that signature, and then covers its `Signature-Input` and every component it
+  lists as well. FORA's Broker never forwards an agent's request unchanged, so
+  it never covers an agent's signature. Discovery through the Broker is
+  Broker-led: the Broker chooses the Exchanges and originates its own queries,
+  signed by the Broker alone. How an agent proves a holder-of-key entitlement
+  at discovery time through a Broker is an open protocol question, tracked
+  separately. Execute through the Broker is
+  re-packaged: the Broker builds a fresh request per Exchange and signs it
+  alone. Every Broker signature covers its own request and only its own
+  `Signature-Agent` member, so single-member WBA verifiers such as Cloudflare's
+  `web-bot-auth` accept it. On a relayed purchase, the agent's identity and
+  consent come from `AgentAcceptance`, the detached Ed25519 signature over
+  `{offer_sig, requester_id, requester_domain, idempotency_key}`, verified
+  against the agent's registered key resolved from `Requester.domain`. That key
+  gives the delivery-URL binding, and a delegation's `cnf.jkt` is checked
+  against it, so delegation stays bound to the agent's key through the Broker.
+  A Broker is never delegated to. This replaces the earlier statement that a
+  Broker may project a delegated request only when the agent has delegated to
+  the Broker's key.
+  `AgentAcceptance` is application-level consent and the profile does not
+  change it. The Exchange resolves each signer's key in the directory that
   signer names, not in a configured key set.
 - The retrieval proof of possession at the publisher edge is a full Web Bot Auth
   signature plus `@method` and `@target-uri`. The edge keeps verifying offline
@@ -72,9 +81,9 @@ specifies the profile in one place, and the other pages refer to it:
   Message Signatures names (`ed25519`); FORA follows RFC 7517 and Cloudflare's
   reference library. It is the only deviation from WG-00.
 
-Authentication includes a complete signed request, the request a Broker
-re-packaged and signed for the Exchange, and a signed directory response, all
-with real values that can be verified.
+Authentication includes a complete signed request, a query a Broker originated
+and signed alone, and a signed directory response, all with real values that
+can be verified.
 
 **Upcoming profile change (not in this release).** The SDKs released as v1.0.8
 do not implement the profile. They send `Signature-Agent` as a bare URL, set no

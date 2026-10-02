@@ -435,7 +435,7 @@ The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-al
 
 ---
 
-## Phase 2b: Cross-Provider via Broker (Header Signature Chain, OfferGroups, SimHash)
+## Phase 2b: Cross-Provider via Broker (Broker-Signed Queries, OfferGroups, SimHash)
 
 If Anthropic uses its hosted Broker instead of the SDK directly, the Broker provides cross-provider intelligence. The agent sends a `DiscoveryRequest` to the Broker with multiple URIs (`BrokerService.Resolve` is discovery-only — it returns offers grouped by URI; execution happens later via a separate `ExecuteTransaction` call). Agent → Broker:
 
@@ -465,12 +465,11 @@ If Anthropic uses its hosted Broker instead of the SDK directly, the Broker prov
 }
 ```
 
-### Broker Fans Out with Its Own Signed Requests
+### Broker Fans Out with Its Own Signed Queries
 
-The Broker queries both Exchanges. For each Exchange, the Broker re-packages the request (here it batches the URIs and sets its own `deadline`) and:
-1. Preserves the agent's original `requester` message
-2. Leaves the agent's RFC 9421 signature headers untouched and does not cover them, because the request they were computed over has changed
-3. Signs its own request with its own labeled RFC 9421 HTTP Message Signature, covering its own request components and only its own `Signature-Agent` member
+Discovery through the Broker is Broker-led: the agent asked the Broker, and the Broker chooses which Exchanges to query. For each Exchange, the Broker originates its own query (here it batches the URIs and sets its own `deadline`) and:
+1. Carries the agent's `requester` message unchanged
+2. Signs the query alone, with its own labeled RFC 9421 HTTP Message Signature covering its own request components and only its own `Signature-Agent` member. The query carries no agent signature headers
 
 Broker → SSP-Alpha (multi-URI batch query) — `POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`:
 
@@ -494,7 +493,7 @@ Broker → SSP-Alpha (multi-URI batch query) — `POST https://exchange.ssp-alph
 }
 ```
 
-Both labeled signatures sit in the `Signature`/`Signature-Input` headers, but only the Broker's covers this request. SSP-Alpha's Exchange verifies the Broker's signature -- it looks up the public key by its `keyid` thumbprint in the key directory named by the Broker's own `Signature-Agent` member, Ed25519 verifies, and authenticates the caller as the Broker. The agent's untouched signature does not match the re-packaged request, and the Exchange attributes nothing to it. A discovery query moves no money, so it carries no agent consent; see [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding).
+SSP-Alpha's Exchange verifies the Broker's signature -- it looks up the public key by its `keyid` thumbprint in the key directory named by the Broker's `Signature-Agent` member, Ed25519 verifies, and authenticates the caller as the Broker. How an agent proves a holder-of-key entitlement at discovery time through a Broker is an open protocol question, tracked separately. A discovery query moves no money, so it carries no agent consent; see [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding).
 
 SSP-Alpha returns `offer_groups` (batch mode -- multiple URIs in query):
 
@@ -756,7 +755,7 @@ SDK or Broker commits to the subscription offer.
 }
 ```
 
-The Broker posts this request to the Exchange as its own: it signs it with its own labeled RFC 9421 signature, covering its own request components and only its own `Signature-Agent` member, and leaves the agent's signature headers untouched. The Exchange authenticates the caller as the Broker (its public key selected by `keyid` thumbprint in the directory the Broker's own `Signature-Agent` member names). The agent's consent is the `agent_acceptance` on the item, which the Exchange verifies against the agent's key in its directory at `claude.ai/.well-known/http-message-signatures-directory`. This example carries no delegation; a delegated request through a Broker needs the agent to have delegated to the Broker's key.
+The Broker re-packaged this request for SSP-Alpha and signs it alone, with its own labeled RFC 9421 signature covering its own request components and only its own `Signature-Agent` member. The Exchange authenticates the caller as the Broker (its public key selected by `keyid` thumbprint in the directory the Broker's `Signature-Agent` member names). The agent's identity and consent are the `agent_acceptance` on the item: a detached Ed25519 signature over `{offer_sig, requester_id, requester_domain, idempotency_key}`, which the Exchange verifies against the agent's registered key, resolved from `requester.domain` (`claude.ai/.well-known/http-message-signatures-directory`). That key also gives the delivery-URL binding, and a delegation's `cnf.jkt` would be checked against it.
 
 ### Inside SSP-Alpha's Exchange
 
@@ -767,9 +766,9 @@ The Broker posts this request to the Exchange as its own: it signs it with its o
    - Fetch the Broker's public key from the directory its own covered
      Signature-Agent member names (key by keyid thumbprint)
    - Ed25519 verify -> pass; the caller is the Broker
-   - The agent's untouched signature is not attributed to anyone
-2b. Verify the agent's agent_acceptance on each item against the agent's key
-   in claude.ai/.well-known/http-message-signatures-directory -> pass
+2b. Verify the agent's agent_acceptance on each item against the agent's
+   registered key, resolved from requester.domain
+   (claude.ai/.well-known/http-message-signatures-directory) -> pass
 2c. Verify `agent_request_acceptance` when the request carries it (this example
    omits the optional field): Ed25519 verify the signed request set against the
    requester's published agent key, then require this request's items to be the
@@ -788,8 +787,9 @@ The Broker posts this request to the Exchange as its own: it signs it with its o
    - 850000 > 3300 -> sufficient quota, proceed
    - Deduct 3300 from quota -> new remaining: 846700
 7. Compute agent identity hash:
-   agentHash = RFC 7638 JWK thumbprint of the agent's request-signing public key
-             = the keyid this request's RFC 9421 signature was just verified with
+   agentHash = RFC 7638 JWK thumbprint of the agent's public key
+             = the key agent_acceptance was just verified with in step 2b
+               (the Broker signed the transport request, so its keyid is not it)
              = "NzbLsXh8..."
    (A hash of the agent's id and domain would bind nothing: the edge checks the
    hash against a key the fetcher must prove it holds, and anyone can recompute

@@ -162,11 +162,11 @@ This verification is entirely offline — no callback to the principal is requir
 
 ### Forwarding Verification
 
-When the request carries more than one RFC 9421 HTTP Message Signature, it has passed through one or more intermediaries (e.g., agent to broker to your Exchange). A Broker re-packages the request and signs it as its own, covering its own request and only its own `Signature-Agent` member; the agent's signature headers travel untouched and no longer match the request. The rules are in [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding):
+A request from a Broker is the Broker's own: the Broker originates discovery queries and re-packages execute requests, and signs each alone, covering its own request and only its own `Signature-Agent` member. It never forwards an agent's request unchanged. The rules are in [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding):
 
-1. Verify the sender's signature, the last label added: fetch the signer's public key from the directory its own `Signature-Agent` member names (the JWK Set at `{origin}/.well-known/http-message-signatures-directory`, `role=ROLE_AGENT`), identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`), and authenticate the caller as that party
-2. On an execute request, verify the agent's `AgentAcceptance` in the body against the requester's directory; that is the agent's consent, whatever route the request took
-3. On unchanged forwarding, where each hop covers the signature before it, verify every signature and that the chain was not reordered, dropped from, or inserted into
+1. Verify the request signature: fetch the signer's public key from the directory its own `Signature-Agent` member names (the JWK Set at `{origin}/.well-known/http-message-signatures-directory`, `role=ROLE_AGENT`), identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`), and authenticate the caller as that party
+2. On an execute request, verify each item's `AgentAcceptance` in the body against the agent's registered key, resolved from `Requester.domain`; on a request a Broker re-packaged, that is the agent's identity and consent, its key gives the delivery-URL binding, and a delegation's `cnf.jkt` is checked against it
+3. Where a party forwarded a request unchanged and covered an earlier signature, verify that signature and the coverage too
 4. Enforce `max_intermediary_hops` by signature count — reject requests whose signature count exceeds your published limit
 
 ### Scope-Based Catalog Filtering
