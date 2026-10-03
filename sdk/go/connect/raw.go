@@ -29,8 +29,7 @@ import (
 // ReportUsage, Dispute, Register, GetAccountStatus — reads `exchange` by decoding
 // the body as its request type, and routes it exactly as it routes a built
 // request; a body that does not decode, or names no exchange, is refused as
-// CallNotSent, because there is nowhere to send it. A purchase sent raw is not
-// tied to verified offers, so its delivery URLs are not verified.
+// CallNotSent, because there is nowhere to send it.
 //
 // An empty body is a valid raw body: the empty message.
 func WithRawBody(body []byte) CallOption {

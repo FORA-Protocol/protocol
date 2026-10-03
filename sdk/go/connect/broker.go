@@ -38,9 +38,8 @@ type BrokerClient struct {
 	// requester.domain to name it, so Execute checks the two agree before sending.
 	signatureAgent string
 
-	baseURL    string
-	raw        rawLeg
-	deliveries deliveryVerifier
+	baseURL string
+	raw     rawLeg
 }
 
 // NewBrokerClient builds a BrokerClient against a Broker's base URL. It accepts
@@ -79,7 +78,6 @@ func NewBrokerClient(baseURL string, opts ...ClientOption) *BrokerClient {
 		signatureAgent: cfg.signatureAgent,
 		baseURL:        baseURL,
 		raw:            newRawLeg(cfg, httpClient),
-		deliveries:     newDeliveryVerifier(cfg),
 	}
 }
 
@@ -179,10 +177,9 @@ func (b *BrokerClient) discoveryResult(ctx context.Context, msg *forav1.Discover
 // request, an Exchange it cannot route to or does not approve — return an error,
 // and then nothing was bought.
 //
-// The one signed value in the combined answer is each item's retrieval_endpoint,
-// signed by the Exchange that issued the item's offer, so each is verified as
-// Client.Execute verifies its own: against that Exchange's URL-signing key, the
-// agent_identity_hash that Exchange's outcome states, and the expiry.
+// Each item's retrieval_endpoint is returned exactly as the issuing Exchange
+// signed it, as Client.Execute returns its own. Verifying it is the delivery
+// edge's job.
 func (b *BrokerClient) Execute(ctx context.Context, offers []core.VerifiedOffer, opts ...CallOption) (*forav1.BrokerTransactionResponse, error) {
 	const op = "broker execute"
 	cc := resolveCall(opts)
@@ -209,20 +206,6 @@ func (b *BrokerClient) Execute(ctx context.Context, offers []core.VerifiedOffer,
 	resp, err := b.rpc.ExecuteTransaction(ctx, connectrpc.NewRequest(req))
 	if err != nil {
 		return nil, sendError(op, err)
-	}
-	// Each retrieval URL was signed by the Exchange that issued its offer, and is
-	// bound to the identity that Exchange's outcome states — the one signed value in
-	// an answer the Broker otherwise reports unsigned.
-	stated := func(exchange string) string {
-		for _, o := range resp.Msg.GetExchanges() {
-			if o.GetExchange() == exchange {
-				return o.GetAgentIdentityHash()
-			}
-		}
-		return ""
-	}
-	if err := b.deliveries.deliver(ctx, op, resp.Msg.GetItems(), offerExchange(offers), stated, cc.deliveries); err != nil {
-		return nil, err
 	}
 	return resp.Msg, nil
 }

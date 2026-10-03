@@ -47,8 +47,6 @@ type Client struct {
 	baseURL string
 	// raw and rawPool are the home and offer-derived legs a raw call is sent over.
 	raw, rawPool rawLeg
-	// deliveries verifies the retrieval URLs a purchase answers with.
-	deliveries deliveryVerifier
 }
 
 // resolvedConfig applies opts over the defaults every client shares.
@@ -100,13 +98,12 @@ func NewClient(baseURL string, opts ...ClientOption) *Client {
 	httpClient, connectOpts, verifier := plumbing(cfg)
 	pooled := offerDerivedClient(cfg, resolvers.NewGuardedTransport(cfg.guardedBase))
 	return &Client{
-		rpc:        forav1connect.NewExchangeServiceClient(httpClient, baseURL, connectOpts...),
-		verifier:   verifier,
-		cfg:        cfg,
-		baseURL:    baseURL,
-		raw:        newRawLeg(cfg, httpClient),
-		rawPool:    newRawLeg(cfg, pooled),
-		deliveries: newDeliveryVerifier(cfg),
+		rpc:      forav1connect.NewExchangeServiceClient(httpClient, baseURL, connectOpts...),
+		verifier: verifier,
+		cfg:      cfg,
+		baseURL:  baseURL,
+		raw:      newRawLeg(cfg, httpClient),
+		rawPool:  newRawLeg(cfg, pooled),
 		// A SECOND signing client for the offer-derived leg, over the guarded
 		// transport: the caller names a domain, the manifest it serves names an
 		// endpoint, and a signed call then goes there. Without the guard one hop
@@ -326,7 +323,7 @@ func (c *Client) discoveredGroups(ctx context.Context, query *forav1.ResourceQue
 }
 
 // CallOption tunes a single call: the idempotency key of a state-mutating call,
-// raw mode, and the delivery options of a purchase or a fetch. Every verb takes
+// and raw mode. Every verb takes
 // them; an option that does not apply to a verb is inert there.
 type CallOption func(*callConfig)
 
@@ -340,11 +337,6 @@ type callConfig struct {
 	// rawBody, when rawSet, replaces the request the verb would build (WithRawBody).
 	rawBody []byte
 	rawSet  bool
-	// deliveries receives the verified retrieval URLs of a purchase (WithDeliveries).
-	deliveries *[]Delivery
-	// deliveryExchange names the Exchange a fetched URL is verified against
-	// (WithDeliveryExchange).
-	deliveryExchange string
 }
 
 // resolveCall applies a call's options.
@@ -393,15 +385,8 @@ func idempotencyKeyFor(opts []CallOption, onMessage string) (string, error) {
 // Items-only wire shape: a single offer is the degenerate 1-element items list.
 // ExecuteBatch buys several offers from the same Exchange in one request.
 //
-// Every retrieval_endpoint in the answer is verified before it is returned: its
-// Ed25519 signature against the URL-signing key the issuing Exchange publishes in
-// its WBA directory (the URL's kid names it), its agent_id binding against this
-// agent's key and the answer's agent_identity_hash, and its expiry. A URL that does
-// not verify fails the call as CallMalformed, with a retrieval_auth_failure detail
-// naming the reason; the purchase itself was made, so the item's transaction id is
-// in the error. WithDeliveries receives the verified bindings, and
-// WithDeliveryVerification(core.Off) is the opt-out for URLs in a signing scheme a
-// WBA directory cannot verify.
+// The retrieval_endpoint of each item is returned exactly as the Exchange issued
+// it. Verifying it is the delivery edge's job, when Fetch presents it.
 func (c *Client) Execute(ctx context.Context, offer core.VerifiedOffer, opts ...CallOption) (*forav1.TransactionResponse, error) {
 	return c.executeDirect(ctx, "execute", []core.VerifiedOffer{offer}, opts)
 }
@@ -437,10 +422,6 @@ func (c *Client) executeDirect(ctx context.Context, op string, offers []core.Ver
 	resp, err := c.rpc.ExecuteTransaction(ctx, connectrpc.NewRequest(req))
 	if err != nil {
 		return nil, sendError(op, err)
-	}
-	if err := c.deliveries.deliver(ctx, op, resp.Msg.GetItems(), offerExchange(offers),
-		func(string) string { return resp.Msg.GetAgentIdentityHash() }, cc.deliveries); err != nil {
-		return nil, err
 	}
 	return resp.Msg, nil
 }

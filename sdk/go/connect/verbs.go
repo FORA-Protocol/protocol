@@ -145,31 +145,16 @@ func (c *Client) Dispute(ctx context.Context, req *forav1.DisputeRequest, opts .
 // failure through the same accessor.
 //
 // A fetch is a GET against an already-issued URL, so there is no idempotency key
-// to pin — nothing on this path mutates state. The one CallOption it reads is
-// WithDeliveryExchange.
+// to pin — nothing on this path mutates state. It reads no CallOption; it takes
+// them only because every verb does.
 //
-// With WithDeliveryExchange naming the Exchange that issued the URL, the URL is
-// verified before anything is sent — its Ed25519 signature against that Exchange's
-// URL-signing key (resolved from its WBA directory), its agent binding against this
-// agent's key, and its expiry — and the returned Content carries the verified
-// binding in Binding. A URL that does not verify is refused as CallMalformed with a
-// synthesized retrieval_auth_failure detail, so no proof of possession is minted
-// for it. Execute verifies every URL it returns the same way, so a URL taken from
-// this client's own purchase has already passed; naming the Exchange is worth it
-// whenever the URL reached the caller from anywhere else. Without it the URL is
-// taken as given and Binding is nil, which is what a test of an edge's own
-// refusals needs. WithDeliveryVerification(core.Off) never verifies.
-func (c *Client) Fetch(ctx context.Context, signedURL string, opts ...CallOption) (resolvers.Content, error) {
+// The URL is taken as given. Verifying it is the delivery edge's job: the edge
+// checks the URL signature and, where it can, the agent binding against the proof
+// presented here. An edge that cannot check the binding (CloudFront with its
+// pre-arranged RSA key pair) checks its own signature and treats the URL as a
+// bearer token.
+func (c *Client) Fetch(ctx context.Context, signedURL string, _ ...CallOption) (resolvers.Content, error) {
 	const op = "fetch content"
-	cc := resolveCall(opts)
-	var binding *helpers.VerifiedURL
-	if cc.deliveryExchange != "" && c.deliveries.mode != core.Off {
-		got, refusal, verr := c.deliveries.verify(ctx, signedURL, cc.deliveryExchange, "")
-		if refusal != nil || verr != nil {
-			return resolvers.Content{}, deliveryError(op, "the fetched URL", refusal, verr)
-		}
-		binding = &got.VerifiedURL
-	}
 	signer, err := c.proofSigner()
 	if err != nil {
 		return resolvers.Content{}, &CallError{Kind: CallNotSignable, Op: op, Err: err}
@@ -178,7 +163,6 @@ func (c *Client) Fetch(ctx context.Context, signedURL string, opts ...CallOption
 	if err != nil {
 		return resolvers.Content{}, fetchCallError(op, signedURL, err)
 	}
-	content.Binding = binding
 	return content, nil
 }
 

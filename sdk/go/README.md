@@ -311,16 +311,11 @@ response or re-implements signing:
   a non-JSON error status — and zero when no answer arrived. The typed `ErrorDetail` is
   decoded from the binary `value`; the shared `connect-error-vectors.json` and
   `error-detail-wire-vectors.json` corpora hold all three SDKs to the same reading.
-- **Delivery verification.** `Execute`, `ExecuteBatch` and `BrokerClient.Execute`
-  verify every `retrieval_endpoint` before returning: its Ed25519 signature against the
-  issuing Exchange's URL-signing key (named by `kid`, resolved from that Exchange's WBA
-  key directory — `WithDeliveryKeyResolver` replaces the resolver), its `agent_id`
-  binding against this agent's key and the answer's `agent_identity_hash`, and its
-  expiry. A URL that does not verify is refused as `CallMalformed` with a
-  `retrieval_auth_failure` detail. `WithDeliveries(&out)` receives the verified
-  bindings; `Fetch(ctx, url, WithDeliveryExchange(exchange))` verifies a URL before
-  fetching it and returns the binding on `Content.Binding`.
-  `WithDeliveryVerification(core.Off)` opts out, for URLs in another signing scheme.
+- **Delivery URLs are the edge's to check.** `Execute`, `ExecuteBatch` and
+  `BrokerClient.Execute` return every `retrieval_endpoint` exactly as the Exchange
+  issued it, and `Fetch` dials a URL as given with the agent's proof of possession, so
+  a harness can put any URL in front of an edge. The edge's refusal comes back as a
+  `CallError` with a `retrieval_auth_failure` detail naming the edge's reason.
 - **`NewAdminClient`** covers every `fora.admin.v1.AdminService` RPC and the two
   domain-verification RPCs.
 - **Identity helpers.** `helpers.GenerateKey` mints an Ed25519 key and its thumbprint,

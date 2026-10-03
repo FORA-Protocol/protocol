@@ -10,9 +10,9 @@
 // CatalogService and NewAdminClient for the operator plane, which are different
 // parties or different addresses and so cannot share one base URL.
 //
-// A purchase verifies every delivery URL it returns — its signature against the
-// issuing Exchange's URL-signing key, its agent binding and its expiry — and the
-// client carries what a conformance harness needs to drive a service through it:
+// A purchase returns its delivery URLs as the Exchange issued them; verifying one
+// is the delivery edge's job when Fetch presents it. The client carries what a
+// conformance harness needs to drive a service through it:
 // a pre-signing hook (WithBeforeSign), raw mode (WithRawBody), strict response
 // decoding (WithStrictDecoding) and the Connect code of every peer answer
 // (CallError.Code).
