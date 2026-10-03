@@ -1328,3 +1328,15 @@ export {
 	DEFAULT_CONTENT_TIMEOUT_MS,
 	DEFAULT_MAX_CONTENT_BYTES,
 } from "./content.ts";
+export { createAdminClient } from "./admin.ts";
+export type {
+	AdminClient,
+	DomainVerificationChallenge,
+	DomainVerificationConfirmation,
+	DomainVerificationRequest,
+	DomainVerificationResult,
+	SetReportingPolicyRequest,
+	SetReportingPolicyResponse,
+	SetTenantFeeRateRequest,
+	SetTenantFeeRateResponse,
+} from "./admin.ts";
