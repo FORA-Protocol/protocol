@@ -21,8 +21,8 @@ Every FORA request carries a `Requester` message that identifies who is making t
 
 | Field | Type | Description |
 |---|---|---|
-| `id` | `string` | Unique requester identifier (e.g., `"agent-research-bot-001"`) |
-| `domain` | `string` | The requester's own domain, as it declares it. **Not** where keys are looked up — that is the covered `Signature-Agent` header (see [Key Lookup](#key-lookup)). A value here is a claim, not a credential |
+| `id` | `string` | **Required**, 1 to 255 characters. A free label the agent chooses for attribution (e.g., `"agent-research-bot-001"`), for example to tell apart sub-agents or end customers that share one key directory. It is never identity: no verifier finds keys from it, and no party trusts it for an authentication or authorization decision |
+| `domain` | `string` | **Required**, a bare host (a port allowed). The host of the requester's key directory, `{domain}/.well-known/http-message-signatures-directory`. It is never a free label: on a direct request it must name the directory the covered `Signature-Agent` header names, and on a purchase relayed through a Broker the Exchange verifies the agent's acceptances against the directory it names (see [Key Lookup](#key-lookup)) |
 | `type` | `RequesterType` | What kind of entity is making the request |
 | `name` | `string` (optional) | Human-readable name (e.g., `"Acme Research Assistant"`) |
 | `scopes` | `repeated string` | Entitlement scopes — what the requester can access |
@@ -60,6 +60,16 @@ The `{directory}` comes from the **`Signature-Agent` header**, not from the `Req
 ```
 
 This ties cryptographic identity to DNS ownership — if you control the domain, you control the key.
+
+### Requester domain and the key directory
+
+`requester.domain` names the same directory, and the rule that binds the two depends on who signed the arriving request:
+
+- **Direct request.** The agent's own signature arrives: the agent sent the request itself, or a relay forwarded it byte-for-byte. The verifier resolves the key from the covered `Signature-Agent` header, as above, never from `requester.domain`. It then **MUST** require `requester.domain` to name that same directory: the host of the `Signature-Agent` URL, compared by the request-recipient identity rule (the shape check first, then case-folded, an absent port the same as `:443`, a subdomain a different party). A mismatch is refused as `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`: the signature verifies, but not for the requester the body names. An Exchange applies this rule to every request the agent signed, exactly as a Broker applies it on `BrokerService.ExecuteTransaction`.
+- **Purchase relayed through a Broker.** `BrokerService.ExecuteTransaction` re-packages the purchase, so the request signature and the covered `Signature-Agent` belong to the Broker. They say only that the call comes from the Broker; they sign no purchase. The Exchange **MUST** verify each item's `AgentAcceptance`, and the `AgentRequestAcceptance`, against the Ed25519 keys currently valid in the directory `requester.domain` names, never against the Broker's key. Those acceptances are the only agent signatures the Exchange sees (see [Projected execute requests](#projected-execute-requests)).
+- **Discovery fan-out.** A `ResourceQuery` the Broker authored carries no agent signature, so nothing on that leg authenticates `requester.domain`: it is the Broker's statement, under the Broker's own signature, of whom it queries for.
+
+`requester.id` plays no part in any of this. It is a label the agent chooses, covered by the acceptance signatures so a relay cannot rewrite it, and still only what the agent says.
 
 ### The WBA Directory Endpoint
 
@@ -330,7 +340,9 @@ The agent's cryptographic authorization does not ride the transport layer at all
 - **`agent_acceptance`** on each item — binds that offer to the requester and the idempotency key.
 - **`agent_request_acceptance`** on the request — binds the **complete ordered set** of `(offer signature, exchange)` references, so each Exchange can require its subrequest to be the exact in-order projection of the set the agent signed. See [Broker fan-out and request projection](/components/broker/overview/#execution-separate-step) for the flow.
 
-The Exchange resolves the `agent_request_acceptance` verification key from the requester the signed payload names: the payload's `requester_domain` must equal the request's `requester.domain`, and the signature is accepted only if it verifies against an Ed25519 key currently valid in that domain's WBA directory (`{requester_domain}/.well-known/http-message-signatures-directory`). The envelope carries no `keyid`, so the verifier tries the currently-valid Ed25519 keys of that directory — rotation overlap keeps that set small. When the requester itself signed the arriving request, the request-signing key the Exchange already resolved is that key, and no second fetch is needed. A signature that verifies against a key the requester's domain publishes is what makes the claimed requester identity an authenticated one, the same anchoring every other directory lookup uses.
+Both acceptances name the requester: their canonical bytes carry a non-empty `requester_id` and `requester_domain`, copied from the request's `Requester`. A signer refuses to sign bytes that name an empty requester, and a verifier refuses an acceptance whose canonical bytes name one, even when the signature over those bytes verifies. Such bytes bind the agent's consent to nobody, and on a relayed purchase the acceptances are the only agent signatures the Exchange sees. The SDKs enforce this in all three languages: their acceptance signers refuse an empty requester locally as a malformed request, and their verifiers refuse such an acceptance.
+
+The Exchange verifies each `agent_acceptance` against an Ed25519 key currently valid in the WBA directory `requester.domain` names. It resolves the `agent_request_acceptance` verification key from the requester the signed payload names: the payload's `requester_domain` must equal the request's `requester.domain`, and the signature is accepted only if it verifies against an Ed25519 key currently valid in that domain's WBA directory (`{requester_domain}/.well-known/http-message-signatures-directory`). The envelope carries no `keyid`, so the verifier tries the currently-valid Ed25519 keys of that directory — rotation overlap keeps that set small. When the requester itself signed the arriving request, the request-signing key the Exchange already resolved is that key, and no second fetch is needed. A signature that verifies against a key the requester's domain publishes is what makes the claimed requester identity an authenticated one, the same anchoring every other directory lookup uses.
 
 Delegation on a projected request: the projecting Broker is the wire signer, so the holder-binding check matches the key each item's `AgentAcceptance` verifies under, not the Broker's request signature (see [Which signature binds in a brokered request](#verification)). The agent stays the terminal holder and does not need to delegate to the Broker. The Broker authenticates as itself, and the body's detached signatures carry the agent's authorization.
 

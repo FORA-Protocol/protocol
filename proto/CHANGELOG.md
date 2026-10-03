@@ -2,6 +2,61 @@
 
 ## Unreleased
 
+**An acceptance names its requester: `Requester.id` and `Requester.domain` are required
+(validation rules added; no wire change).** An agent's offer acceptance signs canonical
+bytes built from the offer, the request's `Requester` and the idempotency key. The proto
+let `Requester.id` be empty, and the SDKs signed an empty `requester_domain` as well, so
+those bytes could name no requester. On a purchase relayed through
+`BrokerService.ExecuteTransaction`, that acceptance is the only agent signature the
+Exchange sees: the request signature there is the Broker's, which says only that the call
+comes from the Broker and never signs the purchase.
+
+- `Requester.id` is REQUIRED, 1 to 255 characters. It is a free label the agent chooses
+  for attribution, for example to tell apart sub-agents or end customers behind one key
+  directory. It is never identity, never used to find keys, and never trusted.
+- `Requester.domain` is REQUIRED, a non-empty bare host under the same pattern every other
+  domain field uses. The pattern already refused an empty value; the comment now says so.
+  The field is the host of the agent's key directory, and never a free label.
+- The `Requester.domain` comment said verification never uses the field, which
+  contradicted the relayed purchase. It now states the rule per path. On a direct request
+  (the agent's own signature arrives), a verifier resolves the agent's keys from the
+  covered `Signature-Agent` and MUST require `Requester.domain` to name that same
+  directory, compared by the request-recipient identity rule; a mismatch is refused as
+  `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`. An Exchange applies
+  this to every request the agent signed, as a Broker already did on
+  `ExecuteTransaction`. On a purchase relayed through a Broker, the Exchange MUST verify
+  the agent's acceptances against the key directory `Requester.domain` names. On a
+  Broker's discovery fan-out, which carries no agent signature, the field is the Broker's
+  statement of whom it queries for.
+- `AgentAcceptance`, `AgentAcceptancePayload`, `AgentRequestAcceptance` and
+  `AgentRequestAcceptancePayload` state that an acceptance names a non-empty requester. A
+  signer refuses to sign bytes that name an empty requester, and a verifier refuses an
+  acceptance whose canonical bytes name one, even when the signature over them verifies.
+- `buf breaking` against v1.0.0 passes: adding validation rules is not a wire break. A
+  peer that sent an empty `Requester.id` is now refused by a validating receiver.
+- The validation corpus gains `Requester/id/too_short` and `Requester/id/too_long`, and
+  its `Requester` baseline now carries an `id`.
+
+SDKs, in all three languages: the acceptance canonicalizers and signers refuse an empty
+requester id or domain, for the offer acceptance and the request acceptance alike, and
+the verifiers refuse such an acceptance. Go returns `helpers.ErrAcceptanceRequesterEmpty`
+(new, match it with `errors.Is`) from `CanonicalAcceptanceBytes`, `SignOfferAcceptance`,
+`SignOfferAcceptanceWith`, `VerifyOfferAcceptance`, `RequestAcceptancePayload`,
+`CanonicalRequestAcceptanceBytes`, the request-acceptance signers and
+`VerifyRequestAcceptance`. Python raises `ValueError` from the `*_jcs` canonicalizers and
+signers and from `verify_offer_acceptance_jcs`, and `verify_request_acceptance_jcs`
+returns `False`. TypeScript throws from `acceptancePayload`, `requestAcceptancePayload`
+and the signers, and the verifiers return `false`. The purchase verbs of every client
+(direct and through a Broker) refuse a configured requester with an empty `id` or
+`domain` locally, as a malformed call, before signing or sending anything. The shared
+acceptance vectors move their empty-requester cases into a new `refused` list, which
+records the bytes and raw signature a signer without the check would produce, so each
+language proves it refuses them even though that signature verifies.
+
+Docs: the authentication page's Requester table and a new "Requester domain and the key
+directory" section, the projected-execute section, the transaction-flow page, the
+reference page and the Exchange request-flow example state the same rules.
+
 **A scope shortfall is never disclosed: `OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT` and
 `DENIAL_REASON_SCOPE_INSUFFICIENT` are deprecated and never sent (no wire change).**
 Their comments described an Exchange sending them, which contradicted `Requester.scopes`:

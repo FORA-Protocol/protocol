@@ -73,8 +73,8 @@ func (h *ExchangeHandler) DiscoverResources(
     //    covers the request essentials plus the previous hop's signature, so
     //    the ordered header stack IS the chain) — resolving the requester's
     //    key by its signed keyid (an RFC 7638 thumbprint) in the WBA directory
-    //    named by the COVERED `Signature-Agent` header. The self-asserted
-    //    Requester.domain field never drives key lookup.
+    //    named by the COVERED `Signature-Agent` header. Requester.domain never
+    //    drives key lookup on a request the agent signed.
     //    The handler consumes the proof from the context; it never re-fetches
     //    keys or re-verifies bytes, and it fails closed when the proof is
     //    absent (a route the middleware does not guard).
@@ -83,6 +83,26 @@ func (h *ExchangeHandler) DiscoverResources(
     if verified == nil {
         return nil, connect.NewError(connect.CodeUnauthenticated,
             errors.New("request reached the handler without a verified signature"))
+    }
+
+    // 2b. Requester.domain is the host of the agent's key directory, never a
+    //     free label. On a request the agent signed, it MUST name the directory
+    //     the signature resolved from: the host of the covered Signature-Agent
+    //     URL, compared by the request-recipient identity rule (case-folded,
+    //     an absent port the same as :443). A mismatch is a signature that
+    //     verifies, but not for the requester the body names. (A ResourceQuery
+    //     a Broker authored carries the Broker's signature instead; there the
+    //     domain is the Broker's statement of whom it queries for.)
+    host, err := helpers.HostOf(verified.SignatureAgent)
+    verdict := helpers.AudienceMalformed
+    if err == nil {
+        verdict, err = helpers.CheckAudience(host, requester.GetDomain())
+    }
+    if err != nil || verdict != helpers.AudienceAccepted {
+        return nil, connectserver.AttachDetail(
+            connect.NewError(connect.CodeUnauthenticated, errors.New("requester.domain is not the signing directory")),
+            helpers.RequestAuthFailureDetail("fora.v1.ExchangeService", "requester.domain is not the signing directory",
+                forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID))
     }
 
     // 2c. Verify delegation (if present).
@@ -97,8 +117,9 @@ func (h *ExchangeHandler) DiscoverResources(
     // 2d. Resolve the caller's registered account from the VERIFIED identity:
     //     the covered directory (verified.SignatureAgent) plus the RFC 7638
     //     thumbprint of the key the signature actually verified against
-    //     (verified.PublicKey — not the claimed keyid). The self-asserted
-    //     requester.id/domain never select an account — they are display fields.
+    //     (verified.PublicKey — not the claimed keyid). requester.id is a free
+    //     label and requester.domain was matched against the directory in 2b;
+    //     neither selects an account.
     keyThumb, err := helpers.Thumbprint(verified.PublicKey)
     if err != nil {
         return nil, connect.NewError(connect.CodeInternal, err)
@@ -393,10 +414,14 @@ func (h *ExchangeHandler) ExecuteTransaction(
         return nil, connect.NewError(connect.CodeInvalidArgument, err)
     }
 
-    // 2. Requester identity. As in DiscoverResources step 2, the SDK's verify
-    //    middleware already verified every RFC 9421 signature at the HTTP seam;
-    //    the handler consumes the proof from the context and fails closed when
-    //    it is absent.
+    // 2. Requester identity. As in DiscoverResources steps 2 and 2b, the SDK's
+    //    verify middleware already verified every RFC 9421 signature at the HTTP
+    //    seam; the handler consumes the proof from the context, fails closed when
+    //    it is absent, and requires requester.domain to name the signing
+    //    directory (elided here). On a sub-request a Broker re-packaged, the
+    //    signer is the Broker, and the agent is authenticated instead by its
+    //    acceptances, verified against the directory requester.domain names
+    //    (see "Sub-requests from a Broker" below).
     requester := req.Msg.Requester
     verified := helpers.FromContext(ctx)
     if verified == nil {
@@ -446,8 +471,8 @@ func (h *ExchangeHandler) ExecuteTransaction(
     agentHash := sha256Hex(requester.Id + ":" + requester.Domain)
     // The account handle (the billing_ref minted at Register) comes from the
     // account resolved in step 2b from the VERIFIED signing key. The request
-    // carries no caller-written billing field, and the self-asserted id/domain
-    // never select the account.
+    // carries no caller-written billing field, and requester.id/domain never
+    // select the account.
     billingRef := account.BillingRef
     var resultItems []*forav1.TransactionResultItem
     var totalAmount float64

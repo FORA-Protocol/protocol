@@ -78,7 +78,9 @@ Rate limit status modeled after IETF RateLimit header fields.
 
 ### Requester
 
-Identity and entitlements only — who is asking and what they're entitled to. What they're asking for (`uris`) and the limits they'll accept (`acceptable_restrictions`) live on the ask (`ResourceQuery` / `DiscoveryRequest`), not here. Used in `ResourceQuery` and `DiscoveryRequest`.
+Identity and entitlements only — who is asking and what they're entitled to. What they're asking for (`uris`) and the limits they'll accept (`acceptable_restrictions`) live on the ask (`ResourceQuery` / `DiscoveryRequest`), not here. Used in `ResourceQuery`, `DiscoveryRequest` and `TransactionRequest`.
+
+`id` and `domain` are both required. `domain` is the host of the requester's key directory and is never a free label: on a direct request a verifier resolves the agent's keys from the covered `Signature-Agent` header and requires `domain` to name that same directory, refusing a mismatch as `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`; on a purchase relayed through `BrokerService.ExecuteTransaction`, the Exchange verifies the agent's acceptances against the directory `domain` names, because the request signature there is the Broker's. `id` is a free label the agent chooses for attribution, such as which sub-agent or end customer is asking; it is never identity, never used to find keys, and never trusted. See [Requester domain and the key directory](/protocol/authentication/#requester-domain-and-the-key-directory).
 
 `scopes` hides existence: a requester never learns about a resource outside its scopes. When the scopes leave no presentable offer for a resource, the Exchange answers with no offers and no absence reason, exactly as for any resource with nothing to offer, and an offer it presented is honoured until it expires. See [Existence hiding](/protocol/authentication/#existence-hiding).
 
@@ -172,7 +174,7 @@ A single offer commitment within a batch transaction.
 
 ### AgentAcceptance
 
-The agent's detached acceptance signature over an accepted Offer. It travels in the execute body alongside the reflected Offer and is independent of the transport (RFC 9421) request signature, so it survives any number of broker relays. The Exchange verifies it and binds the delivery URL to the agent's key (RFC 7638 thumbprint). `signature` is a hex-encoded detached Ed25519 signature over the JCS-canonicalized (RFC 8785) proto-JSON of [`AgentAcceptancePayload`](#agentacceptancepayload) — the same canonical signing form `Offer.signature` defines, reduced here to `JCS(protojson(payload))` because the payload carries no signature fields to clear; `signature_algorithm` is `EdDSA`.
+The agent's detached acceptance signature over an accepted Offer. It travels in the execute body alongside the reflected Offer and is independent of the transport (RFC 9421) request signature, so it survives any number of broker relays. The Exchange verifies it against an Ed25519 key in the WBA directory `requester.domain` names and binds the delivery URL to that key (RFC 7638 thumbprint). On a purchase relayed through a Broker it is the only agent signature the Exchange sees, so it must name a requester: its canonical bytes carry a non-empty `requester_id` and `requester_domain`, a signer refuses to sign bytes that name an empty requester, and a verifier refuses an acceptance whose bytes name one, even when the signature verifies. `signature` is a hex-encoded detached Ed25519 signature over the JCS-canonicalized (RFC 8785) proto-JSON of [`AgentAcceptancePayload`](#agentacceptancepayload) — the same canonical signing form `Offer.signature` defines, reduced here to `JCS(protojson(payload))` because the payload carries no signature fields to clear; `signature_algorithm` is `EdDSA`.
 
 ::proto-message{name=AgentAcceptance}
 
@@ -184,7 +186,7 @@ The agent's detached authorization of one complete ordered execute set. Its payl
 
 ### AgentRequestAcceptancePayload
 
-The signed field set: ordered [`AgentRequestAcceptanceItem`](#agentrequestacceptanceitem) references plus the requester identity and idempotency key. Canonical bytes use the same RFC 8785 JCS over canonical proto-JSON rule as Offer and AgentAcceptance signatures.
+The signed field set: ordered [`AgentRequestAcceptanceItem`](#agentrequestacceptanceitem) references plus the requester identity and idempotency key. `requester_id` and `requester_domain` are never empty, under the same rule as [`AgentAcceptance`](#agentacceptance). Canonical bytes use the same RFC 8785 JCS over canonical proto-JSON rule as Offer and AgentAcceptance signatures.
 
 ::proto-message{name=AgentRequestAcceptancePayload}
 
@@ -196,7 +198,7 @@ A signed request-set reference containing `offer_sig` and `exchange`. The offer 
 
 ### AgentAcceptancePayload
 
-The canonical signing structure for [`AgentAcceptance`](#agentacceptance). It is **never sent on the wire** — this message fixes the *field set*, and the *byte layout* is the canonical signing form defined on `Offer.signature`: RFC 8785 JCS over canonical proto-JSON with a pinned option set. Both halves are normative, so signer and verifier derive byte-identical signed bytes in any language without a protobuf binary codec, and the contract cannot drift between implementations. `offer_sig` is the accepted `Offer.signature` (which transitively binds pricing, terms, and expiry); `requester_id`, `requester_domain`, and `idempotency_key` come from the enclosing `TransactionRequest`.
+The canonical signing structure for [`AgentAcceptance`](#agentacceptance). It is **never sent on the wire** — this message fixes the *field set*, and the *byte layout* is the canonical signing form defined on `Offer.signature`: RFC 8785 JCS over canonical proto-JSON with a pinned option set. Both halves are normative, so signer and verifier derive byte-identical signed bytes in any language without a protobuf binary codec, and the contract cannot drift between implementations. `offer_sig` is the accepted `Offer.signature` (which transitively binds pricing, terms, and expiry); `requester_id`, `requester_domain`, and `idempotency_key` come from the enclosing `TransactionRequest`, and the two requester fields are never empty.
 
 ::proto-message{name=AgentAcceptancePayload}
 
