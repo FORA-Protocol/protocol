@@ -129,6 +129,13 @@ type ExchangeServiceClient interface {
 	// The Exchange records the dispute and initiates resolution.
 	// Resolution mechanics (refund, credit, re-delivery) are implementation-
 	// specific — this RPC standardizes the dispute signal, not the outcome.
+	//
+	// Every Exchange implements this RPC and accepts a filing that meets its
+	// checks: it is part of the core protocol, like ReportUsage, not an optional
+	// capability. A filing the Exchange accepts is answered with a
+	// DisputeResponse. A filing it refuses is a non-OK error carrying
+	// ErrorDetail.dispute_failure, whose DisputeFailureReason names the one check
+	// the filing failed.
 	DisputeTransaction(context.Context, *connect.Request[v1.DisputeRequest]) (*connect.Response[v1.DisputeResponse], error)
 	// Request a domain verification challenge for provider onboarding.
 	// Used by fora-cli to prove domain control before pushing signing keys.
@@ -294,6 +301,13 @@ type ExchangeServiceHandler interface {
 	// The Exchange records the dispute and initiates resolution.
 	// Resolution mechanics (refund, credit, re-delivery) are implementation-
 	// specific — this RPC standardizes the dispute signal, not the outcome.
+	//
+	// Every Exchange implements this RPC and accepts a filing that meets its
+	// checks: it is part of the core protocol, like ReportUsage, not an optional
+	// capability. A filing the Exchange accepts is answered with a
+	// DisputeResponse. A filing it refuses is a non-OK error carrying
+	// ErrorDetail.dispute_failure, whose DisputeFailureReason names the one check
+	// the filing failed.
 	DisputeTransaction(context.Context, *connect.Request[v1.DisputeRequest]) (*connect.Response[v1.DisputeResponse], error)
 	// Request a domain verification challenge for provider onboarding.
 	// Used by fora-cli to prove domain control before pushing signing keys.

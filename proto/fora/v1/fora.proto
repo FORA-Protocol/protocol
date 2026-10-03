@@ -335,6 +335,13 @@ service ExchangeService {
   // The Exchange records the dispute and initiates resolution.
   // Resolution mechanics (refund, credit, re-delivery) are implementation-
   // specific — this RPC standardizes the dispute signal, not the outcome.
+  //
+  // Every Exchange implements this RPC and accepts a filing that meets its
+  // checks: it is part of the core protocol, like ReportUsage, not an optional
+  // capability. A filing the Exchange accepts is answered with a
+  // DisputeResponse. A filing it refuses is a non-OK error carrying
+  // ErrorDetail.dispute_failure, whose DisputeFailureReason names the one check
+  // the filing failed.
   rpc DisputeTransaction(DisputeRequest) returns (DisputeResponse);
 
   // Request a domain verification challenge for provider onboarding.
@@ -5158,13 +5165,32 @@ message RegistrationFieldError {
 // DisputeFailureReason — why a DisputeTransaction filing was refused. Distinct
 // from DisputeReason (why the agent disputes) and DisputeStatus (an accepted
 // dispute's lifecycle).
+//
+// A refused filing is a non-OK error carrying ErrorDetail.dispute_failure with
+// exactly one of these reasons. A filing that fails none of these checks is
+// accepted and answered with a DisputeResponse; a dispute that is accepted and
+// later found unsupported ends as RESOLUTION_TYPE_REJECTED, not as a refusal.
 enum DisputeFailureReason {
   DISPUTE_FAILURE_REASON_UNSPECIFIED = 0;  // unset — rejected at ingest
-  DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND = 1; // transaction_id is unknown
-  DISPUTE_FAILURE_REASON_REPORT_NOT_FILED = 2;      // no UsageReport precedes the dispute (report_id missing/unknown)
-  DISPUTE_FAILURE_REASON_WINDOW_EXPIRED = 3;        // filed outside the allowed dispute window
-  DISPUTE_FAILURE_REASON_DUPLICATE = 4;             // a dispute already exists for this transaction
-  DISPUTE_FAILURE_REASON_INELIGIBLE = 5;            // the transaction/state is not disputable
+  // transaction_id names no transaction this Exchange executed for the caller.
+  DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND = 1;
+  // No accepted usage report precedes the dispute: report_id is empty, unknown,
+  // or names a report for another transaction. The agent files the
+  // transaction's UsageReport first and disputes with the report_id it returns
+  // (see DisputeRequest.report_id).
+  DISPUTE_FAILURE_REASON_REPORT_NOT_FILED = 2;
+  // The filing arrived after the transaction's dispute window closed. The
+  // window is set by the Exchange; a filing after it is refused for that time
+  // cause alone.
+  DISPUTE_FAILURE_REASON_WINDOW_EXPIRED = 3;
+  // A dispute was already filed for this transaction. A retry of the same
+  // filing under the same idempotency_key is not a duplicate: it is a replay,
+  // answered with the original DisputeResponse.
+  DISPUTE_FAILURE_REASON_DUPLICATE = 4;
+  // The transaction exists and the filing passes the checks above, but the
+  // transaction's state admits no dispute under the Exchange's rules. Filing
+  // again does not change the answer.
+  DISPUTE_FAILURE_REASON_INELIGIBLE = 5;
 }
 
 // DisputeFailure — a dispute could not be filed.

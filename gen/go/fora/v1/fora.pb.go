@@ -1729,15 +1729,34 @@ func (RegistrationFailureReason) EnumDescriptor() ([]byte, []int) {
 // DisputeFailureReason — why a DisputeTransaction filing was refused. Distinct
 // from DisputeReason (why the agent disputes) and DisputeStatus (an accepted
 // dispute's lifecycle).
+//
+// A refused filing is a non-OK error carrying ErrorDetail.dispute_failure with
+// exactly one of these reasons. A filing that fails none of these checks is
+// accepted and answered with a DisputeResponse; a dispute that is accepted and
+// later found unsupported ends as RESOLUTION_TYPE_REJECTED, not as a refusal.
 type DisputeFailureReason int32
 
 const (
-	DisputeFailureReason_DISPUTE_FAILURE_REASON_UNSPECIFIED           DisputeFailureReason = 0 // unset — rejected at ingest
-	DisputeFailureReason_DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND DisputeFailureReason = 1 // transaction_id is unknown
-	DisputeFailureReason_DISPUTE_FAILURE_REASON_REPORT_NOT_FILED      DisputeFailureReason = 2 // no UsageReport precedes the dispute (report_id missing/unknown)
-	DisputeFailureReason_DISPUTE_FAILURE_REASON_WINDOW_EXPIRED        DisputeFailureReason = 3 // filed outside the allowed dispute window
-	DisputeFailureReason_DISPUTE_FAILURE_REASON_DUPLICATE             DisputeFailureReason = 4 // a dispute already exists for this transaction
-	DisputeFailureReason_DISPUTE_FAILURE_REASON_INELIGIBLE            DisputeFailureReason = 5 // the transaction/state is not disputable
+	DisputeFailureReason_DISPUTE_FAILURE_REASON_UNSPECIFIED DisputeFailureReason = 0 // unset — rejected at ingest
+	// transaction_id names no transaction this Exchange executed for the caller.
+	DisputeFailureReason_DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND DisputeFailureReason = 1
+	// No accepted usage report precedes the dispute: report_id is empty, unknown,
+	// or names a report for another transaction. The agent files the
+	// transaction's UsageReport first and disputes with the report_id it returns
+	// (see DisputeRequest.report_id).
+	DisputeFailureReason_DISPUTE_FAILURE_REASON_REPORT_NOT_FILED DisputeFailureReason = 2
+	// The filing arrived after the transaction's dispute window closed. The
+	// window is set by the Exchange; a filing after it is refused for that time
+	// cause alone.
+	DisputeFailureReason_DISPUTE_FAILURE_REASON_WINDOW_EXPIRED DisputeFailureReason = 3
+	// A dispute was already filed for this transaction. A retry of the same
+	// filing under the same idempotency_key is not a duplicate: it is a replay,
+	// answered with the original DisputeResponse.
+	DisputeFailureReason_DISPUTE_FAILURE_REASON_DUPLICATE DisputeFailureReason = 4
+	// The transaction exists and the filing passes the checks above, but the
+	// transaction's state admits no dispute under the Exchange's rules. Filing
+	// again does not change the answer.
+	DisputeFailureReason_DISPUTE_FAILURE_REASON_INELIGIBLE DisputeFailureReason = 5
 )
 
 // Enum value maps for DisputeFailureReason.
