@@ -39,6 +39,14 @@
     {
       "name": "WellKnownPath",
       "value": "/.well-known/fora.json"
+    },
+    {
+      "name": "ContentRulesHeader",
+      "value": "X-Content-Rules"
+    },
+    {
+      "name": "ExchangeHeader",
+      "value": "X-FORA-Exchange"
     }
   ]
 }

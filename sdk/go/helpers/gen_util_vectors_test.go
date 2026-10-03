@@ -261,6 +261,8 @@ func buildWireConstantsVectors() []wireConstantVector {
 		{"SignatureAgentHeader", SignatureAgentHeader},
 		{"AgentKeyHeader", AgentKeyHeader},
 		{"WellKnownPath", WellKnownPath},
+		{"ContentRulesHeader", ContentRulesHeader},
+		{"ExchangeHeader", ExchangeHeader},
 	}
 }
 
