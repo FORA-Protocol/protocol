@@ -35,6 +35,8 @@ _ATTR_FOR = {
     "SignatureAgentHeader": "SignatureAgentHeader",
     "AgentKeyHeader": "AgentKeyHeader",
     "WellKnownPath": "WellKnownPath",
+    "ContentRulesHeader": "ContentRulesHeader",
+    "ExchangeHeader": "ExchangeHeader",
 }
 
 

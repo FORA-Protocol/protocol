@@ -63,6 +63,13 @@ from .core import (
     verify_request_acceptance_jcs,
 )
 from .crossfield import cross_field_rule_ids
+from .discovery_hint import (
+    DiscoveryHint,
+    HintAgreement,
+    HintState,
+    parse_discovery_hint,
+    reconcile_discovery_hint,
+)
 from .errordetail import (
     ERROR_DETAIL_TYPE,
     REASON_FIELDS,
@@ -170,8 +177,10 @@ from .window import Window, clock_window, monotonic_window
 from .wire import (
     ConnectProtocolVersion,
     ConnectProtocolVersionHeader,
+    ContentRulesHeader,
     ContentTypeJSON,
     ContentTypeProto,
+    ExchangeHeader,
     ProtocolVersion,
     RequestIDHeader,
     SignatureAgentHeader,
@@ -202,14 +211,19 @@ __all__ = [
     "ConnectProtocolVersion",
     "ConnectProtocolVersionHeader",
     "Content",
+    "ContentRulesHeader",
     "ContentTypeJSON",
     "ContentTypeProto",
     "DirectoryUnavailableError",
+    "DiscoveryHint",
     "DiscoveryResult",
     "ERROR_DETAIL_TYPE",
     "EndpointRefusedError",
     "EndpointResolver",
     "EntryVerdict",
+    "ExchangeHeader",
+    "HintAgreement",
+    "HintState",
     "KeyExpiredError",
     "KeyResolver",
     "KeyRevokedError",
@@ -291,6 +305,8 @@ __all__ = [
     "generate_idempotency_key",
     "generate_key",
     "hash_url",
+    "parse_discovery_hint",
+    "reconcile_discovery_hint",
     "host_anchored",
     "host_of",
     "is_bare_domain",

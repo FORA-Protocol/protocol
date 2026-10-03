@@ -56,6 +56,16 @@ AgentKeyHeader = "X-FORA-Agent-Key"
 #: ``WellKnownManifestVersion`` versions the document's content; ``WellKnownPath``
 #: specifies where it is served.
 WellKnownPath = "/.well-known/fora.json"
+#: Edge discovery header pointing an agent the edge refused with 403 at the
+#: publisher's manifest: the absolute URL of its ``/.well-known/fora.json``. See
+#: "Edge discovery headers" in fora.proto, and
+#: :func:`fora_sdk.parse_discovery_hint`.
+ContentRulesHeader = "X-Content-Rules"
+#: Edge discovery header naming, on the same 403, one Exchange that sells the
+#: content directly, as a bare domain in the form of ``Offer.exchange``. An
+#: optimisation over ``ContentRulesHeader`` and never authorization: the manifest
+#: stays the authority on who sells.
+ExchangeHeader = "X-FORA-Exchange"
 
 
 def _parse_major(ver: str) -> str | None:
