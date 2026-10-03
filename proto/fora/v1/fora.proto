@@ -230,6 +230,75 @@ import "fora/v1/vocab.proto";
 // ============================================================================
 
 // ============================================================================
+// Edge discovery headers
+//
+// A publisher's edge answers a request for licensed content that carries no
+// valid signed delivery URL with HTTP 403. For an agent that did not read the
+// publisher's /.well-known/fora.json first, that refusal is where discovery
+// starts, and it carries two response headers that point the agent into the
+// protocol. They are HTTP conventions rather than messages; no RPC carries them.
+//
+//   HTTP/1.1 403 Forbidden
+//   X-Content-Rules: https://publisher.example/.well-known/fora.json
+//   X-FORA-Exchange: exchange.example
+//
+// When an edge sends them. Only on that 403. An edge SHOULD send X-Content-Rules
+// on every such refusal, and MAY add X-FORA-Exchange. It MUST NOT send
+// X-FORA-Exchange without X-Content-Rules: X-FORA-Exchange is an optimisation
+// over X-Content-Rules, never a replacement for it, and the manifest stays the
+// authority. Each header appears at most once and carries one value. On any
+// status other than 403 the headers carry no meaning, and an agent ignores them.
+//
+// X-Content-Rules — the publisher's manifest. The value is the absolute URL of
+// the publisher's /.well-known/fora.json, exactly "https://", a domain, and
+// "/.well-known/fora.json", with nothing else: no userinfo, query, fragment,
+// trailing slash or other path. The domain is the publisher's, in the shape
+// "Request recipient" defines above (a port allowed), and is the host the
+// refused request was sent to. "http://" is admitted only on a deployment that
+// serves plaintext, which an agent's transport refuses unless configured to
+// allow it. The manifest is where the agent reads the licensing terms and, in
+// WellKnownManifest.exchanges, the Exchanges that sell this content. An agent
+// that finds the header naming a host other than the one it sent the refused
+// request to SHOULD read the refused host's own manifest instead: the manifest
+// that authorises Exchanges to sell is the one the content's own domain serves.
+//
+// X-FORA-Exchange — an Exchange that sells this content directly. The value is
+// that Exchange's bare domain, in the same form as Offer.exchange: the
+// "Request recipient" shape, a port allowed, no scheme, path or other part. It
+// names exactly one Exchange, and that Exchange MUST be listed in the
+// publisher's WellKnownManifest.exchanges.
+//
+// How an agent uses them. With a well-formed X-FORA-Exchange, an agent MAY start
+// discovery at the named Exchange at once, without fetching the publisher's
+// manifest first. It resolves that Exchange's endpoint from the Exchange's own
+// /.well-known/fora.json, never from the header alone — the rule "Request
+// recipient" states for every addressed request. The header is a value the edge
+// chose, and an endpoint taken from it would let whoever wrote it pick where the
+// agent's next signed request is sent; the header says WHICH Exchange to ask,
+// never WHERE to send the request. The domain is also the `exchange` the agent
+// stamps on its ResourceQuery to that Exchange. Without X-FORA-Exchange, the
+// agent reads the manifest X-Content-Rules points at and chooses among its
+// exchanges as on the proactive path. A value that is not of the shape above is
+// ignored as if absent, and the two headers are judged separately: a malformed
+// X-FORA-Exchange does not discard a well-formed X-Content-Rules, and the
+// reverse.
+//
+// Trust. An agent MUST NOT treat X-FORA-Exchange as authorization. It is an
+// unsigned value, and it proves nothing about who may sell the content. The
+// Exchange's offers are verified by their own Ed25519 signatures, exactly as on
+// every other path, and the publisher's manifest remains the authority on which
+// Exchanges sell the content. When the two disagree — the header names an
+// Exchange that the manifest's exchanges do not list — the manifest wins: the
+// agent SHOULD discard the header, SHOULD NOT transact on an offer from the
+// unlisted Exchange, and discovers at the Exchanges the manifest lists. An agent
+// that started discovery at the named Exchange before reading the manifest
+// SHOULD confirm the listing before it commits to an offer from that Exchange.
+// Whether the manifest lists the Exchange is the identity match "Request
+// recipient" defines: exact domain, case folded, ":443" the same as no port, and
+// a subdomain a different party.
+// ============================================================================
+
+// ============================================================================
 // ExchangeService — THE core protocol.
 //
 // This is what SSPs, providers, or third parties deploy.
@@ -3133,7 +3202,9 @@ message RequestConstraints {
 // auth methods). Identity keys are NOT here — every participant serves them in
 // the pure WBA directory (WBAFile) at
 // /.well-known/http-message-signatures-directory, referenced by RFC 7638
-// thumbprint. See WellKnownManifest and WBAFile below.
+// thumbprint. See WellKnownManifest and WBAFile below. A publisher's edge points
+// an agent it refuses at the publisher's fora.json with the X-Content-Rules
+// header; see "Edge discovery headers" in the file header.
 //
 // Caching contract:
 //   /.well-known/fora.json MAY be cached by consumers and CDNs for routine
