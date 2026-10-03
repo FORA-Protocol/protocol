@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import {
 	DEFAULT_ESTIMATE_TOLERANCE_BPS,
 	checkMeteredEstimate,
+	checkOfferTermsUnpriced,
 	estimateToleranceBps,
 	isMeteredOffer,
 	meteredSettlementCap,
@@ -111,7 +112,9 @@ describe("sdk/ts metered helpers", () => {
 		["no estimate", { pricing: { ...perUnit } }, true, true],
 		["zero estimate", { pricing: { ...perUnit, estimated_quantity: 0 } }, true, true],
 		["fractional estimate", { pricing: { ...perUnit, estimated_quantity: 1.5 } }, true, true],
-		["term under flat pricing", { pricing: { ...flat }, terms: [{ pricing: { ...perUnit } }] }, true, true],
+		// A priced term no longer makes an offer metered: Offer.pricing is the one price,
+		// and checkOfferTermsUnpriced refuses the priced term instead.
+		["term under flat pricing", { pricing: { ...flat }, terms: [{ pricing: { ...perUnit } }] }, false, false],
 		["flat", { pricing: { ...flat } }, false, false],
 		["no pricing", {}, false, false],
 	];
@@ -122,6 +125,24 @@ describe("sdk/ts metered helpers", () => {
 				expect(() => checkMeteredEstimate(offer)).toThrow();
 			} else {
 				expect(() => checkMeteredEstimate(offer)).not.toThrow();
+			}
+		});
+	}
+
+	const unpricedCases: [string, Record<string, unknown>, boolean][] = [
+		["unpriced term", { pricing: { ...flat }, terms: [{ semantics: "TERM_SEMANTICS_ENUMERATED" }] }, false],
+		["no terms", { pricing: { ...flat } }, false],
+		["null term pricing is absent", { pricing: { ...flat }, terms: [{ pricing: null }] }, false],
+		["term repeating the offer price", { pricing: { ...flat }, terms: [{ pricing: { ...flat } }] }, true],
+		["per-unit term under flat pricing", { pricing: { ...flat }, terms: [{ pricing: { ...perUnit } }] }, true],
+		["empty term pricing", { pricing: { ...flat }, terms: [{ pricing: {} }] }, true],
+	];
+	for (const [name, offer, refused] of unpricedCases) {
+		it(`offer terms unpriced check: ${name}`, () => {
+			if (refused) {
+				expect(() => checkOfferTermsUnpriced(offer)).toThrow(/Offer\.pricing/);
+			} else {
+				expect(() => checkOfferTermsUnpriced(offer)).not.toThrow();
 			}
 		});
 	}

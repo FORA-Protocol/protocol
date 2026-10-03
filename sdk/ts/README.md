@@ -79,6 +79,9 @@ states one); the excess is held for dispute, never charged.
 dispute, and `settleMeteredUsage(offer.pricing, consumed)` returns the accepted,
 ceiling, charged and held amounts, exact on BigInt. `checkMeteredEstimate(offer)` throws
 on a metered offer without an estimate, and the offer `Verifier` rejects such an offer.
+An offer's price is `offer.pricing`, and the term it sells carries none:
+`checkOfferTermsUnpriced(offer)` throws on a priced term, `signOffer` refuses to sign such
+an offer, and the `Verifier` rejects one.
 
 Every module is a named subpath export; there is no package root import. The full list is
 the `exports` map of the package manifest. Source, tests and the release process are in

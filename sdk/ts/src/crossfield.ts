@@ -7,10 +7,11 @@ import {
   OfferSchema,
   PricingSchema,
   RegistrationFailureSchema,
+  ResourceEntrySchema,
   RestrictionSchema,
   WellKnownManifestSchema,
 } from "../../../gen/ts/wire/schemas.ts";
-import { checkMeteredEstimate } from "./money.ts";
+import { checkMeteredEstimate, checkOfferTermsUnpriced } from "./money.ts";
 
 // Cross-field (message-CEL) refinements — the one genuinely net-new L1 surface.
 //
@@ -165,17 +166,42 @@ function pricingRules(o: Obj): string[] {
 }
 
 /**
- * Offer.metered.requires_estimate: `!(metered) || (has(this.pricing.estimated_quantity)
- * && this.pricing.estimated_quantity > 0)`, where an offer is metered when its pricing
- * or a term's pricing is PER_UNIT. The predicate is the one the agent-side Verifier
- * applies, so this face and that one share checkMeteredEstimate rather than keeping two
+ * Offer rules:
+ *   - terms.pricing_unset: `this.terms.all(t, !has(t.pricing))` — the offer's price is
+ *     `Offer.pricing`, stated once.
+ *   - metered.requires_estimate: `this.pricing.model != PER_UNIT ||
+ *     (has(this.pricing.estimated_quantity) && this.pricing.estimated_quantity > 0)`.
+ * Both predicates are the ones the agent-side Verifier applies, so this face and that
+ * one share checkOfferTermsUnpriced and checkMeteredEstimate rather than keeping two
  * copies.
  */
 function offerRules(o: Obj): string[] {
+  const out: string[] = [];
+  try {
+    checkOfferTermsUnpriced(o);
+  } catch {
+    out.push("offer.terms.pricing_unset");
+  }
   try {
     checkMeteredEstimate(o);
   } catch {
-    return ["offer.metered.requires_estimate"];
+    out.push("offer.metered.requires_estimate");
+  }
+  return out;
+}
+
+/**
+ * ResourceEntry.terms.pricing_required: `this.terms.all(t, has(t.pricing))`. A catalog
+ * term carries its price; the rule is the entry's because the term an offer carries
+ * holds none. `null` is proto-JSON for absent.
+ */
+function resourceEntryRules(o: Obj): string[] {
+  const terms = field(o, "terms");
+  if (!Array.isArray(terms)) return [];
+  for (const t of terms) {
+    const term = asObj(t);
+    const pricing = term ? field(term, "pricing") : undefined;
+    if (pricing === undefined || pricing === null) return ["resource_entry.terms.pricing_required"];
   }
   return [];
 }
@@ -282,6 +308,7 @@ const RULES_BY_MESSAGE: Record<string, (o: Obj) => string[]> = {
   Pricing: pricingRules,
   Restriction: restrictionRules,
   RegistrationFailure: registrationFailureRules,
+  ResourceEntry: resourceEntryRules,
   WellKnownManifest: wellKnownManifestRules,
 };
 
@@ -347,4 +374,5 @@ export const OfferCrossFieldSchema: CrossField<typeof OfferSchema> = attach(Offe
 export const PricingCrossFieldSchema: CrossField<typeof PricingSchema> = attach(PricingSchema, "Pricing");
 export const RestrictionCrossFieldSchema: CrossField<typeof RestrictionSchema> = attach(RestrictionSchema, "Restriction");
 export const RegistrationFailureCrossFieldSchema: CrossField<typeof RegistrationFailureSchema> = attach(RegistrationFailureSchema, "RegistrationFailure");
+export const ResourceEntryCrossFieldSchema: CrossField<typeof ResourceEntrySchema> = attach(ResourceEntrySchema, "ResourceEntry");
 export const WellKnownManifestCrossFieldSchema: CrossField<typeof WellKnownManifestSchema> = attach(WellKnownManifestSchema, "WellKnownManifest");

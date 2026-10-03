@@ -176,23 +176,39 @@ function modelOf(pricing: unknown): string {
 
 /**
  * isMeteredOffer reports whether `offer` (canonical proto-JSON) is metered: its
- * pricing or its term's pricing is PER_UNIT. The term counts because it is the
- * authoritative copy of the price (fora.proto Offer, the
- * offer.metered.requires_estimate rule).
+ * pricing is PER_UNIT. `Offer.pricing` is the offer's one price and the term it
+ * sells carries none (fora.proto Offer, the offer.metered.requires_estimate and
+ * offer.terms.pricing_unset rules), so a term is never consulted. TS peer of Go
+ * `helpers.IsMeteredOffer`.
  */
 export function isMeteredOffer(offer: Record<string, unknown>): boolean {
-	if (modelOf(offer.pricing) === PRICING_MODEL_PER_UNIT) return true;
+	return modelOf(offer.pricing) === PRICING_MODEL_PER_UNIT;
+}
+
+/**
+ * checkOfferTermsUnpriced throws when any term of `offer` (canonical proto-JSON)
+ * carries `pricing`, and returns otherwise. An offer states its price once, in
+ * `Offer.pricing`, and the term it sells carries none (fora.proto Offer, the
+ * offer.terms.pricing_unset rule). This is that rule as a standalone check, for a
+ * signer or a verifier that runs without wire validation. A present `pricing`
+ * counts whatever its value, as `has()` does; `null` is proto-JSON for absent. TS
+ * peer of Go `helpers.CheckOfferTermsUnpriced`.
+ */
+export function checkOfferTermsUnpriced(offer: Record<string, unknown>): void {
+	if (typeof offer !== "object" || offer === null) {
+		throw new Error("money: offer is not an object");
+	}
 	const terms = offer.terms;
-	return (
-		Array.isArray(terms) &&
-		terms.some(
-			(t) =>
-				typeof t === "object" &&
-				t !== null &&
-				modelOf((t as Record<string, unknown>).pricing) ===
-					PRICING_MODEL_PER_UNIT,
-		)
-	);
+	if (!Array.isArray(terms)) return;
+	terms.forEach((t, i) => {
+		if (typeof t !== "object" || t === null) return;
+		const pricing = (t as Record<string, unknown>).pricing;
+		if (pricing !== undefined && pricing !== null) {
+			throw new Error(
+				`money: an offer's term carries pricing; the offer's price is Offer.pricing (terms[${i}])`,
+			);
+		}
+	});
 }
 
 /**
