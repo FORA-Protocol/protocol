@@ -111,7 +111,7 @@ func TestDiscover_KeepsPerURIGroupsAndReasons(t *testing.T) {
 		{Uri: "https://site.test/a", Offers: []*forav1.Offer{offers.good}},
 		{
 			Uri:           "https://site.test/b",
-			AbsenceReason: absenceReason(forav1.OfferAbsenceReason_OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT),
+			AbsenceReason: absenceReason(forav1.OfferAbsenceReason_OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE),
 		},
 		{
 			Uri:                "https://site.test/c",
@@ -135,11 +135,11 @@ func TestDiscover_KeepsPerURIGroupsAndReasons(t *testing.T) {
 	if len(res.Groups[0].Verified) != 1 {
 		t.Errorf("group 0 must carry its verified offer, got %d", len(res.Groups[0].Verified))
 	}
-	// The refusal is an ANSWER: the agent can tell "acquire an entitlement and
-	// retry" from "give up" only because the reason survived.
+	// The reason is an ANSWER: the agent can tell "retry later" from "give up"
+	// only because the reason survived.
 	if res.Groups[1].AbsenceReason == nil ||
-		*res.Groups[1].AbsenceReason != forav1.OfferAbsenceReason_OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT {
-		t.Errorf("group 1 absence reason = %v, want SCOPE_INSUFFICIENT", res.Groups[1].AbsenceReason)
+		*res.Groups[1].AbsenceReason != forav1.OfferAbsenceReason_OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE {
+		t.Errorf("group 1 absence reason = %v, want TEMPORARILY_UNAVAILABLE", res.Groups[1].AbsenceReason)
 	}
 	if len(res.Groups[2].RestrictionFilters) != 1 {
 		t.Errorf("group 2 must carry the filtered axis, got %v", res.Groups[2].RestrictionFilters)

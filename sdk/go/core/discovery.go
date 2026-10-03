@@ -16,9 +16,8 @@ import (
 // was refused or why.
 //
 // That distinction is the point of the vocabulary: "not in the catalogue" means
-// give up, "scope insufficient" means acquire an entitlement and retry, and
-// "content blocked" means never retry. Flattened, all three read as "found
-// nothing".
+// give up, "temporarily unavailable" means retry later, and "content blocked"
+// means never retry. Flattened, all three read as "found nothing".
 //
 // The fail-closed {verified, rejected} split is preserved inside each group,
 // through the same Verifier — not a second verification path.
