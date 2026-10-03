@@ -29,11 +29,12 @@ from wire.models import (
     Offer,
     Pricing,
     RegistrationFailure,
+    ResourceEntry,
     Restriction,
     WellKnownManifest,
 )
 
-from .money import check_metered_estimate
+from .money import check_metered_estimate, check_offer_terms_unpriced
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -143,17 +144,43 @@ def _pricing_rules(o: dict[str, Any]) -> list[str]:
 
 
 def _offer_rules(o: dict[str, Any]) -> list[str]:
-    """Offer.metered.requires_estimate.
+    """Offer.terms.pricing_unset + Offer.metered.requires_estimate.
 
-    ``!(metered) || (has(this.pricing.estimated_quantity) && this.pricing.estimated_quantity
-    > 0)``, where an offer is metered when its pricing or a term's pricing is PER_UNIT. The
-    predicate is the one the agent-side Verifier applies, so this face and that one share
+    - terms.pricing_unset: ``this.terms.all(t, !has(t.pricing))`` — the offer's price
+      is ``Offer.pricing``, stated once.
+    - metered.requires_estimate: ``this.pricing.model != PER_UNIT ||
+      (has(this.pricing.estimated_quantity) && this.pricing.estimated_quantity > 0)``.
+
+    Both predicates are the ones the agent-side Verifier applies, so this face and that
+    one share :func:`fora_sdk.money.check_offer_terms_unpriced` and
     :func:`fora_sdk.money.check_metered_estimate` rather than keeping two copies.
     """
+    out: list[str] = []
+    try:
+        check_offer_terms_unpriced(o)
+    except ValueError:
+        out.append("offer.terms.pricing_unset")
     try:
         check_metered_estimate(o)
     except ValueError:
-        return ["offer.metered.requires_estimate"]
+        out.append("offer.metered.requires_estimate")
+    return out
+
+
+def _resource_entry_rules(o: dict[str, Any]) -> list[str]:
+    """ResourceEntry.terms.pricing_required: ``this.terms.all(t, has(t.pricing))``.
+
+    A catalog term carries its price; the rule is the entry's because the term an
+    offer carries holds none. A present ``pricing`` counts whatever its value, as
+    ``has()`` does.
+    """
+    terms = _field(o, "terms")
+    if not isinstance(terms, list):
+        return []
+    for t in terms:
+        term = _as_obj(t)
+        if term is None or _field(term, "pricing") is None:
+            return ["resource_entry.terms.pricing_required"]
     return []
 
 
@@ -256,6 +283,7 @@ _RULES_BY_MESSAGE: dict[str, Callable[[dict[str, Any]], list[str]]] = {
     "Pricing": _pricing_rules,
     "Restriction": _restriction_rules,
     "RegistrationFailure": _registration_failure_rules,
+    "ResourceEntry": _resource_entry_rules,
     "WellKnownManifest": _well_known_manifest_rules,
 }
 
@@ -316,4 +344,5 @@ OfferCrossField = _make_cross_field(Offer, "Offer")
 PricingCrossField = _make_cross_field(Pricing, "Pricing")
 RestrictionCrossField = _make_cross_field(Restriction, "Restriction")
 RegistrationFailureCrossField = _make_cross_field(RegistrationFailure, "RegistrationFailure")
+ResourceEntryCrossField = _make_cross_field(ResourceEntry, "ResourceEntry")
 WellKnownManifestCrossField = _make_cross_field(WellKnownManifest, "WellKnownManifest")

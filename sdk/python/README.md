@@ -241,6 +241,10 @@ consumed)` returns a `MeteredSettlement` with the accepted, ceiling, charged and
 amounts, in exact decimal. `check_metered_estimate(offer)` raises on a metered offer
 without an estimate, and the `Verifier` rejects such an offer.
 
+**One price per offer.** An offer's price is `offer["pricing"]`, and the term it sells
+carries none. `check_offer_terms_unpriced(offer)` raises `ValueError` on a priced term;
+`sign_offer_jcs` refuses to sign such an offer, and the `Verifier` rejects one.
+
 **Registration schema.** An Exchange may publish a JSON Schema for the
 `registration_data` it expects. Both ends validate against it, so the rules live in one
 place: 2020-12 only, same-document `$ref` only, size, depth and evaluation caps, and a

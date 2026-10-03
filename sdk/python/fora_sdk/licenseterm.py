@@ -367,7 +367,10 @@ def _cross_field_sites(entry: dict[str, Any]) -> list[tuple[str, str, Any]]:
     # Every message instance reachable from an entry that carries a cross-field
     # rule, with its entry-relative path. The generated model is field-level and
     # the composed cross-field models attach per message, so the walk is explicit.
-    sites: list[tuple[str, str, Any]] = []
+    # The entry itself carries one: every catalog term carries its pricing
+    # (resource_entry.terms.pricing_required). It is the entry's rule, not the
+    # term's, because the term an offer carries holds no price.
+    sites: list[tuple[str, str, Any]] = [("", "ResourceEntry", entry)]
     for i, t in enumerate(_as_list(entry.get("terms"))):
         term = _as_obj(t)
         if term is None:

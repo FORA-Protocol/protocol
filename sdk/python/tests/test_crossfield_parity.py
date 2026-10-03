@@ -49,6 +49,7 @@ _EXPECTED_MESSAGES = {
     "Offer",
     "Pricing",
     "RegistrationFailure",
+    "ResourceEntry",
     "Restriction",
     "WellKnownManifest",
 }
@@ -137,7 +138,8 @@ _VALID_INSTANCES: list[dict[str, object]] = [
     },
     {
         # Offer.metered.requires_estimate: a metered offer with a positive estimate on
-        # its own pricing satisfies it, even when the pushed term carries none.
+        # its own pricing satisfies it. Offer.terms.pricing_unset: its term carries no
+        # pricing, because the offer's price is Offer.pricing.
         "name": "Offer metered with estimate",
         "message": "Offer",
         "json": {
@@ -149,17 +151,29 @@ _VALID_INSTANCES: list[dict[str, object]] = [
                 "unit": "tokens",
                 "estimated_quantity": 2500,
             },
+            "terms": [{"semantics": "TERM_SEMANTICS_ENUMERATED"}],
+        },
+    },
+    {
+        # ResourceEntry.terms.pricing_required: every catalog term carries its price.
+        "name": "ResourceEntry with a priced term",
+        "message": "ResourceEntry",
+        "json": {
+            "domain": "publisher.example",
+            "path": "/article",
             "terms": [
                 {
                     "semantics": "TERM_SEMANTICS_ENUMERATED",
-                    "pricing": {
-                        "model": "PRICING_MODEL_PER_UNIT",
-                        "rate": "0.00002",
-                        "unit": "tokens",
-                    },
+                    "pricing": {"model": "PRICING_MODEL_FREE", "rate": "0"},
                 }
             ],
         },
+    },
+    {
+        # An entry with no terms has no term to price.
+        "name": "ResourceEntry without terms",
+        "message": "ResourceEntry",
+        "json": {"domain": "publisher.example", "path": "/article"},
     },
     {
         # Offer.metered.requires_estimate: a non-metered offer needs no estimate.

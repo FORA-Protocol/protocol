@@ -148,18 +148,35 @@ def _model(pricing: Any) -> str:
 
 
 def is_metered_offer(offer: Mapping[str, Any]) -> bool:
-    """Whether ``offer`` (canonical proto-JSON) is metered: its pricing or its term's
-    pricing is PER_UNIT. The term counts because it is the authoritative copy of the
-    price (fora.proto Offer, the offer.metered.requires_estimate rule)."""
-    if _model(offer.get("pricing")) == _PRICING_MODEL_PER_UNIT:
-        return True
+    """Whether ``offer`` (canonical proto-JSON) is metered: its pricing is PER_UNIT.
+
+    ``Offer.pricing`` is the offer's one price and the term it sells carries none
+    (fora.proto Offer, the offer.metered.requires_estimate and
+    offer.terms.pricing_unset rules), so a term is never consulted. Python peer of Go
+    ``helpers.IsMeteredOffer``."""
+    return _model(offer.get("pricing")) == _PRICING_MODEL_PER_UNIT
+
+
+def check_offer_terms_unpriced(offer: Mapping[str, Any]) -> None:
+    """Raise ``ValueError`` when any term of ``offer`` (canonical proto-JSON) carries
+    ``pricing``; return quietly otherwise.
+
+    An offer states its price once, in ``Offer.pricing``, and the term it sells carries
+    none (fora.proto Offer, the offer.terms.pricing_unset rule). This is that rule as a
+    standalone check, for a signer or a verifier that runs without wire validation. A
+    present ``pricing`` key counts whatever its value, as ``has()`` does. Python peer of
+    Go ``helpers.CheckOfferTermsUnpriced``.
+    """
+    if not isinstance(offer, Mapping):
+        msg = "money: offer is not an object"
+        raise ValueError(msg)
     terms = offer.get("terms")
     if not isinstance(terms, list):
-        return False
-    return any(
-        isinstance(t, Mapping) and _model(t.get("pricing")) == _PRICING_MODEL_PER_UNIT
-        for t in terms
-    )
+        return
+    for i, t in enumerate(terms):
+        if isinstance(t, Mapping) and t.get("pricing") is not None:
+            msg = f"money: an offer's term carries pricing; the offer's price is Offer.pricing (terms[{i}])"
+            raise ValueError(msg)
 
 
 def check_metered_estimate(offer: Mapping[str, Any]) -> None:
