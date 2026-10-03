@@ -197,20 +197,16 @@ request only where it means to, and check every answer through the SDK's own dec
   (Go). `connect-error-vectors.json` now pins the code and the whole detail, including
   rows carrying only `value`, and the new `error-detail-wire-vectors.json` pins the
   binary decoding of every field of the ErrorDetail subtree against the descriptor.
-- **Delivery verification.** Execute, the Broker purchase and fetch verify a retrieval
-  URL before relying on it: its Ed25519 signature against the key the issuing Exchange
-  publishes in its Web Bot Auth directory (named by the URL's `kid`), its binding to the
-  agent's key (`agent_id` and the answer's `agent_identity_hash`), and its expiry. A URL
-  that does not verify is refused as malformed, with a `retrieval_auth_failure` detail
-  in the edge's own vocabulary; an unreachable directory is unreachable. The verified
-  binding comes back as a `Delivery`: on `ExecuteResult.deliveries` and
-  `BrokerExecuteResult.deliveries` in Python and TypeScript, through
-  `connect.WithDeliveries` in Go, and on the fetched content's `binding` (`Binding`)
-  when a fetch is given a `Delivery` or the issuing Exchange. A bare URL with no
-  Exchange named is still fetched as given. The key resolver is injectable
-  (`delivery_keys`, `deliveryKeys`, `connect.WithDeliveryKeyResolver`), and
-  verification can be turned off for URLs signed in another scheme
-  (`delivery_verification`, `deliveryVerification`, `connect.WithDeliveryVerification`).
+- **Delivery URLs are checked by the edge.** Verifying a retrieval URL in the agent SDKs
+  was considered and left to the delivery edge. The edge verifies the URL signature and,
+  where it can, the agent binding against the proof of possession the agent presents on
+  fetch; an edge that cannot check the binding (CloudFront with its pre-arranged RSA key
+  pair) checks its own signature and treats the URL as a bearer token. A check in the
+  client would run after the Exchange has already charged, so a refusal would only lose
+  the purchase answer, and the client cannot read a CloudFront signed URL, so every
+  CloudFront-delivered purchase would fail. Execute, the Broker purchase and fetch pass a
+  retrieval URL through as the Exchange issued it, and fetch still presents the agent's
+  proof of possession.
 - **Admin client.** `AdminClient` covers `fora.admin.v1.AdminService`
   (`SetTenantFeeRate`, `SetReportingPolicy`) and the two domain-verification RPCs,
   `RequestDomainVerification` and `ConfirmDomainVerification`: `AdminClient` in Python

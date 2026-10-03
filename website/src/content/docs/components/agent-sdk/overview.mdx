@@ -37,11 +37,13 @@ Exchanges the Broker knows, and **execute**, which buys offers from several Exch
 one call (`BrokerService.ExecuteTransaction`). The exchange client's execute also takes
 several offers from one Exchange (`ExecuteBatch` in Go).
 
-Both execute verbs verify every retrieval URL in the answer before handing it back: its
-signature against the key the issuing Exchange publishes in its Web Bot Auth directory,
-its binding to the agent's key and its expiry. A URL that would only fail at the delivery
-edge is refused when it arrives, and fetch repeats the check before it dials when it is
-told which Exchange issued the URL.
+Both execute verbs return every retrieval URL exactly as the Exchange issued it, and
+fetch dials a URL as given with the agent's proof of possession. Checking the URL is the
+delivery edge's job: it verifies the URL signature and, where it can, the agent binding
+against that proof. The client does not check the URL first. The Exchange has already
+charged by the time the answer arrives, so a local refusal would only lose the purchase
+answer, and the client cannot read every URL an edge accepts (a CloudFront RSA signed URL,
+for one).
 
 Full per-language references live beside the code: [Go](https://github.com/FORA-Protocol/protocol/blob/main/sdk/go/README.md),
 [Python](https://github.com/FORA-Protocol/protocol/blob/main/sdk/python/README.md).
@@ -97,7 +99,6 @@ parsing responses itself or re-implementing request signing.
 | Raw mode: send a body exactly as given, still signed and decoded | `connect.WithRawBody` | `new RawBody(body)` in place of the request | `RawBody(body)` in place of the request |
 | Strict decoding: refuse an unknown field, a field-level or a cross-field violation, in a success answer or in an error envelope and its `ErrorDetail` | `connect.WithStrictDecoding` | `strict: true` | `ClientConfig(strict=True)` |
 | The Connect code of a refusal, on its own field | `CallError.Code` | `ForaCallError.code` | `CallError.code` |
-| The verified binding of each delivery URL | `connect.WithDeliveries`, `Content.Binding` | `ExecuteResult.deliveries`, `Content.binding` | `ExecuteResult.deliveries`, `Content.binding` |
 | The operator RPCs: `AdminService` and domain verification | `connect.NewAdminClient` | `createAdminClient` | `AdminClient` |
 | Mint a throwaway agent: key, directory document, signer | `helpers.GenerateKey`, `helpers.DirectoryDocument`, `core.SigningTransportFor` | `generateKey`, `directoryDocument`, `signingTransportFor` | `generate_key`, `directory_document`, `signing_transport_for` |
 | Read a document a party publishes and check it: the well-known manifest, the WBA key directory, the key revocation list, the license document | `resolvers.ReadManifest`, `resolvers.ReadWBADirectory`, `resolvers.ReadRevocationList`, `resolvers.ReadLicenseDocument` | `readManifest`, `readWBADirectory`, `readRevocationList`, `readLicenseDocument` | `read_manifest`, `read_wba_directory`, `read_revocation_list`, `read_license_document` |
@@ -152,10 +153,10 @@ A few rules hold in every language:
 - **Error details are read from the binary `value`.** A Connect error carries its typed
   reason as `details[].value`, the binary `ErrorDetail`. All three SDKs read it; the JSON
   SDKs fall back to the lowerCamelCase `debug` projection only when `value` is absent.
-- **Delivery verification is on by default.** A URL whose signature, binding or expiry
-  does not verify is refused as malformed, with a `retrieval_auth_failure` reason in the
-  vocabulary the delivery edge uses. A deployment whose URLs use another signing scheme
-  turns it off explicitly.
+- **The delivery edge checks the delivery URL.** A purchase returns each URL as the
+  Exchange issued it, and fetch sends any URL it is given, so a harness can put any URL
+  in front of an edge. The edge's refusal comes back with a `retrieval_auth_failure`
+  reason in the edge's own vocabulary.
 
 <DeferredSdkNoticeDetail />
 
