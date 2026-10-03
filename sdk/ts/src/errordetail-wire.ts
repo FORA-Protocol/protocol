@@ -19,6 +19,11 @@
 // enum is read packed or unpacked; of the ErrorDetail reason oneof, only the member seen
 // last survives. A truncated buffer, a group wire type, a varint past ten bytes or a
 // string that is not UTF-8 makes the value undecodable.
+//
+// A caller that must know about the skipped fields passes an array as `unknown`: each one
+// is recorded there, by the message it appeared in and its field number. Strict decoding
+// does, because it refuses an ErrorDetail carrying a field the contract does not define,
+// which is what Go's decoder reports for the same bytes.
 
 /** One field of a message, in the shape the shared corpus records it. */
 export interface WireField {
@@ -308,6 +313,7 @@ function decodeInto(
 	type: string,
 	target: Message,
 	oneof: ReadonlySet<string>,
+	unknown: string[] | undefined,
 ): void {
 	const fields = ERROR_DETAIL_WIRE_MESSAGES[type];
 	if (fields === undefined) throw new Undecodable(`no table for ${type}`);
@@ -321,16 +327,23 @@ function decodeInto(
 		const packed = field?.kind === "enum" && field.repeated === true && wireType === LEN;
 		if (field === undefined || (!packed && wireType !== wireTypeOf(field))) {
 			reader.skip(wireType);
+			unknown?.push(`${type} field ${number}`);
 			continue;
 		}
 		if (oneof.has(field.name)) {
 			for (const member of oneof) if (member !== field.name) delete target[member];
 		}
-		readField(reader, field, target, packed);
+		readField(reader, field, target, packed, unknown);
 	}
 }
 
-function readField(reader: Reader, field: WireField, target: Message, packed: boolean): void {
+function readField(
+	reader: Reader,
+	field: WireField,
+	target: Message,
+	packed: boolean,
+	unknown: string[] | undefined,
+): void {
 	switch (field.kind) {
 		case "string": {
 			const value = decodeString(reader.bytes());
@@ -355,7 +368,7 @@ function readField(reader: Reader, field: WireField, target: Message, packed: bo
 			const type = field.type ?? "";
 			if (field.repeated) {
 				const item: Message = {};
-				decodeInto(bytes, type, item, NO_ONEOF);
+				decodeInto(bytes, type, item, NO_ONEOF, unknown);
 				appendTo(target, field.name, finish(item, type));
 				return;
 			}
@@ -363,7 +376,7 @@ function readField(reader: Reader, field: WireField, target: Message, packed: bo
 			// first rather than replacing it.
 			const existing = target[field.name];
 			const into: Message = isMessage(existing) ? existing : {};
-			decodeInto(bytes, type, into, NO_ONEOF);
+			decodeInto(bytes, type, into, NO_ONEOF, unknown);
 			defineMember(target, field.name, finish(into, type));
 			return;
 		}
@@ -433,15 +446,18 @@ function decodeBase64(value: string): Uint8Array | undefined {
 /**
  * Decode a binary fora.v1.ErrorDetail to canonical proto-JSON under the proto field
  * names. `oneof` names the members of the reason oneof, of which only the last seen
- * survives. Returns undefined for a value that does not decode.
+ * survives. Returns undefined for a value that does not decode. Each field skipped as
+ * unknown, or as a known field with the wrong wire type, is pushed to `unknown` when it
+ * is given.
  */
 export function decodeErrorDetailBinary(
 	bytes: Uint8Array,
 	oneof: readonly string[],
+	unknown?: string[],
 ): Record<string, unknown> | undefined {
 	try {
 		const out: Message = {};
-		decodeInto(bytes, "fora.v1.ErrorDetail", out, new Set(oneof));
+		decodeInto(bytes, "fora.v1.ErrorDetail", out, new Set(oneof), unknown);
 		return finish(out, "fora.v1.ErrorDetail");
 	} catch (cause) {
 		if (cause instanceof Undecodable) return undefined;
@@ -453,7 +469,14 @@ export function decodeErrorDetailBinary(
 export function decodeErrorDetailValue(
 	value: string,
 	oneof: readonly string[],
+	unknown?: string[],
 ): Record<string, unknown> | undefined {
 	const bytes = decodeBase64(value);
-	return bytes === undefined ? undefined : decodeErrorDetailBinary(bytes, oneof);
+	return bytes === undefined ? undefined : decodeErrorDetailBinary(bytes, oneof, unknown);
+}
+
+/** Whether a details[].value is base64 this reader accepts: standard or URL alphabet,
+ * padded or not. */
+export function isDetailValueBase64(value: string): boolean {
+	return decodeBase64(value) !== undefined;
 }

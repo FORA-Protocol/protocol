@@ -149,6 +149,20 @@ const MAX_DETAIL_DEPTH = 32;
  * reader answers "no detail" instead. */
 class TooDeep extends Error {}
 
+/**
+ * toProtoNames reads a lowerCamelCase proto-JSON payload, such as a `debug` projection,
+ * under the proto field names, exactly as errorDetailFrom does before it parses one.
+ * Returns undefined for a payload nested deeper than a peer's detail may be.
+ */
+export function toProtoNames(payload: unknown): unknown {
+	try {
+		return protoNames(payload);
+	} catch (cause) {
+		if (cause instanceof TooDeep) return undefined;
+		throw cause;
+	}
+}
+
 function protoNames(payload: unknown, budget = MAX_DETAIL_DEPTH): unknown {
 	if (budget <= 0) throw new TooDeep();
 	if (Array.isArray(payload)) return payload.map((v) => protoNames(v, budget - 1));

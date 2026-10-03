@@ -45,7 +45,9 @@ const validate = new Ajv2020({ validateFormats: false }).compile(schema);
 ```
 
 Strict decoding uses these same files: `createClient(url, { strict: true })` refuses an
-answer that carries an unknown field or breaks a cross-field rule. A harness that tests
+answer that carries an unknown field or breaks a cross-field rule, and an error answer
+whose Connect envelope or `ErrorDetail` (binary `value` or `debug` projection) the
+contract does not define; a refused envelope is `malformed` with `code` kept. A harness that tests
 FORA services through the client has three more seams on it: `beforeSign` alters a
 request just before it is signed, a `RawBody` passed in place of a verb's request is sent
 exactly as given, and `ForaCallError.code` carries the Connect code of a refusal next to

@@ -137,8 +137,13 @@ export interface ClientOptions {
 	beforeSign?: BeforeSign;
 	/** Refuse, as `malformed`, a success answer that carries a field its message does not
 	 * declare or breaks one of the proto's cross-field rules. Checked against the published
-	 * strict JSON Schemas, so the shape is the generator's. Defaults to false: the generated
-	 * schemas drop unknown fields, which keeps a client working against a newer Exchange. */
+	 * strict JSON Schemas, so the shape is the generator's. An error answer is checked too:
+	 * the Connect envelope may carry only code, message and details, must name a known
+	 * Connect code and carry well-formed details, and every ErrorDetail in it, binary
+	 * `value` and `debug` projection alike, must pass the strict ErrorDetail schema and the
+	 * cross-field rules; a refused envelope keeps `code` and `status` and carries no detail.
+	 * Defaults to false: the generated schemas drop unknown fields, which keeps a client
+	 * working against a newer Exchange. */
 	strict?: boolean;
 	/** Resolves an Exchange's URL-signing key for delivery verification. Defaults to the
 	 * WBA resolver over the SSRF-guarded transport, built once with this client: the keys
@@ -238,6 +243,7 @@ export async function call(
 		...(r.opts.beforeSign !== undefined ? { beforeSign: r.opts.beforeSign } : {}),
 		maxBytes: r.opts.maxRPCReadBytes ?? DEFAULT_MAX_RPC_READ_BYTES,
 		timeoutMs: r.opts.callTimeoutMs ?? DEFAULT_CALL_TIMEOUT_MS,
+		strict: r.opts.strict === true,
 	});
 	// Before any verb parses it: the strict check reads the answer as it arrived, and the
 	// parse would already have dropped the unknown field it exists to find.

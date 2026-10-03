@@ -29,6 +29,7 @@ import discoveryResponse from "../../../gen/jsonschema/fora.v1.DiscoveryResponse
 import disputeResponse from "../../../gen/jsonschema/fora.v1.DisputeResponse.schema.strict.json" with { type: "json" };
 import domainVerificationChallenge from "../../../gen/jsonschema/fora.v1.DomainVerificationChallenge.schema.strict.json" with { type: "json" };
 import domainVerificationResult from "../../../gen/jsonschema/fora.v1.DomainVerificationResult.schema.strict.json" with { type: "json" };
+import errorDetail from "../../../gen/jsonschema/fora.v1.ErrorDetail.schema.strict.json" with { type: "json" };
 import getAccountStatusResponse from "../../../gen/jsonschema/fora.v1.GetAccountStatusResponse.schema.strict.json" with { type: "json" };
 import pushResourcesResponse from "../../../gen/jsonschema/fora.v1.PushResourcesResponse.schema.strict.json" with { type: "json" };
 import refreshCatalogResponse from "../../../gen/jsonschema/fora.v1.RefreshCatalogResponse.schema.strict.json" with { type: "json" };
@@ -38,7 +39,8 @@ import resourceResponse from "../../../gen/jsonschema/fora.v1.ResourceResponse.s
 import transactionResponse from "../../../gen/jsonschema/fora.v1.TransactionResponse.schema.strict.json" with { type: "json" };
 import usageReportResponse from "../../../gen/jsonschema/fora.v1.UsageReportResponse.schema.strict.json" with { type: "json" };
 
-/** The strict schema of every message a client verb decodes, by fully-qualified name. */
+/** The strict schema of every message a client verb decodes, by fully-qualified name,
+ * and of the ErrorDetail an error answer carries. */
 const STRICT_SCHEMAS: Readonly<Record<string, object>> = {
 	"fora.admin.v1.SetReportingPolicyResponse": setReportingPolicyResponse,
 	"fora.admin.v1.SetTenantFeeRateResponse": setTenantFeeRateResponse,
@@ -47,6 +49,7 @@ const STRICT_SCHEMAS: Readonly<Record<string, object>> = {
 	"fora.v1.DisputeResponse": disputeResponse,
 	"fora.v1.DomainVerificationChallenge": domainVerificationChallenge,
 	"fora.v1.DomainVerificationResult": domainVerificationResult,
+	"fora.v1.ErrorDetail": errorDetail,
 	"fora.v1.GetAccountStatusResponse": getAccountStatusResponse,
 	"fora.v1.PushResourcesResponse": pushResourcesResponse,
 	"fora.v1.RefreshCatalogResponse": refreshCatalogResponse,
@@ -163,9 +166,19 @@ function setMember(target: Node, name: string, value: unknown): void {
 /**
  * checkStrict refuses, as `malformed`, an answer that fails the strict schema of
  * `message` (fully-qualified, e.g. "fora.v1.ResourceResponse") or one of the cross-field
- * rules. Called on a success answer only; error envelopes are not messages of this type.
+ * rules. Called on a success answer; an error answer is checked by checkStrictEnvelope.
  */
 export function checkStrict(op: string, raw: unknown, message: string): void {
+	const problem = strictViolation(raw, message);
+	if (problem !== undefined) throw malformed(op, new Error(`strict decoding: ${problem}`));
+}
+
+/**
+ * strictViolation says why `raw` is not a `message` the strict contract accepts: the
+ * location and the schema's complaint, or the cross-field rules it breaks. Undefined when
+ * it is accepted.
+ */
+export function strictViolation(raw: unknown, message: string): string | undefined {
 	const schema = STRICT_SCHEMAS[message] as Node | undefined;
 	if (schema === undefined) throw new Error(`no strict schema for ${message}`);
 	const defs = isNode(schema["$defs"]) ? schema["$defs"] : {};
@@ -179,20 +192,13 @@ export function checkStrict(op: string, raw: unknown, message: string): void {
 			first?.keyword === "additionalProperties"
 				? ` (${JSON.stringify((first.params as { additionalProperty?: string }).additionalProperty)})`
 				: "";
-		throw malformed(
-			op,
-			new Error(`strict decoding: ${where} ${first?.message ?? "does not match"}${extra}`),
-		);
+		return `${where} ${first?.message ?? "does not match"}${extra}`;
 	}
 	for (const f of found) {
 		const violated = crossFieldRuleIds(f.message, f.value);
 		if (violated.length > 0) {
-			throw malformed(
-				op,
-				new Error(
-					`strict decoding: ${f.path === "" ? "(root)" : f.path} violates cross-field rule(s) ${violated.join(", ")}`,
-				),
-			);
+			return `${f.path === "" ? "(root)" : f.path} violates cross-field rule(s) ${violated.join(", ")}`;
 		}
 	}
+	return undefined;
 }

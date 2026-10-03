@@ -20,7 +20,9 @@
 // the .strip() forward-compatibility policy that exists for a newer protocol version.
 //
 // Every vector here was CAPTURED from a real connect-go handler, so the fix is asserted
-// against what the wire does rather than against a description of it.
+// against what the wire does rather than against a description of it. Each row is also
+// decoded with strict decoding on, which must refuse exactly the rows marked
+// `strict_malformed` and read every other row as the lenient client does.
 import { describe, it, expect } from "vitest";
 import { ErrorDetailSchema } from "../../../gen/ts/wire/schemas.ts";
 import { errorDetailFrom, reason } from "../src/errordetail.ts";
@@ -43,10 +45,35 @@ type ConnectErrorVector = {
 		detail: Record<string, unknown> | null;
 	};
 	peer_message: string;
+	strict_malformed: boolean;
 };
 type VectorsFile = { note: string; vectors: ConnectErrorVector[] };
 
 const vectors = (vectorsFile as VectorsFile).vectors;
+
+// The row through a strict decode: refused as malformed with the code kept and no detail
+// when the corpus marks it strict_malformed, otherwise exactly the lenient read.
+function assertStrictRead(v: ConnectErrorVector, lenient: ForaCallError): void {
+	let thrown: unknown;
+	try {
+		decodeResponse("discover", { status: v.http_status, body: JSON.stringify(v.envelope) }, true);
+	} catch (e) {
+		thrown = e;
+	}
+	expect(thrown, v.name).toBeInstanceOf(ForaCallError);
+	const strict = thrown as ForaCallError;
+	expect(strict.code, v.name).toBe(v.code);
+	expect(strict.status, v.name).toBe(v.http_status);
+	if (v.strict_malformed) {
+		expect(strict.kind, `${v.name}: ${String(strict.cause)}`).toBe("malformed");
+		expect(strict.detail, v.name).toBeUndefined();
+		expect(strict.peerMessage ?? "", v.name).toBe("");
+		return;
+	}
+	expect(strict.kind, `${v.name}: ${String(strict.cause)}`).toBe(lenient.kind);
+	expect(strict.detail ?? null, v.name).toEqual(lenient.detail ?? null);
+	expect(strict.peerMessage ?? "", v.name).toBe(lenient.peerMessage ?? "");
+}
 
 describe("sdk/ts reads a Connect error envelope the way the sdk/go oracle does", () => {
 	it("connect-error vector set is non-empty", () => {
@@ -94,6 +121,7 @@ describe("sdk/ts reads a Connect error envelope the way the sdk/go oracle does",
 			// not, because the code is a property of the answer rather than of the detail.
 			expect((thrown as ForaCallError).code, v.name).toBe(v.code);
 			expect((thrown as ForaCallError).detail ?? null).toEqual(detail);
+			assertStrictRead(v, thrown as ForaCallError);
 
 			if (!v.expect.has_detail) {
 				expect(detail).toBeNull();

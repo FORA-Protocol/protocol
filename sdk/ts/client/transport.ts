@@ -30,6 +30,7 @@ import {
 	ForaCallError,
 } from "./errors.ts";
 import { RawBody, rawBytes } from "./raw.ts";
+import { checkStrictEnvelope } from "./strict-envelope.ts";
 
 /**
  * The pre-signing hook: receives every RPC request just before it is signed, as a Fetch
@@ -136,6 +137,9 @@ export interface UnaryCallOptions {
 	beforeSign?: BeforeSign;
 	maxBytes?: number;
 	timeoutMs?: number;
+	/** Check an error answer's envelope and ErrorDetails strictly (ClientOptions.strict).
+	 * A success answer's strict check runs in the tier above, against its message. */
+	strict?: boolean;
 }
 
 /**
@@ -241,7 +245,7 @@ export async function unaryCall(opts: UnaryCallOptions): Promise<unknown> {
 	} finally {
 		clearTimeout(timer);
 	}
-	return decodeResponse(opts.op, response);
+	return decodeResponse(opts.op, response, opts.strict === true);
 }
 
 // Headers the runtime computes from the request itself. A hook's request carries them,
@@ -393,8 +397,14 @@ export function refuseUnrequestedEncoding(
  * rides in `details`, which errorDetailFrom reads — the binary `value` first, and the
  * lowerCamelCase `debug` projection connect-go emits beside it only when `value` is
  * absent. The envelope's Connect code lands on the failure's `code`.
+ *
+ * With `strict`, an error answer's envelope and every ErrorDetail in it are checked
+ * first (see checkStrictEnvelope), and a refusal is `malformed` keeping the code the
+ * lenient read reports. An empty body is not an envelope — the lenient read takes it as
+ * one naming no code — so it is classified by its status in either mode, like a body
+ * that is not JSON.
  */
-export function decodeResponse(op: string, response: UnaryResponse): unknown {
+export function decodeResponse(op: string, response: UnaryResponse, strict = false): unknown {
 	// A 3xx before anything is read out of the body. Every leg refuses to follow a
 	// redirect, so one reaching here is a server that did not answer rather than one that
 	// declined — and there is nothing in a redirect body to interpret. Unconditional on
@@ -411,7 +421,11 @@ export function decodeResponse(op: string, response: UnaryResponse): unknown {
 	}
 	const payload = parseJSON(op, response);
 	if (response.status < 200 || response.status >= 300) {
-		throw connectEnvelopeError(op, response.status, payload);
+		const error = connectEnvelopeError(op, response.status, payload);
+		if (strict && response.body.trim() !== "") {
+			checkStrictEnvelope(op, response.status, payload, error.code);
+		}
+		throw error;
 	}
 	return payload;
 }
