@@ -352,7 +352,7 @@ The rest are bounds and seams with working defaults:
 | `registration_requirements` | a reader built on the guarded client, once per client | where `register` reads an Exchange's terms revision and registration schema. It holds no document cache on purpose: the contract requires the terms digest to come from a freshly fetched manifest |
 | `delivery_keys` | a `WBAKeyResolver` built on the guarded client, once per client | where `execute` and `fetch` find the key an Exchange signs delivery URLs with: the URL's `kid`, resolved from that Exchange's Web Bot Auth directory |
 | `delivery_verification` | `Mode.STRICT` | whether a delivery URL is verified (signature, agent binding, expiry) before it is handed back or dialled. `Mode.OFF` is for a deployment whose URLs use another signing scheme |
-| `strict` | `False` | refuse an answer carrying an unknown field, or breaking a field-level or cross-field rule. See [Testing a FORA service](#testing-a-fora-service) |
+| `strict` | `False` | refuse an answer carrying an unknown field, or breaking a field-level or cross-field rule, and an error envelope or `ErrorDetail` the contract does not define. See [Testing a FORA service](#testing-a-fora-service) |
 | `before_sign` | `None` | a hook that receives each request just before it is signed. See [Testing a FORA service](#testing-a-fora-service) |
 
 **Build a client once and reuse it.** `ClientConfig`, the resolvers and the `Verifier`
@@ -441,7 +441,12 @@ a service through the SDK and check every answer through it:
   verb still reads its destination from the body's `exchange`.
 - **`ClientConfig(strict=True)`** refuses an answer carrying an unknown field at any
   depth, or breaking a field-level or cross-field rule, using the published strict JSON
-  Schema of the response message (`wire.schemas`) and the SDK's cross-field rules.
+  Schema of the response message (`wire.schemas`) and the SDK's cross-field rules. An
+  error answer is checked too: the Connect envelope may carry only `code`, `message`
+  and `details`, must name a known Connect code and carry well-formed details, and every
+  `ErrorDetail`, binary `value` and `debug` projection alike, must pass the strict
+  `ErrorDetail` schema and the cross-field rules. A refused envelope is
+  `CallError(MALFORMED)` with `code` still set to the peer's Connect code.
 - **Identity helpers** in `fora_sdk.identity` mint a throwaway agent: `generate_key()`,
   `directory_document(keys)` for the directory to serve, and
   `signing_transport_for(key, directory)`.

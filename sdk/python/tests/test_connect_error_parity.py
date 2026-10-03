@@ -19,7 +19,8 @@ way) and NO typed reason, for a refusal the Exchange had named precisely.
 Every captured vector came from a real connect-go handler, so the reader is asserted
 against what the wire does rather than against a description of it. Each row is also
 decoded through the client, which must report the row's Connect code on
-``CallError.code``.
+``CallError.code``, and decoded again with strict decoding on, which must refuse exactly
+the rows marked ``strict_malformed`` and read every other row as the lenient client does.
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ import pytest
 
 from conftest import GO_CONNECT_TESTDATA, load_json
 from fora_sdk.client._call import decode
-from fora_sdk.client.errors import CallError
+from fora_sdk.client.errors import CallError, CallErrorKind
 from fora_sdk.errordetail import error_detail_from, reason
 from fora_sdk.wire import to_wire
 from wire.models import ResourceResponse
@@ -72,6 +73,7 @@ def test_reader_extracts_go_projection_from_the_envelope(vector: dict) -> None:
     # The Connect code the server classified the failure as, on its own field: the class a
     # caller branches on when it needs more than refused-or-unreachable.
     assert caught.value.code == vector["code"], vector["name"]
+    _assert_strict_read(vector, caught.value)
 
     if not expect["has_detail"]:
         assert detail is None, "an envelope carrying no ErrorDetail must read as none"
@@ -108,6 +110,30 @@ def test_reader_extracts_go_projection_from_the_envelope(vector: dict) -> None:
     assert block is not None, (
         f"reason arrived under a different oneof member than {expect['reason_field']!r}"
     )
+
+
+def _assert_strict_read(vector: dict, lenient: CallError) -> None:
+    """The row through a strict decode: refused as MALFORMED with the code kept and no
+    detail when the corpus marks it ``strict_malformed``, otherwise the lenient read."""
+    with pytest.raises(CallError) as caught:
+        decode(
+            "discover",
+            vector["http_status"],
+            json.dumps(vector["envelope"]),
+            ResourceResponse,
+            strict=True,
+        )
+    strict = caught.value
+    assert strict.code == vector["code"], vector["name"]
+    assert strict.status == vector["http_status"], vector["name"]
+    if vector["strict_malformed"]:
+        assert strict.kind is CallErrorKind.MALFORMED, (vector["name"], str(strict))
+        assert strict.detail is None, vector["name"]
+        assert strict.peer_message == "", vector["name"]
+        return
+    assert strict.kind is lenient.kind, (vector["name"], str(strict))
+    assert strict.detail == lenient.detail, vector["name"]
+    assert strict.peer_message == lenient.peer_message, vector["name"]
 
 
 def test_camel_case_debug_projection_is_decoded() -> None:

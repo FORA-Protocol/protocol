@@ -25,7 +25,9 @@ from test_client import AGENT_SEED, FACES, Face, _config
 
 import fora_sdk.sync as sync_client
 from fora_sdk.client import CallError, CallErrorKind, Client
+from fora_sdk.client._call import decode
 from fora_sdk.keyresolver import StaticKeyResolver
+from wire.models import ResourceResponse
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -135,24 +137,158 @@ def test_a_cross_field_rule_on_the_answer_itself_is_enforced(face: Face) -> None
     assert "get_account_status_response.terms_digest_requires_billing_ref" in str(err)
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
-def test_an_error_envelope_is_read_the_same_way(face: Face) -> None:
+def _client_answering(face: Face, status: int, body: bytes, *, strict: bool) -> Any:
     peer = SignedPeer(
         keys=lambda _sa: StaticKeyResolver({_KEYID: _AGENT_PUBLIC}),
-        answer=lambda _r: httpx.Response(
-            403, content=json.dumps({"code": "permission_denied", "extra": 1}).encode()
+        answer=lambda _r: httpx.Response(status, content=body),
+    )
+    config = _config(strict=strict)
+    if face.name == "async":
+        return Client(config, http=peer.async_())
+    return sync_client.Client(config, http=peer.sync())
+
+
+@pytest.mark.parametrize("face", FACES, ids=_IDS)
+def test_an_error_envelope_with_an_unknown_member_is_refused(face: Face) -> None:
+    body = json.dumps({"code": "permission_denied", "extra": 1}).encode()
+
+    # The default client reads the peer's refusal and ignores the member.
+    with pytest.raises(CallError) as lenient:
+        face.run(_client_answering(face, 403, body, strict=False).discover(_QUERY))
+    assert lenient.value.kind is CallErrorKind.REFUSED
+
+    # The strict client refuses the envelope, and keeps the code the peer answered with.
+    err = _refused(face, lambda: _client_answering(face, 403, body, strict=True).discover(_QUERY))
+    assert err.code == "permission_denied"
+    assert err.status == 403
+    assert err.detail is None
+    assert "extra" in str(err)
+
+
+def _denial_value(extra: bytes = b"") -> str:
+    """A binary ErrorDetail (a transaction denial), base64 the way connect-go writes it."""
+    import base64
+
+    reason = b"\x08\x02"  # TransactionDenial.reason = INSUFFICIENT_BALANCE
+    raw = b"\x12\x02ok" + b"\x52" + bytes([len(reason)]) + reason + extra
+    return base64.b64encode(raw).decode().rstrip("=")
+
+
+def _envelope(**members: Any) -> str:
+    return json.dumps(members)
+
+
+def _entry(**members: Any) -> dict[str, Any]:
+    return members
+
+
+_DETAIL = "fora.v1.ErrorDetail"
+
+#: (name, status, body, refused by a strict decode). Every case also runs leniently, which
+#: must not refuse it as malformed: the strict refusal comes from ``strict`` alone.
+_ENVELOPE_CASES: list[tuple[str, int, str, bool]] = [
+    (
+        "valid envelope",
+        403,
+        _envelope(
+            code="permission_denied",
+            message="no",
+            details=[_entry(type=_DETAIL, value=_denial_value())],
         ),
-    )
-    config = _config(strict=True)
-    client = (
-        Client(config, http=peer.async_())
-        if face.name == "async"
-        else sync_client.Client(config, http=peer.sync())
-    )
-    with pytest.raises(CallError) as caught:
-        face.run(client.discover(_QUERY))
-    assert caught.value.kind is CallErrorKind.REFUSED
-    assert caught.value.code == "permission_denied"
+        False,
+    ),
+    (
+        "null members read as absent",
+        500,
+        _envelope(code="internal", message=None, details=None),
+        False,
+    ),
+    (
+        "a detail of another type is not decoded",
+        500,
+        _envelope(
+            code="internal",
+            details=[_entry(type="google.rpc.RetryInfo", value="AA", debug={"any": "thing"})],
+        ),
+        False,
+    ),
+    ("a body that is not JSON is a gateway's", 502, "<html>bad gateway</html>", False),
+    ("an empty body is a gateway's", 503, "", False),
+    ("no code", 500, _envelope(message="x"), True),
+    ("code not a Connect code", 500, _envelope(code="teapot"), True),
+    ("code not a string", 500, _envelope(code=13), True),
+    ("message not a string", 500, _envelope(code="internal", message=1), True),
+    ("JSON but not an object", 500, json.dumps(["internal"]), True),
+    ("details not an array", 500, _envelope(code="internal", details={}), True),
+    (
+        "entry with an unknown member",
+        500,
+        _envelope(code="internal", details=[_entry(type="x", value="AA", extra=1)]),
+        True,
+    ),
+    ("entry with no type", 500, _envelope(code="internal", details=[_entry(value="AA")]), True),
+    (
+        "entry with neither value nor debug",
+        500,
+        _envelope(code="internal", details=[_entry(type="x")]),
+        True,
+    ),
+    (
+        "value not base64",
+        500,
+        _envelope(code="internal", details=[_entry(type="x", value="*not*")]),
+        True,
+    ),
+    (
+        "binary ErrorDetail with an unknown field",
+        403,
+        _envelope(
+            code="permission_denied",
+            details=[_entry(type=_DETAIL, value=_denial_value(b"\x98\x06\x01"))],
+        ),
+        True,
+    ),
+    (
+        "debug projection that is not an object",
+        403,
+        _envelope(code="permission_denied", details=[_entry(type=_DETAIL, debug="x")]),
+        True,
+    ),
+    (
+        "debug projection setting two reasons",
+        403,
+        _envelope(
+            code="permission_denied",
+            details=[
+                _entry(
+                    type=_DETAIL,
+                    debug={
+                        "transactionDenial": {"reason": "DENIAL_REASON_INSUFFICIENT_BALANCE"},
+                        "disputeFailure": {"reason": "DISPUTE_FAILURE_REASON_DUPLICATE"},
+                    },
+                )
+            ],
+        ),
+        True,
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("status", "body", "refused"),
+    [c[1:] for c in _ENVELOPE_CASES],
+    ids=[c[0] for c in _ENVELOPE_CASES],
+)
+def test_error_envelope_rules(status: int, body: str, refused: bool) -> None:
+    with pytest.raises(CallError) as lenient:
+        decode("discover", status, body, ResourceResponse)
+    assert lenient.value.kind is not CallErrorKind.MALFORMED
+
+    with pytest.raises(CallError) as strict:
+        decode("discover", status, body, ResourceResponse, strict=True)
+    assert (strict.value.kind is CallErrorKind.MALFORMED) is refused, str(strict.value)
+    # The strict read keeps the code the lenient read reports, refused or not.
+    assert strict.value.code == lenient.value.code
 
 
 def _raw() -> Any:

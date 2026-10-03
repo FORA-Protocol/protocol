@@ -36,6 +36,7 @@ from fora_sdk.wire import (
 )
 
 from ._strict import check_strict
+from ._strict_envelope import check_strict_envelope
 from .errors import (
     NOT_CANONICAL_WIRE_NAMING,
     CallError,
@@ -280,7 +281,8 @@ def decode_with_raw(
     """
     _refuse_redirect(op, status)
     payload = _parse_json(op, status, body)
-    parsed = _validate(op, status, payload, model, strict=strict)
+    _refuse_error_answer(op, status, body, payload, strict=strict)
+    parsed = _validate(op, payload, model, strict=strict)
     return parsed, payload if isinstance(payload, dict) else {}
 
 
@@ -295,10 +297,14 @@ def decode(
     connect-go emits beside it only when the value is absent.
 
     ``strict`` also refuses a success answer carrying an unknown field or breaking a
-    cross-field rule; see :func:`fora_sdk.client._strict.check_strict`.
+    cross-field rule (see :func:`fora_sdk.client._strict.check_strict`), and an error
+    answer whose envelope or ErrorDetail the contract does not accept (see
+    :func:`fora_sdk.client._strict_envelope.check_strict_envelope`).
     """
     _refuse_redirect(op, status)
-    return _validate(op, status, _parse_json(op, status, body), model, strict=strict)
+    payload = _parse_json(op, status, body)
+    _refuse_error_answer(op, status, body, payload, strict=strict)
+    return _validate(op, payload, model, strict=strict)
 
 
 _HTTP_MULTIPLE_CHOICES_END = 400
@@ -322,11 +328,23 @@ def _refuse_redirect(op: str, status: int) -> None:
         )
 
 
-def _validate(
-    op: str, status: int, payload: Any, model: type[BaseModel], *, strict: bool = False
-) -> Any:
-    if not _HTTP_OK <= status < _HTTP_MULTIPLE_CHOICES:
-        raise _connect_envelope_error(op, status, payload)
+def _refuse_error_answer(op: str, status: int, body: str, payload: Any, *, strict: bool) -> None:
+    """Raise the typed failure a non-2xx answer is; return on a 2xx.
+
+    Under ``strict`` the envelope is checked first, and a refusal keeps the Connect code
+    the lenient read reports. An empty body is not an envelope — the lenient read takes it
+    as one naming no code — so it is classified by its status in either mode, like a body
+    that is not JSON, which never reaches here.
+    """
+    if _HTTP_OK <= status < _HTTP_MULTIPLE_CHOICES:
+        return
+    error = _connect_envelope_error(op, status, payload)
+    if strict and body.strip():
+        check_strict_envelope(op, status, payload, error.code)
+    raise error
+
+
+def _validate(op: str, payload: Any, model: type[BaseModel], *, strict: bool = False) -> Any:
     if strict:
         check_strict(op, model, payload)
     try:

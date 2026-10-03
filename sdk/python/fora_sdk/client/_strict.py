@@ -48,20 +48,30 @@ def check_strict(op: str, model: type[BaseModel], payload: Any) -> None:
     complaint for an unknown field or a field-level rule, or the violated rule ids for a
     cross-field rule.
     """
-    name = _schema_name(model)
+    problem = strict_violation(_schema_name(model), payload)
+    if problem is not None:
+        raise malformed(op, f"strict decoding refused the answer{problem}")
+
+
+def strict_violation(name: str, payload: Any) -> str | None:
+    """Why ``payload`` is not a ``name`` message the strict contract accepts, or ``None``.
+
+    ``name`` is the fully-qualified message name. The text starts with the location, so a
+    caller can put it after its own subject: `` at /path: <complaint>`` for the schema,
+    ``: cross-field rule(s) <ids>`` for the cross-field rules.
+    """
     schema = schemas.load(name, strict=True)
     normalized = _without_nulls(schema, schema, payload)
     errors = sorted(_validator(name).iter_errors(normalized), key=lambda e: list(e.path))
     if errors:
         first = errors[0]
         where = "/" + "/".join(str(p) for p in first.path)
-        raise malformed(op, f"strict decoding refused the answer at {where}: {first.message}")
+        return f" at {where}: {first.message}"
     violated: list[str] = []
     _walk(schema, schema, normalized, name, violated)
     if violated:
-        raise malformed(
-            op, f"strict decoding refused the answer: cross-field rule(s) {', '.join(violated)}"
-        )
+        return f": cross-field rule(s) {', '.join(violated)}"
+    return None
 
 
 @cache

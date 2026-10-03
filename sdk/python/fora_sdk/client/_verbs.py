@@ -157,8 +157,13 @@ class ClientConfig:
     #: Refuse an answer the contract does not describe: an unknown field at any depth, a
     #: field-level rule broken, or a cross-field rule broken. The shape is the published
     #: strict JSON Schema of the response message and the SDK's cross-field rules, so it
-    #: is defined once, by the proto. Off by default, because the models accept fields a
-    #: newer minor version may add. Error envelopes are read the same either way.
+    #: is defined once, by the proto. An error answer is checked too: the Connect
+    #: envelope may carry only ``code``, ``message`` and ``details``, must name a known
+    #: Connect code and carry well-formed details, and every ErrorDetail in it, its binary
+    #: ``value`` and its ``debug`` projection alike, must pass the strict ErrorDetail
+    #: schema and the cross-field rules. A refusal is MALFORMED with ``code`` and
+    #: ``status`` kept and no detail. Off by default, because the models accept fields a
+    #: newer minor version may add.
     strict: bool = False
     #: Resolves the key an Exchange signs delivery URLs with: ``resolve(kid, exchange)``,
     #: against that Exchange's Web Bot Auth key directory. Defaults to the SSRF-guarded

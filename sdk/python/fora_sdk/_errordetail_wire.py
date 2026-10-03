@@ -22,6 +22,11 @@ Decoding follows protobuf's own rules: unknown fields are skipped by wire type, 
 field arriving with the wrong wire type is skipped the same way, a repeated enum is
 accepted packed or not, the last value of a singular field wins, a singular message field
 written twice is merged, and of the reason oneof only the member written last is kept.
+
+A caller that must know about the skipped fields passes a list as ``unknown``: each one is
+recorded there, by the message it appeared in and its field number. Strict decoding does,
+because it refuses an ErrorDetail carrying a field the contract does not define, which is
+what Go's decoder reports for the same bytes.
 """
 
 from __future__ import annotations
@@ -233,21 +238,37 @@ _UINT64_MASK = (1 << 64) - 1
 REASON_ONEOF: tuple[str, ...] = tuple(f.name for f in MESSAGES[_ROOT] if f.kind == "message")
 
 
-def decode_error_detail_value(value: str) -> dict[str, Any]:
+def decode_error_detail_value(value: str, unknown: list[str] | None = None) -> dict[str, Any]:
     """Decode a ``details[].value`` string into ErrorDetail proto-JSON.
 
     The string is base64 in the standard or the URL alphabet, padded or not — connect-go
     writes the standard alphabet without padding. Raises :class:`WireDecodeError` for
-    anything that is not a decodable ErrorDetail.
+    anything that is not a decodable ErrorDetail. Skipped fields are recorded in
+    ``unknown`` when it is given.
     """
-    return decode_error_detail(_b64decode(value))
+    return decode_error_detail(_b64decode(value), unknown)
 
 
-def decode_error_detail(raw: bytes) -> dict[str, Any]:
-    """Decode binary ErrorDetail bytes into proto-JSON."""
+@dataclass(frozen=True)
+class _Walk:
+    """Where the reader is: how deep, and where a skipped field is recorded, if anywhere."""
+
+    depth: int
+    unknown: list[str] | None
+
+    def deeper(self) -> _Walk:
+        return _Walk(self.depth + 1, self.unknown)
+
+
+def decode_error_detail(raw: bytes, unknown: list[str] | None = None) -> dict[str, Any]:
+    """Decode binary ErrorDetail bytes into proto-JSON.
+
+    Each field skipped as unknown, or as a known field with the wrong wire type, is
+    appended to ``unknown`` when it is given.
+    """
     out: dict[str, Any] = {}
     order: list[str] = []
-    _decode_message(memoryview(raw), _ROOT, out, order, 0)
+    _decode_message(memoryview(raw), _ROOT, out, order, _Walk(0, unknown))
     # The reason oneof: protobuf keeps the member written last and clears the others.
     written = [name for name in order if name in REASON_ONEOF]
     for name in REASON_ONEOF:
@@ -266,9 +287,9 @@ def _b64decode(value: str) -> bytes:
 
 
 def _decode_message(
-    buf: memoryview, message: str, out: dict[str, Any], order: list[str], depth: int
+    buf: memoryview, message: str, out: dict[str, Any], order: list[str], walk: _Walk
 ) -> None:
-    if depth > _MAX_DEPTH:
+    if walk.depth > _MAX_DEPTH:
         raise WireDecodeError("value nests too deep")
     fields = {f.number: f for f in MESSAGES[message]}
     pos = 0
@@ -280,8 +301,10 @@ def _decode_message(
         start, pos = _skip(buf, pos, wire)
         field = fields.get(number)
         if field is None or not _wire_matches(field, wire):
+            if walk.unknown is not None:
+                walk.unknown.append(f"{message} field {number}")
             continue
-        _apply(field, wire, buf[start:pos], out, depth)
+        _apply(field, wire, buf[start:pos], out, walk)
         order.append(field.name)
 
 
@@ -291,7 +314,7 @@ def _wire_matches(field: Field, wire: int) -> bool:
     return wire == _LEN
 
 
-def _apply(field: Field, wire: int, payload: memoryview, out: dict[str, Any], depth: int) -> None:
+def _apply(field: Field, wire: int, payload: memoryview, out: dict[str, Any], walk: _Walk) -> None:
     if field.kind == "enum":
         values = _packed_varints(payload) if wire == _LEN else [_varint(payload, 0)[0]]
         names = [_enum_name(field.type, v) for v in values]
@@ -314,12 +337,12 @@ def _apply(field: Field, wire: int, payload: memoryview, out: dict[str, Any], de
     if field.kind == "message":
         if field.repeated:
             item: dict[str, Any] = {}
-            _decode_message(payload, field.type, item, [], depth + 1)
+            _decode_message(payload, field.type, item, [], walk.deeper())
             out.setdefault(field.name, []).append(item)
         else:
             # A singular message written twice is merged into the first.
             target = out.setdefault(field.name, {})
-            _decode_message(payload, field.type, target, [], depth + 1)
+            _decode_message(payload, field.type, target, [], walk.deeper())
         return
     raise WireDecodeError(f"field kind {field.kind!r} is not in the ErrorDetail subtree")
 
