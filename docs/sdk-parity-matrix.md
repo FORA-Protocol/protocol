@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 175 symbols at cross-language parity · 17 documented divergences · 195 Go-idiomatic exclusions · 42 conformance corpora, each tri-replayed.
+**At a glance:** 175 symbols at cross-language parity · 17 documented divergences · 196 Go-idiomatic exclusions · 42 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -351,6 +351,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `helpers.CheckStrictMessage` | Go check of an already-decoded proto.Message, which is how the Go client holds a binary answer and every ErrorDetail; py/ts hold only proto-JSON, so check_strict/checkStrict over the decoded JSON is the whole of their check and there is no message object to pass. |
 | `helpers.ComponentParam` | Go value type for an RFC 9421 covered-component parameter; py/ts model components inline. |
 | `helpers.CoveredComponent` | Go value type for an RFC 9421 covered component; py/ts model components inline. |
+| `helpers.ErrAcceptanceRequesterEmpty` | Go errors.Is sentinel for an acceptance that names an empty requester; py raises ValueError and ts throws from the canonical-bytes and signing faces, and the shared refused-acceptance vectors pin that every language refuses the same inputs. |
 | `helpers.ErrAcceptanceSignatureInvalid` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrAudienceIdentity` | Go errors.Is sentinel for an unusable configured Exchange identity; py/ts raise/throw instead of exporting sentinels. |
 | `helpers.ErrBrokenSignatureChain` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |

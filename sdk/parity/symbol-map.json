@@ -92,6 +92,7 @@
     "helpers.ComponentParam": "Go value type for an RFC 9421 covered-component parameter; py/ts model components inline.",
     "helpers.CoveredComponent": "Go value type for an RFC 9421 covered component; py/ts model components inline.",
     "helpers.ErrAcceptanceSignatureInvalid": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
+    "helpers.ErrAcceptanceRequesterEmpty": "Go errors.Is sentinel for an acceptance that names an empty requester; py raises ValueError and ts throws from the canonical-bytes and signing faces, and the shared refused-acceptance vectors pin that every language refuses the same inputs.",
     "helpers.ErrAudienceIdentity": "Go errors.Is sentinel for an unusable configured Exchange identity; py/ts raise/throw instead of exporting sentinels.",
     "helpers.ErrBrokenSignatureChain": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.ErrDigestMismatch": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
