@@ -96,8 +96,9 @@ func NewVerifier(mode Mode, resolver helpers.KeyResolver, now func() time.Time) 
 // Sort splits offers into verified and rejected per the configured mode. Under Off
 // every offer is surfaced verified with no check. Under Strict each offer is
 // verified against its resolved exchange key and its expiry — a failure of either
-// lands it in Rejected with the reason. A metered offer that carries no positive
-// estimate is rejected too (helpers.ErrMeteredEstimateMissing).
+// lands it in Rejected with the reason. An offer whose term carries pricing is
+// rejected too (helpers.ErrOfferTermPriced), and so is a metered offer that
+// carries no positive estimate (helpers.ErrMeteredEstimateMissing).
 func (v Verifier) Sort(ctx context.Context, offers []*forav1.Offer) Result {
 	res := Result{}
 	for _, off := range offers {
@@ -115,8 +116,9 @@ func (v Verifier) Sort(ctx context.Context, offers []*forav1.Offer) Result {
 }
 
 // check verifies a single offer: resolve the exchange offer-signing key, verify the
-// signature, enforce the not-in-the-past expiry, and require a metered offer to
-// carry its estimate. Any step failing rejects the offer (fail-closed) — including
+// signature, enforce the not-in-the-past expiry, require the offer's term to carry
+// no pricing, and require a metered offer to carry its estimate. Any step failing
+// rejects the offer (fail-closed) — including
 // an unresolvable key, so an offer the client cannot key is rejected under Strict
 // rather than trusted.
 func (v Verifier) check(ctx context.Context, off *forav1.Offer) error {
@@ -129,6 +131,12 @@ func (v Verifier) check(ctx context.Context, off *forav1.Offer) error {
 	}
 	if expired(off, v.now()) {
 		return ErrOfferExpired
+	}
+	// An offer states its price once, in Offer.pricing; a term carrying a second
+	// copy could disagree with it (fora.proto Offer). Wire validation refuses it
+	// too, but a Verifier also runs with validation off.
+	if err := helpers.CheckOfferTermsUnpriced(off); err != nil {
+		return err
 	}
 	// A metered offer without an estimate has no amount to accept and no ceiling
 	// for its usage report to settle against (fora.proto Pricing). Wire

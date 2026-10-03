@@ -174,17 +174,10 @@
           "rate": "0.00002",
           "unit": "tokens"
         },
-        "signature": "cb5cb34c81e8d3ae99bcfebe5d4c5b4d14077eff98eab4164f5b5572c558d1dd12680e2d616b9a73f3184507414221dede1502ab3b3fac1e8a7b44abdda60c00",
+        "signature": "d81878e5b8b422a0cfe4e0814a2e5c80bf86511a8d572673091bff16caa36aa3f0c4887e0a55a23c30e7a1c2a12d7d496c5171b5bb28116dbc3447c44201ab02",
         "signature_algorithm": "EdDSA",
         "terms": [
           {
-            "pricing": {
-              "currency": "USD",
-              "estimate_tolerance_bps": 1500,
-              "model": "PRICING_MODEL_PER_UNIT",
-              "rate": "0.00002",
-              "unit": "tokens"
-            },
             "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ]
@@ -261,6 +254,61 @@
       },
       "now_unix": 1700000100,
       "expected_verified": false,
+      "exchange_seed_hex": "666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485"
+    },
+    {
+      "name": "term_priced_same_as_offer",
+      "exchange": "exchange.example.com",
+      "exchange_pub_b64url": "zpI5jIJHFJdW8sf3SDqL5IIPRMSe0MNkTrcaZJD7BKg",
+      "offer_json": {
+        "exchange": "exchange.example.com",
+        "expires_at": "2023-11-14T22:28:20Z",
+        "offer_id": "offer-term-priced",
+        "pricing": {
+          "currency": "USD",
+          "model": "PRICING_MODEL_FLAT",
+          "rate": "1.00"
+        },
+        "signature": "c297b24fb5b759fd278b003fb517ecc3da247c69cf134186c6c9f4853aaf5230f28d7e5f783db131db13fa9a7a7b50bd16b9610df00fb198281225875c112908",
+        "signature_algorithm": "EdDSA",
+        "terms": [
+          {
+            "pricing": {
+              "currency": "USD",
+              "model": "PRICING_MODEL_FLAT",
+              "rate": "1.00"
+            },
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
+          }
+        ]
+      },
+      "now_unix": 1700000100,
+      "expected_verified": false,
+      "exchange_seed_hex": "666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485"
+    },
+    {
+      "name": "term_unpriced_flat",
+      "exchange": "exchange.example.com",
+      "exchange_pub_b64url": "zpI5jIJHFJdW8sf3SDqL5IIPRMSe0MNkTrcaZJD7BKg",
+      "offer_json": {
+        "exchange": "exchange.example.com",
+        "expires_at": "2023-11-14T22:28:20Z",
+        "offer_id": "offer-term-unpriced",
+        "pricing": {
+          "currency": "USD",
+          "model": "PRICING_MODEL_FLAT",
+          "rate": "1.00"
+        },
+        "signature": "88f685195ba487969db3026e95a9089ec24290e97c52c82acc6fbe782162590b83e2f183694d87a0ada512d6b3cf062179e19d566445d70185619d7f36bd4204",
+        "signature_algorithm": "EdDSA",
+        "terms": [
+          {
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
+          }
+        ]
+      },
+      "now_unix": 1700000100,
+      "expected_verified": true,
       "exchange_seed_hex": "666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485"
     },
     {

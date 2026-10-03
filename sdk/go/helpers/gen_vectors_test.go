@@ -422,6 +422,16 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 	emit := func(name string, offer *forav1.Offer, tamper func(*forav1.Offer)) offerVerifyVector {
 		offer.Exchange = exchange
 		sig, err := SignOffer(exPriv, offer)
+		if errors.Is(err, ErrOfferTermPriced) {
+			// SignOffer refuses a priced term, so a vector that carries one is
+			// signed over the same canonical bytes directly: the signature is
+			// genuine, and the verdict must come from the term check alone.
+			payload, cerr := CanonicalOfferBytes(offer)
+			if cerr != nil {
+				t.Fatalf("%s: canonical offer: %v", name, cerr)
+			}
+			sig, err = hex.EncodeToString(ed25519.Sign(exPriv, payload)), nil
+		}
 		if err != nil {
 			t.Fatalf("%s: sign offer: %v", name, err)
 		}
@@ -434,7 +444,9 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 		// Freshness is fail-closed and mirrors core.Verifier.expired: a missing
 		// expires_at is expired (not eternal); a present bound is inclusive at now.
 		expired := offer.GetExpiresAt() == nil || offer.GetExpiresAt().AsTime().Before(time.Unix(nowUnix, 0))
-		// A metered offer must carry its estimate (core.Verifier's last check).
+		// The offer's term carries no pricing, and a metered offer carries its
+		// estimate (core.Verifier's last two checks).
+		termErr := CheckOfferTermsUnpriced(offer)
 		estimateErr := CheckMeteredEstimate(offer)
 		return offerVerifyVector{
 			Name:              name,
@@ -442,7 +454,7 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 			ExchangePubB64URL: pubB64URL,
 			OfferJSON:         offerCanonicalProtoJSON(t, offer),
 			NowUnix:           nowUnix,
-			ExpectedVerified:  verifyErr == nil && !expired && estimateErr == nil,
+			ExpectedVerified:  verifyErr == nil && !expired && termErr == nil && estimateErr == nil,
 			ExchangeSeedHex:   hex.EncodeToString(exSeed),
 		}
 	}
@@ -528,7 +540,7 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 			OfferId:   "offer-metered",
 			ExpiresAt: future,
 			Pricing:   meteredVectorPricing(proto.Int32(2500), proto.Int32(1500)),
-			Terms:     []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: meteredVectorPricing(nil, proto.Int32(1500))}},
+			Terms:     []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}},
 		}, nil),
 		// metered_missing_estimate: no estimate at all → rejected.
 		emit("metered_missing_estimate", &forav1.Offer{
@@ -543,12 +555,36 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 			Pricing:   meteredVectorPricing(proto.Int32(0), nil),
 		}, nil),
 		// metered_term_estimate_only: the term is PER_UNIT and carries an estimate,
-		// the offer's own pricing does not. Settlement reads the offer's pricing, so
-		// the estimate on the term does not count → rejected.
+		// the offer's own pricing does not. An offer's term carries no pricing, so
+		// the priced term alone rejects it, whatever its estimate → rejected.
 		emit("metered_term_estimate_only", &forav1.Offer{
 			OfferId:   "offer-metered-term-only",
 			ExpiresAt: future,
 			Terms:     []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: meteredVectorPricing(proto.Int32(2500), nil)}},
+		}, nil),
+
+		// --- One price dimension: an offer states its price once, in
+		// Offer.pricing, and its term carries none. Every port rejects a priced
+		// term even when its signature and expiry are good. ---
+
+		// term_priced_same_as_offer: the term repeats the offer's own FLAT price
+		// exactly → still rejected; agreement does not make a second copy valid.
+		emit("term_priced_same_as_offer", &forav1.Offer{
+			OfferId:   "offer-term-priced",
+			ExpiresAt: future,
+			Pricing:   &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1.00", Currency: "USD"},
+			Terms: []*forav1.LicenseTerm{{
+				Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+				Pricing:   &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1.00", Currency: "USD"},
+			}},
+		}, nil),
+		// term_unpriced_flat: the conformant shape, a FLAT offer selling a term
+		// with no pricing → verified.
+		emit("term_unpriced_flat", &forav1.Offer{
+			OfferId:   "offer-term-unpriced",
+			ExpiresAt: future,
+			Pricing:   &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1.00", Currency: "USD"},
+			Terms:     []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}},
 		}, nil),
 		// flat_without_estimate: a non-metered offer needs no estimate → verified.
 		emit("flat_without_estimate", &forav1.Offer{

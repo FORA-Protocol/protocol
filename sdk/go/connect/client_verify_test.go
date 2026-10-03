@@ -18,6 +18,7 @@ package connect_test
 import (
 	"context"
 	"crypto/ed25519"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -375,6 +376,63 @@ func TestDiscover_RejectsMeteredOfferWithoutEstimate(t *testing.T) {
 	}
 	if !errors.Is(res.Rejected()[0].Reason, helpers.ErrMeteredEstimateMissing) {
 		t.Fatalf("rejected reason: want ErrMeteredEstimateMissing, got %v", res.Rejected()[0].Reason)
+	}
+}
+
+// TestDiscover_RejectsOfferWhoseTermCarriesPricing pins that an offer whose term
+// carries a second copy of the price lands in Rejected even though the Exchange
+// genuinely signed it and it has not expired: an offer states its price once, in
+// Offer.pricing. The same offer with an unpriced term verifies. SignOffer refuses
+// a priced term, so that offer is signed over its canonical bytes directly.
+// Validation is off, the client default, so the Verifier is the only gate.
+func TestDiscover_RejectsOfferWhoseTermCarriesPricing(t *testing.T) {
+	t.Parallel()
+	sig := newSigningFixture(t)
+	exPub, exPriv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("generate exchange offer key: %v", err)
+	}
+	unpriced := sampleOffer("offer-unpriced-term")
+	unpriced.Terms = []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}}
+	sigHex, err := helpers.SignOffer(exPriv, unpriced)
+	if err != nil {
+		t.Fatalf("sign unpriced: %v", err)
+	}
+	unpriced.Signature, unpriced.SignatureAlgorithm = sigHex, helpers.OfferSignatureAlgorithm
+
+	priced := sampleOffer("offer-priced-term")
+	priced.Terms = []*forav1.LicenseTerm{{
+		Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+		Pricing:   proto.Clone(priced.Pricing).(*forav1.Pricing),
+	}}
+	if _, err := helpers.SignOffer(exPriv, priced); !errors.Is(err, helpers.ErrOfferTermPriced) {
+		t.Fatalf("SignOffer of a priced term: want ErrOfferTermPriced, got %v", err)
+	}
+	payload, err := helpers.CanonicalOfferBytes(priced)
+	if err != nil {
+		t.Fatalf("canonical priced: %v", err)
+	}
+	priced.Signature = hex.EncodeToString(ed25519.Sign(exPriv, payload))
+	priced.SignatureAlgorithm = helpers.OfferSignatureAlgorithm
+
+	srv := newVerifyingServer(t, sig, newMemReplayStore(), []*forav1.Offer{unpriced, priced})
+	client := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithOfferKey(exPub),
+	)
+
+	res, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
+	if err != nil {
+		t.Fatalf("Discover: %v", err)
+	}
+	if len(res.Verified()) != 1 || res.Verified()[0].Offer().GetOfferId() != "offer-unpriced-term" {
+		t.Fatalf("want only offer-unpriced-term verified, got %d verified", len(res.Verified()))
+	}
+	if len(res.Rejected()) != 1 || res.Rejected()[0].Offer.GetOfferId() != "offer-priced-term" {
+		t.Fatalf("want only offer-priced-term rejected, got %d rejected", len(res.Rejected()))
+	}
+	if !errors.Is(res.Rejected()[0].Reason, helpers.ErrOfferTermPriced) {
+		t.Fatalf("rejected reason: want ErrOfferTermPriced, got %v", res.Rejected()[0].Reason)
 	}
 }
 

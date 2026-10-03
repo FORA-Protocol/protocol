@@ -94,6 +94,11 @@ s, _ := helpers.SettleMeteredUsage(offer.GetPricing(), consumed) // s.ChargedAmo
 err := helpers.CheckMeteredEstimate(offer) // ErrMeteredEstimateMissing; core.Verifier rejects such an offer
 ```
 
+**One price per offer** — an offer's price is `Offer.pricing`, and the term it sells
+carries none. `helpers.CheckOfferTermsUnpriced(offer)` returns `ErrOfferTermPriced` for a
+priced term; `helpers.SignOffer` refuses to sign such an offer, and `core.Verifier`
+rejects one.
+
 **Validation** — wraps protovalidate (the oracle), including cross-field CEL:
 
 ```go

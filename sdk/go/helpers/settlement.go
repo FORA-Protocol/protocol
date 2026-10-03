@@ -63,19 +63,12 @@ type MeteredSettlement struct {
 	HeldAmount string
 }
 
-// IsMeteredOffer reports whether offer is metered: its pricing or its term's
-// pricing is PER_UNIT. The term counts because it is the authoritative copy of
-// the price (fora.proto Offer, the offer.metered.requires_estimate rule).
+// IsMeteredOffer reports whether offer is metered: its pricing is PER_UNIT.
+// Offer.pricing is the offer's one price — the term it sells carries none
+// (fora.proto Offer, the offer.metered.requires_estimate and
+// offer.terms.pricing_unset rules) — so a term is never consulted.
 func IsMeteredOffer(offer *forav1.Offer) bool {
-	if offer.GetPricing().GetModel() == forav1.PricingModel_PRICING_MODEL_PER_UNIT {
-		return true
-	}
-	for _, t := range offer.GetTerms() {
-		if t.GetPricing().GetModel() == forav1.PricingModel_PRICING_MODEL_PER_UNIT {
-			return true
-		}
-	}
-	return false
+	return offer.GetPricing().GetModel() == forav1.PricingModel_PRICING_MODEL_PER_UNIT
 }
 
 // CheckMeteredEstimate returns ErrMeteredEstimateMissing when offer is metered
