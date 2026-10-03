@@ -322,6 +322,38 @@ func writeCrossField(v protovalidate.Validator) {
 			"pricing.free.zero_rate",
 		},
 		{
+			// A tolerance bounds a metered settlement; on a FREE or FLAT price
+			// there is nothing for it to bound.
+			"Pricing/cel/estimate_tolerance_requires_per_unit",
+			&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1.00", Currency: "USD", EstimateToleranceBps: proto.Int32(500)},
+			"pricing.estimate_tolerance.requires_per_unit",
+		},
+		{
+			// A metered offer with no estimate has no amount to accept and no
+			// ceiling for a usage report to settle against.
+			"Offer/cel/metered_requires_estimate/missing",
+			meteredOffer(nil),
+			"offer.metered.requires_estimate",
+		},
+		{
+			// Present but zero is still no estimate: the floor is positive.
+			"Offer/cel/metered_requires_estimate/zero",
+			meteredOffer(proto.Int32(0)),
+			"offer.metered.requires_estimate",
+		},
+		{
+			// The term's pricing is the authoritative copy, so a PER_UNIT term
+			// makes the offer metered even when the offer's own pricing does not
+			// say so.
+			"Offer/cel/metered_requires_estimate/term_only",
+			func() *forav1.Offer {
+				o := meteredOffer(nil)
+				o.Pricing = &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1.00", Currency: "USD"}
+				return o
+			}(),
+			"offer.metered.requires_estimate",
+		},
+		{
 			"License/cel/digest_required_with_uri",
 			&forav1.License{Id: proto.String("CC-BY-4.0"), Uri: proto.String("https://example.com/license")},
 			"license.digest_required_with_uri",
@@ -464,6 +496,28 @@ func writeCrossField(v protovalidate.Validator) {
 	must(err)
 	must(os.WriteFile("conformance/corpus/crossfield.json", append(out, '\n'), 0o644))
 	fmt.Printf("wrote %d cross-field cases -> conformance/corpus/crossfield.json\n", len(cases))
+}
+
+// meteredOffer is a PER_UNIT offer, otherwise valid, whose pricing carries the
+// given estimate (nil leaves it unset). The term carries the same price
+// without an estimate, as a publisher pushes it.
+func meteredOffer(estimate *int32) *forav1.Offer {
+	price := func() *forav1.Pricing {
+		return &forav1.Pricing{
+			Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.00002", Currency: "USD", Unit: proto.String("tokens"),
+		}
+	}
+	o := &forav1.Offer{
+		OfferId:  "offer-metered",
+		Exchange: "exchange.example",
+		Pricing:  price(),
+		Terms: []*forav1.LicenseTerm{{
+			Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+			Pricing:   price(),
+		}},
+	}
+	o.Pricing.EstimatedQuantity = estimate
+	return o
 }
 
 // ── baseline construction ────────────────────────────────────────────────────

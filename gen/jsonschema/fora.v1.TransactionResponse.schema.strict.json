@@ -259,7 +259,7 @@
     },
     "fora.v1.ReportingObligation": {
       "additionalProperties": false,
-      "description": "ReportingObligation — Requirements attached to a delivery.",
+      "description": "For a metered (PER_UNIT) purchase the report is also the settlement: its\n Usage.consumed_quantity is charged at the offer's rate up to the ceiling\n estimated_quantity × (10000 + estimate_tolerance_bps) / 10000, and any\n quantity above the ceiling is held for dispute, never charged automatically\n (the rule is stated once, on Pricing). An honest report of a quantity that\n differs from the estimate, above or below, is a valid report and is never\n refused for that difference.",
       "properties": {
         "endpoint": {
           "description": "URL to submit the usage report to (if different from Exchange).",
@@ -294,7 +294,7 @@
           "type": "string"
         }
       },
-      "title": "Reporting Obligation",
+      "title": "ReportingObligation — Requirements attached to a delivery.",
       "type": "object"
     },
     "fora.v1.RequestAuthFailure": {
@@ -500,7 +500,7 @@
         },
         "cost": {
           "$ref": "#/$defs/fora.v1.Cost",
-          "description": "Cost for this item."
+          "description": "Cost for this item. For a metered (PER_UNIT) item this is the amount the\n agent accepted at purchase: the offer's estimated_quantity × rate. It is\n not the final charge when a usage report follows; the report settles the\n transaction at min(consumed, ceiling) × rate, holding any excess above the\n ceiling for dispute (see Pricing)."
         },
         "delivery_method": {
           "anyOf": [

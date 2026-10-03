@@ -189,6 +189,107 @@
     }
   },
   {
+    "id": "Offer/cel/metered_requires_estimate/missing",
+    "message": "Offer",
+    "valid": false,
+    "rules": [
+      "offer.metered.requires_estimate"
+    ],
+    "json": {
+      "exchange": "exchange.example",
+      "offer_id": "offer-metered",
+      "pricing": {
+        "currency": "USD",
+        "model": "PRICING_MODEL_PER_UNIT",
+        "rate": "0.00002",
+        "unit": "tokens"
+      },
+      "terms": [
+        {
+          "pricing": {
+            "currency": "USD",
+            "model": "PRICING_MODEL_PER_UNIT",
+            "rate": "0.00002",
+            "unit": "tokens"
+          },
+          "semantics": "TERM_SEMANTICS_ENUMERATED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "Offer/cel/metered_requires_estimate/term_only",
+    "message": "Offer",
+    "valid": false,
+    "rules": [
+      "offer.metered.requires_estimate"
+    ],
+    "json": {
+      "exchange": "exchange.example",
+      "offer_id": "offer-metered",
+      "pricing": {
+        "currency": "USD",
+        "model": "PRICING_MODEL_FLAT",
+        "rate": "1.00"
+      },
+      "terms": [
+        {
+          "pricing": {
+            "currency": "USD",
+            "model": "PRICING_MODEL_PER_UNIT",
+            "rate": "0.00002",
+            "unit": "tokens"
+          },
+          "semantics": "TERM_SEMANTICS_ENUMERATED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "Offer/cel/metered_requires_estimate/zero",
+    "message": "Offer",
+    "valid": false,
+    "rules": [
+      "offer.metered.requires_estimate"
+    ],
+    "json": {
+      "exchange": "exchange.example",
+      "offer_id": "offer-metered",
+      "pricing": {
+        "currency": "USD",
+        "estimated_quantity": 0,
+        "model": "PRICING_MODEL_PER_UNIT",
+        "rate": "0.00002",
+        "unit": "tokens"
+      },
+      "terms": [
+        {
+          "pricing": {
+            "currency": "USD",
+            "model": "PRICING_MODEL_PER_UNIT",
+            "rate": "0.00002",
+            "unit": "tokens"
+          },
+          "semantics": "TERM_SEMANTICS_ENUMERATED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "Pricing/cel/estimate_tolerance_requires_per_unit",
+    "message": "Pricing",
+    "valid": false,
+    "rules": [
+      "pricing.estimate_tolerance.requires_per_unit"
+    ],
+    "json": {
+      "currency": "USD",
+      "estimate_tolerance_bps": 500,
+      "model": "PRICING_MODEL_FLAT",
+      "rate": "1.00"
+    }
+  },
+  {
     "id": "Pricing/cel/free_zero_rate",
     "message": "Pricing",
     "valid": false,

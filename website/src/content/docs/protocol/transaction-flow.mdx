@@ -94,7 +94,7 @@ Key fields:
         "rate": "0.05",
         "currency": "USD",
         "unit_cost": "0.00001515",
-        "estimated_quantity": 3300,
+        "estimated_quantity": 1,
         "unit": "accesses"
       },
       "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
@@ -161,7 +161,7 @@ When requesting multiple URIs, the response uses `offer_groups` instead of `offe
         {
           "offer_id": "9d5735d7-1f17-4801-8dcf-7cac0b7b32b0",
           "exchange": "exchange.ssp-example.com",
-          "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001515", "unit": "accesses" },
+          "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001515", "estimated_quantity": 1, "unit": "accesses" },
           "terms": [
             {
               "semantics": "TERM_SEMANTICS_ENUMERATED",
@@ -179,7 +179,7 @@ When requesting multiple URIs, the response uses `offer_groups` instead of `offe
         {
           "offer_id": "89636cda-93f6-460e-af7f-2b6aef0f491b",
           "exchange": "exchange.ssp-example.com",
-          "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001200", "unit": "accesses" },
+          "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001200", "estimated_quantity": 1, "unit": "accesses" },
           "terms": [
             {
               "semantics": "TERM_SEMANTICS_ENUMERATED",
@@ -211,7 +211,7 @@ When the requester has a subscription, the Exchange includes both per-request an
     {
       "offer_id": "9d5735d7-1f17-4801-8dcf-7cac0b7b32b0",
       "exchange": "exchange.ssp-example.com",
-      "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001515", "unit": "accesses" },
+      "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001515", "estimated_quantity": 1, "unit": "accesses" },
       "terms": [
         {
           "semantics": "TERM_SEMANTICS_ENUMERATED",
@@ -326,7 +326,7 @@ Content-Type: application/json
           "rate": "0.05",
           "currency": "USD",
           "unit_cost": "0.00001515",
-          "estimated_quantity": 3300,
+          "estimated_quantity": 1,
           "unit": "accesses"
         },
         "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
@@ -339,7 +339,7 @@ Content-Type: application/json
               "rate": "0.05",
               "currency": "USD",
               "unit_cost": "0.00001515",
-              "estimated_quantity": 3300,
+              "estimated_quantity": 1,
               "unit": "accesses"
             }
           }
@@ -419,7 +419,7 @@ For batch transactions, use the `items` array:
       "offer": {
         "offer_id": "9d5735d7-1f17-4801-8dcf-7cac0b7b32b0",
         "exchange": "exchange.ssp-example.com",
-        "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001515", "unit": "accesses" },
+        "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001515", "estimated_quantity": 1, "unit": "accesses" },
         "expires_at": "2026-03-14T02:30:00Z",
         "terms": [
           {
@@ -435,7 +435,7 @@ For batch transactions, use the `items` array:
       "offer": {
         "offer_id": "89636cda-93f6-460e-af7f-2b6aef0f491b",
         "exchange": "exchange.ssp-example.com",
-        "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001200", "unit": "accesses" },
+        "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001200", "estimated_quantity": 1, "unit": "accesses" },
         "expires_at": "2026-03-14T02:30:00Z",
         "terms": [
           {

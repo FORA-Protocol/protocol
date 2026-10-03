@@ -5334,6 +5334,34 @@
     }
   },
   {
+    "id": "Pricing/estimate_tolerance_bps/above_max",
+    "message": "Pricing",
+    "valid": false,
+    "rules": [
+      "int32.gte_lte",
+      "pricing.estimate_tolerance.requires_per_unit"
+    ],
+    "json": {
+      "estimate_tolerance_bps": 10001,
+      "model": "PRICING_MODEL_FREE",
+      "rate": "0"
+    }
+  },
+  {
+    "id": "Pricing/estimate_tolerance_bps/below_min",
+    "message": "Pricing",
+    "valid": false,
+    "rules": [
+      "int32.gte_lte",
+      "pricing.estimate_tolerance.requires_per_unit"
+    ],
+    "json": {
+      "estimate_tolerance_bps": -1,
+      "model": "PRICING_MODEL_FREE",
+      "rate": "0"
+    }
+  },
+  {
     "id": "Pricing/model/not_in",
     "message": "Pricing",
     "valid": false,

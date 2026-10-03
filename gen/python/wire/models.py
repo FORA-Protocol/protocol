@@ -1308,9 +1308,13 @@ class Pricing(WireModel):
     currency: str | None = Field(
         '', description='ISO 4217 currency code (e.g. "USD", "EUR").'
     )
+    estimate_tolerance_bps: conint(ge=0, le=10000) | None = Field(
+        None,
+        description='Tolerance on estimated_quantity, in basis points of the estimate: 1000 is\n 10%, 0 is none. It is T in the settlement rule above. A usage report whose\n consumed quantity is within estimated_quantity × (10000 + T) / 10000 is\n charged in full; anything above that ceiling is held for dispute and never\n charged automatically.\n\nAbsent = 1000 (10%). The field is presence-tracked so an explicit 0 — no\n tolerance, the estimate is the ceiling — stays distinct from "the default".\n Basis points rather than a decimal string because the value is a ratio,\n not money, and an integer keeps it exact. Bounded at 10000 (100%, a\n ceiling of twice the estimate). Allowed only on a PER_UNIT price (the\n pricing.estimate_tolerance.requires_per_unit rule). A publisher states it\n on the term it pushes, and the Exchange carries it unchanged onto the\n offer\'s pricing.',
+    )
     estimated_quantity: conint(ge=-2147483648, le=2147483647) | None = Field(
         None,
-        description='Estimated quantity in the metering unit.\n For text: token count. For video: duration in seconds.\n For documents: page count. For data: record count.',
+        description='Estimated quantity in the metering unit (`unit`).\n For text: token count. For video: duration in seconds.\n For documents: page count. For data: record count.\n\nREQUIRED and positive on every metered offer — an Offer whose pricing or\n term is PER_UNIT (see Offer). It is E in the settlement rule above: the\n agent accepts E × rate at purchase, and the estimate with\n estimate_tolerance_bps fixes the ceiling a usage report settles against.\n Without it a metered offer has no amount to accept and no ceiling, so an\n agent refuses one that lacks it. A non-metered price does not need one.\n\n On a LicenseTerm a publisher pushes, the estimate is optional: it describes\n the resource rather than the arrangement, and a publisher may state it once\n on ResourceEntry.estimated_quantity instead. An Exchange that cannot state\n a positive estimate for a PER_UNIT term emits no offer for that term.',
     )
     license_duration_months: conint(ge=-2147483648, le=2147483647) | None = Field(
         None,
@@ -1555,7 +1559,7 @@ class Usage(WireModel):
     )
     consumed_quantity: conint(ge=-2147483648, le=2147483647) | None = Field(
         None,
-        description="REQUIRED. Actual quantity consumed, in the metering unit from the Offer's Pricing.\n For text: tokens consumed. For video: seconds watched. For data: records accessed.\n Exchange cross-references against Offer.pricing.estimated_quantity.",
+        description="REQUIRED. Actual quantity consumed, in the metering unit from the Offer's Pricing.\n For text: tokens consumed. For video: seconds watched. For data: records accessed.\n\nFor a metered (PER_UNIT) transaction this is C in the settlement rule on\n Pricing: it is charged at the offer's rate up to the ceiling the offer's\n estimated_quantity and estimate_tolerance_bps fix, and the quantity above\n that ceiling is held for dispute. The agent reports what it consumed, not\n what it estimated: an Exchange MUST NOT refuse a report because this\n differs from the estimate, in either direction, and MUST NOT charge a\n quantity above the ceiling without a dispute resolving it.",
     )
     consumed_unit: (
         constr(
@@ -1898,7 +1902,7 @@ class Offer(WireModel):
     )
     pricing: Pricing | None = Field(
         None,
-        description='Pricing for this offer. An offer represents a single licensing\n arrangement: each projected LicenseTerm yields its own offer, so this is\n that term\'s pricing (the authoritative copy lives in `terms[].pricing`).\n Used for cross-exchange comparison and Broker ranking. A resource with\n multiple alternative terms (e.g. dual-licensed) produces multiple separate\n offers, one per term — never one offer with a "headline" picked among them.',
+        description='Pricing for this offer. An offer represents a single licensing\n arrangement: each projected LicenseTerm yields its own offer, so this is\n that term\'s pricing (the authoritative copy lives in `terms[].pricing`).\n Used for cross-exchange comparison and Broker ranking. A resource with\n multiple alternative terms (e.g. dual-licensed) produces multiple separate\n offers, one per term — never one offer with a "headline" picked among them.\n\nOn a metered (PER_UNIT) offer this copy MUST carry a positive\n estimated_quantity, and it is the copy a metered purchase settles on: the\n estimate, the rate and the tolerance are read from here (see Pricing and\n the offer.metered.requires_estimate rule above). An Exchange projecting a\n term carries the term\'s estimate_tolerance_bps here unchanged.',
     )
     reporting: ReportingObligation | None = Field(
         None, description='Post-usage reporting requirements for this offer.'
@@ -2157,7 +2161,10 @@ class TransactionResultItem(WireModel):
         '',
         description="Billing record identifier minted by the Exchange's billing adapter for\n this transaction (not the account handle — see RegisterResponse.billing_ref).",
     )
-    cost: Cost | None = Field(None, description='Cost for this item.')
+    cost: Cost | None = Field(
+        None,
+        description="Cost for this item. For a metered (PER_UNIT) item this is the amount the\n agent accepted at purchase: the offer's estimated_quantity × rate. It is\n not the final charge when a usage report follows; the report settles the\n transaction at min(consumed, ceiling) × rate, holding any excess above the\n ceiling for dispute (see Pricing).",
+    )
     delivery_method: (
         constr(pattern=r'^DELIVERY_METHOD_UNSPECIFIED$')
         | DeliveryMethod

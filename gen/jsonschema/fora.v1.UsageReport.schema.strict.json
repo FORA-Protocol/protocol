@@ -52,9 +52,10 @@
         },
         "consumed_quantity": {
           "default": 0,
-          "description": "REQUIRED. Actual quantity consumed, in the metering unit from the Offer's Pricing.\n For text: tokens consumed. For video: seconds watched. For data: records accessed.\n Exchange cross-references against Offer.pricing.estimated_quantity.",
+          "description": "For a metered (PER_UNIT) transaction this is C in the settlement rule on\n Pricing: it is charged at the offer's rate up to the ceiling the offer's\n estimated_quantity and estimate_tolerance_bps fix, and the quantity above\n that ceiling is held for dispute. The agent reports what it consumed, not\n what it estimated: an Exchange MUST NOT refuse a report because this\n differs from the estimate, in either direction, and MUST NOT charge a\n quantity above the ceiling without a dispute resolving it.",
           "maximum": 2147483647,
           "minimum": -2147483648,
+          "title": "REQUIRED. Actual quantity consumed, in the metering unit from the Offer's Pricing.\n For text: tokens consumed. For video: seconds watched. For data: records accessed.",
           "type": "integer"
         },
         "consumed_unit": {
@@ -110,7 +111,7 @@
   "$id": "fora.v1.UsageReport.schema.strict.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Filed by the agent or Broker after resource is used.\n Failure to report may result in the Exchange blocking subsequent access.",
+  "description": "Filed by the agent or Broker after resource is used.\n Failure to report may result in the Exchange blocking subsequent access.\n\n For a metered (PER_UNIT) transaction the report settles the purchase. With\n E the offer's estimated_quantity, T its estimate_tolerance_bps (1000 when\n absent), R its rate and C this report's Usage.consumed_quantity, the ceiling\n is Q = E × (10000 + T) / 10000 and:\n   - C at or below Q (including C below E) is charged C × R;\n   - C above Q is charged Q × R, and the excess (C − Q) × R is held for\n     dispute and never charged automatically.\n The full rule is on Pricing. The Exchange accepts such a report: a consumed\n quantity that differs from the estimate is never a reason to refuse it.",
   "properties": {
     "assets": {
       "description": "Assets that were delivered and used.",
