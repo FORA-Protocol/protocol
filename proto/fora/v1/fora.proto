@@ -2788,12 +2788,11 @@ enum DenialReason {
   // agent converges without fetching a manifest first.
   DENIAL_REASON_ACCOUNT_NOT_REGISTERED = 18;         // no account exists for this caller at this Exchange — the remedy is to call Register
 
-  // The provider of this item's resource, the seller of that resource at this
-  // Exchange, does not accept purchases relayed by a Broker
-  // (BrokerService.ExecuteTransaction). Decided PER ITEM, by each offer's own
-  // provider, and answered in the body on that item's denial_reason: other
-  // items in the same sub-request, sold by providers that accept relayed
-  // purchases, may succeed. It is never a refusal of the whole sub-request, and
+  // The provider that sells this item's resource at this Exchange does not
+  // accept purchases relayed by a Broker (BrokerService.ExecuteTransaction).
+  // Decided PER ITEM, by each offer's own provider, and answered in the body on
+  // that item's denial_reason: other items in the same sub-request, sold by
+  // providers that accept relayed purchases, may succeed. It is never a refusal of the whole sub-request, and
   // an Exchange MUST NOT send it as ErrorDetail.transaction_denial. The remedy is
   // to buy this offer directly, calling ExchangeService.ExecuteTransaction at
   // offer.exchange.
