@@ -94,7 +94,7 @@ describe("RawBody", () => {
 		expect((failure as ForaCallError).kind).toBe("not_sent");
 	});
 
-	it("replaces the offers of a purchase, and verifies no delivery", async () => {
+	it("replaces the offers of a purchase", async () => {
 		const answer = {
 			ver: "1.0",
 			items: [{ offer_id: "o-1", transaction_id: "tx-1", retrieval_endpoint: "https://edge.test/x" }],
@@ -107,11 +107,10 @@ describe("RawBody", () => {
 		);
 		expect(peer.only().body).toBe('{"items":[]}');
 		expect(result.items?.[0]?.transaction_id).toBe("tx-1");
-		expect(result.deliveries).toEqual([]);
 		const broker = await createBrokerClient("https://broker.test", options).execute(
 			new RawBody("{}"),
 		);
-		expect(broker.deliveries).toEqual([]);
+		expect(broker.ver).toBe("1.0");
 	});
 
 	it("passes through the pre-signing hook", async () => {

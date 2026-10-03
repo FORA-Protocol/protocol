@@ -22,8 +22,7 @@
  * getAccountStatus) still reads it from the body, parsed as JSON, and resolves it through
  * that Exchange's manifest as usual: the destination of a signed request is not a property
  * of the message to waive. A body with no usable `exchange` is refused as `not_sent`,
- * because there is nothing to dial. `execute` in raw mode decodes the reply and verifies
- * no delivery URL: there are no verified offers to tie them to.
+ * because there is nothing to dial.
  */
 export class RawBody {
 	constructor(readonly body: Uint8Array | string | unknown) {}

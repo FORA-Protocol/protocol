@@ -51,9 +51,10 @@ contract does not define; a refused envelope is `malformed` with `code` kept. A 
 FORA services through the client has three more seams on it: `beforeSign` alters a
 request just before it is signed, a `RawBody` passed in place of a verb's request is sent
 exactly as given, and `ForaCallError.code` carries the Connect code of a refusal next to
-its typed `detail`. `execute` and `fetch` verify a delivery URL's signature, agent binding
-and expiry against the issuing Exchange's key directory before handing it back or dialling
-it. `createAdminClient` covers the operator RPCs, and `@fora-protocol/sdk/identity` mints an
+its typed `detail`. `execute` returns each delivery URL as the Exchange issued it, and
+`fetch` dials it as given with the agent's proof of possession: the delivery edge verifies
+the URL, and its refusal comes back with the edge's `retrieval_auth_failure` reason.
+`createAdminClient` covers the operator RPCs, and `@fora-protocol/sdk/identity` mints an
 agent key, its key directory and a signer.
 
 `@fora-protocol/sdk/resolvers` reads and checks the documents a party publishes:

@@ -16,7 +16,6 @@ import { MAX_BODY_DEPTH, rawNestingDepth } from "../src/jsondepth.ts";
 import { RequestIDHeader } from "../src/wire.ts";
 import { IDENTITY_ENCODING, refuseUnrequestedEncoding } from "./transport.ts";
 import { requireScheme, skipSSRF, ssrfGuard } from "../resolvers/http.ts";
-import type { Delivery } from "./delivery.ts";
 import { ForaCallError } from "./errors.ts";
 import { concat, reclaim } from "./send.ts";
 
@@ -76,9 +75,6 @@ export interface Content {
 	mimeType: string;
 	/** The fetched bytes. */
 	body: Uint8Array;
-	/** The binding the client verified before fetching: present when the URL was checked
-	 * against the Exchange that issued it, absent for a URL fetched as given. */
-	binding?: Delivery;
 }
 
 /** What the content leg needs to mint one proof and dial once. */
@@ -109,9 +105,8 @@ export interface ContentFetchOptions {
  * which the edge's own check rejects, or hand a fresh proof of possession of the agent's
  * key to whatever host the first hop named.
  *
- * The URL is taken as given at this tier. The client's fetch verb verifies it first —
- * signature, binding to this agent, expiry — when it knows the Exchange that issued it,
- * which turns an edge 403 into a local answer before a proof is minted for the URL.
+ * The URL is taken as given. Verifying it is the delivery edge's job: the edge checks the
+ * URL signature and, where it can, the agent binding against the proof presented here.
  */
 export async function fetchContent(
 	signedURL: string,

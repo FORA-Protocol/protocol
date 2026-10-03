@@ -28,7 +28,6 @@ import { registrationFailureDetail } from "../src/errordetail.ts";
 import { checkAudience, hostOf } from "../src/hosts.ts";
 import { generateIdempotencyKey } from "../src/idempotency.ts";
 import { ProtocolVersion } from "../src/wire.ts";
-import { thumbprint } from "../src/thumbprint.ts";
 import {
 	BrokerTransactionResponseSchema,
 	DiscoveryRequestSchema,
@@ -53,7 +52,6 @@ import {
 	UsageReportResponseSchema,
 } from "../../../gen/ts/wire/schemas.ts";
 import { type Content, fetchContent } from "./content.ts";
-import { type Delivery, verifyDelivery } from "./delivery.ts";
 import { malformed, notSent, ForaCallError } from "./errors.ts";
 import { checkRegistrationData } from "../src/regschema.ts";
 import {
@@ -106,24 +104,6 @@ export type UsageReportResponse = z.infer<typeof UsageReportResponseSchema>;
 export type DisputeResponse = z.infer<typeof DisputeResponseSchema>;
 
 /**
- * A purchase's answer together with the delivery URLs this client verified.
- *
- * `deliveries` has one entry per result item, in item order: the verified binding of the
- * item's retrieval_endpoint, or undefined for an item that carries none (denied,
- * refused, or not delivered by signed URL). It is defined non-enumerable, so the object
- * still serializes as the wire message; it is empty when nothing was verified — a raw
- * call, or `deliveryVerification: "off"`.
- */
-export type ExecuteResult = TransactionResponse & {
-	readonly deliveries: readonly (Delivery | undefined)[];
-};
-/** The Broker's combined answer with the delivery URLs this client verified; see
- * {@link ExecuteResult}. */
-export type BrokerExecuteResult = BrokerTransactionResponse & {
-	readonly deliveries: readonly (Delivery | undefined)[];
-};
-
-/**
  * The request types a verb accepts, inferred from the generated schemas: the shape a
  * caller writes, with every defaulted field optional. Each verb also takes a plain record
  * (the same object, untyped) and a RawBody. There is no `toWire`: an object of one of
@@ -143,22 +123,16 @@ export type RefreshCatalogRequest = z.input<typeof RefreshCatalogRequestSchema>;
  * RawBody sent as given. */
 type Request<T> = T | Record<string, unknown> | RawBody;
 
-/** Where fetch verifies a delivery URL. */
-export interface FetchOptions {
-	/** The Exchange that issued the URL. When set, the URL is verified against that
-	 * Exchange's URL-signing key before anything is sent. */
-	exchange?: string;
-}
-
 /** The agent-facing Exchange client. */
 export interface Client {
 	discover(query: Request<ResourceQuery>): Promise<DiscoveryResult>;
-	/** Buy one offer, or several issued by ONE Exchange, in one request. Every retrieval
-	 * URL in the answer is verified before it is returned. */
+	/** Buy one offer, or several issued by ONE Exchange, in one request. The retrieval
+	 * URLs in the answer are returned as the Exchange issued them; the delivery edge
+	 * verifies them. */
 	execute(
 		offer: VerifiedOffer | readonly VerifiedOffer[] | RawBody,
 		opts?: CallOptions,
-	): Promise<ExecuteResult>;
+	): Promise<TransactionResponse>;
 	reportUsage(report: Request<UsageReport>, opts?: CallOptions): Promise<UsageReportResponse>;
 	dispute(request: Request<DisputeRequest>, opts?: CallOptions): Promise<DisputeResponse>;
 	/** Create this agent's account at the Exchange the request names. Takes no
@@ -168,21 +142,21 @@ export interface Client {
 	/** Read whether this agent's account at the named Exchange is active. An empty
 	 * `billing_ref` is a NORMAL answer — no account there yet. */
 	getAccountStatus(request: Request<GetAccountStatusRequest>): Promise<GetAccountStatusResponse>;
-	/** Fetch what a delivery URL names. Given a Delivery, or a URL and the Exchange that
-	 * issued it, the URL is verified first and the result carries the binding. */
-	fetch(signedURL: string | Delivery, opts?: FetchOptions): Promise<Content>;
+	/** Fetch what a delivery URL names, presenting the agent's proof of possession. The URL
+	 * is taken as given; the delivery edge verifies it. */
+	fetch(signedURL: string): Promise<Content>;
 }
 
 /** The Broker client. */
 export interface BrokerClient {
 	resolve(request: Request<DiscoveryRequest>): Promise<DiscoveryResult>;
 	/** Buy offers from any number of Exchanges in one call; the Broker re-packages the
-	 * purchase into one sub-request per Exchange (BrokerService.ExecuteTransaction).
-	 * Every retrieval URL in the answer is verified against the Exchange that issued it. */
+	 * purchase into one sub-request per Exchange (BrokerService.ExecuteTransaction). The
+	 * retrieval URLs in the answer are returned as each Exchange issued them. */
 	execute(
 		offers: readonly VerifiedOffer[] | RawBody,
 		opts?: CallOptions,
-	): Promise<BrokerExecuteResult>;
+	): Promise<BrokerTransactionResponse>;
 }
 
 /**
@@ -202,7 +176,7 @@ export function createClient(baseURL: string, options: ClientOptions = {}): Clie
 		dispute: (request, opts) => dispute(r, request, opts ?? {}),
 		register: (request) => register(r, request),
 		getAccountStatus: (request) => getAccountStatus(r, request),
-		fetch: (signedURL, opts) => fetchVerb(r, signedURL, opts ?? {}),
+		fetch: (signedURL) => fetchVerb(r, signedURL),
 	};
 }
 
@@ -452,11 +426,11 @@ async function execute(
 	baseURL: string,
 	offer: VerifiedOffer | readonly VerifiedOffer[] | RawBody,
 	opts: CallOptions,
-): Promise<ExecuteResult> {
+): Promise<TransactionResponse> {
 	const op = "execute";
 	if (offer instanceof RawBody) {
 		const raw = await call(r, op, baseURL, EXCHANGE_SERVICE, "ExecuteTransaction", offer, false, "fora.v1.TransactionResponse");
-		return withDeliveries(parseMessage<TransactionResponse>(op, raw, TransactionResponseSchema), []);
+		return parseMessage<TransactionResponse>(op, raw, TransactionResponseSchema);
 	}
 	const offers: readonly VerifiedOffer[] = isOfferList(offer) ? offer : [offer];
 	requireOneExchange(op, offers);
@@ -472,12 +446,7 @@ async function execute(
 		false,
 		"fora.v1.TransactionResponse",
 	);
-	const msg = parseMessage<TransactionResponse>(op, raw, TransactionResponseSchema);
-	const items = (msg.items ?? []) as ResultItem[];
-	return withDeliveries(
-		msg,
-		await verifyDeliveries(r, op, offers, items, () => msg.agent_identity_hash ?? ""),
-	);
+	return parseMessage<TransactionResponse>(op, raw, TransactionResponseSchema);
 }
 
 /**
@@ -509,14 +478,11 @@ async function brokerExecute(
 	baseURL: string,
 	offers: readonly VerifiedOffer[] | RawBody,
 	opts: CallOptions,
-): Promise<BrokerExecuteResult> {
+): Promise<BrokerTransactionResponse> {
 	const op = "broker execute";
 	if (offers instanceof RawBody) {
 		const raw = await call(r, op, baseURL, BROKER_SERVICE, "ExecuteTransaction", offers, false, "fora.v1.BrokerTransactionResponse");
-		return withDeliveries(
-			parseMessage<BrokerTransactionResponse>(op, raw, BrokerTransactionResponseSchema),
-			[],
-		);
+		return parseMessage<BrokerTransactionResponse>(op, raw, BrokerTransactionResponseSchema);
 	}
 	if (r.opts.requester === undefined) {
 		throw malformed(
@@ -538,91 +504,7 @@ async function brokerExecute(
 		false,
 		"fora.v1.BrokerTransactionResponse",
 	);
-	const msg = parseMessage<BrokerTransactionResponse>(op, raw, BrokerTransactionResponseSchema);
-	const items = (msg.items ?? []) as ResultItem[];
-	// Each Exchange bound its own items, and states the binding on its own outcome.
-	const outcomes = (msg.exchanges ?? []) as { exchange?: string; agent_identity_hash?: string }[];
-	return withDeliveries(
-		msg,
-		await verifyDeliveries(r, op, offers, items, (exchange) =>
-			outcomes.find((o) => o.exchange === exchange)?.agent_identity_hash ?? "",
-		),
-	);
-}
-
-/** The result-item members delivery verification reads. */
-interface ResultItem {
-	offer_id?: string;
-	transaction_id?: string;
-	retrieval_endpoint?: string;
-	denial_reason?: string;
-	refusal?: unknown;
-}
-
-/**
- * verifyDeliveries checks every retrieval_endpoint in a purchase answer against the
- * Exchange that issued the matching offer, and returns the verified bindings in item
- * order. Item i answers request item i; when the counts differ the item is matched to its
- * offer by offer_id instead. `stated` gives the agent_identity_hash the answer stated for
- * an Exchange.
- */
-async function verifyDeliveries(
-	r: Resolved,
-	op: string,
-	offers: readonly VerifiedOffer[],
-	items: readonly ResultItem[],
-	stated: (exchange: string) => string,
-): Promise<(Delivery | undefined)[]> {
-	if ((r.opts.deliveryVerification ?? "strict") === "off") return [];
-	const agent = await agentThumbprint(r);
-	const now = r.opts.now ?? (() => Date.now());
-	const out: (Delivery | undefined)[] = [];
-	for (const [i, item] of items.entries()) {
-		const url = item.retrieval_endpoint;
-		if (typeof url !== "string" || url === "" || item.denial_reason !== undefined || item.refusal !== undefined) {
-			out.push(undefined);
-			continue;
-		}
-		const matched =
-			offers.length === items.length
-				? offers[i]
-				: offers.find((o) => stringField(offerRecord(o), "offer_id") === item.offer_id);
-		const exchange = matched === undefined ? "" : stringField(offerRecord(matched), "exchange");
-		out.push(
-			await verifyDelivery(url, {
-				op,
-				subject: `item ${i} (transaction ${JSON.stringify(item.transaction_id ?? "")})`,
-				exchange,
-				agent,
-				stated: stated(exchange),
-				keys: r.deliveryKeys,
-				now,
-			}),
-		);
-	}
-	return out;
-}
-
-/** This agent's identity as a delivery URL binds it: the thumbprint of the configured
- * public key, or the signer's keyid, which the protocol defines as that thumbprint. */
-async function agentThumbprint(r: Resolved): Promise<string | undefined> {
-	if (r.opts.agentPublicKey !== undefined) {
-		const raw = new Uint8Array(await crypto.subtle.exportKey("raw", r.opts.agentPublicKey));
-		return thumbprint(raw);
-	}
-	return r.opts.signer?.keyid;
-}
-
-/** Attach the verified bindings without making them part of the wire message. */
-function withDeliveries<T extends object>(
-	msg: T,
-	deliveries: (Delivery | undefined)[],
-): T & { readonly deliveries: readonly (Delivery | undefined)[] } {
-	Object.defineProperty(msg, "deliveries", {
-		value: Object.freeze(deliveries),
-		enumerable: false,
-	});
-	return msg as T & { readonly deliveries: readonly (Delivery | undefined)[] };
+	return parseMessage<BrokerTransactionResponse>(op, raw, BrokerTransactionResponseSchema);
 }
 
 function isOfferList(
@@ -1138,24 +1020,17 @@ async function applyRegistrationRequirements(
  * does not discover, select, buy or report — that orchestration is a separate, higher
  * tier.
  *
- * Given a Delivery — what execute verified — or a URL plus the Exchange that issued it,
- * the URL is verified before anything is sent: its signature against that Exchange's
- * URL-signing key, its binding to this agent, its expiry. A URL that does not verify is
- * refused as `malformed` with a retrieval_auth_failure detail, and the returned Content
- * carries the verified binding. A bare URL with no Exchange is fetched as given, with no
- * binding, as it is under `deliveryVerification: "off"`.
+ * The URL is taken as given. Verifying it is the delivery edge's job: the edge checks the
+ * URL signature and, where it can, the agent binding against the proof presented here. An
+ * edge that cannot check the binding (CloudFront with its pre-arranged RSA key pair)
+ * checks its own signature and treats the URL as a bearer token. An edge refusal comes
+ * back as a ForaCallError carrying a retrieval_auth_failure detail with the edge's reason.
  *
  * It takes no CallOptions: a fetch is a GET against an already-issued URL, so there is no
  * idempotency key to pin — nothing on this path mutates state.
  */
-async function fetchVerb(
-	r: Resolved,
-	target: string | Delivery,
-	opts: FetchOptions,
-): Promise<Content> {
+async function fetchVerb(r: Resolved, signedURL: string): Promise<Content> {
 	const op = "fetch content";
-	const signedURL = typeof target === "string" ? target : target.url;
-	const exchange = typeof target === "string" ? opts.exchange : target.exchange;
 	if (r.opts.signer === undefined) {
 		throw new ForaCallError({
 			kind: "not_signable",
@@ -1176,19 +1051,7 @@ async function fetchVerb(
 			),
 		});
 	}
-	let binding: Delivery | undefined;
-	if (exchange !== undefined && (r.opts.deliveryVerification ?? "strict") === "strict") {
-		binding = await verifyDelivery(signedURL, {
-			op,
-			subject: "the delivery URL",
-			exchange,
-			agent: await agentThumbprint(r),
-			stated: undefined,
-			keys: r.deliveryKeys,
-			now: r.opts.now ?? (() => Date.now()),
-		});
-	}
-	const content = await fetchContent(signedURL, {
+	return fetchContent(signedURL, {
 		// One private key, held by the signer. The public half rides alongside because
 		// custody keeps the private one and a CryptoKey cannot be asked for its pair.
 		keyPair: { privateKey: r.opts.signer.privKey, publicKey: r.opts.agentPublicKey },
@@ -1205,7 +1068,6 @@ async function fetchVerb(
 			: {}),
 		...(r.opts.requestId !== undefined ? { requestId: r.opts.requestId } : {}),
 	});
-	return binding === undefined ? content : { ...content, binding };
 }
 
 // ---------------------------------------------------------------------------
@@ -1308,7 +1170,6 @@ async function catalogCall<T>(
 export { ForaCallError } from "./errors.ts";
 export type { CallErrorKind } from "./errors.ts";
 export type { Content } from "./content.ts";
-export type { Delivery, DeliveryKeyResolver } from "./delivery.ts";
 export type { EndpointResolver } from "./route.ts";
 export type { CallOptions, ClientOptions, RegistrationRequirementsReader } from "./options.ts";
 export { RawBody } from "./raw.ts";

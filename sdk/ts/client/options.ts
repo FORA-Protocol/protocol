@@ -6,11 +6,9 @@
 import { createVerifier, type Mode, type Verifier } from "../core/verifier.ts";
 import type { Window } from "../core/window.ts";
 import {
-	createWBAKeyResolver,
 	createWellKnownRequirementsReader,
 	type RegistrationRequirements,
 } from "../resolvers/index.ts";
-import type { DeliveryKeyResolver } from "./delivery.ts";
 import type { EndpointResolver } from "./route.ts";
 import { createUnarySend } from "./send.ts";
 import { refuseUnlessStrict } from "./strict.ts";
@@ -129,8 +127,7 @@ export interface ClientOptions {
 	callTimeoutMs?: number;
 	contentTimeoutMs?: number;
 	maxContentBytes?: number;
-	/** The clock the offer Verifier reads, in epoch milliseconds. Delivery verification
-	 * reads it too, for a retrieval URL's expiry. */
+	/** The clock the offer Verifier reads, in epoch milliseconds. */
 	now?: () => number;
 	/** Called with every RPC request just before it is signed; the request it returns is
 	 * what gets signed and sent. See {@link BeforeSign}. */
@@ -145,14 +142,6 @@ export interface ClientOptions {
 	 * Defaults to false: the generated schemas drop unknown fields, which keeps a client
 	 * working against a newer Exchange. */
 	strict?: boolean;
-	/** Resolves an Exchange's URL-signing key for delivery verification. Defaults to the
-	 * WBA resolver over the SSRF-guarded transport, built once with this client: the keys
-	 * come from the issuing Exchange's own key directory. */
-	deliveryKeys?: DeliveryKeyResolver;
-	/** Whether execute and fetch verify a retrieval URL's signature, agent binding and
-	 * expiry. Defaults to "strict"; "off" skips it — for a site whose delivery URLs use a
-	 * scheme other than the protocol's Ed25519 signed URL. */
-	deliveryVerification?: Mode;
 }
 
 /** Tunes a single state-mutating call. */
@@ -182,9 +171,6 @@ export interface Resolved {
 	 * one per registration and close none. */
 	requirements: RegistrationRequirementsReader;
 	signer: CallSigner | undefined;
-	/** The delivery-key seam, default built once with the client for the reason the
-	 * requirements reader is. */
-	deliveryKeys: DeliveryKeyResolver;
 }
 
 export function resolve(opts: ClientOptions): Resolved {
@@ -214,7 +200,6 @@ export function resolve(opts: ClientOptions): Resolved {
 		requirements:
 			opts.registrationRequirements ?? createWellKnownRequirementsReader(),
 		signer,
-		deliveryKeys: opts.deliveryKeys ?? createWBAKeyResolver(),
 	};
 }
 
