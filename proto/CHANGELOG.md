@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+**Published JSON Schemas, with a strict variant (no wire change).** The SDK build
+already generated a JSON Schema per message from `fora.proto` and discarded it after
+generating the Pydantic and Zod models. Those schemas are now release artifacts under
+`gen/jsonschema/`: one self-contained draft 2020-12 file per message of `fora.v1` and
+`fora.admin.v1`, named by the fully-qualified message name, in two variants.
+`fora.v1.ResourceResponse.schema.json` accepts unknown fields;
+`fora.v1.ResourceResponse.schema.strict.json` sets `additionalProperties: false` on every
+message object at every depth, so a conformance check fails on an unknown or misspelled
+field.
+
+- Shipped in all three packages: the Go module as the `gen/jsonschema/` directory, with
+  `jsonschema.Load(name, strict)` and `jsonschema.FS` in package
+  `github.com/FORA-Protocol/protocol/gen/jsonschema`; `fora-protocol` on PyPI as package
+  data, read with `wire.schemas.load(name, strict=False)` and listed by
+  `wire.schemas.names()`; `@fora-protocol/sdk` on npm under the export path
+  `./jsonschema/*`.
+- The schemas describe canonical proto-JSON. Field names are the snake_case proto names,
+  and the lowerCamel aliases the generator emits are dropped, so a camelCase key is an
+  unknown field. `google.protobuf.Struct` (every `ext`) stays open in the strict variant.
+  A 64-bit integer accepts a decimal string or a JSON integer, with its bound applied to
+  both forms; other numbers are JSON numbers only, so a string cannot carry a value past
+  a numeric bound.
+- They carry the per-field `buf.validate` constraints, and mark `required` every field
+  whose zero value its own rule rejects. Cross-field rules and oneof exclusivity are not
+  expressible per field and are not in the schemas.
+- The drift gate regenerates and compares them like the generated code. A Go conformance
+  test checks them against the descriptors, and both variants must match Go
+  protovalidate on every case of the conformance corpus, in Python and in TypeScript.
+
 **The Broker buys: `BrokerService.ExecuteTransaction` (additive wire change).**
 A purchase of offers from several Exchanges is now one call to the Broker. Before
 this change `BrokerService` had only `Resolve`, and the contract described the
