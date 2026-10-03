@@ -11,7 +11,7 @@ The FORA Broker is the optional demand-side router in the FORA protocol. It sits
 
 - **Multi-exchange comparison** -- fan out DiscoverResources to N Exchanges, pick cheapest
 - **Multi-exchange purchase** -- buy offers from several Exchanges in one `BrokerService.ExecuteTransaction` call, with the results combined in request order
-- **Budget enforcement** -- per-request, per-session, per-Exchange cumulative tracking
+- **Budget filtering** -- `Resolve` drops offers that would exceed the agent's budget (per offer, per session, per period) and answers a URI left with none with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`; spend grows only from purchase totals
 - **Resource deduplication** -- same article from two Exchanges, compare price
 - **Attestation-aware selection (v1.0)** -- prefer offers with higher attestation levels (Level 2 > Level 1 > Level 0)
 - **Reporting relay** -- forward UsageReports to the correct Exchange, track `report_id` for dispute chain
@@ -56,7 +56,7 @@ graph TB
 | **Exchange Registry** | Knows which Exchanges exist and their health status. Bootstraps from [Exchange Manifest](/protocol/exchange-manifest/) (`/.well-known/fora.json`) instead of HEAD probes -- extracting endpoints, capabilities, and accepted verifiers in a single fetch | Long-lived, refreshed periodically |
 | **Supply Discovery** | Fans out DiscoverResources RPCs to N Exchanges concurrently | Per-request, stateless |
 | **Selection Engine** | Deduplicates, ranks, filters, and selects the best offer | Per-request, stateless |
-| **Budget Tracker** | Tracks cumulative spend per session/period and enforces limits | Per-session in-memory, per-period in Redis |
+| **Budget Tracker** | Tracks spend per session/period from purchase totals, and filters out offers that would exceed the budget | Per-session in-memory, per-period in Redis |
 | **Reporting Relay** | Forwards UsageReports to the winning Exchange, tracks obligations | Per-transaction, short-lived |
 
 ## Internal Call Flow
@@ -114,16 +114,16 @@ The Broker re-packages the agent's purchase. What holds the set together is `Tra
 1. The agent signs one `AgentAcceptance` per offer and one `AgentRequestAcceptance` over every selected offer, in order, across all Exchanges, and sends the request to the Broker, RFC 9421-signed for the Broker's URL. The request terminates at the Broker.
 2. The Broker verifies the agent's signature and checks that `requester.domain` is the agent's verified signing directory (the host of the WBA directory the covered `Signature-Agent` header names). It checks that every item's Exchange is one it can route to and approves for purchases. It refuses anything else before it sends a single sub-request.
 3. It groups the items by `offer.exchange` and sends one `ExchangeService.ExecuteTransaction` to each Exchange. Each sub-request is a new HTTP request the Broker authors and signs with **its own** key. It carries only the items addressed to that Exchange, in request order, with their acceptances, plus the **unchanged** `AgentRequestAcceptance`, `requester` and idempotency key. See [Projected execute requests](/protocol/authentication/#projected-execute-requests) for who signs what and how the Exchange resolves the acceptance verification key.
-4. Each Exchange verifies the acceptance signatures and requires its sub-request to equal the complete in-order projection of the signed set addressed to itself — so the Broker cannot drop, reorder, append, or split the items for that Exchange without being refused.
+4. Each Exchange verifies the acceptance signatures and requires its sub-request to equal the complete in-order projection of the signed set addressed to itself — so the Broker cannot drop, reorder, append, or split the items for that Exchange without that Exchange seeing it. A sub-request that is not that projection has every item denied with `DENIAL_REASON_SIGNATURE_INVALID`, in the body, and nothing is bought.
 5. The Broker combines the answers into one `BrokerTransactionResponse`: one result per request item in request order, one `ExchangeOutcome` per Exchange contacted, and charged totals per currency.
 
 **Why re-packaging is safe.** Each item is atomic and its integrity is per resource. Each offer carries its own Exchange's signature, each acceptance binds the agent to that one offer, and each item's result comes from the Exchange that owns the resource. The Broker therefore assembles independent per-resource purchases. It cannot alter any of them without breaking that item's Exchange signature or the agent's acceptance, and no cross-item integrity is needed. In a result item, the one signed value is the `retrieval_endpoint`, signed by the issuing Exchange; the other fields are the Broker's unsigned report of what each Exchange answered.
 
-**Upstream refusals ride in the body.** An Exchange that refuses the Broker's whole sub-request, or does not answer it, never becomes an error of the Broker's own. Each affected item carries `TransactionResultItem.refusal` — the Exchange, the Connect code it answered with, and its `ErrorDetail` unchanged — and the other Exchanges' results come back unchanged. `DENIAL_REASON_CONTENT_UNAVAILABLE` is never used as a catch-all for an upstream failure. An item whose provider does not accept relayed purchases is denied with `DENIAL_REASON_RELAY_NOT_ACCEPTED`, and the agent buys that offer directly.
+**Upstream refusals ride in the body.** An Exchange that refuses the Broker's whole sub-request, or does not answer it, never becomes an error of the Broker's own. Each affected item carries `TransactionResultItem.refusal` — the Exchange, the Connect code it answered with, and its `ErrorDetail` unchanged — and the other Exchanges' results come back unchanged. `DENIAL_REASON_CONTENT_UNAVAILABLE` is never used as a catch-all for an upstream failure. Every per-item denial is the Exchange's result item, in the body, also for a one-item sub-request. Whether relayed purchases are accepted is decided per item, by the provider of each offer's resource: an item whose provider does not accept them is denied with `DENIAL_REASON_RELAY_NOT_ACCEPTED`, the other items of the sub-request may succeed, and the agent buys that offer directly.
 
 **The Broker's own refusals** are non-OK errors with an `ErrorDetail`: `unauthenticated` with `request_auth_failure` for a bad agent signature, and `SIGNATURE_INVALID` for a `requester.domain` that is not the signing directory; `invalid_argument` for a malformed request; `failed_precondition` for an Exchange it cannot route to or does not approve.
 
-**Idempotency.** The Broker forwards the agent's `idempotency_key` unchanged to every Exchange; it cannot change it, because the acceptances sign it. A retry through the Broker therefore reaches each Exchange as a replay and is answered from that Exchange's stored result.
+**Idempotency.** The Broker forwards the agent's `idempotency_key` unchanged to every Exchange; it cannot change it, because the acceptances sign it. A retry through the Broker therefore reaches each Exchange as a replay and is answered from that Exchange's stored result. Each Exchange scopes the key per (Broker, requester), so two agents behind one Broker never collide, and refuses the same key with different items with `already_exists`.
 
 **Delegation.** The Broker is the wire signer of every sub-request, so each Exchange checks a delegation's `cnf.jkt` against the key the item's `AgentAcceptance` verifies under, not against the Broker. The agent does not need to delegate to the Broker.
 
@@ -371,7 +371,7 @@ sequenceDiagram
 | **Broker is optional** | Agents can query Exchanges directly. The Broker adds multi-exchange intelligence but is not required by the protocol. |
 | **Same protocol, re-packaged purchases** | The Exchange answers the same RPCs whoever calls. A purchase the Broker relays is signed by the Broker, and the Exchange verifies the agent's consent from the body acceptances. |
 | **Signed offer pass-through** | Exchange signatures cover pricing fields. The Broker cannot inflate prices without invalidating the signature. |
-| **Advisory budget enforcement** | The Broker pre-filters transactions by budget, but the Exchange is the authoritative enforcement point. No overspend occurs because the Exchange is the gatekeeper. |
+| **Budget as an offer filter** | `Resolve` drops offers that would exceed the agent's budget and reports `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED` when none remain. It never charges, and spend grows only from purchase totals. The Exchange's balance check stays the authoritative gate on what is charged. |
 | **Ed25519 + forwarding signature stack** | Requester signs the HTTP request with an RFC 9421 HTTP Message Signature (covering `@method`/`@target-uri`/`content-digest`); Broker adds one labeled RFC 9421 HTTP Message Signature (covering the request plus the prior hop's signature) to the header stack. Exchange verifies both layers and counts hops against `max_hops` / `max_intermediary_hops`. Public keys discoverable via the WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`). |
 | **Partial results are normal** | If 3 of 5 Exchanges respond within the deadline, the Broker proceeds with 3 responses. Availability of any individual Exchange does not block the system. |
 

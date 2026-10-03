@@ -296,19 +296,9 @@ graph TD
 
 ### Idempotency
 
-The Broker generates deterministic idempotency keys for `TransactionRequest.idempotency_key`:
+The Broker never generates `TransactionRequest.idempotency_key`. The key is the agent's, and the Broker forwards it unchanged on every sub-request: it cannot do otherwise, because each `AgentAcceptance` and the `AgentRequestAcceptance` sign it.
 
-```go
-func transactionRequestID(requestID string, offerID string) string {
-    h := sha256.New()
-    h.Write([]byte(requestID))
-    h.Write([]byte(":"))
-    h.Write([]byte(offerID))
-    return "txreq-" + hex.EncodeToString(h.Sum(nil))[:16]
-}
-```
-
-If the agent retries the same request (same `X-Request-ID` and offer), the Broker regenerates the same `TransactionRequest.idempotency_key`, which the Exchange recognizes as a duplicate.
+Each Exchange scopes a relayed key per (Broker, requester the acceptances authenticate), so two agents behind one Broker that choose the same key do not collide. When the agent retries the same purchase with the same key, each Exchange recognizes a replay of its sub-request and answers from its stored result. When a key is reused with different items, or the same items in another order, the Exchange refuses the sub-request with `already_exists`, and the Broker reports that refusal on each affected item's `refusal`.
 
 ## Scaling Considerations
 
@@ -359,7 +349,7 @@ The Broker exposes Prometheus-compatible metrics at `/metrics`:
 | `broker_winning_unit_cost` | Histogram | unit_cost of the selected offer |
 | `broker_unit_cost_savings_ratio` | Histogram | Runner-up vs winning unit_cost |
 | `broker_budget_utilization_ratio` | Histogram | Session budget utilization |
-| `broker_budget_exhausted_total` | Counter | Budget exhaustion rejections |
+| `broker_budget_exhausted_total` | Counter | URIs answered with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED` because the budget left no offer |
 | `broker_reporting_obligations_total` | Counter | Reporting obligations by status |
 | `broker_request_latency_seconds` | Histogram | Total DiscoveryRequest handling time |
 | `broker_requests_total` | Counter | Total DiscoveryRequests handled |

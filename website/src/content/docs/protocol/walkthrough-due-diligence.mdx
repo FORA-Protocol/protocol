@@ -504,7 +504,7 @@ The Broker collects all 6 `ResourceResponse` results and builds an aggregate cos
 └─────────────────────────────────────────────────────────┴──────────┘
 ```
 
-**Budget check passes**: $85.39 < $1,500.00 available. The Broker proceeds to execute transactions.
+**Budget check passes**: $85.39 < $1,500.00 available. Prior spend comes only from earlier purchases; collecting these offers added nothing to it. The Broker proceeds to execute transactions.
 
 **What the Broker verified before proceeding:**
 1. **Freshness**: Credit report `data_as_of` (today 06:00) is within `max_data_age` (7 days)
@@ -801,7 +801,7 @@ The Broker files a `UsageReport` for every transaction, to every Exchange. All r
 }
 ```
 
-*Reports for property records (consumed_unit: "records"), SEC filings (consumed_unit: "tokens"), news articles (consumed_unit: "tokens"), and patents (consumed_unit: "tokens") follow the same pattern — each targeting its respective Exchange.*
+*Reports for property records (consumed_unit: "records"), SEC filings (consumed_unit: "tokens"), news articles (consumed_unit: "accesses", one per article), and patents (consumed_unit: "tokens") follow the same pattern — each targeting its respective Exchange.*
 
 ### Broker Budget Ledger (Post-Transaction)
 
@@ -861,8 +861,8 @@ The same `ResourceIdentity` message handles both — the `resource_mutability` f
 ### 4. Cross-Exchange Budget Tracking
 
 The `budget_scope: "deal:acme-acquisition"` field in `RequestConstraints` enables deal-level spend tracking across all Exchanges. The Broker:
-1. Checks cumulative spend before each transaction batch
-2. Denies transactions that would exceed the budget
+1. Filters offers at discovery: `BrokerService.Resolve` drops any offer that would take the scope's spend past `period_budget`. When no offer for a URI remains, that URI comes back with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`, a successful "no result" rather than an error
+2. Counts spend only from purchase totals. Discovery never charges and never adds to spend; for a purchase made through the Broker, the amount comes from `BrokerTransactionResponse.totals`
 3. Reports actual spend per Exchange in `UsageReport.ext.budget_scope`
 4. Maintains a ledger for audit (which Exchange got how much for what)
 

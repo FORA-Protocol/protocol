@@ -52,7 +52,7 @@ Echoes the `TenantFeeRate` as persisted.
 
 ### ReportingPolicy
 
-The reporting-policy payload shared by the `SetReportingPolicy` request and response, so its rules are stated once: the report field names the usage-report validator requires, the accepted quantity tolerance (a fraction, `0`–`1`, where `0` requires an exact match), and the reporting window in seconds (capped at one year). Omitted optional fields clear their value so the receiving Exchange's defaults apply. The wire constrains only the token shape of `required_fields`; which names are meaningful is defined by the receiving Exchange and may change without a contract change, and names are a set (repeats are rejected). The window applies to obligations minted after the call -- obligations already issued keep the window they were minted with.
+The reporting-policy payload shared by the `SetReportingPolicy` request and response, so its rules are stated once: the report field names the usage-report validator requires, and the reporting window in seconds (capped at one year). `quantity_tolerance` is **deprecated and ignored**: a usage report is never refused for its quantity, so an Exchange MUST NOT refuse a report on this setting. The field and its `0`–`1` bounds stay only for wire compatibility. Omitted optional fields clear their value so the receiving Exchange's defaults apply. The wire constrains only the token shape of `required_fields`; which names are meaningful is defined by the receiving Exchange and may change without a contract change, and names are a set (repeats are rejected). The window applies to obligations minted after the call -- obligations already issued keep the window they were minted with.
 
 ::proto-message{name=ReportingPolicy}
 

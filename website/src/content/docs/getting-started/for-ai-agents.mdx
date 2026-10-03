@@ -174,14 +174,15 @@ for _, q := range resp.SubscriptionQuota {
 
 ### Denial Reasons You May Encounter
 
-When a request is denied, the Exchange returns a specific `DenialReason` so your agent knows what went wrong and can respond appropriately:
+When an item is denied, the Exchange returns a specific `DenialReason` so your agent knows what went wrong and can respond appropriately. A denial of an item rides in the response body, on that item's `denial_reason`, also when you bought a single offer. Only a refusal of the whole request — for example no account at that Exchange (`DENIAL_REASON_ACCOUNT_NOT_REGISTERED`) — is an error carrying `ErrorDetail.transaction_denial`.
 
 | Denial Reason | Meaning | What to Do |
 |---|---|---|
 | `DENIAL_REASON_QUOTA_EXCEEDED` | Subscription access count exhausted for this period | Wait for quota reset or upgrade subscription |
 | `DENIAL_REASON_DELEGATION_INVALID` | Delegation missing, unverifiable (broken chain linkage or holder-binding mismatch), expired, or it widens scope beyond its parent | Obtain a fresh delegation from the principal |
 | `DENIAL_REASON_INSUFFICIENT_BALANCE` | Requester's balance too low for this transaction | Add funds or reduce request scope |
-| `DENIAL_REASON_SIGNATURE_INVALID` | Ed25519 signature verification failed | Check your signing key configuration |
+| `DENIAL_REASON_SIGNATURE_INVALID` | A signature the item depends on did not verify: the offer's, or your request acceptance, including when the items that arrived are not the set you signed | Check your signing key configuration, and that the request carries exactly the offers you signed, in order |
+| `DENIAL_REASON_RELAY_NOT_ACCEPTED` | The provider of this offer does not accept purchases relayed by a Broker | Buy this offer directly at its Exchange |
 
 ## What It Costs
 

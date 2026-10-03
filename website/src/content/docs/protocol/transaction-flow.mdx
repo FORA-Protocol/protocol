@@ -378,13 +378,45 @@ For a metered item, `cost.amount` is the amount the agent accepted: the offer's 
 
 The `retrieval_endpoint` is a CDN signed URL bound to `agent_identity_hash`. A bearer-only CDN serves it on signature + expiry alone (the URL signature + short TTL + TLS); a capable edge function additionally requires the agent to present its public key and an RFC 9421 signature, verifying the binding offline. See [Signed URL Verification](/components/edge-function/signed-url-verification).
 
+### Denials are in the body
+
+Every decision about an item is answered in the response body. An item the Exchange denies is a `TransactionResultItem` with `denial_reason` set, in a response that returns OK. This holds whatever the item count: a one-item purchase that is denied is a successful response whose only item is denied, and it is never turned into a non-OK error.
+
+```json
+{
+  "ver": "1.0",
+  "items": [
+    {
+      "offer_id": "9d5735d7-1f17-4801-8dcf-7cac0b7b32b0",
+      "denial_reason": "DENIAL_REASON_RESTRICTION_NOT_SATISFIED",
+      "restriction_mismatches": ["RESTRICTION_KIND_GEOGRAPHY"]
+    }
+  ]
+}
+```
+
+A denied item was not purchased, so it carries no `retrieval_endpoint` and no charge. `restriction_mismatches` names the failed axes when the reason is `DENIAL_REASON_RESTRICTION_NOT_SATISFIED`.
+
+A non-OK error carrying `ErrorDetail.transaction_denial` is used only when the Exchange refuses the **whole request** and decides no item. That happens for a reason about the caller that would deny every item alike: the caller has no account (`DENIAL_REASON_ACCOUNT_NOT_REGISTERED`), its account is not active (`DENIAL_REASON_ACCOUNT_INACTIVE`), it has overdue reports (`DENIAL_REASON_REPORTING_OVERDUE`), or it is rate limited (`DENIAL_REASON_RATE_LIMITED`). Nothing is purchased. Other errors keep their own classes: a malformed request is `invalid_argument`, and a request signature that does not verify is `unauthenticated`.
+
+**Totals across currencies.** `total_cost` is the exact sum of the purchased items' costs in their one shared currency. When the purchased items span more than one currency, `total_cost` is unset: amounts are never summed across currencies, and currency conversion is out of scope for this version. Each item's own `cost` still carries its amount and currency.
+
+### Idempotency
+
+`idempotency_key` is scoped to the caller that authenticated the request: the agent on a request it signed, and the pair (Broker, requester) on a purchase the Broker re-packaged. A key that another agent used, or that was used at another tenant, is a different key and never a collision.
+
+- The same key with the **same** request (the same items in the same order) is a replay. The Exchange answers it with the stored result and executes nothing again.
+- The same key with a **different** request (different items, or the same items in another order) is refused with the Connect code `already_exists`, carrying an `ErrorDetail` with no typed reason. Nothing is executed, and the stored result is unchanged. A new purchase takes a new key.
+
+The same rules apply to `UsageReport.idempotency_key` and `DisputeRequest.idempotency_key`.
+
 ### What Happens Inside the Exchange
 
 1. Validate request (proto validation)
 2. Verify the sender's RFC 9421 HTTP Message Signature (alg=ed25519) in the request headers — the agent's on a direct request, the Broker's on a sub-request the Broker re-packaged. On a direct request, also require `requester.domain` to name the directory the covered `Signature-Agent` header names. On a re-packaged sub-request the agent is authenticated by its body acceptances instead: each item's `AgentAcceptance` is verified against an Ed25519 key in the directory `requester.domain` names, an acceptance whose canonical bytes name an empty requester is refused, and a delegation's holder binding (`cnf.jkt`) is checked against the key the item's `AgentAcceptance` verifies under, not against the Broker
-3. Verify `agent_request_acceptance` when present: the signature, and that this request's items are the complete in-order projection of the signed set addressed to this Exchange. This runs **before** the idempotency lookup — request-level idempotency state is never created or served for a request whose set claim has not been proven, otherwise a mutated request could consume the key and a later honest retry would replay its result
-4. Check idempotency key (prevent double-charge on retry)
-5. Verify offer signature (reconstruct offer from signed token)
+3. Verify `agent_request_acceptance` when present: the signature, and that this request's items are the complete in-order projection of the signed set addressed to this Exchange. A request whose items are not exactly that projection (an item dropped, added or reordered) has every item denied with `DENIAL_REASON_SIGNATURE_INVALID`, in the body: the agent's signature does not cover what arrived. It is not an `invalid_argument` error. This runs **before** the idempotency lookup — request-level idempotency state is never created or served for a request whose set claim has not been proven, otherwise a mutated request could consume the key and a later honest retry would replay its result
+4. Check the idempotency key, scoped to the caller: a replay of the same request returns the stored result, and the same key with different items is refused with `already_exists` (see [Idempotency](#idempotency))
+5. Verify each item's offer signature over the presented offer bytes; an item whose signature does not verify is denied with `DENIAL_REASON_SIGNATURE_INVALID`, in the body
 6. Authorize billing (`BillingAdapter.Authorize`) -- or skip for subscription offers
 7. Write transaction to WAL (must succeed before signing URL)
 8. Generate the Ed25519 signed delivery URL (or a CloudFront RSA canned policy, per the tenant's signing scheme)
@@ -468,7 +500,7 @@ For batch transactions, use the `items` array:
 }
 ```
 
-Each item gets its own `transaction_id`, `billing_id`, and signed URL. Batch transactions are non-atomic -- individual items can fail independently.
+Each item gets its own `transaction_id`, `billing_id`, and signed URL. Batch transactions are non-atomic -- individual items can fail independently, and each denied item carries its `denial_reason` in the body. `total_cost` is set here because both items are priced in USD; it would be unset if they spanned two currencies.
 
 ### Buying through a Broker
 
@@ -536,7 +568,8 @@ Re-packaging and combining are safe because each item is atomic and its integrit
 - **Upstream refusals ride in the body.** When an Exchange refuses the Broker's whole sub-request, or does not answer it, the Broker does not turn that into an error of its own. Each affected item carries `refusal`: the Exchange, the Connect `code` it answered with, and its `ErrorDetail` unchanged. The other Exchanges' results come back unchanged. `DENIAL_REASON_CONTENT_UNAVAILABLE` is not a catch-all for upstream failures.
 - `exchanges` has one `ExchangeOutcome` per Exchange contacted. Its `agent_identity_hash` is what that Exchange's retrieval URLs are bound to.
 - `totals` sums only the charged items (those with neither `denial_reason` nor `refusal`), one `Cost` per currency. Amounts are never summed across currencies.
-- `DENIAL_REASON_RELAY_NOT_ACCEPTED` on an item means the provider at that Exchange does not accept purchases relayed by a Broker. Buy that offer directly.
+- `DENIAL_REASON_RELAY_NOT_ACCEPTED` on an item means the provider that sells that item's resource at that Exchange does not accept purchases relayed by a Broker. It is decided per item, by each offer's provider, and answered in the body: other items of the same sub-request may succeed. It is never a refusal of the whole sub-request. Buy that offer directly.
+- A sub-request whose items are not exactly the agent's signed `AgentRequestAcceptance` projected onto that Exchange has every item denied with `DENIAL_REASON_SIGNATURE_INVALID`, in the body, and nothing is purchased.
 
 The Broker's own refusals are non-OK Connect errors carrying an `ErrorDetail`, and nothing was bought: an invalid agent signature is `unauthenticated` with `request_auth_failure`; a `requester.domain` that is not the agent's signing directory is `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`; a malformed request is `invalid_argument`; an Exchange the Broker cannot route to or does not approve is `failed_precondition`, with `metadata["exchange"]` naming it.
 
@@ -610,11 +643,12 @@ A successful response carries the Exchange-assigned `report_id` (the handle the 
 
 ### What the Exchange Validates
 
-1. Required fields present (as defined by `ReportingObligation.required_fields`)
-2. Report received within the reporting window (typically 24 hours)
-3. Transaction exists and `billing_id` matches
+1. The report is well formed. A malformed report is refused with `USAGE_REPORT_REJECTION_REASON_MALFORMED` and the Connect code `invalid_argument`
+2. Required fields present (as defined by `ReportingObligation.required_fields`)
+3. Report received within the reporting window (typically 24 hours). A report that arrives after the window closed is refused with `USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED` and the Connect code `failed_precondition`: the typed reason names the time cause
+4. Transaction exists and `billing_id` matches
 
-A consumed quantity that differs from the offer's estimate is **not** a validation failure, in either direction. For a metered offer the Exchange settles the report as described below and never refuses an honest report for its quantity.
+**The reported quantity is unrestricted.** A consumed quantity that differs from the offer's estimate is **not** a validation failure, above or below, and no check on the quantity refuses a report. For a metered offer the Exchange settles the report as described below; a quantity far from the estimate is analysed out of band, never by refusing the report.
 
 ### Settling a metered purchase
 
@@ -622,7 +656,7 @@ A `PER_UNIT` price is metered: it is charged per unit consumed, and the quantity
 
 | Symbol | Field | Meaning |
 |---|---|---|
-| E | `estimated_quantity` | The estimate, in `unit`. **Required and positive on every metered offer.** An offer whose pricing or term is `PER_UNIT` and that carries no estimate fails validation (`offer.metered.requires_estimate`), and the SDK verifiers reject it |
+| E | `estimated_quantity` | The estimate, in `unit`. **Required and positive on every metered offer.** An offer whose pricing is `PER_UNIT` and that carries no estimate fails validation (`offer.metered.requires_estimate`), and the SDK verifiers reject it |
 | R | `rate` | The price of one `unit` |
 | T | `estimate_tolerance_bps` | The tolerance on the estimate, in basis points: `1000` (10%) when the term states none, `0` for none, at most `10000` |
 
@@ -713,10 +747,10 @@ Three independent records -- CDN logs, Exchange transactions, usage reports -- t
 
 FORA uses **at-most-once with reconciliation**, same as OpenRTB:
 
-- Idempotency keys on every `TransactionRequest` (prevent double-charge on retry)
+- Idempotency keys on every `TransactionRequest`, scoped per caller (prevent double-charge on retry; a key reused with different items is refused with `already_exists`)
 - "Authorize first, deliver second" ordering (do not issue signed URL until billing succeeds)
 - Reconciliation via `UsageReport` -- if content was not actually used, the report says so
-- No refunds in the protocol -- handle offline like ad-tech discrepancy resolution (~5-10% tolerance)
+- Credits and refunds come from dispute resolution (`DisputeTransaction`, below), which every Exchange implements; the protocol standardizes the dispute signal, not the settlement between the parties
 
 ## RPC 4: DisputeTransaction
 
@@ -757,7 +791,17 @@ Content-Type: application/json
 }
 ```
 
-A successful response means the dispute was accepted for processing (`dispute_id` + `status` + `resolution`). A refusal to file is not a success body -- it travels as a non-OK transport error carrying `ErrorDetail.dispute_failure` (e.g. `DISPUTE_FAILURE_REASON_REPORT_NOT_FILED`, `DISPUTE_FAILURE_REASON_WINDOW_EXPIRED`). The Exchange resolves most accepted disputes automatically in under 1 second using CDN logs and cryptographic evidence. See [Dispute Resolution](/protocol/dispute-resolution/) for the three-tier resolution system, auto-credit rules, and the complete dispute lifecycle.
+Every Exchange implements `DisputeTransaction`; it is part of the core protocol, not an optional capability. A successful response means the dispute was accepted for processing (`dispute_id` + `status` + `resolution`). A refusal to file is not a success body -- it travels as a non-OK transport error carrying `ErrorDetail.dispute_failure`, whose `DisputeFailureReason` names the one check the filing failed:
+
+| Reason | The filing failed because |
+|---|---|
+| `DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND` | `transaction_id` names no transaction this Exchange executed for the caller |
+| `DISPUTE_FAILURE_REASON_REPORT_NOT_FILED` | No accepted usage report precedes it: `report_id` is empty, unknown, or names a report for another transaction |
+| `DISPUTE_FAILURE_REASON_WINDOW_EXPIRED` | The transaction's dispute window, set by the Exchange, has closed |
+| `DISPUTE_FAILURE_REASON_DUPLICATE` | A dispute was already filed for this transaction. A retry of the same filing under the same `idempotency_key` is a replay and returns the original `DisputeResponse` |
+| `DISPUTE_FAILURE_REASON_INELIGIBLE` | The transaction's state admits no dispute under the Exchange's rules |
+
+A dispute that is accepted and later found unsupported ends as `RESOLUTION_TYPE_REJECTED`; it is not a refusal to file. The Exchange resolves most accepted disputes automatically in under 1 second using CDN logs and cryptographic evidence. See [Dispute Resolution](/protocol/dispute-resolution/) for the three-tier resolution system, auto-credit rules, and the complete dispute lifecycle.
 
 ## Resource Previews
 

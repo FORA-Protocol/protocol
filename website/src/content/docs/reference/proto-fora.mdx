@@ -28,7 +28,9 @@ Two HTTP response headers are part of the contract without being in any message.
 
 ### ExchangeService
 
-The core protocol. Both AI agents and Brokers are valid clients.
+The core protocol. Both AI agents and Brokers are valid clients. Every Exchange implements all of its transaction RPCs, `DisputeTransaction` included.
+
+`ExecuteTransaction` answers every per-item denial in the body: an item the Exchange denies carries `TransactionResultItem.denial_reason` in a successful response, whatever the item count. A non-OK error carrying `ErrorDetail.transaction_denial` is used only when the Exchange refuses the whole request and decides no item.
 
 ::proto-service{name=ExchangeService}
 
@@ -42,9 +44,9 @@ Optional RPC for providers/CMS/third-party intelligence providers to push conten
 
 The Broker entry point. It has two methods.
 
-`Resolve(DiscoveryRequest) → DiscoveryResponse` is discovery-only: a client sends the URIs/query it wants resolved and receives `offer_groups` (one `OfferGroup` per URI, each carrying the full signed `Offer`) or a typed `absence_reason` with empty `offer_groups` when nothing licensable was found. "No result" is a successful answer; malformed requests, auth failures, and internal faults are non-OK transport errors carrying an `ErrorDetail`. Resolve does **not** deliver inline. The per-transaction result (transaction id, billing id, retrieval endpoint, …) comes from the separate execute path, which the agent takes either directly, with `ExchangeService.ExecuteTransaction` at each offer's `Offer.exchange`, or through the Broker.
+`Resolve(DiscoveryRequest) → DiscoveryResponse` is discovery-only: a client sends the URIs/query it wants resolved and receives `offer_groups` (one `OfferGroup` per URI, each carrying the full signed `Offer`) or a typed `absence_reason` with empty `offer_groups` when nothing licensable was found. "No result" is a successful answer; malformed requests, auth failures, and internal faults are non-OK transport errors carrying an `ErrorDetail`. Resolve applies the agent's budget (`RequestConstraints.max_price`, and `period_budget` for `budget_scope`) as a filter: it drops every offer that would exceed it, and a URI left with no offer is answered with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`, never `NOT_AUTHORIZED` and never an error such as `RESOURCE_EXHAUSTED`. Resolve never charges and never counts as spend; spend grows only from purchase totals. Resolve does **not** deliver inline. The per-transaction result (transaction id, billing id, retrieval endpoint, …) comes from the separate execute path, which the agent takes either directly, with `ExchangeService.ExecuteTransaction` at each offer's `Offer.exchange`, or through the Broker.
 
-`ExecuteTransaction(TransactionRequest) → BrokerTransactionResponse` buys offers from any number of Exchanges in one call. The Broker verifies the agent's request, groups the items by each signed offer's `exchange`, and sends one `ExchangeService.ExecuteTransaction` per Exchange, signed with **its own** key. The agent's per-item `AgentAcceptance` and its `AgentRequestAcceptance` travel in each sub-request body, so every Exchange still verifies the agent's consent. The Broker combines the answers in request order. Re-packaging is safe because each item is atomic and its integrity is per resource: the offer carries its Exchange's signature, the acceptance binds the agent to that one offer, and the result comes from the Exchange that owns the resource. The Broker's own refusals (a bad agent signature, a `requester.domain` that is not the agent's signing directory, a malformed request, an Exchange it cannot route to or does not approve) are non-OK errors and buy nothing. An Exchange's refusal of its whole sub-request is never turned into a Broker error: it rides in the body, on each affected item's `refusal`.
+`ExecuteTransaction(TransactionRequest) → BrokerTransactionResponse` buys offers from any number of Exchanges in one call. The Broker verifies the agent's request, groups the items by each signed offer's `exchange`, and sends one `ExchangeService.ExecuteTransaction` per Exchange, signed with **its own** key. The agent's per-item `AgentAcceptance` and its `AgentRequestAcceptance` travel in each sub-request body, so every Exchange still verifies the agent's consent. The Broker combines the answers in request order. Re-packaging is safe because each item is atomic and its integrity is per resource: the offer carries its Exchange's signature, the acceptance binds the agent to that one offer, and the result comes from the Exchange that owns the resource. The Broker's own refusals (a bad agent signature, a `requester.domain` that is not the agent's signing directory, a malformed request, an Exchange it cannot route to or does not approve) are non-OK errors and buy nothing. An Exchange's per-item denial, including `DENIAL_REASON_RELAY_NOT_ACCEPTED` (decided per item by each offer's provider), is that Exchange's result item unchanged. An Exchange's refusal of its whole sub-request is never turned into a Broker error: it rides in the body, on each affected item's `refusal`.
 
 ::proto-service{name=BrokerService}
 
@@ -110,8 +112,12 @@ A purchase through a Broker does not use this chain. `BrokerService.ExecuteTrans
 
 ::proto-message{name=Offer}
 
+:::note[An offer carries its price once]
+`Offer.pricing` is the offer's only price: the price execute charges, a Broker ranks, and a metered purchase settles on. The one term the offer sells, in `Offer.terms`, carries no `pricing` (rule `offer.terms.pricing_unset`). Catalog terms (`ResourceEntry.terms`) still carry their pricing; each offer derives from exactly one of them, so the offer's price and its term's price cannot disagree.
+:::
+
 :::note[A metered offer carries its estimate]
-An offer whose `pricing` or term pricing is `PER_UNIT` MUST carry a positive `pricing.estimated_quantity` (rule `offer.metered.requires_estimate`); a non-metered offer needs none. The rule binds the offer rather than `Pricing` because a publisher pushes `PER_UNIT` terms without an estimate. `Offer.pricing` is the copy a metered purchase settles on: the estimate, the rate and `estimate_tolerance_bps` are read from it.
+An offer whose `pricing` is `PER_UNIT` MUST carry a positive `pricing.estimated_quantity` (rule `offer.metered.requires_estimate`); a non-metered offer needs none. The rule reads `Offer.pricing` only, and binds the offer rather than `Pricing` because a publisher pushes `PER_UNIT` terms without an estimate. The estimate is always in the offer's own `pricing.unit`: a price per access has an estimate in accesses, never a token count.
 :::
 
 :::note[Breaking change in v1.0]
@@ -168,8 +174,10 @@ Lightweight resource preview for offer evaluation. The Exchange populates previe
 
 ::proto-message{name=TransactionResponse}
 
-:::note[Denial is not a success body]
-A denied single transaction is **not** returned in this body. It travels as a non-OK transport error carrying [`ErrorDetail.transaction_denial`](#unified-error-model) (`DenialReason` + `restriction_mismatches`). Batch per-item denials remain in-body on `TransactionResultItem` (`denial_reason` / `restriction_mismatches`), as partial results of a successful batch.
+:::note[Denials are in the body]
+Every per-item denial is returned in this body, on `TransactionResultItem` (`denial_reason` / `restriction_mismatches`), whatever the item count: a denied one-item purchase is a successful response whose only item is denied. A non-OK transport error carrying [`ErrorDetail.transaction_denial`](#unified-error-model) is used only when the Exchange refuses the whole request and decides no item, for a reason about the caller such as `DENIAL_REASON_ACCOUNT_NOT_REGISTERED`.
+
+`total_cost` is unset when the purchased items span more than one currency: amounts are never summed across currencies, and currency conversion is out of scope for this version.
 :::
 
 ### TransactionItem
@@ -186,7 +194,7 @@ The agent's detached acceptance signature over an accepted Offer. It travels in 
 
 ### AgentRequestAcceptance
 
-The agent's detached authorization of one complete ordered execute set. Its payload travels with the signature so a Broker can forward the same proof unchanged on every per-Exchange projection. A receiving Exchange verifies the agent signature and requires its subrequest to equal the complete in-order projection of signed items addressed to that Exchange before creating or serving request-level idempotency state.
+The agent's detached authorization of one complete ordered execute set. Its payload travels with the signature so a Broker can forward the same proof unchanged on every per-Exchange projection. A receiving Exchange verifies the agent signature and requires its subrequest to equal the complete in-order projection of signed items addressed to that Exchange before creating or serving request-level idempotency state. A subrequest whose items are not exactly that projection (an item dropped, added or reordered) is refused per item, in the body: every item is denied with `DENIAL_REASON_SIGNATURE_INVALID`, because the agent's signature does not cover what arrived. It is not an `invalid_argument` error.
 
 ::proto-message{name=AgentRequestAcceptance}
 
@@ -256,7 +264,7 @@ A single asset included in the usage report.
 
 ### UsageReportResponse
 
-Acknowledgment of a usage report. A successful response means the report was accepted; a rejection travels as a non-OK transport error carrying [`ErrorDetail.usage_report_rejection`](#unified-error-model). A consumed quantity that differs from the estimate is never a reason to refuse a report. When part of a metered report is held for dispute, the response is still a plain success: it carries no amounts, because the agent derives the charge and the held excess exactly from the signed offer and its own report, and the `report_id` identifies the held excess.
+Acknowledgment of a usage report. A successful response means the report was accepted; a rejection travels as a non-OK transport error carrying [`ErrorDetail.usage_report_rejection`](#unified-error-model). A report past its reporting window is refused with `USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED` and the code `failed_precondition`; a malformed report with `USAGE_REPORT_REJECTION_REASON_MALFORMED` and `invalid_argument`. The reported quantity is unrestricted: a consumed quantity that differs from the estimate, above or below, is never a reason to refuse a report. When part of a metered report is held for dispute, the response is still a plain success: it carries no amounts, because the agent derives the charge and the held excess exactly from the signed offer and its own report, and the `report_id` identifies the held excess.
 
 ::proto-message{name=UsageReportResponse}
 
@@ -270,7 +278,7 @@ Agent signals a content delivery problem for a completed transaction.
 
 ### DisputeResponse
 
-Exchange acknowledges and processes the dispute. A successful response means the dispute was accepted for processing; a refusal to file travels as a non-OK transport error carrying [`ErrorDetail.dispute_failure`](#unified-error-model).
+Exchange acknowledges and processes the dispute. Every Exchange implements `DisputeTransaction`. A successful response means the dispute was accepted for processing; a refusal to file travels as a non-OK transport error carrying [`ErrorDetail.dispute_failure`](#unified-error-model), whose `DisputeFailureReason` names the one check the filing failed.
 
 ::proto-message{name=DisputeResponse}
 
@@ -393,7 +401,7 @@ Agent sends to Broker (Step 1), carried by `BrokerService.Resolve`. Pure discove
 
 ### RequestConstraints
 
-Budget and preference constraints for exchange filtering and offer selection.
+Budget and preference constraints for exchange filtering and offer selection. `BrokerService.Resolve` applies the budget as a filter over offers (`OFFER_ABSENCE_REASON_BUDGET_EXCEEDED` when no offer for a URI remains); it neither denies nor charges, and spend grows only from purchase totals.
 
 ::proto-message{name=RequestConstraints}
 
@@ -405,7 +413,7 @@ Broker returns to Agent (Step 6). Discovery-only: `offer_groups` (field 4, one `
 
 ### BrokerTransactionResponse
 
-The Broker's answer to `BrokerService.ExecuteTransaction`. `items` has one entry per request item, in request order: an Exchange's `TransactionResultItem` unchanged, or an item carrying `refusal`. `exchanges` has one `ExchangeOutcome` per Exchange contacted. `totals` holds the charged amounts, one `Cost` per currency, never summed across currencies. No field is signed; a result item's one signed value is its `retrieval_endpoint`, signed by the issuing Exchange.
+The Broker's answer to `BrokerService.ExecuteTransaction`. `items` has one entry per request item, in request order: an Exchange's `TransactionResultItem` unchanged, or an item carrying `refusal`. `exchanges` has one `ExchangeOutcome` per Exchange contacted. `totals` holds the charged amounts, one `Cost` per currency, never summed across currencies and never converted: currency conversion is out of scope for this version. No field is signed; a result item's one signed value is its `retrieval_endpoint`, signed by the issuing Exchange.
 
 ::proto-message{name=BrokerTransactionResponse}
 
@@ -477,7 +485,8 @@ One complete access arrangement for a resource. Lives at both ingestion (`Resour
 
 Validation rules (wire-enforced via protovalidate unless noted). A parenthetical
 code is the cross-field CEL rule `id:` that enforces the rule (e.g. `license_term.reference_only.requires_uri`); single-field rules use protovalidate's standard constraints (`enum.not_in`, `string.pattern`, …).
-- `pricing` MUST be present on **every** term, any semantics — absent Pricing is a validation error. `model = FREE` must be stated explicitly — absent Pricing is not free.
+- `pricing` MUST be present on **every catalog term** (`ResourceEntry.terms`), any semantics — absent Pricing is a validation error (`resource_entry.terms.pricing_required`). `model = FREE` must be stated explicitly — absent Pricing is not free.
+- `pricing` MUST be **unset** on the term an offer carries (`Offer.terms`), because the offer's price is `Offer.pricing`, stated once (`offer.terms.pricing_unset`). Both rules belong to the message that holds the term, so a `LicenseTerm` on its own is valid with or without pricing.
 - `semantics` MUST be set — `TERM_SEMANTICS_UNSPECIFIED` is rejected (the field's `enum.not_in:[0]` rule).
 - `REFERENCE_ONLY` requires `license.uri` to be non-empty (`license_term.reference_only.requires_uri`); a `License` with a `uri` requires a `uri_digest` (`license.digest_required_with_uri`).
 - At most one `Restriction` per `kind` (`license_term.one_restriction_per_kind`); a token cannot be both permitted and prohibited (`restriction.permitted_prohibited_disjoint`). That rule compares the tokens **as written**, because it runs over the request as received — so two accepted spellings of one token (an alias beside its registered form, or either in another ASCII case) clear it and collide once folded. The ingest tier asserts the same property over the canonicalised tokens as `restriction.canonical_disjoint`; both refuse the term, and a term that fails both is reported by both. Both are scoped to one `Restriction`: what makes one restriction the whole of an axis is `license_term.one_restriction_per_kind`, so the per-axis reading is held by the two rules together.
@@ -524,7 +533,7 @@ A post-use behavioral requirement attached to a `LicenseTerm`. Attribution and c
 
 One way to communicate failure across every RPC. The transport carries a coarse canonical code (gRPC / Connect Code) as the error **class**; an `ErrorDetail` message — attached to the non-OK transport error's details (the same mechanism protovalidate uses to attach its Violations) — carries the precise, machine-readable **reason** and structured context. Clients branch on the typed reason, never on a human string.
 
-**Error vs. body.** A query that ran successfully returns its answer in the response body, and "no results" / per-item absence (`OfferGroup.absence_reason`) is a **success**, not an error. Only a method that could not perform the requested action returns a non-OK code plus an `ErrorDetail`. The per-domain reason enums below are the single source of truth that replaces the former in-body failure fields (`denial_reason`, `rejection_reason`, `accepted`, `verified`, `failure_reason`).
+**Error vs. body.** A query that ran successfully returns its answer in the response body, and "no results" / per-item absence (`OfferGroup.absence_reason`) is a **success**, not an error. Only a method that could not perform the requested action returns a non-OK code plus an `ErrorDetail`. A per-item purchase denial is part of a successful answer, so it stays in the body on `TransactionResultItem.denial_reason`; `transaction_denial` carries only a refusal of the whole request. The per-domain reason enums below are the single source of truth that replaces the former in-body failure fields (`rejection_reason`, `accepted`, `verified`, `failure_reason`).
 
 ### ErrorDetail
 
@@ -536,7 +545,7 @@ Exactly one typed reason block is set, selected by the failing method. The `reas
 
 ### TransactionDenial
 
-ExecuteTransaction could not complete. Reuses the `DenialReason` vocabulary.
+ExecuteTransaction refused the **whole** request and decided no item, for a reason about the caller that would deny every item alike (for example `DENIAL_REASON_ACCOUNT_NOT_REGISTERED` or `DENIAL_REASON_REPORTING_OVERDUE`). Reuses the `DenialReason` vocabulary. A denial of an item is never carried here: it is that item's `TransactionResultItem.denial_reason`, in a successful response, whatever the item count. `restriction_mismatches` and `offer_id` are deprecated and never set.
 
 ::proto-message{name=TransactionDenial}
 

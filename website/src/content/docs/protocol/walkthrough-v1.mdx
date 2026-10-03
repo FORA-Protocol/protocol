@@ -117,7 +117,7 @@ The Exchange looks up the article in its catalog and returns one offer for each 
             "rate": "0.05",
             "currency": "USD",
             "unit_cost": "0.0000156",
-            "estimated_quantity": 3200,
+            "estimated_quantity": 1,
             "unit": "accesses"
           },
           "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
@@ -169,7 +169,7 @@ The Exchange looks up the article in its catalog and returns one offer for each 
 
 **What the agent learns from this response:**
 
-- **Pricing**: `PRICING_MODEL_PER_UNIT` (`unit: "accesses"`) at $0.05, with an estimated 3,200 tokens. The `unit_cost` ($0.0000156/token) enables cross-exchange comparison when a Broker aggregates offers.
+- **Pricing**: `PRICING_MODEL_PER_UNIT` (`unit: "accesses"`) at $0.05 per access. The estimate is in the same unit: 1 access, so the agent accepts 1 × $0.05 = $0.05 at purchase. The `unit_cost` ($0.0000156/token) is the normalized comparison price: $0.05 divided by the article's size of about 3,200 tokens. It enables cross-exchange comparison when a Broker aggregates offers.
 - **Content mutability**: `RESOURCE_MUTABILITY_STATIC` — this article will not change. The agent SHOULD verify the SHA-256 hash on delivery. A mismatch is disputable.
 - **Attestation**: Level 1 (self-attested by `techcrunch.com`). The provider signed its own claims about word count and token estimate. A third-party attestation (Level 2, e.g., from `gumgum.com`) would carry higher trust.
 - **Restrictions**: AI input (`ai-input`), indexing (`ai-index`), and search (`search`) are permitted. Training (`ai-train`) is prohibited.
@@ -197,7 +197,7 @@ The agent commits to the offer by sending the full signed `offer` back, reflecte
           "rate": "0.05",
           "currency": "USD",
           "unit_cost": "0.0000156",
-          "estimated_quantity": 3200,
+          "estimated_quantity": 1,
           "unit": "accesses"
         },
         "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
@@ -286,7 +286,7 @@ The CDN edge function verifies:
 
 ### Step 6 — ReportUsage
 
-Usage reporting is mandatory. The agent reports actual consumption:
+Usage reporting is mandatory. The agent reports actual consumption, in the unit of the offer's price (`accesses`):
 
 `POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/ReportUsage`
 
@@ -300,8 +300,8 @@ Usage reporting is mandatory. The agent reports actual consumption:
   "billing_id": "bill-tc-001",
   "usage": {
     "function": ["ai-input"],
-    "consumed_quantity": 3150,
-    "consumed_unit": "tokens",
+    "consumed_quantity": 1,
+    "consumed_unit": "accesses",
     "displayed_to_user": true,
     "citation_included": true
   },
@@ -324,6 +324,8 @@ Response:
   "report_id": "rpt-tc-001"
 }
 ```
+
+The report settles the transaction at 1 × $0.05 = $0.05, the amount accepted at purchase. A report is never refused because its quantity differs from the estimate: a quantity above the ceiling (the estimate plus the 10% default tolerance) would be charged up to the ceiling, and the rest held for dispute.
 
 The `report_id` enables the dispute chain: if the agent needs to dispute this transaction later, it must reference this report to prove usage was reported first.
 
@@ -642,7 +644,7 @@ item := tx.GetItems()[0]
 | 3 | — | Offer at $0.05 | Offer at $0.00 + `subscription_id` |
 | 4 | `ExecuteTransaction` | Charge $0.05, generate signed URL | Skip billing (subscription), generate signed URL |
 | 5 | — | Fetch + SHA-256 verify | Fetch + SHA-256 verify |
-| 6 | `ReportUsage` | Report 3,150 tokens consumed | Report 18,200 tokens consumed (tracked against quota) |
+| 6 | `ReportUsage` | Report 1 access consumed | Report 18,200 tokens consumed (tracked against quota) |
 
 **Authentication at every step:**
 - **Agent → Exchange**: RFC 9421 HTTP Message Signature (Ed25519 over the HTTP request — method, target URI, and body content digest — in the `Signature` / `Signature-Input` headers)

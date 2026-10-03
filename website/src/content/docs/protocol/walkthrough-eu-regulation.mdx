@@ -3,7 +3,7 @@ title: "Walkthrough: EU Regulation (Free vs Value-Added)"
 description: "Same legislation available free (EUR-Lex) and paid (Wolters Kluwer annotated), with ELI identifiers, multilingual support, and the fora-legal-v1 extension profile."
 ---
 
-> An AI agent needs the EU AI Act (Regulation 2024/1689). The same legislation is available FREE from EUR-Lex (official text) and for $85 from Wolters Kluwer (annotated, consolidated). FORA enables transparent comparison -- the agent decides whether annotations are worth the price.
+> An AI agent needs the EU AI Act (Regulation 2024/1689). The same legislation is available FREE from EUR-Lex (official text) and for €85 from Wolters Kluwer (annotated, consolidated). FORA enables transparent comparison -- the agent decides whether annotations are worth the price.
 
 ## Scenario
 
@@ -11,7 +11,7 @@ description: "Same legislation available free (EUR-Lex) and paid (Wolters Kluwer
 |---|---|---|
 | **Provider** | EUR-Lex (`eur-lex.europa.eu`) | Wolters Kluwer (`wolterskluwer.com`) |
 | **Content** | Official Journal text (original) | Annotated, consolidated with amendments |
-| **Price** | FREE | $85 per article |
+| **Price** | FREE | €85 per access |
 | **Mutability** | STATIC (original OJ text, never changes) | DYNAMIC (consolidated to latest amendments) |
 | **Attestation** | Level 2 (Official Journal = highest legal authority) | Level 1 (self-attested) |
 | **Format** | Akoma Ntoso XML | HTML with annotations |
@@ -226,7 +226,7 @@ The Broker receives one response from each Exchange. Here are both offers side b
             "rate": "85.00",
             "currency": "EUR",
             "unit_cost": "0.000764",
-            "estimated_quantity": 111200,
+            "estimated_quantity": 1,
             "unit": "accesses"
           },
           "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
@@ -311,9 +311,9 @@ The Broker receives one response from each Exchange. Here are both offers side b
 
 | Dimension | EUR-Lex | Wolters Kluwer |
 |---|---|---|
-| **Price** | FREE | $85.00 |
+| **Price** | FREE | €85.00 |
 | **Pricing model** | `PRICING_MODEL_FREE` | `PRICING_MODEL_PER_UNIT` |
-| **Tokens (est.)** | 89,000 | 111,200 (more due to annotations) |
+| **Size (tokens, attested)** | 89,000 | 111,200 (more due to annotations) |
 | **Mutability** | `STATIC` (original OJ text) | `DYNAMIC` (consolidated, updates with amendments) |
 | **Attestation** | Level 2 -- `publications.europa.eu` (Publications Office) | Level 1 -- self-attested by `wolterskluwer.com` |
 | **Consolidation** | `original` (as published July 2024) | `consolidated_to_2026-01-15` (includes all amendments) |
@@ -331,7 +331,7 @@ The agent sees both options with transparent pricing. The free EUR-Lex version c
 The Broker presents both offers. The agent's choice depends on context:
 
 - **Need the original enacted text?** EUR-Lex. Free, STATIC, Level 2 attested, hash-verifiable.
-- **Need the latest consolidated version with expert annotations?** Wolters Kluwer. $85, DYNAMIC, includes 47 cross-references and amendment chain.
+- **Need the latest consolidated version with expert annotations?** Wolters Kluwer. €85, DYNAMIC, includes 47 cross-references and amendment chain.
 
 Assume the agent chooses EUR-Lex (free). The `ExecuteTransaction` follows the standard pattern:
 
@@ -483,7 +483,7 @@ Free does not mean untracked. EUR-Lex gains visibility into how AI agents consum
 
 ### Same Content, Different Value
 
-EU legislation is **public domain** (Decision 2011/833/EU). The raw text is free from EUR-Lex. Wolters Kluwer's $85 price is for the **value-add**: expert annotations, 47 cross-references, and consolidated text that incorporates amendments. FORA makes this transparent -- the agent compares both offers side by side and decides if the annotations are worth the cost.
+EU legislation is **public domain** (Decision 2011/833/EU). The raw text is free from EUR-Lex. Wolters Kluwer's €85 price is for the **value-add**: expert annotations, 47 cross-references, and consolidated text that incorporates amendments. FORA makes this transparent -- the agent compares both offers side by side and decides if the annotations are worth the cost.
 
 ### ELI URI as Universal Identifier
 

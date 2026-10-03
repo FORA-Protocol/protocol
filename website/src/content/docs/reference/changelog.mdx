@@ -8,6 +8,112 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ## Unreleased
 
+**An offer carries its price once: `Offer.pricing` (two validation rules added;
+`LicenseTerm.pricing` loses its field-level rule; no field removed).** An offer carried its
+price twice, in `Offer.pricing` and in the pricing of the one term it sells, and the
+comment called the term's copy authoritative. The two could disagree inside one signed
+offer, nothing said which one execute charges, and the metered rule read either copy.
+
+- `Offer.pricing` is the offer's only price: the price execute charges, a Broker ranks and
+  a metered purchase settles on. The term inside `Offer.terms` MUST carry no pricing (rule
+  `offer.terms.pricing_unset`, on `Offer`). Each offer derives from exactly one catalog
+  term, so the price is stated once and cannot disagree with itself.
+- `offer.metered.requires_estimate` reads `Offer.pricing` only: an offer is metered when
+  its pricing is `PER_UNIT`.
+- Catalog terms still carry pricing. `LicenseTerm.pricing` loses its field-level `required`
+  rule, because the requirement depends on the message that holds the term, and
+  `ResourceEntry` gains `resource_entry.terms.pricing_required`: every catalog term carries
+  its price, whatever its semantics. A standalone `LicenseTerm` without pricing is no
+  longer refused on its own.
+- `buf breaking` against v1.0.0 passes. A validating peer now refuses an offer whose term
+  carries pricing, including inside a `TransactionRequest`.
+- The field-level corpus drops `LicenseTerm/pricing/missing`. The cross-field corpus gains
+  two priced-term offers and a `ResourceEntry` term without pricing, replacing the metered
+  term-only case, and the license-term entry vectors report a catalog term without pricing
+  as that cross-field rule.
+
+SDKs, in all three languages: `IsMeteredOffer` / `is_metered_offer` / `isMeteredOffer` read
+the offer's pricing only. New `CheckOfferTermsUnpriced` / `check_offer_terms_unpriced` /
+`checkOfferTermsUnpriced` apply `offer.terms.pricing_unset` without wire validation (Go
+returns `helpers.ErrOfferTermPriced`, new; Python raises `ValueError`; TypeScript throws).
+The offer signers (`helpers.SignOffer`, `sign_offer_jcs`, `signOffer`) refuse an offer whose
+term carries pricing, and the offer verifiers reject one after the signature and expiry
+checks. The Python and TypeScript cross-field layers gain both rules, with a composed
+`ResourceEntry` model, and `validate_resource_entry` / `validateResourceEntry` check the
+entry itself. The offer-verify vectors gain a term repeating the offer's price, which is
+rejected, and an unpriced term under a `FLAT` price, which verifies.
+
+**A per-item purchase denial is always answered in the body (comments and two
+deprecations; no wire change).** A denied one-item purchase was described as a non-OK
+error carrying `ErrorDetail.transaction_denial`, while the same denial in a batch rode in
+the body, so a caller handled one decision in two shapes.
+
+- `ExecuteTransaction`, `TransactionResponse` and `TransactionResultItem.denial_reason`
+  state that every per-item denial is answered in the body, whatever the item count.
+  `TransactionDenial` is used only when the Exchange refuses the whole request and decides
+  no item, for a reason about the caller that would deny every item alike (for example
+  `ACCOUNT_NOT_REGISTERED`, `ACCOUNT_INACTIVE`, `REPORTING_OVERDUE`, `RATE_LIMITED`).
+  `TransactionDenial.restriction_mismatches` and `TransactionDenial.offer_id` are
+  deprecated and never set.
+- `DENIAL_REASON_RELAY_NOT_ACCEPTED` is decided per item by each offer's provider, the
+  provider that sells that resource, and answered in the body. It is never a refusal of the whole
+  sub-request, and an Exchange never sends it as `transaction_denial`.
+- A sub-request whose items are not exactly the agent's `AgentRequestAcceptance` projected
+  onto the Exchange (an item dropped, added or reordered) has every item denied with
+  `DENIAL_REASON_SIGNATURE_INVALID`, in the body: the agent's signature does not cover
+  what arrived. It is not `invalid_argument`, nothing is purchased, and no request-level
+  idempotency state is claimed.
+
+**A usage report is refused for time, never for quantity (comments; one admin field
+deprecated).** `UsageReportRejectionReason` states that the reported quantity is
+unrestricted: no reason refuses a report because its `consumed_quantity` differs from the
+estimate, above or below, and a quantity far from the estimate is analysed out of band.
+The existing `USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED` is the time cause, refused with
+`failed_precondition`; `USAGE_REPORT_REJECTION_REASON_MALFORMED` is a malformed report,
+refused with `invalid_argument`. The metered settlement on `Pricing` is unchanged.
+`fora.admin.v1.ReportingPolicy.quantity_tolerance` is deprecated and ignored: an Exchange
+must not refuse a report on it.
+
+**Idempotency keys are scoped per caller, and a reused key with a different request is
+refused (comments only).** The file header gains "Idempotency", the one statement of the
+rule for `TransactionRequest`, `UsageReport` and `DisputeRequest`. A key is scoped to the
+authenticated agent, and to the pair (Broker, requester) on a purchase relayed through
+`BrokerService.ExecuteTransaction`; a key another agent or tenant used is never a
+collision. The same key with the same request is a replay answered from the stored result.
+The same key with a different request (for a purchase, different items or another order)
+is refused with the Connect code `already_exists` and an `ErrorDetail` with no typed reason.
+
+**`BrokerService.Resolve` filters offers over the agent's budget (comments only).**
+`Resolve` drops every offer priced above `max_price` or that would take the `budget_scope`'s
+spend past `period_budget`, comparing the most the offer can be charged without a dispute
+(Q × R for a metered offer). A URI left with no offer is answered with
+`OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`, never `NOT_AUTHORIZED` and never an error such as
+`RESOURCE_EXHAUSTED`. `Resolve` never charges and never counts as spend; spend grows only
+from purchase totals. `period_budget` no longer says transactions are denied.
+
+**`TransactionResponse.total_cost` is unset when the items span currencies (comments
+only).** It is the exact sum of the purchased items' costs in their one shared currency,
+and unset when they span more than one. Currency conversion is out of scope for this
+version, which `BrokerTransactionResponse.totals` states too.
+
+**`DisputeTransaction` states its refusal reasons (comments only).** Every Exchange
+implements the RPC. Each `DisputeFailureReason` now names its check: no transaction for the
+caller, no accepted report for this transaction, the dispute window closed, a dispute
+already filed (a retry under the same key is a replay), and a transaction whose state
+admits no dispute.
+
+Docs: the transaction-flow page gains "Denials are in the body" and "Idempotency", states
+the report refusals and the dispute refusal reasons, and drops "no refunds in the
+protocol". The Exchange request flow answers every per-item denial in the body, scopes the
+idempotency key per caller, leaves `total_cost` unset across currencies and stops
+checking a minimum billable quantity. The Broker pages describe the budget as a filter at
+`Resolve` and drop the currency converter and the generated idempotency key. The money-flow
+page divides `unit_cost` by the resource's size rather than by `estimated_quantity`, and
+every walkthrough and example that paired a per-access unit with a token-count estimate now
+states the estimate in the price's own unit. The medical-imaging walkthrough answers its
+DUA failure in the body. Offer examples drop their terms' pricing, and the licensing-terms,
+reference and threat-model pages state the same rules.
+
 **A metered offer carries an estimate, and a usage report settles within a tolerance:
 `Pricing.estimate_tolerance_bps` (field 10) is added, with two validation rules.** A
 `PER_UNIT` price is charged per unit consumed, but an offer could carry no
@@ -15,7 +121,7 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 how a report of a different quantity settles. Implementations charged one unit and
 refused the honest report.
 
-- An offer whose `pricing` or term pricing is `PER_UNIT` MUST carry a positive
+- An offer whose `pricing` is `PER_UNIT` MUST carry a positive
   `pricing.estimated_quantity` (rule `offer.metered.requires_estimate`, on `Offer`). The
   rule binds the offer and not `Pricing`: a publisher pushes `PER_UNIT` terms without an
   estimate, which describes the resource and may ride on `ResourceEntry.estimated_quantity`.
@@ -45,8 +151,7 @@ refused the honest report.
   estimate, including inside a `TransactionRequest`, and a Go client running with
   `ValidationStrict` refuses a discovery response that carries one.
 - The validation corpus gains the tolerance bounds, and the cross-field corpus gains a
-  tolerance on a `FLAT` price and three unestimated metered offers (missing, zero, and a
-  `PER_UNIT` term under non-metered offer pricing).
+  tolerance on a `FLAT` price and two unestimated metered offers (missing and zero).
 
 SDKs, in all three languages: the offer verifiers reject a metered offer without a
 positive estimate, after the signature and expiry checks (Go: `core.Verifier`, reason

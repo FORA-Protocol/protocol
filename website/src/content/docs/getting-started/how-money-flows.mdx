@@ -61,21 +61,23 @@ Providers set their preferred pricing model and rate in their RSL file. The Exch
 
 Different pricing models make direct comparison difficult. An article priced at $0.05 per access is not directly comparable to a resource priced at $0.00002 per token.
 
-**unit_cost** normalizes all pricing to a per-unit basis, analogous to eCPM in advertising. The unit is specified by the `Pricing.unit` field (e.g., "tokens", "pages", "seconds", "records"):
+**unit_cost** normalizes all pricing to a per-unit basis, analogous to eCPM in advertising. It is stated in the comparison unit of the content type: tokens for text, seconds for audio and video, pages for documents, records for data.
 
 ```
-unit_cost = total_cost / estimated_quantity
+unit_cost = price of one purchase / size of the resource in the comparison unit
 ```
+
+The denominator is the size of the resource, **not** `estimated_quantity`. `estimated_quantity` is always counted in the offer's own `Pricing.unit`, so it is the comparison size only when the offer is priced in the comparison unit. A price per access has an estimate in accesses — one access — never a token count.
 
 For example:
-- Article at $0.05, estimated 3,300 tokens: unit_cost = $0.00001515 (unit: "tokens")
-- Per-token pricing at $0.00002: unit_cost = $0.00002 (unit: "tokens")
-- Per-page at $0.10, estimated 15 pages: unit_cost = $0.10 (unit: "pages")
-- Audio at $0.50/minute, estimated 45 minutes (2,700 s): unit_cost = $0.0083 (unit: "seconds")
+- Article at $0.05 per access (`unit: "accesses"`, `estimated_quantity: 1`), 3,300 tokens long: unit_cost = $0.05 / 3,300 = $0.00001515 per token
+- Per-token pricing at $0.00002 (`unit: "tokens"`): unit_cost = $0.00002 per token, the rate itself
+- Per-page at $0.10 (`unit: "pages"`, `estimated_quantity: 15`): unit_cost = $0.10 per page, the rate itself
+- Audio at $0.50 per minute (`unit: "minutes"`, `estimated_quantity: 45`): unit_cost = $0.50 / 60 = $0.0083 per second
 
 The Broker uses `unit_cost` to compare offers across Exchanges and pricing models, selecting the most cost-effective option regardless of how the provider originally priced it.
 
-Every `Offer` in a `ResourceResponse` includes both the native pricing and the computed `unit_cost` value:
+Every `Offer` in a `ResourceResponse` includes both the native pricing and the computed `unit_cost` value. Here the article priced per access:
 
 ```json
 {
@@ -84,11 +86,13 @@ Every `Offer` in a `ResourceResponse` includes both the native pricing and the c
     "rate": "0.05",
     "currency": "USD",
     "unit_cost": "0.00001515",
-    "estimated_quantity": 3300,
-    "unit": "tokens"
+    "estimated_quantity": 1,
+    "unit": "accesses"
   }
 }
 ```
+
+The agent accepts estimate × rate = 1 × $0.05 at purchase. Its usage report counts accesses too (`consumed_quantity: 1`, `consumed_unit: "accesses"`), and settles at min(consumed, ceiling) × rate: one access at the default 10% tolerance has a ceiling of 1.1 accesses, so an honest report of one access is charged $0.05.
 
 ## base_currency
 
@@ -122,10 +126,10 @@ Subscription transactions include a `subscription_unit_value` field that carries
 
 Two enforcement layers prevent overspend, mirroring how OpenRTB prevents advertiser overspend:
 
-- **Agent/Broker-side**: `RequestConstraints.max_unit_cost` -- the agent will not accept offers above this threshold. The Broker tracks cumulative spend across a session and enforces the agent's budget cap. For a metered offer, the most the purchase can cost without a dispute is the settlement ceiling × rate, which is the figure to budget against.
-- **Exchange-side**: The Exchange operator's Billing Adapter checks the requester's balance or credit before authorizing each transaction. Returns a denial if the requester is over their limit.
+- **Agent/Broker-side**: `RequestConstraints.max_unit_cost` -- the agent will not accept offers above this threshold. `BrokerService.Resolve` filters out every offer that would exceed the agent's budget (`max_price`, and `period_budget` for its `budget_scope`) and answers a URI left with none with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`. Resolve never charges and never counts as spend; the spend grows only from purchase totals. For a metered offer, the most the purchase can cost without a dispute is the settlement ceiling × rate, which is the figure the budget is compared against.
+- **Exchange-side**: The Exchange operator's Billing Adapter checks the requester's balance or credit before authorizing each item. An item the requester cannot afford is denied in the response body (`DENIAL_REASON_INSUFFICIENT_BALANCE`), also when it is the only item.
 
-Each Exchange independently tracks per-requester balance. The Broker maintains its own cumulative view for budget enforcement, but the Exchange is authoritative for "can this requester afford this transaction."
+Each Exchange independently tracks per-requester balance. The Broker keeps its own view of spend for budget filtering, but the Exchange is authoritative for "can this requester afford this transaction." Currency conversion is out of scope for this version: totals are never summed across currencies.
 
 ## Example Transaction: End to End
 

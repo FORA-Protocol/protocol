@@ -133,8 +133,9 @@ SSP-Alpha's Resource Ingestion Pipeline runs in the background:
      path: "/premium/ai-regulation-2026.html",
      title: "AI Regulation: What Providers Need to Know",
      word_count: 2500,
-     estimated_quantity: 3300,
+     estimated_quantity: 1,   // in the price's unit: one access per purchase
      pricing: { model: PRICING_MODEL_PER_UNIT, rate: "0.05", currency: "USD", unit: "accesses", unit_cost: "0.00001515" },
+     // unit_cost = $0.05 / 3300 tokens (the article's attested size), for comparison only
      identity: {
        canonical_url: "https://techcrunch.com/premium/ai-regulation-2026.html",
        iptc_guid: "urn:newsml:techcrunch:20260315:ai-reg-001",
@@ -285,7 +286,7 @@ The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-al
    Offer A (per-request):
      offer_id: "2325749d-50d3-431a-ac34-900d443ee88e"
      pricing: { model: PRICING_MODEL_PER_UNIT, rate: "0.05", currency: "USD",
-                unit: "accesses", unit_cost: "0.00001515", estimated_quantity: 3300 }
+                unit: "accesses", unit_cost: "0.00001515", estimated_quantity: 1 }
      identity: { canonical_url: "https://techcrunch.com/premium/ai-regulation-2026.html",
                  iptc_guid: "urn:newsml:techcrunch:20260315:ai-reg-001",
                  content_hash: "a1b2c3d4e5f6...", hash_method: "simhash-v1" }
@@ -296,7 +297,6 @@ The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-al
      ]
      terms: [
        { semantics: TERM_SEMANTICS_ENUMERATED,
-         pricing: { model: PRICING_MODEL_PER_UNIT, rate: "0.05", currency: "USD", unit: "accesses" },
          restrictions: [
            { kind: RESTRICTION_KIND_FUNCTION,
              permitted: ["ai-input", "ai-index", "search"],
@@ -316,7 +316,6 @@ The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-al
      attestations: { same as Offer A }
      terms: [
        { semantics: TERM_SEMANTICS_ENUMERATED,
-         pricing: { model: PRICING_MODEL_FREE, rate: "0", currency: "USD" },
          restrictions: [ same as Offer A ],
          scopes: ["subscription:SUB-ANTHROPIC-HEARST-2026"] }
      ]
@@ -344,7 +343,7 @@ The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-al
         "currency": "USD",
         "unit": "accesses",
         "unit_cost": "0.00001515",
-        "estimated_quantity": 3300
+        "estimated_quantity": 1
       },
       "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
       "identity": {
@@ -510,7 +509,7 @@ SSP-Alpha returns `offer_groups` (batch mode -- multiple URIs in query):
         {
           "offer_id": "2325749d-50d3-431a-ac34-900d443ee88e",
           "exchange": "exchange.ssp-alpha.com",
-          "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit": "accesses", "unit_cost": "0.00001515", "estimated_quantity": 3300 },
+          "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit": "accesses", "unit_cost": "0.00001515", "estimated_quantity": 1 },
           "identity": { "canonical_url": "https://techcrunch.com/premium/ai-regulation-2026.html", "iptc_guid": "urn:newsml:techcrunch:20260315:ai-reg-001", "content_hash": "a1b2c3d4e5f6...", "hash_method": "simhash-v1" },
           "attestations": [{ "verifier": "gumgum.com", "claims": { "estimated_quantity": 3300, "word_count": 2500 }, "signature": "..." }],
           "terms": [
@@ -559,7 +558,7 @@ Note: SSP-Alpha returns an empty `offers` array for the `theverge.com` URI with 
     {
       "offer_id": "ecb6fef4-1d83-4751-ab92-b3bc7c2fee39",
       "exchange": "exchange.ssp-beta.com",
-      "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.07", "currency": "USD", "unit": "accesses", "unit_cost": "0.00002258", "estimated_quantity": 3100 },
+      "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.07", "currency": "USD", "unit": "accesses", "unit_cost": "0.00002258", "estimated_quantity": 1 },
       "identity": {
         "canonical_url": "https://theverge.com/premium/ai-regulation-republish.html",
         "iptc_guid": "urn:newsml:techcrunch:20260315:ai-reg-001",
@@ -618,10 +617,14 @@ Step 3: Rank within content group
 
   Selected: 4f155204-a53e-42aa-8471-154f87d7d3d5 (subscription, zero marginal cost, third-party attested)
 
-Step 4: Budget check
-  - Subscription offer: cost = $0 -> always within budget
-  - Cumulative spend for scope "team:claude-rag": $142.50 of $500.00 period budget
-  - Proceed
+Step 4: Budget filter (applied before the offers are returned)
+  - Spend so far for scope "team:claude-rag": $142.50 of the $500.00 period budget.
+    This spend comes only from earlier purchase totals. Resolve never charges
+    and never adds to it.
+  - An offer that would take spend past $500.00 is dropped from the result.
+    All three offers fit, so none is dropped. If none had fitted, the URI would
+    come back with OFFER_ABSENCE_REASON_BUDGET_EXCEEDED (a "no result", not an error).
+  - Subscription offer: cost = $0 -> fits any budget
 ```
 
 ---
@@ -926,7 +929,7 @@ The SDK auto-submits a usage report (background, non-blocking). Usage reporting 
 }
 ```
 
-A successful `UsageReportResponse` carries only the Exchange-assigned `report_id` (the durable identity the agent references when filing a dispute). A rejected report is not a success body — it travels as a non-OK transport error carrying `ErrorDetail.usageReportRejection` (e.g. `{ "usage_report_rejection": { "reason": "USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED" } }`).
+A successful `UsageReportResponse` carries only the Exchange-assigned `report_id` (the durable identity the agent references when filing a dispute). A rejected report is not a success body — it travels as a non-OK transport error carrying `ErrorDetail.usageReportRejection` (e.g. `{ "usage_report_rejection": { "reason": "USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED" } }` with the Connect code `failed_precondition` for a report past its window). A report is never refused because its quantity differs from the estimate.
 
 ---
 
