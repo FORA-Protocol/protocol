@@ -259,7 +259,7 @@ type RequesterRecord struct {
 
 ### Forwarding Chain Verification
 
-The forwarding chain lives entirely in the HTTP layer as a **stack of RFC 9421 HTTP Message Signatures** — there is no `intermediaries` field on the message. Each party that originates or forwards a `ResourceQuery` or `TransactionRequest` adds **one** labeled signature (`Signature` / `Signature-Input`, e.g. `fora-agent`, `fora-broker-1`) to the request headers. Each forwarder's signature covers the request essentials (`@method`, `@authority`, `@path`, `Content-Digest`) **plus the previous hop's signature**, so the ordered set of header signatures *is* the chain and cannot be reordered, dropped, or extended undetectably. The Exchange MUST:
+The forwarding chain lives entirely in the HTTP layer as a **stack of RFC 9421 HTTP Message Signatures** — there is no `intermediaries` field on the message. Each party that originates or forwards a request byte-for-byte (a `ResourceQuery` relayed toward the Exchange) adds **one** labeled signature (`Signature` / `Signature-Input`, e.g. `fora-agent`, `fora-broker-1`) to the request headers. Each forwarder's signature covers the request essentials (`@method`, `@authority`, `@path`, `Content-Digest`) **plus the previous hop's signature**, so the ordered set of header signatures *is* the chain and cannot be reordered, dropped, or extended undetectably. The Exchange MUST:
 
 1. **Verify the requester's (originating) RFC 9421 HTTP Message Signature** — proves the original requester authorized the request. The `keyid` is the key's RFC 7638 thumbprint; the Exchange resolves the key in the requester's WBA directory at `{domain}/.well-known/http-message-signatures-directory` and verifies the Ed25519 signature.
 
@@ -267,7 +267,7 @@ The forwarding chain lives entirely in the HTTP layer as a **stack of RFC 9421 H
 
 All signatures must pass for the request to proceed. If any verification fails — or the chain is not contiguous — the Exchange rejects the request with `CodeUnauthenticated`. The refusal carries an `ErrorDetail` whose `request_auth_failure` block holds a [`RequestAuthFailureReason`](/reference/proto-fora/#requestauthfailurereason): `SIGNATURE_MISSING` (sign the request), `SIGNATURE_INVALID` (the signature does not verify) or `SIGNATURE_STALE` (sign it again, now). The reason names what the caller does next, never which check failed.
 
-When only the originating signature is present, the requester is calling the Exchange directly — no intermediary was involved. Chain depth is bounded by `RequestConstraints.max_hops` (agent-set) and `WellKnownManifest.max_intermediary_hops` (Exchange-published); the Exchange counts the signatures in the stack against these caps.
+When only the originating signature is present, the requester is calling the Exchange directly — no intermediary was involved — or the Broker authored the request itself: a discovery fan-out leg, or a purchase sub-request it re-packaged (see [Sub-requests from a Broker](#sub-requests-from-a-broker)). Chain depth is bounded by `RequestConstraints.max_hops` (agent-set) and `WellKnownManifest.max_intermediary_hops` (Exchange-published); the Exchange counts the signatures in the stack against these caps.
 
 ```go
 // Forwarding-chain verification runs in the SDK's verify middleware at the
@@ -294,7 +294,7 @@ When `Requester.delegation` is present, the Exchange verifies the delegation JWT
 
 1. Decode the base64url-encoded `token` (JWS) from the `Delegation` message
 2. Verify the Ed25519 signature chain — the authority JWT signed by `principal_domain`'s published key, each child JWT signed by the key its parent named in `cnf` (chain-linkage invariant)
-3. Verify holder binding — the key that signed the RFC 9421 request MUST hash to the final JWT's `cnf.jkt`
+3. Verify holder binding — the key that signed the RFC 9421 request MUST hash to the final JWT's `cnf.jkt`. On a purchase sub-request a Broker re-packaged, the request signer is the Broker, so compare the key each item's `AgentAcceptance` verifies under instead
 4. Evaluate constraints (scope coverage, spend caps, expiration) — the grant covers scopes only if each child's `scope` is contained in its parent's
 5. Extract effective scopes (intersection of requester scopes and delegation scopes)
 6. Check `expires_at` against current time
@@ -332,7 +332,8 @@ sequenceDiagram
 
     Note over Handler: Validate request
     Note over Handler: Reject unless EVERY items[].offer.exchange names this Exchange's own domain (INVALID_ARGUMENT)
-    Note over Handler: Verify requester RFC 9421 HTTP Message Signature
+    Note over Handler: Verify the sender's RFC 9421 HTTP Message Signature<br/>(the agent's, or the Broker's on a re-packaged sub-request)
+    Note over Handler: Verify agent_request_acceptance (projection for this Exchange)
     Note over Handler: Check idempotency key
 
     Handler->>Idemp: Check(idempotency_key)
@@ -678,6 +679,14 @@ func transactionDenied(reason forav1.DenialReason, mismatches ...forav1.Restrict
 **Latency budget**: 20ms p50, 100ms p99 per item. The billing adapter authorization (5ms p50) and transaction log write (1-2ms p50 for local WAL) dominate. Multi-item requests are processed sequentially, so latency scales with item count.
 
 **Atomicity note**: Multi-item requests are best-effort per item and **NOT atomic**. The Exchange processes items sequentially in original order. If item 3 of 5 fails billing authorization, items 1-2 are already committed (signed URLs issued) and items 4-5 continue processing. The caller MUST check each `TransactionResultItem.denial_reason` to determine which items succeeded. This non-atomic model is deliberate: it matches how programmatic resource access handles multi-slot requests. A 1-element request has nothing to keep partial, so its denial travels as a non-OK transport error carrying `ErrorDetail.transaction_denial` instead of an in-body `denial_reason`.
+
+### Sub-requests from a Broker
+
+When an agent buys through `BrokerService.ExecuteTransaction`, the Broker sends this Exchange a sub-request it authored: this Exchange's items in request order, each with the agent's `AgentAcceptance`, the agent's `AgentRequestAcceptance`, `requester` and `idempotency_key` unchanged, and the **Broker's** RFC 9421 signature. The pipeline above runs unchanged, with three points to note:
+
+- **Who consented.** The wire signer is the Broker. The agent is authenticated by its body acceptances, verified against the keys published in the WBA directory of `requester.domain`. The delivery URL and `agent_identity_hash` are bound to the agent key the acceptances verify under, and a delegation's `cnf.jkt` is checked against that same key.
+- **Idempotency.** The key is the agent's, forwarded unchanged. Scope it per (Broker, requester the acceptances authenticate, key), so two agents behind one Broker that choose the same key cannot collide.
+- **Answers.** Answer exactly as for a direct request. A provider that does not accept relayed purchases has the item denied with `DENIAL_REASON_RELAY_NOT_ACCEPTED`. A refusal of the whole sub-request — including the non-OK `transaction_denial` a one-item request receives — reaches the agent unchanged on each affected item's `TransactionResultItem.refusal`, because the Broker never turns it into an error of its own.
 
 ### Partial Failure Handling
 

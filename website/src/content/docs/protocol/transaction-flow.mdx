@@ -9,22 +9,31 @@ The Exchange exposes four RPCs. This is the core protocol -- everything else is 
 
 ```
 With Broker (multi-exchange, budget control, reporting):
-  Agent -> Broker -> Exchange A, B, C -> select best -> deliver
+  Agent -> Broker -> Exchange A, B, C -> select best
+  Agent -> Exchange A, B, C directly            -> buy, deliver
+     or Agent -> Broker -> Exchange A, B, C     -> buy in one call, deliver
 
 Without Broker (direct, single exchange):
   Agent -> Exchange -> deliver
 ```
 
+After discovery the agent buys its selected offers one of two ways: directly, calling `ExchangeService.ExecuteTransaction` at each offer's `Offer.exchange`, or through the Broker, with one `BrokerService.ExecuteTransaction` call for offers from any number of Exchanges. See [Buying through a Broker](#buying-through-a-broker).
+
 ## Multi-Hop Routing
 
-Multi-hop is the common case, not the exception. A request typically travels `Agent -> Broker -> ... -> Exchange`, and the broker layer may itself be more than one hop. The forwarding chain lives entirely in the HTTP layer as a **stack of [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) HTTP Message Signatures** — there is no in-message hop list. Each party that originates or forwards the request adds **one** labeled signature (`Signature` / `Signature-Input`, e.g. `fora-agent`, `fora-broker-1`). Each forwarder's signature covers the request essentials (`@method`, `@authority`, `@path`, `Content-Digest`) **plus the previous hop's signature**, so the chain is ordered and tamper-evident: no hop can be reordered, dropped, or inserted without invalidating a downstream signature. The `keyid` on each signature is the key's RFC 7638 thumbprint. The request carries **one** covered `Signature-Agent` header — the agent's WBA directory at `{domain}/.well-known/http-message-signatures-directory`, forwarded unchanged by every relay — so the Exchange resolves the agent's key there, and takes each forwarding hop's key from the key set it is configured with (for example, Brokers registered with it). The Exchange verifies **every** signature and confirms the chain is contiguous. The ordered set of signatures *is* the forwarding chain.
+A request through a Broker reaches an Exchange in one of two ways, and they authenticate differently.
+
+- **Re-packaged.** Both Broker RPCs terminate at the Broker. For `Resolve`, the Broker authors new per-Exchange `ResourceQuery` messages (the discovery fan-out). For `BrokerService.ExecuteTransaction`, it authors one `TransactionRequest` per Exchange. Each of these requests carries **only the Broker's** RFC 9421 signature, because the Broker wrote it. On a purchase, the agent's consent travels in the body as `AgentAcceptance` and `AgentRequestAcceptance`, which are detached signatures that stay valid however the request was re-packaged.
+- **Forwarded byte-for-byte.** A request relayed unchanged keeps the agent's signature and gains one per forwarding hop. This is the forwarding chain described next. It applies to discovery forwarded toward an Exchange; a purchase through a Broker is always re-packaged.
+
+A forwarded request typically travels `Agent -> Broker -> ... -> Exchange`, and the broker layer may itself be more than one hop. The forwarding chain lives entirely in the HTTP layer as a **stack of [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) HTTP Message Signatures** — there is no in-message hop list. Each party that originates or forwards the request adds **one** labeled signature (`Signature` / `Signature-Input`, e.g. `fora-agent`, `fora-broker-1`). Each forwarder's signature covers the request essentials (`@method`, `@authority`, `@path`, `Content-Digest`) **plus the previous hop's signature**, so the chain is ordered and tamper-evident: no hop can be reordered, dropped, or inserted without invalidating a downstream signature. The `keyid` on each signature is the key's RFC 7638 thumbprint. The request carries **one** covered `Signature-Agent` header — the agent's WBA directory at `{domain}/.well-known/http-message-signatures-directory`, forwarded unchanged by every relay — so the Exchange resolves the agent's key there, and takes each forwarding hop's key from the key set it is configured with (for example, Brokers registered with it). The Exchange verifies **every** signature and confirms the chain is contiguous. The ordered set of signatures *is* the forwarding chain.
 
 **Chain-depth caps.** Two fields bound how deep a chain may go:
 
 - `RequestConstraints.max_hops` -- the agent caps its own chain depth. A Broker MUST NOT forward a request whose signature count would exceed it.
 - `WellKnownManifest.max_intermediary_hops` -- the Exchange publishes the longest inbound chain (signature count) it tolerates; longer chains SHOULD be rejected, and a Broker can prune before forwarding.
 
-**Response path: direct.** Responses do **not** retrace the hop chain. The terminal Exchange returns its `TransactionResponse` (or `ResourceResponse`) directly to the originating agent; the Exchange-facing Broker that holds the agent binding relays it back without re-fanning through every hop. This works because the signed `retrieval_endpoint` is bound to the agent's identity (`agent_identity_hash`), so delivery needs no return-path relay. Intermediaries observe requests, not responses.
+**Response path: direct.** Responses do **not** retrace the hop chain. The terminal Exchange returns its `ResourceResponse` directly to the originating agent; the Exchange-facing Broker that holds the agent binding relays it back without re-fanning through every hop. A purchase through a Broker is answered by the Broker, which combines the Exchanges' answers into one `BrokerTransactionResponse`. This works because the signed `retrieval_endpoint` is bound to the agent's identity (`agent_identity_hash`), so delivery needs no return-path relay. Intermediaries observe requests, not responses.
 
 ## RPC 1: DiscoverResources
 
@@ -285,7 +294,7 @@ When the requester holds a subscription, the Exchange attaches `SubscriptionQuot
 
 ## RPC 2: ExecuteTransaction
 
-The agent or Broker commits to a selected offer, receiving a signed URL for content delivery.
+The agent commits to a selected offer, receiving a signed URL for content delivery. A Broker calls this RPC too: once per Exchange, when it re-packages a purchase made through `BrokerService.ExecuteTransaction`.
 
 ```
 POST /fora.v1.ExchangeService/ExecuteTransaction
@@ -380,7 +389,7 @@ The `retrieval_endpoint` is a CDN signed URL bound to `agent_identity_hash`. A b
 ### What Happens Inside the Exchange
 
 1. Validate request (proto validation)
-2. Verify the sender's RFC 9421 HTTP Message Signature (alg=ed25519) in the request headers — the agent's on a direct request, a projecting Broker's on a projected one — and each prior hop signature if present
+2. Verify the sender's RFC 9421 HTTP Message Signature (alg=ed25519) in the request headers — the agent's on a direct request, the Broker's on a sub-request the Broker re-packaged. On a re-packaged sub-request the agent is authenticated by its body acceptances instead, and a delegation's holder binding (`cnf.jkt`) is checked against the key the item's `AgentAcceptance` verifies under, not against the Broker
 3. Verify `agent_request_acceptance` when present: the signature, and that this request's items are the complete in-order projection of the signed set addressed to this Exchange. This runs **before** the idempotency lookup — request-level idempotency state is never created or served for a request whose set claim has not been proven, otherwise a mutated request could consume the key and a later honest retry would replay its result
 4. Check idempotency key (prevent double-charge on retry)
 5. Verify offer signature (reconstruct offer from signed token)
@@ -470,6 +479,78 @@ For batch transactions, use the `items` array:
 ```
 
 Each item gets its own `transaction_id`, `billing_id`, and signed URL. Batch transactions are non-atomic -- individual items can fail independently.
+
+### Buying through a Broker
+
+`BrokerService.ExecuteTransaction` buys offers from any number of Exchanges in one call. The agent sends the same `TransactionRequest` it would send an Exchange — every item with its `AgentAcceptance`, plus one `AgentRequestAcceptance` over all items — signed for the Broker's URL.
+
+```
+POST /fora.v1.BrokerService/ExecuteTransaction
+Content-Type: application/json
+```
+
+The Broker re-packages the purchase:
+
+1. It verifies the agent's request signature, and checks that `requester.domain` is the agent's verified signing directory (the host of the WBA directory the covered `Signature-Agent` header names).
+2. It groups the items by each signed offer's `exchange`. It checks that it can route to each Exchange and approves it for purchases before it sends anything.
+3. It sends one `ExchangeService.ExecuteTransaction` per Exchange, signed with **its own** key. Each sub-request carries that Exchange's items in request order with their acceptances, the agent's `AgentRequestAcceptance` unchanged, the agent's `requester` and the agent's `idempotency_key` unchanged. Each Exchange verifies the agent's consent from the body.
+4. It combines the answers into one `BrokerTransactionResponse`.
+
+Re-packaging and combining are safe because each item is atomic and its integrity is per resource. Each offer carries the signature of the Exchange that issued it, covering price, terms, expiry and `exchange`. Each acceptance binds the agent to that one offer, the requester and the idempotency key. Each item's result comes from the Exchange that owns the resource. The Broker therefore assembles independent per-resource purchases, and it cannot change what an item buys, from whom, at what price or for whom without breaking that offer's signature or the agent's acceptance. The `AgentRequestAcceptance` also stops it dropping, adding or reordering items within one Exchange's sub-request. No cross-item integrity is needed. On the response side, the one signed value in a result item is `retrieval_endpoint`, which the issuing Exchange signed. The other fields are the Broker's unsigned report of what each Exchange answered; the charge itself is still bounded by the signed offer the Exchange verified.
+
+```json
+{
+  "ver": "1.0",
+  "items": [
+    {
+      "offer_id": "6edb0ed0-6f7f-4fb2-877b-ea7fa271ad07",
+      "transaction_id": "txn-a-001",
+      "billing_id": "bill-a-001",
+      "retrieval_endpoint": "https://cdn.publisher.example/a1?Signature=...",
+      "cost": { "amount": "0.05", "currency": "USD" }
+    },
+    {
+      "offer_id": "7a9482de-d0d2-4bfb-ba99-c2506dc2bc91",
+      "refusal": {
+        "exchange": "exchange-b.example",
+        "code": "permission_denied",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "transaction_denial": {
+            "reason": "DENIAL_REASON_ACCOUNT_NOT_REGISTERED",
+            "exchange": "exchange-b.example"
+          }
+        }
+      }
+    },
+    {
+      "offer_id": "5c43dd75-9960-4ebf-bbbd-06d4f9014a40",
+      "transaction_id": "txn-a-002",
+      "billing_id": "bill-a-002",
+      "retrieval_endpoint": "https://cdn.publisher.example/a2?Signature=...",
+      "cost": { "amount": "0.40", "currency": "EUR" }
+    }
+  ],
+  "exchanges": [
+    { "exchange": "exchange-a.example", "offer_ids": ["6edb0ed0-6f7f-4fb2-877b-ea7fa271ad07", "5c43dd75-9960-4ebf-bbbd-06d4f9014a40"], "agent_identity_hash": "NzbLsXh8..." },
+    { "exchange": "exchange-b.example", "offer_ids": ["7a9482de-d0d2-4bfb-ba99-c2506dc2bc91"] }
+  ],
+  "totals": [
+    { "amount": "0.05", "currency": "USD" },
+    { "amount": "0.40", "currency": "EUR" }
+  ]
+}
+```
+
+- `items` has one entry per request item, in request order. A success, or a per-item denial, is the Exchange's `TransactionResultItem` unchanged.
+- **Upstream refusals ride in the body.** When an Exchange refuses the Broker's whole sub-request, or does not answer it, the Broker does not turn that into an error of its own. Each affected item carries `refusal`: the Exchange, the Connect `code` it answered with, and its `ErrorDetail` unchanged. The other Exchanges' results come back unchanged. `DENIAL_REASON_CONTENT_UNAVAILABLE` is not a catch-all for upstream failures.
+- `exchanges` has one `ExchangeOutcome` per Exchange contacted. Its `agent_identity_hash` is what that Exchange's retrieval URLs are bound to.
+- `totals` sums only the charged items (those with neither `denial_reason` nor `refusal`), one `Cost` per currency. Amounts are never summed across currencies.
+- `DENIAL_REASON_RELAY_NOT_ACCEPTED` on an item means the provider at that Exchange does not accept purchases relayed by a Broker. Buy that offer directly.
+
+The Broker's own refusals are non-OK Connect errors carrying an `ErrorDetail`, and nothing was bought: an invalid agent signature is `unauthenticated` with `request_auth_failure`; a `requester.domain` that is not the agent's signing directory is `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`; a malformed request is `invalid_argument`; an Exchange the Broker cannot route to or does not approve is `failed_precondition`, with `metadata["exchange"]` naming it.
+
+A retry is safe. The Broker forwards the agent's `idempotency_key` unchanged to every Exchange, so each Exchange answers a repeated sub-request from its stored result. A timed-out sub-request is an ambiguous outcome, and retrying with the same key is how the agent resolves it.
 
 ### Subscription TransactionResponse
 

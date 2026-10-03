@@ -695,7 +695,9 @@ SDK or Broker commits to the subscription offer.
 }
 ```
 
-### Orchestrated request -- forwarding chain in the headers:
+### Orchestrated request -- bought through the Broker:
+
+The agent sends the purchase to the Broker, `POST https://broker.example/fora.v1.BrokerService/ExecuteTransaction`, signed for the Broker's URL. The Broker re-packages it and sends SSP-Alpha's Exchange its own sub-request:
 
 `POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
@@ -757,7 +759,7 @@ SDK or Broker commits to the subscription offer.
 }
 ```
 
-The request body is identical to the direct case; the forwarding chain lives in the HTTP headers. The Broker preserves the agent's labeled RFC 9421 signature and adds its own labeled RFC 9421 signature (covering the request plus the agent's signature) to the `Signature`/`Signature-Input` headers. The Exchange verifies both: the agent's identity (via the agent's RFC 9421 HTTP Message Signature, alg=ed25519, + public key fetched from the agent's WBA directory at `claude.ai/.well-known/http-message-signatures-directory`) and each forwarding hop (via that hop's labeled RFC 9421 signature + the hop's public key, selected by its `keyid` thumbprint from the key set the Exchange is configured with).
+The sub-request body carries SSP-Alpha's items exactly as the agent signed them, with the agent's `agent_acceptance` on each item, its `agent_request_acceptance`, its `requester` and its `idempotency_key` unchanged. There is no forwarding chain: the sub-request is a new request the Broker authored, so it carries one RFC 9421 signature, the Broker's, whose key the Exchange selects by its `keyid` thumbprint from the key set it is configured with. The agent's consent is verified from the body: the acceptances verify against the agent's key from the WBA directory of `requester.domain` (`claude.ai/.well-known/http-message-signatures-directory`), and the request acceptance proves these items are the complete in-order set addressed to SSP-Alpha. The Broker returns SSP-Alpha's answer to the agent inside a `BrokerTransactionResponse`, alongside the results of any other Exchange in the same purchase.
 
 ### Inside SSP-Alpha's Exchange
 

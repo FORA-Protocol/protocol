@@ -197,8 +197,10 @@ carries the same flow with its example executed by the package's own test suite.
 
 The single-call `FetchBatch` above is part of the deferred layer. What ships is the
 part that matters most for round trips: `ResourceQuery.uris` is a repeated field, so
-one Discover call covers every URI you want from one Exchange. Purchase and delivery
-are then per offer.
+one Discover call covers every URI you want from one Exchange. Purchase can be per
+offer, as below, or batched: `Client.ExecuteBatch` buys several offers from one Exchange
+in one request, and `BrokerClient.Execute` buys offers from several Exchanges in one call
+to a Broker (shown after this example). Delivery is per offer.
 
 ```go
 found, err := client.Discover(ctx, &forav1.ResourceQuery{
@@ -232,6 +234,45 @@ for _, group := range found.Groups {
     }
     _ = content
 }
+```
+
+### Buying across Exchanges through a Broker
+
+`BrokerClient.Execute` sends one `BrokerService.ExecuteTransaction` for offers issued by
+any number of Exchanges. The client signs each offer's acceptance and one request
+acceptance over the whole set; the Broker re-packages the purchase into one sub-request
+per Exchange and returns the results in request order. The client must sign as the
+directory its requester's domain names (`WithSignatureAgent`), because a Broker refuses
+a request whose `requester.domain` is anything else, and the client refuses it locally
+first.
+
+```go
+broker := foraconnect.NewBrokerClient("https://broker.example",
+    foraconnect.WithSigner(signer),
+    foraconnect.WithSignatureAgent("https://agent.example"),
+    foraconnect.WithRequester(&forav1.Requester{Id: "agent-1", Domain: "agent.example",
+        Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}),
+)
+resp, err := broker.Execute(ctx, selected) // []core.VerifiedOffer from several Exchanges
+if err != nil {
+    return err // the Broker's own refusal: nothing was bought
+}
+for _, item := range resp.GetItems() {
+    if r := item.GetRefusal(); r != nil {
+        // That Exchange refused the whole sub-request; the other items are unaffected.
+        log.Printf("%s refused %s: %s", r.GetExchange(), item.GetOfferId(), r.GetCode())
+        continue
+    }
+    if item.DenialReason != nil {
+        continue // a per-item denial from the Exchange
+    }
+    content, err := client.Fetch(ctx, item.GetRetrievalEndpoint())
+    if err != nil {
+        return err
+    }
+    _ = content
+}
+// resp.GetTotals() holds the charged amount per currency, never summed across currencies.
 ```
 
 ## Error Handling

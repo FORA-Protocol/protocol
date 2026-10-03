@@ -117,12 +117,12 @@ Once connected, five tools appear — the protocol verbs.
 | Tool | Where the call goes |
 |---|---|
 | `Fora discover` | `BrokerService.Resolve`, via the Broker |
-| `Fora execute` | the Broker's execute relay |
+| `Fora execute` | `BrokerService.ExecuteTransaction` |
 | `Fora register` | `ExchangeService.Register`, direct to the Exchange |
 | `Fora report` | `ExchangeService.ReportUsage`, direct to the offer's Exchange |
 | `Fora status` | `ExchangeService.GetAccountStatus`, direct to the Exchange |
 
-Two of them traverse the Broker and three go straight to an Exchange. Registration has to be direct, because the Exchange binds your account to your identity using your own inbound signature, and the Broker relay would re-sign that hop with its own key. See [Identity Service](/components/identity/overview/) for the rest of that reasoning.
+Two of them traverse the Broker and three go straight to an Exchange. Registration has to be direct, because the Exchange binds your account to your identity using your own inbound signature, and a purchase through the Broker is re-signed with the Broker's own key. See [Identity Service](/components/identity/overview/) for the rest of that reasoning.
 
 ## 3. The demo publisher
 
@@ -206,7 +206,7 @@ Ask for the same URL again, and let the agent use the protocol.
 Three tool calls, and the article arrives:
 
 1. **`Fora discover`** (`BrokerService.Resolve`, via the Broker) — the Broker asks the Exchange, which returns an offer per licensing term available to you. This one is free under the Stoa Press AI License.
-2. **`Fora execute`** (the Broker's execute relay) — the agent chooses a signed offer, and the Broker relays the purchase to the Exchange. The Exchange verifies `Offer.signature` and answers with a signed retrieval URL in `TransactionResultItem.retrieval_endpoint`. The MCP server then fetches the content from that URL itself, because only it holds the key the URL is bound to. The delivery edge verifies the URL and serves the bytes, the same bytes the door refused, and the article comes back in the tool result.
+2. **`Fora execute`** (`BrokerService.ExecuteTransaction`, via the Broker) — the agent chooses a signed offer, and the Broker re-packages the purchase into a request to the offer's Exchange, signed with its own key, with the agent's acceptance in the body. The Exchange verifies `Offer.signature` and answers with a signed retrieval URL in `TransactionResultItem.retrieval_endpoint`. The MCP server then fetches the content from that URL itself, because only it holds the key the URL is bound to. The delivery edge verifies the URL and serves the bytes, the same bytes the door refused, and the article comes back in the tool result.
 3. **`Fora report`** (`ExchangeService.ReportUsage`, direct to the offer's Exchange) — the offer carried a `ReportingObligation`, so the agent files a report and gets back a `UsageReportResponse.report_id`.
 
 See [Why the service fetches the content](/components/identity/overview/#why-the-service-fetches-the-content) for the reason the fetch happens inside `Fora execute`.

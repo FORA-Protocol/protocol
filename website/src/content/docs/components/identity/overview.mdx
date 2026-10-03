@@ -105,10 +105,10 @@ Each tool is one protocol verb. What differs between them is where the call goes
 | `fora_register` | `ExchangeService.Register` | direct to the named Exchange |
 | `fora_status` | `ExchangeService.GetAccountStatus` | direct to the named Exchange |
 | `fora_discover` | `BrokerService.Resolve` | via the Broker |
-| `fora_execute` | the Broker's execute relay | via the Broker |
+| `fora_execute` | `BrokerService.ExecuteTransaction` | via the Broker |
 | `fora_report` | `ExchangeService.ReportUsage` | direct to the offer's own Exchange |
 
-Registration must reach the Exchange directly, because the Exchange derives the binding between an account and an identity from the agent's **own** inbound signature. The Broker relay re-signs the transport hop with the Broker's key and carries agent identity in a detached body acceptance — right for fan-out purchases, and it would defeat registration's identity model.
+Registration must reach the Exchange directly, because the Exchange derives the binding between an account and an identity from the agent's **own** inbound signature. `BrokerService.ExecuteTransaction` re-packages a purchase into requests signed with the Broker's key and carries agent identity in detached body acceptances — right for multi-Exchange purchases, and it would defeat registration's identity model.
 
 `fora_report` takes no endpoint argument. The destination is read off the report's own exchange field, which the offer signed, and resolved from that Exchange's manifest. There is no parameter a misconfigured origin could arrive through.
 

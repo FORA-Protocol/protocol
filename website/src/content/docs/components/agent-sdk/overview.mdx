@@ -32,6 +32,11 @@ The shipped client is the same four verbs in all three languages: **discover** a
 returns the offers already sorted into verified and rejected, so an offer that did not
 verify is never handed back as usable.
 
+A Broker client sits beside it with two verbs: **resolve**, discovery across the
+Exchanges the Broker knows, and **execute**, which buys offers from several Exchanges in
+one call (`BrokerService.ExecuteTransaction`). The exchange client's execute also takes
+several offers from one Exchange (`ExecuteBatch` in Go).
+
 Full per-language references live beside the code: [Go](https://github.com/FORA-Protocol/protocol/blob/main/sdk/go/README.md),
 [Python](https://github.com/FORA-Protocol/protocol/blob/main/sdk/python/README.md).
 

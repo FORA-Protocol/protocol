@@ -208,7 +208,7 @@ The Exchange/edge verifies a delegation by (offline, using only the owner's publ
 
 1. **Verify the authority JWT** with the resource owner's published key (the trust anchor). Read its `scope`, `exp`, and `cnf.jkt`.
 2. **Verify each delegation JWT** with the key in its own JOSE header `jwk` — but only after checking `thumbprint(header key) == parent cnf.jkt` (the **chain-linkage invariant**). Reject a JWT signed by a key the parent did not name. Check each child's `scope` is covered by its parent's.
-3. **Verify holder binding** — the key that signed the HTTP request ([RFC 9421](#request-signatures-rfc-9421)) MUST hash to the final delegation's `cnf.jkt`. If not, **reject** (`DENIAL_REASON_DELEGATION_INVALID`). This is what makes a leaked token useless to a thief: possessing the bytes is not enough — you must control the bound private key. It is **not optional** and **not skippable**; an Exchange that omits it reduces the token to a bearer credential and breaks the anti-theft guarantee.
+3. **Verify holder binding** — the key that signed the HTTP request ([RFC 9421](#request-signatures-rfc-9421)) MUST hash to the final delegation's `cnf.jkt`. On a purchase a Broker re-packaged, the request is signed by the Broker, so the check uses the key the item's `AgentAcceptance` verifies under instead (see [Which signature binds in a brokered request](#verification)). If not, **reject** (`DENIAL_REASON_DELEGATION_INVALID`). This is what makes a leaked token useless to a thief: possessing the bytes is not enough — you must control the bound private key. It is **not optional** and **not skippable**; an Exchange that omits it reduces the token to a bearer credential and breaks the anti-theft guarantee.
 4. Check `exp` on every JWT in the chain against current time.
 5. Optionally check `revocation_uri` for high-value transactions.
 
@@ -216,7 +216,12 @@ This is entirely offline — no callback to the issuer. The verifier needs only 
 
 **Binding across hops.** Each delegation re-binds to the next holder's key (`cnf.jkt` of the child = the next agent), so at every hop the bound key is whoever now signs the request. The chain of JWT signatures carries the binding forward — there is no point at which the token reverts to bearer form.
 
-**Which signature binds in a brokered request.** A forwarded request carries more than one RFC 9421 signature (the agent's, plus a hop signature from each intermediary). The holder-binding check always matches the **terminal holder** — the key named in the *final* delegation's `cnf.jkt`. In the **default broker pass-through** case the broker is a pure relay: it forwards the agent's delegation unchanged, the agent remains the terminal holder, and the **agent's** request signature is the one that must match `cnf.jkt` (the broker's hop signature is provenance only). Only if the agent explicitly **delegated to the broker** (the broker issues a child JWT bound to its own key and signs the request) does the broker become the terminal holder and its signature bind. Intermediaries never silently become the holder.
+**Which signature binds in a brokered request.** The holder-binding check always matches the **terminal holder** — the key named in the *final* delegation's `cnf.jkt`. Which key the Exchange compares depends on how the request reached it:
+
+- **Forwarded byte-for-byte** (discovery relayed toward an Exchange). The request carries the agent's RFC 9421 signature plus a hop signature from each intermediary. The broker forwards the agent's delegation unchanged, the agent remains the terminal holder, and the **agent's** request signature is the one that must match `cnf.jkt`. The broker's hop signature is provenance only.
+- **Re-packaged purchase** (`BrokerService.ExecuteTransaction`). The sub-request reaching the Exchange is signed by the Broker alone. The Exchange checks `cnf.jkt` against the key each item's **`AgentAcceptance`** verifies under — the agent's key, resolved from the requester's WBA directory — and not against the request signer. The agent does not need to delegate to the Broker for the Broker to relay its purchase, and an item without an `AgentAcceptance` fails the binding.
+
+Only if the agent explicitly **delegated to the broker** (the broker issues a child JWT bound to its own key) does the broker become the terminal holder. Intermediaries never silently become the holder.
 
 ### Delegation Denial Reasons
 
@@ -290,7 +295,7 @@ This distinction prevents information leakage on public Exchanges while allowing
 
 ## Multi-hop forwarding
 
-When a request passes through forwarding parties (e.g., Agent to Broker to Exchange), the forwarding chain is **not** carried in the message body at all. It lives entirely in the HTTP headers as a stack of [RFC 9421 HTTP Message Signatures](https://www.rfc-editor.org/rfc/rfc9421).
+When a request is forwarded **byte-for-byte** through intermediaries (for example, discovery relayed from an agent through a Broker to an Exchange), the forwarding chain is **not** carried in the message body at all. It lives entirely in the HTTP headers as a stack of [RFC 9421 HTTP Message Signatures](https://www.rfc-editor.org/rfc/rfc9421).
 
 ### How It Works
 
@@ -310,11 +315,13 @@ The Exchange verifies the full chain by:
 
 When only the agent's signature is present, the agent is querying the Exchange directly — no broker was involved.
 
+A purchase through a Broker does not use this chain. `BrokerService.ExecuteTransaction` terminates at the Broker, and the Broker re-packages the purchase into one new request per Exchange, signed by the Broker alone. See [Projected execute requests](#projected-execute-requests).
+
 See [Multi-Hop Example (Broker)](#multi-hop-example-broker) below for the concrete header layout.
 
 ### Projected execute requests
 
-The hop-signature stack above applies to requests forwarded **byte-for-byte**. Projection is the other case. When a Broker splits a mixed-Exchange `TransactionRequest` into per-Exchange subrequests, each subrequest has a new body, so the agent's original signature — which covered the original body through `Content-Digest` — cannot travel with it. There is no way to forward a projected body under the agent's HTTP signature, and the protocol does not ask for one.
+The hop-signature stack above applies to requests forwarded **byte-for-byte**. Projection is the other case, and it is how every purchase through a Broker travels. When a Broker splits a mixed-Exchange `TransactionRequest` it received on `BrokerService.ExecuteTransaction` into per-Exchange subrequests, each subrequest has a new body, so the agent's original signature — which covered the original body through `Content-Digest` — cannot travel with it. There is no way to forward a projected body under the agent's HTTP signature, and the protocol does not ask for one.
 
 Instead, each projected subrequest is a **new HTTP request its sender authors**. The projecting party — a Broker, or the agent itself when it splits its own set — computes the subrequest's `Content-Digest` and signs it with its own RFC 9421 signature, exactly as any sender does. The Exchange authenticates the wire caller as that sender.
 
@@ -325,7 +332,9 @@ The agent's cryptographic authorization does not ride the transport layer at all
 
 The Exchange resolves the `agent_request_acceptance` verification key from the requester the signed payload names: the payload's `requester_domain` must equal the request's `requester.domain`, and the signature is accepted only if it verifies against an Ed25519 key currently valid in that domain's WBA directory (`{requester_domain}/.well-known/http-message-signatures-directory`). The envelope carries no `keyid`, so the verifier tries the currently-valid Ed25519 keys of that directory — rotation overlap keeps that set small. When the requester itself signed the arriving request, the request-signing key the Exchange already resolved is that key, and no second fetch is needed. A signature that verifies against a key the requester's domain publishes is what makes the claimed requester identity an authenticated one, the same anchoring every other directory lookup uses.
 
-Delegation is unchanged by projection: the holder-binding check still matches the key that RFC 9421-signed the **arriving** request (see [Which signature binds in a brokered request](#verification)). A projecting Broker is the wire signer, so it may project a delegated request only when the agent has explicitly delegated to the Broker's key — the same terminal-holder rule as narrowing. A pure relay cannot project a delegated request; without a delegation, the Broker simply authenticates as itself while the body's detached signatures carry the agent's authorization.
+Delegation on a projected request: the projecting Broker is the wire signer, so the holder-binding check matches the key each item's `AgentAcceptance` verifies under, not the Broker's request signature (see [Which signature binds in a brokered request](#verification)). The agent stays the terminal holder and does not need to delegate to the Broker. The Broker authenticates as itself, and the body's detached signatures carry the agent's authorization.
+
+Before re-packaging, the Broker checks that `requester.domain` equals the agent's verified signing directory, the host of the WBA directory the covered `Signature-Agent` header names. Every Exchange resolves the acceptance keys from `requester.domain`, so a mismatch could only be refused downstream. The Broker refuses it first, as `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`: the signature verifies, but not for the requester the body claims.
 
 ## Request Signatures (RFC 9421)
 
@@ -371,7 +380,7 @@ The `Signature-Agent` value may also arrive quoted — `"https://research.acme.c
 
 ### Multi-Hop Example (Broker)
 
-When a request passes through a Broker, each hop adds its own signature. The Broker signs over the same components plus the agent's existing signature, creating a verifiable chain:
+When a request is forwarded byte-for-byte through a Broker, each hop adds its own signature. The Broker signs over the same components plus the agent's existing signature, creating a verifiable chain:
 
 ```http
 POST /fora.v1.ExchangeService/DiscoverResources HTTP/1.1

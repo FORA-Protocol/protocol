@@ -2,6 +2,65 @@
 
 ## Unreleased
 
+**The Broker buys: `BrokerService.ExecuteTransaction` (additive wire change).**
+A purchase of offers from several Exchanges is now one call to the Broker. Before
+this change `BrokerService` had only `Resolve`, and the contract described the
+agent buying at each Exchange directly, with a Broker on the path forwarding the
+request byte-for-byte under a stack of hop signatures. Implementations relayed
+purchases through the Broker anyway, by re-packaging them outside the contract.
+The contract now defines that relay.
+
+- `rpc ExecuteTransaction(TransactionRequest) returns (BrokerTransactionResponse)`
+  on `BrokerService`. The agent sends the same `TransactionRequest` it would send
+  an Exchange: every item with its `AgentAcceptance`, and one
+  `AgentRequestAcceptance` over all items. The Broker verifies the agent's request,
+  groups the items by each signed offer's `exchange`, and sends one
+  `ExchangeService.ExecuteTransaction` per Exchange, signed with its own key. The
+  acceptances travel in each sub-request body, so every Exchange still verifies
+  the agent's consent. The Broker forwards the agent's `idempotency_key` unchanged
+  to every Exchange.
+- New messages: `BrokerTransactionResponse` (`items` in request order,
+  `exchanges`, per-currency `totals`), `ExchangeOutcome` (one per Exchange
+  contacted: `exchange`, `offer_ids`, `agent_identity_hash`, `subscription_quota`)
+  and `UpstreamRefusal` (`exchange`, the Connect `code`, the Exchange's
+  `ErrorDetail`).
+- `TransactionResultItem.refusal = 14`. An Exchange's refusal of a whole
+  sub-request is never turned into a Broker error: it rides on each affected item,
+  and the other Exchanges' results come back unchanged.
+- `DenialReason.DENIAL_REASON_RELAY_NOT_ACCEPTED = 19`: the provider at this
+  Exchange does not accept purchases relayed by a Broker. Buy the offer directly.
+- The Broker's own refusals are non-OK errors: `unauthenticated` with
+  `request_auth_failure` for an invalid agent signature, and `SIGNATURE_INVALID`
+  when `requester.domain` is not the agent's verified signing directory;
+  `invalid_argument` for a malformed request; `failed_precondition` for an
+  Exchange it cannot route to or does not approve.
+- `DENIAL_REASON_CONTENT_UNAVAILABLE` is documented as not a catch-all for
+  upstream failures.
+- Re-packaging is safe because each item is atomic and its integrity is per
+  resource: each offer carries its Exchange's signature, each acceptance binds the
+  agent to that one offer, and each result comes from the Exchange that owns the
+  resource. In a result item the one signed value is `retrieval_endpoint`; the
+  combined response is otherwise the Broker's unsigned report.
+- Updated rules: the forwarding chain of hop signatures applies to requests
+  forwarded byte-for-byte, such as discovery; a purchase through a Broker is always
+  re-packaged. On a re-packaged purchase the delegation holder binding (`cnf.jkt`)
+  and `agent_identity_hash` use the key the item's `AgentAcceptance` verifies
+  under, not the request signer, which is the Broker. An Exchange scopes a relayed
+  request's idempotency key per Broker, authenticated requester and key.
+
+SDKs, in all three languages:
+
+- `BrokerClient.Execute` (Go), `BrokerClient.execute` (Python, async and sync) and
+  `BrokerClient.execute` (TypeScript) buy verified offers through a Broker in one
+  call and return the `BrokerTransactionResponse`. The client builds each item's
+  acceptance and the request acceptance from its signer, stamps `ver` and the
+  requester, and refuses locally, as malformed, a `requester.domain` that is not the
+  host of the directory it signs as (Signature-Agent).
+- The exchange client buys several offers from one Exchange in one request:
+  `Client.ExecuteBatch` in Go, and `execute` given a sequence (Python) or an array
+  (TypeScript). Offers from more than one Exchange are refused locally.
+- The client-request corpus gains the `brokerExecute` verb.
+
 **Python SDK: four additions for callers that test FORA services through the SDK.
 Python-only for now; Go and TypeScript parity follows.**
 

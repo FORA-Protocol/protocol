@@ -10,6 +10,7 @@ The FORA Broker is the optional demand-side router in the FORA protocol. It sits
 **The Broker is optional.** Agents can talk directly to Exchanges using the same `DiscoverResources`/`ExecuteTransaction`/`UsageReport` RPCs. The Broker adds value through:
 
 - **Multi-exchange comparison** -- fan out DiscoverResources to N Exchanges, pick cheapest
+- **Multi-exchange purchase** -- buy offers from several Exchanges in one `BrokerService.ExecuteTransaction` call, with the results combined in request order
 - **Budget enforcement** -- per-request, per-session, per-Exchange cumulative tracking
 - **Resource deduplication** -- same article from two Exchanges, compare price
 - **Attestation-aware selection (v1.0)** -- prefer offers with higher attestation levels (Level 2 > Level 1 > Level 0)
@@ -17,7 +18,7 @@ The FORA Broker is the optional demand-side router in the FORA protocol. It sits
 - **Dispute relay (v1.0)** -- forward `DisputeRequest` messages to the correct Exchange
 - **Selection transparency** -- logged rationale for every selection decision
 
-The Exchange does not know or care whether the request came from a Broker or directly from an agent. The protocol is identical.
+The Exchange speaks the same protocol either way. On a purchase the Broker relays, the request is signed by the Broker, and the agent's consent arrives in the body as its acceptance signatures.
 
 ## Component Architecture
 
@@ -60,7 +61,7 @@ graph TB
 
 ## Internal Call Flow
 
-`Resolve` is **discovery-only**. It gathers offers across Exchanges, selects the best per URI, and returns them as a `DiscoveryResponse` (one `OfferGroup` per requested URI). It does **not** execute or deliver — committing to an offer is a separate `ExecuteTransaction` call on the Exchange (see [Execution](#execution-separate-step) below).
+`Resolve` is **discovery-only**. It gathers offers across Exchanges, selects the best per URI, and returns them as a `DiscoveryResponse` (one `OfferGroup` per requested URI). It does **not** execute or deliver — committing to an offer is a separate call: `ExchangeService.ExecuteTransaction` at the offer's Exchange, or `BrokerService.ExecuteTransaction` at the Broker (see [Execution](#execution-separate-step) below).
 
 ```go
 func (o *Broker) Resolve(ctx context.Context, req *forav1.DiscoveryRequest) (*forav1.DiscoveryResponse, error) {
@@ -101,43 +102,36 @@ func (o *Broker) Resolve(ctx context.Context, req *forav1.DiscoveryRequest) (*fo
 
 ### Execution (separate step)
 
-After the agent picks an offer from the `DiscoveryResponse`, committing to it is a distinct exchange on the execute path. The execute target is `Offer.exchange` — the canonical Exchange domain carried inside the signed Offer bytes, so a relaying Broker cannot redirect execution without invalidating the signature.
+After the agent picks offers from the `DiscoveryResponse`, committing to them is a distinct exchange on the execute path. The execute target of each offer is `Offer.exchange` — the canonical Exchange domain carried inside the signed Offer bytes, so a relaying Broker cannot redirect execution without invalidating the signature. The agent buys either way:
 
-```go
-// Execute commits to a chosen offer. Called by the agent directly, or by the
-// Broker on the agent's behalf. The per-transaction result — transaction_id,
-// billing_id, delivery_method, retrieval_endpoint, agent_identity_hash,
-// expires_at — is carried by TransactionResponse, not by DiscoveryResponse.
-func (o *Broker) Execute(ctx context.Context, offer *forav1.Offer, req *forav1.DiscoveryRequest) (*forav1.TransactionResponse, error) {
-    txn, err := o.discovery.Execute(ctx, offer.Exchange, offer, req) // routes to Offer.exchange
-    if err != nil {
-        return nil, err
-    }
+- **Directly** — one `ExchangeService.ExecuteTransaction` per Exchange, signed by the agent.
+- **Through the Broker** — one `BrokerService.ExecuteTransaction` call for offers from any number of Exchanges. The request is the same `TransactionRequest`, and it returns a `BrokerTransactionResponse`.
 
-    // Track budget and reporting obligation off the transaction result.
-    o.budget.Record(ctx, req.SessionID(), txn.Cost)
-    o.reporter.Track(txn)
+### BrokerService.ExecuteTransaction: re-packaging
 
-    return txn, nil
-}
-```
+The Broker re-packages the agent's purchase. What holds the set together is `TransactionRequest.agent_request_acceptance` — a detached Ed25519 signature by the **agent** over the complete ordered list of `(offer signature, exchange)` references plus the requester and the idempotency key — and each item's `agent_acceptance`.
 
-### Mixed-Exchange commits: fan-out is projection
+1. The agent signs one `AgentAcceptance` per offer and one `AgentRequestAcceptance` over every selected offer, in order, across all Exchanges, and sends the request to the Broker, RFC 9421-signed for the Broker's URL. The request terminates at the Broker.
+2. The Broker verifies the agent's signature and checks that `requester.domain` is the agent's verified signing directory (the host of the WBA directory the covered `Signature-Agent` header names). It checks that every item's Exchange is one it can route to and approves for purchases. It refuses anything else before it sends a single sub-request.
+3. It groups the items by `offer.exchange` and sends one `ExchangeService.ExecuteTransaction` to each Exchange. Each sub-request is a new HTTP request the Broker authors and signs with **its own** key. It carries only the items addressed to that Exchange, in request order, with their acceptances, plus the **unchanged** `AgentRequestAcceptance`, `requester` and idempotency key. See [Projected execute requests](/protocol/authentication/#projected-execute-requests) for who signs what and how the Exchange resolves the acceptance verification key.
+4. Each Exchange verifies the acceptance signatures and requires its sub-request to equal the complete in-order projection of the signed set addressed to itself — so the Broker cannot drop, reorder, append, or split the items for that Exchange without being refused.
+5. The Broker combines the answers into one `BrokerTransactionResponse`: one result per request item in request order, one `ExchangeOutcome` per Exchange contacted, and charged totals per currency.
 
-When the agent commits to offers from **more than one** Exchange in one go, there is still no new RPC: the flow is `Resolve` for discovery, then one `ExecuteTransaction` per Exchange named in the chosen set. What holds the set together is `TransactionRequest.agent_request_acceptance` — a detached Ed25519 signature by the **agent** over the complete ordered list of `(offer signature, exchange)` references plus the requester and the idempotency key.
+**Why re-packaging is safe.** Each item is atomic and its integrity is per resource. Each offer carries its own Exchange's signature, each acceptance binds the agent to that one offer, and each item's result comes from the Exchange that owns the resource. The Broker therefore assembles independent per-resource purchases. It cannot alter any of them without breaking that item's Exchange signature or the agent's acceptance, and no cross-item integrity is needed. In a result item, the one signed value is the `retrieval_endpoint`, signed by the issuing Exchange; the other fields are the Broker's unsigned report of what each Exchange answered.
 
-The sequence:
+**Upstream refusals ride in the body.** An Exchange that refuses the Broker's whole sub-request, or does not answer it, never becomes an error of the Broker's own. Each affected item carries `TransactionResultItem.refusal` — the Exchange, the Connect code it answered with, and its `ErrorDetail` unchanged — and the other Exchanges' results come back unchanged. `DENIAL_REASON_CONTENT_UNAVAILABLE` is never used as a catch-all for an upstream failure. An item whose provider does not accept relayed purchases is denied with `DENIAL_REASON_RELAY_NOT_ACCEPTED`, and the agent buys that offer directly.
 
-1. The agent (the holder of the signing key) commits to the whole chosen set at once: it signs one `AgentRequestAcceptance` covering every selected offer, in order, across all Exchanges.
-2. Whoever executes — the agent directly, or the Broker on its behalf — sends one `ExecuteTransaction` to each Exchange in the set. Each subrequest carries only the items addressed to that Exchange, plus the **unchanged** acceptance envelope, plus the same idempotency key.
-3. Each per-Exchange subrequest is a new HTTP request its sender authors and RFC 9421-signs. When the Broker executes, the Broker is the authenticated wire caller of every subrequest; the agent's authorization travels in the body as the detached acceptance signatures, which survive projection because they never depended on the HTTP envelope. See [Projected execute requests](/protocol/authentication/#projected-execute-requests) for who signs what and how the Exchange resolves the acceptance verification key.
-4. Each Exchange verifies the acceptance signature and requires its subrequest to equal the complete in-order projection of the signed set addressed to itself — so the Broker cannot drop, reorder, append, or split the items for that Exchange without being refused.
+**The Broker's own refusals** are non-OK errors with an `ErrorDetail`: `unauthenticated` with `request_auth_failure` for a bad agent signature, and `SIGNATURE_INVALID` for a `requester.domain` that is not the signing directory; `invalid_argument` for a malformed request; `failed_precondition` for an Exchange it cannot route to or does not approve.
 
-A single-Exchange commit is the degenerate case: the projection is the whole set, and the SDK clients attach the acceptance there too.
+**Idempotency.** The Broker forwards the agent's `idempotency_key` unchanged to every Exchange; it cannot change it, because the acceptances sign it. A retry through the Broker therefore reaches each Exchange as a replay and is answered from that Exchange's stored result.
+
+**Delegation.** The Broker is the wire signer of every sub-request, so each Exchange checks a delegation's `cnf.jkt` against the key the item's `AgentAcceptance` verifies under, not against the Broker. The agent does not need to delegate to the Broker.
+
+A single-Exchange purchase is the degenerate case: the projection is the whole set, and the SDK clients attach the acceptance there too.
 
 ## Request Signing and the Forwarding Signature Stack
 
-FORA uses a two-layer signing model: the **agent's request signature** proves who originated the request, and the **forwarding signature stack** proves which intermediaries forwarded it.
+FORA uses a two-layer signing model for a request forwarded byte-for-byte: the **agent's request signature** proves who originated the request, and the **forwarding signature stack** proves which intermediaries forwarded it. A purchase through `BrokerService.ExecuteTransaction` is re-packaged instead (see above): each sub-request carries only the Broker's signature, and the agent's consent rides in the body.
 
 ### Request Authentication
 
@@ -216,7 +210,7 @@ The Broker forwards `Requester.scopes` to every Exchange it queries. Scopes cont
 
 ### Delegation Narrowing (only when the Broker is a delegated holder)
 
-By **default the Broker is a pure relay**: it passes `Requester.delegation` through unchanged and the **agent remains the holder** — the agent's RFC 9421 request signature is what the Exchange matches against the delegation's `cnf` (the Broker's hop signature is provenance only). A relay cannot narrow a delegation it does not hold: only a key named in the chain's `cnf` can issue a valid child JWT.
+By **default the Broker is a pure relay**: it passes `Requester.delegation` through unchanged and the **agent remains the holder**. On a forwarded request the agent's RFC 9421 request signature is what the Exchange matches against the delegation's `cnf` (the Broker's hop signature is provenance only); on a re-packaged purchase the Exchange matches the key the item's `AgentAcceptance` verifies under. A relay cannot narrow a delegation it does not hold: only a key named in the chain's `cnf` can issue a valid child JWT.
 
 Narrowing is therefore possible **only when the agent has explicitly delegated to the Broker's key** (the Broker is the terminal holder in the chain). In that case the Broker issues a child JWT — `scope ⊆ parent`, bound (`cnf.jkt`) to the Broker's key — and **signs the request itself**, so the binding now matches the Broker's signature:
 
@@ -347,8 +341,15 @@ sequenceDiagram
 
     Note over Agent: Agent picks an Offer.<br/>Execute target = Offer.exchange (signed)
 
-    Agent->>MPA: ExecuteTransaction(chosen offer_id)
-    MPA-->>Agent: TransactionResponse(retrieval_endpoint + billing_id)
+    alt Direct purchase
+        Agent->>MPA: ExchangeService.ExecuteTransaction(chosen offer)
+        MPA-->>Agent: TransactionResponse(retrieval_endpoint + billing_id)
+    else Through the Broker
+        Agent->>Orch: BrokerService.ExecuteTransaction(chosen offers + acceptances)
+        Orch->>MPA: ExecuteTransaction(Exchange A's items, Broker-signed)
+        MPA-->>Orch: TransactionResponse
+        Orch-->>Agent: BrokerTransactionResponse(items in request order)
+    end
 
     Note over Agent: Track reporting obligation<br/>Record spend: $0.05
 
@@ -368,7 +369,7 @@ sequenceDiagram
 | Decision | Rationale |
 |---|---|
 | **Broker is optional** | Agents can query Exchanges directly. The Broker adds multi-exchange intelligence but is not required by the protocol. |
-| **Same protocol, transparent proxy** | The Exchange cannot distinguish Broker-mediated requests from direct agent requests. No special Exchange support needed. |
+| **Same protocol, re-packaged purchases** | The Exchange answers the same RPCs whoever calls. A purchase the Broker relays is signed by the Broker, and the Exchange verifies the agent's consent from the body acceptances. |
 | **Signed offer pass-through** | Exchange signatures cover pricing fields. The Broker cannot inflate prices without invalidating the signature. |
 | **Advisory budget enforcement** | The Broker pre-filters transactions by budget, but the Exchange is the authoritative enforcement point. No overspend occurs because the Exchange is the gatekeeper. |
 | **Ed25519 + forwarding signature stack** | Requester signs the HTTP request with an RFC 9421 HTTP Message Signature (covering `@method`/`@target-uri`/`content-digest`); Broker adds one labeled RFC 9421 HTTP Message Signature (covering the request plus the prior hop's signature) to the header stack. Exchange verifies both layers and counts hops against `max_hops` / `max_intermediary_hops`. Public keys discoverable via the WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`). |
