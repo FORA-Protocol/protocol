@@ -13,7 +13,7 @@ import {
 import type { DeliveryKeyResolver } from "./delivery.ts";
 import type { EndpointResolver } from "./route.ts";
 import { createUnarySend } from "./send.ts";
-import { checkStrict } from "./strict.ts";
+import { refuseUnlessStrict } from "./strict.ts";
 import {
 	DEFAULT_CALL_TIMEOUT_MS,
 	DEFAULT_MAX_RPC_READ_BYTES,
@@ -247,6 +247,6 @@ export async function call(
 	});
 	// Before any verb parses it: the strict check reads the answer as it arrived, and the
 	// parse would already have dropped the unknown field it exists to find.
-	if (r.opts.strict === true) checkStrict(op, raw, response);
+	if (r.opts.strict === true) refuseUnlessStrict(op, raw, response);
 	return raw;
 }

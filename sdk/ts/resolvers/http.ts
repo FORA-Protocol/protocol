@@ -21,10 +21,18 @@ import { DirectoryUnavailable } from "./errors.ts";
 import { allowedScheme, blockedAddress, MAX_REDIRECTS } from "./ssrf.ts";
 
 /** The minimal response shape the resolvers read — a structural subset of the
- * WHATWG `Response`, so the global `fetch` (and undici's) satisfies it. */
+ * WHATWG `Response`, so the global `fetch` (and undici's) satisfies it.
+ *
+ * `headers` and `arrayBuffer` are optional so a hand-written FetchLike that predates
+ * them keeps working. The document readers use both: a document whose response
+ * carries no `headers` has no media type, which the manifest and WBA readers refuse,
+ * and a body read without `arrayBuffer` is the UTF-8 encoding of `text()`, which is
+ * not the served bytes for a license document that is not UTF-8 text. */
 export interface FetchResponse {
 	status: number;
 	text(): Promise<string>;
+	headers?: { get(name: string): string | null };
+	arrayBuffer?(): Promise<ArrayBuffer>;
 }
 
 /** An injected HTTP GET. Defaults to the SSRF-guarded transport (guardedFetch). */
@@ -111,22 +119,45 @@ const guardedAgent = new Agent({ connect: ssrfGuard() }).compose(
 	interceptors.redirect({ maxRedirections: MAX_REDIRECTS }),
 );
 
-/** Reads an undici response body as text, bounded to MAX_DOC_BYTES. Iterates the
- * body stream (async-iterable in Node) so a hostile origin cannot force an
- * unbounded read; breaking the loop cancels the stream once the cap is hit. */
+/** Reads a response body, bounded to MAX_DOC_BYTES. Iterates the body stream
+ * (async-iterable in Node) so a hostile origin cannot force an unbounded read, and
+ * REFUSES a body past the cap rather than truncating it: a truncated document that
+ * happens to decode is worse than a refusal, and a truncated license document would
+ * be reported as a digest mismatch it is not. The refusal is thrown inside the
+ * FetchLike, so fetchStrict reports it as DirectoryUnavailable and fetchSoft as
+ * undefined, like every other failed read. */
 async function readBounded(
 	body: AsyncIterable<Uint8Array> | null,
-): Promise<string> {
-	if (body === null) return "";
+): Promise<Uint8Array> {
+	if (body === null) return new Uint8Array();
 	const chunks: Uint8Array[] = [];
 	let total = 0;
 	for await (const chunk of body) {
-		chunks.push(chunk);
 		total += chunk.length;
-		if (total >= MAX_DOC_BYTES) break;
+		if (total > MAX_DOC_BYTES) {
+			throw new Error(`document exceeds the ${MAX_DOC_BYTES} byte cap`);
+		}
+		chunks.push(chunk);
 	}
-	const buf = Buffer.concat(chunks.map((c) => Buffer.from(c)));
-	return buf.subarray(0, MAX_DOC_BYTES).toString("utf8");
+	return new Uint8Array(Buffer.concat(chunks.map((c) => Buffer.from(c))));
+}
+
+/** The FetchResponse a bounded read answers with: the bytes as read, their UTF-8
+ * text, and the response's headers. */
+function boundedResponse(
+	status: number,
+	body: Uint8Array,
+	header: (name: string) => string | null,
+): FetchResponse {
+	return {
+		status,
+		text: () => Promise.resolve(Buffer.from(body).toString("utf8")),
+		arrayBuffer: () =>
+			Promise.resolve(
+				body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer,
+			),
+		headers: { get: header },
+	};
 }
 
 /** GET `url` through `dispatcher` (an undici Agent carrying the SSRF connector
@@ -169,7 +200,11 @@ async function requestBounded(
 		throw err;
 	}
 	const body = await readBounded(resp.body as AsyncIterable<Uint8Array> | null);
-	return { status: resp.statusCode, text: () => Promise.resolve(body) };
+	return boundedResponse(resp.statusCode, body, (name) => {
+		const value = resp.headers[name.toLowerCase()];
+		if (value === undefined) return null;
+		return Array.isArray(value) ? value.join(", ") : value;
+	});
 }
 
 /** The SSRF-guarded default transport. The directory host is derived from a
@@ -289,27 +324,59 @@ export const defaultFetch: FetchLike = async (url) => {
 	const body = await readBounded(
 		r.body as unknown as AsyncIterable<Uint8Array> | null,
 	);
-	return { status: r.status, text: () => Promise.resolve(body) };
+	return boundedResponse(r.status, body, (name) => r.headers.get(name));
 };
 
-/** GET `url` and return the body text. A transport failure or a non-200 status
- * throws DirectoryUnavailable (fail-closed halt) — the taxonomy a composite
- * relies on to distinguish an outage from an unknown key. A blocked SSRF target
- * is a transport failure and surfaces the same way (never a valid empty doc). */
+/** One document as it was served: its bytes and the media type it was labelled with. */
+export interface Fetched {
+	url: string;
+	body: Uint8Array;
+	/** The Content-Type essence (type/subtype), lowercased, parameters stripped;
+	 * undefined when the response carried none. */
+	mediaType: string | undefined;
+}
+
+/** The type/subtype of a Content-Type value, lowercased, parameters dropped. */
+export function mediaTypeEssence(header: string | null | undefined): string | undefined {
+	if (header === null || header === undefined) return undefined;
+	const essence = (header.split(";", 1)[0] ?? "").trim().toLowerCase();
+	return essence === "" ? undefined : essence;
+}
+
+/** GET `url` and return the body and its media type. A transport failure or a
+ * non-200 status throws DirectoryUnavailable (fail-closed halt) — the taxonomy a
+ * composite relies on to distinguish an outage from an unknown key. A blocked SSRF
+ * target and a body past the cap are transport failures and surface the same way
+ * (never a valid empty doc). The one GET every document read shares. */
+export async function fetchDocument(
+	fetchFn: FetchLike,
+	url: string,
+): Promise<Fetched> {
+	let resp: FetchResponse;
+	let body: Uint8Array;
+	try {
+		resp = await fetchFn(url);
+		if (resp.status !== 200) {
+			throw new DirectoryUnavailable(`status ${resp.status} for ${url}`);
+		}
+		body =
+			resp.arrayBuffer !== undefined
+				? new Uint8Array(await resp.arrayBuffer())
+				: new TextEncoder().encode(await resp.text());
+	} catch (err) {
+		if (err instanceof DirectoryUnavailable) throw err;
+		throw new DirectoryUnavailable(`fetch ${url}`, { cause: err });
+	}
+	return { url, body, mediaType: mediaTypeEssence(resp.headers?.get("content-type")) };
+}
+
+/** GET `url` and return the body text: fetchDocument without the media type, for a
+ * reader that has no use for it. */
 export async function fetchStrict(
 	fetchFn: FetchLike,
 	url: string,
 ): Promise<string> {
-	let resp: FetchResponse;
-	try {
-		resp = await fetchFn(url);
-	} catch (err) {
-		throw new DirectoryUnavailable(`fetch ${url}`, { cause: err });
-	}
-	if (resp.status !== 200) {
-		throw new DirectoryUnavailable(`status ${resp.status} for ${url}`);
-	}
-	return resp.text();
+	return Buffer.from((await fetchDocument(fetchFn, url)).body).toString("utf8");
 }
 
 /** Best-effort GET: returns the body text on 200, or `undefined` on any

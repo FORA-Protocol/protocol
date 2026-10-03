@@ -26,10 +26,11 @@
 // seam, which is a programmer error surfaced at CONSTRUCTION (TypeError), never a
 // per-resolve absence — mirroring Go's PanicsWithoutFetch.
 
-import { WBAFileSchema } from "../../../gen/ts/wire/schemas.ts";
+import type { WBAFileSchema } from "../../../gen/ts/wire/schemas.ts";
 import type { OfferKeyResolver } from "../core/verifier.ts";
-import { type FetchLike, fetchStrict, guardedFetchFromEnv } from "./http.ts";
-import { activeEd25519KeyWithExpiryScreened, wbaDirectoryURL } from "./wba.ts";
+import { fetchWBAFile, wbaDirectoryURL } from "./documents.ts";
+import { type FetchLike, guardedFetchFromEnv } from "./http.ts";
+import { activeEd25519KeyWithExpiryScreened } from "./wba.ts";
 
 /** A parsed WBA identity directory — the shape the injected fetch seam returns. */
 type WBAFile = ReturnType<typeof WBAFileSchema.parse>;
@@ -241,11 +242,10 @@ export function createWBAOfferDirectoryFetch(
 	const port = opts.port ?? "";
 	return async (domain: string) => {
 		try {
-			const body = await fetchStrict(
+			return await fetchWBAFile(
 				fetchFn,
 				wbaDirectoryURL(scheme, joinDirectoryHost(domain, port)),
 			);
-			return WBAFileSchema.parse(JSON.parse(body));
 		} catch {
 			return undefined;
 		}

@@ -7,6 +7,22 @@
 // preserve the oracle's errors.Is-DISTINCT fail-closed taxonomy.
 
 export {
+	type Document,
+	type KeyRevocationList,
+	type License,
+	type LicenseDocument,
+	MANIFEST_MEDIA_TYPE,
+	type ReadDocumentOptions,
+	readLicenseDocument,
+	readManifest,
+	readRevocationList,
+	readWBADirectory,
+	WBA_DIRECTORY_MEDIA_TYPE,
+	type WBAFile,
+	type WellKnownManifest,
+} from "./documents.ts";
+export {
+	DigestMismatch,
 	DirectoryUnavailable,
 	EndpointRefused,
 	ExchangeNotPermitted,
@@ -15,6 +31,7 @@ export {
 	ManifestNotExchange,
 	ManifestUnusable,
 	ManifestVersionRefused,
+	MediaTypeRefused,
 	NoEndpoint,
 	ResolverError,
 	RevocationUnevaluated,
@@ -36,6 +53,7 @@ export {
 	type WellKnownRequirementsOptions,
 	type WellKnownRequirementsReader,
 } from "./registration-requirements.ts";
+export { StrictViolation } from "../src/strict.ts";
 export { allowedScheme, blockedAddress } from "./ssrf.ts";
 export { createStaticKeyResolver, type StaticKeyResolver } from "./static.ts";
 export {

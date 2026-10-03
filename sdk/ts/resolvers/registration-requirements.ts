@@ -27,14 +27,14 @@ import {
   type RegistrationSchema,
   type SchemaVerdict,
 } from "../src/regschema.ts";
-import { manifestVersionRefusal, WellKnownPath } from "../src/wire.ts";
+import { manifestVersionRefusal } from "../src/wire.ts";
+import { fetchManifest, manifestURL } from "./documents.ts";
 import {
-  DirectoryUnavailable,
   ExchangeNotPermitted,
   ManifestNotExchange,
   ManifestUnusable,
 } from "./errors.ts";
-import { type FetchLike, fetchStrict, guardedFetchFromEnv } from "./http.ts";
+import { type FetchLike, guardedFetchFromEnv } from "./http.ts";
 
 /** What one Exchange asks of a registration. Both members are optional in the
  * contract, and their absence is a normal answer rather than a failure. */
@@ -111,14 +111,9 @@ export function createWellKnownRequirementsReader(
       if (allow && !allow(exchange)) {
         throw new ExchangeNotPermitted(`exchange ${exchange} not permitted by policy`);
       }
-      const url = `${scheme}://${exchange}${WellKnownPath}`;
-      const body = await fetchStrict(fetchFn, url);
-      let doc: unknown;
-      try {
-        doc = JSON.parse(body);
-      } catch (err) {
-        throw new DirectoryUnavailable(`manifest decode ${url}`, { cause: err });
-      }
+      // Fetched and decoded where every reader of the manifest does that; `body` is the
+      // text the member below is sliced out of, decoded once.
+      const { text: body, doc } = await fetchManifest(fetchFn, manifestURL(scheme, exchange));
       // The document version gate, before any other member is read — the contract's own
       // ordering, and the same call the sibling endpoint face makes. A document that is
       // not an object carries no `ver`, so it is refused here as an absent one rather

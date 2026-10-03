@@ -1312,6 +1312,7 @@ export type { Delivery, DeliveryKeyResolver } from "./delivery.ts";
 export type { EndpointResolver } from "./route.ts";
 export type { CallOptions, ClientOptions, RegistrationRequirementsReader } from "./options.ts";
 export { RawBody } from "./raw.ts";
+export { checkStrict, StrictViolation } from "../src/strict.ts";
 export type {
 	BeforeSign,
 	UnaryRequest,

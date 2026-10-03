@@ -10,7 +10,7 @@
 // live in the SHARED refresh routine (refreshRevocationFor), invoked by BOTH the
 // sync directory-fetch path AND the Run poller — never poller-only.
 
-import {
+import type {
 	KeyRevocationListSchema,
 	WBAFileSchema,
 } from "../../../gen/ts/wire/schemas.ts";
@@ -23,30 +23,13 @@ import {
 	KeyRevoked,
 	RevocationUnevaluated,
 } from "./errors.ts";
-import {
-	type FetchLike,
-	fetchSoft,
-	fetchStrict,
-	guardedFetch,
-} from "./http.ts";
+import { fetchRevocationList, fetchWBAFile, WBA_DIRECTORY_PATH } from "./documents.ts";
+import { type FetchLike, guardedFetch } from "./http.ts";
 
-/** The single public well-known path a WBA identity directory is served at (Web
- * Bot Auth; the identity half of the identity/commercial split — the commercial
- * overlay stays in /.well-known/fora.json). The one shared copy across the whole SDK. */
-export const WBA_DIRECTORY_PATH =
-	"/.well-known/http-message-signatures-directory";
+// Re-exported so the module that has always carried them still does; the one copy of
+// each lives with the document reads in ./documents.ts.
+export { WBA_DIRECTORY_PATH, wbaDirectoryURL } from "./documents.ts";
 
-/** Build the full WBA identity-directory URL from a scheme and an already-joined
- * host: `${scheme}://${host}` + {@link WBA_DIRECTORY_PATH}. An empty scheme
- * defaults to https. A PURE string function — the host arrives ALREADY-JOINED (any
- * port-join / IPv6 bracketing is the caller's concern), there is NO env read and NO
- * scheme-in-host detection (those stay consumer glue). It mirrors the sdk/go
- * WBADirectoryURL oracle byte-for-byte, locked by the tri-replayed
- * wba-url-vectors.json corpus. */
-export function wbaDirectoryURL(scheme: string, host: string): string {
-	const s = scheme === "" ? "https" : scheme;
-	return `${s}://${host}${WBA_DIRECTORY_PATH}`;
-}
 const DEFAULT_TTL_MS = 3_600_000; // 1 hour
 const DEFAULT_POLL_MS = 300_000; // 300 s
 const DEFAULT_SYNC_DEBOUNCE_MS = 5_000; // unknown-thumbprint force-refresh throttle
@@ -247,13 +230,8 @@ class WBAResolverImpl implements WBAKeyResolver {
 		return file;
 	}
 
-	private async fetchDirectory(base: string): Promise<WBAFile> {
-		const body = await fetchStrict(this.fetchFn, base + WBA_DIRECTORY_PATH);
-		try {
-			return WBAFileSchema.parse(JSON.parse(body));
-		} catch (err) {
-			throw new DirectoryUnavailable("wba directory decode", { cause: err });
-		}
+	private fetchDirectory(base: string): Promise<WBAFile> {
+		return fetchWBAFile(this.fetchFn, base + WBA_DIRECTORY_PATH);
 	}
 
 	private isRevoked(host: string, thumbprintKey: string): boolean {
@@ -286,13 +264,11 @@ class WBAResolverImpl implements WBAKeyResolver {
 	): Promise<void> {
 		const revURL = file.revocation_url;
 		if (!revURL || !wbaHostAnchored(host, revURL)) return;
-		const body = await fetchSoft(this.fetchFn, revURL);
-		if (body === undefined) return;
 		let list: ReturnType<typeof KeyRevocationListSchema.parse>;
 		try {
-			list = KeyRevocationListSchema.parse(JSON.parse(body));
+			list = await fetchRevocationList(this.fetchFn, revURL);
 		} catch {
-			return;
+			return; // best-effort: a blip or an undecodable list keeps the prior snapshot
 		}
 		this.applyRevocation(host, list);
 	}

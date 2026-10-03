@@ -23,7 +23,7 @@
 import { decodeErrorDetailValue, isDetailValueBase64 } from "../src/errordetail-wire.ts";
 import { ERROR_DETAIL_TYPE, REASON_FIELDS, toProtoNames } from "../src/errordetail.ts";
 import { ForaCallError } from "./errors.ts";
-import { strictViolation } from "./strict.ts";
+import { strictViolation } from "../src/strict.ts";
 
 const ENVELOPE_MEMBERS = new Set(["code", "message", "details"]);
 const ENTRY_MEMBERS = new Set(["type", "value", "debug"]);
