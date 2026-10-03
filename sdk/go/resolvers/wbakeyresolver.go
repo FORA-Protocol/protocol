@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"math/rand/v2"
 	"net"
@@ -20,7 +19,6 @@ import (
 	"unicode/utf8"
 
 	"golang.org/x/sync/singleflight"
-	"google.golang.org/protobuf/encoding/protojson"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
@@ -46,11 +44,12 @@ var (
 	// ErrKeyExpired signals the key exists but is outside its
 	// [not_before, not_after) validity window.
 	ErrKeyExpired = errors.New("resolvers: key outside validity window")
-	// ErrDirectoryUnavailable signals the WBA directory could not be fetched or
-	// parsed. It is deliberately errors.Is-DISTINCT from ErrUnknownKey: a
+	// ErrDirectoryUnavailable signals a document could not be fetched or parsed: a
+	// WBA directory, a well-known manifest, a revocation list or a license
+	// document. It is deliberately errors.Is-DISTINCT from ErrUnknownKey: a
 	// fail-closed composite must be able to halt on a directory outage rather
 	// than fall through as if the key were merely unknown.
-	ErrDirectoryUnavailable = errors.New("resolvers: WBA directory unavailable")
+	ErrDirectoryUnavailable = errors.New("resolvers: document unavailable")
 	// ErrRevocationUnevaluated signals that the key resolved, but its directory
 	// declares a revocation_url whose snapshot has never been fetched (unreachable
 	// or not host-anchored) — so revocation was NEVER EVALUATED, which is distinct
@@ -826,49 +825,6 @@ func (r *WBAKeyResolver) fetchDirectory(ctx context.Context, base string) (*fora
 	return fetchWBAFile(ctx, r.http, base)
 }
 
-// getDoc GETs a small well-known document, bounding the body read.
-func (r *WBAKeyResolver) getDoc(ctx context.Context, docURL string) ([]byte, error) {
-	return fetchWBADoc(ctx, r.http, docURL)
-}
-
-// fetchWBAFile GETs base+WBADirectoryPath through client and protojson-decodes the
-// WBAFile, wrapping any transport/status/decode failure in ErrDirectoryUnavailable.
-// It is the one fetch+decode path shared by WBAKeyResolver.fetchDirectory and the
-// domain-keyed offer-key fetcher (NewWBADirectoryFetcher), so the two never drift.
-func fetchWBAFile(ctx context.Context, client *http.Client, base string) (*forav1.WBAFile, error) {
-	raw, err := fetchWBADoc(ctx, client, base+WBADirectoryPath)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrDirectoryUnavailable, err)
-	}
-	var f forav1.WBAFile
-	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(raw, &f); err != nil {
-		return nil, fmt.Errorf("%w: decode: %w", ErrDirectoryUnavailable, err)
-	}
-	return &f, nil
-}
-
-// fetchWBADoc GETs a small well-known document through client, bounding the body read.
-func fetchWBADoc(ctx context.Context, client *http.Client, docURL string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, docURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("request: %w", err)
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("fetch: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status %d", resp.StatusCode)
-	}
-	const maxDocBytes = 1 << 20 // 1 MiB — well-known documents are small
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxDocBytes))
-	if err != nil {
-		return nil, fmt.Errorf("read: %w", err)
-	}
-	return raw, nil
-}
-
 func (r *WBAKeyResolver) isRevoked(host, thumbprint string) bool {
 	r.revMu.RLock()
 	defer r.revMu.RUnlock()
@@ -943,15 +899,9 @@ func (r *WBAKeyResolver) refreshRevocationFor(
 			"host", host, "base", base, "revocation_url", revURL)
 		return
 	}
-	raw, err := r.getDoc(ctx, revURL)
+	list, err := fetchRevocationList(ctx, r.http, revURL)
 	if err != nil {
 		r.logger.WarnContext(ctx, "revocation refresh failed",
-			"host", host, "revocation_url", revURL, "err", err)
-		return
-	}
-	var list forav1.KeyRevocationList
-	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(raw, &list); err != nil {
-		r.logger.WarnContext(ctx, "revocation decode failed",
 			"host", host, "revocation_url", revURL, "err", err)
 		return
 	}

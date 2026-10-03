@@ -3,11 +3,9 @@ package connect
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	connectrpc "connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
@@ -21,9 +19,10 @@ import (
 //     unknown field is a server sending something the contract does not define;
 //   - the proto's own rules, field-level and cross-field, applied by protovalidate.
 //
-// Both checks read the compiled descriptor, the one definition of the message
-// shape the Python and TypeScript clients reach through the published strict JSON
-// Schemas and the cross-field rules.
+// Both checks are helpers.CheckStrictMessage, and read the compiled descriptor: the
+// one definition of the message shape, which the document readers and
+// helpers.CheckStrict also read, and which the Python and TypeScript clients reach
+// through the published strict JSON Schemas and the cross-field rules.
 //
 // An error answer is checked too, from the bytes that arrived: the Connect error
 // envelope (its members, a known Connect code, well-formed details) and every
@@ -72,7 +71,7 @@ func (strictInterceptor) WrapUnary(next connectrpc.UnaryFunc) connectrpc.UnaryFu
 		if !ok {
 			return resp, nil
 		}
-		if err := checkStrict(msg); err != nil {
+		if err := helpers.CheckStrictMessage(msg); err != nil {
 			return nil, &strictDecodeError{err: err}
 		}
 		return resp, nil
@@ -104,48 +103,4 @@ func (strictInterceptor) WrapStreamingClient(next connectrpc.StreamingClientFunc
 
 func (strictInterceptor) WrapStreamingHandler(next connectrpc.StreamingHandlerFunc) connectrpc.StreamingHandlerFunc {
 	return next
-}
-
-// checkStrict refuses msg if it carries an unknown field anywhere, or fails its
-// protovalidate rules.
-func checkStrict(msg proto.Message) error {
-	if path := unknownFieldPath(msg.ProtoReflect(), string(msg.ProtoReflect().Descriptor().FullName())); path != "" {
-		return fmt.Errorf("answer carries a field the contract does not define, in %s", path)
-	}
-	if err := helpers.Validate(msg); err != nil {
-		return fmt.Errorf("answer breaks a rule of its message: %w", err)
-	}
-	return nil
-}
-
-// unknownFieldPath returns the path of the first message holding unknown fields, or
-// "" when there is none. Every populated message is visited: singular, repeated and
-// map values alike.
-func unknownFieldPath(m protoreflect.Message, path string) string {
-	if len(m.GetUnknown()) > 0 {
-		return path
-	}
-	found := ""
-	m.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
-		here := path + "." + string(fd.Name())
-		switch {
-		case fd.IsMap():
-			if fd.MapValue().Kind() == protoreflect.MessageKind {
-				v.Map().Range(func(k protoreflect.MapKey, mv protoreflect.Value) bool {
-					found = unknownFieldPath(mv.Message(), fmt.Sprintf("%s[%v]", here, k.Interface()))
-					return found == ""
-				})
-			}
-		case fd.IsList():
-			if fd.Kind() == protoreflect.MessageKind {
-				for i := 0; i < v.List().Len() && found == ""; i++ {
-					found = unknownFieldPath(v.List().Get(i).Message(), fmt.Sprintf("%s[%d]", here, i))
-				}
-			}
-		case fd.Kind() == protoreflect.MessageKind:
-			found = unknownFieldPath(v.Message(), here)
-		}
-		return found == ""
-	})
-	return found
 }

@@ -232,7 +232,7 @@ func checkDetailEntry(i int, raw json.RawMessage) error {
 		if err := proto.Unmarshal(value, msg); err != nil {
 			return fmt.Errorf("details[%d].value does not decode as %s: %w", i, errorDetailType, err)
 		}
-		if err := checkStrict(msg); err != nil {
+		if err := helpers.CheckStrictMessage(msg); err != nil {
 			return fmt.Errorf("details[%d].value: %w", i, err)
 		}
 	}
@@ -254,8 +254,8 @@ func checkDebugProjection(raw json.RawMessage) error {
 	if err := protojson.Unmarshal(raw, msg); err != nil {
 		return fmt.Errorf("projection is not a %s the contract defines: %w", errorDetailType, err)
 	}
-	if err := helpers.Validate(msg); err != nil {
-		return fmt.Errorf("projection breaks a rule of its message: %w", err)
+	if err := helpers.CheckStrictMessage(msg); err != nil {
+		return fmt.Errorf("projection: %w", err)
 	}
 	return nil
 }
