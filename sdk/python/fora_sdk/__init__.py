@@ -101,7 +101,12 @@ from .httpsig import (
     verify_request_server,
 )
 from .idempotency import generate_idempotency_key, validate_idempotency_key
-from .identity import directory_document, generate_key, signing_transport_for
+from .identity import (
+    DEFAULT_KEY_VALIDITY,
+    directory_document,
+    generate_key,
+    signing_transport_for,
+)
 from .keyresolver import KeyResolver, StaticKeyResolver
 from .licenseterm import (
     RULE_OBLIGATION_OTHER_REQUIRES_DETAIL,
@@ -274,6 +279,7 @@ __all__ = [
     "compile_registration_schema",
     "content_digest",
     "cross_field_rule_ids",
+    "DEFAULT_KEY_VALIDITY",
     "directory_document",
     "dispute_failure_detail",
     "domain_verification_failure_detail",

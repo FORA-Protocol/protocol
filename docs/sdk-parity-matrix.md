@@ -477,7 +477,7 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 | `resolvers/testdata/wba-url-vectors.json` | ✅ | ✅ | ✅ |
 | `connect/testdata/client-request-vectors.json` | ✅ | ✅ | ✅ |
 | `connect/testdata/connect-error-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/error-detail-wire-vectors.json` | ✅ | ❌ | ❌ |
+| `connect/testdata/error-detail-wire-vectors.json` | ✅ | ✅ | ✅ |
 | `connect/testdata/synthesized-detail-vectors.json` | ✅ | ✅ | ✅ |
 | `connect/testdata/transport-failure-vectors.json` | ✅ | ✅ | ✅ |
 
