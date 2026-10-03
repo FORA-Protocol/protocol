@@ -309,6 +309,12 @@ func TestExecute_FailsClosedWithoutSendingAnything(t *testing.T) {
 
 	unsigned := core.RejectedOffer{Offer: sampleOffer("offer-unsigned")}.Unsafe()
 	signedOffer := core.RejectedOffer{Offer: offers.good}.Unsafe()
+	// Every acceptance names the requester, so a requester missing either half
+	// cannot buy.
+	noID := testRequester()
+	noID.Id = ""
+	noDomain := testRequester()
+	noDomain.Domain = ""
 
 	tests := map[string]struct {
 		opts  []foraconnect.ClientOption
@@ -322,12 +328,24 @@ func TestExecute_FailsClosedWithoutSendingAnything(t *testing.T) {
 				foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
 			}, unsigned,
 		},
+		"requester with no id": {
+			[]foraconnect.ClientOption{
+				foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(noID),
+			}, signedOffer,
+		},
+		"requester with no domain": {
+			[]foraconnect.ClientOption{
+				foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(noDomain),
+			}, signedOffer,
+		},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			client := foraconnect.NewClient(srv.URL, tc.opts...)
-			if _, err := client.Execute(context.Background(), tc.offer); err == nil {
-				t.Fatal("expected a refusal")
+			_, err := client.Execute(context.Background(), tc.offer)
+			var cerr *foraconnect.CallError
+			if !errors.As(err, &cerr) || cerr.Kind != foraconnect.CallMalformed {
+				t.Fatalf("error = %v, want a CallError of kind %v", err, foraconnect.CallMalformed)
 			}
 			if origin.req != nil {
 				t.Error("the origin was contacted; the refusal must be local")

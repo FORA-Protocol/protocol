@@ -42,6 +42,9 @@ func buildTransaction(ctx context.Context, p purchase) (*forav1.TransactionReque
 		return nil, malformed(p.op, errors.New(
 			"no requester configured; the party that sells resolves who is buying (see WithRequester)"))
 	}
+	if err := requireNamedRequester(p.op, p.requester); err != nil {
+		return nil, err
+	}
 	if p.signer == nil {
 		// CallNotSignable, matching what Fetch answers for the same missing
 		// holder: a caller branching on the kind sees one condition under one
@@ -95,6 +98,27 @@ func buildTransaction(ctx context.Context, p purchase) (*forav1.TransactionReque
 		req.AgentRequestAcceptance = requestAcceptance
 	}
 	return req, nil
+}
+
+// requireNamedRequester refuses a requester with an empty id or an empty domain.
+// Every acceptance a purchase carries names the requester, and the protocol
+// requires both fields, so the signer would refuse to sign anyway; refusing here
+// reports the condition as CallMalformed, the configuration fault it is, rather
+// than as a custody failure. The error wraps helpers.ErrAcceptanceRequesterEmpty.
+func requireNamedRequester(op string, requester *forav1.Requester) error {
+	var missing string
+	switch {
+	case requester.GetId() == "":
+		missing = "requester.id"
+	case requester.GetDomain() == "":
+		missing = "requester.domain"
+	default:
+		return nil
+	}
+	return malformed(op, fmt.Errorf(
+		"%w: %s is empty; a purchase's acceptances name the requester, and both requester.id "+
+			"and requester.domain are required (see WithRequester)",
+		helpers.ErrAcceptanceRequesterEmpty, missing))
 }
 
 // requireOneExchange refuses a direct purchase whose offers were issued by more

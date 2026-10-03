@@ -231,6 +231,10 @@ func TestBrokerExecute_RefusesLocallyWithoutSending(t *testing.T) {
 	unaddressed.Offer().Exchange = ""
 	otherDomain := testRequester()
 	otherDomain.Domain = "someone-else.test"
+	noID := testRequester()
+	noID.Id = ""
+	noDomain := testRequester()
+	noDomain.Domain = ""
 
 	tests := map[string]struct {
 		client *foraconnect.BrokerClient
@@ -247,6 +251,12 @@ func TestBrokerExecute_RefusesLocallyWithoutSending(t *testing.T) {
 		"no requester": {
 			foraconnect.NewBrokerClient(srv.URL, foraconnect.WithSigner(sig.signer),
 				foraconnect.WithSignatureAgent(agentDirectory)), good, foraconnect.CallMalformed,
+		},
+		"requester with no id": {
+			brokerClient(srv.URL, sig, foraconnect.WithRequester(noID)), good, foraconnect.CallMalformed,
+		},
+		"requester with no domain": {
+			brokerClient(srv.URL, sig, foraconnect.WithRequester(noDomain)), good, foraconnect.CallMalformed,
 		},
 		"no signer": {
 			foraconnect.NewBrokerClient(srv.URL, foraconnect.WithSignatureAgent(agentDirectory),

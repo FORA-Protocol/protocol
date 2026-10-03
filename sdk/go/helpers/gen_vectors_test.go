@@ -323,6 +323,27 @@ type acceptanceVector struct {
 	SeedHex      string `json:"seed_hex"`
 }
 
+// refusedAcceptanceVector is an acceptance whose canonical bytes would name an
+// empty requester. Every SDK must refuse it three ways: the canonical-bytes
+// function refuses to render it, the signer refuses to sign it, and the verifier
+// refuses it. CanonicalJCS and SignatureHex are what a signer WITHOUT that check
+// would produce — the omit-unpopulated render and a raw Ed25519 signature over
+// it — so the verifier's refusal is proven against a signature that does verify
+// over those bytes, not merely against a bad one. Empty names the field left
+// empty.
+type refusedAcceptanceVector struct {
+	Name            string `json:"name"`
+	Empty           string `json:"empty"`
+	OfferSig        string `json:"offer_sig"`
+	RequesterID     string `json:"requester_id"`
+	RequesterDomain string `json:"requester_domain"`
+	IdempotencyKey  string `json:"idempotency_key"`
+	CanonicalJCS    string `json:"canonical_jcs"`
+	SignatureHex    string `json:"signature_hex"`
+	PubkeyB64       string `json:"pubkey_b64"`
+	SeedHex         string `json:"seed_hex"`
+}
+
 // acceptanceSeedHex is the fixed seed shared with the app's committed
 // testdata/acceptance-vectors.json; its raw bytes are the
 // signer seed for every acceptance vector.
@@ -1245,18 +1266,16 @@ func buildAcceptanceVectors(t *testing.T) []acceptanceVector {
 		requesterDomain string
 		idempotencyKey  string
 	}
+	// An empty requester id or domain is no longer a signable acceptance: those
+	// cases moved to buildRefusedAcceptanceVectors, which every SDK must refuse.
 	specs := []spec{
 		{"all_present", "ex-offer-sig-hex", "agent-1", "agent.example.com", "idem-1"},
-		{"empty_domain", "sig2deadbeef", "agent-2", "", "idem-2"},
-		// Requester.id carries no min_len, so an empty id is wire-valid. The
-		// canonical form omits EVERY unpopulated field, not only the domain — this
-		// vector is what holds the hand-built Python/TS payloads to that, since
-		// they enumerate the keys instead of inheriting EmitUnpopulated=false.
-		{"empty_requester_id", "sig3deadbeef", "", "agent.example.com", "idem-3"},
-		// The last omittable field. TransactionRequest.idempotency_key carries
-		// min_len:1 so the wire rejects an empty one, but these accessors are the
-		// layer below that check and must still agree on the bytes — without this
-		// vector the omission guard can be dropped in any language with every gate
+		// The one field the canonical form can still omit.
+		// TransactionRequest.idempotency_key carries min_len:1 so the wire rejects
+		// an empty one, but these accessors are the layer below that check and must
+		// still agree on the bytes. The hand-built Python/TS payloads enumerate the
+		// keys instead of inheriting EmitUnpopulated=false, so without this vector
+		// the omission guard can be dropped in either language with every gate
 		// still green.
 		{"empty_idempotency_key", "sig4deadbeef", "agent-4", "agent.example.com", ""},
 	}
@@ -1290,6 +1309,54 @@ func buildAcceptanceVectors(t *testing.T) []acceptanceVector {
 		})
 	}
 	return out
+}
+
+// buildRefusedAcceptanceVectors records one acceptance per requester field left
+// empty, and checks the Go oracle refuses each with ErrAcceptanceRequesterEmpty at
+// all three entry points. The recorded bytes are rendered and signed BELOW the
+// refusal (canonicalSignPayload and a raw Ed25519 signature), so a port can prove
+// its verifier refuses them although the signature over them verifies.
+func buildRefusedAcceptanceVectors(t *testing.T) []refusedAcceptanceVector {
+	t.Helper()
+	seed, err := hex.DecodeString(acceptanceSeedHex)
+	if err != nil {
+		t.Fatalf("decode acceptance seed: %v", err)
+	}
+	priv := ed25519.NewKeyFromSeed(seed)
+	pub := priv.Public().(ed25519.PublicKey)
+	specs := []refusedAcceptanceVector{
+		{Name: "empty_requester_id", Empty: "requester_id", OfferSig: "sig3deadbeef",
+			RequesterDomain: "agent.example.com", IdempotencyKey: "idem-3"},
+		{Name: "empty_requester_domain", Empty: "requester_domain", OfferSig: "sig2deadbeef",
+			RequesterID: "agent-2", IdempotencyKey: "idem-2"},
+	}
+	for i := range specs {
+		v := &specs[i]
+		offer := &forav1.Offer{Signature: v.OfferSig}
+		requester := &forav1.Requester{Id: v.RequesterID, Domain: v.RequesterDomain}
+		unchecked, err := canonicalSignPayload(&forav1.AgentAcceptancePayload{
+			OfferSig: v.OfferSig, RequesterId: v.RequesterID,
+			RequesterDomain: v.RequesterDomain, IdempotencyKey: v.IdempotencyKey,
+		})
+		if err != nil {
+			t.Fatalf("%s: unchecked render: %v", v.Name, err)
+		}
+		sig := ed25519.Sign(priv, unchecked)
+		if _, err := CanonicalAcceptanceBytes(offer, requester, v.IdempotencyKey); !errors.Is(err, ErrAcceptanceRequesterEmpty) {
+			t.Fatalf("%s: CanonicalAcceptanceBytes = %v, want ErrAcceptanceRequesterEmpty", v.Name, err)
+		}
+		if _, err := SignOfferAcceptance(priv, offer, requester, v.IdempotencyKey); !errors.Is(err, ErrAcceptanceRequesterEmpty) {
+			t.Fatalf("%s: SignOfferAcceptance = %v, want ErrAcceptanceRequesterEmpty", v.Name, err)
+		}
+		if err := VerifyOfferAcceptance(offer, requester, v.IdempotencyKey, hex.EncodeToString(sig), pub); !errors.Is(err, ErrAcceptanceRequesterEmpty) {
+			t.Fatalf("%s: VerifyOfferAcceptance = %v, want ErrAcceptanceRequesterEmpty", v.Name, err)
+		}
+		v.CanonicalJCS = string(unchecked)
+		v.SignatureHex = hex.EncodeToString(sig)
+		v.PubkeyB64 = base64.StdEncoding.EncodeToString(pub)
+		v.SeedHex = acceptanceSeedHex
+	}
+	return specs
 }
 
 // verifySignedURLVector runs the vector through the real Go verifier so the
@@ -1343,6 +1410,7 @@ func TestGenerateVectors(t *testing.T) {
 		verifyNegVectorReason(t, v)
 	}
 	acceptanceVectors := buildAcceptanceVectors(t)
+	refusedAcceptanceVectors := buildRefusedAcceptanceVectors(t)
 	offerVerifyVectors := buildOfferVerifyVectors(t)
 	wireCanonicalVectors := buildWireCanonicalVectors(t)
 
@@ -1360,7 +1428,11 @@ func TestGenerateVectors(t *testing.T) {
 	// ("jcs") so a reader cannot confuse them with the old proto-binary form.
 	signRequestDoc := map[string]any{"vectors": signRequestVectors}
 	verifyNegDoc := map[string]any{"vectors": verifyRequestNegVectors}
-	acceptanceDoc := map[string]any{"canonicalization": "jcs", "vectors": acceptanceVectors}
+	acceptanceDoc := map[string]any{
+		"canonicalization": "jcs",
+		"vectors":          acceptanceVectors,
+		"refused":          refusedAcceptanceVectors,
+	}
 	offerVerifyDocValue := offerVerifyDoc{Canonicalization: "jcs", Vectors: offerVerifyVectors}
 	wireCanonicalDoc := map[string]any{"canonicalization": "jcs", "vectors": wireCanonicalVectors}
 

@@ -164,10 +164,10 @@ func (b *BrokerClient) discoveryResult(ctx context.Context, msg *forav1.Discover
 // Exchange, so a retry with the same key is answered from each Exchange's stored
 // result.
 //
-// Refused locally, with nothing sent: no requester (CallMalformed), no signer
-// (CallNotSignable), no offers, an unsigned offer, an offer that names no
-// exchange, and a requester.domain that is not the host of the directory this
-// client signs as (all CallMalformed). The last mirrors the Broker's own check,
+// Refused locally, with nothing sent: no requester, or one with an empty id or
+// domain (CallMalformed), no signer (CallNotSignable), no offers, an unsigned
+// offer, an offer that names no exchange, and a requester.domain that is not the
+// host of the directory this client signs as (all CallMalformed). The last mirrors the Broker's own check,
 // which it refuses with request_auth_failure SIGNATURE_INVALID.
 //
 // An Exchange that refused the Broker's whole sub-request is NOT an error here:
@@ -190,6 +190,9 @@ func (b *BrokerClient) Execute(ctx context.Context, offers []core.VerifiedOffer,
 	if b.requester == nil {
 		return nil, malformed(op, errors.New(
 			"no requester configured; a Broker resolves who is buying (see WithRequester)"))
+	}
+	if err := requireNamedRequester(op, b.requester); err != nil {
+		return nil, err
 	}
 	if err := requireRoutable(op, offers); err != nil {
 		return nil, err
