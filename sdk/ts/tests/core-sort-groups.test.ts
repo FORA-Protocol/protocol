@@ -4,9 +4,9 @@
 //
 // A discovery call is per-URI, and the answer has to stay that way. A URI that was
 // REFUSED carries no offer, so a flat list erases it: nothing survives to say which
-// resource was refused or why, and "not in the catalogue" (give up), "scope
-// insufficient" (acquire an entitlement and retry) and "content blocked" (never retry)
-// all read alike as "found nothing". These assert the grouping keeps that difference,
+// resource was refused or why, and "not in the catalogue" (give up), "temporarily
+// unavailable" (retry later) and "content blocked" (never retry) all read alike as
+// "found nothing". These assert the grouping keeps that difference,
 // and that the offers inside each group go through the SAME Verifier — the fail-closed
 // split is not re-implemented per group, which is what "no second verification path"
 // means.
@@ -34,7 +34,7 @@ describe("sdk/ts Verifier.sortGroups keeps the per-URI answer", () => {
 		const groups = await verifier("off").sortGroups([
 			group("https://site.test/a", { offers: [{ offer_id: "one" }] }),
 			group("https://site.test/b", {
-				absence_reason: "OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT",
+				absence_reason: "OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE",
 			}),
 			group("https://site.test/c", {
 				absence_reason: "OFFER_ABSENCE_REASON_RESTRICTION_FILTERED",
@@ -48,10 +48,10 @@ describe("sdk/ts Verifier.sortGroups keeps the per-URI answer", () => {
 			"https://site.test/c",
 		]);
 		expect(groups[0]?.result.verified).toHaveLength(1);
-		// The refusal is an ANSWER: the agent can tell "acquire an entitlement and
-		// retry" from "give up" only because the reason survived.
+		// The reason is an ANSWER: the agent can tell "retry later" from "give up"
+		// only because the reason survived.
 		expect(groups[1]?.absenceReason).toBe(
-			"OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT",
+			"OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE",
 		);
 		expect(groups[1]?.result.verified).toEqual([]);
 		expect(groups[2]?.restrictionFilters).toEqual(["RESTRICTION_KIND_GEOGRAPHY"]);

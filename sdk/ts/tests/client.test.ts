@@ -162,7 +162,7 @@ describe("discover", () => {
 				{ uri: "https://site.test/a", offers: [offer] },
 				{
 					uri: "https://site.test/b",
-					absence_reason: "OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT",
+					absence_reason: "OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE",
 				},
 			],
 		});
@@ -177,7 +177,7 @@ describe("discover", () => {
 		expect(result.groups).toHaveLength(2);
 		expect(result.groups[0]?.result.verified).toHaveLength(1);
 		expect(result.groups[1]?.absenceReason).toBe(
-			"OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT",
+			"OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE",
 		);
 		expect(result.exchange).toBe("exchange.test");
 	});
