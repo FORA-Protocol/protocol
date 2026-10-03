@@ -210,6 +210,18 @@ describe("BrokerClient.execute", () => {
 				],
 				["no signature agent", { requester: REQUESTER, signer, send }, good, "malformed"],
 				["no requester", { signer, signatureAgent: AGENT_DIRECTORY, send }, good, "malformed"],
+				[
+					"requester with no id",
+					{ requester: { ...REQUESTER, id: "" }, signer, signatureAgent: AGENT_DIRECTORY, send },
+					good,
+					"malformed",
+				],
+				[
+					"requester with no domain",
+					{ requester: { ...REQUESTER, domain: "" }, signer, signatureAgent: AGENT_DIRECTORY, send },
+					good,
+					"malformed",
+				],
 				["no signer", { requester: REQUESTER, signatureAgent: AGENT_DIRECTORY, send }, good, "not_signable"],
 				["no offers", { requester: REQUESTER, signer, signatureAgent: AGENT_DIRECTORY, send }, [], "malformed"],
 				[

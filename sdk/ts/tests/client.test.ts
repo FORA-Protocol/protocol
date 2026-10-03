@@ -470,6 +470,26 @@ describe("execute", () => {
 		});
 	});
 
+	it("refuses locally a requester missing its id or its domain", async () => {
+		// Every acceptance names the requester, and Requester.id and Requester.domain are
+		// both required, so the client refuses before signing or sending anything.
+		const { offer, publicKey } = await signedOffer();
+		const accepted = await verifiedOffer(publicKey, offer);
+		const keys = await agentKeys();
+		for (const field of ["id", "domain"] as const) {
+			const { send, seen } = recordingSend({});
+			const client = createClient("https://exchange.test", {
+				requester: { ...REQUESTER, [field]: "" },
+				signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+				send,
+			});
+			const err = (await client.execute(accepted).catch((e: unknown) => e)) as ForaCallError;
+			expect(err.kind, field).toBe("malformed");
+			expect(String(err.cause), field).toContain(`requester.${field} is empty`);
+			expect(seen, field).toEqual([]);
+		}
+	});
+
 	it("refuses an unsigned offer, which verification-off can still surface", async () => {
 		const verifier = createVerifier("off", {
 			resolve: async () => undefined,

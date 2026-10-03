@@ -462,9 +462,10 @@ async function execute(
  * idempotency key unchanged to every Exchange, so a retry with the same key is answered
  * from each Exchange's stored result.
  *
- * Refused locally, with nothing sent: no requester, no offers, an unsigned offer, an
- * offer that names no exchange, and a requester.domain that is not the host of the
- * directory this client signs as (all malformed); no signer (not_signable). The last
+ * Refused locally, with nothing sent: no requester, or one with an empty id or domain, no
+ * offers, an unsigned offer, an offer that names no exchange, and a requester.domain that
+ * is not the host of the directory this client signs as (all malformed); no signer
+ * (not_signable). The last
  * mirrors the Broker's own check, which it refuses with request_auth_failure
  * SIGNATURE_INVALID.
  *
@@ -491,6 +492,7 @@ async function brokerExecute(
 		);
 	}
 	requireRoutable(op, offers);
+	requireNamedRequester(op, r.opts.requester);
 	requireRequesterIsSigner(op, r.opts.requester, r.opts.signatureAgent ?? "");
 	const request = await buildTransaction(r, op, offers, opts);
 	validateRequest(op, request, TransactionRequestSchema, r.opts.validation ?? "strict");
@@ -544,6 +546,7 @@ async function buildTransaction(
 			new Error("no requester configured; an Exchange resolves who is buying from it"),
 		);
 	}
+	requireNamedRequester(op, r.opts.requester);
 	if (r.opts.signer === undefined) {
 		// not_signable, matching what fetch answers for the same missing holder: a caller
 		// branching on the kind sees one condition under one class, whichever verb met it
@@ -672,6 +675,26 @@ function requireRoutable(op: string, offers: readonly VerifiedOffer[]): void {
 			);
 		}
 	});
+}
+
+/**
+ * requireNamedRequester refuses a requester with an empty id or an empty domain as
+ * malformed. Every acceptance a purchase carries names the requester, and the protocol
+ * requires both fields, so the signer would refuse anyway; refusing here reports the
+ * configuration fault as malformed rather than as a custody failure (not_signable).
+ */
+function requireNamedRequester(op: string, requester: Record<string, unknown>): void {
+	for (const key of ["id", "domain"] as const) {
+		if (stringField(requester, key) === "") {
+			throw malformed(
+				op,
+				new Error(
+					`requester.${key} is empty; a purchase's acceptances name the requester, ` +
+						"and both requester.id and requester.domain are required",
+				),
+			);
+		}
+	}
 }
 
 /**
