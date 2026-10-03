@@ -163,7 +163,7 @@ def test_every_requested_uri_keeps_its_group_and_its_reason(face: Face) -> None:
                 {"uri": "https://site.test/a", "offers": [offer]},
                 {
                     "uri": "https://site.test/b",
-                    "absence_reason": "OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT",
+                    "absence_reason": "OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE",
                 },
             ],
         }
@@ -174,9 +174,9 @@ def test_every_requested_uri_keeps_its_group_and_its_reason(face: Face) -> None:
 
     assert len(result.groups) == 2
     assert len(result.groups[0].result.verified) == 1
-    # The refusal is an ANSWER: the agent can tell "acquire an entitlement and retry" from
-    # "give up" only because the reason survived.
-    assert result.groups[1].absence_reason == "OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT"
+    # The reason is an ANSWER: the agent can tell "retry later" from "give up" only because
+    # the reason survived.
+    assert result.groups[1].absence_reason == "OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE"
     assert result.exchange == "exchange.test"
 
 

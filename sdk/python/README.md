@@ -381,8 +381,8 @@ Pydantic models.
 A rejected offer keeps both the offer and the `reason` it was refused, so a caller can
 tell a bad signature from an unresolvable Exchange. A group with no offers at all keeps
 its `absence_reason` instead, and the distinction matters: "not in the catalogue" means
-give up, "scope insufficient" means acquire an entitlement and retry, and "content
-blocked" means never retry.
+give up, "temporarily unavailable" means retry later, and "content blocked" means never
+retry.
 
 **Where a URI comes from** is not the SDK's job. `discover` asks one Exchange about URIs
 you already have — from your own crawl frontier, a publisher's catalogue, or a Broker.

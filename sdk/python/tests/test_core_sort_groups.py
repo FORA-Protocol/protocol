@@ -4,11 +4,11 @@ Mirrors the sdk/ts sibling sdk/ts/tests/core-sort-groups.test.ts.
 
 A discovery call is per-URI, and the answer has to stay that way. A URI that was REFUSED
 carries no offer, so a flat list erases it: nothing survives to say which resource was
-refused or why, and "not in the catalogue" (give up), "scope insufficient" (acquire an
-entitlement and retry) and "content blocked" (never retry) all read alike as "found
-nothing". These assert the grouping keeps that difference, and that the offers inside
-each group go through the SAME Verifier — the fail-closed split is not re-implemented
-per group, which is what "no second verification path" means.
+refused or why, and "not in the catalogue" (give up), "temporarily unavailable" (retry
+later) and "content blocked" (never retry) all read alike as "found nothing". These
+assert the grouping keeps that difference, and that the offers inside each group go
+through the SAME Verifier — the fail-closed split is not re-implemented per group,
+which is what "no second verification path" means.
 """
 
 from __future__ import annotations
@@ -41,7 +41,10 @@ def test_every_requested_uri_keeps_its_group_and_its_reason() -> None:
     groups = _verifier(Mode.OFF).sort_groups(
         [
             _group("https://site.test/a", offers=[{"offer_id": "one"}]),
-            _group("https://site.test/b", absence_reason="OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT"),
+            _group(
+                "https://site.test/b",
+                absence_reason="OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE",
+            ),
             _group(
                 "https://site.test/c",
                 absence_reason="OFFER_ABSENCE_REASON_RESTRICTION_FILTERED",
@@ -56,9 +59,9 @@ def test_every_requested_uri_keeps_its_group_and_its_reason() -> None:
         "https://site.test/c",
     ], "a group per requested URI, in the order the responder returned"
     assert len(groups[0].result.verified) == 1
-    # The refusal is an ANSWER: the agent can tell "acquire an entitlement and retry"
-    # from "give up" only because the reason survived.
-    assert groups[1].absence_reason == "OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT"
+    # The reason is an ANSWER: the agent can tell "retry later" from "give up" only
+    # because the reason survived.
+    assert groups[1].absence_reason == "OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE"
     assert groups[1].result.verified == [] and groups[1].result.rejected == []
     assert groups[2].restriction_filters == ["RESTRICTION_KIND_GEOGRAPHY"]
 
