@@ -1,0 +1,46 @@
+{
+  "$id": "fora.v1.AcceptableRestriction.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "AcceptableRestriction — the limits a query operates within on one restriction\n axis, expressed in the same RestrictionKind vocabulary that terms use. The\n Exchange/Broker MAY pre-select offers whose term restrictions fall within\n these as a convenience (see Restriction); it is NOT enforcement — the agent\n self-selects and bears compliance.",
+  "properties": {
+    "axis": {
+      "anyOf": [
+        {
+          "pattern": "^RESTRICTION_KIND_UNSPECIFIED$",
+          "type": "string"
+        },
+        {
+          "enum": [
+            "RESTRICTION_KIND_FUNCTION",
+            "RESTRICTION_KIND_GEOGRAPHY",
+            "RESTRICTION_KIND_USER_TYPE",
+            "RESTRICTION_KIND_OTHER"
+          ],
+          "type": "string"
+        },
+        {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        }
+      ],
+      "default": 0,
+      "description": "Which axis (same enum as Restriction.kind): FUNCTION / GEOGRAPHY /\n USER_TYPE / OTHER.",
+      "title": "Restriction Kind"
+    },
+    "values": {
+      "description": "The values the query operates within on this axis — same token vocabulary\n as the terms (e.g. FUNCTION [\"ai-train\"], GEOGRAPHY [\"US\", \"EU\"]).",
+      "items": {
+        "maxLength": 64,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9._:*-]+$",
+        "type": "string"
+      },
+      "maxItems": 64,
+      "type": "array"
+    }
+  },
+  "title": "Acceptable Restriction",
+  "type": "object"
+}

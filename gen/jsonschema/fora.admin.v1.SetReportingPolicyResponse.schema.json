@@ -1,0 +1,62 @@
+{
+  "$defs": {
+    "fora.admin.v1.ReportingPolicy": {
+      "description": "ReportingPolicy is the reporting-policy payload shared by\n SetReportingPolicy's request and response. The field rules live here once, so\n the write and the echoed read-back stay in lockstep.",
+      "properties": {
+        "quantity_tolerance": {
+          "description": "Accepted relative deviation between estimated and reported quantity, as a\n fraction: 0 requires an exact match, 1 accepts any deviation. Omitted: the\n receiving Exchange's default tolerance applies.",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "required_fields": {
+          "description": "Report field names the usage-report validator requires. The wire constrains\n only the token shape; which names are meaningful is defined by the receiving\n Exchange and may change without a contract change. Names are a set: repeats\n are rejected. Empty means no required fields.",
+          "items": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:*-]+$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "tenant_id": {
+          "description": "The tenant whose reporting policy is being replaced.",
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        },
+        "window_seconds": {
+          "description": "Reporting window in seconds. Applies to obligations minted after this call;\n obligations already issued keep the window they were minted with. Capped at\n one year. Omitted: the receiving Exchange's default applies.",
+          "exclusiveMinimum": 0,
+          "maximum": 31536000,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tenant_id"
+      ],
+      "title": "Reporting Policy",
+      "type": "object"
+    }
+  },
+  "$id": "fora.admin.v1.SetReportingPolicyResponse.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "policy": {
+      "$ref": "#/$defs/fora.admin.v1.ReportingPolicy",
+      "description": "The reporting policy as persisted."
+    },
+    "ver": {
+      "default": "",
+      "description": "FORA protocol version — \"1.0\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in fora.proto.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "policy"
+  ],
+  "title": "Set Reporting Policy Response",
+  "type": "object"
+}

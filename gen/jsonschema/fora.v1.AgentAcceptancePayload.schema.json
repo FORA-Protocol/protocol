@@ -1,0 +1,29 @@
+{
+  "$id": "fora.v1.AgentAcceptancePayload.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Field provenance when building the payload for an execute request:\n   - offer_sig         = the accepted Offer.signature (the Exchange's hex\n                         signature; transitively binds pricing, terms,\n                         expires_at, and — via the offer — the issuing Exchange)\n   - requester_id      = TransactionRequest.requester.id\n   - requester_domain  = TransactionRequest.requester.domain\n   - idempotency_key   = TransactionRequest.idempotency_key\n For batch mode, requester_* and idempotency_key come from the ENCLOSING\n TransactionRequest (a TransactionItem carries neither); offer_sig is the\n per-item Offer.signature.",
+  "properties": {
+    "idempotency_key": {
+      "default": "",
+      "description": "The transaction's idempotency key — binds the acceptance to a single\n execute so it cannot be replayed under a different transaction.",
+      "type": "string"
+    },
+    "offer_sig": {
+      "default": "",
+      "description": "The accepted Offer's signature (Offer.signature). Anchors the whole signed\n offer without re-serializing its terms/pricing/expiry.",
+      "type": "string"
+    },
+    "requester_domain": {
+      "default": "",
+      "description": "Requester domain (Requester.domain) the acceptance is bound to.",
+      "type": "string"
+    },
+    "requester_id": {
+      "default": "",
+      "description": "Requester identity (Requester.id) the acceptance is bound to.",
+      "type": "string"
+    }
+  },
+  "title": "AgentAcceptancePayload — the canonical signing structure for AgentAcceptance.\n It is NEVER sent on the wire; it exists solely so the signer (SDK) and the\n verifier (Exchange) derive BYTE-IDENTICAL signed bytes from the same proto\n schema. This message fixes the FIELD SET; the byte layout is the canonical\n signing form defined on Offer.signature — RFC 8785 JCS over canonical\n proto-JSON with the pinned option set. Underspecifying either half is the top\n cross-implementation drift risk, so both are pinned normatively.",
+  "type": "object"
+}

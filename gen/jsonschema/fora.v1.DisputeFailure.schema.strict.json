@@ -1,0 +1,34 @@
+{
+  "$id": "fora.v1.DisputeFailure.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "DisputeFailure — a dispute could not be filed.",
+  "properties": {
+    "reason": {
+      "anyOf": [
+        {
+          "enum": [
+            "DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND",
+            "DISPUTE_FAILURE_REASON_REPORT_NOT_FILED",
+            "DISPUTE_FAILURE_REASON_WINDOW_EXPIRED",
+            "DISPUTE_FAILURE_REASON_DUPLICATE",
+            "DISPUTE_FAILURE_REASON_INELIGIBLE"
+          ],
+          "type": "string"
+        },
+        {
+          "maximum": 5,
+          "minimum": 1,
+          "type": "integer"
+        }
+      ],
+      "description": "The failure reason (defined-only, non-zero)",
+      "title": "Dispute Failure Reason"
+    }
+  },
+  "required": [
+    "reason"
+  ],
+  "title": "Dispute Failure",
+  "type": "object"
+}

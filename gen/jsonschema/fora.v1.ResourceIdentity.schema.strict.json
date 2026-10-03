@@ -1,0 +1,103 @@
+{
+  "$id": "fora.v1.ResourceIdentity.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Serves two purposes:\n 1. Cross-exchange deduplication (Broker groups offers for\n    the same underlying resource to compare pricing).\n 2. Resource integrity verification (agent checks that delivered\n    resource matches what was promised).\n\n Providers declare what verification level they support via\n content_hash + hash_method. Higher verification = higher trust =\n resource can command premium pricing.\n\n   Level 0: No hash (canonical_url only). Agent gets what it gets.\n   Level 1: SimHash (fuzzy match). Tolerates minor page changes\n            (ads, nav, timestamps). Catches bait-and-switch.\n   Level 2: SHA-256 (exact match). Provider serves a clean,\n            deterministic payload. Agent verifies exact content.\n\n This is non-blocking on current infrastructure: providers who\n serve dynamic pages use Level 0-1. Providers who invest in\n consistent resource delivery reach Level 2 and earn more.\n\n CoMP's Package.id identifies the *package* (exchange-specific);\n ResourceIdentity identifies the *resource* (cross-exchange).",
+  "properties": {
+    "c2pa_manifest": {
+      "description": "Formats:\n   Sidecar: HTTPS URI to a .c2pa manifest file\n   Embedded: same URI as canonical_url (manifest is inside the asset)\n   Content Credentials Cloud: https://contentcredentials.org/verify?uri=...",
+      "title": "C2PA content credentials manifest URI.\n Points to a sidecar or embedded C2PA manifest for this resource.\n C2PA-aware agents MAY follow this URI to validate the full provenance\n chain (creator identity, transformation history, ingredient composition)\n using C2PA libraries (JUMBF/COSE Sign1). C2PA-unaware agents can rely\n on c2pa_status and c2pa-bridged attestation claims instead.",
+      "type": "string"
+    },
+    "c2pa_status": {
+      "anyOf": [
+        {
+          "enum": [
+            "C2PA_STATUS_UNSPECIFIED",
+            "C2PA_STATUS_TRUSTED",
+            "C2PA_STATUS_VALID",
+            "C2PA_STATUS_INVALID",
+            "C2PA_STATUS_ABSENT"
+          ],
+          "type": "string"
+        },
+        {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        }
+      ],
+      "description": "The full C2PA validation details (signer identity, trust list,\n action history, training/mining status) are carried in a\n ResourceAttestation with c2pa.* claims — see fora-c2pa-v1 profile.",
+      "title": "C2PA Status"
+    },
+    "canonical_url": {
+      "description": "Provider's authoritative URL for this resource (rel=\"canonical\").\n Always available. Different per provider for syndicated content.",
+      "type": "string"
+    },
+    "content_hash": {
+      "description": "Level 1 (SimHash): computed by Exchange from extracted text.\n   Agent verifies that fetched content is \"substantially similar.\"\n   Tolerates dynamic page elements.\n\n Level 2 (SHA-256): computed by provider from deterministic payload.\n   Agent verifies exact match. Requires provider to serve consistent\n   content (e.g., API endpoint, static HTML, structured JSON).\n   Mismatch = dispute. Commands premium pricing.",
+      "title": "Hash of the content. Interpretation depends on hash_method:\n   \"simhash-v1\" → locality-sensitive hash, for fuzzy dedup (Level 1)\n   \"sha256\"     → exact-match integrity hash (Level 2)",
+      "type": "string"
+    },
+    "doi": {
+      "description": "Digital Object Identifier — persistent, never changes.",
+      "type": "string"
+    },
+    "ext": {
+      "description": "Extension point",
+      "type": "object"
+    },
+    "ext_critical": {
+      "description": "Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "hash_method": {
+      "description": "Hash algorithm and verification level.\n Examples: \"simhash-v1\", \"minhash-v1\", \"sha256\", \"sha384\"",
+      "type": "string"
+    },
+    "iptc_guid": {
+      "description": "IPTC NewsML-G2 globally unique identifier.\n Present when resource flows through news wire syndication (AP, Reuters).",
+      "type": "string"
+    },
+    "isni": {
+      "description": "International Standard Name Identifier for the creator.",
+      "type": "string"
+    },
+    "resource_mutability": {
+      "anyOf": [
+        {
+          "enum": [
+            "RESOURCE_MUTABILITY_STATIC",
+            "RESOURCE_MUTABILITY_DYNAMIC",
+            "RESOURCE_MUTABILITY_LIVE"
+          ],
+          "type": "string"
+        },
+        {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        }
+      ],
+      "description": "Drives hash verification behavior:\n   STATIC:  content_hash is stable. Agent SHOULD verify delivered content matches.\n   DYNAMIC: content changes between offer and fetch (credit reports, drug databases).\n            content_hash reflects state at offer generation time. Hash mismatch is\n            expected and MUST NOT trigger automatic dispute.\n   LIVE:    content does not exist at offer time (streaming feeds, live broadcasts).\n            content_hash is not applicable. The \"resource\" is the stream endpoint.\n\n Validated across 18 use cases: static content (articles, patents, legislation),\n dynamic data (credit reports, drug interactions, stock snapshots), and live\n streams (MarketData quotes, NPR broadcast, news monitoring feeds).",
+      "title": "Resource Mutability"
+    },
+    "soft_binding": {
+      "description": "Algorithm specified in soft_binding_method. Values are algorithm-specific\n (e.g., perceptual hash hex string, watermark identifier).",
+      "title": "Soft binding hash — content-derived identifier that survives format\n transcoding (resolution changes, compression, PDF-to-text extraction).\n Extracted from C2PA soft binding assertion when present.\n Enables post-delivery verification when the hard binding hash breaks\n due to legitimate format conversion.",
+      "type": "string"
+    },
+    "soft_binding_method": {
+      "description": "Algorithm used for soft_binding.\n Examples: \"phash-v1\" (perceptual hash), \"c2pa-watermark\" (C2PA invisible\n watermark), \"chromaprint\" (audio fingerprint).",
+      "type": "string"
+    }
+  },
+  "required": [
+    "resource_mutability"
+  ],
+  "title": "ResourceIdentity — Layered resource identification and verification.",
+  "type": "object"
+}

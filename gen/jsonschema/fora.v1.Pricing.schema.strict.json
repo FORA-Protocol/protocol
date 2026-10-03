@@ -1,0 +1,88 @@
+{
+  "$id": "fora.v1.Pricing.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Providers set prices in their preferred model. The Exchange\n normalizes to unit cost (effective cost per unit) for cross-exchange\n comparison — analogous to eCPM in programmatic advertising.\n Unit cost is denominated in the Exchange's base currency.\n\n Fields: model, rate, currency, unit_cost, estimated_quantity,\n license_duration_months, unit, metering.",
+  "properties": {
+    "currency": {
+      "default": "",
+      "description": "ISO 4217 currency code (e.g. \"USD\", \"EUR\").",
+      "type": "string"
+    },
+    "estimated_quantity": {
+      "description": "Estimated quantity in the metering unit.\n For text: token count. For video: duration in seconds.\n For documents: page count. For data: record count.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "license_duration_months": {
+      "description": "License duration in months. How long the granted access remains valid.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "metering": {
+      "anyOf": [
+        {
+          "enum": [
+            "PRICING_METERING_ONLINE",
+            "PRICING_METERING_NONE",
+            "PRICING_METERING_OFFLINE_SELF_REPORTED"
+          ],
+          "type": "string"
+        },
+        {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        }
+      ],
+      "description": "How usage is tracked for billing reconciliation.\n Absent = PRICING_METERING_ONLINE (default real-time tracking).\n NONE = one-time perpetual sale; no ReportUsage required after ExecuteTransaction.\n OFFLINE_SELF_REPORTED = agent self-reports physical-world consumption.",
+      "title": "Pricing Metering"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "enum": [
+            "PRICING_MODEL_FREE",
+            "PRICING_MODEL_PER_UNIT",
+            "PRICING_MODEL_FLAT"
+          ],
+          "type": "string"
+        },
+        {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        }
+      ],
+      "description": "Provider's pricing model.",
+      "title": "Pricing Model"
+    },
+    "rate": {
+      "default": "",
+      "description": "Price in the provider's model, as an exact decimal string — e.g. \"0.05\" =\n $0.05 per article. NOT a float: money is decimal to avoid binary rounding and\n to allow arbitrary sub-cent precision (e.g. \"0.0001234\"). Denominated in `currency`.",
+      "maxLength": 32,
+      "pattern": "^([0-9]+([.][0-9]+)?)?$",
+      "type": "string"
+    },
+    "unit": {
+      "description": "The (fora.v1.vocab) entries below are the SOLE authored source of the\n registered bare tokens. A buf plugin reads them structurally and emits the\n pricingunits constants + IsRegistered; ingest enforces membership from\n those. The CEL is STRUCTURE ONLY (empty / bare-form / vendor:namespaced) —\n it never lists the tokens, so it cannot drift from the registry.",
+      "maxLength": 64,
+      "pattern": "^([a-z0-9-]+|[A-Za-z0-9._-]+:[A-Za-z0-9._-]+)?$",
+      "title": "Metering basis — the \"per what\" of PER_UNIT pricing. REQUIRED when\n model = PER_UNIT. Custom units namespace as \"vendor:unit\". Ignored for\n FREE / FLAT.",
+      "type": "string"
+    },
+    "unit_cost": {
+      "description": "Normalized cost per unit — the universal comparison metric, exact decimal string.\n For text: cost per token. For video: cost per second.\n For data: cost per record. For APIs: cost per call.\n Denominated in the Exchange's base_currency (from its WellKnownManifest).",
+      "maxLength": 32,
+      "pattern": "^([0-9]+([.][0-9]+)?)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "model"
+  ],
+  "title": "Pricing — Terms for a resource offer.",
+  "type": "object"
+}

@@ -1,0 +1,23 @@
+{
+  "$id": "fora.v1.UsageAsset.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "UsageAsset — A single asset included in the usage report.",
+  "properties": {
+    "package_id": {
+      "description": "Package identifier",
+      "type": "string"
+    },
+    "title": {
+      "description": "Asset title",
+      "type": "string"
+    },
+    "uri": {
+      "default": "",
+      "description": "Asset URI",
+      "type": "string"
+    }
+  },
+  "title": "Usage Asset",
+  "type": "object"
+}

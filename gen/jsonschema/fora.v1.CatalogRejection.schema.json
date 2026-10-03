@@ -1,0 +1,44 @@
+{
+  "$id": "fora.v1.CatalogRejection.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "CatalogRejection — a CatalogService call could not be applied.",
+  "properties": {
+    "reason": {
+      "anyOf": [
+        {
+          "enum": [
+            "CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR",
+            "CATALOG_REJECTION_REASON_TENANT_MISMATCH",
+            "CATALOG_REJECTION_REASON_DOMAIN_NOT_VERIFIED",
+            "CATALOG_REJECTION_REASON_SIGNATURE_INVALID",
+            "CATALOG_REJECTION_REASON_MALFORMED_ENTRY",
+            "CATALOG_REJECTION_REASON_UNKNOWN_VOCAB_TOKEN",
+            "CATALOG_REJECTION_REASON_QUOTA_EXCEEDED",
+            "CATALOG_REJECTION_REASON_TERMS_LIMIT_EXCEEDED",
+            "CATALOG_REJECTION_REASON_URI_UNAVAILABLE"
+          ],
+          "type": "string"
+        },
+        {
+          "maximum": 9,
+          "minimum": 1,
+          "type": "integer"
+        }
+      ],
+      "description": "The rejection reason (defined-only, non-zero)",
+      "title": "Catalog Rejection Reason"
+    },
+    "rejected_paths": {
+      "description": "The entry paths the refusal is about. A catalog push is all-or-nothing, so\n these name which entries failed inside a submission that persisted nothing —\n they are not a list of what was dropped from an otherwise applied batch.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "reason"
+  ],
+  "title": "Catalog Rejection",
+  "type": "object"
+}

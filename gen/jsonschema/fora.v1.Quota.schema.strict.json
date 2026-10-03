@@ -1,0 +1,55 @@
+{
+  "$id": "fora.v1.Quota.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Quotas limit how much a licensee may consume before the term expires or\n must be renegotiated. They are NOT billing quantities — billing is in Pricing.\n\n The metric vocabulary is authored ONLY in the (fora.v1.vocab) entries on\n Quota.metric below; the quotametrics constants + IsRegistered derive from it.",
+  "properties": {
+    "limit": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "pattern": "^0*[1-9][0-9]*$",
+          "type": "string"
+        }
+      ],
+      "description": "Maximum allowed value in the given window. A quota of 0 grants\n nothing — express \"no access\" by omitting the term, not a zero quota."
+    },
+    "metric": {
+      "description": "The (fora.v1.vocab) entries below are the SOLE authored source of the\n registered bare metric tokens. A buf plugin reads them structurally and\n emits the quotametrics constants + IsRegistered; ingest enforces membership\n from those. The CEL is STRUCTURE ONLY (non-empty bare token or\n vendor:namespaced) — it never lists the tokens, so it cannot drift.\n\n Token meanings:\n   display-words      Words of content text rendered to an end user.\n   impressions        Times the content is displayed to an end user.\n   tokens             LLM output tokens generated using this content.\n   input-tokens       LLM input tokens consumed from this content.\n   units-manufactured Physical units manufactured from this design/pattern.\n   accesses           Distinct content access / retrieval events.\n   copies             Digital or physical copies produced.\n   seats              Distinct named users licensed to access the content.",
+      "maxLength": 64,
+      "pattern": "^([a-z0-9-]+|[A-Za-z0-9._-]+:[A-Za-z0-9._-]+)$",
+      "title": "The unit being capped — an open vocabulary axis.",
+      "type": "string"
+    },
+    "window": {
+      "anyOf": [
+        {
+          "enum": [
+            "QUOTA_WINDOW_HOURLY",
+            "QUOTA_WINDOW_DAILY",
+            "QUOTA_WINDOW_MONTHLY",
+            "QUOTA_WINDOW_TOTAL"
+          ],
+          "type": "string"
+        },
+        {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        }
+      ],
+      "description": "Time window over which the limit accumulates.",
+      "title": "Quota Window"
+    }
+  },
+  "required": [
+    "limit",
+    "metric",
+    "window"
+  ],
+  "title": "Quota — A usage cap that gates whether this LicenseTerm remains valid.",
+  "type": "object"
+}

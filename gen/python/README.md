@@ -17,6 +17,13 @@ Contents:
   string patterns, length/item bounds. Nested messages reference the same model
   (`LicenseTerm.license` is a `License`), so the whole tree hydrates as typed models.
   **Cross-field rules are NOT here** — enforced server-side by the Exchange/Broker.
+- `wire/schemas.py` — **`load(name, strict=False)`** and **`names()`**: the published JSON
+  Schemas (draft 2020-12), one self-contained file per message, shipped as package data
+  under `wire/jsonschema/`. `strict=True` selects the variant that refuses unknown fields
+  at every depth; a conformance check uses it. The files are generated into
+  [`gen/jsonschema/`](../jsonschema) (in this repository `wire/jsonschema` is a symlink to
+  it), whose README records how they treat field naming, `google.protobuf.Struct` and
+  64-bit integers. **Hand-written loader; needs no validator library.**
 - `vocab/` — registered vocabulary constants per axis (`pricingunits`, …) with
   `is_registered()`, plus the accepted aliases authored beside the tokens (`ALIASES`,
   `canonical()` — an exact lookup; the SDK folds case before it looks up).
@@ -27,6 +34,10 @@ from wire.base import WireModel          # subclass this to customize ALL models
 
 term = LicenseTerm.model_validate(incoming_json)   # raises on shape/per-field violations
 assert isinstance(term.license, License)           # full nested hierarchy, typed
+
+from jsonschema import Draft202012Validator        # any draft 2020-12 validator
+from wire import schemas
+Draft202012Validator(schemas.load("fora.v1.LicenseTerm", strict=True)).validate(incoming_json)
 ```
 
 Install (from this directory): `pip install .`

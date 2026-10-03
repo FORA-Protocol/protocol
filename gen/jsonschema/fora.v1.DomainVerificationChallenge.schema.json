@@ -1,0 +1,40 @@
+{
+  "$id": "fora.v1.DomainVerificationChallenge.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "DomainVerificationChallenge — Exchange returns a challenge.",
+  "properties": {
+    "expires_at": {
+      "description": "When this challenge expires. Provider must confirm before this time.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "ext": {
+      "description": "Extension point",
+      "type": "object"
+    },
+    "ext_critical": {
+      "description": "Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "token": {
+      "default": "",
+      "description": "Opaque challenge token. Provider must serve this at:\n https://{domain}/.well-known/fora-verify/{token}",
+      "type": "string"
+    },
+    "ver": {
+      "default": "",
+      "description": "FORA protocol version — \"1.0\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
+      "type": "string"
+    },
+    "verification_url": {
+      "default": "",
+      "description": "The exact URL the Exchange will fetch to verify.",
+      "type": "string"
+    }
+  },
+  "title": "Domain Verification Challenge",
+  "type": "object"
+}

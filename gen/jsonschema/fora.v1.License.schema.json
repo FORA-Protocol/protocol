@@ -1,0 +1,32 @@
+{
+  "$id": "fora.v1.License.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "License — Identifies the governing license document for a LicenseTerm.",
+  "properties": {
+    "id": {
+      "description": "Stable short identifier: SPDX short-id (\"GPL-3.0-only\"), TollBit cuid,\n or catalog doc-id. Used by agents and the vocab linter for known-license\n lookup; SHARE_ALIKE derivatives default their scope_license to this.",
+      "type": "string"
+    },
+    "immutable": {
+      "description": "Data-labels TDL: the document at uri is versioned and will not change.",
+      "type": "boolean"
+    },
+    "name": {
+      "description": "Human-readable name (licenseType, schema.org node name).",
+      "type": "string"
+    },
+    "uri": {
+      "description": "\"MUST NOT URL-validate\" means do not REJECT non-URL schemes — it does NOT\n mean fetch blindly. A consumer that dereferences this URI MUST apply the\n SSRF countermeasures in the security threat model (T-LIC-1): scheme\n allowlist, block loopback/private/metadata addresses (resolve-then-check),\n fetch via an egress proxy, and treat the response as untrusted content.\n Verify the fetched bytes against `uri_digest` before use.",
+      "title": "Canonical identity of the license document (RFC 3986). MUST NOT be\n URL-validated — data-labels TDL identifiers use non-URL schemes.\n For REFERENCE_ONLY terms this is the authoritative specification.\n Examples:\n   \"https://creativecommons.org/licenses/by/4.0/\"\n   \"https://techcrunch.com/licensing/ai-terms-2026\"",
+      "type": "string"
+    },
+    "uri_digest": {
+      "description": "The method MUST be a collision-resistant hash — sha256, sha384, or sha512.\n Legacy md5/sha1 are rejected on the wire: a forgeable digest would defeat\n the swap-protection this field exists for. The CEL is STRUCTURE ONLY\n (allowlisted prefix + matching hex length); presence (digest-when-uri) is\n enforced at ingest.",
+      "pattern": "^(sha256:[0-9a-f]{64}|sha384:[0-9a-f]{96}|sha512:[0-9a-f]{128})?$",
+      "title": "Cryptographic digest of the document at `uri`, in \"method:hexdigest\" form\n (e.g. \"sha256:9f86d081...\"). Pins the referenced document so a consumer can\n verify the bytes it fetches match what was offered; covered by the offer\n signature, so it is tamper-evident end to end. REQUIRED whenever `uri` is\n non-empty — any semantics, mutable or not: without a pinned digest a MitM\n (or the publisher) can swap the document the agent reads. The Exchange pins\n it at ingestion (computing it over the safely-fetched document, or\n accepting a publisher-supplied value when uri is not HTTP-fetchable, e.g. a\n non-URL TDL scheme).",
+      "type": "string"
+    }
+  },
+  "title": "License",
+  "type": "object"
+}

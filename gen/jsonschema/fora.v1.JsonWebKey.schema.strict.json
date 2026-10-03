@@ -1,0 +1,45 @@
+{
+  "$id": "fora.v1.JsonWebKey.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "FORA v1.0 supports Ed25519 only: kty=\"OKP\", crv=\"Ed25519\", alg=\"EdDSA\".\n Additional curves are a later concern.\n\n Time bounds are RFC3339 strings (sortable, ops-debuggable, avoids the\n JWT nbf/exp collision). At least one key in the served key set (WBAFile.keys)\n MUST have `not_before <= now < not_after`. Verification MUST reject\n signatures whose key falls outside its window.\n\n Keys carry no `kid`: the RFC 9421 keyid is the RFC 7638 JWK Thumbprint,\n computed locally by the verifier. Carrying a kid alongside the thumbprint\n created a drift surface and is removed.",
+  "properties": {
+    "alg": {
+      "default": "",
+      "description": "Signing algorithm. FORA v1.0: MUST be \"EdDSA\".",
+      "type": "string"
+    },
+    "crv": {
+      "default": "",
+      "description": "Curve. FORA v1.0: MUST be \"Ed25519\".",
+      "type": "string"
+    },
+    "kty": {
+      "default": "",
+      "description": "Key type. FORA v1.0: MUST be \"OKP\".",
+      "type": "string"
+    },
+    "not_after": {
+      "default": "",
+      "description": "RFC3339 timestamp. Key is invalid at and after this instant\n (strict upper bound).",
+      "type": "string"
+    },
+    "not_before": {
+      "default": "",
+      "description": "RFC3339 timestamp. Key is invalid before this instant.",
+      "type": "string"
+    },
+    "use": {
+      "default": "",
+      "description": "Intended key use. FORA v1.0: MUST be \"sig\".",
+      "type": "string"
+    },
+    "x": {
+      "default": "",
+      "description": "base64url-encoded 32-byte Ed25519 public key.",
+      "type": "string"
+    }
+  },
+  "title": "JsonWebKey — Inline RFC 7517 JWK object.",
+  "type": "object"
+}

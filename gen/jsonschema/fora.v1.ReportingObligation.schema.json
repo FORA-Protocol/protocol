@@ -1,0 +1,41 @@
+{
+  "$id": "fora.v1.ReportingObligation.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "ReportingObligation — Requirements attached to a delivery.",
+  "properties": {
+    "endpoint": {
+      "description": "URL to submit the usage report to (if different from Exchange).",
+      "type": "string"
+    },
+    "ext": {
+      "description": "Extension point",
+      "type": "object"
+    },
+    "ext_critical": {
+      "description": "Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "required": {
+      "default": false,
+      "description": "Whether post-usage reporting is required.",
+      "type": "boolean"
+    },
+    "required_fields": {
+      "description": "Field names that must be present in the report.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "window": {
+      "description": "Duration within which the report must be submitted (e.g. \"86400s\" = 24\n hours; proto-JSON encodes Duration as seconds).",
+      "format": "duration",
+      "type": "string"
+    }
+  },
+  "title": "Reporting Obligation",
+  "type": "object"
+}

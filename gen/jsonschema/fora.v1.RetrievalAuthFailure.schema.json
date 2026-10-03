@@ -1,0 +1,40 @@
+{
+  "$id": "fora.v1.RetrievalAuthFailure.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "RetrievalAuthFailure — a signed-URL retrieval / proof-of-possession check failed.",
+  "properties": {
+    "reason": {
+      "anyOf": [
+        {
+          "enum": [
+            "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED",
+            "RETRIEVAL_AUTH_FAILURE_REASON_URL_SIGNATURE_MISSING",
+            "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRY_MISSING",
+            "RETRIEVAL_AUTH_FAILURE_REASON_URL_SIGNATURE_MISMATCH",
+            "RETRIEVAL_AUTH_FAILURE_REASON_AGENT_KEY_MISSING",
+            "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_SIGNATURE_MISSING",
+            "RETRIEVAL_AUTH_FAILURE_REASON_KEYID_MISMATCH",
+            "RETRIEVAL_AUTH_FAILURE_REASON_THUMBPRINT_MISMATCH",
+            "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_CREATED_MISSING",
+            "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRY_MISSING",
+            "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRED",
+            "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_SIGNATURE_INVALID"
+          ],
+          "type": "string"
+        },
+        {
+          "maximum": 12,
+          "minimum": 1,
+          "type": "integer"
+        }
+      ],
+      "description": "The failure reason (defined-only, non-zero)",
+      "title": "Retrieval Auth Failure Reason"
+    }
+  },
+  "required": [
+    "reason"
+  ],
+  "title": "Retrieval Auth Failure",
+  "type": "object"
+}

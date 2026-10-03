@@ -1,0 +1,30 @@
+{
+  "$id": "fora.v1.UsageReportResponse.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "UsageReportResponse — Acknowledgment of a usage report.",
+  "properties": {
+    "ext": {
+      "description": "Extension point",
+      "type": "object"
+    },
+    "ext_critical": {
+      "description": "Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "report_id": {
+      "default": "",
+      "description": "Exchange-assigned report identifier. Required for the dispute chain —\n the agent must reference this report_id in DisputeRequest to prove that\n a usage report was filed before disputing. The complete evidence chain:\n   Offer → Transaction (transaction_id, billing_id)\n        → UsageReport → UsageReportResponse (report_id)\n        → DisputeRequest (transaction_id + report_id)",
+      "type": "string"
+    },
+    "ver": {
+      "default": "",
+      "description": "FORA protocol version — \"1.0\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
+      "type": "string"
+    }
+  },
+  "title": "Usage Report Response",
+  "type": "object"
+}

@@ -2,3 +2,5 @@
 # Compile with: pip-compile --generate-hashes --allow-unsafe -o requirements-test.txt requirements-test.in
 pydantic==2.13.4
 pytest
+# draft 2020-12 validator for the published gen/jsonschema/ schemas (gen/python/tests).
+jsonschema

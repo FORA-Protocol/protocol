@@ -1,0 +1,44 @@
+{
+  "$id": "fora.v1.SubscriptionQuotaInfo.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Analogous to RateLimitInfo (which signals API request rate limits), this\n signals subscription consumption quotas. Enables agents to throttle\n proactively instead of discovering exhaustion via denial.\n\n Returned on Offer (per-offer quota visibility) and TransactionResponse\n (post-transaction remaining quota). A subscription may have multiple\n independent quotas (access count + spend cap + burst limit), so this\n message is used as a repeated field.\n\n Quota decrement timing: the counter increments at ExecuteTransaction\n (optimistic decrement, before delivery). If delivery fails, the agent\n files a DisputeTransaction which may reverse the decrement. This is\n consistent with the billing model (billing_id created at transaction time).",
+  "properties": {
+    "quota_limit": {
+      "default": 0,
+      "description": "Total allowed in the current period.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "quota_remaining": {
+      "default": 0,
+      "description": "Remaining in the current period.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "quota_used": {
+      "default": 0,
+      "description": "Used so far in the current period.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "resets_at": {
+      "description": "When the quota counter resets (UTC).",
+      "format": "date-time",
+      "type": "string"
+    },
+    "subscription_id": {
+      "default": "",
+      "description": "Subscription this quota applies to.",
+      "type": "string"
+    },
+    "unit": {
+      "description": "What is being metered. Distinguishes access count quotas from\n spend quotas from burst limits.\n Standard values: \"accesses\", \"tokens\", \"spend_cents\", \"burst\"",
+      "type": "string"
+    }
+  },
+  "title": "SubscriptionQuotaInfo — Proactive quota signaling for subscription access.",
+  "type": "object"
+}

@@ -6,8 +6,8 @@
 # steps), so CI and local cannot drift.
 #
 # Coverage: the proto gate (lint/generate/drift/build/test/docs) AND the SDK types
-# export gate (regenerate gen-sdk-types + drift + Pydantic/Zod parity + canonical
-# round-trip). The two run as SEPARATE CI workflows (proto-ci.yml + sdk-types-ci.yml,
+# export gate (regenerate gen-sdk-types + drift of the Pydantic/Zod models and the
+# published JSON Schemas + their parity with the Go oracle + canonical round-trip). The two run as SEPARATE CI workflows (proto-ci.yml + sdk-types-ci.yml,
 # path-filtered); locally they are one command. proto-ci.yml sets
 # FORA_CI_SKIP_SDK_TYPES=1 so it keeps mirroring proto-ci only (sdk-types-ci.yml owns
 # the sdk-types gate in CI); the block also self-skips if python3/npm are absent.
@@ -116,22 +116,26 @@ elif ! command -v python3 >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; t
   step "sdk-types export gate"
   note "skipped — needs python3 + npm"
 else
-  step "regenerate SDK types export (Pydantic + Zod) + drift"
+  step "regenerate SDK types export (Pydantic + Zod) + published JSON Schemas + drift"
   ./scripts/gen-sdk-types.sh || fail=1
-  # Whole directories, not a file list: a NEW generated file (e.g. wire/unique.py) is then
-  # gated the day it is emitted. The untracked sweep is load-bearing — `git diff` cannot see
-  # a file that was generated but never committed, so a file list alone would pass green.
-  # base.py / base.ts are hand-written seams and never regenerated, so they cannot drift.
-  if ! git diff --quiet HEAD -- gen/python/wire gen/ts/wire \
-     || [ -n "$(git ls-files --others --exclude-standard -- gen/python/wire gen/ts/wire)" ]; then
-    echo "::error:: SDK types export out of sync — run scripts/gen-sdk-types.sh and commit gen/python/wire/ + gen/ts/wire/."
-    git status --short -- gen/python/wire gen/ts/wire
+  # Whole directories, not a file list: a NEW generated file (e.g. wire/unique.py, or the
+  # schema of a new message) is then gated the day it is emitted. The untracked sweep is
+  # load-bearing — `git diff` cannot see a file that was generated but never committed,
+  # so a file list alone would pass green. gen/jsonschema/ is gated exactly like the
+  # generated code: the generator deletes every *.json there before writing, so a schema
+  # for a removed message shows up as a deletion. base.py / base.ts / schemas.py and
+  # gen/jsonschema/{jsonschema.go,README.md} are hand-written and never regenerated, so
+  # they cannot drift.
+  if ! git diff --quiet HEAD -- gen/python/wire gen/ts/wire gen/jsonschema \
+     || [ -n "$(git ls-files --others --exclude-standard -- gen/python/wire gen/ts/wire gen/jsonschema)" ]; then
+    echo "::error:: SDK types export out of sync — run scripts/gen-sdk-types.sh and commit gen/python/wire/ + gen/ts/wire/ + gen/jsonschema/."
+    git status --short -- gen/python/wire gen/ts/wire gen/jsonschema
     fail=1
   else
     note "no drift"
   fi
 
-  step "SDK types parity (Pydantic + Zod vs the Go oracle)"
+  step "SDK types + JSON Schema parity (Pydantic, Zod, jsonschema vs the Go oracle)"
   ".sdk-types-work/venv/bin/pip" install -q --disable-pip-version-check --require-hashes -r scripts/sdk-types/requirements-test.txt || fail=1
   PYTHONPATH=gen/python ".sdk-types-work/venv/bin/python" -m pytest gen/python/tests -q || fail=1
   (cd gen/ts && npm ci --no-audit --no-fund && npm test --silent) || fail=1

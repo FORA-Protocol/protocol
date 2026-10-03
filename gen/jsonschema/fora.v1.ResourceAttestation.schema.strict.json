@@ -1,0 +1,39 @@
+{
+  "$id": "fora.v1.ResourceAttestation.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A provider or third-party verification vendor (GumGum, DoubleVerify, IAS)\n attests to properties of the resource at a specific URI at a specific time.\n The signature covers all fields, proving origin and integrity of the claims.\n\n Verification levels (determined by who the verifier is):\n   Level 0: No attestation present. Resource may carry identifiers\n     (DOI, IPTC GUID via ResourceIdentity) but nothing is cryptographically\n     verifiable. Only CDN delivery failure is auto-disputable.\n   Level 1 (self-attested): verifier == provider domain. Provider signs\n     own claims with their Ed25519 key. Agent can independently verify\n     content_hash by re-computing it from delivered bytes. Requires the\n     provider to serve deterministic content at the delivery endpoint.\n   Level 2 (third-party attested): verifier == verification vendor domain.\n     Vendor independently crawled the resource and attested to its properties.\n     Agent trusts the attestation — does NOT re-verify the content hash\n     (agent lacks the vendor's extraction algorithm). The Ed25519 signature\n     proves the vendor made the attestation; trust is binary (\"do I trust\n     this vendor?\").\n\n Claims are limited to 4KB. Attestations are carried in-memory in the\n Exchange catalog and in Offer responses — strict size limits protect\n against payload poisoning and ensure catalog performance at scale.\n\n Verifiers MUST publish their attestation-signing keys in their WBA directory\n (WBAFile.keys) at:\n   https://{verifier-domain}/.well-known/http-message-signatures-directory\n identified by RFC 7638 thumbprint. Verifiers publish the claims-schema\n structure at WellKnownManifest.ext[\"fora.attestation.claims_schema\"].",
+  "properties": {
+    "attested_at": {
+      "description": "When this attestation was created. Agents use this to assess freshness\n (e.g., \"I accept attestations up to N hours old for breaking news\").",
+      "format": "date-time",
+      "type": "string"
+    },
+    "claims": {
+      "description": "Signed claims about the resource (max 4KB). A JSON object containing\n whatever properties the attesting party can determine about the resource.\n Recommended claim names for interoperability:\n   estimated_quantity (integer): estimated consumption quantity (e.g., token count for text)\n   word_count (integer): word count (estimated_quantity ~ word_count * 1.32 for text)\n   language (string): ISO 639-1 language code\n   iab_categories (string[]): IAB Content Taxonomy 3.1 codes\n   content_hash (string): hash of content in \"method:hexdigest\" format\n   hash_method (string): algorithm used for content_hash\n Vendors MAY add vendor-specific claims (e.g., brand_safety, sentiment).\n The protocol does NOT define \"quality score\" — it is inherently subjective.\n If a vendor provides a proprietary score, the vendor defines what it means\n via their WellKnownManifest ext[\"fora.attestation.claims_schema\"].",
+      "type": "object"
+    },
+    "keyid": {
+      "default": "",
+      "description": "RFC 7638 JWK Thumbprint (the RFC 9421 keyid) of the verifier's\n attestation-signing key, resolved against the verifier's WBA directory\n (WBAFile.keys). Identifies which Ed25519 key signed this attestation.\n Enables key rotation: new keys are published with overlapping validity,\n new attestations use the new key's thumbprint, old attestations remain\n verifiable while the old key is still published.",
+      "type": "string"
+    },
+    "signature": {
+      "default": "",
+      "description": "Ed25519 signature over JCS-canonicalized (RFC 8785) representation of\n {verifier, keyid, attested_at, uri, claims}. JCS (JSON Canonicalization\n Scheme) produces deterministic UTF-8 bytes: lexicographic key sorting,\n ECMAScript number serialization, strict string escaping, no whitespace.\n Each attestation is self-contained — new claim fields do not invalidate\n old attestations because the signature covers the specific claims instance.",
+      "type": "string"
+    },
+    "uri": {
+      "default": "",
+      "description": "The resource URI this attestation covers. Must match the URI in the\n Offer or ResourceEntry this attestation is attached to.",
+      "type": "string"
+    },
+    "verifier": {
+      "default": "",
+      "description": "Canonical domain of the attesting party (e.g., \"nytimes.com\" for\n self-attestation, \"doubleverify.com\" for third-party attestation).\n Used to look up the verifier's attestation-signing keys in its WBA\n directory (WBAFile.keys) at\n   https://{verifier}/.well-known/http-message-signatures-directory",
+      "type": "string"
+    }
+  },
+  "title": "ResourceAttestation — Signed envelope of claims from a trusted party.",
+  "type": "object"
+}

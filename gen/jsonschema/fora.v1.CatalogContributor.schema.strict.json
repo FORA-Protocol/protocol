@@ -1,0 +1,20 @@
+{
+  "$id": "fora.v1.CatalogContributor.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "CatalogContributor — A third party authorized to push catalog metadata\n (including attestations) on behalf of a provider.",
+  "properties": {
+    "domain": {
+      "default": "",
+      "description": "Canonical domain of the authorized contributor (e.g., \"doubleverify.com\").",
+      "type": "string"
+    },
+    "relationship": {
+      "default": "",
+      "description": "Relationship of this contributor to the provider.\n Examples: \"verifier\" (resource intelligence vendor that attests to resource\n properties), \"exchange\" (an Exchange that enriches catalog entries).",
+      "type": "string"
+    }
+  },
+  "title": "Catalog Contributor",
+  "type": "object"
+}

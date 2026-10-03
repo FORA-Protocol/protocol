@@ -1,0 +1,22 @@
+{
+  "$id": "fora.v1.KeyRevocationList.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Snapshot semantics: `revoked` is the complete list of revoked key thumbprints\n (RFC 7638, base64url-no-pad) at `as_of`. Consumers replace their local\n revocation set on each successful poll (no diff protocol). A revoked\n thumbprint stays revoked permanently; once dropped from the list, consumers\n MAY drop it from their local set but the corresponding key SHOULD NOT be\n re-introduced into WBAFile.keys.",
+  "properties": {
+    "as_of": {
+      "description": "Server's response time (RFC3339, UTC). Consumers use this to detect\n clock skew.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "revoked": {
+      "description": "Complete list of revoked key thumbprints (RFC 7638, base64url-no-pad) at\n `as_of`.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "title": "KeyRevocationList — Body served at WBAFile.revocation_url.",
+  "type": "object"
+}

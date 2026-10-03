@@ -1,0 +1,74 @@
+{
+  "$defs": {
+    "fora.v1.Cost": {
+      "description": "Cost — Actual transaction cost.",
+      "properties": {
+        "amount": {
+          "default": "",
+          "description": "Exact decimal string (not a float), e.g. \"19.99\". Denominated in `currency`.",
+          "maxLength": 32,
+          "pattern": "^([0-9]+([.][0-9]+)?)?$",
+          "type": "string"
+        },
+        "currency": {
+          "default": "",
+          "type": "string"
+        },
+        "unit_cost": {
+          "maxLength": 32,
+          "pattern": "^([0-9]+([.][0-9]+)?)?$",
+          "type": "string"
+        }
+      },
+      "title": "Cost",
+      "type": "object"
+    }
+  },
+  "$id": "fora.v1.GetAccountStatusResponse.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "GetAccountStatusResponse — Exchange reports the account's current state.",
+  "properties": {
+    "active": {
+      "default": false,
+      "description": "Whether the account is currently active.",
+      "type": "boolean"
+    },
+    "balances": {
+      "description": "The value is a snapshot. It does not guarantee that the next execute passes\n the balance check: another transaction can spend the funds first.\n\n An empty list means the Exchange does not report balances. It does NOT mean\n a zero balance. The same holds for a currency missing from a non-empty list:\n that balance is not reported, it is not zero. An Exchange that reports a\n zero balance sends the entry with amount \"0\". Balances are only allowed when\n billing_ref is set.",
+      "items": {
+        "$ref": "#/$defs/fora.v1.Cost"
+      },
+      "title": "The amount the account can spend now, one entry per currency. Holds for\n pending transactions are already subtracted. Each amount is an exact decimal\n string and is never negative. The list holds at most one entry per currency,\n and its order has no meaning. unit_cost is never set.",
+      "type": "array"
+    },
+    "billing_ref": {
+      "default": "",
+      "description": "The account handle minted at registration (see RegisterResponse.billing_ref).\n Empty when the calling agent has no account yet.",
+      "type": "string"
+    },
+    "ext": {
+      "description": "Extension point",
+      "type": "object"
+    },
+    "ext_critical": {
+      "description": "Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "terms_digest": {
+      "description": "An Exchange that holds a recorded digest for this account MUST return it\n here. Absence has exactly ONE meaning: no acceptance is recorded. Two\n situations produce it — the Exchange publishes no terms_digest, so nothing\n was ever accepted (and per RegisterRequest.terms_digest it MUST NOT record a\n presented value in that case), or the account was created before the operator\n began publishing one. It does NOT mean \"this account has no terms\", and an\n Exchange MUST NOT withhold a digest it holds: absence is already spoken for,\n so withholding would make the field state something untrue.\n\n The value is what was ACCEPTED, not what is published now. The two differ as\n soon as the operator revises its terms, and that difference is the point:\n comparing this against a freshly fetched WellKnownManifest.terms_digest is how\n an agent discovers that the terms moved under an account it already holds. A\n repeat Register will not tell it — a repeat is answered from the stored record\n and runs no gate at all.",
+      "pattern": "^(sha256:[0-9a-f]{64}|sha384:[0-9a-f]{96}|sha512:[0-9a-f]{128})?$",
+      "title": "The terms document this account ACCEPTED: the \"method:hexdigest\" value the\n agent echoed in RegisterRequest.terms_digest, which the Exchange recorded\n with the account. This is the read side of that record. Without it the\n protocol required an Exchange to store the acceptance and named the question\n the record exists to answer — \"which terms did this operator accept\" — while\n giving no way to ask it, so the only party who could check what it had agreed\n to was the party holding the database.",
+      "type": "string"
+    },
+    "ver": {
+      "default": "",
+      "description": "FORA protocol version — \"1.0\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
+      "type": "string"
+    }
+  },
+  "title": "Get Account Status Response",
+  "type": "object"
+}

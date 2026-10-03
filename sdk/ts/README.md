@@ -3,8 +3,9 @@
 FORA protocol SDK for TypeScript. One package with three layers:
 
 - the generated wire types: Zod schemas (`@fora-protocol/sdk/wire/schemas`), the wire
-  parsing policy (`@fora-protocol/sdk/wire/base`) and the registered vocabulary
-  (`@fora-protocol/sdk/vocab/*`);
+  parsing policy (`@fora-protocol/sdk/wire/base`), the registered vocabulary
+  (`@fora-protocol/sdk/vocab/*`) and the published JSON Schemas, one file per message
+  (`@fora-protocol/sdk/jsonschema/*`);
 - the IO-free protocol mechanics: thumbprint, signed-URL verification, RFC 9421 request
   signing and verification, offer and acceptance signatures, canonicalization;
 - the IO tiers built on them: the key and endpoint resolvers and the Connect-unary JSON
@@ -29,6 +30,18 @@ import { thumbprint } from "@fora-protocol/sdk/thumbprint";
 import { createClient } from "@fora-protocol/sdk/client";
 import { parseWire } from "@fora-protocol/sdk/wire/base";
 import { OfferSchema } from "@fora-protocol/sdk/wire/schemas";
+```
+
+The JSON Schemas are JSON files, one per message in a default and a strict variant
+(`fora.v1.ResourceResponse.schema.json`, `fora.v1.ResourceResponse.schema.strict.json`).
+The strict variant refuses unknown fields. Each file is self-contained, so it compiles on
+its own with Ajv, which the package already depends on:
+
+```ts
+import Ajv2020 from "ajv/dist/2020.js";
+import schema from "@fora-protocol/sdk/jsonschema/fora.v1.ResourceResponse.schema.strict.json" with { type: "json" };
+
+const validate = new Ajv2020({ validateFormats: false }).compile(schema);
 ```
 
 Every module is a named subpath export; there is no package root import. The full list is
