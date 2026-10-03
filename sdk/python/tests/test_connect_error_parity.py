@@ -4,20 +4,22 @@ Mirrors the sdk/ts sibling sdk/ts/tests/connect-error.parity.test.ts and the Go 
 sdk/go/connect/connect_error_corpus_test.go.
 
 ``error-detail-vectors.json`` pins the DETAIL's own proto-JSON. This corpus pins the
-ENVELOPE the detail arrives in, which is the form this SDK actually reads: with no
-protobuf binary codec it cannot open a detail's ``value`` (a base64 Any), so Connect's
-``debug`` projection is the only decodable copy.
+ENVELOPE the detail arrives in. A detail entry carries the binary ErrorDetail in
+``value`` (base64) — the authoritative copy, and the only one Go reads — and usually a
+``debug`` projection beside it. This SDK reads ``value`` and falls back to ``debug`` only
+when ``value`` is absent; the derived rows (``*.value_only``, ``value_wins_over_debug``,
+``undecodable_value_skipped``) hold that order.
 
-That projection is lowerCamelCase and no server option changes it — connect-go builds it
-with its own protojson codec at default options — while the response bodies the same
-server emits are snake_case. Reading ``debug`` with a snake-only model therefore used to
-return a detail carrying ``domain`` and ``message`` (single words spell the same either
-way) and NO typed reason, for a refusal the Exchange had named precisely. The failure was
-silent: the parse succeeded, and the unknown reason block was dropped by the
-forward-compatible ``extra="ignore"`` policy that exists for a newer protocol version.
+The ``debug`` projection is lowerCamelCase and no server option changes it — connect-go
+builds it with its own protojson codec at default options — while the response bodies the
+same server emits are snake_case. Reading ``debug`` with a snake-only model therefore used
+to return a detail carrying ``domain`` and ``message`` (single words spell the same either
+way) and NO typed reason, for a refusal the Exchange had named precisely.
 
-Every vector here was CAPTURED from a real connect-go handler, so the fix is asserted
-against what the wire does rather than against a description of it.
+Every captured vector came from a real connect-go handler, so the reader is asserted
+against what the wire does rather than against a description of it. Each row is also
+decoded through the client, which must report the row's Connect code on
+``CallError.code``.
 """
 
 from __future__ import annotations
@@ -30,6 +32,7 @@ from conftest import GO_CONNECT_TESTDATA, load_json
 from fora_sdk.client._call import decode
 from fora_sdk.client.errors import CallError
 from fora_sdk.errordetail import error_detail_from, reason
+from fora_sdk.wire import to_wire
 from wire.models import ResourceResponse
 
 _VECTORS = load_json(GO_CONNECT_TESTDATA / "connect-error-vectors.json")["vectors"]
@@ -66,9 +69,13 @@ def test_reader_extracts_go_projection_from_the_envelope(vector: dict) -> None:
     with pytest.raises(CallError) as caught:
         decode("discover", vector["http_status"], json.dumps(vector["envelope"]), ResourceResponse)
     assert (caught.value.peer_message or "") == vector["peer_message"], vector["name"]
+    # The Connect code the server classified the failure as, on its own field: the class a
+    # caller branches on when it needs more than refused-or-unreachable.
+    assert caught.value.code == vector["code"], vector["name"]
 
     if not expect["has_detail"]:
         assert detail is None, "an envelope carrying no ErrorDetail must read as none"
+        assert expect["detail"] is None
         return
 
     assert detail is not None, (
@@ -77,6 +84,11 @@ def test_reader_extracts_go_projection_from_the_envelope(vector: dict) -> None:
     )
     assert detail.domain == expect["domain"]
     assert detail.message == expect["message"]
+    # The whole detail, under the proto names: a nested member lost on the way
+    # (field_errors, a metadata entry) fails here even when the projection matches.
+    assert to_wire(detail) == expect["detail"], vector["name"]
+    assert caught.value.detail is not None
+    assert to_wire(caught.value.detail) == expect["detail"]
 
     # Metadata keys are the EMITTER's, not the proto's. The corpus carries a
     # deliberately lowerCamelCase key so a normalizer that walked into the map would
@@ -102,7 +114,8 @@ def test_camel_case_debug_projection_is_decoded() -> None:
     """The regression itself, stated once in the open rather than only via the corpus.
 
     A snake-only read of this envelope parses successfully and reports no reason — which
-    is why nothing caught it before the corpus existed.
+    is why nothing caught it before the corpus existed. The entry carries no ``value``,
+    which is the one case the projection is read for.
     """
     envelope = {
         "code": "permission_denied",
@@ -110,7 +123,6 @@ def test_camel_case_debug_projection_is_decoded() -> None:
         "details": [
             {
                 "type": "fora.v1.ErrorDetail",
-                "value": "aWdub3JlZA",
                 "debug": {
                     "domain": "fora.v1.ExchangeService",
                     "message": "balance too low",

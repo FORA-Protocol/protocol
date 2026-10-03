@@ -25,11 +25,11 @@ Serialization is delegated to the generated model: ``WireModel.model_dump`` forc
 ``exclude_none=True`` (proto3 omit-unpopulated) and ``mode="json"`` renders each enum
 as its NAME string — the builders never hand-roll field names or enum strings.
 
-The ``ErrorDetail`` wire form is canonical proto-JSON (snake_case field names,
-enums as NAME strings) — the exact shape the generated ``wire.models.ErrorDetail``
-Pydantic model parses. Binary protobuf is deliberately NOT used: it is not a
-cross-language primitive (protobuf's own caveat), so the shared wire the three
-SDKs agree on is proto-JSON.
+The builders emit canonical proto-JSON (snake_case field names, enums as NAME
+strings) — the exact shape the generated ``wire.models.ErrorDetail`` Pydantic model
+parses, and the form the shared corpora pin. The reader also opens the binary form a
+Connect error carries in ``details[].value``, through the table-driven decoder in
+:mod:`fora_sdk._errordetail_wire`, and hands its proto-JSON to the same model.
 """
 
 from __future__ import annotations
@@ -50,6 +50,7 @@ from wire.models import (
     UsageReportRejectionReason,
 )
 
+from fora_sdk._errordetail_wire import WireDecodeError, decode_error_detail_value
 from fora_sdk._wire_names import snake_from_json_name
 
 if TYPE_CHECKING:
@@ -159,17 +160,23 @@ def error_detail_from(err: Mapping[str, Any] | Iterable[Any]) -> ErrorDetail | N
 
     ``err`` is either a Connect error object (a mapping carrying a ``details``
     array) or the details iterable itself. Each detail entry is the Connect wire
-    form ``{"type": "fora.v1.ErrorDetail", ...}``; the ErrorDetail proto-JSON is
-    read from the entry's ``debug`` projection (Connect includes it for JSON
-    clients) or from a ``value`` already decoded to an object. Returns ``None`` when
-    ``err`` carries no ErrorDetail — the Python analog of the Go ``(detail, false)``.
+    form ``{"type": "fora.v1.ErrorDetail", "value": ..., "debug": ...}``. Returns
+    ``None`` when ``err`` carries no ErrorDetail — the Python analog of the Go
+    ``(detail, false)``.
 
-    The opaque binary ``value`` of a detail is intentionally NOT decoded here: the
-    JSON SDKs have no protobuf binary codec, so they consume the proto-JSON form.
+    ``value`` is read FIRST: it is the binary ErrorDetail itself, base64-encoded, and the
+    authoritative copy — Go reads nothing else. It is decoded by the table-driven reader
+    in :mod:`fora_sdk._errordetail_wire`, so this SDK needs no protobuf runtime. ``debug``
+    is a projection connect-go adds for JSON readers, and it is read only when ``value``
+    is ABSENT. A ``value`` that is present but does not decode makes the entry unreadable:
+    its ``debug`` is not read in its place, because a projection that disagrees with an
+    unreadable original is not evidence of anything, and Go would report no detail for the
+    same entry. A ``value`` already decoded to an object — which only a caller that owns a
+    binary codec can supply — is read as proto-JSON.
 
-    Both payload forms are read through :func:`_proto_names`, because ``debug`` arrives
-    lowerCamelCase and a decoded ``value`` — which only a caller that owns a binary codec
-    can supply — may be either. A snake_case object passes through it unchanged.
+    ``debug`` and an object ``value`` are read through :func:`_proto_names`, because
+    ``debug`` arrives lowerCamelCase and an object ``value`` may be either. A snake_case
+    object passes through it unchanged.
     """
     details = err.get("details", ()) if isinstance(err, dict) else err
     if isinstance(details, (str, bytes)) or not isinstance(details, Iterable):
@@ -181,14 +188,12 @@ def error_detail_from(err: Mapping[str, Any] | Iterable[Any]) -> ErrorDetail | N
             continue
         if entry.get("type") != ERROR_DETAIL_TYPE:
             continue
-        payload = entry.get("debug")
-        if payload is None and isinstance(entry.get("value"), dict):
-            payload = entry["value"]
-        if not isinstance(payload, dict):
-            continue
         try:
-            return parse_error_detail(_proto_names(payload))
-        except (ValidationError, _TooDeepError):
+            payload = _entry_payload(entry)
+            if payload is None:
+                continue
+            return parse_error_detail(payload)
+        except (ValidationError, _TooDeepError, WireDecodeError):
             # A detail entry that does not decode is not an answer, and it came from a
             # peer that just refused the call — so it is exactly where a hostile one puts
             # something malformed. Raising here would replace the typed failure the caller
@@ -199,6 +204,23 @@ def error_detail_from(err: Mapping[str, Any] | Iterable[Any]) -> ErrorDetail | N
             # always kept looking.
             continue
     return None
+
+
+def _entry_payload(entry: dict[str, Any]) -> dict[str, Any] | None:
+    """The proto-JSON object one details entry carries, or ``None`` when it carries none."""
+    value = entry.get("value")
+    if isinstance(value, str):
+        return decode_error_detail_value(value)
+    if isinstance(value, dict):
+        payload: Any = value
+    elif value is None:
+        payload = entry.get("debug")
+    else:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    normalized: dict[str, Any] = _proto_names(payload)
+    return normalized
 
 
 def _reason_detail(
