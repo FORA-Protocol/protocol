@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 183 symbols at cross-language parity · 17 documented divergences · 198 Go-idiomatic exclusions · 43 conformance corpora, each tri-replayed.
+**At a glance:** 184 symbols at cross-language parity · 17 documented divergences · 199 Go-idiomatic exclusions · 43 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -38,6 +38,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `CatalogRejectionDetail` | `catalog_rejection_detail` | `catalogRejectionDetail` |
 | `CheckAudience` | `check_audience` | `checkAudience` |
 | `CheckMeteredEstimate` | `check_metered_estimate` | `checkMeteredEstimate` |
+| `CheckOfferTermsUnpriced` | `check_offer_terms_unpriced` | `checkOfferTermsUnpriced` |
 | `CheckRegistrationData` | `check_registration_data` | `checkRegistrationData` |
 | `CheckStrict` | `check_strict` | `checkStrict` |
 | `CheckWellKnownManifestVersion` | `manifest_version_refusal` | `manifestVersionRefusal` |
@@ -385,6 +386,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `helpers.ErrNotMetered` | Go errors.Is sentinel for a settlement asked of a price that is not PER_UNIT; py raises ValueError and ts throws from the same faces, and the shared metered-settlement vectors pin that every language refuses the same inputs. |
 | `helpers.ErrOfferExpired` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrOfferSignatureInvalid` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
+| `helpers.ErrOfferTermPriced` | Go errors.Is sentinel for an offer whose term carries pricing; py raises ValueError and ts throws from the same faces, and the shared offer-verify vectors pin that every language rejects the same offers. |
 | `helpers.ErrProofOfPossessionMismatch` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrRequestAcceptanceSignatureInvalid` | Go errors.Is sentinel; py/ts return false for a request-acceptance mismatch rather than exporting a sentinel. |
 | `helpers.ErrSignatureLifetimeTooLong` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |

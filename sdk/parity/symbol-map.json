@@ -117,6 +117,7 @@
     "helpers.ErrNotMetered": "Go errors.Is sentinel for a settlement asked of a price that is not PER_UNIT; py raises ValueError and ts throws from the same faces, and the shared metered-settlement vectors pin that every language refuses the same inputs.",
     "helpers.ErrOfferExpired": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.ErrOfferSignatureInvalid": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
+    "helpers.ErrOfferTermPriced": "Go errors.Is sentinel for an offer whose term carries pricing; py raises ValueError and ts throws from the same faces, and the shared offer-verify vectors pin that every language rejects the same offers.",
     "helpers.ErrProofOfPossessionMismatch": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.ErrRequestAcceptanceSignatureInvalid": "Go errors.Is sentinel; py/ts return false for a request-acceptance mismatch rather than exporting a sentinel.",
     "helpers.ErrSignatureLifetimeTooLong": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
@@ -458,6 +459,11 @@
       "allowlist_reason": null,
       "python": "check_metered_estimate",
       "ts": "checkMeteredEstimate"
+    },
+    "helpers.CheckOfferTermsUnpriced": {
+      "allowlist_reason": null,
+      "python": "check_offer_terms_unpriced",
+      "ts": "checkOfferTermsUnpriced"
     },
     "helpers.CheckRegistrationData": {
       "allowlist_reason": null,
