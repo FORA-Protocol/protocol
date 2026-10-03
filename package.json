@@ -35,6 +35,7 @@
     "./core/verify-request": "./sdk/ts/core/verify-request.ts",
     "./core/verify-multisig-request": "./sdk/ts/core/verify-multisig-request.ts",
     "./core/window": "./sdk/ts/core/window.ts",
+    "./identity": "./sdk/ts/core/identity.ts",
     "./hono": "./sdk/ts/hono/middleware.ts",
     "./acceptance": "./sdk/ts/src/acceptance.ts",
     "./resolvers": "./sdk/ts/resolvers/index.ts",
