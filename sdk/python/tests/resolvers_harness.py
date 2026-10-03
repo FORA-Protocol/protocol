@@ -40,6 +40,7 @@ WBA_DIR_PATH = "/.well-known/http-message-signatures-directory"
 REVOCATION_PATH = "/.well-known/fora-key-revocations.json"
 MANIFEST_PATH = "/.well-known/fora.json"
 JWKS_PATH = "/keys.json"
+LICENSE_PATH = "/licensing/terms.txt"
 
 # The shared anchor sits well inside the validity windows the active-key builders
 # emit.
@@ -148,6 +149,9 @@ class _State:
     manifest: str | None = None
     manifest_status: int = 0
     manifest_hits: int = 0
+    license: bytes | None = None
+    # A path's Content-Type, where it is not application/json; None omits the header.
+    content_types: dict[str, str | None] = field(default_factory=dict)
 
 
 def _resolve_route(state: _State, path: str) -> tuple[int, bytes] | None:  # noqa: PLR0911 — flat route table
@@ -175,6 +179,10 @@ def _resolve_route(state: _State, path: str) -> tuple[int, bytes] | None:  # noq
         if state.manifest is None:
             return 404, b""
         return 200, state.manifest.encode()
+    if path == LICENSE_PATH:
+        if state.license is None:
+            return 404, b""
+        return 200, state.license
     return None
 
 
@@ -189,14 +197,17 @@ class Origin:
 
         class _Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
-                hit = _resolve_route(state, self.path.split("?")[0])
+                path = self.path.split("?")[0]
+                hit = _resolve_route(state, path)
                 if hit is None:
                     self.send_response(404)
                     self.end_headers()
                     return
                 code, body = hit
                 self.send_response(code)
-                self.send_header("content-type", "application/json")
+                content_type = state.content_types.get(path, "application/json")
+                if content_type is not None:
+                    self.send_header("content-type", content_type)
                 self.end_headers()
                 self.wfile.write(body)
 
@@ -238,6 +249,16 @@ class Origin:
 
     def revocation_url(self) -> str:
         return self.url + REVOCATION_PATH
+
+    def set_license(self, body: bytes) -> None:
+        self._state.license = body
+
+    def license_url(self) -> str:
+        return self.url + LICENSE_PATH
+
+    def set_content_type(self, path: str, value: str | None) -> None:
+        """Serve ``path`` with ``value`` as its Content-Type; ``None`` sends none."""
+        self._state.content_types[path] = value
 
     def close(self) -> None:
         self._server.shutdown()

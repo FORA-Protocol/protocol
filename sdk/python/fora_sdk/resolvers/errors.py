@@ -42,7 +42,8 @@ class RevocationUnevaluatedError(ResolverError):
 
 
 class DirectoryUnavailableError(ResolverError):
-    """A well-known directory/JWKS/manifest could not be fetched or decoded.
+    """A document could not be fetched or decoded: a well-known manifest, a WBA
+    directory or JWKS, a revocation list, or a license document.
 
     Deliberately NOT a subclass of :class:`UnknownKeyError`: a fail-closed
     composite must be able to halt on a directory outage rather than fall
@@ -127,4 +128,26 @@ class ManifestVersionRefusedError(ResolverError):
     failure to retry — and it is never cached. The gate runs before any other
     member of the document is read, for the reason stated once on
     ``WellKnownManifest.ver`` in the proto.
+    """
+
+
+class MediaTypeRefusedError(ResolverError):
+    """A document was served under a media type other than the one the protocol names
+    for it: ``application/json`` for ``/.well-known/fora.json`` and
+    ``application/jwk-set+json`` for the WBA directory.
+
+    A VERDICT on what the party publishes, not a failed read, so it is never worth
+    retrying. Only the document readers in :mod:`fora_sdk.resolvers.documents` raise
+    it; the resolvers that read the same documents for routing and key resolution do
+    not check the label. Peer of Go ``ErrMediaTypeRefused`` / TS ``MediaTypeRefused``.
+    """
+
+
+class DigestMismatchError(ResolverError):
+    """The bytes served at ``License.uri`` do not hash to ``License.uri_digest``.
+
+    The digest is covered by the offer signature, so a mismatch means the document
+    changed after the offer was signed, or the server answering is not the one the
+    offer named. A VERDICT, never retried. Peer of Go ``ErrDigestMismatch`` / TS
+    ``DigestMismatch``.
     """

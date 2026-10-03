@@ -25,12 +25,16 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from pydantic import ValidationError
 from wire.models import JsonWebKey, KeyRevocationList, WBAFile
 
 from fora_sdk.b64 import b64url_decode_strict
 from fora_sdk.hosts import host_anchored
-from fora_sdk.resolvers._http import fetch_soft, fetch_strict, guarded_client
+from fora_sdk.resolvers._http import guarded_client
+from fora_sdk.resolvers.documents import (
+    WBA_DIRECTORY_PATH,
+    fetch_revocation_list,
+    fetch_wba_directory,
+)
 from fora_sdk.resolvers.errors import (
     DirectoryUnavailableError,
     KeyExpiredError,
@@ -39,54 +43,6 @@ from fora_sdk.resolvers.errors import (
     UnknownKeyError,
 )
 from fora_sdk.thumbprint import thumbprint
-
-WBA_DIRECTORY_PATH = "/.well-known/http-message-signatures-directory"
-
-
-def _get_wba_directory(http: httpx.Client, url: str) -> WBAFile:
-    """GET ``url`` and decode the body as a :class:`WBAFile`.
-
-    The ONE place Python turns a directory URL into a directory. Both faces that need
-    one call it: :meth:`WBAKeyResolver._fetch_directory` on the signature-verification
-    path, and :func:`~fora_sdk.resolvers.offer_key_cache.create_wba_offer_directory_fetch`
-    on the offer-key path. Go shares a single ``fetchWBAFile`` between the same two
-    call sites for the same reason, so the two paths cannot drift apart.
-
-    Every failure leaves as :class:`DirectoryUnavailableError`, which is what lets each
-    caller make its own raise-or-contain choice against ONE exception type.
-    ``fetch_strict`` folds in every transport failure, every non-200, and every way the
-    URL itself can be refused — a malformed A-label and an over-long label included.
-    This adds the one arm it does not cover: a body that is not a valid directory.
-    """
-    body = fetch_strict(http, url)
-    try:
-        return WBAFile.model_validate_json(body)
-    except ValidationError as exc:
-        raise DirectoryUnavailableError("wba directory decode") from exc
-
-
-def wba_directory_url(scheme: str, host: str) -> str:
-    """Build the full WBA identity-directory URL: ``scheme://host`` + the shared
-    :data:`WBA_DIRECTORY_PATH`. An empty ``scheme`` defaults to ``https``.
-
-    A PURE string function — the host arrives ALREADY-JOINED (any port-join / IPv6
-    bracketing is the caller's concern), there is NO env read (the app keeps its
-    consumer-side ``FORA_WELLKNOWN_SCHEME`` read) and NO scheme-in-host detection.
-    It mirrors the sdk/go ``WBADirectoryURL`` oracle byte-for-byte, locked by the
-    tri-replayed ``wba-url-vectors.json`` corpus.
-
-    Its production call-site inside the SDK is
-    :func:`~fora_sdk.resolvers.offer_key_cache.create_wba_offer_directory_fetch`, the
-    default offer-directory fetch, which joins any port onto the host and hands the
-    result here. :class:`WBAKeyResolver` does NOT use it: that class's
-    ``_fetch_directory`` seam receives an already-joined ``base`` and appends
-    :data:`WBA_DIRECTORY_PATH` directly, so the two paths reach the same URL by
-    different routes. The tri-language corpus is what holds them to the same answer.
-    """
-    if scheme == "":
-        scheme = "https"
-    return f"{scheme}://{host}{WBA_DIRECTORY_PATH}"
-
 
 _DEFAULT_TTL = timedelta(hours=1)
 _DEFAULT_POLL_INTERVAL = timedelta(seconds=300)
@@ -315,7 +271,7 @@ class WBAKeyResolver:
             pending.event.set()
 
     def _fetch_directory(self, base: str) -> WBAFile:
-        return _get_wba_directory(self._http, base + WBA_DIRECTORY_PATH)
+        return fetch_wba_directory(self._http, base + WBA_DIRECTORY_PATH)
 
     def _is_revoked(self, host: str, thumbprint_key: str) -> bool:
         with self._rev_lock:
@@ -353,13 +309,10 @@ class WBAKeyResolver:
         # cross-host revocation_url is skipped, leaving the prior snapshot.
         if not rev_url or not _wba_host_anchored(host, rev_url):
             return
-        body = fetch_soft(self._http, rev_url)  # best-effort: a blip keeps prior
-        if body is None:
-            return
         try:
-            snapshot = KeyRevocationList.model_validate_json(body)
-        except ValidationError:
-            return
+            snapshot = fetch_revocation_list(self._http, rev_url)
+        except DirectoryUnavailableError:
+            return  # best-effort: a blip or an undecodable list keeps the prior snapshot
         self._apply_revocation(host, snapshot)
 
     def _apply_revocation(self, host: str, snapshot: KeyRevocationList) -> None:

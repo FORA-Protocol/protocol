@@ -37,6 +37,7 @@ import asyncio
 import os
 import socket
 import threading
+from dataclasses import dataclass
 from typing import Any
 
 import httpcore
@@ -323,12 +324,12 @@ def default_client() -> httpx.Client:
     )
 
 
-def _call_with_deadline(fn: Any, deadline_s: float, url: str) -> tuple[int, bytes]:
+def _call_with_deadline(fn: Any, deadline_s: float, url: str) -> _Answer:
     """Run ``fn`` under an OVERALL wall-clock budget and return its result.
 
     The blocking work (getaddrinfo + the httpx stream) runs in a DAEMON thread; if
     it has not finished within ``deadline_s`` the caller returns with a
-    ``TimeoutError`` (an ``OSError``, so it flows through fetch_strict/fetch_soft's
+    ``TimeoutError`` (an ``OSError``, so it flows through fetch_document/fetch_soft's
     transport-failure arms) and the stuck thread is abandoned — a hostile DNS /
     origin cannot pin the caller past the budget. A daemon thread never blocks
     interpreter exit, so an abandoned getaddrinfo leaks harmlessly.
@@ -349,32 +350,49 @@ def _call_with_deadline(fn: Any, deadline_s: float, url: str) -> tuple[int, byte
         raise TimeoutError(f"guarded fetch exceeded {deadline_s}s budget for {url}")
     if "error" in box:
         raise box["error"]
-    result: tuple[int, bytes] = box["value"]
+    result: _Answer = box["value"]
     return result
 
 
-def _stream_bounded(client: httpx.Client, url: str) -> tuple[int, bytes]:
-    """GET ``url`` → (status, body), the body bounded to ``_MAX_DOC_BYTES``.
+@dataclass(frozen=True)
+class _Answer:
+    status: int
+    body: bytes
+    content_type: str | None
 
-    Streams so a hostile origin cannot force an unbounded read; a non-2xx returns
-    ``(status, b"")`` for the caller to classify. httpx owns redirect following
-    and status handling — a non-2xx is an ordinary response, never a crash.
+
+class _TooLargeError(OSError):
+    """A document past ``_MAX_DOC_BYTES``. An ``OSError`` so it leaves through the same
+    transport-failure arm as every other way a fetch can fail: a document the reader
+    did not read whole is a document it did not read."""
+
+
+def _stream_bounded(client: httpx.Client, url: str) -> _Answer:
+    """GET ``url``; the body bounded to ``_MAX_DOC_BYTES``.
+
+    Streams so a hostile origin cannot force an unbounded read, and REFUSES a body past
+    the cap rather than truncating it: a truncated document that happens to decode is
+    worse than a refusal, and a truncated license document would be reported as a
+    digest mismatch it is not. A non-2xx returns an empty body for the caller to
+    classify. httpx owns redirect following and status handling — a non-2xx is an
+    ordinary response, never a crash.
     """
     with client.stream("GET", url) as resp:
+        content_type = resp.headers.get("content-type")
         if resp.status_code != _HTTP_OK:
-            return resp.status_code, b""
+            return _Answer(resp.status_code, b"", content_type)
         chunks: list[bytes] = []
         total = 0
         for chunk in resp.iter_bytes():
-            chunks.append(chunk)
             total += len(chunk)
-            if total >= _MAX_DOC_BYTES:
-                break
-        return _HTTP_OK, b"".join(chunks)[:_MAX_DOC_BYTES]
+            if total > _MAX_DOC_BYTES:
+                raise _TooLargeError(f"document exceeds the {_MAX_DOC_BYTES} byte cap")
+            chunks.append(chunk)
+        return _Answer(_HTTP_OK, b"".join(chunks), content_type)
 
 
-def _get_bounded(client: httpx.Client, url: str) -> tuple[int, bytes]:
-    """GET ``url`` → (status, body) under the overall wall-clock budget.
+def _get_bounded(client: httpx.Client, url: str) -> _Answer:
+    """GET ``url`` under the overall wall-clock budget.
 
     Wraps :func:`_stream_bounded` in :func:`_call_with_deadline` so the whole GET —
     including the getaddrinfo the guarded backend runs, which httpx's per-phase
@@ -383,12 +401,32 @@ def _get_bounded(client: httpx.Client, url: str) -> tuple[int, bytes]:
     return _call_with_deadline(lambda: _stream_bounded(client, url), _TOTAL_FETCH_DEADLINE_S, url)
 
 
-def fetch_strict(client: httpx.Client, url: str) -> bytes:
-    """GET ``url``; return the body on 200, else raise DirectoryUnavailableError.
+@dataclass(frozen=True)
+class Fetched:
+    """One document as it was served: its bytes and the media type it was labelled with."""
+
+    url: str
+    body: bytes
+    #: The ``Content-Type`` essence (type/subtype), lowercased, parameters stripped.
+    #: ``None`` when the response carried none.
+    media_type: str | None
+
+
+def media_type_essence(header: str | None) -> str | None:
+    """The type/subtype of a ``Content-Type`` value, lowercased, parameters dropped."""
+    if header is None:
+        return None
+    essence = header.split(";", 1)[0].strip().lower()
+    return essence or None
+
+
+def fetch_document(client: httpx.Client, url: str) -> Fetched:
+    """GET ``url``; return the body and its media type on 200, else raise
+    DirectoryUnavailableError.
 
     A transport failure (an ``httpx.HTTPError`` — including a redirect to an
-    unsupported scheme — or an ``OSError``, which ``SsrfError`` is) or a non-200
-    status is a fail-closed halt: the taxonomy a composite relies on to
+    unsupported scheme — or an ``OSError``, which ``SsrfError`` and the over-cap refusal
+    are) or a non-200 status is a fail-closed halt: the taxonomy a composite relies on to
     distinguish an outage from an unknown key. A blocked SSRF target surfaces here
     as an outage, never a valid empty doc.
 
@@ -402,27 +440,30 @@ def fetch_strict(client: httpx.Client, url: str) -> bytes:
     that had promised to contain it.
     """
     try:
-        status, body = _get_bounded(client, url)
+        answer = _get_bounded(client, url)
     except (httpx.HTTPError, httpx.InvalidURL, OSError, ValueError) as exc:
         raise DirectoryUnavailableError(f"fetch {url}") from exc
-    if status != _HTTP_OK:
-        raise DirectoryUnavailableError(f"status {status} for {url}")
-    return body
+    if answer.status != _HTTP_OK:
+        raise DirectoryUnavailableError(f"status {answer.status} for {url}")
+    return Fetched(url=url, body=answer.body, media_type=media_type_essence(answer.content_type))
+
+
+def fetch_strict(client: httpx.Client, url: str) -> bytes:
+    """GET ``url``; return the body on 200, else raise DirectoryUnavailableError.
+
+    :func:`fetch_document` without the media type, for a reader that has no use for it.
+    """
+    return fetch_document(client, url).body
 
 
 def fetch_soft(client: httpx.Client, url: str) -> bytes | None:
     """Best-effort GET: body on 200, else None.
 
-    The revocation refresh uses this so a fetch blip leaves the prior snapshot in
-    place (a stale-but-present snapshot is safer than dropping revocations). It
-    absorbs the same set ``fetch_strict`` folds, for the same reason: the host comes
-    off untrusted input, so a name httpx cannot encode must leave a stale snapshot in
-    place rather than raise into the refresh.
+    It absorbs the same set ``fetch_document`` folds, for the same reason: the host
+    comes off untrusted input, so a name httpx cannot encode must yield None rather
+    than raise into a caller that promised to contain it.
     """
     try:
-        status, body = _get_bounded(client, url)
-    except (httpx.HTTPError, httpx.InvalidURL, OSError, ValueError):
+        return fetch_strict(client, url)
+    except DirectoryUnavailableError:
         return None
-    if status != _HTTP_OK:
-        return None
-    return body

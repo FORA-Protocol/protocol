@@ -164,6 +164,7 @@ from .resolvers import (
 from .scopes import apply_scopes, normalize_scopes, scopes_subset
 from .signedurl import sign_ed25519_signed_url, verify_ed25519_signed_url
 from .signing_transport import SignedOutbound, SigningTransport
+from .strict import StrictViolationError, check_strict
 from .thumbprint import thumbprint
 from .window import Window, clock_window, monotonic_window
 from .wire import (
@@ -252,6 +253,7 @@ __all__ = [
     "SignedOutbound",
     "SigningTransport",
     "StaticKeyResolver",
+    "StrictViolationError",
     "TermVerdict",
     "UnknownKeyError",
     "Validation",
@@ -275,6 +277,7 @@ __all__ = [
     "catalog_rejection_detail",
     "check_audience",
     "check_registration_data",
+    "check_strict",
     "clock_window",
     "compile_registration_schema",
     "content_digest",

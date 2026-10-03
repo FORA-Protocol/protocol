@@ -35,7 +35,7 @@ from fora_sdk.wire import (
     RequestIDHeader,
 )
 
-from ._strict import check_strict
+from ._strict import refuse_unless_strict
 from ._strict_envelope import check_strict_envelope
 from .errors import (
     NOT_CANONICAL_WIRE_NAMING,
@@ -297,7 +297,7 @@ def decode(
     connect-go emits beside it only when the value is absent.
 
     ``strict`` also refuses a success answer carrying an unknown field or breaking a
-    cross-field rule (see :func:`fora_sdk.client._strict.check_strict`), and an error
+    cross-field rule (see :func:`fora_sdk.strict.check_strict`), and an error
     answer whose envelope or ErrorDetail the contract does not accept (see
     :func:`fora_sdk.client._strict_envelope.check_strict_envelope`).
     """
@@ -346,7 +346,7 @@ def _refuse_error_answer(op: str, status: int, body: str, payload: Any, *, stric
 
 def _validate(op: str, payload: Any, model: type[BaseModel], *, strict: bool = False) -> Any:
     if strict:
-        check_strict(op, model, payload)
+        refuse_unless_strict(op, model, payload)
     try:
         return model.model_validate(payload)
     except ValidationError as exc:

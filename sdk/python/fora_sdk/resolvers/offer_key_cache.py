@@ -29,12 +29,9 @@ from typing import TYPE_CHECKING
 from wire.models import WBAFile
 
 from fora_sdk.resolvers._http import guarded_client
+from fora_sdk.resolvers.documents import fetch_wba_directory, wba_directory_url
 from fora_sdk.resolvers.errors import DirectoryUnavailableError
-from fora_sdk.resolvers.wba import (
-    _get_wba_directory,
-    active_ed25519_key_with_expiry_screened,
-    wba_directory_url,
-)
+from fora_sdk.resolvers.wba import active_ed25519_key_with_expiry_screened
 
 if TYPE_CHECKING:
     import httpx
@@ -224,7 +221,7 @@ def create_wba_offer_directory_fetch(
     async def fetch(domain: str) -> WBAFile | None:
         url = wba_directory_url(scheme, _join_host_port(domain, port))
         try:
-            return await asyncio.to_thread(_get_wba_directory, client, url)
+            return await asyncio.to_thread(fetch_wba_directory, client, url)
         except Exception:
             # EVERY exception, because the seam's contract is absolute: a
             # DirectoryFetch returns None and never raises, so a caller batching
@@ -233,8 +230,8 @@ def create_wba_offer_directory_fetch(
             # Go's seam is (file, error) and returns the error for that one domain.
             #
             # DirectoryUnavailableError is the expected arrival, because
-            # _get_wba_directory is the shared GET-and-decode and it folds every arm
-            # into this error: fetch_strict maps httpx.HTTPError and OSError (SsrfError
+            # fetch_wba_directory is the shared GET-and-decode and it folds every arm
+            # into this error: fetch_document maps httpx.HTTPError and OSError (SsrfError
             # is one, so is the deadline's TimeoutError) plus any non-200, and the
             # helper adds the malformed-URL and not-a-directory arms on top. Catching a
             # list of families here is what let the docstring's "every failure" drift

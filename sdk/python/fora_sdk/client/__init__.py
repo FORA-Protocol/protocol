@@ -32,6 +32,7 @@ import httpx
 
 from fora_sdk.core import Mode
 from fora_sdk.resolvers import _ssrf, guarded_async_client, guarded_client
+from fora_sdk.strict import StrictViolationError, check_strict
 from fora_sdk.window import clock_window
 
 from . import _admin, _verbs
@@ -118,7 +119,9 @@ __all__ = [
     "ExecuteResult",
     "RawBody",
     "RegistrationRequirementsReader",
+    "StrictViolationError",
     "Validation",
+    "check_strict",
 ]
 
 

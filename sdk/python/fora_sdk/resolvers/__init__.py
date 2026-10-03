@@ -4,8 +4,9 @@ These are the FIRST IO in the Python SDK, so they live OUTSIDE ``fora_sdk.core``
 (which keeps its httpx-ban / IO-free guard green) in this dedicated package. Three
 fetching faces port the Go oracle — a well-known JWKS key resolver, a host-keyed
 well-known endpoint resolver, and the WBA identity-directory resolver +
-revocation poller — alongside the typed exceptions that preserve the oracle's
-errors.Is-DISTINCT fail-closed taxonomy. The static face stays in
+revocation poller — and the readers that fetch and strictly check each document
+the protocol defines (:mod:`fora_sdk.resolvers.documents`), alongside the typed
+exceptions that preserve the oracle's errors.Is-DISTINCT fail-closed taxonomy. The static face stays in
 :mod:`fora_sdk.keyresolver` (:class:`~fora_sdk.keyresolver.StaticKeyResolver`).
 """
 
@@ -18,7 +19,20 @@ from fora_sdk.resolvers._http import (
     ssrf_guard,
 )
 from fora_sdk.resolvers._ssrf import SsrfError, blocked_address
+from fora_sdk.resolvers.documents import (
+    MANIFEST_MEDIA_TYPE,
+    WBA_DIRECTORY_MEDIA_TYPE,
+    WBA_DIRECTORY_PATH,
+    Document,
+    LicenseDocument,
+    read_license_document,
+    read_manifest,
+    read_revocation_list,
+    read_wba_directory,
+    wba_directory_url,
+)
 from fora_sdk.resolvers.errors import (
+    DigestMismatchError,
     DirectoryUnavailableError,
     EndpointRefusedError,
     ExchangeNotPermittedError,
@@ -27,6 +41,7 @@ from fora_sdk.resolvers.errors import (
     ManifestNotExchangeError,
     ManifestUnusableError,
     ManifestVersionRefusedError,
+    MediaTypeRefusedError,
     NoEndpointError,
     ResolverError,
     RevocationUnevaluatedError,
@@ -42,28 +57,32 @@ from fora_sdk.resolvers.registration_requirements import (
     WellKnownRequirementsReader,
 )
 from fora_sdk.resolvers.wba import (
-    WBA_DIRECTORY_PATH,
     WBAKeyResolver,
     active_ed25519_key,
     active_ed25519_key_screened,
     active_ed25519_key_with_expiry,
     active_ed25519_key_with_expiry_screened,
-    wba_directory_url,
 )
 from fora_sdk.resolvers.wellknown import WellKnownEndpointResolver, WellKnownKeyResolver
 
 __all__ = [
+    "MANIFEST_MEDIA_TYPE",
+    "WBA_DIRECTORY_MEDIA_TYPE",
     "WBA_DIRECTORY_PATH",
     "CachedOfferKeyResolver",
+    "DigestMismatchError",
     "DirectoryFetch",
     "DirectoryUnavailableError",
+    "Document",
     "EndpointRefusedError",
     "ExchangeNotPermittedError",
     "KeyExpiredError",
     "KeyRevokedError",
+    "LicenseDocument",
     "ManifestNotExchangeError",
     "ManifestUnusableError",
     "ManifestVersionRefusedError",
+    "MediaTypeRefusedError",
     "NoEndpointError",
     "RegistrationRequirements",
     "ResolverError",
@@ -83,6 +102,10 @@ __all__ = [
     "create_wba_offer_directory_fetch",
     "guarded_async_client",
     "guarded_client",
+    "read_license_document",
+    "read_manifest",
+    "read_revocation_list",
+    "read_wba_directory",
     "ssrf_guard",
     "wba_directory_url",
 ]

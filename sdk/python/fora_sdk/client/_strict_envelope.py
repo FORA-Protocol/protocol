@@ -27,8 +27,8 @@ from typing import Any
 
 from fora_sdk._errordetail_wire import WireDecodeError, _b64decode, decode_error_detail_value
 from fora_sdk.errordetail import ERROR_DETAIL_TYPE, REASON_FIELDS, _proto_names, _TooDeepError
+from fora_sdk.strict import strict_violation
 
-from ._strict import strict_violation
 from .errors import CallError, CallErrorKind
 
 #: The members the Connect protocol defines for an error envelope and for a details entry.

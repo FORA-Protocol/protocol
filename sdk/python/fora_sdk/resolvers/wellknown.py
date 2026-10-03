@@ -29,7 +29,7 @@ from fora_sdk._hostref import _invalid_host
 from fora_sdk.b64 import b64url_decode_strict
 from fora_sdk.hosts import is_bare_host
 from fora_sdk.resolvers._http import default_client, fetch_strict
-from fora_sdk.wire import WellKnownPath
+from fora_sdk.resolvers.documents import fetch_manifest, manifest_url
 from fora_sdk.resolvers.errors import (
     DirectoryUnavailableError,
     EndpointRefusedError,
@@ -206,12 +206,9 @@ class WellKnownEndpointResolver:
             return self._fetch_endpoint(host)
 
     def _fetch_endpoint(self, host: str) -> str:
-        url = f"{self._scheme}://{host}{WellKnownPath}"
-        body = fetch_strict(self._http, url)
-        try:
-            doc = json.loads(body)
-        except ValueError as exc:
-            raise DirectoryUnavailableError(f"manifest decode {url}") from exc
+        # The manifest is read where every reader of it reads it, leniently: an
+        # unknown member is a newer minor version, not a reason to stop routing.
+        _fetched, _text, doc = fetch_manifest(self._http, manifest_url(self._scheme, host))
         # The document version gate runs before the endpoint is so much as looked
         # at, and never caches: the next resolve fetches again.
         refusal = manifest_version_refusal(doc.get("ver") if isinstance(doc, dict) else None)
