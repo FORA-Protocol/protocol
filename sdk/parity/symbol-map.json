@@ -18,10 +18,6 @@
     "connect.WithBeforeSign": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connect.WithClientOptions": "Go escape hatch for raw connectrpc.ClientOption values, mirroring connectserver.WithHandlerOptions; py/ts have no Connect option type to pass through.",
     "connect.WithContentTimeout": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
-    "connect.WithDeliveries": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
-    "connect.WithDeliveryExchange": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
-    "connect.WithDeliveryKeyResolver": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
-    "connect.WithDeliveryVerification": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connect.WithEndpointResolver": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connect.WithGuardedBaseTransport": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connect.WithHTTPClient": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
@@ -246,11 +242,6 @@
       "allowlist_reason": null,
       "python": "DEFAULT_MAX_RPC_READ_BYTES",
       "ts": "DEFAULT_MAX_RPC_READ_BYTES"
-    },
-    "connect.Delivery": {
-      "allowlist_reason": null,
-      "python": "Delivery",
-      "ts": "Delivery"
     },
     "connect.EndpointResolver": {
       "allowlist_reason": null,

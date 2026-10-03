@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 176 symbols at cross-language parity · 17 documented divergences · 199 Go-idiomatic exclusions · 42 conformance corpora, each tri-replayed.
+**At a glance:** 175 symbols at cross-language parity · 17 documented divergences · 195 Go-idiomatic exclusions · 42 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -206,7 +206,6 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `Client` | `Client` | `Client` |
 | `DefaultCallTimeout` | `DEFAULT_CALL_TIMEOUT_SEC` | `DEFAULT_CALL_TIMEOUT_MS` |
 | `DefaultMaxRPCReadBytes` | `DEFAULT_MAX_RPC_READ_BYTES` | `DEFAULT_MAX_RPC_READ_BYTES` |
-| `Delivery` | `Delivery` | `Delivery` |
 | `EndpointResolver` | `EndpointResolver` | `EndpointResolver` |
 | `ErrorDetailFrom` | `error_detail_from` | `errorDetailFrom` |
 | `RegistrationRequirementsReader` | `RegistrationRequirementsReader` | `RegistrationRequirementsReader` |
@@ -279,10 +278,6 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `connect.WithBeforeSign` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithClientOptions` | Go escape hatch for raw connectrpc.ClientOption values, mirroring connectserver.WithHandlerOptions; py/ts have no Connect option type to pass through. |
 | `connect.WithContentTimeout` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
-| `connect.WithDeliveries` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
-| `connect.WithDeliveryExchange` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
-| `connect.WithDeliveryKeyResolver` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
-| `connect.WithDeliveryVerification` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithEndpointResolver` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithGuardedBaseTransport` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithHTTPClient` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
