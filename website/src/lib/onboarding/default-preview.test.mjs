@@ -10,6 +10,8 @@ const CHECKED = '2026-09-21T13:00:00.000Z';
 const pricing = { model: 'PRICING_MODEL_FREE', rate: '0', currency: 'EUR' };
 const terms = [{ semantics: 'TERM_SEMANTICS_ENUMERATED', pricing,
 	restrictions: [{ kind: 'RESTRICTION_KIND_FUNCTION', permitted: ['search', 'ai-input'], prohibited: ['ai-train'] }] }];
+// An offer states its price once, in Offer.pricing; the term it sells carries none.
+const offerTerms = terms.map(({ pricing: _price, ...term }) => term);
 const manifest = {
 	ver: '1.0', role: 'ROLE_PUBLISHER', domain: 'publisher.example',
 	exchanges: [{ domain: 'exchange.example', endpoint: 'https://exchange.example/fora',
@@ -23,7 +25,7 @@ const response = (overrides = {}) => ({
 	page: { url: SOURCE, canonical_url: 'https://publisher.example/canonical', title: '  A real headline  ', source: 'article_url' },
 	cdn: { provider: 'none', integration: 'contact_us', evidence: null },
 	warnings: null,
-	offers: [{ exchange: 'exchange.example', title: 'A real headline', pricing, terms,
+	offers: [{ exchange: 'exchange.example', title: 'A real headline', pricing, terms: offerTerms,
 		delivery_method: 'DELIVERY_METHOD_INSTRUCTIONS',
 		identity: { canonical_url: 'https://publisher.example/canonical', resource_mutability: 'RESOURCE_MUTABILITY_STATIC' } }],
 	detected_terms: null,
