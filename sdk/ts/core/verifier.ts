@@ -22,6 +22,7 @@
 import canonicalize from "canonicalize";
 
 import { utf8Bytes } from "../src/base64url.ts";
+import { checkMeteredEstimate } from "../src/money.ts";
 
 // OFFER_SIGNATURE_ALGORITHM is the JOSE/JWA algorithm identifier advertised on
 // signed offers. Always
@@ -350,8 +351,9 @@ export class Verifier {
 	}
 
 	// check verifies a single offer: resolve the exchange offer-signing key, verify
-	// the JCS signature, and enforce the not-in-the-past expiry. Any step failing
-	// rejects the offer (fail-closed) — including an unresolvable key.
+	// the JCS signature, enforce the not-in-the-past expiry, and require a metered
+	// offer to carry its estimate. Any step failing rejects the offer (fail-closed) —
+	// including an unresolvable key.
 	private async check(offer: unknown): Promise<string | undefined> {
 		if (typeof offer !== "object" || offer === null)
 			return "offer is not an object";
@@ -383,6 +385,13 @@ export class Verifier {
 		if (!valid) return "offer signature invalid";
 
 		if (this.expired(rec)) return "offer expires_at is in the past";
+		// A metered offer without an estimate has no amount to accept and no ceiling
+		// for its usage report to settle against (fora.proto Pricing).
+		try {
+			checkMeteredEstimate(rec);
+		} catch (cause) {
+			return cause instanceof Error ? cause.message : String(cause);
+		}
 		return undefined;
 	}
 

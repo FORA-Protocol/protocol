@@ -4,11 +4,13 @@ import {
   LicenseSchema,
   LicenseTermSchema,
   ObligationSchema,
+  OfferSchema,
   PricingSchema,
   RegistrationFailureSchema,
   RestrictionSchema,
   WellKnownManifestSchema,
 } from "../../../gen/ts/wire/schemas.ts";
+import { checkMeteredEstimate } from "./money.ts";
 
 // Cross-field (message-CEL) refinements — the one genuinely net-new L1 surface.
 //
@@ -139,6 +141,9 @@ function obligationRules(o: Obj): string[] {
  * Pricing rules:
  *  - per_unit.requires_unit: `this.model != PER_UNIT || this.unit != ''`
  *  - free.zero_rate: `this.model != FREE || this.rate == '' || this.rate.matches('^0+([.]0+)?$')`
+ *  - estimate_tolerance.requires_per_unit:
+ *    `!has(this.estimate_tolerance_bps) || this.model == PER_UNIT`. The field is
+ *    proto3 optional, so a present 0 counts as set, as `has()` does.
  */
 function pricingRules(o: Obj): string[] {
   const out: string[] = [];
@@ -152,7 +157,27 @@ function pricingRules(o: Obj): string[] {
       out.push("pricing.free.zero_rate");
     }
   }
+  const tolerance = field(o, "estimate_tolerance_bps");
+  if (tolerance !== undefined && tolerance !== null && model !== PRICING_MODEL_PER_UNIT) {
+    out.push("pricing.estimate_tolerance.requires_per_unit");
+  }
   return out;
+}
+
+/**
+ * Offer.metered.requires_estimate: `!(metered) || (has(this.pricing.estimated_quantity)
+ * && this.pricing.estimated_quantity > 0)`, where an offer is metered when its pricing
+ * or a term's pricing is PER_UNIT. The predicate is the one the agent-side Verifier
+ * applies, so this face and that one share checkMeteredEstimate rather than keeping two
+ * copies.
+ */
+function offerRules(o: Obj): string[] {
+  try {
+    checkMeteredEstimate(o);
+  } catch {
+    return ["offer.metered.requires_estimate"];
+  }
+  return [];
 }
 
 /** Restriction.permitted_prohibited_disjoint: `this.permitted.all(p, !(p in this.prohibited))`. */
@@ -253,6 +278,7 @@ const RULES_BY_MESSAGE: Record<string, (o: Obj) => string[]> = {
   License: licenseRules,
   LicenseTerm: licenseTermRules,
   Obligation: obligationRules,
+  Offer: offerRules,
   Pricing: pricingRules,
   Restriction: restrictionRules,
   RegistrationFailure: registrationFailureRules,
@@ -317,6 +343,7 @@ export const GetAccountStatusResponseCrossFieldSchema: CrossField<typeof GetAcco
 export const LicenseCrossFieldSchema: CrossField<typeof LicenseSchema> = attach(LicenseSchema, "License");
 export const LicenseTermCrossFieldSchema: CrossField<typeof LicenseTermSchema> = attach(LicenseTermSchema, "LicenseTerm");
 export const ObligationCrossFieldSchema: CrossField<typeof ObligationSchema> = attach(ObligationSchema, "Obligation");
+export const OfferCrossFieldSchema: CrossField<typeof OfferSchema> = attach(OfferSchema, "Offer");
 export const PricingCrossFieldSchema: CrossField<typeof PricingSchema> = attach(PricingSchema, "Pricing");
 export const RestrictionCrossFieldSchema: CrossField<typeof RestrictionSchema> = attach(RestrictionSchema, "Restriction");
 export const RegistrationFailureCrossFieldSchema: CrossField<typeof RegistrationFailureSchema> = attach(RegistrationFailureSchema, "RegistrationFailure");

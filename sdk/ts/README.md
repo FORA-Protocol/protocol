@@ -72,6 +72,14 @@ URL, bytes and media type; the license reader also verifies the bytes against
 publisher manifest lists (`listed`, `unlisted` or `no_exchange`; the manifest wins). The
 header names are `ContentRulesHeader` and `ExchangeHeader` in `@fora-protocol/sdk/wire`.
 
+`@fora-protocol/sdk/money` settles a metered purchase. A `PER_UNIT` offer carries an
+estimate, and its usage report settles within the price's tolerance (10% unless the term
+states one); the excess is held for dispute, never charged.
+`meteredSettlementCap(offer.pricing)` is the most a purchase is charged without a
+dispute, and `settleMeteredUsage(offer.pricing, consumed)` returns the accepted,
+ceiling, charged and held amounts, exact on BigInt. `checkMeteredEstimate(offer)` throws
+on a metered offer without an estimate, and the offer `Verifier` rejects such an offer.
+
 Every module is a named subpath export; there is no package root import. The full list is
 the `exports` map of the package manifest. Source, tests and the release process are in
 [FORA-Protocol/protocol](https://github.com/FORA-Protocol/protocol) under `sdk/ts` and
