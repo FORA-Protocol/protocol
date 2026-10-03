@@ -44,6 +44,16 @@ import schema from "@fora-protocol/sdk/jsonschema/fora.v1.ResourceResponse.schem
 const validate = new Ajv2020({ validateFormats: false }).compile(schema);
 ```
 
+Strict decoding uses these same files: `createClient(url, { strict: true })` refuses an
+answer that carries an unknown field or breaks a cross-field rule. A harness that tests
+FORA services through the client has three more seams on it: `beforeSign` alters a
+request just before it is signed, a `RawBody` passed in place of a verb's request is sent
+exactly as given, and `ForaCallError.code` carries the Connect code of a refusal next to
+its typed `detail`. `execute` and `fetch` verify a delivery URL's signature, agent binding
+and expiry against the issuing Exchange's key directory before handing it back or dialling
+it. `createAdminClient` covers the operator RPCs, and `@fora-protocol/sdk/identity` mints an
+agent key, its key directory and a signer.
+
 Every module is a named subpath export; there is no package root import. The full list is
 the `exports` map of the package manifest. Source, tests and the release process are in
 [FORA-Protocol/protocol](https://github.com/FORA-Protocol/protocol) under `sdk/ts` and
