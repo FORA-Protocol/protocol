@@ -68,7 +68,8 @@ func seeds() map[string]proto.Message {
 	// and the audience statement of a TransactionRequest), so a seed without it
 	// is not a valid baseline — seeds bypass auto-fill entirely. terms is bounded
 	// to exactly one: an offer IS one licensing arrangement, so the baseline
-	// carries the single term it sells rather than an empty list.
+	// carries the single term it sells rather than an empty list. The term
+	// carries no pricing: the offer states its price once, in Offer.pricing.
 	offer := func() *forav1.Offer {
 		return &forav1.Offer{
 			OfferId:  "offer-seed",
@@ -76,7 +77,6 @@ func seeds() map[string]proto.Message {
 			Pricing:  pricing(),
 			Terms: []*forav1.LicenseTerm{{
 				Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
-				Pricing:   pricing(),
 			}},
 		}
 	}
@@ -342,16 +342,41 @@ func writeCrossField(v protovalidate.Validator) {
 			"offer.metered.requires_estimate",
 		},
 		{
-			// The term's pricing is the authoritative copy, so a PER_UNIT term
-			// makes the offer metered even when the offer's own pricing does not
-			// say so.
-			"Offer/cel/metered_requires_estimate/term_only",
+			// An offer states its price once, in Offer.pricing: a term that
+			// carries pricing of its own is refused, even when the two prices
+			// agree.
+			"Offer/cel/terms_pricing_unset/same_price",
+			func() *forav1.Offer {
+				o := meteredOffer(proto.Int32(2500))
+				o.Terms[0].Pricing = proto.Clone(o.Pricing).(*forav1.Pricing)
+				return o
+			}(),
+			"offer.terms.pricing_unset",
+		},
+		{
+			// A PER_UNIT term under FLAT offer pricing no longer makes the offer
+			// metered — the metered rule reads Offer.pricing only — but the term's
+			// pricing is refused for being there at all.
+			"Offer/cel/terms_pricing_unset/per_unit_term",
 			func() *forav1.Offer {
 				o := meteredOffer(nil)
 				o.Pricing = &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1.00", Currency: "USD"}
+				o.Terms[0].Pricing = &forav1.Pricing{
+					Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.00002", Currency: "USD", Unit: proto.String("tokens"),
+				}
 				return o
 			}(),
-			"offer.metered.requires_estimate",
+			"offer.terms.pricing_unset",
+		},
+		{
+			// A catalog term carries its price: absent Pricing is not free.
+			"ResourceEntry/cel/terms_pricing_required",
+			&forav1.ResourceEntry{
+				Domain: "publisher.example",
+				Path:   "/article",
+				Terms:  []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}},
+			},
+			"resource_entry.terms.pricing_required",
 		},
 		{
 			"License/cel/digest_required_with_uri",
@@ -499,25 +524,20 @@ func writeCrossField(v protovalidate.Validator) {
 }
 
 // meteredOffer is a PER_UNIT offer, otherwise valid, whose pricing carries the
-// given estimate (nil leaves it unset). The term carries the same price
-// without an estimate, as a publisher pushes it.
+// given estimate (nil leaves it unset). The term carries no pricing: the offer
+// states its price once, in Offer.pricing.
 func meteredOffer(estimate *int32) *forav1.Offer {
-	price := func() *forav1.Pricing {
-		return &forav1.Pricing{
-			Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.00002", Currency: "USD", Unit: proto.String("tokens"),
-		}
-	}
-	o := &forav1.Offer{
+	return &forav1.Offer{
 		OfferId:  "offer-metered",
 		Exchange: "exchange.example",
-		Pricing:  price(),
+		Pricing: &forav1.Pricing{
+			Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.00002", Currency: "USD", Unit: proto.String("tokens"),
+			EstimatedQuantity: estimate,
+		},
 		Terms: []*forav1.LicenseTerm{{
 			Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
-			Pricing:   price(),
 		}},
 	}
-	o.Pricing.EstimatedQuantity = estimate
-	return o
 }
 
 // ── baseline construction ────────────────────────────────────────────────────

@@ -728,14 +728,25 @@ message SubscriptionQuotaInfo {
 // Combines pricing, delivery method, resource identity, and reporting terms.
 // CoMP-specific metadata (Package, Function) available via fora-comp-v1 extension profile.
 message Offer {
+  // An offer carries its price ONCE, in `pricing`. The term the offer sells
+  // (`terms`) carries no pricing: an Exchange projecting a catalog term onto an
+  // offer moves the term's price into `pricing` and leaves the term's own
+  // `pricing` unset. Two copies of one price on a signed offer could disagree,
+  // and nothing would say which one execute charges; with one copy there is
+  // nothing to disagree with.
+  option (buf.validate.message).cel = {
+    id: "offer.terms.pricing_unset"
+    message: "an offer's term must carry no pricing; the offer's price is Offer.pricing"
+    expression: "this.terms.all(t, !has(t.pricing))"
+  };
+
   // A metered offer carries its estimate. An offer is metered when its
-  // `pricing` or its term's pricing is PER_UNIT, and then `pricing` MUST carry
-  // a positive estimated_quantity: the agent accepts estimate × rate at
-  // purchase and a usage report settles against a ceiling derived from the
-  // estimate (see Pricing), so a metered offer without one has neither. The
-  // term's pricing is consulted too because it is the authoritative copy; a
-  // term that is PER_UNIT makes the offer metered even if `pricing` were to say
-  // otherwise. A non-metered offer needs no estimate.
+  // `pricing` is PER_UNIT, and then `pricing` MUST carry a positive
+  // estimated_quantity: the agent accepts estimate × rate at purchase and a
+  // usage report settles against a ceiling derived from the estimate (see
+  // Pricing), so a metered offer without one has neither. A non-metered offer
+  // needs no estimate. The rule reads `pricing` only, because `pricing` is the
+  // offer's one price (see offer.terms.pricing_unset above).
   //
   // This is an offer rule, not a Pricing rule, on purpose: a publisher pushes
   // PER_UNIT terms without an estimate (the estimate describes the resource and
@@ -744,7 +755,7 @@ message Offer {
   option (buf.validate.message).cel = {
     id: "offer.metered.requires_estimate"
     message: "a metered (PER_UNIT) offer must carry a positive pricing.estimated_quantity"
-    expression: "!(this.pricing.model == fora.v1.PricingModel.PRICING_MODEL_PER_UNIT || this.terms.exists(t, t.pricing.model == fora.v1.PricingModel.PRICING_MODEL_PER_UNIT)) || (has(this.pricing.estimated_quantity) && this.pricing.estimated_quantity > 0)"
+    expression: "this.pricing.model != fora.v1.PricingModel.PRICING_MODEL_PER_UNIT || (has(this.pricing.estimated_quantity) && this.pricing.estimated_quantity > 0)"
   };
 
   // Unique identifier for this offer, assigned by the Exchange.
@@ -756,18 +767,26 @@ message Offer {
   // Resource title (human-readable, for display/logging).
   optional string title = 2;
 
-  // Pricing for this offer. An offer represents a single licensing
-  // arrangement: each projected LicenseTerm yields its own offer, so this is
-  // that term's pricing (the authoritative copy lives in `terms[].pricing`).
-  // Used for cross-exchange comparison and Broker ranking. A resource with
+  // The offer's price, and its ONLY price. An offer represents a single
+  // licensing arrangement: each projected LicenseTerm yields its own offer, and
+  // the Exchange moves that term's price here, so the term inside `terms`
+  // carries no pricing of its own (the offer.terms.pricing_unset rule). This is
+  // the price execute charges, the price a Broker ranks and compares across
+  // Exchanges, and the price a metered purchase settles on. A resource with
   // multiple alternative terms (e.g. dual-licensed) produces multiple separate
   // offers, one per term — never one offer with a "headline" picked among them.
   //
-  // On a metered (PER_UNIT) offer this copy MUST carry a positive
-  // estimated_quantity, and it is the copy a metered purchase settles on: the
-  // estimate, the rate and the tolerance are read from here (see Pricing and
-  // the offer.metered.requires_estimate rule above). An Exchange projecting a
-  // term carries the term's estimate_tolerance_bps here unchanged.
+  // It derives from exactly one catalog term: the term's pricing as the
+  // publisher declared it (ResourceEntry.terms), with the Exchange's estimate
+  // added on a metered offer. Each offer derives from one term, and the offer
+  // carries no second copy, so the offer's price and its term's price cannot
+  // disagree.
+  //
+  // On a metered (PER_UNIT) offer it MUST carry a positive estimated_quantity:
+  // the estimate, the rate and the tolerance a metered purchase settles on are
+  // read from here (see Pricing and the offer.metered.requires_estimate rule
+  // above). An Exchange projecting a term carries the term's
+  // estimate_tolerance_bps here unchanged.
   Pricing pricing = 3;
 
   // How resource will be delivered.
@@ -966,6 +985,12 @@ message Offer {
   // terms onto one offer makes every term but the first unsellable — a
   // dual-licensed resource sells only under whichever arrangement the
   // publisher happened to store first.
+  //
+  // The term here carries everything the publisher declared EXCEPT its price:
+  // its `pricing` MUST be unset (the offer.terms.pricing_unset rule), because
+  // the offer's price is `pricing` above. Its semantics, license,
+  // restrictions, quotas, obligations, scopes and part_label are the
+  // publisher's, unchanged.
   //
   // Where a term is reachable only under an existing subscription, its offer
   // carries `subscription_id` and prices at zero marginal cost; the terms a
@@ -1223,9 +1248,11 @@ message ResourceAttestation {
 //               metering=NONE, NOTICE obligation
 //     Term 2 — REFERENCE_ONLY — full MCPS/PRS terms at License.uri
 //
-// Pricing is REQUIRED on every term regardless of semantics — absent Pricing
-// is a validation error, and model=FREE must be stated explicitly (absent
-// Pricing ≠ free). The rest of the rules depend on semantics:
+// Pricing is REQUIRED on every term a catalog declares (ResourceEntry.terms),
+// regardless of semantics — absent Pricing is a validation error there, and
+// model=FREE must be stated explicitly (absent Pricing ≠ free). On an offer the
+// price moves to Offer.pricing and the term carries none (see Offer). The rest
+// of the rules depend on semantics:
 //   ENUMERATED  — the machine restrictions/quotas/obligations are the COMPLETE,
 //                 authoritative expression of the term; they must be internally
 //                 consistent (a term may not contradict itself) and are enforced
@@ -1240,15 +1267,17 @@ message ResourceAttestation {
 //                 either way.
 //
 // LicenseTerm lives in ResourceEntry (ingestion) and Offer (emission) — the
-// same shape at both ends. The Exchange stores terms from PushResources and
+// same shape at both ends, with one difference: a catalog term carries its
+// Pricing, and an offer's term carries none, because the offer states its price
+// once, in Offer.pricing. The Exchange stores terms from PushResources and
 // surfaces them on DiscoverResources/ExecuteTransaction.
 // ============================================================================
 
 // TermSemantics — How the Exchange interprets a LicenseTerm's machine fields.
 enum TermSemantics {
   TERM_SEMANTICS_UNSPECIFIED    = 0;  // unset — rejected at ingest
-  TERM_SEMANTICS_ENUMERATED     = 1;  // Machine `restrictions`/`quotas`/`obligations` are the complete, authoritative expression of the term (internally consistent, no self-contradiction) and are enforced. `Pricing` MUST be present.
-  TERM_SEMANTICS_REFERENCE_ONLY = 2;  // The document at `License.uri` (MUST be non-empty) is the authoritative, complete source; the agent reads it before using. Machine `restrictions`/`quotas`/`obligations` are optional here (the publisher MAY send `Pricing` alone) but any that are sent must be accurate (MUST NOT contradict the referenced document) and are enforced just like ENUMERATED. `Pricing` is still required.
+  TERM_SEMANTICS_ENUMERATED     = 1;  // Machine `restrictions`/`quotas`/`obligations` are the complete, authoritative expression of the term (internally consistent, no self-contradiction) and are enforced. `Pricing` MUST be present on a catalog term (on an offer it is Offer.pricing).
+  TERM_SEMANTICS_REFERENCE_ONLY = 2;  // The document at `License.uri` (MUST be non-empty) is the authoritative, complete source; the agent reads it before using. Machine `restrictions`/`quotas`/`obligations` are optional here (the publisher MAY send `Pricing` alone) but any that are sent must be accurate (MUST NOT contradict the referenced document) and are enforced just like ENUMERATED. `Pricing` is still required on a catalog term (on an offer it is Offer.pricing).
 }
 
 // RestrictionKind — Which dimension a Restriction constrains.
@@ -1604,14 +1633,21 @@ message Obligation {
 // The same LicenseTerm shape appears at ingestion (ResourceEntry.terms) and
 // at emission (Offer.terms). The Exchange stores what the publisher pushed
 // and surfaces it on discovery, so agents see the same terms the publisher
-// declared — no translation or reformulation.
+// declared — no translation or reformulation — with one move: on an offer the
+// term's price is Offer.pricing, and the term itself carries none.
 //
 // Validation rules:
-//   - Pricing MUST be present on EVERY term, regardless of semantics.
-//     Absent Pricing → reject at ingest: an agent cannot act on a term with
-//     no price. This holds for REFERENCE_ONLY too — its License governs the
-//     human-readable terms, but the machine-readable price is still stated
+//   - Pricing MUST be present on EVERY catalog term (ResourceEntry.terms),
+//     regardless of semantics — the resource_entry.terms.pricing_required
+//     rule. Absent Pricing → reject at ingest: an agent cannot act on a term
+//     with no price. This holds for REFERENCE_ONLY too — its License governs
+//     the human-readable terms, but the machine-readable price is still stated
 //     here, not deferred to the document.
+//   - Pricing MUST be unset on the term an offer carries (Offer.terms) — the
+//     offer.terms.pricing_unset rule. The offer's price is Offer.pricing, and
+//     each offer derives from exactly one catalog term, so the price is stated
+//     once and cannot disagree with itself. The requirement is therefore a
+//     rule of the message that holds the term, not of LicenseTerm.
 //   - model=FREE must be explicit. Absent Pricing ≠ free. A term may be FREE
 //     under an arbitrary license; the agent still needs the price stated so it
 //     knows the access is free rather than unpriced.
@@ -1698,13 +1734,19 @@ message LicenseTerm {
   // At most 64, for the reason quotas carries.
   repeated Obligation obligations = 5 [(buf.validate.field).repeated.max_items = 64];
 
-  // Pricing for this term. REQUIRED for every term regardless of semantics —
-  // an agent cannot act on a priceless term, so absent Pricing is a validation
-  // error at ingest. model = FREE must be stated explicitly (absent Pricing is
-  // not free). A REFERENCE_ONLY term states its price here too; its License
-  // governs the human-readable terms but does not replace the machine-readable
-  // price.
-  optional Pricing pricing = 6 [(buf.validate.field).required = true];
+  // Pricing for this term. Where it is required depends on the message that
+  // holds the term, so the requirement is a rule of that message rather than of
+  // this field:
+  //   - On a catalog term (ResourceEntry.terms) it is REQUIRED regardless of
+  //     semantics — an agent cannot act on a priceless term, so absent Pricing
+  //     is a validation error at ingest (resource_entry.terms.pricing_required).
+  //     model = FREE must be stated explicitly (absent Pricing is not free). A
+  //     REFERENCE_ONLY term states its price here too; its License governs the
+  //     human-readable terms but does not replace the machine-readable price.
+  //   - On the term an offer carries (Offer.terms) it MUST be unset
+  //     (offer.terms.pricing_unset): the offer's price is Offer.pricing, stated
+  //     once.
+  optional Pricing pricing = 6;
 
   // Delegation scope-gating: the Exchange returns this term to an agent iff the
   // agent's delegation grant covers ALL of these scopes (AND-semantics).
@@ -1814,8 +1856,8 @@ message Preview {
 // The report that settles is the one UsageReport a transaction accepts. A
 // metered price whose metering is PRICING_METERING_NONE has no report, so E ×
 // R charged at purchase is final. Settlement reads the offer's own `pricing`
-// (Offer.pricing) — the copy execute charges — and never a value the report
-// carries.
+// (Offer.pricing) — the offer's one price, which execute charges — and never
+// a value the report carries.
 message Pricing {
   // Cross-field structural rules (protovalidate, OR form — CEL has no implies):
   //   PER_UNIT ⇒ unit must be set; FREE ⇒ rate must be 0;
@@ -1864,8 +1906,8 @@ message Pricing {
   // For text: token count. For video: duration in seconds.
   // For documents: page count. For data: record count.
   //
-  // REQUIRED and positive on every metered offer — an Offer whose pricing or
-  // term is PER_UNIT (see Offer). It is E in the settlement rule above: the
+  // REQUIRED and positive on every metered offer — an Offer whose pricing is
+  // PER_UNIT (see Offer). It is E in the settlement rule above: the
   // agent accepts E × rate at purchase, and the estimate with
   // estimate_tolerance_bps fixes the ceiling a usage report settles against.
   // Without it a metered offer has no amount to accept and no ceiling, so an
@@ -3005,6 +3047,16 @@ message PushResourcesRequest {
 // request size the recipient will read; a deployment that exposes CatalogService
 // sets that cap, and the SDK's server binding sets a default.
 message ResourceEntry {
+  // Every catalog term carries its price. An agent cannot act on a priceless
+  // term, and model = FREE must be stated explicitly: absent Pricing is not
+  // free. The rule lives here rather than on LicenseTerm.pricing because the
+  // term an offer carries holds no price (its price is Offer.pricing).
+  option (buf.validate.message).cel = {
+    id: "resource_entry.terms.pricing_required"
+    message: "every term of a resource entry must carry pricing"
+    expression: "this.terms.all(t, has(t.pricing))"
+  };
+
   // Provider domain — the bare host the resource lives on, in the shape
   // "Request recipient" defines in the file header: a port is allowed, a
   // scheme, path, query or userinfo is not. With path it forms the catalog URI
@@ -3065,11 +3117,13 @@ message ResourceEntry {
   repeated ResourceAttestation attestations = 12 [(buf.validate.field).repeated.max_items = 64];
 
   // Publisher-declared licensing terms for this resource.
-  // See LicenseTerm for the full model. For ENUMERATED terms, Pricing MUST
-  // be present. For REFERENCE_ONLY terms, License.uri is authoritative.
-  // The Exchange validates ENUMERATED terms at push time and surfaces them
-  // in Offer.terms on discovery. At most 32 terms per entry, stated on the wire
-  // so every implementation refuses the same size. An over-cap entry refuses the
+  // See LicenseTerm for the full model. Every term carries its Pricing (the
+  // resource_entry.terms.pricing_required rule above), whatever its semantics.
+  // For REFERENCE_ONLY terms, License.uri is authoritative.
+  // The Exchange validates ENUMERATED terms at push time and surfaces each term
+  // on its own offer on discovery: the term's price becomes Offer.pricing, and
+  // the term in Offer.terms carries no pricing. At most 32 terms per entry,
+  // stated on the wire so every implementation refuses the same size. An over-cap entry refuses the
   // whole submission, as every catalog rejection does; what being a wire rule
   // changes is WHEN — the refusal now happens at the boundary, before any
   // per-entry classification runs, which is why the rejection reason that named

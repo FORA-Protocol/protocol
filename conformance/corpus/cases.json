@@ -4201,17 +4201,6 @@
     }
   },
   {
-    "id": "LicenseTerm/pricing/missing",
-    "message": "LicenseTerm",
-    "valid": false,
-    "rules": [
-      "required"
-    ],
-    "json": {
-      "semantics": "TERM_SEMANTICS_ENUMERATED"
-    }
-  },
-  {
     "id": "LicenseTerm/quotas/too_many",
     "message": "LicenseTerm",
     "valid": false,
@@ -4781,10 +4770,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4808,10 +4793,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4835,10 +4816,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4862,10 +4839,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4889,10 +4862,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4916,10 +4885,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4943,10 +4908,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4970,10 +4931,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4997,10 +4954,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -5024,10 +4977,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -5051,10 +5000,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -5078,10 +5023,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -5104,10 +5045,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -5131,10 +5068,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -5158,10 +5091,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -5185,10 +5114,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -5212,10 +5137,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -5239,10 +5160,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -5266,10 +5183,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -5280,6 +5193,7 @@
     "message": "Offer",
     "valid": false,
     "rules": [
+      "offer.terms.pricing_unset",
       "repeated.max_items"
     ],
     "json": {
@@ -5293,10 +5207,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         },
         {
@@ -5324,10 +5234,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -20384,10 +20290,6 @@
         },
         "terms": [
           {
-            "pricing": {
-              "model": "PRICING_MODEL_FREE",
-              "rate": "0"
-            },
             "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ]
@@ -20414,10 +20316,6 @@
             },
             "terms": [
               {
-                "pricing": {
-                  "model": "PRICING_MODEL_FREE",
-                  "rate": "0"
-                },
                 "semantics": "TERM_SEMANTICS_ENUMERATED"
               }
             ]
@@ -20445,10 +20343,6 @@
             },
             "terms": [
               {
-                "pricing": {
-                  "model": "PRICING_MODEL_FREE",
-                  "rate": "0"
-                },
                 "semantics": "TERM_SEMANTICS_ENUMERATED"
               }
             ]
@@ -20474,10 +20368,6 @@
             },
             "terms": [
               {
-                "pricing": {
-                  "model": "PRICING_MODEL_FREE",
-                  "rate": "0"
-                },
                 "semantics": "TERM_SEMANTICS_ENUMERATED"
               }
             ]

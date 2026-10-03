@@ -125,14 +125,20 @@ func licensingCases() []validationCase {
 		{"pricing free with tolerance rejected", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0", EstimateToleranceBps: proto.Int32(0)}, false, "pricing.estimate_tolerance.requires_per_unit"},
 
 		// Offer message-level CEL: a metered offer carries a positive estimate on
-		// its own pricing. A pushed term needs none, so the term stays bare.
+		// its own pricing, and the offer's term carries no pricing at all.
 		{"offer metered with estimate ok", meteredOffer(meteredPricing(proto.Int32(2500), nil)), true, ""},
 		{"offer metered with estimate and tolerance ok", meteredOffer(meteredPricing(proto.Int32(2500), proto.Int32(0))), true, ""},
 		{"offer metered without estimate rejected", meteredOffer(meteredPricing(nil, nil)), false, "offer.metered.requires_estimate"},
 		{"offer metered zero estimate rejected", meteredOffer(meteredPricing(proto.Int32(0), nil)), false, "offer.metered.requires_estimate"},
 		{"offer metered negative estimate rejected", meteredOffer(meteredPricing(proto.Int32(-5), nil)), false, "offer.metered.requires_estimate"},
-		{"offer metered term under flat pricing rejected", meteredOffer(&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD"}), false, "offer.metered.requires_estimate"},
-		{"offer flat without estimate ok", &forav1.Offer{OfferId: "of_flat", Exchange: exampleExchange, Pricing: &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD"}, Terms: []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD"}}}}, true, ""},
+		{"offer flat without estimate ok", &forav1.Offer{OfferId: "of_flat", Exchange: exampleExchange, Pricing: &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD"}, Terms: freeTerms()}, true, ""},
+		// Offer.terms carries no pricing: the price is stated once, in
+		// Offer.pricing. The metered rule reads Offer.pricing only, so a PER_UNIT
+		// term under FLAT offer pricing is refused for the term's pricing alone.
+		{"offer term with pricing rejected", pricedTermOffer(meteredPricing(proto.Int32(2500), nil), meteredPricing(proto.Int32(2500), nil)), false, "offer.terms.pricing_unset"},
+		{"offer term with free pricing rejected", pricedTermOffer(freePricing(), freePricing()), false, "offer.terms.pricing_unset"},
+		{"offer per_unit term under flat pricing rejected", pricedTermOffer(&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD"}, meteredPricing(nil, nil)), false, "offer.terms.pricing_unset"},
+		{"transaction with priced offer term rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-p", Items: []*forav1.TransactionItem{{Offer: pricedTermOffer(freePricing(), freePricing())}}}, false, "offer.terms.pricing_unset"},
 		{"transaction with unestimated metered offer rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-m", Items: []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(nil, nil))}}}, false, "offer.metered.requires_estimate"},
 
 		// Pricing.unit format: empty / bare-dashed / vendor:namespaced.
@@ -169,6 +175,9 @@ func licensingCases() []validationCase {
 		{"resource entry title over cap rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Title: proto.String(strings.Repeat("t", 513))}, false, "string.max_len"},
 		{"resource entry negative word count rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", WordCount: proto.Int32(-1)}, false, "int32.gte"},
 		{"resource entry 32 terms ok", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Terms: enumeratedTerms(32)}, true, ""},
+		// A catalog term carries its price; the rule is the entry's, because an
+		// offer's term carries none.
+		{"resource entry term missing pricing rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Terms: []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}}}, false, "resource_entry.terms.pricing_required"},
 		{"resource entry 33 terms rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Terms: enumeratedTerms(33)}, false, "repeated.max_items"},
 
 		// Catalog request lists — an empty push or removal asks for nothing.
@@ -190,9 +199,12 @@ func licensingCases() []validationCase {
 		{"license uri with digest ok", &forav1.License{Uri: proto.String("https://x.example/lic"), UriDigest: proto.String("sha256:" + hex64)}, true, ""},
 		{"license uri without digest rejected", &forav1.License{Uri: proto.String("https://x.example/lic")}, false, "license.digest_required_with_uri"},
 
-		// LicenseTerm presence invariants (pricing required; REFERENCE_ONLY needs license.uri).
+		// LicenseTerm presence invariants (REFERENCE_ONLY needs license.uri).
+		// Whether pricing is required depends on the message holding the term
+		// — required on ResourceEntry.terms, unset on Offer.terms — so a term on
+		// its own is valid either way.
 		{"term enumerated with pricing ok", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: freePricing()}, true, ""},
-		{"term missing pricing rejected", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}, false, "required"},
+		{"term without pricing ok", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}, true, ""},
 		{"term reference_only with license uri ok", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY, Pricing: freePricing(), License: &forav1.License{Uri: proto.String("https://x.example/lic"), UriDigest: proto.String("sha256:" + hex64)}}, true, ""},
 		{"term reference_only without license uri rejected", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY, Pricing: freePricing()}, false, "license_term.reference_only.requires_uri"},
 
@@ -371,12 +383,22 @@ func meteredPricing(estimate, toleranceBps *int32) *forav1.Pricing {
 	}
 }
 
-// meteredOffer is an offer selling a PER_UNIT term as a publisher pushes it —
-// without an estimate — under the given offer pricing.
+// meteredOffer is an offer under the given offer pricing whose term carries no
+// pricing, as every offer's term does: the offer's price is Offer.pricing.
 func meteredOffer(pricing *forav1.Pricing) *forav1.Offer {
 	return &forav1.Offer{
 		OfferId: "of_metered", Exchange: exampleExchange, Pricing: pricing,
-		Terms: []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: meteredPricing(nil, nil)}},
+		Terms: []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}},
+	}
+}
+
+// pricedTermOffer is an offer under offerPricing whose term carries termPricing
+// — a second copy of the price, which the offer.terms.pricing_unset rule
+// refuses.
+func pricedTermOffer(offerPricing, termPricing *forav1.Pricing) *forav1.Offer {
+	return &forav1.Offer{
+		OfferId: "of_priced_term", Exchange: exampleExchange, Pricing: offerPricing,
+		Terms: []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: termPricing}},
 	}
 }
 
@@ -386,11 +408,11 @@ func freePricing() *forav1.Pricing {
 
 // freeTerms is the single term a valid Offer sells. Offer.terms is bounded to
 // exactly one — an offer IS one licensing arrangement — so a fixture offer
-// carries the term it sells rather than an empty list.
+// carries the term it sells rather than an empty list. The term carries no
+// pricing: the offer's price is Offer.pricing.
 func freeTerms() []*forav1.LicenseTerm {
 	return []*forav1.LicenseTerm{{
 		Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
-		Pricing:   freePricing(),
 	}}
 }
 

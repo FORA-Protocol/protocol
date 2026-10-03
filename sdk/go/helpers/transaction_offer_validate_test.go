@@ -44,10 +44,10 @@ func validOffer() *forav1.Offer {
 		Exchange: "exchange.example",
 		Pricing:  free,
 		// terms is bounded to exactly one: an offer sells a single licensing
-		// arrangement, so a valid offer always carries the term it sells.
+		// arrangement, so a valid offer always carries the term it sells. The
+		// term carries no pricing: the offer's price is Offer.pricing.
 		Terms: []*forav1.LicenseTerm{{
 			Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
-			Pricing:   free,
 		}},
 	}
 }

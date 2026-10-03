@@ -215,7 +215,7 @@ The Online Creator term has `TERM_SEMANTICS_REFERENCE_ONLY`. This means the lice
 <details>
 <summary>The Online Creator term</summary>
 
-This is the term from the offer the agent received, with the digest shortened:
+This is the term from the offer the agent received, with the digest shortened. It carries no price: an offer states its price once, in `Offer.pricing` (EUR 29 here), and the term it sells carries none.
 
 ```json
 {
@@ -232,7 +232,6 @@ This is the term from the offer the agent received, with the digest shortened:
     { "kind": "RESTRICTION_KIND_GEOGRAPHY", "permitted": ["*"] }
   ],
   "quotas": [{ "limit": "1", "metric": "vendor:productions", "window": "QUOTA_WINDOW_TOTAL" }],
-  "pricing": { "model": "PRICING_MODEL_FLAT", "rate": "29", "currency": "EUR", "metering": "PRICING_METERING_NONE" },
   "obligations": [
     {
       "kind": "OBLIGATION_KIND_NOTICE",

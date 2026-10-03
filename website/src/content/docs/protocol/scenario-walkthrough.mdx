@@ -515,8 +515,7 @@ SSP-Alpha returns `offer_groups` (batch mode -- multiple URIs in query):
           "attestations": [{ "verifier": "gumgum.com", "claims": { "estimated_quantity": 3300, "word_count": 2500 }, "signature": "..." }],
           "terms": [
             {
-              "semantics": "TERM_SEMANTICS_ENUMERATED",
-              "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit": "accesses", "unit_cost": "0.00001515", "estimated_quantity": 3300 }
+              "semantics": "TERM_SEMANTICS_ENUMERATED"
             }
           ],
           "signature": "base64-ed25519-sig-A...",
@@ -532,8 +531,7 @@ SSP-Alpha returns `offer_groups` (batch mode -- multiple URIs in query):
           "reporting": { "required": true, "window": "86400s", "required_fields": ["transaction_id", "function", "consumed_quantity"] },
           "terms": [
             {
-              "semantics": "TERM_SEMANTICS_ENUMERATED",
-              "pricing": { "model": "PRICING_MODEL_FREE", "rate": "0", "currency": "USD", "unit_cost": "0", "estimated_quantity": 3300 }
+              "semantics": "TERM_SEMANTICS_ENUMERATED"
             }
           ],
           "signature": "base64-ed25519-sig-B...",
@@ -571,8 +569,7 @@ Note: SSP-Alpha returns an empty `offers` array for the `theverge.com` URI with 
       "attestations": [{ "verifier": "gumgum.com", "claims": { "estimated_quantity": 3100, "word_count": 2350 }, "signature": "..." }],
       "terms": [
         {
-          "semantics": "TERM_SEMANTICS_ENUMERATED",
-          "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.07", "currency": "USD", "unit": "accesses", "unit_cost": "0.00002258", "estimated_quantity": 3100 }
+          "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ],
       "signature": "base64-ed25519-sig-C...",
@@ -673,14 +670,7 @@ SDK or Broker commits to the subscription offer.
         },
         "terms": [
           {
-            "semantics": "TERM_SEMANTICS_ENUMERATED",
-            "pricing": {
-              "model": "PRICING_MODEL_FREE",
-              "rate": "0",
-              "currency": "USD",
-              "unit_cost": "0",
-              "estimated_quantity": 3300
-            }
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ],
         "signature": "base64-ed25519-sig-B...",
@@ -737,14 +727,7 @@ The agent sends the purchase to the Broker, `POST https://broker.example/fora.v1
         },
         "terms": [
           {
-            "semantics": "TERM_SEMANTICS_ENUMERATED",
-            "pricing": {
-              "model": "PRICING_MODEL_FREE",
-              "rate": "0",
-              "currency": "USD",
-              "unit_cost": "0",
-              "estimated_quantity": 3300
-            }
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ],
         "signature": "base64-ed25519-sig-B...",
@@ -1007,8 +990,7 @@ Response includes signed Offer snapshots for every transaction:
         "subscription_id": "SUB-ANTHROPIC-HEARST-2026",
         "terms": [
           {
-            "semantics": "TERM_SEMANTICS_ENUMERATED",
-            "pricing": { "model": "PRICING_MODEL_FREE", "rate": "0", "currency": "USD" }
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ],
         "signature": "base64-ed25519-sig-B...",

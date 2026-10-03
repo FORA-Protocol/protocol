@@ -225,8 +225,8 @@ type TermSemantics int32
 
 const (
 	TermSemantics_TERM_SEMANTICS_UNSPECIFIED    TermSemantics = 0 // unset — rejected at ingest
-	TermSemantics_TERM_SEMANTICS_ENUMERATED     TermSemantics = 1 // Machine `restrictions`/`quotas`/`obligations` are the complete, authoritative expression of the term (internally consistent, no self-contradiction) and are enforced. `Pricing` MUST be present.
-	TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY TermSemantics = 2 // The document at `License.uri` (MUST be non-empty) is the authoritative, complete source; the agent reads it before using. Machine `restrictions`/`quotas`/`obligations` are optional here (the publisher MAY send `Pricing` alone) but any that are sent must be accurate (MUST NOT contradict the referenced document) and are enforced just like ENUMERATED. `Pricing` is still required.
+	TermSemantics_TERM_SEMANTICS_ENUMERATED     TermSemantics = 1 // Machine `restrictions`/`quotas`/`obligations` are the complete, authoritative expression of the term (internally consistent, no self-contradiction) and are enforced. `Pricing` MUST be present on a catalog term (on an offer it is Offer.pricing).
+	TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY TermSemantics = 2 // The document at `License.uri` (MUST be non-empty) is the authoritative, complete source; the agent reads it before using. Machine `restrictions`/`quotas`/`obligations` are optional here (the publisher MAY send `Pricing` alone) but any that are sent must be accurate (MUST NOT contradict the referenced document) and are enforced just like ENUMERATED. `Pricing` is still required on a catalog term (on an offer it is Offer.pricing).
 )
 
 // Enum value maps for TermSemantics.
@@ -2708,18 +2708,26 @@ type Offer struct {
 	OfferId string `protobuf:"bytes,1,opt,name=offer_id,json=offerId,proto3" json:"offer_id,omitempty"`
 	// Resource title (human-readable, for display/logging).
 	Title *string `protobuf:"bytes,2,opt,name=title,proto3,oneof" json:"title,omitempty"`
-	// Pricing for this offer. An offer represents a single licensing
-	// arrangement: each projected LicenseTerm yields its own offer, so this is
-	// that term's pricing (the authoritative copy lives in `terms[].pricing`).
-	// Used for cross-exchange comparison and Broker ranking. A resource with
+	// The offer's price, and its ONLY price. An offer represents a single
+	// licensing arrangement: each projected LicenseTerm yields its own offer, and
+	// the Exchange moves that term's price here, so the term inside `terms`
+	// carries no pricing of its own (the offer.terms.pricing_unset rule). This is
+	// the price execute charges, the price a Broker ranks and compares across
+	// Exchanges, and the price a metered purchase settles on. A resource with
 	// multiple alternative terms (e.g. dual-licensed) produces multiple separate
 	// offers, one per term — never one offer with a "headline" picked among them.
 	//
-	// On a metered (PER_UNIT) offer this copy MUST carry a positive
-	// estimated_quantity, and it is the copy a metered purchase settles on: the
-	// estimate, the rate and the tolerance are read from here (see Pricing and
-	// the offer.metered.requires_estimate rule above). An Exchange projecting a
-	// term carries the term's estimate_tolerance_bps here unchanged.
+	// It derives from exactly one catalog term: the term's pricing as the
+	// publisher declared it (ResourceEntry.terms), with the Exchange's estimate
+	// added on a metered offer. Each offer derives from one term, and the offer
+	// carries no second copy, so the offer's price and its term's price cannot
+	// disagree.
+	//
+	// On a metered (PER_UNIT) offer it MUST carry a positive estimated_quantity:
+	// the estimate, the rate and the tolerance a metered purchase settles on are
+	// read from here (see Pricing and the offer.metered.requires_estimate rule
+	// above). An Exchange projecting a term carries the term's
+	// estimate_tolerance_bps here unchanged.
 	Pricing *Pricing `protobuf:"bytes,3,opt,name=pricing,proto3" json:"pricing,omitempty"`
 	// How resource will be delivered.
 	DeliveryMethod DeliveryMethod `protobuf:"varint,4,opt,name=delivery_method,json=deliveryMethod,proto3,enum=fora.v1.DeliveryMethod" json:"delivery_method,omitempty"`
@@ -2901,6 +2909,12 @@ type Offer struct {
 	// terms onto one offer makes every term but the first unsellable — a
 	// dual-licensed resource sells only under whichever arrangement the
 	// publisher happened to store first.
+	//
+	// The term here carries everything the publisher declared EXCEPT its price:
+	// its `pricing` MUST be unset (the offer.terms.pricing_unset rule), because
+	// the offer's price is `pricing` above. Its semantics, license,
+	// restrictions, quotas, obligations, scopes and part_label are the
+	// publisher's, unchanged.
 	//
 	// Where a term is reachable only under an existing subscription, its offer
 	// carries `subscription_id` and prices at zero marginal cost; the terms a
@@ -3893,14 +3907,21 @@ func (x *Obligation) GetDetail() string {
 // The same LicenseTerm shape appears at ingestion (ResourceEntry.terms) and
 // at emission (Offer.terms). The Exchange stores what the publisher pushed
 // and surfaces it on discovery, so agents see the same terms the publisher
-// declared — no translation or reformulation.
+// declared — no translation or reformulation — with one move: on an offer the
+// term's price is Offer.pricing, and the term itself carries none.
 //
 // Validation rules:
-//   - Pricing MUST be present on EVERY term, regardless of semantics.
-//     Absent Pricing → reject at ingest: an agent cannot act on a term with
-//     no price. This holds for REFERENCE_ONLY too — its License governs the
-//     human-readable terms, but the machine-readable price is still stated
+//   - Pricing MUST be present on EVERY catalog term (ResourceEntry.terms),
+//     regardless of semantics — the resource_entry.terms.pricing_required
+//     rule. Absent Pricing → reject at ingest: an agent cannot act on a term
+//     with no price. This holds for REFERENCE_ONLY too — its License governs
+//     the human-readable terms, but the machine-readable price is still stated
 //     here, not deferred to the document.
+//   - Pricing MUST be unset on the term an offer carries (Offer.terms) — the
+//     offer.terms.pricing_unset rule. The offer's price is Offer.pricing, and
+//     each offer derives from exactly one catalog term, so the price is stated
+//     once and cannot disagree with itself. The requirement is therefore a
+//     rule of the message that holds the term, not of LicenseTerm.
 //   - model=FREE must be explicit. Absent Pricing ≠ free. A term may be FREE
 //     under an arbitrary license; the agent still needs the price stated so it
 //     knows the access is free rather than unpriced.
@@ -3951,12 +3972,18 @@ type LicenseTerm struct {
 	// Post-use behavioral requirements.
 	// At most 64, for the reason quotas carries.
 	Obligations []*Obligation `protobuf:"bytes,5,rep,name=obligations,proto3" json:"obligations,omitempty"`
-	// Pricing for this term. REQUIRED for every term regardless of semantics —
-	// an agent cannot act on a priceless term, so absent Pricing is a validation
-	// error at ingest. model = FREE must be stated explicitly (absent Pricing is
-	// not free). A REFERENCE_ONLY term states its price here too; its License
-	// governs the human-readable terms but does not replace the machine-readable
-	// price.
+	// Pricing for this term. Where it is required depends on the message that
+	// holds the term, so the requirement is a rule of that message rather than of
+	// this field:
+	//   - On a catalog term (ResourceEntry.terms) it is REQUIRED regardless of
+	//     semantics — an agent cannot act on a priceless term, so absent Pricing
+	//     is a validation error at ingest (resource_entry.terms.pricing_required).
+	//     model = FREE must be stated explicitly (absent Pricing is not free). A
+	//     REFERENCE_ONLY term states its price here too; its License governs the
+	//     human-readable terms but does not replace the machine-readable price.
+	//   - On the term an offer carries (Offer.terms) it MUST be unset
+	//     (offer.terms.pricing_unset): the offer's price is Offer.pricing, stated
+	//     once.
 	Pricing *Pricing `protobuf:"bytes,6,opt,name=pricing,proto3,oneof" json:"pricing,omitempty"`
 	// Delegation scope-gating: the Exchange returns this term to an agent iff the
 	// agent's delegation grant covers ALL of these scopes (AND-semantics).
@@ -4226,8 +4253,8 @@ func (x *Preview) GetSize() string {
 // The report that settles is the one UsageReport a transaction accepts. A
 // metered price whose metering is PRICING_METERING_NONE has no report, so E ×
 // R charged at purchase is final. Settlement reads the offer's own `pricing`
-// (Offer.pricing) — the copy execute charges — and never a value the report
-// carries.
+// (Offer.pricing) — the offer's one price, which execute charges — and never
+// a value the report carries.
 type Pricing struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Provider's pricing model.
@@ -4247,8 +4274,8 @@ type Pricing struct {
 	// For text: token count. For video: duration in seconds.
 	// For documents: page count. For data: record count.
 	//
-	// REQUIRED and positive on every metered offer — an Offer whose pricing or
-	// term is PER_UNIT (see Offer). It is E in the settlement rule above: the
+	// REQUIRED and positive on every metered offer — an Offer whose pricing is
+	// PER_UNIT (see Offer). It is E in the settlement rule above: the
 	// agent accepts E × rate at purchase, and the estimate with
 	// estimate_tolerance_bps fixes the ceiling a usage report settles against.
 	// Without it a metered offer has no amount to accept and no ceiling, so an
@@ -6041,11 +6068,13 @@ type ResourceEntry struct {
 	// carries only its role, determined by the verifier's operator.
 	Attestations []*ResourceAttestation `protobuf:"bytes,12,rep,name=attestations,proto3" json:"attestations,omitempty"`
 	// Publisher-declared licensing terms for this resource.
-	// See LicenseTerm for the full model. For ENUMERATED terms, Pricing MUST
-	// be present. For REFERENCE_ONLY terms, License.uri is authoritative.
-	// The Exchange validates ENUMERATED terms at push time and surfaces them
-	// in Offer.terms on discovery. At most 32 terms per entry, stated on the wire
-	// so every implementation refuses the same size. An over-cap entry refuses the
+	// See LicenseTerm for the full model. Every term carries its Pricing (the
+	// resource_entry.terms.pricing_required rule above), whatever its semantics.
+	// For REFERENCE_ONLY terms, License.uri is authoritative.
+	// The Exchange validates ENUMERATED terms at push time and surfaces each term
+	// on its own offer on discovery: the term's price becomes Offer.pricing, and
+	// the term in Offer.terms carries no pricing. At most 32 terms per entry,
+	// stated on the wire so every implementation refuses the same size. An over-cap entry refuses the
 	// whole submission, as every catalog rejection does; what being a wire rule
 	// changes is WHEN — the refusal now happens at the boundary, before any
 	// per-entry classification runs, which is why the rejection reason that named
@@ -10823,7 +10852,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x04unit\x18\x06 \x01(\tH\x01R\x04unit\x88\x01\x01B\f\n" +
 	"\n" +
 	"_resets_atB\a\n" +
-	"\x05_unit\"\xa9\f\n" +
+	"\x05_unit\"\xdb\f\n" +
 	"\x05Offer\x12\x19\n" +
 	"\boffer_id\x18\x01 \x01(\tR\aofferId\x12\x19\n" +
 	"\x05title\x18\x02 \x01(\tH\x00R\x05title\x88\x01\x01\x12*\n" +
@@ -10847,8 +10876,9 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x05terms\x18\x13 \x03(\v2\x14.fora.v1.LicenseTermB\n" +
 	"\xbaH\a\x92\x01\x04\b\x01\x10\x01R\x05terms\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
-	"\fext_critical\x18Z \x03(\tR\vextCritical:\xe5\x02\xbaH\xe1\x02\x1a\xde\x02\n" +
-	"\x1foffer.metered.requires_estimate\x12Ka metered (PER_UNIT) offer must carry a positive pricing.estimated_quantity\x1a\xed\x01!(this.pricing.model == fora.v1.PricingModel.PRICING_MODEL_PER_UNIT || this.terms.exists(t, t.pricing.model == fora.v1.PricingModel.PRICING_MODEL_PER_UNIT)) || (has(this.pricing.estimated_quantity) && this.pricing.estimated_quantity > 0)B\b\n" +
+	"\fext_critical\x18Z \x03(\tR\vextCritical:\x97\x03\xbaH\x93\x03\x1a\x8a\x01\n" +
+	"\x19offer.terms.pricing_unset\x12Ian offer's term must carry no pricing; the offer's price is Offer.pricing\x1a\"this.terms.all(t, !has(t.pricing))\x1a\x83\x02\n" +
+	"\x1foffer.metered.requires_estimate\x12Ka metered (PER_UNIT) offer must carry a positive pricing.estimated_quantity\x1a\x92\x01this.pricing.model != fora.v1.PricingModel.PRICING_MODEL_PER_UNIT || (has(this.pricing.estimated_quantity) && this.pricing.estimated_quantity > 0)B\b\n" +
 	"\x06_titleB\f\n" +
 	"\n" +
 	"_reportingB\r\n" +
@@ -10927,14 +10957,14 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x06detail\x18\x04 \x01(\tH\x01R\x06detail\x88\x01\x01:\x9c\x02\xbaH\x98\x02\x1a\x95\x02\n" +
 	"-obligation.share_alike.requires_scope_license\x12DSHARE_ALIKE requires scope_license to identify a license (id or uri)\x1a\x9d\x01this.kind != fora.v1.ObligationKind.OBLIGATION_KIND_SHARE_ALIKE || (has(this.scope_license) && (this.scope_license.id != '' || this.scope_license.uri != ''))B\x10\n" +
 	"\x0e_scope_licenseB\t\n" +
-	"\a_detail\"\x93\a\n" +
+	"\a_detail\"\x8b\a\n" +
 	"\vLicenseTerm\x12/\n" +
 	"\alicense\x18\x01 \x01(\v2\x10.fora.v1.LicenseH\x00R\alicense\x88\x01\x01\x12>\n" +
 	"\tsemantics\x18\x02 \x01(\x0e2\x16.fora.v1.TermSemanticsB\b\xbaH\x05\x82\x01\x02 \x00R\tsemantics\x12B\n" +
 	"\frestrictions\x18\x03 \x03(\v2\x14.fora.v1.RestrictionB\b\xbaH\x05\x92\x01\x02\x10\bR\frestrictions\x120\n" +
 	"\x06quotas\x18\x04 \x03(\v2\x0e.fora.v1.QuotaB\b\xbaH\x05\x92\x01\x02\x10@R\x06quotas\x12?\n" +
-	"\vobligations\x18\x05 \x03(\v2\x13.fora.v1.ObligationB\b\xbaH\x05\x92\x01\x02\x10@R\vobligations\x127\n" +
-	"\apricing\x18\x06 \x01(\v2\x10.fora.v1.PricingB\x06\xbaH\x03\xc8\x01\x01H\x01R\apricing\x88\x01\x01\x12 \n" +
+	"\vobligations\x18\x05 \x03(\v2\x13.fora.v1.ObligationB\b\xbaH\x05\x92\x01\x02\x10@R\vobligations\x12/\n" +
+	"\apricing\x18\x06 \x01(\v2\x10.fora.v1.PricingH\x01R\apricing\x88\x01\x01\x12 \n" +
 	"\x06scopes\x18\a \x03(\tB\b\xbaH\x05\x92\x01\x02\x10@R\x06scopes\x12\"\n" +
 	"\n" +
 	"part_label\x18\b \x01(\tH\x02R\tpartLabel\x88\x01\x01:\xb5\x03\xbaH\xb1\x03\x1a\xe2\x01\n" +
@@ -11107,7 +11137,8 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\tcaller_id\x18\x04 \x01(\tR\bcallerId\x12\xd7\x01\n" +
 	"\bexchange\x18\x05 \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\bexchange\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
-	"\fext_critical\x18Z \x03(\tR\vextCritical\"\xe1\t\n" +
+	"\fext_critical\x18Z \x03(\tR\vextCritical\"\xe6\n" +
+	"\n" +
 	"\rResourceEntry\x12\xd3\x01\n" +
 	"\x06domain\x18\x01 \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\x06domain\x126\n" +
 	"\x04path\x18\x02 \x01(\tB\"\xbaH\x1fr\x1d\x10\x01\x18\x80\x102\x16^/[^?#\\x00-\\x20\\x7f]*$R\x04path\x12,\n" +
@@ -11128,7 +11159,8 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x05terms\x18\r \x03(\v2\x14.fora.v1.LicenseTermB\b\xbaH\x05\x92\x01\x02\x10 R\x05terms\x12[\n" +
 	"\x13resource_mutability\x18\x0e \x01(\x0e2\x1b.fora.v1.ResourceMutabilityB\b\xbaH\x05\x82\x01\x02 \x00H\tR\x12resourceMutability\x88\x01\x01\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
-	"\fext_critical\x18Z \x03(\tR\vextCriticalB\r\n" +
+	"\fext_critical\x18Z \x03(\tR\vextCritical:\x82\x01\xbaH\x7f\x1a}\n" +
+	"%resource_entry.terms.pricing_required\x121every term of a resource entry must carry pricing\x1a!this.terms.all(t, has(t.pricing))B\r\n" +
 	"\v_content_idB\b\n" +
 	"\x06_titleB\r\n" +
 	"\v_word_countB\x15\n" +
