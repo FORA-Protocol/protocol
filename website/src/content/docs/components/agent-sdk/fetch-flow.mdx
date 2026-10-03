@@ -63,7 +63,9 @@ client.Fetch(ctx, "https://techcrunch.com/premium/article.html")
   |       - Authenticate via RFC 9421 HTTP Message Signature in the HTTP headers
   |       - Send ExecuteTransaction RPC to winning Exchange
   |       - On DenialReason: return typed error (see Error Handling below)
-  |       - On success: extract signed URL from retrieval_endpoint
+  |       - On success: extract signed URL from retrieval_endpoint, and verify it:
+  |         its signature against the Exchange's published key, its agent binding
+  |         and its expiry
   |
   |  8. Record spend
   |     BudgetTracker.Record(txn.Cost)
@@ -222,13 +224,23 @@ for _, group := range found.Groups {
     if len(group.Result.Verified) == 0 {
         continue
     }
-    tx, err := client.Execute(ctx, group.Result.Verified[0])
+    // Execute verifies each retrieval URL in the answer -- its signature against the
+    // Exchange's published key, its binding to this agent, its expiry -- and refuses
+    // the answer as CallMalformed if one does not verify.
+    var deliveries []foraconnect.Delivery
+    tx, err := client.Execute(ctx, group.Result.Verified[0],
+        foraconnect.WithDeliveries(&deliveries))
     if err != nil {
         return err
     }
     item := tx.GetItems()[0]
+    if item.DenialReason != nil {
+        continue // denied: no retrieval URL, and deliveries[0] is the zero Delivery
+    }
 
-    content, err := client.Fetch(ctx, item.GetRetrievalEndpoint())
+    // Naming the issuing Exchange makes Fetch check the URL again before it dials.
+    content, err := client.Fetch(ctx, item.GetRetrievalEndpoint(),
+        foraconnect.WithDeliveryExchange(deliveries[0].Exchange))
     if err != nil {
         return err
     }
@@ -244,7 +256,9 @@ acceptance over the whole set; the Broker re-packages the purchase into one sub-
 per Exchange and returns the results in request order. The client must sign as the
 directory its requester's domain names (`WithSignatureAgent`), because a Broker refuses
 a request whose `requester.domain` is anything else, and the client refuses it locally
-first.
+first. A result item's one signed value is its retrieval URL, signed by the Exchange that
+issued the item's offer, so the client verifies each URL against that Exchange's own key
+before returning.
 
 ```go
 broker := foraconnect.NewBrokerClient("https://broker.example",
@@ -292,6 +306,7 @@ type CallError struct {
     Op     string              // the verb that failed
     Status int                 // HTTP status when the peer answered, 0 otherwise
     Reason string              // the peer's own refusal token when it sent one
+    Code   connectrpc.Code     // the Connect code of the peer's answer; zero when none
     Detail *forav1.ErrorDetail // the peer's typed reason when it sent one
     // PeerMessage is the developer message on the peer's typed reason.
     // NON-AUTHORITATIVE and unbounded -- branch on Kind or on the typed reason,
@@ -306,7 +321,8 @@ const (
     CallRefused                   // the server answered and said no
     CallUnreachable               // the server did not answer
     CallNotSent                   // THIS SDK declined to send
-    CallMalformed                 // the request could not be built or signed faithfully
+    CallMalformed                 // the request could not be built or signed faithfully,
+                                  // or the answer could not be read as the protocol defines it
     CallTooLarge                  // the response body was past the configured cap
     CallNotSignable               // a signature or proof could not be produced
 )
@@ -324,7 +340,8 @@ type FetchError struct {
 
 Both carry `ReasonOf()`, which answers the peer's own token when it sent one and the
 failure class otherwise. `connect.ErrorDetailFrom(err)` pulls the typed
-`ErrorDetail` out of any error that carries one. `resolvers.ErrEndpointRefused` is a
+`ErrorDetail` out of any error that carries one, including the `retrieval_auth_failure`
+the client attaches when a delivery URL does not verify. `resolvers.ErrEndpointRefused` is a
 sentinel reachable through `errors.Is`.
 
 ### Error Recovery Strategy
@@ -334,7 +351,7 @@ sentinel reachable through `errors.Is`.
 | `CallNotSent` | **None -- terminal.** The SDK refused before anything left the process, so retrying unchanged fails the same way | Caller fixes the address, the key or the requester |
 | `CallUnreachable` | Retry with backoff | Transparent if the retry succeeds |
 | `CallRefused` | Depends on the typed reason -- read it with `connect.ErrorDetailFrom` | A denial reason such as `DENIAL_REASON_REPORTING_OVERDUE` tells the caller what to fix. A `request_auth_failure` of `SIGNATURE_STALE` means sign the request again and retry; `SIGNATURE_MISSING` and `SIGNATURE_INVALID` are terminal until the signer is fixed |
-| `CallMalformed` | **None -- terminal.** The request could not be built or signed faithfully | Caller fixes the message |
+| `CallMalformed` | **None -- terminal.** The request could not be built or signed faithfully, or the answer could not be read as the protocol defines it | Caller fixes the message. A delivery URL that does not verify carries a `retrieval_auth_failure` reason; the purchase itself happened, and the error names the item's transaction id |
 | `CallTooLarge` | Raise `WithMaxContentBytes`, or ask for less | Caller decides whether the body is legitimate |
 | `CallNotSignable` | **None -- terminal.** No signature or proof could be produced | Caller fixes key custody or the signing window |
 | `FetchRefused` | Read `Reason` -- the edge's own token says whether the URL expired or the proof did not match | An expired delivery URL means buying again |
@@ -390,4 +407,11 @@ test prove an Exchange would have been accepted, instead of proving the calls di
 not panic.
 
 `sdk/python/tests/exchange_harness.py` is a worked example of exactly that, in under
-300 lines, and it is what executes the Python README's agent example on every run.
+300 lines, and it is what executes the Python README's agent example on every run. Its
+directory publishes the key it signs delivery URLs with, and each URL names that key by
+thumbprint in `kid`, because the client verifies every delivery URL against the issuing
+Exchange's published key.
+
+Testing a FORA service rather than an agent works the other way round, and the clients
+support it directly: a pre-signing hook, raw mode, strict decoding, an admin client and
+identity helpers. See [Testing a FORA Service Through the SDK](/components/agent-sdk/overview/#testing-a-fora-service-through-the-sdk).

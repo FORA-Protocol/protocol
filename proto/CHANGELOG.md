@@ -90,28 +90,64 @@ SDKs, in all three languages:
   (TypeScript). Offers from more than one Exchange are refused locally.
 - The client-request corpus gains the `brokerExecute` verb.
 
-**Python SDK: four additions for callers that test FORA services through the SDK.
-Python-only for now; Go and TypeScript parity follows.**
+**SDK capabilities for conformance and e2e harnesses, in all three languages (no wire
+change).** A harness can now drive FORA services through the SDK, build a malformed
+request only where it means to, and check every answer through the SDK's own decoder.
 
-- `ClientConfig.before_sign` is called with every request just before it is signed,
-  as an `httpx.Request`. The request it returns is what gets signed and sent, and
-  the reply is decoded as usual, so a test can send a deliberately altered message
-  through the SDK's own signer and decoder. The hook cannot change the method or
-  URL, and cannot set a header the signer emits. Either refuses the call with
-  `CallError(MALFORMED)`.
-- `CallError.code` holds the Connect code of a peer's answer: from an error
-  envelope, or from a non-JSON error status classified by its code. It is `None`
-  for a local failure, a refused redirect and the content leg, whose refusals are
-  edge tokens. `reason` is unchanged.
-- Every verb that takes a request accepts the generated wire model as well as a
-  dict. `to_wire(model)` renders a model as the JSON object the SDK sends: only the
-  fields the caller set, under their proto field names. A model and the equivalent
-  dict reach the wire as the same bytes.
-- `generate_key()` returns a fresh Ed25519 key and its RFC 7638 thumbprint.
-  `directory_document(keys)` returns the Web Bot Auth key-directory JSON for a key
-  set, each key carrying the validity window the SDK's resolver requires.
-  `signing_transport_for(key, directory)` returns a `SigningTransport` that signs as
-  that key.
+- **Pre-signing hook.** A function that receives each RPC request just before it is
+  signed; the request it returns is signed and sent, and the answer decoded as usual.
+  `ClientConfig.before_sign` (Python, an `httpx.Request`), `beforeSign` in
+  `ClientOptions` (TypeScript, a Fetch API `Request`), `connect.WithBeforeSign`
+  (Go, an `*http.Request`). A hook that changes the method or URL, sets a header the
+  signer writes, or fails is refused locally as malformed, and nothing is sent.
+- **Raw mode.** A per-call body sent exactly as given: no `ver`, `idempotency_key` or
+  `requester` is filled in and nothing about the message is refused locally, while the
+  body is still signed and the answer still decoded. `RawBody(body)` in place of a
+  verb's request in Python and TypeScript, `connect.WithRawBody(body)` in Go (binary
+  protobuf; every Go verb now takes call options). A verb that routes by the message
+  still reads its destination from the body's `exchange`.
+- **Strict response decoding.** `ClientConfig(strict=True)` (Python), `strict: true`
+  (TypeScript) and `connect.WithStrictDecoding()` (Go) refuse an answer carrying an
+  unknown field at any depth, or breaking a field-level or cross-field rule. Python and
+  TypeScript check the published strict JSON Schema of the response message and the
+  SDK's cross-field rules, reading a `null` member as absent; Go checks the descriptor's
+  unknown fields and runs protovalidate.
+- **Error decoding.** The JSON SDKs read a Connect error's `ErrorDetail` from the binary
+  `details[].value`, with a table-driven decoder and no protobuf dependency, and fall
+  back to the `debug` projection only when `value` is absent. A value that does not
+  decode is not replaced by its `debug`. The Connect code of a peer's answer has its own
+  field: `CallError.code` (Python), `ForaCallError.code` (TypeScript), `CallError.Code`
+  (Go). `connect-error-vectors.json` now pins the code and the whole detail, including
+  rows carrying only `value`, and the new `error-detail-wire-vectors.json` pins the
+  binary decoding of every field of the ErrorDetail subtree against the descriptor.
+- **Delivery verification.** Execute, the Broker purchase and fetch verify a retrieval
+  URL before relying on it: its Ed25519 signature against the key the issuing Exchange
+  publishes in its Web Bot Auth directory (named by the URL's `kid`), its binding to the
+  agent's key (`agent_id` and the answer's `agent_identity_hash`), and its expiry. A URL
+  that does not verify is refused as malformed, with a `retrieval_auth_failure` detail
+  in the edge's own vocabulary; an unreachable directory is unreachable. The verified
+  binding comes back as a `Delivery`: on `ExecuteResult.deliveries` and
+  `BrokerExecuteResult.deliveries` in Python and TypeScript, through
+  `connect.WithDeliveries` in Go, and on the fetched content's `binding` (`Binding`)
+  when a fetch is given a `Delivery` or the issuing Exchange. A bare URL with no
+  Exchange named is still fetched as given. The key resolver is injectable
+  (`delivery_keys`, `deliveryKeys`, `connect.WithDeliveryKeyResolver`), and
+  verification can be turned off for URLs signed in another scheme
+  (`delivery_verification`, `deliveryVerification`, `connect.WithDeliveryVerification`).
+- **Admin client.** `AdminClient` covers `fora.admin.v1.AdminService`
+  (`SetTenantFeeRate`, `SetReportingPolicy`) and the two domain-verification RPCs,
+  `RequestDomainVerification` and `ConfirmDomainVerification`: `AdminClient` in Python
+  (async and sync), `createAdminClient` in TypeScript, `connect.NewAdminClient` in Go.
+- **Identity helpers.** Mint a fresh agent: a key and its thumbprint, the Web Bot Auth
+  directory document for a key set, and a signer that signs as it.
+  `generate_key`, `directory_document`, `signing_transport_for` (Python, in
+  `fora_sdk.identity`); `generateKey`, `directoryDocument`, `signingTransportFor`
+  (TypeScript, export path `./identity`); `helpers.GenerateKey`,
+  `helpers.DirectoryDocument`, `core.SigningTransportFor` (Go).
+- **Typed request inputs.** Python verbs accept the generated request models as well as
+  dicts, and `to_wire(model)` renders a model as the JSON object the SDK sends.
+  TypeScript exports the request input types its verbs are typed with. Go verbs already
+  take the generated messages.
 
 **A request-signature refusal carries a typed reason (additive wire change).**
 An RPC request whose RFC 9421 HTTP message signature failed verification was

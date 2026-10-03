@@ -14,6 +14,12 @@ Both RPCs are **full-replace overwrites** and therefore idempotent — they carr
 Every constraint is a **field-level** protovalidate rule, so it flows into the generated Pydantic/Zod types; this package defines no cross-field (message-level CEL) rules.
 :::
 
+All three SDKs ship a client for this service and the two domain-verification RPCs of
+`ExchangeService`: `connect.NewAdminClient` (Go), `createAdminClient` (TypeScript) and
+`AdminClient` (Python). It stamps `ver`, checks each request against its generated model
+and sends it to the configured base URL; see
+[Testing a FORA Service Through the SDK](/components/agent-sdk/overview/#testing-a-fora-service-through-the-sdk).
+
 ## Services
 
 ### AdminService

@@ -17,7 +17,7 @@ The canonical wire form is **snake_case proto-JSON** — the field names exactly
 
 This is **load-bearing for signatures**: signed messages (`Offer.signature`, `ResourceAttestation`, …) are Ed25519 over **JCS-canonicalized (RFC 8785) proto-JSON**, and JCS sorts keys lexicographically, so the field-name casing determines the signed bytes. snake_case proto-JSON is the canonical input the signature is computed over.
 
-One exception, and it is **transport framing** rather than a FORA message: the `debug` projection Connect attaches to an error detail is lowerCamelCase, and no server option changes it — `connect-go` renders that projection with its own `protojson` codec at default options, so the snake_case codec a deployment registers reaches the response **body** and not the error beside it. A JSON client normalizes that one projection back to the proto names before reading it, which is possible because `json_name` inverts to the field name for every field in this contract.
+One exception, and it is **transport framing** rather than a FORA message: the `debug` projection Connect attaches to an error detail is lowerCamelCase, and no server option changes it — `connect-go` renders that projection with its own `protojson` codec at default options, so the snake_case codec a deployment registers reaches the response **body** and not the error beside it. A JSON client normalizes that one projection back to the proto names before reading it, which is possible because `json_name` inverts to the field name for every field in this contract. The projection is a convenience beside the detail's binary `value`, which is the authoritative copy: the FORA SDKs read `value` first and fall back to the projection only when no `value` is present.
 :::
 
 ## Services

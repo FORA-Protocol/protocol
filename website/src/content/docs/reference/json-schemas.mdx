@@ -60,6 +60,18 @@ if (!validate(body)) console.log(validate.errors);
 Go reads the file with `jsonschema.Load` and passes the bytes to any draft 2020-12
 validator.
 
+## Strict decoding in the SDKs
+
+The Python and TypeScript clients use the strict variant themselves. A client built with
+`ClientConfig(strict=True)` (Python) or `strict: true` (TypeScript) validates every
+successful answer against the strict schema of its response message before it decodes
+it, and then applies the cross-field rules the schemas cannot express, which the SDKs
+already carry. A FORA server emits unpopulated fields, so a `null` member of a message
+object is read as absent before the check, as proto-JSON reads it. An unknown field at
+any depth, a field-level violation or a cross-field violation refuses the answer as
+malformed. The Go client, `connect.WithStrictDecoding()`, applies the same contract from
+the compiled descriptor: it refuses unknown fields and runs `protovalidate`.
+
 ## What the schemas accept
 
 The schemas describe canonical proto-JSON as the FORA wire carries it. The two variants
@@ -98,7 +110,7 @@ field), or with an added `"metricName": "accesses"` (an unknown field).
 
 - **Cross-field rules.** A rule that relates two fields, such as which pricing fields a
   pricing model requires, cannot be expressed per field. Servers enforce these rules, and
-  the SDKs apply them too.
+  the SDKs apply them too, including in strict decoding.
 - **Oneof exclusivity.** A schema does not refuse two members of the same oneof.
 - **Formats.** `format` (`date-time`, `duration`) is an annotation unless your validator
   is configured to assert formats.
