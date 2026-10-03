@@ -110,6 +110,10 @@ A purchase through a Broker does not use this chain. `BrokerService.ExecuteTrans
 
 ::proto-message{name=Offer}
 
+:::note[A metered offer carries its estimate]
+An offer whose `pricing` or term pricing is `PER_UNIT` MUST carry a positive `pricing.estimated_quantity` (rule `offer.metered.requires_estimate`); a non-metered offer needs none. The rule binds the offer rather than `Pricing` because a publisher pushes `PER_UNIT` terms without an estimate. `Offer.pricing` is the copy a metered purchase settles on: the estimate, the rate and `estimate_tolerance_bps` are read from it.
+:::
+
 :::note[Breaking change in v1.0]
 `Offer.quality` (field 12, `ContentQuality`) has been removed. Use `Offer.attestations` with `ResourceAttestation` claims instead. See [Content Attestation](/protocol/content-attestation/).
 :::
@@ -133,6 +137,8 @@ Three verification levels:
 ::proto-message{name=Pricing}
 
 `Pricing` has no `ext` / `ext_critical` fields — the licensing core is closed.
+
+**Metered settlement.** With E = `estimated_quantity`, R = `rate`, T = `estimate_tolerance_bps` (1000 when absent; 0 to 10000, `PER_UNIT` only, rule `pricing.estimate_tolerance.requires_per_unit`) and C = the report's `Usage.consumed_quantity`, the agent accepts E × R at purchase and the report settles at min(C, Q) × R, where Q = E × (10000 + T) / 10000. The excess (C − Q) × R above the ceiling is held for dispute and never charged automatically. The arithmetic is exact decimal. See [Settling a metered purchase](/protocol/transaction-flow/#settling-a-metered-purchase).
 
 ### ResourceIdentity
 
@@ -204,7 +210,7 @@ The canonical signing structure for [`AgentAcceptance`](#agentacceptance). It is
 
 ### TransactionResultItem
 
-Result for a single offer in a batch transaction. `refusal` is set only in a `BrokerTransactionResponse`, on an item whose Exchange refused the Broker's whole sub-request or did not answer it.
+Result for a single offer in a batch transaction. `refusal` is set only in a `BrokerTransactionResponse`, on an item whose Exchange refused the Broker's whole sub-request or did not answer it. For a metered item, `cost` is the accepted amount, estimate × rate; the usage report settles the final charge.
 
 ::proto-message{name=TransactionResultItem}
 
@@ -250,7 +256,7 @@ A single asset included in the usage report.
 
 ### UsageReportResponse
 
-Acknowledgment of a usage report. A successful response means the report was accepted; a rejection travels as a non-OK transport error carrying [`ErrorDetail.usage_report_rejection`](#unified-error-model).
+Acknowledgment of a usage report. A successful response means the report was accepted; a rejection travels as a non-OK transport error carrying [`ErrorDetail.usage_report_rejection`](#unified-error-model). A consumed quantity that differs from the estimate is never a reason to refuse a report. When part of a metered report is held for dispute, the response is still a plain success: it carries no amounts, because the agent derives the charge and the held excess exactly from the signed offer and its own report, and the `report_id` identifies the held excess.
 
 ::proto-message{name=UsageReportResponse}
 

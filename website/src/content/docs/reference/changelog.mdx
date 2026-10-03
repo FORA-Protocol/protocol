@@ -8,6 +8,67 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ## Unreleased
 
+**A metered offer carries an estimate, and a usage report settles within a tolerance:
+`Pricing.estimate_tolerance_bps` (field 10) is added, with two validation rules.** A
+`PER_UNIT` price is charged per unit consumed, but an offer could carry no
+`estimated_quantity`, and the protocol did not say what the agent accepts at purchase or
+how a report of a different quantity settles. Implementations charged one unit and
+refused the honest report.
+
+- An offer whose `pricing` or term pricing is `PER_UNIT` MUST carry a positive
+  `pricing.estimated_quantity` (rule `offer.metered.requires_estimate`, on `Offer`). The
+  rule binds the offer and not `Pricing`: a publisher pushes `PER_UNIT` terms without an
+  estimate, which describes the resource and may ride on `ResourceEntry.estimated_quantity`.
+  An Exchange that cannot state a positive estimate for a `PER_UNIT` term emits no offer
+  for that term. A non-metered offer needs no estimate.
+- `Pricing.estimate_tolerance_bps` is the tolerance on the estimate, in basis points, 0 to
+  10000, presence-tracked. It is 1000 (10%) when the term states none, and an explicit 0
+  means the estimate is the ceiling. It is allowed only on a `PER_UNIT` price (rule
+  `pricing.estimate_tolerance.requires_per_unit`), and the Exchange carries the term's value
+  onto the offer unchanged.
+- Settlement, stated once on `Pricing`. With E the estimate, R the rate and T the
+  tolerance, the agent accepts E × R at purchase, which is what `TransactionResultItem.cost`
+  carries for a metered item. The report's `consumed_quantity` C settles at min(C, Q) × R,
+  where Q = E × (10000 + T) / 10000. A quantity below the estimate is charged as consumed;
+  the excess above Q is held for dispute and never charged automatically. The arithmetic
+  is exact decimal, and settlement reads `Offer.pricing`. A `PER_UNIT` price with
+  `metering: NONE` has no report, so E × R is final.
+- `UsageReport`, `Usage.consumed_quantity`, `ReportingObligation` and
+  `UsageReportRejectionReason` state that a report whose quantity differs from the
+  estimate is never refused for it. `UsageReportResponse` says that a report with a held
+  excess is a plain success: it carries no amounts, because the settlement is a pure
+  function of the signed offer and the reported quantity, and its `report_id` identifies
+  the held excess. This version defines no `DisputeReason` for the excess and no filing by
+  the publisher's side.
+- `buf breaking` against v1.0.0 passes: the field is additive. The two rules are new
+  validation: a validating peer now refuses a `PER_UNIT` offer without a positive
+  estimate, including inside a `TransactionRequest`, and a Go client running with
+  `ValidationStrict` refuses a discovery response that carries one.
+- The validation corpus gains the tolerance bounds, and the cross-field corpus gains a
+  tolerance on a `FLAT` price and three unestimated metered offers (missing, zero, and a
+  `PER_UNIT` term under non-metered offer pricing).
+
+SDKs, in all three languages: the offer verifiers reject a metered offer without a
+positive estimate, after the signature and expiry checks (Go: `core.Verifier`, reason
+`helpers.ErrMeteredEstimateMissing`). New helpers settle a metered purchase in exact
+decimal over the offer's pricing: Go `helpers.MeteredSettlementCap`,
+`helpers.SettleMeteredUsage` (returning `helpers.MeteredSettlement`),
+`helpers.EstimateToleranceBps`, `helpers.IsMeteredOffer`, `helpers.CheckMeteredEstimate`,
+`helpers.DefaultEstimateToleranceBps` and `helpers.MaxEstimateToleranceBps`, with
+`helpers.ErrNotMetered`; Python `metered_settlement_cap`, `settle_metered_usage`,
+`MeteredSettlement`, `estimate_tolerance_bps`, `is_metered_offer`,
+`check_metered_estimate` and the two constants from `fora_sdk`; TypeScript the same
+faces in camelCase from `@fora-protocol/sdk/money`. The Python and TypeScript cross-field
+layers gain both rules. A new shared `metered-settlement-vectors.json` pins the
+arithmetic, including two rows that need 42 significant digits, and the offer-verify
+vectors gain the metered cases.
+
+Docs: the transaction-flow page gains "Settling a metered purchase", its metered examples
+carry an estimate in tokens, and its list of report checks drops the ±20% quantity
+tolerance that refused honest reports, as do the Exchange storage model and the scenario
+walkthrough. The licensing-terms page gains "Metered pricing: estimate and tolerance", and
+the money-flow page and the reference page describe the settlement.
+
 **An acceptance names its requester: `Requester.id` and `Requester.domain` are required
 (validation rules added; no wire change).** An agent's offer acceptance signs canonical
 bytes built from the offer, the request's `Requester` and the idempotency key. The proto

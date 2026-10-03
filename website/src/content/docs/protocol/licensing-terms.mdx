@@ -131,6 +131,20 @@ For CoMP interop, a CoMP `revshare` rate is carried verbatim in the `fora-comp-v
 
 `OFFLINE_SELF_REPORTED` is appropriate for IP licenses where consumption events happen outside the digital domain: a design file licensed for manufacturing, a recipe licensed for commercial production, a musical composition licensed for physical pressing.
 
+## Metered pricing: estimate and tolerance
+
+A `PER_UNIT` price is **metered**: the agent pays per unit consumed, and the quantity is known only after use. Two fields bound what such a purchase can cost:
+
+- `Pricing.estimated_quantity` — the estimate, in the price's `unit`. It is **required and positive on every metered offer** (the `offer.metered.requires_estimate` rule): an offer whose pricing or term is `PER_UNIT` and that carries no estimate is invalid, and the SDK verifiers reject it. A term you push does not need one. The estimate describes the resource rather than the arrangement, so you can state it once on `ResourceEntry.estimated_quantity`, and the Exchange puts it on the offer's pricing. An Exchange that cannot state a positive estimate for a `PER_UNIT` term emits no offer for that term. A `FREE` or `FLAT` price needs no estimate.
+- `Pricing.estimate_tolerance_bps` — optional, on a `PER_UNIT` term only (`pricing.estimate_tolerance.requires_per_unit`). It is the tolerance on the estimate, in basis points from `0` to `10000`. When the term states none, the tolerance is `1000` (10%). An explicit `0` means the estimate is the ceiling. The Exchange carries it unchanged onto the offer.
+
+The agent accepts estimate × rate at purchase. Its usage report settles at the consumed quantity × rate, up to the ceiling estimate × (10000 + tolerance) / 10000. A quantity below the estimate is charged as consumed. A quantity above the ceiling is charged only up to the ceiling, and the excess is held for dispute, never charged automatically. [Settling a metered purchase](/protocol/transaction-flow/#settling-a-metered-purchase) has the full rule and a worked example.
+
+```
+pricing: { model: PER_UNIT, unit: "tokens", rate: 0.00002, currency: "USD",
+           estimate_tolerance_bps: 500 }   # settle up to 5% over the estimate
+```
+
 ## Cross-domain examples
 
 ### News article — two terms

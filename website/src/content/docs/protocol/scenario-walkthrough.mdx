@@ -929,7 +929,7 @@ The SDK auto-submits a usage report (background, non-blocking). Usage reporting 
 3. Submit to Reporting Tracker:
    a. Validate required_fields present: transaction_id, function, consumed_quantity -> all present
    b. Check reporting window: deadline 2026-03-16T15:00:00Z, current time 2026-03-15T15:30:00Z -> within window
-   c. Validate consumed_quantity: 3150 actual vs 3300 estimated -> within +/-20% tolerance
+   c. Record consumed_quantity: 3150 actual vs 3300 estimated -> a difference is never a refusal; a metered report settles as consumed, up to the ceiling
    d. Transition obligation: Pending -> Fulfilled
 4. Write usage report to transaction log (durable)
 ```
@@ -977,7 +977,7 @@ Three independent records that must agree:
 PASS: CDN log has txn-alpha-001 -> content was actually served
 PASS: Exchange has txn-alpha-001 -> transaction was authorized
 PASS: Usage report received before deadline -> reporting obligation fulfilled
-PASS: Token count 3150 vs estimate 3300 -> within +/-20% tolerance
+PASS: Token count 3150 vs estimate 3300 -> below the estimate, so settled as consumed
 PASS: Function ai-input matches the term's RESTRICTION_KIND_FUNCTION permitted list
 PASS: Citation included as required by the Offer's attribution terms
 ```

@@ -254,7 +254,7 @@ The Reporting Tracker tracks two independent metrics that must not be conflated:
 
 **a) Reporting compliance rate**: The percentage of transactions that received a usage report within the reporting window. This measures whether the agent is fulfilling its reporting obligations at all. Providers set the threshold (e.g., 98% required). The protocol RECOMMENDS 95% minimum compliance.
 
-**b) Consumption accuracy**: The deviation between reported consumption (`UsageReport.usage.consumed_quantity`) and estimated consumption (`Offer.pricing.estimated_quantity`). Per-request tolerance is +/-20%. Cumulative deviation is tracked but thresholds are Exchange implementation, not protocol.
+**b) Consumption accuracy**: The deviation between reported consumption (`UsageReport.usage.consumed_quantity`) and estimated consumption (`Offer.pricing.estimated_quantity`). A per-request deviation never refuses a report: a metered report settles as consumed up to the offer's ceiling (the estimate plus `estimate_tolerance_bps`, 10% by default), and the excess above it is held for dispute (see [Settling a metered purchase](/protocol/transaction-flow/#settling-a-metered-purchase)). Cumulative deviation is tracked but thresholds are Exchange implementation, not protocol.
 
 These metrics are INDEPENDENT:
 - An agent could have **100% compliance rate** but consistently underreport tokens (high compliance, low accuracy)
