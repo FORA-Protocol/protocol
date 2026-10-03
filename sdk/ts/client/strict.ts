@@ -58,13 +58,18 @@ const STRICT_SCHEMAS: Readonly<Record<string, object>> = {
 };
 
 // Ajv is CommonJS. Node hands an ESM importer its module.exports, which is the class; a
-// bundler may hand over the namespace, whose `default` is. Read whichever arrived.
-const Ajv2020 =
-	(Ajv2020Module as unknown as { default?: typeof Ajv2020Module }).default ?? Ajv2020Module;
+// bundler may hand over the namespace, whose `default` is. Read whichever arrived, typed
+// by the one method used, so the declaration holds under either module resolution.
+interface AjvEngine {
+	compile(schema: object): ValidateFunction;
+}
+type AjvConstructor = new (options: { strict: boolean; validateFormats: boolean }) => AjvEngine;
+const Ajv2020 = ((Ajv2020Module as unknown as { default?: unknown }).default ??
+	Ajv2020Module) as unknown as AjvConstructor;
 
 // One engine for the process, schemas compiled on first use. `format` stays an annotation,
 // as the schemas' README says: a validator asserting `duration` needs ajv-formats.
-let engine: InstanceType<typeof Ajv2020> | undefined;
+let engine: AjvEngine | undefined;
 const compiled = new Map<string, ValidateFunction>();
 
 function validatorFor(message: string): ValidateFunction {
