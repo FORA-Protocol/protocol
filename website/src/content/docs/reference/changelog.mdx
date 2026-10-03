@@ -8,6 +8,50 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ## Unreleased
 
+**Edge discovery headers: `X-Content-Rules` and `X-FORA-Exchange` (HTTP convention
+specified; no message change).** When a publisher's edge refuses an unlicensed AI agent
+with 403, it answers with two discovery headers, and they are now part of the protocol.
+Neither was defined before. The documentation presented `X-Content-Rules` as a FORA
+extension pointing at the Exchange, which was wrong: it points at the publisher's
+manifest. The normative text is the new "Edge discovery headers" section of the
+`fora.proto` file header.
+
+- `X-Content-Rules` is the absolute URL of the publisher's manifest, exactly
+  `https://{domain}/.well-known/fora.json` with the publisher's bare domain (a port
+  allowed) and no userinfo, query, fragment, trailing slash or other path. An edge
+  SHOULD send it on every 403 to a request for licensed content that carries no valid
+  signed URL.
+- `X-FORA-Exchange` is the bare domain of one Exchange that sells the content directly,
+  in the same form as `Offer.exchange`. An edge MAY send it, only together with
+  `X-Content-Rules`, and only for an Exchange its manifest lists. It is an optimisation
+  over `X-Content-Rules`, not a replacement.
+- An agent reads the headers only from a 403, and ignores a value of the wrong shape as
+  if it were absent. With `X-FORA-Exchange` it MAY start discovery at the named
+  Exchange without fetching the publisher's manifest first. It resolves that
+  Exchange's endpoint from the Exchange's own `fora.json`, never from the header, under
+  the request-recipient rule.
+- An agent MUST NOT treat `X-FORA-Exchange` as authorization. Offers are verified by
+  their signatures, and the publisher's manifest stays the authority on which Exchanges
+  sell the content. When the header names an Exchange the manifest does not list, the
+  manifest wins: the agent discards the header, does not transact on an offer from that
+  Exchange, and discovers at the Exchanges the manifest lists.
+
+SDKs, in all three languages: `parse_discovery_hint(status, headers)` (Python, from
+`fora_sdk`), `parseDiscoveryHint(status, headers)` (TypeScript, export path
+`./discovery-hint`) and `helpers.ParseDiscoveryHint(status, header)` (Go) read a
+response's discovery headers into a `DiscoveryHint`: each value with a state of
+`absent`, `valid` or `malformed`. Any status other than 403 reads as absent, and a header
+sent twice is malformed. `reconcile_discovery_hint`, `reconcileDiscoveryHint` and
+`helpers.ReconcileDiscoveryHint` check the hinted Exchange against the domains the
+publisher manifest's `exchanges` lists, with the recipient identity match, and answer
+`listed`, `unlisted` or `no_exchange`. The header names are exported as
+`ContentRulesHeader` and `ExchangeHeader` in all three languages and join
+`wire-constants-vectors.json`. New corpus: `discovery-hint-vectors.json`, replayed by all
+three SDKs.
+
+[Discovery Paths](/protocol/discovery-paths/#edge-discovery-headers) summarizes the
+rules.
+
 **Published JSON Schemas, with a strict variant (no wire change).** The SDK build
 already generated a JSON Schema per message from `fora.proto` and discarded it after
 generating the Pydantic and Zod models. Those schemas are now release artifacts under

@@ -113,7 +113,7 @@ sequenceDiagram
 
 ## Path C: Accidental Discovery via Edge Function (403)
 
-A wandering bot hits protected content without knowing about FORA. The edge function on the provider's CDN blocks it and points to the Exchange.
+A wandering bot hits protected content without knowing about FORA. The edge function on the provider's CDN refuses it with `403` and two discovery headers: `X-Content-Rules` points at the provider's own manifest, and `X-FORA-Exchange` names an Exchange that sells this content directly.
 
 ```mermaid
 sequenceDiagram
@@ -127,34 +127,77 @@ sequenceDiagram
 
     Note over EF: Detect bot User-Agent<br/>No signed URL params
 
-    EF-->>Agent: 403 Forbidden<br/>X-Content-Rules: https://exchange.ssp.com/v1/info
+    EF-->>Agent: 403 Forbidden<br/>X-Content-Rules: https://publisher.example/.well-known/fora.json<br/>X-FORA-Exchange: exchange.example
 
-    Note over Agent: Discover Exchange from header
+    Agent->>MP: GET https://exchange.example/.well-known/fora.json
+    MP-->>Agent: WellKnownManifest (role=ROLE_EXCHANGE, endpoint)
 
-    Agent->>MP: DiscoverResources (ResourceQuery)
+    Agent->>MP: DiscoverResources (ResourceQuery, exchange=exchange.example)
     MP-->>Agent: ResourceResponse (Offer[])
+
+    Agent->>CDN: GET /.well-known/fora.json
+    CDN-->>Agent: WellKnownManifest (role=ROLE_PUBLISHER, exchanges[])
+
+    Note over Agent: Confirm exchange.example is listed<br/>in the publisher's exchanges[]
 
     Agent->>MP: ExecuteTransaction
     MP-->>Agent: TransactionResponse (signed URL)
 
     Agent->>CDN: GET /server/article.html?Signature=...
 
-    Note over EF: Signed URL params present<br/>Pass through to CDN native verification
+    Note over EF: Signed URL params present<br/>Verify the Exchange's signature
 
     CDN-->>Agent: 200 OK + content
 
     Agent->>MP: ReportUsage
 ```
 
+The agent may fetch the publisher's manifest before, during or after discovery at the named Exchange. It must confirm the listing before it commits to an offer. Without `X-FORA-Exchange`, the agent reads the manifest first and continues as in Path A.
+
 **Standards mapping:**
 
 | Step | Standard |
 |---|---|
-| 403 + `X-Content-Rules` header | **FORA** extension (discovery mechanism -- not in CoMP or RSL) |
-| Exchange endpoint in header | Points to Exchange listed in `fora.json` |
+| 403 + `X-Content-Rules` + `X-FORA-Exchange` | **FORA** edge discovery headers (not in CoMP or RSL) |
+| `X-Content-Rules` value | Absolute URL of the provider's `/.well-known/fora.json` |
+| `X-FORA-Exchange` value | Bare domain of an Exchange listed in that manifest, in the form of `Offer.exchange` |
+| Exchange endpoint | Resolved from the Exchange's own `fora.json`, never from the header |
 | All subsequent steps | Same as Path A |
 
 The edge function is the "barking dog" -- a fallback for bots that did not check `fora.json` first.
+
+### Edge discovery headers
+
+The two headers are part of the protocol specification. The normative text is the "Edge discovery headers" section in the [`fora.proto`](https://github.com/FORA-Protocol/protocol/blob/main/proto/fora/v1/fora.proto) file header; this is a summary.
+
+```http
+HTTP/1.1 403 Forbidden
+X-Content-Rules: https://publisher.example/.well-known/fora.json
+X-FORA-Exchange: exchange.example
+```
+
+| | `X-Content-Rules` | `X-FORA-Exchange` |
+|---|---|---|
+| **Points at** | The publisher's manifest: the licensing terms, and in `exchanges[]` the Exchanges that sell this content | One Exchange that sells this content directly |
+| **Value** | Exactly `https://` + the publisher's domain + `/.well-known/fora.json`. No userinfo, query, fragment, trailing slash or other path. The domain is the host the refused request was sent to, a port allowed. | The Exchange's bare domain, in the same form as `Offer.exchange`: a port allowed, no scheme or path. |
+| **Edge sends it** | SHOULD, on every 403 to a request for licensed content that carries no valid signed URL | MAY, on the same 403, and only together with `X-Content-Rules`. It must name an Exchange the manifest lists. |
+| **Role** | The authority | An optimisation over `X-Content-Rules`, never a replacement |
+
+Each header appears at most once and carries one value. An agent reads them only from a `403` and ignores them on any other status. A value that is not of the shape above is ignored as if the header were absent, and the two headers are judged separately.
+
+**How an agent uses them.** With `X-FORA-Exchange`, the agent can start discovery at the named Exchange without fetching the publisher's manifest first. It resolves that Exchange's endpoint from the Exchange's own `/.well-known/fora.json`, never from the header: the header says which Exchange to ask, not where to send the request. This is the same rule that applies to the `exchange` field of every addressed request. The domain is also the `exchange` the agent stamps on its `ResourceQuery`.
+
+**Trust.** An agent MUST NOT treat `X-FORA-Exchange` as authorization. It is an unsigned value. The Exchange's offers are verified by their own Ed25519 signatures, as on every other path, and the publisher's manifest remains the authority on which Exchanges sell the content. When the header names an Exchange that the manifest does not list, the manifest wins: the agent discards the header, does not transact on an offer from that Exchange, and discovers at the Exchanges the manifest lists. The listing check uses the recipient identity match: exact domain, case folded, `:443` the same as no port, and a subdomain a different party.
+
+The three SDKs read the headers with one parser each, pinned to a shared corpus:
+
+| | Parse a 403 | Check the hinted Exchange against the manifest |
+|---|---|---|
+| Go | `helpers.ParseDiscoveryHint(status, header)` | `helpers.ReconcileDiscoveryHint(hint, listed)` |
+| Python | `fora_sdk.parse_discovery_hint(status, headers)` | `fora_sdk.reconcile_discovery_hint(hint, listed)` |
+| TypeScript | `parseDiscoveryHint(status, headers)` (export path `./discovery-hint`) | `reconcileDiscoveryHint(hint, listed)` |
+
+`listed` is the `domain` of every entry in the publisher manifest's `exchanges`. The parser returns each header's value and a state, `absent`, `valid` or `malformed`; the check returns `listed`, `unlisted` or `no_exchange`. The header names are exported as constants: `ContentRulesHeader` and `ExchangeHeader` in all three languages.
 
 ## Path D: Agent Reads RSL Directly
 

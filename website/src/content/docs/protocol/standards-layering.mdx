@@ -97,7 +97,7 @@ graph LR
 | **Exchange** | Exposes resource catalog with pricing. Authorizes transactions. Issues delivery instructions (signed URLs). | FORA v1.0: "Exchange"; implementation of CoMP endpoints |
 | **Resource Provider** | The provider. Owns the resources, sets terms via RSL. | CoMP: "Content Owner"; RSL: "Licensor" |
 | **Resource Delivery Endpoint** | The CDN that serves resources. Verifies signed URLs natively. | CoMP: "Content Delivery Endpoint" |
-| **Edge Function** | Lightweight CDN function. Blocks unauthorized bots with 403 + `X-Content-Rules` header, redirects to Exchange. Passes through signed URL requests. | FORA extension (not in CoMP or RSL) |
+| **Edge Function** | Lightweight CDN function. Refuses unlicensed bots with 403 and two discovery headers: `X-Content-Rules`, the URL of the provider's `/.well-known/fora.json`, and optionally `X-FORA-Exchange`, the bare domain of an Exchange that manifest lists. Verifies signed URL requests. | FORA edge discovery headers, specified in the `fora.proto` file header (not in CoMP or RSL) |
 
 ## RSL Integration
 

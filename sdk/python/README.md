@@ -461,6 +461,13 @@ a service through the SDK and check every answer through it:
 - **`check_strict(message_name, payload)`** applies the same strict check to any decoded
   message, raising `StrictViolationError`. A delivery-fetch proof is signed with the
   public `sign_agent_binding` (or `SigningTransport.sign_agent_binding`).
+- **`parse_discovery_hint(status, headers)`** reads the `X-Content-Rules` and
+  `X-FORA-Exchange` headers of an edge's 403 into a `DiscoveryHint`: each value with a
+  state of `"absent"`, `"valid"` or `"malformed"`. Any other status reads as absent.
+  `reconcile_discovery_hint(hint, listed)` checks the hinted Exchange against the
+  domains the publisher manifest's `exchanges` lists and answers `"listed"`,
+  `"unlisted"` or `"no_exchange"`; the manifest wins. The header names are
+  `ContentRulesHeader` and `ExchangeHeader`.
 
 ### Running against a local Exchange
 

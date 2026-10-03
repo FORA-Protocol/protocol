@@ -51,7 +51,7 @@ Before any agent request, providers configure their domains and Exchanges ingest
 }
 ```
 
-**Edge function** — deployed on Hearst's CDN (Cloudflare/Fastly/Lambda@Edge). Blocks unauthorized AI bots with 403 + `X-Content-Rules` header pointing to the Exchange. Verifies Ed25519 signed URLs for authorized requests, using the Exchange's published public key.
+**Edge function** — deployed on Hearst's CDN (Cloudflare/Fastly/Lambda@Edge). Blocks unauthorized AI bots with 403, an `X-Content-Rules` header pointing to the provider's own `fora.json`, and an `X-FORA-Exchange` header naming the Exchange that sells the content. Verifies Ed25519 signed URLs for authorized requests, using the Exchange's published public key.
 
 ### 0b. Agent Key Announcement
 

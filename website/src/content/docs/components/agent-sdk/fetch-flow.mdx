@@ -25,7 +25,11 @@ client.Fetch(ctx, "https://techcrunch.com/premium/article.html")
   |         - Parse WellKnownManifest, extract authorized Exchanges
   |         - Cache result (TTL: 1 hour, configurable)
   |         - If fora.json fetch fails: attempt direct GET to URL
-  |           - If 403 + X-Content-Rules header: extract Exchange endpoint
+  |           - If 403: read the discovery headers (ParseDiscoveryHint)
+  |             - X-FORA-Exchange: an Exchange domain; resolve its endpoint
+  |               from that Exchange's own fora.json, never from the header
+  |             - X-Content-Rules: the publisher's fora.json URL; read it and
+  |               confirm the hinted Exchange is listed (ReconcileDiscoveryHint)
   |           - If 403 without header or non-403: return NoExchangeError
   |
   |  3. Pre-flight budget check

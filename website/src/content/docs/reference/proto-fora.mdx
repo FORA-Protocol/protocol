@@ -20,6 +20,10 @@ This is **load-bearing for signatures**: signed messages (`Offer.signature`, `Re
 One exception, and it is **transport framing** rather than a FORA message: the `debug` projection Connect attaches to an error detail is lowerCamelCase, and no server option changes it — `connect-go` renders that projection with its own `protojson` codec at default options, so the snake_case codec a deployment registers reaches the response **body** and not the error beside it. A JSON client normalizes that one projection back to the proto names before reading it, which is possible because `json_name` inverts to the field name for every field in this contract. The projection is a convenience beside the detail's binary `value`, which is the authoritative copy: the FORA SDKs read `value` first and fall back to the projection only when no `value` is present.
 :::
 
+:::note[Edge discovery headers]
+Two HTTP response headers are part of the contract without being in any message. A publisher's edge that refuses a request for licensed content carrying no valid signed URL answers `403` and SHOULD send `X-Content-Rules`, the absolute URL of the publisher's manifest: exactly `https://{domain}/.well-known/fora.json`, with the publisher's domain as a bare domain, a port allowed. It MAY add `X-FORA-Exchange`, the bare domain of one Exchange that sells the content directly, in the same form as `Offer.exchange`, and only together with `X-Content-Rules`. An agent reads them only from a `403`. It resolves the named Exchange's endpoint from that Exchange's own `fora.json`, never from the header. `X-FORA-Exchange` is never authorization: offers are verified by their signatures, the manifest's `exchanges` stays the authority on who sells, and when the two disagree the manifest wins. The normative text is the "Edge discovery headers" section of the `fora.proto` file header; [Discovery Paths](/protocol/discovery-paths/#edge-discovery-headers) summarizes it.
+:::
+
 ## Services
 
 ### ExchangeService

@@ -336,6 +336,13 @@ response or re-implements signing:
   contract: no unknown field, proto field names only, no 32-bit number or bool written
   as a string, and protovalidate. `helpers.CheckStrictMessage` is the same check on a
   decoded message, the one `WithStrictDecoding` applies.
+- **Edge discovery headers.** `helpers.ParseDiscoveryHint(status, header)` reads the
+  `X-Content-Rules` and `X-FORA-Exchange` headers of an edge's 403 into a
+  `DiscoveryHint`: each value with a `HintState` of absent, valid or malformed. Any
+  other status reads as absent. `helpers.ReconcileDiscoveryHint(hint, listed)` checks
+  the hinted Exchange against the domains the publisher manifest's `exchanges` lists
+  and answers `HintListed`, `HintUnlisted` or `HintNoExchange`; the manifest wins. The
+  header names are `helpers.ContentRulesHeader` and `helpers.ExchangeHeader`.
 
 ## Guarantees
 

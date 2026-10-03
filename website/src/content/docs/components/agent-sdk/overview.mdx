@@ -103,6 +103,7 @@ parsing responses itself or re-implementing request signing.
 | Read a document a party publishes and check it: the well-known manifest, the WBA key directory, the key revocation list, the license document | `resolvers.ReadManifest`, `resolvers.ReadWBADirectory`, `resolvers.ReadRevocationList`, `resolvers.ReadLicenseDocument` | `readManifest`, `readWBADirectory`, `readRevocationList`, `readLicenseDocument` | `read_manifest`, `read_wba_directory`, `read_revocation_list`, `read_license_document` |
 | Check a message against the strict contract | `helpers.CheckStrict` | `checkStrict` | `check_strict` |
 | Sign the proof of possession for a delivery fetch | `helpers.SignAgentBinding` | `signInbound` | `sign_agent_binding` |
+| Read the discovery headers of an edge's 403, and check the hinted Exchange against the publisher manifest | `helpers.ParseDiscoveryHint`, `helpers.ReconcileDiscoveryHint` | `parseDiscoveryHint`, `reconcileDiscoveryHint` (`./discovery-hint`) | `parse_discovery_hint`, `reconcile_discovery_hint` |
 
 A few rules hold in every language:
 
