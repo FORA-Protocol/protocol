@@ -30,7 +30,7 @@
       "type": "array"
     },
     "idempotency_key": {
-      "description": "Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed\n filing does not open a duplicate case. The dispute's durable identity is the\n Exchange-assigned dispute_id in DisputeResponse.\n Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per\n (authenticated caller, key), never globally, so a key chosen by one caller\n cannot collide with another's cached result.",
+      "description": "Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed\n filing does not open a duplicate case; the same key with a different filing\n is refused with already_exists. Scoped per caller; see \"Idempotency\" in the\n file header. The dispute's durable identity is the Exchange-assigned\n dispute_id in DisputeResponse.",
       "maxLength": 255,
       "minLength": 1,
       "type": "string"

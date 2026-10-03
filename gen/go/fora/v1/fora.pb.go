@@ -5240,21 +5240,14 @@ type TransactionRequest struct {
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Idempotency key (REQUIRED). The server MUST dedupe on this: a replay returns
-	// the original result rather than re-executing. The transaction's durable
-	// identity is the Exchange-assigned transaction_id in the response.
-	// Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per
-	// (authenticated caller, key), never globally, so a key chosen by one caller
-	// cannot collide with another's cached result.
-	//
-	// Through a Broker (BrokerService.ExecuteTransaction) the key is the agent's.
-	// The Broker forwards it UNCHANGED on every sub-request it sends — it cannot do
-	// otherwise, because each AgentAcceptance and the AgentRequestAcceptance sign
-	// it — so a retry of the same purchase through the Broker reaches every
-	// Exchange as a replay and is answered from that Exchange's stored result. The
-	// verified signer of a re-packaged sub-request is the Broker, which speaks for
-	// many agents, so an Exchange scopes a relayed request's key per (Broker,
-	// requester the agent acceptances authenticate, key): two agents behind one
-	// Broker that pick the same key cannot collide.
+	// the original result rather than re-executing, and the same key with
+	// different items is refused with already_exists. The key is scoped per
+	// caller: per authenticated agent, and per (Broker, requester) on a purchase
+	// relayed through BrokerService.ExecuteTransaction, where the Broker forwards
+	// the agent's key unchanged. A key another agent or tenant used is never a
+	// collision. The full rule is "Idempotency" in the file header. The
+	// transaction's durable identity is the Exchange-assigned transaction_id in
+	// the response.
 	IdempotencyKey string `protobuf:"bytes,2,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
 	// Requester identity — forwarded for authorization and audit.
 	Requester *Requester `protobuf:"bytes,4,opt,name=requester,proto3" json:"requester,omitempty"`
@@ -6708,11 +6701,10 @@ type UsageReport struct {
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed
-	// report does not double-count usage. The report's durable identity is the
-	// Exchange-assigned report_id in UsageReportResponse.
-	// Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per
-	// (authenticated caller, key), never globally, so a key chosen by one caller
-	// cannot collide with another's cached result.
+	// report does not double-count usage; the same key with a different report is
+	// refused with already_exists. Scoped per caller; see "Idempotency" in the
+	// file header. The report's durable identity is the Exchange-assigned
+	// report_id in UsageReportResponse.
 	IdempotencyKey string `protobuf:"bytes,2,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
 	// Transaction ID from the delivery.
 	TransactionId string `protobuf:"bytes,3,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
@@ -8809,11 +8801,10 @@ type DisputeRequest struct {
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed
-	// filing does not open a duplicate case. The dispute's durable identity is the
-	// Exchange-assigned dispute_id in DisputeResponse.
-	// Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per
-	// (authenticated caller, key), never globally, so a key chosen by one caller
-	// cannot collide with another's cached result.
+	// filing does not open a duplicate case; the same key with a different filing
+	// is refused with already_exists. Scoped per caller; see "Idempotency" in the
+	// file header. The dispute's durable identity is the Exchange-assigned
+	// dispute_id in DisputeResponse.
 	IdempotencyKey string `protobuf:"bytes,2,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
 	// Transaction being disputed.
 	TransactionId string `protobuf:"bytes,3,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`

@@ -231,6 +231,42 @@ import "fora/v1/vocab.proto";
 // ============================================================================
 
 // ============================================================================
+// Idempotency
+//
+// The requests that change state — TransactionRequest, UsageReport and
+// DisputeRequest — each carry a REQUIRED idempotency_key. The rules for the key
+// are stated here once, and each of those fields points here.
+//
+// Scope. A key is scoped to the caller that authenticated the request, never
+// global. On a request the agent signed itself, the scope is that authenticated
+// agent, the verified RFC 9421 signer. On a purchase relayed through
+// BrokerService.ExecuteTransaction, the verified signer is the Broker, which
+// speaks for many agents, so the scope is the pair (Broker, requester the agent
+// acceptances authenticate). A key that another agent used, that the same agent
+// used through another Broker, or that was used at another tenant of the same
+// Exchange is a different key in a different scope: it is never a collision,
+// and it is never answered from another scope's stored result.
+//
+// Replay. Within one scope, a request that repeats a key with the SAME request
+// is a replay: the recipient answers it with the result it stored for the key
+// and executes nothing again. The same request is, for ExecuteTransaction, the
+// same items in the same order (each item's offer.signature), and for
+// ReportUsage and DisputeTransaction the same report or filing, field for
+// field.
+//
+// Reuse with a different request. Within one scope, a request that repeats a
+// key with a DIFFERENT request — for a purchase, different items, or the same
+// items in another order — is refused with the Connect code already_exists,
+// carrying an ErrorDetail with no typed reason block. Nothing is executed, and
+// the result stored under the key is unchanged. A new request takes a new key.
+//
+// Through a Broker the key is the agent's. The Broker forwards it unchanged on
+// every sub-request, and cannot do otherwise because each AgentAcceptance and
+// the AgentRequestAcceptance sign it, so a retry of the same purchase through
+// the Broker reaches every Exchange as a replay of its sub-request.
+// ============================================================================
+
+// ============================================================================
 // Edge discovery headers
 //
 // A publisher's edge answers a request for licensed content that carries no
@@ -2440,21 +2476,14 @@ message TransactionRequest {
   string ver = 1;
 
   // Idempotency key (REQUIRED). The server MUST dedupe on this: a replay returns
-  // the original result rather than re-executing. The transaction's durable
-  // identity is the Exchange-assigned transaction_id in the response.
-  // Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per
-  // (authenticated caller, key), never globally, so a key chosen by one caller
-  // cannot collide with another's cached result.
-  //
-  // Through a Broker (BrokerService.ExecuteTransaction) the key is the agent's.
-  // The Broker forwards it UNCHANGED on every sub-request it sends — it cannot do
-  // otherwise, because each AgentAcceptance and the AgentRequestAcceptance sign
-  // it — so a retry of the same purchase through the Broker reaches every
-  // Exchange as a replay and is answered from that Exchange's stored result. The
-  // verified signer of a re-packaged sub-request is the Broker, which speaks for
-  // many agents, so an Exchange scopes a relayed request's key per (Broker,
-  // requester the agent acceptances authenticate, key): two agents behind one
-  // Broker that pick the same key cannot collide.
+  // the original result rather than re-executing, and the same key with
+  // different items is refused with already_exists. The key is scoped per
+  // caller: per authenticated agent, and per (Broker, requester) on a purchase
+  // relayed through BrokerService.ExecuteTransaction, where the Broker forwards
+  // the agent's key unchanged. A key another agent or tenant used is never a
+  // collision. The full rule is "Idempotency" in the file header. The
+  // transaction's durable identity is the Exchange-assigned transaction_id in
+  // the response.
   string idempotency_key = 2 [
     (buf.validate.field).string = {min_len: 1, max_len: 255}
   ];
@@ -2906,7 +2935,7 @@ service BrokerService {
   //
   // A retry is safe: the Broker forwards the agent's idempotency_key unchanged,
   // so each Exchange answers a repeated sub-request from its stored result (see
-  // TransactionRequest.idempotency_key).
+  // "Idempotency" in the file header).
   rpc ExecuteTransaction(TransactionRequest) returns (BrokerTransactionResponse);
 }
 
@@ -3225,11 +3254,10 @@ message UsageReport {
   string ver = 1;
 
   // Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed
-  // report does not double-count usage. The report's durable identity is the
-  // Exchange-assigned report_id in UsageReportResponse.
-  // Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per
-  // (authenticated caller, key), never globally, so a key chosen by one caller
-  // cannot collide with another's cached result.
+  // report does not double-count usage; the same key with a different report is
+  // refused with already_exists. Scoped per caller; see "Idempotency" in the
+  // file header. The report's durable identity is the Exchange-assigned
+  // report_id in UsageReportResponse.
   string idempotency_key = 2 [
     (buf.validate.field).string = {min_len: 1, max_len: 255}
   ];
@@ -4240,11 +4268,10 @@ message DisputeRequest {
   string ver = 1;
 
   // Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed
-  // filing does not open a duplicate case. The dispute's durable identity is the
-  // Exchange-assigned dispute_id in DisputeResponse.
-  // Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per
-  // (authenticated caller, key), never globally, so a key chosen by one caller
-  // cannot collide with another's cached result.
+  // filing does not open a duplicate case; the same key with a different filing
+  // is refused with already_exists. Scoped per caller; see "Idempotency" in the
+  // file header. The dispute's durable identity is the Exchange-assigned
+  // dispute_id in DisputeResponse.
   string idempotency_key = 2 [
     (buf.validate.field).string = {min_len: 1, max_len: 255}
   ];

@@ -143,7 +143,7 @@
       "type": "array"
     },
     "idempotency_key": {
-      "description": "Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed\n report does not double-count usage. The report's durable identity is the\n Exchange-assigned report_id in UsageReportResponse.\n Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per\n (authenticated caller, key), never globally, so a key chosen by one caller\n cannot collide with another's cached result.",
+      "description": "Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed\n report does not double-count usage; the same key with a different report is\n refused with already_exists. Scoped per caller; see \"Idempotency\" in the\n file header. The report's durable identity is the Exchange-assigned\n report_id in UsageReportResponse.",
       "maxLength": 255,
       "minLength": 1,
       "type": "string"

@@ -262,7 +262,7 @@ class DisputeRequest(WireModel):
     )
     idempotency_key: constr(min_length=1, max_length=255) = Field(
         ...,
-        description="Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed\n filing does not open a duplicate case. The dispute's durable identity is the\n Exchange-assigned dispute_id in DisputeResponse.\n Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per\n (authenticated caller, key), never globally, so a key chosen by one caller\n cannot collide with another's cached result.",
+        description='Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed\n filing does not open a duplicate case; the same key with a different filing\n is refused with already_exists. Scoped per caller; see "Idempotency" in the\n file header. The dispute\'s durable identity is the Exchange-assigned\n dispute_id in DisputeResponse.',
     )
     reason: DisputeReason = Field(..., description='Reason for the dispute.')
     received_content_hash: str | None = Field(
@@ -1607,7 +1607,7 @@ class UsageReport(WireModel):
     )
     idempotency_key: constr(min_length=1, max_length=255) = Field(
         ...,
-        description="Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed\n report does not double-count usage. The report's durable identity is the\n Exchange-assigned report_id in UsageReportResponse.\n Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per\n (authenticated caller, key), never globally, so a key chosen by one caller\n cannot collide with another's cached result.",
+        description='Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed\n report does not double-count usage; the same key with a different report is\n refused with already_exists. Scoped per caller; see "Idempotency" in the\n file header. The report\'s durable identity is the Exchange-assigned\n report_id in UsageReportResponse.',
     )
     timestamp: AwareDatetime | None = Field(
         None, description='When the resource was used (ISO 8601).'
@@ -2075,7 +2075,7 @@ class TransactionRequest(WireModel):
     )
     idempotency_key: constr(min_length=1, max_length=255) = Field(
         ...,
-        description="Idempotency key (REQUIRED). The server MUST dedupe on this: a replay returns\n the original result rather than re-executing. The transaction's durable\n identity is the Exchange-assigned transaction_id in the response.\n Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per\n (authenticated caller, key), never globally, so a key chosen by one caller\n cannot collide with another's cached result.\n\nThrough a Broker (BrokerService.ExecuteTransaction) the key is the agent's.\n The Broker forwards it UNCHANGED on every sub-request it sends — it cannot do\n otherwise, because each AgentAcceptance and the AgentRequestAcceptance sign\n it — so a retry of the same purchase through the Broker reaches every\n Exchange as a replay and is answered from that Exchange's stored result. The\n verified signer of a re-packaged sub-request is the Broker, which speaks for\n many agents, so an Exchange scopes a relayed request's key per (Broker,\n requester the agent acceptances authenticate, key): two agents behind one\n Broker that pick the same key cannot collide.",
+        description='Idempotency key (REQUIRED). The server MUST dedupe on this: a replay returns\n the original result rather than re-executing, and the same key with\n different items is refused with already_exists. The key is scoped per\n caller: per authenticated agent, and per (Broker, requester) on a purchase\n relayed through BrokerService.ExecuteTransaction, where the Broker forwards\n the agent\'s key unchanged. A key another agent or tenant used is never a\n collision. The full rule is "Idempotency" in the file header. The\n transaction\'s durable identity is the Exchange-assigned transaction_id in\n the response.',
     )
     items: list[TransactionItem] | None = Field(
         None,

@@ -695,7 +695,7 @@ type BrokerServiceClient interface {
 	//
 	// A retry is safe: the Broker forwards the agent's idempotency_key unchanged,
 	// so each Exchange answers a repeated sub-request from its stored result (see
-	// TransactionRequest.idempotency_key).
+	// "Idempotency" in the file header).
 	ExecuteTransaction(context.Context, *connect.Request[v1.TransactionRequest]) (*connect.Response[v1.BrokerTransactionResponse], error)
 }
 
@@ -862,7 +862,7 @@ type BrokerServiceHandler interface {
 	//
 	// A retry is safe: the Broker forwards the agent's idempotency_key unchanged,
 	// so each Exchange answers a repeated sub-request from its stored result (see
-	// TransactionRequest.idempotency_key).
+	// "Idempotency" in the file header).
 	ExecuteTransaction(context.Context, *connect.Request[v1.TransactionRequest]) (*connect.Response[v1.BrokerTransactionResponse], error)
 }
 
