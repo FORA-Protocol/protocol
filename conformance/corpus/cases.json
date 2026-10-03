@@ -16295,6 +16295,7 @@
     ],
     "json": {
       "domain": "https://exchange.example",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16310,6 +16311,7 @@
     ],
     "json": {
       "domain": "exchange.example/register",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16325,6 +16327,7 @@
     ],
     "json": {
       "domain": "exchange.example:0",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16340,6 +16343,7 @@
     ],
     "json": {
       "domain": "exchange.example:99999",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16355,6 +16359,7 @@
     ],
     "json": {
       "domain": "exchange.example?x=1",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16370,6 +16375,7 @@
     ],
     "json": {
       "domain": "user@exchange.example",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16385,6 +16391,7 @@
     ],
     "json": {
       "domain": "exchange.example:123456",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16400,6 +16407,7 @@
     ],
     "json": {
       "domain": "exchange.example:",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16415,6 +16423,7 @@
     ],
     "json": {
       "domain": "exchange.example.",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16430,6 +16439,7 @@
     ],
     "json": {
       "domain": "exchange..example",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16445,6 +16455,7 @@
     ],
     "json": {
       "domain": "-exchange.example",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16460,6 +16471,7 @@
     ],
     "json": {
       "domain": "[::1]:443",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16474,6 +16486,7 @@
       "string.pattern"
     ],
     "json": {
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16489,6 +16502,7 @@
     ],
     "json": {
       "domain": "two words",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16504,6 +16518,7 @@
     ],
     "json": {
       "domain": "!!bad!!",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16519,6 +16534,7 @@
     ],
     "json": {
       "domain": "\u0000ctl\u0000",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16534,6 +16550,7 @@
     ],
     "json": {
       "domain": " ",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16549,6 +16566,7 @@
     ],
     "json": {
       "domain": "-5",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -16564,6 +16582,38 @@
     ],
     "json": {
       "domain": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "id": "x",
+      "scopes": [
+        "x"
+      ],
+      "type": "REQUESTER_TYPE_AGENT"
+    }
+  },
+  {
+    "id": "Requester/id/too_long",
+    "message": "Requester",
+    "valid": false,
+    "rules": [
+      "string.max_len"
+    ],
+    "json": {
+      "domain": "x",
+      "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "scopes": [
+        "x"
+      ],
+      "type": "REQUESTER_TYPE_AGENT"
+    }
+  },
+  {
+    "id": "Requester/id/too_short",
+    "message": "Requester",
+    "valid": false,
+    "rules": [
+      "string.min_len"
+    ],
+    "json": {
+      "domain": "x",
       "scopes": [
         "x"
       ],
@@ -16579,6 +16629,7 @@
     ],
     "json": {
       "domain": "x",
+      "id": "x",
       "scopes": [
         "x",
         "x",
@@ -16658,6 +16709,7 @@
     ],
     "json": {
       "domain": "x",
+      "id": "x",
       "scopes": [
         "x"
       ]
@@ -16669,6 +16721,7 @@
     "valid": true,
     "json": {
       "domain": "x",
+      "id": "x",
       "scopes": [
         "x"
       ],

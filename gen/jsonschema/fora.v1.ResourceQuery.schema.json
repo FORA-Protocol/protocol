@@ -133,9 +133,10 @@
           "description": "Optional delegation — present when the requester acts on behalf of\n another entity (user, organization, upstream agent)."
         },
         "domain": {
-          "description": "Domain the requester belongs to. It carries the same bare-host shape\n \"Request recipient\" defines in the file header, for the same structural\n reason: a scheme, path or query smuggled in here would choose what gets\n fetched, not merely from where. It is NOT how a verifier finds this\n requester's keys: those live in the WBA directory, and verification resolves\n that directory from the COVERED `Signature-Agent` header, never from this\n self-asserted value.",
+          "description": "- Direct request. The agent's own RFC 9421 signature arrives: the agent\n     sent the request itself, or a relay forwarded it byte-for-byte. The\n     verifier resolves the agent's keys from the COVERED `Signature-Agent`\n     header, never from this field. It then MUST require this field to name\n     that same directory: the host of the `Signature-Agent` URL, compared by\n     the identity rule \"Request recipient\" defines (the shape check first,\n     then case-folded, an absent port the same as \":443\", a subdomain a\n     different party). A mismatch is refused as UNAUTHENTICATED with\n     `request_auth_failure` SIGNATURE_INVALID: the signature verifies, but\n     not for the requester the body names. An Exchange applies this rule on\n     every request it receives signed by the agent, exactly as a Broker\n     applies it at BrokerService.ExecuteTransaction.\n   - Purchase relayed through a Broker. BrokerService.ExecuteTransaction\n     re-packages the purchase, so the request signature and the covered\n     `Signature-Agent` are the Broker's. They say only that the call comes\n     from the Broker, and they sign no purchase. The Exchange MUST verify\n     each item's AgentAcceptance, and the AgentRequestAcceptance, against\n     the Ed25519 keys currently valid in the directory this field names\n     (see AgentRequestAcceptance), never against the Broker's key. Those\n     acceptances are the only agent signatures the Exchange sees.\n   - Discovery fan-out. A ResourceQuery a Broker authored carries no agent\n     signature, so nothing on that leg authenticates this field: it is the\n     Broker's statement, under the Broker's own signature, of whom it\n     queries for.",
           "maxLength": 260,
           "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$",
+          "title": "REQUIRED. Bare host of the requester's key directory: the WBA directory at\n {domain}/.well-known/http-message-signatures-directory that publishes the\n agent's Ed25519 keys. It carries the bare-host shape \"Request recipient\"\n defines in the file header (a port allowed), for the same structural\n reason: a scheme, path or query smuggled in here would choose what gets\n fetched, not merely from where. It is never a free label. Every verifier\n reads it as the name of that directory, and the rule that binds it depends\n on who signed the arriving request:",
           "type": "string"
         },
         "ext": {
@@ -150,8 +151,9 @@
           "type": "array"
         },
         "id": {
-          "default": "",
-          "description": "Unique requester identifier (e.g., \"agent-research-bot-001\").",
+          "description": "REQUIRED. A free label the agent chooses for attribution (e.g.\n \"agent-research-bot-001\"), 1 to 255 characters. Use it to tell apart the\n sub-agents or end customers that share one key directory. It is never\n identity: no verifier finds keys from it, and no party trusts it for an\n authentication or authorization decision. The requester's identity is\n `domain` together with the key that verifies. The acceptance signatures\n cover this label (see AgentAcceptancePayload), so a relaying Broker cannot\n rewrite it, but its value is still only what the agent says.",
+          "maxLength": 255,
+          "minLength": 1,
           "type": "string"
         },
         "name": {
@@ -191,6 +193,7 @@
       },
       "required": [
         "domain",
+        "id",
         "type"
       ],
       "title": "Requester — Universal identity for any FORA client.",

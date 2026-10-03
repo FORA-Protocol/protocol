@@ -2,7 +2,7 @@
   "$id": "fora.v1.AgentAcceptancePayload.schema.strict.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Field provenance when building the payload for an execute request:\n   - offer_sig         = the accepted Offer.signature (the Exchange's hex\n                         signature; transitively binds pricing, terms,\n                         expires_at, and — via the offer — the issuing Exchange)\n   - requester_id      = TransactionRequest.requester.id\n   - requester_domain  = TransactionRequest.requester.domain\n   - idempotency_key   = TransactionRequest.idempotency_key\n For batch mode, requester_* and idempotency_key come from the ENCLOSING\n TransactionRequest (a TransactionItem carries neither); offer_sig is the\n per-item Offer.signature.",
+  "description": "Field provenance when building the payload for an execute request:\n   - offer_sig         = the accepted Offer.signature (the Exchange's hex\n                         signature; transitively binds pricing, terms,\n                         expires_at, and — via the offer — the issuing Exchange)\n   - requester_id      = TransactionRequest.requester.id\n   - requester_domain  = TransactionRequest.requester.domain\n   - idempotency_key   = TransactionRequest.idempotency_key\n For batch mode, requester_* and idempotency_key come from the ENCLOSING\n TransactionRequest (a TransactionItem carries neither); offer_sig is the\n per-item Offer.signature.\n\n requester_id and requester_domain are never empty in an acceptance: a signer\n refuses to build these bytes from a Requester missing either, and a verifier\n refuses bytes that name an empty requester (see AgentAcceptance). The two\n Requester fields are REQUIRED on the wire for the same reason.",
   "properties": {
     "idempotency_key": {
       "default": "",
@@ -16,12 +16,12 @@
     },
     "requester_domain": {
       "default": "",
-      "description": "Requester domain (Requester.domain) the acceptance is bound to.",
+      "description": "Requester domain (Requester.domain) the acceptance is bound to: the host of\n the key directory the acceptance verifies against. Never empty.",
       "type": "string"
     },
     "requester_id": {
       "default": "",
-      "description": "Requester identity (Requester.id) the acceptance is bound to.",
+      "description": "Requester label (Requester.id) the acceptance is bound to. Never empty.",
       "type": "string"
     }
   },

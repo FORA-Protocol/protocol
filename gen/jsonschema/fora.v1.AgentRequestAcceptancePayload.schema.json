@@ -39,10 +39,12 @@
     },
     "requester_domain": {
       "default": "",
+      "description": "Requester.domain of the request. Non-empty (see AgentRequestAcceptance).",
       "type": "string"
     },
     "requester_id": {
       "default": "",
+      "description": "Requester.id of the request. Non-empty (see AgentRequestAcceptance).",
       "type": "string"
     }
   },

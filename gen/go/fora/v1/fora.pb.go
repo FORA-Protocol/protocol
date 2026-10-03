@@ -4262,15 +4262,48 @@ func (x *Pricing) GetMetering() PricingMetering {
 // from the verified signature, never from anything the caller sends.
 type Requester struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Unique requester identifier (e.g., "agent-research-bot-001").
+	// REQUIRED. A free label the agent chooses for attribution (e.g.
+	// "agent-research-bot-001"), 1 to 255 characters. Use it to tell apart the
+	// sub-agents or end customers that share one key directory. It is never
+	// identity: no verifier finds keys from it, and no party trusts it for an
+	// authentication or authorization decision. The requester's identity is
+	// `domain` together with the key that verifies. The acceptance signatures
+	// cover this label (see AgentAcceptancePayload), so a relaying Broker cannot
+	// rewrite it, but its value is still only what the agent says.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Domain the requester belongs to. It carries the same bare-host shape
-	// "Request recipient" defines in the file header, for the same structural
+	// REQUIRED. Bare host of the requester's key directory: the WBA directory at
+	// {domain}/.well-known/http-message-signatures-directory that publishes the
+	// agent's Ed25519 keys. It carries the bare-host shape "Request recipient"
+	// defines in the file header (a port allowed), for the same structural
 	// reason: a scheme, path or query smuggled in here would choose what gets
-	// fetched, not merely from where. It is NOT how a verifier finds this
-	// requester's keys: those live in the WBA directory, and verification resolves
-	// that directory from the COVERED `Signature-Agent` header, never from this
-	// self-asserted value.
+	// fetched, not merely from where. It is never a free label. Every verifier
+	// reads it as the name of that directory, and the rule that binds it depends
+	// on who signed the arriving request:
+	//
+	//   - Direct request. The agent's own RFC 9421 signature arrives: the agent
+	//     sent the request itself, or a relay forwarded it byte-for-byte. The
+	//     verifier resolves the agent's keys from the COVERED `Signature-Agent`
+	//     header, never from this field. It then MUST require this field to name
+	//     that same directory: the host of the `Signature-Agent` URL, compared by
+	//     the identity rule "Request recipient" defines (the shape check first,
+	//     then case-folded, an absent port the same as ":443", a subdomain a
+	//     different party). A mismatch is refused as UNAUTHENTICATED with
+	//     `request_auth_failure` SIGNATURE_INVALID: the signature verifies, but
+	//     not for the requester the body names. An Exchange applies this rule on
+	//     every request it receives signed by the agent, exactly as a Broker
+	//     applies it at BrokerService.ExecuteTransaction.
+	//   - Purchase relayed through a Broker. BrokerService.ExecuteTransaction
+	//     re-packages the purchase, so the request signature and the covered
+	//     `Signature-Agent` are the Broker's. They say only that the call comes
+	//     from the Broker, and they sign no purchase. The Exchange MUST verify
+	//     each item's AgentAcceptance, and the AgentRequestAcceptance, against
+	//     the Ed25519 keys currently valid in the directory this field names
+	//     (see AgentRequestAcceptance), never against the Broker's key. Those
+	//     acceptances are the only agent signatures the Exchange sees.
+	//   - Discovery fan-out. A ResourceQuery a Broker authored carries no agent
+	//     signature, so nothing on that leg authenticates this field: it is the
+	//     Broker's statement, under the Broker's own signature, of whom it
+	//     queries for.
 	Domain string `protobuf:"bytes,2,opt,name=domain,proto3" json:"domain,omitempty"`
 	// What kind of entity is making this request.
 	Type RequesterType `protobuf:"varint,3,opt,name=type,proto3,enum=fora.v1.RequesterType" json:"type,omitempty"`
@@ -4628,8 +4661,19 @@ func (x *Delegation) GetExtCritical() []string {
 // it is topology-independent and content-bound, so it stays valid no matter how
 // many brokers relay the request, and binds the agent to THIS specific offer +
 // requester + transaction. It travels in the execute body alongside the
-// reflected Offer; the Exchange verifies it and binds the delivery URL to the
-// agent's key (RFC 7638 thumbprint of the acceptance key).
+// reflected Offer; the Exchange verifies it against an Ed25519 key currently
+// valid in the WBA directory `requester.domain` names, and binds the delivery
+// URL to that key (RFC 7638 thumbprint of the acceptance key).
+//
+// The acceptance MUST name a requester. Its canonical bytes carry a non-empty
+// requester_id and a non-empty requester_domain, taken from the enclosing
+// request's Requester. A signer refuses to sign bytes that name an empty
+// requester, and a verifier refuses an acceptance whose canonical bytes name
+// one, even when the signature over those bytes verifies. Such bytes bind the
+// agent's consent to nobody, and on a purchase relayed through
+// BrokerService.ExecuteTransaction this acceptance is the only agent signature
+// the Exchange sees: the request signature there is the Broker's, which says
+// only that the call comes from the Broker and never signs the purchase.
 //
 // `signature` is a hex-encoded detached Ed25519 signature (NOT a JWS) over the
 // CANONICAL SIGNING form of `AgentAcceptancePayload` — RFC 8785 JCS over canonical
@@ -4716,6 +4760,10 @@ func (x *AgentAcceptance) GetSignatureAlgorithm() string {
 // binding (cnf.jkt) against the key each item's AgentAcceptance verifies under,
 // not against the wire signer (see Delegation). The agent does not need to
 // delegate to the Broker's key for the Broker to relay its purchase.
+//
+// The payload names the requester exactly as AgentAcceptancePayload does, with
+// the same rule: a non-empty requester_id and requester_domain, which a signer
+// refuses to omit and a verifier refuses to accept empty.
 //
 // The verification key is the agent key published for the requester the signed
 // payload names. payload.requester_domain must equal the request's
@@ -4864,10 +4912,12 @@ type AgentRequestAcceptancePayload struct {
 	// canonicalization work, because a verifier may run with wire validation
 	// off and the canonical rendering of an unbounded list is the expensive
 	// step an unauthenticated caller could otherwise buy for free.
-	Items           []*AgentRequestAcceptanceItem `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
-	RequesterId     string                        `protobuf:"bytes,2,opt,name=requester_id,json=requesterId,proto3" json:"requester_id,omitempty"`
-	RequesterDomain string                        `protobuf:"bytes,3,opt,name=requester_domain,json=requesterDomain,proto3" json:"requester_domain,omitempty"`
-	IdempotencyKey  string                        `protobuf:"bytes,4,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	Items []*AgentRequestAcceptanceItem `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	// Requester.id of the request. Non-empty (see AgentRequestAcceptance).
+	RequesterId string `protobuf:"bytes,2,opt,name=requester_id,json=requesterId,proto3" json:"requester_id,omitempty"`
+	// Requester.domain of the request. Non-empty (see AgentRequestAcceptance).
+	RequesterDomain string `protobuf:"bytes,3,opt,name=requester_domain,json=requesterDomain,proto3" json:"requester_domain,omitempty"`
+	IdempotencyKey  string `protobuf:"bytes,4,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -4949,14 +4999,20 @@ func (x *AgentRequestAcceptancePayload) GetIdempotencyKey() string {
 // For batch mode, requester_* and idempotency_key come from the ENCLOSING
 // TransactionRequest (a TransactionItem carries neither); offer_sig is the
 // per-item Offer.signature.
+//
+// requester_id and requester_domain are never empty in an acceptance: a signer
+// refuses to build these bytes from a Requester missing either, and a verifier
+// refuses bytes that name an empty requester (see AgentAcceptance). The two
+// Requester fields are REQUIRED on the wire for the same reason.
 type AgentAcceptancePayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The accepted Offer's signature (Offer.signature). Anchors the whole signed
 	// offer without re-serializing its terms/pricing/expiry.
 	OfferSig string `protobuf:"bytes,1,opt,name=offer_sig,json=offerSig,proto3" json:"offer_sig,omitempty"`
-	// Requester identity (Requester.id) the acceptance is bound to.
+	// Requester label (Requester.id) the acceptance is bound to. Never empty.
 	RequesterId string `protobuf:"bytes,2,opt,name=requester_id,json=requesterId,proto3" json:"requester_id,omitempty"`
-	// Requester domain (Requester.domain) the acceptance is bound to.
+	// Requester domain (Requester.domain) the acceptance is bound to: the host of
+	// the key directory the acceptance verifies against. Never empty.
 	RequesterDomain string `protobuf:"bytes,3,opt,name=requester_domain,json=requesterDomain,proto3" json:"requester_domain,omitempty"`
 	// The transaction's idempotency key — binds the acceptance to a single
 	// execute so it cannot be replayed under a different transaction.
@@ -10684,9 +10740,10 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x13_estimated_quantityB\x1a\n" +
 	"\x18_license_duration_monthsB\a\n" +
 	"\x05_unitB\v\n" +
-	"\t_metering\"\x82\x04\n" +
-	"\tRequester\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\xd3\x01\n" +
+	"\t_metering\"\x8e\x04\n" +
+	"\tRequester\x12\x1a\n" +
+	"\x02id\x18\x01 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x02id\x12\xd3\x01\n" +
 	"\x06domain\x18\x02 \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\x06domain\x124\n" +
 	"\x04type\x18\x03 \x01(\x0e2\x16.fora.v1.RequesterTypeB\b\xbaH\x05\x82\x01\x02 \x00R\x04type\x12\x17\n" +
 	"\x04name\x18\x04 \x01(\tH\x00R\x04name\x88\x01\x01\x12 \n" +

@@ -2,7 +2,7 @@
   "$defs": {
     "fora.v1.AgentAcceptance": {
       "additionalProperties": false,
-      "description": "`signature` is a hex-encoded detached Ed25519 signature (NOT a JWS) over the\n CANONICAL SIGNING form of `AgentAcceptancePayload` — RFC 8785 JCS over canonical\n proto-JSON. That form, including the pinned proto-JSON option set, is defined\n once on `Offer.signature` and is the single normative definition; there is no\n second recipe. `AgentAcceptancePayload` carries no signature fields, so the\n clear-then-render step of that definition reduces here to\n JCS(protojson(AgentAcceptancePayload)). Same hex/Ed25519 convention as\n `Offer.signature`; `signature_algorithm` is \"EdDSA\".",
+      "description": "The acceptance MUST name a requester. Its canonical bytes carry a non-empty\n requester_id and a non-empty requester_domain, taken from the enclosing\n request's Requester. A signer refuses to sign bytes that name an empty\n requester, and a verifier refuses an acceptance whose canonical bytes name\n one, even when the signature over those bytes verifies. Such bytes bind the\n agent's consent to nobody, and on a purchase relayed through\n BrokerService.ExecuteTransaction this acceptance is the only agent signature\n the Exchange sees: the request signature there is the Broker's, which says\n only that the call comes from the Broker and never signs the purchase.\n\n `signature` is a hex-encoded detached Ed25519 signature (NOT a JWS) over the\n CANONICAL SIGNING form of `AgentAcceptancePayload` — RFC 8785 JCS over canonical\n proto-JSON. That form, including the pinned proto-JSON option set, is defined\n once on `Offer.signature` and is the single normative definition; there is no\n second recipe. `AgentAcceptancePayload` carries no signature fields, so the\n clear-then-render step of that definition reduces here to\n JCS(protojson(AgentAcceptancePayload)). Same hex/Ed25519 convention as\n `Offer.signature`; `signature_algorithm` is \"EdDSA\".",
       "properties": {
         "signature": {
           "description": "Hex-encoded detached Ed25519 signature over the canonical AgentAcceptancePayload\n bytes (see the canonical-signing definition on Offer.signature).",
@@ -18,12 +18,12 @@
       "required": [
         "signature"
       ],
-      "title": "AgentAcceptance — the agent's DETACHED acceptance signature over an accepted\n Offer. Distinct from the transport (RFC 9421) request signature:\n it is topology-independent and content-bound, so it stays valid no matter how\n many brokers relay the request, and binds the agent to THIS specific offer +\n requester + transaction. It travels in the execute body alongside the\n reflected Offer; the Exchange verifies it and binds the delivery URL to the\n agent's key (RFC 7638 thumbprint of the acceptance key).",
+      "title": "AgentAcceptance — the agent's DETACHED acceptance signature over an accepted\n Offer. Distinct from the transport (RFC 9421) request signature:\n it is topology-independent and content-bound, so it stays valid no matter how\n many brokers relay the request, and binds the agent to THIS specific offer +\n requester + transaction. It travels in the execute body alongside the\n reflected Offer; the Exchange verifies it against an Ed25519 key currently\n valid in the WBA directory `requester.domain` names, and binds the delivery\n URL to that key (RFC 7638 thumbprint of the acceptance key).",
       "type": "object"
     },
     "fora.v1.AgentRequestAcceptance": {
       "additionalProperties": false,
-      "description": "A projected subrequest is a NEW HTTP request its sender authors. The party\n that projects — a Broker, or the agent itself when it splits its own\n mixed-Exchange set — computes that subrequest's Content-Digest and signs it\n with its own RFC 9421 request signature. The agent's original RFC 9421\n signature covered the body the agent sent and does not travel with a\n projected body; that is expected, not a gap, and it is why this proof\n exists: like AgentAcceptance, it is a detached body signature that stays\n valid however the request travels. The hop-signature stack applies only to\n requests forwarded byte-for-byte. If a delegation rides a projected request,\n the wire signer is the Broker, so the Exchange checks the delegation's holder\n binding (cnf.jkt) against the key each item's AgentAcceptance verifies under,\n not against the wire signer (see Delegation). The agent does not need to\n delegate to the Broker's key for the Broker to relay its purchase.\n\n The verification key is the agent key published for the requester the signed\n payload names. payload.requester_domain must equal the request's\n requester.domain, and the Exchange accepts the signature only if it verifies\n against an Ed25519 key currently valid in that domain's WBA directory\n ({requester_domain}/.well-known/http-message-signatures-directory), fetched\n under the same SSRF discipline as every directory fetch. The envelope\n carries no keyid, so the verifier tries the currently-valid Ed25519 keys of\n that directory; rotation overlap keeps that set small. When the requester\n itself signed the arriving request, the request-signing key the Exchange\n already resolved is that key, and no second fetch is needed. A signature\n that verifies against a key the requester's domain publishes is what turns\n the claimed requester identity into an authenticated one.",
+      "description": "A projected subrequest is a NEW HTTP request its sender authors. The party\n that projects — a Broker, or the agent itself when it splits its own\n mixed-Exchange set — computes that subrequest's Content-Digest and signs it\n with its own RFC 9421 request signature. The agent's original RFC 9421\n signature covered the body the agent sent and does not travel with a\n projected body; that is expected, not a gap, and it is why this proof\n exists: like AgentAcceptance, it is a detached body signature that stays\n valid however the request travels. The hop-signature stack applies only to\n requests forwarded byte-for-byte. If a delegation rides a projected request,\n the wire signer is the Broker, so the Exchange checks the delegation's holder\n binding (cnf.jkt) against the key each item's AgentAcceptance verifies under,\n not against the wire signer (see Delegation). The agent does not need to\n delegate to the Broker's key for the Broker to relay its purchase.\n\n The payload names the requester exactly as AgentAcceptancePayload does, with\n the same rule: a non-empty requester_id and requester_domain, which a signer\n refuses to omit and a verifier refuses to accept empty.\n\n The verification key is the agent key published for the requester the signed\n payload names. payload.requester_domain must equal the request's\n requester.domain, and the Exchange accepts the signature only if it verifies\n against an Ed25519 key currently valid in that domain's WBA directory\n ({requester_domain}/.well-known/http-message-signatures-directory), fetched\n under the same SSRF discipline as every directory fetch. The envelope\n carries no keyid, so the verifier tries the currently-valid Ed25519 keys of\n that directory; rotation overlap keeps that set small. When the requester\n itself signed the arriving request, the request-signing key the Exchange\n already resolved is that key, and no second fetch is needed. A signature\n that verifies against a key the requester's domain publishes is what turns\n the claimed requester identity into an authenticated one.",
       "properties": {
         "payload": {
           "$ref": "#/$defs/fora.v1.AgentRequestAcceptancePayload",
@@ -86,10 +86,12 @@
         },
         "requester_domain": {
           "default": "",
+          "description": "Requester.domain of the request. Non-empty (see AgentRequestAcceptance).",
           "type": "string"
         },
         "requester_id": {
           "default": "",
+          "description": "Requester.id of the request. Non-empty (see AgentRequestAcceptance).",
           "type": "string"
         }
       },
@@ -715,9 +717,10 @@
           "description": "Optional delegation — present when the requester acts on behalf of\n another entity (user, organization, upstream agent)."
         },
         "domain": {
-          "description": "Domain the requester belongs to. It carries the same bare-host shape\n \"Request recipient\" defines in the file header, for the same structural\n reason: a scheme, path or query smuggled in here would choose what gets\n fetched, not merely from where. It is NOT how a verifier finds this\n requester's keys: those live in the WBA directory, and verification resolves\n that directory from the COVERED `Signature-Agent` header, never from this\n self-asserted value.",
+          "description": "- Direct request. The agent's own RFC 9421 signature arrives: the agent\n     sent the request itself, or a relay forwarded it byte-for-byte. The\n     verifier resolves the agent's keys from the COVERED `Signature-Agent`\n     header, never from this field. It then MUST require this field to name\n     that same directory: the host of the `Signature-Agent` URL, compared by\n     the identity rule \"Request recipient\" defines (the shape check first,\n     then case-folded, an absent port the same as \":443\", a subdomain a\n     different party). A mismatch is refused as UNAUTHENTICATED with\n     `request_auth_failure` SIGNATURE_INVALID: the signature verifies, but\n     not for the requester the body names. An Exchange applies this rule on\n     every request it receives signed by the agent, exactly as a Broker\n     applies it at BrokerService.ExecuteTransaction.\n   - Purchase relayed through a Broker. BrokerService.ExecuteTransaction\n     re-packages the purchase, so the request signature and the covered\n     `Signature-Agent` are the Broker's. They say only that the call comes\n     from the Broker, and they sign no purchase. The Exchange MUST verify\n     each item's AgentAcceptance, and the AgentRequestAcceptance, against\n     the Ed25519 keys currently valid in the directory this field names\n     (see AgentRequestAcceptance), never against the Broker's key. Those\n     acceptances are the only agent signatures the Exchange sees.\n   - Discovery fan-out. A ResourceQuery a Broker authored carries no agent\n     signature, so nothing on that leg authenticates this field: it is the\n     Broker's statement, under the Broker's own signature, of whom it\n     queries for.",
           "maxLength": 260,
           "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$",
+          "title": "REQUIRED. Bare host of the requester's key directory: the WBA directory at\n {domain}/.well-known/http-message-signatures-directory that publishes the\n agent's Ed25519 keys. It carries the bare-host shape \"Request recipient\"\n defines in the file header (a port allowed), for the same structural\n reason: a scheme, path or query smuggled in here would choose what gets\n fetched, not merely from where. It is never a free label. Every verifier\n reads it as the name of that directory, and the rule that binds it depends\n on who signed the arriving request:",
           "type": "string"
         },
         "ext": {
@@ -732,8 +735,9 @@
           "type": "array"
         },
         "id": {
-          "default": "",
-          "description": "Unique requester identifier (e.g., \"agent-research-bot-001\").",
+          "description": "REQUIRED. A free label the agent chooses for attribution (e.g.\n \"agent-research-bot-001\"), 1 to 255 characters. Use it to tell apart the\n sub-agents or end customers that share one key directory. It is never\n identity: no verifier finds keys from it, and no party trusts it for an\n authentication or authorization decision. The requester's identity is\n `domain` together with the key that verifies. The acceptance signatures\n cover this label (see AgentAcceptancePayload), so a relaying Broker cannot\n rewrite it, but its value is still only what the agent says.",
+          "maxLength": 255,
+          "minLength": 1,
           "type": "string"
         },
         "name": {
@@ -773,6 +777,7 @@
       },
       "required": [
         "domain",
+        "id",
         "type"
       ],
       "title": "Requester — Universal identity for any FORA client.",

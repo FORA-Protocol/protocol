@@ -204,8 +204,15 @@ func licensingCases() []validationCase {
 		// not just the licensing subtree.
 		{"authorized_exchange relationship set ok", &forav1.AuthorizedExchange{Domain: exampleExchange, Relationship: forav1.ProviderRelationship_PROVIDER_RELATIONSHIP_DIRECT}, true, ""},
 		{"authorized_exchange relationship unspecified rejected", &forav1.AuthorizedExchange{Domain: exampleExchange}, false, "enum.not_in"},
-		{"requester type set ok", &forav1.Requester{Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, true, ""},
-		{"requester type unspecified rejected", &forav1.Requester{Domain: "agent.example"}, false, "enum.not_in"},
+		{"requester type set ok", &forav1.Requester{Id: "agent-1", Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, true, ""},
+		{"requester type unspecified rejected", &forav1.Requester{Id: "agent-1", Domain: "agent.example"}, false, "enum.not_in"},
+		// The acceptance signatures name the requester, so both halves of it are
+		// required: an empty id or domain would let the signed bytes name nobody.
+		{"requester id empty rejected", &forav1.Requester{Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, false, "string.min_len"},
+		{"requester id over 255 rejected", &forav1.Requester{Id: strings.Repeat("a", 256), Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, false, "string.max_len"},
+		{"requester id at 255 ok", &forav1.Requester{Id: strings.Repeat("a", 255), Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, true, ""},
+		{"requester domain empty rejected", &forav1.Requester{Id: "agent-1", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, false, "string.pattern"},
+		{"requester domain with scheme rejected", &forav1.Requester{Id: "agent-1", Domain: "https://agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, false, "string.pattern"},
 		{"resource_identity mutability set ok", &forav1.ResourceIdentity{ResourceMutability: forav1.ResourceMutability_RESOURCE_MUTABILITY_STATIC}, true, ""},
 		{"resource_identity mutability unspecified rejected", &forav1.ResourceIdentity{}, false, "enum.not_in"},
 		{"well_known_manifest role set ok", &forav1.WellKnownManifest{Role: forav1.Role_ROLE_AGENT}, true, ""},

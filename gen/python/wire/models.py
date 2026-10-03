@@ -38,10 +38,11 @@ class AgentAcceptancePayload(WireModel):
     )
     requester_domain: str | None = Field(
         '',
-        description='Requester domain (Requester.domain) the acceptance is bound to.',
+        description='Requester domain (Requester.domain) the acceptance is bound to: the host of\n the key directory the acceptance verifies against. Never empty.',
     )
     requester_id: str | None = Field(
-        '', description='Requester identity (Requester.id) the acceptance is bound to.'
+        '',
+        description='Requester label (Requester.id) the acceptance is bound to. Never empty.',
     )
 
 
@@ -58,8 +59,14 @@ class AgentRequestAcceptancePayload(WireModel):
         max_length=256,
         min_length=1,
     )
-    requester_domain: str | None = ''
-    requester_id: str | None = ''
+    requester_domain: str | None = Field(
+        '',
+        description='Requester.domain of the request. Non-empty (see AgentRequestAcceptance).',
+    )
+    requester_id: str | None = Field(
+        '',
+        description='Requester.id of the request. Non-empty (see AgentRequestAcceptance).',
+    )
 
 
 class AuthMethod(Enum):
@@ -1376,15 +1383,16 @@ class Requester(WireModel):
         max_length=260,
     ) = Field(
         ...,
-        description='Domain the requester belongs to. It carries the same bare-host shape\n "Request recipient" defines in the file header, for the same structural\n reason: a scheme, path or query smuggled in here would choose what gets\n fetched, not merely from where. It is NOT how a verifier finds this\n requester\'s keys: those live in the WBA directory, and verification resolves\n that directory from the COVERED `Signature-Agent` header, never from this\n self-asserted value.',
+        description='REQUIRED. Bare host of the requester\'s key directory: the WBA directory at\n {domain}/.well-known/http-message-signatures-directory that publishes the\n agent\'s Ed25519 keys. It carries the bare-host shape "Request recipient"\n defines in the file header (a port allowed), for the same structural\n reason: a scheme, path or query smuggled in here would choose what gets\n fetched, not merely from where. It is never a free label. Every verifier\n reads it as the name of that directory, and the rule that binds it depends\n on who signed the arriving request:\n\n- Direct request. The agent\'s own RFC 9421 signature arrives: the agent\n     sent the request itself, or a relay forwarded it byte-for-byte. The\n     verifier resolves the agent\'s keys from the COVERED `Signature-Agent`\n     header, never from this field. It then MUST require this field to name\n     that same directory: the host of the `Signature-Agent` URL, compared by\n     the identity rule "Request recipient" defines (the shape check first,\n     then case-folded, an absent port the same as ":443", a subdomain a\n     different party). A mismatch is refused as UNAUTHENTICATED with\n     `request_auth_failure` SIGNATURE_INVALID: the signature verifies, but\n     not for the requester the body names. An Exchange applies this rule on\n     every request it receives signed by the agent, exactly as a Broker\n     applies it at BrokerService.ExecuteTransaction.\n   - Purchase relayed through a Broker. BrokerService.ExecuteTransaction\n     re-packages the purchase, so the request signature and the covered\n     `Signature-Agent` are the Broker\'s. They say only that the call comes\n     from the Broker, and they sign no purchase. The Exchange MUST verify\n     each item\'s AgentAcceptance, and the AgentRequestAcceptance, against\n     the Ed25519 keys currently valid in the directory this field names\n     (see AgentRequestAcceptance), never against the Broker\'s key. Those\n     acceptances are the only agent signatures the Exchange sees.\n   - Discovery fan-out. A ResourceQuery a Broker authored carries no agent\n     signature, so nothing on that leg authenticates this field: it is the\n     Broker\'s statement, under the Broker\'s own signature, of whom it\n     queries for.',
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
         None,
         description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
     )
-    id: str | None = Field(
-        '', description='Unique requester identifier (e.g., "agent-research-bot-001").'
+    id: constr(min_length=1, max_length=255) = Field(
+        ...,
+        description='REQUIRED. A free label the agent chooses for attribution (e.g.\n "agent-research-bot-001"), 1 to 255 characters. Use it to tell apart the\n sub-agents or end customers that share one key directory. It is never\n identity: no verifier finds keys from it, and no party trusts it for an\n authentication or authorization decision. The requester\'s identity is\n `domain` together with the key that verifies. The acceptance signatures\n cover this label (see AgentAcceptancePayload), so a relaying Broker cannot\n rewrite it, but its value is still only what the agent says.',
     )
     name: str | None = Field(
         None, description='Human-readable name (e.g., "Acme Research Assistant").'

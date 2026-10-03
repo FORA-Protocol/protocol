@@ -76,7 +76,8 @@ import "fora/v1/vocab.proto";
 //                      AgentAcceptance and the request's AgentRequestAcceptance,
 //                      detached signatures that stay valid however the purchase
 //                      was re-packaged. Each Exchange verifies those against the
-//                      agent's published keys (see AgentRequestAcceptance).
+//                      keys published in the directory requester.domain names
+//                      (see Requester.domain and AgentRequestAcceptance).
 // A request forwarded BYTE-FOR-BYTE through intermediaries keeps the original
 // signature and gains one per forwarding hop (multiple Signature headers, each
 // covering the prior one); the ordered set is the forwarding chain. That chain
@@ -1835,16 +1836,51 @@ enum DeliveryMethod {
 // the Exchange resolves the caller's account (RegisterResponse.billing_ref)
 // from the verified signature, never from anything the caller sends.
 message Requester {
-  // Unique requester identifier (e.g., "agent-research-bot-001").
-  string id = 1;
+  // REQUIRED. A free label the agent chooses for attribution (e.g.
+  // "agent-research-bot-001"), 1 to 255 characters. Use it to tell apart the
+  // sub-agents or end customers that share one key directory. It is never
+  // identity: no verifier finds keys from it, and no party trusts it for an
+  // authentication or authorization decision. The requester's identity is
+  // `domain` together with the key that verifies. The acceptance signatures
+  // cover this label (see AgentAcceptancePayload), so a relaying Broker cannot
+  // rewrite it, but its value is still only what the agent says.
+  string id = 1 [
+    (buf.validate.field).string = {min_len: 1, max_len: 255}
+  ];
 
-  // Domain the requester belongs to. It carries the same bare-host shape
-  // "Request recipient" defines in the file header, for the same structural
+  // REQUIRED. Bare host of the requester's key directory: the WBA directory at
+  // {domain}/.well-known/http-message-signatures-directory that publishes the
+  // agent's Ed25519 keys. It carries the bare-host shape "Request recipient"
+  // defines in the file header (a port allowed), for the same structural
   // reason: a scheme, path or query smuggled in here would choose what gets
-  // fetched, not merely from where. It is NOT how a verifier finds this
-  // requester's keys: those live in the WBA directory, and verification resolves
-  // that directory from the COVERED `Signature-Agent` header, never from this
-  // self-asserted value.
+  // fetched, not merely from where. It is never a free label. Every verifier
+  // reads it as the name of that directory, and the rule that binds it depends
+  // on who signed the arriving request:
+  //
+  //   - Direct request. The agent's own RFC 9421 signature arrives: the agent
+  //     sent the request itself, or a relay forwarded it byte-for-byte. The
+  //     verifier resolves the agent's keys from the COVERED `Signature-Agent`
+  //     header, never from this field. It then MUST require this field to name
+  //     that same directory: the host of the `Signature-Agent` URL, compared by
+  //     the identity rule "Request recipient" defines (the shape check first,
+  //     then case-folded, an absent port the same as ":443", a subdomain a
+  //     different party). A mismatch is refused as UNAUTHENTICATED with
+  //     `request_auth_failure` SIGNATURE_INVALID: the signature verifies, but
+  //     not for the requester the body names. An Exchange applies this rule on
+  //     every request it receives signed by the agent, exactly as a Broker
+  //     applies it at BrokerService.ExecuteTransaction.
+  //   - Purchase relayed through a Broker. BrokerService.ExecuteTransaction
+  //     re-packages the purchase, so the request signature and the covered
+  //     `Signature-Agent` are the Broker's. They say only that the call comes
+  //     from the Broker, and they sign no purchase. The Exchange MUST verify
+  //     each item's AgentAcceptance, and the AgentRequestAcceptance, against
+  //     the Ed25519 keys currently valid in the directory this field names
+  //     (see AgentRequestAcceptance), never against the Broker's key. Those
+  //     acceptances are the only agent signatures the Exchange sees.
+  //   - Discovery fan-out. A ResourceQuery a Broker authored carries no agent
+  //     signature, so nothing on that leg authenticates this field: it is the
+  //     Broker's statement, under the Broker's own signature, of whom it
+  //     queries for.
   string domain = 2 [
     (buf.validate.field).string = {
       max_len: 260,
@@ -1901,8 +1937,11 @@ message Requester {
 
   // Request authentication is handled at the HTTP layer via RFC 9421
   // HTTP Message Signatures (alg=ed25519). The Requester's public keys are NOT
-  // in fora.json: they live in the WBA directory (WBAFile), and a verifier
-  // resolves that directory from the COVERED `Signature-Agent` header.
+  // in fora.json: they live in the WBA directory (WBAFile) that `domain` names.
+  // On a direct request a verifier resolves that directory from the COVERED
+  // `Signature-Agent` header and requires `domain` to name it; on a purchase a
+  // Broker relayed, it verifies the agent's acceptances against the directory
+  // `domain` names (see `domain`).
 
   // Optional delegation — present when the requester acts on behalf of
   // another entity (user, organization, upstream agent).
@@ -2087,8 +2126,19 @@ enum ResourceMutability {
 // it is topology-independent and content-bound, so it stays valid no matter how
 // many brokers relay the request, and binds the agent to THIS specific offer +
 // requester + transaction. It travels in the execute body alongside the
-// reflected Offer; the Exchange verifies it and binds the delivery URL to the
-// agent's key (RFC 7638 thumbprint of the acceptance key).
+// reflected Offer; the Exchange verifies it against an Ed25519 key currently
+// valid in the WBA directory `requester.domain` names, and binds the delivery
+// URL to that key (RFC 7638 thumbprint of the acceptance key).
+//
+// The acceptance MUST name a requester. Its canonical bytes carry a non-empty
+// requester_id and a non-empty requester_domain, taken from the enclosing
+// request's Requester. A signer refuses to sign bytes that name an empty
+// requester, and a verifier refuses an acceptance whose canonical bytes name
+// one, even when the signature over those bytes verifies. Such bytes bind the
+// agent's consent to nobody, and on a purchase relayed through
+// BrokerService.ExecuteTransaction this acceptance is the only agent signature
+// the Exchange sees: the request signature there is the Broker's, which says
+// only that the call comes from the Broker and never signs the purchase.
 //
 // `signature` is a hex-encoded detached Ed25519 signature (NOT a JWS) over the
 // CANONICAL SIGNING form of `AgentAcceptancePayload` — RFC 8785 JCS over canonical
@@ -2129,6 +2179,10 @@ message AgentAcceptance {
 // binding (cnf.jkt) against the key each item's AgentAcceptance verifies under,
 // not against the wire signer (see Delegation). The agent does not need to
 // delegate to the Broker's key for the Broker to relay its purchase.
+//
+// The payload names the requester exactly as AgentAcceptancePayload does, with
+// the same rule: a non-empty requester_id and requester_domain, which a signer
+// refuses to omit and a verifier refuses to accept empty.
 //
 // The verification key is the agent key published for the requester the signed
 // payload names. payload.requester_domain must equal the request's
@@ -2182,7 +2236,9 @@ message AgentRequestAcceptancePayload {
     (buf.validate.field).repeated.max_items = 256
   ];
 
+  // Requester.id of the request. Non-empty (see AgentRequestAcceptance).
   string requester_id = 2;
+  // Requester.domain of the request. Non-empty (see AgentRequestAcceptance).
   string requester_domain = 3;
   string idempotency_key = 4;
 }
@@ -2205,15 +2261,21 @@ message AgentRequestAcceptancePayload {
 // For batch mode, requester_* and idempotency_key come from the ENCLOSING
 // TransactionRequest (a TransactionItem carries neither); offer_sig is the
 // per-item Offer.signature.
+//
+// requester_id and requester_domain are never empty in an acceptance: a signer
+// refuses to build these bytes from a Requester missing either, and a verifier
+// refuses bytes that name an empty requester (see AgentAcceptance). The two
+// Requester fields are REQUIRED on the wire for the same reason.
 message AgentAcceptancePayload {
   // The accepted Offer's signature (Offer.signature). Anchors the whole signed
   // offer without re-serializing its terms/pricing/expiry.
   string offer_sig = 1;
 
-  // Requester identity (Requester.id) the acceptance is bound to.
+  // Requester label (Requester.id) the acceptance is bound to. Never empty.
   string requester_id = 2;
 
-  // Requester domain (Requester.domain) the acceptance is bound to.
+  // Requester domain (Requester.domain) the acceptance is bound to: the host of
+  // the key directory the acceptance verifies against. Never empty.
   string requester_domain = 3;
 
   // The transaction's idempotency key — binds the acceptance to a single
