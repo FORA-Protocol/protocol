@@ -15,8 +15,13 @@
     "connect.ValidationOff": "Member of the mapped connect.Validation enum. Python and TypeScript spell it as a literal (\"off\" / \"strict\") rather than a named export. The defaults differ deliberately and that divergence is recorded in docs/design-history.md, not here.",
     "connect.ValidationStrict": "Member of the mapped connect.Validation enum. Python and TypeScript spell it as a literal (\"off\" / \"strict\") rather than a named export. The defaults differ deliberately and that divergence is recorded in docs/design-history.md, not here.",
     "connect.WithAgentKey": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
+    "connect.WithBeforeSign": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connect.WithClientOptions": "Go escape hatch for raw connectrpc.ClientOption values, mirroring connectserver.WithHandlerOptions; py/ts have no Connect option type to pass through.",
     "connect.WithContentTimeout": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
+    "connect.WithDeliveries": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
+    "connect.WithDeliveryExchange": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
+    "connect.WithDeliveryKeyResolver": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
+    "connect.WithDeliveryVerification": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connect.WithEndpointResolver": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connect.WithGuardedBaseTransport": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connect.WithHTTPClient": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
@@ -32,6 +37,7 @@
     "connect.WithSignWindow": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connect.WithSignatureAgent": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connect.WithSigner": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
+    "connect.WithStrictDecoding": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connect.WithValidation": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connect.WithVerification": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connectserver.AsConnectError": "Go-only Connect error mapping; TS/Python emit reject-reason tokens only (matrix SERVER-role reject-mapping row).",
@@ -188,6 +194,16 @@
     "resolvers.SSRFCheckRedirect": "Go redirect-policy hook; py/ts fold redirect checks into the guard (async_ssrf_guard / the guarded fetch)."
   },
   "symbols": {
+    "connect.AdminClient": {
+      "allowlist_reason": null,
+      "python": "AdminClient",
+      "ts": "AdminClient"
+    },
+    "connect.BeforeSign": {
+      "allowlist_reason": null,
+      "python": "BeforeSign",
+      "ts": "BeforeSign"
+    },
     "connect.BrokerClient": {
       "allowlist_reason": null,
       "python": "BrokerClient",
@@ -223,6 +239,11 @@
       "python": "DEFAULT_MAX_RPC_READ_BYTES",
       "ts": "DEFAULT_MAX_RPC_READ_BYTES"
     },
+    "connect.Delivery": {
+      "allowlist_reason": null,
+      "python": "Delivery",
+      "ts": "Delivery"
+    },
     "connect.EndpointResolver": {
       "allowlist_reason": null,
       "python": "EndpointResolver",
@@ -232,6 +253,11 @@
       "allowlist_reason": null,
       "python": "error_detail_from",
       "ts": "errorDetailFrom"
+    },
+    "connect.NewAdminClient": {
+      "allowlist_reason": "Go NewX factory folds into the Python class constructor (AdminClient(...)); idiomatic Python exposes the class, not a separate factory symbol. TS keeps the create* object-factory prefix.",
+      "python": null,
+      "ts": "createAdminClient"
     },
     "connect.NewBrokerClient": {
       "allowlist_reason": "Go NewX factory folds into the Python class constructor (BrokerClient(...)); idiomatic Python exposes the class, not a separate factory symbol. TS keeps the create* object-factory prefix.",
@@ -257,6 +283,11 @@
       "allowlist_reason": null,
       "python": "Validation",
       "ts": "Validation"
+    },
+    "connect.WithRawBody": {
+      "allowlist_reason": null,
+      "python": "RawBody",
+      "ts": "RawBody"
     },
     "connectserver.NewBrokerServiceHandler": {
       "allowlist_reason": "Go-only full Connect Broker handler binding — OPEN DECISION in docs/sdk-parity-matrix.md",
@@ -335,6 +366,11 @@
       "allowlist_reason": null,
       "python": "Result",
       "ts": "Result"
+    },
+    "core.SigningTransportFor": {
+      "allowlist_reason": null,
+      "python": "signing_transport_for",
+      "ts": "signingTransportFor"
     },
     "core.VerifiedOffer": {
       "allowlist_reason": null,
@@ -451,6 +487,16 @@
       "python": "ContentTypeProto",
       "ts": "ContentTypeProto"
     },
+    "helpers.DefaultKeyValidity": {
+      "allowlist_reason": null,
+      "python": "DEFAULT_KEY_VALIDITY",
+      "ts": "DEFAULT_KEY_VALIDITY_MS"
+    },
+    "helpers.DirectoryDocument": {
+      "allowlist_reason": null,
+      "python": "directory_document",
+      "ts": "directoryDocument"
+    },
     "helpers.DisputeFailureDetail": {
       "allowlist_reason": null,
       "python": "dispute_failure_detail",
@@ -475,6 +521,11 @@
       "allowlist_reason": null,
       "python": "format_money",
       "ts": "formatMoney"
+    },
+    "helpers.GenerateKey": {
+      "allowlist_reason": null,
+      "python": "generate_key",
+      "ts": "generateKey"
     },
     "helpers.HashURL": {
       "allowlist_reason": null,

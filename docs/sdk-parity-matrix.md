@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 149 symbols at cross-language parity · 16 documented divergences · 185 Go-idiomatic exclusions · 38 conformance corpora, each tri-replayed.
+**At a glance:** 157 symbols at cross-language parity · 17 documented divergences · 191 Go-idiomatic exclusions · 39 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -45,12 +45,15 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `ContentDigest` | `content_digest` | `contentDigest` |
 | `ContentTypeJSON` | `ContentTypeJSON` | `ContentTypeJSON` |
 | `ContentTypeProto` | `ContentTypeProto` | `ContentTypeProto` |
+| `DefaultKeyValidity` | `DEFAULT_KEY_VALIDITY` | `DEFAULT_KEY_VALIDITY_MS` |
+| `DirectoryDocument` | `directory_document` | `directoryDocument` |
 | `DisputeFailureDetail` | `dispute_failure_detail` | `disputeFailureDetail` |
 | `DomainVerificationFailureDetail` | `domain_verification_failure_detail` | `domainVerificationFailureDetail` |
 | `EntryVerdict` | `EntryVerdict` | `EntryVerdict` |
 | `ErrManifestVersionRefused` | `ManifestVersionRefusedError` | `ManifestVersionRefused` |
 | `ErrUnknownKey` | `UnknownKeyError` | `UnknownKey` |
 | `FormatMoney` | `format_money` | `formatMoney` |
+| `GenerateKey` | `generate_key` | `generateKey` |
 | `HashURL` | `hash_url` | `hashUrl` |
 | `HostAnchored` | `host_anchored` | `hostAnchored` |
 | `HostOf` | `host_of` | `hostOf` |
@@ -166,6 +169,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `ReplayStore` | `ReplayStore` | `ReplayStore` |
 | `RequestIDHeader` | `RequestIDHeader` | `RequestIDHeader` |
 | `Result` | `Result` | `Result` |
+| `SigningTransportFor` | `signing_transport_for` | `signingTransportFor` |
 | `VerifiedOffer` | `VerifiedOffer` | `VerifiedOffer` |
 | `Verifier` | `Verifier` | `Verifier` |
 | `Window` | `Window` | `Window` |
@@ -174,6 +178,8 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 
 | Go | python | ts |
 |---|---|---|
+| `AdminClient` | `AdminClient` | `AdminClient` |
+| `BeforeSign` | `BeforeSign` | `BeforeSign` |
 | `BrokerClient` | `BrokerClient` | `BrokerClient` |
 | `CallError` | `CallError` | `ForaCallError` |
 | `CallErrorKind` | `CallErrorKind` | `CallErrorKind` |
@@ -181,10 +187,12 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `Client` | `Client` | `Client` |
 | `DefaultCallTimeout` | `DEFAULT_CALL_TIMEOUT_SEC` | `DEFAULT_CALL_TIMEOUT_MS` |
 | `DefaultMaxRPCReadBytes` | `DEFAULT_MAX_RPC_READ_BYTES` | `DEFAULT_MAX_RPC_READ_BYTES` |
+| `Delivery` | `Delivery` | `Delivery` |
 | `EndpointResolver` | `EndpointResolver` | `EndpointResolver` |
 | `ErrorDetailFrom` | `error_detail_from` | `errorDetailFrom` |
 | `RegistrationRequirementsReader` | `RegistrationRequirementsReader` | `RegistrationRequirementsReader` |
 | `Validation` | `Validation` | `Validation` |
+| `WithRawBody` | `RawBody` | `RawBody` |
 
 ### connectserver — server-verify handler binding
 
@@ -211,6 +219,7 @@ Deliberate, reason-backed asymmetries. The allowlist is **shrink-only** — a ne
 
 | Go symbol | python | ts | rationale |
 |---|---|---|---|
+| `connect.NewAdminClient` | — | `createAdminClient` | Go NewX factory folds into the Python class constructor (AdminClient(...)); idiomatic Python exposes the class, not a separate factory symbol. TS keeps the create* object-factory prefix. |
 | `connect.NewBrokerClient` | — | `createBrokerClient` | Go NewX factory folds into the Python class constructor (BrokerClient(...)); idiomatic Python exposes the class, not a separate factory symbol. TS keeps the create* object-factory prefix. |
 | `connect.NewCatalogClient` | — | `createCatalogClient` | Go NewX factory folds into the Python class constructor (CatalogClient(...)); idiomatic Python exposes the class, not a separate factory symbol. TS keeps the create* object-factory prefix. |
 | `connect.NewClient` | — | `createClient` | Go NewX factory folds into the Python class constructor (Client(...)); idiomatic Python exposes the class, not a separate factory symbol. TS keeps the create* object-factory prefix. |
@@ -248,8 +257,13 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `connect.ValidationOff` | Member of the mapped connect.Validation enum. Python and TypeScript spell it as a literal ("off" / "strict") rather than a named export. The defaults differ deliberately and that divergence is recorded in docs/design-history.md, not here. |
 | `connect.ValidationStrict` | Member of the mapped connect.Validation enum. Python and TypeScript spell it as a literal ("off" / "strict") rather than a named export. The defaults differ deliberately and that divergence is recorded in docs/design-history.md, not here. |
 | `connect.WithAgentKey` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
+| `connect.WithBeforeSign` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithClientOptions` | Go escape hatch for raw connectrpc.ClientOption values, mirroring connectserver.WithHandlerOptions; py/ts have no Connect option type to pass through. |
 | `connect.WithContentTimeout` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
+| `connect.WithDeliveries` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
+| `connect.WithDeliveryExchange` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
+| `connect.WithDeliveryKeyResolver` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
+| `connect.WithDeliveryVerification` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithEndpointResolver` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithGuardedBaseTransport` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithHTTPClient` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
@@ -265,6 +279,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `connect.WithSignWindow` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithSignatureAgent` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithSigner` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
+| `connect.WithStrictDecoding` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithValidation` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithVerification` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connectserver.AsConnectError` | Go-only Connect error mapping; TS/Python emit reject-reason tokens only (matrix SERVER-role reject-mapping row). |
@@ -462,6 +477,7 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 | `resolvers/testdata/wba-url-vectors.json` | ✅ | ✅ | ✅ |
 | `connect/testdata/client-request-vectors.json` | ✅ | ✅ | ✅ |
 | `connect/testdata/connect-error-vectors.json` | ✅ | ✅ | ✅ |
+| `connect/testdata/error-detail-wire-vectors.json` | ✅ | ❌ | ❌ |
 | `connect/testdata/synthesized-detail-vectors.json` | ✅ | ✅ | ✅ |
 | `connect/testdata/transport-failure-vectors.json` | ✅ | ✅ | ✅ |
 

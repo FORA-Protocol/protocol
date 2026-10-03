@@ -9,7 +9,7 @@ directly with no `replace` directive.
 | **L0** | `gen/go/fora/v1`, `gen/go/vocab/*` | generated wire types (consumed, never rebuilt) |
 | **L1** | **`sdk/go/helpers`** | stateless, **IO-free** protocol helpers — RFC 9421/7638 crypto, offer/acceptance verify, static key resolution, validation |
 | L2 · I/O | **`sdk/go/resolvers`** | the network-fetching tier: well-known JWKS / WBA directory / `fora.json` endpoint / offer-key resolvers, the uncached registration-requirements reader, + the SSRF-guarded HTTP client. Runs on a maintained `net/http` client behind the SSRF guard; composes L1, never the reverse |
-| L2 · transport | `sdk/go/core` (transport-neutral: Verifier, {verified,rejected}, `DiscoveryResult` per-URI groups, VerifiedOffer guard, signing RoundTripper, ReplayStore — zero Connect) · `sdk/go/connect` (Connect **client** binding: `NewClient` + `NewBrokerClient` + `NewCatalogClient`; the agent verbs **`Discover` · `Resolve` · `Execute` · `ExecuteBatch` · `ReportUsage` · `Dispute` · `Fetch`**, the Broker purchase **`BrokerClient.Execute`** (offers from several Exchanges in one call), the account-setup verbs **`Register` · `GetAccountStatus`** and the publisher verbs **`PushResources` · `RemoveResources` · `RefreshCatalog`** + client options + the `CallError` taxonomy + `ErrorDetailFrom`) · `sdk/go/connectserver` (Connect **server** binding: `NewExchangeServiceHandler` + `NewBrokerServiceHandler` + `NewCatalogServiceHandler` + server options + `AsConnectError` + `AttachErrorDetail`/`AttachDetail` + the reject answer **`RejectCode` · `IsBodyTooLarge` · `WriteReject`**, the one place the 413/429/401 split and the error-envelope body are decided) | transport-neutral core + Connect client/server bindings (state injected) |
+| L2 · transport | `sdk/go/core` (transport-neutral: Verifier, {verified,rejected}, `DiscoveryResult` per-URI groups, VerifiedOffer guard, signing RoundTripper, ReplayStore — zero Connect) · `sdk/go/connect` (Connect **client** binding: `NewClient` + `NewBrokerClient` + `NewCatalogClient` + `NewAdminClient`; the agent verbs **`Discover` · `Resolve` · `Execute` · `ExecuteBatch` · `ReportUsage` · `Dispute` · `Fetch`**, the Broker purchase **`BrokerClient.Execute`** (offers from several Exchanges in one call), the account-setup verbs **`Register` · `GetAccountStatus`** and the publisher verbs **`PushResources` · `RemoveResources` · `RefreshCatalog`**, the operator verbs **`SetTenantFeeRate` · `SetReportingPolicy` · `RequestDomainVerification` · `ConfirmDomainVerification`** + client options + the `CallError` taxonomy + `ErrorDetailFrom`) · `sdk/go/connectserver` (Connect **server** binding: `NewExchangeServiceHandler` + `NewBrokerServiceHandler` + `NewCatalogServiceHandler` + server options + `AsConnectError` + `AttachErrorDetail`/`AttachDetail` + the reject answer **`RejectCode` · `IsBodyTooLarge` · `WriteReject`**, the one place the 413/429/401 split and the error-envelope body are decided) | transport-neutral core + Connect client/server bindings (state injected) |
 | L3 | separate packages | framework adapters (convert, never replace) — later |
 
 The `L2` tier is split by kind: the **I/O** package (`resolvers`) is the only tier
@@ -284,6 +284,43 @@ defaulting to the guarded posture. The transport caps redirect depth at 5, caps
 well-known/JWKS bodies at 1 MiB, and fails closed if **any** resolved address of a
 host is reserved. The address/scheme decisions are corpus-locked
 (`resolvers/testdata/ssrf-*-vectors.json`).
+
+## Testing services through the client
+
+The client carries the capabilities a conformance or e2e harness needs to drive
+FORA services through it, so the harness never hand-writes a payload, parses a raw
+response or re-implements signing:
+
+- **`WithBeforeSign(hook)`** receives every RPC request just before it is signed. The
+  request it returns is what gets signed and sent, and the reply is decoded as usual,
+  so a deliberately malformed message still goes through the SDK's own signer and
+  decoder. Changing the method or URL, or setting a header the signer writes, is
+  refused as `CallMalformed` with nothing sent.
+- **`WithRawBody(body)`** (per call) sends the caller's bytes exactly as given, as the
+  binary protobuf body: nothing is filled in and no local refusal about the message
+  applies, while the call is still signed and its answer decoded. A verb that routes on
+  its request reads `exchange` from the body.
+- **`WithStrictDecoding()`** refuses an answer carrying an unknown field at any depth,
+  or breaking the proto's field or cross-field rules (protovalidate).
+- **`CallError.Code`** is the Connect code of the peer's answer — an error envelope or
+  a non-JSON error status — and zero when no answer arrived. The typed `ErrorDetail` is
+  decoded from the binary `value`; the shared `connect-error-vectors.json` and
+  `error-detail-wire-vectors.json` corpora hold all three SDKs to the same reading.
+- **Delivery verification.** `Execute`, `ExecuteBatch` and `BrokerClient.Execute`
+  verify every `retrieval_endpoint` before returning: its Ed25519 signature against the
+  issuing Exchange's URL-signing key (named by `kid`, resolved from that Exchange's WBA
+  key directory — `WithDeliveryKeyResolver` replaces the resolver), its `agent_id`
+  binding against this agent's key and the answer's `agent_identity_hash`, and its
+  expiry. A URL that does not verify is refused as `CallMalformed` with a
+  `retrieval_auth_failure` detail. `WithDeliveries(&out)` receives the verified
+  bindings; `Fetch(ctx, url, WithDeliveryExchange(exchange))` verifies a URL before
+  fetching it and returns the binding on `Content.Binding`.
+  `WithDeliveryVerification(core.Off)` opts out, for URLs in another signing scheme.
+- **`NewAdminClient`** covers every `fora.admin.v1.AdminService` RPC and the two
+  domain-verification RPCs.
+- **Identity helpers.** `helpers.GenerateKey` mints an Ed25519 key and its thumbprint,
+  `helpers.DirectoryDocument` builds the WBA key directory publishing a key set, and
+  `core.SigningTransportFor` returns a signing transport that signs as the key.
 
 ## Guarantees
 

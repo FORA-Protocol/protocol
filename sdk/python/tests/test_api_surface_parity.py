@@ -106,7 +106,12 @@ _GO_PACKAGES = ("helpers", "resolvers", "core", "connect", "connectserver", "pro
 # path, and that one has no default at all. The gate could not catch it, because it checks
 # the mapping and never the prose. Shipping the factory makes the entry a real 1:1 mapping
 # and the ratchet tightens with it.
-BASELINE_ALLOWLIST = 16
+#
+# Then 16 -> 17 under the sanctioned shape again: connect.NewAdminClient, the operator
+# client's Go factory, folds into the Python AdminClient class constructor exactly as
+# every other NewX does, and carries that same recorded reason. One entry, one
+# already-recorded class.
+BASELINE_ALLOWLIST = 17
 
 # HARD ZERO (was a shrink-only ratchet at 19) — undocumented TS-present / Python-null
 # gaps. The PRESENCE check skips nulls, so absent this ceiling a NEW Python-null gap

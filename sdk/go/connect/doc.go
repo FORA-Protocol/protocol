@@ -3,10 +3,19 @@
 // Execute and ExecuteBatch, the Broker purchase BrokerClient.Execute, ReportUsage,
 // Dispute and the low-tier content Fetch — the account-setup
 // verb set — Register and GetAccountStatus — and the publisher verb set —
-// PushResources, RemoveResources and RefreshCatalog — across three constructors:
-// NewClient for an Exchange, NewBrokerClient for a Broker, and NewCatalogClient
-// for an Exchange's CatalogService, which are different parties or different
-// addresses and so cannot share one base URL.
+// PushResources, RemoveResources and RefreshCatalog — and the operator verb set —
+// SetTenantFeeRate, SetReportingPolicy, RequestDomainVerification and
+// ConfirmDomainVerification — across four constructors: NewClient for an
+// Exchange, NewBrokerClient for a Broker, NewCatalogClient for an Exchange's
+// CatalogService and NewAdminClient for the operator plane, which are different
+// parties or different addresses and so cannot share one base URL.
+//
+// A purchase verifies every delivery URL it returns — its signature against the
+// issuing Exchange's URL-signing key, its agent binding and its expiry — and the
+// client carries what a conformance harness needs to drive a service through it:
+// a pre-signing hook (WithBeforeSign), raw mode (WithRawBody), strict response
+// decoding (WithStrictDecoding) and the Connect code of every peer answer
+// (CallError.Code).
 //
 // The account verbs sit on NewClient rather than on a fourth constructor because
 // they are the same party holding the same key: an account is per-Exchange and
