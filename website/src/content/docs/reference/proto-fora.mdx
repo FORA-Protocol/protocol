@@ -80,6 +80,8 @@ Rate limit status modeled after IETF RateLimit header fields.
 
 Identity and entitlements only — who is asking and what they're entitled to. What they're asking for (`uris`) and the limits they'll accept (`acceptable_restrictions`) live on the ask (`ResourceQuery` / `DiscoveryRequest`), not here. Used in `ResourceQuery` and `DiscoveryRequest`.
 
+`scopes` hides existence: a requester never learns about a resource outside its scopes. When the scopes leave no presentable offer for a resource, the Exchange answers with no offers and no absence reason, exactly as for any resource with nothing to offer, and an offer it presented is honoured until it expires. See [Existence hiding](/protocol/authentication/#existence-hiding).
+
 ::proto-message{name=Requester}
 
 ### Delegation
@@ -681,6 +683,8 @@ When an `Obligation` activates.
 
 ### DenialReason
 
+Why a purchase was refused. No value refuses a purchase for scope: an offer the Exchange presented is honoured until it expires. The value the table marks deprecated is never sent, and a receiver treats it as unknown.
+
 ::proto-enum{name=DenialReason numbers}
 
 ### DisputeReason
@@ -707,7 +711,7 @@ How the citation is presented to the user.
 
 ### OfferAbsenceReason
 
-Why no offers are available for a requested URI.
+Why no offers are available for a requested URI. No value reports a scope shortfall: a resource outside the requester's scopes comes back with no offers and no absence reason. The value the table marks deprecated is never sent, and a receiver treats it as unknown.
 
 ::proto-enum{name=OfferAbsenceReason numbers}
 

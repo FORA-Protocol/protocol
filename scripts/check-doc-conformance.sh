@@ -218,6 +218,23 @@ if [ -n "$num_hits" ]; then
   status=1
 fi
 
+# --- 1d. Deprecated, never-sent values must not be named in the guides ------
+# OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT and DENIAL_REASON_SCOPE_INSUFFICIENT
+# are deprecated and never sent: a scope shortfall is answered with no offers
+# and no absence reason, and an offer presented is honoured until it expires.
+# The guides once told an Exchange to send them and an agent how to react to
+# them. The proto must keep naming them (the numbers stay reserved), so this
+# check skips proto/fora and covers only the authored guides. The reference
+# tables render both values from the descriptor, marked deprecated, without the
+# directive source ever naming them, so the ban does not reach the reference.
+deprecated_roots=(website/src/content docs)
+dep_hits=$(grep -rEn -- 'SCOPE_INSUFFICIENT' "${deprecated_roots[@]}" 2>/dev/null | grep -Ev "$exclude_re" || true)
+if [ -n "$dep_hits" ]; then
+  echo "::error::deprecated, never-sent reason named in the guides — describe the existence-hiding rule (no offers, no absence reason) instead:"
+  echo "$dep_hits"
+  status=1
+fi
+
 # --- 2. Positive facts: required identifiers MUST be documented -------------
 # A denylist is necessary but not sufficient: it cannot catch a value that was
 # silently dropped from a "closed enum" table or a registry that drifted. These

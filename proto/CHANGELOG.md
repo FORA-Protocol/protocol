@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+**A scope shortfall is never disclosed: `OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT` and
+`DENIAL_REASON_SCOPE_INSUFFICIENT` are deprecated and never sent (no wire change).**
+Their comments described an Exchange sending them, which contradicted `Requester.scopes`:
+a requester never learns about a resource outside its scopes. `Requester.scopes` now
+states the existence-hiding rule once, and the related comments point at it.
+
+- At discovery, when the requester's scopes leave no presentable offer for a resource,
+  the Exchange answers with no offers and no absence reason, exactly as for any resource
+  with nothing to offer. A Broker relaying that answer adds no reason of its own.
+  `OfferGroup.absence_reason` is no longer described as present whenever `offers` is
+  empty.
+- At purchase, an offer the Exchange presented is honoured until it expires, so a scope
+  refusal cannot arise.
+- Both values are marked `[deprecated = true]`. Their numbers are retained, because
+  removing them would break the v1 wire contract, and must not be reused. A receiver
+  treats either value as unknown. The SDK readers still decode them, and the generated
+  models still accept them.
+- The guides no longer tell an Exchange to send either value, or an agent how to react
+  to one: the authentication page's disclosure-policy section became "Existence hiding",
+  and the Exchange-operator, enterprise, AI-agent, discovery-paths and threat-model pages
+  and the reference page follow it. The doc-conformance check now fails if either value
+  is named in the guides.
+
 **Edge discovery headers: `X-Content-Rules` and `X-FORA-Exchange` (HTTP convention
 specified; no message change).** When a publisher's edge refuses an unlicensed AI agent
 with 403, it answers with two discovery headers, and they are now part of the protocol.

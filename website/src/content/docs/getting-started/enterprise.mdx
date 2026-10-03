@@ -58,7 +58,7 @@ Even at $0, the transaction creates an evidence chain. For regulated industries 
 
 ## Scope-Based Catalog Filtering
 
-Enterprise IAM maps user roles to FORA scopes. The Exchange filters its catalog by those scopes. Resources outside the requester's scopes are denied with a diagnostic reason — no silent omission inside the enterprise.
+Enterprise IAM maps user roles to FORA scopes. The Exchange filters its catalog by those scopes. A resource outside the requester's scopes comes back with no offers and no absence reason, so the requester never learns it exists. This is the same rule a public Exchange follows (see [Existence hiding](/protocol/authentication/#existence-hiding)).
 
 ### How It Works
 
@@ -77,13 +77,13 @@ Her AI agent requests 5 internal resources:
 
 | # | URI | Required Scope | Jane's Scopes | Result |
 |---|-----|---------------|---------------|--------|
-| 1 | `internal://crm/account/ACME-001` | `crm:account:read` | `tax:customer:read`, `legal:read` | **Denied** |
+| 1 | `internal://crm/account/ACME-001` | `crm:account:read` | `tax:customer:read`, `legal:read` | **No offers, no reason** |
 | 2 | `internal://tax/customer/ACME-001` | `tax:customer:read` | `tax:customer:read`, `legal:read` | **Offer returned** |
 | 3 | `internal://legal/contract/ACME-001` | `legal:read` | `tax:customer:read`, `legal:read` | **Offer returned** |
-| 4 | `internal://hr/employee/jane` | `hr:read` | `tax:customer:read`, `legal:read` | **Denied** |
-| 5 | `internal://reports/financial/q4` | `reports:financial:read` | `tax:customer:read`, `legal:read` | **Denied** |
+| 4 | `internal://hr/employee/jane` | `hr:read` | `tax:customer:read`, `legal:read` | **No offers, no reason** |
+| 5 | `internal://reports/financial/q4` | `reports:financial:read` | `tax:customer:read`, `legal:read` | **No offers, no reason** |
 
-The 3 denied URIs come back with `OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT` — the agent knows *why* access was denied, not just that it failed. An Exchange returns this wherever access is subscription- or scope-gated (enterprise RBAC and public marketplace subscriptions alike) and the resource's existence isn't secret, so the agent learns a subscription/scope would unlock it. Where existence itself must stay hidden, the Exchange omits the resource silently instead.
+The 3 URIs outside Jane's scopes each come back as an `OfferGroup` with no offers and no `absence_reason`, the same answer the Exchange gives for a URI it has nothing for. Her agent cannot tell that these resources exist, so the HR record and the financial report stay hidden from someone not entitled to them. When Jane needs one of them, her access is granted in the IAM system, which then mints a token with the broader scopes.
 
 ## Token Minting Flow
 

@@ -248,7 +248,7 @@ Scopes are the mechanism by which the Exchange decides what resources to show a 
 
 1. Agent sends `ResourceQuery` with `Requester.scopes` (and optionally a `Delegation` that also carries scopes)
 2. Exchange filters its catalog — only resources matching the declared scopes are returned
-3. Resources outside the scopes are **not returned**. The requester never learns they exist.
+3. Resources outside the scopes are **not returned**. The requester never learns they exist (see [Existence hiding](#existence-hiding)).
 
 ### Scope Format
 
@@ -284,14 +284,14 @@ Matching is **segment-wise** (`:`-separated). A granted scope **G** covers a req
 
 **Enterprise scopes:** Specific `{domain}:{permission}` scopes grant access to restricted resources. The Exchange enforces RBAC by filtering the catalog to matching resources.
 
-### Disclosure Policy
+### Existence hiding
 
-When a resource exists but the requester's scopes are insufficient, the Exchange decides how to respond based on its disclosure policy:
+A requester never learns about a resource outside its scopes. This is a rule of the protocol, not an Exchange's policy choice, and it is stated on `Requester.scopes`:
 
-- **Hide existence:** Silent omission. The resource is simply not returned — no hint that it exists. Appropriate when the resource's existence is itself sensitive.
-- **Reveal it's gated:** Returns `OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT` in the `OfferGroup.absence_reason` field, telling the requester the resource exists but their scopes/subscription don't cover it. Standard wherever access is subscription- or scope-gated — enterprise RBAC and public marketplace subscriptions alike.
+- **At discovery:** when the requester's scopes leave no presentable offer for a resource, the Exchange answers with no offers and no absence reason (an `OfferGroup` with empty `offers` and `absence_reason` unset), exactly as for any resource with nothing to offer. A Broker relaying that answer adds no reason of its own.
+- **At purchase:** an offer the Exchange presented is honoured until it expires, so a purchase is never refused for scope.
 
-This distinction prevents information leakage on public Exchanges while allowing enterprise environments to provide actionable diagnostics.
+No `OfferAbsenceReason` or `DenialReason` value reports a scope shortfall. The two values that once did are deprecated and never sent, and a receiver treats them as unknown.
 
 ## Multi-hop forwarding
 
@@ -541,7 +541,7 @@ An internal agent at a law firm carries a delegation JWT issued by the firm's IA
 }
 ```
 
-The internal Exchange verifies the delegation JWT against `iam.kirkland.com`'s published key. Because the resource's existence isn't secret here, if the agent requests one outside its scopes the Exchange returns `OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT` rather than silently omitting it.
+The internal Exchange verifies the delegation JWT against `iam.kirkland.com`'s published key. If the agent requests a resource outside its scopes, that URI's group comes back with no offers and no absence reason, the same answer as for a resource the Exchange has nothing for (see [Existence hiding](#existence-hiding)).
 
 ### Delegated Sub-Agent (cnf-chained delegation)
 

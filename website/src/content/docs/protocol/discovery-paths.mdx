@@ -300,6 +300,8 @@ When an `OfferGroup` has no offers, the `absence_reason` field explains why. Thi
 
 ::proto-enum{name=OfferAbsenceReason}
 
+No reason reports that the requester's scopes do not cover a resource. Such a resource comes back with no offers and `absence_reason` unset, exactly like a resource with nothing to offer, so the requester never learns it exists (see [Existence hiding](/protocol/authentication/#existence-hiding)).
+
 `RESTRICTION_FILTERED` reports an optional **convenience pre-filter** matched to the restriction attributes the requester volunteered (function / geography / user-type); the filtered axes are listed in `OfferGroup.restriction_filters` using the same `RestrictionKind` vocabulary the terms carry — not an enforcement verdict: restrictions ride on each offer's own term and the agent chooses among the offers (see [Licensing terms](/protocol/licensing-terms/)).
 
 ### RateLimitInfo (v1.0)
