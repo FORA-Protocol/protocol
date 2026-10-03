@@ -25,17 +25,21 @@ from __future__ import annotations
 
 import asyncio
 import time
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import httpx
 
+from fora_sdk.core import Mode
 from fora_sdk.resolvers import _ssrf, guarded_async_client, guarded_client
 from fora_sdk.window import clock_window
 
-from . import _verbs
+from . import _admin, _verbs
 from ._call import (
     DEFAULT_CALL_TIMEOUT_SEC,
     DEFAULT_MAX_RPC_READ_BYTES,
+    BeforeSign,
+    RawBody,
     Validation,
     as_call_error,
 )
@@ -46,7 +50,7 @@ from ._read import (
     require_dialable_scheme,
     rpc_headers,
 )
-from ._verbs import ClientConfig, _with_requirements_reader
+from ._verbs import ClientConfig, _with_defaults
 from .content import (
     DEFAULT_CONTENT_TIMEOUT_SEC,
     DEFAULT_MAX_CONTENT_BYTES,
@@ -59,6 +63,14 @@ from .content import (
     redact_url,
     transport_failure,
 )
+from .delivery import (
+    BrokerExecuteResult,
+    Delivery,
+    DeliveryKeyResolver,
+    ExecuteResult,
+    Expected,
+    verify_delivery,
+)
 from .errors import NOT_CANONICAL_WIRE_NAMING, CallError, CallErrorKind
 from .route import EndpointResolver, RegistrationRequirementsReader
 
@@ -66,14 +78,16 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from wire.models import (
-        BrokerTransactionResponse,
         DisputeResponse,
+        DomainVerificationChallenge,
+        DomainVerificationResult,
         GetAccountStatusResponse,
         PushResourcesResponse,
         RefreshCatalogResponse,
         RegisterResponse,
         RemoveResourcesResponse,
-        TransactionResponse,
+        SetReportingPolicyResponse,
+        SetTenantFeeRateResponse,
         UsageReportResponse,
     )
 
@@ -88,14 +102,21 @@ __all__ = [
     "DEFAULT_MAX_RPC_READ_BYTES",
     "DEFAULT_PROOF_WINDOW_SEC",
     "NOT_CANONICAL_WIRE_NAMING",
+    "AdminClient",
+    "BeforeSign",
     "BrokerClient",
+    "BrokerExecuteResult",
     "CallError",
     "CallErrorKind",
     "CatalogClient",
     "Client",
     "ClientConfig",
     "Content",
+    "Delivery",
+    "DeliveryKeyResolver",
     "EndpointResolver",
+    "ExecuteResult",
+    "RawBody",
     "RegistrationRequirementsReader",
     "Validation",
 ]
@@ -131,15 +152,18 @@ class _Face:
         self._guarded = guarded if guarded is not None else (
             self._http if not self._owns else guarded_async_client(follow_redirects=False)
         )
-        self._config, self._requirements_http = _with_requirements_reader(config)
+        self._config, self._owned = _with_defaults(config)
+        #: The requirements reader's transport when this client built it; kept by name
+        #: because a test proves it is closed with the client.
+        self._requirements_http = self._owned.requirements
 
     async def aclose(self) -> None:
         """Close the transports this client built. An injected one is left alone."""
         # Independent of the RPC legs above: this client is built here whenever the
         # caller injected no reader, whether or not it injected an RPC transport, so it
-        # is closed on its own terms rather than behind that ownership question.
-        if self._requirements_http is not None:
-            self._requirements_http.close()
+        # is closed on its own terms rather than behind that ownership question. The
+        # delivery-key resolver's transport is the same case.
+        self._owned.close()
         if not self._owns:
             return
         await self._http.aclose()
@@ -235,16 +259,22 @@ class Client(_Face):
 
     async def execute(
         self,
-        offer: VerifiedOffer | Sequence[VerifiedOffer],
+        offer: VerifiedOffer | Sequence[VerifiedOffer] | RawBody,
         *,
         idempotency_key: str | None = None,
-    ) -> TransactionResponse:
+    ) -> ExecuteResult:
         """Commit to a VERIFIED offer — or several issued by ONE Exchange, in one request —
         and return the transaction response. Offers from several Exchanges are refused
-        locally; buy those through :meth:`BrokerClient.execute`."""
+        locally; buy those through :meth:`BrokerClient.execute`.
+
+        Every retrieval URL in the answer is verified before it is handed back — its
+        signature against the issuing Exchange's published key, its binding to this
+        agent, its expiry — and the verified binding of each is on
+        :attr:`ExecuteResult.deliveries`. A URL that does not verify refuses the answer
+        (``ClientConfig.delivery_verification`` turns this off)."""
         plan = _verbs.plan_execute(self._config, offer, idempotency_key)
         status, body = await self._send(plan)
-        return _verbs.finish_execute(plan, status, body)
+        return await asyncio.to_thread(_verbs.finish_execute, self._config, plan, status, body)
 
     async def report_usage(
         self, report: RequestMessage, *, idempotency_key: str | None = None
@@ -291,7 +321,7 @@ class Client(_Face):
         status, body = await self._send(plan)
         return _verbs.finish_get_account_status(plan, status, body)
 
-    async def fetch(self, signed_url: str) -> Content:
+    async def fetch(self, signed_url: str | Delivery, *, exchange: str | None = None) -> Content:
         """Retrieve the content a signed delivery URL names, presenting proof of
         possession of the agent key that URL is bound to.
 
@@ -300,16 +330,18 @@ class Client(_Face):
         separate, higher tier. It takes no idempotency key: a fetch is a GET against an
         already-issued URL, and nothing on this path mutates state.
 
-        The URL is taken as given. Whether it is one this agent bought, and whether its
-        agent_id matches this agent's key, are the CALLER's checks — the SDK exports
-        ``verify_ed25519_signed_url`` and ``verify_agent_binding`` for exactly that, and
-        running them first turns an edge 403 into a local answer.
+        Given a :class:`Delivery` from ``execute``, or a URL and the ``exchange`` that
+        issued it, the URL is verified before anything is sent — its signature against
+        that Exchange's published key, its binding to this agent, its expiry — and the
+        verified binding is on ``Content.binding``. A bare URL with no Exchange named is
+        fetched as given, and the edge is the only check.
         """
-        headers, timeout, max_bytes = _fetch_inputs(self._config, signed_url)
+        url, binding = await asyncio.to_thread(_fetch_target, self._config, signed_url, exchange)
+        headers, timeout, max_bytes = _fetch_inputs(self._config, url)
         op = "fetch content"
         self._refuse_if_closed(op)
         # A delivery URL always names a host another party chose.
-        require_dialable_scheme(op, signed_url)
+        require_dialable_scheme(op, url)
         try:
             # Redirects are REFUSED. Following one would either replay a proof bound to
             # the old URL, which the edge's own check rejects, or hand a fresh proof of
@@ -319,7 +351,7 @@ class Client(_Face):
             # a delivery edge is a host another party named.
             async with self._guarded.stream(
                 "GET",
-                signed_url,
+                url,
                 headers={**headers, **IDENTITY_ENCODING},
                 timeout=timeout,
                 follow_redirects=False,
@@ -352,7 +384,7 @@ class Client(_Face):
                 read = bounded_chunks(op, max_bytes, response.status_code)
                 async for chunk in response.aiter_bytes():
                     read.add(chunk)
-                return read_content(signed_url, response, read.body())
+                return replace(read_content(url, response, read.body()), binding=binding)
         except httpx.HTTPError as exc:
             raise transport_failure(exc) from exc
         except _ssrf.SsrfError as exc:
@@ -392,8 +424,8 @@ class BrokerClient(_Face):
         )
 
     async def execute(
-        self, offers: Sequence[VerifiedOffer], *, idempotency_key: str | None = None
-    ) -> BrokerTransactionResponse:
+        self, offers: Sequence[VerifiedOffer] | RawBody, *, idempotency_key: str | None = None
+    ) -> BrokerExecuteResult:
         """Buy VERIFIED offers through the Broker in one call, however many Exchanges issued
         them (BrokerService.ExecuteTransaction).
 
@@ -404,10 +436,16 @@ class BrokerClient(_Face):
 
         Needs ``requester`` and a signer whose ``signature_agent`` directory host is
         ``requester.domain`` — a Broker refuses any other pairing, so this client does first.
+
+        Every retrieval URL in the answer is verified against the key of the Exchange that
+        issued that item's offer, as :meth:`Client.execute` does, and the verified
+        bindings are on :attr:`BrokerExecuteResult.deliveries`.
         """
         plan = _verbs.plan_broker_execute(self._config, offers, idempotency_key)
         status, body = await self._send(plan)
-        return _verbs.finish_broker_execute(plan, status, body)
+        return await asyncio.to_thread(
+            _verbs.finish_broker_execute, self._config, plan, status, body
+        )
 
 
 class CatalogClient(_Face):
@@ -451,9 +489,79 @@ class CatalogClient(_Face):
         return _verbs.finish_refresh_catalog(plan, status, body)
 
 
-def _fetch_inputs(
-    config: ClientConfig, signed_url: str
-) -> tuple[dict[str, str], float, int]:
+class AdminClient(_Face):
+    """The operator client: ``fora.admin.v1.AdminService`` and the two domain-verification
+    RPCs of ``fora.v1.ExchangeService``.
+
+    A SEPARATE class because the caller is a different party — the operator and its
+    onboarding tooling, not an agent — and the admin plane is a different address: the
+    contract keeps AdminService off the public agent-facing listener. Every call goes to
+    the configured base URL over the plain transport; a deployment that serves the admin
+    listener and the Exchange endpoint apart builds one client per address.
+
+    ``ver`` is filled when empty and each request is checked against its generated model.
+    The two domain-verification requests name their recipient in ``exchange``, and one
+    that names none is refused before it is sent. Requests are signed when a ``signer``
+    is configured; the admin plane does not require it. Each verb accepts a generated
+    model, a dict or a :class:`RawBody`.
+    """
+
+    def __init__(self, config: ClientConfig, *, http: httpx.AsyncClient | None = None) -> None:
+        super().__init__(config, http)
+
+    async def set_tenant_fee_rate(self, request: RequestMessage) -> SetTenantFeeRateResponse:
+        """Replace a tenant's fee rate (AdminService.SetTenantFeeRate)."""
+        plan = _admin.plan_set_tenant_fee_rate(self._config, request)
+        status, body = await self._send(plan)
+        return _admin.finish_set_tenant_fee_rate(plan, status, body)
+
+    async def set_reporting_policy(self, request: RequestMessage) -> SetReportingPolicyResponse:
+        """Replace a tenant's reporting policy (AdminService.SetReportingPolicy)."""
+        plan = _admin.plan_set_reporting_policy(self._config, request)
+        status, body = await self._send(plan)
+        return _admin.finish_set_reporting_policy(plan, status, body)
+
+    async def request_domain_verification(
+        self, request: RequestMessage
+    ) -> DomainVerificationChallenge:
+        """Ask for a domain-verification challenge (ExchangeService.RequestDomainVerification)."""
+        plan = _admin.plan_request_domain_verification(self._config, request)
+        status, body = await self._send(plan)
+        return _admin.finish_request_domain_verification(plan, status, body)
+
+    async def confirm_domain_verification(
+        self, request: RequestMessage
+    ) -> DomainVerificationResult:
+        """Confirm a placed challenge (ExchangeService.ConfirmDomainVerification)."""
+        plan = _admin.plan_confirm_domain_verification(self._config, request)
+        status, body = await self._send(plan)
+        return _admin.finish_confirm_domain_verification(plan, status, body)
+
+
+def _fetch_target(
+    config: ClientConfig, target: str | Delivery, exchange: str | None
+) -> tuple[str, Delivery | None]:
+    """The URL a fetch dials, and the binding verified for it when an Exchange is named.
+
+    Shared by both faces. It resolves a key, which may go to the network, so the async
+    face runs it in a thread. A refusal raises before the proof is minted, so nothing
+    leaves the process for a URL this client already knows the edge would refuse.
+    """
+    url = target.url if isinstance(target, Delivery) else target
+    named = target.exchange if isinstance(target, Delivery) else exchange
+    if not named or config.delivery_verification is Mode.OFF:
+        return url, None
+    if config.signer is None or config.delivery_keys is None:
+        # The signer is refused with its own reason by _fetch_inputs; checked here too
+        # because the binding is to its key. The facades always fill in delivery_keys.
+        _fetch_inputs(config, url)
+        return url, None
+    stated = target.agent_id if isinstance(target, Delivery) else ""
+    expected = Expected(exchange=named, agent=config.signer.thumbprint, stated=stated)
+    return url, verify_delivery("fetch content", url, expected, config.delivery_keys)
+
+
+def _fetch_inputs(config: ClientConfig, signed_url: str) -> tuple[dict[str, str], float, int]:
     """The proof headers, what is LEFT of the deadline, and the body cap for one fetch.
 
     The deadline covers proof minting as well as the round trip. Minting may call out to a

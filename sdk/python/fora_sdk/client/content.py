@@ -30,6 +30,8 @@ if TYPE_CHECKING:
     from fora_sdk.signing_transport import SigningTransport
     from fora_sdk.window import Window
 
+    from .delivery import Delivery
+
 #: Bounds one content fetch, in seconds. An agent is blocked on the call that triggered
 #: it, so a fetch that has not answered by now is more useful as a reported failure than
 #: as a hang.
@@ -107,6 +109,10 @@ class Content:
     mime_type: str
     #: The fetched bytes.
     body: bytes
+    #: The binding this client verified before fetching: the URL's signature against the
+    #: issuing Exchange's key, its agent binding and its expiry. ``None`` when the URL
+    #: was fetched as given — no Exchange was named, or verification is off.
+    binding: Delivery | None = None
 
 
 def proof_headers(

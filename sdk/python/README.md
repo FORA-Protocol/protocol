@@ -47,6 +47,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier
 from fora_sdk.resolvers import (
     CachedOfferKeyResolver,
+    WBAKeyResolver,
     WellKnownEndpointResolver,
     create_wba_offer_directory_fetch,
     guarded_client,
@@ -121,6 +122,10 @@ def buy_and_fetch(*, exchange: str, uri: str, seed: bytes) -> bytes:
         requester=AGENT,
         verifier=verifier,
         endpoint_resolver=endpoints,
+        # The key each delivery URL is checked against, resolved by its kid from the
+        # issuing Exchange's Web Bot Auth directory. The client builds this same resolver
+        # by default; it is passed here only to carry the sandbox scheme.
+        delivery_keys=WBAKeyResolver(scheme=SCHEME),
     )
 
     with Client(config) as client:
@@ -133,12 +138,15 @@ def buy_and_fetch(*, exchange: str, uri: str, seed: bytes) -> bytes:
             raise RuntimeError(f"no verifiable offer for {uri}: {refused}")
 
         # 5. Buy it. execute() accepts only a verified offer, so an unverified one
-        #    cannot be paid for by mistake.
-        item = client.execute(offers[0]).items[0]
+        #    cannot be paid for by mistake, and it verifies every delivery URL in the
+        #    answer: signed by the issuing Exchange, bound to this agent, not expired.
+        bought = client.execute(offers[0])
+        item = bought.items[0]
 
         # 6. Fetch. The delivery URL is bound to the agent's thumbprint and the client
         #    presents the matching proof of possession, so a copied link fetches nothing.
-        content = client.fetch(item.retrieval_endpoint)
+        #    Passing the verified delivery checks it again before anything is sent.
+        content = client.fetch(bought.deliveries[0])
 
         # 7. Report what was used. It goes to the Exchange the offer named, resolved the
         #    same way as step 2 — never to whatever base_url happened to be configured.
@@ -342,6 +350,10 @@ The rest are bounds and seams with working defaults:
 | `request_id` | `None`, meaning **no header is sent** | mints the `X-Request-ID` correlation value |
 | `validation` | `"strict"` | whether an outbound message is checked against its generated model before it is sent. Orthogonal to offer verification, which is about what comes back |
 | `registration_requirements` | a reader built on the guarded client, once per client | where `register` reads an Exchange's terms revision and registration schema. It holds no document cache on purpose: the contract requires the terms digest to come from a freshly fetched manifest |
+| `delivery_keys` | a `WBAKeyResolver` built on the guarded client, once per client | where `execute` and `fetch` find the key an Exchange signs delivery URLs with: the URL's `kid`, resolved from that Exchange's Web Bot Auth directory |
+| `delivery_verification` | `Mode.STRICT` | whether a delivery URL is verified (signature, agent binding, expiry) before it is handed back or dialled. `Mode.OFF` is for a deployment whose URLs use another signing scheme |
+| `strict` | `False` | refuse an answer carrying an unknown field, or breaking a field-level or cross-field rule. See [Testing a FORA service](#testing-a-fora-service) |
+| `before_sign` | `None` | a hook that receives each request just before it is signed. See [Testing a FORA service](#testing-a-fora-service) |
 
 **Build a client once and reuse it.** `ClientConfig`, the resolvers and the `Verifier`
 are all designed to be shared: the endpoint resolver caches each Exchange's manifest
@@ -352,15 +364,16 @@ processes is the signing key.
 
 ### The verbs
 
-Requests are plain dicts in proto-JSON **snake_case**; a camelCase key is refused as
-malformed rather than silently ignored. Responses are the generated Pydantic models from
-`wire.models`.
+Requests are plain dicts in proto-JSON **snake_case**, or the generated request models
+from `wire.models`; a camelCase key is refused as malformed rather than silently ignored.
+`to_wire(model)` shows the JSON object a model is sent as. Responses are the generated
+Pydantic models.
 
 | Verb | Send | Get back |
 |---|---|---|
 | `discover(query)` | `exchange`, `uris`, optional filters | `DiscoveryResult`: `groups` (one per requested URI, each with `uri`, `result.verified`, `result.rejected`, `absence_reason`), plus `exchange` and `rate_limit`. `verified()` and `rejected()` flatten across groups |
-| `execute(offer, *, idempotency_key=None)` | a `VerifiedOffer`, or a sequence of them issued by one Exchange — nothing else is accepted | `TransactionResponse`: `items`, each with `transaction_id`, `billing_id`, `retrieval_endpoint`, `expires_at`, `cost` |
-| `fetch(signed_url)` | one `retrieval_endpoint` | `Content`: `url`, `mime_type`, `body` |
+| `execute(offer, *, idempotency_key=None)` | a `VerifiedOffer`, or a sequence of them issued by one Exchange — nothing else is accepted | `ExecuteResult`, which is the `TransactionResponse` (`items`, each with `transaction_id`, `billing_id`, `retrieval_endpoint`, `expires_at`, `cost`) plus `deliveries`: the verified `Delivery` of each item's URL |
+| `fetch(signed_url, *, exchange=None)` | a `Delivery` from `execute`, or a `retrieval_endpoint` and the Exchange that issued it | `Content`: `url`, `mime_type`, `body`, and `binding`, the `Delivery` verified before the fetch |
 | `report_usage(report, *, idempotency_key=None)` | `exchange`, `transaction_id`, `billing_id`, `usage` | `UsageReportResponse`: `report_id`, which a later dispute must cite |
 | `dispute(request, *, idempotency_key=None)` | `exchange`, `transaction_id`, `report_id`, `reason` | `DisputeResponse` |
 | `register(request)` / `get_account_status(request)` | account setup with an Exchange | `RegisterResponse` / `GetAccountStatusResponse` |
@@ -377,19 +390,31 @@ you already have — from your own crawl frontier, a publisher's catalogue, or a
 it knows and relays back what they offered, so a caller with no idea which Exchange sells
 a resource starts there rather than with `discover`.
 
+**Every delivery URL is verified.** `execute` checks each `retrieval_endpoint` before it
+returns: the signature against the key the issuing Exchange publishes in its Web Bot Auth
+directory (named by the URL's `kid`), the binding to this agent's key (`agent_id`, and the
+answer's `agent_identity_hash`), and the expiry. A URL that fails is refused as
+`MALFORMED`, with a `retrieval_auth_failure` detail in the edge's own vocabulary and the
+item named in the message. `fetch` repeats the check before it dials when it is given a
+`Delivery`, or a URL with `exchange=`; a bare URL is fetched as given.
+
 Failures arrive as one `CallError` carrying a `CallErrorKind` — `NOT_SENT`, `REFUSED`,
 `UNREACHABLE`, `MALFORMED`, `TOO_LARGE`, `NOT_SIGNABLE`, `UNKNOWN` — plus the peer's own
-reason token and, when the peer sent one, a typed `ErrorDetail`. One failure type for
+reason token, the Connect `code` when the peer answered with one, and, when the peer sent
+one, a typed `ErrorDetail`, decoded from the binary `details[].value` the error carries. One failure type for
 every verb, so a caller branches in one place. `NOT_SENT` is worth singling out: it means
 the client refused before anything left the process, so retrying without changing
 something will fail the same way.
 
 `BrokerClient` carries `resolve` for brokered discovery and `execute` for a brokered
-purchase, and `CatalogClient` carries the publisher verbs. Both take the same
-`ClientConfig`, because a publisher addresses a different endpoint with a different key.
+purchase, `CatalogClient` carries the publisher verbs, and `AdminClient` carries the
+operator verbs: `set_tenant_fee_rate` and `set_reporting_policy` (`fora.admin.v1`), and
+`request_domain_verification` and `confirm_domain_verification`. All take the same
+`ClientConfig`, because each addresses a different endpoint, often with a different key.
 
 `BrokerClient.execute(offers, *, idempotency_key=None)` buys offers from any number of
-Exchanges in one call and returns a `BrokerTransactionResponse`: `items` in request order,
+Exchanges in one call and returns a `BrokerExecuteResult` — the `BrokerTransactionResponse`
+plus `deliveries`, each URL verified against its own Exchange's key: `items` in request order,
 `exchanges` (one `ExchangeOutcome` per Exchange contacted) and `totals` (one `Cost` per
 currency, never summed across currencies). The Broker sends one sub-request per Exchange,
 signed with its own key, and your acceptances travel in each body, so every Exchange still
@@ -399,6 +424,27 @@ items come back unchanged. The signer must set `signature_agent`, and its direct
 must be `requester.domain`: a Broker refuses any other pairing, so the client refuses it
 first, as `MALFORMED`. `Client.execute` with offers from more than one Exchange is refused
 the same way; buy those through the Broker.
+
+### Testing a FORA service
+
+The client is also a test harness. Four capabilities let a conformance or e2e suite drive
+a service through the SDK and check every answer through it:
+
+- **`ClientConfig.before_sign`** receives each request as an `httpx.Request` after the SDK
+  built and checked it, just before it is signed. The request it returns is signed and
+  sent, and the answer decoded as usual, so a deliberately broken message still goes
+  through the SDK's own signer and decoder. A hook may not change the method or URL, or
+  set a header the signer writes.
+- **`RawBody(body)`** passed to any verb in place of its request sends `body` exactly as
+  given: no `ver`, `idempotency_key` or `requester` is filled in and nothing about the
+  message is refused locally. It is still signed and its answer still decoded. A routed
+  verb still reads its destination from the body's `exchange`.
+- **`ClientConfig(strict=True)`** refuses an answer carrying an unknown field at any
+  depth, or breaking a field-level or cross-field rule, using the published strict JSON
+  Schema of the response message (`wire.schemas`) and the SDK's cross-field rules.
+- **Identity helpers** in `fora_sdk.identity` mint a throwaway agent: `generate_key()`,
+  `directory_document(keys)` for the directory to serve, and
+  `signing_transport_for(key, directory)`.
 
 ### Running against a local Exchange
 

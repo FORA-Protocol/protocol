@@ -172,6 +172,9 @@ class _Exchange:
             [
                 wba_jwk(key.x, now - 2 * _SLACK, now - _SLACK),
                 wba_jwk(_b64(self.offer_pub), now - _SLACK, now + _SLACK),
+                # The delivery-URL key. A URL names it by thumbprint in kid, and a
+                # client verifying a delivery resolves it from this same directory.
+                wba_jwk(_b64(self.delivery_pub), now - _SLACK, now + _SLACK),
             ]
         )
 
@@ -190,12 +193,13 @@ class _Exchange:
         signed = sign_ed25519_signed_url(
             self.url + CONTENT_PATH,
             seed=self.delivery_seed,
-            kid="ex.v1",
+            kid=thumbprint(self.delivery_pub),
             agent_id=self.agent_thumbprint,
             exp=int(time.time() + _SLACK.total_seconds()),
         )
         return {
             "ver": "1.0",
+            "agent_identity_hash": self.agent_thumbprint,
             "items": [
                 {
                     "offer_id": "offer-1",

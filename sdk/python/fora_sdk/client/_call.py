@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 import httpx
@@ -34,6 +35,7 @@ from fora_sdk.wire import (
     RequestIDHeader,
 )
 
+from ._strict import check_strict
 from .errors import (
     NOT_CANONICAL_WIRE_NAMING,
     CallError,
@@ -80,6 +82,57 @@ def rpc_url(base_url: str, service: str, method: str) -> str:
 BeforeSign = Callable[[httpx.Request], httpx.Request]
 
 
+@dataclass(frozen=True)
+class RawBody:
+    """A request body a verb sends exactly as given — raw mode, chosen per call.
+
+    Pass one to any verb in place of its request (to ``execute`` in place of the offers).
+    The verb then fills in nothing — no ``ver``, no ``idempotency_key``, no ``requester``
+    — checks nothing about the message, and refuses nothing about it locally. It still
+    signs the bytes when a signer is configured, still runs ``before_sign``, still caps
+    the read, and still decodes the reply into the verb's response model, strictly when
+    the client is strict. It is for a test that must put a message on the wire the SDK
+    would never build, and see how the peer answers.
+
+    ``bytes`` are sent verbatim and ``str`` as its UTF-8 bytes; any other value is
+    serialized once, as compact JSON. A verb that routes by the message — a usage report,
+    a dispute, a registration, an account-status read — still reads the destination from
+    the body's ``exchange`` member and resolves it as usual, because the address a signed
+    call goes to is not a property of the message under test. A body with no usable
+    ``exchange`` is refused as not sent: there is nothing to dial.
+    """
+
+    body: Any
+
+    def encoded(self, op: str) -> bytes:
+        """The bytes the call sends."""
+        if isinstance(self.body, bytes):
+            return self.body
+        if isinstance(self.body, str):
+            return self.body.encode()
+        try:
+            return json.dumps(self.body, separators=(",", ":")).encode()
+        except (TypeError, ValueError) as exc:
+            raise malformed(op, exc) from exc
+
+    def parsed(self) -> dict[str, Any]:
+        """The body as a JSON object, or ``{}`` when it is not one.
+
+        Read only for what the SDK still needs from a raw call: the destination of a
+        routed verb, and the URIs a flat discovery answer is attributed to.
+        """
+        if isinstance(self.body, dict):
+            return self.body
+        raw = self.body.encode() if isinstance(self.body, str) else self.body
+        if not isinstance(raw, bytes):
+            return {}
+        try:
+            value = json.loads(raw)
+        except (ValueError, RecursionError):
+            return {}
+        return value if isinstance(value, dict) else {}
+
+
 class SigningSettings(Protocol):
     """The signing knobs ``prepare`` reads. ``ClientConfig`` satisfies it as it stands."""
 
@@ -100,10 +153,13 @@ def prepare(
     Serialized ONCE: RFC 9530 Content-Digest covers the exact octets, so re-rendering
     between signing and sending would produce a digest for a body the peer never received.
     """
-    try:
-        body = json.dumps(message, separators=(",", ":")).encode()
-    except (TypeError, ValueError) as exc:
-        raise malformed(op, exc) from exc
+    if isinstance(message, RawBody):
+        body = message.encoded(op)
+    else:
+        try:
+            body = json.dumps(message, separators=(",", ":")).encode()
+        except (TypeError, ValueError) as exc:
+            raise malformed(op, exc) from exc
     headers = {
         "content-type": ContentTypeJSON,
         ConnectProtocolVersionHeader: ConnectProtocolVersion,
@@ -212,7 +268,7 @@ def validate_request(op: str, message: Any, model: type[BaseModel], validation: 
 
 
 def decode_with_raw(
-    op: str, status: int, body: str, model: type[BaseModel]
+    op: str, status: int, body: str, model: type[BaseModel], *, strict: bool = False
 ) -> tuple[Any, dict[str, Any]]:
     """Decode one answer and hand back the RAW object beside the parsed message.
 
@@ -224,20 +280,25 @@ def decode_with_raw(
     """
     _refuse_redirect(op, status)
     payload = _parse_json(op, status, body)
-    parsed = _validate(op, status, payload, model)
+    parsed = _validate(op, status, payload, model, strict=strict)
     return parsed, payload if isinstance(payload, dict) else {}
 
 
-def decode(op: str, status: int, body: str, model: type[BaseModel]) -> Any:
+def decode(
+    op: str, status: int, body: str, model: type[BaseModel], *, strict: bool = False
+) -> Any:
     """Turn one answer into a parsed message, or raise the typed failure.
 
     A non-2xx is the Connect error envelope ``{code, message, details}``. The typed reason
-    rides in ``details``, which :func:`~fora_sdk.errordetail.error_detail_from` reads —
-    including the lowerCamelCase ``debug`` projection connect-go emits there and no server
-    codec replaces.
+    rides in ``details``, which :func:`~fora_sdk.errordetail.error_detail_from` reads:
+    each entry's binary ``value`` first, and the lowerCamelCase ``debug`` projection
+    connect-go emits beside it only when the value is absent.
+
+    ``strict`` also refuses a success answer carrying an unknown field or breaking a
+    cross-field rule; see :func:`fora_sdk.client._strict.check_strict`.
     """
     _refuse_redirect(op, status)
-    return _validate(op, status, _parse_json(op, status, body), model)
+    return _validate(op, status, _parse_json(op, status, body), model, strict=strict)
 
 
 _HTTP_MULTIPLE_CHOICES_END = 400
@@ -261,9 +322,13 @@ def _refuse_redirect(op: str, status: int) -> None:
         )
 
 
-def _validate(op: str, status: int, payload: Any, model: type[BaseModel]) -> Any:
+def _validate(
+    op: str, status: int, payload: Any, model: type[BaseModel], *, strict: bool = False
+) -> Any:
     if not _HTTP_OK <= status < _HTTP_MULTIPLE_CHOICES:
         raise _connect_envelope_error(op, status, payload)
+    if strict:
+        check_strict(op, model, payload)
     try:
         return model.model_validate(payload)
     except ValidationError as exc:

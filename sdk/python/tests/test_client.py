@@ -338,7 +338,8 @@ def test_a_connect_error_envelope_becomes_the_typed_failure(face: Face) -> None:
             "details": [
                 {
                     "type": "fora.v1.ErrorDetail",
-                    "value": "aWdub3JlZA",
+                    # The binary ErrorDetail the debug projection below describes.
+                    "value": "Cg9iYWxhbmNlIHRvbyBsb3cSF2ZvcmEudjEuRXhjaGFuZ2VTZXJ2aWNlUgIIAg",
                     "debug": {
                         "domain": "fora.v1.ExchangeService",
                         "message": "balance too low",

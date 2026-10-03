@@ -17,11 +17,13 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
 from fora_sdk.b64 import b64url_nopad
-from fora_sdk.core import sign_offer_acceptance_jcs
-from fora_sdk.core import sign_request_acceptance_jcs
+from fora_sdk.core import sign_offer_acceptance_jcs, sign_request_acceptance_jcs
 from fora_sdk.httpsig import sign_request
 from fora_sdk.pop import sign_agent_binding
+from fora_sdk.thumbprint import thumbprint
 from fora_sdk.window import Window, clock_window
 
 if TYPE_CHECKING:
@@ -109,6 +111,15 @@ class SigningTransport:
         directory's host, because a Broker refuses a request whose requester is not the
         directory its signature resolved from."""
         return self._signature_agent
+
+    @property
+    def thumbprint(self) -> str:
+        """The RFC 7638 thumbprint of the key this transport signs with: the agent identity
+        a delivery URL is bound to (``agent_id``) and an Exchange states as
+        ``agent_identity_hash``. Derived from the key itself, never from ``keyid``, which
+        is whatever label the caller chose."""
+        public = Ed25519PrivateKey.from_private_bytes(self._signer_seed).public_key()
+        return thumbprint(public.public_bytes_raw())
 
     def sign_offer_acceptance(
         self,
