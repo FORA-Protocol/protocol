@@ -23,6 +23,7 @@
     "./scopes": "./sdk/ts/src/scopes.ts",
     "./hashurl": "./sdk/ts/src/hashurl.ts",
     "./hosts": "./sdk/ts/src/hosts.ts",
+    "./discovery-hint": "./sdk/ts/src/discovery-hint.ts",
     "./regschema": "./sdk/ts/src/regschema.ts",
     "./licenseterm": "./sdk/ts/src/licenseterm.ts",
     "./music": "./sdk/ts/src/music.ts",

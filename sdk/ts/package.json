@@ -18,6 +18,7 @@
     "./scopes": "./src/scopes.ts",
     "./hashurl": "./src/hashurl.ts",
     "./hosts": "./src/hosts.ts",
+    "./discovery-hint": "./src/discovery-hint.ts",
     "./regschema": "./src/regschema.ts",
     "./licenseterm": "./src/licenseterm.ts",
     "./music": "./src/music.ts",

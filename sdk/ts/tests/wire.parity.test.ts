@@ -33,6 +33,8 @@ const exportFor: Record<string, keyof typeof wire> = {
 	SignatureAgentHeader: "SignatureAgentHeader",
 	AgentKeyHeader: "AgentKeyHeader",
 	WellKnownPath: "WellKnownPath",
+	ContentRulesHeader: "ContentRulesHeader",
+	ExchangeHeader: "ExchangeHeader",
 };
 
 describe("sdk/ts wire constants match the sdk/go oracle vectors", () => {

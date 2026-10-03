@@ -59,6 +59,21 @@ export const AgentKeyHeader = "X-FORA-Agent-Key";
  */
 export const WellKnownPath = "/.well-known/fora.json";
 
+/**
+ * Edge discovery header pointing an agent the edge refused with 403 at the
+ * publisher's manifest: the absolute URL of its `/.well-known/fora.json`. See
+ * "Edge discovery headers" in fora.proto, and `parseDiscoveryHint`.
+ */
+export const ContentRulesHeader = "X-Content-Rules";
+
+/**
+ * Edge discovery header naming, on the same 403, one Exchange that sells the
+ * content directly, as a bare domain in the form of Offer.exchange. An
+ * optimisation over `ContentRulesHeader` and never authorization: the manifest
+ * stays the authority on who sells.
+ */
+export const ExchangeHeader = "X-FORA-Exchange";
+
 const ASCII_DIGITS = /^[0-9]+$/;
 
 /** The MAJOR run of a MAJOR.MINOR string, or undefined when `ver` is not one.
