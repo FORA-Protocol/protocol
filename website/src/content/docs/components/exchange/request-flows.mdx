@@ -282,7 +282,9 @@ When only the originating signature is present, the requester is calling the Exc
 //      confirms it covers the prior hop's signature (contiguous + ordered).
 //   4. Counts the hops against max_hops / max_intermediary_hops.
 // Any failure rejects the request with CodeUnauthenticated before the handler
-// runs. The handler reads the proven hops from the context:
+// runs, carrying ErrorDetail.request_auth_failure (SIGNATURE_MISSING,
+// SIGNATURE_INVALID or SIGNATURE_STALE). The handler reads the proven hops
+// from the context:
 hops := helpers.AllSignaturesFromContext(ctx) // sig1..sigN, in chain order
 ```
 
