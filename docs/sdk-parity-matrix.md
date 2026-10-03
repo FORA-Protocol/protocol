@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 175 symbols at cross-language parity · 17 documented divergences · 196 Go-idiomatic exclusions · 42 conformance corpora, each tri-replayed.
+**At a glance:** 183 symbols at cross-language parity · 17 documented divergences · 198 Go-idiomatic exclusions · 43 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -37,6 +37,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `CanonicalizeMoney` | `canonicalize_money` | `canonicalizeMoney` |
 | `CatalogRejectionDetail` | `catalog_rejection_detail` | `catalogRejectionDetail` |
 | `CheckAudience` | `check_audience` | `checkAudience` |
+| `CheckMeteredEstimate` | `check_metered_estimate` | `checkMeteredEstimate` |
 | `CheckRegistrationData` | `check_registration_data` | `checkRegistrationData` |
 | `CheckStrict` | `check_strict` | `checkStrict` |
 | `CheckWellKnownManifestVersion` | `manifest_version_refusal` | `manifestVersionRefusal` |
@@ -47,6 +48,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `ContentRulesHeader` | `ContentRulesHeader` | `ContentRulesHeader` |
 | `ContentTypeJSON` | `ContentTypeJSON` | `ContentTypeJSON` |
 | `ContentTypeProto` | `ContentTypeProto` | `ContentTypeProto` |
+| `DefaultEstimateToleranceBps` | `DEFAULT_ESTIMATE_TOLERANCE_BPS` | `DEFAULT_ESTIMATE_TOLERANCE_BPS` |
 | `DefaultKeyValidity` | `DEFAULT_KEY_VALIDITY` | `DEFAULT_KEY_VALIDITY_MS` |
 | `DirectoryDocument` | `directory_document` | `directoryDocument` |
 | `DiscoveryHint` | `DiscoveryHint` | `DiscoveryHint` |
@@ -56,6 +58,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `ErrManifestVersionRefused` | `ManifestVersionRefusedError` | `ManifestVersionRefused` |
 | `ErrStrictViolation` | `StrictViolationError` | `StrictViolation` |
 | `ErrUnknownKey` | `UnknownKeyError` | `UnknownKey` |
+| `EstimateToleranceBps` | `estimate_tolerance_bps` | `estimateToleranceBps` |
 | `ExchangeHeader` | `ExchangeHeader` | `ExchangeHeader` |
 | `FormatMoney` | `format_money` | `formatMoney` |
 | `GenerateKey` | `generate_key` | `generateKey` |
@@ -66,10 +69,12 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `HostOf` | `host_of` | `hostOf` |
 | `IsBareDomain` | `is_bare_domain` | `isBareDomain` |
 | `IsBareHost` | `is_bare_host` | `isBareHost` |
+| `IsMeteredOffer` | `is_metered_offer` | `isMeteredOffer` |
 | `IsSafeSchemaPattern` | `is_safe_schema_pattern` | `isSafeSchemaPattern` |
 | `KeyResolver` | `KeyResolver` | `RequestKeyResolver` |
 | `KnownRestrictionToken` | `known_restriction_token` | `knownRestrictionToken` |
 | `MaxBareDomainLen` | `MAX_BARE_DOMAIN_LEN` | `maxBareDomainLen` |
+| `MaxEstimateToleranceBps` | `MAX_ESTIMATE_TOLERANCE_BPS` | `MAX_ESTIMATE_TOLERANCE_BPS` |
 | `MaxRegistrationDataBytes` | `MAX_REGISTRATION_DATA_BYTES` | `maxRegistrationDataBytes` |
 | `MaxRegistrationDataDepth` | `MAX_REGISTRATION_DATA_DEPTH` | `maxRegistrationDataDepth` |
 | `MaxRegistrationDataMembers` | `MAX_REGISTRATION_DATA_MEMBERS` | `maxRegistrationDataMembers` |
@@ -80,6 +85,8 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `MaxRegistrationSchemaDepth` | `MAX_REGISTRATION_SCHEMA_DEPTH` | `maxRegistrationSchemaDepth` |
 | `MaxRegistrationSchemaEvaluations` | `MAX_REGISTRATION_SCHEMA_EVALUATIONS` | `maxRegistrationSchemaEvaluations` |
 | `MaxRegistrationSchemaRefHops` | `MAX_REGISTRATION_SCHEMA_REF_HOPS` | `maxRegistrationSchemaRefHops` |
+| `MeteredSettlement` | `MeteredSettlement` | `MeteredSettlement` |
+| `MeteredSettlementCap` | `metered_settlement_cap` | `meteredSettlementCap` |
 | `NewIdempotencyKey` | `generate_idempotency_key` | `generateIdempotencyKey` |
 | `NormalizeLicenseTerm` | `normalize_license_term` | `normalizeLicenseTerm` |
 | `NormalizeResourceEntry` | `normalize_resource_entry` | `normalizeResourceEntry` |
@@ -106,6 +113,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `RuleWarning` | `RuleWarning` | `RuleWarning` |
 | `SchemaVerdict` | `SchemaVerdict` | `SchemaVerdict` |
 | `ScopesSubset` | `scopes_subset` | `scopesSubset` |
+| `SettleMeteredUsage` | `settle_metered_usage` | `settleMeteredUsage` |
 | `SignAgentBinding` | `sign_agent_binding` | `signInbound` |
 | `SignOffer` | `sign_offer_jcs` | `signOffer` |
 | `SignOfferAcceptance` | `sign_offer_acceptance_jcs` | `signOfferAcceptance` |
@@ -366,6 +374,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `helpers.ErrInvalidPoPInput` | Go errors.Is sentinel for a proof input that cannot be written into a signature base; py/ts raise/throw instead of exporting sentinels. |
 | `helpers.ErrKeyIDMismatch` | Go errors.Is sentinel for a keyid that is not the presented key's thumbprint; py/ts raise/throw instead of exporting sentinels. |
 | `helpers.ErrMalformedSignatureInput` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
+| `helpers.ErrMeteredEstimateMissing` | Go errors.Is sentinel for a metered offer or price that carries no positive estimate; py raises ValueError and ts throws from the same faces, and the shared offer-verify and metered-settlement vectors pin that every language refuses the same inputs. |
 | `helpers.ErrMissingContentDigest` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrMissingCreated` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrMissingExpires` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
@@ -373,6 +382,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `helpers.ErrMissingSignature` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrMissingSignatureInput` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrMissingTargetURI` | Go errors.Is sentinel for a proof requested without the URL it binds; py/ts raise/throw instead of exporting sentinels. |
+| `helpers.ErrNotMetered` | Go errors.Is sentinel for a settlement asked of a price that is not PER_UNIT; py raises ValueError and ts throws from the same faces, and the shared metered-settlement vectors pin that every language refuses the same inputs. |
 | `helpers.ErrOfferExpired` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrOfferSignatureInvalid` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrProofOfPossessionMismatch` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
@@ -473,6 +483,7 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 | `helpers/testdata/idempotency-validate-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/licenseterm-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/manifest-version-vectors.json` | ✅ | ✅ | ✅ |
+| `helpers/testdata/metered-settlement-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/money-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/multisig-chain-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/offer-verify-vectors.json` | ✅ | ✅ | ✅ |
