@@ -29,6 +29,21 @@ import {
 	malformed,
 	ForaCallError,
 } from "./errors.ts";
+import { RawBody, rawBytes } from "./raw.ts";
+
+/**
+ * The pre-signing hook: receives every RPC request just before it is signed, as a Fetch
+ * API `Request`, and returns the request to sign and send instead.
+ *
+ * For a test that must send a deliberately altered message through the SDK's own signer
+ * and decoder: the returned request's body bytes and headers are what get signed and
+ * sent, and the reply is decoded as usual. The method and URL must not change (the address
+ * checks already ran against the planned URL), and a header the signer emits must not be
+ * set; either refuses the call as `malformed` with nothing sent. A `host` or
+ * `content-length` on the returned request is dropped, so a patched body never travels
+ * with a stale length.
+ */
+export type BeforeSign = (request: Request) => Request | Promise<Request>;
 
 /**
  * DEFAULT_MAX_RPC_READ_BYTES caps the response body a single FORA call will read.
@@ -108,7 +123,8 @@ export interface CallSigner {
 export interface UnaryCallOptions {
 	target: UnaryTarget;
 	op: string;
-	/** The request message, already validated by its generated schema. */
+	/** The request message, already validated by its generated schema, or a RawBody whose
+	 * bytes are sent as given. */
 	message: unknown;
 	send: UnarySend;
 	/** Whether this leg dials a host another party named — an offer-derived Exchange. The
@@ -117,6 +133,7 @@ export interface UnaryCallOptions {
 	guarded?: boolean;
 	signer?: CallSigner;
 	requestId?: () => string;
+	beforeSign?: BeforeSign;
 	maxBytes?: number;
 	timeoutMs?: number;
 }
@@ -176,8 +193,9 @@ export async function unaryCall(opts: UnaryCallOptions): Promise<unknown> {
 			throw new ForaCallError({ kind: "unreachable", op: opts.op, cause });
 		}
 	}
-	const body = encodeBody(opts.op, opts.message);
-	const headers: Record<string, string> = {
+	let body =
+		opts.message instanceof RawBody ? rawBytes(opts.message) : encodeBody(opts.op, opts.message);
+	let headers: Record<string, string> = {
 		"content-type": ContentTypeJSON,
 		[ConnectProtocolVersionHeader]: ConnectProtocolVersion,
 		...IDENTITY_ENCODING,
@@ -202,8 +220,13 @@ export async function unaryCall(opts: UnaryCallOptions): Promise<unknown> {
 	);
 	let response: UnaryResponse;
 	try {
+		if (opts.beforeSign !== undefined) {
+			({ body, headers } = await applyBeforeSign(opts.op, url, body, headers, opts.beforeSign));
+		}
 		if (opts.signer !== undefined) {
-			Object.assign(headers, await signCall(opts.op, url, body, opts.signer));
+			const signed = await signCall(opts.op, url, body, opts.signer);
+			if (opts.beforeSign !== undefined) refuseSignerHeaders(opts.op, headers, signed);
+			Object.assign(headers, signed);
 		}
 		response = await opts.send({
 			url,
@@ -219,6 +242,60 @@ export async function unaryCall(opts: UnaryCallOptions): Promise<unknown> {
 		clearTimeout(timer);
 	}
 	return decodeResponse(opts.op, response);
+}
+
+// Headers the runtime computes from the request itself. A hook's request carries them,
+// and a patched body would otherwise travel with a stale length.
+const TRANSPORT_HEADERS = new Set(["host", "content-length"]);
+
+// applyBeforeSign hands the request to the caller's hook and returns the body and headers
+// it chose. The Request exists only for this call; the method and URL stay the ones the
+// client planned, because the address checks and the routing were decided on them.
+async function applyBeforeSign(
+	op: string,
+	url: string,
+	body: Uint8Array<ArrayBuffer>,
+	headers: Record<string, string>,
+	hook: BeforeSign,
+): Promise<{ body: Uint8Array<ArrayBuffer>; headers: Record<string, string> }> {
+	let returned: unknown;
+	let patched: Uint8Array<ArrayBuffer>;
+	try {
+		returned = await hook(new Request(url, { method: "POST", headers, body }));
+		if (!(returned instanceof Request)) {
+			throw malformed(op, new Error("beforeSign must return a Request"));
+		}
+		// Read inside the guard: a body that cannot be read is a hook failure, refused like
+		// the others rather than escaping as the runtime's own error.
+		patched = new Uint8Array(await returned.arrayBuffer()) as Uint8Array<ArrayBuffer>;
+	} catch (cause) {
+		if (cause instanceof ForaCallError) throw cause;
+		throw malformed(op, cause);
+	}
+	if (returned.method !== "POST" || returned.url !== new Request(url).url) {
+		throw malformed(op, new Error("beforeSign must not change the request method or URL"));
+	}
+	const kept: Record<string, string> = {};
+	returned.headers.forEach((value, name) => {
+		if (!TRANSPORT_HEADERS.has(name.toLowerCase())) kept[name] = value;
+	});
+	return { body: patched, headers: kept };
+}
+
+// refuseSignerHeaders refuses a hook that set a header the signer owns. Derived from what
+// the signer emitted, not listed, so the refused set cannot drift from the signer.
+function refuseSignerHeaders(
+	op: string,
+	headers: Record<string, string>,
+	signed: Record<string, string>,
+): void {
+	const owned = new Set(Object.keys(signed).map((name) => name.toLowerCase()));
+	const clash = Object.keys(headers)
+		.filter((name) => owned.has(name.toLowerCase()))
+		.sort();
+	if (clash.length > 0) {
+		throw malformed(op, new Error(`beforeSign set headers the signer owns: ${clash.join(", ")}`));
+	}
 }
 
 // encodeBody renders the message as the canonical proto-JSON bytes that get both signed

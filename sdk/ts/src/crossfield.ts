@@ -260,6 +260,14 @@ const RULES_BY_MESSAGE: Record<string, (o: Obj) => string[]> = {
 };
 
 /**
+ * hasCrossFieldRules reports whether `message` (the bare message name, e.g. "Pricing")
+ * carries cross-field rules, i.e. whether crossFieldRuleIds accepts it.
+ */
+export function hasCrossFieldRules(message: string): boolean {
+  return Object.prototype.hasOwnProperty.call(RULES_BY_MESSAGE, message);
+}
+
+/**
  * crossFieldRuleIds returns the cross-field (message-CEL) rule-ids the instance
  * violates, empty when it passes cross-field validation. Direct analogue of the
  * Go oracle's ValidationRuleIDs(err) over the crossfield corpus.
