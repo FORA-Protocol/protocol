@@ -610,10 +610,15 @@ enum OfferAbsenceReason {
   // under "unrecognized_critical_extensions" for diagnostic purposes.
   OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION = 7;
 
-  // Offers exist, but none fit within the requester's budget (e.g. every offer's
-  // price exceeds RequestConstraints.period_budget). Returned by Resolve as a
-  // successful "no result" answer when a budget/price ceiling filtered out every
-  // otherwise-licensable offer.
+  // Offers exist, but buying any of them would exceed the agent's budget, so
+  // BrokerService.Resolve filtered every one out: its price is above
+  // RequestConstraints.max_price, or it would take the budget_scope's spend past
+  // RequestConstraints.period_budget. Resolve returns this as a successful "no
+  // result" answer, on OfferGroup.absence_reason for a URI the budget left with
+  // no offer and on DiscoveryResponse.absence_reason when it left none at all.
+  // It is the only way a budget is reported: never as NOT_AUTHORIZED, and never
+  // as a non-OK error such as RESOURCE_EXHAUSTED. The full rule, including what
+  // counts as spend, is on BrokerService.Resolve.
   OFFER_ABSENCE_REASON_BUDGET_EXCEEDED = 8;
 }
 
@@ -2792,6 +2797,24 @@ service BrokerService {
   // (→ OK + absence); transport authentication failures are a different axis and,
   // like malformed requests and internal faults, are non-OK transport errors
   // carrying an ErrorDetail.
+  //
+  // Budget. Resolve applies the agent's budget (RequestConstraints) as a filter
+  // over the offers it returns. It drops every offer whose price is above
+  // max_price, and every offer that would take the spend of budget_scope in the
+  // current budget_period past period_budget. The price it compares is the most
+  // the offer can be charged without a dispute: for a metered offer that is the
+  // ceiling amount Q × R (see Pricing). An offer the budget drops is not
+  // returned; a URI the budget leaves with no offer is answered with
+  // OFFER_ABSENCE_REASON_BUDGET_EXCEEDED, and so is the whole resolve when the
+  // budget leaves no offer at all. A budget is never reported as
+  // OFFER_ABSENCE_REASON_NOT_AUTHORIZED and never as a non-OK error such as
+  // RESOURCE_EXHAUSTED.
+  //
+  // Resolve never charges and never counts as spend: returning an offer
+  // reserves nothing, and an offer the agent never buys costs it nothing. The
+  // spend a budget is measured against grows only from purchase totals, the
+  // amounts charged for purchased items — for a purchase through the Broker,
+  // BrokerTransactionResponse.totals.
   rpc Resolve(DiscoveryRequest) returns (DiscoveryResponse);
 
   // ExecuteTransaction buys one or more offers, issued by one or more Exchanges,
@@ -3427,7 +3450,10 @@ message RequestConstraints {
     }
   ];
 
-  // Maximum price the agent is willing to pay.
+  // Maximum price the agent is willing to pay for one offer.
+  // BrokerService.Resolve filters out an offer priced above it, with
+  // OFFER_ABSENCE_REASON_BUDGET_EXCEEDED when no offer for a URI remains (see
+  // BrokerService.Resolve).
   optional Cost max_price = 2;
 
   // Maximum effective cost per unit, as an exact decimal string (not a float).
@@ -3451,11 +3477,16 @@ message RequestConstraints {
 
   // Budget scope identifier for per-period tracking.
   // E.g. "user:u-12345" for per-user budgets, "team:eng" for per-team.
-  // The Broker tracks cumulative spend per scope across sessions.
+  // The Broker tracks the spend of each scope across sessions. Spend grows only
+  // from purchase totals; a Resolve is never spend (see BrokerService.Resolve).
   optional string budget_scope = 7;
 
-  // Per-period budget limit. The Broker tracks spend against this
-  // for the budget_scope. Transactions that would exceed are denied.
+  // Per-period budget limit for the budget_scope. BrokerService.Resolve filters
+  // out every offer that would take the scope's spend in the current
+  // budget_period past this limit, and answers a URI left with no offer with
+  // OFFER_ABSENCE_REASON_BUDGET_EXCEEDED. The budget filters offers; it is not a
+  // denial, and Resolve neither charges against it nor counts as spend (see
+  // BrokerService.Resolve).
   optional Cost period_budget = 8;
 
   // Budget period (e.g. "2592000s" = 30 days; proto-JSON encodes Duration

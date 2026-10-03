@@ -34,7 +34,7 @@
       "type": "string"
     },
     "budget_scope": {
-      "description": "Budget scope identifier for per-period tracking.\n E.g. \"user:u-12345\" for per-user budgets, \"team:eng\" for per-team.\n The Broker tracks cumulative spend per scope across sessions.",
+      "description": "Budget scope identifier for per-period tracking.\n E.g. \"user:u-12345\" for per-user budgets, \"team:eng\" for per-team.\n The Broker tracks the spend of each scope across sessions. Spend grows only\n from purchase totals; a Resolve is never spend (see BrokerService.Resolve).",
       "type": "string"
     },
     "delivery_preference": {
@@ -83,7 +83,7 @@
     },
     "max_price": {
       "$ref": "#/$defs/fora.v1.Cost",
-      "description": "Maximum price the agent is willing to pay."
+      "description": "Maximum price the agent is willing to pay for one offer.\n BrokerService.Resolve filters out an offer priced above it, with\n OFFER_ABSENCE_REASON_BUDGET_EXCEEDED when no offer for a URI remains (see\n BrokerService.Resolve)."
     },
     "max_unit_cost": {
       "description": "Maximum effective cost per unit, as an exact decimal string (not a float).",
@@ -93,7 +93,7 @@
     },
     "period_budget": {
       "$ref": "#/$defs/fora.v1.Cost",
-      "description": "Per-period budget limit. The Broker tracks spend against this\n for the budget_scope. Transactions that would exceed are denied."
+      "description": "Per-period budget limit for the budget_scope. BrokerService.Resolve filters\n out every offer that would take the scope's spend in the current\n budget_period past this limit, and answers a URI left with no offer with\n OFFER_ABSENCE_REASON_BUDGET_EXCEEDED. The budget filters offers; it is not a\n denial, and Resolve neither charges against it nor counts as spend (see\n BrokerService.Resolve)."
     },
     "preferred_exchanges": {
       "description": "Exchanges the agent has existing relationships with (subscriptions,\n contracts). The Broker SHOULD prefer these when resource is\n available — subscription resource has zero marginal cost.",
