@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 169 symbols at cross-language parity · 17 documented divergences · 193 Go-idiomatic exclusions · 41 conformance corpora, each tri-replayed.
+**At a glance:** 176 symbols at cross-language parity · 17 documented divergences · 199 Go-idiomatic exclusions · 42 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -44,19 +44,24 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `ConnectProtocolVersion` | `ConnectProtocolVersion` | `ConnectProtocolVersion` |
 | `ConnectProtocolVersionHeader` | `ConnectProtocolVersionHeader` | `ConnectProtocolVersionHeader` |
 | `ContentDigest` | `content_digest` | `contentDigest` |
+| `ContentRulesHeader` | `ContentRulesHeader` | `ContentRulesHeader` |
 | `ContentTypeJSON` | `ContentTypeJSON` | `ContentTypeJSON` |
 | `ContentTypeProto` | `ContentTypeProto` | `ContentTypeProto` |
 | `DefaultKeyValidity` | `DEFAULT_KEY_VALIDITY` | `DEFAULT_KEY_VALIDITY_MS` |
 | `DirectoryDocument` | `directory_document` | `directoryDocument` |
+| `DiscoveryHint` | `DiscoveryHint` | `DiscoveryHint` |
 | `DisputeFailureDetail` | `dispute_failure_detail` | `disputeFailureDetail` |
 | `DomainVerificationFailureDetail` | `domain_verification_failure_detail` | `domainVerificationFailureDetail` |
 | `EntryVerdict` | `EntryVerdict` | `EntryVerdict` |
 | `ErrManifestVersionRefused` | `ManifestVersionRefusedError` | `ManifestVersionRefused` |
 | `ErrStrictViolation` | `StrictViolationError` | `StrictViolation` |
 | `ErrUnknownKey` | `UnknownKeyError` | `UnknownKey` |
+| `ExchangeHeader` | `ExchangeHeader` | `ExchangeHeader` |
 | `FormatMoney` | `format_money` | `formatMoney` |
 | `GenerateKey` | `generate_key` | `generateKey` |
 | `HashURL` | `hash_url` | `hashUrl` |
+| `HintAgreement` | `HintAgreement` | `HintAgreement` |
+| `HintState` | `HintState` | `HintState` |
 | `HostAnchored` | `host_anchored` | `hostAnchored` |
 | `HostOf` | `host_of` | `hostOf` |
 | `IsBareDomain` | `is_bare_domain` | `isBareDomain` |
@@ -80,9 +85,11 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `NormalizeResourceEntry` | `normalize_resource_entry` | `normalizeResourceEntry` |
 | `NormalizeScopes` | `normalize_scopes` | `normalizeScopes` |
 | `OfferSignatureAlgorithm` | `OFFER_SIGNATURE_ALGORITHM` | `OFFER_SIGNATURE_ALGORITHM` |
+| `ParseDiscoveryHint` | `parse_discovery_hint` | `parseDiscoveryHint` |
 | `ParseMoney` | `parse_money` | `parseMoney` |
 | `ProtocolVersion` | `ProtocolVersion` | `ProtocolVersion` |
 | `Reason` | `reason` | `reason` |
+| `ReconcileDiscoveryHint` | `reconcile_discovery_hint` | `reconcileDiscoveryHint` |
 | `RegistrationDataVerdict` | `RegistrationDataVerdict` | `RegistrationDataVerdict` |
 | `RegistrationFailureDetail` | `registration_failure_detail` | `registrationFailureDetail` |
 | `RegistrationSchema` | `RegistrationSchema` | `RegistrationSchema` |
@@ -385,6 +392,12 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `helpers.ErrUnknownFields` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrUnsupportedAlgorithm` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.FromContext` | Go context.Context accessor; py/ts thread verified-request state explicitly. |
+| `helpers.HintAbsent` | Member of the mapped helpers.HintState vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer. |
+| `helpers.HintListed` | Member of the mapped helpers.HintAgreement vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer. |
+| `helpers.HintMalformed` | Member of the mapped helpers.HintState vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer. |
+| `helpers.HintNoExchange` | Member of the mapped helpers.HintAgreement vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer. |
+| `helpers.HintUnlisted` | Member of the mapped helpers.HintAgreement vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer. |
+| `helpers.HintValid` | Member of the mapped helpers.HintState vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer. |
 | `helpers.NewContext` | Go context.Context accessor; py/ts thread verified-request state explicitly. |
 | `helpers.NewEd25519Signer` | Go Ed25519 Signer constructor; py/ts inject a sign function rather than constructing a named signer. |
 | `helpers.NewEd25519SignerFromSeed` | Go Ed25519 Signer-from-seed constructor; py/ts inject a sign function rather than constructing a named signer. |
@@ -457,6 +470,7 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 |---|---|---|---|
 | `helpers/testdata/acceptance-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/audience-vectors.json` | ✅ | ✅ | ✅ |
+| `helpers/testdata/discovery-hint-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/error-detail-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/hashurl-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/host-rule-vectors.json` | ✅ | ✅ | ✅ |

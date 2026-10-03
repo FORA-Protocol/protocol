@@ -131,6 +131,12 @@
     "helpers.ErrUnknownFields": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.ErrUnsupportedAlgorithm": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.FromContext": "Go context.Context accessor; py/ts thread verified-request state explicitly.",
+    "helpers.HintAbsent": "Member of the mapped helpers.HintState vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer.",
+    "helpers.HintListed": "Member of the mapped helpers.HintAgreement vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer.",
+    "helpers.HintMalformed": "Member of the mapped helpers.HintState vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer.",
+    "helpers.HintNoExchange": "Member of the mapped helpers.HintAgreement vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer.",
+    "helpers.HintUnlisted": "Member of the mapped helpers.HintAgreement vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer.",
+    "helpers.HintValid": "Member of the mapped helpers.HintState vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer.",
     "helpers.NewContext": "Go context.Context accessor; py/ts thread verified-request state explicitly.",
     "helpers.NewEd25519Signer": "Go Ed25519 Signer constructor; py/ts inject a sign function rather than constructing a named signer.",
     "helpers.NewEd25519SignerFromSeed": "Go Ed25519 Signer-from-seed constructor; py/ts inject a sign function rather than constructing a named signer.",
@@ -484,6 +490,11 @@
       "python": "content_digest",
       "ts": "contentDigest"
     },
+    "helpers.ContentRulesHeader": {
+      "allowlist_reason": null,
+      "python": "ContentRulesHeader",
+      "ts": "ContentRulesHeader"
+    },
     "helpers.ContentTypeJSON": {
       "allowlist_reason": null,
       "python": "ContentTypeJSON",
@@ -503,6 +514,11 @@
       "allowlist_reason": null,
       "python": "directory_document",
       "ts": "directoryDocument"
+    },
+    "helpers.DiscoveryHint": {
+      "allowlist_reason": null,
+      "python": "DiscoveryHint",
+      "ts": "DiscoveryHint"
     },
     "helpers.DisputeFailureDetail": {
       "allowlist_reason": null,
@@ -529,6 +545,11 @@
       "python": "UnknownKeyError",
       "ts": "UnknownKey"
     },
+    "helpers.ExchangeHeader": {
+      "allowlist_reason": null,
+      "python": "ExchangeHeader",
+      "ts": "ExchangeHeader"
+    },
     "helpers.FormatMoney": {
       "allowlist_reason": null,
       "python": "format_money",
@@ -543,6 +564,16 @@
       "allowlist_reason": null,
       "python": "hash_url",
       "ts": "hashUrl"
+    },
+    "helpers.HintAgreement": {
+      "allowlist_reason": null,
+      "python": "HintAgreement",
+      "ts": "HintAgreement"
+    },
+    "helpers.HintState": {
+      "allowlist_reason": null,
+      "python": "HintState",
+      "ts": "HintState"
     },
     "helpers.HostAnchored": {
       "allowlist_reason": null,
@@ -664,6 +695,11 @@
       "python": "OFFER_SIGNATURE_ALGORITHM",
       "ts": "OFFER_SIGNATURE_ALGORITHM"
     },
+    "helpers.ParseDiscoveryHint": {
+      "allowlist_reason": null,
+      "python": "parse_discovery_hint",
+      "ts": "parseDiscoveryHint"
+    },
     "helpers.ParseMoney": {
       "allowlist_reason": null,
       "python": "parse_money",
@@ -683,6 +719,11 @@
       "allowlist_reason": null,
       "python": "ProtocolVersion",
       "ts": "ProtocolVersion"
+    },
+    "helpers.ReconcileDiscoveryHint": {
+      "allowlist_reason": null,
+      "python": "reconcile_discovery_hint",
+      "ts": "reconcileDiscoveryHint"
     },
     "helpers.WellKnownManifestVersion": {
       "allowlist_reason": null,
