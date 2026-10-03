@@ -32,7 +32,7 @@
       "type": "array"
     },
     "window": {
-      "description": "Duration within which the report must be submitted (e.g. \"86400s\" = 24\n hours; proto-JSON encodes Duration as seconds).",
+      "description": "Duration within which the report must be submitted (e.g. \"86400s\" = 24\n hours; proto-JSON encodes Duration as seconds). A report that arrives after\n the window closed is refused with USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED\n (Connect code failed_precondition).",
       "format": "duration",
       "type": "string"
     }

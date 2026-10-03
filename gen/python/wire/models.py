@@ -817,14 +817,14 @@ class ReportingObligation(WireModel):
     )
     window: str | None = Field(
         None,
-        description='Duration within which the report must be submitted (e.g. "86400s" = 24\n hours; proto-JSON encodes Duration as seconds).',
+        description='Duration within which the report must be submitted (e.g. "86400s" = 24\n hours; proto-JSON encodes Duration as seconds). A report that arrives after\n the window closed is refused with USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED\n (Connect code failed_precondition).',
     )
 
 
 class ReportingPolicy(WireModel):
     quantity_tolerance: confloat(ge=0.0, le=1.0) | None = Field(
         None,
-        description="Accepted relative deviation between estimated and reported quantity, as a\n fraction: 0 requires an exact match, 1 accepts any deviation. Omitted: the\n receiving Exchange's default tolerance applies.",
+        description='DEPRECATED, ignored. This used to set the accepted relative deviation\n between the estimated and the reported quantity, and a report outside it was\n refused. A usage report is never refused for its quantity: the reported\n quantity is unrestricted, a metered report settles by the rule on\n fora.v1.Pricing, and a quantity far from the estimate is analysed out of\n band. An Exchange MUST NOT refuse a report on this setting. The field and\n its bounds are retained because removing them would break the wire\n contract.',
     )
     required_fields: (
         list[constr(pattern=r'^[A-Za-z0-9._:*-]+$', min_length=1, max_length=64)] | None

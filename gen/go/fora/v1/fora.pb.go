@@ -1953,21 +1953,34 @@ func (RetrievalAuthFailureReason) EnumDescriptor() ([]byte, []int) {
 }
 
 // UsageReportRejectionReason — why a ReportUsage filing was rejected. Replaces
-// the free-text UsageReportResponse.rejection_reason string.
+// the free-text UsageReportResponse.rejection_reason string. A rejected report
+// is a non-OK error carrying ErrorDetail.usage_report_rejection with exactly one
+// of these reasons.
 //
-// None of these refuses a metered report because its consumed quantity
-// differs from the offer's estimate. A quantity below the estimate is charged
-// as consumed and a quantity above the ceiling is held for dispute (see
-// Pricing); neither is MALFORMED.
+// THE REPORTED QUANTITY IS UNRESTRICTED. No reason here refuses a report
+// because its consumed_quantity differs from the offer's estimate, above or
+// below, and an Exchange MUST NOT refuse a report for that. A quantity below the
+// estimate is charged as consumed and a quantity above the ceiling is held for
+// dispute (the settlement rule on Pricing); neither is MALFORMED. A quantity far
+// from the estimate is analysed out of band, never by refusing the report.
 type UsageReportRejectionReason int32
 
 const (
-	UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_UNSPECIFIED             UsageReportRejectionReason = 0 // unset — rejected at ingest
-	UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND   UsageReportRejectionReason = 1 // transaction_id is unknown
-	UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_DUPLICATE               UsageReportRejectionReason = 2 // a report was already filed for this transaction
-	UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED          UsageReportRejectionReason = 3 // filed outside the reporting window
+	UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_UNSPECIFIED           UsageReportRejectionReason = 0 // unset — rejected at ingest
+	UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND UsageReportRejectionReason = 1 // transaction_id is unknown
+	UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_DUPLICATE             UsageReportRejectionReason = 2 // a report was already filed for this transaction
+	// The reporting window closed before the report arrived: the transaction's
+	// ReportingObligation.window elapsed. This is the time cause, and it names
+	// only that: a report past its window is refused with this reason and the
+	// Connect code failed_precondition, whatever it reports. It is never used for
+	// a report's quantity.
+	UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED          UsageReportRejectionReason = 3
 	UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_MISSING_REQUIRED_FIELDS UsageReportRejectionReason = 4 // ReportingObligation.required_fields not satisfied
-	UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_MALFORMED               UsageReportRejectionReason = 5 // report payload failed validation
+	// The report payload failed validation: it breaks a field rule of UsageReport
+	// or carries a value the Exchange cannot read. Refused with the Connect code
+	// invalid_argument. A consumed_quantity that differs from the estimate is not
+	// malformed.
+	UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_MALFORMED UsageReportRejectionReason = 5
 )
 
 // Enum value maps for UsageReportRejectionReason.
@@ -6576,7 +6589,9 @@ type ReportingObligation struct {
 	// Whether post-usage reporting is required.
 	Required bool `protobuf:"varint,1,opt,name=required,proto3" json:"required,omitempty"`
 	// Duration within which the report must be submitted (e.g. "86400s" = 24
-	// hours; proto-JSON encodes Duration as seconds).
+	// hours; proto-JSON encodes Duration as seconds). A report that arrives after
+	// the window closed is refused with USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED
+	// (Connect code failed_precondition).
 	Window *durationpb.Duration `protobuf:"bytes,2,opt,name=window,proto3,oneof" json:"window,omitempty"`
 	// URL to submit the usage report to (if different from Exchange).
 	Endpoint *string `protobuf:"bytes,3,opt,name=endpoint,proto3,oneof" json:"endpoint,omitempty"`
@@ -6680,6 +6695,13 @@ func (x *ReportingObligation) GetExtCritical() []string {
 //
 // The full rule is on Pricing. The Exchange accepts such a report: a consumed
 // quantity that differs from the estimate is never a reason to refuse it.
+//
+// What refuses a report. A report that arrives after the transaction's
+// reporting window closed is refused with USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED
+// and the Connect code failed_precondition. A malformed report is refused with
+// USAGE_REPORT_REJECTION_REASON_MALFORMED and the Connect code invalid_argument.
+// The reported quantity is unrestricted: no check on it refuses a report (see
+// UsageReportRejectionReason).
 type UsageReport struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// FORA protocol version — "1.0". Stamped by the sender from a single

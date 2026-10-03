@@ -3177,7 +3177,9 @@ message ReportingObligation {
   bool required = 1;
 
   // Duration within which the report must be submitted (e.g. "86400s" = 24
-  // hours; proto-JSON encodes Duration as seconds).
+  // hours; proto-JSON encodes Duration as seconds). A report that arrives after
+  // the window closed is refused with USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED
+  // (Connect code failed_precondition).
   optional google.protobuf.Duration window = 2;
 
   // URL to submit the usage report to (if different from Exchange).
@@ -3210,6 +3212,13 @@ message ReportingObligation {
 //     dispute and never charged automatically.
 // The full rule is on Pricing. The Exchange accepts such a report: a consumed
 // quantity that differs from the estimate is never a reason to refuse it.
+//
+// What refuses a report. A report that arrives after the transaction's
+// reporting window closed is refused with USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED
+// and the Connect code failed_precondition. A malformed report is refused with
+// USAGE_REPORT_REJECTION_REASON_MALFORMED and the Connect code invalid_argument.
+// The reported quantity is unrestricted: no check on it refuses a report (see
+// UsageReportRejectionReason).
 message UsageReport {
   // FORA protocol version — "1.0". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
@@ -5250,19 +5259,32 @@ message RetrievalAuthFailure {
 }
 
 // UsageReportRejectionReason — why a ReportUsage filing was rejected. Replaces
-// the free-text UsageReportResponse.rejection_reason string.
+// the free-text UsageReportResponse.rejection_reason string. A rejected report
+// is a non-OK error carrying ErrorDetail.usage_report_rejection with exactly one
+// of these reasons.
 //
-// None of these refuses a metered report because its consumed quantity
-// differs from the offer's estimate. A quantity below the estimate is charged
-// as consumed and a quantity above the ceiling is held for dispute (see
-// Pricing); neither is MALFORMED.
+// THE REPORTED QUANTITY IS UNRESTRICTED. No reason here refuses a report
+// because its consumed_quantity differs from the offer's estimate, above or
+// below, and an Exchange MUST NOT refuse a report for that. A quantity below the
+// estimate is charged as consumed and a quantity above the ceiling is held for
+// dispute (the settlement rule on Pricing); neither is MALFORMED. A quantity far
+// from the estimate is analysed out of band, never by refusing the report.
 enum UsageReportRejectionReason {
   USAGE_REPORT_REJECTION_REASON_UNSPECIFIED = 0;  // unset — rejected at ingest
   USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND = 1;     // transaction_id is unknown
   USAGE_REPORT_REJECTION_REASON_DUPLICATE = 2;                 // a report was already filed for this transaction
-  USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED = 3;            // filed outside the reporting window
+  // The reporting window closed before the report arrived: the transaction's
+  // ReportingObligation.window elapsed. This is the time cause, and it names
+  // only that: a report past its window is refused with this reason and the
+  // Connect code failed_precondition, whatever it reports. It is never used for
+  // a report's quantity.
+  USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED = 3;
   USAGE_REPORT_REJECTION_REASON_MISSING_REQUIRED_FIELDS = 4;   // ReportingObligation.required_fields not satisfied
-  USAGE_REPORT_REJECTION_REASON_MALFORMED = 5;                 // report payload failed validation
+  // The report payload failed validation: it breaks a field rule of UsageReport
+  // or carries a value the Exchange cannot read. Refused with the Connect code
+  // invalid_argument. A consumed_quantity that differs from the estimate is not
+  // malformed.
+  USAGE_REPORT_REJECTION_REASON_MALFORMED = 5;
 }
 
 // UsageReportRejection — a usage report could not be accepted.

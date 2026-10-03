@@ -139,9 +139,16 @@ type ReportingPolicy struct {
 	// Exchange and may change without a contract change. Names are a set: repeats
 	// are rejected. Empty means no required fields.
 	RequiredFields []string `protobuf:"bytes,2,rep,name=required_fields,json=requiredFields,proto3" json:"required_fields,omitempty"`
-	// Accepted relative deviation between estimated and reported quantity, as a
-	// fraction: 0 requires an exact match, 1 accepts any deviation. Omitted: the
-	// receiving Exchange's default tolerance applies.
+	// DEPRECATED, ignored. This used to set the accepted relative deviation
+	// between the estimated and the reported quantity, and a report outside it was
+	// refused. A usage report is never refused for its quantity: the reported
+	// quantity is unrestricted, a metered report settles by the rule on
+	// fora.v1.Pricing, and a quantity far from the estimate is analysed out of
+	// band. An Exchange MUST NOT refuse a report on this setting. The field and
+	// its bounds are retained because removing them would break the wire
+	// contract.
+	//
+	// Deprecated: Marked as deprecated in fora/admin/v1/admin.proto.
 	QuantityTolerance *float64 `protobuf:"fixed64,3,opt,name=quantity_tolerance,json=quantityTolerance,proto3,oneof" json:"quantity_tolerance,omitempty"`
 	// Reporting window in seconds. Applies to obligations minted after this call;
 	// obligations already issued keep the window they were minted with. Capped at
@@ -195,6 +202,7 @@ func (x *ReportingPolicy) GetRequiredFields() []string {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/admin/v1/admin.proto.
 func (x *ReportingPolicy) GetQuantityTolerance() float64 {
 	if x != nil && x.QuantityTolerance != nil {
 		return *x.QuantityTolerance
@@ -443,12 +451,12 @@ const file_fora_admin_v1_admin_proto_rawDesc = "" +
 	"\xbaH\a\x1a\x05\x10\x90N(\x00R\n" +
 	"feeRateBps\x12#\n" +
 	"\x05notes\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80\bH\x00R\x05notes\x88\x01\x01B\b\n" +
-	"\x06_notes\"\xbd\x02\n" +
+	"\x06_notes\"\xbf\x02\n" +
 	"\x0fReportingPolicy\x12'\n" +
 	"\ttenant_id\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\btenantId\x12P\n" +
-	"\x0frequired_fields\x18\x02 \x03(\tB'\xbaH$\x92\x01!\x10 \x18\x01\"\x1br\x19\x10\x01\x18@2\x13^[A-Za-z0-9._:*-]+$R\x0erequiredFields\x12K\n" +
-	"\x12quantity_tolerance\x18\x03 \x01(\x01B\x17\xbaH\x14\x12\x12\x19\x00\x00\x00\x00\x00\x00\xf0?)\x00\x00\x00\x00\x00\x00\x00\x00H\x00R\x11quantityTolerance\x88\x01\x01\x128\n" +
+	"\x0frequired_fields\x18\x02 \x03(\tB'\xbaH$\x92\x01!\x10 \x18\x01\"\x1br\x19\x10\x01\x18@2\x13^[A-Za-z0-9._:*-]+$R\x0erequiredFields\x12M\n" +
+	"\x12quantity_tolerance\x18\x03 \x01(\x01B\x19\xbaH\x14\x12\x12\x19\x00\x00\x00\x00\x00\x00\xf0?)\x00\x00\x00\x00\x00\x00\x00\x00\x18\x01H\x00R\x11quantityTolerance\x88\x01\x01\x128\n" +
 	"\x0ewindow_seconds\x18\x04 \x01(\x05B\f\xbaH\t\x1a\a\x18\x80\xe7\x84\x0f \x00H\x01R\rwindowSeconds\x88\x01\x01B\x15\n" +
 	"\x13_quantity_toleranceB\x11\n" +
 	"\x0f_window_seconds\"e\n" +

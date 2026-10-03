@@ -81,9 +81,10 @@ type AdminServiceClient interface {
 	// Sets the tenant's fee rate (basis points) and optional operator note.
 	// Full replace: the previous rate and note are overwritten.
 	SetTenantFeeRate(context.Context, *connect.Request[v1.SetTenantFeeRateRequest]) (*connect.Response[v1.SetTenantFeeRateResponse], error)
-	// Replaces the tenant's reporting policy (required report fields, quantity
-	// tolerance, reporting window). Full replace: omitted optional fields clear
-	// their value so the receiving Exchange's defaults apply.
+	// Replaces the tenant's reporting policy (required report fields, reporting
+	// window). Full replace: omitted optional fields clear their value so the
+	// receiving Exchange's defaults apply. The deprecated quantity_tolerance is
+	// accepted and ignored: a usage report is never refused for its quantity.
 	SetReportingPolicy(context.Context, *connect.Request[v1.SetReportingPolicyRequest]) (*connect.Response[v1.SetReportingPolicyResponse], error)
 }
 
@@ -134,9 +135,10 @@ type AdminServiceHandler interface {
 	// Sets the tenant's fee rate (basis points) and optional operator note.
 	// Full replace: the previous rate and note are overwritten.
 	SetTenantFeeRate(context.Context, *connect.Request[v1.SetTenantFeeRateRequest]) (*connect.Response[v1.SetTenantFeeRateResponse], error)
-	// Replaces the tenant's reporting policy (required report fields, quantity
-	// tolerance, reporting window). Full replace: omitted optional fields clear
-	// their value so the receiving Exchange's defaults apply.
+	// Replaces the tenant's reporting policy (required report fields, reporting
+	// window). Full replace: omitted optional fields clear their value so the
+	// receiving Exchange's defaults apply. The deprecated quantity_tolerance is
+	// accepted and ignored: a usage report is never refused for its quantity.
 	SetReportingPolicy(context.Context, *connect.Request[v1.SetReportingPolicyRequest]) (*connect.Response[v1.SetReportingPolicyResponse], error)
 }
 
