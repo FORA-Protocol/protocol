@@ -893,7 +893,7 @@ const (
 	DenialReason_DENIAL_REASON_ACCOUNT_INACTIVE          DenialReason = 1  // the requester's account (the billing_ref minted at Register) exists but is not active — typically awaiting the Exchange operator's out-of-band activation; the remedy is to wait or contact the operator, NOT to register again
 	DenialReason_DENIAL_REASON_INSUFFICIENT_BALANCE      DenialReason = 2  // Requester's balance too low
 	DenialReason_DENIAL_REASON_RATE_LIMITED              DenialReason = 3  // Too many requests
-	DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE       DenialReason = 4  // Resource no longer available
+	DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE       DenialReason = 4  // the Exchange that owns the resource reports it no longer available; NOT a catch-all for upstream failures — a Broker reports an Exchange that refused or did not answer its sub-request on TransactionResultItem.refusal, never as this reason
 	DenialReason_DENIAL_REASON_RESTRICTION_NOT_SATISFIED DenialReason = 5  // Accepted term's restriction not satisfied by the request; the axes are in TransactionDenial.restriction_mismatches (single) / TransactionResultItem.restriction_mismatches (batch), same RestrictionKind vocabulary as the terms
 	DenialReason_DENIAL_REASON_REPORTING_OVERDUE         DenialReason = 6  // Requester has >20% overdue reports (MAY threshold)
 	DenialReason_DENIAL_REASON_OFFER_EXPIRED             DenialReason = 7  // Offer TTL exceeded
@@ -923,6 +923,11 @@ const (
 	// GetAccountStatus. TransactionDenial.exchange names WHERE to register, so the
 	// agent converges without fetching a manifest first.
 	DenialReason_DENIAL_REASON_ACCOUNT_NOT_REGISTERED DenialReason = 18 // no account exists for this caller at this Exchange — the remedy is to call Register
+	// The provider at this Exchange does not accept purchases relayed by a Broker
+	// (BrokerService.ExecuteTransaction). Per item: other items in the same
+	// sub-request may succeed. The remedy is to buy this offer directly, calling
+	// ExchangeService.ExecuteTransaction at offer.exchange.
+	DenialReason_DENIAL_REASON_RELAY_NOT_ACCEPTED DenialReason = 19
 )
 
 // Enum value maps for DenialReason.
@@ -947,6 +952,7 @@ var (
 		16: "DENIAL_REASON_SUBSCRIPTION_LAPSED",
 		17: "DENIAL_REASON_ENTITLEMENT_NOT_GRANTED",
 		18: "DENIAL_REASON_ACCOUNT_NOT_REGISTERED",
+		19: "DENIAL_REASON_RELAY_NOT_ACCEPTED",
 	}
 	DenialReason_value = map[string]int32{
 		"DENIAL_REASON_UNSPECIFIED":               0,
@@ -968,6 +974,7 @@ var (
 		"DENIAL_REASON_SUBSCRIPTION_LAPSED":       16,
 		"DENIAL_REASON_ENTITLEMENT_NOT_GRANTED":   17,
 		"DENIAL_REASON_ACCOUNT_NOT_REGISTERED":    18,
+		"DENIAL_REASON_RELAY_NOT_ACCEPTED":        19,
 	}
 )
 
@@ -4385,7 +4392,14 @@ func (x *Requester) GetExtCritical() []string {
 // thumbprint of the holder's key. Verification MUST check that the key signing
 // the request (RFC 9421) hashes to that thumbprint; a token possessed without
 // the matching private key is rejected. This is what makes a leaked token NOT
-// bearer-usable. Delegation is a chain of cnf-linked JWTs: a principal narrows a
+// bearer-usable. One exception, the relayed purchase: when a Broker re-packages
+// a purchase (BrokerService.ExecuteTransaction), the request an Exchange
+// receives is signed by the Broker, not by the holder. There the Exchange checks
+// the holder binding against the key each item's AgentAcceptance verifies under
+// — the agent's key, resolved from the requester's WBA directory — and not
+// against the request signer. A relayed purchase that carries a delegation
+// therefore needs an AgentAcceptance on every item; an item without one fails
+// the binding (DENIAL_REASON_DELEGATION_INVALID). Delegation is a chain of cnf-linked JWTs: a principal narrows a
 // grant by issuing a child JWT (cnf = the next holder, scopes ⊆ parent), signed
 // by the key the parent's cnf named — the chain-linkage invariant. Verifiers
 // need only the root issuer's public key; intermediate keys ride inside the
@@ -4644,7 +4658,8 @@ func (x *AgentAcceptance) GetSignatureAlgorithm() string {
 
 // AgentRequestAcceptance — the agent's topology-independent authorization of
 // one complete ordered execute set. A Broker forwards this envelope unchanged
-// when it projects a mixed-Exchange request into per-Exchange subrequests.
+// when it projects a mixed-Exchange request into per-Exchange subrequests
+// (BrokerService.ExecuteTransaction).
 // Each receiving Exchange verifies the signature, then requires its subrequest
 // to equal the complete in-order projection of payload.items whose exchange
 // names that Exchange. This is what makes removal, append, and reorder visible
@@ -4658,10 +4673,11 @@ func (x *AgentAcceptance) GetSignatureAlgorithm() string {
 // projected body; that is expected, not a gap, and it is why this proof
 // exists: like AgentAcceptance, it is a detached body signature that stays
 // valid however the request travels. The hop-signature stack applies only to
-// requests forwarded byte-for-byte. If a delegation rides the request, the
-// holder-binding rule is unchanged — the wire signer must be the delegation's
-// terminal holder — so a Broker may project a delegated request only when the
-// agent has delegated to the Broker's key.
+// requests forwarded byte-for-byte. If a delegation rides a projected request,
+// the wire signer is the Broker, so the Exchange checks the delegation's holder
+// binding (cnf.jkt) against the key each item's AgentAcceptance verifies under,
+// not against the wire signer (see Delegation). The agent does not need to
+// delegate to the Broker's key for the Broker to relay its purchase.
 //
 // The verification key is the agent key published for the requester the signed
 // payload names. payload.requester_domain must equal the request's
@@ -4986,6 +5002,16 @@ type TransactionRequest struct {
 	// Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per
 	// (authenticated caller, key), never globally, so a key chosen by one caller
 	// cannot collide with another's cached result.
+	//
+	// Through a Broker (BrokerService.ExecuteTransaction) the key is the agent's.
+	// The Broker forwards it UNCHANGED on every sub-request it sends — it cannot do
+	// otherwise, because each AgentAcceptance and the AgentRequestAcceptance sign
+	// it — so a retry of the same purchase through the Broker reaches every
+	// Exchange as a replay and is answered from that Exchange's stored result. The
+	// verified signer of a re-packaged sub-request is the Broker, which speaks for
+	// many agents, so an Exchange scopes a relayed request's key per (Broker,
+	// requester the agent acceptances authenticate, key): two agents behind one
+	// Broker that pick the same key cannot collide.
 	IdempotencyKey string `protobuf:"bytes,2,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
 	// Requester identity — forwarded for authorization and audit.
 	Requester *Requester `protobuf:"bytes,4,opt,name=requester,proto3" json:"requester,omitempty"`
@@ -5167,7 +5193,9 @@ type TransactionResponse struct {
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Identity that a delivered retrieval_endpoint is bound to: the RFC 7638 JWK
 	// Thumbprint of the agent's Ed25519 request-signing key (see "Retrieval-URL
-	// identity binding" above). Shared across the request; set once.
+	// identity binding" above). On a sub-request a Broker re-packaged, the request
+	// signer is the Broker, and this is the thumbprint of the agent key the
+	// AgentAcceptances verify under instead. Shared across the request; set once.
 	AgentIdentityHash string `protobuf:"bytes,10,opt,name=agent_identity_hash,json=agentIdentityHash,proto3" json:"agent_identity_hash,omitempty"`
 	// Per-offer results (one entry per committed item, in original order).
 	Items []*TransactionResultItem `protobuf:"bytes,13,rep,name=items,proto3" json:"items,omitempty"`
@@ -5296,15 +5324,25 @@ type TransactionResultItem struct {
 	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
 	// Signed retrieval URL for this item. Bound to the requesting agent's identity
 	// via the parent TransactionResponse.agent_identity_hash (shared across all
-	// batch items); expires at expires_at. Absent if this item was denied or its
+	// batch items) — on a BrokerTransactionResponse, the agent_identity_hash of
+	// the ExchangeOutcome for this item's Exchange; expires at expires_at. Absent if this item was denied or its
 	// delivery_method is not signed-URL-based.
 	RetrievalEndpoint *string `protobuf:"bytes,12,opt,name=retrieval_endpoint,json=retrievalEndpoint,proto3,oneof" json:"retrieval_endpoint,omitempty"`
 	// How resource is delivered for this item.
 	DeliveryMethod DeliveryMethod `protobuf:"varint,9,opt,name=delivery_method,json=deliveryMethod,proto3,enum=fora.v1.DeliveryMethod" json:"delivery_method,omitempty"`
 	// Reporting requirements for this item.
 	ReportingObligation *ReportingObligation `protobuf:"bytes,10,opt,name=reporting_obligation,json=reportingObligation,proto3,oneof" json:"reporting_obligation,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// Set only on a BrokerTransactionResponse, and only when the Exchange that
+	// owns this item refused the Broker's whole sub-request instead of answering
+	// it: a non-OK answer, or no answer at all. The item was not purchased.
+	// offer_id names the item; transaction_id, billing_id, cost, denial_reason,
+	// retrieval_endpoint and the other result fields stay unset. Every item the
+	// Broker sent in that sub-request carries the same refusal. An Exchange never
+	// sets this field, and a Broker never replaces it with a denial_reason: an
+	// upstream refusal is not a per-item access decision.
+	Refusal       *UpstreamRefusal `protobuf:"bytes,14,opt,name=refusal,proto3,oneof" json:"refusal,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TransactionResultItem) Reset() {
@@ -5428,6 +5466,90 @@ func (x *TransactionResultItem) GetReportingObligation() *ReportingObligation {
 	return nil
 }
 
+func (x *TransactionResultItem) GetRefusal() *UpstreamRefusal {
+	if x != nil {
+		return x.Refusal
+	}
+	return nil
+}
+
+// UpstreamRefusal — an Exchange's refusal of a whole sub-request a Broker sent
+// it on BrokerService.ExecuteTransaction, carried in the Broker's response body
+// on each affected item (TransactionResultItem.refusal) instead of being turned
+// into an error of the Broker's own. Like TransactionDenial.exchange, nothing
+// signs it: it is the Broker's report of what the Exchange answered.
+type UpstreamRefusal struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Bare host of the Exchange that refused, in the form "Request recipient"
+	// defines in the file header. Equal to the refused items' signed
+	// offer.exchange, which is the value a caller acts on.
+	Exchange string `protobuf:"bytes,1,opt,name=exchange,proto3" json:"exchange,omitempty"`
+	// The Connect code the Exchange answered with, in its wire form, e.g.
+	// "permission_denied" or "unauthenticated". When the Exchange gave no answer
+	// — unreachable, or the call timed out — it is the code the Broker's call
+	// failed with ("unavailable", "deadline_exceeded"). A timeout is an ambiguous
+	// outcome: the purchase may have completed. Retrying the agent's request with
+	// the same idempotency_key is safe, because the Broker forwards the key
+	// unchanged and the Exchange answers a replay from its stored result.
+	Code string `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
+	// The Exchange's typed reason, unchanged — the ErrorDetail it attached to its
+	// refusal. Absent when the Exchange attached none or gave no answer.
+	Detail        *ErrorDetail `protobuf:"bytes,3,opt,name=detail,proto3,oneof" json:"detail,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpstreamRefusal) Reset() {
+	*x = UpstreamRefusal{}
+	mi := &file_fora_v1_fora_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpstreamRefusal) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpstreamRefusal) ProtoMessage() {}
+
+func (x *UpstreamRefusal) ProtoReflect() protoreflect.Message {
+	mi := &file_fora_v1_fora_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpstreamRefusal.ProtoReflect.Descriptor instead.
+func (*UpstreamRefusal) Descriptor() ([]byte, []int) {
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *UpstreamRefusal) GetExchange() string {
+	if x != nil {
+		return x.Exchange
+	}
+	return ""
+}
+
+func (x *UpstreamRefusal) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *UpstreamRefusal) GetDetail() *ErrorDetail {
+	if x != nil {
+		return x.Detail
+	}
+	return nil
+}
+
 // Cost — Actual transaction cost.
 type Cost struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -5441,7 +5563,7 @@ type Cost struct {
 
 func (x *Cost) Reset() {
 	*x = Cost{}
-	mi := &file_fora_v1_fora_proto_msgTypes[27]
+	mi := &file_fora_v1_fora_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5453,7 +5575,7 @@ func (x *Cost) String() string {
 func (*Cost) ProtoMessage() {}
 
 func (x *Cost) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[27]
+	mi := &file_fora_v1_fora_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5466,7 +5588,7 @@ func (x *Cost) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Cost.ProtoReflect.Descriptor instead.
 func (*Cost) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{27}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *Cost) GetAmount() string {
@@ -5526,7 +5648,7 @@ type PushResourcesRequest struct {
 
 func (x *PushResourcesRequest) Reset() {
 	*x = PushResourcesRequest{}
-	mi := &file_fora_v1_fora_proto_msgTypes[28]
+	mi := &file_fora_v1_fora_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5538,7 +5660,7 @@ func (x *PushResourcesRequest) String() string {
 func (*PushResourcesRequest) ProtoMessage() {}
 
 func (x *PushResourcesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[28]
+	mi := &file_fora_v1_fora_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5551,7 +5673,7 @@ func (x *PushResourcesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PushResourcesRequest.ProtoReflect.Descriptor instead.
 func (*PushResourcesRequest) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{28}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *PushResourcesRequest) GetVer() string {
@@ -5696,7 +5818,7 @@ type ResourceEntry struct {
 
 func (x *ResourceEntry) Reset() {
 	*x = ResourceEntry{}
-	mi := &file_fora_v1_fora_proto_msgTypes[29]
+	mi := &file_fora_v1_fora_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5708,7 +5830,7 @@ func (x *ResourceEntry) String() string {
 func (*ResourceEntry) ProtoMessage() {}
 
 func (x *ResourceEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[29]
+	mi := &file_fora_v1_fora_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5721,7 +5843,7 @@ func (x *ResourceEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceEntry.ProtoReflect.Descriptor instead.
 func (*ResourceEntry) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{29}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ResourceEntry) GetDomain() string {
@@ -5874,7 +5996,7 @@ type PushResourcesResponse struct {
 
 func (x *PushResourcesResponse) Reset() {
 	*x = PushResourcesResponse{}
-	mi := &file_fora_v1_fora_proto_msgTypes[30]
+	mi := &file_fora_v1_fora_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5886,7 +6008,7 @@ func (x *PushResourcesResponse) String() string {
 func (*PushResourcesResponse) ProtoMessage() {}
 
 func (x *PushResourcesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[30]
+	mi := &file_fora_v1_fora_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5899,7 +6021,7 @@ func (x *PushResourcesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PushResourcesResponse.ProtoReflect.Descriptor instead.
 func (*PushResourcesResponse) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{30}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *PushResourcesResponse) GetVer() string {
@@ -5966,7 +6088,7 @@ type RemoveResourcesRequest struct {
 
 func (x *RemoveResourcesRequest) Reset() {
 	*x = RemoveResourcesRequest{}
-	mi := &file_fora_v1_fora_proto_msgTypes[31]
+	mi := &file_fora_v1_fora_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5978,7 +6100,7 @@ func (x *RemoveResourcesRequest) String() string {
 func (*RemoveResourcesRequest) ProtoMessage() {}
 
 func (x *RemoveResourcesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[31]
+	mi := &file_fora_v1_fora_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5991,7 +6113,7 @@ func (x *RemoveResourcesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveResourcesRequest.ProtoReflect.Descriptor instead.
 func (*RemoveResourcesRequest) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{31}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *RemoveResourcesRequest) GetVer() string {
@@ -6035,7 +6157,7 @@ type RemoveResourcesResponse struct {
 
 func (x *RemoveResourcesResponse) Reset() {
 	*x = RemoveResourcesResponse{}
-	mi := &file_fora_v1_fora_proto_msgTypes[32]
+	mi := &file_fora_v1_fora_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6047,7 +6169,7 @@ func (x *RemoveResourcesResponse) String() string {
 func (*RemoveResourcesResponse) ProtoMessage() {}
 
 func (x *RemoveResourcesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[32]
+	mi := &file_fora_v1_fora_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6060,7 +6182,7 @@ func (x *RemoveResourcesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveResourcesResponse.ProtoReflect.Descriptor instead.
 func (*RemoveResourcesResponse) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{32}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *RemoveResourcesResponse) GetVer() string {
@@ -6095,7 +6217,7 @@ type RefreshCatalogRequest struct {
 
 func (x *RefreshCatalogRequest) Reset() {
 	*x = RefreshCatalogRequest{}
-	mi := &file_fora_v1_fora_proto_msgTypes[33]
+	mi := &file_fora_v1_fora_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6107,7 +6229,7 @@ func (x *RefreshCatalogRequest) String() string {
 func (*RefreshCatalogRequest) ProtoMessage() {}
 
 func (x *RefreshCatalogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[33]
+	mi := &file_fora_v1_fora_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6120,7 +6242,7 @@ func (x *RefreshCatalogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefreshCatalogRequest.ProtoReflect.Descriptor instead.
 func (*RefreshCatalogRequest) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{33}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *RefreshCatalogRequest) GetVer() string {
@@ -6157,7 +6279,7 @@ type RefreshCatalogResponse struct {
 
 func (x *RefreshCatalogResponse) Reset() {
 	*x = RefreshCatalogResponse{}
-	mi := &file_fora_v1_fora_proto_msgTypes[34]
+	mi := &file_fora_v1_fora_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6169,7 +6291,7 @@ func (x *RefreshCatalogResponse) String() string {
 func (*RefreshCatalogResponse) ProtoMessage() {}
 
 func (x *RefreshCatalogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[34]
+	mi := &file_fora_v1_fora_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6182,7 +6304,7 @@ func (x *RefreshCatalogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefreshCatalogResponse.ProtoReflect.Descriptor instead.
 func (*RefreshCatalogResponse) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{34}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *RefreshCatalogResponse) GetVer() string {
@@ -6224,7 +6346,7 @@ type ReportingObligation struct {
 
 func (x *ReportingObligation) Reset() {
 	*x = ReportingObligation{}
-	mi := &file_fora_v1_fora_proto_msgTypes[35]
+	mi := &file_fora_v1_fora_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6236,7 +6358,7 @@ func (x *ReportingObligation) String() string {
 func (*ReportingObligation) ProtoMessage() {}
 
 func (x *ReportingObligation) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[35]
+	mi := &file_fora_v1_fora_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6249,7 +6371,7 @@ func (x *ReportingObligation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportingObligation.ProtoReflect.Descriptor instead.
 func (*ReportingObligation) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{35}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ReportingObligation) GetRequired() bool {
@@ -6340,7 +6462,7 @@ type UsageReport struct {
 
 func (x *UsageReport) Reset() {
 	*x = UsageReport{}
-	mi := &file_fora_v1_fora_proto_msgTypes[36]
+	mi := &file_fora_v1_fora_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6352,7 +6474,7 @@ func (x *UsageReport) String() string {
 func (*UsageReport) ProtoMessage() {}
 
 func (x *UsageReport) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[36]
+	mi := &file_fora_v1_fora_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6365,7 +6487,7 @@ func (x *UsageReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UsageReport.ProtoReflect.Descriptor instead.
 func (*UsageReport) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{36}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *UsageReport) GetVer() string {
@@ -6453,7 +6575,7 @@ type AttributionDetail struct {
 
 func (x *AttributionDetail) Reset() {
 	*x = AttributionDetail{}
-	mi := &file_fora_v1_fora_proto_msgTypes[37]
+	mi := &file_fora_v1_fora_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6465,7 +6587,7 @@ func (x *AttributionDetail) String() string {
 func (*AttributionDetail) ProtoMessage() {}
 
 func (x *AttributionDetail) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[37]
+	mi := &file_fora_v1_fora_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6478,7 +6600,7 @@ func (x *AttributionDetail) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AttributionDetail.ProtoReflect.Descriptor instead.
 func (*AttributionDetail) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{37}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *AttributionDetail) GetDisplayedUrl() string {
@@ -6532,7 +6654,7 @@ type Usage struct {
 
 func (x *Usage) Reset() {
 	*x = Usage{}
-	mi := &file_fora_v1_fora_proto_msgTypes[38]
+	mi := &file_fora_v1_fora_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6544,7 +6666,7 @@ func (x *Usage) String() string {
 func (*Usage) ProtoMessage() {}
 
 func (x *Usage) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[38]
+	mi := &file_fora_v1_fora_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6557,7 +6679,7 @@ func (x *Usage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Usage.ProtoReflect.Descriptor instead.
 func (*Usage) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{38}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *Usage) GetFunction() []string {
@@ -6624,7 +6746,7 @@ type UsageAsset struct {
 
 func (x *UsageAsset) Reset() {
 	*x = UsageAsset{}
-	mi := &file_fora_v1_fora_proto_msgTypes[39]
+	mi := &file_fora_v1_fora_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6636,7 +6758,7 @@ func (x *UsageAsset) String() string {
 func (*UsageAsset) ProtoMessage() {}
 
 func (x *UsageAsset) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[39]
+	mi := &file_fora_v1_fora_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6649,7 +6771,7 @@ func (x *UsageAsset) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UsageAsset.ProtoReflect.Descriptor instead.
 func (*UsageAsset) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{39}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *UsageAsset) GetUri() string {
@@ -6700,7 +6822,7 @@ type UsageReportResponse struct {
 
 func (x *UsageReportResponse) Reset() {
 	*x = UsageReportResponse{}
-	mi := &file_fora_v1_fora_proto_msgTypes[40]
+	mi := &file_fora_v1_fora_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6712,7 +6834,7 @@ func (x *UsageReportResponse) String() string {
 func (*UsageReportResponse) ProtoMessage() {}
 
 func (x *UsageReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[40]
+	mi := &file_fora_v1_fora_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6725,7 +6847,7 @@ func (x *UsageReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UsageReportResponse.ProtoReflect.Descriptor instead.
 func (*UsageReportResponse) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{40}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *UsageReportResponse) GetVer() string {
@@ -6811,7 +6933,7 @@ type DiscoveryRequest struct {
 
 func (x *DiscoveryRequest) Reset() {
 	*x = DiscoveryRequest{}
-	mi := &file_fora_v1_fora_proto_msgTypes[41]
+	mi := &file_fora_v1_fora_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6823,7 +6945,7 @@ func (x *DiscoveryRequest) String() string {
 func (*DiscoveryRequest) ProtoMessage() {}
 
 func (x *DiscoveryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[41]
+	mi := &file_fora_v1_fora_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6836,7 +6958,7 @@ func (x *DiscoveryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscoveryRequest.ProtoReflect.Descriptor instead.
 func (*DiscoveryRequest) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{41}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *DiscoveryRequest) GetVer() string {
@@ -6964,7 +7086,7 @@ type RequestConstraints struct {
 
 func (x *RequestConstraints) Reset() {
 	*x = RequestConstraints{}
-	mi := &file_fora_v1_fora_proto_msgTypes[42]
+	mi := &file_fora_v1_fora_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6976,7 +7098,7 @@ func (x *RequestConstraints) String() string {
 func (*RequestConstraints) ProtoMessage() {}
 
 func (x *RequestConstraints) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[42]
+	mi := &file_fora_v1_fora_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6989,7 +7111,7 @@ func (x *RequestConstraints) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestConstraints.ProtoReflect.Descriptor instead.
 func (*RequestConstraints) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{42}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *RequestConstraints) GetExchanges() []string {
@@ -7105,7 +7227,7 @@ type JsonWebKey struct {
 
 func (x *JsonWebKey) Reset() {
 	*x = JsonWebKey{}
-	mi := &file_fora_v1_fora_proto_msgTypes[43]
+	mi := &file_fora_v1_fora_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7117,7 +7239,7 @@ func (x *JsonWebKey) String() string {
 func (*JsonWebKey) ProtoMessage() {}
 
 func (x *JsonWebKey) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[43]
+	mi := &file_fora_v1_fora_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7130,7 +7252,7 @@ func (x *JsonWebKey) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JsonWebKey.ProtoReflect.Descriptor instead.
 func (*JsonWebKey) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{43}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *JsonWebKey) GetKty() string {
@@ -7381,7 +7503,7 @@ type AccountRegistration struct {
 
 func (x *AccountRegistration) Reset() {
 	*x = AccountRegistration{}
-	mi := &file_fora_v1_fora_proto_msgTypes[44]
+	mi := &file_fora_v1_fora_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7393,7 +7515,7 @@ func (x *AccountRegistration) String() string {
 func (*AccountRegistration) ProtoMessage() {}
 
 func (x *AccountRegistration) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[44]
+	mi := &file_fora_v1_fora_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7406,7 +7528,7 @@ func (x *AccountRegistration) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AccountRegistration.ProtoReflect.Descriptor instead.
 func (*AccountRegistration) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{44}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *AccountRegistration) GetDataSchema() *structpb.Struct {
@@ -7563,7 +7685,7 @@ type WellKnownManifest struct {
 
 func (x *WellKnownManifest) Reset() {
 	*x = WellKnownManifest{}
-	mi := &file_fora_v1_fora_proto_msgTypes[45]
+	mi := &file_fora_v1_fora_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7575,7 +7697,7 @@ func (x *WellKnownManifest) String() string {
 func (*WellKnownManifest) ProtoMessage() {}
 
 func (x *WellKnownManifest) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[45]
+	mi := &file_fora_v1_fora_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7588,7 +7710,7 @@ func (x *WellKnownManifest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WellKnownManifest.ProtoReflect.Descriptor instead.
 func (*WellKnownManifest) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{45}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *WellKnownManifest) GetVer() string {
@@ -7815,7 +7937,7 @@ type WBAFile struct {
 
 func (x *WBAFile) Reset() {
 	*x = WBAFile{}
-	mi := &file_fora_v1_fora_proto_msgTypes[46]
+	mi := &file_fora_v1_fora_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7827,7 +7949,7 @@ func (x *WBAFile) String() string {
 func (*WBAFile) ProtoMessage() {}
 
 func (x *WBAFile) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[46]
+	mi := &file_fora_v1_fora_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7840,7 +7962,7 @@ func (x *WBAFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WBAFile.ProtoReflect.Descriptor instead.
 func (*WBAFile) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{46}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *WBAFile) GetKeys() []*JsonWebKey {
@@ -7879,7 +8001,7 @@ type KeyRevocationList struct {
 
 func (x *KeyRevocationList) Reset() {
 	*x = KeyRevocationList{}
-	mi := &file_fora_v1_fora_proto_msgTypes[47]
+	mi := &file_fora_v1_fora_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7891,7 +8013,7 @@ func (x *KeyRevocationList) String() string {
 func (*KeyRevocationList) ProtoMessage() {}
 
 func (x *KeyRevocationList) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[47]
+	mi := &file_fora_v1_fora_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7904,7 +8026,7 @@ func (x *KeyRevocationList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyRevocationList.ProtoReflect.Descriptor instead.
 func (*KeyRevocationList) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{47}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *KeyRevocationList) GetAsOf() *timestamppb.Timestamp {
@@ -7937,7 +8059,7 @@ type CatalogContributor struct {
 
 func (x *CatalogContributor) Reset() {
 	*x = CatalogContributor{}
-	mi := &file_fora_v1_fora_proto_msgTypes[48]
+	mi := &file_fora_v1_fora_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7949,7 +8071,7 @@ func (x *CatalogContributor) String() string {
 func (*CatalogContributor) ProtoMessage() {}
 
 func (x *CatalogContributor) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[48]
+	mi := &file_fora_v1_fora_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7962,7 +8084,7 @@ func (x *CatalogContributor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CatalogContributor.ProtoReflect.Descriptor instead.
 func (*CatalogContributor) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{48}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *CatalogContributor) GetDomain() string {
@@ -8002,7 +8124,7 @@ type AuthorizedExchange struct {
 
 func (x *AuthorizedExchange) Reset() {
 	*x = AuthorizedExchange{}
-	mi := &file_fora_v1_fora_proto_msgTypes[49]
+	mi := &file_fora_v1_fora_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8014,7 +8136,7 @@ func (x *AuthorizedExchange) String() string {
 func (*AuthorizedExchange) ProtoMessage() {}
 
 func (x *AuthorizedExchange) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[49]
+	mi := &file_fora_v1_fora_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8027,7 +8149,7 @@ func (x *AuthorizedExchange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthorizedExchange.ProtoReflect.Descriptor instead.
 func (*AuthorizedExchange) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{49}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *AuthorizedExchange) GetDomain() string {
@@ -8071,7 +8193,8 @@ func (x *AuthorizedExchange) GetExtCritical() []string {
 // Exchanges, grouped by the URI they were requested for. Committing to an offer
 // is a separate exchange on the execute path; that per-transaction result
 // (transaction_id, billing_id, cost, delivery_method, retrieval endpoint, …)
-// is returned by TransactionResponse, not here.
+// is returned by TransactionResponse, or by BrokerTransactionResponse when the
+// purchase goes through BrokerService.ExecuteTransaction, not here.
 type DiscoveryResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// FORA protocol version — "1.0". Stamped by the sender from a single
@@ -8112,7 +8235,7 @@ type DiscoveryResponse struct {
 
 func (x *DiscoveryResponse) Reset() {
 	*x = DiscoveryResponse{}
-	mi := &file_fora_v1_fora_proto_msgTypes[50]
+	mi := &file_fora_v1_fora_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8124,7 +8247,7 @@ func (x *DiscoveryResponse) String() string {
 func (*DiscoveryResponse) ProtoMessage() {}
 
 func (x *DiscoveryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[50]
+	mi := &file_fora_v1_fora_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8137,7 +8260,7 @@ func (x *DiscoveryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscoveryResponse.ProtoReflect.Descriptor instead.
 func (*DiscoveryResponse) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{50}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *DiscoveryResponse) GetVer() string {
@@ -8171,6 +8294,195 @@ func (x *DiscoveryResponse) GetExt() *structpb.Struct {
 func (x *DiscoveryResponse) GetExtCritical() []string {
 	if x != nil {
 		return x.ExtCritical
+	}
+	return nil
+}
+
+// BrokerTransactionResponse — the Broker's combined answer to
+// BrokerService.ExecuteTransaction: the independent per-resource purchases it
+// made at one or more Exchanges, assembled in request order. Each item is
+// atomic and owned by the Exchange that issued its offer, so the combination
+// needs no integrity of its own and carries none: no field here is signed, and
+// a result item's one signed value is its retrieval_endpoint, signed by the
+// issuing Exchange (see BrokerService.ExecuteTransaction).
+type BrokerTransactionResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// constant; advisory on receive. See "Protocol version" in the file header.
+	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
+	// One per request item, in request order. A purchase that succeeded, or that
+	// its Exchange denied per item (denial_reason), is that Exchange's
+	// TransactionResultItem unchanged. An item whose Exchange refused the whole
+	// sub-request, or did not answer it, carries that refusal in `refusal`, with
+	// offer_id set and no other result field.
+	Items []*TransactionResultItem `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
+	// One per Exchange the Broker contacted, in the order each Exchange first
+	// appears among the request items.
+	Exchanges []*ExchangeOutcome `protobuf:"bytes,3,rep,name=exchanges,proto3" json:"exchanges,omitempty"`
+	// Charged totals, one per currency, in the order each currency first appears
+	// among the charged items. An item is charged when it carries neither
+	// denial_reason nor refusal; its cost.amount is added, as an exact decimal,
+	// into the entry for its cost.currency. Amounts are never summed across
+	// currencies and never converted. unit_cost is unset. Empty when no item was
+	// charged.
+	Totals []*Cost `protobuf:"bytes,4,rep,name=totals,proto3" json:"totals,omitempty"`
+	// Extension point
+	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
+	// Critical extension keys (COSE crit pattern, RFC 9052).
+	// Lists keys within ext that the consumer MUST understand.
+	// Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.
+	// Empty (default) → all ext keys are safe to ignore.
+	ExtCritical   []string `protobuf:"bytes,90,rep,name=ext_critical,json=extCritical,proto3" json:"ext_critical,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BrokerTransactionResponse) Reset() {
+	*x = BrokerTransactionResponse{}
+	mi := &file_fora_v1_fora_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BrokerTransactionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BrokerTransactionResponse) ProtoMessage() {}
+
+func (x *BrokerTransactionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_fora_v1_fora_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BrokerTransactionResponse.ProtoReflect.Descriptor instead.
+func (*BrokerTransactionResponse) Descriptor() ([]byte, []int) {
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *BrokerTransactionResponse) GetVer() string {
+	if x != nil {
+		return x.Ver
+	}
+	return ""
+}
+
+func (x *BrokerTransactionResponse) GetItems() []*TransactionResultItem {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *BrokerTransactionResponse) GetExchanges() []*ExchangeOutcome {
+	if x != nil {
+		return x.Exchanges
+	}
+	return nil
+}
+
+func (x *BrokerTransactionResponse) GetTotals() []*Cost {
+	if x != nil {
+		return x.Totals
+	}
+	return nil
+}
+
+func (x *BrokerTransactionResponse) GetExt() *structpb.Struct {
+	if x != nil {
+		return x.Ext
+	}
+	return nil
+}
+
+func (x *BrokerTransactionResponse) GetExtCritical() []string {
+	if x != nil {
+		return x.ExtCritical
+	}
+	return nil
+}
+
+// ExchangeOutcome — the request-level state of one Exchange's answer to the
+// sub-request a Broker sent it on BrokerService.ExecuteTransaction: the fields
+// of its TransactionResponse that are not per item.
+type ExchangeOutcome struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Bare host of the Exchange, in the form "Request recipient" defines in the
+	// file header: the offer.exchange its items share.
+	Exchange string `protobuf:"bytes,1,opt,name=exchange,proto3" json:"exchange,omitempty"`
+	// The offer_id of every item sent to this Exchange, in request order.
+	OfferIds []string `protobuf:"bytes,2,rep,name=offer_ids,json=offerIds,proto3" json:"offer_ids,omitempty"`
+	// That Exchange's TransactionResponse.agent_identity_hash: the identity the
+	// retrieval_endpoint of each of its items is bound to. Empty when the
+	// Exchange refused the sub-request or did not answer.
+	AgentIdentityHash string `protobuf:"bytes,3,opt,name=agent_identity_hash,json=agentIdentityHash,proto3" json:"agent_identity_hash,omitempty"`
+	// That Exchange's TransactionResponse.subscription_quota, unchanged.
+	SubscriptionQuota []*SubscriptionQuotaInfo `protobuf:"bytes,4,rep,name=subscription_quota,json=subscriptionQuota,proto3" json:"subscription_quota,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ExchangeOutcome) Reset() {
+	*x = ExchangeOutcome{}
+	mi := &file_fora_v1_fora_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExchangeOutcome) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExchangeOutcome) ProtoMessage() {}
+
+func (x *ExchangeOutcome) ProtoReflect() protoreflect.Message {
+	mi := &file_fora_v1_fora_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExchangeOutcome.ProtoReflect.Descriptor instead.
+func (*ExchangeOutcome) Descriptor() ([]byte, []int) {
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *ExchangeOutcome) GetExchange() string {
+	if x != nil {
+		return x.Exchange
+	}
+	return ""
+}
+
+func (x *ExchangeOutcome) GetOfferIds() []string {
+	if x != nil {
+		return x.OfferIds
+	}
+	return nil
+}
+
+func (x *ExchangeOutcome) GetAgentIdentityHash() string {
+	if x != nil {
+		return x.AgentIdentityHash
+	}
+	return ""
+}
+
+func (x *ExchangeOutcome) GetSubscriptionQuota() []*SubscriptionQuotaInfo {
+	if x != nil {
+		return x.SubscriptionQuota
 	}
 	return nil
 }
@@ -8229,7 +8541,7 @@ type DisputeRequest struct {
 
 func (x *DisputeRequest) Reset() {
 	*x = DisputeRequest{}
-	mi := &file_fora_v1_fora_proto_msgTypes[51]
+	mi := &file_fora_v1_fora_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8241,7 +8553,7 @@ func (x *DisputeRequest) String() string {
 func (*DisputeRequest) ProtoMessage() {}
 
 func (x *DisputeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[51]
+	mi := &file_fora_v1_fora_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8254,7 +8566,7 @@ func (x *DisputeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisputeRequest.ProtoReflect.Descriptor instead.
 func (*DisputeRequest) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{51}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *DisputeRequest) GetVer() string {
@@ -8377,7 +8689,7 @@ type DisputeResponse struct {
 
 func (x *DisputeResponse) Reset() {
 	*x = DisputeResponse{}
-	mi := &file_fora_v1_fora_proto_msgTypes[52]
+	mi := &file_fora_v1_fora_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8389,7 +8701,7 @@ func (x *DisputeResponse) String() string {
 func (*DisputeResponse) ProtoMessage() {}
 
 func (x *DisputeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[52]
+	mi := &file_fora_v1_fora_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8402,7 +8714,7 @@ func (x *DisputeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisputeResponse.ProtoReflect.Descriptor instead.
 func (*DisputeResponse) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{52}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *DisputeResponse) GetVer() string {
@@ -8482,7 +8794,7 @@ type DomainVerificationRequest struct {
 
 func (x *DomainVerificationRequest) Reset() {
 	*x = DomainVerificationRequest{}
-	mi := &file_fora_v1_fora_proto_msgTypes[53]
+	mi := &file_fora_v1_fora_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8494,7 +8806,7 @@ func (x *DomainVerificationRequest) String() string {
 func (*DomainVerificationRequest) ProtoMessage() {}
 
 func (x *DomainVerificationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[53]
+	mi := &file_fora_v1_fora_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8507,7 +8819,7 @@ func (x *DomainVerificationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DomainVerificationRequest.ProtoReflect.Descriptor instead.
 func (*DomainVerificationRequest) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{53}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *DomainVerificationRequest) GetVer() string {
@@ -8578,7 +8890,7 @@ type DomainVerificationChallenge struct {
 
 func (x *DomainVerificationChallenge) Reset() {
 	*x = DomainVerificationChallenge{}
-	mi := &file_fora_v1_fora_proto_msgTypes[54]
+	mi := &file_fora_v1_fora_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8590,7 +8902,7 @@ func (x *DomainVerificationChallenge) String() string {
 func (*DomainVerificationChallenge) ProtoMessage() {}
 
 func (x *DomainVerificationChallenge) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[54]
+	mi := &file_fora_v1_fora_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8603,7 +8915,7 @@ func (x *DomainVerificationChallenge) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DomainVerificationChallenge.ProtoReflect.Descriptor instead.
 func (*DomainVerificationChallenge) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{54}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *DomainVerificationChallenge) GetVer() string {
@@ -8695,7 +9007,7 @@ type DomainVerificationConfirmation struct {
 
 func (x *DomainVerificationConfirmation) Reset() {
 	*x = DomainVerificationConfirmation{}
-	mi := &file_fora_v1_fora_proto_msgTypes[55]
+	mi := &file_fora_v1_fora_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8707,7 +9019,7 @@ func (x *DomainVerificationConfirmation) String() string {
 func (*DomainVerificationConfirmation) ProtoMessage() {}
 
 func (x *DomainVerificationConfirmation) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[55]
+	mi := &file_fora_v1_fora_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8720,7 +9032,7 @@ func (x *DomainVerificationConfirmation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DomainVerificationConfirmation.ProtoReflect.Descriptor instead.
 func (*DomainVerificationConfirmation) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{55}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *DomainVerificationConfirmation) GetVer() string {
@@ -8802,7 +9114,7 @@ type DomainVerificationResult struct {
 
 func (x *DomainVerificationResult) Reset() {
 	*x = DomainVerificationResult{}
-	mi := &file_fora_v1_fora_proto_msgTypes[56]
+	mi := &file_fora_v1_fora_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8814,7 +9126,7 @@ func (x *DomainVerificationResult) String() string {
 func (*DomainVerificationResult) ProtoMessage() {}
 
 func (x *DomainVerificationResult) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[56]
+	mi := &file_fora_v1_fora_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8827,7 +9139,7 @@ func (x *DomainVerificationResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DomainVerificationResult.ProtoReflect.Descriptor instead.
 func (*DomainVerificationResult) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{56}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *DomainVerificationResult) GetVer() string {
@@ -9015,7 +9327,7 @@ type RegisterRequest struct {
 
 func (x *RegisterRequest) Reset() {
 	*x = RegisterRequest{}
-	mi := &file_fora_v1_fora_proto_msgTypes[57]
+	mi := &file_fora_v1_fora_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9027,7 +9339,7 @@ func (x *RegisterRequest) String() string {
 func (*RegisterRequest) ProtoMessage() {}
 
 func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[57]
+	mi := &file_fora_v1_fora_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9040,7 +9352,7 @@ func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterRequest.ProtoReflect.Descriptor instead.
 func (*RegisterRequest) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{57}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *RegisterRequest) GetVer() string {
@@ -9111,7 +9423,7 @@ type RegisterResponse struct {
 
 func (x *RegisterResponse) Reset() {
 	*x = RegisterResponse{}
-	mi := &file_fora_v1_fora_proto_msgTypes[58]
+	mi := &file_fora_v1_fora_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9123,7 +9435,7 @@ func (x *RegisterResponse) String() string {
 func (*RegisterResponse) ProtoMessage() {}
 
 func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[58]
+	mi := &file_fora_v1_fora_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9136,7 +9448,7 @@ func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterResponse.ProtoReflect.Descriptor instead.
 func (*RegisterResponse) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{58}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *RegisterResponse) GetVer() string {
@@ -9198,7 +9510,7 @@ type GetAccountStatusRequest struct {
 
 func (x *GetAccountStatusRequest) Reset() {
 	*x = GetAccountStatusRequest{}
-	mi := &file_fora_v1_fora_proto_msgTypes[59]
+	mi := &file_fora_v1_fora_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9210,7 +9522,7 @@ func (x *GetAccountStatusRequest) String() string {
 func (*GetAccountStatusRequest) ProtoMessage() {}
 
 func (x *GetAccountStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[59]
+	mi := &file_fora_v1_fora_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9223,7 +9535,7 @@ func (x *GetAccountStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetAccountStatusRequest) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{59}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *GetAccountStatusRequest) GetVer() string {
@@ -9316,7 +9628,7 @@ type GetAccountStatusResponse struct {
 
 func (x *GetAccountStatusResponse) Reset() {
 	*x = GetAccountStatusResponse{}
-	mi := &file_fora_v1_fora_proto_msgTypes[60]
+	mi := &file_fora_v1_fora_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9328,7 +9640,7 @@ func (x *GetAccountStatusResponse) String() string {
 func (*GetAccountStatusResponse) ProtoMessage() {}
 
 func (x *GetAccountStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[60]
+	mi := &file_fora_v1_fora_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9341,7 +9653,7 @@ func (x *GetAccountStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetAccountStatusResponse) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{60}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *GetAccountStatusResponse) GetVer() string {
@@ -9432,7 +9744,7 @@ type ErrorDetail struct {
 
 func (x *ErrorDetail) Reset() {
 	*x = ErrorDetail{}
-	mi := &file_fora_v1_fora_proto_msgTypes[61]
+	mi := &file_fora_v1_fora_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9444,7 +9756,7 @@ func (x *ErrorDetail) String() string {
 func (*ErrorDetail) ProtoMessage() {}
 
 func (x *ErrorDetail) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[61]
+	mi := &file_fora_v1_fora_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9457,7 +9769,7 @@ func (x *ErrorDetail) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ErrorDetail.ProtoReflect.Descriptor instead.
 func (*ErrorDetail) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{61}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *ErrorDetail) GetMessage() string {
@@ -9635,7 +9947,9 @@ type TransactionDenial struct {
 	// Bare host of the Exchange that PRODUCED this denial, in the form "Request
 	// recipient" defines in the file header. Not an echo of what the caller sent:
 	// on a relayed or fanned-out execute the request went to a Broker, so the
-	// Exchange that refused may not be one the agent named. Carrying it here is
+	// Exchange that refused may not be one the agent named (through
+	// BrokerService.ExecuteTransaction this detail reaches the agent inside
+	// UpstreamRefusal.detail, beside UpstreamRefusal.exchange). Carrying it here is
 	// what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to
 	// call Register without fetching a manifest to work it out. NOTHING SIGNS THIS
 	// VALUE: it rides in a response, and on a relayed path the response passed
@@ -9656,7 +9970,7 @@ type TransactionDenial struct {
 
 func (x *TransactionDenial) Reset() {
 	*x = TransactionDenial{}
-	mi := &file_fora_v1_fora_proto_msgTypes[62]
+	mi := &file_fora_v1_fora_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9668,7 +9982,7 @@ func (x *TransactionDenial) String() string {
 func (*TransactionDenial) ProtoMessage() {}
 
 func (x *TransactionDenial) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[62]
+	mi := &file_fora_v1_fora_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9681,7 +9995,7 @@ func (x *TransactionDenial) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransactionDenial.ProtoReflect.Descriptor instead.
 func (*TransactionDenial) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{62}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *TransactionDenial) GetReason() DenialReason {
@@ -9727,7 +10041,7 @@ type CatalogRejection struct {
 
 func (x *CatalogRejection) Reset() {
 	*x = CatalogRejection{}
-	mi := &file_fora_v1_fora_proto_msgTypes[63]
+	mi := &file_fora_v1_fora_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9739,7 +10053,7 @@ func (x *CatalogRejection) String() string {
 func (*CatalogRejection) ProtoMessage() {}
 
 func (x *CatalogRejection) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[63]
+	mi := &file_fora_v1_fora_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9752,7 +10066,7 @@ func (x *CatalogRejection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CatalogRejection.ProtoReflect.Descriptor instead.
 func (*CatalogRejection) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{63}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *CatalogRejection) GetReason() CatalogRejectionReason {
@@ -9784,7 +10098,7 @@ type RegistrationFailure struct {
 
 func (x *RegistrationFailure) Reset() {
 	*x = RegistrationFailure{}
-	mi := &file_fora_v1_fora_proto_msgTypes[64]
+	mi := &file_fora_v1_fora_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9796,7 +10110,7 @@ func (x *RegistrationFailure) String() string {
 func (*RegistrationFailure) ProtoMessage() {}
 
 func (x *RegistrationFailure) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[64]
+	mi := &file_fora_v1_fora_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9809,7 +10123,7 @@ func (x *RegistrationFailure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegistrationFailure.ProtoReflect.Descriptor instead.
 func (*RegistrationFailure) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{64}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *RegistrationFailure) GetReason() RegistrationFailureReason {
@@ -9847,7 +10161,7 @@ type RegistrationFieldError struct {
 
 func (x *RegistrationFieldError) Reset() {
 	*x = RegistrationFieldError{}
-	mi := &file_fora_v1_fora_proto_msgTypes[65]
+	mi := &file_fora_v1_fora_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9859,7 +10173,7 @@ func (x *RegistrationFieldError) String() string {
 func (*RegistrationFieldError) ProtoMessage() {}
 
 func (x *RegistrationFieldError) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[65]
+	mi := &file_fora_v1_fora_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9872,7 +10186,7 @@ func (x *RegistrationFieldError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegistrationFieldError.ProtoReflect.Descriptor instead.
 func (*RegistrationFieldError) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{65}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *RegistrationFieldError) GetPath() string {
@@ -9900,7 +10214,7 @@ type DisputeFailure struct {
 
 func (x *DisputeFailure) Reset() {
 	*x = DisputeFailure{}
-	mi := &file_fora_v1_fora_proto_msgTypes[66]
+	mi := &file_fora_v1_fora_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9912,7 +10226,7 @@ func (x *DisputeFailure) String() string {
 func (*DisputeFailure) ProtoMessage() {}
 
 func (x *DisputeFailure) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[66]
+	mi := &file_fora_v1_fora_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9925,7 +10239,7 @@ func (x *DisputeFailure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisputeFailure.ProtoReflect.Descriptor instead.
 func (*DisputeFailure) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{66}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *DisputeFailure) GetReason() DisputeFailureReason {
@@ -9946,7 +10260,7 @@ type DomainVerificationFailure struct {
 
 func (x *DomainVerificationFailure) Reset() {
 	*x = DomainVerificationFailure{}
-	mi := &file_fora_v1_fora_proto_msgTypes[67]
+	mi := &file_fora_v1_fora_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9958,7 +10272,7 @@ func (x *DomainVerificationFailure) String() string {
 func (*DomainVerificationFailure) ProtoMessage() {}
 
 func (x *DomainVerificationFailure) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[67]
+	mi := &file_fora_v1_fora_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9971,7 +10285,7 @@ func (x *DomainVerificationFailure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DomainVerificationFailure.ProtoReflect.Descriptor instead.
 func (*DomainVerificationFailure) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{67}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *DomainVerificationFailure) GetReason() DomainVerificationFailureReason {
@@ -9992,7 +10306,7 @@ type RetrievalAuthFailure struct {
 
 func (x *RetrievalAuthFailure) Reset() {
 	*x = RetrievalAuthFailure{}
-	mi := &file_fora_v1_fora_proto_msgTypes[68]
+	mi := &file_fora_v1_fora_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10004,7 +10318,7 @@ func (x *RetrievalAuthFailure) String() string {
 func (*RetrievalAuthFailure) ProtoMessage() {}
 
 func (x *RetrievalAuthFailure) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[68]
+	mi := &file_fora_v1_fora_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10017,7 +10331,7 @@ func (x *RetrievalAuthFailure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetrievalAuthFailure.ProtoReflect.Descriptor instead.
 func (*RetrievalAuthFailure) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{68}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *RetrievalAuthFailure) GetReason() RetrievalAuthFailureReason {
@@ -10038,7 +10352,7 @@ type UsageReportRejection struct {
 
 func (x *UsageReportRejection) Reset() {
 	*x = UsageReportRejection{}
-	mi := &file_fora_v1_fora_proto_msgTypes[69]
+	mi := &file_fora_v1_fora_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10050,7 +10364,7 @@ func (x *UsageReportRejection) String() string {
 func (*UsageReportRejection) ProtoMessage() {}
 
 func (x *UsageReportRejection) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[69]
+	mi := &file_fora_v1_fora_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10063,7 +10377,7 @@ func (x *UsageReportRejection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UsageReportRejection.ProtoReflect.Descriptor instead.
 func (*UsageReportRejection) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{69}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *UsageReportRejection) GetReason() UsageReportRejectionReason {
@@ -10084,7 +10398,7 @@ type RequestAuthFailure struct {
 
 func (x *RequestAuthFailure) Reset() {
 	*x = RequestAuthFailure{}
-	mi := &file_fora_v1_fora_proto_msgTypes[70]
+	mi := &file_fora_v1_fora_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10096,7 +10410,7 @@ func (x *RequestAuthFailure) String() string {
 func (*RequestAuthFailure) ProtoMessage() {}
 
 func (x *RequestAuthFailure) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[70]
+	mi := &file_fora_v1_fora_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10109,7 +10423,7 @@ func (x *RequestAuthFailure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestAuthFailure.ProtoReflect.Descriptor instead.
 func (*RequestAuthFailure) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{70}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *RequestAuthFailure) GetReason() RequestAuthFailureReason {
@@ -10405,7 +10719,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x12subscription_quota\x18\x11 \x03(\v2\x1e.fora.v1.SubscriptionQuotaInfoR\x11subscriptionQuota\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
 	"\fext_critical\x18Z \x03(\tR\vextCriticalB\r\n" +
-	"\v_total_cost\"\xf3\x06\n" +
+	"\v_total_cost\"\xb8\a\n" +
 	"\x15TransactionResultItem\x12\x19\n" +
 	"\boffer_id\x18\x01 \x01(\tR\aofferId\x12%\n" +
 	"\x0etransaction_id\x18\x02 \x01(\tR\rtransactionId\x12\x1d\n" +
@@ -10422,14 +10736,22 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x12retrieval_endpoint\x18\f \x01(\tH\x05R\x11retrievalEndpoint\x88\x01\x01\x12@\n" +
 	"\x0fdelivery_method\x18\t \x01(\x0e2\x17.fora.v1.DeliveryMethodR\x0edeliveryMethod\x12T\n" +
 	"\x14reporting_obligation\x18\n" +
-	" \x01(\v2\x1c.fora.v1.ReportingObligationH\x06R\x13reportingObligation\x88\x01\x01B\x11\n" +
+	" \x01(\v2\x1c.fora.v1.ReportingObligationH\x06R\x13reportingObligation\x88\x01\x01\x127\n" +
+	"\arefusal\x18\x0e \x01(\v2\x18.fora.v1.UpstreamRefusalH\aR\arefusal\x88\x01\x01B\x11\n" +
 	"\x0f_resource_titleB\x12\n" +
 	"\x10_subscription_idB\x1a\n" +
 	"\x18_subscription_unit_valueB\x10\n" +
 	"\x0e_denial_reasonB\r\n" +
 	"\v_expires_atB\x15\n" +
 	"\x13_retrieval_endpointB\x17\n" +
-	"\x15_reporting_obligation\"\xae\x01\n" +
+	"\x15_reporting_obligationB\n" +
+	"\n" +
+	"\b_refusal\"\xc8\x02\n" +
+	"\x0fUpstreamRefusal\x12\xd7\x01\n" +
+	"\bexchange\x18\x01 \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\bexchange\x12\x1d\n" +
+	"\x04code\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x04code\x121\n" +
+	"\x06detail\x18\x03 \x01(\v2\x14.fora.v1.ErrorDetailH\x00R\x06detail\x88\x01\x01B\t\n" +
+	"\a_detail\"\xae\x01\n" +
 	"\x04Cost\x128\n" +
 	"\x06amount\x18\x01 \x01(\tB \xbaH\x1dr\x1b\x18 2\x17^([0-9]+([.][0-9]+)?)?$R\x06amount\x12\x1a\n" +
 	"\bcurrency\x18\x02 \x01(\tR\bcurrency\x12B\n" +
@@ -10674,7 +10996,19 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x0eabsence_reason\x18\x10 \x01(\x0e2\x1b.fora.v1.OfferAbsenceReasonH\x00R\rabsenceReason\x88\x01\x01\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
 	"\fext_critical\x18Z \x03(\tR\vextCriticalB\x11\n" +
-	"\x0f_absence_reason\"\xf6\x05\n" +
+	"\x0f_absence_reason\"\x90\x02\n" +
+	"\x19BrokerTransactionResponse\x12\x10\n" +
+	"\x03ver\x18\x01 \x01(\tR\x03ver\x124\n" +
+	"\x05items\x18\x02 \x03(\v2\x1e.fora.v1.TransactionResultItemR\x05items\x126\n" +
+	"\texchanges\x18\x03 \x03(\v2\x18.fora.v1.ExchangeOutcomeR\texchanges\x12%\n" +
+	"\x06totals\x18\x04 \x03(\v2\r.fora.v1.CostR\x06totals\x12)\n" +
+	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
+	"\fext_critical\x18Z \x03(\tR\vextCritical\"\x92\x03\n" +
+	"\x0fExchangeOutcome\x12\xd7\x01\n" +
+	"\bexchange\x18\x01 \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\bexchange\x12&\n" +
+	"\toffer_ids\x18\x02 \x03(\tB\t\xbaH\x06\x92\x01\x03\x10\x80\x02R\bofferIds\x12.\n" +
+	"\x13agent_identity_hash\x18\x03 \x01(\tR\x11agentIdentityHash\x12M\n" +
+	"\x12subscription_quota\x18\x04 \x03(\v2\x1e.fora.v1.SubscriptionQuotaInfoR\x11subscriptionQuota\"\xf6\x05\n" +
 	"\x0eDisputeRequest\x12\x10\n" +
 	"\x03ver\x18\x01 \x01(\tR\x03ver\x123\n" +
 	"\x0fidempotency_key\x18\x02 \x01(\tB\n" +
@@ -10916,7 +11250,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x1fRESOURCE_MUTABILITY_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aRESOURCE_MUTABILITY_STATIC\x10\x01\x12\x1f\n" +
 	"\x1bRESOURCE_MUTABILITY_DYNAMIC\x10\x02\x12\x1c\n" +
-	"\x18RESOURCE_MUTABILITY_LIVE\x10\x03*\xe4\x05\n" +
+	"\x18RESOURCE_MUTABILITY_LIVE\x10\x03*\x8a\x06\n" +
 	"\fDenialReason\x12\x1d\n" +
 	"\x19DENIAL_REASON_UNSPECIFIED\x10\x00\x12\"\n" +
 	"\x1eDENIAL_REASON_ACCOUNT_INACTIVE\x10\x01\x12&\n" +
@@ -10937,7 +11271,8 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"%DENIAL_REASON_ENTITLEMENT_WRONG_BUYER\x10\x0f\x12%\n" +
 	"!DENIAL_REASON_SUBSCRIPTION_LAPSED\x10\x10\x12)\n" +
 	"%DENIAL_REASON_ENTITLEMENT_NOT_GRANTED\x10\x11\x12(\n" +
-	"$DENIAL_REASON_ACCOUNT_NOT_REGISTERED\x10\x12*\x8c\x02\n" +
+	"$DENIAL_REASON_ACCOUNT_NOT_REGISTERED\x10\x12\x12$\n" +
+	" DENIAL_REASON_RELAY_NOT_ACCEPTED\x10\x13*\x8c\x02\n" +
 	"\x0fIngestionSource\x12 \n" +
 	"\x1cINGESTION_SOURCE_UNSPECIFIED\x10\x00\x12!\n" +
 	"\x1dINGESTION_SOURCE_FORA_SITEMAP\x10\x01\x12\x18\n" +
@@ -11067,9 +11402,10 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x0eCatalogService\x12N\n" +
 	"\rPushResources\x12\x1d.fora.v1.PushResourcesRequest\x1a\x1e.fora.v1.PushResourcesResponse\x12T\n" +
 	"\x0fRemoveResources\x12\x1f.fora.v1.RemoveResourcesRequest\x1a .fora.v1.RemoveResourcesResponse\x12Q\n" +
-	"\x0eRefreshCatalog\x12\x1e.fora.v1.RefreshCatalogRequest\x1a\x1f.fora.v1.RefreshCatalogResponse2Q\n" +
+	"\x0eRefreshCatalog\x12\x1e.fora.v1.RefreshCatalogRequest\x1a\x1f.fora.v1.RefreshCatalogResponse2\xa8\x01\n" +
 	"\rBrokerService\x12@\n" +
-	"\aResolve\x12\x19.fora.v1.DiscoveryRequest\x1a\x1a.fora.v1.DiscoveryResponseB\x8e\x01\n" +
+	"\aResolve\x12\x19.fora.v1.DiscoveryRequest\x1a\x1a.fora.v1.DiscoveryResponse\x12U\n" +
+	"\x12ExecuteTransaction\x12\x1b.fora.v1.TransactionRequest\x1a\".fora.v1.BrokerTransactionResponseB\x8e\x01\n" +
 	"\vcom.fora.v1B\tForaProtoP\x01Z7github.com/FORA-Protocol/protocol/gen/go/fora/v1;forav1\xa2\x02\x03FXX\xaa\x02\aFora.V1\xca\x02\aFora\\V1\xe2\x02\x13Fora\\V1\\GPBMetadata\xea\x02\bFora::V1b\x06proto3"
 
 var (
@@ -11085,7 +11421,7 @@ func file_fora_v1_fora_proto_rawDescGZIP() []byte {
 }
 
 var file_fora_v1_fora_proto_enumTypes = make([]protoimpl.EnumInfo, 29)
-var file_fora_v1_fora_proto_msgTypes = make([]protoimpl.MessageInfo, 72)
+var file_fora_v1_fora_proto_msgTypes = make([]protoimpl.MessageInfo, 75)
 var file_fora_v1_fora_proto_goTypes = []any{
 	(DiscoveryMethod)(0),                   // 0: fora.v1.DiscoveryMethod
 	(OfferAbsenceReason)(0),                // 1: fora.v1.OfferAbsenceReason
@@ -11143,88 +11479,91 @@ var file_fora_v1_fora_proto_goTypes = []any{
 	(*TransactionItem)(nil),                // 53: fora.v1.TransactionItem
 	(*TransactionResponse)(nil),            // 54: fora.v1.TransactionResponse
 	(*TransactionResultItem)(nil),          // 55: fora.v1.TransactionResultItem
-	(*Cost)(nil),                           // 56: fora.v1.Cost
-	(*PushResourcesRequest)(nil),           // 57: fora.v1.PushResourcesRequest
-	(*ResourceEntry)(nil),                  // 58: fora.v1.ResourceEntry
-	(*PushResourcesResponse)(nil),          // 59: fora.v1.PushResourcesResponse
-	(*RemoveResourcesRequest)(nil),         // 60: fora.v1.RemoveResourcesRequest
-	(*RemoveResourcesResponse)(nil),        // 61: fora.v1.RemoveResourcesResponse
-	(*RefreshCatalogRequest)(nil),          // 62: fora.v1.RefreshCatalogRequest
-	(*RefreshCatalogResponse)(nil),         // 63: fora.v1.RefreshCatalogResponse
-	(*ReportingObligation)(nil),            // 64: fora.v1.ReportingObligation
-	(*UsageReport)(nil),                    // 65: fora.v1.UsageReport
-	(*AttributionDetail)(nil),              // 66: fora.v1.AttributionDetail
-	(*Usage)(nil),                          // 67: fora.v1.Usage
-	(*UsageAsset)(nil),                     // 68: fora.v1.UsageAsset
-	(*UsageReportResponse)(nil),            // 69: fora.v1.UsageReportResponse
-	(*DiscoveryRequest)(nil),               // 70: fora.v1.DiscoveryRequest
-	(*RequestConstraints)(nil),             // 71: fora.v1.RequestConstraints
-	(*JsonWebKey)(nil),                     // 72: fora.v1.JsonWebKey
-	(*AccountRegistration)(nil),            // 73: fora.v1.AccountRegistration
-	(*WellKnownManifest)(nil),              // 74: fora.v1.WellKnownManifest
-	(*WBAFile)(nil),                        // 75: fora.v1.WBAFile
-	(*KeyRevocationList)(nil),              // 76: fora.v1.KeyRevocationList
-	(*CatalogContributor)(nil),             // 77: fora.v1.CatalogContributor
-	(*AuthorizedExchange)(nil),             // 78: fora.v1.AuthorizedExchange
-	(*DiscoveryResponse)(nil),              // 79: fora.v1.DiscoveryResponse
-	(*DisputeRequest)(nil),                 // 80: fora.v1.DisputeRequest
-	(*DisputeResponse)(nil),                // 81: fora.v1.DisputeResponse
-	(*DomainVerificationRequest)(nil),      // 82: fora.v1.DomainVerificationRequest
-	(*DomainVerificationChallenge)(nil),    // 83: fora.v1.DomainVerificationChallenge
-	(*DomainVerificationConfirmation)(nil), // 84: fora.v1.DomainVerificationConfirmation
-	(*DomainVerificationResult)(nil),       // 85: fora.v1.DomainVerificationResult
-	(*RegisterRequest)(nil),                // 86: fora.v1.RegisterRequest
-	(*RegisterResponse)(nil),               // 87: fora.v1.RegisterResponse
-	(*GetAccountStatusRequest)(nil),        // 88: fora.v1.GetAccountStatusRequest
-	(*GetAccountStatusResponse)(nil),       // 89: fora.v1.GetAccountStatusResponse
-	(*ErrorDetail)(nil),                    // 90: fora.v1.ErrorDetail
-	(*TransactionDenial)(nil),              // 91: fora.v1.TransactionDenial
-	(*CatalogRejection)(nil),               // 92: fora.v1.CatalogRejection
-	(*RegistrationFailure)(nil),            // 93: fora.v1.RegistrationFailure
-	(*RegistrationFieldError)(nil),         // 94: fora.v1.RegistrationFieldError
-	(*DisputeFailure)(nil),                 // 95: fora.v1.DisputeFailure
-	(*DomainVerificationFailure)(nil),      // 96: fora.v1.DomainVerificationFailure
-	(*RetrievalAuthFailure)(nil),           // 97: fora.v1.RetrievalAuthFailure
-	(*UsageReportRejection)(nil),           // 98: fora.v1.UsageReportRejection
-	(*RequestAuthFailure)(nil),             // 99: fora.v1.RequestAuthFailure
-	nil,                                    // 100: fora.v1.ErrorDetail.MetadataEntry
-	(*durationpb.Duration)(nil),            // 101: google.protobuf.Duration
-	(*structpb.Struct)(nil),                // 102: google.protobuf.Struct
-	(*timestamppb.Timestamp)(nil),          // 103: google.protobuf.Timestamp
+	(*UpstreamRefusal)(nil),                // 56: fora.v1.UpstreamRefusal
+	(*Cost)(nil),                           // 57: fora.v1.Cost
+	(*PushResourcesRequest)(nil),           // 58: fora.v1.PushResourcesRequest
+	(*ResourceEntry)(nil),                  // 59: fora.v1.ResourceEntry
+	(*PushResourcesResponse)(nil),          // 60: fora.v1.PushResourcesResponse
+	(*RemoveResourcesRequest)(nil),         // 61: fora.v1.RemoveResourcesRequest
+	(*RemoveResourcesResponse)(nil),        // 62: fora.v1.RemoveResourcesResponse
+	(*RefreshCatalogRequest)(nil),          // 63: fora.v1.RefreshCatalogRequest
+	(*RefreshCatalogResponse)(nil),         // 64: fora.v1.RefreshCatalogResponse
+	(*ReportingObligation)(nil),            // 65: fora.v1.ReportingObligation
+	(*UsageReport)(nil),                    // 66: fora.v1.UsageReport
+	(*AttributionDetail)(nil),              // 67: fora.v1.AttributionDetail
+	(*Usage)(nil),                          // 68: fora.v1.Usage
+	(*UsageAsset)(nil),                     // 69: fora.v1.UsageAsset
+	(*UsageReportResponse)(nil),            // 70: fora.v1.UsageReportResponse
+	(*DiscoveryRequest)(nil),               // 71: fora.v1.DiscoveryRequest
+	(*RequestConstraints)(nil),             // 72: fora.v1.RequestConstraints
+	(*JsonWebKey)(nil),                     // 73: fora.v1.JsonWebKey
+	(*AccountRegistration)(nil),            // 74: fora.v1.AccountRegistration
+	(*WellKnownManifest)(nil),              // 75: fora.v1.WellKnownManifest
+	(*WBAFile)(nil),                        // 76: fora.v1.WBAFile
+	(*KeyRevocationList)(nil),              // 77: fora.v1.KeyRevocationList
+	(*CatalogContributor)(nil),             // 78: fora.v1.CatalogContributor
+	(*AuthorizedExchange)(nil),             // 79: fora.v1.AuthorizedExchange
+	(*DiscoveryResponse)(nil),              // 80: fora.v1.DiscoveryResponse
+	(*BrokerTransactionResponse)(nil),      // 81: fora.v1.BrokerTransactionResponse
+	(*ExchangeOutcome)(nil),                // 82: fora.v1.ExchangeOutcome
+	(*DisputeRequest)(nil),                 // 83: fora.v1.DisputeRequest
+	(*DisputeResponse)(nil),                // 84: fora.v1.DisputeResponse
+	(*DomainVerificationRequest)(nil),      // 85: fora.v1.DomainVerificationRequest
+	(*DomainVerificationChallenge)(nil),    // 86: fora.v1.DomainVerificationChallenge
+	(*DomainVerificationConfirmation)(nil), // 87: fora.v1.DomainVerificationConfirmation
+	(*DomainVerificationResult)(nil),       // 88: fora.v1.DomainVerificationResult
+	(*RegisterRequest)(nil),                // 89: fora.v1.RegisterRequest
+	(*RegisterResponse)(nil),               // 90: fora.v1.RegisterResponse
+	(*GetAccountStatusRequest)(nil),        // 91: fora.v1.GetAccountStatusRequest
+	(*GetAccountStatusResponse)(nil),       // 92: fora.v1.GetAccountStatusResponse
+	(*ErrorDetail)(nil),                    // 93: fora.v1.ErrorDetail
+	(*TransactionDenial)(nil),              // 94: fora.v1.TransactionDenial
+	(*CatalogRejection)(nil),               // 95: fora.v1.CatalogRejection
+	(*RegistrationFailure)(nil),            // 96: fora.v1.RegistrationFailure
+	(*RegistrationFieldError)(nil),         // 97: fora.v1.RegistrationFieldError
+	(*DisputeFailure)(nil),                 // 98: fora.v1.DisputeFailure
+	(*DomainVerificationFailure)(nil),      // 99: fora.v1.DomainVerificationFailure
+	(*RetrievalAuthFailure)(nil),           // 100: fora.v1.RetrievalAuthFailure
+	(*UsageReportRejection)(nil),           // 101: fora.v1.UsageReportRejection
+	(*RequestAuthFailure)(nil),             // 102: fora.v1.RequestAuthFailure
+	nil,                                    // 103: fora.v1.ErrorDetail.MetadataEntry
+	(*durationpb.Duration)(nil),            // 104: google.protobuf.Duration
+	(*structpb.Struct)(nil),                // 105: google.protobuf.Struct
+	(*timestamppb.Timestamp)(nil),          // 106: google.protobuf.Timestamp
 }
 var file_fora_v1_fora_proto_depIdxs = []int32{
 	3,   // 0: fora.v1.AcceptableRestriction.axis:type_name -> fora.v1.RestrictionKind
 	45,  // 1: fora.v1.ResourceQuery.requester:type_name -> fora.v1.Requester
 	29,  // 2: fora.v1.ResourceQuery.acceptable_restrictions:type_name -> fora.v1.AcceptableRestriction
-	101, // 3: fora.v1.ResourceQuery.deadline:type_name -> google.protobuf.Duration
-	102, // 4: fora.v1.ResourceQuery.ext:type_name -> google.protobuf.Struct
+	104, // 3: fora.v1.ResourceQuery.deadline:type_name -> google.protobuf.Duration
+	105, // 4: fora.v1.ResourceQuery.ext:type_name -> google.protobuf.Struct
 	35,  // 5: fora.v1.ResourceResponse.offers:type_name -> fora.v1.Offer
 	32,  // 6: fora.v1.ResourceResponse.offer_groups:type_name -> fora.v1.OfferGroup
 	33,  // 7: fora.v1.ResourceResponse.rate_limit:type_name -> fora.v1.RateLimitInfo
-	102, // 8: fora.v1.ResourceResponse.ext:type_name -> google.protobuf.Struct
+	105, // 8: fora.v1.ResourceResponse.ext:type_name -> google.protobuf.Struct
 	35,  // 9: fora.v1.OfferGroup.offers:type_name -> fora.v1.Offer
 	0,   // 10: fora.v1.OfferGroup.discovery_method:type_name -> fora.v1.DiscoveryMethod
 	1,   // 11: fora.v1.OfferGroup.absence_reason:type_name -> fora.v1.OfferAbsenceReason
 	3,   // 12: fora.v1.OfferGroup.restriction_filters:type_name -> fora.v1.RestrictionKind
-	103, // 13: fora.v1.RateLimitInfo.reset_at:type_name -> google.protobuf.Timestamp
-	101, // 14: fora.v1.RateLimitInfo.window:type_name -> google.protobuf.Duration
-	103, // 15: fora.v1.SubscriptionQuotaInfo.resets_at:type_name -> google.protobuf.Timestamp
+	106, // 13: fora.v1.RateLimitInfo.reset_at:type_name -> google.protobuf.Timestamp
+	104, // 14: fora.v1.RateLimitInfo.window:type_name -> google.protobuf.Duration
+	106, // 15: fora.v1.SubscriptionQuotaInfo.resets_at:type_name -> google.protobuf.Timestamp
 	44,  // 16: fora.v1.Offer.pricing:type_name -> fora.v1.Pricing
 	9,   // 17: fora.v1.Offer.delivery_method:type_name -> fora.v1.DeliveryMethod
-	64,  // 18: fora.v1.Offer.reporting:type_name -> fora.v1.ReportingObligation
-	103, // 19: fora.v1.Offer.expires_at:type_name -> google.protobuf.Timestamp
+	65,  // 18: fora.v1.Offer.reporting:type_name -> fora.v1.ReportingObligation
+	106, // 19: fora.v1.Offer.expires_at:type_name -> google.protobuf.Timestamp
 	36,  // 20: fora.v1.Offer.identity:type_name -> fora.v1.ResourceIdentity
 	37,  // 21: fora.v1.Offer.attestations:type_name -> fora.v1.ResourceAttestation
-	103, // 22: fora.v1.Offer.data_as_of:type_name -> google.protobuf.Timestamp
+	106, // 22: fora.v1.Offer.data_as_of:type_name -> google.protobuf.Timestamp
 	34,  // 23: fora.v1.Offer.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
 	43,  // 24: fora.v1.Offer.previews:type_name -> fora.v1.Preview
 	42,  // 25: fora.v1.Offer.terms:type_name -> fora.v1.LicenseTerm
-	102, // 26: fora.v1.Offer.ext:type_name -> google.protobuf.Struct
+	105, // 26: fora.v1.Offer.ext:type_name -> google.protobuf.Struct
 	12,  // 27: fora.v1.ResourceIdentity.resource_mutability:type_name -> fora.v1.ResourceMutability
 	11,  // 28: fora.v1.ResourceIdentity.c2pa_status:type_name -> fora.v1.C2PAStatus
-	102, // 29: fora.v1.ResourceIdentity.ext:type_name -> google.protobuf.Struct
-	103, // 30: fora.v1.ResourceAttestation.attested_at:type_name -> google.protobuf.Timestamp
-	102, // 31: fora.v1.ResourceAttestation.claims:type_name -> google.protobuf.Struct
+	105, // 29: fora.v1.ResourceIdentity.ext:type_name -> google.protobuf.Struct
+	106, // 30: fora.v1.ResourceAttestation.attested_at:type_name -> google.protobuf.Timestamp
+	105, // 31: fora.v1.ResourceAttestation.claims:type_name -> google.protobuf.Struct
 	3,   // 32: fora.v1.Restriction.kind:type_name -> fora.v1.RestrictionKind
 	4,   // 33: fora.v1.Quota.window:type_name -> fora.v1.QuotaWindow
 	5,   // 34: fora.v1.Obligation.kind:type_name -> fora.v1.ObligationKind
@@ -11240,139 +11579,148 @@ var file_fora_v1_fora_proto_depIdxs = []int32{
 	8,   // 44: fora.v1.Pricing.metering:type_name -> fora.v1.PricingMetering
 	10,  // 45: fora.v1.Requester.type:type_name -> fora.v1.RequesterType
 	46,  // 46: fora.v1.Requester.delegation:type_name -> fora.v1.Delegation
-	102, // 47: fora.v1.Requester.ext:type_name -> google.protobuf.Struct
-	103, // 48: fora.v1.Delegation.expires_at:type_name -> google.protobuf.Timestamp
-	101, // 49: fora.v1.Delegation.quota_period:type_name -> google.protobuf.Duration
-	102, // 50: fora.v1.Delegation.ext:type_name -> google.protobuf.Struct
+	105, // 47: fora.v1.Requester.ext:type_name -> google.protobuf.Struct
+	106, // 48: fora.v1.Delegation.expires_at:type_name -> google.protobuf.Timestamp
+	104, // 49: fora.v1.Delegation.quota_period:type_name -> google.protobuf.Duration
+	105, // 50: fora.v1.Delegation.ext:type_name -> google.protobuf.Struct
 	50,  // 51: fora.v1.AgentRequestAcceptance.payload:type_name -> fora.v1.AgentRequestAcceptancePayload
 	49,  // 52: fora.v1.AgentRequestAcceptancePayload.items:type_name -> fora.v1.AgentRequestAcceptanceItem
 	45,  // 53: fora.v1.TransactionRequest.requester:type_name -> fora.v1.Requester
 	53,  // 54: fora.v1.TransactionRequest.items:type_name -> fora.v1.TransactionItem
 	48,  // 55: fora.v1.TransactionRequest.agent_request_acceptance:type_name -> fora.v1.AgentRequestAcceptance
-	102, // 56: fora.v1.TransactionRequest.ext:type_name -> google.protobuf.Struct
+	105, // 56: fora.v1.TransactionRequest.ext:type_name -> google.protobuf.Struct
 	35,  // 57: fora.v1.TransactionItem.offer:type_name -> fora.v1.Offer
 	47,  // 58: fora.v1.TransactionItem.agent_acceptance:type_name -> fora.v1.AgentAcceptance
 	55,  // 59: fora.v1.TransactionResponse.items:type_name -> fora.v1.TransactionResultItem
-	56,  // 60: fora.v1.TransactionResponse.total_cost:type_name -> fora.v1.Cost
+	57,  // 60: fora.v1.TransactionResponse.total_cost:type_name -> fora.v1.Cost
 	34,  // 61: fora.v1.TransactionResponse.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
-	102, // 62: fora.v1.TransactionResponse.ext:type_name -> google.protobuf.Struct
-	56,  // 63: fora.v1.TransactionResultItem.cost:type_name -> fora.v1.Cost
-	56,  // 64: fora.v1.TransactionResultItem.subscription_unit_value:type_name -> fora.v1.Cost
+	105, // 62: fora.v1.TransactionResponse.ext:type_name -> google.protobuf.Struct
+	57,  // 63: fora.v1.TransactionResultItem.cost:type_name -> fora.v1.Cost
+	57,  // 64: fora.v1.TransactionResultItem.subscription_unit_value:type_name -> fora.v1.Cost
 	13,  // 65: fora.v1.TransactionResultItem.denial_reason:type_name -> fora.v1.DenialReason
 	3,   // 66: fora.v1.TransactionResultItem.restriction_mismatches:type_name -> fora.v1.RestrictionKind
-	103, // 67: fora.v1.TransactionResultItem.expires_at:type_name -> google.protobuf.Timestamp
+	106, // 67: fora.v1.TransactionResultItem.expires_at:type_name -> google.protobuf.Timestamp
 	9,   // 68: fora.v1.TransactionResultItem.delivery_method:type_name -> fora.v1.DeliveryMethod
-	64,  // 69: fora.v1.TransactionResultItem.reporting_obligation:type_name -> fora.v1.ReportingObligation
-	58,  // 70: fora.v1.PushResourcesRequest.entries:type_name -> fora.v1.ResourceEntry
-	102, // 71: fora.v1.PushResourcesRequest.ext:type_name -> google.protobuf.Struct
-	14,  // 72: fora.v1.ResourceEntry.source:type_name -> fora.v1.IngestionSource
-	103, // 73: fora.v1.ResourceEntry.provenance_timestamp:type_name -> google.protobuf.Timestamp
-	37,  // 74: fora.v1.ResourceEntry.attestations:type_name -> fora.v1.ResourceAttestation
-	42,  // 75: fora.v1.ResourceEntry.terms:type_name -> fora.v1.LicenseTerm
-	12,  // 76: fora.v1.ResourceEntry.resource_mutability:type_name -> fora.v1.ResourceMutability
-	102, // 77: fora.v1.ResourceEntry.ext:type_name -> google.protobuf.Struct
-	102, // 78: fora.v1.PushResourcesResponse.ext:type_name -> google.protobuf.Struct
-	101, // 79: fora.v1.ReportingObligation.window:type_name -> google.protobuf.Duration
-	102, // 80: fora.v1.ReportingObligation.ext:type_name -> google.protobuf.Struct
-	67,  // 81: fora.v1.UsageReport.usage:type_name -> fora.v1.Usage
-	103, // 82: fora.v1.UsageReport.timestamp:type_name -> google.protobuf.Timestamp
-	68,  // 83: fora.v1.UsageReport.assets:type_name -> fora.v1.UsageAsset
-	102, // 84: fora.v1.UsageReport.ext:type_name -> google.protobuf.Struct
-	15,  // 85: fora.v1.AttributionDetail.format:type_name -> fora.v1.CitationFormat
-	66,  // 86: fora.v1.Usage.attribution:type_name -> fora.v1.AttributionDetail
-	102, // 87: fora.v1.UsageReportResponse.ext:type_name -> google.protobuf.Struct
-	45,  // 88: fora.v1.DiscoveryRequest.requester:type_name -> fora.v1.Requester
-	29,  // 89: fora.v1.DiscoveryRequest.acceptable_restrictions:type_name -> fora.v1.AcceptableRestriction
-	71,  // 90: fora.v1.DiscoveryRequest.constraints:type_name -> fora.v1.RequestConstraints
-	102, // 91: fora.v1.DiscoveryRequest.search_filters:type_name -> google.protobuf.Struct
-	102, // 92: fora.v1.DiscoveryRequest.ext:type_name -> google.protobuf.Struct
-	56,  // 93: fora.v1.RequestConstraints.max_price:type_name -> fora.v1.Cost
-	9,   // 94: fora.v1.RequestConstraints.delivery_preference:type_name -> fora.v1.DeliveryMethod
-	56,  // 95: fora.v1.RequestConstraints.period_budget:type_name -> fora.v1.Cost
-	101, // 96: fora.v1.RequestConstraints.budget_period:type_name -> google.protobuf.Duration
-	101, // 97: fora.v1.RequestConstraints.max_data_age:type_name -> google.protobuf.Duration
-	102, // 98: fora.v1.AccountRegistration.data_schema:type_name -> google.protobuf.Struct
-	16,  // 99: fora.v1.WellKnownManifest.role:type_name -> fora.v1.Role
-	78,  // 100: fora.v1.WellKnownManifest.exchanges:type_name -> fora.v1.AuthorizedExchange
-	77,  // 101: fora.v1.WellKnownManifest.catalog_contributors:type_name -> fora.v1.CatalogContributor
-	7,   // 102: fora.v1.WellKnownManifest.pricing_models_supported:type_name -> fora.v1.PricingModel
-	9,   // 103: fora.v1.WellKnownManifest.delivery_methods_supported:type_name -> fora.v1.DeliveryMethod
-	18,  // 104: fora.v1.WellKnownManifest.supported_auth_methods:type_name -> fora.v1.AuthMethod
-	73,  // 105: fora.v1.WellKnownManifest.account_registration:type_name -> fora.v1.AccountRegistration
-	102, // 106: fora.v1.WellKnownManifest.ext:type_name -> google.protobuf.Struct
-	72,  // 107: fora.v1.WBAFile.keys:type_name -> fora.v1.JsonWebKey
-	103, // 108: fora.v1.KeyRevocationList.as_of:type_name -> google.protobuf.Timestamp
-	17,  // 109: fora.v1.AuthorizedExchange.relationship:type_name -> fora.v1.ProviderRelationship
-	102, // 110: fora.v1.AuthorizedExchange.ext:type_name -> google.protobuf.Struct
-	32,  // 111: fora.v1.DiscoveryResponse.offer_groups:type_name -> fora.v1.OfferGroup
-	1,   // 112: fora.v1.DiscoveryResponse.absence_reason:type_name -> fora.v1.OfferAbsenceReason
-	102, // 113: fora.v1.DiscoveryResponse.ext:type_name -> google.protobuf.Struct
-	19,  // 114: fora.v1.DisputeRequest.reason:type_name -> fora.v1.DisputeReason
-	102, // 115: fora.v1.DisputeRequest.ext:type_name -> google.protobuf.Struct
-	101, // 116: fora.v1.DisputeResponse.estimated_resolution:type_name -> google.protobuf.Duration
-	20,  // 117: fora.v1.DisputeResponse.status:type_name -> fora.v1.DisputeStatus
-	21,  // 118: fora.v1.DisputeResponse.resolution:type_name -> fora.v1.ResolutionType
-	102, // 119: fora.v1.DisputeResponse.ext:type_name -> google.protobuf.Struct
-	102, // 120: fora.v1.DomainVerificationRequest.ext:type_name -> google.protobuf.Struct
-	103, // 121: fora.v1.DomainVerificationChallenge.expires_at:type_name -> google.protobuf.Timestamp
-	102, // 122: fora.v1.DomainVerificationChallenge.ext:type_name -> google.protobuf.Struct
-	102, // 123: fora.v1.DomainVerificationConfirmation.ext:type_name -> google.protobuf.Struct
-	103, // 124: fora.v1.DomainVerificationResult.valid_until:type_name -> google.protobuf.Timestamp
-	102, // 125: fora.v1.DomainVerificationResult.ext:type_name -> google.protobuf.Struct
-	102, // 126: fora.v1.RegisterRequest.registration_data:type_name -> google.protobuf.Struct
-	102, // 127: fora.v1.RegisterRequest.ext:type_name -> google.protobuf.Struct
-	102, // 128: fora.v1.RegisterResponse.ext:type_name -> google.protobuf.Struct
-	102, // 129: fora.v1.GetAccountStatusRequest.ext:type_name -> google.protobuf.Struct
-	56,  // 130: fora.v1.GetAccountStatusResponse.balances:type_name -> fora.v1.Cost
-	102, // 131: fora.v1.GetAccountStatusResponse.ext:type_name -> google.protobuf.Struct
-	100, // 132: fora.v1.ErrorDetail.metadata:type_name -> fora.v1.ErrorDetail.MetadataEntry
-	91,  // 133: fora.v1.ErrorDetail.transaction_denial:type_name -> fora.v1.TransactionDenial
-	92,  // 134: fora.v1.ErrorDetail.catalog_rejection:type_name -> fora.v1.CatalogRejection
-	93,  // 135: fora.v1.ErrorDetail.registration_failure:type_name -> fora.v1.RegistrationFailure
-	95,  // 136: fora.v1.ErrorDetail.dispute_failure:type_name -> fora.v1.DisputeFailure
-	96,  // 137: fora.v1.ErrorDetail.domain_verification_failure:type_name -> fora.v1.DomainVerificationFailure
-	97,  // 138: fora.v1.ErrorDetail.retrieval_auth_failure:type_name -> fora.v1.RetrievalAuthFailure
-	98,  // 139: fora.v1.ErrorDetail.usage_report_rejection:type_name -> fora.v1.UsageReportRejection
-	99,  // 140: fora.v1.ErrorDetail.request_auth_failure:type_name -> fora.v1.RequestAuthFailure
-	13,  // 141: fora.v1.TransactionDenial.reason:type_name -> fora.v1.DenialReason
-	3,   // 142: fora.v1.TransactionDenial.restriction_mismatches:type_name -> fora.v1.RestrictionKind
-	22,  // 143: fora.v1.CatalogRejection.reason:type_name -> fora.v1.CatalogRejectionReason
-	23,  // 144: fora.v1.RegistrationFailure.reason:type_name -> fora.v1.RegistrationFailureReason
-	94,  // 145: fora.v1.RegistrationFailure.field_errors:type_name -> fora.v1.RegistrationFieldError
-	24,  // 146: fora.v1.DisputeFailure.reason:type_name -> fora.v1.DisputeFailureReason
-	25,  // 147: fora.v1.DomainVerificationFailure.reason:type_name -> fora.v1.DomainVerificationFailureReason
-	26,  // 148: fora.v1.RetrievalAuthFailure.reason:type_name -> fora.v1.RetrievalAuthFailureReason
-	27,  // 149: fora.v1.UsageReportRejection.reason:type_name -> fora.v1.UsageReportRejectionReason
-	28,  // 150: fora.v1.RequestAuthFailure.reason:type_name -> fora.v1.RequestAuthFailureReason
-	30,  // 151: fora.v1.ExchangeService.DiscoverResources:input_type -> fora.v1.ResourceQuery
-	52,  // 152: fora.v1.ExchangeService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
-	65,  // 153: fora.v1.ExchangeService.ReportUsage:input_type -> fora.v1.UsageReport
-	80,  // 154: fora.v1.ExchangeService.DisputeTransaction:input_type -> fora.v1.DisputeRequest
-	82,  // 155: fora.v1.ExchangeService.RequestDomainVerification:input_type -> fora.v1.DomainVerificationRequest
-	84,  // 156: fora.v1.ExchangeService.ConfirmDomainVerification:input_type -> fora.v1.DomainVerificationConfirmation
-	86,  // 157: fora.v1.ExchangeService.Register:input_type -> fora.v1.RegisterRequest
-	88,  // 158: fora.v1.ExchangeService.GetAccountStatus:input_type -> fora.v1.GetAccountStatusRequest
-	57,  // 159: fora.v1.CatalogService.PushResources:input_type -> fora.v1.PushResourcesRequest
-	60,  // 160: fora.v1.CatalogService.RemoveResources:input_type -> fora.v1.RemoveResourcesRequest
-	62,  // 161: fora.v1.CatalogService.RefreshCatalog:input_type -> fora.v1.RefreshCatalogRequest
-	70,  // 162: fora.v1.BrokerService.Resolve:input_type -> fora.v1.DiscoveryRequest
-	31,  // 163: fora.v1.ExchangeService.DiscoverResources:output_type -> fora.v1.ResourceResponse
-	54,  // 164: fora.v1.ExchangeService.ExecuteTransaction:output_type -> fora.v1.TransactionResponse
-	69,  // 165: fora.v1.ExchangeService.ReportUsage:output_type -> fora.v1.UsageReportResponse
-	81,  // 166: fora.v1.ExchangeService.DisputeTransaction:output_type -> fora.v1.DisputeResponse
-	83,  // 167: fora.v1.ExchangeService.RequestDomainVerification:output_type -> fora.v1.DomainVerificationChallenge
-	85,  // 168: fora.v1.ExchangeService.ConfirmDomainVerification:output_type -> fora.v1.DomainVerificationResult
-	87,  // 169: fora.v1.ExchangeService.Register:output_type -> fora.v1.RegisterResponse
-	89,  // 170: fora.v1.ExchangeService.GetAccountStatus:output_type -> fora.v1.GetAccountStatusResponse
-	59,  // 171: fora.v1.CatalogService.PushResources:output_type -> fora.v1.PushResourcesResponse
-	61,  // 172: fora.v1.CatalogService.RemoveResources:output_type -> fora.v1.RemoveResourcesResponse
-	63,  // 173: fora.v1.CatalogService.RefreshCatalog:output_type -> fora.v1.RefreshCatalogResponse
-	79,  // 174: fora.v1.BrokerService.Resolve:output_type -> fora.v1.DiscoveryResponse
-	163, // [163:175] is the sub-list for method output_type
-	151, // [151:163] is the sub-list for method input_type
-	151, // [151:151] is the sub-list for extension type_name
-	151, // [151:151] is the sub-list for extension extendee
-	0,   // [0:151] is the sub-list for field type_name
+	65,  // 69: fora.v1.TransactionResultItem.reporting_obligation:type_name -> fora.v1.ReportingObligation
+	56,  // 70: fora.v1.TransactionResultItem.refusal:type_name -> fora.v1.UpstreamRefusal
+	93,  // 71: fora.v1.UpstreamRefusal.detail:type_name -> fora.v1.ErrorDetail
+	59,  // 72: fora.v1.PushResourcesRequest.entries:type_name -> fora.v1.ResourceEntry
+	105, // 73: fora.v1.PushResourcesRequest.ext:type_name -> google.protobuf.Struct
+	14,  // 74: fora.v1.ResourceEntry.source:type_name -> fora.v1.IngestionSource
+	106, // 75: fora.v1.ResourceEntry.provenance_timestamp:type_name -> google.protobuf.Timestamp
+	37,  // 76: fora.v1.ResourceEntry.attestations:type_name -> fora.v1.ResourceAttestation
+	42,  // 77: fora.v1.ResourceEntry.terms:type_name -> fora.v1.LicenseTerm
+	12,  // 78: fora.v1.ResourceEntry.resource_mutability:type_name -> fora.v1.ResourceMutability
+	105, // 79: fora.v1.ResourceEntry.ext:type_name -> google.protobuf.Struct
+	105, // 80: fora.v1.PushResourcesResponse.ext:type_name -> google.protobuf.Struct
+	104, // 81: fora.v1.ReportingObligation.window:type_name -> google.protobuf.Duration
+	105, // 82: fora.v1.ReportingObligation.ext:type_name -> google.protobuf.Struct
+	68,  // 83: fora.v1.UsageReport.usage:type_name -> fora.v1.Usage
+	106, // 84: fora.v1.UsageReport.timestamp:type_name -> google.protobuf.Timestamp
+	69,  // 85: fora.v1.UsageReport.assets:type_name -> fora.v1.UsageAsset
+	105, // 86: fora.v1.UsageReport.ext:type_name -> google.protobuf.Struct
+	15,  // 87: fora.v1.AttributionDetail.format:type_name -> fora.v1.CitationFormat
+	67,  // 88: fora.v1.Usage.attribution:type_name -> fora.v1.AttributionDetail
+	105, // 89: fora.v1.UsageReportResponse.ext:type_name -> google.protobuf.Struct
+	45,  // 90: fora.v1.DiscoveryRequest.requester:type_name -> fora.v1.Requester
+	29,  // 91: fora.v1.DiscoveryRequest.acceptable_restrictions:type_name -> fora.v1.AcceptableRestriction
+	72,  // 92: fora.v1.DiscoveryRequest.constraints:type_name -> fora.v1.RequestConstraints
+	105, // 93: fora.v1.DiscoveryRequest.search_filters:type_name -> google.protobuf.Struct
+	105, // 94: fora.v1.DiscoveryRequest.ext:type_name -> google.protobuf.Struct
+	57,  // 95: fora.v1.RequestConstraints.max_price:type_name -> fora.v1.Cost
+	9,   // 96: fora.v1.RequestConstraints.delivery_preference:type_name -> fora.v1.DeliveryMethod
+	57,  // 97: fora.v1.RequestConstraints.period_budget:type_name -> fora.v1.Cost
+	104, // 98: fora.v1.RequestConstraints.budget_period:type_name -> google.protobuf.Duration
+	104, // 99: fora.v1.RequestConstraints.max_data_age:type_name -> google.protobuf.Duration
+	105, // 100: fora.v1.AccountRegistration.data_schema:type_name -> google.protobuf.Struct
+	16,  // 101: fora.v1.WellKnownManifest.role:type_name -> fora.v1.Role
+	79,  // 102: fora.v1.WellKnownManifest.exchanges:type_name -> fora.v1.AuthorizedExchange
+	78,  // 103: fora.v1.WellKnownManifest.catalog_contributors:type_name -> fora.v1.CatalogContributor
+	7,   // 104: fora.v1.WellKnownManifest.pricing_models_supported:type_name -> fora.v1.PricingModel
+	9,   // 105: fora.v1.WellKnownManifest.delivery_methods_supported:type_name -> fora.v1.DeliveryMethod
+	18,  // 106: fora.v1.WellKnownManifest.supported_auth_methods:type_name -> fora.v1.AuthMethod
+	74,  // 107: fora.v1.WellKnownManifest.account_registration:type_name -> fora.v1.AccountRegistration
+	105, // 108: fora.v1.WellKnownManifest.ext:type_name -> google.protobuf.Struct
+	73,  // 109: fora.v1.WBAFile.keys:type_name -> fora.v1.JsonWebKey
+	106, // 110: fora.v1.KeyRevocationList.as_of:type_name -> google.protobuf.Timestamp
+	17,  // 111: fora.v1.AuthorizedExchange.relationship:type_name -> fora.v1.ProviderRelationship
+	105, // 112: fora.v1.AuthorizedExchange.ext:type_name -> google.protobuf.Struct
+	32,  // 113: fora.v1.DiscoveryResponse.offer_groups:type_name -> fora.v1.OfferGroup
+	1,   // 114: fora.v1.DiscoveryResponse.absence_reason:type_name -> fora.v1.OfferAbsenceReason
+	105, // 115: fora.v1.DiscoveryResponse.ext:type_name -> google.protobuf.Struct
+	55,  // 116: fora.v1.BrokerTransactionResponse.items:type_name -> fora.v1.TransactionResultItem
+	82,  // 117: fora.v1.BrokerTransactionResponse.exchanges:type_name -> fora.v1.ExchangeOutcome
+	57,  // 118: fora.v1.BrokerTransactionResponse.totals:type_name -> fora.v1.Cost
+	105, // 119: fora.v1.BrokerTransactionResponse.ext:type_name -> google.protobuf.Struct
+	34,  // 120: fora.v1.ExchangeOutcome.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
+	19,  // 121: fora.v1.DisputeRequest.reason:type_name -> fora.v1.DisputeReason
+	105, // 122: fora.v1.DisputeRequest.ext:type_name -> google.protobuf.Struct
+	104, // 123: fora.v1.DisputeResponse.estimated_resolution:type_name -> google.protobuf.Duration
+	20,  // 124: fora.v1.DisputeResponse.status:type_name -> fora.v1.DisputeStatus
+	21,  // 125: fora.v1.DisputeResponse.resolution:type_name -> fora.v1.ResolutionType
+	105, // 126: fora.v1.DisputeResponse.ext:type_name -> google.protobuf.Struct
+	105, // 127: fora.v1.DomainVerificationRequest.ext:type_name -> google.protobuf.Struct
+	106, // 128: fora.v1.DomainVerificationChallenge.expires_at:type_name -> google.protobuf.Timestamp
+	105, // 129: fora.v1.DomainVerificationChallenge.ext:type_name -> google.protobuf.Struct
+	105, // 130: fora.v1.DomainVerificationConfirmation.ext:type_name -> google.protobuf.Struct
+	106, // 131: fora.v1.DomainVerificationResult.valid_until:type_name -> google.protobuf.Timestamp
+	105, // 132: fora.v1.DomainVerificationResult.ext:type_name -> google.protobuf.Struct
+	105, // 133: fora.v1.RegisterRequest.registration_data:type_name -> google.protobuf.Struct
+	105, // 134: fora.v1.RegisterRequest.ext:type_name -> google.protobuf.Struct
+	105, // 135: fora.v1.RegisterResponse.ext:type_name -> google.protobuf.Struct
+	105, // 136: fora.v1.GetAccountStatusRequest.ext:type_name -> google.protobuf.Struct
+	57,  // 137: fora.v1.GetAccountStatusResponse.balances:type_name -> fora.v1.Cost
+	105, // 138: fora.v1.GetAccountStatusResponse.ext:type_name -> google.protobuf.Struct
+	103, // 139: fora.v1.ErrorDetail.metadata:type_name -> fora.v1.ErrorDetail.MetadataEntry
+	94,  // 140: fora.v1.ErrorDetail.transaction_denial:type_name -> fora.v1.TransactionDenial
+	95,  // 141: fora.v1.ErrorDetail.catalog_rejection:type_name -> fora.v1.CatalogRejection
+	96,  // 142: fora.v1.ErrorDetail.registration_failure:type_name -> fora.v1.RegistrationFailure
+	98,  // 143: fora.v1.ErrorDetail.dispute_failure:type_name -> fora.v1.DisputeFailure
+	99,  // 144: fora.v1.ErrorDetail.domain_verification_failure:type_name -> fora.v1.DomainVerificationFailure
+	100, // 145: fora.v1.ErrorDetail.retrieval_auth_failure:type_name -> fora.v1.RetrievalAuthFailure
+	101, // 146: fora.v1.ErrorDetail.usage_report_rejection:type_name -> fora.v1.UsageReportRejection
+	102, // 147: fora.v1.ErrorDetail.request_auth_failure:type_name -> fora.v1.RequestAuthFailure
+	13,  // 148: fora.v1.TransactionDenial.reason:type_name -> fora.v1.DenialReason
+	3,   // 149: fora.v1.TransactionDenial.restriction_mismatches:type_name -> fora.v1.RestrictionKind
+	22,  // 150: fora.v1.CatalogRejection.reason:type_name -> fora.v1.CatalogRejectionReason
+	23,  // 151: fora.v1.RegistrationFailure.reason:type_name -> fora.v1.RegistrationFailureReason
+	97,  // 152: fora.v1.RegistrationFailure.field_errors:type_name -> fora.v1.RegistrationFieldError
+	24,  // 153: fora.v1.DisputeFailure.reason:type_name -> fora.v1.DisputeFailureReason
+	25,  // 154: fora.v1.DomainVerificationFailure.reason:type_name -> fora.v1.DomainVerificationFailureReason
+	26,  // 155: fora.v1.RetrievalAuthFailure.reason:type_name -> fora.v1.RetrievalAuthFailureReason
+	27,  // 156: fora.v1.UsageReportRejection.reason:type_name -> fora.v1.UsageReportRejectionReason
+	28,  // 157: fora.v1.RequestAuthFailure.reason:type_name -> fora.v1.RequestAuthFailureReason
+	30,  // 158: fora.v1.ExchangeService.DiscoverResources:input_type -> fora.v1.ResourceQuery
+	52,  // 159: fora.v1.ExchangeService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
+	66,  // 160: fora.v1.ExchangeService.ReportUsage:input_type -> fora.v1.UsageReport
+	83,  // 161: fora.v1.ExchangeService.DisputeTransaction:input_type -> fora.v1.DisputeRequest
+	85,  // 162: fora.v1.ExchangeService.RequestDomainVerification:input_type -> fora.v1.DomainVerificationRequest
+	87,  // 163: fora.v1.ExchangeService.ConfirmDomainVerification:input_type -> fora.v1.DomainVerificationConfirmation
+	89,  // 164: fora.v1.ExchangeService.Register:input_type -> fora.v1.RegisterRequest
+	91,  // 165: fora.v1.ExchangeService.GetAccountStatus:input_type -> fora.v1.GetAccountStatusRequest
+	58,  // 166: fora.v1.CatalogService.PushResources:input_type -> fora.v1.PushResourcesRequest
+	61,  // 167: fora.v1.CatalogService.RemoveResources:input_type -> fora.v1.RemoveResourcesRequest
+	63,  // 168: fora.v1.CatalogService.RefreshCatalog:input_type -> fora.v1.RefreshCatalogRequest
+	71,  // 169: fora.v1.BrokerService.Resolve:input_type -> fora.v1.DiscoveryRequest
+	52,  // 170: fora.v1.BrokerService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
+	31,  // 171: fora.v1.ExchangeService.DiscoverResources:output_type -> fora.v1.ResourceResponse
+	54,  // 172: fora.v1.ExchangeService.ExecuteTransaction:output_type -> fora.v1.TransactionResponse
+	70,  // 173: fora.v1.ExchangeService.ReportUsage:output_type -> fora.v1.UsageReportResponse
+	84,  // 174: fora.v1.ExchangeService.DisputeTransaction:output_type -> fora.v1.DisputeResponse
+	86,  // 175: fora.v1.ExchangeService.RequestDomainVerification:output_type -> fora.v1.DomainVerificationChallenge
+	88,  // 176: fora.v1.ExchangeService.ConfirmDomainVerification:output_type -> fora.v1.DomainVerificationResult
+	90,  // 177: fora.v1.ExchangeService.Register:output_type -> fora.v1.RegisterResponse
+	92,  // 178: fora.v1.ExchangeService.GetAccountStatus:output_type -> fora.v1.GetAccountStatusResponse
+	60,  // 179: fora.v1.CatalogService.PushResources:output_type -> fora.v1.PushResourcesResponse
+	62,  // 180: fora.v1.CatalogService.RemoveResources:output_type -> fora.v1.RemoveResourcesResponse
+	64,  // 181: fora.v1.CatalogService.RefreshCatalog:output_type -> fora.v1.RefreshCatalogResponse
+	80,  // 182: fora.v1.BrokerService.Resolve:output_type -> fora.v1.DiscoveryResponse
+	81,  // 183: fora.v1.BrokerService.ExecuteTransaction:output_type -> fora.v1.BrokerTransactionResponse
+	171, // [171:184] is the sub-list for method output_type
+	158, // [158:171] is the sub-list for method input_type
+	158, // [158:158] is the sub-list for extension type_name
+	158, // [158:158] is the sub-list for extension extendee
+	0,   // [0:158] is the sub-list for field type_name
 }
 
 func init() { file_fora_v1_fora_proto_init() }
@@ -11400,24 +11748,25 @@ func file_fora_v1_fora_proto_init() {
 	file_fora_v1_fora_proto_msgTypes[25].OneofWrappers = []any{}
 	file_fora_v1_fora_proto_msgTypes[26].OneofWrappers = []any{}
 	file_fora_v1_fora_proto_msgTypes[27].OneofWrappers = []any{}
-	file_fora_v1_fora_proto_msgTypes[29].OneofWrappers = []any{}
-	file_fora_v1_fora_proto_msgTypes[35].OneofWrappers = []any{}
-	file_fora_v1_fora_proto_msgTypes[37].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[28].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[30].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[36].OneofWrappers = []any{}
 	file_fora_v1_fora_proto_msgTypes[38].OneofWrappers = []any{}
 	file_fora_v1_fora_proto_msgTypes[39].OneofWrappers = []any{}
-	file_fora_v1_fora_proto_msgTypes[41].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[40].OneofWrappers = []any{}
 	file_fora_v1_fora_proto_msgTypes[42].OneofWrappers = []any{}
-	file_fora_v1_fora_proto_msgTypes[45].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[43].OneofWrappers = []any{}
 	file_fora_v1_fora_proto_msgTypes[46].OneofWrappers = []any{}
-	file_fora_v1_fora_proto_msgTypes[50].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[47].OneofWrappers = []any{}
 	file_fora_v1_fora_proto_msgTypes[51].OneofWrappers = []any{}
-	file_fora_v1_fora_proto_msgTypes[52].OneofWrappers = []any{}
-	file_fora_v1_fora_proto_msgTypes[53].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[54].OneofWrappers = []any{}
 	file_fora_v1_fora_proto_msgTypes[55].OneofWrappers = []any{}
 	file_fora_v1_fora_proto_msgTypes[56].OneofWrappers = []any{}
-	file_fora_v1_fora_proto_msgTypes[57].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[58].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[59].OneofWrappers = []any{}
 	file_fora_v1_fora_proto_msgTypes[60].OneofWrappers = []any{}
-	file_fora_v1_fora_proto_msgTypes[61].OneofWrappers = []any{
+	file_fora_v1_fora_proto_msgTypes[63].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[64].OneofWrappers = []any{
 		(*ErrorDetail_TransactionDenial)(nil),
 		(*ErrorDetail_CatalogRejection)(nil),
 		(*ErrorDetail_RegistrationFailure)(nil),
@@ -11427,14 +11776,14 @@ func file_fora_v1_fora_proto_init() {
 		(*ErrorDetail_UsageReportRejection)(nil),
 		(*ErrorDetail_RequestAuthFailure)(nil),
 	}
-	file_fora_v1_fora_proto_msgTypes[62].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[65].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fora_v1_fora_proto_rawDesc), len(file_fora_v1_fora_proto_rawDesc)),
 			NumEnums:      29,
-			NumMessages:   72,
+			NumMessages:   75,
 			NumExtensions: 0,
 			NumServices:   3,
 		},

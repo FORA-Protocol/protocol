@@ -62,9 +62,27 @@ import "fora/v1/vocab.proto";
 // emergency-revoked keys; consumers poll on a 300s cadence (±10% jitter)
 // and sync-fetch on an unknown thumbprint.
 //
-// Request authentication via RFC 9421 HTTP Message Signatures:
-//   Agent → Exchange:  Signature header (alg=ed25519)
-//   Agent → Broker → Exchange:  multiple Signature headers (one per hop)
+// Request authentication via RFC 9421 HTTP Message Signatures (alg=ed25519).
+// Every request carries the signature of the party that AUTHORED it:
+//   Agent → Exchange:  the agent's signature. A direct purchase is this shape.
+//   Agent → Broker:    the agent's signature over the Broker's URL. Both Broker
+//                      RPCs, Resolve and ExecuteTransaction, terminate at the
+//                      Broker; neither request is forwarded on.
+//   Broker → Exchange: the Broker's OWN signature over a request the Broker
+//                      authored — a ResourceQuery of the discovery fan-out, or a
+//                      TransactionRequest re-packaged from the agent's purchase.
+//                      The agent's consent to a purchase does not travel as a
+//                      request signature: it travels in the body, as each item's
+//                      AgentAcceptance and the request's AgentRequestAcceptance,
+//                      detached signatures that stay valid however the purchase
+//                      was re-packaged. Each Exchange verifies those against the
+//                      agent's published keys (see AgentRequestAcceptance).
+// A request forwarded BYTE-FOR-BYTE through intermediaries keeps the original
+// signature and gains one per forwarding hop (multiple Signature headers, each
+// covering the prior one); the ordered set is the forwarding chain. That chain
+// is defined for a ResourceQuery relayed toward an Exchange (see
+// ResourceQuery). A purchase through a Broker is never forwarded that way: it is
+// re-packaged by BrokerService.ExecuteTransaction.
 //
 // Signed delivery URLs carry an Ed25519 signature made by the Exchange over
 // "GET\n<canonical URL>"; the delivery endpoint verifies it with the Exchange's
@@ -73,7 +91,9 @@ import "fora/v1/vocab.proto";
 // Retrieval-URL identity binding (OPTIONAL, DPoP-style — RFC 9449):
 //   The Exchange MAY bind a signed retrieval_endpoint to the requesting agent
 //   by embedding agent_identity_hash — the RFC 7638 JWK Thumbprint (SHA-256)
-//   of the agent's Ed25519 request-signing key — as the URL's agent_id query
+//   of the agent's Ed25519 request-signing key; on a purchase a Broker
+//   re-packaged, where the request signer is the Broker, the agent key the
+//   item's AgentAcceptance verifies under — as the URL's agent_id query
 //   parameter, which the URL signature covers, and echoing it in the response.
 //   A capable delivery endpoint (edge function) verifies the binding without
 //   contacting the fetcher's directory: verify the URL's Ed25519 signature
@@ -202,7 +222,11 @@ import "fora/v1/vocab.proto";
 // full signed Offer, and Offer.exchange is the execute-routing target, covered
 // by the issuing Exchange's own offer signature. The receive-side rule there is
 // that EVERY item's offer.exchange names this Exchange; a redundant top-level
-// copy would only add a top-level-vs-items mismatch to police.
+// copy would only add a top-level-vs-items mismatch to police. The same message
+// sent to BrokerService.ExecuteTransaction is addressed to the Broker, and there
+// the items name the Exchanges the Broker routes to rather than the recipient:
+// the Broker authors one new request per Exchange, so the every-item rule binds
+// at each Exchange, on the request the Broker sent it.
 // ============================================================================
 
 // ============================================================================
@@ -323,7 +347,10 @@ message ResourceQuery {
   // resolves the agent's key there, and takes each forwarding hop's key from
   // the key set it is configured with (e.g. Brokers registered with it).
   // The Exchange verifies every signature, and enforces RequestConstraints.max_hops /
-  // WellKnownManifest.max_intermediary_hops by counting them. (Field 5 unused.)
+  // WellKnownManifest.max_intermediary_hops by counting them. This chain applies
+  // to discovery forwarded byte-for-byte. It does not apply to a purchase through
+  // a Broker, which BrokerService.ExecuteTransaction re-packages into new requests
+  // the Broker signs alone. (Field 5 unused.)
 
   // Maximum time the caller will wait for a response.
   // Exchange SHOULD prioritize speed over completeness when tight.
@@ -1830,7 +1857,14 @@ enum RequesterType {
 // thumbprint of the holder's key. Verification MUST check that the key signing
 // the request (RFC 9421) hashes to that thumbprint; a token possessed without
 // the matching private key is rejected. This is what makes a leaked token NOT
-// bearer-usable. Delegation is a chain of cnf-linked JWTs: a principal narrows a
+// bearer-usable. One exception, the relayed purchase: when a Broker re-packages
+// a purchase (BrokerService.ExecuteTransaction), the request an Exchange
+// receives is signed by the Broker, not by the holder. There the Exchange checks
+// the holder binding against the key each item's AgentAcceptance verifies under
+// — the agent's key, resolved from the requester's WBA directory — and not
+// against the request signer. A relayed purchase that carries a delegation
+// therefore needs an AgentAcceptance on every item; an item without one fails
+// the binding (DENIAL_REASON_DELEGATION_INVALID). Delegation is a chain of cnf-linked JWTs: a principal narrows a
 // grant by issuing a child JWT (cnf = the next holder, scopes ⊆ parent), signed
 // by the key the parent's cnf named — the chain-linkage invariant. Verifiers
 // need only the root issuer's public key; intermediate keys ride inside the
@@ -1985,7 +2019,8 @@ message AgentAcceptance {
 
 // AgentRequestAcceptance — the agent's topology-independent authorization of
 // one complete ordered execute set. A Broker forwards this envelope unchanged
-// when it projects a mixed-Exchange request into per-Exchange subrequests.
+// when it projects a mixed-Exchange request into per-Exchange subrequests
+// (BrokerService.ExecuteTransaction).
 // Each receiving Exchange verifies the signature, then requires its subrequest
 // to equal the complete in-order projection of payload.items whose exchange
 // names that Exchange. This is what makes removal, append, and reorder visible
@@ -1999,10 +2034,11 @@ message AgentAcceptance {
 // projected body; that is expected, not a gap, and it is why this proof
 // exists: like AgentAcceptance, it is a detached body signature that stays
 // valid however the request travels. The hop-signature stack applies only to
-// requests forwarded byte-for-byte. If a delegation rides the request, the
-// holder-binding rule is unchanged — the wire signer must be the delegation's
-// terminal holder — so a Broker may project a delegated request only when the
-// agent has delegated to the Broker's key.
+// requests forwarded byte-for-byte. If a delegation rides a projected request,
+// the wire signer is the Broker, so the Exchange checks the delegation's holder
+// binding (cnf.jkt) against the key each item's AgentAcceptance verifies under,
+// not against the wire signer (see Delegation). The agent does not need to
+// delegate to the Broker's key for the Broker to relay its purchase.
 //
 // The verification key is the agent key published for the requester the signed
 // payload names. payload.requester_domain must equal the request's
@@ -2116,6 +2152,16 @@ message TransactionRequest {
   // Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per
   // (authenticated caller, key), never globally, so a key chosen by one caller
   // cannot collide with another's cached result.
+  //
+  // Through a Broker (BrokerService.ExecuteTransaction) the key is the agent's.
+  // The Broker forwards it UNCHANGED on every sub-request it sends — it cannot do
+  // otherwise, because each AgentAcceptance and the AgentRequestAcceptance sign
+  // it — so a retry of the same purchase through the Broker reaches every
+  // Exchange as a replay and is answered from that Exchange's stored result. The
+  // verified signer of a re-packaged sub-request is the Broker, which speaks for
+  // many agents, so an Exchange scopes a relayed request's key per (Broker,
+  // requester the agent acceptances authenticate, key): two agents behind one
+  // Broker that pick the same key cannot collide.
   string idempotency_key = 2 [
     (buf.validate.field).string = {min_len: 1, max_len: 255}
   ];
@@ -2177,7 +2223,9 @@ message TransactionResponse {
 
   // Identity that a delivered retrieval_endpoint is bound to: the RFC 7638 JWK
   // Thumbprint of the agent's Ed25519 request-signing key (see "Retrieval-URL
-  // identity binding" above). Shared across the request; set once.
+  // identity binding" above). On a sub-request a Broker re-packaged, the request
+  // signer is the Broker, and this is the thumbprint of the agent key the
+  // AgentAcceptances verify under instead. Shared across the request; set once.
   string agent_identity_hash = 10;
 
   // Per-offer results (one entry per committed item, in original order).
@@ -2239,7 +2287,8 @@ message TransactionResultItem {
 
   // Signed retrieval URL for this item. Bound to the requesting agent's identity
   // via the parent TransactionResponse.agent_identity_hash (shared across all
-  // batch items); expires at expires_at. Absent if this item was denied or its
+  // batch items) — on a BrokerTransactionResponse, the agent_identity_hash of
+  // the ExchangeOutcome for this item's Exchange; expires at expires_at. Absent if this item was denied or its
   // delivery_method is not signed-URL-based.
   optional string retrieval_endpoint = 12;
 
@@ -2248,6 +2297,46 @@ message TransactionResultItem {
 
   // Reporting requirements for this item.
   optional ReportingObligation reporting_obligation = 10;
+
+  // Set only on a BrokerTransactionResponse, and only when the Exchange that
+  // owns this item refused the Broker's whole sub-request instead of answering
+  // it: a non-OK answer, or no answer at all. The item was not purchased.
+  // offer_id names the item; transaction_id, billing_id, cost, denial_reason,
+  // retrieval_endpoint and the other result fields stay unset. Every item the
+  // Broker sent in that sub-request carries the same refusal. An Exchange never
+  // sets this field, and a Broker never replaces it with a denial_reason: an
+  // upstream refusal is not a per-item access decision.
+  optional UpstreamRefusal refusal = 14;
+}
+
+// UpstreamRefusal — an Exchange's refusal of a whole sub-request a Broker sent
+// it on BrokerService.ExecuteTransaction, carried in the Broker's response body
+// on each affected item (TransactionResultItem.refusal) instead of being turned
+// into an error of the Broker's own. Like TransactionDenial.exchange, nothing
+// signs it: it is the Broker's report of what the Exchange answered.
+message UpstreamRefusal {
+  // Bare host of the Exchange that refused, in the form "Request recipient"
+  // defines in the file header. Equal to the refused items' signed
+  // offer.exchange, which is the value a caller acts on.
+  string exchange = 1 [
+    (buf.validate.field).string = {
+      max_len: 260,
+      pattern: "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$"
+    }
+  ];
+
+  // The Connect code the Exchange answered with, in its wire form, e.g.
+  // "permission_denied" or "unauthenticated". When the Exchange gave no answer
+  // — unreachable, or the call timed out — it is the code the Broker's call
+  // failed with ("unavailable", "deadline_exceeded"). A timeout is an ambiguous
+  // outcome: the purchase may have completed. Retrying the agent's request with
+  // the same idempotency_key is safe, because the Broker forwards the key
+  // unchanged and the Exchange answers a replay from its stored result.
+  string code = 2 [(buf.validate.field).string = {min_len: 1, max_len: 64}];
+
+  // The Exchange's typed reason, unchanged — the ErrorDetail it attached to its
+  // refusal. Absent when the Exchange attached none or gave no answer.
+  optional ErrorDetail detail = 3;
 }
 
 // Cost — Actual transaction cost.
@@ -2266,7 +2355,7 @@ enum DenialReason {
   DENIAL_REASON_ACCOUNT_INACTIVE = 1;     // the requester's account (the billing_ref minted at Register) exists but is not active — typically awaiting the Exchange operator's out-of-band activation; the remedy is to wait or contact the operator, NOT to register again
   DENIAL_REASON_INSUFFICIENT_BALANCE = 2; // Requester's balance too low
   DENIAL_REASON_RATE_LIMITED = 3;         // Too many requests
-  DENIAL_REASON_CONTENT_UNAVAILABLE = 4;  // Resource no longer available
+  DENIAL_REASON_CONTENT_UNAVAILABLE = 4;  // the Exchange that owns the resource reports it no longer available; NOT a catch-all for upstream failures — a Broker reports an Exchange that refused or did not answer its sub-request on TransactionResultItem.refusal, never as this reason
   DENIAL_REASON_RESTRICTION_NOT_SATISFIED = 5;  // Accepted term's restriction not satisfied by the request; the axes are in TransactionDenial.restriction_mismatches (single) / TransactionResultItem.restriction_mismatches (batch), same RestrictionKind vocabulary as the terms
   DENIAL_REASON_REPORTING_OVERDUE = 6;    // Requester has >20% overdue reports (MAY threshold)
   DENIAL_REASON_OFFER_EXPIRED = 7;        // Offer TTL exceeded
@@ -2298,6 +2387,12 @@ enum DenialReason {
   // GetAccountStatus. TransactionDenial.exchange names WHERE to register, so the
   // agent converges without fetching a manifest first.
   DENIAL_REASON_ACCOUNT_NOT_REGISTERED = 18;         // no account exists for this caller at this Exchange — the remedy is to call Register
+
+  // The provider at this Exchange does not accept purchases relayed by a Broker
+  // (BrokerService.ExecuteTransaction). Per item: other items in the same
+  // sub-request may succeed. The remedy is to buy this offer directly, calling
+  // ExchangeService.ExecuteTransaction at offer.exchange.
+  DENIAL_REASON_RELAY_NOT_ACCEPTED = 19;
 }
 
 // IngestionSource — How the catalog entry was discovered.
@@ -2357,16 +2452,19 @@ service CatalogService {
   rpc RefreshCatalog(RefreshCatalogRequest) returns (RefreshCatalogResponse);
 }
 
-// BrokerService is the agent-facing gateway: it runs the broker discovery flow
+// BrokerService is the agent-facing gateway. It runs the broker discovery flow
 // (discover → select offers) across one or more Exchanges on the caller's
-// behalf and returns a single canonical DiscoveryResponse.
+// behalf and returns a single canonical DiscoveryResponse, and it buys the
+// selected offers in one call however many Exchanges issued them.
 service BrokerService {
   // Resolve runs the broker discovery flow for the requested URIs/query: it
   // fans out to one or more Exchanges and returns the merged offers. It is pure
   // discovery — it selects and returns offers, never executes a transaction, so
   // it neither charges nor produces transaction denials. A denial is raised only
-  // when the agent later calls ExchangeService.ExecuteTransaction on a selected
-  // offer, and rides there on TransactionResponse.DenialReason.
+  // when the agent later buys a selected offer — either directly, calling
+  // ExchangeService.ExecuteTransaction at the offer's Exchange, or through
+  // BrokerService.ExecuteTransaction — and rides there on the result item's
+  // denial_reason.
   //
   // A result returns OK with offers populated on DiscoveryResponse.offer_groups
   // (one OfferGroup per requested URI). A request that ran but yielded nothing
@@ -2378,6 +2476,83 @@ service BrokerService {
   // like malformed requests and internal faults, are non-OK transport errors
   // carrying an ErrorDetail.
   rpc Resolve(DiscoveryRequest) returns (DiscoveryResponse);
+
+  // ExecuteTransaction buys one or more offers, issued by one or more Exchanges,
+  // in one call. The request is the TransactionRequest an agent would send an
+  // Exchange, with every item's AgentAcceptance and the AgentRequestAcceptance
+  // over all items, signed (RFC 9421) by the agent for the Broker's URL. The
+  // request terminates at the Broker; it is not forwarded.
+  //
+  // The Broker RE-PACKAGES the purchase. It verifies the agent's request, groups
+  // the items by each signed offer's `exchange`, and sends one
+  // ExchangeService.ExecuteTransaction per Exchange. Each sub-request is a new
+  // request the Broker authors and signs with ITS OWN key; it carries that
+  // Exchange's items in request order, each with its reflected Offer and the
+  // agent's AgentAcceptance, plus the agent's AgentRequestAcceptance unchanged,
+  // the agent's `requester` and the agent's `idempotency_key` unchanged. So each
+  // Exchange still verifies the agent's consent: the acceptances are detached
+  // signatures over the body, and they do not depend on who signed the request.
+  // The Broker then combines the answers into one BrokerTransactionResponse.
+  //
+  // Why re-packaging and combining are safe: each item is atomic, and its
+  // integrity is per resource. Each offer carries the signature of the Exchange
+  // that issued it, covering price, terms, expiry and `exchange`; each item
+  // carries the agent's acceptance of that one offer, bound to the requester
+  // and the idempotency key; and each item's result comes from the Exchange that
+  // owns that resource. The Broker therefore assembles independent per-resource
+  // purchases. It cannot change what an item buys, from which Exchange, at what
+  // price or on what terms, or for whom, without breaking that offer's Exchange
+  // signature or the agent's acceptance; it cannot add an item the agent did not
+  // accept; and it cannot drop, add or reorder items within one Exchange's
+  // sub-request without that Exchange seeing it, because the
+  // AgentRequestAcceptance fixes the complete ordered set. No cross-item
+  // integrity is needed, and none is provided. On the response side, the one
+  // signed value in a result item is retrieval_endpoint, a URL the issuing
+  // Exchange signed, so the Broker cannot forge or alter one. Every other field
+  // of a result item, and every field of the combined response, is unsigned:
+  // it is the Broker's report of what each Exchange answered, and the charge
+  // itself is still bounded by the signed offer the Exchange verified.
+  //
+  // The Broker's own refusals are non-OK Connect errors carrying an
+  // ErrorDetail, and when the Broker refuses, it has sent no sub-request, so
+  // nothing was bought:
+  //   - The agent's request signature does not verify: UNAUTHENTICATED with
+  //     `request_auth_failure`, exactly as at an Exchange.
+  //   - `requester.domain` is not the agent's verified signing directory — the
+  //     host of the WBA directory the covered `Signature-Agent` header names,
+  //     the directory the request-signing key resolved from: UNAUTHENTICATED
+  //     with `request_auth_failure` SIGNATURE_INVALID. The signature verifies,
+  //     but not as the requester the body claims, which is a signature that
+  //     does not verify for that requester. The Broker refuses it because every
+  //     Exchange would: they resolve the acceptance keys from requester.domain.
+  //   - A malformed request — no items, an item with no offer or no
+  //     AgentAcceptance, no AgentRequestAcceptance, or an AgentRequestAcceptance
+  //     whose payload does not list the request's items in order (each
+  //     offer.signature and offer.exchange) or names another requester or
+  //     idempotency key: INVALID_ARGUMENT.
+  //   - An item whose offer.exchange the Broker cannot route to, or does not
+  //     approve for purchases: a non-OK error (FAILED_PRECONDITION), with
+  //     ErrorDetail.metadata["exchange"] naming that host. The Broker checks
+  //     every item before it sends anything, so one unroutable Exchange
+  //     refuses the whole call rather than buying the rest.
+  //
+  // Upstream answers are ALWAYS IN THE BODY. Once the Broker has sent its
+  // sub-requests the call returns OK. An Exchange's refusal of its whole
+  // sub-request — a non-OK answer, or no answer at all — is never turned into
+  // an error of the Broker's own: it rides on each affected item as
+  // TransactionResultItem.refusal, and the other Exchanges' results come back
+  // unchanged. An Exchange's per-item denial is that Exchange's result item,
+  // unchanged. DENIAL_REASON_CONTENT_UNAVAILABLE is not a catch-all for
+  // upstream failures; the Broker never stamps it, or any denial_reason, onto
+  // an item an Exchange did not deny. If an Exchange answers OK without exactly
+  // one result item per item sent, the Broker cannot attribute the answer, and
+  // reports every item of that sub-request with a refusal whose code is
+  // "internal" and no detail.
+  //
+  // A retry is safe: the Broker forwards the agent's idempotency_key unchanged,
+  // so each Exchange answers a repeated sub-request from its stored result (see
+  // TransactionRequest.idempotency_key).
+  rpc ExecuteTransaction(TransactionRequest) returns (BrokerTransactionResponse);
 }
 
 message PushResourcesRequest {
@@ -2811,7 +2986,10 @@ message UsageReportResponse {
 // These messages are for the Agent → Broker path. Step 1 is DiscoveryRequest;
 // Step 6 is DiscoveryResponse, which carries offers grouped by requested URI
 // (OfferGroup) — discovery only. Committing to an offer is a separate exchange
-// on the execute path, which returns TransactionResponse.
+// on the execute path, taken one of two ways: directly, a TransactionRequest to
+// each issuing Exchange, which returns TransactionResponse; or through the
+// Broker, one TransactionRequest to BrokerService.ExecuteTransaction for offers
+// from any number of Exchanges, which returns BrokerTransactionResponse.
 // When an agent talks directly to an Exchange, it uses
 // ResourceQuery/TransactionRequest directly instead.
 // ============================================================================
@@ -3509,7 +3687,8 @@ enum AuthMethod {
 // Exchanges, grouped by the URI they were requested for. Committing to an offer
 // is a separate exchange on the execute path; that per-transaction result
 // (transaction_id, billing_id, cost, delivery_method, retrieval endpoint, …)
-// is returned by TransactionResponse, not here.
+// is returned by TransactionResponse, or by BrokerTransactionResponse when the
+// purchase goes through BrokerService.ExecuteTransaction, not here.
 message DiscoveryResponse {
   // FORA protocol version — "1.0". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
@@ -3547,6 +3726,72 @@ message DiscoveryResponse {
   // Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.
   // Empty (default) → all ext keys are safe to ignore.
   repeated string ext_critical = 90;
+}
+
+// BrokerTransactionResponse — the Broker's combined answer to
+// BrokerService.ExecuteTransaction: the independent per-resource purchases it
+// made at one or more Exchanges, assembled in request order. Each item is
+// atomic and owned by the Exchange that issued its offer, so the combination
+// needs no integrity of its own and carries none: no field here is signed, and
+// a result item's one signed value is its retrieval_endpoint, signed by the
+// issuing Exchange (see BrokerService.ExecuteTransaction).
+message BrokerTransactionResponse {
+  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // constant; advisory on receive. See "Protocol version" in the file header.
+  string ver = 1;
+
+  // One per request item, in request order. A purchase that succeeded, or that
+  // its Exchange denied per item (denial_reason), is that Exchange's
+  // TransactionResultItem unchanged. An item whose Exchange refused the whole
+  // sub-request, or did not answer it, carries that refusal in `refusal`, with
+  // offer_id set and no other result field.
+  repeated TransactionResultItem items = 2;
+
+  // One per Exchange the Broker contacted, in the order each Exchange first
+  // appears among the request items.
+  repeated ExchangeOutcome exchanges = 3;
+
+  // Charged totals, one per currency, in the order each currency first appears
+  // among the charged items. An item is charged when it carries neither
+  // denial_reason nor refusal; its cost.amount is added, as an exact decimal,
+  // into the entry for its cost.currency. Amounts are never summed across
+  // currencies and never converted. unit_cost is unset. Empty when no item was
+  // charged.
+  repeated Cost totals = 4;
+
+  // Extension point
+  google.protobuf.Struct ext = 15;
+
+  // Critical extension keys (COSE crit pattern, RFC 9052).
+  // Lists keys within ext that the consumer MUST understand.
+  // Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.
+  // Empty (default) → all ext keys are safe to ignore.
+  repeated string ext_critical = 90;
+}
+
+// ExchangeOutcome — the request-level state of one Exchange's answer to the
+// sub-request a Broker sent it on BrokerService.ExecuteTransaction: the fields
+// of its TransactionResponse that are not per item.
+message ExchangeOutcome {
+  // Bare host of the Exchange, in the form "Request recipient" defines in the
+  // file header: the offer.exchange its items share.
+  string exchange = 1 [
+    (buf.validate.field).string = {
+      max_len: 260,
+      pattern: "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$"
+    }
+  ];
+
+  // The offer_id of every item sent to this Exchange, in request order.
+  repeated string offer_ids = 2 [(buf.validate.field).repeated.max_items = 256];
+
+  // That Exchange's TransactionResponse.agent_identity_hash: the identity the
+  // retrieval_endpoint of each of its items is bound to. Empty when the
+  // Exchange refused the sub-request or did not answer.
+  string agent_identity_hash = 3;
+
+  // That Exchange's TransactionResponse.subscription_quota, unchanged.
+  repeated SubscriptionQuotaInfo subscription_quota = 4;
 }
 
 // ============================================================================
@@ -4346,7 +4591,9 @@ message TransactionDenial {
   // Bare host of the Exchange that PRODUCED this denial, in the form "Request
   // recipient" defines in the file header. Not an echo of what the caller sent:
   // on a relayed or fanned-out execute the request went to a Broker, so the
-  // Exchange that refused may not be one the agent named. Carrying it here is
+  // Exchange that refused may not be one the agent named (through
+  // BrokerService.ExecuteTransaction this detail reaches the agent inside
+  // UpstreamRefusal.detail, beside UpstreamRefusal.exchange). Carrying it here is
   // what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to
   // call Register without fetching a manifest to work it out. NOTHING SIGNS THIS
   // VALUE: it rides in a response, and on a relayed path the response passed

@@ -97,6 +97,9 @@ const (
 	CatalogServiceRefreshCatalogProcedure = "/fora.v1.CatalogService/RefreshCatalog"
 	// BrokerServiceResolveProcedure is the fully-qualified name of the BrokerService's Resolve RPC.
 	BrokerServiceResolveProcedure = "/fora.v1.BrokerService/Resolve"
+	// BrokerServiceExecuteTransactionProcedure is the fully-qualified name of the BrokerService's
+	// ExecuteTransaction RPC.
+	BrokerServiceExecuteTransactionProcedure = "/fora.v1.BrokerService/ExecuteTransaction"
 )
 
 // ExchangeServiceClient is a client for the fora.v1.ExchangeService service.
@@ -543,8 +546,10 @@ type BrokerServiceClient interface {
 	// fans out to one or more Exchanges and returns the merged offers. It is pure
 	// discovery — it selects and returns offers, never executes a transaction, so
 	// it neither charges nor produces transaction denials. A denial is raised only
-	// when the agent later calls ExchangeService.ExecuteTransaction on a selected
-	// offer, and rides there on TransactionResponse.DenialReason.
+	// when the agent later buys a selected offer — either directly, calling
+	// ExchangeService.ExecuteTransaction at the offer's Exchange, or through
+	// BrokerService.ExecuteTransaction — and rides there on the result item's
+	// denial_reason.
 	//
 	// A result returns OK with offers populated on DiscoveryResponse.offer_groups
 	// (one OfferGroup per requested URI). A request that ran but yielded nothing
@@ -556,6 +561,82 @@ type BrokerServiceClient interface {
 	// like malformed requests and internal faults, are non-OK transport errors
 	// carrying an ErrorDetail.
 	Resolve(context.Context, *connect.Request[v1.DiscoveryRequest]) (*connect.Response[v1.DiscoveryResponse], error)
+	// ExecuteTransaction buys one or more offers, issued by one or more Exchanges,
+	// in one call. The request is the TransactionRequest an agent would send an
+	// Exchange, with every item's AgentAcceptance and the AgentRequestAcceptance
+	// over all items, signed (RFC 9421) by the agent for the Broker's URL. The
+	// request terminates at the Broker; it is not forwarded.
+	//
+	// The Broker RE-PACKAGES the purchase. It verifies the agent's request, groups
+	// the items by each signed offer's `exchange`, and sends one
+	// ExchangeService.ExecuteTransaction per Exchange. Each sub-request is a new
+	// request the Broker authors and signs with ITS OWN key; it carries that
+	// Exchange's items in request order, each with its reflected Offer and the
+	// agent's AgentAcceptance, plus the agent's AgentRequestAcceptance unchanged,
+	// the agent's `requester` and the agent's `idempotency_key` unchanged. So each
+	// Exchange still verifies the agent's consent: the acceptances are detached
+	// signatures over the body, and they do not depend on who signed the request.
+	// The Broker then combines the answers into one BrokerTransactionResponse.
+	//
+	// Why re-packaging and combining are safe: each item is atomic, and its
+	// integrity is per resource. Each offer carries the signature of the Exchange
+	// that issued it, covering price, terms, expiry and `exchange`; each item
+	// carries the agent's acceptance of that one offer, bound to the requester
+	// and the idempotency key; and each item's result comes from the Exchange that
+	// owns that resource. The Broker therefore assembles independent per-resource
+	// purchases. It cannot change what an item buys, from which Exchange, at what
+	// price or on what terms, or for whom, without breaking that offer's Exchange
+	// signature or the agent's acceptance; it cannot add an item the agent did not
+	// accept; and it cannot drop, add or reorder items within one Exchange's
+	// sub-request without that Exchange seeing it, because the
+	// AgentRequestAcceptance fixes the complete ordered set. No cross-item
+	// integrity is needed, and none is provided. On the response side, the one
+	// signed value in a result item is retrieval_endpoint, a URL the issuing
+	// Exchange signed, so the Broker cannot forge or alter one. Every other field
+	// of a result item, and every field of the combined response, is unsigned:
+	// it is the Broker's report of what each Exchange answered, and the charge
+	// itself is still bounded by the signed offer the Exchange verified.
+	//
+	// The Broker's own refusals are non-OK Connect errors carrying an
+	// ErrorDetail, and when the Broker refuses, it has sent no sub-request, so
+	// nothing was bought:
+	//   - The agent's request signature does not verify: UNAUTHENTICATED with
+	//     `request_auth_failure`, exactly as at an Exchange.
+	//   - `requester.domain` is not the agent's verified signing directory — the
+	//     host of the WBA directory the covered `Signature-Agent` header names,
+	//     the directory the request-signing key resolved from: UNAUTHENTICATED
+	//     with `request_auth_failure` SIGNATURE_INVALID. The signature verifies,
+	//     but not as the requester the body claims, which is a signature that
+	//     does not verify for that requester. The Broker refuses it because every
+	//     Exchange would: they resolve the acceptance keys from requester.domain.
+	//   - A malformed request — no items, an item with no offer or no
+	//     AgentAcceptance, no AgentRequestAcceptance, or an AgentRequestAcceptance
+	//     whose payload does not list the request's items in order (each
+	//     offer.signature and offer.exchange) or names another requester or
+	//     idempotency key: INVALID_ARGUMENT.
+	//   - An item whose offer.exchange the Broker cannot route to, or does not
+	//     approve for purchases: a non-OK error (FAILED_PRECONDITION), with
+	//     ErrorDetail.metadata["exchange"] naming that host. The Broker checks
+	//     every item before it sends anything, so one unroutable Exchange
+	//     refuses the whole call rather than buying the rest.
+	//
+	// Upstream answers are ALWAYS IN THE BODY. Once the Broker has sent its
+	// sub-requests the call returns OK. An Exchange's refusal of its whole
+	// sub-request — a non-OK answer, or no answer at all — is never turned into
+	// an error of the Broker's own: it rides on each affected item as
+	// TransactionResultItem.refusal, and the other Exchanges' results come back
+	// unchanged. An Exchange's per-item denial is that Exchange's result item,
+	// unchanged. DENIAL_REASON_CONTENT_UNAVAILABLE is not a catch-all for
+	// upstream failures; the Broker never stamps it, or any denial_reason, onto
+	// an item an Exchange did not deny. If an Exchange answers OK without exactly
+	// one result item per item sent, the Broker cannot attribute the answer, and
+	// reports every item of that sub-request with a refusal whose code is
+	// "internal" and no detail.
+	//
+	// A retry is safe: the Broker forwards the agent's idempotency_key unchanged,
+	// so each Exchange answers a repeated sub-request from its stored result (see
+	// TransactionRequest.idempotency_key).
+	ExecuteTransaction(context.Context, *connect.Request[v1.TransactionRequest]) (*connect.Response[v1.BrokerTransactionResponse], error)
 }
 
 // NewBrokerServiceClient constructs a client for the fora.v1.BrokerService service. By default, it
@@ -575,17 +656,29 @@ func NewBrokerServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(brokerServiceMethods.ByName("Resolve")),
 			connect.WithClientOptions(opts...),
 		),
+		executeTransaction: connect.NewClient[v1.TransactionRequest, v1.BrokerTransactionResponse](
+			httpClient,
+			baseURL+BrokerServiceExecuteTransactionProcedure,
+			connect.WithSchema(brokerServiceMethods.ByName("ExecuteTransaction")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // brokerServiceClient implements BrokerServiceClient.
 type brokerServiceClient struct {
-	resolve *connect.Client[v1.DiscoveryRequest, v1.DiscoveryResponse]
+	resolve            *connect.Client[v1.DiscoveryRequest, v1.DiscoveryResponse]
+	executeTransaction *connect.Client[v1.TransactionRequest, v1.BrokerTransactionResponse]
 }
 
 // Resolve calls fora.v1.BrokerService.Resolve.
 func (c *brokerServiceClient) Resolve(ctx context.Context, req *connect.Request[v1.DiscoveryRequest]) (*connect.Response[v1.DiscoveryResponse], error) {
 	return c.resolve.CallUnary(ctx, req)
+}
+
+// ExecuteTransaction calls fora.v1.BrokerService.ExecuteTransaction.
+func (c *brokerServiceClient) ExecuteTransaction(ctx context.Context, req *connect.Request[v1.TransactionRequest]) (*connect.Response[v1.BrokerTransactionResponse], error) {
+	return c.executeTransaction.CallUnary(ctx, req)
 }
 
 // BrokerServiceHandler is an implementation of the fora.v1.BrokerService service.
@@ -594,8 +687,10 @@ type BrokerServiceHandler interface {
 	// fans out to one or more Exchanges and returns the merged offers. It is pure
 	// discovery — it selects and returns offers, never executes a transaction, so
 	// it neither charges nor produces transaction denials. A denial is raised only
-	// when the agent later calls ExchangeService.ExecuteTransaction on a selected
-	// offer, and rides there on TransactionResponse.DenialReason.
+	// when the agent later buys a selected offer — either directly, calling
+	// ExchangeService.ExecuteTransaction at the offer's Exchange, or through
+	// BrokerService.ExecuteTransaction — and rides there on the result item's
+	// denial_reason.
 	//
 	// A result returns OK with offers populated on DiscoveryResponse.offer_groups
 	// (one OfferGroup per requested URI). A request that ran but yielded nothing
@@ -607,6 +702,82 @@ type BrokerServiceHandler interface {
 	// like malformed requests and internal faults, are non-OK transport errors
 	// carrying an ErrorDetail.
 	Resolve(context.Context, *connect.Request[v1.DiscoveryRequest]) (*connect.Response[v1.DiscoveryResponse], error)
+	// ExecuteTransaction buys one or more offers, issued by one or more Exchanges,
+	// in one call. The request is the TransactionRequest an agent would send an
+	// Exchange, with every item's AgentAcceptance and the AgentRequestAcceptance
+	// over all items, signed (RFC 9421) by the agent for the Broker's URL. The
+	// request terminates at the Broker; it is not forwarded.
+	//
+	// The Broker RE-PACKAGES the purchase. It verifies the agent's request, groups
+	// the items by each signed offer's `exchange`, and sends one
+	// ExchangeService.ExecuteTransaction per Exchange. Each sub-request is a new
+	// request the Broker authors and signs with ITS OWN key; it carries that
+	// Exchange's items in request order, each with its reflected Offer and the
+	// agent's AgentAcceptance, plus the agent's AgentRequestAcceptance unchanged,
+	// the agent's `requester` and the agent's `idempotency_key` unchanged. So each
+	// Exchange still verifies the agent's consent: the acceptances are detached
+	// signatures over the body, and they do not depend on who signed the request.
+	// The Broker then combines the answers into one BrokerTransactionResponse.
+	//
+	// Why re-packaging and combining are safe: each item is atomic, and its
+	// integrity is per resource. Each offer carries the signature of the Exchange
+	// that issued it, covering price, terms, expiry and `exchange`; each item
+	// carries the agent's acceptance of that one offer, bound to the requester
+	// and the idempotency key; and each item's result comes from the Exchange that
+	// owns that resource. The Broker therefore assembles independent per-resource
+	// purchases. It cannot change what an item buys, from which Exchange, at what
+	// price or on what terms, or for whom, without breaking that offer's Exchange
+	// signature or the agent's acceptance; it cannot add an item the agent did not
+	// accept; and it cannot drop, add or reorder items within one Exchange's
+	// sub-request without that Exchange seeing it, because the
+	// AgentRequestAcceptance fixes the complete ordered set. No cross-item
+	// integrity is needed, and none is provided. On the response side, the one
+	// signed value in a result item is retrieval_endpoint, a URL the issuing
+	// Exchange signed, so the Broker cannot forge or alter one. Every other field
+	// of a result item, and every field of the combined response, is unsigned:
+	// it is the Broker's report of what each Exchange answered, and the charge
+	// itself is still bounded by the signed offer the Exchange verified.
+	//
+	// The Broker's own refusals are non-OK Connect errors carrying an
+	// ErrorDetail, and when the Broker refuses, it has sent no sub-request, so
+	// nothing was bought:
+	//   - The agent's request signature does not verify: UNAUTHENTICATED with
+	//     `request_auth_failure`, exactly as at an Exchange.
+	//   - `requester.domain` is not the agent's verified signing directory — the
+	//     host of the WBA directory the covered `Signature-Agent` header names,
+	//     the directory the request-signing key resolved from: UNAUTHENTICATED
+	//     with `request_auth_failure` SIGNATURE_INVALID. The signature verifies,
+	//     but not as the requester the body claims, which is a signature that
+	//     does not verify for that requester. The Broker refuses it because every
+	//     Exchange would: they resolve the acceptance keys from requester.domain.
+	//   - A malformed request — no items, an item with no offer or no
+	//     AgentAcceptance, no AgentRequestAcceptance, or an AgentRequestAcceptance
+	//     whose payload does not list the request's items in order (each
+	//     offer.signature and offer.exchange) or names another requester or
+	//     idempotency key: INVALID_ARGUMENT.
+	//   - An item whose offer.exchange the Broker cannot route to, or does not
+	//     approve for purchases: a non-OK error (FAILED_PRECONDITION), with
+	//     ErrorDetail.metadata["exchange"] naming that host. The Broker checks
+	//     every item before it sends anything, so one unroutable Exchange
+	//     refuses the whole call rather than buying the rest.
+	//
+	// Upstream answers are ALWAYS IN THE BODY. Once the Broker has sent its
+	// sub-requests the call returns OK. An Exchange's refusal of its whole
+	// sub-request — a non-OK answer, or no answer at all — is never turned into
+	// an error of the Broker's own: it rides on each affected item as
+	// TransactionResultItem.refusal, and the other Exchanges' results come back
+	// unchanged. An Exchange's per-item denial is that Exchange's result item,
+	// unchanged. DENIAL_REASON_CONTENT_UNAVAILABLE is not a catch-all for
+	// upstream failures; the Broker never stamps it, or any denial_reason, onto
+	// an item an Exchange did not deny. If an Exchange answers OK without exactly
+	// one result item per item sent, the Broker cannot attribute the answer, and
+	// reports every item of that sub-request with a refusal whose code is
+	// "internal" and no detail.
+	//
+	// A retry is safe: the Broker forwards the agent's idempotency_key unchanged,
+	// so each Exchange answers a repeated sub-request from its stored result (see
+	// TransactionRequest.idempotency_key).
+	ExecuteTransaction(context.Context, *connect.Request[v1.TransactionRequest]) (*connect.Response[v1.BrokerTransactionResponse], error)
 }
 
 // NewBrokerServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -622,10 +793,18 @@ func NewBrokerServiceHandler(svc BrokerServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(brokerServiceMethods.ByName("Resolve")),
 		connect.WithHandlerOptions(opts...),
 	)
+	brokerServiceExecuteTransactionHandler := connect.NewUnaryHandler(
+		BrokerServiceExecuteTransactionProcedure,
+		svc.ExecuteTransaction,
+		connect.WithSchema(brokerServiceMethods.ByName("ExecuteTransaction")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/fora.v1.BrokerService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case BrokerServiceResolveProcedure:
 			brokerServiceResolveHandler.ServeHTTP(w, r)
+		case BrokerServiceExecuteTransactionProcedure:
+			brokerServiceExecuteTransactionHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -637,4 +816,8 @@ type UnimplementedBrokerServiceHandler struct{}
 
 func (UnimplementedBrokerServiceHandler) Resolve(context.Context, *connect.Request[v1.DiscoveryRequest]) (*connect.Response[v1.DiscoveryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("fora.v1.BrokerService.Resolve is not implemented"))
+}
+
+func (UnimplementedBrokerServiceHandler) ExecuteTransaction(context.Context, *connect.Request[v1.TransactionRequest]) (*connect.Response[v1.BrokerTransactionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("fora.v1.BrokerService.ExecuteTransaction is not implemented"))
 }

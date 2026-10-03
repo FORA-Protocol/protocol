@@ -205,6 +205,7 @@ class DenialReason(Enum):
     DENIAL_REASON_SUBSCRIPTION_LAPSED = 'DENIAL_REASON_SUBSCRIPTION_LAPSED'
     DENIAL_REASON_ENTITLEMENT_NOT_GRANTED = 'DENIAL_REASON_ENTITLEMENT_NOT_GRANTED'
     DENIAL_REASON_ACCOUNT_NOT_REGISTERED = 'DENIAL_REASON_ACCOUNT_NOT_REGISTERED'
+    DENIAL_REASON_RELAY_NOT_ACCEPTED = 'DENIAL_REASON_RELAY_NOT_ACCEPTED'
 
 
 class DiscoveryMethod(Enum):
@@ -1080,7 +1081,7 @@ class TransactionDenial(WireModel):
         | None
     ) = Field(
         None,
-        description='Bare host of the Exchange that PRODUCED this denial, in the form "Request\n recipient" defines in the file header. Not an echo of what the caller sent:\n on a relayed or fanned-out execute the request went to a Broker, so the\n Exchange that refused may not be one the agent named. Carrying it here is\n what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to\n call Register without fetching a manifest to work it out. NOTHING SIGNS THIS\n VALUE: it rides in a response, and on a relayed path the response passed\n through an intermediary, so this field is exactly the unsigned addressing\n the request-side `exchange` field exists to refuse. Treat it as a HINT, not\n an instruction. Before acting on it — and registering is a consequential act,\n handing an operator\'s business data and a signed acceptance of that\n Exchange\'s terms to whoever answers — a caller MUST check the value against\n a domain it already trusts for this transaction: the signed `offer.exchange`\n of the denied item, or its own RequestConstraints.exchanges set. A value\n matching neither is reported to the caller and never dialled, because a\n hostile intermediary that could choose it would be choosing where an\n unattended agent registers.',
+        description='Bare host of the Exchange that PRODUCED this denial, in the form "Request\n recipient" defines in the file header. Not an echo of what the caller sent:\n on a relayed or fanned-out execute the request went to a Broker, so the\n Exchange that refused may not be one the agent named (through\n BrokerService.ExecuteTransaction this detail reaches the agent inside\n UpstreamRefusal.detail, beside UpstreamRefusal.exchange). Carrying it here is\n what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to\n call Register without fetching a manifest to work it out. NOTHING SIGNS THIS\n VALUE: it rides in a response, and on a relayed path the response passed\n through an intermediary, so this field is exactly the unsigned addressing\n the request-side `exchange` field exists to refuse. Treat it as a HINT, not\n an instruction. Before acting on it — and registering is a consequential act,\n handing an operator\'s business data and a signed acceptance of that\n Exchange\'s terms to whoever answers — a caller MUST check the value against\n a domain it already trusts for this transaction: the signed `offer.exchange`\n of the denied item, or its own RequestConstraints.exchanges set. A value\n matching neither is reported to the caller and never dialled, because a\n hostile intermediary that could choose it would be choosing where an\n unattended agent registers.',
     )
     offer_id: str | None = Field(
         None, description='Batch mode: the offer this denial pertains to.'
@@ -1091,51 +1092,6 @@ class TransactionDenial(WireModel):
     restriction_mismatches: list[RestrictionKind] | None = Field(
         None,
         description='When reason = RESTRICTION_NOT_SATISFIED, the failed axes (same\n RestrictionKind vocabulary the terms use).',
-    )
-
-
-class TransactionResultItem(WireModel):
-    billing_id: str | None = Field(
-        '',
-        description="Billing record identifier minted by the Exchange's billing adapter for\n this transaction (not the account handle — see RegisterResponse.billing_ref).",
-    )
-    cost: Cost | None = Field(None, description='Cost for this item.')
-    delivery_method: (
-        constr(pattern=r'^DELIVERY_METHOD_UNSPECIFIED$')
-        | DeliveryMethod
-        | conint(ge=-2147483648, le=2147483647)
-        | None
-    ) = Field(0, description='How resource is delivered for this item.')
-    denial_reason: DenialReason | None = Field(
-        None, description='Set if this specific item was denied (others may succeed).'
-    )
-    expires_at: AwareDatetime | None = Field(
-        None, description='When retrieval_endpoint expires.'
-    )
-    offer_id: str | None = Field('', description='The offer_id this result is for.')
-    reporting_obligation: ReportingObligation | None = Field(
-        None, description='Reporting requirements for this item.'
-    )
-    resource_title: str | None = Field(
-        None, description='Resource title echoed from the Offer.'
-    )
-    restriction_mismatches: list[RestrictionKind] | None = Field(
-        None,
-        description='When denial_reason = RESTRICTION_NOT_SATISFIED, the restriction axes the\n request failed, in the same RestrictionKind vocabulary the terms use.',
-    )
-    retrieval_endpoint: str | None = Field(
-        None,
-        description="Signed retrieval URL for this item. Bound to the requesting agent's identity\n via the parent TransactionResponse.agent_identity_hash (shared across all\n batch items); expires at expires_at. Absent if this item was denied or its\n delivery_method is not signed-URL-based.",
-    )
-    subscription_id: str | None = Field(
-        None, description='If under subscription, no per-request charge.'
-    )
-    subscription_unit_value: Cost | None = Field(
-        None,
-        description='Computed per-unit cost for financial attribution on subscription transactions.\n Even when cost.amount="0" (subscription), this field carries the value\n of the access for accounting purposes (e.g., ASC 606 prepaid drawdown).',
-    )
-    transaction_id: str | None = Field(
-        '', description='Exchange-assigned transaction identifier.'
     )
 
 
@@ -1300,6 +1256,29 @@ class DisputeResponse(WireModel):
 class DomainVerificationFailure(WireModel):
     reason: DomainVerificationFailureReason = Field(
         ..., description='The failure reason (defined-only, non-zero)'
+    )
+
+
+class ExchangeOutcome(WireModel):
+    agent_identity_hash: str | None = Field(
+        '',
+        description="That Exchange's TransactionResponse.agent_identity_hash: the identity the\n retrieval_endpoint of each of its items is bound to. Empty when the\n Exchange refused the sub-request or did not answer.",
+    )
+    exchange: constr(
+        pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
+        max_length=260,
+    ) = Field(
+        ...,
+        description='Bare host of the Exchange, in the form "Request recipient" defines in the\n file header: the offer.exchange its items share.',
+    )
+    offer_ids: list[str] | None = Field(
+        None,
+        description='The offer_id of every item sent to this Exchange, in request order.',
+        max_length=256,
+    )
+    subscription_quota: list[SubscriptionQuotaInfo] | None = Field(
+        None,
+        description="That Exchange's TransactionResponse.subscription_quota, unchanged.",
     )
 
 
@@ -1555,33 +1534,6 @@ class SetTenantFeeRateResponse(WireModel):
     ver: str | None = Field(
         '',
         description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
-    )
-
-
-class TransactionResponse(WireModel):
-    agent_identity_hash: str | None = Field(
-        '',
-        description='Identity that a delivered retrieval_endpoint is bound to: the RFC 7638 JWK\n Thumbprint of the agent\'s Ed25519 request-signing key (see "Retrieval-URL\n identity binding" above). Shared across the request; set once.',
-    )
-    ext: dict[str, Any] | None = Field(None, description='Extension point')
-    ext_critical: list[str] | None = Field(
-        None,
-        description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
-    )
-    items: list[TransactionResultItem] | None = Field(
-        None,
-        description='Per-offer results (one entry per committed item, in original order).',
-    )
-    subscription_quota: list[SubscriptionQuotaInfo] | None = Field(
-        None,
-        description='Post-transaction quota state. Tells the agent how much quota remains\n after this transaction. Enables proactive throttling ("1 access left").\n Multiple entries for multi-dimensional quotas.',
-    )
-    total_cost: Cost | None = Field(
-        None, description='Aggregate cost across all items.'
-    )
-    ver: str | None = Field(
-        '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -2107,7 +2059,7 @@ class TransactionRequest(WireModel):
     )
     idempotency_key: constr(min_length=1, max_length=255) = Field(
         ...,
-        description="Idempotency key (REQUIRED). The server MUST dedupe on this: a replay returns\n the original result rather than re-executing. The transaction's durable\n identity is the Exchange-assigned transaction_id in the response.\n Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per\n (authenticated caller, key), never globally, so a key chosen by one caller\n cannot collide with another's cached result.",
+        description="Idempotency key (REQUIRED). The server MUST dedupe on this: a replay returns\n the original result rather than re-executing. The transaction's durable\n identity is the Exchange-assigned transaction_id in the response.\n Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per\n (authenticated caller, key), never globally, so a key chosen by one caller\n cannot collide with another's cached result.\n\nThrough a Broker (BrokerService.ExecuteTransaction) the key is the agent's.\n The Broker forwards it UNCHANGED on every sub-request it sends — it cannot do\n otherwise, because each AgentAcceptance and the AgentRequestAcceptance sign\n it — so a retry of the same purchase through the Broker reaches every\n Exchange as a replay and is answered from that Exchange's stored result. The\n verified signer of a re-packaged sub-request is the Broker, which speaks for\n many agents, so an Exchange scopes a relayed request's key per (Broker,\n requester the agent acceptances authenticate, key): two agents behind one\n Broker that pick the same key cannot collide.",
     )
     items: list[TransactionItem] | None = Field(
         None,
@@ -2120,6 +2072,24 @@ class TransactionRequest(WireModel):
     ver: str | None = Field(
         '',
         description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+    )
+
+
+class UpstreamRefusal(WireModel):
+    code: constr(min_length=1, max_length=64) = Field(
+        ...,
+        description='The Connect code the Exchange answered with, in its wire form, e.g.\n "permission_denied" or "unauthenticated". When the Exchange gave no answer\n — unreachable, or the call timed out — it is the code the Broker\'s call\n failed with ("unavailable", "deadline_exceeded"). A timeout is an ambiguous\n outcome: the purchase may have completed. Retrying the agent\'s request with\n the same idempotency_key is safe, because the Broker forwards the key\n unchanged and the Exchange answers a replay from its stored result.',
+    )
+    detail: ErrorDetail | None = Field(
+        None,
+        description="The Exchange's typed reason, unchanged — the ErrorDetail it attached to its\n refusal. Absent when the Exchange attached none or gave no answer.",
+    )
+    exchange: constr(
+        pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
+        max_length=260,
+    ) = Field(
+        ...,
+        description='Bare host of the Exchange that refused, in the form "Request recipient"\n defines in the file header. Equal to the refused items\' signed\n offer.exchange, which is the value a caller acts on.',
     )
 
 
@@ -2167,6 +2137,106 @@ class PushResourcesRequest(WireModel):
         description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
     )
     tenant_id: str | None = Field('', description='Tenant identifier')
+    ver: str | None = Field(
+        '',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+    )
+
+
+class TransactionResultItem(WireModel):
+    billing_id: str | None = Field(
+        '',
+        description="Billing record identifier minted by the Exchange's billing adapter for\n this transaction (not the account handle — see RegisterResponse.billing_ref).",
+    )
+    cost: Cost | None = Field(None, description='Cost for this item.')
+    delivery_method: (
+        constr(pattern=r'^DELIVERY_METHOD_UNSPECIFIED$')
+        | DeliveryMethod
+        | conint(ge=-2147483648, le=2147483647)
+        | None
+    ) = Field(0, description='How resource is delivered for this item.')
+    denial_reason: DenialReason | None = Field(
+        None, description='Set if this specific item was denied (others may succeed).'
+    )
+    expires_at: AwareDatetime | None = Field(
+        None, description='When retrieval_endpoint expires.'
+    )
+    offer_id: str | None = Field('', description='The offer_id this result is for.')
+    refusal: UpstreamRefusal | None = Field(
+        None,
+        description="Set only on a BrokerTransactionResponse, and only when the Exchange that\n owns this item refused the Broker's whole sub-request instead of answering\n it: a non-OK answer, or no answer at all. The item was not purchased.\n offer_id names the item; transaction_id, billing_id, cost, denial_reason,\n retrieval_endpoint and the other result fields stay unset. Every item the\n Broker sent in that sub-request carries the same refusal. An Exchange never\n sets this field, and a Broker never replaces it with a denial_reason: an\n upstream refusal is not a per-item access decision.",
+    )
+    reporting_obligation: ReportingObligation | None = Field(
+        None, description='Reporting requirements for this item.'
+    )
+    resource_title: str | None = Field(
+        None, description='Resource title echoed from the Offer.'
+    )
+    restriction_mismatches: list[RestrictionKind] | None = Field(
+        None,
+        description='When denial_reason = RESTRICTION_NOT_SATISFIED, the restriction axes the\n request failed, in the same RestrictionKind vocabulary the terms use.',
+    )
+    retrieval_endpoint: str | None = Field(
+        None,
+        description="Signed retrieval URL for this item. Bound to the requesting agent's identity\n via the parent TransactionResponse.agent_identity_hash (shared across all\n batch items) — on a BrokerTransactionResponse, the agent_identity_hash of\n the ExchangeOutcome for this item's Exchange; expires at expires_at. Absent if this item was denied or its\n delivery_method is not signed-URL-based.",
+    )
+    subscription_id: str | None = Field(
+        None, description='If under subscription, no per-request charge.'
+    )
+    subscription_unit_value: Cost | None = Field(
+        None,
+        description='Computed per-unit cost for financial attribution on subscription transactions.\n Even when cost.amount="0" (subscription), this field carries the value\n of the access for accounting purposes (e.g., ASC 606 prepaid drawdown).',
+    )
+    transaction_id: str | None = Field(
+        '', description='Exchange-assigned transaction identifier.'
+    )
+
+
+class BrokerTransactionResponse(WireModel):
+    exchanges: list[ExchangeOutcome] | None = Field(
+        None,
+        description='One per Exchange the Broker contacted, in the order each Exchange first\n appears among the request items.',
+    )
+    ext: dict[str, Any] | None = Field(None, description='Extension point')
+    ext_critical: list[str] | None = Field(
+        None,
+        description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
+    )
+    items: list[TransactionResultItem] | None = Field(
+        None,
+        description="One per request item, in request order. A purchase that succeeded, or that\n its Exchange denied per item (denial_reason), is that Exchange's\n TransactionResultItem unchanged. An item whose Exchange refused the whole\n sub-request, or did not answer it, carries that refusal in `refusal`, with\n offer_id set and no other result field.",
+    )
+    totals: list[Cost] | None = Field(
+        None,
+        description='Charged totals, one per currency, in the order each currency first appears\n among the charged items. An item is charged when it carries neither\n denial_reason nor refusal; its cost.amount is added, as an exact decimal,\n into the entry for its cost.currency. Amounts are never summed across\n currencies and never converted. unit_cost is unset. Empty when no item was\n charged.',
+    )
+    ver: str | None = Field(
+        '',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+    )
+
+
+class TransactionResponse(WireModel):
+    agent_identity_hash: str | None = Field(
+        '',
+        description='Identity that a delivered retrieval_endpoint is bound to: the RFC 7638 JWK\n Thumbprint of the agent\'s Ed25519 request-signing key (see "Retrieval-URL\n identity binding" above). On a sub-request a Broker re-packaged, the request\n signer is the Broker, and this is the thumbprint of the agent key the\n AgentAcceptances verify under instead. Shared across the request; set once.',
+    )
+    ext: dict[str, Any] | None = Field(None, description='Extension point')
+    ext_critical: list[str] | None = Field(
+        None,
+        description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
+    )
+    items: list[TransactionResultItem] | None = Field(
+        None,
+        description='Per-offer results (one entry per committed item, in original order).',
+    )
+    subscription_quota: list[SubscriptionQuotaInfo] | None = Field(
+        None,
+        description='Post-transaction quota state. Tells the agent how much quota remains\n after this transaction. Enables proactive throttling ("1 access left").\n Multiple entries for multi-dimensional quotas.',
+    )
+    total_cost: Cost | None = Field(
+        None, description='Aggregate cost across all items.'
+    )
     ver: str | None = Field(
         '',
         description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',

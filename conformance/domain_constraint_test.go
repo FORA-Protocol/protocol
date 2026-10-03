@@ -43,7 +43,7 @@ var malformedDomains = []struct{ name, value string }{
 
 // wantDomainFields is the number of fields the shared domain constraint is meant
 // to be on. It is a ratchet, not a description: see the exact-count check below.
-const wantDomainFields = 18
+const wantDomainFields = 20
 
 // digestPattern is the "method:hexdigest" shape. Several fields carry it, and which
 // ones is read from the descriptor by the membership check below rather than listed
