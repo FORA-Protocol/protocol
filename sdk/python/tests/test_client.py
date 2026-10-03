@@ -514,6 +514,22 @@ def test_execute_refuses_an_unsigned_offer_that_verification_off_can_surface(fac
     assert excinfo.value.kind is CallErrorKind.MALFORMED
 
 
+@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("field", ["id", "domain"])
+def test_execute_refuses_a_requester_missing_either_half(face: Face, field: str) -> None:
+    # Every acceptance names the requester, and Requester.id and Requester.domain are both
+    # required, so the client refuses before signing or sending anything.
+    offer, public = _signed_offer()
+    rec = Recorder({})
+    client = face.client(_config(requester={**REQUESTER, field: ""}), rec)
+
+    with pytest.raises(CallError) as excinfo:
+        face.run(client.execute(_verified(public, offer)))
+    assert excinfo.value.kind is CallErrorKind.MALFORMED
+    assert f"requester.{field} is empty" in str(excinfo.value)
+    assert rec.seen == []
+
+
 # ---------------------------------------------------------------------------
 # the offer-derived leg
 # ---------------------------------------------------------------------------

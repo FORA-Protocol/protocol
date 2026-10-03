@@ -207,6 +207,19 @@ _LOCAL_REFUSALS: list[tuple[str, dict[str, Any], str, CallErrorKind]] = [
         CallErrorKind.MALFORMED,
     ),
     ("no requester", {"requester": None}, "offers", CallErrorKind.MALFORMED),
+    # Every acceptance names the requester, so a requester missing either half cannot buy.
+    (
+        "requester with no id",
+        {"requester": {**REQUESTER, "id": ""}},
+        "offers",
+        CallErrorKind.MALFORMED,
+    ),
+    (
+        "requester with no domain",
+        {"requester": {**REQUESTER, "domain": ""}},
+        "offers",
+        CallErrorKind.MALFORMED,
+    ),
     ("no signer", {"signer": None}, "offers", CallErrorKind.NOT_SIGNABLE),
     ("no offers", {}, "none", CallErrorKind.MALFORMED),
     ("offer names no exchange", {"validation": "off"}, "unaddressed", CallErrorKind.MALFORMED),

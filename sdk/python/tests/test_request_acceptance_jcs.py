@@ -52,3 +52,39 @@ def test_request_acceptance_order_is_signed() -> None:
         requester_domain=str(vector["requester_domain"]),
         idempotency_key=str(vector["idempotency_key"]),
     )
+
+
+# The request acceptance names the requester under the same rule as the offer
+# acceptance. The oracle records one payload per requester field left empty, with the
+# bytes and raw signature a signer without the check would produce; the canonicalizer and
+# the signer raise, and the verifier answers False although that signature verifies.
+_REFUSED = _DOC["refused"]
+
+
+def test_refused_request_acceptance_vectors_cover_each_requester_field() -> None:
+    assert sorted(str(v["empty"]) for v in _REFUSED) == ["requester_domain", "requester_id"]
+
+
+@pytest.mark.parametrize("vector", _REFUSED, ids=[v["name"] for v in _REFUSED])
+def test_request_acceptance_naming_an_empty_requester_is_refused(
+    vector: dict[str, object],
+) -> None:
+    assert vector[str(vector["empty"])] == ""
+    kwargs = {
+        "items": [
+            (str(item["offer_sig"]), str(item["exchange"]))
+            for item in vector["items"]  # type: ignore[union-attr]
+        ],
+        "requester_id": str(vector["requester_id"]),
+        "requester_domain": str(vector["requester_domain"]),
+        "idempotency_key": str(vector["idempotency_key"]),
+    }
+    with pytest.raises(ValueError, match="empty requester"):
+        jcs_request_acceptance_payload(**kwargs)
+    with pytest.raises(ValueError, match="empty requester"):
+        sign_request_acceptance_jcs(seed=bytes.fromhex(str(vector["seed_hex"])), **kwargs)
+    assert not verify_request_acceptance_jcs(
+        pubkey_b64=str(vector["pubkey_b64"]),
+        signature_hex=str(vector["signature_hex"]),
+        **kwargs,
+    )

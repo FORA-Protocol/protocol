@@ -444,16 +444,18 @@ def plan_broker_execute(
     re-packages it into one sub-request per Exchange, signed with its own key, carrying the
     agent's acceptances unchanged.
 
-    Refused here, with nothing sent: no requester, no signer, no offers, an unsigned offer,
-    an offer that names no exchange, and a ``requester.domain`` that is not the host of the
-    directory the signer signs as. The last mirrors the Broker's own check, which it refuses
-    with ``request_auth_failure`` SIGNATURE_INVALID.
+    Refused here, with nothing sent: no requester, or one with an empty ``id`` or
+    ``domain``, no signer, no offers, an unsigned offer, an offer that names no exchange,
+    and a ``requester.domain`` that is not the host of the directory the signer signs as.
+    The last mirrors the Broker's own check, which it refuses with ``request_auth_failure``
+    SIGNATURE_INVALID.
     """
     op = "broker execute"
     if isinstance(offers, RawBody):
         return _plan(cfg, _Route(op, cfg.base_url, BROKER_SERVICE, "ExecuteTransaction"), offers)
     if cfg.requester is None:
         raise malformed(op, "no requester configured; a Broker resolves who is buying")
+    _require_named_requester(op, cfg.requester)
     offers = list(offers)
     for i, item in enumerate(offers):
         if _str_field(_offer_wire(item), "exchange") == "":
@@ -500,6 +502,7 @@ def _build_transaction(
     """
     if cfg.requester is None:
         raise malformed(op, "no requester configured; the party that sells resolves who is buying")
+    _require_named_requester(op, cfg.requester)
     if cfg.signer is None:
         # NOT_SIGNABLE, matching what fetch answers for the same missing holder: a caller
         # branching on the kind sees one condition under one class, whichever verb met it
@@ -582,6 +585,22 @@ def _build_transaction(
     if request_acceptance is not None:
         sent["agent_request_acceptance"] = request_acceptance
     return sent
+
+
+def _require_named_requester(op: str, requester: dict[str, Any]) -> None:
+    """Refuse a requester with an empty ``id`` or ``domain`` as MALFORMED.
+
+    Every acceptance a purchase carries names the requester, and the protocol requires both
+    fields, so the signer would refuse anyway; refusing here reports the configuration
+    fault as MALFORMED rather than as a custody failure (NOT_SIGNABLE).
+    """
+    for key in ("id", "domain"):
+        if _str_field(requester, key) == "":
+            raise malformed(
+                op,
+                f"requester.{key} is empty; a purchase's acceptances name the requester, and "
+                "both requester.id and requester.domain are required",
+            )
 
 
 def _require_one_exchange(op: str, offers: list[VerifiedOffer]) -> None:
