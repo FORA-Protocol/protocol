@@ -313,6 +313,16 @@ service ExchangeService {
 
   // Commit to an offer and receive delivery information.
   // Steps 4-5 in the FORA flow.
+  //
+  // Every per-item decision is answered in the body. The call returns OK with
+  // one TransactionResultItem per item, and an item the Exchange denies carries
+  // its TransactionResultItem.denial_reason. This holds whatever the item count:
+  // a one-item purchase that is denied is a successful response whose only item
+  // is denied, never a non-OK error. A non-OK answer carrying
+  // ErrorDetail.transaction_denial is used only when the Exchange refuses the
+  // whole request and decides no item (see TransactionDenial). Errors of other
+  // classes (a malformed request, a failed request signature, an internal fault)
+  // stay non-OK errors, as for every RPC.
   rpc ExecuteTransaction(TransactionRequest) returns (TransactionResponse);
 
   // Submit a post-usage report for a completed transaction.
@@ -2274,6 +2284,17 @@ message AgentAcceptance {
 // names that Exchange. This is what makes removal, append, and reorder visible
 // before request-level idempotency state is claimed.
 //
+// A subrequest whose items are not exactly that projection — an item dropped,
+// an item added, or the items reordered — is refused PER ITEM, IN THE BODY: the
+// Exchange answers OK and denies every item of the subrequest with
+// DENIAL_REASON_SIGNATURE_INVALID, because the agent's signature does not cover
+// what arrived. It is not an INVALID_ARGUMENT error and not a refusal of the
+// whole request: the request is well formed, and what fails is the agent's
+// signature over the set. The Exchange purchases nothing and claims no
+// request-level idempotency state for such a subrequest, so a retry carrying the
+// set the agent signed still executes. A direct request from the agent is the
+// degenerate projection, the whole set, and is held to the same rule.
+//
 // A projected subrequest is a NEW HTTP request its sender authors. The party
 // that projects — a Broker, or the agent itself when it splits its own
 // mixed-Exchange set — computes that subrequest's Content-Digest and signs it
@@ -2474,8 +2495,13 @@ message TransactionItem {
 // Items-only: every per-result datum lives in `items`
 // (one TransactionResultItem per committed offer, in original order); the
 // top-level fields carry only the shared aggregate state. A single offer is the
-// degenerate 1-element `items`. The per-item denials remain in-body on
-// TransactionResultItem as partial results of a successful request.
+// degenerate 1-element `items`.
+//
+// Every per-item denial is in the body, on TransactionResultItem.denial_reason,
+// whatever the item count. A one-item purchase that is denied is this response
+// with its one item denied; it is never turned into a non-OK error. Only a
+// refusal of the whole request, which decides no item, is a non-OK error
+// carrying ErrorDetail.transaction_denial (see TransactionDenial).
 message TransactionResponse {
   // FORA protocol version — "1.0". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
@@ -2539,7 +2565,9 @@ message TransactionResultItem {
   // of the access for accounting purposes (e.g., ASC 606 prepaid drawdown).
   optional Cost subscription_unit_value = 11;
 
-  // Set if this specific item was denied (others may succeed).
+  // Set if this specific item was denied (others may succeed). Every per-item
+  // denial is answered here, in a successful response, also when the request
+  // carried only this item: a denied one-item purchase is never a non-OK error.
   optional DenialReason denial_reason = 7;
 
   // When denial_reason = RESTRICTION_NOT_SATISFIED, the restriction axes the
@@ -2625,10 +2653,16 @@ enum DenialReason {
   DENIAL_REASON_INSUFFICIENT_BALANCE = 2; // Requester's balance too low
   DENIAL_REASON_RATE_LIMITED = 3;         // Too many requests
   DENIAL_REASON_CONTENT_UNAVAILABLE = 4;  // the Exchange that owns the resource reports it no longer available; NOT a catch-all for upstream failures — a Broker reports an Exchange that refused or did not answer its sub-request on TransactionResultItem.refusal, never as this reason
-  DENIAL_REASON_RESTRICTION_NOT_SATISFIED = 5;  // Accepted term's restriction not satisfied by the request; the axes are in TransactionDenial.restriction_mismatches (single) / TransactionResultItem.restriction_mismatches (batch), same RestrictionKind vocabulary as the terms
+  DENIAL_REASON_RESTRICTION_NOT_SATISFIED = 5;  // Accepted term's restriction not satisfied by the request; decided per item, so the axes are in TransactionResultItem.restriction_mismatches (whatever the item count), same RestrictionKind vocabulary as the terms
   DENIAL_REASON_REPORTING_OVERDUE = 6;    // Requester has >20% overdue reports (MAY threshold)
   DENIAL_REASON_OFFER_EXPIRED = 7;        // Offer TTL exceeded
-  DENIAL_REASON_SIGNATURE_INVALID = 8;    // Offer signature verification failed
+  // A signature this item depends on does not verify, or does not cover what
+  // arrived: the offer's Exchange signature (Offer.signature), or the agent's
+  // AgentRequestAcceptance over the request's items. A subrequest whose items
+  // are not exactly the agent's signed set projected onto this Exchange (an item
+  // dropped, added or reordered) has every item denied with this reason, in the
+  // body (see AgentRequestAcceptance).
+  DENIAL_REASON_SIGNATURE_INVALID = 8;
   DENIAL_REASON_QUOTA_EXCEEDED = 9;       // Subscription access count exhausted for this period
   DENIAL_REASON_DELEGATION_INVALID = 10;  // Delegation missing, unverifiable, expired, holder binding failed, or scopes/caps do not cover the request
   // DEPRECATED, never sent. An Exchange MUST NOT send this value. An offer the
@@ -2666,10 +2700,15 @@ enum DenialReason {
   // agent converges without fetching a manifest first.
   DENIAL_REASON_ACCOUNT_NOT_REGISTERED = 18;         // no account exists for this caller at this Exchange — the remedy is to call Register
 
-  // The provider at this Exchange does not accept purchases relayed by a Broker
-  // (BrokerService.ExecuteTransaction). Per item: other items in the same
-  // sub-request may succeed. The remedy is to buy this offer directly, calling
-  // ExchangeService.ExecuteTransaction at offer.exchange.
+  // The provider of this item's resource, the seller of that resource at this
+  // Exchange, does not accept purchases relayed by a Broker
+  // (BrokerService.ExecuteTransaction). Decided PER ITEM, by each offer's own
+  // provider, and answered in the body on that item's denial_reason: other
+  // items in the same sub-request, sold by providers that accept relayed
+  // purchases, may succeed. It is never a refusal of the whole sub-request, and
+  // an Exchange MUST NOT send it as ErrorDetail.transaction_denial. The remedy is
+  // to buy this offer directly, calling ExchangeService.ExecuteTransaction at
+  // offer.exchange.
   DENIAL_REASON_RELAY_NOT_ACCEPTED = 19;
 }
 
@@ -2783,7 +2822,9 @@ service BrokerService {
   // signature or the agent's acceptance; it cannot add an item the agent did not
   // accept; and it cannot drop, add or reorder items within one Exchange's
   // sub-request without that Exchange seeing it, because the
-  // AgentRequestAcceptance fixes the complete ordered set. No cross-item
+  // AgentRequestAcceptance fixes the complete ordered set: that Exchange denies
+  // every item of such a sub-request with DENIAL_REASON_SIGNATURE_INVALID, in
+  // the body, and purchases none of them. No cross-item
   // integrity is needed, and none is provided. On the response side, the one
   // signed value in a result item is retrieval_endpoint, a URL the issuing
   // Exchange signed, so the Broker cannot forge or alter one. Every other field
@@ -2820,7 +2861,13 @@ service BrokerService {
   // an error of the Broker's own: it rides on each affected item as
   // TransactionResultItem.refusal, and the other Exchanges' results come back
   // unchanged. An Exchange's per-item denial is that Exchange's result item,
-  // unchanged. DENIAL_REASON_CONTENT_UNAVAILABLE is not a catch-all for
+  // unchanged; a one-item sub-request an Exchange denies is such a result item,
+  // because an Exchange answers every per-item denial in the body. A provider
+  // that does not accept relayed purchases is one such per-item denial,
+  // DENIAL_REASON_RELAY_NOT_ACCEPTED, decided by each offer's provider: the
+  // other items of the same sub-request may succeed. Only a refusal of the whole
+  // sub-request, which decides no item, becomes a refusal on each of its items.
+  // DENIAL_REASON_CONTENT_UNAVAILABLE is not a catch-all for
   // upstream failures; the Broker never stamps it, or any denial_reason, onto
   // an item an Exchange did not deny. If an Exchange answers OK without exactly
   // one result item per item sent, the Broker cannot attribute the answer, and
@@ -4884,7 +4931,7 @@ message ErrorDetail {
   // generic transport-class failures (e.g. INVALID_ARGUMENT, INTERNAL) that
   // carry no domain-specific reason.
   oneof reason {
-    // `reason` oneof — ExecuteTransaction denial
+    // `reason` oneof — ExecuteTransaction refused as a whole request
     TransactionDenial transaction_denial = 10;
     // `reason` oneof — CatalogService rejection
     CatalogRejection catalog_rejection = 11;
@@ -4903,21 +4950,38 @@ message ErrorDetail {
   }
 }
 
-// TransactionDenial — ExecuteTransaction could not complete. Carries the denial
-// reason the response body no longer holds (denial_reason / restriction_mismatches
-// move here in the response-shape normalization). Reuses the DenialReason vocab.
+// TransactionDenial — ExecuteTransaction refused the WHOLE request. Reuses the
+// DenialReason vocabulary.
+//
+// This is the only case an ExecuteTransaction answer is a non-OK error carrying
+// a DenialReason: the Exchange refuses the request as a whole and decides no
+// item, for a reason about the caller or the request that would deny every item
+// alike — for example the caller holds no account (ACCOUNT_NOT_REGISTERED), its
+// account is not active (ACCOUNT_INACTIVE), it has overdue reports
+// (REPORTING_OVERDUE), or it is rate limited (RATE_LIMITED). Nothing is
+// purchased. Every decision about an item is answered in the body instead, on
+// TransactionResultItem.denial_reason, whatever the item count: a denied
+// one-item purchase is a successful response whose one item is denied, never
+// this error. RESTRICTION_NOT_SATISFIED and RELAY_NOT_ACCEPTED are per-item
+// decisions and are never carried here.
 message TransactionDenial {
   // The denial reason (defined-only, non-zero)
   DenialReason reason = 1 [
     (buf.validate.field).enum = {defined_only: true, not_in: [0]}
   ];
 
-  // When reason = RESTRICTION_NOT_SATISFIED, the failed axes (same
-  // RestrictionKind vocabulary the terms use).
-  repeated RestrictionKind restriction_mismatches = 2;
+  // DEPRECATED, never set. A whole-request refusal is never
+  // RESTRICTION_NOT_SATISFIED: a restriction is decided per item, and its failed
+  // axes ride on TransactionResultItem.restriction_mismatches. The field is
+  // retained because removing it would break the v1 wire contract; a receiver
+  // ignores it.
+  repeated RestrictionKind restriction_mismatches = 2 [deprecated = true];
 
-  // Batch mode: the offer this denial pertains to.
-  optional string offer_id = 3;
+  // DEPRECATED, never set. A whole-request refusal pertains to no one offer; a
+  // denial of one offer rides on that offer's TransactionResultItem. The field
+  // is retained because removing it would break the v1 wire contract; a
+  // receiver ignores it.
+  optional string offer_id = 3 [deprecated = true];
 
   // Bare host of the Exchange that PRODUCED this denial, in the form "Request
   // recipient" defines in the file header. Not an echo of what the caller sent:
@@ -4934,10 +4998,10 @@ message TransactionDenial {
   // handing an operator's business data and a signed acceptance of that
   // Exchange's terms to whoever answers — a caller MUST check the value against
   // a domain it already trusts for this transaction: the signed `offer.exchange`
-  // of the denied item, or its own RequestConstraints.exchanges set. A value
-  // matching neither is reported to the caller and never dialled, because a
-  // hostile intermediary that could choose it would be choosing where an
-  // unattended agent registers.
+  // of the items in the refused request, or its own RequestConstraints.exchanges
+  // set. A value matching neither is reported to the caller and never dialled,
+  // because a hostile intermediary that could choose it would be choosing where
+  // an unattended agent registers.
   optional string exchange = 4 [
     (buf.validate.field).string = {
       max_len: 260,

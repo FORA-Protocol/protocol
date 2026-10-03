@@ -1088,17 +1088,18 @@ class TransactionDenial(WireModel):
         | None
     ) = Field(
         None,
-        description='Bare host of the Exchange that PRODUCED this denial, in the form "Request\n recipient" defines in the file header. Not an echo of what the caller sent:\n on a relayed or fanned-out execute the request went to a Broker, so the\n Exchange that refused may not be one the agent named (through\n BrokerService.ExecuteTransaction this detail reaches the agent inside\n UpstreamRefusal.detail, beside UpstreamRefusal.exchange). Carrying it here is\n what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to\n call Register without fetching a manifest to work it out. NOTHING SIGNS THIS\n VALUE: it rides in a response, and on a relayed path the response passed\n through an intermediary, so this field is exactly the unsigned addressing\n the request-side `exchange` field exists to refuse. Treat it as a HINT, not\n an instruction. Before acting on it — and registering is a consequential act,\n handing an operator\'s business data and a signed acceptance of that\n Exchange\'s terms to whoever answers — a caller MUST check the value against\n a domain it already trusts for this transaction: the signed `offer.exchange`\n of the denied item, or its own RequestConstraints.exchanges set. A value\n matching neither is reported to the caller and never dialled, because a\n hostile intermediary that could choose it would be choosing where an\n unattended agent registers.',
+        description='Bare host of the Exchange that PRODUCED this denial, in the form "Request\n recipient" defines in the file header. Not an echo of what the caller sent:\n on a relayed or fanned-out execute the request went to a Broker, so the\n Exchange that refused may not be one the agent named (through\n BrokerService.ExecuteTransaction this detail reaches the agent inside\n UpstreamRefusal.detail, beside UpstreamRefusal.exchange). Carrying it here is\n what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to\n call Register without fetching a manifest to work it out. NOTHING SIGNS THIS\n VALUE: it rides in a response, and on a relayed path the response passed\n through an intermediary, so this field is exactly the unsigned addressing\n the request-side `exchange` field exists to refuse. Treat it as a HINT, not\n an instruction. Before acting on it — and registering is a consequential act,\n handing an operator\'s business data and a signed acceptance of that\n Exchange\'s terms to whoever answers — a caller MUST check the value against\n a domain it already trusts for this transaction: the signed `offer.exchange`\n of the items in the refused request, or its own RequestConstraints.exchanges\n set. A value matching neither is reported to the caller and never dialled,\n because a hostile intermediary that could choose it would be choosing where\n an unattended agent registers.',
     )
     offer_id: str | None = Field(
-        None, description='Batch mode: the offer this denial pertains to.'
+        None,
+        description="DEPRECATED, never set. A whole-request refusal pertains to no one offer; a\n denial of one offer rides on that offer's TransactionResultItem. The field\n is retained because removing it would break the v1 wire contract; a\n receiver ignores it.",
     )
     reason: DenialReason = Field(
         ..., description='The denial reason (defined-only, non-zero)'
     )
     restriction_mismatches: list[RestrictionKind] | None = Field(
         None,
-        description='When reason = RESTRICTION_NOT_SATISFIED, the failed axes (same\n RestrictionKind vocabulary the terms use).',
+        description='DEPRECATED, never set. A whole-request refusal is never\n RESTRICTION_NOT_SATISFIED: a restriction is decided per item, and its failed\n axes ride on TransactionResultItem.restriction_mismatches. The field is\n retained because removing it would break the v1 wire contract; a receiver\n ignores it.',
     )
 
 
@@ -1809,7 +1810,8 @@ class ErrorDetail(WireModel):
         description='`reason` oneof — signed-URL / proof-of-possession check failed',
     )
     transaction_denial: TransactionDenial | None = Field(
-        None, description='`reason` oneof — ExecuteTransaction denial'
+        None,
+        description='`reason` oneof — ExecuteTransaction refused as a whole request',
     )
     usage_report_rejection: UsageReportRejection | None = Field(
         None, description='`reason` oneof — ReportUsage filing rejected'
@@ -2172,7 +2174,8 @@ class TransactionResultItem(WireModel):
         | None
     ) = Field(0, description='How resource is delivered for this item.')
     denial_reason: DenialReason | None = Field(
-        None, description='Set if this specific item was denied (others may succeed).'
+        None,
+        description='Set if this specific item was denied (others may succeed). Every per-item\n denial is answered here, in a successful response, also when the request\n carried only this item: a denied one-item purchase is never a non-OK error.',
     )
     expires_at: AwareDatetime | None = Field(
         None, description='When retrieval_endpoint expires.'

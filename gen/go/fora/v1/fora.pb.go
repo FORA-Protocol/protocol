@@ -904,17 +904,23 @@ func (ResourceMutability) EnumDescriptor() ([]byte, []int) {
 type DenialReason int32
 
 const (
-	DenialReason_DENIAL_REASON_UNSPECIFIED               DenialReason = 0  // output enum; zero = not-applicable on TransactionResultItem.denial_reason, rejected (not_in:[0]) where set on TransactionDenial.reason
-	DenialReason_DENIAL_REASON_ACCOUNT_INACTIVE          DenialReason = 1  // the requester's account (the billing_ref minted at Register) exists but is not active — typically awaiting the Exchange operator's out-of-band activation; the remedy is to wait or contact the operator, NOT to register again
-	DenialReason_DENIAL_REASON_INSUFFICIENT_BALANCE      DenialReason = 2  // Requester's balance too low
-	DenialReason_DENIAL_REASON_RATE_LIMITED              DenialReason = 3  // Too many requests
-	DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE       DenialReason = 4  // the Exchange that owns the resource reports it no longer available; NOT a catch-all for upstream failures — a Broker reports an Exchange that refused or did not answer its sub-request on TransactionResultItem.refusal, never as this reason
-	DenialReason_DENIAL_REASON_RESTRICTION_NOT_SATISFIED DenialReason = 5  // Accepted term's restriction not satisfied by the request; the axes are in TransactionDenial.restriction_mismatches (single) / TransactionResultItem.restriction_mismatches (batch), same RestrictionKind vocabulary as the terms
-	DenialReason_DENIAL_REASON_REPORTING_OVERDUE         DenialReason = 6  // Requester has >20% overdue reports (MAY threshold)
-	DenialReason_DENIAL_REASON_OFFER_EXPIRED             DenialReason = 7  // Offer TTL exceeded
-	DenialReason_DENIAL_REASON_SIGNATURE_INVALID         DenialReason = 8  // Offer signature verification failed
-	DenialReason_DENIAL_REASON_QUOTA_EXCEEDED            DenialReason = 9  // Subscription access count exhausted for this period
-	DenialReason_DENIAL_REASON_DELEGATION_INVALID        DenialReason = 10 // Delegation missing, unverifiable, expired, holder binding failed, or scopes/caps do not cover the request
+	DenialReason_DENIAL_REASON_UNSPECIFIED               DenialReason = 0 // output enum; zero = not-applicable on TransactionResultItem.denial_reason, rejected (not_in:[0]) where set on TransactionDenial.reason
+	DenialReason_DENIAL_REASON_ACCOUNT_INACTIVE          DenialReason = 1 // the requester's account (the billing_ref minted at Register) exists but is not active — typically awaiting the Exchange operator's out-of-band activation; the remedy is to wait or contact the operator, NOT to register again
+	DenialReason_DENIAL_REASON_INSUFFICIENT_BALANCE      DenialReason = 2 // Requester's balance too low
+	DenialReason_DENIAL_REASON_RATE_LIMITED              DenialReason = 3 // Too many requests
+	DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE       DenialReason = 4 // the Exchange that owns the resource reports it no longer available; NOT a catch-all for upstream failures — a Broker reports an Exchange that refused or did not answer its sub-request on TransactionResultItem.refusal, never as this reason
+	DenialReason_DENIAL_REASON_RESTRICTION_NOT_SATISFIED DenialReason = 5 // Accepted term's restriction not satisfied by the request; decided per item, so the axes are in TransactionResultItem.restriction_mismatches (whatever the item count), same RestrictionKind vocabulary as the terms
+	DenialReason_DENIAL_REASON_REPORTING_OVERDUE         DenialReason = 6 // Requester has >20% overdue reports (MAY threshold)
+	DenialReason_DENIAL_REASON_OFFER_EXPIRED             DenialReason = 7 // Offer TTL exceeded
+	// A signature this item depends on does not verify, or does not cover what
+	// arrived: the offer's Exchange signature (Offer.signature), or the agent's
+	// AgentRequestAcceptance over the request's items. A subrequest whose items
+	// are not exactly the agent's signed set projected onto this Exchange (an item
+	// dropped, added or reordered) has every item denied with this reason, in the
+	// body (see AgentRequestAcceptance).
+	DenialReason_DENIAL_REASON_SIGNATURE_INVALID  DenialReason = 8
+	DenialReason_DENIAL_REASON_QUOTA_EXCEEDED     DenialReason = 9  // Subscription access count exhausted for this period
+	DenialReason_DENIAL_REASON_DELEGATION_INVALID DenialReason = 10 // Delegation missing, unverifiable, expired, holder binding failed, or scopes/caps do not cover the request
 	// DEPRECATED, never sent. An Exchange MUST NOT send this value. An offer the
 	// Exchange presented is honoured until it expires, so a purchase is never
 	// refused for scope. A resource the requester's scopes leave with no
@@ -949,10 +955,15 @@ const (
 	// GetAccountStatus. TransactionDenial.exchange names WHERE to register, so the
 	// agent converges without fetching a manifest first.
 	DenialReason_DENIAL_REASON_ACCOUNT_NOT_REGISTERED DenialReason = 18 // no account exists for this caller at this Exchange — the remedy is to call Register
-	// The provider at this Exchange does not accept purchases relayed by a Broker
-	// (BrokerService.ExecuteTransaction). Per item: other items in the same
-	// sub-request may succeed. The remedy is to buy this offer directly, calling
-	// ExchangeService.ExecuteTransaction at offer.exchange.
+	// The provider of this item's resource, the seller of that resource at this
+	// Exchange, does not accept purchases relayed by a Broker
+	// (BrokerService.ExecuteTransaction). Decided PER ITEM, by each offer's own
+	// provider, and answered in the body on that item's denial_reason: other
+	// items in the same sub-request, sold by providers that accept relayed
+	// purchases, may succeed. It is never a refusal of the whole sub-request, and
+	// an Exchange MUST NOT send it as ErrorDetail.transaction_denial. The remedy is
+	// to buy this offer directly, calling ExchangeService.ExecuteTransaction at
+	// offer.exchange.
 	DenialReason_DENIAL_REASON_RELAY_NOT_ACCEPTED DenialReason = 19
 )
 
@@ -4837,6 +4848,17 @@ func (x *AgentAcceptance) GetSignatureAlgorithm() string {
 // names that Exchange. This is what makes removal, append, and reorder visible
 // before request-level idempotency state is claimed.
 //
+// A subrequest whose items are not exactly that projection — an item dropped,
+// an item added, or the items reordered — is refused PER ITEM, IN THE BODY: the
+// Exchange answers OK and denies every item of the subrequest with
+// DENIAL_REASON_SIGNATURE_INVALID, because the agent's signature does not cover
+// what arrived. It is not an INVALID_ARGUMENT error and not a refusal of the
+// whole request: the request is well formed, and what fails is the agent's
+// signature over the set. The Exchange purchases nothing and claims no
+// request-level idempotency state for such a subrequest, so a retry carrying the
+// set the agent signed still executes. A direct request from the agent is the
+// degenerate projection, the whole set, and is held to the same rule.
+//
 // A projected subrequest is a NEW HTTP request its sender authors. The party
 // that projects — a Broker, or the agent itself when it splits its own
 // mixed-Exchange set — computes that subrequest's Content-Digest and signs it
@@ -5368,8 +5390,13 @@ func (x *TransactionItem) GetAgentAcceptance() *AgentAcceptance {
 // Items-only: every per-result datum lives in `items`
 // (one TransactionResultItem per committed offer, in original order); the
 // top-level fields carry only the shared aggregate state. A single offer is the
-// degenerate 1-element `items`. The per-item denials remain in-body on
-// TransactionResultItem as partial results of a successful request.
+// degenerate 1-element `items`.
+//
+// Every per-item denial is in the body, on TransactionResultItem.denial_reason,
+// whatever the item count. A one-item purchase that is denied is this response
+// with its one item denied; it is never turned into a non-OK error. Only a
+// refusal of the whole request, which decides no item, is a non-OK error
+// carrying ErrorDetail.transaction_denial (see TransactionDenial).
 type TransactionResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// FORA protocol version — "1.0". Stamped by the sender from a single
@@ -5503,7 +5530,9 @@ type TransactionResultItem struct {
 	// Even when cost.amount="0" (subscription), this field carries the value
 	// of the access for accounting purposes (e.g., ASC 606 prepaid drawdown).
 	SubscriptionUnitValue *Cost `protobuf:"bytes,11,opt,name=subscription_unit_value,json=subscriptionUnitValue,proto3,oneof" json:"subscription_unit_value,omitempty"`
-	// Set if this specific item was denied (others may succeed).
+	// Set if this specific item was denied (others may succeed). Every per-item
+	// denial is answered here, in a successful response, also when the request
+	// carried only this item: a denied one-item purchase is never a non-OK error.
 	DenialReason *DenialReason `protobuf:"varint,7,opt,name=denial_reason,json=denialReason,proto3,enum=fora.v1.DenialReason,oneof" json:"denial_reason,omitempty"`
 	// When denial_reason = RESTRICTION_NOT_SATISFIED, the restriction axes the
 	// request failed, in the same RestrictionKind vocabulary the terms use.
@@ -10109,7 +10138,7 @@ type isErrorDetail_Reason interface {
 }
 
 type ErrorDetail_TransactionDenial struct {
-	// `reason` oneof — ExecuteTransaction denial
+	// `reason` oneof — ExecuteTransaction refused as a whole request
 	TransactionDenial *TransactionDenial `protobuf:"bytes,10,opt,name=transaction_denial,json=transactionDenial,proto3,oneof"`
 }
 
@@ -10164,17 +10193,38 @@ func (*ErrorDetail_UsageReportRejection) isErrorDetail_Reason() {}
 
 func (*ErrorDetail_RequestAuthFailure) isErrorDetail_Reason() {}
 
-// TransactionDenial — ExecuteTransaction could not complete. Carries the denial
-// reason the response body no longer holds (denial_reason / restriction_mismatches
-// move here in the response-shape normalization). Reuses the DenialReason vocab.
+// TransactionDenial — ExecuteTransaction refused the WHOLE request. Reuses the
+// DenialReason vocabulary.
+//
+// This is the only case an ExecuteTransaction answer is a non-OK error carrying
+// a DenialReason: the Exchange refuses the request as a whole and decides no
+// item, for a reason about the caller or the request that would deny every item
+// alike — for example the caller holds no account (ACCOUNT_NOT_REGISTERED), its
+// account is not active (ACCOUNT_INACTIVE), it has overdue reports
+// (REPORTING_OVERDUE), or it is rate limited (RATE_LIMITED). Nothing is
+// purchased. Every decision about an item is answered in the body instead, on
+// TransactionResultItem.denial_reason, whatever the item count: a denied
+// one-item purchase is a successful response whose one item is denied, never
+// this error. RESTRICTION_NOT_SATISFIED and RELAY_NOT_ACCEPTED are per-item
+// decisions and are never carried here.
 type TransactionDenial struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The denial reason (defined-only, non-zero)
 	Reason DenialReason `protobuf:"varint,1,opt,name=reason,proto3,enum=fora.v1.DenialReason" json:"reason,omitempty"`
-	// When reason = RESTRICTION_NOT_SATISFIED, the failed axes (same
-	// RestrictionKind vocabulary the terms use).
+	// DEPRECATED, never set. A whole-request refusal is never
+	// RESTRICTION_NOT_SATISFIED: a restriction is decided per item, and its failed
+	// axes ride on TransactionResultItem.restriction_mismatches. The field is
+	// retained because removing it would break the v1 wire contract; a receiver
+	// ignores it.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	RestrictionMismatches []RestrictionKind `protobuf:"varint,2,rep,packed,name=restriction_mismatches,json=restrictionMismatches,proto3,enum=fora.v1.RestrictionKind" json:"restriction_mismatches,omitempty"`
-	// Batch mode: the offer this denial pertains to.
+	// DEPRECATED, never set. A whole-request refusal pertains to no one offer; a
+	// denial of one offer rides on that offer's TransactionResultItem. The field
+	// is retained because removing it would break the v1 wire contract; a
+	// receiver ignores it.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	OfferId *string `protobuf:"bytes,3,opt,name=offer_id,json=offerId,proto3,oneof" json:"offer_id,omitempty"`
 	// Bare host of the Exchange that PRODUCED this denial, in the form "Request
 	// recipient" defines in the file header. Not an echo of what the caller sent:
@@ -10191,10 +10241,10 @@ type TransactionDenial struct {
 	// handing an operator's business data and a signed acceptance of that
 	// Exchange's terms to whoever answers — a caller MUST check the value against
 	// a domain it already trusts for this transaction: the signed `offer.exchange`
-	// of the denied item, or its own RequestConstraints.exchanges set. A value
-	// matching neither is reported to the caller and never dialled, because a
-	// hostile intermediary that could choose it would be choosing where an
-	// unattended agent registers.
+	// of the items in the refused request, or its own RequestConstraints.exchanges
+	// set. A value matching neither is reported to the caller and never dialled,
+	// because a hostile intermediary that could choose it would be choosing where
+	// an unattended agent registers.
 	Exchange      *string `protobuf:"bytes,4,opt,name=exchange,proto3,oneof" json:"exchange,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -10237,6 +10287,7 @@ func (x *TransactionDenial) GetReason() DenialReason {
 	return DenialReason_DENIAL_REASON_UNSPECIFIED
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *TransactionDenial) GetRestrictionMismatches() []RestrictionKind {
 	if x != nil {
 		return x.RestrictionMismatches
@@ -10244,6 +10295,7 @@ func (x *TransactionDenial) GetRestrictionMismatches() []RestrictionKind {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *TransactionDenial) GetOfferId() string {
 	if x != nil && x.OfferId != nil {
 		return *x.OfferId
@@ -11371,12 +11423,12 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\b\n" +
-	"\x06reason\"\xb8\x03\n" +
+	"\x06reason\"\xc0\x03\n" +
 	"\x11TransactionDenial\x129\n" +
 	"\x06reason\x18\x01 \x01(\x0e2\x15.fora.v1.DenialReasonB\n" +
-	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x06reason\x12O\n" +
-	"\x16restriction_mismatches\x18\x02 \x03(\x0e2\x18.fora.v1.RestrictionKindR\x15restrictionMismatches\x12\x1e\n" +
-	"\boffer_id\x18\x03 \x01(\tH\x00R\aofferId\x88\x01\x01\x12\xdc\x01\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x06reason\x12S\n" +
+	"\x16restriction_mismatches\x18\x02 \x03(\x0e2\x18.fora.v1.RestrictionKindB\x02\x18\x01R\x15restrictionMismatches\x12\"\n" +
+	"\boffer_id\x18\x03 \x01(\tB\x02\x18\x01H\x00R\aofferId\x88\x01\x01\x12\xdc\x01\n" +
 	"\bexchange\x18\x04 \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$H\x01R\bexchange\x88\x01\x01B\v\n" +
 	"\t_offer_idB\v\n" +
 	"\t_exchange\"~\n" +

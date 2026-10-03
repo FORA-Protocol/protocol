@@ -177,7 +177,7 @@
         },
         "transaction_denial": {
           "$ref": "#/$defs/fora.v1.TransactionDenial",
-          "description": "`reason` oneof — ExecuteTransaction denial"
+          "description": "`reason` oneof — ExecuteTransaction refused as a whole request"
         },
         "usage_report_rejection": {
           "$ref": "#/$defs/fora.v1.UsageReportRejection",
@@ -357,16 +357,16 @@
       "type": "object"
     },
     "fora.v1.TransactionDenial": {
-      "description": "TransactionDenial — ExecuteTransaction could not complete. Carries the denial\n reason the response body no longer holds (denial_reason / restriction_mismatches\n move here in the response-shape normalization). Reuses the DenialReason vocab.",
+      "description": "This is the only case an ExecuteTransaction answer is a non-OK error carrying\n a DenialReason: the Exchange refuses the request as a whole and decides no\n item, for a reason about the caller or the request that would deny every item\n alike — for example the caller holds no account (ACCOUNT_NOT_REGISTERED), its\n account is not active (ACCOUNT_INACTIVE), it has overdue reports\n (REPORTING_OVERDUE), or it is rate limited (RATE_LIMITED). Nothing is\n purchased. Every decision about an item is answered in the body instead, on\n TransactionResultItem.denial_reason, whatever the item count: a denied\n one-item purchase is a successful response whose one item is denied, never\n this error. RESTRICTION_NOT_SATISFIED and RELAY_NOT_ACCEPTED are per-item\n decisions and are never carried here.",
       "properties": {
         "exchange": {
-          "description": "Bare host of the Exchange that PRODUCED this denial, in the form \"Request\n recipient\" defines in the file header. Not an echo of what the caller sent:\n on a relayed or fanned-out execute the request went to a Broker, so the\n Exchange that refused may not be one the agent named (through\n BrokerService.ExecuteTransaction this detail reaches the agent inside\n UpstreamRefusal.detail, beside UpstreamRefusal.exchange). Carrying it here is\n what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to\n call Register without fetching a manifest to work it out. NOTHING SIGNS THIS\n VALUE: it rides in a response, and on a relayed path the response passed\n through an intermediary, so this field is exactly the unsigned addressing\n the request-side `exchange` field exists to refuse. Treat it as a HINT, not\n an instruction. Before acting on it — and registering is a consequential act,\n handing an operator's business data and a signed acceptance of that\n Exchange's terms to whoever answers — a caller MUST check the value against\n a domain it already trusts for this transaction: the signed `offer.exchange`\n of the denied item, or its own RequestConstraints.exchanges set. A value\n matching neither is reported to the caller and never dialled, because a\n hostile intermediary that could choose it would be choosing where an\n unattended agent registers.",
+          "description": "Bare host of the Exchange that PRODUCED this denial, in the form \"Request\n recipient\" defines in the file header. Not an echo of what the caller sent:\n on a relayed or fanned-out execute the request went to a Broker, so the\n Exchange that refused may not be one the agent named (through\n BrokerService.ExecuteTransaction this detail reaches the agent inside\n UpstreamRefusal.detail, beside UpstreamRefusal.exchange). Carrying it here is\n what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to\n call Register without fetching a manifest to work it out. NOTHING SIGNS THIS\n VALUE: it rides in a response, and on a relayed path the response passed\n through an intermediary, so this field is exactly the unsigned addressing\n the request-side `exchange` field exists to refuse. Treat it as a HINT, not\n an instruction. Before acting on it — and registering is a consequential act,\n handing an operator's business data and a signed acceptance of that\n Exchange's terms to whoever answers — a caller MUST check the value against\n a domain it already trusts for this transaction: the signed `offer.exchange`\n of the items in the refused request, or its own RequestConstraints.exchanges\n set. A value matching neither is reported to the caller and never dialled,\n because a hostile intermediary that could choose it would be choosing where\n an unattended agent registers.",
           "maxLength": 260,
           "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$",
           "type": "string"
         },
         "offer_id": {
-          "description": "Batch mode: the offer this denial pertains to.",
+          "description": "DEPRECATED, never set. A whole-request refusal pertains to no one offer; a\n denial of one offer rides on that offer's TransactionResultItem. The field\n is retained because removing it would break the v1 wire contract; a\n receiver ignores it.",
           "type": "string"
         },
         "reason": {
@@ -405,7 +405,7 @@
           "title": "Denial Reason"
         },
         "restriction_mismatches": {
-          "description": "When reason = RESTRICTION_NOT_SATISFIED, the failed axes (same\n RestrictionKind vocabulary the terms use).",
+          "description": "DEPRECATED, never set. A whole-request refusal is never\n RESTRICTION_NOT_SATISFIED: a restriction is decided per item, and its failed\n axes ride on TransactionResultItem.restriction_mismatches. The field is\n retained because removing it would break the v1 wire contract; a receiver\n ignores it.",
           "items": {
             "anyOf": [
               {
@@ -432,7 +432,7 @@
       "required": [
         "reason"
       ],
-      "title": "Transaction Denial",
+      "title": "TransactionDenial — ExecuteTransaction refused the WHOLE request. Reuses the\n DenialReason vocabulary.",
       "type": "object"
     },
     "fora.v1.UpstreamRefusal": {
@@ -564,7 +564,7 @@
           "type": "integer"
         }
       ],
-      "description": "Set if this specific item was denied (others may succeed).",
+      "description": "Set if this specific item was denied (others may succeed). Every per-item\n denial is answered here, in a successful response, also when the request\n carried only this item: a denied one-item purchase is never a non-OK error.",
       "title": "Denial Reason"
     },
     "expires_at": {

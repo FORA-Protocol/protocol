@@ -109,6 +109,16 @@ type ExchangeServiceClient interface {
 	DiscoverResources(context.Context, *connect.Request[v1.ResourceQuery]) (*connect.Response[v1.ResourceResponse], error)
 	// Commit to an offer and receive delivery information.
 	// Steps 4-5 in the FORA flow.
+	//
+	// Every per-item decision is answered in the body. The call returns OK with
+	// one TransactionResultItem per item, and an item the Exchange denies carries
+	// its TransactionResultItem.denial_reason. This holds whatever the item count:
+	// a one-item purchase that is denied is a successful response whose only item
+	// is denied, never a non-OK error. A non-OK answer carrying
+	// ErrorDetail.transaction_denial is used only when the Exchange refuses the
+	// whole request and decides no item (see TransactionDenial). Errors of other
+	// classes (a malformed request, a failed request signature, an internal fault)
+	// stay non-OK errors, as for every RPC.
 	ExecuteTransaction(context.Context, *connect.Request[v1.TransactionRequest]) (*connect.Response[v1.TransactionResponse], error)
 	// Submit a post-usage report for a completed transaction.
 	// Step 7 in the FORA flow.
@@ -264,6 +274,16 @@ type ExchangeServiceHandler interface {
 	DiscoverResources(context.Context, *connect.Request[v1.ResourceQuery]) (*connect.Response[v1.ResourceResponse], error)
 	// Commit to an offer and receive delivery information.
 	// Steps 4-5 in the FORA flow.
+	//
+	// Every per-item decision is answered in the body. The call returns OK with
+	// one TransactionResultItem per item, and an item the Exchange denies carries
+	// its TransactionResultItem.denial_reason. This holds whatever the item count:
+	// a one-item purchase that is denied is a successful response whose only item
+	// is denied, never a non-OK error. A non-OK answer carrying
+	// ErrorDetail.transaction_denial is used only when the Exchange refuses the
+	// whole request and decides no item (see TransactionDenial). Errors of other
+	// classes (a malformed request, a failed request signature, an internal fault)
+	// stay non-OK errors, as for every RPC.
 	ExecuteTransaction(context.Context, *connect.Request[v1.TransactionRequest]) (*connect.Response[v1.TransactionResponse], error)
 	// Submit a post-usage report for a completed transaction.
 	// Step 7 in the FORA flow.
@@ -589,7 +609,9 @@ type BrokerServiceClient interface {
 	// signature or the agent's acceptance; it cannot add an item the agent did not
 	// accept; and it cannot drop, add or reorder items within one Exchange's
 	// sub-request without that Exchange seeing it, because the
-	// AgentRequestAcceptance fixes the complete ordered set. No cross-item
+	// AgentRequestAcceptance fixes the complete ordered set: that Exchange denies
+	// every item of such a sub-request with DENIAL_REASON_SIGNATURE_INVALID, in
+	// the body, and purchases none of them. No cross-item
 	// integrity is needed, and none is provided. On the response side, the one
 	// signed value in a result item is retrieval_endpoint, a URL the issuing
 	// Exchange signed, so the Broker cannot forge or alter one. Every other field
@@ -626,7 +648,13 @@ type BrokerServiceClient interface {
 	// an error of the Broker's own: it rides on each affected item as
 	// TransactionResultItem.refusal, and the other Exchanges' results come back
 	// unchanged. An Exchange's per-item denial is that Exchange's result item,
-	// unchanged. DENIAL_REASON_CONTENT_UNAVAILABLE is not a catch-all for
+	// unchanged; a one-item sub-request an Exchange denies is such a result item,
+	// because an Exchange answers every per-item denial in the body. A provider
+	// that does not accept relayed purchases is one such per-item denial,
+	// DENIAL_REASON_RELAY_NOT_ACCEPTED, decided by each offer's provider: the
+	// other items of the same sub-request may succeed. Only a refusal of the whole
+	// sub-request, which decides no item, becomes a refusal on each of its items.
+	// DENIAL_REASON_CONTENT_UNAVAILABLE is not a catch-all for
 	// upstream failures; the Broker never stamps it, or any denial_reason, onto
 	// an item an Exchange did not deny. If an Exchange answers OK without exactly
 	// one result item per item sent, the Broker cannot attribute the answer, and
@@ -730,7 +758,9 @@ type BrokerServiceHandler interface {
 	// signature or the agent's acceptance; it cannot add an item the agent did not
 	// accept; and it cannot drop, add or reorder items within one Exchange's
 	// sub-request without that Exchange seeing it, because the
-	// AgentRequestAcceptance fixes the complete ordered set. No cross-item
+	// AgentRequestAcceptance fixes the complete ordered set: that Exchange denies
+	// every item of such a sub-request with DENIAL_REASON_SIGNATURE_INVALID, in
+	// the body, and purchases none of them. No cross-item
 	// integrity is needed, and none is provided. On the response side, the one
 	// signed value in a result item is retrieval_endpoint, a URL the issuing
 	// Exchange signed, so the Broker cannot forge or alter one. Every other field
@@ -767,7 +797,13 @@ type BrokerServiceHandler interface {
 	// an error of the Broker's own: it rides on each affected item as
 	// TransactionResultItem.refusal, and the other Exchanges' results come back
 	// unchanged. An Exchange's per-item denial is that Exchange's result item,
-	// unchanged. DENIAL_REASON_CONTENT_UNAVAILABLE is not a catch-all for
+	// unchanged; a one-item sub-request an Exchange denies is such a result item,
+	// because an Exchange answers every per-item denial in the body. A provider
+	// that does not accept relayed purchases is one such per-item denial,
+	// DENIAL_REASON_RELAY_NOT_ACCEPTED, decided by each offer's provider: the
+	// other items of the same sub-request may succeed. Only a refusal of the whole
+	// sub-request, which decides no item, becomes a refusal on each of its items.
+	// DENIAL_REASON_CONTENT_UNAVAILABLE is not a catch-all for
 	// upstream failures; the Broker never stamps it, or any denial_reason, onto
 	// an item an Exchange did not deny. If an Exchange answers OK without exactly
 	// one result item per item sent, the Broker cannot attribute the answer, and
