@@ -216,6 +216,7 @@ func buildClientRequestVectors(t *testing.T) []clientRequestVector {
 	})
 	out = append(out, executeVector(t, baseOpts))
 	out = append(out, brokerResolveVector(t, baseOpts))
+	out = append(out, brokerExecuteVector(t, baseOpts))
 	out = append(out, catalogVectors(t, baseOpts)...)
 	return out
 }
@@ -371,6 +372,36 @@ func brokerResolveVector(t *testing.T, opts []foraconnect.ClientOption) clientRe
 	return clientRequestVector{
 		Name: "resolve", Verb: "resolve", Path: seen.path, Ver: ver,
 		RequesterID: requesterIDOf(seen.body),
+	}
+}
+
+// brokerExecuteVector captures the relayed purchase. Like execute it BUILDS the whole
+// request, so `ver`, the key and the requester are all the client's own; unlike execute it
+// goes to the Broker's address and the BrokerService method of the same name. The client
+// signs as the directory the requester's domain names, which a Broker requires and the
+// client checks before sending.
+func brokerExecuteVector(t *testing.T, baseOpts []foraconnect.ClientOption) clientRequestVector {
+	t.Helper()
+	sig := newSigningFixture(t)
+	offers := newOfferFixture(t)
+	var seen capturedRequest
+	srv := recordingOrigin(t, &seen)
+	defer srv.Close()
+
+	client := foraconnect.NewBrokerClient(srv.URL, append(append([]foraconnect.ClientOption{}, baseOpts...),
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+	)...)
+	if _, err := client.Execute(context.Background(), []core.VerifiedOffer{verifyOne(t, offers)},
+		foraconnect.WithIdempotencyKey(pinnedKey)); err != nil {
+		t.Fatalf("broker execute: %v", err)
+	}
+	ver, _ := seen.body["ver"].(string)
+	key, _ := seen.body["idempotency_key"].(string)
+	return clientRequestVector{
+		Name: "broker_execute_key_pinned", Verb: "brokerExecute", Path: seen.path, Ver: ver,
+		IdempotencyKey: pinnedOrMinted("broker_execute_key_pinned", key),
+		RequesterID:    requesterIDOf(seen.body),
 	}
 }
 

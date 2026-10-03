@@ -39,7 +39,10 @@ from fora_sdk.client.errors import CallError, CallErrorKind
 from fora_sdk.resolvers import _ssrf, guarded_client
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from wire.models import (
+        BrokerTransactionResponse,
         DisputeResponse,
         GetAccountStatusResponse,
         PushResourcesResponse,
@@ -159,7 +162,10 @@ class Client(_Face):
         return _verbs.finish_discover(self._config, plan, status, body)
 
     def execute(
-        self, offer: VerifiedOffer, *, idempotency_key: str | None = None
+        self,
+        offer: VerifiedOffer | Sequence[VerifiedOffer],
+        *,
+        idempotency_key: str | None = None,
     ) -> TransactionResponse:
         plan = _verbs.plan_execute(self._config, offer, idempotency_key)
         status, body = self._send(plan)
@@ -247,6 +253,13 @@ class BrokerClient(_Face):
         plan = _verbs.plan_resolve(self._config, request)
         status, body = self._send(plan)
         return _verbs.finish_resolve(self._config, plan, status, body)
+
+    def execute(
+        self, offers: Sequence[VerifiedOffer], *, idempotency_key: str | None = None
+    ) -> BrokerTransactionResponse:
+        plan = _verbs.plan_broker_execute(self._config, offers, idempotency_key)
+        status, body = self._send(plan)
+        return _verbs.finish_broker_execute(plan, status, body)
 
 
 class CatalogClient(_Face):

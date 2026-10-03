@@ -9,7 +9,7 @@ no I/O can be used on their own.
 | **L0** | `wire.models`, `vocab.*` | generated wire types, from the separate `fora-protocol` distribution (consumed, never rebuilt) |
 | **L1** | **`fora_sdk`** (top level) | stateless, **IO-free** protocol mechanics — RFC 9421/7638 crypto, offer and acceptance signatures, signed URLs, validation. Includes `fora_sdk.core` (transport-neutral: `Verifier`, `VerifiedOffer`, `DiscoveryResult`), `fora_sdk.window` (`Window`) and `fora_sdk.server_verify` (the server side of RFC 9421). Byte-parity-guarded against the `sdk/go` oracle |
 | L2 · I/O | **`fora_sdk.resolvers`** | the only tier that dials the network: Web Bot Auth directories, well-known JWKS and `fora.json`, plus the SSRF-guarded HTTP client. Which faces take that client by default is decided by URL provenance, below — `WellKnownEndpointResolver` is the one request-derived face that still defaults to a plain client |
-| L2 · transport | `fora_sdk.client` (the async Connect-unary JSON client: the agent verbs **`discover` · `execute` · `report_usage` · `dispute` · `fetch`**, the account-setup verbs **`register` · `get_account_status`**, the broker verb **`resolve`** and the publisher verbs **`push_resources` · `remove_resources` · `refresh_catalog`**) · `fora_sdk.sync` (the same faces, blocking) | state is injected, never owned |
+| L2 · transport | `fora_sdk.client` (the async Connect-unary JSON client: the agent verbs **`discover` · `execute` · `report_usage` · `dispute` · `fetch`**, the account-setup verbs **`register` · `get_account_status`**, the broker verbs **`resolve` · `execute`** and the publisher verbs **`push_resources` · `remove_resources` · `refresh_catalog`**) · `fora_sdk.sync` (the same faces, blocking) | state is injected, never owned |
 
 ```sh
 pip install fora-protocol-sdk
@@ -359,7 +359,7 @@ malformed rather than silently ignored. Responses are the generated Pydantic mod
 | Verb | Send | Get back |
 |---|---|---|
 | `discover(query)` | `exchange`, `uris`, optional filters | `DiscoveryResult`: `groups` (one per requested URI, each with `uri`, `result.verified`, `result.rejected`, `absence_reason`), plus `exchange` and `rate_limit`. `verified()` and `rejected()` flatten across groups |
-| `execute(offer, *, idempotency_key=None)` | a `VerifiedOffer` — nothing else is accepted | `TransactionResponse`: `items`, each with `transaction_id`, `billing_id`, `retrieval_endpoint`, `expires_at`, `cost` |
+| `execute(offer, *, idempotency_key=None)` | a `VerifiedOffer`, or a sequence of them issued by one Exchange — nothing else is accepted | `TransactionResponse`: `items`, each with `transaction_id`, `billing_id`, `retrieval_endpoint`, `expires_at`, `cost` |
 | `fetch(signed_url)` | one `retrieval_endpoint` | `Content`: `url`, `mime_type`, `body` |
 | `report_usage(report, *, idempotency_key=None)` | `exchange`, `transaction_id`, `billing_id`, `usage` | `UsageReportResponse`: `report_id`, which a later dispute must cite |
 | `dispute(request, *, idempotency_key=None)` | `exchange`, `transaction_id`, `report_id`, `reason` | `DisputeResponse` |
@@ -384,9 +384,21 @@ every verb, so a caller branches in one place. `NOT_SENT` is worth singling out:
 the client refused before anything left the process, so retrying without changing
 something will fail the same way.
 
-`BrokerClient` carries `resolve` for brokered discovery, and `CatalogClient` carries the
-publisher verbs. Both take the same `ClientConfig`, because a publisher addresses a
-different endpoint with a different key.
+`BrokerClient` carries `resolve` for brokered discovery and `execute` for a brokered
+purchase, and `CatalogClient` carries the publisher verbs. Both take the same
+`ClientConfig`, because a publisher addresses a different endpoint with a different key.
+
+`BrokerClient.execute(offers, *, idempotency_key=None)` buys offers from any number of
+Exchanges in one call and returns a `BrokerTransactionResponse`: `items` in request order,
+`exchanges` (one `ExchangeOutcome` per Exchange contacted) and `totals` (one `Cost` per
+currency, never summed across currencies). The Broker sends one sub-request per Exchange,
+signed with its own key, and your acceptances travel in each body, so every Exchange still
+verifies your consent. An Exchange that refused its whole sub-request is not an error: the
+affected items carry `refusal` with that Exchange's code and typed reason, and the other
+items come back unchanged. The signer must set `signature_agent`, and its directory host
+must be `requester.domain`: a Broker refuses any other pairing, so the client refuses it
+first, as `MALFORMED`. `Client.execute` with offers from more than one Exchange is refused
+the same way; buy those through the Broker.
 
 ### Running against a local Exchange
 

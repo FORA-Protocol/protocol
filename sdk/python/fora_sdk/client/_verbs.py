@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 from wire.models import (
+    BrokerTransactionResponse,
     DiscoveryRequest,
     DiscoveryResponse,
     DisputeRequest,
@@ -75,7 +76,7 @@ from ._call import (
     validate_request,
 )
 from .._hostref import _redact_userinfo as redact_userinfo
-from ..hosts import is_bare_domain
+from ..hosts import check_audience, host_of, is_bare_domain
 from .errors import CallError, CallErrorKind, malformed, not_sent
 from .route import (
     EndpointResolver,
@@ -84,7 +85,7 @@ from .route import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
     import httpx
 
@@ -375,18 +376,92 @@ def finish_resolve(cfg: ClientConfig, plan: Plan, status: int, body: str) -> Dis
 # ---------------------------------------------------------------------------
 
 
-def plan_execute(cfg: ClientConfig, offer: VerifiedOffer, idempotency_key: str | None) -> Plan:
-    """Assemble ExecuteTransaction for a VERIFIED offer.
+def plan_execute(
+    cfg: ClientConfig,
+    offer: VerifiedOffer | Sequence[VerifiedOffer],
+    idempotency_key: str | None,
+) -> Plan:
+    """Assemble ExecuteTransaction for one VERIFIED offer, or several issued by ONE Exchange.
 
-    It accepts ONLY a VerifiedOffer — the construction token is module-private to the
-    core, so a rejected offer or a raw parsed one cannot be passed. A per-call idempotency
-    key is minted fresh unless one is pinned. It builds the whole TransactionRequest, so
-    it also stamps ``ver`` from ProtocolVersion — the caller neither supplies nor
-    overrides it.
+    It accepts ONLY VerifiedOffers — the construction token is module-private to the core,
+    so a rejected offer or a raw parsed one cannot be passed. A per-call idempotency key is
+    minted fresh unless one is pinned. It builds the whole TransactionRequest, so it also
+    stamps ``ver`` from ProtocolVersion — the caller neither supplies nor overrides it.
+
+    Several offers must all name the same Exchange: a direct purchase goes to one Exchange,
+    and an Exchange refuses a request carrying an item addressed to anyone else, so a mixed
+    set is refused here. Buying across Exchanges in one call is ``BrokerClient.execute``.
     """
     op = "execute"
+    offers = [offer] if isinstance(offer, VerifiedOffer) else list(offer)
+    _require_one_exchange(op, offers)
+    sent = _build_transaction(cfg, op, offers, idempotency_key)
+    validate_request(op, sent, TransactionRequest, cfg.validation)
+    return _plan(cfg, _Route(op, cfg.base_url, EXCHANGE_SERVICE, "ExecuteTransaction"), sent)
+
+
+def plan_broker_execute(
+    cfg: ClientConfig, offers: Sequence[VerifiedOffer], idempotency_key: str | None
+) -> Plan:
+    """Assemble the Broker's ExecuteTransaction: one purchase across any number of Exchanges.
+
+    The request is the one a direct purchase sends — every item with the agent's detached
+    acceptance, one request acceptance over the complete ordered set — and the Broker
+    re-packages it into one sub-request per Exchange, signed with its own key, carrying the
+    agent's acceptances unchanged.
+
+    Refused here, with nothing sent: no requester, no signer, no offers, an unsigned offer,
+    an offer that names no exchange, and a ``requester.domain`` that is not the host of the
+    directory the signer signs as. The last mirrors the Broker's own check, which it refuses
+    with ``request_auth_failure`` SIGNATURE_INVALID.
+    """
+    op = "broker execute"
     if cfg.requester is None:
-        raise malformed(op, "no requester configured; an Exchange resolves who is buying from it")
+        raise malformed(op, "no requester configured; a Broker resolves who is buying")
+    offers = list(offers)
+    for i, item in enumerate(offers):
+        if _str_field(_offer_wire(item), "exchange") == "":
+            raise malformed(
+                op,
+                f"item {i} names no exchange; a Broker routes each item to the Exchange its "
+                "offer names",
+            )
+    if cfg.signer is not None:
+        _require_requester_is_signer(op, cfg.requester, cfg.signer.signature_agent)
+    sent = _build_transaction(cfg, op, offers, idempotency_key)
+    validate_request(op, sent, TransactionRequest, cfg.validation)
+    return _plan(cfg, _Route(op, cfg.base_url, BROKER_SERVICE, "ExecuteTransaction"), sent)
+
+
+def finish_broker_execute(plan: Plan, status: int, body: str) -> BrokerTransactionResponse:
+    """Read the Broker's combined answer.
+
+    An Exchange that refused the Broker's whole sub-request is NOT a failure here: the call
+    succeeds, and each affected item carries the refusal in ``refusal`` while the other
+    Exchanges' items come back unchanged. Only the Broker's own refusals raise.
+    """
+    return decode(plan.op, status, body, BrokerTransactionResponse)  # type: ignore[no-any-return]
+
+
+def _offer_wire(offer: VerifiedOffer) -> dict[str, Any]:
+    return offer.offer if isinstance(offer.offer, dict) else {}
+
+
+def _build_transaction(
+    cfg: ClientConfig, op: str, offers: list[VerifiedOffer], idempotency_key: str | None
+) -> dict[str, Any]:
+    """Build and sign the TransactionRequest every purchase verb sends.
+
+    Each item reflects its signed Offer back exactly as received at discovery and carries the
+    agent's detached acceptance of that one offer. The request acceptance over the complete
+    ordered set is attached when every offer names its Exchange; an item without one cannot
+    appear in that payload, which requires a recipient per item. Every acceptance covers the
+    offer, the requester and the idempotency key, so a retry that pins the same key
+    reproduces byte-identical acceptance bytes. That is the deliberate-replay semantic, not
+    an accident.
+    """
+    if cfg.requester is None:
+        raise malformed(op, "no requester configured; the party that sells resolves who is buying")
     if cfg.signer is None:
         # NOT_SIGNABLE, matching what fetch answers for the same missing holder: a caller
         # branching on the kind sees one condition under one class, whichever verb met it
@@ -399,30 +474,44 @@ def plan_execute(cfg: ClientConfig, offer: VerifiedOffer, idempotency_key: str |
                 "with the agent's own key — the same key the request is signed with"
             ),
         )
-    wire = offer.offer if isinstance(offer.offer, dict) else {}
-    offer_sig = wire.get("signature")
-    # An acceptance floating free of a concrete offer is meaningless, and an unsigned
-    # offer is reachable here: Mode.OFF and RejectedOffer.unsafe() both mint a
-    # VerifiedOffer without a signature check.
-    if not isinstance(offer_sig, str) or offer_sig == "":
-        raise malformed(op, "cannot accept an unsigned offer")
+    if not offers:
+        raise malformed(op, "no offers to buy")
+    wires = [_offer_wire(o) for o in offers]
+    offer_sigs: list[str] = []
+    for wire in wires:
+        offer_sig = wire.get("signature")
+        # An acceptance floating free of a concrete offer is meaningless, and an unsigned
+        # offer is reachable here: Mode.OFF and RejectedOffer.unsafe() both mint a
+        # VerifiedOffer without a signature check.
+        if not isinstance(offer_sig, str) or offer_sig == "":
+            raise malformed(op, "cannot accept an unsigned offer")
+        offer_sigs.append(offer_sig)
     key = idempotency_key or generate_idempotency_key()
-    # The acceptance covers the offer, the requester and the idempotency key, so a retry
-    # that pins the same key reproduces byte-identical acceptance bytes. That is the
-    # deliberate-replay semantic, not an accident.
     requester_id = _str_field(cfg.requester, "id")
     requester_domain = _str_field(cfg.requester, "domain")
-    exchange = _str_field(wire, "exchange")
-    request_items = [(offer_sig, exchange)]
+    request_items = [
+        (sig, _str_field(w, "exchange")) for sig, w in zip(offer_sigs, wires, strict=True)
+    ]
+    items: list[dict[str, Any]] = []
     request_acceptance: dict[str, Any] | None = None
     try:
-        signature, _algorithm = cfg.signer.sign_offer_acceptance(
-            offer_sig=offer_sig,
-            requester_id=requester_id,
-            requester_domain=requester_domain,
-            idempotency_key=key,
-        )
-        if exchange != "":
+        for wire, offer_sig in zip(wires, offer_sigs, strict=True):
+            signature, _algorithm = cfg.signer.sign_offer_acceptance(
+                offer_sig=offer_sig,
+                requester_id=requester_id,
+                requester_domain=requester_domain,
+                idempotency_key=key,
+            )
+            items.append(
+                {
+                    "offer": wire,
+                    "agent_acceptance": {
+                        "signature": signature,
+                        "signature_algorithm": ACCEPTANCE_SIGNATURE_ALGORITHM,
+                    },
+                }
+            )
+        if all(exchange != "" for _sig, exchange in request_items):
             request_signature, _request_algorithm = cfg.signer.sign_request_acceptance(
                 items=request_items,
                 requester_id=requester_id,
@@ -431,7 +520,9 @@ def plan_execute(cfg: ClientConfig, offer: VerifiedOffer, idempotency_key: str |
             )
             request_acceptance = {
                 "payload": {
-                    "items": [{"offer_sig": offer_sig, "exchange": exchange}],
+                    "items": [
+                        {"offer_sig": sig, "exchange": exchange} for sig, exchange in request_items
+                    ],
                     "requester_id": requester_id,
                     "requester_domain": requester_domain,
                     "idempotency_key": key,
@@ -441,28 +532,65 @@ def plan_execute(cfg: ClientConfig, offer: VerifiedOffer, idempotency_key: str |
             }
     except Exception as exc:  # custody can fail any way it likes
         raise CallError(CallErrorKind.NOT_SIGNABLE, op, cause=exc) from exc
-    # Items-only wire shape: a single offer is the degenerate 1-element items list, each
-    # item reflecting its signed Offer back exactly as received at discovery. The
+    # Items-only wire shape: a single offer is the degenerate 1-element items list. The
     # authoritative identity is the reflected offer; the optional top-level offer_id
     # correlation scalar is left unset.
     sent: dict[str, Any] = {
         "ver": ProtocolVersion,
         "idempotency_key": key,
         "requester": cfg.requester,
-        "items": [
-            {
-                "offer": wire,
-                "agent_acceptance": {
-                    "signature": signature,
-                    "signature_algorithm": ACCEPTANCE_SIGNATURE_ALGORITHM,
-                },
-            }
-        ],
+        "items": items,
     }
     if request_acceptance is not None:
         sent["agent_request_acceptance"] = request_acceptance
-    validate_request(op, sent, TransactionRequest, cfg.validation)
-    return _plan(cfg, _Route(op, cfg.base_url, EXCHANGE_SERVICE, "ExecuteTransaction"), sent)
+    return sent
+
+
+def _require_one_exchange(op: str, offers: list[VerifiedOffer]) -> None:
+    """Refuse a direct purchase whose offers were issued by more than one Exchange."""
+    if not offers:
+        return
+    first = _str_field(_offer_wire(offers[0]), "exchange")
+    for i, item in enumerate(offers[1:], start=1):
+        other = _str_field(_offer_wire(item), "exchange")
+        if other != first:
+            raise malformed(
+                op,
+                f"item {i} is issued by {other!r} and item 0 by {first!r}; a direct purchase "
+                "goes to one Exchange (buy across Exchanges with BrokerClient.execute)",
+            )
+
+
+def _require_requester_is_signer(op: str, requester: dict[str, Any], signature_agent: str) -> None:
+    """Refuse a request whose ``requester.domain`` is not the host of the WBA directory the
+    signer signs as.
+
+    A Broker verifies the request signature against the key it resolves from the covered
+    Signature-Agent directory and requires ``requester.domain`` to name that directory:
+    every Exchange it relays to resolves the agent's acceptance keys from requester.domain.
+    The comparison is the recipient-identity rule — exact, case-folded, an explicit :443
+    the same as no port. An empty Signature-Agent names no directory, so it fails too.
+    """
+    if signature_agent == "":
+        raise malformed(
+            op,
+            "no Signature-Agent configured; a Broker checks that requester.domain names the "
+            "directory the request is signed from (set signature_agent on the signer)",
+        )
+    try:
+        host = host_of(signature_agent)
+        verdict = check_audience(host, _str_field(requester, "domain"))
+    except ValueError as exc:
+        raise malformed(
+            op, f"signature agent {redact_userinfo(signature_agent)!r} names no usable host"
+        ) from exc
+    if verdict != "accepted":
+        raise malformed(
+            op,
+            f"requester.domain {_str_field(requester, 'domain')!r} is not {host!r}, the host "
+            "of the directory this client signs as; a Broker refuses the request "
+            "(request_auth_failure SIGNATURE_INVALID)",
+        )
 
 
 def finish_execute(plan: Plan, status: int, body: str) -> TransactionResponse:

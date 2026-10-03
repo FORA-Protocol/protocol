@@ -1,6 +1,7 @@
 // Package connect is the opt-in Connect-Go CLIENT binding over the transport-neutral
 // sdk/go/core L2 substance. It carries the agent verb set — Discover, Resolve,
-// Execute, ReportUsage, Dispute and the low-tier content Fetch — the account-setup
+// Execute and ExecuteBatch, the Broker purchase BrokerClient.Execute, ReportUsage,
+// Dispute and the low-tier content Fetch — the account-setup
 // verb set — Register and GetAccountStatus — and the publisher verb set —
 // PushResources, RemoveResources and RefreshCatalog — across three constructors:
 // NewClient for an Exchange, NewBrokerClient for a Broker, and NewCatalogClient

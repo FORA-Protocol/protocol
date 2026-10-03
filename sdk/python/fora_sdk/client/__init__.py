@@ -63,7 +63,10 @@ from .errors import NOT_CANONICAL_WIRE_NAMING, CallError, CallErrorKind
 from .route import EndpointResolver, RegistrationRequirementsReader
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from wire.models import (
+        BrokerTransactionResponse,
         DisputeResponse,
         GetAccountStatusResponse,
         PushResourcesResponse,
@@ -231,9 +234,14 @@ class Client(_Face):
         )
 
     async def execute(
-        self, offer: VerifiedOffer, *, idempotency_key: str | None = None
+        self,
+        offer: VerifiedOffer | Sequence[VerifiedOffer],
+        *,
+        idempotency_key: str | None = None,
     ) -> TransactionResponse:
-        """Commit to a VERIFIED offer and return the transaction response."""
+        """Commit to a VERIFIED offer — or several issued by ONE Exchange, in one request —
+        and return the transaction response. Offers from several Exchanges are refused
+        locally; buy those through :meth:`BrokerClient.execute`."""
         plan = _verbs.plan_execute(self._config, offer, idempotency_key)
         status, body = await self._send(plan)
         return _verbs.finish_execute(plan, status, body)
@@ -365,7 +373,9 @@ class BrokerClient(_Face):
     It takes the same config, but only the parts a discovery call has any use for do
     anything, and one needs care: ``requester`` is REQUIRED, not optional. A Broker
     resolves the calling agent from it and declines a request that names none, so
-    :meth:`resolve` refuses locally rather than spending a round trip to be told.
+    :meth:`resolve` and :meth:`execute` refuse locally rather than spending a round trip to
+    be told. :meth:`execute` also needs ``signer``, whose ``signature_agent`` must name the
+    directory ``requester.domain`` is.
     """
 
     def __init__(
@@ -380,6 +390,24 @@ class BrokerClient(_Face):
         return await asyncio.to_thread(
             _verbs.finish_resolve, self._config, plan, status, body
         )
+
+    async def execute(
+        self, offers: Sequence[VerifiedOffer], *, idempotency_key: str | None = None
+    ) -> BrokerTransactionResponse:
+        """Buy VERIFIED offers through the Broker in one call, however many Exchanges issued
+        them (BrokerService.ExecuteTransaction).
+
+        The Broker re-packages the purchase into one sub-request per Exchange, signed with its
+        own key, carrying the agent's acceptances unchanged, and combines the answers. An
+        Exchange that refused its whole sub-request is not an error: each affected item
+        carries ``refusal``. Only the Broker's own refusals raise, and then nothing was bought.
+
+        Needs ``requester`` and a signer whose ``signature_agent`` directory host is
+        ``requester.domain`` — a Broker refuses any other pairing, so this client does first.
+        """
+        plan = _verbs.plan_broker_execute(self._config, offers, idempotency_key)
+        status, body = await self._send(plan)
+        return _verbs.finish_broker_execute(plan, status, body)
 
 
 class CatalogClient(_Face):

@@ -324,62 +324,35 @@ func idempotencyKeyFor(opts []CallOption, onMessage string) (string, error) {
 // key is minted fresh unless WithIdempotencyKey pins one. Execute builds the whole
 // TransactionRequest, so it also stamps ver from helpers.ProtocolVersion — the
 // caller neither supplies nor overrides it.
+//
+// Items-only wire shape: a single offer is the degenerate 1-element items list.
+// ExecuteBatch buys several offers from the same Exchange in one request.
 func (c *Client) Execute(ctx context.Context, offer core.VerifiedOffer, opts ...CallOption) (*forav1.TransactionResponse, error) {
-	const op = "execute"
-	if c.cfg.requester == nil {
-		return nil, malformed(op, errors.New(
-			"no requester configured; an Exchange resolves who is buying from it (see WithRequester)"))
+	return c.executeDirect(ctx, "execute", []core.VerifiedOffer{offer}, opts)
+}
+
+// ExecuteBatch commits to several VERIFIED offers issued by ONE Exchange in a
+// single request — the batch form of Execute, built by the same code. Each item
+// carries its own detached acceptance, and the request carries one
+// AgentRequestAcceptance over the complete ordered set.
+//
+// The offers must all name the same Exchange: a direct purchase goes to one
+// Exchange, and an Exchange refuses a request carrying an item addressed to anyone
+// else, so a mixed set is refused locally with CallMalformed. Buying across
+// Exchanges in one call is BrokerClient.Execute.
+func (c *Client) ExecuteBatch(ctx context.Context, offers []core.VerifiedOffer, opts ...CallOption) (*forav1.TransactionResponse, error) {
+	return c.executeDirect(ctx, "execute", offers, opts)
+}
+
+func (c *Client) executeDirect(ctx context.Context, op string, offers []core.VerifiedOffer, opts []CallOption) (*forav1.TransactionResponse, error) {
+	if err := requireOneExchange(op, offers); err != nil {
+		return nil, err
 	}
-	signer := c.cfg.signer
-	if signer == nil {
-		// CallNotSignable, matching what Fetch answers for the same missing
-		// holder: a caller branching on the kind sees one condition under one
-		// class, whichever verb met it first.
-		return nil, &CallError{Kind: CallNotSignable, Op: op, Err: errors.New(
-			"no signer configured; a purchase carries a detached acceptance signed with the agent's own key (see WithSigner)")}
-	}
-	// An acceptance floating free of a concrete offer is meaningless, and an
-	// unsigned offer is reachable here: WithVerification(Off) and
-	// RejectedOffer.Unsafe() both mint a VerifiedOffer without a signature check.
-	if offer.Offer().GetSignature() == "" {
-		return nil, malformed(op, errors.New("cannot accept an unsigned offer"))
-	}
-	key, err := idempotencyKeyFor(opts, "")
+	req, err := buildTransaction(ctx, purchase{
+		op: op, signer: c.cfg.signer, requester: c.cfg.requester, offers: offers, opts: opts,
+	})
 	if err != nil {
-		return nil, malformed(op, err)
-	}
-	// The acceptance covers the offer, the requester, and the idempotency key, so
-	// a retry that pins the same key reproduces byte-identical acceptance bytes.
-	// That is the deliberate-replay semantic, not an accident.
-	acceptance, err := helpers.SignOfferAcceptanceWith(ctx, signer, offer.Offer(), c.cfg.requester, key)
-	if err != nil {
-		return nil, &CallError{Kind: CallNotSignable, Op: op, Err: err}
-	}
-	// Items-only wire shape: a single offer is the degenerate 1-element items
-	// list, each item reflecting its signed Offer back exactly as received at
-	// discovery. The authoritative identity is the reflected offer; the optional
-	// top-level offer_id correlation scalar is left unset.
-	//
-	// ver comes from helpers.ProtocolVersion — the single owner of the protocol
-	// version across all three SDKs — never a literal, so a bump is one edit.
-	req := &forav1.TransactionRequest{
-		Ver:            helpers.ProtocolVersion,
-		IdempotencyKey: key,
-		Requester:      c.cfg.requester,
-		Items: []*forav1.TransactionItem{{
-			Offer: offer.Offer(),
-			AgentAcceptance: &forav1.AgentAcceptance{
-				Signature:          acceptance,
-				SignatureAlgorithm: helpers.AcceptanceSignatureAlgorithm,
-			},
-		}},
-	}
-	if offer.Offer().GetExchange() != "" {
-		requestAcceptance, signErr := helpers.SignRequestAcceptanceWith(ctx, signer, req)
-		if signErr != nil {
-			return nil, &CallError{Kind: CallNotSignable, Op: op, Err: signErr}
-		}
-		req.AgentRequestAcceptance = requestAcceptance
+		return nil, err
 	}
 	resp, err := c.rpc.ExecuteTransaction(ctx, connectrpc.NewRequest(req))
 	if err != nil {

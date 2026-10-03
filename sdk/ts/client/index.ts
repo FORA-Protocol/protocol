@@ -28,10 +28,11 @@ import {
 } from "../src/acceptance.ts";
 import { registrationFailureDetail } from "../src/errordetail.ts";
 import { redactUserinfo } from "../src/host-ref.ts";
-import { isBareDomain } from "../src/hosts.ts";
+import { checkAudience, hostOf, isBareDomain } from "../src/hosts.ts";
 import { generateIdempotencyKey } from "../src/idempotency.ts";
 import { ProtocolVersion } from "../src/wire.ts";
 import {
+	BrokerTransactionResponseSchema,
 	DiscoveryRequestSchema,
 	DiscoveryResponseSchema,
 	DisputeRequestSchema,
@@ -221,6 +222,10 @@ export interface CallOptions {
  * ergonomics.
  */
 export type TransactionResponse = z.infer<typeof TransactionResponseSchema>;
+/** The Broker's combined answer to a relayed purchase: one result item per request item
+ * in request order (an Exchange's refusal of its whole sub-request rides on each affected
+ * item as `refusal`), one outcome per Exchange contacted, and per-currency totals. */
+export type BrokerTransactionResponse = z.infer<typeof BrokerTransactionResponseSchema>;
 /** The answer to a usage report; carries the `report_id` a dispute is filed against. */
 export type UsageReportResponse = z.infer<typeof UsageReportResponseSchema>;
 /** The answer to a dispute. */
@@ -229,7 +234,11 @@ export type DisputeResponse = z.infer<typeof DisputeResponseSchema>;
 /** The agent-facing Exchange client. */
 export interface Client {
 	discover(query: Record<string, unknown>): Promise<DiscoveryResult>;
-	execute(offer: VerifiedOffer, opts?: CallOptions): Promise<TransactionResponse>;
+	/** Buy one offer, or several issued by ONE Exchange, in one request. */
+	execute(
+		offer: VerifiedOffer | readonly VerifiedOffer[],
+		opts?: CallOptions,
+	): Promise<TransactionResponse>;
 	reportUsage(
 		report: Record<string, unknown>,
 		opts?: CallOptions,
@@ -248,6 +257,12 @@ export interface Client {
 /** The Broker client. */
 export interface BrokerClient {
 	resolve(request: Record<string, unknown>): Promise<DiscoveryResult>;
+	/** Buy offers from any number of Exchanges in one call; the Broker re-packages the
+	 * purchase into one sub-request per Exchange (BrokerService.ExecuteTransaction). */
+	execute(
+		offers: readonly VerifiedOffer[],
+		opts?: CallOptions,
+	): Promise<BrokerTransactionResponse>;
 }
 
 // resolved holds what both faces are built from, so the exchange and broker clients
@@ -355,14 +370,20 @@ export function createClient(baseURL: string, options: ClientOptions = {}): Clie
  * fan-out returns offers minted by different Exchanges, so inject a resolver that
  * resolves each issuing Exchange's own key. And `requester` is REQUIRED, not optional: a
  * Broker resolves the calling agent from it and declines a request naming none, so
- * resolve refuses locally rather than spending a round trip to be told.
+ * resolve and execute refuse locally rather than spending a round trip to be told.
+ * execute also needs `signer` and `signatureAgent`: a relayed purchase carries
+ * acceptances signed with the agent's key, and a Broker refuses a requester.domain that
+ * does not name the directory the request is signed from.
  */
 export function createBrokerClient(
 	baseURL: string,
 	options: ClientOptions = {},
 ): BrokerClient {
 	const r = resolve(options);
-	return { resolve: (request) => brokerResolve(r, baseURL, request) };
+	return {
+		resolve: (request) => brokerResolve(r, baseURL, request),
+		execute: (offers, opts) => brokerExecute(r, baseURL, offers, opts ?? {}),
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -538,20 +559,128 @@ async function brokerResolve(
 }
 
 /**
- * execute commits to a VERIFIED offer and returns the transaction response.
+ * execute commits to one VERIFIED offer, or several issued by ONE Exchange, and returns
+ * the transaction response.
  *
- * It accepts ONLY a VerifiedOffer — the brand is module-private to the core, so passing a
- * rejected offer or a raw parsed one is a COMPILE error. A per-call idempotency key is
- * minted fresh unless one is pinned. execute builds the whole TransactionRequest, so it
- * also stamps `ver` from ProtocolVersion — the caller neither supplies nor overrides it.
+ * It accepts ONLY VerifiedOffer values — the brand is module-private to the core, so
+ * passing a rejected offer or a raw parsed one is a COMPILE error. A per-call idempotency
+ * key is minted fresh unless one is pinned. execute builds the whole TransactionRequest,
+ * so it also stamps `ver` from ProtocolVersion — the caller neither supplies nor
+ * overrides it.
+ *
+ * Items-only wire shape: a single offer is the degenerate 1-element items list. Several
+ * offers must all name the same Exchange: a direct purchase goes to one Exchange, and an
+ * Exchange refuses a request carrying an item addressed to anyone else, so a mixed set is
+ * refused locally as malformed. Buying across Exchanges in one call is
+ * BrokerClient.execute.
  */
 async function execute(
 	r: Resolved,
 	baseURL: string,
-	offer: VerifiedOffer,
+	offer: VerifiedOffer | readonly VerifiedOffer[],
 	opts: CallOptions,
 ): Promise<TransactionResponse> {
 	const op = "execute";
+	const offers: readonly VerifiedOffer[] = isOfferList(offer) ? offer : [offer];
+	requireOneExchange(op, offers);
+	const request = await buildTransaction(r, op, offers, opts);
+	validateRequest(op, request, TransactionRequestSchema, r.opts.validation ?? "strict");
+	const raw = await call(
+		r,
+		op,
+		baseURL,
+		EXCHANGE_SERVICE,
+		"ExecuteTransaction",
+		request,
+		false,
+	);
+	return parseMessage(op, raw, TransactionResponseSchema);
+}
+
+/**
+ * brokerExecute buys VERIFIED offers through the Broker in one call, however many
+ * Exchanges issued them (BrokerService.ExecuteTransaction).
+ *
+ * The client builds the same TransactionRequest a direct purchase sends — every item with
+ * the agent's detached AgentAcceptance, and one AgentRequestAcceptance over the complete
+ * ordered set — and stamps `ver` and the configured requester. The Broker re-packages it:
+ * it groups the items by each offer's exchange, sends one sub-request per Exchange signed
+ * with its own key, and combines the answers. The acceptances travel in each sub-request
+ * body, so every Exchange still verifies the agent's consent. The Broker forwards the
+ * idempotency key unchanged to every Exchange, so a retry with the same key is answered
+ * from each Exchange's stored result.
+ *
+ * Refused locally, with nothing sent: no requester, no offers, an unsigned offer, an
+ * offer that names no exchange, and a requester.domain that is not the host of the
+ * directory this client signs as (all malformed); no signer (not_signable). The last
+ * mirrors the Broker's own check, which it refuses with request_auth_failure
+ * SIGNATURE_INVALID.
+ *
+ * An Exchange that refused the Broker's whole sub-request is NOT an error here: the call
+ * succeeds, and each affected item carries the refusal in `refusal` while the other
+ * Exchanges' items come back unchanged. Only the Broker's own refusals throw, and then
+ * nothing was bought.
+ */
+async function brokerExecute(
+	r: Resolved,
+	baseURL: string,
+	offers: readonly VerifiedOffer[],
+	opts: CallOptions,
+): Promise<BrokerTransactionResponse> {
+	const op = "broker execute";
+	if (r.opts.requester === undefined) {
+		throw malformed(
+			op,
+			new Error("no requester configured; a Broker resolves who is buying"),
+		);
+	}
+	requireRoutable(op, offers);
+	requireRequesterIsSigner(op, r.opts.requester, r.opts.signatureAgent ?? "");
+	const request = await buildTransaction(r, op, offers, opts);
+	validateRequest(op, request, TransactionRequestSchema, r.opts.validation ?? "strict");
+	const raw = await call(
+		r,
+		op,
+		baseURL,
+		BROKER_SERVICE,
+		"ExecuteTransaction",
+		request,
+		false,
+	);
+	return parseMessage(op, raw, BrokerTransactionResponseSchema);
+}
+
+function isOfferList(
+	offer: VerifiedOffer | readonly VerifiedOffer[],
+): offer is readonly VerifiedOffer[] {
+	return Array.isArray(offer);
+}
+
+function offerRecord(offer: VerifiedOffer): Record<string, unknown> {
+	return offer.offer as Record<string, unknown>;
+}
+
+/**
+ * buildTransaction assembles and signs the TransactionRequest for a purchase. The verbs
+ * that buy — execute and BrokerClient.execute — differ in which offers they admit and
+ * where the request goes, never in how the request is built, so the building lives here
+ * once.
+ *
+ * Each item reflects its signed Offer back exactly as received at discovery and carries
+ * the agent's detached acceptance of that one offer. The request-level acceptance over
+ * the complete ordered item set is attached when every offer names its Exchange; an item
+ * without one cannot appear in that payload, which requires a recipient per item.
+ *
+ * Every acceptance covers the offer, the requester and the idempotency key, so a retry
+ * that pins the same key reproduces byte-identical acceptance bytes. That is the
+ * deliberate-replay semantic, not an accident.
+ */
+async function buildTransaction(
+	r: Resolved,
+	op: string,
+	offers: readonly VerifiedOffer[],
+	opts: CallOptions,
+): Promise<Record<string, unknown>> {
 	if (r.opts.requester === undefined) {
 		throw malformed(
 			op,
@@ -570,14 +699,20 @@ async function execute(
 			),
 		});
 	}
-	const wire = offer.offer as Record<string, unknown>;
-	const offerSig = typeof wire["signature"] === "string" ? wire["signature"] : "";
-	// An acceptance floating free of a concrete offer is meaningless, and an unsigned
-	// offer is reachable here: verification "off" and RejectedOffer.unsafe() both mint a
-	// VerifiedOffer without a signature check.
-	if (offerSig === "") {
-		throw malformed(op, new Error("cannot accept an unsigned offer"));
+	if (offers.length === 0) {
+		throw malformed(op, new Error("no offers to buy"));
 	}
+	const wires = offers.map(offerRecord);
+	const requestItems = wires.map((wire, i) => {
+		const offerSig = typeof wire["signature"] === "string" ? wire["signature"] : "";
+		// An acceptance floating free of a concrete offer is meaningless, and an unsigned
+		// offer is reachable here: verification "off" and RejectedOffer.unsafe() both mint
+		// a VerifiedOffer without a signature check.
+		if (offerSig === "") {
+			throw malformed(op, new Error(`cannot accept an unsigned offer (item ${i})`));
+		}
+		return { offerSig, exchange: stringField(wire, "exchange") };
+	});
 	// `??` would take an EMPTY pinned key as a value and send it, which fails the
 	// message's own min(1). An empty string is the absence of a key, as Go and Python
 	// both read it.
@@ -588,78 +723,147 @@ async function execute(
 	const requester = r.opts.requester;
 	const requesterId = stringField(requester, "id");
 	const requesterDomain = stringField(requester, "domain");
-	const requestItems = [{ offerSig, exchange: stringField(wire, "exchange") }];
-	// The acceptance covers the offer, the requester and the idempotency key, so a retry
-	// that pins the same key reproduces byte-identical acceptance bytes. That is the
-	// deliberate-replay semantic, not an accident.
-	let signature: string;
+	const privKey = r.opts.signer.privKey;
+	let signatures: string[];
+	let requestSignature: string | undefined;
 	try {
-		signature = await signOfferAcceptance(
-			{
-				offerSig,
-				requesterId,
-				requesterDomain,
-				idempotencyKey: key,
-			},
-			r.opts.signer.privKey,
+		signatures = await Promise.all(
+			requestItems.map((item) =>
+				signOfferAcceptance(
+					{
+						offerSig: item.offerSig,
+						requesterId,
+						requesterDomain,
+						idempotencyKey: key,
+					},
+					privKey,
+				),
+			),
 		);
+		if (requestItems.every((item) => item.exchange !== "")) {
+			requestSignature = await signRequestAcceptance(
+				{ items: requestItems, requesterId, requesterDomain, idempotencyKey: key },
+				privKey,
+			);
+		}
 	} catch (cause) {
 		throw new ForaCallError({ kind: "not_signable", op, cause });
 	}
-	let requestSignature: string | undefined;
-	if (requestItems[0]!.exchange !== "") {
-		try {
-			requestSignature = await signRequestAcceptance(
-				{ items: requestItems, requesterId, requesterDomain, idempotencyKey: key },
-				r.opts.signer.privKey,
-			);
-		} catch (cause) {
-			throw new ForaCallError({ kind: "not_signable", op, cause });
-		}
-	}
-	// Items-only wire shape: a single offer is the degenerate 1-element items list, each
-	// item reflecting its signed Offer back exactly as received at discovery. The
-	// authoritative identity is the reflected offer; the optional top-level offer_id
-	// correlation scalar is left unset.
-	const request = {
+	// The authoritative identity of each item is the reflected offer; the optional
+	// top-level offer_id correlation scalar is left unset.
+	return {
 		ver: ProtocolVersion,
 		idempotency_key: key,
 		requester,
-		items: [
-			{
-				offer: wire,
-				agent_acceptance: {
-					signature,
-					signature_algorithm: ACCEPTANCE_SIGNATURE_ALGORITHM,
-				},
+		items: wires.map((wire, i) => ({
+			offer: wire,
+			agent_acceptance: {
+				signature: signatures[i],
+				signature_algorithm: ACCEPTANCE_SIGNATURE_ALGORITHM,
 			},
-		],
+		})),
 		...(requestSignature === undefined
-			? {} : { agent_request_acceptance: {
-			payload: {
-				items: requestItems.map((item) => ({
-					offer_sig: item.offerSig,
-					exchange: item.exchange,
-				})),
-				requester_id: requesterId,
-				requester_domain: requesterDomain,
-				idempotency_key: key,
-			},
-			signature: requestSignature,
-			signature_algorithm: ACCEPTANCE_SIGNATURE_ALGORITHM,
-		} }),
+			? {}
+			: {
+					agent_request_acceptance: {
+						payload: {
+							items: requestItems.map((item) => ({
+								offer_sig: item.offerSig,
+								exchange: item.exchange,
+							})),
+							requester_id: requesterId,
+							requester_domain: requesterDomain,
+							idempotency_key: key,
+						},
+						signature: requestSignature,
+						signature_algorithm: ACCEPTANCE_SIGNATURE_ALGORITHM,
+					},
+				}),
 	};
-	validateRequest(op, request, TransactionRequestSchema, r.opts.validation ?? "strict");
-	const raw = await call(
-		r,
-		op,
-		baseURL,
-		EXCHANGE_SERVICE,
-		"ExecuteTransaction",
-		request,
-		false,
-	);
-	return parseMessage(op, raw, TransactionResponseSchema);
+}
+
+/** requireOneExchange refuses a direct purchase whose offers were issued by more than one
+ * Exchange: that Exchange would refuse the item addressed to someone else. */
+function requireOneExchange(op: string, offers: readonly VerifiedOffer[]): void {
+	const first = offers[0];
+	if (first === undefined) return;
+	const want = stringField(offerRecord(first), "exchange");
+	offers.forEach((offer, i) => {
+		const got = stringField(offerRecord(offer), "exchange");
+		if (got !== want) {
+			throw malformed(
+				op,
+				new Error(
+					`item ${i} is issued by ${JSON.stringify(got)} and item 0 by ${JSON.stringify(want)}; ` +
+						"a direct purchase goes to one Exchange (buy across Exchanges with BrokerClient.execute)",
+				),
+			);
+		}
+	});
+}
+
+/** requireRoutable refuses a relayed purchase carrying an offer that names no Exchange: a
+ * Broker routes each item to the Exchange its offer names. */
+function requireRoutable(op: string, offers: readonly VerifiedOffer[]): void {
+	offers.forEach((offer, i) => {
+		if (stringField(offerRecord(offer), "exchange") === "") {
+			throw malformed(
+				op,
+				new Error(
+					`item ${i} names no exchange; a Broker routes each item to the Exchange its offer names`,
+				),
+			);
+		}
+	});
+}
+
+/**
+ * requireRequesterIsSigner refuses a request whose requester.domain is not the host of the
+ * WBA directory this client signs as. A Broker verifies the agent's signature against the
+ * key it resolves from the covered Signature-Agent directory and requires
+ * requester.domain to name that same directory, because every Exchange it relays to
+ * resolves the agent's acceptance keys from requester.domain. It refuses a mismatch with
+ * request_auth_failure SIGNATURE_INVALID; this client refuses it first, before sending.
+ *
+ * The comparison is the recipient-identity rule: exact, case-folded, an explicit :443
+ * the same as no port. An unset Signature-Agent names no directory, so it fails too.
+ */
+function requireRequesterIsSigner(
+	op: string,
+	requester: Record<string, unknown>,
+	signatureAgent: string,
+): void {
+	if (signatureAgent === "") {
+		throw malformed(
+			op,
+			new Error(
+				"no signatureAgent configured; a Broker checks that requester.domain names the " +
+					"directory the request is signed from",
+			),
+		);
+	}
+	let host: string;
+	try {
+		host = hostOf(signatureAgent);
+	} catch (cause) {
+		throw malformed(op, cause);
+	}
+	let verdict: string;
+	try {
+		verdict = checkAudience(host, stringField(requester, "domain"));
+	} catch (cause) {
+		throw malformed(op, cause);
+	}
+	if (verdict !== "accepted") {
+		throw malformed(
+			op,
+			new Error(
+				`requester.domain ${JSON.stringify(stringField(requester, "domain"))} is not ` +
+					`${JSON.stringify(host)}, the host of the directory this client signs as; ` +
+					"a Broker refuses the request (request_auth_failure SIGNATURE_INVALID)",
+			),
+		);
+	}
 }
 
 /**

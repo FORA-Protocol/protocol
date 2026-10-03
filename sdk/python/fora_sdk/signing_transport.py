@@ -102,6 +102,14 @@ class SigningTransport:
         # deterministic bytes. sign_outbound refuses an empty nonce.
         self._nonce: Callable[[], str] = _new_nonce
 
+    @property
+    def signature_agent(self) -> str:
+        """The WBA directory this transport signs as — the Signature-Agent value, possibly
+        empty. Read-only: a relayed purchase checks that ``requester.domain`` names this
+        directory's host, because a Broker refuses a request whose requester is not the
+        directory its signature resolved from."""
+        return self._signature_agent
+
     def sign_offer_acceptance(
         self,
         *,

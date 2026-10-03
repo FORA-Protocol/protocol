@@ -140,6 +140,15 @@ def _call(name: str) -> httpx.Request:
         asyncio.run(Client(config, http=http).get_account_status({"exchange": _ISSUER}))
     elif name == "resolve":
         asyncio.run(BrokerClient(config, http=http).resolve({}))
+    elif name.startswith("broker_execute"):
+        # A Broker requires requester.domain to name the directory the request is signed
+        # from, and the client refuses any other pairing before sending.
+        config.signer = SigningTransport(
+            signer_seed=_AGENT_SEED, keyid="agent.v1", signature_agent="https://agent.test"
+        )
+        asyncio.run(
+            BrokerClient(config, http=http).execute([_verified_offer()], idempotency_key=_PINNED)
+        )
     elif name.startswith("push_resources"):
         push: dict[str, Any] = {
             "exchange": "exchange.test",

@@ -34,9 +34,11 @@ func NewExchangeServiceHandler(svc forav1connect.ExchangeServiceHandler, opts ..
 // SDK server face and returns the mount path and handler. It composes the same
 // stack as NewExchangeServiceHandler — request-id outermost, verify at the http
 // seam, validate/error-detail as connect interceptors — over the generated
-// BrokerService handler. Broker relay routes outside the /fora. procedure
-// prefix are the application's own http surface and never pass through this
-// handler; they keep their bespoke verification.
+// BrokerService handler, which carries both Broker methods: Resolve and the
+// relayed purchase, ExecuteTransaction. The verify face authenticates the
+// agent's request signature; the handler implementation owns the checks the
+// contract leaves to the Broker, among them that requester.domain names the
+// directory that signature resolved from.
 func NewBrokerServiceHandler(svc forav1connect.BrokerServiceHandler, opts ...ServerOption) (string, http.Handler) {
 	cfg := resolveServerConfig(opts)
 	path, connectHandler := forav1connect.NewBrokerServiceHandler(svc, cfg.connectHandlerOptions()...)
