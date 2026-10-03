@@ -13,12 +13,11 @@ the send, and nothing else. That is what keeps the two faces from becoming two d
 
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import httpx
 
-from fora_sdk.client import _admin, _fetch_inputs, _fetch_target, _verbs
+from fora_sdk.client import _admin, _fetch_inputs, _verbs
 from fora_sdk.client._call import as_call_error
 from fora_sdk.client._read import (
     IDENTITY_ENCODING,
@@ -43,6 +42,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from wire.models import (
+        BrokerTransactionResponse,
         DisputeResponse,
         DomainVerificationChallenge,
         DomainVerificationResult,
@@ -53,12 +53,12 @@ if TYPE_CHECKING:
         RemoveResourcesResponse,
         SetReportingPolicyResponse,
         SetTenantFeeRateResponse,
+        TransactionResponse,
         UsageReportResponse,
     )
 
     from fora_sdk.client._call import RawBody
     from fora_sdk.client._verbs import RequestMessage
-    from fora_sdk.client.delivery import BrokerExecuteResult, Delivery, ExecuteResult
     from fora_sdk.core import DiscoveryResult, VerifiedOffer
 
 __all__ = ["AdminClient", "BrokerClient", "CatalogClient", "Client", "ClientConfig"]
@@ -97,8 +97,7 @@ class _Face:
         """Close the transports this client built. An injected one is left alone."""
         # Independent of the RPC legs above: this client is built here whenever the
         # caller injected no reader, whether or not it injected an RPC transport, so it
-        # is closed on its own terms rather than behind that ownership question. The
-        # delivery-key resolver's transport is the same case.
+        # is closed on its own terms rather than behind that ownership question.
         self._owned.close()
         if not self._owns:
             return
@@ -174,10 +173,10 @@ class Client(_Face):
         offer: VerifiedOffer | Sequence[VerifiedOffer] | RawBody,
         *,
         idempotency_key: str | None = None,
-    ) -> ExecuteResult:
+    ) -> TransactionResponse:
         plan = _verbs.plan_execute(self._config, offer, idempotency_key)
         status, body = self._send(plan)
-        return _verbs.finish_execute(self._config, plan, status, body)
+        return _verbs.finish_execute(plan, status, body)
 
     def report_usage(
         self, report: RequestMessage, *, idempotency_key: str | None = None
@@ -203,8 +202,8 @@ class Client(_Face):
         status, body = self._send(plan)
         return _verbs.finish_get_account_status(plan, status, body)
 
-    def fetch(self, signed_url: str | Delivery, *, exchange: str | None = None) -> Content:
-        url, binding = _fetch_target(self._config, signed_url, exchange)
+    def fetch(self, signed_url: str) -> Content:
+        url = signed_url
         headers, timeout, max_bytes = _fetch_inputs(self._config, url)
         op = "fetch content"
         self._refuse_if_closed(op)
@@ -243,7 +242,7 @@ class Client(_Face):
                 read = bounded_chunks(op, max_bytes, response.status_code)
                 for chunk in response.iter_bytes():
                     read.add(chunk)
-                return replace(read_content(url, response, read.body()), binding=binding)
+                return read_content(url, response, read.body())
         except httpx.HTTPError as exc:
             raise transport_failure(exc) from exc
         except _ssrf.SsrfError as exc:
@@ -265,10 +264,10 @@ class BrokerClient(_Face):
 
     def execute(
         self, offers: Sequence[VerifiedOffer] | RawBody, *, idempotency_key: str | None = None
-    ) -> BrokerExecuteResult:
+    ) -> BrokerTransactionResponse:
         plan = _verbs.plan_broker_execute(self._config, offers, idempotency_key)
         status, body = self._send(plan)
-        return _verbs.finish_broker_execute(self._config, plan, status, body)
+        return _verbs.finish_broker_execute(plan, status, body)
 
 
 class CatalogClient(_Face):

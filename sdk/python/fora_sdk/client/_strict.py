@@ -38,15 +38,12 @@ def _schema_name(model: type[BaseModel]) -> str:
     """The fully-qualified message name whose published schema decodes ``model``.
 
     The generated models are one flat module across ``fora.v1`` and ``fora.admin.v1``, so
-    the class name is matched against the schema names, walking up from a subclass such
-    as ``ExecuteResult`` to the generated model it extends. A class name two packages
-    share is refused rather than resolved by accident.
+    the class name is matched against the schema names. A class name two packages share is
+    refused rather than resolved by accident.
     """
-    names = schemas.names()
-    for cls in model.__mro__:
-        found = [n for n in names if n.rsplit(".", 1)[-1] == cls.__name__]
-        if len(found) == 1:
-            return found[0]
-        if found:
-            raise LookupError(f"several published schemas match {cls.__name__}: {found}")
+    found = [n for n in schemas.names() if n.rsplit(".", 1)[-1] == model.__name__]
+    if len(found) == 1:
+        return found[0]
+    if found:
+        raise LookupError(f"several published schemas match {model.__name__}: {found}")
     raise LookupError(f"no published schema for {model.__name__}")

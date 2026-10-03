@@ -25,12 +25,10 @@ from __future__ import annotations
 
 import asyncio
 import time
-from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import httpx
 
-from fora_sdk.core import Mode
 from fora_sdk.resolvers import _ssrf, guarded_async_client, guarded_client
 from fora_sdk.strict import StrictViolationError, check_strict
 from fora_sdk.window import clock_window
@@ -64,14 +62,6 @@ from .content import (
     redact_url,
     transport_failure,
 )
-from .delivery import (
-    BrokerExecuteResult,
-    Delivery,
-    DeliveryKeyResolver,
-    ExecuteResult,
-    Expected,
-    verify_delivery,
-)
 from .errors import NOT_CANONICAL_WIRE_NAMING, CallError, CallErrorKind
 from .route import EndpointResolver, RegistrationRequirementsReader
 
@@ -79,6 +69,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from wire.models import (
+        BrokerTransactionResponse,
         DisputeResponse,
         DomainVerificationChallenge,
         DomainVerificationResult,
@@ -89,6 +80,7 @@ if TYPE_CHECKING:
         RemoveResourcesResponse,
         SetReportingPolicyResponse,
         SetTenantFeeRateResponse,
+        TransactionResponse,
         UsageReportResponse,
     )
 
@@ -106,17 +98,13 @@ __all__ = [
     "AdminClient",
     "BeforeSign",
     "BrokerClient",
-    "BrokerExecuteResult",
     "CallError",
     "CallErrorKind",
     "CatalogClient",
     "Client",
     "ClientConfig",
     "Content",
-    "Delivery",
-    "DeliveryKeyResolver",
     "EndpointResolver",
-    "ExecuteResult",
     "RawBody",
     "RegistrationRequirementsReader",
     "StrictViolationError",
@@ -164,8 +152,7 @@ class _Face:
         """Close the transports this client built. An injected one is left alone."""
         # Independent of the RPC legs above: this client is built here whenever the
         # caller injected no reader, whether or not it injected an RPC transport, so it
-        # is closed on its own terms rather than behind that ownership question. The
-        # delivery-key resolver's transport is the same case.
+        # is closed on its own terms rather than behind that ownership question.
         self._owned.close()
         if not self._owns:
             return
@@ -265,19 +252,17 @@ class Client(_Face):
         offer: VerifiedOffer | Sequence[VerifiedOffer] | RawBody,
         *,
         idempotency_key: str | None = None,
-    ) -> ExecuteResult:
+    ) -> TransactionResponse:
         """Commit to a VERIFIED offer — or several issued by ONE Exchange, in one request —
         and return the transaction response. Offers from several Exchanges are refused
         locally; buy those through :meth:`BrokerClient.execute`.
 
-        Every retrieval URL in the answer is verified before it is handed back — its
-        signature against the issuing Exchange's published key, its binding to this
-        agent, its expiry — and the verified binding of each is on
-        :attr:`ExecuteResult.deliveries`. A URL that does not verify refuses the answer
-        (``ClientConfig.delivery_verification`` turns this off)."""
+        The retrieval URLs in the answer are handed back as the Exchange issued them.
+        Checking one is the delivery edge's job: :meth:`fetch` presents the agent's proof
+        of possession, and the edge verifies the URL's signature and binding."""
         plan = _verbs.plan_execute(self._config, offer, idempotency_key)
         status, body = await self._send(plan)
-        return await asyncio.to_thread(_verbs.finish_execute, self._config, plan, status, body)
+        return _verbs.finish_execute(plan, status, body)
 
     async def report_usage(
         self, report: RequestMessage, *, idempotency_key: str | None = None
@@ -324,7 +309,7 @@ class Client(_Face):
         status, body = await self._send(plan)
         return _verbs.finish_get_account_status(plan, status, body)
 
-    async def fetch(self, signed_url: str | Delivery, *, exchange: str | None = None) -> Content:
+    async def fetch(self, signed_url: str) -> Content:
         """Retrieve the content a signed delivery URL names, presenting proof of
         possession of the agent key that URL is bound to.
 
@@ -333,13 +318,11 @@ class Client(_Face):
         separate, higher tier. It takes no idempotency key: a fetch is a GET against an
         already-issued URL, and nothing on this path mutates state.
 
-        Given a :class:`Delivery` from ``execute``, or a URL and the ``exchange`` that
-        issued it, the URL is verified before anything is sent — its signature against
-        that Exchange's published key, its binding to this agent, its expiry — and the
-        verified binding is on ``Content.binding``. A bare URL with no Exchange named is
-        fetched as given, and the edge is the only check.
+        The URL is taken as given. The delivery edge verifies it — its signature, and its
+        binding to this agent against the proof presented here — and a refusal comes back
+        as a ``CallError`` carrying the edge's ``retrieval_auth_failure`` reason.
         """
-        url, binding = await asyncio.to_thread(_fetch_target, self._config, signed_url, exchange)
+        url = signed_url
         headers, timeout, max_bytes = _fetch_inputs(self._config, url)
         op = "fetch content"
         self._refuse_if_closed(op)
@@ -387,7 +370,7 @@ class Client(_Face):
                 read = bounded_chunks(op, max_bytes, response.status_code)
                 async for chunk in response.aiter_bytes():
                     read.add(chunk)
-                return replace(read_content(url, response, read.body()), binding=binding)
+                return read_content(url, response, read.body())
         except httpx.HTTPError as exc:
             raise transport_failure(exc) from exc
         except _ssrf.SsrfError as exc:
@@ -428,7 +411,7 @@ class BrokerClient(_Face):
 
     async def execute(
         self, offers: Sequence[VerifiedOffer] | RawBody, *, idempotency_key: str | None = None
-    ) -> BrokerExecuteResult:
+    ) -> BrokerTransactionResponse:
         """Buy VERIFIED offers through the Broker in one call, however many Exchanges issued
         them (BrokerService.ExecuteTransaction).
 
@@ -440,15 +423,12 @@ class BrokerClient(_Face):
         Needs ``requester`` and a signer whose ``signature_agent`` directory host is
         ``requester.domain`` — a Broker refuses any other pairing, so this client does first.
 
-        Every retrieval URL in the answer is verified against the key of the Exchange that
-        issued that item's offer, as :meth:`Client.execute` does, and the verified
-        bindings are on :attr:`BrokerExecuteResult.deliveries`.
+        The retrieval URLs in the answer are handed back as each Exchange issued them, as
+        :meth:`Client.execute` does.
         """
         plan = _verbs.plan_broker_execute(self._config, offers, idempotency_key)
         status, body = await self._send(plan)
-        return await asyncio.to_thread(
-            _verbs.finish_broker_execute, self._config, plan, status, body
-        )
+        return _verbs.finish_broker_execute(plan, status, body)
 
 
 class CatalogClient(_Face):
@@ -539,29 +519,6 @@ class AdminClient(_Face):
         plan = _admin.plan_confirm_domain_verification(self._config, request)
         status, body = await self._send(plan)
         return _admin.finish_confirm_domain_verification(plan, status, body)
-
-
-def _fetch_target(
-    config: ClientConfig, target: str | Delivery, exchange: str | None
-) -> tuple[str, Delivery | None]:
-    """The URL a fetch dials, and the binding verified for it when an Exchange is named.
-
-    Shared by both faces. It resolves a key, which may go to the network, so the async
-    face runs it in a thread. A refusal raises before the proof is minted, so nothing
-    leaves the process for a URL this client already knows the edge would refuse.
-    """
-    url = target.url if isinstance(target, Delivery) else target
-    named = target.exchange if isinstance(target, Delivery) else exchange
-    if not named or config.delivery_verification is Mode.OFF:
-        return url, None
-    if config.signer is None or config.delivery_keys is None:
-        # The signer is refused with its own reason by _fetch_inputs; checked here too
-        # because the binding is to its key. The facades always fill in delivery_keys.
-        _fetch_inputs(config, url)
-        return url, None
-    stated = target.agent_id if isinstance(target, Delivery) else ""
-    expected = Expected(exchange=named, agent=config.signer.thumbprint, stated=stated)
-    return url, verify_delivery("fetch content", url, expected, config.delivery_keys)
 
 
 def _fetch_inputs(config: ClientConfig, signed_url: str) -> tuple[dict[str, str], float, int]:

@@ -32,9 +32,10 @@ from fora_sdk.client import (
     CatalogClient,
     Client,
     ClientConfig,
-    ExecuteResult,
     RawBody,
 )
+from wire.models import TransactionResponse
+
 from fora_sdk.httpsig import content_digest
 from fora_sdk.keyresolver import StaticKeyResolver
 
@@ -144,10 +145,8 @@ def test_execute_takes_a_raw_purchase_and_decodes_the_answer(face: Face) -> None
 
     assert peer.only().request.content == body
     assert peer.only().request.url.path == "/fora.v1.ExchangeService/ExecuteTransaction"
-    assert isinstance(result, ExecuteResult)
+    assert isinstance(result, TransactionResponse)
     assert result.items[0].transaction_id == "tx-1"
-    # Nothing ties a raw answer to a request the SDK built, so nothing was verified.
-    assert result.deliveries == ()
 
 
 @pytest.mark.parametrize("face", FACES, ids=_IDS)

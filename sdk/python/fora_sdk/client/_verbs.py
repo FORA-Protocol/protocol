@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 from wire.models import (
+    BrokerTransactionResponse,
     DiscoveryRequest,
     DiscoveryResponse,
     DisputeRequest,
@@ -36,6 +37,7 @@ from wire.models import (
     ResourceResponse,
     TransactionRequest,
     UsageReport,
+    TransactionResponse,
     UsageReportResponse,
 )
 
@@ -55,7 +57,6 @@ from fora_sdk.resolvers import (
     ExchangeNotPermittedError,
     ManifestNotExchangeError,
     ManifestUnusableError,
-    WBAKeyResolver,
     WellKnownRequirementsReader,
     guarded_client,
 )
@@ -76,13 +77,6 @@ from ._call import (
     validate_request,
 )
 from .._hostref import _redact_userinfo as redact_userinfo
-from .delivery import (
-    BrokerExecuteResult,
-    DeliveryKeyResolver,
-    ExecuteResult,
-    Expected,
-    verify_items,
-)
 from ..hosts import check_audience, host_of, is_bare_domain
 from .errors import CallError, CallErrorKind, malformed, not_sent
 from .route import (
@@ -165,15 +159,6 @@ class ClientConfig:
     #: ``status`` kept and no detail. Off by default, because the models accept fields a
     #: newer minor version may add.
     strict: bool = False
-    #: Resolves the key an Exchange signs delivery URLs with: ``resolve(kid, exchange)``,
-    #: against that Exchange's Web Bot Auth key directory. Defaults to the SSRF-guarded
-    #: :class:`~fora_sdk.resolvers.wba.WBAKeyResolver`, built once with the client.
-    delivery_keys: DeliveryKeyResolver | None = None
-    #: Whether ``execute`` and ``fetch`` verify a delivery URL — its signature against the
-    #: issuing Exchange's key, its binding to this agent, its expiry — before handing it
-    #: back or dialling it. ``Mode.OFF`` is the named opt-out, for a deployment whose URLs
-    #: are signed in a scheme other than the protocol's Ed25519 one.
-    delivery_verification: Mode = Mode.STRICT
     #: The freshness window stamped on a delivery-fetch proof.
     proof_window: Window | None = None
     max_rpc_read_bytes: int = DEFAULT_MAX_RPC_READ_BYTES
@@ -192,39 +177,33 @@ class _Owned:
     """The transports a client built for the defaults it filled in, and so must close."""
 
     requirements: httpx.Client | None = None
-    delivery: httpx.Client | None = None
 
     def close(self) -> None:
-        for http in (self.requirements, self.delivery):
-            if http is not None:
-                http.close()
+        if self.requirements is not None:
+            self.requirements.close()
 
 
 def _with_defaults(config: ClientConfig) -> tuple[ClientConfig, _Owned]:
-    """Fill in the default requirements reader and delivery-key resolver ONCE, and report
-    the transports that came with them.
+    """Fill in the default requirements reader ONCE, and report the transport that came
+    with it.
 
     Both client facades call this from their constructor, which is the tier Go resolves
     the same defaults at. Per CALL it would build an SSRF-guarded httpx client for every
-    registration and every purchase and close none of them; per CLIENT it is one pooled
-    transport each, with an owner that can close it.
+    registration and close none of them; per CLIENT it is one pooled transport, with an
+    owner that can close it.
 
     The caller's config is never mutated — a caller may hold it, reuse it across
-    clients, or read it back — so the filled-in defaults ride on a copy. The second
-    return is the transports this client OWNS: none for a seam the caller injected,
+    clients, or read it back — so the filled-in default rides on a copy. The second
+    return is the transport this client OWNS: none for a seam the caller injected,
     because then the transport inside it is theirs.
     """
     requirements: httpx.Client | None = None
-    delivery: httpx.Client | None = None
     if config.registration_requirements is None:
         requirements = guarded_client()
         config = replace(
             config, registration_requirements=WellKnownRequirementsReader(http=requirements)
         )
-    if config.delivery_keys is None:
-        delivery = guarded_client()
-        config = replace(config, delivery_keys=WBAKeyResolver(http=delivery))
-    return config, _Owned(requirements=requirements, delivery=delivery)
+    return config, _Owned(requirements=requirements)
 
 
 class _NullOfferKeyResolver:
@@ -258,12 +237,6 @@ class Plan:
     sent: dict[str, Any] = field(default_factory=dict)
     #: Whether the answer is decoded strictly (``ClientConfig.strict``).
     strict: bool = False
-    #: Whether the body is a caller's :class:`RawBody`. The answer is decoded as usual,
-    #: and nothing that ties it to a request the SDK built — delivery verification — runs.
-    raw: bool = False
-    #: ``(offer_id, exchange)`` of each item a purchase sent, in order: what a result
-    #: item's retrieval URL is verified against.
-    items: tuple[tuple[str, str], ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -458,8 +431,7 @@ def plan_execute(
     _require_one_exchange(op, offers)
     sent = _build_transaction(cfg, op, offers, idempotency_key)
     validate_request(op, sent, TransactionRequest, cfg.validation)
-    plan = _plan(cfg, _Route(op, cfg.base_url, EXCHANGE_SERVICE, "ExecuteTransaction"), sent)
-    return replace(plan, items=_purchase_items(offers))
+    return _plan(cfg, _Route(op, cfg.base_url, EXCHANGE_SERVICE, "ExecuteTransaction"), sent)
 
 
 def plan_broker_execute(
@@ -494,38 +466,19 @@ def plan_broker_execute(
         _require_requester_is_signer(op, cfg.requester, cfg.signer.signature_agent)
     sent = _build_transaction(cfg, op, offers, idempotency_key)
     validate_request(op, sent, TransactionRequest, cfg.validation)
-    plan = _plan(cfg, _Route(op, cfg.base_url, BROKER_SERVICE, "ExecuteTransaction"), sent)
-    return replace(plan, items=_purchase_items(offers))
+    return _plan(cfg, _Route(op, cfg.base_url, BROKER_SERVICE, "ExecuteTransaction"), sent)
 
 
-def finish_broker_execute(
-    cfg: ClientConfig, plan: Plan, status: int, body: str
-) -> BrokerExecuteResult:
-    """Read the Broker's combined answer and verify every retrieval URL in it.
+def finish_broker_execute(plan: Plan, status: int, body: str) -> BrokerTransactionResponse:
+    """Read the Broker's combined answer.
 
     An Exchange that refused the Broker's whole sub-request is NOT a failure here: the call
     succeeds, and each affected item carries the refusal in ``refusal`` while the other
     Exchanges' items come back unchanged. Only the Broker's own refusals raise.
-
-    The one signed value in a result item is its retrieval URL, signed by the Exchange
-    that issued the item's offer — the Broker cannot forge or alter one, and this is
-    where that is checked. Each URL is verified against its own Exchange's key and the
-    agent_identity_hash that Exchange's outcome states.
     """
-    result: BrokerExecuteResult = decode(
-        plan.op, status, body, BrokerExecuteResult, strict=plan.strict
+    return decode(  # type: ignore[no-any-return]
+        plan.op, status, body, BrokerTransactionResponse, strict=plan.strict
     )
-    if _verifies_deliveries(cfg, plan):
-        outcomes = {o.exchange.lower(): o.agent_identity_hash or "" for o in result.exchanges or []}
-        items = list(result.items or [])
-        agent = _agent_thumbprint(cfg)
-
-        def expected_of(index: int, item: Any) -> Expected:
-            exchange = _issuing_exchange(plan, index, item, len(items))
-            return Expected(exchange, agent, outcomes.get(exchange.lower(), ""))
-
-        result._deliveries = verify_items(plan.op, items, expected_of, _delivery_keys(cfg))
-    return result
 
 
 def _offer_wire(offer: VerifiedOffer) -> dict[str, Any]:
@@ -678,66 +631,11 @@ def _require_requester_is_signer(op: str, requester: dict[str, Any], signature_a
         )
 
 
-def finish_execute(cfg: ClientConfig, plan: Plan, status: int, body: str) -> ExecuteResult:
-    """Read the Exchange's answer and verify every retrieval URL in it.
-
-    Each URL is verified against the key the Exchange that issued the offers publishes in
-    its Web Bot Auth directory, and must be bound to this agent and to the
-    agent_identity_hash the answer states. One that does not verify refuses the whole
-    answer, as malformed, with the reason on a synthesized ``retrieval_auth_failure``
-    detail and the item named in the message. The purchase itself happened; the
-    transaction id in the message is what a dispute or a support request names.
-    """
-    result: ExecuteResult = decode(plan.op, status, body, ExecuteResult, strict=plan.strict)
-    if _verifies_deliveries(cfg, plan):
-        items = list(result.items or [])
-        agent, stated = _agent_thumbprint(cfg), result.agent_identity_hash or ""
-
-        def expected_of(index: int, item: Any) -> Expected:
-            return Expected(_issuing_exchange(plan, index, item, len(items)), agent, stated)
-
-        result._deliveries = verify_items(plan.op, items, expected_of, _delivery_keys(cfg))
-    return result
-
-
-def _purchase_items(offers: list[VerifiedOffer]) -> tuple[tuple[str, str], ...]:
-    return tuple(
-        (_str_field(_offer_wire(o), "offer_id"), _str_field(_offer_wire(o), "exchange"))
-        for o in offers
+def finish_execute(plan: Plan, status: int, body: str) -> TransactionResponse:
+    """Read the Exchange's answer."""
+    return decode(  # type: ignore[no-any-return]
+        plan.op, status, body, TransactionResponse, strict=plan.strict
     )
-
-
-def _verifies_deliveries(cfg: ClientConfig, plan: Plan) -> bool:
-    return not plan.raw and cfg.delivery_verification is Mode.STRICT
-
-
-def _issuing_exchange(plan: Plan, index: int, item: Any, count: int) -> str:
-    """The Exchange that issued the offer a result item answers.
-
-    The answer carries one item per request item, in request order, so the index is the
-    match; an answer of another length is matched by offer_id instead. An item neither
-    places is attributed to the one Exchange a direct purchase went to, and to nobody on a
-    relayed one — which then fails verification rather than borrowing another key.
-    """
-    if count == len(plan.items):
-        return plan.items[index][1]
-    offer_id = getattr(item, "offer_id", "") or ""
-    for item_offer, exchange in plan.items:
-        if offer_id and item_offer == offer_id:
-            return exchange
-    exchanges = {exchange for _offer, exchange in plan.items}
-    return exchanges.pop() if len(exchanges) == 1 else ""
-
-
-def _agent_thumbprint(cfg: ClientConfig) -> str:
-    # A purchase that reached here was signed, so the signer is configured.
-    return cfg.signer.thumbprint if cfg.signer is not None else ""
-
-
-def _delivery_keys(cfg: ClientConfig) -> DeliveryKeyResolver:
-    # Both facades fill this in at construction; the fallback serves a caller driving
-    # the plan functions directly, at the cost of a transport per call.
-    return cfg.delivery_keys if cfg.delivery_keys is not None else WBAKeyResolver()
 
 
 # ---------------------------------------------------------------------------
@@ -1215,7 +1113,6 @@ def _plan(
         guarded=guarded,
         sent=sent.parsed() if isinstance(sent, RawBody) else sent,
         strict=cfg.strict,
-        raw=isinstance(sent, RawBody),
     )
 
 

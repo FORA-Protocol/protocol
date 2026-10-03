@@ -47,7 +47,6 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier
 from fora_sdk.resolvers import (
     CachedOfferKeyResolver,
-    WBAKeyResolver,
     WellKnownEndpointResolver,
     create_wba_offer_directory_fetch,
     guarded_client,
@@ -122,10 +121,6 @@ def buy_and_fetch(*, exchange: str, uri: str, seed: bytes) -> bytes:
         requester=AGENT,
         verifier=verifier,
         endpoint_resolver=endpoints,
-        # The key each delivery URL is checked against, resolved by its kid from the
-        # issuing Exchange's Web Bot Auth directory. The client builds this same resolver
-        # by default; it is passed here only to carry the sandbox scheme.
-        delivery_keys=WBAKeyResolver(scheme=SCHEME),
     )
 
     with Client(config) as client:
@@ -138,15 +133,13 @@ def buy_and_fetch(*, exchange: str, uri: str, seed: bytes) -> bytes:
             raise RuntimeError(f"no verifiable offer for {uri}: {refused}")
 
         # 5. Buy it. execute() accepts only a verified offer, so an unverified one
-        #    cannot be paid for by mistake, and it verifies every delivery URL in the
-        #    answer: signed by the issuing Exchange, bound to this agent, not expired.
-        bought = client.execute(offers[0])
-        item = bought.items[0]
+        #    cannot be paid for by mistake.
+        item = client.execute(offers[0]).items[0]
 
         # 6. Fetch. The delivery URL is bound to the agent's thumbprint and the client
         #    presents the matching proof of possession, so a copied link fetches nothing.
-        #    Passing the verified delivery checks it again before anything is sent.
-        content = client.fetch(bought.deliveries[0])
+        #    The delivery edge checks the URL and the proof.
+        content = client.fetch(item.retrieval_endpoint)
 
         # 7. Report what was used. It goes to the Exchange the offer named, resolved the
         #    same way as step 2 — never to whatever base_url happened to be configured.
@@ -350,8 +343,6 @@ The rest are bounds and seams with working defaults:
 | `request_id` | `None`, meaning **no header is sent** | mints the `X-Request-ID` correlation value |
 | `validation` | `"strict"` | whether an outbound message is checked against its generated model before it is sent. Orthogonal to offer verification, which is about what comes back |
 | `registration_requirements` | a reader built on the guarded client, once per client | where `register` reads an Exchange's terms revision and registration schema. It holds no document cache on purpose: the contract requires the terms digest to come from a freshly fetched manifest |
-| `delivery_keys` | a `WBAKeyResolver` built on the guarded client, once per client | where `execute` and `fetch` find the key an Exchange signs delivery URLs with: the URL's `kid`, resolved from that Exchange's Web Bot Auth directory |
-| `delivery_verification` | `Mode.STRICT` | whether a delivery URL is verified (signature, agent binding, expiry) before it is handed back or dialled. `Mode.OFF` is for a deployment whose URLs use another signing scheme |
 | `strict` | `False` | refuse an answer carrying an unknown field, or breaking a field-level or cross-field rule, and an error envelope or `ErrorDetail` the contract does not define. See [Testing a FORA service](#testing-a-fora-service) |
 | `before_sign` | `None` | a hook that receives each request just before it is signed. See [Testing a FORA service](#testing-a-fora-service) |
 
@@ -372,8 +363,8 @@ Pydantic models.
 | Verb | Send | Get back |
 |---|---|---|
 | `discover(query)` | `exchange`, `uris`, optional filters | `DiscoveryResult`: `groups` (one per requested URI, each with `uri`, `result.verified`, `result.rejected`, `absence_reason`), plus `exchange` and `rate_limit`. `verified()` and `rejected()` flatten across groups |
-| `execute(offer, *, idempotency_key=None)` | a `VerifiedOffer`, or a sequence of them issued by one Exchange — nothing else is accepted | `ExecuteResult`, which is the `TransactionResponse` (`items`, each with `transaction_id`, `billing_id`, `retrieval_endpoint`, `expires_at`, `cost`) plus `deliveries`: the verified `Delivery` of each item's URL |
-| `fetch(signed_url, *, exchange=None)` | a `Delivery` from `execute`, or a `retrieval_endpoint` and the Exchange that issued it | `Content`: `url`, `mime_type`, `body`, and `binding`, the `Delivery` verified before the fetch |
+| `execute(offer, *, idempotency_key=None)` | a `VerifiedOffer`, or a sequence of them issued by one Exchange — nothing else is accepted | `TransactionResponse`: `items`, each with `transaction_id`, `billing_id`, `retrieval_endpoint`, `expires_at`, `cost` |
+| `fetch(signed_url)` | one `retrieval_endpoint` | `Content`: `url`, `mime_type`, `body` |
 | `report_usage(report, *, idempotency_key=None)` | `exchange`, `transaction_id`, `billing_id`, `usage` | `UsageReportResponse`: `report_id`, which a later dispute must cite |
 | `dispute(request, *, idempotency_key=None)` | `exchange`, `transaction_id`, `report_id`, `reason` | `DisputeResponse` |
 | `register(request)` / `get_account_status(request)` | account setup with an Exchange | `RegisterResponse` / `GetAccountStatusResponse` |
@@ -390,13 +381,12 @@ you already have — from your own crawl frontier, a publisher's catalogue, or a
 it knows and relays back what they offered, so a caller with no idea which Exchange sells
 a resource starts there rather than with `discover`.
 
-**Every delivery URL is verified.** `execute` checks each `retrieval_endpoint` before it
-returns: the signature against the key the issuing Exchange publishes in its Web Bot Auth
-directory (named by the URL's `kid`), the binding to this agent's key (`agent_id`, and the
-answer's `agent_identity_hash`), and the expiry. A URL that fails is refused as
-`MALFORMED`, with a `retrieval_auth_failure` detail in the edge's own vocabulary and the
-item named in the message. `fetch` repeats the check before it dials when it is given a
-`Delivery`, or a URL with `exchange=`; a bare URL is fetched as given.
+**The delivery edge checks the delivery URL.** `execute` hands each `retrieval_endpoint`
+back exactly as the Exchange issued it, and `fetch` dials it as given with the agent's
+proof of possession attached. The edge verifies the URL signature and, where it can, the
+binding to this agent's key; an edge that cannot check the binding (CloudFront with its
+RSA key pair) treats the URL as a bearer token. An edge refusal comes back from `fetch`
+as a `CallError` carrying a `retrieval_auth_failure` detail with the edge's reason.
 
 Failures arrive as one `CallError` carrying a `CallErrorKind` — `NOT_SENT`, `REFUSED`,
 `UNREACHABLE`, `MALFORMED`, `TOO_LARGE`, `NOT_SIGNABLE`, `UNKNOWN` — plus the peer's own
@@ -413,8 +403,7 @@ operator verbs: `set_tenant_fee_rate` and `set_reporting_policy` (`fora.admin.v1
 `ClientConfig`, because each addresses a different endpoint, often with a different key.
 
 `BrokerClient.execute(offers, *, idempotency_key=None)` buys offers from any number of
-Exchanges in one call and returns a `BrokerExecuteResult` — the `BrokerTransactionResponse`
-plus `deliveries`, each URL verified against its own Exchange's key: `items` in request order,
+Exchanges in one call and returns the `BrokerTransactionResponse`: `items` in request order,
 `exchanges` (one `ExchangeOutcome` per Exchange contacted) and `totals` (one `Cost` per
 currency, never summed across currencies). The Broker sends one sub-request per Exchange,
 signed with its own key, and your acceptances travel in each body, so every Exchange still
