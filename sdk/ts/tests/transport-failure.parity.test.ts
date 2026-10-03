@@ -51,6 +51,9 @@ describe("an answer that did not come from the service", () => {
 			const failure = thrown as ForaCallError;
 			expect(failure.kind, `${v.name}: oracle says ${v.kind}`).toBe(v.kind);
 			expect(failure.reason).toBe(v.reason);
+			// The Connect code the status implies is the code of this answer: not an
+			// envelope, but still the peer's answer, classified the way connect-go does.
+			expect(failure.code).toBe(v.reason);
 			// The label and the consequence are pinned together: comparing only the string
 			// would still pass if the two classes swapped meanings.
 			expect(failure.kind === "unreachable").toBe(v.retryable);

@@ -273,7 +273,7 @@ describe("reading an answer", () => {
 				details: [
 					{
 						type: "fora.v1.ErrorDetail",
-						value: "aWdub3JlZA",
+						value: "Cg9iYWxhbmNlIHRvbyBsb3cSF2ZvcmEudjEuRXhjaGFuZ2VTZXJ2aWNlUgIIAg",
 						debug: {
 							domain: "fora.v1.ExchangeService",
 							message: "balance too low",

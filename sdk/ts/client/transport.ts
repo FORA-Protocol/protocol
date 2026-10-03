@@ -313,8 +313,9 @@ export function refuseUnrequestedEncoding(
  * decodeResponse turns one answer into a parsed message, or throws the typed failure.
  *
  * A non-2xx is the Connect error envelope: `{code, message, details}`. The typed reason
- * rides in `details`, which errorDetailFrom reads — including the lowerCamelCase `debug`
- * projection connect-go emits there and no server codec replaces.
+ * rides in `details`, which errorDetailFrom reads — the binary `value` first, and the
+ * lowerCamelCase `debug` projection connect-go emits beside it only when `value` is
+ * absent. The envelope's Connect code lands on the failure's `code`.
  */
 export function decodeResponse(op: string, response: UnaryResponse): unknown {
 	// A 3xx before anything is read out of the body. Every leg refuses to follow a
@@ -372,6 +373,7 @@ function parseJSON(op: string, response: UnaryResponse): unknown {
 				op,
 				status: response.status,
 				reason: code,
+				code,
 				cause,
 			});
 		}
@@ -413,6 +415,7 @@ function connectEnvelopeError(
 			: {}),
 		cause:
 			typeof envelope["message"] === "string" ? envelope["message"] : undefined,
+		code,
 	});
 }
 

@@ -252,7 +252,7 @@ describe("BrokerClient.execute", () => {
 				details: [
 					{
 						type: "fora.v1.ErrorDetail",
-						value: "aWdub3JlZA",
+						value: "ChJyZXF1ZXN0ZXIgbWlzbWF0Y2gSFWZvcmEudjEuQnJva2VyU2VydmljZYoBAggC",
 						debug: {
 							domain: "fora.v1.BrokerService",
 							message: "requester mismatch",
