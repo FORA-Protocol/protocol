@@ -217,7 +217,7 @@ An attacker who poisons a provider's fora.json would only gain `discovered` trus
 |---|---|---|
 | Manual config | On startup + SIGHUP | File watch or signal handler |
 | fora.json per domain | 1 hour (configurable) | Background goroutine |
-| Exchange health | Every 30 seconds | Background health check (HEAD to endpoint) |
+| Exchange health | Every 30 seconds | Background check: a fresh fetch of the Exchange's `fora.json`, then a GET of the `health_endpoint` it names (200 means serving); with none named, the successful manifest fetch is the answer |
 | Trust levels | Manual only | Operator action via API or config |
 
 ### Registry Interface

@@ -111,7 +111,7 @@ The Exchange's offer-signing keys are **not** carried in `fora.json`. They live 
 | `operator_domain` | string | No | Operator's corporate domain |
 | `endpoint` | string | No | ExchangeService endpoint URL. **Must be on the host and port that serve this manifest, or a subdomain of that host on that port, and must not carry userinfo** — see [Endpoint host binding](#endpoint-host-binding) |
 | (offer-signing keys) | — | — | Not in `fora.json`. See the [WBA directory](#the-wba-directory) at `/.well-known/http-message-signatures-directory` |
-| `health_endpoint` | string | No | Health check endpoint URL |
+| `health_endpoint` | string | No | URL a consumer (a Broker deciding whether to route here) probes to judge whether the Exchange is serving: absolute, or a path resolved against this manifest's URL. A 200 answer means serving. When absent, a consumer judges reachability by fetching this manifest itself |
 | `catalog_endpoint` | string | No | CatalogService endpoint URL, if the Exchange exposes the service. **Same binding as `endpoint`** — on the host and port that serve this manifest, or a subdomain of that host on that port, no userinfo — see [Endpoint host binding](#endpoint-host-binding). Unlike `endpoint`, no SDK reads or checks this field: the catalog address is configuration, so a deployment that does read it from a manifest **must apply the binding itself** before dialling. Absent means not exposed; a publisher's client does not fall back to `endpoint` |
 | `protocol_versions_supported` | string[] | No | Supported FORA protocol versions |
 | `pricing_models_supported` | string[] | No | Supported pricing models |

@@ -7603,7 +7603,11 @@ type WellKnownManifest struct {
 	// are the SAME port, so https://x, https://x:443 and x all match. An Exchange
 	// reachable on a non-default port names that port on both sides.
 	Endpoint *string `protobuf:"bytes,12,opt,name=endpoint,proto3,oneof" json:"endpoint,omitempty"`
-	// Exchange-only. Health check endpoint URL.
+	// Exchange-only. The URL a consumer, such as a Broker deciding whether to route
+	// to this Exchange, probes to judge whether it is serving: an absolute URL, or
+	// a path resolved against this manifest's own URL (RFC 3986). A 200 answer
+	// means serving. When absent, a consumer judges reachability by fetching this
+	// manifest itself; it never assumes a path the protocol does not name.
 	HealthEndpoint *string `protobuf:"bytes,13,opt,name=health_endpoint,json=healthEndpoint,proto3,oneof" json:"health_endpoint,omitempty"`
 	// Exchange-only. CatalogService endpoint URL (if exposed). It carries the
 	// same binding as endpoint: it MUST be on the same host AND PORT that serve

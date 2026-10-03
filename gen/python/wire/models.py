@@ -1665,7 +1665,8 @@ class WellKnownManifest(WireModel):
         description='Exchange-only. Accepted resource hash methods for attestation\n verification.',
     )
     health_endpoint: str | None = Field(
-        None, description='Exchange-only. Health check endpoint URL.'
+        None,
+        description="Exchange-only. The URL a consumer, such as a Broker deciding whether to route\n to this Exchange, probes to judge whether it is serving: an absolute URL, or\n a path resolved against this manifest's own URL (RFC 3986). A 200 answer\n means serving. When absent, a consumer judges reachability by fetching this\n manifest itself; it never assumes a path the protocol does not name.",
     )
     max_intermediary_hops: conint(ge=-2147483648, le=2147483647) | None = Field(
         None,
