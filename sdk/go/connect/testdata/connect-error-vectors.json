@@ -1,5 +1,5 @@
 {
-  "note": "Connect JSON error envelopes captured from a real connect-go handler. details[].debug is lowerCamelCase — connect-go builds it with its own protojson codec at default options, which no server codec replaces — while every FORA message body is snake_case. details[].value is the base64 binary Any, which the JSON-only SDKs deliberately cannot open.",
+  "note": "Connect JSON error envelopes captured from a real connect-go handler. details[].value is the base64 binary ErrorDetail and is the authoritative copy; details[].debug is a lowerCamelCase projection — connect-go builds it with its own protojson codec at default options, which no server codec replaces — read only when value is absent. Rows named *.value_only, value_wins_over_debug and undecodable_value_skipped are derived by editing a captured envelope.",
   "vectors": [
     {
       "name": "transaction_denial_insufficient_balance",
@@ -28,7 +28,14 @@
         "message": "balance too low",
         "metadata": null,
         "reason_field": "transaction_denial",
-        "reason_enum": "DENIAL_REASON_INSUFFICIENT_BALANCE"
+        "reason_enum": "DENIAL_REASON_INSUFFICIENT_BALANCE",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "message": "balance too low",
+          "transaction_denial": {
+            "reason": "DENIAL_REASON_INSUFFICIENT_BALANCE"
+          }
+        }
       },
       "peer_message": "balance too low"
     },
@@ -59,7 +66,14 @@
         "message": "signed URL expired",
         "metadata": null,
         "reason_field": "retrieval_auth_failure",
-        "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED"
+        "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED",
+        "detail": {
+          "domain": "fora.v1.Edge",
+          "message": "signed URL expired",
+          "retrieval_auth_failure": {
+            "reason": "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED"
+          }
+        }
       },
       "peer_message": "signed URL expired"
     },
@@ -96,7 +110,20 @@
         "message": "registration data rejected",
         "metadata": null,
         "reason_field": "registration_failure",
-        "reason_enum": "REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA"
+        "reason_enum": "REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "message": "registration data rejected",
+          "registration_failure": {
+            "field_errors": [
+              {
+                "error": "required property is missing",
+                "path": "/operator/legal_name"
+              }
+            ],
+            "reason": "REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA"
+          }
+        }
       },
       "peer_message": "registration data rejected"
     },
@@ -127,7 +154,14 @@
         "message": "no such transaction",
         "metadata": null,
         "reason_field": "usage_report_rejection",
-        "reason_enum": "USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND"
+        "reason_enum": "USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "message": "no such transaction",
+          "usage_report_rejection": {
+            "reason": "USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND"
+          }
+        }
       },
       "peer_message": "no such transaction"
     },
@@ -158,7 +192,14 @@
         "message": "dispute window closed",
         "metadata": null,
         "reason_field": "dispute_failure",
-        "reason_enum": "DISPUTE_FAILURE_REASON_WINDOW_EXPIRED"
+        "reason_enum": "DISPUTE_FAILURE_REASON_WINDOW_EXPIRED",
+        "detail": {
+          "dispute_failure": {
+            "reason": "DISPUTE_FAILURE_REASON_WINDOW_EXPIRED"
+          },
+          "domain": "fora.v1.ExchangeService",
+          "message": "dispute window closed"
+        }
       },
       "peer_message": "dispute window closed"
     },
@@ -189,7 +230,14 @@
         "message": "entry rejected",
         "metadata": null,
         "reason_field": "catalog_rejection",
-        "reason_enum": "CATALOG_REJECTION_REASON_MALFORMED_ENTRY"
+        "reason_enum": "CATALOG_REJECTION_REASON_MALFORMED_ENTRY",
+        "detail": {
+          "catalog_rejection": {
+            "reason": "CATALOG_REJECTION_REASON_MALFORMED_ENTRY"
+          },
+          "domain": "fora.v1.CatalogService",
+          "message": "entry rejected"
+        }
       },
       "peer_message": "entry rejected"
     },
@@ -220,7 +268,14 @@
         "message": "challenge not found",
         "metadata": null,
         "reason_field": "domain_verification_failure",
-        "reason_enum": "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_NOT_FOUND"
+        "reason_enum": "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_NOT_FOUND",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "domain_verification_failure": {
+            "reason": "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_NOT_FOUND"
+          },
+          "message": "challenge not found"
+        }
       },
       "peer_message": "challenge not found"
     },
@@ -250,7 +305,13 @@
         "message": "helpers: signature expired",
         "metadata": null,
         "reason_field": "request_auth_failure",
-        "reason_enum": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE"
+        "reason_enum": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE",
+        "detail": {
+          "message": "helpers: signature expired",
+          "request_auth_failure": {
+            "reason": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE"
+          }
+        }
       },
       "peer_message": "helpers: signature expired"
     },
@@ -278,7 +339,11 @@
         "message": "internal error",
         "metadata": null,
         "reason_field": "",
-        "reason_enum": ""
+        "reason_enum": "",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "message": "internal error"
+        }
       },
       "peer_message": "internal error"
     },
@@ -314,7 +379,17 @@
           "retryAfterSeconds": "30"
         },
         "reason_field": "transaction_denial",
-        "reason_enum": "DENIAL_REASON_RATE_LIMITED"
+        "reason_enum": "DENIAL_REASON_RATE_LIMITED",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "message": "slow down",
+          "metadata": {
+            "retryAfterSeconds": "30"
+          },
+          "transaction_denial": {
+            "reason": "DENIAL_REASON_RATE_LIMITED"
+          }
+        }
       },
       "peer_message": "slow down"
     },
@@ -332,7 +407,395 @@
         "message": "",
         "metadata": null,
         "reason_field": "",
-        "reason_enum": ""
+        "reason_enum": "",
+        "detail": null
+      },
+      "peer_message": ""
+    },
+    {
+      "name": "transaction_denial_insufficient_balance.value_only",
+      "code": "permission_denied",
+      "http_status": 403,
+      "envelope": {
+        "code": "permission_denied",
+        "details": [
+          {
+            "type": "fora.v1.ErrorDetail",
+            "value": "Cg9iYWxhbmNlIHRvbyBsb3cSF2ZvcmEudjEuRXhjaGFuZ2VTZXJ2aWNlUgIIAg"
+          }
+        ],
+        "message": "balance too low"
+      },
+      "expect": {
+        "has_detail": true,
+        "domain": "fora.v1.ExchangeService",
+        "message": "balance too low",
+        "metadata": null,
+        "reason_field": "transaction_denial",
+        "reason_enum": "DENIAL_REASON_INSUFFICIENT_BALANCE",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "message": "balance too low",
+          "transaction_denial": {
+            "reason": "DENIAL_REASON_INSUFFICIENT_BALANCE"
+          }
+        }
+      },
+      "peer_message": "balance too low"
+    },
+    {
+      "name": "retrieval_auth_failure_url_expired.value_only",
+      "code": "unauthenticated",
+      "http_status": 401,
+      "envelope": {
+        "code": "unauthenticated",
+        "details": [
+          {
+            "type": "fora.v1.ErrorDetail",
+            "value": "ChJzaWduZWQgVVJMIGV4cGlyZWQSDGZvcmEudjEuRWRnZXoCCAE"
+          }
+        ],
+        "message": "signed URL expired"
+      },
+      "expect": {
+        "has_detail": true,
+        "domain": "fora.v1.Edge",
+        "message": "signed URL expired",
+        "metadata": null,
+        "reason_field": "retrieval_auth_failure",
+        "reason_enum": "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED",
+        "detail": {
+          "domain": "fora.v1.Edge",
+          "message": "signed URL expired",
+          "retrieval_auth_failure": {
+            "reason": "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED"
+          }
+        }
+      },
+      "peer_message": "signed URL expired"
+    },
+    {
+      "name": "registration_failure_with_field_errors.value_only",
+      "code": "invalid_argument",
+      "http_status": 400,
+      "envelope": {
+        "code": "invalid_argument",
+        "details": [
+          {
+            "type": "fora.v1.ErrorDetail",
+            "value": "ChpyZWdpc3RyYXRpb24gZGF0YSByZWplY3RlZBIXZm9yYS52MS5FeGNoYW5nZVNlcnZpY2ViOAgGEjQKFC9vcGVyYXRvci9sZWdhbF9uYW1lEhxyZXF1aXJlZCBwcm9wZXJ0eSBpcyBtaXNzaW5n"
+          }
+        ],
+        "message": "registration data rejected"
+      },
+      "expect": {
+        "has_detail": true,
+        "domain": "fora.v1.ExchangeService",
+        "message": "registration data rejected",
+        "metadata": null,
+        "reason_field": "registration_failure",
+        "reason_enum": "REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "message": "registration data rejected",
+          "registration_failure": {
+            "field_errors": [
+              {
+                "error": "required property is missing",
+                "path": "/operator/legal_name"
+              }
+            ],
+            "reason": "REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA"
+          }
+        }
+      },
+      "peer_message": "registration data rejected"
+    },
+    {
+      "name": "usage_report_rejection.value_only",
+      "code": "failed_precondition",
+      "http_status": 400,
+      "envelope": {
+        "code": "failed_precondition",
+        "details": [
+          {
+            "type": "fora.v1.ErrorDetail",
+            "value": "ChNubyBzdWNoIHRyYW5zYWN0aW9uEhdmb3JhLnYxLkV4Y2hhbmdlU2VydmljZYIBAggB"
+          }
+        ],
+        "message": "no such transaction"
+      },
+      "expect": {
+        "has_detail": true,
+        "domain": "fora.v1.ExchangeService",
+        "message": "no such transaction",
+        "metadata": null,
+        "reason_field": "usage_report_rejection",
+        "reason_enum": "USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "message": "no such transaction",
+          "usage_report_rejection": {
+            "reason": "USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND"
+          }
+        }
+      },
+      "peer_message": "no such transaction"
+    },
+    {
+      "name": "dispute_failure.value_only",
+      "code": "failed_precondition",
+      "http_status": 400,
+      "envelope": {
+        "code": "failed_precondition",
+        "details": [
+          {
+            "type": "fora.v1.ErrorDetail",
+            "value": "ChVkaXNwdXRlIHdpbmRvdyBjbG9zZWQSF2ZvcmEudjEuRXhjaGFuZ2VTZXJ2aWNlagIIAw"
+          }
+        ],
+        "message": "dispute window closed"
+      },
+      "expect": {
+        "has_detail": true,
+        "domain": "fora.v1.ExchangeService",
+        "message": "dispute window closed",
+        "metadata": null,
+        "reason_field": "dispute_failure",
+        "reason_enum": "DISPUTE_FAILURE_REASON_WINDOW_EXPIRED",
+        "detail": {
+          "dispute_failure": {
+            "reason": "DISPUTE_FAILURE_REASON_WINDOW_EXPIRED"
+          },
+          "domain": "fora.v1.ExchangeService",
+          "message": "dispute window closed"
+        }
+      },
+      "peer_message": "dispute window closed"
+    },
+    {
+      "name": "catalog_rejection.value_only",
+      "code": "invalid_argument",
+      "http_status": 400,
+      "envelope": {
+        "code": "invalid_argument",
+        "details": [
+          {
+            "type": "fora.v1.ErrorDetail",
+            "value": "Cg5lbnRyeSByZWplY3RlZBIWZm9yYS52MS5DYXRhbG9nU2VydmljZVoCCAU"
+          }
+        ],
+        "message": "entry rejected"
+      },
+      "expect": {
+        "has_detail": true,
+        "domain": "fora.v1.CatalogService",
+        "message": "entry rejected",
+        "metadata": null,
+        "reason_field": "catalog_rejection",
+        "reason_enum": "CATALOG_REJECTION_REASON_MALFORMED_ENTRY",
+        "detail": {
+          "catalog_rejection": {
+            "reason": "CATALOG_REJECTION_REASON_MALFORMED_ENTRY"
+          },
+          "domain": "fora.v1.CatalogService",
+          "message": "entry rejected"
+        }
+      },
+      "peer_message": "entry rejected"
+    },
+    {
+      "name": "domain_verification_failure.value_only",
+      "code": "failed_precondition",
+      "http_status": 400,
+      "envelope": {
+        "code": "failed_precondition",
+        "details": [
+          {
+            "type": "fora.v1.ErrorDetail",
+            "value": "ChNjaGFsbGVuZ2Ugbm90IGZvdW5kEhdmb3JhLnYxLkV4Y2hhbmdlU2VydmljZXICCAE"
+          }
+        ],
+        "message": "challenge not found"
+      },
+      "expect": {
+        "has_detail": true,
+        "domain": "fora.v1.ExchangeService",
+        "message": "challenge not found",
+        "metadata": null,
+        "reason_field": "domain_verification_failure",
+        "reason_enum": "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_NOT_FOUND",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "domain_verification_failure": {
+            "reason": "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_NOT_FOUND"
+          },
+          "message": "challenge not found"
+        }
+      },
+      "peer_message": "challenge not found"
+    },
+    {
+      "name": "request_auth_failure_signature_stale.value_only",
+      "code": "unauthenticated",
+      "http_status": 401,
+      "envelope": {
+        "code": "unauthenticated",
+        "details": [
+          {
+            "type": "fora.v1.ErrorDetail",
+            "value": "ChpoZWxwZXJzOiBzaWduYXR1cmUgZXhwaXJlZIoBAggD"
+          }
+        ],
+        "message": "helpers: signature expired"
+      },
+      "expect": {
+        "has_detail": true,
+        "domain": "",
+        "message": "helpers: signature expired",
+        "metadata": null,
+        "reason_field": "request_auth_failure",
+        "reason_enum": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE",
+        "detail": {
+          "message": "helpers: signature expired",
+          "request_auth_failure": {
+            "reason": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE"
+          }
+        }
+      },
+      "peer_message": "helpers: signature expired"
+    },
+    {
+      "name": "generic_detail_no_reason.value_only",
+      "code": "internal",
+      "http_status": 500,
+      "envelope": {
+        "code": "internal",
+        "details": [
+          {
+            "type": "fora.v1.ErrorDetail",
+            "value": "Cg5pbnRlcm5hbCBlcnJvchIXZm9yYS52MS5FeGNoYW5nZVNlcnZpY2U"
+          }
+        ],
+        "message": "internal error"
+      },
+      "expect": {
+        "has_detail": true,
+        "domain": "fora.v1.ExchangeService",
+        "message": "internal error",
+        "metadata": null,
+        "reason_field": "",
+        "reason_enum": "",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "message": "internal error"
+        }
+      },
+      "peer_message": "internal error"
+    },
+    {
+      "name": "metadata_keys_are_caller_chosen.value_only",
+      "code": "resource_exhausted",
+      "http_status": 429,
+      "envelope": {
+        "code": "resource_exhausted",
+        "details": [
+          {
+            "type": "fora.v1.ErrorDetail",
+            "value": "CglzbG93IGRvd24SF2ZvcmEudjEuRXhjaGFuZ2VTZXJ2aWNlGhcKEXJldHJ5QWZ0ZXJTZWNvbmRzEgIzMFICCAM"
+          }
+        ],
+        "message": "slow down"
+      },
+      "expect": {
+        "has_detail": true,
+        "domain": "fora.v1.ExchangeService",
+        "message": "slow down",
+        "metadata": {
+          "retryAfterSeconds": "30"
+        },
+        "reason_field": "transaction_denial",
+        "reason_enum": "DENIAL_REASON_RATE_LIMITED",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "message": "slow down",
+          "metadata": {
+            "retryAfterSeconds": "30"
+          },
+          "transaction_denial": {
+            "reason": "DENIAL_REASON_RATE_LIMITED"
+          }
+        }
+      },
+      "peer_message": "slow down"
+    },
+    {
+      "name": "value_wins_over_debug",
+      "code": "permission_denied",
+      "http_status": 403,
+      "envelope": {
+        "code": "permission_denied",
+        "details": [
+          {
+            "debug": {
+              "disputeFailure": {
+                "reason": "DISPUTE_FAILURE_REASON_WINDOW_EXPIRED"
+              },
+              "domain": "fora.v1.ExchangeService",
+              "message": "dispute window closed"
+            },
+            "type": "fora.v1.ErrorDetail",
+            "value": "Cg9iYWxhbmNlIHRvbyBsb3cSF2ZvcmEudjEuRXhjaGFuZ2VTZXJ2aWNlUgIIAg"
+          }
+        ],
+        "message": "balance too low"
+      },
+      "expect": {
+        "has_detail": true,
+        "domain": "fora.v1.ExchangeService",
+        "message": "balance too low",
+        "metadata": null,
+        "reason_field": "transaction_denial",
+        "reason_enum": "DENIAL_REASON_INSUFFICIENT_BALANCE",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "message": "balance too low",
+          "transaction_denial": {
+            "reason": "DENIAL_REASON_INSUFFICIENT_BALANCE"
+          }
+        }
+      },
+      "peer_message": "balance too low"
+    },
+    {
+      "name": "undecodable_value_skipped",
+      "code": "permission_denied",
+      "http_status": 403,
+      "envelope": {
+        "code": "permission_denied",
+        "details": [
+          {
+            "debug": {
+              "domain": "fora.v1.ExchangeService",
+              "message": "balance too low",
+              "transactionDenial": {
+                "reason": "DENIAL_REASON_INSUFFICIENT_BALANCE"
+              }
+            },
+            "type": "fora.v1.ErrorDetail",
+            "value": "aWdub3JlZA"
+          }
+        ],
+        "message": "balance too low"
+      },
+      "expect": {
+        "has_detail": false,
+        "domain": "",
+        "message": "",
+        "metadata": null,
+        "reason_field": "",
+        "reason_enum": "",
+        "detail": null
       },
       "peer_message": ""
     }

@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"testing"
 
 	connectrpc "connectrpc.com/connect"
@@ -84,6 +85,11 @@ func TestConnectErrorCorpusReplay(t *testing.T) {
 			if field != v.Expect.ReasonFrom || enum != v.Expect.ReasonEnum {
 				t.Errorf("reason = (%q, %q), want (%q, %q)",
 					field, enum, v.Expect.ReasonFrom, v.Expect.ReasonEnum)
+			}
+			// The whole detail, not only the projection: a nested member lost on the way
+			// (field_errors, a metadata entry) fails here.
+			if got := protoJSONOf(detail); !reflect.DeepEqual(got, v.Expect.Detail) {
+				t.Errorf("detail = %v, want %v", got, v.Expect.Detail)
 			}
 		})
 	}
