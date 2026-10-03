@@ -95,7 +95,7 @@ parsing responses itself or re-implementing request signing.
 |---|---|---|---|
 | Pre-signing hook: change a request after the SDK built it, before it is signed | `connect.WithBeforeSign` | `beforeSign` in `ClientOptions` | `ClientConfig.before_sign` |
 | Raw mode: send a body exactly as given, still signed and decoded | `connect.WithRawBody` | `new RawBody(body)` in place of the request | `RawBody(body)` in place of the request |
-| Strict decoding: refuse an unknown field, a field-level or a cross-field violation | `connect.WithStrictDecoding` | `strict: true` | `ClientConfig(strict=True)` |
+| Strict decoding: refuse an unknown field, a field-level or a cross-field violation, in a success answer or in an error envelope and its `ErrorDetail` | `connect.WithStrictDecoding` | `strict: true` | `ClientConfig(strict=True)` |
 | The Connect code of a refusal, on its own field | `CallError.Code` | `ForaCallError.code` | `CallError.code` |
 | The verified binding of each delivery URL | `connect.WithDeliveries`, `Content.Binding` | `ExecuteResult.deliveries`, `Content.binding` | `ExecuteResult.deliveries`, `Content.binding` |
 | The operator RPCs: `AdminService` and domain verification | `connect.NewAdminClient` | `createAdminClient` | `AdminClient` |
@@ -114,6 +114,13 @@ A few rules hold in every language:
   [JSON Schemas](/reference/json-schemas/)); Go reads the same shape from the
   descriptor. A server emits unpopulated fields, so a `null` member is read as an absent
   one.
+- **Strict decoding checks error answers too.** The Connect error envelope may carry
+  only `code`, `message` and `details`, must name a known Connect code, and must carry
+  well-formed details. Every `ErrorDetail` in it, the decoded binary `value` and the
+  `debug` projection alike, is checked against the strict `ErrorDetail` schema and its
+  rules. A refused envelope is malformed, with the peer's Connect code still on the
+  error's code field and no detail. An empty or non-JSON error body comes from a gateway
+  rather than the service, so its HTTP status still classifies it.
 - **Error details are read from the binary `value`.** A Connect error carries its typed
   reason as `details[].value`, the binary `ErrorDetail`. All three SDKs read it; the JSON
   SDKs fall back to the lowerCamelCase `debug` projection only when `value` is absent.

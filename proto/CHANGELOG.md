@@ -111,7 +111,20 @@ request only where it means to, and check every answer through the SDK's own dec
   unknown field at any depth, or breaking a field-level or cross-field rule. Python and
   TypeScript check the published strict JSON Schema of the response message and the
   SDK's cross-field rules, reading a `null` member as absent; Go checks the descriptor's
-  unknown fields and runs protovalidate.
+  unknown fields and runs protovalidate. An error answer is checked too. The Connect
+  error envelope may carry only `code`, `message` and `details`, must name one of the
+  sixteen Connect codes, and its details must be well formed: each entry carries only
+  `type`, `value` and `debug`, a non-empty `type`, a base64 `value` and at least one of
+  the two. Every `ErrorDetail` in it is checked against the strict `ErrorDetail` schema
+  and its rules, both the decoded binary `value` (an unknown field in the binary
+  encoding included) and the `debug` projection. A refused envelope is malformed, keeps
+  the Connect code on `code`/`Code` and carries no detail; an empty or non-JSON error
+  body is a gateway's answer and is still classified by its status. Without strict
+  decoding an error answer is read as before. `connect-error-vectors.json` gains a
+  `strict_malformed` column on every row and three rows for it: an envelope with an
+  unknown top-level member, a `debug` projection with an unknown field, and a
+  `registration_failure` whose `field_errors` break the RegistrationFailure message
+  rule. All three SDKs replay every row strict and non-strict.
 - **Error decoding.** The JSON SDKs read a Connect error's `ErrorDetail` from the binary
   `details[].value`, with a table-driven decoder and no protobuf dependency, and fall
   back to the `debug` projection only when `value` is absent. A value that does not

@@ -72,6 +72,15 @@ any depth, a field-level violation or a cross-field violation refuses the answer
 malformed. The Go client, `connect.WithStrictDecoding()`, applies the same contract from
 the compiled descriptor: it refuses unknown fields and runs `protovalidate`.
 
+An error answer is checked in strict decoding too. The `ErrorDetail` a Connect error
+carries is validated against `fora.v1.ErrorDetail.schema.strict.json` and the cross-field
+rules: the binary `details[].value` once it is decoded, with an unknown field in the
+binary encoding refused as well, and the lowerCamelCase `debug` projection read under the
+proto field names. The schema does not express oneof exclusivity, so a projection that
+sets two reason members is refused separately. The envelope around the detail is checked
+against the Connect protocol: only `code`, `message` and `details`, a known Connect code,
+and well-formed details entries. A refusal is malformed and keeps the peer's Connect code.
+
 ## What the schemas accept
 
 The schemas describe canonical proto-JSON as the FORA wire carries it. The two variants
