@@ -334,7 +334,7 @@
               "type": "integer"
             }
           ],
-          "description": "Why no offers are available for this URI.\n Present when `offers` is empty. Enables agents/Brokers to distinguish\n \"resource not in catalog\" from \"resource blocked for your use case\" without\n trial-and-error transactions. Analogous to OpenRTB nbr codes and\n Shutterstock per-item error metadata in batch responses.",
+          "description": "Why no offers are available for this URI.\n Set only when `offers` is empty, and not always then: a resource the\n requester's scopes leave with no presentable offer is answered with empty\n `offers` and this field unset (the existence-hiding rule, stated on\n Requester.scopes). Enables agents/Brokers to distinguish\n \"resource not in catalog\" from \"resource blocked for your use case\" without\n trial-and-error transactions. Analogous to OpenRTB nbr codes and\n Shutterstock per-item error metadata in batch responses.",
           "title": "Offer Absence Reason"
         },
         "discovery_method": {

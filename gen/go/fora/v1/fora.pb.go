@@ -115,6 +115,10 @@ func (DiscoveryMethod) EnumDescriptor() ([]byte, []int) {
 // OfferAbsenceReason — Why no offers are available for a requested URI.
 // Used in OfferGroup.absence_reason when offers is empty.
 // Enables diagnostic feedback without requiring a transaction attempt.
+//
+// No value reports that the requester's scopes do not cover a resource. When
+// they leave no presentable offer, the Exchange answers with no offers and no
+// absence reason, under the existence-hiding rule stated on Requester.scopes.
 type OfferAbsenceReason int32
 
 const (
@@ -134,12 +138,18 @@ const (
 	OfferAbsenceReason_OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE OfferAbsenceReason = 4
 	// Exchange is not authorized by the provider to sell this resource.
 	OfferAbsenceReason_OFFER_ABSENCE_REASON_NOT_AUTHORIZED OfferAbsenceReason = 5
-	// Requester's scopes/subscription do not cover this resource. Applies wherever
-	// access is gated by subscription or scope entitlements (not only enterprise
-	// deployments): the resource exists but the requester's delegation token or
-	// subscription does not grant it. The Exchange returns this so the requester
-	// learns the resource is reachable under the right subscription/scope. (Where
-	// existence itself must stay hidden, the Exchange MAY omit it silently instead.)
+	// DEPRECATED, never sent. An Exchange MUST NOT send this value. When the
+	// requester's scopes leave no presentable offer for a resource, the Exchange
+	// answers with no offers and no absence reason, exactly as for any resource
+	// with nothing to offer, so the requester never learns the resource exists
+	// (the existence-hiding rule, stated on Requester.scopes). An offer the
+	// Exchange did present is honoured until it expires, so no scope refusal
+	// follows at purchase either. A receiver treats this value as unknown.
+	//
+	// The number is retained because removing it would break the v1 wire
+	// contract, and it MUST NOT be reused or given a new meaning.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	OfferAbsenceReason_OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT OfferAbsenceReason = 6
 	// Consumer encountered ext_critical keys it does not recognize.
 	// The unrecognized keys SHOULD be listed in the OfferGroup's ext field
@@ -886,6 +896,11 @@ func (ResourceMutability) EnumDescriptor() ([]byte, []int) {
 // DenialReason — Standard vocabulary for transaction denial.
 // Logged as enum values, not strings. Enables automated processing
 // of denial patterns across the ecosystem.
+//
+// No value refuses a purchase because the requester's scopes do not cover the
+// resource. An offer the Exchange presented is honoured until it expires, and
+// a requester is never presented an offer its scopes do not cover (the
+// existence-hiding rule, stated on Requester.scopes).
 type DenialReason int32
 
 const (
@@ -900,7 +915,18 @@ const (
 	DenialReason_DENIAL_REASON_SIGNATURE_INVALID         DenialReason = 8  // Offer signature verification failed
 	DenialReason_DENIAL_REASON_QUOTA_EXCEEDED            DenialReason = 9  // Subscription access count exhausted for this period
 	DenialReason_DENIAL_REASON_DELEGATION_INVALID        DenialReason = 10 // Delegation missing, unverifiable, expired, holder binding failed, or scopes/caps do not cover the request
-	DenialReason_DENIAL_REASON_SCOPE_INSUFFICIENT        DenialReason = 11 // Requester scopes don't cover this resource
+	// DEPRECATED, never sent. An Exchange MUST NOT send this value. An offer the
+	// Exchange presented is honoured until it expires, so a purchase is never
+	// refused for scope. A resource the requester's scopes leave with no
+	// presentable offer is answered at discovery with no offers and no absence
+	// reason, so the requester never holds an offer to buy (the existence-hiding
+	// rule, stated on Requester.scopes). A receiver treats this value as unknown.
+	//
+	// The number is retained because removing it would break the v1 wire
+	// contract, and it MUST NOT be reused or given a new meaning.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
+	DenialReason_DENIAL_REASON_SCOPE_INSUFFICIENT DenialReason = 11
 	// Entitlement family — subscription/entitlement access failures on a
 	// subscription-gated offer. Finer-grained than DELEGATION_INVALID so callers
 	// and operator tooling can triage each mode. These single-source the
@@ -2352,7 +2378,10 @@ type OfferGroup struct {
 	//	for the agent to understand how the resource was found.
 	DiscoveryMethod *DiscoveryMethod `protobuf:"varint,3,opt,name=discovery_method,json=discoveryMethod,proto3,enum=fora.v1.DiscoveryMethod,oneof" json:"discovery_method,omitempty"`
 	// Why no offers are available for this URI.
-	// Present when `offers` is empty. Enables agents/Brokers to distinguish
+	// Set only when `offers` is empty, and not always then: a resource the
+	// requester's scopes leave with no presentable offer is answered with empty
+	// `offers` and this field unset (the existence-hiding rule, stated on
+	// Requester.scopes). Enables agents/Brokers to distinguish
 	// "resource not in catalog" from "resource blocked for your use case" without
 	// trial-and-error transactions. Analogous to OpenRTB nbr codes and
 	// Shutterstock per-item error metadata in batch responses.
@@ -4249,10 +4278,19 @@ type Requester struct {
 	Name *string `protobuf:"bytes,4,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	// Entitlement scopes. Declare what the requester can access.
 	//
-	// The Exchange filters its catalog to resources matching these scopes.
-	// Resources outside the scopes are not returned — the requester never
-	// learns they exist. This is the enforcement mechanism for both enterprise
-	// RBAC and open-market subscription entitlements.
+	// The Exchange filters its catalog to resources matching these scopes. This
+	// is the enforcement mechanism for both enterprise RBAC and open-market
+	// subscription entitlements.
+	//
+	// EXISTENCE HIDING. A requester never learns about a resource outside its
+	// scopes. When the scopes leave no presentable offer for a resource, the
+	// Exchange answers with no offers and no absence reason (an OfferGroup with
+	// empty `offers` and `absence_reason` unset), exactly as for any resource
+	// with nothing to offer. A Broker relaying that answer adds no reason of its
+	// own. At purchase, an offer the Exchange presented is honoured until it
+	// expires, so a scope refusal cannot arise there. No reason in the protocol
+	// reports a scope shortfall: OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT and
+	// DENIAL_REASON_SCOPE_INSUFFICIENT are deprecated and never sent.
 	//
 	// Scope format: colon-separated segments, "{domain}:{permission}" or
 	// "{profile}:{permission}", optionally multi-segment ("dist:US:CA");
@@ -8219,12 +8257,15 @@ type DiscoveryResponse struct {
 	// (unlike OfferGroup). A consumer needing the filtered axes calls
 	// DiscoverResources.
 	//
-	// Existence-oracle note: an authorization-flavored reason (SCOPE_INSUFFICIENT,
-	// NOT_AUTHORIZED, NOT_IN_CATALOG, CONTENT_BLOCKED) confirms a resource exists
+	// Existence-oracle note: an authorization-flavored reason (NOT_AUTHORIZED,
+	// NOT_IN_CATALOG, CONTENT_BLOCKED) confirms a resource exists
 	// and why access was refused. Resolve surfaces the same oracle at the broker
 	// that OfferGroup.absence_reason does at the Exchange, so the same mitigation
 	// applies: where existence itself must stay hidden, the Broker MAY omit the
 	// reason (leave this unset) rather than reveal it. See the threat model.
+	// A scope shortfall never reaches this field: the Exchange answers it with
+	// no absence reason, and the Broker MUST NOT supply one (the existence-hiding
+	// rule, stated on Requester.scopes).
 	AbsenceReason *OfferAbsenceReason `protobuf:"varint,16,opt,name=absence_reason,json=absenceReason,proto3,enum=fora.v1.OfferAbsenceReason,oneof" json:"absence_reason,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
@@ -11177,15 +11218,15 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x19DISCOVERY_METHOD_EXCHANGE\x10\x01\x12\x1b\n" +
 	"\x17DISCOVERY_METHOD_SEARCH\x10\x02\x12#\n" +
 	"\x1fDISCOVERY_METHOD_RECOMMENDATION\x10\x03\x12 \n" +
-	"\x1cDISCOVERY_METHOD_SYNDICATION\x10\x04*\xa3\x03\n" +
+	"\x1cDISCOVERY_METHOD_SYNDICATION\x10\x04*\xa7\x03\n" +
 	"\x12OfferAbsenceReason\x12$\n" +
 	" OFFER_ABSENCE_REASON_UNSPECIFIED\x10\x00\x12'\n" +
 	"#OFFER_ABSENCE_REASON_NOT_IN_CATALOG\x10\x01\x12(\n" +
 	"$OFFER_ABSENCE_REASON_CONTENT_BLOCKED\x10\x02\x12-\n" +
 	")OFFER_ABSENCE_REASON_RESTRICTION_FILTERED\x10\x03\x120\n" +
 	",OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE\x10\x04\x12'\n" +
-	"#OFFER_ABSENCE_REASON_NOT_AUTHORIZED\x10\x05\x12+\n" +
-	"'OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT\x10\x06\x123\n" +
+	"#OFFER_ABSENCE_REASON_NOT_AUTHORIZED\x10\x05\x12/\n" +
+	"'OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT\x10\x06\x1a\x02\b\x01\x123\n" +
 	"/OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION\x10\a\x12(\n" +
 	"$OFFER_ABSENCE_REASON_BUDGET_EXCEEDED\x10\b*q\n" +
 	"\rTermSemantics\x12\x1e\n" +
@@ -11254,7 +11295,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x1fRESOURCE_MUTABILITY_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aRESOURCE_MUTABILITY_STATIC\x10\x01\x12\x1f\n" +
 	"\x1bRESOURCE_MUTABILITY_DYNAMIC\x10\x02\x12\x1c\n" +
-	"\x18RESOURCE_MUTABILITY_LIVE\x10\x03*\x8a\x06\n" +
+	"\x18RESOURCE_MUTABILITY_LIVE\x10\x03*\x8e\x06\n" +
 	"\fDenialReason\x12\x1d\n" +
 	"\x19DENIAL_REASON_UNSPECIFIED\x10\x00\x12\"\n" +
 	"\x1eDENIAL_REASON_ACCOUNT_INACTIVE\x10\x01\x12&\n" +
@@ -11267,8 +11308,8 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x1fDENIAL_REASON_SIGNATURE_INVALID\x10\b\x12 \n" +
 	"\x1cDENIAL_REASON_QUOTA_EXCEEDED\x10\t\x12$\n" +
 	" DENIAL_REASON_DELEGATION_INVALID\x10\n" +
-	"\x12$\n" +
-	" DENIAL_REASON_SCOPE_INSUFFICIENT\x10\v\x12%\n" +
+	"\x12(\n" +
+	" DENIAL_REASON_SCOPE_INSUFFICIENT\x10\v\x1a\x02\b\x01\x12%\n" +
 	"!DENIAL_REASON_ENTITLEMENT_MISSING\x10\f\x12'\n" +
 	"#DENIAL_REASON_ENTITLEMENT_MALFORMED\x10\r\x12%\n" +
 	"!DENIAL_REASON_ENTITLEMENT_EXPIRED\x10\x0e\x12)\n" +
