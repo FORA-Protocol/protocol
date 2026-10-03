@@ -5440,7 +5440,12 @@ type TransactionResponse struct {
 	AgentIdentityHash string `protobuf:"bytes,10,opt,name=agent_identity_hash,json=agentIdentityHash,proto3" json:"agent_identity_hash,omitempty"`
 	// Per-offer results (one entry per committed item, in original order).
 	Items []*TransactionResultItem `protobuf:"bytes,13,rep,name=items,proto3" json:"items,omitempty"`
-	// Aggregate cost across all items.
+	// Aggregate cost of the purchased items (those without denial_reason): their
+	// cost.amount summed as exact decimals, in their one shared currency.
+	// unit_cost is unset. UNSET when the purchased items span more than one
+	// currency: amounts are never summed across currencies, and currency
+	// conversion is out of scope for this version. A caller that needs the totals
+	// then sums each item's cost per currency itself.
 	TotalCost *Cost `protobuf:"bytes,14,opt,name=total_cost,json=totalCost,proto3,oneof" json:"total_cost,omitempty"`
 	// Post-transaction quota state. Tells the agent how much quota remains
 	// after this transaction. Enables proactive throttling ("1 access left").
@@ -8630,8 +8635,8 @@ type BrokerTransactionResponse struct {
 	// among the charged items. An item is charged when it carries neither
 	// denial_reason nor refusal; its cost.amount is added, as an exact decimal,
 	// into the entry for its cost.currency. Amounts are never summed across
-	// currencies and never converted. unit_cost is unset. Empty when no item was
-	// charged.
+	// currencies and never converted: currency conversion is out of scope for
+	// this version. unit_cost is unset. Empty when no item was charged.
 	Totals []*Cost `protobuf:"bytes,4,rep,name=totals,proto3" json:"totals,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`

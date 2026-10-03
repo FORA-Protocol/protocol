@@ -2558,7 +2558,12 @@ message TransactionResponse {
   // Per-offer results (one entry per committed item, in original order).
   repeated TransactionResultItem items = 13;
 
-  // Aggregate cost across all items.
+  // Aggregate cost of the purchased items (those without denial_reason): their
+  // cost.amount summed as exact decimals, in their one shared currency.
+  // unit_cost is unset. UNSET when the purchased items span more than one
+  // currency: amounts are never summed across currencies, and currency
+  // conversion is out of scope for this version. A caller that needs the totals
+  // then sums each item's cost per currency itself.
   optional Cost total_cost = 14;
 
   // Post-transaction quota state. Tells the agent how much quota remains
@@ -4200,8 +4205,8 @@ message BrokerTransactionResponse {
   // among the charged items. An item is charged when it carries neither
   // denial_reason nor refusal; its cost.amount is added, as an exact decimal,
   // into the entry for its cost.currency. Amounts are never summed across
-  // currencies and never converted. unit_cost is unset. Empty when no item was
-  // charged.
+  // currencies and never converted: currency conversion is out of scope for
+  // this version. unit_cost is unset. Empty when no item was charged.
   repeated Cost totals = 4;
 
   // Extension point

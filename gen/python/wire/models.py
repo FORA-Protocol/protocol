@@ -2228,7 +2228,7 @@ class BrokerTransactionResponse(WireModel):
     )
     totals: list[Cost] | None = Field(
         None,
-        description='Charged totals, one per currency, in the order each currency first appears\n among the charged items. An item is charged when it carries neither\n denial_reason nor refusal; its cost.amount is added, as an exact decimal,\n into the entry for its cost.currency. Amounts are never summed across\n currencies and never converted. unit_cost is unset. Empty when no item was\n charged.',
+        description='Charged totals, one per currency, in the order each currency first appears\n among the charged items. An item is charged when it carries neither\n denial_reason nor refusal; its cost.amount is added, as an exact decimal,\n into the entry for its cost.currency. Amounts are never summed across\n currencies and never converted: currency conversion is out of scope for\n this version. unit_cost is unset. Empty when no item was charged.',
     )
     ver: str | None = Field(
         '',
@@ -2255,7 +2255,8 @@ class TransactionResponse(WireModel):
         description='Post-transaction quota state. Tells the agent how much quota remains\n after this transaction. Enables proactive throttling ("1 access left").\n Multiple entries for multi-dimensional quotas.',
     )
     total_cost: Cost | None = Field(
-        None, description='Aggregate cost across all items.'
+        None,
+        description="Aggregate cost of the purchased items (those without denial_reason): their\n cost.amount summed as exact decimals, in their one shared currency.\n unit_cost is unset. UNSET when the purchased items span more than one\n currency: amounts are never summed across currencies, and currency\n conversion is out of scope for this version. A caller that needs the totals\n then sums each item's cost per currency itself.",
     )
     ver: str | None = Field(
         '',

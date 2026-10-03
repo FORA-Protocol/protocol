@@ -727,7 +727,7 @@
     },
     "total_cost": {
       "$ref": "#/$defs/fora.v1.Cost",
-      "description": "Aggregate cost across all items."
+      "description": "Aggregate cost of the purchased items (those without denial_reason): their\n cost.amount summed as exact decimals, in their one shared currency.\n unit_cost is unset. UNSET when the purchased items span more than one\n currency: amounts are never summed across currencies, and currency\n conversion is out of scope for this version. A caller that needs the totals\n then sums each item's cost per currency itself."
     },
     "ver": {
       "default": "",

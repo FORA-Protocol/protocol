@@ -758,7 +758,7 @@
       "type": "array"
     },
     "totals": {
-      "description": "Charged totals, one per currency, in the order each currency first appears\n among the charged items. An item is charged when it carries neither\n denial_reason nor refusal; its cost.amount is added, as an exact decimal,\n into the entry for its cost.currency. Amounts are never summed across\n currencies and never converted. unit_cost is unset. Empty when no item was\n charged.",
+      "description": "Charged totals, one per currency, in the order each currency first appears\n among the charged items. An item is charged when it carries neither\n denial_reason nor refusal; its cost.amount is added, as an exact decimal,\n into the entry for its cost.currency. Amounts are never summed across\n currencies and never converted: currency conversion is out of scope for\n this version. unit_cost is unset. Empty when no item was charged.",
       "items": {
         "$ref": "#/$defs/fora.v1.Cost"
       },
