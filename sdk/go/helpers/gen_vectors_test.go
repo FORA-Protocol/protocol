@@ -434,13 +434,15 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 		// Freshness is fail-closed and mirrors core.Verifier.expired: a missing
 		// expires_at is expired (not eternal); a present bound is inclusive at now.
 		expired := offer.GetExpiresAt() == nil || offer.GetExpiresAt().AsTime().Before(time.Unix(nowUnix, 0))
+		// A metered offer must carry its estimate (core.Verifier's last check).
+		estimateErr := CheckMeteredEstimate(offer)
 		return offerVerifyVector{
 			Name:              name,
 			Exchange:          exchange,
 			ExchangePubB64URL: pubB64URL,
 			OfferJSON:         offerCanonicalProtoJSON(t, offer),
 			NowUnix:           nowUnix,
-			ExpectedVerified:  verifyErr == nil && !expired,
+			ExpectedVerified:  verifyErr == nil && !expired && estimateErr == nil,
 			ExchangeSeedHex:   hex.EncodeToString(exSeed),
 		}
 	}
@@ -473,7 +475,7 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 		OfferId:        "offer-repeated",
 		ExpiresAt:      future,
 		DeliveryMethod: forav1.DeliveryMethod_DELIVERY_METHOD_DIRECT,
-		Pricing:        &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.05", Currency: "USD"},
+		Pricing:        &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.05", Currency: "USD", EstimatedQuantity: proto.Int32(1)},
 		Terms: []*forav1.LicenseTerm{
 			{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Scopes: []string{"ai-train", "ai-infer"}},
 			{Semantics: forav1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY, Scopes: []string{"resell"}},
@@ -517,12 +519,59 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 			ExpiresAt: timestamppb.New(time.Unix(nowUnix-100, 0).UTC()),
 		}, nil),
 
+		// --- Metered estimate dimension: a PER_UNIT offer must carry a positive
+		// estimated_quantity on its own pricing, or every port rejects it even
+		// though its signature and expiry are good. ---
+
+		// metered_with_estimate_and_tolerance: the conformant metered shape.
+		emit("metered_with_estimate_and_tolerance", &forav1.Offer{
+			OfferId:   "offer-metered",
+			ExpiresAt: future,
+			Pricing:   meteredVectorPricing(proto.Int32(2500), proto.Int32(1500)),
+			Terms:     []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: meteredVectorPricing(nil, proto.Int32(1500))}},
+		}, nil),
+		// metered_missing_estimate: no estimate at all → rejected.
+		emit("metered_missing_estimate", &forav1.Offer{
+			OfferId:   "offer-metered-no-estimate",
+			ExpiresAt: future,
+			Pricing:   meteredVectorPricing(nil, nil),
+		}, nil),
+		// metered_zero_estimate: present but zero is no estimate → rejected.
+		emit("metered_zero_estimate", &forav1.Offer{
+			OfferId:   "offer-metered-zero-estimate",
+			ExpiresAt: future,
+			Pricing:   meteredVectorPricing(proto.Int32(0), nil),
+		}, nil),
+		// metered_term_estimate_only: the term is PER_UNIT and carries an estimate,
+		// the offer's own pricing does not. Settlement reads the offer's pricing, so
+		// the estimate on the term does not count → rejected.
+		emit("metered_term_estimate_only", &forav1.Offer{
+			OfferId:   "offer-metered-term-only",
+			ExpiresAt: future,
+			Terms:     []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: meteredVectorPricing(proto.Int32(2500), nil)}},
+		}, nil),
+		// flat_without_estimate: a non-metered offer needs no estimate → verified.
+		emit("flat_without_estimate", &forav1.Offer{
+			OfferId:   "offer-flat",
+			ExpiresAt: future,
+			Pricing:   &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1.00", Currency: "USD"},
+		}, nil),
+
 		// missing_expires_at: valid signature, NO expires_at. Fail-closed → rejected.
 		// This is the exact fail-open hole M-7 flagged: a port that returns "fresh"
 		// on a missing bound admits an unbounded bearer offer and breaks here.
 		emit("missing_expires_at", &forav1.Offer{
 			OfferId: "offer-no-expiry",
 		}, nil),
+	}
+}
+
+// meteredVectorPricing is a PER_UNIT price per token with the given estimate and
+// tolerance (nil leaves either unset).
+func meteredVectorPricing(estimate, toleranceBps *int32) *forav1.Pricing {
+	return &forav1.Pricing{
+		Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.00002", Currency: "USD",
+		Unit: proto.String("tokens"), EstimatedQuantity: estimate, EstimateToleranceBps: toleranceBps,
 	}
 }
 

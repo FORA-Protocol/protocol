@@ -84,6 +84,16 @@ rate, _ := helpers.ParseMoney(offer.GetPricing().GetRate()) // shopspring/decima
 wire, _ := helpers.FormatMoney(rate.Mul(decimal.NewFromInt(qty)))
 ```
 
+**Metered settlement** — a PER_UNIT offer carries an estimate, and a usage report
+settles within the price's tolerance (10% by default); the excess is held for
+dispute, never charged. Exact decimal, from the offer's own pricing:
+
+```go
+capAmount, _ := helpers.MeteredSettlementCap(offer.GetPricing()) // the most charged without a dispute
+s, _ := helpers.SettleMeteredUsage(offer.GetPricing(), consumed) // s.ChargedAmount, s.HeldAmount, ...
+err := helpers.CheckMeteredEstimate(offer) // ErrMeteredEstimateMissing; core.Verifier rejects such an offer
+```
+
 **Validation** — wraps protovalidate (the oracle), including cross-field CEL:
 
 ```go

@@ -33,6 +33,7 @@ import (
 	foraserver "github.com/FORA-Protocol/protocol/sdk/go/connectserver"
 	"github.com/FORA-Protocol/protocol/sdk/go/core"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"google.golang.org/protobuf/proto"
 )
 
 // ---------------------------------------------------------------------------
@@ -119,6 +120,23 @@ func newOfferFixture(t *testing.T) offerFixture {
 	doctored.SignatureAlgorithm = helpers.OfferSignatureAlgorithm
 
 	return offerFixture{exchangePub: exPub, good: good, doctored: doctored}
+}
+
+// signedMeteredOffer is sampleOffer priced PER_UNIT per token with the given
+// estimate (nil leaves it unset), genuinely signed with priv.
+func signedMeteredOffer(t *testing.T, priv ed25519.PrivateKey, id string, estimate *int32) *forav1.Offer {
+	t.Helper()
+	o := sampleOffer(id)
+	o.Pricing = &forav1.Pricing{
+		Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.00002", Currency: "USD",
+		Unit: proto.String("tokens"), EstimatedQuantity: estimate,
+	}
+	sigHex, err := helpers.SignOffer(priv, o)
+	if err != nil {
+		t.Fatalf("sign %s: %v", id, err)
+	}
+	o.Signature, o.SignatureAlgorithm = sigHex, helpers.OfferSignatureAlgorithm
+	return o
 }
 
 // sampleOffer builds a minimal, valid Offer carrying a future expiry so it is not
@@ -320,6 +338,43 @@ func TestDiscover_SortsVerifiedAndRejected(t *testing.T) {
 	}
 	if !errors.Is(res.Rejected()[0].Reason, helpers.ErrOfferSignatureInvalid) {
 		t.Fatalf("rejected reason: want ErrOfferSignatureInvalid, got %v", res.Rejected()[0].Reason)
+	}
+}
+
+// TestDiscover_RejectsMeteredOfferWithoutEstimate pins that a metered offer
+// lacking an estimate lands in Rejected even though the Exchange genuinely signed
+// it and it has not expired: without an estimate the agent has no amount to
+// accept and no ceiling for its usage report to settle against. The estimated
+// metered offer beside it verifies. Validation is off, the client default, so
+// the Verifier is the only gate the offer meets.
+func TestDiscover_RejectsMeteredOfferWithoutEstimate(t *testing.T) {
+	t.Parallel()
+	sig := newSigningFixture(t)
+	exPub, exPriv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("generate exchange offer key: %v", err)
+	}
+	srv := newVerifyingServer(t, sig, newMemReplayStore(), []*forav1.Offer{
+		signedMeteredOffer(t, exPriv, "offer-estimated", proto.Int32(2500)),
+		signedMeteredOffer(t, exPriv, "offer-unestimated", nil),
+	})
+	client := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithOfferKey(exPub),
+	)
+
+	res, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
+	if err != nil {
+		t.Fatalf("Discover: %v", err)
+	}
+	if len(res.Verified()) != 1 || res.Verified()[0].Offer().GetOfferId() != "offer-estimated" {
+		t.Fatalf("want only offer-estimated verified, got %d verified", len(res.Verified()))
+	}
+	if len(res.Rejected()) != 1 || res.Rejected()[0].Offer.GetOfferId() != "offer-unestimated" {
+		t.Fatalf("want only offer-unestimated rejected, got %d rejected", len(res.Rejected()))
+	}
+	if !errors.Is(res.Rejected()[0].Reason, helpers.ErrMeteredEstimateMissing) {
+		t.Fatalf("rejected reason: want ErrMeteredEstimateMissing, got %v", res.Rejected()[0].Reason)
 	}
 }
 
