@@ -1,5 +1,5 @@
 {
-  "note": "Connect JSON error envelopes captured from a real connect-go handler. details[].value is the base64 binary ErrorDetail and is the authoritative copy; details[].debug is a lowerCamelCase projection — connect-go builds it with its own protojson codec at default options, which no server codec replaces — read only when value is absent. Rows named *.value_only, value_wins_over_debug and undecodable_value_skipped are derived by editing a captured envelope.",
+  "note": "Connect JSON error envelopes captured from a real connect-go handler. details[].value is the base64 binary ErrorDetail and is the authoritative copy; details[].debug is a lowerCamelCase projection — connect-go builds it with its own protojson codec at default options, which no server codec replaces — read only when value is absent. Rows named *.value_only, value_wins_over_debug, undecodable_value_skipped, envelope_unknown_member and debug_projection_unknown_field are derived by editing a captured envelope. strict_malformed is how a client with strict decoding on reads the row: refused as malformed with the code kept and no detail, or read exactly as the lenient client reads it.",
   "vectors": [
     {
       "name": "transaction_denial_insufficient_balance",
@@ -37,7 +37,8 @@
           }
         }
       },
-      "peer_message": "balance too low"
+      "peer_message": "balance too low",
+      "strict_malformed": false
     },
     {
       "name": "retrieval_auth_failure_url_expired",
@@ -75,7 +76,8 @@
           }
         }
       },
-      "peer_message": "signed URL expired"
+      "peer_message": "signed URL expired",
+      "strict_malformed": false
     },
     {
       "name": "registration_failure_with_field_errors",
@@ -125,7 +127,8 @@
           }
         }
       },
-      "peer_message": "registration data rejected"
+      "peer_message": "registration data rejected",
+      "strict_malformed": false
     },
     {
       "name": "usage_report_rejection",
@@ -163,7 +166,8 @@
           }
         }
       },
-      "peer_message": "no such transaction"
+      "peer_message": "no such transaction",
+      "strict_malformed": false
     },
     {
       "name": "dispute_failure",
@@ -201,7 +205,8 @@
           "message": "dispute window closed"
         }
       },
-      "peer_message": "dispute window closed"
+      "peer_message": "dispute window closed",
+      "strict_malformed": false
     },
     {
       "name": "catalog_rejection",
@@ -239,7 +244,8 @@
           "message": "entry rejected"
         }
       },
-      "peer_message": "entry rejected"
+      "peer_message": "entry rejected",
+      "strict_malformed": false
     },
     {
       "name": "domain_verification_failure",
@@ -277,7 +283,8 @@
           "message": "challenge not found"
         }
       },
-      "peer_message": "challenge not found"
+      "peer_message": "challenge not found",
+      "strict_malformed": false
     },
     {
       "name": "request_auth_failure_signature_stale",
@@ -313,7 +320,59 @@
           }
         }
       },
-      "peer_message": "helpers: signature expired"
+      "peer_message": "helpers: signature expired",
+      "strict_malformed": false
+    },
+    {
+      "name": "registration_failure_field_errors_out_of_scope",
+      "code": "failed_precondition",
+      "http_status": 400,
+      "envelope": {
+        "code": "failed_precondition",
+        "details": [
+          {
+            "debug": {
+              "domain": "fora.v1.ExchangeService",
+              "message": "domain not verified",
+              "registrationFailure": {
+                "fieldErrors": [
+                  {
+                    "error": "required property is missing",
+                    "path": "/operator/legal_name"
+                  }
+                ],
+                "reason": "REGISTRATION_FAILURE_REASON_DOMAIN_NOT_VERIFIED"
+              }
+            },
+            "type": "fora.v1.ErrorDetail",
+            "value": "ChNkb21haW4gbm90IHZlcmlmaWVkEhdmb3JhLnYxLkV4Y2hhbmdlU2VydmljZWI4CAESNAoUL29wZXJhdG9yL2xlZ2FsX25hbWUSHHJlcXVpcmVkIHByb3BlcnR5IGlzIG1pc3Npbmc"
+          }
+        ],
+        "message": "domain not verified"
+      },
+      "expect": {
+        "has_detail": true,
+        "domain": "fora.v1.ExchangeService",
+        "message": "domain not verified",
+        "metadata": null,
+        "reason_field": "registration_failure",
+        "reason_enum": "REGISTRATION_FAILURE_REASON_DOMAIN_NOT_VERIFIED",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "message": "domain not verified",
+          "registration_failure": {
+            "field_errors": [
+              {
+                "error": "required property is missing",
+                "path": "/operator/legal_name"
+              }
+            ],
+            "reason": "REGISTRATION_FAILURE_REASON_DOMAIN_NOT_VERIFIED"
+          }
+        }
+      },
+      "peer_message": "domain not verified",
+      "strict_malformed": true
     },
     {
       "name": "generic_detail_no_reason",
@@ -345,7 +404,8 @@
           "message": "internal error"
         }
       },
-      "peer_message": "internal error"
+      "peer_message": "internal error",
+      "strict_malformed": false
     },
     {
       "name": "metadata_keys_are_caller_chosen",
@@ -391,7 +451,8 @@
           }
         }
       },
-      "peer_message": "slow down"
+      "peer_message": "slow down",
+      "strict_malformed": false
     },
     {
       "name": "no_detail_attached",
@@ -410,7 +471,8 @@
         "reason_enum": "",
         "detail": null
       },
-      "peer_message": ""
+      "peer_message": "",
+      "strict_malformed": false
     },
     {
       "name": "transaction_denial_insufficient_balance.value_only",
@@ -441,7 +503,8 @@
           }
         }
       },
-      "peer_message": "balance too low"
+      "peer_message": "balance too low",
+      "strict_malformed": false
     },
     {
       "name": "retrieval_auth_failure_url_expired.value_only",
@@ -472,7 +535,8 @@
           }
         }
       },
-      "peer_message": "signed URL expired"
+      "peer_message": "signed URL expired",
+      "strict_malformed": false
     },
     {
       "name": "registration_failure_with_field_errors.value_only",
@@ -509,7 +573,8 @@
           }
         }
       },
-      "peer_message": "registration data rejected"
+      "peer_message": "registration data rejected",
+      "strict_malformed": false
     },
     {
       "name": "usage_report_rejection.value_only",
@@ -540,7 +605,8 @@
           }
         }
       },
-      "peer_message": "no such transaction"
+      "peer_message": "no such transaction",
+      "strict_malformed": false
     },
     {
       "name": "dispute_failure.value_only",
@@ -571,7 +637,8 @@
           "message": "dispute window closed"
         }
       },
-      "peer_message": "dispute window closed"
+      "peer_message": "dispute window closed",
+      "strict_malformed": false
     },
     {
       "name": "catalog_rejection.value_only",
@@ -602,7 +669,8 @@
           "message": "entry rejected"
         }
       },
-      "peer_message": "entry rejected"
+      "peer_message": "entry rejected",
+      "strict_malformed": false
     },
     {
       "name": "domain_verification_failure.value_only",
@@ -633,7 +701,8 @@
           "message": "challenge not found"
         }
       },
-      "peer_message": "challenge not found"
+      "peer_message": "challenge not found",
+      "strict_malformed": false
     },
     {
       "name": "request_auth_failure_signature_stale.value_only",
@@ -663,7 +732,46 @@
           }
         }
       },
-      "peer_message": "helpers: signature expired"
+      "peer_message": "helpers: signature expired",
+      "strict_malformed": false
+    },
+    {
+      "name": "registration_failure_field_errors_out_of_scope.value_only",
+      "code": "failed_precondition",
+      "http_status": 400,
+      "envelope": {
+        "code": "failed_precondition",
+        "details": [
+          {
+            "type": "fora.v1.ErrorDetail",
+            "value": "ChNkb21haW4gbm90IHZlcmlmaWVkEhdmb3JhLnYxLkV4Y2hhbmdlU2VydmljZWI4CAESNAoUL29wZXJhdG9yL2xlZ2FsX25hbWUSHHJlcXVpcmVkIHByb3BlcnR5IGlzIG1pc3Npbmc"
+          }
+        ],
+        "message": "domain not verified"
+      },
+      "expect": {
+        "has_detail": true,
+        "domain": "fora.v1.ExchangeService",
+        "message": "domain not verified",
+        "metadata": null,
+        "reason_field": "registration_failure",
+        "reason_enum": "REGISTRATION_FAILURE_REASON_DOMAIN_NOT_VERIFIED",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "message": "domain not verified",
+          "registration_failure": {
+            "field_errors": [
+              {
+                "error": "required property is missing",
+                "path": "/operator/legal_name"
+              }
+            ],
+            "reason": "REGISTRATION_FAILURE_REASON_DOMAIN_NOT_VERIFIED"
+          }
+        }
+      },
+      "peer_message": "domain not verified",
+      "strict_malformed": true
     },
     {
       "name": "generic_detail_no_reason.value_only",
@@ -691,7 +799,8 @@
           "message": "internal error"
         }
       },
-      "peer_message": "internal error"
+      "peer_message": "internal error",
+      "strict_malformed": false
     },
     {
       "name": "metadata_keys_are_caller_chosen.value_only",
@@ -727,7 +836,8 @@
           }
         }
       },
-      "peer_message": "slow down"
+      "peer_message": "slow down",
+      "strict_malformed": false
     },
     {
       "name": "value_wins_over_debug",
@@ -765,7 +875,8 @@
           }
         }
       },
-      "peer_message": "balance too low"
+      "peer_message": "balance too low",
+      "strict_malformed": false
     },
     {
       "name": "undecodable_value_skipped",
@@ -797,7 +908,88 @@
         "reason_enum": "",
         "detail": null
       },
-      "peer_message": ""
+      "peer_message": "",
+      "strict_malformed": true
+    },
+    {
+      "name": "envelope_unknown_member",
+      "code": "permission_denied",
+      "http_status": 403,
+      "envelope": {
+        "code": "permission_denied",
+        "details": [
+          {
+            "debug": {
+              "domain": "fora.v1.ExchangeService",
+              "message": "balance too low",
+              "transactionDenial": {
+                "reason": "DENIAL_REASON_INSUFFICIENT_BALANCE"
+              }
+            },
+            "type": "fora.v1.ErrorDetail",
+            "value": "Cg9iYWxhbmNlIHRvbyBsb3cSF2ZvcmEudjEuRXhjaGFuZ2VTZXJ2aWNlUgIIAg"
+          }
+        ],
+        "message": "balance too low",
+        "retryable": true
+      },
+      "expect": {
+        "has_detail": true,
+        "domain": "fora.v1.ExchangeService",
+        "message": "balance too low",
+        "metadata": null,
+        "reason_field": "transaction_denial",
+        "reason_enum": "DENIAL_REASON_INSUFFICIENT_BALANCE",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "message": "balance too low",
+          "transaction_denial": {
+            "reason": "DENIAL_REASON_INSUFFICIENT_BALANCE"
+          }
+        }
+      },
+      "peer_message": "balance too low",
+      "strict_malformed": true
+    },
+    {
+      "name": "debug_projection_unknown_field",
+      "code": "permission_denied",
+      "http_status": 403,
+      "envelope": {
+        "code": "permission_denied",
+        "details": [
+          {
+            "debug": {
+              "domain": "fora.v1.ExchangeService",
+              "message": "balance too low",
+              "severity": "high",
+              "transactionDenial": {
+                "reason": "DENIAL_REASON_INSUFFICIENT_BALANCE"
+              }
+            },
+            "type": "fora.v1.ErrorDetail",
+            "value": "Cg9iYWxhbmNlIHRvbyBsb3cSF2ZvcmEudjEuRXhjaGFuZ2VTZXJ2aWNlUgIIAg"
+          }
+        ],
+        "message": "balance too low"
+      },
+      "expect": {
+        "has_detail": true,
+        "domain": "fora.v1.ExchangeService",
+        "message": "balance too low",
+        "metadata": null,
+        "reason_field": "transaction_denial",
+        "reason_enum": "DENIAL_REASON_INSUFFICIENT_BALANCE",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "message": "balance too low",
+          "transaction_denial": {
+            "reason": "DENIAL_REASON_INSUFFICIENT_BALANCE"
+          }
+        }
+      },
+      "peer_message": "balance too low",
+      "strict_malformed": true
     }
   ]
 }

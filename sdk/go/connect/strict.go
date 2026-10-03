@@ -2,6 +2,7 @@ package connect
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	connectrpc "connectrpc.com/connect"
@@ -22,8 +23,17 @@ import (
 //
 // Both checks read the compiled descriptor, the one definition of the message
 // shape the Python and TypeScript clients reach through the published strict JSON
-// Schemas and the cross-field rules. Error answers are not affected: a refusal is
-// read the same way in either mode.
+// Schemas and the cross-field rules.
+//
+// An error answer is checked too, from the bytes that arrived: the Connect error
+// envelope (its members, a known Connect code, well-formed details) and every
+// ErrorDetail it carries, both the binary value and the debug projection, against
+// the same two checks. An envelope that fails is refused as CallMalformed, and
+// CallError.Code still holds the Connect code the peer answered with; the detail is
+// not reported, because it is part of what was refused. A body that is empty or not
+// JSON is a gateway's answer rather than an envelope, and its status classifies it
+// as before. Without this option an error answer is read leniently, as connect-go
+// reads it.
 //
 // It is independent of WithValidation, which governs the REQUEST and, under
 // ValidationStrict, re-validates the answer too; strict decoding adds the
@@ -33,20 +43,30 @@ func WithStrictDecoding() ClientOption {
 }
 
 // strictDecodeError marks an answer strict decoding refused, so sendError reports
-// it as malformed rather than as a peer that did not answer.
-type strictDecodeError struct{ err error }
+// it as malformed rather than as a peer that did not answer. For an error envelope
+// it also carries the Connect code the peer answered with, which the refusal keeps.
+type strictDecodeError struct {
+	err      error
+	envelope bool
+	code     connectrpc.Code
+}
 
 func (e *strictDecodeError) Error() string { return "strict decoding: " + e.err.Error() }
 func (e *strictDecodeError) Unwrap() error { return e.err }
 
-// strictInterceptor applies the two checks to every successful unary answer.
+// strictInterceptor applies the two checks to every successful unary answer, and
+// the envelope checks to every error answer.
 type strictInterceptor struct{}
 
 func (strictInterceptor) WrapUnary(next connectrpc.UnaryFunc) connectrpc.UnaryFunc {
 	return func(ctx context.Context, req connectrpc.AnyRequest) (connectrpc.AnyResponse, error) {
-		resp, err := next(ctx, req)
-		if err != nil || resp == nil {
-			return resp, err
+		capture := &envelopeCapture{}
+		resp, err := next(context.WithValue(ctx, envelopeKey{}, capture), req)
+		if err != nil {
+			return resp, strictErrorAnswer(err, capture)
+		}
+		if resp == nil {
+			return resp, nil
 		}
 		msg, ok := resp.Any().(proto.Message)
 		if !ok {
@@ -57,6 +77,25 @@ func (strictInterceptor) WrapUnary(next connectrpc.UnaryFunc) connectrpc.UnaryFu
 		}
 		return resp, nil
 	}
+}
+
+// strictErrorAnswer returns the refusal for an error answer whose envelope fails the
+// strict checks, and err unchanged otherwise. Only a Connect error the peer's body
+// produced is checked: a local failure has no envelope, and an error body that did
+// not fit under the read cap is never captured.
+func strictErrorAnswer(err error, capture *envelopeCapture) error {
+	var cerr *connectrpc.Error
+	if !errors.As(err, &cerr) {
+		return err
+	}
+	body, ok := capture.load()
+	if !ok {
+		return err
+	}
+	if verr := checkStrictEnvelope(body); verr != nil {
+		return &strictDecodeError{err: verr, envelope: true, code: cerr.Code()}
+	}
+	return err
 }
 
 func (strictInterceptor) WrapStreamingClient(next connectrpc.StreamingClientFunc) connectrpc.StreamingClientFunc {

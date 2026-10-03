@@ -69,7 +69,8 @@ func (answerInterceptor) WrapStreamingHandler(next connectrpc.StreamingHandlerFu
 }
 
 // answerRecorder is the outermost RoundTripper on every signed leg: it records the
-// status of the response that came back into the call's holder.
+// status of the response that came back into the call's holder, and, under strict
+// decoding, the error body into the call's envelope capture.
 type answerRecorder struct{ next http.RoundTripper }
 
 func (r answerRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -78,6 +79,7 @@ func (r answerRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
 		if holder, ok := req.Context().Value(answerKey{}).(*answerHolder); ok {
 			holder.status.Store(int64(resp.StatusCode))
 		}
+		captureErrorBody(req, resp)
 	}
 	return resp, err
 }

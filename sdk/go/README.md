@@ -301,7 +301,12 @@ response or re-implements signing:
   applies, while the call is still signed and its answer decoded. A verb that routes on
   its request reads `exchange` from the body.
 - **`WithStrictDecoding()`** refuses an answer carrying an unknown field at any depth,
-  or breaking the proto's field or cross-field rules (protovalidate).
+  or breaking the proto's field or cross-field rules (protovalidate). An error answer
+  is checked too: the Connect error envelope must carry only `code`, `message` and
+  `details`, name a known Connect code and carry well-formed details, and every
+  `ErrorDetail`, binary `value` and `debug` projection alike, must pass the same two
+  checks. A refused envelope is `CallMalformed` with `CallError.Code` still set to the
+  peer's code.
 - **`CallError.Code`** is the Connect code of the peer's answer — an error envelope or
   a non-JSON error status — and zero when no answer arrived. The typed `ErrorDetail` is
   decoded from the binary `value`; the shared `connect-error-vectors.json` and

@@ -113,13 +113,13 @@ type CallError struct {
 	// belongs to whoever displays it.
 	PeerMessage string
 	// Code is the Connect code of the peer's answer, set only where a Connect answer
-	// was decoded: an error envelope, or a non-JSON error status classified by its
-	// code. It is zero for a local failure, a transport failure where no answer
-	// arrived (a dial error, a timeout), a refused redirect, and the content leg,
-	// whose refusals are edge tokens rather than Connect codes. Reason carries the
-	// same code as text on an RPC path and the edge token on the content path; this
-	// field holds only the Connect code, so a caller can branch on it without
-	// knowing which leg failed.
+	// was decoded: an error envelope, one strict decoding refused included, or a
+	// non-JSON error status classified by its code. It is zero for a local failure, a
+	// transport failure where no answer arrived (a dial error, a timeout), a refused
+	// redirect, and the content leg, whose refusals are edge tokens rather than
+	// Connect codes. Reason carries the same code as text on an RPC path and the edge
+	// token on the content path; this field holds only the Connect code, so a caller
+	// can branch on it without knowing which leg failed.
 	//
 	// connect-go does not mark a code it derived from an HTTP status as one the
 	// server sent, so "the peer answered" is recorded by the client's own transport
@@ -229,7 +229,14 @@ func localRefusal(op string, err error) *CallError {
 	}
 	var strict *strictDecodeError
 	if errors.As(err, &strict) {
-		return &CallError{Kind: CallMalformed, Op: op, Err: strict}
+		out := &CallError{Kind: CallMalformed, Op: op, Err: strict}
+		if strict.envelope {
+			// The peer answered with an error envelope this client refused. Its Connect
+			// code is still the peer's, so it stays readable; the detail does not, since
+			// it is part of what was refused.
+			out.Code = strict.code
+		}
+		return out
 	}
 	return nil
 }
