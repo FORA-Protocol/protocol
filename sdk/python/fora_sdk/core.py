@@ -47,6 +47,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PublicKey,
 )
 
+from .money import check_metered_estimate
+
 # OFFER_SIGNATURE_ALGORITHM / ACCEPTANCE_SIGNATURE_ALGORITHM — the JOSE/JWA algorithm
 # identifier advertised
 # on signed offers/acceptances. Always EdDSA for Ed25519 (mirror the Go constants).
@@ -362,6 +364,12 @@ class Verifier:
 
         if self._expired(offer):
             return "offer expires_at is in the past"
+        # A metered offer without an estimate has no amount to accept and no ceiling
+        # for its usage report to settle against (fora.proto Pricing).
+        try:
+            check_metered_estimate(offer)
+        except ValueError as exc:
+            return str(exc)
         return None
 
     def _expired(self, offer: dict[str, Any]) -> bool:

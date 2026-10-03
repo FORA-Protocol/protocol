@@ -233,6 +233,14 @@ normalize_resource_entry(entry)            # the form the Exchange stores
 **Money.** Exact decimal in and out, canonical decimal string on the wire:
 `parse_money`, `format_money`, `canonicalize_money`. Never floats.
 
+**Metered settlement.** A `PER_UNIT` offer carries an estimate, and its usage report
+settles within the price's tolerance (10% unless the term states one); the excess is
+held for dispute, never charged. `metered_settlement_cap(offer["pricing"])` is the most
+a purchase is charged without a dispute; `settle_metered_usage(offer["pricing"],
+consumed)` returns a `MeteredSettlement` with the accepted, ceiling, charged and held
+amounts, in exact decimal. `check_metered_estimate(offer)` raises on a metered offer
+without an estimate, and the `Verifier` rejects such an offer.
+
 **Registration schema.** An Exchange may publish a JSON Schema for the
 `registration_data` it expects. Both ends validate against it, so the rules live in one
 place: 2020-12 only, same-document `$ref` only, size, depth and evaluation caps, and a

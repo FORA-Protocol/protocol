@@ -46,6 +46,7 @@ _EXPECTED_MESSAGES = {
     "License",
     "LicenseTerm",
     "Obligation",
+    "Offer",
     "Pricing",
     "RegistrationFailure",
     "Restriction",
@@ -121,6 +122,54 @@ _VALID_INSTANCES: list[dict[str, object]] = [
         "name": "Pricing FREE with zero rate",
         "message": "Pricing",
         "json": {"model": "PRICING_MODEL_FREE", "rate": "0"},
+    },
+    {
+        # Pricing.estimate_tolerance.requires_per_unit: a tolerance on a PER_UNIT
+        # price satisfies it, an explicit 0 included.
+        "name": "Pricing PER_UNIT with zero tolerance",
+        "message": "Pricing",
+        "json": {
+            "model": "PRICING_MODEL_PER_UNIT",
+            "rate": "0.00002",
+            "unit": "tokens",
+            "estimate_tolerance_bps": 0,
+        },
+    },
+    {
+        # Offer.metered.requires_estimate: a metered offer with a positive estimate on
+        # its own pricing satisfies it, even when the pushed term carries none.
+        "name": "Offer metered with estimate",
+        "message": "Offer",
+        "json": {
+            "offer_id": "offer-metered",
+            "exchange": "exchange.example",
+            "pricing": {
+                "model": "PRICING_MODEL_PER_UNIT",
+                "rate": "0.00002",
+                "unit": "tokens",
+                "estimated_quantity": 2500,
+            },
+            "terms": [
+                {
+                    "semantics": "TERM_SEMANTICS_ENUMERATED",
+                    "pricing": {
+                        "model": "PRICING_MODEL_PER_UNIT",
+                        "rate": "0.00002",
+                        "unit": "tokens",
+                    },
+                }
+            ],
+        },
+    },
+    {
+        # Offer.metered.requires_estimate: a non-metered offer needs no estimate.
+        "name": "Offer flat without estimate",
+        "message": "Offer",
+        "json": {
+            "offer_id": "offer-flat",
+            "exchange": "exchange.example",
+            "pricing": {"model": "PRICING_MODEL_FLAT", "rate": "1"},
+        },
     },
     {
         # Restriction.permitted_prohibited_disjoint: disjoint permitted/prohibited

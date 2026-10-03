@@ -26,11 +26,14 @@ from wire.models import (
     License,
     LicenseTerm,
     Obligation,
+    Offer,
     Pricing,
     RegistrationFailure,
     Restriction,
     WellKnownManifest,
 )
+
+from .money import check_metered_estimate
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -121,7 +124,11 @@ def _obligation_rules(o: dict[str, Any]) -> list[str]:
 
 
 def _pricing_rules(o: dict[str, Any]) -> list[str]:
-    """Pricing per_unit.requires_unit + free.zero_rate."""
+    """Pricing per_unit.requires_unit + free.zero_rate + estimate_tolerance.requires_per_unit.
+
+    The last is ``!has(this.estimate_tolerance_bps) || this.model == PER_UNIT``; the
+    field is proto3 optional, so a present 0 counts as set, as ``has()`` does.
+    """
     out: list[str] = []
     model = _str(_field(o, "model"))
     if model == _PRICING_MODEL_PER_UNIT and _str(_field(o, "unit")) == "":
@@ -130,7 +137,24 @@ def _pricing_rules(o: dict[str, Any]) -> list[str]:
         rate = _str(_field(o, "rate"))
         if rate != "" and not _ZERO_RATE_RE.match(rate):
             out.append("pricing.free.zero_rate")
+    if _field(o, "estimate_tolerance_bps") is not None and model != _PRICING_MODEL_PER_UNIT:
+        out.append("pricing.estimate_tolerance.requires_per_unit")
     return out
+
+
+def _offer_rules(o: dict[str, Any]) -> list[str]:
+    """Offer.metered.requires_estimate.
+
+    ``!(metered) || (has(this.pricing.estimated_quantity) && this.pricing.estimated_quantity
+    > 0)``, where an offer is metered when its pricing or a term's pricing is PER_UNIT. The
+    predicate is the one the agent-side Verifier applies, so this face and that one share
+    :func:`fora_sdk.money.check_metered_estimate` rather than keeping two copies.
+    """
+    try:
+        check_metered_estimate(o)
+    except ValueError:
+        return ["offer.metered.requires_estimate"]
+    return []
 
 
 def _restriction_rules(o: dict[str, Any]) -> list[str]:
@@ -228,6 +252,7 @@ _RULES_BY_MESSAGE: dict[str, Callable[[dict[str, Any]], list[str]]] = {
     "License": _license_rules,
     "LicenseTerm": _license_term_rules,
     "Obligation": _obligation_rules,
+    "Offer": _offer_rules,
     "Pricing": _pricing_rules,
     "Restriction": _restriction_rules,
     "RegistrationFailure": _registration_failure_rules,
@@ -287,6 +312,7 @@ GetAccountStatusResponseCrossField = _make_cross_field(
 LicenseCrossField = _make_cross_field(License, "License")
 LicenseTermCrossField = _make_cross_field(LicenseTerm, "LicenseTerm")
 ObligationCrossField = _make_cross_field(Obligation, "Obligation")
+OfferCrossField = _make_cross_field(Offer, "Offer")
 PricingCrossField = _make_cross_field(Pricing, "Pricing")
 RestrictionCrossField = _make_cross_field(Restriction, "Restriction")
 RegistrationFailureCrossField = _make_cross_field(RegistrationFailure, "RegistrationFailure")
