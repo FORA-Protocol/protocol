@@ -157,6 +157,45 @@ request only where it means to, and check every answer through the SDK's own dec
   `fora_sdk.identity`); `generateKey`, `directoryDocument`, `signingTransportFor`
   (TypeScript, export path `./identity`); `helpers.GenerateKey`,
   `helpers.DirectoryDocument`, `core.SigningTransportFor` (Go).
+- **Document readers.** Read and check the documents a party publishes over HTTPS:
+  `read_manifest`, `read_wba_directory`, `read_revocation_list` and
+  `read_license_document` (Python, `fora_sdk.resolvers`); `readManifest`,
+  `readWBADirectory`, `readRevocationList` and `readLicenseDocument` (TypeScript,
+  `./resolvers`); `resolvers.ReadManifest`, `ReadWBADirectory`, `ReadRevocationList` and
+  `ReadLicenseDocument` (Go). Each fetches through the SDK's guarded client, with the
+  SSRF and https-only scheme guards, and returns the parsed generated message with the
+  URL, the bytes and the media type (`Document`), or fails with a typed error; none
+  returns nothing. The manifest must be served as `application/json` and the WBA
+  directory as `application/jwk-set+json` (`MediaTypeRefusedError`, `MediaTypeRefused`,
+  `ErrMediaTypeRefused`). The manifest's `ver` is read first. Every document must pass
+  the strict check below. The license reader checks the `License`, fetches its `uri` and
+  verifies the bytes against `uri_digest` (`LicenseDocument`, or `DigestMismatchError`,
+  `DigestMismatch`, `ErrDigestMismatch`). A failed fetch, a non-200 answer, a body that
+  is not JSON and a body over 1 MiB are an unavailable document; a body over the cap is
+  now refused rather than truncated, in the resolvers as well. Go's
+  `ErrDirectoryUnavailable` reads `resolvers: document unavailable`, and a manifest
+  fetch failure in the Go endpoint resolver and requirements reader now wraps it. The
+  endpoint resolver, the registration-requirements reader, the WBA key resolver and the
+  offer-directory fetch read the same documents through the same fetch and decode,
+  without the media-type and strict checks. The Python and TypeScript readers return the
+  generated model, which names an enum by its value name, so they refuse a document that
+  writes an enum as its number; the Go reader accepts it. New corpora:
+  `document-check-vectors.json`, the verdict for a document's bytes and Content-Type, and
+  `license-digest-vectors.json`, both replayed by all three SDKs.
+- **Public strict check.** `check_strict(message_name, payload)` (Python, from
+  `fora_sdk` and `fora_sdk.client`, raising `StrictViolationError`), `checkStrict(message,
+  payload, schema?)` (TypeScript, `./client`, throwing `StrictViolation`) and
+  `helpers.CheckStrict(name, payload)` (Go, wrapping `helpers.ErrStrictViolation`). The
+  client's strict decoding of a success answer and of an error envelope, and the document
+  readers, call this one check in each language. Python and TypeScript check the
+  published strict JSON Schema and the cross-field rules; TypeScript takes the strict
+  schema of a message it does not bundle as the third argument. Go decodes the proto-JSON,
+  refuses unknown fields, a lowerCamelCase member and a 32-bit number or bool written as
+  a string, and runs protovalidate; `helpers.CheckStrictMessage` is the same check on a
+  decoded message, which the Go client applies to binary answers. The Python client's
+  `proof_headers` stays internal: a harness signs a delivery fetch with the public
+  `sign_agent_binding`, as Go does with `helpers.SignAgentBinding` and TypeScript with
+  `signInbound`.
 - **Typed request inputs.** Python verbs accept the generated request models as well as
   dicts, and `to_wire(model)` renders a model as the JSON object the SDK sends.
   TypeScript exports the request input types its verbs are typed with. Go verbs already

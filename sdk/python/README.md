@@ -427,7 +427,7 @@ the same way; buy those through the Broker.
 
 ### Testing a FORA service
 
-The client is also a test harness. Four capabilities let a conformance or e2e suite drive
+The client is also a test harness. These capabilities let a conformance or e2e suite drive
 a service through the SDK and check every answer through it:
 
 - **`ClientConfig.before_sign`** receives each request as an `httpx.Request` after the SDK
@@ -450,6 +450,17 @@ a service through the SDK and check every answer through it:
 - **Identity helpers** in `fora_sdk.identity` mint a throwaway agent: `generate_key()`,
   `directory_document(keys)` for the directory to serve, and
   `signing_transport_for(key, directory)`.
+- **Document readers** in `fora_sdk.resolvers` read what a party publishes and check it:
+  `read_manifest(domain)`, `read_wba_directory(url_or_domain)`,
+  `read_revocation_list(url)` and `read_license_document(license)`. Each fetches through
+  the guarded client, refuses the wrong media type (`MediaTypeRefusedError`) and a body
+  the strict contract refuses (`StrictViolationError`), and returns a `Document` with the
+  parsed model, the URL, the bytes and the media type. The license reader verifies the
+  bytes against `uri_digest` (`DigestMismatchError`) and returns a `LicenseDocument`. A
+  failed fetch is `DirectoryUnavailableError`; no reader returns `None`.
+- **`check_strict(message_name, payload)`** applies the same strict check to any decoded
+  message, raising `StrictViolationError`. A delivery-fetch proof is signed with the
+  public `sign_agent_binding` (or `SigningTransport.sign_agent_binding`).
 
 ### Running against a local Exchange
 

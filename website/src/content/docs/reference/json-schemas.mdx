@@ -81,6 +81,24 @@ sets two reason members is refused separately. The envelope around the detail is
 against the Connect protocol: only `code`, `message` and `details`, a known Connect code,
 and well-formed details entries. A refusal is malformed and keeps the peer's Connect code.
 
+## Checking a message or a document yourself
+
+The check strict decoding runs is public, so a harness can apply it to anything it read
+itself: `check_strict("fora.v1.WellKnownManifest", payload)` in Python (from `fora_sdk`
+or `fora_sdk.client`) takes the decoded value and raises `StrictViolationError`;
+`checkStrict(message, payload)` in TypeScript (from `@fora-protocol/sdk/client`) does the
+same and throws `StrictViolation`; `helpers.CheckStrict(name, payload)` in Go takes the
+proto-JSON bytes and returns an error wrapping `helpers.ErrStrictViolation`. Python
+checks any message with a published schema. TypeScript bundles the schemas of the
+messages the SDK reads and takes any other message's strict schema as a third argument.
+
+The document readers apply the same check to what a party publishes over HTTPS: the
+well-known manifest (`fora.v1.WellKnownManifest`), the WBA key directory
+(`fora.v1.WBAFile`), the key revocation list (`fora.v1.KeyRevocationList`), and the
+`License` whose document they fetch and verify against `uri_digest`. See
+[the agent SDK overview](/components/agent-sdk/overview/#testing-a-fora-service-through-the-sdk)
+for the readers in each language.
+
 ## What the schemas accept
 
 The schemas describe canonical proto-JSON as the FORA wire carries it. The two variants

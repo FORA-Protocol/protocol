@@ -326,6 +326,16 @@ response or re-implements signing:
 - **Identity helpers.** `helpers.GenerateKey` mints an Ed25519 key and its thumbprint,
   `helpers.DirectoryDocument` builds the WBA key directory publishing a key set, and
   `core.SigningTransportFor` returns a signing transport that signs as the key.
+- **Document readers.** `resolvers.ReadManifest`, `ReadWBADirectory`,
+  `ReadRevocationList` and `ReadLicenseDocument` read what a party publishes, through
+  the guarded client unless `ReadOptions.Client` replaces it, and return a `Document`
+  (the parsed message, URL, bytes and media type) or a `LicenseDocument` verified
+  against `uri_digest`. A failure wraps `ErrDirectoryUnavailable`, `ErrMediaTypeRefused`,
+  `ErrManifestVersionRefused`, `helpers.ErrStrictViolation` or `ErrDigestMismatch`.
+- **`helpers.CheckStrict(name, payload)`** checks proto-JSON against the strict
+  contract: no unknown field, proto field names only, no 32-bit number or bool written
+  as a string, and protovalidate. `helpers.CheckStrictMessage` is the same check on a
+  decoded message, the one `WithStrictDecoding` applies.
 
 ## Guarantees
 
