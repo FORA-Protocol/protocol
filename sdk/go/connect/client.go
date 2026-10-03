@@ -42,6 +42,13 @@ type Client struct {
 	requirements RegistrationRequirementsReader
 	// fetcher is the content leg. It dials, so it lives one tier down.
 	fetcher *resolvers.ContentFetcher
+
+	// baseURL is the home Exchange's origin, which a raw call addresses directly.
+	baseURL string
+	// raw and rawPool are the home and offer-derived legs a raw call is sent over.
+	raw, rawPool rawLeg
+	// deliveries verifies the retrieval URLs a purchase answers with.
+	deliveries deliveryVerifier
 }
 
 // resolvedConfig applies opts over the defaults every client shares.
@@ -91,10 +98,15 @@ func plumbing(cfg clientConfig) (*http.Client, []connectrpc.ClientOption, core.V
 func NewClient(baseURL string, opts ...ClientOption) *Client {
 	cfg := resolvedConfig(opts...)
 	httpClient, connectOpts, verifier := plumbing(cfg)
+	pooled := offerDerivedClient(cfg, resolvers.NewGuardedTransport(cfg.guardedBase))
 	return &Client{
-		rpc:      forav1connect.NewExchangeServiceClient(httpClient, baseURL, connectOpts...),
-		verifier: verifier,
-		cfg:      cfg,
+		rpc:        forav1connect.NewExchangeServiceClient(httpClient, baseURL, connectOpts...),
+		verifier:   verifier,
+		cfg:        cfg,
+		baseURL:    baseURL,
+		raw:        newRawLeg(cfg, httpClient),
+		rawPool:    newRawLeg(cfg, pooled),
+		deliveries: newDeliveryVerifier(cfg),
 		// A SECOND signing client for the offer-derived leg, over the guarded
 		// transport: the caller names a domain, the manifest it serves names an
 		// endpoint, and a signed call then goes there. Without the guard one hop
@@ -104,8 +116,7 @@ func NewClient(baseURL string, opts ...ClientOption) *Client {
 		// it carries its own deadline, because an offer-named Exchange that accepts
 		// a connection and then never answers would otherwise hold the call, a
 		// goroutine and a socket open indefinitely.
-		exchanges: newExchangePool(
-			offerDerivedClient(cfg, resolvers.NewGuardedTransport(cfg.guardedBase)), connectOpts...),
+		exchanges:    newExchangePool(pooled, connectOpts...),
 		endpoints:    cfg.resolveEndpointResolver(),
 		requirements: cfg.resolveRequirementsReader(),
 		fetcher: resolvers.NewContentFetcher(resolvers.ContentFetchOptions{
@@ -132,7 +143,14 @@ func signedHTTPClient(cfg clientConfig, base http.RoundTripper) *http.Client {
 		base = http.DefaultTransport
 	}
 	signed := *cfg.httpClient
-	signed.Transport = core.NewSigningTransport(cfg.signer, base, signingOptions(cfg)...)
+	var transport http.RoundTripper = core.NewSigningTransport(cfg.signer, base, signingOptions(cfg)...)
+	// The hook sits immediately in front of the signer, so the bytes it returns are
+	// the bytes signed, and behind the answer recorder, which must see the response
+	// whatever the hook did.
+	if cfg.beforeSign != nil {
+		transport = beforeSignTransport{hook: cfg.beforeSign, next: transport}
+	}
+	signed.Transport = answerRecorder{next: transport}
 	signed.CheckRedirect = refuseRPCRedirect
 	return &signed
 }
@@ -191,8 +209,22 @@ func offerDerivedClient(cfg clientConfig, base http.RoundTripper) *http.Client {
 // if the shared validator fails to build, which is a programmer/config error, not
 // a runtime condition.
 func clientInterceptors(cfg clientConfig) []connectrpc.Interceptor {
-	out := []connectrpc.Interceptor{newRequestIDInterceptor(cfg.requestID)}
-	if cfg.validation == ValidationStrict {
+	return interceptorStack(cfg, cfg.validation == ValidationStrict)
+}
+
+// interceptorStack is the stack every client is built with, optionally without
+// the validate interceptor. A raw call leaves it out: its request is caller bytes,
+// not a message to validate, and the answer still passes strict decoding.
+//
+// answerInterceptor is OUTERMOST so it observes the failure every inner layer
+// produced; strictInterceptor sits inside it, so a refused OK answer is never
+// mistaken for one the peer refused.
+func interceptorStack(cfg clientConfig, validateRequests bool) []connectrpc.Interceptor {
+	out := []connectrpc.Interceptor{answerInterceptor{}, newRequestIDInterceptor(cfg.requestID)}
+	if cfg.strictDecoding {
+		out = append(out, strictInterceptor{})
+	}
+	if validateRequests {
 		if v, err := NewValidateInterceptor(); err == nil {
 			out = append(out, v)
 		}
@@ -224,8 +256,22 @@ func clientInterceptors(cfg clientConfig) []connectrpc.Interceptor {
 // purpose — the point of the field is to state whom the SENDER meant, and a
 // value the transport filled in from the address it was already dialling would
 // restate the dial target instead of checking it.
-func (c *Client) Discover(ctx context.Context, query *forav1.ResourceQuery) (core.DiscoveryResult, error) {
+//
+// WithRawBody sends caller bytes instead; the answer's offers are still verified.
+func (c *Client) Discover(ctx context.Context, query *forav1.ResourceQuery, opts ...CallOption) (core.DiscoveryResult, error) {
 	const op = "discover"
+	if cc := resolveCall(opts); cc.rawSet {
+		msg, err := rawCall[forav1.ResourceResponse](ctx, c.raw, op, c.baseURL,
+			forav1connect.ExchangeServiceDiscoverResourcesProcedure, cc.rawBody)
+		if err != nil {
+			return core.DiscoveryResult{}, err
+		}
+		// The flat fallback attributes its offers to the query's only URI, read off
+		// the raw body when it decodes as a query.
+		sent := &forav1.ResourceQuery{}
+		_ = proto.UnmarshalOptions{DiscardUnknown: true}.Unmarshal(cc.rawBody, sent)
+		return c.discoveryResult(ctx, sent, msg), nil
+	}
 	if query == nil {
 		return core.DiscoveryResult{}, malformed(op, errors.New("query is nil"))
 	}
@@ -238,12 +284,15 @@ func (c *Client) Discover(ctx context.Context, query *forav1.ResourceQuery) (cor
 	if err != nil {
 		return core.DiscoveryResult{}, sendError(op, err)
 	}
-	msg := resp.Msg
+	return c.discoveryResult(ctx, sent, resp.Msg), nil
+}
+
+func (c *Client) discoveryResult(ctx context.Context, sent *forav1.ResourceQuery, msg *forav1.ResourceResponse) core.DiscoveryResult {
 	return core.DiscoveryResult{
 		Groups:    c.discoveredGroups(ctx, sent, msg),
 		Exchange:  msg.GetExchange(),
 		RateLimit: msg.GetRateLimit(),
-	}, nil
+	}
 }
 
 // discoveredGroups folds a ResourceResponse's two offer representations into the
@@ -276,16 +325,35 @@ func (c *Client) discoveredGroups(ctx context.Context, query *forav1.ResourceQue
 	return []core.OfferGroupResult{{URI: uri, Result: c.verifier.Sort(ctx, flat)}}
 }
 
-// CallOption tunes a single state-mutating call.
+// CallOption tunes a single call: the idempotency key of a state-mutating call,
+// raw mode, and the delivery options of a purchase or a fetch. Every verb takes
+// them; an option that does not apply to a verb is inert there.
 type CallOption func(*callConfig)
 
 // ExecuteOption is the original name for CallOption, kept because the option set
-// is identical across execute, report and dispute — the three RPCs the protocol
-// requires an idempotency key on.
+// began as the one shared by execute, report and dispute — the three RPCs the
+// protocol requires an idempotency key on.
 type ExecuteOption = CallOption
 
 type callConfig struct {
 	idempotencyKey string
+	// rawBody, when rawSet, replaces the request the verb would build (WithRawBody).
+	rawBody []byte
+	rawSet  bool
+	// deliveries receives the verified retrieval URLs of a purchase (WithDeliveries).
+	deliveries *[]Delivery
+	// deliveryExchange names the Exchange a fetched URL is verified against
+	// (WithDeliveryExchange).
+	deliveryExchange string
+}
+
+// resolveCall applies a call's options.
+func resolveCall(opts []CallOption) callConfig {
+	var cc callConfig
+	for _, o := range opts {
+		o(&cc)
+	}
+	return cc
 }
 
 // WithIdempotencyKey pins the idempotency key for this call. Reusing a key makes
@@ -305,10 +373,7 @@ func WithIdempotencyKey(key string) CallOption {
 // pinned for this call, then whatever the caller already put on the message, then
 // a freshly minted one.
 func idempotencyKeyFor(opts []CallOption, onMessage string) (string, error) {
-	var cc callConfig
-	for _, o := range opts {
-		o(&cc)
-	}
+	cc := resolveCall(opts)
 	if cc.idempotencyKey != "" {
 		return cc.idempotencyKey, nil
 	}
@@ -327,6 +392,16 @@ func idempotencyKeyFor(opts []CallOption, onMessage string) (string, error) {
 //
 // Items-only wire shape: a single offer is the degenerate 1-element items list.
 // ExecuteBatch buys several offers from the same Exchange in one request.
+//
+// Every retrieval_endpoint in the answer is verified before it is returned: its
+// Ed25519 signature against the URL-signing key the issuing Exchange publishes in
+// its WBA directory (the URL's kid names it), its agent_id binding against this
+// agent's key and the answer's agent_identity_hash, and its expiry. A URL that does
+// not verify fails the call as CallMalformed, with a retrieval_auth_failure detail
+// naming the reason; the purchase itself was made, so the item's transaction id is
+// in the error. WithDeliveries receives the verified bindings, and
+// WithDeliveryVerification(core.Off) is the opt-out for URLs in a signing scheme a
+// WBA directory cannot verify.
 func (c *Client) Execute(ctx context.Context, offer core.VerifiedOffer, opts ...CallOption) (*forav1.TransactionResponse, error) {
 	return c.executeDirect(ctx, "execute", []core.VerifiedOffer{offer}, opts)
 }
@@ -345,6 +420,11 @@ func (c *Client) ExecuteBatch(ctx context.Context, offers []core.VerifiedOffer, 
 }
 
 func (c *Client) executeDirect(ctx context.Context, op string, offers []core.VerifiedOffer, opts []CallOption) (*forav1.TransactionResponse, error) {
+	cc := resolveCall(opts)
+	if cc.rawSet {
+		return rawCall[forav1.TransactionResponse](ctx, c.raw, op, c.baseURL,
+			forav1connect.ExchangeServiceExecuteTransactionProcedure, cc.rawBody)
+	}
 	if err := requireOneExchange(op, offers); err != nil {
 		return nil, err
 	}
@@ -357,6 +437,10 @@ func (c *Client) executeDirect(ctx context.Context, op string, offers []core.Ver
 	resp, err := c.rpc.ExecuteTransaction(ctx, connectrpc.NewRequest(req))
 	if err != nil {
 		return nil, sendError(op, err)
+	}
+	if err := c.deliveries.deliver(ctx, op, resp.Msg.GetItems(), offerExchange(offers),
+		func(string) string { return resp.Msg.GetAgentIdentityHash() }, cc.deliveries); err != nil {
+		return nil, err
 	}
 	return resp.Msg, nil
 }

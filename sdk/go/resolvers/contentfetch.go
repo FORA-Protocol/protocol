@@ -109,6 +109,11 @@ type Content struct {
 	MIMEType string
 	// Body is the fetched bytes.
 	Body []byte
+	// Binding is the URL's verified signature, agent binding and expiry when the
+	// caller had it verified before the fetch (the connect client's
+	// WithDeliveryExchange), and nil when the URL was fetched as given. This tier
+	// never sets it: it dials, and verifying is the client's step before the dial.
+	Binding *helpers.VerifiedURL
 }
 
 // FetchFailure classifies why a content fetch failed, so a caller can branch on

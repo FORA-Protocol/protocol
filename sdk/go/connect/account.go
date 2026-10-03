@@ -8,6 +8,7 @@ import (
 	connectrpc "connectrpc.com/connect"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
@@ -26,10 +27,11 @@ import (
 // and resolved through that Exchange's own manifest, over the guarded leg, and
 // there is no parameter a configured origin could be passed as.
 //
-// Neither message carries an idempotency_key, so neither verb takes CallOptions.
-// That is the contract's choice rather than an omission: registering again for the
-// same agent returns the same account handle, so a key would be ceremony rather
-// than a guarantee.
+// Neither message carries an idempotency_key, so WithIdempotencyKey does nothing
+// here; the verbs take CallOptions for raw mode (WithRawBody) alone. That is the
+// contract's choice rather than an omission: registering again for the same agent
+// returns the same account handle, so a key would be ceremony rather than a
+// guarantee.
 
 // clientErrorDomain is the ErrorDetail domain for a refusal THIS CLIENT computed,
 // before anything was sent. It names the failing surface, which here is the client's
@@ -76,9 +78,13 @@ const clientErrorDomain = "fora.v1.Client"
 // A refused registration comes back as a non-OK call whose typed reason is
 // readable through ErrorDetailFrom as a RegistrationFailure.
 func (c *Client) Register(
-	ctx context.Context, req *forav1.RegisterRequest,
+	ctx context.Context, req *forav1.RegisterRequest, opts ...CallOption,
 ) (*forav1.RegisterResponse, error) {
 	const op = "register"
+	if cc := resolveCall(opts); cc.rawSet {
+		return routedRaw[forav1.RegisterResponse](ctx, c, op, cc.rawBody, &forav1.RegisterRequest{},
+			forav1connect.ExchangeServiceRegisterProcedure)
+	}
 	if req == nil {
 		return nil, malformed(op, errors.New("request is nil"))
 	}
@@ -129,9 +135,13 @@ func (c *Client) Register(
 // one wall-clock second still sign different bytes and a peer screening replays on
 // (key id, signature) accepts both.
 func (c *Client) GetAccountStatus(
-	ctx context.Context, req *forav1.GetAccountStatusRequest,
+	ctx context.Context, req *forav1.GetAccountStatusRequest, opts ...CallOption,
 ) (*forav1.GetAccountStatusResponse, error) {
 	const op = "get account status"
+	if cc := resolveCall(opts); cc.rawSet {
+		return routedRaw[forav1.GetAccountStatusResponse](ctx, c, op, cc.rawBody, &forav1.GetAccountStatusRequest{},
+			forav1connect.ExchangeServiceGetAccountStatusProcedure)
+	}
 	if req == nil {
 		return nil, malformed(op, errors.New("request is nil"))
 	}

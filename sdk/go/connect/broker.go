@@ -37,6 +37,10 @@ type BrokerClient struct {
 	// signatureAgent is the WBA directory this client signs as. A Broker requires
 	// requester.domain to name it, so Execute checks the two agree before sending.
 	signatureAgent string
+
+	baseURL    string
+	raw        rawLeg
+	deliveries deliveryVerifier
 }
 
 // NewBrokerClient builds a BrokerClient against a Broker's base URL. It accepts
@@ -73,6 +77,9 @@ func NewBrokerClient(baseURL string, opts ...ClientOption) *BrokerClient {
 		requester:      cfg.requester,
 		signer:         cfg.signer,
 		signatureAgent: cfg.signatureAgent,
+		baseURL:        baseURL,
+		raw:            newRawLeg(cfg, httpClient),
+		deliveries:     newDeliveryVerifier(cfg),
 	}
 }
 
@@ -99,8 +106,18 @@ func NewBrokerClient(baseURL string, opts ...ClientOption) *BrokerClient {
 // refuses a request that names none, so leaving it to every caller to remember
 // would make the identity the client already holds useless exactly where it is
 // needed.
-func (b *BrokerClient) Resolve(ctx context.Context, req *forav1.DiscoveryRequest) (core.DiscoveryResult, error) {
+//
+// WithRawBody sends caller bytes instead; the answer's offers are still verified.
+func (b *BrokerClient) Resolve(ctx context.Context, req *forav1.DiscoveryRequest, opts ...CallOption) (core.DiscoveryResult, error) {
 	const op = "resolve"
+	if cc := resolveCall(opts); cc.rawSet {
+		msg, err := rawCall[forav1.DiscoveryResponse](ctx, b.raw, op, b.baseURL,
+			forav1connect.BrokerServiceResolveProcedure, cc.rawBody)
+		if err != nil {
+			return core.DiscoveryResult{}, err
+		}
+		return b.discoveryResult(ctx, msg), nil
+	}
 	if req == nil {
 		return core.DiscoveryResult{}, malformed(op, errors.New("request is nil"))
 	}
@@ -121,7 +138,10 @@ func (b *BrokerClient) Resolve(ctx context.Context, req *forav1.DiscoveryRequest
 	if err != nil {
 		return core.DiscoveryResult{}, sendError(op, err)
 	}
-	msg := resp.Msg
+	return b.discoveryResult(ctx, resp.Msg), nil
+}
+
+func (b *BrokerClient) discoveryResult(ctx context.Context, msg *forav1.DiscoveryResponse) core.DiscoveryResult {
 	return core.DiscoveryResult{
 		Groups: b.verifier.SortGroups(ctx, msg.GetOfferGroups()),
 		// The raw field, not the getter: an absent optional enum and the
@@ -129,7 +149,7 @@ func (b *BrokerClient) Resolve(ctx context.Context, req *forav1.DiscoveryRequest
 		AbsenceReason: msg.AbsenceReason,
 		// A DiscoveryResponse names no single Exchange and carries no rate-limit
 		// signal — each offer carries its own issuing domain instead.
-	}, nil
+	}
 }
 
 // Execute buys VERIFIED offers through the Broker in one call, however many
@@ -158,8 +178,18 @@ func (b *BrokerClient) Resolve(ctx context.Context, req *forav1.DiscoveryRequest
 // unchanged. Only the Broker's own refusals — a bad signature, a malformed
 // request, an Exchange it cannot route to or does not approve — return an error,
 // and then nothing was bought.
+//
+// The one signed value in the combined answer is each item's retrieval_endpoint,
+// signed by the Exchange that issued the item's offer, so each is verified as
+// Client.Execute verifies its own: against that Exchange's URL-signing key, the
+// agent_identity_hash that Exchange's outcome states, and the expiry.
 func (b *BrokerClient) Execute(ctx context.Context, offers []core.VerifiedOffer, opts ...CallOption) (*forav1.BrokerTransactionResponse, error) {
 	const op = "broker execute"
+	cc := resolveCall(opts)
+	if cc.rawSet {
+		return rawCall[forav1.BrokerTransactionResponse](ctx, b.raw, op, b.baseURL,
+			forav1connect.BrokerServiceExecuteTransactionProcedure, cc.rawBody)
+	}
 	if b.requester == nil {
 		return nil, malformed(op, errors.New(
 			"no requester configured; a Broker resolves who is buying (see WithRequester)"))
@@ -179,6 +209,20 @@ func (b *BrokerClient) Execute(ctx context.Context, offers []core.VerifiedOffer,
 	resp, err := b.rpc.ExecuteTransaction(ctx, connectrpc.NewRequest(req))
 	if err != nil {
 		return nil, sendError(op, err)
+	}
+	// Each retrieval URL was signed by the Exchange that issued its offer, and is
+	// bound to the identity that Exchange's outcome states — the one signed value in
+	// an answer the Broker otherwise reports unsigned.
+	stated := func(exchange string) string {
+		for _, o := range resp.Msg.GetExchanges() {
+			if o.GetExchange() == exchange {
+				return o.GetAgentIdentityHash()
+			}
+		}
+		return ""
+	}
+	if err := b.deliveries.deliver(ctx, op, resp.Msg.GetItems(), offerExchange(offers), stated, cc.deliveries); err != nil {
+		return nil, err
 	}
 	return resp.Msg, nil
 }

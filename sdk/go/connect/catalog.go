@@ -37,7 +37,9 @@ import (
 // same redirect refusal, the same request-id and validate interceptors, the
 // same read cap — so the faces cannot drift in how they sign or correlate.
 type CatalogClient struct {
-	rpc forav1connect.CatalogServiceClient
+	rpc     forav1connect.CatalogServiceClient
+	baseURL string
+	raw     rawLeg
 }
 
 // NewCatalogClient builds a CatalogClient against an Exchange's catalog endpoint.
@@ -58,7 +60,9 @@ func NewCatalogClient(baseURL string, opts ...ClientOption) *CatalogClient {
 	cfg := resolvedConfig(opts...)
 	httpClient, connectOpts, _ := plumbing(cfg)
 	return &CatalogClient{
-		rpc: forav1connect.NewCatalogServiceClient(httpClient, baseURL, connectOpts...),
+		rpc:     forav1connect.NewCatalogServiceClient(httpClient, baseURL, connectOpts...),
+		baseURL: baseURL,
+		raw:     newRawLeg(cfg, httpClient),
 	}
 }
 
@@ -79,8 +83,11 @@ func NewCatalogClient(baseURL string, opts ...ClientOption) *CatalogClient {
 // Exchange's own run is the deciding one. A push it refuses as a whole comes
 // back as a non-OK call whose typed reason, when the Exchange attaches one, is
 // readable through ErrorDetailFrom as a CatalogRejection.
-func (c *CatalogClient) PushResources(ctx context.Context, req *forav1.PushResourcesRequest) (*forav1.PushResourcesResponse, error) {
+func (c *CatalogClient) PushResources(ctx context.Context, req *forav1.PushResourcesRequest, opts ...CallOption) (*forav1.PushResourcesResponse, error) {
 	const op = "push resources"
+	if cc := resolveCall(opts); cc.rawSet {
+		return rawCall[forav1.PushResourcesResponse](ctx, c.raw, op, c.baseURL, forav1connect.CatalogServicePushResourcesProcedure, cc.rawBody)
+	}
 	if req == nil {
 		return nil, malformed(op, errors.New("request is nil"))
 	}
@@ -102,8 +109,11 @@ func (c *CatalogClient) PushResources(ctx context.Context, req *forav1.PushResou
 // RemoveResources removes the catalog entries the request's paths name. Same
 // envelope rule as PushResources: `ver` filled when empty, no idempotency key,
 // `exchange` required and refused locally when it is not a bare domain.
-func (c *CatalogClient) RemoveResources(ctx context.Context, req *forav1.RemoveResourcesRequest) (*forav1.RemoveResourcesResponse, error) {
+func (c *CatalogClient) RemoveResources(ctx context.Context, req *forav1.RemoveResourcesRequest, opts ...CallOption) (*forav1.RemoveResourcesResponse, error) {
 	const op = "remove resources"
+	if cc := resolveCall(opts); cc.rawSet {
+		return rawCall[forav1.RemoveResourcesResponse](ctx, c.raw, op, c.baseURL, forav1connect.CatalogServiceRemoveResourcesProcedure, cc.rawBody)
+	}
 	if req == nil {
 		return nil, malformed(op, errors.New("request is nil"))
 	}
@@ -124,8 +134,11 @@ func (c *CatalogClient) RemoveResources(ctx context.Context, req *forav1.RemoveR
 
 // RefreshCatalog asks the Exchange to refresh the tenant's catalog from its
 // configured sources. Same envelope rule as PushResources.
-func (c *CatalogClient) RefreshCatalog(ctx context.Context, req *forav1.RefreshCatalogRequest) (*forav1.RefreshCatalogResponse, error) {
+func (c *CatalogClient) RefreshCatalog(ctx context.Context, req *forav1.RefreshCatalogRequest, opts ...CallOption) (*forav1.RefreshCatalogResponse, error) {
 	const op = "refresh catalog"
+	if cc := resolveCall(opts); cc.rawSet {
+		return rawCall[forav1.RefreshCatalogResponse](ctx, c.raw, op, c.baseURL, forav1connect.CatalogServiceRefreshCatalogProcedure, cc.rawBody)
+	}
 	if req == nil {
 		return nil, malformed(op, errors.New("request is nil"))
 	}

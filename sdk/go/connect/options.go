@@ -40,6 +40,17 @@ type clientConfig struct {
 	connectOpts    []connectrpc.ClientOption
 	fetchTimeout   time.Duration
 	fetchMaxByte   int64
+
+	// beforeSign is the pre-signing hook (WithBeforeSign); nil runs none.
+	beforeSign BeforeSign
+	// strictDecoding refuses an answer with an unknown field or a broken rule
+	// (WithStrictDecoding).
+	strictDecoding bool
+	// deliveryKeys resolves the Exchange's URL-signing key a delivery URL names
+	// (WithDeliveryKeyResolver); nil means the guarded WBA directory resolver.
+	deliveryKeys helpers.KeyResolver
+	// deliveryMode is Strict unless WithDeliveryVerification turns it off.
+	deliveryMode core.Mode
 }
 
 // ClientOption configures a Client. Options are the ONLY way to inject the

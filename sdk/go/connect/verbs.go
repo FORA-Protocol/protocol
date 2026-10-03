@@ -7,8 +7,10 @@ import (
 	"time"
 
 	connectrpc "connectrpc.com/connect"
+	"google.golang.org/protobuf/proto"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
 	"github.com/FORA-Protocol/protocol/sdk/go/core"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
@@ -58,6 +60,10 @@ const edgeErrorDomain = "fora.v1.Edge"
 // silently discarded and see every retry counted as a second report.
 func (c *Client) ReportUsage(ctx context.Context, report *forav1.UsageReport, opts ...CallOption) (*forav1.UsageReportResponse, error) {
 	const op = "report usage"
+	if cc := resolveCall(opts); cc.rawSet {
+		return routedRaw[forav1.UsageReportResponse](ctx, c, op, cc.rawBody, &forav1.UsageReport{},
+			forav1connect.ExchangeServiceReportUsageProcedure)
+	}
 	if report == nil {
 		return nil, malformed(op, errors.New("report is nil"))
 	}
@@ -96,6 +102,10 @@ func (c *Client) ReportUsage(ctx context.Context, report *forav1.UsageReport, op
 // req.TransactionId both name links the Exchange already holds.
 func (c *Client) Dispute(ctx context.Context, req *forav1.DisputeRequest, opts ...CallOption) (*forav1.DisputeResponse, error) {
 	const op = "dispute"
+	if cc := resolveCall(opts); cc.rawSet {
+		return routedRaw[forav1.DisputeResponse](ctx, c, op, cc.rawBody, &forav1.DisputeRequest{},
+			forav1connect.ExchangeServiceDisputeTransactionProcedure)
+	}
 	if req == nil {
 		return nil, malformed(op, errors.New("request is nil"))
 	}
@@ -134,17 +144,32 @@ func (c *Client) Dispute(ctx context.Context, req *forav1.DisputeRequest, opts .
 // maps onto the protocol's, so ErrorDetailFrom reads a fetch failure and an RPC
 // failure through the same accessor.
 //
-// It takes no CallOption: a fetch is a GET against an already-issued URL, so
-// there is no idempotency key to pin — nothing on this path mutates state.
+// A fetch is a GET against an already-issued URL, so there is no idempotency key
+// to pin — nothing on this path mutates state. The one CallOption it reads is
+// WithDeliveryExchange.
 //
-// The URL is taken as given. Whether it is one this agent bought, and whether its
-// agent_id matches this agent's key, are the CALLER's checks to make — the SDK
-// exports helpers.VerifyURLEd25519 and VerifiedURL.CheckProofOfPossession for
-// exactly that, and running them first turns an edge 403 into a local answer.
-// Worth doing when the URL reached the caller from anywhere but its own execute
-// response: a proof of possession is minted for whatever URL is passed in.
-func (c *Client) Fetch(ctx context.Context, signedURL string) (resolvers.Content, error) {
+// With WithDeliveryExchange naming the Exchange that issued the URL, the URL is
+// verified before anything is sent — its Ed25519 signature against that Exchange's
+// URL-signing key (resolved from its WBA directory), its agent binding against this
+// agent's key, and its expiry — and the returned Content carries the verified
+// binding in Binding. A URL that does not verify is refused as CallMalformed with a
+// synthesized retrieval_auth_failure detail, so no proof of possession is minted
+// for it. Execute verifies every URL it returns the same way, so a URL taken from
+// this client's own purchase has already passed; naming the Exchange is worth it
+// whenever the URL reached the caller from anywhere else. Without it the URL is
+// taken as given and Binding is nil, which is what a test of an edge's own
+// refusals needs. WithDeliveryVerification(core.Off) never verifies.
+func (c *Client) Fetch(ctx context.Context, signedURL string, opts ...CallOption) (resolvers.Content, error) {
 	const op = "fetch content"
+	cc := resolveCall(opts)
+	var binding *helpers.VerifiedURL
+	if cc.deliveryExchange != "" && c.deliveries.mode != core.Off {
+		got, refusal, verr := c.deliveries.verify(ctx, signedURL, cc.deliveryExchange, "")
+		if refusal != nil || verr != nil {
+			return resolvers.Content{}, deliveryError(op, "the fetched URL", refusal, verr)
+		}
+		binding = &got.VerifiedURL
+	}
 	signer, err := c.proofSigner()
 	if err != nil {
 		return resolvers.Content{}, &CallError{Kind: CallNotSignable, Op: op, Err: err}
@@ -153,7 +178,24 @@ func (c *Client) Fetch(ctx context.Context, signedURL string) (resolvers.Content
 	if err != nil {
 		return resolvers.Content{}, fetchCallError(op, signedURL, err)
 	}
+	content.Binding = binding
 	return content, nil
+}
+
+// routedRaw sends a raw body on a verb whose destination is read off the request:
+// the body's exchange is decoded and routed exactly as a built request's is.
+func routedRaw[Res any](
+	ctx context.Context, c *Client, op string, body []byte, as proto.Message, procedure string,
+) (*Res, error) {
+	exchange, err := rawExchange(op, body, as)
+	if err != nil {
+		return nil, err
+	}
+	endpoint, err := vetExchangeEndpoint(ctx, c.endpoints, exchange, op)
+	if err != nil {
+		return nil, err
+	}
+	return rawCall[Res](ctx, c.rawPool, op, endpoint, procedure, body)
 }
 
 // proofSigner composes the injected custody into the seam the content tier asks

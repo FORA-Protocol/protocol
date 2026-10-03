@@ -64,8 +64,15 @@ func TestConnectErrorCorpusReplay(t *testing.T) {
 			// BEFORE the early return, because the row that carries no detail is the one
 			// this column exists for: its envelope has a `message` of its own and the
 			// client must still report none.
-			if got := peerMessageServing(t, v); got != v.PeerMessage {
+			callErr := clientFailureServing(t, v)
+			if got := callErr.PeerMessage; got != v.PeerMessage {
 				t.Errorf("peer message = %q, want %q", got, v.PeerMessage)
+			}
+			// The Connect code of the peer's answer, as its own field — every row,
+			// the derived ones included, because the code rides on the envelope and
+			// not on the detail.
+			if got := callErr.Code.String(); got != v.Code {
+				t.Errorf("code = %q, want %q", got, v.Code)
 			}
 			if !ok {
 				return
@@ -128,8 +135,8 @@ func callServing(t *testing.T, v connectErrorVector) error {
 	return err
 }
 
-// peerMessageServing serves the same recorded envelope and reads the peer's sentence back
-// off the CLIENT's own failure, which is where the field lives — one tier above the
+// clientFailureServing serves the same recorded envelope and returns the CLIENT's own
+// failure, which is where the peer's sentence and the Connect code live — one tier above the
 // ErrorDetail the rest of this replay projects.
 //
 // The rule it pins is provenance: the field carries a message the PEER emitted and
@@ -138,7 +145,7 @@ func callServing(t *testing.T, v connectErrorVector) error {
 // envelope would make its value a property of the language rather than of the answer —
 // which is the drift a shared corpus exists to catch, and could not have caught while
 // each language was faithfully reporting its own transport.
-func peerMessageServing(t *testing.T, v connectErrorVector) string {
+func clientFailureServing(t *testing.T, v connectErrorVector) *foraconnect.CallError {
 	t.Helper()
 	body, err := json.Marshal(v.Envelope)
 	if err != nil {
@@ -157,5 +164,5 @@ func peerMessageServing(t *testing.T, v connectErrorVector) string {
 	if !errors.As(derr, &callErr) {
 		t.Fatalf("the client did not report a typed failure: %v", derr)
 	}
-	return callErr.PeerMessage
+	return callErr
 }

@@ -112,7 +112,20 @@ type CallError struct {
 	// truncating a peer's only account of why a call failed is a decision that
 	// belongs to whoever displays it.
 	PeerMessage string
-	Err         error
+	// Code is the Connect code of the peer's answer, set only where a Connect answer
+	// was decoded: an error envelope, or a non-JSON error status classified by its
+	// code. It is zero for a local failure, a transport failure where no answer
+	// arrived (a dial error, a timeout), a refused redirect, and the content leg,
+	// whose refusals are edge tokens rather than Connect codes. Reason carries the
+	// same code as text on an RPC path and the edge token on the content path; this
+	// field holds only the Connect code, so a caller can branch on it without
+	// knowing which leg failed.
+	//
+	// connect-go does not mark a code it derived from an HTTP status as one the
+	// server sent, so "the peer answered" is recorded by the client's own transport
+	// rather than read off the error.
+	Code connectrpc.Code
+	Err  error
 }
 
 func (e *CallError) Error() string {
@@ -159,6 +172,12 @@ func asCallError(err error) (*CallError, bool) {
 // The Connect error is kept in the chain with %w, so errors.As still reaches it
 // and ErrorDetailFrom still finds the typed detail the peer attached.
 func sendError(op string, err error) error {
+	// The client's own refusals come first: a pre-signing hook the SDK refused, and
+	// an answer strict decoding refused. Both are failures this client computed, so
+	// neither may be read as the peer's verdict or as a peer that did not answer.
+	if local := localRefusal(op, err); local != nil {
+		return local
+	}
 	out := &CallError{Kind: CallUnreachable, Op: op, Err: err}
 	var cerr *connectrpc.Error
 	if !errors.As(err, &cerr) {
@@ -187,9 +206,30 @@ func sendError(op string, err error) error {
 		out.Kind = CallRefused
 	}
 	out.Reason = cerr.Code().String()
+	if peerAnswered(err) {
+		out.Code = cerr.Code()
+	}
 	if detail, ok := errorDetailFromConnect(cerr); ok {
 		out.Detail = detail
 		out.PeerMessage = detail.GetMessage()
 	}
 	return out
+}
+
+// localRefusal returns the CallError for a failure this client computed during the
+// round trip — a pre-signing hook it refused, or an answer strict decoding refused —
+// and nil for anything else. connect-go wraps an error a transport returns as
+// CodeUnavailable and passes an interceptor's through as given, so without this the
+// first would read as a peer that never answered and the second as an unclassified
+// failure.
+func localRefusal(op string, err error) *CallError {
+	var hook *beforeSignError
+	if errors.As(err, &hook) {
+		return &CallError{Kind: CallMalformed, Op: op, Err: hook}
+	}
+	var strict *strictDecodeError
+	if errors.As(err, &strict) {
+		return &CallError{Kind: CallMalformed, Op: op, Err: strict}
+	}
+	return nil
 }
