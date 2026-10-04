@@ -65,7 +65,7 @@ func NewBrokerServiceHandler(svc forav1connect.BrokerServiceHandler, opts ...Ser
 // the Exchange: that the verified signer may push for each entry's domain (the
 // domain's publisher, or one of its catalog_contributors), that tenant_id matches,
 // the ingest-tier term checks (sdk/go/helpers), and the per-entry verdicts. The
-// deprecated caller_id is ignored. An Exchange that resolves a contributor's key
+// deprecated caller_id is not relied on. An Exchange that resolves a contributor's key
 // from the request narrows the seam with WithVerifyGate and verifies
 // inside the handler, where the decoded request is in scope — WithKeyResolver cannot
 // carry that policy, because KeyResolver.Resolve is handed the signature's keyid and

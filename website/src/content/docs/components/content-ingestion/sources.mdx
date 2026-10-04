@@ -252,7 +252,7 @@ CatalogService is NOT how Exchange operators push their own inventory. Exchange 
 
 ### Authentication and Authorization
 
-`PushResources` requests must be signed. The request's signer is the caller; the deprecated `caller_id` field (field 4) is ignored. The request is signed with an [RFC 9421 HTTP Message Signature](https://www.rfc-editor.org/rfc/rfc9421) carried in the HTTP headers (`Signature` / `Signature-Input`, with a `Content-Digest` over the body) — there is no in-message caller signature field.
+`PushResources` requests must be signed. The request's signer is the caller; the deprecated `caller_id` field (field 4) is not needed. The request is signed with an [RFC 9421 HTTP Message Signature](https://www.rfc-editor.org/rfc/rfc9421) carried in the HTTP headers (`Signature` / `Signature-Input`, with a `Content-Digest` over the body) — there is no in-message caller signature field.
 
 The Exchange verifies the RFC 9421 signature against the caller's published Ed25519 key in its WBA directory (the JWK Set at `{caller domain}/.well-known/http-message-signatures-directory`), identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`), and confirms that the signer is authorized to push content for each entry's domain and the specified `tenant_id`.
 

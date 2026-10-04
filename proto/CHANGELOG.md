@@ -5,8 +5,9 @@
 **`PushResourcesRequest.caller_id` is deprecated (comments only).** It was never needed:
 each entry's domain names whose resource it is, and the caller is the party that signs
 the request; the Exchange checks that the verified signer may push for each entry's
-domain. A sender leaves it empty and the Exchange ignores it; the field is retained for
-the v1 wire contract. The SDK docs, test fixtures and the catalog pages (reference,
+domain, and a receiver does not rely on it. The field is retained for the v1 wire
+contract; it does not yet carry the `deprecated` field option, which follows once
+implementations no longer read it. The SDK docs, test fixtures and the catalog pages (reference,
 multi-tenant, request flows, content sources, verification vendors, publisher onboarding,
 deployment models, threat model) no longer set or rely on it.
 

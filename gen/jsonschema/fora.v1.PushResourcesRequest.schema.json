@@ -538,7 +538,7 @@
   "properties": {
     "caller_id": {
       "default": "",
-      "description": "DEPRECATED, never needed, and ignored. Each entry's domain names whose\n resource it is, and the caller is the party that signs the request: the\n Exchange checks that the verified signer may push for each entry's domain\n (see CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR). A sender leaves it\n empty. The field is retained because removing it would break the v1 wire\n contract.",
+      "description": "DEPRECATED, never needed. Each entry's domain names whose resource it is,\n and the caller is the party that signs the request: the Exchange checks\n that the verified signer may push for each entry's domain (see\n CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR), and a receiver does not\n rely on this field. The field is retained because removing it would break\n the v1 wire contract. It does not yet carry the `deprecated` field option,\n so implementations that still read it keep building; the option follows\n once they no longer do.",
       "type": "string"
     },
     "entries": {

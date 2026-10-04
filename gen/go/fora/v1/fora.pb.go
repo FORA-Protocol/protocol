@@ -5914,14 +5914,14 @@ type PushResourcesRequest struct {
 	// code invalid_argument like any other malformed request; it carries no
 	// catalog_rejection, because no entry was examined.
 	Entries []*ResourceEntry `protobuf:"bytes,3,rep,name=entries,proto3" json:"entries,omitempty"`
-	// DEPRECATED, never needed, and ignored. Each entry's domain names whose
-	// resource it is, and the caller is the party that signs the request: the
-	// Exchange checks that the verified signer may push for each entry's domain
-	// (see CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR). A sender leaves it
-	// empty. The field is retained because removing it would break the v1 wire
-	// contract.
-	//
-	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
+	// DEPRECATED, never needed. Each entry's domain names whose resource it is,
+	// and the caller is the party that signs the request: the Exchange checks
+	// that the verified signer may push for each entry's domain (see
+	// CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR), and a receiver does not
+	// rely on this field. The field is retained because removing it would break
+	// the v1 wire contract. It does not yet carry the `deprecated` field option,
+	// so implementations that still read it keep building; the option follows
+	// once they no longer do.
 	CallerId string `protobuf:"bytes,4,opt,name=caller_id,json=callerId,proto3" json:"caller_id,omitempty"`
 	// REQUIRED. Bare host of the recipient this request is addressed to (e.g.
 	// "exchange.example" or "exchange.example:8081"). See "Request recipient" in
@@ -5990,7 +5990,6 @@ func (x *PushResourcesRequest) GetEntries() []*ResourceEntry {
 	return nil
 }
 
-// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *PushResourcesRequest) GetCallerId() string {
 	if x != nil {
 		return x.CallerId
@@ -11181,12 +11180,12 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\bcurrency\x18\x02 \x01(\tR\bcurrency\x12B\n" +
 	"\tunit_cost\x18\x03 \x01(\tB \xbaH\x1dr\x1b\x18 2\x17^([0-9]+([.][0-9]+)?)?$H\x00R\bunitCost\x88\x01\x01B\f\n" +
 	"\n" +
-	"_unit_cost\"\xcd\x03\n" +
+	"_unit_cost\"\xc9\x03\n" +
 	"\x14PushResourcesRequest\x12\x10\n" +
 	"\x03ver\x18\x01 \x01(\tR\x03ver\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12=\n" +
-	"\aentries\x18\x03 \x03(\v2\x16.fora.v1.ResourceEntryB\v\xbaH\b\x92\x01\x05\b\x01\x10\x80\x02R\aentries\x12\x1f\n" +
-	"\tcaller_id\x18\x04 \x01(\tB\x02\x18\x01R\bcallerId\x12\xd7\x01\n" +
+	"\aentries\x18\x03 \x03(\v2\x16.fora.v1.ResourceEntryB\v\xbaH\b\x92\x01\x05\b\x01\x10\x80\x02R\aentries\x12\x1b\n" +
+	"\tcaller_id\x18\x04 \x01(\tR\bcallerId\x12\xd7\x01\n" +
 	"\bexchange\x18\x05 \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\bexchange\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
 	"\fext_critical\x18Z \x03(\tR\vextCritical\"\xe6\n" +
