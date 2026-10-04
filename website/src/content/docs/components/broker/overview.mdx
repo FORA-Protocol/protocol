@@ -174,16 +174,13 @@ All signatures must pass. The Exchange counts the number of forwarding hops in t
 
 The Broker publishes its keys in its WBA directory (the JWK Set at `{domain}/.well-known/http-message-signatures-directory`) — RFC 7517 Ed25519 JWKs, each identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`). Its `fora.json` manifest uses the same format as agents (`role=ROLE_AGENT`). An Exchange verifies the Broker's signatures against keys it has loaded from that directory into its configured key set. The covered `Signature-Agent` header stays the agent's directory and does not point at the Broker's, so the Exchange must know the Broker — for example, through registration — before it can verify the hop.
 
-## Profile-Based Routing
+## Profiles Are Forwarded, Not Routed
 
-The Broker uses domain profiles to route queries to the right Exchanges.
-
-### How It Works
+The Broker does not route queries by profile. It forwards the agent's declared profiles, and each Exchange answers for its own.
 
 1. **Agent declares profiles** -- `DiscoveryRequest.supported_profiles` lists which domain extension profiles the agent understands (e.g., `["fora-academic-v1"]`)
-2. **Broker filters Exchanges** -- the Exchange Registry checks each Exchange's `WellKnownManifest.supported_profiles` and routes queries only to Exchanges that support at least one of the requested profiles
-3. **Broker forwards profiles** -- the declared profiles are forwarded in `ResourceQuery.supported_profiles`, so the Exchange knows which profile-specific `ext` fields to include in offers
-4. **Exchange responds with profile data** -- the Exchange includes profile-specific metadata (e.g., retraction status, citation counts for academic content) only when the caller declares support
+2. **Broker forwards them** -- the Broker MUST copy the declared profiles unchanged into `ResourceQuery.supported_profiles` on every Exchange it queries, and forward an absent list as absent. It chooses which Exchanges to query on other grounds, never by profile
+3. **Each Exchange answers for its own profiles** -- an Exchange includes the profile-specific `ext` fields of the profiles it declares in its `WellKnownManifest.supported_profiles`; an Exchange that declares none of the agent's profiles answers with the core fields
 
 ### Example: Academic Research Agent
 
@@ -195,12 +192,7 @@ An agent working on a literature review sends:
 }
 ```
 
-The Broker's Exchange Registry contains three Exchanges:
-- **academic-mp.example.com** -- `supported_profiles: ["fora-academic-v1", "fora-legal-v1"]`
-- **news-mp.example.com** -- `supported_profiles: ["fora-news-v1"]`
-- **general-mp.example.com** -- `supported_profiles: []` (no profiles)
-
-The Broker queries only **academic-mp.example.com** (profile match) and **general-mp.example.com** (no profile restriction -- always included). It skips **news-mp.example.com** (no matching profile).
+The Broker queries its Exchanges as it would without the profile, and each query carries `supported_profiles: ["fora-academic-v1"]`. An Exchange that declares `fora-academic-v1` returns offers with academic metadata (e.g., retraction status); one that does not returns its offers with the core fields only.
 
 ## Scope Forwarding, Token Narrowing, and Quota Aggregation
 

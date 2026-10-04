@@ -88,7 +88,7 @@ The SDK handles:
 - **Offer verification** -- every offer's signature checked against the issuing Exchange's published key before you can buy it, and a rejected offer keeps its reason
 - **Ed25519 signing** -- every request signed with your key under RFC 9421
 - **Bound delivery** -- the delivery URL is tied to your key and the client presents the matching proof of possession, so a copied link fetches nothing
-- **Profile routing** -- `supported_profiles` on the query tells a Broker which domains you work in
+- **Profile fields** -- `supported_profiles` on the query tells each Exchange which domain fields you understand
 
 Two things the SDK does **not** do, both part of a deferred layer: there is no spend cap
 of any kind, and usage reports are not submitted automatically -- you call `ReportUsage`
@@ -96,7 +96,7 @@ yourself. See [Budget and Usage Reporting](/components/agent-sdk/budget-reportin
 
 ## Extension Profiles
 
-Your agent declares which domains it understands via `supported_profiles` on the `DiscoveryRequest`. The Broker uses this to route queries to capable Exchanges and filter offers to relevant domains.
+Your agent declares which domains it understands via `supported_profiles` on the `DiscoveryRequest`. A Broker forwards it to every Exchange it queries and does not route by it; each Exchange answers for its own profiles.
 
 Three v1 profiles exist:
 
@@ -106,7 +106,7 @@ Three v1 profiles exist:
 | **fora-academic-v1** | Journal papers, preprints, datasets | CrossRef, OpenAlex, JATS XML, COUNTER 5.1 |
 | **fora-legal-v1** | Legislation, case law, patents | ELI, ECLI, Akoma Ntoso, WIPO ST.3/ST.16 |
 
-Exchanges declare conformance in their manifest. When your agent declares `supported_profiles: ["fora-academic-v1"]`, the Broker routes your query only to Exchanges that also declare `fora-academic-v1`, and returned offers include profile-specific metadata (e.g., `academic.doi`, `academic.oa_status`, `academic.version`).
+Exchanges declare conformance in their manifest. When your agent declares `supported_profiles: ["fora-academic-v1"]`, the Broker forwards that to every Exchange it queries, and offers from Exchanges that also declare `fora-academic-v1` include profile-specific metadata (e.g., `academic.doi`, `academic.oa_status`, `academic.version`).
 
 If you omit `supported_profiles`, you get offers from all Exchanges -- useful for broad discovery, less useful for domain-specific queries.
 

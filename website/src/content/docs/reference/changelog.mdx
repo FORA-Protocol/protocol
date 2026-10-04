@@ -8,6 +8,13 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ## Unreleased
 
+**A Broker forwards the agent's `supported_profiles` and does not route by them
+(comments only).** `DiscoveryRequest.supported_profiles` said the Broker routes queries to
+Exchanges that support the agent's profiles. The Broker MUST forward the list unchanged in
+`ResourceQuery.supported_profiles` on every query, and an absent list as absent; it does
+not choose Exchanges by profile, and each Exchange answers for its own profiles. The
+Broker overview, the extension-profile pages and the getting-started pages say the same.
+
 **A request's critical extensions are for its receiver, and an entry's are for the agent:
 `UNKNOWN_CRITICAL_EXTENSION` is added to three reason enums (additive enum values).** The
 file header gains "Critical extensions", the one statement of the rule. A request's

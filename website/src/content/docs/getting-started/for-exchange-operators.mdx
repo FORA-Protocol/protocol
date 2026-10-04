@@ -71,7 +71,7 @@ Your Exchange declares which domain profiles it supports in its manifest. This t
 { "supported_profiles": ["fora-news-v1", "fora-academic-v1"] }
 ```
 
-Agents declare which profiles they understand. The Broker routes queries to Exchanges that support the requested profile. An academic research agent requesting `fora-academic-v1` is routed to your Exchange if you declare that profile.
+Agents declare which profiles they understand, and a Broker forwards that list to your Exchange unchanged; it does not route by profile. When an academic research agent declares `fora-academic-v1` and you declare that profile, your offers carry its fields.
 
 Profile conformance means your Exchange sets the required `ext` fields defined in the profile spec and validates them against the profile's JSON Schema:
 

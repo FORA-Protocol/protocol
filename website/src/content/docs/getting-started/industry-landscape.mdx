@@ -99,7 +99,7 @@ FORA v1.0 prevents protocol fragmentation through a three-layer governance model
 
 Three domain extension profiles ship with v1.0: `fora-news-v1` (news, podcasts, broadcasting), `fora-academic-v1` (scholarly articles, preprints, datasets), and `fora-legal-v1` (legislation, case law, patents). Each profile is grounded in existing industry standards (IPTC NewsML-G2, CrossRef/OpenAlex, ELI/ECLI/Akoma Ntoso).
 
-Exchanges declare conformance via `supported_profiles` in their manifest. Agents declare which profiles they understand in the request. The Broker uses these declarations for routing -- a legal research agent requesting `fora-legal-v1` is routed to Exchanges that support that profile.
+Exchanges declare conformance via `supported_profiles` in their manifest. Agents declare which profiles they understand in the request. A Broker forwards the agent's declaration to each Exchange it queries and does not route by it; an Exchange that supports `fora-legal-v1` answers a legal research agent with that profile's fields.
 
 ## Scope Boundary
 

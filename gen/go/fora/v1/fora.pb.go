@@ -7177,10 +7177,11 @@ type DiscoveryRequest struct {
 	Constraints *RequestConstraints `protobuf:"bytes,4,opt,name=constraints,proto3,oneof" json:"constraints,omitempty"`
 	// Domain extension profiles the agent understands.
 	//
-	// The Broker uses this to:
-	//  1. Route queries to Exchanges that support these profiles
-	//  2. Forward the profiles in ResourceQuery.supported_profiles
-	//  3. Include profile-specific ext fields when returning results
+	// The Broker MUST forward this list unchanged in
+	// ResourceQuery.supported_profiles on every query it sends an Exchange, and
+	// forward an absent list as absent. It does not route by it: which Exchanges
+	// it queries is decided on other grounds, and each Exchange answers for its
+	// own profiles (see ResourceQuery.supported_profiles).
 	//
 	// Examples: ["fora-academic-v1"] — agent working on literature review
 	SupportedProfiles []string `protobuf:"bytes,5,rep,name=supported_profiles,json=supportedProfiles,proto3" json:"supported_profiles,omitempty"`

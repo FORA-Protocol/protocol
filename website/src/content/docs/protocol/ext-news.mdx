@@ -46,7 +46,7 @@ An Exchange declares support for this profile by including `"fora-news-v1"` in i
 }
 ```
 
-Brokers use `supported_profiles` to route news-specific queries to Exchanges that understand this vocabulary.
+A Broker forwards the agent's `supported_profiles` to the Exchanges it queries and does not route by them; an Exchange that declares this profile includes its fields.
 
 ---
 

@@ -82,7 +82,7 @@ A three-layer governance model prevents fragmentation:
 | **Standard extensions** | Cross-domain conventions in `fora.*` namespace | `fora.compliance.dua_required` |
 | **Domain profiles** | Industry-specific vocabularies | `news.iptc_guid`, `academic.doi`, `legal.eli` |
 
-Exchanges declare which profiles they support. Agents declare which profiles they understand. The Broker routes accordingly.
+Exchanges declare which profiles they support. Agents declare which profiles they understand. A Broker forwards the agent's profiles to each Exchange, and each Exchange answers for its own.
 
 Three v1 profiles exist:
 - **fora-news-v1** — articles, podcasts, broadcasting (IPTC NewsML-G2, Podcasting 2.0)

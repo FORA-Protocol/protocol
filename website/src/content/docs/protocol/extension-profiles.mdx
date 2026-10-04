@@ -58,7 +58,7 @@ Agent                    Broker                 Exchange
 
 ### WellKnownManifest.supported_profiles (field 23)
 
-The Exchange declares which domain extension profiles it conforms to. Published in `/.well-known/fora.json` (`role=ROLE_EXCHANGE`). The Broker reads this at discovery time to route queries to capable Exchanges.
+The Exchange declares which domain extension profiles it conforms to. Published in `/.well-known/fora.json` (`role=ROLE_EXCHANGE`). A Broker does not route by it: it forwards the agent's `supported_profiles` to every Exchange it queries, and each Exchange answers for its own profiles.
 
 ```json
 {

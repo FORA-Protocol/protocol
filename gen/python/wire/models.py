@@ -1767,7 +1767,7 @@ class DiscoveryRequest(WireModel):
     )
     supported_profiles: list[str] | None = Field(
         None,
-        description='Domain extension profiles the agent understands.\n\nThe Broker uses this to:\n   1. Route queries to Exchanges that support these profiles\n   2. Forward the profiles in ResourceQuery.supported_profiles\n   3. Include profile-specific ext fields when returning results\n\n Examples: ["fora-academic-v1"] — agent working on literature review',
+        description='Domain extension profiles the agent understands.\n\nThe Broker MUST forward this list unchanged in\n ResourceQuery.supported_profiles on every query it sends an Exchange, and\n forward an absent list as absent. It does not route by it: which Exchanges\n it queries is decided on other grounds, and each Exchange answers for its\n own profiles (see ResourceQuery.supported_profiles).\n\n Examples: ["fora-academic-v1"] — agent working on literature review',
     )
     uris: list[str] | None = Field(
         None,
