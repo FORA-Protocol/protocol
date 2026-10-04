@@ -1,49 +1,62 @@
-// sdk/ts framework-agnostic RFC 9421 single-signature SERVER-verify face — the
-// verify sibling of core/sign-request.ts and the TS port of sdk/go/connectserver's
-// single-sig verify path (verify.go / classify.go over helpers/verify.go +
-// sigbase.go). Where hono/middleware.ts::foraVerify is the edge-GET-PoP path
-// (2-component, self-verifying, no resolver) and core/verifier.ts is OFFER verify
-// (JCS), this is the request-verify a Broker/Exchange built in TS wires behind its
-// framework: it parses the inbound Signature-Input/Signature, enforces the FORA
-// required-5 covered set + content-digest + created/expires window, resolves the
-// keyid through an INJECTED KeyResolver (the SDK owns no keys), runs the two-phase
-// replay check over an INJECTED store (the SDK owns no replay state), reads time
-// through an INJECTED clock (the SDK owns no wall clock), and returns a VERDICT
-// carrying the reject reason mirroring the Go taxonomy — never throws.
+// sdk/ts framework-agnostic RFC 9421 single-signature SERVER-verify face under the Web
+// Bot Auth profile — the verify sibling of core/sign-request.ts and the TS port of
+// sdk/go/connectserver's verify path over helpers/verify.go. Where
+// hono/middleware.ts::foraVerify is the edge delivery-proof path (self-verifying, no
+// resolver) and core/verifier.ts is OFFER verify (JCS), this is the request-verify a
+// Broker/Exchange built in TS wires behind its framework: it parses the inbound
+// Signature-Input/Signature, enforces the profile and the FORA RPC covered set,
+// resolves the keyid in the key directory the signature's own Signature-Agent member
+// names through an INJECTED resolver (the SDK owns no keys), runs the two-phase replay
+// check over an INJECTED store (the SDK owns no replay state), reads time through an
+// INJECTED clock (the SDK owns no wall clock), and returns a VERDICT — never throws.
 //
-// SINGLE-SIG scope only:
-// multisig forwarding-chain verify (hop budget, broken_chain) is owned by the
-// core/verify-multisig-request.ts sibling.
-// The reject reasons this face emits are exactly the two the single-sig surface
-// produces (connectserver classify.go RejectReason.String()): "signature" (bad
-// sig / expiry / future-created / wrong-or-unresolvable key / tampered covered
-// field / missing component — the default) and "replay".
+// The first signature in header order is the one judged; a request carrying several is
+// the multisig sibling's (core/verify-multisig-request.ts). The reject reasons are the
+// two the single-signature surface produces (connectserver classify.go
+// RejectReason.String()): "signature" (the default — a bad signature, expiry, an
+// unresolvable key, a tampered covered field, a missing component, a refused form) and
+// "replay".
 
-import { decodeBase64Url, utf8Bytes } from "../src/base64url.ts";
-import { stdBase64 } from "./sign.ts";
+import { WBATag } from "../src/wire.ts";
+import { parseSignatureHeaders, type ParsedSignature } from "./multisig-parse.ts";
+import { stdBase64 } from "../src/base64url.ts";
 import {
-	buildRequestSignatureBase,
-	type ChainLink,
-	COVERED_COMPONENTS,
+	buildSignatureBase,
+	ComponentUnavailable,
 	contentDigest,
+	requestComponentValue,
 } from "./sign-request.ts";
+import {
+	acceptSignatureFor,
+	type Checked,
+	ENTITLEMENT_COVERED,
+	type Refusal,
+	REQUIRED_RPC_COMPONENTS,
+	signatureDirectory,
+} from "./wba.ts";
+
+export { acceptSignature, ENTITLEMENT_COVERED } from "./wba.ts";
 
 /**
  * The classified reject reason (connectserver classify.go RejectReason.String()).
- * SINGLE-SIG surface: "signature" (the default — authenticity/freshness/key/
- * covered-set failures) and "replay". The multisig tokens broken_chain /
- * hop_budget are out of scope here.
+ * SINGLE-SIG surface: "signature" (the default — authenticity/freshness/key/covered-set
+ * and profile failures) and "replay".
  */
 export type RejectReason = "signature" | "replay";
 
 /**
- * The injected keyid-keyed verifying-key resolver (ADR-020 §4). Distinct from
- * core/verifier.ts::OfferKeyResolver which is EXCHANGE-keyed for offer verify: a
- * request-verify resolver is keyed by the Signature-Input keyid. Returns the raw
- * 32-byte Ed25519 public key, or undefined when the key is unknown.
+ * The injected verifying-key resolver (ADR-020 §4). Distinct from
+ * core/verifier.ts::OfferKeyResolver, which is EXCHANGE-keyed for offer verify: a
+ * request-verify resolver is keyed by the Signature-Input keyid and the https origin of
+ * the key directory the signature's own covered Signature-Agent member names, so each
+ * signature is resolved in its own signer's directory. Returns the raw 32-byte Ed25519
+ * public key, or undefined when that directory publishes no such key.
  */
 export interface RequestKeyResolver {
-	resolve(keyid: string | null): Uint8Array<ArrayBuffer> | undefined;
+	resolve(
+		keyid: string,
+		directory: string,
+	): Uint8Array<ArrayBuffer> | undefined | Promise<Uint8Array<ArrayBuffer> | undefined>;
 }
 
 /**
@@ -66,33 +79,29 @@ export interface ReplayStore {
  * object spells it. Declared as a type alias rather than an interface because only a
  * type alias gets the implicit index signature that lets a value of this type reach
  * readHeader's `Record<string, string | undefined>` parameter; an interface is open to
- * declaration merging and TypeScript withholds it. Extra properties were already
- * assignable either way — that is not what the alias buys.
+ * declaration merging and TypeScript withholds it.
+ *
+ * Every member is optional so an ABSENT header is distinguishable from an empty one. A
+ * request with no Signature-Input or Signature is unsigned and is answered with
+ * Accept-Signature. A covered header the request does not carry cannot be
+ * reconstructed, and defaulting it to "" would invent a value the signer may never have
+ * bound; the oracle draws the same line by reading headers with Values rather than Get.
+ * See docs/design-history.md, "A covered header the peer never receives is not bound".
  */
 export type VerifyRequestHeaders = {
-	"content-digest": string;
-	"signature-input": string;
-	signature: string;
-	/**
-	 * The two covered headers whose value may legitimately be EMPTY. Optional so an
-	 * ABSENT one is distinguishable from an empty one, which is the whole reason an
-	 * empty one is put on the wire: the base is rebuilt from the request that ARRIVED,
-	 * so a name the signature covers and the request does not carry cannot be
-	 * reconstructed, and defaulting it to "" would invent a value the signer may never
-	 * have bound. The oracle draws the same line by reading these with Values rather
-	 * than Get. See docs/design-history.md, "A covered header the peer never receives
-	 * is not bound".
-	 */
+	"content-digest"?: string;
+	"signature-input"?: string;
+	signature?: string;
 	authorization?: string;
+	/** The Signature-Agent dictionary naming each signer's key directory. */
 	"signature-agent"?: string;
 	/**
-	 * The entitlement-token header (mirrors Go entitlementHeaderLower). When
-	 * present, the covered set MUST commit to it (enforceEntitlementCoverage);
-	 * omit/empty when the request carries no entitlement. Format-neutral —
-	 * JWT/opaque token; coverage is enforced, contents are not.
+	 * The entitlement-token header (mirrors Go entitlementHeaderLower). When present, the
+	 * covered set MUST commit to it; omit/empty when the request carries no entitlement.
+	 * Format-neutral — JWT/opaque token; coverage is enforced, contents are not.
 	 */
 	"x-entitlement-token"?: string;
-}
+};
 
 /** Inputs for verifyRequestServer — the request material plus the injected boundary. */
 export interface VerifyRequestServerInput {
@@ -106,7 +115,7 @@ export interface VerifyRequestServerInput {
 	/** Injected clock returning unix seconds — verify reads time ONLY through this. */
 	now: () => number;
 	/**
-	 * The per-hop signature-lifetime clamp in SECONDS (mirrors Go
+	 * The per-signature lifetime clamp in SECONDS (mirrors Go
 	 * VerifyOptions.MaxSignatureAge). When > 0, a signature whose declared window
 	 * (expires − created) EXCEEDS this is rejected as "signature"; the bound is
 	 * inclusive (a window exactly equal to it is accepted). 0/undefined = unbounded.
@@ -114,26 +123,30 @@ export interface VerifyRequestServerInput {
 	maxSignatureAge?: number;
 }
 
-/** The returned verdict: valid, or invalid with the classified reason. */
+/** The returned verdict: valid with what the signature proved, or invalid with the
+ * classified reason. */
 export interface VerifyVerdict {
 	valid: boolean;
 	reason?: RejectReason;
+	/** The keyid of the verified signature. */
+	keyid?: string;
+	/** The https origin of the verified signer's key directory: the value of the
+	 * Signature-Agent member the signature covers, the directory its keyid was resolved
+	 * in. It is covered, so it is signed. */
+	signatureAgent?: string;
+	/**
+	 * The Accept-Signature value (RFC 9421 §5.1, WG-00 §5.3) a refusal is answered with,
+	 * naming the components and form the verifier requires. Set when the request carried
+	 * no signature, a signature omitted a required component, its tag was missing or
+	 * wrong, or its Signature-Agent was in a form the profile refuses; unset for every
+	 * other refusal. A server sets it on its 401 as the AcceptSignatureHeader field.
+	 */
+	acceptSignature?: string;
 }
 
 // A created timestamp may not lead the verifier clock by more than this
 // (mirrors Go helpers.defaultMaxFutureSkew = 300s).
 const MAX_FUTURE_SKEW_SEC = 300;
-
-// The FORA required covered set, lowercased (mirrors Go requiredCoveredComponents).
-const REQUIRED_COVERED: ReadonlySet<string> = new Set(COVERED_COMPONENTS);
-
-// The entitlement-token header in covered-component (lowercased) form
-// (mirrors Go entitlementHeaderLower). When the request carries this header the
-// signature's covered set MUST commit to it; absent → no constraint.
-export const ENTITLEMENT_COVERED = "x-entitlement-token";
-
-const REASON_SIGNATURE: RejectReason = "signature";
-const REASON_REPLAY: RejectReason = "replay";
 
 /**
  * Read the request's value for `name`, or undefined when it carries no such field.
@@ -171,124 +184,23 @@ export function readHeader(
 	return values.join(", ").trim();
 }
 
-/**
- * The covered names that are HEADER fields. Derived from COVERED_COMPONENTS rather
- * than restated, so a name added to the covered set is absent-checked the day it is
- * added: the two "@" components are reconstructed from the request line, every other
- * covered name has to arrive as a field.
- */
-const COVERED_HEADER_NAMES: readonly string[] = COVERED_COMPONENTS.filter(
-	(c) => !c.startsWith("@"),
-);
+/** The request a signature is verified against: its request line, its exact body, and
+ * a header lookup that joins repeated field lines (see readHeader). */
+export interface VerifiableRequest {
+	method: string;
+	url: string;
+	body: Uint8Array<ArrayBuffer>;
+	header(name: string): string | undefined;
+}
 
-/**
- * Assemble the request-level covered fields, or undefined when the request does not
- * CARRY one of the headers its signature covers.
- *
- * The absent-header rule lives here rather than at each entry point, because it is a
- * property of the covered SET and not of any one face: every name in
- * COVERED_HEADER_NAMES must arrive, and an absent one cannot be defaulted to "" —
- * that would invent a value the signer may never have bound. The oracle draws the
- * same line one layer down, in the component resolver, for any covered name at all.
- *
- * Callers keep their own reject reason and their own place in the gate sequence: the
- * single-sig and multisig faces refuse at different points on purpose, and the corpus
- * pins that difference.
- *
- * Note the base builder still renders a fixed component list, so a name added to the
- * covered set is guarded here but does not yet reach the signature base.
- */
-export function requestVerifyFields(
+/** verifiableRequest adapts the request material a verify face receives. */
+export function verifiableRequest(
 	method: string,
 	url: string,
 	body: Uint8Array<ArrayBuffer>,
 	headers: Record<string, string | undefined>,
-): RequestVerifyFields | undefined {
-	const covered = new Map<string, string>();
-	for (const name of COVERED_HEADER_NAMES) {
-		const value = readHeader(headers, name);
-		if (value === undefined) return undefined;
-		covered.set(name, value);
-	}
-	// The loop above returned already if any of these were absent; the ?? "" is
-	// unreachable and exists only to satisfy Map's optional return type.
-	const entitlement = readHeader(headers, ENTITLEMENT_COVERED);
-	return {
-		method,
-		url,
-		digestHeader: covered.get("content-digest") ?? "",
-		authorization: covered.get("authorization") ?? "",
-		signatureAgent: covered.get("signature-agent") ?? "",
-		body,
-		...(entitlement ? { entitlementHeader: entitlement } : {}),
-	};
-}
-
-const reject = (reason: RejectReason): VerifyVerdict => ({
-	valid: false,
-	reason,
-});
-const accept: VerifyVerdict = { valid: true };
-
-interface ParsedInput {
-	/** Verbatim inner-list + params tail after `label=` — the base @signature-params value. */
-	rawParams: string;
-	covered: Set<string>;
-	keyid: string | null;
-	alg: string | null;
-	created?: number;
-	expires?: number;
-}
-
-/**
- * Parse `label=("c1" "c2" ...);keyid="..";alg="..";created=..;expires=..` — a
- * minimal RFC 8941-shaped parser for the SINGLE-SIG surface (one label, the FORA
- * covered set, string-valued keyid/alg). It keeps the VERBATIM params tail so the
- * verify base terminates with the signer's exact @signature-params bytes (Go
- * RawInner), never a re-rendering.
- */
-function parseSignatureInput(raw: string): ParsedInput | undefined {
-	const eq = raw.indexOf("=");
-	if (eq < 0) return undefined;
-	const rawParams = raw.slice(eq + 1).trim();
-	const open = rawParams.indexOf("(");
-	const close = rawParams.indexOf(")");
-	if (open !== 0 || close < 0) return undefined;
-	const inner = rawParams.slice(open + 1, close);
-	const covered = new Set(
-		[...inner.matchAll(/"([^"]*)"/g)].map((m) => (m[1] ?? "").toLowerCase()),
-	);
-	const tail = rawParams.slice(close + 1);
-	const keyid = matchQuoted(tail, /;keyid="([^"]*)"/);
-	const alg = matchQuoted(tail, /;alg="([^"]*)"/);
-	const created = matchInt(tail, /;created=(\d+)/);
-	const expires = matchInt(tail, /;expires=(\d+)/);
-	return {
-		rawParams,
-		covered,
-		keyid,
-		alg,
-		...(created !== undefined ? { created } : {}),
-		...(expires !== undefined ? { expires } : {}),
-	};
-}
-
-function matchQuoted(s: string, re: RegExp): string | null {
-	const m = s.match(re);
-	return m ? (m[1] ?? "") : null;
-}
-
-function matchInt(s: string, re: RegExp): number | undefined {
-	const m = s.match(re);
-	return m ? Number(m[1]) : undefined;
-}
-
-/** Parse the RFC 9421 `Signature` header value `label=:<STANDARD-base64>:`. */
-function parseSignatureBytes(raw: string): Uint8Array<ArrayBuffer> | undefined {
-	const first = raw.indexOf(":");
-	const last = raw.lastIndexOf(":");
-	if (first < 0 || last <= first) return undefined;
-	return decodeBase64Url(raw.slice(first + 1, last));
+): VerifiableRequest {
+	return { method, url, body, header: (name) => readHeader(headers, name) };
 }
 
 // The replay nonce mirrors connectserver.replayNonce: keyid + NUL +
@@ -317,154 +229,123 @@ export async function ed25519Verify(
 	}
 }
 
-/** The request-level covered fields shared across every hop of a request. */
-export interface RequestVerifyFields {
-	method: string;
-	url: string;
-	digestHeader: string;
-	authorization: string;
-	signatureAgent: string;
-	body: Uint8Array<ArrayBuffer>;
-	/**
-	 * The entitlement-token header value (empty/undefined when absent). When
-	 * non-empty, enforceEntitlementCoverage requires the covered set to commit to
-	 * "x-entitlement-token" — an entitlement token cannot be slipped under an
-	 * otherwise-valid signature.
-	 */
-	entitlementHeader?: string;
+/** What one verified signature proved. */
+export interface VerifiedSignature {
+	keyid: string;
+	/** The https origin of the key directory the signature's member names. */
+	directory: string;
 }
 
-/** The parsed per-signature params the verify core judges (one hop). */
-export interface ParsedSignatureParams {
-	/** Verbatim inner-list + params tail — the base @signature-params value. */
-	rawParams: string;
-	covered: ReadonlySet<string>;
-	keyid: string | null;
-	alg: string | null;
-	created?: number;
-	expires?: number;
-}
+const refuse = (refusal: Refusal): { ok: false; refusal: Refusal } => ({ ok: false, refusal });
+const SIGNATURE: Refusal = { kind: "signature" };
 
 /**
- * The per-signature verify core shared by the single-sig and multisig paths
- * (mirrors Go verifySingleSignature, MINUS replay): alg + required
- * covered set + created/expires window + content-digest + key resolution +
- * Ed25519 over the reconstructed base. Returns true iff the signature is authentic
- * and policy-valid. `chainLink`, when present, inserts the forwarding-chain base
- * line for a chained hop (sigN, N>1). NO replay — the caller owns that so the
- * multisig loop never touches a ReplayStore. `maxSignatureAge` (seconds, mirrors
- * Go VerifyOptions.MaxSignatureAge) clamps the declared lifetime per hop: when
- * > 0 a window (expires − created) EXCEEDING it is rejected; 0/undefined =
- * unbounded, and the bound is inclusive.
+ * verifyParsedSignature runs the full per-signature check shared by the single-sig and
+ * multisig faces (mirrors Go verifySingleSignature, MINUS replay): alg, the Web Bot Auth
+ * tag, the FORA RPC components, the signature's own Signature-Agent member, entitlement
+ * coverage, the created/expires window, content-digest, then the key the member's
+ * directory publishes and the Ed25519 check over the rebuilt base. `sigCount` is the
+ * number of signatures on the request: the legacy String form of Signature-Agent is
+ * accepted only when it is one. `maxSignatureAge` (seconds, mirrors Go
+ * VerifyOptions.MaxSignatureAge) clamps the declared lifetime: when > 0 a window
+ * EXCEEDING it is refused; 0/undefined = unbounded. NO replay — the caller owns that.
  */
 export async function verifyParsedSignature(
-	fields: RequestVerifyFields,
-	parsed: ParsedSignatureParams,
-	sigBytes: Uint8Array<ArrayBuffer> | undefined,
+	req: VerifiableRequest,
+	sig: ParsedSignature,
+	sigCount: number,
 	resolve: RequestKeyResolver,
 	nowSec: number,
-	chainLink?: ChainLink,
 	maxSignatureAge?: number,
-): Promise<boolean> {
-	if (parsed.keyid === null) return false;
-	if (parsed.alg === null || parsed.alg.toLowerCase() !== "ed25519") return false;
-	for (const need of REQUIRED_COVERED) {
-		if (!parsed.covered.has(need)) return false;
+): Promise<Checked<VerifiedSignature>> {
+	if (sig.alg === undefined || sig.alg.toLowerCase() !== "ed25519") return refuse(SIGNATURE);
+	if (sig.tag !== WBATag) return refuse({ kind: "tag" });
+	const names = new Set(sig.covered.map((c) => c.name.toLowerCase()));
+	for (const need of REQUIRED_RPC_COMPONENTS) {
+		if (!names.has(need)) return refuse({ kind: "missing_component", component: need });
 	}
-	// Entitlement coverage (mirrors Go enforceEntitlementCoverage, run right after
-	// enforceRequiredComponents): iff the request carries the entitlement-token
-	// header, the covered set MUST commit to it; absent → no constraint.
-	if (fields.entitlementHeader && !parsed.covered.has(ENTITLEMENT_COVERED)) {
-		return false;
+	const directory = signatureDirectory(req.header("signature-agent"), sig, sigCount);
+	if (!directory.ok) return directory;
+	// Every field line under the name, joined: a reader taking the first line alone is
+	// shadowed by an empty line put ahead of a real token, and the coverage rule never runs.
+	const entitlement = req.header(ENTITLEMENT_COVERED);
+	if (entitlement !== undefined && entitlement !== "" && !names.has(ENTITLEMENT_COVERED)) {
+		return refuse({ kind: "missing_component", component: ENTITLEMENT_COVERED });
 	}
-	if (parsed.created === undefined || parsed.expires === undefined) return false;
-	if (parsed.expires < nowSec) return false;
-	if (parsed.created > nowSec + MAX_FUTURE_SKEW_SEC) return false;
-	// Lifetime clamp (mirrors Go enforceCreatedExpires MaxSignatureAge): reject a
-	// declared window longer than the verifier allows. 0/undefined = unbounded;
-	// the bound is inclusive (strictly-greater is rejected).
-	if (
-		maxSignatureAge !== undefined &&
-		maxSignatureAge > 0 &&
-		parsed.expires - parsed.created > maxSignatureAge
-	) {
-		return false;
+	if (!sig.created || !sig.expires) return refuse(SIGNATURE);
+	if (sig.expires < nowSec || sig.created > nowSec + MAX_FUTURE_SKEW_SEC) return refuse(SIGNATURE);
+	if (maxSignatureAge !== undefined && maxSignatureAge > 0 && sig.expires - sig.created > maxSignatureAge) {
+		return refuse(SIGNATURE);
 	}
+	if (names.has("content-digest")) {
+		const digest = req.header("content-digest");
+		if (digest === undefined || digest.trim() !== (await contentDigest(req.body))) return refuse(SIGNATURE);
+	}
+	let pub: Uint8Array<ArrayBuffer> | undefined;
+	try {
+		pub = await resolve.resolve(sig.keyid, directory.value);
+	} catch {
+		return refuse(SIGNATURE);
+	}
+	if (pub === undefined || pub.length !== 32) return refuse(SIGNATURE);
+	let base: string;
+	try {
+		base = buildSignatureBase(sig.covered, requestComponentValue(req), sig.rawInner);
+	} catch (err) {
+		if (err instanceof ComponentUnavailable) return refuse(SIGNATURE);
+		throw err;
+	}
+	if (!(await ed25519Verify(pub, sig.signature, new TextEncoder().encode(base)))) return refuse(SIGNATURE);
+	return { ok: true, value: { keyid: sig.keyid, directory: directory.value } };
+}
 
-	const expectedDigest = await contentDigest(fields.body);
-	if (fields.digestHeader.trim() !== expectedDigest) return false;
-	if (!sigBytes) return false;
-
-	const pub = resolve.resolve(parsed.keyid);
-	if (!pub || pub.length !== 32) return false;
-
-	const base = buildRequestSignatureBase(
-		{
-			method: fields.method,
-			url: fields.url,
-			digestHeader: fields.digestHeader,
-			authorization: fields.authorization,
-			signatureAgent: fields.signatureAgent,
-		},
-		parsed.rawParams,
-		chainLink,
-	);
-	return ed25519Verify(pub, sigBytes, utf8Bytes(base));
+/** rejected maps a refusal onto the public verdict: reason "signature", plus the
+ * Accept-Signature value when the refusal earns one. */
+function rejected(refusal: Refusal): VerifyVerdict {
+	const accept = acceptSignatureFor(refusal);
+	return { valid: false, reason: "signature", ...(accept !== undefined ? { acceptSignature: accept } : {}) };
 }
 
 /**
- * Verify an inbound single-signature FORA request; return a reason-tagged verdict.
+ * Verify an inbound FORA request's first signature; return a reason-tagged verdict.
  *
- * Mirrors the Go connectserver single-sig verify order: required covered-set →
- * created/expires window → content-digest → key resolution → Ed25519 check over
- * the reconstructed base → two-phase replay. Every authenticity/freshness/key/
- * covered-set failure collapses to "signature" (the Go default branch); a replayed
- * nonce is "replay". Keys resolve ONLY through `resolve`; replay state lives ONLY
- * in `replayStore` when supplied; time is read ONLY through `now`.
+ * Mirrors the Go connectserver verify order: the profile and covered-set checks → the
+ * created/expires window → content-digest → key resolution in the signature's own
+ * directory → Ed25519 over the rebuilt base → two-phase replay. Every
+ * authenticity/freshness/key/covered-set/form failure collapses to "signature" (the Go
+ * default branch); a replayed signature is "replay". Keys resolve ONLY through
+ * `resolve`; replay state lives ONLY in `replayStore` when supplied; time is read ONLY
+ * through `now`.
  */
 export async function verifyRequestServer(
 	input: VerifyRequestServerInput,
 ): Promise<VerifyVerdict> {
-	// Every read goes through the case-insensitive, duplicate-joining fold — see
-	// readHeader for why both properties are load-bearing. These two fail closed on
-	// their own: an absent one folds to "" and the parse then rejects, landing on
-	// the same reason the oracle does.
-	const signatureInput = readHeader(input.headers, "signature-input") ?? "";
-	const signatureHeader = readHeader(input.headers, "signature") ?? "";
-
-	// A covered header the request does not CARRY cannot be reconstructed, and "" is a
-	// value the signer may legitimately have bound — so absent is refused rather than
-	// defaulted. Derived from the covered set; see requestVerifyFields.
-	const fields = requestVerifyFields(input.method, input.url, input.body, input.headers);
-	if (fields === undefined) return reject(REASON_SIGNATURE);
-
-	const parsed = parseSignatureInput(signatureInput);
-	if (!parsed) return reject(REASON_SIGNATURE);
-
+	const parsed = parseSignatureHeaders(
+		readHeader(input.headers, "signature-input"),
+		readHeader(input.headers, "signature"),
+	);
+	if (!parsed.ok) return rejected(parsed.refusal);
+	const sig = parsed.value[0] as ParsedSignature;
+	const req = verifiableRequest(input.method, input.url, input.body, input.headers);
 	const nowSec = Math.floor(input.now());
-	const sigBytes = parseSignatureBytes(signatureHeader);
-
-	// The full per-signature core (covered set / window / digest / key / Ed25519),
-	// shared with the multisig path; replay stays here so the multisig loop never
-	// touches a ReplayStore.
-	const ok = await verifyParsedSignature(
-		fields,
-		parsed,
-		sigBytes,
+	const verified = await verifyParsedSignature(
+		req,
+		sig,
+		parsed.value.length,
 		input.resolve,
 		nowSec,
-		undefined,
 		input.maxSignatureAge,
 	);
-	if (!ok || parsed.keyid === null || !sigBytes) return reject(REASON_SIGNATURE);
+	if (!verified.ok) return rejected(verified.refusal);
 
 	if (input.replayStore) {
 		// Two-phase (read-only Seen, then SeenOrAdd) mirrors connectserver.verify so a
 		// part-way rejection never burns the nonce (single-sig: one signature).
-		const nonce = replayNonce(parsed.keyid, sigBytes);
-		if (await input.replayStore.seenNonce(nonce)) return reject(REASON_REPLAY);
-		if (await input.replayStore.seenOrAdd(nonce)) return reject(REASON_REPLAY);
+		const nonce = replayNonce(sig.keyid, sig.signature);
+		if (await input.replayStore.seenNonce(nonce)) return { valid: false, reason: "replay" };
+		if (await input.replayStore.seenOrAdd(nonce)) return { valid: false, reason: "replay" };
 	}
 
-	return accept;
+	return { valid: true, keyid: verified.value.keyid, signatureAgent: verified.value.directory };
 }
+

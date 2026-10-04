@@ -1076,13 +1076,24 @@ async function fetchVerb(r: Resolved, signedURL: string): Promise<Content> {
 			),
 		});
 	}
+	if (r.opts.signatureAgent === undefined || r.opts.signatureAgent === "") {
+		throw new ForaCallError({
+			kind: "not_signable",
+			op,
+			cause: new Error(
+				"no signatureAgent configured; a bound fetch names the agent's key directory " +
+					"as the proof's Signature-Agent member",
+			),
+		});
+	}
 	return fetchContent(signedURL, {
 		// One private key, held by the signer. The public half rides alongside because
 		// custody keeps the private one and a CryptoKey cannot be asked for its pair.
 		keyPair: { privateKey: r.opts.signer.privKey, publicKey: r.opts.agentPublicKey },
+		signatureAgent: r.opts.signatureAgent,
 		// The proof window is the client's, not the signer's. core/sign.ts defaults to the
-		// 10-minute TTL a server-side proof uses; a delivery proof is minted for one GET
-		// and wants the short window instead, so the default is set here rather than
+		// five-minute limit of a Web Bot Auth signature; a delivery proof is minted for one
+		// GET and wants the short window instead, so the default is set here rather than
 		// inherited.
 		window: r.opts.proofWindow ?? clockWindow(() => Date.now() / 1000, DEFAULT_PROOF_WINDOW_SEC),
 		...(r.opts.contentTimeoutMs !== undefined

@@ -1,417 +1,339 @@
-// sdk/ts full-RPC single-signature SERVER-VERIFY parity against the shared Go
-// oracle (agentic-content-access, SINGLE-SIG scope; multisig-chain verify is out
-// of scope — the multisig verify sibling owns it).
+// sdk/ts single-signature SERVER-VERIFY parity against the shared Go oracle, under the
+// Web Bot Auth profile.
 //
-// Today sdk/ts has NO framework-agnostic request-verify: hono/middleware.ts's
-// foraVerify is edge-GET-PoP-scoped (2-component, self-verifying, no resolver)
-// and core/verifier.ts is OFFER verify (JCS), a different concern. This suite
-// pins the NEW core/verify-request.ts — the verify sibling of the just-landed
-// core/sign-request.ts — which must mirror sdk/go/connectserver semantics
-// reason-for-reason: covered-set/digest/window enforcement, replay detection via
-// an INJECTED store, keys via an INJECTED KeyResolver, time via an INJECTED
-// clock, and the reject taxonomy exposed as a RETURNED verdict (not thrown).
+// core/verify-request.ts mirrors sdk/go/connectserver semantics reason-for-reason: the
+// profile (tag, Signature-Agent form, the signature's own member), the FORA RPC covered
+// set, digest and window enforcement, replay detection via an INJECTED store, keys via
+// an INJECTED resolver keyed by keyid and directory, time via an INJECTED clock, and the
+// reject taxonomy exposed as a RETURNED verdict (never thrown).
 //
-// Byte/semantic oracle:
-//   - positive round-trip: a request reconstructed from
-//     sdk/go/helpers/testdata/sign-request-vectors.json (the same vectors the
-//     TS/Python request SIGNERS produce) MUST verify (valid=true); the vector's
-//     key is injected via the KeyResolver and the vector's created/expires window
-//     via the clock;
-//   - a request signed live by core/sign-request.ts::signRequest MUST verify;
-//   - negatives: each Go-emitted SINGLE-SIG negative-verify vector
-//     (verify-request-neg-vectors.json) MUST be REJECTED with the reason the Go
-//     connectserver taxonomy assigns (mirroring ClassifyReject / RejectReason /
-//     ErrReplayed).
-//
-// Reject taxonomy the verdict must expose (mirrors sdk/go/connectserver
-// classify.go RejectReason.String() tokens): "signature" (bad sig / expiry /
-// future-created / wrong-or-unresolvable key / tampered covered field / missing
-// component — the default) and "replay". broken_chain / hop_budget are multisig
-// and OUT OF SCOPE here.
-//
-// RED until BOTH (a) sdk/ts/core/verify-request.ts exists AND (b) the Go emitter
-// produces verify-request-neg-vectors.json. The implement step adds
-// both; this test is the TDD-red contract. Do NOT implement either here.
+// Oracle:
+//   - every sign-request vector (the bytes the TS/Python/Go signers produce) verifies,
+//     and the verdict reports the directory the signature's member names;
+//   - every verify-request-accept vector — the forms other Web Bot Auth signers send,
+//     which the SDK never emits — verifies and reports expected_signature_agent;
+//   - every verify-request-neg vector is REJECTED with the reason the Go taxonomy
+//     assigns, and answered with exactly the expected_accept_signature (none when the
+//     vector omits it).
 
-import { describe, it, expect } from "vitest";
-// RED: sdk/ts/core/verify-request.ts does not exist yet (TDD red step). The
-// entry mirrors Go serverConfig.verify: framework-agnostic, injected resolver +
-// replay store + clock, returns a verdict carrying the reject reason.
-import {
-  verifyRequestServer,
-  type RejectReason,
-  type RequestKeyResolver,
-  type ReplayStore,
-  type VerifyRequestHeaders,
-} from "../core/verify-request.ts";
+import { describe, expect, it } from "vitest";
 import { signRequest } from "../core/sign-request.ts";
+import {
+	type RejectReason,
+	type ReplayStore,
+	type RequestKeyResolver,
+	type VerifyRequestHeaders,
+	verifyRequestServer,
+} from "../core/verify-request.ts";
 import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
-// RED (also): this negative-verify vector file is produced by the Go emitter
-// extension the implement step adds; it does not exist yet, so the import fails
-// at collection — a clean TDD-red signal that the shared oracle is missing.
+import acceptVerifyVectors from "../../go/helpers/testdata/verify-request-accept-vectors.json";
 import negVerifyVectors from "../../go/helpers/testdata/verify-request-neg-vectors.json";
+import {
+	AGENT_DIRECTORY,
+	b64urlToBytes,
+	directoryResolver,
+	hexToBytes,
+	importSigningKey,
+} from "./wba-fixtures.ts";
 
 type SignRequestVector = {
-  name: string;
-  method: string;
-  url: string;
-  body_hex: string;
-  authorization: string;
-  signature_agent: string;
-  keyid: string;
-  created: number;
-  expires: number;
-  signer_seed_hex: string;
-  pubkey_b64url: string;
-  content_digest: string;
-  signature_input: string;
-  signature: string;
+	name: string;
+	method: string;
+	url: string;
+	body_hex: string;
+	authorization: string;
+	signature_agent: string;
+	keyid: string;
+	created: number;
+	expires: number;
+	pubkey_b64url: string;
+	content_digest: string;
+	signature_input: string;
+	signature: string;
+	emitted_headers: Record<string, string[]>;
 };
 
-// A Go-emitted single-sig negative-verify vector: a fully-formed request whose
-// verification MUST be rejected, tagged with the exact reason token and the keyid
-// whose public key the resolver must serve (empty/absent for the wrong-key case).
-type NegVerifyVector = {
-  name: string; // neg_bad_sig | neg_replay | neg_expired | neg_wrong_key | neg_tampered_authorization
-  method: string;
-  url: string;
-  body_hex: string;
-  authorization: string;
-  signature_agent: string;
-  content_digest: string;
-  signature_input: string;
-  signature: string;
-  // keyid the request claims; resolver_pubkey_b64url is the key the resolver
-  // returns for it (may be a WRONG key for neg_wrong_key, or absent to force an
-  // unresolvable-key rejection).
-  keyid: string;
-  resolver_keyid?: string;
-  resolver_pubkey_b64url?: string;
-  // pinned verifier clock inside/outside the window per the case under test.
-  now: number;
-  // the reason token the Go taxonomy assigns (RejectReason.String()).
-  expected_reason: RejectReason;
-  // for neg_replay: the same request is presented twice; the SECOND presentation
-  // is the one that must be rejected as "replay".
-  replay?: boolean;
-  // for neg_entitlement_uncovered: the value to put in the (uncovered)
-  // X-Entitlement-Token request header. Non-empty forces
-  // enforceEntitlementCoverage to reject "signature" since the base covered set
-  // does not commit to it.
-  entitlement?: string;
-  // names the request does NOT carry — the key is DELETED after the base ones are
-  // set, so the face sees a covered name with no field line under it rather than an
-  // empty one. Absent is not empty, and the two must not verify alike.
-  omit_headers?: string[];
-  // field lines ADDED beside the base ones, spelled in a DIFFERENT case so an object
-  // holds both. Two keys, one covered name: the values join before the base is
-  // rebuilt, which is what stops an unsigned token riding under a signed empty one.
-  extra_headers?: Record<string, string>;
+// A Go-emitted verify vector: a fully-formed request, the key the resolver serves for
+// resolver_keyid, the pinned clock, and the verdict. `signature_agent` is the
+// Signature-Agent HEADER value.
+type VerifyVector = {
+	name: string;
+	method: string;
+	url: string;
+	body_hex: string;
+	authorization: string;
+	signature_agent: string;
+	content_digest: string;
+	signature_input: string;
+	signature: string;
+	keyid: string;
+	resolver_keyid?: string;
+	resolver_pubkey_b64url?: string;
+	now: number;
+	expected_reason: RejectReason | "";
+	expected_accept_signature?: string;
+	expected_signature_agent?: string;
+	// The same request is presented twice; the SECOND presentation must be "replay".
+	replay?: boolean;
+	// An X-Entitlement-Token value the signature does not cover.
+	entitlement?: string;
+	// Names the request does NOT carry — deleted after the base ones are set, so the face
+	// sees a covered name with no field line rather than an empty one.
+	omit_headers?: string[];
+	// Field lines ADDED beside the base ones, spelled in a different case so an object
+	// holds both; their values join before the base is rebuilt.
+	extra_headers?: Record<string, string>;
 };
 
-function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
-  const out = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < out.length; i++) {
-    out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-  }
-  return out;
+// A keyid-keyed resolver that records every call — the injected-boundary probe for the
+// vectors that carry no directory of their own.
+function keyidResolver(keys: Record<string, Uint8Array<ArrayBuffer>>): RequestKeyResolver & { calls: string[] } {
+	const calls: string[] = [];
+	return {
+		calls,
+		resolve(keyid) {
+			calls.push(keyid);
+			return keys[keyid];
+		},
+	};
 }
 
-function b64urlToBytes(s: string): Uint8Array<ArrayBuffer> {
-  const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
-  const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + pad;
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
+function memoryReplayStore(): ReplayStore {
+	const seen = new Set<string>();
+	return {
+		async seenNonce(nonce) {
+			return seen.has(nonce);
+		},
+		async seenOrAdd(nonce) {
+			if (seen.has(nonce)) return true;
+			seen.add(nonce);
+			return false;
+		},
+	};
 }
 
-const PKCS8_ED25519_PREFIX = Uint8Array.from([
-  0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04,
-  0x22, 0x04, 0x20,
-]);
+const fixedClock = (nowUnix: number) => () => nowUnix;
 
-async function importSigningKey(seedHex: string): Promise<CryptoKey> {
-  const seed = hexToBytes(seedHex);
-  const pkcs8 = new Uint8Array(PKCS8_ED25519_PREFIX.length + seed.length);
-  pkcs8.set(PKCS8_ED25519_PREFIX, 0);
-  pkcs8.set(seed, PKCS8_ED25519_PREFIX.length);
-  return crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, false, [
-    "sign",
-  ]);
+function headersFor(v: VerifyVector): VerifyRequestHeaders {
+	const headers: VerifyRequestHeaders = {
+		"content-digest": v.content_digest,
+		"signature-input": v.signature_input,
+		signature: v.signature,
+		authorization: v.authorization,
+		"signature-agent": v.signature_agent,
+	};
+	if (v.entitlement) headers["x-entitlement-token"] = v.entitlement;
+	const bag = headers as Record<string, string | undefined>;
+	for (const name of v.omit_headers ?? []) delete bag[name.toLowerCase()];
+	// AFTER the base ones, so the join order matches the order the oracle added them.
+	for (const [name, value] of Object.entries(v.extra_headers ?? {})) bag[name] = value;
+	return headers;
 }
 
-// A KeyResolver that records every keyid it was asked to resolve — the
-// injected-boundary probe. The SDK MUST resolve keys ONLY through this holder;
-// the test asserts the recorded calls to prove no key was read out-of-band.
-function recordingResolver(
-  keys: Record<string, Uint8Array<ArrayBuffer>>,
-): RequestKeyResolver & { calls: (string | null)[] } {
-  const calls: (string | null)[] = [];
-  return {
-    calls,
-    resolve(keyid: string | null): Uint8Array<ArrayBuffer> | undefined {
-      calls.push(keyid);
-      return keyid === null ? undefined : keys[keyid];
-    },
-  };
+function requestFor(v: VerifyVector, resolve: RequestKeyResolver, replayStore: ReplayStore) {
+	return {
+		method: v.method,
+		url: v.url,
+		body: hexToBytes(v.body_hex),
+		headers: headersFor(v),
+		resolve,
+		replayStore,
+		now: fixedClock(v.now),
+	};
 }
 
-// An in-test replay store the SDK orchestrates over (Seen / SeenOrAdd) — the SDK
-// ships no default store, so replay state lives entirely here.
-function memoryReplayStore(): ReplayStore & { seen: Set<string> } {
-  const seen = new Set<string>();
-  return {
-    seen,
-    async seenNonce(nonce: string): Promise<boolean> {
-      return seen.has(nonce);
-    },
-    async seenOrAdd(nonce: string): Promise<boolean> {
-      if (seen.has(nonce)) return true;
-      seen.add(nonce);
-      return false;
-    },
-  };
+function resolverFor(v: VerifyVector): RequestKeyResolver & { calls: string[] } {
+	const keys: Record<string, Uint8Array<ArrayBuffer>> = {};
+	if (v.resolver_pubkey_b64url) keys[v.resolver_keyid ?? v.keyid] = b64urlToBytes(v.resolver_pubkey_b64url);
+	return keyidResolver(keys);
 }
 
-// A fixed clock — the SDK reads time ONLY through this, never Date.now().
-function fixedClock(nowUnix: number): () => number {
-  return () => nowUnix;
-}
+const LIVE_SEED = "55565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f7071727374";
+const LIVE_PUB = "rGv1a5oEriM-jaKs3KzrFzzn4Hb180dA4XuZ0bAs_gk";
+const LIVE_URL = "https://broker.example/fora.v1.BrokerService/Fetch";
 
-describe("sdk/ts full-RPC single-sig server-verify mirrors the Go connectserver oracle", () => {
-  const signDoc = signRequestVectors as { vectors: SignRequestVector[] };
-  const negDoc = negVerifyVectors as { vectors: NegVerifyVector[] };
+describe("sdk/ts single-sig server-verify mirrors the Go connectserver oracle", () => {
+	const signDoc = signRequestVectors as { vectors: SignRequestVector[] };
+	const acceptDoc = acceptVerifyVectors as { vectors: VerifyVector[] };
+	const negDoc = negVerifyVectors as { vectors: VerifyVector[] };
 
-  it("negative-verify vector set covers every single-sig reject case", () => {
-    // The Go emitter must produce exactly these named single-sig negatives; the
-    // multisig cases (broken_chain / hop_budget) are out of scope.
-    const names = new Set(negDoc.vectors.map((v) => v.name));
-    expect(names.has("neg_bad_sig")).toBe(true);
-    expect(names.has("neg_replay")).toBe(true);
-    expect(names.has("neg_expired")).toBe(true);
-    expect(names.has("neg_wrong_key")).toBe(true);
-    expect(names.has("neg_tampered_authorization")).toBe(true);
-    expect(names.has("neg_entitlement_uncovered")).toBe(true);
-    // How a covered header is READ, which is a separate claim from whether its
-    // value was tampered with: a name the request does not carry at all, and a
-    // second field line beside the signed one under a different spelling.
-    expect(names.has("neg_absent_authorization")).toBe(true);
-    expect(names.has("neg_absent_signature_agent")).toBe(true);
-    expect(names.has("neg_duplicate_authorization")).toBe(true);
-    // The entitlement name carried twice with an empty line first — the coverage rule
-    // is skipped entirely by a reader that resolves the name to one line.
-    expect(names.has("neg_shadowed_entitlement")).toBe(true);
-  });
+	it("the negative corpus covers every profile and covered-set refusal", () => {
+		const names = new Set(negDoc.vectors.map((v) => v.name));
+		for (const want of [
+			"neg_bad_sig",
+			"neg_replay",
+			"neg_expired",
+			"neg_wrong_key",
+			"neg_tampered_authorization",
+			"neg_entitlement_uncovered",
+			"neg_absent_authorization",
+			"neg_absent_signature_agent",
+			"neg_duplicate_authorization",
+			"neg_shadowed_entitlement",
+			"neg_missing_tag",
+			"neg_wrong_tag",
+			"neg_bare_signature_agent",
+			"neg_signature_agent_member_absent",
+			"neg_signature_agent_type_not_directory",
+			"neg_signature_agent_not_https_origin",
+			"neg_signature_agent_not_an_origin",
+			"neg_missing_fora_component",
+			"neg_unsigned",
+			"neg_repointed_signature_agent",
+		]) {
+			expect(names.has(want), want).toBe(true);
+		}
+	});
 
-  // POSITIVE: every sign-request oracle vector verifies through the server face
-  // when its key is injected via the resolver and its window via the clock.
-  for (const v of signDoc.vectors) {
-    it(`${v.name}: oracle-signed request verifies (valid=true) through the injected boundary`, async () => {
-      const resolver = recordingResolver({
-        [v.keyid]: b64urlToBytes(v.pubkey_b64url),
-      });
-      const store = memoryReplayStore();
-      const now = Math.floor((v.created + v.expires) / 2);
+	// POSITIVE: every sign-request vector verifies when its key is published in the
+	// directory its member names, and the verdict reports that directory.
+	for (const v of signDoc.vectors) {
+		it(`${v.name}: oracle-signed request verifies and reports its directory`, async () => {
+			const resolver = directoryResolver([
+				{ directory: v.signature_agent, keyid: v.keyid, pub: b64urlToBytes(v.pubkey_b64url) },
+			]);
+			const verdict = await verifyRequestServer({
+				method: v.method,
+				url: v.url,
+				body: hexToBytes(v.body_hex),
+				headers: {
+					"content-digest": v.content_digest,
+					"signature-input": v.signature_input,
+					signature: v.signature,
+					authorization: v.authorization,
+					"signature-agent": v.emitted_headers["signature-agent"]?.[0] ?? "",
+				},
+				resolve: resolver,
+				replayStore: memoryReplayStore(),
+				now: fixedClock(Math.floor((v.created + v.expires) / 2)),
+			});
+			expect(verdict).toEqual({ valid: true, keyid: v.keyid, signatureAgent: v.signature_agent });
+			expect(resolver.calls).toEqual([[v.signature_agent, v.keyid]]);
+		});
+	}
 
-      const verdict = await verifyRequestServer({
-        method: v.method,
-        url: v.url,
-        body: hexToBytes(v.body_hex),
-        headers: {
-          "content-digest": v.content_digest,
-          "signature-input": v.signature_input,
-          signature: v.signature,
-          authorization: v.authorization,
-          "signature-agent": v.signature_agent,
-        },
-        resolve: resolver,
-        replayStore: store,
-        now: fixedClock(now),
-      });
+	// POSITIVE: the forms WG-00 permits that the SDK never emits.
+	for (const v of acceptDoc.vectors) {
+		it(`${v.name}: verifies and reports ${v.expected_signature_agent}`, async () => {
+			const resolver = directoryResolver([
+				{
+					directory: v.expected_signature_agent ?? "",
+					keyid: v.resolver_keyid ?? v.keyid,
+					pub: b64urlToBytes(v.resolver_pubkey_b64url ?? ""),
+				},
+			]);
+			const verdict = await verifyRequestServer(requestFor(v, resolver, memoryReplayStore()));
+			expect(verdict.valid, verdict.reason).toBe(true);
+			expect(verdict.signatureAgent).toBe(v.expected_signature_agent);
+			expect(verdict.acceptSignature).toBeUndefined();
+		});
+	}
 
-      expect(verdict.valid).toBe(true);
-      // The key was resolved ONLY through the injected resolver (no out-of-band read).
-      expect(resolver.calls).toContain(v.keyid);
-    });
-  }
+	// NEGATIVE: each Go-emitted refusal rejects with the taxonomy reason and exactly the
+	// Accept-Signature the oracle answers with.
+	for (const v of negDoc.vectors) {
+		it(`${v.name}: rejected with reason "${v.expected_reason}" and its Accept-Signature`, async () => {
+			const req = requestFor(v, resolverFor(v), memoryReplayStore());
+			if (v.replay) {
+				// The first presentation is accepted and records the nonce; the SECOND is
+				// the one that must be rejected as "replay".
+				expect((await verifyRequestServer(req)).valid).toBe(true);
+			}
+			const verdict = await verifyRequestServer(req);
+			expect(verdict.valid).toBe(false);
+			expect(verdict.reason).toBe(v.expected_reason);
+			expect(verdict.acceptSignature).toBe(v.expected_accept_signature);
+		});
+	}
 
-  it("a request signed live by core/sign-request.ts round-trips through the server face", async () => {
-    const seedHex =
-      "55565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f7071727374";
-    const priv = await importSigningKey(seedHex);
-    const created = 1_700_000_000;
-    const expires = 1_700_000_600;
-    const body = new TextEncoder().encode(
-      '{"uri":"https://cdn.example/live"}',
-    ) as Uint8Array<ArrayBuffer>;
+	async function liveSigned(created: number, expires: number) {
+		const body = new TextEncoder().encode('{"uri":"https://cdn.example/live"}') as Uint8Array<ArrayBuffer>;
+		const signed = await signRequest(await importSigningKey(LIVE_SEED), {
+			method: "POST",
+			url: LIVE_URL,
+			body,
+			authorization: "Bearer live-token",
+			signatureAgent: AGENT_DIRECTORY,
+			keyid: "mcp.v1",
+			created,
+			expires,
+		});
+		const headers: VerifyRequestHeaders = {
+			"content-digest": signed.contentDigest,
+			"signature-input": signed.signatureInput,
+			signature: signed.signature,
+			authorization: signed.authorization,
+			"signature-agent": signed.signatureAgent,
+		};
+		return { body, headers };
+	}
 
-    const signed = await signRequest(priv, {
-      method: "POST",
-      url: "https://broker.example/fora.v1.BrokerService/Fetch",
-      body,
-      authorization: "Bearer live-token",
-      signatureAgent: "https://agent.example",
-      keyid: "mcp.v1",
-      created,
-      expires,
-    });
+	it("a request signed live by core/sign-request.ts round-trips through the server face", async () => {
+		const created = 1_700_000_000;
+		const { body, headers } = await liveSigned(created, created + 300);
+		const resolver = directoryResolver([{ directory: AGENT_DIRECTORY, keyid: "mcp.v1", pub: b64urlToBytes(LIVE_PUB) }]);
+		const verdict = await verifyRequestServer({
+			method: "POST",
+			url: LIVE_URL,
+			body,
+			headers,
+			resolve: resolver,
+			replayStore: memoryReplayStore(),
+			now: fixedClock(created + 100),
+		});
+		expect(verdict).toEqual({ valid: true, keyid: "mcp.v1", signatureAgent: AGENT_DIRECTORY });
+	});
 
-    // The recorded vectors sign with this seed; its pubkey is the shared oracle
-    // pubkey. Inject it via the resolver so verify resolves mcp.v1 to it.
-    const resolver = recordingResolver({
-      "mcp.v1": b64urlToBytes("rGv1a5oEriM-jaKs3KzrFzzn4Hb180dA4XuZ0bAs_gk"),
-    });
+	it("a key published only in another directory is not found: the resolver is asked for the member's directory", async () => {
+		const created = 1_700_000_000;
+		const { body, headers } = await liveSigned(created, created + 300);
+		const resolver = directoryResolver([
+			{ directory: "https://other.example", keyid: "mcp.v1", pub: b64urlToBytes(LIVE_PUB) },
+		]);
+		const verdict = await verifyRequestServer({
+			method: "POST",
+			url: LIVE_URL,
+			body,
+			headers,
+			resolve: resolver,
+			now: fixedClock(created + 100),
+		});
+		expect(verdict).toEqual({ valid: false, reason: "signature" });
+		expect(resolver.calls).toEqual([[AGENT_DIRECTORY, "mcp.v1"]]);
+	});
 
-    const verdict = await verifyRequestServer({
-      method: "POST",
-      url: "https://broker.example/fora.v1.BrokerService/Fetch",
-      body,
-      headers: {
-        "content-digest": signed.contentDigest,
-        "signature-input": signed.signatureInput,
-        signature: signed.signature,
-        authorization: "Bearer live-token",
-        "signature-agent": "https://agent.example",
-      },
-      resolve: resolver,
-      replayStore: memoryReplayStore(),
-      now: fixedClock(created + 100),
-    });
+	// The MaxSignatureAge lifetime clamp (mirrors Go enforceCreatedExpires with
+	// opts.MaxSignatureAge): a live-signed 300-second window at several clamp settings.
+	describe("single-sig MaxSignatureAge clamp", () => {
+		const created = 1_700_000_000;
+		const window = 300;
 
-    expect(verdict.valid).toBe(true);
-    expect(resolver.calls).toEqual(["mcp.v1"]);
-  });
+		async function verifyWithMaxAge(maxSignatureAge: number | undefined): Promise<RejectReason | "valid"> {
+			const { body, headers } = await liveSigned(created, created + window);
+			const verdict = await verifyRequestServer({
+				method: "POST",
+				url: LIVE_URL,
+				body,
+				headers,
+				resolve: directoryResolver([{ directory: AGENT_DIRECTORY, keyid: "mcp.v1", pub: b64urlToBytes(LIVE_PUB) }]),
+				replayStore: memoryReplayStore(),
+				now: fixedClock(created + 100),
+				...(maxSignatureAge !== undefined ? { maxSignatureAge } : {}),
+			});
+			return verdict.valid ? "valid" : (verdict.reason as RejectReason);
+		}
 
-  // NEGATIVE: each Go-emitted single-sig negative rejects with the taxonomy reason.
-  for (const v of negDoc.vectors) {
-    it(`${v.name}: rejected with reason "${v.expected_reason}" (fail-closed)`, async () => {
-      const keys: Record<string, Uint8Array<ArrayBuffer>> = {};
-      const rk = v.resolver_keyid ?? v.keyid;
-      if (v.resolver_pubkey_b64url) {
-        keys[rk] = b64urlToBytes(v.resolver_pubkey_b64url);
-      }
-      const resolver = recordingResolver(keys);
-      const store = memoryReplayStore();
-      const now = fixedClock(v.now);
-
-      const headers: VerifyRequestHeaders = {
-        "content-digest": v.content_digest,
-        "signature-input": v.signature_input,
-        signature: v.signature,
-        authorization: v.authorization,
-        "signature-agent": v.signature_agent,
-      };
-      // neg_entitlement_uncovered: carry the entitlement-token header the base
-      // covered set does NOT commit to, so enforceEntitlementCoverage rejects it.
-      if (v.entitlement) {
-        headers["x-entitlement-token"] = v.entitlement;
-      }
-      for (const name of v.omit_headers ?? []) {
-        delete (headers as Record<string, string | undefined>)[name.toLowerCase()];
-      }
-      // AFTER the base ones, so the join order matches the order the oracle added
-      // them. Verbatim spelling — the case difference is the whole point.
-      for (const [name, value] of Object.entries(v.extra_headers ?? {})) {
-        (headers as Record<string, string | undefined>)[name] = value;
-      }
-
-      const req = {
-        method: v.method,
-        url: v.url,
-        body: hexToBytes(v.body_hex),
-        headers,
-        resolve: resolver,
-        replayStore: store,
-        now,
-      };
-
-      if (v.replay) {
-        // First presentation is accepted and records the nonce; the SECOND is
-        // the one that must be rejected as "replay".
-        const first = await verifyRequestServer(req);
-        expect(first.valid).toBe(true);
-      }
-
-      const verdict = await verifyRequestServer(req);
-      expect(verdict.valid).toBe(false);
-      expect(verdict.reason).toBe(v.expected_reason);
-    });
-  }
-
-  // The single-sig MaxSignatureAge lifetime clamp (mirrors Go
-  // enforceCreatedExpires with opts.MaxSignatureAge). A live-signed request with a
-  // known window is verified at several clamp settings: unbounded default, at the
-  // bound (inclusive → pass), above the bound (pass), below the bound (reject
-  // "signature"). Live-signing keeps the window a first-class test knob.
-  describe("single-sig MaxSignatureAge clamp", () => {
-    const seedHex =
-      "55565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f7071727374";
-    const created = 1_700_000_000;
-    const expires = 1_700_000_600; // window = 600s
-    const window = expires - created;
-
-    async function verifyWithMaxAge(
-      maxSignatureAge: number | undefined,
-    ): Promise<RejectReason | "valid"> {
-      const priv = await importSigningKey(seedHex);
-      const body = new TextEncoder().encode(
-        '{"uri":"https://cdn.example/live"}',
-      ) as Uint8Array<ArrayBuffer>;
-      const signed = await signRequest(priv, {
-        method: "POST",
-        url: "https://broker.example/fora.v1.BrokerService/Fetch",
-        body,
-        authorization: "Bearer live-token",
-        signatureAgent: "https://agent.example",
-        keyid: "mcp.v1",
-        created,
-        expires,
-      });
-      const resolver = recordingResolver({
-        "mcp.v1": b64urlToBytes("rGv1a5oEriM-jaKs3KzrFzzn4Hb180dA4XuZ0bAs_gk"),
-      });
-      const verdict = await verifyRequestServer({
-        method: "POST",
-        url: "https://broker.example/fora.v1.BrokerService/Fetch",
-        body,
-        headers: {
-          "content-digest": signed.contentDigest,
-          "signature-input": signed.signatureInput,
-          signature: signed.signature,
-          authorization: "Bearer live-token",
-          "signature-agent": "https://agent.example",
-        },
-        resolve: resolver,
-        replayStore: memoryReplayStore(),
-        now: fixedClock(created + 100),
-        ...(maxSignatureAge !== undefined ? { maxSignatureAge } : {}),
-      });
-      return verdict.valid ? "valid" : (verdict.reason as RejectReason);
-    }
-
-    it("unbounded (undefined) accepts the declared window", async () => {
-      expect(await verifyWithMaxAge(undefined)).toBe("valid");
-    });
-    it("maxAge equal to the window is accepted (inclusive bound)", async () => {
-      expect(await verifyWithMaxAge(window)).toBe("valid");
-    });
-    it("maxAge above the window is accepted", async () => {
-      expect(await verifyWithMaxAge(window + 1)).toBe("valid");
-    });
-    it("maxAge below the window rejects (signature)", async () => {
-      expect(await verifyWithMaxAge(window - 1)).toBe("signature");
-    });
-  });
-
-  it("verify reads time ONLY through the injected clock (an expired vector at an in-window injected now would pass, proving the clock is honored)", () => {
-    // Guard: the negative-window vectors are rejected because the INJECTED clock
-    // — not Date.now() — places them outside created..expires. The neg_expired
-    // vector's `now` is post-expiry; if verify read the wall clock it could not
-    // deterministically reject. This assertion documents the injected-clock
-    // boundary the per-vector negative already exercises.
-    const expired = negDoc.vectors.find((v) => v.name === "neg_expired");
-    expect(expired).toBeDefined();
-    expect(expired?.expected_reason).toBe("signature");
-  });
+		it("unbounded (undefined) accepts the declared window", async () => {
+			expect(await verifyWithMaxAge(undefined)).toBe("valid");
+		});
+		it("maxAge equal to the window is accepted (inclusive bound)", async () => {
+			expect(await verifyWithMaxAge(window)).toBe("valid");
+		});
+		it("maxAge above the window is accepted", async () => {
+			expect(await verifyWithMaxAge(window + 1)).toBe("valid");
+		});
+		it("maxAge below the window rejects (signature)", async () => {
+			expect(await verifyWithMaxAge(window - 1)).toBe("signature");
+		});
+	});
 });

@@ -300,6 +300,7 @@ describe("Client.execute with several offers", () => {
 		const client = createClient("https://exchange.test", {
 			requester: REQUESTER,
 			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			signatureAgent: "https://agent.test",
 			send,
 		});
 
@@ -334,6 +335,7 @@ describe("Client.execute with several offers", () => {
 		const client = createClient("https://exchange.test", {
 			requester: REQUESTER,
 			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			signatureAgent: "https://agent.test",
 			send,
 		});
 

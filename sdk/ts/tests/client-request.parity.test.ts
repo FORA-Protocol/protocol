@@ -109,6 +109,7 @@ async function call(name: string): Promise<UnaryRequest> {
 			}),
 		},
 		signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+		signatureAgent: "https://agent.test",
 		agentPublicKey: keys.publicKey,
 		endpointResolver,
 		send,

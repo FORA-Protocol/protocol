@@ -26,6 +26,7 @@ async function fixture(answer: () => UnaryResponse, opts: ClientOptions = {}) {
 	const peer = signedPeer(KEYID, pub, answer);
 	const options: ClientOptions = {
 		signer: { privKey: keys.privateKey, keyid: KEYID },
+		signatureAgent: "https://agent.test",
 		send: peer.send,
 		guardedSend: peer.send,
 		endpointResolver: ENDPOINTS,

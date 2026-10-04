@@ -8,11 +8,8 @@
 //      Math.floor(now()); an un-floored default would change signature bytes).
 //   - monotonicWindow(now, ttlSec): expires strictly increases across a burst
 //     within one wall-clock second, so no two back-to-back signatures share an
-//     expires cutoff (relay replay-store uniqueness).
-//
-// RED now purely because sdk/ts/core/window.ts does not exist yet.
+//     expires cutoff, and created moves with it so every window is exactly ttlSec.
 import { describe, it, expect } from "vitest";
-// RED: sdk/ts/core/window.ts does not exist yet (TDD red — missing face).
 import { clockWindow, monotonicWindow } from "../core/window.ts";
 
 describe("sdk/ts clockWindow floors created and adds ttl to expires", () => {
@@ -43,7 +40,7 @@ describe("sdk/ts monotonicWindow strictly increases expires within one second", 
 		const first = w();
 		const second = w();
 		const third = w();
-		// created tracks now(); expires is strictly increasing.
+		// The first window starts at now(); expires is strictly increasing.
 		expect(first[0]).toBe(1_700_000_000);
 		expect(second[1]).toBeGreaterThan(first[1]);
 		expect(third[1]).toBeGreaterThan(second[1]);
@@ -57,5 +54,14 @@ describe("sdk/ts monotonicWindow strictly increases expires within one second", 
 			seen.add(expires);
 		}
 		expect(seen.size).toBe(100);
+	});
+
+	it("keeps every window exactly ttlSec during a burst: created moves with expires", () => {
+		const w = monotonicWindow(() => 1_700_000_000, 300);
+		for (let i = 0; i < 5; i += 1) {
+			const [created, expires] = w();
+			expect(expires - created).toBe(300);
+			expect(created).toBe(1_700_000_000 + i);
+		}
 	});
 });

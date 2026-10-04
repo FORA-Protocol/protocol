@@ -164,6 +164,7 @@ describe("a refusal above the read", () => {
 				for (let i = 0; i < REFUSALS; i++) {
 					const failure = await fetchContent(`${base}/a${i}`, {
 						keyPair,
+						signatureAgent: "https://agent.test",
 						dispatcher,
 						timeoutMs: 5000,
 					}).catch((e: unknown) => e);
@@ -195,6 +196,7 @@ describe("a refusal above the read", () => {
 				for (let i = 0; i < REFUSALS; i++) {
 					const failure = await fetchContent(`${base}/a${i}`, {
 						keyPair,
+						signatureAgent: "https://agent.test",
 						dispatcher,
 						timeoutMs: 5000,
 					}).catch((e: unknown) => e);
@@ -262,6 +264,7 @@ describe("a refusal above the read", () => {
 				const dispatcher = new Agent({ connections: 1 });
 				const refused = await fetchContent(`${base}/refuse`, {
 					keyPair,
+					signatureAgent: "https://agent.test",
 					dispatcher,
 					timeoutMs: 5000,
 				}).catch((e: unknown) => e);
@@ -269,7 +272,7 @@ describe("a refusal above the read", () => {
 
 				const answer = await within(
 					6000,
-					fetchContent(`${base}/ok`, { keyPair, dispatcher, timeoutMs: 5000 }),
+					fetchContent(`${base}/ok`, { keyPair, signatureAgent: "https://agent.test", dispatcher, timeoutMs: 5000 }),
 				);
 				expect(answer, "the refusal wedged the pool: nothing after it can dial").not.toBe(
 					WEDGED,

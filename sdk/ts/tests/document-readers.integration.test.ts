@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { checkStrict, StrictViolation } from "../client/index.ts";
 import {
 	DigestMismatch,
+	DirectoryResponseUnsigned,
 	DirectoryUnavailable,
 	MANIFEST_MEDIA_TYPE,
 	ManifestVersionRefused,
@@ -27,9 +28,14 @@ import {
 	WBA_DIRECTORY_MEDIA_TYPE,
 	WBA_DIRECTORY_PATH,
 } from "../resolvers/index.ts";
+import { registerSeed, signedDirectoryHeaders } from "./resolvers-harness.ts";
+import { hexToBytes } from "./wba-fixtures.ts";
 
 const MANIFEST_PATH = "/.well-known/fora.json";
 const LICENSE_TEXT = "Licensed for retrieval-augmented answers, attribution required.\n";
+// The key of the authentication page's directory example; its seed is the RFC 8032
+// test-1 seed, registered with the harness so a served directory can be signed by it.
+const JWK_SEED = "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60";
 const JWK = {
 	kty: "OKP",
 	crv: "Ed25519",
@@ -44,6 +50,10 @@ interface Served {
 	body: string;
 	contentType?: string; // undefined sends no Content-Type
 	status?: number;
+	// Sign the response as a key directory, by every listed registered key or only by
+	// those named here. The signature headers are added beside contentType.
+	signedBy?: readonly string[] | "all";
+	location?: string;
 }
 
 let server: Server;
@@ -62,8 +72,17 @@ beforeEach(async () => {
 			res.writeHead(404).end();
 			return;
 		}
-		res.writeHead(doc.status ?? 200, doc.contentType === undefined ? {} : { "content-type": doc.contentType });
-		res.end(doc.body);
+		const headers: Record<string, string> = doc.contentType === undefined ? {} : { "content-type": doc.contentType };
+		if (doc.location !== undefined) headers.location = doc.location;
+		const signed =
+			doc.signedBy === undefined
+				? Promise.resolve({})
+				: signedDirectoryHeaders(req.headers.host ?? "", doc.body, doc.signedBy === "all" ? undefined : doc.signedBy);
+		void signed.then((sig) => {
+			const { "content-type": _ignored, ...signature } = sig as Record<string, string>;
+			res.writeHead(doc.status ?? 200, { ...headers, ...signature });
+			res.end(doc.body);
+		});
 	});
 	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
 	host = `127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -126,8 +145,12 @@ describe("readManifest", () => {
 });
 
 describe("readWBADirectory", () => {
+	beforeEach(async () => {
+		await registerSeed(hexToBytes(JWK_SEED));
+	});
+
 	it("reads by domain and by URL", async () => {
-		docs.set(WBA_DIRECTORY_PATH, { body: JSON.stringify({ keys: [JWK] }), contentType: WBA_DIRECTORY_MEDIA_TYPE });
+		docs.set(WBA_DIRECTORY_PATH, { body: JSON.stringify({ keys: [JWK] }), contentType: WBA_DIRECTORY_MEDIA_TYPE, signedBy: "all" });
 		for (const ref of [host, `http://${host}${WBA_DIRECTORY_PATH}`]) {
 			const doc = await readWBADirectory(ref, plain);
 			expect(doc.message.keys?.map((k) => k.x)).toEqual([JWK.x]);
@@ -135,14 +158,47 @@ describe("readWBADirectory", () => {
 		}
 	});
 
-	it("refuses a directory served as plain JSON", async () => {
-		docs.set(WBA_DIRECTORY_PATH, { body: JSON.stringify({ keys: [JWK] }), contentType: "application/json" });
+	it.each(["application/json", "application/jwk-set+json"])("refuses a directory served as %s", async (contentType) => {
+		docs.set(WBA_DIRECTORY_PATH, { body: JSON.stringify({ keys: [JWK] }), contentType, signedBy: "all" });
 		await expect(readWBADirectory(host, plain)).rejects.toBeInstanceOf(MediaTypeRefused);
 	});
 
 	it("refuses a key carrying a kid", async () => {
-		docs.set(WBA_DIRECTORY_PATH, { body: JSON.stringify({ keys: [{ ...JWK, kid: "k1" }] }), contentType: WBA_DIRECTORY_MEDIA_TYPE });
+		docs.set(WBA_DIRECTORY_PATH, {
+			body: JSON.stringify({ keys: [{ ...JWK, kid: "k1" }] }),
+			contentType: WBA_DIRECTORY_MEDIA_TYPE,
+			signedBy: "all",
+		});
 		await expect(readWBADirectory(host, plain)).rejects.toBeInstanceOf(StrictViolation);
+	});
+
+	it("refuses a directory whose response no listed key signed", async () => {
+		docs.set(WBA_DIRECTORY_PATH, { body: JSON.stringify({ keys: [JWK] }), contentType: WBA_DIRECTORY_MEDIA_TYPE });
+		await expect(readWBADirectory(host, plain)).rejects.toBeInstanceOf(DirectoryResponseUnsigned);
+	});
+
+	it("refuses a directory listing a key that did not sign, even when another did", async () => {
+		const other = { ...JWK, x: "ujxzXNvkI15srfgcQSuIOjRy0QRfrqGJ9YT4vspG40M" };
+		docs.set(WBA_DIRECTORY_PATH, {
+			body: JSON.stringify({ keys: [JWK, other] }),
+			contentType: WBA_DIRECTORY_MEDIA_TYPE,
+			signedBy: [JWK.x],
+		});
+		await expect(readWBADirectory(host, plain)).rejects.toBeInstanceOf(DirectoryResponseUnsigned);
+	});
+
+	it("reads a directory listing no key, which has nothing to sign", async () => {
+		docs.set(WBA_DIRECTORY_PATH, { body: JSON.stringify({ keys: [] }), contentType: WBA_DIRECTORY_MEDIA_TYPE });
+		expect((await readWBADirectory(host, plain)).message.keys ?? []).toEqual([]);
+	});
+
+	it("refuses a directory reached through a redirect", async () => {
+		// The redirect lands on a directory that would be accepted on its own, so only a
+		// reader that refuses to follow fails here.
+		docs.set(WBA_DIRECTORY_PATH, { body: "", status: 302, location: "/elsewhere" });
+		docs.set("/elsewhere", { body: JSON.stringify({ keys: [JWK] }), contentType: WBA_DIRECTORY_MEDIA_TYPE, signedBy: "all" });
+		await expect(readWBADirectory(`http://${host}/elsewhere`, plain)).resolves.toBeDefined();
+		await expect(readWBADirectory(host, plain)).rejects.toBeInstanceOf(DirectoryUnavailable);
 	});
 });
 

@@ -2,8 +2,8 @@
 // (helpers/constants.go + core/requestid.go). Encoding is negotiated per hop via
 // Content-Type (ADR-020): application/proto for binary, application/json for
 // canonical proto-JSON. The Go layer splits RequestIDHeader across
-// helpers/constants.go and core/requestid.go; the single TS module exposes all
-// ten values once. Pinned to wire-constants-vectors.json.
+// helpers/constants.go and core/requestid.go; the single TS module exposes them
+// all once. Pinned to wire-constants-vectors.json.
 //
 // Also home to the pure receive-side rule for WellKnownManifest.ver, so the
 // constant and the check that reads it sit together.
@@ -37,8 +37,23 @@ export const ProtocolVersion = "1.0";
 export const WellKnownManifestVersion = "1.0";
 /** RequestIDHeader correlates a request across services and the edge. */
 export const RequestIDHeader = "X-Request-ID";
-/** SignatureAgentHeader carries the signer's Web Bot Auth key-directory URL. */
+/**
+ * SignatureAgentHeader carries the Web Bot Auth Signature-Agent dictionary: one member
+ * per signature, <label>="https://<origin>", naming the key directory that signature's
+ * keyid is resolved in.
+ */
 export const SignatureAgentHeader = "Signature-Agent";
+/** WBATag is the RFC 9421 tag parameter every Web Bot Auth request signature carries. */
+export const WBATag = "web-bot-auth";
+/** DirectoryResponseTag is the tag a key directory's response signature carries
+ * (WG-00 Appendix B.1). */
+export const DirectoryResponseTag = "http-message-signatures-directory";
+/**
+ * AcceptSignatureHeader is the RFC 9421 §5.1 field a verifier answers with when it
+ * refuses a signature for a missing component or a form it does not accept, naming what
+ * it requires (WG-00 §5.3). Its value for a FORA RPC is acceptSignature().
+ */
+export const AcceptSignatureHeader = "Accept-Signature";
 
 /**
  * Header carrying the fetcher's raw Ed25519 public key on a PoP GET. Canonical

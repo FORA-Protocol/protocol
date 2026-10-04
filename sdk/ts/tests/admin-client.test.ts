@@ -63,6 +63,7 @@ async function fixture() {
 	});
 	const client = createAdminClient("https://admin.exchange.test", {
 		signer: { privKey: keys.privateKey, keyid: "operator.v1" },
+		signatureAgent: "https://agent.test",
 		send: peer.send,
 	});
 	return { peer, client };

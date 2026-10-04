@@ -33,10 +33,24 @@ export interface FetchResponse {
 	text(): Promise<string>;
 	headers?: { get(name: string): string | null };
 	arrayBuffer?(): Promise<ArrayBuffer>;
+	/** Whether the response is the end of a followed redirect, as a WHATWG Response
+	 * reports it. A key-directory read refuses one. */
+	redirected?: boolean;
 }
 
-/** An injected HTTP GET. Defaults to the SSRF-guarded transport (guardedFetch). */
-export type FetchLike = (url: string) => Promise<FetchResponse>;
+/** What a read asks of the transport beyond the URL: a WHATWG RequestInit subset.
+ * `redirect: "manual"` asks it not to follow a redirect and to answer the 3xx itself;
+ * a key-directory read passes it, because a directory is never fetched through a
+ * redirect. The shipped transports honour it, and the global fetch reads the same
+ * member. */
+export interface FetchInit {
+	redirect?: "follow" | "manual";
+}
+
+/** An injected HTTP GET. Defaults to the SSRF-guarded transport (guardedFetch). A
+ * FetchLike that ignores `init` still cannot hand a key directory over a redirect: the
+ * read refuses a 3xx and a response marked `redirected`. */
+export type FetchLike = (url: string, init?: FetchInit) => Promise<FetchResponse>;
 
 /** Bounds the guarded default transport's GET so a slow origin cannot pin a
  * Resolve call or the poller (Go: defaultWBAHTTPTimeout). */
@@ -115,7 +129,8 @@ export function ssrfGuard(): buildConnector.connector {
  * composed redirect interceptor bounds the chain to the shared MAX_REDIRECTS cap so
  * undici does not inherit its ~20-hop default. Beyond the cap the interceptor stops
  * following and surfaces the 3xx as an ordinary non-2xx (fail-closed at fetchStrict). */
-const guardedAgent = new Agent({ connect: ssrfGuard() }).compose(
+const guardedBase = new Agent({ connect: ssrfGuard() });
+const guardedAgent = guardedBase.compose(
 	interceptors.redirect({ maxRedirections: MAX_REDIRECTS }),
 );
 
@@ -214,8 +229,8 @@ async function requestBounded(
  * deny-by-default, every dial (initial + each redirect hop) is address-checked and
  * pinned, the redirect chain is bounded to MAX_REDIRECTS, and undici owns
  * status/redirect/1xx so a non-2xx is an ordinary response, never a crash. */
-export const guardedFetch: FetchLike = (url) =>
-	requestBounded(url, guardedAgent, allowedScheme);
+export const guardedFetch: FetchLike = (url, init) =>
+	requestBounded(url, init?.redirect === "manual" ? guardedBase : guardedAgent, allowedScheme);
 
 // ---------------------------------------------------------------------------
 // The ONE env-driven, best-effort guarded fetch factory.
@@ -297,7 +312,10 @@ export function guardedFetchFromEnv(): FetchLike {
 	const dispatcher = base.compose(
 		interceptors.redirect({ maxRedirections: MAX_REDIRECTS }),
 	);
-	return (url) => requestBounded(url, dispatcher, schemeGuardAllows);
+	// A read that refuses redirects dials the base agent, which follows none: the 3xx
+	// comes back as the answer and the read fails on it.
+	return (url, init) =>
+		requestBounded(url, init?.redirect === "manual" ? base : dispatcher, schemeGuardAllows);
 }
 
 /** Default transport for a resolver whose URL is a FIXED, operator-chosen address
@@ -315,8 +333,8 @@ export function guardedFetchFromEnv(): FetchLike {
  * here, which is a known gap being closed separately; it is not the rule. Do not
  * reach for this transport for a new resolver without first asking where its URL
  * comes from. */
-export const defaultFetch: FetchLike = async (url) => {
-	const r = await fetch(url);
+export const defaultFetch: FetchLike = async (url, init) => {
+	const r = await fetch(url, init?.redirect === "manual" ? { redirect: "manual" } : {});
 	// Bound the body read even on the unguarded path: a misconfigured / hostile
 	// well-known origin cannot force an unbounded read into the JSON decoder. The
 	// WHATWG Response body is async-iterable in Node, so it reuses readBounded (the
@@ -327,13 +345,17 @@ export const defaultFetch: FetchLike = async (url) => {
 	return boundedResponse(r.status, body, (name) => r.headers.get(name));
 };
 
-/** One document as it was served: its bytes and the media type it was labelled with. */
+/** One document as it was served: its bytes, the media type it was labelled with, and
+ * its response headers. */
 export interface Fetched {
 	url: string;
 	body: Uint8Array;
 	/** The Content-Type essence (type/subtype), lowercased, parameters stripped;
 	 * undefined when the response carried none. */
 	mediaType: string | undefined;
+	/** A response header's value, or null when absent. A key directory's response
+	 * signatures are read through it. */
+	header?: (name: string) => string | null;
 }
 
 /** The type/subtype of a Content-Type value, lowercased, parameters dropped. */
@@ -343,19 +365,29 @@ export function mediaTypeEssence(header: string | null | undefined): string | un
 	return essence === "" ? undefined : essence;
 }
 
-/** GET `url` and return the body and its media type. A transport failure or a
- * non-200 status throws DirectoryUnavailable (fail-closed halt) — the taxonomy a
+/** GET `url` and return the body, its media type and its headers. A transport failure
+ * or a non-200 status throws DirectoryUnavailable (fail-closed halt) — the taxonomy a
  * composite relies on to distinguish an outage from an unknown key. A blocked SSRF
  * target and a body past the cap are transport failures and surface the same way
- * (never a valid empty doc). The one GET every document read shares. */
+ * (never a valid empty doc). The one GET every document read shares.
+ *
+ * `noRedirect` is set for a key directory, which is never fetched through a redirect:
+ * its address is the origin its signer committed to, and a redirect would hand key
+ * lookup to another one. The transport is asked not to follow, and a 3xx or a response
+ * marked redirected fails the read. A revocation list and the manifest follow the
+ * transport's bounded redirect chain. */
 export async function fetchDocument(
 	fetchFn: FetchLike,
 	url: string,
+	opts: { noRedirect?: boolean } = {},
 ): Promise<Fetched> {
 	let resp: FetchResponse;
 	let body: Uint8Array;
 	try {
-		resp = await fetchFn(url);
+		resp = opts.noRedirect === true ? await fetchFn(url, { redirect: "manual" }) : await fetchFn(url);
+		if (opts.noRedirect === true && (resp.redirected === true || (resp.status >= 300 && resp.status < 400))) {
+			throw new DirectoryUnavailable(`a key directory is never fetched through a redirect: ${url}`);
+		}
 		if (resp.status !== 200) {
 			throw new DirectoryUnavailable(`status ${resp.status} for ${url}`);
 		}
@@ -367,7 +399,13 @@ export async function fetchDocument(
 		if (err instanceof DirectoryUnavailable) throw err;
 		throw new DirectoryUnavailable(`fetch ${url}`, { cause: err });
 	}
-	return { url, body, mediaType: mediaTypeEssence(resp.headers?.get("content-type")) };
+	const headers = resp.headers;
+	return {
+		url,
+		body,
+		mediaType: mediaTypeEssence(headers?.get("content-type")),
+		header: (name) => headers?.get(name) ?? null,
+	};
 }
 
 /** GET `url` and return the body text: fetchDocument without the media type, for a

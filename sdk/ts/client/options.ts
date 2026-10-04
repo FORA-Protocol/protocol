@@ -108,7 +108,16 @@ export interface ClientOptions {
 	 * sets `terms_digest` on the request, which suppresses the read and says so on the
 	 * message the signature covers. */
 	registrationRequirements?: RegistrationRequirementsReader;
-	/** The WBA directory origin this client signs as. */
+	/** The key-directory origin this client signs as, such as "https://agent.example" —
+	 * the place a peer fetches to find the key that signed the request. Every outbound
+	 * request signature, and every delivery-fetch proof, carries it as its own
+	 * Signature-Agent dictionary member, sig1="<origin>", covered by the signature.
+	 *
+	 * Required to sign. A client with no directory refuses every signed call locally, as
+	 * a `malformed` call, before anything is sent, and a value that is not an https
+	 * origin is refused the same way. One value per client, because one client speaks
+	 * for one agent; an application signing as several agents builds a client per agent,
+	 * or composes createSigningTransport with a signerSource. */
 	signatureAgent?: string;
 	/** The RFC 9421 freshness window stamped on every outbound call. Not needed for
 	 * uniqueness: every request signature carries a fresh nonce. */

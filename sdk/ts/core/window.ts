@@ -29,9 +29,10 @@ export function clockWindow(now: () => number, ttlSec: number): Window {
  * lands in the same wall-clock second, bumps expires by one second per call so
  * no two back-to-back signatures share an (keyid, expires) pair. The signing
  * transport no longer needs this for uniqueness: every signature carries a fresh
- * nonce, so clockWindow is enough. During a burst expires − created grows past
- * ttlSec, which a verifier with maxSignatureAge = ttlSec refuses. created tracks
- * floor(now()), so the pair stays clock-consistent.
+ * nonce, so clockWindow is enough. created moves with expires, so the window is
+ * always exactly ttlSec and never exceeds the Web Bot Auth limit when ttlSec is at
+ * most MAX_SIGNATURE_LIFETIME; during a burst created leads the clock by the
+ * burst's length in seconds, which a verifier's future-skew allowance absorbs.
  *
  * ONE INSTANCE PER CLIENT, never one per call. The running maximum is the whole
  * mechanism: a window created per request starts from zero, cannot see the
@@ -41,10 +42,9 @@ export function clockWindow(now: () => number, ttlSec: number): Window {
 export function monotonicWindow(now: () => number, ttlSec: number): Window {
 	let lastExpires = 0;
 	return () => {
-		const created = Math.floor(now());
-		const floor = created + ttlSec;
+		const floor = Math.floor(now()) + ttlSec;
 		const next = lastExpires >= floor ? lastExpires + 1 : floor;
 		lastExpires = next;
-		return [created, next];
+		return [next - ttlSec, next];
 	};
 }

@@ -17,6 +17,8 @@ import {
 } from "../client/index.ts";
 import { createVerifier } from "../core/verifier.ts";
 import { signOffer } from "../src/offer-sign.ts";
+import { verifyAgentBinding } from "../src/pop.ts";
+import { thumbprint } from "../src/thumbprint.ts";
 import { verifyOfferAcceptance, verifyRequestAcceptance } from "../src/acceptance.ts";
 
 const REQUESTER = { id: "agent-1", domain: "agent.test", type: "REQUESTER_TYPE_AGENT" };
@@ -345,6 +347,7 @@ describe("execute", () => {
 		const client = createClient("https://exchange.test", {
 			requester: REQUESTER,
 			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			signatureAgent: "https://agent.test",
 			send,
 		});
 
@@ -415,6 +418,7 @@ describe("execute", () => {
 		const client = createClient("https://exchange.test", {
 			requester: REQUESTER,
 			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			signatureAgent: "https://agent.test",
 			send,
 			validation: "off",
 		});
@@ -434,6 +438,7 @@ describe("execute", () => {
 		const client = createClient("https://exchange.test", {
 			requester: REQUESTER,
 			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			signatureAgent: "https://agent.test",
 			send,
 		});
 
@@ -455,6 +460,7 @@ describe("execute", () => {
 
 		const noRequester = createClient("https://exchange.test", {
 			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			signatureAgent: "https://agent.test",
 			send: recordingSend({}).send,
 		});
 		await expect(noRequester.execute(accepted)).rejects.toMatchObject({
@@ -481,6 +487,7 @@ describe("execute", () => {
 			const client = createClient("https://exchange.test", {
 				requester: { ...REQUESTER, [field]: "" },
 				signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+				signatureAgent: "https://agent.test",
 				send,
 			});
 			const err = (await client.execute(accepted).catch((e: unknown) => e)) as ForaCallError;
@@ -500,6 +507,7 @@ describe("execute", () => {
 		const client = createClient("https://exchange.test", {
 			requester: REQUESTER,
 			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			signatureAgent: "https://agent.test",
 			send: recordingSend({}).send,
 		});
 
@@ -695,6 +703,21 @@ describe("fetch", () => {
 		});
 	});
 
+	it("refuses a bound fetch without the agent's key directory", async () => {
+		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
+			"sign",
+			"verify",
+		])) as CryptoKeyPair;
+		const client = createClient("https://exchange.test", {
+			requester: REQUESTER,
+			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			agentPublicKey: keys.publicKey,
+		});
+		await expect(client.fetch("https://edge.test/x")).rejects.toMatchObject({
+			kind: "not_signable",
+		});
+	});
+
 	it("refuses without the public half a bound fetch has to present", async () => {
 		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
 			"sign",
@@ -703,6 +726,7 @@ describe("fetch", () => {
 		const client = createClient("https://exchange.test", {
 			requester: REQUESTER,
 			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			signatureAgent: "https://agent.test",
 		});
 		await expect(client.fetch("https://edge.test/x")).rejects.toMatchObject({
 			kind: "not_signable",
@@ -721,8 +745,12 @@ describe("fetch", () => {
 		const raw = new Uint8Array(await crypto.subtle.exportKey("raw", keys.publicKey));
 
 		let presented: string | undefined;
+		let proof: Headers | undefined;
+		let target = "";
 		const server = createServer((req, res) => {
 			presented = req.headers["x-fora-agent-key"] as string | undefined;
+			proof = new Headers(req.headers as Record<string, string>);
+			target = `http://${req.headers.host}${req.url}`;
 			res.writeHead(200, { "content-type": "text/plain" });
 			res.end("body");
 		});
@@ -738,6 +766,7 @@ describe("fetch", () => {
 			const client = createClient("https://exchange.test", {
 				requester: REQUESTER,
 				signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+				signatureAgent: "https://agent.test",
 				agentPublicKey: keys.publicKey,
 			});
 			await client.fetch(`http://127.0.0.1:${port}/x`);
@@ -751,6 +780,18 @@ describe("fetch", () => {
 
 		expect(presented, "no proof header reached the edge").toBeDefined();
 		expect(presented).toBe(base64url(raw));
+
+		// The proof is a Web Bot Auth signature: it names the agent's directory, carries a
+		// 64-byte nonce, and verifies for the agent the URL is bound to.
+		expect(proof?.get("signature-agent")).toBe('sig1="https://agent.test"');
+		expect(/;nonce="([^"]*)"/.exec(proof?.get("signature-input") ?? "")?.[1]).toHaveLength(86);
+		const verdict = await verifyAgentBinding({
+			url: target,
+			method: "GET",
+			headers: proof ?? new Headers(),
+			agentId: await thumbprint(raw),
+		});
+		expect(verdict).toEqual({ ok: true, signatureAgent: "https://agent.test" });
 	});
 });
 

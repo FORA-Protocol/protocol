@@ -15,6 +15,7 @@ import {
 	verifyRequestServer,
 } from "../core/verify-request.ts";
 import { decodeBase64Url } from "../src/base64url.ts";
+import { AGENT_DIRECTORY } from "./wba-fixtures.ts";
 
 const URL = "https://exchange.example/fora.v1.ExchangeService/DiscoverResources";
 const BODY = new Uint8Array(new TextEncoder().encode('{"ver":"1"}')) as Uint8Array<ArrayBuffer>;
@@ -60,13 +61,18 @@ async function fixture() {
 	// A fixed window: created/expires are identical on every signature, the
 	// collision condition.
 	const window = () => [CREATED, EXPIRES] as [number, number];
-	return { privKey: kp.privateKey, pub, store, keyid, verify, sent, send, window };
+	return { privKey: kp.privateKey, pub, store, keyid, verify, sent, send, window, signatureAgent: AGENT_DIRECTORY };
 }
 
 describe("signing transport nonce", () => {
 	it("gives identical requests unique signatures that both pass", async () => {
 		const f = await fixture();
-		const signing = createSigningTransport(f.send, { privKey: f.privKey, keyid: f.keyid, window: f.window });
+		const signing = createSigningTransport(f.send, {
+			privKey: f.privKey,
+			keyid: f.keyid,
+			signatureAgent: f.signatureAgent,
+			window: f.window,
+		});
 		await signing(URL, { method: "POST", body: BODY });
 		await signing(URL, { method: "POST", body: BODY });
 		const [first, second] = f.sent as [Record<string, string>, Record<string, string>];
@@ -74,45 +80,55 @@ describe("signing transport nonce", () => {
 		const n1 = NONCE.exec(first["signature-input"] ?? "")?.[1];
 		const n2 = NONCE.exec(second["signature-input"] ?? "")?.[1];
 		expect(n1).toBeDefined();
-		expect(decodeBase64Url(n1 ?? "")?.length).toBe(16);
+		expect(decodeBase64Url(n1 ?? "")?.length).toBe(64);
 		expect(n1).not.toBe(n2);
 		expect(first.signature).not.toBe(second.signature);
 		// Only the nonce differs: created/expires are unchanged.
 		expect(first["signature-input"]?.replace(NONCE, "")).toBe(second["signature-input"]?.replace(NONCE, ""));
 
-		expect(await f.verify(first)).toEqual({ valid: true });
-		expect(await f.verify(second)).toEqual({ valid: true });
+		expect(await f.verify(first)).toMatchObject({ valid: true });
+		expect(await f.verify(second)).toMatchObject({ valid: true });
 	});
 
 	it("rejects an exact replay", async () => {
 		const f = await fixture();
-		const signing = createSigningTransport(f.send, { privKey: f.privKey, keyid: f.keyid, window: f.window });
+		const signing = createSigningTransport(f.send, {
+			privKey: f.privKey,
+			keyid: f.keyid,
+			signatureAgent: f.signatureAgent,
+			window: f.window,
+		});
 		await signing(URL, { method: "POST", body: BODY });
 		const headers = f.sent[0] as Record<string, string>;
-		expect(await f.verify(headers)).toEqual({ valid: true });
+		expect(await f.verify(headers)).toMatchObject({ valid: true });
 		expect(await f.verify({ ...headers })).toMatchObject({ valid: false, reason: "replay" });
 	});
 
 	it.each([
-		["changed", (s: string) => s.replace(NONCE, ';nonce="AAAAAAAAAAAAAAAAAAAAAA"')],
+		["changed", (s: string) => s.replace(NONCE, `;nonce="${"A".repeat(86)}"`)],
 		["removed", (s: string) => s.replace(NONCE, "")],
 	])("fails verification when the nonce is %s", async (_name, edit) => {
 		const f = await fixture();
-		const signing = createSigningTransport(f.send, { privKey: f.privKey, keyid: f.keyid, window: f.window });
+		const signing = createSigningTransport(f.send, {
+			privKey: f.privKey,
+			keyid: f.keyid,
+			signatureAgent: f.signatureAgent,
+			window: f.window,
+		});
 		await signing(URL, { method: "POST", body: BODY });
 		const headers = { ...(f.sent[0] as Record<string, string>) };
 		headers["signature-input"] = edit(headers["signature-input"] ?? "");
 		expect(await f.verify(headers)).toMatchObject({ valid: false, reason: "signature" });
 	});
 
-	it("accepts a legacy signature without a nonce", async () => {
+	it("accepts a signature without a nonce, which the profile permits", async () => {
 		const f = await fixture();
 		const signed = await signRequest(f.privKey, {
 			method: "POST",
 			url: URL,
 			body: BODY,
 			authorization: "",
-			signatureAgent: "",
+			signatureAgent: f.signatureAgent,
 			keyid: f.keyid,
 			created: CREATED,
 			expires: EXPIRES,
@@ -124,9 +140,9 @@ describe("signing transport nonce", () => {
 				"signature-input": signed.signatureInput,
 				signature: signed.signature,
 				authorization: "",
-				"signature-agent": "",
+				"signature-agent": signed.signatureAgent,
 			}),
-		).toEqual({ valid: true });
+		).toMatchObject({ valid: true });
 	});
 
 	it("rejects and sends nothing when random generation fails", async () => {
@@ -134,6 +150,7 @@ describe("signing transport nonce", () => {
 		const signing = createSigningTransport(f.send, {
 			privKey: f.privKey,
 			keyid: f.keyid,
+			signatureAgent: f.signatureAgent,
 			window: f.window,
 			nonce: () => {
 				throw new Error("entropy source unavailable");
@@ -148,6 +165,7 @@ describe("signing transport nonce", () => {
 		const signing = createSigningTransport(f.send, {
 			privKey: f.privKey,
 			keyid: f.keyid,
+			signatureAgent: f.signatureAgent,
 			window: f.window,
 			nonce: () => "",
 		});
@@ -168,7 +186,7 @@ describe("signing helpers nonce validation", () => {
 				url: URL,
 				body: BODY,
 				authorization: "",
-				signatureAgent: "",
+				signatureAgent: AGENT_DIRECTORY,
 				keyid,
 				created: CREATED,
 				expires: EXPIRES,
@@ -209,13 +227,14 @@ describe("client verbs sign with a fresh nonce", () => {
 			send,
 			guardedSend: send,
 			signer: { privKey: f.privKey, keyid: f.keyid },
+			signatureAgent: f.signatureAgent,
 			signWindow: f.window,
 		});
 
 		await client.getAccountStatus({ exchange: "exchange.test" });
 		await client.getAccountStatus({ exchange: "exchange.test" });
 
-		expect(verdicts).toEqual([{ valid: true }, { valid: true }]);
+		expect(verdicts).toMatchObject([{ valid: true }, { valid: true }]);
 		const [first, second] = seen as [UnaryRequest, UnaryRequest];
 		const in1 = first.headers["signature-input"] ?? "";
 		const in2 = second.headers["signature-input"] ?? "";

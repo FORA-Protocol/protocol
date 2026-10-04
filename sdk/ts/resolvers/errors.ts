@@ -162,10 +162,11 @@ export class ManifestVersionRefused extends ResolverError {
 }
 
 /** A document was served under a media type other than the one the protocol names
- * for it: application/json for /.well-known/fora.json and application/jwk-set+json
- * for the WBA directory. A VERDICT on what the party publishes, never worth
- * retrying. Only the document readers throw it; the resolvers that read the same
- * documents for routing and key resolution do not check the label. Peer of Go
+ * for it: application/json for /.well-known/fora.json and
+ * application/http-message-signatures-directory+json for the WBA directory. A VERDICT
+ * on what the party publishes, never worth retrying. The document readers throw it;
+ * the WBA key resolver and the offer-directory fetch check the directory's label too and
+ * report a wrong one as DirectoryUnavailable, carrying this as its cause. Peer of Go
  * `ErrMediaTypeRefused` / Python `MediaTypeRefusedError`. */
 export class MediaTypeRefused extends ResolverError {
   constructor(message: string, options?: { cause?: unknown }) {
@@ -183,5 +184,17 @@ export class DigestMismatch extends ResolverError {
   constructor(message: string, options?: { cause?: unknown }) {
     super(message, options);
     this.name = "DigestMismatch";
+  }
+}
+
+/** A key directory whose response is not signed by every key it lists: no response
+ * signature at all, a Content-Digest that does not match the body, or a listed key with
+ * no valid signature of its own. Thrown by readWBADirectory, which checks what a party
+ * publishes; the WBA key resolver instead hands out only the keys that did sign. A
+ * VERDICT, never retried. Peer of Go `ErrDirectoryResponseUnsigned`. */
+export class DirectoryResponseUnsigned extends ResolverError {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "DirectoryResponseUnsigned";
   }
 }

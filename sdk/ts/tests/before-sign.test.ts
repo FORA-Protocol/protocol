@@ -50,6 +50,7 @@ async function fixture(answer?: Parameters<typeof signedPeer>[2]) {
 	const client = (opts: ClientOptions = {}) =>
 		createCatalogClient("https://exchange.test", {
 			signer: { privKey: keys.privateKey, keyid: KEYID },
+			signatureAgent: "https://agent.test",
 			send: peer.send,
 			...opts,
 		});

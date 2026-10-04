@@ -1,32 +1,26 @@
-// sdk/ts multi-member Signature-Input parser parse-edge units. The canonical Go
-// golden vectors (multisig-chain-vectors.json) are well-
-// behaved (no comma/paren inside a quoted keyid, no backslash escapes, canonical
-// whitespace), so passing every vector does NOT gate the TS parser's correctness
-// on an ADVERSARIAL Signature-Input. Go itself delegates the dictionary parse to
-// dunglas/httpsfv and only hand-rolls the verbatim-inner split (rawInnerByLabel /
-// splitTopLevelMembers). The TS port hand-rolls both, so these parse-edge units
-// are the correct level (parser primitives → unit tests) — they pin the exact
-// quoted-string / backslash-escape / top-level-comma behavior the RFC 8941
-// dictionary grammar requires.
+// sdk/ts Signature-Input / Signature parse-edge units. The canonical Go golden vectors
+// are well-behaved (no comma/paren inside a quoted keyid, no backslash escapes, canonical
+// whitespace), so passing every vector does NOT gate the parser's correctness on an
+// ADVERSARIAL header. Go delegates the dictionary parse to dunglas/httpsfv and only
+// hand-rolls the verbatim-inner split (rawInnerByLabel / splitTopLevelMembers); the TS
+// port parses with core/sfv.ts and keeps the same split, so these units pin the
+// quoted-string / backslash-escape / top-level-comma behavior the RFC 8941 dictionary
+// grammar requires.
 //
-// Faces under test (do NOT exist yet — RED):
-//   core/multisig-parse.ts::splitTopLevelMembers — split one SFV dictionary
-//     header value on TOP-LEVEL commas, honoring quoted strings + backslash
-//     escapes (mirrors Go splitTopLevelMembers).
-//   core/multisig-parse.ts::rawInnerByLabel — the VERBATIM member value after
-//     "label=" for each label (mirrors Go rawInnerByLabel), so each hop's base
-//     terminates with the signer's exact @signature-params bytes.
-//   core/multisig-parse.ts::parseMultisigSignatureInput — full multi-label parse;
-//     returns undefined (clean reject) on a malformed header, never a mis-slice.
-//
-// RED until core/multisig-parse.ts exists.
+// Faces under test:
+//   core/multisig-parse.ts::splitTopLevelMembers — split one SFV dictionary header
+//     value on TOP-LEVEL commas, honoring quoted strings + backslash escapes.
+//   core/multisig-parse.ts::rawInnerByLabel — the VERBATIM member value after "label="
+//     for each label, so each signature's base terminates with the signer's exact
+//     @signature-params bytes.
+//   core/multisig-parse.ts::parseSignatureHeaders — the structured parse of
+//     Signature-Input and Signature; refuses (never mis-slices) a malformed header.
 
 import { describe, it, expect } from "vitest";
-// RED: core/multisig-parse.ts does not exist yet (TDD red step).
 import {
   splitTopLevelMembers,
   rawInnerByLabel,
-  parseMultisigSignatureInput,
+  parseSignatureHeaders,
 } from "../core/multisig-parse.ts";
 
 describe("sdk/ts multi-member Signature-Input parse edges", () => {
@@ -73,9 +67,48 @@ describe("sdk/ts multi-member Signature-Input parse edges", () => {
   });
 
   it("cleanly rejects a malformed header (missing close paren) rather than mis-slicing", () => {
-    // An unterminated inner list must be REJECTED (undefined), not partially
-    // sliced into a bogus covered set.
+    // An unterminated inner list must be REJECTED, not partially sliced into a bogus
+    // covered set.
     const malformed = 'sig1=("@method" "@target-uri";keyid="agent.v1"';
-    expect(parseMultisigSignatureInput([malformed])).toBeUndefined();
+    expect(parseSignatureHeaders(malformed, "sig1=:AAAA:")).toEqual({ ok: false, refusal: { kind: "malformed" } });
+  });
+
+  it("parses a quoted comma and an escaped quote inside a keyid into the right labels", () => {
+    const input = 'sig1=("@method");created=1;keyid="a\\",b", sig2=("@method";key="x");keyid="c,d"';
+    const parsed = parseSignatureHeaders(input, "sig1=:AAAA:, sig2=:AAAA:");
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.map((p) => [p.label, p.keyid])).toEqual([
+      ["sig1", 'a",b'],
+      ["sig2", "c,d"],
+    ]);
+    expect(parsed.value[1]?.covered).toEqual([{ name: "@method", params: [{ key: "key", value: "x" }] }]);
+    expect(parsed.value[0]?.rawInner).toBe('("@method");created=1;keyid="a\\",b"');
+  });
+
+  it("carries a Boolean component flag such as \"@authority\";req", () => {
+    const parsed = parseSignatureHeaders('sig1=("@authority";req "content-digest");keyid="k"', "sig1=:AAAA:");
+    expect(parsed.ok && parsed.value[0]?.covered[0]).toEqual({ name: "@authority", params: [{ key: "req", value: true }] });
+  });
+
+  it("refuses a member with no keyid, a parameter of the wrong type, or a label missing from Signature", () => {
+    for (const [input, sig] of [
+      ['sig1=("@method");created=1', "sig1=:AAAA:"],
+      ['sig1=("@method");keyid="k";created="1"', "sig1=:AAAA:"],
+      ['sig1=("@method");keyid=k', "sig1=:AAAA:"],
+      ['sig1=("@method");keyid="k"', "sig2=:AAAA:"],
+      ['sig1=("@method");keyid="k"', 'sig1="AAAA"'],
+      ['sig1="not-a-list";keyid="k"', "sig1=:AAAA:"],
+    ]) {
+      expect(parseSignatureHeaders(input, sig), input).toEqual({ ok: false, refusal: { kind: "malformed" } });
+    }
+  });
+
+  it("answers a request missing either header as unsigned, distinct from malformed", () => {
+    expect(parseSignatureHeaders(undefined, "sig1=:AAAA:")).toEqual({ ok: false, refusal: { kind: "unsigned" } });
+    expect(parseSignatureHeaders('sig1=("@method");keyid="k"', undefined)).toEqual({
+      ok: false,
+      refusal: { kind: "unsigned" },
+    });
   });
 });

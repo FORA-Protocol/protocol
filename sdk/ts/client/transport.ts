@@ -11,6 +11,7 @@
 // are produced and parsed by the generated Zod schemas, which is the same path the
 // canonical proto-JSON round-trip gate already proves loss-free against Go protojson.
 
+import { WebBotAuthError } from "../core/wba.ts";
 import { signOutbound } from "../core/signing-transport.ts";
 import type { Window } from "../core/window.ts";
 import { errorDetailFrom } from "../src/errordetail.ts";
@@ -113,8 +114,10 @@ export interface UnaryTarget {
 export interface CallSigner {
 	privKey: CryptoKey;
 	keyid: string;
-	/** The WBA directory origin this client signs as. Covered by the signature even when
-	 * empty, so it is passed through verbatim rather than defaulted here. */
+	/** The key-directory origin this client signs as ("https://agent.example"), written
+	 * as every signature's Signature-Agent member. Required to sign: a call signed with
+	 * none, or with a value that is not an https origin, is refused locally as
+	 * `malformed` before anything is sent. */
 	signatureAgent?: string;
 	/** The RFC 9421 freshness window. Defaults to the signing transport's own. */
 	window?: Window;
@@ -315,7 +318,10 @@ function encodeBody(op: string, message: unknown): Uint8Array<ArrayBuffer> {
 	return new TextEncoder().encode(text) as Uint8Array<ArrayBuffer>;
 }
 
-// signCall produces the RFC 9421 headers for this request. A custody failure is
+// signCall produces the RFC 9421 headers for this request. A request the profile will
+// not sign — no Signature-Agent origin, one that is not an https origin, a window longer
+// than the profile allows — is `malformed`, refused before anything is sent, as Go
+// classifies the same signing refusal. Any other failure is a custody failure and is
 // `not_signable`, matching what the content leg answers for the same missing holder: a
 // caller branching on the kind sees one condition under one class, whichever verb met it
 // first.
@@ -338,6 +344,7 @@ async function signCall(
 		});
 		return signed.headers;
 	} catch (cause) {
+		if (cause instanceof WebBotAuthError) throw malformed(op, cause);
 		throw new ForaCallError({ kind: "not_signable", op, cause });
 	}
 }

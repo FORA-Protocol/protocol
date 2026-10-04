@@ -1,9 +1,15 @@
 // Mint an Ed25519 identity a FORA verifier can resolve.
 //
-// Three steps a caller otherwise assembles by hand: a key and its keyid, the Web Bot Auth
-// key directory that publishes it, and a signer that signs as it. The directory has the
-// shape of the generated WBAFile schema, the one the SDK's own WBA resolver parses, so a
-// document built here is one that resolver accepts.
+// Four steps a caller otherwise assembles by hand: a key and its keyid, the Web Bot Auth
+// key directory that publishes it, the response signatures that directory is served
+// with, and a signer that signs as it. The directory has the shape of the generated
+// WBAFile schema, the one the SDK's own WBA resolver parses, and a resolver hands out
+// only the keys whose signature the response carries, so a directory is served as
+//
+//	const body = new TextEncoder().encode(JSON.stringify(await directoryDocument([pub])));
+//	const sig = await signDirectoryResponse("agent.example", body, [{ privKey, keyid }], created, expires);
+//
+// with Content-Type WBA_DIRECTORY_MEDIA_TYPE and sig's three headers.
 
 import type { z } from "zod";
 
@@ -11,6 +17,15 @@ import type { WBAFileSchema } from "../../../gen/ts/wire/schemas.ts";
 import { encodeBase64Url } from "../src/base64url.ts";
 import { thumbprint } from "../src/thumbprint.ts";
 import { createSigningTransport, type OutboundSend } from "./signing-transport.ts";
+
+export {
+	type DirectoryResponseSignature,
+	type DirectoryResponseSigner,
+	DirectoryResponseError,
+	type ResponseHeaders,
+	signDirectoryResponse,
+	verifyDirectoryResponse,
+} from "./directory-response.ts";
 
 /** A Web Bot Auth key directory document. */
 export type WBAFile = z.infer<typeof WBAFileSchema>;
@@ -39,8 +54,9 @@ export async function generateKey(): Promise<{ keyPair: CryptoKeyPair; thumbprin
  * directoryDocument returns the Web Bot Auth key-directory JSON publishing `keys` (Ed25519
  * public keys), in order.
  *
- * Each key carries the `not_before` / `not_after` window the resolver requires before it
- * will hand the key out: it opens five minutes before `now` and lasts `validForMs`
+ * Each key keeps JWK alg "EdDSA", the RFC 7517 name for the algorithm, not the RFC 9421
+ * value "ed25519" a signature names. Each key carries the `not_before` / `not_after`
+ * window the resolver requires before it will hand the key out: it opens five minutes before `now` and lasts `validForMs`
  * (DEFAULT_KEY_VALIDITY_MS when absent or not positive). `now` defaults to the current time
  * and is injectable for a deterministic document. No revocation_url is set.
  */
@@ -70,8 +86,9 @@ export async function directoryDocument(
 
 /**
  * signingTransportFor returns a signing transport that signs as `keyPair`: keyid is its
- * public key's thumbprint and Signature-Agent is `directory`, the WBA directory that
- * publishes it. It wraps `send` exactly as createSigningTransport does.
+ * public key's thumbprint and each signature's Signature-Agent member names `directory`,
+ * the https origin ("https://agent.example") of the key directory that publishes it. It
+ * wraps `send` exactly as createSigningTransport does.
  */
 export async function signingTransportFor<R>(
 	keyPair: CryptoKeyPair,

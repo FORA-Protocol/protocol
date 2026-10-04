@@ -1,431 +1,331 @@
-// sdk/ts multisig forwarding-chain append+verify parity against the shared Go
-// oracle (agentic-content-access). Go carries the ONLY multisig surface
-// today (helpers.AppendSignature, VerifyMultisigRequest[Resolved], hop budget);
-// under the 3-SDKs decision a TS broker must append and verify chains too. This
-// suite is the TDD-red contract for the NEW ported faces.
+// sdk/ts multi-signature append+verify parity against the shared Go oracle, under the
+// Web Bot Auth profile.
 //
-// Core Invariant: the RFC 9421 signature base — including the
-// parameterized "signature";key="sigN" forwarding-chain component rendered as
-// :stdbase64(decoded-predecessor-signature-bytes): — must reconstruct BYTE-FOR-
-// BYTE in Go and TS, so a chain signed in Go verifies in TS AND the
-// hop-budget / broken-chain / tampered-predecessor rejections match the Go
-// taxonomy token-for-token. The shared Go emitter is the sole oracle.
+// Every signature on a request is verified on its own, against the key its keyid names
+// in the directory its OWN covered Signature-Agent member names. A signature need not
+// cover another (WG-00 §5.2.2: a forwarder MAY); one that does must cover the earlier
+// signature's Signature member, its Signature-Input member and every component it
+// lists, and may only cover a signature that appears before it. The hop budget counts
+// every signature. Labels carry no meaning.
 //
-// Faces under test (do NOT exist yet — RED):
-//   - core/sign-request.ts::appendSignature — chains sig(N+1) onto a prior
-//     {signatureInput, signature} WITHOUT disturbing existing members; appending
-//     to an unsigned request (empty prev) is byte-identical to signRequest (N=1).
-//   - core/verify-multisig-request.ts::verifyMultisigRequestServer — parses ALL
-//     labels, enforces the hop budget FIRST (hop_budget), the structural chain
-//     next (broken_chain), then verifies each hop (signature); returns a verdict
-//     carrying the verified keyids in chain order, never throws.
+// Faces under test:
+//   - core/sign-request.ts::appendSignature — adds a signature with its own label and
+//     Signature-Agent member WITHOUT disturbing existing ones, covering the last earlier
+//     signature only under coverPrevious;
+//   - core/verify-multisig-request.ts::verifyMultisigRequestServer — the hop budget
+//     FIRST (hop_budget), the completeness of any earlier coverage next (broken_chain),
+//     then each signature (signature); returns the verified keyids and directories in
+//     header order, never throws.
 //
-// Reject precedence the verdict must expose (mirrors Go verify.go:477):
-//   hop_budget → broken_chain → signature.
-//
-// RED until BOTH faces exist. The imports below resolve to nonexistent modules,
-// so tsc errors and vitest fails at collection — a clean TDD-red signal.
+// The test resolver is keyed by (directory, keyid), the directory being the one the
+// verifier resolved for that signature, so a port that resolves through the wrong member
+// fails wrong_directory_member.
 
-import { describe, it, expect } from "vitest";
-// RED: neither module exists yet (TDD red step).
-import { signRequest, appendSignature } from "../core/sign-request.ts";
+import { describe, expect, it } from "vitest";
+import { appendSignature, type SignedRequest, signRequest } from "../core/sign-request.ts";
+import { WebBotAuthError } from "../core/wba.ts";
 import {
-  verifyMultisigRequestServer,
-  type MultisigRejectReason,
-  type MultisigKeyResolver,
-  type MultisigVerifyHeaders,
+	type MultisigRejectReason,
+	type MultisigVerifyHeaders,
+	verifyMultisigRequestServer,
 } from "../core/verify-multisig-request.ts";
+import { readHeader } from "../core/verify-request.ts";
 import multisigVectors from "../../go/helpers/testdata/multisig-chain-vectors.json";
+import { b64urlToBytes, directoryResolver, hexToBytes, importSigningKey } from "./wba-fixtures.ts";
 
 type MultisigHop = {
-  keyid: string;
-  pubkey_b64url: string;
-  seed_hex: string;
-  nonce?: string;
+	keyid: string;
+	pubkey_b64url: string;
+	seed_hex: string;
+	directory: string;
+	nonce?: string;
+	cover_previous?: boolean;
 };
 
-// A Go-emitted forwarding-chain vector: the full wire request (all labels), the
-// per-hop identities, and the outcome the REAL Go oracle reaches — verified
-// keyids in chain order for a positive, or the reject reason token for a
-// negative (hop_budget / broken_chain / signature).
 type MultisigChainVector = {
-  name: string;
-  method: string;
-  url: string;
-  body_hex: string;
-  authorization: string;
-  signature_agent: string;
-  created: number;
-  expires: number;
-  content_digest: string;
-  signature_input: string;
-  signature: string;
-  hops: MultisigHop[];
-  max_signatures: number;
-  expected_verified: boolean;
-  expected_keyids: string[] | null;
-  expected_reason: string;
-  // names the request does NOT carry — deleted after the base ones are set, so a
-  // covered name has no field line under it rather than an empty one.
-  omit_headers?: string[];
-  // field lines ADDED beside the base ones, spelled in a different case so an
-  // object holds both; their values join before a hop's base is rebuilt.
-  extra_headers?: Record<string, string>;
+	name: string;
+	method: string;
+	url: string;
+	body_hex: string;
+	authorization: string;
+	signature_agent: string;
+	created: number;
+	expires: number;
+	content_digest: string;
+	signature_input: string;
+	signature: string;
+	hops: MultisigHop[];
+	max_signatures: number;
+	expected_verified: boolean;
+	expected_keyids: string[] | null;
+	expected_directories: string[] | null;
+	expected_reason: string;
+	omit_headers?: string[];
+	extra_headers?: Record<string, string>;
 };
 
-function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
-  const out = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < out.length; i++) {
-    out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-  }
-  return out;
-}
-
-function b64urlToBytes(s: string): Uint8Array<ArrayBuffer> {
-  const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
-  const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + pad;
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
-const PKCS8_ED25519_PREFIX = Uint8Array.from([
-  0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04,
-  0x22, 0x04, 0x20,
-]);
-
-async function importSigningKey(seedHex: string): Promise<CryptoKey> {
-  const seed = hexToBytes(seedHex);
-  const pkcs8 = new Uint8Array(PKCS8_ED25519_PREFIX.length + seed.length);
-  pkcs8.set(PKCS8_ED25519_PREFIX, 0);
-  pkcs8.set(seed, PKCS8_ED25519_PREFIX.length);
-  return crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, false, [
-    "sign",
-  ]);
-}
-
-// A resolver that serves the per-hop pubkeys keyed by keyid — the injected
-// boundary the multisig verify face resolves EVERY hop key through.
-function hopResolver(hops: MultisigHop[]): MultisigKeyResolver {
-  const keys: Record<string, Uint8Array<ArrayBuffer>> = {};
-  for (const h of hops) keys[h.keyid] = b64urlToBytes(h.pubkey_b64url);
-  return {
-    resolve(keyid: string | null): Uint8Array<ArrayBuffer> | undefined {
-      return keyid === null ? undefined : keys[keyid];
-    },
-  };
-}
+const hopResolver = (hops: MultisigHop[]) =>
+	directoryResolver(hops.map((h) => ({ directory: h.directory, keyid: h.keyid, pub: b64urlToBytes(h.pubkey_b64url) })));
 
 const fixedClock = (nowUnix: number) => () => nowUnix;
 
-describe("sdk/ts multisig forwarding-chain append+verify mirrors the Go oracle", () => {
-  const doc = multisigVectors as { vectors: MultisigChainVector[] };
-  const byName = (n: string): MultisigChainVector => {
-    const v = doc.vectors.find((x) => x.name === n);
-    if (!v) throw new Error(`missing vector ${n}`);
-    return v;
-  };
-  const hopAt = (v: MultisigChainVector, i: number): MultisigHop => {
-    const h = v.hops[i];
-    if (!h) throw new Error(`vector ${v.name} missing hop ${i}`);
-    return h;
-  };
+// The header bag a vector describes: the base five, minus what the request does not
+// carry, plus any extra field line spelled in another case. Extras land AFTER the base
+// ones so the join order matches the order the oracle added them.
+function headersFor(v: MultisigChainVector): MultisigVerifyHeaders {
+	const headers: MultisigVerifyHeaders = {
+		"content-digest": v.content_digest,
+		"signature-input": v.signature_input,
+		signature: v.signature,
+		authorization: v.authorization,
+		"signature-agent": v.signature_agent,
+	};
+	const bag = headers as Record<string, string | undefined>;
+	for (const name of v.omit_headers ?? []) delete bag[name.toLowerCase()];
+	for (const [name, value] of Object.entries(v.extra_headers ?? {})) bag[name] = value;
+	return headers;
+}
 
-  it("vector set covers the positive + every negative chain case", () => {
-    const names = new Set(doc.vectors.map((v) => v.name));
-    expect(names.has("positive_two_hop")).toBe(true);
-    expect(names.has("hop_budget_three_over_two")).toBe(true);
-    expect(names.has("broken_chain_reordered")).toBe(true);
-    expect(names.has("broken_chain_stripped_middle")).toBe(true);
-    expect(names.has("broken_chain_missing_link")).toBe(true);
-    expect(names.has("tampered_predecessor")).toBe(true);
-    // The same chains missing a covered header — which pin WHERE that is noticed
-    // relative to the budget and chain gates, not only that it is.
-    expect(names.has("absent_authorization_two_hop")).toBe(true);
-    expect(names.has("absent_authorization_over_budget")).toBe(true);
-    expect(names.has("absent_signature_agent_reordered")).toBe(true);
-    // How a covered header is READ on a chain: a second field line beside the signed
-    // one, a bag spelled the conventional way, and a chain whose covered value IS the
-    // join of two lines.
-    expect(names.has("duplicate_authorization_two_hop")).toBe(true);
-    expect(names.has("canonical_case_two_hop")).toBe(true);
-    expect(names.has("duplicate_bound_two_hop")).toBe(true);
-  });
+function verify(v: MultisigChainVector, headers: MultisigVerifyHeaders = headersFor(v)) {
+	return verifyMultisigRequestServer({
+		method: v.method,
+		url: v.url,
+		body: hexToBytes(v.body_hex),
+		headers,
+		resolve: hopResolver(v.hops),
+		now: fixedClock(Math.floor((v.created + v.expires) / 2)),
+		maxSignatures: v.max_signatures,
+	});
+}
 
-  // The header bag a vector describes: the base five, minus what the request does
-  // not carry, plus any extra field line spelled in another case. Extras land AFTER
-  // the base ones so the join order matches the order the oracle added them.
-  const headersFor = (v: MultisigChainVector): MultisigVerifyHeaders => {
-    const headers: MultisigVerifyHeaders = {
-      "content-digest": v.content_digest,
-      "signature-input": v.signature_input,
-      signature: v.signature,
-      authorization: v.authorization,
-      "signature-agent": v.signature_agent,
-    };
-    const bag = headers as Record<string, string | undefined>;
-    for (const name of v.omit_headers ?? []) delete bag[name.toLowerCase()];
-    for (const [name, value] of Object.entries(v.extra_headers ?? {})) {
-      bag[name] = value;
-    }
-    return headers;
-  };
+// signHops replays a vector's hops in order: the first through signRequest, every later
+// one through appendSignature with the hop's coverPrevious, each with its own directory.
+async function signHops(v: MultisigChainVector, authorization: string): Promise<SignedRequest> {
+	const body = hexToBytes(v.body_hex);
+	let signed: SignedRequest | undefined;
+	for (const hop of v.hops) {
+		const opts = {
+			method: v.method,
+			url: v.url,
+			body,
+			authorization,
+			signatureAgent: hop.directory,
+			keyid: hop.keyid,
+			created: v.created,
+			expires: v.expires,
+			nonce: hop.nonce ?? "",
+			coverPrevious: hop.cover_previous ?? false,
+		};
+		const priv = await importSigningKey(hop.seed_hex);
+		signed =
+			signed === undefined
+				? await signRequest(priv, opts)
+				: await appendSignature(
+						priv,
+						{
+							signatureInput: signed.signatureInput,
+							signature: signed.signature,
+							signatureAgent: signed.signatureAgent,
+						},
+						opts,
+					);
+	}
+	if (signed === undefined) throw new Error(`${v.name} has no hops`);
+	return signed;
+}
 
-  // POSITIVE: the Go-signed 2-hop chain verifies through the TS face and returns
-  // the verified keyids in chain order (sig1 agent, sig2 broker).
-  it("positive_two_hop verifies and returns keyids in chain order", async () => {
-    const v = byName("positive_two_hop");
-    const now = Math.floor((v.created + v.expires) / 2);
-    const verdict = await verifyMultisigRequestServer({
-      method: v.method,
-      url: v.url,
-      body: hexToBytes(v.body_hex),
-      headers: {
-        "content-digest": v.content_digest,
-        "signature-input": v.signature_input,
-        signature: v.signature,
-        authorization: v.authorization,
-        "signature-agent": v.signature_agent,
-      },
-      resolve: hopResolver(v.hops),
-      now: fixedClock(now),
-    });
-    expect(verdict.valid).toBe(true);
-    expect(verdict.keyids).toEqual(v.expected_keyids);
-  });
+describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
+	const doc = multisigVectors as { vectors: MultisigChainVector[] };
+	const byName = (n: string): MultisigChainVector => {
+		const v = doc.vectors.find((x) => x.name === n);
+		if (!v) throw new Error(`missing vector ${n}`);
+		return v;
+	};
 
-  // BYTE-IDENTITY: re-signing the chain live (signRequest sig1 + appendSignature
-  // sig2) under the Go hop seeds reproduces the Go-emitted Signature-Input and
-  // Signature byte-for-byte — the cross-language chain-link contract.
-  // The nonce case also pins each hop's RFC 9421 nonce in the parameter tail.
-  it.each(["positive_two_hop", "positive_two_hop_nonce"])("appendSignature reproduces the Go 2-hop chain byte-identically (%s)", async (name) => {
-    const v = byName(name);
-    const h1 = hopAt(v, 0);
-    const h2 = hopAt(v, 1);
-    const body = hexToBytes(v.body_hex);
+	it("vector set covers the independent, covering, budget, coverage and directory cases", () => {
+		const names = new Set(doc.vectors.map((v) => v.name));
+		for (const want of [
+			"positive_independent_two",
+			"positive_covering_two",
+			"positive_covering_three",
+			"positive_covering_two_nonce",
+			"hop_budget_three_independent_over_two",
+			"hop_budget_three_covering_over_two",
+			"broken_coverage_reordered",
+			"broken_coverage_stripped",
+			"broken_coverage_without_signature_input",
+			"broken_coverage_missing_component",
+			"wrong_directory_member",
+			"legacy_form_on_two_signatures",
+			"tampered_first_covered",
+			"repointed_second_member",
+			"absent_authorization_over_budget",
+			"absent_signature_agent_reordered",
+			"duplicate_bound_two",
+			"canonical_case_two",
+		]) {
+			expect(names.has(want), want).toBe(true);
+		}
+	});
 
-    const sig1 = await signRequest(await importSigningKey(h1.seed_hex), {
-      method: v.method,
-      url: v.url,
-      body,
-      authorization: v.authorization,
-      signatureAgent: v.signature_agent,
-      keyid: h1.keyid,
-      created: v.created,
-      expires: v.expires,
-      nonce: h1.nonce ?? "",
-    });
+	// The reject and accept cases, DERIVED from the corpus rather than hand-listed, so
+	// every row the emitter adds is driven the day it is committed.
+	for (const v of doc.vectors.filter((x) => x.expected_verified)) {
+		it(`${v.name} verifies and returns the Go-emitted keyids and directories`, async () => {
+			const verdict = await verify(v);
+			expect(verdict.valid, `${v.name}: ${verdict.reason}`).toBe(true);
+			expect(verdict.keyids).toEqual(v.expected_keyids);
+			expect(verdict.signatureAgents).toEqual(v.expected_directories);
+		});
+	}
 
-    const chained = await appendSignature(
-      await importSigningKey(h2.seed_hex),
-      { signatureInput: sig1.signatureInput, signature: sig1.signature },
-      {
-        method: v.method,
-        url: v.url,
-        body,
-        authorization: v.authorization,
-        signatureAgent: v.signature_agent,
-        keyid: h2.keyid,
-        created: v.created,
-        expires: v.expires,
-        nonce: h2.nonce ?? "",
-      },
-    );
+	for (const v of doc.vectors.filter((x) => !x.expected_verified)) {
+		it(`${v.name} rejects with the Go-emitted reason`, async () => {
+			const verdict = await verify(v);
+			expect(verdict.valid).toBe(false);
+			expect(verdict.reason).toBe(v.expected_reason as MultisigRejectReason);
+		});
+	}
 
-    expect(chained.signatureInput).toBe(v.signature_input);
-    expect(chained.signature).toBe(v.signature);
-  });
+	// BYTE-IDENTITY: the vectors built only by sign and append, re-signed live under the
+	// Go hop seeds, reproduce Signature-Input, Signature and Signature-Agent byte for
+	// byte. A positive vector's authorization is the value the verifier reads (the join
+	// of its field lines); a negative one was signed before its header was altered. A
+	// reordered vector had its members swapped after signing, so it is not replayed.
+	const RESIGNED = /^(positive_|hop_budget_|absent_|duplicate_|canonical_)/;
+	for (const v of doc.vectors.filter((x) => RESIGNED.test(x.name) && !x.name.endsWith("_reordered"))) {
+		it(`${v.name}: signRequest + appendSignature reproduce the Go headers`, async () => {
+			const authorization = v.expected_verified
+				? (readHeader(headersFor(v), "authorization") ?? "")
+				: v.authorization;
+			const signed = await signHops(v, authorization);
+			expect(signed.signatureInput).toBe(v.signature_input);
+			expect(signed.signature).toBe(v.signature);
+			expect(signed.signatureAgent).toBe(v.signature_agent);
+			expect(signed.contentDigest).toBe(v.content_digest);
+		});
+	}
 
-  // N=1 INVARIANT: appending to an unsigned request (empty prev) is byte-identical
-  // to signRequest — the load-bearing single-sig-is-N=1 property.
-  it("appendSignature to an unsigned request equals signRequest (N=1)", async () => {
-    const v = byName("positive_two_hop");
-    const h1 = hopAt(v, 0);
-    const body = hexToBytes(v.body_hex);
-    const opts = {
-      method: v.method,
-      url: v.url,
-      body,
-      authorization: v.authorization,
-      signatureAgent: v.signature_agent,
-      keyid: h1.keyid,
-      created: v.created,
-      expires: v.expires,
-    };
-    const signed = await signRequest(await importSigningKey(h1.seed_hex), opts);
-    const appended = await appendSignature(
-      await importSigningKey(h1.seed_hex),
-      { signatureInput: "", signature: "" },
-      opts,
-    );
-    expect(appended.signatureInput).toBe(signed.signatureInput);
-    expect(appended.signature).toBe(signed.signature);
-  });
+	it("appendSignature to an unsigned request equals signRequest (N=1)", async () => {
+		const v = byName("positive_independent_two");
+		const h = v.hops[0] as MultisigHop;
+		const opts = {
+			method: v.method,
+			url: v.url,
+			body: hexToBytes(v.body_hex),
+			authorization: v.authorization,
+			signatureAgent: h.directory,
+			keyid: h.keyid,
+			created: v.created,
+			expires: v.expires,
+		};
+		const priv = await importSigningKey(h.seed_hex);
+		const signed = await signRequest(priv, opts);
+		const appended = await appendSignature(priv, { signatureInput: "", signature: "" }, { ...opts, coverPrevious: true });
+		expect(appended).toEqual(signed);
+	});
 
-  // NEGATIVES: each Go-emitted chain reject case rejects (valid=false) with the
-  // exact taxonomy token, honoring the hop_budget → broken_chain → signature
-  // precedence encoded in the vectors.
-  // The reject and accept cases, DERIVED from the corpus rather than hand-listed. A
-  // hand-written name list is how a vector lands and is never replayed — the corpus grew
-  // the duplicate-header plumbing and sat unexercised because nothing enumerated it.
-  // Every row the emitter adds is now driven the day it is committed.
-  const NEGATIVE = doc.vectors.filter((v) => !v.expected_verified).map((v) => v.name);
-  const POSITIVE = doc.vectors.filter((v) => v.expected_verified).map((v) => v.name);
+	it("an append without coverPrevious covers no earlier signature", async () => {
+		const signed = await signHops(byName("positive_independent_two"), "Bearer chain-token");
+		expect(signed.signatureInput).not.toContain('"signature";key=');
+		expect(signed.signatureAgent).toBe('sig1="https://agent.example", sig2="https://broker.example"');
+	});
 
-  for (const name of POSITIVE) {
-    it(`${name} verifies and returns the Go-emitted keyids`, async () => {
-      // Every chain the oracle ACCEPTS verifies here too. The rejects below cannot
-      // stand in for this: a face that refuses everything passes all of them. This is
-      // what catches a reader resolving a covered header to one field line where the
-      // oracle joins, and a reader matching header names case-sensitively.
-      const v = byName(name);
-      const now = Math.floor((v.created + v.expires) / 2);
-      const verdict = await verifyMultisigRequestServer({
-        method: v.method,
-        url: v.url,
-        body: hexToBytes(v.body_hex),
-        headers: headersFor(v),
-        resolve: hopResolver(v.hops),
-        now: fixedClock(now),
-        maxSignatures: v.max_signatures,
-      });
-      expect(verdict.valid, `${name}: ${verdict.reason}`).toBe(true);
-      expect(verdict.keyids).toEqual(v.expected_keyids);
-    });
-  }
+	it("tampering with the first signature breaks it and every signature covering it", async () => {
+		const v = byName("positive_covering_three");
+		const signature = v.signature.replace(/^sig1=:./, (m) => (m.endsWith("A") ? `${m.slice(0, -1)}B` : `${m.slice(0, -1)}A`));
+		const verdict = await verify(v, { ...headersFor(v), signature });
+		expect(verdict).toEqual({ valid: false, reason: "signature" });
+	});
 
-  for (const name of NEGATIVE) {
-    it(`${name} rejects with the Go-emitted reason`, async () => {
-      const v = byName(name);
-      const now = Math.floor((v.created + v.expires) / 2);
-      const verdict = await verifyMultisigRequestServer({
-        method: v.method,
-        url: v.url,
-        body: hexToBytes(v.body_hex),
-        headers: headersFor(v),
-        resolve: hopResolver(v.hops),
-        now: fixedClock(now),
-        maxSignatures: v.max_signatures,
-      });
-      expect(verdict.valid).toBe(false);
-      expect(verdict.reason).toBe(v.expected_reason as MultisigRejectReason);
-    });
-  }
+	describe("appendSignature refuses a label or a Signature-Agent it cannot extend", () => {
+		const v = byName("positive_independent_two");
+		const h = v.hops[1] as MultisigHop;
+		const opts = {
+			method: v.method,
+			url: v.url,
+			body: hexToBytes(v.body_hex),
+			authorization: v.authorization,
+			signatureAgent: h.directory,
+			keyid: h.keyid,
+			created: v.created,
+			expires: v.expires,
+		};
 
-  // Entitlement coverage is enforced PER HOP on the multisig path,
-  // mirroring Go's verifySingleSignature (which runs enforceEntitlementCoverage)
-  // being called per hop by VerifyMultisigRequest. A live 2-hop chain — whose
-  // covered set is the FORA required-5 and NEVER commits to x-entitlement-token —
-  // carrying an X-Entitlement-Token header MUST be rejected "signature", exactly
-  // like the single-sig neg_entitlement_uncovered vector. Without threading the
-  // header into the per-hop verify this gate is dead on the multisig path.
-  it("a 2-hop chain carrying an uncovered X-Entitlement-Token header is rejected (signature)", async () => {
-    const v = byName("positive_two_hop");
-    const h1 = hopAt(v, 0);
-    const h2 = hopAt(v, 1);
-    const body = hexToBytes(v.body_hex);
-    const shared = {
-      method: v.method,
-      url: v.url,
-      body,
-      authorization: v.authorization,
-      signatureAgent: v.signature_agent,
-      created: v.created,
-      expires: v.expires,
-    };
+		it("takes the first sigN no signature and no Signature-Agent member uses", async () => {
+			const prior = {
+				signatureInput: v.signature_input.split(", sig2=")[0] as string,
+				signature: v.signature.split(", sig2=")[0] as string,
+				signatureAgent: 'sig1="https://agent.example", sig2="https://other.example"',
+			};
+			const appended = await appendSignature(await importSigningKey(h.seed_hex), prior, opts);
+			expect(appended.signatureInput).toContain(", sig3=(");
+			expect(appended.signatureAgent).toBe(`${prior.signatureAgent}, sig3="https://broker.example"`);
+			await expect(
+				appendSignature(await importSigningKey(h.seed_hex), prior, { ...opts, label: "sig1" }),
+			).rejects.toMatchObject({ reason: "signature_label" });
+		});
 
-    const sig1 = await signRequest(await importSigningKey(h1.seed_hex), {
-      ...shared,
-      keyid: h1.keyid,
-    });
-    const chained = await appendSignature(
-      await importSigningKey(h2.seed_hex),
-      { signatureInput: sig1.signatureInput, signature: sig1.signature },
-      { ...shared, keyid: h2.keyid },
-    );
+		it("refuses to append to the legacy String form, which cannot take a second member", async () => {
+			const prior = {
+				signatureInput: v.signature_input.split(", sig2=")[0] as string,
+				signature: v.signature.split(", sig2=")[0] as string,
+				signatureAgent: '"https://agent.example"',
+			};
+			const err = await appendSignature(await importSigningKey(h.seed_hex), prior, opts).catch((e: unknown) => e);
+			expect(err).toBeInstanceOf(WebBotAuthError);
+			expect((err as WebBotAuthError).reason).toBe("signature_agent_form");
+		});
+	});
 
-    const now = Math.floor((v.created + v.expires) / 2);
-    const base = {
-      method: v.method,
-      url: v.url,
-      body,
-      headers: {
-        "content-digest": chained.contentDigest,
-        "signature-input": chained.signatureInput,
-        signature: chained.signature,
-        authorization: v.authorization,
-        "signature-agent": v.signature_agent,
-      },
-      resolve: hopResolver(v.hops),
-      now: fixedClock(now),
-    };
+	// Entitlement coverage is enforced on EVERY signature: a chain whose covered sets
+	// never commit to x-entitlement-token, carrying that header, is refused and answered
+	// with the Accept-Signature that asks for it.
+	it("a chain carrying an uncovered X-Entitlement-Token header is rejected (signature)", async () => {
+		const v = byName("positive_independent_two");
+		expect((await verify(v)).valid).toBe(true);
+		const verdict = await verify(v, { ...headersFor(v), "x-entitlement-token": "jwt:demo-unsigned-entitlement-token" });
+		expect(verdict.valid).toBe(false);
+		expect(verdict.reason).toBe("signature");
+		expect(verdict.acceptSignature).toContain('"x-entitlement-token")');
+	});
 
-    // Control: without the header the same chain verifies (coverage constraint
-    // only bites when the entitlement header is present).
-    const ok = await verifyMultisigRequestServer(base);
-    expect(ok.valid).toBe(true);
+	it("a request carrying no signature is answered with Accept-Signature", async () => {
+		const v = byName("positive_independent_two");
+		const headers = headersFor(v);
+		delete (headers as Record<string, string | undefined>)["signature-input"];
+		const verdict = await verify(v, headers);
+		expect(verdict.reason).toBe("signature");
+		expect(verdict.acceptSignature).toMatch(/^sig1=\(/);
+	});
 
-    // With the uncovered entitlement header present, EVERY hop's coverage gate
-    // fires and the chain is rejected "signature".
-    const verdict = await verifyMultisigRequestServer({
-      ...base,
-      headers: {
-        ...base.headers,
-        "x-entitlement-token": "jwt:demo-unsigned-entitlement-token",
-      },
-    });
-    expect(verdict.valid).toBe(false);
-    expect(verdict.reason).toBe("signature");
-  });
+	// The MaxSignatureAge clamp, enforced on EVERY signature exactly like the single-sig
+	// path. The bound is inclusive; 0/undefined is unbounded.
+	describe("per-signature MaxSignatureAge clamp on the multisig path", () => {
+		const v = byName("positive_independent_two");
+		const window = v.expires - v.created;
 
-  // Per-hop MaxSignatureAge lifetime clamp, enforced on EVERY hop exactly
-  // like the single-sig path (Go enforceCreatedExpires with maxAge, called per
-  // hop). The bound is inclusive: a window equal to it passes, one exceeding it is
-  // rejected "signature"; 0/undefined is unbounded.
-  describe("per-hop MaxSignatureAge clamp on the multisig path", () => {
-    const v = () => byName("positive_two_hop");
+		async function verifyWithMaxAge(maxSignatureAge: number | undefined): Promise<MultisigRejectReason | "valid"> {
+			const verdict = await verifyMultisigRequestServer({
+				method: v.method,
+				url: v.url,
+				body: hexToBytes(v.body_hex),
+				headers: headersFor(v),
+				resolve: hopResolver(v.hops),
+				now: fixedClock(Math.floor((v.created + v.expires) / 2)),
+				...(maxSignatureAge !== undefined ? { maxSignatureAge } : {}),
+			});
+			return verdict.valid ? "valid" : (verdict.reason as MultisigRejectReason);
+		}
 
-    async function verifyWithMaxAge(
-      maxSignatureAge: number | undefined,
-    ): Promise<MultisigRejectReason | "valid"> {
-      const vec = v();
-      const now = Math.floor((vec.created + vec.expires) / 2);
-      const verdict = await verifyMultisigRequestServer({
-        method: vec.method,
-        url: vec.url,
-        body: hexToBytes(vec.body_hex),
-        headers: {
-          "content-digest": vec.content_digest,
-          "signature-input": vec.signature_input,
-          signature: vec.signature,
-          authorization: vec.authorization,
-          "signature-agent": vec.signature_agent,
-        },
-        resolve: hopResolver(vec.hops),
-        now: fixedClock(now),
-        ...(maxSignatureAge !== undefined ? { maxSignatureAge } : {}),
-      });
-      return verdict.valid ? "valid" : (verdict.reason as MultisigRejectReason);
-    }
-
-    it("unbounded (undefined) accepts the chain's declared window", async () => {
-      expect(await verifyWithMaxAge(undefined)).toBe("valid");
-    });
-
-    it("maxAge exactly equal to the window is accepted (inclusive bound)", async () => {
-      const window = v().expires - v().created;
-      expect(await verifyWithMaxAge(window)).toBe("valid");
-    });
-
-    it("maxAge above the window is accepted", async () => {
-      const window = v().expires - v().created;
-      expect(await verifyWithMaxAge(window + 1)).toBe("valid");
-    });
-
-    it("maxAge below the window rejects the chain (signature)", async () => {
-      const window = v().expires - v().created;
-      expect(await verifyWithMaxAge(window - 1)).toBe("signature");
-    });
-  });
+		it("unbounded (undefined) accepts the chain's declared window", async () => {
+			expect(await verifyWithMaxAge(undefined)).toBe("valid");
+		});
+		it("maxAge exactly equal to the window is accepted (inclusive bound)", async () => {
+			expect(await verifyWithMaxAge(window)).toBe("valid");
+		});
+		it("maxAge below the window rejects the chain (signature)", async () => {
+			expect(await verifyWithMaxAge(window - 1)).toBe("signature");
+		});
+	});
 });

@@ -16,9 +16,14 @@
 //   resolves to undefined. A conformance harness reads through these.
 // - The resolvers (the endpoint resolver, the registration-requirements reader, the WBA
 //   key resolver and the offer-directory fetch) read the same documents to route and to
-//   verify. They call the lenient functions below, which skip the media type and the
-//   strict check: a reader that must accept a newer protocol version cannot refuse a field
-//   it does not know.
+//   verify. They call the lenient functions below, which skip the strict check: a reader
+//   that must accept a newer protocol version cannot refuse a field it does not know.
+//
+// A key directory is read under the Web Bot Auth profile by both faces: it is fetched
+// with no redirect, must be served as application/http-message-signatures-directory+json,
+// and its response must be signed by the keys it lists (verifyDirectoryResponse). A key
+// the response carries no valid signature by is never handed out. A revocation list and
+// the manifest may follow up to five redirects.
 //
 // Every fetch goes through guardedFetchFromEnv by default, the transport the resolvers use
 // for an address another party chose: the dial-time SSRF guard refuses loopback, private
@@ -35,12 +40,16 @@ import {
 	WBAFileSchema,
 	WellKnownManifestSchema,
 } from "../../../gen/ts/wire/schemas.ts";
+import { verifyDirectoryResponse } from "../core/directory-response.ts";
+import { decodeBase64UrlStrict } from "../src/base64url.ts";
 import { invalidHost } from "../src/host-ref.ts";
 import { isBareHost } from "../src/hosts.ts";
+import { thumbprint } from "../src/thumbprint.ts";
 import { StrictViolation, checkStrict } from "../src/strict.ts";
 import { manifestVersionRefusal, WellKnownPath } from "../src/wire.ts";
 import {
 	DigestMismatch,
+	DirectoryResponseUnsigned,
 	DirectoryUnavailable,
 	ManifestVersionRefused,
 	MediaTypeRefused,
@@ -49,8 +58,9 @@ import { type FetchLike, type Fetched, fetchDocument, guardedFetchFromEnv } from
 
 /** The media type /.well-known/fora.json is served under. */
 export const MANIFEST_MEDIA_TYPE = "application/json";
-/** The media type the WBA key directory is served under: a JWK Set (RFC 7517 §8.5.2). */
-export const WBA_DIRECTORY_MEDIA_TYPE = "application/jwk-set+json";
+/** The media type a Web Bot Auth key directory is served under (WG-00 §5.5). Any other
+ * label, the JWK Set type application/jwk-set+json included, is refused. */
+export const WBA_DIRECTORY_MEDIA_TYPE = "application/http-message-signatures-directory+json";
 
 /** The single public well-known path a WBA identity directory is served at (Web
  * Bot Auth; the identity half of the identity/commercial split — the commercial
@@ -136,11 +146,69 @@ export async function fetchManifest(
 	}
 }
 
-/** GET `url` and decode the body as a WBAFile, leniently. The one read of a directory
- * the WBA key resolver and the offer-directory fetch share, so the two never drift.
- * Every failure throws DirectoryUnavailable. */
-export async function fetchWBAFile(fetchFn: FetchLike, url: string): Promise<WBAFile> {
-	return lenient(await fetchDocument(fetchFn, url), WBAFileSchema, "wba directory decode");
+/** GET `url`, with no redirect, and decode the body as a WBAFile, leniently: an unknown
+ * member is a newer minor version, not a reason to stop verifying. The media type must be
+ * WBA_DIRECTORY_MEDIA_TYPE. The file returned lists only the keys that signed the
+ * response (signedDirectoryKeys), so no caller can hand out a key the directory did not
+ * sign for. `now` is the epoch-ms clock the response signatures' windows are judged
+ * against. The one read of a directory the WBA key resolver and the offer-directory
+ * fetch share, so the two never drift. Every failure throws DirectoryUnavailable. */
+export async function fetchWBAFile(fetchFn: FetchLike, url: string, now: number = Date.now()): Promise<WBAFile> {
+	const fetched = await fetchDocument(fetchFn, url, { noRedirect: true });
+	if (fetched.mediaType !== WBA_DIRECTORY_MEDIA_TYPE) {
+		throw new DirectoryUnavailable(`wba directory ${url}`, {
+			cause: new MediaTypeRefused(`${url} was served with ${JSON.stringify(fetched.mediaType ?? "")}`),
+		});
+	}
+	const file = lenient(fetched, WBAFileSchema, "wba directory decode");
+	try {
+		return await signedDirectoryKeys(fetched, file, now);
+	} catch (err) {
+		throw new DirectoryUnavailable(`wba directory signature ${url}`, { cause: err });
+	}
+}
+
+/**
+ * signedDirectoryKeys returns a copy of `file` listing only the keys whose response
+ * signature verifies, checked against the authority `fetched` was read from. A key that
+ * is not an Ed25519 key cannot sign and is dropped with the rest. It throws for a
+ * response listing keys that cannot be checked at all: a Content-Digest that does not
+ * match the body, or no response signature. A directory listing no key has nothing to
+ * sign and is returned as it is.
+ */
+export async function signedDirectoryKeys(fetched: Fetched, file: WBAFile, now: number): Promise<WBAFile> {
+	const keys = file.keys ?? [];
+	if (keys.length === 0) return file;
+	const pubs = keys.map(wbaPublicKey);
+	const verified = await verifyDirectoryResponse(
+		requestAuthority(fetched.url),
+		{ get: (name) => fetched.header?.(name) ?? null },
+		fetched.body as Uint8Array<ArrayBuffer>,
+		pubs.filter((p): p is Uint8Array<ArrayBuffer> => p !== undefined),
+		Math.floor(now / 1000),
+	);
+	const signed: typeof keys = [];
+	for (const [i, key] of keys.entries()) {
+		const pub = pubs[i];
+		if (pub !== undefined && verified.has(await thumbprint(pub))) signed.push(key);
+	}
+	return { ...file, keys: signed };
+}
+
+// wbaPublicKey decodes a listed key's Ed25519 public key, or undefined when the key is
+// not one. kty/crv are matched case-insensitively, the SDK convention the WBA resolver
+// applies when it selects a key.
+function wbaPublicKey(key: NonNullable<WBAFile["keys"]>[number]): Uint8Array<ArrayBuffer> | undefined {
+	if (key.kty.toUpperCase() !== "OKP" || key.crv.toLowerCase() !== "ed25519") return undefined;
+	const raw = decodeBase64UrlStrict(key.x);
+	return raw !== undefined && raw.length === 32 ? raw : undefined;
+}
+
+/** The RFC 9421 @authority of a fetch of `url`: the host, lowercased, with the port
+ * only when it is not the scheme's default (the WHATWG URL host already omits it), and
+ * an IPv6 literal in brackets. */
+export function requestAuthority(url: string): string {
+	return new URL(url).host.toLowerCase();
 }
 
 /** GET `url` and decode the body as a KeyRevocationList, leniently. Every failure throws
@@ -283,11 +351,14 @@ export async function readManifest(
  * directory's full URL, or a bare host whose directory is read from
  * scheme://host/.well-known/http-message-signatures-directory.
  *
- * The media type must be application/jwk-set+json, and the body must pass the strict
- * WBAFile schema and the cross-field rules. Key validity windows and revocation are not
+ * The directory is fetched with no redirect: a redirect fails the fetch. The media type
+ * must be application/http-message-signatures-directory+json, the body must pass the
+ * strict WBAFile schema and the cross-field rules, and the response must carry a valid
+ * response signature by every key it lists. Key validity windows and revocation are not
  * evaluated: that is the WBA key resolver's job, and a directory listing an expired key
  * is still a well-formed directory. Throws an Error for a value that is neither a URL nor
- * a bare host; DirectoryUnavailable; MediaTypeRefused; and StrictViolation.
+ * a bare host; DirectoryUnavailable; MediaTypeRefused; StrictViolation; and
+ * DirectoryResponseUnsigned.
  */
 export async function readWBADirectory(
 	urlOrDomain: string,
@@ -298,7 +369,21 @@ export async function readWBADirectory(
 		if (!isBareHost(urlOrDomain)) throw invalidHost(urlOrDomain, "neither a URL nor a bare host");
 		url = wbaDirectoryURL(opts.scheme ?? "", urlOrDomain);
 	}
-	return accept(WBA_DIRECTORY, await fetchDocument(transport(opts), url));
+	const fetched = await fetchDocument(transport(opts), url, { noRedirect: true });
+	const doc = accept(WBA_DIRECTORY, fetched);
+	let signed: WBAFile;
+	try {
+		signed = await signedDirectoryKeys(fetched, doc.message, Date.now());
+	} catch (err) {
+		throw new DirectoryResponseUnsigned(`${url}: ${(err as Error).message}`, { cause: err });
+	}
+	const listed = doc.message.keys?.length ?? 0;
+	if ((signed.keys?.length ?? 0) !== listed) {
+		throw new DirectoryResponseUnsigned(
+			`${signed.keys?.length ?? 0} of ${listed} listed keys signed the response at ${url}`,
+		);
+	}
+	return doc;
 }
 
 /**

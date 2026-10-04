@@ -55,14 +55,36 @@ its typed `detail`. `execute` returns each delivery URL as the Exchange issued i
 `fetch` dials it as given with the agent's proof of possession: the delivery edge verifies
 the URL, and its refusal comes back with the edge's `retrieval_auth_failure` reason.
 `createAdminClient` covers the operator RPCs, and `@fora-protocol/sdk/identity` mints an
-agent key, its key directory and a signer.
+agent key, its key directory, the directory's response signatures
+(`signDirectoryResponse`) and a signer.
+
+Requests are signed under the Web Bot Auth profile of RFC 9421
+(draft-ietf-webbotauth-httpsig-protocol-00). A signature covers `@method`, `@target-uri`,
+`content-digest`, `authorization` and its own `Signature-Agent` member, such as
+`sig1="https://agent.example"`, which names the key directory its keyid is resolved in. It
+carries `tag="web-bot-auth"`, a 64-byte nonce, and a window of at most five minutes
+(`MAX_SIGNATURE_LIFETIME`). A client needs `signatureAgent`, the https origin of its key
+directory, to sign: without one, a signed call is refused as `malformed` before anything is
+sent. A party that adds its own signature to a request (`appendSignature`, or `appendOnly`
+on `createSigningTransport`) appends its member beside the earlier ones, and covers the
+earlier signature only when `coverPrevious` is set; a `signerSource` signs each request as
+a different identity. `verifyRequestServer` and `verifyMultisigRequestServer` resolve each
+signature's key in the directory its own member names and report that directory. A refusal
+for a missing component, a missing or wrong tag, or a refused `Signature-Agent` form
+carries the `Accept-Signature` value (`acceptSignature`) to answer with. The delivery proof
+`fetch` presents is the same profile over `@method`, `@target-uri` and the agent's member,
+and the `@fora-protocol/sdk/hono` middleware answers a proof it can ask for again with 401
+and `Accept-Signature`.
 
 `@fora-protocol/sdk/resolvers` reads and checks the documents a party publishes:
 `readManifest`, `readWBADirectory`, `readRevocationList` and `readLicenseDocument` fetch
 through the guarded transport, refuse the wrong media type (`MediaTypeRefused`) and a body
 the strict contract refuses (`StrictViolation`), and resolve to the parsed model with its
 URL, bytes and media type; the license reader also verifies the bytes against
-`uri_digest` (`DigestMismatch`). `checkStrict(message, payload)` from
+`uri_digest` (`DigestMismatch`). A key directory is fetched with no redirect, must be
+served as `application/http-message-signatures-directory+json`, and must carry a response
+signature by every key it lists (`DirectoryResponseUnsigned`); the WBA key resolver hands
+out only the keys that signed. `checkStrict(message, payload)` from
 `@fora-protocol/sdk/client` applies the same check to any decoded message.
 
 `@fora-protocol/sdk/discovery-hint` reads the edge discovery headers of a 403:

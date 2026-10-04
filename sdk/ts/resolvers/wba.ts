@@ -1,9 +1,11 @@
 // The WBA identity-directory key resolver + revocation poller. Ports
 // sdk/go/helpers/wbakeyresolver.go 1:1: resolve a thumbprint (the RFC 9421 keyid,
 // NEVER a kid) against a WBA directory, enforcing the key's [not_before,
-// not_after) window and the host's revocation snapshot. The directory host that
-// Go threads through ctx (Signature-Agent) is passed EXPLICITLY as the second
-// resolve argument. The gen Zod schemas decode the WBA docs (thumbprint-keyed,
+// not_after) window and the host's revocation snapshot. The directory — the origin
+// the signature's own covered Signature-Agent member names, which Go threads through
+// ctx — is passed EXPLICITLY as the second resolve argument. A directory is fetched
+// with no redirect, must be served as WBA_DIRECTORY_MEDIA_TYPE, and only the keys that
+// signed its response are ever handed out. The gen Zod schemas decode the WBA docs (thumbprint-keyed,
 // need no kid); thumbprint reuses the byte-parity-pinned primitive.
 //
 // The monotonic revocation guard + far-future as_of clamp + revocation priming
@@ -42,6 +44,10 @@ type WBAJwk = NonNullable<WBAFile["keys"]>[number];
 /** Options for the WBA resolver. Zero values are safe defaults; tests inject the
  * clock (`now`), the poll timer (`after`), and the armed/cycle seams. */
 export interface WBAKeyResolverOptions {
+	/** The scheme directories are fetched over (empty → "https"). A Signature-Agent
+	 * member is always an https origin; tests inject "http" to fetch that origin's
+	 * directory from a plaintext test server, and a bare host reference is prefixed
+	 * with it. */
 	scheme?: string;
 	ttlMs?: number;
 	pollIntervalMs?: number;
@@ -231,7 +237,7 @@ class WBAResolverImpl implements WBAKeyResolver {
 	}
 
 	private fetchDirectory(base: string): Promise<WBAFile> {
-		return fetchWBAFile(this.fetchFn, base + WBA_DIRECTORY_PATH);
+		return fetchWBAFile(this.fetchFn, base + WBA_DIRECTORY_PATH, this.now());
 	}
 
 	private isRevoked(host: string, thumbprintKey: string): boolean {
@@ -315,8 +321,10 @@ function whenAborted(signal: AbortSignal): Promise<void> {
 	});
 }
 
-/** Normalize a Signature-Agent value (bare host, host:port, or full URL) into a
- * scheme://host base and its host key, or `undefined` when it names no host. */
+/** Normalize a directory reference (an https origin, bare host, host:port, or full
+ * URL) into a scheme://host base and its host key, or `undefined` when it names no
+ * host. An https origin is fetched over the resolver's scheme, so a test reaches a
+ * plaintext server through the same origin a signature names. */
 function directoryBase(
 	ref: string,
 	scheme: string,
@@ -329,7 +337,8 @@ function directoryBase(
 		return undefined;
 	}
 	if (url.host === "") return undefined;
-	return { base: `${url.protocol}//${url.host}`, host: url.host };
+	const protocol = url.protocol === "https:" && scheme !== "https" ? `${scheme}:` : url.protocol;
+	return { base: `${protocol}//${url.host}`, host: url.host };
 }
 
 /** Whether `candidate` is anchored to `anchor` — the same host and port, or a

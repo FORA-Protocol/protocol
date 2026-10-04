@@ -9,11 +9,16 @@
 // harness), resolves the prime thumbprint to prime the snapshot, then asserts
 // `revoked(tp)` matches the oracle for EVERY case — including the load-bearing
 // directory-absent-but-revoked → true, which is the whole point of the accessor.
+//
+// The directory is served signed by its key, as the profile requires: the Go emitter
+// derives that key from the fixed seed "present.v1" (zero-padded to 32 bytes), so the
+// harness registers the same seed.
 import { afterEach, describe, expect, it } from "vitest";
 import vector from "../../go/resolvers/testdata/revocation-membership-vectors.json";
 import { createWBAKeyResolver } from "../resolvers/index.ts";
 import {
 	type Origin,
+	registerSeed,
 	revocationJson,
 	startOrigin,
 	wbaFileJson,
@@ -48,6 +53,10 @@ describe("sdk/ts revoked() matches the sdk/go revocation-membership oracle", () 
 	});
 
 	it("reproduces the oracle verdict for every labelled case", async () => {
+		const seed = new Uint8Array(32);
+		seed.set(new TextEncoder().encode("present.v1"));
+		const present = await registerSeed(seed);
+		expect(vec.directory_keys.map((k) => k.x)).toEqual([present.x]);
 		origin = await startOrigin();
 		const keys = vec.directory_keys.map((k) =>
 			wbaJwk(k.x, k.not_before, k.not_after),

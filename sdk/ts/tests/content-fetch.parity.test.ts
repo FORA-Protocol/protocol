@@ -86,6 +86,7 @@ describe("sdk/ts reads a delivery answer the way the sdk/go oracle does", () => 
 
 			const call = fetchContent(`${ORIGIN}${PATH}`, {
 				keyPair: await agentKeys(),
+				signatureAgent: "https://agent.test",
 				dispatcher: agent,
 			});
 
@@ -134,6 +135,7 @@ describe("sdk/ts declines a URL the way the sdk/go oracle declines it", () => {
 		it(`${v.name}: ${v.failure}`, async () => {
 			const err = (await fetchContent(v.url, {
 				keyPair: await agentKeys(),
+				signatureAgent: "https://agent.test",
 			}).catch((e: unknown) => e)) as ForaCallError;
 
 			expect(err).toBeInstanceOf(ForaCallError);

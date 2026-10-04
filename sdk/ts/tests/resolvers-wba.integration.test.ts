@@ -13,7 +13,13 @@
 //
 // RED CONTRACT: ../resolvers/index.ts does not exist yet — the file is RED on the
 // missing faces, not on a fixture error.
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
+
 import { afterEach, describe, expect, it } from "vitest";
+
+import { appendSignature, signRequest } from "../core/sign-request.ts";
+import { verifyMultisigRequestServer } from "../core/verify-multisig-request.ts";
 
 import {
 	ANCHOR_MS,
@@ -26,6 +32,7 @@ import {
 	wbaFileJson,
 	wbaJwk,
 	loopbackFetch,
+	signedDirectoryHeaders,
 } from "./resolvers-harness.ts";
 
 // RED: the WBA face and its typed sentinels do not exist yet.
@@ -34,7 +41,9 @@ import {
 	KeyExpired,
 	KeyRevoked,
 	createWBAKeyResolver,
+	createWBAOfferDirectoryFetch,
 	RevocationUnevaluated,
+	WBA_DIRECTORY_MEDIA_TYPE,
 	WBA_DIRECTORY_PATH,
 } from "../resolvers/index.ts";
 import type { FetchLike } from "../resolvers/http.ts";
@@ -373,9 +382,12 @@ describe("the WBA revocation anchor wrapper", () => {
 		const fetch: FetchLike = async (url) => {
 			seen.push(url);
 			if (url.includes(WBA_DIRECTORY_PATH)) {
+				// Listing no key, the directory has nothing to sign; it still carries the
+				// profile's media type.
 				return {
 					status: 200,
 					text: async () => JSON.stringify({ keys: [], revocation_url: revocationURL }),
+					headers: { get: (name: string) => (name === "content-type" ? WBA_DIRECTORY_MEDIA_TYPE : null) },
 				};
 			}
 			return {
@@ -411,5 +423,149 @@ describe("the WBA revocation anchor wrapper", () => {
 	// And the guard still holds where it matters.
 	it("does not poll a revocation_url on another port of the same name", async () => {
 		expect(await polled("a.example:8443", "http://a.example:9443/rev.json")).toEqual([]);
+	});
+});
+
+// The Web Bot Auth profile at the resolver (ported from Go
+// wbakeyresolver_profile_test.go): a directory is fetched with no redirect, must be
+// served as WBA_DIRECTORY_MEDIA_TYPE, and only the keys that signed its response are
+// handed out; each signature is resolved in the directory its own member names.
+describe("createWBAKeyResolver under the Web Bot Auth profile", () => {
+	let origins: Array<{ close(): Promise<void> }> = [];
+	afterEach(async () => {
+		for (const o of origins) await o.close();
+		origins = [];
+	});
+
+	it("hands out only the keys that signed the response", async () => {
+		const signed = await makeKey();
+		const unsigned = await makeKey();
+		const origin = await startOrigin();
+		origins.push(origin);
+		origin.setWBA(wbaFileJson([activeJwk(signed.x), activeJwk(unsigned.x)]), [signed.x]);
+
+		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, now: () => ANCHOR_MS });
+		expect(await r.resolve(signed.tp, origin.host)).toEqual(signed.rawPub);
+		expect(await r.resolve(unsigned.tp, origin.host)).toBeUndefined();
+	});
+
+	it("the offer-directory fetch keeps only the signing keys, and refuses an unsigned directory", async () => {
+		const signed = await makeKey();
+		const unsigned = await makeKey();
+		const origin = await startOrigin();
+		origins.push(origin);
+		const port = origin.host.split(":")[1] ?? "";
+		const fetchDir = createWBAOfferDirectoryFetch({ fetch: loopbackFetch, scheme: "http", port });
+
+		origin.setWBA(wbaFileJson([activeJwk(signed.x), activeJwk(unsigned.x)]), [signed.x]);
+		expect((await fetchDir("127.0.0.1"))?.keys?.map((k) => k.x)).toEqual([signed.x]);
+
+		origin.setWBA(wbaFileJson([activeJwk(signed.x)]), []);
+		expect(await fetchDir("127.0.0.1")).toBeUndefined();
+	});
+
+	it("refuses a directory with no response signature at all", async () => {
+		const k = await makeKey();
+		const origin = await startOrigin();
+		origins.push(origin);
+		origin.setWBA(wbaFileJson([activeJwk(k.x)]), []);
+		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, now: () => ANCHOR_MS });
+		await expect(r.resolve(k.tp, origin.host)).rejects.toBeInstanceOf(DirectoryUnavailable);
+	});
+
+	it("refuses a directory served under another media type, application/jwk-set+json included", async () => {
+		const k = await makeKey();
+		const body = wbaFileJson([activeJwk(k.x)]);
+		const fetch: FetchLike = async (url) => {
+			const headers = await signedDirectoryHeaders(new URL(url).host, body);
+			headers["content-type"] = "application/jwk-set+json";
+			return { status: 200, text: async () => body, headers: { get: (n: string) => headers[n] ?? null } };
+		};
+		const r = createWBAKeyResolver({ scheme: "http", fetch, now: () => ANCHOR_MS });
+		await expect(r.resolve(k.tp, "a.example")).rejects.toBeInstanceOf(DirectoryUnavailable);
+	});
+
+	it("never follows a redirect to a directory, whether or not the transport honours the request", async () => {
+		const k = await makeKey();
+		const target = await startOrigin();
+		origins.push(target);
+		target.setWBA(wbaFileJson([activeJwk(k.x)]));
+		const redirecting = createServer((_req, res) => {
+			res.writeHead(302, { location: `${target.url}${WBA_DIRECTORY_PATH}` });
+			res.end();
+		});
+		await new Promise<void>((resolve) => redirecting.listen(0, "127.0.0.1", resolve));
+		origins.push({ close: () => new Promise<void>((resolve) => redirecting.close(() => resolve())) });
+		const host = `127.0.0.1:${(redirecting.address() as AddressInfo).port}`;
+
+		// The global fetch honours redirect: "manual" and answers the 302 itself.
+		const honouring = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, now: () => ANCHOR_MS });
+		await expect(honouring.resolve(k.tp, host)).rejects.toBeInstanceOf(DirectoryUnavailable);
+
+		// A transport that follows anyway is caught by the response it reports.
+		const following: FetchLike = async (url) => {
+			const resp = await globalThis.fetch(url);
+			return {
+				status: resp.status,
+				redirected: resp.redirected,
+				text: () => resp.text(),
+				headers: resp.headers,
+				arrayBuffer: () => resp.arrayBuffer(),
+			};
+		};
+		const ignoring = createWBAKeyResolver({ scheme: "http", fetch: following, now: () => ANCHOR_MS });
+		await expect(ignoring.resolve(k.tp, host)).rejects.toBeInstanceOf(DirectoryUnavailable);
+	});
+
+	it("resolves each signature in its own signer's directory", async () => {
+		const agentKey = await makeKey();
+		const brokerKey = await makeKey();
+		const agentOrigin = await startOrigin();
+		const brokerOrigin = await startOrigin();
+		origins.push(agentOrigin, brokerOrigin);
+		agentOrigin.setWBA(wbaFileJson([longJwk(agentKey.x)]));
+		brokerOrigin.setWBA(wbaFileJson([longJwk(brokerKey.x)]));
+		const agentDir = `https://${agentOrigin.host}`;
+		const brokerDir = `https://${brokerOrigin.host}`;
+
+		const body = new TextEncoder().encode('{"q":1}') as Uint8Array<ArrayBuffer>;
+		const created = Math.floor(ANCHOR_MS / 1000);
+		const base = { method: "POST", url: "https://exchange.example/x", body, authorization: "", created, expires: created + 300 };
+		const sig1 = await signRequest(agentKey.privKey, { ...base, signatureAgent: agentDir, keyid: agentKey.tp });
+		const prior = { signatureInput: sig1.signatureInput, signature: sig1.signature, signatureAgent: sig1.signatureAgent };
+		const sig2 = await appendSignature(brokerKey.privKey, prior, { ...base, signatureAgent: brokerDir, keyid: brokerKey.tp });
+
+		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, now: () => ANCHOR_MS });
+		const asked: string[] = [];
+		const resolve = {
+			resolve: async (keyid: string, directory: string) => {
+				asked.push(`${directory} ${keyid}`);
+				return (await r.resolve(keyid, directory)) as Uint8Array<ArrayBuffer> | undefined;
+			},
+		};
+		const verify = (signatureAgent: string) =>
+			verifyMultisigRequestServer({
+				...base,
+				headers: {
+					"content-digest": sig2.contentDigest,
+					"signature-input": sig2.signatureInput,
+					signature: sig2.signature,
+					authorization: "",
+					"signature-agent": signatureAgent,
+				},
+				resolve,
+				now: () => created + 10,
+			});
+		expect(await verify(sig2.signatureAgent)).toEqual({
+			valid: true,
+			keyids: [agentKey.tp, brokerKey.tp],
+			signatureAgents: [agentDir, brokerDir],
+		});
+		expect(asked).toEqual([`${agentDir} ${agentKey.tp}`, `${brokerDir} ${brokerKey.tp}`]);
+		// Swap the members: each signature now names the other signer's directory, where
+		// its key is not published, and the first lookup there finds nothing.
+		asked.length = 0;
+		expect(await verify(`sig1="${brokerDir}", sig2="${agentDir}"`)).toEqual({ valid: false, reason: "signature" });
+		expect(asked).toEqual([`${brokerDir} ${agentKey.tp}`]);
 	});
 });

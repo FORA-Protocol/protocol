@@ -224,8 +224,9 @@ function joinDirectoryHost(domain: string, port: string): string {
 /**
  * createWBAOfferDirectoryFetch returns the default {@link OfferDirectoryFetch}: it
  * GETs {scheme}://{domain}[:{port}]{WBA_DIRECTORY_PATH} (built by the shared
- * wbaDirectoryURL) and parses the body as a WBAFile, returning `undefined` on ANY
- * transport/status/decode failure so
+ * wbaDirectoryURL) with no redirect, checks its media type and response signatures, and
+ * parses the body as a WBAFile listing only the keys that signed the response,
+ * returning `undefined` on ANY transport/status/media-type/signature/decode failure so
  * the default fetcher itself upholds the undefined-not-throw seam contract.
  *
  * The default transport is SSRF-guarded (guardedFetchFromEnv): the exchange domain

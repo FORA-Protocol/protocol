@@ -2,7 +2,8 @@
 //
 // Some edge runtimes (Fastly Compute) hand the request URL as a URL-LIKE OBJECT
 // rather than a primitive string. Both URL-consuming SDK faces — the Ed25519
-// signed-URL verify (src/verify.ts) and the RFC 9421 GET-PoP verify (src/pop.ts)
+// signed-URL verify (src/verify.ts) and the Web Bot Auth delivery-proof verify
+// (src/pop.ts)
 // — assume a primitive string:
 //
 //   - verify.ts feeds the raw input to canonicalUrl(), which performs STRING ops
@@ -28,13 +29,13 @@
 // signature base for the object case diverges from the string case.
 import { describe, it, expect } from "vitest";
 import { verifyEd25519SignedUrl } from "../src/verify.ts";
-import { verifyAgentBinding, signatureBase } from "../src/pop.ts";
+import { verifyAgentBinding } from "../src/pop.ts";
 import { signEd25519SignedUrl } from "../src/signurl.ts";
 import { signRequest } from "../core/sign-request.ts";
 import { verifyRequestServer } from "../core/verify-request.ts";
 import { signInbound } from "../core/sign.ts";
 import { thumbprint } from "../src/thumbprint.ts";
-import { encodeBase64Url, utf8Bytes } from "../src/base64url.ts";
+import { AGENT_DIRECTORY } from "./wba-fixtures.ts";
 
 // A "tricky" URL whose WHATWG-normalized form differs from its verbatim bytes:
 // mixed-case host, explicit default :443, and a %20 in the path. If the SDK ever
@@ -98,20 +99,13 @@ describe("signed-URL verify accepts a Fastly-like URL-like object (verbatim byte
   });
 });
 
-describe("GET-PoP verify accepts a Fastly-like URL-like object (verbatim @target-uri)", () => {
+describe("delivery-proof verify accepts a Fastly-like URL-like object (verbatim @target-uri)", () => {
   it("URL-object input produces a byte-identical signature base and verdict", async () => {
-    const { priv, pubRaw } = await genKeyPair();
+    const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
+    const pubRaw = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey)) as Uint8Array<ArrayBuffer>;
     const agentId = await thumbprint(pubRaw);
     const url = `${TRICKY_PREFIX}?agent_id=${agentId}&exp=${NOW_SEC + 300}`;
-
-    const rawParams = `("@method" "@target-uri");keyid="${agentId}";alg="ed25519";created=${NOW_SEC};expires=${NOW_SEC + 300}`;
-    const base = signatureBase("GET", url, rawParams);
-    const sig = new Uint8Array(await crypto.subtle.sign("Ed25519", priv, utf8Bytes(base)));
-
-    const headers = new Headers();
-    headers.set("x-fora-agent-key", encodeBase64Url(pubRaw));
-    headers.set("signature-input", `sig1=${rawParams}`);
-    headers.set("signature", `sig1=:${encodeBase64Url(sig)}:`);
+    const headers = (await signInbound(kp, url, { signatureAgent: AGENT_DIRECTORY, now: nowMs, ttlSec: 300 })).headers;
 
     // A capturing primitive records the exact signature-base bytes the verifier
     // reconstructs, so we can assert byte-identity between the string and object
@@ -156,7 +150,7 @@ describe("GET-PoP verify accepts a Fastly-like URL-like object (verbatim @target
 // ---------------------------------------------------------------------------
 // Sibling faces: the SAME raw-URL runtime-shape divergence on the SIGN faces
 // (signurl source, signInbound) and the request VERIFY face (verifyRequestServer),
-// which share the buildRequestSignatureBase @target-uri sink. The signurl SIGN
+// which share the requestComponentValue @target-uri sink. The signurl SIGN
 // face carries the fail-on-revert teeth: canonicalUrl's string ops throw on a
 // URL-like object, so its object case is RED until the boundary coerces. The
 // request faces are byte-identity guards (String()===template for the object).
@@ -178,7 +172,7 @@ describe("signed-URL SIGN accepts a Fastly-like URL-like object (verbatim bytes 
   });
 });
 
-describe("RFC 9421 5-component request verify accepts a Fastly-like URL-like object", () => {
+describe("RFC 9421 request verify accepts a Fastly-like URL-like object", () => {
   it("URL-object url reaches the SAME verdict as the string url (round-trip through signRequest)", async () => {
     const { priv, pubRaw } = await genKeyPair();
     const keyid = "req-key-1";
@@ -190,7 +184,7 @@ describe("RFC 9421 5-component request verify accepts a Fastly-like URL-like obj
       url,
       body,
       authorization: "",
-      signatureAgent: "",
+      signatureAgent: AGENT_DIRECTORY,
       keyid,
       created: NOW_SEC,
       expires: NOW_SEC + 300,
@@ -200,10 +194,10 @@ describe("RFC 9421 5-component request verify accepts a Fastly-like URL-like obj
       "signature-input": signed.signatureInput,
       signature: signed.signature,
       authorization: "",
-      "signature-agent": "",
+      "signature-agent": signed.signatureAgent,
     };
     const resolve = {
-      resolve: (kid: string | null) => (kid === keyid ? pubRaw : undefined),
+      resolve: (kid: string) => (kid === keyid ? pubRaw : undefined),
     };
     const base = {
       method: "GET",
@@ -225,7 +219,7 @@ describe("RFC 9421 5-component request verify accepts a Fastly-like URL-like obj
   });
 });
 
-describe("inbound GET-PoP SIGN accepts a Fastly-like URL-like object", () => {
+describe("inbound delivery-proof SIGN accepts a Fastly-like URL-like object", () => {
   it("URL-object url produces a request that verifies identically to the string url", async () => {
     const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
       "sign",
@@ -237,7 +231,7 @@ describe("inbound GET-PoP SIGN accepts a Fastly-like URL-like object", () => {
     const agentId = await thumbprint(pubRaw);
     const url = `${TRICKY_PREFIX}?agent_id=${agentId}`;
 
-    const opts = { now: nowMs, ttlSec: 300 };
+    const opts = { signatureAgent: AGENT_DIRECTORY, now: nowMs, ttlSec: 300 };
     const fromString = await signInbound(kp, url, opts);
     const fromObject = await signInbound(kp, new FastlyLikeUrl(url) as unknown as string, opts);
 

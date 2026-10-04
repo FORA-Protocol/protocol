@@ -23,6 +23,7 @@ export {
 } from "./documents.ts";
 export {
 	DigestMismatch,
+	DirectoryResponseUnsigned,
 	DirectoryUnavailable,
 	EndpointRefused,
 	ExchangeNotPermitted,
@@ -37,7 +38,7 @@ export {
 	RevocationUnevaluated,
 	UnknownKey,
 } from "./errors.ts";
-export type { FetchLike, FetchResponse } from "./http.ts";
+export type { FetchInit, FetchLike, FetchResponse } from "./http.ts";
 export { guardedFetchFromEnv, SsrfBlockedError, ssrfGuard } from "./http.ts";
 export {
 	type CachedOfferKeyResolver,
