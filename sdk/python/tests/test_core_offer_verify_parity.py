@@ -65,13 +65,13 @@ _REQUIRED_FRESHNESS = {
     "missing_expires_at",
 }
 
-# The metered-estimate dimension: a PER_UNIT offer must carry a positive estimate on
-# its own pricing, or the port rejects it although its signature and expiry are good.
-# Pinned so a regenerated corpus that drops these fails here rather than letting a
-# port accept an offer with no amount to accept and no ceiling to settle against.
+# The metered-estimate dimension: a PER_UNIT offer may state an estimate on its own
+# pricing or none, and the port verifies both; one it states is positive, or the port
+# rejects it although its signature and expiry are good. Pinned so a regenerated corpus
+# that drops these fails here rather than letting a port drift on either side.
 _REQUIRED_METERED = {
     "metered_with_estimate_and_tolerance",
-    "metered_missing_estimate",
+    "metered_without_estimate",
     "metered_zero_estimate",
     "metered_term_estimate_only",
     "flat_without_estimate",

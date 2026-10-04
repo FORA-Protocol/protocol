@@ -109,23 +109,27 @@ class MeteredSettlement:
     """What a metered purchase settles to, every value a canonical decimal string.
 
     Quantities are in the price's unit and may be fractional (``ceiling_quantity``
-    and what derives from it); amounts are in the price's currency.
+    and what derives from it); amounts are in the price's currency. When the price
+    states no estimate there is no ceiling: ``accepted_amount``, ``ceiling_quantity``
+    and ``ceiling_amount`` are ``None``, the whole consumed quantity is charged, and
+    nothing is held.
     """
 
-    accepted_amount: str
-    """E x R: what the agent accepted at purchase."""
-    ceiling_quantity: str
-    """Q = E x (10000 + T) / 10000."""
-    ceiling_amount: str
-    """Q x R: the most the purchase is charged without a dispute."""
+    accepted_amount: str | None
+    """E x R: what the agent accepted at purchase. ``None`` without an estimate."""
+    ceiling_quantity: str | None
+    """Q = E x (10000 + T) / 10000. ``None`` without an estimate."""
+    ceiling_amount: str | None
+    """Q x R: the most the purchase is charged without a dispute. ``None`` without an
+    estimate."""
     charged_quantity: str
-    """min(C, Q)."""
+    """min(C, Q), or C without an estimate."""
     charged_amount: str
-    """min(C, Q) x R: what the report settles to."""
+    """charged_quantity x R: what the report settles to."""
     held_quantity: str
-    """max(0, C - Q): the quantity held for dispute."""
+    """max(0, C - Q): the quantity held for dispute. Always 0 without an estimate."""
     held_amount: str
-    """max(0, C - Q) x R: held for dispute, never charged automatically."""
+    """held_quantity x R: held for dispute, never charged automatically."""
 
 
 def _wire_int(v: Any) -> int | None:
@@ -151,7 +155,7 @@ def is_metered_offer(offer: Mapping[str, Any]) -> bool:
     """Whether ``offer`` (canonical proto-JSON) is metered: its pricing is PER_UNIT.
 
     ``Offer.pricing`` is the offer's one price and the term it sells carries none
-    (fora.proto Offer, the offer.metered.requires_estimate and
+    (fora.proto Offer, the offer.metered.estimate_positive and
     offer.terms.pricing_unset rules), so a term is never consulted. Python peer of Go
     ``helpers.IsMeteredOffer``."""
     return _model(offer.get("pricing")) == _PRICING_MODEL_PER_UNIT
@@ -179,13 +183,30 @@ def check_offer_terms_unpriced(offer: Mapping[str, Any]) -> None:
             raise ValueError(msg)
 
 
-def check_metered_estimate(offer: Mapping[str, Any]) -> None:
-    """Raise ``ValueError`` when ``offer`` is metered and its pricing carries no
-    positive ``estimated_quantity``; return quietly otherwise.
+def _stated_estimate(pricing: Mapping[str, Any]) -> int | None:
+    """The ``estimated_quantity`` ``pricing`` states, or ``None`` when it states none.
 
-    The offer.metered.requires_estimate rule as a standalone check, for a verifier
-    that runs without wire validation. A non-metered offer passes whatever its
-    pricing says.
+    Raise ``ValueError`` for a stated estimate that is not a positive integer: an
+    estimate is optional, but one that is stated is positive."""
+    raw = pricing.get("estimated_quantity")
+    if raw is None:
+        return None
+    estimate = _wire_int(raw)
+    if estimate is None or estimate <= 0:
+        msg = f"money: metered pricing states an estimated_quantity that is not positive: {raw!r}"
+        raise ValueError(msg)
+    return estimate
+
+
+def check_metered_estimate(offer: Mapping[str, Any]) -> None:
+    """Raise ``ValueError`` when ``offer`` is metered and its pricing states an
+    ``estimated_quantity`` that is not positive; return quietly otherwise.
+
+    A metered offer that states no estimate passes: the estimate is optional, and
+    without one the purchase settles with no ceiling. The
+    offer.metered.estimate_positive rule as a standalone check, for a verifier that
+    runs without wire validation. A non-metered offer passes whatever its pricing
+    says.
     """
     if not isinstance(offer, Mapping):
         msg = "money: offer is not an object"
@@ -193,12 +214,8 @@ def check_metered_estimate(offer: Mapping[str, Any]) -> None:
     if not is_metered_offer(offer):
         return
     pricing = offer.get("pricing")
-    estimate = None
     if isinstance(pricing, Mapping):
-        estimate = _wire_int(pricing.get("estimated_quantity"))
-    if estimate is None or estimate <= 0:
-        msg = "money: metered offer carries no positive estimated_quantity"
-        raise ValueError(msg)
+        _stated_estimate(pricing)
 
 
 def estimate_tolerance_bps(pricing: Mapping[str, Any]) -> int:
@@ -219,45 +236,51 @@ def _exact() -> Context:
     return Context(prec=200, traps=[Inexact, InvalidOperation, Overflow, DivisionByZero])
 
 
-def _metered_terms(pricing: Mapping[str, Any]) -> tuple[Decimal, Decimal, Decimal]:
-    """Check ``pricing`` is a metered price that can settle; return (E, R, Q)."""
+def _metered_terms(pricing: Mapping[str, Any]) -> tuple[Decimal | None, Decimal, Decimal | None]:
+    """Check ``pricing`` is a metered price that can settle; return (E, R, Q).
+
+    E and Q are ``None`` when the price states no estimate."""
     if not isinstance(pricing, Mapping):
         msg = "money: pricing is not an object"
         raise ValueError(msg)
     if _model(pricing) != _PRICING_MODEL_PER_UNIT:
         msg = f"money: pricing is not metered (PER_UNIT): model is {_model(pricing)!r}"
         raise ValueError(msg)
-    estimate = _wire_int(pricing.get("estimated_quantity"))
-    if estimate is None or estimate <= 0:
-        msg = "money: metered pricing carries no positive estimated_quantity"
-        raise ValueError(msg)
+    estimate = _stated_estimate(pricing)
     rate_raw = pricing.get("rate", "")
     rate = parse_money(rate_raw if isinstance(rate_raw, str) else "")
     bps = estimate_tolerance_bps(pricing)
     if not 0 <= bps <= MAX_ESTIMATE_TOLERANCE_BPS:
         msg = f"money: estimate_tolerance_bps {bps} is outside 0..{MAX_ESTIMATE_TOLERANCE_BPS}"
         raise ValueError(msg)
+    if estimate is None:
+        return None, rate, None
     with localcontext(_exact()):
         e = Decimal(estimate)
         ceiling = (e * Decimal(10000 + bps)).scaleb(-4)
     return e, rate, ceiling
 
 
-def metered_settlement_cap(pricing: Mapping[str, Any]) -> str:
+def metered_settlement_cap(pricing: Mapping[str, Any]) -> str | None:
     """Q x R for a metered price: the most a purchase under it is charged without a
     dispute, and the amount an agent budgets against a spend cap.
 
-    Raises ``ValueError`` for a price that is not PER_UNIT, carries no positive
-    estimate or no valid rate, or states a tolerance outside 0..10000.
+    ``None`` when the price states no estimate: it then has no ceiling, and nothing in
+    it bounds the charge. Raises ``ValueError`` for a price that is not PER_UNIT,
+    states an estimate that is not positive, carries no valid rate, or states a
+    tolerance outside 0..10000.
     """
     _, rate, ceiling = _metered_terms(pricing)
+    if ceiling is None:
+        return None
     with localcontext(_exact()):
         return format_money(ceiling * rate)
 
 
 def settle_metered_usage(pricing: Mapping[str, Any], consumed_quantity: int) -> MeteredSettlement:
     """Settle a usage report of ``consumed_quantity`` against a metered price — the
-    offer's own pricing, which is the copy settlement reads.
+    offer's own pricing, which is the copy settlement reads. Without an estimate the
+    whole quantity is charged at the rate and nothing is held.
 
     Raises ``ValueError`` for what :func:`metered_settlement_cap` refuses, and for a
     quantity that is negative or not an integer.
@@ -271,6 +294,16 @@ def settle_metered_usage(pricing: Mapping[str, Any], consumed_quantity: int) -> 
         raise ValueError(msg)
     with localcontext(_exact()):
         consumed = Decimal(consumed_quantity)
+        if estimate is None or ceiling is None:
+            return MeteredSettlement(
+                accepted_amount=None,
+                ceiling_quantity=None,
+                ceiling_amount=None,
+                charged_quantity=format_money(consumed),
+                charged_amount=format_money(consumed * rate),
+                held_quantity="0",
+                held_amount="0",
+            )
         charged = min(consumed, ceiling)
         held = max(Decimal(0), consumed - ceiling)
         return MeteredSettlement(

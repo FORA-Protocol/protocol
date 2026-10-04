@@ -376,8 +376,8 @@ class Verifier:
             check_offer_terms_unpriced(offer)
         except ValueError as exc:
             return str(exc)
-        # A metered offer without an estimate has no amount to accept and no ceiling
-        # for its usage report to settle against (fora.proto Pricing).
+        # A metered offer may state no estimate, but one it states is positive: a zero
+        # estimate would fix a ceiling of nothing (fora.proto Offer).
         try:
             check_metered_estimate(offer)
         except ValueError as exc:

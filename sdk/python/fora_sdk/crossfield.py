@@ -144,12 +144,12 @@ def _pricing_rules(o: dict[str, Any]) -> list[str]:
 
 
 def _offer_rules(o: dict[str, Any]) -> list[str]:
-    """Offer.terms.pricing_unset + Offer.metered.requires_estimate.
+    """Offer.terms.pricing_unset + Offer.metered.estimate_positive.
 
     - terms.pricing_unset: ``this.terms.all(t, !has(t.pricing))`` — the offer's price
       is ``Offer.pricing``, stated once.
-    - metered.requires_estimate: ``this.pricing.model != PER_UNIT ||
-      (has(this.pricing.estimated_quantity) && this.pricing.estimated_quantity > 0)``.
+    - metered.estimate_positive: ``this.pricing.model != PER_UNIT ||
+      !has(this.pricing.estimated_quantity) || this.pricing.estimated_quantity > 0``.
 
     Both predicates are the ones the agent-side Verifier applies, so this face and that
     one share :func:`fora_sdk.money.check_offer_terms_unpriced` and
@@ -163,7 +163,7 @@ def _offer_rules(o: dict[str, Any]) -> list[str]:
     try:
         check_metered_estimate(o)
     except ValueError:
-        out.append("offer.metered.requires_estimate")
+        out.append("offer.metered.estimate_positive")
     return out
 
 

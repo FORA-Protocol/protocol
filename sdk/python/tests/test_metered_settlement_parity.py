@@ -61,7 +61,16 @@ def test_settlement_matches_oracle(vec: dict[str, object]) -> None:
     assert got == vec["expected"]
     expected = vec["expected"]
     assert isinstance(expected, dict)
+    # A row without an estimate records a null ceiling, and the cap is then None.
     assert metered_settlement_cap(pricing) == expected["ceiling_amount"]
+
+
+def test_corpus_covers_both_shapes() -> None:
+    """The replay settles a price with an estimate and one without: a corpus that
+    lost either would leave that shape of settlement untested."""
+    settled = [v for v in _VECTORS if not v["error"]]
+    assert any(v["expected"]["ceiling_amount"] is None for v in settled)
+    assert any(v["expected"]["ceiling_amount"] is not None for v in settled)
 
 
 def test_process_context_untouched() -> None:
@@ -100,8 +109,11 @@ _FLAT = {"model": "PRICING_MODEL_FLAT"}
     [
         ({"pricing": {**_PER_UNIT, "estimated_quantity": 1}}, True, False),
         ({"pricing": {**_PER_UNIT, "estimated_quantity": "7"}}, True, False),
-        ({"pricing": dict(_PER_UNIT)}, True, True),
+        # The estimate is optional; one that is stated is positive.
+        ({"pricing": dict(_PER_UNIT)}, True, False),
+        ({"pricing": {**_PER_UNIT, "estimated_quantity": None}}, True, False),
         ({"pricing": {**_PER_UNIT, "estimated_quantity": 0}}, True, True),
+        ({"pricing": {**_PER_UNIT, "estimated_quantity": -3}}, True, True),
         ({"pricing": {**_PER_UNIT, "estimated_quantity": True}}, True, True),
         # A priced term no longer makes an offer metered: Offer.pricing is the one
         # price, and a priced term is refused by check_offer_terms_unpriced instead.
