@@ -106,6 +106,8 @@ The Exchange verifies it by:
 3. Reconstructing the signed content from the declared components and verifying the Ed25519 signature in the `Signature` header against that key
 4. Confirming the `Content-Digest` matches the request body, and that the directory that published the key is the identity the caller is authorised as
 
+Each signature is checked against its own signer's directory and that directory's revocation list, never against another party's; see [Whose list revokes whose key](#whose-list-revokes-whose-key).
+
 If verification fails, the Exchange rejects the request. No fallback, no degraded mode. See [How RFC 9421 Signatures Work](#how-rfc-9421-signatures-work) below for the header details.
 
 ## Delegation
@@ -659,6 +661,18 @@ Enforcement is operational, not protocol-guaranteed: a consumer that grants acce
 ### Emergency Revocation
 
 When a WBA directory sets `revocation_url`, consumers poll it on a 300s cadence (±10% jitter) and replace their local revoked set with the response — a `KeyRevocationList` (thumbprint-only snapshot: `as_of` + `revoked[]`). A revoked thumbprint stays revoked; reject any signature whose key thumbprint is in the set. When `revocation_url` is unset, consumers rely on routine rotation and `not_after` expiry.
+
+### Whose list revokes whose key
+
+Revocation is scoped to the signer. Each signature is verified against its own signer's key directory and the revocation list that directory names, and against no other party's:
+
+- A Broker's revocation list covers only the Broker's keys, and an agent's list covers only that agent's keys. No party's list can revoke another party's key, even if it names that key's thumbprint.
+- A request that carries several request signatures, such as the hop signatures of a forwarded request, is refused if any one of them fails its own signer's check.
+- A request signed only by the agent is verified against the agent's directory and list alone. It never depends on the Broker's directory being reachable.
+
+### Fetching directories and revocation lists
+
+A key directory, a revocation list and the other public well-known documents carry nothing to leak, so a party fetching one MAY follow up to five redirects, re-pinning the address and re-vetting the scheme at each hop. The cap is five hops; a longer chain fails the fetch.
 
 ### Domainless Agents
 

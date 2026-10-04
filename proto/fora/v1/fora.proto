@@ -62,6 +62,15 @@ import "fora/v1/vocab.proto";
 // emergency-revoked keys; consumers poll on a 300s cadence (±10% jitter)
 // and sync-fetch on an unknown thumbprint.
 //
+// Revocation is scoped to the signer. Each signature is verified against its
+// own signer's key directory and the revocation list that directory names,
+// and against no other party's: a Broker's list covers only the Broker's
+// keys, an agent's list only that agent's keys, and no party's list can
+// revoke another party's key. A request that carries several request
+// signatures is refused if any one of them fails its own signer's check. A
+// request signed only by the agent never depends on the Broker's directory
+// being reachable.
+//
 // Request authentication via RFC 9421 HTTP Message Signatures (alg=ed25519).
 // Every request carries the signature of the party that AUTHORED it:
 //   Agent → Exchange:  the agent's signature. A direct purchase is this shape.
@@ -3640,6 +3649,11 @@ message RequestConstraints {
 //   grants access against a stale revocation set bears that as its own
 //   business risk — it is not a protocol deficiency.
 //
+// Redirects: a key directory, a revocation list and the other public
+// well-known documents carry nothing to leak, so a party fetching one MAY
+// follow up to five redirects, re-pinning the address and re-vetting the
+// scheme at each hop. A longer chain fails the fetch.
+//
 // Domainless requesters — an individual agent with no public domain of its
 // own — are accommodated without a protocol change: a registry (operated by
 // an Exchange/Broker or a third party) hosts the agent's WellKnownManifest,
@@ -4094,6 +4108,10 @@ message WBAFile {
   // Directory-level emergency revocation channel. One per directory; the list
   // it points to enumerates revoked key thumbprints. Consumers poll on a 300s
   // cadence (±10% jitter) and replace their local revoked set with the response.
+  // The list revokes keys of this directory only: a consumer checks a
+  // signature against the list of the directory that published its key, and
+  // never applies this list to another party's key. A fetch of the list MAY
+  // follow up to five redirects (see "Redirects" under Well-Known Discovery).
   optional string revocation_url = 2;
 }
 
@@ -4105,6 +4123,9 @@ message WBAFile {
 // thumbprint stays revoked permanently; once dropped from the list, consumers
 // MAY drop it from their local set but the corresponding key SHOULD NOT be
 // re-introduced into WBAFile.keys.
+//
+// Scope: a list revokes only keys of the directory whose revocation_url names
+// it. A thumbprint of another party's key in this list revokes nothing.
 message KeyRevocationList {
   // Server's response time (RFC3339, UTC). Consumers use this to detect
   // clock skew.

@@ -8,6 +8,19 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ## Unreleased
 
+**Revocation is scoped to the signer, and directory fetches may follow up to five
+redirects (comments and docs only).** Each signature is verified against its own signer's
+key directory and the revocation list that directory names, and against no other party's.
+A Broker's list covers only the Broker's keys, and an agent's list covers only that
+agent's keys, so no party's list can revoke another party's key. A request that carries
+several request signatures is refused if any one of them fails, and a request signed only
+by the agent never depends on the Broker's directory being reachable. A party fetching a
+key directory, a revocation list or another public well-known document MAY follow up to
+five redirects, re-pinning the address and re-vetting the scheme at each hop. The file
+header, `WBAFile.revocation_url`, `KeyRevocationList` and the Well-Known Discovery block
+state both rules, and the authentication page gains "Whose list revokes whose key" and
+"Fetching directories and revocation lists".
+
 **`PushResourcesRequest.caller_id` is deprecated (comments only).** It was never needed:
 each entry's domain names whose resource it is, and the caller is the party that signs
 the request; the Exchange checks that the verified signer may push for each entry's

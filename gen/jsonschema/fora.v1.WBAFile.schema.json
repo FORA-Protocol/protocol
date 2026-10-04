@@ -55,7 +55,7 @@
       "type": "array"
     },
     "revocation_url": {
-      "description": "Directory-level emergency revocation channel. One per directory; the list\n it points to enumerates revoked key thumbprints. Consumers poll on a 300s\n cadence (±10% jitter) and replace their local revoked set with the response.",
+      "description": "Directory-level emergency revocation channel. One per directory; the list\n it points to enumerates revoked key thumbprints. Consumers poll on a 300s\n cadence (±10% jitter) and replace their local revoked set with the response.\n The list revokes keys of this directory only: a consumer checks a\n signature against the list of the directory that published its key, and\n never applies this list to another party's key. A fetch of the list MAY\n follow up to five redirects (see \"Redirects\" under Well-Known Discovery).",
       "type": "string"
     }
   },

@@ -8325,6 +8325,10 @@ type WBAFile struct {
 	// Directory-level emergency revocation channel. One per directory; the list
 	// it points to enumerates revoked key thumbprints. Consumers poll on a 300s
 	// cadence (±10% jitter) and replace their local revoked set with the response.
+	// The list revokes keys of this directory only: a consumer checks a
+	// signature against the list of the directory that published its key, and
+	// never applies this list to another party's key. A fetch of the list MAY
+	// follow up to five redirects (see "Redirects" under Well-Known Discovery).
 	RevocationUrl *string `protobuf:"bytes,2,opt,name=revocation_url,json=revocationUrl,proto3,oneof" json:"revocation_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -8382,6 +8386,9 @@ func (x *WBAFile) GetRevocationUrl() string {
 // thumbprint stays revoked permanently; once dropped from the list, consumers
 // MAY drop it from their local set but the corresponding key SHOULD NOT be
 // re-introduced into WBAFile.keys.
+//
+// Scope: a list revokes only keys of the directory whose revocation_url names
+// it. A thumbprint of another party's key in this list revokes nothing.
 type KeyRevocationList struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Server's response time (RFC3339, UTC). Consumers use this to detect
