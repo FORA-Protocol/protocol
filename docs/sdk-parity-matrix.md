@@ -492,7 +492,7 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 |---|---|---|---|
 | `helpers/testdata/acceptance-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/audience-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/directory-response-vectors.json` | ✅ | ✅ | ❌ |
+| `helpers/testdata/directory-response-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/discovery-hint-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/error-detail-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/hashurl-vectors.json` | ✅ | ✅ | ✅ |
@@ -510,7 +510,7 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 | `helpers/testdata/sign-request-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/signedurl-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/thumbprint-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/verify-request-accept-vectors.json` | ✅ | ✅ | ❌ |
+| `helpers/testdata/verify-request-accept-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/verify-request-neg-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/wire-canonical-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/wire-constants-vectors.json` | ✅ | ✅ | ✅ |
