@@ -116,8 +116,8 @@ A purchase through a Broker does not use this chain. `BrokerService.ExecuteTrans
 `Offer.pricing` is the offer's only price: the price execute charges, a Broker ranks, and a metered purchase settles on. The one term the offer sells, in `Offer.terms`, carries no `pricing` (rule `offer.terms.pricing_unset`). Catalog terms (`ResourceEntry.terms`) still carry their pricing; each offer derives from exactly one of them, so the offer's price and its term's price cannot disagree.
 :::
 
-:::note[A metered offer carries its estimate]
-An offer whose `pricing` is `PER_UNIT` MUST carry a positive `pricing.estimated_quantity` (rule `offer.metered.requires_estimate`); a non-metered offer needs none. The rule reads `Offer.pricing` only, and binds the offer rather than `Pricing` because a publisher pushes `PER_UNIT` terms without an estimate. The estimate is always in the offer's own `pricing.unit`: a price per access has an estimate in accesses, never a token count.
+:::note[A metered offer may carry an estimate]
+An offer whose `pricing` is `PER_UNIT` may state `pricing.estimated_quantity` or not; whether to state one is the publisher's decision, and nothing requires it. Without one there is no ceiling, and a usage report settles at the consumed quantity × rate. An estimate that is stated is positive (rule `offer.metered.estimate_positive`). An estimate the publisher stated, on the term or on `ResourceEntry.estimated_quantity`, is carried onto `Offer.pricing`. The estimate is always in the offer's own `pricing.unit`: a price per access has an estimate in accesses, never a token count.
 :::
 
 :::note[Breaking change in v1.0]
@@ -144,7 +144,7 @@ Three verification levels:
 
 `Pricing` has no `ext` / `ext_critical` fields — the licensing core is closed.
 
-**Metered settlement.** With E = `estimated_quantity`, R = `rate`, T = `estimate_tolerance_bps` (1000 when absent; 0 to 10000, `PER_UNIT` only, rule `pricing.estimate_tolerance.requires_per_unit`) and C = the report's `Usage.consumed_quantity`, the agent accepts E × R at purchase and the report settles at min(C, Q) × R, where Q = E × (10000 + T) / 10000. The excess (C − Q) × R above the ceiling is held for dispute and never charged automatically. The arithmetic is exact decimal. See [Settling a metered purchase](/protocol/transaction-flow/#settling-a-metered-purchase).
+**Metered settlement.** With R = `rate` and C = the report's `Usage.consumed_quantity`, an offer that states no estimate has no ceiling: the agent accepts the rate and the report settles at C × R. With E = `estimated_quantity` (optional, positive when stated) and T = `estimate_tolerance_bps` (1000 when absent; 0 to 10000, `PER_UNIT` only, rule `pricing.estimate_tolerance.requires_per_unit`), the agent accepts E × R at purchase and the report settles at min(C, Q) × R, where Q = E × (10000 + T) / 10000. The excess (C − Q) × R above the ceiling is held for dispute and never charged automatically. The arithmetic is exact decimal. See [Settling a metered purchase](/protocol/transaction-flow/#settling-a-metered-purchase).
 
 ### ResourceIdentity
 
@@ -218,7 +218,7 @@ The canonical signing structure for [`AgentAcceptance`](#agentacceptance). It is
 
 ### TransactionResultItem
 
-Result for a single offer in a batch transaction. `refusal` is set only in a `BrokerTransactionResponse`, on an item whose Exchange refused the Broker's whole sub-request or did not answer it. For a metered item, `cost` is the accepted amount, estimate × rate; the usage report settles the final charge.
+Result for a single offer in a batch transaction. `refusal` is set only in a `BrokerTransactionResponse`, on an item whose Exchange refused the Broker's whole sub-request or did not answer it. For a metered item whose offer states an estimate, `cost` is the accepted amount, estimate × rate; the usage report settles the final charge. Without an estimate no amount is fixed at purchase, and the report settles the charge at consumed × rate.
 
 ::proto-message{name=TransactionResultItem}
 

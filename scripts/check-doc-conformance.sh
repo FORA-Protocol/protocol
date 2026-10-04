@@ -120,6 +120,11 @@ patterns=(
   # signed_url_hash. Anchored to the URL forms so the patterns do NOT collide
   # with the legitimate slog field name `txn_id` in Go samples.
   '&txn_id=' '[?]txn_id=' 'txn_id=txn-' 'baseURL.nexpires'
+  # A metered offer no longer has to carry an estimate: without one it settles at
+  # consumed x rate with no ceiling. The rule that required one was replaced by
+  # offer.metered.estimate_positive (an estimate that is stated is positive), and
+  # the Go sentinel for a missing estimate by ErrMeteredEstimateNotPositive.
+  'offer\.metered\.requires_estimate' 'ErrMeteredEstimateMissing'
 )
 
 # Files where naming a removed identifier is legitimate (they record history).
