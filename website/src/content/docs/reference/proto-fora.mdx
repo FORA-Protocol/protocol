@@ -102,9 +102,9 @@ Scoped, time-limited, spend-capped credential. The credential itself is opaque b
 
 ### Multi-hop forwarding (no message — HTTP layer)
 
-There is no in-message hop chain. Multi-hop forwarding of a request byte-for-byte (a `ResourceQuery` relayed toward an Exchange) is a **stack of RFC 9421 HTTP Message Signatures**: each forwarding party adds one labeled signature, and each signature covers the request plus the prior hop's signature, so the ordered set of signatures is the chain (tamper-evident, order-bound). The Exchange resolves each `keyid` (an RFC 7638 thumbprint) in the signer's WBA directory at `{domain}/.well-known/http-message-signatures-directory`, verifies every signature, and enforces `RequestConstraints.max_hops` / `WellKnownManifest.max_intermediary_hops` by counting them. Responses do not retrace the chain — the terminal Exchange returns directly to the originating agent (bound by `agent_identity_hash`).
+There is no in-message hop chain. Multi-hop forwarding (Agent → Broker → … → Exchange) is carried in **RFC 9421 HTTP Message Signatures** in the headers: each party signs the request it sends with one labeled signature. A Broker originates its own discovery queries and re-packages execute requests, signing each alone; on a purchase the agent's identity and consent are `AgentAcceptance` in the body. Only where a party forwards a request unchanged and covers the signature before it do the signatures form a tamper-evident chain, and FORA's Broker never does (see [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding)). The Exchange resolves each `keyid` (an RFC 7638 thumbprint) in the directory the signer's own `Signature-Agent` member names, at `{origin}/.well-known/http-message-signatures-directory`, and enforces `RequestConstraints.max_hops` / `WellKnownManifest.max_intermediary_hops` by counting them. Responses do not retrace the chain — the terminal Exchange returns directly to the originating agent (bound by `agent_identity_hash`).
 
-A purchase through a Broker does not use this chain. `BrokerService.ExecuteTransaction` terminates at the Broker, which authors and signs one new request per Exchange. The agent's consent travels in the body as `AgentAcceptance` and `AgentRequestAcceptance`, not as a request signature.
+`BrokerService.ExecuteTransaction` terminates at the Broker, which authors and signs one new request per Exchange. The agent's consent travels in the body as `AgentAcceptance` and `AgentRequestAcceptance`, not as a request signature.
 
 ## Messages -- Offers and Pricing
 
@@ -358,7 +358,7 @@ How to open an account at an Exchange, published as the optional `account_regist
 
 ### WBAFile
 
-The pure WBA directory, served at `/.well-known/http-message-signatures-directory` (`Content-Type: application/jwk-set+json`). Holds each participant's inline signing keys and an optional emergency-revocation pointer. Keys are identified by their RFC 7638 thumbprint (the RFC 9421 `keyid`).
+The pure WBA directory, served at `/.well-known/http-message-signatures-directory` (`Content-Type: application/http-message-signatures-directory+json`). Holds each participant's inline signing keys and an optional emergency-revocation pointer. Keys are identified by their RFC 7638 thumbprint (the RFC 9421 `keyid`). Each key carries `alg` `EdDSA`, the JOSE name RFC 7517 defines, which is a known, deliberate deviation from WG-00 §5.5.1 (see [Key Directory](/protocol/authentication/#key-directory)).
 
 | Field | Type | Number | Description |
 |---|---|---|---|

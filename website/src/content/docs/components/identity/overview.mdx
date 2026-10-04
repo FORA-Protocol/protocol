@@ -20,7 +20,7 @@ The core is independently useful — it provisions Web Bot Auth identity for any
 
 ## Why an agent needs this at all
 
-FORA's authentication is holder-of-key. A verifier resolves the signer's public key from a directory at the signer's own origin, named in a covered `Signature-Agent` header. It then matches the signature's `keyid` against the [RFC 7638](https://www.rfc-editor.org/rfc/rfc7638) thumbprint of a key in that directory. Nothing about that is FORA-specific — it is the Web Bot Auth shape, so a FORA-provisioned agent is verifiable by any Web Bot Auth origin, not only by an Exchange.
+FORA's authentication is holder-of-key. A verifier resolves the signer's public key from a directory at the signer's own origin, named in the `Signature-Agent` member the signature covers. It then matches the signature's `keyid` against the [RFC 7638](https://www.rfc-editor.org/rfc/rfc7638) thumbprint of a key in that directory. Nothing about that is FORA-specific — it is the Web Bot Auth shape. Signed to FORA's [Web Bot Auth profile](/protocol/authentication/#the-web-bot-auth-profile), a FORA-provisioned agent is verifiable by any Web Bot Auth origin, not only by an Exchange.
 
 An agent that holds its own key and publishes its own directory needs none of this service. It is the same participant on the wire and speaks the same protocol. The Identity Service is for the agents that cannot, which today is most of them.
 
@@ -38,14 +38,16 @@ The account row is the authoritative record of registration, and sign-up reserve
 
 | Path | What it is | Media type |
 |---|---|---|
-| `/.well-known/http-message-signatures-directory` | Web Bot Auth key directory — an RFC 7517 JWK Set | `application/jwk-set+json` |
+| `/.well-known/http-message-signatures-directory` | Web Bot Auth key directory — an RFC 7517 JWK Set, with a signed response | `application/http-message-signatures-directory+json` |
 | `/.well-known/signature-agent-card.json` | Signature Agent Card, the agent's self-description | `application/json` |
 | `/.well-known/fora-key-revocations.json` | Key revocation list | `application/json` |
 | `/.well-known/fora.json` | FORA role marker | `application/json` |
 
+The directory follows the [Key Directory](/protocol/authentication/#key-directory) rules: https, a direct `200`, the media type above, and a response signed by each key it lists. The service release that predates the Web Bot Auth profile serves it as `application/jwk-set+json` and unsigned.
+
 Two properties of the directory are load-bearing. It is assembled as a real JWK Set with a JOSE library rather than marshalled from FORA's protobuf. The audience is any Web Bot Auth verifier on the open internet, and those implement RFC 7517, not `fora.v1`. And keys come out **newest-first**, which matters for the signing tie-break described below.
 
-Keys carry no `kid`. Identity is the RFC 7638 thumbprint, so entries are deduplicated on the JWK `x` member actually emitted into the document. The FORA-specific `not_before` / `not_after` validity window is spliced onto each key as an extension member, which a generic verifier ignores.
+Keys carry no `kid`. Identity is the RFC 7638 thumbprint, so entries are deduplicated on the JWK `x` member actually emitted into the document. The FORA-specific `not_before` / `not_after` validity window is spliced onto each key as an extension member, which a generic verifier ignores. Each key also carries `alg` `EdDSA`, the JOSE name RFC 7517 defines, which is a known, deliberate deviation from WG-00 §5.5.1 (see [Key Directory](/protocol/authentication/#key-directory)).
 
 A key is active when the present instant falls inside the **half-open** window `[not_before, not_after)`. During a rotation overlap more than one key is active. Which key is used then depends on the operation:
 

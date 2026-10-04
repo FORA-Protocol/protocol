@@ -78,11 +78,11 @@ The manifest answers: "What can this Exchange do, where are its endpoints, and w
 
 ## The WBA Directory
 
-The Exchange's offer-signing keys are **not** carried in `fora.json`. They live in a separate, pure WBA directory — a JWK Set served at `/.well-known/http-message-signatures-directory` with `Content-Type: application/jwk-set+json`. Keys are identified by their RFC 7638 thumbprint (the RFC 9421 `keyid`), not by a `kid` label, and the optional emergency revocation list now lives here as `revocation_url`:
+The Exchange's offer-signing keys are **not** carried in `fora.json`. They live in a separate, pure WBA directory — a JWK Set served at `/.well-known/http-message-signatures-directory` with `Content-Type: application/http-message-signatures-directory+json`. Keys are identified by their RFC 7638 thumbprint (the RFC 9421 `keyid`), not by a `kid` label, and the optional emergency revocation list now lives here as `revocation_url`. Each key carries `alg` `EdDSA`, the JOSE name RFC 7517 defines, which is a known, deliberate deviation from WG-00 §5.5.1 (see [Key Directory](/protocol/authentication/#key-directory)). An example:
 
 ```json
 // GET /.well-known/http-message-signatures-directory
-// Content-Type: application/jwk-set+json
+// Content-Type: application/http-message-signatures-directory+json
 {
   "keys": [
     {
