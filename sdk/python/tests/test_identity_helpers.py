@@ -11,10 +11,12 @@ Three public helpers, each closing one step a caller otherwise writes by hand:
   that identity: the keyid is the key's thumbprint and Signature-Agent is the directory.
 
 The proof is the verify path, end to end. The directory document is served by a real
-in-process origin and parsed by ``WBAKeyResolver``. A request signed through the client
-with the transport the third helper built reaches a peer that resolves the caller's key
-from the covered Signature-Agent header, the way an Exchange does, and verifies the
-signature with ``verify_request_server``.
+in-process origin, signed by the keys it lists as the Web Bot Auth profile requires
+(the harness signs it with ``sign_directory_response``), and parsed by
+``WBAKeyResolver``. A request signed through the client with the transport the third
+helper built reaches a peer that resolves the caller's key in the directory the
+signature's covered Signature-Agent member names, the way an Exchange does, and
+verifies the signature with ``verify_request_server``.
 """
 
 from __future__ import annotations
@@ -25,14 +27,19 @@ from typing import TYPE_CHECKING
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from resolvers_harness import Origin, loopback_client
+from resolvers_harness import Origin, loopback_client, register_directory_key
 from signed_peer import SignedPeer
 from test_client import _IDS, FACES, Face
 
 import fora_sdk
 from fora_sdk.b64 import b64url_nopad
 from fora_sdk.client import CallError, CallErrorKind, ClientConfig
-from fora_sdk.resolvers import ResolverError, UnknownKeyError, WBAKeyResolver
+from fora_sdk.resolvers import (
+    DirectoryUnavailableError,
+    ResolverError,
+    UnknownKeyError,
+    WBAKeyResolver,
+)
 from fora_sdk.signing_transport import SigningTransport
 from fora_sdk.thumbprint import thumbprint
 
@@ -59,24 +66,30 @@ def _resolver() -> WBAKeyResolver:
 
 
 class _DirectoryKeys:
-    """The KeyResolver an Exchange builds per request: the keyid resolved against the
-    directory the covered Signature-Agent header names. A key the directory does not
-    hold resolves to nothing, which the verifier reports as a signature failure."""
+    """The KeyResolver an Exchange wires: each keyid resolved in the directory the
+    signature's covered Signature-Agent member names. A key the directory does not hold
+    resolves to nothing, which the verifier reports as a signature failure."""
 
-    def __init__(self, wba: WBAKeyResolver, signature_agent: str) -> None:
+    def __init__(self, wba: WBAKeyResolver) -> None:
         self._wba = wba
-        self._directory = signature_agent.strip('"')
 
-    def resolve(self, keyid: str | None) -> bytes | None:
+    def resolve(self, keyid: str | None, directory: str) -> bytes | None:
         try:
-            return self._wba.resolve(keyid or "", self._directory)
+            return self._wba.resolve(keyid or "", directory)
         except ResolverError:
             return None
 
 
 def _exchange_peer() -> SignedPeer:
-    wba = _resolver()
-    return SignedPeer(keys=lambda agent: _DirectoryKeys(wba, agent))
+    keys = _DirectoryKeys(_resolver())
+    return SignedPeer(keys=lambda _agent: keys)
+
+
+def _minted() -> tuple[Ed25519PrivateKey, str]:
+    """A fresh identity whose key signs the served directory that lists it."""
+    key, keyid = fora_sdk.generate_key()
+    register_directory_key(key)
+    return key, keyid
 
 
 def _discover_as(face: Face, signer: SigningTransport, peer: SignedPeer) -> None:
@@ -128,23 +141,42 @@ def test_directory_document_carries_each_key_with_its_validity_window() -> None:
 
 
 def test_the_sdk_resolver_reads_every_key_of_a_served_document(origin: Origin) -> None:
-    first, first_id = fora_sdk.generate_key()
-    second, second_id = fora_sdk.generate_key()
+    first, first_id = _minted()
+    second, second_id = _minted()
     origin.set_wba(json.dumps(fora_sdk.directory_document([first.public_key(),
                                                            second.public_key()])))
     resolver = _resolver()
 
-    assert resolver.resolve(first_id, origin.url) == _raw(first)
-    assert resolver.resolve(second_id, origin.url) == _raw(second)
+    assert resolver.resolve(first_id, origin.origin) == _raw(first)
+    assert resolver.resolve(second_id, origin.origin) == _raw(second)
 
 
 def test_a_key_outside_the_served_document_does_not_resolve(origin: Origin) -> None:
-    listed, _ = fora_sdk.generate_key()
-    _, unlisted_id = fora_sdk.generate_key()
+    listed, _ = _minted()
+    _, unlisted_id = _minted()
     origin.set_wba(json.dumps(fora_sdk.directory_document([listed.public_key()])))
 
     with pytest.raises(UnknownKeyError):
-        _resolver().resolve(unlisted_id, origin.url)
+        _resolver().resolve(unlisted_id, origin.origin)
+
+
+def test_a_listed_key_that_did_not_sign_the_directory_does_not_resolve(origin: Origin) -> None:
+    # Both listed, only one signed the response: the resolver hands out only that one,
+    # and a directory nobody signed is a directory it cannot use at all.
+    signer, signer_id = _minted()
+    unsigned, unsigned_id = fora_sdk.generate_key()
+    origin.set_wba(
+        json.dumps(fora_sdk.directory_document([signer.public_key(), unsigned.public_key()]))
+    )
+    resolver = _resolver()
+
+    assert resolver.resolve(signer_id, origin.origin) == _raw(signer)
+    with pytest.raises(UnknownKeyError):
+        resolver.resolve(unsigned_id, origin.origin)
+
+    origin.set_wba(json.dumps(fora_sdk.directory_document([unsigned.public_key()])))
+    with pytest.raises(DirectoryUnavailableError):
+        _resolver().resolve(unsigned_id, origin.origin)
 
 
 # ---------------------------------------------------------------------------
@@ -162,7 +194,7 @@ def test_signing_transport_for_signs_as_the_identity() -> None:
     signed = transport.sign_outbound(
         method="POST", url="https://exchange.test/x", body=b"{}", authorization=""
     )
-    assert signed.headers["signature-agent"] == directory
+    assert signed.headers["signature-agent"] == f'sig1="{directory}"'
     assert f'keyid="{keyid}"' in signed.headers["signature-input"]
 
 
@@ -170,15 +202,16 @@ def test_signing_transport_for_signs_as_the_identity() -> None:
 def test_a_fresh_identity_is_accepted_by_a_verifier_reading_its_directory(
     face: Face, origin: Origin
 ) -> None:
-    key, keyid = fora_sdk.generate_key()
+    key, keyid = _minted()
     origin.set_wba(json.dumps(fora_sdk.directory_document([key.public_key()])))
     peer = _exchange_peer()
 
-    _discover_as(face, fora_sdk.signing_transport_for(key, origin.url), peer)
+    _discover_as(face, fora_sdk.signing_transport_for(key, origin.origin), peer)
 
     got = peer.only()
     assert got.verdict.valid, got.verdict.reason
-    assert got.header("signature-agent") == origin.url
+    assert got.verdict.signature_agent == origin.origin
+    assert got.header("signature-agent") == f'sig1="{origin.origin}"'
     assert f'keyid="{keyid}"' in (got.header("signature-input") or "")
 
 
@@ -187,13 +220,13 @@ def test_an_identity_its_directory_does_not_list_is_refused(face: Face, origin: 
     """Signing with one fresh key while the served directory lists another: the peer
     resolves no key, the verifier refuses the signature, and the client reports the
     peer's refusal."""
-    listed, _ = fora_sdk.generate_key()
-    impostor, _ = fora_sdk.generate_key()
+    listed, _ = _minted()
+    impostor, _ = _minted()
     origin.set_wba(json.dumps(fora_sdk.directory_document([listed.public_key()])))
     peer = _exchange_peer()
 
     with pytest.raises(CallError) as caught:
-        _discover_as(face, fora_sdk.signing_transport_for(impostor, origin.url), peer)
+        _discover_as(face, fora_sdk.signing_transport_for(impostor, origin.origin), peer)
 
     got = peer.only()
     assert not got.verdict.valid

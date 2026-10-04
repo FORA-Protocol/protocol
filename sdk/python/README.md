@@ -59,12 +59,13 @@ from vocab.functiontokens import AI_INPUT
 # This agent's identity, as it states it to an Exchange.
 AGENT = {"id": "agent-1", "domain": "agent.example", "type": "REQUESTER_TYPE_AGENT"}
 
-# Where THIS agent publishes its own signing key, as a JWK Set at
-# {AGENT_DIRECTORY}/.well-known/http-message-signatures-directory. The Exchange reads
-# this value off the covered Signature-Agent header, fetches that directory and looks
-# for the key whose RFC 7638 thumbprint equals the keyid below. Publish before you
-# call: an agent that names no directory has no key an Exchange can resolve, and the
-# call is refused with a 401 after it was routed, signed and sent.
+# Where THIS agent publishes its own signing key: the Web Bot Auth key directory at
+# {AGENT_DIRECTORY}/.well-known/http-message-signatures-directory, served as
+# application/http-message-signatures-directory+json and signed by the key it lists.
+# Every request signature names it in its own covered Signature-Agent member,
+# sig1="https://agent.example"; the Exchange fetches that directory and looks for the
+# key whose RFC 7638 thumbprint equals the keyid below. It is the https origin alone,
+# with no path. Publish before you call.
 AGENT_DIRECTORY = f"https://{AGENT['domain']}"
 
 # https in production. A local sandbox serving plaintext sets FORA_WELLKNOWN_SCHEME=http,
@@ -77,9 +78,9 @@ def buy_and_fetch(*, exchange: str, uri: str, seed: bytes) -> bytes:
     # 1. Identity. The RFC 9421 keyid IS the RFC 7638 thumbprint of the agent's public
     #    key, which is also the value a delivery URL gets bound to. One key, one name.
     #
-    #    signature_agent names the directory that key is published in. It is a COVERED
-    #    component, so the signature binds it whether or not it is set, and leaving it
-    #    unset signs an EMPTY value that no Exchange can resolve a key from.
+    #    signature_agent names the directory that key is published in. It is required:
+    #    a signer given none refuses to sign, and the call fails locally as MALFORMED
+    #    before anything is sent.
     public = Ed25519PrivateKey.from_private_bytes(seed).public_key().public_bytes_raw()
     signer = SigningTransport(
         signer_seed=seed, keyid=thumbprint(public), signature_agent=AGENT_DIRECTORY
@@ -183,10 +184,12 @@ Exchange, MCP adapter and edge worker build on.
 from fora_sdk import thumbprint, sign_request, verify_request
 ```
 
-**RFC 9421 request signing and verification.** `sign_request` covers the exact body
-bytes; `verify_request` checks a received one against a key you hold, and
-`fora_sdk.server_verify.verify_request_server` is the framework-agnostic server face,
-including the multi-signature relay chain:
+**RFC 9421 request signing and verification, under the Web Bot Auth profile.**
+`sign_request` covers `@method`, `@target-uri`, the exact body bytes (Content-Digest),
+the Authorization header and the signature's own Signature-Agent member; `verify_request`
+checks a received one against a key you hold, and
+`fora_sdk.server_verify.verify_request_server` is the framework-agnostic server face.
+`verify_multisig_request_server` verifies a request carrying several signers' signatures:
 
 ```python
 now = int(time.time())
@@ -194,14 +197,41 @@ signed = sign_request(
     method="POST", url=url, body=body,
     authorization="",                    # covered, and sent even when empty
     signer_seed=seed, keyid=keyid,
-    created=now, expires=now + 300,      # the freshness window, minted by the caller
-    signature_agent=agent_directory,     # covered; empty means no resolvable key
+    created=now, expires=now + 300,      # the window, minted by the caller; 300 s at most
+    signature_agent=agent_directory,     # your key directory's https origin; required
+    nonce=nonce,                         # fresh per signature; SigningTransport mints one
 )
 verdict = verify_request_server(
     method="POST", url=url, body=body, headers=headers,
     resolver=resolver, replay_store=replay_store, now=now,
 )
 ```
+
+One signature labelled `sig1` by an agent whose directory is `https://agent.example`
+carries:
+
+```
+Signature-Agent: sig1="https://agent.example"
+Signature-Input: sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=C;expires=E;keyid="K";alg="ed25519";nonce="N";tag="web-bot-auth"
+Signature: sig1=:<standard base64>:
+```
+
+Signature-Agent is a structured-field Dictionary, so a party that forwards a request adds
+its own signature with `append_signature`: the next free label (`sig2`), its own member in
+the same dictionary, and the earlier signatures left untouched. The appended signature
+covers only its own request and member, unless `cover_previous=True`: then it also covers
+the last earlier signature completely, which only a party forwarding the request unchanged
+may do. A verifier resolves each signature's keyid in the directory that signature's own
+member names, passing that origin to `KeyResolver.resolve(keyid, directory)`, and reports
+it on the verdict. Labels carry no meaning; coverage of an earlier signature is optional and
+must be complete. The verifier also accepts what other Web Bot Auth signers send — the
+legacy String form `"https://agent.example"` on a single signature, a member key that
+differs from the label, a `type=directory` member parameter, no nonce — and refuses the
+bare unquoted value. A refusal for a missing component, a wrong tag or a refused
+Signature-Agent form carries `accept_signature`, the `Accept-Signature` value
+(`accept_signature()`) to answer the 401 with. A signer given no directory, a value that
+is not an https origin (`check_https_origin`), or a window over `MAX_SIGNATURE_LIFETIME`
+raises a `SignatureProfileError` before anything is signed.
 
 **Offer authenticity.** The signature covers the offer's pricing, terms and expiry, so an
 offer must be verified before anything selects on it. That is what `fora_sdk.core.Verifier`
@@ -218,8 +248,12 @@ proof = verify_agent_binding(method="GET", url=url, headers=headers,
                              agent_id=verdict.agent_id, now=now)
 ```
 
-The covered set for the proof is exactly `@method` + `@target-uri`: a GET has no body to
-digest, and the signed URL is itself the credential.
+The proof is a Web Bot Auth signature covering `@method`, `@target-uri` and the agent's
+own Signature-Agent member (`sig1="<the agent's directory>"`), with the raw public key in
+`X-FORA-Agent-Key`: a GET has no body to digest, and the signed URL is itself the
+credential. `sign_agent_binding` returns the four header values as an `AgentBinding`; the
+client passes a fresh 64-byte nonce, and the verifier requires the `web-bot-auth` tag and
+the three-way identity agent_id == keyid == thumbprint(presented key).
 
 **License-term pre-check.** The two tiers an Exchange applies to a pushed catalog entry,
 runnable by a publisher before signing — the wire rules over the entry as given, then
@@ -270,7 +304,9 @@ verifies.
      the package by sdk/python/tests/test_readme_agent_example.py. Extend the region
      to cover more of this document; do not add names outside it to dodge the check. -->
 **Also:** `errordetail` (the typed error taxonomy and its constructors),
-`generate_idempotency_key`, `apply_scopes`, `hash_url` and `monotonic_window`.
+`generate_idempotency_key`, `apply_scopes`, `hash_url`, `monotonic_window`,
+`check_https_origin`, `accept_signature`, `sign_directory_response` and
+`verify_directory_response`.
 <!-- /fora:l1-faces -->
 
 ---
@@ -285,7 +321,10 @@ and still defaults to a plain one, which is a known gap rather than a decision. 
 
 - **Key resolvers** — `WellKnownKeyResolver` (well-known JWKS, TTL-cached) and
   `WBAKeyResolver` (Web Bot Auth directory, revocation- and expiry-aware, with a
-  background poller).
+  background poller). A key directory is fetched with no redirect, must be served as
+  `application/http-message-signatures-directory+json`, and only the keys that signed its
+  response (`verify_directory_response`) are handed out. A Signature-Agent member is always
+  an https origin; `scheme="http"` fetches its directory over http, for a local sandbox.
 - **Endpoint resolver** — `WellKnownEndpointResolver` discovers an Exchange's own service
   endpoint from `/.well-known/fora.json`, host-keyed and cached. Its exits are worth
   knowing apart, because the difference decides whether a caller should retry:
@@ -314,7 +353,9 @@ the process.
 
 **Redirects: the guarded client follows, a signed leg refuses.** Following a bounded chain
 is right for a public well-known document, where the address is re-pinned and the scheme
-re-vetted at every hop. It is wrong for anything carrying a credential, so the content
+re-vetted at every hop — the manifest and a revocation list follow up to five. A key
+directory is the exception: its address is the origin its signer committed to, so every
+directory fetch refuses a redirect. It is wrong for anything carrying a credential, so the content
 fetch and the RPC legs install their own refusal: following a redirect either replays a
 proof bound to the old URL, or hands a fresh proof of possession of the agent's key to
 whatever host the first hop named.
@@ -332,7 +373,14 @@ closed if **any** resolved address of a host is reserved.
 client refuses to guess:
 
 - **`signer`** — a `SigningTransport` over the agent's own key. The SDK holds one agent
-  key: the one the request is signed with.
+  key: the one the request is signed with. Its `signature_agent` (the key directory's
+  https origin) is required, and every signature carries a fresh 64-byte nonce. Used on
+  its own, the transport also takes a `signer_source` (a `SignerSource`, which names the
+  seed, keyid and directory per request, for a service signing as many identities),
+  `append_only=True` (every request goes through `append_signature`, so a request already
+  signed gets one more signature beside the earlier ones) and `cover_previous=True` (an
+  appended signature covers the last earlier one, for a party forwarding a request
+  unchanged).
 - **`verifier`** — fail-closed by default. An unconfigured client gets a verifier over a
   resolver that resolves nothing, so it rejects **every** offer, with a reason. That is
   the correct default and on a first run it looks exactly like a broken stack.
@@ -349,7 +397,7 @@ The rest are bounds and seams with working defaults:
 | `content_timeout_sec` | `30.0` | the delivery fetch as a whole; its remainder is carried across the legs of one `fetch` |
 | `max_content_bytes` | `8388608` (8 MiB) | one fetched body, buffered whole |
 | `proof_window` | 30 s | validity of the proof of possession a bound fetch presents |
-| `sign_window` | the signer's own window (600 s) | validity of an outbound request signature. It is not needed for uniqueness: every request signature carries a fresh RFC 9421 nonce, so two identical requests inside one second still sign to different bytes |
+| `sign_window` | the signer's own window (300 s, the longest the profile allows) | validity of an outbound request signature. It is not needed for uniqueness: every request signature carries a fresh RFC 9421 nonce, so two identical requests inside one second still sign to different bytes |
 | `request_id` | `None`, meaning **no header is sent** | mints the `X-Request-ID` correlation value |
 | `validation` | `"strict"` | whether an outbound message is checked against its generated model before it is sent. Orthogonal to offer verification, which is about what comes back |
 | `registration_requirements` | a reader built on the guarded client, once per client | where `register` reads an Exchange's terms revision and registration schema. It holds no document cache on purpose: the contract requires the terms digest to come from a freshly fetched manifest |
@@ -448,7 +496,11 @@ a service through the SDK and check every answer through it:
   `CallError(MALFORMED)` with `code` still set to the peer's Connect code.
 - **Identity helpers** in `fora_sdk.identity` mint a throwaway agent: `generate_key()`,
   `directory_document(keys)` for the directory to serve, and
-  `signing_transport_for(key, directory)`.
+  `signing_transport_for(key, directory)`. Serve the directory as
+  `application/http-message-signatures-directory+json` with the three headers
+  `sign_directory_response(authority, body, seeds, created, expires)` returns, signed by
+  every key it lists for the authority it is served under; a verifier hands out no key
+  that did not sign.
 - **Document readers** in `fora_sdk.resolvers` read what a party publishes and check it:
   `read_manifest(domain)`, `read_wba_directory(url_or_domain)`,
   `read_revocation_list(url)` and `read_license_document(license)`. Each fetches through
@@ -456,7 +508,9 @@ a service through the SDK and check every answer through it:
   the strict contract refuses (`StrictViolationError`), and returns a `Document` with the
   parsed model, the URL, the bytes and the media type. The license reader verifies the
   bytes against `uri_digest` (`DigestMismatchError`) and returns a `LicenseDocument`. A
-  failed fetch is `DirectoryUnavailableError`; no reader returns `None`.
+  failed fetch is `DirectoryUnavailableError`; no reader returns `None`. The directory
+  reader fetches with no redirect and refuses a directory unless every listed key signed
+  its response (`DirectoryResponseUnsignedError`).
 - **`check_strict(message_name, payload)`** applies the same strict check to any decoded
   message, raising `StrictViolationError`. A delivery-fetch proof is signed with the
   public `sign_agent_binding` (or `SigningTransport.sign_agent_binding`).

@@ -7,10 +7,17 @@ on 127.0.0.1:0 — never a mocked HTTP callable. The WBA suites inject
 does not refuse the loopback origin; only the clock (and the poll timer/seams for
 the WBA poller) are injected for determinism.
 
-This module imports ONLY the existing byte-parity-pinned SDK primitives
-(``thumbprint``, ``b64url_nopad``) and never the not-yet-existing
-``fora_sdk.resolvers`` faces, so a RED run points at the missing faces rather
-than at this fixture.
+A key directory is served under the Web Bot Auth profile: its own media type and a
+response signed, for the authority it was fetched from, by every listed key a test
+minted. Every key ``make_key`` mints is registered by its public half, and a test that
+mints keys elsewhere registers them with ``register_directory_key``; a listed key
+nobody registered is left unsigned, which a reader treats as absent. A member is an
+https origin, so a resolver reaches this plaintext origin through its scheme override
+(``WBAKeyResolver(scheme="http")``) with ``https://`` + ``Origin.host`` as the member.
+
+This module imports ONLY the byte-parity-pinned SDK primitives (``thumbprint``,
+``b64url_nopad``, the directory response signer) and never the ``fora_sdk.resolvers``
+faces, so a RED run points at the faces rather than at this fixture.
 """
 
 from __future__ import annotations
@@ -31,6 +38,7 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from fora_sdk.wire import WellKnownManifestVersion
 
 from fora_sdk.b64 import b64url_nopad
+from fora_sdk.directory_signature import sign_directory_response
 from fora_sdk.thumbprint import thumbprint
 
 # Well-known paths the origin serves. The WBA directory path is the fixed Web Bot
@@ -48,6 +56,43 @@ ANCHOR = datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC)
 HOUR = timedelta(hours=1)
 
 _FETCH_TIMEOUT_S = 10.0
+
+#: The media type a key directory is served under (WG-00 §5.5).
+WBA_MEDIA_TYPE = "application/http-message-signatures-directory+json"
+
+# A window wide enough to contain every injected test clock.
+_DIRECTORY_SIGNATURE_CREATED = 1
+_DIRECTORY_SIGNATURE_EXPIRES = 1 << 40
+
+# base64url public key -> the private key that signs a directory listing it.
+_DIRECTORY_KEYS: dict[str, Ed25519PrivateKey] = {}
+_DIRECTORY_KEYS_LOCK = threading.Lock()
+
+
+def register_directory_key(priv: Ed25519PrivateKey) -> None:
+    """Make ``priv`` sign every served directory that lists its public key."""
+    x = b64url_nopad(priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw))
+    with _DIRECTORY_KEYS_LOCK:
+        _DIRECTORY_KEYS[x] = priv
+
+
+def signed_directory_headers(authority: str, body: bytes) -> dict[str, str]:
+    """The response-signature headers for a directory ``body`` served under
+    ``authority``: one signature per listed key a test registered, none when the
+    body lists no registered key or is not a directory at all."""
+    try:
+        listed = [k.get("x") for k in json.loads(body).get("keys") or []]
+    except (ValueError, AttributeError, TypeError):
+        return {}
+    with _DIRECTORY_KEYS_LOCK:
+        privs = [_DIRECTORY_KEYS[x] for x in listed if isinstance(x, str) and x in _DIRECTORY_KEYS]
+    if not privs:
+        return {}
+    seeds = [p.private_bytes_raw() for p in privs]
+    signed = sign_directory_response(
+        authority, body, seeds, _DIRECTORY_SIGNATURE_CREATED, _DIRECTORY_SIGNATURE_EXPIRES
+    )
+    return signed.headers()
 
 
 def loopback_client() -> httpx.Client:
@@ -77,6 +122,7 @@ class TestKey:
 def make_key() -> TestKey:
     """Mint a fresh Ed25519 key and derive its SDK thumbprint."""
     priv = Ed25519PrivateKey.generate()
+    register_directory_key(priv)
     raw = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
     x = b64url_nopad(raw)
     return TestKey(raw_pub=raw, x=x, tp=thumbprint(raw))
@@ -152,6 +198,8 @@ class _State:
     license: bytes | None = None
     # A path's Content-Type, where it is not application/json; None omits the header.
     content_types: dict[str, str | None] = field(default_factory=dict)
+    # A path answered with a 302 to the given location instead of its document.
+    redirects: dict[str, str] = field(default_factory=dict)
 
 
 def _resolve_route(state: _State, path: str) -> tuple[int, bytes] | None:  # noqa: PLR0911 — flat route table
@@ -198,6 +246,11 @@ class Origin:
         class _Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
                 path = self.path.split("?")[0]
+                if path in state.redirects:
+                    self.send_response(302)
+                    self.send_header("location", state.redirects[path])
+                    self.end_headers()
+                    return
                 hit = _resolve_route(state, path)
                 if hit is None:
                     self.send_response(404)
@@ -205,9 +258,14 @@ class Origin:
                     return
                 code, body = hit
                 self.send_response(code)
-                content_type = state.content_types.get(path, "application/json")
+                default_type = WBA_MEDIA_TYPE if path == WBA_DIR_PATH else "application/json"
+                content_type = state.content_types.get(path, default_type)
                 if content_type is not None:
                     self.send_header("content-type", content_type)
+                if path == WBA_DIR_PATH and code == 200:
+                    authority = (self.headers.get("Host") or "").lower()
+                    for name, value in signed_directory_headers(authority, body).items():
+                        self.send_header(name, value)
                 self.end_headers()
                 self.wfile.write(body)
 
@@ -217,6 +275,9 @@ class Origin:
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
         self.host = f"127.0.0.1:{self._server.server_address[1]}"
         self.url = f"http://{self.host}"
+        #: The https origin a Signature-Agent member names for this origin's directory,
+        #: fetched over http by a resolver built with ``scheme="http"``.
+        self.origin = f"https://{self.host}"
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
 
@@ -255,6 +316,10 @@ class Origin:
 
     def license_url(self) -> str:
         return self.url + LICENSE_PATH
+
+    def set_redirect(self, path: str, location: str) -> None:
+        """Answer ``path`` with a 302 to ``location``."""
+        self._state.redirects[path] = location
 
     def set_content_type(self, path: str, value: str | None) -> None:
         """Serve ``path`` with ``value`` as its Content-Type; ``None`` sends none."""

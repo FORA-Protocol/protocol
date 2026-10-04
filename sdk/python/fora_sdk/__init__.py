@@ -59,6 +59,11 @@ from .core import (
     verify_request_acceptance_jcs,
 )
 from .crossfield import cross_field_rule_ids
+from .directory_signature import (
+    DirectoryResponseSignature,
+    sign_directory_response,
+    verify_directory_response,
+)
 from .discovery_hint import (
     DiscoveryHint,
     HintAgreement,
@@ -136,7 +141,7 @@ from .money import (
     is_metered_offer,
     parse_money,
 )
-from .pop import AGENT_KEY_HEADER, sign_agent_binding, verify_agent_binding
+from .pop import AGENT_KEY_HEADER, AgentBinding, sign_agent_binding, verify_agent_binding
 from .regschema import (
     MAX_REGISTRATION_DATA_BYTES,
     MAX_REGISTRATION_DATA_DEPTH,
@@ -158,6 +163,7 @@ from .regschema import (
 )
 from .resolvers import (
     WBA_DIRECTORY_PATH,
+    DirectoryResponseUnsignedError,
     DirectoryUnavailableError,
     EndpointRefusedError,
     KeyExpiredError,
@@ -173,20 +179,37 @@ from .resolvers import (
 )
 from .scopes import apply_scopes, normalize_scopes, scopes_subset
 from .signedurl import sign_ed25519_signed_url, verify_ed25519_signed_url
-from .signing_transport import SignedOutbound, SigningTransport
+from .signing_transport import OutboundRequest, SignedOutbound, SignerSource, SigningTransport
 from .strict import StrictViolationError, check_strict
 from .thumbprint import thumbprint
+from .wba import (
+    MAX_SIGNATURE_LIFETIME,
+    InvalidNonceError,
+    MissingComponentError,
+    SignatureAgentFormError,
+    SignatureAgentNotOriginError,
+    SignatureAgentRequiredError,
+    SignatureLabelError,
+    SignatureLifetimeError,
+    SignatureProfileError,
+    SignatureTagError,
+    accept_signature,
+    check_https_origin,
+)
 from .window import Window, clock_window, monotonic_window
 from .wire import (
+    AcceptSignatureHeader,
     ConnectProtocolVersion,
     ConnectProtocolVersionHeader,
     ContentRulesHeader,
     ContentTypeJSON,
     ContentTypeProto,
+    DirectoryResponseTag,
     ExchangeHeader,
     ProtocolVersion,
     RequestIDHeader,
     SignatureAgentHeader,
+    WBATag,
     WellKnownManifestVersion,
     WellKnownPath,
     manifest_version_refusal,
@@ -196,6 +219,28 @@ from .wire import (
 __all__ = [
     "ACCEPTANCE_SIGNATURE_ALGORITHM",
     "AGENT_KEY_HEADER",
+    "AcceptSignatureHeader",
+    "AgentBinding",
+    "DirectoryResponseSignature",
+    "DirectoryResponseTag",
+    "DirectoryResponseUnsignedError",
+    "InvalidNonceError",
+    "MAX_SIGNATURE_LIFETIME",
+    "MissingComponentError",
+    "OutboundRequest",
+    "SignatureAgentFormError",
+    "SignatureAgentNotOriginError",
+    "SignatureAgentRequiredError",
+    "SignatureLabelError",
+    "SignatureLifetimeError",
+    "SignatureProfileError",
+    "SignatureTagError",
+    "SignerSource",
+    "WBATag",
+    "accept_signature",
+    "check_https_origin",
+    "sign_directory_response",
+    "verify_directory_response",
     "AudienceVerdict",
     "BARE_DOMAIN_PATTERN",
     "AdminClient",

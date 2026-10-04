@@ -249,13 +249,34 @@ def test_every_precondition_is_refused_before_sending(
 
 
 @pytest.mark.parametrize("face", FACES, ids=_IDS)
-def test_an_explicit_443_and_case_are_the_same_directory(face: Face) -> None:
+def test_an_explicit_443_and_case_in_the_requester_name_the_same_directory(face: Face) -> None:
+    # The requester check is the recipient-identity rule: case-folded, and an explicit
+    # :443 the same as no port.
     peer = SignedPeer(keys=_agent_keys, answer=_answer({"ver": "1.0"}))
-    config = _broker_config(signer=_signer("https://AGENT.test:443/.well-known/x"))
+    config = _broker_config(requester={**REQUESTER, "domain": "AGENT.test:443"})
 
     face.run(_broker(face, config, peer).execute([_offer("a1", "exchange-a.test")]))
 
     assert peer.only().verdict.valid
+
+
+@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize(
+    "directory",
+    ["https://AGENT.test", "https://agent.test:443", "https://agent.test/.well-known/x"],
+    ids=["uppercase", "default_port", "path"],
+)
+def test_a_directory_that_is_not_an_origin_is_refused_locally(face: Face, directory: str) -> None:
+    # A Signature-Agent member is the ASCII serialization of an https origin, so the
+    # signer refuses any other spelling and the call is malformed before it is sent.
+    peer = SignedPeer(keys=_agent_keys, answer=_answer({"ver": "1.0"}))
+    config = _broker_config(signer=_signer(directory))
+
+    with pytest.raises(CallError) as caught:
+        face.run(_broker(face, config, peer).execute([_offer("a1", "exchange-a.test")]))
+
+    assert caught.value.kind is CallErrorKind.MALFORMED
+    assert peer.seen == [], "the Broker was contacted; this refusal must be local"
 
 
 @pytest.mark.parametrize("face", FACES, ids=_IDS)

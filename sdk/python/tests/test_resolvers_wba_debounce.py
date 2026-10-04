@@ -24,10 +24,12 @@ import pytest
 from resolvers_harness import (
     ANCHOR,
     HOUR,
+    WBA_MEDIA_TYPE,
     MutableClock,
     long_jwk,
     loopback_client,
     make_key,
+    signed_directory_headers,
     wba_file_json,
 )
 
@@ -68,7 +70,10 @@ class CountingOrigin:
                     self.end_headers()
                     return
                 self.send_response(200)
-                self.send_header("content-type", "application/json")
+                self.send_header("content-type", WBA_MEDIA_TYPE)
+                authority = (self.headers.get("Host") or "").lower()
+                for name, value in signed_directory_headers(authority, doc).items():
+                    self.send_header(name, value)
                 self.end_headers()
                 self.wfile.write(doc)
 

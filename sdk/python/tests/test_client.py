@@ -97,7 +97,11 @@ def _config(**overrides: Any) -> ClientConfig:
     base = {
         "base_url": "https://exchange.test",
         "requester": REQUESTER,
-        "signer": SigningTransport(signer_seed=AGENT_SEED, keyid="agent.v1"),
+        "signer": SigningTransport(
+            signer_seed=AGENT_SEED,
+            keyid="agent.v1",
+            signature_agent="https://agent.test",
+        ),
     }
     base.update(overrides)
     return ClientConfig(**base)  # type: ignore[arg-type]

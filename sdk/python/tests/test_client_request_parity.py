@@ -63,7 +63,11 @@ def _config() -> ClientConfig:
     return ClientConfig(
         base_url="https://exchange.test",
         requester=_REQUESTER,
-        signer=SigningTransport(signer_seed=_AGENT_SEED, keyid="agent.v1"),
+        signer=SigningTransport(
+            signer_seed=_AGENT_SEED,
+            keyid="agent.v1",
+            signature_agent="https://agent.test",
+        ),
         endpoint_resolver=_Resolver(),
         # Register reads an Exchange's published requirements before it signs. What this
         # corpus records is the path and the envelope, so the read is stubbed to an

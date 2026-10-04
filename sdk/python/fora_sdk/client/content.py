@@ -19,7 +19,7 @@ import httpx
 from fora_sdk._hostref import _BAD_ESCAPE
 from fora_sdk._jsondepth import _MAX_BODY_DEPTH, _raw_nesting_depth
 from fora_sdk.errordetail import retrieval_auth_failure_detail
-from fora_sdk.pop import AGENT_KEY_HEADER
+from fora_sdk.wba import SignatureProfileError
 from fora_sdk.wire import RequestIDHeader
 
 from .errors import CallError, CallErrorKind
@@ -127,18 +127,16 @@ def proof_headers(
     """
     vet_signed_url(signed_url)
     try:
-        agent_key, signature_input, signature = signer.sign_agent_binding(
-            url=signed_url, window=window
-        )
+        binding = signer.sign_agent_binding(url=signed_url, window=window)
+    except SignatureProfileError as exc:
+        # No directory configured, or one that is not an https origin: the proof names the
+        # agent's key directory, so the call is malformed before anything is sent.
+        raise CallError(CallErrorKind.MALFORMED, _OP, cause=redact_url(exc)) from exc
     except Exception as exc:  # custody can fail any way it likes
         # The given URL is deliberately NOT echoed: this error reaches a log, and a
         # delivery URL carries a live credential in its query.
         raise CallError(CallErrorKind.NOT_SIGNABLE, _OP, cause=redact_url(exc)) from exc
-    headers = {
-        AGENT_KEY_HEADER: agent_key,
-        "signature-input": signature_input,
-        "signature": signature,
-    }
+    headers = binding.headers()
     # Stamped BESIDE the proof rather than covered by it: the correlation id identifies
     # the request in two sets of logs, it authorises nothing. It matters on THIS leg in
     # particular — the RPC legs correlate through the transport, which a plain GET never

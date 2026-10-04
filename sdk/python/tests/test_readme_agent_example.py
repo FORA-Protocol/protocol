@@ -33,6 +33,8 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from exchange_harness import fake_exchange
 
+from fora_sdk.client import CallError, CallErrorKind
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -272,12 +274,13 @@ def test_the_readme_names_the_directory_the_exchange_resolves_against(
 def test_an_agent_that_names_no_directory_is_refused(
     exchange: FakeExchange, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Drop signature_agent and the first RPC fails, with nothing bought.
+    """Drop signature_agent and the first RPC is refused locally, with nothing sent.
 
     This is the negative path for the whole identity step, and it is the failure a
-    reader following the README used to walk into. Signature-Agent defaults to empty,
-    the signature covers it either way, and an Exchange reading an empty value has no
-    directory to fetch the caller's key from. The reference Exchange answers 401.
+    reader following the README used to walk into. Every Web Bot Auth signature names
+    its signer's key directory, so a signer given none refuses to sign, and the client
+    reports the call as malformed before it reaches the Exchange — instead of the 401
+    an Exchange with nowhere to look up the key would answer.
 
     Asserted through the README's own entry point with one constructor argument
     removed, rather than by driving the transport directly, so it fails if the README
@@ -293,7 +296,9 @@ def test_an_agent_that_names_no_directory_is_refused(
 
     namespace["SigningTransport"] = unnamed
 
-    with pytest.raises(Exception, match="unauthenticated|401"):
+    with pytest.raises(CallError) as caught:
         namespace["buy_and_fetch"](exchange=exchange.domain, uri=_URI, seed=_SEED)
 
-    assert exchange.seen == [], "nothing may be bought by a caller the Exchange cannot identify"
+    assert caught.value.kind is CallErrorKind.MALFORMED
+    assert "Signature-Agent" in str(caught.value)
+    assert exchange.seen == [], "nothing may be sent by a caller that names no directory"

@@ -42,16 +42,18 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from resolvers_harness import (
     MANIFEST_PATH,
     WBA_DIR_PATH,
+    WBA_MEDIA_TYPE,
     make_key,
     manifest_json,
+    register_directory_key,
     rfc3339,
+    signed_directory_headers,
     wba_file_json,
     wba_jwk,
 )
 
 from fora_sdk.b64 import b64url_nopad
 from fora_sdk.core import sign_offer_jcs
-from fora_sdk.keyresolver import StaticKeyResolver
 from fora_sdk.pop import verify_agent_binding
 from fora_sdk.server_verify import verify_request_server
 from fora_sdk.signedurl import sign_ed25519_signed_url, verify_ed25519_signed_url
@@ -129,9 +131,11 @@ class _Exchange:
         tamper_offer: bool,
     ) -> None:
         self.offer_key = Ed25519PrivateKey.generate()
+        register_directory_key(self.offer_key)
         self.offer_seed = self.offer_key.private_bytes_raw()
         self.offer_pub = self.offer_key.public_key().public_bytes_raw()
         self.delivery_key = Ed25519PrivateKey.generate()
+        register_directory_key(self.delivery_key)
         self.delivery_seed = self.delivery_key.private_bytes_raw()
         self.delivery_pub = self.delivery_key.public_key().public_bytes_raw()
         self.agent_thumbprint = agent_thumbprint
@@ -144,26 +148,25 @@ class _Exchange:
         self.url = ""
         self.seen: list[tuple[str, dict[str, Any]]] = []
 
-    def keys_published_at(self, signature_agent: str) -> StaticKeyResolver:
-        """The keys this Exchange can resolve for a caller naming ``signature_agent``.
+    def resolve(self, keyid: str | None, directory: str) -> bytes | None:
+        """The key this Exchange resolves for ``keyid`` in ``directory``, the origin the
+        signature's own covered Signature-Agent member names.
 
-        A real Exchange reads the covered Signature-Agent header, fetches the WBA
-        directory at that origin and selects the JsonWebKey whose RFC 7638 thumbprint
-        matches the keyid. This is that lookup with the fetch collapsed, because the
-        agent's directory is not dialable from an in-process test: the ONE directory
-        this Exchange knows about is the one it was told to trust.
+        A real Exchange fetches the key directory at that origin and selects the key
+        whose RFC 7638 thumbprint matches the keyid. This is that lookup with the fetch
+        collapsed, because the agent's directory is not dialable from an in-process
+        test: the ONE directory this Exchange knows about is the one it was told to
+        trust.
 
-        An empty or unknown Signature-Agent therefore resolves NOTHING, which is the
-        point. Signature-Agent defaults to empty in every SDK, the signature covers it
-        either way, and an agent that never names its directory has no key an Exchange
-        can find. The protocol says so — see the Key Lookup section of
-        website/src/content/docs/protocol/authentication.mdx — and the reference
-        Exchange answers 401. Before this, the harness verified no RPC signature at
-        all, so the README could ship that exact mistake and the suite stayed silent.
+        Any other directory therefore resolves NOTHING, which is the point: an agent
+        that names no directory, or names one that does not publish its key, has no key
+        an Exchange can find, and the reference Exchange answers 401. Before the harness
+        verified RPC signatures at all, the README could ship that exact mistake and the
+        suite stayed silent.
         """
-        if not signature_agent or signature_agent.strip('"') != self.agent_directory:
-            return StaticKeyResolver({})
-        return StaticKeyResolver({self.agent_thumbprint: self.agent_public})
+        if directory != self.agent_directory or keyid != self.agent_thumbprint:
+            return None
+        return self.agent_public
 
     def directory(self) -> str:
         now = datetime.now(UTC)
@@ -237,6 +240,18 @@ def _make_handler(state: _Exchange) -> type[BaseHTTPRequestHandler]:
             self.end_headers()
             self.wfile.write(body)
 
+        def _send_directory(self, body: bytes) -> None:
+            """A key directory as the profile serves it: its own media type and a
+            response signed, for the authority it was fetched from, by its keys."""
+            authority = (self.headers.get("host") or "").lower()
+            self.send_response(200)
+            self.send_header("content-type", WBA_MEDIA_TYPE)
+            for name, value in signed_directory_headers(authority, body).items():
+                self.send_header(name, value)
+            self.send_header("content-length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
         def _json(self, code: int, payload: dict[str, Any]) -> None:
             self._send(code, json.dumps(payload).encode(), "application/json")
 
@@ -246,7 +261,7 @@ def _make_handler(state: _Exchange) -> type[BaseHTTPRequestHandler]:
                 if not state.serve_directory:
                     self._send(404, b"", "application/json")
                     return
-                self._send(200, state.directory().encode(), "application/json")
+                self._send_directory(state.directory().encode())
                 return
             if path == MANIFEST_PATH:
                 self._send(200, manifest_json(endpoint=state.url).encode(), "application/json")
@@ -306,7 +321,7 @@ def _make_handler(state: _Exchange) -> type[BaseHTTPRequestHandler]:
                 url=f"http://{self.headers.get('host', state.domain)}{self.path}",
                 body=raw,
                 headers=headers,
-                resolver=state.keys_published_at(headers.get("signature-agent", "")),
+                resolver=state,
                 now=int(time.time()),
             )
             return None if verdict.valid else (verdict.reason or "invalid signature")

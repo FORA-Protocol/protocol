@@ -28,6 +28,7 @@ from wire.base import JSON_NAME_ALIAS_ERROR
 
 from fora_sdk._jsondepth import _MAX_BODY_DEPTH, _raw_nesting_depth
 from fora_sdk.errordetail import error_detail_from
+from fora_sdk.wba import SignatureProfileError
 from fora_sdk.wire import (
     ConnectProtocolVersion,
     ConnectProtocolVersionHeader,
@@ -178,6 +179,12 @@ def prepare(
             signed = settings.signer.sign_outbound(
                 method="POST", url=url, body=body, authorization="", window=settings.sign_window
             )
+        except SignatureProfileError as exc:
+            # The signer refused the request before anything was sent: no Signature-Agent
+            # origin configured, a value that is not an https origin, a window longer than
+            # the profile allows, an unusable nonce, or a Signature-Agent that cannot take
+            # another member. Each is a malformed call, never a peer that did not answer.
+            raise malformed(op, exc) from exc
         except Exception as exc:  # custody can fail any way it likes
             # NOT_SIGNABLE, matching what the content leg answers for the same missing
             # holder: a caller branching on the kind sees one condition under one class,

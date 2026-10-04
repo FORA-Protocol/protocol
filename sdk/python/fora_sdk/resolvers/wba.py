@@ -27,13 +27,15 @@ from datetime import UTC, datetime, timedelta
 import httpx
 from wire.models import JsonWebKey, KeyRevocationList, WBAFile
 
-from fora_sdk.b64 import b64url_decode_strict
 from fora_sdk.hosts import host_anchored
 from fora_sdk.resolvers._http import guarded_client
 from fora_sdk.resolvers.documents import (
     WBA_DIRECTORY_PATH,
     fetch_revocation_list,
     fetch_wba_directory,
+)
+from fora_sdk.resolvers.documents import (
+    jwk_ed25519_public_key as _public_key_of_safe,
 )
 from fora_sdk.resolvers.errors import (
     DirectoryUnavailableError,
@@ -56,7 +58,6 @@ _DEFAULT_SYNC_DEBOUNCE = timedelta(seconds=5)
 # is clamped, so a compromised origin cannot stamp a far-future baseline that
 # permanently freezes later (legitimately earlier) snapshots under the guard.
 _AS_OF_SKEW = timedelta(seconds=300)
-_ED25519_PUBLIC_KEY_BYTES = 32
 
 # Diagnostics for the active-key selector's bounded-scan exhaustion (see
 # _select_active_ed25519_key). The unbounded default never logs; only an explicit
@@ -105,7 +106,13 @@ class _Inflight:
 
 class WBAKeyResolver:
     """Resolve signing keys from WBA identity directories, matching by RFC 7638
-    thumbprint and enforcing validity windows + the host's revocation snapshot."""
+    thumbprint and enforcing validity windows + the host's revocation snapshot.
+
+    The directory is the origin the signature's own covered Signature-Agent member
+    names. It is fetched with no redirect, must be served as
+    ``application/http-message-signatures-directory+json``, and only the keys that
+    signed its response are ever handed out: a listed key with no valid response
+    signature resolves as unknown."""
 
     def __init__(
         self,
@@ -271,7 +278,11 @@ class WBAKeyResolver:
             pending.event.set()
 
     def _fetch_directory(self, base: str) -> WBAFile:
-        return fetch_wba_directory(self._http, base + WBA_DIRECTORY_PATH)
+        # No redirect, the profile's media type, and only the keys that signed the
+        # response, judged at this resolver's clock.
+        return fetch_wba_directory(
+            self._http, base + WBA_DIRECTORY_PATH, now=int(self._now().timestamp())
+        )
 
     def _is_revoked(self, host: str, thumbprint_key: str) -> bool:
         with self._rev_lock:
@@ -543,13 +554,19 @@ def _wait_timer(timer: queue.Queue[datetime], stop: threading.Event) -> bool:
 
 
 def _directory_base(ref: str, scheme: str) -> tuple[str, str] | None:
-    """Normalize a Signature-Agent value (bare host, host:port, or full URL) into
-    a ``scheme://host`` base and its host key, or None when it names no host."""
+    """Normalize a directory reference (an https origin, a bare host or host:port) into
+    a ``scheme://host`` base and its host key, or None when it names no host.
+
+    ``scheme`` is the scheme directories are fetched over. A Signature-Agent member is
+    always an https origin; a resolver built with ``scheme="http"`` fetches that origin's
+    directory over http, which is how a test reaches a plaintext server. A bare host is
+    prefixed with it."""
     candidate = ref if "://" in ref else f"{scheme}://{ref}"
     parts = urllib.parse.urlsplit(candidate)
     if not parts.netloc:
         return None
-    return f"{parts.scheme}://{parts.netloc}", parts.netloc
+    fetch_scheme = scheme if parts.scheme == "https" else parts.scheme
+    return f"{fetch_scheme}://{parts.netloc}", parts.netloc
 
 
 def _wba_host_anchored(anchor: str, candidate: str) -> bool:
@@ -589,24 +606,6 @@ def _key_by_thumbprint(file: WBAFile, keyid: str) -> JsonWebKey | None:
         if thumbprint(pub) == keyid:
             return key
     return None
-
-
-def _public_key_of_safe(key: JsonWebKey) -> bytes | None:
-    # kty/crv are matched CASE-INSENSITIVELY — a deliberate lenient SDK convention
-    # (RFC 7517/8037 specify the exact-case "OKP" / "Ed25519"); the three SDKs accept
-    # any case identically so a case-varying directory resolves the SAME key.
-    if (key.kty or "").upper() != "OKP" or (key.crv or "").lower() != "ed25519":
-        return None
-    try:
-        # JWK OKP `x` is UNPADDED base64url (RFC 8037); reject padding / the
-        # standard alphabet so this matches Go's base64.RawURLEncoding and the
-        # tri-language selector picks the SAME key on a malformed-`x` directory.
-        raw = b64url_decode_strict(key.x or "")
-    except ValueError:
-        return None
-    if len(raw) != _ED25519_PUBLIC_KEY_BYTES:
-        return None
-    return raw
 
 
 def _public_key_of(key: JsonWebKey) -> bytes:

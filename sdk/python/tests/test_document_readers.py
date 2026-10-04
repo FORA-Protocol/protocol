@@ -17,6 +17,7 @@ import json
 from typing import TYPE_CHECKING
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from resolvers_harness import (
     ANCHOR,
     LICENSE_PATH,
@@ -34,10 +35,12 @@ from resolvers_harness import (
 from wire.models import License
 
 from fora_sdk import StrictViolationError, check_strict
+from fora_sdk.b64 import b64url_nopad
 from fora_sdk.resolvers import (
     MANIFEST_MEDIA_TYPE,
     WBA_DIRECTORY_MEDIA_TYPE,
     DigestMismatchError,
+    DirectoryResponseUnsignedError,
     DirectoryUnavailableError,
     ManifestVersionRefusedError,
     MediaTypeRefusedError,
@@ -58,6 +61,16 @@ LICENSE_TEXT = b"Licensed for retrieval-augmented answers, attribution required.
 def origin(monkeypatch: pytest.MonkeyPatch) -> Iterator[Origin]:
     monkeypatch.setenv("SKIP_SSRF", "true")
     monkeypatch.setenv("ALLOW_INSECURE", "true")
+    served = Origin()
+    try:
+        yield served
+    finally:
+        served.close()
+
+
+@pytest.fixture
+def other() -> Iterator[Origin]:
+    """A second origin, the target of a redirect."""
     served = Origin()
     try:
         yield served
@@ -186,9 +199,34 @@ def test_read_wba_directory_by_domain_and_by_url(origin: Origin) -> None:
         assert doc.url == origin.url + WBA_DIR_PATH
 
 
-def test_read_wba_directory_refuses_plain_json(origin: Origin) -> None:
-    origin.set_wba(wba_file_json([active_jwk(make_key().x)]))  # served as application/json
-    with pytest.raises(MediaTypeRefusedError, match="application/jwk-set"):
+@pytest.mark.parametrize("served", ["application/json", "application/jwk-set+json", None])
+def test_read_wba_directory_refuses_any_other_media_type(
+    origin: Origin, served: str | None
+) -> None:
+    origin.set_wba(wba_file_json([active_jwk(make_key().x)]))
+    origin.set_content_type(WBA_DIR_PATH, served)
+    with pytest.raises(MediaTypeRefusedError, match="http-message-signatures-directory"):
+        read_wba_directory(origin.host, scheme="http")
+
+
+def test_read_wba_directory_refuses_a_key_that_did_not_sign_the_response(
+    origin: Origin,
+) -> None:
+    # One listed key signed, the other was minted outside the harness and did not: the
+    # public reader requires every listed key to have signed.
+    signed = make_key()
+    unsigned = Ed25519PrivateKey.generate().public_key().public_bytes_raw()
+    origin.set_wba(wba_file_json([active_jwk(signed.x), active_jwk(b64url_nopad(unsigned))]))
+    with pytest.raises(DirectoryResponseUnsignedError, match="1 of 2"):
+        read_wba_directory(origin.host, scheme="http")
+
+
+def test_read_wba_directory_refuses_a_redirect(origin: Origin, other: Origin) -> None:
+    # The directory's address is the origin its signer committed to: a redirect would
+    # hand key lookup to another one, so the reader never follows it.
+    other.set_wba(wba_file_json([active_jwk(make_key().x)]))
+    origin.set_redirect(WBA_DIR_PATH, other.url + WBA_DIR_PATH)
+    with pytest.raises(DirectoryUnavailableError):
         read_wba_directory(origin.host, scheme="http")
 
 
@@ -216,6 +254,15 @@ def test_read_revocation_list_returns_the_snapshot(origin: Origin) -> None:
     assert doc.message.revoked == [tp]
     assert doc.message.as_of == ANCHOR
     assert doc.url == origin.url + REVOCATION_PATH
+
+
+def test_read_revocation_list_follows_a_redirect(origin: Origin, other: Origin) -> None:
+    # Unlike a key directory, a revocation list may move: the reader follows the
+    # redirect to the document.
+    tp = make_key().tp
+    other.set_revocation(revocation_json(ANCHOR, [tp]))
+    origin.set_redirect(REVOCATION_PATH, other.revocation_url())
+    assert read_revocation_list(origin.revocation_url()).message.revoked == [tp]
 
 
 def test_read_revocation_list_refuses_an_unknown_member(origin: Origin) -> None:

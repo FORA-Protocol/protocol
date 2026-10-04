@@ -54,7 +54,7 @@ def test_wba_active() -> None:
     origin.set_wba(wba_file_json([active_jwk(k.x)]))
     try:
         r = WBAKeyResolver(http=loopback_client(), scheme="http", now=MutableClock(ANCHOR))
-        assert r.resolve(k.tp, origin.url) == k.raw_pub
+        assert r.resolve(k.tp, origin.origin) == k.raw_pub
     finally:
         origin.close()
 
@@ -66,7 +66,7 @@ def test_wba_key_expired() -> None:
     try:
         r = WBAKeyResolver(http=loopback_client(), scheme="http", now=MutableClock(ANCHOR))
         with pytest.raises(KeyExpiredError):
-            r.resolve(k.tp, origin.url)
+            r.resolve(k.tp, origin.origin)
     finally:
         origin.close()
 
@@ -78,7 +78,7 @@ def test_wba_unknown_key() -> None:
     try:
         r = WBAKeyResolver(http=loopback_client(), scheme="http", now=MutableClock(ANCHOR))
         with pytest.raises(UnknownKeyError):
-            r.resolve("absent-thumbprint", origin.url)
+            r.resolve("absent-thumbprint", origin.origin)
     finally:
         origin.close()
 
@@ -91,7 +91,7 @@ def test_wba_key_revoked() -> None:
     try:
         r = WBAKeyResolver(http=loopback_client(), scheme="http", now=MutableClock(ANCHOR))
         with pytest.raises(KeyRevokedError):
-            r.resolve(k.tp, origin.url)
+            r.resolve(k.tp, origin.origin)
     finally:
         origin.close()
 
@@ -105,11 +105,11 @@ def test_wba_rotation_self_heal() -> None:
         r = WBAKeyResolver(
             http=loopback_client(), scheme="http", ttl=HOUR, now=MutableClock(ANCHOR)
         )
-        assert r.resolve(k1.tp, origin.url) == k1.raw_pub
+        assert r.resolve(k1.tp, origin.origin) == k1.raw_pub
         origin.set_wba(wba_file_json([active_jwk(k1.x), active_jwk(k2.x)]))  # rotate k2 in
         # Cache still holds k1-only, so the k2 lookup must trigger a self-heal
         # re-fetch even before the TTL expires.
-        assert r.resolve(k2.tp, origin.url) == k2.raw_pub
+        assert r.resolve(k2.tp, origin.origin) == k2.raw_pub
     finally:
         origin.close()
 
@@ -125,12 +125,12 @@ def test_wba_revocation_rollback_ignored() -> None:
         clock = MutableClock(ANCHOR)
         r = WBAKeyResolver(http=loopback_client(), scheme="http", ttl=HOUR, now=clock)
         with pytest.raises(KeyRevokedError):
-            r.resolve(k.tp, origin.url)
+            r.resolve(k.tp, origin.origin)
         # Publish a rolled-back (older as_of) snapshot that drops the revocation.
         origin.set_revocation(revocation_json(ANCHOR - HOUR, []))
         clock.t = ANCHOR + 2 * HOUR  # expire TTL → re-fetch + revocation refresh
         with pytest.raises(KeyRevokedError):
-            r.resolve(k.tp, origin.url)
+            r.resolve(k.tp, origin.origin)
     finally:
         origin.close()
 
@@ -145,10 +145,10 @@ def test_wba_revocation_forward_progress_applied() -> None:
         clock = MutableClock(ANCHOR)
         r = WBAKeyResolver(http=loopback_client(), scheme="http", ttl=HOUR, now=clock)
         with pytest.raises(KeyRevokedError):
-            r.resolve(k.tp, origin.url)
+            r.resolve(k.tp, origin.origin)
         origin.set_revocation(revocation_json(ANCHOR + HOUR, []))
         clock.t = ANCHOR + 2 * HOUR  # expire TTL
-        assert r.resolve(k.tp, origin.url) == k.raw_pub
+        assert r.resolve(k.tp, origin.origin) == k.raw_pub
     finally:
         origin.close()
 
@@ -163,11 +163,11 @@ def test_wba_first_poll_far_future_as_of_clamp() -> None:
     try:
         clock = MutableClock(ANCHOR)
         r = WBAKeyResolver(http=loopback_client(), scheme="http", ttl=HOUR, now=clock)
-        assert r.resolve(k.tp, origin.url) == k.raw_pub  # prime
+        assert r.resolve(k.tp, origin.origin) == k.raw_pub  # prime
         clock.t = ANCHOR + 2 * HOUR
         origin.set_revocation(revocation_json(ANCHOR + 2 * HOUR, [k.tp]))
         with pytest.raises(KeyRevokedError):
-            r.resolve(k.tp, origin.url)
+            r.resolve(k.tp, origin.origin)
     finally:
         origin.close()
 
@@ -181,12 +181,12 @@ def test_wba_removal_is_not_revocation() -> None:
     try:
         clock = MutableClock(ANCHOR)
         r = WBAKeyResolver(http=loopback_client(), scheme="http", ttl=HOUR, now=clock)
-        assert r.resolve(k1.tp, origin.url) == k1.raw_pub
+        assert r.resolve(k1.tp, origin.origin) == k1.raw_pub
         origin.set_wba(wba_file_json([long_jwk(k2.x)]))  # drop k1
         clock.t = ANCHOR + 2 * HOUR  # expire TTL → re-fetch k1-less directory
         # Removal is a fall-through UnknownKeyError, never a KeyRevokedError.
         with pytest.raises(UnknownKeyError):
-            r.resolve(k1.tp, origin.url)
+            r.resolve(k1.tp, origin.origin)
     finally:
         origin.close()
 
@@ -201,7 +201,7 @@ def test_wba_revocation_url_host_not_anchored() -> None:
     try:
         r = WBAKeyResolver(http=loopback_client(), scheme="http", now=MutableClock(ANCHOR))
         # Not anchored → not polled → key resolves.
-        assert r.resolve(k.tp, origin.url) == k.raw_pub
+        assert r.resolve(k.tp, origin.origin) == k.raw_pub
     finally:
         origin.close()
         evil.close()
@@ -232,9 +232,9 @@ def test_wba_ttl_cache_hit() -> None:
         r = WBAKeyResolver(
             http=loopback_client(), scheme="http", ttl=HOUR, now=MutableClock(ANCHOR)
         )
-        assert r.resolve(k.tp, origin.url) == k.raw_pub
+        assert r.resolve(k.tp, origin.origin) == k.raw_pub
         origin.set_wba_status(500)  # origin now fails; cached hit must still succeed
-        assert r.resolve(k.tp, origin.url) == k.raw_pub
+        assert r.resolve(k.tp, origin.origin) == k.raw_pub
     finally:
         origin.close()
 
@@ -248,7 +248,7 @@ def test_wba_fetch_error_directory_unavailable_distinct_from_unknown() -> None:
     try:
         r = WBAKeyResolver(http=loopback_client(), scheme="http", now=MutableClock(ANCHOR))
         with pytest.raises(DirectoryUnavailableError) as exc:
-            r.resolve("any-thumbprint", origin.url)
+            r.resolve("any-thumbprint", origin.origin)
         assert not isinstance(exc.value, UnknownKeyError)
     finally:
         origin.close()
@@ -282,14 +282,14 @@ def test_wba_run_poller_applies_revocation() -> None:
     thread.start()
     try:
         # Prime the directory + empty revocation snapshot.
-        assert r.resolve(k.tp, origin.url) == k.raw_pub
+        assert r.resolve(k.tp, origin.origin) == k.raw_pub
 
         # Publish a newer snapshot revoking the key, then cross one poll boundary.
         origin.set_revocation(revocation_json(ANCHOR, [k.tp]))
         signals.cross_one(clk, 2 * poll_interval)
 
         with pytest.raises(KeyRevokedError):
-            r.resolve(k.tp, origin.url)
+            r.resolve(k.tp, origin.origin)
     finally:
         stop.set()
         origin.close()

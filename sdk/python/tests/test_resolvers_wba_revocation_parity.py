@@ -11,6 +11,11 @@ This test serves those docs against a REAL origin (the shared harness), resolves
 the prime thumbprint to prime the snapshot, then asserts ``revoked(tp)`` matches
 the oracle for EVERY case — including the load-bearing
 directory-absent-but-revoked -> True, which is the whole point of the accessor.
+
+A directory is only read for the keys that signed its response, so the served
+directory must be signed by its key. The emitter derives that key from the FIXED seed
+``present.v1`` (zero-padded to 32 bytes); the test derives the same key, checks it is
+the one the corpus lists, and registers it with the harness signer.
 """
 
 from __future__ import annotations
@@ -20,7 +25,17 @@ from typing import Any
 
 import pytest
 from conftest import GO_RESOLVERS_TESTDATA, load_json
-from resolvers_harness import MutableClock, Origin, loopback_client, revocation_json, wba_file_json
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from resolvers_harness import (
+    MutableClock,
+    Origin,
+    loopback_client,
+    register_directory_key,
+    revocation_json,
+    wba_file_json,
+)
+
+from fora_sdk.b64 import b64url_nopad
 
 from fora_sdk.resolvers import WBAKeyResolver
 
@@ -46,6 +61,13 @@ def _directory_keys() -> list[dict[str, Any]]:
     ]
 
 
+def _register_the_emitters_key() -> None:
+    priv = Ed25519PrivateKey.from_private_bytes(b"present.v1".ljust(32, b"\0"))
+    x = b64url_nopad(priv.public_key().public_bytes_raw())
+    assert [k["x"] for k in _VECTOR["directory_keys"]] == [x]
+    register_directory_key(priv)
+
+
 def test_revocation_membership_corpus_nonempty() -> None:
     assert len(_VECTOR["cases"]) > 0
 
@@ -56,6 +78,7 @@ def test_revocation_membership_corpus_nonempty() -> None:
     ids=[c["label"] for c in _VECTOR["cases"]],
 )
 def test_revoked_matches_go_oracle(case: dict[str, Any]) -> None:
+    _register_the_emitters_key()
     origin = Origin()
     try:
         origin.set_wba(wba_file_json(_directory_keys(), origin.revocation_url()))
@@ -63,7 +86,7 @@ def test_revoked_matches_go_oracle(case: dict[str, Any]) -> None:
 
         r = WBAKeyResolver(http=loopback_client(), scheme="http", now=MutableClock(_as_of()))
         # Prime the revocation snapshot by resolving the directory-listed key.
-        r.resolve(_VECTOR["prime_thumbprint"], origin.url)
+        r.resolve(_VECTOR["prime_thumbprint"], origin.origin)
 
         assert r.revoked(case["thumbprint"]) is case["expected_revoked"]
         # Empty key_id is never revoked (parity with the Go accessor guard).

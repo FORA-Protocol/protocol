@@ -17,10 +17,16 @@ Two faces read them, and they share everything up to the decision of how strict 
   harness reads through these.
 - **The resolvers** (the endpoint resolver, the registration-requirements reader, the
   WBA key resolver and the offer-directory fetch) read the same documents to route and
-  to verify. They call the lenient functions below, which skip the media type and the
-  strict check: a reader that must accept a newer protocol version cannot refuse a
-  field it does not know, and a deployment serving its directory as
-  ``application/json`` still has to be reachable.
+  to verify. They call the lenient functions below, which skip the strict check: a
+  reader that must accept a newer protocol version cannot refuse a field it does not
+  know.
+
+A key directory is read under the Web Bot Auth profile by both faces: it is fetched
+with no redirect, must be served as
+``application/http-message-signatures-directory+json``, and its response must be
+signed by the keys it lists (:func:`fora_sdk.directory_signature.verify_directory_response`).
+A key the response carries no valid signature by is never handed out. A revocation list
+and the manifest may follow up to five redirects.
 
 Every fetch goes through the SDK's guarded client by default, the same one the
 resolvers use for an address another party chose: the dial-time SSRF guard refuses
@@ -35,23 +41,29 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import time
+import urllib.parse
 from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from pydantic import BaseModel, ValidationError
-from wire.models import KeyRevocationList, License, WBAFile, WellKnownManifest
+from wire.models import JsonWebKey, KeyRevocationList, License, WBAFile, WellKnownManifest
 
 from fora_sdk._hostref import _invalid_host
+from fora_sdk.b64 import b64url_decode_strict
+from fora_sdk.directory_signature import verify_directory_response
 from fora_sdk.hosts import is_bare_host
 from fora_sdk.resolvers._http import Fetched, fetch_document, guarded_client
 from fora_sdk.resolvers.errors import (
     DigestMismatchError,
+    DirectoryResponseUnsignedError,
     DirectoryUnavailableError,
     ManifestVersionRefusedError,
     MediaTypeRefusedError,
 )
 from fora_sdk.strict import StrictViolationError, check_strict
+from fora_sdk.thumbprint import thumbprint
 from fora_sdk.wire import WellKnownPath, manifest_version_refusal
 
 if TYPE_CHECKING:
@@ -74,8 +86,9 @@ __all__ = [
 
 #: The media type ``/.well-known/fora.json`` is served under.
 MANIFEST_MEDIA_TYPE = "application/json"
-#: The media type the WBA key directory is served under: a JWK Set (RFC 7517 §8.5.2).
-WBA_DIRECTORY_MEDIA_TYPE = "application/jwk-set+json"
+#: The media type a Web Bot Auth key directory is served under (WG-00 §5.5). Any other
+#: label, the JWK Set type ``application/jwk-set+json`` included, is refused.
+WBA_DIRECTORY_MEDIA_TYPE = "application/http-message-signatures-directory+json"
 
 WBA_DIRECTORY_PATH = "/.well-known/http-message-signatures-directory"
 
@@ -83,6 +96,8 @@ _MANIFEST = "fora.v1.WellKnownManifest"
 _WBA_FILE = "fora.v1.WBAFile"
 _REVOCATION_LIST = "fora.v1.KeyRevocationList"
 _LICENSE = "fora.v1.License"
+
+_ED25519_PUBLIC_KEY_BYTES = 32
 
 #: The digest methods ``License.uri_digest`` admits, and the hash each one names.
 _DIGEST_METHODS = frozenset({"sha256", "sha384", "sha512"})
@@ -178,8 +193,13 @@ def fetch_manifest(http: httpx.Client, url: str) -> tuple[Fetched, str, Any]:
     return fetched, text, doc
 
 
-def fetch_wba_directory(http: httpx.Client, url: str) -> WBAFile:
-    """GET ``url`` and decode the body as a :class:`WBAFile`, leniently.
+def fetch_wba_directory(http: httpx.Client, url: str, *, now: int | None = None) -> WBAFile:
+    """GET ``url`` with no redirect and decode the body as a :class:`WBAFile`, leniently.
+
+    The media type must be :data:`WBA_DIRECTORY_MEDIA_TYPE`, and the file returned lists
+    only the keys that signed the response (:func:`signed_directory_keys`), so no caller
+    can hand out a key the directory did not sign for. ``now`` (unix seconds, default
+    the wall clock) is the instant the response signatures' windows are judged at.
 
     The resolvers' read of a directory: :meth:`WBAKeyResolver._fetch_directory` on the
     signature-verification path and
@@ -191,9 +211,81 @@ def fetch_wba_directory(http: httpx.Client, url: str) -> WBAFile:
     caller make its own raise-or-contain choice against ONE exception type.
     ``fetch_document`` folds in every transport failure, every non-200, and every way the
     URL itself can be refused — a malformed A-label and an over-long label included.
-    This adds the one arm it does not cover: a body that is not a valid directory.
+    This adds the arms it does not cover: a redirect, a wrong media type, a body that is
+    not a valid directory, and a response that cannot be checked for signatures.
     """
-    return _parse(fetch_document(http, url), _WBA_FILE, WBAFile)
+    fetched = fetch_document(http, url, follow_redirects=False)
+    if fetched.media_type != WBA_DIRECTORY_MEDIA_TYPE:
+        raise DirectoryUnavailableError(
+            f"{url} was served as {fetched.media_type!r}, not {WBA_DIRECTORY_MEDIA_TYPE!r}"
+        )
+    file = _parse(fetched, _WBA_FILE, WBAFile)
+    try:
+        return signed_directory_keys(fetched, file, int(time.time()) if now is None else now)
+    except ValueError as exc:
+        raise DirectoryUnavailableError(f"{url}: {exc}") from exc
+
+
+def jwk_ed25519_public_key(key: JsonWebKey) -> bytes | None:
+    """The raw Ed25519 public key a directory entry carries, or None when it is not one.
+
+    ``kty``/``crv`` are matched CASE-INSENSITIVELY — a deliberate lenient SDK convention
+    (RFC 7517/8037 specify the exact-case "OKP" / "Ed25519"); the three SDKs accept any
+    case identically so a case-varying directory resolves the SAME key. ``x`` is
+    UNPADDED base64url (RFC 8037); padding and the standard alphabet are refused, as Go's
+    ``base64.RawURLEncoding`` refuses them.
+    """
+    if (key.kty or "").upper() != "OKP" or (key.crv or "").lower() != "ed25519":
+        return None
+    try:
+        raw = b64url_decode_strict(key.x or "")
+    except ValueError:
+        return None
+    if len(raw) != _ED25519_PUBLIC_KEY_BYTES:
+        return None
+    return raw
+
+
+def request_authority(url: str) -> str:
+    """The RFC 9421 ``@authority`` of a fetch of ``url``: the host, lowercased, with the
+    port only when it is not the scheme's default, an IPv6 literal in brackets."""
+    parts = urllib.parse.urlsplit(url)
+    host = (parts.hostname or "").lower()
+    if host == "":
+        raise ValueError(f"cannot derive the authority of {url!r}")
+    try:
+        port = parts.port
+    except ValueError as exc:
+        raise ValueError(f"cannot derive the authority of {url!r}") from exc
+    if ":" in host:
+        host = f"[{host}]"
+    default = {"https": 443, "http": 80}.get(parts.scheme)
+    if port is None or port == default:
+        return host
+    return f"{host}:{port}"
+
+
+def signed_directory_keys(fetched: Fetched, file: WBAFile, now: int) -> WBAFile:
+    """A copy of ``file`` listing only the keys whose response signature verifies,
+    checked against the authority ``fetched`` was fetched from.
+
+    A key that is not an Ed25519 key cannot sign and is dropped with the rest. A
+    directory listing no key has nothing to sign and is returned as it is. Raises
+    ``ValueError`` for a response listing keys that cannot be checked at all: a
+    Content-Digest that does not match the body, or no response signature.
+    """
+    keys = file.keys or []
+    if not keys:
+        return file
+    authority = request_authority(fetched.url)
+    pubs = [pub for pub in (jwk_ed25519_public_key(k) for k in keys) if pub is not None]
+    verified = verify_directory_response(authority, fetched.headers, fetched.body, pubs, now)
+    kept = [
+        k
+        for k in keys
+        if (pub := jwk_ed25519_public_key(k)) is not None and thumbprint(pub) in verified
+    ]
+    return file.model_copy(update={"keys": kept})
 
 
 def fetch_revocation_list(http: httpx.Client, url: str) -> KeyRevocationList:
@@ -321,16 +413,19 @@ def read_wba_directory(
 
     ``url_or_domain`` is either the directory's full URL or a bare host, in which case
     the directory is read from
-    ``scheme://host/.well-known/http-message-signatures-directory``. The media type
-    must be ``application/jwk-set+json``, and the body must pass the strict ``WBAFile``
-    schema and the cross-field rules. Key validity windows and revocation are not
-    evaluated: that is the WBA key resolver's job, and a directory listing an expired
-    key is still a well-formed directory.
+    ``scheme://host/.well-known/http-message-signatures-directory``. The directory is
+    fetched with no redirect: a redirect fails the fetch. The media type must be
+    ``application/http-message-signatures-directory+json``, the body must pass the
+    strict ``WBAFile`` schema and the cross-field rules, and the response must carry a
+    valid response signature by EVERY key it lists. Key validity windows and revocation
+    are not evaluated: that is the WBA key resolver's job, and a directory listing an
+    expired key is still a well-formed directory.
 
     Raises ``ValueError`` for a value that is neither a URL nor a bare host;
-    :class:`DirectoryUnavailableError`; :class:`MediaTypeRefusedError`; and
-    :class:`~fora_sdk.strict.StrictViolationError`. ``http`` is as for
-    :func:`read_manifest`.
+    :class:`DirectoryUnavailableError`; :class:`MediaTypeRefusedError`;
+    :class:`~fora_sdk.strict.StrictViolationError`; and
+    :class:`DirectoryResponseUnsignedError` when a listed key did not sign the
+    response. ``http`` is as for :func:`read_manifest`.
     """
     if "://" in url_or_domain:
         url = url_or_domain
@@ -339,8 +434,18 @@ def read_wba_directory(
     else:
         raise _invalid_host(url_or_domain, "neither a URL nor a bare host")
     with _client(http) as client:
-        fetched = fetch_document(client, url)
-    return accept(WBA_DIRECTORY, fetched)
+        fetched = fetch_document(client, url, follow_redirects=False)
+    doc = accept(WBA_DIRECTORY, fetched)
+    listed = doc.message.keys or []
+    try:
+        signed = signed_directory_keys(fetched, doc.message, int(time.time()))
+    except ValueError as exc:
+        raise DirectoryResponseUnsignedError(f"{url}: {exc}") from exc
+    if len(signed.keys or []) != len(listed):
+        raise DirectoryResponseUnsignedError(
+            f"{len(signed.keys or [])} of {len(listed)} listed keys signed the response at {url}"
+        )
+    return doc
 
 
 def read_revocation_list(

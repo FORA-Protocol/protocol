@@ -113,7 +113,11 @@ def test_a_call_on_a_closed_client_is_a_typed_refusal() -> None:
     config = ClientConfig(
         base_url="https://exchange.test",
         requester={"id": "a", "domain": "agent.test", "type": "REQUESTER_TYPE_AGENT"},
-        signer=SigningTransport(signer_seed=bytes(range(32)), keyid="agent.v1"),
+        signer=SigningTransport(
+            signer_seed=bytes(range(32)),
+            keyid="agent.v1",
+            signature_agent="https://agent.test",
+        ),
     )
     client = blocking.Client(config)
     client.close()
@@ -212,7 +216,11 @@ def test_a_deeply_nested_refusal_body_is_a_typed_failure_with_no_token() -> None
     config = ClientConfig(
         base_url="https://exchange.test",
         requester={"id": "a", "domain": "agent.test", "type": "REQUESTER_TYPE_AGENT"},
-        signer=SigningTransport(signer_seed=bytes(range(32)), keyid="agent.v1"),
+        signer=SigningTransport(
+            signer_seed=bytes(range(32)),
+            keyid="agent.v1",
+            signature_agent="https://agent.test",
+        ),
     )
     client = blocking.Client(config, http=httpx.Client(transport=httpx.MockTransport(respond)))
     with pytest.raises(CallError) as caught:

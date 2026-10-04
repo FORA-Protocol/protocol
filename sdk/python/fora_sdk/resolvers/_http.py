@@ -37,7 +37,7 @@ import asyncio
 import os
 import socket
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import httpcore
@@ -359,6 +359,7 @@ class _Answer:
     status: int
     body: bytes
     content_type: str | None
+    headers: dict[str, str] = field(default_factory=dict)
 
 
 class _TooLargeError(OSError):
@@ -367,7 +368,7 @@ class _TooLargeError(OSError):
     did not read whole is a document it did not read."""
 
 
-def _stream_bounded(client: httpx.Client, url: str) -> _Answer:
+def _stream_bounded(client: httpx.Client, url: str, *, follow_redirects: bool = True) -> _Answer:
     """GET ``url``; the body bounded to ``_MAX_DOC_BYTES``.
 
     Streams so a hostile origin cannot force an unbounded read, and REFUSES a body past
@@ -375,9 +376,10 @@ def _stream_bounded(client: httpx.Client, url: str) -> _Answer:
     worse than a refusal, and a truncated license document would be reported as a
     digest mismatch it is not. A non-2xx returns an empty body for the caller to
     classify. httpx owns redirect following and status handling — a non-2xx is an
-    ordinary response, never a crash.
+    ordinary response, never a crash. With ``follow_redirects`` off, a 3xx is returned
+    as itself, which every caller refuses as a non-200.
     """
-    with client.stream("GET", url) as resp:
+    with client.stream("GET", url, follow_redirects=follow_redirects) as resp:
         content_type = resp.headers.get("content-type")
         if resp.status_code != _HTTP_OK:
             return _Answer(resp.status_code, b"", content_type)
@@ -388,17 +390,23 @@ def _stream_bounded(client: httpx.Client, url: str) -> _Answer:
             if total > _MAX_DOC_BYTES:
                 raise _TooLargeError(f"document exceeds the {_MAX_DOC_BYTES} byte cap")
             chunks.append(chunk)
-        return _Answer(_HTTP_OK, b"".join(chunks), content_type)
+        # httpx joins a repeated field's lines with ", ", the RFC 9421 reading of a header.
+        headers = dict(resp.headers.items())
+        return _Answer(_HTTP_OK, b"".join(chunks), content_type, headers)
 
 
-def _get_bounded(client: httpx.Client, url: str) -> _Answer:
+def _get_bounded(client: httpx.Client, url: str, *, follow_redirects: bool = True) -> _Answer:
     """GET ``url`` under the overall wall-clock budget.
 
     Wraps :func:`_stream_bounded` in :func:`_call_with_deadline` so the whole GET —
     including the getaddrinfo the guarded backend runs, which httpx's per-phase
     timeout does not cover — is bounded by ``_TOTAL_FETCH_DEADLINE_S``.
     """
-    return _call_with_deadline(lambda: _stream_bounded(client, url), _TOTAL_FETCH_DEADLINE_S, url)
+    return _call_with_deadline(
+        lambda: _stream_bounded(client, url, follow_redirects=follow_redirects),
+        _TOTAL_FETCH_DEADLINE_S,
+        url,
+    )
 
 
 @dataclass(frozen=True)
@@ -410,6 +418,9 @@ class Fetched:
     #: The ``Content-Type`` essence (type/subtype), lowercased, parameters stripped.
     #: ``None`` when the response carried none.
     media_type: str | None
+    #: The response headers, lowercase-keyed, a repeated field's lines joined with
+    #: ", ". A key directory's response signatures are read from them.
+    headers: dict[str, str] = field(default_factory=dict)
 
 
 def media_type_essence(header: str | None) -> str | None:
@@ -420,7 +431,7 @@ def media_type_essence(header: str | None) -> str | None:
     return essence or None
 
 
-def fetch_document(client: httpx.Client, url: str) -> Fetched:
+def fetch_document(client: httpx.Client, url: str, *, follow_redirects: bool = True) -> Fetched:
     """GET ``url``; return the body and its media type on 200, else raise
     DirectoryUnavailableError.
 
@@ -438,14 +449,23 @@ def fetch_document(client: httpx.Client, url: str) -> Fetched:
     an over-long label raises ``UnicodeEncodeError``. Both are ``ValueError``
     subclasses. Leaving them to escape made a single bad exchange raise out of a caller
     that had promised to contain it.
+
+    ``follow_redirects=False`` refuses every redirect, whatever policy the client
+    carries: a key directory answers 200 itself, because its address is the origin its
+    signer committed to and a redirect would hand key lookup to another one.
     """
     try:
-        answer = _get_bounded(client, url)
+        answer = _get_bounded(client, url, follow_redirects=follow_redirects)
     except (httpx.HTTPError, httpx.InvalidURL, OSError, ValueError) as exc:
         raise DirectoryUnavailableError(f"fetch {url}") from exc
     if answer.status != _HTTP_OK:
         raise DirectoryUnavailableError(f"status {answer.status} for {url}")
-    return Fetched(url=url, body=answer.body, media_type=media_type_essence(answer.content_type))
+    return Fetched(
+        url=url,
+        body=answer.body,
+        media_type=media_type_essence(answer.content_type),
+        headers=answer.headers,
+    )
 
 
 def fetch_strict(client: httpx.Client, url: str) -> bytes:

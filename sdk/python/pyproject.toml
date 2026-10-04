@@ -97,10 +97,12 @@ select = [
 "fora_sdk/resolvers/wba.py" = ["PLR0913", "S311"]
 # SigningTransport exposes the sign-window seam as an INJECTION point: signer_seed
 # and keyid are identity, now/ttl_sec are the default clock+TTL, signature_agent is
-# the covered directory, and window is the injectable Window (mirroring the Go
-# WithWindow transport option). Each is an independent seam the deterministic
-# regression pin fixes; collapsing them into an options object would break those
-# call sites. PLR0913 (arg count) is waived for exactly this constructor.
+# the covered directory, window is the injectable Window, and signer_source /
+# append_only / cover_previous are the per-request signer and the append branch
+# (mirroring the Go WithWindow, WithSignerSource, WithAppendSigner and
+# WithCoverPrevious transport options). Each is an independent seam a test pins;
+# collapsing them into an options object would break those call sites. PLR0913 (arg
+# count) is waived for exactly this constructor.
 "fora_sdk/signing_transport.py" = ["PLR0913"]
 
 [tool.mypy]

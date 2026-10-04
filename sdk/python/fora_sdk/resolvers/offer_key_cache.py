@@ -181,8 +181,9 @@ def create_wba_offer_directory_fetch(
     scheme: str = "",
     port: str = "",
 ) -> DirectoryFetch:
-    """The default :data:`DirectoryFetch`: GET one exchange's Web Bot Auth directory
-    and decode the ``WBAFile``.
+    """The default :data:`DirectoryFetch`: GET one exchange's Web Bot Auth directory,
+    with no redirect, check its media type and response signatures, and decode the
+    ``WBAFile``, keeping only the keys that signed the response.
 
     Port of the Go oracle's ``NewWBADirectoryFetcher(client, scheme, port)`` and the
     TypeScript ``createWBAOfferDirectoryFetch({fetch, scheme, port})``. An exchange's

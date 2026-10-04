@@ -8,9 +8,11 @@ identity is only useful if a verifier can resolve its key. So this peer runs the
 server-side verifier, ``verify_request_server``, on every request and refuses one that
 fails with the 401 envelope an Exchange sends.
 
-The key lookup is injected as a function of the covered Signature-Agent header, which is
-how a real Exchange finds a caller's key: a static map for a test that only needs one
-fixed identity, a WBA directory resolver for one that mints its own.
+The key lookup is injected as a function of the received Signature-Agent header that
+returns the resolver the verifier uses. The verifier asks that resolver for each
+signature's key in the directory the signature's own covered member names, which is how
+a real Exchange finds a caller's key: a static map for a test that only needs one fixed
+identity, a WBA directory resolver for one that mints its own.
 """
 
 from __future__ import annotations

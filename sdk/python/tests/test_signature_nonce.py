@@ -21,6 +21,7 @@ from fora_sdk.signing_transport import SigningTransport
 
 _SEED = bytes(range(1, 33))
 _KEYID = "agent.test.v1"
+_DIRECTORY = "https://agent.example"
 _URL = "https://exchange.example/fora.v1.ExchangeService/DiscoverResources"
 _BODY = b'{"ver":"1"}'
 _CREATED, _EXPIRES = 1_700_000_000, 1_700_000_300
@@ -53,7 +54,12 @@ def _pub() -> bytes:
 def _transport() -> SigningTransport:
     # A fixed window: created/expires are identical on every signature, the
     # collision condition.
-    return SigningTransport(signer_seed=_SEED, keyid=_KEYID, window=lambda: (_CREATED, _EXPIRES))
+    return SigningTransport(
+        signer_seed=_SEED,
+        keyid=_KEYID,
+        signature_agent=_DIRECTORY,
+        window=lambda: (_CREATED, _EXPIRES),
+    )
 
 
 def _sign(transport: SigningTransport | None = None) -> dict[str, str]:
@@ -89,7 +95,10 @@ def test_identical_requests_get_unique_signatures_and_both_pass() -> None:
     n1 = _NONCE.search(first["signature-input"])
     n2 = _NONCE.search(second["signature-input"])
     assert n1 and n2
-    assert len(base64.urlsafe_b64decode(n1.group(1) + "==")) == 16
+    # 64 random bytes, 86 base64url characters: the length the Web Bot Auth test
+    # vectors use, and the one widely deployed verifiers require.
+    assert len(n1.group(1)) == 86
+    assert len(base64.urlsafe_b64decode(n1.group(1) + "==")) == 64
     assert n1.group(1) != n2.group(1)
     assert first["signature"] != second["signature"]
     # Only the nonce differs: created/expires are unchanged.
@@ -111,7 +120,7 @@ def test_exact_replay_is_rejected() -> None:
 @pytest.mark.parametrize(
     "edit",
     [
-        lambda s: _NONCE.sub(';nonce="AAAAAAAAAAAAAAAAAAAAAA"', s),
+        lambda s: _NONCE.sub(';nonce="' + "A" * 86 + '"', s),
         lambda s: _NONCE.sub("", s),
     ],
     ids=["changed", "removed"],
@@ -124,7 +133,8 @@ def test_changed_or_removed_nonce_fails_verification(edit: object) -> None:
     assert verdict.reason == "signature"  # type: ignore[attr-defined]
 
 
-def test_legacy_signature_without_nonce_is_accepted() -> None:
+def test_a_signature_without_nonce_is_accepted() -> None:
+    # WG-00 lets a signer omit the nonce; a FORA verifier accepts one without it.
     signed = sign_request(
         method="POST",
         url=_URL,
@@ -134,6 +144,7 @@ def test_legacy_signature_without_nonce_is_accepted() -> None:
         keyid=_KEYID,
         created=_CREATED,
         expires=_EXPIRES,
+        signature_agent=_DIRECTORY,
     )
     assert "nonce" not in signed.signature_input
     headers = {
@@ -141,7 +152,7 @@ def test_legacy_signature_without_nonce_is_accepted() -> None:
         "signature-input": signed.signature_input,
         "signature": signed.signature,
         "authorization": "",
-        "signature-agent": "",
+        "signature-agent": signed.signature_agent,
     }
     assert _Server().verify(headers).valid is True  # type: ignore[attr-defined]
 
@@ -178,5 +189,6 @@ def test_helper_rejects_nonce_outside_base64url(nonce: str) -> None:
             keyid=_KEYID,
             created=_CREATED,
             expires=_EXPIRES,
+            signature_agent=_DIRECTORY,
             nonce=nonce,
         )

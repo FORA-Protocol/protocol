@@ -41,8 +41,17 @@ ProtocolVersion = "1.0"
 WellKnownManifestVersion = "1.0"
 #: Header correlating a request across services and the edge.
 RequestIDHeader = "X-Request-ID"
-#: Header carrying the signer's Web Bot Auth key-directory URL.
+#: Header naming the key directory of each request signature: a structured-field
+#: Dictionary whose member ``<label>="https://<origin>"`` each signature covers.
 SignatureAgentHeader = "Signature-Agent"
+#: The RFC 9421 ``tag`` every Web Bot Auth request signature carries.
+WBATag = "web-bot-auth"
+#: The ``tag`` a key directory's response signature carries (WG-00 Appendix B.1).
+DirectoryResponseTag = "http-message-signatures-directory"
+#: The RFC 9421 §5.1 field a verifier answers with when it refuses a signature for a
+#: missing component or a form it does not accept, naming what it requires
+#: (WG-00 §5.3). Its value is :func:`fora_sdk.wba.accept_signature`.
+AcceptSignatureHeader = "Accept-Signature"
 #: Header carrying the fetcher's raw Ed25519 public key on a PoP GET. Canonical
 #: (Go) casing; HTTP field names are case-insensitive, so lookups lowercase it —
 #: see ``AGENT_KEY_HEADER`` in ``pop``, which derives from this rather than

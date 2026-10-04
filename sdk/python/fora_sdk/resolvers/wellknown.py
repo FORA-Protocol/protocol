@@ -108,8 +108,12 @@ class WellKnownKeyResolver:
         self._cache: dict[str, bytes] = {}
         self._cache_exp: datetime | None = None
 
-    def resolve(self, keyid: str) -> bytes | None:
+    def resolve(self, keyid: str, directory: str = "") -> bytes | None:  # noqa: ARG002 - one fixed JWKS answers for every directory
         """Return the public key for ``keyid``, or None (unknown key miss).
+
+        ``directory`` is the key directory a verified signature names (see
+        :class:`~fora_sdk.keyresolver.KeyResolver`). This resolver reads one fixed URL,
+        so it answers from that whatever the directory.
 
         Raises DirectoryUnavailableError on a fetch/decode failure — a fail-closed
         halt DISTINCT from the None miss a composite treats as "fall through".

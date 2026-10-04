@@ -23,9 +23,11 @@ import asyncio
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from resolvers_harness import (
     ANCHOR,
     HOUR,
+    WBA_DIR_PATH,
     Origin,
     loopback_client,
     make_key,
@@ -33,6 +35,7 @@ from resolvers_harness import (
     wba_jwk,
 )
 
+from fora_sdk.b64 import b64url_nopad
 from fora_sdk.resolvers import create_wba_offer_directory_fetch
 
 if TYPE_CHECKING:
@@ -51,6 +54,11 @@ def _serve_directory(o: Origin) -> str:
     key = make_key()
     o.set_wba(wba_file_json([wba_jwk(key.x, ANCHOR - HOUR, ANCHOR + HOUR)]))
     return key.x
+
+
+def _unregistered_x() -> str:
+    """A key no test registered with the harness signer, so nothing signs for it."""
+    return b64url_nopad(Ed25519PrivateKey.generate().public_key().public_bytes_raw())
 
 
 def _run(o: Origin, **kwargs: Any) -> Any:
@@ -82,6 +90,20 @@ def test_resolves_a_served_directory(origin: Origin) -> None:
         ("forbidden", lambda o: o.set_wba_status(403)),
         ("not_json", lambda o: o.set_wba("this is not json")),
         ("json_but_not_a_directory", lambda o: o.set_wba('{"keys": "not a list"}')),
+        # The Web Bot Auth profile's own refusals: a directory served under another
+        # media type, one reached through a redirect, and one nobody signed.
+        (
+            "jwk_set_media_type",
+            lambda o: (
+                _serve_directory(o),
+                o.set_content_type(WBA_DIR_PATH, "application/jwk-set+json"),
+            ),
+        ),
+        ("redirected", lambda o: o.set_redirect(WBA_DIR_PATH, o.url + "/elsewhere")),
+        (
+            "unsigned",
+            lambda o: o.set_wba(wba_file_json([wba_jwk(_unregistered_x(), ANCHOR, ANCHOR + HOUR)])),
+        ),
     ],
 )
 def test_every_failure_is_contained_as_none(
@@ -90,8 +112,9 @@ def test_every_failure_is_contained_as_none(
     """Transport, status and decode failures all return None and none raises.
 
     ``absent`` is the origin's 404. The two statuses cover the fail-closed halt
-    fetch_strict makes of any non-200. The last two are the decode arm: a body that
-    is not JSON, and a body that is JSON and not a directory.
+    fetch_strict makes of any non-200. The next two are the decode arm: a body that
+    is not JSON, and a body that is JSON and not a directory. The last three are the
+    profile: the wrong media type, a redirect, and a response no listed key signed.
     """
     arrange(origin)
     assert _run(origin) is None, f"{name} should be contained as None"

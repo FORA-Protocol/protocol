@@ -10,7 +10,8 @@ Two faces:
      bytes).
   - monotonic_window(now, ttl_sec): expires strictly increases across a burst
     within one wall-clock second, so no two back-to-back signatures share an
-    expires cutoff (relay replay-store uniqueness).
+    expires cutoff, and created moves with it so every window is exactly ttl_sec
+    (the Web Bot Auth limit is never exceeded during a burst).
 
 RED now purely because ``fora_sdk.window`` does not exist yet.
 """
@@ -44,9 +45,11 @@ def test_monotonic_window_strictly_increases_expires_within_one_second() -> None
     first = w()
     second = w()
     third = w()
-    assert first[0] == 1_700_000_000  # created tracks now()
+    assert first[0] == 1_700_000_000  # the first window starts at now()
     assert second[1] > first[1]
     assert third[1] > second[1]
+    # created moves with expires: every window is exactly the ttl.
+    assert {expires - created for created, expires in (first, second, third)} == {600}
 
 
 def test_monotonic_window_never_repeats_expires_across_burst() -> None:

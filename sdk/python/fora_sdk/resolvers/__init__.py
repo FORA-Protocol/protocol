@@ -33,6 +33,7 @@ from fora_sdk.resolvers.documents import (
 )
 from fora_sdk.resolvers.errors import (
     DigestMismatchError,
+    DirectoryResponseUnsignedError,
     DirectoryUnavailableError,
     EndpointRefusedError,
     ExchangeNotPermittedError,
@@ -72,6 +73,7 @@ __all__ = [
     "CachedOfferKeyResolver",
     "DigestMismatchError",
     "DirectoryFetch",
+    "DirectoryResponseUnsignedError",
     "DirectoryUnavailableError",
     "Document",
     "EndpointRefusedError",

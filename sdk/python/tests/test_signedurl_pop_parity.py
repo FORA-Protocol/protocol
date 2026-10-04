@@ -83,12 +83,16 @@ def test_pop_vector_file_is_nonempty() -> None:
 
 
 def _pop_headers(vector: dict[str, object]) -> dict[str, str]:
-    """RFC 9421 PoP headers as the verifier receives them off the wire."""
-    return {
+    """RFC 9421 PoP headers as the verifier receives them off the wire. An empty
+    ``signature_agent`` is a request that carries no Signature-Agent at all."""
+    headers = {
         "x-fora-agent-key": str(vector["presented_key_b64url"]),
         "signature-input": str(vector["signature_input"]),
         "signature": str(vector["signature"]),
     }
+    if vector["signature_agent"]:
+        headers["signature-agent"] = str(vector["signature_agent"])
+    return headers
 
 
 @pytest.mark.parametrize(
@@ -108,6 +112,9 @@ def test_pop_verify_default_primitive_matches_go_oracle(vector: dict[str, object
         now=int(vector["now_unix"]),  # type: ignore[arg-type]
     )
     assert result.ok is bool(vector["expected_valid"])
+    # A proof that verifies names the agent's key directory, as its member carries it.
+    if result.ok:
+        assert result.signature_agent == str(vector["agent_directory"])
 
 
 @pytest.mark.parametrize(
