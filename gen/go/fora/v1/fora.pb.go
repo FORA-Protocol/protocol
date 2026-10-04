@@ -1563,10 +1563,21 @@ const (
 	CatalogRejectionReason_CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR CatalogRejectionReason = 1 // caller is not an authorized contributor for the domain
 	CatalogRejectionReason_CATALOG_REJECTION_REASON_TENANT_MISMATCH         CatalogRejectionReason = 2 // tenant_id does not match the authenticated caller
 	CatalogRejectionReason_CATALOG_REJECTION_REASON_DOMAIN_NOT_VERIFIED     CatalogRejectionReason = 3 // contributing domain is not verified
-	CatalogRejectionReason_CATALOG_REJECTION_REASON_SIGNATURE_INVALID       CatalogRejectionReason = 4 // request signature missing or invalid
-	CatalogRejectionReason_CATALOG_REJECTION_REASON_MALFORMED_ENTRY         CatalogRejectionReason = 5 // a resource entry failed schema/validation
-	CatalogRejectionReason_CATALOG_REJECTION_REASON_UNKNOWN_VOCAB_TOKEN     CatalogRejectionReason = 6 // an unregistered vocab token in a restriction/term
-	CatalogRejectionReason_CATALOG_REJECTION_REASON_QUOTA_EXCEEDED          CatalogRejectionReason = 7 // contributor push quota exceeded (per-caller)
+	// DEPRECATED, never sent. An Exchange MUST NOT send this value. A catalog
+	// call whose request signature is missing, does not verify or is stale is
+	// refused like every other signed request: UNAUTHENTICATED with
+	// ErrorDetail.request_auth_failure (SIGNATURE_MISSING, SIGNATURE_INVALID or
+	// SIGNATURE_STALE; see RequestAuthFailureReason). A receiver treats this value
+	// as unknown.
+	//
+	// The number is retained because removing it would break the v1 wire
+	// contract, and it MUST NOT be reused or given a new meaning.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
+	CatalogRejectionReason_CATALOG_REJECTION_REASON_SIGNATURE_INVALID   CatalogRejectionReason = 4
+	CatalogRejectionReason_CATALOG_REJECTION_REASON_MALFORMED_ENTRY     CatalogRejectionReason = 5 // a resource entry failed schema/validation
+	CatalogRejectionReason_CATALOG_REJECTION_REASON_UNKNOWN_VOCAB_TOKEN CatalogRejectionReason = 6 // an unregistered vocab token in a restriction/term
+	CatalogRejectionReason_CATALOG_REJECTION_REASON_QUOTA_EXCEEDED      CatalogRejectionReason = 7 // contributor push quota exceeded (per-caller)
 	// A single entry carries more license terms than ResourceEntry.terms allows.
 	// Retired on the PushResources path: the cap is a wire rule now, so a push
 	// carrying an over-cap entry is refused whole, before any per-entry
@@ -2032,6 +2043,8 @@ func (UsageReportRejectionReason) EnumDescriptor() ([]byte, []int) {
 // validation step failed, so a refusal tells a forger nothing about how far its
 // request got. Distinct from RetrievalAuthFailureReason, which covers the
 // signed-URL / proof-of-possession check at the delivery edge, not an RPC.
+// Every signed RPC is refused this way when its signature fails, a
+// CatalogService call included.
 type RequestAuthFailureReason int32
 
 const (
@@ -11605,13 +11618,13 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x16RESOLUTION_TYPE_CREDIT\x10\x01\x12\x1e\n" +
 	"\x1aRESOLUTION_TYPE_REDELIVERY\x10\x02\x12\x1c\n" +
 	"\x18RESOLUTION_TYPE_REJECTED\x10\x03\x12!\n" +
-	"\x1dRESOLUTION_TYPE_INVESTIGATION\x10\x04*\xf6\x03\n" +
+	"\x1dRESOLUTION_TYPE_INVESTIGATION\x10\x04*\xfa\x03\n" +
 	"\x16CatalogRejectionReason\x12(\n" +
 	"$CATALOG_REJECTION_REASON_UNSPECIFIED\x10\x00\x124\n" +
 	"0CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR\x10\x01\x12,\n" +
 	"(CATALOG_REJECTION_REASON_TENANT_MISMATCH\x10\x02\x120\n" +
-	",CATALOG_REJECTION_REASON_DOMAIN_NOT_VERIFIED\x10\x03\x12.\n" +
-	"*CATALOG_REJECTION_REASON_SIGNATURE_INVALID\x10\x04\x12,\n" +
+	",CATALOG_REJECTION_REASON_DOMAIN_NOT_VERIFIED\x10\x03\x122\n" +
+	"*CATALOG_REJECTION_REASON_SIGNATURE_INVALID\x10\x04\x1a\x02\b\x01\x12,\n" +
 	"(CATALOG_REJECTION_REASON_MALFORMED_ENTRY\x10\x05\x120\n" +
 	",CATALOG_REJECTION_REASON_UNKNOWN_VOCAB_TOKEN\x10\x06\x12+\n" +
 	"'CATALOG_REJECTION_REASON_QUOTA_EXCEEDED\x10\a\x121\n" +

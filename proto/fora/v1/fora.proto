@@ -5049,7 +5049,16 @@ enum CatalogRejectionReason {
   CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR = 1; // caller is not an authorized contributor for the domain
   CATALOG_REJECTION_REASON_TENANT_MISMATCH = 2;         // tenant_id does not match the authenticated caller
   CATALOG_REJECTION_REASON_DOMAIN_NOT_VERIFIED = 3;     // contributing domain is not verified
-  CATALOG_REJECTION_REASON_SIGNATURE_INVALID = 4;       // request signature missing or invalid
+  // DEPRECATED, never sent. An Exchange MUST NOT send this value. A catalog
+  // call whose request signature is missing, does not verify or is stale is
+  // refused like every other signed request: UNAUTHENTICATED with
+  // ErrorDetail.request_auth_failure (SIGNATURE_MISSING, SIGNATURE_INVALID or
+  // SIGNATURE_STALE; see RequestAuthFailureReason). A receiver treats this value
+  // as unknown.
+  //
+  // The number is retained because removing it would break the v1 wire
+  // contract, and it MUST NOT be reused or given a new meaning.
+  CATALOG_REJECTION_REASON_SIGNATURE_INVALID = 4 [deprecated = true];
   CATALOG_REJECTION_REASON_MALFORMED_ENTRY = 5;         // a resource entry failed schema/validation
   CATALOG_REJECTION_REASON_UNKNOWN_VOCAB_TOKEN = 6;     // an unregistered vocab token in a restriction/term
   CATALOG_REJECTION_REASON_QUOTA_EXCEEDED = 7;          // contributor push quota exceeded (per-caller)
@@ -5284,6 +5293,8 @@ message UsageReportRejection {
 // validation step failed, so a refusal tells a forger nothing about how far its
 // request got. Distinct from RetrievalAuthFailureReason, which covers the
 // signed-URL / proof-of-possession check at the delivery edge, not an RPC.
+// Every signed RPC is refused this way when its signature fails, a
+// CatalogService call included.
 enum RequestAuthFailureReason {
   REQUEST_AUTH_FAILURE_REASON_UNSPECIFIED = 0;  // unset — rejected at ingest
   REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING = 1;  // no signature, or none that parses; remedy: sign the request

@@ -8,6 +8,14 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ## Unreleased
 
+**A catalog call whose signature fails is refused with `request_auth_failure`;
+`CATALOG_REJECTION_REASON_SIGNATURE_INVALID` is deprecated (comments only).** A signed
+`CatalogService` call is refused like every other signed request when its signature is
+missing, does not verify or is stale: `unauthenticated` with
+`ErrorDetail.request_auth_failure` (`SIGNATURE_MISSING`, `SIGNATURE_INVALID` or
+`SIGNATURE_STALE`). `CATALOG_REJECTION_REASON_SIGNATURE_INVALID` is never sent; its number
+is retained and is not reused. The Exchange request-flow page no longer lists it.
+
 **An offer carries its price once: `Offer.pricing` (two validation rules added;
 `LicenseTerm.pricing` loses its field-level rule; no field removed).** An offer carried its
 price twice, in `Offer.pricing` and in the pricing of the one term it sells, and the
