@@ -71,15 +71,24 @@ import "fora/v1/vocab.proto";
 // request signed only by the agent never depends on the Broker's directory
 // being reachable.
 //
-// Request authentication via RFC 9421 HTTP Message Signatures (alg=ed25519).
+// Request authentication via RFC 9421 HTTP Message Signatures (alg=ed25519),
+// following the Web Bot Auth profile of draft-ietf-webbotauth-httpsig-protocol-00
+// (the authentication page states it in full). Each signature is labeled, and
+// the `Signature-Agent` header is a structured-field dictionary with one member
+// per signature, `<label>="https://<origin>"`, covered as
+// "signature-agent";key="<label>". A verifier resolves each signature's keyid
+// in the key directory that its own covered member names, and in no other.
 // Every request carries the signature of the party that AUTHORED it:
 //   Agent → Exchange:  the agent's signature. A direct purchase is this shape.
 //   Agent → Broker:    the agent's signature over the Broker's URL. Both Broker
 //                      RPCs, Resolve and ExecuteTransaction, terminate at the
 //                      Broker; neither request is forwarded on.
 //   Broker → Exchange: the Broker's OWN signature over a request the Broker
-//                      authored — a ResourceQuery of the discovery fan-out, or a
-//                      TransactionRequest re-packaged from the agent's purchase.
+//                      authored — a ResourceQuery it originated (discovery
+//                      through a Broker is Broker-led), or a TransactionRequest
+//                      re-packaged from the agent's purchase. The signature
+//                      covers the Broker's own request and only its own
+//                      Signature-Agent member, never another signature.
 //                      The agent's consent to a purchase does not travel as a
 //                      request signature: it travels in the body, as each item's
 //                      AgentAcceptance and the request's AgentRequestAcceptance,
@@ -87,12 +96,13 @@ import "fora/v1/vocab.proto";
 //                      was re-packaged. Each Exchange verifies those against the
 //                      keys published in the directory requester.domain names
 //                      (see Requester.domain and AgentRequestAcceptance).
-// A request forwarded BYTE-FOR-BYTE through intermediaries keeps the original
-// signature and gains one per forwarding hop (multiple Signature headers, each
-// covering the prior one); the ordered set is the forwarding chain. That chain
-// is defined for a ResourceQuery relayed toward an Exchange (see
-// ResourceQuery). A purchase through a Broker is never forwarded that way: it is
-// re-packaged by BrokerService.ExecuteTransaction.
+// A Broker never forwards an agent's request unchanged. The general rule for a
+// party that does (WG-00 §5.2.2): it MAY cover an earlier signature, and if it
+// covers "signature";key=X it MUST also cover "signature-input";key=X and every
+// component X lists. A party that changed any value X was computed over MUST
+// NOT cover X. Every signature on a request must verify, and the hop caps
+// (RequestConstraints.max_hops, WellKnownManifest.max_intermediary_hops) count
+// all of them.
 //
 // Signed delivery URLs carry an Ed25519 signature made by the Exchange over
 // "GET\n<canonical URL>"; the delivery endpoint verifies it with the Exchange's
@@ -489,26 +499,20 @@ message ResourceQuery {
   repeated AcceptableRestriction acceptable_restrictions = 9;
 
   // Multi-hop forwarding (Agent → Broker → … → Exchange) is carried in the HTTP
-  // layer, not in this message: each forwarding party adds its own labeled
-  // RFC 9421 HTTP Message Signature (Signature / Signature-Input), and each
-  // signature covers the request plus the prior hop's signature — so the ordered
-  // set of signatures IS the forwarding chain, tamper-evident and order-bound.
-  // On this verbatim-forwarded path the originating agent signs its
-  // `@target-uri` against the FINAL recipient's resolved endpoint (the
-  // Exchange), not the relay URL it dials; each forwarding party then chains
-  // its own signature over the request as received. A message that TERMINATES
-  // at the Broker (DiscoveryRequest) is not forwarding: there the Broker is
-  // the final recipient, and the agent signs the Broker's URL.
-  // Each signature's keyid is the key's RFC 7638 thumbprint; fora.json carries
-  // no keys. The request carries ONE covered `Signature-Agent` header — the
-  // agent's WBA directory, forwarded unchanged by every relay — so the Exchange
-  // resolves the agent's key there, and takes each forwarding hop's key from
-  // the key set it is configured with (e.g. Brokers registered with it).
-  // The Exchange verifies every signature, and enforces RequestConstraints.max_hops /
-  // WellKnownManifest.max_intermediary_hops by counting them. This chain applies
-  // to discovery forwarded byte-for-byte. It does not apply to a purchase through
-  // a Broker, which BrokerService.ExecuteTransaction re-packages into new requests
-  // the Broker signs alone. (Field 5 unused.)
+  // layer, not in this message: each party signs the request it sends with its
+  // own labeled RFC 9421 HTTP Message Signature (Signature / Signature-Input)
+  // and its own `Signature-Agent` dictionary member. Discovery through a Broker
+  // is Broker-led: the agent's DiscoveryRequest terminates at the Broker (the
+  // agent signs the Broker's URL), and the Broker originates each
+  // ResourceQuery it sends and signs it alone, covering its own request and
+  // only its own member. Each signature's keyid is the key's RFC 7638
+  // thumbprint; fora.json carries no keys. The Exchange resolves each keyid in
+  // the key directory that signature's own covered `Signature-Agent` member
+  // names, verifies every signature, and enforces RequestConstraints.max_hops /
+  // WellKnownManifest.max_intermediary_hops by counting them. A party that
+  // forwards a request unchanged MAY cover an earlier signature under the
+  // general rule in the file header (WG-00 §5.2.2); FORA's Broker never does.
+  // (Field 5 unused.)
 
   // Maximum time the caller will wait for a response.
   // Exchange SHOULD prioritize speed over completeness when tight.
@@ -2047,11 +2051,11 @@ message Requester {
   // reads it as the name of that directory, and the rule that binds it depends
   // on who signed the arriving request:
   //
-  //   - Direct request. The agent's own RFC 9421 signature arrives: the agent
-  //     sent the request itself, or a relay forwarded it byte-for-byte. The
-  //     verifier resolves the agent's keys from the COVERED `Signature-Agent`
-  //     header, never from this field. It then MUST require this field to name
-  //     that same directory: the host of the `Signature-Agent` URL, compared by
+  //   - Direct request. The agent's own RFC 9421 signature arrives because
+  //     the agent sent the request itself. The verifier resolves the agent's
+  //     keys from the COVERED `Signature-Agent` member, never from this field.
+  //     It then MUST require this field to name that same directory: the host
+  //     of the origin that member names, compared by
   //     the identity rule "Request recipient" defines (the shape check first,
   //     then case-folded, an absent port the same as ":443", a subdomain a
   //     different party). A mismatch is refused as UNAUTHENTICATED with
@@ -2061,13 +2065,13 @@ message Requester {
   //     applies it at BrokerService.ExecuteTransaction.
   //   - Purchase relayed through a Broker. BrokerService.ExecuteTransaction
   //     re-packages the purchase, so the request signature and the covered
-  //     `Signature-Agent` are the Broker's. They say only that the call comes
+  //     `Signature-Agent` member are the Broker's. They say only that the call comes
   //     from the Broker, and they sign no purchase. The Exchange MUST verify
   //     each item's AgentAcceptance, and the AgentRequestAcceptance, against
   //     the Ed25519 keys currently valid in the directory this field names
   //     (see AgentRequestAcceptance), never against the Broker's key. Those
   //     acceptances are the only agent signatures the Exchange sees.
-  //   - Discovery fan-out. A ResourceQuery a Broker authored carries no agent
+  //   - Broker-led discovery. A ResourceQuery a Broker originated carries no agent
   //     signature, so nothing on that leg authenticates this field: it is the
   //     Broker's statement, under the Broker's own signature, of whom it
   //     queries for.
@@ -2129,7 +2133,7 @@ message Requester {
   // HTTP Message Signatures (alg=ed25519). The Requester's public keys are NOT
   // in fora.json: they live in the WBA directory (WBAFile) that `domain` names.
   // On a direct request a verifier resolves that directory from the COVERED
-  // `Signature-Agent` header and requires `domain` to name it; on a purchase a
+  // `Signature-Agent` member and requires `domain` to name it; on a purchase a
   // Broker relayed, it verifies the agent's acceptances against the directory
   // `domain` names (see `domain`).
 
@@ -2374,12 +2378,11 @@ message AgentAcceptance {
 // signature covered the body the agent sent and does not travel with a
 // projected body; that is expected, not a gap, and it is why this proof
 // exists: like AgentAcceptance, it is a detached body signature that stays
-// valid however the request travels. The hop-signature stack applies only to
-// requests forwarded byte-for-byte. If a delegation rides a projected request,
+// valid however the request travels. If a delegation rides a projected request,
 // the wire signer is the Broker, so the Exchange checks the delegation's holder
 // binding (cnf.jkt) against the key each item's AgentAcceptance verifies under,
-// not against the wire signer (see Delegation). The agent does not need to
-// delegate to the Broker's key for the Broker to relay its purchase.
+// not against the wire signer (see Delegation). A Broker is never delegated to
+// and never becomes the holder.
 //
 // The payload names the requester exactly as AgentAcceptancePayload does, with
 // the same rule: a non-empty requester_id and requester_domain, which a signer
@@ -2935,7 +2938,7 @@ service BrokerService {
   //   - The agent's request signature does not verify: UNAUTHENTICATED with
   //     `request_auth_failure`, exactly as at an Exchange.
   //   - `requester.domain` is not the agent's verified signing directory — the
-  //     host of the WBA directory the covered `Signature-Agent` header names,
+  //     host of the origin the agent's covered `Signature-Agent` member names,
   //     the directory the request-signing key resolved from: UNAUTHENTICATED
   //     with `request_auth_failure` SIGNATURE_INVALID. The signature verifies,
   //     but not as the requester the body claims, which is a signature that
@@ -3649,10 +3652,15 @@ message RequestConstraints {
 //   grants access against a stale revocation set bears that as its own
 //   business risk — it is not a protocol deficiency.
 //
-// Redirects: a key directory, a revocation list and the other public
-// well-known documents carry nothing to leak, so a party fetching one MAY
-// follow up to five redirects, re-pinning the address and re-vetting the
-// scheme at each hop. A longer chain fails the fetch.
+// Redirects: a key directory is never fetched through a redirect. It is served
+// over https at /.well-known/http-message-signatures-directory itself, answers
+// 200 with the media type application/http-message-signatures-directory+json,
+// and a verifier treats a redirect, like any other status, as a discovery
+// failure: its address is the origin the signer committed to in its covered
+// Signature-Agent member. A revocation list and /.well-known/fora.json carry
+// nothing to leak, so a party fetching one MAY follow up to five redirects,
+// re-pinning the address and re-vetting the scheme at each hop. A longer chain
+// fails the fetch.
 //
 // Domainless requesters — an individual agent with no public domain of its
 // own — are accommodated without a protocol change: a registry (operated by
@@ -3678,7 +3686,10 @@ enum Role {
 // JsonWebKey — Inline RFC 7517 JWK object.
 //
 // FORA v1.0 supports Ed25519 only: kty="OKP", crv="Ed25519", alg="EdDSA".
-// Additional curves are a later concern.
+// Additional curves are a later concern. `alg` is the JOSE name RFC 7517 §4.4
+// defines; WG-00 §5.5.1 restricts the member to HTTP Message Signatures names
+// (`ed25519`), a known and deliberate deviation. The RFC 9421 signature
+// parameter `alg` in Signature-Input is a different field and is "ed25519".
 //
 // Time bounds are RFC3339 strings (sortable, ops-debuggable, avoids the
 // JWT nbf/exp collision). At least one key in the served key set (WBAFile.keys)
@@ -4095,8 +4106,12 @@ message WellKnownManifest {
 }
 
 // WBAFile — Pure Web Bot Auth directory served at the WBA-canonical well-known
-// path (/.well-known/http-message-signatures-directory). A JOSE JWK Set per
-// RFC 7517 §5 plus a directory-level revocation pointer. JWKs carry no kid; the
+// path (/.well-known/http-message-signatures-directory), over https, with
+// status 200 and no redirect, as application/http-message-signatures-directory+json.
+// The response is signed once per listed key under
+// tag="http-message-signatures-directory", covering "@authority";req and
+// content-digest. A JOSE JWK Set per RFC 7517 §5 plus a directory-level
+// revocation pointer. JWKs carry no kid; the
 // RFC 9421 keyid is the RFC 7638 JWK Thumbprint. Off-the-shelf WBA verifiers
 // read the `keys` array and ignore FORA's extra members (per-key
 // not_before/not_after, and revocation_url) per RFC 7517 §5.

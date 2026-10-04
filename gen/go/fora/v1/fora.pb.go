@@ -4445,11 +4445,11 @@ type Requester struct {
 	// reads it as the name of that directory, and the rule that binds it depends
 	// on who signed the arriving request:
 	//
-	//   - Direct request. The agent's own RFC 9421 signature arrives: the agent
-	//     sent the request itself, or a relay forwarded it byte-for-byte. The
-	//     verifier resolves the agent's keys from the COVERED `Signature-Agent`
-	//     header, never from this field. It then MUST require this field to name
-	//     that same directory: the host of the `Signature-Agent` URL, compared by
+	//   - Direct request. The agent's own RFC 9421 signature arrives because
+	//     the agent sent the request itself. The verifier resolves the agent's
+	//     keys from the COVERED `Signature-Agent` member, never from this field.
+	//     It then MUST require this field to name that same directory: the host
+	//     of the origin that member names, compared by
 	//     the identity rule "Request recipient" defines (the shape check first,
 	//     then case-folded, an absent port the same as ":443", a subdomain a
 	//     different party). A mismatch is refused as UNAUTHENTICATED with
@@ -4459,13 +4459,13 @@ type Requester struct {
 	//     applies it at BrokerService.ExecuteTransaction.
 	//   - Purchase relayed through a Broker. BrokerService.ExecuteTransaction
 	//     re-packages the purchase, so the request signature and the covered
-	//     `Signature-Agent` are the Broker's. They say only that the call comes
+	//     `Signature-Agent` member are the Broker's. They say only that the call comes
 	//     from the Broker, and they sign no purchase. The Exchange MUST verify
 	//     each item's AgentAcceptance, and the AgentRequestAcceptance, against
 	//     the Ed25519 keys currently valid in the directory this field names
 	//     (see AgentRequestAcceptance), never against the Broker's key. Those
 	//     acceptances are the only agent signatures the Exchange sees.
-	//   - Discovery fan-out. A ResourceQuery a Broker authored carries no agent
+	//   - Broker-led discovery. A ResourceQuery a Broker originated carries no agent
 	//     signature, so nothing on that leg authenticates this field: it is the
 	//     Broker's statement, under the Broker's own signature, of whom it
 	//     queries for.
@@ -4930,12 +4930,11 @@ func (x *AgentAcceptance) GetSignatureAlgorithm() string {
 // signature covered the body the agent sent and does not travel with a
 // projected body; that is expected, not a gap, and it is why this proof
 // exists: like AgentAcceptance, it is a detached body signature that stays
-// valid however the request travels. The hop-signature stack applies only to
-// requests forwarded byte-for-byte. If a delegation rides a projected request,
+// valid however the request travels. If a delegation rides a projected request,
 // the wire signer is the Broker, so the Exchange checks the delegation's holder
 // binding (cnf.jkt) against the key each item's AgentAcceptance verifies under,
-// not against the wire signer (see Delegation). The agent does not need to
-// delegate to the Broker's key for the Broker to relay its purchase.
+// not against the wire signer (see Delegation). A Broker is never delegated to
+// and never becomes the holder.
 //
 // The payload names the requester exactly as AgentAcceptancePayload does, with
 // the same rule: a non-empty requester_id and requester_domain, which a signer
@@ -7585,7 +7584,10 @@ func (x *RequestConstraints) GetMaxHops() int32 {
 // JsonWebKey — Inline RFC 7517 JWK object.
 //
 // FORA v1.0 supports Ed25519 only: kty="OKP", crv="Ed25519", alg="EdDSA".
-// Additional curves are a later concern.
+// Additional curves are a later concern. `alg` is the JOSE name RFC 7517 §4.4
+// defines; WG-00 §5.5.1 restricts the member to HTTP Message Signatures names
+// (`ed25519`), a known and deliberate deviation. The RFC 9421 signature
+// parameter `alg` in Signature-Input is a different field and is "ed25519".
 //
 // Time bounds are RFC3339 strings (sortable, ops-debuggable, avoids the
 // JWT nbf/exp collision). At least one key in the served key set (WBAFile.keys)
@@ -8312,8 +8314,12 @@ func (x *WellKnownManifest) GetExtCritical() []string {
 }
 
 // WBAFile — Pure Web Bot Auth directory served at the WBA-canonical well-known
-// path (/.well-known/http-message-signatures-directory). A JOSE JWK Set per
-// RFC 7517 §5 plus a directory-level revocation pointer. JWKs carry no kid; the
+// path (/.well-known/http-message-signatures-directory), over https, with
+// status 200 and no redirect, as application/http-message-signatures-directory+json.
+// The response is signed once per listed key under
+// tag="http-message-signatures-directory", covering "@authority";req and
+// content-digest. A JOSE JWK Set per RFC 7517 §5 plus a directory-level
+// revocation pointer. JWKs carry no kid; the
 // RFC 9421 keyid is the RFC 7638 JWK Thumbprint. Off-the-shelf WBA verifiers
 // read the `keys` array and ignore FORA's extra members (per-key
 // not_before/not_after, and revocation_url) per RFC 7517 §5.
