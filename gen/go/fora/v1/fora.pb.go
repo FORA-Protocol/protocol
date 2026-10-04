@@ -925,11 +925,15 @@ const (
 	DenialReason_DENIAL_REASON_REPORTING_OVERDUE         DenialReason = 6 // Requester has >20% overdue reports (MAY threshold)
 	DenialReason_DENIAL_REASON_OFFER_EXPIRED             DenialReason = 7 // Offer TTL exceeded
 	// A signature this item depends on does not verify, or does not cover what
-	// arrived: the offer's Exchange signature (Offer.signature), or the agent's
-	// AgentRequestAcceptance over the request's items. A subrequest whose items
-	// are not exactly the agent's signed set projected onto this Exchange (an item
-	// dropped, added or reordered) has every item denied with this reason, in the
-	// body (see AgentRequestAcceptance).
+	// arrived: the offer's Exchange signature (Offer.signature), the item's
+	// AgentAcceptance, or the agent's AgentRequestAcceptance over the request's
+	// items. A subrequest whose items are not exactly the agent's signed set
+	// projected onto this Exchange (an item dropped, added or reordered) has every
+	// item denied with this reason, in the body (see AgentRequestAcceptance). On a
+	// purchase a Broker relayed, an item whose AgentAcceptance does not verify
+	// under the keys the directory requester.domain names publishes is denied with
+	// this reason, in the body, exactly as for the AgentRequestAcceptance: the item
+	// is denied and the whole request is not refused.
 	DenialReason_DENIAL_REASON_SIGNATURE_INVALID  DenialReason = 8
 	DenialReason_DENIAL_REASON_QUOTA_EXCEEDED     DenialReason = 9  // Subscription access count exhausted for this period
 	DenialReason_DENIAL_REASON_DELEGATION_INVALID DenialReason = 10 // Delegation missing, unverifiable, expired, holder binding failed, or scopes/caps do not cover the request
@@ -6806,7 +6810,12 @@ func (x *ReportingObligation) GetExtCritical() []string {
 // What refuses a report. A report that arrives after the transaction's
 // reporting window closed is refused with USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED
 // and the Connect code failed_precondition. A malformed report is refused with
-// USAGE_REPORT_REJECTION_REASON_MALFORMED and the Connect code invalid_argument.
+// USAGE_REPORT_REJECTION_REASON_MALFORMED and the Connect code invalid_argument;
+// a report whose billing_id is not the billing_id of the transaction it names is
+// malformed. A report for a transaction the Exchange recorded under a different
+// agent is answered exactly as a report for an unknown transaction:
+// USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND and the Connect code
+// not_found, so the answer does not reveal that the transaction exists.
 // The reported quantity is unrestricted: no check on it refuses a report (see
 // UsageReportRejectionReason).
 type UsageReport struct {

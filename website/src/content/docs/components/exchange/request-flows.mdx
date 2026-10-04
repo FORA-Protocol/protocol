@@ -774,15 +774,18 @@ func (h *ExchangeHandler) ReportUsage(
             forav1.UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_MALFORMED)
     }
 
-    // 2. Verify transaction exists and billing_id matches
-    txn, err := h.txLog.Lookup(ctx, req.Msg.TransactionId)
+    // 2. Verify the transaction exists FOR THIS AGENT and billing_id matches. A
+    //    transaction recorded under a different agent is answered exactly as an
+    //    unknown one, so the answer does not reveal that it exists. A billing_id
+    //    that is not the transaction's makes the report malformed.
+    txn, err := h.txLog.LookupForAgent(ctx, agentFrom(ctx), req.Msg.TransactionId)
     if err != nil {
-        return nil, connect.NewError(connect.CodeNotFound,
-            fmt.Errorf("transaction %s not found", req.Msg.TransactionId))
+        return nil, usageReportRejected(connect.CodeNotFound,
+            forav1.UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND)
     }
     if txn.BillingID != req.Msg.BillingId {
-        return nil, connect.NewError(connect.CodeInvalidArgument,
-            fmt.Errorf("billing_id mismatch"))
+        return nil, usageReportRejected(connect.CodeInvalidArgument,
+            forav1.UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_MALFORMED)
     }
 
     // 3. Submit to reporting tracker. A rejection is NOT a success body: it

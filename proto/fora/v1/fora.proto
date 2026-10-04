@@ -390,6 +390,12 @@ import "fora/v1/vocab.proto";
 service ExchangeService {
   // Discover available resource offers matching the query.
   // Steps 2-3 in the FORA flow.
+  //
+  // Discovery has no side effects. It creates no transaction, no billing
+  // authorization and no reporting obligation; an agent commits to an offer only
+  // on the execute path (ExecuteTransaction). Discovery is therefore safe to
+  // retry. A transport failure, such as an unreachable Exchange or a timeout, is
+  // the client's concern: the protocol defines no transient-failure code for it.
   rpc DiscoverResources(ResourceQuery) returns (ResourceResponse);
 
   // Commit to an offer and receive delivery information.
@@ -2740,11 +2746,15 @@ enum DenialReason {
   DENIAL_REASON_REPORTING_OVERDUE = 6;    // Requester has >20% overdue reports (MAY threshold)
   DENIAL_REASON_OFFER_EXPIRED = 7;        // Offer TTL exceeded
   // A signature this item depends on does not verify, or does not cover what
-  // arrived: the offer's Exchange signature (Offer.signature), or the agent's
-  // AgentRequestAcceptance over the request's items. A subrequest whose items
-  // are not exactly the agent's signed set projected onto this Exchange (an item
-  // dropped, added or reordered) has every item denied with this reason, in the
-  // body (see AgentRequestAcceptance).
+  // arrived: the offer's Exchange signature (Offer.signature), the item's
+  // AgentAcceptance, or the agent's AgentRequestAcceptance over the request's
+  // items. A subrequest whose items are not exactly the agent's signed set
+  // projected onto this Exchange (an item dropped, added or reordered) has every
+  // item denied with this reason, in the body (see AgentRequestAcceptance). On a
+  // purchase a Broker relayed, an item whose AgentAcceptance does not verify
+  // under the keys the directory requester.domain names publishes is denied with
+  // this reason, in the body, exactly as for the AgentRequestAcceptance: the item
+  // is denied and the whole request is not refused.
   DENIAL_REASON_SIGNATURE_INVALID = 8;
   DENIAL_REASON_QUOTA_EXCEEDED = 9;       // Subscription access count exhausted for this period
   DENIAL_REASON_DELEGATION_INVALID = 10;  // Delegation missing, unverifiable, expired, holder binding failed, or scopes/caps do not cover the request
@@ -3338,7 +3348,12 @@ message ReportingObligation {
 // What refuses a report. A report that arrives after the transaction's
 // reporting window closed is refused with USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED
 // and the Connect code failed_precondition. A malformed report is refused with
-// USAGE_REPORT_REJECTION_REASON_MALFORMED and the Connect code invalid_argument.
+// USAGE_REPORT_REJECTION_REASON_MALFORMED and the Connect code invalid_argument;
+// a report whose billing_id is not the billing_id of the transaction it names is
+// malformed. A report for a transaction the Exchange recorded under a different
+// agent is answered exactly as a report for an unknown transaction:
+// USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND and the Connect code
+// not_found, so the answer does not reveal that the transaction exists.
 // The reported quantity is unrestricted: no check on it refuses a report (see
 // UsageReportRejectionReason).
 message UsageReport {

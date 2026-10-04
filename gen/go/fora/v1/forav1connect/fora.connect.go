@@ -106,6 +106,12 @@ const (
 type ExchangeServiceClient interface {
 	// Discover available resource offers matching the query.
 	// Steps 2-3 in the FORA flow.
+	//
+	// Discovery has no side effects. It creates no transaction, no billing
+	// authorization and no reporting obligation; an agent commits to an offer only
+	// on the execute path (ExecuteTransaction). Discovery is therefore safe to
+	// retry. A transport failure, such as an unreachable Exchange or a timeout, is
+	// the client's concern: the protocol defines no transient-failure code for it.
 	DiscoverResources(context.Context, *connect.Request[v1.ResourceQuery]) (*connect.Response[v1.ResourceResponse], error)
 	// Commit to an offer and receive delivery information.
 	// Steps 4-5 in the FORA flow.
@@ -281,6 +287,12 @@ func (c *exchangeServiceClient) GetAccountStatus(ctx context.Context, req *conne
 type ExchangeServiceHandler interface {
 	// Discover available resource offers matching the query.
 	// Steps 2-3 in the FORA flow.
+	//
+	// Discovery has no side effects. It creates no transaction, no billing
+	// authorization and no reporting obligation; an agent commits to an offer only
+	// on the execute path (ExecuteTransaction). Discovery is therefore safe to
+	// retry. A transport failure, such as an unreachable Exchange or a timeout, is
+	// the client's concern: the protocol defines no transient-failure code for it.
 	DiscoverResources(context.Context, *connect.Request[v1.ResourceQuery]) (*connect.Response[v1.ResourceResponse], error)
 	// Commit to an offer and receive delivery information.
 	// Steps 4-5 in the FORA flow.

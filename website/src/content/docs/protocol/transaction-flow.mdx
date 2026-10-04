@@ -34,6 +34,8 @@ Multi-hop is the common case, not the exception. A request typically travels `Ag
 
 The agent or Broker queries the Exchange to discover available content and pricing.
 
+Discovery has no side effects: it creates no transaction, no billing authorization and no reporting obligation. An agent commits to an offer only on the execute path, with `ExecuteTransaction`. Discovery is therefore safe to retry. A transport failure, such as an unreachable Exchange or a timeout, is the client's concern, and the protocol defines no transient-failure code for it.
+
 ```
 POST /fora.v1.ExchangeService/DiscoverResources
 Content-Type: application/json
@@ -507,9 +509,9 @@ Content-Type: application/json
 
 The Broker re-packages the purchase:
 
-1. It verifies the agent's request signature, and checks that `requester.domain` is the agent's verified signing directory (the host of the WBA directory the covered `Signature-Agent` header names).
+1. It verifies the agent's request signature, and checks that `requester.domain` is the agent's verified signing directory (the host of the origin the agent's covered `Signature-Agent` member names).
 2. It groups the items by each signed offer's `exchange`. It checks that it can route to each Exchange and approves it for purchases before it sends anything.
-3. It sends one `ExchangeService.ExecuteTransaction` per Exchange, signed with **its own** key. Each sub-request carries that Exchange's items in request order with their acceptances, the agent's `AgentRequestAcceptance` unchanged, the agent's `requester` and the agent's `idempotency_key` unchanged. Each Exchange verifies the agent's consent from the body, against the keys in the directory `requester.domain` names: the Broker's signature says only that the call comes from the Broker, and the acceptances are the only agent signatures the Exchange sees.
+3. It sends one `ExchangeService.ExecuteTransaction` per Exchange, signed with **its own** key. Each sub-request carries that Exchange's items in request order with their acceptances, the agent's `AgentRequestAcceptance` unchanged, the agent's `requester` and the agent's `idempotency_key` unchanged. Each Exchange verifies the agent's consent from the body, against the keys in the directory `requester.domain` names: the Broker's signature says only that the call comes from the Broker, and the acceptances are the only agent signatures the Exchange sees. An item whose `AgentAcceptance` does not verify under those keys is denied in the body with `DENIAL_REASON_SIGNATURE_INVALID`, as for the `AgentRequestAcceptance`; the whole request is not refused.
 4. It combines the answers into one `BrokerTransactionResponse`.
 
 Re-packaging and combining are safe because each item is atomic and its integrity is per resource. Each offer carries the signature of the Exchange that issued it, covering price, terms, expiry and `exchange`. Each acceptance binds the agent to that one offer, the requester and the idempotency key. Each item's result comes from the Exchange that owns the resource. The Broker therefore assembles independent per-resource purchases, and it cannot change what an item buys, from whom, at what price or for whom without breaking that offer's signature or the agent's acceptance. The `AgentRequestAcceptance` also stops it dropping, adding or reordering items within one Exchange's sub-request. No cross-item integrity is needed. On the response side, the one signed value in a result item is `retrieval_endpoint`, which the issuing Exchange signed. The other fields are the Broker's unsigned report of what each Exchange answered; the charge itself is still bounded by the signed offer the Exchange verified.
@@ -640,7 +642,7 @@ A successful response carries the Exchange-assigned `report_id` (the handle the 
 1. The report is well formed. A malformed report is refused with `USAGE_REPORT_REJECTION_REASON_MALFORMED` and the Connect code `invalid_argument`
 2. Required fields present (as defined by `ReportingObligation.required_fields`)
 3. Report received within the reporting window (typically 24 hours). A report that arrives after the window closed is refused with `USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED` and the Connect code `failed_precondition`: the typed reason names the time cause
-4. Transaction exists and `billing_id` matches
+4. The transaction exists for this agent, and `billing_id` matches. A report whose `billing_id` is not the transaction's is malformed: `USAGE_REPORT_REJECTION_REASON_MALFORMED`, `invalid_argument`. A report for a transaction recorded under a different agent is answered exactly as for an unknown transaction, `USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND` with `not_found`, so the answer does not reveal that the transaction exists
 
 **The reported quantity is unrestricted.** A consumed quantity that differs from the offer's estimate is **not** a validation failure, above or below, and no check on the quantity refuses a report. The report is a record of the quantity consumed. Monitoring how far reports fall from estimates is the Exchange operator's own business, not part of the protocol.
 
