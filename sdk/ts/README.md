@@ -72,16 +72,11 @@ URL, bytes and media type; the license reader also verifies the bytes against
 publisher manifest lists (`listed`, `unlisted` or `no_exchange`; the manifest wins). The
 header names are `ContentRulesHeader` and `ExchangeHeader` in `@fora-protocol/sdk/wire`.
 
-`@fora-protocol/sdk/money` settles a metered purchase. A `PER_UNIT` offer may carry an
-estimate. Without one there is no ceiling, and its usage report settles at consumed ×
-rate. With one, the report settles within the price's tolerance (10% unless the term
-states one); the excess is held for dispute, never charged.
-`meteredSettlementCap(offer.pricing)` is the most a purchase is charged without a
-dispute, or `undefined` when the price states no estimate, and
-`settleMeteredUsage(offer.pricing, consumed)` returns the accepted, ceiling, charged and
-held amounts, exact on BigInt (the accepted and ceiling amounts are `undefined` without
-an estimate). `checkMeteredEstimate(offer)` throws on a metered offer whose stated
-estimate is not positive, and the offer `Verifier` rejects such an offer.
+`@fora-protocol/sdk/money` holds the metered-offer checks. A `PER_UNIT` offer may carry an
+estimate. The purchase charges estimate × rate, or one unit's rate without an estimate,
+and the charge is final. `isMeteredOffer(offer)` says whether an offer is metered, and
+`checkMeteredEstimate(offer)` throws on a metered offer whose stated estimate is not
+positive; the offer `Verifier` rejects such an offer.
 An offer's price is `offer.pricing`, and the term it sells carries none:
 `checkOfferTermsUnpriced(offer)` throws on a priced term, `signOffer` refuses to sign such
 an offer, and the `Verifier` rejects one.

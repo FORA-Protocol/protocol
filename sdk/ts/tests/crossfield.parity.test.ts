@@ -143,18 +143,6 @@ const validInstances: { name: string; message: string; json: unknown }[] = [
     json: { model: "PRICING_MODEL_FREE", rate: "0" },
   },
   {
-    // Pricing.estimate_tolerance.requires_per_unit: a tolerance on a PER_UNIT price
-    // satisfies it, an explicit 0 included.
-    name: "Pricing PER_UNIT with zero tolerance",
-    message: "Pricing",
-    json: {
-      model: "PRICING_MODEL_PER_UNIT",
-      rate: "0.00002",
-      unit: "tokens",
-      estimate_tolerance_bps: 0,
-    },
-  },
-  {
     // Offer.metered.estimate_positive: a metered offer with a positive estimate on its
     // own pricing satisfies it, even when the pushed term carries none.
     name: "Offer metered with estimate",
@@ -201,7 +189,7 @@ const validInstances: { name: string; message: string; json: unknown }[] = [
   },
   {
     // Offer.metered.estimate_positive: a metered offer may state no estimate at all;
-    // it then settles at consumed x rate with no ceiling.
+    // the purchase then charges one unit.
     name: "Offer metered without estimate",
     message: "Offer",
     json: {

@@ -142,9 +142,6 @@ function obligationRules(o: Obj): string[] {
  * Pricing rules:
  *  - per_unit.requires_unit: `this.model != PER_UNIT || this.unit != ''`
  *  - free.zero_rate: `this.model != FREE || this.rate == '' || this.rate.matches('^0+([.]0+)?$')`
- *  - estimate_tolerance.requires_per_unit:
- *    `!has(this.estimate_tolerance_bps) || this.model == PER_UNIT`. The field is
- *    proto3 optional, so a present 0 counts as set, as `has()` does.
  */
 function pricingRules(o: Obj): string[] {
   const out: string[] = [];
@@ -157,10 +154,6 @@ function pricingRules(o: Obj): string[] {
     if (rate !== "" && !/^0+([.]0+)?$/.test(rate)) {
       out.push("pricing.free.zero_rate");
     }
-  }
-  const tolerance = field(o, "estimate_tolerance_bps");
-  if (tolerance !== undefined && tolerance !== null && model !== PRICING_MODEL_PER_UNIT) {
-    out.push("pricing.estimate_tolerance.requires_per_unit");
   }
   return out;
 }

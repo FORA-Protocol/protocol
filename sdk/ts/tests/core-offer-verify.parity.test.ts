@@ -97,7 +97,7 @@ describe("sdk/ts/core Verifier offer-verify matches the shared JCS oracle matrix
     // before a port can drift on either side.
     const names = new Set(vectors.vectors.map((v) => v.name));
     for (const required of [
-      "metered_with_estimate_and_tolerance",
+      "metered_with_estimate",
       "metered_without_estimate",
       "metered_zero_estimate",
       "metered_term_estimate_only",
