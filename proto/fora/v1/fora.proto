@@ -1938,12 +1938,6 @@ message Pricing {
   // NONE = one-time perpetual sale; no ReportUsage required after ExecuteTransaction.
   // OFFLINE_SELF_REPORTED = agent self-reports physical-world consumption.
   optional PricingMetering metering = 9;
-
-  // Field 10 was estimate_tolerance_bps, a tolerance on the estimate that an
-  // unreleased draft of this version defined. It is removed, and its number and
-  // name stay reserved.
-  reserved 10;
-  reserved "estimate_tolerance_bps";
 }
 
 // PricingModel — the charging STRUCTURE only (a genuinely closed, small set;

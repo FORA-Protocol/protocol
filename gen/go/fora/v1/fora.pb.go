@@ -11042,7 +11042,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x06_widthB\t\n" +
 	"\a_heightB\v\n" +
 	"\t_durationB\a\n" +
-	"\x05_size\"\xe6\b\n" +
+	"\x05_size\"\xc8\b\n" +
 	"\aPricing\x125\n" +
 	"\x05model\x18\x01 \x01(\x0e2\x15.fora.v1.PricingModelB\b\xbaH\x05\x82\x01\x02 \x00R\x05model\x124\n" +
 	"\x04rate\x18\x02 \x01(\tB \xbaH\x1dr\x1b\x18 2\x17^([0-9]+([.][0-9]+)?)?$R\x04rate\x12\x1a\n" +
@@ -11060,8 +11060,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x13_estimated_quantityB\x1a\n" +
 	"\x18_license_duration_monthsB\a\n" +
 	"\x05_unitB\v\n" +
-	"\t_meteringJ\x04\b\n" +
-	"\x10\vR\x16estimate_tolerance_bps\"\x8e\x04\n" +
+	"\t_metering\"\x8e\x04\n" +
 	"\tRequester\x12\x1a\n" +
 	"\x02id\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x02id\x12\xd3\x01\n" +

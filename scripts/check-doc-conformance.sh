@@ -128,8 +128,8 @@ patterns=(
   'offer\.metered\.requires_estimate' 'ErrMeteredEstimateMissing'
   # A metered purchase's charge is final: estimate x rate, or one unit's rate.
   # estimate_tolerance_bps and the settlement on the usage report were removed
-  # before any release, with the SDK helpers that computed it. The field name
-  # itself stays legal: the proto reserves it, and the reference page says so.
+  # before any release, with the SDK helpers that computed it. The field was
+  # never released, so the proto does not reserve its number or name.
   'pricing\.estimate_tolerance\.requires_per_unit' '"?estimate_tolerance_bps"?[[:space:]]*:'
   'estimateTolerance' 'EstimateToleranceBps' 'MeteredSettlement'
   'metered_settlement' 'meteredSettlement' 'SettleMeteredUsage' 'settle_metered_usage'
