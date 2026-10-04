@@ -670,7 +670,7 @@ A `PER_UNIT` price is metered: it is charged per unit consumed, and the quantity
 | E < C ≤ Q (within the tolerance) | C × R | nothing |
 | C > Q (above the ceiling) | Q × R | (C − Q) × R |
 
-The quantity above the ceiling is held, never charged automatically: nothing above Q × R is charged unless dispute resolution establishes that it is owed. Q × R is therefore the most an estimated metered purchase costs without a dispute, and the amount an agent budgets against a spend cap. Q can be fractional, and every step is exact decimal arithmetic: the inputs are integers and decimal strings, and the only division is by 10000.
+The quantity above the ceiling is held, never charged automatically: nothing above Q × R is charged unless dispute resolution establishes that it is owed. Q × R is therefore the most an estimated metered purchase costs without a dispute. Q can be fractional, and every step is exact decimal arithmetic: the inputs are integers and decimal strings, and the only division is by 10000.
 
 With the offer above (E = 2,500 tokens, R = $0.00002, no stated tolerance, so Q = 2,750):
 

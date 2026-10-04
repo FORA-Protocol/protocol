@@ -155,15 +155,13 @@ const (
 	// The unrecognized keys SHOULD be listed in the OfferGroup's ext field
 	// under "unrecognized_critical_extensions" for diagnostic purposes.
 	OfferAbsenceReason_OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION OfferAbsenceReason = 7
-	// Offers exist, but buying any of them would exceed the agent's budget, so
-	// BrokerService.Resolve filtered every one out: its price is above
-	// RequestConstraints.max_price, or it would take the budget_scope's spend past
-	// RequestConstraints.period_budget. Resolve returns this as a successful "no
-	// result" answer, on OfferGroup.absence_reason for a URI the budget left with
-	// no offer and on DiscoveryResponse.absence_reason when it left none at all.
-	// It is the only way a budget is reported: never as NOT_AUTHORIZED, and never
-	// as a non-OK error such as RESOURCE_EXHAUSTED. The full rule, including what
-	// counts as spend, is on BrokerService.Resolve.
+	// Offers exist, but the agent's budget (RequestConstraints) left every one
+	// out: BrokerService.Resolve applied the budget as a filter and no offer
+	// remained. Resolve returns this as a successful "no result" answer, on
+	// OfferGroup.absence_reason for a URI the budget left with no offer and on
+	// DiscoveryResponse.absence_reason when it left none at all. It is the only
+	// way a budget is reported: never as NOT_AUTHORIZED, and never as a non-OK
+	// error such as RESOURCE_EXHAUSTED (see BrokerService.Resolve).
 	OfferAbsenceReason_OFFER_ABSENCE_REASON_BUDGET_EXCEEDED OfferAbsenceReason = 8
 )
 
@@ -4259,8 +4257,7 @@ func (x *Preview) GetSize() string {
 // gives Q = 16.5), and the arithmetic is exact decimal: every input is an
 // integer or a decimal string, and the only division is by 10000, so no step
 // rounds. Q × R is therefore the most a metered purchase can be charged
-// without a dispute, and it is the amount an agent budgets against a spend
-// cap.
+// without a dispute.
 //
 // The report that settles is the one UsageReport a transaction accepts. A
 // metered price whose metering is PRICING_METERING_NONE has no report, so
@@ -7391,10 +7388,7 @@ type RequestConstraints struct {
 	// not an address — the recipient of the request carrying it is a separate
 	// question.
 	Exchanges []string `protobuf:"bytes,1,rep,name=exchanges,proto3" json:"exchanges,omitempty"`
-	// Maximum price the agent is willing to pay for one offer.
-	// BrokerService.Resolve filters out an offer priced above it, with
-	// OFFER_ABSENCE_REASON_BUDGET_EXCEEDED when no offer for a URI remains (see
-	// BrokerService.Resolve).
+	// Maximum price the agent is willing to pay.
 	MaxPrice *Cost `protobuf:"bytes,2,opt,name=max_price,json=maxPrice,proto3,oneof" json:"max_price,omitempty"`
 	// Maximum effective cost per unit, as an exact decimal string (not a float).
 	MaxUnitCost *string `protobuf:"bytes,3,opt,name=max_unit_cost,json=maxUnitCost,proto3,oneof" json:"max_unit_cost,omitempty"`
@@ -7406,20 +7400,13 @@ type RequestConstraints struct {
 	// contracts). The Broker SHOULD prefer these when resource is
 	// available — subscription resource has zero marginal cost.
 	PreferredExchanges []string `protobuf:"bytes,6,rep,name=preferred_exchanges,json=preferredExchanges,proto3" json:"preferred_exchanges,omitempty"`
-	// Budget scope identifier for per-period tracking.
+	// Budget scope identifier: whose budget this is.
 	// E.g. "user:u-12345" for per-user budgets, "team:eng" for per-team.
-	// The Broker tracks the spend of each scope across sessions. Spend grows only
-	// from purchase totals; a Resolve is never spend (see BrokerService.Resolve).
 	BudgetScope *string `protobuf:"bytes,7,opt,name=budget_scope,json=budgetScope,proto3,oneof" json:"budget_scope,omitempty"`
-	// Per-period budget limit for the budget_scope. BrokerService.Resolve filters
-	// out every offer that would take the scope's spend in the current
-	// budget_period past this limit, and answers a URI left with no offer with
-	// OFFER_ABSENCE_REASON_BUDGET_EXCEEDED. The budget filters offers; it is not a
-	// denial, and Resolve neither charges against it nor counts as spend (see
-	// BrokerService.Resolve).
+	// Per-period budget limit for the budget_scope.
 	PeriodBudget *Cost `protobuf:"bytes,8,opt,name=period_budget,json=periodBudget,proto3,oneof" json:"period_budget,omitempty"`
 	// Budget period (e.g. "2592000s" = 30 days; proto-JSON encodes Duration
-	// as seconds). Resets at period boundary.
+	// as seconds).
 	BudgetPeriod *durationpb.Duration `protobuf:"bytes,9,opt,name=budget_period,json=budgetPeriod,proto3,oneof" json:"budget_period,omitempty"`
 	// Maximum acceptable age of resource data. The Broker SHOULD
 	// exclude offers where (now - Offer.data_as_of) exceeds this duration.

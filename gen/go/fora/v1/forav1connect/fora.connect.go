@@ -595,23 +595,17 @@ type BrokerServiceClient interface {
 	// like malformed requests and internal faults, are non-OK transport errors
 	// carrying an ErrorDetail.
 	//
-	// Budget. Resolve applies the agent's budget (RequestConstraints) as a filter
-	// over the offers it returns. It drops every offer whose price is above
-	// max_price, and every offer that would take the spend of budget_scope in the
-	// current budget_period past period_budget. The price it compares is the most
-	// the offer can be charged without a dispute: for a metered offer that is the
-	// ceiling amount Q × R (see Pricing). An offer the budget drops is not
-	// returned; a URI the budget leaves with no offer is answered with
+	// Budget. Resolve may apply the agent's budget (RequestConstraints) as a
+	// filter over the offers it returns. How the budget is computed is the
+	// Broker's own behaviour, and the protocol does not specify it. What the
+	// protocol fixes is how its effect is reported: an offer the budget leaves
+	// out is not returned, a URI the budget leaves with no offer is answered with
 	// OFFER_ABSENCE_REASON_BUDGET_EXCEEDED, and so is the whole resolve when the
 	// budget leaves no offer at all. A budget is never reported as
 	// OFFER_ABSENCE_REASON_NOT_AUTHORIZED and never as a non-OK error such as
 	// RESOURCE_EXHAUSTED.
 	//
-	// Resolve never charges and never counts as spend: returning an offer
-	// reserves nothing, and an offer the agent never buys costs it nothing. The
-	// spend a budget is measured against grows only from purchase totals, the
-	// amounts charged for purchased items — for a purchase through the Broker,
-	// BrokerTransactionResponse.totals.
+	// Resolve never charges: returning an offer reserves nothing.
 	Resolve(context.Context, *connect.Request[v1.DiscoveryRequest]) (*connect.Response[v1.DiscoveryResponse], error)
 	// ExecuteTransaction buys one or more offers, issued by one or more Exchanges,
 	// in one call. The request is the TransactionRequest an agent would send an
@@ -762,23 +756,17 @@ type BrokerServiceHandler interface {
 	// like malformed requests and internal faults, are non-OK transport errors
 	// carrying an ErrorDetail.
 	//
-	// Budget. Resolve applies the agent's budget (RequestConstraints) as a filter
-	// over the offers it returns. It drops every offer whose price is above
-	// max_price, and every offer that would take the spend of budget_scope in the
-	// current budget_period past period_budget. The price it compares is the most
-	// the offer can be charged without a dispute: for a metered offer that is the
-	// ceiling amount Q × R (see Pricing). An offer the budget drops is not
-	// returned; a URI the budget leaves with no offer is answered with
+	// Budget. Resolve may apply the agent's budget (RequestConstraints) as a
+	// filter over the offers it returns. How the budget is computed is the
+	// Broker's own behaviour, and the protocol does not specify it. What the
+	// protocol fixes is how its effect is reported: an offer the budget leaves
+	// out is not returned, a URI the budget leaves with no offer is answered with
 	// OFFER_ABSENCE_REASON_BUDGET_EXCEEDED, and so is the whole resolve when the
 	// budget leaves no offer at all. A budget is never reported as
 	// OFFER_ABSENCE_REASON_NOT_AUTHORIZED and never as a non-OK error such as
 	// RESOURCE_EXHAUSTED.
 	//
-	// Resolve never charges and never counts as spend: returning an offer
-	// reserves nothing, and an offer the agent never buys costs it nothing. The
-	// spend a budget is measured against grows only from purchase totals, the
-	// amounts charged for purchased items — for a purchase through the Broker,
-	// BrokerTransactionResponse.totals.
+	// Resolve never charges: returning an offer reserves nothing.
 	Resolve(context.Context, *connect.Request[v1.DiscoveryRequest]) (*connect.Response[v1.DiscoveryResponse], error)
 	// ExecuteTransaction buys one or more offers, issued by one or more Exchanges,
 	// in one call. The request is the TransactionRequest an agent would send an

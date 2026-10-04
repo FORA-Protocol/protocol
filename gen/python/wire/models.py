@@ -857,11 +857,11 @@ class RequestAuthFailureReason(Enum):
 class RequestConstraints(WireModel):
     budget_period: str | None = Field(
         None,
-        description='Budget period (e.g. "2592000s" = 30 days; proto-JSON encodes Duration\n as seconds). Resets at period boundary.',
+        description='Budget period (e.g. "2592000s" = 30 days; proto-JSON encodes Duration\n as seconds).',
     )
     budget_scope: str | None = Field(
         None,
-        description='Budget scope identifier for per-period tracking.\n E.g. "user:u-12345" for per-user budgets, "team:eng" for per-team.\n The Broker tracks the spend of each scope across sessions. Spend grows only\n from purchase totals; a Resolve is never spend (see BrokerService.Resolve).',
+        description='Budget scope identifier: whose budget this is.\n E.g. "user:u-12345" for per-user budgets, "team:eng" for per-team.',
     )
     delivery_preference: list[DeliveryMethod] | None = Field(
         None, description='Preferred delivery methods, in order of preference.'
@@ -887,8 +887,7 @@ class RequestConstraints(WireModel):
         description="Maximum forwarding hops the agent will allow (Agent → Broker → … →\n Exchange), counted as the number of RFC 9421 HTTP Message Signatures on the\n request. Caps chain depth so a request is not relayed through more brokers\n than the agent is willing to trust or pay. A Broker MUST NOT forward a\n request whose signature count would exceed this. Absent = agent imposes no\n cap (the Exchange's max_intermediary_hops still applies).",
     )
     max_price: Cost | None = Field(
-        None,
-        description='Maximum price the agent is willing to pay for one offer.\n BrokerService.Resolve filters out an offer priced above it, with\n OFFER_ABSENCE_REASON_BUDGET_EXCEEDED when no offer for a URI remains (see\n BrokerService.Resolve).',
+        None, description='Maximum price the agent is willing to pay.'
     )
     max_unit_cost: constr(pattern=r'^([0-9]+([.][0-9]+)?)?$', max_length=32) | None = (
         Field(
@@ -897,8 +896,7 @@ class RequestConstraints(WireModel):
         )
     )
     period_budget: Cost | None = Field(
-        None,
-        description="Per-period budget limit for the budget_scope. BrokerService.Resolve filters\n out every offer that would take the scope's spend in the current\n budget_period past this limit, and answers a URI left with no offer with\n OFFER_ABSENCE_REASON_BUDGET_EXCEEDED. The budget filters offers; it is not a\n denial, and Resolve neither charges against it nor counts as spend (see\n BrokerService.Resolve).",
+        None, description='Per-period budget limit for the budget_scope.'
     )
     preferred_exchanges: (
         list[

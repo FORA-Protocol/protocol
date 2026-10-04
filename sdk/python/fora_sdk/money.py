@@ -263,7 +263,7 @@ def _metered_terms(pricing: Mapping[str, Any]) -> tuple[Decimal | None, Decimal,
 
 def metered_settlement_cap(pricing: Mapping[str, Any]) -> str | None:
     """Q x R for a metered price: the most a purchase under it is charged without a
-    dispute, and the amount an agent budgets against a spend cap.
+    dispute.
 
     ``None`` when the price states no estimate: it then has no ceiling, and nothing in
     it bounds the charge. Raises ``ValueError`` for a price that is not PER_UNIT,

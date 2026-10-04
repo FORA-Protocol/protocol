@@ -83,13 +83,15 @@ collision. The same key with the same request is a replay answered from the stor
 The same key with a different request (for a purchase, different items or another order)
 is refused with the Connect code `already_exists` and an `ErrorDetail` with no typed reason.
 
-**`BrokerService.Resolve` filters offers over the agent's budget (comments only).**
-`Resolve` drops every offer priced above `max_price` or that would take the `budget_scope`'s
-spend past `period_budget`, comparing the most the offer can be charged without a dispute
-(Q × R for a metered offer). A URI left with no offer is answered with
-`OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`, never `NOT_AUTHORIZED` and never an error such as
-`RESOURCE_EXHAUSTED`. `Resolve` never charges and never counts as spend; spend grows only
-from purchase totals. `period_budget` no longer says transactions are denied.
+**`BrokerService.Resolve` reports a budget as `BUDGET_EXCEEDED` (comments only).**
+`Resolve` may apply the agent's budget (`RequestConstraints`) as a filter over the offers it
+returns. How the budget is computed is the Broker's own behaviour, and the protocol does
+not specify it: which price an offer is compared at, and how spend is counted, are left to
+the party that applies the budget. What the protocol fixes is the report: a URI left with
+no offer is answered with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`, never `NOT_AUTHORIZED`
+and never an error such as `RESOURCE_EXHAUSTED`, and `Resolve` never charges. The
+`RequestConstraints` budget fields keep plain meanings, and `period_budget` no longer says
+transactions are denied.
 
 **`TransactionResponse.total_cost` is unset when the items span currencies (comments
 only).** It is the exact sum of the purchased items' costs in their one shared currency,

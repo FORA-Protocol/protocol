@@ -309,8 +309,7 @@ function meteredTerms(pricing: Record<string, unknown>): {
 
 /**
  * meteredSettlementCap returns Q x R for a metered price: the most a purchase
- * under it is charged without a dispute, and the amount an agent budgets against
- * a spend cap. Undefined when the price states no estimate: it then has no
+ * under it is charged without a dispute. Undefined when the price states no estimate: it then has no
  * ceiling, and nothing in it bounds the charge. Throws for a price that is not
  * PER_UNIT, states an estimate that is not positive, carries no valid rate, or
  * states a tolerance outside 0..10000.

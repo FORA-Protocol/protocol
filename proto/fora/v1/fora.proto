@@ -653,15 +653,13 @@ enum OfferAbsenceReason {
   // under "unrecognized_critical_extensions" for diagnostic purposes.
   OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION = 7;
 
-  // Offers exist, but buying any of them would exceed the agent's budget, so
-  // BrokerService.Resolve filtered every one out: its price is above
-  // RequestConstraints.max_price, or it would take the budget_scope's spend past
-  // RequestConstraints.period_budget. Resolve returns this as a successful "no
-  // result" answer, on OfferGroup.absence_reason for a URI the budget left with
-  // no offer and on DiscoveryResponse.absence_reason when it left none at all.
-  // It is the only way a budget is reported: never as NOT_AUTHORIZED, and never
-  // as a non-OK error such as RESOURCE_EXHAUSTED. The full rule, including what
-  // counts as spend, is on BrokerService.Resolve.
+  // Offers exist, but the agent's budget (RequestConstraints) left every one
+  // out: BrokerService.Resolve applied the budget as a filter and no offer
+  // remained. Resolve returns this as a successful "no result" answer, on
+  // OfferGroup.absence_reason for a URI the budget left with no offer and on
+  // DiscoveryResponse.absence_reason when it left none at all. It is the only
+  // way a budget is reported: never as NOT_AUTHORIZED, and never as a non-OK
+  // error such as RESOURCE_EXHAUSTED (see BrokerService.Resolve).
   OFFER_ABSENCE_REASON_BUDGET_EXCEEDED = 8;
 }
 
@@ -1862,8 +1860,7 @@ message Preview {
 // gives Q = 16.5), and the arithmetic is exact decimal: every input is an
 // integer or a decimal string, and the only division is by 10000, so no step
 // rounds. Q × R is therefore the most a metered purchase can be charged
-// without a dispute, and it is the amount an agent budgets against a spend
-// cap.
+// without a dispute.
 //
 // The report that settles is the one UsageReport a transaction accepts. A
 // metered price whose metering is PRICING_METERING_NONE has no report, so
@@ -1891,8 +1888,8 @@ message Pricing {
   };
   // A tolerance bounds the settlement of a metered price, so it means nothing
   // on a FREE or FLAT one. Stating it there is an authoring error rather than a
-  // harmless extra: an agent reading it would budget for a settlement that
-  // never happens.
+  // harmless extra: an agent reading it would expect a settlement that never
+  // happens.
   option (buf.validate.message).cel = {
     id: "pricing.estimate_tolerance.requires_per_unit"
     message: "estimate_tolerance_bps is allowed only when model is PER_UNIT"
@@ -2900,23 +2897,17 @@ service BrokerService {
   // like malformed requests and internal faults, are non-OK transport errors
   // carrying an ErrorDetail.
   //
-  // Budget. Resolve applies the agent's budget (RequestConstraints) as a filter
-  // over the offers it returns. It drops every offer whose price is above
-  // max_price, and every offer that would take the spend of budget_scope in the
-  // current budget_period past period_budget. The price it compares is the most
-  // the offer can be charged without a dispute: for a metered offer that is the
-  // ceiling amount Q × R (see Pricing). An offer the budget drops is not
-  // returned; a URI the budget leaves with no offer is answered with
+  // Budget. Resolve may apply the agent's budget (RequestConstraints) as a
+  // filter over the offers it returns. How the budget is computed is the
+  // Broker's own behaviour, and the protocol does not specify it. What the
+  // protocol fixes is how its effect is reported: an offer the budget leaves
+  // out is not returned, a URI the budget leaves with no offer is answered with
   // OFFER_ABSENCE_REASON_BUDGET_EXCEEDED, and so is the whole resolve when the
   // budget leaves no offer at all. A budget is never reported as
   // OFFER_ABSENCE_REASON_NOT_AUTHORIZED and never as a non-OK error such as
   // RESOURCE_EXHAUSTED.
   //
-  // Resolve never charges and never counts as spend: returning an offer
-  // reserves nothing, and an offer the agent never buys costs it nothing. The
-  // spend a budget is measured against grows only from purchase totals, the
-  // amounts charged for purchased items — for a purchase through the Broker,
-  // BrokerTransactionResponse.totals.
+  // Resolve never charges: returning an offer reserves nothing.
   rpc Resolve(DiscoveryRequest) returns (DiscoveryResponse);
 
   // ExecuteTransaction buys one or more offers, issued by one or more Exchanges,
@@ -3578,10 +3569,7 @@ message RequestConstraints {
     }
   ];
 
-  // Maximum price the agent is willing to pay for one offer.
-  // BrokerService.Resolve filters out an offer priced above it, with
-  // OFFER_ABSENCE_REASON_BUDGET_EXCEEDED when no offer for a URI remains (see
-  // BrokerService.Resolve).
+  // Maximum price the agent is willing to pay.
   optional Cost max_price = 2;
 
   // Maximum effective cost per unit, as an exact decimal string (not a float).
@@ -3603,22 +3591,15 @@ message RequestConstraints {
     }
   ];
 
-  // Budget scope identifier for per-period tracking.
+  // Budget scope identifier: whose budget this is.
   // E.g. "user:u-12345" for per-user budgets, "team:eng" for per-team.
-  // The Broker tracks the spend of each scope across sessions. Spend grows only
-  // from purchase totals; a Resolve is never spend (see BrokerService.Resolve).
   optional string budget_scope = 7;
 
-  // Per-period budget limit for the budget_scope. BrokerService.Resolve filters
-  // out every offer that would take the scope's spend in the current
-  // budget_period past this limit, and answers a URI left with no offer with
-  // OFFER_ABSENCE_REASON_BUDGET_EXCEEDED. The budget filters offers; it is not a
-  // denial, and Resolve neither charges against it nor counts as spend (see
-  // BrokerService.Resolve).
+  // Per-period budget limit for the budget_scope.
   optional Cost period_budget = 8;
 
   // Budget period (e.g. "2592000s" = 30 days; proto-JSON encodes Duration
-  // as seconds). Resets at period boundary.
+  // as seconds).
   optional google.protobuf.Duration budget_period = 9;
 
   // Maximum acceptable age of resource data. The Broker SHOULD

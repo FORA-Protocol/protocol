@@ -181,7 +181,7 @@ The batch selection algorithm:
 3. Select the best offer per URI.
 4. Sum costs across all selected offers to get the batch total.
 5. If the total exceeds budget, drop offers for the lowest-priority URIs (by position in the original request) until the total fits. A URI left with no offer is answered with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED` on its `OfferGroup`.
-6. Return one `OfferGroup` per URI. `Resolve` is discovery only: it charges nothing and adds nothing to the spend. The agent buys the selected offers in a separate call, and only the totals of that purchase count as spend.
+6. Return one `OfferGroup` per URI. `Resolve` is discovery only: it charges nothing. The agent buys the selected offers in a separate call.
 
 ### Selection Interface
 
@@ -288,12 +288,11 @@ func filterByConstraints(offers []rankedOffer, c *forav1.RequestConstraints, bud
     for _, o := range offers {
         p := o.Offer.Pricing
 
-        // The price compared against the budget is the most the offer can be
-        // charged without a dispute: the rate of a FLAT price, and the ceiling
-        // amount Q x R of a metered (PER_UNIT) one (helpers.MeteredSettlementCap).
-        price := maxChargeWithoutDispute(p)
+        // The price this Broker counts against the budget. Which price that is
+        // is the Broker's own choice; the protocol does not specify it.
+        price := budgetPrice(p)
 
-        // max_price: drop offers above the per-offer ceiling
+        // max_price: drop offers above it
         if c.MaxPrice != nil && price > c.MaxPrice.Amount {
             continue
         }
@@ -318,8 +317,7 @@ func filterByConstraints(offers []rankedOffer, c *forav1.RequestConstraints, bud
         }
 
         // Period and session budget: drop the offer if buying it would take the
-        // spend past the budget. Spend grows only from purchase totals; this
-        // filter reserves nothing and counts nothing.
+        // spend past the budget. This filter reserves nothing.
         if !budget.CanAfford(price, p.Currency) {
             continue
         }

@@ -157,8 +157,7 @@ func parseMeteredTerms(pricing *forav1.Pricing) (meteredTerms, error) {
 }
 
 // MeteredSettlementCap returns Q × R for a metered price: the most a purchase
-// under it is charged without a dispute, and the amount an agent budgets
-// against a spend cap. capped is false, with an empty amount, when the price
+// under it is charged without a dispute. capped is false, with an empty amount, when the price
 // states no estimate: it then has no ceiling, and nothing in it bounds the
 // charge. It refuses a price that is not PER_UNIT, states an estimate that is
 // not positive, carries no valid rate, or states a tolerance outside

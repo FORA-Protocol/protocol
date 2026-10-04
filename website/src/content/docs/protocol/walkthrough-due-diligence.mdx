@@ -862,7 +862,7 @@ The same `ResourceIdentity` message handles both — the `resource_mutability` f
 
 The `budget_scope: "deal:acme-acquisition"` field in `RequestConstraints` enables deal-level spend tracking across all Exchanges. The Broker:
 1. Filters offers at discovery: `BrokerService.Resolve` drops any offer that would take the scope's spend past `period_budget`. When no offer for a URI remains, that URI comes back with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`, a successful "no result" rather than an error
-2. Counts spend only from purchase totals. Discovery never charges and never adds to spend; for a purchase made through the Broker, the amount comes from `BrokerTransactionResponse.totals`
+2. Counts the scope's spend in its own way; the protocol leaves the computation to the Broker. Discovery never charges
 3. Reports actual spend per Exchange in `UsageReport.ext.budget_scope`
 4. Maintains a ledger for audit (which Exchange got how much for what)
 

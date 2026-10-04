@@ -7,10 +7,10 @@ description: "How the Broker tracks and enforces per-request, per-session, and p
 
 The Broker applies three budget layers, analogous to how DSPs manage advertiser budgets in OpenRTB. The budget is a **filter over offers** at `BrokerService.Resolve`: the Broker drops every offer that would take the agent past its budget, and answers a URI left with no offer with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`. The Exchange's balance check stays the authoritative gate on what is actually charged.
 
-Two rules hold at every layer:
+How a budget is computed — which price an offer counts at and how spend is counted — is the Broker's own behaviour, and the protocol does not specify it. This page describes one design. What the protocol does fix is how a budget's effect is reported, and that Resolve never charges:
 
-- **Resolve never charges and never counts as spend.** Returning an offer reserves nothing, and an offer the agent never buys costs it nothing.
-- **Spend grows only from purchase totals**: the amounts charged for purchased items. For a purchase through the Broker that is `BrokerTransactionResponse.totals`. A budget is never reported as `OFFER_ABSENCE_REASON_NOT_AUTHORIZED`, and never as a non-OK error such as `RESOURCE_EXHAUSTED`.
+- **Resolve never charges.** Returning an offer reserves nothing.
+- **A budget is reported only as `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`**: never as `OFFER_ABSENCE_REASON_NOT_AUTHORIZED`, and never as a non-OK error such as `RESOURCE_EXHAUSTED`.
 
 ## Budget Layers
 
@@ -18,7 +18,7 @@ Two rules hold at every layer:
 graph TB
     subgraph "Budget Enforcement Layers"
         L1[Layer 1: Per-Offer<br/>RequestConstraints.max_price<br/>offers above it are filtered]
-        L2[Layer 2: Per-Session<br/>spend from purchase totals<br/>in-memory, reset on restart]
+        L2[Layer 2: Per-Session<br/>spend tracking<br/>in-memory, reset on restart]
         L3[Layer 3: Per-Period<br/>per-month, per-day<br/>persisted in Redis]
         L4[Layer 4: Per-Exchange<br/>balance awareness<br/>advisory, not enforced]
     end
@@ -51,10 +51,6 @@ type RequestConstraints struct {
 
 Per-period budgets are keyed by `budget_scope` (or the verified agent identity if no scope is provided) and persisted in Redis with TTLs matching the period (e.g., monthly keys expire at month-end).
 
-## The Price an Offer Is Compared At
-
-The Broker compares the most an offer can be charged without a dispute. For a `FLAT` price that is the rate. For a metered (`PER_UNIT`) price it is the ceiling amount Q × R, where Q = estimate × (10000 + tolerance) / 10000 (see [Settling a metered purchase](/protocol/transaction-flow/#settling-a-metered-purchase)); the SDKs compute it as `MeteredSettlementCap`. A `FREE` offer costs nothing.
-
 ## Session Budget Tracker
 
 ```go
@@ -66,8 +62,7 @@ type BudgetTracker interface {
     // spend within the budget. It reserves nothing.
     CanAfford(amount float64, currency string) bool
 
-    // Record adds a purchase's charged amount to the spend. It is called only
-    // with purchase totals, never from Resolve.
+    // Record adds a purchase's charged amount to the spend.
     Record(ctx context.Context, cost *forav1.Cost)
 
     // Remaining returns the remaining budget for the session.
@@ -98,9 +93,9 @@ func (b *inMemoryBudget) CanAfford(amount float64, currency string) bool {
 
 ## Batch Selection and Recording Spend
 
-For batch (multi-URI) queries, the selection engine sums the prices of the offers it selects. If the total exceeds the remaining budget, it drops lower-priority URIs until the total fits (see the [Selection Engine](/components/broker/selection-engine/) batch pipeline). This is still filtering: nothing is spent or reserved by `Resolve`.
+For batch (multi-URI) queries, the selection engine sums the prices of the offers it selects. If the total exceeds the remaining budget, it drops lower-priority URIs until the total fits (see the [Selection Engine](/components/broker/selection-engine/) batch pipeline). This is still filtering: nothing is reserved by `Resolve`.
 
-Spend is recorded only when a purchase completes. For a purchase through the Broker, the Broker adds each entry of `BrokerTransactionResponse.totals` (one `Cost` per currency, covering only the charged items) to the budget of the same currency. A denied item, or an item an Exchange refused, adds nothing.
+In this design, spend is recorded when a purchase completes: for a purchase through the Broker, the Broker adds each entry of `BrokerTransactionResponse.totals` (one `Cost` per currency, covering only the charged items) to the budget of the same currency.
 
 ```go
 func (b *inMemoryBudget) RecordPurchase(ctx context.Context, totals []*forav1.Cost) {
@@ -130,10 +125,10 @@ When the session or period budget leaves no affordable offer for a URI:
 3. The agent can re-declare a higher budget, or buy directly from an Exchange without the Broker.
 
 ```go
-price := maxChargeWithoutDispute(offer.Pricing) // rate, or Q x R when metered
+price := budgetPrice(offer.Pricing) // the Broker's own choice of price
 if !budget.CanAfford(price, offer.Pricing.Currency) {
     // Drop the offer. If none remains for this URI, answer it with
-    // OFFER_ABSENCE_REASON_BUDGET_EXCEEDED. Nothing is charged or counted.
+    // OFFER_ABSENCE_REASON_BUDGET_EXCEEDED. Nothing is charged.
     continue
 }
 ```
