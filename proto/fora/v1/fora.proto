@@ -2997,9 +2997,13 @@ message PushResourcesRequest {
     (buf.validate.field).repeated.max_items = 256
   ];
 
-  // Identity of the caller (who is pushing this data).
-  // The Exchange verifies this matches a registered CatalogService client.
-  string caller_id = 4;
+  // DEPRECATED, never needed, and ignored. Each entry's domain names whose
+  // resource it is, and the caller is the party that signs the request: the
+  // Exchange checks that the verified signer may push for each entry's domain
+  // (see CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR). A sender leaves it
+  // empty. The field is retained because removing it would break the v1 wire
+  // contract.
+  string caller_id = 4 [deprecated = true];
 
   // REQUIRED. Bare host of the recipient this request is addressed to (e.g.
   // "exchange.example" or "exchange.example:8081"). See "Request recipient" in

@@ -68,7 +68,7 @@ func mountCatalog(t *testing.T, origin forav1connect.CatalogServiceHandler, opts
 
 func validPush() *forav1.PushResourcesRequest {
 	return &forav1.PushResourcesRequest{
-		Exchange: "exchange.test", TenantId: "tenant-1", CallerId: "publisher.test",
+		Exchange: "exchange.test", TenantId: "tenant-1",
 		Entries: []*forav1.ResourceEntry{{Domain: "publisher.test", Path: "/x", Terms: []*forav1.LicenseTerm{{
 			Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
 			Pricing:   &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"},

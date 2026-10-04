@@ -138,14 +138,13 @@ You push signed `ResourceAttestation` entries to Exchanges via the **CatalogServ
         }
       ]
     }
-  ],
-  "caller_id": "gumgum.com"
+  ]
 }
 ```
 
 `exchange` is REQUIRED and names the bare host of the Exchange this push is addressed to. The SDK's catalog client refuses a request without it **before signing**, so omitting it fails locally rather than at the Exchange.
 
-The request itself is signed with an [RFC 9421 HTTP Message Signature](https://www.rfc-editor.org/rfc/rfc9421) in the HTTP headers (not an in-message field); `caller_id` identifies the pusher.
+The request itself is signed with an [RFC 9421 HTTP Message Signature](https://www.rfc-editor.org/rfc/rfc9421) in the HTTP headers (not an in-message field); its signer is the pusher.
 
 You do not hand-roll that call. The SDK's catalog client — `connect.NewCatalogClient` (Go), `createCatalogClient` (TypeScript), `fora_sdk.client.CatalogClient` (Python) — builds, signs and sends it against the CatalogService address you have configured for that Exchange. The client itself does not inspect your entries; the Exchange's own envelope and term checks ship beside it as `validateResourceEntry` and its twins, which you call on each entry before the push. See [Source 7: CatalogService API Push](/components/content-ingestion/sources/#source-7-catalogservice-api-push) for the three-language example.
 
@@ -207,7 +206,7 @@ Your Analysis Pipeline (crawlers, APIs, audit tools, QA systems)
 
 Every `PushResources` request is signed with your Ed25519 private key. Each `ResourceAttestation` also carries its own Ed25519 signature over JCS-canonicalized claims. The Exchange verifies both:
 
-1. **Request-level**: The request carries `caller_id` and is signed with an [RFC 9421 HTTP Message Signature](https://www.rfc-editor.org/rfc/rfc9421) in the HTTP headers (not an in-message field), proving the request came from your domain
+1. **Request-level**: The request is signed with an [RFC 9421 HTTP Message Signature](https://www.rfc-editor.org/rfc/rfc9421) in the HTTP headers (not an in-message field), proving the request came from your domain
 2. **Attestation-level**: The `signature` field on each `ResourceAttestation` proves the claims were signed by the key identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`)
 
 The Exchange fetches your public keys from your WBA directory (the JWK Set at `https://yourcompany.com/.well-known/http-message-signatures-directory`) — no shared secrets.

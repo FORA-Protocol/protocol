@@ -214,7 +214,7 @@ Line 3: Legal/contractual enforcement
 ### T-ATT-1: Forged attestation injection
 
 **Attack**: Attacker crafts a fake `ResourceAttestation` with a fabricated `verifier` domain and pushes it via `CatalogService.PushResources`.
-**Countermeasure (protocol)**: Exchange verifies `caller_id` is listed in the provider's `catalog_contributors` (from `fora.json`). Exchange verifies the attestation `signature` against the verifier's public key in its WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`). FORA has no dedicated verifier role; a verifier publishes under its operator's role (`ROLE_PUBLISHER` for a self-attesting publisher, `ROLE_EXCHANGE` for a standalone vendor). Both checks must pass.
+**Countermeasure (protocol)**: Exchange verifies that the request's signer is the provider itself or listed in the provider's `catalog_contributors` (from `fora.json`). Exchange verifies the attestation `signature` against the verifier's public key in its WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`). FORA has no dedicated verifier role; a verifier publishes under its operator's role (`ROLE_PUBLISHER` for a self-attesting publisher, `ROLE_EXCHANGE` for a standalone vendor). Both checks must pass.
 
 ### T-ATT-2: Stale attestation exploitation
 

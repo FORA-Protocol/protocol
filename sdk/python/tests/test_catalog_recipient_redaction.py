@@ -45,7 +45,6 @@ def _push(exchange: str) -> None:
             {
                 "exchange": exchange,
                 "tenant_id": "t",
-                "caller_id": "c",
                 "entries": [{"domain": "publisher.test", "path": "/x"}],
             }
         )

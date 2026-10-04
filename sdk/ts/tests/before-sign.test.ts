@@ -29,7 +29,6 @@ function push(): Record<string, unknown> {
 	return {
 		exchange: "exchange.test",
 		tenant_id: "tenant-1",
-		caller_id: "publisher.test",
 		entries: [
 			{
 				domain: "publisher.test",

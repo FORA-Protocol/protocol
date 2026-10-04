@@ -438,8 +438,8 @@ class CatalogClient(_Face):
     A SEPARATE class, as the Broker's is, and for a related reason: the address is a
     different one. An Exchange advertises CatalogService at its manifest's
     ``catalog_endpoint``, distinct from the ExchangeService endpoint the agent client
-    dials, and the caller is a different party holding a different key — a contributor's,
-    named by ``caller_id``, never an agent's. The publisher chose the Exchange, so the
+    dials, and the caller is a different party holding a different key — a publisher's or
+    a contributor's, identified by the request signature, never an agent's. The publisher chose the Exchange, so the
     origin is configuration and every call runs on the plain transport — the posture of
     the agent client's home Exchange, not of its offer-derived leg.
 

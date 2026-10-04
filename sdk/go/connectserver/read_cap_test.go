@@ -53,7 +53,7 @@ func postRaw(t *testing.T, url string, body []byte) *http.Response {
 // oversizeJSON builds a syntactically valid PushResources body of at least n bytes.
 func oversizeJSON(n int) []byte {
 	return fmt.Appendf(nil,
-		`{"ver":"1.0","exchange":"exchange.test","tenant_id":"t","caller_id":"c","entries":[{"domain":"publisher.test","path":"/%s"}]}`,
+		`{"ver":"1.0","exchange":"exchange.test","tenant_id":"t","entries":[{"domain":"publisher.test","path":"/%s"}]}`,
 		strings.Repeat("a", n))
 }
 
@@ -142,7 +142,7 @@ func gzipCatalogClient(
 func inflatingPush() *forav1.PushResourcesRequest {
 	req := &forav1.PushResourcesRequest{
 		Ver: helpers.ProtocolVersion, Exchange: "exchange.test",
-		TenantId: "tenant-1", CallerId: "publisher.test",
+		TenantId: "tenant-1",
 	}
 	for i := 0; i < 256; i++ {
 		req.Entries = append(req.Entries, &forav1.ResourceEntry{

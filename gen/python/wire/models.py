@@ -2155,7 +2155,7 @@ class DiscoveryResponse(WireModel):
 class PushResourcesRequest(WireModel):
     caller_id: str | None = Field(
         '',
-        description='Identity of the caller (who is pushing this data).\n The Exchange verifies this matches a registered CatalogService client.',
+        description="DEPRECATED, never needed, and ignored. Each entry's domain names whose\n resource it is, and the caller is the party that signs the request: the\n Exchange checks that the verified signer may push for each entry's domain\n (see CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR). A sender leaves it\n empty. The field is retained because removing it would break the v1 wire\n contract.",
     )
     entries: list[ResourceEntry] | None = Field(
         None,

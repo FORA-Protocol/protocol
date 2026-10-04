@@ -51,7 +51,7 @@ func (c *strictCatalog) PushResources(
 
 func validPush() *forav1.PushResourcesRequest {
 	return &forav1.PushResourcesRequest{
-		Exchange: "exchange.test", TenantId: "tenant-1", CallerId: "publisher.test",
+		Exchange: "exchange.test", TenantId: "tenant-1",
 		Entries: []*forav1.ResourceEntry{catalogEntry()},
 	}
 }

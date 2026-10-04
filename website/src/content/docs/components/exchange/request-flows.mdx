@@ -825,12 +825,12 @@ sequenceDiagram
     Note over Handler: 1. Verify caller's RFC 9421 HTTP Message Signature (headers)
 
     loop For each ResourceEntry with attestations
-        Handler->>Handler: Is caller_id == attestation.verifier?
+        Handler->>Handler: Is the signer == attestation.verifier?
 
         alt Direct push (provider or vendor pushing own attestation)
             Note over Handler: Authorized directly
         else Third-party push
-            Handler->>Manifest: Is caller_id in catalog_contributors?
+            Handler->>Manifest: Is the signer in catalog_contributors?
             Manifest-->>Handler: Yes / No
             Note over Handler: Record which entry failed — the submission is refused whole
         end

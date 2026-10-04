@@ -21,8 +21,8 @@ import (
 // reason: the address is a different one. An Exchange advertises CatalogService
 // at WellKnownManifest.catalog_endpoint, distinct from the ExchangeService
 // endpoint the agent client dials, and the caller is a different party holding
-// a different key — a contributor's, published in its own WBA directory and
-// named by caller_id, never an agent's. Hanging the catalog verbs on the agent
+// a different key — a publisher's or a contributor's, published in its own WBA
+// directory and identified by the request signature, never an agent's. Hanging the catalog verbs on the agent
 // client would carry every agent-only holder (the offer Verifier, the
 // requester, the delivery fetcher) into a client that uses none of them, and
 // point one of the two roles at the wrong address.
@@ -52,7 +52,7 @@ type CatalogClient struct {
 // The options a catalog call has no use for are inert rather than errors, so one
 // option set can build every face: WithOfferKey, WithKeyResolver and
 // WithVerification (offer verification — nothing here returns an offer),
-// WithRequester (the caller is named by caller_id, not a Requester), WithAgentKey,
+// WithRequester (the caller is the request's signer, not a Requester), WithAgentKey,
 // WithProofWindow, WithContentTimeout and WithMaxContentBytes (the delivery
 // fetch), and WithEndpointResolver and WithGuardedBaseTransport (the
 // offer-derived leg).

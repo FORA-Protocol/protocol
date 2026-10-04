@@ -153,7 +153,6 @@ def _call(name: str) -> httpx.Request:
         push: dict[str, Any] = {
             "exchange": "exchange.test",
             "tenant_id": "tenant-1",
-            "caller_id": "publisher.test",
             "entries": [
                 {
                     "domain": "publisher.test",

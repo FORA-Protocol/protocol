@@ -116,7 +116,7 @@ func TestCatalog_PushIsSignedStampedAndAnswered(t *testing.T) {
 	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
 	req := &forav1.PushResourcesRequest{
-		Exchange: "exchange.test", TenantId: "tenant-1", CallerId: "publisher.test",
+		Exchange: "exchange.test", TenantId: "tenant-1",
 		Entries: []*forav1.ResourceEntry{catalogEntry()},
 	}
 	resp, err := client.PushResources(context.Background(), req)
@@ -129,8 +129,8 @@ func TestCatalog_PushIsSignedStampedAndAnswered(t *testing.T) {
 	if origin.push.GetVer() != helpers.ProtocolVersion {
 		t.Errorf("ver on the wire = %q, want %q", origin.push.GetVer(), helpers.ProtocolVersion)
 	}
-	if origin.push.GetExchange() != "exchange.test" || origin.push.GetCallerId() != "publisher.test" {
-		t.Errorf("addressing on the wire = %q/%q, want the caller's own", origin.push.GetExchange(), origin.push.GetCallerId())
+	if origin.push.GetExchange() != "exchange.test" {
+		t.Errorf("addressing on the wire = %q, want the caller's own", origin.push.GetExchange())
 	}
 	if req.GetVer() != "" {
 		t.Error("the caller's request was modified; the client must stamp a clone")
@@ -283,7 +283,7 @@ func TestCatalog_RefusalRedactsACredentialInTheRecipient(t *testing.T) {
 	client := foraconnect.NewCatalogClient("https://exchange.test")
 
 	_, err := client.PushResources(context.Background(), &forav1.PushResourcesRequest{
-		Exchange: "publisher:s3cr3t@exchange.test", TenantId: "t", CallerId: "c",
+		Exchange: "publisher:s3cr3t@exchange.test", TenantId: "t",
 		Entries: []*forav1.ResourceEntry{{Domain: "publisher.test", Path: "/x"}},
 	})
 	if err == nil {

@@ -155,7 +155,6 @@ async function call(name: string): Promise<UnaryRequest> {
 		const push: Record<string, unknown> = {
 			exchange: "exchange.test",
 			tenant_id: "tenant-1",
-			caller_id: "publisher.test",
 			entries: [
 				{
 					domain: "publisher.test",

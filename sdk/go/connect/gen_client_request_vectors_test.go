@@ -226,7 +226,7 @@ func buildClientRequestVectors(t *testing.T) []clientRequestVector {
 // separately from the ExchangeService endpoint — and its caller is a different
 // party with a different key. They carry no idempotency key by design (the catalog
 // upsert and delete are naturally idempotent, so a key there would be ceremony)
-// and forward no requester (the caller is named by caller_id), so both columns
+// and forward no requester (the caller is the request's signer), so both columns
 // record empty: a client that minted a key or stamped the requester it was built
 // with would move them.
 func catalogVectors(t *testing.T, baseOpts []foraconnect.ClientOption) []clientRequestVector {
@@ -254,7 +254,7 @@ func catalogVectors(t *testing.T, baseOpts []foraconnect.ClientOption) []clientR
 	}}}
 	capture("push_resources", "pushResources", func(c *foraconnect.CatalogClient, exchange string) error {
 		_, err := c.PushResources(context.Background(), &forav1.PushResourcesRequest{
-			Exchange: exchange, TenantId: "tenant-1", CallerId: "publisher.test",
+			Exchange: exchange, TenantId: "tenant-1",
 			Entries: []*forav1.ResourceEntry{entry},
 		})
 		return err
@@ -265,7 +265,7 @@ func catalogVectors(t *testing.T, baseOpts []foraconnect.ClientOption) []clientR
 	// deliberately — stayed green here while Go's own tests caught it.
 	capture("push_resources_caller_ver_wins", "pushResources", func(c *foraconnect.CatalogClient, exchange string) error {
 		_, err := c.PushResources(context.Background(), &forav1.PushResourcesRequest{
-			Exchange: exchange, TenantId: "tenant-1", CallerId: "publisher.test", Ver: "9.9",
+			Exchange: exchange, TenantId: "tenant-1", Ver: "9.9",
 			Entries: []*forav1.ResourceEntry{entry},
 		})
 		return err

@@ -62,10 +62,11 @@ func NewBrokerServiceHandler(svc forav1connect.BrokerServiceHandler, opts ...Ser
 // rejection reason assumes.
 //
 // What stays the handler implementation's job is everything the contract leaves to
-// the Exchange: that caller_id names the verified signer, that the caller is among
-// the publisher's catalog_contributors, that tenant_id matches, the ingest-tier term
-// checks (sdk/go/helpers), and the per-entry verdicts. An Exchange that resolves a
-// contributor's key by caller_id narrows the seam with WithVerifyGate and verifies
+// the Exchange: that the verified signer may push for each entry's domain (the
+// domain's publisher, or one of its catalog_contributors), that tenant_id matches,
+// the ingest-tier term checks (sdk/go/helpers), and the per-entry verdicts. The
+// deprecated caller_id is ignored. An Exchange that resolves a contributor's key
+// from the request narrows the seam with WithVerifyGate and verifies
 // inside the handler, where the decoded request is in scope — WithKeyResolver cannot
 // carry that policy, because KeyResolver.Resolve is handed the signature's keyid and
 // never the message.
