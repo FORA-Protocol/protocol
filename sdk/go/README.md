@@ -31,19 +31,37 @@ the static resolver.)
 import "github.com/FORA-Protocol/protocol/sdk/go/helpers"
 ```
 
-**RFC 9421 request signing / verification** — the `Signer` interface signs the
-SDK-built signature base, so a KMS/HSM signer never exposes its key:
+**RFC 9421 request signing / verification, under the Web Bot Auth profile** — the
+`Signer` interface signs the SDK-built signature base, so a KMS/HSM signer never exposes
+its key. Every signature names its signer's key directory as its own `Signature-Agent`
+dictionary member, `sig1="https://agent.example"`, covered as
+`"signature-agent";key="sig1"`, and carries `tag="web-bot-auth"`. A FORA RPC signature
+also covers `@method`, `@target-uri`, `content-digest` and `authorization`, and lives at
+most five minutes:
 
 ```go
-signer, _ := helpers.NewEd25519Signer("agent.v1", priv)
-_ = helpers.SignRequest(ctx, req, body, signer,
-    helpers.SignOptions{Created: created, Expires: expires})
+keyID, _ := helpers.Thumbprint(pub) // the keyid is the key's RFC 7638 thumbprint
+signer, _ := helpers.NewEd25519Signer(keyID, priv)
+_ = helpers.SignRequest(ctx, req, body, signer, helpers.SignOptions{
+    Created: created, Expires: created + 300, SignatureAgent: "https://agent.example",
+    Nonce: freshNonce, // the signing transport supplies 64 random bytes
+})
 
 // verify with the key injected (pure) ...
 vr, err := helpers.VerifyRequest(req, body, pub, helpers.VerifyOptions{})
-// ... or resolve the key via a KeyResolver (static in L1; well-known/WBA in L2 resolvers):
+// ... or resolve the key via a KeyResolver (static in L1; well-known/WBA in L2
+// resolvers), which is handed the directory the signature's own member names:
 vr, err = helpers.VerifyRequestResolved(ctx, req, body, resolver, helpers.VerifyOptions{})
 ```
+
+A party that adds a signature to a request already signed uses
+`helpers.AppendSignature`: the new signature gets its own label and member and covers
+only its own request, unless `SignOptions.CoverPrevious` makes it cover the earlier
+signature completely (WG-00 §5.2.2), which only a party forwarding the request unchanged
+may do. `helpers.VerifyMultisigRequestResolved` verifies every signature on its own,
+counts them against `VerifyOptions.MaxSignatures`, and refuses a partial coverage. A
+refusal for a missing component or a refused form is answered with
+`helpers.AcceptSignatureFor(err)`, which `connectserver` writes as `Accept-Signature`.
 
 **License-term pre-check** — the two tiers an Exchange applies to a pushed entry,
 runnable by a publisher before signing: the wire rules over the entry as given, then
@@ -101,17 +119,18 @@ rejects one.
 if err := helpers.Validate(req); err != nil { /* helpers.ValidationRuleIDs(err) */ }
 ```
 
-**Agent-binding proof of possession** (ADR-013) — the SIGN face of the header pair
-a bound delivery fetch presents. The covered set is exactly `@method` +
-`@target-uri`: a GET has no body to digest, and the signed URL is itself the
-credential. The key arrives as a `Signer` plus the public half, so custody never
-moves into the SDK:
+**Agent-binding proof of possession** (ADR-013) — the SIGN face of the headers a
+bound delivery fetch presents: a Web Bot Auth signature plus `@method` and
+`@target-uri`, and the agent's public key in `X-FORA-Agent-Key`. A GET has no body to
+digest, and the signed URL is itself the credential. The key arrives as a `Signer` plus
+the public half, so custody never moves into the SDK:
 
 ```go
 binding, _ := helpers.SignAgentBinding(ctx, signer, agentPub, helpers.PoPOptions{
     URL: signedURL, Created: created, Expires: expires, // keep the window short
+    SignatureAgent: "https://agent.example", Nonce: freshNonce,
 })
-binding.Apply(req.Header) // X-FORA-Agent-Key + Signature-Input + Signature
+binding.Apply(req.Header) // X-FORA-Agent-Key + Signature-Agent + Signature-Input + Signature
 ```
 
 **Routing predicates** — the two pure checks that precede a signed call to an
@@ -237,7 +256,10 @@ import "github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 ```
 
 - **Key resolvers** — `NewWellKnownKeyResolver` (well-known JWKS, TTL cache),
-  `NewWBAKeyResolver` (WBA directory, revocation/expiry-aware, with a `Run` poller).
+  `NewWBAKeyResolver` (WBA directory, revocation/expiry-aware, with a `Run` poller). A
+  WBA directory is fetched with no redirect, must be served as
+  `application/http-message-signatures-directory+json`, and only the keys that signed
+  its response (`helpers.VerifyDirectoryResponse`) are handed out.
 - **Endpoint resolver** — `NewWellKnownEndpointResolver` discovers an Exchange's
   own service endpoint (`WellKnownManifest.endpoint`) from `/.well-known/fora.json`,
   host-keyed and cached per host. Three sentinels, and the difference decides whether
@@ -281,13 +303,14 @@ import "github.com/FORA-Protocol/protocol/sdk/go/resolvers"
   (so this tier holds no key material). Bounded body, bounded error body, media
   type reported rather than sniffed, and a typed `FetchError` class.
 
-**Redirects: the guarded client follows, a signed leg refuses.** Following five
-hops is right for a public well-known document — the address is re-pinned and the
-scheme re-vetted on each. It is wrong for anything carrying a credential, so the
-content fetch and the RPC legs take only the guarded `.Transport` and install
-their own refusal: following a redirect either replays a proof bound to the old
-URL, or hands a fresh proof of possession of the agent's key to whatever host the
-first hop named.
+**Redirects: the guarded client follows, a signed leg and a key directory refuse.**
+Following five hops is right for a revocation list or a `fora.json` manifest — the
+address is re-pinned and the scheme re-vetted on each. It is wrong for anything
+carrying a credential, so the content fetch and the RPC legs take only the guarded
+`.Transport` and install their own refusal: following a redirect either replays a
+proof bound to the old URL, or hands a fresh proof of possession of the agent's key to
+whatever host the first hop named. A key directory refuses a redirect too: its address
+is the origin the signer committed to in its covered `Signature-Agent` member.
 
 The guard is driven by exactly two orthogonal env flags — `SKIP_SSRF` (drop the
 dial-time address guard) and `ALLOW_INSECURE` (permit plaintext http) — both
@@ -330,8 +353,11 @@ response or re-implements signing:
 - **`NewAdminClient`** covers every `fora.admin.v1.AdminService` RPC and the two
   domain-verification RPCs.
 - **Identity helpers.** `helpers.GenerateKey` mints an Ed25519 key and its thumbprint,
-  `helpers.DirectoryDocument` builds the WBA key directory publishing a key set, and
+  `helpers.DirectoryDocument` builds the WBA key directory publishing a key set,
+  `helpers.SignDirectoryResponse` signs the response serving it, and
   `core.SigningTransportFor` returns a signing transport that signs as the key.
+  `core.WithSignerSource` signs each request as the identity a callback picks, for a
+  service that signs as many agents.
 - **Document readers.** `resolvers.ReadManifest`, `ReadWBADirectory`,
   `ReadRevocationList` and `ReadLicenseDocument` read what a party publishes, through
   the guarded client unless `ReadOptions.Client` replaces it, and return a `Document`

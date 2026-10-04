@@ -493,9 +493,9 @@ The contract now defines that relay.
   agent to that one offer, and each result comes from the Exchange that owns the
   resource. In a result item the one signed value is `retrieval_endpoint`; the
   combined response is otherwise the Broker's unsigned report.
-- Updated rules: the forwarding chain of hop signatures applies to requests
-  forwarded byte-for-byte, such as discovery; a purchase through a Broker is always
-  re-packaged. On a re-packaged purchase the delegation holder binding (`cnf.jkt`)
+- Updated rules: a purchase through a Broker is always re-packaged, and the Broker
+  signs each sub-request alone (see the Web Bot Auth profile entry below). On a
+  re-packaged purchase the delegation holder binding (`cnf.jkt`)
   and `agent_identity_hash` use the key the item's `AgentAcceptance` verifies
   under, not the request signer, which is the Broker. An Exchange scopes a relayed
   request's idempotency key per Broker, authenticated requester and key.
@@ -586,8 +586,9 @@ summarizes them per language.
   SSRF and https-only scheme guards, and returns the parsed generated message with the
   URL, the bytes and the media type (`Document`), or fails with a typed error; none
   returns nothing. The manifest must be served as `application/json` and the WBA
-  directory as `application/jwk-set+json` (`MediaTypeRefusedError`, `MediaTypeRefused`,
-  `ErrMediaTypeRefused`). The manifest's `ver` is read first. Every document must pass
+  directory as `application/http-message-signatures-directory+json`
+  (`MediaTypeRefusedError`, `MediaTypeRefused`, `ErrMediaTypeRefused`), fetched with no
+  redirect and signed by every key it lists (see the Web Bot Auth profile entry below). The manifest's `ver` is read first. Every document must pass
   the strict check below. The license reader checks the `License`, fetches its `uri` and
   verifies the bytes against `uri_digest` (`LicenseDocument`, or `DigestMismatchError`,
   `DigestMismatch`, `ErrDigestMismatch`). A failed fetch, a non-200 answer, a body that
@@ -597,7 +598,8 @@ summarizes them per language.
   fetch failure in the Go endpoint resolver and requirements reader now wraps it. The
   endpoint resolver, the registration-requirements reader, the WBA key resolver and the
   offer-directory fetch read the same documents through the same fetch and decode,
-  without the media-type and strict checks. The Python and TypeScript readers return the
+  without the strict check; the WBA key resolver and the offer-directory fetch still
+  check a directory's media type and response signatures. The Python and TypeScript readers return the
   generated model, which names an enum by its value name, so they refuse a document that
   writes an enum as its number; the Go reader accepts it. New corpora:
   `document-check-vectors.json`, the verdict for a document's bytes and Content-Type, and
@@ -658,94 +660,127 @@ The detail builders gain `helpers.RequestAuthFailureDetail` (Go),
 (TypeScript), and the readers (`helpers.Reason`, `reason`) return the new enum.
 The Python and TypeScript SDKs have no RPC refusal writer, so they read this
 detail but do not emit it.
-**The documentation now specifies a Web Bot Auth profile for request signatures
-(docs only in this entry; the SDK and wire changes follow).** The Authentication
-page said FORA was "automatically compatible" with Web Bot Auth and that "no
-changes to FORA's authentication are required". That was not true. A Web Bot Auth
-verifier refuses a FORA signature, and a FORA verifier refuses a signature from a
-Web Bot Auth library. The pages also disagreed with each other: Transaction Flow
-and the Exchange request flows said each hop covers `@method`, `@authority`,
-`@path` and `Content-Digest`, while Authentication required `@method`,
+**Request signatures and key directories follow the Web Bot Auth profile (SDK and wire
+change; a hard cut).** The Authentication page said FORA was "automatically compatible"
+with Web Bot Auth and that "no changes to FORA's authentication are required". That was
+not true: a Web Bot Auth verifier refused a FORA signature, and a FORA verifier refused a
+signature from a Web Bot Auth library. The pages also disagreed with each other:
+Transaction Flow and the Exchange request flows said each hop covers `@method`,
+`@authority`, `@path` and `Content-Digest`, while Authentication required `@method`,
 `@target-uri`, `content-digest`, `authorization` and `signature-agent`.
 
-The target is draft-ietf-webbotauth-httpsig-protocol-00 (1 September 2026), the
-only document the IETF webbotauth working group has adopted. Authentication now
-specifies the profile in one place, and the other pages refer to it:
+The target is draft-ietf-webbotauth-httpsig-protocol-00 (1 September 2026), the only
+document the IETF webbotauth working group has adopted. Authentication specifies the
+profile in one place, the other pages and the proto comments refer to it, and the three
+SDKs implement it:
 
 - Every FORA request signature is a conformant Web Bot Auth signature.
-  `Signature-Agent` is a structured-field dictionary, `<label>="https://<origin>"`,
-  covered as `"signature-agent";key="<label>"`. The signature covers `@target-uri`
-  or `@authority`, and carries `created`, `expires`, `keyid` (the RFC 7638
-  thumbprint), `alg="ed25519"`, `tag="web-bot-auth"` and a fresh 64-byte `nonce`.
-  Its lifetime is a few minutes.
+  `Signature-Agent` is a structured-field dictionary with one member per signature,
+  `<label>="https://<origin>"`, covered as `"signature-agent";key="<label>"`. The
+  signature covers `@target-uri` or `@authority`, and carries `created`, `expires`,
+  `keyid` (the RFC 7638 thumbprint), `alg="ed25519"`, `tag="web-bot-auth"` and a fresh
+  64-byte `nonce`. Its lifetime is at most five minutes.
 - A FORA RPC signature also covers `@method`, `@target-uri`, `content-digest` and
   `authorization`. This is FORA policy on top of Web Bot Auth, advertised through
-  `Accept-Signature`. A bodiless request at the publisher edge needs only the Web
-  Bot Auth base.
-- Signers use a `Signature-Agent` member key equal to the signature label.
-  Verifiers also accept a member key that differs from the label, a signature
-  without a nonce, and a member with `type=directory`. The legacy sf-string
-  `Signature-Agent` is accepted on a direct single-hop call only: a party that
-  forwards a request unchanged refuses it, because it cannot add its own member without breaking the agent's
-  signature, and answers with `Accept-Signature` asking for the dictionary form.
-  Verifiers refuse a signature with no `tag`, and a `Signature-Agent` member that
-  is not an https origin, and answer a missing component with `Accept-Signature`
-  listing what they require. `Signature-Agent` is never empty; an empty
-  `Authorization` stays valid.
-- Forwarding follows WG-00 §5.2.2 as the general rule: a party that forwards a
-  request unchanged in every component an earlier signature covers MAY cover
-  that signature, and then covers its `Signature-Input` and every component it
-  lists as well. FORA's Broker never forwards an agent's request unchanged, so
-  it never covers an agent's signature. Discovery through the Broker is
-  Broker-led: the Broker chooses the Exchanges and originates its own queries,
-  signed by the Broker alone. How an agent proves a holder-of-key entitlement
-  at discovery time through a Broker is an open protocol question, tracked
-  separately. Execute through the Broker is
-  re-packaged: the Broker builds a fresh request per Exchange and signs it
-  alone. Every Broker signature covers its own request and only its own
-  `Signature-Agent` member, so single-member WBA verifiers such as Cloudflare's
-  `web-bot-auth` accept it. On a relayed purchase, the agent's identity and
-  consent come from `AgentAcceptance`, the detached Ed25519 signature over
-  `{offer_sig, requester_id, requester_domain, idempotency_key}`, verified
-  against the agent's registered key resolved from `Requester.domain`. That key
-  gives the delivery-URL binding, and a delegation's `cnf.jkt` is checked
-  against it, so delegation stays bound to the agent's key through the Broker.
-  A Broker is never delegated to. This replaces the earlier statement that a
-  Broker may project a delegated request only when the agent has delegated to
-  the Broker's key.
-  `AgentAcceptance` is application-level consent and the profile does not
-  change it. The Exchange resolves each signer's key in the directory that
-  signer names, not in a configured key set.
+  `Accept-Signature`. A bodiless request at the publisher edge needs only the Web Bot
+  Auth base.
+- Signers use a `Signature-Agent` member key equal to the signature label. Verifiers
+  also accept a member key that differs from the label, a signature without a nonce, and
+  a member with `type=directory`. The legacy sf-string `Signature-Agent` is accepted on a
+  request carrying one signature only. Verifiers refuse a signature with no `tag`, a
+  `Signature-Agent` member that is not an https origin, and the bare unquoted value the
+  v1.0.8 SDKs sent, and answer a missing component or a refused form with
+  `Accept-Signature` listing what they require. `Signature-Agent` is never empty; an
+  empty `Authorization` stays valid.
+- Several signatures: each is verified on its own, against the key its `keyid` names in
+  the directory its own covered member names; a signature that covers several members
+  (because it covers an earlier signature) follows the one keyed to its label. Covering
+  an earlier signature is optional (WG-00 §5.2.2), and a signature that covers
+  `"signature";key=X` must also cover `"signature-input";key=X` and every component X
+  lists, and X must appear before it. Labels carry no meaning; the `sig1` to `sigN`
+  requirement is gone. The hop caps count every signature. FORA's Broker never forwards
+  an agent's request unchanged, so it never covers an agent's signature: discovery
+  through the Broker is Broker-led, the Broker choosing the Exchanges and originating its
+  own queries, and execute is re-packaged per Exchange; in both cases the Broker signs
+  alone, covering its own request and only its own member. How an agent proves a
+  holder-of-key entitlement at discovery time through a Broker is an open protocol
+  question, tracked separately. On a relayed purchase the agent's identity and consent
+  come from `AgentAcceptance`, verified against the agent's registered key resolved from
+  `Requester.domain`. That key gives the delivery-URL binding, and a delegation's
+  `cnf.jkt` is checked against it; a Broker is never delegated to. The Exchange resolves
+  each signer's key in the directory that signer names, not in a configured key set.
 - The retrieval proof of possession at the publisher edge is a full Web Bot Auth
-  signature plus `@method` and `@target-uri`. The edge keeps verifying offline
-  with the key in `X-FORA-Agent-Key`, which it accepts only when its thumbprint
-  equals both the signature `keyid` and the delivery URL's `agent_id`. A generic
-  WBA verifier accepts the same signature by resolving the agent's directory.
+  signature plus `@method` and `@target-uri`. The edge keeps verifying offline with the
+  key in `X-FORA-Agent-Key`, which it accepts only when its thumbprint equals both the
+  signature `keyid` and the delivery URL's `agent_id`. A generic WBA verifier accepts
+  the same signature by resolving the agent's directory.
 - Key directories are served over https at
-  `/.well-known/http-message-signatures-directory`, answer `200` without a
-  redirect, use the media type
-  `application/http-message-signatures-directory+json`, and carry a response
-  signature per key with `tag="http-message-signatures-directory"`. Each key's
-  JWK `alg` stays `EdDSA`, the JOSE name RFC 7517 §4.4 defines. This is a known,
-  deliberate deviation from WG-00 §5.5.1, which restricts that member to HTTP
-  Message Signatures names (`ed25519`); FORA follows RFC 7517 and Cloudflare's
-  reference library. It is the only deviation from WG-00.
+  `/.well-known/http-message-signatures-directory`, answer `200` without a redirect, use
+  the media type `application/http-message-signatures-directory+json`, and carry a
+  response signature per listed key with `tag="http-message-signatures-directory"`,
+  covering `"@authority";req` and `content-digest`. A revocation list and the `fora.json`
+  manifest may still follow up to five redirects. Each key's JWK `alg` stays `EdDSA`, the
+  JOSE name RFC 7517 §4.4 defines. This is a known, deliberate deviation from WG-00
+  §5.5.1, which restricts that member to HTTP Message Signatures names (`ed25519`); FORA
+  follows RFC 7517 and Cloudflare's reference library. It is the only deviation from
+  WG-00.
 
-Authentication includes a complete signed request, a query a Broker originated
-and signed alone, and a signed directory response, all with real values that
-can be verified.
+Authentication includes a complete signed request, a query a Broker originated and
+signed alone, and a signed directory response, all with real values the SDKs reproduce
+byte for byte.
 
-**Upcoming profile change (not in this release).** The SDKs released as v1.0.8
-do not implement the profile. They send `Signature-Agent` as a bare URL, set no
-`tag`, use a 16-byte nonce, require all five FORA components on every signature,
-require the labels `sig1` to `sigN`, follow directory redirects, resolve a
-forwarding hop's key from a configured key set, and sign the retrieval proof of
-possession over `@method` and `@target-uri` only. The reference directories are
-served as `application/jwk-set+json`. The SDK signers, verifiers, directory
-resolvers and shared test vectors change in a coordinated release, together with
-the reference implementation. The change is a hard cut with no transition
-window: once it ships, verifiers refuse the bare unquoted `Signature-Agent` that
-v1.0.8 sends, so v1.0.8 clients must upgrade.
+SDKs, in all three languages:
+
+- Signing: `helpers.SignRequest` / `sign_request` / `signRequest` and
+  `helpers.AppendSignature` / `append_signature` / `appendSignature` take the signer's
+  directory origin and emit the dictionary member, the tag and the profile's parameter
+  order (created, expires, keyid, alg, nonce, tag). They refuse a missing or non-origin
+  directory (`helpers.CheckHTTPSOrigin` / `check_https_origin` / `checkHttpsOrigin`), a
+  window over five minutes (`MaxSignatureLifetime` / `MAX_SIGNATURE_LIFETIME`), an
+  unusable label, and appending to a legacy `Signature-Agent`. An appended signature
+  covers only its own request and member unless asked to cover the previous one
+  (`SignOptions.CoverPrevious`, `cover_previous`, `coverPrevious`). Go's `SignOptions`
+  gains `SignatureAgent`, `Label` and `CoverPrevious`.
+- Verifying: the verifiers apply the rules above, resolve each signature's key with the
+  directory its member names, and carry that directory on the result. A refusal for a
+  missing component or a refused form carries the `Accept-Signature` value
+  (`helpers.AcceptSignature` / `accept_signature` / `acceptSignature`): Go's
+  `connectserver` writes it on the 401, the Python and TypeScript server verdicts carry it,
+  and the Hono middleware writes it. `helpers.ErrBrokenSignatureChain` now means an
+  incomplete or dangling coverage of an earlier signature. `helpers.BrokerKeyIDPrefix` is
+  deprecated.
+- Signing transports: 64-byte nonces; a directory is required (`WithSignatureAgent`,
+  `signature_agent`, `signatureAgent`), and a client without one refuses a signed call
+  locally as malformed. A per-request signer source (`core.WithSignerSource` /
+  `SignerSource`) signs each request as the identity a callback picks. Append mode
+  (`core.WithAppendSigner`, `appendOnly`) is joined by Python's `append_only`, which
+  Python lacked. `core.MonotonicWindow` keeps every window at its ttl.
+- Delivery proof: `helpers.SignAgentBinding` / `sign_agent_binding` / `signInbound`
+  take the agent's directory and a nonce and emit the `Signature-Agent` header; the
+  Python and TypeScript edge verifiers apply the new profile with a structured-field
+  parser.
+- Directories: `helpers.SignDirectoryResponse` / `sign_directory_response` /
+  `signDirectoryResponse` sign a directory response and
+  `helpers.VerifyDirectoryResponse` / `verify_directory_response` /
+  `verifyDirectoryResponse` check one. The WBA key resolvers and the offer-directory
+  fetch refuse redirects, check the media type and hand out only keys that signed the
+  response; `ReadWBADirectory` / `read_wba_directory` / `readWBADirectory` require every
+  listed key to have signed, and refuse `application/jwk-set+json`. The constants
+  `WBATag`, `DirectoryResponseTag` and `AcceptSignatureHeader` join the wire constants.
+- Shared vectors, regenerated by the Go oracle and replayed by all three SDKs:
+  `sign-request-vectors.json`, `verify-request-neg-vectors.json` (now with the expected
+  `Accept-Signature`), the new `verify-request-accept-vectors.json` (the forms a verifier
+  must accept), `multisig-chain-vectors.json` (each signer with its own directory, so a
+  verifier that resolves through the wrong member fails), `pop-vectors.json`,
+  `wire-constants-vectors.json`, `document-check-vectors.json` and the new
+  `directory-response-vectors.json`. The Go suite also checks the draft's Appendix E.2
+  Ed25519 vectors against its signature base builder.
+
+The change is a hard cut with no transition window: verifiers refuse the bare unquoted
+`Signature-Agent` that v1.0.8 sends and a directory served as `application/jwk-set+json`
+or unsigned, so v1.0.8 clients and directories must upgrade. The reference
+implementation's directories are still served as `application/jwk-set+json` and unsigned,
+and change when it adopts this release.
 
 ## v1.0.8
 

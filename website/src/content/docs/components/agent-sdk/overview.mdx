@@ -130,15 +130,19 @@ A few rules hold in every language:
   reader fetches through the SDK's guarded client, so the SSRF guard and the https-only
   scheme guard apply; `SKIP_SSRF` and `ALLOW_INSECURE` relax them for a sandbox. The
   manifest must be served as `application/json` and the WBA directory as
-  `application/jwk-set+json`; the protocol names no media type for a revocation list or
-  a license document, so their label is reported and not checked. The manifest's `ver`
-  is read before any other member. Every document must then pass the strict check, and
-  the reader returns the parsed generated message with the URL, the bytes and the media
-  type. The license reader checks the `License` itself first, then verifies the fetched
-  bytes against `uri_digest`. A failed fetch, a non-200 answer, a body that is not JSON
-  and a body over 1 MiB are all reported as an unavailable document. The resolvers read
-  the same documents through the same fetch and decode, without the media-type and
-  strict checks, because a router must accept a newer minor version.
+  `application/http-message-signatures-directory+json`; the protocol names no media type
+  for a revocation list or a license document, so their label is reported and not
+  checked. The manifest's `ver` is read before any other member. Every document must
+  then pass the strict check, and the reader returns the parsed generated message with
+  the URL, the bytes and the media type. A WBA directory is fetched with no redirect, and
+  its response must carry a valid response signature by every key it lists. The license
+  reader checks the `License` itself first, then verifies the fetched bytes against
+  `uri_digest`. A failed fetch, a non-200 answer, a body that is not JSON and a body over
+  1 MiB are all reported as an unavailable document. The resolvers read the same
+  documents through the same fetch and decode, without the strict check, because a router
+  must accept a newer minor version. They still read a WBA directory under the Web Bot
+  Auth profile: no redirect, the profile's media type, and only the keys that signed the
+  response.
 - **One strict check per language.** Client strict decoding, the error-envelope check and
   the document readers all call the same check. In Python and TypeScript it is the
   published strict JSON Schema of the message plus the cross-field rules. In Go it

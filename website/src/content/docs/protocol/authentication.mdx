@@ -70,7 +70,7 @@ The rules that make both true are in [The Web Bot Auth Profile](#the-web-bot-aut
 WBA establishes identity: this bot is who it claims to be. FORA adds the transaction layer on top of that identity: this bot is authorised to access this content at this price.
 
 :::caution[Profile change in progress]
-This profile is the target for the next SDK release. The SDKs released as v1.0.8 do not produce or check it yet. They send `Signature-Agent` as a bare, unquoted URL rather than a dictionary, set no `tag`, generate a 16-byte nonce, and refuse any signature that does not cover all five FORA components. The reference directories are served as `application/jwk-set+json`. The change is a hard cut with no transition window: once the profile ships, verifiers refuse the bare unquoted `Signature-Agent` that v1.0.8 sends, so a v1.0.8 client must upgrade to keep working. The SDKs and the reference implementation change together; the [changelog](/reference/changelog/) lists each difference.
+The next SDK release implements this profile in Go, Python and TypeScript. The SDKs released as v1.0.8 do not. They send `Signature-Agent` as a bare, unquoted URL rather than a dictionary, set no `tag`, generate a 16-byte nonce, and refuse any signature that does not cover all five FORA components. The reference implementation's directories are served as `application/jwk-set+json` and unsigned until it adopts that release. The change is a hard cut with no transition window: verifiers of the new release refuse the bare unquoted `Signature-Agent` that v1.0.8 sends and a directory served under the old media type, so a v1.0.8 client must upgrade to keep working. The SDKs and the reference implementation change together; the [changelog](/reference/changelog/) lists each difference.
 :::
 
 ### Signature Verification
@@ -315,7 +315,7 @@ A party that forwards a request unchanged in every component an earlier signatur
 The Exchange:
 
 1. Reads each labeled signature and its `keyid` from `Signature` / `Signature-Input`
-2. Resolves each signature's `keyid` (an RFC 7638 thumbprint) in the key directory that **its own** covered `Signature-Agent` member names, at `{origin}/.well-known/http-message-signatures-directory`. A verifier MUST NOT attribute a signature to a member that signature does not cover (WG-00 §5.2.2)
+2. Resolves each signature's `keyid` (an RFC 7638 thumbprint) in the key directory that **its own** covered `Signature-Agent` member names, at `{origin}/.well-known/http-message-signatures-directory`. A verifier MUST NOT attribute a signature to a member that signature does not cover (WG-00 §5.2.2). A signature that covers an earlier one also covers that signature's member, so it covers several; it is attributed to the member keyed to its own label (WG-00 §5.2.1), and a signature covering several members none of which is keyed to its label is refused
 3. Verifies each signature independently against its own covered components and its own key, and authenticates the caller as the party that signed the request: the agent on a direct call, the Broker on a request the Broker sent. Where a party forwarded unchanged and covered an earlier signature, it also confirms that coverage
 4. On an execute request, verifies each item's `AgentAcceptance` against the agent's registered key, as above
 5. Enforces depth caps — `RequestConstraints.max_hops` and `WellKnownManifest.max_intermediary_hops` — by **counting the signatures** in the stack
@@ -419,7 +419,7 @@ The edge still verifies offline. The fetcher also presents its raw public key in
 Agents in the field run many WBA libraries and some send earlier forms of the protocol. A FORA verifier accepts the following, which WG-00 permits:
 
 - **The legacy `Signature-Agent` form, on a direct single-hop call only.** A bare structured-field String (`Signature-Agent: "https://research.acme.com"`), covered as plain `"signature-agent"`. The verifier treats it as a dictionary with one member whose key is the label of the signature covering it. A party that forwards a request unchanged refuses this form, because it has to append its own member to the agent's `Signature-Agent` header and a String cannot take a second member; it answers with `Accept-Signature` asking for the dictionary form, as in the `Accept-Signature` example above. FORA signers never send this form.
-- **A member key different from the signature label.** Signers use a member key equal to the label, but the verifier follows whichever member the signature covers, `"signature-agent";key="<member>"`, whatever the label is called.
+- **A member key different from the signature label.** Signers use a member key equal to the label, but when a signature covers one `Signature-Agent` member the verifier follows that member, `"signature-agent";key="<member>"`, whatever the label is called.
 - **No `nonce`.** WG-00 sets no nonce requirement.
 - **A `type` parameter equal to `directory`** on the member. A member with any other `type` value is ignored, as WG-00 §5.2.1 requires.
 
