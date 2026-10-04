@@ -148,9 +148,11 @@ function statedEstimate(pricing: Record<string, unknown>): bigint | undefined {
  * checkMeteredEstimate throws when `offer` is metered and its pricing states an
  * `estimated_quantity` that is not positive, and returns otherwise. A metered
  * offer that states no estimate passes: the estimate is optional, and without
- * one the purchase settles with no ceiling. The offer.metered.estimate_positive
- * rule as a standalone check, for a verifier that runs without wire validation;
- * a non-metered offer passes whatever its pricing says.
+ * one the purchase charges one unit at the rate (1 × R) instead of the estimate
+ * times the rate (E × R). Either charge is final, and a usage report afterwards
+ * is only a record. The offer.metered.estimate_positive rule as a standalone
+ * check, for a verifier that runs without wire validation; a non-metered offer
+ * passes whatever its pricing says.
  */
 export function checkMeteredEstimate(offer: Record<string, unknown>): void {
 	if (typeof offer !== "object" || offer === null) {

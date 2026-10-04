@@ -150,10 +150,11 @@ def check_metered_estimate(offer: Mapping[str, Any]) -> None:
     ``estimated_quantity`` that is not positive; return quietly otherwise.
 
     A metered offer that states no estimate passes: the estimate is optional, and
-    without one the purchase settles with no ceiling. The
-    offer.metered.estimate_positive rule as a standalone check, for a verifier that
-    runs without wire validation. A non-metered offer passes whatever its pricing
-    says.
+    without one the purchase charges one unit at the rate (1 × R) instead of the
+    estimate times the rate (E × R). Either charge is final, and a usage report
+    afterwards is only a record. The offer.metered.estimate_positive rule as a
+    standalone check, for a verifier that runs without wire validation. A
+    non-metered offer passes whatever its pricing says.
     """
     if not isinstance(offer, Mapping):
         msg = "money: offer is not an object"

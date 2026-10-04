@@ -345,10 +345,12 @@ func TestDiscover_SortsVerifiedAndRejected(t *testing.T) {
 // TestDiscover_MeteredOfferEstimateOptionalButPositive pins how the Verifier
 // treats a metered offer's estimate, for offers the Exchange genuinely signed
 // and that have not expired. An offer with an estimate verifies, and so does
-// one without: the estimate is optional, and without it the purchase settles
-// at consumed × rate with no ceiling. An offer that states a zero estimate
-// lands in Rejected, since a stated estimate is positive. Validation is off,
-// the client default, so the Verifier is the only gate the offers meet.
+// one without: the estimate is optional, and without it the purchase charges
+// one unit at the rate (1 × R) instead of the estimate times the rate (E × R).
+// Either charge is final, and a usage report afterwards is only a record. An
+// offer that states a zero estimate lands in Rejected, since a stated estimate
+// is positive. Validation is off, the client default, so the Verifier is the
+// only gate the offers meet.
 func TestDiscover_MeteredOfferEstimateOptionalButPositive(t *testing.T) {
 	t.Parallel()
 	sig := newSigningFixture(t)
