@@ -745,10 +745,15 @@ SDKs, in all three languages:
   directory its member names, and carry that directory on the result. A refusal for a
   missing component or a refused form carries the `Accept-Signature` value
   (`helpers.AcceptSignature` / `accept_signature` / `acceptSignature`): Go's
-  `connectserver` writes it on the 401, the Python and TypeScript server verdicts carry it,
-  and the Hono middleware writes it. `helpers.ErrBrokenSignatureChain` now means an
-  incomplete or dangling coverage of an earlier signature. `helpers.BrokerKeyIDPrefix` is
-  deprecated.
+  `connectserver` writes it on the 401, and the Python and TypeScript server verdicts carry
+  it. The key resolver receives the directory of the signature it resolves: Go threads it
+  through `helpers.SignatureAgentFromContext`, while Python's `KeyResolver.resolve` and
+  TypeScript's `RequestKeyResolver.resolve` take it as a second argument (a breaking change
+  for a custom resolver). `helpers.ErrBrokenSignatureChain` now means an incomplete or
+  dangling coverage of an earlier signature. `helpers.BrokerKeyIDPrefix` is deprecated.
+  The TypeScript helpers that served the old chain (`COVERED_COMPONENTS`,
+  `buildRequestSignatureBase`, `maxSigLabelN`, `signatureBytesByLabel`,
+  `parseMultisigSignatureInput` and the regex-based proof parsers) are removed.
 - Signing transports: 64-byte nonces; a directory is required (`WithSignatureAgent`,
   `signature_agent`, `signatureAgent`), and a client without one refuses a signed call
   locally as malformed. A per-request signer source (`core.WithSignerSource` /
@@ -756,9 +761,12 @@ SDKs, in all three languages:
   (`core.WithAppendSigner`, `appendOnly`) is joined by Python's `append_only`, which
   Python lacked. `core.MonotonicWindow` keeps every window at its ttl.
 - Delivery proof: `helpers.SignAgentBinding` / `sign_agent_binding` / `signInbound`
-  take the agent's directory and a nonce and emit the `Signature-Agent` header; the
-  Python and TypeScript edge verifiers apply the new profile with a structured-field
-  parser.
+  take the agent's directory and a nonce and emit the `Signature-Agent` header. Python's
+  `sign_agent_binding` now returns an `AgentBinding` with the four header values instead of
+  a tuple. The Python and TypeScript edge verifiers apply the new profile with a
+  structured-field parser, and the Hono middleware answers a proof refused for a missing
+  component or a refused form with 401 and the proof's own `Accept-Signature`
+  (`POP_ACCEPT_SIGNATURE`).
 - Directories: `helpers.SignDirectoryResponse` / `sign_directory_response` /
   `signDirectoryResponse` sign a directory response and
   `helpers.VerifyDirectoryResponse` / `verify_directory_response` /
