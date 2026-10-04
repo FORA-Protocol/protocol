@@ -353,7 +353,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `core.WithSignerSource` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `core.WithWindow` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `helpers.AcceptSignatureFor` | Go maps a verification error to its Accept-Signature value; py/ts carry the value on the verification verdict (accept_signature / acceptSignature), so no error-to-value function exists to mirror. |
-| `helpers.AgentBinding` | Go value struct holding the three proof header values; Python returns a tuple of them and TS returns a prepared request, so neither names a public type. |
+| `helpers.AgentBinding` | Go value struct holding the four proof header values; Python returns a dataclass of the same name from fora_sdk.pop, and TS returns a prepared request, so TS names no public type and the pair is not a one-to-one face. |
 | `helpers.AgentIDParam` | Signed-URL query-parameter name; language-idiomatic inline constant, no cross-language public face. |
 | `helpers.AlgEd25519` | RFC 9421 alg tag constant; inlined per language. |
 | `helpers.AllSignaturesFromContext` | Go context.Context accessor; py/ts thread multisig state explicitly. |

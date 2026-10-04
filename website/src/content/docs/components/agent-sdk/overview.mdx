@@ -153,7 +153,8 @@ A few rules hold in every language:
   that writes an enum as its number, which the Go reader accepts.
 - **The delivery-fetch proof is the public signer.** The Python client's
   `proof_headers` is internal; a harness signs a fetch with `sign_agent_binding` (or
-  `SigningTransport.sign_agent_binding`), which returns the three header values.
+  `SigningTransport.sign_agent_binding`), which returns an `AgentBinding` with the four
+  header values: the agent key, `Signature-Agent`, `Signature-Input` and `Signature`.
 - **Error details are read from the binary `value`.** A Connect error carries its typed
   reason as `details[].value`, the binary `ErrorDetail`. All three SDKs read it; the JSON
   SDKs fall back to the lowerCamelCase `debug` projection only when `value` is absent.
