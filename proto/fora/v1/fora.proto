@@ -2828,7 +2828,12 @@ enum IngestionSource {
 service CatalogService {
   // Push or update resource entries in the Exchange catalog.
   rpc PushResources(PushResourcesRequest) returns (PushResourcesResponse);
-  // Remove resource entries.
+  // Remove resource entries. The request names each resource the way a push
+  // does, by domain and path (RemoveResourcesRequest.resources). For each one
+  // the Exchange resolves /.well-known/fora.json from its domain and checks
+  // that the signer of the request is authorized to push for that domain,
+  // exactly as for PushResources, and refuses the request as a push is refused
+  // when it is not. The caller is the party that signs the request.
   rpc RemoveResources(RemoveResourcesRequest) returns (RemoveResourcesResponse);
   // Trigger a full catalog refresh from configured sources.
   rpc RefreshCatalog(RefreshCatalogRequest) returns (RefreshCatalogResponse);
@@ -3170,11 +3175,13 @@ message RemoveResourcesRequest {
   string ver = 1;
   // Tenant identifier
   string tenant_id = 2;
-  // Paths to remove — the absolute-path shape ResourceEntry.path carries, at
-  // least one and at most 256, the same batch bound PushResourcesRequest.entries
-  // carries and for the same reason.
+  // DEPRECATED, ignored. A bare path names no domain, so the Exchange cannot
+  // tell whose resource it is or whether the signer may remove it. Name each
+  // resource in `resources` instead; a request that carries only paths has no
+  // resources and is refused as malformed. The field and its item rules are
+  // retained because removing them would break the v1 wire contract.
   repeated string paths = 3 [
-    (buf.validate.field).repeated.min_items = 1,
+    deprecated = true,
     (buf.validate.field).repeated.max_items = 256,
     (buf.validate.field).repeated.items.string.min_len = 1,
     (buf.validate.field).repeated.items.string.max_len = 2048,
@@ -3189,6 +3196,35 @@ message RemoveResourcesRequest {
     (buf.validate.field).string = {
       max_len: 260,
       pattern: "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$"
+    }
+  ];
+
+  // The resources to remove, each named by the domain and path a push names it
+  // by — at least one and at most 256, the same batch bound
+  // PushResourcesRequest.entries carries and for the same reason.
+  repeated ResourceRef resources = 5 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.max_items = 256
+  ];
+}
+
+// ResourceRef — one catalog resource, named the way PushResources names it:
+// by ResourceEntry.domain and ResourceEntry.path, under the same rules, which
+// together form the catalog URI.
+message ResourceRef {
+  // The bare host the resource lives on, as ResourceEntry.domain.
+  string domain = 1 [
+    (buf.validate.field).string = {
+      max_len: 260,
+      pattern: "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$"
+    }
+  ];
+  // The resource's absolute path, as ResourceEntry.path.
+  string path = 2 [
+    (buf.validate.field).string = {
+      min_len: 1,
+      max_len: 2048,
+      pattern: "^/[^?#\\x00-\\x20\\x7f]*$"
     }
   ];
 }

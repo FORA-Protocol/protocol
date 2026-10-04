@@ -43,7 +43,7 @@ var malformedDomains = []struct{ name, value string }{
 
 // wantDomainFields is the number of fields the shared domain constraint is meant
 // to be on. It is a ratchet, not a description: see the exact-count check below.
-const wantDomainFields = 20
+const wantDomainFields = 21
 
 // digestPattern is the "method:hexdigest" shape. Several fields carry it, and which
 // ones is read from the descriptor by the membership check below rather than listed
@@ -54,8 +54,8 @@ const digestPattern = `^(sha256:[0-9a-f]{64}|sha384:[0-9a-f]{96}|sha512:[0-9a-f]
 
 const wantDigestFields = 4
 
-// resourcePathPattern is the absolute-path shape, carried by ResourceEntry.path
-// and RemoveResourcesRequest.paths. It is the third shared pattern in the
+// resourcePathPattern is the absolute-path shape, carried by ResourceEntry.path,
+// ResourceRef.path and the deprecated RemoveResourcesRequest.paths. It is the third shared pattern in the
 // contract, and it gets the same descriptor-derived membership check the other two
 // have for a reason the corpus generator depends on: corpusgen keys its
 // pattern-specific killer table BY THE PATTERN STRING, so if the proto's copy moves
@@ -64,7 +64,7 @@ const wantDigestFields = 4
 // makes that drift loud.
 const resourcePathPattern = `^/[^?#\x00-\x20\x7f]*$`
 
-const wantResourcePathFields = 2
+const wantResourcePathFields = 3
 
 func fieldNames(fs []domainField) string {
 	names := make([]string, 0, len(fs))

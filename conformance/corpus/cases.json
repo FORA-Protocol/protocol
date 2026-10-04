@@ -1552,7 +1552,7 @@
       "enum.defined_only"
     ],
     "json": {
-      "reason": 10
+      "reason": 12
     }
   },
   {
@@ -14518,6 +14518,12 @@
       "exchange": "https://exchange.example",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14532,6 +14538,12 @@
       "exchange": "exchange.example/register",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14546,6 +14558,12 @@
       "exchange": "exchange.example:0",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14560,6 +14578,12 @@
       "exchange": "exchange.example:99999",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14574,6 +14598,12 @@
       "exchange": "exchange.example?x=1",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14588,6 +14618,12 @@
       "exchange": "user@exchange.example",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14602,6 +14638,12 @@
       "exchange": "exchange.example:123456",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14616,6 +14658,12 @@
       "exchange": "exchange.example:",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14630,6 +14678,12 @@
       "exchange": "exchange.example.",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14644,6 +14698,12 @@
       "exchange": "exchange..example",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14658,6 +14718,12 @@
       "exchange": "-exchange.example",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14672,6 +14738,12 @@
       "exchange": "[::1]:443",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14685,6 +14757,12 @@
     "json": {
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14699,6 +14777,12 @@
       "exchange": "two words",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14713,6 +14797,12 @@
       "exchange": "!!bad!!",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14727,6 +14817,12 @@
       "exchange": "\u0000ctl\u0000",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14741,6 +14837,12 @@
       "exchange": " ",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14755,6 +14857,12 @@
       "exchange": "-5",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14769,6 +14877,12 @@
       "exchange": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14784,6 +14898,12 @@
       "paths": [
         "/x",
         "x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14799,6 +14919,12 @@
       "paths": [
         "/x",
         "/a?b"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14814,6 +14940,12 @@
       "paths": [
         "/x",
         "/a#b"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14829,6 +14961,12 @@
       "paths": [
         "/x",
         "/a b"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14844,6 +14982,12 @@
       "paths": [
         "/x",
         "/a"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14859,6 +15003,12 @@
       "paths": [
         "/x",
         "two words"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14875,6 +15025,12 @@
       "paths": [
         "/x",
         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14891,6 +15047,12 @@
       "paths": [
         "/x",
         ""
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -15161,6 +15323,1056 @@
         "/x",
         "/x",
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
+      ]
+    }
+  },
+  {
+    "id": "RemoveResourcesRequest/resources/too_many",
+    "message": "RemoveResourcesRequest",
+    "valid": false,
+    "rules": [
+      "repeated.max_items"
+    ],
+    "json": {
+      "exchange": "x",
+      "paths": [
+        "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -15172,6 +16384,12 @@
       "exchange": "x",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -19308,6 +20526,447 @@
     }
   },
   {
+    "id": "ResourceRef/domain/killer#0",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "https://exchange.example",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#1",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "exchange.example/register",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#10",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "exchange.example:0",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#11",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "exchange.example:99999",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#2",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "exchange.example?x=1",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#3",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "user@exchange.example",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#4",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "exchange.example:123456",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#5",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "exchange.example:",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#6",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "exchange.example.",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#7",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "exchange..example",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#8",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "-exchange.example",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#9",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "[::1]:443",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/missing_empty",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/pattern#0",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "two words",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/pattern#2",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "!!bad!!",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/pattern#3",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "\u0000ctl\u0000",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/pattern#4",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": " ",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/pattern#5",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "-5",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/too_long",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.max_len"
+    ],
+    "json": {
+      "domain": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/path/killer#0",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "x"
+    }
+  },
+  {
+    "id": "ResourceRef/path/killer#1",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "/a?b"
+    }
+  },
+  {
+    "id": "ResourceRef/path/killer#2",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "/a#b"
+    }
+  },
+  {
+    "id": "ResourceRef/path/killer#3",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "/a b"
+    }
+  },
+  {
+    "id": "ResourceRef/path/killer#4",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "/a"
+    }
+  },
+  {
+    "id": "ResourceRef/path/missing_empty",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.min_len",
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x"
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#0",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "two words"
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#1",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "1.2.3"
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#2",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "!!bad!!"
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#3",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "\u0000ctl\u0000"
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#4",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": " "
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#5",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "-5"
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#6",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "NaN"
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#7",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "Infinity"
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#8",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "1E3"
+    }
+  },
+  {
+    "id": "ResourceRef/path/too_long",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.max_len",
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "id": "ResourceRef/path/too_short",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.min_len",
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x"
+    }
+  },
+  {
+    "id": "ResourceRef/valid",
+    "message": "ResourceRef",
+    "valid": true,
+    "json": {
+      "domain": "x",
+      "path": "/x"
+    }
+  },
+  {
     "id": "ResourceResponse/exchange/killer#0",
     "message": "ResourceResponse",
     "valid": false,
@@ -20227,7 +21886,7 @@
     ],
     "json": {
       "exchange": "x",
-      "reason": 20
+      "reason": 21
     }
   },
   {
@@ -21020,7 +22679,7 @@
       "enum.defined_only"
     ],
     "json": {
-      "reason": 6
+      "reason": 7
     }
   },
   {

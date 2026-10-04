@@ -212,8 +212,8 @@ var patternKillers = map[string][]string{
 	},
 }
 
-// resourcePathPattern is the absolute-path shape ResourceEntry.path and
-// RemoveResourcesRequest.paths carry, quoted from the proto for the same
+// resourcePathPattern is the absolute-path shape ResourceEntry.path,
+// ResourceRef.path and the deprecated RemoveResourcesRequest.paths carry, quoted from the proto for the same
 // reason bareDomainPattern is — and, like it, a drift between this copy and the
 // fields is caught by conformance's own descriptor guard, not here. That matters
 // more for this one than for a plain constant: the killer table above is keyed by

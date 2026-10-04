@@ -146,7 +146,8 @@ func TestCatalog_RemoveAndRefreshKeepTheCallersVersion(t *testing.T) {
 	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
 
 	if _, err := client.RemoveResources(context.Background(), &forav1.RemoveResourcesRequest{
-		Exchange: "exchange.test", TenantId: "tenant-1", Paths: []string{"/x"}, Ver: "9.9",
+		Exchange: "exchange.test", TenantId: "tenant-1", Ver: "9.9",
+		Resources: []*forav1.ResourceRef{{Domain: "publisher.test", Path: "/x"}},
 	}); err != nil {
 		t.Fatalf("RemoveResources: %v", err)
 	}
@@ -197,7 +198,9 @@ func TestCatalog_RefusesAnUnaddressedRequestBeforeSending(t *testing.T) {
 			t.Errorf("%s: error = %v, want a CallNotSent CallError", name, err)
 		}
 	}
-	if _, err := client.RemoveResources(context.Background(), &forav1.RemoveResourcesRequest{Paths: []string{"/x"}}); err == nil {
+	if _, err := client.RemoveResources(context.Background(), &forav1.RemoveResourcesRequest{
+		Resources: []*forav1.ResourceRef{{Domain: "publisher.test", Path: "/x"}},
+	}); err == nil {
 		t.Error("remove with no exchange must be refused")
 	}
 	if _, err := client.RefreshCatalog(context.Background(), nil); err == nil {

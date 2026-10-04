@@ -52,8 +52,11 @@ describe("RawBody", () => {
 		const { peer, options } = await fixture(ok({}));
 		const catalog = createCatalogClient("https://exchange.test", options);
 		await catalog.pushResources(new RawBody("not json at all"));
-		await catalog.removeResources(new RawBody({ paths: ["/x"] }));
-		expect(peer.seen.map((s) => s.body)).toEqual(["not json at all", '{"paths":["/x"]}']);
+		await catalog.removeResources(new RawBody({ resources: [{ domain: "publisher.test", path: "/x" }] }));
+		expect(peer.seen.map((s) => s.body)).toEqual([
+			"not json at all",
+			'{"resources":[{"domain":"publisher.test","path":"/x"}]}',
+		]);
 	});
 
 	it("skips the validation and the local refusals a built request gets", async () => {

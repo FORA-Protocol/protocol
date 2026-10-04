@@ -106,7 +106,8 @@ func (c *CatalogClient) PushResources(ctx context.Context, req *forav1.PushResou
 	return resp.Msg, nil
 }
 
-// RemoveResources removes the catalog entries the request's paths name. Same
+// RemoveResources removes the catalog entries the request's resources name, each
+// by domain and path as a push names it. Same
 // envelope rule as PushResources: `ver` filled when empty, no idempotency key,
 // `exchange` required and refused locally when it is not a bare domain.
 func (c *CatalogClient) RemoveResources(ctx context.Context, req *forav1.RemoveResourcesRequest, opts ...CallOption) (*forav1.RemoveResourcesResponse, error) {

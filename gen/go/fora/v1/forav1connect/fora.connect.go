@@ -450,7 +450,12 @@ func (UnimplementedExchangeServiceHandler) GetAccountStatus(context.Context, *co
 type CatalogServiceClient interface {
 	// Push or update resource entries in the Exchange catalog.
 	PushResources(context.Context, *connect.Request[v1.PushResourcesRequest]) (*connect.Response[v1.PushResourcesResponse], error)
-	// Remove resource entries.
+	// Remove resource entries. The request names each resource the way a push
+	// does, by domain and path (RemoveResourcesRequest.resources). For each one
+	// the Exchange resolves /.well-known/fora.json from its domain and checks
+	// that the signer of the request is authorized to push for that domain,
+	// exactly as for PushResources, and refuses the request as a push is refused
+	// when it is not. The caller is the party that signs the request.
 	RemoveResources(context.Context, *connect.Request[v1.RemoveResourcesRequest]) (*connect.Response[v1.RemoveResourcesResponse], error)
 	// Trigger a full catalog refresh from configured sources.
 	RefreshCatalog(context.Context, *connect.Request[v1.RefreshCatalogRequest]) (*connect.Response[v1.RefreshCatalogResponse], error)
@@ -514,7 +519,12 @@ func (c *catalogServiceClient) RefreshCatalog(ctx context.Context, req *connect.
 type CatalogServiceHandler interface {
 	// Push or update resource entries in the Exchange catalog.
 	PushResources(context.Context, *connect.Request[v1.PushResourcesRequest]) (*connect.Response[v1.PushResourcesResponse], error)
-	// Remove resource entries.
+	// Remove resource entries. The request names each resource the way a push
+	// does, by domain and path (RemoveResourcesRequest.resources). For each one
+	// the Exchange resolves /.well-known/fora.json from its domain and checks
+	// that the signer of the request is authorized to push for that domain,
+	// exactly as for PushResources, and refuses the request as a push is refused
+	// when it is not. The caller is the party that signs the request.
 	RemoveResources(context.Context, *connect.Request[v1.RemoveResourcesRequest]) (*connect.Response[v1.RemoveResourcesResponse], error)
 	// Trigger a full catalog refresh from configured sources.
 	RefreshCatalog(context.Context, *connect.Request[v1.RefreshCatalogRequest]) (*connect.Response[v1.RefreshCatalogResponse], error)

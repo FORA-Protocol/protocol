@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+**RemoveResources names each resource by domain and path (additive field and message;
+`RemoveResourcesRequest.paths` deprecated).** A bare path names no domain, so the Exchange
+could not tell whose resource it was or whether the signer may remove it. The new
+`RemoveResourcesRequest.resources` (field 5, 1 to 256 items) carries `ResourceRef`
+items, each a `domain` and a `path` under `ResourceEntry`'s rules. For each item the
+Exchange resolves `/.well-known/fora.json` from its domain and checks that the request's
+signer is authorized to push for that domain, exactly as for a push; the caller is the
+party that signs. `paths` is deprecated and ignored, and loses its `min_items` rule, so a
+request carrying only `paths` is refused by the `min_items` rule on `resources`. The Go
+SDK's client comment and tests, the TypeScript raw-body test and the conformance cases
+use `resources`; the reference and multi-tenant pages say the same.
+
 **A mis-addressed request is refused before processing, for every RPC (comments only).**
 "Request recipient" says the recipient applies the `exchange` check to every RPC that
 carries it, before processing the request, and never answers it with an RPC's own reason

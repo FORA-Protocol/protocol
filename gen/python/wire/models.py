@@ -774,30 +774,6 @@ class RegistrationFieldError(WireModel):
     )
 
 
-class RemoveResourcesRequest(WireModel):
-    exchange: constr(
-        pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
-        max_length=260,
-    ) = Field(
-        ...,
-        description='REQUIRED. Bare host of the recipient this request is addressed to (e.g.\n "exchange.example" or "exchange.example:8081"). See "Request recipient" in\n the file header. Distinct from `tenant_id` above, which names a publisher\n tenant WITHIN an Exchange, not the Exchange itself.',
-    )
-    paths: (
-        list[constr(pattern=r'^/[^?#\x00-\x20\x7f]*$', min_length=1, max_length=2048)]
-        | None
-    ) = Field(
-        None,
-        description='Paths to remove — the absolute-path shape ResourceEntry.path carries, at\n least one and at most 256, the same batch bound PushResourcesRequest.entries\n carries and for the same reason.',
-        max_length=256,
-        min_length=1,
-    )
-    tenant_id: str | None = Field('', description='Tenant identifier')
-    ver: str | None = Field(
-        '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
-    )
-
-
 class RemoveResourcesResponse(WireModel):
     removed: conint(ge=-2147483648, le=2147483647) | None = Field(
         None, description='Number of entries removed'
@@ -970,6 +946,18 @@ class ResourceMutability(Enum):
     RESOURCE_MUTABILITY_STATIC = 'RESOURCE_MUTABILITY_STATIC'
     RESOURCE_MUTABILITY_DYNAMIC = 'RESOURCE_MUTABILITY_DYNAMIC'
     RESOURCE_MUTABILITY_LIVE = 'RESOURCE_MUTABILITY_LIVE'
+
+
+class ResourceRef(WireModel):
+    domain: constr(
+        pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
+        max_length=260,
+    ) = Field(
+        ..., description='The bare host the resource lives on, as ResourceEntry.domain.'
+    )
+    path: constr(pattern=r'^/[^?#\x00-\x20\x7f]*$', min_length=1, max_length=2048) = (
+        Field(..., description="The resource's absolute path, as ResourceEntry.path.")
+    )
 
 
 class RestrictionKind(Enum):
@@ -1376,6 +1364,35 @@ class RegistrationFailure(WireModel):
     )
     reason: RegistrationFailureReason = Field(
         ..., description='The failure reason (defined-only, non-zero)'
+    )
+
+
+class RemoveResourcesRequest(WireModel):
+    exchange: constr(
+        pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
+        max_length=260,
+    ) = Field(
+        ...,
+        description='REQUIRED. Bare host of the recipient this request is addressed to (e.g.\n "exchange.example" or "exchange.example:8081"). See "Request recipient" in\n the file header. Distinct from `tenant_id` above, which names a publisher\n tenant WITHIN an Exchange, not the Exchange itself.',
+    )
+    paths: (
+        list[constr(pattern=r'^/[^?#\x00-\x20\x7f]*$', min_length=1, max_length=2048)]
+        | None
+    ) = Field(
+        None,
+        description='DEPRECATED, ignored. A bare path names no domain, so the Exchange cannot\n tell whose resource it is or whether the signer may remove it. Name each\n resource in `resources` instead; a request that carries only paths has no\n resources and is refused as malformed. The field and its item rules are\n retained because removing them would break the v1 wire contract.',
+        max_length=256,
+    )
+    resources: list[ResourceRef] | None = Field(
+        None,
+        description='The resources to remove, each named by the domain and path a push names it\n by — at least one and at most 256, the same batch bound\n PushResourcesRequest.entries carries and for the same reason.',
+        max_length=256,
+        min_length=1,
+    )
+    tenant_id: str | None = Field('', description='Tenant identifier')
+    ver: str | None = Field(
+        '',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 

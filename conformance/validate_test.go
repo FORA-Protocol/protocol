@@ -175,9 +175,11 @@ func licensingCases() []validationCase {
 		// Catalog request lists — an empty push or removal asks for nothing.
 		{"push request with one entry ok", &forav1.PushResourcesRequest{Exchange: "exchange.example", Entries: []*forav1.ResourceEntry{{Domain: "publisher.example", Path: "/x"}}}, true, ""},
 		{"push request without entries rejected", &forav1.PushResourcesRequest{Exchange: "exchange.example"}, false, "repeated.min_items"},
-		{"remove request with one path ok", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Paths: []string{"/x"}}, true, ""},
-		{"remove request without paths rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example"}, false, "repeated.min_items"},
-		{"remove request relative path rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Paths: []string{"x"}}, false, "string.pattern"},
+		{"remove request with one resource ok", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Resources: []*forav1.ResourceRef{{Domain: "publisher.example", Path: "/x"}}}, true, ""},
+		{"remove request without resources rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example"}, false, "repeated.min_items"},
+		{"remove request with only deprecated paths rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Paths: []string{"/x"}}, false, "repeated.min_items"},
+		{"remove request relative path rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Resources: []*forav1.ResourceRef{{Domain: "publisher.example", Path: "x"}}}, false, "string.pattern"},
+		{"remove request schemed domain rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Resources: []*forav1.ResourceRef{{Domain: "https://publisher.example", Path: "/x"}}}, false, "string.pattern"},
 
 		// Quota.metric format — bare-dashed or vendor:namespaced; empty rejected.
 		// window set so the only variable under test is metric.

@@ -457,9 +457,15 @@ A single resource catalog entry. The envelope carries its own wire rules, so an 
 
 ### RemoveResourcesRequest
 
-`paths` carries at least one path and at most 256 — the same batch bound `PushResourcesRequest.entries` carries — each in the same absolute-path shape `ResourceEntry.path` carries.
+`resources` names at least one resource and at most 256 — the same batch bound `PushResourcesRequest.entries` carries — each by the domain and path a push names it by (`ResourceRef`). For each one the Exchange resolves `/.well-known/fora.json` from its domain and checks that the request's signer is authorized to push for that domain, exactly as for a push; the caller is whoever signs. `paths` is deprecated and ignored: a bare path names no domain, and a request carrying only `paths` has no `resources` and is refused as malformed.
 
 ::proto-message{name=RemoveResourcesRequest}
+
+### ResourceRef
+
+One catalog resource, named the way a push names it: `ResourceEntry.domain` and `ResourceEntry.path`, under the same rules.
+
+::proto-message{name=ResourceRef}
 
 ### RemoveResourcesResponse
 
