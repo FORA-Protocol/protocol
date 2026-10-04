@@ -74,10 +74,11 @@ _GO_PACKAGES = ("helpers", "resolvers", "core", "connect", "connectserver", "pro
 #     docs/sdk-parity-matrix.md reached via decision_anchor (the three connectserver
 #     handler bindings).
 #   * PARTIAL gap (one language present, the other genuinely absent) — backed by an
-#     inline allowlist_reason naming the one-sided divergence. The 13 partial gaps are
-#     all language-idiom folds absorbed from the old BASELINE_PY_ONLY_GAP ratchet —
-#     Go NewX constructor funcs that fold into Python class constructors, and Go/TS
-#     options types that fold into Python constructor kwargs. Each carries
+#     inline allowlist_reason naming the one-sided divergence. The 14 partial gaps are
+#     all language-idiom folds, most absorbed from the old BASELINE_PY_ONLY_GAP ratchet —
+#     Go NewX constructor funcs that fold into Python class constructors (among them
+#     the four client factories, connect.NewAdminClient included), and Go/TS options
+#     types that fold into Python constructor kwargs. Each carries
 #     a per-entry reason; none is a symbol Python is missing. (The two former
 #     ErrUnknownKey partial gaps are RESOLVED: TS now exports the UnknownKey error
 #     class, completing the resolver error taxonomy in all three languages.)

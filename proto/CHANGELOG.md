@@ -505,6 +505,9 @@ request only where it means to, and check every answer through the SDK's own dec
   (`SetTenantFeeRate`, `SetReportingPolicy`) and the two domain-verification RPCs,
   `RequestDomainVerification` and `ConfirmDomainVerification`: `AdminClient` in Python
   (async and sync), `createAdminClient` in TypeScript, `connect.NewAdminClient` in Go.
+  Python has no separate factory: as for every other client, the Go factory folds into
+  the `AdminClient` constructor. The SDK parity matrix records it with that reason, as
+  its 17th documented divergence (16 at v1.0.8).
 - **Identity helpers.** Mint a fresh agent: a key and its thumbprint, the Web Bot Auth
   directory document for a key set, and a signer that signs as it.
   `generate_key`, `directory_document`, `signing_transport_for` (Python, in
