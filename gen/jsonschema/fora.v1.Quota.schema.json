@@ -1,7 +1,7 @@
 {
   "$id": "fora.v1.Quota.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "Quotas limit how much a licensee may consume before the term expires or\n must be renegotiated. They are NOT billing quantities — billing is in Pricing.\n\n The metric vocabulary is authored ONLY in the (fora.v1.vocab) entries on\n Quota.metric below; the quotametrics constants + IsRegistered derive from it.",
+  "description": "A quota states how much a licensee may consume under the term before the\n term expires or must be renegotiated. Like a restriction, it is a declared\n term the parties agree to. Quotas are NOT billing quantities — billing is in\n Pricing.\n\n The metric vocabulary is authored ONLY in the (fora.v1.vocab) entries on\n Quota.metric below; the quotametrics constants + IsRegistered derive from it.",
   "properties": {
     "limit": {
       "anyOf": [
@@ -49,6 +49,6 @@
     "metric",
     "window"
   ],
-  "title": "Quota — A usage cap that gates whether this LicenseTerm remains valid.",
+  "title": "Quota — A usage cap the term declares.",
   "type": "object"
 }

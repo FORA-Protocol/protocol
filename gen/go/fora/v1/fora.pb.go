@@ -223,8 +223,8 @@ type TermSemantics int32
 
 const (
 	TermSemantics_TERM_SEMANTICS_UNSPECIFIED    TermSemantics = 0 // unset — rejected at ingest
-	TermSemantics_TERM_SEMANTICS_ENUMERATED     TermSemantics = 1 // Machine `restrictions`/`quotas`/`obligations` are the complete, authoritative expression of the term (internally consistent, no self-contradiction) and are enforced. `Pricing` MUST be present on a catalog term (on an offer it is Offer.pricing).
-	TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY TermSemantics = 2 // The document at `License.uri` (MUST be non-empty) is the authoritative, complete source; the agent reads it before using. Machine `restrictions`/`quotas`/`obligations` are optional here (the publisher MAY send `Pricing` alone) but any that are sent must be accurate (MUST NOT contradict the referenced document) and are enforced just like ENUMERATED. `Pricing` is still required on a catalog term (on an offer it is Offer.pricing).
+	TermSemantics_TERM_SEMANTICS_ENUMERATED     TermSemantics = 1 // Machine `restrictions`/`quotas`/`obligations` are the complete, authoritative expression of the term (internally consistent, no self-contradiction): declared terms the parties agree to when the agent accepts the offer. `Pricing` MUST be present on a catalog term (on an offer it is Offer.pricing).
+	TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY TermSemantics = 2 // The document at `License.uri` (MUST be non-empty) is the authoritative, complete source; the agent reads it before using. Machine `restrictions`/`quotas`/`obligations` are optional here (the publisher MAY send `Pricing` alone) but any that are sent must be accurate (MUST NOT contradict the referenced document) and bind the parties just like ENUMERATED. `Pricing` is still required on a catalog term (on an offer it is Offer.pricing).
 )
 
 // Enum value maps for TermSemantics.
@@ -907,12 +907,21 @@ func (ResourceMutability) EnumDescriptor() ([]byte, []int) {
 type DenialReason int32
 
 const (
-	DenialReason_DENIAL_REASON_UNSPECIFIED               DenialReason = 0 // output enum; zero = not-applicable on TransactionResultItem.denial_reason, rejected (not_in:[0]) where set on TransactionDenial.reason
-	DenialReason_DENIAL_REASON_ACCOUNT_INACTIVE          DenialReason = 1 // the requester's account (the billing_ref minted at Register) exists but is not active — typically awaiting the Exchange operator's out-of-band activation; the remedy is to wait or contact the operator, NOT to register again
-	DenialReason_DENIAL_REASON_INSUFFICIENT_BALANCE      DenialReason = 2 // Requester's balance too low
-	DenialReason_DENIAL_REASON_RATE_LIMITED              DenialReason = 3 // Too many requests
-	DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE       DenialReason = 4 // the Exchange that owns the resource reports it no longer available; NOT a catch-all for upstream failures — a Broker reports an Exchange that refused or did not answer its sub-request on TransactionResultItem.refusal, never as this reason
-	DenialReason_DENIAL_REASON_RESTRICTION_NOT_SATISFIED DenialReason = 5 // Accepted term's restriction not satisfied by the request; decided per item, so the axes are in TransactionResultItem.restriction_mismatches (whatever the item count), same RestrictionKind vocabulary as the terms
+	DenialReason_DENIAL_REASON_UNSPECIFIED          DenialReason = 0 // output enum; zero = not-applicable on TransactionResultItem.denial_reason, rejected (not_in:[0]) where set on TransactionDenial.reason
+	DenialReason_DENIAL_REASON_ACCOUNT_INACTIVE     DenialReason = 1 // the requester's account (the billing_ref minted at Register) exists but is not active — typically awaiting the Exchange operator's out-of-band activation; the remedy is to wait or contact the operator, NOT to register again
+	DenialReason_DENIAL_REASON_INSUFFICIENT_BALANCE DenialReason = 2 // Requester's balance too low
+	DenialReason_DENIAL_REASON_RATE_LIMITED         DenialReason = 3 // Too many requests
+	DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE  DenialReason = 4 // the Exchange that owns the resource reports it no longer available; NOT a catch-all for upstream failures — a Broker reports an Exchange that refused or did not answer its sub-request on TransactionResultItem.refusal, never as this reason
+	// DEPRECATED, never sent. An Exchange MUST NOT send this value. Restrictions
+	// are declared terms the parties agree to, and the Exchange never enforces
+	// them (see Restriction), so a purchase is never denied for one. A receiver
+	// treats this value as unknown.
+	//
+	// The number is retained because removing it would break the v1 wire
+	// contract, and it MUST NOT be reused or given a new meaning.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
+	DenialReason_DENIAL_REASON_RESTRICTION_NOT_SATISFIED DenialReason = 5
 	DenialReason_DENIAL_REASON_REPORTING_OVERDUE         DenialReason = 6 // Requester has >20% overdue reports (MAY threshold)
 	DenialReason_DENIAL_REASON_OFFER_EXPIRED             DenialReason = 7 // Offer TTL exceeded
 	// A signature this item depends on does not verify, or does not cover what
@@ -3642,10 +3651,10 @@ func (x *License) GetUriDigest() string {
 //
 // Restrictions model allowed and prohibited values on one axis (function,
 // geography, or user-type). They are validated and normalized at ingest and
-// RIDE ON THE OFFER: the AGENT is the responsible party — it self-selects the
-// term whose restrictions it can honour and bears compliance, and enforcement
-// happens downstream at accept → report → reconcile. Restrictions are NOT an
-// Exchange-side gate the requester must pass to see a term.
+// RIDE ON THE OFFER: they are declared terms the parties agree to when the
+// agent accepts the offer. The AGENT self-selects the term whose restrictions it
+// can honour and bears compliance. The Exchange never enforces a restriction:
+// it is NOT an Exchange-side gate the requester must pass to see or buy a term.
 //
 // An Exchange or Broker MAY, purely as a CONVENIENCE, pre-filter the offers it
 // returns against the limits the query states in ResourceQuery.acceptable_restrictions
@@ -3681,7 +3690,7 @@ type Restriction struct {
 	// so a new number was never the extension mechanism — accepting one would
 	// admit a restriction no consumer can evaluate onto a term whose default is
 	// BINDING (see advisory below), which fails open on the axis a publisher most
-	// needs enforced. Closing the axis does NOT bound the cost of the one-per-kind
+	// needs honoured. Closing the axis does NOT bound the cost of the one-per-kind
 	// rule below, and must not be read as doing so: a number this rule refuses is
 	// still distinct from every other, so that rule's all() finds no duplicate to
 	// stop on and walks the list in full anyway. Its cost is bounded by the size
@@ -3763,10 +3772,12 @@ func (x *Restriction) GetAdvisory() bool {
 	return false
 }
 
-// Quota — A usage cap that gates whether this LicenseTerm remains valid.
+// Quota — A usage cap the term declares.
 //
-// Quotas limit how much a licensee may consume before the term expires or
-// must be renegotiated. They are NOT billing quantities — billing is in Pricing.
+// A quota states how much a licensee may consume under the term before the
+// term expires or must be renegotiated. Like a restriction, it is a declared
+// term the parties agree to. Quotas are NOT billing quantities — billing is in
+// Pricing.
 //
 // The metric vocabulary is authored ONLY in the (fora.v1.vocab) entries on
 // Quota.metric below; the quotametrics constants + IsRegistered derive from it.
@@ -5583,8 +5594,12 @@ type TransactionResultItem struct {
 	// denial is answered here, in a successful response, also when the request
 	// carried only this item: a denied one-item purchase is never a non-OK error.
 	DenialReason *DenialReason `protobuf:"varint,7,opt,name=denial_reason,json=denialReason,proto3,enum=fora.v1.DenialReason,oneof" json:"denial_reason,omitempty"`
-	// When denial_reason = RESTRICTION_NOT_SATISFIED, the restriction axes the
-	// request failed, in the same RestrictionKind vocabulary the terms use.
+	// DEPRECATED, never set. It named the restriction axes a request failed under
+	// DENIAL_REASON_RESTRICTION_NOT_SATISFIED, which is never sent: the Exchange
+	// never enforces a restriction (see Restriction). The field is retained
+	// because removing it would break the v1 wire contract; a receiver ignores it.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	RestrictionMismatches []RestrictionKind `protobuf:"varint,13,rep,packed,name=restriction_mismatches,json=restrictionMismatches,proto3,enum=fora.v1.RestrictionKind" json:"restriction_mismatches,omitempty"`
 	// When retrieval_endpoint expires.
 	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
@@ -5697,6 +5712,7 @@ func (x *TransactionResultItem) GetDenialReason() DenialReason {
 	return DenialReason_DENIAL_REASON_UNSPECIFIED
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *TransactionResultItem) GetRestrictionMismatches() []RestrictionKind {
 	if x != nil {
 		return x.RestrictionMismatches
@@ -10319,15 +10335,14 @@ func (*ErrorDetail_RequestAuthFailure) isErrorDetail_Reason() {}
 // purchased. Every decision about an item is answered in the body instead, on
 // TransactionResultItem.denial_reason, whatever the item count: a denied
 // one-item purchase is a successful response whose one item is denied, never
-// this error. RESTRICTION_NOT_SATISFIED and RELAY_NOT_ACCEPTED are per-item
-// decisions and are never carried here.
+// this error. RELAY_NOT_ACCEPTED is a per-item decision and is never carried
+// here, and RESTRICTION_NOT_SATISFIED is never sent at all.
 type TransactionDenial struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The denial reason (defined-only, non-zero)
 	Reason DenialReason `protobuf:"varint,1,opt,name=reason,proto3,enum=fora.v1.DenialReason" json:"reason,omitempty"`
-	// DEPRECATED, never set. A whole-request refusal is never
-	// RESTRICTION_NOT_SATISFIED: a restriction is decided per item, and its failed
-	// axes ride on TransactionResultItem.restriction_mismatches. The field is
+	// DEPRECATED, never set. RESTRICTION_NOT_SATISFIED is never sent: the
+	// Exchange never enforces a restriction (see Restriction). The field is
 	// retained because removing it would break the v1 wire contract; a receiver
 	// ignores it.
 	//
@@ -11121,7 +11136,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x12subscription_quota\x18\x11 \x03(\v2\x1e.fora.v1.SubscriptionQuotaInfoR\x11subscriptionQuota\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
 	"\fext_critical\x18Z \x03(\tR\vextCriticalB\r\n" +
-	"\v_total_cost\"\xb8\a\n" +
+	"\v_total_cost\"\xbc\a\n" +
 	"\x15TransactionResultItem\x12\x19\n" +
 	"\boffer_id\x18\x01 \x01(\tR\aofferId\x12%\n" +
 	"\x0etransaction_id\x18\x02 \x01(\tR\rtransactionId\x12\x1d\n" +
@@ -11131,8 +11146,8 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x04cost\x18\x05 \x01(\v2\r.fora.v1.CostR\x04cost\x12,\n" +
 	"\x0fsubscription_id\x18\x06 \x01(\tH\x01R\x0esubscriptionId\x88\x01\x01\x12J\n" +
 	"\x17subscription_unit_value\x18\v \x01(\v2\r.fora.v1.CostH\x02R\x15subscriptionUnitValue\x88\x01\x01\x12?\n" +
-	"\rdenial_reason\x18\a \x01(\x0e2\x15.fora.v1.DenialReasonH\x03R\fdenialReason\x88\x01\x01\x12O\n" +
-	"\x16restriction_mismatches\x18\r \x03(\x0e2\x18.fora.v1.RestrictionKindR\x15restrictionMismatches\x12>\n" +
+	"\rdenial_reason\x18\a \x01(\x0e2\x15.fora.v1.DenialReasonH\x03R\fdenialReason\x88\x01\x01\x12S\n" +
+	"\x16restriction_mismatches\x18\r \x03(\x0e2\x18.fora.v1.RestrictionKindB\x02\x18\x01R\x15restrictionMismatches\x12>\n" +
 	"\n" +
 	"expires_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampH\x04R\texpiresAt\x88\x01\x01\x122\n" +
 	"\x12retrieval_endpoint\x18\f \x01(\tH\x05R\x11retrievalEndpoint\x88\x01\x01\x12@\n" +
@@ -11658,14 +11673,14 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x1fRESOURCE_MUTABILITY_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aRESOURCE_MUTABILITY_STATIC\x10\x01\x12\x1f\n" +
 	"\x1bRESOURCE_MUTABILITY_DYNAMIC\x10\x02\x12\x1c\n" +
-	"\x18RESOURCE_MUTABILITY_LIVE\x10\x03*\xbc\x06\n" +
+	"\x18RESOURCE_MUTABILITY_LIVE\x10\x03*\xc0\x06\n" +
 	"\fDenialReason\x12\x1d\n" +
 	"\x19DENIAL_REASON_UNSPECIFIED\x10\x00\x12\"\n" +
 	"\x1eDENIAL_REASON_ACCOUNT_INACTIVE\x10\x01\x12&\n" +
 	"\"DENIAL_REASON_INSUFFICIENT_BALANCE\x10\x02\x12\x1e\n" +
 	"\x1aDENIAL_REASON_RATE_LIMITED\x10\x03\x12%\n" +
-	"!DENIAL_REASON_CONTENT_UNAVAILABLE\x10\x04\x12+\n" +
-	"'DENIAL_REASON_RESTRICTION_NOT_SATISFIED\x10\x05\x12#\n" +
+	"!DENIAL_REASON_CONTENT_UNAVAILABLE\x10\x04\x12/\n" +
+	"'DENIAL_REASON_RESTRICTION_NOT_SATISFIED\x10\x05\x1a\x02\b\x01\x12#\n" +
 	"\x1fDENIAL_REASON_REPORTING_OVERDUE\x10\x06\x12\x1f\n" +
 	"\x1bDENIAL_REASON_OFFER_EXPIRED\x10\a\x12#\n" +
 	"\x1fDENIAL_REASON_SIGNATURE_INVALID\x10\b\x12 \n" +

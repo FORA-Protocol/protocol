@@ -388,14 +388,13 @@ Every decision about an item is answered in the response body. An item the Excha
   "items": [
     {
       "offer_id": "9d5735d7-1f17-4801-8dcf-7cac0b7b32b0",
-      "denial_reason": "DENIAL_REASON_RESTRICTION_NOT_SATISFIED",
-      "restriction_mismatches": ["RESTRICTION_KIND_GEOGRAPHY"]
+      "denial_reason": "DENIAL_REASON_OFFER_EXPIRED"
     }
   ]
 }
 ```
 
-A denied item was not purchased, so it carries no `retrieval_endpoint` and no charge. `restriction_mismatches` names the failed axes when the reason is `DENIAL_REASON_RESTRICTION_NOT_SATISFIED`.
+A denied item was not purchased, so it carries no `retrieval_endpoint` and no charge. A purchase is never denied for a restriction: restrictions are declared terms the parties agree to, and the Exchange never enforces them, so `DENIAL_REASON_RESTRICTION_NOT_SATISFIED` and `restriction_mismatches` are deprecated and never set.
 
 A non-OK error carrying `ErrorDetail.transaction_denial` is used only when the Exchange refuses the **whole request** and decides no item. That happens for a reason about the caller that would deny every item alike: the caller has no account (`DENIAL_REASON_ACCOUNT_NOT_REGISTERED`), its account is not active (`DENIAL_REASON_ACCOUNT_INACTIVE`), it has overdue reports (`DENIAL_REASON_REPORTING_OVERDUE`), or it is rate limited (`DENIAL_REASON_RATE_LIMITED`). Nothing is purchased. Other errors keep their own classes: a malformed request is `invalid_argument`, and a request signature that does not verify is `unauthenticated`.
 

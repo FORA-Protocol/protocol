@@ -1095,7 +1095,7 @@ class TransactionDenial(WireModel):
     )
     restriction_mismatches: list[RestrictionKind] | None = Field(
         None,
-        description='DEPRECATED, never set. A whole-request refusal is never\n RESTRICTION_NOT_SATISFIED: a restriction is decided per item, and its failed\n axes ride on TransactionResultItem.restriction_mismatches. The field is\n retained because removing it would break the v1 wire contract; a receiver\n ignores it.',
+        description='DEPRECATED, never set. RESTRICTION_NOT_SATISFIED is never sent: the\n Exchange never enforces a restriction (see Restriction). The field is\n retained because removing it would break the v1 wire contract; a receiver\n ignores it.',
     )
 
 
@@ -1531,7 +1531,7 @@ class Restriction(WireModel):
     )
     kind: RestrictionKind = Field(
         ...,
-        description="Which dimension this restriction applies to. Defined-only: the axis set is\n CLOSED, and a number outside it is refused rather than ignored. A custom\n axis is RESTRICTION_KIND_OTHER, whose meaning rides in permitted/prohibited,\n so a new number was never the extension mechanism — accepting one would\n admit a restriction no consumer can evaluate onto a term whose default is\n BINDING (see advisory below), which fails open on the axis a publisher most\n needs enforced. Closing the axis does NOT bound the cost of the one-per-kind\n rule below, and must not be read as doing so: a number this rule refuses is\n still distinct from every other, so that rule's all() finds no duplicate to\n stop on and walks the list in full anyway. Its cost is bounded by the size\n test the rule itself carries.",
+        description="Which dimension this restriction applies to. Defined-only: the axis set is\n CLOSED, and a number outside it is refused rather than ignored. A custom\n axis is RESTRICTION_KIND_OTHER, whose meaning rides in permitted/prohibited,\n so a new number was never the extension mechanism — accepting one would\n admit a restriction no consumer can evaluate onto a term whose default is\n BINDING (see advisory below), which fails open on the axis a publisher most\n needs honoured. Closing the axis does NOT bound the cost of the one-per-kind\n rule below, and must not be read as doing so: a number this rule refuses is\n still distinct from every other, so that rule's all() finds no duplicate to\n stop on and walks the list in full anyway. Its cost is bounded by the size\n test the rule itself carries.",
     )
     permitted: (
         list[constr(pattern=r'^[A-Za-z0-9._:*-]+$', min_length=1, max_length=64)] | None
@@ -2217,7 +2217,7 @@ class TransactionResultItem(WireModel):
     )
     restriction_mismatches: list[RestrictionKind] | None = Field(
         None,
-        description='When denial_reason = RESTRICTION_NOT_SATISFIED, the restriction axes the\n request failed, in the same RestrictionKind vocabulary the terms use.',
+        description='DEPRECATED, never set. It named the restriction axes a request failed under\n DENIAL_REASON_RESTRICTION_NOT_SATISFIED, which is never sent: the Exchange\n never enforces a restriction (see Restriction). The field is retained\n because removing it would break the v1 wire contract; a receiver ignores it.',
     )
     retrieval_endpoint: str | None = Field(
         None,

@@ -437,7 +437,7 @@
     },
     "fora.v1.Quota": {
       "additionalProperties": false,
-      "description": "Quotas limit how much a licensee may consume before the term expires or\n must be renegotiated. They are NOT billing quantities — billing is in Pricing.\n\n The metric vocabulary is authored ONLY in the (fora.v1.vocab) entries on\n Quota.metric below; the quotametrics constants + IsRegistered derive from it.",
+      "description": "A quota states how much a licensee may consume under the term before the\n term expires or must be renegotiated. Like a restriction, it is a declared\n term the parties agree to. Quotas are NOT billing quantities — billing is in\n Pricing.\n\n The metric vocabulary is authored ONLY in the (fora.v1.vocab) entries on\n Quota.metric below; the quotametrics constants + IsRegistered derive from it.",
       "properties": {
         "limit": {
           "anyOf": [
@@ -485,7 +485,7 @@
         "metric",
         "window"
       ],
-      "title": "Quota — A usage cap that gates whether this LicenseTerm remains valid.",
+      "title": "Quota — A usage cap the term declares.",
       "type": "object"
     },
     "fora.v1.ReportingObligation": {
@@ -668,7 +668,7 @@
     },
     "fora.v1.Restriction": {
       "additionalProperties": false,
-      "description": "Restrictions model allowed and prohibited values on one axis (function,\n geography, or user-type). They are validated and normalized at ingest and\n RIDE ON THE OFFER: the AGENT is the responsible party — it self-selects the\n term whose restrictions it can honour and bears compliance, and enforcement\n happens downstream at accept → report → reconcile. Restrictions are NOT an\n Exchange-side gate the requester must pass to see a term.\n\n An Exchange or Broker MAY, purely as a CONVENIENCE, pre-filter the offers it\n returns against the limits the query states in ResourceQuery.acceptable_restrictions\n (the same RestrictionKind axes/vocabulary the terms use) — e.g. an agent that\n only wants US-eligible content can ask the Exchange to skip the rest so it\n doesn't pay to discover offers it would never accept. That filter is advisory and\n optional: a different Broker may not apply it, and it is a recommendation\n matched to the request, never an enforcement verdict. When an Exchange does\n drop offers this way it MAY signal it via OfferAbsenceReason.RESTRICTION_FILTERED\n (with the axes in OfferGroup.restriction_filters). Term visibility is otherwise\n gated only by resource_id/URI and delegation scope coverage — see\n LicenseTerm.scopes.\n\n Reading a restriction:\n   A value is in-scope when it matches at least one permitted[] token\n   AND matches none of the prohibited[] tokens.\n   Empty permitted[] = any value is permitted on this axis.\n   Empty prohibited[] = nothing is explicitly prohibited.\n\n Vocabulary sources (authored on the RestrictionKind enum values via\n (fora.v1.vocab_enum); the functiontokens / geographytokens / usertypes\n constants + IsRegistered derive from them):\n   FUNCTION  — RSL 1.0 AI-use vocabulary + established IP/copyright terms\n   GEOGRAPHY — ISO 3166-1 alpha-2 (structural) + the specials *, EU, EEA\n   USER_TYPE — FORA user/organization categories",
+      "description": "Restrictions model allowed and prohibited values on one axis (function,\n geography, or user-type). They are validated and normalized at ingest and\n RIDE ON THE OFFER: they are declared terms the parties agree to when the\n agent accepts the offer. The AGENT self-selects the term whose restrictions it\n can honour and bears compliance. The Exchange never enforces a restriction:\n it is NOT an Exchange-side gate the requester must pass to see or buy a term.\n\n An Exchange or Broker MAY, purely as a CONVENIENCE, pre-filter the offers it\n returns against the limits the query states in ResourceQuery.acceptable_restrictions\n (the same RestrictionKind axes/vocabulary the terms use) — e.g. an agent that\n only wants US-eligible content can ask the Exchange to skip the rest so it\n doesn't pay to discover offers it would never accept. That filter is advisory and\n optional: a different Broker may not apply it, and it is a recommendation\n matched to the request, never an enforcement verdict. When an Exchange does\n drop offers this way it MAY signal it via OfferAbsenceReason.RESTRICTION_FILTERED\n (with the axes in OfferGroup.restriction_filters). Term visibility is otherwise\n gated only by resource_id/URI and delegation scope coverage — see\n LicenseTerm.scopes.\n\n Reading a restriction:\n   A value is in-scope when it matches at least one permitted[] token\n   AND matches none of the prohibited[] tokens.\n   Empty permitted[] = any value is permitted on this axis.\n   Empty prohibited[] = nothing is explicitly prohibited.\n\n Vocabulary sources (authored on the RestrictionKind enum values via\n (fora.v1.vocab_enum); the functiontokens / geographytokens / usertypes\n constants + IsRegistered derive from them):\n   FUNCTION  — RSL 1.0 AI-use vocabulary + established IP/copyright terms\n   GEOGRAPHY — ISO 3166-1 alpha-2 (structural) + the specials *, EU, EEA\n   USER_TYPE — FORA user/organization categories",
       "properties": {
         "advisory": {
           "default": false,
@@ -692,7 +692,7 @@
               "type": "integer"
             }
           ],
-          "description": "Which dimension this restriction applies to. Defined-only: the axis set is\n CLOSED, and a number outside it is refused rather than ignored. A custom\n axis is RESTRICTION_KIND_OTHER, whose meaning rides in permitted/prohibited,\n so a new number was never the extension mechanism — accepting one would\n admit a restriction no consumer can evaluate onto a term whose default is\n BINDING (see advisory below), which fails open on the axis a publisher most\n needs enforced. Closing the axis does NOT bound the cost of the one-per-kind\n rule below, and must not be read as doing so: a number this rule refuses is\n still distinct from every other, so that rule's all() finds no duplicate to\n stop on and walks the list in full anyway. Its cost is bounded by the size\n test the rule itself carries.",
+          "description": "Which dimension this restriction applies to. Defined-only: the axis set is\n CLOSED, and a number outside it is refused rather than ignored. A custom\n axis is RESTRICTION_KIND_OTHER, whose meaning rides in permitted/prohibited,\n so a new number was never the extension mechanism — accepting one would\n admit a restriction no consumer can evaluate onto a term whose default is\n BINDING (see advisory below), which fails open on the axis a publisher most\n needs honoured. Closing the axis does NOT bound the cost of the one-per-kind\n rule below, and must not be read as doing so: a number this rule refuses is\n still distinct from every other, so that rule's all() finds no duplicate to\n stop on and walks the list in full anyway. Its cost is bounded by the size\n test the rule itself carries.",
           "title": "Restriction Kind"
         },
         "permitted": {

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+**Restrictions are declared terms, never enforced by the Exchange;
+`DENIAL_REASON_RESTRICTION_NOT_SATISFIED` and `TransactionResultItem.restriction_mismatches`
+are deprecated (comments only).** The licensing-core header, the ENUMERATED and
+REFERENCE_ONLY comments and the Quota comment said restrictions and quotas are enforced
+or gate a term's validity. They are declared terms the parties agree to when the agent
+accepts the offer, and the Exchange never enforces a restriction, so a purchase is never
+denied for one. `DENIAL_REASON_RESTRICTION_NOT_SATISFIED` is never sent and
+`TransactionResultItem.restriction_mismatches` is never set; their numbers are retained
+and not reused. The licensing-terms, transaction-flow, reference, C2PA and medical-imaging
+pages follow: the medical-imaging walkthrough records the agent's DUA instead of denying
+the purchase with a restriction reason.
+
 **RemoveResources names each resource by domain and path (additive field and message;
 `RemoveResourcesRequest.paths` deprecated).** A bare path names no domain, so the Exchange
 could not tell whose resource it was or whether the signer may remove it. The new

@@ -175,7 +175,7 @@ Lightweight resource preview for offer evaluation. The Exchange populates previe
 ::proto-message{name=TransactionResponse}
 
 :::note[Denials are in the body]
-Every per-item denial is returned in this body, on `TransactionResultItem` (`denial_reason` / `restriction_mismatches`), whatever the item count: a denied one-item purchase is a successful response whose only item is denied. A non-OK transport error carrying [`ErrorDetail.transaction_denial`](#unified-error-model) is used only when the Exchange refuses the whole request and decides no item, for a reason about the caller such as `DENIAL_REASON_ACCOUNT_NOT_REGISTERED`.
+Every per-item denial is returned in this body, on `TransactionResultItem` (`denial_reason`), whatever the item count: a denied one-item purchase is a successful response whose only item is denied. A non-OK transport error carrying [`ErrorDetail.transaction_denial`](#unified-error-model) is used only when the Exchange refuses the whole request and decides no item, for a reason about the caller such as `DENIAL_REASON_ACCOUNT_NOT_REGISTERED`.
 
 `total_cost` is unset when the purchased items span more than one currency: amounts are never summed across currencies, and currency conversion is out of scope for this version.
 :::

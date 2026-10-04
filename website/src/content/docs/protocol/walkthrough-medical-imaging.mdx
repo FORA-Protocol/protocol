@@ -1,6 +1,6 @@
 ---
 title: "Walkthrough: Medical Imaging (Brain MRI)"
-description: "Pre-transaction compliance gate (DUA), multi-file DICOM delivery, de-identification attestation, per-study metering, and the fora-medimg-v1 extension profile."
+description: "DUA compliance as a declared term, multi-file DICOM delivery, de-identification attestation, per-study metering, and the fora-medimg-v1 extension profile."
 ---
 
 > Complete walkthrough of a regulated medical imaging transaction. Shows how FORA handles pre-transaction legal gates, multi-file binary delivery, de-identification attestation, per-study metering, and regulatory dispute escalation — all via standard protocol messages plus the `fora-medimg-v1` extension profile.
@@ -20,7 +20,7 @@ Medical imaging stresses FORA in ways that text content does not:
 | **Delivery** | Single signed URL | Delivery manifest (847 signed URLs) |
 | **Content hash** | SHA-256 of HTML body | Merkle root over 847 instance hashes |
 
-This walkthrough follows the same six-step flow as the [core walkthrough](/protocol/walkthrough-v1), but exercises three protocol mechanisms that text-only scenarios never touch: **`ext_critical`** (must-understand extension keys), **pre-transaction compliance gates**, and **multi-file delivery manifests**.
+This walkthrough follows the same six-step flow as the [core walkthrough](/protocol/walkthrough-v1), but exercises three protocol mechanisms that text-only scenarios never touch: **`ext_critical`** (must-understand extension keys), **compliance agreements carried as declared terms**, and **multi-file delivery manifests**.
 
 ```
 Discovery -> ResourceQuery -> ResourceResponse -> ExecuteTransaction -> Delivery -> ReportUsage
@@ -207,9 +207,9 @@ The Exchange looks up the study in TCIA's catalog, verifies the agent's identity
 
 ---
 
-## Step 4 — ExecuteTransaction (with Compliance Gate)
+## Step 4 — ExecuteTransaction (with the DUA on record)
 
-The agent commits to the offer. Because `medimg.dua_required` was flagged as critical, the agent MUST include a valid DUA reference in `ext`. This is the pre-transaction compliance gate — the Exchange denies the item if the DUA cannot be verified.
+The agent commits to the offer. Because `medimg.dua_required` was flagged as critical, the agent had to understand it before buying, and it includes its DUA reference in `ext`. The DUA is a declared term of the offer that the agent agrees to by accepting it, like the offer's restrictions; the purchase puts the agent's DUA reference on record with the transaction.
 
 `POST https://exchange.medimg-exchange.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
@@ -276,27 +276,14 @@ The agent commits to the offer. Because `medimg.dua_required` was flagged as cri
 
 1. **Signature verification** — verifies `offer.signature` is its own Ed25519 signature over the reflected Offer (stateless, no stored offers).
 2. **Agent authentication** — verifies the request's RFC 9421 HTTP Message Signature (alg=ed25519, carried in HTTP headers) against the agent's public key published in the WBA directory at `brainlab.edu/.well-known/http-message-signatures-directory`.
-3. **DUA verification** — looks up `DUA-TCIA-2026-042` in its compliance registry. Verifies the DUA is (a) signed, (b) covers `brainlab.edu`, (c) covers `ai-input` use, (d) has not expired. **If the DUA is invalid, missing, or does not cover the requested use, the transaction is denied.**
+3. **DUA record** — `compliance.dua_id` is listed in the request's `ext_critical`, so the Exchange must understand it; it records `DUA-TCIA-2026-042` with the transaction, so the agreement the purchase relied on is on record.
 4. **Balance check** — confirms `neuro-bot@brainlab.edu` has sufficient balance ($25.00).
 5. **WAL write** — records the transaction before generating delivery credentials (write-before-sign invariant).
 6. **Delivery manifest generation** — instead of a single signed URL, generates a manifest containing 847 per-instance signed URLs grouped by series.
 
-**What happens without a valid DUA:**
+**What happens without a DUA:**
 
-The denial comes back in the body of a successful response, like every per-item denial, also when the purchase has only one item. The item names the offer and carries `DENIAL_REASON_RESTRICTION_NOT_SATISFIED` with the unsatisfied axis. It has no `transaction_id`, `billing_id`, `cost` or `retrieval_endpoint`, because nothing was bought:
-
-```json
-{
-  "ver": "1.0",
-  "items": [
-    {
-      "offer_id": "78e43486-599b-4016-b5a7-1bed5d22d1c0",
-      "denial_reason": "DENIAL_REASON_RESTRICTION_NOT_SATISFIED",
-      "restriction_mismatches": ["RESTRICTION_KIND_FUNCTION"]
-    }
-  ]
-}
-```
+An agent without the agreement does not buy the offer. The DUA is a declared term the agent agrees to by accepting the offer, not a restriction the Exchange checks, so meeting it is the agent's responsibility, and it bears the compliance.
 
 The agent already knows which agreement it needs from the offer: `ext["medimg.dua_type"]` is `TCIA-Standard-v3`, and `ext["comp.seller"]` names `imaging.tcia.org` as the party that grants it. The agent or Broker can surface this to the human researcher, who applies to TCIA for that agreement. Correlation back to the request rides on the `X-Request-ID` response header.
 
@@ -587,7 +574,7 @@ The Exchange generates a regulatory incident ID, notifies the provider (TCIA), a
 | Mechanism | How This Walkthrough Uses It |
 |---|---|
 | **`ext_critical`** | `medimg.dua_required` on Offer forces agent to acknowledge DUA requirement. `medimg.dispute_type` on Dispute forces Exchange to handle regulatory escalation. |
-| **Pre-transaction gate** | DUA reference in `ExecuteTransaction.ext` — Exchange denies transaction if DUA is invalid. |
+| **DUA on record** | DUA reference in `ExecuteTransaction.ext`, a critical extension the Exchange records with the transaction. |
 | **Multi-file delivery** | Manifest of 847 signed URLs with per-instance hashes and Merkle verification tree. |
 | **Merkle content hash** | `sha256-merkle` hash method enables partial verification without downloading all files. |
 | **Domain extension profile** | `fora-medimg-v1` vocabulary: `medimg.*` claims in attestations, `compliance.*` fields in transactions. |
