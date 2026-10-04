@@ -296,7 +296,7 @@
     },
     "fora.v1.ReportingObligation": {
       "additionalProperties": false,
-      "description": "For a metered (PER_UNIT) purchase the report is also the settlement: its\n Usage.consumed_quantity is charged at the offer's rate up to the ceiling\n estimated_quantity × (10000 + estimate_tolerance_bps) / 10000, and any\n quantity above the ceiling is held for dispute, never charged automatically\n (the rule is stated once, on Pricing). An honest report of a quantity that\n differs from the estimate, above or below, is a valid report and is never\n refused for that difference.",
+      "description": "For a metered (PER_UNIT) purchase the report is also the settlement: its\n Usage.consumed_quantity is charged at the offer's rate. When the offer\n states an estimate, the charge stops at the ceiling estimated_quantity ×\n (10000 + estimate_tolerance_bps) / 10000, and any quantity above the\n ceiling is held for dispute, never charged automatically; when it states\n none, the whole consumed quantity is charged (the rule is stated once, on\n Pricing). An honest report of a quantity that\n differs from the estimate, above or below, is a valid report and is never\n refused for that difference.",
       "properties": {
         "endpoint": {
           "description": "URL to submit the usage report to (if different from Exchange).",
@@ -537,7 +537,7 @@
         },
         "cost": {
           "$ref": "#/$defs/fora.v1.Cost",
-          "description": "Cost for this item. For a metered (PER_UNIT) item this is the amount the\n agent accepted at purchase: the offer's estimated_quantity × rate. It is\n not the final charge when a usage report follows; the report settles the\n transaction at min(consumed, ceiling) × rate, holding any excess above the\n ceiling for dispute (see Pricing)."
+          "description": "Cost for this item. For a metered (PER_UNIT) item whose offer states an\n estimate, this is the amount the agent accepted at purchase: the offer's\n estimated_quantity × rate. It is not the final charge when a usage report\n follows; the report settles the transaction at min(consumed, ceiling) ×\n rate, holding any excess above the ceiling for dispute (see Pricing). When\n the offer states no estimate, no amount is fixed at purchase: the agent\n accepted the rate, and the report settles the charge at consumed × rate."
         },
         "delivery_method": {
           "anyOf": [

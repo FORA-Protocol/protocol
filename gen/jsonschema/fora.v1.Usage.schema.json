@@ -52,7 +52,7 @@
     },
     "consumed_quantity": {
       "default": 0,
-      "description": "For a metered (PER_UNIT) transaction this is C in the settlement rule on\n Pricing: it is charged at the offer's rate up to the ceiling the offer's\n estimated_quantity and estimate_tolerance_bps fix, and the quantity above\n that ceiling is held for dispute. The agent reports what it consumed, not\n what it estimated: an Exchange MUST NOT refuse a report because this\n differs from the estimate, in either direction, and MUST NOT charge a\n quantity above the ceiling without a dispute resolving it.",
+      "description": "For a metered (PER_UNIT) transaction this is C in the settlement rule on\n Pricing: it is charged at the offer's rate. When the offer states an\n estimate, the charge stops at the ceiling the offer's estimated_quantity\n and estimate_tolerance_bps fix, and the quantity above that ceiling is\n held for dispute; when it states none, all of it is charged. The agent\n reports what it consumed, not\n what it estimated: an Exchange MUST NOT refuse a report because this\n differs from the estimate, in either direction, and MUST NOT charge a\n quantity above the ceiling without a dispute resolving it.",
       "maximum": 2147483647,
       "minimum": -2147483648,
       "title": "REQUIRED. Actual quantity consumed, in the metering unit from the Offer's Pricing.\n For text: tokens consumed. For video: seconds watched. For data: records accessed.",

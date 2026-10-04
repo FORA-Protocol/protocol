@@ -188,17 +188,18 @@
     }
   },
   {
-    "id": "Offer/cel/metered_requires_estimate/missing",
+    "id": "Offer/cel/metered_estimate_positive/negative",
     "message": "Offer",
     "valid": false,
     "rules": [
-      "offer.metered.requires_estimate"
+      "offer.metered.estimate_positive"
     ],
     "json": {
       "exchange": "exchange.example",
       "offer_id": "offer-metered",
       "pricing": {
         "currency": "USD",
+        "estimated_quantity": -1,
         "model": "PRICING_MODEL_PER_UNIT",
         "rate": "0.00002",
         "unit": "tokens"
@@ -211,11 +212,11 @@
     }
   },
   {
-    "id": "Offer/cel/metered_requires_estimate/zero",
+    "id": "Offer/cel/metered_estimate_positive/zero",
     "message": "Offer",
     "valid": false,
     "rules": [
-      "offer.metered.requires_estimate"
+      "offer.metered.estimate_positive"
     ],
     "json": {
       "exchange": "exchange.example",

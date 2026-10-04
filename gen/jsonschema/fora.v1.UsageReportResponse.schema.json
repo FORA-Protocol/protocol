@@ -1,7 +1,7 @@
 {
   "$id": "fora.v1.UsageReportResponse.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "When part of a metered report is held for dispute (its consumed quantity\n exceeds the ceiling the offer fixes — see Pricing), the response is still a\n plain success with a report_id: the report is accepted in full, and the\n excess is held rather than refused. The response carries no amounts because\n the settlement is a pure function of values the agent already holds — the\n signed offer's estimated_quantity, rate and estimate_tolerance_bps, and the\n consumed quantity it reported — so the agent derives the charge, the ceiling\n and the held excess exactly, with no figure from the Exchange to trust or\n reconcile. The report_id is what identifies the held excess: it is the\n reference any dispute over that excess carries (see DisputeRequest).",
+  "description": "When part of a metered report is held for dispute (its consumed quantity\n exceeds the ceiling the offer fixes — see Pricing), the response is still a\n plain success with a report_id: the report is accepted in full, and the\n excess is held rather than refused. The response carries no amounts because\n the settlement is a pure function of values the agent already holds — the\n signed offer's rate, and its estimated_quantity and estimate_tolerance_bps\n when it states them, and the consumed quantity it reported — so the agent derives the charge, the ceiling\n and the held excess exactly, with no figure from the Exchange to trust or\n reconcile. The report_id is what identifies the held excess: it is the\n reference any dispute over that excess carries (see DisputeRequest).",
   "properties": {
     "ext": {
       "description": "Extension point",

@@ -329,17 +329,17 @@ func writeCrossField(v protovalidate.Validator) {
 			"pricing.estimate_tolerance.requires_per_unit",
 		},
 		{
-			// A metered offer with no estimate has no amount to accept and no
-			// ceiling for a usage report to settle against.
-			"Offer/cel/metered_requires_estimate/missing",
-			meteredOffer(nil),
-			"offer.metered.requires_estimate",
+			// A metered offer may state no estimate (it then settles with no
+			// ceiling), but an estimate it does state is positive: zero would
+			// fix a ceiling of nothing.
+			"Offer/cel/metered_estimate_positive/zero",
+			meteredOffer(proto.Int32(0)),
+			"offer.metered.estimate_positive",
 		},
 		{
-			// Present but zero is still no estimate: the floor is positive.
-			"Offer/cel/metered_requires_estimate/zero",
-			meteredOffer(proto.Int32(0)),
-			"offer.metered.requires_estimate",
+			"Offer/cel/metered_estimate_positive/negative",
+			meteredOffer(proto.Int32(-1)),
+			"offer.metered.estimate_positive",
 		},
 		{
 			// An offer states its price once, in Offer.pricing: a term that

@@ -124,13 +124,15 @@ func licensingCases() []validationCase {
 		{"pricing flat with tolerance rejected", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD", EstimateToleranceBps: proto.Int32(1000)}, false, "pricing.estimate_tolerance.requires_per_unit"},
 		{"pricing free with tolerance rejected", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0", EstimateToleranceBps: proto.Int32(0)}, false, "pricing.estimate_tolerance.requires_per_unit"},
 
-		// Offer message-level CEL: a metered offer carries a positive estimate on
-		// its own pricing, and the offer's term carries no pricing at all.
+		// Offer message-level CEL: a metered offer may state an estimate on its
+		// own pricing, positive when stated, and the offer's term carries no
+		// pricing at all.
 		{"offer metered with estimate ok", meteredOffer(meteredPricing(proto.Int32(2500), nil)), true, ""},
 		{"offer metered with estimate and tolerance ok", meteredOffer(meteredPricing(proto.Int32(2500), proto.Int32(0))), true, ""},
-		{"offer metered without estimate rejected", meteredOffer(meteredPricing(nil, nil)), false, "offer.metered.requires_estimate"},
-		{"offer metered zero estimate rejected", meteredOffer(meteredPricing(proto.Int32(0), nil)), false, "offer.metered.requires_estimate"},
-		{"offer metered negative estimate rejected", meteredOffer(meteredPricing(proto.Int32(-5), nil)), false, "offer.metered.requires_estimate"},
+		{"offer metered without estimate ok", meteredOffer(meteredPricing(nil, nil)), true, ""},
+		{"offer metered without estimate with tolerance ok", meteredOffer(meteredPricing(nil, proto.Int32(500))), true, ""},
+		{"offer metered zero estimate rejected", meteredOffer(meteredPricing(proto.Int32(0), nil)), false, "offer.metered.estimate_positive"},
+		{"offer metered negative estimate rejected", meteredOffer(meteredPricing(proto.Int32(-5), nil)), false, "offer.metered.estimate_positive"},
 		{"offer flat without estimate ok", &forav1.Offer{OfferId: "of_flat", Exchange: exampleExchange, Pricing: &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD"}, Terms: freeTerms()}, true, ""},
 		// Offer.terms carries no pricing: the price is stated once, in
 		// Offer.pricing. The metered rule reads Offer.pricing only, so a PER_UNIT
@@ -139,7 +141,8 @@ func licensingCases() []validationCase {
 		{"offer term with free pricing rejected", pricedTermOffer(freePricing(), freePricing()), false, "offer.terms.pricing_unset"},
 		{"offer per_unit term under flat pricing rejected", pricedTermOffer(&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD"}, meteredPricing(nil, nil)), false, "offer.terms.pricing_unset"},
 		{"transaction with priced offer term rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-p", Items: []*forav1.TransactionItem{{Offer: pricedTermOffer(freePricing(), freePricing())}}}, false, "offer.terms.pricing_unset"},
-		{"transaction with unestimated metered offer rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-m", Items: []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(nil, nil))}}}, false, "offer.metered.requires_estimate"},
+		{"transaction with unestimated metered offer ok", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-m", Items: []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(nil, nil))}}}, true, ""},
+		{"transaction with zero-estimate metered offer rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-z", Items: []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(proto.Int32(0), nil))}}}, false, "offer.metered.estimate_positive"},
 
 		// Pricing.unit format: empty / bare-dashed / vendor:namespaced.
 		{"pricing unit bare ok", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Unit: proto.String("sq-km"), Rate: "1"}, true, ""},
