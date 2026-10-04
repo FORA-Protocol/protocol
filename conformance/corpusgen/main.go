@@ -322,16 +322,9 @@ func writeCrossField(v protovalidate.Validator) {
 			"pricing.free.zero_rate",
 		},
 		{
-			// A tolerance bounds a metered settlement; on a FREE or FLAT price
-			// there is nothing for it to bound.
-			"Pricing/cel/estimate_tolerance_requires_per_unit",
-			&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1.00", Currency: "USD", EstimateToleranceBps: proto.Int32(500)},
-			"pricing.estimate_tolerance.requires_per_unit",
-		},
-		{
-			// A metered offer may state no estimate (it then settles with no
-			// ceiling), but an estimate it does state is positive: zero would
-			// fix a ceiling of nothing.
+			// A metered offer may state no estimate (the purchase then charges
+			// one unit), but an estimate it does state is positive: zero would
+			// price the purchase at nothing.
 			"Offer/cel/metered_estimate_positive/zero",
 			meteredOffer(proto.Int32(0)),
 			"offer.metered.estimate_positive",

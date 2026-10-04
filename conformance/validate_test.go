@@ -115,34 +115,23 @@ func licensingCases() []validationCase {
 		{"pricing free zero rate ok", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"}, true, ""},
 		{"pricing free nonzero rate rejected", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "1.0"}, false, "pricing.free.zero_rate"},
 
-		// Pricing.estimate_tolerance_bps: basis points 0..10000, PER_UNIT only.
-		{"pricing per_unit tolerance ok", meteredPricing(nil, proto.Int32(500)), true, ""},
-		{"pricing per_unit tolerance zero ok", meteredPricing(nil, proto.Int32(0)), true, ""},
-		{"pricing per_unit tolerance at max ok", meteredPricing(nil, proto.Int32(10000)), true, ""},
-		{"pricing per_unit tolerance above max rejected", meteredPricing(nil, proto.Int32(10001)), false, "int32.gte_lte"},
-		{"pricing per_unit tolerance negative rejected", meteredPricing(nil, proto.Int32(-1)), false, "int32.gte_lte"},
-		{"pricing flat with tolerance rejected", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD", EstimateToleranceBps: proto.Int32(1000)}, false, "pricing.estimate_tolerance.requires_per_unit"},
-		{"pricing free with tolerance rejected", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0", EstimateToleranceBps: proto.Int32(0)}, false, "pricing.estimate_tolerance.requires_per_unit"},
-
 		// Offer message-level CEL: a metered offer may state an estimate on its
 		// own pricing, positive when stated, and the offer's term carries no
 		// pricing at all.
-		{"offer metered with estimate ok", meteredOffer(meteredPricing(proto.Int32(2500), nil)), true, ""},
-		{"offer metered with estimate and tolerance ok", meteredOffer(meteredPricing(proto.Int32(2500), proto.Int32(0))), true, ""},
-		{"offer metered without estimate ok", meteredOffer(meteredPricing(nil, nil)), true, ""},
-		{"offer metered without estimate with tolerance ok", meteredOffer(meteredPricing(nil, proto.Int32(500))), true, ""},
-		{"offer metered zero estimate rejected", meteredOffer(meteredPricing(proto.Int32(0), nil)), false, "offer.metered.estimate_positive"},
-		{"offer metered negative estimate rejected", meteredOffer(meteredPricing(proto.Int32(-5), nil)), false, "offer.metered.estimate_positive"},
+		{"offer metered with estimate ok", meteredOffer(meteredPricing(proto.Int32(2500))), true, ""},
+		{"offer metered without estimate ok", meteredOffer(meteredPricing(nil)), true, ""},
+		{"offer metered zero estimate rejected", meteredOffer(meteredPricing(proto.Int32(0))), false, "offer.metered.estimate_positive"},
+		{"offer metered negative estimate rejected", meteredOffer(meteredPricing(proto.Int32(-5))), false, "offer.metered.estimate_positive"},
 		{"offer flat without estimate ok", &forav1.Offer{OfferId: "of_flat", Exchange: exampleExchange, Pricing: &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD"}, Terms: freeTerms()}, true, ""},
 		// Offer.terms carries no pricing: the price is stated once, in
 		// Offer.pricing. The metered rule reads Offer.pricing only, so a PER_UNIT
 		// term under FLAT offer pricing is refused for the term's pricing alone.
-		{"offer term with pricing rejected", pricedTermOffer(meteredPricing(proto.Int32(2500), nil), meteredPricing(proto.Int32(2500), nil)), false, "offer.terms.pricing_unset"},
+		{"offer term with pricing rejected", pricedTermOffer(meteredPricing(proto.Int32(2500)), meteredPricing(proto.Int32(2500))), false, "offer.terms.pricing_unset"},
 		{"offer term with free pricing rejected", pricedTermOffer(freePricing(), freePricing()), false, "offer.terms.pricing_unset"},
-		{"offer per_unit term under flat pricing rejected", pricedTermOffer(&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD"}, meteredPricing(nil, nil)), false, "offer.terms.pricing_unset"},
+		{"offer per_unit term under flat pricing rejected", pricedTermOffer(&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD"}, meteredPricing(nil)), false, "offer.terms.pricing_unset"},
 		{"transaction with priced offer term rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-p", Items: []*forav1.TransactionItem{{Offer: pricedTermOffer(freePricing(), freePricing())}}}, false, "offer.terms.pricing_unset"},
-		{"transaction with unestimated metered offer ok", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-m", Items: []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(nil, nil))}}}, true, ""},
-		{"transaction with zero-estimate metered offer rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-z", Items: []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(proto.Int32(0), nil))}}}, false, "offer.metered.estimate_positive"},
+		{"transaction with unestimated metered offer ok", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-m", Items: []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(nil))}}}, true, ""},
+		{"transaction with zero-estimate metered offer rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-z", Items: []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(proto.Int32(0)))}}}, false, "offer.metered.estimate_positive"},
 
 		// Pricing.unit format: empty / bare-dashed / vendor:namespaced.
 		{"pricing unit bare ok", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Unit: proto.String("sq-km"), Rate: "1"}, true, ""},
@@ -377,12 +366,12 @@ func idempotencyCases() []validationCase {
 // to exercise.
 const exampleExchange = "exchange.example"
 
-// meteredPricing is a PER_UNIT price per token with the given estimate and
-// tolerance (nil leaves either unset).
-func meteredPricing(estimate, toleranceBps *int32) *forav1.Pricing {
+// meteredPricing is a PER_UNIT price per token with the given estimate (nil
+// leaves it unset).
+func meteredPricing(estimate *int32) *forav1.Pricing {
 	return &forav1.Pricing{
 		Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Unit: proto.String("tokens"), Currency: "USD", Rate: "0.00002",
-		EstimatedQuantity: estimate, EstimateToleranceBps: toleranceBps,
+		EstimatedQuantity: estimate,
 	}
 }
 

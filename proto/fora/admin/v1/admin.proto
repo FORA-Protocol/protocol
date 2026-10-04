@@ -97,9 +97,9 @@ message ReportingPolicy {
   // DEPRECATED, ignored. This used to set the accepted relative deviation
   // between the estimated and the reported quantity, and a report outside it was
   // refused. A usage report is never refused for its quantity: the reported
-  // quantity is unrestricted, a metered report settles by the rule on
-  // fora.v1.Pricing, and a quantity far from the estimate is analysed out of
-  // band. An Exchange MUST NOT refuse a report on this setting. The field and
+  // quantity is unrestricted, and monitoring how far reports fall from
+  // estimates is the Exchange operator's own business, not part of the
+  // protocol. An Exchange MUST NOT refuse a report on this setting. The field and
   // its bounds are retained because removing them would break the wire
   // contract.
   optional double quantity_tolerance = 3 [

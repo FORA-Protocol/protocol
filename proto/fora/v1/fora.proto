@@ -741,13 +741,11 @@ message Offer {
   // A metered offer MAY carry an estimate. An offer is metered when its
   // `pricing` is PER_UNIT, and its `pricing` states a rate with or without an
   // estimated_quantity. Whether to state one is the publisher's decision, and
-  // nothing requires it. With an estimate, the agent accepts estimate × rate at
-  // purchase and a usage report settles against a ceiling derived from the
-  // estimate. Without one there is no ceiling: the agent accepts the rate, and
-  // a usage report settles at the consumed quantity × rate (see Pricing).
+  // nothing requires it. The purchase charges estimate × rate, or one unit,
+  // 1 × rate, without an estimate (see Pricing).
   //
   // An estimate that is stated is positive: a zero or negative estimate would
-  // fix a ceiling of nothing or less. The rule reads `pricing` only, because
+  // price the purchase at nothing or less. The rule reads `pricing` only, because
   // `pricing` is the offer's one price (see offer.terms.pricing_unset above).
   // It is an offer rule, not a Pricing rule, so a term a publisher pushes is
   // not bound by it.
@@ -771,7 +769,7 @@ message Offer {
   // the Exchange moves that term's price here, so the term inside `terms`
   // carries no pricing of its own (the offer.terms.pricing_unset rule). This is
   // the price execute charges, the price a Broker ranks and compares across
-  // Exchanges, and the price a metered purchase settles on. A resource with
+  // Exchanges, and the price a metered purchase is charged at. A resource with
   // multiple alternative terms (e.g. dual-licensed) produces multiple separate
   // offers, one per term — never one offer with a "headline" picked among them.
   //
@@ -780,15 +778,13 @@ message Offer {
   // term, and the offer carries no second copy, so the offer's price and its
   // term's price cannot disagree.
   //
-  // On a metered (PER_UNIT) offer, the rate, the estimate and the tolerance a
-  // metered purchase settles on are read from here (see Pricing). The
-  // estimate is optional. When the publisher states one — on the term's own
-  // pricing, or once for the resource on ResourceEntry.estimated_quantity —
-  // the Exchange carries it here as estimated_quantity, the term's own
-  // estimate taking precedence. When the publisher states none, the offer
-  // may carry none, and then a usage report settles with no ceiling. An
-  // Exchange projecting a term carries the term's estimate_tolerance_bps here
-  // unchanged.
+  // On a metered (PER_UNIT) offer, the rate and the estimate a metered
+  // purchase is charged at are read from here (see Pricing). The estimate is
+  // optional. When the publisher states one — on the term's own pricing, or
+  // once for the resource on ResourceEntry.estimated_quantity — the Exchange
+  // carries it here as estimated_quantity, the term's own estimate taking
+  // precedence. When the publisher states none, the offer may carry none, and
+  // the purchase then charges one unit.
   Pricing pricing = 3;
 
   // How resource will be delivered.
@@ -1653,11 +1649,9 @@ message Obligation {
 //   - model=FREE must be explicit. Absent Pricing ≠ free. A term may be FREE
 //     under an arbitrary license; the agent still needs the price stated so it
 //     knows the access is free rather than unpriced.
-//   - A PER_UNIT term MAY state Pricing.estimated_quantity, and MAY state
-//     Pricing.estimate_tolerance_bps, the tolerance a usage report settles
-//     within when an estimate is stated (default 10%); no other model may
-//     carry a tolerance. Neither is required, on the pushed term or on the
-//     offer it projects to — see Pricing.estimated_quantity.
+//   - A PER_UNIT term MAY state Pricing.estimated_quantity. It is not
+//     required, on the pushed term or on the offer it projects to — see
+//     Pricing.estimated_quantity.
 //   - REFERENCE_ONLY terms MUST carry a License with a non-empty uri. A
 //     REFERENCE_ONLY term that references no document is meaningless → reject
 //     at ingest.
@@ -1819,60 +1813,23 @@ message Preview {
 // Unit cost is denominated in the Exchange's base currency.
 //
 // Fields: model, rate, currency, unit_cost, estimated_quantity,
-// license_duration_months, unit, metering, estimate_tolerance_bps.
+// license_duration_months, unit, metering.
 //
-// METERED SETTLEMENT. A PER_UNIT price is metered: it is charged per unit
-// consumed, and the quantity consumed is known only after use. Up to three
-// numbers on the offer's `pricing` fix what a metered purchase can cost, and
-// the Exchange's offer signature covers them, so the agent's acceptance of
-// the offer is its consent to them:
+// METERED PRICE. A PER_UNIT price is metered: it is charged per unit, and the
+// publisher states the rate R, the price of one `unit`, and the unit. The
+// offer may also state an estimate E (estimated_quantity, optional, positive
+// when stated; see Offer). The Exchange's offer signature covers both, so the
+// agent's acceptance of the offer is its consent to them.
 //
-//   R = rate                    the price of one `unit`
-//   E = estimated_quantity      the estimate, in `unit`; OPTIONAL, and
-//                               positive when stated (see Offer)
-//   T = estimate_tolerance_bps  the tolerance on the estimate, in basis points
-//                               of E; 1000 (10%) when the term states none
-//
-// WITHOUT AN ESTIMATE there is no ceiling. The agent accepts the rate R, and
-// the usage report settles on the reported Usage.consumed_quantity C at
-// C × R, whatever C is: nothing is held, because there is no ceiling to hold
-// anything above. Nothing in such an offer bounds what the purchase is
-// charged, and T has nothing to widen.
-//
-// WITH AN ESTIMATE the purchase settles within a tolerance. At purchase, the
-// agent accepts E × R: that is the amount
-// TransactionResultItem.cost carries for a metered item, and the amount the
-// Exchange authorizes. When the usage report arrives, the transaction settles
-// on the reported Usage.consumed_quantity C against the ceiling
-//
-//   ceiling quantity  Q = E × (10000 + T) / 10000
-//
-//   - C ≤ E: the charge is C × R. A quantity below the estimate is charged for
-//     what was consumed, never for the estimate.
-//   - E < C ≤ Q: the charge is C × R. Consumption within the tolerance is
-//     charged in full.
-//   - C > Q: the charge is Q × R, and the excess (C − Q) × R is HELD for
-//     dispute. It is never charged automatically: nothing above Q × R is
-//     charged unless dispute resolution establishes that it is owed.
-//
-// Equivalently, the charge is min(C, Q) × R and the held amount is
-// max(0, C − Q) × R. Q may be fractional (E = 15 at the default tolerance
-// gives Q = 16.5), and the arithmetic is exact decimal: every input is an
-// integer or a decimal string, and the only division is by 10000, so no step
-// rounds. Q × R is therefore the most a metered purchase can be charged
-// without a dispute.
-//
-// The report that settles is the one UsageReport a transaction accepts. A
-// metered price whose metering is PRICING_METERING_NONE has no report, so
-// what is charged at purchase is final: E × R when the price states an
-// estimate. This version does not say what such a price charges when it
-// states none, since it then carries no quantity at all. Settlement reads the offer's own `pricing`
-// (Offer.pricing) — the offer's one price, which execute charges — and never
-// a value the report carries.
+// A metered purchase charges E × R, or one unit, 1 × R, when the offer states
+// no estimate. That is the amount TransactionResultItem.cost carries for the
+// item, and the charge is final. A disagreement about the quantity consumed
+// is a dispute, which this version does not define further. The charge reads
+// the offer's own `pricing` (Offer.pricing) — the offer's one price, which
+// execute charges.
 message Pricing {
   // Cross-field structural rules (protovalidate, OR form — CEL has no implies):
-  //   PER_UNIT ⇒ unit must be set; FREE ⇒ rate must be 0;
-  //   estimate_tolerance_bps set ⇒ PER_UNIT.
+  //   PER_UNIT ⇒ unit must be set; FREE ⇒ rate must be 0.
   // Registry membership (a bare unit must be one of the registered tokens) is
   // NOT here — it is checked at ingest via the generated IsRegistered, so the
   // CEL never re-lists the vocabulary and cannot drift from it.
@@ -1885,15 +1842,6 @@ message Pricing {
     id: "pricing.free.zero_rate"
     message: "rate must be 0 (or empty) when model is FREE"
     expression: "this.model != fora.v1.PricingModel.PRICING_MODEL_FREE || this.rate == '' || this.rate.matches('^0+([.]0+)?$')"
-  };
-  // A tolerance bounds the settlement of a metered price, so it means nothing
-  // on a FREE or FLAT one. Stating it there is an authoring error rather than a
-  // harmless extra: an agent reading it would expect a settlement that never
-  // happens.
-  option (buf.validate.message).cel = {
-    id: "pricing.estimate_tolerance.requires_per_unit"
-    message: "estimate_tolerance_bps is allowed only when model is PER_UNIT"
-    expression: "!has(this.estimate_tolerance_bps) || this.model == fora.v1.PricingModel.PRICING_MODEL_PER_UNIT"
   };
 
   // Provider's pricing model.
@@ -1918,12 +1866,10 @@ message Pricing {
   // For documents: page count. For data: record count.
   //
   // OPTIONAL everywhere: on a LicenseTerm a publisher pushes and on an Offer.
-  // It is E in the settlement rule above. When a metered offer states it, it
-  // is positive (the offer.metered.estimate_positive rule): the agent accepts
-  // E × rate at purchase, and the estimate with estimate_tolerance_bps fixes
-  // the ceiling a usage report settles against. When a metered offer states
-  // none, there is no ceiling: the agent accepts the rate, and the usage report
-  // settles at the consumed quantity × rate. A PER_UNIT price may state a rate
+  // It is E in the metered price rule above. When a metered offer states it,
+  // it is positive (the offer.metered.estimate_positive rule), and the
+  // purchase charges E × rate. When a metered offer states none, the purchase
+  // charges one unit, 1 × rate. A PER_UNIT price may state a rate
   // with or without an estimate; whether to state one is the publisher's
   // decision, and nothing requires it.
   //
@@ -1964,22 +1910,11 @@ message Pricing {
   // OFFLINE_SELF_REPORTED = agent self-reports physical-world consumption.
   optional PricingMetering metering = 9;
 
-  // Tolerance on estimated_quantity, in basis points of the estimate: 1000 is
-  // 10%, 0 is none. It is T in the settlement rule above. A usage report whose
-  // consumed quantity is within estimated_quantity × (10000 + T) / 10000 is
-  // charged in full; anything above that ceiling is held for dispute and never
-  // charged automatically. It applies only when the price states an estimate:
-  // without one there is no ceiling for it to widen.
-  //
-  // Absent = 1000 (10%). The field is presence-tracked so an explicit 0 — no
-  // tolerance, the estimate is the ceiling — stays distinct from "the default".
-  // Basis points rather than a decimal string because the value is a ratio,
-  // not money, and an integer keeps it exact. Bounded at 10000 (100%, a
-  // ceiling of twice the estimate). Allowed only on a PER_UNIT price (the
-  // pricing.estimate_tolerance.requires_per_unit rule). A publisher states it
-  // on the term it pushes, and the Exchange carries it unchanged onto the
-  // offer's pricing.
-  optional int32 estimate_tolerance_bps = 10 [(buf.validate.field).int32 = {gte: 0, lte: 10000}];
+  // Field 10 was estimate_tolerance_bps, a tolerance on the estimate that an
+  // unreleased draft of this version defined. It is removed, and its number and
+  // name stay reserved.
+  reserved 10;
+  reserved "estimate_tolerance_bps";
 }
 
 // PricingModel — the charging STRUCTURE only (a genuinely closed, small set;
@@ -1992,7 +1927,7 @@ message Pricing {
 enum PricingModel {
   PRICING_MODEL_UNSPECIFIED = 0;  // unset — zero allowed on WellKnownManifest.pricing_models_supported (capability list); rejected (not_in:[0]) as the Pricing.model discriminator (omission cannot default to FREE)
   PRICING_MODEL_FREE        = 1;  // no charge; rate must be 0 (state FREE explicitly — absent Pricing is not free)
-  PRICING_MODEL_PER_UNIT    = 2;  // rate per Pricing.unit; unit REQUIRED (registered token or vendor:custom). Metered: settlement follows the rule on Pricing; an estimated_quantity is optional, and positive when an offer states it
+  PRICING_MODEL_PER_UNIT    = 2;  // rate per Pricing.unit; unit REQUIRED (registered token or vendor:custom). Metered: the purchase charge follows the rule on Pricing; an estimated_quantity is optional, and positive when an offer states it
   PRICING_MODEL_FLAT        = 3;  // one-time flat fee; rate is the total, no unit
 }
 
@@ -2653,13 +2588,9 @@ message TransactionResultItem {
   // Resource title echoed from the Offer.
   optional string resource_title = 4;
 
-  // Cost for this item. For a metered (PER_UNIT) item whose offer states an
-  // estimate, this is the amount the agent accepted at purchase: the offer's
-  // estimated_quantity × rate. It is not the final charge when a usage report
-  // follows; the report settles the transaction at min(consumed, ceiling) ×
-  // rate, holding any excess above the ceiling for dispute (see Pricing). When
-  // the offer states no estimate, no amount is fixed at purchase: the agent
-  // accepted the rate, and the report settles the charge at consumed × rate.
+  // Cost for this item. For a metered (PER_UNIT) item this is the purchase
+  // charge: the offer's estimated_quantity × rate, or one unit, 1 × rate, when
+  // the offer states no estimate (see Pricing).
   Cost cost = 5;
 
   // If under subscription, no per-request charge.
@@ -3263,15 +3194,9 @@ message RefreshCatalogResponse {
 
 // ReportingObligation — Requirements attached to a delivery.
 //
-// For a metered (PER_UNIT) purchase the report is also the settlement: its
-// Usage.consumed_quantity is charged at the offer's rate. When the offer
-// states an estimate, the charge stops at the ceiling estimated_quantity ×
-// (10000 + estimate_tolerance_bps) / 10000, and any quantity above the
-// ceiling is held for dispute, never charged automatically; when it states
-// none, the whole consumed quantity is charged (the rule is stated once, on
-// Pricing). An honest report of a quantity that
-// differs from the estimate, above or below, is a valid report and is never
-// refused for that difference.
+// A usage report is a record of the quantity consumed. An honest report of a
+// quantity that differs from the estimate, above or below, is a valid report
+// and is never refused for that difference.
 message ReportingObligation {
   // Whether post-usage reporting is required.
   bool required = 1;
@@ -3303,17 +3228,9 @@ message ReportingObligation {
 // Filed by the agent or Broker after resource is used.
 // Failure to report may result in the Exchange blocking subsequent access.
 //
-// For a metered (PER_UNIT) transaction the report settles the purchase. With
-// R the offer's rate and C this report's Usage.consumed_quantity:
-//   - when the offer states no estimate, there is no ceiling: C is charged
-//     C × R and nothing is held;
-//   - when it states an estimate E, with T its estimate_tolerance_bps (1000
-//     when absent), the ceiling is Q = E × (10000 + T) / 10000, C at or below
-//     Q (including C below E) is charged C × R, and C above Q is charged
-//     Q × R, the excess (C − Q) × R held for dispute and never charged
-//     automatically.
-// The full rule is on Pricing. The Exchange accepts such a report: a consumed
-// quantity that differs from the estimate is never a reason to refuse it.
+// The report is a record of the quantity consumed (Usage.consumed_quantity).
+// The Exchange accepts it whatever that quantity is: a consumed quantity that
+// differs from the estimate is never a reason to refuse it.
 //
 // What refuses a report. A report that arrives after the transaction's
 // reporting window closed is refused with USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED
@@ -3406,15 +3323,9 @@ message Usage {
   // REQUIRED. Actual quantity consumed, in the metering unit from the Offer's Pricing.
   // For text: tokens consumed. For video: seconds watched. For data: records accessed.
   //
-  // For a metered (PER_UNIT) transaction this is C in the settlement rule on
-  // Pricing: it is charged at the offer's rate. When the offer states an
-  // estimate, the charge stops at the ceiling the offer's estimated_quantity
-  // and estimate_tolerance_bps fix, and the quantity above that ceiling is
-  // held for dispute; when it states none, all of it is charged. The agent
-  // reports what it consumed, not
-  // what it estimated: an Exchange MUST NOT refuse a report because this
-  // differs from the estimate, in either direction, and MUST NOT charge a
-  // quantity above the ceiling without a dispute resolving it.
+  // The agent reports what it consumed, not what it estimated: an Exchange
+  // MUST NOT refuse a report because this differs from the estimate, in either
+  // direction.
   int32 consumed_quantity = 3;
 
   // Whether resource/output was displayed to a human.
@@ -3446,17 +3357,6 @@ message UsageAsset {
 }
 
 // UsageReportResponse — Acknowledgment of a usage report.
-//
-// When part of a metered report is held for dispute (its consumed quantity
-// exceeds the ceiling the offer fixes — see Pricing), the response is still a
-// plain success with a report_id: the report is accepted in full, and the
-// excess is held rather than refused. The response carries no amounts because
-// the settlement is a pure function of values the agent already holds — the
-// signed offer's rate, and its estimated_quantity and estimate_tolerance_bps
-// when it states them, and the consumed quantity it reported — so the agent derives the charge, the ceiling
-// and the held excess exactly, with no figure from the Exchange to trust or
-// reconcile. The report_id is what identifies the held excess: it is the
-// reference any dispute over that excess carries (see DisputeRequest).
 message UsageReportResponse {
   // A successful response means the report was accepted; a rejection travels as
   // a non-OK transport error carrying ErrorDetail.usage_report_rejection.
@@ -4316,15 +4216,6 @@ message ExchangeOutcome {
 //   Offer → Transaction (transaction_id, billing_id)
 //        → UsageReport → UsageReportResponse (report_id)
 //        → DisputeRequest (transaction_id + report_id) → DisputeResponse
-//
-// The same chain identifies the excess a metered report holds: the quantity
-// above the offer's ceiling (see Pricing; only an offer that states an
-// estimate has one) is held under the transaction_id and
-// report_id, not charged, and stays uncharged unless dispute resolution
-// establishes that it is owed. This version defines no DisputeReason for it
-// and no filing by the publisher's side, so how a claim to the held excess is
-// raised is outside this version; what the protocol fixes is that it is never
-// charged automatically.
 // ============================================================================
 
 // DisputeRequest — Agent signals a problem with delivered resource.
@@ -5358,12 +5249,9 @@ message RetrievalAuthFailure {
 //
 // THE REPORTED QUANTITY IS UNRESTRICTED. No reason here refuses a report
 // because its consumed_quantity differs from the offer's estimate, above or
-// below, and an Exchange MUST NOT refuse a report for that. A quantity below the
-// estimate is charged as consumed and a quantity above the ceiling is held for
-// dispute (the settlement rule on Pricing); neither is MALFORMED. A report
-// against an offer that states no estimate is charged as consumed, whatever
-// the quantity. A quantity far from the estimate is analysed out of band,
-// never by refusing the report.
+// below, and an Exchange MUST NOT refuse a report for that; such a report is
+// not MALFORMED. Monitoring how far reports fall from estimates is the
+// Exchange operator's own business, not part of the protocol.
 enum UsageReportRejectionReason {
   USAGE_REPORT_REJECTION_REASON_UNSPECIFIED = 0;  // unset — rejected at ingest
   USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND = 1;     // transaction_id is unknown

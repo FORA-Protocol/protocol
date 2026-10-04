@@ -1,7 +1,7 @@
 {
   "$id": "fora.v1.ReportingObligation.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "For a metered (PER_UNIT) purchase the report is also the settlement: its\n Usage.consumed_quantity is charged at the offer's rate. When the offer\n states an estimate, the charge stops at the ceiling estimated_quantity ×\n (10000 + estimate_tolerance_bps) / 10000, and any quantity above the\n ceiling is held for dispute, never charged automatically; when it states\n none, the whole consumed quantity is charged (the rule is stated once, on\n Pricing). An honest report of a quantity that\n differs from the estimate, above or below, is a valid report and is never\n refused for that difference.",
+  "description": "A usage report is a record of the quantity consumed. An honest report of a\n quantity that differs from the estimate, above or below, is a valid report\n and is never refused for that difference.",
   "properties": {
     "endpoint": {
       "description": "URL to submit the usage report to (if different from Exchange).",

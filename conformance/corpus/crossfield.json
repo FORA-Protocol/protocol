@@ -295,20 +295,6 @@
     }
   },
   {
-    "id": "Pricing/cel/estimate_tolerance_requires_per_unit",
-    "message": "Pricing",
-    "valid": false,
-    "rules": [
-      "pricing.estimate_tolerance.requires_per_unit"
-    ],
-    "json": {
-      "currency": "USD",
-      "estimate_tolerance_bps": 500,
-      "model": "PRICING_MODEL_FLAT",
-      "rate": "1.00"
-    }
-  },
-  {
     "id": "Pricing/cel/free_zero_rate",
     "message": "Pricing",
     "valid": false,
