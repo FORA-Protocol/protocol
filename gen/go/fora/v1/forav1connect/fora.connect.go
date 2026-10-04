@@ -156,7 +156,10 @@ type ExchangeServiceClient interface {
 	Register(context.Context, *connect.Request[v1.RegisterRequest]) (*connect.Response[v1.RegisterResponse], error)
 	// Read-only check of whether the calling agent's account is active.
 	// Identity comes from the request signature, so the request carries no
-	// identifying field.
+	// identifying field. An agent the Exchange knows, its request signature
+	// verified, but that holds no account at this Exchange is answered with the
+	// Connect code NOT_FOUND. An agent whose signature does not verify is
+	// UNAUTHENTICATED, as on every RPC.
 	GetAccountStatus(context.Context, *connect.Request[v1.GetAccountStatusRequest]) (*connect.Response[v1.GetAccountStatusResponse], error)
 }
 
@@ -328,7 +331,10 @@ type ExchangeServiceHandler interface {
 	Register(context.Context, *connect.Request[v1.RegisterRequest]) (*connect.Response[v1.RegisterResponse], error)
 	// Read-only check of whether the calling agent's account is active.
 	// Identity comes from the request signature, so the request carries no
-	// identifying field.
+	// identifying field. An agent the Exchange knows, its request signature
+	// verified, but that holds no account at this Exchange is answered with the
+	// Connect code NOT_FOUND. An agent whose signature does not verify is
+	// UNAUTHENTICATED, as on every RPC.
 	GetAccountStatus(context.Context, *connect.Request[v1.GetAccountStatusRequest]) (*connect.Response[v1.GetAccountStatusResponse], error)
 }
 

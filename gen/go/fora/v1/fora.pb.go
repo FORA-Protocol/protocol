@@ -9983,7 +9983,10 @@ type GetAccountStatusResponse struct {
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// The account handle minted at registration (see RegisterResponse.billing_ref).
-	// Empty when the calling agent has no account yet.
+	// Set on every OK answer: a calling agent with no account is answered
+	// NOT_FOUND, not with an empty handle (see GetAccountStatus). A receiver reads
+	// an empty handle, which an Exchange built before that rule may send, as the
+	// same answer.
 	BillingRef string `protobuf:"bytes,2,opt,name=billing_ref,json=billingRef,proto3" json:"billing_ref,omitempty"`
 	// Whether the account is currently active.
 	Active bool `protobuf:"varint,3,opt,name=active,proto3" json:"active,omitempty"`

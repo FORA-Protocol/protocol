@@ -43,7 +43,7 @@
     },
     "billing_ref": {
       "default": "",
-      "description": "The account handle minted at registration (see RegisterResponse.billing_ref).\n Empty when the calling agent has no account yet.",
+      "description": "The account handle minted at registration (see RegisterResponse.billing_ref).\n Set on every OK answer: a calling agent with no account is answered\n NOT_FOUND, not with an empty handle (see GetAccountStatus). A receiver reads\n an empty handle, which an Exchange built before that rule may send, as the\n same answer.",
       "type": "string"
     },
     "ext": {

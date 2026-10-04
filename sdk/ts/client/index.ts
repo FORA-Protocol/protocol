@@ -139,8 +139,9 @@ export interface Client {
 	 * CallOptions: the message carries no idempotency key, because registering again
 	 * returns the same account handle. */
 	register(request: Request<RegisterRequest>): Promise<RegisterResponse>;
-	/** Read whether this agent's account at the named Exchange is active. An empty
-	 * `billing_ref` is a NORMAL answer — no account there yet. */
+	/** Read whether this agent's account at the named Exchange is active. No account
+	 * there yet is answered `not_found` (a `ForaCallError` with that `code`); an older
+	 * Exchange answers with an empty `billing_ref` instead, which means the same. */
 	getAccountStatus(request: Request<GetAccountStatusRequest>): Promise<GetAccountStatusResponse>;
 	/** Fetch what a delivery URL names, presenting the agent's proof of possession. The URL
 	 * is taken as given; the delivery edge verifies it. */
@@ -916,8 +917,9 @@ async function register(
  *
  * The request carries no field identifying the caller — the Exchange resolves the account
  * from the verified signature — so `exchange` is the only thing that says which account is
- * being asked about. An empty `billing_ref` in the answer is a NORMAL answer: no account
- * there yet.
+ * being asked about. An agent with no account there yet is answered with the Connect code
+ * `not_found`, thrown as a `ForaCallError` with that `code`; an Exchange built before that
+ * rule answers with an empty `billing_ref` instead, which means the same.
  *
  * Safe to call in a loop. The request has no varying field, but every request signature
  * carries a fresh RFC 9421 nonce, so two calls to the same Exchange inside one wall-clock
@@ -1105,8 +1107,9 @@ async function fetchVerb(r: Resolved, signedURL: string): Promise<Content> {
  * revision it recorded against it. */
 export type RegisterResponse = z.infer<typeof RegisterResponseSchema>;
 
-/** The answer to an account-status read. An empty account handle is a NORMAL answer: it
- * means this agent holds no account at that Exchange yet. */
+/** The answer to an account-status read. An agent with no account at that Exchange is
+ * answered `not_found` instead; an empty account handle from an older Exchange means the
+ * same. */
 export type GetAccountStatusResponse = z.infer<typeof GetAccountStatusResponseSchema>;
 
 // ---------------------------------------------------------------------------

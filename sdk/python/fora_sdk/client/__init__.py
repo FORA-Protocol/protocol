@@ -301,7 +301,10 @@ class Client(_Face):
     ) -> GetAccountStatusResponse:
         """Read whether this agent's account at the named Exchange is active.
 
-        An empty ``billing_ref`` in the answer is a NORMAL answer: no account there yet.
+        An agent with no account there yet is answered with the Connect code
+        ``not_found``, raised as a ``CallError`` whose ``code`` is ``"not_found"``. An
+        Exchange built before that rule answers with an empty ``billing_ref`` instead,
+        which means the same.
         """
         plan = await asyncio.to_thread(
             _verbs.plan_get_account_status, self._config, request

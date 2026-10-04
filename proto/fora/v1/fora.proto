@@ -447,7 +447,10 @@ service ExchangeService {
 
   // Read-only check of whether the calling agent's account is active.
   // Identity comes from the request signature, so the request carries no
-  // identifying field.
+  // identifying field. An agent the Exchange knows, its request signature
+  // verified, but that holds no account at this Exchange is answered with the
+  // Connect code NOT_FOUND. An agent whose signature does not verify is
+  // UNAUTHENTICATED, as on every RPC.
   rpc GetAccountStatus(GetAccountStatusRequest) returns (GetAccountStatusResponse);
 }
 
@@ -4977,7 +4980,10 @@ message GetAccountStatusResponse {
   string ver = 1;
 
   // The account handle minted at registration (see RegisterResponse.billing_ref).
-  // Empty when the calling agent has no account yet.
+  // Set on every OK answer: a calling agent with no account is answered
+  // NOT_FOUND, not with an empty handle (see GetAccountStatus). A receiver reads
+  // an empty handle, which an Exchange built before that rule may send, as the
+  // same answer.
   string billing_ref = 2;
 
   // Whether the account is currently active.

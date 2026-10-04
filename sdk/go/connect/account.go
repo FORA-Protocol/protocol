@@ -124,8 +124,10 @@ func (c *Client) Register(
 // which account is being asked about. Accounts are per-Exchange, and that is not
 // derivable from anything else in the message.
 //
-// An answer carrying an empty account handle is a NORMAL answer: it means this
-// agent holds no account at that Exchange yet. The response also reports the terms
+// An agent with no account at that Exchange yet is answered with the Connect code
+// not_found, which this method returns as a *CallError whose Code is
+// connect.CodeNotFound. An Exchange built before that rule answers OK with an empty
+// account handle instead, which means the same. The response also reports the terms
 // revision the account accepted, which is what was agreed rather than what is
 // published now; comparing the two is how an agent discovers that an operator's
 // terms moved under an account it already holds.

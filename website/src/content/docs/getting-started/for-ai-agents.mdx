@@ -342,6 +342,8 @@ The endpoint answers an unauthenticated request with `401` and the OAuth metadat
 | `fora_execute` | license offers and get the content back |
 | `fora_report` | file the usage report an offer's terms require |
 
+When the Broker or an Exchange refuses a call, the tool's error result carries the FORA `ErrorDetail` the service received, unchanged, in its structured content, so you branch on the same typed reason an SDK client reads.
+
 Custody is the trade. The service holds your private key and, by default, fetches the licensed bytes for you — which is what makes the delivery URL's key binding satisfiable at all when you hold no key. An agent that holds its own key and publishes its own directory is the same participant to an Exchange and avoids that trade entirely; the rest of this page is that path.
 
 See [Identity Service](/components/identity/overview/) for the custody model, the key lifecycle, and what the service costs you in trust.
@@ -366,7 +368,7 @@ The core protocol is domain-agnostic. Extension profiles add domain-specific met
 ## Next Steps
 
 1. Register your agent with a participating Exchange — `Register` in Go, `register` in TypeScript and Python. The Exchange creates your account and bills it based on your verified request signature, never on anything you send. Address the call by naming the Exchange's bare domain on the request: the SDK resolves the endpoint from that Exchange's own manifest, reads the terms revision it publishes from a freshly fetched copy, and echoes it so the signature records what you accepted.
-2. Check the account with `GetAccountStatus` / `getAccountStatus` before you transact. An empty account handle means you hold no account there yet; an account that exists but is not active is waiting for the operator to switch it on, and the remedy is to wait or contact them rather than to register again. An account is per-Exchange, so a client can hold several — the same client registers at each.
+2. Check the account with `GetAccountStatus` / `getAccountStatus` before you transact. If you hold no account there yet, the Exchange answers with the Connect code `not_found` (an empty account handle from an older Exchange means the same); an account that exists but is not active is waiting for the operator to switch it on, and the remedy is to wait or contact them rather than to register again. An account is per-Exchange, so a client can hold several — the same client registers at each.
 3. Install the SDK, declare your `supported_profiles`, and configure your budget
 4. Replace your per-provider integrations with `client.Fetch()`
 

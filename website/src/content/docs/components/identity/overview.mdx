@@ -112,6 +112,8 @@ Each tool is one protocol verb. What differs between them is where the call goes
 
 Registration must reach the Exchange directly, because the Exchange derives the binding between an account and an identity from the agent's **own** inbound signature. `BrokerService.ExecuteTransaction` re-packages a purchase into requests signed with the Broker's key and carries agent identity in detached body acceptances — right for multi-Exchange purchases, and it would defeat registration's identity model.
 
+**Tool errors carry the typed reason.** When the Broker or an Exchange refuses the call a tool made, the tool answers with an error result whose structured content carries the FORA `ErrorDetail` the service received, unchanged. The agent reads the same typed reason an SDK client would, for example `request_auth_failure`, `registration_failure` or `transaction_denial`, and branches on it rather than on the message text.
+
 `fora_report` takes no endpoint argument. The destination is read off the report's own exchange field, which the offer signed, and resolved from that Exchange's manifest. There is no parameter a misconfigured origin could arrive through.
 
 A few input details worth knowing:

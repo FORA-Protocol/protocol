@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+**`GetAccountStatus` answers an agent with no account `NOT_FOUND` (comments only).**
+The RPC comment now states the answer for an agent the Exchange knows, its request
+signature verified, but that holds no account at that Exchange: the Connect code
+`NOT_FOUND`. `GetAccountStatusResponse.billing_ref` is therefore set on every OK answer,
+and a receiver reads an empty handle, which an Exchange built before the rule may send,
+as the same answer. The reference and AI-agent pages and the SDK doc comments of
+`GetAccountStatus` / `get_account_status` / `getAccountStatus` say the same; the SDKs
+return the refusal as their call error with the code `not_found`.
+
+**The Identity Service's MCP tools pass the typed reason through (docs only).** The
+Identity Service and AI-agent pages state that a tool error carries the FORA
+`ErrorDetail` the service received from the Broker or an Exchange, unchanged, in its
+structured content, so an agent on MCP branches on the same typed reason an SDK client
+reads.
+
 **Revocation is scoped to the signer, and revocation-list and manifest fetches may
 follow up to five redirects (comments and docs only).** Each signature is verified against its own signer's
 key directory and the revocation list that directory names, and against no other party's.
