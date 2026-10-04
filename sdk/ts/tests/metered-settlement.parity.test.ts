@@ -20,10 +20,12 @@ import {
 } from "../src/money.ts";
 import vectorsFile from "../../go/helpers/testdata/metered-settlement-vectors.json";
 
+// A row whose price states no estimate records the accepted amount and the ceiling
+// as null; the TS faces return undefined for them.
 type Expected = {
-	accepted_amount: string;
-	ceiling_quantity: string;
-	ceiling_amount: string;
+	accepted_amount: string | null;
+	ceiling_quantity: string | null;
+	ceiling_amount: string | null;
 	charged_quantity: string;
 	charged_amount: string;
 	held_quantity: string;
@@ -70,17 +72,23 @@ describe("sdk/ts metered settlement matches the sdk/go oracle vectors", () => {
 			const want = v.expected as Expected;
 			const got = settleMeteredUsage(v.pricing, v.consumed_quantity);
 			expect({
-				accepted_amount: got.acceptedAmount,
-				ceiling_quantity: got.ceilingQuantity,
-				ceiling_amount: got.ceilingAmount,
+				accepted_amount: got.acceptedAmount ?? null,
+				ceiling_quantity: got.ceilingQuantity ?? null,
+				ceiling_amount: got.ceilingAmount ?? null,
 				charged_quantity: got.chargedQuantity,
 				charged_amount: got.chargedAmount,
 				held_quantity: got.heldQuantity,
 				held_amount: got.heldAmount,
 			}).toEqual(want);
-			expect(meteredSettlementCap(v.pricing)).toBe(want.ceiling_amount);
+			expect(meteredSettlementCap(v.pricing) ?? null).toBe(want.ceiling_amount);
 		});
 	}
+
+	it("corpus settles a price with an estimate and one without", () => {
+		const settled = doc.vectors.filter((v) => !v.error);
+		expect(settled.some((v) => v.expected?.ceiling_amount === null)).toBe(true);
+		expect(settled.some((v) => typeof v.expected?.ceiling_amount === "string")).toBe(true);
+	});
 });
 
 describe("sdk/ts metered helpers", () => {
@@ -109,8 +117,11 @@ describe("sdk/ts metered helpers", () => {
 	const cases: [string, Record<string, unknown>, boolean, boolean][] = [
 		["estimated", { pricing: { ...perUnit, estimated_quantity: 1 } }, true, false],
 		["string estimate", { pricing: { ...perUnit, estimated_quantity: "7" } }, true, false],
-		["no estimate", { pricing: { ...perUnit } }, true, true],
+		// The estimate is optional; one that is stated is positive.
+		["no estimate", { pricing: { ...perUnit } }, true, false],
+		["null estimate is absent", { pricing: { ...perUnit, estimated_quantity: null } }, true, false],
 		["zero estimate", { pricing: { ...perUnit, estimated_quantity: 0 } }, true, true],
+		["negative estimate", { pricing: { ...perUnit, estimated_quantity: -3 } }, true, true],
 		["fractional estimate", { pricing: { ...perUnit, estimated_quantity: 1.5 } }, true, true],
 		// A priced term no longer makes an offer metered: Offer.pricing is the one price,
 		// and checkOfferTermsUnpriced refuses the priced term instead.

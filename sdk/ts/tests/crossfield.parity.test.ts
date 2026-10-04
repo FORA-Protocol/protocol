@@ -155,7 +155,7 @@ const validInstances: { name: string; message: string; json: unknown }[] = [
     },
   },
   {
-    // Offer.metered.requires_estimate: a metered offer with a positive estimate on its
+    // Offer.metered.estimate_positive: a metered offer with a positive estimate on its
     // own pricing satisfies it, even when the pushed term carries none.
     name: "Offer metered with estimate",
     message: "Offer",
@@ -190,13 +190,25 @@ const validInstances: { name: string; message: string; json: unknown }[] = [
     json: { domain: "publisher.example", path: "/article" },
   },
   {
-    // Offer.metered.requires_estimate: a non-metered offer needs no estimate.
+    // Offer.metered.estimate_positive: a non-metered offer needs no estimate.
     name: "Offer flat without estimate",
     message: "Offer",
     json: {
       offer_id: "offer-flat",
       exchange: "exchange.example",
       pricing: { model: "PRICING_MODEL_FLAT", rate: "1" },
+    },
+  },
+  {
+    // Offer.metered.estimate_positive: a metered offer may state no estimate at all;
+    // it then settles at consumed x rate with no ceiling.
+    name: "Offer metered without estimate",
+    message: "Offer",
+    json: {
+      offer_id: "offer-metered-unestimated",
+      exchange: "exchange.example",
+      pricing: { model: "PRICING_MODEL_PER_UNIT", rate: "0.00002", unit: "tokens" },
+      terms: [{ semantics: "TERM_SEMANTICS_ENUMERATED" }],
     },
   },
   {

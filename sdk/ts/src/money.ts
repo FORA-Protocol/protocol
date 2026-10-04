@@ -92,22 +92,28 @@ const INT64_MAX = 2n ** 63n - 1n;
 /**
  * What a metered purchase settles to, every value a canonical decimal string.
  * Quantities are in the price's unit and may be fractional (`ceilingQuantity` and
- * what derives from it); amounts are in the price's currency.
+ * what derives from it); amounts are in the price's currency. When the price
+ * states no estimate there is no ceiling: `acceptedAmount`, `ceilingQuantity` and
+ * `ceilingAmount` are undefined, the whole consumed quantity is charged, and
+ * nothing is held.
  */
 export interface MeteredSettlement {
-	/** E x R: what the agent accepted at purchase. */
-	readonly acceptedAmount: string;
-	/** Q = E x (10000 + T) / 10000. */
-	readonly ceilingQuantity: string;
-	/** Q x R: the most the purchase is charged without a dispute. */
-	readonly ceilingAmount: string;
-	/** min(C, Q). */
+	/** E x R: what the agent accepted at purchase. Undefined without an estimate. */
+	readonly acceptedAmount: string | undefined;
+	/** Q = E x (10000 + T) / 10000. Undefined without an estimate. */
+	readonly ceilingQuantity: string | undefined;
+	/**
+	 * Q x R: the most the purchase is charged without a dispute. Undefined without
+	 * an estimate.
+	 */
+	readonly ceilingAmount: string | undefined;
+	/** min(C, Q), or C without an estimate. */
 	readonly chargedQuantity: string;
-	/** min(C, Q) x R: what the report settles to. */
+	/** chargedQuantity x R: what the report settles to. */
 	readonly chargedAmount: string;
-	/** max(0, C - Q): the quantity held for dispute. */
+	/** max(0, C - Q): the quantity held for dispute. Always 0 without an estimate. */
 	readonly heldQuantity: string;
-	/** max(0, C - Q) x R: held for dispute, never charged automatically. */
+	/** heldQuantity x R: held for dispute, never charged automatically. */
 	readonly heldAmount: string;
 }
 
@@ -177,7 +183,7 @@ function modelOf(pricing: unknown): string {
 /**
  * isMeteredOffer reports whether `offer` (canonical proto-JSON) is metered: its
  * pricing is PER_UNIT. `Offer.pricing` is the offer's one price and the term it
- * sells carries none (fora.proto Offer, the offer.metered.requires_estimate and
+ * sells carries none (fora.proto Offer, the offer.metered.estimate_positive and
  * offer.terms.pricing_unset rules), so a term is never consulted. TS peer of Go
  * `helpers.IsMeteredOffer`.
  */
@@ -212,11 +218,29 @@ export function checkOfferTermsUnpriced(offer: Record<string, unknown>): void {
 }
 
 /**
- * checkMeteredEstimate throws when `offer` is metered and its pricing carries no
- * positive `estimated_quantity`, and returns otherwise. The
- * offer.metered.requires_estimate rule as a standalone check, for a verifier that
- * runs without wire validation; a non-metered offer passes whatever its pricing
- * says.
+ * The `estimated_quantity` `pricing` states, or undefined when it states none
+ * (`null` is proto-JSON for absent). Throws for a stated estimate that is not a
+ * positive integer: an estimate is optional, but one that is stated is positive.
+ */
+function statedEstimate(pricing: Record<string, unknown>): bigint | undefined {
+	const raw = pricing.estimated_quantity;
+	if (raw === undefined || raw === null) return undefined;
+	const estimate = wireInt(raw);
+	if (estimate === undefined || estimate <= 0n) {
+		throw new Error(
+			`money: metered pricing states an estimated_quantity that is not positive: ${JSON.stringify(raw)}`,
+		);
+	}
+	return estimate;
+}
+
+/**
+ * checkMeteredEstimate throws when `offer` is metered and its pricing states an
+ * `estimated_quantity` that is not positive, and returns otherwise. A metered
+ * offer that states no estimate passes: the estimate is optional, and without
+ * one the purchase settles with no ceiling. The offer.metered.estimate_positive
+ * rule as a standalone check, for a verifier that runs without wire validation;
+ * a non-metered offer passes whatever its pricing says.
  */
 export function checkMeteredEstimate(offer: Record<string, unknown>): void {
 	if (typeof offer !== "object" || offer === null) {
@@ -224,14 +248,8 @@ export function checkMeteredEstimate(offer: Record<string, unknown>): void {
 	}
 	if (!isMeteredOffer(offer)) return;
 	const pricing = offer.pricing;
-	const estimate =
-		typeof pricing === "object" && pricing !== null
-			? wireInt((pricing as Record<string, unknown>).estimated_quantity)
-			: undefined;
-	if (estimate === undefined || estimate <= 0n) {
-		throw new Error(
-			"money: metered offer carries no positive estimated_quantity",
-		);
+	if (typeof pricing === "object" && pricing !== null) {
+		statedEstimate(pricing as Record<string, unknown>);
 	}
 }
 
@@ -253,11 +271,14 @@ export function estimateToleranceBps(pricing: Record<string, unknown>): number {
 	return Number(bps);
 }
 
-/** Check `pricing` is a metered price that can settle; return E, R and Q. */
+/**
+ * Check `pricing` is a metered price that can settle; return E, R and Q. E and Q
+ * are undefined when the price states no estimate.
+ */
 function meteredTerms(pricing: Record<string, unknown>): {
-	estimate: Dec;
+	estimate: Dec | undefined;
 	rate: Dec;
-	ceiling: Dec;
+	ceiling: Dec | undefined;
 } {
 	if (typeof pricing !== "object" || pricing === null) {
 		throw new Error("money: pricing is not an object");
@@ -268,18 +289,16 @@ function meteredTerms(pricing: Record<string, unknown>): {
 			`money: pricing is not metered (PER_UNIT): model is ${JSON.stringify(model)}`,
 		);
 	}
-	const estimate = wireInt(pricing.estimated_quantity);
-	if (estimate === undefined || estimate <= 0n) {
-		throw new Error(
-			"money: metered pricing carries no positive estimated_quantity",
-		);
-	}
+	const estimate = statedEstimate(pricing);
 	const rate = parseMoney(typeof pricing.rate === "string" ? pricing.rate : "");
 	const bps = estimateToleranceBps(pricing);
 	if (bps < 0 || bps > MAX_ESTIMATE_TOLERANCE_BPS) {
 		throw new Error(
 			`money: estimate_tolerance_bps ${bps} is outside 0..${MAX_ESTIMATE_TOLERANCE_BPS}`,
 		);
+	}
+	if (estimate === undefined) {
+		return { estimate: undefined, rate: decOf(rate), ceiling: undefined };
 	}
 	return {
 		estimate: { units: estimate, scale: 0 },
@@ -291,18 +310,24 @@ function meteredTerms(pricing: Record<string, unknown>): {
 /**
  * meteredSettlementCap returns Q x R for a metered price: the most a purchase
  * under it is charged without a dispute, and the amount an agent budgets against
- * a spend cap. Throws for a price that is not PER_UNIT, carries no positive
- * estimate or no valid rate, or states a tolerance outside 0..10000.
+ * a spend cap. Undefined when the price states no estimate: it then has no
+ * ceiling, and nothing in it bounds the charge. Throws for a price that is not
+ * PER_UNIT, states an estimate that is not positive, carries no valid rate, or
+ * states a tolerance outside 0..10000.
  */
-export function meteredSettlementCap(pricing: Record<string, unknown>): string {
+export function meteredSettlementCap(
+	pricing: Record<string, unknown>,
+): string | undefined {
 	const { rate, ceiling } = meteredTerms(pricing);
+	if (ceiling === undefined) return undefined;
 	return decFormat(decMul(ceiling, rate));
 }
 
 /**
  * settleMeteredUsage settles a usage report of `consumedQuantity` against a
  * metered price — the offer's own pricing, which is the copy settlement reads.
- * Throws for what meteredSettlementCap refuses, and for a quantity that is
+ * Without an estimate the whole quantity is charged at the rate and nothing is
+ * held. Throws for what meteredSettlementCap refuses, and for a quantity that is
  * negative, not an integer, or above the int64 range.
  */
 export function settleMeteredUsage(
@@ -326,6 +351,17 @@ export function settleMeteredUsage(
 		);
 	}
 	const consumed: Dec = { units: consumedUnits, scale: 0 };
+	if (estimate === undefined || ceiling === undefined) {
+		return {
+			acceptedAmount: undefined,
+			ceilingQuantity: undefined,
+			ceilingAmount: undefined,
+			chargedQuantity: decFormat(consumed),
+			chargedAmount: decFormat(decMul(consumed, rate)),
+			heldQuantity: "0",
+			heldAmount: "0",
+		};
+	}
 	const charged = decMin(consumed, ceiling);
 	const held = decExcess(consumed, ceiling);
 	return {

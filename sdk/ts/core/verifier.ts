@@ -352,7 +352,8 @@ export class Verifier {
 
 	// check verifies a single offer: resolve the exchange offer-signing key, verify
 	// the JCS signature, enforce the not-in-the-past expiry, require the offer's term
-	// to carry no pricing, and require a metered offer to carry its estimate. Any step
+	// to carry no pricing, and require an estimate a metered offer states to be
+	// positive. Any step
 	// failing rejects the offer (fail-closed) — including an unresolvable key.
 	private async check(offer: unknown): Promise<string | undefined> {
 		if (typeof offer !== "object" || offer === null)
@@ -392,8 +393,8 @@ export class Verifier {
 		} catch (cause) {
 			return cause instanceof Error ? cause.message : String(cause);
 		}
-		// A metered offer without an estimate has no amount to accept and no ceiling
-		// for its usage report to settle against (fora.proto Pricing).
+		// A metered offer may state no estimate, but one it states is positive: a
+		// zero estimate would fix a ceiling of nothing (fora.proto Offer).
 		try {
 			checkMeteredEstimate(rec);
 		} catch (cause) {

@@ -169,8 +169,8 @@ function pricingRules(o: Obj): string[] {
  * Offer rules:
  *   - terms.pricing_unset: `this.terms.all(t, !has(t.pricing))` — the offer's price is
  *     `Offer.pricing`, stated once.
- *   - metered.requires_estimate: `this.pricing.model != PER_UNIT ||
- *     (has(this.pricing.estimated_quantity) && this.pricing.estimated_quantity > 0)`.
+ *   - metered.estimate_positive: `this.pricing.model != PER_UNIT ||
+ *     !has(this.pricing.estimated_quantity) || this.pricing.estimated_quantity > 0`.
  * Both predicates are the ones the agent-side Verifier applies, so this face and that
  * one share checkOfferTermsUnpriced and checkMeteredEstimate rather than keeping two
  * copies.
@@ -185,7 +185,7 @@ function offerRules(o: Obj): string[] {
   try {
     checkMeteredEstimate(o);
   } catch {
-    out.push("offer.metered.requires_estimate");
+    out.push("offer.metered.estimate_positive");
   }
   return out;
 }
