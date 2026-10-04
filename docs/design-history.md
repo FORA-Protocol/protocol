@@ -2290,3 +2290,44 @@ of it.
 The shared-projection argument these faces rest on depends on this. One fetch decodes the
 whole well-known document and each face reads its own members off that single projection,
 which is only sound while every face is fetching the same path.
+
+## Signing under the Web Bot Auth profile: the readings the SDKs chose
+
+The SDKs sign and verify under the profile of draft-ietf-webbotauth-httpsig-protocol-00
+that the authentication page states. The draft and the profile leave a few points to the
+implementation, and the three SDKs settle them the same way.
+
+**Which member a signature names.** The draft says the member keyed to the signature's
+label must be signed, and the profile also accepts a member key that differs from the
+label. Both hold for a signature that covers one member. A signature that covers an
+earlier one must cover that signature's member too (WG-00 §5.2.2), so it covers several.
+The verifier then follows the member keyed to the signature's own label, and refuses a
+signature that covers several members none of which is keyed to its label: no reading of
+the draft attributes it to one directory over another.
+
+**Covering an earlier signature is optional, and partial coverage is refused.** The
+Broker signs alone and covers nothing. A party that does cover an earlier signature must
+cover its `Signature` member, its `Signature-Input` member and every component it lists,
+and may only cover a signature that appears before it in `Signature-Input`; anything
+else is refused before a key is fetched. Two signatures that do not cover each other
+verify independently. Labels carry no meaning, so the old `sig1` to `sigN` contiguity
+rule went with the forwarding chain it served.
+
+**Five minutes is the signer's limit, not the verifier's default.** The signers refuse a
+window longer than five minutes. A verifier keeps its own lifetime clamp
+(`MaxSignatureAge`), unset by default, because another Web Bot Auth signer may choose a
+longer window and the draft allows up to 24 hours. `MonotonicWindow`, which bumps
+`expires` during a burst, now moves `created` with it so the window stays at its ttl and
+never crosses the signer's limit.
+
+**A directory response signature filters keys in the resolver and gates the reader.**
+The resolvers hand out only keys the response is signed by; a listed key without a valid
+signature reads as absent, the way a removed key does, so a rotation in progress or a key
+whose private half was destroyed does not take the whole directory down. The public
+reader checks what a party publishes, so it refuses a directory unless every listed key
+signed. A directory listing no key has nothing to sign.
+
+**No transition for the old media type.** A directory served as
+`application/jwk-set+json` is refused, like the bare `Signature-Agent` value: the
+profile names a hard cut, and accepting the old label would leave the reference
+directories unsigned with nothing to say so.
