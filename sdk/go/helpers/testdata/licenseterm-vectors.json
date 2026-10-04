@@ -520,7 +520,7 @@
       "warnings": []
     },
     {
-      "name": "cross_field_pricing_estimate_tolerance_requires_per_unit",
+      "name": "metered_term_with_no_estimate_accepted",
       "entry": {
         "domain": "publisher.example",
         "path": "/premium/article-42.html",
@@ -528,32 +528,6 @@
           {
             "pricing": {
               "currency": "USD",
-              "estimate_tolerance_bps": 1000,
-              "model": "PRICING_MODEL_FLAT",
-              "rate": "1.00"
-            },
-            "semantics": "TERM_SEMANTICS_ENUMERATED"
-          }
-        ]
-      },
-      "ok": false,
-      "structural": false,
-      "cross_field_rules": [
-        "pricing.estimate_tolerance.requires_per_unit"
-      ],
-      "term_rules": [],
-      "warnings": []
-    },
-    {
-      "name": "metered_term_with_tolerance_and_no_estimate_accepted",
-      "entry": {
-        "domain": "publisher.example",
-        "path": "/premium/article-42.html",
-        "terms": [
-          {
-            "pricing": {
-              "currency": "USD",
-              "estimate_tolerance_bps": 1500,
               "model": "PRICING_MODEL_PER_UNIT",
               "rate": "0.00002",
               "unit": "tokens"
@@ -564,30 +538,6 @@
       },
       "ok": true,
       "structural": false,
-      "cross_field_rules": [],
-      "term_rules": [],
-      "warnings": []
-    },
-    {
-      "name": "structural_estimate_tolerance_above_max",
-      "entry": {
-        "domain": "publisher.example",
-        "path": "/premium/article-42.html",
-        "terms": [
-          {
-            "pricing": {
-              "currency": "USD",
-              "estimate_tolerance_bps": 10001,
-              "model": "PRICING_MODEL_PER_UNIT",
-              "rate": "0.00002",
-              "unit": "tokens"
-            },
-            "semantics": "TERM_SEMANTICS_ENUMERATED"
-          }
-        ]
-      },
-      "ok": false,
-      "structural": true,
       "cross_field_rules": [],
       "term_rules": [],
       "warnings": []

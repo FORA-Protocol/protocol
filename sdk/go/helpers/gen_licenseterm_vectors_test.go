@@ -707,25 +707,12 @@ func buildLTEntryVectors(t *testing.T) []ltEntryVector {
 				Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0.05", Currency: "USD",
 			}
 		})},
-		// A tolerance bounds a metered settlement, so it is refused on any other
-		// model. The pushed PER_UNIT term beside it needs no estimate: the estimate
-		// is an offer requirement, not a term one.
-		{"cross_field_pricing_estimate_tolerance_requires_per_unit", entry(func(e *forav1.ResourceEntry) {
-			e.Terms[0].Pricing = &forav1.Pricing{
-				Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1.00", Currency: "USD",
-				EstimateToleranceBps: proto.Int32(1000),
-			}
-		})},
-		{"metered_term_with_tolerance_and_no_estimate_accepted", entry(func(e *forav1.ResourceEntry) {
+		// A pushed PER_UNIT term needs no estimate: the estimate is optional on
+		// the term and on the offer.
+		{"metered_term_with_no_estimate_accepted", entry(func(e *forav1.ResourceEntry) {
 			e.Terms[0].Pricing = &forav1.Pricing{
 				Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.00002", Currency: "USD",
-				Unit: proto.String("tokens"), EstimateToleranceBps: proto.Int32(1500),
-			}
-		})},
-		{"structural_estimate_tolerance_above_max", entry(func(e *forav1.ResourceEntry) {
-			e.Terms[0].Pricing = &forav1.Pricing{
-				Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.00002", Currency: "USD",
-				Unit: proto.String("tokens"), EstimateToleranceBps: proto.Int32(10001),
+				Unit: proto.String("tokens"),
 			}
 		})},
 		{"cross_field_license_digest_required_with_uri", entry(func(e *forav1.ResourceEntry) {

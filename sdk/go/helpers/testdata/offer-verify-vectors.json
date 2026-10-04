@@ -159,7 +159,7 @@
       "exchange_seed_hex": "666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485"
     },
     {
-      "name": "metered_with_estimate_and_tolerance",
+      "name": "metered_with_estimate",
       "exchange": "exchange.example.com",
       "exchange_pub_b64url": "zpI5jIJHFJdW8sf3SDqL5IIPRMSe0MNkTrcaZJD7BKg",
       "offer_json": {
@@ -168,13 +168,12 @@
         "offer_id": "offer-metered",
         "pricing": {
           "currency": "USD",
-          "estimate_tolerance_bps": 1500,
           "estimated_quantity": 2500,
           "model": "PRICING_MODEL_PER_UNIT",
           "rate": "0.00002",
           "unit": "tokens"
         },
-        "signature": "d81878e5b8b422a0cfe4e0814a2e5c80bf86511a8d572673091bff16caa36aa3f0c4887e0a55a23c30e7a1c2a12d7d496c5171b5bb28116dbc3447c44201ab02",
+        "signature": "c2df3163165718b950322ebc070b24f176d367f2314b38b99ae9db7add8f927cf1ff4030a1cd9fb1c1268f0972ce46949ece4c0a2239d62ad9cac079819c2e0b",
         "signature_algorithm": "EdDSA",
         "terms": [
           {

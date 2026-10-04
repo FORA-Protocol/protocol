@@ -536,25 +536,25 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 		// positive, or every port rejects the offer even though its signature
 		// and expiry are good. ---
 
-		// metered_with_estimate_and_tolerance: the conformant metered shape.
-		emit("metered_with_estimate_and_tolerance", &forav1.Offer{
+		// metered_with_estimate: the metered shape with an estimate.
+		emit("metered_with_estimate", &forav1.Offer{
 			OfferId:   "offer-metered",
 			ExpiresAt: future,
-			Pricing:   meteredVectorPricing(proto.Int32(2500), proto.Int32(1500)),
+			Pricing:   meteredVectorPricing(proto.Int32(2500)),
 			Terms:     []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}},
 		}, nil),
 		// metered_without_estimate: no estimate at all. The estimate is
-		// optional, and the purchase settles with no ceiling → verified.
+		// optional, and the purchase charges one unit → verified.
 		emit("metered_without_estimate", &forav1.Offer{
 			OfferId:   "offer-metered-no-estimate",
 			ExpiresAt: future,
-			Pricing:   meteredVectorPricing(nil, nil),
+			Pricing:   meteredVectorPricing(nil),
 		}, nil),
 		// metered_zero_estimate: a stated estimate of zero is not positive → rejected.
 		emit("metered_zero_estimate", &forav1.Offer{
 			OfferId:   "offer-metered-zero-estimate",
 			ExpiresAt: future,
-			Pricing:   meteredVectorPricing(proto.Int32(0), nil),
+			Pricing:   meteredVectorPricing(proto.Int32(0)),
 		}, nil),
 		// metered_term_estimate_only: the term is PER_UNIT and carries an estimate,
 		// the offer's own pricing does not. An offer's term carries no pricing, so
@@ -562,7 +562,7 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 		emit("metered_term_estimate_only", &forav1.Offer{
 			OfferId:   "offer-metered-term-only",
 			ExpiresAt: future,
-			Terms:     []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: meteredVectorPricing(proto.Int32(2500), nil)}},
+			Terms:     []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: meteredVectorPricing(proto.Int32(2500))}},
 		}, nil),
 
 		// --- One price dimension: an offer states its price once, in
@@ -604,12 +604,12 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 	}
 }
 
-// meteredVectorPricing is a PER_UNIT price per token with the given estimate and
-// tolerance (nil leaves either unset).
-func meteredVectorPricing(estimate, toleranceBps *int32) *forav1.Pricing {
+// meteredVectorPricing is a PER_UNIT price per token with the given estimate
+// (nil leaves it unset).
+func meteredVectorPricing(estimate *int32) *forav1.Pricing {
 	return &forav1.Pricing{
 		Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.00002", Currency: "USD",
-		Unit: proto.String("tokens"), EstimatedQuantity: estimate, EstimateToleranceBps: toleranceBps,
+		Unit: proto.String("tokens"), EstimatedQuantity: estimate,
 	}
 }
 
