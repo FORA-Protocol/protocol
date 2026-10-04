@@ -132,7 +132,7 @@ The endpoint is `/mcp` and speaks MCP over Streamable HTTP. It is stateless: eve
 
 Two decisions collided here, and the resolution is worth understanding before deploying this.
 
-A signed delivery URL is bound to the thumbprint of the key that signed the offer acceptance, and a capable edge refuses any fetcher that cannot prove possession of that key. That is what makes a stolen URL worthless. But under custody the *registry* signs the acceptance, so the URL is bound to the registry's key — and the agent, which holds no key, can never produce the proof. Composed naively, every URL issued through this flow could only be used by the service itself, and every agent fetch got a 403.
+A signed delivery URL is bound to the thumbprint of the key that signed the offer acceptance, and a capable edge refuses any fetcher that cannot prove possession of that key. That is what makes a stolen URL worthless. But under custody the service signs the acceptance with that agent's own custodied key, so the URL is bound to a key the agent never holds — and the agent can never produce the proof. Composed naively, every URL issued through this flow could only be used by the service itself, and every agent fetch got a 403.
 
 The resolution: **the service fetches the licensed bytes itself**, presenting the custodied key as the proof of possession, and returns the content to the agent inside the tool result. The constraint was never that nobody could produce the proof, only that the *agent* could not. Moving the fetch to where the key already lives makes the proof producible by construction, with no change to the protocol, the Exchange, the edge's contract, or any agent client.
 

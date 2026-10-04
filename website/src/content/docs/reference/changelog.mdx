@@ -8,6 +8,14 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ## Unreleased
 
+**Docs: CoMP keys, self-push and custodied signing (docs only).** The licensing-terms page
+no longer cites a CoMP `revshare` key: canonical CoMP V1 has none, and `fora-comp-v1`
+keys are flat dotted keys in `ext` like every other profile's, as the CoMP page says. Its
+revenue-share example gates the term on the scope the agent states in its signed request.
+The for-providers page says a publisher may always push for its own domain, and only
+listed contributors besides. The identity overview says the service signs an acceptance
+with the agent's own custodied key.
+
 **Term scopes are matched against the scopes in the requester's signed request
 (comments only).** `LicenseTerm.scopes` said the Exchange returns a term when the agent's
 delegation grant covers its scopes, and the Restriction header said term visibility is
