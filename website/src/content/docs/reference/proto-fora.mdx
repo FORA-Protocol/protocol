@@ -451,7 +451,7 @@ A single resource catalog entry. The envelope carries its own wire rules, so an 
 
 ### PushResourcesResponse
 
-`accepted` tallies the entries a successful push stored — and because a push is all-or-nothing, a success stores every entry it carried. A push that could not be applied travels as a non-OK transport error carrying [`ErrorDetail.catalog_rejection`](#unified-error-model).
+`accepted` tallies the entries a successful push stored — and because a push is all-or-nothing, a success stores every entry it carried. A push the Exchange processed and could not apply travels as a non-OK transport error carrying [`ErrorDetail.catalog_rejection`](#unified-error-model). A push refused before processing follows the general rules instead: a mis-addressed or malformed push is `invalid_argument` with no typed reason, and one whose signature fails is `unauthenticated` with `request_auth_failure`.
 
 ::proto-message{name=PushResourcesResponse}
 

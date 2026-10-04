@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+**A mis-addressed request is refused before processing, for every RPC (comments only).**
+"Request recipient" says the recipient applies the `exchange` check to every RPC that
+carries it, before processing the request, and never answers it with an RPC's own reason
+family. `PushResourcesResponse` limits its "a push that could not be applied carries
+`catalog_rejection`" to pushes the Exchange processed: a mis-addressed or malformed push
+is `invalid_argument` with no typed reason, and one whose signature fails is
+`unauthenticated` with `request_auth_failure`. The reference page says the same.
+
 **Catalog push refusals: wire bounds, the contributor reason and
 `CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED` (one additive enum value).** A push with no
 entries or more than 256 is a malformed request: the existing `min_items` and `max_items`

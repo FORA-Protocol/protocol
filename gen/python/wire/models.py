@@ -621,7 +621,7 @@ class ProviderRelationship(Enum):
 class PushResourcesResponse(WireModel):
     accepted: conint(ge=-2147483648, le=2147483647) | None = Field(
         None,
-        description="Number of entries accepted. A push is all-or-nothing, so a successful push\n stored every entry it carried and this is the submission's own size. A push\n that could not be applied is not a response at all: it travels as a non-OK\n transport error carrying ErrorDetail.catalog_rejection.",
+        description='Number of entries accepted. A push is all-or-nothing, so a successful push\n stored every entry it carried and this is the submission\'s own size. A push\n the Exchange processed and could not apply is not a response at all: it\n travels as a non-OK transport error carrying ErrorDetail.catalog_rejection.\n A push refused before processing is answered by the general rules instead:\n a mis-addressed push (see "Request recipient" in the file header) and a\n malformed one are invalid_argument with no typed reason, and one whose\n signature fails is unauthenticated with ErrorDetail.request_auth_failure.',
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(

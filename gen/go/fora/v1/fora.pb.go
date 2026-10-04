@@ -6239,8 +6239,12 @@ type PushResourcesResponse struct {
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Number of entries accepted. A push is all-or-nothing, so a successful push
 	// stored every entry it carried and this is the submission's own size. A push
-	// that could not be applied is not a response at all: it travels as a non-OK
-	// transport error carrying ErrorDetail.catalog_rejection.
+	// the Exchange processed and could not apply is not a response at all: it
+	// travels as a non-OK transport error carrying ErrorDetail.catalog_rejection.
+	// A push refused before processing is answered by the general rules instead:
+	// a mis-addressed push (see "Request recipient" in the file header) and a
+	// malformed one are invalid_argument with no typed reason, and one whose
+	// signature fails is unauthenticated with ErrorDetail.request_auth_failure.
 	Accepted int32 `protobuf:"varint,2,opt,name=accepted,proto3" json:"accepted,omitempty"`
 	// Number of entries rejected. Structurally always 0 on this path, and kept for
 	// the same reason CATALOG_REJECTION_REASON_TERMS_LIMIT_EXCEEDED is kept: a
