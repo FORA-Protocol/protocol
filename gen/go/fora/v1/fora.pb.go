@@ -3665,8 +3665,8 @@ func (x *License) GetUriDigest() string {
 // matched to the request, never an enforcement verdict. When an Exchange does
 // drop offers this way it MAY signal it via OfferAbsenceReason.RESTRICTION_FILTERED
 // (with the axes in OfferGroup.restriction_filters). Term visibility is otherwise
-// gated only by resource_id/URI and delegation scope coverage — see
-// LicenseTerm.scopes.
+// gated only by resource_id/URI and by the scopes in the requester's signed
+// request — see LicenseTerm.scopes.
 //
 // Reading a restriction:
 //
@@ -4034,12 +4034,12 @@ type LicenseTerm struct {
 	//     (offer.terms.pricing_unset): the offer's price is Offer.pricing, stated
 	//     once.
 	Pricing *Pricing `protobuf:"bytes,6,opt,name=pricing,proto3,oneof" json:"pricing,omitempty"`
-	// Delegation scope-gating: the Exchange returns this term to an agent iff the
-	// agent's delegation grant covers ALL of these scopes (AND-semantics).
-	// Empty = public. A subscription term is Pricing{model:FREE} +
-	// scopes:["subscription:..."].
+	// Scope-gating: the Exchange returns an offer for this term iff the scopes in
+	// the requester's signed request (Requester.scopes) cover ALL of these scopes
+	// (AND-semantics). Empty = public. A subscription term is Pricing{model:FREE}
+	// + scopes:["subscription:..."].
 	//
-	// Coverage uses the SAME matching rule as Requester/delegation scopes:
+	// Coverage uses the SAME matching rule as Requester.scopes:
 	// segment-wise (":" separated), each granted segment must equal the
 	// corresponding required segment or be "*", a terminal "*" matches all
 	// remaining segments, and there is NO implicit prefix match (a grant

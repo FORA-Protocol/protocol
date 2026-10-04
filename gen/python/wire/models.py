@@ -1872,7 +1872,7 @@ class LicenseTerm(WireModel):
     )
     scopes: list[str] | None = Field(
         None,
-        description='Delegation scope-gating: the Exchange returns this term to an agent iff the\n agent\'s delegation grant covers ALL of these scopes (AND-semantics).\n Empty = public. A subscription term is Pricing{model:FREE} +\n scopes:["subscription:..."].\n\nCoverage uses the SAME matching rule as Requester/delegation scopes:\n segment-wise (":" separated), each granted segment must equal the\n corresponding required segment or be "*", a terminal "*" matches all\n remaining segments, and there is NO implicit prefix match (a grant\n narrower than the requirement does not cover it). "dist:*" covers\n "dist:US" and "dist:US:CA"; "dist" covers only "dist". There is exactly\n one scope-matching algorithm across the protocol.',
+        description='Scope-gating: the Exchange returns an offer for this term iff the scopes in\n the requester\'s signed request (Requester.scopes) cover ALL of these scopes\n (AND-semantics). Empty = public. A subscription term is Pricing{model:FREE}\n + scopes:["subscription:..."].\n\nCoverage uses the SAME matching rule as Requester.scopes:\n segment-wise (":" separated), each granted segment must equal the\n corresponding required segment or be "*", a terminal "*" matches all\n remaining segments, and there is NO implicit prefix match (a grant\n narrower than the requirement does not cover it). "dist:*" covers\n "dist:US" and "dist:US:CA"; "dist" covers only "dist". There is exactly\n one scope-matching algorithm across the protocol.',
         max_length=64,
     )
     semantics: TermSemantics = Field(

@@ -8,6 +8,13 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ## Unreleased
 
+**Term scopes are matched against the scopes in the requester's signed request
+(comments only).** `LicenseTerm.scopes` said the Exchange returns a term when the agent's
+delegation grant covers its scopes, and the Restriction header said term visibility is
+gated by delegation scope coverage. The Exchange returns an offer for a term when the
+scopes in the requester's signed request (`Requester.scopes`) cover the term's scopes.
+The threat model's scope-pollution and scope-gating entries say the same.
+
 **Restrictions are declared terms, never enforced by the Exchange;
 `DENIAL_REASON_RESTRICTION_NOT_SATISFIED` and `TransactionResultItem.restriction_mismatches`
 are deprecated (comments only).** The licensing-core header, the ENUMERATED and
