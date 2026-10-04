@@ -271,6 +271,112 @@
       }
     },
     {
+      "name": "no_estimate_charged_as_consumed",
+      "pricing": {
+        "model": "PRICING_MODEL_PER_UNIT",
+        "rate": "0.00002",
+        "currency": "USD",
+        "unit": "tokens"
+      },
+      "consumed_quantity": 2500,
+      "error": false,
+      "cap_error": false,
+      "expected": {
+        "accepted_amount": null,
+        "ceiling_quantity": null,
+        "ceiling_amount": null,
+        "charged_quantity": "2500",
+        "charged_amount": "0.05",
+        "held_quantity": "0",
+        "held_amount": "0"
+      }
+    },
+    {
+      "name": "no_estimate_zero_consumed_charges_nothing",
+      "pricing": {
+        "model": "PRICING_MODEL_PER_UNIT",
+        "rate": "0.00002",
+        "currency": "USD",
+        "unit": "tokens"
+      },
+      "consumed_quantity": 0,
+      "error": false,
+      "cap_error": false,
+      "expected": {
+        "accepted_amount": null,
+        "ceiling_quantity": null,
+        "ceiling_amount": null,
+        "charged_quantity": "0",
+        "charged_amount": "0",
+        "held_quantity": "0",
+        "held_amount": "0"
+      }
+    },
+    {
+      "name": "no_estimate_large_quantity_nothing_held",
+      "pricing": {
+        "model": "PRICING_MODEL_PER_UNIT",
+        "rate": "0.00002",
+        "currency": "USD",
+        "unit": "tokens"
+      },
+      "consumed_quantity": 2147483647,
+      "error": false,
+      "cap_error": false,
+      "expected": {
+        "accepted_amount": null,
+        "ceiling_quantity": null,
+        "ceiling_amount": null,
+        "charged_quantity": "2147483647",
+        "charged_amount": "42949.67294",
+        "held_quantity": "0",
+        "held_amount": "0"
+      }
+    },
+    {
+      "name": "no_estimate_tolerance_has_nothing_to_widen",
+      "pricing": {
+        "model": "PRICING_MODEL_PER_UNIT",
+        "rate": "0.00002",
+        "currency": "USD",
+        "unit": "tokens",
+        "estimate_tolerance_bps": 500
+      },
+      "consumed_quantity": 3000,
+      "error": false,
+      "cap_error": false,
+      "expected": {
+        "accepted_amount": null,
+        "ceiling_quantity": null,
+        "ceiling_amount": null,
+        "charged_quantity": "3000",
+        "charged_amount": "0.06",
+        "held_quantity": "0",
+        "held_amount": "0"
+      }
+    },
+    {
+      "name": "no_estimate_exact_tiny_rate",
+      "pricing": {
+        "model": "PRICING_MODEL_PER_UNIT",
+        "rate": "0.00000000000000000000000001234",
+        "currency": "USD",
+        "unit": "tokens"
+      },
+      "consumed_quantity": 2147483647,
+      "error": false,
+      "cap_error": false,
+      "expected": {
+        "accepted_amount": null,
+        "ceiling_quantity": null,
+        "ceiling_amount": null,
+        "charged_quantity": "2147483647",
+        "charged_amount": "0.00000000000000002649994820398",
+        "held_quantity": "0",
+        "held_amount": "0"
+      }
+    },
+    {
       "name": "refused_not_metered",
       "pricing": {
         "model": "PRICING_MODEL_FLAT",
@@ -288,18 +394,6 @@
         "rate": "0"
       },
       "consumed_quantity": 1,
-      "error": true,
-      "cap_error": true
-    },
-    {
-      "name": "refused_missing_estimate",
-      "pricing": {
-        "model": "PRICING_MODEL_PER_UNIT",
-        "rate": "0.00002",
-        "currency": "USD",
-        "unit": "tokens"
-      },
-      "consumed_quantity": 2500,
       "error": true,
       "cap_error": true
     },

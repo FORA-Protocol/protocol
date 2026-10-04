@@ -444,8 +444,8 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 		// Freshness is fail-closed and mirrors core.Verifier.expired: a missing
 		// expires_at is expired (not eternal); a present bound is inclusive at now.
 		expired := offer.GetExpiresAt() == nil || offer.GetExpiresAt().AsTime().Before(time.Unix(nowUnix, 0))
-		// The offer's term carries no pricing, and a metered offer carries its
-		// estimate (core.Verifier's last two checks).
+		// The offer's term carries no pricing, and an estimate a metered offer
+		// states is positive (core.Verifier's last two checks).
 		termErr := CheckOfferTermsUnpriced(offer)
 		estimateErr := CheckMeteredEstimate(offer)
 		return offerVerifyVector{
@@ -531,9 +531,10 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 			ExpiresAt: timestamppb.New(time.Unix(nowUnix-100, 0).UTC()),
 		}, nil),
 
-		// --- Metered estimate dimension: a PER_UNIT offer must carry a positive
-		// estimated_quantity on its own pricing, or every port rejects it even
-		// though its signature and expiry are good. ---
+		// --- Metered estimate dimension: a PER_UNIT offer may state an
+		// estimated_quantity on its own pricing or none. One it states is
+		// positive, or every port rejects the offer even though its signature
+		// and expiry are good. ---
 
 		// metered_with_estimate_and_tolerance: the conformant metered shape.
 		emit("metered_with_estimate_and_tolerance", &forav1.Offer{
@@ -542,13 +543,14 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 			Pricing:   meteredVectorPricing(proto.Int32(2500), proto.Int32(1500)),
 			Terms:     []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}},
 		}, nil),
-		// metered_missing_estimate: no estimate at all → rejected.
-		emit("metered_missing_estimate", &forav1.Offer{
+		// metered_without_estimate: no estimate at all. The estimate is
+		// optional, and the purchase settles with no ceiling → verified.
+		emit("metered_without_estimate", &forav1.Offer{
 			OfferId:   "offer-metered-no-estimate",
 			ExpiresAt: future,
 			Pricing:   meteredVectorPricing(nil, nil),
 		}, nil),
-		// metered_zero_estimate: present but zero is no estimate → rejected.
+		// metered_zero_estimate: a stated estimate of zero is not positive → rejected.
 		emit("metered_zero_estimate", &forav1.Offer{
 			OfferId:   "offer-metered-zero-estimate",
 			ExpiresAt: future,

@@ -49,7 +49,7 @@ func (v VerifiedOffer) Offer() *forav1.Offer { return v.offer }
 
 // RejectedOffer is an offer the Verifier could NOT accept: the wrapped Offer plus
 // the Reason it failed (signature invalid, expired, no resolvable key, a metered
-// offer without an estimate). It is
+// offer whose stated estimate is not positive). It is
 // VISIBLE — the application learns which offers failed and why — but not directly
 // executable. Acting on it requires the explicit .Unsafe() escape.
 type RejectedOffer struct {
@@ -98,7 +98,9 @@ func NewVerifier(mode Mode, resolver helpers.KeyResolver, now func() time.Time) 
 // verified against its resolved exchange key and its expiry — a failure of either
 // lands it in Rejected with the reason. An offer whose term carries pricing is
 // rejected too (helpers.ErrOfferTermPriced), and so is a metered offer that
-// carries no positive estimate (helpers.ErrMeteredEstimateMissing).
+// states an estimate of zero or less (helpers.ErrMeteredEstimateNotPositive). A
+// metered offer that states no estimate is not rejected for it: the estimate is
+// optional.
 func (v Verifier) Sort(ctx context.Context, offers []*forav1.Offer) Result {
 	res := Result{}
 	for _, off := range offers {
@@ -117,7 +119,7 @@ func (v Verifier) Sort(ctx context.Context, offers []*forav1.Offer) Result {
 
 // check verifies a single offer: resolve the exchange offer-signing key, verify the
 // signature, enforce the not-in-the-past expiry, require the offer's term to carry
-// no pricing, and require a metered offer to carry its estimate. Any step failing
+// no pricing, and require an estimate a metered offer states to be positive. Any step failing
 // rejects the offer (fail-closed) — including
 // an unresolvable key, so an offer the client cannot key is rejected under Strict
 // rather than trusted.
@@ -138,9 +140,10 @@ func (v Verifier) check(ctx context.Context, off *forav1.Offer) error {
 	if err := helpers.CheckOfferTermsUnpriced(off); err != nil {
 		return err
 	}
-	// A metered offer without an estimate has no amount to accept and no ceiling
-	// for its usage report to settle against (fora.proto Pricing). Wire
-	// validation refuses it too, but a Verifier also runs with validation off.
+	// A metered offer may state no estimate, but one it states is positive: a
+	// zero estimate would fix a ceiling of nothing (fora.proto Offer, the
+	// offer.metered.estimate_positive rule). Wire validation refuses it too, but
+	// a Verifier also runs with validation off.
 	if err := helpers.CheckMeteredEstimate(off); err != nil {
 		return err
 	}

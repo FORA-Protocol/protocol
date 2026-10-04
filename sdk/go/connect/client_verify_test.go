@@ -342,13 +342,14 @@ func TestDiscover_SortsVerifiedAndRejected(t *testing.T) {
 	}
 }
 
-// TestDiscover_RejectsMeteredOfferWithoutEstimate pins that a metered offer
-// lacking an estimate lands in Rejected even though the Exchange genuinely signed
-// it and it has not expired: without an estimate the agent has no amount to
-// accept and no ceiling for its usage report to settle against. The estimated
-// metered offer beside it verifies. Validation is off, the client default, so
-// the Verifier is the only gate the offer meets.
-func TestDiscover_RejectsMeteredOfferWithoutEstimate(t *testing.T) {
+// TestDiscover_MeteredOfferEstimateOptionalButPositive pins how the Verifier
+// treats a metered offer's estimate, for offers the Exchange genuinely signed
+// and that have not expired. An offer with an estimate verifies, and so does
+// one without: the estimate is optional, and without it the purchase settles
+// at consumed × rate with no ceiling. An offer that states a zero estimate
+// lands in Rejected, since a stated estimate is positive. Validation is off,
+// the client default, so the Verifier is the only gate the offers meet.
+func TestDiscover_MeteredOfferEstimateOptionalButPositive(t *testing.T) {
 	t.Parallel()
 	sig := newSigningFixture(t)
 	exPub, exPriv, err := ed25519.GenerateKey(nil)
@@ -358,6 +359,7 @@ func TestDiscover_RejectsMeteredOfferWithoutEstimate(t *testing.T) {
 	srv := newVerifyingServer(t, sig, newMemReplayStore(), []*forav1.Offer{
 		signedMeteredOffer(t, exPriv, "offer-estimated", proto.Int32(2500)),
 		signedMeteredOffer(t, exPriv, "offer-unestimated", nil),
+		signedMeteredOffer(t, exPriv, "offer-zero-estimate", proto.Int32(0)),
 	})
 	client := foraconnect.NewClient(srv.URL,
 		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
@@ -368,14 +370,18 @@ func TestDiscover_RejectsMeteredOfferWithoutEstimate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Discover: %v", err)
 	}
-	if len(res.Verified()) != 1 || res.Verified()[0].Offer().GetOfferId() != "offer-estimated" {
-		t.Fatalf("want only offer-estimated verified, got %d verified", len(res.Verified()))
+	verified := map[string]bool{}
+	for _, v := range res.Verified() {
+		verified[v.Offer().GetOfferId()] = true
 	}
-	if len(res.Rejected()) != 1 || res.Rejected()[0].Offer.GetOfferId() != "offer-unestimated" {
-		t.Fatalf("want only offer-unestimated rejected, got %d rejected", len(res.Rejected()))
+	if len(verified) != 2 || !verified["offer-estimated"] || !verified["offer-unestimated"] {
+		t.Fatalf("want offer-estimated and offer-unestimated verified, got %v", verified)
 	}
-	if !errors.Is(res.Rejected()[0].Reason, helpers.ErrMeteredEstimateMissing) {
-		t.Fatalf("rejected reason: want ErrMeteredEstimateMissing, got %v", res.Rejected()[0].Reason)
+	if len(res.Rejected()) != 1 || res.Rejected()[0].Offer.GetOfferId() != "offer-zero-estimate" {
+		t.Fatalf("want only offer-zero-estimate rejected, got %d rejected", len(res.Rejected()))
+	}
+	if !errors.Is(res.Rejected()[0].Reason, helpers.ErrMeteredEstimateNotPositive) {
+		t.Fatalf("rejected reason: want ErrMeteredEstimateNotPositive, got %v", res.Rejected()[0].Reason)
 	}
 }
 

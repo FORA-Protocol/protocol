@@ -33,7 +33,7 @@ func TestCheckMeteredEstimate(t *testing.T) {
 		wantErr bool
 	}{
 		{"per_unit_with_estimate", meteredTestOffer(perUnit, proto.Int32(1)), true, false},
-		{"per_unit_without_estimate", meteredTestOffer(perUnit, nil), true, true},
+		{"per_unit_without_estimate_is_valid", meteredTestOffer(perUnit, nil), true, false},
 		{"per_unit_zero_estimate", meteredTestOffer(perUnit, proto.Int32(0)), true, true},
 		{"per_unit_negative_estimate", meteredTestOffer(perUnit, proto.Int32(-3)), true, true},
 		{"per_unit_term_under_flat_pricing_is_not_metered", pricedTerm, false, false},
@@ -49,8 +49,8 @@ func TestCheckMeteredEstimate(t *testing.T) {
 			if c.wantErr != (err != nil) {
 				t.Fatalf("CheckMeteredEstimate = %v, want error %v", err, c.wantErr)
 			}
-			if c.wantErr && !errors.Is(err, ErrMeteredEstimateMissing) {
-				t.Fatalf("CheckMeteredEstimate = %v, want ErrMeteredEstimateMissing", err)
+			if c.wantErr && !errors.Is(err, ErrMeteredEstimateNotPositive) {
+				t.Fatalf("CheckMeteredEstimate = %v, want ErrMeteredEstimateNotPositive", err)
 			}
 		})
 	}
@@ -103,9 +103,9 @@ func TestSettleMeteredUsageRefusesNotMetered(t *testing.T) {
 	if !errors.Is(err, ErrNotMetered) {
 		t.Fatalf("FLAT pricing: got %v, want ErrNotMetered", err)
 	}
-	_, err = MeteredSettlementCap(&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "1"})
-	if !errors.Is(err, ErrMeteredEstimateMissing) {
-		t.Fatalf("PER_UNIT without estimate: got %v, want ErrMeteredEstimateMissing", err)
+	_, _, err = MeteredSettlementCap(&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "1", EstimatedQuantity: proto.Int32(0)})
+	if !errors.Is(err, ErrMeteredEstimateNotPositive) {
+		t.Fatalf("PER_UNIT with a zero estimate: got %v, want ErrMeteredEstimateNotPositive", err)
 	}
 	if _, err := SettleMeteredUsage(nil, 1); err == nil {
 		t.Fatal("nil pricing must refuse")

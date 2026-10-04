@@ -28,19 +28,43 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// settlementExpectation is MeteredSettlement as the corpus records it.
+// settlementExpectation is MeteredSettlement as the corpus records it. A price
+// that states no estimate has no accepted amount and no ceiling, and the corpus
+// records those three as null.
 type settlementExpectation struct {
-	AcceptedAmount  string `json:"accepted_amount"`
-	CeilingQuantity string `json:"ceiling_quantity"`
-	CeilingAmount   string `json:"ceiling_amount"`
-	ChargedQuantity string `json:"charged_quantity"`
-	ChargedAmount   string `json:"charged_amount"`
-	HeldQuantity    string `json:"held_quantity"`
-	HeldAmount      string `json:"held_amount"`
+	AcceptedAmount  *string `json:"accepted_amount"`
+	CeilingQuantity *string `json:"ceiling_quantity"`
+	CeilingAmount   *string `json:"ceiling_amount"`
+	ChargedQuantity string  `json:"charged_quantity"`
+	ChargedAmount   string  `json:"charged_amount"`
+	HeldQuantity    string  `json:"held_quantity"`
+	HeldAmount      string  `json:"held_amount"`
+}
+
+// settlementExpectationOf records a settlement the way the corpus does.
+func settlementExpectationOf(m MeteredSettlement) settlementExpectation {
+	e := settlementExpectation{
+		ChargedQuantity: m.ChargedQuantity, ChargedAmount: m.ChargedAmount,
+		HeldQuantity: m.HeldQuantity, HeldAmount: m.HeldAmount,
+	}
+	if m.Estimated {
+		e.AcceptedAmount, e.CeilingQuantity, e.CeilingAmount = &m.AcceptedAmount, &m.CeilingQuantity, &m.CeilingAmount
+	}
+	return e
+}
+
+// sameSettlementExpectation compares two recorded settlements by value.
+func sameSettlementExpectation(a, b settlementExpectation) bool {
+	eq := func(x, y *string) bool { return (x == nil) == (y == nil) && (x == nil || *x == *y) }
+	return eq(a.AcceptedAmount, b.AcceptedAmount) && eq(a.CeilingQuantity, b.CeilingQuantity) &&
+		eq(a.CeilingAmount, b.CeilingAmount) && a.ChargedQuantity == b.ChargedQuantity &&
+		a.ChargedAmount == b.ChargedAmount && a.HeldQuantity == b.HeldQuantity && a.HeldAmount == b.HeldAmount
 }
 
 // settlementVector is one SettleMeteredUsage case. pricing is the offer's
-// pricing in canonical proto-JSON. A row with error true is refused by both
+// pricing in canonical proto-JSON. A row whose expected ceiling_amount is null
+// has no cap: MeteredSettlementCap reports it uncapped. A row with error true
+// is refused by both
 // SettleMeteredUsage and MeteredSettlementCap, unless cap_error is false — a
 // negative consumed quantity is the settlement's fault, not the price's.
 type settlementVector struct {
@@ -60,7 +84,13 @@ func perToken(estimate, toleranceBps *int32, rate string) *forav1.Pricing {
 }
 
 func settled(accepted, ceilQ, ceilA, chargedQ, chargedA, heldQ, heldA string) *settlementExpectation {
-	return &settlementExpectation{accepted, ceilQ, ceilA, chargedQ, chargedA, heldQ, heldA}
+	return &settlementExpectation{&accepted, &ceilQ, &ceilA, chargedQ, chargedA, heldQ, heldA}
+}
+
+// unbounded is the settlement of a price that states no estimate: no accepted
+// amount, no ceiling, the whole quantity charged and nothing held.
+func unbounded(chargedQ, chargedA string) *settlementExpectation {
+	return &settlementExpectation{nil, nil, nil, chargedQ, chargedA, "0", "0"}
 }
 
 func buildSettlementVectors(t *testing.T) []settlementVector {
@@ -112,10 +142,23 @@ func buildSettlementVectors(t *testing.T) []settlementVector {
 				"2000600001.0003", "200060000100029999999999999999997999399998.9997",
 				"146883645.9997", "14688364599969999999999999999999853116354.0003"), false},
 
+		// No estimate: no ceiling. The whole consumed quantity is charged at the
+		// rate and nothing is held, however large it is; a stated tolerance has
+		// nothing to widen.
+		{"no_estimate_charged_as_consumed", perToken(nil, nil, rate), 2500,
+			unbounded("2500", "0.05"), false},
+		{"no_estimate_zero_consumed_charges_nothing", perToken(nil, nil, rate), 0,
+			unbounded("0", "0"), false},
+		{"no_estimate_large_quantity_nothing_held", perToken(nil, nil, rate), 2147483647,
+			unbounded("2147483647", "42949.67294"), false},
+		{"no_estimate_tolerance_has_nothing_to_widen", perToken(nil, e(500), rate), 3000,
+			unbounded("3000", "0.06"), false},
+		{"no_estimate_exact_tiny_rate", perToken(nil, nil, tiny), 2147483647,
+			unbounded("2147483647", "0.00000000000000002649994820398"), false},
+
 		// Refusals. Each is refused by the settlement; all but the last by the cap too.
 		{"refused_not_metered", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1.00", Currency: "USD"}, 1, nil, false},
 		{"refused_free", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"}, 1, nil, false},
-		{"refused_missing_estimate", perToken(nil, nil, rate), 2500, nil, false},
 		{"refused_zero_estimate", perToken(e(0), nil, rate), 2500, nil, false},
 		{"refused_negative_estimate", perToken(e(-1), nil, rate), 2500, nil, false},
 		{"refused_empty_rate", perToken(e(2500), nil, ""), 2500, nil, false},
@@ -133,7 +176,7 @@ func buildSettlementVectors(t *testing.T) []settlementVector {
 			t.Fatalf("%s: marshal pricing: %v", r.name, err)
 		}
 		got, setErr := SettleMeteredUsage(r.pricing, r.consumed)
-		capAmount, capErr := MeteredSettlementCap(r.pricing)
+		capAmount, capped, capErr := MeteredSettlementCap(r.pricing)
 		v := settlementVector{Name: r.name, Pricing: pj, ConsumedQuantity: r.consumed}
 		if r.want == nil {
 			if setErr == nil {
@@ -149,12 +192,12 @@ func buildSettlementVectors(t *testing.T) []settlementVector {
 		if setErr != nil || capErr != nil {
 			t.Fatalf("%s: refused a row its author marked settleable: settle %v, cap %v", r.name, setErr, capErr)
 		}
-		want := settlementExpectation(*r.want)
-		if have := settlementExpectation(got); have != want {
-			t.Fatalf("%s: SettleMeteredUsage = %+v, author expected %+v", r.name, have, want)
+		want := *r.want
+		if have := settlementExpectationOf(got); !sameSettlementExpectation(have, want) {
+			t.Fatalf("%s: SettleMeteredUsage = %+v, author expected %+v", r.name, got, want)
 		}
-		if capAmount != want.CeilingAmount {
-			t.Fatalf("%s: MeteredSettlementCap = %s, author expected %s", r.name, capAmount, want.CeilingAmount)
+		if capped != (want.CeilingAmount != nil) || (capped && capAmount != *want.CeilingAmount) {
+			t.Fatalf("%s: MeteredSettlementCap = %q (capped %v), author expected %v", r.name, capAmount, capped, want.CeilingAmount)
 		}
 		v.Expected = &want
 		out = append(out, v)

@@ -187,7 +187,7 @@
       "exchange_seed_hex": "666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485"
     },
     {
-      "name": "metered_missing_estimate",
+      "name": "metered_without_estimate",
       "exchange": "exchange.example.com",
       "exchange_pub_b64url": "zpI5jIJHFJdW8sf3SDqL5IIPRMSe0MNkTrcaZJD7BKg",
       "offer_json": {
@@ -204,7 +204,7 @@
         "signature_algorithm": "EdDSA"
       },
       "now_unix": 1700000100,
-      "expected_verified": false,
+      "expected_verified": true,
       "exchange_seed_hex": "666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485"
     },
     {

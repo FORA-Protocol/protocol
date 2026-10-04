@@ -84,14 +84,15 @@ rate, _ := helpers.ParseMoney(offer.GetPricing().GetRate()) // shopspring/decima
 wire, _ := helpers.FormatMoney(rate.Mul(decimal.NewFromInt(qty)))
 ```
 
-**Metered settlement** — a PER_UNIT offer carries an estimate, and a usage report
+**Metered settlement** — a PER_UNIT offer may carry an estimate. Without one there is
+no ceiling, and a usage report settles at consumed × rate. With one, the report
 settles within the price's tolerance (10% by default); the excess is held for
 dispute, never charged. Exact decimal, from the offer's own pricing:
 
 ```go
-capAmount, _ := helpers.MeteredSettlementCap(offer.GetPricing()) // the most charged without a dispute
-s, _ := helpers.SettleMeteredUsage(offer.GetPricing(), consumed) // s.ChargedAmount, s.HeldAmount, ...
-err := helpers.CheckMeteredEstimate(offer) // ErrMeteredEstimateMissing; core.Verifier rejects such an offer
+capAmount, capped, _ := helpers.MeteredSettlementCap(offer.GetPricing()) // the most charged without a dispute; capped is false without an estimate
+s, _ := helpers.SettleMeteredUsage(offer.GetPricing(), consumed) // s.ChargedAmount, s.HeldAmount, s.Estimated, ...
+err := helpers.CheckMeteredEstimate(offer) // ErrMeteredEstimateNotPositive for a stated estimate <= 0; core.Verifier rejects such an offer
 ```
 
 **One price per offer** — an offer's price is `Offer.pricing`, and the term it sells
