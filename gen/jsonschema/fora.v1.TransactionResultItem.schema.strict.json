@@ -16,12 +16,13 @@
                 "CATALOG_REJECTION_REASON_UNKNOWN_VOCAB_TOKEN",
                 "CATALOG_REJECTION_REASON_QUOTA_EXCEEDED",
                 "CATALOG_REJECTION_REASON_TERMS_LIMIT_EXCEEDED",
-                "CATALOG_REJECTION_REASON_URI_UNAVAILABLE"
+                "CATALOG_REJECTION_REASON_URI_UNAVAILABLE",
+                "CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION"
               ],
               "type": "string"
             },
             {
-              "maximum": 9,
+              "maximum": 10,
               "minimum": 1,
               "type": "integer"
             }
@@ -402,12 +403,13 @@
                 "DENIAL_REASON_SUBSCRIPTION_LAPSED",
                 "DENIAL_REASON_ENTITLEMENT_NOT_GRANTED",
                 "DENIAL_REASON_ACCOUNT_NOT_REGISTERED",
-                "DENIAL_REASON_RELAY_NOT_ACCEPTED"
+                "DENIAL_REASON_RELAY_NOT_ACCEPTED",
+                "DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION"
               ],
               "type": "string"
             },
             {
-              "maximum": 19,
+              "maximum": 20,
               "minimum": 1,
               "type": "integer"
             }
@@ -486,12 +488,13 @@
                 "USAGE_REPORT_REJECTION_REASON_DUPLICATE",
                 "USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED",
                 "USAGE_REPORT_REJECTION_REASON_MISSING_REQUIRED_FIELDS",
-                "USAGE_REPORT_REJECTION_REASON_MALFORMED"
+                "USAGE_REPORT_REJECTION_REASON_MALFORMED",
+                "USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION"
               ],
               "type": "string"
             },
             {
-              "maximum": 5,
+              "maximum": 6,
               "minimum": 1,
               "type": "integer"
             }
@@ -568,7 +571,8 @@
             "DENIAL_REASON_SUBSCRIPTION_LAPSED",
             "DENIAL_REASON_ENTITLEMENT_NOT_GRANTED",
             "DENIAL_REASON_ACCOUNT_NOT_REGISTERED",
-            "DENIAL_REASON_RELAY_NOT_ACCEPTED"
+            "DENIAL_REASON_RELAY_NOT_ACCEPTED",
+            "DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION"
           ],
           "type": "string"
         },

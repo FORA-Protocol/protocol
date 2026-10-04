@@ -267,6 +267,29 @@ import "fora/v1/vocab.proto";
 // ============================================================================
 
 // ============================================================================
+// Critical extensions
+//
+// A message with an `ext` Struct also carries `ext_critical`: the keys of `ext`
+// its consumer MUST understand (the COSE crit pattern, RFC 9052). An empty list
+// means every key of `ext` is safe to ignore.
+//
+// A request's ext_critical is for the party that receives that request. A
+// receiver that does not understand a key the list names does not act on the
+// request, and answers with the UNKNOWN_CRITICAL_EXTENSION reason of its RPC:
+// DiscoverResources and Resolve answer OK with no offers and
+// OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION; ExecuteTransaction answers OK
+// with every item denied in the body as DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION;
+// a catalog push is refused with CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION;
+// a usage report is refused with
+// USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION.
+//
+// ResourceEntry.ext_critical is not for the Exchange. It names keys the agent
+// must understand: the Exchange carries it onto Offer.ext_critical, with the
+// `ext` keys it names, and does not consume it. A key the Exchange does not
+// itself understand there is no reason to refuse the push.
+// ============================================================================
+
+// ============================================================================
 // Edge discovery headers
 //
 // A publisher's edge answers a request for licensed content that carries no
@@ -2745,6 +2768,10 @@ enum DenialReason {
   // to buy this offer directly, calling ExchangeService.ExecuteTransaction at
   // offer.exchange.
   DENIAL_REASON_RELAY_NOT_ACCEPTED = 19;
+  // The request's ext_critical names a key the recipient does not understand
+  // (see "Critical extensions" in the file header). Every item of the request
+  // is denied with this reason, in the body.
+  DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION = 20;
 }
 
 // IngestionSource — How the catalog entry was discovered.
@@ -3081,10 +3108,11 @@ message ResourceEntry {
   // Extension point
   google.protobuf.Struct ext = 15;
 
-  // Critical extension keys (COSE crit pattern, RFC 9052).
-  // Lists keys within ext that the consumer MUST understand.
-  // Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.
-  // Empty (default) → all ext keys are safe to ignore.
+  // Critical extension keys (COSE crit pattern, RFC 9052): keys within ext
+  // that the AGENT must understand. The Exchange carries them onto
+  // Offer.ext_critical and does not consume them, so an unknown key here never
+  // refuses the push (see "Critical extensions" in the file header). Empty
+  // (default) → all ext keys are safe to ignore.
   repeated string ext_critical = 90;
 }
 
@@ -5078,6 +5106,10 @@ enum CatalogRejectionReason {
   // to see full ownership); the human-readable message routes the caller there
   // without confirming who, if anyone, holds the URI.
   CATALOG_REJECTION_REASON_URI_UNAVAILABLE = 9;
+  // The push's own ext_critical names a key the Exchange does not understand
+  // (see "Critical extensions" in the file header). ResourceEntry.ext_critical
+  // is for the agent and never produces this reason.
+  CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION = 10;
 }
 
 // CatalogRejection — a CatalogService call could not be applied.
@@ -5277,6 +5309,10 @@ enum UsageReportRejectionReason {
   // invalid_argument. A consumed_quantity that differs from the estimate is not
   // malformed.
   USAGE_REPORT_REJECTION_REASON_MALFORMED = 5;
+  // The report's ext_critical names a key the Exchange does not understand
+  // (see "Critical extensions" in the file header). Refused with the Connect
+  // code invalid_argument.
+  USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION = 6;
 }
 
 // UsageReportRejection — a usage report could not be accepted.

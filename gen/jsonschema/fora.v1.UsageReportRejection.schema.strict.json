@@ -12,12 +12,13 @@
             "USAGE_REPORT_REJECTION_REASON_DUPLICATE",
             "USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED",
             "USAGE_REPORT_REJECTION_REASON_MISSING_REQUIRED_FIELDS",
-            "USAGE_REPORT_REJECTION_REASON_MALFORMED"
+            "USAGE_REPORT_REJECTION_REASON_MALFORMED",
+            "USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION"
           ],
           "type": "string"
         },
         {
-          "maximum": 5,
+          "maximum": 6,
           "minimum": 1,
           "type": "integer"
         }

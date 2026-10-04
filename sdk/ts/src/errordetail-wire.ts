@@ -129,6 +129,7 @@ export const ERROR_DETAIL_WIRE_ENUMS: Readonly<Record<string, Readonly<Record<st
 		"QUOTA_EXCEEDED",
 		"TERMS_LIMIT_EXCEEDED",
 		"URI_UNAVAILABLE",
+		"UNKNOWN_CRITICAL_EXTENSION",
 	]),
 	"fora.v1.DenialReason": prefixed("DENIAL_REASON", [
 		"UNSPECIFIED",
@@ -151,6 +152,7 @@ export const ERROR_DETAIL_WIRE_ENUMS: Readonly<Record<string, Readonly<Record<st
 		"ENTITLEMENT_NOT_GRANTED",
 		"ACCOUNT_NOT_REGISTERED",
 		"RELAY_NOT_ACCEPTED",
+		"UNKNOWN_CRITICAL_EXTENSION",
 	]),
 	"fora.v1.DisputeFailureReason": prefixed("DISPUTE_FAILURE_REASON", [
 		"UNSPECIFIED",
@@ -214,6 +216,7 @@ export const ERROR_DETAIL_WIRE_ENUMS: Readonly<Record<string, Readonly<Record<st
 		"WINDOW_EXPIRED",
 		"MISSING_REQUIRED_FIELDS",
 		"MALFORMED",
+		"UNKNOWN_CRITICAL_EXTENSION",
 	]),
 };
 

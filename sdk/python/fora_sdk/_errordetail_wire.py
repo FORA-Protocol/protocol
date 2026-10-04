@@ -141,6 +141,7 @@ ENUMS: dict[str, dict[int, str]] = {
         "ENTITLEMENT_NOT_GRANTED",
         "ACCOUNT_NOT_REGISTERED",
         "RELAY_NOT_ACCEPTED",
+        "UNKNOWN_CRITICAL_EXTENSION",
     ),
     "fora.v1.RestrictionKind": _names(
         "RESTRICTION_KIND", "UNSPECIFIED", "FUNCTION", "GEOGRAPHY", "USER_TYPE", "OTHER"
@@ -157,6 +158,7 @@ ENUMS: dict[str, dict[int, str]] = {
         "QUOTA_EXCEEDED",
         "TERMS_LIMIT_EXCEEDED",
         "URI_UNAVAILABLE",
+        "UNKNOWN_CRITICAL_EXTENSION",
     ),
     "fora.v1.RegistrationFailureReason": _names(
         "REGISTRATION_FAILURE_REASON",
@@ -212,6 +214,7 @@ ENUMS: dict[str, dict[int, str]] = {
         "WINDOW_EXPIRED",
         "MISSING_REQUIRED_FIELDS",
         "MALFORMED",
+        "UNKNOWN_CRITICAL_EXTENSION",
     ),
     "fora.v1.RequestAuthFailureReason": _names(
         "REQUEST_AUTH_FAILURE_REASON",

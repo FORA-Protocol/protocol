@@ -8,6 +8,21 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ## Unreleased
 
+**A request's critical extensions are for its receiver, and an entry's are for the agent:
+`UNKNOWN_CRITICAL_EXTENSION` is added to three reason enums (additive enum values).** The
+file header gains "Critical extensions", the one statement of the rule. A request's
+`ext_critical` is for the party that receives that request; a receiver that does not
+understand a listed key answers with its RPC's reason: OK with no offers and
+`OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION` on discovery and `Resolve`, OK with
+every item denied as the new `DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION` (20) on a
+purchase, the new `CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION` (10) on a catalog
+push, and the new `USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION` (6,
+`invalid_argument`) on a usage report. `ResourceEntry.ext_critical` is for the agent: the
+Exchange carries it onto `Offer.ext_critical` and does not consume it, so it never
+refuses a push. The SDK error-detail decoders in Python and TypeScript know the new
+values, and the extension-profiles, academic walkthrough and what-is-FORA pages state
+the rule.
+
 **A catalog call whose signature fails is refused with `request_auth_failure`;
 `CATALOG_REJECTION_REASON_SIGNATURE_INVALID` is deprecated (comments only).** A signed
 `CatalogService` call is refused like every other signed request when its signature is

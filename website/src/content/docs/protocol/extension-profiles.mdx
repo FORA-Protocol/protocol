@@ -104,7 +104,12 @@ FORA adopts the COSE enumeration approach: the sender lists which ext keys are c
 ### Behavior
 
 - **Regular ext keys** (not listed in `ext_critical`): safely ignored per the robustness principle. A consumer that does not recognize `analytics.view_count` simply skips it.
-- **Keys listed in `ext_critical`**: the consumer **MUST** understand the key's semantics or reject the message. Rejection uses `OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION`.
+- **Keys listed in `ext_critical`**: the consumer **MUST** understand the key's semantics or not act on the message.
+
+Who the consumer is depends on the message:
+
+- **A request's `ext_critical` is for the party that receives that request.** A receiver that does not understand a listed key answers with the `UNKNOWN_CRITICAL_EXTENSION` reason of its RPC: discovery and `Resolve` answer OK with no offers and `OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION`; a purchase answers OK with every item denied as `DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION`; a catalog push is refused with `CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION`; a usage report is refused with `USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION`.
+- **`ResourceEntry.ext_critical` is for the agent.** The Exchange carries it onto `Offer.ext_critical`, with the `ext` keys it names, and does not consume it, so a key the Exchange does not understand there never refuses the push. An agent that does not understand a key an offer lists does not use that offer.
 
 ### Example
 
@@ -123,7 +128,7 @@ FORA adopts the COSE enumeration approach: the sender lists which ext keys are c
 In this example:
 
 - `analytics.view_count` is informational -- a consumer that does not understand it simply ignores the field.
-- `medimg.irb_approval_required` is listed in `ext_critical` -- the consumer **must** understand IRB approval requirements or reject the offer with `OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION`.
+- `medimg.irb_approval_required` is listed in `ext_critical` -- the agent **must** understand IRB approval requirements or not use the offer.
 - `medimg.deidentification_method` is not in `ext_critical`, so it is also safely ignorable despite being in the same domain namespace.
 
 ### Why This Matters

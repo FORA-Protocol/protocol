@@ -15,12 +15,13 @@
             "CATALOG_REJECTION_REASON_UNKNOWN_VOCAB_TOKEN",
             "CATALOG_REJECTION_REASON_QUOTA_EXCEEDED",
             "CATALOG_REJECTION_REASON_TERMS_LIMIT_EXCEEDED",
-            "CATALOG_REJECTION_REASON_URI_UNAVAILABLE"
+            "CATALOG_REJECTION_REASON_URI_UNAVAILABLE",
+            "CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION"
           ],
           "type": "string"
         },
         {
-          "maximum": 9,
+          "maximum": 10,
           "minimum": 1,
           "type": "integer"
         }

@@ -436,7 +436,7 @@
       "type": "object"
     },
     "ext_critical": {
-      "description": "Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.",
+      "description": "Critical extension keys (COSE crit pattern, RFC 9052): keys within ext\n that the AGENT must understand. The Exchange carries them onto\n Offer.ext_critical and does not consume them, so an unknown key here never\n refuses the push (see \"Critical extensions\" in the file header). Empty\n (default) → all ext keys are safe to ignore.",
       "items": {
         "type": "string"
       },

@@ -120,6 +120,9 @@ class CatalogRejectionReason(Enum):
     CATALOG_REJECTION_REASON_URI_UNAVAILABLE = (
         'CATALOG_REJECTION_REASON_URI_UNAVAILABLE'
     )
+    CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION = (
+        'CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION'
+    )
 
 
 class CitationFormat(Enum):
@@ -213,6 +216,9 @@ class DenialReason(Enum):
     DENIAL_REASON_ENTITLEMENT_NOT_GRANTED = 'DENIAL_REASON_ENTITLEMENT_NOT_GRANTED'
     DENIAL_REASON_ACCOUNT_NOT_REGISTERED = 'DENIAL_REASON_ACCOUNT_NOT_REGISTERED'
     DENIAL_REASON_RELAY_NOT_ACCEPTED = 'DENIAL_REASON_RELAY_NOT_ACCEPTED'
+    DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION = (
+        'DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION'
+    )
 
 
 class DiscoveryMethod(Enum):
@@ -1120,6 +1126,9 @@ class UsageReportRejectionReason(Enum):
         'USAGE_REPORT_REJECTION_REASON_MISSING_REQUIRED_FIELDS'
     )
     USAGE_REPORT_REJECTION_REASON_MALFORMED = 'USAGE_REPORT_REJECTION_REASON_MALFORMED'
+    USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION = (
+        'USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION'
+    )
 
 
 class UsageReportResponse(WireModel):
@@ -1980,7 +1989,7 @@ class ResourceEntry(WireModel):
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
         None,
-        description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
+        description='Critical extension keys (COSE crit pattern, RFC 9052): keys within ext\n that the AGENT must understand. The Exchange carries them onto\n Offer.ext_critical and does not consume them, so an unknown key here never\n refuses the push (see "Critical extensions" in the file header). Empty\n (default) → all ext keys are safe to ignore.',
     )
     hash_method: constr(max_length=64) | None = Field(
         None, description='Hash algorithm'
