@@ -60,6 +60,7 @@
     "@types/node": "^26.1.0",
     "typescript": "^6.0.3",
     "vitest": "^2.1.0",
+    "web-bot-auth": "0.2.0",
     "zod": "^3.23.0"
   }
 }
