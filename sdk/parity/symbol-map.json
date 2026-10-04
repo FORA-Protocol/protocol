@@ -106,7 +106,7 @@
     "helpers.ErrInvalidPoPInput": "Go errors.Is sentinel for a proof input that cannot be written into a signature base; py/ts raise/throw instead of exporting sentinels.",
     "helpers.ErrKeyIDMismatch": "Go errors.Is sentinel for a keyid that is not the presented key's thumbprint; py/ts raise/throw instead of exporting sentinels.",
     "helpers.ErrMalformedSignatureInput": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
-    "helpers.ErrMeteredEstimateNotPositive": "Go errors.Is sentinel for a metered offer or price that states an estimate of zero or less; py raises ValueError and ts throws from the same faces, and the shared offer-verify and metered-settlement vectors pin that every language refuses the same inputs.",
+    "helpers.ErrMeteredEstimateNotPositive": "Go errors.Is sentinel for a metered offer that states an estimate of zero or less; py raises ValueError and ts throws from the same faces, and the shared offer-verify vectors pin that every language refuses the same inputs.",
     "helpers.ErrMissingContentDigest": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.ErrMissingCreated": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.ErrMissingExpires": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
@@ -114,7 +114,6 @@
     "helpers.ErrMissingSignature": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.ErrMissingSignatureInput": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.ErrMissingTargetURI": "Go errors.Is sentinel for a proof requested without the URL it binds; py/ts raise/throw instead of exporting sentinels.",
-    "helpers.ErrNotMetered": "Go errors.Is sentinel for a settlement asked of a price that is not PER_UNIT; py raises ValueError and ts throws from the same faces, and the shared metered-settlement vectors pin that every language refuses the same inputs.",
     "helpers.ErrOfferExpired": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.ErrOfferSignatureInvalid": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.ErrOfferTermPriced": "Go errors.Is sentinel for an offer whose term carries pricing; py raises ValueError and ts throws from the same faces, and the shared offer-verify vectors pin that every language rejects the same offers.",
@@ -510,11 +509,6 @@
       "python": "ContentTypeProto",
       "ts": "ContentTypeProto"
     },
-    "helpers.DefaultEstimateToleranceBps": {
-      "allowlist_reason": null,
-      "python": "DEFAULT_ESTIMATE_TOLERANCE_BPS",
-      "ts": "DEFAULT_ESTIMATE_TOLERANCE_BPS"
-    },
     "helpers.DefaultKeyValidity": {
       "allowlist_reason": null,
       "python": "DEFAULT_KEY_VALIDITY",
@@ -554,11 +548,6 @@
       "allowlist_reason": null,
       "python": "UnknownKeyError",
       "ts": "UnknownKey"
-    },
-    "helpers.EstimateToleranceBps": {
-      "allowlist_reason": null,
-      "python": "estimate_tolerance_bps",
-      "ts": "estimateToleranceBps"
     },
     "helpers.ExchangeHeader": {
       "allowlist_reason": null,
@@ -635,11 +624,6 @@
       "python": "MAX_BARE_DOMAIN_LEN",
       "ts": "maxBareDomainLen"
     },
-    "helpers.MaxEstimateToleranceBps": {
-      "allowlist_reason": null,
-      "python": "MAX_ESTIMATE_TOLERANCE_BPS",
-      "ts": "MAX_ESTIMATE_TOLERANCE_BPS"
-    },
     "helpers.MaxRegistrationDataBytes": {
       "allowlist_reason": null,
       "python": "MAX_REGISTRATION_DATA_BYTES",
@@ -689,16 +673,6 @@
       "allowlist_reason": null,
       "python": "MAX_REGISTRATION_SCHEMA_REF_HOPS",
       "ts": "maxRegistrationSchemaRefHops"
-    },
-    "helpers.MeteredSettlement": {
-      "allowlist_reason": null,
-      "python": "MeteredSettlement",
-      "ts": "MeteredSettlement"
-    },
-    "helpers.MeteredSettlementCap": {
-      "allowlist_reason": null,
-      "python": "metered_settlement_cap",
-      "ts": "meteredSettlementCap"
     },
     "helpers.NewIdempotencyKey": {
       "allowlist_reason": null,
@@ -759,11 +733,6 @@
       "allowlist_reason": null,
       "python": "reconcile_discovery_hint",
       "ts": "reconcileDiscoveryHint"
-    },
-    "helpers.SettleMeteredUsage": {
-      "allowlist_reason": null,
-      "python": "settle_metered_usage",
-      "ts": "settleMeteredUsage"
     },
     "helpers.WellKnownManifestVersion": {
       "allowlist_reason": null,
