@@ -230,10 +230,6 @@ price is charged per unit, but the protocol did not say what a metered purchase 
   `TransactionRequest`. A `PER_UNIT` offer with no estimate is valid. The cross-field
   corpus gains the zero and negative cases, and the conformance cases accept a metered
   offer with no estimate, alone and inside a `TransactionRequest`.
-- Earlier drafts on this branch required an estimate on every metered offer, added an
-  `estimate_tolerance_bps` field (field 10) to `Pricing` and settled the purchase on the
-  usage report within that tolerance. None of that is in this release: field 10 and its name are
-  reserved.
 
 SDKs, in all three languages: the offer verifiers reject a metered offer whose stated
 estimate is not positive, after the signature and expiry checks (Go: `core.Verifier`,
@@ -499,16 +495,12 @@ request only where it means to, and check every answer through the SDK's own dec
   (Go). `connect-error-vectors.json` now pins the code and the whole detail, including
   rows carrying only `value`, and the new `error-detail-wire-vectors.json` pins the
   binary decoding of every field of the ErrorDetail subtree against the descriptor.
-- **Delivery URLs are checked by the edge.** Verifying a retrieval URL in the agent SDKs
-  was considered and left to the delivery edge. The edge verifies the URL signature and,
-  where it can, the agent binding against the proof of possession the agent presents on
-  fetch; an edge that cannot check the binding (CloudFront with its pre-arranged RSA key
-  pair) checks its own signature and treats the URL as a bearer token. A check in the
-  client would run after the Exchange has already charged, so a refusal would only lose
-  the purchase answer, and the client cannot read a CloudFront signed URL, so every
-  CloudFront-delivered purchase would fail. Execute, the Broker purchase and fetch pass a
-  retrieval URL through as the Exchange issued it, and fetch still presents the agent's
-  proof of possession.
+- **Delivery URLs pass through unchanged.** Execute, the Broker purchase and fetch hand
+  back each retrieval URL as the Exchange issued it, and fetch presents the agent's proof
+  of possession. The delivery edge verifies the URL signature and, where it can, the agent
+  binding against that proof; an edge that cannot check the binding (CloudFront with its
+  pre-arranged RSA key pair) checks its own signature and treats the URL as a bearer
+  token. New tests in all three SDKs pin the pass-through.
 - **Admin client.** `AdminClient` covers `fora.admin.v1.AdminService`
   (`SetTenantFeeRate`, `SetReportingPolicy`) and the two domain-verification RPCs,
   `RequestDomainVerification` and `ConfirmDomainVerification`: `AdminClient` in Python
