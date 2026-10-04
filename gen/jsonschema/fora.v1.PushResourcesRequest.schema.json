@@ -542,12 +542,13 @@
       "type": "string"
     },
     "entries": {
-      "description": "Content entries to push. At least one: an empty push asks for nothing and\n is refused rather than answered with zero counts. At most 256, the bound a\n caller-chosen batch carries elsewhere in this contract (see ResourceQuery.uris)\n — it bounds one submission, so a larger feed is pushed in several. The cap is\n over entries because a submission is stored or refused whole, and a refusal\n names each entry that failed; it does not bound the work of checking a\n submission, which the recipient bounds at the transport.",
+      "description": "Both bounds are wire rules (min_items and max_items below). A push outside\n them is a malformed request, refused by wire validation with the Connect\n code invalid_argument like any other malformed request; it carries no\n catalog_rejection, because no entry was examined.",
       "items": {
         "$ref": "#/$defs/fora.v1.ResourceEntry"
       },
       "maxItems": 256,
       "minItems": 1,
+      "title": "Content entries to push. At least one: an empty push asks for nothing and\n is refused rather than answered with zero counts. At most 256, the bound a\n caller-chosen batch carries elsewhere in this contract (see ResourceQuery.uris)\n — it bounds one submission, so a larger feed is pushed in several. The cap is\n over entries because a submission is stored or refused whole, and a refusal\n names each entry that failed; it does not bound the work of checking a\n submission, which the recipient bounds at the transport.",
       "type": "array"
     },
     "exchange": {

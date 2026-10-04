@@ -2967,6 +2967,11 @@ message PushResourcesRequest {
   // over entries because a submission is stored or refused whole, and a refusal
   // names each entry that failed; it does not bound the work of checking a
   // submission, which the recipient bounds at the transport.
+  //
+  // Both bounds are wire rules (min_items and max_items below). A push outside
+  // them is a malformed request, refused by wire validation with the Connect
+  // code invalid_argument like any other malformed request; it carries no
+  // catalog_rejection, because no entry was examined.
   repeated ResourceEntry entries = 3 [
     (buf.validate.field).repeated.min_items = 1,
     (buf.validate.field).repeated.max_items = 256
@@ -5075,7 +5080,11 @@ message TransactionDenial {
 // "tenant mismatch", "signature middleware missing").
 enum CatalogRejectionReason {
   CATALOG_REJECTION_REASON_UNSPECIFIED = 0;  // unset — rejected at ingest
-  CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR = 1; // caller is not an authorized contributor for the domain
+  // The signer is not authorized to push for an entry's domain: it is neither
+  // that domain's publisher nor a contributor the publisher's manifest lists in
+  // catalog_contributors. An entry naming a resource owner the signer may not
+  // push for is this reason too.
+  CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR = 1;
   CATALOG_REJECTION_REASON_TENANT_MISMATCH = 2;         // tenant_id does not match the authenticated caller
   CATALOG_REJECTION_REASON_DOMAIN_NOT_VERIFIED = 3;     // contributing domain is not verified
   // DEPRECATED, never sent. An Exchange MUST NOT send this value. A catalog
@@ -5111,6 +5120,11 @@ enum CatalogRejectionReason {
   // (see "Critical extensions" in the file header). ResourceEntry.ext_critical
   // is for the agent and never produces this reason.
   CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION = 10;
+  // The publisher's manifest does not list this Exchange: an entry's domain
+  // serves a /.well-known/fora.json whose WellKnownManifest.exchanges does not
+  // name the recipient, so the Exchange is not authorized to sell that domain's
+  // content.
+  CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED = 11;
 }
 
 // CatalogRejection — a CatalogService call could not be applied.

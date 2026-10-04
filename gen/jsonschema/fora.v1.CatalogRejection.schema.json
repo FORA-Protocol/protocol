@@ -16,12 +16,13 @@
             "CATALOG_REJECTION_REASON_QUOTA_EXCEEDED",
             "CATALOG_REJECTION_REASON_TERMS_LIMIT_EXCEEDED",
             "CATALOG_REJECTION_REASON_URI_UNAVAILABLE",
-            "CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION"
+            "CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION",
+            "CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED"
           ],
           "type": "string"
         },
         {
-          "maximum": 10,
+          "maximum": 11,
           "minimum": 1,
           "type": "integer"
         }

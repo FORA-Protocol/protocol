@@ -123,6 +123,9 @@ class CatalogRejectionReason(Enum):
     CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION = (
         'CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION'
     )
+    CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED = (
+        'CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED'
+    )
 
 
 class CitationFormat(Enum):
@@ -2139,7 +2142,7 @@ class PushResourcesRequest(WireModel):
     )
     entries: list[ResourceEntry] | None = Field(
         None,
-        description='Content entries to push. At least one: an empty push asks for nothing and\n is refused rather than answered with zero counts. At most 256, the bound a\n caller-chosen batch carries elsewhere in this contract (see ResourceQuery.uris)\n — it bounds one submission, so a larger feed is pushed in several. The cap is\n over entries because a submission is stored or refused whole, and a refusal\n names each entry that failed; it does not bound the work of checking a\n submission, which the recipient bounds at the transport.',
+        description='Content entries to push. At least one: an empty push asks for nothing and\n is refused rather than answered with zero counts. At most 256, the bound a\n caller-chosen batch carries elsewhere in this contract (see ResourceQuery.uris)\n — it bounds one submission, so a larger feed is pushed in several. The cap is\n over entries because a submission is stored or refused whole, and a refusal\n names each entry that failed; it does not bound the work of checking a\n submission, which the recipient bounds at the transport.\n\nBoth bounds are wire rules (min_items and max_items below). A push outside\n them is a malformed request, refused by wire validation with the Connect\n code invalid_argument like any other malformed request; it carries no\n catalog_rejection, because no entry was examined.',
         max_length=256,
         min_length=1,
     )

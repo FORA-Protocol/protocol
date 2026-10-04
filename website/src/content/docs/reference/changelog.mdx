@@ -8,6 +8,17 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ## Unreleased
 
+**Catalog push refusals: wire bounds, the contributor reason and
+`CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED` (one additive enum value).** A push with no
+entries or more than 256 is a malformed request: the existing `min_items` and `max_items`
+rules refuse it at wire validation, `invalid_argument` with no `catalog_rejection`. An
+entry naming a resource owner the signer may not push for is
+`CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR`, whose comment now says who may push.
+The new `CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED` (11) refuses a push for a domain
+whose manifest does not list the recipient Exchange. The SDK error-detail decoders in
+Python and TypeScript know the new value; the reference and Exchange request-flow pages
+state the same.
+
 **A Broker forwards the agent's `supported_profiles` and does not route by them
 (comments only).** `DiscoveryRequest.supported_profiles` said the Broker routes queries to
 Exchanges that support the agent's profiles. The Broker MUST forward the list unchanged in

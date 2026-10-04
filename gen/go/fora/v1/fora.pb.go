@@ -1565,8 +1565,12 @@ func (ResolutionType) EnumDescriptor() ([]byte, []int) {
 type CatalogRejectionReason int32
 
 const (
-	CatalogRejectionReason_CATALOG_REJECTION_REASON_UNSPECIFIED             CatalogRejectionReason = 0 // unset — rejected at ingest
-	CatalogRejectionReason_CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR CatalogRejectionReason = 1 // caller is not an authorized contributor for the domain
+	CatalogRejectionReason_CATALOG_REJECTION_REASON_UNSPECIFIED CatalogRejectionReason = 0 // unset — rejected at ingest
+	// The signer is not authorized to push for an entry's domain: it is neither
+	// that domain's publisher nor a contributor the publisher's manifest lists in
+	// catalog_contributors. An entry naming a resource owner the signer may not
+	// push for is this reason too.
+	CatalogRejectionReason_CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR CatalogRejectionReason = 1
 	CatalogRejectionReason_CATALOG_REJECTION_REASON_TENANT_MISMATCH         CatalogRejectionReason = 2 // tenant_id does not match the authenticated caller
 	CatalogRejectionReason_CATALOG_REJECTION_REASON_DOMAIN_NOT_VERIFIED     CatalogRejectionReason = 3 // contributing domain is not verified
 	// DEPRECATED, never sent. An Exchange MUST NOT send this value. A catalog
@@ -1604,6 +1608,11 @@ const (
 	// (see "Critical extensions" in the file header). ResourceEntry.ext_critical
 	// is for the agent and never produces this reason.
 	CatalogRejectionReason_CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION CatalogRejectionReason = 10
+	// The publisher's manifest does not list this Exchange: an entry's domain
+	// serves a /.well-known/fora.json whose WellKnownManifest.exchanges does not
+	// name the recipient, so the Exchange is not authorized to sell that domain's
+	// content.
+	CatalogRejectionReason_CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED CatalogRejectionReason = 11
 )
 
 // Enum value maps for CatalogRejectionReason.
@@ -1620,6 +1629,7 @@ var (
 		8:  "CATALOG_REJECTION_REASON_TERMS_LIMIT_EXCEEDED",
 		9:  "CATALOG_REJECTION_REASON_URI_UNAVAILABLE",
 		10: "CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION",
+		11: "CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED",
 	}
 	CatalogRejectionReason_value = map[string]int32{
 		"CATALOG_REJECTION_REASON_UNSPECIFIED":                0,
@@ -1633,6 +1643,7 @@ var (
 		"CATALOG_REJECTION_REASON_TERMS_LIMIT_EXCEEDED":       8,
 		"CATALOG_REJECTION_REASON_URI_UNAVAILABLE":            9,
 		"CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION": 10,
+		"CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED":        11,
 	}
 )
 
@@ -5881,6 +5892,11 @@ type PushResourcesRequest struct {
 	// over entries because a submission is stored or refused whole, and a refusal
 	// names each entry that failed; it does not bound the work of checking a
 	// submission, which the recipient bounds at the transport.
+	//
+	// Both bounds are wire rules (min_items and max_items below). A push outside
+	// them is a malformed request, refused by wire validation with the Connect
+	// code invalid_argument like any other malformed request; it carries no
+	// catalog_rejection, because no entry was examined.
 	Entries []*ResourceEntry `protobuf:"bytes,3,rep,name=entries,proto3" json:"entries,omitempty"`
 	// Identity of the caller (who is pushing this data).
 	// The Exchange verifies this matches a registered CatalogService client.
@@ -11639,7 +11655,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x16RESOLUTION_TYPE_CREDIT\x10\x01\x12\x1e\n" +
 	"\x1aRESOLUTION_TYPE_REDELIVERY\x10\x02\x12\x1c\n" +
 	"\x18RESOLUTION_TYPE_REJECTED\x10\x03\x12!\n" +
-	"\x1dRESOLUTION_TYPE_INVESTIGATION\x10\x04*\xb3\x04\n" +
+	"\x1dRESOLUTION_TYPE_INVESTIGATION\x10\x04*\xe5\x04\n" +
 	"\x16CatalogRejectionReason\x12(\n" +
 	"$CATALOG_REJECTION_REASON_UNSPECIFIED\x10\x00\x124\n" +
 	"0CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR\x10\x01\x12,\n" +
@@ -11652,7 +11668,8 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"-CATALOG_REJECTION_REASON_TERMS_LIMIT_EXCEEDED\x10\b\x12,\n" +
 	"(CATALOG_REJECTION_REASON_URI_UNAVAILABLE\x10\t\x127\n" +
 	"3CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION\x10\n" +
-	"*\xb4\x03\n" +
+	"\x120\n" +
+	",CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED\x10\v*\xb4\x03\n" +
 	"\x19RegistrationFailureReason\x12+\n" +
 	"'REGISTRATION_FAILURE_REASON_UNSPECIFIED\x10\x00\x123\n" +
 	"/REGISTRATION_FAILURE_REASON_DOMAIN_NOT_VERIFIED\x10\x01\x12+\n" +

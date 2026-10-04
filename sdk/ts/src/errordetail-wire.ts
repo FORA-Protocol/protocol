@@ -130,6 +130,7 @@ export const ERROR_DETAIL_WIRE_ENUMS: Readonly<Record<string, Readonly<Record<st
 		"TERMS_LIMIT_EXCEEDED",
 		"URI_UNAVAILABLE",
 		"UNKNOWN_CRITICAL_EXTENSION",
+		"EXCHANGE_NOT_LISTED",
 	]),
 	"fora.v1.DenialReason": prefixed("DENIAL_REASON", [
 		"UNSPECIFIED",

@@ -159,6 +159,7 @@ ENUMS: dict[str, dict[int, str]] = {
         "TERMS_LIMIT_EXCEEDED",
         "URI_UNAVAILABLE",
         "UNKNOWN_CRITICAL_EXTENSION",
+        "EXCHANGE_NOT_LISTED",
     ),
     "fora.v1.RegistrationFailureReason": _names(
         "REGISTRATION_FAILURE_REASON",

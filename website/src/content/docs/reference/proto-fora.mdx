@@ -431,7 +431,7 @@ Every pushed entry is checked in two tiers, and both are stated so a publisher c
 
 ### PushResourcesRequest
 
-Push or update content entries in the Exchange catalog. `entries` carries at least one entry and at most 256 — an empty push is refused rather than answered with zero counts, and a larger feed is pushed in several submissions. The cap bounds one submission, not the work of checking it: that is bounded by the maximum request size the recipient will read. `exchange` is the bare domain of the Exchange the push is meant for (the recipient-addressing rule), and `caller_id` names the contributor whose key signed the request.
+Push or update content entries in the Exchange catalog. `entries` carries at least one entry and at most 256 — an empty push is refused rather than answered with zero counts, and a larger feed is pushed in several submissions. Both bounds are wire rules: a push outside them is a malformed request, refused `invalid_argument` by wire validation with no `catalog_rejection`. The cap bounds one submission, not the work of checking it: that is bounded by the maximum request size the recipient will read. `exchange` is the bare domain of the Exchange the push is meant for (the recipient-addressing rule), and `caller_id` names the contributor whose key signed the request.
 
 ::proto-message{name=PushResourcesRequest}
 
