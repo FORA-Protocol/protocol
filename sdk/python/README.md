@@ -233,16 +233,11 @@ normalize_resource_entry(entry)            # the form the Exchange stores
 **Money.** Exact decimal in and out, canonical decimal string on the wire:
 `parse_money`, `format_money`, `canonicalize_money`. Never floats.
 
-**Metered settlement.** A `PER_UNIT` offer may carry an estimate. Without one there is no
-ceiling, and its usage report settles at consumed × rate. With one, the report settles
-within the price's tolerance (10% unless the term states one); the excess is held for
-dispute, never charged. `metered_settlement_cap(offer["pricing"])` is the most a
-purchase is charged without a dispute, or `None` when the price states no estimate;
-`settle_metered_usage(offer["pricing"], consumed)` returns a `MeteredSettlement` with
-the accepted, ceiling, charged and held amounts, in exact decimal (the accepted and
-ceiling amounts are `None` without an estimate). `check_metered_estimate(offer)` raises
-on a metered offer whose stated estimate is not positive, and the `Verifier` rejects
-such an offer.
+**Metered offers.** A `PER_UNIT` offer may carry an estimate. The purchase charges
+estimate × rate, or one unit's rate without an estimate, and the charge is final.
+`is_metered_offer(offer)` says whether an offer is metered, and
+`check_metered_estimate(offer)` raises on a metered offer whose stated estimate is not
+positive; the `Verifier` rejects such an offer.
 
 **One price per offer.** An offer's price is `offer["pricing"]`, and the term it sells
 carries none. `check_offer_terms_unpriced(offer)` raises `ValueError` on a priced term;

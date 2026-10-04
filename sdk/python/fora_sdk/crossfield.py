@@ -125,11 +125,7 @@ def _obligation_rules(o: dict[str, Any]) -> list[str]:
 
 
 def _pricing_rules(o: dict[str, Any]) -> list[str]:
-    """Pricing per_unit.requires_unit + free.zero_rate + estimate_tolerance.requires_per_unit.
-
-    The last is ``!has(this.estimate_tolerance_bps) || this.model == PER_UNIT``; the
-    field is proto3 optional, so a present 0 counts as set, as ``has()`` does.
-    """
+    """Pricing per_unit.requires_unit + free.zero_rate."""
     out: list[str] = []
     model = _str(_field(o, "model"))
     if model == _PRICING_MODEL_PER_UNIT and _str(_field(o, "unit")) == "":
@@ -138,8 +134,6 @@ def _pricing_rules(o: dict[str, Any]) -> list[str]:
         rate = _str(_field(o, "rate"))
         if rate != "" and not _ZERO_RATE_RE.match(rate):
             out.append("pricing.free.zero_rate")
-    if _field(o, "estimate_tolerance_bps") is not None and model != _PRICING_MODEL_PER_UNIT:
-        out.append("pricing.estimate_tolerance.requires_per_unit")
     return out
 
 

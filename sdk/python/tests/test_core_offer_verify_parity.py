@@ -70,7 +70,7 @@ _REQUIRED_FRESHNESS = {
 # rejects it although its signature and expiry are good. Pinned so a regenerated corpus
 # that drops these fails here rather than letting a port drift on either side.
 _REQUIRED_METERED = {
-    "metered_with_estimate_and_tolerance",
+    "metered_with_estimate",
     "metered_without_estimate",
     "metered_zero_estimate",
     "metered_term_estimate_only",

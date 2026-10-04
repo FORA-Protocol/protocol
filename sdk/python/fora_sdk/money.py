@@ -15,16 +15,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
-from decimal import (
-    Context,
-    Decimal,
-    DivisionByZero,
-    Inexact,
-    InvalidOperation,
-    Overflow,
-    localcontext,
-)
+from decimal import Decimal
 from typing import Any
 
 # _MONEY_WIRE mirrors the protovalidate constraint ``^([0-9]+([.][0-9]+)?)?$``
@@ -78,58 +69,14 @@ def canonicalize_money(s: str) -> str:
     return format_money(parse_money(s))
 
 
-# ---- metered settlement ----------------------------------------------------
-# Port of the sdk/go oracle (helpers/settlement.go); fora.proto Pricing states the
-# rule. A PER_UNIT price is charged per unit consumed. The estimate E, the rate R
-# and the tolerance T in basis points (1000 when absent) on the offer's own pricing
-# fix what a metered purchase can cost: the agent accepts E x R at purchase, and the
-# usage report settles the consumed quantity C at min(C, Q) x R, where the ceiling
-# is Q = E x (10000 + T) / 10000. The quantity above Q is held for dispute, never
-# charged automatically.
-#
-# Every value is exact. The arithmetic runs in a local context whose precision far
-# exceeds any input the wire admits (rates are capped at 32 characters, quantities
-# at int64), and with Inexact trapped, so a step that would round raises instead of
-# returning a rounded figure. The process-wide context — 28 digits by default — is
-# never consulted.
-
-DEFAULT_ESTIMATE_TOLERANCE_BPS = 1000
-"""The tolerance a metered price settles within when it states none: 10%."""
-
-MAX_ESTIMATE_TOLERANCE_BPS = 10000
-"""The largest tolerance the wire accepts: a ceiling of twice the estimate."""
+# ---- metered offers ---------------------------------------------------------
+# Port of the sdk/go oracle (helpers/metered.go); fora.proto Pricing states the
+# rule. A PER_UNIT price is metered: the publisher states the rate and the unit,
+# and the offer may also state an estimate. A metered purchase charges estimate x
+# rate, or one unit's rate without an estimate, and the charge is final.
 
 _PRICING_MODEL_PER_UNIT = "PRICING_MODEL_PER_UNIT"
-_INT64_MAX = 2**63 - 1
 _WIRE_INT_RE = re.compile(r"^-?[0-9]+$")
-
-
-@dataclass(frozen=True)
-class MeteredSettlement:
-    """What a metered purchase settles to, every value a canonical decimal string.
-
-    Quantities are in the price's unit and may be fractional (``ceiling_quantity``
-    and what derives from it); amounts are in the price's currency. When the price
-    states no estimate there is no ceiling: ``accepted_amount``, ``ceiling_quantity``
-    and ``ceiling_amount`` are ``None``, the whole consumed quantity is charged, and
-    nothing is held.
-    """
-
-    accepted_amount: str | None
-    """E x R: what the agent accepted at purchase. ``None`` without an estimate."""
-    ceiling_quantity: str | None
-    """Q = E x (10000 + T) / 10000. ``None`` without an estimate."""
-    ceiling_amount: str | None
-    """Q x R: the most the purchase is charged without a dispute. ``None`` without an
-    estimate."""
-    charged_quantity: str
-    """min(C, Q), or C without an estimate."""
-    charged_amount: str
-    """charged_quantity x R: what the report settles to."""
-    held_quantity: str
-    """max(0, C - Q): the quantity held for dispute. Always 0 without an estimate."""
-    held_amount: str
-    """held_quantity x R: held for dispute, never charged automatically."""
 
 
 def _wire_int(v: Any) -> int | None:
@@ -216,102 +163,3 @@ def check_metered_estimate(offer: Mapping[str, Any]) -> None:
     pricing = offer.get("pricing")
     if isinstance(pricing, Mapping):
         _stated_estimate(pricing)
-
-
-def estimate_tolerance_bps(pricing: Mapping[str, Any]) -> int:
-    """The tolerance ``pricing`` settles within: its ``estimate_tolerance_bps`` when
-    present (an explicit 0 included), else the 1000 default. Bounds are not checked
-    here; :func:`settle_metered_usage` and :func:`metered_settlement_cap` do."""
-    raw = pricing.get("estimate_tolerance_bps") if isinstance(pricing, Mapping) else None
-    if raw is None:
-        return DEFAULT_ESTIMATE_TOLERANCE_BPS
-    bps = _wire_int(raw)
-    if bps is None:
-        msg = f"money: estimate_tolerance_bps {raw!r} is not an integer"
-        raise ValueError(msg)
-    return bps
-
-
-def _exact() -> Context:
-    return Context(prec=200, traps=[Inexact, InvalidOperation, Overflow, DivisionByZero])
-
-
-def _metered_terms(pricing: Mapping[str, Any]) -> tuple[Decimal | None, Decimal, Decimal | None]:
-    """Check ``pricing`` is a metered price that can settle; return (E, R, Q).
-
-    E and Q are ``None`` when the price states no estimate."""
-    if not isinstance(pricing, Mapping):
-        msg = "money: pricing is not an object"
-        raise ValueError(msg)
-    if _model(pricing) != _PRICING_MODEL_PER_UNIT:
-        msg = f"money: pricing is not metered (PER_UNIT): model is {_model(pricing)!r}"
-        raise ValueError(msg)
-    estimate = _stated_estimate(pricing)
-    rate_raw = pricing.get("rate", "")
-    rate = parse_money(rate_raw if isinstance(rate_raw, str) else "")
-    bps = estimate_tolerance_bps(pricing)
-    if not 0 <= bps <= MAX_ESTIMATE_TOLERANCE_BPS:
-        msg = f"money: estimate_tolerance_bps {bps} is outside 0..{MAX_ESTIMATE_TOLERANCE_BPS}"
-        raise ValueError(msg)
-    if estimate is None:
-        return None, rate, None
-    with localcontext(_exact()):
-        e = Decimal(estimate)
-        ceiling = (e * Decimal(10000 + bps)).scaleb(-4)
-    return e, rate, ceiling
-
-
-def metered_settlement_cap(pricing: Mapping[str, Any]) -> str | None:
-    """Q x R for a metered price: the most a purchase under it is charged without a
-    dispute.
-
-    ``None`` when the price states no estimate: it then has no ceiling, and nothing in
-    it bounds the charge. Raises ``ValueError`` for a price that is not PER_UNIT,
-    states an estimate that is not positive, carries no valid rate, or states a
-    tolerance outside 0..10000.
-    """
-    _, rate, ceiling = _metered_terms(pricing)
-    if ceiling is None:
-        return None
-    with localcontext(_exact()):
-        return format_money(ceiling * rate)
-
-
-def settle_metered_usage(pricing: Mapping[str, Any], consumed_quantity: int) -> MeteredSettlement:
-    """Settle a usage report of ``consumed_quantity`` against a metered price — the
-    offer's own pricing, which is the copy settlement reads. Without an estimate the
-    whole quantity is charged at the rate and nothing is held.
-
-    Raises ``ValueError`` for what :func:`metered_settlement_cap` refuses, and for a
-    quantity that is negative or not an integer.
-    """
-    estimate, rate, ceiling = _metered_terms(pricing)
-    if isinstance(consumed_quantity, bool) or not isinstance(consumed_quantity, int):
-        msg = f"money: consumed quantity {consumed_quantity!r} is not an integer"
-        raise ValueError(msg)
-    if not 0 <= consumed_quantity <= _INT64_MAX:
-        msg = f"money: consumed quantity {consumed_quantity} is outside 0..{_INT64_MAX}"
-        raise ValueError(msg)
-    with localcontext(_exact()):
-        consumed = Decimal(consumed_quantity)
-        if estimate is None or ceiling is None:
-            return MeteredSettlement(
-                accepted_amount=None,
-                ceiling_quantity=None,
-                ceiling_amount=None,
-                charged_quantity=format_money(consumed),
-                charged_amount=format_money(consumed * rate),
-                held_quantity="0",
-                held_amount="0",
-            )
-        charged = min(consumed, ceiling)
-        held = max(Decimal(0), consumed - ceiling)
-        return MeteredSettlement(
-            accepted_amount=format_money(estimate * rate),
-            ceiling_quantity=format_money(ceiling),
-            ceiling_amount=format_money(ceiling * rate),
-            charged_quantity=format_money(charged),
-            charged_amount=format_money(charged * rate),
-            held_quantity=format_money(held),
-            held_amount=format_money(held * rate),
-        )
