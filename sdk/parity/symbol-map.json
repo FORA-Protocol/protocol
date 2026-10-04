@@ -106,7 +106,7 @@
     "helpers.ErrInvalidPoPInput": "Go errors.Is sentinel for a proof input that cannot be written into a signature base; py/ts raise/throw instead of exporting sentinels.",
     "helpers.ErrKeyIDMismatch": "Go errors.Is sentinel for a keyid that is not the presented key's thumbprint; py/ts raise/throw instead of exporting sentinels.",
     "helpers.ErrMalformedSignatureInput": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
-    "helpers.ErrMeteredEstimateMissing": "Go errors.Is sentinel for a metered offer or price that carries no positive estimate; py raises ValueError and ts throws from the same faces, and the shared offer-verify and metered-settlement vectors pin that every language refuses the same inputs.",
+    "helpers.ErrMeteredEstimateNotPositive": "Go errors.Is sentinel for a metered offer or price that states an estimate of zero or less; py raises ValueError and ts throws from the same faces, and the shared offer-verify and metered-settlement vectors pin that every language refuses the same inputs.",
     "helpers.ErrMissingContentDigest": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.ErrMissingCreated": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.ErrMissingExpires": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
