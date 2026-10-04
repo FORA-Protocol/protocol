@@ -503,7 +503,7 @@ Response:
 
 **Key differences from text usage reporting:**
 
-- **`consumed_quantity: 1`** with **`consumed_unit: "records"`** — the pricing model is per-study, not per-token. The agent consumed one study regardless of how many of the 847 instances it actually downloaded. One record at $25.00 settles the transaction at $25.00, the amount accepted at purchase.
+- **`consumed_quantity: 1`** with **`consumed_unit: "records"`** — the pricing model is per-study, not per-token. The agent consumed one study regardless of how many of the 847 instances it actually downloaded. The purchase charged one record at $25.00, and that charge is final.
 - **`displayed_to_user: false`** — medical imaging is processed by the AI model, not displayed to a human in a chat interface.
 - **`ext` metadata** — the agent reports which series it accessed (4 of 8), how many instances it downloaded (600 of 847), and which model processed the data. This level of audit detail is important for regulated data — if a DUA violation investigation occurs, the Exchange has a complete record of what data was accessed and how it was used.
 - **7-day reporting window** — the longer window accommodates the reality that imaging analysis pipelines are batch processes, not interactive sessions.

@@ -51,7 +51,7 @@ sequenceDiagram
 | `PRICING_MODEL_PER_UNIT` | Rate per `Pricing.unit` (metering basis: `accesses`, `tokens`, `fetches`, `pages`, `minutes`, `records`, …) | crawl / use / inference / training / metered purchase |
 | `PRICING_MODEL_FLAT` | One-time flat fee; `rate` is the total, no unit | one-time purchase |
 
-A `PER_UNIT` price is metered. A `PER_UNIT` offer may carry an `estimated_quantity` in its `unit`, or none; whether to state one is the publisher's decision. Without an estimate there is no ceiling: the agent accepts the rate, and the usage report settles at the consumed quantity × rate. With an estimate, the agent accepts estimate × rate at purchase. The usage report then settles at the consumed quantity × rate, up to a ceiling of the estimate plus a tolerance: `estimate_tolerance_bps`, 10% when the term states none. Anything consumed above the ceiling is held for dispute, never charged automatically. See [Settling a metered purchase](/protocol/transaction-flow/#settling-a-metered-purchase).
+A `PER_UNIT` price is metered. A `PER_UNIT` offer may carry an `estimated_quantity` in its `unit`, or none; whether to state one is the publisher's decision. The purchase charges estimate × rate, or one unit's rate without an estimate, and the charge is final. A disagreement about the quantity consumed is a dispute. See [Charging a metered purchase](/protocol/transaction-flow/#charging-a-metered-purchase).
 
 A **subscription** is `FREE` + a `subscription:*` scope (settled off-protocol). **Attribution** and **contribution** are `Obligation`s, not pricing models. There is no revenue-share model — settlement is off-protocol.
 
@@ -92,7 +92,7 @@ Every `Offer` in a `ResourceResponse` includes both the native pricing and the c
 }
 ```
 
-The agent accepts estimate × rate = 1 × $0.05 at purchase. Its usage report counts accesses too (`consumed_quantity: 1`, `consumed_unit: "accesses"`), and settles at min(consumed, ceiling) × rate: one access at the default 10% tolerance has a ceiling of 1.1 accesses, so an honest report of one access is charged $0.05.
+The purchase charges estimate × rate = 1 × $0.05, and the charge is final. Its usage report counts accesses too (`consumed_quantity: 1`, `consumed_unit: "accesses"`).
 
 ## base_currency
 

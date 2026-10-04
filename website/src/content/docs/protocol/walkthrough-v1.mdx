@@ -325,7 +325,7 @@ Response:
 }
 ```
 
-The report settles the transaction at 1 × $0.05 = $0.05, the amount accepted at purchase. A report is never refused because its quantity differs from the estimate: a quantity above the ceiling (the estimate plus the 10% default tolerance) would be charged up to the ceiling, and the rest held for dispute.
+The purchase charged 1 × $0.05 = $0.05, and that charge is final; the report records the quantity consumed. A report is never refused because its quantity differs from the estimate.
 
 The `report_id` enables the dispute chain: if the agent needs to dispute this transaction later, it must reference this report to prove usage was reported first.
 

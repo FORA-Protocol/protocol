@@ -914,7 +914,7 @@ The SDK auto-submits a usage report (background, non-blocking). Usage reporting 
 3. Submit to Reporting Tracker:
    a. Validate required_fields present: transaction_id, function, consumed_quantity -> all present
    b. Check reporting window: deadline 2026-03-16T15:00:00Z, current time 2026-03-15T15:30:00Z -> within window
-   c. Record consumed_quantity: 3150 actual vs 3300 estimated -> a difference is never a refusal; a metered report settles as consumed, up to the ceiling
+   c. Record consumed_quantity: 3150 actual vs 3300 estimated -> a difference is never a refusal; the report records it
    d. Transition obligation: Pending -> Fulfilled
 4. Write usage report to transaction log (durable)
 ```

@@ -65,7 +65,7 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 
 ### T10: Usage underreporting (token count)
 **Attack**: Agent reports using 500 tokens of a 10,000-token document but ingested the entire thing.
-**Countermeasure (protocol)**: **Out-of-band analysis, never a refused report.** The reported quantity is unrestricted: an Exchange never refuses a usage report because its quantity differs from the estimate, in either direction. A quantity far below the document's known size is analysed out of band — reconciled against CDN logs (bytes served for the signed URL) and the size the attestations state — and pursued through reconciliation and the account relationship. A publisher that must be paid for the whole document prices it per access or flat, not per token, so the charge does not depend on the reported count.
+**Countermeasure (protocol)**: **Never a refused report; monitoring is the operator's.** The reported quantity is unrestricted: an Exchange never refuses a usage report because its quantity differs from the estimate, in either direction. Monitoring discrepancies is the Exchange operator's own business, not part of the protocol: an operator may reconcile a quantity far below the document's known size against CDN logs (bytes served for the signed URL) and the size the attestations state, and pursue it through the account relationship or a dispute. A publisher that must be paid for the whole document prices it per access or flat, not per token, so the charge does not depend on the reported count.
 
 ### T11: Function misreporting (RAG vs training)
 **Attack**: Agent declares `function: ai-input` (cheaper) but uses content for `function: ai-train` (prohibited or more expensive).

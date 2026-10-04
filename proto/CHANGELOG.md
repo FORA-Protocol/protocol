@@ -9,7 +9,7 @@ comment called the term's copy authoritative. The two could disagree inside one 
 offer, nothing said which one execute charges, and the metered rule read either copy.
 
 - `Offer.pricing` is the offer's only price: the price execute charges, a Broker ranks and
-  a metered purchase settles on. The term inside `Offer.terms` MUST carry no pricing (rule
+  a metered purchase is charged at. The term inside `Offer.terms` MUST carry no pricing (rule
   `offer.terms.pricing_unset`, on `Offer`). Each offer derives from exactly one catalog
   term, so the price is stated once and cannot disagree with itself.
 - `offer.metered.estimate_positive` reads `Offer.pricing` only: an offer is metered when
@@ -61,10 +61,11 @@ the body, so a caller handled one decision in two shapes.
 **A usage report is refused for time, never for quantity (comments; one admin field
 deprecated).** `UsageReportRejectionReason` states that the reported quantity is
 unrestricted: no reason refuses a report because its `consumed_quantity` differs from the
-estimate, above or below, and a quantity far from the estimate is analysed out of band.
+estimate, above or below. Monitoring how far reports fall from estimates is the Exchange
+operator's own business, not part of the protocol.
 The existing `USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED` is the time cause, refused with
 `failed_precondition`; `USAGE_REPORT_REJECTION_REASON_MALFORMED` is a malformed report,
-refused with `invalid_argument`. The metered settlement on `Pricing` is unchanged.
+refused with `invalid_argument`.
 `fora.admin.v1.ReportingPolicy.quantity_tolerance` is deprecated and ignored: an Exchange
 must not refuse a report on it.
 
@@ -110,77 +111,46 @@ states the estimate in the price's own unit. The medical-imaging walkthrough ans
 DUA failure in the body. Offer examples drop their terms' pricing, and the licensing-terms,
 reference and threat-model pages state the same rules.
 
-**A metered offer settles at consumed × rate, within a tolerance when it states an
-estimate: `Pricing.estimate_tolerance_bps` (field 10) is added, with two validation
-rules.** A `PER_UNIT` price is charged per unit consumed, but the protocol did not say
-what the agent accepts at purchase or how a report of a different quantity settles.
-Implementations charged one unit and refused the honest report.
+**A metered purchase charges estimate × rate, or one unit's rate without an estimate, and
+the charge is final (comments and one validation rule; no wire change).** A `PER_UNIT`
+price is charged per unit, but the protocol did not say what a metered purchase charges.
 
-- The estimate stays optional. A `PER_UNIT` offer may state a rate with or without
+- The publisher states the rate and the unit. An offer may state a rate with or without
   `pricing.estimated_quantity`; whether to state one is the publisher's decision, and
   nothing requires it, on the pushed term or on the offer. An estimate an offer states is
-  positive (rule `offer.metered.estimate_positive`, on `Offer`): a zero estimate would fix
-  a ceiling of nothing. An estimate the publisher states, on the term's own pricing or
-  once on `ResourceEntry.estimated_quantity`, is carried onto `Offer.pricing`, the term's
-  own taking precedence. An earlier draft of this release required an estimate on every
-  metered offer and had an Exchange emit no offer for a term without one; that requirement
-  is withdrawn.
-- `Pricing.estimate_tolerance_bps` is the tolerance on the estimate, in basis points, 0 to
-  10000, presence-tracked. It is 1000 (10%) when the term states none, and an explicit 0
-  means the estimate is the ceiling. It is allowed only on a `PER_UNIT` price (rule
-  `pricing.estimate_tolerance.requires_per_unit`), and the Exchange carries the term's value
-  onto the offer unchanged.
-- Settlement, stated once on `Pricing`. With R the rate and C the report's
-  `consumed_quantity`, an offer that states no estimate has no ceiling: the agent accepts
-  the rate, and the report settles at C × R with nothing held. With E the estimate and T
-  the tolerance, the agent accepts E × R at purchase, which is what
-  `TransactionResultItem.cost` carries for such an item, and C settles at min(C, Q) × R,
-  where Q = E × (10000 + T) / 10000. A quantity below the estimate is charged as consumed;
-  the excess above Q is held for dispute and never charged automatically. The arithmetic
-  is exact decimal, and settlement reads `Offer.pricing`. A `PER_UNIT` price with
-  `metering: NONE` has no report, so E × R is final when it states an estimate; this
-  version does not say what such a price charges without one.
-- `UsageReport`, `Usage.consumed_quantity`, `ReportingObligation` and
-  `UsageReportRejectionReason` state that a report whose quantity differs from the
-  estimate is never refused for it. `UsageReportResponse` says that a report with a held
-  excess is a plain success: it carries no amounts, because the settlement is a pure
-  function of the signed offer and the reported quantity, and its `report_id` identifies
-  the held excess. This version defines no `DisputeReason` for the excess and no filing by
-  the publisher's side.
-- `buf breaking` against v1.0.0 passes: the field is additive. The two rules are new
-  validation: a validating peer now refuses a `PER_UNIT` offer that states a zero or
-  negative estimate, including inside a `TransactionRequest`, and a Go client running
-  with `ValidationStrict` refuses a discovery response that carries one. A `PER_UNIT`
-  offer with no estimate is valid.
-- The validation corpus gains the tolerance bounds, and the cross-field corpus gains a
-  tolerance on a `FLAT` price and two metered offers whose stated estimate is not
-  positive (zero and negative). The conformance cases accept a metered offer with no
-  estimate, alone and inside a `TransactionRequest`.
+  positive (rule `offer.metered.estimate_positive`, on `Offer`). An estimate the publisher
+  states, on the term's own pricing or once on `ResourceEntry.estimated_quantity`, is
+  carried onto `Offer.pricing`, the term's own taking precedence.
+- Stated once, on `Pricing`: a metered purchase charges E × R, or one unit, 1 × R, when
+  the offer states no estimate. That is what `TransactionResultItem.cost` carries, and the
+  charge is final. A disagreement about the quantity consumed is a dispute, which this
+  version does not define further. A price whose metering is `NONE` is no different.
+- A usage report is a record of the quantity consumed. `UsageReport`,
+  `Usage.consumed_quantity`, `ReportingObligation` and `UsageReportRejectionReason` state
+  that a report whose quantity differs from the estimate is never refused for it.
+- `buf breaking` against v1.0.0 passes. The rule is new validation: a validating peer
+  refuses a `PER_UNIT` offer that states a zero or negative estimate, including inside a
+  `TransactionRequest`. A `PER_UNIT` offer with no estimate is valid. The cross-field
+  corpus gains the zero and negative cases, and the conformance cases accept a metered
+  offer with no estimate, alone and inside a `TransactionRequest`.
+- Earlier drafts on this branch required an estimate on every metered offer, added an
+  `estimate_tolerance_bps` field (field 10) to `Pricing` and settled the purchase on the
+  usage report within that tolerance. None of that is in this release: field 10 and its name are
+  reserved.
 
 SDKs, in all three languages: the offer verifiers reject a metered offer whose stated
 estimate is not positive, after the signature and expiry checks (Go: `core.Verifier`,
 reason `helpers.ErrMeteredEstimateNotPositive`), and verify a metered offer that states
-none. New helpers settle a metered purchase in exact decimal over the offer's pricing,
-with no ceiling when the price states no estimate: Go `helpers.MeteredSettlementCap`,
-`helpers.SettleMeteredUsage` (returning `helpers.MeteredSettlement`),
-`helpers.EstimateToleranceBps`, `helpers.IsMeteredOffer`, `helpers.CheckMeteredEstimate`,
-`helpers.DefaultEstimateToleranceBps` and `helpers.MaxEstimateToleranceBps`, with
-`helpers.ErrNotMetered`; Python `metered_settlement_cap`, `settle_metered_usage`,
-`MeteredSettlement`, `estimate_tolerance_bps`, `is_metered_offer`,
-`check_metered_estimate` and the two constants from `fora_sdk`; TypeScript the same
-faces in camelCase from `@fora-protocol/sdk/money`. The Python and TypeScript cross-field
-layers gain both rules. Without an estimate, `MeteredSettlementCap` reports no cap (Go
-returns `capped` false, Python `None`, TypeScript `undefined`), and the settlement's
-accepted and ceiling amounts are absent (Go `MeteredSettlement.Estimated` is false). A new
-shared `metered-settlement-vectors.json` pins the arithmetic, including two rows that need
-42 significant digits and the rows of a price with no estimate, and the offer-verify
-vectors gain the metered cases, among them a metered offer with no estimate that verifies.
+none. New checks `IsMeteredOffer` / `is_metered_offer` / `isMeteredOffer` and
+`CheckMeteredEstimate` / `check_metered_estimate` / `checkMeteredEstimate` apply the rule
+without wire validation. The offer-verify vectors gain the metered cases, among them a
+metered offer with no estimate that verifies.
 
-Docs: the transaction-flow page gains "Settling a metered purchase", with and without an
-estimate, its metered examples carry an estimate in tokens, and its list of report checks drops the ±20% quantity
-tolerance that refused honest reports, as do the Exchange storage model and the scenario
-walkthrough. The licensing-terms page gains "Metered pricing: estimate and tolerance", and
-the money-flow page and the reference page describe the settlement.
+Docs: the transaction-flow page gains "Charging a metered purchase", and its list of
+report checks drops the ±20% quantity tolerance that refused honest reports, as do the
+Exchange storage model and the scenario walkthrough. The licensing-terms page gains
+"Metered pricing: rate, unit and estimate", and the money-flow page, the reference page
+and the walkthroughs describe the charge.
 
 **An acceptance names its requester: `Requester.id` and `Requester.domain` are required
 (validation rules added; no wire change).** An agent's offer acceptance signs canonical

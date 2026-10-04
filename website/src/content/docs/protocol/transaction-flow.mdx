@@ -139,7 +139,7 @@ Key fields:
 
 Each `Offer` includes:
 - `Offer.title` (human-readable) plus optional `fora-comp-v1` `comp.*` ext fields carrying CoMP package metadata (`comp.package_id`, `comp.seller`, `comp.citation_required`, `comp.content_types`, `comp.retrieval_type`)
-- FORA `Pricing` with the rate, currency, and normalized unit_cost; a metered (`PER_UNIT`) offer may also carry a positive `estimated_quantity` in its `unit`, which fixes the amount the agent accepts and the ceiling its usage report settles against. Without one there is no ceiling, and the report settles at the consumed quantity × rate (see [Settling a metered purchase](#settling-a-metered-purchase))
+- FORA `Pricing` with the rate, currency, and normalized unit_cost; a metered (`PER_UNIT`) offer may also carry a positive `estimated_quantity` in its `unit`. The purchase charges the estimate × rate, or one unit's rate without an estimate (see [Charging a metered purchase](#charging-a-metered-purchase))
 - `ResourceIdentity` for cross-exchange deduplication
 - `LicenseTerm` entries on `terms[]`, each carrying `restrictions` (`repeated Restriction`) derived from the provider's RSL terms
 - `ReportingObligation` defining post-usage reporting requirements
@@ -374,7 +374,7 @@ The request may also carry `agent_request_acceptance` — the agent's detached E
 }
 ```
 
-For a metered item whose offer states an estimate, `cost.amount` is the amount the agent accepted: the offer's `estimated_quantity` × `rate`, here 2,500 tokens × $0.00002 = $0.05. It is not the final charge; the usage report settles it. When the offer states no estimate, no amount is fixed at purchase, and the report settles the charge at the consumed quantity × rate (see [Settling a metered purchase](#settling-a-metered-purchase)).
+For a metered item, `cost.amount` is the purchase charge: the offer's `estimated_quantity` × `rate`, here 2,500 tokens × $0.00002 = $0.05, or one unit's rate when the offer states no estimate. The charge is final (see [Charging a metered purchase](#charging-a-metered-purchase)).
 
 The `retrieval_endpoint` is a CDN signed URL bound to `agent_identity_hash`. A bearer-only CDN serves it on signature + expiry alone (the URL signature + short TTL + TLS); a capable edge function additionally requires the agent to present its public key and an RFC 9421 signature, verifying the binding offline. See [Signed URL Verification](/components/edge-function/signed-url-verification).
 
@@ -639,7 +639,7 @@ Content-Type: application/json
 }
 ```
 
-A successful response carries the Exchange-assigned `report_id` (the handle the agent later references in `DisputeRequest`). It carries no amounts, also when part of a metered report is held for dispute: the settlement is a pure function of the signed offer and the reported quantity, so the agent computes it itself (see [Settling a metered purchase](#settling-a-metered-purchase)). A rejected report is not a success body -- it travels as a non-OK transport error carrying `ErrorDetail.usage_report_rejection` (e.g. `USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED`, `USAGE_REPORT_REJECTION_REASON_MISSING_REQUIRED_FIELDS`).
+A successful response carries the Exchange-assigned `report_id` (the handle the agent later references in `DisputeRequest`). A rejected report is not a success body -- it travels as a non-OK transport error carrying `ErrorDetail.usage_report_rejection` (e.g. `USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED`, `USAGE_REPORT_REJECTION_REASON_MISSING_REQUIRED_FIELDS`).
 
 ### What the Exchange Validates
 
@@ -648,41 +648,18 @@ A successful response carries the Exchange-assigned `report_id` (the handle the 
 3. Report received within the reporting window (typically 24 hours). A report that arrives after the window closed is refused with `USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED` and the Connect code `failed_precondition`: the typed reason names the time cause
 4. Transaction exists and `billing_id` matches
 
-**The reported quantity is unrestricted.** A consumed quantity that differs from the offer's estimate is **not** a validation failure, above or below, and no check on the quantity refuses a report. For a metered offer the Exchange settles the report as described below; a quantity far from the estimate is analysed out of band, never by refusing the report.
+**The reported quantity is unrestricted.** A consumed quantity that differs from the offer's estimate is **not** a validation failure, above or below, and no check on the quantity refuses a report. The report is a record of the quantity consumed. Monitoring how far reports fall from estimates is the Exchange operator's own business, not part of the protocol.
 
-### Settling a metered purchase
+### Charging a metered purchase
 
-A `PER_UNIT` price is metered: it is charged per unit consumed, and the quantity is known only after use. Up to three values on the offer's own `pricing` fix what such a purchase can cost, and the offer signature covers them, so accepting the offer is consenting to them:
+A `PER_UNIT` price is metered: it is charged per unit. The publisher states the rate and the unit, and the offer may also state an estimate. The offer signature covers them, so accepting the offer is consenting to them:
 
 | Symbol | Field | Meaning |
 |---|---|---|
 | R | `rate` | The price of one `unit` |
 | E | `estimated_quantity` | The estimate, in `unit`. **Optional.** A `PER_UNIT` offer may state a rate with or without an estimate; whether to state one is the publisher's decision. An estimate that is stated is positive (`offer.metered.estimate_positive`), and the SDK verifiers reject a zero one |
-| T | `estimate_tolerance_bps` | The tolerance on the estimate, in basis points: `1000` (10%) when the term states none, `0` for none, at most `10000`. It applies only when the offer states an estimate |
 
-**Without an estimate there is no ceiling.** The agent accepts the rate R. When the usage report arrives, its `consumed_quantity` C is charged **C × R**, whatever C is, and nothing is held. Nothing in such an offer bounds what the purchase is charged.
-
-**With an estimate the purchase settles within a tolerance.** At purchase the agent accepts **E × R**, the `cost` of the item. When the usage report arrives, its `consumed_quantity` C settles against the ceiling **Q = E × (10000 + T) / 10000**:
-
-| Consumed quantity | Charged | Held for dispute |
-|---|---|---|
-| C ≤ E (below the estimate) | C × R | nothing |
-| E < C ≤ Q (within the tolerance) | C × R | nothing |
-| C > Q (above the ceiling) | Q × R | (C − Q) × R |
-
-The quantity above the ceiling is held, never charged automatically: nothing above Q × R is charged unless dispute resolution establishes that it is owed. Q × R is therefore the most an estimated metered purchase costs without a dispute. Q can be fractional, and every step is exact decimal arithmetic: the inputs are integers and decimal strings, and the only division is by 10000.
-
-With the offer above (E = 2,500 tokens, R = $0.00002, no stated tolerance, so Q = 2,750):
-
-| Reported | Charged | Held |
-|---|---|---|
-| 2,400 tokens (the report above) | $0.048 | — |
-| 2,700 tokens | $0.054 | — |
-| 3,000 tokens | $0.055 | 250 tokens, $0.005 |
-
-The response to a report that holds an excess is still a plain success with a `report_id`; the `transaction_id` and that `report_id` identify the held excess. This version defines no `DisputeReason` for it and no filing by the publisher's side, so how a claim to the excess is raised is left open; what the protocol fixes is that it is never charged automatically. A metered price with `metering: PRICING_METERING_NONE` has no report, so E × R is final when it states an estimate. This version does not say what such a price charges when it states none.
-
-The SDKs compute all of this exactly: `MeteredSettlementCap` / `metered_settlement_cap` / `meteredSettlementCap` returns Q × R, or reports that there is no cap when the price states no estimate, and `SettleMeteredUsage` / `settle_metered_usage` / `settleMeteredUsage` returns the accepted, ceiling, charged and held amounts (without an estimate, no accepted amount and no ceiling). The shared metered-settlement vectors pin every language to the same digits.
+A metered purchase charges **E × R**, or one unit, **1 × R**, when the offer states no estimate. That is the item's `cost`, and the charge is final. With the offer above (E = 2,500 tokens, R = $0.00002) the purchase charges $0.05. A disagreement about the quantity consumed is a dispute, which this version does not define further.
 
 ## Content Delivery (Outside Protocol Scope)
 

@@ -125,6 +125,14 @@ patterns=(
   # offer.metered.estimate_positive (an estimate that is stated is positive), and
   # the Go sentinel for a missing estimate by ErrMeteredEstimateNotPositive.
   'offer\.metered\.requires_estimate' 'ErrMeteredEstimateMissing'
+  # A metered purchase's charge is final: estimate x rate, or one unit's rate.
+  # estimate_tolerance_bps and the settlement on the usage report were removed
+  # before any release, with the SDK helpers that computed it. The field name
+  # itself stays legal: the proto reserves it, and the reference page says so.
+  'pricing\.estimate_tolerance\.requires_per_unit' '"?estimate_tolerance_bps"?[[:space:]]*:'
+  'estimateTolerance' 'EstimateToleranceBps' 'MeteredSettlement'
+  'metered_settlement' 'meteredSettlement' 'SettleMeteredUsage' 'settle_metered_usage'
+  'settleMeteredUsage' 'settling-a-metered-purchase'
 )
 
 # Files where naming a removed identifier is legitimate (they record history).

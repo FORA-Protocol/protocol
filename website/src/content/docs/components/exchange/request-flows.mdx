@@ -785,8 +785,8 @@ func (h *ExchangeHandler) ReportUsage(
     //    ErrorDetail.usage_report_rejection (UsageReportRejectionReason). A
     //    report past its reporting window is WINDOW_EXPIRED with the code
     //    failed_precondition. The tracker never refuses a report for its
-    //    consumed_quantity: the quantity is unrestricted, and a metered report
-    //    settles at min(consumed, ceiling) x rate with the excess held.
+    //    consumed_quantity: the quantity is unrestricted, and the report is a
+    //    record of it.
     //    Success returns the Exchange-assigned report_id, required to anchor
     //    the dispute chain.
     result, err := h.reporting.SubmitReport(ctx, req.Msg, txn)

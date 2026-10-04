@@ -852,7 +852,7 @@ Response:
 
 **Reporting details:**
 
-- **`consumed_quantity: 1`, `consumed_unit: "accesses"`** — the unit matches the offer's `pricing.unit`. The offer's estimate was 1 access at $1.50, so the transaction settles at 1 × $1.50 = $1.50, the amount accepted at purchase. A report is never refused because its quantity differs from the estimate. If the agent had reported more than the ceiling (the estimate plus the 10% default tolerance), the excess would be held for dispute, not charged.
+- **`consumed_quantity: 1`, `consumed_unit: "accesses"`** — the unit matches the offer's `pricing.unit`. The offer's estimate was 1 access at $1.50, so the purchase charged 1 × $1.50 = $1.50, and that charge is final. A report is never refused because its quantity differs from the estimate.
 - **`citation_included: true`** — the literature review includes proper citations for all 49 papers. This is relevant for publishers who offer attribution-only pricing or require citation as a license condition.
 - **`assets`** — names the paper the transaction covers, so the Exchange can attribute usage to its publisher. Across the 49 reports, Elsevier sees 20 accesses against Stanford's subscription, the paid publishers see 17 paid accesses, and arXiv sees 12 free accesses.
 - **`report_id: "rpt-litrev-001"`** — enables the dispute chain. If this paper's content hash had not matched on delivery, the agent would reference this report when filing a `DisputeTransaction`.
