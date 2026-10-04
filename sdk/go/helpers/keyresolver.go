@@ -62,33 +62,36 @@ func (s *StaticKeyResolver) Put(keyID string, pub ed25519.PublicKey) {
 }
 
 // VerifyRequestResolved resolves the request's signing key via resolver, then
-// runs the pure VerifyRequest. It is the convenience the server interceptor and a
-// key-resolving client use: the resolver does the IO, VerifyRequest stays pure.
+// runs the same checks as VerifyRequest. It is the convenience the server
+// interceptor and a key-resolving client use: the resolver does the IO, the
+// verification stays pure. The resolver receives the https origin of the key
+// directory the signature's own covered Signature-Agent member names, through
+// SignatureAgentFromContext.
 func VerifyRequestResolved(ctx context.Context, req *http.Request, body []byte, resolver KeyResolver, opts VerifyOptions) (*VerifiedRequest, error) {
 	allParams, sigMap, err := parseAllSignatures(req.Header)
 	if err != nil {
 		return nil, err
 	}
-	ctx = WithSignatureAgent(ctx, signatureAgentOf(req))
-	return verifySingleSignature(req, allParams[0], sigMap, body, ctxResolver(ctx, resolver), opts)
+	return verifySingleSignature(req, allParams[0], sigMap, body, ctxResolver(ctx, resolver), opts, len(allParams))
 }
 
 // ctxResolver adapts a KeyResolver (ctx-carrying Resolve) to the resolveFunc
-// shape verifySingleSignature uses.
+// shape verifySingleSignature uses. Each call threads the directory of the
+// signature being verified into the context, so a resolver serving several
+// signatures resolves each one in its own signer's directory.
 func ctxResolver(ctx context.Context, resolver KeyResolver) resolveFunc {
-	return func(keyID string) (ed25519.PublicKey, error) {
-		return resolver.Resolve(ctx, keyID)
+	return func(directory, keyID string) (ed25519.PublicKey, error) {
+		return resolver.Resolve(WithSignatureAgent(ctx, directory), keyID)
 	}
 }
 
-// VerifyMultisigRequestResolved verifies ALL signatures on req, resolving each
-// label's key via resolver, and returns the VerifiedRequest list in sig1..sigN
-// order. It is the multi-hop sibling of VerifyRequestResolved: it enforces the
-// hop bound (opts.MaxSignatures) and the structural forwarding chain before
-// cryptographically verifying every hop, so a stripped, reordered, or
-// substituted predecessor is rejected. A single-signature request is the N=1
-// case and verifies identically.
+// VerifyMultisigRequestResolved verifies EVERY signature on req, resolving each
+// signature's key via resolver in the directory its own covered Signature-Agent
+// member names, and returns the VerifiedRequest list in header order. It is the
+// multi-signature sibling of VerifyRequestResolved: it enforces the hop budget
+// (opts.MaxSignatures) and the completeness of any coverage of an earlier
+// signature before verifying each signature. A single-signature request is the
+// N=1 case and verifies identically.
 func VerifyMultisigRequestResolved(ctx context.Context, req *http.Request, body []byte, resolver KeyResolver, opts VerifyOptions) ([]VerifiedRequest, error) {
-	ctx = WithSignatureAgent(ctx, signatureAgentOf(req))
 	return VerifyMultisigRequest(req, body, ctxResolver(ctx, resolver), opts)
 }

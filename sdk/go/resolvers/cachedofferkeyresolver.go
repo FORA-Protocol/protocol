@@ -142,8 +142,9 @@ func clampOfferKeyExpiry(now time.Time, ttl time.Duration, notAfter time.Time) t
 
 // NewWBADirectoryFetcher returns the default OfferDirectoryFetcher: it GETs
 // scheme://domain[:port]/.well-known/http-message-signatures-directory through
-// client and protojson-decodes the WBAFile (any transport/status/decode failure
-// wraps ErrDirectoryUnavailable). client nil installs the same SSRF-guarded default
+// client, with no redirect, checks its media type and response signatures, and
+// protojson-decodes the WBAFile, keeping only the keys that signed the response
+// (any transport/status/media-type/decode failure wraps ErrDirectoryUnavailable). client nil installs the same SSRF-guarded default
 // WBAKeyResolver uses — the exchange domain is signature-covered but
 // attacker-influenceable, so the guard costs nothing. scheme empty → https; port
 // empty → the scheme default.
@@ -155,7 +156,7 @@ func NewWBADirectoryFetcher(client *http.Client, scheme, port string) OfferDirec
 		scheme = "https"
 	}
 	return func(ctx context.Context, domain string) (*forav1.WBAFile, error) {
-		return fetchWBAFile(ctx, client, scheme+"://"+joinDirectoryHost(domain, port))
+		return fetchWBAFile(ctx, client, scheme+"://"+joinDirectoryHost(domain, port), time.Now())
 	}
 }
 

@@ -77,7 +77,7 @@ func TestRawBody_SendsTheBodyUnchanged(t *testing.T) {
 	}
 	raw := withUnknown(msg)
 
-	client := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(sig.signer))
+	client := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))
 	resp, err := client.PushResources(context.Background(), nil, foraconnect.WithRawBody(raw))
 	if err != nil {
 		t.Fatalf("raw push: %v", err)
@@ -106,7 +106,7 @@ func TestRawBody_RoutesOnTheBodysExchange(t *testing.T) {
 	origin := &groupExchange{}
 	domain, _ := selfAdvertisingExchange(t, sig, origin)
 	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
 
 	body, _ := proto.Marshal(&forav1.UsageReport{Exchange: domain, TransactionId: "txn-raw"})
 	if _, err := client.ReportUsage(context.Background(), nil, foraconnect.WithRawBody(body)); err != nil {
@@ -143,12 +143,12 @@ func TestStrictDecoding_RefusesAnUnknownField(t *testing.T) {
 	sig := newSigningFixture(t)
 	srv := serveCatalog(t, sig, unknownCatalog{})
 
-	lenient := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(sig.signer))
+	lenient := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))
 	if _, err := lenient.PushResources(context.Background(), validPush()); err != nil {
 		t.Fatalf("default decode refused the answer: %v", err)
 	}
 	strict := foraconnect.NewCatalogClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithStrictDecoding())
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithStrictDecoding())
 	_, err := strict.PushResources(context.Background(), validPush())
 	var cerr *foraconnect.CallError
 	if !errors.As(err, &cerr) || cerr.Kind != foraconnect.CallMalformed {
@@ -181,12 +181,12 @@ func TestStrictDecoding_RefusesACrossFieldViolation(t *testing.T) {
 	domain, _ := selfAdvertisingExchange(t, sig, statusAccount{})
 	req := &forav1.GetAccountStatusRequest{Exchange: domain}
 
-	lenient := foraconnect.NewClient("http://home.invalid", append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+	lenient := foraconnect.NewClient("http://home.invalid", append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
 	if _, err := lenient.GetAccountStatus(context.Background(), req); err != nil {
 		t.Fatalf("default decode refused the answer: %v", err)
 	}
 	strict := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithStrictDecoding())...)
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithStrictDecoding())...)
 	_, err := strict.GetAccountStatus(context.Background(), req)
 	var cerr *foraconnect.CallError
 	if !errors.As(err, &cerr) || cerr.Kind != foraconnect.CallMalformed {

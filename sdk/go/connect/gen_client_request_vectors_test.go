@@ -302,7 +302,7 @@ func executeVector(t *testing.T, baseOpts []foraconnect.ClientOption) clientRequ
 	defer srv.Close()
 
 	client := foraconnect.NewClient(srv.URL, append(append([]foraconnect.ClientOption{}, baseOpts...),
-		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
 		foraconnect.WithOfferKey(offers.exchangePub),
 	)...)
 	verified := verifyOne(t, offers)
@@ -389,8 +389,7 @@ func brokerExecuteVector(t *testing.T, baseOpts []foraconnect.ClientOption) clie
 	defer srv.Close()
 
 	client := foraconnect.NewBrokerClient(srv.URL, append(append([]foraconnect.ClientOption{}, baseOpts...),
-		foraconnect.WithSigner(sig.signer),
-		foraconnect.WithSignatureAgent("https://agent.test"),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
 	)...)
 	if _, err := client.Execute(context.Background(), []core.VerifiedOffer{verifyOne(t, offers)},
 		foraconnect.WithIdempotencyKey(pinnedKey)); err != nil {

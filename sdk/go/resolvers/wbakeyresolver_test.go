@@ -609,6 +609,7 @@ func newSigningKey(seed string, notBefore, notAfter time.Time) (ed25519.PrivateK
 	raw := make([]byte, ed25519.SeedSize)
 	copy(raw, []byte(seed))
 	priv := ed25519.NewKeyFromSeed(raw)
+	registerDirectoryKey(priv)
 	pub, _ := priv.Public().(ed25519.PublicKey)
 	jwk := &forav1.JsonWebKey{
 		Kty:       "OKP",
@@ -691,7 +692,7 @@ func (o *wbaOrigin) setWBAStatus(code int) {
 	o.wbaStatus.Store(int32(code)) //nolint:gosec // small status code
 }
 
-func (o *wbaOrigin) serveWBA(w http.ResponseWriter, _ *http.Request) {
+func (o *wbaOrigin) serveWBA(w http.ResponseWriter, r *http.Request) {
 	if code := o.wbaStatus.Load(); code != 0 {
 		w.WriteHeader(int(code))
 		return
@@ -701,8 +702,7 @@ func (o *wbaOrigin) serveWBA(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	w.Header().Set("Content-Type", "application/jwk-set+json")
-	_, _ = w.Write(*p)
+	writeSignedDirectory(w, r, *p)
 }
 
 func (o *wbaOrigin) serveRevocation(w http.ResponseWriter, _ *http.Request) {

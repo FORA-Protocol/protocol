@@ -2,6 +2,8 @@ package connect
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"time"
@@ -193,24 +195,35 @@ func (c *Client) proofSigner() (resolvers.ProofSigner, error) {
 	if len(c.cfg.agentKey) == 0 {
 		return nil, errors.New("no agent public key configured; a bound fetch presents it alongside the proof (see WithAgentKey)")
 	}
+	if c.cfg.signatureAgent == "" {
+		return nil, errors.New("no Signature-Agent configured; a bound fetch names the agent's key directory (see WithSignatureAgent)")
+	}
 	window := c.cfg.proofWindow
 	if window == nil {
 		window = core.ClockWindow(time.Now, defaultProofWindow)
 	}
-	return proofSigner{signer: signer, pub: c.cfg.agentKey, window: window}, nil
+	return proofSigner{signer: signer, pub: c.cfg.agentKey, window: window, directory: c.cfg.signatureAgent}, nil
 }
 
 // proofSigner mints one agent binding per fetch.
 type proofSigner struct {
-	signer helpers.Signer
-	pub    []byte
-	window core.Window
+	signer    helpers.Signer
+	pub       []byte
+	window    core.Window
+	directory string
 }
+
+// proofNonceBytes is the entropy of a fetch proof's nonce: 64 bytes, the length
+// the signing transport gives every request signature.
+const proofNonceBytes = 64
 
 func (p proofSigner) SignFetch(ctx context.Context, target string) (helpers.AgentBinding, error) {
 	created, expires := p.window()
+	nonce := make([]byte, proofNonceBytes)
+	_, _ = rand.Read(nonce) // never fails since Go 1.24; on entropy failure the process crashes
 	return helpers.SignAgentBinding(ctx, p.signer, p.pub, helpers.PoPOptions{
 		URL: target, Created: created, Expires: expires,
+		SignatureAgent: p.directory, Nonce: base64.RawURLEncoding.EncodeToString(nonce),
 	})
 }
 

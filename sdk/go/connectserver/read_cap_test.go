@@ -130,7 +130,7 @@ func gzipCatalogClient(
 		foraserver.WithReplayStore(newCountingReplayStore()),
 	}, opts...)...)
 	return foraconnect.NewCatalogClient(srv.URL,
-		foraconnect.WithSigner(signer),
+		foraconnect.WithSigner(signer), foraconnect.WithSignatureAgent("https://agent.example"),
 		foraconnect.WithClientOptions(connectrpc.WithSendGzip()))
 }
 

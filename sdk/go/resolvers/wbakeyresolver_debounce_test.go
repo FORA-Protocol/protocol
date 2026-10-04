@@ -54,7 +54,7 @@ func newCountingOrigin() *countingOrigin {
 	return o
 }
 
-func (o *countingOrigin) serve(w http.ResponseWriter, _ *http.Request) {
+func (o *countingOrigin) serve(w http.ResponseWriter, r *http.Request) {
 	o.hits.Add(1)
 	if o.arrived != nil {
 		o.arrived <- struct{}{}
@@ -67,8 +67,7 @@ func (o *countingOrigin) serve(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	w.Header().Set("Content-Type", "application/jwk-set+json")
-	_, _ = w.Write(*p)
+	writeSignedDirectory(w, r, *p)
 }
 
 func (o *countingOrigin) setWBA(b []byte) { o.doc.Store(&b) }

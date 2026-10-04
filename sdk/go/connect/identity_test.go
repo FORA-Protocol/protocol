@@ -12,6 +12,7 @@ import (
 	"crypto/ed25519"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,11 +50,26 @@ func TestIdentityHelpers_MintAFreshAgent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	directory := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+	signer, err := helpers.NewEd25519Signer(keyID, priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The directory answers as the profile requires: its own media type, and a
+	// response signed by the key it lists for the authority it was fetched from.
+	directory := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sig, err := helpers.SignDirectoryResponse(r.Context(), r.Host, body, []helpers.Signer{signer},
+			now.Unix(), now.Add(time.Hour).Unix())
+		if err != nil {
+			t.Errorf("sign directory response: %v", err)
+		}
+		sig.Apply(w.Header())
+		w.Header().Set("Content-Type", resolvers.WBADirectoryMediaType)
 		_, _ = w.Write(body)
 	}))
 	t.Cleanup(directory.Close)
+	// The Signature-Agent member is an https origin; the resolver fetches it from
+	// the plaintext test server through its Scheme option.
+	origin := "https://" + strings.TrimPrefix(directory.URL, "http://")
 
 	keys := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{Scheme: "http", HTTP: http.DefaultClient})
 	path, h := foraserver.NewCatalogServiceHandler(&recordingCatalog{}, foraserver.WithKeyResolver(keys))
@@ -62,7 +78,7 @@ func TestIdentityHelpers_MintAFreshAgent(t *testing.T) {
 	exchange := httptest.NewServer(mux)
 	t.Cleanup(exchange.Close)
 
-	transport, err := core.SigningTransportFor(priv, directory.URL, nil)
+	transport, err := core.SigningTransportFor(priv, origin, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +92,7 @@ func TestIdentityHelpers_MintAFreshAgent(t *testing.T) {
 		t.Errorf("answer = %v", resp.Msg)
 	}
 
-	if _, err := core.SigningTransportFor(priv[:10], directory.URL, nil); err == nil {
+	if _, err := core.SigningTransportFor(priv[:10], origin, nil); err == nil {
 		t.Error("a truncated key was accepted")
 	}
 }

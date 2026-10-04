@@ -14,15 +14,20 @@ import (
 //
 // When a signed URL carries an agent_id — the RFC 7638 thumbprint of the key
 // that signed the offer acceptance — a code-capable edge requires the fetcher to
-// prove possession of that key, fully offline. The proof is two headers on the
-// GET: the raw public key in X-FORA-Agent-Key, and an RFC 9421 signature over
-// @method + @target-uri. The edge then enforces a three-way identity:
+// prove possession of that key, fully offline. The proof is a full Web Bot Auth
+// signature over the GET: the WG-00 base (a dictionary Signature-Agent member
+// naming the agent's directory, covered as "signature-agent";key="sig1", the
+// created, expires, keyid, alg, nonce and tag parameters) plus @method and
+// @target-uri, and the raw public key in X-FORA-Agent-Key. The edge verifies
+// offline with the presented key and enforces a three-way identity:
 //
 //	agent_id (URL) == keyid (Signature-Input) == thumbprint(presented key)
 //
 // The last equality is the one that cannot be dropped. Verifying the signature
 // against the presented key alone proves nothing — any actor could present their
-// own key plus a valid self-signature.
+// own key plus a valid self-signature. A generic WBA verifier ignores
+// X-FORA-Agent-Key, resolves the same key from the directory the Signature-Agent
+// member names, and accepts the same signature.
 //
 // This is the SIGN face. The verify face ships in sdk/ts and sdk/python (the
 // edge runs there); Go is the byte oracle both are pinned to, through
@@ -34,10 +39,9 @@ import (
 // URL's agent_id, so a fetcher cannot present one key while naming another.
 const AgentKeyHeader = "X-FORA-Agent-Key"
 
-// popLabel is the only signature label this profile emits. Unlike the FORA
-// request profile there is no forwarding chain here — a delivery fetch is a
-// single hop to the edge — so sigN>1 never arises and the label is fixed rather
-// than computed.
+// popLabel is the only signature label this profile emits, and the key of the
+// agent's Signature-Agent member. A delivery fetch is a single hop to the edge,
+// so a second signature never arises and the label is fixed rather than computed.
 const popLabel = "sig1"
 
 // ErrMissingTargetURI signals a proof requested without the URL it is meant to
@@ -63,7 +67,7 @@ var ErrInvalidPoPInput = errors.New("helpers: proof input is not usable in a sig
 func isControlByte(r rune) bool { return r < 0x20 || r == 0x7f }
 
 // PoPOptions carries what a delivery-URL proof of possession needs beyond the
-// key material. Only URL, Created and Expires are required.
+// key material. URL, SignatureAgent, Created and Expires are required.
 type PoPOptions struct {
 	// URL is the signed delivery URL, used VERBATIM as @target-uri — the exact
 	// bytes the Exchange minted, query parameters and all.
@@ -87,9 +91,18 @@ type PoPOptions struct {
 	// fails closed.
 	Created int64
 	// Expires is the unix-seconds cutoff after which the proof is stale. Keep it
-	// short: the covered set is only method and URL, so within this window the
-	// proof is replayable by anyone who observes the request.
+	// short: the covered set is only method, URL and the agent's directory, so
+	// within this window the proof is replayable by anyone who observes the
+	// request. The window must be positive and at most MaxSignatureLifetime.
 	Expires int64
+	// SignatureAgent is the https origin of the agent's key directory, the one
+	// that publishes the presented key. It is written as the Signature-Agent
+	// member sig1="<origin>" and covered, so a generic WBA verifier can resolve
+	// the key there.
+	SignatureAgent string
+	// Nonce is the RFC 9421 nonce parameter, base64url. The helper reads no RNG:
+	// the signing transports pass 64 fresh random bytes. Empty emits no nonce.
+	Nonce string
 	// Method is the HTTP method being signed. Empty means GET. A signed URL is
 	// read-only in practice, but @method is covered precisely so a proof made for
 	// a GET cannot be lifted onto a write.
@@ -97,13 +110,16 @@ type PoPOptions struct {
 }
 
 // AgentBinding is the proof a fetcher attaches to a bound delivery request: the
-// three header values, ready to apply. It is returned as values rather than
+// four header values, ready to apply. It is returned as values rather than
 // written onto a request so a caller can sign before it has built one, so this
 // tier stays free of any dialing surface, and so the emitted bytes can be
 // asserted directly against the shared cross-language vectors.
 type AgentBinding struct {
 	// AgentKey is the X-FORA-Agent-Key value: base64url, no padding.
 	AgentKey string
+	// SignatureAgent is the Signature-Agent value: the one-member dictionary
+	// sig1="<origin>".
+	SignatureAgent string
 	// SignatureInput is the full Signature-Input value, label included.
 	SignatureInput string
 	// Signature is the full Signature value, label included. The byte string
@@ -113,16 +129,17 @@ type AgentBinding struct {
 	Signature string
 }
 
-// Apply writes the binding's three headers onto h.
+// Apply writes the binding's four headers onto h.
 func (b AgentBinding) Apply(h http.Header) {
 	h.Set(AgentKeyHeader, b.AgentKey)
+	h.Set(SignatureAgentHeader, b.SignatureAgent)
 	h.Set("Signature-Input", b.SignatureInput)
 	h.Set("Signature", b.Signature)
 }
 
 // popSignatureBase builds the RFC 9421 signature base for the agent-binding
-// profile: the two covered components followed by the parameters line, joined
-// with newlines and with no trailing newline.
+// profile: @method, @target-uri and the agent's Signature-Agent member, followed
+// by the parameters line, joined with newlines and with no trailing newline.
 //
 // It takes raw strings rather than a request value for the reason PoPOptions.URL
 // documents — the verbatim URL is the contract — and because the FORA base
@@ -135,35 +152,36 @@ func (b AgentBinding) Apply(h http.Header) {
 // rawParams is taken as given rather than rebuilt: on the verifying side it
 // arrives verbatim in the Signature-Input header, so treating it as an opaque
 // string here is what keeps the two faces symmetric.
-func popSignatureBase(method, rawURL, rawParams string) string {
+func popSignatureBase(method, rawURL, origin, rawParams string) string {
 	return strings.Join([]string{
 		`"@method": ` + strings.ToUpper(method),
 		`"@target-uri": ` + rawURL,
+		`"signature-agent";key="` + popLabel + `": "` + origin + `"`,
 		`"@signature-params": ` + rawParams,
 	}, "\n")
 }
 
 // popSignatureParams renders the @signature-params value for this profile.
 //
-// The parameter ORDER is part of the wire contract, not a formatting choice: the
-// base is signed over this exact string and the verifier reconstructs it from the
-// header as received. keyid, alg, created, expires — matching the TypeScript and
-// Python faces. A generic RFC 9421 emitter tends to produce
-// created;expires;alg;keyid instead, and that mismatch is the whole reason this
-// profile builds its own base instead of routing through SignRequest.
-func popSignatureParams(keyID string, created, expires int64) string {
-	return fmt.Sprintf(
-		`("@method" "@target-uri");keyid=%q;alg=%q;created=%d;expires=%d`,
-		keyID, AlgEd25519, created, expires,
-	)
+// The parameter order is the one every FORA signature uses — created, expires,
+// keyid, alg, nonce, tag — so the three SDKs emit identical bytes. A verifier
+// rebuilds the base from the header as received, so the order is the signer's
+// choice; the profile builds its own base, rather than routing through
+// SignRequest, because @target-uri here is the verbatim URL.
+func popSignatureParams(keyID, nonce string, created, expires int64) string {
+	p := sigParams{
+		Covered: []CoveredComponent{{Name: "@method"}, {Name: "@target-uri"}, signatureAgentComponent(popLabel)},
+		KeyID:   keyID, Alg: AlgEd25519, Created: created, Expires: expires, Nonce: nonce, Tag: WBATag,
+	}
+	return signatureInputInner(p)
 }
 
 // SignAgentBinding produces the proof of possession a fetcher presents when it
-// retrieves a delivery URL bound to an agent key. The covered set is exactly
-// @method and @target-uri: a GET carries no body to digest, and the signed URL is
-// itself the credential, already covered by @target-uri, so there is no
-// Authorization header worth binding. That is why SignRequest cannot serve this
-// profile — it enforces the five-component FORA set.
+// retrieves a delivery URL bound to an agent key. The covered set is @method,
+// @target-uri and the agent's Signature-Agent member: a GET carries no body to
+// digest, and the signed URL is itself the credential, already covered by
+// @target-uri, so there is no Authorization header worth binding. That is why
+// SignRequest cannot serve this profile — it signs the FORA RPC set.
 //
 // The key arrives as a Signer plus the public half rather than as a raw private
 // key: custody stays with the application (a KMS or HSM signer never exposes its
@@ -178,13 +196,14 @@ func SignAgentBinding(ctx context.Context, signer Signer, pub ed25519.PublicKey,
 	if method == "" {
 		method = http.MethodGet
 	}
-	params := popSignatureParams(keyID, opts.Created, opts.Expires)
-	raw, err := signer.Sign(ctx, []byte(popSignatureBase(method, opts.URL, params)))
+	params := popSignatureParams(keyID, opts.Nonce, opts.Created, opts.Expires)
+	raw, err := signer.Sign(ctx, []byte(popSignatureBase(method, opts.URL, opts.SignatureAgent, params)))
 	if err != nil {
 		return AgentBinding{}, fmt.Errorf("helpers: sign agent binding: %w", err)
 	}
 	return AgentBinding{
 		AgentKey:       base64.RawURLEncoding.EncodeToString(pub),
+		SignatureAgent: signatureAgentMember(popLabel, opts.SignatureAgent),
 		SignatureInput: popLabel + "=" + params,
 		Signature:      popLabel + "=:" + base64.StdEncoding.EncodeToString(raw) + ":",
 	}, nil
@@ -226,6 +245,18 @@ func validateAgentBinding(signer Signer, pub ed25519.PublicKey, opts PoPOptions)
 	}
 	if opts.Expires <= 0 {
 		return "", ErrMissingExpires
+	}
+	if life := opts.Expires - opts.Created; life <= 0 || life > int64(MaxSignatureLifetime.Seconds()) {
+		return "", fmt.Errorf("%w: created=%d expires=%d", ErrSignatureLifetime, opts.Created, opts.Expires)
+	}
+	if opts.SignatureAgent == "" {
+		return "", ErrSignatureAgentRequired
+	}
+	if err := CheckHTTPSOrigin(opts.SignatureAgent); err != nil {
+		return "", err
+	}
+	if !validNonce(opts.Nonce) {
+		return "", ErrInvalidNonce
 	}
 	if signer.Algorithm() != AlgEd25519 {
 		return "", fmt.Errorf("%w: agent binding requires %q, signer offers %q",

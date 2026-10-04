@@ -92,7 +92,7 @@ func serveOperatorPlane(t *testing.T, sig signingFixture, plane *operatorPlane) 
 func TestAdminClient_CoversEveryAdminRPC(t *testing.T) {
 	sig := newSigningFixture(t)
 	plane := &operatorPlane{}
-	client := foraconnect.NewAdminClient(serveOperatorPlane(t, sig, plane), foraconnect.WithSigner(sig.signer))
+	client := foraconnect.NewAdminClient(serveOperatorPlane(t, sig, plane), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))
 
 	methods := foraadminv1.File_fora_admin_v1_admin_proto.Services().ByName("AdminService").Methods()
 	if methods.Len() == 0 {
@@ -138,7 +138,7 @@ func callByName(t *testing.T, client *foraconnect.AdminClient, name string, inpu
 func TestAdminClient_DomainVerification(t *testing.T) {
 	sig := newSigningFixture(t)
 	plane := &operatorPlane{}
-	client := foraconnect.NewAdminClient(serveOperatorPlane(t, sig, plane), foraconnect.WithSigner(sig.signer))
+	client := foraconnect.NewAdminClient(serveOperatorPlane(t, sig, plane), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))
 	ctx := context.Background()
 
 	challenge, err := client.RequestDomainVerification(ctx, &forav1.DomainVerificationRequest{

@@ -379,8 +379,10 @@ type WBAKeyResolverOptions struct {
 	// After overrides the poll-tick timer source (nil → time.After). Tests
 	// inject a deterministic clock.
 	After func(time.Duration) <-chan time.Time
-	// Scheme is applied when the Signature-Agent value carries no scheme
-	// (empty → "https"). Tests inject "http" to drive an httptest server.
+	// Scheme is the scheme directories are fetched over (empty → "https"). A
+	// Signature-Agent member is always an https origin; tests inject "http" to
+	// fetch that origin's directory from a plaintext httptest server, and a bare
+	// host reference is prefixed with it.
 	Scheme string
 	// RequireRevocation makes Resolve fail closed with ErrRevocationUnevaluated
 	// when a key's directory declares a revocation_url but no snapshot has been
@@ -405,9 +407,11 @@ type WBAKeyResolverOptions struct {
 // WBAKeyResolver resolves signing keys from WBA identity directories
 // (WBADirectoryPath), matching by RFC 7638 thumbprint (the RFC 9421 keyid) —
 // never by kid — and enforcing each key's [not_before, not_after) validity
-// window plus the host's revocation snapshot. The directory host comes from the
-// verified request's Signature-Agent value, threaded into ctx by the resolved
-// verify entrypoints (SignatureAgentFromContext). Directories are cached per
+// window plus the host's revocation snapshot. The directory is the origin the
+// signature's own covered Signature-Agent member names, threaded into ctx per
+// signature by the resolved verify entrypoints (SignatureAgentFromContext). A
+// directory is fetched with no redirect, must be served as WBADirectoryMediaType,
+// and only the keys that signed its response are ever handed out. Directories are cached per
 // host with a TTL; revocation snapshots are primed on directory fetch and kept
 // fresh by the Run poller. See the sentinel var block for the authority
 // contract: revoked/expired/unavailable verdicts surface raw.
@@ -612,6 +616,9 @@ func (r *WBAKeyResolver) directoryBase(ref string) (base, host string, err error
 		ref = r.scheme + "://" + ref
 	}
 	u, err := url.Parse(ref)
+	if err == nil && u.Scheme == "https" && r.scheme != "https" {
+		u.Scheme = r.scheme
+	}
 	if err != nil {
 		// Framed, not passed through raw. A value that is not a URL at all used to
 		// surface whatever url.Parse happened to complain about — for the spec's
@@ -822,7 +829,7 @@ func (r *WBAKeyResolver) syncRefresh(ctx context.Context, base, host string) (*f
 // status, or decode failure wraps ErrDirectoryUnavailable — see the sentinel
 // contract: a directory outage must stay distinguishable from an unknown key.
 func (r *WBAKeyResolver) fetchDirectory(ctx context.Context, base string) (*forav1.WBAFile, error) {
-	return fetchWBAFile(ctx, r.http, base)
+	return fetchWBAFile(ctx, r.http, base, r.now())
 }
 
 func (r *WBAKeyResolver) isRevoked(host, thumbprint string) bool {

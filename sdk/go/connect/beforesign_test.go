@@ -83,7 +83,7 @@ func TestBeforeSign_APatchedRequestEarnsATypedRefusal(t *testing.T) {
 	origin := &strictCatalog{}
 	srv := serveCatalog(t, sig, origin)
 	client := foraconnect.NewCatalogClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithBeforeSign(dropEntries))
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithBeforeSign(dropEntries))
 
 	_, err := client.PushResources(context.Background(), validPush())
 	var cerr *foraconnect.CallError
@@ -99,7 +99,7 @@ func TestBeforeSign_APatchedRequestEarnsATypedRefusal(t *testing.T) {
 		t.Fatalf("typed reason = %v, want MALFORMED_ENTRY", detail)
 	}
 	// Without the hook the same request is accepted, so the refusal is the patch's.
-	plain := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(sig.signer))
+	plain := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))
 	if _, err := plain.PushResources(context.Background(), validPush()); err != nil {
 		t.Fatalf("the unpatched push was refused: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestBeforeSign_RefusesWithoutSending(t *testing.T) {
 			origin := &strictCatalog{}
 			srv := serveCatalog(t, sig, origin)
 			client := foraconnect.NewCatalogClient(srv.URL,
-				foraconnect.WithSigner(sig.signer), foraconnect.WithBeforeSign(hook))
+				foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithBeforeSign(hook))
 			_, err := client.PushResources(context.Background(), validPush())
 			var cerr *foraconnect.CallError
 			if !errors.As(err, &cerr) || cerr.Kind != foraconnect.CallMalformed {
@@ -153,7 +153,7 @@ func TestBeforeSign_RefusesWithoutSending(t *testing.T) {
 func TestBeforeSign_AnUnchangedRequestIsAccepted(t *testing.T) {
 	sig := newSigningFixture(t)
 	srv := serveCatalog(t, sig, &strictCatalog{})
-	client := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(sig.signer),
+	client := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
 		foraconnect.WithBeforeSign(func(r *http.Request) (*http.Request, error) {
 			r.Header.Set("Content-Length", "1")
 			return r, nil

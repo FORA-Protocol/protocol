@@ -192,24 +192,21 @@ func WithSignWindow(w core.Window) ClientOption {
 	return func(c *clientConfig) { c.signWindow = w }
 }
 
-// WithSignatureAgent names the WBA directory origin this client signs as — the
-// place a peer fetches to find the key that signed the request. It is stamped into
-// the Signature-Agent header of every outbound RFC 9421 request.
+// WithSignatureAgent names the key-directory origin this client signs as, such as
+// "https://agent.example" — the place a peer fetches to find the key that signed
+// the request. Every outbound RFC 9421 request signature, and every delivery-fetch
+// proof, carries it as its own Signature-Agent dictionary member,
+// sig1="<origin>", covered by the signature.
 //
-// Leaving it unset does not omit the header: signature-agent is one of the five
-// REQUIRED covered components, so the signature covers it either way and an unset
-// client signs an EMPTY value. A peer that resolves the caller's key from that
-// origin then has nothing to resolve, and refuses the call at verification — after
-// the request was routed, signed and sent, which is why the symptom is a 401 from
-// a healthy Exchange rather than anything the routing checks would catch.
+// It is required to sign. A client with no directory refuses every signed call
+// locally, as a malformed call (helpers.ErrSignatureAgentRequired), before
+// anything is sent, and a value that is not an https origin is refused the same
+// way (helpers.ErrSignatureAgentNotOrigin).
 //
 // One value per client, because one client speaks for one agent — the same reason
 // WithRequester is held rather than passed per call. An application signing as
-// several agents builds a client per agent.
-//
-// Stamped SET-IF-ABSENT. A request that already carries a Signature-Agent keeps
-// it, so a relay forwarding an originating agent's call does not overwrite the
-// value that agent's own signature covers.
+// several agents builds a client per agent, or composes core.NewSigningTransport
+// with core.WithSignerSource.
 func WithSignatureAgent(dir string) ClientOption {
 	return func(c *clientConfig) { c.signatureAgent = dir }
 }

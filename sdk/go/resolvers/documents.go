@@ -2,6 +2,7 @@ package resolvers
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/subtle"
@@ -12,7 +13,9 @@ import (
 	"hash"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"google.golang.org/protobuf/encoding/protojson"
@@ -32,20 +35,29 @@ import (
 // to be. The public readers (ReadManifest, ReadWBADirectory, ReadRevocationList,
 // ReadLicenseDocument) check what a party publishes: the media type, the strict
 // contract of the message and, for a license document, the digest. The resolvers
-// read the same documents to route and to verify, and skip those checks: a reader
-// that must accept a newer protocol version cannot refuse a field it does not know.
+// read the same documents to route and to verify, and skip the strict check: a
+// reader that must accept a newer protocol version cannot refuse a field it does
+// not know.
+//
+// A key directory is read under the Web Bot Auth profile by both faces: it is
+// fetched with no redirect, must be served as
+// application/http-message-signatures-directory+json, and its response must be
+// signed by the keys it lists (helpers.VerifyDirectoryResponse). A key the
+// response carries no valid signature by is never handed out. A revocation list
+// and the manifest may follow up to five redirects.
 
 // ManifestMediaType is the media type /.well-known/fora.json is served under.
 const ManifestMediaType = "application/json"
 
-// WBADirectoryMediaType is the media type the WBA key directory is served under: a
-// JWK Set (RFC 7517 §8.5.2).
-const WBADirectoryMediaType = "application/jwk-set+json"
+// WBADirectoryMediaType is the media type a Web Bot Auth key directory is served
+// under (WG-00 §5.5). Any other label, the JWK Set type
+// application/jwk-set+json included, is refused.
+const WBADirectoryMediaType = "application/http-message-signatures-directory+json"
 
-// ErrMediaTypeRefused is returned by a document reader when a document is served
-// under a media type other than the one the protocol names for it. A verdict on
-// what the party publishes, never worth retrying. The resolvers that read the same
-// documents for routing and key resolution do not check the label. Peer of Python
+// ErrMediaTypeRefused is returned when a document is served under a media type
+// other than the one the protocol names for it. A verdict on what the party
+// publishes, never worth retrying. The public readers check the manifest's and the
+// key directory's label; the resolvers check the key directory's. Peer of Python
 // MediaTypeRefusedError and TypeScript MediaTypeRefused.
 var ErrMediaTypeRefused = errors.New("resolvers: document served under a media type the protocol does not name for it")
 
@@ -144,11 +156,14 @@ func ReadManifest(ctx context.Context, domain string, opts ReadOptions) (*Docume
 // directory's full URL, or a bare host whose directory is read from
 // scheme://host/.well-known/http-message-signatures-directory.
 //
-// The media type must be application/jwk-set+json, and the body must pass
-// helpers.CheckStrict as a WBAFile. Key validity windows and revocation are not
-// evaluated: that is WBAKeyResolver's job, and a directory listing an expired key
-// is still a well-formed directory. A failure wraps helpers.ErrInvalidHost,
-// ErrDirectoryUnavailable, ErrMediaTypeRefused, or helpers.ErrStrictViolation.
+// The directory is fetched with no redirect: a redirect fails the fetch. The media
+// type must be application/http-message-signatures-directory+json, the body must
+// pass helpers.CheckStrict as a WBAFile, and the response must carry a valid
+// response signature by every key it lists. Key validity windows and revocation
+// are not evaluated: that is WBAKeyResolver's job, and a directory listing an
+// expired key is still a well-formed directory. A failure wraps
+// helpers.ErrInvalidHost, ErrDirectoryUnavailable, ErrMediaTypeRefused,
+// helpers.ErrStrictViolation, or helpers.ErrDirectoryResponseUnsigned.
 func ReadWBADirectory(ctx context.Context, urlOrDomain string, opts ReadOptions) (*Document[*forav1.WBAFile], error) {
 	url := urlOrDomain
 	if !strings.Contains(urlOrDomain, "://") {
@@ -158,11 +173,23 @@ func ReadWBADirectory(ctx context.Context, urlOrDomain string, opts ReadOptions)
 		}
 		url = WBADirectoryURL(opts.scheme(), urlOrDomain)
 	}
-	f, err := fetchDocument(ctx, opts.client(), url)
+	f, err := fetchDocumentNoRedirect(ctx, opts.client(), url)
 	if err != nil {
 		return nil, err
 	}
-	return acceptDocument(wbaDirectoryKind, f, &forav1.WBAFile{})
+	doc, err := acceptDocument(wbaDirectoryKind, f, &forav1.WBAFile{})
+	if err != nil {
+		return nil, err
+	}
+	signed, err := signedDirectoryKeys(f, doc.Message, time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("resolvers: %w", err)
+	}
+	if len(signed.GetKeys()) != len(doc.Message.GetKeys()) {
+		return nil, fmt.Errorf("resolvers: %w: %d of %d listed keys signed the response at %s",
+			helpers.ErrDirectoryResponseUnsigned, len(signed.GetKeys()), len(doc.Message.GetKeys()), f.url)
+	}
+	return doc, nil
 }
 
 // ReadRevocationList fetches and checks the key revocation list at url, a
@@ -208,21 +235,88 @@ func ReadLicenseDocument(ctx context.Context, license *forav1.License, opts Read
 	return verifyLicenseDigest(license.GetUriDigest(), f)
 }
 
-// fetchWBAFile GETs base+WBADirectoryPath through client and decodes the WBAFile
-// leniently: an unknown member is a newer minor version, not a reason to stop
-// verifying. Any failure wraps ErrDirectoryUnavailable. It is the one read of a
-// directory WBAKeyResolver.fetchDirectory and the domain-keyed offer-key fetcher
+// fetchWBAFile GETs base+WBADirectoryPath through client, with no redirect, and
+// decodes the WBAFile leniently: an unknown member is a newer minor version, not a
+// reason to stop verifying. The media type must be WBADirectoryMediaType. The file
+// returned lists only the keys that signed the response (signedDirectoryKeys), so
+// no caller can hand out a key the directory did not sign for. Any failure wraps
+// ErrDirectoryUnavailable. It is the one read of a directory
+// WBAKeyResolver.fetchDirectory and the domain-keyed offer-key fetcher
 // (NewWBADirectoryFetcher) share, so the two never drift.
-func fetchWBAFile(ctx context.Context, client *http.Client, base string) (*forav1.WBAFile, error) {
-	f, err := fetchDocument(ctx, client, base+WBADirectoryPath)
+//
+// now is the clock the response signatures' windows are judged against.
+func fetchWBAFile(ctx context.Context, client *http.Client, base string, now time.Time) (*forav1.WBAFile, error) {
+	f, err := fetchDocumentNoRedirect(ctx, client, base+WBADirectoryPath)
 	if err != nil {
 		return nil, err
+	}
+	if f.mediaType != WBADirectoryMediaType {
+		return nil, fmt.Errorf("%w: %w: %s was served as %q", ErrDirectoryUnavailable, ErrMediaTypeRefused, f.url, f.mediaType)
 	}
 	var file forav1.WBAFile
 	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(f.body, &file); err != nil {
 		return nil, fmt.Errorf("%w: decode: %w", ErrDirectoryUnavailable, err)
 	}
-	return &file, nil
+	signed, err := signedDirectoryKeys(f, &file, now)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrDirectoryUnavailable, err)
+	}
+	return signed, nil
+}
+
+// signedDirectoryKeys returns a copy of file listing only the keys whose response
+// signature verifies, checked against the authority f was fetched from. A key that
+// is not an Ed25519 key cannot sign and is dropped with the rest. The error is a
+// response listing keys that cannot be checked at all: a Content-Digest that does
+// not match the body, or no response signature. A directory listing no key has
+// nothing to sign and is returned as it is.
+func signedDirectoryKeys(f fetchedDocument, file *forav1.WBAFile, now time.Time) (*forav1.WBAFile, error) {
+	if len(file.GetKeys()) == 0 {
+		return file, nil // nothing listed, so nothing to have signed
+	}
+	authority, err := requestAuthority(f.url)
+	if err != nil {
+		return nil, err
+	}
+	pubs := make([]ed25519.PublicKey, 0, len(file.GetKeys()))
+	for _, k := range file.GetKeys() {
+		if pub, perr := wbaPublicKey(k); perr == nil {
+			pubs = append(pubs, pub)
+		}
+	}
+	verified, err := helpers.VerifyDirectoryResponse(authority, f.header, f.body, pubs, now)
+	if err != nil {
+		return nil, err
+	}
+	out := proto.Clone(file).(*forav1.WBAFile)
+	out.Keys = out.Keys[:0]
+	for _, k := range file.GetKeys() {
+		pub, perr := wbaPublicKey(k)
+		if perr != nil {
+			continue
+		}
+		if tp, terr := helpers.Thumbprint(pub); terr == nil && verified[tp] {
+			out.Keys = append(out.Keys, k)
+		}
+	}
+	return out, nil
+}
+
+// requestAuthority is the RFC 9421 @authority of a fetch of rawURL: the host,
+// lowercased, with the port only when it is not the scheme's default.
+func requestAuthority(rawURL string) (string, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
+		return "", fmt.Errorf("%w: cannot derive the authority of %q", ErrDirectoryUnavailable, rawURL)
+	}
+	host, port := strings.ToLower(u.Hostname()), u.Port()
+	if strings.Contains(host, ":") {
+		host = "[" + host + "]"
+	}
+	if port == "" || (u.Scheme == "https" && port == "443") || (u.Scheme == "http" && port == "80") {
+		return host, nil
+	}
+	return host + ":" + port, nil
 }
 
 // fetchRevocationList GETs url through client and decodes the KeyRevocationList
@@ -320,6 +414,20 @@ type fetchedDocument struct {
 	url       string
 	body      []byte
 	mediaType string // the Content-Type essence, lowercased; "" when absent
+	header    http.Header
+}
+
+// errRedirectRefused fails a key-directory fetch that met a redirect. A directory
+// answers 200 itself: its address is the origin its signer committed to, and a
+// redirect would hand key lookup to another one.
+var errRedirectRefused = errors.New("resolvers: a key directory is never fetched through a redirect")
+
+// fetchDocumentNoRedirect is fetchDocument over a copy of client that refuses
+// every redirect, whatever policy the injected client carries.
+func fetchDocumentNoRedirect(ctx context.Context, client *http.Client, url string) (fetchedDocument, error) {
+	noRedirect := *client
+	noRedirect.CheckRedirect = func(*http.Request, []*http.Request) error { return errRedirectRefused }
+	return fetchDocument(ctx, &noRedirect, url)
 }
 
 // fetchDocument GETs url through client and returns the body and its media type
@@ -354,7 +462,9 @@ func fetchDocument(ctx context.Context, client *http.Client, url string) (fetche
 	if len(body) > maxWellKnownDocBytes {
 		return fetchedDocument{}, fmt.Errorf("%w: document exceeds the %d byte cap", ErrDirectoryUnavailable, maxWellKnownDocBytes)
 	}
-	return fetchedDocument{url: url, body: body, mediaType: mediaTypeEssence(resp.Header.Get("Content-Type"))}, nil
+	return fetchedDocument{
+		url: url, body: body, mediaType: mediaTypeEssence(resp.Header.Get("Content-Type")), header: resp.Header,
+	}, nil
 }
 
 // mediaTypeEssence is the type/subtype of a Content-Type value, lowercased, with

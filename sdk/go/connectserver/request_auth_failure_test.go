@@ -122,7 +122,7 @@ func TestRequestAuthFailure_EachReasonFromARealRefusal(t *testing.T) {
 			name:   "signed by a key the resolver does not know",
 			replay: newCountingReplayStore(),
 			call: func(u string) error {
-				_, err := foraconnect.NewClient(u, foraconnect.WithSigner(stranger.signer)).
+				_, err := foraconnect.NewClient(u, foraconnect.WithSigner(stranger.signer), foraconnect.WithSignatureAgent("https://agent.example")).
 					Discover(context.Background(), &forav1.ResourceQuery{})
 				return err
 			},
@@ -132,7 +132,7 @@ func TestRequestAuthFailure_EachReasonFromARealRefusal(t *testing.T) {
 			name:   "expired signature",
 			replay: newCountingReplayStore(),
 			call: func(u string) error {
-				_, err := foraconnect.NewClient(u, foraconnect.WithSigner(f.signer), window(now.Add(-time.Hour))).
+				_, err := foraconnect.NewClient(u, foraconnect.WithSigner(f.signer), foraconnect.WithSignatureAgent("https://agent.example"), window(now.Add(-time.Hour))).
 					Discover(context.Background(), &forav1.ResourceQuery{})
 				return err
 			},
@@ -142,7 +142,7 @@ func TestRequestAuthFailure_EachReasonFromARealRefusal(t *testing.T) {
 			name:   "signature created in the future",
 			replay: newCountingReplayStore(),
 			call: func(u string) error {
-				_, err := foraconnect.NewClient(u, foraconnect.WithSigner(f.signer), window(now.Add(time.Hour))).
+				_, err := foraconnect.NewClient(u, foraconnect.WithSigner(f.signer), foraconnect.WithSignatureAgent("https://agent.example"), window(now.Add(time.Hour))).
 					Discover(context.Background(), &forav1.ResourceQuery{})
 				return err
 			},
@@ -152,7 +152,7 @@ func TestRequestAuthFailure_EachReasonFromARealRefusal(t *testing.T) {
 			name:   "replayed signature",
 			replay: alwaysReplayStore{},
 			call: func(u string) error {
-				_, err := foraconnect.NewClient(u, foraconnect.WithSigner(f.signer)).
+				_, err := foraconnect.NewClient(u, foraconnect.WithSigner(f.signer), foraconnect.WithSignatureAgent("https://agent.example")).
 					Discover(context.Background(), &forav1.ResourceQuery{})
 				return err
 			},
@@ -183,7 +183,7 @@ func TestRequestAuthFailure_ASignedRequestCarriesNoRefusal(t *testing.T) {
 	f := newServerFixture(t)
 	srv := f.serve(t, newCountingReplayStore())
 
-	_, err := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(f.signer)).
+	_, err := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(f.signer), foraconnect.WithSignatureAgent("https://agent.example")).
 		Discover(context.Background(), &forav1.ResourceQuery{})
 	if err != nil {
 		t.Fatalf("a correctly signed request was refused: %v", err)

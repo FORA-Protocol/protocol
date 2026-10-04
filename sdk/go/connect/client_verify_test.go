@@ -266,7 +266,7 @@ func TestClientSign_RoundTripsThroughServerVerify(t *testing.T) {
 	replay := newMemReplayStore()
 	srv := newVerifyingServer(t, sig, replay, nil)
 
-	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()))
+	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()))
 
 	// Execute needs a VerifiedOffer; but this test only asserts transport
 	// acceptance, so a discover round-trip (empty offer set) is the minimal
@@ -314,7 +314,7 @@ func TestDiscover_SortsVerifiedAndRejected(t *testing.T) {
 	srv := newVerifyingServer(t, sig, replay, []*forav1.Offer{off.good, off.doctored})
 
 	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()),
 		foraconnect.WithOfferKey(off.exchangePub), // exchange offer-verifying key
 	)
 
@@ -364,7 +364,7 @@ func TestDiscover_MeteredOfferEstimateOptionalButPositive(t *testing.T) {
 		signedMeteredOffer(t, exPriv, "offer-zero-estimate", proto.Int32(0)),
 	})
 	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()),
 		foraconnect.WithOfferKey(exPub),
 	)
 
@@ -425,7 +425,7 @@ func TestDiscover_RejectsOfferWhoseTermCarriesPricing(t *testing.T) {
 
 	srv := newVerifyingServer(t, sig, newMemReplayStore(), []*forav1.Offer{unpriced, priced})
 	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()),
 		foraconnect.WithOfferKey(exPub),
 	)
 
@@ -455,7 +455,7 @@ func TestExecute_AcceptsVerifiedOffer(t *testing.T) {
 	srv := newVerifyingServer(t, sig, replay, []*forav1.Offer{off.good})
 
 	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()),
 		foraconnect.WithOfferKey(off.exchangePub),
 	)
 
@@ -489,7 +489,7 @@ func TestExecute_StampsProtocolVersion(t *testing.T) {
 	srv, origin := newVerifyingServerStub(t, sig, newMemReplayStore(), []*forav1.Offer{off.good})
 
 	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()),
 		foraconnect.WithOfferKey(off.exchangePub),
 	)
 
@@ -534,7 +534,7 @@ func TestRejectedOffer_RequiresUnsafeToExecute(t *testing.T) {
 	srv := newVerifyingServer(t, sig, replay, []*forav1.Offer{off.doctored})
 
 	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()),
 		foraconnect.WithOfferKey(off.exchangePub),
 	)
 
@@ -570,7 +570,7 @@ func TestWithVerification_StrictRejectsUnverifiable(t *testing.T) {
 
 	// No WithOfferKey → the client cannot resolve the exchange offer key, so even
 	// the genuinely-signed offer is UNVERIFIABLE and must be rejected under Strict.
-	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()))
+	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()))
 
 	res, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err != nil {
@@ -596,7 +596,7 @@ func TestWithVerification_OffSurfacesUnverified(t *testing.T) {
 	srv := newVerifyingServer(t, sig, replay, []*forav1.Offer{off.good})
 
 	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()),
 		foraconnect.WithVerification(core.Off), // loud, named opt-out
 	)
 

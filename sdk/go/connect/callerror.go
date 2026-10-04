@@ -6,6 +6,7 @@ import (
 	connectrpc "connectrpc.com/connect"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 	"github.com/FORA-Protocol/protocol/sdk/go/internal/failure"
 )
 
@@ -217,8 +218,8 @@ func sendError(op string, err error) error {
 }
 
 // localRefusal returns the CallError for a failure this client computed during the
-// round trip — a pre-signing hook it refused, or an answer strict decoding refused —
-// and nil for anything else. connect-go wraps an error a transport returns as
+// round trip — a pre-signing hook it refused, a request the signer refused to
+// sign, or an answer strict decoding refused — and nil for anything else. connect-go wraps an error a transport returns as
 // CodeUnavailable and passes an interceptor's through as given, so without this the
 // first would read as a peer that never answered and the second as an unclassified
 // failure.
@@ -226,6 +227,9 @@ func localRefusal(op string, err error) *CallError {
 	var hook *beforeSignError
 	if errors.As(err, &hook) {
 		return &CallError{Kind: CallMalformed, Op: op, Err: hook}
+	}
+	if signingRefused(err) {
+		return &CallError{Kind: CallMalformed, Op: op, Err: err}
 	}
 	var strict *strictDecodeError
 	if errors.As(err, &strict) {
@@ -239,4 +243,21 @@ func localRefusal(op string, err error) *CallError {
 		return out
 	}
 	return nil
+}
+
+// signingRefused reports whether err is the signer refusing the request before
+// anything was sent: no Signature-Agent origin configured (WithSignatureAgent), a
+// value that is not an https origin, a window longer than the profile allows, an
+// unusable label or nonce, or a request whose Signature-Agent cannot take another
+// member. Each is a malformed call, never a peer that did not answer.
+func signingRefused(err error) bool {
+	for _, sentinel := range []error{
+		helpers.ErrSignatureAgentRequired, helpers.ErrSignatureAgentNotOrigin, helpers.ErrSignatureLifetime,
+		helpers.ErrSignatureLabel, helpers.ErrSignatureAgentForm, helpers.ErrInvalidNonce,
+	} {
+		if errors.Is(err, sentinel) {
+			return true
+		}
+	}
+	return false
 }

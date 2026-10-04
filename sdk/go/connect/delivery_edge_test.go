@@ -87,7 +87,7 @@ func TestExecute_ReturnsEveryDeliveryURLAsIssued(t *testing.T) {
 	want := []string{unverifiableURL(t), cloudFrontURL}
 	srv := serveExchange(t, sig, &issuingExchange{urls: want})
 	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()))
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()))
 	offers := []core.VerifiedOffer{
 		signedOfferAt(t, "offer-1", "exchange.test", "USD"),
 		signedOfferAt(t, "offer-2", "exchange.test", "USD"),
@@ -139,7 +139,7 @@ func TestFetch_DialsTheURLAsGivenWithTheAgentProof(t *testing.T) {
 	}))
 	t.Cleanup(edge.Close)
 	client := foraconnect.NewClient("http://exchange.test", append(allowLoopback(t),
-		foraconnect.WithSigner(sig.signer), foraconnect.WithAgentKey(sig.pub))...)
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithAgentKey(sig.pub))...)
 	target := edge.URL + "/content/asset-2?Expires=4102444800&Signature=c2lnbmF0dXJl&Key-Pair-Id=K2JCJMDEHXQW5F"
 
 	content, err := client.Fetch(context.Background(), target)

@@ -69,7 +69,7 @@ func TestReportUsage_TransientResolveFailureIsUnreachable(t *testing.T) {
 
 	sig := newSigningFixture(t)
 	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
 
 	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      domain,
@@ -96,7 +96,7 @@ func TestReportUsage_NoAdvertisedEndpointIsNotSent(t *testing.T) {
 
 	sig := newSigningFixture(t)
 	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
 
 	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      strings.TrimPrefix(srv.URL, "http://"),
@@ -125,7 +125,7 @@ func TestReportUsage_UnacceptedManifestVersionIsNotSent(t *testing.T) {
 
 	sig := newSigningFixture(t)
 	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
 
 	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      strings.TrimPrefix(srv.URL, "http://"),
@@ -155,7 +155,7 @@ func TestSendError_ResourceExhaustedIsTooLarge(t *testing.T) {
 	}))
 
 	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
 
 	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      domain,
@@ -200,7 +200,7 @@ func TestSendError_CallerCancellationIsNotARefusal(t *testing.T) {
 	}()
 
 	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
 	_, err := client.ReportUsage(ctx, &forav1.UsageReport{
 		Exchange:      domain,
 		TransactionId: "txn-1",
@@ -235,7 +235,7 @@ func TestCallError_CarriesThePeersSentence(t *testing.T) {
 		domain, _ := selfAdvertisingExchange(t, sig, &recordingAccount{refuse: refusal})
 
 		client := foraconnect.NewClient("http://home.invalid",
-			append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+			append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
 		_, err := client.GetAccountStatus(context.Background(),
 			&forav1.GetAccountStatusRequest{Exchange: domain})
 
@@ -257,7 +257,7 @@ func TestCallError_CarriesThePeersSentence(t *testing.T) {
 			}))
 
 		client := foraconnect.NewClient("http://home.invalid",
-			append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+			append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
 		_, err := client.GetAccountStatus(context.Background(),
 			&forav1.GetAccountStatusRequest{Exchange: domain})
 
@@ -284,7 +284,7 @@ func TestCallError_CarriesThePeersSentence(t *testing.T) {
 
 		client := foraconnect.NewClient("http://home.invalid",
 			append(allowLoopback(t),
-				foraconnect.WithSigner(sig.signer),
+				foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
 				foraconnect.WithAgentKey(sig.pub),
 			)...)
 		_, err := client.Fetch(context.Background(), edge.URL+"/doc?agent_id=tp")

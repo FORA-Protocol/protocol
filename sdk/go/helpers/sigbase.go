@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/dunglas/httpsfv"
 )
 
 // RFC 9421 (HTTP Message Signatures) signature-base construction, shared by the
@@ -15,23 +17,30 @@ import (
 // sign→verify round-trip and what keeps this SDK byte-identical with the
 // service-internal implementation it relocates (ADR-020 §8).
 //
-// Coverage is the FORA-required set: @method and @target-uri (bind the verb and
-// destination so a signature cannot be replayed against another path),
-// content-digest (bind the body), and authorization (bind the bearer so a token
-// cannot be swapped under a signed envelope). x-entitlement-token is
-// bound additionally whenever it is present.
+// Coverage is the Web Bot Auth base plus the FORA RPC set: @method and
+// @target-uri (bind the verb and destination so a signature cannot be replayed
+// against another path), content-digest (bind the body), authorization (bind the
+// bearer so a token cannot be swapped under a signed envelope), and the
+// signature's own Signature-Agent member, "signature-agent";key="<label>" (bind
+// the key directory the keyid is resolved in). x-entitlement-token is bound
+// additionally whenever it is present.
 
-// ComponentParam is a single RFC 9421 §2.4 parameter on a covered-component
-// identifier — e.g. the key="sig1" on `"signature";key="sig1"`.
+// ComponentParam is a single RFC 9421 §2.1 parameter on a covered-component
+// identifier — e.g. the key="sig1" on `"signature-agent";key="sig1"`.
 type ComponentParam struct {
 	Key string
 	Val string
+	// Flag marks a parameter with no value, a Boolean true, such as the req on
+	// "@authority";req. Val is empty when it is set.
+	Flag bool
 }
 
 // CoveredComponent is one entry in a signature's covered-component set: a
 // component name plus any RFC 9421 component parameters. Plain components
-// (@method, content-digest, …) carry nil Params; a forwarding-chain link carries
-// a single {Key:"key", Val:"sigN-1"} param on Name "signature".
+// (@method, content-digest, …) carry nil Params; a dictionary member selected by
+// RFC 9421 §2.1.2 carries a single {Key:"key", Val:"<member>"} param — the
+// signature's own "signature-agent" member, or an earlier signature's
+// "signature" and "signature-input" members when a forwarder covers them.
 type CoveredComponent struct {
 	Name   string
 	Params []ComponentParam
@@ -68,6 +77,10 @@ func renderComponent(c CoveredComponent) string {
 	b.WriteString(c.Name)
 	b.WriteByte('"')
 	for _, p := range c.Params {
+		if p.Flag {
+			fmt.Fprintf(&b, ";%s", p.Key)
+			continue
+		}
 		fmt.Fprintf(&b, ";%s=%q", p.Key, p.Val)
 	}
 	return b.String()
@@ -82,6 +95,7 @@ type sigParams struct {
 	Created int64
 	Expires int64
 	Nonce   string
+	Tag     string
 	// RawInner is the VERBATIM member value from the wire Signature-Input
 	// (everything after "label="). RFC 9421 §2.5 terminates the signature base
 	// with this exact byte sequence — parameter order and spacing are the
@@ -91,9 +105,11 @@ type sigParams struct {
 	RawInner string
 }
 
-// requiredCoveredComponents is the minimum covered-component set (by name). The
-// entitlement-token header is appended conditionally (see coveredFor).
-var requiredCoveredComponents = []string{"@method", "@target-uri", "content-digest", "authorization", signatureAgentLower}
+// requiredCoveredComponents is the set a FORA RPC signature must cover beyond the
+// Web Bot Auth base, by name. The signature's Signature-Agent member is checked
+// on its own (signatureDirectory), and the entitlement-token header is required
+// conditionally (enforceEntitlementCoverage).
+var requiredCoveredComponents = []string{"@method", "@target-uri", "content-digest", "authorization"}
 
 // entitlementHeader is the canonical entitlement-token header (format-neutral —
 // the token inside is a JWT/opaque capability token; its format is out of scope
@@ -126,34 +142,60 @@ func ContentDigest(body []byte) string {
 	return "sha-256=:" + base64.StdEncoding.EncodeToString(sum[:]) + ":"
 }
 
-// coveredFor returns the covered-component set for a request: the FORA minimum
-// plus the entitlement-token header when it is populated on req. All names are
-// lowercase so the rendered byte output is preserved.
-func coveredFor(req *http.Request) []CoveredComponent {
-	names := append([]string(nil), requiredCoveredComponents...)
+// coveredFor returns the covered-component set for a signature labelled label:
+// the FORA RPC set, the signature's own Signature-Agent member, and the
+// entitlement-token header when it is populated on req. All names are lowercase
+// so the rendered byte output is preserved.
+func coveredFor(req *http.Request, label string) []CoveredComponent {
+	covered := append(plainComponents(requiredCoveredComponents...), signatureAgentComponent(label))
 	// Read the same way the verify gate reads it. A signer resolving this with Get
 	// would leave the header UNCOVERED whenever an empty line precedes a real one,
 	// binding a value it never committed to — the sign-side half of the same shadow.
 	if entitlementValue(req.Header) != "" {
-		names = append(names, entitlementHeaderLower)
-	}
-	return plainComponents(names...)
-}
-
-// foraChainCoveredComponents returns the covered set for an appended signature
-// (sigN, N>1): the base set plus a forwarding-chain link
-// "signature";key="<prevLabel>" so sigN cryptographically commits to its
-// predecessor (RFC 9421 §2.4). When hasPrev is false it degrades to the
-// plain base set — identical to a sig1 covered set.
-func foraChainCoveredComponents(req *http.Request, prevLabel string, hasPrev bool) []CoveredComponent {
-	covered := coveredFor(req)
-	if hasPrev {
-		covered = append(covered, CoveredComponent{
-			Name:   "signature",
-			Params: []ComponentParam{{Key: "key", Val: prevLabel}},
-		})
+		covered = append(covered, CoveredComponent{Name: entitlementHeaderLower})
 	}
 	return covered
+}
+
+// coverEarlier extends own, the covered set of a new signature, to cover the
+// earlier signature prev under WG-00 §5.2.2: every component prev lists that own
+// does not already cover, then "signature";key=<prev> and
+// "signature-input";key=<prev>. A party may do this only when it forwards the
+// request unchanged in every component prev covers.
+func coverEarlier(own []CoveredComponent, prev sigParams) []CoveredComponent {
+	out := append([]CoveredComponent(nil), own...)
+	for _, c := range prev.Covered {
+		if !coversComponent(out, c) {
+			out = append(out, c)
+		}
+	}
+	link := []ComponentParam{{Key: "key", Val: prev.Label}}
+	return append(out,
+		CoveredComponent{Name: "signature", Params: link},
+		CoveredComponent{Name: "signature-input", Params: link})
+}
+
+// coversComponent reports whether set contains c: the same name, compared
+// case-insensitively, and the same parameters in the same order.
+func coversComponent(set []CoveredComponent, c CoveredComponent) bool {
+	for _, s := range set {
+		if sameComponent(s, c) {
+			return true
+		}
+	}
+	return false
+}
+
+func sameComponent(a, b CoveredComponent) bool {
+	if !strings.EqualFold(a.Name, b.Name) || len(a.Params) != len(b.Params) {
+		return false
+	}
+	for i := range a.Params {
+		if a.Params[i] != b.Params[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // buildSignatureBase assembles the RFC 9421 §2.5 signature base over the
@@ -196,30 +238,41 @@ func quotedList(items []CoveredComponent) string {
 	return strings.Join(parts, " ")
 }
 
+// renderParamsTail renders the signature parameters in the order the Web Bot Auth
+// profile's examples use: created, expires, keyid, alg, nonce, tag. The order is
+// the signer's choice (a verifier rebuilds the base from the parameters as
+// received), and the three SDKs make the same one so their signatures agree byte
+// for byte.
 func renderParamsTail(p sigParams) string {
 	var b strings.Builder
-	if p.KeyID != "" {
-		fmt.Fprintf(&b, ";keyid=%q", p.KeyID)
-	}
-	if p.Alg != "" {
-		fmt.Fprintf(&b, ";alg=%q", p.Alg)
-	}
 	if p.Created != 0 {
 		fmt.Fprintf(&b, ";created=%d", p.Created)
 	}
 	if p.Expires != 0 {
 		fmt.Fprintf(&b, ";expires=%d", p.Expires)
 	}
+	if p.KeyID != "" {
+		fmt.Fprintf(&b, ";keyid=%q", p.KeyID)
+	}
+	if p.Alg != "" {
+		fmt.Fprintf(&b, ";alg=%q", p.Alg)
+	}
 	if p.Nonce != "" {
 		fmt.Fprintf(&b, ";nonce=\"%s\"", p.Nonce)
+	}
+	if p.Tag != "" {
+		fmt.Fprintf(&b, ";tag=%q", p.Tag)
 	}
 	return b.String()
 }
 
 // componentValue yields the canonicalized value for a covered component:
-// @method, @path, @authority, @target-uri, the RFC 9421 §2.4 "signature";key=…
-// forwarding-chain link, or any literal request header.
+// @method, @path, @authority, @target-uri, a dictionary member a "key" parameter
+// selects (RFC 9421 §2.1.2), or any literal request header.
 func componentValue(req *http.Request, c CoveredComponent) (string, error) {
+	if len(c.Params) > 0 {
+		return memberValue(req, c)
+	}
 	switch strings.ToLower(c.Name) {
 	case "@method":
 		return strings.ToUpper(req.Method), nil
@@ -243,8 +296,6 @@ func componentValue(req *http.Request, c CoveredComponent) (string, error) {
 			return "", fmt.Errorf("helpers: request URL unset for @target-uri")
 		}
 		return reconstructTargetURI(req), nil
-	case "signature":
-		return chainLinkValue(req, c)
 	default:
 		// Values (not Get) so an explicitly-set empty header (bound
 		// intentionally) is distinguished from an absent one.
@@ -256,22 +307,35 @@ func componentValue(req *http.Request, c CoveredComponent) (string, error) {
 	}
 }
 
-// chainLinkValue resolves a "signature";key="sigN" component to the canonical
-// RFC 8941 byte-sequence serialization of the referenced Signature dictionary
-// member: :base64(bytes):. It decodes the referenced member to raw bytes and
-// re-encodes canonically (base64.StdEncoding) rather than splicing the raw wire
-// substring, so signer and verifier agree byte-for-byte regardless of incidental
-// whitespace around the member on the wire.
-func chainLinkValue(req *http.Request, c CoveredComponent) (string, error) {
-	key := componentParam(c, "key")
-	if key == "" {
-		return "", fmt.Errorf("%w: signature component missing key param", ErrMalformedSignatureInput)
+// memberValue resolves a header component carrying a "key" parameter to the
+// canonical structured-field serialization of the dictionary member it names
+// (RFC 9421 §2.1.2): the String of a Signature-Agent member with its parameters,
+// the byte sequence of a Signature member, the inner list of a Signature-Input
+// member. Serializing the parsed member, rather than splicing the wire substring,
+// makes signer and verifier agree byte for byte however the member was spaced on
+// the wire. No other component parameter is supported.
+func memberValue(req *http.Request, c CoveredComponent) (string, error) {
+	if strings.HasPrefix(c.Name, "@") || len(c.Params) != 1 || c.Params[0].Key != "key" || c.Params[0].Flag {
+		return "", fmt.Errorf("%w: unsupported component parameters on %q", ErrMalformedSignatureInput, c.Name)
 	}
-	prevBytes, err := signatureBytesForLabel(req.Header, key)
+	key := c.Params[0].Val
+	values := req.Header.Values(http.CanonicalHeaderKey(c.Name))
+	if len(values) == 0 {
+		return "", fmt.Errorf("helpers: header %q missing from request", c.Name)
+	}
+	dict, err := httpsfv.UnmarshalDictionary(values)
 	if err != nil {
-		return "", fmt.Errorf("helpers: resolve chain link %q: %w", key, err)
+		return "", fmt.Errorf("%w: %s is not a dictionary: %w", ErrMalformedSignatureInput, c.Name, err)
 	}
-	return ":" + base64.StdEncoding.EncodeToString(prevBytes) + ":", nil
+	member, ok := dict.Get(key)
+	if !ok {
+		return "", fmt.Errorf("%w: %s has no member %q", ErrMalformedSignatureInput, c.Name, key)
+	}
+	out, err := httpsfv.Marshal(member)
+	if err != nil {
+		return "", fmt.Errorf("%w: serialize %s member %q: %w", ErrMalformedSignatureInput, c.Name, key, err)
+	}
+	return out, nil
 }
 
 // reconstructTargetURI builds an absolute-form target URI from either an

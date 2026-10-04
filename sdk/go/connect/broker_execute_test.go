@@ -100,7 +100,7 @@ func signedOfferAt(t *testing.T, id, exchange, currency string) core.VerifiedOff
 
 func brokerClient(srvURL string, sig signingFixture, extra ...foraconnect.ClientOption) *foraconnect.BrokerClient {
 	opts := append([]foraconnect.ClientOption{
-		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
 		foraconnect.WithSignatureAgent(agentDirectory),
 		foraconnect.WithRequester(testRequester()),
 	}, extra...)
@@ -306,7 +306,7 @@ func TestExecuteBatch_OneExchangeOnly(t *testing.T) {
 	origin := &recordingExecute{}
 	srv := serveExchange(t, sig, origin)
 	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()))
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()))
 
 	same := []core.VerifiedOffer{
 		signedOfferAt(t, "offer-1", "exchange.test", "USD"),

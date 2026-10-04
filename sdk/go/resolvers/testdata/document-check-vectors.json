@@ -167,14 +167,14 @@
       "document": "wba_directory",
       "content_type": "application/jwk-set+json",
       "body": "{\"keys\":[{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"use\":\"sig\",\"alg\":\"EdDSA\",\"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\",\"not_before\":\"2026-05-01T00:00:00Z\",\"not_after\":\"2027-05-01T00:00:00Z\"}],\"revocation_url\":\"https://agent.example/.well-known/fora-key-revocations.json\"}",
-      "verdict": "ok"
+      "verdict": "media_type"
     },
     {
       "label": "wba-empty",
       "document": "wba_directory",
       "content_type": "application/jwk-set+json",
       "body": "{}",
-      "verdict": "ok"
+      "verdict": "media_type"
     },
     {
       "label": "wba-media-type-json",
@@ -188,35 +188,35 @@
       "document": "wba_directory",
       "content_type": "application/http-message-signatures-directory+json",
       "body": "{\"keys\":[{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"use\":\"sig\",\"alg\":\"EdDSA\",\"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\",\"not_before\":\"2026-05-01T00:00:00Z\",\"not_after\":\"2027-05-01T00:00:00Z\"}]}",
-      "verdict": "media_type"
+      "verdict": "ok"
     },
     {
       "label": "wba-key-with-kid",
       "document": "wba_directory",
       "content_type": "application/jwk-set+json",
       "body": "{\"keys\":[{\"kid\":\"k1\",\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\"}]}",
-      "verdict": "strict"
+      "verdict": "media_type"
     },
     {
       "label": "wba-keys-not-array",
       "document": "wba_directory",
       "content_type": "application/jwk-set+json",
       "body": "{\"keys\":{}}",
-      "verdict": "strict"
+      "verdict": "media_type"
     },
     {
       "label": "wba-lower-camel-member",
       "document": "wba_directory",
       "content_type": "application/jwk-set+json",
       "body": "{\"revocationUrl\":\"https://agent.example/revoked.json\"}",
-      "verdict": "strict"
+      "verdict": "media_type"
     },
     {
       "label": "wba-not-json",
       "document": "wba_directory",
       "content_type": "application/jwk-set+json",
       "body": "keys",
-      "verdict": "undecodable"
+      "verdict": "media_type"
     },
     {
       "label": "revocation-ok",

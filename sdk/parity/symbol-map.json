@@ -86,7 +86,7 @@
     "helpers.AudienceMalformed": "Member of the mapped helpers.AudienceVerdict vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared audience corpus pins the token every language must answer.",
     "helpers.AudienceMismatch": "Member of the mapped helpers.AudienceVerdict vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared audience corpus pins the token every language must answer.",
     "helpers.AudienceNoVerdict": "Member of the mapped helpers.AudienceVerdict vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared audience corpus pins the token every language must answer.",
-    "helpers.BrokerKeyIDPrefix": "Relay keyID wire-prefix constant; inlined per language.",
+    "helpers.BrokerKeyIDPrefix": "Deprecated Go constant kept for the v1 module surface; keyids are RFC 7638 thumbprints and nothing reads a relay prefix, so py/ts have no counterpart.",
     "helpers.CheckRegistrationDataStruct": "Go-only raw-Struct face of the mapped helpers.CheckRegistrationData, and deliberately absent from the ports: it exists because a payload with NO JSON REPRESENTATION loses the evidence for that when Go converts a Struct to a map. The class has two members and the conversion erases both — a non-finite number becomes the string \"NaN\", \"Infinity\" or \"-Infinity\", which a payload may also carry legitimately, and a Value with no member of its kind oneof set becomes nil, which is also what a real JSON null gives — so the check has to run before the conversion. Python and TypeScript are handed a decoded object rather than protobuf nodes: it keeps the real float, so their check_registration_data / checkRegistrationData already see the non-finite member, and the unset-kind member has no spelling in either language. A second entry point there would be an alias with nothing to do. The verdict vocabulary is what the three share, and the registration-schema corpus pins it; neither member has a vector in any language, because JSON cannot write either value down.",
     "helpers.CheckStrictMessage": "Go check of an already-decoded proto.Message, which is how the Go client holds a binary answer and every ErrorDetail; py/ts hold only proto-JSON, so check_strict/checkStrict over the decoded JSON is the whole of their check and there is no message object to pass.",
     "helpers.ComponentParam": "Go value type for an RFC 9421 covered-component parameter; py/ts model components inline.",
@@ -198,7 +198,18 @@
     "resolvers.NewGuardedTransport": "Go constructor composing the SSRF guard over a caller's base transport; py/ts expose their guarded fetch as a single factory with no separable base.",
     "resolvers.ProofSigner": "Go interface seam that keeps key custody out of the dialing tier; py/ts inject a signing callable instead of a named interface.",
     "resolvers.ReadOptions": "Go options struct for the document readers; Python takes the same values as keyword arguments (http=, scheme=) and TS as an options object (ReadDocumentOptions).",
-    "resolvers.SSRFCheckRedirect": "Go redirect-policy hook; py/ts fold redirect checks into the guard (async_ssrf_guard / the guarded fetch)."
+    "resolvers.SSRFCheckRedirect": "Go redirect-policy hook; py/ts fold redirect checks into the guard (async_ssrf_guard / the guarded fetch).",
+    "helpers.ErrSignatureTag": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
+    "helpers.ErrSignatureAgentForm": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
+    "helpers.ErrSignatureAgentNotOrigin": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
+    "helpers.ErrSignatureAgentRequired": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
+    "helpers.ErrSignatureLabel": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
+    "helpers.ErrSignatureLifetime": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
+    "helpers.ErrDirectoryResponseUnsigned": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
+    "helpers.MissingComponentError": "Go typed error behind errors.Is(ErrMissingRequiredComponent); py/ts report the refusal as a reason token and carry the Accept-Signature value on the verdict.",
+    "helpers.AcceptSignatureFor": "Go maps a verification error to its Accept-Signature value; py/ts carry the value on the verification verdict (accept_signature / acceptSignature), so no error-to-value function exists to mirror.",
+    "core.WithSignerSource": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
+    "core.WithCoverPrevious": "Go functional-option builder; py/ts pass options via kwargs/options objects."
   },
   "symbols": {
     "connect.AdminClient": {
@@ -1178,6 +1189,56 @@
       "allowlist_reason": null,
       "python": "PROFILE_ID",
       "ts": "ProfileID"
+    },
+    "helpers.WBATag": {
+      "allowlist_reason": null,
+      "python": "WBATag",
+      "ts": "WBATag"
+    },
+    "helpers.DirectoryResponseTag": {
+      "allowlist_reason": null,
+      "python": "DirectoryResponseTag",
+      "ts": "DirectoryResponseTag"
+    },
+    "helpers.AcceptSignatureHeader": {
+      "allowlist_reason": null,
+      "python": "AcceptSignatureHeader",
+      "ts": "AcceptSignatureHeader"
+    },
+    "helpers.MaxSignatureLifetime": {
+      "allowlist_reason": null,
+      "python": "MAX_SIGNATURE_LIFETIME",
+      "ts": "MAX_SIGNATURE_LIFETIME"
+    },
+    "helpers.CheckHTTPSOrigin": {
+      "allowlist_reason": null,
+      "python": "check_https_origin",
+      "ts": "checkHttpsOrigin"
+    },
+    "helpers.AcceptSignature": {
+      "allowlist_reason": null,
+      "python": "accept_signature",
+      "ts": "acceptSignature"
+    },
+    "helpers.SignDirectoryResponse": {
+      "allowlist_reason": null,
+      "python": "sign_directory_response",
+      "ts": "signDirectoryResponse"
+    },
+    "helpers.VerifyDirectoryResponse": {
+      "allowlist_reason": null,
+      "python": "verify_directory_response",
+      "ts": "verifyDirectoryResponse"
+    },
+    "helpers.DirectoryResponseSignature": {
+      "allowlist_reason": null,
+      "python": "DirectoryResponseSignature",
+      "ts": "DirectoryResponseSignature"
+    },
+    "core.SignerSource": {
+      "allowlist_reason": null,
+      "python": "SignerSource",
+      "ts": "SignerSource"
     }
   }
 }

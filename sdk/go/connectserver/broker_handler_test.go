@@ -123,7 +123,7 @@ func TestServerVerify_ContextPopulated(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
-	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(signer))
+	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(signer), foraconnect.WithSignatureAgent("https://agent.example"))
 	if _, err := client.Discover(context.Background(), &forav1.ResourceQuery{}); err != nil {
 		t.Fatalf("Discover: %v", err)
 	}

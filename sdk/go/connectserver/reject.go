@@ -102,7 +102,10 @@ func httpStatus(code connectrpc.Code, err error) int {
 //
 // It answers the verify seam's two verdicts. ResourceExhausted is a resource or
 // policy limit — 413 for a body past the read cap, 429 otherwise; Unauthenticated is
-// 401. Any other Connect code is answered 401 as well, and the body still reports the
+// 401, and carries an Accept-Signature header naming the components and form the
+// profile requires when the request was unsigned, a signature omits a required
+// component, or its tag or Signature-Agent form is refused
+// (helpers.AcceptSignatureFor). Any other Connect code is answered 401 as well, and the body still reports the
 // code the caller passed: this is a REJECTION writer, not a code→status table, and it
 // refuses rather than translating a verdict it does not model. connect-go keeps the
 // canonical table unexported, so a copy of it here would be the second authority this
@@ -118,6 +121,14 @@ func WriteReject(w http.ResponseWriter, code connectrpc.Code, err error) {
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
+	if code == connectrpc.CodeUnauthenticated {
+		// WG-00 §5.3: a refusal for a missing component or a form the profile does
+		// not accept names what the verifier requires, so a Web Bot Auth library
+		// can add the components and sign again.
+		if accept, ok := helpers.AcceptSignatureFor(err); ok {
+			w.Header().Set(helpers.AcceptSignatureHeader, accept)
+		}
+	}
 	w.WriteHeader(httpStatus(code, err))
 	body, _ := json.Marshal(out)
 	_, _ = w.Write(body)

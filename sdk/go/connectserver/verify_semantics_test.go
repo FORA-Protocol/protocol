@@ -92,7 +92,7 @@ func signedDiscover(t *testing.T, srvURL string, f serverFixture, body []byte, c
 		t.Fatal(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if err := helpers.SignRequest(context.Background(), req, body, f.signer, helpers.SignOptions{Created: created, Expires: expires}); err != nil {
+	if err := helpers.SignRequest(context.Background(), req, body, f.signer, helpers.SignOptions{Created: created, Expires: expires, SignatureAgent: "https://agent.example"}); err != nil {
 		t.Fatalf("SignRequest: %v", err)
 	}
 	req.Body = io.NopCloser(bytes.NewReader(body))

@@ -33,9 +33,10 @@ func ClockWindow(now func() time.Time, ttl time.Duration) Window {
 // same wall-clock second, bumps expires by one second per call so no two
 // back-to-back signatures share a (keyid, expires) pair. The signing transport
 // no longer needs this for uniqueness: every signature carries a fresh nonce,
-// so ClockWindow is enough. Note that during a burst expires − created grows
-// past ttl, which a verifier with WithMaxSignatureAge(ttl) refuses. created tracks
-// now() — the pair stays clock-consistent for any caller that reads created.
+// so ClockWindow is enough. created moves with expires, so the window is always
+// exactly ttl and never exceeds the Web Bot Auth limit when ttl is at most
+// helpers.MaxSignatureLifetime; during a burst created leads the clock by the
+// burst's length in seconds, which a verifier's future-skew allowance absorbs.
 // Safe for concurrent RoundTrips: the running maximum is held in an atomic
 // updated by compare-and-swap. To adapt an application clock interface with a
 // Now() method, pass the method value: MonotonicWindow(clk.Now, ttl).
@@ -56,7 +57,7 @@ func MonotonicWindow(now func() time.Time, ttl time.Duration) Window {
 				next = prev + 1
 			}
 			if lastExpires.CompareAndSwap(prev, next) {
-				return n.Unix(), next
+				return next - int64(ttl.Seconds()), next
 			}
 		}
 	}

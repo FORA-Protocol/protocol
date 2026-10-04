@@ -2,7 +2,9 @@ package resolvers_test
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"net/http"
@@ -29,6 +31,9 @@ type served struct {
 	body        string
 	contentType string // "" sends no Content-Type
 	status      int
+	// signed answers as a key directory: signed by every listed key a test
+	// registered, under the profile's media type (writeSignedDirectory).
+	signed bool
 }
 
 // documentOrigin serves each path's document verbatim, under the label given.
@@ -38,6 +43,10 @@ func documentOrigin(t *testing.T, docs map[string]served) *httptest.Server {
 		doc, ok := docs[r.URL.Path]
 		if !ok {
 			http.NotFound(w, r)
+			return
+		}
+		if doc.signed {
+			writeSignedDirectory(w, r, []byte(doc.body))
 			return
 		}
 		if doc.contentType != "" {
@@ -134,10 +143,16 @@ func TestReadManifestDialsThroughTheGuards(t *testing.T) {
 
 const readerJWK = `{"kty":"OKP","crv":"Ed25519","use":"sig","alg":"EdDSA","x":"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo","not_before":"2026-05-01T00:00:00Z","not_after":"2027-05-01T00:00:00Z"}`
 
+func init() {
+	// The private half of readerJWK, the RFC 8037 Appendix A test key.
+	seed, _ := base64.RawURLEncoding.DecodeString("nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A")
+	registerDirectoryKey(ed25519.NewKeyFromSeed(seed))
+}
+
 func TestReadWBADirectoryByDomainAndByURL(t *testing.T) {
 	sandbox(t)
 	srv := documentOrigin(t, map[string]served{
-		resolvers.WBADirectoryPath: {body: `{"keys":[` + readerJWK + `]}`, contentType: resolvers.WBADirectoryMediaType},
+		resolvers.WBADirectoryPath: {body: `{"keys":[` + readerJWK + `]}`, signed: true},
 	})
 	for _, ref := range []string{hostOf(t, srv), srv.URL + resolvers.WBADirectoryPath} {
 		doc, err := resolvers.ReadWBADirectory(context.Background(), ref, plain)
@@ -150,6 +165,28 @@ func TestReadWBADirectoryByDomainAndByURL(t *testing.T) {
 	}
 }
 
+// TestReadWBADirectoryRefusesARedirect: a key directory answers 200 itself. A
+// redirect fails the fetch even when it leads to a well-formed, signed directory,
+// while a revocation list or a manifest may still follow one.
+func TestReadWBADirectoryRefusesARedirect(t *testing.T) {
+	sandbox(t)
+	mux := http.NewServeMux()
+	mux.HandleFunc(resolvers.WBADirectoryPath, func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/elsewhere", http.StatusFound)
+	})
+	mux.HandleFunc("/elsewhere", func(w http.ResponseWriter, r *http.Request) {
+		writeSignedDirectory(w, r, []byte(`{"keys":[`+readerJWK+`]}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	if _, err := resolvers.ReadWBADirectory(context.Background(), hostOf(t, srv), plain); !errors.Is(err, resolvers.ErrDirectoryUnavailable) {
+		t.Fatalf("ReadWBADirectory through a redirect: err = %v, want ErrDirectoryUnavailable", err)
+	}
+	if _, err := resolvers.ReadWBADirectory(context.Background(), srv.URL+"/elsewhere", plain); err != nil {
+		t.Fatalf("the same document fetched directly: %v", err)
+	}
+}
+
 func TestReadWBADirectoryRefusals(t *testing.T) {
 	cases := []struct {
 		name string
@@ -157,6 +194,11 @@ func TestReadWBADirectoryRefusals(t *testing.T) {
 		want error
 	}{
 		{"plain json", served{body: `{"keys":[` + readerJWK + `]}`, contentType: "application/json"}, resolvers.ErrMediaTypeRefused},
+		// The JWK Set type the v1.0.8 reference directories served is not the
+		// profile's: there is no transition window for it.
+		{"the JWK Set media type", served{body: `{"keys":[` + readerJWK + `]}`, contentType: "application/jwk-set+json"}, resolvers.ErrMediaTypeRefused},
+		// A directory whose response no listed key signed.
+		{"unsigned response", served{body: `{"keys":[` + readerJWK + `]}`, contentType: resolvers.WBADirectoryMediaType}, helpers.ErrDirectoryResponseUnsigned},
 		{"key carrying a kid", served{body: `{"keys":[{"kid":"k1","kty":"OKP"}]}`, contentType: resolvers.WBADirectoryMediaType}, helpers.ErrStrictViolation},
 		{"lower camel member", served{body: `{"revocationUrl":"https://agent.example/r.json"}`, contentType: resolvers.WBADirectoryMediaType}, helpers.ErrStrictViolation},
 	}
