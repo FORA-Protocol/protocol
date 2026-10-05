@@ -40,6 +40,7 @@
     "./hono": "./sdk/ts/hono/middleware.ts",
     "./acceptance": "./sdk/ts/src/acceptance.ts",
     "./resolvers": "./sdk/ts/resolvers/index.ts",
+    "./resolvers/edge": "./sdk/ts/resolvers/edge.ts",
     "./client": "./sdk/ts/client/index.ts",
     "./jsonschema/*": "./gen/jsonschema/*"
   },
