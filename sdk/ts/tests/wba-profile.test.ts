@@ -306,6 +306,15 @@ describe("verifyAgentBinding accepts a covered set that includes the profile's",
 		});
 	});
 
+	it("refuses a proof covering x-missing-header, which the request never carried, as bad_covered_components with Accept-Signature", async () => {
+		const covered = [plain("@method"), plain("@target-uri"), member, plain("x-missing-header")];
+		expect(await proofFor(covered)).toEqual({
+			ok: false,
+			reason: "bad_covered_components",
+			acceptSignature: POP_ACCEPT_SIGNATURE,
+		});
+	});
+
 	it("refuses a covered Signature-Agent the request no longer carries as bad_covered_components", async () => {
 		const result = await proofFor([plain("@method"), plain("@target-uri"), member], (h) => h.delete("signature-agent"));
 		expect(result).toEqual({ ok: false, reason: "bad_covered_components", acceptSignature: POP_ACCEPT_SIGNATURE });

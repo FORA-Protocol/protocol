@@ -19,6 +19,7 @@ import type { AddressInfo } from "node:net";
 import { WBAFileSchema } from "../../../gen/ts/wire/schemas.ts";
 import { signDirectoryResponse } from "../core/directory-response.ts";
 import { WBA_DIRECTORY_MEDIA_TYPE } from "../resolvers/documents.ts";
+import type { FetchLike } from "../resolvers/fetch.ts";
 import { decodeBase64Url } from "../src/base64url.ts";
 import { thumbprint } from "../src/thumbprint.ts";
 import { WellKnownManifestVersion } from "../src/wire.ts";
@@ -320,6 +321,17 @@ export const loopbackFetch = (
 	url: string,
 ): Promise<{ status: number; text(): Promise<string> }> =>
 	fetch(url) as unknown as Promise<{ status: number; text(): Promise<string> }>;
+
+/** A real fetch for the WBA key resolver, which always requests a directory over
+ * https: a bare host is prefixed with https:// and there is no option to fetch an https
+ * origin any other way. The in-process origins listen in plaintext, so this routes an
+ * https request for a 127.0.0.1 origin to that origin's plaintext listener, leaving the
+ * host (and so the response signatures' @authority) unchanged. Every other URL is
+ * fetched as given. A redirect: "manual" request is passed on, so the global fetch
+ * answers a 3xx itself. Only the test dials plaintext; the resolver never builds an
+ * http URL for an https reference. */
+export const httpsToLoopback: FetchLike = (url, init) =>
+	fetch(url.replace(/^https:\/\/127\.0\.0\.1:/, "http://127.0.0.1:"), init?.redirect === "manual" ? { redirect: "manual" } : {});
 
 // Parsed-WBAFile builders. These mirror the inline helpers the active-key
 // behavior suite uses, hoisted here so the offer-key-cache suite consumes a
