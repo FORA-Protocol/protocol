@@ -192,8 +192,6 @@ def test_a_window_longer_than_five_minutes_signs_nothing() -> None:
         _send(transport)
 
 
-def test_the_monotonic_window_keeps_every_window_at_its_ttl() -> None:
+def test_the_monotonic_window_signs_at_the_clock_time() -> None:
     window = monotonic_window(lambda: float(_CREATED), 300)
-    pairs = [window() for _ in range(3)]
-    assert [expires for _, expires in pairs] == [_EXPIRES, _EXPIRES + 1, _EXPIRES + 2]
-    assert all(expires - created == 300 for created, expires in pairs)
+    assert [window() for _ in range(3)] == [(_CREATED, _EXPIRES)] * 3

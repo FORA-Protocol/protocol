@@ -8,18 +8,14 @@ Two faces:
     (MUST int()-truncate — Go .Unix() floors; the current SigningTransport
      mint uses int(self._now()); an un-truncated default would change signature
      bytes).
-  - monotonic_window(now, ttl_sec): expires strictly increases across a burst
-    within one wall-clock second, so no two back-to-back signatures share an
-    expires cutoff, and created moves with it so every window is exactly ttl_sec
-    (the Web Bot Auth limit is never exceeded during a burst).
-
-RED now purely because ``fora_sdk.window`` does not exist yet.
+  - monotonic_window(now, ttl_sec): deprecated, and the same as clock_window: it
+    signs at the clock's current time, never ahead of it. The 64-byte nonce, not the
+    window, makes each signature unique.
 """
 
 from __future__ import annotations
 
-# RED: sdk/python/fora_sdk/window.py does not exist yet (TDD red — missing face).
-from fora_sdk.window import clock_window, monotonic_window  # type: ignore[import-not-found]
+from fora_sdk.window import clock_window, monotonic_window
 
 
 def test_clock_window_truncates_created_and_adds_ttl() -> None:
@@ -40,19 +36,8 @@ def test_clock_window_reads_clock_each_call() -> None:
     assert w() == (2_000, 2_060)
 
 
-def test_monotonic_window_strictly_increases_expires_within_one_second() -> None:
-    w = monotonic_window(lambda: 1_700_000_000, 600)  # frozen wall-clock second
-    first = w()
-    second = w()
-    third = w()
-    assert first[0] == 1_700_000_000  # the first window starts at now()
-    assert second[1] > first[1]
-    assert third[1] > second[1]
-    # created moves with expires: every window is exactly the ttl.
-    assert {expires - created for created, expires in (first, second, third)} == {600}
-
-
-def test_monotonic_window_never_repeats_expires_across_burst() -> None:
-    w = monotonic_window(lambda: 1_700_000_000, 600)
-    seen = {w()[1] for _ in range(100)}
-    assert len(seen) == 100
+def test_monotonic_window_never_stamps_ahead_of_the_clock() -> None:
+    # A thousand calls inside one frozen second: every one is stamped at the clock's
+    # time. The old forward shift stamped the last one 999 seconds in the future.
+    w = monotonic_window(lambda: 1_700_000_000.5, 300)
+    assert {w() for _ in range(1000)} == {(1_700_000_000, 1_700_000_300)}

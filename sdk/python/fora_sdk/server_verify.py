@@ -168,7 +168,9 @@ def verify_multisig_request_server(
     """Verify EVERY signature on an inbound FORA request; return a reason-tagged verdict.
 
     The hop budget comes FIRST (``hop_budget``; every signature counts, 0 / omitted
-    means unbounded), then the completeness of every coverage of an earlier signature
+    means unbounded; an Exchange passes the ``max_intermediary_hops`` it publishes,
+    whose refusal the protocol answers with ``resource_exhausted``, HTTP 429), then
+    the completeness of every coverage of an earlier signature
     (``broken_chain``: a signature covering ``"signature";key=X`` must cover
     ``"signature-input";key=X`` and every component X lists, and X must appear earlier),
     then each signature on its own (``signature``) — the precedence of Go

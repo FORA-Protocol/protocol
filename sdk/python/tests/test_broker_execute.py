@@ -93,7 +93,7 @@ _MIXED_ANSWER: dict[str, Any] = {
         {
             "offer_id": "b1",
             "refusal": {
-                "exchange": "exchange-b.test",
+                "party": "exchange-b.test",
                 "code": "permission_denied",
                 "detail": {
                     "domain": "fora.v1.ExchangeService",
@@ -167,7 +167,7 @@ def test_a_mixed_batch_is_one_signed_request_and_the_combined_answer_decodes(fac
     refusal = items[1].refusal
     assert refusal is not None
     assert refusal.code == "permission_denied"
-    assert refusal.exchange == "exchange-b.test"
+    assert refusal.party == "exchange-b.test"
     assert refusal.detail.transaction_denial.reason.value == "DENIAL_REASON_ACCOUNT_NOT_REGISTERED"
     assert items[2].transaction_id == "tx-a2"
     # Per-currency totals stay apart: never summed across currencies.

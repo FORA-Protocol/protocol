@@ -170,10 +170,11 @@ def joined_header(headers: Mapping[str, str], name: str) -> str | None:
 def component_value(method: str, url: str, headers: Mapping[str, str], c: sfv.Item) -> str:
     """The canonical value of one covered component on this request.
 
-    ``@method`` is the method uppercased and ``@target-uri`` the absolute URL exactly as
-    given; no other derived component is supported. A component carrying a ``key``
-    parameter is a Dictionary member (:func:`member_value`); any other name is a header.
-    A covered header the request does not carry cannot be reconstructed and is refused.
+    ``@method`` is the method uppercased, ``@target-uri`` the absolute URL exactly as
+    given, and ``@authority`` the URL's host and port, lowercased; no other derived
+    component is supported. A component carrying a ``key`` parameter is a Dictionary
+    member (:func:`member_value`); any other name is a header. A covered header the
+    request does not carry cannot be reconstructed and is refused.
     """
     if c.params:
         return member_value(headers, c)
@@ -182,10 +183,32 @@ def component_value(method: str, url: str, headers: Mapping[str, str], c: sfv.It
         return method.upper()
     if name == "@target-uri":
         return url
+    if name == "@authority":
+        return authority_of(url)
+    if name.startswith("@"):
+        raise SignatureCheckError("malformed_sig_input", f"unsupported derived component {name!r}")
     value = joined_header(headers, name)
     if value is None:
         raise SignatureCheckError("missing_header", f"header {name!r} missing from request")
     return value
+
+
+def authority_of(url: str) -> str:
+    """The RFC 9421 ``@authority`` of an absolute URL: the host and port, without any
+    userinfo, lowercased — the value Go reads off the request's Host. Read off the text
+    rather than a URL parser, so the URL is never re-encoded."""
+    _, sep, rest = url.partition("://")
+    if not sep:
+        raise SignatureCheckError("malformed_sig_input", "@authority needs an absolute URL")
+    end = len(rest)
+    for delim in "/?#":
+        i = rest.find(delim)
+        if i != -1:
+            end = min(end, i)
+    authority = rest[:end].rpartition("@")[2]
+    if not authority:
+        raise SignatureCheckError("malformed_sig_input", "the URL carries no authority")
+    return authority.lower()
 
 
 def member_value(headers: Mapping[str, str], c: sfv.Item) -> str:

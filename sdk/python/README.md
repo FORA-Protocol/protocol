@@ -227,8 +227,8 @@ it on the verdict. Labels carry no meaning; coverage of an earlier signature is 
 must be complete. The verifier also accepts what other Web Bot Auth signers send — the
 legacy String form `"https://agent.example"` on a single signature, a member key that
 differs from the label, a `type=directory` member parameter, no nonce — and refuses the
-bare unquoted value. A refusal for a missing component, a wrong tag or a refused
-Signature-Agent form carries `accept_signature`, the `Accept-Signature` value
+bare unquoted value. A refusal for a missing component, a wrong tag, a refused
+Signature-Agent form or a member that is not an https origin carries `accept_signature`, the `Accept-Signature` value
 (`accept_signature()`) to answer the 401 with. A signer given no directory, a value that
 is not an https origin (`check_https_origin`), or a window over `MAX_SIGNATURE_LIFETIME`
 raises a `SignatureProfileError` before anything is signed.
@@ -251,7 +251,9 @@ proof = verify_agent_binding(method="GET", url=url, headers=headers,
 The proof is a Web Bot Auth signature covering `@method`, `@target-uri` and the agent's
 own Signature-Agent member (`sig1="<the agent's directory>"`), with the raw public key in
 `X-FORA-Agent-Key`: a GET has no body to digest, and the signed URL is itself the
-credential. `sign_agent_binding` returns the four header values as an `AgentBinding`; the
+credential. The verifier requires those components AT LEAST, so a Web Bot Auth library's
+proof that also covers `@authority` or a header verifies; a refusal the fetcher can fix
+carries `accept_signature` (`POP_ACCEPT_SIGNATURE`). `sign_agent_binding` returns the four header values as an `AgentBinding`; the
 client passes a fresh 64-byte nonce, and the verifier requires the `web-bot-auth` tag and
 the three-way identity agent_id == keyid == thumbprint(presented key).
 

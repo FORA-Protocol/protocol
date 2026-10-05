@@ -226,7 +226,7 @@ def test_verify_request_refusals_of_the_form_carry_accept_signature(
         ('"https://agent.example"', "signature_agent_form", True),
         ("https://agent.example", "signature_agent_form", True),
         ('other="https://agent.example"', "signature_agent_form", True),
-        ('sig1="http://agent.example"', "signature_agent_not_origin", False),
+        ('sig1="http://agent.example"', "signature_agent_not_origin", True),
         ("", "missing_component", True),
     ],
     ids=["legacy_string_for_a_keyed_member", "bare", "member_absent", "not_https", "absent"],

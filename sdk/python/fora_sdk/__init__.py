@@ -141,7 +141,13 @@ from .money import (
     is_metered_offer,
     parse_money,
 )
-from .pop import AGENT_KEY_HEADER, AgentBinding, sign_agent_binding, verify_agent_binding
+from .pop import (
+    AGENT_KEY_HEADER,
+    POP_ACCEPT_SIGNATURE,
+    AgentBinding,
+    sign_agent_binding,
+    verify_agent_binding,
+)
 from .regschema import (
     MAX_REGISTRATION_DATA_BYTES,
     MAX_REGISTRATION_DATA_DEPTH,
@@ -390,6 +396,7 @@ __all__ = [
     "validate_license_term",
     "validate_resource_entry",
     "verify_agent_binding",
+    "POP_ACCEPT_SIGNATURE",
     "verify_ed25519_signed_url",
     "verify_multisig_request_server",
     "verify_offer_acceptance",

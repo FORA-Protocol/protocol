@@ -45,6 +45,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 
 from ._sigbase import (
     MissingSignatureError,
+    MissingSignatureInputError,
     SignatureCheckError,
     SigParams,
     build_signature_base,
@@ -81,8 +82,17 @@ _ED25519_PUBLIC_KEY_BYTES = 32
 #: The only label this profile emits, and the key of the agent's member. A delivery
 #: fetch is a single hop to the edge, so the label is fixed rather than computed.
 _POP_LABEL = "sig1"
-#: The proof covers exactly @method, @target-uri and one Signature-Agent member.
-_POP_COVERED = ("@method", "@target-uri", "signature-agent")
+#: A proof covers AT LEAST these: the Web Bot Auth base's Signature-Agent member plus
+#: the @method and @target-uri the profile adds. Anything else it covers is allowed.
+_POP_REQUIRED = ("@method", "@target-uri")
+#: The Accept-Signature value a refused delivery proof is answered with: the components
+#: a proof must cover at least, the dictionary form of Signature-Agent, and the created,
+#: expires and tag parameters. The same bytes as Go ``helpers.PoPAcceptSignature``.
+POP_ACCEPT_SIGNATURE = (
+    'sig1=("@method" "@target-uri" "signature-agent";key="sig1");created;expires;tag="'
+    + WBATag
+    + '"'
+)
 #: A proof's created timestamp may not lead the verifier clock by more than this.
 _MAX_FUTURE_SKEW_SEC = 300
 _C0_END = 0x20
@@ -95,11 +105,15 @@ Ed25519Verify = Callable[[bytes, bytes, bytes], bool]
 @dataclass(frozen=True)
 class PopResult:
     """Verdict of a proof-of-possession verification. On success ``signature_agent``
-    is the origin of the agent's key directory, as its covered member names it."""
+    is the origin of the agent's key directory, as its covered member names it. On a
+    refusal the fetcher can fix by signing again as the profile requires — no
+    signature, a wrong tag, a missing required component, or a Signature-Agent the
+    profile refuses — ``accept_signature`` is :data:`POP_ACCEPT_SIGNATURE`."""
 
     ok: bool
     reason: str | None = None
     signature_agent: str | None = None
+    accept_signature: str | None = None
 
 
 @dataclass(frozen=True)
@@ -139,16 +153,18 @@ def _default_verify_ed25519(pubkey: bytes, signature: bytes, message: bytes) -> 
     return True
 
 
-def _read_presented_key(headers: Mapping[str, str]) -> bytes | None:
+def _read_presented_key(headers: Mapping[str, str]) -> bytes | PopResult:
+    """The presented key, or the refusal: ``missing_agent_key`` when the header is
+    absent, ``bad_agent_key`` when it is not 32 bytes of base64url."""
     raw = headers.get(AGENT_KEY_HEADER)
     if not raw:
-        return None
+        return _refuse("missing_agent_key")
     try:
         key = b64url_decode(raw)
     except (ValueError, TypeError):
-        return None
+        return _refuse("bad_agent_key")
     if len(key) != _ED25519_PUBLIC_KEY_BYTES:
-        return None
+        return _refuse("bad_agent_key")
     return key
 
 
@@ -265,19 +281,27 @@ def _freshness_failure(p: SigParams, now: int) -> str | None:
     return None
 
 
-def _covers_exactly(p: SigParams) -> bool:
-    names = sorted(component_name(c).lower() for c in p.covered)
-    return names == sorted(_POP_COVERED)
+def _covers_the_profile(p: SigParams) -> bool:
+    """Whether the proof covers at least @method, @target-uri (plain) and a
+    Signature-Agent reference; which member that is, is signature_directory's call."""
+    plain_names = {component_name(c).lower() for c in p.covered if not c.params}
+    names = {component_name(c).lower() for c in p.covered}
+    return all(n in plain_names for n in _POP_REQUIRED) and "signature-agent" in names
+
+
+def _refuse(reason: str, *, accept: bool = False) -> PopResult:
+    accept_signature = POP_ACCEPT_SIGNATURE if accept else None
+    return PopResult(ok=False, reason=reason, accept_signature=accept_signature)
 
 
 def _parse(headers: Mapping[str, str]) -> tuple[SigParams, bytes, int] | PopResult:
     """The proof's first signature, its bytes and the signature count, or a refusal."""
     try:
         all_params, sig_map = parse_all_signatures(headers)
-    except MissingSignatureError:
-        return PopResult(ok=False, reason="missing_sig")
+    except (MissingSignatureInputError, MissingSignatureError):
+        return _refuse("missing_sig", accept=True)
     except SignatureCheckError:
-        return PopResult(ok=False, reason="malformed_sig_input")
+        return _refuse("malformed_sig_input")
     p = all_params[0]
     return p, sig_map[p.label], len(all_params)
 
@@ -294,32 +318,33 @@ def verify_agent_binding(
     """Verify the agent's proof of possession of the key bound to ``agent_id``.
 
     Returns ``ok=True`` only when every rule holds: the tag is ``web-bot-auth``; the
-    signature covers @method, @target-uri and one Signature-Agent member and nothing
-    else; the member names an https origin, in the dictionary form or the legacy
+    signature covers AT LEAST @method, @target-uri and its Signature-Agent member, so a
+    Web Bot Auth library's proof that also covers @authority verifies; the member
+    names an https origin, in the dictionary form or the legacy
     String form; agent_id, keyid and the presented key's thumbprint agree; the window
     holds at ``now`` (unix seconds); and the Ed25519 signature over the base rebuilt
     with the verbatim URL verifies against the presented key. ``headers`` is
     lowercase-keyed.
     """
     presented = _read_presented_key(headers)
-    if presented is None:
-        return PopResult(ok=False, reason="missing_agent_key")
+    if isinstance(presented, PopResult):
+        return presented
     parsed = _parse(headers)
     if isinstance(parsed, PopResult):
         return parsed
     p, sig_bytes, sig_count = parsed
     if p.alg.lower() != "ed25519":
-        return PopResult(ok=False, reason="unsupported_alg")
+        return _refuse("unsupported_alg")
     if p.tag != WBATag:
-        return PopResult(ok=False, reason="bad_tag")
-    if not _covers_exactly(p):
-        return PopResult(ok=False, reason="bad_covered_components")
+        return _refuse("bad_tag", accept=True)
+    if not _covers_the_profile(p):
+        return _refuse("bad_covered_components", accept=True)
     try:
         directory = signature_directory(headers, p, sig_count)
     except MissingComponentError:
-        return PopResult(ok=False, reason="bad_covered_components")
+        return _refuse("bad_covered_components", accept=True)
     except SignatureProfileError:
-        return PopResult(ok=False, reason="bad_signature_agent")
+        return _refuse("bad_signature_agent", accept=True)
 
     # 3-way identity: keyid and the presented-key thumbprint must both equal the
     # URL-bound agent_id before any signature work is trusted.
@@ -335,7 +360,9 @@ def verify_agent_binding(
     try:
         base = build_signature_base(method, url, headers, p).encode()
     except SignatureCheckError:
-        return PopResult(ok=False, reason="malformed_sig_input")
+        # A covered component this request cannot supply: a header it does not carry,
+        # or a derived component the verifier does not support.
+        return _refuse("bad_covered_components", accept=True)
     verify = verify_ed25519 if verify_ed25519 is not None else _default_verify_ed25519
     if not verify(presented, sig_bytes, base):
         return PopResult(ok=False, reason="pop_sig_invalid")

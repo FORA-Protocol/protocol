@@ -12,7 +12,6 @@ mint.
 
 from __future__ import annotations
 
-import threading
 from collections.abc import Callable
 from typing import TypeAlias
 
@@ -35,33 +34,16 @@ def clock_window(now: Callable[[], float], ttl_sec: int) -> Window:
 
 
 def monotonic_window(now: Callable[[], float], ttl_sec: int) -> Window:
-    """Return a Window whose expires cutoff strictly increases across calls: it
-    tracks ``int(now()) + ttl_sec`` but, when a burst of requests lands in the
-    same wall-clock second, bumps expires by one second per call so no two
-    back-to-back signatures share a (keyid, expires) pair. ``SigningTransport``
-    no longer needs this for uniqueness: every signature carries a fresh nonce,
-    so ``clock_window`` is enough. ``created`` moves with expires, so the window
-    is always exactly ``ttl_sec`` and never exceeds the Web Bot Auth limit when
-    ``ttl_sec`` is at most :data:`~fora_sdk.wba.MAX_SIGNATURE_LIFETIME`; during a
-    burst ``created`` leads the clock by the burst's length in seconds, which a
-    verifier's future-skew allowance absorbs. Thread-safe: the running maximum is
-    guarded by a lock.
+    """Return a Window that stamps each signature at the clock's current time,
+    exactly as :func:`clock_window` does.
 
-    ONE INSTANCE PER CLIENT, never one per call. The running maximum is the whole
-    mechanism: a window built per request starts from zero, cannot see the
-    previous signature, and provides exactly none of the uniqueness it was chosen
-    for — while still looking correct at the call site.
+    It once bumped expires (and later created with it) by one second per call inside
+    a wall-clock second, so no two signatures shared a window. That stamped
+    signatures in the future at more than one request per second, by as many seconds
+    as there were requests, which a verifier's future-skew allowance then absorbed.
+    Uniqueness never needed it: every signature carries a fresh 64-byte nonce.
+
+    Deprecated: use :func:`clock_window`. Kept so existing callers keep working, and
+    behaves identically.
     """
-    lock = threading.Lock()
-    last_expires = 0
-
-    def _window() -> tuple[int, int]:
-        nonlocal last_expires
-        created = int(now())
-        floor = created + ttl_sec
-        with lock:
-            nxt = last_expires + 1 if last_expires >= floor else floor
-            last_expires = nxt
-        return nxt - ttl_sec, nxt
-
-    return _window
+    return clock_window(now, ttl_sec)

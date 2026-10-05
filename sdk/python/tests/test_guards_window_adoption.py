@@ -3,9 +3,9 @@
 DISEASE: a sign site that mints a signature's (created, expires) pair by inline
 now+ttl arithmetic (e.g. ``expires = created + self._ttl_sec``) instead of sourcing
 it from the injectable Window (``clock_window`` / ``monotonic_window``). Inline
-mint cannot be swapped for a monotonic window (unique back-to-back expires) and
-re-derives the truncate/ttl contract per-site, drifting from the Go ``.Unix()``
-semantics. ``SigningTransport`` was migrated to the Window; this guard pins it stays.
+mint cannot be swapped for another window and re-derives the truncate/ttl contract
+per-site, drifting from the Go ``.Unix()`` semantics. ``SigningTransport`` was
+migrated to the Window; this guard pins it stays.
 
 SCOPE — the sign-side mint site (``signing_transport.py``). The verify side PARSES
 created/expires from the wire (not a mint) and is intentionally NOT guarded.

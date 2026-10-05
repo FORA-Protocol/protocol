@@ -353,10 +353,11 @@ def accept_signature_for(exc: BaseException) -> str | None:
     """The Accept-Signature value a verifier answers ``exc`` with, or None when it
     answers with none.
 
-    It does for a request carrying no signature, a signature that omits a required
-    component, a signature with the wrong tag, and a Signature-Agent in a form the
-    profile refuses. It does not for a signature that is well formed and fails for any
-    other reason: a malformed Signature-Input, a member that is not an origin, a bad
+    It does for every refusal the client can fix by signing again as the profile
+    requires: a request carrying no signature, a signature that omits a required
+    component, a signature with the wrong tag, a Signature-Agent in a form the profile
+    refuses, and a member that is not an https origin. It does not for a signature that
+    is well formed and fails for any other reason: a malformed Signature-Input, a bad
     signature, an unknown key, a stale window, a replay, a hop budget or a broken chain.
     """
     if isinstance(exc, MissingComponentError):
@@ -366,6 +367,7 @@ def accept_signature_for(exc: BaseException) -> str | None:
         MissingSignatureError,
         SignatureTagError,
         SignatureAgentFormError,
+        SignatureAgentNotOriginError,
     )
     if isinstance(exc, refused_form):
         return accept_signature(False)
