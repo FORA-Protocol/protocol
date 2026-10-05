@@ -4,7 +4,7 @@
 //
 // Core Invariant: this module is a pure ORCHESTRATION of the already
 // byte-parity-locked primitives signRequest / appendSignature (core/sign-request.ts)
-// and clockWindow / monotonicWindow (core/window.ts). It stamps EVERY covered header
+// and the clockWindow (core/window.ts). It stamps EVERY covered header
 // at the value that entered the signature base — Content-Digest / Signature-Agent /
 // Signature-Input / Signature, and the Authorization whose value may be empty —
 // byte-identical to the shared Go/Python oracle, forwards the request body UNMODIFIED,

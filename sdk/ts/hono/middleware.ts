@@ -1,10 +1,11 @@
 // sdk/ts/hono — the OPT-IN server/verify binding over sdk/ts/core, the natural
 // adapter for Edge (src/edge/src/app.ts, a SERVER/VERIFIER). It is a thin Hono
-// middleware that verifies an inbound RFC 9421 GET proof-of-possession at the HTTP
+// middleware that verifies an inbound RFC 9421 proof-of-possession at the HTTP
 // seam (where the exact request exists) via the L1 verifyAgentBinding, and
 // fail-closes: an unsigned/forged request never reaches the guarded handler. A
 // refusal the agent can fix by signing differently — no signature, a missing or wrong
-// tag, the wrong covered set, a Signature-Agent in a refused form — is answered 401
+// tag, a covered set missing a required component, a Signature-Agent in a refused form
+// or a member that is not an https origin — is answered 401
 // with the Accept-Signature field naming what the proof must carry (WG-00 §5.3);
 // every other refusal is answered 403.
 //

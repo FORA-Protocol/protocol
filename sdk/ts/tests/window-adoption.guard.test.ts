@@ -6,10 +6,10 @@ import { describe, expect, it } from "vitest";
 //
 // DISEASE: a sign site that mints a signature's (created, expires) pair by inline
 // now+ttl arithmetic (e.g. `const expires = nowSec + opts.ttlSec`) instead of
-// sourcing it from the injectable Window (clockWindow / monotonicWindow). Inline
-// mint cannot be swapped for a monotonic window (unique back-to-back expires) and
-// re-derives the floor/ttl contract per-site, drifting from the Go .Unix()
-// semantics. signInbound was migrated to the Window; this guard pins it stays.
+// sourcing it from the injectable Window (clockWindow, or the deprecated
+// monotonicWindow, now identical to it). Inline mint cannot be swapped for a test
+// clock or another window, and re-derives the floor/ttl contract per-site, drifting
+// from the Go .Unix() semantics. signInbound was migrated to the Window; this guard pins it stays.
 //
 // SCOPE — the sign-side mint site (core/sign.ts::signInbound). The verify side
 // PARSES created/expires from the wire (not a mint) and is intentionally NOT

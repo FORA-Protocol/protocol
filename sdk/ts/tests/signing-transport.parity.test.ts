@@ -10,8 +10,8 @@
 //     body bytes to the wrapped send.
 //
 // Core Invariant (agentic-content-access): the transport is a pure ORCHESTRATION of
-// the already-parity-locked signRequest / appendSignature + clockWindow /
-// monotonicWindow primitives — it stamps RFC 9421 headers byte-identical to the
+// the already-parity-locked signRequest / appendSignature + clockWindow
+// primitives — it stamps RFC 9421 headers byte-identical to the
 // shared Go/Python oracle, forwards the request body UNMODIFIED, and adds NO new
 // crypto and NO new signature-base rendering.
 //

@@ -29,7 +29,8 @@ import { acceptSignatureFor, componentParam, coversComponent, keyed, type Refusa
 
 /**
  * The classified multisig reject reason (mirrors the Go taxonomy): "hop_budget" (more
- * signatures than the configured budget), "broken_chain" (a signature covers an earlier
+ * signatures than maxSignatures; the protocol answers it with resource_exhausted, HTTP
+ * 429, and no typed reason), "broken_chain" (a signature covers an earlier
  * one incompletely, or names one that does not appear before it), and "signature" (any
  * per-signature authenticity/freshness/key/covered-set/form failure — the default).
  */
@@ -57,9 +58,12 @@ export interface VerifyMultisigRequestInput {
 	resolve: MultisigKeyResolver;
 	/** Injected clock returning unix seconds — verify reads time ONLY through this. */
 	now: () => number;
-	/** The hop budget: reject a request carrying more signatures than this BEFORE any
-	 * crypto. Every signature counts, whether or not it covers another. 0 / omitted means
-	 * unbounded (mirrors Go opts.MaxSignatures). */
+	/** The hop budget: the most RFC 9421 signatures a request may carry. Every signature
+	 * counts, whether or not it covers another, so an Exchange sets this to the
+	 * max_intermediary_hops it publishes in its manifest, with nothing added. A request
+	 * carrying more is refused as "hop_budget" BEFORE any signature is checked; the
+	 * protocol's code for that refusal is resource_exhausted (HTTP 429), with no typed
+	 * reason. 0 / omitted means unbounded (mirrors Go VerifyOptions.MaxSignatures). */
 	maxSignatures?: number;
 	/** The per-signature lifetime clamp in SECONDS (mirrors Go
 	 * VerifyOptions.MaxSignatureAge), enforced on EVERY signature exactly like the

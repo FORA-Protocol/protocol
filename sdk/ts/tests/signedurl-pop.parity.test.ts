@@ -8,12 +8,9 @@
 //   sdk/go/helpers/testdata/signedurl-vectors.json  (SignURLEd25519 output)
 //   sdk/go/helpers/testdata/pop-vectors.json        (Web Bot Auth delivery-proof output)
 //
-// This test asserts sdk/ts verify reaches the recorded verdict for each vector.
-// It is RED now for TWO reasons, both expected:
-//   1. sdk/ts/src/{verify,pop}.ts do not exist yet (imports cannot resolve).
-//   2. The two vector JSON files do not exist yet (the Go emitter is a later
-//      step). A missing vector file is itself a clean red — the guard is not
-//      yet in place.
+// This test asserts sdk/ts verify reaches the recorded verdict for each vector. The
+// pop vectors' verdicts, refusal tokens and Accept-Signature values come from the Go
+// verifier (helpers.VerifyAgentBinding), and all three are replayed.
 //
 // LOAD-BEARING (why vectors come from the Go signer, never hand-authored):
 // SignURLEd25519 emits the URL with a SORTED query (url.Values.Encode()); the
@@ -30,9 +27,7 @@ import { verifyEd25519SignedUrl } from "../src/verify.ts";
 import { POP_ACCEPT_SIGNATURE, verifyAgentBinding } from "../src/pop.ts";
 import { signInbound } from "../core/sign.ts";
 import { importSigningKey } from "./wba-fixtures.ts";
-// These vector files are produced by the Go golden-emitter in a later step;
-// referencing them by their planned paths keeps this test RED now (missing
-// module) and green once the emitter + sdk/ts land.
+// The vector files are produced by the Go golden emitter (helpers/gen_vectors_test.go).
 import signedUrlVectors from "../../go/helpers/testdata/signedurl-vectors.json";
 import popVectors from "../../go/helpers/testdata/pop-vectors.json";
 
@@ -68,11 +63,9 @@ type PopVector = {
   signature: string; // RFC 9421 Signature header value
   now_unix: number;
   expected_valid: boolean;
+  expected_reason: string; // the Go verifier's refusal token; "" when valid
+  expected_accept_signature?: string; // set when the refusal is answered with one
 };
-
-// The refusals a delivery proof is answered with Accept-Signature for: a missing or
-// wrong tag, the v1.0.8 covered set, and the bare Signature-Agent value.
-const ANSWERED_WITH_ACCEPT = new Set(["v108_method_and_target_uri_only", "missing_tag", "wrong_tag", "bare_signature_agent"]);
 
 function b64urlToBytes(s: string): Uint8Array<ArrayBuffer> {
   const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
@@ -116,13 +109,30 @@ describe("sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vector
     expect(vectors.length).toBeGreaterThan(0);
   });
 
+  it("every vector records its refusal token, and some refusals an Accept-Signature", () => {
+    for (const v of vectors) {
+      expect(typeof v.expected_reason, v.name).toBe("string");
+      expect(v.expected_valid, v.name).toBe(v.expected_reason === "");
+    }
+    expect(vectors.filter((v) => v.expected_accept_signature !== undefined).length).toBeGreaterThan(0);
+  });
+
+  // headersFor writes a vector's request headers: the presented key and, when the
+  // vector carries them, the three signature headers ("" means absent).
   function headersFor(v: PopVector): Headers {
     const h = new Headers();
     h.set("x-fora-agent-key", v.presented_key_b64url);
-    h.set("signature-input", v.signature_input);
-    h.set("signature", v.signature);
+    if (v.signature_input !== "") h.set("signature-input", v.signature_input);
+    if (v.signature !== "") h.set("signature", v.signature);
     if (v.signature_agent !== "") h.set("signature-agent", v.signature_agent);
     return h;
+  }
+
+  // The vector's whole verdict: validity, the refusal token and the Accept-Signature.
+  function expectVerdict(v: PopVector, res: Awaited<ReturnType<typeof verifyAgentBinding>>): void {
+    expect(res.ok).toBe(v.expected_valid);
+    expect(res.reason ?? "").toBe(v.expected_reason);
+    expect(res.acceptSignature).toBe(v.expected_accept_signature);
   }
 
   // DEFAULT-primitive path: verifyAgentBinding uses its built-in WebCrypto
@@ -136,9 +146,9 @@ describe("sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vector
         agentId: v.agent_id,
         now: () => v.now_unix * 1000,
       });
-      expect(res.ok).toBe(v.expected_valid);
+      expectVerdict(v, res);
       if (v.expected_valid) expect(res.signatureAgent).toBe(v.agent_directory);
-      expect(res.acceptSignature).toBe(ANSWERED_WITH_ACCEPT.has(v.name) ? POP_ACCEPT_SIGNATURE : undefined);
+      if (v.expected_accept_signature !== undefined) expect(res.acceptSignature).toBe(POP_ACCEPT_SIGNATURE);
     });
   }
 
@@ -202,7 +212,7 @@ describe("sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vector
         now: () => v.now_unix * 1000,
         verifyEd25519: injectedVerify,
       });
-      expect(res.ok).toBe(v.expected_valid);
+      expectVerdict(v, res);
     });
   }
 });

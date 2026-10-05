@@ -70,11 +70,13 @@ on `createSigningTransport`) appends its member beside the earlier ones, and cov
 earlier signature only when `coverPrevious` is set; a `signerSource` signs each request as
 a different identity. `verifyRequestServer` and `verifyMultisigRequestServer` resolve each
 signature's key in the directory its own member names and report that directory. A refusal
-for a missing component, a missing or wrong tag, or a refused `Signature-Agent` form
-carries the `Accept-Signature` value (`acceptSignature`) to answer with. The delivery proof
-`fetch` presents is the same profile over `@method`, `@target-uri` and the agent's member,
-and the `@fora-protocol/sdk/hono` middleware answers a proof it can ask for again with 401
-and `Accept-Signature`.
+for a missing component, a missing or wrong tag, a refused `Signature-Agent` form, or a
+`Signature-Agent` member that is not an https origin carries the `Accept-Signature` value
+(`acceptSignature`) to answer with. The delivery proof `fetch` presents is the same profile
+over `@method`, `@target-uri` and the agent's member. `verifyAgentBinding` accepts a proof
+that covers at least those three, so a Web Bot Auth library's proof that also covers
+`@authority` or a header verifies, and the `@fora-protocol/sdk/hono` middleware answers a
+proof it can ask for again with 401 and `Accept-Signature`.
 
 `@fora-protocol/sdk/resolvers` reads and checks the documents a party publishes:
 `readManifest`, `readWBADirectory`, `readRevocationList` and `readLicenseDocument` fetch

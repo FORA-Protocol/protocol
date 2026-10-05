@@ -204,8 +204,8 @@ describe("the verifier accepts what WG-00 permits and refuses what the profile d
 		["a member with a parameter other than key", { agentHeader: member, covered: [...FORA_RPC, { name: "signature-agent", params: [{ key: "bs", value: true }] }] }, accept],
 		["no Signature-Agent covered", { agentHeader: member, covered: FORA_RPC }, accept],
 		["authorization not covered", { agentHeader: member, covered: [...FORA_RPC.slice(0, 3), keyed("signature-agent", "sig1")] }, accept],
-		["a plaintext origin", { agentHeader: 'sig1="http://agent.example"' }, undefined],
-		["an origin with a path", { agentHeader: 'sig1="https://agent.example/keys"' }, undefined],
+		["a plaintext origin", { agentHeader: 'sig1="http://agent.example"' }, accept],
+		["an origin with a path", { agentHeader: 'sig1="https://agent.example/keys"' }, accept],
 	];
 	for (const [name, opts, want] of refused) {
 		it(`refuses ${name}${want ? " and answers with Accept-Signature" : ", with no Accept-Signature"}`, async () => {
@@ -235,36 +235,104 @@ async function rawProof(
 		expires: CREATED + 300,
 		tag: "web-bot-auth",
 	});
-	const base = buildSignatureBase(covered, requestComponentValue({ method: "GET", url, header: (n) => headers[n] }), inner);
+	// A covered set the base builder cannot resolve, such as a parameter on @method, is
+	// signed over a placeholder: the verifier must refuse it before the signature check.
+	let base: string;
+	try {
+		base = buildSignatureBase(covered, requestComponentValue({ method: "GET", url, header: (n) => headers[n] }), inner);
+	} catch {
+		base = "unresolvable";
+	}
 	const sig = await crypto.subtle.sign("Ed25519", kp.privateKey, new TextEncoder().encode(base));
 	return { input: `${label}=${inner}`, signature: `${label}=:${stdBase64(new Uint8Array(sig))}:` };
 }
 
-describe("verifyAgentBinding requires exactly the profile's covered set", () => {
-	const member = `sig1="${AGENT_DIRECTORY}"`;
-	const cases: Array<[string, CoveredComponent[]]> = [
-		["@method, @target-uri, the member and one more header", [plain("@method"), plain("@target-uri"), keyed("signature-agent", "sig1"), plain("x-extra")]],
-		["no @target-uri", [plain("@method"), keyed("signature-agent", "sig1"), plain("x-extra")]],
-		["@method twice", [plain("@method"), plain("@method"), keyed("signature-agent", "sig1")]],
+// proofFor signs a delivery proof over `covered` with a fresh key, then hands the
+// request headers to `alter` (which may change or drop any of them) and verifies.
+async function proofFor(
+	covered: CoveredComponent[],
+	alter: (h: Headers) => void = () => {},
+): Promise<Awaited<ReturnType<typeof verifyAgentBinding>>> {
+	const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
+	const raw = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
+	const agentId = await thumbprint(raw);
+	const url = `https://cdn.example/doc?agent_id=${agentId}`;
+	const signed: Record<string, string> = {
+		"signature-agent": `sig1="${AGENT_DIRECTORY}"`,
+		"x-extra": "1",
+		"x-fora-agent-key": encodeBase64Url(raw),
+	};
+	const proof = await rawProof(kp, url, covered, signed);
+	const headers = new Headers({ ...signed, "signature-input": proof.input, signature: proof.signature });
+	alter(headers);
+	return verifyAgentBinding({ url, method: "GET", headers, agentId, now: () => (CREATED + 10) * 1000 });
+}
+
+describe("verifyAgentBinding accepts a covered set that includes the profile's", () => {
+	const member = keyed("signature-agent", "sig1");
+	const supersets: Array<[string, CoveredComponent[]]> = [
+		["the profile's set and one more header", [plain("@method"), plain("@target-uri"), member, plain("x-extra")]],
+		["@authority first, then the profile's set", [plain("@authority"), plain("@method"), plain("@target-uri"), member]],
+		["the profile's set in another order with the presented-key header", [member, plain("x-fora-agent-key"), plain("@target-uri"), plain("@method")]],
 	];
-	for (const [name, covered] of cases) {
-		it(`refuses ${name} and answers with Accept-Signature`, async () => {
-			const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
-			const raw = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
-			const agentId = await thumbprint(raw);
-			const url = `https://cdn.example/doc?agent_id=${agentId}`;
-			const signed = { "signature-agent": member, "x-extra": "1" };
-			const proof = await rawProof(kp, url, covered, signed);
-			const headers = new Headers({
-				"x-fora-agent-key": encodeBase64Url(raw),
-				...signed,
-				"signature-input": proof.input,
-				signature: proof.signature,
-			});
-			const result = await verifyAgentBinding({ url, method: "GET", headers, agentId, now: () => (CREATED + 10) * 1000 });
-			expect(result).toEqual({ ok: false, reason: "bad_covered_components", acceptSignature: POP_ACCEPT_SIGNATURE });
+	for (const [name, covered] of supersets) {
+		it(`accepts ${name}`, async () => {
+			expect(await proofFor(covered)).toEqual({ ok: true, signatureAgent: AGENT_DIRECTORY });
 		});
 	}
+
+	const missing: Array<[string, CoveredComponent[]]> = [
+		["no @target-uri", [plain("@method"), member, plain("x-extra")]],
+		["no @method", [plain("@authority"), plain("@target-uri"), member]],
+		["no Signature-Agent member", [plain("@method"), plain("@target-uri"), plain("x-extra")]],
+		["@method only with a parameter", [{ name: "@method", params: [{ key: "req", value: true }] }, plain("@target-uri"), member]],
+	];
+	for (const [name, covered] of missing) {
+		it(`refuses ${name} as bad_covered_components and answers with Accept-Signature`, async () => {
+			expect(await proofFor(covered)).toEqual({
+				ok: false,
+				reason: "bad_covered_components",
+				acceptSignature: POP_ACCEPT_SIGNATURE,
+			});
+		});
+	}
+
+	it("refuses a covered header the request no longer carries as bad_covered_components, with Accept-Signature", async () => {
+		const covered = [plain("@method"), plain("@target-uri"), member, plain("x-extra")];
+		expect(await proofFor(covered, (h) => h.delete("x-extra"))).toEqual({
+			ok: false,
+			reason: "bad_covered_components",
+			acceptSignature: POP_ACCEPT_SIGNATURE,
+		});
+	});
+
+	it("refuses a covered Signature-Agent the request no longer carries as bad_covered_components", async () => {
+		const result = await proofFor([plain("@method"), plain("@target-uri"), member], (h) => h.delete("signature-agent"));
+		expect(result).toEqual({ ok: false, reason: "bad_covered_components", acceptSignature: POP_ACCEPT_SIGNATURE });
+	});
+
+	it("refuses a superset whose extra header changed after signing as pop_sig_invalid, with no Accept-Signature", async () => {
+		const covered = [plain("@method"), plain("@target-uri"), member, plain("x-extra")];
+		expect(await proofFor(covered, (h) => h.set("x-extra", "2"))).toEqual({ ok: false, reason: "pop_sig_invalid" });
+	});
+
+	it("answers an unsigned fetch, or one missing either signature header, with missing_sig and Accept-Signature", async () => {
+		const covered = [plain("@method"), plain("@target-uri"), member];
+		const want = { ok: false, reason: "missing_sig", acceptSignature: POP_ACCEPT_SIGNATURE };
+		expect(await proofFor(covered, (h) => h.delete("signature-input"))).toEqual(want);
+		expect(await proofFor(covered, (h) => h.delete("signature"))).toEqual(want);
+	});
+
+	it("refuses a Signature-Input that does not parse as malformed_sig_input, with no Accept-Signature", async () => {
+		const result = await proofFor([plain("@method"), plain("@target-uri"), member], (h) => h.set("signature-input", "sig1=("));
+		expect(result).toEqual({ ok: false, reason: "malformed_sig_input" });
+	});
+
+	it("refuses a member that is not an https origin as bad_signature_agent and answers with Accept-Signature", async () => {
+		const covered = [plain("@method"), plain("@target-uri"), member];
+		const result = await proofFor(covered, (h) => h.set("signature-agent", 'sig1="http://agent.example"'));
+		expect(result).toEqual({ ok: false, reason: "bad_signature_agent", acceptSignature: POP_ACCEPT_SIGNATURE });
+	});
 });
 
 describe("the legacy String form is accepted on one signature only", () => {
