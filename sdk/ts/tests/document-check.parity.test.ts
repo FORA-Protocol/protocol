@@ -84,19 +84,27 @@ describe("document-check corpus", () => {
 });
 
 describe("license-digest corpus", () => {
+	it("refuses a digest of the right length that differs only in its last character", async () => {
+		const ok = digestVectors.find((x) => x.verdict === "ok") as (typeof digestVectors)[number];
+		const last = ok.uri_digest.slice(-1);
+		const altered = ok.uri_digest.slice(0, -1) + (last === "0" ? "1" : "0");
+		const fetched = { url: "https://publisher.example/terms", body: new TextEncoder().encode(ok.body), mediaType: undefined };
+		await expect(verifyDigest(altered, fetched)).rejects.toThrow(DigestMismatch);
+	});
+
 	for (const v of digestVectors) {
-		it(v.label, () => {
+		it(v.label, async () => {
 			const fetched = {
 				url: "https://publisher.example/terms",
 				body: new TextEncoder().encode(v.body),
 				mediaType: undefined,
 			};
 			if (v.verdict === "mismatch") {
-				expect(() => verifyDigest(v.uri_digest, fetched)).toThrow(DigestMismatch);
+				await expect(verifyDigest(v.uri_digest, fetched)).rejects.toThrow(DigestMismatch);
 				return;
 			}
 			expect(v.verdict).toBe("ok");
-			expect(verifyDigest(v.uri_digest, fetched).digest).toBe(v.digest);
+			expect((await verifyDigest(v.uri_digest, fetched)).digest).toBe(v.digest);
 		});
 	}
 });

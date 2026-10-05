@@ -288,7 +288,9 @@ class Reader {
 	}
 }
 
-const utf8 = new TextDecoder("utf-8", { fatal: true });
+// ignoreBOM: false is the default; it is spelled out because the Workers runtime types
+// declare the member required.
+const utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false });
 
 function decodeString(bytes: Uint8Array): string {
 	try {

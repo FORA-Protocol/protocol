@@ -25,13 +25,14 @@
 // the response carries no valid signature by is never handed out. A revocation list and
 // the manifest may follow up to five redirects.
 //
-// Every fetch goes through guardedFetchFromEnv by default, the transport the resolvers use
-// for an address another party chose: the dial-time SSRF guard refuses loopback, private
-// and metadata addresses, and the scheme guard refuses anything but https. SKIP_SSRF and
-// ALLOW_INSECURE relax them for a sandbox. A body is capped at 1 MiB and refused, never
-// truncated, past it.
-
-import { createHash, timingSafeEqual } from "node:crypto";
+// Every fetch goes through the transport the caller passes as `fetch`. This module is
+// edge-safe and has no default: the edge entry (resolvers/edge.ts) exports these readers
+// as they are. The Node entry (resolvers/index.ts) defaults the transport to
+// guardedFetchFromEnv, the one the resolvers use for an address another party chose: the
+// dial-time SSRF guard refuses loopback, private and metadata addresses, and the scheme
+// guard refuses anything but https. SKIP_SSRF and ALLOW_INSECURE relax them for a
+// sandbox. That transport caps a body at 1 MiB and refuses it, never truncates it, past
+// the cap.
 
 import { parseWire } from "../../../gen/ts/wire/base.ts";
 import {
@@ -54,7 +55,7 @@ import {
 	ManifestVersionRefused,
 	MediaTypeRefused,
 } from "./errors.ts";
-import { type FetchLike, type Fetched, fetchDocument, guardedFetchFromEnv } from "./http.ts";
+import { decodeUtf8, type FetchLike, type Fetched, fetchDocument } from "./fetch.ts";
 
 /** The media type /.well-known/fora.json is served under. */
 export const MANIFEST_MEDIA_TYPE = "application/json";
@@ -115,8 +116,9 @@ export interface LicenseDocument {
 
 /** How a document reader dials. */
 export interface ReadDocumentOptions {
-	/** The transport. Defaults to guardedFetchFromEnv(), built for the call. */
-	fetch?: FetchLike;
+	/** The transport. Required here; the Node entry's readers default it to
+	 * guardedFetchFromEnv(), built for the call. */
+	fetch: FetchLike;
 	/** Used when a reader builds the URL from a domain. Defaults to https. */
 	scheme?: string;
 }
@@ -138,7 +140,7 @@ export async function fetchManifest(
 	url: string,
 ): Promise<{ text: string; doc: unknown }> {
 	const fetched = await fetchDocument(fetchFn, url);
-	const text = Buffer.from(fetched.body).toString("utf8");
+	const text = decodeUtf8(fetched.body);
 	try {
 		return { text, doc: JSON.parse(text) };
 	} catch (err) {
@@ -223,7 +225,7 @@ export async function fetchRevocationList(
 
 function lenient<T>(fetched: Fetched, schema: { parse(v: unknown): T }, what: string): T {
 	try {
-		return schema.parse(JSON.parse(Buffer.from(fetched.body).toString("utf8")));
+		return schema.parse(JSON.parse(decodeUtf8(fetched.body)));
 	} catch (err) {
 		throw new DirectoryUnavailable(`${what} ${fetched.url}`, { cause: err });
 	}
@@ -262,7 +264,8 @@ export const REVOCATION_LIST: DocumentKind<KeyRevocationList> = {
 	versionGate: false,
 };
 
-const UTF8 = new TextDecoder("utf-8", { fatal: true });
+// ignoreBOM: false is the default, spelled out for the Workers runtime types.
+const UTF8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false });
 
 /**
  * accept checks a fetched document as `kind` and parses it, or throws. The checks run in
@@ -300,27 +303,42 @@ export function accept<T>(kind: DocumentKind<T>, fetched: Fetched): Document<T> 
 	return { message: parsed.data, mediaType: fetched.mediaType, url: fetched.url, body: fetched.body };
 }
 
-const DIGEST_METHODS: Readonly<Record<string, string>> = { sha256: "sha256", sha384: "sha384", sha512: "sha512" };
+// The WebCrypto digest each uri_digest method names.
+const DIGEST_METHODS: Readonly<Record<string, string>> = { sha256: "SHA-256", sha384: "SHA-384", sha512: "SHA-512" };
 
 /** verifyDigest hashes the fetched bytes with `uriDigest`'s method and compares, or
- * throws. Pure, and replayed by the license-digest corpus. `uriDigest` has passed the
- * strict License check by the time a reader calls this, so its method is one of the
- * three the contract admits; a value that is not throws a plain Error. */
-export function verifyDigest(uriDigest: string, fetched: Fetched): LicenseDocument {
+ * throws. Pure apart from the WebCrypto digest, and replayed by the license-digest
+ * corpus. `uriDigest` has passed the strict License check by the time a reader calls
+ * this, so its method is one of the three the contract admits; a value that is not
+ * throws a plain Error. */
+export async function verifyDigest(uriDigest: string, fetched: Fetched): Promise<LicenseDocument> {
 	const colon = uriDigest.indexOf(":");
 	const method = colon < 0 ? uriDigest : uriDigest.slice(0, colon);
 	const expected = colon < 0 ? "" : uriDigest.slice(colon + 1);
 	const algorithm = DIGEST_METHODS[method];
 	if (algorithm === undefined) throw new Error(`uri_digest names no supported method: ${JSON.stringify(method)}`);
-	const actual = createHash(algorithm).update(fetched.body).digest("hex");
-	const a = Buffer.from(actual);
-	const b = Buffer.from(expected);
-	if (a.length !== b.length || !timingSafeEqual(a, b)) {
+	const actual = hex(new Uint8Array(await crypto.subtle.digest(algorithm, fetched.body as Uint8Array<ArrayBuffer>)));
+	if (!constantTimeEqual(actual, expected)) {
 		throw new DigestMismatch(
 			`document at ${fetched.url} hashes to ${method}:${actual}, the license pins ${uriDigest}`,
 		);
 	}
 	return { body: fetched.body, digest: `${method}:${actual}`, mediaType: fetched.mediaType, url: fetched.url };
+}
+
+// hex renders bytes as lowercase hexadecimal, the form uri_digest carries.
+function hex(bytes: Uint8Array): string {
+	return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// constantTimeEqual compares two strings in time that depends only on their lengths, not
+// on where they first differ. Strings of different length are unequal at once: the
+// length of a digest is public, fixed by its method.
+function constantTimeEqual(a: string, b: string): boolean {
+	if (a.length !== b.length) return false;
+	let diff = 0;
+	for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+	return diff === 0;
 }
 
 // --- the public readers ----------------------------------------------------------------
@@ -339,10 +357,10 @@ export function verifyDigest(uriDigest: string, fetched: Fetched): LicenseDocume
  */
 export async function readManifest(
 	domain: string,
-	opts: ReadDocumentOptions = {},
+	opts: ReadDocumentOptions,
 ): Promise<Document<WellKnownManifest>> {
 	if (!isBareHost(domain)) throw invalidHost(domain, "not a bare host");
-	const fetched = await fetchDocument(transport(opts), manifestURL(opts.scheme ?? "", domain));
+	const fetched = await fetchDocument(opts.fetch, manifestURL(opts.scheme ?? "", domain));
 	return accept(MANIFEST, fetched);
 }
 
@@ -362,14 +380,14 @@ export async function readManifest(
  */
 export async function readWBADirectory(
 	urlOrDomain: string,
-	opts: ReadDocumentOptions = {},
+	opts: ReadDocumentOptions,
 ): Promise<Document<WBAFile>> {
 	let url = urlOrDomain;
 	if (!urlOrDomain.includes("://")) {
 		if (!isBareHost(urlOrDomain)) throw invalidHost(urlOrDomain, "neither a URL nor a bare host");
 		url = wbaDirectoryURL(opts.scheme ?? "", urlOrDomain);
 	}
-	const fetched = await fetchDocument(transport(opts), url, { noRedirect: true });
+	const fetched = await fetchDocument(opts.fetch, url, { noRedirect: true });
 	const doc = accept(WBA_DIRECTORY, fetched);
 	let signed: WBAFile;
 	try {
@@ -396,9 +414,9 @@ export async function readWBADirectory(
  */
 export async function readRevocationList(
 	url: string,
-	opts: ReadDocumentOptions = {},
+	opts: ReadDocumentOptions,
 ): Promise<Document<KeyRevocationList>> {
-	return accept(REVOCATION_LIST, await fetchDocument(transport(opts), url));
+	return accept(REVOCATION_LIST, await fetchDocument(opts.fetch, url));
 }
 
 /**
@@ -419,17 +437,13 @@ export async function readRevocationList(
  */
 export async function readLicenseDocument(
 	license: License,
-	opts: ReadDocumentOptions = {},
+	opts: ReadDocumentOptions,
 ): Promise<LicenseDocument> {
 	if (license.uri === undefined || license.uri === "") {
 		throw new Error("license carries no uri: there is no document to read");
 	}
 	// Through JSON, as it travels: a member set to undefined is an absent member.
 	checkStrict("fora.v1.License", JSON.parse(JSON.stringify(license)));
-	const fetched = await fetchDocument(transport(opts), license.uri);
+	const fetched = await fetchDocument(opts.fetch, license.uri);
 	return verifyDigest(license.uri_digest ?? "", fetched);
-}
-
-function transport(opts: ReadDocumentOptions): FetchLike {
-	return opts.fetch ?? guardedFetchFromEnv();
 }

@@ -95,6 +95,46 @@ describe("verifyDirectoryResponse matches the Go oracle", () => {
 	});
 });
 
+describe("verifyDirectoryResponse verifies through an injected Ed25519 primitive", () => {
+	const doc = (): DirectoryVector => vectors.find((x) => x.name === "doc_directory_example") as DirectoryVector;
+
+	// corrupted flips one byte of every signature the Signature header carries, so the
+	// WebCrypto default refuses each.
+	function corrupted(v: DirectoryVector): Record<string, string> {
+		const h = headersOf(v);
+		const sig = h["signature"] as string;
+		const flip = (b64: string): string => (b64.startsWith("A") ? `B${b64.slice(1)}` : `A${b64.slice(1)}`);
+		return { ...h, signature: sig.replace(/:([^:]+):/g, (_m, b64: string) => `:${flip(b64)}:`) };
+	}
+
+	it("the default primitive refuses a corrupted signature", async () => {
+		const v = doc();
+		const verified = await verifyDirectoryResponse(v.authority, corrupted(v), utf8(v.body), v.keys.map(b64urlToBytes), v.now);
+		expect(verified.size).toBe(0);
+	});
+
+	it("an injected primitive that always answers true accepts the corrupted signature", async () => {
+		const v = doc();
+		const calls: number[] = [];
+		const verified = await verifyDirectoryResponse(v.authority, corrupted(v), utf8(v.body), v.keys.map(b64urlToBytes), v.now, {
+			verifyEd25519: async (pub, sig, msg) => {
+				calls.push(pub.length + sig.length + msg.length);
+				return true;
+			},
+		});
+		expect([...verified].sort()).toEqual(v.expected_verified);
+		expect(calls.length).toBeGreaterThan(0);
+	});
+
+	it("an injected primitive that always answers false refuses the documented example", async () => {
+		const v = doc();
+		const verified = await verifyDirectoryResponse(v.authority, headersOf(v), utf8(v.body), v.keys.map(b64urlToBytes), v.now, {
+			verifyEd25519: async () => false,
+		});
+		expect(verified.size).toBe(0);
+	});
+});
+
 describe("signDirectoryResponse reproduces the Go oracle", () => {
 	// The vectors Go produced through SignDirectoryResponse unaltered. The authority a
 	// signed_for_another_authority vector was signed for is not recorded, so it is not

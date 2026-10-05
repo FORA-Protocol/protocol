@@ -35,11 +35,12 @@
     "./hono": "./hono/middleware.ts",
     "./acceptance": "./src/acceptance.ts",
     "./resolvers": "./resolvers/index.ts",
+    "./resolvers/edge": "./resolvers/edge.ts",
     "./client": "./client/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --strict --noEmit",
-    "test": "tsc -p tsconfig.json --strict --noEmit && vitest run",
+    "typecheck": "tsc -p tsconfig.json --strict --noEmit && tsc -p tsconfig.workers.json --noEmit",
+    "test": "tsc -p tsconfig.json --strict --noEmit && tsc -p tsconfig.workers.json --noEmit && vitest run",
     "build": "node scripts/build.mjs"
   },
   "dependencies": {
@@ -57,6 +58,7 @@
     }
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "5.20261005.1",
     "@types/node": "^26.1.0",
     "typescript": "^6.0.3",
     "vitest": "^2.1.0",

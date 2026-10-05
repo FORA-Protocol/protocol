@@ -7,6 +7,7 @@
 // different host. TS port of sdk/go/helpers/directory.go.
 
 import { stdBase64, utf8Bytes } from "../src/base64url.ts";
+import type { Ed25519Verify } from "../src/pop.ts";
 import { thumbprint } from "../src/thumbprint.ts";
 import { DirectoryResponseTag } from "../src/wire.ts";
 import { parseSignatureHeaders, type ParsedSignature } from "./multisig-parse.ts";
@@ -111,6 +112,13 @@ function headerOf(headers: ResponseHeaders, name: string): string | undefined {
 	return readHeader(headers as Record<string, string | undefined>, name);
 }
 
+/** Options for verifyDirectoryResponse. */
+export interface VerifyDirectoryResponseOptions {
+	/** The Ed25519 verify primitive, the same type verifyAgentBinding takes, so a runtime
+	 * without WebCrypto Ed25519 can supply its own. Defaults to WebCrypto crypto.subtle. */
+	verifyEd25519?: Ed25519Verify;
+}
+
 /**
  * verifyDirectoryResponse checks the response signatures of a fetched key directory and
  * returns the RFC 7638 thumbprints of the listed keys that signed it. `authority` is the
@@ -125,7 +133,7 @@ function headerOf(headers: ResponseHeaders, name: string): string | undefined {
  * must carry tag="http-message-signatures-directory" and alg="ed25519", cover exactly
  * "@authority";req and content-digest, carry created no later than now plus the
  * 300-second skew and expires no earlier than now, and verify under the listed key whose
- * thumbprint its keyid names.
+ * thumbprint its keyid names, through `opts.verifyEd25519` when one is given.
  */
 export async function verifyDirectoryResponse(
 	authority: string,
@@ -133,7 +141,9 @@ export async function verifyDirectoryResponse(
 	body: Uint8Array<ArrayBuffer>,
 	keys: readonly Uint8Array<ArrayBuffer>[],
 	now: number,
+	opts: VerifyDirectoryResponseOptions = {},
 ): Promise<Set<string>> {
+	const verify = opts.verifyEd25519 ?? ed25519Verify;
 	const digest = headerOf(headers, "content-digest");
 	if (digest === undefined || digest === "") {
 		throw new DirectoryResponseError("unsigned", "key directory response carries no Content-Digest");
@@ -152,7 +162,7 @@ export async function verifyDirectoryResponse(
 		const pub = byThumb.get(sig.keyid);
 		if (pub === undefined || !paramsValid(sig, now)) continue;
 		const base = buildSignatureBase(sig.covered, directoryResponseValue(authority, digest), sig.rawInner);
-		if (await ed25519Verify(pub, sig.signature, utf8Bytes(base))) verified.add(sig.keyid);
+		if (await verify(pub, sig.signature, utf8Bytes(base))) verified.add(sig.keyid);
 	}
 	return verified;
 }

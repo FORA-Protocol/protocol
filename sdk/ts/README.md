@@ -89,6 +89,16 @@ signature by every key it lists (`DirectoryResponseUnsigned`); the WBA key resol
 out only the keys that signed. `checkStrict(message, payload)` from
 `@fora-protocol/sdk/client` applies the same check to any decoded message.
 
+`@fora-protocol/sdk/resolvers` is the Node entry: its readers and resolvers default their
+transport to the SSRF-guarded undici client. An edge runtime (Cloudflare Workers, Fastly
+Compute, Deno) imports `@fora-protocol/sdk/resolvers/edge` instead. It exports the same
+readers and resolvers, imports nothing Node-only, and has no default transport: each
+call takes `fetch`, the runtime's own fetch or a wrapper around it, and the address guard
+for a host another party named is the caller's. The protocol mechanics (`core`, `identity`,
+`hono`, and the `src` helpers such as `pop` and `verify`) are edge-safe too, and
+`verifyAgentBinding` and `verifyDirectoryResponse` take `verifyEd25519` for a runtime
+without WebCrypto Ed25519.
+
 `@fora-protocol/sdk/discovery-hint` reads the edge discovery headers of a 403:
 `parseDiscoveryHint(status, headers)` returns each of `X-Content-Rules` and
 `X-FORA-Exchange` with a state of `absent`, `valid` or `malformed`, and

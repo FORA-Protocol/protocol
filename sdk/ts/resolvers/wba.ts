@@ -26,7 +26,7 @@ import {
 	RevocationUnevaluated,
 } from "./errors.ts";
 import { fetchRevocationList, fetchWBAFile, WBA_DIRECTORY_PATH } from "./documents.ts";
-import { type FetchLike, guardedFetch } from "./http.ts";
+import type { FetchLike } from "./fetch.ts";
 
 // Re-exported so the module that has always carried them still does; the one copy of
 // each lives with the document reads in ./documents.ts.
@@ -68,7 +68,11 @@ export interface WBAKeyResolverOptions {
 	after?: (ms: number) => Promise<void>;
 	onPollArmed?: () => void;
 	onPollCycle?: () => void;
-	fetch?: FetchLike;
+	/** The transport directories and revocation lists are fetched through. Required
+	 * here; the Node entry's createWBAKeyResolver defaults it to the SSRF-guarded
+	 * transport, because the directory host comes from the request-supplied
+	 * Signature-Agent and is fetched pre-auth. An edge runtime injects its own. */
+	fetch: FetchLike;
 }
 
 /** The WBA key face. `resolve` returns the raw Ed25519 public key, `undefined`
@@ -89,9 +93,9 @@ export interface WBAKeyResolver {
 	revoked(keyId: string): boolean;
 }
 
-/** Construct a WBA resolver with defaults applied. */
+/** Construct a WBA resolver with defaults applied (every option but `fetch`). */
 export function createWBAKeyResolver(
-	opts: WBAKeyResolverOptions = {},
+	opts: WBAKeyResolverOptions,
 ): WBAKeyResolver {
 	return new WBAResolverImpl(opts);
 }
@@ -142,9 +146,7 @@ class WBAResolverImpl implements WBAKeyResolver {
 			opts.after ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
 		this.onPollArmed = opts.onPollArmed;
 		this.onPollCycle = opts.onPollCycle;
-		// The WBA directory host comes from the request-supplied Signature-Agent and
-		// is fetched pre-auth, so the default is SSRF-guarded (matches the Go oracle).
-		this.fetchFn = opts.fetch ?? guardedFetch;
+		this.fetchFn = opts.fetch;
 	}
 
 	async resolve(

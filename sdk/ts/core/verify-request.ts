@@ -19,7 +19,7 @@
 
 import { WBATag } from "../src/wire.ts";
 import { parseSignatureHeaders, type ParsedSignature } from "./multisig-parse.ts";
-import { stdBase64 } from "../src/base64url.ts";
+import { stdBase64, utf8Bytes } from "../src/base64url.ts";
 import {
 	buildSignatureBase,
 	ComponentUnavailable,
@@ -296,7 +296,7 @@ export async function verifyParsedSignature(
 		if (err instanceof ComponentUnavailable) return refuse(SIGNATURE);
 		throw err;
 	}
-	if (!(await ed25519Verify(pub, sig.signature, new TextEncoder().encode(base)))) return refuse(SIGNATURE);
+	if (!(await ed25519Verify(pub, sig.signature, utf8Bytes(base)))) return refuse(SIGNATURE);
 	return { ok: true, value: { keyid: sig.keyid, directory: directory.value } };
 }
 

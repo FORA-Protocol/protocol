@@ -13,17 +13,18 @@ import { isBareHost } from "../src/hosts.ts";
 import { manifestVersionRefusal } from "../src/wire.ts";
 import { fetchManifest, manifestURL } from "./documents.ts";
 import { DirectoryUnavailable, EndpointRefused, ManifestVersionRefused, NoEndpoint } from "./errors.ts";
-import { type FetchLike, defaultFetch, fetchStrict } from "./http.ts";
+import { type FetchLike, fetchStrict } from "./fetch.ts";
 import { ed25519KeysFromJwks } from "./jwks.ts";
 
 const DEFAULT_TTL_MS = 300_000; // 5 minutes
 
 /** Options for the well-known fetching resolvers. `now` is epoch-ms; tests inject
- * it for deterministic TTL expiry. `fetch` defaults to the global fetch. */
+ * it for deterministic TTL expiry. `fetch` is required here; the Node entry's
+ * factories default it to the plain, unguarded transport (see defaultFetch). */
 export interface WellKnownOptions {
   ttlMs?: number;
   now?: () => number;
-  fetch?: FetchLike;
+  fetch: FetchLike;
   /** Trust allowlist: a keyid (key resolver) or host (endpoint resolver) the
    * allowlist rejects never reaches the network. */
   allow?: (id: string) => boolean;
@@ -48,14 +49,14 @@ export interface WellKnownEndpointResolver {
 /** Lazily fetch the JWKS at `url`, cache resolved keys with a TTL. */
 export function createWellKnownKeyResolver(
   url: string,
-  opts: WellKnownOptions = {},
+  opts: WellKnownOptions,
 ): WellKnownKeyResolver {
   return new KeyResolverImpl(url, opts);
 }
 
 /** Host-keyed resolver of an Exchange domain → its self-advertised endpoint. */
 export function createWellKnownEndpointResolver(
-  opts: EndpointOptions = {},
+  opts: EndpointOptions,
 ): WellKnownEndpointResolver {
   return new EndpointResolverImpl(opts);
 }
@@ -73,7 +74,7 @@ class KeyResolverImpl implements WellKnownKeyResolver {
     private readonly url: string,
     opts: WellKnownOptions,
   ) {
-    this.fetchFn = opts.fetch ?? defaultFetch;
+    this.fetchFn = opts.fetch;
     this.ttlMs = opts.ttlMs && opts.ttlMs > 0 ? opts.ttlMs : DEFAULT_TTL_MS;
     this.now = opts.now ?? Date.now;
     this.allow = opts.allow;
@@ -131,7 +132,7 @@ class EndpointResolverImpl implements WellKnownEndpointResolver {
   private readonly flight = new Map<string, Promise<string>>();
 
   constructor(opts: EndpointOptions) {
-    this.fetchFn = opts.fetch ?? defaultFetch;
+    this.fetchFn = opts.fetch;
     this.ttlMs = opts.ttlMs && opts.ttlMs > 0 ? opts.ttlMs : DEFAULT_TTL_MS;
     this.now = opts.now ?? Date.now;
     this.scheme = opts.scheme && opts.scheme !== "" ? opts.scheme : "https";
