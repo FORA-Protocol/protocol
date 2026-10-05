@@ -2683,33 +2683,42 @@ message TransactionResultItem {
   optional UpstreamRefusal refusal = 14;
 }
 
-// UpstreamRefusal — an Exchange's refusal of a whole sub-request a Broker sent
-// it on BrokerService.ExecuteTransaction, carried in the Broker's response body
-// on each affected item (TransactionResultItem.refusal) instead of being turned
-// into an error of the Broker's own. Like TransactionDenial.exchange, nothing
-// signs it: it is the Broker's report of what the Exchange answered.
+// UpstreamRefusal — a peer's refusal of a call made on the caller's behalf: the
+// party that refused, the Connect code it answered with, and its typed reason,
+// unchanged. It is the one shape for "a peer refused", in two places:
+//   - A Broker purchase. An Exchange's refusal of a whole sub-request a Broker
+//     sent it on BrokerService.ExecuteTransaction is carried in the Broker's
+//     response body on each affected item (TransactionResultItem.refusal) instead
+//     of being turned into an error of the Broker's own. The party is the
+//     Exchange, equal to the refused items' signed offer.exchange, which is the
+//     value a caller acts on.
+//   - An MCP tool error. An Identity Service tool whose call was refused
+//     answers with an error result whose structuredContent is
+//     {"refusal": UpstreamRefusal}: the party is the Broker or Exchange that
+//     refused, or the Identity Service itself when it refused the tool call.
+// Like TransactionDenial.exchange, nothing signs it: it is the relaying party's
+// report of what the refusing party answered.
 message UpstreamRefusal {
-  // Bare host of the Exchange that refused, in the form "Request recipient"
-  // defines in the file header. Equal to the refused items' signed
-  // offer.exchange, which is the value a caller acts on.
-  string exchange = 1 [
+  // Bare host of the party that refused the call made on the caller's behalf,
+  // in the form "Request recipient" defines in the file header.
+  string party = 1 [
     (buf.validate.field).string = {
       max_len: 260,
       pattern: "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$"
     }
   ];
 
-  // The Connect code the Exchange answered with, in its wire form, e.g.
-  // "permission_denied" or "unauthenticated". When the Exchange gave no answer
-  // — unreachable, or the call timed out — it is the code the Broker's call
-  // failed with ("unavailable", "deadline_exceeded"). A timeout is an ambiguous
-  // outcome: the purchase may have completed. Retrying the agent's request with
-  // the same idempotency_key is safe, because the Broker forwards the key
-  // unchanged and the Exchange answers a replay from its stored result.
+  // The Connect code the party answered with, in its wire form, e.g.
+  // "permission_denied" or "unauthenticated". When the party gave no answer
+  // — unreachable, or the call timed out — it is the code the relaying party's
+  // call failed with ("unavailable", "deadline_exceeded"). A timeout is an
+  // ambiguous outcome: a purchase may have completed. Retrying the agent's
+  // request with the same idempotency_key is safe, because the Broker forwards
+  // the key unchanged and the Exchange answers a replay from its stored result.
   string code = 2 [(buf.validate.field).string = {min_len: 1, max_len: 64}];
 
-  // The Exchange's typed reason, unchanged — the ErrorDetail it attached to its
-  // refusal. Absent when the Exchange attached none or gave no answer.
+  // The party's typed reason, unchanged — the ErrorDetail it attached to its
+  // refusal. Absent when the party attached none or gave no answer.
   optional ErrorDetail detail = 3;
 }
 
@@ -4079,11 +4088,13 @@ message WellKnownManifest {
   // values from this Exchange are denominated in this currency.
   optional string base_currency = 27;
 
-  // Exchange-only. Maximum forwarding hops this Exchange tolerates on an inbound
-  // request (Agent → Broker → … → Exchange), counted as RFC 9421 HTTP Message
-  // Signatures. A request carrying more SHOULD be rejected. Lets Exchanges
-  // publish their chain-depth tolerance so Brokers prune before forwarding.
-  // Absent = no published limit (Exchange applies its own default policy).
+  // Exchange-only. Maximum number of RFC 9421 HTTP Message Signatures this
+  // Exchange accepts on an inbound request (Agent → Broker → … → Exchange).
+  // Every signature counts, whether or not it covers another. An Exchange
+  // refuses a request carrying more before it verifies any signature, with the
+  // Connect code resource_exhausted (HTTP 429) and no typed reason. Lets
+  // Exchanges publish their tolerance so a sender stays within it. Absent = no
+  // published limit (Exchange applies its own default policy).
   optional int32 max_intermediary_hops = 28;
 
   // Exchange-only. How to open an account here — see AccountRegistration, which
@@ -5164,7 +5175,7 @@ message TransactionDenial {
   // on a relayed or fanned-out execute the request went to a Broker, so the
   // Exchange that refused may not be one the agent named (through
   // BrokerService.ExecuteTransaction this detail reaches the agent inside
-  // UpstreamRefusal.detail, beside UpstreamRefusal.exchange). Carrying it here is
+  // UpstreamRefusal.detail, beside UpstreamRefusal.party). Carrying it here is
   // what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to
   // call Register without fetching a manifest to work it out. NOTHING SIGNS THIS
   // VALUE: it rides in a response, and on a relayed path the response passed

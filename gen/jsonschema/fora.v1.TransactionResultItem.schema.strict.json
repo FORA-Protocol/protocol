@@ -373,7 +373,7 @@
       "description": "This is the only case an ExecuteTransaction answer is a non-OK error carrying\n a DenialReason: the Exchange refuses the request as a whole and decides no\n item, for a reason about the caller or the request that would deny every item\n alike — for example the caller holds no account (ACCOUNT_NOT_REGISTERED), its\n account is not active (ACCOUNT_INACTIVE), it has overdue reports\n (REPORTING_OVERDUE), or it is rate limited (RATE_LIMITED). Nothing is\n purchased. Every decision about an item is answered in the body instead, on\n TransactionResultItem.denial_reason, whatever the item count: a denied\n one-item purchase is a successful response whose one item is denied, never\n this error. RELAY_NOT_ACCEPTED is a per-item decision and is never carried\n here, and RESTRICTION_NOT_SATISFIED is never sent at all.",
       "properties": {
         "exchange": {
-          "description": "Bare host of the Exchange that PRODUCED this denial, in the form \"Request\n recipient\" defines in the file header. Not an echo of what the caller sent:\n on a relayed or fanned-out execute the request went to a Broker, so the\n Exchange that refused may not be one the agent named (through\n BrokerService.ExecuteTransaction this detail reaches the agent inside\n UpstreamRefusal.detail, beside UpstreamRefusal.exchange). Carrying it here is\n what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to\n call Register without fetching a manifest to work it out. NOTHING SIGNS THIS\n VALUE: it rides in a response, and on a relayed path the response passed\n through an intermediary, so this field is exactly the unsigned addressing\n the request-side `exchange` field exists to refuse. Treat it as a HINT, not\n an instruction. Before acting on it — and registering is a consequential act,\n handing an operator's business data and a signed acceptance of that\n Exchange's terms to whoever answers — a caller MUST check the value against\n a domain it already trusts for this transaction: the signed `offer.exchange`\n of the items in the refused request, or its own RequestConstraints.exchanges\n set. A value matching neither is reported to the caller and never dialled,\n because a hostile intermediary that could choose it would be choosing where\n an unattended agent registers.",
+          "description": "Bare host of the Exchange that PRODUCED this denial, in the form \"Request\n recipient\" defines in the file header. Not an echo of what the caller sent:\n on a relayed or fanned-out execute the request went to a Broker, so the\n Exchange that refused may not be one the agent named (through\n BrokerService.ExecuteTransaction this detail reaches the agent inside\n UpstreamRefusal.detail, beside UpstreamRefusal.party). Carrying it here is\n what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to\n call Register without fetching a manifest to work it out. NOTHING SIGNS THIS\n VALUE: it rides in a response, and on a relayed path the response passed\n through an intermediary, so this field is exactly the unsigned addressing\n the request-side `exchange` field exists to refuse. Treat it as a HINT, not\n an instruction. Before acting on it — and registering is a consequential act,\n handing an operator's business data and a signed acceptance of that\n Exchange's terms to whoever answers — a caller MUST check the value against\n a domain it already trusts for this transaction: the signed `offer.exchange`\n of the items in the refused request, or its own RequestConstraints.exchanges\n set. A value matching neither is reported to the caller and never dialled,\n because a hostile intermediary that could choose it would be choosing where\n an unattended agent registers.",
           "maxLength": 260,
           "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$",
           "type": "string"
@@ -451,20 +451,20 @@
     },
     "fora.v1.UpstreamRefusal": {
       "additionalProperties": false,
-      "description": "UpstreamRefusal — an Exchange's refusal of a whole sub-request a Broker sent\n it on BrokerService.ExecuteTransaction, carried in the Broker's response body\n on each affected item (TransactionResultItem.refusal) instead of being turned\n into an error of the Broker's own. Like TransactionDenial.exchange, nothing\n signs it: it is the Broker's report of what the Exchange answered.",
+      "description": "UpstreamRefusal — a peer's refusal of a call made on the caller's behalf: the\n party that refused, the Connect code it answered with, and its typed reason,\n unchanged. It is the one shape for \"a peer refused\", in two places:\n   - A Broker purchase. An Exchange's refusal of a whole sub-request a Broker\n     sent it on BrokerService.ExecuteTransaction is carried in the Broker's\n     response body on each affected item (TransactionResultItem.refusal) instead\n     of being turned into an error of the Broker's own. The party is the\n     Exchange, equal to the refused items' signed offer.exchange, which is the\n     value a caller acts on.\n   - An MCP tool error. An Identity Service tool whose call was refused\n     answers with an error result whose structuredContent is\n     {\"refusal\": UpstreamRefusal}: the party is the Broker or Exchange that\n     refused, or the Identity Service itself when it refused the tool call.\n Like TransactionDenial.exchange, nothing signs it: it is the relaying party's\n report of what the refusing party answered.",
       "properties": {
         "code": {
-          "description": "The Connect code the Exchange answered with, in its wire form, e.g.\n \"permission_denied\" or \"unauthenticated\". When the Exchange gave no answer\n — unreachable, or the call timed out — it is the code the Broker's call\n failed with (\"unavailable\", \"deadline_exceeded\"). A timeout is an ambiguous\n outcome: the purchase may have completed. Retrying the agent's request with\n the same idempotency_key is safe, because the Broker forwards the key\n unchanged and the Exchange answers a replay from its stored result.",
+          "description": "The Connect code the party answered with, in its wire form, e.g.\n \"permission_denied\" or \"unauthenticated\". When the party gave no answer\n — unreachable, or the call timed out — it is the code the relaying party's\n call failed with (\"unavailable\", \"deadline_exceeded\"). A timeout is an\n ambiguous outcome: a purchase may have completed. Retrying the agent's\n request with the same idempotency_key is safe, because the Broker forwards\n the key unchanged and the Exchange answers a replay from its stored result.",
           "maxLength": 64,
           "minLength": 1,
           "type": "string"
         },
         "detail": {
           "$ref": "#/$defs/fora.v1.ErrorDetail",
-          "description": "The Exchange's typed reason, unchanged — the ErrorDetail it attached to its\n refusal. Absent when the Exchange attached none or gave no answer."
+          "description": "The party's typed reason, unchanged — the ErrorDetail it attached to its\n refusal. Absent when the party attached none or gave no answer."
         },
-        "exchange": {
-          "description": "Bare host of the Exchange that refused, in the form \"Request recipient\"\n defines in the file header. Equal to the refused items' signed\n offer.exchange, which is the value a caller acts on.",
+        "party": {
+          "description": "Bare host of the party that refused the call made on the caller's behalf,\n in the form \"Request recipient\" defines in the file header.",
           "maxLength": 260,
           "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$",
           "type": "string"
@@ -472,7 +472,7 @@
       },
       "required": [
         "code",
-        "exchange"
+        "party"
       ],
       "title": "Upstream Refusal",
       "type": "object"

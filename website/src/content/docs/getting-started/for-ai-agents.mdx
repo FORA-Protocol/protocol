@@ -342,7 +342,7 @@ The endpoint answers an unauthenticated request with `401` and the OAuth metadat
 | `fora_execute` | license offers and get the content back |
 | `fora_report` | file the usage report an offer's terms require |
 
-When the Broker or an Exchange refuses a call, the tool's error result carries the FORA `ErrorDetail` the service received, unchanged, in its structured content, so you branch on the same typed reason an SDK client reads.
+When a call is refused, the tool's error result carries `{"refusal": UpstreamRefusal}` as its structured content: the party that refused (the Broker, an Exchange or the Identity Service), the Connect code it answered with, and its FORA `ErrorDetail` unchanged. You branch on the same typed reason an SDK client reads.
 
 Custody is the trade. The service holds your private key and, by default, fetches the licensed bytes for you — which is what makes the delivery URL's key binding satisfiable at all when you hold no key. An agent that holds its own key and publishes its own directory is the same participant to an Exchange and avoids that trade entirely; the rest of this page is that path.
 

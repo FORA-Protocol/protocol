@@ -22016,7 +22016,7 @@
     ],
     "json": {
       "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "exchange": "x"
+      "party": "x"
     }
   },
   {
@@ -22027,11 +22027,11 @@
       "string.min_len"
     ],
     "json": {
-      "exchange": "x"
+      "party": "x"
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/killer#0",
+    "id": "UpstreamRefusal/party/killer#0",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22039,11 +22039,11 @@
     ],
     "json": {
       "code": "x",
-      "exchange": "https://exchange.example"
+      "party": "https://exchange.example"
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/killer#1",
+    "id": "UpstreamRefusal/party/killer#1",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22051,11 +22051,11 @@
     ],
     "json": {
       "code": "x",
-      "exchange": "exchange.example/register"
+      "party": "exchange.example/register"
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/killer#10",
+    "id": "UpstreamRefusal/party/killer#10",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22063,11 +22063,11 @@
     ],
     "json": {
       "code": "x",
-      "exchange": "exchange.example:0"
+      "party": "exchange.example:0"
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/killer#11",
+    "id": "UpstreamRefusal/party/killer#11",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22075,11 +22075,11 @@
     ],
     "json": {
       "code": "x",
-      "exchange": "exchange.example:99999"
+      "party": "exchange.example:99999"
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/killer#2",
+    "id": "UpstreamRefusal/party/killer#2",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22087,11 +22087,11 @@
     ],
     "json": {
       "code": "x",
-      "exchange": "exchange.example?x=1"
+      "party": "exchange.example?x=1"
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/killer#3",
+    "id": "UpstreamRefusal/party/killer#3",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22099,11 +22099,11 @@
     ],
     "json": {
       "code": "x",
-      "exchange": "user@exchange.example"
+      "party": "user@exchange.example"
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/killer#4",
+    "id": "UpstreamRefusal/party/killer#4",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22111,11 +22111,11 @@
     ],
     "json": {
       "code": "x",
-      "exchange": "exchange.example:123456"
+      "party": "exchange.example:123456"
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/killer#5",
+    "id": "UpstreamRefusal/party/killer#5",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22123,11 +22123,11 @@
     ],
     "json": {
       "code": "x",
-      "exchange": "exchange.example:"
+      "party": "exchange.example:"
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/killer#6",
+    "id": "UpstreamRefusal/party/killer#6",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22135,11 +22135,11 @@
     ],
     "json": {
       "code": "x",
-      "exchange": "exchange.example."
+      "party": "exchange.example."
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/killer#7",
+    "id": "UpstreamRefusal/party/killer#7",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22147,11 +22147,11 @@
     ],
     "json": {
       "code": "x",
-      "exchange": "exchange..example"
+      "party": "exchange..example"
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/killer#8",
+    "id": "UpstreamRefusal/party/killer#8",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22159,11 +22159,11 @@
     ],
     "json": {
       "code": "x",
-      "exchange": "-exchange.example"
+      "party": "-exchange.example"
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/killer#9",
+    "id": "UpstreamRefusal/party/killer#9",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22171,11 +22171,11 @@
     ],
     "json": {
       "code": "x",
-      "exchange": "[::1]:443"
+      "party": "[::1]:443"
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/missing_empty",
+    "id": "UpstreamRefusal/party/missing_empty",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22186,7 +22186,7 @@
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/pattern#0",
+    "id": "UpstreamRefusal/party/pattern#0",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22194,11 +22194,11 @@
     ],
     "json": {
       "code": "x",
-      "exchange": "two words"
+      "party": "two words"
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/pattern#2",
+    "id": "UpstreamRefusal/party/pattern#2",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22206,11 +22206,11 @@
     ],
     "json": {
       "code": "x",
-      "exchange": "!!bad!!"
+      "party": "!!bad!!"
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/pattern#3",
+    "id": "UpstreamRefusal/party/pattern#3",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22218,11 +22218,11 @@
     ],
     "json": {
       "code": "x",
-      "exchange": "\u0000ctl\u0000"
+      "party": "\u0000ctl\u0000"
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/pattern#4",
+    "id": "UpstreamRefusal/party/pattern#4",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22230,11 +22230,11 @@
     ],
     "json": {
       "code": "x",
-      "exchange": " "
+      "party": " "
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/pattern#5",
+    "id": "UpstreamRefusal/party/pattern#5",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22242,11 +22242,11 @@
     ],
     "json": {
       "code": "x",
-      "exchange": "-5"
+      "party": "-5"
     }
   },
   {
-    "id": "UpstreamRefusal/exchange/too_long",
+    "id": "UpstreamRefusal/party/too_long",
     "message": "UpstreamRefusal",
     "valid": false,
     "rules": [
@@ -22254,7 +22254,7 @@
     ],
     "json": {
       "code": "x",
-      "exchange": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      "party": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     }
   },
   {
@@ -22263,7 +22263,7 @@
     "valid": true,
     "json": {
       "code": "x",
-      "exchange": "x"
+      "party": "x"
     }
   },
   {

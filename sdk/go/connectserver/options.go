@@ -134,9 +134,13 @@ func WithoutReplayStore() ServerOption {
 	return func(c *serverConfig) { c.allowNoReplay = true }
 }
 
-// WithMaxSignatures injects the hop budget — the maximum number of signatures a
-// multisig (relay) request may carry (= max_intermediary_hops + 1). It is an
-// INJECTED value, never an SDK constant: the hop LIMIT is app policy, only the
+// WithMaxSignatures injects the hop budget — the maximum number of RFC 9421
+// signatures a request may carry, every signature counted, whether or not it
+// covers another. An Exchange sets it to the max_intermediary_hops it publishes
+// in its manifest. A request carrying more is refused before any signature is
+// checked, with CodeResourceExhausted (HTTP 429) and no typed reason, as the
+// WellKnownManifest.max_intermediary_hops comment specifies. It is an INJECTED
+// value, never an SDK constant: the hop LIMIT is app policy, only the
 // reject-reason→connect.Code mapping is SDK mechanics. 0 means unbounded.
 func WithMaxSignatures(n int) ServerOption {
 	return func(c *serverConfig) { c.maxSignatures = n }

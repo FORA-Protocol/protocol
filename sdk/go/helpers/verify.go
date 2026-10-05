@@ -62,10 +62,10 @@ type VerifyOptions struct {
 	MaxFutureSkew time.Duration
 	// MaxSignatures bounds the number of signatures accepted on a request — the
 	// hop budget. Every signature counts, whether or not it covers another. 0
-	// means unbounded; the Exchange-terminal consumer sets it
-	// (= max_intermediary_hops + 1). A request carrying more signatures is
-	// rejected with ErrTooManyHops before any signature is cryptographically
-	// verified. Ignored by single-sig VerifyRequest.
+	// means unbounded; an Exchange sets it to the max_intermediary_hops it
+	// publishes. A request carrying more signatures is rejected with
+	// ErrTooManyHops before any signature is cryptographically verified. Ignored by
+	// single-sig VerifyRequest.
 	MaxSignatures int
 	// MaxSignatureAge clamps a signature's declared lifetime (expires − created).
 	// MaxFutureSkew only bounds the future edge; without an upper bound on the

@@ -224,7 +224,7 @@ Result for a single offer in a batch transaction. `refusal` is set only in a `Br
 
 ### UpstreamRefusal
 
-An Exchange's refusal of a whole sub-request a Broker sent it, carried on each affected item instead of being turned into an error of the Broker's own: the Exchange, the Connect `code` it answered with, and its `ErrorDetail` unchanged.
+A peer's refusal of a call made on the caller's behalf: the refusing `party`, the Connect `code` it answered with, and its `ErrorDetail` unchanged. It is the one shape for "a peer refused". On a Broker purchase it rides on each affected item instead of becoming an error of the Broker's own, and the party is the Exchange. An Identity Service MCP tool error carries it as `{"refusal": UpstreamRefusal}`.
 
 ::proto-message{name=UpstreamRefusal}
 

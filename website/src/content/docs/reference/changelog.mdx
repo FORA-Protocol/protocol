@@ -39,11 +39,30 @@ as the same answer. The reference and AI-agent pages and the SDK doc comments of
 `GetAccountStatus` / `get_account_status` / `getAccountStatus` say the same; the SDKs
 return the refusal as their call error with the code `not_found`.
 
-**The Identity Service's MCP tools pass the typed reason through (docs only).** The
-Identity Service and AI-agent pages state that a tool error carries the FORA
-`ErrorDetail` the service received from the Broker or an Exchange, unchanged, in its
-structured content, so an agent on MCP branches on the same typed reason an SDK client
-reads.
+**The hop cap counts every signature and is refused with `resource_exhausted` (comments
+only).** `WellKnownManifest.max_intermediary_hops` is the maximum number of RFC 9421
+signatures an Exchange accepts on a request, every signature counted whether or not it
+covers another. An Exchange refuses a request carrying more before it verifies any
+signature, with the Connect code `resource_exhausted` (HTTP 429) and no typed reason; the
+field comment states it once. Go's `connectserver.WithMaxSignatures` and
+`helpers.VerifyOptions.MaxSignatures` no longer say to set the cap to
+`max_intermediary_hops + 1`: they take `max_intermediary_hops` itself, as the Python and
+TypeScript verifiers already did.
+
+**An MCP tool error carries `{"refusal": UpstreamRefusal}`; `UpstreamRefusal.exchange`
+is renamed `party` (field rename; no released message changes).** `UpstreamRefusal` is the
+one shape for "a peer refused a call made on the caller's behalf". Its field 1 was named
+`exchange`, which fit only a Broker purchase. It is now `party`, the bare host of the party
+that refused, with the same number and host rule. On a Broker purchase item the party is
+the Exchange, equal to the refused items' signed `offer.exchange`. `UpstreamRefusal` was
+added in this release, so no released message changes and `buf breaking` passes against
+v1.0.8 and v1.0.0; the proto-JSON name is now `party`.
+
+The Identity Service and AI-agent pages specify an MCP tool error: an error result whose
+`structuredContent` is `{"refusal": UpstreamRefusal}`, the party being the Broker or
+Exchange that refused the call, or the Identity Service itself when it refused the tool
+call; `detail` is the FORA `ErrorDetail` that party attached, unchanged. Each tool's
+`outputSchema` declares two branches, its success shape or `{refusal}`.
 
 **Revocation is scoped to the signer, and revocation-list and manifest fetches may
 follow up to five redirects (comments and docs only).** Each signature is verified against its own signer's
@@ -474,8 +493,9 @@ The contract now defines that relay.
 - New messages: `BrokerTransactionResponse` (`items` in request order,
   `exchanges`, per-currency `totals`), `ExchangeOutcome` (one per Exchange
   contacted: `exchange`, `offer_ids`, `agent_identity_hash`, `subscription_quota`)
-  and `UpstreamRefusal` (`exchange`, the Connect `code`, the Exchange's
-  `ErrorDetail`).
+  and `UpstreamRefusal` (`party`, the refusing party's bare host; the Connect
+  `code`; the party's `ErrorDetail`). It is the one shape for "a peer refused": the
+  Identity Service's MCP tool errors carry it too.
 - `TransactionResultItem.refusal = 14`. An Exchange's refusal of a whole
   sub-request is never turned into a Broker error: it rides on each affected item,
   and the other Exchanges' results come back unchanged.

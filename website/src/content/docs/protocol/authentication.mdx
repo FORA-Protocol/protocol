@@ -318,7 +318,7 @@ The Exchange:
 2. Resolves each signature's `keyid` (an RFC 7638 thumbprint) in the key directory that **its own** covered `Signature-Agent` member names, at `{origin}/.well-known/http-message-signatures-directory`. A verifier MUST NOT attribute a signature to a member that signature does not cover (WG-00 §5.2.2). A signature that covers an earlier one also covers that signature's member, so it covers several; it is attributed to the member keyed to its own label (WG-00 §5.2.1), and a signature covering several members none of which is keyed to its label is refused
 3. Verifies each signature independently against its own covered components and its own key, and authenticates the caller as the party that signed the request: the agent on a direct call, the Broker on a request the Broker sent. Where a party forwarded unchanged and covered an earlier signature, it also confirms that coverage
 4. On an execute request, verifies each item's `AgentAcceptance` against the agent's registered key, as above
-5. Enforces depth caps — `RequestConstraints.max_hops` and `WellKnownManifest.max_intermediary_hops` — by **counting the signatures** in the stack
+5. Enforces depth caps — `RequestConstraints.max_hops` and `WellKnownManifest.max_intermediary_hops` — by **counting every signature** on the request, before verifying any; a request over the Exchange's cap is refused as the `max_intermediary_hops` field specifies (`resource_exhausted`)
 
 Verifying a signature proves which party sent the request. Whether that party may send to this Exchange at all is the Exchange's own policy: an Exchange MAY accept requests from a Broker only when the Broker is registered with it.
 

@@ -181,7 +181,7 @@
       "type": "string"
     },
     "max_intermediary_hops": {
-      "description": "Exchange-only. Maximum forwarding hops this Exchange tolerates on an inbound\n request (Agent → Broker → … → Exchange), counted as RFC 9421 HTTP Message\n Signatures. A request carrying more SHOULD be rejected. Lets Exchanges\n publish their chain-depth tolerance so Brokers prune before forwarding.\n Absent = no published limit (Exchange applies its own default policy).",
+      "description": "Exchange-only. Maximum number of RFC 9421 HTTP Message Signatures this\n Exchange accepts on an inbound request (Agent → Broker → … → Exchange).\n Every signature counts, whether or not it covers another. An Exchange\n refuses a request carrying more before it verifies any signature, with the\n Connect code resource_exhausted (HTTP 429) and no typed reason. Lets\n Exchanges publish their tolerance so a sender stays within it. Absent = no\n published limit (Exchange applies its own default policy).",
       "maximum": 2147483647,
       "minimum": -2147483648,
       "type": "integer"

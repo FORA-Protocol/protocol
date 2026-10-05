@@ -1084,7 +1084,7 @@ class TransactionDenial(WireModel):
         | None
     ) = Field(
         None,
-        description='Bare host of the Exchange that PRODUCED this denial, in the form "Request\n recipient" defines in the file header. Not an echo of what the caller sent:\n on a relayed or fanned-out execute the request went to a Broker, so the\n Exchange that refused may not be one the agent named (through\n BrokerService.ExecuteTransaction this detail reaches the agent inside\n UpstreamRefusal.detail, beside UpstreamRefusal.exchange). Carrying it here is\n what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to\n call Register without fetching a manifest to work it out. NOTHING SIGNS THIS\n VALUE: it rides in a response, and on a relayed path the response passed\n through an intermediary, so this field is exactly the unsigned addressing\n the request-side `exchange` field exists to refuse. Treat it as a HINT, not\n an instruction. Before acting on it — and registering is a consequential act,\n handing an operator\'s business data and a signed acceptance of that\n Exchange\'s terms to whoever answers — a caller MUST check the value against\n a domain it already trusts for this transaction: the signed `offer.exchange`\n of the items in the refused request, or its own RequestConstraints.exchanges\n set. A value matching neither is reported to the caller and never dialled,\n because a hostile intermediary that could choose it would be choosing where\n an unattended agent registers.',
+        description='Bare host of the Exchange that PRODUCED this denial, in the form "Request\n recipient" defines in the file header. Not an echo of what the caller sent:\n on a relayed or fanned-out execute the request went to a Broker, so the\n Exchange that refused may not be one the agent named (through\n BrokerService.ExecuteTransaction this detail reaches the agent inside\n UpstreamRefusal.detail, beside UpstreamRefusal.party). Carrying it here is\n what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to\n call Register without fetching a manifest to work it out. NOTHING SIGNS THIS\n VALUE: it rides in a response, and on a relayed path the response passed\n through an intermediary, so this field is exactly the unsigned addressing\n the request-side `exchange` field exists to refuse. Treat it as a HINT, not\n an instruction. Before acting on it — and registering is a consequential act,\n handing an operator\'s business data and a signed acceptance of that\n Exchange\'s terms to whoever answers — a caller MUST check the value against\n a domain it already trusts for this transaction: the signed `offer.exchange`\n of the items in the refused request, or its own RequestConstraints.exchanges\n set. A value matching neither is reported to the caller and never dialled,\n because a hostile intermediary that could choose it would be choosing where\n an unattended agent registers.',
     )
     offer_id: str | None = Field(
         None,
@@ -1707,7 +1707,7 @@ class WellKnownManifest(WireModel):
     )
     max_intermediary_hops: conint(ge=-2147483648, le=2147483647) | None = Field(
         None,
-        description='Exchange-only. Maximum forwarding hops this Exchange tolerates on an inbound\n request (Agent → Broker → … → Exchange), counted as RFC 9421 HTTP Message\n Signatures. A request carrying more SHOULD be rejected. Lets Exchanges\n publish their chain-depth tolerance so Brokers prune before forwarding.\n Absent = no published limit (Exchange applies its own default policy).',
+        description='Exchange-only. Maximum number of RFC 9421 HTTP Message Signatures this\n Exchange accepts on an inbound request (Agent → Broker → … → Exchange).\n Every signature counts, whether or not it covers another. An Exchange\n refuses a request carrying more before it verifies any signature, with the\n Connect code resource_exhausted (HTTP 429) and no typed reason. Lets\n Exchanges publish their tolerance so a sender stays within it. Absent = no\n published limit (Exchange applies its own default policy).',
     )
     name: str | None = Field(
         None, description='Exchange-only. Human-readable Exchange name.'
@@ -2117,18 +2117,18 @@ class TransactionRequest(WireModel):
 class UpstreamRefusal(WireModel):
     code: constr(min_length=1, max_length=64) = Field(
         ...,
-        description='The Connect code the Exchange answered with, in its wire form, e.g.\n "permission_denied" or "unauthenticated". When the Exchange gave no answer\n — unreachable, or the call timed out — it is the code the Broker\'s call\n failed with ("unavailable", "deadline_exceeded"). A timeout is an ambiguous\n outcome: the purchase may have completed. Retrying the agent\'s request with\n the same idempotency_key is safe, because the Broker forwards the key\n unchanged and the Exchange answers a replay from its stored result.',
+        description='The Connect code the party answered with, in its wire form, e.g.\n "permission_denied" or "unauthenticated". When the party gave no answer\n — unreachable, or the call timed out — it is the code the relaying party\'s\n call failed with ("unavailable", "deadline_exceeded"). A timeout is an\n ambiguous outcome: a purchase may have completed. Retrying the agent\'s\n request with the same idempotency_key is safe, because the Broker forwards\n the key unchanged and the Exchange answers a replay from its stored result.',
     )
     detail: ErrorDetail | None = Field(
         None,
-        description="The Exchange's typed reason, unchanged — the ErrorDetail it attached to its\n refusal. Absent when the Exchange attached none or gave no answer.",
+        description="The party's typed reason, unchanged — the ErrorDetail it attached to its\n refusal. Absent when the party attached none or gave no answer.",
     )
-    exchange: constr(
+    party: constr(
         pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
         max_length=260,
     ) = Field(
         ...,
-        description='Bare host of the Exchange that refused, in the form "Request recipient"\n defines in the file header. Equal to the refused items\' signed\n offer.exchange, which is the value a caller acts on.',
+        description='Bare host of the party that refused the call made on the caller\'s behalf,\n in the form "Request recipient" defines in the file header.',
     )
 
 

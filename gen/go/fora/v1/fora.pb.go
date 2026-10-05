@@ -5758,27 +5758,37 @@ func (x *TransactionResultItem) GetRefusal() *UpstreamRefusal {
 	return nil
 }
 
-// UpstreamRefusal — an Exchange's refusal of a whole sub-request a Broker sent
-// it on BrokerService.ExecuteTransaction, carried in the Broker's response body
-// on each affected item (TransactionResultItem.refusal) instead of being turned
-// into an error of the Broker's own. Like TransactionDenial.exchange, nothing
-// signs it: it is the Broker's report of what the Exchange answered.
+// UpstreamRefusal — a peer's refusal of a call made on the caller's behalf: the
+// party that refused, the Connect code it answered with, and its typed reason,
+// unchanged. It is the one shape for "a peer refused", in two places:
+//   - A Broker purchase. An Exchange's refusal of a whole sub-request a Broker
+//     sent it on BrokerService.ExecuteTransaction is carried in the Broker's
+//     response body on each affected item (TransactionResultItem.refusal) instead
+//     of being turned into an error of the Broker's own. The party is the
+//     Exchange, equal to the refused items' signed offer.exchange, which is the
+//     value a caller acts on.
+//   - An MCP tool error. An Identity Service tool whose call was refused
+//     answers with an error result whose structuredContent is
+//     {"refusal": UpstreamRefusal}: the party is the Broker or Exchange that
+//     refused, or the Identity Service itself when it refused the tool call.
+//
+// Like TransactionDenial.exchange, nothing signs it: it is the relaying party's
+// report of what the refusing party answered.
 type UpstreamRefusal struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Bare host of the Exchange that refused, in the form "Request recipient"
-	// defines in the file header. Equal to the refused items' signed
-	// offer.exchange, which is the value a caller acts on.
-	Exchange string `protobuf:"bytes,1,opt,name=exchange,proto3" json:"exchange,omitempty"`
-	// The Connect code the Exchange answered with, in its wire form, e.g.
-	// "permission_denied" or "unauthenticated". When the Exchange gave no answer
-	// — unreachable, or the call timed out — it is the code the Broker's call
-	// failed with ("unavailable", "deadline_exceeded"). A timeout is an ambiguous
-	// outcome: the purchase may have completed. Retrying the agent's request with
-	// the same idempotency_key is safe, because the Broker forwards the key
-	// unchanged and the Exchange answers a replay from its stored result.
+	// Bare host of the party that refused the call made on the caller's behalf,
+	// in the form "Request recipient" defines in the file header.
+	Party string `protobuf:"bytes,1,opt,name=party,proto3" json:"party,omitempty"`
+	// The Connect code the party answered with, in its wire form, e.g.
+	// "permission_denied" or "unauthenticated". When the party gave no answer
+	// — unreachable, or the call timed out — it is the code the relaying party's
+	// call failed with ("unavailable", "deadline_exceeded"). A timeout is an
+	// ambiguous outcome: a purchase may have completed. Retrying the agent's
+	// request with the same idempotency_key is safe, because the Broker forwards
+	// the key unchanged and the Exchange answers a replay from its stored result.
 	Code string `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
-	// The Exchange's typed reason, unchanged — the ErrorDetail it attached to its
-	// refusal. Absent when the Exchange attached none or gave no answer.
+	// The party's typed reason, unchanged — the ErrorDetail it attached to its
+	// refusal. Absent when the party attached none or gave no answer.
 	Detail        *ErrorDetail `protobuf:"bytes,3,opt,name=detail,proto3,oneof" json:"detail,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -5814,9 +5824,9 @@ func (*UpstreamRefusal) Descriptor() ([]byte, []int) {
 	return file_fora_v1_fora_proto_rawDescGZIP(), []int{27}
 }
 
-func (x *UpstreamRefusal) GetExchange() string {
+func (x *UpstreamRefusal) GetParty() string {
 	if x != nil {
-		return x.Exchange
+		return x.Party
 	}
 	return ""
 }
@@ -8049,11 +8059,13 @@ type WellKnownManifest struct {
 	// Exchange-only. Base currency for pricing (ISO 4217). All unit_cost
 	// values from this Exchange are denominated in this currency.
 	BaseCurrency *string `protobuf:"bytes,27,opt,name=base_currency,json=baseCurrency,proto3,oneof" json:"base_currency,omitempty"`
-	// Exchange-only. Maximum forwarding hops this Exchange tolerates on an inbound
-	// request (Agent → Broker → … → Exchange), counted as RFC 9421 HTTP Message
-	// Signatures. A request carrying more SHOULD be rejected. Lets Exchanges
-	// publish their chain-depth tolerance so Brokers prune before forwarding.
-	// Absent = no published limit (Exchange applies its own default policy).
+	// Exchange-only. Maximum number of RFC 9421 HTTP Message Signatures this
+	// Exchange accepts on an inbound request (Agent → Broker → … → Exchange).
+	// Every signature counts, whether or not it covers another. An Exchange
+	// refuses a request carrying more before it verifies any signature, with the
+	// Connect code resource_exhausted (HTTP 429) and no typed reason. Lets
+	// Exchanges publish their tolerance so a sender stays within it. Absent = no
+	// published limit (Exchange applies its own default policy).
 	MaxIntermediaryHops *int32 `protobuf:"varint,28,opt,name=max_intermediary_hops,json=maxIntermediaryHops,proto3,oneof" json:"max_intermediary_hops,omitempty"`
 	// Exchange-only. How to open an account here — see AccountRegistration, which
 	// owns the contract. Absent: registration_data is accepted uninspected,
@@ -10391,7 +10403,7 @@ type TransactionDenial struct {
 	// on a relayed or fanned-out execute the request went to a Broker, so the
 	// Exchange that refused may not be one the agent named (through
 	// BrokerService.ExecuteTransaction this detail reaches the agent inside
-	// UpstreamRefusal.detail, beside UpstreamRefusal.exchange). Carrying it here is
+	// UpstreamRefusal.detail, beside UpstreamRefusal.party). Carrying it here is
 	// what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to
 	// call Register without fetching a manifest to work it out. NOTHING SIGNS THIS
 	// VALUE: it rides in a response, and on a relayed path the response passed
@@ -11193,9 +11205,9 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x13_retrieval_endpointB\x17\n" +
 	"\x15_reporting_obligationB\n" +
 	"\n" +
-	"\b_refusal\"\xc8\x02\n" +
-	"\x0fUpstreamRefusal\x12\xd7\x01\n" +
-	"\bexchange\x18\x01 \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\bexchange\x12\x1d\n" +
+	"\b_refusal\"\xc2\x02\n" +
+	"\x0fUpstreamRefusal\x12\xd1\x01\n" +
+	"\x05party\x18\x01 \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\x05party\x12\x1d\n" +
 	"\x04code\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x04code\x121\n" +
 	"\x06detail\x18\x03 \x01(\v2\x14.fora.v1.ErrorDetailH\x00R\x06detail\x88\x01\x01B\t\n" +
 	"\a_detail\"\xae\x01\n" +

@@ -120,8 +120,8 @@ func TestBrokerExecute_RelaysAMixedBatchAndDecodesTheCombinedAnswer(t *testing.T
 		signedOfferAt(t, "offer-a2", "exchange-a.test", "EUR"),
 	}
 	refusal := &forav1.UpstreamRefusal{
-		Exchange: "exchange-b.test",
-		Code:     "permission_denied",
+		Party: "exchange-b.test",
+		Code:  "permission_denied",
 		Detail: helpers.TransactionDenialDetail("fora.v1.ExchangeService", "no account",
 			forav1.DenialReason_DENIAL_REASON_ACCOUNT_NOT_REGISTERED),
 	}
