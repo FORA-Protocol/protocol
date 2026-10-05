@@ -100,6 +100,9 @@ const manifest = {
   repository: { type: "git", url: "git+https://github.com/FORA-Protocol/protocol.git", directory: "sdk/ts" },
   homepage: "https://fora-protocol.org",
   type: "module",
+  // No module has an effect on import, so a bundler drops every module a program does not
+  // use. Read from sdk/ts/package.json, which states the same for the git-install path.
+  sideEffects: sdkPkg.sideEffects,
   files: ["gen", "sdk"],
   exports: { ...exports, [schemaSubpath]: schemaTarget },
   dependencies: sdkPkg.dependencies,

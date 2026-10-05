@@ -40,10 +40,13 @@ let out =
   'import { z } from "zod";\n' +
   'import { wire } from "./base.ts";\n\n';
 
+// Each schema is built inside a function call marked pure, so a bundler drops every schema
+// a program does not use: building one runs Zod constructors, which a bundler otherwise
+// has to keep. Without the mark, importing one schema carries all of them.
 for (const name of Object.keys(defs).sort()) {
   const root = inline(defs[name], [name]);
   root["$schema"] = "https://json-schema.org/draft/2020-12/schema";
-  out += `export const ${name}Schema = wire(${String(jsonSchemaToZod(root, { module: "none" }))});\n\n`;
+  out += `export const ${name}Schema = /* @__PURE__ */ (() => wire(${String(jsonSchemaToZod(root, { module: "none" }))}))();\n\n`;
 }
 
 // proto-JSON encodes an integer as a number OR a string (int64 is always a string).
