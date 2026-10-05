@@ -2344,6 +2344,26 @@ all three: a directory is fetched over https from the origin its signer named. T
 serve directories over TLS and inject a client that trusts the test server; the
 TypeScript tests inject a fetch that answers the https URL.
 
+**The strict check generates no code at run time.** The TypeScript strict check compiled
+each message's strict JSON Schema with ajv on first use, and ajv compiles by building code
+from strings. Cloudflare Workers refuses that ("EvalError: Code generation from strings
+disallowed for this context"), so every strict reader of the edge entry failed on a real
+Worker, while the Workers test pool, which allows eval, passed. The schemas the SDK checks
+by name are now compiled when the generated code is generated, with ajv's standalone
+output, into `gen/ts/strict/`, one module per message, drift-gated like the rest of
+`gen/`. A test runs the edge readers in a Node vm context with code generation from
+strings disabled, which refuses eval with the same EvalError. Only a schema a caller
+passes to `checkStrict` is still compiled at run time, because it is not known at build
+time.
+
+**A Worker carries only what it imports.** Importing one constant from the edge entry
+carried about 0.9 MB: ajv and every strict schema, and every generated Zod schema, because
+a bundler must keep a module whose import may have an effect, and must keep each Zod
+schema's construction. The TypeScript packages are marked free of side effects, the
+strict validators are one module per message, and each generated Zod schema is built in a
+call marked pure. A guard bundles the edge entry the way a Worker is bundled and checks
+what a constant, a strict reader and the WBA key resolver each carry.
+
 **A directory response signature filters keys in the resolver and gates the reader.**
 The resolvers hand out only keys the response is signed by; a listed key without a valid
 signature reads as absent, the way a removed key does, so a rotation in progress or a key

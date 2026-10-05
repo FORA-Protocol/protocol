@@ -87,7 +87,11 @@ URL, bytes and media type; the license reader also verifies the bytes against
 served as `application/http-message-signatures-directory+json`, and must carry a response
 signature by every key it lists (`DirectoryResponseUnsigned`); the WBA key resolver hands
 out only the keys that signed. `checkStrict(message, payload)` from
-`@fora-protocol/sdk/client` applies the same check to any decoded message.
+`@fora-protocol/sdk/client` applies the same check to any decoded message. The strict
+schema of every message the SDK reads is compiled when the SDK is built, so the check
+generates no code at run time and works where `eval` is refused, as on Cloudflare
+Workers. A schema passed to `checkStrict` as its third argument is compiled at run time,
+with ajv, so that form needs a runtime that allows code generation.
 
 `@fora-protocol/sdk/resolvers` is the Node entry: its readers and resolvers default their
 transport to the SSRF-guarded undici client. An edge runtime (Cloudflare Workers, Fastly
@@ -95,9 +99,13 @@ Compute, Deno) imports `@fora-protocol/sdk/resolvers/edge` instead. It exports t
 readers and resolvers, imports nothing Node-only, and has no default transport: each
 call takes `fetch`, the runtime's own fetch or a wrapper around it, and the address guard
 for a host another party named is the caller's. The protocol mechanics (`core`, `identity`,
-`hono`, and the `src` helpers such as `pop` and `verify`) are edge-safe too, and
-`verifyAgentBinding` and `verifyDirectoryResponse` take `verifyEd25519` for a runtime
-without WebCrypto Ed25519.
+`hono`, and the `src` helpers such as `pop` and `verify`) are edge-safe too.
+`verifyAgentBinding`, `verifyDirectoryResponse`, `readWBADirectory`, `createWBAKeyResolver`
+and `createWBAOfferDirectoryFetch` take `verifyEd25519` for a runtime without WebCrypto
+Ed25519, such as Fastly Compute; without it, every listed key of a directory reads as
+unsigned there. The package is marked free of side effects, so a bundler keeps only what
+a Worker imports: importing one constant from the edge entry carries a few bytes, and a
+reader carries its own message's validator and Zod schema.
 
 `@fora-protocol/sdk/discovery-hint` reads the edge discovery headers of a 403:
 `parseDiscoveryHint(status, headers)` returns each of `X-Content-Rules` and
