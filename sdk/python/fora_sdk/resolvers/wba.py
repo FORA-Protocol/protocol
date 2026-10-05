@@ -117,7 +117,6 @@ class WBAKeyResolver:
     def __init__(
         self,
         *,
-        scheme: str = "https",
         ttl: timedelta = _DEFAULT_TTL,
         poll_interval: timedelta = _DEFAULT_POLL_INTERVAL,
         sync_debounce: timedelta = _DEFAULT_SYNC_DEBOUNCE,
@@ -136,7 +135,6 @@ class WBAKeyResolver:
         # injection.
         http: httpx.Client | None = None,
     ) -> None:
-        self._scheme = scheme or "https"
         self._ttl = ttl if ttl > timedelta(0) else _DEFAULT_TTL
         self._poll_interval = (
             poll_interval if poll_interval > timedelta(0) else _DEFAULT_POLL_INTERVAL
@@ -179,7 +177,7 @@ class WBAKeyResolver:
         """
         if directory == "" or keyid == "":
             raise UnknownKeyError(f"no signature-agent directory for keyid={keyid!r}")
-        parsed = _directory_base(directory, self._scheme)
+        parsed = _directory_base(directory)
         if parsed is None:
             # A malformed Signature-Agent cannot name a directory: fall-through,
             # NOT a fail-closed DirectoryUnavailableError halt.
@@ -553,20 +551,19 @@ def _wait_timer(timer: queue.Queue[datetime], stop: threading.Event) -> bool:
     return False
 
 
-def _directory_base(ref: str, scheme: str) -> tuple[str, str] | None:
+def _directory_base(ref: str) -> tuple[str, str] | None:
     """Normalize a directory reference (an https origin, a bare host or host:port) into
     a ``scheme://host`` base and its host key, or None when it names no host.
 
-    ``scheme`` is the scheme directories are fetched over. A Signature-Agent member is
-    always an https origin; a resolver built with ``scheme="http"`` fetches that origin's
-    directory over http, which is how a test reaches a plaintext server. A bare host is
-    prefixed with it."""
-    candidate = ref if "://" in ref else f"{scheme}://{ref}"
+    A bare host is prefixed with ``https://``, and an origin keeps the scheme it names,
+    so a Signature-Agent member, always an https origin, is fetched over https. There is
+    no option to fetch it in plaintext: a test or a sandbox serves its directory over TLS
+    and injects an ``http=`` client that trusts it."""
+    candidate = ref if "://" in ref else f"https://{ref}"
     parts = urllib.parse.urlsplit(candidate)
     if not parts.netloc:
         return None
-    fetch_scheme = scheme if parts.scheme == "https" else parts.scheme
-    return f"{fetch_scheme}://{parts.netloc}", parts.netloc
+    return f"{parts.scheme}://{parts.netloc}", parts.netloc
 
 
 def _wba_host_anchored(anchor: str, candidate: str) -> bool:

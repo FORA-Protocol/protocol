@@ -79,12 +79,12 @@ def test_revocation_membership_corpus_nonempty() -> None:
 )
 def test_revoked_matches_go_oracle(case: dict[str, Any]) -> None:
     _register_the_emitters_key()
-    origin = Origin()
+    origin = Origin(tls=True)
     try:
         origin.set_wba(wba_file_json(_directory_keys(), origin.revocation_url()))
         origin.set_revocation(revocation_json(_as_of(), list(_VECTOR["revoked"])))
 
-        r = WBAKeyResolver(http=loopback_client(), scheme="http", now=MutableClock(_as_of()))
+        r = WBAKeyResolver(http=loopback_client(), now=MutableClock(_as_of()))
         # Prime the revocation snapshot by resolving the directory-listed key.
         r.resolve(_VECTOR["prime_thumbprint"], origin.origin)
 

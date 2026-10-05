@@ -3,8 +3,8 @@ sdk/go/resolvers/wbakeyresolver_profile_test.go.
 
 A key directory is fetched with no redirect, must be served as
 ``application/http-message-signatures-directory+json``, and only the keys that signed
-its response are handed out. A member is an https origin; the resolver reaches the
-plaintext in-process origin through its scheme override. The last case drives a real
+its response are handed out. A member is an https origin and is always fetched over
+https, so the in-process origin serves TLS. The last case drives a real
 two-signature request through ``verify_multisig_request_server`` with this resolver,
 each key published only in its own signer's directory.
 """
@@ -48,20 +48,20 @@ _CREATED = int(ANCHOR.timestamp())
 
 @pytest.fixture
 def origin() -> Iterator[Origin]:
-    o = Origin()
+    o = Origin(tls=True)
     yield o
     o.close()
 
 
 @pytest.fixture
 def other() -> Iterator[Origin]:
-    o = Origin()
+    o = Origin(tls=True)
     yield o
     o.close()
 
 
 def _resolver() -> WBAKeyResolver:
-    return WBAKeyResolver(http=loopback_client(), scheme="http", now=MutableClock(ANCHOR))
+    return WBAKeyResolver(http=loopback_client(), now=MutableClock(ANCHOR))
 
 
 def _key(*, signs: bool) -> tuple[Ed25519PrivateKey, str, str]:
@@ -85,14 +85,30 @@ def test_only_keys_that_signed_the_response_are_handed_out(origin: Origin) -> No
         r.resolve(unsigned_tp, origin.origin)
 
 
-def test_a_member_origin_is_fetched_over_the_override_scheme(origin: Origin) -> None:
-    # The member names an https origin; the resolver built with scheme="http" fetches
-    # that origin's directory over http, and a resolver left at https cannot reach it.
+def test_a_member_origin_and_a_bare_host_are_fetched_over_https(origin: Origin) -> None:
+    # The origin answers only TLS, so each resolve proves the directory was requested
+    # over https: the member as written, and a bare host:port prefixed with https.
     _, x, tp = _key(signs=True)
     origin.set_wba(wba_file_json([active_jwk(x)]))
     assert _resolver().resolve(tp, origin.origin) is not None
-    with pytest.raises(DirectoryUnavailableError):
-        WBAKeyResolver(http=loopback_client(), now=MutableClock(ANCHOR)).resolve(tp, origin.origin)
+    assert _resolver().resolve(tp, origin.host) is not None
+
+
+def test_a_plaintext_directory_is_never_reached() -> None:
+    # A directory served only in plaintext is unavailable under its https member, and
+    # the resolver offers no option to fetch it over http instead.
+    plain = Origin()
+    try:
+        _, x, tp = _key(signs=True)
+        plain.set_wba(wba_file_json([active_jwk(x)]))
+        with pytest.raises(DirectoryUnavailableError):
+            _resolver().resolve(tp, plain.origin)
+        with pytest.raises(DirectoryUnavailableError):
+            _resolver().resolve(tp, plain.host)
+        with pytest.raises(TypeError):
+            WBAKeyResolver(http=loopback_client(), scheme="http")  # type: ignore[call-arg]
+    finally:
+        plain.close()
 
 
 @pytest.mark.parametrize("served", ["application/jwk-set+json", "application/json", None])
@@ -172,6 +188,6 @@ def test_a_clock_outside_the_key_validity_still_fails_closed(origin: Origin) -> 
     # The profile adds checks; it does not replace the validity window.
     _, x, tp = _key(signs=True)
     origin.set_wba(wba_file_json([active_jwk(x)]))
-    r = WBAKeyResolver(http=loopback_client(), scheme="http", now=MutableClock(ANCHOR + 2 * HOUR))
+    r = WBAKeyResolver(http=loopback_client(), now=MutableClock(ANCHOR + 2 * HOUR))
     with pytest.raises(KeyExpiredError):
         r.resolve(tp, origin.origin)

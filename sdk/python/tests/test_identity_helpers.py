@@ -51,7 +51,7 @@ _JWK_MEMBERS = {"kty", "crv", "alg", "use", "x", "not_before", "not_after"}
 
 @pytest.fixture
 def origin() -> Iterator[Origin]:
-    served = Origin()
+    served = Origin(tls=True)
     yield served
     served.close()
 
@@ -62,7 +62,7 @@ def _raw(key: Ed25519PrivateKey) -> bytes:
 
 def _resolver() -> WBAKeyResolver:
     # The real clock: the window directory_document chooses must contain "now".
-    return WBAKeyResolver(http=loopback_client(), scheme="http")
+    return WBAKeyResolver(http=loopback_client())
 
 
 class _DirectoryKeys:
@@ -131,8 +131,12 @@ def test_directory_document_carries_each_key_with_its_validity_window() -> None:
     ]
     for jwk in document["keys"]:
         assert set(jwk) == _JWK_MEMBERS
-        assert (jwk["kty"], jwk["crv"], jwk["alg"], jwk["use"]) == ("OKP", "Ed25519", "EdDSA",
-                                                                    "sig")
+        assert (jwk["kty"], jwk["crv"], jwk["alg"], jwk["use"]) == (
+            "OKP",
+            "Ed25519",
+            "EdDSA",
+            "sig",
+        )
         not_before = datetime.fromisoformat(jwk["not_before"])
         not_after = datetime.fromisoformat(jwk["not_after"])
         assert not_before.tzinfo is not None
@@ -143,8 +147,9 @@ def test_directory_document_carries_each_key_with_its_validity_window() -> None:
 def test_the_sdk_resolver_reads_every_key_of_a_served_document(origin: Origin) -> None:
     first, first_id = _minted()
     second, second_id = _minted()
-    origin.set_wba(json.dumps(fora_sdk.directory_document([first.public_key(),
-                                                           second.public_key()])))
+    origin.set_wba(
+        json.dumps(fora_sdk.directory_document([first.public_key(), second.public_key()]))
+    )
     resolver = _resolver()
 
     assert resolver.resolve(first_id, origin.origin) == _raw(first)

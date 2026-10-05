@@ -326,7 +326,8 @@ and still defaults to a plain one, which is a known gap rather than a decision. 
   background poller). A key directory is fetched with no redirect, must be served as
   `application/http-message-signatures-directory+json`, and only the keys that signed its
   response (`verify_directory_response`) are handed out. A Signature-Agent member is always
-  an https origin; `scheme="http"` fetches its directory over http, for a local sandbox.
+  an https origin and its directory is always fetched over https; a local sandbox serves
+  the directory over TLS and injects an `http=` client that trusts it.
 - **Endpoint resolver** — `WellKnownEndpointResolver` discovers an Exchange's own service
   endpoint from `/.well-known/fora.json`, host-keyed and cached. Its exits are worth
   knowing apart, because the difference decides whether a caller should retry:
@@ -531,7 +532,7 @@ object that reads it was built has no effect:
 
 | Variable | Effect |
 |---|---|
-| `FORA_WELLKNOWN_SCHEME=http` | the resolvers read manifests and directories over plaintext. Consumer-side: the SDK never reads it for you, which is why the example above passes `scheme=` explicitly |
+| `FORA_WELLKNOWN_SCHEME=http` | the resolvers that take `scheme=` read manifests and offer-key directories over plaintext. Consumer-side: the SDK never reads it for you, which is why the example above passes `scheme=` explicitly. `WBAKeyResolver` takes no scheme: a Signature-Agent directory is always fetched over https |
 | `ALLOW_INSECURE=true` | the scheme gate permits a plaintext `http` origin. Needed for the RPC and delivery legs, which check the scheme ABOVE the transport, so injecting a client is not enough |
 | `SKIP_SSRF=true` | the dial-time address guard is dropped, so loopback and private addresses are reachable. Read when `guarded_client` BUILDS a client, so set it before constructing a resolver |
 

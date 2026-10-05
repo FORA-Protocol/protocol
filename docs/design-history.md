@@ -2336,11 +2336,13 @@ rest. A refusal the fetcher can fix by signing again carries `Accept-Signature`,
 does a request or proof whose `Signature-Agent` member is not an https origin: that is a
 form the client chose, not a forgery.
 
-**No option fetches a key directory in plaintext.** Go's `WBAKeyResolverOptions.Scheme`
-let tests fetch an https origin's directory from a plaintext server, and any production
-configuration could set it too. It is gone: a directory is fetched over https from the
-origin its signer named, and tests serve directories over TLS and inject the test
-server's client.
+**No option fetches a key directory in plaintext.** The key resolver's scheme option
+(Go `WBAKeyResolverOptions.Scheme`, Python `WBAKeyResolver(scheme=...)`, TypeScript
+`WBAKeyResolverOptions.scheme`) let tests fetch an https origin's directory from a
+plaintext server, and any production configuration could set it too. It is gone from
+all three: a directory is fetched over https from the origin its signer named. Tests
+serve directories over TLS and inject a client that trusts the test server; the
+TypeScript tests inject a fetch that answers the https URL.
 
 **A directory response signature filters keys in the resolver and gates the reader.**
 The resolvers hand out only keys the response is signed by; a listed key without a valid
