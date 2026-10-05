@@ -15,6 +15,9 @@
 #                                       rule datamodel-codegen drops; Zod gets it inline)
 #            --gen_jsonschema.py--------> gen/jsonschema/ (the published per-message JSON
 #                                       Schemas, default + strict; decisions in its header)
+#            --gen_strict_validators.mjs-> gen/ts/strict/ (the strict schemas the TS SDK
+#                                       checks by name, compiled by ajv at build time so no
+#                                       code is generated at run time; why in its header)
 #
 # gen/python/wire/base.py is hand-written (the seam) and NOT generated.
 # Prereqs: go, python3, node/npm. Provisions a throwaway venv + node_modules under
@@ -28,10 +31,10 @@ COMBINED="$WORK/combined.json"
 PY="$WORK/venv/bin/python"
 rm -rf "$WORK"; mkdir -p "$WORK" gen/python/wire gen/ts/wire gen/jsonschema
 
-echo "==> 1/5 JSON Schema from proto (bufbuild/protoschema)"
+echo "==> 1/6 JSON Schema from proto (bufbuild/protoschema)"
 (cd proto && buf generate --template ../scripts/sdk-types/buf.jsonschema.yaml -o "../$WORK")
 
-echo "==> 2/5 tools + merge (clean names; enums named from the descriptor)"
+echo "==> 2/6 tools + merge (clean names; enums named from the descriptor)"
 python3 -m venv "$WORK/venv"
 # Pinned AND hash-locked: generated output is byte-compared in CI, so every tool that
 # shapes it must be fixed. datamodel-code-generator emits the models; black formats them;
@@ -53,7 +56,7 @@ go run ./conformance/uniquegen "$WORK/unique_items.json"
 "$PY" scripts/sdk-types/merge_schema.py "$JS" gen/descriptor.binpb "$COMBINED" \
   "$WORK/required_fields.json" "$WORK/unique_items.json"
 
-echo "==> 3/5 Pydantic v2 (datamodel-code-generator, --base-class + --collapse-root-models)"
+echo "==> 3/6 Pydantic v2 (datamodel-code-generator, --base-class + --collapse-root-models)"
 "$WORK/venv/bin/datamodel-codegen" \
   --input "$COMBINED" --input-file-type jsonschema \
   --output gen/python/wire/models.py --output-model-type pydantic_v2.BaseModel \
@@ -73,19 +76,19 @@ PYEOF
 # The repeated.unique field map the wire/base.py seam enforces (see gen_unique_py.py).
 "$PY" scripts/sdk-types/gen_unique_py.py "$WORK/unique_items.json" gen/python/wire/unique.py
 
-echo "==> 4/5 Zod (json-schema-to-zod)"
+echo "==> 4/6 Zod (json-schema-to-zod)"
 # Pinned via a committed manifest + lockfile so `npm ci` installs the exact same
 # json-schema-to-zod/zod (and transitive) tree every run — the byte-compared
 # schemas.ts cannot drift on a transparent dependency bump.
 cp scripts/sdk-types/package.json scripts/sdk-types/package-lock.json "$WORK/"
-# --ignore-scripts: json-schema-to-zod + zod are pure JS (no native postinstall), so
+# --ignore-scripts: json-schema-to-zod, zod and ajv are pure JS (no native postinstall), so
 # no install-time code runs — this step produces the drift-gated schemas.ts, so it must
 # not execute third-party lifecycle scripts (which would run with the CI token in env).
 (cd "$WORK" && npm ci --no-audit --no-fund --ignore-scripts)
 cp scripts/sdk-types/gen_zod.mjs "$WORK/gen_zod.mjs"
 node "$WORK/gen_zod.mjs" "$COMBINED" gen/ts/wire/schemas.ts
 
-echo "==> 5/5 published JSON Schemas (gen/jsonschema/)"
+echo "==> 5/6 published JSON Schemas (gen/jsonschema/)"
 # The same protoschema output the models above are generated from, kept as release
 # artifacts instead of discarded: one self-contained file per contract message, in a
 # default and a strict variant. The wire decisions (field naming, Struct, int64) are
@@ -93,4 +96,9 @@ echo "==> 5/5 published JSON Schemas (gen/jsonschema/)"
 "$PY" scripts/sdk-types/gen_jsonschema.py "$JS" gen/descriptor.binpb \
   "$WORK/required_fields.json" "$WORK/unique_items.json" gen/jsonschema
 
-echo "==> done: gen/python/wire/models.py, gen/python/wire/unique.py, gen/ts/wire/schemas.ts, gen/jsonschema/"
+echo "==> 6/6 precompiled strict validators (gen/ts/strict/)"
+# From the strict schemas step 5 wrote, with the ajv the pinned manifest above installed.
+cp scripts/sdk-types/gen_strict_validators.mjs "$WORK/gen_strict_validators.mjs"
+(cd "$WORK" && node gen_strict_validators.mjs ../gen/jsonschema ../gen/ts/strict)
+
+echo "==> done: gen/python/wire/models.py, gen/python/wire/unique.py, gen/ts/wire/schemas.ts, gen/jsonschema/, gen/ts/strict/"

@@ -29,7 +29,7 @@ rmSync(stage, { recursive: true, force: true });
 rmSync(dist, { recursive: true, force: true });
 // gen/jsonschema is staged too: the client's strict decoding imports the strict schemas
 // as JSON modules, so they must resolve inside the compilation root.
-for (const dir of ["gen/ts/wire", "gen/ts/vocab", "gen/jsonschema"]) cpSync(join(repo, dir), join(stage, dir), { recursive: true });
+for (const dir of ["gen/ts/wire", "gen/ts/vocab", "gen/ts/strict", "gen/jsonschema"]) cpSync(join(repo, dir), join(stage, dir), { recursive: true });
 for (const dir of ["src", "core", "client", "hono", "resolvers"]) cpSync(join(pkgDir, dir), join(stage, "sdk/ts", dir), { recursive: true });
 
 execFileSync("npx", ["tsc", "-p", "tsconfig.build.json"], { cwd: pkgDir, stdio: "inherit" });

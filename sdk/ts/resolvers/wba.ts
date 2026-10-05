@@ -17,6 +17,7 @@ import type {
 	WBAFileSchema,
 } from "../../../gen/ts/wire/schemas.ts";
 import { decodeBase64UrlStrict } from "../src/base64url.ts";
+import type { Ed25519Verify } from "../src/pop.ts";
 import { hostAnchored } from "../src/hosts.ts";
 import { thumbprint } from "../src/thumbprint.ts";
 import {
@@ -63,6 +64,10 @@ export interface WBAKeyResolverOptions {
 	after?: (ms: number) => Promise<void>;
 	onPollArmed?: () => void;
 	onPollCycle?: () => void;
+	/** The Ed25519 verify primitive a directory's response signatures are checked with,
+	 * for a runtime without WebCrypto Ed25519 (Fastly Compute). Defaults to WebCrypto.
+	 * Without a working primitive every listed key reads as unsigned and none resolves. */
+	verifyEd25519?: Ed25519Verify;
 	/** The transport directories and revocation lists are fetched through. Required
 	 * here; the Node entry's createWBAKeyResolver defaults it to the SSRF-guarded
 	 * transport, because the directory host comes from the request-supplied
@@ -115,6 +120,7 @@ class WBAResolverImpl implements WBAKeyResolver {
 	private readonly onPollArmed: (() => void) | undefined;
 	private readonly onPollCycle: (() => void) | undefined;
 	private readonly fetchFn: FetchLike;
+	private readonly verifyEd25519: Ed25519Verify | undefined;
 	private readonly dirCache = new Map<string, DirEntry>();
 	private readonly revSnapshots = new Map<string, RevSet>();
 	// lastSync throttles the unknown-thumbprint force-refresh to one per debounce
@@ -140,6 +146,7 @@ class WBAResolverImpl implements WBAKeyResolver {
 		this.onPollArmed = opts.onPollArmed;
 		this.onPollCycle = opts.onPollCycle;
 		this.fetchFn = opts.fetch;
+		this.verifyEd25519 = opts.verifyEd25519;
 	}
 
 	async resolve(
@@ -232,7 +239,10 @@ class WBAResolverImpl implements WBAKeyResolver {
 	}
 
 	private fetchDirectory(base: string): Promise<WBAFile> {
-		return fetchWBAFile(this.fetchFn, base + WBA_DIRECTORY_PATH, this.now());
+		return fetchWBAFile(this.fetchFn, base + WBA_DIRECTORY_PATH, {
+			now: this.now(),
+			verifyEd25519: this.verifyEd25519,
+		});
 	}
 
 	private isRevoked(host: string, thumbprintKey: string): boolean {

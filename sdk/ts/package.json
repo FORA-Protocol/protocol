@@ -60,6 +60,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "5.20261005.1",
     "@types/node": "^26.1.0",
+    "esbuild": "0.21.5",
     "typescript": "^6.0.3",
     "vitest": "^2.1.0",
     "web-bot-auth": "0.2.0",

@@ -43,10 +43,15 @@ import {
 } from "../../../gen/ts/wire/schemas.ts";
 import { verifyDirectoryResponse } from "../core/directory-response.ts";
 import { decodeBase64UrlStrict } from "../src/base64url.ts";
+import type { Ed25519Verify } from "../src/pop.ts";
 import { invalidHost } from "../src/host-ref.ts";
 import { isBareHost } from "../src/hosts.ts";
 import { thumbprint } from "../src/thumbprint.ts";
-import { StrictViolation, checkStrict } from "../src/strict.ts";
+import { type StrictMessage, StrictViolation, checkStrictOf } from "../src/strict-core.ts";
+import { strict as KEY_REVOCATION_LIST_STRICT } from "../../../gen/ts/strict/fora.v1.KeyRevocationList.ts";
+import { strict as LICENSE_STRICT } from "../../../gen/ts/strict/fora.v1.License.ts";
+import { strict as WBA_FILE_STRICT } from "../../../gen/ts/strict/fora.v1.WBAFile.ts";
+import { strict as WELL_KNOWN_MANIFEST_STRICT } from "../../../gen/ts/strict/fora.v1.WellKnownManifest.ts";
 import { manifestVersionRefusal, WellKnownPath } from "../src/wire.ts";
 import {
 	DigestMismatch,
@@ -121,6 +126,19 @@ export interface ReadDocumentOptions {
 	fetch: FetchLike;
 	/** Used when a reader builds the URL from a domain. Defaults to https. */
 	scheme?: string;
+	/** The Ed25519 verify primitive readWBADirectory checks the directory's response
+	 * signatures with, for a runtime without WebCrypto Ed25519. Defaults to WebCrypto. */
+	verifyEd25519?: Ed25519Verify;
+}
+
+/** How the resolvers' lenient directory read checks a response. */
+export interface DirectoryReadOptions {
+	/** The epoch-ms clock the response signatures' windows are judged against. Defaults
+	 * to Date.now(). */
+	now?: number | undefined;
+	/** The Ed25519 verify primitive the response signatures are checked with. Defaults to
+	 * WebCrypto. */
+	verifyEd25519?: Ed25519Verify | undefined;
 }
 
 // --- the shared reads: one fetch-and-decode per document --------------------------------
@@ -152,10 +170,14 @@ export async function fetchManifest(
  * member is a newer minor version, not a reason to stop verifying. The media type must be
  * WBA_DIRECTORY_MEDIA_TYPE. The file returned lists only the keys that signed the
  * response (signedDirectoryKeys), so no caller can hand out a key the directory did not
- * sign for. `now` is the epoch-ms clock the response signatures' windows are judged
- * against. The one read of a directory the WBA key resolver and the offer-directory
+ * sign for. `opts` carries the clock the response signatures' windows are judged against
+ * and the Ed25519 primitive they are checked with. The one read of a directory the WBA key resolver and the offer-directory
  * fetch share, so the two never drift. Every failure throws DirectoryUnavailable. */
-export async function fetchWBAFile(fetchFn: FetchLike, url: string, now: number = Date.now()): Promise<WBAFile> {
+export async function fetchWBAFile(
+	fetchFn: FetchLike,
+	url: string,
+	opts: DirectoryReadOptions = {},
+): Promise<WBAFile> {
 	const fetched = await fetchDocument(fetchFn, url, { noRedirect: true });
 	if (fetched.mediaType !== WBA_DIRECTORY_MEDIA_TYPE) {
 		throw new DirectoryUnavailable(`wba directory ${url}`, {
@@ -164,7 +186,7 @@ export async function fetchWBAFile(fetchFn: FetchLike, url: string, now: number 
 	}
 	const file = lenient(fetched, WBAFileSchema, "wba directory decode");
 	try {
-		return await signedDirectoryKeys(fetched, file, now);
+		return await signedDirectoryKeys(fetched, file, opts.now ?? Date.now(), opts.verifyEd25519);
 	} catch (err) {
 		throw new DirectoryUnavailable(`wba directory signature ${url}`, { cause: err });
 	}
@@ -172,13 +194,19 @@ export async function fetchWBAFile(fetchFn: FetchLike, url: string, now: number 
 
 /**
  * signedDirectoryKeys returns a copy of `file` listing only the keys whose response
- * signature verifies, checked against the authority `fetched` was read from. A key that
+ * signature verifies, checked against the authority `fetched` was read from, through
+ * `verifyEd25519` when one is given and WebCrypto otherwise. A key that
  * is not an Ed25519 key cannot sign and is dropped with the rest. It throws for a
  * response listing keys that cannot be checked at all: a Content-Digest that does not
  * match the body, or no response signature. A directory listing no key has nothing to
  * sign and is returned as it is.
  */
-export async function signedDirectoryKeys(fetched: Fetched, file: WBAFile, now: number): Promise<WBAFile> {
+export async function signedDirectoryKeys(
+	fetched: Fetched,
+	file: WBAFile,
+	now: number,
+	verifyEd25519?: Ed25519Verify,
+): Promise<WBAFile> {
 	const keys = file.keys ?? [];
 	if (keys.length === 0) return file;
 	const pubs = keys.map(wbaPublicKey);
@@ -188,6 +216,7 @@ export async function signedDirectoryKeys(fetched: Fetched, file: WBAFile, now: 
 		fetched.body as Uint8Array<ArrayBuffer>,
 		pubs.filter((p): p is Uint8Array<ArrayBuffer> => p !== undefined),
 		Math.floor(now / 1000),
+		{ verifyEd25519 },
 	);
 	const signed: typeof keys = [];
 	for (const [i, key] of keys.entries()) {
@@ -233,10 +262,10 @@ function lenient<T>(fetched: Fetched, schema: { parse(v: unknown): T }, what: st
 
 // --- the checks a public reader applies ------------------------------------------------
 
-/** What the contract says about one document: its message, and the media type it is
- * served under when the protocol names one. */
+/** What the contract says about one document: its message's strict check, compiled at
+ * build time, and the media type it is served under when the protocol names one. */
 export interface DocumentKind<T> {
-	message: string;
+	strict: StrictMessage;
 	schema: { safeParse: (v: unknown) => { success: boolean; data?: unknown } };
 	mediaType: string | undefined;
 	/** Whether `ver` is read before any other member (the manifest's rule). */
@@ -246,19 +275,19 @@ export interface DocumentKind<T> {
 }
 
 export const MANIFEST: DocumentKind<WellKnownManifest> = {
-	message: "fora.v1.WellKnownManifest",
+	strict: WELL_KNOWN_MANIFEST_STRICT,
 	schema: WellKnownManifestSchema,
 	mediaType: MANIFEST_MEDIA_TYPE,
 	versionGate: true,
 };
 export const WBA_DIRECTORY: DocumentKind<WBAFile> = {
-	message: "fora.v1.WBAFile",
+	strict: WBA_FILE_STRICT,
 	schema: WBAFileSchema,
 	mediaType: WBA_DIRECTORY_MEDIA_TYPE,
 	versionGate: false,
 };
 export const REVOCATION_LIST: DocumentKind<KeyRevocationList> = {
-	message: "fora.v1.KeyRevocationList",
+	strict: KEY_REVOCATION_LIST_STRICT,
 	schema: KeyRevocationListSchema,
 	mediaType: undefined,
 	versionGate: false,
@@ -291,14 +320,14 @@ export function accept<T>(kind: DocumentKind<T>, fetched: Fetched): Document<T> 
 		const refusal = manifestVersionRefusal(ver);
 		if (refusal !== undefined) throw new ManifestVersionRefused(refusal);
 	}
-	checkStrict(kind.message, payload);
+	checkStrictOf(payload, kind.strict);
 	const parsed = parseWire<T>(kind.schema, payload);
 	if (!parsed.success) {
 		// A value the schema leaves to the parse, such as a timestamp that is not RFC 3339,
 		// is the document breaking its message all the same. The model also names an enum
 		// by its value name, so an enum written as its number, which the schema admits and
 		// the Go reader accepts, is refused here.
-		throw new StrictViolation(kind.message, "the generated model refused the document");
+		throw new StrictViolation(kind.strict.message, "the generated model refused the document");
 	}
 	return { message: parsed.data, mediaType: fetched.mediaType, url: fetched.url, body: fetched.body };
 }
@@ -372,7 +401,8 @@ export async function readManifest(
  * The directory is fetched with no redirect: a redirect fails the fetch. The media type
  * must be application/http-message-signatures-directory+json, the body must pass the
  * strict WBAFile schema and the cross-field rules, and the response must carry a valid
- * response signature by every key it lists. Key validity windows and revocation are not
+ * response signature by every key it lists, checked through `opts.verifyEd25519` when one
+ * is given. Key validity windows and revocation are not
  * evaluated: that is the WBA key resolver's job, and a directory listing an expired key
  * is still a well-formed directory. Throws an Error for a value that is neither a URL nor
  * a bare host; DirectoryUnavailable; MediaTypeRefused; StrictViolation; and
@@ -391,7 +421,7 @@ export async function readWBADirectory(
 	const doc = accept(WBA_DIRECTORY, fetched);
 	let signed: WBAFile;
 	try {
-		signed = await signedDirectoryKeys(fetched, doc.message, Date.now());
+		signed = await signedDirectoryKeys(fetched, doc.message, Date.now(), opts.verifyEd25519);
 	} catch (err) {
 		throw new DirectoryResponseUnsigned(`${url}: ${(err as Error).message}`, { cause: err });
 	}
@@ -443,7 +473,7 @@ export async function readLicenseDocument(
 		throw new Error("license carries no uri: there is no document to read");
 	}
 	// Through JSON, as it travels: a member set to undefined is an absent member.
-	checkStrict("fora.v1.License", JSON.parse(JSON.stringify(license)));
+	checkStrictOf(JSON.parse(JSON.stringify(license)), LICENSE_STRICT);
 	const fetched = await fetchDocument(opts.fetch, license.uri);
 	return verifyDigest(license.uri_digest ?? "", fetched);
 }

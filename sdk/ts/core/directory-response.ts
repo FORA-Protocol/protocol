@@ -116,7 +116,7 @@ function headerOf(headers: ResponseHeaders, name: string): string | undefined {
 export interface VerifyDirectoryResponseOptions {
 	/** The Ed25519 verify primitive, the same type verifyAgentBinding takes, so a runtime
 	 * without WebCrypto Ed25519 can supply its own. Defaults to WebCrypto crypto.subtle. */
-	verifyEd25519?: Ed25519Verify;
+	verifyEd25519?: Ed25519Verify | undefined;
 }
 
 /**

@@ -60,7 +60,7 @@ export {
 	type WellKnownRequirementsOptions,
 	type WellKnownRequirementsReader,
 } from "./registration-requirements.ts";
-export { StrictViolation } from "../src/strict.ts";
+export { StrictViolation } from "../src/strict-core.ts";
 export { allowedScheme, blockedAddress } from "./ssrf.ts";
 export { createStaticKeyResolver, type StaticKeyResolver } from "./static.ts";
 export {

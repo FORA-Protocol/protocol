@@ -28,6 +28,7 @@
 
 import type { WBAFileSchema } from "../../../gen/ts/wire/schemas.ts";
 import type { OfferKeyResolver } from "../core/verifier.ts";
+import type { Ed25519Verify } from "../src/pop.ts";
 import { fetchWBAFile, wbaDirectoryURL } from "./documents.ts";
 import type { FetchLike } from "./fetch.ts";
 import { activeEd25519KeyWithExpiryScreened } from "./wba.ts";
@@ -227,6 +228,9 @@ export interface WBAOfferDirectoryFetchOptions {
 	fetch: FetchLike;
 	scheme?: string;
 	port?: string;
+	/** The Ed25519 verify primitive the directory's response signatures are checked with,
+	 * for a runtime without WebCrypto Ed25519. Defaults to WebCrypto. */
+	verifyEd25519?: Ed25519Verify;
 }
 
 /**
@@ -250,10 +254,9 @@ export function createWBAOfferDirectoryFetch(opts: WBAOfferDirectoryFetchOptions
 	const port = opts.port ?? "";
 	return async (domain: string) => {
 		try {
-			return await fetchWBAFile(
-				fetchFn,
-				wbaDirectoryURL(scheme, joinDirectoryHost(domain, port)),
-			);
+			return await fetchWBAFile(fetchFn, wbaDirectoryURL(scheme, joinDirectoryHost(domain, port)), {
+				verifyEd25519: opts.verifyEd25519,
+			});
 		} catch {
 			return undefined;
 		}

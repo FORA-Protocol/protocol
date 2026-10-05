@@ -126,10 +126,10 @@ else
   # for a removed message shows up as a deletion. base.py / base.ts / schemas.py and
   # gen/jsonschema/{jsonschema.go,README.md} are hand-written and never regenerated, so
   # they cannot drift.
-  if ! git diff --quiet HEAD -- gen/python/wire gen/ts/wire gen/jsonschema \
-     || [ -n "$(git ls-files --others --exclude-standard -- gen/python/wire gen/ts/wire gen/jsonschema)" ]; then
-    echo "::error:: SDK types export out of sync — run scripts/gen-sdk-types.sh and commit gen/python/wire/ + gen/ts/wire/ + gen/jsonschema/."
-    git status --short -- gen/python/wire gen/ts/wire gen/jsonschema
+  if ! git diff --quiet HEAD -- gen/python/wire gen/ts/wire gen/ts/strict gen/jsonschema \
+     || [ -n "$(git ls-files --others --exclude-standard -- gen/python/wire gen/ts/wire gen/ts/strict gen/jsonschema)" ]; then
+    echo "::error:: SDK types export out of sync — run scripts/gen-sdk-types.sh and commit gen/python/wire/ + gen/ts/wire/ + gen/ts/strict/ + gen/jsonschema/."
+    git status --short -- gen/python/wire gen/ts/wire gen/ts/strict gen/jsonschema
     fail=1
   else
     note "no drift"
