@@ -13,7 +13,7 @@
 import { encodeBase64Url, stdBase64 } from "../src/base64url.ts";
 import { opaqueUrl } from "../src/opaque-url.ts";
 import { AGENT_KEY_HEADER } from "../src/pop.ts";
-import { thumbprint } from "../src/thumbprint.ts";
+import { exportRawPublicKey, thumbprint } from "../src/thumbprint.ts";
 import { SignatureAgentHeader, WBATag } from "../src/wire.ts";
 import { buildSignatureBase, requestComponentValue, signatureInputInner } from "./sign-request.ts";
 import {
@@ -47,9 +47,14 @@ const POP_LABEL = "sig1";
  */
 export type Ed25519SignFn = (message: Uint8Array) => Promise<Uint8Array>;
 
-/** Options for signInbound: the agent's directory, the nonce, and the created/expires
- * window with an injectable clock. */
+/** Options for signInbound: the method, the agent's directory, the nonce, and the
+ * created/expires window with an injectable clock. */
 export interface SignInboundOptions {
+	/** The HTTP method being signed, upper-cased into the base as @method and set on the
+	 * returned Request. Absent or "" means GET (Go PoPOptions.Method). A signed URL is
+	 * read-only in practice, but @method is covered so a proof made for one method cannot
+	 * be lifted onto another. A control byte throws TypeError before anything is signed. */
+	method?: string;
 	/** The https origin of the agent's key directory, the one that publishes the
 	 * presented key. Written as the Signature-Agent member sig1="<origin>" and covered,
 	 * so a generic WBA verifier can resolve the key there. Required: empty throws
@@ -79,6 +84,7 @@ export interface SignInboundOptions {
  * Request is immutable — we clone + set headers, never mutate).
  *
  * The covered set is exactly ("@method" "@target-uri" "signature-agent";key="sig1"),
+ * @method being opts.method upper-cased (GET when unset),
  * the parameters created, expires, keyid, alg, nonce (when set) and tag="web-bot-auth",
  * matching Go helpers.SignAgentBinding byte for byte, so the produced request verifies
  * through verifyAgentBinding unchanged. Throws WebBotAuthError, before signing, for a
@@ -90,9 +96,7 @@ export async function signInbound(
 	url: string,
 	opts: SignInboundOptions,
 ): Promise<Request> {
-	const rawPub = new Uint8Array(
-		await crypto.subtle.exportKey("raw", kp.publicKey),
-	);
+	const rawPub = await exportRawPublicKey(kp.publicKey);
 	const agentId = await thumbprint(rawPub);
 
 	// Source (created, expires) from the injected Window, defaulting to a
@@ -126,6 +130,11 @@ export async function signInbound(
 	if (badAt !== -1) {
 		throw new TypeError(`target URI carries a control byte at byte ${badAt}`);
 	}
+	const method = (opts.method || "GET").toUpperCase();
+	const methodBadAt = new TextEncoder().encode(method).findIndex((b) => b < 0x20 || b === 0x7f);
+	if (methodBadAt !== -1) {
+		throw new TypeError(`method carries a control byte at byte ${methodBadAt}`);
+	}
 
 	const member = signatureAgentMember(POP_LABEL, opts.signatureAgent);
 	const covered = [plain("@method"), plain("@target-uri"), keyed("signature-agent", POP_LABEL)];
@@ -141,7 +150,7 @@ export async function signInbound(
 	const base = buildSignatureBase(
 		covered,
 		requestComponentValue({
-			method: "GET",
+			method,
 			url: target,
 			header: (name) => (name === "signature-agent" ? member : undefined),
 		}),
@@ -159,7 +168,7 @@ export async function signInbound(
 	headers.set("signature-input", `${POP_LABEL}=${inner}`);
 	headers.set("signature", `${POP_LABEL}=:${stdBase64(new Uint8Array(sig))}:`);
 
-	return new Request(target, { method: "GET", headers });
+	return new Request(target, { method, headers });
 }
 
 // checkProofOptions refuses a proof no profile verifier accepts, before anything is

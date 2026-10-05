@@ -26,7 +26,7 @@ import {
 	RevocationUnevaluated,
 } from "./errors.ts";
 import { fetchRevocationList, fetchWBAFile, WBA_DIRECTORY_PATH } from "./documents.ts";
-import { type FetchLike, guardedFetch } from "./http.ts";
+import type { FetchLike } from "./fetch.ts";
 
 // Re-exported so the module that has always carried them still does; the one copy of
 // each lives with the document reads in ./documents.ts.
@@ -44,11 +44,6 @@ type WBAJwk = NonNullable<WBAFile["keys"]>[number];
 /** Options for the WBA resolver. Zero values are safe defaults; tests inject the
  * clock (`now`), the poll timer (`after`), and the armed/cycle seams. */
 export interface WBAKeyResolverOptions {
-	/** The scheme directories are fetched over (empty → "https"). A Signature-Agent
-	 * member is always an https origin; tests inject "http" to fetch that origin's
-	 * directory from a plaintext test server, and a bare host reference is prefixed
-	 * with it. */
-	scheme?: string;
 	ttlMs?: number;
 	pollIntervalMs?: number;
 	/** Throttle for the unknown-thumbprint force-refresh, per directory host (≤0 →
@@ -68,7 +63,11 @@ export interface WBAKeyResolverOptions {
 	after?: (ms: number) => Promise<void>;
 	onPollArmed?: () => void;
 	onPollCycle?: () => void;
-	fetch?: FetchLike;
+	/** The transport directories and revocation lists are fetched through. Required
+	 * here; the Node entry's createWBAKeyResolver defaults it to the SSRF-guarded
+	 * transport, because the directory host comes from the request-supplied
+	 * Signature-Agent and is fetched pre-auth. An edge runtime injects its own. */
+	fetch: FetchLike;
 }
 
 /** The WBA key face. `resolve` returns the raw Ed25519 public key, `undefined`
@@ -89,9 +88,9 @@ export interface WBAKeyResolver {
 	revoked(keyId: string): boolean;
 }
 
-/** Construct a WBA resolver with defaults applied. */
+/** Construct a WBA resolver with defaults applied (every option but `fetch`). */
 export function createWBAKeyResolver(
-	opts: WBAKeyResolverOptions = {},
+	opts: WBAKeyResolverOptions,
 ): WBAKeyResolver {
 	return new WBAResolverImpl(opts);
 }
@@ -107,7 +106,6 @@ interface RevSet {
 }
 
 class WBAResolverImpl implements WBAKeyResolver {
-	private readonly scheme: string;
 	private readonly ttlMs: number;
 	private readonly pollMs: number;
 	private readonly syncDebounceMs: number;
@@ -126,7 +124,6 @@ class WBAResolverImpl implements WBAKeyResolver {
 	private readonly inflight = new Map<string, Promise<WBAFile>>();
 
 	constructor(opts: WBAKeyResolverOptions) {
-		this.scheme = opts.scheme && opts.scheme !== "" ? opts.scheme : "https";
 		this.ttlMs = opts.ttlMs && opts.ttlMs > 0 ? opts.ttlMs : DEFAULT_TTL_MS;
 		this.pollMs =
 			opts.pollIntervalMs && opts.pollIntervalMs > 0
@@ -142,9 +139,7 @@ class WBAResolverImpl implements WBAKeyResolver {
 			opts.after ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
 		this.onPollArmed = opts.onPollArmed;
 		this.onPollCycle = opts.onPollCycle;
-		// The WBA directory host comes from the request-supplied Signature-Agent and
-		// is fetched pre-auth, so the default is SSRF-guarded (matches the Go oracle).
-		this.fetchFn = opts.fetch ?? guardedFetch;
+		this.fetchFn = opts.fetch;
 	}
 
 	async resolve(
@@ -152,7 +147,7 @@ class WBAResolverImpl implements WBAKeyResolver {
 		directory: string,
 	): Promise<Uint8Array | undefined> {
 		if (directory === "" || keyID === "") return undefined;
-		const parsed = directoryBase(directory, this.scheme);
+		const parsed = directoryBase(directory);
 		// A malformed Signature-Agent cannot name a directory: fall-through
 		// (undefined), NOT a fail-closed DirectoryUnavailable halt.
 		if (!parsed) return undefined;
@@ -323,13 +318,12 @@ function whenAborted(signal: AbortSignal): Promise<void> {
 
 /** Normalize a directory reference (an https origin, bare host, host:port, or full
  * URL) into a scheme://host base and its host key, or `undefined` when it names no
- * host. An https origin is fetched over the resolver's scheme, so a test reaches a
- * plaintext server through the same origin a signature names. */
-function directoryBase(
-	ref: string,
-	scheme: string,
-): { base: string; host: string } | undefined {
-	const withScheme = ref.includes("://") ? ref : `${scheme}://${ref}`;
+ * host. A bare host is prefixed with https://, and an https origin is fetched over
+ * https: there is no option that fetches it any other way (Go removed
+ * WBAKeyResolverOptions.Scheme for the same reason), so a test reaches a local server
+ * by injecting a fetch that routes the https URL to it. */
+function directoryBase(ref: string): { base: string; host: string } | undefined {
+	const withScheme = ref.includes("://") ? ref : `https://${ref}`;
 	let url: URL;
 	try {
 		url = new URL(withScheme);
@@ -337,8 +331,7 @@ function directoryBase(
 		return undefined;
 	}
 	if (url.host === "") return undefined;
-	const protocol = url.protocol === "https:" && scheme !== "https" ? `${scheme}:` : url.protocol;
-	return { base: `${protocol}//${url.host}`, host: url.host };
+	return { base: `${url.protocol}//${url.host}`, host: url.host };
 }
 
 /** Whether `candidate` is anchored to `anchor` — the same host and port, or a

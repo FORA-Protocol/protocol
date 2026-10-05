@@ -239,8 +239,9 @@ export function acceptSignature(entitlement: boolean): string {
 /**
  * Refusal is the internal verdict of one profile check, before it collapses to the
  * public reject reason. It carries what the Accept-Signature decision needs: a missing
- * component, a refused tag or Signature-Agent form, and a request with no signature are
- * answered with Accept-Signature; everything else is not.
+ * component, a refused tag or Signature-Agent form, a Signature-Agent member that is not
+ * an https origin, and a request with no signature are answered with Accept-Signature;
+ * everything else is not.
  */
 export type Refusal =
 	| { kind: "unsigned" }
@@ -251,9 +252,13 @@ export type Refusal =
 	| { kind: "not_origin" }
 	| { kind: "signature" };
 
-/** acceptSignatureFor returns the Accept-Signature value a verifier answers `r` with, or
- * undefined when the refusal is of a well-formed signature that failed for another
- * reason: a bad signature, an unknown key, a stale window, a malformed header. */
+/** acceptSignatureFor returns the Accept-Signature value a verifier answers `r` with:
+ * for every refusal the client can fix by signing again as the profile requires, which
+ * is no signature, a missing component, the wrong tag, a Signature-Agent in a form the
+ * profile refuses, and a Signature-Agent member that is not an https origin (Go
+ * helpers.AcceptSignatureFor). It is undefined when the refusal is of a well-formed
+ * signature that failed for another reason: a bad signature, an unknown key, a stale
+ * window, a malformed header. */
 export function acceptSignatureFor(r: Refusal): string | undefined {
 	switch (r.kind) {
 		case "missing_component":
@@ -261,6 +266,7 @@ export function acceptSignatureFor(r: Refusal): string | undefined {
 		case "unsigned":
 		case "tag":
 		case "form":
+		case "not_origin":
 			return acceptSignature(false);
 		default:
 			return undefined;

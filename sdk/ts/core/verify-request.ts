@@ -19,7 +19,7 @@
 
 import { WBATag } from "../src/wire.ts";
 import { parseSignatureHeaders, type ParsedSignature } from "./multisig-parse.ts";
-import { stdBase64 } from "../src/base64url.ts";
+import { stdBase64, utf8Bytes } from "../src/base64url.ts";
 import {
 	buildSignatureBase,
 	ComponentUnavailable,
@@ -138,8 +138,9 @@ export interface VerifyVerdict {
 	 * The Accept-Signature value (RFC 9421 §5.1, WG-00 §5.3) a refusal is answered with,
 	 * naming the components and form the verifier requires. Set when the request carried
 	 * no signature, a signature omitted a required component, its tag was missing or
-	 * wrong, or its Signature-Agent was in a form the profile refuses; unset for every
-	 * other refusal. A server sets it on its 401 as the AcceptSignatureHeader field.
+	 * wrong, its Signature-Agent was in a form the profile refuses, or the member it
+	 * covers is not an https origin; unset for every other refusal. A server sets it on
+	 * its 401 as the AcceptSignatureHeader field.
 	 */
 	acceptSignature?: string;
 }
@@ -295,7 +296,7 @@ export async function verifyParsedSignature(
 		if (err instanceof ComponentUnavailable) return refuse(SIGNATURE);
 		throw err;
 	}
-	if (!(await ed25519Verify(pub, sig.signature, new TextEncoder().encode(base)))) return refuse(SIGNATURE);
+	if (!(await ed25519Verify(pub, sig.signature, utf8Bytes(base)))) return refuse(SIGNATURE);
 	return { ok: true, value: { keyid: sig.keyid, directory: directory.value } };
 }
 

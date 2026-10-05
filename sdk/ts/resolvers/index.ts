@@ -1,78 +1,32 @@
-// Public surface of the FORA SDK resolver faces (ADR-020 §4). These are the FIRST
-// IO in the TS SDK, so they live OUTSIDE the IO-free core/src tree (exported via
-// package.json `exports`) to keep the transport-neutrality invariant on core
-// green. Four faces port the Go oracle: a static named map, a well-known JWKS
-// key resolver, a host-keyed well-known endpoint resolver, and the WBA
-// identity-directory resolver + revocation poller. The typed error classes
+// Public surface of the FORA SDK resolver faces (ADR-020 §4), the Node entry (package
+// export "./resolvers"). These are the FIRST IO in the TS SDK, so they live OUTSIDE the
+// IO-free core/src tree (exported via package.json `exports`) to keep the
+// transport-neutrality invariant on core green. Four faces port the Go oracle: a static
+// named map, a well-known JWKS key resolver, a host-keyed well-known endpoint resolver,
+// and the WBA identity-directory resolver + revocation poller. The typed error classes
 // preserve the oracle's errors.Is-DISTINCT fail-closed taxonomy.
+//
+// This entry is the edge-safe one (edge.ts) with each fetching face's transport
+// defaulted (node-defaults.ts), plus the Node-only transports themselves: the
+// SSRF-guarded undici client and its env-driven factory. An edge runtime imports
+// "./resolvers/edge" instead, and passes its own fetch.
 
+export * from "./edge.ts";
 export {
-	type Document,
-	type KeyRevocationList,
-	type License,
-	type LicenseDocument,
-	MANIFEST_MEDIA_TYPE,
+	createWBAKeyResolver,
+	createWBAOfferDirectoryFetch,
+	createWellKnownEndpointResolver,
+	createWellKnownKeyResolver,
+	createWellKnownRequirementsReader,
+	type EndpointOptions,
 	type ReadDocumentOptions,
 	readLicenseDocument,
 	readManifest,
 	readRevocationList,
 	readWBADirectory,
-	WBA_DIRECTORY_MEDIA_TYPE,
-	type WBAFile,
-	type WellKnownManifest,
-} from "./documents.ts";
-export {
-	DigestMismatch,
-	DirectoryResponseUnsigned,
-	DirectoryUnavailable,
-	EndpointRefused,
-	ExchangeNotPermitted,
-	KeyExpired,
-	KeyRevoked,
-	ManifestNotExchange,
-	ManifestUnusable,
-	ManifestVersionRefused,
-	MediaTypeRefused,
-	NoEndpoint,
-	ResolverError,
-	RevocationUnevaluated,
-	UnknownKey,
-} from "./errors.ts";
-export type { FetchInit, FetchLike, FetchResponse } from "./http.ts";
-export { guardedFetchFromEnv, SsrfBlockedError, ssrfGuard } from "./http.ts";
-export {
-	type CachedOfferKeyResolver,
-	type CachedOfferKeyResolverOptions,
-	clampOfferKeyExpiry,
-	createCachedOfferKeyResolver,
-	createWBAOfferDirectoryFetch,
-	type OfferDirectoryFetch,
-} from "./offer-key-cache.ts";
-export {
-	createWellKnownRequirementsReader,
-	type RegistrationRequirements,
-	type WellKnownRequirementsOptions,
-	type WellKnownRequirementsReader,
-} from "./registration-requirements.ts";
-export { StrictViolation } from "../src/strict.ts";
-export { allowedScheme, blockedAddress } from "./ssrf.ts";
-export { createStaticKeyResolver, type StaticKeyResolver } from "./static.ts";
-export {
-	activeEd25519Key,
-	activeEd25519KeyScreened,
-	activeEd25519KeyWithExpiry,
-	activeEd25519KeyWithExpiryScreened,
-	createWBAKeyResolver,
-	WBA_DIRECTORY_PATH,
-	type WBAKeyResolver,
 	type WBAKeyResolverOptions,
-	wbaDirectoryURL,
-} from "./wba.ts";
-export {
-	type EndpointOptions,
-	createWellKnownEndpointResolver,
-	createWellKnownKeyResolver,
-	type WellKnownEndpointResolver,
-	type WellKnownKeyResolver,
+	type WBAOfferDirectoryFetchOptions,
 	type WellKnownOptions,
-} from "./wellknown.ts";
+	type WellKnownRequirementsOptions,
+} from "./node-defaults.ts";
+export { guardedFetchFromEnv, SsrfBlockedError, ssrfGuard } from "./http.ts";

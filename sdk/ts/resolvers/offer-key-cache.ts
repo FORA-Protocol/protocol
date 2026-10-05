@@ -29,7 +29,7 @@
 import type { WBAFileSchema } from "../../../gen/ts/wire/schemas.ts";
 import type { OfferKeyResolver } from "../core/verifier.ts";
 import { fetchWBAFile, wbaDirectoryURL } from "./documents.ts";
-import { type FetchLike, guardedFetchFromEnv } from "./http.ts";
+import type { FetchLike } from "./fetch.ts";
 import { activeEd25519KeyWithExpiryScreened } from "./wba.ts";
 
 /** A parsed WBA identity directory — the shape the injected fetch seam returns. */
@@ -221,6 +221,14 @@ function joinDirectoryHost(domain: string, port: string): string {
 	return `${domain}:${port}`;
 }
 
+/** Wires a {@link createWBAOfferDirectoryFetch}: the transport, and the scheme and
+ * port the directory URL is built with (empty scheme → https, empty port → none). */
+export interface WBAOfferDirectoryFetchOptions {
+	fetch: FetchLike;
+	scheme?: string;
+	port?: string;
+}
+
 /**
  * createWBAOfferDirectoryFetch returns the default {@link OfferDirectoryFetch}: it
  * GETs {scheme}://{domain}[:{port}]{WBA_DIRECTORY_PATH} (built by the shared
@@ -229,16 +237,15 @@ function joinDirectoryHost(domain: string, port: string): string {
  * returning `undefined` on ANY transport/status/media-type/signature/decode failure so
  * the default fetcher itself upholds the undefined-not-throw seam contract.
  *
- * The default transport is SSRF-guarded (guardedFetchFromEnv): the exchange domain
- * is signature-covered but attacker-influenceable and the fetch runs before the
- * offer signature is checked, so an unguarded default would be a pre-auth SSRF
- * lever (mirrors Go NewWBADirectoryFetcher). Tests inject a loopback fetch; apps
- * may inject a fetch wrapping their shared well-known client.
+ * `opts.fetch` is required here. The Node entry's factory defaults it to the
+ * SSRF-guarded transport (guardedFetchFromEnv): the exchange domain is
+ * signature-covered but attacker-influenceable and the fetch runs before the offer
+ * signature is checked, so an unguarded default would be a pre-auth SSRF lever
+ * (mirrors Go NewWBADirectoryFetcher). Tests inject a loopback fetch; apps may inject a
+ * fetch wrapping their shared well-known client.
  */
-export function createWBAOfferDirectoryFetch(
-	opts: { fetch?: FetchLike; scheme?: string; port?: string } = {},
-): OfferDirectoryFetch {
-	const fetchFn = opts.fetch ?? guardedFetchFromEnv();
+export function createWBAOfferDirectoryFetch(opts: WBAOfferDirectoryFetchOptions): OfferDirectoryFetch {
+	const fetchFn = opts.fetch;
 	const scheme = opts.scheme && opts.scheme !== "" ? opts.scheme : "https";
 	const port = opts.port ?? "";
 	return async (domain: string) => {

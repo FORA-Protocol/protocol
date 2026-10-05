@@ -70,11 +70,13 @@ on `createSigningTransport`) appends its member beside the earlier ones, and cov
 earlier signature only when `coverPrevious` is set; a `signerSource` signs each request as
 a different identity. `verifyRequestServer` and `verifyMultisigRequestServer` resolve each
 signature's key in the directory its own member names and report that directory. A refusal
-for a missing component, a missing or wrong tag, or a refused `Signature-Agent` form
-carries the `Accept-Signature` value (`acceptSignature`) to answer with. The delivery proof
-`fetch` presents is the same profile over `@method`, `@target-uri` and the agent's member,
-and the `@fora-protocol/sdk/hono` middleware answers a proof it can ask for again with 401
-and `Accept-Signature`.
+for a missing component, a missing or wrong tag, a refused `Signature-Agent` form, or a
+`Signature-Agent` member that is not an https origin carries the `Accept-Signature` value
+(`acceptSignature`) to answer with. The delivery proof `fetch` presents is the same profile
+over `@method`, `@target-uri` and the agent's member. `verifyAgentBinding` accepts a proof
+that covers at least those three, so a Web Bot Auth library's proof that also covers
+`@authority` or a header verifies, and the `@fora-protocol/sdk/hono` middleware answers a
+proof it can ask for again with 401 and `Accept-Signature`.
 
 `@fora-protocol/sdk/resolvers` reads and checks the documents a party publishes:
 `readManifest`, `readWBADirectory`, `readRevocationList` and `readLicenseDocument` fetch
@@ -86,6 +88,16 @@ served as `application/http-message-signatures-directory+json`, and must carry a
 signature by every key it lists (`DirectoryResponseUnsigned`); the WBA key resolver hands
 out only the keys that signed. `checkStrict(message, payload)` from
 `@fora-protocol/sdk/client` applies the same check to any decoded message.
+
+`@fora-protocol/sdk/resolvers` is the Node entry: its readers and resolvers default their
+transport to the SSRF-guarded undici client. An edge runtime (Cloudflare Workers, Fastly
+Compute, Deno) imports `@fora-protocol/sdk/resolvers/edge` instead. It exports the same
+readers and resolvers, imports nothing Node-only, and has no default transport: each
+call takes `fetch`, the runtime's own fetch or a wrapper around it, and the address guard
+for a host another party named is the caller's. The protocol mechanics (`core`, `identity`,
+`hono`, and the `src` helpers such as `pop` and `verify`) are edge-safe too, and
+`verifyAgentBinding` and `verifyDirectoryResponse` take `verifyEd25519` for a runtime
+without WebCrypto Ed25519.
 
 `@fora-protocol/sdk/discovery-hint` reads the edge discovery headers of a 403:
 `parseDiscoveryHint(status, headers)` returns each of `X-Content-Rules` and

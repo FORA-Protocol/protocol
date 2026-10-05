@@ -31,6 +31,7 @@ import {
 	startOrigin,
 	wbaFileJson,
 	wbaJwk,
+	httpsToLoopback,
 	loopbackFetch,
 	signedDirectoryHeaders,
 } from "./resolvers-harness.ts";
@@ -121,7 +122,7 @@ describe("createWBAKeyResolver.resolve", () => {
 		origin = await startOrigin();
 		origin.setWBA(wbaFileJson([activeJwk(k.x)]));
 
-		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, now: () => ANCHOR_MS });
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, now: () => ANCHOR_MS });
 		expect(await r.resolve(k.tp, origin.url)).toEqual(k.rawPub);
 	});
 
@@ -131,7 +132,7 @@ describe("createWBAKeyResolver.resolve", () => {
 		origin = await startOrigin();
 		origin.setWBA(wbaFileJson([expiredJwk(k.x)]));
 
-		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, now: () => ANCHOR_MS });
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, now: () => ANCHOR_MS });
 		await expect(r.resolve(k.tp, origin.url)).rejects.toBeInstanceOf(KeyExpired);
 	});
 
@@ -141,7 +142,7 @@ describe("createWBAKeyResolver.resolve", () => {
 		origin = await startOrigin();
 		origin.setWBA(wbaFileJson([activeJwk(k.x)]));
 
-		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, now: () => ANCHOR_MS });
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, now: () => ANCHOR_MS });
 		expect(await r.resolve("absent-thumbprint", origin.url)).toBeUndefined();
 	});
 
@@ -152,7 +153,7 @@ describe("createWBAKeyResolver.resolve", () => {
 		origin.setWBA(wbaFileJson([activeJwk(k.x)], origin.revocationURL()));
 		origin.setRevocation(revocationJson(iso(ANCHOR_MS), [k.tp]));
 
-		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, now: () => ANCHOR_MS });
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, now: () => ANCHOR_MS });
 		await expect(r.resolve(k.tp, origin.url)).rejects.toBeInstanceOf(KeyRevoked);
 	});
 
@@ -164,7 +165,7 @@ describe("createWBAKeyResolver.resolve", () => {
 		origin.setWBA(wbaFileJson([activeJwk(k1.x)])); // prime: only k1
 
 		const now = ANCHOR_MS;
-		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, ttlMs: HOUR_MS, now: () => now });
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, ttlMs: HOUR_MS, now: () => now });
 		expect(await r.resolve(k1.tp, origin.url)).toEqual(k1.rawPub);
 
 		origin.setWBA(wbaFileJson([activeJwk(k1.x), activeJwk(k2.x)])); // rotate k2 in
@@ -182,7 +183,7 @@ describe("createWBAKeyResolver.resolve", () => {
 		origin.setRevocation(revocationJson(iso(ANCHOR_MS), [k.tp]));
 
 		let now = ANCHOR_MS;
-		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, ttlMs: HOUR_MS, now: () => now });
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, ttlMs: HOUR_MS, now: () => now });
 		await expect(r.resolve(k.tp, origin.url)).rejects.toBeInstanceOf(KeyRevoked);
 
 		// Publish a rolled-back (older as_of) snapshot that drops the revocation.
@@ -199,7 +200,7 @@ describe("createWBAKeyResolver.resolve", () => {
 		origin.setRevocation(revocationJson(iso(ANCHOR_MS), [k.tp]));
 
 		let now = ANCHOR_MS;
-		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, ttlMs: HOUR_MS, now: () => now });
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, ttlMs: HOUR_MS, now: () => now });
 		await expect(r.resolve(k.tp, origin.url)).rejects.toBeInstanceOf(KeyRevoked);
 
 		origin.setRevocation(revocationJson(iso(ANCHOR_MS + HOUR_MS), []));
@@ -216,7 +217,7 @@ describe("createWBAKeyResolver.resolve", () => {
 		origin.setRevocation(revocationJson(iso(ANCHOR_MS + 10000 * HOUR_MS), []));
 
 		let now = ANCHOR_MS;
-		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, ttlMs: HOUR_MS, now: () => now });
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, ttlMs: HOUR_MS, now: () => now });
 		expect(await r.resolve(k.tp, origin.url)).toEqual(k.rawPub); // prime
 
 		now = ANCHOR_MS + 2 * HOUR_MS;
@@ -232,7 +233,7 @@ describe("createWBAKeyResolver.resolve", () => {
 		origin.setWBA(wbaFileJson([longJwk(k1.x)]));
 
 		let now = ANCHOR_MS;
-		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, ttlMs: HOUR_MS, now: () => now });
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, ttlMs: HOUR_MS, now: () => now });
 		expect(await r.resolve(k1.tp, origin.url)).toEqual(k1.rawPub);
 
 		origin.setWBA(wbaFileJson([longJwk(k2.x)])); // drop k1
@@ -250,7 +251,7 @@ describe("createWBAKeyResolver.resolve", () => {
 		origin = await startOrigin();
 		origin.setWBA(wbaFileJson([activeJwk(k.x)], extra.revocationURL())); // cross-host
 
-		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, now: () => ANCHOR_MS });
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, now: () => ANCHOR_MS });
 		// Not anchored → not polled → key resolves.
 		expect(await r.resolve(k.tp, origin.url)).toEqual(k.rawPub);
 	});
@@ -270,12 +271,12 @@ describe("createWBAKeyResolver.resolve", () => {
 		origin.setWBA(wbaFileJson([activeJwk(k.x)], extra.revocationURL()));
 
 		// Default (best-effort): resolves despite the unevaluated revocation channel.
-		const best = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, now: () => ANCHOR_MS });
+		const best = createWBAKeyResolver({ fetch: httpsToLoopback, now: () => ANCHOR_MS });
 		expect(await best.resolve(k.tp, origin.url)).toEqual(k.rawPub);
 
 		// requireRevocation: fail closed — revocation_url declared, no snapshot.
 		const strict = createWBAKeyResolver({
-			scheme: "http", fetch: loopbackFetch,
+			fetch: httpsToLoopback,
 			requireRevocation: true,
 			now: () => ANCHOR_MS,
 		});
@@ -287,7 +288,7 @@ describe("createWBAKeyResolver.resolve", () => {
 
 	// Test 12 — no directory (empty Signature-Agent) → unknown (undefined).
 	it("returns undefined when no directory is supplied", async () => {
-		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, now: () => ANCHOR_MS });
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, now: () => ANCHOR_MS });
 		expect(await r.resolve("any-thumbprint", "")).toBeUndefined();
 	});
 
@@ -295,7 +296,7 @@ describe("createWBAKeyResolver.resolve", () => {
 	// (undefined), DISTINCT from a fetch failure. Malformed cannot name a
 	// directory, so it is fall-through, not a fail-closed halt.
 	it("returns undefined for a malformed directory reference", async () => {
-		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, now: () => ANCHOR_MS });
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, now: () => ANCHOR_MS });
 		expect(await r.resolve("any-thumbprint", "http://")).toBeUndefined();
 	});
 
@@ -305,7 +306,7 @@ describe("createWBAKeyResolver.resolve", () => {
 		origin = await startOrigin();
 		origin.setWBA(wbaFileJson([wbaJwk(k.x, iso(ANCHOR_MS - HOUR_MS), iso(ANCHOR_MS + 10 * HOUR_MS))]));
 
-		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, ttlMs: HOUR_MS, now: () => ANCHOR_MS });
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, ttlMs: HOUR_MS, now: () => ANCHOR_MS });
 		expect(await r.resolve(k.tp, origin.url)).toEqual(k.rawPub);
 
 		origin.setWBAStatus(500); // origin now fails; cached hit must still succeed
@@ -318,7 +319,7 @@ describe("createWBAKeyResolver.resolve", () => {
 		origin = await startOrigin();
 		origin.setWBAStatus(500);
 
-		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, now: () => ANCHOR_MS });
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, now: () => ANCHOR_MS });
 		// Directory outage is a thrown halt, never an undefined fall-through.
 		await expect(r.resolve("any-thumbprint", origin.url)).rejects.toBeInstanceOf(
 			DirectoryUnavailable,
@@ -342,7 +343,7 @@ describe("createWBAKeyResolver.run poller", () => {
 		const cycled = makeSignal();
 
 		const r = createWBAKeyResolver({
-			scheme: "http", fetch: loopbackFetch,
+			fetch: httpsToLoopback,
 			ttlMs: 100 * HOUR_MS, // never expires during the test → isolate the poller
 			pollIntervalMs,
 			now: clk.now,
@@ -395,7 +396,7 @@ describe("the WBA revocation anchor wrapper", () => {
 				text: async () => JSON.stringify({ as_of: "2026-01-01T00:00:00Z", revoked: [] }),
 			};
 		};
-		const r = createWBAKeyResolver({ scheme: "http", fetch });
+		const r = createWBAKeyResolver({ fetch });
 		await r.resolve("unknown-thumbprint", directory).catch(() => undefined);
 		// De-duplicated: the unknown-thumbprint force-refresh re-reads the directory,
 		// so a polled URL legitimately appears more than once. What is under test is
@@ -444,7 +445,7 @@ describe("createWBAKeyResolver under the Web Bot Auth profile", () => {
 		origins.push(origin);
 		origin.setWBA(wbaFileJson([activeJwk(signed.x), activeJwk(unsigned.x)]), [signed.x]);
 
-		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, now: () => ANCHOR_MS });
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, now: () => ANCHOR_MS });
 		expect(await r.resolve(signed.tp, origin.host)).toEqual(signed.rawPub);
 		expect(await r.resolve(unsigned.tp, origin.host)).toBeUndefined();
 	});
@@ -469,7 +470,7 @@ describe("createWBAKeyResolver under the Web Bot Auth profile", () => {
 		const origin = await startOrigin();
 		origins.push(origin);
 		origin.setWBA(wbaFileJson([activeJwk(k.x)]), []);
-		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, now: () => ANCHOR_MS });
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, now: () => ANCHOR_MS });
 		await expect(r.resolve(k.tp, origin.host)).rejects.toBeInstanceOf(DirectoryUnavailable);
 	});
 
@@ -481,7 +482,7 @@ describe("createWBAKeyResolver under the Web Bot Auth profile", () => {
 			headers["content-type"] = "application/jwk-set+json";
 			return { status: 200, text: async () => body, headers: { get: (n: string) => headers[n] ?? null } };
 		};
-		const r = createWBAKeyResolver({ scheme: "http", fetch, now: () => ANCHOR_MS });
+		const r = createWBAKeyResolver({ fetch, now: () => ANCHOR_MS });
 		await expect(r.resolve(k.tp, "a.example")).rejects.toBeInstanceOf(DirectoryUnavailable);
 	});
 
@@ -499,7 +500,7 @@ describe("createWBAKeyResolver under the Web Bot Auth profile", () => {
 		const host = `127.0.0.1:${(redirecting.address() as AddressInfo).port}`;
 
 		// The global fetch honours redirect: "manual" and answers the 302 itself.
-		const honouring = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, now: () => ANCHOR_MS });
+		const honouring = createWBAKeyResolver({ fetch: httpsToLoopback, now: () => ANCHOR_MS });
 		await expect(honouring.resolve(k.tp, host)).rejects.toBeInstanceOf(DirectoryUnavailable);
 
 		// A transport that follows anyway is caught by the response it reports.
@@ -513,7 +514,7 @@ describe("createWBAKeyResolver under the Web Bot Auth profile", () => {
 				arrayBuffer: () => resp.arrayBuffer(),
 			};
 		};
-		const ignoring = createWBAKeyResolver({ scheme: "http", fetch: following, now: () => ANCHOR_MS });
+		const ignoring = createWBAKeyResolver({ fetch: following, now: () => ANCHOR_MS });
 		await expect(ignoring.resolve(k.tp, host)).rejects.toBeInstanceOf(DirectoryUnavailable);
 	});
 
@@ -535,7 +536,7 @@ describe("createWBAKeyResolver under the Web Bot Auth profile", () => {
 		const prior = { signatureInput: sig1.signatureInput, signature: sig1.signature, signatureAgent: sig1.signatureAgent };
 		const sig2 = await appendSignature(brokerKey.privKey, prior, { ...base, signatureAgent: brokerDir, keyid: brokerKey.tp });
 
-		const r = createWBAKeyResolver({ scheme: "http", fetch: loopbackFetch, now: () => ANCHOR_MS });
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, now: () => ANCHOR_MS });
 		const asked: string[] = [];
 		const resolve = {
 			resolve: async (keyid: string, directory: string) => {
@@ -567,5 +568,32 @@ describe("createWBAKeyResolver under the Web Bot Auth profile", () => {
 		asked.length = 0;
 		expect(await verify(`sig1="${brokerDir}", sig2="${agentDir}"`)).toEqual({ valid: false, reason: "signature" });
 		expect(asked).toEqual([`${brokerDir} ${agentKey.tp}`]);
+	});
+});
+
+// A directory is always requested over https (Go removed WBAKeyResolverOptions.Scheme
+// for the same reason): a bare host is prefixed with https://, an https origin is never
+// downgraded, and no option fetches it in plaintext.
+describe("createWBAKeyResolver requests a directory over https", () => {
+	async function requested(directory: string, opts: Record<string, unknown> = {}): Promise<string[]> {
+		const seen: string[] = [];
+		const fetch: FetchLike = async (url) => {
+			seen.push(url);
+			return { status: 404, text: async () => "" };
+		};
+		const r = createWBAKeyResolver({ ...opts, fetch });
+		await r.resolve("some-thumbprint", directory).catch(() => undefined);
+		return [...new Set(seen)];
+	}
+
+	it("prefixes a bare host, with or without a port, with https://", async () => {
+		expect(await requested("agent.example")).toEqual([`https://agent.example${WBA_DIRECTORY_PATH}`]);
+		expect(await requested("agent.example:8443")).toEqual([`https://agent.example:8443${WBA_DIRECTORY_PATH}`]);
+	});
+
+	it("never fetches an https origin in plaintext, even when a caller still passes the removed scheme option", async () => {
+		const withScheme = { scheme: "http" };
+		expect(await requested("https://agent.example", withScheme)).toEqual([`https://agent.example${WBA_DIRECTORY_PATH}`]);
+		expect(await requested("agent.example", withScheme)).toEqual([`https://agent.example${WBA_DIRECTORY_PATH}`]);
 	});
 });

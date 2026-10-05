@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
 	createBrokerClient,
 	createClient,
-	type ForaCallError,
+	ForaCallError,
 	type UnaryRequest,
 	type UnarySend,
 } from "../client/index.ts";
@@ -76,7 +76,7 @@ const COMBINED = {
 		{
 			offer_id: "offer-b1",
 			refusal: {
-				exchange: "exchange-b.test",
+				party: "exchange-b.test",
 				code: "permission_denied",
 				detail: {
 					domain: "fora.v1.ExchangeService",
@@ -158,7 +158,9 @@ describe("BrokerClient.execute", () => {
 			),
 		).resolves.toBe(true);
 
-		// The refused group rides in the body, the other Exchange's results unchanged.
+		// The refused group rides in the body, the other Exchange's results unchanged. The
+		// refusing party is the Exchange the refused item's offer names.
+		expect(resp.items?.[1]?.refusal?.party).toBe("exchange-b.test");
 		expect(resp.items?.[1]?.refusal?.code).toBe("permission_denied");
 		expect(resp.items?.[1]?.refusal?.detail?.transaction_denial?.reason).toBe(
 			"DENIAL_REASON_ACCOUNT_NOT_REGISTERED",
@@ -252,6 +254,32 @@ describe("BrokerClient.execute", () => {
 		});
 		await broker.execute([one.verified]);
 		expect(seen.length).toBe(1);
+	});
+
+	it("refuses an answer that names the refusing party under the pre-rename exchange field", async () => {
+		const a1 = await offerAt("offer-a1", "exchange-a.test");
+		const b1 = await offerAt("offer-b1", "exchange-b.test");
+		const a2 = await offerAt("offer-a2", "exchange-a.test");
+		const keys = await keyPair();
+		const items = COMBINED.items.map((it) =>
+			"refusal" in it && it.refusal !== undefined
+				? { ...it, refusal: { exchange: it.refusal.party, code: it.refusal.code, detail: it.refusal.detail } }
+				: it,
+		);
+		const { send } = recordingSend({ ...COMBINED, items });
+		const broker = createBrokerClient("https://broker.test", {
+			requester: REQUESTER,
+			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			signatureAgent: AGENT_DIRECTORY,
+			send,
+		});
+
+		const err = (await broker
+			.execute([a1.verified, b1.verified, a2.verified], { idempotencyKey: "relay-key" })
+			.catch((e: unknown) => e)) as ForaCallError;
+
+		expect(err).toBeInstanceOf(ForaCallError);
+		expect(err.kind).toBe("malformed");
 	});
 
 	it("surfaces the Broker's own refusal as a typed failure", async () => {

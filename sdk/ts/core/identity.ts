@@ -15,7 +15,7 @@ import type { z } from "zod";
 
 import type { WBAFileSchema } from "../../../gen/ts/wire/schemas.ts";
 import { encodeBase64Url } from "../src/base64url.ts";
-import { thumbprint } from "../src/thumbprint.ts";
+import { exportRawPublicKey, thumbprint } from "../src/thumbprint.ts";
 import { createSigningTransport, type OutboundSend } from "./signing-transport.ts";
 
 export {
@@ -47,7 +47,7 @@ export async function generateKey(): Promise<{ keyPair: CryptoKeyPair; thumbprin
 		"sign",
 		"verify",
 	])) as CryptoKeyPair;
-	return { keyPair, thumbprint: await thumbprint(await rawPublic(keyPair.publicKey)) };
+	return { keyPair, thumbprint: await thumbprint(await exportRawPublicKey(keyPair.publicKey)) };
 }
 
 /**
@@ -76,7 +76,7 @@ export async function directoryDocument(
 				crv: "Ed25519",
 				alg: "EdDSA",
 				use: "sig",
-				x: encodeBase64Url(await rawPublic(key)),
+				x: encodeBase64Url(await exportRawPublicKey(key)),
 				not_before: notBefore,
 				not_after: notAfter,
 			})),
@@ -97,11 +97,7 @@ export async function signingTransportFor<R>(
 ): Promise<OutboundSend<R>> {
 	return createSigningTransport(send, {
 		privKey: keyPair.privateKey,
-		keyid: await thumbprint(await rawPublic(keyPair.publicKey)),
+		keyid: await thumbprint(await exportRawPublicKey(keyPair.publicKey)),
 		signatureAgent: directory,
 	});
-}
-
-async function rawPublic(key: CryptoKey): Promise<Uint8Array> {
-	return new Uint8Array(await crypto.subtle.exportKey("raw", key));
 }

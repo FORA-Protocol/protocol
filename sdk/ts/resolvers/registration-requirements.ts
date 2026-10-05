@@ -34,7 +34,7 @@ import {
   ManifestNotExchange,
   ManifestUnusable,
 } from "./errors.ts";
-import { type FetchLike, guardedFetchFromEnv } from "./http.ts";
+import type { FetchLike } from "./fetch.ts";
 
 /** What one Exchange asks of a registration. Both members are optional in the
  * contract, and their absence is a normal answer rather than a failure. */
@@ -66,14 +66,14 @@ export interface WellKnownRequirementsReader {
 /** Options for the reader. `ttlMs` and `now` are deliberately absent: it caches
  * nothing, so it has no freshness to compute. */
 export interface WellKnownRequirementsOptions {
-  /** The transport. Omitted, it is the SSRF-GUARDED one: the domain is
-   * caller-named — an agent registers at whichever Exchange it means to transact
-   * with, and that domain routinely arrives at runtime rather than from
-   * configuration — so this is request-derived provenance, which takes the guarded
-   * default. A deployment that must reach a private or loopback Exchange injects
-   * its own transport here, or opts out through the SKIP_SSRF / ALLOW_INSECURE
-   * environment flags. */
-  fetch?: FetchLike;
+  /** The transport. Required here. The Node entry's reader defaults it to the
+   * SSRF-GUARDED one: the domain is caller-named — an agent registers at whichever
+   * Exchange it means to transact with, and that domain routinely arrives at runtime
+   * rather than from configuration — so this is request-derived provenance, which
+   * takes the guarded default. A deployment that must reach a private or loopback
+   * Exchange injects its own transport here, or opts out through the SKIP_SSRF /
+   * ALLOW_INSECURE environment flags. */
+  fetch: FetchLike;
   /** Trust allowlist consulted BEFORE the fetch. A domain it rejects never
    * reaches the network. */
   allow?: (domain: string) => boolean;
@@ -84,12 +84,9 @@ export interface WellKnownRequirementsOptions {
 
 /** Read registration requirements from an Exchange's own well-known manifest. */
 export function createWellKnownRequirementsReader(
-  opts: WellKnownRequirementsOptions = {},
+  opts: WellKnownRequirementsOptions,
 ): WellKnownRequirementsReader {
-  // Built ONCE per reader, never per read: guardedFetchFromEnv constructs a
-  // dispatcher, so a per-read default would trade an unguarded dial for a socket
-  // leak.
-  const fetchFn: FetchLike = opts.fetch ?? guardedFetchFromEnv();
+  const fetchFn: FetchLike = opts.fetch;
   const scheme = opts.scheme && opts.scheme !== "" ? opts.scheme : "https";
   const allow = opts.allow;
 

@@ -152,6 +152,12 @@ describe("sdk/ts Hono server-verify binding — Accept-Signature on a fixable re
     expect(res?.headers.get("Accept-Signature")).toBe(POP_ACCEPT_SIGNATURE);
   });
 
+  it("a proof whose Signature-Agent member is not an https origin is answered 401 with Accept-Signature", async () => {
+    const res = await denied((h) => h.set("signature-agent", 'sig1="http://agent.example"'));
+    expect(res?.status).toBe(401);
+    expect(res?.headers.get("Accept-Signature")).toBe(POP_ACCEPT_SIGNATURE);
+  });
+
   it("a forged signature is answered 403 with no Accept-Signature", async () => {
     const res = await denied((h) => h.set("signature", "sig1=:" + "A".repeat(86) + "==:"));
     expect(res?.status).toBe(403);
