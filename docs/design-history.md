@@ -2316,9 +2316,31 @@ rule went with the forwarding chain it served.
 **Five minutes is the signer's limit, not the verifier's default.** The signers refuse a
 window longer than five minutes. A verifier keeps its own lifetime clamp
 (`MaxSignatureAge`), unset by default, because another Web Bot Auth signer may choose a
-longer window and the draft allows up to 24 hours. `MonotonicWindow`, which bumps
-`expires` during a burst, now moves `created` with it so the window stays at its ttl and
-never crosses the signer's limit.
+longer window and the draft allows up to 24 hours.
+
+**A signature is stamped at the clock's time, never ahead of it.** `MonotonicWindow`
+bumped the window by one second per request inside a wall-clock second, first `expires`
+alone and then `created` with it to stay under the five-minute limit. With `created`
+moving, a client sending more than one request per second stamped signatures in the
+future, by as many seconds as it sent requests, and they verified only because a
+verifier's future-skew allowance absorbed them: a thousand requests in one second ended
+999 seconds ahead. The bump never bought uniqueness the nonce does not already give,
+since every signature carries 64 fresh random bytes. `MonotonicWindow` now signs at the
+clock's current time, exactly as `ClockWindow`, and is deprecated in all three SDKs.
+
+**A delivery proof covers at least the profile's components.** The verifiers once
+required exactly `@method`, `@target-uri` and one `Signature-Agent` member, so a proof a
+Web Bot Auth library made, covering `@authority` as well, was refused. A proof must cover
+those components and may cover more; whatever else it covers enters the base like the
+rest. A refusal the fetcher can fix by signing again carries `Accept-Signature`, and so
+does a request or proof whose `Signature-Agent` member is not an https origin: that is a
+form the client chose, not a forgery.
+
+**No option fetches a key directory in plaintext.** Go's `WBAKeyResolverOptions.Scheme`
+let tests fetch an https origin's directory from a plaintext server, and any production
+configuration could set it too. It is gone: a directory is fetched over https from the
+origin its signer named, and tests serve directories over TLS and inject the test
+server's client.
 
 **A directory response signature filters keys in the resolver and gates the reader.**
 The resolvers hand out only keys the response is signed by; a listed key without a valid

@@ -412,6 +412,12 @@ A request at the publisher edge that has no body only identifies an agent and mo
 
 When a delivery URL is bound to the purchasing agent ([Retrieval-URL Identity Binding](#retrieval-url-identity-binding)), the fetch carries a full WBA signature: the WG-00 base above (`tag`, dictionary `Signature-Agent`, the covered `"signature-agent";key="<label>"` member, a 64-byte nonce), plus `@method` and `@target-uri`. The request has no body, so it carries no `content-digest`.
 
+That covered set is a minimum. An edge accepts a proof whose signature covers **at least** the WG-00 base, `@method` and `@target-uri`, and any further component a WBA library adds, `@authority` or a header for example, enters the signature base like the rest. A proof that omits one of the required components, or whose `tag` or `Signature-Agent` the profile refuses, is answered with `Accept-Signature` naming the minimum:
+
+```http
+Accept-Signature: sig1=("@method" "@target-uri" "signature-agent";key="sig1");created;expires;tag="web-bot-auth"
+```
+
 The edge still verifies offline. The fetcher also presents its raw public key in the `X-FORA-Agent-Key` header, and the edge uses that key only when its RFC 7638 thumbprint equals both the signature's `keyid` and the delivery URL's `agent_id`. The binding stays double: the Exchange signed the URL with the thumbprint inside it, and only the holder of the matching private key can produce the request signature. A generic WBA verifier ignores `X-FORA-Agent-Key`, resolves the same key from the agent's directory named in `Signature-Agent`, and accepts the same signature. The edge's full check is on [Signed URL Verification](/components/edge-function/signed-url-verification).
 
 #### What a FORA verifier accepts

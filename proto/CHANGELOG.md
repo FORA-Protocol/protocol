@@ -697,8 +697,8 @@ SDKs implement it:
   a member with `type=directory`. The legacy sf-string `Signature-Agent` is accepted on a
   request carrying one signature only. Verifiers refuse a signature with no `tag`, a
   `Signature-Agent` member that is not an https origin, and the bare unquoted value the
-  v1.0.8 SDKs sent, and answer a missing component or a refused form with
-  `Accept-Signature` listing what they require. `Signature-Agent` is never empty; an
+  v1.0.8 SDKs sent, and answer a missing component, a refused form or a member that is
+  not an https origin with `Accept-Signature` listing what they require. `Signature-Agent` is never empty; an
   empty `Authorization` stays valid.
 - Several signatures: each is verified on its own, against the key its `keyid` names in
   the directory its own covered member names; a signature that covers several members
@@ -718,7 +718,8 @@ SDKs implement it:
   `cnf.jkt` is checked against it; a Broker is never delegated to. The Exchange resolves
   each signer's key in the directory that signer names, not in a configured key set.
 - The retrieval proof of possession at the publisher edge is a full Web Bot Auth
-  signature plus `@method` and `@target-uri`. The edge keeps verifying offline with the
+  signature plus `@method` and `@target-uri`. That covered set is a minimum: a proof that
+  also covers `@authority`, or a header, verifies. The edge keeps verifying offline with the
   key in `X-FORA-Agent-Key`, which it accepts only when its thumbprint equals both the
   signature `keyid` and the delivery URL's `agent_id`. A generic WBA verifier accepts
   the same signature by resolving the agent's directory.
@@ -751,7 +752,8 @@ SDKs, in all three languages:
   gains `SignatureAgent`, `Label` and `CoverPrevious`.
 - Verifying: the verifiers apply the rules above, resolve each signature's key with the
   directory its member names, and carry that directory on the result. A refusal for a
-  missing component or a refused form carries the `Accept-Signature` value
+  missing component, a refused form or a member that is not an https origin carries the
+  `Accept-Signature` value
   (`helpers.AcceptSignature` / `accept_signature` / `acceptSignature`): Go's
   `connectserver` writes it on the 401, and the Python and TypeScript server verdicts carry
   it. The key resolver receives the directory of the signature it resolves: Go threads it
@@ -767,27 +769,36 @@ SDKs, in all three languages:
   locally as malformed. A per-request signer source (`core.WithSignerSource` /
   `SignerSource`) signs each request as the identity a callback picks. Append mode
   (`core.WithAppendSigner`, `appendOnly`) is joined by Python's `append_only`, which
-  Python lacked. `core.MonotonicWindow` keeps every window at its ttl.
+  Python lacked. `core.MonotonicWindow` / `monotonic_window` / `monotonicWindow` used to
+  move `created` forward by one second per request, stamping signatures in the future
+  above one request per second; it now signs at the clock's current time, exactly as the
+  clock window, and is deprecated.
 - Delivery proof: `helpers.SignAgentBinding` / `sign_agent_binding` / `signInbound`
-  take the agent's directory and a nonce and emit the `Signature-Agent` header. Python's
-  `sign_agent_binding` now returns an `AgentBinding` with the four header values instead of
-  a tuple. The Python and TypeScript edge verifiers apply the new profile with a
-  structured-field parser, and the Hono middleware answers a proof refused for a missing
-  component or a refused form with 401 and the proof's own `Accept-Signature`
-  (`POP_ACCEPT_SIGNATURE`).
+  take the agent's directory, a nonce and the HTTP method, and emit the
+  `Signature-Agent` header. Python's `sign_agent_binding` now returns an `AgentBinding`
+  with the four header values instead of a tuple. Go gains the verify face,
+  `helpers.VerifyAgentBinding`, which refuses with a `PoPError` (`PoPFailure` token and
+  `PoPAcceptSignature`). The three verifiers accept a proof covering at least the
+  profile's components, parse it with a structured-field parser, and refuse with the same
+  tokens; a refusal the fetcher can fix carries `PoPAcceptSignature` /
+  `POP_ACCEPT_SIGNATURE`, and the Hono middleware answers it with 401 and that header.
 - Directories: `helpers.SignDirectoryResponse` / `sign_directory_response` /
   `signDirectoryResponse` sign a directory response and
   `helpers.VerifyDirectoryResponse` / `verify_directory_response` /
   `verifyDirectoryResponse` check one. The WBA key resolvers and the offer-directory
   fetch refuse redirects, check the media type and hand out only keys that signed the
   response; `ReadWBADirectory` / `read_wba_directory` / `readWBADirectory` require every
-  listed key to have signed, and refuse `application/jwk-set+json`. The constants
-  `WBATag`, `DirectoryResponseTag` and `AcceptSignatureHeader` join the wire constants.
+  listed key to have signed, and refuse `application/jwk-set+json`. Go's
+  `WBAKeyResolverOptions.Scheme`, which let a configuration fetch an https origin's
+  directory in plaintext, is removed: a directory is always fetched over https. The
+  constants `WBATag`, `DirectoryResponseTag` and `AcceptSignatureHeader` join the wire
+  constants.
 - Shared vectors, regenerated by the Go oracle and replayed by all three SDKs:
   `sign-request-vectors.json`, `verify-request-neg-vectors.json` (now with the expected
   `Accept-Signature`), the new `verify-request-accept-vectors.json` (the forms a verifier
   must accept), `multisig-chain-vectors.json` (each signer with its own directory, so a
-  verifier that resolves through the wrong member fails), `pop-vectors.json`,
+  verifier that resolves through the wrong member fails), `pop-vectors.json` (now with
+  each vector's expected refusal token and `Accept-Signature`, and superset proofs),
   `wire-constants-vectors.json`, `document-check-vectors.json` and the new
   `directory-response-vectors.json`. The Go suite also checks the draft's Appendix E.2
   Ed25519 vectors against its signature base builder.
