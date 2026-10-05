@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 188 symbols at cross-language parity · 17 documented divergences · 209 Go-idiomatic exclusions · 44 conformance corpora, each tri-replayed.
+**At a glance:** 190 symbols at cross-language parity · 17 documented divergences · 228 Go-idiomatic exclusions · 44 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -96,6 +96,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `OfferSignatureAlgorithm` | `OFFER_SIGNATURE_ALGORITHM` | `OFFER_SIGNATURE_ALGORITHM` |
 | `ParseDiscoveryHint` | `parse_discovery_hint` | `parseDiscoveryHint` |
 | `ParseMoney` | `parse_money` | `parseMoney` |
+| `PoPAcceptSignature` | `POP_ACCEPT_SIGNATURE` | `POP_ACCEPT_SIGNATURE` |
 | `ProtocolVersion` | `ProtocolVersion` | `ProtocolVersion` |
 | `Reason` | `reason` | `reason` |
 | `ReconcileDiscoveryHint` | `reconcile_discovery_hint` | `reconcileDiscoveryHint` |
@@ -131,6 +132,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `ValidateLicenseTerm` | `validate_license_term` | `validateLicenseTerm` |
 | `ValidateResourceEntry` | `validate_resource_entry` | `validateResourceEntry` |
 | `ValidationRuleIDs` | `cross_field_rule_ids` | `crossFieldRuleIds` |
+| `VerifyAgentBinding` | `verify_agent_binding` | `verifyAgentBinding` |
 | `VerifyDirectoryResponse` | `verify_directory_response` | `verifyDirectoryResponse` |
 | `VerifyMultisigRequest` | `verify_multisig_request_server` | `verifyMultisigRequestServer` |
 | `VerifyOfferAcceptance` | `verify_offer_acceptance_jcs` | `verifyOfferAcceptance` |
@@ -424,7 +426,25 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `helpers.NewEd25519Signer` | Go Ed25519 Signer constructor; py/ts inject a sign function rather than constructing a named signer. |
 | `helpers.NewEd25519SignerFromSeed` | Go Ed25519 Signer-from-seed constructor; py/ts inject a sign function rather than constructing a named signer. |
 | `helpers.NewMultisigContext` | Go context.Context accessor; py/ts thread multisig state explicitly. |
+| `helpers.PoPBadAgentKey` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPBadCoveredComponents` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPBadSignatureAgent` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPBadTag` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPError` | Go typed error carrying the refusal token and the Accept-Signature value; py/ts return them on the verdict (PopResult.reason / accept_signature, acceptSignature). |
+| `helpers.PoPExpired` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPFailure` | Go string type for the shared delivery-proof refusal tokens; py returns the token as a str on PopResult.reason and TS types it as the PopFailure literal union, so the tokens, pinned by pop-vectors.json, carry the parity claim. |
+| `helpers.PoPFutureCreated` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPKeyIDMismatch` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPMalformedSignature` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPMissingAgentKey` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPMissingCreated` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPMissingExpires` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPMissingSignature` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
 | `helpers.PoPOptions` | Go options struct for the delivery-proof signer; Python takes the same values as keyword arguments and TS as an options object. |
+| `helpers.PoPSignatureInvalid` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPThumbprintMismatch` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPUnsupportedAlg` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPVerifyOptions` | Go options struct for VerifyAgentBinding; py/ts pass now (and the injectable verify primitive) as arguments. |
 | `helpers.RedactURL` | Go query-stripping helper for a signed URL headed to a log; py/ts redact inline at the log site. |
 | `helpers.RegistrationDataAccepted` | Member of the mapped helpers.RegistrationDataVerdict vocabulary. Python and TypeScript spell it as a literal; the shared registration-schema corpus pins the token. |
 | `helpers.RegistrationDataNoVerdict` | Member of the mapped helpers.RegistrationDataVerdict vocabulary. Python and TypeScript spell it as a literal; the shared registration-schema corpus pins the token. |
@@ -458,6 +478,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `helpers.Signer` | Go Signer interface; py/ts inject a sign function (TS Ed25519SignFn; Python a signing callable) rather than a named Signer type — divergent handle shape, not a missing operation. |
 | `helpers.ThumbprintBytes` | Go raw-[32]byte thumbprint variant; py/ts expose only the string thumbprint. |
 | `helpers.Validate` | Go protovalidate wrapper; TS/Python ship no validation interceptor (matrix SERVER-role validation row: TS/Py absent). |
+| `helpers.VerifiedAgentBinding` | Go result struct for VerifyAgentBinding; py/ts return the PopResult verdict, which carries the same signature_agent / signatureAgent. |
 | `helpers.VerifiedRequest` | Go verified-request result value type; py/ts return language-native verdict objects. |
 | `helpers.VerifiedURL` | Go verified-URL result value type (PoP via CheckProofOfPossession); py/ts expose verify_agent_binding/verifyAgentBinding. |
 | `helpers.VerifyMultisigRequestResolved` | Go resolver-injected multisig-verify overload; py/ts expose a single multisig-verify entry point. |

@@ -23,7 +23,7 @@ import (
 
 func profileResolver(client *http.Client) *resolvers.WBAKeyResolver {
 	return resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme: "http", HTTP: client, Now: func() time.Time { return wbaAnchor },
+		HTTP: client, Now: func() time.Time { return wbaAnchor },
 	})
 }
 
@@ -78,7 +78,7 @@ func TestWBAKeyResolver_refusesTheWrongMediaTypeAndRedirects(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			srv := httptest.NewServer(handler)
+			srv := httptest.NewTLSServer(handler)
 			defer srv.Close()
 			ctx := helpers.WithSignatureAgent(context.Background(), srv.URL)
 			if _, err := profileResolver(srv.Client()).Resolve(ctx, tp); !errors.Is(err, resolvers.ErrDirectoryUnavailable) {
@@ -101,7 +101,7 @@ func TestWBAKeyResolver_eachSignatureInItsOwnDirectory(t *testing.T) {
 	defer brokerOrigin.close()
 	agentOrigin.setWBA(marshalWBA(agentJWK))
 	brokerOrigin.setWBA(marshalWBA(brokerJWK))
-	httpsOrigin := func(o *wbaOrigin) string { return "https://" + strings.TrimPrefix(o.url, "http://") }
+	httpsOrigin := func(o *wbaOrigin) string { return o.url } // a TLS origin, as a member names it
 
 	signer := func(priv ed25519.PrivateKey) helpers.Signer {
 		s, err := helpers.NewEd25519Signer(mustThumbprint(t, priv.Public().(ed25519.PublicKey)), priv)
@@ -125,7 +125,7 @@ func TestWBAKeyResolver_eachSignatureInItsOwnDirectory(t *testing.T) {
 	if err := helpers.AppendSignature(context.Background(), req, body, signer(brokerPriv), opts(httpsOrigin(brokerOrigin))); err != nil {
 		t.Fatal(err)
 	}
-	r := profileResolver(http.DefaultClient)
+	r := profileResolver(agentOrigin.Client())
 	vopts := helpers.VerifyOptions{Now: wbaAnchor.Add(time.Minute)}
 	verified, err := helpers.VerifyMultisigRequestResolved(context.Background(), req, body, r, vopts)
 	if err != nil {
@@ -146,3 +146,22 @@ func TestWBAKeyResolver_eachSignatureInItsOwnDirectory(t *testing.T) {
 }
 
 func jwkX(pub ed25519.PublicKey) string { return base64.RawURLEncoding.EncodeToString(pub) }
+
+// TestWBAKeyResolver_fetchesOverHTTPSOnly: the directory of an https member is
+// fetched over https, and no option makes the resolver fetch it in plaintext. A
+// directory served only over plaintext http is unavailable.
+func TestWBAKeyResolver_fetchesOverHTTPSOnly(t *testing.T) {
+	t.Parallel()
+	priv, jwk := newSigningKey("plain-only", wbaAnchor.Add(-time.Hour), wbaAnchor.Add(time.Hour))
+	body := marshalWBA(jwk)
+	plain := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeSignedDirectory(w, r, body)
+	}))
+	defer plain.Close()
+	member := "https://" + strings.TrimPrefix(plain.URL, "http://")
+	ctx := helpers.WithSignatureAgent(context.Background(), member)
+	_, err := profileResolver(plain.Client()).Resolve(ctx, mustThumbprint(t, priv.Public().(ed25519.PublicKey)))
+	if !errors.Is(err, resolvers.ErrDirectoryUnavailable) {
+		t.Fatalf("err = %v, want ErrDirectoryUnavailable", err)
+	}
+}

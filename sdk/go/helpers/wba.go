@@ -369,18 +369,21 @@ func AcceptSignature(entitlement bool) string {
 }
 
 // AcceptSignatureFor returns the Accept-Signature value a verifier answers err
-// with, and whether it answers with one at all. It does for a request carrying no
+// with, and whether it answers with one at all. It does for every refusal the
+// client can fix by signing again as the profile requires: a request carrying no
 // signature, a signature that omits a required component, a signature with the
-// wrong tag, and a Signature-Agent in a form the profile refuses. It does not for
-// a signature that is well formed and fails for any other reason: a bad
-// signature, an unknown key, a stale window or a replay.
+// wrong tag, a Signature-Agent in a form the profile refuses, and a
+// Signature-Agent member that is not an https origin. It does not for a signature
+// that is well formed and fails for any other reason: a bad signature, an unknown
+// key, a stale window or a replay.
 func AcceptSignatureFor(err error) (string, bool) {
 	var missing *MissingComponentError
 	switch {
 	case errors.As(err, &missing):
 		return AcceptSignature(missing.Component == entitlementHeaderLower), true
 	case errors.Is(err, ErrMissingSignatureInput), errors.Is(err, ErrMissingSignature),
-		errors.Is(err, ErrSignatureTag), errors.Is(err, ErrSignatureAgentForm):
+		errors.Is(err, ErrSignatureTag), errors.Is(err, ErrSignatureAgentForm),
+		errors.Is(err, ErrSignatureAgentNotOrigin):
 		return AcceptSignature(false), true
 	default:
 		return "", false

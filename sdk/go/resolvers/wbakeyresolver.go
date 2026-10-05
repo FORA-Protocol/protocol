@@ -360,7 +360,10 @@ type WBAKeyResolverOptions struct {
 	// newGuardedWBAClient): the directory host is derived from request input (the
 	// Signature-Agent header) and fetched before the ed25519 check, so the default
 	// refuses private/link-local/loopback targets. Inject a client only to REACH a
-	// private directory (tests, on-prem) or to apply a custom dialer/timeout.
+	// private directory (tests, on-prem) or to apply a custom dialer/timeout. A
+	// directory is always fetched over https from the origin the signature's
+	// Signature-Agent member names; there is no option that fetches it any other
+	// way, so a test serves it with a TLS server and injects that server's client.
 	HTTP *http.Client
 	// TTL bounds how long a fetched directory is reused (≤0 → 1 hour).
 	TTL time.Duration
@@ -379,11 +382,6 @@ type WBAKeyResolverOptions struct {
 	// After overrides the poll-tick timer source (nil → time.After). Tests
 	// inject a deterministic clock.
 	After func(time.Duration) <-chan time.Time
-	// Scheme is the scheme directories are fetched over (empty → "https"). A
-	// Signature-Agent member is always an https origin; tests inject "http" to
-	// fetch that origin's directory from a plaintext httptest server, and a bare
-	// host reference is prefixed with it.
-	Scheme string
 	// RequireRevocation makes Resolve fail closed with ErrRevocationUnevaluated
 	// when a key's directory declares a revocation_url but no snapshot has been
 	// fetched (unreachable or not host-anchored) — i.e. revocation could not be
@@ -422,7 +420,6 @@ type WBAKeyResolver struct {
 	syncDebounce      time.Duration
 	now               func() time.Time
 	after             func(time.Duration) <-chan time.Time
-	scheme            string
 	requireRevocation bool
 	logger            *slog.Logger
 	onPollArmed       func()
@@ -482,10 +479,6 @@ func NewWBAKeyResolver(opts WBAKeyResolverOptions) *WBAKeyResolver {
 	if after == nil {
 		after = time.After
 	}
-	scheme := opts.Scheme
-	if scheme == "" {
-		scheme = "https"
-	}
 	logger := opts.Logger
 	if logger == nil {
 		logger = slog.Default()
@@ -497,7 +490,6 @@ func NewWBAKeyResolver(opts WBAKeyResolverOptions) *WBAKeyResolver {
 		syncDebounce:      debounce,
 		now:               now,
 		after:             after,
-		scheme:            scheme,
 		requireRevocation: opts.RequireRevocation,
 		logger:            logger,
 		onPollArmed:       opts.OnPollArmed,
@@ -613,12 +605,9 @@ func (r *WBAKeyResolver) directoryBase(ref string) (base, host string, err error
 		if err := requireHostForm(ref); err != nil {
 			return "", "", err
 		}
-		ref = r.scheme + "://" + ref
+		ref = "https://" + ref
 	}
 	u, err := url.Parse(ref)
-	if err == nil && u.Scheme == "https" && r.scheme != "https" {
-		u.Scheme = r.scheme
-	}
 	if err != nil {
 		// Framed, not passed through raw. A value that is not a URL at all used to
 		// surface whatever url.Parse happened to complain about — for the spec's

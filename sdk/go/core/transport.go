@@ -18,7 +18,7 @@ import (
 // created/expires pair by the DEFAULT window: helpers.MaxSignatureLifetime, the
 // longest a Web Bot Auth request signature may live. The verifier enforces the
 // window against its own clock. Callers with their own freshness policy inject a
-// shorter window via WithWindow (see ClockWindow / MonotonicWindow); a longer one
+// shorter window via WithWindow (see ClockWindow); a longer one
 // is refused at signing with helpers.ErrSignatureLifetime.
 const signWindow = helpers.MaxSignatureLifetime
 

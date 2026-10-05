@@ -87,6 +87,11 @@ type popVector struct {
 	Signature      string `json:"signature"`
 	NowUnix        int64  `json:"now_unix"`
 	ExpectedValid  bool   `json:"expected_valid"`
+	// ExpectedReason is the PoPFailure token the REAL Go VerifyAgentBinding refuses
+	// the proof with ("" when it verifies), and ExpectedAcceptSignature the
+	// Accept-Signature value the refusal carries ("" for none).
+	ExpectedReason          string `json:"expected_reason"`
+	ExpectedAcceptSignature string `json:"expected_accept_signature,omitempty"`
 }
 
 // fixedSeed returns a deterministic 32-byte Ed25519 seed: byte i = (b+i) mod 256.
@@ -190,6 +195,7 @@ type popSpec struct {
 	covered        []CoveredComponent // nil means the shipped signer
 	tag            string
 	presented      ed25519.PublicKey // nil means the signing key's public half
+	unsigned       bool              // no Signature-Input, Signature or Signature-Agent at all
 	now            int64
 	valid          bool
 }
@@ -231,6 +237,10 @@ func signEdgePoPByHand(priv ed25519.PrivateKey, sp popSpec, created, expires int
 			lines = append(lines, `"@method": GET`)
 		case c.Name == "@target-uri":
 			lines = append(lines, `"@target-uri": `+sp.url)
+		case c.Name == "@authority":
+			lines = append(lines, `"@authority": cdn.example`)
+		case c.Name == "x-fora-agent-key":
+			lines = append(lines, `"x-fora-agent-key": `+b64urlNoPad(priv.Public().(ed25519.PublicKey)))
 		case len(c.Params) == 0:
 			lines = append(lines, `"signature-agent": `+sp.signatureAgent)
 		default:
@@ -312,6 +322,27 @@ func buildPopVectors(t *testing.T) []popVector {
 			sp.tag = WBATag
 			sp.directory = "http://agent.example"
 		}),
+		// A proof covers AT LEAST the profile's components: a Web Bot Auth library
+		// that also covers @authority, or a header, makes a proof that verifies.
+		with("superset_authority", func(sp *popSpec) {
+			sp.covered = append(append([]CoveredComponent{}, wbaCovered...), CoveredComponent{Name: "@authority"})
+			sp.tag = WBATag
+			sp.valid = true
+		}),
+		with("superset_authority_first_and_agent_key", func(sp *popSpec) {
+			sp.covered = []CoveredComponent{
+				{Name: "@authority"}, {Name: "@target-uri"}, {Name: "@method"}, member, {Name: "x-fora-agent-key"},
+			}
+			sp.tag = WBATag
+			sp.valid = true
+		}),
+		// The superset rule still requires every profile component.
+		with("superset_without_method", func(sp *popSpec) {
+			sp.covered = []CoveredComponent{{Name: "@authority"}, {Name: "@target-uri"}, member}
+			sp.tag = WBATag
+		}),
+		// A fetch that carries no signature at all.
+		with("unsigned", func(sp *popSpec) { sp.unsigned = true }),
 	}
 	out := make([]popVector, 0, len(specs))
 	for _, sp := range specs {
@@ -330,7 +361,9 @@ func emitPopVector(t *testing.T, sp popSpec, created, expires int64) popVector {
 		presented = priv.Public().(ed25519.PublicKey)
 	}
 	var sigInput, sig, agentHeader string
-	if sp.covered == nil {
+	if sp.unsigned {
+		// Nothing but the presented key.
+	} else if sp.covered == nil {
 		b := signEdgePoP(t, priv, sp, created, expires)
 		sigInput, sig, agentHeader = b.SignatureInput, b.Signature, b.SignatureAgent
 	} else {
@@ -343,12 +376,42 @@ func emitPopVector(t *testing.T, sp popSpec, created, expires int64) popVector {
 			agentHeader = ""
 		}
 	}
-	return popVector{
+	v := popVector{
 		Name: sp.name, Method: http.MethodGet, URL: sp.url, AgentID: sp.keyID,
 		PresentedKeyB64URL: b64urlNoPad(presented), SignerSeedHex: hex.EncodeToString(sp.seed),
 		AgentDirectory: sp.directory, Nonce: sp.nonce, SignatureAgent: agentHeader,
 		SignatureInput: sigInput, Signature: sig, NowUnix: sp.now, ExpectedValid: sp.valid,
 	}
+	v.ExpectedReason, v.ExpectedAcceptSignature = popOracle(t, v)
+	if (v.ExpectedReason == "") != sp.valid {
+		t.Fatalf("pop vector %s: the oracle answered %q, the case expects valid=%v", sp.name, v.ExpectedReason, sp.valid)
+	}
+	return v
+}
+
+// popOracle runs the REAL Go VerifyAgentBinding over a pop vector, returning the
+// refusal's PoPFailure token ("" when the proof verifies) and its
+// Accept-Signature value.
+func popOracle(t *testing.T, v popVector) (string, string) {
+	t.Helper()
+	h := http.Header{}
+	h.Set(AgentKeyHeader, v.PresentedKeyB64URL)
+	for name, value := range map[string]string{
+		SignatureAgentHeader: v.SignatureAgent, "Signature-Input": v.SignatureInput, "Signature": v.Signature,
+	} {
+		if value != "" {
+			h.Set(name, value)
+		}
+	}
+	_, err := VerifyAgentBinding(v.Method, v.URL, h, v.AgentID, PoPVerifyOptions{Now: time.Unix(v.NowUnix, 0)})
+	if err == nil {
+		return "", ""
+	}
+	var perr *PoPError
+	if !errors.As(err, &perr) {
+		t.Fatalf("pop vector %s: not a PoPError: %v", v.Name, err)
+	}
+	return string(perr.Reason), perr.AcceptSignature
 }
 
 // signRequestVector mirrors the SignRequestVector shape the py parity test reads.

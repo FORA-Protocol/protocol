@@ -293,7 +293,8 @@
       "resolver_keyid": "mcp.v1",
       "resolver_pubkey_b64url": "8maX3DmN9ac27XK1RyyagkWLzGBgVz1IGHOC0LrN_cA",
       "now": 1700000100,
-      "expected_reason": "signature"
+      "expected_reason": "signature",
+      "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\""
     },
     {
       "name": "neg_signature_agent_not_an_origin",
@@ -309,7 +310,8 @@
       "resolver_keyid": "mcp.v1",
       "resolver_pubkey_b64url": "8maX3DmN9ac27XK1RyyagkWLzGBgVz1IGHOC0LrN_cA",
       "now": 1700000100,
-      "expected_reason": "signature"
+      "expected_reason": "signature",
+      "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\""
     },
     {
       "name": "neg_missing_fora_component",

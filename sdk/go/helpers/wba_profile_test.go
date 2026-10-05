@@ -285,8 +285,8 @@ func TestVerifyRequest_refusesWhatTheProfileDoesNot(t *testing.T) {
 			func(r *helpers.RawSignature) {
 				r.Covered = append(plainCovered(foraRPC...), memberCovered("a"), memberCovered("b"))
 			}, helpers.ErrSignatureAgentForm, true},
-		{"a plaintext origin", `sig1="http://agent.example"`, nil, helpers.ErrSignatureAgentNotOrigin, false},
-		{"an origin with a path", `sig1="https://agent.example/keys"`, nil, helpers.ErrSignatureAgentNotOrigin, false},
+		{"a plaintext origin", `sig1="http://agent.example"`, nil, helpers.ErrSignatureAgentNotOrigin, true},
+		{"an origin with a path", `sig1="https://agent.example/keys"`, nil, helpers.ErrSignatureAgentNotOrigin, true},
 		{"no Signature-Agent covered", member, func(r *helpers.RawSignature) { r.Covered = plainCovered(foraRPC...) },
 			helpers.ErrMissingRequiredComponent, true},
 		{"authorization not covered", member, func(r *helpers.RawSignature) {

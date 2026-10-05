@@ -12,7 +12,6 @@ import (
 	"crypto/ed25519"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -56,7 +55,7 @@ func TestIdentityHelpers_MintAFreshAgent(t *testing.T) {
 	}
 	// The directory answers as the profile requires: its own media type, and a
 	// response signed by the key it lists for the authority it was fetched from.
-	directory := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	directory := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sig, err := helpers.SignDirectoryResponse(r.Context(), r.Host, body, []helpers.Signer{signer},
 			now.Unix(), now.Add(time.Hour).Unix())
 		if err != nil {
@@ -67,11 +66,11 @@ func TestIdentityHelpers_MintAFreshAgent(t *testing.T) {
 		_, _ = w.Write(body)
 	}))
 	t.Cleanup(directory.Close)
-	// The Signature-Agent member is an https origin; the resolver fetches it from
-	// the plaintext test server through its Scheme option.
-	origin := "https://" + strings.TrimPrefix(directory.URL, "http://")
+	// The Signature-Agent member is the directory's https origin; the resolver
+	// reaches the TLS test server through that server's own client.
+	origin := directory.URL
 
-	keys := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{Scheme: "http", HTTP: http.DefaultClient})
+	keys := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{HTTP: directory.Client()})
 	path, h := foraserver.NewCatalogServiceHandler(&recordingCatalog{}, foraserver.WithKeyResolver(keys))
 	mux := http.NewServeMux()
 	mux.Handle(path, h)

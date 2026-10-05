@@ -209,7 +209,26 @@
     "helpers.MissingComponentError": "Go typed error behind errors.Is(ErrMissingRequiredComponent); py/ts report the refusal as a reason token and carry the Accept-Signature value on the verdict.",
     "helpers.AcceptSignatureFor": "Go maps a verification error to its Accept-Signature value; py/ts carry the value on the verification verdict (accept_signature / acceptSignature), so no error-to-value function exists to mirror.",
     "core.WithSignerSource": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
-    "core.WithCoverPrevious": "Go functional-option builder; py/ts pass options via kwargs/options objects."
+    "core.WithCoverPrevious": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
+    "helpers.PoPError": "Go typed error carrying the refusal token and the Accept-Signature value; py/ts return them on the verdict (PopResult.reason / accept_signature, acceptSignature).",
+    "helpers.PoPFailure": "Go string type for the shared delivery-proof refusal tokens; py returns the token as a str on PopResult.reason and TS types it as the PopFailure literal union, so the tokens, pinned by pop-vectors.json, carry the parity claim.",
+    "helpers.PoPVerifyOptions": "Go options struct for VerifyAgentBinding; py/ts pass now (and the injectable verify primitive) as arguments.",
+    "helpers.VerifiedAgentBinding": "Go result struct for VerifyAgentBinding; py/ts return the PopResult verdict, which carries the same signature_agent / signatureAgent.",
+    "helpers.PoPMissingAgentKey": "Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens.",
+    "helpers.PoPBadAgentKey": "Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens.",
+    "helpers.PoPMissingSignature": "Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens.",
+    "helpers.PoPMalformedSignature": "Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens.",
+    "helpers.PoPUnsupportedAlg": "Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens.",
+    "helpers.PoPBadTag": "Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens.",
+    "helpers.PoPBadCoveredComponents": "Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens.",
+    "helpers.PoPBadSignatureAgent": "Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens.",
+    "helpers.PoPKeyIDMismatch": "Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens.",
+    "helpers.PoPThumbprintMismatch": "Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens.",
+    "helpers.PoPMissingCreated": "Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens.",
+    "helpers.PoPFutureCreated": "Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens.",
+    "helpers.PoPMissingExpires": "Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens.",
+    "helpers.PoPExpired": "Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens.",
+    "helpers.PoPSignatureInvalid": "Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens."
   },
   "symbols": {
     "connect.AdminClient": {
@@ -1239,6 +1258,16 @@
       "allowlist_reason": null,
       "python": "SignerSource",
       "ts": "SignerSource"
+    },
+    "helpers.VerifyAgentBinding": {
+      "allowlist_reason": null,
+      "python": "verify_agent_binding",
+      "ts": "verifyAgentBinding"
+    },
+    "helpers.PoPAcceptSignature": {
+      "allowlist_reason": null,
+      "python": "POP_ACCEPT_SIGNATURE",
+      "ts": "POP_ACCEPT_SIGNATURE"
     }
   }
 }

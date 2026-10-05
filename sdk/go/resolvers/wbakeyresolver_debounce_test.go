@@ -50,7 +50,7 @@ func newCountingOrigin() *countingOrigin {
 	o := &countingOrigin{}
 	mux := http.NewServeMux()
 	mux.HandleFunc(wbaDirPath, o.serve)
-	o.Server = httptest.NewServer(mux)
+	o.Server = httptest.NewTLSServer(mux)
 	return o
 }
 
@@ -95,7 +95,6 @@ func TestWBAKeyResolver_UnknownThumbprintBurstDebounced(t *testing.T) {
 	now := wbaAnchor
 	ctx := helpers.WithSignatureAgent(context.Background(), origin.URL)
 	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme:       "http",
 		HTTP:         origin.Client(),
 		TTL:          time.Hour,
 		SyncDebounce: 5 * time.Second,
@@ -152,10 +151,9 @@ func TestWBAKeyResolver_ConcurrentRefreshSingleflight(t *testing.T) {
 
 	ctx := helpers.WithSignatureAgent(context.Background(), origin.URL)
 	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme: "http",
-		HTTP:   origin.Client(),
-		TTL:    time.Hour,
-		Now:    func() time.Time { return wbaAnchor },
+		HTTP: origin.Client(),
+		TTL:  time.Hour,
+		Now:  func() time.Time { return wbaAnchor },
 	})
 
 	const burst = 12

@@ -53,9 +53,8 @@ func TestWBAKeyResolver_Active(t *testing.T) {
 	ctx := helpers.WithSignatureAgent(context.Background(), origin.url)
 
 	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme: "http",
-		HTTP:   origin.Client(),
-		Now:    func() time.Time { return wbaAnchor },
+		HTTP: origin.Client(),
+		Now:  func() time.Time { return wbaAnchor },
 	})
 	got, err := r.Resolve(ctx, tp)
 	if err != nil {
@@ -81,9 +80,8 @@ func TestWBAKeyResolver_ErrKeyExpired(t *testing.T) {
 	ctx := helpers.WithSignatureAgent(context.Background(), origin.url)
 
 	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme: "http",
-		HTTP:   origin.Client(),
-		Now:    func() time.Time { return wbaAnchor },
+		HTTP: origin.Client(),
+		Now:  func() time.Time { return wbaAnchor },
 	})
 	_, err := r.Resolve(ctx, tp)
 	if !errors.Is(err, resolvers.ErrKeyExpired) {
@@ -105,9 +103,8 @@ func TestWBAKeyResolver_ErrUnknownKey(t *testing.T) {
 
 	ctx := helpers.WithSignatureAgent(context.Background(), origin.url)
 	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme: "http",
-		HTTP:   origin.Client(),
-		Now:    func() time.Time { return wbaAnchor },
+		HTTP: origin.Client(),
+		Now:  func() time.Time { return wbaAnchor },
 	})
 	_, err := r.Resolve(ctx, "absent-thumbprint")
 	if !errors.Is(err, helpers.ErrUnknownKey) {
@@ -130,9 +127,8 @@ func TestWBAKeyResolver_ErrKeyRevoked(t *testing.T) {
 
 	ctx := helpers.WithSignatureAgent(context.Background(), origin.url)
 	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme: "http",
-		HTTP:   origin.Client(),
-		Now:    func() time.Time { return wbaAnchor },
+		HTTP: origin.Client(),
+		Now:  func() time.Time { return wbaAnchor },
 	})
 	_, err := r.Resolve(ctx, tp)
 	if !errors.Is(err, resolvers.ErrKeyRevoked) {
@@ -157,10 +153,9 @@ func TestWBAKeyResolver_RotationSelfHeal(t *testing.T) {
 	now := wbaAnchor
 	ctx := helpers.WithSignatureAgent(context.Background(), origin.url)
 	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme: "http",
-		HTTP:   origin.Client(),
-		TTL:    time.Hour,
-		Now:    func() time.Time { return now },
+		HTTP: origin.Client(),
+		TTL:  time.Hour,
+		Now:  func() time.Time { return now },
 	})
 
 	// Prime the cache with k1-only (same seed ⇒ same key as k1 above).
@@ -199,10 +194,9 @@ func TestWBAKeyResolver_RevocationRollbackIgnored(t *testing.T) {
 	now := wbaAnchor
 	ctx := helpers.WithSignatureAgent(context.Background(), origin.url)
 	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme: "http",
-		HTTP:   origin.Client(),
-		TTL:    time.Hour,
-		Now:    func() time.Time { return now },
+		HTTP: origin.Client(),
+		TTL:  time.Hour,
+		Now:  func() time.Time { return now },
 	})
 	if _, err := r.Resolve(ctx, tp); !errors.Is(err, resolvers.ErrKeyRevoked) {
 		t.Fatalf("precondition: want ErrKeyRevoked, got %v", err)
@@ -233,10 +227,9 @@ func TestWBAKeyResolver_RevocationForwardProgressApplied(t *testing.T) {
 	now := wbaAnchor
 	ctx := helpers.WithSignatureAgent(context.Background(), origin.url)
 	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme: "http",
-		HTTP:   origin.Client(),
-		TTL:    time.Hour,
-		Now:    func() time.Time { return now },
+		HTTP: origin.Client(),
+		TTL:  time.Hour,
+		Now:  func() time.Time { return now },
 	})
 	if _, err := r.Resolve(ctx, tp); !errors.Is(err, resolvers.ErrKeyRevoked) {
 		t.Fatalf("precondition: want ErrKeyRevoked, got %v", err)
@@ -272,10 +265,9 @@ func TestWBAKeyResolver_FirstPollFarFutureAsOfClamp(t *testing.T) {
 	now := wbaAnchor
 	ctx := helpers.WithSignatureAgent(context.Background(), origin.url)
 	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme: "http",
-		HTTP:   origin.Client(),
-		TTL:    time.Hour,
-		Now:    func() time.Time { return now },
+		HTTP: origin.Client(),
+		TTL:  time.Hour,
+		Now:  func() time.Time { return now },
 	})
 	// Prime: far-future as_of must be clamped, not stored at the far-future value.
 	if _, err := r.Resolve(ctx, tp); err != nil {
@@ -306,10 +298,9 @@ func TestWBAKeyResolver_RemovalIsNotRevocation(t *testing.T) {
 	now := wbaAnchor
 	ctx := helpers.WithSignatureAgent(context.Background(), origin.url)
 	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme: "http",
-		HTTP:   origin.Client(),
-		TTL:    time.Hour,
-		Now:    func() time.Time { return now },
+		HTTP: origin.Client(),
+		TTL:  time.Hour,
+		Now:  func() time.Time { return now },
 	})
 	if _, err := r.Resolve(ctx, tp1); err != nil {
 		t.Fatalf("prime: %v", err)
@@ -349,9 +340,8 @@ func TestWBAKeyResolver_RevocationURLHostNotAnchored(t *testing.T) {
 
 	ctx := helpers.WithSignatureAgent(context.Background(), dirOrigin.url)
 	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme: "http",
-		HTTP:   dirOrigin.Client(),
-		Now:    func() time.Time { return wbaAnchor },
+		HTTP: dirOrigin.Client(),
+		Now:  func() time.Time { return wbaAnchor },
 	})
 	got, err := r.Resolve(ctx, tp)
 	if err != nil {
@@ -383,9 +373,8 @@ func TestWBAKeyResolver_RequireRevocationUnevaluated(t *testing.T) {
 
 	// Default (best-effort): resolves despite the unevaluated revocation channel.
 	best := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme: "http",
-		HTTP:   dirOrigin.Client(),
-		Now:    func() time.Time { return wbaAnchor },
+		HTTP: dirOrigin.Client(),
+		Now:  func() time.Time { return wbaAnchor },
 	})
 	if _, err := best.Resolve(ctx, tp); err != nil {
 		t.Fatalf("best-effort default must resolve; got %v", err)
@@ -393,7 +382,6 @@ func TestWBAKeyResolver_RequireRevocationUnevaluated(t *testing.T) {
 
 	// RequireRevocation: fail closed — revocation_url declared, no snapshot.
 	strict := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme:            "http",
 		HTTP:              dirOrigin.Client(),
 		RequireRevocation: true,
 		Now:               func() time.Time { return wbaAnchor },
@@ -427,7 +415,6 @@ func TestWBAKeyResolver_Run_PollerAppliesRevocation(t *testing.T) {
 	poll := newPollSignals()
 
 	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme:       "http",
 		HTTP:         origin.Client(),
 		TTL:          100 * time.Hour, // never expires during the test → isolate poller
 		PollInterval: pollInterval,
@@ -466,8 +453,7 @@ func TestWBAKeyResolver_Run_PollerAppliesRevocation(t *testing.T) {
 func TestWBAKeyResolver_NoSignatureAgent(t *testing.T) {
 	t.Parallel()
 	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme: "http",
-		Now:    func() time.Time { return wbaAnchor },
+		Now: func() time.Time { return wbaAnchor },
 	})
 	// Context carries no Signature-Agent — SignatureAgentFromContext returns "".
 	_, err := r.Resolve(context.Background(), "any-thumbprint")
@@ -491,10 +477,9 @@ func TestWBAKeyResolver_TTLCacheHit(t *testing.T) {
 	now := wbaAnchor
 	ctx := helpers.WithSignatureAgent(context.Background(), origin.url)
 	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme: "http",
-		HTTP:   origin.Client(),
-		TTL:    time.Hour,
-		Now:    func() time.Time { return now },
+		HTTP: origin.Client(),
+		TTL:  time.Hour,
+		Now:  func() time.Time { return now },
 	})
 
 	if _, err := r.Resolve(ctx, tp); err != nil {
@@ -524,9 +509,8 @@ func TestWBAKeyResolver_FetchError(t *testing.T) {
 
 	ctx := helpers.WithSignatureAgent(context.Background(), origin.url)
 	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme: "http",
-		HTTP:   origin.Client(),
-		Now:    func() time.Time { return wbaAnchor },
+		HTTP: origin.Client(),
+		Now:  func() time.Time { return wbaAnchor },
 	})
 	_, err := r.Resolve(ctx, "any-thumbprint")
 	if err == nil {
@@ -569,9 +553,8 @@ func TestWBAKeyResolver_Revoked(t *testing.T) {
 
 	ctx := helpers.WithSignatureAgent(context.Background(), origin.url)
 	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		Scheme: "http",
-		HTTP:   origin.Client(),
-		Now:    func() time.Time { return wbaAnchor },
+		HTTP: origin.Client(),
+		Now:  func() time.Time { return wbaAnchor },
 	})
 
 	// Before any fetch the snapshot is unavailable → membership is false.
@@ -679,7 +662,7 @@ func newWBAOrigin(_ []byte) *wbaOrigin {
 	mux := http.NewServeMux()
 	mux.HandleFunc(wbaDirPath, o.serveWBA)
 	mux.HandleFunc(wbaRevocationPath, o.serveRevocation)
-	o.Server = httptest.NewServer(mux)
+	o.Server = httptest.NewTLSServer(mux)
 	o.url = o.Server.URL
 	return o
 }

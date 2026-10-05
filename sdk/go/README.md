@@ -133,6 +133,16 @@ binding, _ := helpers.SignAgentBinding(ctx, signer, agentPub, helpers.PoPOptions
 binding.Apply(req.Header) // X-FORA-Agent-Key + Signature-Agent + Signature-Input + Signature
 ```
 
+The VERIFY face, the check a delivery edge runs, accepts a proof whose signature covers
+at least `@method`, `@target-uri` and the agent's `Signature-Agent` member, so a Web Bot
+Auth library's proof that also covers `@authority` verifies, and enforces the three-way
+identity against the key in `X-FORA-Agent-Key`, offline:
+
+```go
+_, err := helpers.VerifyAgentBinding(r.Method, rawRequestURL, r.Header, agentID, helpers.PoPVerifyOptions{})
+var refused *helpers.PoPError // Reason is the shared token; AcceptSignature answers the 401
+```
+
 **Routing predicates** — the two pure checks that precede a signed call to an
 address a network party named (a manifest may point at itself or a subdomain of
 itself, and nothing else):

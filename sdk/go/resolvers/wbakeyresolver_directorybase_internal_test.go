@@ -21,7 +21,7 @@ import (
 )
 
 func TestDirectoryBase_acceptsFetchableForms(t *testing.T) {
-	r := &WBAKeyResolver{scheme: "https"}
+	r := &WBAKeyResolver{}
 	for _, tc := range []struct {
 		name     string
 		ref      string
@@ -73,7 +73,7 @@ func TestDirectoryBase_acceptsFetchableForms(t *testing.T) {
 // is echoed into the message by %q, so checking for "data" alone would pass on the
 // echoed input even if the refusal never fired.
 func TestDirectoryBase_refusesUnfetchable(t *testing.T) {
-	r := &WBAKeyResolver{scheme: "https"}
+	r := &WBAKeyResolver{}
 	for _, tc := range []struct {
 		name        string
 		ref         string
@@ -232,7 +232,7 @@ func TestRequireHostForm_errorOmitsRef(t *testing.T) {
 // "https://a.example:65536" was accepted and failed later as an outage, which a
 // composite resolver reads as "directory down" rather than "bad reference".
 func TestDirectoryBase_oneVerdictPerReference(t *testing.T) {
-	r := &WBAKeyResolver{scheme: "https"}
+	r := &WBAKeyResolver{}
 	for _, tc := range []struct {
 		name   string
 		bare   string

@@ -29,8 +29,8 @@ import (
 // X-FORA-Agent-Key, resolves the same key from the directory the Signature-Agent
 // member names, and accepts the same signature.
 //
-// This is the SIGN face. The verify face ships in sdk/ts and sdk/python (the
-// edge runs there); Go is the byte oracle both are pinned to, through
+// This is the SIGN face; VerifyAgentBinding (pop_verify.go) is the verify face.
+// Go is the byte oracle the Python and TypeScript faces are pinned to, through
 // testdata/pop-vectors.json.
 
 // AgentKeyHeader carries the raw Ed25519 public key the fetcher presents, as

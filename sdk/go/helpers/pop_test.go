@@ -37,7 +37,11 @@ type popVector struct {
 	SignatureAgent     string `json:"signature_agent"`
 	SignatureInput     string `json:"signature_input"`
 	Signature          string `json:"signature"`
+	NowUnix            int64  `json:"now_unix"`
 	ExpectedValid      bool   `json:"expected_valid"`
+	// ExpectedReason and ExpectedAcceptSignature are the verify face's refusal.
+	ExpectedReason          string `json:"expected_reason"`
+	ExpectedAcceptSignature string `json:"expected_accept_signature"`
 }
 
 func loadPopVectors(t *testing.T) []popVector {

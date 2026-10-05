@@ -1,8 +1,6 @@
 package core_test
 
-// TDD-red suite for the new SigningTransport options and the sigwindow
-// constructors (yxaeb Step 1). Every test MUST fail today because the API
-// does not exist yet — the compile error is the red state.
+// The SigningTransport options and the sigwindow constructors.
 //
 // Behavioral expectations are ported from:
 //   - internal/signingtransport/transport.go  (WithAppendSigner, Signature-Agent
@@ -435,46 +433,20 @@ func TestClockWindow_TTLArithmetic(t *testing.T) {
 	}
 }
 
-// TestMonotonicWindow_UniqueUnderRepeatedCallsWithinSameSecond pins that
-// MonotonicWindow's expires is strictly increasing across back-to-back calls
-// even when the wall clock does not advance — no two calls in the same second
-// share the same expires value, so identical relay requests do not collide in
-// the server's replay store.
-func TestMonotonicWindow_UniqueUnderRepeatedCallsWithinSameSecond(t *testing.T) {
-	t.Parallel()
-	const ttl = 5 * time.Minute
-	// Freeze the clock so every call lands in the "same second" scenario.
-	frozen := time.Unix(1_700_000_000, 0)
-	w := core.MonotonicWindow(func() time.Time { return frozen }, ttl)
-
-	_, expires1 := w()
-	_, expires2 := w()
-	_, expires3 := w()
-
-	if expires2 <= expires1 {
-		t.Errorf("call 2 expires=%d must be > call 1 expires=%d (monotonic uniqueness)", expires2, expires1)
-	}
-	if expires3 <= expires2 {
-		t.Errorf("call 3 expires=%d must be > call 2 expires=%d (monotonic uniqueness)", expires3, expires2)
-	}
-}
-
-// TestMonotonicWindow_LifetimeStaysTTL pins that created moves with expires, so
-// a burst never stretches a window past ttl — past the five-minute Web Bot Auth
-// limit when ttl is that limit — and the first call's created is now.
-func TestMonotonicWindow_LifetimeStaysTTL(t *testing.T) {
+// TestMonotonicWindow_NeverStampsAheadOfTheClock pins the fix for the forward
+// shift: a burst of a thousand calls inside one frozen second stamps every one at
+// the clock's time, so no signature is created in the future, and each window is
+// exactly ttl. Uniqueness comes from the nonce, not from the window.
+func TestMonotonicWindow_NeverStampsAheadOfTheClock(t *testing.T) {
 	t.Parallel()
 	const ttl = 5 * time.Minute
 	frozen := time.Unix(1_700_000_000, 0)
 	w := core.MonotonicWindow(func() time.Time { return frozen }, ttl)
-
-	for i := range 3 {
+	for i := range 1000 {
 		created, expires := w()
-		if i == 0 && created != frozen.Unix() {
-			t.Errorf("first created = %d; want %d", created, frozen.Unix())
-		}
-		if expires-created != int64(ttl.Seconds()) {
-			t.Errorf("call %d window = %ds; want %ds", i, expires-created, int64(ttl.Seconds()))
+		if created != frozen.Unix() || expires != frozen.Unix()+int64(ttl.Seconds()) {
+			t.Fatalf("call %d = (%d, %d); want (%d, %d) — a signature stamped ahead of the clock",
+				i, created, expires, frozen.Unix(), frozen.Unix()+int64(ttl.Seconds()))
 		}
 	}
 }
