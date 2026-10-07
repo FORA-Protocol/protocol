@@ -1,4 +1,4 @@
-// The preview request; the contact form uses its own client.
+// The preview request.
 //
 // fetch is injected rather than captured so the module can be tested without a
 // network and without a DOM. The caller owns the AbortController.
