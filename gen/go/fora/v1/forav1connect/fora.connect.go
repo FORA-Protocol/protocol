@@ -4,8 +4,9 @@
 // IAB Tech Lab CoMP v1.0 and RSL 1.0 with pricing, exchange orchestration,
 // resource identity, transactions, and post-usage reporting.
 //
-// The ExchangeService is the core protocol. Both AI agents and
-// Brokers are valid clients — the Exchange doesn't distinguish.
+// The ExchangeService is the core protocol. AI agents and Brokers call the same
+// RPCs; an Exchange tells a request a Broker relayed from an agent's own as
+// "Direct and relayed requests" below states.
 //
 // Wire format: the canonical wire is snake_case proto-JSON — the field names as
 // declared here (idempotency_key, unit_cost), used by the generated Pydantic/Zod

@@ -44,13 +44,25 @@ This ties cryptographic identity to DNS ownership — if you control the domain,
 
 ### Requester domain and the key directory
 
-`requester.domain` names the same directory, and the rule that binds the two depends on who signed the arriving request:
+`requester.domain` names the same directory, and the rule that binds the two depends on whether the request is direct or relayed, which the receiver decides as [Direct and relayed requests](#direct-and-relayed-requests) states:
 
-- **Direct request.** The agent's own signature arrives because the agent sent the request itself. The verifier resolves the key from the covered `Signature-Agent` member, as above, never from `requester.domain`. It then **MUST** require `requester.domain` to name that same directory: the host of the origin that member names, compared by the request-recipient identity rule (the shape check first, then case-folded, an absent port the same as `:443`, a subdomain a different party). A mismatch is refused as `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`: the signature verifies, but not for the requester the body names. An Exchange applies this rule to every request the agent signed, exactly as a Broker applies it on `BrokerService.ExecuteTransaction`.
+- **Direct request.** The agent's own signature arrives because the agent sent the request itself. The verifier resolves the key from the covered `Signature-Agent` member, as above, never from `requester.domain`. It then **MUST** require `requester.domain` to name that same directory: the host of the origin that member names, compared by the request-recipient identity rule (the shape check first, then case-folded, an absent port the same as `:443`, a subdomain a different party). A mismatch is refused as `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`: the signature verifies, but not for the requester the body names. A Broker applies this rule to every request it receives. An Exchange applies it to every request whose signer it does not admit as a Broker; a mismatch from a signer it does admit is a relayed request, one of the two cases below.
 - **Purchase relayed through a Broker.** `BrokerService.ExecuteTransaction` re-packages the purchase, so the request signature and the covered `Signature-Agent` member belong to the Broker. They say only that the call comes from the Broker; they sign no purchase. The Exchange **MUST** verify each item's `AgentAcceptance`, and the `AgentRequestAcceptance`, against the Ed25519 keys currently valid in the directory `requester.domain` names, never against the Broker's key. Those acceptances are the only agent signatures the Exchange sees (see [Projected execute requests](#projected-execute-requests)).
 - **Broker-led discovery.** A `ResourceQuery` the Broker originated carries no agent signature, so nothing on that leg authenticates `requester.domain`: it is the Broker's statement, under the Broker's own signature, of whom it queries for.
 
 `requester.id` plays no part in any of this. It is a label the agent chooses, covered by the acceptance signatures so a relay cannot rewrite it, and still only what the agent says.
+
+### Direct and relayed requests
+
+Agents and Brokers call the same `ExchangeService` RPCs, and no field marks a request as relayed. On the two requests that name a requester, `ResourceQuery` and `TransactionRequest`, an Exchange tells a direct request from a relayed one by comparing `requester.domain` with the host of the directory the verified signature's covered `Signature-Agent` member names, by the request-recipient identity rule:
+
+| `requester.domain` and the signer's directory host | The request is | The Exchange |
+|---|---|---|
+| Equal | Direct: the signer is the requester | Applies the direct-request rule above |
+| Different, and the Exchange admits the signer as a Broker | Relayed: a Broker authored it for that requester | Applies the relayed rules above. On discovery `requester.domain` is the Broker's statement of whom it queries for; on a purchase the agent's acceptances are verified against the directory it names |
+| Different, and the Exchange does not admit the signer | Not acceptable | Refuses it as `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID` |
+
+Which Brokers an Exchange admits is the Exchange's own policy, for example the Brokers registered with it, just as which Exchanges a Broker routes to is the Broker's. Nothing the sender states admits it: a Broker's manifest declares `ROLE_BROKER`, and `requester.type` describes the requester, but both are the sender's own statements, so neither decides admission. A Broker is never itself relayed to, so every request a Broker receives is direct, and a mismatched requester there is always refused.
 
 ### The WBA Directory Endpoint
 
@@ -320,7 +332,7 @@ The Exchange:
 4. Verifies each signature independently against its own covered components and its own key, and authenticates the caller as the party that signed the request: the agent on a direct call, the Broker on a request the Broker sent. Where a party forwarded unchanged and covered an earlier signature, it also confirms that coverage
 5. On an execute request, verifies each item's `AgentAcceptance` against the agent's registered key, as above
 
-Verifying a signature proves which party sent the request. Whether that party may send to this Exchange at all is the Exchange's own policy: an Exchange MAY accept requests from a Broker only when the Broker is registered with it.
+Verifying a signature proves which party sent the request. Whether that party may act for another requester is the Exchange's own admission policy, for example the Brokers registered with it: a request whose `requester.domain` names a directory other than the signer's is processed only from a Broker the Exchange admits, and is otherwise refused as `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID` (see [Direct and relayed requests](#direct-and-relayed-requests)).
 
 Neither Broker RPC forwards a request. `BrokerService.Resolve` and `BrokerService.ExecuteTransaction` terminate at the Broker, which originates its own discovery queries and re-packages a purchase into one new request per Exchange, each signed by the Broker alone. See [Projected execute requests](#projected-execute-requests).
 
@@ -710,7 +722,7 @@ Every party publishes its keys in **one** place — its WBA directory at `{domai
 | Party | Key Endpoint (WBA directory) | Role (in `fora.json`) |
 |---|---|---|
 | Agent / Requester | `{domain}/.well-known/http-message-signatures-directory` | `ROLE_AGENT` |
-| Intermediary | `{domain}/.well-known/http-message-signatures-directory` | `ROLE_AGENT` |
+| Broker | `{domain}/.well-known/http-message-signatures-directory` | `ROLE_BROKER` (describes the document; an Exchange admits a Broker by its own policy, never by this role) |
 | Exchange | `{domain}/.well-known/http-message-signatures-directory` | `ROLE_EXCHANGE` |
 | Delegation Issuer (principal / resource owner) | `{domain}/.well-known/http-message-signatures-directory` | `ROLE_AGENT` (key signing delegation JWTs) |
 

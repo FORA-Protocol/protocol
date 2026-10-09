@@ -320,7 +320,8 @@ FORA defines **one** well-known file. Every participant serves a `WellKnownManif
 |---|---|---|
 | `ROLE_PUBLISHER` | Provider | Who is authorized to sell my content (signing keys live in my WBA directory) |
 | `ROLE_EXCHANGE` | Exchange | My endpoints, capabilities, and accepted verifiers (offer-signing keys live in my WBA directory) |
-| `ROLE_AGENT` | Agent / Broker | My role marker (my Ed25519 request-signing key lives in my WBA directory) |
+| `ROLE_AGENT` | Agent | My role marker (my Ed25519 request-signing key lives in my WBA directory) |
+| `ROLE_BROKER` | Broker | My role marker (my Ed25519 request-signing key lives in my WBA directory). It describes the document: an Exchange admits a Broker by its own policy, never by this role |
 
 A verification vendor has no dedicated role — it publishes under its operator's role (`ROLE_PUBLISHER` when self-attesting, `ROLE_EXCHANGE` for a standalone vendor); its keys go in its WBA directory and its claims schema in the manifest's `ext["fora.attestation.claims_schema"]`.
 

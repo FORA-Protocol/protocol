@@ -2485,3 +2485,50 @@ How discovery should travel through more than one Broker is an open protocol que
 and an agent's bound on that is what this field would carry; deprecating it now would
 close the option for a field that costs nothing while unused. What changed is that no
 page or comment claims an Exchange enforces it.
+
+## A relay is a requester mismatch the Exchange admits
+
+An Exchange receives the same `ResourceQuery` and `TransactionRequest` from an agent and
+from a Broker, and the protocol gave two different rules for them: on a direct request
+`Requester.domain` must name the signer's own directory, while on a request a Broker
+authored it names the agent the Broker acts for. Nothing said how an Exchange tells which
+rule applies, and the file header still said the Exchange does not distinguish.
+
+The answer uses what the Exchange already verifies. It compares `Requester.domain` with
+the host of the directory the verified signature's covered `Signature-Agent` member names,
+by the request-recipient identity rule. Equal is a direct request. Different is a relayed
+request, which the Exchange acts on only when it admits the signer as a Broker, and
+otherwise refuses exactly as it refuses a direct request with a mismatched requester:
+`unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`. Which Brokers it admits
+is its own policy, for example the Brokers registered with it.
+
+Several existing decisions fixed the shape of that rule:
+
+- **Identity is the signature, never a label.** The `caller_id` deprecation and
+  `Requester.id` ("never identity") already say so, and the comparison reads only what
+  the signature proves.
+- **A sender's own statement is not a trust anchor.** A manifest's `role` and
+  `Requester.type` are both the sender's claim, so neither admits a Broker. Broker
+  manifests carry `ROLE_BROKER`, which describes the document and authorizes nothing.
+- **Admission is each party's own policy; the refusal is normative.** A Broker's choice
+  of Exchanges is already private configuration, answered with a fixed refusal shape.
+  An Exchange's choice of Brokers is the same kind of decision, so the protocol fixes the
+  comparison and the refusal, and leaves the list of admitted Brokers to each Exchange.
+- **No new wire discriminator.** The protocol has already retired five: in-body
+  signatures, `intermediaries`, signature position, a `broker.` keyid prefix, and a
+  configured set of hop keys. A field saying "this request is relayed" would be one
+  more statement for the sender to make.
+
+Two alternatives were rejected. A self-declared `ROLE_BROKER`, or a new `RequesterType`
+value, would let any signer admit itself. Naming the Broker inside the signed
+`AgentRequestAcceptance` would change the signed bytes, cover purchases only and leave
+discovery undecided, and it would settle who owns a relayed purchase, which is a
+separate decision. The rule matches what the reference Exchange does: it treats a request
+as relayed only when the signer is a Broker it is configured to accept. Open Banking
+providers and RFC 8693 actors follow the same pattern: the resource server admits the
+actor by its own policy, and the subject's consent travels separately, here as the
+acceptances.
+
+A Broker is never relayed to: every request it receives is direct, so a mismatched
+requester at a Broker is always refused. Usage reports and disputes carry no
+`Requester`, so the comparison does not apply to them.

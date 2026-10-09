@@ -5,7 +5,7 @@ description: "The four Exchange RPCs that form the core FORA protocol: DiscoverR
 
 ## The Exchange Protocol
 
-The Exchange exposes four RPCs. This is the core protocol -- everything else is built on top of it. Both agents and Brokers are clients of the same Exchange interface. The Exchange does not know or care whether the request came from a Broker or directly from an agent.
+The Exchange exposes four RPCs. This is the core protocol -- everything else is built on top of it. Both agents and Brokers are clients of the same Exchange interface, with the same RPCs and the same wire. An Exchange tells a relayed request from a direct one by comparing `requester.domain` with the signer's directory, and acts on a relayed one only from a Broker it admits; see [Direct and relayed requests](/protocol/authentication/#direct-and-relayed-requests).
 
 ```
 With Broker (multi-exchange, budget control, reporting):

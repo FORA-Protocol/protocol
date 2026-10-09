@@ -448,6 +448,29 @@ Docs: the authentication page's Requester table and a new "Requester domain and 
 directory" section, the projected-execute section, the transaction-flow page, the
 reference page and the Exchange request-flow example state the same rules.
 
+**An Exchange tells a relayed request from a direct one (a new receiver rule; no wire
+change).** Agents and Brokers call the same `ExchangeService` RPCs, and `Requester.domain`
+had one rule on a direct request and another on a request a Broker authored, with nothing
+saying how an Exchange tells them apart; the file header said the Exchange does not
+distinguish. The file header gains "Direct and relayed requests", the one statement of
+the rule. On `ResourceQuery` and `TransactionRequest`, an Exchange compares
+`Requester.domain` with the host of the directory the verified signature's covered
+`Signature-Agent` member names, by the request-recipient identity rule. Equal is a direct
+request, under the direct rule. Different is a relayed request, which the Exchange acts on
+only when it admits the signer as a Broker, by its own policy (for example, the Brokers
+registered with it), and otherwise refuses as `unauthenticated` with
+`request_auth_failure` `SIGNATURE_INVALID`. No field marks a relay, and neither
+`WellKnownManifest.role` nor `Requester.type` admits a Broker: both are the sender's own
+statements. A Broker is never relayed to, so a mismatched requester at a Broker is always
+refused. An Exchange that accepts relayed requests needs an admitted-Broker policy. The
+`Role` values gain comments: a Broker's manifest declares `ROLE_BROKER`, which describes
+the document and admits nothing.
+
+Docs: the authentication page gains "Direct and relayed requests", and its key table lists
+a Broker under `ROLE_BROKER`. The transaction-flow, production-architecture, proto-fora,
+Broker overview, exchange-manifest, request-flows and threat-model pages state the rule
+or link to it, and no page gives a Broker `ROLE_AGENT` any more.
+
 **A scope shortfall is never disclosed: `OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT` and
 `DENIAL_REASON_SCOPE_INSUFFICIENT` are deprecated and never sent (no wire change).**
 Their comments described an Exchange sending them, which contradicted `Requester.scopes`:

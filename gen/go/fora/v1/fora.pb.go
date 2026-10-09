@@ -4,8 +4,9 @@
 // IAB Tech Lab CoMP v1.0 and RSL 1.0 with pricing, exchange orchestration,
 // resource identity, transactions, and post-usage reporting.
 //
-// The ExchangeService is the core protocol. Both AI agents and
-// Brokers are valid clients — the Exchange doesn't distinguish.
+// The ExchangeService is the core protocol. AI agents and Brokers call the same
+// RPCs; an Exchange tells a request a Broker relayed from an agent's own as
+// "Direct and relayed requests" below states.
 //
 // Wire format: the canonical wire is snake_case proto-JSON — the field names as
 // declared here (idempotency_key, unit_cost), used by the generated Pydantic/Zod
@@ -1182,14 +1183,19 @@ func (CitationFormat) EnumDescriptor() ([]byte, []int) {
 // Role — Identifies which kind of FORA participant a WellKnownManifest
 // describes. Verifiers fold into the role of the domain that operates
 // them (typically EXCHANGE or PUBLISHER); they are not a distinct role.
+//
+// A role describes the document. It is the publisher's own statement, so no
+// party authorizes anything from it: an Exchange admits a Broker by its own
+// policy, never because a manifest says ROLE_BROKER (see "Direct and relayed
+// requests" in the file header).
 type Role int32
 
 const (
 	Role_ROLE_UNSPECIFIED Role = 0 // unset — rejected at ingest
-	Role_ROLE_AGENT       Role = 1
-	Role_ROLE_EXCHANGE    Role = 2
-	Role_ROLE_BROKER      Role = 3
-	Role_ROLE_PUBLISHER   Role = 4
+	Role_ROLE_AGENT       Role = 1 // an agent's manifest
+	Role_ROLE_EXCHANGE    Role = 2 // an Exchange's manifest
+	Role_ROLE_BROKER      Role = 3 // a Broker's manifest; the role never admits the Broker anywhere
+	Role_ROLE_PUBLISHER   Role = 4 // a publisher's manifest
 )
 
 // Enum value maps for Role.
@@ -4466,7 +4472,8 @@ type Requester struct {
 	// reason: a scheme, path or query smuggled in here would choose what gets
 	// fetched, not merely from where. It is never a free label. Every verifier
 	// reads it as the name of that directory, and the rule that binds it depends
-	// on who signed the arriving request:
+	// on whether the request is direct or relayed, which the receiver decides as
+	// "Direct and relayed requests" in the file header states:
 	//
 	//   - Direct request. The agent's own RFC 9421 signature arrives because
 	//     the agent sent the request itself. The verifier resolves the agent's
@@ -4477,9 +4484,10 @@ type Requester struct {
 	//     then case-folded, an absent port the same as ":443", a subdomain a
 	//     different party). A mismatch is refused as UNAUTHENTICATED with
 	//     `request_auth_failure` SIGNATURE_INVALID: the signature verifies, but
-	//     not for the requester the body names. An Exchange applies this rule on
-	//     every request it receives signed by the agent, exactly as a Broker
-	//     applies it at BrokerService.ExecuteTransaction.
+	//     not for the requester the body names. A Broker applies this rule on
+	//     every request it receives. An Exchange applies it on every request
+	//     whose signer it does not admit as a Broker; a mismatch from a signer it
+	//     does admit is a relayed request, one of the two cases below.
 	//   - Purchase relayed through a Broker. BrokerService.ExecuteTransaction
 	//     re-packages the purchase, so the request signature and the covered
 	//     `Signature-Agent` member are the Broker's. They say only that the call comes

@@ -4,8 +4,9 @@
 // IAB Tech Lab CoMP v1.0 and RSL 1.0 with pricing, exchange orchestration,
 // resource identity, transactions, and post-usage reporting.
 //
-// The ExchangeService is the core protocol. Both AI agents and
-// Brokers are valid clients — the Exchange doesn't distinguish.
+// The ExchangeService is the core protocol. AI agents and Brokers call the same
+// RPCs; an Exchange tells a request a Broker relayed from an agent's own as
+// "Direct and relayed requests" below states.
 //
 // Wire format: the canonical wire is snake_case proto-JSON — the field names as
 // declared here (idempotency_key, unit_cost), used by the generated Pydantic/Zod
@@ -254,6 +255,44 @@ import "fora/v1/vocab.proto";
 // ============================================================================
 
 // ============================================================================
+// Direct and relayed requests
+//
+// Agents and Brokers call the same ExchangeService RPCs. Of the requests an
+// Exchange receives, ResourceQuery and TransactionRequest name a requester, and
+// on those two the Exchange tells a relayed request from a direct one by
+// comparing two hosts: Requester.domain, and the host of the key directory that
+// the verified signature's covered `Signature-Agent` member names. The
+// comparison is the identity rule "Request recipient" defines: the shape check
+// first, then case-folded, an absent port the same as ":443", a subdomain a
+// different party.
+//
+//   - Equal: a DIRECT request. The signer is the requester, and the rule for a
+//     direct request in Requester.domain applies.
+//   - Different: a RELAYED request, one a Broker authored for that requester —
+//     a ResourceQuery it originated for Broker-led discovery, or a
+//     TransactionRequest it re-packaged from the agent's purchase. The Exchange
+//     acts on it only when it ADMITS THE SIGNER AS A BROKER. Which Brokers an
+//     Exchange admits is its own policy, for example the Brokers registered
+//     with it, just as which Exchanges a Broker routes to is the Broker's. An
+//     admitted Broker's request follows the relayed rules in Requester.domain:
+//     on discovery the field is the Broker's statement of whom it queries for,
+//     and on a purchase the agent's acceptances are verified against the
+//     directory the field names. A request from a signer the Exchange does not
+//     admit is refused as a direct request with a mismatched requester is:
+//     UNAUTHENTICATED with `request_auth_failure` SIGNATURE_INVALID, because the
+//     signature verifies but not for the requester the body names.
+//
+// Nothing else decides it. No field marks a request as relayed, and neither
+// WellKnownManifest.role nor Requester.type admits a Broker: both are the
+// sender's own statements. The decision rests on what the signature proves,
+// which directory signed, and on the Exchange's own admission policy.
+//
+// A Broker relays to Exchanges and is never itself relayed to: every request a
+// Broker receives is direct, so at BrokerService.Resolve and
+// BrokerService.ExecuteTransaction a mismatched requester is always refused.
+// ============================================================================
+
+// ============================================================================
 // Idempotency
 //
 // The requests that change state — TransactionRequest, UsageReport and
@@ -405,7 +444,8 @@ import "fora/v1/vocab.proto";
 // ExchangeService — THE core protocol.
 //
 // This is what SSPs, providers, or third parties deploy.
-// Agents and Brokers are both valid clients.
+// Agents and Brokers are both valid clients; see "Direct and relayed requests"
+// in the file header for how an Exchange tells their requests apart.
 // ============================================================================
 
 service ExchangeService {
@@ -2082,7 +2122,8 @@ message Requester {
   // reason: a scheme, path or query smuggled in here would choose what gets
   // fetched, not merely from where. It is never a free label. Every verifier
   // reads it as the name of that directory, and the rule that binds it depends
-  // on who signed the arriving request:
+  // on whether the request is direct or relayed, which the receiver decides as
+  // "Direct and relayed requests" in the file header states:
   //
   //   - Direct request. The agent's own RFC 9421 signature arrives because
   //     the agent sent the request itself. The verifier resolves the agent's
@@ -2093,9 +2134,10 @@ message Requester {
   //     then case-folded, an absent port the same as ":443", a subdomain a
   //     different party). A mismatch is refused as UNAUTHENTICATED with
   //     `request_auth_failure` SIGNATURE_INVALID: the signature verifies, but
-  //     not for the requester the body names. An Exchange applies this rule on
-  //     every request it receives signed by the agent, exactly as a Broker
-  //     applies it at BrokerService.ExecuteTransaction.
+  //     not for the requester the body names. A Broker applies this rule on
+  //     every request it receives. An Exchange applies it on every request
+  //     whose signer it does not admit as a Broker; a mismatch from a signer it
+  //     does admit is a relayed request, one of the two cases below.
   //   - Purchase relayed through a Broker. BrokerService.ExecuteTransaction
   //     re-packages the purchase, so the request signature and the covered
   //     `Signature-Agent` member are the Broker's. They say only that the call comes
@@ -3749,12 +3791,17 @@ message RequestConstraints {
 // Role — Identifies which kind of FORA participant a WellKnownManifest
 // describes. Verifiers fold into the role of the domain that operates
 // them (typically EXCHANGE or PUBLISHER); they are not a distinct role.
+//
+// A role describes the document. It is the publisher's own statement, so no
+// party authorizes anything from it: an Exchange admits a Broker by its own
+// policy, never because a manifest says ROLE_BROKER (see "Direct and relayed
+// requests" in the file header).
 enum Role {
   ROLE_UNSPECIFIED = 0;  // unset — rejected at ingest
-  ROLE_AGENT = 1;
-  ROLE_EXCHANGE = 2;
-  ROLE_BROKER = 3;
-  ROLE_PUBLISHER = 4;
+  ROLE_AGENT = 1;        // an agent's manifest
+  ROLE_EXCHANGE = 2;     // an Exchange's manifest
+  ROLE_BROKER = 3;       // a Broker's manifest; the role never admits the Broker anywhere
+  ROLE_PUBLISHER = 4;    // a publisher's manifest
 }
 
 // JsonWebKey — Inline RFC 7517 JWK object.

@@ -28,7 +28,7 @@ Two HTTP response headers are part of the contract without being in any message.
 
 ### ExchangeService
 
-The core protocol. Both AI agents and Brokers are valid clients. Every Exchange implements all of its transaction RPCs, `DisputeTransaction` included.
+The core protocol. Both AI agents and Brokers are valid clients; an Exchange tells their requests apart as [Direct and relayed requests](/protocol/authentication/#direct-and-relayed-requests) states. Every Exchange implements all of its transaction RPCs, `DisputeTransaction` included.
 
 `ExecuteTransaction` answers every per-item denial in the body: an item the Exchange denies carries `TransactionResultItem.denial_reason` in a successful response, whatever the item count. A non-OK error carrying `ErrorDetail.transaction_denial` is used only when the Exchange refuses the whole request and decides no item.
 
