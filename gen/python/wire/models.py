@@ -239,6 +239,9 @@ class DisputeFailureReason(Enum):
     DISPUTE_FAILURE_REASON_WINDOW_EXPIRED = 'DISPUTE_FAILURE_REASON_WINDOW_EXPIRED'
     DISPUTE_FAILURE_REASON_DUPLICATE = 'DISPUTE_FAILURE_REASON_DUPLICATE'
     DISPUTE_FAILURE_REASON_INELIGIBLE = 'DISPUTE_FAILURE_REASON_INELIGIBLE'
+    DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION = (
+        'DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION'
+    )
 
 
 class DisputeReason(Enum):
@@ -376,6 +379,9 @@ class DomainVerificationFailureReason(Enum):
     )
     DOMAIN_VERIFICATION_FAILURE_REASON_KEY_REGISTRATION_FAILED = (
         'DOMAIN_VERIFICATION_FAILURE_REASON_KEY_REGISTRATION_FAILED'
+    )
+    DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION = (
+        'DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION'
     )
 
 
@@ -760,6 +766,9 @@ class RegistrationFailureReason(Enum):
     )
     REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE = (
         'REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE'
+    )
+    REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION = (
+        'REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION'
     )
 
 
@@ -2247,7 +2256,7 @@ class BrokerTransactionResponse(WireModel):
     )
     items: list[TransactionResultItem] | None = Field(
         None,
-        description="One per request item, in request order. A purchase that succeeded, or that\n its Exchange denied per item (denial_reason), is that Exchange's\n TransactionResultItem unchanged. An item whose Exchange refused the whole\n sub-request, or did not answer it, carries that refusal in `refusal`, with\n offer_id set and no other result field.",
+        description="One per request item, in request order. A purchase that succeeded, or that\n its Exchange denied per item (denial_reason), is that Exchange's\n TransactionResultItem unchanged. An item whose Exchange refused the whole\n sub-request, or did not answer it, carries that refusal in `refusal`, with\n offer_id set and no other result field. When the Broker itself does not\n understand a key the agent's request lists in ext_critical, every item is\n the Broker's denial, DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION, and no\n Exchange was contacted.",
     )
     totals: list[Cost] | None = Field(
         None,

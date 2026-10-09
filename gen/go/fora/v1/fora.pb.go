@@ -1717,6 +1717,10 @@ const (
 	RegistrationFailureReason_REGISTRATION_FAILURE_REASON_QUOTA_EXCEEDED            RegistrationFailureReason = 5 // registration quota exceeded
 	RegistrationFailureReason_REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA RegistrationFailureReason = 6 // registration_data does not conform to the Exchange's published AccountRegistration.data_schema
 	RegistrationFailureReason_REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE        RegistrationFailureReason = 7 // terms_digest does not match the currently published WellKnownManifest.terms_digest, or was omitted while the Exchange publishes one
+	// The request's ext_critical names a key the Exchange does not understand (see
+	// "Critical extensions" in the file header), on a first registration and on a
+	// repeat alike. Refused with the Connect code invalid_argument.
+	RegistrationFailureReason_REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION RegistrationFailureReason = 8
 )
 
 // Enum value maps for RegistrationFailureReason.
@@ -1730,16 +1734,18 @@ var (
 		5: "REGISTRATION_FAILURE_REASON_QUOTA_EXCEEDED",
 		6: "REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA",
 		7: "REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE",
+		8: "REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION",
 	}
 	RegistrationFailureReason_value = map[string]int32{
-		"REGISTRATION_FAILURE_REASON_UNSPECIFIED":               0,
-		"REGISTRATION_FAILURE_REASON_DOMAIN_NOT_VERIFIED":       1,
-		"REGISTRATION_FAILURE_REASON_INVALID_KEY":               2,
-		"REGISTRATION_FAILURE_REASON_SIGNATURE_INVALID":         3,
-		"REGISTRATION_FAILURE_REASON_ALREADY_REGISTERED":        4,
-		"REGISTRATION_FAILURE_REASON_QUOTA_EXCEEDED":            5,
-		"REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA": 6,
-		"REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE":        7,
+		"REGISTRATION_FAILURE_REASON_UNSPECIFIED":                0,
+		"REGISTRATION_FAILURE_REASON_DOMAIN_NOT_VERIFIED":        1,
+		"REGISTRATION_FAILURE_REASON_INVALID_KEY":                2,
+		"REGISTRATION_FAILURE_REASON_SIGNATURE_INVALID":          3,
+		"REGISTRATION_FAILURE_REASON_ALREADY_REGISTERED":         4,
+		"REGISTRATION_FAILURE_REASON_QUOTA_EXCEEDED":             5,
+		"REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA":  6,
+		"REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE":         7,
+		"REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION": 8,
 	}
 )
 
@@ -1801,6 +1807,10 @@ const (
 	// transaction's state admits no dispute under the Exchange's rules. Filing
 	// again does not change the answer.
 	DisputeFailureReason_DISPUTE_FAILURE_REASON_INELIGIBLE DisputeFailureReason = 5
+	// The filing's ext_critical names a key the Exchange does not understand (see
+	// "Critical extensions" in the file header). Refused with the Connect code
+	// invalid_argument.
+	DisputeFailureReason_DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION DisputeFailureReason = 6
 )
 
 // Enum value maps for DisputeFailureReason.
@@ -1812,14 +1822,16 @@ var (
 		3: "DISPUTE_FAILURE_REASON_WINDOW_EXPIRED",
 		4: "DISPUTE_FAILURE_REASON_DUPLICATE",
 		5: "DISPUTE_FAILURE_REASON_INELIGIBLE",
+		6: "DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION",
 	}
 	DisputeFailureReason_value = map[string]int32{
-		"DISPUTE_FAILURE_REASON_UNSPECIFIED":           0,
-		"DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND": 1,
-		"DISPUTE_FAILURE_REASON_REPORT_NOT_FILED":      2,
-		"DISPUTE_FAILURE_REASON_WINDOW_EXPIRED":        3,
-		"DISPUTE_FAILURE_REASON_DUPLICATE":             4,
-		"DISPUTE_FAILURE_REASON_INELIGIBLE":            5,
+		"DISPUTE_FAILURE_REASON_UNSPECIFIED":                0,
+		"DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND":      1,
+		"DISPUTE_FAILURE_REASON_REPORT_NOT_FILED":           2,
+		"DISPUTE_FAILURE_REASON_WINDOW_EXPIRED":             3,
+		"DISPUTE_FAILURE_REASON_DUPLICATE":                  4,
+		"DISPUTE_FAILURE_REASON_INELIGIBLE":                 5,
+		"DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION": 6,
 	}
 )
 
@@ -1861,6 +1873,10 @@ const (
 	DomainVerificationFailureReason_DOMAIN_VERIFICATION_FAILURE_REASON_FETCH_FAILED            DomainVerificationFailureReason = 4 // Exchange could not fetch the verification URL
 	DomainVerificationFailureReason_DOMAIN_VERIFICATION_FAILURE_REASON_EXCHANGE_NOT_AUTHORIZED DomainVerificationFailureReason = 5 // fora.json does not list this Exchange
 	DomainVerificationFailureReason_DOMAIN_VERIFICATION_FAILURE_REASON_KEY_REGISTRATION_FAILED DomainVerificationFailureReason = 6 // signing-key registration failed during confirmation
+	// The request's or confirmation's ext_critical names a key the Exchange does
+	// not understand (see "Critical extensions" in the file header). Refused with
+	// the Connect code invalid_argument.
+	DomainVerificationFailureReason_DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION DomainVerificationFailureReason = 7
 )
 
 // Enum value maps for DomainVerificationFailureReason.
@@ -1873,15 +1889,17 @@ var (
 		4: "DOMAIN_VERIFICATION_FAILURE_REASON_FETCH_FAILED",
 		5: "DOMAIN_VERIFICATION_FAILURE_REASON_EXCHANGE_NOT_AUTHORIZED",
 		6: "DOMAIN_VERIFICATION_FAILURE_REASON_KEY_REGISTRATION_FAILED",
+		7: "DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION",
 	}
 	DomainVerificationFailureReason_value = map[string]int32{
-		"DOMAIN_VERIFICATION_FAILURE_REASON_UNSPECIFIED":             0,
-		"DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_NOT_FOUND":     1,
-		"DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_MISMATCH":      2,
-		"DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_EXPIRED":       3,
-		"DOMAIN_VERIFICATION_FAILURE_REASON_FETCH_FAILED":            4,
-		"DOMAIN_VERIFICATION_FAILURE_REASON_EXCHANGE_NOT_AUTHORIZED": 5,
-		"DOMAIN_VERIFICATION_FAILURE_REASON_KEY_REGISTRATION_FAILED": 6,
+		"DOMAIN_VERIFICATION_FAILURE_REASON_UNSPECIFIED":                0,
+		"DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_NOT_FOUND":        1,
+		"DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_MISMATCH":         2,
+		"DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_EXPIRED":          3,
+		"DOMAIN_VERIFICATION_FAILURE_REASON_FETCH_FAILED":               4,
+		"DOMAIN_VERIFICATION_FAILURE_REASON_EXCHANGE_NOT_AUTHORIZED":    5,
+		"DOMAIN_VERIFICATION_FAILURE_REASON_KEY_REGISTRATION_FAILED":    6,
+		"DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION": 7,
 	}
 )
 
@@ -8758,7 +8776,10 @@ type BrokerTransactionResponse struct {
 	// its Exchange denied per item (denial_reason), is that Exchange's
 	// TransactionResultItem unchanged. An item whose Exchange refused the whole
 	// sub-request, or did not answer it, carries that refusal in `refusal`, with
-	// offer_id set and no other result field.
+	// offer_id set and no other result field. When the Broker itself does not
+	// understand a key the agent's request lists in ext_critical, every item is
+	// the Broker's denial, DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION, and no
+	// Exchange was contacted.
 	Items []*TransactionResultItem `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
 	// One per Exchange the Broker contacted, in the order each Exchange first
 	// appears among the request items.
@@ -11822,7 +11843,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"(CATALOG_REJECTION_REASON_URI_UNAVAILABLE\x10\t\x127\n" +
 	"3CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION\x10\n" +
 	"\x120\n" +
-	",CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED\x10\v*\xb4\x03\n" +
+	",CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED\x10\v*\xf0\x03\n" +
 	"\x19RegistrationFailureReason\x12+\n" +
 	"'REGISTRATION_FAILURE_REASON_UNSPECIFIED\x10\x00\x123\n" +
 	"/REGISTRATION_FAILURE_REASON_DOMAIN_NOT_VERIFIED\x10\x01\x12+\n" +
@@ -11831,14 +11852,16 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	".REGISTRATION_FAILURE_REASON_ALREADY_REGISTERED\x10\x04\x1a\x02\b\x01\x12.\n" +
 	"*REGISTRATION_FAILURE_REASON_QUOTA_EXCEEDED\x10\x05\x129\n" +
 	"5REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA\x10\x06\x122\n" +
-	".REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE\x10\a*\x95\x02\n" +
+	".REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE\x10\a\x12:\n" +
+	"6REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION\x10\b*\xcc\x02\n" +
 	"\x14DisputeFailureReason\x12&\n" +
 	"\"DISPUTE_FAILURE_REASON_UNSPECIFIED\x10\x00\x120\n" +
 	",DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND\x10\x01\x12+\n" +
 	"'DISPUTE_FAILURE_REASON_REPORT_NOT_FILED\x10\x02\x12)\n" +
 	"%DISPUTE_FAILURE_REASON_WINDOW_EXPIRED\x10\x03\x12$\n" +
 	" DISPUTE_FAILURE_REASON_DUPLICATE\x10\x04\x12%\n" +
-	"!DISPUTE_FAILURE_REASON_INELIGIBLE\x10\x05*\xbb\x03\n" +
+	"!DISPUTE_FAILURE_REASON_INELIGIBLE\x10\x05\x125\n" +
+	"1DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION\x10\x06*\xfe\x03\n" +
 	"\x1fDomainVerificationFailureReason\x122\n" +
 	".DOMAIN_VERIFICATION_FAILURE_REASON_UNSPECIFIED\x10\x00\x12:\n" +
 	"6DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_NOT_FOUND\x10\x01\x129\n" +
@@ -11846,7 +11869,8 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"4DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_EXPIRED\x10\x03\x123\n" +
 	"/DOMAIN_VERIFICATION_FAILURE_REASON_FETCH_FAILED\x10\x04\x12>\n" +
 	":DOMAIN_VERIFICATION_FAILURE_REASON_EXCHANGE_NOT_AUTHORIZED\x10\x05\x12>\n" +
-	":DOMAIN_VERIFICATION_FAILURE_REASON_KEY_REGISTRATION_FAILED\x10\x06*\xd9\x05\n" +
+	":DOMAIN_VERIFICATION_FAILURE_REASON_KEY_REGISTRATION_FAILED\x10\x06\x12A\n" +
+	"=DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION\x10\a*\xd9\x05\n" +
 	"\x1aRetrievalAuthFailureReason\x12-\n" +
 	")RETRIEVAL_AUTH_FAILURE_REASON_UNSPECIFIED\x10\x00\x12-\n" +
 	")RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED\x10\x01\x127\n" +

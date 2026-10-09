@@ -11,12 +11,13 @@
             "DISPUTE_FAILURE_REASON_REPORT_NOT_FILED",
             "DISPUTE_FAILURE_REASON_WINDOW_EXPIRED",
             "DISPUTE_FAILURE_REASON_DUPLICATE",
-            "DISPUTE_FAILURE_REASON_INELIGIBLE"
+            "DISPUTE_FAILURE_REASON_INELIGIBLE",
+            "DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION"
           ],
           "type": "string"
         },
         {
-          "maximum": 5,
+          "maximum": 6,
           "minimum": 1,
           "type": "integer"
         }

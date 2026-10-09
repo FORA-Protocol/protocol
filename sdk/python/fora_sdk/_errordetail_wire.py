@@ -171,6 +171,7 @@ ENUMS: dict[str, dict[int, str]] = {
         "QUOTA_EXCEEDED",
         "INVALID_REGISTRATION_DATA",
         "TERMS_DIGEST_STALE",
+        "UNKNOWN_CRITICAL_EXTENSION",
     ),
     "fora.v1.DisputeFailureReason": _names(
         "DISPUTE_FAILURE_REASON",
@@ -180,6 +181,7 @@ ENUMS: dict[str, dict[int, str]] = {
         "WINDOW_EXPIRED",
         "DUPLICATE",
         "INELIGIBLE",
+        "UNKNOWN_CRITICAL_EXTENSION",
     ),
     "fora.v1.DomainVerificationFailureReason": _names(
         "DOMAIN_VERIFICATION_FAILURE_REASON",
@@ -190,6 +192,7 @@ ENUMS: dict[str, dict[int, str]] = {
         "FETCH_FAILED",
         "EXCHANGE_NOT_AUTHORIZED",
         "KEY_REGISTRATION_FAILED",
+        "UNKNOWN_CRITICAL_EXTENSION",
     ),
     "fora.v1.RetrievalAuthFailureReason": _names(
         "RETRIEVAL_AUTH_FAILURE_REASON",

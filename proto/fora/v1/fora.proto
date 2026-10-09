@@ -299,12 +299,32 @@ import "fora/v1/vocab.proto";
 // A request's ext_critical is for the party that receives that request. A
 // receiver that does not understand a key the list names does not act on the
 // request, and answers with the UNKNOWN_CRITICAL_EXTENSION reason of its RPC:
-// DiscoverResources and Resolve answer OK with no offers and
-// OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION; ExecuteTransaction answers OK
-// with every item denied in the body as DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION;
-// a catalog push is refused with CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION;
-// a usage report is refused with
-// USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION.
+//   - DiscoverResources and Resolve answer OK with no offers and
+//     OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION.
+//   - ExchangeService.ExecuteTransaction and BrokerService.ExecuteTransaction
+//     answer OK with every item denied in the body as
+//     DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION. A Broker that does not
+//     understand a key the agent's request lists sends no sub-request, so its
+//     answer carries no `exchanges` and no `totals`.
+//   - A catalog push is refused with
+//     CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION.
+//   - ReportUsage, DisputeTransaction, Register (a repeat registration
+//     included), RequestDomainVerification and ConfirmDomainVerification are
+//     refused with the Connect code invalid_argument and the
+//     UNKNOWN_CRITICAL_EXTENSION value of their reason family:
+//     USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION,
+//     DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION,
+//     REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION and
+//     DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION.
+//   - GetAccountStatus, whose refusals have no reason family, is refused with
+//     the Connect code invalid_argument and no typed reason.
+// RemoveResourcesRequest and RefreshCatalogRequest carry no `ext`.
+//
+// A Broker never copies the agent's request-level `ext` or `ext_critical` onto
+// a request it authors — the ResourceQuery it originates for discovery or the
+// TransactionRequest it re-packages for a purchase: those keys were addressed
+// to the Broker. A message the Broker carries unchanged (the agent's Requester,
+// each Offer, the acceptances) keeps its own `ext` and `ext_critical`.
 //
 // ResourceEntry.ext_critical is not for the Exchange. It names keys the agent
 // must understand: the Exchange carries it onto Offer.ext_critical, with the
@@ -457,7 +477,9 @@ service ExchangeService {
   // identifying field. An agent the Exchange knows, its request signature
   // verified, but that holds no account at this Exchange is answered with the
   // Connect code NOT_FOUND. An agent whose signature does not verify is
-  // UNAUTHENTICATED, as on every RPC.
+  // UNAUTHENTICATED, as on every RPC. A request whose ext_critical lists a key
+  // the Exchange does not understand is INVALID_ARGUMENT with no typed reason
+  // (see "Critical extensions" in the file header).
   rpc GetAccountStatus(GetAccountStatusRequest) returns (GetAccountStatusResponse);
 }
 
@@ -2965,7 +2987,9 @@ service BrokerService {
   //
   // The Broker's own refusals are non-OK Connect errors carrying an
   // ErrorDetail, and when the Broker refuses, it has sent no sub-request, so
-  // nothing was bought:
+  // nothing was bought. They come first, in this order, and only a request that
+  // passes them reaches the critical-extension check (see "Critical extensions"
+  // in the file header), then routing:
   //   - The agent's request signature does not verify: UNAUTHENTICATED with
   //     `request_auth_failure`, exactly as at an Exchange.
   //   - `requester.domain` is not the agent's verified signing directory — the
@@ -3000,7 +3024,11 @@ service BrokerService {
   // sub-request, which decides no item, becomes a refusal on each of its items.
   // DENIAL_REASON_CONTENT_UNAVAILABLE is not a catch-all for
   // upstream failures; the Broker never stamps it, or any denial_reason, onto
-  // an item an Exchange did not deny. If an Exchange answers OK without exactly
+  // an item an Exchange did not deny. The one exception is the Broker's own
+  // answer to a key the agent's request lists in ext_critical that the Broker
+  // does not understand: it then denies every item as
+  // DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION, in the body, and sends no
+  // sub-request (see "Critical extensions" in the file header). If an Exchange answers OK without exactly
   // one result item per item sent, the Broker cannot attribute the answer, and
   // reports every item of that sub-request with a refusal whose code is
   // "internal" and no detail.
@@ -4324,7 +4352,10 @@ message BrokerTransactionResponse {
   // its Exchange denied per item (denial_reason), is that Exchange's
   // TransactionResultItem unchanged. An item whose Exchange refused the whole
   // sub-request, or did not answer it, carries that refusal in `refusal`, with
-  // offer_id set and no other result field.
+  // offer_id set and no other result field. When the Broker itself does not
+  // understand a key the agent's request lists in ext_critical, every item is
+  // the Broker's denial, DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION, and no
+  // Exchange was contacted.
   repeated TransactionResultItem items = 2;
 
   // One per Exchange the Broker contacted, in the order each Exchange first
@@ -4761,8 +4792,10 @@ message DomainVerificationResult {
 //
 // What a repeat still runs is everything outside those gates. The request
 // signature is verified and the caller identified from it, RegisterRequest.exchange
-// is checked against the recipient, and the field-level constraints on the message
-// still apply. A repeat from an unverified caller, or one addressed to a different
+// is checked against the recipient, the field-level constraints on the message
+// still apply, and a key the request lists in ext_critical that the Exchange does
+// not understand is refused with REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION
+// before the stored record is returned. A repeat from an unverified caller, or one addressed to a different
 // Exchange, is refused exactly as a first call is.
 // ============================================================================
 
@@ -5307,6 +5340,10 @@ enum RegistrationFailureReason {
   REGISTRATION_FAILURE_REASON_QUOTA_EXCEEDED = 5;      // registration quota exceeded
   REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA = 6; // registration_data does not conform to the Exchange's published AccountRegistration.data_schema
   REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE = 7;        // terms_digest does not match the currently published WellKnownManifest.terms_digest, or was omitted while the Exchange publishes one
+  // The request's ext_critical names a key the Exchange does not understand (see
+  // "Critical extensions" in the file header), on a first registration and on a
+  // repeat alike. Refused with the Connect code invalid_argument.
+  REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION = 8;
 }
 
 // RegistrationFailure — a registration request could not be completed.
@@ -5381,6 +5418,10 @@ enum DisputeFailureReason {
   // transaction's state admits no dispute under the Exchange's rules. Filing
   // again does not change the answer.
   DISPUTE_FAILURE_REASON_INELIGIBLE = 5;
+  // The filing's ext_critical names a key the Exchange does not understand (see
+  // "Critical extensions" in the file header). Refused with the Connect code
+  // invalid_argument.
+  DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION = 6;
 }
 
 // DisputeFailure — a dispute could not be filed.
@@ -5400,6 +5441,10 @@ enum DomainVerificationFailureReason {
   DOMAIN_VERIFICATION_FAILURE_REASON_FETCH_FAILED = 4;           // Exchange could not fetch the verification URL
   DOMAIN_VERIFICATION_FAILURE_REASON_EXCHANGE_NOT_AUTHORIZED = 5; // fora.json does not list this Exchange
   DOMAIN_VERIFICATION_FAILURE_REASON_KEY_REGISTRATION_FAILED = 6; // signing-key registration failed during confirmation
+  // The request's or confirmation's ext_critical names a key the Exchange does
+  // not understand (see "Critical extensions" in the file header). Refused with
+  // the Connect code invalid_argument.
+  DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION = 7;
 }
 
 // DomainVerificationFailure — RequestDomainVerification / ConfirmDomainVerification failed.

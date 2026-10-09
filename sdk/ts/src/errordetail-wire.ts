@@ -162,6 +162,7 @@ export const ERROR_DETAIL_WIRE_ENUMS: Readonly<Record<string, Readonly<Record<st
 		"WINDOW_EXPIRED",
 		"DUPLICATE",
 		"INELIGIBLE",
+		"UNKNOWN_CRITICAL_EXTENSION",
 	]),
 	"fora.v1.DomainVerificationFailureReason": prefixed("DOMAIN_VERIFICATION_FAILURE_REASON", [
 		"UNSPECIFIED",
@@ -171,6 +172,7 @@ export const ERROR_DETAIL_WIRE_ENUMS: Readonly<Record<string, Readonly<Record<st
 		"FETCH_FAILED",
 		"EXCHANGE_NOT_AUTHORIZED",
 		"KEY_REGISTRATION_FAILED",
+		"UNKNOWN_CRITICAL_EXTENSION",
 	]),
 	"fora.v1.RegistrationFailureReason": prefixed("REGISTRATION_FAILURE_REASON", [
 		"UNSPECIFIED",
@@ -181,6 +183,7 @@ export const ERROR_DETAIL_WIRE_ENUMS: Readonly<Record<string, Readonly<Record<st
 		"QUOTA_EXCEEDED",
 		"INVALID_REGISTRATION_DATA",
 		"TERMS_DIGEST_STALE",
+		"UNKNOWN_CRITICAL_EXTENSION",
 	]),
 	"fora.v1.RequestAuthFailureReason": prefixed("REQUEST_AUTH_FAILURE_REASON", [
 		"UNSPECIFIED",

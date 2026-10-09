@@ -2127,7 +2127,7 @@
       "enum.defined_only"
     ],
     "json": {
-      "reason": 6
+      "reason": 7
     }
   },
   {
@@ -2663,7 +2663,7 @@
       "enum.defined_only"
     ],
     "json": {
-      "reason": 7
+      "reason": 8
     }
   },
   {
@@ -14447,7 +14447,7 @@
           "error": "matched 2 branches of oneOf, exactly 1 required"
         }
       ],
-      "reason": 8
+      "reason": 9
     }
   },
   {

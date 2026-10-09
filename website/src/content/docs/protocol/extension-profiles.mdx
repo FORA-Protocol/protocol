@@ -108,7 +108,13 @@ FORA adopts the COSE enumeration approach: the sender lists which ext keys are c
 
 Who the consumer is depends on the message:
 
-- **A request's `ext_critical` is for the party that receives that request.** A receiver that does not understand a listed key answers with the `UNKNOWN_CRITICAL_EXTENSION` reason of its RPC: discovery and `Resolve` answer OK with no offers and `OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION`; a purchase answers OK with every item denied as `DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION`; a catalog push is refused with `CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION`; a usage report is refused with `USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION`.
+- **A request's `ext_critical` is for the party that receives that request.** A receiver that does not understand a listed key does not act on the request and answers with the `UNKNOWN_CRITICAL_EXTENSION` reason of its RPC:
+  - Discovery and `Resolve` answer OK with no offers and `OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION`.
+  - A purchase, at an Exchange or through a Broker, answers OK with every item denied as `DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION`. A Broker that does not understand a key the agent's request lists contacts no Exchange.
+  - A catalog push is refused with `CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION`.
+  - A usage report, a dispute, a registration (a repeat included) and both domain-verification calls are refused with `invalid_argument` and `USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION`, `DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION`, `REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION` or `DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION`.
+  - `GetAccountStatus` is refused with `invalid_argument` and no typed reason.
+- **A Broker never copies the agent's request-level `ext` or `ext_critical`** onto a request it authors: those keys were addressed to the Broker. A message the Broker carries unchanged, such as the agent's `Requester` or an `Offer`, keeps its own.
 - **`ResourceEntry.ext_critical` is for the agent.** The Exchange carries it onto `Offer.ext_critical`, with the `ext` keys it names, and does not consume it, so a key the Exchange does not understand there never refuses the push. An agent that does not understand a key an offer lists does not use that offer.
 
 ### Example

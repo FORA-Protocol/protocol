@@ -12,12 +12,13 @@
             "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_EXPIRED",
             "DOMAIN_VERIFICATION_FAILURE_REASON_FETCH_FAILED",
             "DOMAIN_VERIFICATION_FAILURE_REASON_EXCHANGE_NOT_AUTHORIZED",
-            "DOMAIN_VERIFICATION_FAILURE_REASON_KEY_REGISTRATION_FAILED"
+            "DOMAIN_VERIFICATION_FAILURE_REASON_KEY_REGISTRATION_FAILED",
+            "DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION"
           ],
           "type": "string"
         },
         {
-          "maximum": 6,
+          "maximum": 7,
           "minimum": 1,
           "type": "integer"
         }

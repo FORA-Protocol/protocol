@@ -191,7 +191,7 @@ not choose Exchanges by profile, and each Exchange answers for its own profiles.
 Broker overview, the extension-profile pages and the getting-started pages say the same.
 
 **A request's critical extensions are for its receiver, and an entry's are for the agent:
-`UNKNOWN_CRITICAL_EXTENSION` is added to three reason enums (additive enum values).** The
+`UNKNOWN_CRITICAL_EXTENSION` is added to six reason enums (additive enum values).** The
 file header gains "Critical extensions", the one statement of the rule. A request's
 `ext_critical` is for the party that receives that request; a receiver that does not
 understand a listed key answers with its RPC's reason: OK with no offers and
@@ -199,11 +199,24 @@ understand a listed key answers with its RPC's reason: OK with no offers and
 every item denied as the new `DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION` (20) on a
 purchase, the new `CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION` (10) on a catalog
 push, and the new `USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION` (6,
-`invalid_argument`) on a usage report. `ResourceEntry.ext_critical` is for the agent: the
-Exchange carries it onto `Offer.ext_critical` and does not consume it, so it never
-refuses a push. The SDK error-detail decoders in Python and TypeScript know the new
-values, and the extension-profiles, academic walkthrough and what-is-FORA pages state
-the rule.
+`invalid_argument`) on a usage report. A dispute, a registration (a repeat included) and
+both domain-verification calls are refused with `invalid_argument` and the new
+`DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION` (6),
+`REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION` (8; 4 stays retired) and
+`DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION` (7). `GetAccountStatus`,
+whose refusals have no reason family, answers `invalid_argument` with no typed reason. A
+Broker that does not understand a key the agent's purchase lists answers OK with every
+item denied as `DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION` and contacts no Exchange — the
+one denial a Broker makes itself — after its signature, requester and malformed-request
+checks and before routing. A Broker never copies the agent's request-level `ext` or
+`ext_critical` onto a request it authors; a message it carries unchanged keeps its own.
+`RemoveResourcesRequest` and `RefreshCatalogRequest` carry no `ext`.
+`ResourceEntry.ext_critical` is for the agent: the Exchange carries it onto
+`Offer.ext_critical` and does not consume it, so it never refuses a push. The SDK
+error-detail decoders in Python and TypeScript know the new values, and
+`error-detail-wire-vectors.json` and the validation corpus are regenerated. The
+extension-profiles, academic walkthrough, what-is-FORA, transaction-flow and
+medical-imaging pages state the rule.
 
 **A catalog call whose signature fails is refused with `request_auth_failure`;
 `CATALOG_REJECTION_REASON_SIGNATURE_INVALID` is deprecated (comments only).** A signed
@@ -308,7 +321,9 @@ version, which `BrokerTransactionResponse.totals` states too.
 implements the RPC. Each `DisputeFailureReason` now names its check: no transaction for the
 caller, no accepted report for this transaction, the dispute window closed, a dispute
 already filed (a retry under the same key is a replay), and a transaction whose state
-admits no dispute.
+admits no dispute. A filing whose `ext_critical` names a key the Exchange does not
+understand is refused with `DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION` (see the
+critical-extensions entry above).
 
 Docs: the transaction-flow page gains "Denials are in the body" and "Idempotency", states
 the report refusals and the dispute refusal reasons, and drops "no refunds in the

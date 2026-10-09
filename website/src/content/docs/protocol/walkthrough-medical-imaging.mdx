@@ -545,7 +545,7 @@ The core protocol defines `DISPUTE_REASON_CONTENT_MISMATCH` — the content does
 | **Parties involved** | Agent + Exchange | Agent + Exchange + Provider + HHS OCR |
 | **Financial exposure** | Transaction cost ($25) | HIPAA penalties ($100 - $50,000 per violation) |
 
-The `ext.medimg.dispute_type: "REGULATORY_INCIDENT"` field (marked `ext_critical`) signals that this dispute requires regulatory escalation, not standard billing resolution. The Exchange MUST understand this field — if it does not recognize `medimg.dispute_type` and it appears in `ext_critical`, the Exchange MUST reject the dispute and inform the agent that it cannot process this dispute type, rather than silently treating it as a standard billing credit.
+The `ext.medimg.dispute_type: "REGULATORY_INCIDENT"` field (marked `ext_critical`) signals that this dispute requires regulatory escalation, not standard billing resolution. The Exchange MUST understand this field — if it does not recognize `medimg.dispute_type` and it appears in `ext_critical`, the Exchange MUST reject the dispute, with `invalid_argument` and `DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION`, which tells the agent it cannot process this dispute type, rather than silently treating it as a standard billing credit.
 
 ### Dispute Response
 

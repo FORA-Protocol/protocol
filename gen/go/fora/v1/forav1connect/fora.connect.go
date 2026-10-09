@@ -165,7 +165,9 @@ type ExchangeServiceClient interface {
 	// identifying field. An agent the Exchange knows, its request signature
 	// verified, but that holds no account at this Exchange is answered with the
 	// Connect code NOT_FOUND. An agent whose signature does not verify is
-	// UNAUTHENTICATED, as on every RPC.
+	// UNAUTHENTICATED, as on every RPC. A request whose ext_critical lists a key
+	// the Exchange does not understand is INVALID_ARGUMENT with no typed reason
+	// (see "Critical extensions" in the file header).
 	GetAccountStatus(context.Context, *connect.Request[v1.GetAccountStatusRequest]) (*connect.Response[v1.GetAccountStatusResponse], error)
 }
 
@@ -346,7 +348,9 @@ type ExchangeServiceHandler interface {
 	// identifying field. An agent the Exchange knows, its request signature
 	// verified, but that holds no account at this Exchange is answered with the
 	// Connect code NOT_FOUND. An agent whose signature does not verify is
-	// UNAUTHENTICATED, as on every RPC.
+	// UNAUTHENTICATED, as on every RPC. A request whose ext_critical lists a key
+	// the Exchange does not understand is INVALID_ARGUMENT with no typed reason
+	// (see "Critical extensions" in the file header).
 	GetAccountStatus(context.Context, *connect.Request[v1.GetAccountStatusRequest]) (*connect.Response[v1.GetAccountStatusResponse], error)
 }
 
@@ -675,7 +679,9 @@ type BrokerServiceClient interface {
 	//
 	// The Broker's own refusals are non-OK Connect errors carrying an
 	// ErrorDetail, and when the Broker refuses, it has sent no sub-request, so
-	// nothing was bought:
+	// nothing was bought. They come first, in this order, and only a request that
+	// passes them reaches the critical-extension check (see "Critical extensions"
+	// in the file header), then routing:
 	//   - The agent's request signature does not verify: UNAUTHENTICATED with
 	//     `request_auth_failure`, exactly as at an Exchange.
 	//   - `requester.domain` is not the agent's verified signing directory — the
@@ -710,7 +716,11 @@ type BrokerServiceClient interface {
 	// sub-request, which decides no item, becomes a refusal on each of its items.
 	// DENIAL_REASON_CONTENT_UNAVAILABLE is not a catch-all for
 	// upstream failures; the Broker never stamps it, or any denial_reason, onto
-	// an item an Exchange did not deny. If an Exchange answers OK without exactly
+	// an item an Exchange did not deny. The one exception is the Broker's own
+	// answer to a key the agent's request lists in ext_critical that the Broker
+	// does not understand: it then denies every item as
+	// DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION, in the body, and sends no
+	// sub-request (see "Critical extensions" in the file header). If an Exchange answers OK without exactly
 	// one result item per item sent, the Broker cannot attribute the answer, and
 	// reports every item of that sub-request with a refusal whose code is
 	// "internal" and no detail.
@@ -839,7 +849,9 @@ type BrokerServiceHandler interface {
 	//
 	// The Broker's own refusals are non-OK Connect errors carrying an
 	// ErrorDetail, and when the Broker refuses, it has sent no sub-request, so
-	// nothing was bought:
+	// nothing was bought. They come first, in this order, and only a request that
+	// passes them reaches the critical-extension check (see "Critical extensions"
+	// in the file header), then routing:
 	//   - The agent's request signature does not verify: UNAUTHENTICATED with
 	//     `request_auth_failure`, exactly as at an Exchange.
 	//   - `requester.domain` is not the agent's verified signing directory — the
@@ -874,7 +886,11 @@ type BrokerServiceHandler interface {
 	// sub-request, which decides no item, becomes a refusal on each of its items.
 	// DENIAL_REASON_CONTENT_UNAVAILABLE is not a catch-all for
 	// upstream failures; the Broker never stamps it, or any denial_reason, onto
-	// an item an Exchange did not deny. If an Exchange answers OK without exactly
+	// an item an Exchange did not deny. The one exception is the Broker's own
+	// answer to a key the agent's request lists in ext_critical that the Broker
+	// does not understand: it then denies every item as
+	// DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION, in the body, and sends no
+	// sub-request (see "Critical extensions" in the file header). If an Exchange answers OK without exactly
 	// one result item per item sent, the Broker cannot attribute the answer, and
 	// reports every item of that sub-request with a refusal whose code is
 	// "internal" and no detail.

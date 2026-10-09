@@ -562,6 +562,7 @@ Re-packaging and combining are safe because each item is atomic and its integrit
 - `exchanges` has one `ExchangeOutcome` per Exchange contacted. Its `agent_identity_hash` is what that Exchange's retrieval URLs are bound to.
 - An item whose `refusal` carries the code `unavailable` or `deadline_exceeded` has an unknown outcome: the Exchange may have bought it before the answer was lost, whether it gave no answer or answered that code. With any other code the Exchange decided no item, and the item was not purchased.
 - `totals` sums only the charged items (those with neither `denial_reason` nor `refusal`), one `Cost` per currency. Amounts are never summed across currencies. An item with an unknown outcome is not counted, so `totals` is then a lower bound of the charge.
+- When the Broker itself does not understand a key the agent's request lists in `ext_critical`, it answers OK with every item denied as `DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION` and contacts no Exchange, so `exchanges` and `totals` are empty. It is the one denial the Broker makes itself; every other `denial_reason` is an Exchange's.
 - `DENIAL_REASON_RELAY_NOT_ACCEPTED` on an item means the provider that sells that item's resource at that Exchange does not accept purchases relayed by a Broker. It is decided per item, by each offer's provider, and answered in the body: other items of the same sub-request may succeed. It is never a refusal of the whole sub-request. Buy that offer directly.
 - A sub-request whose items are not exactly the agent's signed `AgentRequestAcceptance` projected onto that Exchange has every item denied with `DENIAL_REASON_SIGNATURE_INVALID`, in the body, and nothing is purchased.
 
@@ -773,6 +774,7 @@ Every Exchange implements `DisputeTransaction`; it is part of the core protocol,
 | `DISPUTE_FAILURE_REASON_WINDOW_EXPIRED` | The transaction's dispute window, set by the Exchange, has closed |
 | `DISPUTE_FAILURE_REASON_DUPLICATE` | A dispute was already filed for this transaction. A retry of the same filing under the same `idempotency_key` is a replay and returns the original `DisputeResponse` |
 | `DISPUTE_FAILURE_REASON_INELIGIBLE` | The transaction's state admits no dispute under the Exchange's rules |
+| `DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION` | The filing's `ext_critical` names a key the Exchange does not understand. Refused with `invalid_argument` (see [Extension Profiles](/protocol/extension-profiles/)) |
 
 A dispute that is accepted and later found unsupported ends as `RESOLUTION_TYPE_REJECTED`; it is not a refusal to file. The Exchange resolves most accepted disputes automatically in under 1 second using CDN logs and cryptographic evidence. See [Dispute Resolution](/protocol/dispute-resolution/) for the three-tier resolution system, auto-credit rules, and the complete dispute lifecycle.
 

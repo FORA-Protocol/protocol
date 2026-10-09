@@ -45,12 +45,13 @@
             "REGISTRATION_FAILURE_REASON_ALREADY_REGISTERED",
             "REGISTRATION_FAILURE_REASON_QUOTA_EXCEEDED",
             "REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA",
-            "REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE"
+            "REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE",
+            "REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION"
           ],
           "type": "string"
         },
         {
-          "maximum": 7,
+          "maximum": 8,
           "minimum": 1,
           "type": "integer"
         }
