@@ -35,7 +35,9 @@ const BODY = new TextEncoder().encode('{"q":1}') as Uint8Array<ArrayBuffer>;
 /** A fresh Ed25519 key, its public JWK, and its thumbprint keyid. */
 async function agentKey(): Promise<{ keyPair: CryptoKeyPair; jwk: JsonWebKey; keyid: string }> {
 	const keyPair = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
-	const jwk = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
+	// Newer Node stamps alg "Ed25519" on an exported Ed25519 JWK, and web-bot-auth 0.2.0
+	// requires a present alg to be "EdDSA"; the tests need only the key material.
+	const { alg: _alg, ...jwk } = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
 	const raw = new Uint8Array(await crypto.subtle.exportKey("raw", keyPair.publicKey));
 	return { keyPair, jwk, keyid: await thumbprint(raw) };
 }
