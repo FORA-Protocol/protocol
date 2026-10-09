@@ -300,8 +300,13 @@ fi
 # appear anywhere — code, docs, config, copyright. The literal is built from two
 # pieces below so this script does not contain it verbatim, and therefore scans its
 # own file too (no self-exclusion blind spot).
+#
+# One host is allowed: the publisher console runs under the company's own domain,
+# and the site must link to it. The host is assembled from the same two pieces so
+# the self-scan rule holds. Any other use of the name is still an error.
 old_org='postin''dustria'
-org_hits=$(git grep -niF "$old_org" -- . 2>/dev/null || true)
+console_host="console.fora.${old_org}.com"
+org_hits=$(git grep -niF "$old_org" -- . 2>/dev/null | grep -vF "$console_host" || true)
 if [ -n "$org_hits" ]; then
   echo "::error::stale '${old_org}' org reference (the project is github.com/FORA-Protocol):"
   echo "$org_hits"

@@ -34,6 +34,18 @@ export default defineConfig({
 				access: 'public',
 				default: 'https://pub-onboarding.demo.fora-protocol.org/onboarding',
 			}),
+			// Where the onboarding preview sends a publisher who wants to register:
+			// the publisher console root, which signs a visitor in or lets them
+			// create an account first. Astro validates a value set in the build
+			// environment but never the default, so the default must itself be an
+			// https URL.
+			FORA_PUBLISHER_CONSOLE_URL: envField.string({
+				context: 'client',
+				access: 'public',
+				url: true,
+				startsWith: 'https://',
+				default: 'https://console.fora.postindustria.com/',
+			}),
 			// Where a publisher behind an unsupported CDN reaches us.
 			FORA_PUBLISHER_CONTACT_URL: envField.string({
 				context: 'client',
