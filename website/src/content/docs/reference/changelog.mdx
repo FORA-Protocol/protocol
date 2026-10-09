@@ -133,8 +133,8 @@ The for-providers page says a publisher may always push for its own domain, and 
 listed contributors besides. The identity overview says the service signs an acceptance
 with the agent's own custodied key.
 
-**Docs: request samples sign as their requester, and read fields that exist (docs
-only).** The proof-of-concept curl sends the whole Web Bot Auth header set:
+**Docs: request samples sign as their requester and read fields that exist, and the
+operator checklist follows the protocol (docs only).** The proof-of-concept curl sends the whole Web Bot Auth header set:
 `Content-Digest`, an empty `Authorization`, a `Signature-Agent` dictionary member and a
 `Signature-Input` that covers it. It also sends the body's exact bytes, which the digest
 covers. The client samples on the walkthrough-v1, catalog-sources and Broker
@@ -143,7 +143,14 @@ selection-engine pages name the signer's key directory (`WithSignatureAgent`,
 and the budget-reporting page lists that option among the elided ones. The fetch-flow
 page reads `UpstreamRefusal.party`, the for-AI-agents quota sample uses the fields
 `SubscriptionQuotaInfo` has, and the scenario-walkthrough and production-architecture
-pages list the full covered set.
+pages list the full covered set. The for-Exchange-operators page replaces its signature
+and forwarding sections with one ordered checklist that links to the authentication page:
+count the signatures, verify each under the profile, refuse a replay, check revocation
+against the signer's own directory, tell a direct request from a relayed one, verify the
+agent's acceptances, and read a Broker-led query's requester as the Broker's statement.
+It no longer says the `Requester` carries a signature or that a key directory carries a
+role, and its denial list gains `DENIAL_REASON_RELAY_NOT_ACCEPTED`. The for-AI-agents
+page drops the same role slip.
 
 **Term scopes are matched against the scopes in the requester's signed request
 (comments only).** `LicenseTerm.scopes` said the Exchange returns a term when the agent's
