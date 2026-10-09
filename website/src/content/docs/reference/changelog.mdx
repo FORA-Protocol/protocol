@@ -133,6 +133,18 @@ The for-providers page says a publisher may always push for its own domain, and 
 listed contributors besides. The identity overview says the service signs an acceptance
 with the agent's own custodied key.
 
+**Docs: request samples sign as their requester, and read fields that exist (docs
+only).** The proof-of-concept curl sends the whole Web Bot Auth header set:
+`Content-Digest`, an empty `Authorization`, a `Signature-Agent` dictionary member and a
+`Signature-Input` that covers it. It also sends the body's exact bytes, which the digest
+covers. The client samples on the walkthrough-v1, catalog-sources and Broker
+selection-engine pages name the signer's key directory (`WithSignatureAgent`,
+`signatureAgent`, `signing_transport_for`), so the Broker's connection pool signs alone,
+and the budget-reporting page lists that option among the elided ones. The fetch-flow
+page reads `UpstreamRefusal.party`, the for-AI-agents quota sample uses the fields
+`SubscriptionQuotaInfo` has, and the scenario-walkthrough and production-architecture
+pages list the full covered set.
+
 **Term scopes are matched against the scopes in the requester's signed request
 (comments only).** `LicenseTerm.scopes` said the Exchange returns a term when the agent's
 delegation grant covers its scopes, and the Restriction header said term visibility is

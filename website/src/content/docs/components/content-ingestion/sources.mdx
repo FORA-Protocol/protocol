@@ -261,7 +261,10 @@ The Exchange verifies the RFC 9421 signature against the caller's published Ed25
 The SDK carries the publisher role in all three languages: a catalog client that signs and sends the three CatalogService verbs, and the Exchange's own two validation tiers as a pre-check. The client is a separate constructor from the agent client because CatalogService is a separate address (the manifest's `catalog_endpoint`) and its caller holds a publisher's or contributor's key, identified by the request signature; the publisher chose the Exchange, so the origin is configuration.
 
 ```go
-client := connect.NewCatalogClient(catalogEndpoint, connect.WithSigner(contributorSigner))
+client := connect.NewCatalogClient(catalogEndpoint,
+    connect.WithSigner(contributorSigner),
+    connect.WithSignatureAgent("https://publisher.example"), // the signer's key directory
+)
 if v := helpers.ValidateResourceEntry(entry); !v.OK() {   // what the Exchange will say, before signing
     return fmt.Errorf("entry refused: %+v", v.Violations)
 }
@@ -275,7 +278,10 @@ resp, err := client.PushResources(ctx, &forav1.PushResourcesRequest{
 import { createCatalogClient } from "@fora-protocol/sdk/client";
 import { validateResourceEntry } from "@fora-protocol/sdk/licenseterm";
 
-const client = createCatalogClient(catalogEndpoint, { signer: contributorSigner });
+const client = createCatalogClient(catalogEndpoint, {
+  signer: contributorSigner,
+  signatureAgent: "https://publisher.example", // the signer's key directory
+});
 const verdict = validateResourceEntry(entry);
 if (!verdict.ok) throw new Error(JSON.stringify(verdict.violations));
 const resp = await client.pushResources({
@@ -285,9 +291,11 @@ const resp = await client.pushResources({
 ```
 
 ```python
-from fora_sdk import validate_resource_entry
+from fora_sdk import signing_transport_for, validate_resource_entry
 from fora_sdk.client import CatalogClient, ClientConfig
 
+# Signs as contributor_key, naming its key directory in Signature-Agent.
+contributor_signer = signing_transport_for(contributor_key, "https://publisher.example")
 verdict = validate_resource_entry(entry)
 if not verdict.ok:
     raise ValueError(verdict.violations)

@@ -109,6 +109,7 @@ Pre-established HTTP/2 connections to each Exchange. Connect-Go clients are crea
 type ClientPool struct {
     mu      sync.RWMutex
     clients map[string]forav1connect.ExchangeServiceClient
+    signer  helpers.Signer // the Broker's own request-signing key
 }
 
 func (p *ClientPool) GetOrCreate(mp ExchangeEntry) forav1connect.ExchangeServiceClient {
@@ -127,13 +128,17 @@ func (p *ClientPool) GetOrCreate(mp ExchangeEntry) forav1connect.ExchangeService
         return c
     }
 
+    base := &http.Transport{
+        MaxIdleConnsPerHost: 10,
+        IdleConnTimeout:     90 * time.Second,
+        ForceAttemptHTTP2:   true,
+        TLSClientConfig:     &tls.Config{MinVersion: tls.VersionTLS13},
+    }
     httpClient := &http.Client{
-        Transport: &http.Transport{
-            MaxIdleConnsPerHost: 10,
-            IdleConnTimeout:    90 * time.Second,
-            ForceAttemptHTTP2:  true,
-            TLSClientConfig:   &tls.Config{MinVersion: tls.VersionTLS13},
-        },
+        // The Broker signs every request it sends alone, naming its own key
+        // directory in its Signature-Agent member.
+        Transport: core.NewSigningTransport(p.signer, base,
+            core.WithSignatureAgent("https://broker.example")),
         Timeout: 5 * time.Second, // connection-level timeout
     }
 

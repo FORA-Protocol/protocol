@@ -273,7 +273,7 @@ if err != nil {
 for _, item := range resp.GetItems() {
     if r := item.GetRefusal(); r != nil {
         // That Exchange refused the whole sub-request; the other items are unaffected.
-        log.Printf("%s refused %s: %s", r.GetExchange(), item.GetOfferId(), r.GetCode())
+        log.Printf("%s refused %s: %s", r.GetParty(), item.GetOfferId(), r.GetCode())
         continue
     }
     if item.DenialReason != nil {

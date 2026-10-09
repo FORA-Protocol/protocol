@@ -165,10 +165,17 @@ When your agent holds a subscription, offers and transaction responses include `
 
 ```go
 // After a transaction, check remaining quota
-resp, _ := client.Execute(ctx, offer)
-for _, q := range resp.SubscriptionQuota {
-    fmt.Printf("Scope %s: %d/%d remaining (resets %s)\n",
-        q.Scope, q.Remaining, q.Limit, q.ResetsAt)
+resp, err := client.Execute(ctx, offer)
+if err != nil {
+    return err
+}
+for _, q := range resp.GetSubscriptionQuota() {
+    resets := "not stated"
+    if t := q.GetResetsAt(); t != nil {
+        resets = t.AsTime().Format(time.RFC3339)
+    }
+    fmt.Printf("Subscription %s: %d of %d %s remaining (resets %s)\n",
+        q.GetSubscriptionId(), q.GetQuotaRemaining(), q.GetQuotaLimit(), q.GetUnit(), resets)
 }
 ```
 

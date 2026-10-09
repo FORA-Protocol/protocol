@@ -225,12 +225,20 @@ The tools above are ergonomics. The wire is [Connect](https://connectrpc.com/) o
 EX=https://exchange.demo.fora-protocol.org
 
 # Discovery — requires a signed request; see Authentication for the signature base.
+# The digest and signature are computed over query.json's exact bytes, so send them
+# unchanged with --data-binary. 'Authorization;' sends the header empty; it is covered
+# even when empty.
 curl -sS "$EX/fora.v1.ExchangeService/DiscoverResources" \
   -H 'Content-Type: application/json' \
-  -H 'Signature-Agent: https://agent-duci2vuk.mcp.demo.fora-protocol.org' \
-  -H 'Signature-Input: ...' -H 'Signature: ...' \
-  --data @query.json
+  -H 'Content-Digest: sha-256=:<base64 SHA-256 of query.json>:' \
+  -H 'Authorization;' \
+  -H 'Signature-Agent: sig1="https://agent-duci2vuk.mcp.demo.fora-protocol.org"' \
+  -H 'Signature-Input: sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=<now>;expires=<now+300>;keyid="<key thumbprint>";alg="ed25519";nonce="<random>";tag="web-bot-auth"' \
+  -H 'Signature: sig1=:<Ed25519 signature over the signature base>:' \
+  --data-binary @query.json
 ```
+
+The headers have the shape of the [Single-Hop Example](/protocol/authentication/#single-hop-example): `Signature-Agent` is a dictionary whose `sig1` member names the agent's https origin, the same host as `requester.domain`, and the signature covers that member.
 
 with `query.json`:
 

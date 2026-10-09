@@ -228,8 +228,12 @@ Step 2: ExchangeRegistry lookup
 Step 3: Prepare RFC 9421 HTTP Message Signature (alg=ed25519)
   - requester.id = "claude-agent-001"
   - requester.domain = "claude.ai"
-  - Sign the HTTP request per RFC 9421: the SDK adds Signature and
-    Signature-Input headers covering the request method, path, and body digest
+  - Sign the HTTP request per RFC 9421 under the Web Bot Auth profile: the
+    SDK adds Content-Digest, an empty Authorization, Signature-Agent
+    (sig1="https://claude.ai"), Signature-Input and Signature. The signature
+    covers @method, @target-uri, content-digest, authorization and
+    "signature-agent";key="sig1", with created, expires, keyid, nonce and
+    tag="web-bot-auth"
   - Authentication is asymmetric:
     the agent signs with its Ed25519 private key (never leaves the agent),
     the Exchange verifies with the public key fetched from the WBA

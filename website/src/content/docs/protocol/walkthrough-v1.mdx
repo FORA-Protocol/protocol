@@ -603,6 +603,8 @@ requester := &forav1.Requester{
 
 client := connect.NewClient(baseURL,
     connect.WithSigner(signer),
+    // The signing directory: its host is the requester's domain.
+    connect.WithSignatureAgent("https://hedgefund.com"),
     connect.WithAgentKey(agentPublic),
     connect.WithRequester(requester),
     connect.WithOfferKey(exchangePublic),
