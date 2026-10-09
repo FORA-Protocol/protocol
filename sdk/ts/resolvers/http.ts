@@ -8,6 +8,11 @@
 // (resolvers/index.ts) and the client reach it; the edge entry (resolvers/edge.ts) never
 // does. Integration tests / on-prem deployments that must reach a private origin inject
 // their own FetchLike (the escape hatch).
+//
+// A document read asks these transports not to follow redirects and follows them itself
+// (resolvers/fetch.ts), so the reader vets every hop's scheme and counts the chain
+// whatever transport it was given. The redirect-cap interceptor below still bounds a
+// caller that uses a transport directly.
 
 import { lookup as dnsLookup } from "node:dns/promises";
 
@@ -19,7 +24,7 @@ import {
 	request as undiciRequest,
 } from "undici";
 
-import type { FetchLike, FetchResponse } from "./fetch.ts";
+import { type FetchLike, type FetchResponse, MAX_DOC_BYTES } from "./fetch.ts";
 import { allowedScheme, blockedAddress, MAX_REDIRECTS } from "./ssrf.ts";
 
 // The transport contract and the document GET are edge-safe and live in fetch.ts; they
@@ -35,11 +40,17 @@ export {
 	mediaTypeEssence,
 } from "./fetch.ts";
 
-/** Bounds the guarded default transport's GET so a slow origin cannot pin a
- * Resolve call or the poller (Go: defaultWBAHTTPTimeout). */
+/** Bounds one GET of the guarded default transport so a slow origin cannot pin a
+ * Resolve call or the poller (Go: defaultWBAHTTPTimeout). A document read also carries
+ * its own whole-read deadline (fetch.ts), which arrives as the caller's signal. */
 const DEFAULT_HTTP_TIMEOUT_MS = 10_000;
-/** Well-known documents are small; bound the body read (Go: maxDocBytes). */
-const MAX_DOC_BYTES = 1 << 20; // 1 MiB
+
+/** The signal one GET runs under: the per-request timeout, and the caller's signal when
+ * it passed one, whichever fires first. */
+function requestSignal(caller: AbortSignal | undefined): AbortSignal {
+	const timeout = AbortSignal.timeout(DEFAULT_HTTP_TIMEOUT_MS);
+	return caller === undefined ? timeout : AbortSignal.any([caller, timeout]);
+}
 
 /** An SSRF error surfaced when the guarded transport refuses to dial a target.
  * fetchStrict/fetchSoft see it as an ordinary transport failure (fail-closed
@@ -169,6 +180,7 @@ async function requestBounded(
 	url: string,
 	dispatcher: Dispatcher,
 	allowScheme: (scheme: string) => boolean,
+	signal: AbortSignal | undefined,
 ): Promise<FetchResponse> {
 	let parsed: URL;
 	try {
@@ -189,7 +201,7 @@ async function requestBounded(
 	try {
 		resp = await undiciRequest(url, {
 			dispatcher,
-			signal: AbortSignal.timeout(DEFAULT_HTTP_TIMEOUT_MS),
+			signal: requestSignal(signal),
 		});
 	} catch (err) {
 		if (err instanceof SsrfBlockedError) throw err;
@@ -213,7 +225,12 @@ async function requestBounded(
  * pinned, the redirect chain is bounded to MAX_REDIRECTS, and undici owns
  * status/redirect/1xx so a non-2xx is an ordinary response, never a crash. */
 export const guardedFetch: FetchLike = (url, init) =>
-	requestBounded(url, init?.redirect === "manual" ? guardedBase : guardedAgent, allowedScheme);
+	requestBounded(
+		url,
+		init?.redirect === "manual" ? guardedBase : guardedAgent,
+		allowedScheme,
+		init?.signal,
+	);
 
 // ---------------------------------------------------------------------------
 // The ONE env-driven, best-effort guarded fetch factory.
@@ -298,7 +315,12 @@ export function guardedFetchFromEnv(): FetchLike {
 	// A read that refuses redirects dials the base agent, which follows none: the 3xx
 	// comes back as the answer and the read fails on it.
 	return (url, init) =>
-		requestBounded(url, init?.redirect === "manual" ? base : dispatcher, schemeGuardAllows);
+		requestBounded(
+			url,
+			init?.redirect === "manual" ? base : dispatcher,
+			schemeGuardAllows,
+			init?.signal,
+		);
 }
 
 /** Default transport for a resolver whose URL is a FIXED, operator-chosen address
@@ -317,7 +339,10 @@ export function guardedFetchFromEnv(): FetchLike {
  * reach for this transport for a new resolver without first asking where its URL
  * comes from. */
 export const defaultFetch: FetchLike = async (url, init) => {
-	const r = await fetch(url, init?.redirect === "manual" ? { redirect: "manual" } : {});
+	const r = await fetch(url, {
+		...(init?.redirect === "manual" ? { redirect: "manual" as const } : {}),
+		...(init?.signal !== undefined ? { signal: init.signal } : {}),
+	});
 	// Bound the body read even on the unguarded path: a misconfigured / hostile
 	// well-known origin cannot force an unbounded read into the JSON decoder. The
 	// WHATWG Response body is async-iterable in Node, so it reuses readBounded (the

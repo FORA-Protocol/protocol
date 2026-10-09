@@ -6,9 +6,16 @@
 // Every fetching face takes the transport as a REQUIRED `fetch` option (the FetchLike
 // shape: the runtime's own fetch, or a wrapper around it). There is no default: the
 // SSRF-guarded default transport the Node entry ("./resolvers") supplies dials through
-// undici with DNS pinning, which an edge runtime does not have. An edge runtime that
+// undici with DNS pinning, which an edge runtime does not have.
+//
+// The read bounds itself whatever fetch it is given (fetch.ts): a body is capped at 1 MiB,
+// the whole read ends at 30 seconds, and the read follows redirects itself — at most five,
+// never out of http(s), never from https down to http, never with credentials, and never
+// for a key directory. What stays with the caller is the address: an edge runtime that
 // fetches an address another party chose (a Signature-Agent directory, an Exchange
-// domain) owns the equivalent guard; allowedScheme and blockedAddress are exported for it.
+// domain) owns the equivalent of the SSRF guard. blockedAddress is exported for it, and
+// allowedScheme, the scheme allowlist (http and https) that guard applies; it is not an
+// https-only rule.
 // tests/edge-imports.guard.test.ts walks this module's import graph and fails on any
 // Node-only import, and tsconfig.workers.json typechecks it against the Workers types.
 

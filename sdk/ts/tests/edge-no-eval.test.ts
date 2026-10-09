@@ -8,7 +8,8 @@
 // in a Node vm context created with code generation from strings disabled, which refuses
 // eval and new Function with the same EvalError. Every reader that runs the strict check
 // is driven to an accepted document, and a refused one, and the check by message name is
-// run too.
+// run too. The context has no global ReadableStream, as the reader's bounds must not
+// need one: an over-cap body and an https-to-http redirect are refused there too.
 
 import { createRequire } from "node:module";
 import vm from "node:vm";
@@ -66,6 +67,14 @@ globalThis.probe = async () => {
 		revocations: await outcome(() =>
 			readRevocationList("https://pub.example/revoked.json", {
 				fetch: serve('{"as_of":"2026-05-01T12:00:00Z","revoked":[]}'),
+			}),
+		),
+		revocationsOverCap: await outcome(() =>
+			readRevocationList("https://pub.example/revoked.json", { fetch: serve(new Uint8Array(1048577)) }),
+		),
+		revocationsDowngrade: await outcome(() =>
+			readRevocationList("https://pub.example/revoked.json", {
+				fetch: async () => new Response(null, { status: 302, headers: { location: "http://pub.example/revoked.json" } }),
 			}),
 		),
 		license: await outcome(async () =>
@@ -141,6 +150,8 @@ describe("the edge entry in a context that refuses code generation from strings"
 			directory: "ok",
 			directoryUnknownField: "strict",
 			revocations: "ok",
+			revocationsOverCap: expect.stringMatching(/^DirectoryUnavailable: /),
+			revocationsDowngrade: expect.stringMatching(/^DirectoryUnavailable: /),
 			license: "ok",
 			byName: "strict",
 		});

@@ -97,8 +97,13 @@ with ajv, so that form needs a runtime that allows code generation.
 transport to the SSRF-guarded undici client. An edge runtime (Cloudflare Workers, Fastly
 Compute, Deno) imports `@fora-protocol/sdk/resolvers/edge` instead. It exports the same
 readers and resolvers, imports nothing Node-only, and has no default transport: each
-call takes `fetch`, the runtime's own fetch or a wrapper around it, and the address guard
-for a host another party named is the caller's. The protocol mechanics (`core`, `identity`,
+call takes `fetch`, the runtime's own fetch or a wrapper around it. The read bounds itself
+whatever fetch it is given, on both entries: a body over 1 MiB is refused, never
+truncated; the whole read ends at 30 seconds; and the read follows redirects itself, at
+most five, never out of http(s), never from https down to http and never for a key
+directory. The address guard for a host another party named is the caller's:
+`blockedAddress` is exported for it, and `allowedScheme`, the scheme allowlist (http and
+https) that guard applies, which is not an https-only rule. The protocol mechanics (`core`, `identity`,
 `hono`, and the `src` helpers such as `pop` and `verify`) are edge-safe too.
 `verifyAgentBinding`, `verifyDirectoryResponse`, `readWBADirectory`, `createWBAKeyResolver`
 and `createWBAOfferDirectoryFetch` take `verifyEd25519` for a runtime without WebCrypto
