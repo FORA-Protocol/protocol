@@ -137,16 +137,18 @@ An agent registered through a custodial registry does **not** fetch. Its private
 ### What the fetcher presents
 
 1. Its **public key**, in the `X-FORA-Agent-Key` header — raw Ed25519 key, base64url with no padding. The choice of carrier is security-irrelevant, because the thumbprint is locked by the URL signature.
-2. An **RFC 9421 HTTP Message Signature** over the retrieval request, covering exactly `@method` and `@target-uri`.
-
-The signature parameters are a wire contract, in this order:
+2. A **Web Bot Auth signature** over the retrieval request: a full signature under FORA's [Web Bot Auth profile](/protocol/authentication/#the-web-bot-auth-profile), with `tag="web-bot-auth"`, a dictionary `Signature-Agent` naming the fetcher's directory, the covered `"signature-agent";key="<label>"` member and a 64-byte nonce, plus `@method` and `@target-uri`. The request has no body, so there is no `content-digest`.
 
 ```
-Signature-Input: sig1=("@method" "@target-uri");keyid=...;alg="ed25519";created=...;expires=...
+X-FORA-Agent-Key: <raw Ed25519 public key, base64url>
+Signature-Agent: sig1="https://research.acme.com"
+Signature-Input: sig1=("@method" "@target-uri" "signature-agent";key="sig1");created=...;expires=...;keyid="<thumbprint>";alg="ed25519";nonce="<64 bytes, base64url>";tag="web-bot-auth"
 Signature: sig1=:<standard base64>:
 ```
 
-Two details a verifier will not forgive. The order `keyid;alg;created;expires` is fixed — a generic RFC 9421 emitter produces a different order and its signature base will not match. And `Signature` uses **standard** base64, while the URL's `sig` uses base64url without padding; the two encodings are not interchangeable.
+The edge rebuilds the signature base from the `Signature-Input` it received, so the parameter order is the signer's choice and any WBA library can produce the proof. `Signature` uses **standard** base64, while the URL's `sig` uses base64url without padding; the two encodings are not interchangeable.
+
+The same signature verifies without `X-FORA-Agent-Key`. A generic WBA verifier ignores that header, resolves the fetcher's key from the directory its `Signature-Agent` member names, and accepts the signature. The header exists so the edge can verify offline.
 
 `@target-uri` is signed as the URL string **verbatim**. Routing it through a parsed URL decodes percent-escapes, and `%2F` then becomes a real separator — producing a proof that cannot verify and a 403 that says nothing about the URL having been the cause.
 
@@ -154,10 +156,10 @@ Two details a verifier will not forgive. The order `keyid;alg;created;expires` i
 
 1. Verify the URL's Ed25519 signature against the Exchange's published public key. This proves `agent_id` is Exchange-issued and untampered.
 2. Check `exp`, local clock only.
-3. `thumbprint(presented public key) == agent_id`.
-4. Verify the RFC 9421 signature with the presented key, and reject a `created` more than 300 seconds ahead of the edge's own clock.
+3. `thumbprint(presented public key)` equals both `agent_id` and the signature's `keyid`.
+4. Verify the signature with the presented key against the Web Bot Auth profile (`tag`, the covered `Signature-Agent` member, `@method` and `@target-uri`), and reject a `created` more than 300 seconds ahead of the edge's own clock.
 
-All four pass, and the request is served. No key fetch is required for the agent: the Exchange already authenticated that key at transaction time and froze its thumbprint into a signature the edge can verify locally.
+All four pass, and the request is served. No directory fetch is required for the agent: the Exchange already authenticated that key at transaction time and froze its thumbprint into a signature the edge can verify locally.
 
 ```mermaid
 sequenceDiagram
@@ -169,8 +171,8 @@ sequenceDiagram
     Note over MP: T = RFC 7638 thumbprint(agent key)<br/>embed T as agent_id, Ed25519-sign the whole URL
     MP-->>Agent: retrieval_endpoint (?agent_id=T&kid=...&sig=...)<br/>+ agent_identity_hash = T
 
-    Agent->>Edge: GET retrieval_endpoint<br/>X-FORA-Agent-Key + Signature-Input + Signature
-    Note over Edge: 1. Ed25519-verify the URL (T untampered)<br/>2. Check exp<br/>3. thumbprint(presented key) == T<br/>4. Verify the RFC 9421 proof
+    Agent->>Edge: GET retrieval_endpoint<br/>X-FORA-Agent-Key + Signature-Agent + Signature-Input + Signature
+    Note over Edge: 1. Ed25519-verify the URL (T untampered)<br/>2. Check exp<br/>3. thumbprint(presented key) == T == keyid<br/>4. Verify the Web Bot Auth proof
     alt All four pass
         Edge-->>Agent: 200 OK + content
     else Any check fails
@@ -184,7 +186,7 @@ sequenceDiagram
 |---|---|
 | present their own key + sign with their own private key | step 3 — `thumbprint(their key) ≠ agent_id` |
 | rewrite `agent_id` to match their own key | step 1 — they cannot forge the Exchange's Ed25519 signature |
-| present the agent's public key (it is public) | step 4 — they cannot produce the RFC 9421 signature |
+| present the agent's public key (it is public) | step 4 — they cannot produce the request signature |
 
 Refusals from the proof-of-possession check: `missing_agent_key`, `bad_agent_key`, `missing_sig`, `malformed_sig_input`, `unsupported_alg`, `bad_covered_components`, `keyid_mismatch`, `thumbprint_mismatch`, `pop_missing_created`, `pop_future_created`, `pop_missing_exp`, `pop_expired`, `pop_sig_invalid`.
 
@@ -197,7 +199,7 @@ Refusals from the proof-of-possession check: `missing_agent_key`, `bad_agent_key
 
 On a capable edge the check is on unless it is explicitly turned off: the configuration value must be the literal string `false` to disable it, and any other value — including an absent one — enforces. Turning it off is a downgrade to bearer security, and it is the reason the method gate above exists.
 
-Because the RFC 9421 signature covers `@method` and `@target-uri`, a captured fetch signature cannot be replayed against a different URL, or outside its short window.
+Because the signature covers `@method` and `@target-uri`, a captured fetch signature cannot be replayed against a different URL, or outside its short window.
 
 ## Key Distribution
 

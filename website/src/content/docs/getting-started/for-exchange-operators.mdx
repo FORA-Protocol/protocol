@@ -139,9 +139,9 @@ Every incoming request carries a `Requester` message with an Ed25519 signature. 
 
 ### Signature Verification
 
-1. Extract the `domain` from the `Requester` message
-2. Fetch the requester's public key from their WBA directory (the JWK Set at `{domain}/.well-known/http-message-signatures-directory`, `role=ROLE_AGENT`), identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`)
-3. Verify the RFC 9421 HTTP Message Signature (alg=ed25519) on the request — it covers the HTTP request components (`@method`, `@target-uri`, `content-digest`, and the signature parameters), so the request body (the serialized `Requester`/query) is bound via `content-digest`. There is no in-message body-tuple signature.
+1. Read the `Signature-Agent` member the request signature covers. It names the requester's origin; the self-asserted `Requester.domain` is never used to find keys
+2. Fetch the requester's public key from its key directory (the JWK Set at `{origin}/.well-known/http-message-signatures-directory`, `role=ROLE_AGENT`), identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`)
+3. Verify the RFC 9421 HTTP Message Signature (alg=ed25519) on the request. It follows the [Web Bot Auth profile](/protocol/authentication/#the-web-bot-auth-profile) and covers `@method`, `@target-uri`, `content-digest`, `authorization` and the `Signature-Agent` member, so the request body (the serialized `Requester`/query) is bound via `content-digest`. There is no in-message body-tuple signature.
 4. Reject the request if verification fails — no fallback, no degraded mode
 
 Key caching is recommended. Fetch keys with a TTL and re-fetch periodically to handle key rotation without per-request overhead.
@@ -160,13 +160,14 @@ When a request includes a `Delegation` message (nested inside `Requester`), your
 
 This verification is entirely offline — no callback to the principal is required.
 
-### Forwarding Chain Verification
+### Forwarding Verification
 
-When the request carries more than one RFC 9421 HTTP Message Signature, it has passed through one or more intermediaries (e.g., agent to broker to your Exchange). Each forwarding party adds its own labeled signature to the request, covering the request plus the prior hop's signature; the ordered stack of signatures in the HTTP headers is the forwarding chain. Verify every signature on the request:
+A request from a Broker is the Broker's own: the Broker originates discovery queries and re-packages execute requests, and signs each alone, covering its own request and only its own `Signature-Agent` member. It never forwards an agent's request unchanged. The rules are in [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding):
 
-1. For each signature, fetch the signer's public key from their WBA directory (the JWK Set at `{signer-domain}/.well-known/http-message-signatures-directory`, `role=ROLE_AGENT`), identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`)
-2. Verify each RFC 9421 signature, proving the intermediary handled the request and the chain was not reordered, dropped from, or inserted into (any such tampering breaks a downstream signature)
-3. Enforce `max_intermediary_hops` by signature count — reject requests whose forwarding-signature count exceeds your published limit
+1. Verify the request signature: fetch the signer's public key from the directory its own `Signature-Agent` member names (the JWK Set at `{origin}/.well-known/http-message-signatures-directory`, `role=ROLE_AGENT`), identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`), and authenticate the caller as that party
+2. On an execute request, verify each item's `AgentAcceptance` in the body against the agent's registered key, resolved from `Requester.domain`; on a request a Broker re-packaged, that is the agent's identity and consent, its key gives the delivery-URL binding, and a delegation's `cnf.jkt` is checked against it
+3. Where a party forwarded a request unchanged and covered an earlier signature, verify that signature and the coverage too
+4. Enforce `max_intermediary_hops` by signature count — reject requests whose signature count exceeds your published limit
 
 ### Scope-Based Catalog Filtering
 

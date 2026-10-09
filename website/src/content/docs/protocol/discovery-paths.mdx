@@ -10,7 +10,7 @@ An AI agent can enter the FORA flow through six paths. All paths converge on the
 | Path | Entry Point | Use Case |
 |---|---|---|
 | [A: Proactive Discovery](#path-a-proactive-discovery-via-forajson) | `fora.json` | Agent checks before accessing content |
-| [B: Broker-Mediated](#path-b-broker-mediated-multi-exchange) | Broker | Agent delegates to multi-exchange router |
+| [B: Broker-Mediated](#path-b-broker-mediated-multi-exchange) | Broker | Agent hands discovery to a multi-exchange router |
 | [C: Accidental Discovery](#path-c-accidental-discovery-via-edge-function-403) | 403 response | Wandering bot hits protected content |
 | [D: RSL-First](#path-d-agent-reads-rsl-directly) | `rsl.txt` | Agent reads terms, then finds Exchange |
 | [E: Batch Multi-URL](#path-e-batch-multi-url-acquisition) | Broker | Agent needs multiple resources at once |
@@ -63,7 +63,7 @@ sequenceDiagram
 
 ## Path B: Broker-Mediated Multi-Exchange
 
-The agent delegates to a FORA Broker, which queries multiple Exchanges in parallel, compares offers, and selects the best deal.
+The agent hands discovery to a FORA Broker, which chooses the Exchanges, queries multiple Exchanges in parallel, compares offers, and selects the best deal.
 
 ```mermaid
 sequenceDiagram
