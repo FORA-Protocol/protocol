@@ -1,0 +1,24 @@
+{
+  "$id": "fora.v1.RegistrationFieldError.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "RegistrationFieldError — one registration_data member that failed the\n Exchange's published schema (AccountRegistration.data_schema).",
+  "properties": {
+    "error": {
+      "description": "Developer-facing, NON-authoritative description of what failed\n (e.g. \"required\", \"must match ^[A-Z]{2}[0-9]+$\"). Wording is\n validator-defined and not stable across Exchanges; clients branch on\n `reason`, never on this text. States the constraint, NEVER the submitted\n value — the ErrorDetail leakage rule applies here too.",
+      "maxLength": 255,
+      "minLength": 1,
+      "type": "string"
+    },
+    "path": {
+      "default": "",
+      "description": "RFC 6901 JSON Pointer to the offending member, relative to\n registration_data (e.g. \"/vat_id\", \"/address/postal_code\"). The empty\n string addresses registration_data itself, for whole-object failures\n (oneOf, minProperties) that belong to no single member.",
+      "maxLength": 255,
+      "type": "string"
+    }
+  },
+  "required": [
+    "error"
+  ],
+  "title": "Registration Field Error",
+  "type": "object"
+}

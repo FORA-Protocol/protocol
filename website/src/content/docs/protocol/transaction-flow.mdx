@@ -5,30 +5,33 @@ description: "The four Exchange RPCs that form the core FORA protocol: DiscoverR
 
 ## The Exchange Protocol
 
-The Exchange exposes four RPCs. This is the core protocol -- everything else is built on top of it. Both agents and Brokers are clients of the same Exchange interface. The Exchange does not know or care whether the request came from a Broker or directly from an agent.
+The Exchange exposes four RPCs. This is the core protocol -- everything else is built on top of it. Both agents and Brokers are clients of the same Exchange interface, with the same RPCs and the same wire. An Exchange tells a relayed request from a direct one by comparing `requester.domain` with the signer's directory, and acts on a relayed one only from a Broker it admits; see [Direct and relayed requests](/protocol/authentication/#direct-and-relayed-requests).
 
 ```
 With Broker (multi-exchange, budget control, reporting):
-  Agent -> Broker -> Exchange A, B, C -> select best -> deliver
+  Agent -> Broker -> Exchange A, B, C -> select best
+  Agent -> Exchange A, B, C directly            -> buy, deliver
+     or Agent -> Broker -> Exchange A, B, C     -> buy in one call, deliver
 
 Without Broker (direct, single exchange):
   Agent -> Exchange -> deliver
 ```
 
-## Multi-Hop Routing
+After discovery the agent buys its selected offers one of two ways: directly, calling `ExchangeService.ExecuteTransaction` at each offer's `Offer.exchange`, or through the Broker, with one `BrokerService.ExecuteTransaction` call for offers from any number of Exchanges. See [Buying through a Broker](#buying-through-a-broker).
 
-Multi-hop is the common case, not the exception. A request typically travels `Agent -> Broker -> ... -> Exchange`, and the broker layer may itself be more than one hop. The forwarding chain lives entirely in the HTTP layer as a **stack of [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) HTTP Message Signatures** — there is no in-message hop list. Each party that originates or forwards the request adds **one** labeled signature (`Signature` / `Signature-Input`, e.g. `fora-agent`, `fora-broker-1`). Each forwarder's signature covers the request essentials (`@method`, `@authority`, `@path`, `Content-Digest`) **plus the previous hop's signature**, so the chain is ordered and tamper-evident: no hop can be reordered, dropped, or inserted without invalidating a downstream signature. The `keyid` on each signature is the key's RFC 7638 thumbprint. The request carries **one** covered `Signature-Agent` header — the agent's WBA directory at `{domain}/.well-known/http-message-signatures-directory`, forwarded unchanged by every relay — so the Exchange resolves the agent's key there, and takes each forwarding hop's key from the key set it is configured with (for example, Brokers registered with it). The Exchange verifies **every** signature and confirms the chain is contiguous. The ordered set of signatures *is* the forwarding chain.
+## Who Signs a Request
 
-**Chain-depth caps.** Two fields bound how deep a chain may go:
+Nothing about a request's route is carried in the message body: the party that sends a request signs it with one labeled [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) signature in the HTTP headers, a conformant [Web Bot Auth](/protocol/authentication/#the-web-bot-auth-profile) signature with its own `Signature-Agent` member naming its own key directory. FORA's Broker never forwards an agent's request unchanged, so it never covers an agent's signature. Discovery through the Broker is Broker-led: the agent does not know the Exchange at discovery time, so the Broker chooses the Exchanges and originates its own `DiscoverResources` queries, signed by the Broker alone. Execute through the Broker is re-packaged: the Broker builds a fresh `TransactionRequest` per Exchange and signs it alone. In both cases the Broker's signature covers its own request and only its own `Signature-Agent` member, and the Exchange authenticates the caller as the Broker. On a relayed purchase, the agent's identity and consent come from the `AgentAcceptance`, a detached Ed25519 signature over `{offer_sig, requester_id, requester_domain, idempotency_key}` verified against the agent's registered key; that key also gives the delivery-URL binding. The rules, including the general WG-00 rule for a party that forwards a request unchanged, are specified once, in [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding).
 
-- `RequestConstraints.max_hops` -- the agent caps its own chain depth. A Broker MUST NOT forward a request whose signature count would exceed it.
-- `WellKnownManifest.max_intermediary_hops` -- the Exchange publishes the longest inbound chain (signature count) it tolerates; longer chains SHOULD be rejected, and a Broker can prune before forwarding.
+**Signature cap.** `WellKnownManifest.max_intermediary_hops` is the most signatures an Exchange accepts on a request. Every signature counts, whether or not it covers another, and a request signed only by the party that sent it carries one. The Exchange counts them before it verifies any, and refuses a request carrying more with the Connect code `resource_exhausted` (HTTP 429) and no typed reason. `RequestConstraints.max_hops` rides only on the agent's `DiscoveryRequest`, which ends at the Broker, so no party receives or enforces it in this version; it is kept for multi-hop Broker discovery.
 
-**Response path: direct.** Responses do **not** retrace the hop chain. The terminal Exchange returns its `TransactionResponse` (or `ResourceResponse`) directly to the originating agent; the Exchange-facing Broker that holds the agent binding relays it back without re-fanning through every hop. This works because the signed `retrieval_endpoint` is bound to the agent's identity (`agent_identity_hash`), so delivery needs no return-path relay. Intermediaries observe requests, not responses.
+**Response path.** Each request is answered to the party that sent it. An Exchange answers a Broker's query to the Broker, which combines the answers into its `DiscoveryResponse` to the agent, and a purchase through a Broker is answered by the Broker, which combines the Exchanges' answers into one `BrokerTransactionResponse`. Delivery needs no relay: the signed `retrieval_endpoint` is bound to the agent's identity (`agent_identity_hash`), so the agent fetches it directly.
 
 ## RPC 1: DiscoverResources
 
 The agent or Broker queries the Exchange to discover available content and pricing.
+
+Discovery has no side effects: it creates no transaction, no billing authorization and no reporting obligation. An agent commits to an offer only on the execute path, with `ExecuteTransaction`. Discovery is therefore safe to retry. A transport failure, such as an unreachable Exchange or a timeout, is the client's concern, and the protocol defines no transient-failure code for it.
 
 ```
 POST /fora.v1.ExchangeService/DiscoverResources
@@ -54,12 +57,13 @@ Content-Type: application/json
 ```
 
 Key fields:
-- `requester.id` + `requester.domain` -- uniquely identifies the agent; the Exchange fetches the Ed25519 public key from the signer's WBA directory at `{domain}/.well-known/http-message-signatures-directory` (the domain resolved from the covered `Signature-Agent` header) to verify the request's RFC 9421 HTTP Message Signature
+- `requester.domain` -- required; the host of the agent's key directory. On this direct request the Exchange fetches the Ed25519 public key from the signer's key directory at `{origin}/.well-known/http-message-signatures-directory` (the origin named by the `Signature-Agent` member the signature covers), verifies the request's RFC 9421 HTTP Message Signature, and then requires `requester.domain` to name that same directory: a mismatch is refused as `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID` (see [Requester domain and the key directory](/protocol/authentication/#requester-domain-and-the-key-directory))
+- `requester.id` -- required; a free label the agent chooses for attribution, such as which sub-agent or end customer is asking. It is never identity and never used to find keys
 - `ResourceQuery.uris` -- the content URI(s) being requested
 - `acceptable_restrictions` -- the restrictions the agent is willing to accept, grouped by axis; axis `FUNCTION` carries the intended use (RAG, training, search, etc.)
 - `requester.scopes` -- entitlement scopes; `["*"]` means unrestricted public access
 - billing carries no request field: the Exchange resolves the caller's account (the `billing_ref` minted at `ExchangeService.Register`) from the verified request signature, never from anything the caller sends
-- request authentication -- an RFC 9421 HTTP Message Signature over the request (the agent's key is published in its WBA directory); when the request is forwarded, each hop adds its own labeled HTTP Message Signature, and the ordered stack of these header signatures is the forwarding chain (no in-message hop list)
+- request authentication -- an RFC 9421 HTTP Message Signature over the request that follows the [Web Bot Auth profile](/protocol/authentication/#the-web-bot-auth-profile) (the agent's key is published in its key directory); a query that reaches an Exchange through a Broker is one the Broker originated and signed alone (no in-message hop list)
 
 ### Response (`ResourceResponse`)
 
@@ -81,11 +85,11 @@ Key fields:
       },
       "pricing": {
         "model": "PRICING_MODEL_PER_UNIT",
-        "rate": "0.05",
+        "rate": "0.00002",
         "currency": "USD",
-        "unit_cost": "0.00001515",
-        "estimated_quantity": 3300,
-        "unit": "accesses"
+        "unit_cost": "0.00002",
+        "estimated_quantity": 2500,
+        "unit": "tokens"
       },
       "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
       "reporting": {
@@ -129,7 +133,7 @@ Key fields:
 
 Each `Offer` includes:
 - `Offer.title` (human-readable) plus optional `fora-comp-v1` `comp.*` ext fields carrying CoMP package metadata (`comp.package_id`, `comp.seller`, `comp.citation_required`, `comp.content_types`, `comp.retrieval_type`)
-- FORA `Pricing` with the rate, currency, and normalized unit_cost
+- FORA `Pricing` with the rate, currency, and normalized unit_cost; a metered (`PER_UNIT`) offer may also carry a positive `estimated_quantity` in its `unit`. The purchase charges the estimate × rate, or one unit's rate without an estimate (see [Charging a metered purchase](#charging-a-metered-purchase))
 - `ResourceIdentity` for cross-exchange deduplication
 - `LicenseTerm` entries on `terms[]`, each carrying `restrictions` (`repeated Restriction`) derived from the provider's RSL terms
 - `ReportingObligation` defining post-usage reporting requirements
@@ -151,11 +155,10 @@ When requesting multiple URIs, the response uses `offer_groups` instead of `offe
         {
           "offer_id": "9d5735d7-1f17-4801-8dcf-7cac0b7b32b0",
           "exchange": "exchange.ssp-example.com",
-          "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001515", "unit": "accesses" },
+          "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.00002", "currency": "USD", "unit_cost": "0.00002", "estimated_quantity": 2500, "unit": "tokens" },
           "terms": [
             {
-              "semantics": "TERM_SEMANTICS_ENUMERATED",
-              "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001515", "unit": "accesses" }
+              "semantics": "TERM_SEMANTICS_ENUMERATED"
             }
           ],
           "signature": "a1b2c3...",
@@ -169,11 +172,10 @@ When requesting multiple URIs, the response uses `offer_groups` instead of `offe
         {
           "offer_id": "89636cda-93f6-460e-af7f-2b6aef0f491b",
           "exchange": "exchange.ssp-example.com",
-          "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001200", "unit": "accesses" },
+          "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.00002", "currency": "USD", "unit_cost": "0.00002", "estimated_quantity": 2500, "unit": "tokens" },
           "terms": [
             {
-              "semantics": "TERM_SEMANTICS_ENUMERATED",
-              "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001200", "unit": "accesses" }
+              "semantics": "TERM_SEMANTICS_ENUMERATED"
             }
           ],
           "signature": "d4e5f6...",
@@ -201,11 +203,10 @@ When the requester has a subscription, the Exchange includes both per-request an
     {
       "offer_id": "9d5735d7-1f17-4801-8dcf-7cac0b7b32b0",
       "exchange": "exchange.ssp-example.com",
-      "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001515", "unit": "accesses" },
+      "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.00002", "currency": "USD", "unit_cost": "0.00002", "estimated_quantity": 2500, "unit": "tokens" },
       "terms": [
         {
-          "semantics": "TERM_SEMANTICS_ENUMERATED",
-          "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001515", "unit": "accesses" }
+          "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ],
       "signature": "a1b2c3...",
@@ -285,7 +286,7 @@ When the requester holds a subscription, the Exchange attaches `SubscriptionQuot
 
 ## RPC 2: ExecuteTransaction
 
-The agent or Broker commits to a selected offer, receiving a signed URL for content delivery.
+The agent commits to a selected offer, receiving a signed URL for content delivery. A Broker calls this RPC too: once per Exchange, when it re-packages a purchase made through `BrokerService.ExecuteTransaction`.
 
 ```
 POST /fora.v1.ExchangeService/ExecuteTransaction
@@ -313,25 +314,17 @@ Content-Type: application/json
         "title": "The Future of AI Infrastructure",
         "pricing": {
           "model": "PRICING_MODEL_PER_UNIT",
-          "rate": "0.05",
+          "rate": "0.00002",
           "currency": "USD",
-          "unit_cost": "0.00001515",
-          "estimated_quantity": 3300,
-          "unit": "accesses"
+          "unit_cost": "0.00002",
+          "estimated_quantity": 2500,
+          "unit": "tokens"
         },
         "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
         "expires_at": "2026-03-14T02:30:00Z",
         "terms": [
           {
-            "semantics": "TERM_SEMANTICS_ENUMERATED",
-            "pricing": {
-              "model": "PRICING_MODEL_PER_UNIT",
-              "rate": "0.05",
-              "currency": "USD",
-              "unit_cost": "0.00001515",
-              "estimated_quantity": 3300,
-              "unit": "accesses"
-            }
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ],
         "signature": "a1b2c3d4e5f6...",
@@ -360,7 +353,7 @@ The request may also carry `agent_request_acceptance` — the agent's detached E
       "cost": {
         "amount": "0.05",
         "currency": "USD",
-        "unit_cost": "0.00001515"
+        "unit_cost": "0.00002"
       },
       "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
       "reporting_obligation": {
@@ -375,15 +368,48 @@ The request may also carry `agent_request_acceptance` — the agent's detached E
 }
 ```
 
+For a metered item, `cost.amount` is the purchase charge: the offer's `estimated_quantity` × `rate`, here 2,500 tokens × $0.00002 = $0.05, or one unit's rate when the offer states no estimate. The charge is final (see [Charging a metered purchase](#charging-a-metered-purchase)).
+
 The `retrieval_endpoint` is a CDN signed URL bound to `agent_identity_hash`. A bearer-only CDN serves it on signature + expiry alone (the URL signature + short TTL + TLS); a capable edge function additionally requires the agent to present its public key and an RFC 9421 signature, verifying the binding offline. See [Signed URL Verification](/components/edge-function/signed-url-verification).
+
+### Denials are in the body
+
+Every decision about an item is answered in the response body. An item the Exchange denies is a `TransactionResultItem` with `denial_reason` set, in a response that returns OK. This holds whatever the item count: a one-item purchase that is denied is a successful response whose only item is denied, and it is never turned into a non-OK error.
+
+```json
+{
+  "ver": "1.0",
+  "items": [
+    {
+      "offer_id": "9d5735d7-1f17-4801-8dcf-7cac0b7b32b0",
+      "denial_reason": "DENIAL_REASON_OFFER_EXPIRED"
+    }
+  ]
+}
+```
+
+A denied item was not purchased, so it carries no `retrieval_endpoint` and no charge. A purchase is never denied for a restriction: restrictions are declared terms the parties agree to, and the Exchange never enforces them, so `DENIAL_REASON_RESTRICTION_NOT_SATISFIED` and `restriction_mismatches` are deprecated and never set.
+
+A non-OK error carrying `ErrorDetail.transaction_denial` is used only when the Exchange refuses the **whole request** and decides no item. That happens for a reason about the caller that would deny every item alike: the caller has no account (`DENIAL_REASON_ACCOUNT_NOT_REGISTERED`), its account is not active (`DENIAL_REASON_ACCOUNT_INACTIVE`), it has overdue reports (`DENIAL_REASON_REPORTING_OVERDUE`), or it is rate limited (`DENIAL_REASON_RATE_LIMITED`). Nothing is purchased. Other errors keep their own classes: a malformed request is `invalid_argument`, and a request signature that does not verify is `unauthenticated`.
+
+**Totals across currencies.** `total_cost` is the exact sum of the purchased items' costs in their one shared currency. When the purchased items span more than one currency, `total_cost` is unset: amounts are never summed across currencies, and currency conversion is out of scope for this version. Each item's own `cost` still carries its amount and currency.
+
+### Idempotency
+
+`idempotency_key` is scoped to the caller that authenticated the request: the agent on a request it signed, and the pair (Broker, requester) on a purchase the Broker re-packaged. A key that another agent used, or that was used at another tenant, is a different key and never a collision.
+
+- The same key with the **same** request (the same items in the same order) is a replay. The Exchange answers it with the stored result and executes nothing again.
+- The same key with a **different** request (different items, or the same items in another order) is refused with the Connect code `already_exists`, carrying an `ErrorDetail` with no typed reason. Nothing is executed, and the stored result is unchanged. A new purchase takes a new key.
+
+The same rules apply to `UsageReport.idempotency_key` and `DisputeRequest.idempotency_key`.
 
 ### What Happens Inside the Exchange
 
 1. Validate request (proto validation)
-2. Verify the sender's RFC 9421 HTTP Message Signature (alg=ed25519) in the request headers — the agent's on a direct request, a projecting Broker's on a projected one — and each prior hop signature if present
-3. Verify `agent_request_acceptance` when present: the signature, and that this request's items are the complete in-order projection of the signed set addressed to this Exchange. This runs **before** the idempotency lookup — request-level idempotency state is never created or served for a request whose set claim has not been proven, otherwise a mutated request could consume the key and a later honest retry would replay its result
-4. Check idempotency key (prevent double-charge on retry)
-5. Verify offer signature (reconstruct offer from signed token)
+2. Verify the sender's RFC 9421 HTTP Message Signature (alg=ed25519) in the request headers — the agent's on a direct request, the Broker's on a sub-request the Broker re-packaged. On a direct request, also require `requester.domain` to name the directory the covered `Signature-Agent` member names. On a re-packaged sub-request the agent is authenticated by its body acceptances instead: each item's `AgentAcceptance` is verified against an Ed25519 key in the directory `requester.domain` names, an acceptance whose canonical bytes name an empty requester is refused, and a delegation's holder binding (`cnf.jkt`) is checked against the key the item's `AgentAcceptance` verifies under, not against the Broker
+3. Verify `agent_request_acceptance` when present: the signature, and that this request's items are the complete in-order projection of the signed set addressed to this Exchange. A request whose items are not exactly that projection (an item dropped, added or reordered) has every item denied with `DENIAL_REASON_SIGNATURE_INVALID`, in the body: the agent's signature does not cover what arrived. It is not an `invalid_argument` error. This runs **before** the idempotency lookup — request-level idempotency state is never created or served for a request whose set claim has not been proven, otherwise a mutated request could consume the key and a later honest retry would replay its result
+4. Check the idempotency key, scoped to the caller: a replay of the same request returns the stored result, and the same key with different items is refused with `already_exists` (see [Idempotency](#idempotency))
+5. Verify each item's offer signature over the presented offer bytes; an item whose signature does not verify is denied with `DENIAL_REASON_SIGNATURE_INVALID`, in the body
 6. Authorize billing (`BillingAdapter.Authorize`) -- or skip for subscription offers
 7. Write transaction to WAL (must succeed before signing URL)
 8. Generate the Ed25519 signed delivery URL (or a CloudFront RSA canned policy, per the tenant's signing scheme)
@@ -409,12 +435,11 @@ For batch transactions, use the `items` array:
       "offer": {
         "offer_id": "9d5735d7-1f17-4801-8dcf-7cac0b7b32b0",
         "exchange": "exchange.ssp-example.com",
-        "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001515", "unit": "accesses" },
+        "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.00002", "currency": "USD", "unit_cost": "0.00002", "estimated_quantity": 2500, "unit": "tokens" },
         "expires_at": "2026-03-14T02:30:00Z",
         "terms": [
           {
-            "semantics": "TERM_SEMANTICS_ENUMERATED",
-            "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001515", "unit": "accesses" }
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ],
         "signature": "a1b2c3...",
@@ -425,12 +450,11 @@ For batch transactions, use the `items` array:
       "offer": {
         "offer_id": "89636cda-93f6-460e-af7f-2b6aef0f491b",
         "exchange": "exchange.ssp-example.com",
-        "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001200", "unit": "accesses" },
+        "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.00002", "currency": "USD", "unit_cost": "0.00002", "estimated_quantity": 2500, "unit": "tokens" },
         "expires_at": "2026-03-14T02:30:00Z",
         "terms": [
           {
-            "semantics": "TERM_SEMANTICS_ENUMERATED",
-            "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit_cost": "0.00001200", "unit": "accesses" }
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ],
         "signature": "d4e5f6...",
@@ -469,7 +493,82 @@ For batch transactions, use the `items` array:
 }
 ```
 
-Each item gets its own `transaction_id`, `billing_id`, and signed URL. Batch transactions are non-atomic -- individual items can fail independently.
+Each item gets its own `transaction_id`, `billing_id`, and signed URL. Batch transactions are non-atomic -- individual items can fail independently, and each denied item carries its `denial_reason` in the body. `total_cost` is set here because both items are priced in USD; it would be unset if they spanned two currencies.
+
+### Buying through a Broker
+
+`BrokerService.ExecuteTransaction` buys offers from any number of Exchanges in one call. The agent sends the same `TransactionRequest` it would send an Exchange — every item with its `AgentAcceptance`, plus one `AgentRequestAcceptance` over all items — signed for the Broker's URL.
+
+```
+POST /fora.v1.BrokerService/ExecuteTransaction
+Content-Type: application/json
+```
+
+The Broker re-packages the purchase:
+
+1. It verifies the agent's request signature, and checks that `requester.domain` is the agent's verified signing directory (the host of the origin the agent's covered `Signature-Agent` member names).
+2. It groups the items by each signed offer's `exchange`. It checks that it can route to each Exchange and approves it for purchases before it sends anything.
+3. It sends one `ExchangeService.ExecuteTransaction` per Exchange, signed with **its own** key. Each sub-request carries that Exchange's items in request order with their acceptances, the agent's `AgentRequestAcceptance` unchanged, the agent's `requester` and the agent's `idempotency_key` unchanged. Each Exchange verifies the agent's consent from the body, against the keys in the directory `requester.domain` names: the Broker's signature says only that the call comes from the Broker, and the acceptances are the only agent signatures the Exchange sees. An item whose `AgentAcceptance` does not verify under those keys is denied in the body with `DENIAL_REASON_SIGNATURE_INVALID`, as for the `AgentRequestAcceptance`; the whole request is not refused.
+4. It combines the answers into one `BrokerTransactionResponse`.
+
+Re-packaging and combining are safe because each item is atomic and its integrity is per resource. Each offer carries the signature of the Exchange that issued it, covering price, terms, expiry and `exchange`. Each acceptance binds the agent to that one offer, the requester and the idempotency key. Each item's result comes from the Exchange that owns the resource. The Broker therefore assembles independent per-resource purchases, and it cannot change what an item buys, from whom, at what price or for whom without breaking that offer's signature or the agent's acceptance. The `AgentRequestAcceptance` also stops it dropping, adding or reordering items within one Exchange's sub-request. No cross-item integrity is needed. On the response side, the one signed value in a result item is `retrieval_endpoint`, which the issuing Exchange signed. The other fields are the Broker's unsigned report of what each Exchange answered; the charge itself is still bounded by the signed offer the Exchange verified.
+
+```json
+{
+  "ver": "1.0",
+  "items": [
+    {
+      "offer_id": "6edb0ed0-6f7f-4fb2-877b-ea7fa271ad07",
+      "transaction_id": "txn-a-001",
+      "billing_id": "bill-a-001",
+      "retrieval_endpoint": "https://cdn.publisher.example/a1?Signature=...",
+      "cost": { "amount": "0.05", "currency": "USD" }
+    },
+    {
+      "offer_id": "7a9482de-d0d2-4bfb-ba99-c2506dc2bc91",
+      "refusal": {
+        "party": "exchange-b.example",
+        "code": "permission_denied",
+        "detail": {
+          "domain": "fora.v1.ExchangeService",
+          "transaction_denial": {
+            "reason": "DENIAL_REASON_ACCOUNT_NOT_REGISTERED",
+            "exchange": "exchange-b.example"
+          }
+        }
+      }
+    },
+    {
+      "offer_id": "5c43dd75-9960-4ebf-bbbd-06d4f9014a40",
+      "transaction_id": "txn-a-002",
+      "billing_id": "bill-a-002",
+      "retrieval_endpoint": "https://cdn.publisher.example/a2?Signature=...",
+      "cost": { "amount": "0.40", "currency": "EUR" }
+    }
+  ],
+  "exchanges": [
+    { "exchange": "exchange-a.example", "offer_ids": ["6edb0ed0-6f7f-4fb2-877b-ea7fa271ad07", "5c43dd75-9960-4ebf-bbbd-06d4f9014a40"], "agent_identity_hash": "NzbLsXh8..." },
+    { "exchange": "exchange-b.example", "offer_ids": ["7a9482de-d0d2-4bfb-ba99-c2506dc2bc91"] }
+  ],
+  "totals": [
+    { "amount": "0.05", "currency": "USD" },
+    { "amount": "0.40", "currency": "EUR" }
+  ]
+}
+```
+
+- `items` has one entry per request item, in request order. A success, or a per-item denial, is the Exchange's `TransactionResultItem` unchanged.
+- **Upstream refusals ride in the body.** When an Exchange refuses the Broker's whole sub-request, or does not answer it, the Broker does not turn that into an error of its own. Each affected item carries `refusal`: the Exchange, the Connect `code` it answered with, and its `ErrorDetail` unchanged. The other Exchanges' results come back unchanged. `DENIAL_REASON_CONTENT_UNAVAILABLE` is not a catch-all for upstream failures.
+- `exchanges` has one `ExchangeOutcome` per Exchange contacted. Its `agent_identity_hash` is what that Exchange's retrieval URLs are bound to.
+- An item whose `refusal` carries the code `unavailable` or `deadline_exceeded` has an unknown outcome: the Exchange may have bought it before the answer was lost, whether it gave no answer or answered that code. With any other code the Exchange decided no item, and the item was not purchased.
+- `totals` sums only the charged items (those with neither `denial_reason` nor `refusal`), one `Cost` per currency. Amounts are never summed across currencies. An item with an unknown outcome is not counted, so `totals` is then a lower bound of the charge.
+- When the Broker itself does not understand a key the agent's request lists in `ext_critical`, it answers OK with every item denied as `DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION` and contacts no Exchange, so `exchanges` and `totals` are empty. It is the one denial the Broker makes itself; every other `denial_reason` is an Exchange's.
+- `DENIAL_REASON_RELAY_NOT_ACCEPTED` on an item means the provider that sells that item's resource at that Exchange does not accept purchases relayed by a Broker. It is decided per item, by each offer's provider, and answered in the body: other items of the same sub-request may succeed. It is never a refusal of the whole sub-request. Buy that offer directly.
+- A sub-request whose items are not exactly the agent's signed `AgentRequestAcceptance` projected onto that Exchange has every item denied with `DENIAL_REASON_SIGNATURE_INVALID`, in the body, and nothing is purchased.
+
+The Broker's own refusals are non-OK Connect errors carrying an `ErrorDetail`, and nothing was bought: an invalid agent signature is `unauthenticated` with `request_auth_failure`; a `requester.domain` that is not the agent's signing directory is `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`; a malformed request is `invalid_argument`; an Exchange the Broker cannot route to or does not approve is `failed_precondition`, with `metadata["exchange"]` naming it.
+
+A retry is safe. The Broker forwards the agent's `idempotency_key` unchanged to every Exchange, so each Exchange answers a repeated sub-request from its stored result. A refusal with the code `unavailable` or `deadline_exceeded` is an ambiguous outcome, and retrying the same request with the same key through the same Broker is how the agent resolves it.
 
 ### Subscription TransactionResponse
 
@@ -483,7 +582,7 @@ Each item gets its own `transaction_id`, `billing_id`, and signed URL. Batch tra
       "retrieval_endpoint": "https://cdn.fora-protocol.org/server/premium/ai-infrastructure.html?Signature=...",
       "cost": { "amount": "0", "currency": "USD" },
       "subscription_id": "SUB-12345",
-      "subscription_unit_value": { "amount": "0.05", "currency": "USD", "unit_cost": "0.00001515" },
+      "subscription_unit_value": { "amount": "0.05", "currency": "USD", "unit_cost": "0.00002" },
       "reporting_obligation": { "required": true, "window": "86400s", "required_fields": ["transaction_id", "function", "consumed_quantity"] }
     }
   ],
@@ -513,7 +612,7 @@ Content-Type: application/json
   "usage": {
     "function": ["ai-input"],
     "subfn": ["rag"],
-    "consumed_quantity": 3150,
+    "consumed_quantity": 2400,
     "displayed_to_user": true,
     "citation_included": true
   },
@@ -539,10 +638,23 @@ A successful response carries the Exchange-assigned `report_id` (the handle the 
 
 ### What the Exchange Validates
 
-1. Required fields present (as defined by `ReportingObligation.required_fields`)
-2. Report received within the reporting window (typically 24 hours)
-3. Consumed quantity within tolerance: reported vs. estimated must be within +/-20%
-4. Transaction exists and `billing_id` matches
+1. The report is well formed. A malformed report is refused with `USAGE_REPORT_REJECTION_REASON_MALFORMED` and the Connect code `invalid_argument`
+2. Required fields present (as defined by `ReportingObligation.required_fields`)
+3. Report received within the reporting window (typically 24 hours). A report that arrives after the window closed is refused with `USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED` and the Connect code `failed_precondition`: the typed reason names the time cause
+4. The transaction exists for this agent, and `billing_id` matches. A report whose `billing_id` is not the transaction's is malformed: `USAGE_REPORT_REJECTION_REASON_MALFORMED`, `invalid_argument`. A report for a transaction recorded under a different agent is answered exactly as for an unknown transaction, `USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND` with `not_found`, so the answer does not reveal that the transaction exists
+
+**The reported quantity is unrestricted.** A consumed quantity that differs from the offer's estimate is **not** a validation failure, above or below, and no check on the quantity refuses a report. The report is a record of the quantity consumed. Monitoring how far reports fall from estimates is the Exchange operator's own business, not part of the protocol.
+
+### Charging a metered purchase
+
+A `PER_UNIT` price is metered: it is charged per unit. The publisher states the rate and the unit, and the offer may also state an estimate. The offer signature covers them, so accepting the offer is consenting to them:
+
+| Symbol | Field | Meaning |
+|---|---|---|
+| R | `rate` | The price of one `unit` |
+| E | `estimated_quantity` | The estimate, in `unit`. **Optional.** A `PER_UNIT` offer may state a rate with or without an estimate; whether to state one is the publisher's decision. An estimate that is stated is positive (`offer.metered.estimate_positive`), and the SDK verifiers reject a zero one |
+
+A metered purchase charges **E × R**, or one unit, **1 × R**, when the offer states no estimate. That is the item's `cost`, and the charge is final. With the offer above (E = 2,500 tokens, R = $0.00002) the purchase charges $0.05. A disagreement about the quantity consumed is a dispute, which this version does not define further.
 
 ## Content Delivery (Outside Protocol Scope)
 
@@ -609,10 +721,10 @@ Three independent records -- CDN logs, Exchange transactions, usage reports -- t
 
 FORA uses **at-most-once with reconciliation**, same as OpenRTB:
 
-- Idempotency keys on every `TransactionRequest` (prevent double-charge on retry)
+- Idempotency keys on every `TransactionRequest`, scoped per caller (prevent double-charge on retry; a key reused with different items is refused with `already_exists`)
 - "Authorize first, deliver second" ordering (do not issue signed URL until billing succeeds)
 - Reconciliation via `UsageReport` -- if content was not actually used, the report says so
-- No refunds in the protocol -- handle offline like ad-tech discrepancy resolution (~5-10% tolerance)
+- Credits and refunds come from dispute resolution (`DisputeTransaction`, below), which every Exchange implements; the protocol standardizes the dispute signal, not the settlement between the parties
 
 ## RPC 4: DisputeTransaction
 
@@ -653,7 +765,18 @@ Content-Type: application/json
 }
 ```
 
-A successful response means the dispute was accepted for processing (`dispute_id` + `status` + `resolution`). A refusal to file is not a success body -- it travels as a non-OK transport error carrying `ErrorDetail.dispute_failure` (e.g. `DISPUTE_FAILURE_REASON_REPORT_NOT_FILED`, `DISPUTE_FAILURE_REASON_WINDOW_EXPIRED`). The Exchange resolves most accepted disputes automatically in under 1 second using CDN logs and cryptographic evidence. See [Dispute Resolution](/protocol/dispute-resolution/) for the three-tier resolution system, auto-credit rules, and the complete dispute lifecycle.
+Every Exchange implements `DisputeTransaction`; it is part of the core protocol, not an optional capability. A successful response means the dispute was accepted for processing (`dispute_id` + `status` + `resolution`). A refusal to file is not a success body -- it travels as a non-OK transport error carrying `ErrorDetail.dispute_failure`, whose `DisputeFailureReason` names the one check the filing failed:
+
+| Reason | The filing failed because |
+|---|---|
+| `DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND` | `transaction_id` names no transaction this Exchange executed for the caller |
+| `DISPUTE_FAILURE_REASON_REPORT_NOT_FILED` | No accepted usage report precedes it: `report_id` is empty, unknown, or names a report for another transaction |
+| `DISPUTE_FAILURE_REASON_WINDOW_EXPIRED` | The transaction's dispute window, set by the Exchange, has closed |
+| `DISPUTE_FAILURE_REASON_DUPLICATE` | A dispute was already filed for this transaction. A retry of the same filing under the same `idempotency_key` is a replay and returns the original `DisputeResponse` |
+| `DISPUTE_FAILURE_REASON_INELIGIBLE` | The transaction's state admits no dispute under the Exchange's rules |
+| `DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION` | The filing's `ext_critical` names a key the Exchange does not understand. Refused with `invalid_argument` (see [Extension Profiles](/protocol/extension-profiles/)) |
+
+A dispute that is accepted and later found unsupported ends as `RESOLUTION_TYPE_REJECTED`; it is not a refusal to file. The Exchange resolves most accepted disputes automatically in under 1 second using CDN logs and cryptographic evidence. See [Dispute Resolution](/protocol/dispute-resolution/) for the three-tier resolution system, auto-credit rules, and the complete dispute lifecycle.
 
 ## Resource Previews
 
@@ -688,7 +811,7 @@ message Preview {
   "offer_id": "9bb01145-326e-42a9-b2ac-058e3114bdfc",
   "exchange": "exchange.ssp-example.com",
   "title": "Climate Summit Photo - Reuters",
-  "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.50", "currency": "USD", "unit": "accesses" },
+  "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.50", "currency": "USD", "estimated_quantity": 1, "unit": "accesses" },
   "previews": [
     {
       "url": "https://cdn.reuters.com/preview/150/climate-summit.jpg",

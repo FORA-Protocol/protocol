@@ -36,8 +36,8 @@ def test_require_revocation_unevaluated_fails_closed() -> None:
     # A revocation host the resolver must NOT follow: it declares the key as
     # revoked, but sits on a different host than the directory, so the anchor
     # guard refuses the poll and no snapshot ever lands.
-    evil = Origin()
-    directory = Origin()
+    evil = Origin(tls=True)
+    directory = Origin(tls=True)
     try:
         evil.set_revocation(revocation_json(ANCHOR, [key.tp]))
         directory.set_wba(
@@ -48,13 +48,12 @@ def test_require_revocation_unevaluated_fails_closed() -> None:
         )
 
         # Default (best-effort): resolves despite the unevaluated revocation channel.
-        best = WBAKeyResolver(http=loopback_client(), scheme="http", now=MutableClock(ANCHOR))
+        best = WBAKeyResolver(http=loopback_client(), now=MutableClock(ANCHOR))
         assert best.resolve(key.tp, directory.url) == key.raw_pub
 
         # require_revocation: fail closed — revocation_url declared, no snapshot.
         strict = WBAKeyResolver(
             http=loopback_client(),
-            scheme="http",
             now=MutableClock(ANCHOR),
             require_revocation=True,
         )

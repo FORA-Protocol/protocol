@@ -11,6 +11,10 @@ outage must stay distinguishable from an unknown key.
 
 from __future__ import annotations
 
+from fora_sdk.directory_signature import (
+    DirectoryResponseUnsignedError as _L1DirectoryResponseUnsignedError,
+)
+
 
 class ResolverError(Exception):
     """Base of every resolver verdict."""
@@ -42,7 +46,8 @@ class RevocationUnevaluatedError(ResolverError):
 
 
 class DirectoryUnavailableError(ResolverError):
-    """A well-known directory/JWKS/manifest could not be fetched or decoded.
+    """A document could not be fetched or decoded: a well-known manifest, a WBA
+    directory or JWKS, a revocation list, or a license document.
 
     Deliberately NOT a subclass of :class:`UnknownKeyError`: a fail-closed
     composite must be able to halt on a directory outage rather than fall
@@ -127,4 +132,39 @@ class ManifestVersionRefusedError(ResolverError):
     failure to retry — and it is never cached. The gate runs before any other
     member of the document is read, for the reason stated once on
     ``WellKnownManifest.ver`` in the proto.
+    """
+
+
+class MediaTypeRefusedError(ResolverError):
+    """A document was served under a media type other than the one the protocol names
+    for it: ``application/json`` for ``/.well-known/fora.json`` and
+    ``application/http-message-signatures-directory+json`` for the WBA directory.
+
+    A VERDICT on what the party publishes, not a failed read, so it is never worth
+    retrying. Only the document readers in :mod:`fora_sdk.resolvers.documents` raise
+    it. The resolvers that read a key directory for key resolution check its label too
+    and report a wrong one as :class:`DirectoryUnavailableError`, like any directory
+    they cannot use. Peer of Go ``ErrMediaTypeRefused`` / TS ``MediaTypeRefused``.
+    """
+
+
+class DirectoryResponseUnsignedError(ResolverError, _L1DirectoryResponseUnsignedError):
+    """A key directory whose response is not signed by every key it lists: no response
+    signature at all, or none by one of the listed keys.
+
+    Raised by :func:`~fora_sdk.resolvers.documents.read_wba_directory`. A VERDICT on what
+    the party publishes, never worth retrying. It is also the L1
+    :class:`fora_sdk.directory_signature.DirectoryResponseUnsignedError`, so one
+    ``except`` catches the verdict from either face. Peer of Go
+    ``ErrDirectoryResponseUnsigned``.
+    """
+
+
+class DigestMismatchError(ResolverError):
+    """The bytes served at ``License.uri`` do not hash to ``License.uri_digest``.
+
+    The digest is covered by the offer signature, so a mismatch means the document
+    changed after the offer was signed, or the server answering is not the one the
+    offer named. A VERDICT, never retried. Peer of Go ``ErrDigestMismatch`` / TS
+    ``DigestMismatch``.
     """

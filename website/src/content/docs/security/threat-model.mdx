@@ -65,7 +65,7 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 
 ### T10: Usage underreporting (token count)
 **Attack**: Agent reports using 500 tokens of a 10,000-token document but ingested the entire thing.
-**Countermeasure (protocol)**: Exchange sets minimum billable quantity equal to document's actual size. UsageReport.consumed_quantity cannot be less than content's known size.
+**Countermeasure (protocol)**: **Never a refused report; monitoring is the operator's.** The reported quantity is unrestricted: an Exchange never refuses a usage report because its quantity differs from the estimate, in either direction. Monitoring discrepancies is the Exchange operator's own business, not part of the protocol: an operator may reconcile a quantity far below the document's known size against CDN logs (bytes served for the signed URL) and the size the attestations state, and pursue it through the account relationship or a dispute. The charge never depends on the reported count, in any pricing model: a metered purchase is charged at the estimate × rate the offer states (or one unit's rate without an estimate) when it is bought, and that charge is final. A publisher that wants the whole document paid for states an estimate that covers it, or prices it per access or flat.
 
 ### T11: Function misreporting (RAG vs training)
 **Attack**: Agent declares `function: ai-input` (cheaper) but uses content for `function: ai-train` (prohibited or more expensive).
@@ -110,16 +110,24 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 
 ### T20: Kickback-driven offer selection
 **Attack**: Broker always routes to a specific Exchange regardless of pricing.
-**Countermeasure (protocol)**: Agent can bypass Broker and query Exchanges directly. Each forwarding party adds its own RFC 9421 HTTP Message Signature to the request — covering the request plus the prior hop's signature — so the ordered stack of signatures in the HTTP headers is a tamper-evident forwarding chain that provides non-repudiation. Reordering, dropping, or inserting a hop breaks a downstream signature, and the Exchange verifies the whole stack.
+**Countermeasure (protocol)**: Agent can bypass Broker and query and buy at Exchanges directly. A Broker signs every request it sends alone, with its own RFC 9421 HTTP Message Signature, so the Exchange knows which Broker sent it and the Broker cannot deny it. The agent's consent to a transaction is the `AgentAcceptance` it signed into the body, which a Broker cannot alter or forge, and `agent_request_acceptance` binds the full ordered set of offers the agent chose.
 
 ### T21: Query intelligence harvesting
 **Attack**: Broker logs every DiscoverResources query, sells the data.
 **Countermeasure**: Not solvable at protocol level. Data handling agreements required.
 
 ### T-BRK-1: Request-set mutation during execute fan-out
-**Attack**: The agent commits to an ordered set of offers and hands execution to a Broker. While projecting the set into per-Exchange `ExecuteTransaction` subrequests, the Broker mutates it at the **item** level: it removes an item, appends one the agent never chose, reorders the items, or sends a valid subset first so the agent's idempotency key is consumed by a request the agent did not make — a later honest retry then replays the mutilated result instead of executing the real set.
-**Why the hop stack does not cover this**: The RFC 9421 forwarding-signature stack (T20, T-DEL-4) proves who forwarded a request that travels **byte-for-byte**. A projected subrequest is a new HTTP request the Broker authors and signs itself, so hop-chain integrity says nothing about which items the projected body carries — see [Projected execute requests](/protocol/authentication/#projected-execute-requests).
-**Countermeasure (protocol)**: **`TransactionRequest.agent_request_acceptance`.** The agent signs the complete ordered set of `(offer signature, exchange)` references plus the requester and idempotency key with its own Ed25519 key, and the Broker must forward the envelope unchanged on every subrequest. Each Exchange verifies the signature and requires its subrequest to equal the complete in-order projection of the signed set addressed to itself, **before** creating or serving any request-level idempotency state. A removed, appended, reordered, or subset request fails the projection check and claims nothing. The field is optional for wire compatibility: an older client that omits it keeps per-item execution semantics (each item still carries its own `agent_acceptance`) but gets no request-level set claim.
+**Attack**: The agent commits to an ordered set of offers and hands execution to a Broker (`BrokerService.ExecuteTransaction`). While projecting the set into per-Exchange `ExecuteTransaction` subrequests, the Broker mutates it at the **item** level: it removes an item, appends one the agent never chose, reorders the items, or sends a valid subset first so the agent's idempotency key is consumed by a request the agent did not make — a later honest retry then replays the mutilated result instead of executing the real set.
+**Why the transport signature does not cover this**: The Broker's RFC 9421 signature (T20, T-DEL-4) proves which Broker sent a subrequest. A projected subrequest is a new HTTP request the Broker authors and signs alone, so that signature says nothing about whether the projected body carries the items the agent chose — see [Projected execute requests](/protocol/authentication/#projected-execute-requests).
+**Countermeasure (protocol)**: **`TransactionRequest.agent_request_acceptance`.** The agent signs the complete ordered set of `(offer signature, exchange)` references plus the requester and idempotency key with its own Ed25519 key, and the Broker must forward the envelope unchanged on every subrequest. Each Exchange verifies the signature and requires its subrequest to equal the complete in-order projection of the signed set addressed to itself, **before** creating or serving any request-level idempotency state. A removed, appended, reordered, or subset request fails the projection check: the Exchange denies every item of it with `DENIAL_REASON_SIGNATURE_INVALID`, in the body, purchases nothing and claims nothing. The field is optional for wire compatibility: an older client that omits it keeps per-item execution semantics (each item still carries its own `agent_acceptance`) but gets no request-level set claim.
+
+### T-BRK-2: Tampering with a relayed purchase
+**Attack**: A Broker relaying a purchase (`BrokerService.ExecuteTransaction`) changes what an item buys: a different offer, a higher price, other terms, another Exchange, or a purchase on behalf of a different requester.
+**Countermeasure (protocol)**: **Per-item integrity.** Each item is atomic and its integrity is per resource. The offer carries its issuing Exchange's Ed25519 signature over price, terms, expiry and `exchange`; the agent's `AgentAcceptance` binds that one offer to the requester and the idempotency key; and the Exchange that owns the resource executes it. Altering any of these breaks the offer signature or the acceptance, and the Exchange refuses the item. Combining items from several Exchanges into one response therefore needs no cross-item integrity. The Broker also checks that `requester.domain` is the agent's verified signing directory before relaying, and refuses a mismatch as `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`; each Exchange resolves the acceptance keys from `requester.domain`, so a forged requester fails there in any case.
+
+### T-BRK-3: Misreporting a relayed purchase
+**Attack**: A Broker relaying a purchase reports an outcome that differs from what an Exchange answered: it claims a refusal for an item that was bought, alters a reported cost or transaction id, or drops one Exchange's sub-request and reports it refused.
+**Countermeasure (protocol)**: **Partial.** The combined `BrokerTransactionResponse` is unsigned; the one signed value in a result item is `retrieval_endpoint`, a URL the issuing Exchange signed, which the Broker cannot forge or alter. What the agent is charged is bounded by the signed offer the Exchange verified, whatever the Broker reports. An upstream refusal always rides in the body (`TransactionResultItem.refusal`, with the Exchange's own `ErrorDetail`), never as a Broker error, so the other Exchanges' results reach the agent. An agent that doubts an outcome can retry with the same `idempotency_key`: the Broker forwards it unchanged and the Exchange answers from its stored result. The agent can also reconcile with the Exchange that issued the offer directly, through its usage report and, where the outcome is wrong, a dispute. **Residual risk**: the per-item report fields are as trustworthy as the Broker; an agent that cannot accept that buys directly.
 
 ## 5. Third-Party Attacks
 
@@ -133,7 +141,7 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 
 ### T24: Transaction replay
 **Attack**: Attacker captures valid TransactionRequest and replays it.
-**Countermeasure (protocol)**: **Idempotency keys.** Every state-mutating call carries a required `idempotency_key` — `TransactionRequest`, `UsageReport`, and `DisputeRequest`. Servers dedupe per (verified RFC 9421 signer, key), so a replay returns the original result instead of re-charging or re-filing. Broker `Resolve` (`DiscoveryRequest`) is pure discovery — it executes no transaction, has no replay exposure, and carries no key.
+**Countermeasure (protocol)**: **Idempotency keys.** Every state-mutating call carries a required `idempotency_key` — `TransactionRequest`, `UsageReport`, and `DisputeRequest`. Servers dedupe per caller and key — the verified RFC 9421 signer, or (Broker, requester) on a relayed purchase — so a replay returns the original result instead of re-charging or re-filing. A key reused by the same caller with a different request (different items, or another order) is refused with `already_exists` and changes nothing; a key another caller used is never a collision. Broker `Resolve` (`DiscoveryRequest`) is pure discovery — it executes no transaction, has no replay exposure, and carries no key.
 
 ### T25: Billing_id forgery in usage reports
 **Attack**: Attacker fabricates billing_ids in usage reports.
@@ -170,8 +178,8 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 **Countermeasure**: Black box problem. Legal/contractual enforcement only.
 
 ### T31: Absence-reason existence oracle
-**Attack**: An unauthorized caller probes for a resource and reads the `absence_reason`. Authorization-flavored values (`SCOPE_INSUFFICIENT`, `NOT_AUTHORIZED`, `NOT_IN_CATALOG`, `CONTENT_BLOCKED`) distinguish "no such resource" from "it exists but you may not have it" — confirming existence and the reason for refusal. Broker `Resolve` (`DiscoveryResponse.absence_reason`) exposes the same oracle at the broker that `DiscoverResources` (`OfferGroup.absence_reason`) does at the Exchange, so hiding it on one surface but not the other still leaks.
-**Countermeasure (protocol)**: The reason is a hint, not a guarantee. Where existence itself must stay hidden, the Exchange/Broker **MAY omit** `absence_reason` (leave it unset) rather than reveal an authorization-flavored value — the same permissive hedge documented on `OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT`, and it applies equally to `OfferGroup.absence_reason` and `DiscoveryResponse.absence_reason`. `ErrorDetail.message`/`metadata` are held to the same rule (T-LIC-adjacent leakage): servers SHOULD NOT restore the withheld detail there as free text.
+**Attack**: An unauthorized caller probes for a resource and reads the `absence_reason`. Authorization-flavored values (`NOT_AUTHORIZED`, `NOT_IN_CATALOG`, `CONTENT_BLOCKED`) distinguish "no such resource" from "it exists but you may not have it" — confirming existence and the reason for refusal. Broker `Resolve` (`DiscoveryResponse.absence_reason`) exposes the same oracle at the broker that `DiscoverResources` (`OfferGroup.absence_reason`) does at the Exchange, so hiding it on one surface but not the other still leaks.
+**Countermeasure (protocol)**: A scope shortfall is never disclosed. When the requester's scopes leave no presentable offer for a resource, the Exchange answers with no offers and no absence reason, exactly as for any resource with nothing to offer, and a Broker adds no reason of its own (the existence-hiding rule on `Requester.scopes`). No absence or denial reason reports a scope shortfall. For the other reasons, the reason is a hint, not a guarantee: where existence itself must stay hidden, the Exchange/Broker **MAY omit** `absence_reason` (leave it unset) rather than reveal an authorization-flavored value, and this applies equally to `OfferGroup.absence_reason` and `DiscoveryResponse.absence_reason`. `ErrorDetail.message`/`metadata` are held to the same rule (T-LIC-adjacent leakage): servers SHOULD NOT restore the withheld detail there as free text.
 
 ## Prevention Taxonomy
 
@@ -188,8 +196,8 @@ Line 1: Protocol-level prevention
   Signed offers, content hashes, agent-bound URLs, idempotency keys,
   agent-signed request-set proof (request acceptance, verified before
   idempotency state), holder-bound JWT delegation chain (cnf),
-  RFC 9421 forwarding-chain verification (stack of per-hop HTTP Message
-  Signatures), subscription-level quota tracking
+  RFC 9421 request signatures from every sender (with chain verification
+  on unchanged forwarding), subscription-level quota tracking
   Makes attacks structurally impossible
 
 Line 2: Three-sided reconciliation
@@ -206,7 +214,7 @@ Line 3: Legal/contractual enforcement
 ### T-ATT-1: Forged attestation injection
 
 **Attack**: Attacker crafts a fake `ResourceAttestation` with a fabricated `verifier` domain and pushes it via `CatalogService.PushResources`.
-**Countermeasure (protocol)**: Exchange verifies `caller_id` is listed in the provider's `catalog_contributors` (from `fora.json`). Exchange verifies the attestation `signature` against the verifier's public key in its WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`). FORA has no dedicated verifier role; a verifier publishes under its operator's role (`ROLE_PUBLISHER` for a self-attesting publisher, `ROLE_EXCHANGE` for a standalone vendor). Both checks must pass.
+**Countermeasure (protocol)**: Exchange verifies that the request's signer is the provider itself or listed in the provider's `catalog_contributors` (from `fora.json`). Exchange verifies the attestation `signature` against the verifier's public key in its WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`). FORA has no dedicated verifier role; a verifier publishes under its operator's role (`ROLE_PUBLISHER` for a self-attesting publisher, `ROLE_EXCHANGE` for a standalone vendor). Both checks must pass.
 
 ### T-ATT-2: Stale attestation exploitation
 
@@ -248,15 +256,17 @@ Line 3: Legal/contractual enforcement
 **Attack**: Principal revokes a delegation but cached or stored tokens continue to work until their `expires_at` timestamp.
 **Countermeasure (protocol)**: Short `expires_at` (2-4 hours for standard access) limits the window of continued access. For high-value transactions, Exchange checks `revocation_uri` in real time before fulfillment. **Trade-off**: revocation checking adds latency (~50ms) so is only used for transactions above a configurable value threshold.
 
-### T-DEL-4: Forwarding chain forgery
+### T-DEL-4: Signer impersonation and forged forwarding
 
-**Attack**: Attacker inserts a fake hop into the forwarding chain, claiming to be a trusted Broker to gain access or inject misleading provenance — or reorders or drops an existing hop.
-**Countermeasure (protocol)**: **The forwarding chain is a stack of RFC 9421 HTTP Message Signatures (Ed25519).** Each forwarding party adds one labeled signature covering the request plus the prior hop's signature, so the chain is tamper-evident. Exchange verifies every signature on the request against the signer's published public key in its WBA directory (the JWK Set at `{domain}/.well-known/http-message-signatures-directory`), the key identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`), and verifies the whole stack. A forged, reordered, dropped, or inserted hop breaks a downstream signature, causing the entire request to be rejected.
+FORA's Broker never forwards an agent's request unchanged: it originates discovery queries and re-packages purchases, and signs each alone. A purchase through a Broker is covered by T-BRK-1 and T-BRK-2.
+
+**Attack**: Attacker claims to be a trusted Broker, or another agent, to gain access or inject misleading provenance — or, where a third party forwards a request unchanged and signs it again, inserts, reorders or drops a signature.
+**Countermeasure (protocol)**: **Every sender signs its own request (RFC 9421, Ed25519).** A Broker originates discovery queries and re-packages execute requests, and signs each alone with its own key, so it cannot claim to be another Broker: the Exchange verifies that signature against the key in the directory the Broker's own `Signature-Agent` member names (the JWK Set at `{origin}/.well-known/http-message-signatures-directory`, the key identified by its RFC 7638 thumbprint, the RFC 9421 `keyid`). The agent's identity and consent on a purchase cannot be forged or moved onto another request, because they are the `AgentAcceptance` signed into the body over the offer signature, requester and idempotency key. Where a party forwards a request unchanged and covers the signature before it, a forged, reordered, dropped or inserted hop breaks a later signature and the request is rejected. See [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding). A signer cannot act for another requester unless the Exchange admits it as a Broker: a request whose `requester.domain` names a directory other than the signer's is refused as `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID` from any signer the Exchange does not admit, and nothing the sender states, such as its manifest role, admits it (see [Direct and relayed requests](/protocol/authentication/#direct-and-relayed-requests)). The refusal's typed reason (`RequestAuthFailureReason`) is deliberately coarse — missing, invalid or stale — so it never tells a forger which check its request failed or how far it got.
 
 ### T-DEL-5: Scope pollution
 
-**Attack**: Agent declares scopes it doesn't actually have (no delegation token to prove entitlement), hoping the Exchange trusts the declared scopes and returns premium content.
-**Countermeasure (protocol)**: Exchange treats `Requester.scopes` as an **upper bound for catalog filtering only**. Actual entitlements are verified via the delegation JWT at transaction time. Without a valid delegation token, the Exchange applies its default access policy (typically public resources only). Declared scopes without a matching delegation grant no additional access.
+**Attack**: Agent declares scopes it doesn't actually have, hoping the Exchange returns premium content.
+**Countermeasure (protocol)**: The Exchange returns an offer for a term only when the scopes in the requester's signed request (`Requester.scopes`) cover the term's `LicenseTerm.scopes`. Those scopes are part of the request the agent signs, so they are the signer's own statement under its RFC 9421 signature.
 
 ### T-DEL-6: Quota gaming via multiple tokens
 
@@ -294,7 +304,7 @@ The last row is the deliberate one — nobody but the operator can point that UR
 
 ### T-LIC-3: Scope-gating escalation
 
-**Attack**: Term visibility is gated by delegation scope coverage (`LicenseTerm.scopes`, AND-semantics, empty = public). Two failure modes: (a) a publisher forgets `scopes` on a premium term → it defaults to public and leaks for free; (b) two implementations match scopes differently — naive prefix matching lets `sub:` cover `subscription:premium`, or `dist:*` is read as covering `dist:US:internal` on one Exchange but not another → an agent's grant is read as covering a term it should not.
+**Attack**: Term visibility is gated by scope coverage: the scopes in the requester's signed request must cover `LicenseTerm.scopes` (AND-semantics, empty = public). Two failure modes: (a) a publisher forgets `scopes` on a premium term → it defaults to public and leaks for free; (b) two implementations match scopes differently — naive prefix matching lets `sub:` cover `subscription:premium`, or `dist:*` is read as covering `dist:US:internal` on one Exchange but not another → an agent's grant is read as covering a term it should not.
 **Countermeasure (protocol)**: Scope matching follows the single normative rule defined in [Scope Matching](/protocol/authentication/#scope-matching), and the **same rule applies to both** `Requester`/delegation scopes **and** `LicenseTerm.scopes` — there is exactly one matching algorithm: matching is **segment-wise** (`:`-delimited), never substring/prefix; a granted `*` segment matches one level and a **terminal `*` matches all remaining segments**; there is no implicit prefix match and a grant narrower than the requirement does not cover it. This is the authoritative string-segment definition. An Exchange MAY implement coverage however it likes (e.g. a compiled matcher rather than literal string comparison), but the result MUST be **identical** to the segment-wise definition — an alternate implementation is conformant only if it produces the same verdicts, never a second, divergent rule. So the example failures (`sub:` covering `subscription:premium`, or one Exchange reading `dist:*` as covering `dist:US:internal` and another not) are excluded by construction. `empty = public` stays the explicit, documented default; backfilling a sentinel scope (e.g. `r:all`) is **not** required — it only relocates the "forgot to set it" failure and forces every publisher to issue an extra scope grant, without adding enforcement. (cf. OAuth 2.0 and AWS IAM: exact-match with explicitly-defined wildcard expansion, no implicit hierarchy.)
 
 ### T-LIC-4: Referenced-document swap
@@ -310,5 +320,5 @@ The last row is the deliberate one — nobody but the operator can point that UR
 | sellers.json | 2019 | Exchange identity in ResourceResponse | In proto |
 | SupplyChain Object | 2019 | exchange_signature on Offer | In proto |
 | ads.cert | 2020 | exchange_signature + content_integrity_hash | In proto |
-| MRC Viewability Standard | 2014 | Minimum billable token count | Design principle |
+| MRC Viewability Standard | 2014 | A metered charge fixed at purchase (estimate × rate), never re-measured | Design principle |
 | Open Measurement SDK | 2018 | Three-sided reconciliation | In protocol flow |

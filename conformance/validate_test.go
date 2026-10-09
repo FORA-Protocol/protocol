@@ -115,6 +115,24 @@ func licensingCases() []validationCase {
 		{"pricing free zero rate ok", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"}, true, ""},
 		{"pricing free nonzero rate rejected", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "1.0"}, false, "pricing.free.zero_rate"},
 
+		// Offer message-level CEL: a metered offer may state an estimate on its
+		// own pricing, positive when stated, and the offer's term carries no
+		// pricing at all.
+		{"offer metered with estimate ok", meteredOffer(meteredPricing(proto.Int32(2500))), true, ""},
+		{"offer metered without estimate ok", meteredOffer(meteredPricing(nil)), true, ""},
+		{"offer metered zero estimate rejected", meteredOffer(meteredPricing(proto.Int32(0))), false, "offer.metered.estimate_positive"},
+		{"offer metered negative estimate rejected", meteredOffer(meteredPricing(proto.Int32(-5))), false, "offer.metered.estimate_positive"},
+		{"offer flat without estimate ok", &forav1.Offer{OfferId: "of_flat", Exchange: exampleExchange, Pricing: &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD"}, Terms: freeTerms()}, true, ""},
+		// Offer.terms carries no pricing: the price is stated once, in
+		// Offer.pricing. The metered rule reads Offer.pricing only, so a PER_UNIT
+		// term under FLAT offer pricing is refused for the term's pricing alone.
+		{"offer term with pricing rejected", pricedTermOffer(meteredPricing(proto.Int32(2500)), meteredPricing(proto.Int32(2500))), false, "offer.terms.pricing_unset"},
+		{"offer term with free pricing rejected", pricedTermOffer(freePricing(), freePricing()), false, "offer.terms.pricing_unset"},
+		{"offer per_unit term under flat pricing rejected", pricedTermOffer(&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD"}, meteredPricing(nil)), false, "offer.terms.pricing_unset"},
+		{"transaction with priced offer term rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-p", Requester: exampleRequester(), Items: []*forav1.TransactionItem{{Offer: pricedTermOffer(freePricing(), freePricing())}}}, false, "offer.terms.pricing_unset"},
+		{"transaction with unestimated metered offer ok", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-m", Requester: exampleRequester(), Items: []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(nil))}}}, true, ""},
+		{"transaction with zero-estimate metered offer rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-z", Requester: exampleRequester(), Items: []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(proto.Int32(0)))}}}, false, "offer.metered.estimate_positive"},
+
 		// Pricing.unit format: empty / bare-dashed / vendor:namespaced.
 		{"pricing unit bare ok", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Unit: proto.String("sq-km"), Rate: "1"}, true, ""},
 		{"pricing unit vendor ok", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Unit: proto.String("acme:widgets"), Rate: "1"}, true, ""},
@@ -149,14 +167,19 @@ func licensingCases() []validationCase {
 		{"resource entry title over cap rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Title: proto.String(strings.Repeat("t", 513))}, false, "string.max_len"},
 		{"resource entry negative word count rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", WordCount: proto.Int32(-1)}, false, "int32.gte"},
 		{"resource entry 32 terms ok", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Terms: enumeratedTerms(32)}, true, ""},
+		// A catalog term carries its price; the rule is the entry's, because an
+		// offer's term carries none.
+		{"resource entry term missing pricing rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Terms: []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}}}, false, "resource_entry.terms.pricing_required"},
 		{"resource entry 33 terms rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Terms: enumeratedTerms(33)}, false, "repeated.max_items"},
 
 		// Catalog request lists — an empty push or removal asks for nothing.
 		{"push request with one entry ok", &forav1.PushResourcesRequest{Exchange: "exchange.example", Entries: []*forav1.ResourceEntry{{Domain: "publisher.example", Path: "/x"}}}, true, ""},
 		{"push request without entries rejected", &forav1.PushResourcesRequest{Exchange: "exchange.example"}, false, "repeated.min_items"},
-		{"remove request with one path ok", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Paths: []string{"/x"}}, true, ""},
-		{"remove request without paths rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example"}, false, "repeated.min_items"},
-		{"remove request relative path rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Paths: []string{"x"}}, false, "string.pattern"},
+		{"remove request with one resource ok", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Resources: []*forav1.ResourceRef{{Domain: "publisher.example", Path: "/x"}}}, true, ""},
+		{"remove request without resources rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example"}, false, "repeated.min_items"},
+		{"remove request with only deprecated paths rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Paths: []string{"/x"}}, false, "repeated.min_items"},
+		{"remove request relative path rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Resources: []*forav1.ResourceRef{{Domain: "publisher.example", Path: "x"}}}, false, "string.pattern"},
+		{"remove request schemed domain rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Resources: []*forav1.ResourceRef{{Domain: "https://publisher.example", Path: "/x"}}}, false, "string.pattern"},
 
 		// Quota.metric format — bare-dashed or vendor:namespaced; empty rejected.
 		// window set so the only variable under test is metric.
@@ -170,9 +193,12 @@ func licensingCases() []validationCase {
 		{"license uri with digest ok", &forav1.License{Uri: proto.String("https://x.example/lic"), UriDigest: proto.String("sha256:" + hex64)}, true, ""},
 		{"license uri without digest rejected", &forav1.License{Uri: proto.String("https://x.example/lic")}, false, "license.digest_required_with_uri"},
 
-		// LicenseTerm presence invariants (pricing required; REFERENCE_ONLY needs license.uri).
+		// LicenseTerm presence invariants (REFERENCE_ONLY needs license.uri).
+		// Whether pricing is required depends on the message holding the term
+		// — required on ResourceEntry.terms, unset on Offer.terms — so a term on
+		// its own is valid either way.
 		{"term enumerated with pricing ok", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: freePricing()}, true, ""},
-		{"term missing pricing rejected", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}, false, "required"},
+		{"term without pricing ok", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}, true, ""},
 		{"term reference_only with license uri ok", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY, Pricing: freePricing(), License: &forav1.License{Uri: proto.String("https://x.example/lic"), UriDigest: proto.String("sha256:" + hex64)}}, true, ""},
 		{"term reference_only without license uri rejected", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY, Pricing: freePricing()}, false, "license_term.reference_only.requires_uri"},
 
@@ -204,8 +230,15 @@ func licensingCases() []validationCase {
 		// not just the licensing subtree.
 		{"authorized_exchange relationship set ok", &forav1.AuthorizedExchange{Domain: exampleExchange, Relationship: forav1.ProviderRelationship_PROVIDER_RELATIONSHIP_DIRECT}, true, ""},
 		{"authorized_exchange relationship unspecified rejected", &forav1.AuthorizedExchange{Domain: exampleExchange}, false, "enum.not_in"},
-		{"requester type set ok", &forav1.Requester{Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, true, ""},
-		{"requester type unspecified rejected", &forav1.Requester{Domain: "agent.example"}, false, "enum.not_in"},
+		{"requester type set ok", &forav1.Requester{Id: "agent-1", Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, true, ""},
+		{"requester type unspecified rejected", &forav1.Requester{Id: "agent-1", Domain: "agent.example"}, false, "enum.not_in"},
+		// The acceptance signatures name the requester, so both halves of it are
+		// required: an empty id or domain would let the signed bytes name nobody.
+		{"requester id empty rejected", &forav1.Requester{Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, false, "string.min_len"},
+		{"requester id over 255 rejected", &forav1.Requester{Id: strings.Repeat("a", 256), Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, false, "string.max_len"},
+		{"requester id at 255 ok", &forav1.Requester{Id: strings.Repeat("a", 255), Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, true, ""},
+		{"requester domain empty rejected", &forav1.Requester{Id: "agent-1", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, false, "string.pattern"},
+		{"requester domain with scheme rejected", &forav1.Requester{Id: "agent-1", Domain: "https://agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, false, "string.pattern"},
 		{"resource_identity mutability set ok", &forav1.ResourceIdentity{ResourceMutability: forav1.ResourceMutability_RESOURCE_MUTABILITY_STATIC}, true, ""},
 		{"resource_identity mutability unspecified rejected", &forav1.ResourceIdentity{}, false, "enum.not_in"},
 		{"well_known_manifest role set ok", &forav1.WellKnownManifest{Role: forav1.Role_ROLE_AGENT}, true, ""},
@@ -319,9 +352,14 @@ func TestIdempotencyKeyRequired(t *testing.T) {
 
 func idempotencyCases() []validationCase {
 	return []validationCase{
-		{"transaction empty key rejected", &forav1.TransactionRequest{IdempotencyKey: "", Items: []*forav1.TransactionItem{{Offer: &forav1.Offer{OfferId: "of_1", Exchange: exampleExchange, Pricing: freePricing(), Terms: freeTerms()}}}}, false, "string.min_len"},
-		{"transaction key ok", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-1", Items: []*forav1.TransactionItem{{Offer: &forav1.Offer{OfferId: "of_1", Exchange: exampleExchange, Pricing: freePricing(), Terms: freeTerms()}}}}, true, ""},
-		{"transaction empty items rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-empty"}, false, "repeated.min_items"},
+		{"transaction empty key rejected", &forav1.TransactionRequest{IdempotencyKey: "", Requester: exampleRequester(), Items: []*forav1.TransactionItem{{Offer: &forav1.Offer{OfferId: "of_1", Exchange: exampleExchange, Pricing: freePricing(), Terms: freeTerms()}}}}, false, "string.min_len"},
+		{"transaction key ok", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-1", Requester: exampleRequester(), Items: []*forav1.TransactionItem{{Offer: &forav1.Offer{OfferId: "of_1", Exchange: exampleExchange, Pricing: freePricing(), Terms: freeTerms()}}}}, true, ""},
+		{"transaction empty items rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-empty", Requester: exampleRequester()}, false, "repeated.min_items"},
+		// A query and a purchase name their requester: the message is required, so
+		// an absent one cannot skip the Requester.id and Requester.domain rules.
+		{"transaction without requester rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-nr", Items: []*forav1.TransactionItem{{Offer: &forav1.Offer{OfferId: "of_1", Exchange: exampleExchange, Pricing: freePricing(), Terms: freeTerms()}}}}, false, "required"},
+		{"resource query without requester rejected", &forav1.ResourceQuery{}, false, "required"},
+		{"discovery request without requester rejected", &forav1.DiscoveryRequest{}, false, "required"},
 		{"usage report empty key rejected", &forav1.UsageReport{IdempotencyKey: "", Exchange: exampleExchange}, false, "string.min_len"},
 		{"usage report key ok", &forav1.UsageReport{IdempotencyKey: "idem-ur-1", Exchange: exampleExchange}, true, ""},
 		{"dispute empty key rejected", &forav1.DisputeRequest{IdempotencyKey: "", Exchange: exampleExchange, Reason: forav1.DisputeReason_DISPUTE_REASON_CONTENT_MISMATCH}, false, "string.min_len"},
@@ -335,17 +373,51 @@ func idempotencyCases() []validationCase {
 // to exercise.
 const exampleExchange = "exchange.example"
 
+// meteredPricing is a PER_UNIT price per token with the given estimate (nil
+// leaves it unset).
+func meteredPricing(estimate *int32) *forav1.Pricing {
+	return &forav1.Pricing{
+		Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Unit: proto.String("tokens"), Currency: "USD", Rate: "0.00002",
+		EstimatedQuantity: estimate,
+	}
+}
+
+// meteredOffer is an offer under the given offer pricing whose term carries no
+// pricing, as every offer's term does: the offer's price is Offer.pricing.
+func meteredOffer(pricing *forav1.Pricing) *forav1.Offer {
+	return &forav1.Offer{
+		OfferId: "of_metered", Exchange: exampleExchange, Pricing: pricing,
+		Terms: []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}},
+	}
+}
+
+// pricedTermOffer is an offer under offerPricing whose term carries termPricing
+// — a second copy of the price, which the offer.terms.pricing_unset rule
+// refuses.
+func pricedTermOffer(offerPricing, termPricing *forav1.Pricing) *forav1.Offer {
+	return &forav1.Offer{
+		OfferId: "of_priced_term", Exchange: exampleExchange, Pricing: offerPricing,
+		Terms: []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: termPricing}},
+	}
+}
+
+// exampleRequester is a valid Requester: query and purchase cases carry one, since the
+// message is required on both.
+func exampleRequester() *forav1.Requester {
+	return &forav1.Requester{Id: "agent-1", Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}
+}
+
 func freePricing() *forav1.Pricing {
 	return &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"}
 }
 
 // freeTerms is the single term a valid Offer sells. Offer.terms is bounded to
 // exactly one — an offer IS one licensing arrangement — so a fixture offer
-// carries the term it sells rather than an empty list.
+// carries the term it sells rather than an empty list. The term carries no
+// pricing: the offer's price is Offer.pricing.
 func freeTerms() []*forav1.LicenseTerm {
 	return []*forav1.LicenseTerm{{
 		Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
-		Pricing:   freePricing(),
 	}}
 }
 
@@ -403,6 +475,8 @@ func errorDetailCases() []validationCase {
 		{"retrieval_auth_failure unspecified rejected", &forav1.RetrievalAuthFailure{Reason: forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_UNSPECIFIED}, false, "enum.not_in"},
 		{"usage_report_rejection valid", &forav1.UsageReportRejection{Reason: forav1.UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_DUPLICATE}, true, ""},
 		{"usage_report_rejection unspecified rejected", &forav1.UsageReportRejection{Reason: forav1.UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_UNSPECIFIED}, false, "enum.not_in"},
+		{"request_auth_failure valid", &forav1.RequestAuthFailure{Reason: forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE}, true, ""},
+		{"request_auth_failure unspecified rejected", &forav1.RequestAuthFailure{Reason: forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_UNSPECIFIED}, false, "enum.not_in"},
 
 		// ErrorDetail wrapper: carries a generic class (no typed reason) or a valid
 		// typed detail; a nested invalid reason fails through the wrapper.
@@ -424,6 +498,7 @@ var standardRuleIDs = map[string]bool{
 	"repeated.min_items": true,
 	"int64.gte":          true,
 	"int32.gte":          true,
+	"int32.gte_lte":      true,
 	"string.max_len":     true,
 	"string.min_len":     true,
 	"enum.not_in":        true,

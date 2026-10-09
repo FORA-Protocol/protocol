@@ -5,10 +5,12 @@ import type {
 	DisputeFailureReasonSchema,
 	DomainVerificationFailureReasonSchema,
 	RegistrationFailureReasonSchema,
+	RequestAuthFailureReasonSchema,
 	RetrievalAuthFailureReasonSchema,
 	UsageReportRejectionReasonSchema,
 } from "../../../gen/ts/wire/schemas.ts";
 import { ErrorDetailSchema } from "../../../gen/ts/wire/schemas.ts";
+import { decodeErrorDetailValue } from "./errordetail-wire.ts";
 import { snakeFromJsonName } from "./wire-names.ts";
 
 // ADR-019 ErrorDetail reader + typed detail builders (both halves of the contract).
@@ -24,7 +26,7 @@ import { snakeFromJsonName } from "./wire-names.ts";
 // peer of the Go client binding's ErrorDetailFrom plus the transport-neutral
 // helpers.Reason accessor (sdk/go/connect + sdk/go/helpers).
 //
-// WRITE half — the seven typed *Detail builders below are the TS peers of the Go
+// WRITE half — the eight typed *Detail builders below are the TS peers of the Go
 // helpers.*Detail constructors (sdk/go/helpers/errordetail.go). Each builds an
 // ErrorDetail carrying exactly one typed reason oneof block from
 // (domain, message, reason), mirroring Go one-for-one: the builder sets ONLY the
@@ -39,10 +41,10 @@ import { snakeFromJsonName } from "./wire-names.ts";
 // NAME strings, and the proto3 omit-unpopulated shape — the builders never hand-roll
 // canonicalization.
 //
-// The ErrorDetail wire form is canonical proto-JSON (snake_case field names, enums
-// as NAME strings) — the exact shape the generated ErrorDetailSchema parses. Binary
-// protobuf is deliberately NOT used: it is not a cross-language primitive
-// (protobuf's own caveat), so the shared wire the three SDKs agree on is proto-JSON.
+// The ErrorDetail this module builds is canonical proto-JSON (snake_case field names,
+// enums as NAME strings) — the exact shape the generated ErrorDetailSchema parses. On the
+// read side a Connect envelope carries the detail's binary encoding as well, in
+// `details[].value`, and that copy is the one read: see errorDetailFrom.
 
 export type ErrorDetail = z.infer<typeof ErrorDetailSchema>;
 
@@ -62,6 +64,7 @@ export const REASON_FIELDS = [
 	"domain_verification_failure",
 	"retrieval_auth_failure",
 	"usage_report_rejection",
+	"request_auth_failure",
 ] as const;
 
 export type ReasonField = (typeof REASON_FIELDS)[number];
@@ -146,6 +149,20 @@ const MAX_DETAIL_DEPTH = 32;
  * reader answers "no detail" instead. */
 class TooDeep extends Error {}
 
+/**
+ * toProtoNames reads a lowerCamelCase proto-JSON payload, such as a `debug` projection,
+ * under the proto field names, exactly as errorDetailFrom does before it parses one.
+ * Returns undefined for a payload nested deeper than a peer's detail may be.
+ */
+export function toProtoNames(payload: unknown): unknown {
+	try {
+		return protoNames(payload);
+	} catch (cause) {
+		if (cause instanceof TooDeep) return undefined;
+		throw cause;
+	}
+}
+
 function protoNames(payload: unknown, budget = MAX_DETAIL_DEPTH): unknown {
 	if (budget <= 0) throw new TooDeep();
 	if (Array.isArray(payload)) return payload.map((v) => protoNames(v, budget - 1));
@@ -170,25 +187,26 @@ function protoNames(payload: unknown, budget = MAX_DETAIL_DEPTH): unknown {
  * Extract the first FORA ErrorDetail from a Connect error (or its details array).
  * `err` is either a Connect error object (carrying a `details` array) or the
  * details iterable itself. Each detail entry is the Connect wire form
- * `{ "type": "fora.v1.ErrorDetail", ... }`; the ErrorDetail proto-JSON is read from
- * the entry's `debug` projection (Connect includes it for JSON clients) or from a
- * `value` already decoded to an object. Returns null when `err` carries no
- * ErrorDetail — the TS analog of the Go `(detail, false)`.
+ * `{ "type": "fora.v1.ErrorDetail", "value": ..., "debug": ... }`. Returns null when
+ * `err` carries no ErrorDetail — the TS analog of the Go `(detail, false)`.
  *
- * The opaque binary `value` of a detail is intentionally NOT decoded here: the JSON
- * SDKs have no protobuf binary codec, so they consume the proto-JSON form.
+ * The entry's `value` is read first. It is the binary ErrorDetail itself, base64
+ * (standard or URL alphabet, padded or not), decoded by a table-driven reader pinned to
+ * the shared error-detail-wire corpus; a `value` already decoded to an object is read as
+ * it is. The `debug` projection is read ONLY when `value` is absent: it is a rendering
+ * connect-go adds for JSON readers, and it may describe something other than the detail.
+ * A `value` that is present but does not decode makes that entry unreadable — its
+ * `debug` is not read in its place — and the scan moves on to the next entry, which is
+ * what the Go client does with the same envelope.
  *
  * Both payload forms are read through protoNames, because `debug` arrives
- * lowerCamelCase and a decoded `value` — which only a caller that owns a binary codec
- * can supply — may be either. A snake_case object passes through it unchanged.
+ * lowerCamelCase. The decoded `value` and a snake_case object pass through it unchanged.
  */
 export function errorDetailFrom(err: unknown): ErrorDetail | null {
 	for (const entry of detailsOf(err)) {
 		if (!isRecord(entry) || entry["type"] !== ERROR_DETAIL_TYPE) continue;
-		const debug = entry["debug"];
-		const value = entry["value"];
-		const payload = isRecord(debug) ? debug : isRecord(value) ? value : null;
-		if (payload === null) continue;
+		const payload = payloadOf(entry);
+		if (payload === undefined) continue;
 		let normalized: unknown;
 		try {
 			normalized = protoNames(payload);
@@ -203,6 +221,18 @@ export function errorDetailFrom(err: unknown): ErrorDetail | null {
 		if (parsed.success) return parsed.data;
 	}
 	return null;
+}
+
+/** The proto-JSON one details entry carries: its decoded `value`, or its `debug`
+ * projection when it carries no `value`. Undefined when the entry has nothing readable. */
+function payloadOf(entry: Record<string, unknown>): Record<string, unknown> | undefined {
+	const value = entry["value"];
+	if (value !== undefined && value !== null) {
+		if (typeof value === "string") return decodeErrorDetailValue(value, REASON_FIELDS);
+		return isRecord(value) ? value : undefined;
+	}
+	const debug = entry["debug"];
+	return isRecord(debug) ? debug : undefined;
 }
 
 /** ExecuteTransaction denial reason (the DenialReason enum NAME set). */
@@ -228,6 +258,10 @@ export type DomainVerificationFailureReason = z.infer<
 /** ReportUsage rejection reason. */
 export type UsageReportRejectionReason = z.infer<
 	typeof UsageReportRejectionReasonSchema
+>;
+/** RPC request-signature (RFC 9421) failure reason. */
+export type RequestAuthFailureReason = z.infer<
+	typeof RequestAuthFailureReasonSchema
 >;
 
 /**
@@ -373,5 +407,22 @@ export function usageReportRejectionDetail(
 		domain,
 		message,
 		usage_report_rejection: { reason },
+	});
+}
+
+/**
+ * Build an ErrorDetail carrying a typed RequestAuthFailureReason.
+ * TS peer of Go `helpers.RequestAuthFailureDetail` (the RFC 9421 HTTP message
+ * signature on an RPC request failed verification).
+ */
+export function requestAuthFailureDetail(
+	domain: string,
+	message: string,
+	reason: RequestAuthFailureReason,
+): ErrorDetail {
+	return ErrorDetailSchema.parse({
+		domain,
+		message,
+		request_auth_failure: { reason },
 	});
 }

@@ -1,0 +1,33 @@
+{
+  "$id": "fora.v1.RateLimitInfo.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "RateLimitInfo — Caller's rate limit status on this Exchange.\n Modeled after IETF RateLimit header fields (RFC 9110 §15.5.30)\n and Shutterstock's rate limit response pattern.",
+  "properties": {
+    "limit": {
+      "default": 0,
+      "description": "Maximum requests allowed in the current window.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "remaining": {
+      "default": 0,
+      "description": "Requests remaining in the current window.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "reset_at": {
+      "description": "When the current window resets (UTC). After this time, `remaining` resets to `limit`.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "window": {
+      "description": "Duration of the rate limit window (e.g. 60s = per-minute limit).",
+      "format": "duration",
+      "type": "string"
+    }
+  },
+  "title": "Rate Limit Info",
+  "type": "object"
+}

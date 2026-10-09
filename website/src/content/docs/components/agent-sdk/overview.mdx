@@ -32,6 +32,19 @@ The shipped client is the same four verbs in all three languages: **discover** a
 returns the offers already sorted into verified and rejected, so an offer that did not
 verify is never handed back as usable.
 
+A Broker client sits beside it with two verbs: **resolve**, discovery across the
+Exchanges the Broker knows, and **execute**, which buys offers from several Exchanges in
+one call (`BrokerService.ExecuteTransaction`). The exchange client's execute also takes
+several offers from one Exchange (`ExecuteBatch` in Go).
+
+Both execute verbs return every retrieval URL exactly as the Exchange issued it, and
+fetch dials a URL as given with the agent's proof of possession. Checking the URL is the
+delivery edge's job: it verifies the URL signature and, where it can, the agent binding
+against that proof. The client does not check the URL first. The Exchange has already
+charged by the time the answer arrives, so a local refusal would only lose the purchase
+answer, and the client cannot read every URL an edge accepts (a CloudFront RSA signed URL,
+for one).
+
 Full per-language references live beside the code: [Go](https://github.com/FORA-Protocol/protocol/blob/main/sdk/go/README.md),
 [Python](https://github.com/FORA-Protocol/protocol/blob/main/sdk/python/README.md).
 
@@ -49,8 +62,8 @@ an example does not follow fails a gate instead of reaching a reader.
 its verified offers and, for the rest, the reason they were refused. Failures across every
 verb arrive as one `connect.CallError` with a `CallErrorKind` -- `CallNotSent`,
 `CallRefused`, `CallUnreachable`, `CallMalformed`, `CallTooLarge`, `CallNotSignable` --
-plus the peer's own reason token and, when it sent one, a typed detail reachable through
-`connect.ErrorDetailFrom`.
+plus the peer's own reason token, the Connect code of its answer (`Code`) and, when it
+sent one, a typed detail reachable through `connect.ErrorDetailFrom`.
 
 ### TypeScript
 
@@ -72,6 +85,83 @@ resolving fails a test.
 `fora_sdk.client.Client` is the same surface with `await`; `fora_sdk.sync` is a blocking
 facade over a synchronous HTTP client rather than an `asyncio.run` wrapper, which would
 break inside a running event loop.
+
+## Testing a FORA Service Through the SDK
+
+The same clients serve a conformance or end-to-end harness. A harness drives a service
+through the SDK, builds a malformed request only where it means to, and checks every
+answer through the SDK's own signer and decoder, instead of hand-writing payloads,
+parsing responses itself or re-implementing request signing.
+
+| Capability | Go (`sdk/go`) | TypeScript (`sdk/ts`) | Python (`fora_sdk`) |
+|---|---|---|---|
+| Pre-signing hook: change a request after the SDK built it, before it is signed | `connect.WithBeforeSign` | `beforeSign` in `ClientOptions` | `ClientConfig.before_sign` |
+| Raw mode: send a body exactly as given, still signed and decoded | `connect.WithRawBody` | `new RawBody(body)` in place of the request | `RawBody(body)` in place of the request |
+| Strict decoding: refuse an unknown field, a field-level or a cross-field violation, in a success answer or in an error envelope and its `ErrorDetail` | `connect.WithStrictDecoding` | `strict: true` | `ClientConfig(strict=True)` |
+| The Connect code of a refusal, on its own field | `CallError.Code` | `ForaCallError.code` | `CallError.code` |
+| The operator RPCs: `AdminService` and domain verification | `connect.NewAdminClient` | `createAdminClient` | `AdminClient` |
+| Mint a throwaway agent: key, directory document, signer | `helpers.GenerateKey`, `helpers.DirectoryDocument`, `core.SigningTransportFor` | `generateKey`, `directoryDocument`, `signingTransportFor` | `generate_key`, `directory_document`, `signing_transport_for` |
+| Read a document a party publishes and check it: the well-known manifest, the WBA key directory, the key revocation list, the license document | `resolvers.ReadManifest`, `resolvers.ReadWBADirectory`, `resolvers.ReadRevocationList`, `resolvers.ReadLicenseDocument` | `readManifest`, `readWBADirectory`, `readRevocationList`, `readLicenseDocument` | `read_manifest`, `read_wba_directory`, `read_revocation_list`, `read_license_document` |
+| Check a message against the strict contract | `helpers.CheckStrict` | `checkStrict` | `check_strict` |
+| Sign the proof of possession for a delivery fetch | `helpers.SignAgentBinding` | `signInbound` | `sign_agent_binding` |
+| Read the discovery headers of an edge's 403, and check the hinted Exchange against the publisher manifest | `helpers.ParseDiscoveryHint`, `helpers.ReconcileDiscoveryHint` | `parseDiscoveryHint`, `reconcileDiscoveryHint` (`./discovery-hint`) | `parse_discovery_hint`, `reconcile_discovery_hint` |
+
+A few rules hold in every language:
+
+- **The hook and raw mode cannot bypass signing or decoding.** The SDK signs the exact
+  bytes it sends and decodes the answer with the same code every verb uses. A hook may
+  not change the method or the URL, because the address checks already ran against them,
+  and may not set a header the signer writes. Raw mode skips only what the SDK would
+  have added to the message or refused about it; a verb that routes by the message still
+  reads its destination from the body's `exchange` and resolves it as usual.
+- **Strict decoding defines no shape of its own.** It uses the published strict JSON
+  Schema of each response message and the cross-field rules the proto states (see
+  [JSON Schemas](/reference/json-schemas/)); Go reads the same shape from the
+  descriptor. A server emits unpopulated fields, so a `null` member is read as an absent
+  one.
+- **Strict decoding checks error answers too.** The Connect error envelope may carry
+  only `code`, `message` and `details`, must name a known Connect code, and must carry
+  well-formed details. Every `ErrorDetail` in it, the decoded binary `value` and the
+  `debug` projection alike, is checked against the strict `ErrorDetail` schema and its
+  rules. A refused envelope is malformed, with the peer's Connect code still on the
+  error's code field and no detail. An empty or non-JSON error body comes from a gateway
+  rather than the service, so its HTTP status still classifies it.
+- **A document reader returns the document or a typed error, never nothing.** Each
+  reader fetches through the SDK's guarded client, so the SSRF guard and the https-only
+  scheme guard apply; `SKIP_SSRF` and `ALLOW_INSECURE` relax them for a sandbox. The
+  manifest must be served as `application/json` and the WBA directory as
+  `application/http-message-signatures-directory+json`; the protocol names no media type
+  for a revocation list or a license document, so their label is reported and not
+  checked. The manifest's `ver` is read before any other member. Every document must
+  then pass the strict check, and the reader returns the parsed generated message with
+  the URL, the bytes and the media type. A WBA directory is fetched with no redirect, and
+  its response must carry a valid response signature by every key it lists. The license
+  reader checks the `License` itself first, then verifies the fetched bytes against
+  `uri_digest`. A failed fetch, a non-200 answer, a body that is not JSON and a body over
+  1 MiB are all reported as an unavailable document. The resolvers read the same
+  documents through the same fetch and decode, without the strict check, because a router
+  must accept a newer minor version. They still read a WBA directory under the Web Bot
+  Auth profile: no redirect, the profile's media type, and only the keys that signed the
+  response.
+- **One strict check per language.** Client strict decoding, the error-envelope check and
+  the document readers all call the same check. In Python and TypeScript it is the
+  published strict JSON Schema of the message plus the cross-field rules. In Go it
+  decodes the proto-JSON, refuses unknown fields, a lowerCamelCase member and a 32-bit
+  number or a bool written as a string, and runs protovalidate. A shared corpus holds the
+  three readers to one verdict per document. The Python and TypeScript readers return
+  the generated model, which names an enum by its value name, so they refuse a document
+  that writes an enum as its number, which the Go reader accepts.
+- **The delivery-fetch proof is the public signer.** The Python client's
+  `proof_headers` is internal; a harness signs a fetch with `sign_agent_binding` (or
+  `SigningTransport.sign_agent_binding`), which returns an `AgentBinding` with the four
+  header values: the agent key, `Signature-Agent`, `Signature-Input` and `Signature`.
+- **Error details are read from the binary `value`.** A Connect error carries its typed
+  reason as `details[].value`, the binary `ErrorDetail`. All three SDKs read it; the JSON
+  SDKs fall back to the lowerCamelCase `debug` projection only when `value` is absent.
+- **The delivery edge checks the delivery URL.** A purchase returns each URL as the
+  Exchange issued it, and fetch sends any URL it is given, so a harness can put any URL
+  in front of an edge. The edge's refusal comes back with a `retrieval_auth_failure`
+  reason in the edge's own vocabulary.
 
 <DeferredSdkNoticeDetail />
 
@@ -352,6 +442,8 @@ The concrete implementations differ in persistence strategy (in-memory vs Redis)
 | Python | [`gen/python/`](https://github.com/FORA-Protocol/protocol/tree/main/gen/python/) (types) + [`sdk/python/`](https://github.com/FORA-Protocol/protocol/tree/main/sdk/python/) (hand-written SDK: `fora_sdk`, `fora_sdk.core`, `fora_sdk.resolvers`, `fora_sdk.client`, `fora_sdk.sync`) | Shipped; published to PyPI as [`fora-protocol-sdk`](https://pypi.org/project/fora-protocol-sdk/) :sdk-version | `pydantic` + `httpx` + `cryptography` |
 
 Every language also ships the account-setup role: `Register` and `GetAccountStatus` on the agent client (`Register`/`GetAccountStatus`, `register`/`getAccountStatus`, `register`/`get_account_status`), addressed by the Exchange domain on the request rather than by a configured origin, alongside the reader that fetches an Exchange's published registration requirements afresh on every read (`resolvers.NewWellKnownRequirementsReader`, `createWellKnownRequirementsReader`, `WellKnownRequirementsReader`). That reader applies the manifest version gate before it reads anything else, the same rule and the same shared corpus as the endpoint resolver — a document whose layout no reader can classify supplies neither the published schema nor the terms digest a registration echoes. A payload the client's own schema pre-check refuses comes back carrying the same typed `RegistrationFailure` detail the Exchange would have attached, so one renderer serves both sides of the refusal.
+
+Every language also ships the operator role: an admin client (`connect.NewAdminClient`, `createAdminClient`, `fora_sdk.client.AdminClient`) for `fora.admin.v1.AdminService` and the two domain-verification RPCs, built against the configured base URL. `AdminService` is not served on the public agent-facing listener, so a deployment that serves it apart from the Exchange endpoint builds one admin client per address.
 
 Every language also ships the publisher role: a catalog client (`connect.NewCatalogClient`, `createCatalogClient`, `fora_sdk.client.CatalogClient`) and the Exchange's two-tier entry pre-check (`helpers.ValidateResourceEntry`, `validateResourceEntry`, `validate_resource_entry`) — see [Source 7: CatalogService API Push](/components/content-ingestion/sources/#source-7-catalogservice-api-push).
 

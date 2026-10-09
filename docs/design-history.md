@@ -9,6 +9,17 @@ git history.
 
 ## Request and hop authentication: RFC 9421, hop-by-hop
 
+> **Superseded in part — FORA's Broker no longer forwards.** Each party now signs the
+> request it authors: a Broker originates its discovery queries and re-packages a
+> purchase, signing each alone, so a FORA request carries one signature. A key is
+> resolved in the WBA directory its signer's covered `Signature-Agent` member names,
+> not from `/.well-known/fora.json`. `WellKnownManifest.max_intermediary_hops` counts
+> every signature and is checked before any is verified; `RequestConstraints.max_hops`
+> reaches no Exchange and no party enforces it. Each request is answered to the party
+> that sent it. The move from in-message signatures to RFC 9421 described below still
+> stands. See "Signing under the Web Bot Auth profile" and "The hop cap counts
+> signatures; max_hops waits for multi-hop Broker discovery".
+
 Early drafts carried authentication inside the protobuf messages: per-message
 signature fields on requests, on each intermediary hop, and on catalog pushes. We
 moved all request authentication to RFC 9421 HTTP Message Signatures
@@ -401,6 +412,10 @@ and because it fixes number formatting by specification rather than by whichever
 renderer a language reaches for.
 
 ## Recipient addressing: a body field, not the signed request URL
+
+> **Superseded in part.** FORA's Broker no longer forwards a request verbatim, so the
+> verbatim-forwarded path mentioned below no longer exists in FORA: every request is
+> signed by the party that authored it. The rest of the reasoning stands.
 
 Every addressed request carries `exchange`, the bare host of its intended
 recipient, and a recipient rejects a request naming someone else. The obvious
@@ -2290,3 +2305,230 @@ of it.
 The shared-projection argument these faces rest on depends on this. One fetch decodes the
 whole well-known document and each face reads its own members off that single projection,
 which is only sound while every face is fetching the same path.
+
+## Signing under the Web Bot Auth profile: the readings the SDKs chose
+
+The SDKs sign and verify under the profile of draft-ietf-webbotauth-httpsig-protocol-00
+that the authentication page states. The draft and the profile leave a few points to the
+implementation, and the three SDKs settle them the same way.
+
+**Which member a signature names.** The draft says the member keyed to the signature's
+label must be signed, and the profile also accepts a member key that differs from the
+label. Both hold for a signature that covers one member. A signature that covers an
+earlier one must cover that signature's member too (WG-00 §5.2.2), so it covers several.
+The verifier then follows the member keyed to the signature's own label, and refuses a
+signature that covers several members none of which is keyed to its label: no reading of
+the draft attributes it to one directory over another.
+
+**Covering an earlier signature is optional, and partial coverage is refused.** The
+Broker signs alone and covers nothing. A party that does cover an earlier signature must
+cover its `Signature` member, its `Signature-Input` member and every component it lists,
+and may only cover a signature that appears before it in `Signature-Input`; anything
+else is refused before a key is fetched. Two signatures that do not cover each other
+verify independently. Labels carry no meaning, so the old `sig1` to `sigN` contiguity
+rule went with the forwarding chain it served.
+
+**Five minutes is the signer's limit, not the verifier's default.** The signers refuse a
+window longer than five minutes. A verifier keeps its own lifetime clamp
+(`MaxSignatureAge`), unset by default, because another Web Bot Auth signer may choose a
+longer window and the draft allows up to 24 hours.
+
+**A signature is stamped at the clock's time, never ahead of it.** `MonotonicWindow`
+bumped the window by one second per request inside a wall-clock second, first `expires`
+alone and then `created` with it to stay under the five-minute limit. With `created`
+moving, a client sending more than one request per second stamped signatures in the
+future, by as many seconds as it sent requests, and they verified only because a
+verifier's future-skew allowance absorbed them: a thousand requests in one second ended
+999 seconds ahead. The bump never bought uniqueness the nonce does not already give,
+since every signature carries 64 fresh random bytes. `MonotonicWindow` now signs at the
+clock's current time, exactly as `ClockWindow`, and is deprecated in all three SDKs.
+
+**A delivery proof covers at least the profile's components.** The verifiers once
+required exactly `@method`, `@target-uri` and one `Signature-Agent` member, so a proof a
+Web Bot Auth library made, covering `@authority` as well, was refused. A proof must cover
+those components and may cover more; whatever else it covers enters the base like the
+rest. A refusal the fetcher can fix by signing again carries `Accept-Signature`, and so
+does a request or proof whose `Signature-Agent` member is not an https origin: that is a
+form the client chose, not a forgery.
+
+**No option fetches a key directory in plaintext.** The key resolver's scheme option
+(Go `WBAKeyResolverOptions.Scheme`, Python `WBAKeyResolver(scheme=...)`, TypeScript
+`WBAKeyResolverOptions.scheme`) let tests fetch an https origin's directory from a
+plaintext server, and any production configuration could set it too. It is gone from
+all three: a directory is fetched over https from the origin its signer named. Tests
+serve directories over TLS and inject a client that trusts the test server; the
+TypeScript tests inject a fetch that answers the https URL.
+
+**The strict check generates no code at run time.** The TypeScript strict check compiled
+each message's strict JSON Schema with ajv on first use, and ajv compiles by building code
+from strings. Cloudflare Workers refuses that ("EvalError: Code generation from strings
+disallowed for this context"), so every strict reader of the edge entry failed on a real
+Worker, while the Workers test pool, which allows eval, passed. The schemas the SDK checks
+by name are now compiled when the generated code is generated, with ajv's standalone
+output, into `gen/ts/strict/`, one module per message, drift-gated like the rest of
+`gen/`. A test runs the edge readers in a Node vm context with code generation from
+strings disabled, which refuses eval with the same EvalError. Only a schema a caller
+passes to `checkStrict` is still compiled at run time, because it is not known at build
+time.
+
+**A Worker carries only what it imports.** Importing one constant from the edge entry
+carried about 0.9 MB: ajv and every strict schema, and every generated Zod schema, because
+a bundler must keep a module whose import may have an effect, and must keep each Zod
+schema's construction. The TypeScript packages are marked free of side effects, the
+strict validators are one module per message, and each generated Zod schema is built in a
+call marked pure. A guard bundles the edge entry the way a Worker is bundled and checks
+what a constant, a strict reader and the WBA key resolver each carry.
+
+**A directory response signature filters keys in the resolver and gates the reader.**
+The resolvers hand out only keys the response is signed by; a listed key without a valid
+signature reads as absent, the way a removed key does, so a rotation in progress or a key
+whose private half was destroyed does not take the whole directory down. The public
+reader checks what a party publishes, so it refuses a directory unless every listed key
+signed. A directory listing no key has nothing to sign.
+
+**No transition for the old media type.** A directory served as
+`application/jwk-set+json` is refused, like the bare `Signature-Agent` value: the
+profile names a hard cut, and accepting the old label would leave the reference
+directories unsigned with nothing to say so.
+
+## Revocation answers for one directory's own list
+
+The key resolvers kept one revocation snapshot per directory host, and `Resolve` already
+checked a key against its own directory's snapshot only. The public accessor beside it
+did not: `Revoked(keyID)` answered true when the thumbprint appeared on any snapshot the
+resolver held. It was written for a composite that resolves keys from a second source,
+such as a static bootstrap copy, so a key its owner had revoked could not slip in through
+the copy. But the resolver fetches whatever directory a request's `Signature-Agent` names,
+before the signature is checked, and a directory listing no key needs no response
+signature. Any party could therefore get a list polled that named someone else's key, and
+the union then reported that key revoked to every consumer of the accessor, including the
+offer-key cache it was documented for. That contradicts the protocol rule that no party's
+list revokes another party's key.
+
+The accessor now takes the directory it answers for, and the cross-directory form is
+gone rather than deprecated: a caller that kept the old call would keep the old meaning,
+and the point of the change is that no caller can. The offer-key cache's predicate gains
+the exchange the key came from, which is exactly the accessor's shape.
+
+The directory reference is normalized as `Resolve` normalizes a `Signature-Agent` member,
+and a fetched directory spelled differently still matches under the request-recipient
+identity rule: letter case folded, a port of 443 written out the same as none, a subdomain
+a different party. Matching the spelling only would fail open — an offer's bare exchange
+domain against a snapshot stored under an origin with `:443` would read a revoked key as
+unrevoked.
+
+Directories that list no key are still polled. With the accessor scoped, such a list can
+only answer for its own directory, and a party that has removed every key from its
+directory may still need its list to revoke the copies held elsewhere.
+
+The cache's predicate knows a directory's list only once a resolver has fetched that
+directory, so a predicate built on a resolver that has never fetched an Exchange's
+directory screens nothing for that Exchange. The cache polling each Exchange's own list
+itself would close that gap; this change leaves it as it was and only scopes the answer.
+
+## The TypeScript document reader carries its own bounds
+
+Go and Python bound a document read in the reader: Go reads the body through a limit and
+puts the whole fetch under one deadline, and Python streams the body against the same cap
+inside a total deadline. Whatever client a caller injects, the read stays bounded.
+TypeScript had put the same bounds in its transport instead — the undici client the Node
+entry defaults to capped the body, timed out the request and capped the redirect chain —
+and the reader trusted whatever came back. That was invisible while every read ran on the
+Node default. The edge entry made it visible: it hands the runtime's own `fetch` straight
+to the readers, so a read through a Worker's fetch had no cap, no deadline, and whatever
+redirect policy the runtime had, including a key-directory read whose host an
+unauthenticated `Signature-Agent` names.
+
+The read now owns its bounds on both entries. It reads the body through the stream with a
+byte budget and refuses it past 1 MiB without taking the rest, puts the whole read —
+every hop and the body — under one 30-second deadline whose signal it hands the
+transport, and follows redirects itself: it asks the transport not to follow, takes the
+Location, resolves it against the current URL, and refuses a hop out of http(s), from
+https down to plaintext http, or carrying credentials, up to the shared cap of five. A
+response the transport marks as redirected is refused, because the read asked it not to
+follow and could vet none of the hops it took. What stays with the transport is the
+address: which hosts it will dial at all, and TLS. The Node default keeps its SSRF guard
+and DNS pinning, and an edge caller keeps the equivalent for its runtime.
+
+Following redirects in the reader rather than in the transport is a deliberate difference
+from Go and Python, where the guarded client owns the redirect policy. TypeScript has no
+transport it controls on the edge, so the reader is the one place every read passes
+through. It also tightens one case on purpose: the reader refuses a step down from https
+to http whatever the configuration, where Go and Python permit one when a sandbox sets
+`ALLOW_INSECURE`. A sandbox that serves documents over plaintext starts the read over
+plaintext, and http to http is still followed. On Node, document reads therefore no longer
+follow a redirect from https to http either, which the undici redirect handler had done.
+
+## The hop cap counts signatures; max_hops waits for multi-hop Broker discovery
+
+Under the forwarding chain both caps bounded the chain's depth: each party that passed a
+request on added a signature, so counting signatures counted hops.
+`WellKnownManifest.max_intermediary_hops` was the Exchange's tolerance and
+`RequestConstraints.max_hops` the agent's, and the Go SDK told an Exchange to configure
+one signature more than it published. Once a Broker signs alone — it originates its
+discovery queries and re-packages a purchase — every FORA request carries one signature,
+and neither cap measured anything a FORA party does.
+
+`max_intermediary_hops` is kept, with a meaning that holds without a chain: the most
+signatures an Exchange accepts on a request, every signature counted whether or not it
+covers another. It still bounds a third party that forwards a request unchanged and signs
+it again, and it caps the work an unauthenticated request can cause, since every signature
+names a directory to fetch. So the Exchange counts before it verifies any signature, and
+refuses a request carrying more with `resource_exhausted` and no typed reason. The value
+is the count itself: the Go guidance to add one went, which the Python and TypeScript
+verifiers had never applied, and a released field changing meaning is recorded as a
+behaviour change rather than a comment edit.
+
+`max_hops` rides only on `DiscoveryRequest`, which ends at the Broker, and a Broker never
+forwards the agent's request, so no party receives or enforces it. It is not deprecated.
+How discovery should travel through more than one Broker is an open protocol question,
+and an agent's bound on that is what this field would carry; deprecating it now would
+close the option for a field that costs nothing while unused. What changed is that no
+page or comment claims an Exchange enforces it.
+
+## A relay is a requester mismatch the Exchange admits
+
+An Exchange receives the same `ResourceQuery` and `TransactionRequest` from an agent and
+from a Broker, and the protocol gave two different rules for them: on a direct request
+`Requester.domain` must name the signer's own directory, while on a request a Broker
+authored it names the agent the Broker acts for. Nothing said how an Exchange tells which
+rule applies, and the file header still said the Exchange does not distinguish.
+
+The answer uses what the Exchange already verifies. It compares `Requester.domain` with
+the host of the directory the verified signature's covered `Signature-Agent` member names,
+by the request-recipient identity rule. Equal is a direct request. Different is a relayed
+request, which the Exchange acts on only when it admits the signer as a Broker, and
+otherwise refuses exactly as it refuses a direct request with a mismatched requester:
+`unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`. Which Brokers it admits
+is its own policy, for example the Brokers registered with it.
+
+Several existing decisions fixed the shape of that rule:
+
+- **Identity is the signature, never a label.** The `caller_id` deprecation and
+  `Requester.id` ("never identity") already say so, and the comparison reads only what
+  the signature proves.
+- **A sender's own statement is not a trust anchor.** A manifest's `role` and
+  `Requester.type` are both the sender's claim, so neither admits a Broker. Broker
+  manifests carry `ROLE_BROKER`, which describes the document and authorizes nothing.
+- **Admission is each party's own policy; the refusal is normative.** A Broker's choice
+  of Exchanges is already private configuration, answered with a fixed refusal shape.
+  An Exchange's choice of Brokers is the same kind of decision, so the protocol fixes the
+  comparison and the refusal, and leaves the list of admitted Brokers to each Exchange.
+- **No new wire discriminator.** The protocol has already retired five: in-body
+  signatures, `intermediaries`, signature position, a `broker.` keyid prefix, and a
+  configured set of hop keys. A field saying "this request is relayed" would be one
+  more statement for the sender to make.
+
+Two alternatives were rejected. A self-declared `ROLE_BROKER`, or a new `RequesterType`
+value, would let any signer admit itself. Naming the Broker inside the signed
+`AgentRequestAcceptance` would change the signed bytes, cover purchases only and leave
+discovery undecided, and it would settle who owns a relayed purchase, which is a
+separate decision. The rule matches what the reference Exchange does: it treats a request
+as relayed only when the signer is a Broker it is configured to accept. Open Banking
+providers and RFC 8693 actors follow the same pattern: the resource server admits the
+actor by its own policy, and the subject's consent travels separately, here as the
+acceptances.
+
+A Broker is never relayed to: every request it receives is direct, so a mismatched
+requester at a Broker is always refused. Usage reports and disputes carry no
+`Requester`, so the comparison does not apply to them.

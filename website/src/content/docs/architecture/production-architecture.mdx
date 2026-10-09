@@ -44,7 +44,7 @@ Without Broker (direct, single exchange):
   Agent → Exchange → deliver
 ```
 
-The Exchange doesn't know or care whether the request came from a Broker or directly from an agent. The HTTP/JSON protocol is identical.
+The RPCs and the HTTP/JSON wire are identical either way. The Exchange tells a relayed request from a direct one by comparing `requester.domain` with the signer's directory, and acts on a relayed one only from a Broker it admits; see [Direct and relayed requests](/protocol/authentication/#direct-and-relayed-requests).
 
 ### FORA Authentication
 
@@ -52,15 +52,15 @@ Every party in the protocol authenticates via Ed25519 key pairs. Each party anno
 
 | Party | Key Announcement | Signs | Verifier |
 |---|---|---|---|
-| **Requester** (Agent or other client) | signing keys in the WBA directory at `{domain}/.well-known/http-message-signatures-directory`; role manifest at `{domain}/.well-known/fora.json` (`role=ROLE_AGENT`) | RFC 9421 HTTP Message Signature (Ed25519) over the HTTP request (`@method`, `@target-uri`, `content-digest` — request body bound via `content-digest`) | Exchange |
-| **Intermediary** (e.g. Broker) | signing keys in the WBA directory at `{domain}/.well-known/http-message-signatures-directory`; role manifest at `{domain}/.well-known/fora.json` (`role=ROLE_AGENT`, same format) | each intermediary adds its own RFC 9421 HTTP Message Signature (Ed25519) to the request — the forwarding chain is the stack of signatures, each covering the request plus the prior hop's signature | Exchange |
+| **Requester** (Agent or other client) | signing keys in the WBA directory at `{domain}/.well-known/http-message-signatures-directory`; role manifest at `{domain}/.well-known/fora.json` (`role=ROLE_AGENT`) | RFC 9421 HTTP Message Signature (Ed25519) under the Web Bot Auth profile, covering `@method`, `@target-uri`, `content-digest` (the request body), `authorization` (even when empty) and its own `"signature-agent";key=…` member | Exchange |
+| **Broker** | signing keys in the WBA directory at `{domain}/.well-known/http-message-signatures-directory`; role manifest at `{domain}/.well-known/fora.json` (`role=ROLE_BROKER`, same format; the role describes the document, and an Exchange admits a Broker by its own policy, never by the role) | a Broker originates its own discovery queries and re-packages execute requests, signing each alone with its own RFC 9421 HTTP Message Signature (Ed25519), covering its own request and only its own `Signature-Agent` member; on a purchase the agent's identity and consent ride in the body as `AgentAcceptance` | Exchange |
 | **Exchange** | `{domain}/.well-known/fora.json` (`role=ROLE_EXCHANGE`); offer-signing keys in the WBA directory at `{domain}/.well-known/http-message-signatures-directory` | `exchange_signature` on every Offer | Agent, Broker |
 | **Provider** | `{domain}/.well-known/fora.json` (`role=ROLE_PUBLISHER`) | Authorization declaration (not signatures) | Agent, Exchange |
 | **Verification Vendor** | WBA directory at `{domain}/.well-known/http-message-signatures-directory` | `ResourceAttestation.signature` on catalog content (v1.0) | Exchange, Agent |
 
 **Verification at Exchange:**
 - **Requester signature** — Exchange verifies the RFC 9421 HTTP Message Signature on the request (carried in HTTP headers, not a message field) against the requester's published Ed25519 key in its WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`), the key identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`)
-- **Forwarding chain** — when the request passed through intermediaries, Exchange verifies every RFC 9421 HTTP Message Signature on the request (carried as a stack of labeled signatures in HTTP headers, each covering the request plus the prior hop's signature), proving the forwarding path is legitimate and tamper-evident
+- **Forwarding** — on a request a Broker sent, the Exchange verifies the Broker's own RFC 9421 HTTP Message Signature and, on a purchase, the agent's `AgentAcceptance` in the body against the agent's registered key (see [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding))
 - **Delegation JWT** — when a `Delegation` token is attached, Exchange verifies the authority JWT signature against the principal's published Ed25519 key (`principal_domain`)
 - **Scope-based access control** — Exchange filters its catalog by the requester's `scopes`. Resources outside the requester's scopes are not returned (the requester never learns they exist)
 
@@ -130,7 +130,7 @@ The `TransactionResponse` carries a `DeliveryMethod` hint and a `retrieval_endpo
 
 The protocol does not specify signed URL formats, CDN verification logic, or content transfer mechanisms. These are defined by each Exchange and Edge Function implementation.
 
-FORA does, however, standardize the **failure vocabulary** for this step, not its mechanism: `RetrievalAuthFailureReason` gives a common enum for *why* a signed-URL or proof-of-possession check failed (expired, signature invalid, replay, …), so tooling can classify retrieval failures uniformly across implementations. It is never emitted by a FORA RPC — it travels only as an out-of-band `ErrorDetail` (its `retrieval_auth_failure` reason block) from the edge — and naming the failure categories does not mandate how any Exchange or CDN performs the check. An edge returning a bare `403` is still conformant; the enum is the interoperable vocabulary available to those that choose to report a reason.
+FORA does, however, standardize the **failure vocabulary** for this step, not its mechanism: `RetrievalAuthFailureReason` gives a common enum for *why* a signed-URL or proof-of-possession check failed (expired, signature invalid, replay, …), so tooling can classify retrieval failures uniformly across implementations. It is never emitted by a FORA RPC — it travels only as an out-of-band `ErrorDetail` (its `retrieval_auth_failure` reason block) from the edge — and naming the failure categories does not mandate how any Exchange or CDN performs the check. An edge returning a bare `403` is still conformant; the enum is the interoperable vocabulary available to those that choose to report a reason. Its counterpart for the RPCs themselves is `RequestAuthFailureReason`, which an Exchange or Broker does emit, in `ErrorDetail.request_auth_failure`, on every request refused for its RFC 9421 signature.
 
 ### Streaming Delivery (v1.0)
 

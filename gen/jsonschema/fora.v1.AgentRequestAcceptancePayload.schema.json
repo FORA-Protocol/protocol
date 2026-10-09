@@ -1,0 +1,53 @@
+{
+  "$defs": {
+    "fora.v1.AgentRequestAcceptanceItem": {
+      "description": "AgentRequestAcceptanceItem is the minimum reference needed to authorize an\n offer's membership, order, and fan-out destination without repeating the\n full Offer in every projected subrequest. Offer.signature transitively binds\n the full offer, including its exchange field; the explicit exchange lets a\n recipient derive which signed references must appear in its projection.",
+      "properties": {
+        "exchange": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "offer_sig": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "exchange",
+        "offer_sig"
+      ],
+      "title": "Agent Request Acceptance Item",
+      "type": "object"
+    }
+  },
+  "$id": "fora.v1.AgentRequestAcceptancePayload.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AgentRequestAcceptancePayload fixes the field set signed by an\n AgentRequestAcceptance. Its canonical bytes are\n JCS(protojson(AgentRequestAcceptancePayload)) using the canonical-signing\n rules defined on Offer.signature.",
+  "properties": {
+    "idempotency_key": {
+      "default": "",
+      "type": "string"
+    },
+    "items": {
+      "description": "Complete original request order, before Broker fan-out. Capped at 256 —\n the same ceiling a discovery query's uris list carries, so one request\n can reference at most one offer per queried URI at the query cap. The Go\n verification helper enforces the same bound itself before doing any\n canonicalization work, because a verifier may run with wire validation\n off and the canonical rendering of an unbounded list is the expensive\n step an unauthenticated caller could otherwise buy for free.",
+      "items": {
+        "$ref": "#/$defs/fora.v1.AgentRequestAcceptanceItem"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "type": "array"
+    },
+    "requester_domain": {
+      "default": "",
+      "description": "Requester.domain of the request. Non-empty (see AgentRequestAcceptance).",
+      "type": "string"
+    },
+    "requester_id": {
+      "default": "",
+      "description": "Requester.id of the request. Non-empty (see AgentRequestAcceptance).",
+      "type": "string"
+    }
+  },
+  "title": "Agent Request Acceptance Payload",
+  "type": "object"
+}

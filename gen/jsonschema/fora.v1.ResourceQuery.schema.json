@@ -1,0 +1,268 @@
+{
+  "$defs": {
+    "fora.v1.AcceptableRestriction": {
+      "description": "AcceptableRestriction — the limits a query operates within on one restriction\n axis, expressed in the same RestrictionKind vocabulary that terms use. The\n Exchange/Broker MAY pre-select offers whose term restrictions fall within\n these as a convenience (see Restriction); it is NOT enforcement — the agent\n self-selects and bears compliance.",
+      "properties": {
+        "axis": {
+          "anyOf": [
+            {
+              "pattern": "^RESTRICTION_KIND_UNSPECIFIED$",
+              "type": "string"
+            },
+            {
+              "enum": [
+                "RESTRICTION_KIND_FUNCTION",
+                "RESTRICTION_KIND_GEOGRAPHY",
+                "RESTRICTION_KIND_USER_TYPE",
+                "RESTRICTION_KIND_OTHER"
+              ],
+              "type": "string"
+            },
+            {
+              "maximum": 2147483647,
+              "minimum": -2147483648,
+              "type": "integer"
+            }
+          ],
+          "default": 0,
+          "description": "Which axis (same enum as Restriction.kind): FUNCTION / GEOGRAPHY /\n USER_TYPE / OTHER.",
+          "title": "Restriction Kind"
+        },
+        "values": {
+          "description": "The values the query operates within on this axis — same token vocabulary\n as the terms (e.g. FUNCTION [\"ai-train\"], GEOGRAPHY [\"US\", \"EU\"]).",
+          "items": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:*-]+$",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array"
+        }
+      },
+      "title": "Acceptable Restriction",
+      "type": "object"
+    },
+    "fora.v1.Delegation": {
+      "description": "The token is an opaque, signed credential. The format is a JWT (token_format\n \"jwt\"); the field stays open for a future format. Its claims are the\n AUTHORITATIVE source of the grant; the\n plaintext fields below (scopes, expires_at, max_spend_cents, …) are a\n convenience mirror the Exchange MAY use for fast pre-filtering before it\n verifies the token.\n\n Holder binding (the load-bearing property). The grant is bound to a holder key\n via the RFC 7800 `cnf` confirmation claim — `cnf.jkt`, the RFC 7638 JWK\n thumbprint of the holder's key. Verification MUST check that the key signing\n the request (RFC 9421) hashes to that thumbprint; a token possessed without\n the matching private key is rejected. This is what makes a leaked token NOT\n bearer-usable. One exception, the relayed purchase: when a Broker re-packages\n a purchase (BrokerService.ExecuteTransaction), the request an Exchange\n receives is signed by the Broker, not by the holder. There the Exchange checks\n the holder binding against the key each item's AgentAcceptance verifies under\n — the agent's key, resolved from the requester's WBA directory — and not\n against the request signer. A relayed purchase that carries a delegation\n therefore needs an AgentAcceptance on every item; an item without one fails\n the binding (DENIAL_REASON_DELEGATION_INVALID). Delegation is a chain of cnf-linked JWTs: a principal narrows a\n grant by issuing a child JWT (cnf = the next holder, scopes ⊆ parent), signed\n by the key the parent's cnf named — the chain-linkage invariant. Verifiers\n need only the root issuer's public key; intermediate keys ride inside the\n chain (JOSE header `jwk`), so verification is offline.\n\n The claim schema is a small registered vocabulary — see the FORA\n delegation-claims profile in the auth spec. All claims are OPTIONAL except the\n holder binding (cnf). Vendors MAY add namespaced claims (their own \"vendor:\"\n namespace; \"fora_\"-prefixed names are reserved for the registered vocabulary\n and MUST NOT be redefined); any constraint a verifier cannot evaluate is\n binding by default (fail closed) unless the issuer marks it advisory —\n mirroring Restriction.advisory.\n\n Scope/time/spend caps are defense-in-depth that bound the blast radius only in\n the residual case where the holder's signing key is also compromised; the\n primary protection against theft is the holder binding above.",
+      "properties": {
+        "expires_at": {
+          "description": "When this delegation expires. Exchange MUST reject expired tokens.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "ext": {
+          "description": "Extension point",
+          "type": "object"
+        },
+        "ext_critical": {
+          "description": "Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "issuer": {
+          "description": "Token issuer. OIDC issuer URL or GNAP grant server URL.\n Exchange uses this for JWT validation (OIDC discovery → JWKS)\n or GNAP token introspection.",
+          "type": "string"
+        },
+        "max_accesses": {
+          "description": "Maximum number of accesses allowed under this delegation.\n Exchange tracks cumulative access count against this cap.\n Deny with DENIAL_REASON_QUOTA_EXCEEDED when count >= limit.\n For subscriptions with \"10,000 accesses/month\", this carries the ceiling.",
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        },
+        "max_spend_cents": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "pattern": "^-?[0-9]+$",
+              "type": "string"
+            }
+          ],
+          "description": "Maximum spend in currency minor units (e.g., cents for USD).\n Exchange tracks cumulative spend against this cap."
+        },
+        "principal_domain": {
+          "default": "",
+          "description": "Who granted this delegation (domain for public key lookup).",
+          "type": "string"
+        },
+        "principal_id": {
+          "default": "",
+          "description": "Principal's identifier (e.g., \"user@acme.com\", \"marketdata.example.com\").",
+          "type": "string"
+        },
+        "quota_period": {
+          "description": "Quota reset period. How often the access/spend counters reset.\n Example: 30 days for monthly subscriptions — \"2592000s\" on the wire\n (proto-JSON encodes Duration as seconds; \"720h\" is not accepted).\n When absent, the quota is lifetime (bounded only by expires_at).",
+          "format": "duration",
+          "type": "string"
+        },
+        "revocation_uri": {
+          "description": "Optional: URI for real-time revocation checking.\n Exchange MAY check this for high-value transactions.\n Not checked for routine low-value access (performance tradeoff).",
+          "type": "string"
+        },
+        "scopes": {
+          "description": "Scopes granted by this delegation. MUST be a subset of the\n principal's own scopes (attenuation — can only narrow, not widen).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "token": {
+          "default": null,
+          "description": "Token bytes. A JWT (base64url-encoded JWS).",
+          "pattern": "^[A-Za-z0-9+/]*={0,2}$",
+          "type": "string"
+        },
+        "token_format": {
+          "default": "",
+          "description": "Token format: \"jwt\" (default). Empty is treated as \"jwt\". The field stays\n open for a future format.",
+          "type": "string"
+        }
+      },
+      "title": "Delegation — Scoped, time-limited, spend-capped credential.",
+      "type": "object"
+    },
+    "fora.v1.Requester": {
+      "description": "Carries identity and entitlements ONLY — who is asking and what they are\n entitled to (scopes, delegation). What they are asking for (uris) and the\n limits they will operate within (acceptable_restrictions) belong to the ask,\n not the identity, and live on ResourceQuery / DiscoveryRequest. The Exchange\n verifies identity via the RFC 9421 request signature, then filters its\n catalog by the requester's scopes. Billing needs nothing from this message:\n the Exchange resolves the caller's account (RegisterResponse.billing_ref)\n from the verified signature, never from anything the caller sends.",
+      "properties": {
+        "delegation": {
+          "$ref": "#/$defs/fora.v1.Delegation",
+          "description": "Optional delegation — present when the requester acts on behalf of\n another entity (user, organization, upstream agent)."
+        },
+        "domain": {
+          "description": "- Direct request. The agent's own RFC 9421 signature arrives because\n     the agent sent the request itself. The verifier resolves the agent's\n     keys from the COVERED `Signature-Agent` member, never from this field.\n     It then MUST require this field to name that same directory: the host\n     of the origin that member names, compared by\n     the identity rule \"Request recipient\" defines (the shape check first,\n     then case-folded, an absent port the same as \":443\", a subdomain a\n     different party). A mismatch is refused as UNAUTHENTICATED with\n     `request_auth_failure` SIGNATURE_INVALID: the signature verifies, but\n     not for the requester the body names. A Broker applies this rule on\n     every request it receives. An Exchange applies it on every request\n     whose signer it does not admit as a Broker; a mismatch from a signer it\n     does admit is a relayed request, one of the two cases below.\n   - Purchase relayed through a Broker. BrokerService.ExecuteTransaction\n     re-packages the purchase, so the request signature and the covered\n     `Signature-Agent` member are the Broker's. They say only that the call comes\n     from the Broker, and they sign no purchase. The Exchange MUST verify\n     each item's AgentAcceptance, and the AgentRequestAcceptance, against\n     the Ed25519 keys currently valid in the directory this field names\n     (see AgentRequestAcceptance), never against the Broker's key. Those\n     acceptances are the only agent signatures the Exchange sees.\n   - Broker-led discovery. A ResourceQuery a Broker originated carries no agent\n     signature, so nothing on that leg authenticates this field: it is the\n     Broker's statement, under the Broker's own signature, of whom it\n     queries for.",
+          "maxLength": 260,
+          "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$",
+          "title": "REQUIRED. Bare host of the requester's key directory: the WBA directory at\n {domain}/.well-known/http-message-signatures-directory that publishes the\n agent's Ed25519 keys. It carries the bare-host shape \"Request recipient\"\n defines in the file header (a port allowed), for the same structural\n reason: a scheme, path or query smuggled in here would choose what gets\n fetched, not merely from where. It is never a free label. Every verifier\n reads it as the name of that directory, and the rule that binds it depends\n on whether the request is direct or relayed, which the receiver decides as\n \"Direct and relayed requests\" in the file header states:",
+          "type": "string"
+        },
+        "ext": {
+          "description": "Extension point",
+          "type": "object"
+        },
+        "ext_critical": {
+          "description": "Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "id": {
+          "description": "REQUIRED. A free label the agent chooses for attribution (e.g.\n \"agent-research-bot-001\"), 1 to 255 characters. Use it to tell apart the\n sub-agents or end customers that share one key directory. It is never\n identity: no verifier finds keys from it, and no party trusts it for an\n authentication or authorization decision. The requester's identity is\n `domain` together with the key that verifies. The acceptance signatures\n cover this label (see AgentAcceptancePayload), so a relaying Broker cannot\n rewrite it, but its value is still only what the agent says.",
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "description": "Human-readable name (e.g., \"Acme Research Assistant\").",
+          "type": "string"
+        },
+        "scopes": {
+          "description": "The Exchange filters its catalog to resources matching these scopes. This\n is the enforcement mechanism for both enterprise RBAC and open-market\n subscription entitlements.\n\n EXISTENCE HIDING. A requester never learns about a resource outside its\n scopes. When the scopes leave no presentable offer for a resource, the\n Exchange answers with no offers and no absence reason (an OfferGroup with\n empty `offers` and `absence_reason` unset), exactly as for any resource\n with nothing to offer. A Broker relaying that answer adds no reason of its\n own. At purchase, an offer the Exchange presented is honoured until it\n expires, so a scope refusal cannot arise there. No reason in the protocol\n reports a scope shortfall: OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT and\n DENIAL_REASON_SCOPE_INSUFFICIENT are deprecated and never sent.\n\n Scope format: colon-separated segments, \"{domain}:{permission}\" or\n \"{profile}:{permission}\", optionally multi-segment (\"dist:US:CA\");\n matching is segment-wise per the rule below (no implicit hierarchy).\n Examples:\n   \"credit:read\"                — can access credit reports\n   \"subscription:marketdata-2026\" — has active MarketData subscription\n   \"academic:*\"                 — full access to academic resources\n   \"internal:reports\"           — can access internal reports\n   \"*\"                         — unrestricted (public Exchange default)\n\n Matching is SEGMENT-WISE (\":\" separated). A granted scope G covers a\n required scope R iff, segment by segment, each G segment equals the\n corresponding R segment or is \"*\"; a terminal \"*\" matches all remaining\n segments. There is NO implicit prefix match, and a grant NARROWER than\n the requirement does not cover it (G must be equal-to-or-broader than R).\n Examples: \"dist:*\" covers \"dist:US\" and \"dist:US:CA\"; \"dist:US:*\" covers\n \"dist:US:CA\" but not \"dist:EU\"; bare \"dist\" covers only \"dist\"; granted\n \"dist:US:CA\" does NOT cover required \"dist:US\"; \"*\" covers everything.\n This same rule governs LicenseTerm.scopes — one algorithm protocol-wide.\n\n When empty, Exchange applies its default access policy (typically\n returns all publicly available resources).",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Entitlement scopes. Declare what the requester can access.",
+          "type": "array"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "REQUESTER_TYPE_AGENT",
+                "REQUESTER_TYPE_HUMAN_TOOL",
+                "REQUESTER_TYPE_SERVICE",
+                "REQUESTER_TYPE_DELEGATED",
+                "REQUESTER_TYPE_RESEARCH"
+              ],
+              "type": "string"
+            },
+            {
+              "maximum": 2147483647,
+              "minimum": -2147483648,
+              "type": "integer"
+            }
+          ],
+          "description": "What kind of entity is making this request.",
+          "title": "Requester Type"
+        }
+      },
+      "required": [
+        "domain",
+        "id",
+        "type"
+      ],
+      "title": "Requester — Universal identity for any FORA client.",
+      "type": "object"
+    }
+  },
+  "$id": "fora.v1.ResourceQuery.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Sent by a Broker or directly by an AI agent.\n The Exchange evaluates its access policies, available inventory,\n and reporting requirements before responding.",
+  "properties": {
+    "acceptable_restrictions": {
+      "description": "The limits this query operates within, per restriction axis (function,\n geography, user-type, …) — see AcceptableRestriction. Advisory selection\n inputs the Exchange/Broker MAY pre-select offers against (convenience, not\n enforcement); the agent self-selects and bears compliance.",
+      "items": {
+        "$ref": "#/$defs/fora.v1.AcceptableRestriction"
+      },
+      "type": "array"
+    },
+    "deadline": {
+      "description": "Maximum time the caller will wait for a response.\n Exchange SHOULD prioritize speed over completeness when tight.\n Absent = \"0.5s\" default (proto-JSON encodes Duration as seconds).",
+      "format": "duration",
+      "type": "string"
+    },
+    "exchange": {
+      "description": "REQUIRED. Bare host of the recipient this request is addressed to (e.g.\n \"exchange.example\" or \"exchange.example:8081\"). See \"Request recipient\" in\n the file header for the full contract, including the recipient's duty to\n reject a request that names someone else.",
+      "maxLength": 260,
+      "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$",
+      "type": "string"
+    },
+    "ext": {
+      "description": "Extension point",
+      "type": "object"
+    },
+    "ext_critical": {
+      "description": "Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "requester": {
+      "$ref": "#/$defs/fora.v1.Requester",
+      "description": "Requester identity — who is making this request, what scopes they have,\n and optional delegation chain. REQUIRED: a query names its requester, whose\n Requester.id and Requester.domain are required in turn."
+    },
+    "supported_profiles": {
+      "description": "Declares which ext field vocabularies the caller can parse and act on.\n The Exchange SHOULD include profile-specific ext fields in Offers\n when the caller declares support. The Exchange MAY skip expensive\n metadata computation (e.g., retraction checking, consolidation\n verification) when the caller does not declare the relevant profile.\n\n Absence means \"send all available metadata\" — Exchange MUST NOT\n withhold ext fields solely because the caller omitted this field.\n\n Values match the Exchange's WellKnownManifest.supported_profiles entries.\n Examples: [\"fora-news-v1\", \"fora-academic-v1\", \"fora-legal-v1\"]",
+      "items": {
+        "type": "string"
+      },
+      "title": "Domain extension profiles the caller understands.",
+      "type": "array"
+    },
+    "uris": {
+      "description": "Resource URIs being queried.",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 256,
+      "type": "array"
+    },
+    "ver": {
+      "default": "",
+      "description": "FORA protocol version — \"1.0\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "exchange",
+    "requester"
+  ],
+  "title": "ResourceQuery — Query an Exchange for available resource offers.",
+  "type": "object"
+}

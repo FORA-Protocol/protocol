@@ -51,7 +51,7 @@ Before any agent request, providers configure their domains and Exchanges ingest
 }
 ```
 
-**Edge function** — deployed on Hearst's CDN (Cloudflare/Fastly/Lambda@Edge). Blocks unauthorized AI bots with 403 + `X-Content-Rules` header pointing to the Exchange. Verifies Ed25519 signed URLs for authorized requests, using the Exchange's published public key.
+**Edge function** — deployed on Hearst's CDN (Cloudflare/Fastly/Lambda@Edge). Blocks unauthorized AI bots with 403, an `X-Content-Rules` header pointing to the provider's own `fora.json`, and an `X-FORA-Exchange` header naming the Exchange that sells the content. Verifies Ed25519 signed URLs for authorized requests, using the Exchange's published public key.
 
 ### 0b. Agent Key Announcement
 
@@ -59,7 +59,7 @@ Anthropic publishes its agent's Ed25519 public key in its WBA directory (the JWK
 
 ```json
 // GET https://claude.ai/.well-known/http-message-signatures-directory
-// Content-Type: application/jwk-set+json
+// Content-Type: application/http-message-signatures-directory+json
 {
   "keys": [
     {
@@ -92,7 +92,7 @@ The Broker announces its key in its own WBA directory the same way:
 
 ```json
 // GET https://broker.anthropic.com/.well-known/http-message-signatures-directory
-// Content-Type: application/jwk-set+json
+// Content-Type: application/http-message-signatures-directory+json
 {
   "keys": [
     {
@@ -133,8 +133,9 @@ SSP-Alpha's Resource Ingestion Pipeline runs in the background:
      path: "/premium/ai-regulation-2026.html",
      title: "AI Regulation: What Providers Need to Know",
      word_count: 2500,
-     estimated_quantity: 3300,
+     estimated_quantity: 1,   // in the price's unit: one access per purchase
      pricing: { model: PRICING_MODEL_PER_UNIT, rate: "0.05", currency: "USD", unit: "accesses", unit_cost: "0.00001515" },
+     // unit_cost = $0.05 / 3300 tokens (the article's attested size), for comparison only
      identity: {
        canonical_url: "https://techcrunch.com/premium/ai-regulation-2026.html",
        iptc_guid: "urn:newsml:techcrunch:20260315:ai-reg-001",
@@ -227,8 +228,12 @@ Step 2: ExchangeRegistry lookup
 Step 3: Prepare RFC 9421 HTTP Message Signature (alg=ed25519)
   - requester.id = "claude-agent-001"
   - requester.domain = "claude.ai"
-  - Sign the HTTP request per RFC 9421: the SDK adds Signature and
-    Signature-Input headers covering the request method, path, and body digest
+  - Sign the HTTP request per RFC 9421 under the Web Bot Auth profile: the
+    SDK adds Content-Digest, an empty Authorization, Signature-Agent
+    (sig1="https://claude.ai"), Signature-Input and Signature. The signature
+    covers @method, @target-uri, content-digest, authorization and
+    "signature-agent";key="sig1", with created, expires, keyid, nonce and
+    tag="web-bot-auth"
   - Authentication is asymmetric:
     the agent signs with its Ed25519 private key (never leaves the agent),
     the Exchange verifies with the public key fetched from the WBA
@@ -265,9 +270,10 @@ The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-al
 ```
 1. Validate request (proto validation) -> pass
 2. Verify the RFC 9421 HTTP Message Signature (alg=ed25519) on the request:
-   a. Read the covered Signature-Agent header -> "claude.ai"
-   b. Fetch the WBA directory at
-      claude.ai/.well-known/http-message-signatures-directory,
+   a. Read the Signature-Agent member the signature covers
+      -> agent="https://claude.ai"
+   b. Fetch the key directory at
+      https://claude.ai/.well-known/http-message-signatures-directory,
       select the key whose RFC 7638 thumbprint matches the keyid
    c. Verify the signature against public key -> pass
 3. Resolve tenant: techcrunch.com -> Hearst Media tenant
@@ -285,7 +291,7 @@ The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-al
    Offer A (per-request):
      offer_id: "2325749d-50d3-431a-ac34-900d443ee88e"
      pricing: { model: PRICING_MODEL_PER_UNIT, rate: "0.05", currency: "USD",
-                unit: "accesses", unit_cost: "0.00001515", estimated_quantity: 3300 }
+                unit: "accesses", unit_cost: "0.00001515", estimated_quantity: 1 }
      identity: { canonical_url: "https://techcrunch.com/premium/ai-regulation-2026.html",
                  iptc_guid: "urn:newsml:techcrunch:20260315:ai-reg-001",
                  content_hash: "a1b2c3d4e5f6...", hash_method: "simhash-v1" }
@@ -296,7 +302,6 @@ The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-al
      ]
      terms: [
        { semantics: TERM_SEMANTICS_ENUMERATED,
-         pricing: { model: PRICING_MODEL_PER_UNIT, rate: "0.05", currency: "USD", unit: "accesses" },
          restrictions: [
            { kind: RESTRICTION_KIND_FUNCTION,
              permitted: ["ai-input", "ai-index", "search"],
@@ -316,7 +321,6 @@ The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-al
      attestations: { same as Offer A }
      terms: [
        { semantics: TERM_SEMANTICS_ENUMERATED,
-         pricing: { model: PRICING_MODEL_FREE, rate: "0", currency: "USD" },
          restrictions: [ same as Offer A ],
          scopes: ["subscription:SUB-ANTHROPIC-HEARST-2026"] }
      ]
@@ -344,7 +348,7 @@ The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-al
         "currency": "USD",
         "unit": "accesses",
         "unit_cost": "0.00001515",
-        "estimated_quantity": 3300
+        "estimated_quantity": 1
       },
       "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
       "identity": {
@@ -434,7 +438,7 @@ The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-al
 
 ---
 
-## Phase 2b: Cross-Provider via Broker (Header Signature Chain, OfferGroups, SimHash)
+## Phase 2b: Cross-Provider via Broker (Broker-Signed Queries, OfferGroups, SimHash)
 
 If Anthropic uses its hosted Broker instead of the SDK directly, the Broker provides cross-provider intelligence. The agent sends a `DiscoveryRequest` to the Broker with multiple URIs (`BrokerService.Resolve` is discovery-only — it returns offers grouped by URI; execution happens later via a separate `ExecuteTransaction` call). Agent → Broker:
 
@@ -464,12 +468,11 @@ If Anthropic uses its hosted Broker instead of the SDK directly, the Broker prov
 }
 ```
 
-### Broker Fans Out with a Header Signature Chain
+### Broker Fans Out with Its Own Signed Queries
 
-The Broker queries both Exchanges. For each forwarded request, the Broker:
-1. Preserves the agent's original `requester` message
-2. Preserves the agent's RFC 9421 HTTP Message Signature (its labeled signature stays in the `Signature`/`Signature-Input` headers)
-3. Adds its own labeled RFC 9421 HTTP Message Signature, covering the request plus the agent's prior signature (the ordered set of header signatures is the chain that proves the Broker forwarded it)
+Discovery through the Broker is Broker-led: the agent asked the Broker, and the Broker chooses which Exchanges to query. For each Exchange, the Broker originates its own query (here it batches the URIs and sets its own `deadline`) and:
+1. Carries the agent's `requester` message unchanged
+2. Signs the query alone, with its own labeled RFC 9421 HTTP Message Signature covering its own request components and only its own `Signature-Agent` member. The query carries no agent signature headers
 
 Broker → SSP-Alpha (multi-URI batch query) — `POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`:
 
@@ -493,9 +496,7 @@ Broker → SSP-Alpha (multi-URI batch query) — `POST https://exchange.ssp-alph
 }
 ```
 
-The forwarding chain travels in the HTTP headers, not the request body: the agent's labeled RFC 9421 signature and the Broker's labeled RFC 9421 signature both sit in the `Signature`/`Signature-Input` headers. The agent's signature covers `@target-uri` against the Exchange's endpoint -- the final recipient -- not the Broker's relay URL. SSP-Alpha's Exchange verifies the full stack:
-1. The agent's RFC 9421 HTTP Message Signature (alg=ed25519) -- fetch public key from the WBA directory at `claude.ai/.well-known/http-message-signatures-directory`, Ed25519 verify
-2. Each forwarding hop's labeled RFC 9421 HTTP Message Signature -- for each one, look up the public key by its `keyid` thumbprint in the key set the Exchange is configured with (`Signature-Agent` stays the agent's directory, so a hop's key is not discovered through it), Ed25519 verify (each hop signs the request plus the prior hop's signature)
+SSP-Alpha's Exchange verifies the Broker's signature -- it looks up the public key by its `keyid` thumbprint in the key directory named by the Broker's `Signature-Agent` member, Ed25519 verifies, and authenticates the caller as the Broker. How an agent proves a holder-of-key entitlement at discovery time through a Broker is an open protocol question, tracked separately. A discovery query moves no money, so it carries no agent consent; see [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding).
 
 SSP-Alpha returns `offer_groups` (batch mode -- multiple URIs in query):
 
@@ -510,13 +511,12 @@ SSP-Alpha returns `offer_groups` (batch mode -- multiple URIs in query):
         {
           "offer_id": "2325749d-50d3-431a-ac34-900d443ee88e",
           "exchange": "exchange.ssp-alpha.com",
-          "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit": "accesses", "unit_cost": "0.00001515", "estimated_quantity": 3300 },
+          "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit": "accesses", "unit_cost": "0.00001515", "estimated_quantity": 1 },
           "identity": { "canonical_url": "https://techcrunch.com/premium/ai-regulation-2026.html", "iptc_guid": "urn:newsml:techcrunch:20260315:ai-reg-001", "content_hash": "a1b2c3d4e5f6...", "hash_method": "simhash-v1" },
           "attestations": [{ "verifier": "gumgum.com", "claims": { "estimated_quantity": 3300, "word_count": 2500 }, "signature": "..." }],
           "terms": [
             {
-              "semantics": "TERM_SEMANTICS_ENUMERATED",
-              "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit": "accesses", "unit_cost": "0.00001515", "estimated_quantity": 3300 }
+              "semantics": "TERM_SEMANTICS_ENUMERATED"
             }
           ],
           "signature": "base64-ed25519-sig-A...",
@@ -532,8 +532,7 @@ SSP-Alpha returns `offer_groups` (batch mode -- multiple URIs in query):
           "reporting": { "required": true, "window": "86400s", "required_fields": ["transaction_id", "function", "consumed_quantity"] },
           "terms": [
             {
-              "semantics": "TERM_SEMANTICS_ENUMERATED",
-              "pricing": { "model": "PRICING_MODEL_FREE", "rate": "0", "currency": "USD", "unit_cost": "0", "estimated_quantity": 3300 }
+              "semantics": "TERM_SEMANTICS_ENUMERATED"
             }
           ],
           "signature": "base64-ed25519-sig-B...",
@@ -561,7 +560,7 @@ Note: SSP-Alpha returns an empty `offers` array for the `theverge.com` URI with 
     {
       "offer_id": "ecb6fef4-1d83-4751-ab92-b3bc7c2fee39",
       "exchange": "exchange.ssp-beta.com",
-      "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.07", "currency": "USD", "unit": "accesses", "unit_cost": "0.00002258", "estimated_quantity": 3100 },
+      "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.07", "currency": "USD", "unit": "accesses", "unit_cost": "0.00002258", "estimated_quantity": 1 },
       "identity": {
         "canonical_url": "https://theverge.com/premium/ai-regulation-republish.html",
         "iptc_guid": "urn:newsml:techcrunch:20260315:ai-reg-001",
@@ -571,8 +570,7 @@ Note: SSP-Alpha returns an empty `offers` array for the `theverge.com` URI with 
       "attestations": [{ "verifier": "gumgum.com", "claims": { "estimated_quantity": 3100, "word_count": 2350 }, "signature": "..." }],
       "terms": [
         {
-          "semantics": "TERM_SEMANTICS_ENUMERATED",
-          "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.07", "currency": "USD", "unit": "accesses", "unit_cost": "0.00002258", "estimated_quantity": 3100 }
+          "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ],
       "signature": "base64-ed25519-sig-C...",
@@ -621,15 +619,18 @@ Step 3: Rank within content group
 
   Selected: 4f155204-a53e-42aa-8471-154f87d7d3d5 (subscription, zero marginal cost, third-party attested)
 
-Step 4: Budget check
-  - Subscription offer: cost = $0 -> always within budget
-  - Cumulative spend for scope "team:claude-rag": $142.50 of $500.00 period budget
-  - Proceed
+Step 4: Budget filter (applied before the offers are returned)
+  - Spend so far for scope "team:claude-rag", as this Broker counts it: $142.50
+    of the $500.00 period budget. Resolve never charges.
+  - An offer that would take spend past $500.00 is dropped from the result.
+    All three offers fit, so none is dropped. If none had fitted, the URI would
+    come back with OFFER_ABSENCE_REASON_BUDGET_EXCEEDED (a "no result", not an error).
+  - Subscription offer: cost = $0 -> fits any budget
 ```
 
 ---
 
-## Phase 3: Transaction (Requester + Header Signature Chain, Subscription Skip, Quota Check)
+## Phase 3: Transaction (Requester + Request Signature, Subscription Skip, Quota Check)
 
 SDK or Broker commits to the subscription offer.
 
@@ -673,14 +674,7 @@ SDK or Broker commits to the subscription offer.
         },
         "terms": [
           {
-            "semantics": "TERM_SEMANTICS_ENUMERATED",
-            "pricing": {
-              "model": "PRICING_MODEL_FREE",
-              "rate": "0",
-              "currency": "USD",
-              "unit_cost": "0",
-              "estimated_quantity": 3300
-            }
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ],
         "signature": "base64-ed25519-sig-B...",
@@ -695,7 +689,9 @@ SDK or Broker commits to the subscription offer.
 }
 ```
 
-### Orchestrated request -- forwarding chain in the headers:
+### Orchestrated request -- bought through the Broker:
+
+The agent sends the purchase to the Broker, `POST https://broker.example/fora.v1.BrokerService/ExecuteTransaction`, signed for the Broker's URL. The Broker re-packages it and sends SSP-Alpha's Exchange its own sub-request:
 
 `POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
@@ -735,14 +731,7 @@ SDK or Broker commits to the subscription offer.
         },
         "terms": [
           {
-            "semantics": "TERM_SEMANTICS_ENUMERATED",
-            "pricing": {
-              "model": "PRICING_MODEL_FREE",
-              "rate": "0",
-              "currency": "USD",
-              "unit_cost": "0",
-              "estimated_quantity": 3300
-            }
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ],
         "signature": "base64-ed25519-sig-B...",
@@ -757,22 +746,20 @@ SDK or Broker commits to the subscription offer.
 }
 ```
 
-The request body is identical to the direct case; the forwarding chain lives in the HTTP headers. The Broker preserves the agent's labeled RFC 9421 signature and adds its own labeled RFC 9421 signature (covering the request plus the agent's signature) to the `Signature`/`Signature-Input` headers. The Exchange verifies both: the agent's identity (via the agent's RFC 9421 HTTP Message Signature, alg=ed25519, + public key fetched from the agent's WBA directory at `claude.ai/.well-known/http-message-signatures-directory`) and each forwarding hop (via that hop's labeled RFC 9421 signature + the hop's public key, selected by its `keyid` thumbprint from the key set the Exchange is configured with).
+The sub-request body carries SSP-Alpha's items exactly as the agent signed them, with the agent's `agent_acceptance` on each item, its `agent_request_acceptance`, its `requester` and its `idempotency_key` unchanged. The Broker re-packaged this request for SSP-Alpha and signs it alone, with its own labeled RFC 9421 signature covering its own request components and only its own `Signature-Agent` member. The Exchange authenticates the caller as the Broker (its public key selected by `keyid` thumbprint in the directory the Broker's `Signature-Agent` member names). The agent's identity and consent are verified from the body: each `agent_acceptance` is a detached Ed25519 signature over `{offer_sig, requester_id, requester_domain, idempotency_key}`, which the Exchange verifies against the agent's registered key, resolved from `requester.domain` (`claude.ai/.well-known/http-message-signatures-directory`), and the request acceptance proves these items are the complete in-order set addressed to SSP-Alpha. That key also gives the delivery-URL binding, and a delegation's `cnf.jkt` would be checked against it. The Broker returns SSP-Alpha's answer to the agent inside a `BrokerTransactionResponse`, alongside the results of any other Exchange in the same purchase.
 
 ### Inside SSP-Alpha's Exchange
 
 ```
 1. Validate request (proto validation) -> pass
-2. Verify the RFC 9421 HTTP Message Signature (alg=ed25519) on the request:
-   - Fetch public key from the WBA directory at
-     claude.ai/.well-known/http-message-signatures-directory
-     (domain from the covered Signature-Agent header, key by keyid thumbprint)
-   - Ed25519 verify -> pass
-2b. Verify forwarding signature chain (if any forwarding hops added labeled signatures):
-   - For each hop's labeled RFC 9421 signature: look up the public key by its
-     keyid thumbprint in the Exchange's configured key set (Signature-Agent
-     stays the agent's directory)
-   - Ed25519 verify each hop's signature -> pass
+2. Verify the sender's RFC 9421 HTTP Message Signature (alg=ed25519), the
+   Broker's label:
+   - Fetch the Broker's public key from the directory its own covered
+     Signature-Agent member names (key by keyid thumbprint)
+   - Ed25519 verify -> pass; the caller is the Broker
+2b. Verify the agent's agent_acceptance on each item against the agent's
+   registered key, resolved from requester.domain
+   (claude.ai/.well-known/http-message-signatures-directory) -> pass
 2c. Verify `agent_request_acceptance` when the request carries it (this example
    omits the optional field): Ed25519 verify the signed request set against the
    requester's published agent key, then require this request's items to be the
@@ -791,8 +778,9 @@ The request body is identical to the direct case; the forwarding chain lives in 
    - 850000 > 3300 -> sufficient quota, proceed
    - Deduct 3300 from quota -> new remaining: 846700
 7. Compute agent identity hash:
-   agentHash = RFC 7638 JWK thumbprint of the agent's request-signing public key
-             = the keyid this request's RFC 9421 signature was just verified with
+   agentHash = RFC 7638 JWK thumbprint of the agent's public key
+             = the key agent_acceptance was just verified with in step 2b
+               (the Broker signed the transport request, so its keyid is not it)
              = "NzbLsXh8..."
    (A hash of the agent's id and domain would bind nothing: the edge checks the
    hash against a key the fetcher must prove it holds, and anyone can recompute
@@ -864,7 +852,8 @@ Agent -> CDN: GET https://cdn.techcrunch.com/server/premium/ai-regulation-2026.h
               &kid=vJ3xR1mQ...
               &sig=k7Qm2xR9vT4nB8aL...
               Header: X-FORA-Agent-Key: <agent public key, base64url>
-              Header: Signature-Input: sig1=("@method" "@target-uri");keyid=...;alg="ed25519";created=...;expires=...
+              Header: Signature-Agent: sig1="https://claude.ai"
+              Header: Signature-Input: sig1=("@method" "@target-uri" "signature-agent";key="sig1");created=...;expires=...;keyid=...;alg="ed25519";nonce=...;tag="web-bot-auth"
               Header: Signature: sig1=:<standard base64>:
 
 Edge Function:
@@ -873,8 +862,8 @@ Edge Function:
   3. Verify the Ed25519 signature over "GET\n<URL without sig, query sorted>" -> PASS
   4. Check expiry: exp > now? -> PASS (URL valid for 5 minutes)
   5. Check agent identity binding:
-     thumbprint(presented public key) == agent_id? -> PASS
-     Verify the RFC 9421 signature with that key (proof of possession) -> PASS
+     thumbprint(presented public key) == agent_id == keyid? -> PASS
+     Verify the Web Bot Auth signature with that key (proof of possession) -> PASS
      (The agent must hold the private half; presenting the public key is not enough)
   6. Strip agent_id, exp, kid, sig -> CDN serves content from S3/origin
 
@@ -927,7 +916,7 @@ The SDK auto-submits a usage report (background, non-blocking). Usage reporting 
 3. Submit to Reporting Tracker:
    a. Validate required_fields present: transaction_id, function, consumed_quantity -> all present
    b. Check reporting window: deadline 2026-03-16T15:00:00Z, current time 2026-03-15T15:30:00Z -> within window
-   c. Validate consumed_quantity: 3150 actual vs 3300 estimated -> within +/-20% tolerance
+   c. Record consumed_quantity: 3150 actual vs 3300 estimated -> a difference is never a refusal; the report records it
    d. Transition obligation: Pending -> Fulfilled
 4. Write usage report to transaction log (durable)
 ```
@@ -941,7 +930,7 @@ The SDK auto-submits a usage report (background, non-blocking). Usage reporting 
 }
 ```
 
-A successful `UsageReportResponse` carries only the Exchange-assigned `report_id` (the durable identity the agent references when filing a dispute). A rejected report is not a success body — it travels as a non-OK transport error carrying `ErrorDetail.usageReportRejection` (e.g. `{ "usage_report_rejection": { "reason": "USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED" } }`).
+A successful `UsageReportResponse` carries only the Exchange-assigned `report_id` (the durable identity the agent references when filing a dispute). A rejected report is not a success body — it travels as a non-OK transport error carrying `ErrorDetail.usageReportRejection` (e.g. `{ "usage_report_rejection": { "reason": "USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED" } }` with the Connect code `failed_precondition` for a report past its window). A report is never refused because its quantity differs from the estimate.
 
 ---
 
@@ -975,7 +964,7 @@ Three independent records that must agree:
 PASS: CDN log has txn-alpha-001 -> content was actually served
 PASS: Exchange has txn-alpha-001 -> transaction was authorized
 PASS: Usage report received before deadline -> reporting obligation fulfilled
-PASS: Token count 3150 vs estimate 3300 -> within +/-20% tolerance
+PASS: Token count 3150 vs estimate 3300 -> below the estimate, so settled as consumed
 PASS: Function ai-input matches the term's RESTRICTION_KIND_FUNCTION permitted list
 PASS: Citation included as required by the Offer's attribution terms
 ```
@@ -1005,8 +994,7 @@ Response includes signed Offer snapshots for every transaction:
         "subscription_id": "SUB-ANTHROPIC-HEARST-2026",
         "terms": [
           {
-            "semantics": "TERM_SEMANTICS_ENUMERATED",
-            "pricing": { "model": "PRICING_MODEL_FREE", "rate": "0", "currency": "USD" }
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ],
         "signature": "base64-ed25519-sig-B...",

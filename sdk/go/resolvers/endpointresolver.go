@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
@@ -131,26 +130,19 @@ type accountRegistration struct {
 	DataSchema json.RawMessage `json:"data_schema"`
 }
 
-// fetchWellKnownDoc GETs url and decodes the well-known manifest. It is the one
-// HTTP+decode path both resolvers share, so the request/status/decode handling
-// cannot drift between the key and endpoint faces.
+// fetchWellKnownDoc GETs url and decodes the well-known projection. It is the one
+// HTTP+decode path the key, endpoint and registration-requirements faces share, so
+// the request/status/decode handling cannot drift between them; the GET itself is
+// fetchDocument, the one every document read shares. Lenient by design: the
+// projection reads only its own members, and no media type is checked.
 func fetchWellKnownDoc(ctx context.Context, client *http.Client, url string) (*wellKnownDoc, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	f, err := fetchDocument(ctx, client, url)
 	if err != nil {
-		return nil, fmt.Errorf("resolvers: well-known request: %w", err)
+		return nil, fmt.Errorf("resolvers: well-known: %w", err)
 	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("resolvers: well-known fetch: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("resolvers: well-known status %d", resp.StatusCode)
-	}
-	// Bound the body read so a hostile origin cannot force an unbounded decode.
 	var doc wellKnownDoc
-	if decErr := json.NewDecoder(io.LimitReader(resp.Body, maxWellKnownDocBytes)).Decode(&doc); decErr != nil {
-		return nil, fmt.Errorf("resolvers: well-known decode: %w", decErr)
+	if decErr := json.Unmarshal(f.body, &doc); decErr != nil {
+		return nil, fmt.Errorf("resolvers: well-known decode: %w: %w", ErrDirectoryUnavailable, decErr)
 	}
 	return &doc, nil
 }

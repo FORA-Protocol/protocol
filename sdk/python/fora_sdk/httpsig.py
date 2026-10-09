@@ -1,148 +1,144 @@
-"""RFC 9421 Ed25519 request signing + verification — pure, IO-free L1 helper.
+"""RFC 9421 Ed25519 request signing + verification under the Web Bot Auth profile —
+pure, IO-free L1 helper.
 
-Relocated from the app MCP shim (src/mcp/src/fora_mcp_shim/httpsig.py
-``Signer.sign``); the byte oracle is the Go ``SignRequest`` (sdk/go/helpers/sign.go)
-+ ``buildSignatureBase`` (sigbase.go) and ``VerifyRequest`` (verify.go). The port
-MUST produce, byte-for-byte, the same signature base, Signature-Input, and
-Signature the Go oracle emits, pinned to the shared
-sdk/go/helpers/testdata/sign-request-vectors.json.
+The byte oracle is the Go ``SignRequest`` / ``AppendSignature`` (sdk/go/helpers/sign.go)
+over ``buildSignatureBase`` (sigbase.go), and ``VerifyRequest`` (verify.go). The port
+produces, byte for byte, the signature base, Signature-Input, Signature and
+Signature-Agent the Go oracle emits, pinned to the shared
+sdk/go/helpers/testdata/sign-request-vectors.json and multisig-chain-vectors.json.
 
-Covered set is EXACTLY ``@method @target-uri content-digest authorization
-signature-agent`` (no conditional biscuit component). Signature-Agent joined the
-required set with the WBA identity split: every signature commits to
-the signer's key-directory URL, empty included — this supersedes the earlier
-four-component pin. L1 purity (ADR-020 §1/§4): ``created``/``expires`` are
-INJECTED — sign reads no wall clock. The ``Signature`` value is STANDARD base64
-(``sig1=:<b64>:``), NOT b64url-nopad — the two encodings are not unified.
+One signature labelled L, by an agent whose key directory is the https origin O::
 
-``@target-uri`` is rendered verbatim from the supplied absolute URL, matching Go's
-``reconstructTargetURI`` (scheme://host + path + "?"+query) when the URL is already
-in absolute-canonical form (as the fixed vectors are).
+    Signature-Agent: L="O"
+    Signature-Input: L=("@method" "@target-uri" "content-digest" "authorization"
+                        "signature-agent";key="L");created=C;expires=E;keyid="K";
+                        alg="ed25519";nonce="N";tag="web-bot-auth"
+    Signature: L=:<standard base64>:
+
+The covered set is the FORA RPC set (@method and @target-uri bind the verb and the
+destination, content-digest the body, authorization the bearer) plus the signature's
+own Signature-Agent member, which names the directory a verifier resolves the keyid
+in. ``created``/``expires`` are INJECTED — sign reads no wall clock — and the window is
+at most :data:`~fora_sdk.wba.MAX_SIGNATURE_LIFETIME`. ``@target-uri`` is the supplied
+absolute URL verbatim.
 """
 
 from __future__ import annotations
 
 import base64
-import hashlib
-import re
 from dataclasses import dataclass
 
-from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives.asymmetric.ed25519 import (
-    Ed25519PrivateKey,
-    Ed25519PublicKey,
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+from ._sigbase import (
+    SignatureCheckError,
+    SigParams,
+    build_signature_base,
+    content_digest,
+    cover_earlier,
+    parse_all_signatures,
+    plain,
+    signature_input_inner,
 )
-
-from .multisig_parse import max_sig_label_n, signature_bytes_by_label
-
-# FORA coverage set (ADR-001 §2.1) for the originating sig1 — MUST match the
-# Broker/Exchange verifiers' required base components and the Go oracle's
-# requiredCoveredComponents.
-_COVERED_COMPONENTS: tuple[str, ...] = (
-    "@method",
-    "@target-uri",
-    "content-digest",
-    "authorization",
-    "signature-agent",
+from ._sigverify import Request, failure_reason, verify_first
+from .wba import (
+    MAX_SIGNATURE_LIFETIME,
+    InvalidNonceError,
+    SignatureAgentRequiredError,
+    SignatureLabelError,
+    SignatureLifetimeError,
+    SignatureProfileError,
+    accept_signature_for,
+    check_https_origin,
+    next_free_label,
+    signature_agent_component,
+    signature_agent_dictionary,
+    signature_agent_member,
+    used_labels,
+    valid_label,
+    valid_nonce,
 )
+from .wire import WBATag
 
-#: A signature's created timestamp may not lead the verifier clock by more than
-#: this (mirrors the Go verifier's defaultMaxFutureSkew).
-_MAX_FUTURE_SKEW_SEC = 300
-
-# A non-empty nonce may use only base64url characters. Go and TypeScript apply
-# the same rule, so a nonce one SDK accepts is written as the same bytes by all
-# three, and a quote cannot end the quoted parameter early.
-_NONCE_RE = re.compile(r"[A-Za-z0-9_-]*")
+#: The FORA RPC components every request signature covers, before its own
+#: Signature-Agent member.
+_RPC_COMPONENTS: tuple[str, ...] = ("@method", "@target-uri", "content-digest", "authorization")
 
 
 @dataclass(frozen=True)
 class SignedRequest:
     """The RFC 9421 headers + the signature base produced for a request.
 
-    EVERY covered header is here, at the value that entered the base — the two whose
-    value may be empty included, so a caller attaching what this returns sends what was
-    signed. The oracle reaches the same place by mutating the request it was handed
-    (``helpers.SignRequest``), which is why it has no such field to omit. See
-    docs/design-history.md, "A covered header the peer never receives is not bound".
+    EVERY covered header is here, at the value that entered the base, so a caller
+    attaching what this returns sends what was signed. The oracle reaches the same place
+    by mutating the request it was handed (``helpers.SignRequest``), which is why it has
+    no such field to omit. See docs/design-history.md, "A covered header the peer never
+    receives is not bound".
     """
 
     content_digest: str
     signature_input: str
     signature: str
     signature_base: str
-    #: Echoed from the input so a caller attaching what this returns sends what was
-    #: signed. Empty is a value, not an absence — and REQUIRED, no default: a field
-    #: that can be left out re-creates the "empty is a safe default" assumption the
-    #: transport now relies on this echo to remove.
+    #: Echoed from the input. Empty is a value, not an absence, and REQUIRED, no
+    #: default: a field that can be left out re-creates the "empty is a safe default"
+    #: assumption the transport relies on this echo to remove.
     authorization: str
-    #: The signer's WBA directory, echoed for the same reason and required for the
-    #: same reason. Empty is the static-bootstrap case and is still carried.
+    #: The Signature-Agent header value to send: the request's dictionary with this
+    #: signature's member ``<label>="<origin>"`` in it.
     signature_agent: str
 
 
 @dataclass(frozen=True)
 class VerifiedRequest:
-    """Verdict of an RFC 9421 request verification."""
+    """Verdict of an RFC 9421 request verification.
+
+    ``signature_agent`` is, on success, the https origin of the key directory the
+    signature's own covered Signature-Agent member names. ``accept_signature`` is, on a
+    refusal for a missing component, a wrong tag, a Signature-Agent form the profile
+    refuses or a request carrying no signature, the Accept-Signature value to answer
+    with (:func:`fora_sdk.wba.accept_signature`); None otherwise.
+    """
 
     valid: bool
     reason: str | None = None
+    signature_agent: str | None = None
+    accept_signature: str | None = None
 
 
-def content_digest(body: bytes) -> str:
-    """RFC 9530 Content-Digest header value: ``sha-256=:<std-base64(SHA-256)>:``."""
-    return "sha-256=:" + base64.b64encode(hashlib.sha256(body).digest()).decode() + ":"
+def _check_sign_options(signature_agent: str, label: str, created: int, expires: int) -> None:
+    """Refuse what no conformant signature can carry: a missing or non-origin
+    Signature-Agent, an unusable label, or a window that is not positive or longer than
+    MAX_SIGNATURE_LIFETIME."""
+    if signature_agent == "":
+        raise SignatureAgentRequiredError("a signature needs the signer's Signature-Agent origin")
+    check_https_origin(signature_agent)
+    if not valid_label(label):
+        raise SignatureLabelError(f"signature label is not a structured-field key: {label!r}")
+    life = expires - created
+    if created <= 0 or life <= 0 or life > MAX_SIGNATURE_LIFETIME:
+        raise SignatureLifetimeError(
+            f"signature lifetime must be positive and at most {MAX_SIGNATURE_LIFETIME}s: "
+            f"created={created} expires={expires}"
+        )
 
 
-def _signature_params(
-    covered: tuple[str, ...],
-    keyid: str,
-    created: int,
-    expires: int,
-    chain_link_token: str | None = None,
-    *,
-    nonce: str = "",
-) -> str:
-    # The optional forwarding-chain token (``"signature";key="sigN"``) is appended
-    # as the LAST covered component and rendered VERBATIM — it already carries its
-    # own quotes + key= param, so it must NOT be re-wrapped. Default None
-    # keeps the single-sig (N=1) inner list byte-identical.
-    tokens = [f'"{c}"' for c in covered]
-    if chain_link_token is not None:
-        tokens.append(chain_link_token)
-    covered_list = " ".join(tokens)
-    params = f'({covered_list});keyid="{keyid}";alg="ed25519";created={created};expires={expires}'
-    if not _NONCE_RE.fullmatch(nonce):
-        raise ValueError("nonce must use only base64url characters")
-    # Empty nonce emits nothing: byte-identical to a signature made before the
-    # parameter existed (mirrors Go renderParamsTail).
-    return params + f';nonce="{nonce}"' if nonce else params
-
-
-def _signature_base(
+def _sign(
     *,
     method: str,
     url: str,
-    digest_header: str,
-    authorization: str,
-    signature_agent: str,
-    sig_params: str,
-    chain_link: tuple[str, str] | None = None,
-) -> str:
-    lines = [
-        f'"@method": {method.upper()}',
-        f'"@target-uri": {url}',
-        f'"content-digest": {digest_header}',
-        f'"authorization": {authorization}',
-        f'"signature-agent": {signature_agent}',
-    ]
-    # The chain-link line is the LAST covered component BEFORE @signature-params
-    # (Go buildSignatureBase renders params.Covered in order, chain link last).
-    if chain_link is not None:
-        token, value = chain_link
-        lines.append(f"{token}: {value}")
-    lines.append(f'"@signature-params": {sig_params}')
-    return "\n".join(lines)
+    headers: dict[str, str],
+    params: SigParams,
+    signer_seed: bytes,
+) -> tuple[str, str, str]:
+    """Build the base for ``params``, sign it; return (base, input member, sig member)."""
+    if not valid_nonce(params.nonce):
+        raise InvalidNonceError("nonce must use only base64url characters")
+    base = build_signature_base(method, url, headers, params)
+    sig = Ed25519PrivateKey.from_private_bytes(signer_seed).sign(base.encode())
+    member_input = f"{params.label}={signature_input_inner(params)}"
+    member_sig = f"{params.label}=:{base64.b64encode(sig).decode()}:"
+    return base, member_input, member_sig
 
 
 def sign_request(
@@ -157,44 +153,65 @@ def sign_request(
     expires: int,
     signature_agent: str = "",
     nonce: str = "",
+    label: str = "",
 ) -> SignedRequest:
-    """Sign a request over the FORA covered set; return the RFC 9421 headers.
+    """Sign a request as a FORA RPC under the Web Bot Auth profile; return the headers.
 
-    ``created``/``expires`` are injected unix seconds (L1-pure, no wall clock).
-    Authorization is always bound — pass an empty string when the caller holds no
-    token, which BINDS that emptiness. The header is still emitted and still sent;
-    an absent header is a different thing entirely and a verifier refuses it.
-    ``signature_agent`` is the signer's WBA key-directory URL, bound the same
-    way (empty string for the static bootstrap path), mirroring Go's
-    ``bindSignatureAgent``.
+    ``signature_agent`` is the signer's key-directory origin, such as
+    ``"https://agent.example"``. It is required: the emitted Signature-Agent is the
+    one-member dictionary ``<label>="<origin>"``, and the signature covers that member.
+    ``label`` defaults to ``sig1``. ``created``/``expires`` are injected unix seconds.
 
-    ``nonce``, when non-empty, is emitted as the RFC 9421 ``nonce`` parameter.
-    Ed25519 is deterministic and the timestamps have one-second resolution, so
-    identical requests signed in the same second produce the same signature and a
-    replay store refuses the second. The helper reads no RNG: a caller that needs
-    unique signatures supplies a fresh nonce (``SigningTransport`` does). A
-    non-empty nonce must use only base64url characters, or ``ValueError`` is raised.
+    Authorization is always bound — pass an empty string when the caller holds no token,
+    which BINDS that emptiness. The header is still emitted and still sent; an absent
+    header is a different thing entirely and a verifier refuses it.
+
+    ``nonce``, when non-empty, is emitted as the RFC 9421 ``nonce`` parameter. Ed25519
+    is deterministic and the timestamps have one-second resolution, so identical
+    requests signed in the same second produce the same signature and a replay store
+    refuses the second. The helper reads no RNG: a caller that needs unique signatures
+    supplies a fresh nonce (``SigningTransport`` does).
+
+    Raises :class:`~fora_sdk.wba.SignatureAgentRequiredError`,
+    :class:`~fora_sdk.wba.SignatureAgentNotOriginError`,
+    :class:`~fora_sdk.wba.SignatureLabelError`,
+    :class:`~fora_sdk.wba.SignatureLifetimeError` or
+    :class:`~fora_sdk.wba.InvalidNonceError`, before anything is signed.
     """
+    label = label or "sig1"
+    _check_sign_options(signature_agent, label, created, expires)
     digest_header = content_digest(body)
-    sig_params = _signature_params(_COVERED_COMPONENTS, keyid, created, expires, nonce=nonce)
-    base = _signature_base(
-        method=method,
-        url=url,
-        digest_header=digest_header,
-        authorization=authorization,
-        signature_agent=signature_agent,
-        sig_params=sig_params,
+    agent = signature_agent_member(label, signature_agent)
+    params = _request_params(label, keyid, created, expires, nonce)
+    headers = {
+        "content-digest": digest_header,
+        "authorization": authorization,
+        "signature-agent": agent,
+    }
+    base, member_input, member_sig = _sign(
+        method=method, url=url, headers=headers, params=params, signer_seed=signer_seed
     )
-    priv = Ed25519PrivateKey.from_private_bytes(signer_seed)
-    sig = priv.sign(base.encode())
-    sig_b64 = base64.b64encode(sig).decode()
     return SignedRequest(
         content_digest=digest_header,
-        signature_input=f"sig1={sig_params}",
-        signature=f"sig1=:{sig_b64}:",
+        signature_input=member_input,
+        signature=member_sig,
         signature_base=base,
         authorization=authorization,
-        signature_agent=signature_agent,
+        signature_agent=agent,
+    )
+
+
+def _request_params(label: str, keyid: str, created: int, expires: int, nonce: str) -> SigParams:
+    """The parameters of a FORA RPC signature labelled ``label``."""
+    return SigParams(
+        label=label,
+        covered=(*plain(*_RPC_COMPONENTS), signature_agent_component(label)),
+        keyid=keyid,
+        alg="ed25519",
+        created=created,
+        expires=expires,
+        nonce=nonce,
+        tag=WBATag,
     )
 
 
@@ -204,89 +221,102 @@ def append_signature(
     url: str,
     body: bytes,
     authorization: str,
-    signature_agent: str,
-    prev_signature_input: str,
-    prev_signature: str,
     signer_seed: bytes,
     keyid: str,
     created: int,
     expires: int,
+    signature_agent: str = "",
+    prev_signature_input: str = "",
+    prev_signature: str = "",
+    prev_signature_agent: str = "",
     nonce: str = "",
+    label: str = "",
+    cover_previous: bool = False,
 ) -> SignedRequest:
-    """Chain sig(N+1) onto ``prev_signature_input``/``prev_signature`` WITHOUT
-    disturbing existing members of the forwarding chain, the Python port of Go
-    ``helpers.AppendSignature``.
+    """Add a signature to a request WITHOUT disturbing any signature already on it, the
+    Python port of Go ``helpers.AppendSignature``.
 
-    Finds the next label sig(N+1) and predecessor sigN, binds the FORA base plus a
-    ``"signature";key="sigN"`` link whose value is ``:<std-base64(decoded
-    predecessor sig bytes)>:`` (re-encoded canonically, NOT a wire splice),
-    Ed25519-signs, and returns the APPENDED Signature-Input / Signature. Appending
-    to an unsigned request (empty prev) produces a sig1 byte-for-byte identical to
-    ``sign_request`` — single-sig is the N=1 case. ``nonce`` is as in
-    ``sign_request``.
+    ``prev_signature_input``, ``prev_signature`` and ``prev_signature_agent`` are the
+    request's current Signature-Input, Signature and Signature-Agent values (empty for
+    an unsigned request). The new signature's member ``<label>="<signature_agent>"`` is
+    appended to the Signature-Agent dictionary, and its Signature-Input and Signature
+    members to theirs; the returned values are the whole new headers. ``label`` defaults
+    to the first ``sigN`` no signature or member on the request uses; an explicit one
+    must be a free structured-field key.
+
+    The new signature covers its own request components and its own member only, unless
+    ``cover_previous`` is set: then it also covers the LAST signature already on the
+    request completely, as WG-00 §5.2.2 permits a party that forwards a request
+    unchanged — every component that signature lists, its Signature member and its
+    Signature-Input member. With no earlier signature it is a no-op, and appending to an
+    unsigned request produces the same headers as :func:`sign_request`.
+
+    A Signature-Agent that is not a dictionary, such as an agent's legacy String form,
+    raises :class:`~fora_sdk.wba.SignatureAgentFormError`: a String cannot take a second
+    member, and rewriting it would break the earlier signature. The other refusals are
+    those of :func:`sign_request`, plus :class:`~fora_sdk.wba.SignatureLabelError` for a
+    label already in use.
     """
+    prev = {
+        "signature-input": prev_signature_input,
+        "signature": prev_signature,
+        "signature-agent": prev_signature_agent,
+    }
+    prev = {name: value for name, value in prev.items() if value.strip() != ""}
+    label = label or next_free_label(prev)
+    _check_sign_options(signature_agent, label, created, expires)
+    if label in used_labels(prev):
+        raise SignatureLabelError(f"signature label {label!r} is already in use on the request")
+    signature_agent_dictionary(prev)
+    earlier = _last_signature(prev) if cover_previous else None
     digest_header = content_digest(body)
-    has_prev = prev_signature_input != ""
-    prev_n = max_sig_label_n(prev_signature_input) if has_prev else 0
-    label = f"sig{prev_n + 1}"
-
-    chain_link_token: str | None = None
-    chain_link: tuple[str, str] | None = None
-    if prev_n > 0:
-        prev_label = f"sig{prev_n}"
-        prev_bytes = signature_bytes_by_label(prev_signature).get(prev_label)
-        if prev_bytes is None:
-            raise ValueError(f"append_signature: predecessor {prev_label} not in Signature")
-        chain_link_token = f'"signature";key="{prev_label}"'
-        chain_link = (chain_link_token, ":" + base64.b64encode(prev_bytes).decode() + ":")
-
-    sig_params = _signature_params(
-        _COVERED_COMPONENTS, keyid, created, expires, chain_link_token, nonce=nonce
+    agent = signature_agent_member(label, signature_agent)
+    if "signature-agent" in prev:
+        agent = prev["signature-agent"].strip() + ", " + agent
+    params = _request_params(label, keyid, created, expires, nonce)
+    if earlier is not None:
+        params = SigParams(
+            label=params.label,
+            covered=tuple(cover_earlier(list(params.covered), earlier)),
+            keyid=params.keyid,
+            alg=params.alg,
+            created=params.created,
+            expires=params.expires,
+            nonce=params.nonce,
+            tag=params.tag,
+        )
+    headers = {
+        **prev,
+        "content-digest": digest_header,
+        "authorization": authorization,
+        "signature-agent": agent,
+    }
+    base, member_input, member_sig = _sign(
+        method=method, url=url, headers=headers, params=params, signer_seed=signer_seed
     )
-    base = _signature_base(
-        method=method,
-        url=url,
-        digest_header=digest_header,
-        authorization=authorization,
-        signature_agent=signature_agent,
-        sig_params=sig_params,
-        chain_link=chain_link,
-    )
-    sig = Ed25519PrivateKey.from_private_bytes(signer_seed).sign(base.encode())
-    sig_b64 = base64.b64encode(sig).decode()
-    member_input = f"{label}={sig_params}"
-    member_sig = f"{label}=:{sig_b64}:"
     return SignedRequest(
         content_digest=digest_header,
-        signature_input=f"{prev_signature_input}, {member_input}" if has_prev else member_input,
-        signature=f"{prev_signature}, {member_sig}" if prev_signature != "" else member_sig,
+        signature_input=_append_member(prev.get("signature-input"), member_input),
+        signature=_append_member(prev.get("signature"), member_sig),
         signature_base=base,
         authorization=authorization,
-        signature_agent=signature_agent,
+        signature_agent=agent,
     )
 
 
-def _extract_sig_params(signature_input: str) -> str | None:
-    """Return the verbatim params string after ``sig1=`` (``(...);keyid=...``)."""
-    eq = signature_input.find("=")
-    if eq < 0:
-        return None
-    return signature_input[eq + 1 :].strip()
-
-
-def _extract_signature_bytes(signature: str) -> bytes | None:
-    m = re.search(r":([^:]+):", signature)
-    if not m:
+def _last_signature(prev: dict[str, str]) -> SigParams | None:
+    """The last signature on the request in header order, or None when it has none."""
+    if "signature-input" not in prev:
         return None
     try:
-        return base64.b64decode(m.group(1))
-    except (ValueError, TypeError):
-        return None
+        all_params, _ = parse_all_signatures(prev)
+    except SignatureCheckError as exc:
+        raise ValueError(f"cover previous signature: {exc}") from exc
+    return all_params[-1]
 
 
-def _param_int(sig_params: str, name: str) -> int | None:
-    m = re.search(rf";{name}=(\d+)", sig_params)
-    return int(m.group(1)) if m else None
+def _append_member(existing: str | None, member: str) -> str:
+    return f"{existing.strip()}, {member}" if existing else member
 
 
 def verify_request(
@@ -302,55 +332,39 @@ def verify_request(
     now: int,
     signature_agent: str = "",
 ) -> VerifiedRequest:
-    """Verify an RFC 9421 request against ``pubkey`` at ``now`` (unix seconds).
+    """Verify the request's first RFC 9421 signature against ``pubkey`` at ``now``.
 
-    ``content_digest`` is the request's Content-Digest header value. Enforces the
-    digest, the created/expires window, and the Ed25519 signature over the
-    reconstructed base (which commits to ``signature_agent``, empty included).
-    Pure: key resolution and ``now`` are injected.
+    ``signature_agent`` is the request's Signature-Agent header value ("" when the
+    request carries none); ``content_digest`` its Content-Digest. Every rule of the
+    profile applies, as in Go ``helpers.VerifyRequest``: alg ed25519, tag web-bot-auth,
+    the FORA RPC components and the signature's own Signature-Agent member covered, the
+    member an https origin, the digest, the created/expires window, and the Ed25519
+    signature over the rebuilt base. Pure: the key and ``now`` are injected. The verdict
+    reports the directory the member names, and, for the refusals the profile answers
+    that way, the Accept-Signature value.
     """
-    sig_params = _extract_sig_params(signature_input)
-    if sig_params is None:
-        return VerifiedRequest(valid=False, reason="malformed_sig_input")
-
-    sig_bytes = _extract_signature_bytes(signature)
-    if sig_bytes is None:
-        return VerifiedRequest(valid=False, reason="missing_sig")
-
-    created = _param_int(sig_params, "created")
-    expires = _param_int(sig_params, "expires")
-    if created is None:
-        return VerifiedRequest(valid=False, reason="missing_created")
-    if expires is None:
-        return VerifiedRequest(valid=False, reason="missing_expires")
-    if expires < now:
-        return VerifiedRequest(valid=False, reason="expired")
-    if created > now + _MAX_FUTURE_SKEW_SEC:
-        return VerifiedRequest(valid=False, reason="future_created")
-
-    expected_digest = "sha-256=:" + base64.b64encode(hashlib.sha256(body).digest()).decode() + ":"
-    if content_digest.strip() != expected_digest:
-        return VerifiedRequest(valid=False, reason="digest_mismatch")
-
-    base = _signature_base(
-        method=method,
-        url=url,
-        digest_header=content_digest,
-        authorization=authorization,
-        signature_agent=signature_agent,
-        sig_params=sig_params,
-    )
+    headers = {
+        "signature-input": signature_input,
+        "signature": signature,
+        "content-digest": content_digest,
+        "authorization": authorization,
+    }
+    if signature_agent != "":
+        headers["signature-agent"] = signature_agent
+    request = Request(method=method, url=url, body=body, headers=headers)
     try:
-        Ed25519PublicKey.from_public_bytes(pubkey).verify(sig_bytes, base.encode())
-    except (InvalidSignature, ValueError):
-        return VerifiedRequest(valid=False, reason="signature_verify")
-    return VerifiedRequest(valid=True)
+        verified = verify_first(request, lambda _directory, _keyid: pubkey, now=now)
+    except (SignatureCheckError, SignatureProfileError) as exc:
+        return VerifiedRequest(
+            valid=False, reason=failure_reason(exc), accept_signature=accept_signature_for(exc)
+        )
+    return VerifiedRequest(valid=True, signature_agent=verified.signature_agent)
 
 
-# The framework-agnostic single-sig SERVER-verify face lives in server_verify.py
-# (it composes this module's verify_request primitive with the injected resolver /
-# replay store / clock). Re-export it here so a Broker/Exchange imports the whole
-# request-verify surface — primitive + server entry — from fora_sdk.httpsig.
+# The framework-agnostic SERVER-verify faces live in server_verify.py (they compose the
+# shared verification core with the injected resolver / replay store / clock).
+# Re-export them here so a Broker/Exchange imports the whole request-verify surface —
+# primitive + server entry — from fora_sdk.httpsig.
 from .server_verify import (  # noqa: E402
     MultisigVerdict,
     RejectReason,

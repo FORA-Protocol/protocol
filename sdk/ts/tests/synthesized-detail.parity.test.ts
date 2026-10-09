@@ -140,6 +140,7 @@ describe("the content leg's synthesized detail", () => {
 			])) as CryptoKeyPair;
 			const client = createClient("https://exchange.test", {
 				signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+				signatureAgent: "https://agent.test",
 				agentPublicKey: keys.publicKey,
 			});
 			return (await client

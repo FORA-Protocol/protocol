@@ -36,7 +36,7 @@ func (p popSigner) SignFetch(ctx context.Context, target string) (helpers.AgentB
 		return helpers.AgentBinding{}, p.err
 	}
 	return helpers.SignAgentBinding(ctx, p.signer, p.pub, helpers.PoPOptions{
-		URL: target, Created: p.created, Expires: p.expires,
+		URL: target, Created: p.created, Expires: p.expires, SignatureAgent: "https://agent.example",
 	})
 }
 
@@ -96,10 +96,16 @@ func verifyProofLikeTheEdge(t *testing.T, r *http.Request) {
 		t.Errorf("signature is not standard base64: %v", err)
 		return
 	}
+	// The proof is a Web Bot Auth signature: its Signature-Agent member names the
+	// agent's directory and is covered.
+	if got := r.Header.Get(helpers.SignatureAgentHeader); got != `sig1="https://agent.example"` {
+		t.Errorf("Signature-Agent = %q, want the agent's member", got)
+	}
 	// The edge rebuilds @target-uri from the raw request line it received.
 	target := "http://" + r.Host + r.URL.RequestURI()
 	base := `"@method": ` + r.Method + "\n" +
 		`"@target-uri": ` + target + "\n" +
+		`"signature-agent";key="sig1": "https://agent.example"` + "\n" +
 		`"@signature-params": ` + rawParams
 	if !ed25519.Verify(pubBytes, []byte(base), sig) {
 		t.Errorf("proof does not verify over the base the edge reconstructs:\n%s", base)

@@ -113,10 +113,10 @@ func TestCatalog_PushIsSignedStampedAndAnswered(t *testing.T) {
 	sig := newSigningFixture(t)
 	origin := &recordingCatalog{}
 	srv := serveCatalog(t, sig, origin)
-	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
 
 	req := &forav1.PushResourcesRequest{
-		Exchange: "exchange.test", TenantId: "tenant-1", CallerId: "publisher.test",
+		Exchange: "exchange.test", TenantId: "tenant-1",
 		Entries: []*forav1.ResourceEntry{catalogEntry()},
 	}
 	resp, err := client.PushResources(context.Background(), req)
@@ -129,8 +129,8 @@ func TestCatalog_PushIsSignedStampedAndAnswered(t *testing.T) {
 	if origin.push.GetVer() != helpers.ProtocolVersion {
 		t.Errorf("ver on the wire = %q, want %q", origin.push.GetVer(), helpers.ProtocolVersion)
 	}
-	if origin.push.GetExchange() != "exchange.test" || origin.push.GetCallerId() != "publisher.test" {
-		t.Errorf("addressing on the wire = %q/%q, want the caller's own", origin.push.GetExchange(), origin.push.GetCallerId())
+	if origin.push.GetExchange() != "exchange.test" {
+		t.Errorf("addressing on the wire = %q, want the caller's own", origin.push.GetExchange())
 	}
 	if req.GetVer() != "" {
 		t.Error("the caller's request was modified; the client must stamp a clone")
@@ -143,10 +143,11 @@ func TestCatalog_RemoveAndRefreshKeepTheCallersVersion(t *testing.T) {
 	sig := newSigningFixture(t)
 	origin := &recordingCatalog{}
 	srv := serveCatalog(t, sig, origin)
-	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
 
 	if _, err := client.RemoveResources(context.Background(), &forav1.RemoveResourcesRequest{
-		Exchange: "exchange.test", TenantId: "tenant-1", Paths: []string{"/x"}, Ver: "9.9",
+		Exchange: "exchange.test", TenantId: "tenant-1", Ver: "9.9",
+		Resources: []*forav1.ResourceRef{{Domain: "publisher.test", Path: "/x"}},
 	}); err != nil {
 		t.Fatalf("RemoveResources: %v", err)
 	}
@@ -174,7 +175,7 @@ func TestCatalog_RefusesAnUnaddressedRequestBeforeSending(t *testing.T) {
 	sig := newSigningFixture(t)
 	origin := &recordingCatalog{}
 	srv := serveCatalog(t, sig, origin)
-	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
 
 	// The last three are the reason this preflight uses the wire-domain rule rather
 	// than the routing one: every one of them is a perfectly usable HOST, so the
@@ -197,7 +198,9 @@ func TestCatalog_RefusesAnUnaddressedRequestBeforeSending(t *testing.T) {
 			t.Errorf("%s: error = %v, want a CallNotSent CallError", name, err)
 		}
 	}
-	if _, err := client.RemoveResources(context.Background(), &forav1.RemoveResourcesRequest{Paths: []string{"/x"}}); err == nil {
+	if _, err := client.RemoveResources(context.Background(), &forav1.RemoveResourcesRequest{
+		Resources: []*forav1.ResourceRef{{Domain: "publisher.test", Path: "/x"}},
+	}); err == nil {
 		t.Error("remove with no exchange must be refused")
 	}
 	if _, err := client.RefreshCatalog(context.Background(), nil); err == nil {
@@ -249,7 +252,7 @@ func TestCatalog_TypedRejectionIsReadable(t *testing.T) {
 		"fora.v1.CatalogService", "caller is not a contributor for publisher.test",
 		forav1.CatalogRejectionReason_CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR)}
 	srv := serveCatalog(t, sig, origin)
-	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
 
 	_, err := client.PushResources(context.Background(), &forav1.PushResourcesRequest{
 		Exchange: "exchange.test", TenantId: "tenant-1", Entries: []*forav1.ResourceEntry{catalogEntry()},
@@ -280,7 +283,7 @@ func TestCatalog_RefusalRedactsACredentialInTheRecipient(t *testing.T) {
 	client := foraconnect.NewCatalogClient("https://exchange.test")
 
 	_, err := client.PushResources(context.Background(), &forav1.PushResourcesRequest{
-		Exchange: "publisher:s3cr3t@exchange.test", TenantId: "t", CallerId: "c",
+		Exchange: "publisher:s3cr3t@exchange.test", TenantId: "t",
 		Entries: []*forav1.ResourceEntry{{Domain: "publisher.test", Path: "/x"}},
 	})
 	if err == nil {

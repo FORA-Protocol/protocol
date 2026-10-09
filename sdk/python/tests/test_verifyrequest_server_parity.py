@@ -1,7 +1,7 @@
 """sdk/python full-RPC single-signature SERVER-VERIFY parity.
 
-SINGLE-SIG scope only: multisig forwarding-chain verify (hop budget, broken_chain)
-is OUT OF SCOPE and handled separately. This suite pins the generalized
+SINGLE-SIG scope only: verifying every signature of a multi-signature request (hop
+budget, broken_chain) is OUT OF SCOPE and handled separately. This suite pins the generalized
 ``httpsig.verify_request`` server
 face: today ``verify_request`` is a pure primitive that takes an already-resolved
 public key and explicit covered fields; it adds a framework-agnostic SERVER
@@ -19,11 +19,13 @@ over sdk/go/helpers/verify.go. Reject reason tokens mirror RejectReason.String()
 tampered covered field / missing component — the default) and "replay". The
 multisig tokens broken_chain / hop_budget are out of scope here.
 
-RED until BOTH (a) httpsig grows ``verify_request_server`` AND (b) the Go emitter
-produces sdk/go/helpers/testdata/verify-request-neg-vectors.json. The implement
-step adds both; this test is the TDD-red contract. Referencing the
-not-yet-existing symbol + the not-yet-emitted vector file keeps the suite RED on
-both the missing server face AND the missing shared negative oracle.
+Under the Web Bot Auth profile the vectors also pin WHERE a key is resolved: in the
+directory the signature's own covered Signature-Agent member names, which the verdict
+reports. A refusal for a missing component, a wrong tag, a Signature-Agent form the
+profile refuses or an unsigned request carries the Accept-Signature value the oracle
+records (``expected_accept_signature``); every other refusal carries none. The accept
+corpus (verify-request-accept-vectors.json) pins the forms other Web Bot Auth signers
+send that a FORA verifier accepts although the SDK never emits them.
 """
 
 from __future__ import annotations
@@ -50,6 +52,7 @@ _SIGN_VECTORS = load_json(GO_TESTDATA / "sign-request-vectors.json")["vectors"]
 # a clean TDD-red signal that the shared negative oracle is missing.
 _NEG_VECTORS_PATH = GO_TESTDATA / "verify-request-neg-vectors.json"
 _NEG_VECTORS = load_json(_NEG_VECTORS_PATH)["vectors"]
+_ACCEPT_VECTORS = load_json(GO_TESTDATA / "verify-request-accept-vectors.json")["vectors"]
 
 
 def _b64url_nopad_decode(s: str) -> bytes:
@@ -58,18 +61,20 @@ def _b64url_nopad_decode(s: str) -> bytes:
 
 
 class _RecordingResolver:
-    """A KeyResolver that records every keyid it was asked to resolve.
+    """A KeyResolver that records every (directory, keyid) it was asked to resolve.
 
     The injected-boundary probe: the server face MUST resolve keys ONLY through
-    this holder, so the recorded calls prove no key was read out-of-band.
+    this holder, so the recorded calls prove no key was read out-of-band, and the
+    recorded directory proves the key was looked up where the signature's member
+    points.
     """
 
     def __init__(self, keys: dict[str, bytes]) -> None:
         self._keys = dict(keys)
-        self.calls: list[str | None] = []
+        self.calls: list[tuple[str, str | None]] = []
 
-    def resolve(self, keyid: str | None) -> bytes | None:
-        self.calls.append(keyid)
+    def resolve(self, keyid: str | None, directory: str) -> bytes | None:
+        self.calls.append((directory, keyid))
         if keyid is None:
             return None
         return self._keys.get(keyid)
@@ -115,6 +120,20 @@ def test_neg_vector_set_covers_every_single_sig_reject_case() -> None:
         # The entitlement name carried twice with an empty line first — the coverage
         # rule is skipped entirely by a reader that resolves the name to one line.
         "neg_shadowed_entitlement",
+        # The Web Bot Auth profile's own refusals: the tag, the Signature-Agent forms
+        # it does not accept, a member that is not an https origin, a required RPC
+        # component left uncovered, an unsigned request, and a member repointed at
+        # another directory after signing.
+        "neg_missing_tag",
+        "neg_wrong_tag",
+        "neg_bare_signature_agent",
+        "neg_signature_agent_member_absent",
+        "neg_signature_agent_type_not_directory",
+        "neg_signature_agent_not_https_origin",
+        "neg_signature_agent_not_an_origin",
+        "neg_missing_fora_component",
+        "neg_unsigned",
+        "neg_repointed_signature_agent",
     } <= names
 
 
@@ -138,7 +157,7 @@ def test_oracle_signed_request_verifies_through_server_face(vector: dict[str, ob
             "signature-input": str(vector["signature_input"]),
             "signature": str(vector["signature"]),
             "authorization": str(vector["authorization"]),
-            "signature-agent": str(vector.get("signature_agent", "")),
+            "signature-agent": str(vector["emitted_headers"]["signature-agent"][0]),  # type: ignore[index]
         },
         resolver=resolver,
         replay_store=store,
@@ -146,8 +165,10 @@ def test_oracle_signed_request_verifies_through_server_face(vector: dict[str, ob
     )
 
     assert verdict.valid is True
-    # Key resolved ONLY through the injected resolver (no out-of-band read).
-    assert keyid in resolver.calls
+    assert verdict.signature_agent == str(vector["signature_agent"])
+    # Key resolved ONLY through the injected resolver (no out-of-band read), in the
+    # directory the signer's member names.
+    assert resolver.calls == [(str(vector["signature_agent"]), keyid)]
 
 
 def test_live_signed_request_roundtrips_through_server_face() -> None:
@@ -158,7 +179,7 @@ def test_live_signed_request_roundtrips_through_server_face() -> None:
         .public_key()
         .public_bytes(Encoding.Raw, PublicFormat.Raw)
     )
-    created, expires = 1_700_000_000, 1_700_000_600
+    created, expires = 1_700_000_000, 1_700_000_300
     body = b'{"uri":"https://cdn.example/live"}'
 
     signed = sign_request(
@@ -183,7 +204,7 @@ def test_live_signed_request_roundtrips_through_server_face() -> None:
             "signature-input": signed.signature_input,
             "signature": signed.signature,
             "authorization": "Bearer live-token",
-            "signature-agent": "https://agent.example",
+            "signature-agent": signed.signature_agent,
         },
         resolver=resolver,
         replay_store=_MemoryReplayStore(),
@@ -191,7 +212,8 @@ def test_live_signed_request_roundtrips_through_server_face() -> None:
     )
 
     assert verdict.valid is True
-    assert resolver.calls == ["mcp.v1"]
+    assert verdict.signature_agent == "https://agent.example"
+    assert resolver.calls == [("https://agent.example", "mcp.v1")]
 
 
 @pytest.mark.parametrize("vector", _NEG_VECTORS, ids=[v["name"] for v in _NEG_VECTORS])
@@ -211,7 +233,7 @@ def test_negative_vector_rejected_with_correct_reason(vector: dict[str, object])
         "signature-input": str(vector["signature_input"]),
         "signature": str(vector["signature"]),
         "authorization": str(vector["authorization"]),
-        "signature-agent": str(vector.get("signature_agent", "")),
+        "signature-agent": str(vector["signature_agent"]),
     }
     # A vector carrying an "entitlement" value exercises entitlement-coverage
     # enforcement: set the X-Entitlement-Token request header to it. The base
@@ -249,6 +271,41 @@ def test_negative_vector_rejected_with_correct_reason(vector: dict[str, object])
     verdict = _verify()
     assert verdict.valid is False  # type: ignore[attr-defined]
     assert verdict.reason == str(vector["expected_reason"])  # type: ignore[attr-defined]
+    # The Accept-Signature answer: the oracle's value for the refusals the profile answers
+    # that way, none for every other.
+    assert verdict.accept_signature == (vector.get("expected_accept_signature") or None)  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize("vector", _ACCEPT_VECTORS, ids=[v["name"] for v in _ACCEPT_VECTORS])
+def test_accept_vector_verifies_and_names_the_directory(vector: dict[str, object]) -> None:
+    # POSITIVE, the other signers' forms: the legacy String Signature-Agent on one
+    # signature, a member key that differs from the label, type=directory as a String
+    # and as a Token, no nonce, a nonce of another length, other members beside the
+    # signer's. Each verifies, and the key is resolved in the directory the oracle names.
+    assert vector["expected_reason"] == ""
+    keyid = str(vector.get("resolver_keyid") or vector["keyid"])
+    resolver = _RecordingResolver(
+        {keyid: _b64url_nopad_decode(str(vector["resolver_pubkey_b64url"]))}
+    )
+    verdict = verify_request_server(
+        method=str(vector["method"]),
+        url=str(vector["url"]),
+        body=bytes.fromhex(str(vector["body_hex"])),
+        headers={
+            "content-digest": str(vector["content_digest"]),
+            "signature-input": str(vector["signature_input"]),
+            "signature": str(vector["signature"]),
+            "authorization": str(vector["authorization"]),
+            "signature-agent": str(vector["signature_agent"]),
+        },
+        resolver=resolver,
+        replay_store=_MemoryReplayStore(),
+        now=int(vector["now"]),  # type: ignore[call-overload]
+    )
+    assert verdict.valid is True, verdict.reason
+    assert verdict.accept_signature is None
+    assert verdict.signature_agent == str(vector["expected_signature_agent"])
+    assert resolver.calls == [(str(vector["expected_signature_agent"]), keyid)]
 
 
 def test_replay_uses_the_injected_store_only() -> None:
@@ -275,7 +332,7 @@ def test_replay_uses_the_injected_store_only() -> None:
             "signature-input": str(replay["signature_input"]),
             "signature": str(replay["signature"]),
             "authorization": str(replay["authorization"]),
-            "signature-agent": str(replay.get("signature_agent", "")),
+            "signature-agent": str(replay["signature_agent"]),
         },
         resolver=StaticKeyResolver(keys),
         replay_store=store,
@@ -285,7 +342,7 @@ def test_replay_uses_the_injected_store_only() -> None:
     assert len(store.seen) == 1
 
 
-def _live_signed_call(*, max_signature_age: int, window: int = 600) -> object:
+def _live_signed_call(*, max_signature_age: int, window: int = 300) -> object:
     # Sign a request live over a `window`-second declared lifetime and verify it
     # through the single-sig server face under the given max_signature_age clamp.
     # Returns the verdict. Backs the lifetime-clamp parity tests.
@@ -318,7 +375,7 @@ def _live_signed_call(*, max_signature_age: int, window: int = 600) -> object:
             "signature-input": signed.signature_input,
             "signature": signed.signature,
             "authorization": "Bearer clamp-token",
-            "signature-agent": "https://agent.example",
+            "signature-agent": signed.signature_agent,
         },
         resolver=_RecordingResolver({"mcp.v1": pub}),
         replay_store=_MemoryReplayStore(),
@@ -328,27 +385,27 @@ def _live_signed_call(*, max_signature_age: int, window: int = 600) -> object:
 
 
 def test_single_sig_within_max_age_bound_verifies() -> None:
-    # Lifetime clamp — WITHIN the bound: a 600s window under a 700s clamp verifies.
-    verdict = _live_signed_call(max_signature_age=700)
+    # Lifetime clamp — WITHIN the bound: a 300s window under a 400s clamp verifies.
+    verdict = _live_signed_call(max_signature_age=400)
     assert verdict.valid is True  # type: ignore[attr-defined]
 
 
 def test_single_sig_equal_to_max_age_bound_verifies() -> None:
-    # Lifetime clamp — EQUAL to the bound (inclusive): 600s window under a 600s clamp
+    # Lifetime clamp — EQUAL to the bound (inclusive): 300s window under a 300s clamp
     # verifies (mirrors Go's `> maxAge` reject — equality passes).
-    verdict = _live_signed_call(max_signature_age=600)
+    verdict = _live_signed_call(max_signature_age=300)
     assert verdict.valid is True  # type: ignore[attr-defined]
 
 
 def test_single_sig_exceeding_max_age_bound_is_rejected() -> None:
-    # Lifetime clamp — EXCEEDING the bound: 600s window under a 500s clamp rejects with
+    # Lifetime clamp — EXCEEDING the bound: 300s window under a 200s clamp rejects with
     # reason "signature" (mirrors Go ErrSignatureLifetimeTooLong).
-    verdict = _live_signed_call(max_signature_age=500)
+    verdict = _live_signed_call(max_signature_age=200)
     assert verdict.valid is False  # type: ignore[attr-defined]
     assert verdict.reason == "signature"  # type: ignore[attr-defined]
 
 
 def test_single_sig_unbounded_max_age_default_verifies() -> None:
-    # Lifetime clamp — UNBOUNDED default (0 / omitted): the 600s window is admitted.
+    # Lifetime clamp — UNBOUNDED default (0 / omitted): the 300s window is admitted.
     verdict = _live_signed_call(max_signature_age=0)
     assert verdict.valid is True  # type: ignore[attr-defined]

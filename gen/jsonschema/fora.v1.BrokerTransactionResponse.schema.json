@@ -1,0 +1,766 @@
+{
+  "$defs": {
+    "fora.v1.CatalogRejection": {
+      "description": "CatalogRejection — a CatalogService call could not be applied.",
+      "properties": {
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR",
+                "CATALOG_REJECTION_REASON_TENANT_MISMATCH",
+                "CATALOG_REJECTION_REASON_DOMAIN_NOT_VERIFIED",
+                "CATALOG_REJECTION_REASON_SIGNATURE_INVALID",
+                "CATALOG_REJECTION_REASON_MALFORMED_ENTRY",
+                "CATALOG_REJECTION_REASON_UNKNOWN_VOCAB_TOKEN",
+                "CATALOG_REJECTION_REASON_QUOTA_EXCEEDED",
+                "CATALOG_REJECTION_REASON_TERMS_LIMIT_EXCEEDED",
+                "CATALOG_REJECTION_REASON_URI_UNAVAILABLE",
+                "CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION",
+                "CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED"
+              ],
+              "type": "string"
+            },
+            {
+              "maximum": 11,
+              "minimum": 1,
+              "type": "integer"
+            }
+          ],
+          "description": "The rejection reason (defined-only, non-zero)",
+          "title": "Catalog Rejection Reason"
+        },
+        "rejected_paths": {
+          "description": "The entry paths the refusal is about. A catalog push is all-or-nothing, so\n these name which entries failed inside a submission that persisted nothing —\n they are not a list of what was dropped from an otherwise applied batch.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "Catalog Rejection",
+      "type": "object"
+    },
+    "fora.v1.Cost": {
+      "description": "Cost — Actual transaction cost.",
+      "properties": {
+        "amount": {
+          "default": "",
+          "description": "Exact decimal string (not a float), e.g. \"19.99\". Denominated in `currency`.",
+          "maxLength": 32,
+          "pattern": "^([0-9]+([.][0-9]+)?)?$",
+          "type": "string"
+        },
+        "currency": {
+          "default": "",
+          "type": "string"
+        },
+        "unit_cost": {
+          "maxLength": 32,
+          "pattern": "^([0-9]+([.][0-9]+)?)?$",
+          "type": "string"
+        }
+      },
+      "title": "Cost",
+      "type": "object"
+    },
+    "fora.v1.DisputeFailure": {
+      "description": "DisputeFailure — a dispute could not be filed.",
+      "properties": {
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND",
+                "DISPUTE_FAILURE_REASON_REPORT_NOT_FILED",
+                "DISPUTE_FAILURE_REASON_WINDOW_EXPIRED",
+                "DISPUTE_FAILURE_REASON_DUPLICATE",
+                "DISPUTE_FAILURE_REASON_INELIGIBLE",
+                "DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION"
+              ],
+              "type": "string"
+            },
+            {
+              "maximum": 6,
+              "minimum": 1,
+              "type": "integer"
+            }
+          ],
+          "description": "The failure reason (defined-only, non-zero)",
+          "title": "Dispute Failure Reason"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "Dispute Failure",
+      "type": "object"
+    },
+    "fora.v1.DomainVerificationFailure": {
+      "description": "DomainVerificationFailure — RequestDomainVerification / ConfirmDomainVerification failed.",
+      "properties": {
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_NOT_FOUND",
+                "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_MISMATCH",
+                "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_EXPIRED",
+                "DOMAIN_VERIFICATION_FAILURE_REASON_FETCH_FAILED",
+                "DOMAIN_VERIFICATION_FAILURE_REASON_EXCHANGE_NOT_AUTHORIZED",
+                "DOMAIN_VERIFICATION_FAILURE_REASON_KEY_REGISTRATION_FAILED",
+                "DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION"
+              ],
+              "type": "string"
+            },
+            {
+              "maximum": 7,
+              "minimum": 1,
+              "type": "integer"
+            }
+          ],
+          "description": "The failure reason (defined-only, non-zero)",
+          "title": "Domain Verification Failure Reason"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "Domain Verification Failure",
+      "type": "object"
+    },
+    "fora.v1.ErrorDetail": {
+      "description": "ErrorDetail — the structured detail attached to every non-OK transport error.",
+      "properties": {
+        "catalog_rejection": {
+          "$ref": "#/$defs/fora.v1.CatalogRejection",
+          "description": "`reason` oneof — CatalogService rejection"
+        },
+        "dispute_failure": {
+          "$ref": "#/$defs/fora.v1.DisputeFailure",
+          "description": "`reason` oneof — DisputeTransaction filing refused"
+        },
+        "domain": {
+          "default": "",
+          "description": "Stable grouping for the failing surface, e.g. \"fora.v1.ExchangeService\".\n Mirrors google.rpc.ErrorInfo.domain so generic tooling can group errors.",
+          "type": "string"
+        },
+        "domain_verification_failure": {
+          "$ref": "#/$defs/fora.v1.DomainVerificationFailure",
+          "description": "`reason` oneof — domain verification failed"
+        },
+        "message": {
+          "default": "",
+          "description": "Developer-facing, NON-authoritative human message. Clients MUST branch on\n the typed reason below, never on this text. Servers SHOULD NOT place secrets,\n PII, or existence/authorization detail here that the closed typed reason\n deliberately withholds: unlike the enum, this free text is unbounded and\n easily becomes an existence oracle or leak channel (see `metadata`).",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Dynamic key/value context that also appears in `message` (ids, limits,\n axes). Mirrors google.rpc.ErrorInfo.metadata. Strongly-typed context rides\n in the per-domain reason block below instead. Same leakage rule as `message`:\n servers SHOULD NOT put secrets, PII, or withheld existence/authorization\n detail here — it is the same potential side channel as the absence oracle.",
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "registration_failure": {
+          "$ref": "#/$defs/fora.v1.RegistrationFailure",
+          "description": "`reason` oneof — agent/provider registration refused"
+        },
+        "request_auth_failure": {
+          "$ref": "#/$defs/fora.v1.RequestAuthFailure",
+          "description": "`reason` oneof — RFC 9421 request signature on an RPC refused"
+        },
+        "retrieval_auth_failure": {
+          "$ref": "#/$defs/fora.v1.RetrievalAuthFailure",
+          "description": "`reason` oneof — signed-URL / proof-of-possession check failed"
+        },
+        "transaction_denial": {
+          "$ref": "#/$defs/fora.v1.TransactionDenial",
+          "description": "`reason` oneof — ExecuteTransaction refused as a whole request"
+        },
+        "usage_report_rejection": {
+          "$ref": "#/$defs/fora.v1.UsageReportRejection",
+          "description": "`reason` oneof — ReportUsage filing rejected"
+        }
+      },
+      "title": "Error Detail",
+      "type": "object"
+    },
+    "fora.v1.ExchangeOutcome": {
+      "description": "ExchangeOutcome — the request-level state of one Exchange's answer to the\n sub-request a Broker sent it on BrokerService.ExecuteTransaction: the fields\n of its TransactionResponse that are not per item.",
+      "properties": {
+        "agent_identity_hash": {
+          "default": "",
+          "description": "That Exchange's TransactionResponse.agent_identity_hash: the identity the\n retrieval_endpoint of each of its items is bound to. Empty when the\n Exchange refused the sub-request or did not answer.",
+          "type": "string"
+        },
+        "exchange": {
+          "description": "Bare host of the Exchange, in the form \"Request recipient\" defines in the\n file header: the offer.exchange its items share.",
+          "maxLength": 260,
+          "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$",
+          "type": "string"
+        },
+        "offer_ids": {
+          "description": "The offer_id of every item sent to this Exchange, in request order.",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256,
+          "type": "array"
+        },
+        "subscription_quota": {
+          "description": "That Exchange's TransactionResponse.subscription_quota, unchanged.",
+          "items": {
+            "$ref": "#/$defs/fora.v1.SubscriptionQuotaInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "exchange"
+      ],
+      "title": "Exchange Outcome",
+      "type": "object"
+    },
+    "fora.v1.RegistrationFailure": {
+      "description": "RegistrationFailure — a registration request could not be completed.",
+      "properties": {
+        "field_errors": {
+          "description": "When reason = INVALID_REGISTRATION_DATA: the registration_data members\n that are missing or do not conform. Empty for every other reason — enforced\n by the message rule above, not left to prose.",
+          "items": {
+            "$ref": "#/$defs/fora.v1.RegistrationFieldError"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "REGISTRATION_FAILURE_REASON_DOMAIN_NOT_VERIFIED",
+                "REGISTRATION_FAILURE_REASON_INVALID_KEY",
+                "REGISTRATION_FAILURE_REASON_SIGNATURE_INVALID",
+                "REGISTRATION_FAILURE_REASON_ALREADY_REGISTERED",
+                "REGISTRATION_FAILURE_REASON_QUOTA_EXCEEDED",
+                "REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA",
+                "REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE",
+                "REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION"
+              ],
+              "type": "string"
+            },
+            {
+              "maximum": 8,
+              "minimum": 1,
+              "type": "integer"
+            }
+          ],
+          "description": "The failure reason (defined-only, non-zero)",
+          "title": "Registration Failure Reason"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "Registration Failure",
+      "type": "object"
+    },
+    "fora.v1.RegistrationFieldError": {
+      "description": "RegistrationFieldError — one registration_data member that failed the\n Exchange's published schema (AccountRegistration.data_schema).",
+      "properties": {
+        "error": {
+          "description": "Developer-facing, NON-authoritative description of what failed\n (e.g. \"required\", \"must match ^[A-Z]{2}[0-9]+$\"). Wording is\n validator-defined and not stable across Exchanges; clients branch on\n `reason`, never on this text. States the constraint, NEVER the submitted\n value — the ErrorDetail leakage rule applies here too.",
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        },
+        "path": {
+          "default": "",
+          "description": "RFC 6901 JSON Pointer to the offending member, relative to\n registration_data (e.g. \"/vat_id\", \"/address/postal_code\"). The empty\n string addresses registration_data itself, for whole-object failures\n (oneOf, minProperties) that belong to no single member.",
+          "maxLength": 255,
+          "type": "string"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "title": "Registration Field Error",
+      "type": "object"
+    },
+    "fora.v1.ReportingObligation": {
+      "description": "A usage report is a record of the quantity consumed. An honest report of a\n quantity that differs from the estimate, above or below, is a valid report\n and is never refused for that difference.",
+      "properties": {
+        "endpoint": {
+          "description": "URL to submit the usage report to (if different from Exchange).",
+          "type": "string"
+        },
+        "ext": {
+          "description": "Extension point",
+          "type": "object"
+        },
+        "ext_critical": {
+          "description": "Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "required": {
+          "default": false,
+          "description": "Whether post-usage reporting is required.",
+          "type": "boolean"
+        },
+        "required_fields": {
+          "description": "Field names that must be present in the report.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "window": {
+          "description": "Duration within which the report must be submitted (e.g. \"86400s\" = 24\n hours; proto-JSON encodes Duration as seconds). A report that arrives after\n the window closed is refused with USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED\n (Connect code failed_precondition).",
+          "format": "duration",
+          "type": "string"
+        }
+      },
+      "title": "ReportingObligation — Requirements attached to a delivery.",
+      "type": "object"
+    },
+    "fora.v1.RequestAuthFailure": {
+      "description": "RequestAuthFailure — an RPC request's HTTP message signature was refused.",
+      "properties": {
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING",
+                "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID",
+                "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE"
+              ],
+              "type": "string"
+            },
+            {
+              "maximum": 3,
+              "minimum": 1,
+              "type": "integer"
+            }
+          ],
+          "description": "The failure reason (defined-only, non-zero)",
+          "title": "Request Auth Failure Reason"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "Request Auth Failure",
+      "type": "object"
+    },
+    "fora.v1.RetrievalAuthFailure": {
+      "description": "RetrievalAuthFailure — a signed-URL retrieval / proof-of-possession check failed.",
+      "properties": {
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED",
+                "RETRIEVAL_AUTH_FAILURE_REASON_URL_SIGNATURE_MISSING",
+                "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRY_MISSING",
+                "RETRIEVAL_AUTH_FAILURE_REASON_URL_SIGNATURE_MISMATCH",
+                "RETRIEVAL_AUTH_FAILURE_REASON_AGENT_KEY_MISSING",
+                "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_SIGNATURE_MISSING",
+                "RETRIEVAL_AUTH_FAILURE_REASON_KEYID_MISMATCH",
+                "RETRIEVAL_AUTH_FAILURE_REASON_THUMBPRINT_MISMATCH",
+                "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_CREATED_MISSING",
+                "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRY_MISSING",
+                "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRED",
+                "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_SIGNATURE_INVALID"
+              ],
+              "type": "string"
+            },
+            {
+              "maximum": 12,
+              "minimum": 1,
+              "type": "integer"
+            }
+          ],
+          "description": "The failure reason (defined-only, non-zero)",
+          "title": "Retrieval Auth Failure Reason"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "Retrieval Auth Failure",
+      "type": "object"
+    },
+    "fora.v1.SubscriptionQuotaInfo": {
+      "description": "Analogous to RateLimitInfo (which signals API request rate limits), this\n signals subscription consumption quotas. Enables agents to throttle\n proactively instead of discovering exhaustion via denial.\n\n Returned on Offer (per-offer quota visibility) and TransactionResponse\n (post-transaction remaining quota). A subscription may have multiple\n independent quotas (access count + spend cap + burst limit), so this\n message is used as a repeated field.\n\n Quota decrement timing: the counter increments at ExecuteTransaction\n (optimistic decrement, before delivery). If delivery fails, the agent\n files a DisputeTransaction which may reverse the decrement. This is\n consistent with the billing model (billing_id created at transaction time).",
+      "properties": {
+        "quota_limit": {
+          "default": 0,
+          "description": "Total allowed in the current period.",
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        },
+        "quota_remaining": {
+          "default": 0,
+          "description": "Remaining in the current period.",
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        },
+        "quota_used": {
+          "default": 0,
+          "description": "Used so far in the current period.",
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        },
+        "resets_at": {
+          "description": "When the quota counter resets (UTC).",
+          "format": "date-time",
+          "type": "string"
+        },
+        "subscription_id": {
+          "default": "",
+          "description": "Subscription this quota applies to.",
+          "type": "string"
+        },
+        "unit": {
+          "description": "What is being metered. Distinguishes access count quotas from\n spend quotas from burst limits.\n Standard values: \"accesses\", \"tokens\", \"spend_cents\", \"burst\"",
+          "type": "string"
+        }
+      },
+      "title": "SubscriptionQuotaInfo — Proactive quota signaling for subscription access.",
+      "type": "object"
+    },
+    "fora.v1.TransactionDenial": {
+      "description": "This is the only case an ExecuteTransaction answer is a non-OK error carrying\n a DenialReason: the Exchange refuses the request as a whole and decides no\n item, for a reason about the caller or the request that would deny every item\n alike — for example the caller holds no account (ACCOUNT_NOT_REGISTERED), its\n account is not active (ACCOUNT_INACTIVE), it has overdue reports\n (REPORTING_OVERDUE), or it is rate limited (RATE_LIMITED). Nothing is\n purchased. Every decision about an item is answered in the body instead, on\n TransactionResultItem.denial_reason, whatever the item count: a denied\n one-item purchase is a successful response whose one item is denied, never\n this error. RELAY_NOT_ACCEPTED is a per-item decision and is never carried\n here, and RESTRICTION_NOT_SATISFIED is never sent at all.",
+      "properties": {
+        "exchange": {
+          "description": "Bare host of the Exchange that PRODUCED this denial, in the form \"Request\n recipient\" defines in the file header. Not an echo of what the caller sent:\n on a relayed or fanned-out execute the request went to a Broker, so the\n Exchange that refused may not be one the agent named (through\n BrokerService.ExecuteTransaction this detail reaches the agent inside\n UpstreamRefusal.detail, beside UpstreamRefusal.party). Carrying it here is\n what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to\n call Register without fetching a manifest to work it out. NOTHING SIGNS THIS\n VALUE: it rides in a response, and on a relayed path the response passed\n through an intermediary, so this field is exactly the unsigned addressing\n the request-side `exchange` field exists to refuse. Treat it as a HINT, not\n an instruction. Before acting on it — and registering is a consequential act,\n handing an operator's business data and a signed acceptance of that\n Exchange's terms to whoever answers — a caller MUST check the value against\n a domain it already trusts for this transaction: the signed `offer.exchange`\n of the items in the refused request, or its own RequestConstraints.exchanges\n set. A value matching neither is reported to the caller and never dialled,\n because a hostile intermediary that could choose it would be choosing where\n an unattended agent registers.",
+          "maxLength": 260,
+          "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$",
+          "type": "string"
+        },
+        "offer_id": {
+          "description": "DEPRECATED, never set. A whole-request refusal pertains to no one offer; a\n denial of one offer rides on that offer's TransactionResultItem. The field\n is retained because removing it would break the v1 wire contract; a\n receiver ignores it.",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "DENIAL_REASON_ACCOUNT_INACTIVE",
+                "DENIAL_REASON_INSUFFICIENT_BALANCE",
+                "DENIAL_REASON_RATE_LIMITED",
+                "DENIAL_REASON_CONTENT_UNAVAILABLE",
+                "DENIAL_REASON_RESTRICTION_NOT_SATISFIED",
+                "DENIAL_REASON_REPORTING_OVERDUE",
+                "DENIAL_REASON_OFFER_EXPIRED",
+                "DENIAL_REASON_SIGNATURE_INVALID",
+                "DENIAL_REASON_QUOTA_EXCEEDED",
+                "DENIAL_REASON_DELEGATION_INVALID",
+                "DENIAL_REASON_SCOPE_INSUFFICIENT",
+                "DENIAL_REASON_ENTITLEMENT_MISSING",
+                "DENIAL_REASON_ENTITLEMENT_MALFORMED",
+                "DENIAL_REASON_ENTITLEMENT_EXPIRED",
+                "DENIAL_REASON_ENTITLEMENT_WRONG_BUYER",
+                "DENIAL_REASON_SUBSCRIPTION_LAPSED",
+                "DENIAL_REASON_ENTITLEMENT_NOT_GRANTED",
+                "DENIAL_REASON_ACCOUNT_NOT_REGISTERED",
+                "DENIAL_REASON_RELAY_NOT_ACCEPTED",
+                "DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION"
+              ],
+              "type": "string"
+            },
+            {
+              "maximum": 20,
+              "minimum": 1,
+              "type": "integer"
+            }
+          ],
+          "description": "The denial reason (defined-only, non-zero)",
+          "title": "Denial Reason"
+        },
+        "restriction_mismatches": {
+          "description": "DEPRECATED, never set. RESTRICTION_NOT_SATISFIED is never sent: the\n Exchange never enforces a restriction (see Restriction). The field is\n retained because removing it would break the v1 wire contract; a receiver\n ignores it.",
+          "items": {
+            "anyOf": [
+              {
+                "enum": [
+                  "RESTRICTION_KIND_UNSPECIFIED",
+                  "RESTRICTION_KIND_FUNCTION",
+                  "RESTRICTION_KIND_GEOGRAPHY",
+                  "RESTRICTION_KIND_USER_TYPE",
+                  "RESTRICTION_KIND_OTHER"
+                ],
+                "type": "string"
+              },
+              {
+                "maximum": 2147483647,
+                "minimum": -2147483648,
+                "type": "integer"
+              }
+            ],
+            "title": "Restriction Kind"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "TransactionDenial — ExecuteTransaction refused the WHOLE request. Reuses the\n DenialReason vocabulary.",
+      "type": "object"
+    },
+    "fora.v1.TransactionResultItem": {
+      "description": "TransactionResultItem — Result for a single offer in a batch transaction.",
+      "properties": {
+        "billing_id": {
+          "default": "",
+          "description": "Billing record identifier minted by the Exchange's billing adapter for\n this transaction (not the account handle — see RegisterResponse.billing_ref).",
+          "type": "string"
+        },
+        "cost": {
+          "$ref": "#/$defs/fora.v1.Cost",
+          "description": "Cost for this item. For a metered (PER_UNIT) item this is the purchase\n charge: the offer's estimated_quantity × rate, or one unit, 1 × rate, when\n the offer states no estimate (see Pricing)."
+        },
+        "delivery_method": {
+          "anyOf": [
+            {
+              "pattern": "^DELIVERY_METHOD_UNSPECIFIED$",
+              "type": "string"
+            },
+            {
+              "enum": [
+                "DELIVERY_METHOD_DIRECT",
+                "DELIVERY_METHOD_INSTRUCTIONS",
+                "DELIVERY_METHOD_STREAMING"
+              ],
+              "type": "string"
+            },
+            {
+              "maximum": 2147483647,
+              "minimum": -2147483648,
+              "type": "integer"
+            }
+          ],
+          "default": 0,
+          "description": "How resource is delivered for this item.",
+          "title": "Delivery Method"
+        },
+        "denial_reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "DENIAL_REASON_UNSPECIFIED",
+                "DENIAL_REASON_ACCOUNT_INACTIVE",
+                "DENIAL_REASON_INSUFFICIENT_BALANCE",
+                "DENIAL_REASON_RATE_LIMITED",
+                "DENIAL_REASON_CONTENT_UNAVAILABLE",
+                "DENIAL_REASON_RESTRICTION_NOT_SATISFIED",
+                "DENIAL_REASON_REPORTING_OVERDUE",
+                "DENIAL_REASON_OFFER_EXPIRED",
+                "DENIAL_REASON_SIGNATURE_INVALID",
+                "DENIAL_REASON_QUOTA_EXCEEDED",
+                "DENIAL_REASON_DELEGATION_INVALID",
+                "DENIAL_REASON_SCOPE_INSUFFICIENT",
+                "DENIAL_REASON_ENTITLEMENT_MISSING",
+                "DENIAL_REASON_ENTITLEMENT_MALFORMED",
+                "DENIAL_REASON_ENTITLEMENT_EXPIRED",
+                "DENIAL_REASON_ENTITLEMENT_WRONG_BUYER",
+                "DENIAL_REASON_SUBSCRIPTION_LAPSED",
+                "DENIAL_REASON_ENTITLEMENT_NOT_GRANTED",
+                "DENIAL_REASON_ACCOUNT_NOT_REGISTERED",
+                "DENIAL_REASON_RELAY_NOT_ACCEPTED",
+                "DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION"
+              ],
+              "type": "string"
+            },
+            {
+              "maximum": 2147483647,
+              "minimum": -2147483648,
+              "type": "integer"
+            }
+          ],
+          "description": "Set if this specific item was denied (others may succeed). Every per-item\n denial is answered here, in a successful response, also when the request\n carried only this item: a denied one-item purchase is never a non-OK error.",
+          "title": "Denial Reason"
+        },
+        "expires_at": {
+          "description": "When retrieval_endpoint expires.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "offer_id": {
+          "default": "",
+          "description": "The offer_id this result is for.",
+          "type": "string"
+        },
+        "refusal": {
+          "$ref": "#/$defs/fora.v1.UpstreamRefusal",
+          "description": "Set only on a BrokerTransactionResponse, and only when the Exchange that\n owns this item refused the Broker's whole sub-request instead of answering\n it: a non-OK answer, or no answer at all. offer_id names the item;\n transaction_id, billing_id, cost, denial_reason, retrieval_endpoint and the\n other result fields stay unset. Every item the Broker sent in that\n sub-request carries the same refusal. Whether the item was purchased\n depends on the refusal's code. With the code \"unavailable\" or\n \"deadline_exceeded\" the outcome is unknown: the Exchange may have completed\n the purchase before the answer was lost, whether it gave no answer or\n answered that code, and retrying the agent's request with the same\n idempotency_key through the same Broker settles it (see\n UpstreamRefusal.code). With any other code the Exchange answered with a\n refusal that decided no item, so the item was not purchased. An Exchange\n never sets this field, and a Broker never replaces it with a denial_reason:\n an upstream refusal is not a per-item access decision."
+        },
+        "reporting_obligation": {
+          "$ref": "#/$defs/fora.v1.ReportingObligation",
+          "description": "Reporting requirements for this item."
+        },
+        "resource_title": {
+          "description": "Resource title echoed from the Offer.",
+          "type": "string"
+        },
+        "restriction_mismatches": {
+          "description": "DEPRECATED, never set. It named the restriction axes a request failed under\n DENIAL_REASON_RESTRICTION_NOT_SATISFIED, which is never sent: the Exchange\n never enforces a restriction (see Restriction). The field is retained\n because removing it would break the v1 wire contract; a receiver ignores it.",
+          "items": {
+            "anyOf": [
+              {
+                "enum": [
+                  "RESTRICTION_KIND_UNSPECIFIED",
+                  "RESTRICTION_KIND_FUNCTION",
+                  "RESTRICTION_KIND_GEOGRAPHY",
+                  "RESTRICTION_KIND_USER_TYPE",
+                  "RESTRICTION_KIND_OTHER"
+                ],
+                "type": "string"
+              },
+              {
+                "maximum": 2147483647,
+                "minimum": -2147483648,
+                "type": "integer"
+              }
+            ],
+            "title": "Restriction Kind"
+          },
+          "type": "array"
+        },
+        "retrieval_endpoint": {
+          "description": "Signed retrieval URL for this item. Bound to the requesting agent's identity\n via the parent TransactionResponse.agent_identity_hash (shared across all\n batch items) — on a BrokerTransactionResponse, the agent_identity_hash of\n the ExchangeOutcome for this item's Exchange; expires at expires_at. Absent if this item was denied or its\n delivery_method is not signed-URL-based.",
+          "type": "string"
+        },
+        "subscription_id": {
+          "description": "If under subscription, no per-request charge.",
+          "type": "string"
+        },
+        "subscription_unit_value": {
+          "$ref": "#/$defs/fora.v1.Cost",
+          "description": "Computed per-unit cost for financial attribution on subscription transactions.\n Even when cost.amount=\"0\" (subscription), this field carries the value\n of the access for accounting purposes (e.g., ASC 606 prepaid drawdown)."
+        },
+        "transaction_id": {
+          "default": "",
+          "description": "Exchange-assigned transaction identifier.",
+          "type": "string"
+        }
+      },
+      "title": "Transaction Result Item",
+      "type": "object"
+    },
+    "fora.v1.UpstreamRefusal": {
+      "description": "UpstreamRefusal — a peer's refusal of a call made on the caller's behalf: the\n party that refused, the Connect code it answered with, and its typed reason,\n unchanged. It is the one shape for \"a peer refused\", in two places:\n   - A Broker purchase. An Exchange's refusal of a whole sub-request a Broker\n     sent it on BrokerService.ExecuteTransaction is carried in the Broker's\n     response body on each affected item (TransactionResultItem.refusal) instead\n     of being turned into an error of the Broker's own. The party is the\n     Exchange, equal to the refused items' signed offer.exchange, which is the\n     value a caller acts on.\n   - An MCP tool error. An Identity Service tool whose call was refused\n     answers with an error result whose structuredContent is\n     {\"refusal\": UpstreamRefusal}: the party is the Broker or Exchange that\n     refused, or the Identity Service itself when it refused the tool call.\n Like TransactionDenial.exchange, nothing signs it: it is the relaying party's\n report of what the refusing party answered.",
+      "properties": {
+        "code": {
+          "description": "The Connect code the party answered with, in its wire form, e.g.\n \"permission_denied\" or \"unauthenticated\". When the party gave no answer\n — unreachable, or the call timed out — it is the code the relaying party's\n call failed with (\"unavailable\", \"deadline_exceeded\"). A refusal with\n either of those codes is an ambiguous outcome: a purchase may have\n completed. On a Broker purchase, retrying the agent's request with the same\n idempotency_key through the same Broker is answered from each Exchange's\n stored result, so it settles the outcome without buying twice.",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "detail": {
+          "$ref": "#/$defs/fora.v1.ErrorDetail",
+          "description": "The party's typed reason, unchanged — the ErrorDetail it attached to its\n refusal. Absent when the party attached none or gave no answer."
+        },
+        "party": {
+          "description": "Bare host of the party that refused the call made on the caller's behalf,\n in the form \"Request recipient\" defines in the file header.",
+          "maxLength": 260,
+          "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "party"
+      ],
+      "title": "Upstream Refusal",
+      "type": "object"
+    },
+    "fora.v1.UsageReportRejection": {
+      "description": "UsageReportRejection — a usage report could not be accepted.",
+      "properties": {
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND",
+                "USAGE_REPORT_REJECTION_REASON_DUPLICATE",
+                "USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED",
+                "USAGE_REPORT_REJECTION_REASON_MISSING_REQUIRED_FIELDS",
+                "USAGE_REPORT_REJECTION_REASON_MALFORMED",
+                "USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION"
+              ],
+              "type": "string"
+            },
+            {
+              "maximum": 6,
+              "minimum": 1,
+              "type": "integer"
+            }
+          ],
+          "description": "The rejection reason (defined-only, non-zero)",
+          "title": "Usage Report Rejection Reason"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "Usage Report Rejection",
+      "type": "object"
+    }
+  },
+  "$id": "fora.v1.BrokerTransactionResponse.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "BrokerTransactionResponse — the Broker's combined answer to\n BrokerService.ExecuteTransaction: the independent per-resource purchases it\n made at one or more Exchanges, assembled in request order. Each item is\n atomic and owned by the Exchange that issued its offer, so the combination\n needs no integrity of its own and carries none: no field here is signed, and\n a result item's one signed value is its retrieval_endpoint, signed by the\n issuing Exchange (see BrokerService.ExecuteTransaction).",
+  "properties": {
+    "exchanges": {
+      "description": "One per Exchange the Broker contacted, in the order each Exchange first\n appears among the request items.",
+      "items": {
+        "$ref": "#/$defs/fora.v1.ExchangeOutcome"
+      },
+      "type": "array"
+    },
+    "ext": {
+      "description": "Extension point",
+      "type": "object"
+    },
+    "ext_critical": {
+      "description": "Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "items": {
+      "description": "One per request item, in request order. A purchase that succeeded, or that\n its Exchange denied per item (denial_reason), is that Exchange's\n TransactionResultItem unchanged. An item whose Exchange refused the whole\n sub-request, or did not answer it, carries that refusal in `refusal`, with\n offer_id set and no other result field. When the Broker itself does not\n understand a key the agent's request lists in ext_critical, every item is\n the Broker's denial, DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION, and no\n Exchange was contacted.",
+      "items": {
+        "$ref": "#/$defs/fora.v1.TransactionResultItem"
+      },
+      "type": "array"
+    },
+    "totals": {
+      "description": "Charged totals, one per currency, in the order each currency first appears\n among the charged items. An item is charged when it carries neither\n denial_reason nor refusal; its cost.amount is added, as an exact decimal,\n into the entry for its cost.currency. Amounts are never summed across\n currencies and never converted: currency conversion is out of scope for\n this version. unit_cost is unset. Empty when no item was charged. An item\n whose refusal carries the code \"unavailable\" or \"deadline_exceeded\" may\n have been charged but is not counted, so totals is then a lower bound of\n what the purchase charged.",
+      "items": {
+        "$ref": "#/$defs/fora.v1.Cost"
+      },
+      "type": "array"
+    },
+    "ver": {
+      "default": "",
+      "description": "FORA protocol version — \"1.0\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
+      "type": "string"
+    }
+  },
+  "title": "Broker Transaction Response",
+  "type": "object"
+}

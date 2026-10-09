@@ -1,0 +1,66 @@
+{
+  "$defs": {
+    "fora.v1.JsonWebKey": {
+      "additionalProperties": false,
+      "description": "FORA v1.0 supports Ed25519 only: kty=\"OKP\", crv=\"Ed25519\", alg=\"EdDSA\".\n Additional curves are a later concern. `alg` is the JOSE name RFC 7517 §4.4\n defines; WG-00 §5.5.1 restricts the member to HTTP Message Signatures names\n (`ed25519`), a known and deliberate deviation. The RFC 9421 signature\n parameter `alg` in Signature-Input is a different field and is \"ed25519\".\n\n Time bounds are RFC3339 strings (sortable, ops-debuggable, avoids the\n JWT nbf/exp collision). At least one key in the served key set (WBAFile.keys)\n MUST have `not_before <= now < not_after`. Verification MUST reject\n signatures whose key falls outside its window.\n\n Keys carry no `kid`: the RFC 9421 keyid is the RFC 7638 JWK Thumbprint,\n computed locally by the verifier. Carrying a kid alongside the thumbprint\n created a drift surface and is removed.",
+      "properties": {
+        "alg": {
+          "default": "",
+          "description": "Signing algorithm. FORA v1.0: MUST be \"EdDSA\".",
+          "type": "string"
+        },
+        "crv": {
+          "default": "",
+          "description": "Curve. FORA v1.0: MUST be \"Ed25519\".",
+          "type": "string"
+        },
+        "kty": {
+          "default": "",
+          "description": "Key type. FORA v1.0: MUST be \"OKP\".",
+          "type": "string"
+        },
+        "not_after": {
+          "default": "",
+          "description": "RFC3339 timestamp. Key is invalid at and after this instant\n (strict upper bound).",
+          "type": "string"
+        },
+        "not_before": {
+          "default": "",
+          "description": "RFC3339 timestamp. Key is invalid before this instant.",
+          "type": "string"
+        },
+        "use": {
+          "default": "",
+          "description": "Intended key use. FORA v1.0: MUST be \"sig\".",
+          "type": "string"
+        },
+        "x": {
+          "default": "",
+          "description": "base64url-encoded 32-byte Ed25519 public key.",
+          "type": "string"
+        }
+      },
+      "title": "JsonWebKey — Inline RFC 7517 JWK object.",
+      "type": "object"
+    }
+  },
+  "$id": "fora.v1.WBAFile.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "WBAFile — Pure Web Bot Auth directory served at the WBA-canonical well-known\n path (/.well-known/http-message-signatures-directory), over https, with\n status 200 and no redirect, as application/http-message-signatures-directory+json.\n The response is signed once per listed key under\n tag=\"http-message-signatures-directory\", covering \"@authority\";req and\n content-digest. A JOSE JWK Set per RFC 7517 §5 plus a directory-level\n revocation pointer. JWKs carry no kid; the\n RFC 9421 keyid is the RFC 7638 JWK Thumbprint. Off-the-shelf WBA verifiers\n read the `keys` array and ignore FORA's extra members (per-key\n not_before/not_after, and revocation_url) per RFC 7517 §5.",
+  "properties": {
+    "keys": {
+      "description": "RFC 7517 JWK Set \"keys\" member. FORA v1: Ed25519 (OKP) keys, each with\n not_before/not_after FORA extension members.",
+      "items": {
+        "$ref": "#/$defs/fora.v1.JsonWebKey"
+      },
+      "type": "array"
+    },
+    "revocation_url": {
+      "description": "Directory-level emergency revocation channel. One per directory; the list\n it points to enumerates revoked key thumbprints. Consumers poll on a 300s\n cadence (±10% jitter) and replace their local revoked set with the response.\n The list revokes keys of this directory only: a consumer checks a\n signature against the list of the directory that published its key, and\n never applies this list to another party's key. A fetch of the list MAY\n follow up to five redirects (see \"Redirects\" under Well-Known Discovery).",
+      "type": "string"
+    }
+  },
+  "title": "WBA File",
+  "type": "object"
+}

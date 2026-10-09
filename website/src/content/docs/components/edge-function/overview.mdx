@@ -9,7 +9,7 @@ The Edge Function is the provider-side enforcement point of the FORA protocol. I
 
 The Edge Function has three jobs:
 
-1. **Block unauthorized bots** -- detect AI crawlers hitting protected content without a signed URL and return `403 + X-Content-Rules` header pointing them to the Exchange.
+1. **Block unauthorized bots** -- detect AI crawlers hitting protected content without a signed URL and return `403` with an `X-Content-Rules` header pointing them at the provider's own `fora.json`, and optionally an `X-FORA-Exchange` header naming an Exchange that sells the content.
 2. **Verify signed URL access** -- validate that incoming signed URLs are authentic, unexpired, bound to the correct agent identity, and (optionally) single-use.
 3. **Serve fora.json and rsl.txt** -- generate, cache, and serve `/.well-known/fora.json` and `/rsl.txt` so protocol-aware agents discover the Exchange without triggering a 403.
 4. **Serve verifier keys via the WBA directory (v1.0)** -- serve the JWK Set at `/.well-known/http-message-signatures-directory` for providers that self-attest resources. This publishes the provider's Ed25519 public keys in its WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`), with the claims schema in the `fora.json` `ext["fora.attestation.claims_schema"]`, so agents and Exchanges can verify attestation signatures. FORA has no dedicated verifier role; a verifier publishes under its operator's role (`role=ROLE_PUBLISHER` when a publisher self-attests).
@@ -67,7 +67,7 @@ flowchart TD
     KV_CHECK -->|Already consumed| BLOCK_REUSE[403: URL already used]
     KV_CHECK -->|First use| ALLOW
     HAS_SIG -->|No| IS_BOT{AI bot detected?}
-    IS_BOT -->|Yes| BLOCK_BOT[403 + X-Content-Rules<br/>+ JSON body]
+    IS_BOT -->|Yes| BLOCK_BOT[403 + X-Content-Rules<br/>+ X-FORA-Exchange + JSON body]
     IS_BOT -->|No| PASSTHROUGH
 ```
 
@@ -106,7 +106,7 @@ handleRequest(ctx):
        g. Any fail -> 403 with specific error
 
   4. If request is from detected bot (no signed URL):
-       -> 403 + X-Content-Rules header + JSON body
+       -> 403 + X-Content-Rules + X-FORA-Exchange headers + JSON body
 
   5. If request is from a regular browser (no signed URL):
        -> Pass through (normal website traffic)
@@ -118,7 +118,7 @@ handleRequest(ctx):
 
 ### Bot Detection and 403 Redirect
 
-When an AI crawler requests protected content without signed URL parameters, the edge function detects the request is from a bot and returns `403 Forbidden` with an `X-Content-Rules` header pointing to the Exchange info endpoint. This is the "accidental discovery" path (Path C in the protocol flow). The 403 is not punitive -- it is a protocol handshake directing the bot to the correct transaction endpoint. See [Bot Detection](/components/edge-function/bot-detection/) for details.
+When an AI crawler requests protected content without signed URL parameters, the edge function detects the request is from a bot and returns `403 Forbidden` with an `X-Content-Rules` header carrying the URL of the provider's `/.well-known/fora.json`, and optionally an `X-FORA-Exchange` header carrying the bare domain of an Exchange that manifest lists. This is the "accidental discovery" path (Path C in the protocol flow). The 403 is not punitive -- it is a protocol handshake directing the bot to the provider's terms and the Exchanges that sell its content. See [Bot Detection](/components/edge-function/bot-detection/) for details.
 
 ### fora.json and rsl.txt Generation and Serving
 

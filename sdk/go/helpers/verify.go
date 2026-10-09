@@ -35,11 +35,13 @@ var (
 	ErrFutureCreated            = errors.New("helpers: signature created in the future")
 	ErrMissingCreated           = errors.New("helpers: missing created param")
 	ErrMissingExpires           = errors.New("helpers: missing expires param")
-	// ErrBrokenSignatureChain signals a multisig request whose signatures do not
-	// form a valid forwarding chain: labels are non-contiguous, reordered, or a
-	// sigN (N>1) does not cover exactly its predecessor via
-	// "signature";key="sigN-1" (forwarding chain, RFC 9421 §2.4).
-	ErrBrokenSignatureChain = errors.New("helpers: signature chain broken (gap/reorder/missing link)")
+	// ErrBrokenSignatureChain signals a signature that covers an earlier signature
+	// incompletely or not at all as WG-00 §5.2.2 requires: it covers
+	// "signature";key=X without "signature-input";key=X or without every component
+	// X lists, or it names a label that is not a signature appearing before it on
+	// the request. Covering an earlier signature is optional; covering one
+	// partially is refused.
+	ErrBrokenSignatureChain = errors.New("helpers: signature covers an earlier signature incompletely")
 	// ErrTooManyHops signals that the number of signatures on a request exceeds
 	// the verifier's configured MaxSignatures budget (Exchange hop bound).
 	ErrTooManyHops = errors.New("helpers: signature count exceeds hop budget")
@@ -58,11 +60,12 @@ const defaultMaxFutureSkew = 300 * time.Second
 type VerifyOptions struct {
 	Now           time.Time
 	MaxFutureSkew time.Duration
-	// MaxSignatures bounds the number of signatures accepted on a multisig
-	// request — the Exchange hop bound. 0 means unbounded; only the
-	// Exchange-terminal consumer sets it (= max_intermediary_hops + 1). A request
-	// carrying more signatures is rejected with ErrTooManyHops before any
-	// signature is cryptographically verified. Ignored by single-sig VerifyRequest.
+	// MaxSignatures bounds the number of signatures accepted on a request — the
+	// hop budget. Every signature counts, whether or not it covers another. 0
+	// means unbounded; an Exchange sets it to the max_intermediary_hops it
+	// publishes. A request carrying more signatures is rejected with
+	// ErrTooManyHops before any signature is cryptographically verified. Ignored by
+	// single-sig VerifyRequest.
 	MaxSignatures int
 	// MaxSignatureAge clamps a signature's declared lifetime (expires − created).
 	// MaxFutureSkew only bounds the future edge; without an upper bound on the
@@ -78,17 +81,18 @@ type VerifyOptions struct {
 // the signature verified against, carried so downstream consumers bind to the
 // proven key (e.g. its RFC 7638 thumbprint as agent_id) rather than re-resolving
 // the claimed KeyID.
+//
+// SignatureAgent is the https origin of the signer's key directory: the value of
+// the Signature-Agent member this signature covers, the directory its keyid was
+// resolved in. It is covered, so it is signed.
 type VerifiedRequest struct {
-	KeyID     string
-	Algorithm string
-	Label     string
-	Signature string
-	Created   int64
-	Expires   int64
-	PublicKey ed25519.PublicKey
-	// SignatureAgent is the (covered, therefore signed) Signature-Agent header
-	// value — the signer's WBA key-directory URL. Empty when the signer bound
-	// no directory (the static bootstrap path).
+	KeyID          string
+	Algorithm      string
+	Label          string
+	Signature      string
+	Created        int64
+	Expires        int64
+	PublicKey      ed25519.PublicKey
 	SignatureAgent string
 }
 
@@ -104,24 +108,28 @@ func VerifyRequest(req *http.Request, body []byte, pub ed25519.PublicKey, opts V
 	if err != nil {
 		return nil, err
 	}
-	return verifySingleSignature(req, allParams[0], sigMap, body, staticPub(pub), opts)
+	return verifySingleSignature(req, allParams[0], sigMap, body, staticPub(pub), opts, len(allParams))
 }
 
 // resolveFunc adapts a fixed public key or a KeyResolver to the lookup shape
-// verifySingleSignature needs.
-type resolveFunc func(keyID string) (ed25519.PublicKey, error)
+// verifySingleSignature needs: the key a keyid names in the key directory at the
+// given https origin, the one the signature's own Signature-Agent member names.
+type resolveFunc func(directory, keyID string) (ed25519.PublicKey, error)
 
 func staticPub(pub ed25519.PublicKey) resolveFunc {
-	return func(string) (ed25519.PublicKey, error) { return pub, nil }
+	return func(string, string) (ed25519.PublicKey, error) { return pub, nil }
 }
 
-// verifySingleSignature runs the full per-signature validation chain (alg,
-// covered-component policy, entitlement coverage, created/expires window,
-// content-digest, then the Ed25519 check over the signature base). Shared by the
-// single-sig and multisig paths so both judge a signature by identical rules.
+// verifySingleSignature runs the full per-signature validation chain (alg, the
+// Web Bot Auth tag, the FORA RPC components, the signature's own Signature-Agent
+// member, entitlement coverage, created/expires window, content-digest, then the
+// key the member's directory publishes and the Ed25519 check over the signature
+// base). Shared by the single-sig and multisig paths so both judge a signature by
+// identical rules. sigCount is the number of signatures on the request: the legacy
+// String form of Signature-Agent is accepted only when it is one.
 func verifySingleSignature(
 	req *http.Request, params sigParams, sigMap map[string][]byte,
-	body []byte, resolve resolveFunc, opts VerifyOptions,
+	body []byte, resolve resolveFunc, opts VerifyOptions, sigCount int,
 ) (*VerifiedRequest, error) {
 	now := opts.Now
 	if now.IsZero() {
@@ -134,7 +142,14 @@ func verifySingleSignature(
 	if !strings.EqualFold(params.Alg, AlgEd25519) {
 		return nil, fmt.Errorf("%w: alg=%q", ErrUnsupportedAlgorithm, params.Alg)
 	}
+	if params.Tag != WBATag {
+		return nil, fmt.Errorf("%w: tag=%q", ErrSignatureTag, params.Tag)
+	}
 	if err := enforceRequiredComponents(params.Covered); err != nil {
+		return nil, err
+	}
+	directory, err := signatureDirectory(req.Header, params, sigCount)
+	if err != nil {
 		return nil, err
 	}
 	if err := enforceEntitlementCoverage(req.Header, params.Covered); err != nil {
@@ -146,7 +161,7 @@ func verifySingleSignature(
 	if err := verifyContentDigest(req.Header, body, params.Covered); err != nil {
 		return nil, err
 	}
-	pub, err := resolve(params.KeyID)
+	pub, err := resolve(directory, params.KeyID)
 	if err != nil {
 		return nil, err
 	}
@@ -165,84 +180,15 @@ func verifySingleSignature(
 		return nil, ErrSignatureVerify
 	}
 	return &VerifiedRequest{
-		KeyID:     params.KeyID,
-		Algorithm: params.Alg,
-		Label:     params.Label,
-		Signature: base64.StdEncoding.EncodeToString(sigBytes),
-		Created:   params.Created,
-		Expires:   params.Expires,
-		PublicKey: pub,
-		// Signature-Agent is a required covered component (enforced above), so
-		// its value is signed and safe to expose as the proven directory.
-		SignatureAgent: signatureAgentOf(req),
+		KeyID:          params.KeyID,
+		Algorithm:      params.Alg,
+		Label:          params.Label,
+		Signature:      base64.StdEncoding.EncodeToString(sigBytes),
+		Created:        params.Created,
+		Expires:        params.Expires,
+		PublicKey:      pub,
+		SignatureAgent: directory,
 	}, nil
-}
-
-// signatureAgentOf returns the directory URI carried in the request's
-// Signature-Agent header. The covered-component enforcement above guarantees the
-// header is signed whenever this value is consumed off a VerifiedRequest.
-//
-// Two forms are accepted, and both yield the bare URI:
-//
-//	"https://a.example"   an RFC 8941 String, which is what Web Bot Auth defines
-//	                      the value to be. Quoting is not optional in structured
-//	                      fields — a String has exactly one serialization — so this
-//	                      is the form a conformant signer sends.
-//	https://a.example     the bare form FORA itself emits. Despite appearances this
-//	                      is not "an unquoted string": it parses as a Token, since
-//	                      RFC 8941 tokens admit ":" and "/". Accepted so FORA's own
-//	                      legs keep verifying while signers migrate.
-//
-// Anything neither parser accepts is returned trimmed but otherwise verbatim, so
-// a value this reader cannot type still reaches the caller unchanged rather than
-// becoming empty. "bücher.example" is the case that matters: no structured-field
-// parser admits it — tokens are ASCII — and it is an ordinary host that resolves.
-//
-// Verbatim here does NOT mean usable. This function types the wire value and
-// nothing more; whether the result names a fetchable directory is decided later,
-// and some values that survive this step are refused there ("agent_(1).example"
-// surfaces intact and is then rejected as not a host). Keeping the two apart is
-// deliberate — a reader that also judged fetchability would have to know what the
-// caller intends to do with the value.
-//
-// There is a THIRD outcome the two above do not cover: an item carrying
-// structured-field parameters yields its value with the parameters dropped, so
-// `https://a.example;q=1` surfaces as `https://a.example`. That is the right
-// reading — no parameter is defined for this field, and folding one into the URI
-// would produce a host nothing resolves — but it does WIDEN what reaches the
-// resolver, since the parameterized spelling used to be an unresolvable host and
-// is now a fetchable one. It grants a signer nothing it could not already get by
-// sending the bare form, and the value still has to survive host validation.
-//
-// The spec's sf-dictionary form (`agent2="https://a.example"`) is deliberately
-// NOT read, and neither is the data: URI scheme that inlines a whole key
-// directory into the header. Both are refused as a matter of FORA policy rather
-// than for want of a parser: an inline directory has no fetch location, and the
-// fetch location is the security boundary this SDK's key resolution rests on — a
-// signer that supplies its own directory is asserting its own keys. Such a value
-// falls through to the verbatim branch here and is rejected downstream, where the
-// directory has to resolve to a real host.
-func signatureAgentOf(req *http.Request) string {
-	// Values joined the way the signature base joins them, NOT Get. Get returns
-	// only the first field line, so a repeated Signature-Agent header would have
-	// the identity derived from one value while the signature committed to both —
-	// the two readings of one header must not diverge.
-	raw := strings.TrimSpace(strings.Join(req.Header.Values(SignatureAgentHeader), ", "))
-	if raw == "" {
-		return ""
-	}
-	item, err := httpsfv.UnmarshalItem([]string{raw})
-	if err != nil {
-		return raw
-	}
-	switch v := item.Value.(type) {
-	case string:
-		return v // String: the parser has already stripped the quotes
-	case httpsfv.Token:
-		return string(v)
-	default:
-		return raw
-	}
 }
 
 func enforceRequiredComponents(covered []CoveredComponent) error {
@@ -252,7 +198,7 @@ func enforceRequiredComponents(covered []CoveredComponent) error {
 	}
 	for _, need := range requiredCoveredComponents {
 		if !seen[need] {
-			return fmt.Errorf("%w: %s", ErrMissingRequiredComponent, need)
+			return &MissingComponentError{Component: need}
 		}
 	}
 	return nil
@@ -274,7 +220,7 @@ func enforceEntitlementCoverage(h http.Header, covered []CoveredComponent) error
 			return nil
 		}
 	}
-	return fmt.Errorf("%w: %s", ErrMissingRequiredComponent, entitlementHeaderLower)
+	return &MissingComponentError{Component: entitlementHeaderLower}
 }
 
 func enforceCreatedExpires(p sigParams, now time.Time, maxSkew, maxAge time.Duration) error {
@@ -451,9 +397,10 @@ func parseInputLabel(d *httpsfv.Dictionary, label string) (sigParams, error) {
 }
 
 // coveredFromItem converts one structured-field item (a covered-component
-// identifier such as "@method" or "signature";key="sig1") into a
-// CoveredComponent. Only string-valued component params are carried (the
-// forwarding-chain key= param is the only one FORA emits).
+// identifier such as "@method" or "signature-agent";key="sig1") into a
+// CoveredComponent. String-valued component params and Boolean flags are carried:
+// key= is the only one a request signature uses, and req the only one a directory
+// response signature uses.
 func coveredFromItem(item httpsfv.Item) (CoveredComponent, error) {
 	name, ok := item.Value.(string)
 	if !ok {
@@ -468,6 +415,10 @@ func coveredFromItem(item httpsfv.Item) (CoveredComponent, error) {
 		if !present {
 			continue
 		}
+		if v == true {
+			comp.Params = append(comp.Params, ComponentParam{Key: k, Flag: true})
+			continue
+		}
 		sv, isStr := v.(string)
 		if !isStr {
 			return CoveredComponent{}, fmt.Errorf("%w: component param %q not a string", ErrMalformedSignatureInput, k)
@@ -477,8 +428,8 @@ func coveredFromItem(item httpsfv.Item) (CoveredComponent, error) {
 	return comp, nil
 }
 
-// applySignatureParams reads the keyid/alg/created/expires signature parameters
-// off the inner list's params into p.
+// applySignatureParams reads the keyid/alg/created/expires/nonce/tag signature
+// parameters off the inner list's params into p.
 func applySignatureParams(p *sigParams, params *httpsfv.Params) error {
 	if params == nil {
 		return nil
@@ -511,6 +462,20 @@ func applySignatureParams(p *sigParams, params *httpsfv.Params) error {
 		}
 		p.Expires = n
 	}
+	if v, ok := params.Get("nonce"); ok {
+		s, isStr := v.(string)
+		if !isStr {
+			return fmt.Errorf("%w: nonce not a string", ErrMalformedSignatureInput)
+		}
+		p.Nonce = s
+	}
+	if v, ok := params.Get("tag"); ok {
+		s, isStr := v.(string)
+		if !isStr {
+			return fmt.Errorf("%w: tag not a string", ErrMalformedSignatureInput)
+		}
+		p.Tag = s
+	}
 	return nil
 }
 
@@ -533,27 +498,14 @@ func parseSigLabel(d *httpsfv.Dictionary, label string) ([]byte, error) {
 	return raw, nil
 }
 
-// signatureBytesForLabel parses the Signature header off h and returns the raw
-// signature bytes for label. It backs the forwarding-chain link resolution:
-// a predecessor hop's signature is referenced by label from the
-// current hop's covered "signature";key="…" component.
-func signatureBytesForLabel(h http.Header, label string) ([]byte, error) {
-	sigValues := h.Values("Signature")
-	if len(sigValues) == 0 {
-		return nil, ErrMissingSignature
-	}
-	sigDict, err := httpsfv.UnmarshalDictionary(sigValues)
-	if err != nil {
-		return nil, fmt.Errorf("%w: Signature: %w", ErrMalformedSignatureInput, err)
-	}
-	return parseSigLabel(sigDict, label)
-}
-
-// VerifyMultisigRequest verifies ALL signatures on req against keys from
-// resolve, returning the VerifiedRequest list in label order (sig1, sig2, …).
-// It rejects a chain exceeding opts.MaxSignatures (when set) before any crypto,
-// enforces the structural forwarding chain, then cryptographically verifies each
-// signature — so a stripped, reordered, or substituted predecessor is rejected.
+// VerifyMultisigRequest verifies EVERY signature on req, resolving each one's key
+// through resolve with the directory its own covered Signature-Agent member
+// names, and returns the VerifiedRequest list in header order. It rejects a
+// request carrying more than opts.MaxSignatures signatures before any crypto,
+// then checks that every coverage of an earlier signature is complete (WG-00
+// §5.2.2), then verifies each signature independently. A request is refused if
+// any one signature fails. A signature need not cover another; one that does must
+// cover it completely.
 func VerifyMultisigRequest(req *http.Request, body []byte, resolve resolveFunc, opts VerifyOptions) ([]VerifiedRequest, error) {
 	allParams, sigMap, err := parseAllSignatures(req.Header)
 	if err != nil {
@@ -562,12 +514,12 @@ func VerifyMultisigRequest(req *http.Request, body []byte, resolve resolveFunc, 
 	if opts.MaxSignatures > 0 && len(allParams) > opts.MaxSignatures {
 		return nil, fmt.Errorf("%w: got %d max %d", ErrTooManyHops, len(allParams), opts.MaxSignatures)
 	}
-	if err := enforceSignatureChain(allParams); err != nil {
+	if err := enforceEarlierCoverage(allParams); err != nil {
 		return nil, err
 	}
 	verified := make([]VerifiedRequest, 0, len(allParams))
 	for _, params := range allParams {
-		v, verr := verifySingleSignature(req, params, sigMap, body, resolve, opts)
+		v, verr := verifySingleSignature(req, params, sigMap, body, resolve, opts, len(allParams))
 		if verr != nil {
 			return nil, verr
 		}
@@ -576,44 +528,52 @@ func VerifyMultisigRequest(req *http.Request, body []byte, resolve resolveFunc, 
 	return verified, nil
 }
 
-// enforceSignatureChain checks that allParams form a valid forwarding chain:
-// labels are exactly sig1..sigN contiguous in Signature-Input order,
-// sig1 carries no "signature" component, and every sigK (K>1) covers exactly one
-// "signature";key="sig(K-1)" link to its immediate predecessor. This is the
-// STRUCTURAL gate only; the cryptographic binding is enforced by the per-sig
-// verify (each sigK's base resolves its chain link to the live bytes of
-// sig(K-1)). A single signature trivially satisfies the chain.
-func enforceSignatureChain(allParams []sigParams) error {
+// enforceEarlierCoverage applies WG-00 §5.2.2 to every signature that covers
+// another: for each covered "signature";key=X, X must be a signature that appears
+// earlier in Signature-Input, and the signature must also cover
+// "signature-input";key=X and every component X lists. A covered
+// "signature-input";key=X must likewise name an earlier signature. Labels carry no
+// meaning beyond naming: sig1..sigN is a signer's convention, not a rule.
+func enforceEarlierCoverage(allParams []sigParams) error {
+	position := make(map[string]int, len(allParams))
 	for i, p := range allParams {
-		wantLabel := fmt.Sprintf("sig%d", i+1)
-		if p.Label != wantLabel {
-			return fmt.Errorf("%w: label %q at position %d, want %q", ErrBrokenSignatureChain, p.Label, i+1, wantLabel)
-		}
-		link, count := chainLink(p.Covered)
-		if i == 0 {
-			if count != 0 {
-				return fmt.Errorf("%w: sig1 must not carry a signature component", ErrBrokenSignatureChain)
+		position[p.Label] = i
+	}
+	for i, p := range allParams {
+		for _, c := range p.Covered {
+			name := strings.ToLower(c.Name)
+			if name != "signature" && name != "signature-input" {
+				continue
 			}
-			continue
-		}
-		wantPrev := fmt.Sprintf("sig%d", i)
-		if count != 1 || link != wantPrev {
-			return fmt.Errorf("%w: %s must cover exactly \"signature\";key=%q (got %d links, key=%q)",
-				ErrBrokenSignatureChain, wantLabel, wantPrev, count, link)
+			key := componentParam(c, "key")
+			at, ok := position[key]
+			if key == "" || !ok || at >= i {
+				return fmt.Errorf("%w: %s covers %s;key=%q, which is not an earlier signature",
+					ErrBrokenSignatureChain, p.Label, name, key)
+			}
+			if name == "signature" {
+				if err := coversEarlierFully(p, allParams[at]); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil
 }
 
-// chainLink returns the key parameter of the single "signature" covered
-// component and the number of "signature" components present. A well-formed link
-// has count == 1; count == 0 means no link, count > 1 is malformed.
-func chainLink(covered []CoveredComponent) (key string, count int) {
-	for _, c := range covered {
-		if strings.EqualFold(c.Name, "signature") {
-			count++
-			key = componentParam(c, "key")
+// coversEarlierFully reports whether p, which covers prev's Signature member, also
+// covers prev's Signature-Input member and every component prev lists.
+func coversEarlierFully(p, prev sigParams) error {
+	link := CoveredComponent{Name: "signature-input", Params: []ComponentParam{{Key: "key", Val: prev.Label}}}
+	if !coversComponent(p.Covered, link) {
+		return fmt.Errorf("%w: %s covers signature;key=%q without signature-input;key=%q",
+			ErrBrokenSignatureChain, p.Label, prev.Label, prev.Label)
+	}
+	for _, c := range prev.Covered {
+		if !coversComponent(p.Covered, c) {
+			return fmt.Errorf("%w: %s covers %s without %s, which %s lists",
+				ErrBrokenSignatureChain, p.Label, prev.Label, renderComponent(c), prev.Label)
 		}
 	}
-	return key, count
+	return nil
 }

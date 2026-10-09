@@ -8,12 +8,13 @@
 import { Agent, type Dispatcher, request as undiciRequest } from "undici";
 
 import { signInbound } from "../core/sign.ts";
+import { newNonce } from "../core/signing-transport.ts";
 import type { Window } from "../core/window.ts";
 import { AGENT_KEY_HEADER } from "../src/pop.ts";
 import { retrievalAuthFailureDetail } from "../src/errordetail.ts";
 import { escapePair } from "../src/host-ref.ts";
 import { MAX_BODY_DEPTH, rawNestingDepth } from "../src/jsondepth.ts";
-import { RequestIDHeader } from "../src/wire.ts";
+import { RequestIDHeader, SignatureAgentHeader } from "../src/wire.ts";
 import { IDENTITY_ENCODING, refuseUnrequestedEncoding } from "./transport.ts";
 import { requireScheme, skipSSRF, ssrfGuard } from "../resolvers/http.ts";
 import { ForaCallError } from "./errors.ts";
@@ -83,6 +84,10 @@ export interface ContentFetchOptions {
 	 * neither can be derived from the other: the private half signs, the public half is
 	 * presented alongside. */
 	keyPair: CryptoKeyPair;
+	/** The https origin of the agent's key directory, the one that publishes the key the
+	 * URL is bound to. The proof carries it as its Signature-Agent member, so a generic
+	 * Web Bot Auth verifier can resolve the key there. */
+	signatureAgent: string;
 	/** The freshness window stamped on the proof. Short on purpose, and deliberately NOT
 	 * the signed URL's own expiry, which can be hours: the proof covers only the method
 	 * and the URL, so for as long as the window is open anyone who observes the request
@@ -105,12 +110,8 @@ export interface ContentFetchOptions {
  * which the edge's own check rejects, or hand a fresh proof of possession of the agent's
  * key to whatever host the first hop named.
  *
- * The URL is taken as given. Whether it is one this agent bought, and whether its
- * agent_id matches this agent's key, are the CALLER's checks to make — the SDK exports
- * verifyEd25519SignedUrl and the proof-of-possession verifier for exactly that, and
- * running them first turns an edge 403 into a local answer. Worth doing when the URL
- * reached the caller from anywhere but its own execute response: a proof is minted for
- * whatever URL is passed in.
+ * The URL is taken as given. Verifying it is the delivery edge's job: the edge checks the
+ * URL signature and, where it can, the agent binding against the proof presented here.
  */
 export async function fetchContent(
 	signedURL: string,
@@ -132,6 +133,7 @@ export async function fetchContent(
 		const proof = await mintProof(op, signedURL, opts);
 		const headers: Record<string, string> = {
 			[AGENT_KEY_HEADER]: proof.agentKey,
+			[SignatureAgentHeader.toLowerCase()]: proof.signatureAgent,
 			"signature-input": proof.signatureInput,
 			signature: proof.signature,
 			...IDENTITY_ENCODING,
@@ -274,16 +276,18 @@ function malformedURL(op: string, what: string): ForaCallError {
 	});
 }
 
-/** The three proof header values one bound fetch presents. */
+/** The four proof header values one bound fetch presents. */
 interface Proof {
 	agentKey: string;
+	signatureAgent: string;
 	signatureInput: string;
 	signature: string;
 }
 
-// mintProof signs a GET of the target through the shipped RFC 9421 proof-of-possession
-// signer. It reuses core/sign.ts rather than restating the covered-component set, so the
-// bytes stay identical to what the edge's verifier reconstructs.
+// mintProof signs a GET of the target through the shipped Web Bot Auth
+// proof-of-possession signer, with a fresh 64-byte nonce. It reuses core/sign.ts rather
+// than restating the covered-component set, so the bytes stay identical to what the
+// edge's verifier reconstructs.
 //
 // The proof is minted AFTER the URL has been accepted as dialable and BEFORE anything is
 // sent, so a URL that cannot be used never costs a signing operation.
@@ -294,11 +298,11 @@ async function mintProof(
 ): Promise<Proof> {
 	let request: Request;
 	try {
-		request = await signInbound(
-			opts.keyPair,
-			signedURL,
-			opts.window !== undefined ? { window: opts.window } : {},
-		);
+		request = await signInbound(opts.keyPair, signedURL, {
+			signatureAgent: opts.signatureAgent,
+			nonce: newNonce(),
+			...(opts.window !== undefined ? { window: opts.window } : {}),
+		});
 	} catch (cause) {
 		// The given URL is deliberately NOT echoed: this error reaches a log, and a
 		// delivery URL carries a live credential in its query.
@@ -320,6 +324,7 @@ async function mintProof(
 	}
 	return {
 		agentKey: request.headers.get(AGENT_KEY_HEADER) ?? "",
+		signatureAgent: request.headers.get(SignatureAgentHeader) ?? "",
 		signatureInput: request.headers.get("signature-input") ?? "",
 		signature: request.headers.get("signature") ?? "",
 	};

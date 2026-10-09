@@ -8,6 +8,12 @@
 // parity: sdk/go TestGuardedWBAClientSurfacesNon2xx / …RefusesRedirect* and sdk/
 // python test_guarded_client_non_2xx… / …refuses_redirect_to_{ftp,internal}.
 //
+// A document read asks the transport not to follow and follows redirects itself
+// (fetch.ts), calling the transport once per hop, so through fetchStrict each hop is
+// dialed — and refused — by the same guarded connector, and the reader's own cap and
+// scheme checks apply on top. The direct guardedFetch calls exercise the transport's
+// interceptor, which still bounds a caller that uses it without the reader.
+//
 // The guard blocks loopback, so — to exercise the wiring against a live in-process
 // origin — blockedAddress is mocked (a reconfigurable spy). allowedScheme stays
 // REAL, so the deny-by-default scheme allowlist is still genuinely enforced.

@@ -79,3 +79,26 @@ def test_offer_sign_under_wrong_seed_does_not_match(vector: dict[str, Any]) -> N
     wrong_seed = bytes([0] * 31 + [1])
     sig_hex, _alg = sign_offer_jcs(seed=wrong_seed, offer=vector["offer_json"])
     assert sig_hex != str(vector["offer_json"]["signature"])
+
+
+_PRICED_TERM = [
+    v
+    for v in _VECTORS
+    if any("pricing" in t for t in v["offer_json"].get("terms", []) if isinstance(t, dict))
+]
+
+
+def test_offer_verify_matrix_carries_a_priced_term() -> None:
+    # The refusal below would be vacuous if no vector carried a priced term.
+    assert _PRICED_TERM, "no offer-verify vector carries a priced term"
+
+
+@pytest.mark.parametrize("vector", _PRICED_TERM, ids=[v["name"] for v in _PRICED_TERM])
+def test_offer_sign_refuses_a_priced_term(vector: dict[str, Any]) -> None:
+    # An offer states its price once, in Offer.pricing; the sign face refuses an offer
+    # whose term carries pricing, as Go helpers.SignOffer does (ErrOfferTermPriced),
+    # and every verifier rejects one (expected_verified is false).
+    assert vector["expected_verified"] is False
+    seed = bytes.fromhex(str(vector["exchange_seed_hex"]))
+    with pytest.raises(ValueError, match="Offer.pricing"):
+        sign_offer_jcs(seed=seed, offer=vector["offer_json"])

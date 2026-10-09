@@ -48,6 +48,9 @@ def test_an_answer_that_did_not_come_from_the_service(vector: dict[str, Any]) ->
         f"{vector['name']}: classed {failure.kind.name}, oracle says {vector['kind']}"
     )
     assert failure.reason == vector["reason"]
+    # A non-envelope answer still carries a Connect code: the one its status implies,
+    # which is what connect-go derives for the same bytes.
+    assert failure.code == vector["reason"]
     # The label and the consequence are pinned together: comparing only the string would
     # still pass if the two classes swapped meanings.
     assert (failure.kind is CallErrorKind.UNREACHABLE) is vector["retryable"]

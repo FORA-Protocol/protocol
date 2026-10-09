@@ -1,0 +1,27 @@
+{
+  "$id": "fora.v1.RefreshCatalogRequest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "exchange": {
+      "description": "REQUIRED. Bare host of the recipient this request is addressed to (e.g.\n \"exchange.example\" or \"exchange.example:8081\"). See \"Request recipient\" in\n the file header. Distinct from `tenant_id` above, which names a publisher\n tenant WITHIN an Exchange, not the Exchange itself.",
+      "maxLength": 260,
+      "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$",
+      "type": "string"
+    },
+    "tenant_id": {
+      "default": "",
+      "description": "Tenant identifier",
+      "type": "string"
+    },
+    "ver": {
+      "default": "",
+      "description": "FORA protocol version — \"1.0\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "exchange"
+  ],
+  "title": "Refresh Catalog Request",
+  "type": "object"
+}

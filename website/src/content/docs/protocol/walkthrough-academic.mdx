@@ -382,7 +382,7 @@ The Exchange resolves all 50 DOIs against its catalog, checks the delegation JWT
             "rate": "1.50",
             "currency": "USD",
             "unit_cost": "0.0001136",
-            "estimated_quantity": 13200,
+            "estimated_quantity": 1,
             "unit": "accesses"
           },
           "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
@@ -456,7 +456,7 @@ The Exchange resolves all 50 DOIs against its catalog, checks the delegation JWT
             "rate": "1.50",
             "currency": "USD",
             "unit_cost": "0.0001071",
-            "estimated_quantity": 14000,
+            "estimated_quantity": 1,
             "unit": "accesses"
           },
           "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
@@ -562,7 +562,7 @@ The retracted paper (DOI `10.1038/s41592-024-02467-x`) is immediately identifiab
 
 1. **Attestation claim**: `academic.retraction_status: "retracted"` in `ResourceAttestation.claims`, signed by `springer.com`.
 2. **Ext field**: `academic.retraction_status: "retracted"` in `Offer.ext`.
-3. **Critical signaling**: `ext_critical: ["academic.retraction_status"]` — the consumer MUST understand retraction semantics. An agent that does not support `fora-academic-v1` would reject this offer with `OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION` rather than silently consuming a retracted paper.
+3. **Critical signaling**: `ext_critical: ["academic.retraction_status"]` — the consumer MUST understand retraction semantics. An agent that does not support `fora-academic-v1` does not use this offer, rather than silently consuming a retracted paper.
 4. **Offer.title**: Prefixed with "RETRACTED:" as a human-readable signal.
 
 ### Content Identity and Dedup
@@ -613,7 +613,7 @@ The Broker also flags the retracted paper to the agent:
 
 ## Step 5 — Batch ExecuteTransaction
 
-The Broker commits to all 49 selected offers in a single batch `TransactionRequest`. Each item carries the full signed `offer`, reflected back exactly as received at discovery (stateless verification — the Exchange does not need to store offers).
+The research agent commits to all 49 selected offers in a single batch `TransactionRequest`, sent directly to the Exchange and signed by the agent: every selected offer is from ScholarsGate. Through the Broker it would send the same request, with each item's `agent_acceptance` and the request's `agent_request_acceptance`, to `BrokerService.ExecuteTransaction`, and the Broker would re-package it for the Exchange and sign that request alone (see [Buying through a Broker](/protocol/transaction-flow/#buying-through-a-broker)). Each item carries the full signed `offer`, reflected back exactly as received at discovery (stateless verification — the Exchange does not need to store offers).
 
 `POST https://exchange.scholarsgate.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
@@ -663,15 +663,7 @@ The Broker commits to all 49 selected offers in a single batch `TransactionReque
         },
         "terms": [
           {
-            "semantics": "TERM_SEMANTICS_ENUMERATED",
-            "pricing": {
-              "model": "PRICING_MODEL_FREE",
-              "rate": "0",
-              "currency": "USD",
-              "unit_cost": "0",
-              "estimated_quantity": 12800,
-              "unit": "tokens"
-            }
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ],
         "signature": "base64-ed25519-arxiv-offer-sig...",
@@ -703,15 +695,7 @@ The Broker commits to all 49 selected offers in a single batch `TransactionReque
         },
         "terms": [
           {
-            "semantics": "TERM_SEMANTICS_ENUMERATED",
-            "pricing": {
-              "model": "PRICING_MODEL_FREE",
-              "rate": "0",
-              "currency": "USD",
-              "unit_cost": "0",
-              "estimated_quantity": 15200,
-              "unit": "tokens"
-            }
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ],
         "signature": "base64-ed25519-elsevier-sub-offer-sig...",
@@ -828,7 +812,7 @@ The agent then fetches all 49 PDFs via the signed URLs. For each paper, because 
 
 ## Step 6 — ReportUsage
 
-Usage reporting is mandatory for all 49 transactions. The agent submits an aggregated report with per-DOI consumption data:
+Usage reporting is mandatory for all 49 transactions. A usage report settles one transaction, so the agent files one report per transaction: 49 reports. Each report states consumption in the unit of that item's offer. The 12 arXiv and 20 Elsevier subscription offers are priced in `tokens`, so their reports carry token counts. The 17 paid offers are priced per access, so each of their reports carries one access. Here is the report for the paid CellViT paper:
 
 `POST https://exchange.scholarsgate.com/fora/v1/fora.v1.ExchangeService/ReportUsage`
 
@@ -837,33 +821,18 @@ Usage reporting is mandatory for all 49 transactions. The agent submits an aggre
 {
   "ver": "1.0",
   "exchange": "exchange.scholarsgate.com",
-  "idempotency_key": "ur-litrev-001",
-  "transaction_id": "txn-litrev-batch-001",
-  "billing_id": "bill-litrev-batch-001",
+  "idempotency_key": "ur-litrev-springer-001",
+  "transaction_id": "txn-springer-paid-001",
+  "billing_id": "bill-springer-paid-001",
   "usage": {
     "function": ["ai-input"],
-    "consumed_quantity": 614200,
-    "consumed_unit": "tokens",
+    "consumed_quantity": 1,
+    "consumed_unit": "accesses",
     "displayed_to_user": true,
     "citation_included": true
   },
   "timestamp": "2026-03-20T13:00:00Z",
   "assets": [
-    {
-      "uri": "doi:10.48550/arXiv.2406.11838",
-      "title": "MedViT: A Robust Vision Transformer for Medical Image Classification",
-      "package_id": "PKG-ARXIV-2406-11838"
-    },
-    {
-      "uri": "doi:10.48550/arXiv.2405.09781",
-      "title": "SwinMed: Swin Transformer for Multi-Organ Segmentation",
-      "package_id": "PKG-ARXIV-2405-09781"
-    },
-    {
-      "uri": "doi:10.1016/j.media.2024.103250",
-      "title": "TransUNet++: Rethinking Multi-Scale Feature Fusion for Medical Image Segmentation",
-      "package_id": "PKG-ELSEVIER-MEDIA-103250"
-    },
     {
       "uri": "doi:10.1038/s41592-024-02401-5",
       "title": "CellViT: Vision Transformers for Precise Cell Segmentation and Classification",
@@ -883,10 +852,10 @@ Response:
 
 **Reporting details:**
 
-- **`consumed_quantity: 614200`** — total tokens consumed across all 49 papers. The Exchange cross-references this against the sum of `estimated_quantity` values from the offers to detect significant discrepancies.
+- **`consumed_quantity: 1`, `consumed_unit: "accesses"`** — the unit matches the offer's `pricing.unit`. The offer's estimate was 1 access at $1.50, so the purchase charged 1 × $1.50 = $1.50, and that charge is final. A report is never refused because its quantity differs from the estimate.
 - **`citation_included: true`** — the literature review includes proper citations for all 49 papers. This is relevant for publishers who offer attribution-only pricing or require citation as a license condition.
-- **`assets`** — per-DOI breakdown enables the Exchange to attribute usage to individual publishers. Elsevier sees 20 accesses against Stanford's subscription. Springer sees 15 paid accesses. arXiv sees 12 free accesses. Each publisher receives its share of the usage data.
-- **`report_id: "rpt-litrev-001"`** — enables the dispute chain. If any paper's content hash mismatched during fetch, the agent would reference this report when filing a `DisputeTransaction`.
+- **`assets`** — names the paper the transaction covers, so the Exchange can attribute usage to its publisher. Across the 49 reports, Elsevier sees 20 accesses against Stanford's subscription, the paid publishers see 17 paid accesses, and arXiv sees 12 free accesses.
+- **`report_id: "rpt-litrev-001"`** — enables the dispute chain. If this paper's content hash had not matched on delivery, the agent would reference this report when filing a `DisputeTransaction`.
 
 ---
 
@@ -899,7 +868,7 @@ Response:
 | 3 | -- | Offers at $0, `oa_status: "gold"` | Offers at $0, `subscription_id` set | Offers at $1.50 | Offer with `retraction_status: "retracted"` in `ext_critical` |
 | 4 | -- | Broker selects (free) | Broker selects (free via sub) | Broker selects (cheapest) | Broker flags and excludes |
 | 5 | `ExecuteTransaction` | Batch, cost $0 | Batch, cost $0, sub quota decremented | Batch, cost $1.50/ea | Not transacted |
-| 6 | `ReportUsage` | Aggregated report, 614K tokens across 49 papers | | | |
+| 6 | `ReportUsage` | One report per transaction, in tokens | One report per transaction, in tokens | One report per transaction, 1 access each | No report |
 
 **Authentication at every step:**
 - **Agent to Exchange**: signed with an RFC 9421 HTTP Message Signature (alg=ed25519) in the HTTP headers

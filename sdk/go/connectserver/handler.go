@@ -34,9 +34,11 @@ func NewExchangeServiceHandler(svc forav1connect.ExchangeServiceHandler, opts ..
 // SDK server face and returns the mount path and handler. It composes the same
 // stack as NewExchangeServiceHandler — request-id outermost, verify at the http
 // seam, validate/error-detail as connect interceptors — over the generated
-// BrokerService handler. Broker relay routes outside the /fora. procedure
-// prefix are the application's own http surface and never pass through this
-// handler; they keep their bespoke verification.
+// BrokerService handler, which carries both Broker methods: Resolve and the
+// relayed purchase, ExecuteTransaction. The verify face authenticates the
+// agent's request signature; the handler implementation owns the checks the
+// contract leaves to the Broker, among them that requester.domain names the
+// directory that signature resolved from.
 func NewBrokerServiceHandler(svc forav1connect.BrokerServiceHandler, opts ...ServerOption) (string, http.Handler) {
 	cfg := resolveServerConfig(opts)
 	path, connectHandler := forav1connect.NewBrokerServiceHandler(svc, cfg.connectHandlerOptions()...)
@@ -60,10 +62,11 @@ func NewBrokerServiceHandler(svc forav1connect.BrokerServiceHandler, opts ...Ser
 // rejection reason assumes.
 //
 // What stays the handler implementation's job is everything the contract leaves to
-// the Exchange: that caller_id names the verified signer, that the caller is among
-// the publisher's catalog_contributors, that tenant_id matches, the ingest-tier term
-// checks (sdk/go/helpers), and the per-entry verdicts. An Exchange that resolves a
-// contributor's key by caller_id narrows the seam with WithVerifyGate and verifies
+// the Exchange: that the verified signer may push for each entry's domain (the
+// domain's publisher, or one of its catalog_contributors), that tenant_id matches,
+// the ingest-tier term checks (sdk/go/helpers), and the per-entry verdicts. The
+// deprecated caller_id is not relied on. An Exchange that resolves a contributor's key
+// from the request narrows the seam with WithVerifyGate and verifies
 // inside the handler, where the decoded request is in scope — WithKeyResolver cannot
 // carry that policy, because KeyResolver.Resolve is handed the signature's keyid and
 // never the message.

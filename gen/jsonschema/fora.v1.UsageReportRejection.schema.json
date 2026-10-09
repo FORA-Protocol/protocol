@@ -1,0 +1,34 @@
+{
+  "$id": "fora.v1.UsageReportRejection.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "UsageReportRejection — a usage report could not be accepted.",
+  "properties": {
+    "reason": {
+      "anyOf": [
+        {
+          "enum": [
+            "USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND",
+            "USAGE_REPORT_REJECTION_REASON_DUPLICATE",
+            "USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED",
+            "USAGE_REPORT_REJECTION_REASON_MISSING_REQUIRED_FIELDS",
+            "USAGE_REPORT_REJECTION_REASON_MALFORMED",
+            "USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION"
+          ],
+          "type": "string"
+        },
+        {
+          "maximum": 6,
+          "minimum": 1,
+          "type": "integer"
+        }
+      ],
+      "description": "The rejection reason (defined-only, non-zero)",
+      "title": "Usage Report Rejection Reason"
+    }
+  },
+  "required": [
+    "reason"
+  ],
+  "title": "Usage Report Rejection",
+  "type": "object"
+}

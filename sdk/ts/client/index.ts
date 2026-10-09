@@ -9,17 +9,15 @@
 // It owns NO state. The signer, the keys, the dialing seam, the endpoint resolver and the
 // verification policy are all injected.
 
-import {
-	createVerifier,
-	type DiscoveryResult,
-	type Mode,
-	type OfferGroupResult,
-	type VerifiedOffer,
-	type Verifier,
+import type {
+	DiscoveryResult,
+	OfferGroupResult,
+	VerifiedOffer,
+	Verifier,
 } from "../core/verifier.ts";
 import type { z } from "zod";
 
-import { clockWindow, type Window } from "../core/window.ts";
+import { clockWindow } from "../core/window.ts";
 import { fromWireOffer } from "../core/wire-canon.ts";
 import {
   signOfferAcceptance,
@@ -27,11 +25,11 @@ import {
   ACCEPTANCE_SIGNATURE_ALGORITHM,
 } from "../src/acceptance.ts";
 import { registrationFailureDetail } from "../src/errordetail.ts";
-import { redactUserinfo } from "../src/host-ref.ts";
-import { isBareDomain } from "../src/hosts.ts";
+import { checkAudience, hostOf } from "../src/hosts.ts";
 import { generateIdempotencyKey } from "../src/idempotency.ts";
 import { ProtocolVersion } from "../src/wire.ts";
 import {
+	BrokerTransactionResponseSchema,
 	DiscoveryRequestSchema,
 	DiscoveryResponseSchema,
 	DisputeRequestSchema,
@@ -57,25 +55,23 @@ import { type Content, fetchContent } from "./content.ts";
 import { malformed, notSent, ForaCallError } from "./errors.ts";
 import { checkRegistrationData } from "../src/regschema.ts";
 import {
-	createWellKnownRequirementsReader,
 	ExchangeNotPermitted,
 	ManifestNotExchange,
 	ManifestUnusable,
 	type RegistrationRequirements,
 } from "../resolvers/index.ts";
-import type { EndpointResolver } from "./route.ts";
+import { call, resolve, type CallOptions, type ClientOptions, type Resolved } from "./options.ts";
+import { RawBody, rawExchange, rawObject } from "./raw.ts";
 import { isInvalidHostRefusal, vetExchangeEndpoint } from "./route.ts";
-import { createUnarySend } from "./send.ts";
 import {
-	DEFAULT_CALL_TIMEOUT_MS,
-	DEFAULT_MAX_RPC_READ_BYTES,
-	parseMessage,
-	unaryCall,
-	validateRequest,
-	type CallSigner,
-	type UnarySend,
-	type Validation,
-} from "./transport.ts";
+	isRecord,
+	requireRecipient,
+	stampDiscovery,
+	stampEnvelope,
+	stampVer,
+	stringField,
+} from "./stamp.ts";
+import { parseMessage, validateRequest } from "./transport.ts";
 
 const EXCHANGE_SERVICE = "fora.v1.ExchangeService";
 const BROKER_SERVICE = "fora.v1.BrokerService";
@@ -88,129 +84,6 @@ const CATALOG_SERVICE = "fora.v1.CatalogService";
  * anyone who observes the request can repeat it. */
 export const DEFAULT_PROOF_WINDOW_SEC = 30;
 
-/** Reports what one Exchange asks of a registration.
- *
- * An interface for the same two reasons the endpoint seam is one: a test can drive a
- * registration without standing up a manifest server, and this module has no way to
- * accept a terms digest or a schema from configuration — the only way to skip the read
- * is to set `terms_digest` on the request, where the signature covers it.
- *
- * An implementation MUST NOT serve the answer from a cache. The contract requires a
- * registering client to read the digest from a freshly fetched manifest, so a cached one
- * breaks the rule the field exists to record.
- *
- * An implementation's FAILURE decides how a caller is told to react, so it is part of the
- * contract rather than an implementation detail. A failure that is a VERDICT — the domain
- * is unusable, the deployment excludes it, the document served is not an Exchange's, or it
- * is one this reader cannot use — MUST throw the resolver tier's ExchangeNotPermitted,
- * ManifestNotExchange or ManifestUnusable, or the invalid-host error raised for a
- * value that is not a bare domain;
- * those surface as `not_sent`, which tells the caller not to retry. Anything else is read
- * as a transport failure and reported as `unreachable`, i.e. worth retrying. An
- * implementation that throws a bare error for a refusal therefore has its final answer
- * retried indefinitely.
- *
- * ManifestUnusable is the seam's word for "the document arrived and cannot be read for
- * what a registration owes". The SDK's own reader reaches it for a document version it
- * cannot classify, and treats its other two disappointments as absence or as a transport
- * failure. An implementation STRICTER than that one — validating the whole document, or
- * applying a narrower version rule — reaches for the same word, and would otherwise hold
- * a final answer this seam reported as transient.
- *
- * Note which class that is NOT. ManifestVersionRefused belongs to the endpoint seam and
- * is absent from the list above on purpose: the two vocabularies are disjoint, one
- * answering whether an endpoint may be dialled and this one whether a document can be
- * read. An implementation that throws the endpoint class for a version refusal here has
- * its verdict read as a transport failure. */
-export interface RegistrationRequirementsReader {
-	resolveRegistrationRequirements(exchange: string): Promise<RegistrationRequirements>;
-}
-
-/** Everything a client is built from. Every field is injected; the client owns none of it. */
-export interface ClientOptions {
-	/** The RFC 9421 request signer. Custody stays with the application — the SDK receives
-	 * a non-extractable CryptoKey and the keyid it signs under, never key bytes. */
-	signer?: { privKey: CryptoKey; keyid: string };
-	/** The PUBLIC half of the key `signer` signs with. A bound delivery fetch presents it
-	 * in a header and derives the agent identity from it, and a non-extractable CryptoKey
-	 * cannot yield it — custody keeps the private half, so the public half is supplied
-	 * alongside. Without it the client can buy but cannot fetch what it bought.
-	 *
-	 * There is deliberately no option for a separate agent PRIVATE key. The protocol
-	 * carries one agent identity: agent_identity_hash is the thumbprint of the agent's
-	 * request-signing key, an Exchange verifies the detached acceptance against the key
-	 * registered for the caller its request signature identified, and the delivery URL is
-	 * bound to that same thumbprint. A second key would be refused at execute, and any URL
-	 * it did produce could never be fetched. */
-	agentPublicKey?: CryptoKey;
-	/** The agent's own identity, forwarded on discovery and required on a purchase: both
-	 * reference services resolve the calling agent from it and refuse a request naming
-	 * none. */
-	requester?: Record<string, unknown>;
-	/** Offer-verification strictness. Defaults to "strict" — fail-closed. */
-	verification?: Mode;
-	/** Whether an outbound request is checked against its generated schema first.
-	 * Defaults to "strict", which is deliberately stricter than Go — see the Validation
-	 * type for why. Orthogonal to `verification`: this one is about the message going
-	 * out, that one about the offers coming back. */
-	validation?: Validation;
-	/** Resolves an exchange identity to its raw 32-byte Ed25519 offer-signing key.
-	 * Injected: the client owns no key state. */
-	resolveOfferKey?: (exchange: string) => Promise<Uint8Array<ArrayBuffer> | undefined>;
-	/** Turns an offer's exchange domain into that Exchange's own advertised origin. Never
-	 * configuration — a usage report and a dispute go where the signed offer says. */
-	endpointResolver?: EndpointResolver;
-	/** Reports what one Exchange asks of a registration — the terms revision submitting
-	 * one accepts, and the schema its registration_data must match. Defaults to the
-	 * well-known reader over the SSRF-guarded transport, built once with this client:
-	 * the domain comes off the request rather than from configuration, so it is the
-	 * request-derived provenance that takes the guarded default.
-	 *
-	 * The reader it takes holds no document cache, and that is the point rather than an
-	 * implementation detail: the contract requires a registering client to read the terms
-	 * digest from a FRESHLY fetched manifest, so an implementation serving it from a
-	 * cache breaks the rule the field exists to record. There is deliberately no option
-	 * to supply a digest or a schema directly — a caller managing its own requirements
-	 * sets `terms_digest` on the request, which suppresses the read and says so on the
-	 * message the signature covers. */
-	registrationRequirements?: RegistrationRequirementsReader;
-	/** The WBA directory origin this client signs as. */
-	signatureAgent?: string;
-	/** The RFC 9421 freshness window stamped on every outbound call. Not needed for
-	 * uniqueness: every request signature carries a fresh nonce. */
-	signWindow?: Window;
-	/** The freshness window stamped on a delivery-fetch proof. */
-	proofWindow?: Window;
-	/** Mints the X-Request-ID correlation value. Absent sends no header. */
-	requestId?: () => string;
-	/** The dialing seam for the configured (home Exchange / Broker) leg. */
-	send?: UnarySend;
-	/** The dialing seam for the OFFER-DERIVED leg. Defaults to the SSRF-guarded send,
-	 * because the caller names a domain, the manifest it serves names an endpoint, and a
-	 * signed call then goes there. */
-	guardedSend?: UnarySend;
-	maxRPCReadBytes?: number;
-	callTimeoutMs?: number;
-	contentTimeoutMs?: number;
-	maxContentBytes?: number;
-	/** The clock the offer Verifier reads, in epoch milliseconds. */
-	now?: () => number;
-}
-
-/** Tunes a single state-mutating call. */
-export interface CallOptions {
-	/**
-	 * Pins the idempotency key for this call. Reusing a key makes the call a deliberate
-	 * replay: the server dedupes on it (a fresh key is minted per call by default). The
-	 * SDK never tracks keys — the server owns dedup.
-	 *
-	 * Hold the key and pass the same one back when retrying, on every verb that takes
-	 * this option. The key identifies the ACTION, not the attempt: a fresh key on a retry
-	 * reads to the server as a second purchase, a second report, a second dispute.
-	 */
-	idempotencyKey?: string;
-}
-
 /**
  * The response types, inferred from the generated schemas rather than restated.
  *
@@ -221,103 +94,70 @@ export interface CallOptions {
  * ergonomics.
  */
 export type TransactionResponse = z.infer<typeof TransactionResponseSchema>;
+/** The Broker's combined answer to a relayed purchase: one result item per request item
+ * in request order (an Exchange's refusal of its whole sub-request rides on each affected
+ * item as `refusal`), one outcome per Exchange contacted, and per-currency totals. */
+export type BrokerTransactionResponse = z.infer<typeof BrokerTransactionResponseSchema>;
 /** The answer to a usage report; carries the `report_id` a dispute is filed against. */
 export type UsageReportResponse = z.infer<typeof UsageReportResponseSchema>;
 /** The answer to a dispute. */
 export type DisputeResponse = z.infer<typeof DisputeResponseSchema>;
 
+/**
+ * The request types a verb accepts, inferred from the generated schemas: the shape a
+ * caller writes, with every defaulted field optional. Each verb also takes a plain record
+ * (the same object, untyped) and a RawBody. There is no `toWire`: an object of one of
+ * these types already is the JSON the SDK sends.
+ */
+export type ResourceQuery = z.input<typeof ResourceQuerySchema>;
+export type DiscoveryRequest = z.input<typeof DiscoveryRequestSchema>;
+export type UsageReport = z.input<typeof UsageReportSchema>;
+export type DisputeRequest = z.input<typeof DisputeRequestSchema>;
+export type RegisterRequest = z.input<typeof RegisterRequestSchema>;
+export type GetAccountStatusRequest = z.input<typeof GetAccountStatusRequestSchema>;
+export type PushResourcesRequest = z.input<typeof PushResourcesRequestSchema>;
+export type RemoveResourcesRequest = z.input<typeof RemoveResourcesRequestSchema>;
+export type RefreshCatalogRequest = z.input<typeof RefreshCatalogRequestSchema>;
+
+/** A request a verb accepts: its typed shape, the same object as a plain record, or a
+ * RawBody sent as given. */
+type Request<T> = T | Record<string, unknown> | RawBody;
+
 /** The agent-facing Exchange client. */
 export interface Client {
-	discover(query: Record<string, unknown>): Promise<DiscoveryResult>;
-	execute(offer: VerifiedOffer, opts?: CallOptions): Promise<TransactionResponse>;
-	reportUsage(
-		report: Record<string, unknown>,
+	discover(query: Request<ResourceQuery>): Promise<DiscoveryResult>;
+	/** Buy one offer, or several issued by ONE Exchange, in one request. The retrieval
+	 * URLs in the answer are returned as the Exchange issued them; the delivery edge
+	 * verifies them. */
+	execute(
+		offer: VerifiedOffer | readonly VerifiedOffer[] | RawBody,
 		opts?: CallOptions,
-	): Promise<UsageReportResponse>;
-	dispute(request: Record<string, unknown>, opts?: CallOptions): Promise<DisputeResponse>;
+	): Promise<TransactionResponse>;
+	reportUsage(report: Request<UsageReport>, opts?: CallOptions): Promise<UsageReportResponse>;
+	dispute(request: Request<DisputeRequest>, opts?: CallOptions): Promise<DisputeResponse>;
 	/** Create this agent's account at the Exchange the request names. Takes no
 	 * CallOptions: the message carries no idempotency key, because registering again
 	 * returns the same account handle. */
-	register(request: Record<string, unknown>): Promise<RegisterResponse>;
-	/** Read whether this agent's account at the named Exchange is active. An empty
-	 * `billing_ref` is a NORMAL answer — no account there yet. */
-	getAccountStatus(request: Record<string, unknown>): Promise<GetAccountStatusResponse>;
+	register(request: Request<RegisterRequest>): Promise<RegisterResponse>;
+	/** Read whether this agent's account at the named Exchange is active. No account
+	 * there yet is answered `not_found` (a `ForaCallError` with that `code`); an older
+	 * Exchange answers with an empty `billing_ref` instead, which means the same. */
+	getAccountStatus(request: Request<GetAccountStatusRequest>): Promise<GetAccountStatusResponse>;
+	/** Fetch what a delivery URL names, presenting the agent's proof of possession. The URL
+	 * is taken as given; the delivery edge verifies it. */
 	fetch(signedURL: string): Promise<Content>;
 }
 
 /** The Broker client. */
 export interface BrokerClient {
-	resolve(request: Record<string, unknown>): Promise<DiscoveryResult>;
-}
-
-// resolved holds what both faces are built from, so the exchange and broker clients
-// cannot drift in how they sign, correlate, bound or verify.
-interface Resolved {
-	opts: ClientOptions;
-	verifier: Verifier;
-	send: UnarySend;
-	guardedSend: UnarySend;
-	/** The SEAM, not the concrete reader: an injected one and the default are the
-	 * same thing to every caller below here. Resolved alongside the transports
-	 * because the default holds a dispatcher, so building it per call would open
-	 * one per registration and close none. */
-	requirements: RegistrationRequirementsReader;
-	signer: CallSigner | undefined;
-}
-
-function resolve(opts: ClientOptions): Resolved {
-	const now = opts.now ?? (() => Date.now());
-	const verifier = createVerifier(opts.verification ?? "strict", {
-		// Fail-closed by default: with no resolver injected nothing resolves, so every
-		// offer lands in `rejected` with a reason rather than being surfaced unchecked.
-		resolve: opts.resolveOfferKey ?? (async () => undefined),
-		now,
-	});
-	const signer: CallSigner | undefined =
-		opts.signer === undefined
-			? undefined
-			: {
-					privKey: opts.signer.privKey,
-					keyid: opts.signer.keyid,
-					...(opts.signatureAgent !== undefined
-						? { signatureAgent: opts.signatureAgent }
-						: {}),
-					...(opts.signWindow !== undefined ? { window: opts.signWindow } : {}),
-				};
-	return {
-		opts,
-		verifier,
-		send: opts.send ?? createUnarySend({ guarded: false }),
-		guardedSend: opts.guardedSend ?? createUnarySend({ guarded: true }),
-		requirements:
-			opts.registrationRequirements ?? createWellKnownRequirementsReader(),
-		signer,
-	};
-}
-
-// call is the one place a verb reaches the wire, so every leg carries the same header
-// set, the same bound and the same deadline.
-async function call(
-	r: Resolved,
-	op: string,
-	baseURL: string,
-	service: string,
-	method: string,
-	message: unknown,
-	guarded: boolean,
-): Promise<unknown> {
-	return unaryCall({
-		target: { baseURL, service, method },
-		op,
-		message,
-		// The leg decides the dial AND the gate together, so the two cannot drift apart.
-		send: guarded ? r.guardedSend : r.send,
-		guarded,
-		...(r.signer !== undefined ? { signer: r.signer } : {}),
-		...(r.opts.requestId !== undefined ? { requestId: r.opts.requestId } : {}),
-		maxBytes: r.opts.maxRPCReadBytes ?? DEFAULT_MAX_RPC_READ_BYTES,
-		timeoutMs: r.opts.callTimeoutMs ?? DEFAULT_CALL_TIMEOUT_MS,
-	});
+	resolve(request: Request<DiscoveryRequest>): Promise<DiscoveryResult>;
+	/** Buy offers from any number of Exchanges in one call; the Broker re-packages the
+	 * purchase into one sub-request per Exchange (BrokerService.ExecuteTransaction). The
+	 * retrieval URLs in the answer are returned as each Exchange issued them. */
+	execute(
+		offers: readonly VerifiedOffer[] | RawBody,
+		opts?: CallOptions,
+	): Promise<BrokerTransactionResponse>;
 }
 
 /**
@@ -355,14 +195,20 @@ export function createClient(baseURL: string, options: ClientOptions = {}): Clie
  * fan-out returns offers minted by different Exchanges, so inject a resolver that
  * resolves each issuing Exchange's own key. And `requester` is REQUIRED, not optional: a
  * Broker resolves the calling agent from it and declines a request naming none, so
- * resolve refuses locally rather than spending a round trip to be told.
+ * resolve and execute refuse locally rather than spending a round trip to be told.
+ * execute also needs `signer` and `signatureAgent`: a relayed purchase carries
+ * acceptances signed with the agent's key, and a Broker refuses a requester.domain that
+ * does not name the directory the request is signed from.
  */
 export function createBrokerClient(
 	baseURL: string,
 	options: ClientOptions = {},
 ): BrokerClient {
 	const r = resolve(options);
-	return { resolve: (request) => brokerResolve(r, baseURL, request) };
+	return {
+		resolve: (request) => brokerResolve(r, baseURL, request),
+		execute: (offers, opts) => brokerExecute(r, baseURL, offers, opts ?? {}),
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -392,19 +238,29 @@ export function createBrokerClient(
 async function discover(
 	r: Resolved,
 	baseURL: string,
-	query: Record<string, unknown>,
+	query: Request<ResourceQuery>,
 ): Promise<DiscoveryResult> {
 	const op = "discover";
-	const sent = stampDiscovery(op, query, r.opts.requester);
-	validateRequest(op, sent, ResourceQuerySchema, r.opts.validation ?? "strict");
+	let sent: Record<string, unknown>;
+	let message: unknown;
+	if (query instanceof RawBody) {
+		// Only to attribute a flat answer to the URI asked about; never checked.
+		sent = rawObject(query) ?? {};
+		message = query;
+	} else {
+		sent = stampDiscovery(op, query, r.opts.requester);
+		validateRequest(op, sent, ResourceQuerySchema, r.opts.validation ?? "strict");
+		message = sent;
+	}
 	const raw = await call(
 		r,
 		op,
 		baseURL,
 		EXCHANGE_SERVICE,
 		"DiscoverResources",
-		sent,
+		message,
 		false,
+		"fora.v1.ResourceResponse",
 	);
 	const msg = parseMessage<Record<string, unknown>>(op, raw, ResourceResponseSchema);
 	return {
@@ -505,22 +361,35 @@ function canonicalizeGroupOffers(group: unknown): unknown {
 async function brokerResolve(
 	r: Resolved,
 	baseURL: string,
-	request: Record<string, unknown>,
+	request: Request<DiscoveryRequest>,
 ): Promise<DiscoveryResult> {
 	const op = "resolve";
-	const sent = stampDiscovery(op, request, r.opts.requester);
-	// Refused locally rather than sent: a Broker resolves the calling agent from the
-	// requester and declines a request that names none, so this is a verdict the client
-	// already knows, and naming the remedy beats relaying "requester required" from a
-	// round trip away. execute refuses the same way.
-	if (sent["requester"] === undefined) {
-		throw malformed(
-			op,
-			new Error("no requester configured; a Broker resolves who is asking"),
-		);
+	let message: unknown = request;
+	if (!(request instanceof RawBody)) {
+		const sent = stampDiscovery(op, request, r.opts.requester);
+		// Refused locally rather than sent: a Broker resolves the calling agent from the
+		// requester and declines a request that names none, so this is a verdict the
+		// client already knows, and naming the remedy beats relaying "requester required"
+		// from a round trip away. execute refuses the same way.
+		if (sent["requester"] === undefined) {
+			throw malformed(
+				op,
+				new Error("no requester configured; a Broker resolves who is asking"),
+			);
+		}
+		validateRequest(op, sent, DiscoveryRequestSchema, r.opts.validation ?? "strict");
+		message = sent;
 	}
-	validateRequest(op, sent, DiscoveryRequestSchema, r.opts.validation ?? "strict");
-	const raw = await call(r, op, baseURL, BROKER_SERVICE, "Resolve", sent, false);
+	const raw = await call(
+		r,
+		op,
+		baseURL,
+		BROKER_SERVICE,
+		"Resolve",
+		message,
+		false,
+		"fora.v1.DiscoveryResponse",
+	);
 	const msg = parseMessage<Record<string, unknown>>(op, raw, DiscoveryResponseSchema);
 	// Read from the RAW answer for the same reason discover does: a parse normalizes, and
 	// a signature covers what the responder sent.
@@ -538,26 +407,150 @@ async function brokerResolve(
 }
 
 /**
- * execute commits to a VERIFIED offer and returns the transaction response.
+ * execute commits to one VERIFIED offer, or several issued by ONE Exchange, and returns
+ * the transaction response.
  *
- * It accepts ONLY a VerifiedOffer — the brand is module-private to the core, so passing a
- * rejected offer or a raw parsed one is a COMPILE error. A per-call idempotency key is
- * minted fresh unless one is pinned. execute builds the whole TransactionRequest, so it
- * also stamps `ver` from ProtocolVersion — the caller neither supplies nor overrides it.
+ * It accepts ONLY VerifiedOffer values — the brand is module-private to the core, so
+ * passing a rejected offer or a raw parsed one is a COMPILE error. A per-call idempotency
+ * key is minted fresh unless one is pinned. execute builds the whole TransactionRequest,
+ * so it also stamps `ver` from ProtocolVersion — the caller neither supplies nor
+ * overrides it.
+ *
+ * Items-only wire shape: a single offer is the degenerate 1-element items list. Several
+ * offers must all name the same Exchange: a direct purchase goes to one Exchange, and an
+ * Exchange refuses a request carrying an item addressed to anyone else, so a mixed set is
+ * refused locally as malformed. Buying across Exchanges in one call is
+ * BrokerClient.execute.
  */
 async function execute(
 	r: Resolved,
 	baseURL: string,
-	offer: VerifiedOffer,
+	offer: VerifiedOffer | readonly VerifiedOffer[] | RawBody,
 	opts: CallOptions,
 ): Promise<TransactionResponse> {
 	const op = "execute";
+	if (offer instanceof RawBody) {
+		const raw = await call(r, op, baseURL, EXCHANGE_SERVICE, "ExecuteTransaction", offer, false, "fora.v1.TransactionResponse");
+		return parseMessage<TransactionResponse>(op, raw, TransactionResponseSchema);
+	}
+	const offers: readonly VerifiedOffer[] = isOfferList(offer) ? offer : [offer];
+	requireOneExchange(op, offers);
+	const request = await buildTransaction(r, op, offers, opts);
+	validateRequest(op, request, TransactionRequestSchema, r.opts.validation ?? "strict");
+	const raw = await call(
+		r,
+		op,
+		baseURL,
+		EXCHANGE_SERVICE,
+		"ExecuteTransaction",
+		request,
+		false,
+		"fora.v1.TransactionResponse",
+	);
+	return parseMessage<TransactionResponse>(op, raw, TransactionResponseSchema);
+}
+
+/**
+ * brokerExecute buys VERIFIED offers through the Broker in one call, however many
+ * Exchanges issued them (BrokerService.ExecuteTransaction).
+ *
+ * The client builds the same TransactionRequest a direct purchase sends — every item with
+ * the agent's detached AgentAcceptance, and one AgentRequestAcceptance over the complete
+ * ordered set — and stamps `ver` and the configured requester. The Broker re-packages it:
+ * it groups the items by each offer's exchange, sends one sub-request per Exchange signed
+ * with its own key, and combines the answers. The acceptances travel in each sub-request
+ * body, so every Exchange still verifies the agent's consent. The Broker forwards the
+ * idempotency key unchanged to every Exchange, so a retry with the same key is answered
+ * from each Exchange's stored result.
+ *
+ * Refused locally, with nothing sent: no requester, or one with an empty id or domain, no
+ * offers, an unsigned offer, an offer that names no exchange, and a requester.domain that
+ * is not the host of the directory this client signs as (all malformed); no signer
+ * (not_signable). The last
+ * mirrors the Broker's own check, which it refuses with request_auth_failure
+ * SIGNATURE_INVALID.
+ *
+ * An Exchange that refused the Broker's whole sub-request is NOT an error here: the call
+ * succeeds, and each affected item carries the refusal in `refusal` while the other
+ * Exchanges' items come back unchanged. A refusal whose code is "unavailable" or
+ * "deadline_exceeded" leaves the item's outcome unknown — the Exchange may have bought it
+ * before the answer was lost — and `totals` does not count it; retry the same request with
+ * the same idempotency key through the same Broker to settle it. Only the Broker's own
+ * refusals throw, and then nothing was bought.
+ */
+async function brokerExecute(
+	r: Resolved,
+	baseURL: string,
+	offers: readonly VerifiedOffer[] | RawBody,
+	opts: CallOptions,
+): Promise<BrokerTransactionResponse> {
+	const op = "broker execute";
+	if (offers instanceof RawBody) {
+		const raw = await call(r, op, baseURL, BROKER_SERVICE, "ExecuteTransaction", offers, false, "fora.v1.BrokerTransactionResponse");
+		return parseMessage<BrokerTransactionResponse>(op, raw, BrokerTransactionResponseSchema);
+	}
+	if (r.opts.requester === undefined) {
+		throw malformed(
+			op,
+			new Error("no requester configured; a Broker resolves who is buying"),
+		);
+	}
+	requireRoutable(op, offers);
+	requireNamedRequester(op, r.opts.requester);
+	requireRequesterIsSigner(op, r.opts.requester, r.opts.signatureAgent ?? "");
+	const request = await buildTransaction(r, op, offers, opts);
+	validateRequest(op, request, TransactionRequestSchema, r.opts.validation ?? "strict");
+	const raw = await call(
+		r,
+		op,
+		baseURL,
+		BROKER_SERVICE,
+		"ExecuteTransaction",
+		request,
+		false,
+		"fora.v1.BrokerTransactionResponse",
+	);
+	return parseMessage<BrokerTransactionResponse>(op, raw, BrokerTransactionResponseSchema);
+}
+
+function isOfferList(
+	offer: VerifiedOffer | readonly VerifiedOffer[],
+): offer is readonly VerifiedOffer[] {
+	return Array.isArray(offer);
+}
+
+function offerRecord(offer: VerifiedOffer): Record<string, unknown> {
+	return offer.offer as Record<string, unknown>;
+}
+
+/**
+ * buildTransaction assembles and signs the TransactionRequest for a purchase. The verbs
+ * that buy — execute and BrokerClient.execute — differ in which offers they admit and
+ * where the request goes, never in how the request is built, so the building lives here
+ * once.
+ *
+ * Each item reflects its signed Offer back exactly as received at discovery and carries
+ * the agent's detached acceptance of that one offer. The request-level acceptance over
+ * the complete ordered item set is attached when every offer names its Exchange; an item
+ * without one cannot appear in that payload, which requires a recipient per item.
+ *
+ * Every acceptance covers the offer, the requester and the idempotency key, so a retry
+ * that pins the same key reproduces byte-identical acceptance bytes. That is the
+ * deliberate-replay semantic, not an accident.
+ */
+async function buildTransaction(
+	r: Resolved,
+	op: string,
+	offers: readonly VerifiedOffer[],
+	opts: CallOptions,
+): Promise<Record<string, unknown>> {
 	if (r.opts.requester === undefined) {
 		throw malformed(
 			op,
 			new Error("no requester configured; an Exchange resolves who is buying from it"),
 		);
 	}
+	requireNamedRequester(op, r.opts.requester);
 	if (r.opts.signer === undefined) {
 		// not_signable, matching what fetch answers for the same missing holder: a caller
 		// branching on the kind sees one condition under one class, whichever verb met it
@@ -570,14 +563,20 @@ async function execute(
 			),
 		});
 	}
-	const wire = offer.offer as Record<string, unknown>;
-	const offerSig = typeof wire["signature"] === "string" ? wire["signature"] : "";
-	// An acceptance floating free of a concrete offer is meaningless, and an unsigned
-	// offer is reachable here: verification "off" and RejectedOffer.unsafe() both mint a
-	// VerifiedOffer without a signature check.
-	if (offerSig === "") {
-		throw malformed(op, new Error("cannot accept an unsigned offer"));
+	if (offers.length === 0) {
+		throw malformed(op, new Error("no offers to buy"));
 	}
+	const wires = offers.map(offerRecord);
+	const requestItems = wires.map((wire, i) => {
+		const offerSig = typeof wire["signature"] === "string" ? wire["signature"] : "";
+		// An acceptance floating free of a concrete offer is meaningless, and an unsigned
+		// offer is reachable here: verification "off" and RejectedOffer.unsafe() both mint
+		// a VerifiedOffer without a signature check.
+		if (offerSig === "") {
+			throw malformed(op, new Error(`cannot accept an unsigned offer (item ${i})`));
+		}
+		return { offerSig, exchange: stringField(wire, "exchange") };
+	});
 	// `??` would take an EMPTY pinned key as a value and send it, which fails the
 	// message's own min(1). An empty string is the absence of a key, as Go and Python
 	// both read it.
@@ -588,78 +587,167 @@ async function execute(
 	const requester = r.opts.requester;
 	const requesterId = stringField(requester, "id");
 	const requesterDomain = stringField(requester, "domain");
-	const requestItems = [{ offerSig, exchange: stringField(wire, "exchange") }];
-	// The acceptance covers the offer, the requester and the idempotency key, so a retry
-	// that pins the same key reproduces byte-identical acceptance bytes. That is the
-	// deliberate-replay semantic, not an accident.
-	let signature: string;
+	const privKey = r.opts.signer.privKey;
+	let signatures: string[];
+	let requestSignature: string | undefined;
 	try {
-		signature = await signOfferAcceptance(
-			{
-				offerSig,
-				requesterId,
-				requesterDomain,
-				idempotencyKey: key,
-			},
-			r.opts.signer.privKey,
+		signatures = await Promise.all(
+			requestItems.map((item) =>
+				signOfferAcceptance(
+					{
+						offerSig: item.offerSig,
+						requesterId,
+						requesterDomain,
+						idempotencyKey: key,
+					},
+					privKey,
+				),
+			),
 		);
+		if (requestItems.every((item) => item.exchange !== "")) {
+			requestSignature = await signRequestAcceptance(
+				{ items: requestItems, requesterId, requesterDomain, idempotencyKey: key },
+				privKey,
+			);
+		}
 	} catch (cause) {
 		throw new ForaCallError({ kind: "not_signable", op, cause });
 	}
-	let requestSignature: string | undefined;
-	if (requestItems[0]!.exchange !== "") {
-		try {
-			requestSignature = await signRequestAcceptance(
-				{ items: requestItems, requesterId, requesterDomain, idempotencyKey: key },
-				r.opts.signer.privKey,
-			);
-		} catch (cause) {
-			throw new ForaCallError({ kind: "not_signable", op, cause });
-		}
-	}
-	// Items-only wire shape: a single offer is the degenerate 1-element items list, each
-	// item reflecting its signed Offer back exactly as received at discovery. The
-	// authoritative identity is the reflected offer; the optional top-level offer_id
-	// correlation scalar is left unset.
-	const request = {
+	// The authoritative identity of each item is the reflected offer; the optional
+	// top-level offer_id correlation scalar is left unset.
+	return {
 		ver: ProtocolVersion,
 		idempotency_key: key,
 		requester,
-		items: [
-			{
-				offer: wire,
-				agent_acceptance: {
-					signature,
-					signature_algorithm: ACCEPTANCE_SIGNATURE_ALGORITHM,
-				},
+		items: wires.map((wire, i) => ({
+			offer: wire,
+			agent_acceptance: {
+				signature: signatures[i],
+				signature_algorithm: ACCEPTANCE_SIGNATURE_ALGORITHM,
 			},
-		],
+		})),
 		...(requestSignature === undefined
-			? {} : { agent_request_acceptance: {
-			payload: {
-				items: requestItems.map((item) => ({
-					offer_sig: item.offerSig,
-					exchange: item.exchange,
-				})),
-				requester_id: requesterId,
-				requester_domain: requesterDomain,
-				idempotency_key: key,
-			},
-			signature: requestSignature,
-			signature_algorithm: ACCEPTANCE_SIGNATURE_ALGORITHM,
-		} }),
+			? {}
+			: {
+					agent_request_acceptance: {
+						payload: {
+							items: requestItems.map((item) => ({
+								offer_sig: item.offerSig,
+								exchange: item.exchange,
+							})),
+							requester_id: requesterId,
+							requester_domain: requesterDomain,
+							idempotency_key: key,
+						},
+						signature: requestSignature,
+						signature_algorithm: ACCEPTANCE_SIGNATURE_ALGORITHM,
+					},
+				}),
 	};
-	validateRequest(op, request, TransactionRequestSchema, r.opts.validation ?? "strict");
-	const raw = await call(
-		r,
-		op,
-		baseURL,
-		EXCHANGE_SERVICE,
-		"ExecuteTransaction",
-		request,
-		false,
-	);
-	return parseMessage(op, raw, TransactionResponseSchema);
+}
+
+/** requireOneExchange refuses a direct purchase whose offers were issued by more than one
+ * Exchange: that Exchange would refuse the item addressed to someone else. */
+function requireOneExchange(op: string, offers: readonly VerifiedOffer[]): void {
+	const first = offers[0];
+	if (first === undefined) return;
+	const want = stringField(offerRecord(first), "exchange");
+	offers.forEach((offer, i) => {
+		const got = stringField(offerRecord(offer), "exchange");
+		if (got !== want) {
+			throw malformed(
+				op,
+				new Error(
+					`item ${i} is issued by ${JSON.stringify(got)} and item 0 by ${JSON.stringify(want)}; ` +
+						"a direct purchase goes to one Exchange (buy across Exchanges with BrokerClient.execute)",
+				),
+			);
+		}
+	});
+}
+
+/** requireRoutable refuses a relayed purchase carrying an offer that names no Exchange: a
+ * Broker routes each item to the Exchange its offer names. */
+function requireRoutable(op: string, offers: readonly VerifiedOffer[]): void {
+	offers.forEach((offer, i) => {
+		if (stringField(offerRecord(offer), "exchange") === "") {
+			throw malformed(
+				op,
+				new Error(
+					`item ${i} names no exchange; a Broker routes each item to the Exchange its offer names`,
+				),
+			);
+		}
+	});
+}
+
+/**
+ * requireNamedRequester refuses a requester with an empty id or an empty domain as
+ * malformed. Every acceptance a purchase carries names the requester, and the protocol
+ * requires both fields, so the signer would refuse anyway; refusing here reports the
+ * configuration fault as malformed rather than as a custody failure (not_signable).
+ */
+function requireNamedRequester(op: string, requester: Record<string, unknown>): void {
+	for (const key of ["id", "domain"] as const) {
+		if (stringField(requester, key) === "") {
+			throw malformed(
+				op,
+				new Error(
+					`requester.${key} is empty; a purchase's acceptances name the requester, ` +
+						"and both requester.id and requester.domain are required",
+				),
+			);
+		}
+	}
+}
+
+/**
+ * requireRequesterIsSigner refuses a request whose requester.domain is not the host of the
+ * WBA directory this client signs as. A Broker verifies the agent's signature against the
+ * key it resolves from the covered Signature-Agent directory and requires
+ * requester.domain to name that same directory, because every Exchange it relays to
+ * resolves the agent's acceptance keys from requester.domain. It refuses a mismatch with
+ * request_auth_failure SIGNATURE_INVALID; this client refuses it first, before sending.
+ *
+ * The comparison is the recipient-identity rule: exact, case-folded, an explicit :443
+ * the same as no port. An unset Signature-Agent names no directory, so it fails too.
+ */
+function requireRequesterIsSigner(
+	op: string,
+	requester: Record<string, unknown>,
+	signatureAgent: string,
+): void {
+	if (signatureAgent === "") {
+		throw malformed(
+			op,
+			new Error(
+				"no signatureAgent configured; a Broker checks that requester.domain names the " +
+					"directory the request is signed from",
+			),
+		);
+	}
+	let host: string;
+	try {
+		host = hostOf(signatureAgent);
+	} catch (cause) {
+		throw malformed(op, cause);
+	}
+	let verdict: string;
+	try {
+		verdict = checkAudience(host, stringField(requester, "domain"));
+	} catch (cause) {
+		throw malformed(op, cause);
+	}
+	if (verdict !== "accepted") {
+		throw malformed(
+			op,
+			new Error(
+				`requester.domain ${JSON.stringify(stringField(requester, "domain"))} is not ` +
+					`${JSON.stringify(host)}, the host of the directory this client signs as; ` +
+					"a Broker refuses the request (request_auth_failure SIGNATURE_INVALID)",
+			),
+		);
+	}
 }
 
 /**
@@ -680,10 +768,13 @@ async function execute(
  */
 async function reportUsage(
 	r: Resolved,
-	report: Record<string, unknown>,
+	report: Request<UsageReport>,
 	opts: CallOptions,
 ): Promise<UsageReportResponse> {
 	const op = "report usage";
+	if (report instanceof RawBody) {
+		return routedRaw(r, op, "ReportUsage", report, "fora.v1.UsageReportResponse", UsageReportResponseSchema);
+	}
 	const sent = stampEnvelope(op, report, opts);
 	// The address is vetted BEFORE the schema: an unroutable recipient is a refusal to
 	// send, which is a different verdict from a message the server would reject, and the
@@ -702,6 +793,7 @@ async function reportUsage(
 		"ReportUsage",
 		sent,
 		true,
+		"fora.v1.UsageReportResponse",
 	);
 	return parseMessage(op, raw, UsageReportResponseSchema);
 }
@@ -720,10 +812,13 @@ async function reportUsage(
  */
 async function dispute(
 	r: Resolved,
-	request: Record<string, unknown>,
+	request: Request<DisputeRequest>,
 	opts: CallOptions,
 ): Promise<DisputeResponse> {
 	const op = "dispute";
+	if (request instanceof RawBody) {
+		return routedRaw(r, op, "DisputeTransaction", request, "fora.v1.DisputeResponse", DisputeResponseSchema);
+	}
 	const sent = stampEnvelope(op, request, opts);
 	const endpoint = await vetExchangeEndpoint(
 		r.opts.endpointResolver,
@@ -739,6 +834,7 @@ async function dispute(
 		"DisputeTransaction",
 		sent,
 		true,
+		"fora.v1.DisputeResponse",
 	);
 	return parseMessage(op, raw, DisputeResponseSchema);
 }
@@ -785,9 +881,12 @@ const CLIENT_ERROR_DOMAIN = "fora.v1.Client";
  */
 async function register(
 	r: Resolved,
-	request: Record<string, unknown>,
+	request: Request<RegisterRequest>,
 ): Promise<RegisterResponse> {
 	const op = "register";
+	if (request instanceof RawBody) {
+		return routedRaw(r, op, "Register", request, "fora.v1.RegisterResponse", RegisterResponseSchema);
+	}
 	const sent = stampVer(op, request);
 	requireRecipient(op, stringField(sent, "exchange"));
 	// Narrowed rather than asserted. The bounds below are defined over an OBJECT, and
@@ -811,7 +910,7 @@ async function register(
 		op,
 	);
 	validateRequest(op, sent, RegisterRequestSchema, r.opts.validation ?? "strict");
-	const raw = await call(r, op, endpoint, EXCHANGE_SERVICE, "Register", sent, true);
+	const raw = await call(r, op, endpoint, EXCHANGE_SERVICE, "Register", sent, true, "fora.v1.RegisterResponse");
 	return parseMessage(op, raw, RegisterResponseSchema);
 }
 
@@ -821,8 +920,9 @@ async function register(
  *
  * The request carries no field identifying the caller — the Exchange resolves the account
  * from the verified signature — so `exchange` is the only thing that says which account is
- * being asked about. An empty `billing_ref` in the answer is a NORMAL answer: no account
- * there yet.
+ * being asked about. An agent with no account there yet is answered with the Connect code
+ * `not_found`, thrown as a `ForaCallError` with that `code`; an Exchange built before that
+ * rule answers with an empty `billing_ref` instead, which means the same.
  *
  * Safe to call in a loop. The request has no varying field, but every request signature
  * carries a fresh RFC 9421 nonce, so two calls to the same Exchange inside one wall-clock
@@ -831,9 +931,12 @@ async function register(
  */
 async function getAccountStatus(
 	r: Resolved,
-	request: Record<string, unknown>,
+	request: Request<GetAccountStatusRequest>,
 ): Promise<GetAccountStatusResponse> {
 	const op = "get account status";
+	if (request instanceof RawBody) {
+		return routedRaw(r, op, "GetAccountStatus", request, "fora.v1.GetAccountStatusResponse", GetAccountStatusResponseSchema);
+	}
 	const sent = stampVer(op, request);
 	requireRecipient(op, stringField(sent, "exchange"));
 	const endpoint = await vetExchangeEndpoint(
@@ -842,8 +945,27 @@ async function getAccountStatus(
 		op,
 	);
 	validateRequest(op, sent, GetAccountStatusRequestSchema, r.opts.validation ?? "strict");
-	const raw = await call(r, op, endpoint, EXCHANGE_SERVICE, "GetAccountStatus", sent, true);
+	const raw = await call(r, op, endpoint, EXCHANGE_SERVICE, "GetAccountStatus", sent, true, "fora.v1.GetAccountStatusResponse");
 	return parseMessage(op, raw, GetAccountStatusResponseSchema);
+}
+
+/**
+ * routedRaw sends a RawBody on a verb that routes by the request's `exchange`. The
+ * recipient is still read from the body and resolved through that Exchange's own
+ * manifest, over the guarded leg: where a signed request goes is not part of the message
+ * raw mode leaves alone. A body naming no usable recipient is refused as not_sent.
+ */
+async function routedRaw<T>(
+	r: Resolved,
+	op: string,
+	method: string,
+	body: RawBody,
+	response: string,
+	schema: { safeParse: (v: unknown) => { success: boolean; data?: unknown } },
+): Promise<T> {
+	const endpoint = await vetExchangeEndpoint(r.opts.endpointResolver, rawExchange(body), op);
+	const raw = await call(r, op, endpoint, EXCHANGE_SERVICE, method, body, true, response);
+	return parseMessage<T>(op, raw, schema);
 }
 
 /**
@@ -926,6 +1048,12 @@ async function applyRegistrationRequirements(
  * does not discover, select, buy or report — that orchestration is a separate, higher
  * tier.
  *
+ * The URL is taken as given. Verifying it is the delivery edge's job: the edge checks the
+ * URL signature and, where it can, the agent binding against the proof presented here. An
+ * edge that cannot check the binding (CloudFront with its pre-arranged RSA key pair)
+ * checks its own signature and treats the URL as a bearer token. An edge refusal comes
+ * back as a ForaCallError carrying a retrieval_auth_failure detail with the edge's reason.
+ *
  * It takes no CallOptions: a fetch is a GET against an already-issued URL, so there is no
  * idempotency key to pin — nothing on this path mutates state.
  */
@@ -951,13 +1079,24 @@ async function fetchVerb(r: Resolved, signedURL: string): Promise<Content> {
 			),
 		});
 	}
+	if (r.opts.signatureAgent === undefined || r.opts.signatureAgent === "") {
+		throw new ForaCallError({
+			kind: "not_signable",
+			op,
+			cause: new Error(
+				"no signatureAgent configured; a bound fetch names the agent's key directory " +
+					"as the proof's Signature-Agent member",
+			),
+		});
+	}
 	return fetchContent(signedURL, {
 		// One private key, held by the signer. The public half rides alongside because
 		// custody keeps the private one and a CryptoKey cannot be asked for its pair.
 		keyPair: { privateKey: r.opts.signer.privKey, publicKey: r.opts.agentPublicKey },
+		signatureAgent: r.opts.signatureAgent,
 		// The proof window is the client's, not the signer's. core/sign.ts defaults to the
-		// 10-minute TTL a server-side proof uses; a delivery proof is minted for one GET
-		// and wants the short window instead, so the default is set here rather than
+		// five-minute limit of a Web Bot Auth signature; a delivery proof is minted for one
+		// GET and wants the short window instead, so the default is set here rather than
 		// inherited.
 		window: r.opts.proofWindow ?? clockWindow(() => Date.now() / 1000, DEFAULT_PROOF_WINDOW_SEC),
 		...(r.opts.contentTimeoutMs !== undefined
@@ -974,78 +1113,6 @@ async function fetchVerb(r: Resolved, signedURL: string): Promise<Content> {
 // Envelope stamping
 // ---------------------------------------------------------------------------
 
-/**
- * stampDiscovery fills the envelope a DISCOVERY call carries, which is the mutating
- * envelope minus the idempotency key: pure discovery buys nothing and changes nothing, so
- * there is no action for a key to identify.
- *
- * Both fills are only-when-empty. The caller's own value always wins — the message
- * crossed a module boundary as an argument, not as a buffer to fill in — and the
- * requester is filled because both reference services resolve the calling agent from it
- * and refuse a request that names none, while the client already holds that identity.
- */
-function stampDiscovery(
-	op: string,
-	message: Record<string, unknown>,
-	requester: Record<string, unknown> | undefined,
-): Record<string, unknown> {
-	const sent = clone(op, message);
-	if (sent["ver"] === undefined || sent["ver"] === "") sent["ver"] = ProtocolVersion;
-	if (sent["requester"] === undefined && requester !== undefined) {
-		sent["requester"] = requester;
-	}
-	return sent;
-}
-
-/**
- * stampEnvelope fills the two envelope fields the protocol requires on a state-mutating
- * call, WITHOUT overwriting what the caller already set.
- *
- * Fill-when-empty is the whole rule. `ver` has a single owner, so the SDK supplies it
- * rather than making every caller reach for the constant. The idempotency key is REQUIRED
- * and identifies the action rather than the attempt, so a value the caller put there is
- * theirs — discarding it would turn each of their retries into a fresh action, which is
- * the double-counting the field exists to prevent. A pinned key overrides both.
- */
-function stampEnvelope(
-	op: string,
-	message: Record<string, unknown>,
-	opts: CallOptions,
-): Record<string, unknown> {
-	const sent = clone(op, message);
-	if (sent["ver"] === undefined || sent["ver"] === "") sent["ver"] = ProtocolVersion;
-	const onMessage = sent["idempotency_key"];
-	// Each fallback is taken when the one before it is EMPTY, not merely absent: an empty
-	// pinned key is no key, which is how Go and Python both read it.
-	sent["idempotency_key"] =
-		opts.idempotencyKey !== undefined && opts.idempotencyKey !== ""
-			? opts.idempotencyKey
-			: typeof onMessage === "string" && onMessage !== ""
-				? onMessage
-				: generateIdempotencyKey();
-	return sent;
-}
-
-// clone copies a caller's message so the SDK can stamp its envelope without touching what
-// the caller still holds. structuredClone is the runtime's own deep copy; a message that
-// cannot survive it is one that cannot be serialized to the wire either.
-function clone(op: string, message: Record<string, unknown>): Record<string, unknown> {
-	try {
-		return structuredClone(message);
-	} catch (cause) {
-		throw malformed(op, cause);
-	}
-}
-
-function stringField(record: Record<string, unknown>, key: string): string {
-	const value = record[key];
-	return typeof value === "string" ? value : "";
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-	return typeof v === "object" && v !== null && !Array.isArray(v);
-}
-
 // ---------------------------------------------------------------------------
 // The agent's account: ExchangeService
 // ---------------------------------------------------------------------------
@@ -1054,8 +1121,9 @@ function isRecord(v: unknown): v is Record<string, unknown> {
  * revision it recorded against it. */
 export type RegisterResponse = z.infer<typeof RegisterResponseSchema>;
 
-/** The answer to an account-status read. An empty account handle is a NORMAL answer: it
- * means this agent holds no account at that Exchange yet. */
+/** The answer to an account-status read. An agent with no account at that Exchange is
+ * answered `not_found` instead; an empty account handle from an older Exchange means the
+ * same. */
 export type GetAccountStatusResponse = z.infer<typeof GetAccountStatusResponseSchema>;
 
 // ---------------------------------------------------------------------------
@@ -1071,9 +1139,9 @@ export type RefreshCatalogResponse = z.infer<typeof RefreshCatalogResponseSchema
 
 /** The publisher-facing Catalog client. */
 export interface CatalogClient {
-	pushResources(request: Record<string, unknown>): Promise<PushResourcesResponse>;
-	removeResources(request: Record<string, unknown>): Promise<RemoveResourcesResponse>;
-	refreshCatalog(request: Record<string, unknown>): Promise<RefreshCatalogResponse>;
+	pushResources(request: Request<PushResourcesRequest>): Promise<PushResourcesResponse>;
+	removeResources(request: Request<RemoveResourcesRequest>): Promise<RemoveResourcesResponse>;
+	refreshCatalog(request: Request<RefreshCatalogRequest>): Promise<RefreshCatalogResponse>;
 }
 
 /**
@@ -1084,8 +1152,8 @@ export interface CatalogClient {
  * A SEPARATE constructor, as the Broker's is, and for a related reason: the address is a
  * different one. An Exchange advertises CatalogService at its manifest's
  * `catalog_endpoint`, distinct from the ExchangeService endpoint the agent client dials,
- * and the caller is a different party holding a different key — a contributor's, named
- * by `caller_id`, never an agent's. Hanging the catalog verbs on the agent client would
+ * and the caller is a different party holding a different key — a publisher's or a
+ * contributor's, identified by the request signature, never an agent's. Hanging the catalog verbs on the agent client would
  * carry every agent-only holder into a client that uses none of them, and point one of
  * the two roles at the wrong address.
  *
@@ -1100,11 +1168,11 @@ export function createCatalogClient(baseURL: string, options: ClientOptions = {}
 	const r = resolve(options);
 	return {
 		pushResources: (request) =>
-			catalogCall(r, baseURL, "push resources", "PushResources", PushResourcesRequestSchema, PushResourcesResponseSchema, request),
+			catalogCall(r, baseURL, "push resources", "PushResources", PushResourcesRequestSchema, PushResourcesResponseSchema, request, "fora.v1.PushResourcesResponse"),
 		removeResources: (request) =>
-			catalogCall(r, baseURL, "remove resources", "RemoveResources", RemoveResourcesRequestSchema, RemoveResourcesResponseSchema, request),
+			catalogCall(r, baseURL, "remove resources", "RemoveResources", RemoveResourcesRequestSchema, RemoveResourcesResponseSchema, request, "fora.v1.RemoveResourcesResponse"),
 		refreshCatalog: (request) =>
-			catalogCall(r, baseURL, "refresh catalog", "RefreshCatalog", RefreshCatalogRequestSchema, RefreshCatalogResponseSchema, request),
+			catalogCall(r, baseURL, "refresh catalog", "RefreshCatalog", RefreshCatalogRequestSchema, RefreshCatalogResponseSchema, request, "fora.v1.RefreshCatalogResponse"),
 	};
 }
 
@@ -1125,52 +1193,34 @@ async function catalogCall<T>(
 	method: string,
 	requestSchema: { safeParse: (v: unknown) => { success: boolean; data?: unknown } },
 	responseSchema: { safeParse: (v: unknown) => { success: boolean; data?: unknown } },
-	request: Record<string, unknown>,
+	request: Record<string, unknown> | RawBody,
+	response: string,
 ): Promise<T> {
-	const sent = stampVer(op, request);
-	requireRecipient(op, stringField(sent, "exchange"));
-	validateRequest(op, sent, requestSchema, r.opts.validation ?? "strict");
-	const raw = await call(r, op, baseURL, CATALOG_SERVICE, method, sent, false);
+	let message: unknown = request;
+	if (!(request instanceof RawBody)) {
+		const sent = stampVer(op, request);
+		requireRecipient(op, stringField(sent, "exchange"));
+		validateRequest(op, sent, requestSchema, r.opts.validation ?? "strict");
+		message = sent;
+	}
+	const raw = await call(r, op, baseURL, CATALOG_SERVICE, method, message, false, response);
 	return parseMessage<T>(op, raw, responseSchema);
-}
-
-function stampVer(op: string, message: Record<string, unknown>): Record<string, unknown> {
-	const sent = clone(op, message);
-	if (sent["ver"] === undefined || sent["ver"] === "") sent["ver"] = ProtocolVersion;
-	return sent;
-}
-
-// Serves the catalog verbs and the two account verbs, and asks only the SHAPE question.
-//
-// The predicate is isBareDomain, the SHAPE rule, not the routing rule isBareHost. The
-// only question it answers is whether the value is the form the contract admits, which
-// is the protovalidate pattern `exchange` carries and the same rule the Exchange's own
-// audience check applies on arrival. Whether the value can be DIALLED is a separate
-// question with a separate answer: a catalog client is built against an address the
-// publisher configured and never asks it, while the account verbs resolve this domain
-// through its own manifest and ask it there, under the routing predicate. The routing
-// predicate is deliberately wider: an underscore, a trailing root dot and a bracketed
-// IPv6 literal are all usable hosts and none of them is a value this field may hold,
-// so vetting with it would sign and send a request the recipient can only refuse.
-//
-// The refused value is redacted before it is named. A reference carrying userinfo is a
-// verdict rather than a parse failure, so it reaches the message below verbatim; the
-// routing check next door redacts for the same reason, and a tier that echoes is the
-// drift redactUserinfo exists to prevent.
-function requireRecipient(op: string, exchange: string): void {
-	if (exchange === "") {
-		throw notSent(op, new Error("request names no recipient; set exchange to the Exchange's bare domain"));
-	}
-	if (!isBareDomain(exchange)) {
-		throw notSent(op, new Error(`exchange ${JSON.stringify(redactUserinfo(exchange))} is not a bare domain`));
-	}
 }
 
 export { ForaCallError } from "./errors.ts";
 export type { CallErrorKind } from "./errors.ts";
 export type { Content } from "./content.ts";
 export type { EndpointResolver } from "./route.ts";
-export type { UnaryRequest, UnaryResponse, UnarySend, Validation } from "./transport.ts";
+export type { CallOptions, ClientOptions, RegistrationRequirementsReader } from "./options.ts";
+export { RawBody } from "./raw.ts";
+export { checkStrict, StrictViolation } from "../src/strict.ts";
+export type {
+	BeforeSign,
+	UnaryRequest,
+	UnaryResponse,
+	UnarySend,
+	Validation,
+} from "./transport.ts";
 export {
 	DEFAULT_CALL_TIMEOUT_MS,
 	DEFAULT_MAX_RPC_READ_BYTES,
@@ -1180,3 +1230,15 @@ export {
 	DEFAULT_CONTENT_TIMEOUT_MS,
 	DEFAULT_MAX_CONTENT_BYTES,
 } from "./content.ts";
+export { createAdminClient } from "./admin.ts";
+export type {
+	AdminClient,
+	DomainVerificationChallenge,
+	DomainVerificationConfirmation,
+	DomainVerificationRequest,
+	DomainVerificationResult,
+	SetReportingPolicyRequest,
+	SetReportingPolicyResponse,
+	SetTenantFeeRateRequest,
+	SetTenantFeeRateResponse,
+} from "./admin.ts";

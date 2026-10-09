@@ -1,0 +1,41 @@
+{
+  "$id": "fora.v1.ReportingObligation.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A usage report is a record of the quantity consumed. An honest report of a\n quantity that differs from the estimate, above or below, is a valid report\n and is never refused for that difference.",
+  "properties": {
+    "endpoint": {
+      "description": "URL to submit the usage report to (if different from Exchange).",
+      "type": "string"
+    },
+    "ext": {
+      "description": "Extension point",
+      "type": "object"
+    },
+    "ext_critical": {
+      "description": "Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "required": {
+      "default": false,
+      "description": "Whether post-usage reporting is required.",
+      "type": "boolean"
+    },
+    "required_fields": {
+      "description": "Field names that must be present in the report.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "window": {
+      "description": "Duration within which the report must be submitted (e.g. \"86400s\" = 24\n hours; proto-JSON encodes Duration as seconds). A report that arrives after\n the window closed is refused with USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED\n (Connect code failed_precondition).",
+      "format": "duration",
+      "type": "string"
+    }
+  },
+  "title": "ReportingObligation — Requirements attached to a delivery.",
+  "type": "object"
+}

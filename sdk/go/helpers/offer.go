@@ -25,11 +25,40 @@ const OfferSignatureAlgorithm = "EdDSA"
 // tampered payload — price, terms, expiry, …).
 var ErrOfferSignatureInvalid = errors.New("helpers: offer signature invalid")
 
+// ErrOfferTermPriced signals an offer whose term carries pricing. An offer
+// states its price once, in Offer.pricing, and the term it sells carries none
+// (fora.proto Offer, the offer.terms.pricing_unset rule): a second copy could
+// disagree with the first, and nothing would say which one is charged.
+var ErrOfferTermPriced = errors.New("helpers: an offer's term carries pricing; the offer's price is Offer.pricing")
+
+// CheckOfferTermsUnpriced returns ErrOfferTermPriced when any term of offer
+// carries pricing, and nil otherwise. It is the offer.terms.pricing_unset rule
+// as a standalone check, for a signer or a verifier that runs without wire
+// validation.
+func CheckOfferTermsUnpriced(offer *forav1.Offer) error {
+	if offer == nil {
+		return errors.New("helpers: offer is nil")
+	}
+	for i, t := range offer.GetTerms() {
+		if t.GetPricing() != nil {
+			return fmt.Errorf("%w (terms[%d])", ErrOfferTermPriced, i)
+		}
+	}
+	return nil
+}
+
 // SignOffer signs the canonical serialization of offer with priv and returns
-// the hex-encoded Ed25519 signature for the Offer.signature field.
+// the hex-encoded Ed25519 signature for the Offer.signature field. It refuses
+// an offer whose term carries pricing (ErrOfferTermPriced): the Exchange moves
+// a term's price into Offer.pricing when it builds the offer, so a priced term
+// is an offer built wrong, and a signature over it would only be refused by
+// every verifier.
 func SignOffer(priv ed25519.PrivateKey, offer *forav1.Offer) (string, error) {
 	if len(priv) != ed25519.PrivateKeySize {
 		return "", fmt.Errorf("helpers: ed25519 private key must be %d bytes, got %d", ed25519.PrivateKeySize, len(priv))
+	}
+	if err := CheckOfferTermsUnpriced(offer); err != nil {
+		return "", err
 	}
 	payload, err := CanonicalOfferBytes(offer)
 	if err != nil {

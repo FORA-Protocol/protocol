@@ -1,23 +1,44 @@
 // sdk/ts/core sign seam — the client/inbound sign face over the WHATWG Fetch
-// Request, mirror of the Go RoundTripper sign face (transport.go) but adapted to
-// the IMMUTABLE Fetch Request: it returns a NEW signed Request (headers set on a
-// clone), never mutating in place. It signs the RFC 9421 covered components over
-// the EXACT request (for a GET PoP: @method + @target-uri), reusing the L1
-// signatureBase byte contract so the signed bytes are byte-identical to what the
-// L1 pop verifier reconstructs.
+// Request, mirror of Go helpers.SignAgentBinding but adapted to the IMMUTABLE Fetch
+// Request: it returns a NEW signed Request (headers set on a clone), never mutating in
+// place. It signs the delivery proof of possession — a Web Bot Auth signature over
+// @method, @target-uri and the agent's Signature-Agent member — through the same
+// signature-base builder the L1 pop verifier rebuilds with, so the signed bytes are
+// byte-identical to what the verifier reconstructs.
 //
 // ZERO framework import (no hono, no connect-es) — only WebCrypto + the L1
 // helpers. The Hono binding (sdk/ts/hono) composes this seam; this seam composes
 // nothing above the web standard.
 
-import { encodeBase64Url } from "../src/base64url.ts";
+import { encodeBase64Url, stdBase64 } from "../src/base64url.ts";
 import { opaqueUrl } from "../src/opaque-url.ts";
-import { AGENT_KEY_HEADER, signatureBase } from "../src/pop.ts";
-import { thumbprint } from "../src/thumbprint.ts";
+import { AGENT_KEY_HEADER } from "../src/pop.ts";
+import { exportRawPublicKey, thumbprint } from "../src/thumbprint.ts";
+import { SignatureAgentHeader, WBATag } from "../src/wire.ts";
+import { buildSignatureBase, requestComponentValue, signatureInputInner } from "./sign-request.ts";
+import {
+	checkHttpsOrigin,
+	checkNonce,
+	keyed,
+	MAX_SIGNATURE_LIFETIME,
+	plain,
+	signatureAgentMember,
+	WebBotAuthError,
+} from "./wba.ts";
 import { clockWindow, type Window } from "./window.ts";
 
-// A default signing window (seconds) for the GET PoP created/expires params.
-const DEFAULT_POP_TTL_SEC = 600;
+// Re-exported so the module that has always carried the standard-base64 encoder still
+// does; the one copy lives with the base64url codec.
+export { stdBase64 } from "../src/base64url.ts";
+
+// The default signing window (seconds) for the proof's created/expires params: the
+// longest a Web Bot Auth signature may live. A delivery client sets a shorter one.
+const DEFAULT_POP_TTL_SEC = MAX_SIGNATURE_LIFETIME;
+
+// The only label a delivery proof carries, and the key of the agent's Signature-Agent
+// member. A delivery fetch is a single hop to the edge, so a second signature never
+// arises and the label is fixed rather than computed.
+const POP_LABEL = "sig1";
 
 /**
  * Ed25519 sign primitive: (privateKey, message) -> signature. Injected so a
@@ -26,52 +47,67 @@ const DEFAULT_POP_TTL_SEC = 600;
  */
 export type Ed25519SignFn = (message: Uint8Array) => Promise<Uint8Array>;
 
-/** Options for signInbound — the created/expires window + an injectable clock. */
+/** Options for signInbound: the method, the agent's directory, the nonce, and the
+ * created/expires window with an injectable clock. */
 export interface SignInboundOptions {
+	/** The HTTP method being signed, upper-cased into the base as @method and set on the
+	 * returned Request. Absent or "" means GET (Go PoPOptions.Method). A signed URL is
+	 * read-only in practice, but @method is covered so a proof made for one method cannot
+	 * be lifted onto another. A control byte throws TypeError before anything is signed. */
+	method?: string;
+	/** The https origin of the agent's key directory, the one that publishes the
+	 * presented key. Written as the Signature-Agent member sig1="<origin>" and covered,
+	 * so a generic WBA verifier can resolve the key there. Required: empty throws
+	 * WebBotAuthError ("signature_agent_required"), a value that is not an https origin
+	 * ("signature_agent_not_origin"). */
+	signatureAgent: string;
+	/** The RFC 9421 nonce parameter, base64url. The helper reads no RNG: a delivery
+	 * client passes 64 fresh random bytes. Absent or "" emits no nonce. */
+	nonce?: string;
 	now?: () => number;
 	ttlSec?: number;
 	/**
 	 * An injectable signature Window sourcing (created, expires). Defaults to a
-	 * clockWindow over `now`/`ttlSec` (both floored to integer seconds). Supply a
-	 * monotonicWindow to keep back-to-back signatures' expires cutoffs unique.
+	 * clockWindow over `now`/`ttlSec` (both floored to integer seconds). The window must
+	 * be positive and at most MAX_SIGNATURE_LIFETIME, or signing throws WebBotAuthError
+	 * ("signature_lifetime").
 	 */
 	window?: Window;
 }
 
 /**
- * signInbound produces a genuinely RFC 9421 GET-PoP-signed inbound Request over
- * @method + @target-uri, bound to the agent keypair's RFC 7638 thumbprint (keyid =
- * agent_id). It is the sign side the Hono server-verify binding accepts; it returns
- * a NEW Request carrying the X-FORA-Agent-Key, Signature-Input, and Signature
- * headers (the Fetch Request is immutable — we clone + set headers, never mutate).
+ * signInbound produces a Web Bot Auth proof-of-possession-signed inbound Request over
+ * @method, @target-uri and the agent's Signature-Agent member, bound to the agent
+ * keypair's RFC 7638 thumbprint (keyid = agent_id). It is the sign side the Hono
+ * server-verify binding accepts; it returns a NEW Request carrying the
+ * X-FORA-Agent-Key, Signature-Agent, Signature-Input and Signature headers (the Fetch
+ * Request is immutable — we clone + set headers, never mutate).
  *
- * The covered set is exactly ("@method" "@target-uri"), matching the L1 pop
- * verifier's coversExactly, and the signature base is the L1 signatureBase byte
- * contract, so the produced request verifies through verifyAgentBinding unchanged.
+ * The covered set is exactly ("@method" "@target-uri" "signature-agent";key="sig1"),
+ * @method being opts.method upper-cased (GET when unset),
+ * the parameters created, expires, keyid, alg, nonce (when set) and tag="web-bot-auth",
+ * matching Go helpers.SignAgentBinding byte for byte, so the produced request verifies
+ * through verifyAgentBinding unchanged. Throws WebBotAuthError, before signing, for a
+ * missing or non-origin directory, a window that is not positive or longer than
+ * MAX_SIGNATURE_LIFETIME, or a nonce outside the base64url alphabet.
  */
 export async function signInbound(
 	kp: CryptoKeyPair,
 	url: string,
-	opts: SignInboundOptions = {},
+	opts: SignInboundOptions,
 ): Promise<Request> {
-	const rawPub = new Uint8Array(
-		await crypto.subtle.exportKey("raw", kp.publicKey),
-	);
+	const rawPub = await exportRawPublicKey(kp.publicKey);
 	const agentId = await thumbprint(rawPub);
 
 	// Source (created, expires) from the injected Window, defaulting to a
 	// clockWindow over now (ms → seconds) and ttlSec. clockWindow floors to
-	// integer seconds, so the @signature-params bytes stay byte-identical to the
-	// historical inline `Math.floor(now()/1000)` mint.
+	// integer seconds.
 	const ttlSec = opts.ttlSec ?? DEFAULT_POP_TTL_SEC;
 	const window =
 		opts.window ??
 		clockWindow(() => (opts.now?.() ?? Date.now()) / 1000, ttlSec);
 	const [created, expires] = window();
-
-	// The @signature-params inner list the verifier rebuilds verbatim: covered
-	// components then keyid/alg/created/expires, RFC 9421 order.
-	const rawParams = `("@method" "@target-uri");keyid="${agentId}";alg="ed25519";created=${created};expires=${expires}`;
+	checkProofOptions(opts, created, expires);
 
 	// Coerce a URL-like input (a Fastly Compute request URL object) to its opaque
 	// string form ONCE at the boundary, so the signed @target-uri and the emitted
@@ -94,28 +130,61 @@ export async function signInbound(
 	if (badAt !== -1) {
 		throw new TypeError(`target URI carries a control byte at byte ${badAt}`);
 	}
-	const base = signatureBase("GET", target, rawParams);
+	const method = (opts.method || "GET").toUpperCase();
+	const methodBadAt = new TextEncoder().encode(method).findIndex((b) => b < 0x20 || b === 0x7f);
+	if (methodBadAt !== -1) {
+		throw new TypeError(`method carries a control byte at byte ${methodBadAt}`);
+	}
+
+	const member = signatureAgentMember(POP_LABEL, opts.signatureAgent);
+	const covered = [plain("@method"), plain("@target-uri"), keyed("signature-agent", POP_LABEL)];
+	const inner = signatureInputInner({
+		covered,
+		keyid: agentId,
+		alg: "ed25519",
+		created,
+		expires,
+		...(opts.nonce !== undefined ? { nonce: opts.nonce } : {}),
+		tag: WBATag,
+	});
+	const base = buildSignatureBase(
+		covered,
+		requestComponentValue({
+			method,
+			url: target,
+			header: (name) => (name === "signature-agent" ? member : undefined),
+		}),
+		inner,
+	);
 	const sig = await crypto.subtle.sign(
 		"Ed25519",
 		kp.privateKey,
 		new TextEncoder().encode(base),
 	);
-	const sigStd = stdBase64(new Uint8Array(sig));
 
 	const headers = new Headers();
 	headers.set(AGENT_KEY_HEADER, encodeBase64Url(rawPub));
-	headers.set("signature-input", `sig1=${rawParams}`);
-	headers.set("signature", `sig1=:${sigStd}:`);
+	headers.set(SignatureAgentHeader, member);
+	headers.set("signature-input", `${POP_LABEL}=${inner}`);
+	headers.set("signature", `${POP_LABEL}=:${stdBase64(new Uint8Array(sig))}:`);
 
-	return new Request(target, { method: "GET", headers });
+	return new Request(target, { method, headers });
 }
 
-// stdBase64 encodes bytes as standard (padded) base64 — the RFC 9421 Signature
-// header byte-string encoding the L1 parseSignature decodes. Exported so the
-// 5-component request signer (core/sign-request.ts) shares the exact encoder.
-export function stdBase64(bytes: Uint8Array): string {
-	let bin = "";
-	for (let i = 0; i < bytes.length; i += 1)
-		bin += String.fromCharCode(bytes[i] as number);
-	return btoa(bin);
+// checkProofOptions refuses a proof no profile verifier accepts, before anything is
+// signed: no created, a window that is not positive or longer than the limit, a missing
+// or non-origin directory, or a nonce outside the base64url alphabet.
+function checkProofOptions(opts: SignInboundOptions, created: number, expires: number): void {
+	const life = expires - created;
+	if (created <= 0 || life <= 0 || life > MAX_SIGNATURE_LIFETIME) {
+		throw new WebBotAuthError(
+			"signature_lifetime",
+			`proof lifetime must be positive and at most ${MAX_SIGNATURE_LIFETIME}s: created=${created} expires=${expires}`,
+		);
+	}
+	if (opts.signatureAgent === "") {
+		throw new WebBotAuthError("signature_agent_required", "a proof needs the agent's Signature-Agent origin");
+	}
+	checkHttpsOrigin(opts.signatureAgent);
+	checkNonce(opts.nonce ?? "");
 }

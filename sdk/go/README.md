@@ -9,7 +9,7 @@ directly with no `replace` directive.
 | **L0** | `gen/go/fora/v1`, `gen/go/vocab/*` | generated wire types (consumed, never rebuilt) |
 | **L1** | **`sdk/go/helpers`** | stateless, **IO-free** protocol helpers — RFC 9421/7638 crypto, offer/acceptance verify, static key resolution, validation |
 | L2 · I/O | **`sdk/go/resolvers`** | the network-fetching tier: well-known JWKS / WBA directory / `fora.json` endpoint / offer-key resolvers, the uncached registration-requirements reader, + the SSRF-guarded HTTP client. Runs on a maintained `net/http` client behind the SSRF guard; composes L1, never the reverse |
-| L2 · transport | `sdk/go/core` (transport-neutral: Verifier, {verified,rejected}, `DiscoveryResult` per-URI groups, VerifiedOffer guard, signing RoundTripper, ReplayStore — zero Connect) · `sdk/go/connect` (Connect **client** binding: `NewClient` + `NewBrokerClient` + `NewCatalogClient`; the agent verbs **`Discover` · `Resolve` · `Execute` · `ReportUsage` · `Dispute` · `Fetch`**, the account-setup verbs **`Register` · `GetAccountStatus`** and the publisher verbs **`PushResources` · `RemoveResources` · `RefreshCatalog`** + client options + the `CallError` taxonomy + `ErrorDetailFrom`) · `sdk/go/connectserver` (Connect **server** binding: `NewExchangeServiceHandler` + `NewBrokerServiceHandler` + `NewCatalogServiceHandler` + server options + `AsConnectError` + `AttachErrorDetail`/`AttachDetail` + the reject answer **`RejectCode` · `IsBodyTooLarge` · `WriteReject`**, the one place the 413/429/401 split and the error-envelope body are decided) | transport-neutral core + Connect client/server bindings (state injected) |
+| L2 · transport | `sdk/go/core` (transport-neutral: Verifier, {verified,rejected}, `DiscoveryResult` per-URI groups, VerifiedOffer guard, signing RoundTripper, ReplayStore — zero Connect) · `sdk/go/connect` (Connect **client** binding: `NewClient` + `NewBrokerClient` + `NewCatalogClient` + `NewAdminClient`; the agent verbs **`Discover` · `Resolve` · `Execute` · `ExecuteBatch` · `ReportUsage` · `Dispute` · `Fetch`**, the Broker purchase **`BrokerClient.Execute`** (offers from several Exchanges in one call), the account-setup verbs **`Register` · `GetAccountStatus`** and the publisher verbs **`PushResources` · `RemoveResources` · `RefreshCatalog`**, the operator verbs **`SetTenantFeeRate` · `SetReportingPolicy` · `RequestDomainVerification` · `ConfirmDomainVerification`** + client options + the `CallError` taxonomy + `ErrorDetailFrom`) · `sdk/go/connectserver` (Connect **server** binding: `NewExchangeServiceHandler` + `NewBrokerServiceHandler` + `NewCatalogServiceHandler` + server options + `AsConnectError` + `AttachErrorDetail`/`AttachDetail` + the reject answer **`RejectCode` · `IsBodyTooLarge` · `WriteReject`**, the one place the 413/429/401 split and the error-envelope body are decided) | transport-neutral core + Connect client/server bindings (state injected) |
 | L3 | separate packages | framework adapters (convert, never replace) — later |
 
 The `L2` tier is split by kind: the **I/O** package (`resolvers`) is the only tier
@@ -31,19 +31,37 @@ the static resolver.)
 import "github.com/FORA-Protocol/protocol/sdk/go/helpers"
 ```
 
-**RFC 9421 request signing / verification** — the `Signer` interface signs the
-SDK-built signature base, so a KMS/HSM signer never exposes its key:
+**RFC 9421 request signing / verification, under the Web Bot Auth profile** — the
+`Signer` interface signs the SDK-built signature base, so a KMS/HSM signer never exposes
+its key. Every signature names its signer's key directory as its own `Signature-Agent`
+dictionary member, `sig1="https://agent.example"`, covered as
+`"signature-agent";key="sig1"`, and carries `tag="web-bot-auth"`. A FORA RPC signature
+also covers `@method`, `@target-uri`, `content-digest` and `authorization`, and lives at
+most five minutes:
 
 ```go
-signer, _ := helpers.NewEd25519Signer("agent.v1", priv)
-_ = helpers.SignRequest(ctx, req, body, signer,
-    helpers.SignOptions{Created: created, Expires: expires})
+keyID, _ := helpers.Thumbprint(pub) // the keyid is the key's RFC 7638 thumbprint
+signer, _ := helpers.NewEd25519Signer(keyID, priv)
+_ = helpers.SignRequest(ctx, req, body, signer, helpers.SignOptions{
+    Created: created, Expires: created + 300, SignatureAgent: "https://agent.example",
+    Nonce: freshNonce, // the signing transport supplies 64 random bytes
+})
 
 // verify with the key injected (pure) ...
 vr, err := helpers.VerifyRequest(req, body, pub, helpers.VerifyOptions{})
-// ... or resolve the key via a KeyResolver (static in L1; well-known/WBA in L2 resolvers):
+// ... or resolve the key via a KeyResolver (static in L1; well-known/WBA in L2
+// resolvers), which is handed the directory the signature's own member names:
 vr, err = helpers.VerifyRequestResolved(ctx, req, body, resolver, helpers.VerifyOptions{})
 ```
+
+A party that adds a signature to a request already signed uses
+`helpers.AppendSignature`: the new signature gets its own label and member and covers
+only its own request, unless `SignOptions.CoverPrevious` makes it cover the earlier
+signature completely (WG-00 §5.2.2), which only a party forwarding the request unchanged
+may do. `helpers.VerifyMultisigRequestResolved` verifies every signature on its own,
+counts them against `VerifyOptions.MaxSignatures`, and refuses a partial coverage. A
+refusal for a missing component or a refused form is answered with
+`helpers.AcceptSignatureFor(err)`, which `connectserver` writes as `Accept-Signature`.
 
 **License-term pre-check** — the two tiers an Exchange applies to a pushed entry,
 runnable by a publisher before signing: the wire rules over the entry as given, then
@@ -84,23 +102,45 @@ rate, _ := helpers.ParseMoney(offer.GetPricing().GetRate()) // shopspring/decima
 wire, _ := helpers.FormatMoney(rate.Mul(decimal.NewFromInt(qty)))
 ```
 
+**Metered offers** — a PER_UNIT offer may carry an estimate. The purchase charges
+estimate × rate, or one unit's rate without an estimate, and the charge is final.
+`helpers.IsMeteredOffer(offer)` says whether an offer is metered, and
+`helpers.CheckMeteredEstimate(offer)` returns `ErrMeteredEstimateNotPositive` for a
+stated estimate of zero or less; `core.Verifier` rejects such an offer.
+
+**One price per offer** — an offer's price is `Offer.pricing`, and the term it sells
+carries none. `helpers.CheckOfferTermsUnpriced(offer)` returns `ErrOfferTermPriced` for a
+priced term; `helpers.SignOffer` refuses to sign such an offer, and `core.Verifier`
+rejects one.
+
 **Validation** — wraps protovalidate (the oracle), including cross-field CEL:
 
 ```go
 if err := helpers.Validate(req); err != nil { /* helpers.ValidationRuleIDs(err) */ }
 ```
 
-**Agent-binding proof of possession** (ADR-013) — the SIGN face of the header pair
-a bound delivery fetch presents. The covered set is exactly `@method` +
-`@target-uri`: a GET has no body to digest, and the signed URL is itself the
-credential. The key arrives as a `Signer` plus the public half, so custody never
-moves into the SDK:
+**Agent-binding proof of possession** (ADR-013) — the SIGN face of the headers a
+bound delivery fetch presents: a Web Bot Auth signature plus `@method` and
+`@target-uri`, and the agent's public key in `X-FORA-Agent-Key`. A GET has no body to
+digest, and the signed URL is itself the credential. The key arrives as a `Signer` plus
+the public half, so custody never moves into the SDK:
 
 ```go
 binding, _ := helpers.SignAgentBinding(ctx, signer, agentPub, helpers.PoPOptions{
     URL: signedURL, Created: created, Expires: expires, // keep the window short
+    SignatureAgent: "https://agent.example", Nonce: freshNonce,
 })
-binding.Apply(req.Header) // X-FORA-Agent-Key + Signature-Input + Signature
+binding.Apply(req.Header) // X-FORA-Agent-Key + Signature-Agent + Signature-Input + Signature
+```
+
+The VERIFY face, the check a delivery edge runs, accepts a proof whose signature covers
+at least `@method`, `@target-uri` and the agent's `Signature-Agent` member, so a Web Bot
+Auth library's proof that also covers `@authority` verifies, and enforces the three-way
+identity against the key in `X-FORA-Agent-Key`, offline:
+
+```go
+_, err := helpers.VerifyAgentBinding(r.Method, rawRequestURL, r.Header, agentID, helpers.PoPVerifyOptions{})
+var refused *helpers.PoPError // Reason is the shared token; AcceptSignature answers the 401
 ```
 
 **Routing predicates** — the two pure checks that precede a signed call to an
@@ -226,7 +266,10 @@ import "github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 ```
 
 - **Key resolvers** — `NewWellKnownKeyResolver` (well-known JWKS, TTL cache),
-  `NewWBAKeyResolver` (WBA directory, revocation/expiry-aware, with a `Run` poller).
+  `NewWBAKeyResolver` (WBA directory, revocation/expiry-aware, with a `Run` poller). A
+  WBA directory is fetched with no redirect, must be served as
+  `application/http-message-signatures-directory+json`, and only the keys that signed
+  its response (`helpers.VerifyDirectoryResponse`) are handed out.
 - **Endpoint resolver** — `NewWellKnownEndpointResolver` discovers an Exchange's
   own service endpoint (`WellKnownManifest.endpoint`) from `/.well-known/fora.json`,
   host-keyed and cached per host. Three sentinels, and the difference decides whether
@@ -270,13 +313,14 @@ import "github.com/FORA-Protocol/protocol/sdk/go/resolvers"
   (so this tier holds no key material). Bounded body, bounded error body, media
   type reported rather than sniffed, and a typed `FetchError` class.
 
-**Redirects: the guarded client follows, a signed leg refuses.** Following five
-hops is right for a public well-known document — the address is re-pinned and the
-scheme re-vetted on each. It is wrong for anything carrying a credential, so the
-content fetch and the RPC legs take only the guarded `.Transport` and install
-their own refusal: following a redirect either replays a proof bound to the old
-URL, or hands a fresh proof of possession of the agent's key to whatever host the
-first hop named.
+**Redirects: the guarded client follows, a signed leg and a key directory refuse.**
+Following five hops is right for a revocation list or a `fora.json` manifest — the
+address is re-pinned and the scheme re-vetted on each. It is wrong for anything
+carrying a credential, so the content fetch and the RPC legs take only the guarded
+`.Transport` and install their own refusal: following a redirect either replays a
+proof bound to the old URL, or hands a fresh proof of possession of the agent's key to
+whatever host the first hop named. A key directory refuses a redirect too: its address
+is the origin the signer committed to in its covered `Signature-Agent` member.
 
 The guard is driven by exactly two orthogonal env flags — `SKIP_SSRF` (drop the
 dial-time address guard) and `ALLOW_INSECURE` (permit plaintext http) — both
@@ -284,6 +328,63 @@ defaulting to the guarded posture. The transport caps redirect depth at 5, caps
 well-known/JWKS bodies at 1 MiB, and fails closed if **any** resolved address of a
 host is reserved. The address/scheme decisions are corpus-locked
 (`resolvers/testdata/ssrf-*-vectors.json`).
+
+## Testing services through the client
+
+The client carries the capabilities a conformance or e2e harness needs to drive
+FORA services through it, so the harness never hand-writes a payload, parses a raw
+response or re-implements signing:
+
+- **`WithBeforeSign(hook)`** receives every RPC request just before it is signed. The
+  request it returns is what gets signed and sent, and the reply is decoded as usual,
+  so a deliberately malformed message still goes through the SDK's own signer and
+  decoder. Changing the method or URL, or setting a header the signer writes, is
+  refused as `CallMalformed` with nothing sent.
+- **`WithRawBody(body)`** (per call) sends the caller's bytes exactly as given, as the
+  binary protobuf body: nothing is filled in and no local refusal about the message
+  applies, while the call is still signed and its answer decoded. A verb that routes on
+  its request reads `exchange` from the body.
+- **`WithStrictDecoding()`** refuses an answer carrying an unknown field at any depth,
+  or breaking the proto's field or cross-field rules (protovalidate). An error answer
+  is checked too: the Connect error envelope must carry only `code`, `message` and
+  `details`, name a known Connect code and carry well-formed details, and every
+  `ErrorDetail`, binary `value` and `debug` projection alike, must pass the same two
+  checks. A refused envelope is `CallMalformed` with `CallError.Code` still set to the
+  peer's code.
+- **`CallError.Code`** is the Connect code of the peer's answer — an error envelope or
+  a non-JSON error status — and zero when no answer arrived. The typed `ErrorDetail` is
+  decoded from the binary `value`; the shared `connect-error-vectors.json` and
+  `error-detail-wire-vectors.json` corpora hold all three SDKs to the same reading.
+- **Delivery URLs are the edge's to check.** `Execute`, `ExecuteBatch` and
+  `BrokerClient.Execute` return every `retrieval_endpoint` exactly as the Exchange
+  issued it, and `Fetch` dials a URL as given with the agent's proof of possession, so
+  a harness can put any URL in front of an edge. The edge's refusal comes back as a
+  `CallError` with a `retrieval_auth_failure` detail naming the edge's reason.
+- **`NewAdminClient`** covers every `fora.admin.v1.AdminService` RPC and the two
+  domain-verification RPCs.
+- **Identity helpers.** `helpers.GenerateKey` mints an Ed25519 key and its thumbprint,
+  `helpers.DirectoryDocument` builds the WBA key directory publishing a key set,
+  `helpers.SignDirectoryResponse` signs the response serving it, and
+  `core.SigningTransportFor` returns a signing transport that signs as the key.
+  `core.WithSignerSource` signs each request as the identity a callback picks, for a
+  service that signs as many agents.
+- **Document readers.** `resolvers.ReadManifest`, `ReadWBADirectory`,
+  `ReadRevocationList` and `ReadLicenseDocument` read what a party publishes, through
+  the guarded client unless `ReadOptions.Client` replaces it, and return a `Document`
+  (the parsed message, URL, bytes and media type) or a `LicenseDocument` verified
+  against `uri_digest`. A failure wraps `ErrDirectoryUnavailable`, `ErrMediaTypeRefused`,
+  `ErrManifestVersionRefused`, `helpers.ErrStrictViolation` or `ErrDigestMismatch`.
+- **`helpers.CheckStrict(name, payload)`** checks proto-JSON against the strict
+  contract: no unknown field, proto field names only, no 32-bit number or bool written
+  as a string, and protovalidate. `helpers.CheckStrictMessage` is the same check on a
+  decoded message, the one `WithStrictDecoding` applies.
+- **Edge discovery headers.** `helpers.ParseDiscoveryHint(status, header)` reads the
+  `X-Content-Rules` and `X-FORA-Exchange` headers of an edge's 403 into a
+  `DiscoveryHint`: each value with a `HintState` of absent, valid or malformed. Any
+  other status reads as absent. `helpers.ReconcileDiscoveryHint(hint, listed)` checks
+  the hinted Exchange against the domains the publisher manifest's `exchanges` lists
+  and answers `HintListed`, `HintUnlisted` or `HintNoExchange`; the manifest wins. The
+  header names are `helpers.ContentRulesHeader` and `helpers.ExchangeHeader`.
 
 ## Guarantees
 

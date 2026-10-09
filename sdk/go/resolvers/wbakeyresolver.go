@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"math/rand/v2"
 	"net"
@@ -20,7 +19,6 @@ import (
 	"unicode/utf8"
 
 	"golang.org/x/sync/singleflight"
-	"google.golang.org/protobuf/encoding/protojson"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
@@ -46,11 +44,12 @@ var (
 	// ErrKeyExpired signals the key exists but is outside its
 	// [not_before, not_after) validity window.
 	ErrKeyExpired = errors.New("resolvers: key outside validity window")
-	// ErrDirectoryUnavailable signals the WBA directory could not be fetched or
-	// parsed. It is deliberately errors.Is-DISTINCT from ErrUnknownKey: a
+	// ErrDirectoryUnavailable signals a document could not be fetched or parsed: a
+	// WBA directory, a well-known manifest, a revocation list or a license
+	// document. It is deliberately errors.Is-DISTINCT from ErrUnknownKey: a
 	// fail-closed composite must be able to halt on a directory outage rather
 	// than fall through as if the key were merely unknown.
-	ErrDirectoryUnavailable = errors.New("resolvers: WBA directory unavailable")
+	ErrDirectoryUnavailable = errors.New("resolvers: document unavailable")
 	// ErrRevocationUnevaluated signals that the key resolved, but its directory
 	// declares a revocation_url whose snapshot has never been fetched (unreachable
 	// or not host-anchored) — so revocation was NEVER EVALUATED, which is distinct
@@ -361,7 +360,10 @@ type WBAKeyResolverOptions struct {
 	// newGuardedWBAClient): the directory host is derived from request input (the
 	// Signature-Agent header) and fetched before the ed25519 check, so the default
 	// refuses private/link-local/loopback targets. Inject a client only to REACH a
-	// private directory (tests, on-prem) or to apply a custom dialer/timeout.
+	// private directory (tests, on-prem) or to apply a custom dialer/timeout. A
+	// directory is always fetched over https from the origin the signature's
+	// Signature-Agent member names; there is no option that fetches it any other
+	// way, so a test serves it with a TLS server and injects that server's client.
 	HTTP *http.Client
 	// TTL bounds how long a fetched directory is reused (≤0 → 1 hour).
 	TTL time.Duration
@@ -380,9 +382,6 @@ type WBAKeyResolverOptions struct {
 	// After overrides the poll-tick timer source (nil → time.After). Tests
 	// inject a deterministic clock.
 	After func(time.Duration) <-chan time.Time
-	// Scheme is applied when the Signature-Agent value carries no scheme
-	// (empty → "https"). Tests inject "http" to drive an httptest server.
-	Scheme string
 	// RequireRevocation makes Resolve fail closed with ErrRevocationUnevaluated
 	// when a key's directory declares a revocation_url but no snapshot has been
 	// fetched (unreachable or not host-anchored) — i.e. revocation could not be
@@ -406,9 +405,11 @@ type WBAKeyResolverOptions struct {
 // WBAKeyResolver resolves signing keys from WBA identity directories
 // (WBADirectoryPath), matching by RFC 7638 thumbprint (the RFC 9421 keyid) —
 // never by kid — and enforcing each key's [not_before, not_after) validity
-// window plus the host's revocation snapshot. The directory host comes from the
-// verified request's Signature-Agent value, threaded into ctx by the resolved
-// verify entrypoints (SignatureAgentFromContext). Directories are cached per
+// window plus the host's revocation snapshot. The directory is the origin the
+// signature's own covered Signature-Agent member names, threaded into ctx per
+// signature by the resolved verify entrypoints (SignatureAgentFromContext). A
+// directory is fetched with no redirect, must be served as WBADirectoryMediaType,
+// and only the keys that signed its response are ever handed out. Directories are cached per
 // host with a TTL; revocation snapshots are primed on directory fetch and kept
 // fresh by the Run poller. See the sentinel var block for the authority
 // contract: revoked/expired/unavailable verdicts surface raw.
@@ -419,7 +420,6 @@ type WBAKeyResolver struct {
 	syncDebounce      time.Duration
 	now               func() time.Time
 	after             func(time.Duration) <-chan time.Time
-	scheme            string
 	requireRevocation bool
 	logger            *slog.Logger
 	onPollArmed       func()
@@ -479,10 +479,6 @@ func NewWBAKeyResolver(opts WBAKeyResolverOptions) *WBAKeyResolver {
 	if after == nil {
 		after = time.After
 	}
-	scheme := opts.Scheme
-	if scheme == "" {
-		scheme = "https"
-	}
 	logger := opts.Logger
 	if logger == nil {
 		logger = slog.Default()
@@ -494,7 +490,6 @@ func NewWBAKeyResolver(opts WBAKeyResolverOptions) *WBAKeyResolver {
 		syncDebounce:      debounce,
 		now:               now,
 		after:             after,
-		scheme:            scheme,
 		requireRevocation: opts.RequireRevocation,
 		logger:            logger,
 		onPollArmed:       opts.OnPollArmed,
@@ -610,7 +605,7 @@ func (r *WBAKeyResolver) directoryBase(ref string) (base, host string, err error
 		if err := requireHostForm(ref); err != nil {
 			return "", "", err
 		}
-		ref = r.scheme + "://" + ref
+		ref = "https://" + ref
 	}
 	u, err := url.Parse(ref)
 	if err != nil {
@@ -823,50 +818,7 @@ func (r *WBAKeyResolver) syncRefresh(ctx context.Context, base, host string) (*f
 // status, or decode failure wraps ErrDirectoryUnavailable — see the sentinel
 // contract: a directory outage must stay distinguishable from an unknown key.
 func (r *WBAKeyResolver) fetchDirectory(ctx context.Context, base string) (*forav1.WBAFile, error) {
-	return fetchWBAFile(ctx, r.http, base)
-}
-
-// getDoc GETs a small well-known document, bounding the body read.
-func (r *WBAKeyResolver) getDoc(ctx context.Context, docURL string) ([]byte, error) {
-	return fetchWBADoc(ctx, r.http, docURL)
-}
-
-// fetchWBAFile GETs base+WBADirectoryPath through client and protojson-decodes the
-// WBAFile, wrapping any transport/status/decode failure in ErrDirectoryUnavailable.
-// It is the one fetch+decode path shared by WBAKeyResolver.fetchDirectory and the
-// domain-keyed offer-key fetcher (NewWBADirectoryFetcher), so the two never drift.
-func fetchWBAFile(ctx context.Context, client *http.Client, base string) (*forav1.WBAFile, error) {
-	raw, err := fetchWBADoc(ctx, client, base+WBADirectoryPath)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrDirectoryUnavailable, err)
-	}
-	var f forav1.WBAFile
-	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(raw, &f); err != nil {
-		return nil, fmt.Errorf("%w: decode: %w", ErrDirectoryUnavailable, err)
-	}
-	return &f, nil
-}
-
-// fetchWBADoc GETs a small well-known document through client, bounding the body read.
-func fetchWBADoc(ctx context.Context, client *http.Client, docURL string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, docURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("request: %w", err)
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("fetch: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status %d", resp.StatusCode)
-	}
-	const maxDocBytes = 1 << 20 // 1 MiB — well-known documents are small
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxDocBytes))
-	if err != nil {
-		return nil, fmt.Errorf("read: %w", err)
-	}
-	return raw, nil
+	return fetchWBAFile(ctx, r.http, base, r.now())
 }
 
 func (r *WBAKeyResolver) isRevoked(host, thumbprint string) bool {
@@ -892,29 +844,59 @@ func (r *WBAKeyResolver) revocationSnapshotPresent(host string) bool {
 	return ok
 }
 
-// Revoked reports whether keyID (an RFC 7638 thumbprint) is present in ANY
-// host's fetched revocation snapshot, INDEPENDENT of whether that thumbprint
-// appears in the corresponding WBA directory. Resolve gates a key only when the
-// directory lists it (removal is not revocation); a key resolved from a source
-// OTHER than the directory — e.g. a static bootstrap file — is invisible to that
-// path, so a composite resolver can still admit a broker-revoked, directory-
-// absent thumbprint. Revoked closes that gap: a caller that resolved a key
-// elsewhere consults it to fail closed against the revocation channel. It
-// returns false when no snapshot has been fetched (the snapshot is unavailable —
-// the caller decides whether an unavailable revocation channel is itself
-// fail-closed; this accessor reports membership only, never an outage).
-func (r *WBAKeyResolver) Revoked(keyID string) bool {
-	if keyID == "" {
+// Revoked reports whether keyID (an RFC 7638 thumbprint) is on the revocation
+// list of the key directory `directory` names, and on no other list. A list
+// covers only its own directory's keys: no party's list revokes another party's
+// key, even when it names that key's thumbprint, so a list fetched from any other
+// directory never answers here.
+//
+// directory is a directory reference in the form Resolve reads off a
+// Signature-Agent member — an https origin or a bare host — and it is normalized
+// the same way. Its host names the same directory as a fetched one under the
+// request-recipient identity rule: case is folded, and a port of 443 written out
+// is the same as none. A reference that is empty or names no fetchable directory
+// answers false, as does an empty keyID.
+//
+// The answer is membership, INDEPENDENT of whether the directory still lists the
+// key. Resolve gates a key only when the directory lists it (removal is not
+// revocation); a key resolved from another source — e.g. a static bootstrap
+// file holding a copy of that party's key — is invisible to that path, so a
+// composite resolver consults this to fail closed against the key owner's own
+// revocation list. A directory's list is known once the directory has been
+// fetched (Resolve loads it; Run keeps it fresh), including a directory that
+// lists no key, since a party that removed every key may still revoke the copies
+// held elsewhere. Before that it answers false: this accessor reports membership
+// only, never an outage, and the caller decides whether an unevaluated revocation
+// channel is itself fail-closed.
+func (r *WBAKeyResolver) Revoked(keyID, directory string) bool {
+	if keyID == "" || directory == "" {
+		return false
+	}
+	_, host, err := r.directoryBase(directory)
+	if err != nil {
 		return false
 	}
 	r.revMu.RLock()
 	defer r.revMu.RUnlock()
-	for _, set := range r.revoked {
+	for fetched, set := range r.revoked {
+		if fetched != host && !sameDirectoryHost(fetched, host) {
+			continue
+		}
 		if _, ok := set.thumbprints[keyID]; ok {
 			return true
 		}
 	}
 	return false
+}
+
+// sameDirectoryHost reports whether two directory hosts name one party under the
+// request-recipient identity rule that Requester.domain is compared by: case
+// folded, a port of 443 written out the same as none, a subdomain a different
+// party. Hosts that rule cannot read (an IP literal, an internationalized name)
+// match only when spelled identically, which the caller checks first.
+func sameDirectoryHost(a, b string) bool {
+	v, err := helpers.CheckAudience(a, b)
+	return err == nil && v == helpers.AudienceAccepted
 }
 
 // refreshRevocationFor replaces host's revocation snapshot from f's
@@ -943,15 +925,9 @@ func (r *WBAKeyResolver) refreshRevocationFor(
 			"host", host, "base", base, "revocation_url", revURL)
 		return
 	}
-	raw, err := r.getDoc(ctx, revURL)
+	list, err := fetchRevocationList(ctx, r.http, revURL)
 	if err != nil {
 		r.logger.WarnContext(ctx, "revocation refresh failed",
-			"host", host, "revocation_url", revURL, "err", err)
-		return
-	}
-	var list forav1.KeyRevocationList
-	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(raw, &list); err != nil {
-		r.logger.WarnContext(ctx, "revocation decode failed",
 			"host", host, "revocation_url", revURL, "err", err)
 		return
 	}
@@ -1101,9 +1077,9 @@ type ActiveKeyScanOptions struct {
 // it does NOT consult any revocation channel. A key that was emergency-revoked but
 // is still window-active in a (possibly CDN-cached) directory WILL be selected. A
 // caller on a VERIFICATION path MUST NOT trust the result until it has screened the
-// selected key's RFC 7638 thumbprint against the resolver's revoked-thumbprint set
-// (WBAKeyResolver.Revoked / a revocation snapshot); otherwise adopting this selector
-// defeats emergency revocation. Prefer ActiveEd25519KeyScreened, which folds that
+// selected key's RFC 7638 thumbprint against the revocation list of the directory it
+// came from (WBAKeyResolver.Revoked with that directory, or a snapshot of that
+// list); otherwise adopting this selector defeats emergency revocation. Prefer ActiveEd25519KeyScreened, which folds that
 // screen into selection. This bare form is for non-verification callers only.
 func ActiveEd25519Key(directory *forav1.WBAFile, now time.Time, opts ...ActiveKeyScanOptions) (ed25519.PublicKey, error) {
 	pub, _, err := selectActiveEd25519Key(directory, now, nil, opts...)
@@ -1137,8 +1113,9 @@ func ActiveEd25519KeyWithExpiry(directory *forav1.WBAFile, now time.Time, opts .
 // selection itself, so an emergency-revoked key still listed in a CDN-cached
 // directory is passed over for the next active, non-revoked key. `revoked` is
 // REQUIRED: a nil predicate screens nothing (equivalent to the bare selector and
-// unsafe on a verification path). Pass one over the resolver's revoked-thumbprint
-// set (e.g. WBAKeyResolver.Revoked) or, for a caller with no revocation channel, an
+// unsafe on a verification path). Pass one over the revocation list of the
+// directory being selected from — e.g. func(tp string) bool { return
+// wba.Revoked(tp, directory) } — or, for a caller with no revocation channel, an
 // explicit func(string) bool { return false } to make the waiver visible. The
 // thumbprint is computed with helpers.Thumbprint (RFC 7638) — the SAME primitive
 // WBAKeyResolver.Resolve keys on. Returns (nil, ErrUnknownKey) when no well-formed

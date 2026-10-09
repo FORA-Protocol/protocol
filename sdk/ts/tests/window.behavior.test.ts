@@ -1,18 +1,15 @@
 // Window behaviour (TypeScript side): clockWindow floors created and adds ttl;
-// monotonicWindow keeps back-to-back expires strictly increasing.
+// the deprecated monotonicWindow signs at the clock's time exactly as clockWindow.
 //
 // The signature Window (Go core/sigwindow.go) carries a clock → NOT vector-
 // gated. Two faces:
 //   - clockWindow(now, ttlSec): created = floor(now()), expires = created+ttl
 //     (MUST floor — Go .Unix() floors; current signInbound uses
 //      Math.floor(now()); an un-floored default would change signature bytes).
-//   - monotonicWindow(now, ttlSec): expires strictly increases across a burst
-//     within one wall-clock second, so no two back-to-back signatures share an
-//     expires cutoff (relay replay-store uniqueness).
-//
-// RED now purely because sdk/ts/core/window.ts does not exist yet.
+//   - monotonicWindow(now, ttlSec): deprecated, identical to clockWindow (Go
+//     core.MonotonicWindow). It no longer moves created into the future during a
+//     burst; the per-signature nonce is what makes each signature unique.
 import { describe, it, expect } from "vitest";
-// RED: sdk/ts/core/window.ts does not exist yet (TDD red — missing face).
 import { clockWindow, monotonicWindow } from "../core/window.ts";
 
 describe("sdk/ts clockWindow floors created and adds ttl to expires", () => {
@@ -36,26 +33,26 @@ describe("sdk/ts clockWindow floors created and adds ttl to expires", () => {
 	});
 });
 
-describe("sdk/ts monotonicWindow strictly increases expires within one second", () => {
-	it("bumps expires by 1 per call across a same-second burst", () => {
-		const now = () => 1_700_000_000; // frozen wall-clock second
-		const w = monotonicWindow(now, 600);
-		const first = w();
-		const second = w();
-		const third = w();
-		// created tracks now(); expires is strictly increasing.
-		expect(first[0]).toBe(1_700_000_000);
-		expect(second[1]).toBeGreaterThan(first[1]);
-		expect(third[1]).toBeGreaterThan(second[1]);
+describe("sdk/ts monotonicWindow signs at the clock's current time", () => {
+	it("returns (now, now+ttl) for every call of a 1000-call burst in one frozen second", () => {
+		const w = monotonicWindow(() => 1_700_000_000.4, 300);
+		for (let i = 0; i < 1000; i += 1) {
+			expect(w()).toEqual([1_700_000_000, 1_700_000_300]);
+		}
 	});
 
-	it("never repeats an expires cutoff across a large same-second burst", () => {
-		const w = monotonicWindow(() => 1_700_000_000, 600);
-		const seen = new Set<number>();
-		for (let i = 0; i < 100; i += 1) {
-			const [, expires] = w();
-			seen.add(expires);
-		}
-		expect(seen.size).toBe(100);
+	it("never stamps created ahead of the clock, and follows the clock as it moves", () => {
+		let t = 1_700_000_000;
+		const w = monotonicWindow(() => t, 60);
+		for (let i = 0; i < 5; i += 1) w();
+		t = 1_700_000_001;
+		expect(w()).toEqual([1_700_000_001, 1_700_000_061]);
+		t = 1_700_000_000;
+		expect(w()).toEqual([1_700_000_000, 1_700_000_060]);
+	});
+
+	it("matches clockWindow for the same clock and ttl", () => {
+		const now = () => 1_700_000_123.9;
+		expect(monotonicWindow(now, 120)()).toEqual(clockWindow(now, 120)());
 	});
 });

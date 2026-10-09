@@ -18,6 +18,7 @@ package connect_test
 import (
 	"context"
 	"crypto/ed25519"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -33,6 +34,7 @@ import (
 	foraserver "github.com/FORA-Protocol/protocol/sdk/go/connectserver"
 	"github.com/FORA-Protocol/protocol/sdk/go/core"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"google.golang.org/protobuf/proto"
 )
 
 // ---------------------------------------------------------------------------
@@ -119,6 +121,23 @@ func newOfferFixture(t *testing.T) offerFixture {
 	doctored.SignatureAlgorithm = helpers.OfferSignatureAlgorithm
 
 	return offerFixture{exchangePub: exPub, good: good, doctored: doctored}
+}
+
+// signedMeteredOffer is sampleOffer priced PER_UNIT per token with the given
+// estimate (nil leaves it unset), genuinely signed with priv.
+func signedMeteredOffer(t *testing.T, priv ed25519.PrivateKey, id string, estimate *int32) *forav1.Offer {
+	t.Helper()
+	o := sampleOffer(id)
+	o.Pricing = &forav1.Pricing{
+		Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.00002", Currency: "USD",
+		Unit: proto.String("tokens"), EstimatedQuantity: estimate,
+	}
+	sigHex, err := helpers.SignOffer(priv, o)
+	if err != nil {
+		t.Fatalf("sign %s: %v", id, err)
+	}
+	o.Signature, o.SignatureAlgorithm = sigHex, helpers.OfferSignatureAlgorithm
+	return o
 }
 
 // sampleOffer builds a minimal, valid Offer carrying a future expiry so it is not
@@ -247,7 +266,7 @@ func TestClientSign_RoundTripsThroughServerVerify(t *testing.T) {
 	replay := newMemReplayStore()
 	srv := newVerifyingServer(t, sig, replay, nil)
 
-	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()))
+	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()))
 
 	// Execute needs a VerifiedOffer; but this test only asserts transport
 	// acceptance, so a discover round-trip (empty offer set) is the minimal
@@ -295,7 +314,7 @@ func TestDiscover_SortsVerifiedAndRejected(t *testing.T) {
 	srv := newVerifyingServer(t, sig, replay, []*forav1.Offer{off.good, off.doctored})
 
 	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()),
 		foraconnect.WithOfferKey(off.exchangePub), // exchange offer-verifying key
 	)
 
@@ -323,6 +342,108 @@ func TestDiscover_SortsVerifiedAndRejected(t *testing.T) {
 	}
 }
 
+// TestDiscover_MeteredOfferEstimateOptionalButPositive pins how the Verifier
+// treats a metered offer's estimate, for offers the Exchange genuinely signed
+// and that have not expired. An offer with an estimate verifies, and so does
+// one without: the estimate is optional, and without it the purchase charges
+// one unit at the rate (1 × R) instead of the estimate times the rate (E × R).
+// Either charge is final, and a usage report afterwards is only a record. An
+// offer that states a zero estimate lands in Rejected, since a stated estimate
+// is positive. Validation is off, the client default, so the Verifier is the
+// only gate the offers meet.
+func TestDiscover_MeteredOfferEstimateOptionalButPositive(t *testing.T) {
+	t.Parallel()
+	sig := newSigningFixture(t)
+	exPub, exPriv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("generate exchange offer key: %v", err)
+	}
+	srv := newVerifyingServer(t, sig, newMemReplayStore(), []*forav1.Offer{
+		signedMeteredOffer(t, exPriv, "offer-estimated", proto.Int32(2500)),
+		signedMeteredOffer(t, exPriv, "offer-unestimated", nil),
+		signedMeteredOffer(t, exPriv, "offer-zero-estimate", proto.Int32(0)),
+	})
+	client := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithOfferKey(exPub),
+	)
+
+	res, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
+	if err != nil {
+		t.Fatalf("Discover: %v", err)
+	}
+	verified := map[string]bool{}
+	for _, v := range res.Verified() {
+		verified[v.Offer().GetOfferId()] = true
+	}
+	if len(verified) != 2 || !verified["offer-estimated"] || !verified["offer-unestimated"] {
+		t.Fatalf("want offer-estimated and offer-unestimated verified, got %v", verified)
+	}
+	if len(res.Rejected()) != 1 || res.Rejected()[0].Offer.GetOfferId() != "offer-zero-estimate" {
+		t.Fatalf("want only offer-zero-estimate rejected, got %d rejected", len(res.Rejected()))
+	}
+	if !errors.Is(res.Rejected()[0].Reason, helpers.ErrMeteredEstimateNotPositive) {
+		t.Fatalf("rejected reason: want ErrMeteredEstimateNotPositive, got %v", res.Rejected()[0].Reason)
+	}
+}
+
+// TestDiscover_RejectsOfferWhoseTermCarriesPricing pins that an offer whose term
+// carries a second copy of the price lands in Rejected even though the Exchange
+// genuinely signed it and it has not expired: an offer states its price once, in
+// Offer.pricing. The same offer with an unpriced term verifies. SignOffer refuses
+// a priced term, so that offer is signed over its canonical bytes directly.
+// Validation is off, the client default, so the Verifier is the only gate.
+func TestDiscover_RejectsOfferWhoseTermCarriesPricing(t *testing.T) {
+	t.Parallel()
+	sig := newSigningFixture(t)
+	exPub, exPriv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("generate exchange offer key: %v", err)
+	}
+	unpriced := sampleOffer("offer-unpriced-term")
+	unpriced.Terms = []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}}
+	sigHex, err := helpers.SignOffer(exPriv, unpriced)
+	if err != nil {
+		t.Fatalf("sign unpriced: %v", err)
+	}
+	unpriced.Signature, unpriced.SignatureAlgorithm = sigHex, helpers.OfferSignatureAlgorithm
+
+	priced := sampleOffer("offer-priced-term")
+	priced.Terms = []*forav1.LicenseTerm{{
+		Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+		Pricing:   proto.Clone(priced.Pricing).(*forav1.Pricing),
+	}}
+	if _, err := helpers.SignOffer(exPriv, priced); !errors.Is(err, helpers.ErrOfferTermPriced) {
+		t.Fatalf("SignOffer of a priced term: want ErrOfferTermPriced, got %v", err)
+	}
+	payload, err := helpers.CanonicalOfferBytes(priced)
+	if err != nil {
+		t.Fatalf("canonical priced: %v", err)
+	}
+	priced.Signature = hex.EncodeToString(ed25519.Sign(exPriv, payload))
+	priced.SignatureAlgorithm = helpers.OfferSignatureAlgorithm
+
+	srv := newVerifyingServer(t, sig, newMemReplayStore(), []*forav1.Offer{unpriced, priced})
+	client := foraconnect.NewClient(srv.URL,
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithOfferKey(exPub),
+	)
+
+	res, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
+	if err != nil {
+		t.Fatalf("Discover: %v", err)
+	}
+	if len(res.Verified()) != 1 || res.Verified()[0].Offer().GetOfferId() != "offer-unpriced-term" {
+		t.Fatalf("want only offer-unpriced-term verified, got %d verified", len(res.Verified()))
+	}
+	if len(res.Rejected()) != 1 || res.Rejected()[0].Offer.GetOfferId() != "offer-priced-term" {
+		t.Fatalf("want only offer-priced-term rejected, got %d rejected", len(res.Rejected()))
+	}
+	if !errors.Is(res.Rejected()[0].Reason, helpers.ErrOfferTermPriced) {
+		t.Fatalf("rejected reason: want ErrOfferTermPriced, got %v", res.Rejected()[0].Reason)
+	}
+}
+
 // TestExecute_AcceptsVerifiedOffer pins that Execute succeeds on a genuinely
 // verified offer produced by Discover — the positive half of the compile guard,
 // exercised at runtime through the full client→server→origin round-trip.
@@ -334,7 +455,7 @@ func TestExecute_AcceptsVerifiedOffer(t *testing.T) {
 	srv := newVerifyingServer(t, sig, replay, []*forav1.Offer{off.good})
 
 	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()),
 		foraconnect.WithOfferKey(off.exchangePub),
 	)
 
@@ -368,7 +489,7 @@ func TestExecute_StampsProtocolVersion(t *testing.T) {
 	srv, origin := newVerifyingServerStub(t, sig, newMemReplayStore(), []*forav1.Offer{off.good})
 
 	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()),
 		foraconnect.WithOfferKey(off.exchangePub),
 	)
 
@@ -413,7 +534,7 @@ func TestRejectedOffer_RequiresUnsafeToExecute(t *testing.T) {
 	srv := newVerifyingServer(t, sig, replay, []*forav1.Offer{off.doctored})
 
 	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()),
 		foraconnect.WithOfferKey(off.exchangePub),
 	)
 
@@ -449,7 +570,7 @@ func TestWithVerification_StrictRejectsUnverifiable(t *testing.T) {
 
 	// No WithOfferKey → the client cannot resolve the exchange offer key, so even
 	// the genuinely-signed offer is UNVERIFIABLE and must be rejected under Strict.
-	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()))
+	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()))
 
 	res, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err != nil {
@@ -475,7 +596,7 @@ func TestWithVerification_OffSurfacesUnverified(t *testing.T) {
 	srv := newVerifyingServer(t, sig, replay, []*forav1.Offer{off.good})
 
 	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()),
 		foraconnect.WithVerification(core.Off), // loud, named opt-out
 	)
 

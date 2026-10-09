@@ -54,6 +54,8 @@ export interface CallErrorInit {
 	 * come from a FORA service carries no message of its own, and the text a
 	 * transport synthesizes for one is that transport's rather than the peer's. */
 	peerMessage?: string;
+	/** The Connect code of the peer's answer, when one was decoded. */
+	code?: string;
 	/** The underlying failure, kept so a caller can still reach a custody or resolver
 	 * sentinel after the failure has been classified here. */
 	cause?: unknown;
@@ -82,6 +84,13 @@ export class ForaCallError extends Error {
 	 * from. Branch on `kind` or on the typed reason, never on this text, and bound it
 	 * before rendering it to a log line or an agent. */
 	readonly peerMessage: string;
+	/** The Connect code of the peer's answer, set only where a Connect answer was decoded:
+	 * an error envelope (the code it names, or the one its status implies when it names
+	 * none), or a non-JSON error status classified by the code that status implies.
+	 * Undefined for a local failure, a refused redirect, and the content leg, whose
+	 * refusals are edge tokens rather than Connect codes. `reason` may hold either kind of
+	 * token; this field holds only the Connect code. */
+	readonly code: string | undefined;
 
 	constructor(init: CallErrorInit) {
 		super(renderCallError(init), init.cause !== undefined ? { cause: init.cause } : undefined);
@@ -98,6 +107,7 @@ export class ForaCallError extends Error {
 		// words in the field that claims to hold a remote party's, which is the one
 		// thing this field exists not to do.
 		this.peerMessage = init.peerMessage ?? "";
+		this.code = init.code;
 	}
 
 	/**

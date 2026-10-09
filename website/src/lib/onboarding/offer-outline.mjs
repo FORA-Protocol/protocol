@@ -234,7 +234,9 @@ export function resolvedControls(offer, offeredUses) {
 	const functions = restrictions.find((r) => r?.kind === 'RESTRICTION_KIND_FUNCTION') ?? restrictions[0] ?? {};
 	const permitted = new Set(Array.isArray(functions.permitted) ? functions.permitted : []);
 
-	const pricing = term.pricing ?? offer.pricing ?? {};
+	// An offer states its price once, in Offer.pricing; the term it sells
+	// carries none, so the price is read from the offer alone.
+	const pricing = offer.pricing ?? {};
 	const paid = pricing.model && pricing.model !== 'PRICING_MODEL_FREE';
 
 	return {

@@ -65,6 +65,18 @@ _REQUIRED_FRESHNESS = {
     "missing_expires_at",
 }
 
+# The metered-estimate dimension: a PER_UNIT offer may state an estimate on its own
+# pricing or none, and the port verifies both; one it states is positive, or the port
+# rejects it although its signature and expiry are good. Pinned so a regenerated corpus
+# that drops these fails here rather than letting a port drift on either side.
+_REQUIRED_METERED = {
+    "metered_with_estimate",
+    "metered_without_estimate",
+    "metered_zero_estimate",
+    "metered_term_estimate_only",
+    "flat_without_estimate",
+}
+
 
 def _b64url_nopad_decode(s: str) -> bytes:
     pad = "" if len(s) % 4 == 0 else "=" * (4 - len(s) % 4)
@@ -88,6 +100,11 @@ def test_offer_verify_matrix_covers_the_freshness_dimension() -> None:
     # regression can ship.
     names = {str(v["name"]) for v in _VECTORS}
     assert _REQUIRED_FRESHNESS <= names
+
+
+def test_offer_verify_matrix_covers_the_metered_estimate_dimension() -> None:
+    names = {str(v["name"]) for v in _VECTORS}
+    assert _REQUIRED_METERED <= names
 
 
 @pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])

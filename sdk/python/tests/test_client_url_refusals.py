@@ -68,7 +68,11 @@ def test_a_delivery_redirect_is_unreachable_and_promotes_no_token(status: int) -
     config = ClientConfig(
         base_url="https://exchange.test",
         requester={"id": "a", "domain": "agent.test", "type": "REQUESTER_TYPE_AGENT"},
-        signer=SigningTransport(signer_seed=bytes(range(32)), keyid="agent.v1"),
+        signer=SigningTransport(
+            signer_seed=bytes(range(32)),
+            keyid="agent.v1",
+            signature_agent="https://agent.test",
+        ),
     )
     client = blocking.Client(config, http=httpx.Client(transport=httpx.MockTransport(respond)))
     with client, pytest.raises(CallError) as caught:

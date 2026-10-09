@@ -31,7 +31,6 @@ const PAID_OFFER = {
 			trigger: 'OBLIGATION_TRIGGER_ON_USE',
 			detail: 'Credit demo.fora-protocol.org with a link to the article',
 		}],
-		pricing: { model: 'PRICING_MODEL_PER_UNIT', rate: '0.02', currency: 'EUR', unit: 'accesses' },
 	}],
 };
 
@@ -115,9 +114,12 @@ test('the outline shows every field the offer carries, in reading order', () => 
 	assert.equal(outline.nodes[4].value, 'direct');
 	assert.equal(outline.nodes[5].value, '2026-09-17 06:44 UTC');
 
+	assert.equal(outline.nodes[3].value, 'EUR 0.02 per access');
+
+	// The term carries no price of its own: an offer states its price once, in
+	// Offer.pricing, so the price line is the offer's.
 	const terms = outline.nodes.find((n) => n.label === 'terms');
-	assert.deepEqual(terms.children.map((c) => c.label), ['condition', 'price', 'obligation', 'semantics']);
-	assert.equal(terms.children[1].value, 'EUR 0.02 per access');
+	assert.deepEqual(terms.children.map((c) => c.label), ['condition', 'obligation', 'semantics']);
 });
 
 test('a field the offer adds later still appears', () => {
@@ -165,9 +167,9 @@ test('the controls open on the terms the Exchange resolved', () => {
 
 test('a free offer opens the controls on free, with no price carried over', () => {
 	const controls = resolvedControls({
+		pricing: { model: 'PRICING_MODEL_FREE', rate: '0', currency: 'EUR' },
 		terms: [{
 			restrictions: [{ kind: 'RESTRICTION_KIND_FUNCTION', permitted: ['search'], prohibited: ['ai-train'] }],
-			pricing: { model: 'PRICING_MODEL_FREE', rate: '0', currency: 'EUR' },
 		}],
 	}, ['search', 'ai-input', 'ai-train']);
 	assert.deepEqual(controls, {

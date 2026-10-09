@@ -26,6 +26,8 @@ from .acceptance import (
 )
 from .b64 import b64url_decode, b64url_nopad
 from .client import (
+    AdminClient,
+    BeforeSign,
     BrokerClient,
     CallError,
     CallErrorKind,
@@ -34,6 +36,7 @@ from .client import (
     ClientConfig,
     Content,
     EndpointResolver,
+    RawBody,
     Validation,
 )
 from .core import (
@@ -56,6 +59,18 @@ from .core import (
     verify_request_acceptance_jcs,
 )
 from .crossfield import cross_field_rule_ids
+from .directory_signature import (
+    DirectoryResponseSignature,
+    sign_directory_response,
+    verify_directory_response,
+)
+from .discovery_hint import (
+    DiscoveryHint,
+    HintAgreement,
+    HintState,
+    parse_discovery_hint,
+    reconcile_discovery_hint,
+)
 from .errordetail import (
     ERROR_DETAIL_TYPE,
     REASON_FIELDS,
@@ -66,6 +81,7 @@ from .errordetail import (
     parse_error_detail,
     reason,
     registration_failure_detail,
+    request_auth_failure_detail,
     retrieval_auth_failure_detail,
     transaction_denial_detail,
     usage_report_rejection_detail,
@@ -93,6 +109,12 @@ from .httpsig import (
     verify_request_server,
 )
 from .idempotency import generate_idempotency_key, validate_idempotency_key
+from .identity import (
+    DEFAULT_KEY_VALIDITY,
+    directory_document,
+    generate_key,
+    signing_transport_for,
+)
 from .keyresolver import KeyResolver, StaticKeyResolver
 from .licenseterm import (
     RULE_OBLIGATION_OTHER_REQUIRES_DETAIL,
@@ -111,8 +133,21 @@ from .licenseterm import (
     validate_license_term,
     validate_resource_entry,
 )
-from .money import canonicalize_money, format_money, parse_money
-from .pop import AGENT_KEY_HEADER, sign_agent_binding, verify_agent_binding
+from .money import (
+    canonicalize_money,
+    check_metered_estimate,
+    check_offer_terms_unpriced,
+    format_money,
+    is_metered_offer,
+    parse_money,
+)
+from .pop import (
+    AGENT_KEY_HEADER,
+    POP_ACCEPT_SIGNATURE,
+    AgentBinding,
+    sign_agent_binding,
+    verify_agent_binding,
+)
 from .regschema import (
     MAX_REGISTRATION_DATA_BYTES,
     MAX_REGISTRATION_DATA_DEPTH,
@@ -134,6 +169,7 @@ from .regschema import (
 )
 from .resolvers import (
     WBA_DIRECTORY_PATH,
+    DirectoryResponseUnsignedError,
     DirectoryUnavailableError,
     EndpointRefusedError,
     KeyExpiredError,
@@ -149,44 +185,95 @@ from .resolvers import (
 )
 from .scopes import apply_scopes, normalize_scopes, scopes_subset
 from .signedurl import sign_ed25519_signed_url, verify_ed25519_signed_url
-from .signing_transport import SignedOutbound, SigningTransport
+from .signing_transport import OutboundRequest, SignedOutbound, SignerSource, SigningTransport
+from .strict import StrictViolationError, check_strict
 from .thumbprint import thumbprint
+from .wba import (
+    MAX_SIGNATURE_LIFETIME,
+    InvalidNonceError,
+    MissingComponentError,
+    SignatureAgentFormError,
+    SignatureAgentNotOriginError,
+    SignatureAgentRequiredError,
+    SignatureLabelError,
+    SignatureLifetimeError,
+    SignatureProfileError,
+    SignatureTagError,
+    accept_signature,
+    check_https_origin,
+)
 from .window import Window, clock_window, monotonic_window
 from .wire import (
+    AcceptSignatureHeader,
     ConnectProtocolVersion,
     ConnectProtocolVersionHeader,
+    ContentRulesHeader,
     ContentTypeJSON,
     ContentTypeProto,
+    DirectoryResponseTag,
+    ExchangeHeader,
     ProtocolVersion,
     RequestIDHeader,
     SignatureAgentHeader,
+    WBATag,
     WellKnownManifestVersion,
     WellKnownPath,
     manifest_version_refusal,
+    to_wire,
 )
 
 __all__ = [
     "ACCEPTANCE_SIGNATURE_ALGORITHM",
     "AGENT_KEY_HEADER",
+    "AcceptSignatureHeader",
+    "AgentBinding",
+    "DirectoryResponseSignature",
+    "DirectoryResponseTag",
+    "DirectoryResponseUnsignedError",
+    "InvalidNonceError",
+    "MAX_SIGNATURE_LIFETIME",
+    "MissingComponentError",
+    "OutboundRequest",
+    "SignatureAgentFormError",
+    "SignatureAgentNotOriginError",
+    "SignatureAgentRequiredError",
+    "SignatureLabelError",
+    "SignatureLifetimeError",
+    "SignatureProfileError",
+    "SignatureTagError",
+    "SignerSource",
+    "WBATag",
+    "accept_signature",
+    "check_https_origin",
+    "sign_directory_response",
+    "verify_directory_response",
     "AudienceVerdict",
     "BARE_DOMAIN_PATTERN",
+    "AdminClient",
+    "BeforeSign",
     "BrokerClient",
     "CallError",
     "CallErrorKind",
     "CatalogClient",
     "Client",
     "ClientConfig",
+    "RawBody",
     "ConnectProtocolVersion",
     "ConnectProtocolVersionHeader",
     "Content",
+    "ContentRulesHeader",
     "ContentTypeJSON",
     "ContentTypeProto",
     "DirectoryUnavailableError",
+    "DiscoveryHint",
     "DiscoveryResult",
     "ERROR_DETAIL_TYPE",
     "EndpointRefusedError",
     "EndpointResolver",
     "EntryVerdict",
+    "ExchangeHeader",
+    "HintAgreement",
+    "HintState",
     "KeyExpiredError",
     "KeyResolver",
     "KeyRevokedError",
@@ -230,6 +317,7 @@ __all__ = [
     "SignedOutbound",
     "SigningTransport",
     "StaticKeyResolver",
+    "StrictViolationError",
     "TermVerdict",
     "UnknownKeyError",
     "Validation",
@@ -237,9 +325,9 @@ __all__ = [
     "Verifier",
     "WBAKeyResolver",
     "WBA_DIRECTORY_PATH",
-    "WellKnownManifestVersion",
     "WellKnownEndpointResolver",
     "WellKnownKeyResolver",
+    "WellKnownManifestVersion",
     "WellKnownPath",
     "Window",
     "append_signature",
@@ -250,28 +338,37 @@ __all__ = [
     "canonical_offer_payload",
     "canonical_restriction_token",
     "canonicalize_money",
+    "check_metered_estimate",
+    "check_offer_terms_unpriced",
     "catalog_rejection_detail",
     "check_audience",
     "check_registration_data",
+    "check_strict",
     "clock_window",
     "compile_registration_schema",
     "content_digest",
     "cross_field_rule_ids",
+    "DEFAULT_KEY_VALIDITY",
+    "directory_document",
     "dispute_failure_detail",
     "domain_verification_failure_detail",
     "error_detail_from",
     "format_money",
     "generate_idempotency_key",
+    "generate_key",
     "hash_url",
+    "parse_discovery_hint",
+    "reconcile_discovery_hint",
     "host_anchored",
     "host_of",
     "is_bare_domain",
     "is_bare_host",
+    "is_metered_offer",
     "is_safe_schema_pattern",
-    "manifest_version_refusal",
     "jcs_acceptance_payload",
     "jcs_request_acceptance_payload",
     "known_restriction_token",
+    "manifest_version_refusal",
     "monotonic_window",
     "normalize_license_term",
     "normalize_resource_entry",
@@ -280,6 +377,7 @@ __all__ = [
     "parse_money",
     "reason",
     "registration_failure_detail",
+    "request_auth_failure_detail",
     "retrieval_auth_failure_detail",
     "scopes_subset",
     "sign_agent_binding",
@@ -287,21 +385,24 @@ __all__ = [
     "sign_offer_acceptance",
     "sign_offer_acceptance_jcs",
     "sign_offer_jcs",
-    "sign_request_acceptance_jcs",
     "sign_request",
+    "sign_request_acceptance_jcs",
+    "signing_transport_for",
     "thumbprint",
+    "to_wire",
     "transaction_denial_detail",
     "usage_report_rejection_detail",
     "validate_idempotency_key",
     "validate_license_term",
     "validate_resource_entry",
     "verify_agent_binding",
+    "POP_ACCEPT_SIGNATURE",
     "verify_ed25519_signed_url",
     "verify_multisig_request_server",
     "verify_offer_acceptance",
     "verify_offer_acceptance_jcs",
-    "verify_request_acceptance_jcs",
     "verify_request",
+    "verify_request_acceptance_jcs",
     "verify_request_server",
     "wba_directory_url",
 ]

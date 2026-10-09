@@ -52,3 +52,12 @@ export function encodeBase64Url(bytes: Uint8Array): string {
   for (let i = 0; i < bytes.length; i += 1) bin += String.fromCharCode(bytes[i] as number);
   return btoa(bin).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
+
+/** Encode bytes as standard (padded) base64 — the RFC 8941 byte-sequence encoding an
+ * RFC 9421 Signature member and a Content-Digest carry. Deliberately NOT base64url: the
+ * two encodings meet in one request and a verifier forgives neither. */
+export function stdBase64(bytes: Uint8Array): string {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 1) bin += String.fromCharCode(bytes[i] as number);
+  return btoa(bin);
+}

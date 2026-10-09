@@ -65,3 +65,102 @@ export function formatMoney(s: string): string {
 export function canonicalizeMoney(s: string): string {
 	return formatMoney(parseMoney(s));
 }
+
+// ---- metered offers ---------------------------------------------------------
+// Port of the sdk/go oracle (helpers/metered.go); fora.proto Pricing states the
+// rule. A PER_UNIT price is metered: the publisher states the rate and the unit,
+// and the offer may also state an estimate. A metered purchase charges estimate x
+// rate, or one unit's rate without an estimate, and the charge is final.
+
+const PRICING_MODEL_PER_UNIT = "PRICING_MODEL_PER_UNIT";
+
+/**
+ * An int32/int64 proto-JSON value: a JSON integer, or the decimal string form
+ * proto-JSON also accepts. undefined for anything else.
+ */
+function wireInt(v: unknown): bigint | undefined {
+	if (typeof v === "number" && Number.isSafeInteger(v)) return BigInt(v);
+	if (typeof v === "string" && /^-?[0-9]+$/.test(v)) return BigInt(v);
+	return undefined;
+}
+
+function modelOf(pricing: unknown): string {
+	if (typeof pricing !== "object" || pricing === null) return "";
+	const model = (pricing as Record<string, unknown>).model;
+	return typeof model === "string" ? model : "";
+}
+
+/**
+ * isMeteredOffer reports whether `offer` (canonical proto-JSON) is metered: its
+ * pricing is PER_UNIT. `Offer.pricing` is the offer's one price and the term it
+ * sells carries none (fora.proto Offer, the offer.metered.estimate_positive and
+ * offer.terms.pricing_unset rules), so a term is never consulted. TS peer of Go
+ * `helpers.IsMeteredOffer`.
+ */
+export function isMeteredOffer(offer: Record<string, unknown>): boolean {
+	return modelOf(offer.pricing) === PRICING_MODEL_PER_UNIT;
+}
+
+/**
+ * checkOfferTermsUnpriced throws when any term of `offer` (canonical proto-JSON)
+ * carries `pricing`, and returns otherwise. An offer states its price once, in
+ * `Offer.pricing`, and the term it sells carries none (fora.proto Offer, the
+ * offer.terms.pricing_unset rule). This is that rule as a standalone check, for a
+ * signer or a verifier that runs without wire validation. A present `pricing`
+ * counts whatever its value, as `has()` does; `null` is proto-JSON for absent. TS
+ * peer of Go `helpers.CheckOfferTermsUnpriced`.
+ */
+export function checkOfferTermsUnpriced(offer: Record<string, unknown>): void {
+	if (typeof offer !== "object" || offer === null) {
+		throw new Error("money: offer is not an object");
+	}
+	const terms = offer.terms;
+	if (!Array.isArray(terms)) return;
+	terms.forEach((t, i) => {
+		if (typeof t !== "object" || t === null) return;
+		const pricing = (t as Record<string, unknown>).pricing;
+		if (pricing !== undefined && pricing !== null) {
+			throw new Error(
+				`money: an offer's term carries pricing; the offer's price is Offer.pricing (terms[${i}])`,
+			);
+		}
+	});
+}
+
+/**
+ * The `estimated_quantity` `pricing` states, or undefined when it states none
+ * (`null` is proto-JSON for absent). Throws for a stated estimate that is not a
+ * positive integer: an estimate is optional, but one that is stated is positive.
+ */
+function statedEstimate(pricing: Record<string, unknown>): bigint | undefined {
+	const raw = pricing.estimated_quantity;
+	if (raw === undefined || raw === null) return undefined;
+	const estimate = wireInt(raw);
+	if (estimate === undefined || estimate <= 0n) {
+		throw new Error(
+			`money: metered pricing states an estimated_quantity that is not positive: ${JSON.stringify(raw)}`,
+		);
+	}
+	return estimate;
+}
+
+/**
+ * checkMeteredEstimate throws when `offer` is metered and its pricing states an
+ * `estimated_quantity` that is not positive, and returns otherwise. A metered
+ * offer that states no estimate passes: the estimate is optional, and without
+ * one the purchase charges one unit at the rate (1 × R) instead of the estimate
+ * times the rate (E × R). Either charge is final, and a usage report afterwards
+ * is only a record. The offer.metered.estimate_positive rule as a standalone
+ * check, for a verifier that runs without wire validation; a non-metered offer
+ * passes whatever its pricing says.
+ */
+export function checkMeteredEstimate(offer: Record<string, unknown>): void {
+	if (typeof offer !== "object" || offer === null) {
+		throw new Error("money: offer is not an object");
+	}
+	if (!isMeteredOffer(offer)) return;
+	const pricing = offer.pricing;
+	if (typeof pricing === "object" && pricing !== null) {
+		statedEstimate(pricing as Record<string, unknown>);
+	}
+}

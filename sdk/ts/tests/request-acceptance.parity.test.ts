@@ -62,6 +62,43 @@ describe("request acceptance matches the Go oracle", () => {
     });
   }
 
+  // The request acceptance names the requester under the same rule as the offer
+  // acceptance: the canonicalizer and the signer throw, and the verifier answers false
+  // although the recorded signature verifies over the recorded bytes.
+  it("refused vectors cover each requester field", () => {
+    expect(vectors.refused.map((v) => v.empty).sort()).toEqual([
+      "requester_domain",
+      "requester_id",
+    ]);
+  });
+
+  for (const vector of vectors.refused) {
+    const input = {
+      items: vector.items.map((item) => ({
+        offerSig: item.offer_sig,
+        exchange: item.exchange,
+      })),
+      requesterId: vector.requester_id,
+      requesterDomain: vector.requester_domain,
+      idempotencyKey: vector.idempotency_key,
+    };
+
+    it(`${vector.name}: a payload naming an empty requester is refused`, async () => {
+      expect((vector as Record<string, unknown>)[vector.empty]).toBe("");
+      expect(() => requestAcceptancePayload(input)).toThrow(/empty requester/);
+      await expect(
+        signRequestAcceptance(input, await privateKey(vector.seed_hex)),
+      ).rejects.toThrow(/empty requester/);
+      expect(
+        await verifyRequestAcceptance(
+          input,
+          vector.signature_hex,
+          await publicKey(vector.pubkey_b64),
+        ),
+      ).toBe(false);
+    });
+  }
+
   it("signs item order", async () => {
     const vector = vectors.vectors[0]!;
     const input = {

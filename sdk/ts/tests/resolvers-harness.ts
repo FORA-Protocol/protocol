@@ -5,16 +5,21 @@
 // exercise them against a REAL in-process node:http server on 127.0.0.1:0 — never
 // a mocked fetch. The resolvers use their default global-fetch transport; only
 // the clock (and the poll timer/seams) are injected for determinism. This module
-// stands up that real origin and mints real Ed25519 keys; it imports ONLY the
-// existing byte-parity-pinned SDK primitives (thumbprint, base64url), never the
-// not-yet-existing resolver faces — so a RED run points at the missing faces, not
-// at this fixture.
+// stands up that real origin and mints real Ed25519 keys.
+//
+// A key directory is served under the Web Bot Auth profile: its own media type and a
+// response signed by every key it lists, for the authority it was fetched from. Every
+// key this harness mints is registered by its public half, and the origin signs a
+// served directory with the registered keys it lists. A listed key nobody registered
+// is left unsigned, which a resolver treats as absent.
 
-import { generateKeyPairSync } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
 import { WBAFileSchema } from "../../../gen/ts/wire/schemas.ts";
+import { signDirectoryResponse } from "../core/directory-response.ts";
+import { WBA_DIRECTORY_MEDIA_TYPE } from "../resolvers/documents.ts";
+import type { FetchLike } from "../resolvers/fetch.ts";
 import { decodeBase64Url } from "../src/base64url.ts";
 import { thumbprint } from "../src/thumbprint.ts";
 import { WellKnownManifestVersion } from "../src/wire.ts";
@@ -28,22 +33,85 @@ export const REVOCATION_PATH = "/.well-known/fora-key-revocations.json";
 export const MANIFEST_PATH = "/.well-known/fora.json";
 export const JWKS_PATH = "/keys.json";
 
-/** A real Ed25519 key: raw 32-byte public key, its base64url `x`, and its RFC
- * 7638 thumbprint (the WBA keyid). Produced through the SDK's own thumbprint
- * primitive so lookups match the port byte-for-byte. */
+/** A real Ed25519 key: raw 32-byte public key, its base64url `x`, its RFC 7638
+ * thumbprint (the WBA keyid), and the private key a served directory is signed with.
+ * Produced through the SDK's own thumbprint primitive so lookups match the port
+ * byte-for-byte. */
 export interface TestKey {
 	rawPub: Uint8Array;
 	x: string;
 	tp: string;
+	privKey: CryptoKey;
 }
 
-/** Mint a fresh Ed25519 key via node:crypto and derive its SDK thumbprint. */
+// Every key the harness minted, by its base64url public half, so a served directory is
+// signed by the keys it lists.
+const registered = new Map<string, TestKey>();
+
+async function register(privKey: CryptoKey, x: string): Promise<TestKey> {
+	const raw = decodeBase64Url(x);
+	if (!raw) throw new Error("harness: could not decode JWK x");
+	const key = { rawPub: raw, x, tp: await thumbprint(raw), privKey };
+	registered.set(x, key);
+	return key;
+}
+
+/** Mint a fresh Ed25519 key, derive its SDK thumbprint, and register it. */
 export async function makeKey(): Promise<TestKey> {
-	const { publicKey } = generateKeyPairSync("ed25519");
-	const jwk = publicKey.export({ format: "jwk" }) as { x: string };
-	const raw = decodeBase64Url(jwk.x);
-	if (!raw) throw new Error("harness: could not decode generated JWK x");
-	return { rawPub: raw, x: jwk.x, tp: await thumbprint(raw) };
+	const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
+	const jwk = await crypto.subtle.exportKey("jwk", kp.publicKey);
+	return register(kp.privateKey, jwk.x ?? "");
+}
+
+/** Register the key a 32-byte Ed25519 seed derives, for a directory another oracle
+ * minted from a fixed seed. */
+export async function registerSeed(seed: Uint8Array): Promise<TestKey> {
+	const prefix = Uint8Array.from([0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20]);
+	const der = new Uint8Array(prefix.length + seed.length);
+	der.set(prefix, 0);
+	der.set(seed, prefix.length);
+	const priv = await crypto.subtle.importKey("pkcs8", der, { name: "Ed25519" }, true, ["sign"]);
+	const jwk = await crypto.subtle.exportKey("jwk", priv);
+	return register(priv, jwk.x ?? "");
+}
+
+// The response-signature window: wide enough to contain every injected test clock.
+const RESPONSE_CREATED = 1;
+const RESPONSE_EXPIRES = 2 ** 40;
+
+/** The headers a key directory response carries: the profile's media type and a
+ * response signature by each listed key the harness registered (all of them, or only
+ * those whose `x` is in `signedBy`), for `authority`. */
+export async function signedDirectoryHeaders(
+	authority: string,
+	body: string,
+	signedBy?: readonly string[],
+): Promise<Record<string, string>> {
+	const headers: Record<string, string> = { "content-type": WBA_DIRECTORY_MEDIA_TYPE };
+	let listed: string[] = [];
+	try {
+		const doc = JSON.parse(body) as { keys?: Array<{ x?: string }> };
+		listed = (doc.keys ?? []).map((k) => k.x ?? "");
+	} catch {
+		return headers;
+	}
+	const signers = listed
+		.filter((x) => signedBy === undefined || signedBy.includes(x))
+		.map((x) => registered.get(x))
+		.filter((k): k is TestKey => k !== undefined)
+		.map((k) => ({ privKey: k.privKey, keyid: k.tp }));
+	if (signers.length === 0) return headers;
+	const sig = await signDirectoryResponse(
+		authority,
+		new TextEncoder().encode(body) as Uint8Array<ArrayBuffer>,
+		signers,
+		RESPONSE_CREATED,
+		RESPONSE_EXPIRES,
+	);
+	headers["content-digest"] = sig.contentDigest;
+	headers["signature-input"] = sig.signatureInput;
+	headers.signature = sig.signature;
+	return headers;
 }
 
 /** One JWK member of a WBA directory, snake_case exactly as the Go oracle emits
@@ -102,6 +170,7 @@ export function manifestJson(endpoint?: string, ver: string | null = WellKnownMa
 
 interface OriginState {
 	wba?: string;
+	wbaSignedBy?: readonly string[] | undefined;
 	wbaStatus: number;
 	wbaHits: number;
 	rev?: string;
@@ -119,7 +188,9 @@ interface OriginState {
 export interface Origin {
 	url: string;
 	host: string;
-	setWBA(body: string): void;
+	/** Serve `body` as the key directory, signed by every listed registered key, or only
+	 * by those whose `x` is in `signedBy`. */
+	setWBA(body: string, signedBy?: readonly string[]): void;
 	setWBAStatus(code: number): void;
 	wbaHits(): number;
 	setRevocation(body: string): void;
@@ -181,8 +252,15 @@ export async function startOrigin(): Promise<Origin> {
 			res.end();
 			return;
 		}
-		res.writeHead(hit.code, { "content-type": "application/json" });
-		res.end(hit.body);
+		if (path !== WBA_DIR_PATH || hit.code !== 200) {
+			res.writeHead(hit.code, { "content-type": "application/json" });
+			res.end(hit.body);
+			return;
+		}
+		void signedDirectoryHeaders(req.headers.host ?? "", hit.body, state.wbaSignedBy).then((headers) => {
+			res.writeHead(200, headers);
+			res.end(hit.body);
+		});
 	});
 	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
 	const addr = server.address() as AddressInfo;
@@ -191,8 +269,9 @@ export async function startOrigin(): Promise<Origin> {
 	return {
 		url,
 		host,
-		setWBA: (b) => {
+		setWBA: (b, signedBy) => {
 			state.wba = b;
+			state.wbaSignedBy = signedBy;
 		},
 		setWBAStatus: (c) => {
 			state.wbaStatus = c;
@@ -242,6 +321,17 @@ export const loopbackFetch = (
 	url: string,
 ): Promise<{ status: number; text(): Promise<string> }> =>
 	fetch(url) as unknown as Promise<{ status: number; text(): Promise<string> }>;
+
+/** A real fetch for the WBA key resolver, which always requests a directory over
+ * https: a bare host is prefixed with https:// and there is no option to fetch an https
+ * origin any other way. The in-process origins listen in plaintext, so this routes an
+ * https request for a 127.0.0.1 origin to that origin's plaintext listener, leaving the
+ * host (and so the response signatures' @authority) unchanged. Every other URL is
+ * fetched as given. A redirect: "manual" request is passed on, so the global fetch
+ * answers a 3xx itself. Only the test dials plaintext; the resolver never builds an
+ * http URL for an https reference. */
+export const httpsToLoopback: FetchLike = (url, init) =>
+	fetch(url.replace(/^https:\/\/127\.0\.0\.1:/, "http://127.0.0.1:"), init?.redirect === "manual" ? { redirect: "manual" } : {});
 
 // Parsed-WBAFile builders. These mirror the inline helpers the active-key
 // behavior suite uses, hoisted here so the offer-key-cache suite consumes a

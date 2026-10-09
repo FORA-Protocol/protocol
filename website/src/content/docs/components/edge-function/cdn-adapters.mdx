@@ -64,8 +64,13 @@ interface EdgeConfig {
    * message. */
   protectedPatterns: string[];
 
-  /** Exchange info endpoint URL for X-Content-Rules header. */
-  exchangeInfoUrl: string;
+  /** Value of the X-Content-Rules header on a 403: the absolute URL of this
+   * provider's own manifest, https://{provider domain}/.well-known/fora.json. */
+  contentRulesUrl: string;
+
+  /** Optional value of the X-FORA-Exchange header on a 403: the bare domain of
+   * an Exchange the manifest lists (e.g. "exchange.example"), never a URL. */
+  exchangeDomain?: string;
 
   /** Exchange API base URL for fetching fora.json and rsl.txt. */
   exchangeApiUrl?: string;
@@ -139,7 +144,7 @@ graph LR
 - fora.json and rsl.txt serving.
 - Custom parameters validation (agent_id binding).
 - Single-use enforcement (requires Lambda@Edge + DynamoDB, best-effort).
-- The 403 response body and `X-Content-Rules` header.
+- The 403 response body and the `X-Content-Rules` and `X-FORA-Exchange` headers.
 
 ```javascript
 // CloudFront Function (viewer-request) - ES 5.1 subset
@@ -192,9 +197,12 @@ function handler(event) {
             statusDescription: 'Forbidden',
             headers: {
                 'content-type': { value: 'application/json' },
-                'x-content-rules': { value: EXCHANGE_INFO_URL }
+                // The provider's own manifest, e.g. https://publisher.example/.well-known/fora.json
+                'x-content-rules': { value: CONTENT_RULES_URL },
+                // A bare domain the manifest lists, e.g. exchange.example
+                'x-fora-exchange': { value: EXCHANGE_DOMAIN }
             },
-            body: '{"error":"Licensed content. Negotiate access via the Exchange.","protocol":"FORA","version":"1.0","info_url":"' + EXCHANGE_INFO_URL + '"}'
+            body: '{"error":"Licensed content. Negotiate access via the Exchange.","protocol":"FORA","version":"1.0","fora_json_url":"' + CONTENT_RULES_URL + '"}'
         };
     }
 

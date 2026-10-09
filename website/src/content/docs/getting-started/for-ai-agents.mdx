@@ -88,7 +88,7 @@ The SDK handles:
 - **Offer verification** -- every offer's signature checked against the issuing Exchange's published key before you can buy it, and a rejected offer keeps its reason
 - **Ed25519 signing** -- every request signed with your key under RFC 9421
 - **Bound delivery** -- the delivery URL is tied to your key and the client presents the matching proof of possession, so a copied link fetches nothing
-- **Profile routing** -- `supported_profiles` on the query tells a Broker which domains you work in
+- **Profile fields** -- `supported_profiles` on the query tells each Exchange which domain fields you understand
 
 Two things the SDK does **not** do, both part of a deferred layer: there is no spend cap
 of any kind, and usage reports are not submitted automatically -- you call `ReportUsage`
@@ -96,7 +96,7 @@ yourself. See [Budget and Usage Reporting](/components/agent-sdk/budget-reportin
 
 ## Extension Profiles
 
-Your agent declares which domains it understands via `supported_profiles` on the `DiscoveryRequest`. The Broker uses this to route queries to capable Exchanges and filter offers to relevant domains.
+Your agent declares which domains it understands via `supported_profiles` on the `DiscoveryRequest`. A Broker forwards it to every Exchange it queries and does not route by it; each Exchange answers for its own profiles.
 
 Three v1 profiles exist:
 
@@ -106,7 +106,7 @@ Three v1 profiles exist:
 | **fora-academic-v1** | Journal papers, preprints, datasets | CrossRef, OpenAlex, JATS XML, COUNTER 5.1 |
 | **fora-legal-v1** | Legislation, case law, patents | ELI, ECLI, Akoma Ntoso, WIPO ST.3/ST.16 |
 
-Exchanges declare conformance in their manifest. When your agent declares `supported_profiles: ["fora-academic-v1"]`, the Broker routes your query only to Exchanges that also declare `fora-academic-v1`, and returned offers include profile-specific metadata (e.g., `academic.doi`, `academic.oa_status`, `academic.version`).
+Exchanges declare conformance in their manifest. When your agent declares `supported_profiles: ["fora-academic-v1"]`, the Broker forwards that to every Exchange it queries, and offers from Exchanges that also declare `fora-academic-v1` include profile-specific metadata (e.g., `academic.doi`, `academic.oa_status`, `academic.version`).
 
 If you omit `supported_profiles`, you get offers from all Exchanges -- useful for broad discovery, less useful for domain-specific queries.
 
@@ -125,7 +125,7 @@ The `Requester` message is the identity envelope on every `ResourceQuery` and `T
 | `type` | What kind of entity you are (see below) | `REQUESTER_TYPE_AGENT` |
 | `scopes` | What you can access | `["academic:*", "credit:read"]` |
 
-The `Requester` carries **no** signature field. The SDK signs every request with your Ed25519 private key as an RFC 9421 HTTP Message Signature (in the HTTP headers, covering the whole request). The Exchange verifies it against the public key published in your WBA directory (the JWK Set at `{domain}/.well-known/http-message-signatures-directory`, `role=ROLE_AGENT`), identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`).
+The `Requester` carries **no** signature field. The SDK signs every request with your Ed25519 private key as an RFC 9421 HTTP Message Signature (in the HTTP headers, covering the whole request). The Exchange verifies it against the public key published in your WBA directory (the JWK Set at `{domain}/.well-known/http-message-signatures-directory`), identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`).
 
 ### RequesterType
 
@@ -165,24 +165,31 @@ When your agent holds a subscription, offers and transaction responses include `
 
 ```go
 // After a transaction, check remaining quota
-resp, _ := client.Execute(ctx, offer)
-for _, q := range resp.SubscriptionQuota {
-    fmt.Printf("Scope %s: %d/%d remaining (resets %s)\n",
-        q.Scope, q.Remaining, q.Limit, q.ResetsAt)
+resp, err := client.Execute(ctx, offer)
+if err != nil {
+    return err
+}
+for _, q := range resp.GetSubscriptionQuota() {
+    resets := "not stated"
+    if t := q.GetResetsAt(); t != nil {
+        resets = t.AsTime().Format(time.RFC3339)
+    }
+    fmt.Printf("Subscription %s: %d of %d %s remaining (resets %s)\n",
+        q.GetSubscriptionId(), q.GetQuotaRemaining(), q.GetQuotaLimit(), q.GetUnit(), resets)
 }
 ```
 
 ### Denial Reasons You May Encounter
 
-When a request is denied, the Exchange returns a specific `DenialReason` so your agent knows what went wrong and can respond appropriately:
+When an item is denied, the Exchange returns a specific `DenialReason` so your agent knows what went wrong and can respond appropriately. A denial of an item rides in the response body, on that item's `denial_reason`, also when you bought a single offer. Only a refusal of the whole request — for example no account at that Exchange (`DENIAL_REASON_ACCOUNT_NOT_REGISTERED`) — is an error carrying `ErrorDetail.transaction_denial`.
 
 | Denial Reason | Meaning | What to Do |
 |---|---|---|
 | `DENIAL_REASON_QUOTA_EXCEEDED` | Subscription access count exhausted for this period | Wait for quota reset or upgrade subscription |
 | `DENIAL_REASON_DELEGATION_INVALID` | Delegation missing, unverifiable (broken chain linkage or holder-binding mismatch), expired, or it widens scope beyond its parent | Obtain a fresh delegation from the principal |
-| `DENIAL_REASON_SCOPE_INSUFFICIENT` | Your scopes do not cover this resource | Request broader scopes or a different resource |
 | `DENIAL_REASON_INSUFFICIENT_BALANCE` | Requester's balance too low for this transaction | Add funds or reduce request scope |
-| `DENIAL_REASON_SIGNATURE_INVALID` | Ed25519 signature verification failed | Check your signing key configuration |
+| `DENIAL_REASON_SIGNATURE_INVALID` | A signature the item depends on did not verify: the offer's, or your request acceptance, including when the items that arrived are not the set you signed | Check your signing key configuration, and that the request carries exactly the offers you signed, in order |
+| `DENIAL_REASON_RELAY_NOT_ACCEPTED` | The provider of this offer does not accept purchases relayed by a Broker | Buy this offer directly at its Exchange |
 
 ## What It Costs
 
@@ -342,6 +349,8 @@ The endpoint answers an unauthenticated request with `401` and the OAuth metadat
 | `fora_execute` | license offers and get the content back |
 | `fora_report` | file the usage report an offer's terms require |
 
+When a call is refused, the tool's error result carries `{"refusal": UpstreamRefusal}` as its structured content: the party that refused (the Broker, an Exchange or the Identity Service), the Connect code it answered with, and its FORA `ErrorDetail` unchanged. You branch on the same typed reason an SDK client reads.
+
 Custody is the trade. The service holds your private key and, by default, fetches the licensed bytes for you — which is what makes the delivery URL's key binding satisfiable at all when you hold no key. An agent that holds its own key and publishes its own directory is the same participant to an Exchange and avoids that trade entirely; the rest of this page is that path.
 
 See [Identity Service](/components/identity/overview/) for the custody model, the key lifecycle, and what the service costs you in trust.
@@ -366,7 +375,7 @@ The core protocol is domain-agnostic. Extension profiles add domain-specific met
 ## Next Steps
 
 1. Register your agent with a participating Exchange — `Register` in Go, `register` in TypeScript and Python. The Exchange creates your account and bills it based on your verified request signature, never on anything you send. Address the call by naming the Exchange's bare domain on the request: the SDK resolves the endpoint from that Exchange's own manifest, reads the terms revision it publishes from a freshly fetched copy, and echoes it so the signature records what you accepted.
-2. Check the account with `GetAccountStatus` / `getAccountStatus` before you transact. An empty account handle means you hold no account there yet; an account that exists but is not active is waiting for the operator to switch it on, and the remedy is to wait or contact them rather than to register again. An account is per-Exchange, so a client can hold several — the same client registers at each.
+2. Check the account with `GetAccountStatus` / `getAccountStatus` before you transact. If you hold no account there yet, the Exchange answers with the Connect code `not_found` (an empty account handle from an older Exchange means the same); an account that exists but is not active is waiting for the operator to switch it on, and the remedy is to wait or contact them rather than to register again. An account is per-Exchange, so a client can hold several — the same client registers at each.
 3. Install the SDK, declare your `supported_profiles`, and configure your budget
 4. Replace your per-provider integrations with `client.Fetch()`
 

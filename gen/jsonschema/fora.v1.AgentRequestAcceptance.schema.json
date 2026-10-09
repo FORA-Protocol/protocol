@@ -1,0 +1,78 @@
+{
+  "$defs": {
+    "fora.v1.AgentRequestAcceptanceItem": {
+      "description": "AgentRequestAcceptanceItem is the minimum reference needed to authorize an\n offer's membership, order, and fan-out destination without repeating the\n full Offer in every projected subrequest. Offer.signature transitively binds\n the full offer, including its exchange field; the explicit exchange lets a\n recipient derive which signed references must appear in its projection.",
+      "properties": {
+        "exchange": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "offer_sig": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "exchange",
+        "offer_sig"
+      ],
+      "title": "Agent Request Acceptance Item",
+      "type": "object"
+    },
+    "fora.v1.AgentRequestAcceptancePayload": {
+      "description": "AgentRequestAcceptancePayload fixes the field set signed by an\n AgentRequestAcceptance. Its canonical bytes are\n JCS(protojson(AgentRequestAcceptancePayload)) using the canonical-signing\n rules defined on Offer.signature.",
+      "properties": {
+        "idempotency_key": {
+          "default": "",
+          "type": "string"
+        },
+        "items": {
+          "description": "Complete original request order, before Broker fan-out. Capped at 256 —\n the same ceiling a discovery query's uris list carries, so one request\n can reference at most one offer per queried URI at the query cap. The Go\n verification helper enforces the same bound itself before doing any\n canonicalization work, because a verifier may run with wire validation\n off and the canonical rendering of an unbounded list is the expensive\n step an unauthenticated caller could otherwise buy for free.",
+          "items": {
+            "$ref": "#/$defs/fora.v1.AgentRequestAcceptanceItem"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "type": "array"
+        },
+        "requester_domain": {
+          "default": "",
+          "description": "Requester.domain of the request. Non-empty (see AgentRequestAcceptance).",
+          "type": "string"
+        },
+        "requester_id": {
+          "default": "",
+          "description": "Requester.id of the request. Non-empty (see AgentRequestAcceptance).",
+          "type": "string"
+        }
+      },
+      "title": "Agent Request Acceptance Payload",
+      "type": "object"
+    }
+  },
+  "$id": "fora.v1.AgentRequestAcceptance.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A subrequest whose items are not exactly that projection — an item dropped,\n an item added, or the items reordered — is refused PER ITEM, IN THE BODY: the\n Exchange answers OK and denies every item of the subrequest with\n DENIAL_REASON_SIGNATURE_INVALID, because the agent's signature does not cover\n what arrived. It is not an INVALID_ARGUMENT error and not a refusal of the\n whole request: the request is well formed, and what fails is the agent's\n signature over the set. The Exchange purchases nothing and claims no\n request-level idempotency state for such a subrequest, so a retry carrying the\n set the agent signed still executes. A direct request from the agent is the\n degenerate projection, the whole set, and is held to the same rule.\n\n A projected subrequest is a NEW HTTP request its sender authors. The party\n that projects — a Broker, or the agent itself when it splits its own\n mixed-Exchange set — computes that subrequest's Content-Digest and signs it\n with its own RFC 9421 request signature. The agent's original RFC 9421\n signature covered the body the agent sent and does not travel with a\n projected body; that is expected, not a gap, and it is why this proof\n exists: like AgentAcceptance, it is a detached body signature that stays\n valid however the request travels. If a delegation rides a projected request,\n the wire signer is the Broker, so the Exchange checks the delegation's holder\n binding (cnf.jkt) against the key each item's AgentAcceptance verifies under,\n not against the wire signer (see Delegation). A Broker is never delegated to\n and never becomes the holder.\n\n The payload names the requester exactly as AgentAcceptancePayload does, with\n the same rule: a non-empty requester_id and requester_domain, which a signer\n refuses to omit and a verifier refuses to accept empty.\n\n The verification key is the agent key published for the requester the signed\n payload names. payload.requester_domain must equal the request's\n requester.domain, and the Exchange accepts the signature only if it verifies\n against an Ed25519 key currently valid in that domain's WBA directory\n ({requester_domain}/.well-known/http-message-signatures-directory), fetched\n under the same SSRF discipline as every directory fetch. The envelope\n carries no keyid, so the verifier tries the currently-valid Ed25519 keys of\n that directory; rotation overlap keeps that set small. When the requester\n itself signed the arriving request, the request-signing key the Exchange\n already resolved is that key, and no second fetch is needed. A signature\n that verifies against a key the requester's domain publishes is what turns\n the claimed requester identity into an authenticated one.",
+  "properties": {
+    "payload": {
+      "$ref": "#/$defs/fora.v1.AgentRequestAcceptancePayload",
+      "description": "The signed payload is carried because a projected subrequest does not carry\n offers addressed to other Exchanges and therefore cannot reconstruct the\n original complete set by itself."
+    },
+    "signature": {
+      "description": "Hex-encoded detached Ed25519 signature over the canonical payload bytes.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "signature_algorithm": {
+      "default": "",
+      "description": "Signature algorithm; \"EdDSA\" for Ed25519.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "payload",
+    "signature"
+  ],
+  "title": "AgentRequestAcceptance — the agent's topology-independent authorization of\n one complete ordered execute set. A Broker forwards this envelope unchanged\n when it projects a mixed-Exchange request into per-Exchange subrequests\n (BrokerService.ExecuteTransaction).\n Each receiving Exchange verifies the signature, then requires its subrequest\n to equal the complete in-order projection of payload.items whose exchange\n names that Exchange. This is what makes removal, append, and reorder visible\n before request-level idempotency state is claimed.",
+  "type": "object"
+}

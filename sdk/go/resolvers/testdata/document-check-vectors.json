@@ -1,0 +1,271 @@
+{
+  "note": "The verdict each document reader reaches for the bytes and the Content-Type a party served, produced by the sdk/go acceptDocument oracle; py/ts replay and must match every vector",
+  "vectors": [
+    {
+      "label": "manifest-ok",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "{\"ver\":\"1.0\",\"role\":\"ROLE_EXCHANGE\",\"domain\":\"exchange.example\",\"endpoint\":\"https://exchange.example/rpc\"}",
+      "verdict": "ok"
+    },
+    {
+      "label": "manifest-media-type-parameter",
+      "document": "manifest",
+      "content_type": "application/json; charset=utf-8",
+      "body": "{\"ver\":\"1.0\",\"role\":\"ROLE_EXCHANGE\",\"domain\":\"exchange.example\",\"endpoint\":\"https://exchange.example/rpc\"}",
+      "verdict": "ok"
+    },
+    {
+      "label": "manifest-media-type-case",
+      "document": "manifest",
+      "content_type": "Application/JSON",
+      "body": "{\"ver\":\"1.0\",\"role\":\"ROLE_EXCHANGE\",\"domain\":\"exchange.example\",\"endpoint\":\"https://exchange.example/rpc\"}",
+      "verdict": "ok"
+    },
+    {
+      "label": "manifest-media-type-text",
+      "document": "manifest",
+      "content_type": "text/plain",
+      "body": "{\"ver\":\"1.0\",\"role\":\"ROLE_EXCHANGE\",\"domain\":\"exchange.example\",\"endpoint\":\"https://exchange.example/rpc\"}",
+      "verdict": "media_type"
+    },
+    {
+      "label": "manifest-media-type-absent",
+      "document": "manifest",
+      "content_type": "",
+      "body": "{\"ver\":\"1.0\",\"role\":\"ROLE_EXCHANGE\",\"domain\":\"exchange.example\",\"endpoint\":\"https://exchange.example/rpc\"}",
+      "verdict": "media_type"
+    },
+    {
+      "label": "manifest-media-type-jwk-set",
+      "document": "manifest",
+      "content_type": "application/jwk-set+json",
+      "body": "{\"ver\":\"1.0\",\"role\":\"ROLE_EXCHANGE\",\"domain\":\"exchange.example\",\"endpoint\":\"https://exchange.example/rpc\"}",
+      "verdict": "media_type"
+    },
+    {
+      "label": "manifest-not-json",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "{\"ver\":\"1.0\",",
+      "verdict": "undecodable"
+    },
+    {
+      "label": "manifest-trailing-data",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "{\"ver\":\"1.0\",\"role\":\"ROLE_EXCHANGE\",\"domain\":\"exchange.example\",\"endpoint\":\"https://exchange.example/rpc\"} {}",
+      "verdict": "undecodable"
+    },
+    {
+      "label": "manifest-null-member",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "{\"ver\":\"1.0\",\"role\":\"ROLE_EXCHANGE\",\"endpoint\":null}",
+      "verdict": "ok"
+    },
+    {
+      "label": "manifest-null-inside-struct",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "{\"ver\":\"1.0\",\"role\":\"ROLE_EXCHANGE\",\"ext\":{\"vendor\":null}}",
+      "verdict": "ok"
+    },
+    {
+      "label": "manifest-minor-version",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "{\"ver\":\"1.7\",\"role\":\"ROLE_EXCHANGE\"}",
+      "verdict": "ok"
+    },
+    {
+      "label": "manifest-version-absent",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "{\"role\":\"ROLE_EXCHANGE\"}",
+      "verdict": "version"
+    },
+    {
+      "label": "manifest-version-major",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "{\"ver\":\"2.0\",\"role\":\"ROLE_EXCHANGE\"}",
+      "verdict": "version"
+    },
+    {
+      "label": "manifest-version-not-string",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "{\"ver\":1.0,\"role\":\"ROLE_EXCHANGE\"}",
+      "verdict": "version"
+    },
+    {
+      "label": "manifest-version-before-strict",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "{\"ver\":\"2.0\",\"role\":\"ROLE_EXCHANGE\",\"endpoints\":[]}",
+      "verdict": "version"
+    },
+    {
+      "label": "manifest-not-object",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "[]",
+      "verdict": "version"
+    },
+    {
+      "label": "manifest-unknown-member",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "{\"ver\":\"1.0\",\"role\":\"ROLE_EXCHANGE\",\"endpoints\":[\"https://exchange.example/rpc\"]}",
+      "verdict": "strict"
+    },
+    {
+      "label": "manifest-lower-camel-member",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "{\"ver\":\"1.0\",\"role\":\"ROLE_EXCHANGE\",\"termsUri\":\"https://exchange.example/terms\"}",
+      "verdict": "strict"
+    },
+    {
+      "label": "manifest-cross-field-rule",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "{\"ver\":\"1.0\",\"role\":\"ROLE_EXCHANGE\",\"terms_digest\":\"sha256:0000000000000000000000000000000000000000000000000000000000000000\"}",
+      "verdict": "strict"
+    },
+    {
+      "label": "manifest-int32-as-string",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "{\"ver\":\"1.0\",\"role\":\"ROLE_EXCHANGE\",\"max_intermediary_hops\":\"3\"}",
+      "verdict": "strict"
+    },
+    {
+      "label": "manifest-unknown-enum-name",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "{\"ver\":\"1.0\",\"role\":\"ROLE_NOTARY\"}",
+      "verdict": "strict"
+    },
+    {
+      "label": "manifest-role-absent",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "{\"ver\":\"1.0\"}",
+      "verdict": "strict"
+    },
+    {
+      "label": "manifest-unknown-member-nested",
+      "document": "manifest",
+      "content_type": "application/json",
+      "body": "{\"ver\":\"1.0\",\"role\":\"ROLE_PUBLISHER\",\"exchanges\":[{\"domain\":\"exchange.example\",\"weight\":1}]}",
+      "verdict": "strict"
+    },
+    {
+      "label": "wba-ok",
+      "document": "wba_directory",
+      "content_type": "application/jwk-set+json",
+      "body": "{\"keys\":[{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"use\":\"sig\",\"alg\":\"EdDSA\",\"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\",\"not_before\":\"2026-05-01T00:00:00Z\",\"not_after\":\"2027-05-01T00:00:00Z\"}],\"revocation_url\":\"https://agent.example/.well-known/fora-key-revocations.json\"}",
+      "verdict": "media_type"
+    },
+    {
+      "label": "wba-empty",
+      "document": "wba_directory",
+      "content_type": "application/jwk-set+json",
+      "body": "{}",
+      "verdict": "media_type"
+    },
+    {
+      "label": "wba-media-type-json",
+      "document": "wba_directory",
+      "content_type": "application/json",
+      "body": "{\"keys\":[{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"use\":\"sig\",\"alg\":\"EdDSA\",\"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\",\"not_before\":\"2026-05-01T00:00:00Z\",\"not_after\":\"2027-05-01T00:00:00Z\"}]}",
+      "verdict": "media_type"
+    },
+    {
+      "label": "wba-media-type-wba-draft",
+      "document": "wba_directory",
+      "content_type": "application/http-message-signatures-directory+json",
+      "body": "{\"keys\":[{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"use\":\"sig\",\"alg\":\"EdDSA\",\"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\",\"not_before\":\"2026-05-01T00:00:00Z\",\"not_after\":\"2027-05-01T00:00:00Z\"}]}",
+      "verdict": "ok"
+    },
+    {
+      "label": "wba-key-with-kid",
+      "document": "wba_directory",
+      "content_type": "application/jwk-set+json",
+      "body": "{\"keys\":[{\"kid\":\"k1\",\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\"}]}",
+      "verdict": "media_type"
+    },
+    {
+      "label": "wba-keys-not-array",
+      "document": "wba_directory",
+      "content_type": "application/jwk-set+json",
+      "body": "{\"keys\":{}}",
+      "verdict": "media_type"
+    },
+    {
+      "label": "wba-lower-camel-member",
+      "document": "wba_directory",
+      "content_type": "application/jwk-set+json",
+      "body": "{\"revocationUrl\":\"https://agent.example/revoked.json\"}",
+      "verdict": "media_type"
+    },
+    {
+      "label": "wba-not-json",
+      "document": "wba_directory",
+      "content_type": "application/jwk-set+json",
+      "body": "keys",
+      "verdict": "media_type"
+    },
+    {
+      "label": "revocation-ok",
+      "document": "revocation_list",
+      "content_type": "application/json",
+      "body": "{\"as_of\":\"2026-05-01T12:00:00Z\",\"revoked\":[\"NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs\"]}",
+      "verdict": "ok"
+    },
+    {
+      "label": "revocation-any-media-type",
+      "document": "revocation_list",
+      "content_type": "text/plain",
+      "body": "{\"as_of\":\"2026-05-01T12:00:00Z\",\"revoked\":[]}",
+      "verdict": "ok"
+    },
+    {
+      "label": "revocation-media-type-absent",
+      "document": "revocation_list",
+      "content_type": "",
+      "body": "{\"revoked\":[]}",
+      "verdict": "ok"
+    },
+    {
+      "label": "revocation-unknown-member",
+      "document": "revocation_list",
+      "content_type": "application/json",
+      "body": "{\"as_of\":\"2026-05-01T12:00:00Z\",\"revoked\":[],\"next\":\"https://agent.example/revoked-2.json\"}",
+      "verdict": "strict"
+    },
+    {
+      "label": "revocation-as-of-not-rfc3339",
+      "document": "revocation_list",
+      "content_type": "application/json",
+      "body": "{\"as_of\":\"yesterday\",\"revoked\":[]}",
+      "verdict": "strict"
+    },
+    {
+      "label": "revocation-revoked-not-strings",
+      "document": "revocation_list",
+      "content_type": "application/json",
+      "body": "{\"revoked\":[1]}",
+      "verdict": "strict"
+    },
+    {
+      "label": "revocation-not-json",
+      "document": "revocation_list",
+      "content_type": "application/json",
+      "body": "revoked: []",
+      "verdict": "undecodable"
+    }
+  ]
+}

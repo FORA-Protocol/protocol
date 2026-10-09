@@ -216,6 +216,7 @@ func buildClientRequestVectors(t *testing.T) []clientRequestVector {
 	})
 	out = append(out, executeVector(t, baseOpts))
 	out = append(out, brokerResolveVector(t, baseOpts))
+	out = append(out, brokerExecuteVector(t, baseOpts))
 	out = append(out, catalogVectors(t, baseOpts)...)
 	return out
 }
@@ -225,7 +226,7 @@ func buildClientRequestVectors(t *testing.T) []clientRequestVector {
 // separately from the ExchangeService endpoint — and its caller is a different
 // party with a different key. They carry no idempotency key by design (the catalog
 // upsert and delete are naturally idempotent, so a key there would be ceremony)
-// and forward no requester (the caller is named by caller_id), so both columns
+// and forward no requester (the caller is the request's signer), so both columns
 // record empty: a client that minted a key or stamped the requester it was built
 // with would move them.
 func catalogVectors(t *testing.T, baseOpts []foraconnect.ClientOption) []clientRequestVector {
@@ -253,7 +254,7 @@ func catalogVectors(t *testing.T, baseOpts []foraconnect.ClientOption) []clientR
 	}}}
 	capture("push_resources", "pushResources", func(c *foraconnect.CatalogClient, exchange string) error {
 		_, err := c.PushResources(context.Background(), &forav1.PushResourcesRequest{
-			Exchange: exchange, TenantId: "tenant-1", CallerId: "publisher.test",
+			Exchange: exchange, TenantId: "tenant-1",
 			Entries: []*forav1.ResourceEntry{entry},
 		})
 		return err
@@ -264,7 +265,7 @@ func catalogVectors(t *testing.T, baseOpts []foraconnect.ClientOption) []clientR
 	// deliberately — stayed green here while Go's own tests caught it.
 	capture("push_resources_caller_ver_wins", "pushResources", func(c *foraconnect.CatalogClient, exchange string) error {
 		_, err := c.PushResources(context.Background(), &forav1.PushResourcesRequest{
-			Exchange: exchange, TenantId: "tenant-1", CallerId: "publisher.test", Ver: "9.9",
+			Exchange: exchange, TenantId: "tenant-1", Ver: "9.9",
 			Entries: []*forav1.ResourceEntry{entry},
 		})
 		return err
@@ -301,7 +302,7 @@ func executeVector(t *testing.T, baseOpts []foraconnect.ClientOption) clientRequ
 	defer srv.Close()
 
 	client := foraconnect.NewClient(srv.URL, append(append([]foraconnect.ClientOption{}, baseOpts...),
-		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
 		foraconnect.WithOfferKey(offers.exchangePub),
 	)...)
 	verified := verifyOne(t, offers)
@@ -371,6 +372,35 @@ func brokerResolveVector(t *testing.T, opts []foraconnect.ClientOption) clientRe
 	return clientRequestVector{
 		Name: "resolve", Verb: "resolve", Path: seen.path, Ver: ver,
 		RequesterID: requesterIDOf(seen.body),
+	}
+}
+
+// brokerExecuteVector captures the relayed purchase. Like execute it BUILDS the whole
+// request, so `ver`, the key and the requester are all the client's own; unlike execute it
+// goes to the Broker's address and the BrokerService method of the same name. The client
+// signs as the directory the requester's domain names, which a Broker requires and the
+// client checks before sending.
+func brokerExecuteVector(t *testing.T, baseOpts []foraconnect.ClientOption) clientRequestVector {
+	t.Helper()
+	sig := newSigningFixture(t)
+	offers := newOfferFixture(t)
+	var seen capturedRequest
+	srv := recordingOrigin(t, &seen)
+	defer srv.Close()
+
+	client := foraconnect.NewBrokerClient(srv.URL, append(append([]foraconnect.ClientOption{}, baseOpts...),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
+	)...)
+	if _, err := client.Execute(context.Background(), []core.VerifiedOffer{verifyOne(t, offers)},
+		foraconnect.WithIdempotencyKey(pinnedKey)); err != nil {
+		t.Fatalf("broker execute: %v", err)
+	}
+	ver, _ := seen.body["ver"].(string)
+	key, _ := seen.body["idempotency_key"].(string)
+	return clientRequestVector{
+		Name: "broker_execute_key_pinned", Verb: "brokerExecute", Path: seen.path, Ver: ver,
+		IdempotencyKey: pinnedOrMinted("broker_execute_key_pinned", key),
+		RequesterID:    requesterIDOf(seen.body),
 	}
 }
 

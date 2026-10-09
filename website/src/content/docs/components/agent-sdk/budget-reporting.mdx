@@ -278,7 +278,7 @@ RPC on its way out and back:
 ```go
 client := connect.NewClient(baseURL,
     connect.WithInterceptors(loggingInterceptor),
-    // ... signer, requester, keys, endpoint resolver
+    // ... WithSigner, WithSignatureAgent, WithRequester, the keys, the endpoint resolver
 )
 ```
 

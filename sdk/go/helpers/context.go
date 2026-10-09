@@ -12,20 +12,22 @@ import "context"
 // slot).
 type verifiedKey struct{}
 
-// signatureAgentKey carries the request's Signature-Agent header value for the
-// duration of key resolution.
+// signatureAgentKey carries the key-directory origin of the signature being
+// verified for the duration of its key resolution.
 type signatureAgentKey struct{}
 
-// WithSignatureAgent returns a copy of ctx carrying the request's
-// Signature-Agent value (the signer's WBA key-directory URL). The resolved
-// verify entrypoints thread it before per-signature resolution so a KeyResolver
-// can fetch keys from the directory the signature commits to.
+// WithSignatureAgent returns a copy of ctx carrying dir, the https origin of the
+// key directory a signature's covered Signature-Agent member names. The resolved
+// verify entrypoints thread it before resolving each signature's key, a fresh
+// value per signature, so a KeyResolver fetches keys from the directory that
+// signature commits to.
 func WithSignatureAgent(ctx context.Context, dir string) context.Context {
 	return context.WithValue(ctx, signatureAgentKey{}, dir)
 }
 
-// SignatureAgentFromContext returns the Signature-Agent value threaded by the
-// resolved verify entrypoints, or "" when none was set.
+// SignatureAgentFromContext returns the key-directory origin threaded by the
+// resolved verify entrypoints for the signature being resolved, or "" when none
+// was set.
 func SignatureAgentFromContext(ctx context.Context) string {
 	v, _ := ctx.Value(signatureAgentKey{}).(string)
 	return v
@@ -40,16 +42,17 @@ func NewContext(ctx context.Context, v *VerifiedRequest) context.Context {
 	return context.WithValue(ctx, verifiedKey{}, v)
 }
 
-// NewMultisigContext returns a copy of ctx carrying all verified signatures
-// (sig1..sigN, in chain order). Production code MUST NOT call this outside the
+// NewMultisigContext returns a copy of ctx carrying all verified signatures, in
+// header order. Production code MUST NOT call this outside the
 // verifying transport.
 func NewMultisigContext(ctx context.Context, sigs []VerifiedRequest) context.Context {
 	return context.WithValue(ctx, multisigKey{}, sigs)
 }
 
-// FromContext returns the VerifiedRequest stashed in ctx, or nil. For a multisig
-// request it returns the first (agent) signature; it reads the multisig slot
-// first then falls back to the single slot, so the N=1 read path is unchanged.
+// FromContext returns the VerifiedRequest stashed in ctx, or nil. For a request
+// carrying several signatures it returns the first in header order; it reads the
+// multisig slot first then falls back to the single slot, so the N=1 read path is
+// unchanged.
 func FromContext(ctx context.Context) *VerifiedRequest {
 	if sigs, ok := ctx.Value(multisigKey{}).([]VerifiedRequest); ok && len(sigs) > 0 {
 		return &sigs[0]

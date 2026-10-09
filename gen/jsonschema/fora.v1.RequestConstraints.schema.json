@@ -1,0 +1,114 @@
+{
+  "$defs": {
+    "fora.v1.Cost": {
+      "description": "Cost — Actual transaction cost.",
+      "properties": {
+        "amount": {
+          "default": "",
+          "description": "Exact decimal string (not a float), e.g. \"19.99\". Denominated in `currency`.",
+          "maxLength": 32,
+          "pattern": "^([0-9]+([.][0-9]+)?)?$",
+          "type": "string"
+        },
+        "currency": {
+          "default": "",
+          "type": "string"
+        },
+        "unit_cost": {
+          "maxLength": 32,
+          "pattern": "^([0-9]+([.][0-9]+)?)?$",
+          "type": "string"
+        }
+      },
+      "title": "Cost",
+      "type": "object"
+    }
+  },
+  "$id": "fora.v1.RequestConstraints.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "RequestConstraints — Budget and preference constraints.",
+  "properties": {
+    "budget_period": {
+      "description": "Budget period (e.g. \"2592000s\" = 30 days; proto-JSON encodes Duration\n as seconds).",
+      "format": "duration",
+      "type": "string"
+    },
+    "budget_scope": {
+      "description": "Budget scope identifier: whose budget this is.\n E.g. \"user:u-12345\" for per-user budgets, \"team:eng\" for per-team.",
+      "type": "string"
+    },
+    "delivery_preference": {
+      "description": "Preferred delivery methods, in order of preference.",
+      "items": {
+        "anyOf": [
+          {
+            "enum": [
+              "DELIVERY_METHOD_UNSPECIFIED",
+              "DELIVERY_METHOD_DIRECT",
+              "DELIVERY_METHOD_INSTRUCTIONS",
+              "DELIVERY_METHOD_STREAMING"
+            ],
+            "type": "string"
+          },
+          {
+            "maximum": 2147483647,
+            "minimum": -2147483648,
+            "type": "integer"
+          }
+        ],
+        "title": "Delivery Method"
+      },
+      "type": "array"
+    },
+    "exchanges": {
+      "description": "Authorized Exchange domains, in the shape \"Request recipient\" defines in the\n file header. Broker queries only these. This is a FILTER over third parties,\n not an address — the recipient of the request carrying it is a separate\n question.",
+      "items": {
+        "maxLength": 260,
+        "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$",
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "max_data_age": {
+      "description": "Only relevant for DYNAMIC resources. Ignored for STATIC (content is\n immutable) and LIVE (content doesn't exist yet).\n\n Examples:\n   7 days   — \"credit report updated within the last week\"\n   1 hour   — \"stock snapshot from the last hour\"\n   30 days  — \"drug interaction database updated this month\"",
+      "format": "duration",
+      "title": "Maximum acceptable age of resource data. The Broker SHOULD\n exclude offers where (now - Offer.data_as_of) exceeds this duration.",
+      "type": "string"
+    },
+    "max_hops": {
+      "description": "Maximum number of hops the agent will allow its discovery to travel. It\n rides only on DiscoveryRequest, which terminates at the Broker, and a\n Broker originates its own queries rather than forwarding the agent's\n request, so no party receives or enforces it in this version: an Exchange\n never sees it, and an Exchange's own cap is\n WellKnownManifest.max_intermediary_hops. The field is kept for multi-hop\n Broker discovery, an open protocol question tracked separately. Absent =\n no cap stated.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "max_price": {
+      "$ref": "#/$defs/fora.v1.Cost",
+      "description": "Maximum price the agent is willing to pay."
+    },
+    "max_unit_cost": {
+      "description": "Maximum effective cost per unit, as an exact decimal string (not a float).",
+      "maxLength": 32,
+      "pattern": "^([0-9]+([.][0-9]+)?)?$",
+      "type": "string"
+    },
+    "period_budget": {
+      "$ref": "#/$defs/fora.v1.Cost",
+      "description": "Per-period budget limit for the budget_scope."
+    },
+    "preferred_exchanges": {
+      "description": "Exchanges the agent has existing relationships with (subscriptions,\n contracts). The Broker SHOULD prefer these when resource is\n available — subscription resource has zero marginal cost.",
+      "items": {
+        "maxLength": 260,
+        "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$",
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "reporting_capable": {
+      "description": "Whether the agent supports post-usage reporting.",
+      "type": "boolean"
+    }
+  },
+  "title": "Request Constraints",
+  "type": "object"
+}

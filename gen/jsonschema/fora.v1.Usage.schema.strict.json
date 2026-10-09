@@ -1,0 +1,90 @@
+{
+  "$defs": {
+    "fora.v1.AttributionDetail": {
+      "additionalProperties": false,
+      "description": "AttributionDetail — Structured attribution metadata for usage reporting.",
+      "properties": {
+        "displayed_url": {
+          "description": "URL displayed to the user as the attribution link.",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "enum": [
+                "CITATION_FORMAT_LINK",
+                "CITATION_FORMAT_FOOTNOTE",
+                "CITATION_FORMAT_INLINE"
+              ],
+              "type": "string"
+            },
+            {
+              "maximum": 2147483647,
+              "minimum": -2147483648,
+              "type": "integer"
+            }
+          ],
+          "description": "How the citation was presented.",
+          "title": "Citation Format"
+        },
+        "visible_to_user": {
+          "description": "Whether the attribution was visible to the end user.",
+          "type": "boolean"
+        }
+      },
+      "title": "Attribution Detail",
+      "type": "object"
+    }
+  },
+  "$id": "fora.v1.Usage.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Usage — How resource was actually used by the AI system.",
+  "properties": {
+    "attribution": {
+      "description": "Structured attribution details for each citation provided.",
+      "items": {
+        "$ref": "#/$defs/fora.v1.AttributionDetail"
+      },
+      "type": "array"
+    },
+    "citation_included": {
+      "description": "Whether citation was included as required by the offer terms.",
+      "type": "boolean"
+    },
+    "consumed_quantity": {
+      "default": 0,
+      "description": "The agent reports what it consumed, not what it estimated: an Exchange\n MUST NOT refuse a report because this differs from the estimate, in either\n direction.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "title": "REQUIRED. Actual quantity consumed, in the metering unit from the Offer's Pricing.\n For text: tokens consumed. For video: seconds watched. For data: records accessed.",
+      "type": "integer"
+    },
+    "consumed_unit": {
+      "description": "Metering unit for consumed_quantity. Must match the Offer's Pricing.unit.\n If omitted, defaults to \"tokens\". Same token format as Pricing.unit:\n a bare registered token or a vendor:namespaced token.",
+      "maxLength": 64,
+      "pattern": "^([a-z0-9-]+|[A-Za-z0-9._-]+:[A-Za-z0-9._-]+)?$",
+      "type": "string"
+    },
+    "displayed_to_user": {
+      "description": "Whether resource/output was displayed to a human.",
+      "type": "boolean"
+    },
+    "function": {
+      "description": "How the resource was used. Standard values: \"ai-train\", \"ai-input\",\n \"ai-index\", \"search\", \"display\". Multiple allowed.\n CoMP-specific values available via fora-comp-v1 extension profile.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "subfn": {
+      "description": "Sub-function detail. Standard values: \"training\", \"rag\", \"grounding\",\n \"agent_view\", \"agent_actions\".",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "title": "Usage",
+  "type": "object"
+}

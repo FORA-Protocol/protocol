@@ -34,13 +34,15 @@ type CatalogEntry struct {
 
     // Content metrics
     WordCount       int
-    EstimatedTokens int
+    EstimatedTokens int // the resource's size in tokens: the unit_cost denominator, never an estimate on the offer
 
     // Pricing (authoritative source: Exchange config DB;
     //          fallback: RSL/sitemap hints)
-    PricingModel    PricingModel
-    Rate            float64
-    Currency        string
+    PricingModel      PricingModel
+    Rate              string // exact decimal, e.g. "0.05"
+    Currency          string
+    Unit              string // the metering unit of a PER_UNIT price
+    EstimatedQuantity int32  // the publisher's own estimate, in Unit; 0 when it states none
 
     // Access control (from RSL permits/prohibits)
     Permissions     []comp.Function
@@ -158,12 +160,11 @@ func (s *HTMLCrawlSource) EnrichEntry(
 
 ## Token Estimation
 
-Token estimation drives the unit_cost (cost per unit of consumption) metric used throughout the offer lifecycle:
+The pipeline estimates each resource's size in tokens. That size is a sizing input for comparison, and nothing more:
 
-- **Exchange uses unit_cost** to construct and rank offers for a given agent request.
-- **Agents/Brokers use unit_cost** to compare offers across providers and Exchanges.
-- **The charged amount** uses the provider's pricing model (e.g., `PER_UNIT` with `unit: "tokens"`, or `FLAT`=$0.05), not unit_cost directly.
-- **unit_cost appears on offers and invoices** as a reference metric, analogous to eCPM on programmatic ad invoices.
+- **It is the denominator of unit_cost.** `unit_cost` is the price of one purchase divided by the size of the resource in the comparison unit, tokens for text (see [unit_cost: Normalized Pricing](/getting-started/how-money-flows/#unit_cost-normalized-pricing)). The Exchange uses it to rank offers for an agent request, and agents and Brokers use it to compare offers across providers and Exchanges. It appears on offers and invoices as a reference metric, analogous to eCPM on programmatic ad invoices.
+- **It is never an offer's `estimated_quantity`.** `Pricing.estimated_quantity` is only what the publisher states — on a term's pricing, or once for the resource on `ResourceEntry.estimated_quantity` — counted in the price's own `unit`, and the Exchange carries it onto the offer unchanged. The pipeline does not invent one, and a price per access has an estimate in accesses, never a token count.
+- **The charged amount follows the offer's pricing, not unit_cost.** A `FLAT` price is charged as stated. A `PER_UNIT` purchase charges the offer's estimate × rate, or one unit's rate when the offer states no estimate, and that charge is final (see [Charging a metered purchase](/protocol/transaction-flow/#charging-a-metered-purchase)).
 
 ### Estimation Methods (Priority Order)
 
@@ -179,7 +180,7 @@ Token estimation drives the unit_cost (cost per unit of consumption) metric used
 ### The 1.32 Multiplier
 
 ```
-estimated_quantity = word_count * 1.32
+estimated_tokens = word_count * 1.32
 ```
 
 The 1.32 multiplier is derived from empirical analysis of English-language web content across BPE-based tokenizers (GPT-4, Claude). It accounts for subword tokenization splitting longer words into multiple tokens, punctuation and whitespace tokens, and HTML entity remnants after text extraction.
@@ -195,13 +196,13 @@ For non-English content, the multiplier varies:
 
 Tenant config can override the multiplier per domain.
 
-### Acceptable Discrepancy
+### Accuracy of the Estimate
 
-The NFR allows +/-20% between estimated and actual consumption. This is acceptable because:
+The estimate only sizes a resource for comparison, so an error in it moves `unit_cost`, never a charge:
 
 1. unit_cost is a reference metric for offer construction and comparison, not a billing metric.
-2. Billing uses the provider's pricing model (`FLAT`=$0.05, or `PER_UNIT` with a per-unit rate), not the unit_cost value directly.
-3. For `PER_UNIT` pricing with `unit: "tokens"`, the actual token count from the UsageReport is used for billing, not the estimate.
+2. The charge follows the offer's pricing: a `FLAT` price as stated, and a `PER_UNIT` purchase the estimate × rate the offer states, or one unit's rate without an estimate. That charge is final.
+3. A usage report records the quantity consumed and is never refused for its quantity. A disagreement about the quantity consumed is a dispute.
 
 ## Deduplication
 

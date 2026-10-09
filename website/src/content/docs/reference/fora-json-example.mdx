@@ -52,11 +52,11 @@ An agent's manifest is much smaller: a role marker. Its signing keys are not her
 
 ## The WBA Directory
 
-Signing keys are **not** carried in `fora.json`. Each participant publishes its keys in a separate, pure WBA directory — a JWK Set served at `/.well-known/http-message-signatures-directory` with `Content-Type: application/jwk-set+json`. Keys are identified by their RFC 7638 thumbprint (the RFC 9421 `keyid`), not by a `kid` label, and the optional emergency revocation list now lives here as `revocation_url`:
+Signing keys are **not** carried in `fora.json`. Each participant publishes its keys in a separate, pure WBA directory — a JWK Set served at `/.well-known/http-message-signatures-directory` with `Content-Type: application/http-message-signatures-directory+json`. Keys are identified by their RFC 7638 thumbprint (the RFC 9421 `keyid`), not by a `kid` label, and the optional emergency revocation list now lives here as `revocation_url`. Each key carries `alg` `EdDSA`, the JOSE name RFC 7517 defines, which is a known, deliberate deviation from WG-00 §5.5.1 (see [Key Directory](/protocol/authentication/#key-directory)). An example:
 
 ```json
 // GET /.well-known/http-message-signatures-directory
-// Content-Type: application/jwk-set+json
+// Content-Type: application/http-message-signatures-directory+json
 {
   "keys": [
     {
@@ -111,9 +111,14 @@ If the agent doesn't know about FORA and tries to crawl directly:
 
 ```
 1. Agent hits techprovider.com/premium/article
-2. Edge function returns 403 + X-Content-Rules header
-3. Agent discovers fora.json from the header
-4. Follows standard FORA flow from step 2 above
+2. Edge function returns 403 with two headers:
+     X-Content-Rules: https://techprovider.com/.well-known/fora.json
+     X-FORA-Exchange: exchange.ssp-alpha.com
+3. Agent discovers fora.json from X-Content-Rules (and, optionally, starts
+   discovery at the X-FORA-Exchange domain, resolving its endpoint from
+   that Exchange's own fora.json)
+4. Follows standard FORA flow from step 2 above; the fora.json exchanges[]
+   list stays the authority, so an X-FORA-Exchange it does not list is ignored
 ```
 
 ## Relationship Types

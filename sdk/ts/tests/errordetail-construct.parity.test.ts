@@ -3,7 +3,7 @@
 // Sibling of the read-side errordetail.parity.test.ts and the Python construct leg
 // sdk/python/tests/test_errordetail_construct_parity.py. Where the read-side suite
 // proves TS can PARSE the shared Go-oracle ErrorDetail wire, this suite proves TS can
-// CONSTRUCT it: the 7 typed domain error-detail builders — the TS peers of the Go
+// CONSTRUCT it: the 8 typed domain error-detail builders — the TS peers of the Go
 // sdk/go/helpers.*Detail constructors (errordetail.go:24-75) — must, from
 // (domain, message, reason), emit byte-for-byte the same canonical proto-JSON the Go
 // emitter recorded in error-detail-vectors.json.
@@ -35,6 +35,7 @@ import {
 	domainVerificationFailureDetail,
 	type ErrorDetail,
 	registrationFailureDetail,
+	requestAuthFailureDetail,
 	retrievalAuthFailureDetail,
 	transactionDenialDetail,
 	usageReportRejectionDetail,
@@ -71,6 +72,7 @@ const builders = {
 	registration_failure: registrationFailureDetail,
 	domain_verification_failure: domainVerificationFailureDetail,
 	usage_report_rejection: usageReportRejectionDetail,
+	request_auth_failure: requestAuthFailureDetail,
 } as Record<string, Builder>;
 
 const vectors = (vectorsFile as VectorsFile).vectors;

@@ -9,6 +9,7 @@ import (
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
 	"github.com/FORA-Protocol/protocol/sdk/go/core"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // BrokerClient is the Connect client for BrokerService.
@@ -30,6 +31,15 @@ type BrokerClient struct {
 	// here rather than demanded on every request for the same reason the exchange
 	// client holds it: one client speaks for one agent.
 	requester *forav1.Requester
+	// signer signs the detached acceptances a relayed purchase carries — the same
+	// key that signs the transport, because the protocol carries one agent identity.
+	signer helpers.Signer
+	// signatureAgent is the WBA directory this client signs as. A Broker requires
+	// requester.domain to name it, so Execute checks the two agree before sending.
+	signatureAgent string
+
+	baseURL string
+	raw     rawLeg
 }
 
 // NewBrokerClient builds a BrokerClient against a Broker's base URL. It accepts
@@ -42,8 +52,11 @@ type BrokerClient struct {
 //     WithKeyResolver instead — the resolvers tier ships one that resolves each
 //     issuing Exchange's own key.
 //   - WithRequester is REQUIRED, not optional: a Broker resolves the calling agent
-//     from it and declines a request that names none, so Resolve refuses locally
-//     rather than spending a round trip to be told.
+//     from it and declines a request that names none, so Resolve and Execute refuse
+//     locally rather than spending a round trip to be told.
+//   - WithSigner and WithSignatureAgent are required by Execute: a relayed purchase
+//     carries acceptances signed with the agent's key, and a Broker refuses a
+//     requester.domain that does not name the directory the request is signed from.
 //
 // The options that do nothing here are the ones belonging to legs a Broker client
 // does not have: WithAgentKey, WithProofWindow and WithContentTimeout /
@@ -52,16 +65,19 @@ type BrokerClient struct {
 // exchange client. Passing them here is silently inert rather than an error, so
 // one shared option set can build both faces.
 //
-// BrokerService carries exactly one method today. The purchase path through a
-// Broker is still a relay route rather than an RPC; when it becomes one, this
-// type gains one method and nothing else here changes.
+// BrokerService carries two methods, Resolve and ExecuteTransaction, and this type
+// has one verb for each.
 func NewBrokerClient(baseURL string, opts ...ClientOption) *BrokerClient {
 	cfg := resolvedConfig(opts...)
 	httpClient, connectOpts, verifier := plumbing(cfg)
 	return &BrokerClient{
-		rpc:       forav1connect.NewBrokerServiceClient(httpClient, baseURL, connectOpts...),
-		verifier:  verifier,
-		requester: cfg.requester,
+		rpc:            forav1connect.NewBrokerServiceClient(httpClient, baseURL, connectOpts...),
+		verifier:       verifier,
+		requester:      cfg.requester,
+		signer:         cfg.signer,
+		signatureAgent: cfg.signatureAgent,
+		baseURL:        baseURL,
+		raw:            newRawLeg(cfg, httpClient),
 	}
 }
 
@@ -84,12 +100,22 @@ func NewBrokerClient(baseURL string, opts ...ClientOption) *BrokerClient {
 //
 // The request is CLONED before ver and the requester are filled in, so the message
 // the caller built stays untouched. Both are filled only when EMPTY: a value the
-// caller set is theirs. A Broker resolves the calling agent from requester.id and
-// refuses a request that names none, so leaving it to every caller to remember
+// caller set is theirs. A discovery must name its requester and a Broker refuses
+// one that names none, so leaving it to every caller to remember
 // would make the identity the client already holds useless exactly where it is
 // needed.
-func (b *BrokerClient) Resolve(ctx context.Context, req *forav1.DiscoveryRequest) (core.DiscoveryResult, error) {
+//
+// WithRawBody sends caller bytes instead; the answer's offers are still verified.
+func (b *BrokerClient) Resolve(ctx context.Context, req *forav1.DiscoveryRequest, opts ...CallOption) (core.DiscoveryResult, error) {
 	const op = "resolve"
+	if cc := resolveCall(opts); cc.rawSet {
+		msg, err := rawCall[forav1.DiscoveryResponse](ctx, b.raw, op, b.baseURL,
+			forav1connect.BrokerServiceResolveProcedure, cc.rawBody)
+		if err != nil {
+			return core.DiscoveryResult{}, err
+		}
+		return b.discoveryResult(ctx, msg), nil
+	}
 	if req == nil {
 		return core.DiscoveryResult{}, malformed(op, errors.New("request is nil"))
 	}
@@ -110,7 +136,10 @@ func (b *BrokerClient) Resolve(ctx context.Context, req *forav1.DiscoveryRequest
 	if err != nil {
 		return core.DiscoveryResult{}, sendError(op, err)
 	}
-	msg := resp.Msg
+	return b.discoveryResult(ctx, resp.Msg), nil
+}
+
+func (b *BrokerClient) discoveryResult(ctx context.Context, msg *forav1.DiscoveryResponse) core.DiscoveryResult {
 	return core.DiscoveryResult{
 		Groups: b.verifier.SortGroups(ctx, msg.GetOfferGroups()),
 		// The raw field, not the getter: an absent optional enum and the
@@ -118,5 +147,71 @@ func (b *BrokerClient) Resolve(ctx context.Context, req *forav1.DiscoveryRequest
 		AbsenceReason: msg.AbsenceReason,
 		// A DiscoveryResponse names no single Exchange and carries no rate-limit
 		// signal — each offer carries its own issuing domain instead.
-	}, nil
+	}
+}
+
+// Execute buys VERIFIED offers through the Broker in one call, however many
+// Exchanges issued them (BrokerService.ExecuteTransaction).
+//
+// The client builds the same TransactionRequest a direct purchase sends — every
+// item with the agent's detached AgentAcceptance, and one AgentRequestAcceptance
+// over the complete ordered set — and stamps ver and the configured requester.
+// The Broker re-packages it: it groups the items by each offer's exchange, sends
+// one sub-request per Exchange signed with its own key, and combines the answers.
+// The acceptances travel in each sub-request body, so every Exchange still
+// verifies the agent's consent. The idempotency key is the action's, minted fresh
+// unless WithIdempotencyKey pins one; the Broker forwards it unchanged to every
+// Exchange, so a retry with the same key is answered from each Exchange's stored
+// result.
+//
+// Refused locally, with nothing sent: no requester, or one with an empty id or
+// domain (CallMalformed), no signer (CallNotSignable), no offers, an unsigned
+// offer, an offer that names no exchange, and a requester.domain that is not the
+// host of the directory this client signs as (all CallMalformed). The last mirrors the Broker's own check,
+// which it refuses with request_auth_failure SIGNATURE_INVALID.
+//
+// An Exchange that refused the Broker's whole sub-request is NOT an error here:
+// the call succeeds, and each affected item carries the refusal in
+// TransactionResultItem.Refusal while the other Exchanges' items come back
+// unchanged. A refusal whose code is "unavailable" or "deadline_exceeded" leaves
+// the item's outcome unknown — the Exchange may have bought it before the answer
+// was lost — and Totals does not count it; retry the same request with the same
+// idempotency key through the same Broker to settle it. Only the Broker's own refusals — a bad signature, a malformed
+// request, an Exchange it cannot route to or does not approve — return an error,
+// and then nothing was bought.
+//
+// Each item's retrieval_endpoint is returned exactly as the issuing Exchange
+// signed it, as Client.Execute returns its own. Verifying it is the delivery
+// edge's job.
+func (b *BrokerClient) Execute(ctx context.Context, offers []core.VerifiedOffer, opts ...CallOption) (*forav1.BrokerTransactionResponse, error) {
+	const op = "broker execute"
+	cc := resolveCall(opts)
+	if cc.rawSet {
+		return rawCall[forav1.BrokerTransactionResponse](ctx, b.raw, op, b.baseURL,
+			forav1connect.BrokerServiceExecuteTransactionProcedure, cc.rawBody)
+	}
+	if b.requester == nil {
+		return nil, malformed(op, errors.New(
+			"no requester configured; a Broker resolves who is buying (see WithRequester)"))
+	}
+	if err := requireNamedRequester(op, b.requester); err != nil {
+		return nil, err
+	}
+	if err := requireRoutable(op, offers); err != nil {
+		return nil, err
+	}
+	if err := requireRequesterIsSigner(op, b.requester, b.signatureAgent); err != nil {
+		return nil, err
+	}
+	req, err := buildTransaction(ctx, purchase{
+		op: op, signer: b.signer, requester: b.requester, offers: offers, opts: opts,
+	})
+	if err != nil {
+		return nil, err
+	}
+	resp, err := b.rpc.ExecuteTransaction(ctx, connectrpc.NewRequest(req))
+	if err != nil {
+		return nil, sendError(op, err)
+	}
+	return resp.Msg, nil
 }

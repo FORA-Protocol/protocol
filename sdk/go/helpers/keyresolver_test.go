@@ -33,7 +33,7 @@ func TestVerifyRequestResolved_endToEnd(t *testing.T) {
 	signer, _ := helpers.NewEd25519Signer("ex.v1", priv)
 	body := []byte(`{"x":1}`)
 	req, _ := http.NewRequest(http.MethodPost, "https://e.example/fora.v1.S/M", strings.NewReader(string(body)))
-	if err := helpers.SignRequest(context.Background(), req, body, signer, helpers.SignOptions{Created: tCreated, Expires: tExpires}); err != nil {
+	if err := helpers.SignRequest(context.Background(), req, body, signer, helpers.SignOptions{SignatureAgent: tAgent, Created: tCreated, Expires: tExpires}); err != nil {
 		t.Fatal(err)
 	}
 

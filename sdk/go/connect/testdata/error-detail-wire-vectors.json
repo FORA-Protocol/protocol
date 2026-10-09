@@ -1,0 +1,465 @@
+{
+  "note": "Binary fora.v1.ErrorDetail encodings and their canonical proto-JSON, for the table-driven decoders of the JSON SDKs. wire.messages and wire.enums are the ErrorDetail subtree read from the compiled descriptor; every field of every message there is set in at least one vector.",
+  "vectors": [
+    {
+      "name": "transaction_denial_every_field",
+      "value": "ChlyZXN0cmljdGlvbiBub3Qgc2F0aXNmaWVkEhdmb3JhLnYxLkV4Y2hhbmdlU2VydmljZRoMCgZyZWdpb24SAmV1GhcKEXJldHJ5QWZ0ZXJTZWNvbmRzEgIzMFImCAUSAgECGgdvZmZlci03IhVleGNoYW5nZS5leGFtcGxlOjg0NDM",
+      "detail": {
+        "domain": "fora.v1.ExchangeService",
+        "message": "restriction not satisfied",
+        "metadata": {
+          "region": "eu",
+          "retryAfterSeconds": "30"
+        },
+        "transaction_denial": {
+          "exchange": "exchange.example:8443",
+          "offer_id": "offer-7",
+          "reason": "DENIAL_REASON_RESTRICTION_NOT_SATISFIED",
+          "restriction_mismatches": [
+            "RESTRICTION_KIND_FUNCTION",
+            "RESTRICTION_KIND_GEOGRAPHY"
+          ]
+        }
+      }
+    },
+    {
+      "name": "catalog_rejection_every_field",
+      "value": "ChBlbnRyaWVzIHJlamVjdGVkEhdmb3JhLnYxLkV4Y2hhbmdlU2VydmljZRoMCgZyZWdpb24SAmV1GhcKEXJldHJ5QWZ0ZXJTZWNvbmRzEgIzMFoMCAYSAi9hEgQvYi9j",
+      "detail": {
+        "catalog_rejection": {
+          "reason": "CATALOG_REJECTION_REASON_UNKNOWN_VOCAB_TOKEN",
+          "rejected_paths": [
+            "/a",
+            "/b/c"
+          ]
+        },
+        "domain": "fora.v1.ExchangeService",
+        "message": "entries rejected",
+        "metadata": {
+          "region": "eu",
+          "retryAfterSeconds": "30"
+        }
+      }
+    },
+    {
+      "name": "registration_failure_every_field",
+      "value": "ChpyZWdpc3RyYXRpb24gZGF0YSByZWplY3RlZBIXZm9yYS52MS5FeGNoYW5nZVNlcnZpY2UaDAoGcmVnaW9uEgJldRoXChFyZXRyeUFmdGVyU2Vjb25kcxICMzBiaQgGEjQKFC9vcGVyYXRvci9sZWdhbF9uYW1lEhxyZXF1aXJlZCBwcm9wZXJ0eSBpcyBtaXNzaW5nEi8KDi9jb250YWN0L2VtYWlsEh1kb2VzIG5vdCBtYXRjaCBmb3JtYXQgImVtYWlsIg",
+      "detail": {
+        "domain": "fora.v1.ExchangeService",
+        "message": "registration data rejected",
+        "metadata": {
+          "region": "eu",
+          "retryAfterSeconds": "30"
+        },
+        "registration_failure": {
+          "field_errors": [
+            {
+              "error": "required property is missing",
+              "path": "/operator/legal_name"
+            },
+            {
+              "error": "does not match format \"email\"",
+              "path": "/contact/email"
+            }
+          ],
+          "reason": "REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA"
+        }
+      }
+    },
+    {
+      "name": "dispute_failure_every_field",
+      "value": "ChVkaXNwdXRlIHdpbmRvdyBjbG9zZWQSF2ZvcmEudjEuRXhjaGFuZ2VTZXJ2aWNlGgwKBnJlZ2lvbhICZXUaFwoRcmV0cnlBZnRlclNlY29uZHMSAjMwagIIAw",
+      "detail": {
+        "dispute_failure": {
+          "reason": "DISPUTE_FAILURE_REASON_WINDOW_EXPIRED"
+        },
+        "domain": "fora.v1.ExchangeService",
+        "message": "dispute window closed",
+        "metadata": {
+          "region": "eu",
+          "retryAfterSeconds": "30"
+        }
+      }
+    },
+    {
+      "name": "domain_verification_failure_every_field",
+      "value": "ChFjaGFsbGVuZ2UgZXhwaXJlZBIXZm9yYS52MS5FeGNoYW5nZVNlcnZpY2UaDAoGcmVnaW9uEgJldRoXChFyZXRyeUFmdGVyU2Vjb25kcxICMzByAggD",
+      "detail": {
+        "domain": "fora.v1.ExchangeService",
+        "domain_verification_failure": {
+          "reason": "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_EXPIRED"
+        },
+        "message": "challenge expired",
+        "metadata": {
+          "region": "eu",
+          "retryAfterSeconds": "30"
+        }
+      }
+    },
+    {
+      "name": "retrieval_auth_failure_every_field",
+      "value": "ChN0aHVtYnByaW50IG1pc21hdGNoEhdmb3JhLnYxLkV4Y2hhbmdlU2VydmljZRoMCgZyZWdpb24SAmV1GhcKEXJldHJ5QWZ0ZXJTZWNvbmRzEgIzMHoCCAg",
+      "detail": {
+        "domain": "fora.v1.ExchangeService",
+        "message": "thumbprint mismatch",
+        "metadata": {
+          "region": "eu",
+          "retryAfterSeconds": "30"
+        },
+        "retrieval_auth_failure": {
+          "reason": "RETRIEVAL_AUTH_FAILURE_REASON_THUMBPRINT_MISMATCH"
+        }
+      }
+    },
+    {
+      "name": "usage_report_rejection_every_field",
+      "value": "ChdtaXNzaW5nIHJlcXVpcmVkIGZpZWxkcxIXZm9yYS52MS5FeGNoYW5nZVNlcnZpY2UaDAoGcmVnaW9uEgJldRoXChFyZXRyeUFmdGVyU2Vjb25kcxICMzCCAQIIBA",
+      "detail": {
+        "domain": "fora.v1.ExchangeService",
+        "message": "missing required fields",
+        "metadata": {
+          "region": "eu",
+          "retryAfterSeconds": "30"
+        },
+        "usage_report_rejection": {
+          "reason": "USAGE_REPORT_REJECTION_REASON_MISSING_REQUIRED_FIELDS"
+        }
+      }
+    },
+    {
+      "name": "request_auth_failure_every_field",
+      "value": "ChlzaWduYXR1cmUgZG9lcyBub3QgdmVyaWZ5Ehdmb3JhLnYxLkV4Y2hhbmdlU2VydmljZRoMCgZyZWdpb24SAmV1GhcKEXJldHJ5QWZ0ZXJTZWNvbmRzEgIzMIoBAggC",
+      "detail": {
+        "domain": "fora.v1.ExchangeService",
+        "message": "signature does not verify",
+        "metadata": {
+          "region": "eu",
+          "retryAfterSeconds": "30"
+        },
+        "request_auth_failure": {
+          "reason": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID"
+        }
+      }
+    },
+    {
+      "name": "unpacked_repeated_enum",
+      "value": "Ehdmb3JhLnYxLkV4Y2hhbmdlU2VydmljZVIGCAUQAxAE",
+      "detail": {
+        "domain": "fora.v1.ExchangeService",
+        "transaction_denial": {
+          "reason": "DENIAL_REASON_RESTRICTION_NOT_SATISFIED",
+          "restriction_mismatches": [
+            "RESTRICTION_KIND_USER_TYPE",
+            "RESTRICTION_KIND_OTHER"
+          ]
+        }
+      }
+    },
+    {
+      "name": "singular_field_last_value_wins",
+      "value": "EgxmaXJzdC5kb21haW4SF2ZvcmEudjEuRXhjaGFuZ2VTZXJ2aWNl",
+      "detail": {
+        "domain": "fora.v1.ExchangeService"
+      }
+    },
+    {
+      "name": "unknown_fields_skipped",
+      "value": "CgNkdXASF2ZvcmEudjEuRXhjaGFuZ2VTZXJ2aWNlmAasApIGDGZ1dHVyZSBmaWVsZI0GBwAAAIEGCQAAAAAAAABqJQgEmAasApIGDGZ1dHVyZSBmaWVsZI0GBwAAAIEGCQAAAAAAAAA",
+      "detail": {
+        "dispute_failure": {
+          "reason": "DISPUTE_FAILURE_REASON_DUPLICATE"
+        },
+        "domain": "fora.v1.ExchangeService",
+        "message": "dup"
+      }
+    },
+    {
+      "name": "empty_detail",
+      "value": "",
+      "detail": {}
+    }
+  ],
+  "wire": {
+    "enums": {
+      "fora.v1.CatalogRejectionReason": {
+        "0": "CATALOG_REJECTION_REASON_UNSPECIFIED",
+        "1": "CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR",
+        "10": "CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION",
+        "11": "CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED",
+        "2": "CATALOG_REJECTION_REASON_TENANT_MISMATCH",
+        "3": "CATALOG_REJECTION_REASON_DOMAIN_NOT_VERIFIED",
+        "4": "CATALOG_REJECTION_REASON_SIGNATURE_INVALID",
+        "5": "CATALOG_REJECTION_REASON_MALFORMED_ENTRY",
+        "6": "CATALOG_REJECTION_REASON_UNKNOWN_VOCAB_TOKEN",
+        "7": "CATALOG_REJECTION_REASON_QUOTA_EXCEEDED",
+        "8": "CATALOG_REJECTION_REASON_TERMS_LIMIT_EXCEEDED",
+        "9": "CATALOG_REJECTION_REASON_URI_UNAVAILABLE"
+      },
+      "fora.v1.DenialReason": {
+        "0": "DENIAL_REASON_UNSPECIFIED",
+        "1": "DENIAL_REASON_ACCOUNT_INACTIVE",
+        "10": "DENIAL_REASON_DELEGATION_INVALID",
+        "11": "DENIAL_REASON_SCOPE_INSUFFICIENT",
+        "12": "DENIAL_REASON_ENTITLEMENT_MISSING",
+        "13": "DENIAL_REASON_ENTITLEMENT_MALFORMED",
+        "14": "DENIAL_REASON_ENTITLEMENT_EXPIRED",
+        "15": "DENIAL_REASON_ENTITLEMENT_WRONG_BUYER",
+        "16": "DENIAL_REASON_SUBSCRIPTION_LAPSED",
+        "17": "DENIAL_REASON_ENTITLEMENT_NOT_GRANTED",
+        "18": "DENIAL_REASON_ACCOUNT_NOT_REGISTERED",
+        "19": "DENIAL_REASON_RELAY_NOT_ACCEPTED",
+        "2": "DENIAL_REASON_INSUFFICIENT_BALANCE",
+        "20": "DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION",
+        "3": "DENIAL_REASON_RATE_LIMITED",
+        "4": "DENIAL_REASON_CONTENT_UNAVAILABLE",
+        "5": "DENIAL_REASON_RESTRICTION_NOT_SATISFIED",
+        "6": "DENIAL_REASON_REPORTING_OVERDUE",
+        "7": "DENIAL_REASON_OFFER_EXPIRED",
+        "8": "DENIAL_REASON_SIGNATURE_INVALID",
+        "9": "DENIAL_REASON_QUOTA_EXCEEDED"
+      },
+      "fora.v1.DisputeFailureReason": {
+        "0": "DISPUTE_FAILURE_REASON_UNSPECIFIED",
+        "1": "DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND",
+        "2": "DISPUTE_FAILURE_REASON_REPORT_NOT_FILED",
+        "3": "DISPUTE_FAILURE_REASON_WINDOW_EXPIRED",
+        "4": "DISPUTE_FAILURE_REASON_DUPLICATE",
+        "5": "DISPUTE_FAILURE_REASON_INELIGIBLE",
+        "6": "DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION"
+      },
+      "fora.v1.DomainVerificationFailureReason": {
+        "0": "DOMAIN_VERIFICATION_FAILURE_REASON_UNSPECIFIED",
+        "1": "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_NOT_FOUND",
+        "2": "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_MISMATCH",
+        "3": "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_EXPIRED",
+        "4": "DOMAIN_VERIFICATION_FAILURE_REASON_FETCH_FAILED",
+        "5": "DOMAIN_VERIFICATION_FAILURE_REASON_EXCHANGE_NOT_AUTHORIZED",
+        "6": "DOMAIN_VERIFICATION_FAILURE_REASON_KEY_REGISTRATION_FAILED",
+        "7": "DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION"
+      },
+      "fora.v1.RegistrationFailureReason": {
+        "0": "REGISTRATION_FAILURE_REASON_UNSPECIFIED",
+        "1": "REGISTRATION_FAILURE_REASON_DOMAIN_NOT_VERIFIED",
+        "2": "REGISTRATION_FAILURE_REASON_INVALID_KEY",
+        "3": "REGISTRATION_FAILURE_REASON_SIGNATURE_INVALID",
+        "4": "REGISTRATION_FAILURE_REASON_ALREADY_REGISTERED",
+        "5": "REGISTRATION_FAILURE_REASON_QUOTA_EXCEEDED",
+        "6": "REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA",
+        "7": "REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE",
+        "8": "REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION"
+      },
+      "fora.v1.RequestAuthFailureReason": {
+        "0": "REQUEST_AUTH_FAILURE_REASON_UNSPECIFIED",
+        "1": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING",
+        "2": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID",
+        "3": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE"
+      },
+      "fora.v1.RestrictionKind": {
+        "0": "RESTRICTION_KIND_UNSPECIFIED",
+        "1": "RESTRICTION_KIND_FUNCTION",
+        "2": "RESTRICTION_KIND_GEOGRAPHY",
+        "3": "RESTRICTION_KIND_USER_TYPE",
+        "4": "RESTRICTION_KIND_OTHER"
+      },
+      "fora.v1.RetrievalAuthFailureReason": {
+        "0": "RETRIEVAL_AUTH_FAILURE_REASON_UNSPECIFIED",
+        "1": "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED",
+        "10": "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRY_MISSING",
+        "11": "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRED",
+        "12": "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_SIGNATURE_INVALID",
+        "2": "RETRIEVAL_AUTH_FAILURE_REASON_URL_SIGNATURE_MISSING",
+        "3": "RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRY_MISSING",
+        "4": "RETRIEVAL_AUTH_FAILURE_REASON_URL_SIGNATURE_MISMATCH",
+        "5": "RETRIEVAL_AUTH_FAILURE_REASON_AGENT_KEY_MISSING",
+        "6": "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_SIGNATURE_MISSING",
+        "7": "RETRIEVAL_AUTH_FAILURE_REASON_KEYID_MISMATCH",
+        "8": "RETRIEVAL_AUTH_FAILURE_REASON_THUMBPRINT_MISMATCH",
+        "9": "RETRIEVAL_AUTH_FAILURE_REASON_PROOF_CREATED_MISSING"
+      },
+      "fora.v1.UsageReportRejectionReason": {
+        "0": "USAGE_REPORT_REJECTION_REASON_UNSPECIFIED",
+        "1": "USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND",
+        "2": "USAGE_REPORT_REJECTION_REASON_DUPLICATE",
+        "3": "USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED",
+        "4": "USAGE_REPORT_REJECTION_REASON_MISSING_REQUIRED_FIELDS",
+        "5": "USAGE_REPORT_REJECTION_REASON_MALFORMED",
+        "6": "USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION"
+      }
+    },
+    "messages": {
+      "fora.v1.CatalogRejection": [
+        {
+          "name": "reason",
+          "number": 1,
+          "kind": "enum",
+          "type": "fora.v1.CatalogRejectionReason"
+        },
+        {
+          "name": "rejected_paths",
+          "number": 2,
+          "kind": "string",
+          "repeated": true
+        }
+      ],
+      "fora.v1.DisputeFailure": [
+        {
+          "name": "reason",
+          "number": 1,
+          "kind": "enum",
+          "type": "fora.v1.DisputeFailureReason"
+        }
+      ],
+      "fora.v1.DomainVerificationFailure": [
+        {
+          "name": "reason",
+          "number": 1,
+          "kind": "enum",
+          "type": "fora.v1.DomainVerificationFailureReason"
+        }
+      ],
+      "fora.v1.ErrorDetail": [
+        {
+          "name": "message",
+          "number": 1,
+          "kind": "string"
+        },
+        {
+          "name": "domain",
+          "number": 2,
+          "kind": "string"
+        },
+        {
+          "name": "metadata",
+          "number": 3,
+          "kind": "map",
+          "map_key": "string",
+          "map_value": "string"
+        },
+        {
+          "name": "transaction_denial",
+          "number": 10,
+          "kind": "message",
+          "type": "fora.v1.TransactionDenial"
+        },
+        {
+          "name": "catalog_rejection",
+          "number": 11,
+          "kind": "message",
+          "type": "fora.v1.CatalogRejection"
+        },
+        {
+          "name": "registration_failure",
+          "number": 12,
+          "kind": "message",
+          "type": "fora.v1.RegistrationFailure"
+        },
+        {
+          "name": "dispute_failure",
+          "number": 13,
+          "kind": "message",
+          "type": "fora.v1.DisputeFailure"
+        },
+        {
+          "name": "domain_verification_failure",
+          "number": 14,
+          "kind": "message",
+          "type": "fora.v1.DomainVerificationFailure"
+        },
+        {
+          "name": "retrieval_auth_failure",
+          "number": 15,
+          "kind": "message",
+          "type": "fora.v1.RetrievalAuthFailure"
+        },
+        {
+          "name": "usage_report_rejection",
+          "number": 16,
+          "kind": "message",
+          "type": "fora.v1.UsageReportRejection"
+        },
+        {
+          "name": "request_auth_failure",
+          "number": 17,
+          "kind": "message",
+          "type": "fora.v1.RequestAuthFailure"
+        }
+      ],
+      "fora.v1.RegistrationFailure": [
+        {
+          "name": "reason",
+          "number": 1,
+          "kind": "enum",
+          "type": "fora.v1.RegistrationFailureReason"
+        },
+        {
+          "name": "field_errors",
+          "number": 2,
+          "kind": "message",
+          "type": "fora.v1.RegistrationFieldError",
+          "repeated": true
+        }
+      ],
+      "fora.v1.RegistrationFieldError": [
+        {
+          "name": "path",
+          "number": 1,
+          "kind": "string"
+        },
+        {
+          "name": "error",
+          "number": 2,
+          "kind": "string"
+        }
+      ],
+      "fora.v1.RequestAuthFailure": [
+        {
+          "name": "reason",
+          "number": 1,
+          "kind": "enum",
+          "type": "fora.v1.RequestAuthFailureReason"
+        }
+      ],
+      "fora.v1.RetrievalAuthFailure": [
+        {
+          "name": "reason",
+          "number": 1,
+          "kind": "enum",
+          "type": "fora.v1.RetrievalAuthFailureReason"
+        }
+      ],
+      "fora.v1.TransactionDenial": [
+        {
+          "name": "reason",
+          "number": 1,
+          "kind": "enum",
+          "type": "fora.v1.DenialReason"
+        },
+        {
+          "name": "restriction_mismatches",
+          "number": 2,
+          "kind": "enum",
+          "type": "fora.v1.RestrictionKind",
+          "repeated": true
+        },
+        {
+          "name": "offer_id",
+          "number": 3,
+          "kind": "string"
+        },
+        {
+          "name": "exchange",
+          "number": 4,
+          "kind": "string"
+        }
+      ],
+      "fora.v1.UsageReportRejection": [
+        {
+          "name": "reason",
+          "number": 1,
+          "kind": "enum",
+          "type": "fora.v1.UsageReportRejectionReason"
+        }
+      ]
+    }
+  }
+}

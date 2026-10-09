@@ -4,8 +4,8 @@ package helpers_test
 // VERBATIM inner list from the wire Signature-Input — parameter order is the
 // signer's choice and the verifier must honor it. These tests pin that a
 // signature whose parameter order differs from this SDK's own rendering
-// (keyid;alg;created;expires) still verifies: the platform's other RFC 9421
-// implementation emits created;expires;alg;keyid and its signatures must
+// (created;expires;keyid;alg;nonce;tag) still verifies: other Web Bot Auth
+// signers order the parameters differently and their signatures must
 // interoperate.
 
 import (
@@ -21,7 +21,7 @@ import (
 
 // wireOrderSignedRequest hand-rolls a cryptographically valid signature whose
 // @signature-params tail uses the foreign parameter order
-// created;expires;alg;keyid over the full five-component covered set.
+// tag;keyid;alg;expires;created over the full FORA RPC covered set.
 func wireOrderSignedRequest(t *testing.T, body []byte) (*http.Request, ed25519.PublicKey) {
 	t.Helper()
 	pub, priv, err := ed25519.GenerateKey(nil)
@@ -34,16 +34,16 @@ func wireOrderSignedRequest(t *testing.T, body []byte) (*http.Request, ed25519.P
 	}
 	req.Header.Set("Content-Digest", helpers.ContentDigest(body))
 	req.Header.Set("Authorization", "")
-	req.Header.Set("Signature-Agent", "https://agent.example")
+	req.Header.Set("Signature-Agent", `sig1="https://agent.example"`)
 
-	// Foreign param order: created;expires;alg;keyid (NOT this SDK's order).
-	inner := fmt.Sprintf(`("@method" "@target-uri" "content-digest" "authorization" "signature-agent");created=%d;expires=%d;alg=%q;keyid=%q`,
-		tCreated, tExpires, helpers.AlgEd25519, "agent.v1")
+	// Foreign param order: tag;keyid;alg;expires;created (NOT this SDK's order).
+	inner := fmt.Sprintf(`("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");tag="web-bot-auth";keyid=%q;alg=%q;expires=%d;created=%d`,
+		"agent.v1", helpers.AlgEd25519, tExpires, tCreated)
 	base := "\"@method\": POST\n" +
 		"\"@target-uri\": https://exchange.example/fora.v1.ExchangeService/Execute\n" +
 		"\"content-digest\": " + req.Header.Get("Content-Digest") + "\n" +
 		"\"authorization\": \n" +
-		"\"signature-agent\": https://agent.example\n" +
+		"\"signature-agent\";key=\"sig1\": \"https://agent.example\"\n" +
 		"\"@signature-params\": " + inner
 	sig := ed25519.Sign(priv, []byte(base))
 

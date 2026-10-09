@@ -68,7 +68,7 @@ func mountCatalog(t *testing.T, origin forav1connect.CatalogServiceHandler, opts
 
 func validPush() *forav1.PushResourcesRequest {
 	return &forav1.PushResourcesRequest{
-		Exchange: "exchange.test", TenantId: "tenant-1", CallerId: "publisher.test",
+		Exchange: "exchange.test", TenantId: "tenant-1",
 		Entries: []*forav1.ResourceEntry{{Domain: "publisher.test", Path: "/x", Terms: []*forav1.LicenseTerm{{
 			Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
 			Pricing:   &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"},
@@ -114,7 +114,7 @@ func TestServerVerify_CatalogHandlerProvesTheSignerToTheOrigin(t *testing.T) {
 	origin := &catalogEcho{}
 	srv := mountCatalog(t, origin, foraserver.WithKeyResolver(resolver), foraserver.WithReplayStore(newCountingReplayStore()))
 
-	client := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(signer))
+	client := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(signer), foraconnect.WithSignatureAgent("https://agent.example"))
 	resp, err := client.PushResources(context.Background(), validPush())
 	if err != nil {
 		t.Fatalf("PushResources: %v", err)
@@ -150,7 +150,7 @@ func TestServerVerify_CatalogHandlerValidatesTheEnvelope(t *testing.T) {
 		foraserver.WithValidation(foraconnect.ValidationStrict),
 	)
 
-	client := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(signer))
+	client := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(signer), foraconnect.WithSignatureAgent("https://agent.example"))
 	bad := validPush()
 	bad.Entries[0].Path = "no-leading-slash"
 	_, err = client.PushResources(context.Background(), bad)
@@ -190,7 +190,7 @@ func TestServerVerify_CatalogHandlerDoesNotValidateByDefault(t *testing.T) {
 		foraserver.WithReplayStore(newCountingReplayStore()),
 	)
 
-	client := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(signer))
+	client := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(signer), foraconnect.WithSignatureAgent("https://agent.example"))
 	bad := validPush()
 	bad.Entries[0].Path = "no-leading-slash"
 	if _, err := client.PushResources(context.Background(), bad); err != nil {

@@ -1,42 +1,39 @@
-// sdk/ts multi-member RFC 8941 Signature-Input dictionary parser + verbatim
-// inner-per-label extractor — the TS port of Go helpers.parseAllSignatures /
-// rawInnerByLabel / splitTopLevelMembers (verify.go). The single-sig verify path
-// (core/verify-request.ts) hand-rolls a minimal ONE-label parser; the multisig
-// forwarding chain needs the FULL multi-member dictionary parse plus the
-// exact byte-verbatim inner value each hop's base terminates with.
+// sdk/ts Signature-Input / Signature parsing (RFC 9421 over RFC 8941) — the TS port of
+// Go helpers.parseAllSignatures / rawInnerByLabel / splitTopLevelMembers (verify.go).
+// The dictionaries are parsed by the structured-field parser in core/sfv.ts, so quoting,
+// inner-list, integer and byte-sequence edge cases follow RFC 8941 rather than a
+// pattern match. The verbatim inner value per label is split out separately: RFC 9421
+// §2.5 terminates a signature base with the exact bytes the signer emitted, which a
+// re-serialization cannot be trusted to reproduce.
 //
-// Dependency-light on purpose: no new runtime dep, mirroring the existing minimal
-// single-label parsers. Correctness on ADVERSARIAL headers (quoted-comma,
-// backslash escapes, top-level splitting, malformed reject) is pinned by
-// tests/multisig-parse.edge.test.ts — the canonical Go golden vectors are
-// well-behaved and do NOT gate the parser.
+// Every signer, verifier and appender on the request path reads signatures through
+// parseSignatureHeaders, so a request carrying one signature is the N=1 case of the
+// same parse.
 
-import { decodeBase64Url } from "../src/base64url.ts";
+import { type CoveredComponent, type ComponentParam, type Checked } from "./wba.ts";
+import { parseDictionary, type SfItem, type SfParams } from "./sfv.ts";
 
-/** One covered-component identifier: a lowercased name plus, for a forwarding
- * chain link `"signature";key="sigN"`, the referenced predecessor label. */
-export interface MultisigCovered {
-	name: string;
-	chainKey?: string;
-}
-
-/** One parsed Signature-Input dictionary member (one hop's label). `rawInner` is
- * the VERBATIM value after `label=` — the exact @signature-params bytes the hop's
- * signature base must terminate with (Go sigParams.RawInner). */
-export interface MultisigMember {
+/** One parsed signature: its label, covered components and parameters, and the
+ * VERBATIM inner value after `label=` — the exact @signature-params bytes its base must
+ * terminate with (Go sigParams.RawInner). */
+export interface ParsedSignature {
 	label: string;
-	rawInner: string;
-	covered: MultisigCovered[];
-	keyid: string | null;
-	alg: string | null;
+	covered: CoveredComponent[];
+	keyid: string;
+	alg?: string;
 	created?: number;
 	expires?: number;
+	nonce?: string;
+	tag?: string;
+	rawInner: string;
+	/** The raw signature bytes the Signature header carries under this label. */
+	signature: Uint8Array<ArrayBuffer>;
 }
 
 /**
- * Split one SFV dictionary header value on TOP-LEVEL commas, honoring quoted
- * strings and their backslash escapes (Go splitTopLevelMembers). A comma inside a
- * quoted keyid must NOT tear the member in two.
+ * Split one SFV dictionary header value on TOP-LEVEL commas, honoring quoted strings
+ * and their backslash escapes (Go splitTopLevelMembers). A comma inside a quoted keyid
+ * must NOT tear the member in two.
  */
 export function splitTopLevelMembers(s: string): string[] {
 	const parts: string[] = [];
@@ -63,7 +60,8 @@ export function splitTopLevelMembers(s: string): string[] {
 /**
  * The VERBATIM member value after `label=` for each label across the given
  * Signature-Input header values (Go rawInnerByLabel). Later occurrences overwrite
- * earlier ones, matching SFV dictionary last-wins semantics.
+ * earlier ones, matching SFV dictionary last-wins semantics, so the raw text
+ * corresponds to the member the dictionary parse kept.
  */
 export function rawInnerByLabel(values: string[]): Record<string, string> {
 	const out: Record<string, string> = {};
@@ -78,165 +76,78 @@ export function rawInnerByLabel(values: string[]): Record<string, string> {
 	return out;
 }
 
-// findQuoteEnd returns the index of the closing quote for the quoted string that
-// opens at `open`, honoring backslash escapes, or -1 if unterminated.
-function findQuoteEnd(s: string, open: number): number {
-	let escaped = false;
-	for (let i = open + 1; i < s.length; i += 1) {
-		const c = s[i];
-		if (escaped) {
-			escaped = false;
-		} else if (c === "\\") {
-			escaped = true;
-		} else if (c === '"') {
-			return i;
-		}
-	}
-	return -1;
-}
-
-// findInnerListEnd returns the index of the inner-list closing paren, honoring
-// quoted strings (a param value may contain a paren), or -1 if unterminated.
-function findInnerListEnd(s: string): number {
-	let inQuote = false;
-	let escaped = false;
-	for (let i = 1; i < s.length; i += 1) {
-		const c = s[i];
-		if (escaped) {
-			escaped = false;
-		} else if (c === "\\" && inQuote) {
-			escaped = true;
-		} else if (c === '"') {
-			inQuote = !inQuote;
-		} else if (c === ")" && !inQuote) {
-			return i;
-		}
-	}
-	return -1;
-}
-
-// parseCovered parses an inner-list body ("c1" "c2";key="v" …) into ordered
-// covered components. Returns undefined on a malformed token.
-function parseCovered(inner: string): MultisigCovered[] | undefined {
-	const items: MultisigCovered[] = [];
-	let i = 0;
-	while (i < inner.length) {
-		if (inner[i] === " ") {
-			i += 1;
-			continue;
-		}
-		if (inner[i] !== '"') return undefined;
-		const nameEnd = findQuoteEnd(inner, i);
-		if (nameEnd < 0) return undefined;
-		const comp: MultisigCovered = { name: inner.slice(i + 1, nameEnd).toLowerCase() };
-		i = nameEnd + 1;
-		while (inner[i] === ";") {
-			const next = parseComponentParam(inner, i, comp);
-			if (next < 0) return undefined;
-			i = next;
-		}
-		items.push(comp);
-	}
-	return items;
-}
-
-// parseComponentParam parses one `;key="val"` component parameter starting at
-// `pos` (the ';'), stamping a chainKey onto comp for key="…". Returns the index
-// after the param, or -1 on malformed.
-function parseComponentParam(inner: string, pos: number, comp: MultisigCovered): number {
-	const eq = inner.indexOf("=", pos);
-	if (eq < 0 || inner[eq + 1] !== '"') return -1;
-	const pname = inner.slice(pos + 1, eq);
-	const vEnd = findQuoteEnd(inner, eq + 1);
-	if (vEnd < 0) return -1;
-	if (pname === "key") comp.chainKey = inner.slice(eq + 2, vEnd);
-	return vEnd + 1;
-}
-
-function matchQuoted(s: string, re: RegExp): string | null {
-	const m = s.match(re);
-	return m ? (m[1] ?? "") : null;
-}
-
-function matchInt(s: string, re: RegExp): number | undefined {
-	const m = s.match(re);
-	return m ? Number(m[1]) : undefined;
-}
-
-// parseMember parses one `label=(inner);params` member into a MultisigMember, or
-// undefined on a malformed inner list / member.
-function parseMember(raw: string): MultisigMember | undefined {
-	const eq = raw.indexOf("=");
-	if (eq <= 0) return undefined;
-	const label = raw.slice(0, eq).trim();
-	const rawInner = raw.slice(eq + 1).trim();
-	if (rawInner[0] !== "(") return undefined;
-	const close = findInnerListEnd(rawInner);
-	if (close < 0) return undefined;
-	const covered = parseCovered(rawInner.slice(1, close));
-	if (!covered) return undefined;
-	const tail = rawInner.slice(close + 1);
-	const created = matchInt(tail, /;created=(\d+)/);
-	const expires = matchInt(tail, /;expires=(\d+)/);
-	return {
-		label,
-		rawInner,
-		covered,
-		keyid: matchQuoted(tail, /;keyid="([^"]*)"/),
-		alg: matchQuoted(tail, /;alg="([^"]*)"/),
-		...(created !== undefined ? { created } : {}),
-		...(expires !== undefined ? { expires } : {}),
-	};
-}
+const malformed = (): { ok: false; refusal: { kind: "malformed" } } => ({
+	ok: false,
+	refusal: { kind: "malformed" },
+});
 
 /**
- * Full multi-label parse of the Signature-Input header values, preserving header
- * order. Returns undefined (clean reject) on any malformed member — never a
- * mis-slice into a bogus covered set.
+ * parseSignatureHeaders parses the request's Signature-Input and Signature values (each
+ * with every field line joined, undefined when absent) into one ParsedSignature per
+ * label, in Signature-Input order. A request missing either header is refused as
+ * "unsigned"; one whose headers are not the dictionaries RFC 9421 defines, whose member
+ * lacks a keyid, or whose label has no byte sequence in Signature is "malformed".
  */
-export function parseMultisigSignatureInput(values: string[]): MultisigMember[] | undefined {
-	const members: MultisigMember[] = [];
-	for (const v of values) {
-		for (const raw of splitTopLevelMembers(v)) {
-			const member = parseMember(raw);
-			if (!member) return undefined;
-			members.push(member);
+export function parseSignatureHeaders(
+	signatureInput: string | undefined,
+	signature: string | undefined,
+): Checked<ParsedSignature[]> {
+	if (signatureInput === undefined || signature === undefined) {
+		return { ok: false, refusal: { kind: "unsigned" } };
+	}
+	const inputs = parseDictionary(signatureInput);
+	const sigs = parseDictionary(signature);
+	if (inputs === undefined || sigs === undefined || inputs.size === 0) return malformed();
+	const raw = rawInnerByLabel([signatureInput]);
+	const out: ParsedSignature[] = [];
+	for (const [label, member] of inputs) {
+		if (member.kind !== "inner-list") return malformed();
+		const covered: CoveredComponent[] = [];
+		for (const item of member.items) {
+			const c = coveredFromItem(item);
+			if (c === undefined) return malformed();
+			covered.push(c);
 		}
+		const params = signatureParams(member.params);
+		const sig = sigs.get(label);
+		if (params === undefined || sig?.kind !== "item" || sig.value.type !== "bytes") return malformed();
+		out.push({ label, covered, ...params, rawInner: raw[label] ?? "", signature: sig.value.value });
 	}
-	return members.length > 0 ? members : undefined;
+	return { ok: true, value: out };
 }
 
-/**
- * Parse the RFC 9421 `Signature` header (`label=:<std-base64>:, …`) into a
- * label→raw-bytes map — the per-label lookup the forwarding-chain link resolution
- * and the multisig verify loop share (Go signatureBytesForLabel / parseSigLabel).
- */
-export function signatureBytesByLabel(sigHeader: string): Record<string, Uint8Array<ArrayBuffer>> {
-	const out: Record<string, Uint8Array<ArrayBuffer>> = {};
-	for (const member of splitTopLevelMembers(sigHeader)) {
-		const eq = member.indexOf("=");
-		if (eq <= 0) continue;
-		const label = member.slice(0, eq).trim();
-		const val = member.slice(eq + 1).trim();
-		const first = val.indexOf(":");
-		const last = val.lastIndexOf(":");
-		if (first < 0 || last <= first) continue;
-		const bytes = decodeBase64Url(val.slice(first + 1, last));
-		if (bytes) out[label] = bytes;
+// coveredFromItem converts one inner-list item (a covered-component identifier such as
+// "@method" or "signature-agent";key="sig1") into a CoveredComponent. String-valued
+// component parameters and Boolean flags are carried; anything else is malformed.
+function coveredFromItem(item: SfItem): CoveredComponent | undefined {
+	if (item.value.type !== "string") return undefined;
+	const params: ComponentParam[] = [];
+	for (const [key, v] of item.params) {
+		if (v.type === "boolean" && v.value) params.push({ key, value: true });
+		else if (v.type === "string") params.push({ key, value: v.value });
+		else return undefined;
 	}
-	return out;
+	return { name: item.value.value, params };
 }
 
-/**
- * The highest sigN label number present in a Signature-Input value (0 when none)
- * — Go maxSignatureLabelN. Backs append's next-label / predecessor resolution.
- */
-export function maxSigLabelN(signatureInput: string): number {
-	let max = 0;
-	for (const label of Object.keys(rawInnerByLabel([signatureInput]))) {
-		if (!label.startsWith("sig")) continue;
-		const n = Number(label.slice(3));
-		if (Number.isInteger(n) && n > max) max = n;
+type SignatureParams = Omit<ParsedSignature, "label" | "covered" | "rawInner" | "signature">;
+
+// signatureParams reads keyid, alg, created, expires, nonce and tag off an inner list's
+// parameters. A parameter of the wrong type, or no keyid, is malformed.
+function signatureParams(params: SfParams): SignatureParams | undefined {
+	const out: Partial<SignatureParams> = {};
+	for (const name of ["keyid", "alg", "nonce", "tag"] as const) {
+		const v = params.get(name);
+		if (v === undefined) continue;
+		if (v.type !== "string") return undefined;
+		out[name] = v.value;
 	}
-	return max;
+	for (const name of ["created", "expires"] as const) {
+		const v = params.get(name);
+		if (v === undefined) continue;
+		if (v.type !== "integer") return undefined;
+		out[name] = v.value;
+	}
+	if (out.keyid === undefined || out.keyid === "") return undefined;
+	return out as SignatureParams;
 }

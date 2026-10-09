@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Smoke test for the published Python packages.
 # Installs the given requirements into a fresh virtualenv outside the checkout,
-# with no PYTHONPATH, imports fora_sdk and calls one L1 function. Arguments are
+# with no PYTHONPATH, imports fora_sdk and calls one L1 function, and loads a published
+# JSON Schema from the fora-protocol package data. Arguments are
 # wheel paths, sdist paths (each sdist is first rebuilt into a wheel in an
 # isolated build environment) or PyPI specs.
 #   scripts/release/smoke-python.sh dist/fora_protocol-1.2.3-py3-none-any.whl dist/fora_protocol_sdk-1.2.3-py3-none-any.whl
@@ -28,10 +29,17 @@ import fora_sdk
 from fora_sdk.thumbprint import thumbprint
 from wire.models import Offer
 from vocab import pricingunits
+from wire import schemas
 got = thumbprint(bytes(32))
 assert got == "ogRZbCR5KTrPFCAfuYmCMwj0w7Yuk3Lr6YWQWfpkbf0", got
 assert pricingunits.is_registered("fetches")
 assert "exchange" in Offer.model_fields
-print("fora_sdk import + thumbprint ok")
+# the published JSON Schemas ship as package data in both variants
+strict = schemas.load("fora.v1.ResourceResponse", strict=True)
+assert strict["$id"] == "fora.v1.ResourceResponse.schema.strict.json", strict["$id"]
+assert strict["additionalProperties"] is False
+assert "additionalProperties" not in schemas.load("fora.v1.ResourceResponse")
+assert len(schemas.names()) > 0
+print("fora_sdk import + thumbprint + JSON Schemas ok")
 PY
 echo "smoke-python ok: $*"

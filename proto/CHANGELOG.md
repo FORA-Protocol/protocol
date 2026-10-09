@@ -1,5 +1,1070 @@
 # FORA Protocol Changelog
 
+## Unreleased
+
+### Breaking against v1.0.8
+
+This release does not interoperate with v1.0.8 inside one deployment: the request
+signature changed in both directions, so every party of a deployment upgrades together.
+Each bullet names what breaks, in which direction, and what to do; the entries below give
+the detail.
+
+**Every party**
+
+- **Request signatures and key directories (a hard cut).** A v1.0.8 verifier does not read
+  the dictionary `Signature-Agent` this release sends. This release refuses the bare value
+  v1.0.8 sends, a key directory served as `application/jwk-set+json` or unsigned, and a
+  delivery proof at the publisher edge that is not a full Web Bot Auth signature. Upgrade
+  every signer, verifier, publisher edge and key directory together, and serve each
+  directory with its own media type, signed by every key it lists. See "Request signatures
+  and key directories follow the Web Bot Auth profile".
+- **Reason values added since v1.0.8.** `CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED`,
+  `DENIAL_REASON_RELAY_NOT_ACCEPTED`, and the `UNKNOWN_CRITICAL_EXTENSION` value of the
+  denial, catalog-rejection, usage-report, dispute, registration and domain-verification
+  reason families are new. The v1.0.8 Python and TypeScript SDKs check an answer against
+  generated models that do not list the new values, so they refuse a whole answer carrying
+  one, such as a purchase answer with one item denied as
+  `DENIAL_REASON_RELAY_NOT_ACCEPTED`. `ErrorDetail.request_auth_failure` is new as well;
+  those models drop it, so a v1.0.8 client sees a signature refusal's code with no typed
+  reason. Upgrade those clients.
+
+**Exchange operators**
+
+- **An offer carries its price once.** An offer whose term carries pricing is refused by a
+  validating receiver (`offer.terms.pricing_unset`) and by this release's offer signers and
+  verifiers; v1.0.8 accepted it. State the price in `Offer.pricing` only and leave the sold
+  term's pricing unset. A `PER_UNIT` offer whose `estimated_quantity` is zero or negative
+  is refused too (`offer.metered.estimate_positive`): omit the estimate or state a positive
+  one.
+- **A per-item denial is always in the body.** A denied one-item purchase is answered OK
+  with the item's `denial_reason`; v1.0.8 answered it with a non-OK error carrying
+  `transaction_denial`, which is now only for a refusal of the whole request. Answer
+  in the body; a client reads the body's `denial_reason` whatever the item count.
+- **A relayed request needs an admitted Broker.** A `ResourceQuery` or
+  `TransactionRequest` whose `requester.domain` is not the signer's directory is acted on
+  only when the Exchange admits the signer as a Broker, and is otherwise refused
+  `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`. A v1.0.8 Exchange
+  read a Broker-forwarded request's agent signature and took the Broker's key from a
+  configured key set; a Broker's request now carries the Broker's signature alone, with
+  its key in the directory it names. Decide which Brokers you admit, for example the ones
+  registered with you. See "An Exchange tells a relayed request from a direct one".
+- **The hop cap counts every signature.** `max_intermediary_hops` is the number of
+  signatures accepted, every one counted, and a request over it is refused with
+  `resource_exhausted` before any signature is verified. The Go guidance to configure one
+  more than you publish is gone: publish the count itself.
+- **Refusals that changed shape.** A catalog call whose signature fails is refused
+  `unauthenticated` with `request_auth_failure`, where v1.0.8 sent
+  `CATALOG_REJECTION_REASON_SIGNATURE_INVALID`. `GetAccountStatus` answers an agent with no
+  account `NOT_FOUND`, where a v1.0.8 Exchange could answer OK with an empty
+  `billing_ref`. The same idempotency key with a different request is refused
+  `already_exists`, where v1.0.8 replayed the stored result for any reuse of a key.
+- **Rules that stop applying.** `fora.admin.v1.ReportingPolicy.quantity_tolerance` is
+  ignored: never refuse a usage report for its quantity. The scope-shortfall and
+  restriction reasons deprecated in this release are never sent.
+
+**Agents and other clients**
+
+- **A query and a purchase name their requester.** `requester` is required on
+  `ResourceQuery`, `DiscoveryRequest` and `TransactionRequest`, and `Requester.id` is
+  required, 1 to 255 characters; v1.0.8 had neither rule. Name the requester, with an id
+  and with the host of your own key directory as its domain.
+- **Mint a new idempotency key for each distinct request**, since a reused key with a
+  different request is refused, and read a one-item denial from the body, as above.
+
+**Publishers and catalog contributors**
+
+- **`RemoveResources` names each resource in `resources`.** `paths` is ignored, so a v1.0.8
+  request carrying only `paths` is refused. Send `ResourceRef` items, each a domain and a
+  path.
+- **A catalog signature failure arrives as `request_auth_failure`**, as above.
+
+**Brokers**
+
+- **A Broker never forwards an agent's request unchanged.** It originates its own
+  discovery queries and signs them alone, where v1.0.8 relayed an agent-signed
+  `ResourceQuery` and chained its own signature onto it. It never copies the agent's
+  request-level `ext` or `ext_critical` onto a request it authors.
+
+**SDK users**
+
+- **Signing.** A signing transport requires the signer's directory (`WithSignatureAgent`,
+  `signature_agent`, `signatureAgent`) and refuses a signed call locally without one;
+  v1.0.8 signed with an empty `Signature-Agent`. `core.MonotonicWindow` and its peers sign
+  at the clock's time and are deprecated. Python's `sign_agent_binding` returns an
+  `AgentBinding` instead of a tuple.
+- **Key resolution.** The key resolver's scheme option is removed (Go
+  `WBAKeyResolverOptions.Scheme`, Python `WBAKeyResolver(scheme=...)`, TypeScript
+  `WBAKeyResolverOptions.scheme`). A custom request-key resolver receives the signature's
+  directory: Python's `KeyResolver.resolve` and TypeScript's `RequestKeyResolver.resolve`
+  take it as a second argument. `WBAKeyResolver.Revoked` / `revoked` takes the directory
+  and answers from that directory's own list, and the offer-key cache's predicate takes
+  `(thumbprint, exchange)`.
+- **Removed TypeScript helpers.** `COVERED_COMPONENTS`, `buildRequestSignatureBase`,
+  `maxSigLabelN`, `signatureBytesByLabel`, `parseMultisigSignatureInput` and the
+  regex-based proof parsers are gone.
+- **Stricter inputs and reads.** The offer signers refuse an offer whose term carries
+  pricing, and the acceptance signers and verifiers refuse an empty requester id or
+  domain. The generated Pydantic models, Zod schemas and TypeScript input types require
+  `requester` on the three requests. A document body over 1 MiB is refused rather than
+  truncated, and the TypeScript reader also ends a read at 30 seconds and follows at most
+  five redirects itself, never from https to http.
+
+### Changes since v1.0.8
+
+**Discovery has no side effects; usage-report and relayed-acceptance refusals are
+stated (comments only).** Five rules the contract implied but did not state:
+
+- `DiscoverResources` creates no transaction, no billing authorization and no reporting
+  obligation; an agent commits to an offer only on the execute path.
+- Discovery is therefore safe to retry. A transport failure, such as an unreachable
+  Exchange or a timeout, is the client's concern, and the protocol defines no
+  transient-failure code for it.
+- A usage report whose `billing_id` is not the transaction's is malformed:
+  `invalid_argument` with `USAGE_REPORT_REJECTION_REASON_MALFORMED`.
+- A usage report for a transaction recorded under a different agent is answered exactly as
+  for an unknown transaction, `not_found` with
+  `USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND`, so the answer does not reveal that
+  the transaction exists.
+- On a purchase a Broker relayed, an item whose `AgentAcceptance` does not verify under the
+  keys the directory `requester.domain` names publishes is denied in the body with
+  `DENIAL_REASON_SIGNATURE_INVALID`, as for the `AgentRequestAcceptance`; the whole request
+  is not refused.
+
+The `DiscoverResources` RPC, the `UsageReport` message and `DENIAL_REASON_SIGNATURE_INVALID`
+state them, and the transaction-flow and Exchange request-flow pages follow.
+
+**`GetAccountStatus` answers an agent with no account `NOT_FOUND` (a behaviour change; no
+wire change).**
+The RPC comment now states the answer for an agent the Exchange knows, its request
+signature verified, but that holds no account at that Exchange: the Connect code
+`NOT_FOUND`. `GetAccountStatusResponse.billing_ref` is therefore set on every OK answer,
+and a receiver reads an empty handle, which an Exchange built before the rule may send,
+as the same answer. The reference and AI-agent pages and the SDK doc comments of
+`GetAccountStatus` / `get_account_status` / `getAccountStatus` say the same; the SDKs
+return the refusal as their call error with the code `not_found`.
+
+**The hop cap counts every signature and is refused with `resource_exhausted` (a changed
+meaning for a released field; no wire change).** `WellKnownManifest.max_intermediary_hops` is the maximum number of RFC 9421
+signatures an Exchange accepts on a request, every signature counted whether or not it
+covers another. An Exchange refuses a request carrying more before it verifies any
+signature, with the Connect code `resource_exhausted` (HTTP 429) and no typed reason; the
+field comment states it once. Go's `connectserver.WithMaxSignatures` and
+`helpers.VerifyOptions.MaxSignatures` no longer say to set the cap to
+`max_intermediary_hops + 1`: they take `max_intermediary_hops` itself, as the Python and
+TypeScript verifiers already did. `RequestConstraints.max_hops` rides only on
+`DiscoveryRequest`, which ends at the Broker, and a Broker originates its own queries, so
+no party receives or enforces it in this version; it is kept for multi-hop Broker
+discovery, and the proto comments and pages that said an Exchange enforces it no longer
+do. The transaction-flow, authentication, Exchange request-flow, reference,
+role-composition, what-is-FORA, Exchange overview and operator pages state the count-first
+rule and drop the forwarding-chain framing, the exchange-manifest page documents the
+field, and the academic, due-diligence and live-demo walkthroughs buy as the protocol now
+defines it: directly, or through `BrokerService.ExecuteTransaction` with the agent's
+acceptances.
+
+**An MCP tool error carries `{"refusal": UpstreamRefusal}`; `UpstreamRefusal.exchange`
+is renamed `party` (field rename; no released message changes).** `UpstreamRefusal` is the
+one shape for "a peer refused a call made on the caller's behalf". Its field 1 was named
+`exchange`, which fit only a Broker purchase. It is now `party`, the bare host of the party
+that refused, with the same number and host rule. On a Broker purchase item the party is
+the Exchange, equal to the refused items' signed `offer.exchange`. `UpstreamRefusal` was
+added in this release, so no released message changes and `buf breaking` passes against
+v1.0.8 and v1.0.0; the proto-JSON name is now `party`.
+
+The Identity Service and AI-agent pages specify an MCP tool error: an error result whose
+`structuredContent` is `{"refusal": UpstreamRefusal}`, the party being the Broker or
+Exchange that refused the call, or the Identity Service itself when it refused the tool
+call; `detail` is the FORA `ErrorDetail` that party attached, unchanged. Each tool's
+`outputSchema` declares two branches, its success shape or `{refusal}`.
+
+**A Broker purchase item refused with no answer has an unknown outcome (comments only).**
+`TransactionResultItem.refusal` said an item carrying an Exchange's refusal was not
+purchased, while `UpstreamRefusal.code` said a timeout may have completed a purchase. They
+now agree. With the code `unavailable` or `deadline_exceeded` the item's outcome is
+unknown, whether the Exchange gave no answer or answered that code, and retrying the
+agent's request with the same `idempotency_key` through the same Broker settles it; with
+any other code the Exchange decided no item, and the item was not purchased.
+`BrokerTransactionResponse.totals` does not count an item with an unknown outcome, so it
+is then a lower bound of what the purchase charged. The Broker purchase verbs' doc
+comments in all three SDKs, the Python README, and the transaction-flow, Broker, Identity
+Service and fetch-flow pages say the same.
+
+**Revocation is scoped to the signer, and revocation-list and manifest fetches may
+follow up to five redirects (comments, docs and an SDK API change).** Each signature is verified against its own signer's
+key directory and the revocation list that directory names, and against no other party's.
+A Broker's list covers only the Broker's keys, and an agent's list covers only that
+agent's keys, so no party's list can revoke another party's key. A request that carries
+several request signatures is refused if any one of them fails, and a request signed only
+by the agent never depends on the Broker's directory being reachable. A party fetching a
+revocation list or a `/.well-known/fora.json` manifest MAY follow up to five redirects,
+re-pinning the address and re-vetting the scheme at each hop. A key directory is never
+fetched through a redirect: it answers `200` itself, as the Web Bot Auth profile below
+requires. The file header, `WBAFile.revocation_url`, `KeyRevocationList` and the
+Well-Known Discovery block state both rules, and the authentication page gains "Whose
+list revokes whose key" and "Fetching directories, revocation lists and manifests".
+
+SDKs, in all three languages: the key resolver's revocation accessor answers for one
+directory's own list, and the cross-directory form is removed (a breaking change for a
+caller). Go `WBAKeyResolver.Revoked(keyID, directory)`, Python
+`WBAKeyResolver.revoked(key_id, directory)` and TypeScript `revoked(keyId, directory)`
+report whether the thumbprint is on the revocation list of the directory `directory`
+names, and on no other. The reference is normalized as the resolver normalizes a
+`Signature-Agent` member, and a fetched directory spelled differently still matches under
+the request-recipient identity rule. The accessor used to report a thumbprint present on
+any fetched directory's list, so a directory a request named, even one listing no key,
+could revoke another party's key. The offer-key caches' revocation predicate gains the
+exchange the key came from: Go `CachedOfferKeyResolverConfig.Revoked` becomes
+`func(thumbprint, exchange string) bool`, Python's `revoked` a `Callable[[str, str], bool]`
+and TypeScript's `revoked` a `(thumbprint, exchange) => boolean`, which is the resolver
+accessor's shape. A directory that lists no key is still polled, since its list may revoke
+copies of its own keys held elsewhere. `revocation-membership-vectors.json` serves two
+directories and pins that one directory's list never answers for the other's key.
+
+**`PushResourcesRequest.caller_id` is deprecated (comments only).** It was never needed:
+each entry's domain names whose resource it is, and the caller is the party that signs
+the request; the Exchange checks that the verified signer may push for each entry's
+domain, and a receiver does not rely on it. The field is retained for the v1 wire
+contract; it does not yet carry the `deprecated` field option, which follows once
+implementations no longer read it. The SDK docs, test fixtures and the catalog pages (reference,
+multi-tenant, request flows, content sources, verification vendors, publisher onboarding,
+deployment models, threat model) no longer set or rely on it.
+
+**Docs: CoMP keys, self-push and custodied signing (docs only).** The licensing-terms page
+no longer cites a CoMP `revshare` key: canonical CoMP V1 has none, and `fora-comp-v1`
+keys are flat dotted keys in `ext` like every other profile's, as the CoMP page says. Its
+revenue-share example gates the term on the scope the agent states in its signed request.
+The for-providers page says a publisher may always push for its own domain, and only
+listed contributors besides. The identity overview says the service signs an acceptance
+with the agent's own custodied key.
+
+**Docs: request samples sign as their requester and read fields that exist, and the
+operator checklist follows the protocol (docs only).** The proof-of-concept curl sends the whole Web Bot Auth header set:
+`Content-Digest`, an empty `Authorization`, a `Signature-Agent` dictionary member and a
+`Signature-Input` that covers it. It also sends the body's exact bytes, which the digest
+covers. The client samples on the walkthrough-v1, catalog-sources and Broker
+selection-engine pages name the signer's key directory (`WithSignatureAgent`,
+`signatureAgent`, `signing_transport_for`), so the Broker's connection pool signs alone,
+and the budget-reporting page lists that option among the elided ones. The fetch-flow
+page reads `UpstreamRefusal.party`, the for-AI-agents quota sample uses the fields
+`SubscriptionQuotaInfo` has, and the scenario-walkthrough and production-architecture
+pages list the full covered set. The for-Exchange-operators page replaces its signature
+and forwarding sections with one ordered checklist that links to the authentication page:
+count the signatures, verify each under the profile, refuse a replay, check revocation
+against the signer's own directory, tell a direct request from a relayed one, verify the
+agent's acceptances, and read a Broker-led query's requester as the Broker's statement.
+It no longer says the `Requester` carries a signature or that a key directory carries a
+role, and its denial list gains `DENIAL_REASON_RELAY_NOT_ACCEPTED`. The for-AI-agents
+page drops the same role slip.
+
+**Term scopes are matched against the scopes in the requester's signed request
+(comments only).** `LicenseTerm.scopes` said the Exchange returns a term when the agent's
+delegation grant covers its scopes, and the Restriction header said term visibility is
+gated by delegation scope coverage. The Exchange returns an offer for a term when the
+scopes in the requester's signed request (`Requester.scopes`) cover the term's scopes.
+The threat model's scope-pollution and scope-gating entries say the same.
+
+**Restrictions are declared terms, never enforced by the Exchange;
+`DENIAL_REASON_RESTRICTION_NOT_SATISFIED` and `TransactionResultItem.restriction_mismatches`
+are deprecated (comments only).** The licensing-core header, the ENUMERATED and
+REFERENCE_ONLY comments and the Quota comment said restrictions and quotas are enforced
+or gate a term's validity. They are declared terms the parties agree to when the agent
+accepts the offer, and the Exchange never enforces a restriction, so a purchase is never
+denied for one. `DENIAL_REASON_RESTRICTION_NOT_SATISFIED` is never sent and
+`TransactionResultItem.restriction_mismatches` is never set; their numbers are retained
+and not reused. The licensing-terms, transaction-flow, reference, C2PA and medical-imaging
+pages follow: the medical-imaging walkthrough records the agent's DUA instead of denying
+the purchase with a restriction reason.
+
+**RemoveResources names each resource by domain and path (additive field and message;
+`RemoveResourcesRequest.paths` deprecated).** A bare path names no domain, so the Exchange
+could not tell whose resource it was or whether the signer may remove it. The new
+`RemoveResourcesRequest.resources` (field 5, 1 to 256 items) carries `ResourceRef`
+items, each a `domain` and a `path` under `ResourceEntry`'s rules. For each item the
+Exchange resolves `/.well-known/fora.json` from its domain and checks that the request's
+signer is authorized to push for that domain, exactly as for a push; the caller is the
+party that signs. `paths` is deprecated and ignored, and loses its `min_items` rule, so a
+request carrying only `paths` is refused by the `min_items` rule on `resources`. The Go
+SDK's client comment and tests, the TypeScript raw-body test and the conformance cases
+use `resources`; the reference and multi-tenant pages say the same.
+
+**A mis-addressed request is refused before processing, for every RPC (comments only).**
+"Request recipient" says the recipient applies the `exchange` check to every RPC that
+carries it, before processing the request, and never answers it with an RPC's own reason
+family. `PushResourcesResponse` limits its "a push that could not be applied carries
+`catalog_rejection`" to pushes the Exchange processed: a mis-addressed or malformed push
+is `invalid_argument` with no typed reason, and one whose signature fails is
+`unauthenticated` with `request_auth_failure`. The reference page says the same.
+
+**Catalog push refusals: wire bounds, the contributor reason and
+`CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED` (one additive enum value).** A push with no
+entries or more than 256 is a malformed request: the existing `min_items` and `max_items`
+rules refuse it at wire validation, `invalid_argument` with no `catalog_rejection`. An
+entry naming a resource owner the signer may not push for is
+`CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR`, whose comment now says who may push.
+The new `CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED` (11) refuses a push for a domain
+whose manifest does not list the recipient Exchange. The SDK error-detail decoders in
+Python and TypeScript know the new value; the reference and Exchange request-flow pages
+state the same.
+
+**A Broker forwards the agent's `supported_profiles` and does not route by them
+(comments only).** `DiscoveryRequest.supported_profiles` said the Broker routes queries to
+Exchanges that support the agent's profiles. The Broker MUST forward the list unchanged in
+`ResourceQuery.supported_profiles` on every query, and an absent list as absent; it does
+not choose Exchanges by profile, and each Exchange answers for its own profiles. The
+Broker overview, the extension-profile pages and the getting-started pages say the same.
+
+**A request's critical extensions are for its receiver, and an entry's are for the agent:
+`UNKNOWN_CRITICAL_EXTENSION` is added to six reason enums (additive enum values).** The
+file header gains "Critical extensions", the one statement of the rule. A request's
+`ext_critical` is for the party that receives that request; a receiver that does not
+understand a listed key answers with its RPC's reason: OK with no offers and
+`OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION` on discovery and `Resolve`, OK with
+every item denied as the new `DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION` (20) on a
+purchase, the new `CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION` (10) on a catalog
+push, and the new `USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION` (6,
+`invalid_argument`) on a usage report. A dispute, a registration (a repeat included) and
+both domain-verification calls are refused with `invalid_argument` and the new
+`DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION` (6),
+`REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION` (8; 4 stays retired) and
+`DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION` (7). `GetAccountStatus`,
+whose refusals have no reason family, answers `invalid_argument` with no typed reason. A
+Broker that does not understand a key the agent's purchase lists answers OK with every
+item denied as `DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION` and contacts no Exchange — the
+one denial a Broker makes itself — after its signature, requester and malformed-request
+checks and before routing. A Broker never copies the agent's request-level `ext` or
+`ext_critical` onto a request it authors; a message it carries unchanged keeps its own.
+`RemoveResourcesRequest` and `RefreshCatalogRequest` carry no `ext`.
+`ResourceEntry.ext_critical` is for the agent: the Exchange carries it onto
+`Offer.ext_critical` and does not consume it, so it never refuses a push. The SDK
+error-detail decoders in Python and TypeScript know the new values, and
+`error-detail-wire-vectors.json` and the validation corpus are regenerated. The
+extension-profiles, academic walkthrough, what-is-FORA, transaction-flow and
+medical-imaging pages state the rule.
+
+**A catalog call whose signature fails is refused with `request_auth_failure`;
+`CATALOG_REJECTION_REASON_SIGNATURE_INVALID` is deprecated (a behaviour change; no wire
+change).** A signed
+`CatalogService` call is refused like every other signed request when its signature is
+missing, does not verify or is stale: `unauthenticated` with
+`ErrorDetail.request_auth_failure` (`SIGNATURE_MISSING`, `SIGNATURE_INVALID` or
+`SIGNATURE_STALE`). `CATALOG_REJECTION_REASON_SIGNATURE_INVALID` is never sent; its number
+is retained and is not reused. The Exchange request-flow page no longer lists it.
+
+**An offer carries its price once: `Offer.pricing` (two validation rules added;
+`LicenseTerm.pricing` loses its field-level rule; no field removed).** An offer carried its
+price twice, in `Offer.pricing` and in the pricing of the one term it sells, and the
+comment called the term's copy authoritative. The two could disagree inside one signed
+offer, nothing said which one execute charges, and the metered rule read either copy.
+
+- `Offer.pricing` is the offer's only price: the price execute charges, a Broker ranks and
+  a metered purchase is charged at. The term inside `Offer.terms` MUST carry no pricing (rule
+  `offer.terms.pricing_unset`, on `Offer`). Each offer derives from exactly one catalog
+  term, so the price is stated once and cannot disagree with itself.
+- `offer.metered.estimate_positive` reads `Offer.pricing` only: an offer is metered when
+  its pricing is `PER_UNIT`.
+- Catalog terms still carry pricing. `LicenseTerm.pricing` loses its field-level `required`
+  rule, because the requirement depends on the message that holds the term, and
+  `ResourceEntry` gains `resource_entry.terms.pricing_required`: every catalog term carries
+  its price, whatever its semantics. A standalone `LicenseTerm` without pricing is no
+  longer refused on its own.
+- `buf breaking` against v1.0.0 passes. A validating peer now refuses an offer whose term
+  carries pricing, including inside a `TransactionRequest`.
+- The field-level corpus drops `LicenseTerm/pricing/missing`. The cross-field corpus gains
+  two priced-term offers and a `ResourceEntry` term without pricing, replacing the metered
+  term-only case, and the license-term entry vectors report a catalog term without pricing
+  as that cross-field rule.
+
+SDKs, in all three languages: `IsMeteredOffer` / `is_metered_offer` / `isMeteredOffer` read
+the offer's pricing only. New `CheckOfferTermsUnpriced` / `check_offer_terms_unpriced` /
+`checkOfferTermsUnpriced` apply `offer.terms.pricing_unset` without wire validation (Go
+returns `helpers.ErrOfferTermPriced`, new; Python raises `ValueError`; TypeScript throws).
+The offer signers (`helpers.SignOffer`, `sign_offer_jcs`, `signOffer`) refuse an offer whose
+term carries pricing, and the offer verifiers reject one after the signature and expiry
+checks. The Python and TypeScript cross-field layers gain both rules, with a composed
+`ResourceEntry` model, and `validate_resource_entry` / `validateResourceEntry` check the
+entry itself. The offer-verify vectors gain a term repeating the offer's price, which is
+rejected, and an unpriced term under a `FLAT` price, which verifies.
+
+**A per-item purchase denial is always answered in the body (comments and two
+deprecations; no wire change).** A denied one-item purchase was described as a non-OK
+error carrying `ErrorDetail.transaction_denial`, while the same denial in a batch rode in
+the body, so a caller handled one decision in two shapes.
+
+- `ExecuteTransaction`, `TransactionResponse` and `TransactionResultItem.denial_reason`
+  state that every per-item denial is answered in the body, whatever the item count.
+  `TransactionDenial` is used only when the Exchange refuses the whole request and decides
+  no item, for a reason about the caller that would deny every item alike (for example
+  `ACCOUNT_NOT_REGISTERED`, `ACCOUNT_INACTIVE`, `REPORTING_OVERDUE`, `RATE_LIMITED`).
+  `TransactionDenial.restriction_mismatches` and `TransactionDenial.offer_id` are
+  deprecated and never set.
+- `DENIAL_REASON_RELAY_NOT_ACCEPTED` is decided per item by each offer's provider, the
+  provider that sells that resource, and answered in the body. It is never a refusal of the whole
+  sub-request, and an Exchange never sends it as `transaction_denial`.
+- A sub-request whose items are not exactly the agent's `AgentRequestAcceptance` projected
+  onto the Exchange (an item dropped, added or reordered) has every item denied with
+  `DENIAL_REASON_SIGNATURE_INVALID`, in the body: the agent's signature does not cover
+  what arrived. It is not `invalid_argument`, nothing is purchased, and no request-level
+  idempotency state is claimed.
+
+**A usage report is refused for time, never for quantity (comments; one admin field
+deprecated).** `UsageReportRejectionReason` states that the reported quantity is
+unrestricted: no reason refuses a report because its `consumed_quantity` differs from the
+estimate, above or below. Monitoring how far reports fall from estimates is the Exchange
+operator's own business, not part of the protocol.
+The existing `USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED` is the time cause, refused with
+`failed_precondition`; `USAGE_REPORT_REJECTION_REASON_MALFORMED` is a malformed report,
+refused with `invalid_argument`.
+`fora.admin.v1.ReportingPolicy.quantity_tolerance` is deprecated and ignored: an Exchange
+must not refuse a report on it.
+
+**Idempotency keys are scoped per caller, and a reused key with a different request is
+refused (a behaviour change; no wire change).** The file header gains "Idempotency", the one statement of the
+rule for `TransactionRequest`, `UsageReport` and `DisputeRequest`. A key is scoped to the
+authenticated agent, and to the pair (Broker, requester) on a purchase relayed through
+`BrokerService.ExecuteTransaction`; a key another agent or tenant used is never a
+collision. The same key with the same request is a replay answered from the stored result.
+The same key with a different request (for a purchase, different items or another order)
+is refused with the Connect code `already_exists` and an `ErrorDetail` with no typed reason.
+
+**`BrokerService.Resolve` reports a budget as `BUDGET_EXCEEDED` (comments only).**
+`Resolve` may apply the agent's budget (`RequestConstraints`) as a filter over the offers it
+returns. How the budget is computed is the Broker's own behaviour, and the protocol does
+not specify it: which price an offer is compared at, and how spend is counted, are left to
+the party that applies the budget. What the protocol fixes is the report: a URI left with
+no offer is answered with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`, never `NOT_AUTHORIZED`
+and never an error such as `RESOURCE_EXHAUSTED`, and `Resolve` never charges. The
+`RequestConstraints` budget fields keep plain meanings, and `period_budget` no longer says
+transactions are denied.
+
+**`TransactionResponse.total_cost` is unset when the items span currencies (comments
+only).** It is the exact sum of the purchased items' costs in their one shared currency,
+and unset when they span more than one. Currency conversion is out of scope for this
+version, which `BrokerTransactionResponse.totals` states too.
+
+**`DisputeTransaction` states its refusal reasons (comments only).** Every Exchange
+implements the RPC. Each `DisputeFailureReason` now names its check: no transaction for the
+caller, no accepted report for this transaction, the dispute window closed, a dispute
+already filed (a retry under the same key is a replay), and a transaction whose state
+admits no dispute. A filing whose `ext_critical` names a key the Exchange does not
+understand is refused with `DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION` (see the
+critical-extensions entry above).
+
+Docs: the transaction-flow page gains "Denials are in the body" and "Idempotency", states
+the report refusals and the dispute refusal reasons, and drops "no refunds in the
+protocol". The Exchange request flow answers every per-item denial in the body, scopes the
+idempotency key per caller, leaves `total_cost` unset across currencies and stops
+checking a minimum billable quantity. The Broker pages describe the budget as a filter at
+`Resolve` and drop the currency converter and the generated idempotency key. The money-flow
+page divides `unit_cost` by the resource's size rather than by `estimated_quantity`, and
+every walkthrough and example that paired a per-access unit with a token-count estimate now
+states the estimate in the price's own unit. The medical-imaging walkthrough answers its
+DUA failure in the body. Offer examples drop their terms' pricing, and the licensing-terms,
+reference and threat-model pages state the same rules.
+
+**A metered purchase charges estimate × rate, or one unit's rate without an estimate, and
+the charge is final (comments and one validation rule; no wire change).** A `PER_UNIT`
+price is charged per unit, but the protocol did not say what a metered purchase charges.
+
+- The publisher states the rate and the unit. An offer may state a rate with or without
+  `pricing.estimated_quantity`; whether to state one is the publisher's decision, and
+  nothing requires it, on the pushed term or on the offer. An estimate an offer states is
+  positive (rule `offer.metered.estimate_positive`, on `Offer`). An estimate the publisher
+  states, on the term's own pricing or once on `ResourceEntry.estimated_quantity`, is
+  carried onto `Offer.pricing`, the term's own taking precedence.
+- Stated once, on `Pricing`: a metered purchase charges E × R, or one unit, 1 × R, when
+  the offer states no estimate. That is what `TransactionResultItem.cost` carries, and the
+  charge is final. A disagreement about the quantity consumed is a dispute, which this
+  version does not define further. A price whose metering is `NONE` is no different.
+- A usage report is a record of the quantity consumed. `UsageReport`,
+  `Usage.consumed_quantity`, `ReportingObligation` and `UsageReportRejectionReason` state
+  that a report whose quantity differs from the estimate is never refused for it.
+- `buf breaking` against v1.0.0 passes. The rule is new validation: a validating peer
+  refuses a `PER_UNIT` offer that states a zero or negative estimate, including inside a
+  `TransactionRequest`. A `PER_UNIT` offer with no estimate is valid. The cross-field
+  corpus gains the zero and negative cases, and the conformance cases accept a metered
+  offer with no estimate, alone and inside a `TransactionRequest`.
+
+SDKs, in all three languages: the offer verifiers reject a metered offer whose stated
+estimate is not positive, after the signature and expiry checks (Go: `core.Verifier`,
+reason `helpers.ErrMeteredEstimateNotPositive`), and verify a metered offer that states
+none. New checks `IsMeteredOffer` / `is_metered_offer` / `isMeteredOffer` and
+`CheckMeteredEstimate` / `check_metered_estimate` / `checkMeteredEstimate` apply the rule
+without wire validation. The offer-verify vectors gain the metered cases, among them a
+metered offer with no estimate that verifies.
+
+Docs: the transaction-flow page gains "Charging a metered purchase", and its list of
+report checks drops the ±20% quantity tolerance that refused honest reports, as do the
+Exchange storage model and the scenario walkthrough. The licensing-terms page gains
+"Metered pricing: rate, unit and estimate", and the money-flow page, the reference page
+and the walkthroughs describe the charge. The content-ingestion pages, the billing
+adapter, the Exchange configuration and storage pages, the operator guide, the JSONL
+ingestion page and the threat model now describe the pipeline's token count as the size
+`unit_cost` compares by, never an offer's estimate: an offer carries only the estimate the
+publisher states, in the price's own unit, and a usage report never changes the charge.
+The JSONL worked example no longer pairs a per-access price with a token-count estimate.
+
+**A query and a purchase name their requester, and an acceptance names it too:
+`requester`, `Requester.id` and `Requester.domain` are required (validation rules added;
+no wire change).** An agent's offer acceptance signs canonical
+bytes built from the offer, the request's `Requester` and the idempotency key. The proto
+let `Requester.id` be empty, and the SDKs signed an empty `requester_domain` as well, so
+those bytes could name no requester. On a purchase relayed through
+`BrokerService.ExecuteTransaction`, that acceptance is the only agent signature the
+Exchange sees: the request signature there is the Broker's, which says only that the call
+comes from the Broker and never signs the purchase.
+
+- `Requester.id` is REQUIRED, 1 to 255 characters. It is a free label the agent chooses
+  for attribution, for example to tell apart sub-agents or end customers behind one key
+  directory. It is never identity, never used to find keys, and never trusted.
+- `Requester.domain` is REQUIRED, a non-empty bare host under the same pattern every other
+  domain field uses. The pattern already refused an empty value; the comment now says so.
+  The field is the host of the agent's key directory, and never a free label.
+- `requester` itself is REQUIRED on `ResourceQuery`, `TransactionRequest` and
+  `DiscoveryRequest`. A rule on a field of an absent message never runs, so a request
+  that named no requester at all passed the two rules above. `RegisterRequest`,
+  `GetAccountStatusRequest`, `UsageReport` and `DisputeRequest` carry no `requester`.
+- The `Requester.domain` comment said verification never uses the field, which
+  contradicted the relayed purchase. It now states the rule per path. On a direct request
+  (the agent's own signature arrives), a verifier resolves the agent's keys from the
+  covered `Signature-Agent` and MUST require `Requester.domain` to name that same
+  directory, compared by the request-recipient identity rule; a mismatch is refused as
+  `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`. An Exchange applies
+  this to every request the agent signed, as a Broker already did on
+  `ExecuteTransaction`. On a purchase relayed through a Broker, the Exchange MUST verify
+  the agent's acceptances against the key directory `Requester.domain` names. On a
+  Broker's discovery fan-out, which carries no agent signature, the field is the Broker's
+  statement of whom it queries for.
+- `AgentAcceptance`, `AgentAcceptancePayload`, `AgentRequestAcceptance` and
+  `AgentRequestAcceptancePayload` state that an acceptance names a non-empty requester. A
+  signer refuses to sign bytes that name an empty requester, and a verifier refuses an
+  acceptance whose canonical bytes name one, even when the signature over them verifies.
+- `buf breaking` against v1.0.0 passes: adding validation rules is not a wire break. A
+  peer that sent an empty `Requester.id`, or a query or purchase with no `requester`, is
+  now refused by a validating receiver.
+- The validation corpus gains `Requester/id/too_short`, `Requester/id/too_long`,
+  `ResourceQuery/requester/missing`, `TransactionRequest/requester/missing` and
+  `DiscoveryRequest/requester/missing`. Its `Requester` baseline now carries an `id`, and
+  is seeded so the baselines of the three requests carry it.
+
+SDKs, in all three languages: the acceptance canonicalizers and signers refuse an empty
+requester id or domain, for the offer acceptance and the request acceptance alike, and
+the verifiers refuse such an acceptance. Go returns `helpers.ErrAcceptanceRequesterEmpty`
+(new, match it with `errors.Is`) from `CanonicalAcceptanceBytes`, `SignOfferAcceptance`,
+`SignOfferAcceptanceWith`, `VerifyOfferAcceptance`, `RequestAcceptancePayload`,
+`CanonicalRequestAcceptanceBytes`, the request-acceptance signers and
+`VerifyRequestAcceptance`. Python raises `ValueError` from the `*_jcs` canonicalizers and
+signers and from `verify_offer_acceptance_jcs`, and `verify_request_acceptance_jcs`
+returns `False`. TypeScript throws from `acceptancePayload`, `requestAcceptancePayload`
+and the signers, and the verifiers return `false`. The purchase verbs of every client
+(direct and through a Broker) refuse a configured requester with an empty `id` or
+`domain` locally, as a malformed call, before signing or sending anything. The shared
+acceptance vectors move their empty-requester cases into a new `refused` list, which
+records the bytes and raw signature a signer without the check would produce, so each
+language proves it refuses them even though that signature verifies. The generated
+Pydantic models, Zod schemas and TypeScript input types now require `requester` on the
+three requests, a type-level change for code that builds one without it. The Python and
+TypeScript clients validate an outgoing request by default, so a discover left with no
+requester (none configured and none in the message) is refused locally as malformed;
+resolve and the purchase verbs already refused it with a named remedy. Go validates only
+when asked, so its discover is refused by the receiver.
+
+Docs: the authentication page's Requester table and a new "Requester domain and the key
+directory" section, the projected-execute section, the transaction-flow page, the
+reference page and the Exchange request-flow example state the same rules.
+
+**An Exchange tells a relayed request from a direct one (a new receiver rule; no wire
+change).** Agents and Brokers call the same `ExchangeService` RPCs, and `Requester.domain`
+had one rule on a direct request and another on a request a Broker authored, with nothing
+saying how an Exchange tells them apart; the file header said the Exchange does not
+distinguish. The file header gains "Direct and relayed requests", the one statement of
+the rule. On `ResourceQuery` and `TransactionRequest`, an Exchange compares
+`Requester.domain` with the host of the directory the verified signature's covered
+`Signature-Agent` member names, by the request-recipient identity rule. Equal is a direct
+request, under the direct rule. Different is a relayed request, which the Exchange acts on
+only when it admits the signer as a Broker, by its own policy (for example, the Brokers
+registered with it), and otherwise refuses as `unauthenticated` with
+`request_auth_failure` `SIGNATURE_INVALID`. No field marks a relay, and neither
+`WellKnownManifest.role` nor `Requester.type` admits a Broker: both are the sender's own
+statements. A Broker is never relayed to, so a mismatched requester at a Broker is always
+refused. An Exchange that accepts relayed requests needs an admitted-Broker policy. The
+`Role` values gain comments: a Broker's manifest declares `ROLE_BROKER`, which describes
+the document and admits nothing.
+
+Docs: the authentication page gains "Direct and relayed requests", and its key table lists
+a Broker under `ROLE_BROKER`. The transaction-flow, production-architecture, proto-fora,
+Broker overview, exchange-manifest, request-flows and threat-model pages state the rule
+or link to it, and no page gives a Broker `ROLE_AGENT` any more.
+
+**A scope shortfall is never disclosed: `OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT` and
+`DENIAL_REASON_SCOPE_INSUFFICIENT` are deprecated and never sent (no wire change).**
+Their comments described an Exchange sending them, which contradicted `Requester.scopes`:
+a requester never learns about a resource outside its scopes. `Requester.scopes` now
+states the existence-hiding rule once, and the related comments point at it.
+
+- At discovery, when the requester's scopes leave no presentable offer for a resource,
+  the Exchange answers with no offers and no absence reason, exactly as for any resource
+  with nothing to offer. A Broker relaying that answer adds no reason of its own.
+  `OfferGroup.absence_reason` is no longer described as present whenever `offers` is
+  empty.
+- At purchase, an offer the Exchange presented is honoured until it expires, so a scope
+  refusal cannot arise.
+- Both values are marked `[deprecated = true]`. Their numbers are retained, because
+  removing them would break the v1 wire contract, and must not be reused. A receiver
+  treats either value as unknown. The SDK readers still decode them, and the generated
+  models still accept them.
+- The guides no longer tell an Exchange to send either value, or an agent how to react
+  to one: the authentication page's disclosure-policy section became "Existence hiding",
+  and the Exchange-operator, enterprise, AI-agent, discovery-paths and threat-model pages
+  and the reference page follow it. The doc-conformance check now fails if either value
+  is named in the guides.
+
+**Edge discovery headers: `X-Content-Rules` and `X-FORA-Exchange` (HTTP convention
+specified; no message change).** When a publisher's edge refuses an unlicensed AI agent
+with 403, it answers with two discovery headers, and they are now part of the protocol.
+Neither was defined before. The documentation presented `X-Content-Rules` as a FORA
+extension pointing at the Exchange, which was wrong: it points at the publisher's
+manifest. The normative text is the new "Edge discovery headers" section of the
+`fora.proto` file header.
+
+- `X-Content-Rules` is the absolute URL of the publisher's manifest, exactly
+  `https://{domain}/.well-known/fora.json` with the publisher's bare domain (a port
+  allowed) and no userinfo, query, fragment, trailing slash or other path. An edge
+  SHOULD send it on every 403 to a request for licensed content that carries no valid
+  signed URL.
+- `X-FORA-Exchange` is the bare domain of one Exchange that sells the content directly,
+  in the same form as `Offer.exchange`. An edge MAY send it, only together with
+  `X-Content-Rules`, and only for an Exchange its manifest lists. It is an optimisation
+  over `X-Content-Rules`, not a replacement.
+- An agent reads the headers only from a 403, and ignores a value of the wrong shape as
+  if it were absent. With `X-FORA-Exchange` it MAY start discovery at the named
+  Exchange without fetching the publisher's manifest first. It resolves that
+  Exchange's endpoint from the Exchange's own `fora.json`, never from the header, under
+  the request-recipient rule.
+- An agent MUST NOT treat `X-FORA-Exchange` as authorization. Offers are verified by
+  their signatures, and the publisher's manifest stays the authority on which Exchanges
+  sell the content. When the header names an Exchange the manifest does not list, the
+  manifest wins: the agent discards the header, does not transact on an offer from that
+  Exchange, and discovers at the Exchanges the manifest lists.
+
+SDKs, in all three languages: `parse_discovery_hint(status, headers)` (Python, from
+`fora_sdk`), `parseDiscoveryHint(status, headers)` (TypeScript, export path
+`./discovery-hint`) and `helpers.ParseDiscoveryHint(status, header)` (Go) read a
+response's discovery headers into a `DiscoveryHint`: each value with a state of
+`absent`, `valid` or `malformed`. Any status other than 403 reads as absent, and a header
+sent twice is malformed. `reconcile_discovery_hint`, `reconcileDiscoveryHint` and
+`helpers.ReconcileDiscoveryHint` check the hinted Exchange against the domains the
+publisher manifest's `exchanges` lists, with the recipient identity match, and answer
+`listed`, `unlisted` or `no_exchange`. The header names are exported as
+`ContentRulesHeader` and `ExchangeHeader` in all three languages and join
+`wire-constants-vectors.json`. New corpus: `discovery-hint-vectors.json`, replayed by all
+three SDKs.
+
+**Published JSON Schemas, with a strict variant (no wire change).** The SDK build
+already generated a JSON Schema per message from `fora.proto` and discarded it after
+generating the Pydantic and Zod models. Those schemas are now release artifacts under
+`gen/jsonschema/`: one self-contained draft 2020-12 file per message of `fora.v1` and
+`fora.admin.v1`, named by the fully-qualified message name, in two variants.
+`fora.v1.ResourceResponse.schema.json` accepts unknown fields;
+`fora.v1.ResourceResponse.schema.strict.json` sets `additionalProperties: false` on every
+message object at every depth, so a conformance check fails on an unknown or misspelled
+field.
+
+- Shipped in all three packages: the Go module as the `gen/jsonschema/` directory, with
+  `jsonschema.Load(name, strict)` and `jsonschema.FS` in package
+  `github.com/FORA-Protocol/protocol/gen/jsonschema`; `fora-protocol` on PyPI as package
+  data, read with `wire.schemas.load(name, strict=False)` and listed by
+  `wire.schemas.names()`; `@fora-protocol/sdk` on npm under the export path
+  `./jsonschema/*`.
+- The schemas describe canonical proto-JSON. Field names are the snake_case proto names,
+  and the lowerCamel aliases the generator emits are dropped, so a camelCase key is an
+  unknown field. `google.protobuf.Struct` (every `ext`) stays open in the strict variant.
+  A 64-bit integer accepts a decimal string or a JSON integer, with its bound applied to
+  both forms; other numbers are JSON numbers only, so a string cannot carry a value past
+  a numeric bound.
+- They carry the per-field `buf.validate` constraints, and mark `required` every field
+  whose zero value its own rule rejects. Cross-field rules and oneof exclusivity are not
+  expressible per field and are not in the schemas.
+- The drift gate regenerates and compares them like the generated code. A Go conformance
+  test checks them against the descriptors, and both variants must match Go
+  protovalidate on every case of the conformance corpus, in Python and in TypeScript.
+
+**The Broker buys: `BrokerService.ExecuteTransaction` (additive wire change).**
+A purchase of offers from several Exchanges is now one call to the Broker. Before
+this change `BrokerService` had only `Resolve`, and the contract described the
+agent buying at each Exchange directly, with a Broker on the path forwarding the
+request byte-for-byte under a stack of hop signatures. Implementations relayed
+purchases through the Broker anyway, by re-packaging them outside the contract.
+The contract now defines that relay.
+
+- `rpc ExecuteTransaction(TransactionRequest) returns (BrokerTransactionResponse)`
+  on `BrokerService`. The agent sends the same `TransactionRequest` it would send
+  an Exchange: every item with its `AgentAcceptance`, and one
+  `AgentRequestAcceptance` over all items. The Broker verifies the agent's request,
+  groups the items by each signed offer's `exchange`, and sends one
+  `ExchangeService.ExecuteTransaction` per Exchange, signed with its own key. The
+  acceptances travel in each sub-request body, so every Exchange still verifies
+  the agent's consent. The Broker forwards the agent's `idempotency_key` unchanged
+  to every Exchange.
+- New messages: `BrokerTransactionResponse` (`items` in request order,
+  `exchanges`, per-currency `totals`), `ExchangeOutcome` (one per Exchange
+  contacted: `exchange`, `offer_ids`, `agent_identity_hash`, `subscription_quota`)
+  and `UpstreamRefusal` (`party`, the refusing party's bare host; the Connect
+  `code`; the party's `ErrorDetail`). It is the one shape for "a peer refused": the
+  Identity Service's MCP tool errors carry it too.
+- `TransactionResultItem.refusal = 14`. An Exchange's refusal of a whole
+  sub-request is never turned into a Broker error: it rides on each affected item,
+  and the other Exchanges' results come back unchanged.
+- `DenialReason.DENIAL_REASON_RELAY_NOT_ACCEPTED = 19`: the provider at this
+  Exchange does not accept purchases relayed by a Broker. Buy the offer directly.
+- The Broker's own refusals are non-OK errors: `unauthenticated` with
+  `request_auth_failure` for an invalid agent signature, and `SIGNATURE_INVALID`
+  when `requester.domain` is not the agent's verified signing directory;
+  `invalid_argument` for a malformed request; `failed_precondition` for an
+  Exchange it cannot route to or does not approve.
+- `DENIAL_REASON_CONTENT_UNAVAILABLE` is documented as not a catch-all for
+  upstream failures.
+- Re-packaging is safe because each item is atomic and its integrity is per
+  resource: each offer carries its Exchange's signature, each acceptance binds the
+  agent to that one offer, and each result comes from the Exchange that owns the
+  resource. In a result item the one signed value is `retrieval_endpoint`; the
+  combined response is otherwise the Broker's unsigned report.
+- Updated rules: a purchase through a Broker is always re-packaged, and the Broker
+  signs each sub-request alone (see the Web Bot Auth profile entry below). On a
+  re-packaged purchase the delegation holder binding (`cnf.jkt`)
+  and `agent_identity_hash` use the key the item's `AgentAcceptance` verifies
+  under, not the request signer, which is the Broker. An Exchange scopes a relayed
+  request's idempotency key per Broker, authenticated requester and key.
+
+SDKs, in all three languages:
+
+- `BrokerClient.Execute` (Go), `BrokerClient.execute` (Python, async and sync) and
+  `BrokerClient.execute` (TypeScript) buy verified offers through a Broker in one
+  call and return the `BrokerTransactionResponse`. The client builds each item's
+  acceptance and the request acceptance from its signer, stamps `ver` and the
+  requester, and refuses locally, as malformed, a `requester.domain` that is not the
+  host of the directory it signs as (Signature-Agent).
+- The exchange client buys several offers from one Exchange in one request:
+  `Client.ExecuteBatch` in Go, and `execute` given a sequence (Python) or an array
+  (TypeScript). Offers from more than one Exchange are refused locally.
+- The client-request corpus gains the `brokerExecute` verb.
+
+**SDK capabilities for conformance and e2e harnesses, in all three languages (no wire
+change).** A harness can now drive FORA services through the SDK, build a malformed
+request only where it means to, and check every answer through the SDK's own decoder.
+
+- **Pre-signing hook.** A function that receives each RPC request just before it is
+  signed; the request it returns is signed and sent, and the answer decoded as usual.
+  `ClientConfig.before_sign` (Python, an `httpx.Request`), `beforeSign` in
+  `ClientOptions` (TypeScript, a Fetch API `Request`), `connect.WithBeforeSign`
+  (Go, an `*http.Request`). A hook that changes the method or URL, sets a header the
+  signer writes, or fails is refused locally as malformed, and nothing is sent.
+- **Raw mode.** A per-call body sent exactly as given: no `ver`, `idempotency_key` or
+  `requester` is filled in and nothing about the message is refused locally, while the
+  body is still signed and the answer still decoded. `RawBody(body)` in place of a
+  verb's request in Python and TypeScript, `connect.WithRawBody(body)` in Go (binary
+  protobuf; every Go verb now takes call options). A verb that routes by the message
+  still reads its destination from the body's `exchange`.
+- **Strict response decoding.** `ClientConfig(strict=True)` (Python), `strict: true`
+  (TypeScript) and `connect.WithStrictDecoding()` (Go) refuse an answer carrying an
+  unknown field at any depth, or breaking a field-level or cross-field rule. Python and
+  TypeScript check the published strict JSON Schema of the response message and the
+  SDK's cross-field rules, reading a `null` member as absent; Go checks the descriptor's
+  unknown fields and runs protovalidate. An error answer is checked too. The Connect
+  error envelope may carry only `code`, `message` and `details`, must name one of the
+  sixteen Connect codes, and its details must be well formed: each entry carries only
+  `type`, `value` and `debug`, a non-empty `type`, a base64 `value` and at least one of
+  the two. Every `ErrorDetail` in it is checked against the strict `ErrorDetail` schema
+  and its rules, both the decoded binary `value` (an unknown field in the binary
+  encoding included) and the `debug` projection. A refused envelope is malformed, keeps
+  the Connect code on `code`/`Code` and carries no detail; an empty or non-JSON error
+  body is a gateway's answer and is still classified by its status. Without strict
+  decoding an error answer is read as before. `connect-error-vectors.json` gains a
+  `strict_malformed` column on every row and three rows for it: an envelope with an
+  unknown top-level member, a `debug` projection with an unknown field, and a
+  `registration_failure` whose `field_errors` break the RegistrationFailure message
+  rule. All three SDKs replay every row strict and non-strict.
+- **Error decoding.** The JSON SDKs read a Connect error's `ErrorDetail` from the binary
+  `details[].value`, with a table-driven decoder and no protobuf dependency, and fall
+  back to the `debug` projection only when `value` is absent. A value that does not
+  decode is not replaced by its `debug`. The Connect code of a peer's answer has its own
+  field: `CallError.code` (Python), `ForaCallError.code` (TypeScript), `CallError.Code`
+  (Go). `connect-error-vectors.json` now pins the code and the whole detail, including
+  rows carrying only `value`, and the new `error-detail-wire-vectors.json` pins the
+  binary decoding of every field of the ErrorDetail subtree against the descriptor.
+- **Delivery URLs pass through unchanged.** Execute, the Broker purchase and fetch hand
+  back each retrieval URL as the Exchange issued it, and fetch presents the agent's proof
+  of possession. The delivery edge verifies the URL signature and, where it can, the agent
+  binding against that proof; an edge that cannot check the binding (CloudFront with its
+  pre-arranged RSA key pair) checks its own signature and treats the URL as a bearer
+  token. New tests in all three SDKs pin the pass-through.
+- **Admin client.** `AdminClient` covers `fora.admin.v1.AdminService`
+  (`SetTenantFeeRate`, `SetReportingPolicy`) and the two domain-verification RPCs,
+  `RequestDomainVerification` and `ConfirmDomainVerification`: `AdminClient` in Python
+  (async and sync), `createAdminClient` in TypeScript, `connect.NewAdminClient` in Go.
+  Python has no separate factory: as for every other client, the Go factory folds into
+  the `AdminClient` constructor. The SDK parity matrix records it with that reason, as
+  its 17th documented divergence (16 at v1.0.8).
+- **Identity helpers.** Mint a fresh agent: a key and its thumbprint, the Web Bot Auth
+  directory document for a key set, and a signer that signs as it.
+  `generate_key`, `directory_document`, `signing_transport_for` (Python, in
+  `fora_sdk.identity`); `generateKey`, `directoryDocument`, `signingTransportFor`
+  (TypeScript, export path `./identity`); `helpers.GenerateKey`,
+  `helpers.DirectoryDocument`, `core.SigningTransportFor` (Go).
+- **Document readers.** Read and check the documents a party publishes over HTTPS:
+  `read_manifest`, `read_wba_directory`, `read_revocation_list` and
+  `read_license_document` (Python, `fora_sdk.resolvers`); `readManifest`,
+  `readWBADirectory`, `readRevocationList` and `readLicenseDocument` (TypeScript,
+  `./resolvers`); `resolvers.ReadManifest`, `ReadWBADirectory`, `ReadRevocationList` and
+  `ReadLicenseDocument` (Go). Each fetches through the SDK's guarded client, with the
+  SSRF and https-only scheme guards, and returns the parsed generated message with the
+  URL, the bytes and the media type (`Document`), or fails with a typed error; none
+  returns nothing. The manifest must be served as `application/json` and the WBA
+  directory as `application/http-message-signatures-directory+json`
+  (`MediaTypeRefusedError`, `MediaTypeRefused`, `ErrMediaTypeRefused`), fetched with no
+  redirect and signed by every key it lists (see the Web Bot Auth profile entry below). The manifest's `ver` is read first. Every document must pass
+  the strict check below. The license reader checks the `License`, fetches its `uri` and
+  verifies the bytes against `uri_digest` (`LicenseDocument`, or `DigestMismatchError`,
+  `DigestMismatch`, `ErrDigestMismatch`). A failed fetch, a non-200 answer, a body that
+  is not JSON and a body over 1 MiB are an unavailable document; a body over the cap is
+  now refused rather than truncated, in the resolvers as well, and the cap is the read's
+  own in all three SDKs, whatever transport is injected. Go's
+  `ErrDirectoryUnavailable` reads `resolvers: document unavailable`, and a manifest
+  fetch failure in the Go endpoint resolver and requirements reader now wraps it. The
+  endpoint resolver, the registration-requirements reader, the WBA key resolver and the
+  offer-directory fetch read the same documents through the same fetch and decode,
+  without the strict check; the WBA key resolver and the offer-directory fetch still
+  check a directory's media type and response signatures. The Python and TypeScript readers return the
+  generated model, which names an enum by its value name, so they refuse a document that
+  writes an enum as its number; the Go reader accepts it. New corpora:
+  `document-check-vectors.json`, the verdict for a document's bytes and Content-Type, and
+  `license-digest-vectors.json`, both replayed by all three SDKs.
+- **Public strict check.** `check_strict(message_name, payload)` (Python, from
+  `fora_sdk` and `fora_sdk.client`, raising `StrictViolationError`), `checkStrict(message,
+  payload, schema?)` (TypeScript, `./client`, throwing `StrictViolation`) and
+  `helpers.CheckStrict(name, payload)` (Go, wrapping `helpers.ErrStrictViolation`). The
+  client's strict decoding of a success answer and of an error envelope, and the document
+  readers, call this one check in each language. Python and TypeScript check the
+  published strict JSON Schema and the cross-field rules; TypeScript takes the strict
+  schema of a message it does not bundle as the third argument. Go decodes the proto-JSON,
+  refuses unknown fields, a lowerCamelCase member and a 32-bit number or bool written as
+  a string, and runs protovalidate; `helpers.CheckStrictMessage` is the same check on a
+  decoded message, which the Go client applies to binary answers. The Python client's
+  `proof_headers` stays internal: a harness signs a delivery fetch with the public
+  `sign_agent_binding`, as Go does with `helpers.SignAgentBinding` and TypeScript with
+  `signInbound`.
+- **Typed request inputs.** Python verbs accept the generated request models as well as
+  dicts, and `to_wire(model)` renders a model as the JSON object the SDK sends.
+  TypeScript exports the request input types its verbs are typed with. Go verbs already
+  take the generated messages.
+
+**A request-signature refusal carries a typed reason (additive wire change).**
+An RPC request whose RFC 9421 HTTP message signature failed verification was
+refused as Connect `unauthenticated` with only a message, such as
+`helpers: missing Signature-Input header`. The contract tells clients to branch on
+a typed reason and never on the message, and `ErrorDetail` had no reason for this
+failure. It now has one: a new `reason` oneof member,
+`RequestAuthFailure request_auth_failure = 17`, whose `RequestAuthFailureReason` is
+one of three values:
+
+- `SIGNATURE_MISSING`: no signature, or none that parses. Sign the request.
+- `SIGNATURE_INVALID`: the signature does not verify, for example a bad
+  signature, a key that cannot be resolved, a content-digest mismatch or a
+  required covered component that is missing.
+- `SIGNATURE_STALE`: the signature is outside its `created`/`expires` window, or
+  was already used. Sign the request again, now.
+
+The values are deliberately coarse: each names what the caller does next, never
+which validation step failed, so a refusal tells a forger nothing about how far
+its request got.
+
+The Go server binding attaches the detail. `connectserver.WriteReject`, which the
+verify seam of `NewExchangeServiceHandler`, `NewBrokerServiceHandler` and
+`NewCatalogServiceHandler` answers with, now adds one `fora.v1.ErrorDetail` to the
+`details` of every `unauthenticated` refusal. The reason comes from the
+verification error: a missing or malformed `Signature-Input` or `Signature` is
+`SIGNATURE_MISSING`; an expired signature, one created in the future, or a replay
+(`connectserver.ErrReplayed`) is `SIGNATURE_STALE`; every other error, including
+one the mapping does not know, is `SIGNATURE_INVALID`. The detail's `domain` is
+empty, because the writer is not given the request and cannot name the service.
+The envelope's `code` and `message` are unchanged, and a `resource_exhausted`
+refusal still carries no detail.
+
+The detail builders gain `helpers.RequestAuthFailureDetail` (Go),
+`request_auth_failure_detail` (Python) and `requestAuthFailureDetail`
+(TypeScript), and the readers (`helpers.Reason`, `reason`) return the new enum.
+The Python and TypeScript SDKs have no RPC refusal writer, so they read this
+detail but do not emit it.
+**Request signatures and key directories follow the Web Bot Auth profile (SDK and wire
+change; a hard cut).** The Authentication page said FORA was "automatically compatible"
+with Web Bot Auth and that "no changes to FORA's authentication are required". That was
+not true: a Web Bot Auth verifier refused a FORA signature, and a FORA verifier refused a
+signature from a Web Bot Auth library. The pages also disagreed with each other:
+Transaction Flow and the Exchange request flows said each hop covers `@method`,
+`@authority`, `@path` and `Content-Digest`, while Authentication required `@method`,
+`@target-uri`, `content-digest`, `authorization` and `signature-agent`.
+
+The target is draft-ietf-webbotauth-httpsig-protocol-00 (1 September 2026), the only
+document the IETF webbotauth working group has adopted. Authentication specifies the
+profile in one place, the other pages and the proto comments refer to it, and the three
+SDKs implement it:
+
+- Every FORA request signature is a conformant Web Bot Auth signature.
+  `Signature-Agent` is a structured-field dictionary with one member per signature,
+  `<label>="https://<origin>"`, covered as `"signature-agent";key="<label>"`. The
+  signature covers `@target-uri` or `@authority`, and carries `created`, `expires`,
+  `keyid` (the RFC 7638 thumbprint), `alg="ed25519"`, `tag="web-bot-auth"` and a fresh
+  64-byte `nonce`. Its lifetime is at most five minutes.
+- A FORA RPC signature also covers `@method`, `@target-uri`, `content-digest` and
+  `authorization`. This is FORA policy on top of Web Bot Auth, advertised through
+  `Accept-Signature`. A bodiless request at the publisher edge needs only the Web Bot
+  Auth base.
+- Signers use a `Signature-Agent` member key equal to the signature label. Verifiers
+  also accept a member key that differs from the label, a signature without a nonce, and
+  a member with `type=directory`. The legacy sf-string `Signature-Agent` is accepted on a
+  request carrying one signature only. Verifiers refuse a signature with no `tag`, a
+  `Signature-Agent` member that is not an https origin, and the bare unquoted value the
+  v1.0.8 SDKs sent, and answer a missing component, a refused form or a member that is
+  not an https origin with `Accept-Signature` listing what they require. `Signature-Agent` is never empty; an
+  empty `Authorization` stays valid.
+- Several signatures: each is verified on its own, against the key its `keyid` names in
+  the directory its own covered member names; a signature that covers several members
+  (because it covers an earlier signature) follows the one keyed to its label. Covering
+  an earlier signature is optional (WG-00 §5.2.2), and a signature that covers
+  `"signature";key=X` must also cover `"signature-input";key=X` and every component X
+  lists, and X must appear before it. Labels carry no meaning; the `sig1` to `sigN`
+  requirement is gone. The hop caps count every signature. FORA's Broker never forwards
+  an agent's request unchanged, so it never covers an agent's signature: discovery
+  through the Broker is Broker-led, the Broker choosing the Exchanges and originating its
+  own queries, and execute is re-packaged per Exchange; in both cases the Broker signs
+  alone, covering its own request and only its own member. How an agent proves a
+  holder-of-key entitlement at discovery time through a Broker is an open protocol
+  question, tracked separately. On a relayed purchase the agent's identity and consent
+  come from `AgentAcceptance`, verified against the agent's registered key resolved from
+  `Requester.domain`. That key gives the delivery-URL binding, and a delegation's
+  `cnf.jkt` is checked against it; a Broker is never delegated to. The Exchange resolves
+  each signer's key in the directory that signer names, not in a configured key set.
+- The retrieval proof of possession at the publisher edge is a full Web Bot Auth
+  signature plus `@method` and `@target-uri`. That covered set is a minimum: a proof that
+  also covers `@authority`, or a header, verifies. The edge keeps verifying offline with the
+  key in `X-FORA-Agent-Key`, which it accepts only when its thumbprint equals both the
+  signature `keyid` and the delivery URL's `agent_id`. A generic WBA verifier accepts
+  the same signature by resolving the agent's directory.
+- Key directories are served over https at
+  `/.well-known/http-message-signatures-directory`, answer `200` without a redirect, use
+  the media type `application/http-message-signatures-directory+json`, and carry a
+  response signature per listed key with `tag="http-message-signatures-directory"`,
+  covering `"@authority";req` and `content-digest`. A revocation list and the `fora.json`
+  manifest may still follow up to five redirects. Each key's JWK `alg` stays `EdDSA`, the
+  JOSE name RFC 7517 §4.4 defines. This is a known, deliberate deviation from WG-00
+  §5.5.1, which restricts that member to HTTP Message Signatures names (`ed25519`); FORA
+  follows RFC 7517 and Cloudflare's reference library. It is the only deviation from
+  WG-00.
+
+Authentication includes a complete signed request, a query a Broker originated and
+signed alone, and a signed directory response, all with real values the SDKs reproduce
+byte for byte.
+
+SDKs, in all three languages:
+
+- Signing: `helpers.SignRequest` / `sign_request` / `signRequest` and
+  `helpers.AppendSignature` / `append_signature` / `appendSignature` take the signer's
+  directory origin and emit the dictionary member, the tag and the profile's parameter
+  order (created, expires, keyid, alg, nonce, tag). They refuse a missing or non-origin
+  directory (`helpers.CheckHTTPSOrigin` / `check_https_origin` / `checkHttpsOrigin`), a
+  window over five minutes (`MaxSignatureLifetime` / `MAX_SIGNATURE_LIFETIME`), an
+  unusable label, and appending to a legacy `Signature-Agent`. An appended signature
+  covers only its own request and member unless asked to cover the previous one
+  (`SignOptions.CoverPrevious`, `cover_previous`, `coverPrevious`). Go's `SignOptions`
+  gains `SignatureAgent`, `Label` and `CoverPrevious`.
+- Verifying: the verifiers apply the rules above, resolve each signature's key with the
+  directory its member names, and carry that directory on the result. A refusal for a
+  missing component, a refused form or a member that is not an https origin carries the
+  `Accept-Signature` value
+  (`helpers.AcceptSignature` / `accept_signature` / `acceptSignature`): Go's
+  `connectserver` writes it on the 401, and the Python and TypeScript server verdicts carry
+  it. The key resolver receives the directory of the signature it resolves: Go threads it
+  through `helpers.SignatureAgentFromContext`, while Python's `KeyResolver.resolve` and
+  TypeScript's `RequestKeyResolver.resolve` take it as a second argument (a breaking change
+  for a custom resolver). `helpers.ErrBrokenSignatureChain` now means an incomplete or
+  dangling coverage of an earlier signature. `helpers.BrokerKeyIDPrefix` is deprecated.
+  The TypeScript helpers that served the old chain (`COVERED_COMPONENTS`,
+  `buildRequestSignatureBase`, `maxSigLabelN`, `signatureBytesByLabel`,
+  `parseMultisigSignatureInput` and the regex-based proof parsers) are removed.
+- Signing transports: 64-byte nonces; a directory is required (`WithSignatureAgent`,
+  `signature_agent`, `signatureAgent`), and a client without one refuses a signed call
+  locally as malformed. A per-request signer source (`core.WithSignerSource` /
+  `SignerSource`) signs each request as the identity a callback picks. Append mode
+  (`core.WithAppendSigner`, `appendOnly`) is joined by Python's `append_only`, which
+  Python lacked. `core.MonotonicWindow` / `monotonic_window` / `monotonicWindow` used to
+  move `created` forward by one second per request, stamping signatures in the future
+  above one request per second; it now signs at the clock's current time, exactly as the
+  clock window, and is deprecated.
+- Delivery proof: `helpers.SignAgentBinding` / `sign_agent_binding` / `signInbound`
+  take the agent's directory, a nonce and the HTTP method, and emit the
+  `Signature-Agent` header. Python's `sign_agent_binding` now returns an `AgentBinding`
+  with the four header values instead of a tuple. Go gains the verify face,
+  `helpers.VerifyAgentBinding`, which refuses with a `PoPError` (`PoPFailure` token and
+  `PoPAcceptSignature`). The three verifiers accept a proof covering at least the
+  profile's components, parse it with a structured-field parser, and refuse with the same
+  tokens; a refusal the fetcher can fix carries `PoPAcceptSignature` /
+  `POP_ACCEPT_SIGNATURE`, and the Hono middleware answers it with 401 and that header.
+- Directories: `helpers.SignDirectoryResponse` / `sign_directory_response` /
+  `signDirectoryResponse` sign a directory response and
+  `helpers.VerifyDirectoryResponse` / `verify_directory_response` /
+  `verifyDirectoryResponse` check one. The WBA key resolvers and the offer-directory
+  fetch refuse redirects, check the media type and hand out only keys that signed the
+  response; `ReadWBADirectory` / `read_wba_directory` / `readWBADirectory` require every
+  listed key to have signed, and refuse `application/jwk-set+json`. The key resolver's
+  scheme option, which let a configuration fetch an https origin's directory in
+  plaintext, is removed from all three SDKs (Go `WBAKeyResolverOptions.Scheme`, Python
+  `WBAKeyResolver(scheme=...)`, TypeScript `WBAKeyResolverOptions.scheme`): a directory
+  is always fetched over https. The
+  constants `WBATag`, `DirectoryResponseTag` and `AcceptSignatureHeader` join the wire
+  constants.
+- TypeScript on edge runtimes: the SDK typechecks under `@cloudflare/workers-types`, and
+  `npm test` runs that check. `@fora-protocol/sdk/resolvers/edge` is a new entry for an
+  edge runtime: the resolvers with an injected `fetch` and no Node import. The existing
+  `@fora-protocol/sdk/resolvers` entry keeps its guarded Node default. A guard test fails
+  on any `undici` or `node:` import, and any Node global, reachable from the edge entry,
+  `src/`, `core/` or `hono/`. `verifyDirectoryResponse`, `readWBADirectory`,
+  `createWBAKeyResolver` and `createWBAOfferDirectoryFetch` take the injectable
+  `verifyEd25519` primitive `verifyAgentBinding` already took, so a runtime without
+  WebCrypto Ed25519, such as Fastly Compute, no longer reads every directory key as
+  unsigned. The document read bounds itself on both TypeScript entries, as Go's and
+  Python's readers do: it caps a body at 1 MiB, ends the whole read at 30 seconds and
+  passes its signal to the transport, and follows redirects itself, at most five,
+  refusing a hop out of http(s), from https down to plaintext http or carrying
+  credentials, and any redirect for a key directory. Those bounds lived only in the Node
+  transports, so a read through an edge runtime's own fetch was unbounded; on Node, a
+  document read no longer follows a redirect from https to http either.
+- TypeScript strict check: the strict schemas of the messages the SDK checks by name are
+  compiled at build time with ajv's standalone output, into the generated, drift-gated
+  `gen/ts/strict/`, so the strict readers and the client's strict decoding generate no code
+  at run time. On Cloudflare Workers, which refuses code built from strings, every strict
+  reader used to fail with an `EvalError`. A schema passed to `checkStrict` as its third
+  argument is still compiled at run time. A test runs the edge readers where code
+  generation from strings is refused.
+- TypeScript bundle size: the packages are marked `"sideEffects": false` and each generated
+  Zod schema is built in a call marked pure (`gen/ts/wire/schemas.ts` is regenerated), so a
+  bundler keeps only what a program imports. Importing one constant from the edge entry
+  carried about 0.9 MB and now carries a few bytes; a strict reader carries its own
+  message's validator and Zod schema. A guard test bundles the edge entry and checks it.
+- Shared vectors, regenerated by the Go oracle and replayed by all three SDKs:
+  `sign-request-vectors.json`, `verify-request-neg-vectors.json` (now with the expected
+  `Accept-Signature`), the new `verify-request-accept-vectors.json` (the forms a verifier
+  must accept), `multisig-chain-vectors.json` (each signer with its own directory, so a
+  verifier that resolves through the wrong member fails), `pop-vectors.json` (now with
+  each vector's expected refusal token and `Accept-Signature`, and superset proofs),
+  `wire-constants-vectors.json`, `document-check-vectors.json` and the new
+  `directory-response-vectors.json`. The Go suite also checks the draft's Appendix E.2
+  Ed25519 vectors against its signature base builder.
+
+The change is a hard cut with no transition window: verifiers refuse the bare unquoted
+`Signature-Agent` that v1.0.8 sends and a directory served as `application/jwk-set+json`
+or unsigned, so v1.0.8 clients and directories must upgrade. The reference
+implementation's directories are still served as `application/jwk-set+json` and unsigned,
+and change when it adopts this release.
+
 ## v1.0.8
 
 **Request signatures carry an RFC 9421 `nonce` (SDK fix; no wire change for

@@ -23,8 +23,9 @@ export class UnknownKey extends ResolverError {
   }
 }
 
-/** The WBA identity directory (or a well-known JWKS/manifest) could not be
- * fetched, returned non-200, or failed to decode. DISTINCT from unknown-key so a
+/** A document could not be fetched, returned non-200, or failed to decode: the
+ * WBA identity directory, a well-known JWKS or manifest, a revocation list, or a
+ * license document. DISTINCT from unknown-key so a
  * fail-closed composite halts on an outage instead of falling through. */
 export class DirectoryUnavailable extends ResolverError {
   constructor(message: string, options?: { cause?: unknown }) {
@@ -157,5 +158,43 @@ export class ManifestVersionRefused extends ResolverError {
   constructor(message: string, options?: { cause?: unknown }) {
     super(message, options);
     this.name = "ManifestVersionRefused";
+  }
+}
+
+/** A document was served under a media type other than the one the protocol names
+ * for it: application/json for /.well-known/fora.json and
+ * application/http-message-signatures-directory+json for the WBA directory. A VERDICT
+ * on what the party publishes, never worth retrying. The document readers throw it;
+ * the WBA key resolver and the offer-directory fetch check the directory's label too and
+ * report a wrong one as DirectoryUnavailable, carrying this as its cause. Peer of Go
+ * `ErrMediaTypeRefused` / Python `MediaTypeRefusedError`. */
+export class MediaTypeRefused extends ResolverError {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "MediaTypeRefused";
+  }
+}
+
+/** The bytes served at License.uri do not hash to License.uri_digest. The digest is
+ * covered by the offer signature, so a mismatch means the document changed after the
+ * offer was signed, or the server answering is not the one the offer named. A
+ * VERDICT, never retried. Peer of Go `ErrDigestMismatch` / Python
+ * `DigestMismatchError`. */
+export class DigestMismatch extends ResolverError {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "DigestMismatch";
+  }
+}
+
+/** A key directory whose response is not signed by every key it lists: no response
+ * signature at all, a Content-Digest that does not match the body, or a listed key with
+ * no valid signature of its own. Thrown by readWBADirectory, which checks what a party
+ * publishes; the WBA key resolver instead hands out only the keys that did sign. A
+ * VERDICT, never retried. Peer of Go `ErrDirectoryResponseUnsigned`. */
+export class DirectoryResponseUnsigned extends ResolverError {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "DirectoryResponseUnsigned";
   }
 }

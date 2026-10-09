@@ -1,0 +1,25 @@
+{
+  "$id": "fora.v1.Cost.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Cost — Actual transaction cost.",
+  "properties": {
+    "amount": {
+      "default": "",
+      "description": "Exact decimal string (not a float), e.g. \"19.99\". Denominated in `currency`.",
+      "maxLength": 32,
+      "pattern": "^([0-9]+([.][0-9]+)?)?$",
+      "type": "string"
+    },
+    "currency": {
+      "default": "",
+      "type": "string"
+    },
+    "unit_cost": {
+      "maxLength": 32,
+      "pattern": "^([0-9]+([.][0-9]+)?)?$",
+      "type": "string"
+    }
+  },
+  "title": "Cost",
+  "type": "object"
+}

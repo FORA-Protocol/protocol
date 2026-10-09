@@ -1,11 +1,13 @@
 package connectserver
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
 
 	connectrpc "connectrpc.com/connect"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
@@ -79,9 +81,19 @@ func httpStatus(code connectrpc.Code, err error) int {
 
 // WriteReject emits a Connect-compatible error response so a Connect client sees a
 // proper code (and matching HTTP status) instead of a raw status. The body shape
-// mirrors Connect's unary error JSON: the two keys code and message, and nothing
-// else — err's own text is the message, so a caller that rejects with a wrapped
-// internal error publishes that text.
+// is Connect's unary error JSON: code and message, where err's own text is the
+// message, so a caller that rejects with a wrapped internal error publishes that
+// text.
+//
+// An Unauthenticated refusal also carries one fora.v1.ErrorDetail in details,
+// whose request_auth_failure block holds the typed reason requestAuthFailureReason
+// derives from err, because the contract tells a client to branch on a typed reason
+// and never on the message. The detail's message is err's text, the same as the
+// envelope's, and its domain is empty: this writer is handed no request, so it
+// cannot name the service the refused call was addressed to, and the reason block
+// already says which surface refused. No other code carries a detail: a resource
+// limit has no reason block in the contract, and a code outside the two this writer
+// models is the caller's verdict, not a signature refusal.
 //
 // The code is a parameter rather than derived, so a mount whose gate carries a
 // resource-limit sentinel this package cannot know about supplies its own verdict
@@ -90,7 +102,10 @@ func httpStatus(code connectrpc.Code, err error) int {
 //
 // It answers the verify seam's two verdicts. ResourceExhausted is a resource or
 // policy limit — 413 for a body past the read cap, 429 otherwise; Unauthenticated is
-// 401. Any other Connect code is answered 401 as well, and the body still reports the
+// 401, and carries an Accept-Signature header naming the components and form the
+// profile requires when the request was unsigned, a signature omits a required
+// component, or its tag or Signature-Agent form is refused
+// (helpers.AcceptSignatureFor). Any other Connect code is answered 401 as well, and the body still reports the
 // code the caller passed: this is a REJECTION writer, not a code→status table, and it
 // refuses rather than translating a verdict it does not model. connect-go keeps the
 // canonical table unexported, so a copy of it here would be the second authority this
@@ -98,10 +113,88 @@ func httpStatus(code connectrpc.Code, err error) int {
 // malformed request, say — writes that response itself.
 func WriteReject(w http.ResponseWriter, code connectrpc.Code, err error) {
 	ce := connectrpc.NewError(code, err)
+	out := rejectBody{Code: code.String(), Message: ce.Message()}
+	if code == connectrpc.CodeUnauthenticated {
+		detail := helpers.RequestAuthFailureDetail("", ce.Message(), requestAuthFailureReason(err))
+		if wd, ok := wireDetailOf(detail); ok {
+			out.Details = []wireDetail{wd}
+		}
+	}
 	w.Header().Set("Content-Type", "application/json")
+	if code == connectrpc.CodeUnauthenticated {
+		// WG-00 §5.3: a refusal for a missing component or a form the profile does
+		// not accept names what the verifier requires, so a Web Bot Auth library
+		// can add the components and sign again.
+		if accept, ok := helpers.AcceptSignatureFor(err); ok {
+			w.Header().Set(helpers.AcceptSignatureHeader, accept)
+		}
+	}
 	w.WriteHeader(httpStatus(code, err))
-	body, _ := json.Marshal(map[string]string{"code": code.String(), "message": ce.Message()})
+	body, _ := json.Marshal(out)
 	_, _ = w.Write(body)
+}
+
+// rejectBody is Connect's unary error JSON. message is always written, as it was
+// before details existed, so a refusal without a detail keeps its exact bytes.
+type rejectBody struct {
+	Code    string       `json:"code"`
+	Message string       `json:"message"`
+	Details []wireDetail `json:"details,omitempty"`
+}
+
+// wireDetail is one entry of a Connect error's details array, in the form connect-go
+// itself writes and reads: the message's fully qualified name, its binary protobuf as
+// unpadded standard base64, and a debug rendering at protojson's default options. A
+// Go client decodes value; the JSON-only SDKs have no binary codec and read debug,
+// which is lowerCamelCase for exactly that reason. connect-go keeps its own encoder
+// unexported, so the shape is restated here and a test holds it equal to what
+// connect-go's ErrorWriter emits for the same error.
+type wireDetail struct {
+	Type  string          `json:"type"`
+	Value string          `json:"value"`
+	Debug json.RawMessage `json:"debug,omitempty"`
+}
+
+// wireDetailOf renders d as a details entry. It reports false when d cannot be
+// marshalled, and the refusal is then written without a detail rather than not at
+// all, the same best-effort rule AttachDetail follows.
+func wireDetailOf(d *forav1.ErrorDetail) (wireDetail, bool) {
+	cd, err := connectrpc.NewErrorDetail(d)
+	if err != nil {
+		return wireDetail{}, false
+	}
+	out := wireDetail{Type: cd.Type(), Value: base64.RawStdEncoding.EncodeToString(cd.Bytes())}
+	if debug, derr := (protojson.MarshalOptions{}).Marshal(d); derr == nil {
+		out.Debug = debug
+	}
+	return out, true
+}
+
+// requestAuthFailureReason maps a verify-face rejection to the typed reason an
+// Unauthenticated refusal carries. The three reasons name what the caller does next,
+// never which check failed, so several sentinels share each one:
+//
+//   - SIGNATURE_MISSING: no Signature-Input or Signature header, or one that does not
+//     parse. The caller signs the request.
+//   - SIGNATURE_STALE: expired, created in the future, or a nonce the replay store has
+//     already seen. The caller signs the request again, now.
+//   - SIGNATURE_INVALID: everything else, including an error this function has never
+//     heard of. The default is the arm that matters: a sentinel added to the verifier
+//     later lands here without an edit, and the most general reason is the only one
+//     that cannot send a caller after the wrong remedy.
+func requestAuthFailureReason(err error) forav1.RequestAuthFailureReason {
+	switch {
+	case errors.Is(err, helpers.ErrMissingSignatureInput),
+		errors.Is(err, helpers.ErrMissingSignature),
+		errors.Is(err, helpers.ErrMalformedSignatureInput):
+		return forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING
+	case errors.Is(err, helpers.ErrExpired),
+		errors.Is(err, helpers.ErrFutureCreated),
+		errors.Is(err, ErrReplayed):
+		return forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE
+	default:
+		return forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID
+	}
 }
 
 // AsConnectError builds a *connect.Error of the given Code with detail attached

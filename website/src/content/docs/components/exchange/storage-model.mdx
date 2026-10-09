@@ -254,14 +254,14 @@ The Reporting Tracker tracks two independent metrics that must not be conflated:
 
 **a) Reporting compliance rate**: The percentage of transactions that received a usage report within the reporting window. This measures whether the agent is fulfilling its reporting obligations at all. Providers set the threshold (e.g., 98% required). The protocol RECOMMENDS 95% minimum compliance.
 
-**b) Consumption accuracy**: The deviation between reported consumption (`UsageReport.usage.consumed_quantity`) and estimated consumption (`Offer.pricing.estimated_quantity`). Per-request tolerance is +/-20%. Cumulative deviation is tracked but thresholds are Exchange implementation, not protocol.
+**b) Consumption accuracy**: The deviation between reported consumption (`UsageReport.usage.consumed_quantity`) and estimated consumption (`Offer.pricing.estimated_quantity`). A per-request deviation never refuses a report, and a metered purchase's charge is final (see [Charging a metered purchase](/protocol/transaction-flow/#charging-a-metered-purchase)). Monitoring deviation is the Exchange operator's own business: cumulative deviation is tracked, but thresholds are Exchange implementation, not protocol.
 
 These metrics are INDEPENDENT:
 - An agent could have **100% compliance rate** but consistently underreport tokens (high compliance, low accuracy)
 - An agent could have **80% compliance rate** but be accurate when it does report (low compliance, high accuracy)
 - Enforcement gates on **compliance rate** (blocking transactions for non-reporting). Token accuracy is tracked for analytics and potential contract-level enforcement, but does not trigger protocol-level blocking.
 
-Cumulative benchmarking (same content, different agents, compare reported token counts) is an Exchange implementation concern, not a protocol requirement. The protocol accepts that token accuracy is a known limitation — agents self-report, and the Exchange's token estimate is itself approximate (word_count x 1.32).
+Cumulative benchmarking (same content, different agents, compare reported token counts) is an Exchange implementation concern, not a protocol requirement. The protocol accepts that token accuracy is a known limitation: agents self-report, and the Exchange's own token count for a resource (word_count x 1.32) is approximate. Neither changes a charge — a metered purchase is charged at the publisher's estimate × rate, or one unit's rate without one, and that charge is final.
 
 ### Provider Audit Access
 

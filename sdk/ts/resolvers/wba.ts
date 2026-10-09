@@ -1,20 +1,23 @@
 // The WBA identity-directory key resolver + revocation poller. Ports
 // sdk/go/helpers/wbakeyresolver.go 1:1: resolve a thumbprint (the RFC 9421 keyid,
 // NEVER a kid) against a WBA directory, enforcing the key's [not_before,
-// not_after) window and the host's revocation snapshot. The directory host that
-// Go threads through ctx (Signature-Agent) is passed EXPLICITLY as the second
-// resolve argument. The gen Zod schemas decode the WBA docs (thumbprint-keyed,
+// not_after) window and the host's revocation snapshot. The directory — the origin
+// the signature's own covered Signature-Agent member names, which Go threads through
+// ctx — is passed EXPLICITLY as the second resolve argument. A directory is fetched
+// with no redirect, must be served as WBA_DIRECTORY_MEDIA_TYPE, and only the keys that
+// signed its response are ever handed out. The gen Zod schemas decode the WBA docs (thumbprint-keyed,
 // need no kid); thumbprint reuses the byte-parity-pinned primitive.
 //
 // The monotonic revocation guard + far-future as_of clamp + revocation priming
 // live in the SHARED refresh routine (refreshRevocationFor), invoked by BOTH the
 // sync directory-fetch path AND the Run poller — never poller-only.
 
-import {
+import type {
 	KeyRevocationListSchema,
 	WBAFileSchema,
 } from "../../../gen/ts/wire/schemas.ts";
 import { decodeBase64UrlStrict } from "../src/base64url.ts";
+import type { Ed25519Verify } from "../src/pop.ts";
 import { hostAnchored } from "../src/hosts.ts";
 import { thumbprint } from "../src/thumbprint.ts";
 import {
@@ -23,30 +26,13 @@ import {
 	KeyRevoked,
 	RevocationUnevaluated,
 } from "./errors.ts";
-import {
-	type FetchLike,
-	fetchSoft,
-	fetchStrict,
-	guardedFetch,
-} from "./http.ts";
+import { fetchRevocationList, fetchWBAFile, WBA_DIRECTORY_PATH } from "./documents.ts";
+import type { FetchLike } from "./fetch.ts";
 
-/** The single public well-known path a WBA identity directory is served at (Web
- * Bot Auth; the identity half of the identity/commercial split — the commercial
- * overlay stays in /.well-known/fora.json). The one shared copy across the whole SDK. */
-export const WBA_DIRECTORY_PATH =
-	"/.well-known/http-message-signatures-directory";
+// Re-exported so the module that has always carried them still does; the one copy of
+// each lives with the document reads in ./documents.ts.
+export { WBA_DIRECTORY_PATH, wbaDirectoryURL } from "./documents.ts";
 
-/** Build the full WBA identity-directory URL from a scheme and an already-joined
- * host: `${scheme}://${host}` + {@link WBA_DIRECTORY_PATH}. An empty scheme
- * defaults to https. A PURE string function — the host arrives ALREADY-JOINED (any
- * port-join / IPv6 bracketing is the caller's concern), there is NO env read and NO
- * scheme-in-host detection (those stay consumer glue). It mirrors the sdk/go
- * WBADirectoryURL oracle byte-for-byte, locked by the tri-replayed
- * wba-url-vectors.json corpus. */
-export function wbaDirectoryURL(scheme: string, host: string): string {
-	const s = scheme === "" ? "https" : scheme;
-	return `${s}://${host}${WBA_DIRECTORY_PATH}`;
-}
 const DEFAULT_TTL_MS = 3_600_000; // 1 hour
 const DEFAULT_POLL_MS = 300_000; // 300 s
 const DEFAULT_SYNC_DEBOUNCE_MS = 5_000; // unknown-thumbprint force-refresh throttle
@@ -59,7 +45,6 @@ type WBAJwk = NonNullable<WBAFile["keys"]>[number];
 /** Options for the WBA resolver. Zero values are safe defaults; tests inject the
  * clock (`now`), the poll timer (`after`), and the armed/cycle seams. */
 export interface WBAKeyResolverOptions {
-	scheme?: string;
 	ttlMs?: number;
 	pollIntervalMs?: number;
 	/** Throttle for the unknown-thumbprint force-refresh, per directory host (≤0 →
@@ -79,7 +64,15 @@ export interface WBAKeyResolverOptions {
 	after?: (ms: number) => Promise<void>;
 	onPollArmed?: () => void;
 	onPollCycle?: () => void;
-	fetch?: FetchLike;
+	/** The Ed25519 verify primitive a directory's response signatures are checked with,
+	 * for a runtime without WebCrypto Ed25519 (Fastly Compute). Defaults to WebCrypto.
+	 * Without a working primitive every listed key reads as unsigned and none resolves. */
+	verifyEd25519?: Ed25519Verify;
+	/** The transport directories and revocation lists are fetched through. Required
+	 * here; the Node entry's createWBAKeyResolver defaults it to the SSRF-guarded
+	 * transport, because the directory host comes from the request-supplied
+	 * Signature-Agent and is fetched pre-auth. An edge runtime injects its own. */
+	fetch: FetchLike;
 }
 
 /** The WBA key face. `resolve` returns the raw Ed25519 public key, `undefined`
@@ -91,18 +84,27 @@ export interface WBAKeyResolver {
 		directory: string,
 	): Promise<Uint8Array | undefined>;
 	run(signal: AbortSignal): Promise<void>;
-	/** Whether `keyId` (a thumbprint) is in ANY host's fetched revocation snapshot,
-	 * INDEPENDENT of WBA directory membership. `resolve` gates a key only when the
-	 * directory lists it (removal is not revocation), so a key resolved from another
-	 * source — e.g. a static bootstrap file — is invisible to that path; `revoked`
-	 * is the fail-closed hook a composite consults to reject a broker-revoked,
-	 * directory-absent thumbprint. False when no snapshot has been fetched. */
-	revoked(keyId: string): boolean;
+	/** Whether `keyId` (a thumbprint) is on the revocation list of the key directory
+	 * `directory` names, and on no other list. A list covers only its own directory's
+	 * keys: no party's list revokes another party's key, even when it names that key's
+	 * thumbprint. `directory` is a directory reference as `resolve` takes it (an https
+	 * origin or a bare host), normalized the same way, so letter case and a port of 443
+	 * written out name the same directory. An empty or unusable reference, or an empty
+	 * `keyId`, answers false.
+	 *
+	 * The answer is membership, INDEPENDENT of WBA directory membership: `resolve`
+	 * gates a key only when the directory lists it (removal is not revocation), so a
+	 * key resolved from another source — e.g. a static bootstrap file holding a copy of
+	 * that party's key — is invisible to that path, and `revoked` is the fail-closed
+	 * hook a composite consults against the key owner's own list. A directory's list is
+	 * known once the directory has been fetched, including a directory that lists no
+	 * key; before that it answers false (membership only, never an outage). */
+	revoked(keyId: string, directory: string): boolean;
 }
 
-/** Construct a WBA resolver with defaults applied. */
+/** Construct a WBA resolver with defaults applied (every option but `fetch`). */
 export function createWBAKeyResolver(
-	opts: WBAKeyResolverOptions = {},
+	opts: WBAKeyResolverOptions,
 ): WBAKeyResolver {
 	return new WBAResolverImpl(opts);
 }
@@ -118,7 +120,6 @@ interface RevSet {
 }
 
 class WBAResolverImpl implements WBAKeyResolver {
-	private readonly scheme: string;
 	private readonly ttlMs: number;
 	private readonly pollMs: number;
 	private readonly syncDebounceMs: number;
@@ -128,6 +129,7 @@ class WBAResolverImpl implements WBAKeyResolver {
 	private readonly onPollArmed: (() => void) | undefined;
 	private readonly onPollCycle: (() => void) | undefined;
 	private readonly fetchFn: FetchLike;
+	private readonly verifyEd25519: Ed25519Verify | undefined;
 	private readonly dirCache = new Map<string, DirEntry>();
 	private readonly revSnapshots = new Map<string, RevSet>();
 	// lastSync throttles the unknown-thumbprint force-refresh to one per debounce
@@ -137,7 +139,6 @@ class WBAResolverImpl implements WBAKeyResolver {
 	private readonly inflight = new Map<string, Promise<WBAFile>>();
 
 	constructor(opts: WBAKeyResolverOptions) {
-		this.scheme = opts.scheme && opts.scheme !== "" ? opts.scheme : "https";
 		this.ttlMs = opts.ttlMs && opts.ttlMs > 0 ? opts.ttlMs : DEFAULT_TTL_MS;
 		this.pollMs =
 			opts.pollIntervalMs && opts.pollIntervalMs > 0
@@ -153,9 +154,8 @@ class WBAResolverImpl implements WBAKeyResolver {
 			opts.after ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
 		this.onPollArmed = opts.onPollArmed;
 		this.onPollCycle = opts.onPollCycle;
-		// The WBA directory host comes from the request-supplied Signature-Agent and
-		// is fetched pre-auth, so the default is SSRF-guarded (matches the Go oracle).
-		this.fetchFn = opts.fetch ?? guardedFetch;
+		this.fetchFn = opts.fetch;
+		this.verifyEd25519 = opts.verifyEd25519;
 	}
 
 	async resolve(
@@ -163,7 +163,7 @@ class WBAResolverImpl implements WBAKeyResolver {
 		directory: string,
 	): Promise<Uint8Array | undefined> {
 		if (directory === "" || keyID === "") return undefined;
-		const parsed = directoryBase(directory, this.scheme);
+		const parsed = directoryBase(directory);
 		// A malformed Signature-Agent cannot name a directory: fall-through
 		// (undefined), NOT a fail-closed DirectoryUnavailable halt.
 		if (!parsed) return undefined;
@@ -247,13 +247,11 @@ class WBAResolverImpl implements WBAKeyResolver {
 		return file;
 	}
 
-	private async fetchDirectory(base: string): Promise<WBAFile> {
-		const body = await fetchStrict(this.fetchFn, base + WBA_DIRECTORY_PATH);
-		try {
-			return WBAFileSchema.parse(JSON.parse(body));
-		} catch (err) {
-			throw new DirectoryUnavailable("wba directory decode", { cause: err });
-		}
+	private fetchDirectory(base: string): Promise<WBAFile> {
+		return fetchWBAFile(this.fetchFn, base + WBA_DIRECTORY_PATH, {
+			now: this.now(),
+			verifyEd25519: this.verifyEd25519,
+		});
 	}
 
 	private isRevoked(host: string, thumbprintKey: string): boolean {
@@ -269,12 +267,12 @@ class WBAResolverImpl implements WBAKeyResolver {
 		return this.revSnapshots.has(host);
 	}
 
-	revoked(keyId: string): boolean {
-		if (keyId === "") return false;
-		for (const set of this.revSnapshots.values()) {
-			if (set.thumbprints.has(keyId)) return true;
-		}
-		return false;
+	revoked(keyId: string, directory: string): boolean {
+		if (keyId === "" || directory === "") return false;
+		// directoryBase keys every snapshot by the WHATWG host, which folds letter case
+		// and a default port, so one directory spelled two ways reaches one list.
+		const host = directoryBase(directory)?.host;
+		return host !== undefined && this.isRevoked(host, keyId);
 	}
 
 	// Best-effort: a missing/cross-host/failed/undecodable revocation_url leaves the
@@ -286,13 +284,11 @@ class WBAResolverImpl implements WBAKeyResolver {
 	): Promise<void> {
 		const revURL = file.revocation_url;
 		if (!revURL || !wbaHostAnchored(host, revURL)) return;
-		const body = await fetchSoft(this.fetchFn, revURL);
-		if (body === undefined) return;
 		let list: ReturnType<typeof KeyRevocationListSchema.parse>;
 		try {
-			list = KeyRevocationListSchema.parse(JSON.parse(body));
+			list = await fetchRevocationList(this.fetchFn, revURL);
 		} catch {
-			return;
+			return; // best-effort: a blip or an undecodable list keeps the prior snapshot
 		}
 		this.applyRevocation(host, list);
 	}
@@ -339,13 +335,14 @@ function whenAborted(signal: AbortSignal): Promise<void> {
 	});
 }
 
-/** Normalize a Signature-Agent value (bare host, host:port, or full URL) into a
- * scheme://host base and its host key, or `undefined` when it names no host. */
-function directoryBase(
-	ref: string,
-	scheme: string,
-): { base: string; host: string } | undefined {
-	const withScheme = ref.includes("://") ? ref : `${scheme}://${ref}`;
+/** Normalize a directory reference (an https origin, bare host, host:port, or full
+ * URL) into a scheme://host base and its host key, or `undefined` when it names no
+ * host. A bare host is prefixed with https://, and an https origin is fetched over
+ * https: there is no option that fetches it any other way (Go removed
+ * WBAKeyResolverOptions.Scheme for the same reason), so a test reaches a local server
+ * by injecting a fetch that routes the https URL to it. */
+function directoryBase(ref: string): { base: string; host: string } | undefined {
+	const withScheme = ref.includes("://") ? ref : `https://${ref}`;
 	let url: URL;
 	try {
 		url = new URL(withScheme);
@@ -450,9 +447,9 @@ function publicKeyOf(key: WBAJwk): Uint8Array {
  * it does NOT consult any revocation channel. A key that was emergency-revoked but
  * is still window-active in a (possibly CDN-cached) directory WILL be selected. A
  * caller on a VERIFICATION path MUST NOT trust the result until it has screened the
- * selected key's RFC 7638 thumbprint against the resolver's revoked-thumbprint set
- * (`WBAKeyResolver.revoked` / a revocation snapshot); otherwise adopting this
- * selector defeats emergency revocation. Prefer {@link activeEd25519KeyScreened},
+ * selected key's RFC 7638 thumbprint against the revocation list of the directory it
+ * came from (`WBAKeyResolver.revoked` with that directory, or a snapshot of that
+ * list); otherwise adopting this selector defeats emergency revocation. Prefer {@link activeEd25519KeyScreened},
  * which folds that screen into selection. This bare form is for non-verification
  * callers only. */
 export function activeEd25519Key(
@@ -493,9 +490,9 @@ export function activeEd25519KeyWithExpiry(
  * screen the bare {@link activeEd25519Key} leaves to the caller into selection
  * itself, so an emergency-revoked key still listed in a CDN-cached directory is
  * passed over for the next active, non-revoked key. `revoked` is REQUIRED: pass a
- * predicate over the resolver's revoked-thumbprint set (e.g. `WBAKeyResolver.revoked`)
- * or, for a caller with no revocation channel, an explicit `() => false` to make the
- * waiver visible. It is ASYNC because screening computes each candidate's RFC 7638
+ * predicate over the revocation list of the directory being selected from (e.g.
+ * `(tp) => wba.revoked(tp, directory)`) or, for a caller with no revocation channel,
+ * an explicit `() => false` to make the waiver visible. It is ASYNC because screening computes each candidate's RFC 7638
  * thumbprint (the SAME `crypto.subtle` primitive `WBAKeyResolver.resolve` keys on).
  * Returns `null` when no examined, non-revoked key qualifies. */
 export async function activeEd25519KeyScreened(

@@ -18,8 +18,8 @@ sequenceDiagram
 
     Note over Handler: Validate request (proto validation)
     Note over Handler: Reject unless request.exchange names this Exchange's own domain (INVALID_ARGUMENT)
-    Note over Handler: Verify requester RFC 9421 HTTP Message Signature in the HTTP headers (Ed25519 via domain key lookup)
-    Note over Handler: Verify the stack of forwarding HTTP Message Signatures (RFC 9421, one per hop; if present)
+    Note over Handler: Count the RFC 9421 signatures against max_intermediary_hops before verifying any (over the cap: RESOURCE_EXHAUSTED)
+    Note over Handler: Verify the signature of the party that sent the request (Ed25519, key from the directory its Signature-Agent member names)
     Note over Handler: Extract tenant from ResourceQuery.uris[0] domain
     Note over Handler: (Volumetric rate limiting handled by infra layer — HAProxy/Envoy)
 
@@ -68,21 +68,41 @@ func (h *ExchangeHandler) DiscoverResources(
     }
 
     // 2. Requester identity. Verification already happened at the HTTP seam:
-    //    the SDK's verify middleware checked every RFC 9421 signature — the
-    //    requester's and the whole forwarding chain (each labeled signature
-    //    covers the request essentials plus the previous hop's signature, so
-    //    the ordered header stack IS the chain) — resolving the requester's
-    //    key by its signed keyid (an RFC 7638 thumbprint) in the WBA directory
-    //    named by the COVERED `Signature-Agent` header. The self-asserted
-    //    Requester.domain field never drives key lookup.
+    //    the SDK's verify middleware checked the RFC 9421 signature of the
+    //    party that sent the request — the agent, or a Broker that originated
+    //    or re-packaged it (Authentication > Multi-hop forwarding) — resolving the signer's key
+    //    by its signed keyid (an RFC 7638 thumbprint) in the key directory
+    //    named by the `Signature-Agent` member that signature covers. The
+    //    self-asserted Requester.domain field never drives request-signing key
+    //    lookup.
     //    The handler consumes the proof from the context; it never re-fetches
     //    keys or re-verifies bytes, and it fails closed when the proof is
     //    absent (a route the middleware does not guard).
     requester := req.Msg.Requester
-    verified := helpers.FromContext(ctx) // first (requester) signature; hops via helpers.AllSignaturesFromContext
+    verified := helpers.FromContext(ctx) // the first verified signature in header order; all of them via helpers.AllSignaturesFromContext
     if verified == nil {
         return nil, connect.NewError(connect.CodeUnauthenticated,
             errors.New("request reached the handler without a verified signature"))
+    }
+
+    // 2b. Requester.domain is the host of the agent's key directory, never a
+    //     free label. On a request the agent signed, it MUST name the directory
+    //     the signature resolved from: the host of the covered Signature-Agent
+    //     URL, compared by the request-recipient identity rule (case-folded,
+    //     an absent port the same as :443). A mismatch is a signature that
+    //     verifies, but not for the requester the body names. (A ResourceQuery
+    //     a Broker authored carries the Broker's signature instead; there the
+    //     domain is the Broker's statement of whom it queries for.)
+    host, err := helpers.HostOf(verified.SignatureAgent)
+    verdict := helpers.AudienceMalformed
+    if err == nil {
+        verdict, err = helpers.CheckAudience(host, requester.GetDomain())
+    }
+    if err != nil || verdict != helpers.AudienceAccepted {
+        return nil, connectserver.AttachDetail(
+            connect.NewError(connect.CodeUnauthenticated, errors.New("requester.domain is not the signing directory")),
+            helpers.RequestAuthFailureDetail("fora.v1.ExchangeService", "requester.domain is not the signing directory",
+                forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID))
     }
 
     // 2c. Verify delegation (if present).
@@ -97,8 +117,9 @@ func (h *ExchangeHandler) DiscoverResources(
     // 2d. Resolve the caller's registered account from the VERIFIED identity:
     //     the covered directory (verified.SignatureAgent) plus the RFC 7638
     //     thumbprint of the key the signature actually verified against
-    //     (verified.PublicKey — not the claimed keyid). The self-asserted
-    //     requester.id/domain never select an account — they are display fields.
+    //     (verified.PublicKey — not the claimed keyid). requester.id is a free
+    //     label and requester.domain was matched against the directory in 2b;
+    //     neither selects an account.
     keyThumb, err := helpers.Thumbprint(verified.PublicKey)
     if err != nil {
         return nil, connect.NewError(connect.CodeInternal, err)
@@ -237,7 +258,7 @@ func (h *ExchangeHandler) DiscoverResources(
 
 ### Requester Authentication
 
-Requester authentication uses an RFC 9421 HTTP Message Signature in the HTTP headers, signed with a domain-bound Ed25519 key. The public key is published in the signer's WBA directory (`{domain}/.well-known/http-message-signatures-directory`); the verifier resolves that domain from the covered `Signature-Agent` header. The `Requester.id` identifies the specific entity within that domain. The requester's private key never leaves the requester.
+Requester authentication uses an RFC 9421 HTTP Message Signature in the HTTP headers, signed with a domain-bound Ed25519 key and made to the [Web Bot Auth profile](/protocol/authentication/#the-web-bot-auth-profile). The public key is published in the signer's key directory (`{origin}/.well-known/http-message-signatures-directory`); the verifier resolves that origin from the `Signature-Agent` member the signature covers. The `Requester.id` identifies the specific entity within that domain. The requester's private key never leaves the requester.
 
 **Two onboarding paths:**
 
@@ -257,33 +278,42 @@ type RequesterRecord struct {
 }
 ```
 
-### Forwarding Chain Verification
+### Forwarding Verification
 
-The forwarding chain lives entirely in the HTTP layer as a **stack of RFC 9421 HTTP Message Signatures** — there is no `intermediaries` field on the message. Each party that originates or forwards a `ResourceQuery` or `TransactionRequest` adds **one** labeled signature (`Signature` / `Signature-Input`, e.g. `fora-agent`, `fora-broker-1`) to the request headers. Each forwarder's signature covers the request essentials (`@method`, `@authority`, `@path`, `Content-Digest`) **plus the previous hop's signature**, so the ordered set of header signatures *is* the chain and cannot be reordered, dropped, or extended undetectably. The Exchange MUST:
+Nothing about the route is carried in the message: there is no `intermediaries` field. Each party that sends a `ResourceQuery` or `TransactionRequest` signs it with **one** labeled signature that conforms to Web Bot Auth, with its own `Signature-Agent` member. The rules are specified once, in [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding). In short, FORA's Broker never forwards an agent's request unchanged:
 
-1. **Verify the requester's (originating) RFC 9421 HTTP Message Signature** — proves the original requester authorized the request. The `keyid` is the key's RFC 7638 thumbprint; the Exchange resolves the key in the requester's WBA directory at `{domain}/.well-known/http-message-signatures-directory` and verifies the Ed25519 signature.
+- **Discovery is Broker-led.** The Broker chooses the Exchanges and originates its own `ResourceQuery`, signed by the Broker alone. How an agent proves a holder-of-key entitlement at discovery time through a Broker is an open protocol question, tracked separately.
+- **Execute is re-packaged.** The Broker builds a fresh `TransactionRequest` for each Exchange and signs it alone. The agent's identity and consent are the `AgentAcceptance`, a detached Ed25519 signature over `{offer_sig, requester_id, requester_domain, idempotency_key}` verified against the agent's registered key, resolved from `Requester.domain`.
 
-2. **Verify every forwarding signature in the stack** — proves each intermediary (e.g., Broker) handled the request. For each labeled signature, the Exchange resolves its `keyid` thumbprint in the key set it is configured with (the covered `Signature-Agent` header stays the agent's directory, so a hop's key is not discovered through it), verifies the Ed25519 signature, and confirms it covers the prior hop's signature so the chain is contiguous and ordered.
+In both cases the Broker's signature covers its own request components and only its own `Signature-Agent` member, and the request carries no agent signature headers.
 
-All signatures must pass for the request to proceed. If any verification fails — or the chain is not contiguous — the Exchange rejects the request with `CodeUnauthenticated`.
+The Exchange MUST:
 
-When only the originating signature is present, the requester is calling the Exchange directly — no intermediary was involved. Chain depth is bounded by `RequestConstraints.max_hops` (agent-set) and `WellKnownManifest.max_intermediary_hops` (Exchange-published); the Exchange counts the signatures in the stack against these caps.
+1. **Verify the request signature.** The `keyid` is the key's RFC 7638 thumbprint; the Exchange resolves the key in the key directory at `{origin}/.well-known/http-message-signatures-directory`, where `{origin}` is the `Signature-Agent` member the signature covers, verifies the Ed25519 signature, and authenticates the caller as that party: the agent on a direct call, the Broker on a request the Broker sent. A request whose `requester.domain` names a directory other than the signer's is relayed, and the Exchange acts on it only from a Broker it admits, by its own policy (for example, only Brokers registered with it); from any other signer it is refused as `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`. See [Direct and relayed requests](/protocol/authentication/#direct-and-relayed-requests).
+2. **Verify each item's `AgentAcceptance` on an execute request** against the agent's registered key, as [Projected execute requests](/protocol/authentication/#projected-execute-requests) describes. On a re-packaged request this is the agent's identity and consent, and its key gives the delivery-URL binding and the key a delegation's `cnf.jkt` is checked against.
+3. **Where a party forwarded unchanged and covered an earlier signature**, verify that signature too, and the coverage, as the general WG-00 rule describes.
+
+Every signature on the request must pass. If any one fails, the Exchange rejects the request with `CodeUnauthenticated`. The refusal carries an `ErrorDetail` whose `request_auth_failure` block holds a [`RequestAuthFailureReason`](/reference/proto-fora/#requestauthfailurereason): `SIGNATURE_MISSING` (sign the request), `SIGNATURE_INVALID` (the signature does not verify) or `SIGNATURE_STALE` (sign it again, now). The reason names what the caller does next, never which check failed.
+
+Before it verifies any signature, the Exchange counts the signatures on the request against its `WellKnownManifest.max_intermediary_hops`, every signature counted whether or not it covers another, and refuses a request carrying more with `CodeResourceExhausted` (HTTP 429) and no typed reason. A request signed only by the party that sent it carries one. `RequestConstraints.max_hops` never reaches an Exchange: it rides only on the agent's `DiscoveryRequest` to the Broker, and no party enforces it in this version.
 
 ```go
-// Forwarding-chain verification runs in the SDK's verify middleware at the
-// HTTP seam, before any handler — the ordered stack of RFC 9421 HTTP
-// Message Signatures in the request headers IS the chain. The middleware:
-//   1. Parses the Signature / Signature-Input headers into ordered, labeled hops.
-//   2. Verifies the originating (requester) signature against the key in
-//      the requester's WBA directory at
-//      {domain}/.well-known/http-message-signatures-directory.
-//   3. For each subsequent labeled signature, resolves its keyid in the
-//      Exchange's configured key set, verifies the Ed25519 signature, and
-//      confirms it covers the prior hop's signature (contiguous + ordered).
-//   4. Counts the hops against max_hops / max_intermediary_hops.
-// Any failure rejects the request with CodeUnauthenticated before the handler
-// runs. The handler reads the proven hops from the context:
-hops := helpers.AllSignaturesFromContext(ctx) // sig1..sigN, in chain order
+// Request-signature verification runs in the SDK's verify middleware at the
+// HTTP seam, before any handler. The middleware:
+//   1. Parses the Signature / Signature-Input headers into labeled signatures.
+//   2. Counts them against max_intermediary_hops before verifying any
+//      (connectserver.WithMaxSignatures). A request carrying more is refused
+//      with CodeResourceExhausted (HTTP 429) and no ErrorDetail.
+//   3. Verifies the request signature against the key in the directory its
+//      own Signature-Agent member names, at
+//      {origin}/.well-known/http-message-signatures-directory.
+//   4. Where a party forwarded unchanged and covered an earlier signature,
+//      verifies that signature and the coverage too.
+// A signature that fails rejects the request with CodeUnauthenticated before
+// the handler runs, carrying ErrorDetail.request_auth_failure
+// (SIGNATURE_MISSING, SIGNATURE_INVALID or SIGNATURE_STALE). The handler reads
+// the proven signatures from the context, in header order:
+sigs := helpers.AllSignaturesFromContext(ctx)
 ```
 
 ### Delegation Verification
@@ -292,7 +322,7 @@ When `Requester.delegation` is present, the Exchange verifies the delegation JWT
 
 1. Decode the base64url-encoded `token` (JWS) from the `Delegation` message
 2. Verify the Ed25519 signature chain — the authority JWT signed by `principal_domain`'s published key, each child JWT signed by the key its parent named in `cnf` (chain-linkage invariant)
-3. Verify holder binding — the key that signed the RFC 9421 request MUST hash to the final JWT's `cnf.jkt`
+3. Verify holder binding — the key that signed the RFC 9421 request MUST hash to the final JWT's `cnf.jkt`. On a purchase sub-request a Broker re-packaged, the request signer is the Broker, so compare the key each item's `AgentAcceptance` verifies under instead
 4. Evaluate constraints (scope coverage, spend caps, expiration) — the grant covers scopes only if each child's `scope` is contained in its parent's
 5. Extract effective scopes (intersection of requester scopes and delegation scopes)
 6. Check `expires_at` against current time
@@ -330,7 +360,8 @@ sequenceDiagram
 
     Note over Handler: Validate request
     Note over Handler: Reject unless EVERY items[].offer.exchange names this Exchange's own domain (INVALID_ARGUMENT)
-    Note over Handler: Verify requester RFC 9421 HTTP Message Signature
+    Note over Handler: Verify the sender's RFC 9421 HTTP Message Signature<br/>(the agent's, or the Broker's on a re-packaged sub-request)
+    Note over Handler: Verify agent_request_acceptance (projection for this Exchange)
     Note over Handler: Check idempotency key
 
     Handler->>Idemp: Check(idempotency_key)
@@ -378,7 +409,7 @@ sequenceDiagram
 
 A transaction carries one or more `items` (items-only model): there is no single-offer request shape. The handler validates, verifies the requester's RFC 9421 identity, checks idempotency once for the whole request, then **always** iterates `req.Msg.Items` — a single offer is simply a 1-element list. Each item presents the FULL signed offer it received at discovery; the Exchange verifies that presented `item.Offer` against its own offer-signing key (stateless, no reconstruct-from-catalog) and reads pricing, delivery, and domain from `item.Offer` itself.
 
-**Denial semantics**: a **1-element** request that is denied returns a non-OK transport error carrying `ErrorDetail.transaction_denial` (the "single transaction" rule — a lone commitment either succeeds as a body or fails as a transport error). A **multi-element batch** returns 200 with the failed item's `denial_reason` in-body, so surviving items still commit. `transactionDenied(...)` produces the 1-element transport error; the loop records in-body denials for batches.
+**Denial semantics**: every per-item denial is answered **in the body**, whatever the item count. The request returns 200 with the denied item's `denial_reason` set, so surviving items still commit, and a one-item request that is denied is a 200 whose only item is denied. A non-OK error carrying `ErrorDetail.transaction_denial` is produced only for a refusal of the **whole request** that decides no item — a reason about the caller that would deny every item alike, such as overdue reports. `transactionDenied(...)` produces that whole-request error; the loop records every per-item denial in the body.
 
 ```go
 func (h *ExchangeHandler) ExecuteTransaction(
@@ -390,10 +421,14 @@ func (h *ExchangeHandler) ExecuteTransaction(
         return nil, connect.NewError(connect.CodeInvalidArgument, err)
     }
 
-    // 2. Requester identity. As in DiscoverResources step 2, the SDK's verify
-    //    middleware already verified every RFC 9421 signature at the HTTP seam;
-    //    the handler consumes the proof from the context and fails closed when
-    //    it is absent.
+    // 2. Requester identity. As in DiscoverResources steps 2 and 2b, the SDK's
+    //    verify middleware already verified every RFC 9421 signature at the HTTP
+    //    seam; the handler consumes the proof from the context, fails closed when
+    //    it is absent, and requires requester.domain to name the signing
+    //    directory (elided here). On a sub-request a Broker re-packaged, the
+    //    signer is the Broker, and the agent is authenticated instead by its
+    //    acceptances, verified against the directory requester.domain names
+    //    (see "Sub-requests from a Broker" below).
     requester := req.Msg.Requester
     verified := helpers.FromContext(ctx)
     if verified == nil {
@@ -414,56 +449,56 @@ func (h *ExchangeHandler) ExecuteTransaction(
         return nil, connect.NewError(connect.CodePermissionDenied, err)
     }
 
-    // 3. Idempotency check (idempotency_key — REQUIRED, keyed on the whole request)
-    if cached, ok := h.idempotency.Get(req.Msg.IdempotencyKey); ok {
-        return connect.NewResponse(cached), nil
+    // 3. Idempotency check (idempotency_key — REQUIRED). The key is scoped to the
+    //    caller: the account resolved from the verified key on a direct request,
+    //    and (Broker, requester) on a sub-request a Broker re-packaged. The stored
+    //    entry keeps a digest of the ordered items (each offer.signature), so the
+    //    same key with the same items is a replay, and the same key with different
+    //    items, or another order, is refused with already_exists and no typed reason.
+    scope := idempotencyScope(account, req.Msg)
+    if cached, ok := h.idempotency.Get(scope, req.Msg.IdempotencyKey); ok {
+        if cached.ItemsDigest != itemsDigest(req.Msg.Items) {
+            return nil, connect.NewError(connect.CodeAlreadyExists,
+                errors.New("idempotency_key already used by this caller with a different request"))
+        }
+        return connect.NewResponse(cached.Response), nil
     }
 
-    // 3a. Reporting gate: reject up front if the requester has overdue reports.
-    //     This is a whole-request precondition, so a 1-element request surfaces it
-    //     as a transport-level denial (see the single-vs-batch rule below).
+    // 3a. Reporting gate: refuse up front if the requester has overdue reports.
+    //     This is a reason about the caller that would deny every item alike, so
+    //     it refuses the WHOLE request, whatever the item count: a non-OK error
+    //     carrying ErrorDetail.transaction_denial, and nothing is purchased.
     if blocked, reason := h.reporting.CheckBuyerCompliance(ctx, account.ID); blocked {
         slog.Warn("requester blocked for overdue reporting",
             slog.String("requester_id", requester.Id),
             slog.String("domain", requester.Domain),
             slog.String("reason", reason),
         )
-        if len(req.Msg.Items) == 1 {
-            return nil, transactionDenied(forav1.DenialReason_DENIAL_REASON_REPORTING_OVERDUE)
-        }
-        // multi-element batch: mark every item overdue in-body, return 200
-        return connect.NewResponse(denyAllItems(req, forav1.DenialReason_DENIAL_REASON_REPORTING_OVERDUE)), nil
+        return nil, transactionDenied(forav1.DenialReason_DENIAL_REASON_REPORTING_OVERDUE)
     }
 
     // 4. Items-only pipeline. There is no separate single-offer branch: a single
-    //    offer is the degenerate 1-element `items` list. Process each item
-    //    independently — items are NOT atomic; one can fail (signature invalid,
-    //    resource unavailable, billing denied) while others succeed.
-    singleItem := len(req.Msg.Items) == 1
+    //    offer is the degenerate 1-element `items` list, and its denial is answered
+    //    in the body like any other. Process each item independently — items are
+    //    NOT atomic; one can fail (signature invalid, resource unavailable, billing
+    //    denied) while others succeed.
     agentHash := sha256Hex(requester.Id + ":" + requester.Domain)
     // The account handle (the billing_ref minted at Register) comes from the
     // account resolved in step 2b from the VERIFIED signing key. The request
-    // carries no caller-written billing field, and the self-asserted id/domain
-    // never select the account.
+    // carries no caller-written billing field, and requester.id/domain never
+    // select the account.
     billingRef := account.BillingRef
     var resultItems []*forav1.TransactionResultItem
-    var totalAmount float64
-    var currency string
+    totals := map[string]float64{} // purchased amount per currency
 
     for _, item := range req.Msg.Items {
         resultItem := &forav1.TransactionResultItem{OfferId: item.Offer.OfferId}
 
-        // deny records a per-item denial in-body for a batch, or — for a lone
-        // 1-element request — bubbles it up as a non-OK transport error carrying
-        // ErrorDetail.transaction_denial (the "single transaction" rule; the
-        // transport code is the error CLASS, the ErrorDetail the typed reason).
-        deny := func(reason forav1.DenialReason) (*connect.Response[forav1.TransactionResponse], error, bool) {
-            if singleItem {
-                return nil, transactionDenied(reason), true
-            }
+        // deny records a per-item denial in the body. It is the same for a
+        // one-item request and a batch: a per-item denial is never a non-OK error.
+        deny := func(reason forav1.DenialReason) {
             resultItem.DenialReason = &reason
             resultItems = append(resultItems, resultItem)
-            return nil, nil, false
         }
 
         // 4a. Verify the PRESENTED signed offer (stateless — no offer storage,
@@ -474,18 +509,14 @@ func (h *ExchangeHandler) ExecuteTransaction(
         //     offer-signing key and returns that same offer to read pricing from.
         offer, err := h.offerVerifier.Verify(item.Offer)
         if err != nil {
-            if resp, denyErr, done := deny(forav1.DenialReason_DENIAL_REASON_SIGNATURE_INVALID); done {
-                return resp, denyErr
-            }
+            deny(forav1.DenialReason_DENIAL_REASON_SIGNATURE_INVALID)
             continue
         }
 
         // Resolve tenant from the offer's Exchange domain (domain→tenant lookup)
         tenantCfg, err := h.tenants.ResolveFromDomain(offer.Exchange)
         if err != nil {
-            if resp, denyErr, done := deny(forav1.DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE); done {
-                return resp, denyErr
-            }
+            deny(forav1.DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE)
             continue
         }
 
@@ -515,9 +546,6 @@ func (h *ExchangeHandler) ExecuteTransaction(
                     slog.String("tenant_id", tenantCfg.ID),
                     slog.Any("error", err),
                 )
-                if singleItem {
-                    return nil, billingErrToConnect(err)
-                }
             }
             if err != nil || !authResp.Approved {
                 if err == nil {
@@ -526,9 +554,7 @@ func (h *ExchangeHandler) ExecuteTransaction(
                         slog.String("reason", authResp.Reason),
                     )
                 }
-                if resp, denyErr, done := deny(txnErrToDenialReason(err)); done {
-                    return resp, denyErr
-                }
+                deny(txnErrToDenialReason(err))
                 continue
             }
             billingID = authResp.BillingID
@@ -567,13 +593,7 @@ func (h *ExchangeHandler) ExecuteTransaction(
                     slog.Any("error", releaseErr),
                 )
             }
-            if singleItem {
-                return nil, connect.NewError(connect.CodeInternal,
-                    fmt.Errorf("transaction log write failed: %w", err))
-            }
-            if resp, denyErr, done := deny(forav1.DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE); done {
-                return resp, denyErr
-            }
+            deny(forav1.DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE)
             continue
         }
 
@@ -590,13 +610,7 @@ func (h *ExchangeHandler) ExecuteTransaction(
                 slog.String("tenant_id", tenantCfg.ID),
                 slog.Any("error", err),
             )
-            if singleItem {
-                return nil, connect.NewError(connect.CodeInternal,
-                    fmt.Errorf("URL signing failed: %w", err))
-            }
-            if resp, denyErr, done := deny(forav1.DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE); done {
-                return resp, denyErr
-            }
+            deny(forav1.DenialReason_DENIAL_REASON_CONTENT_UNAVAILABLE)
             continue
         }
 
@@ -632,36 +646,45 @@ func (h *ExchangeHandler) ExecuteTransaction(
         resultItem.ExpiresAt = timestamppb.New(time.Now().Add(tenantCfg.URLTTLOrDefault(5 * time.Minute)))
         resultItems = append(resultItems, resultItem)
 
-        totalAmount += amount
-        currency = offer.Pricing.Currency
+        totals[offer.Pricing.Currency] += amount
     }
 
     // 5. Build response — every per-result datum lives on its TransactionResultItem;
     //    the top-level fields carry only shared aggregate state. Correlation is not
     //    in the body — it rides the X-Request-ID HTTP header across the round-trip.
+    //    total_cost is set only when the purchased items share one currency:
+    //    amounts are never summed across currencies, and this version defines no
+    //    currency conversion.
     resp := &forav1.TransactionResponse{
         Ver:               helpers.ProtocolVersion,
         AgentIdentityHash: agentHash,
         Items:             resultItems,
-        TotalCost:         &forav1.Cost{Amount: totalAmount, Currency: currency},
+    }
+    if len(totals) == 1 {
+        for currency, amount := range totals {
+            resp.TotalCost = &forav1.Cost{Amount: amount, Currency: currency}
+        }
     }
 
-    // 6. Cache for idempotency (keyed by the request's idempotency_key)
-    h.idempotency.Set(req.Msg.IdempotencyKey, resp, 10*time.Minute)
+    // 6. Cache for idempotency, under the caller's scope, with the items digest
+    //    that tells a replay from a reuse of the key with a different request.
+    h.idempotency.Set(scope, req.Msg.IdempotencyKey, cachedResult{
+        Response:    resp,
+        ItemsDigest: itemsDigest(req.Msg.Items),
+    }, 10*time.Minute)
     return connect.NewResponse(resp), nil
 }
 
 // transactionDenied maps a typed DenialReason to a non-OK transport error
-// carrying ErrorDetail.transaction_denial. A denied 1-element transaction is an
-// error, not a success body — the transport code is the error class, the
-// attached ErrorDetail carries the typed reason (and restriction_mismatches
-// when the reason is RESTRICTION_NOT_SATISFIED).
-func transactionDenied(reason forav1.DenialReason, mismatches ...forav1.RestrictionKind) error {
+// carrying ErrorDetail.transaction_denial. It is used ONLY for a refusal of the
+// whole request — a reason about the caller that decides no item — never for a
+// per-item denial, which is answered in the body whatever the item count. The
+// transport code is the error class, the attached ErrorDetail the typed reason.
+func transactionDenied(reason forav1.DenialReason) error {
     detail := &forav1.ErrorDetail{
         Reason: &forav1.ErrorDetail_TransactionDenial{
             TransactionDenial: &forav1.TransactionDenial{
-                Reason:                reason,
-                RestrictionMismatches: mismatches,
+                Reason: reason,
             },
         },
     }
@@ -675,7 +698,16 @@ func transactionDenied(reason forav1.DenialReason, mismatches ...forav1.Restrict
 
 **Latency budget**: 20ms p50, 100ms p99 per item. The billing adapter authorization (5ms p50) and transaction log write (1-2ms p50 for local WAL) dominate. Multi-item requests are processed sequentially, so latency scales with item count.
 
-**Atomicity note**: Multi-item requests are best-effort per item and **NOT atomic**. The Exchange processes items sequentially in original order. If item 3 of 5 fails billing authorization, items 1-2 are already committed (signed URLs issued) and items 4-5 continue processing. The caller MUST check each `TransactionResultItem.denial_reason` to determine which items succeeded. This non-atomic model is deliberate: it matches how programmatic resource access handles multi-slot requests. A 1-element request has nothing to keep partial, so its denial travels as a non-OK transport error carrying `ErrorDetail.transaction_denial` instead of an in-body `denial_reason`.
+**Atomicity note**: Multi-item requests are best-effort per item and **NOT atomic**. The Exchange processes items sequentially in original order. If item 3 of 5 fails billing authorization, items 1-2 are already committed (signed URLs issued) and items 4-5 continue processing. The caller MUST check each `TransactionResultItem.denial_reason` to determine which items succeeded. This non-atomic model is deliberate: it matches how programmatic resource access handles multi-slot requests. A 1-element request follows the same rule: its denial is an in-body `denial_reason`, never a non-OK error.
+
+### Sub-requests from a Broker
+
+When an agent buys through `BrokerService.ExecuteTransaction`, the Broker sends this Exchange a sub-request it authored: this Exchange's items in request order, each with the agent's `AgentAcceptance`, the agent's `AgentRequestAcceptance`, `requester` and `idempotency_key` unchanged, and the **Broker's** RFC 9421 signature. The pipeline above runs unchanged, with three points to note:
+
+- **Who consented.** The wire signer is the Broker. The agent is authenticated by its body acceptances, verified against the keys published in the WBA directory of `requester.domain`. The delivery URL and `agent_identity_hash` are bound to the agent key the acceptances verify under, and a delegation's `cnf.jkt` is checked against that same key.
+- **Idempotency.** The key is the agent's, forwarded unchanged. Scope it per (Broker, requester the acceptances authenticate, key), so two agents behind one Broker that choose the same key cannot collide. The same key with different items in that scope is refused with `already_exists`.
+- **The signed set.** If the sub-request's items are not exactly the agent's `AgentRequestAcceptance` projected onto this Exchange — an item dropped, added or reordered — deny every item with `DENIAL_REASON_SIGNATURE_INVALID`, in the body, purchase nothing and claim no idempotency state. It is not an `invalid_argument` error.
+- **Answers.** Answer exactly as for a direct request: every per-item denial in the body, whatever the item count. Whether relayed purchases are accepted is decided per item, by the provider of each offer's resource: an item whose provider does not accept them is denied with `DENIAL_REASON_RELAY_NOT_ACCEPTED`, in the body, while the other items may succeed. It is never a refusal of the whole sub-request. Only a refusal of the whole sub-request, which decides no item, is a non-OK error; it reaches the agent unchanged on each affected item's `TransactionResultItem.refusal`, because the Broker never turns it into an error of its own.
 
 ### Partial Failure Handling
 
@@ -683,15 +715,15 @@ The ExecuteTransaction pipeline has multiple steps that can fail independently:
 
 | Step Failed | Already Done | Action |
 |---|---|---|
-| Validation | Nothing | Return `CodeInvalidArgument` |
-| Offer signature verification | Nothing | Return `CodeInvalidArgument` |
-| Billing Authorize | Nothing | Return per timeout policy (sentinel errors) |
-| Transaction log write | Billing authorized | Release billing hold, return `CodeInternal` |
-| URL signing | Billing authorized + log written | Log error, return `CodeInternal` (txn recorded as failed) |
+| Validation | Nothing | Return `CodeInvalidArgument` (the whole request) |
+| Offer signature verification | Nothing | Deny the item in the body (`DENIAL_REASON_SIGNATURE_INVALID`) |
+| Billing Authorize | Nothing | Deny the item in the body, with the reason the timeout policy maps the sentinel error to |
+| Transaction log write | Billing authorized | Release billing hold, deny the item in the body |
+| URL signing | Billing authorized + log written | Log error, deny the item in the body (txn recorded as failed) |
 | Reporting obligation create | Billing + log + URL | Log warning, continue (non-critical) |
 | Billing Record | Billing + log + URL | Log warning, continue (reconciliation catches) |
 
-The key invariant: if the transaction log write fails, no signed URL is ever issued. If the signed URL generation fails, the transaction is recorded as failed for reconciliation.
+The key invariant: if the transaction log write fails, no signed URL is ever issued. If the signed URL generation fails, the transaction is recorded as failed for reconciliation. Every failure in this table that concerns one item is answered on that item, in the body, whatever the item count.
 
 ---
 
@@ -717,8 +749,8 @@ sequenceDiagram
     Handler->>RT: SubmitReport(ctx, UsageReport)
 
     Note over RT: Validate required fields present
-    Note over RT: Check reporting window (not expired)
-    Note over RT: Validate consumed_quantity >= minimum billable
+    Note over RT: Check reporting window (not expired, else WINDOW_EXPIRED)
+    Note over RT: consumed_quantity is never checked against the estimate
     Note over RT: Transition obligation: pending → fulfilled
 
     RT->>TxLog: WriteUsageReport(ctx, UsageReportRecord)
@@ -737,25 +769,34 @@ func (h *ExchangeHandler) ReportUsage(
     ctx context.Context,
     req *connect.Request[forav1.UsageReport],
 ) (*connect.Response[forav1.UsageReportResponse], error) {
-    // 1. Validate
+    // 1. Validate. A malformed report is invalid_argument with its typed reason,
+    //    USAGE_REPORT_REJECTION_REASON_MALFORMED.
     if err := validate(req.Msg); err != nil {
-        return nil, connect.NewError(connect.CodeInvalidArgument, err)
+        return nil, usageReportRejected(connect.CodeInvalidArgument,
+            forav1.UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_MALFORMED)
     }
 
-    // 2. Verify transaction exists and billing_id matches
-    txn, err := h.txLog.Lookup(ctx, req.Msg.TransactionId)
+    // 2. Verify the transaction exists FOR THIS AGENT and billing_id matches. A
+    //    transaction recorded under a different agent is answered exactly as an
+    //    unknown one, so the answer does not reveal that it exists. A billing_id
+    //    that is not the transaction's makes the report malformed.
+    txn, err := h.txLog.LookupForAgent(ctx, agentFrom(ctx), req.Msg.TransactionId)
     if err != nil {
-        return nil, connect.NewError(connect.CodeNotFound,
-            fmt.Errorf("transaction %s not found", req.Msg.TransactionId))
+        return nil, usageReportRejected(connect.CodeNotFound,
+            forav1.UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND)
     }
     if txn.BillingID != req.Msg.BillingId {
-        return nil, connect.NewError(connect.CodeInvalidArgument,
-            fmt.Errorf("billing_id mismatch"))
+        return nil, usageReportRejected(connect.CodeInvalidArgument,
+            forav1.UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_MALFORMED)
     }
 
     // 3. Submit to reporting tracker. A rejection is NOT a success body: it
     //    travels as a non-OK transport error carrying a typed
-    //    ErrorDetail.usage_report_rejection (UsageReportRejectionReason).
+    //    ErrorDetail.usage_report_rejection (UsageReportRejectionReason). A
+    //    report past its reporting window is WINDOW_EXPIRED with the code
+    //    failed_precondition. The tracker never refuses a report for its
+    //    consumed_quantity: the quantity is unrestricted, and the report is a
+    //    record of it.
     //    Success returns the Exchange-assigned report_id, required to anchor
     //    the dispute chain.
     result, err := h.reporting.SubmitReport(ctx, req.Msg, txn)
@@ -763,7 +804,7 @@ func (h *ExchangeHandler) ReportUsage(
         return nil, connect.NewError(connect.CodeInternal, err)
     }
     if !result.Accepted {
-        return nil, usageReportRejected(result.Reason) // ErrorDetail.usage_report_rejection
+        return nil, usageReportRejected(result.Code, result.Reason) // ErrorDetail.usage_report_rejection
     }
 
     return connect.NewResponse(&forav1.UsageReportResponse{
@@ -778,7 +819,7 @@ func (h *ExchangeHandler) ReportUsage(
 
 ## Attestation Verification at Catalog Push
 
-Before the handler below runs, the wire tier has already refused a malformed push: the `ResourceEntry` envelope rules (bare-host `domain`, absolute `path`, bounded fields, at most 32 terms, and at most 256 entries in the submission) and the `LicenseTerm` rules (including at most 8 restrictions, and at most 64 quotas or obligations, per term) are protovalidate rules applied at the boundary. That tier is something a deployment turns on: an Exchange built on the Go SDK mounts its handler with `connectserver.WithValidation(connect.ValidationStrict)`, which is what composes protovalidate onto it — the option is not the default, and the reference implementation passes it on every mount. The handler then canonicalises the terms and applies registry membership — the ingest tier — before the attestation checks. The ingest tier also re-asserts that no token is both permitted and prohibited (`restriction.canonical_disjoint`), because the boundary rule compares the tokens as written and two spellings of one token become one token only once folded. That is the check a mount without the wire tier still gets, and the one that keeps a self-contradictory term out of the catalog — a stored term that violates the contract would fail validation again on the way out, on every offer that carries it. Both tiers ship in the SDK as a publisher pre-check, so a conforming feed rarely reaches this flow with a refusable entry.
+Before the handler below runs, the wire tier has already refused a malformed push: the `ResourceEntry` envelope rules (bare-host `domain`, absolute `path`, bounded fields, at most 32 terms, and at most 256 entries in the submission) and the `LicenseTerm` rules (including at most 8 restrictions, and at most 64 quotas or obligations, per term) are protovalidate rules applied at the boundary. A submission with no entries or more than 256 is a malformed request, refused `invalid_argument` by wire validation with no `catalog_rejection`, because no entry was examined. That tier is something a deployment turns on: an Exchange built on the Go SDK mounts its handler with `connectserver.WithValidation(connect.ValidationStrict)`, which is what composes protovalidate onto it — the option is not the default, and the reference implementation passes it on every mount. The handler then canonicalises the terms and applies registry membership — the ingest tier — before the attestation checks. The ingest tier also re-asserts that no token is both permitted and prohibited (`restriction.canonical_disjoint`), because the boundary rule compares the tokens as written and two spellings of one token become one token only once folded. That is the check a mount without the wire tier still gets, and the one that keeps a self-contradictory term out of the catalog — a stored term that violates the contract would fail validation again on the way out, on every offer that carries it. Both tiers ship in the SDK as a publisher pre-check, so a conforming feed rarely reaches this flow with a refusable entry.
 
 When `CatalogService.PushResources` includes attestations, the Exchange performs additional verification before accepting entries into the resource catalog.
 
@@ -794,12 +835,12 @@ sequenceDiagram
     Note over Handler: 1. Verify caller's RFC 9421 HTTP Message Signature (headers)
 
     loop For each ResourceEntry with attestations
-        Handler->>Handler: Is caller_id == attestation.verifier?
+        Handler->>Handler: Is the signer == attestation.verifier?
 
         alt Direct push (provider or vendor pushing own attestation)
             Note over Handler: Authorized directly
         else Third-party push
-            Handler->>Manifest: Is caller_id in catalog_contributors?
+            Handler->>Manifest: Is the signer in catalog_contributors?
             Manifest-->>Handler: Yes / No
             Note over Handler: Record which entry failed — the submission is refused whole
         end
@@ -821,7 +862,7 @@ sequenceDiagram
 
 The loop checks each entry, but the verdict is not per-entry: a push is all-or-nothing, so a single failing entry refuses the submission and nothing is persisted. `rejected_paths` names which entries the refusal is about — it is reporting, not a list of what was dropped from an otherwise applied batch.
 
-**Rejection reasons** come from [`CatalogRejectionReason`](/reference/proto-fora/#catalogrejectionreason). The ones this flow can produce are `CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR` (the caller is not authorized for the domain), `CATALOG_REJECTION_REASON_SIGNATURE_INVALID`, `CATALOG_REJECTION_REASON_DOMAIN_NOT_VERIFIED` and `CATALOG_REJECTION_REASON_MALFORMED_ENTRY`, which the envelope rules make the common one. The attestation-specific failures — a bad attestation signature, an unknown verifier, oversized claims — have no dedicated value in that enum; they travel in the refusal's human-readable message.
+**Rejection reasons** come from [`CatalogRejectionReason`](/reference/proto-fora/#catalogrejectionreason). The ones this flow can produce are `CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR` (the signer is not authorized for the entry's domain, a resource-owner mismatch included), `CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED` (the publisher's manifest does not list this Exchange), `CATALOG_REJECTION_REASON_DOMAIN_NOT_VERIFIED` and `CATALOG_REJECTION_REASON_MALFORMED_ENTRY`, which the envelope rules make the common one. A push whose request signature fails never reaches this loop: step 1 refuses it like every other signed request, `unauthenticated` with `ErrorDetail.request_auth_failure` (`SIGNATURE_MISSING`, `SIGNATURE_INVALID` or `SIGNATURE_STALE`). `CATALOG_REJECTION_REASON_SIGNATURE_INVALID` is deprecated and never sent. The attestation-specific failures — a bad attestation signature, an unknown verifier, oversized claims — have no dedicated value in that enum; they travel in the refusal's human-readable message.
 
 See [Content Attestation](/protocol/content-attestation/) for the full attestation system design.
 

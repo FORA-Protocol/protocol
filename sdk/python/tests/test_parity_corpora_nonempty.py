@@ -73,6 +73,12 @@ _CORPUS_SPECS: list[tuple[pathlib.Path, Callable[[Any], Any], str]] = [
     (GO_TESTDATA / "scopes-vectors.json", lambda d: d["subset"], "scopes-subset"),
     (GO_TESTDATA / "audience-vectors.json", lambda d: d["bare_domain"], "bare-domain"),
     (GO_TESTDATA / "audience-vectors.json", lambda d: d["audience"], "audience"),
+    (GO_TESTDATA / "discovery-hint-vectors.json", lambda d: d["parse"], "discovery-hint-parse"),
+    (
+        GO_TESTDATA / "discovery-hint-vectors.json",
+        lambda d: d["reconcile"],
+        "discovery-hint-reconcile",
+    ),
     (GO_TESTDATA / "registration-schema-vectors.json", lambda d: d["compile"], "regschema-compile"),
     (
         GO_TESTDATA / "registration-schema-vectors.json",

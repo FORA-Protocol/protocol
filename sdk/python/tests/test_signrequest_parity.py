@@ -7,7 +7,12 @@ sdk/go/helpers/testdata/sign-request-vectors.json.
 
 ``fora_sdk.httpsig.sign_request(...)`` MUST produce, byte-for-byte, the same signature
 base, Signature-Input and Signature the Go oracle emits — and MUST hand back the same
-header set a signed request carries, which is what emitted_headers pins.
+header set a signed request carries, which is what emitted_headers pins. A vector with
+``append_only`` was signed through the oracle's append path onto a fresh request, so it
+is replayed through ``append_signature``, which must produce the same headers.
+
+``signature_agent`` is the signer's key-directory ORIGIN; the emitted Signature-Agent is
+the one-member dictionary ``sig1="<origin>"`` the signature covers.
 """
 
 from __future__ import annotations
@@ -20,7 +25,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from conftest import GO_TESTDATA, load_json
 
-from fora_sdk.httpsig import sign_request, verify_request
+from fora_sdk.httpsig import append_signature, sign_request, verify_request
 
 #: The shared Go-emitted oracle every port replays.
 _SIGN_REQUEST_VECTORS_PATH = GO_TESTDATA / "sign-request-vectors.json"
@@ -29,9 +34,11 @@ _VECTORS = load_json(_SIGN_REQUEST_VECTORS_PATH)["vectors"]
 # signed with one. The helper tests below replay every vector.
 _NONCE_VECTORS = [v for v in _VECTORS if v.get("nonce")]
 
-# The covered set the emitter MUST use: exactly these five (signature-agent
-# joined with the WBA split), no conditional biscuit component.
-_EXPECTED_COVERED = '("@method" "@target-uri" "content-digest" "authorization" "signature-agent")'
+# The covered set the emitter MUST use: the FORA RPC set and the signature's own
+# Signature-Agent member, no conditional component.
+_EXPECTED_COVERED = (
+    '("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1")'
+)
 
 
 def _b64url_nopad_decode(s: str) -> bytes:
@@ -83,6 +90,7 @@ def test_sign_outbound_emits_the_header_set_the_oracle_emits(
         keyid=str(vector["keyid"]),
         signature_agent=str(vector["signature_agent"]),
         window=lambda: (created, expires),
+        append_only=bool(vector.get("append_only")),
     )
     # The transport mints a random nonce per signature; pin it to the vector's
     # so the bytes are comparable.
@@ -108,7 +116,8 @@ def test_sign_request_produces_byte_identical_signature(vector: dict[str, object
     seed = bytes.fromhex(str(vector["signer_seed_hex"]))
     body = bytes.fromhex(str(vector["body_hex"]))
 
-    result = sign_request(
+    sign = append_signature if vector.get("append_only") else sign_request
+    result = sign(
         method=str(vector["method"]),
         url=str(vector["url"]),
         body=body,
@@ -123,11 +132,13 @@ def test_sign_request_produces_byte_identical_signature(vector: dict[str, object
 
     # Full signature base is byte-identical to the Go oracle.
     assert result.signature_base == str(vector["signature_base"])
-    # Covered set is exactly the five FORA components (no conditional 6th).
+    # Covered set is exactly the FORA RPC set and the signer's own member.
     assert _EXPECTED_COVERED in result.signature_input
-    # Signature-Input and Signature headers are byte-identical.
+    # Signature-Input, Signature and Signature-Agent are byte-identical.
     assert result.signature_input == str(vector["signature_input"])
     assert result.signature == str(vector["signature"])
+    emitted = vector["emitted_headers"]
+    assert [result.signature_agent] == emitted["signature-agent"]  # type: ignore[index]
 
 
 @pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])
@@ -161,9 +172,11 @@ def test_sign_request_roundtrips_through_verify(vector: dict[str, object]) -> No
         authorization=str(vector["authorization"]),
         pubkey=pub,
         now=now,
-        signature_agent=str(vector.get("signature_agent", "")),
+        signature_agent=str(vector["emitted_headers"]["signature-agent"][0]),  # type: ignore[index]
     )
     assert result.valid is True
+    # The verdict names the directory the covered member names: the signer's origin.
+    assert result.signature_agent == str(vector["signature_agent"])
 
 
 def test_sign_request_vectors_live_under_shared_go_testdata() -> None:

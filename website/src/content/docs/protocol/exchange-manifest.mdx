@@ -78,11 +78,11 @@ The manifest answers: "What can this Exchange do, where are its endpoints, and w
 
 ## The WBA Directory
 
-The Exchange's offer-signing keys are **not** carried in `fora.json`. They live in a separate, pure WBA directory — a JWK Set served at `/.well-known/http-message-signatures-directory` with `Content-Type: application/jwk-set+json`. Keys are identified by their RFC 7638 thumbprint (the RFC 9421 `keyid`), not by a `kid` label, and the optional emergency revocation list now lives here as `revocation_url`:
+The Exchange's offer-signing keys are **not** carried in `fora.json`. They live in a separate, pure WBA directory — a JWK Set served at `/.well-known/http-message-signatures-directory` with `Content-Type: application/http-message-signatures-directory+json`. Keys are identified by their RFC 7638 thumbprint (the RFC 9421 `keyid`), not by a `kid` label, and the optional emergency revocation list now lives here as `revocation_url`. Each key carries `alg` `EdDSA`, the JOSE name RFC 7517 defines, which is a known, deliberate deviation from WG-00 §5.5.1 (see [Key Directory](/protocol/authentication/#key-directory)). An example:
 
 ```json
 // GET /.well-known/http-message-signatures-directory
-// Content-Type: application/jwk-set+json
+// Content-Type: application/http-message-signatures-directory+json
 {
   "keys": [
     {
@@ -111,7 +111,7 @@ The Exchange's offer-signing keys are **not** carried in `fora.json`. They live 
 | `operator_domain` | string | No | Operator's corporate domain |
 | `endpoint` | string | No | ExchangeService endpoint URL. **Must be on the host and port that serve this manifest, or a subdomain of that host on that port, and must not carry userinfo** — see [Endpoint host binding](#endpoint-host-binding) |
 | (offer-signing keys) | — | — | Not in `fora.json`. See the [WBA directory](#the-wba-directory) at `/.well-known/http-message-signatures-directory` |
-| `health_endpoint` | string | No | Health check endpoint URL |
+| `health_endpoint` | string | No | URL a consumer (a Broker deciding whether to route here) probes to judge whether the Exchange is serving: absolute, or a path resolved against this manifest's URL. A 200 answer means serving. When absent, a consumer judges reachability by fetching this manifest itself |
 | `catalog_endpoint` | string | No | CatalogService endpoint URL, if the Exchange exposes the service. **Same binding as `endpoint`** — on the host and port that serve this manifest, or a subdomain of that host on that port, no userinfo — see [Endpoint host binding](#endpoint-host-binding). Unlike `endpoint`, no SDK reads or checks this field: the catalog address is configuration, so a deployment that does read it from a manifest **must apply the binding itself** before dialling. Absent means not exposed; a publisher's client does not fall back to `endpoint` |
 | `protocol_versions_supported` | string[] | No | Supported FORA protocol versions |
 | `pricing_models_supported` | string[] | No | Supported pricing models |
@@ -123,6 +123,7 @@ The Exchange's offer-signing keys are **not** carried in `fora.json`. They live 
 | `gnap_grant_endpoint` | string | No | GNAP grant endpoint when GNAP is supported |
 | `supported_profiles` | string[] | No | Domain extension profiles this Exchange conforms to (e.g., `["fora-academic-v1", "fora-news-v1"]`) |
 | `base_currency` | string | No | ISO 4217 currency code for all `unit_cost` values in offers (e.g., `"USD"`) |
+| `max_intermediary_hops` | int | No | The most RFC 9421 request signatures this Exchange accepts on one request. Every signature counts, whether or not it covers another; a request signed only by the party that sent it carries one. The Exchange counts them before it verifies any and refuses a request carrying more with `resource_exhausted` (HTTP 429) and no typed reason. Absent means no published limit |
 | `account_registration` | object | No | How to open an account here. Its `data_schema` is a JSON Schema (draft 2020-12) for the `registration_data` an agent sends to `Register`. Present means this Exchange enforces it **on account creation** **and accepts registration through the API**; absent means `registration_data` passes through uninspected. A repeat registration runs no schema check either way — it is answered from the stored record. It must satisfy every rule in [Registration schema rules](#registration-schema-rules) below — self-contained and acyclic, 16KB, 32 containers deep, 10,000 evaluations of work, and a restricted `pattern` alphabet |
 | `contact` | string | No | Contact email for integration inquiries |
 | `terms_uri` | string | No | Terms of service URL |
@@ -319,7 +320,8 @@ FORA defines **one** well-known file. Every participant serves a `WellKnownManif
 |---|---|---|
 | `ROLE_PUBLISHER` | Provider | Who is authorized to sell my content (signing keys live in my WBA directory) |
 | `ROLE_EXCHANGE` | Exchange | My endpoints, capabilities, and accepted verifiers (offer-signing keys live in my WBA directory) |
-| `ROLE_AGENT` | Agent / Broker | My role marker (my Ed25519 request-signing key lives in my WBA directory) |
+| `ROLE_AGENT` | Agent | My role marker (my Ed25519 request-signing key lives in my WBA directory) |
+| `ROLE_BROKER` | Broker | My role marker (my Ed25519 request-signing key lives in my WBA directory). It describes the document: an Exchange admits a Broker by its own policy, never by this role |
 
 A verification vendor has no dedicated role — it publishes under its operator's role (`ROLE_PUBLISHER` when self-attesting, `ROLE_EXCHANGE` for a standalone vendor); its keys go in its WBA directory and its claims schema in the manifest's `ext["fora.attestation.claims_schema"]`.
 
@@ -394,6 +396,7 @@ message WellKnownManifest {
   optional string oidc_issuer = 25;
   optional string gnap_grant_endpoint = 26;
   optional string base_currency = 27;
+  optional int32 max_intermediary_hops = 28;               // most request signatures accepted
   optional AccountRegistration account_registration = 30;  // how to open an account here
   optional string terms_digest = 31;                       // digest of the document at terms_uri
   google.protobuf.Struct ext = 15;

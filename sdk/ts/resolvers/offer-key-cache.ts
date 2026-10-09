@@ -26,10 +26,12 @@
 // seam, which is a programmer error surfaced at CONSTRUCTION (TypeError), never a
 // per-resolve absence — mirroring Go's PanicsWithoutFetch.
 
-import { WBAFileSchema } from "../../../gen/ts/wire/schemas.ts";
+import type { WBAFileSchema } from "../../../gen/ts/wire/schemas.ts";
 import type { OfferKeyResolver } from "../core/verifier.ts";
-import { type FetchLike, fetchStrict, guardedFetchFromEnv } from "./http.ts";
-import { activeEd25519KeyWithExpiryScreened, wbaDirectoryURL } from "./wba.ts";
+import type { Ed25519Verify } from "../src/pop.ts";
+import { fetchWBAFile, wbaDirectoryURL } from "./documents.ts";
+import type { FetchLike } from "./fetch.ts";
+import { activeEd25519KeyWithExpiryScreened } from "./wba.ts";
 
 /** A parsed WBA identity directory — the shape the injected fetch seam returns. */
 type WBAFile = ReturnType<typeof WBAFileSchema.parse>;
@@ -61,11 +63,16 @@ export interface CachedOfferKeyResolverOptions {
 	ttlMs?: number;
 	/** The cache-freshness + selection clock; undefined → Date.now. Tests inject. */
 	now?: () => number;
-	/** Screens a candidate key by its RFC 7638 thumbprint — a revoked key is skipped
-	 * during selection so a window-active-but-revoked key is never served. undefined
-	 * screens nothing; inject a revoked-set predicate on any verification path. A
-	 * throwing predicate fails closed (resolve → undefined), never propagates. */
-	revoked?: (thumbprint: string) => boolean;
+	/** Screens a candidate key by its RFC 7638 thumbprint and the exchange whose
+	 * directory it came from — a revoked key is skipped during selection so a
+	 * window-active-but-revoked key is never served. It must answer from that
+	 * exchange's own revocation list only: no party's list revokes another party's key.
+	 * undefined screens nothing; inject a predicate on any verification path.
+	 * `WBAKeyResolver.revoked` has this shape and can be passed directly (bind it,
+	 * `(tp, ex) => wba.revoked(tp, ex)`); it knows a directory's list only once that
+	 * resolver has fetched the directory. A throwing predicate fails closed
+	 * (resolve → undefined), never propagates. */
+	revoked?: (thumbprint: string, exchange: string) => boolean;
 }
 
 /** The public face: the OfferKeyResolver core.Verifier resolves offer keys through. */
@@ -95,7 +102,7 @@ class CachedOfferKeyResolverImpl implements OfferKeyResolver {
 	private readonly fetchFn: OfferDirectoryFetch;
 	private readonly ttlMs: number;
 	private readonly now: () => number;
-	private readonly revoked: (thumbprint: string) => boolean;
+	private readonly revoked: (thumbprint: string, exchange: string) => boolean;
 	private readonly cache = new Map<string, OfferKeyEntry>();
 	private readonly flight = new Map<
 		string,
@@ -153,10 +160,12 @@ class CachedOfferKeyResolverImpl implements OfferKeyResolver {
 			const dir = await this.fetchFn(exchange);
 			if (dir === undefined) return undefined; // unresolvable directory → fail closed
 			const nowMs = this.now();
+			// The selector screens by thumbprint alone; the exchange names whose list
+			// answers, so the predicate never consults another party's list.
 			const selected = await activeEd25519KeyWithExpiryScreened(
 				dir,
 				nowMs,
-				this.revoked,
+				(thumbprint) => this.revoked(thumbprint, exchange),
 			);
 			if (selected === null) return undefined; // no active, non-revoked key
 			// The decoded key bytes are ArrayBuffer-backed at runtime; the selector widens
@@ -220,32 +229,41 @@ function joinDirectoryHost(domain: string, port: string): string {
 	return `${domain}:${port}`;
 }
 
+/** Wires a {@link createWBAOfferDirectoryFetch}: the transport, and the scheme and
+ * port the directory URL is built with (empty scheme → https, empty port → none). */
+export interface WBAOfferDirectoryFetchOptions {
+	fetch: FetchLike;
+	scheme?: string;
+	port?: string;
+	/** The Ed25519 verify primitive the directory's response signatures are checked with,
+	 * for a runtime without WebCrypto Ed25519. Defaults to WebCrypto. */
+	verifyEd25519?: Ed25519Verify;
+}
+
 /**
  * createWBAOfferDirectoryFetch returns the default {@link OfferDirectoryFetch}: it
  * GETs {scheme}://{domain}[:{port}]{WBA_DIRECTORY_PATH} (built by the shared
- * wbaDirectoryURL) and parses the body as a WBAFile, returning `undefined` on ANY
- * transport/status/decode failure so
+ * wbaDirectoryURL) with no redirect, checks its media type and response signatures, and
+ * parses the body as a WBAFile listing only the keys that signed the response,
+ * returning `undefined` on ANY transport/status/media-type/signature/decode failure so
  * the default fetcher itself upholds the undefined-not-throw seam contract.
  *
- * The default transport is SSRF-guarded (guardedFetchFromEnv): the exchange domain
- * is signature-covered but attacker-influenceable and the fetch runs before the
- * offer signature is checked, so an unguarded default would be a pre-auth SSRF
- * lever (mirrors Go NewWBADirectoryFetcher). Tests inject a loopback fetch; apps
- * may inject a fetch wrapping their shared well-known client.
+ * `opts.fetch` is required here. The Node entry's factory defaults it to the
+ * SSRF-guarded transport (guardedFetchFromEnv): the exchange domain is
+ * signature-covered but attacker-influenceable and the fetch runs before the offer
+ * signature is checked, so an unguarded default would be a pre-auth SSRF lever
+ * (mirrors Go NewWBADirectoryFetcher). Tests inject a loopback fetch; apps may inject a
+ * fetch wrapping their shared well-known client.
  */
-export function createWBAOfferDirectoryFetch(
-	opts: { fetch?: FetchLike; scheme?: string; port?: string } = {},
-): OfferDirectoryFetch {
-	const fetchFn = opts.fetch ?? guardedFetchFromEnv();
+export function createWBAOfferDirectoryFetch(opts: WBAOfferDirectoryFetchOptions): OfferDirectoryFetch {
+	const fetchFn = opts.fetch;
 	const scheme = opts.scheme && opts.scheme !== "" ? opts.scheme : "https";
 	const port = opts.port ?? "";
 	return async (domain: string) => {
 		try {
-			const body = await fetchStrict(
-				fetchFn,
-				wbaDirectoryURL(scheme, joinDirectoryHost(domain, port)),
-			);
-			return WBAFileSchema.parse(JSON.parse(body));
+			return await fetchWBAFile(fetchFn, wbaDirectoryURL(scheme, joinDirectoryHost(domain, port)), {
+				verifyEd25519: opts.verifyEd25519,
+			});
 		} catch {
 			return undefined;
 		}

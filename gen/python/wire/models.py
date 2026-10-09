@@ -38,10 +38,11 @@ class AgentAcceptancePayload(WireModel):
     )
     requester_domain: str | None = Field(
         '',
-        description='Requester domain (Requester.domain) the acceptance is bound to.',
+        description='Requester domain (Requester.domain) the acceptance is bound to: the host of\n the key directory the acceptance verifies against. Never empty.',
     )
     requester_id: str | None = Field(
-        '', description='Requester identity (Requester.id) the acceptance is bound to.'
+        '',
+        description='Requester label (Requester.id) the acceptance is bound to. Never empty.',
     )
 
 
@@ -58,8 +59,14 @@ class AgentRequestAcceptancePayload(WireModel):
         max_length=256,
         min_length=1,
     )
-    requester_domain: str | None = ''
-    requester_id: str | None = ''
+    requester_domain: str | None = Field(
+        '',
+        description='Requester.domain of the request. Non-empty (see AgentRequestAcceptance).',
+    )
+    requester_id: str | None = Field(
+        '',
+        description='Requester.id of the request. Non-empty (see AgentRequestAcceptance).',
+    )
 
 
 class AuthMethod(Enum):
@@ -112,6 +119,12 @@ class CatalogRejectionReason(Enum):
     )
     CATALOG_REJECTION_REASON_URI_UNAVAILABLE = (
         'CATALOG_REJECTION_REASON_URI_UNAVAILABLE'
+    )
+    CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION = (
+        'CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION'
+    )
+    CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED = (
+        'CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED'
     )
 
 
@@ -205,6 +218,10 @@ class DenialReason(Enum):
     DENIAL_REASON_SUBSCRIPTION_LAPSED = 'DENIAL_REASON_SUBSCRIPTION_LAPSED'
     DENIAL_REASON_ENTITLEMENT_NOT_GRANTED = 'DENIAL_REASON_ENTITLEMENT_NOT_GRANTED'
     DENIAL_REASON_ACCOUNT_NOT_REGISTERED = 'DENIAL_REASON_ACCOUNT_NOT_REGISTERED'
+    DENIAL_REASON_RELAY_NOT_ACCEPTED = 'DENIAL_REASON_RELAY_NOT_ACCEPTED'
+    DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION = (
+        'DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION'
+    )
 
 
 class DiscoveryMethod(Enum):
@@ -222,6 +239,9 @@ class DisputeFailureReason(Enum):
     DISPUTE_FAILURE_REASON_WINDOW_EXPIRED = 'DISPUTE_FAILURE_REASON_WINDOW_EXPIRED'
     DISPUTE_FAILURE_REASON_DUPLICATE = 'DISPUTE_FAILURE_REASON_DUPLICATE'
     DISPUTE_FAILURE_REASON_INELIGIBLE = 'DISPUTE_FAILURE_REASON_INELIGIBLE'
+    DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION = (
+        'DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION'
+    )
 
 
 class DisputeReason(Enum):
@@ -254,7 +274,7 @@ class DisputeRequest(WireModel):
     )
     idempotency_key: constr(min_length=1, max_length=255) = Field(
         ...,
-        description="Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed\n filing does not open a duplicate case. The dispute's durable identity is the\n Exchange-assigned dispute_id in DisputeResponse.\n Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per\n (authenticated caller, key), never globally, so a key chosen by one caller\n cannot collide with another's cached result.",
+        description='Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed\n filing does not open a duplicate case; the same key with a different filing\n is refused with already_exists. Scoped per caller; see "Idempotency" in the\n file header. The dispute\'s durable identity is the Exchange-assigned\n dispute_id in DisputeResponse.',
     )
     reason: DisputeReason = Field(..., description='Reason for the dispute.')
     received_content_hash: str | None = Field(
@@ -360,6 +380,9 @@ class DomainVerificationFailureReason(Enum):
     DOMAIN_VERIFICATION_FAILURE_REASON_KEY_REGISTRATION_FAILED = (
         'DOMAIN_VERIFICATION_FAILURE_REASON_KEY_REGISTRATION_FAILED'
     )
+    DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION = (
+        'DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION'
+    )
 
 
 class DomainVerificationRequest(WireModel):
@@ -436,7 +459,7 @@ class GetAccountStatusResponse(WireModel):
     )
     billing_ref: str | None = Field(
         '',
-        description='The account handle minted at registration (see RegisterResponse.billing_ref).\n Empty when the calling agent has no account yet.',
+        description='The account handle minted at registration (see RegisterResponse.billing_ref).\n Set on every OK answer: a calling agent with no account is answered\n NOT_FOUND, not with an empty handle (see GetAccountStatus). A receiver reads\n an empty handle, which an Exchange built before that rule may send, as the\n same answer.',
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
@@ -604,7 +627,7 @@ class ProviderRelationship(Enum):
 class PushResourcesResponse(WireModel):
     accepted: conint(ge=-2147483648, le=2147483647) | None = Field(
         None,
-        description="Number of entries accepted. A push is all-or-nothing, so a successful push\n stored every entry it carried and this is the submission's own size. A push\n that could not be applied is not a response at all: it travels as a non-OK\n transport error carrying ErrorDetail.catalog_rejection.",
+        description='Number of entries accepted. A push is all-or-nothing, so a successful push\n stored every entry it carried and this is the submission\'s own size. A push\n the Exchange processed and could not apply is not a response at all: it\n travels as a non-OK transport error carrying ErrorDetail.catalog_rejection.\n A push refused before processing is answered by the general rules instead:\n a mis-addressed push (see "Request recipient" in the file header) and a\n malformed one are invalid_argument with no typed reason, and one whose\n signature fails is unauthenticated with ErrorDetail.request_auth_failure.',
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
@@ -744,6 +767,9 @@ class RegistrationFailureReason(Enum):
     REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE = (
         'REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE'
     )
+    REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION = (
+        'REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION'
+    )
 
 
 class RegistrationFieldError(WireModel):
@@ -754,30 +780,6 @@ class RegistrationFieldError(WireModel):
     path: constr(max_length=255) | None = Field(
         '',
         description='RFC 6901 JSON Pointer to the offending member, relative to\n registration_data (e.g. "/vat_id", "/address/postal_code"). The empty\n string addresses registration_data itself, for whole-object failures\n (oneOf, minProperties) that belong to no single member.',
-    )
-
-
-class RemoveResourcesRequest(WireModel):
-    exchange: constr(
-        pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
-        max_length=260,
-    ) = Field(
-        ...,
-        description='REQUIRED. Bare host of the recipient this request is addressed to (e.g.\n "exchange.example" or "exchange.example:8081"). See "Request recipient" in\n the file header. Distinct from `tenant_id` above, which names a publisher\n tenant WITHIN an Exchange, not the Exchange itself.',
-    )
-    paths: (
-        list[constr(pattern=r'^/[^?#\x00-\x20\x7f]*$', min_length=1, max_length=2048)]
-        | None
-    ) = Field(
-        None,
-        description='Paths to remove — the absolute-path shape ResourceEntry.path carries, at\n least one and at most 256, the same batch bound PushResourcesRequest.entries\n carries and for the same reason.',
-        max_length=256,
-        min_length=1,
-    )
-    tenant_id: str | None = Field('', description='Tenant identifier')
-    ver: str | None = Field(
-        '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -809,14 +811,14 @@ class ReportingObligation(WireModel):
     )
     window: str | None = Field(
         None,
-        description='Duration within which the report must be submitted (e.g. "86400s" = 24\n hours; proto-JSON encodes Duration as seconds).',
+        description='Duration within which the report must be submitted (e.g. "86400s" = 24\n hours; proto-JSON encodes Duration as seconds). A report that arrives after\n the window closed is refused with USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED\n (Connect code failed_precondition).',
     )
 
 
 class ReportingPolicy(WireModel):
     quantity_tolerance: confloat(ge=0.0, le=1.0) | None = Field(
         None,
-        description="Accepted relative deviation between estimated and reported quantity, as a\n fraction: 0 requires an exact match, 1 accepts any deviation. Omitted: the\n receiving Exchange's default tolerance applies.",
+        description="DEPRECATED, ignored. This used to set the accepted relative deviation\n between the estimated and the reported quantity, and a report outside it was\n refused. A usage report is never refused for its quantity: the reported\n quantity is unrestricted, and monitoring how far reports fall from\n estimates is the Exchange operator's own business, not part of the\n protocol. An Exchange MUST NOT refuse a report on this setting. The field and\n its bounds are retained because removing them would break the wire\n contract.",
     )
     required_fields: (
         list[constr(pattern=r'^[A-Za-z0-9._:*-]+$', min_length=1, max_length=64)] | None
@@ -834,14 +836,26 @@ class ReportingPolicy(WireModel):
     )
 
 
+class RequestAuthFailureReason(Enum):
+    REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING = (
+        'REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING'
+    )
+    REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID = (
+        'REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID'
+    )
+    REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE = (
+        'REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE'
+    )
+
+
 class RequestConstraints(WireModel):
     budget_period: str | None = Field(
         None,
-        description='Budget period (e.g. "2592000s" = 30 days; proto-JSON encodes Duration\n as seconds). Resets at period boundary.',
+        description='Budget period (e.g. "2592000s" = 30 days; proto-JSON encodes Duration\n as seconds).',
     )
     budget_scope: str | None = Field(
         None,
-        description='Budget scope identifier for per-period tracking.\n E.g. "user:u-12345" for per-user budgets, "team:eng" for per-team.\n The Broker tracks cumulative spend per scope across sessions.',
+        description='Budget scope identifier: whose budget this is.\n E.g. "user:u-12345" for per-user budgets, "team:eng" for per-team.',
     )
     delivery_preference: list[DeliveryMethod] | None = Field(
         None, description='Preferred delivery methods, in order of preference.'
@@ -864,7 +878,7 @@ class RequestConstraints(WireModel):
     )
     max_hops: conint(ge=-2147483648, le=2147483647) | None = Field(
         None,
-        description="Maximum forwarding hops the agent will allow (Agent → Broker → … →\n Exchange), counted as the number of RFC 9421 HTTP Message Signatures on the\n request. Caps chain depth so a request is not relayed through more brokers\n than the agent is willing to trust or pay. A Broker MUST NOT forward a\n request whose signature count would exceed this. Absent = agent imposes no\n cap (the Exchange's max_intermediary_hops still applies).",
+        description="Maximum number of hops the agent will allow its discovery to travel. It\n rides only on DiscoveryRequest, which terminates at the Broker, and a\n Broker originates its own queries rather than forwarding the agent's\n request, so no party receives or enforces it in this version: an Exchange\n never sees it, and an Exchange's own cap is\n WellKnownManifest.max_intermediary_hops. The field is kept for multi-hop\n Broker discovery, an open protocol question tracked separately. Absent =\n no cap stated.",
     )
     max_price: Cost | None = Field(
         None, description='Maximum price the agent is willing to pay.'
@@ -876,8 +890,7 @@ class RequestConstraints(WireModel):
         )
     )
     period_budget: Cost | None = Field(
-        None,
-        description='Per-period budget limit. The Broker tracks spend against this\n for the budget_scope. Transactions that would exceed are denied.',
+        None, description='Per-period budget limit for the budget_scope.'
     )
     preferred_exchanges: (
         list[
@@ -942,6 +955,18 @@ class ResourceMutability(Enum):
     RESOURCE_MUTABILITY_STATIC = 'RESOURCE_MUTABILITY_STATIC'
     RESOURCE_MUTABILITY_DYNAMIC = 'RESOURCE_MUTABILITY_DYNAMIC'
     RESOURCE_MUTABILITY_LIVE = 'RESOURCE_MUTABILITY_LIVE'
+
+
+class ResourceRef(WireModel):
+    domain: constr(
+        pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
+        max_length=260,
+    ) = Field(
+        ..., description='The bare host the resource lives on, as ResourceEntry.domain.'
+    )
+    path: constr(pattern=r'^/[^?#\x00-\x20\x7f]*$', min_length=1, max_length=2048) = (
+        Field(..., description="The resource's absolute path, as ResourceEntry.path.")
+    )
 
 
 class RestrictionKind(Enum):
@@ -1068,62 +1093,18 @@ class TransactionDenial(WireModel):
         | None
     ) = Field(
         None,
-        description='Bare host of the Exchange that PRODUCED this denial, in the form "Request\n recipient" defines in the file header. Not an echo of what the caller sent:\n on a relayed or fanned-out execute the request went to a Broker, so the\n Exchange that refused may not be one the agent named. Carrying it here is\n what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to\n call Register without fetching a manifest to work it out. NOTHING SIGNS THIS\n VALUE: it rides in a response, and on a relayed path the response passed\n through an intermediary, so this field is exactly the unsigned addressing\n the request-side `exchange` field exists to refuse. Treat it as a HINT, not\n an instruction. Before acting on it — and registering is a consequential act,\n handing an operator\'s business data and a signed acceptance of that\n Exchange\'s terms to whoever answers — a caller MUST check the value against\n a domain it already trusts for this transaction: the signed `offer.exchange`\n of the denied item, or its own RequestConstraints.exchanges set. A value\n matching neither is reported to the caller and never dialled, because a\n hostile intermediary that could choose it would be choosing where an\n unattended agent registers.',
+        description='Bare host of the Exchange that PRODUCED this denial, in the form "Request\n recipient" defines in the file header. Not an echo of what the caller sent:\n on a relayed or fanned-out execute the request went to a Broker, so the\n Exchange that refused may not be one the agent named (through\n BrokerService.ExecuteTransaction this detail reaches the agent inside\n UpstreamRefusal.detail, beside UpstreamRefusal.party). Carrying it here is\n what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to\n call Register without fetching a manifest to work it out. NOTHING SIGNS THIS\n VALUE: it rides in a response, and on a relayed path the response passed\n through an intermediary, so this field is exactly the unsigned addressing\n the request-side `exchange` field exists to refuse. Treat it as a HINT, not\n an instruction. Before acting on it — and registering is a consequential act,\n handing an operator\'s business data and a signed acceptance of that\n Exchange\'s terms to whoever answers — a caller MUST check the value against\n a domain it already trusts for this transaction: the signed `offer.exchange`\n of the items in the refused request, or its own RequestConstraints.exchanges\n set. A value matching neither is reported to the caller and never dialled,\n because a hostile intermediary that could choose it would be choosing where\n an unattended agent registers.',
     )
     offer_id: str | None = Field(
-        None, description='Batch mode: the offer this denial pertains to.'
+        None,
+        description="DEPRECATED, never set. A whole-request refusal pertains to no one offer; a\n denial of one offer rides on that offer's TransactionResultItem. The field\n is retained because removing it would break the v1 wire contract; a\n receiver ignores it.",
     )
     reason: DenialReason = Field(
         ..., description='The denial reason (defined-only, non-zero)'
     )
     restriction_mismatches: list[RestrictionKind] | None = Field(
         None,
-        description='When reason = RESTRICTION_NOT_SATISFIED, the failed axes (same\n RestrictionKind vocabulary the terms use).',
-    )
-
-
-class TransactionResultItem(WireModel):
-    billing_id: str | None = Field(
-        '',
-        description="Billing record identifier minted by the Exchange's billing adapter for\n this transaction (not the account handle — see RegisterResponse.billing_ref).",
-    )
-    cost: Cost | None = Field(None, description='Cost for this item.')
-    delivery_method: (
-        constr(pattern=r'^DELIVERY_METHOD_UNSPECIFIED$')
-        | DeliveryMethod
-        | conint(ge=-2147483648, le=2147483647)
-        | None
-    ) = Field(0, description='How resource is delivered for this item.')
-    denial_reason: DenialReason | None = Field(
-        None, description='Set if this specific item was denied (others may succeed).'
-    )
-    expires_at: AwareDatetime | None = Field(
-        None, description='When retrieval_endpoint expires.'
-    )
-    offer_id: str | None = Field('', description='The offer_id this result is for.')
-    reporting_obligation: ReportingObligation | None = Field(
-        None, description='Reporting requirements for this item.'
-    )
-    resource_title: str | None = Field(
-        None, description='Resource title echoed from the Offer.'
-    )
-    restriction_mismatches: list[RestrictionKind] | None = Field(
-        None,
-        description='When denial_reason = RESTRICTION_NOT_SATISFIED, the restriction axes the\n request failed, in the same RestrictionKind vocabulary the terms use.',
-    )
-    retrieval_endpoint: str | None = Field(
-        None,
-        description="Signed retrieval URL for this item. Bound to the requesting agent's identity\n via the parent TransactionResponse.agent_identity_hash (shared across all\n batch items); expires at expires_at. Absent if this item was denied or its\n delivery_method is not signed-URL-based.",
-    )
-    subscription_id: str | None = Field(
-        None, description='If under subscription, no per-request charge.'
-    )
-    subscription_unit_value: Cost | None = Field(
-        None,
-        description='Computed per-unit cost for financial attribution on subscription transactions.\n Even when cost.amount="0" (subscription), this field carries the value\n of the access for accounting purposes (e.g., ASC 606 prepaid drawdown).',
-    )
-    transaction_id: str | None = Field(
-        '', description='Exchange-assigned transaction identifier.'
+        description='DEPRECATED, never set. RESTRICTION_NOT_SATISFIED is never sent: the\n Exchange never enforces a restriction (see Restriction). The field is\n retained because removing it would break the v1 wire contract; a receiver\n ignores it.',
     )
 
 
@@ -1145,6 +1126,9 @@ class UsageReportRejectionReason(Enum):
         'USAGE_REPORT_REJECTION_REASON_MISSING_REQUIRED_FIELDS'
     )
     USAGE_REPORT_REJECTION_REASON_MALFORMED = 'USAGE_REPORT_REJECTION_REASON_MALFORMED'
+    USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION = (
+        'USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION'
+    )
 
 
 class UsageReportResponse(WireModel):
@@ -1170,7 +1154,7 @@ class WBAFile(WireModel):
     )
     revocation_url: str | None = Field(
         None,
-        description='Directory-level emergency revocation channel. One per directory; the list\n it points to enumerates revoked key thumbprints. Consumers poll on a 300s\n cadence (±10% jitter) and replace their local revoked set with the response.',
+        description='Directory-level emergency revocation channel. One per directory; the list\n it points to enumerates revoked key thumbprints. Consumers poll on a 300s\n cadence (±10% jitter) and replace their local revoked set with the response.\n The list revokes keys of this directory only: a consumer checks a\n signature against the list of the directory that published its key, and\n never applies this list to another party\'s key. A fetch of the list MAY\n follow up to five redirects (see "Redirects" under Well-Known Discovery).',
     )
 
 
@@ -1291,6 +1275,29 @@ class DomainVerificationFailure(WireModel):
     )
 
 
+class ExchangeOutcome(WireModel):
+    agent_identity_hash: str | None = Field(
+        '',
+        description="That Exchange's TransactionResponse.agent_identity_hash: the identity the\n retrieval_endpoint of each of its items is bound to. Empty when the\n Exchange refused the sub-request or did not answer.",
+    )
+    exchange: constr(
+        pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
+        max_length=260,
+    ) = Field(
+        ...,
+        description='Bare host of the Exchange, in the form "Request recipient" defines in the\n file header: the offer.exchange its items share.',
+    )
+    offer_ids: list[str] | None = Field(
+        None,
+        description='The offer_id of every item sent to this Exchange, in request order.',
+        max_length=256,
+    )
+    subscription_quota: list[SubscriptionQuotaInfo] | None = Field(
+        None,
+        description="That Exchange's TransactionResponse.subscription_quota, unchanged.",
+    )
+
+
 class Obligation(WireModel):
     detail: str | None = Field(
         None,
@@ -1312,7 +1319,7 @@ class Pricing(WireModel):
     )
     estimated_quantity: conint(ge=-2147483648, le=2147483647) | None = Field(
         None,
-        description='Estimated quantity in the metering unit.\n For text: token count. For video: duration in seconds.\n For documents: page count. For data: record count.',
+        description="Estimated quantity in the metering unit (`unit`).\n For text: token count. For video: duration in seconds.\n For documents: page count. For data: record count.\n\nOPTIONAL everywhere: on a LicenseTerm a publisher pushes and on an Offer.\n It is E in the metered price rule above. When a metered offer states it,\n it is positive (the offer.metered.estimate_positive rule), and the\n purchase charges E × rate. When a metered offer states none, the purchase\n charges one unit, 1 × rate. A PER_UNIT price may state a rate\n with or without an estimate; whether to state one is the publisher's\n decision, and nothing requires it.\n\n The estimate describes the resource rather than the arrangement, so a\n publisher may state it once on ResourceEntry.estimated_quantity instead of\n on each term. An estimate the publisher states either way is carried onto\n the offer's pricing (see Offer.pricing).",
     )
     license_duration_months: conint(ge=-2147483648, le=2147483647) | None = Field(
         None,
@@ -1369,6 +1376,41 @@ class RegistrationFailure(WireModel):
     )
 
 
+class RemoveResourcesRequest(WireModel):
+    exchange: constr(
+        pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
+        max_length=260,
+    ) = Field(
+        ...,
+        description='REQUIRED. Bare host of the recipient this request is addressed to (e.g.\n "exchange.example" or "exchange.example:8081"). See "Request recipient" in\n the file header. Distinct from `tenant_id` above, which names a publisher\n tenant WITHIN an Exchange, not the Exchange itself.',
+    )
+    paths: (
+        list[constr(pattern=r'^/[^?#\x00-\x20\x7f]*$', min_length=1, max_length=2048)]
+        | None
+    ) = Field(
+        None,
+        description='DEPRECATED, ignored. A bare path names no domain, so the Exchange cannot\n tell whose resource it is or whether the signer may remove it. Name each\n resource in `resources` instead; a request that carries only paths has no\n resources and is refused as malformed. The field and its item rules are\n retained because removing them would break the v1 wire contract.',
+        max_length=256,
+    )
+    resources: list[ResourceRef] | None = Field(
+        None,
+        description='The resources to remove, each named by the domain and path a push names it\n by — at least one and at most 256, the same batch bound\n PushResourcesRequest.entries carries and for the same reason.',
+        max_length=256,
+        min_length=1,
+    )
+    tenant_id: str | None = Field('', description='Tenant identifier')
+    ver: str | None = Field(
+        '',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+    )
+
+
+class RequestAuthFailure(WireModel):
+    reason: RequestAuthFailureReason = Field(
+        ..., description='The failure reason (defined-only, non-zero)'
+    )
+
+
 class Requester(WireModel):
     delegation: Delegation | None = Field(
         None,
@@ -1379,22 +1421,23 @@ class Requester(WireModel):
         max_length=260,
     ) = Field(
         ...,
-        description='Domain the requester belongs to. It carries the same bare-host shape\n "Request recipient" defines in the file header, for the same structural\n reason: a scheme, path or query smuggled in here would choose what gets\n fetched, not merely from where. It is NOT how a verifier finds this\n requester\'s keys: those live in the WBA directory, and verification resolves\n that directory from the COVERED `Signature-Agent` header, never from this\n self-asserted value.',
+        description='REQUIRED. Bare host of the requester\'s key directory: the WBA directory at\n {domain}/.well-known/http-message-signatures-directory that publishes the\n agent\'s Ed25519 keys. It carries the bare-host shape "Request recipient"\n defines in the file header (a port allowed), for the same structural\n reason: a scheme, path or query smuggled in here would choose what gets\n fetched, not merely from where. It is never a free label. Every verifier\n reads it as the name of that directory, and the rule that binds it depends\n on whether the request is direct or relayed, which the receiver decides as\n "Direct and relayed requests" in the file header states:\n\n- Direct request. The agent\'s own RFC 9421 signature arrives because\n     the agent sent the request itself. The verifier resolves the agent\'s\n     keys from the COVERED `Signature-Agent` member, never from this field.\n     It then MUST require this field to name that same directory: the host\n     of the origin that member names, compared by\n     the identity rule "Request recipient" defines (the shape check first,\n     then case-folded, an absent port the same as ":443", a subdomain a\n     different party). A mismatch is refused as UNAUTHENTICATED with\n     `request_auth_failure` SIGNATURE_INVALID: the signature verifies, but\n     not for the requester the body names. A Broker applies this rule on\n     every request it receives. An Exchange applies it on every request\n     whose signer it does not admit as a Broker; a mismatch from a signer it\n     does admit is a relayed request, one of the two cases below.\n   - Purchase relayed through a Broker. BrokerService.ExecuteTransaction\n     re-packages the purchase, so the request signature and the covered\n     `Signature-Agent` member are the Broker\'s. They say only that the call comes\n     from the Broker, and they sign no purchase. The Exchange MUST verify\n     each item\'s AgentAcceptance, and the AgentRequestAcceptance, against\n     the Ed25519 keys currently valid in the directory this field names\n     (see AgentRequestAcceptance), never against the Broker\'s key. Those\n     acceptances are the only agent signatures the Exchange sees.\n   - Broker-led discovery. A ResourceQuery a Broker originated carries no agent\n     signature, so nothing on that leg authenticates this field: it is the\n     Broker\'s statement, under the Broker\'s own signature, of whom it\n     queries for.',
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
         None,
         description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
     )
-    id: str | None = Field(
-        '', description='Unique requester identifier (e.g., "agent-research-bot-001").'
+    id: constr(min_length=1, max_length=255) = Field(
+        ...,
+        description='REQUIRED. A free label the agent chooses for attribution (e.g.\n "agent-research-bot-001"), 1 to 255 characters. Use it to tell apart the\n sub-agents or end customers that share one key directory. It is never\n identity: no verifier finds keys from it, and no party trusts it for an\n authentication or authorization decision. The requester\'s identity is\n `domain` together with the key that verifies. The acceptance signatures\n cover this label (see AgentAcceptancePayload), so a relaying Broker cannot\n rewrite it, but its value is still only what the agent says.',
     )
     name: str | None = Field(
         None, description='Human-readable name (e.g., "Acme Research Assistant").'
     )
     scopes: list[str] | None = Field(
         None,
-        description='Entitlement scopes. Declare what the requester can access.\n\nThe Exchange filters its catalog to resources matching these scopes.\n Resources outside the scopes are not returned — the requester never\n learns they exist. This is the enforcement mechanism for both enterprise\n RBAC and open-market subscription entitlements.\n\n Scope format: colon-separated segments, "{domain}:{permission}" or\n "{profile}:{permission}", optionally multi-segment ("dist:US:CA");\n matching is segment-wise per the rule below (no implicit hierarchy).\n Examples:\n   "credit:read"                — can access credit reports\n   "subscription:marketdata-2026" — has active MarketData subscription\n   "academic:*"                 — full access to academic resources\n   "internal:reports"           — can access internal reports\n   "*"                         — unrestricted (public Exchange default)\n\n Matching is SEGMENT-WISE (":" separated). A granted scope G covers a\n required scope R iff, segment by segment, each G segment equals the\n corresponding R segment or is "*"; a terminal "*" matches all remaining\n segments. There is NO implicit prefix match, and a grant NARROWER than\n the requirement does not cover it (G must be equal-to-or-broader than R).\n Examples: "dist:*" covers "dist:US" and "dist:US:CA"; "dist:US:*" covers\n "dist:US:CA" but not "dist:EU"; bare "dist" covers only "dist"; granted\n "dist:US:CA" does NOT cover required "dist:US"; "*" covers everything.\n This same rule governs LicenseTerm.scopes — one algorithm protocol-wide.\n\n When empty, Exchange applies its default access policy (typically\n returns all publicly available resources).',
+        description='Entitlement scopes. Declare what the requester can access.\n\nThe Exchange filters its catalog to resources matching these scopes. This\n is the enforcement mechanism for both enterprise RBAC and open-market\n subscription entitlements.\n\n EXISTENCE HIDING. A requester never learns about a resource outside its\n scopes. When the scopes leave no presentable offer for a resource, the\n Exchange answers with no offers and no absence reason (an OfferGroup with\n empty `offers` and `absence_reason` unset), exactly as for any resource\n with nothing to offer. A Broker relaying that answer adds no reason of its\n own. At purchase, an offer the Exchange presented is honoured until it\n expires, so a scope refusal cannot arise there. No reason in the protocol\n reports a scope shortfall: OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT and\n DENIAL_REASON_SCOPE_INSUFFICIENT are deprecated and never sent.\n\n Scope format: colon-separated segments, "{domain}:{permission}" or\n "{profile}:{permission}", optionally multi-segment ("dist:US:CA");\n matching is segment-wise per the rule below (no implicit hierarchy).\n Examples:\n   "credit:read"                — can access credit reports\n   "subscription:marketdata-2026" — has active MarketData subscription\n   "academic:*"                 — full access to academic resources\n   "internal:reports"           — can access internal reports\n   "*"                         — unrestricted (public Exchange default)\n\n Matching is SEGMENT-WISE (":" separated). A granted scope G covers a\n required scope R iff, segment by segment, each G segment equals the\n corresponding R segment or is "*"; a terminal "*" matches all remaining\n segments. There is NO implicit prefix match, and a grant NARROWER than\n the requirement does not cover it (G must be equal-to-or-broader than R).\n Examples: "dist:*" covers "dist:US" and "dist:US:CA"; "dist:US:*" covers\n "dist:US:CA" but not "dist:EU"; bare "dist" covers only "dist"; granted\n "dist:US:CA" does NOT cover required "dist:US"; "*" covers everything.\n This same rule governs LicenseTerm.scopes — one algorithm protocol-wide.\n\n When empty, Exchange applies its default access policy (typically\n returns all publicly available resources).',
         max_length=64,
     )
     type: RequesterType = Field(
@@ -1473,9 +1516,9 @@ class ResourceQuery(WireModel):
         None,
         description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
     )
-    requester: Requester | None = Field(
-        None,
-        description='Requester identity — who is making this request, what scopes they have,\n and optional delegation chain.',
+    requester: Requester = Field(
+        ...,
+        description='Requester identity — who is making this request, what scopes they have,\n and optional delegation chain. REQUIRED: a query names its requester, whose\n Requester.id and Requester.domain are required in turn.',
     )
     supported_profiles: list[str] | None = Field(
         None,
@@ -1497,7 +1540,7 @@ class Restriction(WireModel):
     )
     kind: RestrictionKind = Field(
         ...,
-        description="Which dimension this restriction applies to. Defined-only: the axis set is\n CLOSED, and a number outside it is refused rather than ignored. A custom\n axis is RESTRICTION_KIND_OTHER, whose meaning rides in permitted/prohibited,\n so a new number was never the extension mechanism — accepting one would\n admit a restriction no consumer can evaluate onto a term whose default is\n BINDING (see advisory below), which fails open on the axis a publisher most\n needs enforced. Closing the axis does NOT bound the cost of the one-per-kind\n rule below, and must not be read as doing so: a number this rule refuses is\n still distinct from every other, so that rule's all() finds no duplicate to\n stop on and walks the list in full anyway. Its cost is bounded by the size\n test the rule itself carries.",
+        description="Which dimension this restriction applies to. Defined-only: the axis set is\n CLOSED, and a number outside it is refused rather than ignored. A custom\n axis is RESTRICTION_KIND_OTHER, whose meaning rides in permitted/prohibited,\n so a new number was never the extension mechanism — accepting one would\n admit a restriction no consumer can evaluate onto a term whose default is\n BINDING (see advisory below), which fails open on the axis a publisher most\n needs honoured. Closing the axis does NOT bound the cost of the one-per-kind\n rule below, and must not be read as doing so: a number this rule refuses is\n still distinct from every other, so that rule's all() finds no duplicate to\n stop on and walks the list in full anyway. Its cost is bounded by the size\n test the rule itself carries.",
     )
     permitted: (
         list[constr(pattern=r'^[A-Za-z0-9._:*-]+$', min_length=1, max_length=64)] | None
@@ -1540,33 +1583,6 @@ class SetTenantFeeRateResponse(WireModel):
     )
 
 
-class TransactionResponse(WireModel):
-    agent_identity_hash: str | None = Field(
-        '',
-        description='Identity that a delivered retrieval_endpoint is bound to: the RFC 7638 JWK\n Thumbprint of the agent\'s Ed25519 request-signing key (see "Retrieval-URL\n identity binding" above). Shared across the request; set once.',
-    )
-    ext: dict[str, Any] | None = Field(None, description='Extension point')
-    ext_critical: list[str] | None = Field(
-        None,
-        description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
-    )
-    items: list[TransactionResultItem] | None = Field(
-        None,
-        description='Per-offer results (one entry per committed item, in original order).',
-    )
-    subscription_quota: list[SubscriptionQuotaInfo] | None = Field(
-        None,
-        description='Post-transaction quota state. Tells the agent how much quota remains\n after this transaction. Enables proactive throttling ("1 access left").\n Multiple entries for multi-dimensional quotas.',
-    )
-    total_cost: Cost | None = Field(
-        None, description='Aggregate cost across all items.'
-    )
-    ver: str | None = Field(
-        '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
-    )
-
-
 class Usage(WireModel):
     attribution: list[AttributionDetail] | None = Field(
         None, description='Structured attribution details for each citation provided.'
@@ -1577,7 +1593,7 @@ class Usage(WireModel):
     )
     consumed_quantity: conint(ge=-2147483648, le=2147483647) | None = Field(
         None,
-        description="REQUIRED. Actual quantity consumed, in the metering unit from the Offer's Pricing.\n For text: tokens consumed. For video: seconds watched. For data: records accessed.\n Exchange cross-references against Offer.pricing.estimated_quantity.",
+        description="REQUIRED. Actual quantity consumed, in the metering unit from the Offer's Pricing.\n For text: tokens consumed. For video: seconds watched. For data: records accessed.\n\nThe agent reports what it consumed, not what it estimated: an Exchange\n MUST NOT refuse a report because this differs from the estimate, in either\n direction.",
     )
     consumed_unit: (
         constr(
@@ -1623,7 +1639,7 @@ class UsageReport(WireModel):
     )
     idempotency_key: constr(min_length=1, max_length=255) = Field(
         ...,
-        description="Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed\n report does not double-count usage. The report's durable identity is the\n Exchange-assigned report_id in UsageReportResponse.\n Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per\n (authenticated caller, key), never globally, so a key chosen by one caller\n cannot collide with another's cached result.",
+        description='Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed\n report does not double-count usage; the same key with a different report is\n refused with already_exists. Scoped per caller; see "Idempotency" in the\n file header. The report\'s durable identity is the Exchange-assigned\n report_id in UsageReportResponse.',
     )
     timestamp: AwareDatetime | None = Field(
         None, description='When the resource was used (ISO 8601).'
@@ -1695,11 +1711,12 @@ class WellKnownManifest(WireModel):
         description='Exchange-only. Accepted resource hash methods for attestation\n verification.',
     )
     health_endpoint: str | None = Field(
-        None, description='Exchange-only. Health check endpoint URL.'
+        None,
+        description="Exchange-only. The URL a consumer, such as a Broker deciding whether to route\n to this Exchange, probes to judge whether it is serving: an absolute URL, or\n a path resolved against this manifest's own URL (RFC 3986). A 200 answer\n means serving. When absent, a consumer judges reachability by fetching this\n manifest itself; it never assumes a path the protocol does not name.",
     )
     max_intermediary_hops: conint(ge=-2147483648, le=2147483647) | None = Field(
         None,
-        description='Exchange-only. Maximum forwarding hops this Exchange tolerates on an inbound\n request (Agent → Broker → … → Exchange), counted as RFC 9421 HTTP Message\n Signatures. A request carrying more SHOULD be rejected. Lets Exchanges\n publish their chain-depth tolerance so Brokers prune before forwarding.\n Absent = no published limit (Exchange applies its own default policy).',
+        description='Exchange-only. Maximum number of RFC 9421 HTTP Message Signatures this\n Exchange accepts on an inbound request. Every signature counts, whether or\n not it covers another. A request signed only by the party that sent it — an\n agent, or a Broker for a request it authored — carries one, so the cap\n bounds a request that a party forwarded unchanged and signed again. An\n Exchange refuses a request carrying more before it verifies any signature,\n with the Connect code resource_exhausted (HTTP 429) and no typed reason.\n Lets Exchanges publish their tolerance so a sender stays within it.\n Absent = no published limit (Exchange applies its own default policy).',
     )
     name: str | None = Field(
         None, description='Exchange-only. Human-readable Exchange name.'
@@ -1769,9 +1786,9 @@ class DiscoveryRequest(WireModel):
         None,
         description="Search query for Broker-side resource discovery.\n Used when the agent doesn't know specific URIs but wants the Broker\n to find matching resources across Exchanges.\n When present, the Broker interprets the query and discovers resources\n across Exchanges on the agent's behalf. Results returned as Offers\n in DiscoveryResponse, same as for specific URI requests.\n Can be used alongside uris (specific URIs + search in one request).",
     )
-    requester: Requester | None = Field(
-        None,
-        description='Requester identity — who is making this request, what scopes they have.\n The Broker forwards this to Exchanges in ResourceQuery.requester.',
+    requester: Requester = Field(
+        ...,
+        description='Requester identity — who is making this request, what scopes they have.\n The Broker forwards this to Exchanges in ResourceQuery.requester. REQUIRED:\n a discovery names its requester, whose Requester.id and Requester.domain\n are required in turn.',
     )
     search_filters: dict[str, Any] | None = Field(
         None,
@@ -1779,7 +1796,7 @@ class DiscoveryRequest(WireModel):
     )
     supported_profiles: list[str] | None = Field(
         None,
-        description='Domain extension profiles the agent understands.\n\nThe Broker uses this to:\n   1. Route queries to Exchanges that support these profiles\n   2. Forward the profiles in ResourceQuery.supported_profiles\n   3. Include profile-specific ext fields when returning results\n\n Examples: ["fora-academic-v1"] — agent working on literature review',
+        description='Domain extension profiles the agent understands.\n\nThe Broker MUST forward this list unchanged in\n ResourceQuery.supported_profiles on every query it sends an Exchange, and\n forward an absent list as absent. It does not route by it: which Exchanges\n it queries is decided on other grounds, and each Exchange answers for its\n own profiles (see ResourceQuery.supported_profiles).\n\n Examples: ["fora-academic-v1"] — agent working on literature review',
     )
     uris: list[str] | None = Field(
         None,
@@ -1817,12 +1834,17 @@ class ErrorDetail(WireModel):
     registration_failure: RegistrationFailure | None = Field(
         None, description='`reason` oneof — agent/provider registration refused'
     )
+    request_auth_failure: RequestAuthFailure | None = Field(
+        None,
+        description='`reason` oneof — RFC 9421 request signature on an RPC refused',
+    )
     retrieval_auth_failure: RetrievalAuthFailure | None = Field(
         None,
         description='`reason` oneof — signed-URL / proof-of-possession check failed',
     )
     transaction_denial: TransactionDenial | None = Field(
-        None, description='`reason` oneof — ExecuteTransaction denial'
+        None,
+        description='`reason` oneof — ExecuteTransaction refused as a whole request',
     )
     usage_report_rejection: UsageReportRejection | None = Field(
         None, description='`reason` oneof — ReportUsage filing rejected'
@@ -1843,9 +1865,9 @@ class LicenseTerm(WireModel):
         None,
         description='Informational human-readable name for this sub-part (sub-part terms).',
     )
-    pricing: Pricing = Field(
-        ...,
-        description='Pricing for this term. REQUIRED for every term regardless of semantics —\n an agent cannot act on a priceless term, so absent Pricing is a validation\n error at ingest. model = FREE must be stated explicitly (absent Pricing is\n not free). A REFERENCE_ONLY term states its price here too; its License\n governs the human-readable terms but does not replace the machine-readable\n price.',
+    pricing: Pricing | None = Field(
+        None,
+        description="Pricing for this term. Where it is required depends on the message that\n holds the term, so the requirement is a rule of that message rather than of\n this field:\n   - On a catalog term (ResourceEntry.terms) it is REQUIRED regardless of\n     semantics — an agent cannot act on a priceless term, so absent Pricing\n     is a validation error at ingest (resource_entry.terms.pricing_required).\n     model = FREE must be stated explicitly (absent Pricing is not free). A\n     REFERENCE_ONLY term states its price here too; its License governs the\n     human-readable terms but does not replace the machine-readable price.\n   - On the term an offer carries (Offer.terms) it MUST be unset\n     (offer.terms.pricing_unset): the offer's price is Offer.pricing, stated\n     once.",
     )
     quotas: list[Quota] | None = Field(
         None,
@@ -1859,7 +1881,7 @@ class LicenseTerm(WireModel):
     )
     scopes: list[str] | None = Field(
         None,
-        description='Delegation scope-gating: the Exchange returns this term to an agent iff the\n agent\'s delegation grant covers ALL of these scopes (AND-semantics).\n Empty = public. A subscription term is Pricing{model:FREE} +\n scopes:["subscription:..."].\n\nCoverage uses the SAME matching rule as Requester/delegation scopes:\n segment-wise (":" separated), each granted segment must equal the\n corresponding required segment or be "*", a terminal "*" matches all\n remaining segments, and there is NO implicit prefix match (a grant\n narrower than the requirement does not cover it). "dist:*" covers\n "dist:US" and "dist:US:CA"; "dist" covers only "dist". There is exactly\n one scope-matching algorithm across the protocol.',
+        description='Scope-gating: the Exchange returns an offer for this term iff the scopes in\n the requester\'s signed request (Requester.scopes) cover ALL of these scopes\n (AND-semantics). Empty = public. A subscription term is Pricing{model:FREE}\n + scopes:["subscription:..."].\n\nCoverage uses the SAME matching rule as Requester.scopes:\n segment-wise (":" separated), each granted segment must equal the\n corresponding required segment or be "*", a terminal "*" matches all\n remaining segments, and there is NO implicit prefix match (a grant\n narrower than the requirement does not cover it). "dist:*" covers\n "dist:US" and "dist:US:CA"; "dist" covers only "dist". There is exactly\n one scope-matching algorithm across the protocol.',
         max_length=64,
     )
     semantics: TermSemantics = Field(
@@ -1915,7 +1937,7 @@ class Offer(WireModel):
     )
     pricing: Pricing | None = Field(
         None,
-        description='Pricing for this offer. An offer represents a single licensing\n arrangement: each projected LicenseTerm yields its own offer, so this is\n that term\'s pricing (the authoritative copy lives in `terms[].pricing`).\n Used for cross-exchange comparison and Broker ranking. A resource with\n multiple alternative terms (e.g. dual-licensed) produces multiple separate\n offers, one per term — never one offer with a "headline" picked among them.',
+        description='The offer\'s price, and its ONLY price. An offer represents a single\n licensing arrangement: each projected LicenseTerm yields its own offer, and\n the Exchange moves that term\'s price here, so the term inside `terms`\n carries no pricing of its own (the offer.terms.pricing_unset rule). This is\n the price execute charges, the price a Broker ranks and compares across\n Exchanges, and the price a metered purchase is charged at. A resource with\n multiple alternative terms (e.g. dual-licensed) produces multiple separate\n offers, one per term — never one offer with a "headline" picked among them.\n\nIt derives from exactly one catalog term: the term\'s pricing as the\n publisher declared it (ResourceEntry.terms). Each offer derives from one\n term, and the offer carries no second copy, so the offer\'s price and its\n term\'s price cannot disagree.\n\n On a metered (PER_UNIT) offer, the rate and the estimate a metered\n purchase is charged at are read from here (see Pricing). The estimate is\n optional. When the publisher states one — on the term\'s own pricing, or\n once for the resource on ResourceEntry.estimated_quantity — the Exchange\n carries it here as estimated_quantity, the term\'s own estimate taking\n precedence. When the publisher states none, the offer may carry none, and\n the purchase then charges one unit.',
     )
     reporting: ReportingObligation | None = Field(
         None, description='Post-usage reporting requirements for this offer.'
@@ -1938,7 +1960,7 @@ class Offer(WireModel):
     )
     terms: list[LicenseTerm] | None = Field(
         None,
-        description="The licensing term this offer sells, sourced from the publisher's\n ResourceEntry. EXACTLY ONE, and the bound is enforced rather than asked\n for: an offer IS a single licensing arrangement, so N terms on a resource\n project to N offers on that resource, each selling one of them — see\n `pricing` above. An offer with no term would be an offer projected from\n nothing, which is why the floor is one and not zero. The field is\n `repeated` because it shipped that way in v1 and renumbering a released\n field is not available to us, so the cardinality rides as a validation\n rule instead. `ResourceEntry.terms` is the plural side, bounded at 32: a\n resource carries many terms, an offer sells one of them.\n\nThe distinction is not cosmetic. `pricing` is what a Broker ranks on and\n what execute charges, so a term that is not on its own offer has no price\n a Broker can compare and no offer_id an agent can buy. Fusing several\n terms onto one offer makes every term but the first unsellable — a\n dual-licensed resource sells only under whichever arrangement the\n publisher happened to store first.\n\n Where a term is reachable only under an existing subscription, its offer\n carries `subscription_id` and prices at zero marginal cost; the terms a\n requester may see at all are selected by `LicenseTerm.scopes`.\n\n See: Universal Licensing Core section.",
+        description="The licensing term this offer sells, sourced from the publisher's\n ResourceEntry. EXACTLY ONE, and the bound is enforced rather than asked\n for: an offer IS a single licensing arrangement, so N terms on a resource\n project to N offers on that resource, each selling one of them — see\n `pricing` above. An offer with no term would be an offer projected from\n nothing, which is why the floor is one and not zero. The field is\n `repeated` because it shipped that way in v1 and renumbering a released\n field is not available to us, so the cardinality rides as a validation\n rule instead. `ResourceEntry.terms` is the plural side, bounded at 32: a\n resource carries many terms, an offer sells one of them.\n\nThe distinction is not cosmetic. `pricing` is what a Broker ranks on and\n what execute charges, so a term that is not on its own offer has no price\n a Broker can compare and no offer_id an agent can buy. Fusing several\n terms onto one offer makes every term but the first unsellable — a\n dual-licensed resource sells only under whichever arrangement the\n publisher happened to store first.\n\n The term here carries everything the publisher declared EXCEPT its price:\n its `pricing` MUST be unset (the offer.terms.pricing_unset rule), because\n the offer's price is `pricing` above. Its semantics, license,\n restrictions, quotas, obligations, scopes and part_label are the\n publisher's, unchanged.\n\n Where a term is reachable only under an existing subscription, its offer\n carries `subscription_id` and prices at zero marginal cost; the terms a\n requester may see at all are selected by `LicenseTerm.scopes`.\n\n See: Universal Licensing Core section.",
         max_length=1,
         min_length=1,
     )
@@ -1950,7 +1972,7 @@ class Offer(WireModel):
 class OfferGroup(WireModel):
     absence_reason: OfferAbsenceReason | None = Field(
         None,
-        description='Why no offers are available for this URI.\n Present when `offers` is empty. Enables agents/Brokers to distinguish\n "resource not in catalog" from "resource blocked for your use case" without\n trial-and-error transactions. Analogous to OpenRTB nbr codes and\n Shutterstock per-item error metadata in batch responses.',
+        description='Why no offers are available for this URI.\n Set only when `offers` is empty, and not always then: a resource the\n requester\'s scopes leave with no presentable offer is answered with empty\n `offers` and this field unset (the existence-hiding rule, stated on\n Requester.scopes). Enables agents/Brokers to distinguish\n "resource not in catalog" from "resource blocked for your use case" without\n trial-and-error transactions. Analogous to OpenRTB nbr codes and\n Shutterstock per-item error metadata in batch responses.',
     )
     discovery_method: DiscoveryMethod | None = Field(
         None,
@@ -1996,7 +2018,7 @@ class ResourceEntry(WireModel):
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
         None,
-        description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
+        description='Critical extension keys (COSE crit pattern, RFC 9052): keys within ext\n that the AGENT must understand. The Exchange carries them onto\n Offer.ext_critical and does not consume them, so an unknown key here never\n refuses the push (see "Critical extensions" in the file header). Empty\n (default) → all ext keys are safe to ignore.',
     )
     hash_method: constr(max_length=64) | None = Field(
         None, description='Hash algorithm'
@@ -2023,7 +2045,7 @@ class ResourceEntry(WireModel):
     )
     terms: list[LicenseTerm] | None = Field(
         None,
-        description='Publisher-declared licensing terms for this resource.\n See LicenseTerm for the full model. For ENUMERATED terms, Pricing MUST\n be present. For REFERENCE_ONLY terms, License.uri is authoritative.\n The Exchange validates ENUMERATED terms at push time and surfaces them\n in Offer.terms on discovery. At most 32 terms per entry, stated on the wire\n so every implementation refuses the same size. An over-cap entry refuses the\n whole submission, as every catalog rejection does; what being a wire rule\n changes is WHEN — the refusal now happens at the boundary, before any\n per-entry classification runs, which is why the rejection reason that named\n this cap can no longer be produced for a push.',
+        description="Publisher-declared licensing terms for this resource.\n See LicenseTerm for the full model. Every term carries its Pricing (the\n resource_entry.terms.pricing_required rule above), whatever its semantics.\n For REFERENCE_ONLY terms, License.uri is authoritative.\n The Exchange validates ENUMERATED terms at push time and surfaces each term\n on its own offer on discovery: the term's price becomes Offer.pricing, and\n the term in Offer.terms carries no pricing. At most 32 terms per entry,\n stated on the wire so every implementation refuses the same size. An over-cap entry refuses the\n whole submission, as every catalog rejection does; what being a wire rule\n changes is WHEN — the refusal now happens at the boundary, before any\n per-entry classification runs, which is why the rejection reason that named\n this cap can no longer be produced for a push.",
         max_length=32,
     )
     title: constr(max_length=512) | None = Field(None, description='Content title')
@@ -2085,15 +2107,16 @@ class TransactionRequest(WireModel):
     )
     idempotency_key: constr(min_length=1, max_length=255) = Field(
         ...,
-        description="Idempotency key (REQUIRED). The server MUST dedupe on this: a replay returns\n the original result rather than re-executing. The transaction's durable\n identity is the Exchange-assigned transaction_id in the response.\n Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per\n (authenticated caller, key), never globally, so a key chosen by one caller\n cannot collide with another's cached result.",
+        description='Idempotency key (REQUIRED). The server MUST dedupe on this: a replay returns\n the original result rather than re-executing, and the same key with\n different items is refused with already_exists. The key is scoped per\n caller: per authenticated agent, and per (Broker, requester) on a purchase\n relayed through BrokerService.ExecuteTransaction, where the Broker forwards\n the agent\'s key unchanged. A key another agent or tenant used is never a\n collision. The full rule is "Idempotency" in the file header. The\n transaction\'s durable identity is the Exchange-assigned transaction_id in\n the response.',
     )
     items: list[TransactionItem] | None = Field(
         None,
         description="The offers committed in this request (REQUIRED, min 1), each carrying its\n own reflected signed Offer + detached acceptance. A single offer is the\n degenerate 1-element list. The Exchange verifies each item's\n `offer.signature` (which covers pricing, terms, and expires_at) over the\n presented bytes against its own key — stateless, self-contained bearer\n tokens, with no reconstruct-from-catalog.",
         min_length=1,
     )
-    requester: Requester | None = Field(
-        None, description='Requester identity — forwarded for authorization and audit.'
+    requester: Requester = Field(
+        ...,
+        description='Requester identity — forwarded for authorization and audit. REQUIRED: a\n purchase names its requester, whose Requester.id and Requester.domain are\n required in turn, and every acceptance binds that requester.',
     )
     ver: str | None = Field(
         '',
@@ -2101,10 +2124,28 @@ class TransactionRequest(WireModel):
     )
 
 
+class UpstreamRefusal(WireModel):
+    code: constr(min_length=1, max_length=64) = Field(
+        ...,
+        description='The Connect code the party answered with, in its wire form, e.g.\n "permission_denied" or "unauthenticated". When the party gave no answer\n — unreachable, or the call timed out — it is the code the relaying party\'s\n call failed with ("unavailable", "deadline_exceeded"). A refusal with\n either of those codes is an ambiguous outcome: a purchase may have\n completed. On a Broker purchase, retrying the agent\'s request with the same\n idempotency_key through the same Broker is answered from each Exchange\'s\n stored result, so it settles the outcome without buying twice.',
+    )
+    detail: ErrorDetail | None = Field(
+        None,
+        description="The party's typed reason, unchanged — the ErrorDetail it attached to its\n refusal. Absent when the party attached none or gave no answer.",
+    )
+    party: constr(
+        pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
+        max_length=260,
+    ) = Field(
+        ...,
+        description='Bare host of the party that refused the call made on the caller\'s behalf,\n in the form "Request recipient" defines in the file header.',
+    )
+
+
 class DiscoveryResponse(WireModel):
     absence_reason: OfferAbsenceReason | None = Field(
         None,
-        description='Existence-oracle note: an authorization-flavored reason (SCOPE_INSUFFICIENT,\n NOT_AUTHORIZED, NOT_IN_CATALOG, CONTENT_BLOCKED) confirms a resource exists\n and why access was refused. Resolve surfaces the same oracle at the broker\n that OfferGroup.absence_reason does at the Exchange, so the same mitigation\n applies: where existence itself must stay hidden, the Broker MAY omit the\n reason (leave this unset) rather than reveal it. See the threat model.',
+        description='Existence-oracle note: an authorization-flavored reason (NOT_AUTHORIZED,\n NOT_IN_CATALOG, CONTENT_BLOCKED) confirms a resource exists\n and why access was refused. Resolve surfaces the same oracle at the broker\n that OfferGroup.absence_reason does at the Exchange, so the same mitigation\n applies: where existence itself must stay hidden, the Broker MAY omit the\n reason (leave this unset) rather than reveal it. See the threat model.\n A scope shortfall never reaches this field: the Exchange answers it with\n no absence reason, and the Broker MUST NOT supply one (the existence-hiding\n rule, stated on Requester.scopes).',
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
@@ -2124,11 +2165,11 @@ class DiscoveryResponse(WireModel):
 class PushResourcesRequest(WireModel):
     caller_id: str | None = Field(
         '',
-        description='Identity of the caller (who is pushing this data).\n The Exchange verifies this matches a registered CatalogService client.',
+        description="DEPRECATED, never needed. Each entry's domain names whose resource it is,\n and the caller is the party that signs the request: the Exchange checks\n that the verified signer may push for each entry's domain (see\n CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR), and a receiver does not\n rely on this field. The field is retained because removing it would break\n the v1 wire contract. It does not yet carry the `deprecated` field option,\n so implementations that still read it keep building; the option follows\n once they no longer do.",
     )
     entries: list[ResourceEntry] | None = Field(
         None,
-        description='Content entries to push. At least one: an empty push asks for nothing and\n is refused rather than answered with zero counts. At most 256, the bound a\n caller-chosen batch carries elsewhere in this contract (see ResourceQuery.uris)\n — it bounds one submission, so a larger feed is pushed in several. The cap is\n over entries because a submission is stored or refused whole, and a refusal\n names each entry that failed; it does not bound the work of checking a\n submission, which the recipient bounds at the transport.',
+        description='Content entries to push. At least one: an empty push asks for nothing and\n is refused rather than answered with zero counts. At most 256, the bound a\n caller-chosen batch carries elsewhere in this contract (see ResourceQuery.uris)\n — it bounds one submission, so a larger feed is pushed in several. The cap is\n over entries because a submission is stored or refused whole, and a refusal\n names each entry that failed; it does not bound the work of checking a\n submission, which the recipient bounds at the transport.\n\nBoth bounds are wire rules (min_items and max_items below). A push outside\n them is a malformed request, refused by wire validation with the Connect\n code invalid_argument like any other malformed request; it carries no\n catalog_rejection, because no entry was examined.',
         max_length=256,
         min_length=1,
     )
@@ -2145,6 +2186,111 @@ class PushResourcesRequest(WireModel):
         description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
     )
     tenant_id: str | None = Field('', description='Tenant identifier')
+    ver: str | None = Field(
+        '',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+    )
+
+
+class TransactionResultItem(WireModel):
+    billing_id: str | None = Field(
+        '',
+        description="Billing record identifier minted by the Exchange's billing adapter for\n this transaction (not the account handle — see RegisterResponse.billing_ref).",
+    )
+    cost: Cost | None = Field(
+        None,
+        description="Cost for this item. For a metered (PER_UNIT) item this is the purchase\n charge: the offer's estimated_quantity × rate, or one unit, 1 × rate, when\n the offer states no estimate (see Pricing).",
+    )
+    delivery_method: (
+        constr(pattern=r'^DELIVERY_METHOD_UNSPECIFIED$')
+        | DeliveryMethod
+        | conint(ge=-2147483648, le=2147483647)
+        | None
+    ) = Field(0, description='How resource is delivered for this item.')
+    denial_reason: DenialReason | None = Field(
+        None,
+        description='Set if this specific item was denied (others may succeed). Every per-item\n denial is answered here, in a successful response, also when the request\n carried only this item: a denied one-item purchase is never a non-OK error.',
+    )
+    expires_at: AwareDatetime | None = Field(
+        None, description='When retrieval_endpoint expires.'
+    )
+    offer_id: str | None = Field('', description='The offer_id this result is for.')
+    refusal: UpstreamRefusal | None = Field(
+        None,
+        description='Set only on a BrokerTransactionResponse, and only when the Exchange that\n owns this item refused the Broker\'s whole sub-request instead of answering\n it: a non-OK answer, or no answer at all. offer_id names the item;\n transaction_id, billing_id, cost, denial_reason, retrieval_endpoint and the\n other result fields stay unset. Every item the Broker sent in that\n sub-request carries the same refusal. Whether the item was purchased\n depends on the refusal\'s code. With the code "unavailable" or\n "deadline_exceeded" the outcome is unknown: the Exchange may have completed\n the purchase before the answer was lost, whether it gave no answer or\n answered that code, and retrying the agent\'s request with the same\n idempotency_key through the same Broker settles it (see\n UpstreamRefusal.code). With any other code the Exchange answered with a\n refusal that decided no item, so the item was not purchased. An Exchange\n never sets this field, and a Broker never replaces it with a denial_reason:\n an upstream refusal is not a per-item access decision.',
+    )
+    reporting_obligation: ReportingObligation | None = Field(
+        None, description='Reporting requirements for this item.'
+    )
+    resource_title: str | None = Field(
+        None, description='Resource title echoed from the Offer.'
+    )
+    restriction_mismatches: list[RestrictionKind] | None = Field(
+        None,
+        description='DEPRECATED, never set. It named the restriction axes a request failed under\n DENIAL_REASON_RESTRICTION_NOT_SATISFIED, which is never sent: the Exchange\n never enforces a restriction (see Restriction). The field is retained\n because removing it would break the v1 wire contract; a receiver ignores it.',
+    )
+    retrieval_endpoint: str | None = Field(
+        None,
+        description="Signed retrieval URL for this item. Bound to the requesting agent's identity\n via the parent TransactionResponse.agent_identity_hash (shared across all\n batch items) — on a BrokerTransactionResponse, the agent_identity_hash of\n the ExchangeOutcome for this item's Exchange; expires at expires_at. Absent if this item was denied or its\n delivery_method is not signed-URL-based.",
+    )
+    subscription_id: str | None = Field(
+        None, description='If under subscription, no per-request charge.'
+    )
+    subscription_unit_value: Cost | None = Field(
+        None,
+        description='Computed per-unit cost for financial attribution on subscription transactions.\n Even when cost.amount="0" (subscription), this field carries the value\n of the access for accounting purposes (e.g., ASC 606 prepaid drawdown).',
+    )
+    transaction_id: str | None = Field(
+        '', description='Exchange-assigned transaction identifier.'
+    )
+
+
+class BrokerTransactionResponse(WireModel):
+    exchanges: list[ExchangeOutcome] | None = Field(
+        None,
+        description='One per Exchange the Broker contacted, in the order each Exchange first\n appears among the request items.',
+    )
+    ext: dict[str, Any] | None = Field(None, description='Extension point')
+    ext_critical: list[str] | None = Field(
+        None,
+        description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
+    )
+    items: list[TransactionResultItem] | None = Field(
+        None,
+        description="One per request item, in request order. A purchase that succeeded, or that\n its Exchange denied per item (denial_reason), is that Exchange's\n TransactionResultItem unchanged. An item whose Exchange refused the whole\n sub-request, or did not answer it, carries that refusal in `refusal`, with\n offer_id set and no other result field. When the Broker itself does not\n understand a key the agent's request lists in ext_critical, every item is\n the Broker's denial, DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION, and no\n Exchange was contacted.",
+    )
+    totals: list[Cost] | None = Field(
+        None,
+        description='Charged totals, one per currency, in the order each currency first appears\n among the charged items. An item is charged when it carries neither\n denial_reason nor refusal; its cost.amount is added, as an exact decimal,\n into the entry for its cost.currency. Amounts are never summed across\n currencies and never converted: currency conversion is out of scope for\n this version. unit_cost is unset. Empty when no item was charged. An item\n whose refusal carries the code "unavailable" or "deadline_exceeded" may\n have been charged but is not counted, so totals is then a lower bound of\n what the purchase charged.',
+    )
+    ver: str | None = Field(
+        '',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+    )
+
+
+class TransactionResponse(WireModel):
+    agent_identity_hash: str | None = Field(
+        '',
+        description='Identity that a delivered retrieval_endpoint is bound to: the RFC 7638 JWK\n Thumbprint of the agent\'s Ed25519 request-signing key (see "Retrieval-URL\n identity binding" above). On a sub-request a Broker re-packaged, the request\n signer is the Broker, and this is the thumbprint of the agent key the\n AgentAcceptances verify under instead. Shared across the request; set once.',
+    )
+    ext: dict[str, Any] | None = Field(None, description='Extension point')
+    ext_critical: list[str] | None = Field(
+        None,
+        description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
+    )
+    items: list[TransactionResultItem] | None = Field(
+        None,
+        description='Per-offer results (one entry per committed item, in original order).',
+    )
+    subscription_quota: list[SubscriptionQuotaInfo] | None = Field(
+        None,
+        description='Post-transaction quota state. Tells the agent how much quota remains\n after this transaction. Enables proactive throttling ("1 access left").\n Multiple entries for multi-dimensional quotas.',
+    )
+    total_cost: Cost | None = Field(
+        None,
+        description="Aggregate cost of the purchased items (those without denial_reason): their\n cost.amount summed as exact decimals, in their one shared currency.\n unit_cost is unset. UNSET when the purchased items span more than one\n currency: amounts are never summed across currencies, and currency\n conversion is out of scope for this version. A caller that needs the totals\n then sums each item's cost per currency itself.",
+    )
     ver: str | None = Field(
         '',
         description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',

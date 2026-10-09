@@ -47,9 +47,10 @@ service AdminService {
   // Sets the tenant's fee rate (basis points) and optional operator note.
   // Full replace: the previous rate and note are overwritten.
   rpc SetTenantFeeRate(SetTenantFeeRateRequest) returns (SetTenantFeeRateResponse);
-  // Replaces the tenant's reporting policy (required report fields, quantity
-  // tolerance, reporting window). Full replace: omitted optional fields clear
-  // their value so the receiving Exchange's defaults apply.
+  // Replaces the tenant's reporting policy (required report fields, reporting
+  // window). Full replace: omitted optional fields clear their value so the
+  // receiving Exchange's defaults apply. The deprecated quantity_tolerance is
+  // accepted and ignored: a usage report is never refused for its quantity.
   rpc SetReportingPolicy(SetReportingPolicyRequest) returns (SetReportingPolicyResponse);
 }
 
@@ -93,10 +94,16 @@ message ReportingPolicy {
     (buf.validate.field).repeated.items.string.pattern = "^[A-Za-z0-9._:*-]+$"
   ];
 
-  // Accepted relative deviation between estimated and reported quantity, as a
-  // fraction: 0 requires an exact match, 1 accepts any deviation. Omitted: the
-  // receiving Exchange's default tolerance applies.
+  // DEPRECATED, ignored. This used to set the accepted relative deviation
+  // between the estimated and the reported quantity, and a report outside it was
+  // refused. A usage report is never refused for its quantity: the reported
+  // quantity is unrestricted, and monitoring how far reports fall from
+  // estimates is the Exchange operator's own business, not part of the
+  // protocol. An Exchange MUST NOT refuse a report on this setting. The field and
+  // its bounds are retained because removing them would break the wire
+  // contract.
   optional double quantity_tolerance = 3 [
+    deprecated = true,
     (buf.validate.field).double.gte = 0,
     (buf.validate.field).double.lte = 1
   ];

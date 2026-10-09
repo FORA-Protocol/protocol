@@ -1,9 +1,6 @@
 package core
 
-import (
-	"sync/atomic"
-	"time"
-)
+import "time"
 
 // Window returns the RFC 9421 (created, expires) cutoffs (unix seconds) to
 // stamp on the next outbound signature. It is invoked once per signed request.
@@ -28,36 +25,20 @@ func ClockWindow(now func() time.Time, ttl time.Duration) Window {
 	}
 }
 
-// MonotonicWindow returns a Window whose expires cutoff is strictly increasing
-// across calls: it tracks now+ttl but, when a burst of requests lands in the
-// same wall-clock second, bumps expires by one second per call so no two
-// back-to-back signatures share a (keyid, expires) pair. The signing transport
-// no longer needs this for uniqueness: every signature carries a fresh nonce,
-// so ClockWindow is enough. Note that during a burst expires − created grows
-// past ttl, which a verifier with WithMaxSignatureAge(ttl) refuses. created tracks
-// now() — the pair stays clock-consistent for any caller that reads created.
-// Safe for concurrent RoundTrips: the running maximum is held in an atomic
-// updated by compare-and-swap. To adapt an application clock interface with a
-// Now() method, pass the method value: MonotonicWindow(clk.Now, ttl).
+// MonotonicWindow returns a Window that stamps each outbound signature at the
+// clock's current time: created=now() and expires=now()+ttl, exactly as
+// ClockWindow does.
 //
-// ONE INSTANCE PER CLIENT, never one per call. The running maximum is the whole
-// mechanism: a window minted per request starts from zero, cannot see the
-// previous signature, and provides exactly none of the uniqueness it was chosen
-// for — while still looking correct at the call site.
+// It once bumped expires (and later created with it) by one second per call
+// inside a wall-clock second, so that no two signatures shared a window. That
+// stamped signatures in the future at more than one request per second, by as many
+// seconds as there were requests, which a verifier's future-skew allowance then
+// absorbed. Uniqueness never needed it: every signature carries a fresh 64-byte
+// nonce, so two identical requests in the same second already sign to different
+// bytes.
+//
+// Deprecated: use ClockWindow. MonotonicWindow is kept so existing callers
+// compile, and behaves identically.
 func MonotonicWindow(now func() time.Time, ttl time.Duration) Window {
-	var lastExpires atomic.Int64
-	return func() (int64, int64) {
-		n := now()
-		floor := n.Unix() + int64(ttl.Seconds())
-		for {
-			prev := lastExpires.Load()
-			next := floor
-			if prev >= next {
-				next = prev + 1
-			}
-			if lastExpires.CompareAndSwap(prev, next) {
-				return n.Unix(), next
-			}
-		}
-	}
+	return ClockWindow(now, ttl)
 }

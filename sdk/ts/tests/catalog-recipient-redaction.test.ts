@@ -27,7 +27,6 @@ function push(exchange: string): Promise<unknown> {
 	return client.pushResources({
 		exchange,
 		tenant_id: "t",
-		caller_id: "c",
 		entries: [{ domain: "publisher.test", path: "/x" }],
 	});
 }

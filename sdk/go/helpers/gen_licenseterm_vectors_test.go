@@ -652,9 +652,6 @@ func buildLTEntryVectors(t *testing.T) []ltEntryVector {
 		{"structural_padded_token_fails_wire_before_fold", entry(func(e *forav1.ResourceEntry) {
 			e.Terms[0].Restrictions = []*forav1.Restriction{ltRestriction(ltKindGeography, []string{" de "}, nil)}
 		})},
-		{"structural_term_without_pricing", entry(func(e *forav1.ResourceEntry) {
-			e.Terms[0].Pricing = nil
-		})},
 		{"structural_nested_cel_only", entry(func(e *forav1.ResourceEntry) {
 			e.Terms = append(e.Terms, ltEnumerated(&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.05", Currency: "USD"}, nil))
 		})},
@@ -667,6 +664,12 @@ func buildLTEntryVectors(t *testing.T) []ltEntryVector {
 		// across languages. Each also stays far under the list bounds, or the
 		// cardinality rule would fire too and be classified as field-level, masking
 		// the rule the case exists to isolate.
+		// A catalog term carries its price. The rule is the entry's, not the
+		// term's, because an offer's term carries none (its price is
+		// Offer.pricing), so a port checks it on the entry it walks.
+		{"cross_field_resource_entry_term_without_pricing", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0].Pricing = nil
+		})},
 		{"cross_field_restriction_permitted_prohibited_overlap", entry(func(e *forav1.ResourceEntry) {
 			e.Terms[0].Restrictions = []*forav1.Restriction{
 				ltRestriction(ltKindFunction, []string{"ai-train"}, []string{"ai-train"}),
@@ -702,6 +705,14 @@ func buildLTEntryVectors(t *testing.T) []ltEntryVector {
 		{"cross_field_pricing_free_zero_rate", entry(func(e *forav1.ResourceEntry) {
 			e.Terms[0].Pricing = &forav1.Pricing{
 				Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0.05", Currency: "USD",
+			}
+		})},
+		// A pushed PER_UNIT term needs no estimate: the estimate is optional on
+		// the term and on the offer.
+		{"metered_term_with_no_estimate_accepted", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0].Pricing = &forav1.Pricing{
+				Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.00002", Currency: "USD",
+				Unit: proto.String("tokens"),
 			}
 		})},
 		{"cross_field_license_digest_required_with_uri", entry(func(e *forav1.ResourceEntry) {

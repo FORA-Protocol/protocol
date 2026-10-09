@@ -109,6 +109,7 @@ async function call(name: string): Promise<UnaryRequest> {
 			}),
 		},
 		signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+		signatureAgent: "https://agent.test",
 		agentPublicKey: keys.publicKey,
 		endpointResolver,
 		send,
@@ -144,11 +145,17 @@ async function call(name: string): Promise<UnaryRequest> {
 		await client.getAccountStatus({ exchange: ISSUER });
 	} else if (name === "resolve") {
 		await createBrokerClient("https://broker.test", options).resolve({});
+	} else if (name.startsWith("broker_execute")) {
+		// The client signs as the directory the requester's domain names, which a Broker
+		// requires and the client checks before sending.
+		await createBrokerClient("https://broker.test", {
+			...options,
+			signatureAgent: "https://agent.test",
+		}).execute([await verifiedOffer()], { idempotencyKey: PINNED });
 	} else if (name.startsWith("push_resources")) {
 		const push: Record<string, unknown> = {
 			exchange: "exchange.test",
 			tenant_id: "tenant-1",
-			caller_id: "publisher.test",
 			entries: [
 				{
 					domain: "publisher.test",

@@ -27,12 +27,13 @@ func newSignedReq(t *testing.T, body []byte, mutate func(*http.Request)) (*http.
 	if mutate != nil {
 		mutate(req)
 	}
-	if err := SignRequest(context.Background(), req, body, signer, SignOptions{Created: 1700000000, Expires: 1700000300}); err != nil {
+	if err := SignRequest(context.Background(), req, body, signer,
+		SignOptions{Created: 1700000000, Expires: 1700000300, SignatureAgent: "https://agent.example"}); err != nil {
 		t.Fatalf("SignRequest: %v", err)
 	}
 	params := sigParams{
-		Label: "sig1", Covered: coveredFor(req), KeyID: "agent.v1",
-		Alg: AlgEd25519, Created: 1700000000, Expires: 1700000300,
+		Label: "sig1", Covered: coveredFor(req, "sig1"), KeyID: "agent.v1",
+		Alg: AlgEd25519, Created: 1700000000, Expires: 1700000300, Tag: WBATag,
 	}
 	return req, pub, params
 }

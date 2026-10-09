@@ -29,7 +29,7 @@ sequenceDiagram
     CDN-->>Provider: 200 OK + WellKnownManifest
 
     Provider->>CDN: Verify: curl -A "GPTBot" /premium/article.html
-    CDN-->>Provider: 403 + X-Content-Rules header
+    CDN-->>Provider: 403 + X-Content-Rules (+ X-FORA-Exchange)
 ```
 
 ## Simplest Possible Onboarding
@@ -109,6 +109,17 @@ When available, the CLI will generate the platform-specific deployment artifact 
 | Max URL TTL | Policy | Rarely | `300` (seconds) |
 | Single-use enabled | Policy | Rarely | `true` |
 | Agent binding enabled | Policy | Rarely | `false` |
+
+### Discovery Headers on the 403
+
+The edge function's refusal of an unlicensed bot carries the two FORA edge discovery headers, and both values come from the configuration above. Neither header carries the Exchange endpoint URL.
+
+| Header | Value | Built from |
+|---|---|---|
+| `X-Content-Rules` | `https://techcrunch.com/.well-known/fora.json` | The provider domain. It is the URL of the provider's own manifest, which this edge function also serves, never an Exchange URL. |
+| `X-FORA-Exchange` | `exchange.ssp.com` | The Exchange domain, as a bare domain in the form of `Offer.exchange`. Send it only for an Exchange the provider's manifest lists, and only together with `X-Content-Rules`. |
+
+An agent that receives `X-FORA-Exchange` resolves the Exchange's endpoint from the Exchange's own `/.well-known/fora.json`, and treats the provider's manifest as the authority on which Exchanges sell the content. See [Edge discovery headers](/protocol/discovery-paths/#edge-discovery-headers) for the rules.
 
 ### Configuration Sources
 
@@ -351,7 +362,7 @@ After deployment, verify with these checks:
 
 1. `GET /.well-known/fora.json` returns valid manifest with `200 OK`.
 2. `GET /rsl.txt` returns valid RSL content with `200 OK`.
-3. `GET /premium/article.html` with bot User-Agent returns `403 + X-Content-Rules` header.
+3. `GET /premium/article.html` with bot User-Agent returns `403` with `X-Content-Rules` set to the provider's own `https://<domain>/.well-known/fora.json`, and, when configured, `X-FORA-Exchange` set to the bare domain of an Exchange that manifest lists (for example `exchange.ssp-example.com`, not a URL).
 4. `GET /premium/article.html` with valid signed URL returns `200`.
 5. `GET /premium/article.html` with expired signed URL returns `403`.
 6. `GET /premium/article.html` with tampered signed URL returns `403`.

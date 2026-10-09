@@ -149,6 +149,7 @@ describe("a deeply nested delivery refusal body", () => {
 		])) as CryptoKeyPair;
 		const err = (await fetchContent("https://edge.test/x", {
 			keyPair: keys,
+			signatureAgent: "https://agent.test",
 			dispatcher: agent,
 		}).catch((e: unknown) => e)) as ForaCallError;
 

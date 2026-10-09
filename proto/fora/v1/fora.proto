@@ -4,8 +4,9 @@
 // IAB Tech Lab CoMP v1.0 and RSL 1.0 with pricing, exchange orchestration,
 // resource identity, transactions, and post-usage reporting.
 //
-// The ExchangeService is the core protocol. Both AI agents and
-// Brokers are valid clients — the Exchange doesn't distinguish.
+// The ExchangeService is the core protocol. AI agents and Brokers call the same
+// RPCs; an Exchange tells a request a Broker relayed from an agent's own as
+// "Direct and relayed requests" below states.
 //
 // Wire format: the canonical wire is snake_case proto-JSON — the field names as
 // declared here (idempotency_key, unit_cost), used by the generated Pydantic/Zod
@@ -62,9 +63,48 @@ import "fora/v1/vocab.proto";
 // emergency-revoked keys; consumers poll on a 300s cadence (±10% jitter)
 // and sync-fetch on an unknown thumbprint.
 //
-// Request authentication via RFC 9421 HTTP Message Signatures:
-//   Agent → Exchange:  Signature header (alg=ed25519)
-//   Agent → Broker → Exchange:  multiple Signature headers (one per hop)
+// Revocation is scoped to the signer. Each signature is verified against its
+// own signer's key directory and the revocation list that directory names,
+// and against no other party's: a Broker's list covers only the Broker's
+// keys, an agent's list only that agent's keys, and no party's list can
+// revoke another party's key. A request that carries several request
+// signatures is refused if any one of them fails its own signer's check. A
+// request signed only by the agent never depends on the Broker's directory
+// being reachable.
+//
+// Request authentication via RFC 9421 HTTP Message Signatures (alg=ed25519),
+// following the Web Bot Auth profile of draft-ietf-webbotauth-httpsig-protocol-00
+// (the authentication page states it in full). Each signature is labeled, and
+// the `Signature-Agent` header is a structured-field dictionary with one member
+// per signature, `<label>="https://<origin>"`, covered as
+// "signature-agent";key="<label>". A verifier resolves each signature's keyid
+// in the key directory that its own covered member names, and in no other.
+// Every request carries the signature of the party that AUTHORED it:
+//   Agent → Exchange:  the agent's signature. A direct purchase is this shape.
+//   Agent → Broker:    the agent's signature over the Broker's URL. Both Broker
+//                      RPCs, Resolve and ExecuteTransaction, terminate at the
+//                      Broker; neither request is forwarded on.
+//   Broker → Exchange: the Broker's OWN signature over a request the Broker
+//                      authored — a ResourceQuery it originated (discovery
+//                      through a Broker is Broker-led), or a TransactionRequest
+//                      re-packaged from the agent's purchase. The signature
+//                      covers the Broker's own request and only its own
+//                      Signature-Agent member, never another signature.
+//                      The agent's consent to a purchase does not travel as a
+//                      request signature: it travels in the body, as each item's
+//                      AgentAcceptance and the request's AgentRequestAcceptance,
+//                      detached signatures that stay valid however the purchase
+//                      was re-packaged. Each Exchange verifies those against the
+//                      keys published in the directory requester.domain names
+//                      (see Requester.domain and AgentRequestAcceptance).
+// A Broker never forwards an agent's request unchanged. The general rule for a
+// party that does (WG-00 §5.2.2): it MAY cover an earlier signature, and if it
+// covers "signature";key=X it MUST also cover "signature-input";key=X and every
+// component X lists. A party that changed any value X was computed over MUST
+// NOT cover X. Every signature on a request must verify. An Exchange counts the
+// signatures against its WellKnownManifest.max_intermediary_hops before it
+// verifies any; RequestConstraints.max_hops rides on DiscoveryRequest only, and
+// no party enforces it in this version (see both fields).
 //
 // Signed delivery URLs carry an Ed25519 signature made by the Exchange over
 // "GET\n<canonical URL>"; the delivery endpoint verifies it with the Exchange's
@@ -73,7 +113,9 @@ import "fora/v1/vocab.proto";
 // Retrieval-URL identity binding (OPTIONAL, DPoP-style — RFC 9449):
 //   The Exchange MAY bind a signed retrieval_endpoint to the requesting agent
 //   by embedding agent_identity_hash — the RFC 7638 JWK Thumbprint (SHA-256)
-//   of the agent's Ed25519 request-signing key — as the URL's agent_id query
+//   of the agent's Ed25519 request-signing key; on a purchase a Broker
+//   re-packaged, where the request signer is the Broker, the agent key the
+//   item's AgentAcceptance verifies under — as the URL's agent_id query
 //   parameter, which the URL signature covers, and echoing it in the response.
 //   A capable delivery endpoint (edge function) verifies the binding without
 //   contacting the fetcher's directory: verify the URL's Ed25519 signature
@@ -185,10 +227,13 @@ import "fora/v1/vocab.proto";
 //
 // A recipient MUST reject a request whose `exchange` is not its own domain — an
 // Exchange has exactly one identity, the domain it stamps into the offers it
-// issues, which may differ from the host it listens on. That rejection is
+// issues, which may differ from the host it listens on. The rule holds for every
+// RPC that carries `exchange`, and the recipient applies it BEFORE processing the
+// request: nothing in a mis-addressed request is acted on. That rejection is
 // INVALID_ARGUMENT with NO typed reason: a
 // mis-addressed request is malformed rather than a domain-level failure, and no
-// ErrorDetail reason family covers it.
+// ErrorDetail reason family covers it, so no RPC's own reason family (a
+// catalog_rejection, a denial, a usage_report_rejection) is used for it.
 //
 // Two messages deliberately do NOT carry the field, and both absences are
 // load-bearing rather than oversights. DiscoveryRequest travels one direct hop
@@ -202,23 +247,230 @@ import "fora/v1/vocab.proto";
 // full signed Offer, and Offer.exchange is the execute-routing target, covered
 // by the issuing Exchange's own offer signature. The receive-side rule there is
 // that EVERY item's offer.exchange names this Exchange; a redundant top-level
-// copy would only add a top-level-vs-items mismatch to police.
+// copy would only add a top-level-vs-items mismatch to police. The same message
+// sent to BrokerService.ExecuteTransaction is addressed to the Broker, and there
+// the items name the Exchanges the Broker routes to rather than the recipient:
+// the Broker authors one new request per Exchange, so the every-item rule binds
+// at each Exchange, on the request the Broker sent it.
+// ============================================================================
+
+// ============================================================================
+// Direct and relayed requests
+//
+// Agents and Brokers call the same ExchangeService RPCs. Of the requests an
+// Exchange receives, ResourceQuery and TransactionRequest name a requester, and
+// on those two the Exchange tells a relayed request from a direct one by
+// comparing two hosts: Requester.domain, and the host of the key directory that
+// the verified signature's covered `Signature-Agent` member names. The
+// comparison is the identity rule "Request recipient" defines: the shape check
+// first, then case-folded, an absent port the same as ":443", a subdomain a
+// different party.
+//
+//   - Equal: a DIRECT request. The signer is the requester, and the rule for a
+//     direct request in Requester.domain applies.
+//   - Different: a RELAYED request, one a Broker authored for that requester —
+//     a ResourceQuery it originated for Broker-led discovery, or a
+//     TransactionRequest it re-packaged from the agent's purchase. The Exchange
+//     acts on it only when it ADMITS THE SIGNER AS A BROKER. Which Brokers an
+//     Exchange admits is its own policy, for example the Brokers registered
+//     with it, just as which Exchanges a Broker routes to is the Broker's. An
+//     admitted Broker's request follows the relayed rules in Requester.domain:
+//     on discovery the field is the Broker's statement of whom it queries for,
+//     and on a purchase the agent's acceptances are verified against the
+//     directory the field names. A request from a signer the Exchange does not
+//     admit is refused as a direct request with a mismatched requester is:
+//     UNAUTHENTICATED with `request_auth_failure` SIGNATURE_INVALID, because the
+//     signature verifies but not for the requester the body names.
+//
+// Nothing else decides it. No field marks a request as relayed, and neither
+// WellKnownManifest.role nor Requester.type admits a Broker: both are the
+// sender's own statements. The decision rests on what the signature proves,
+// which directory signed, and on the Exchange's own admission policy.
+//
+// A Broker relays to Exchanges and is never itself relayed to: every request a
+// Broker receives is direct, so at BrokerService.Resolve and
+// BrokerService.ExecuteTransaction a mismatched requester is always refused.
+// ============================================================================
+
+// ============================================================================
+// Idempotency
+//
+// The requests that change state — TransactionRequest, UsageReport and
+// DisputeRequest — each carry a REQUIRED idempotency_key. The rules for the key
+// are stated here once, and each of those fields points here.
+//
+// Scope. A key is scoped to the caller that authenticated the request, never
+// global. On a request the agent signed itself, the scope is that authenticated
+// agent, the verified RFC 9421 signer. On a purchase relayed through
+// BrokerService.ExecuteTransaction, the verified signer is the Broker, which
+// speaks for many agents, so the scope is the pair (Broker, requester the agent
+// acceptances authenticate). A key that another agent used, that the same agent
+// used through another Broker, or that was used at another tenant of the same
+// Exchange is a different key in a different scope: it is never a collision,
+// and it is never answered from another scope's stored result.
+//
+// Replay. Within one scope, a request that repeats a key with the SAME request
+// is a replay: the recipient answers it with the result it stored for the key
+// and executes nothing again. The same request is, for ExecuteTransaction, the
+// same items in the same order (each item's offer.signature), and for
+// ReportUsage and DisputeTransaction the same report or filing, field for
+// field.
+//
+// Reuse with a different request. Within one scope, a request that repeats a
+// key with a DIFFERENT request — for a purchase, different items, or the same
+// items in another order — is refused with the Connect code already_exists,
+// carrying an ErrorDetail with no typed reason block. Nothing is executed, and
+// the result stored under the key is unchanged. A new request takes a new key.
+//
+// Through a Broker the key is the agent's. The Broker forwards it unchanged on
+// every sub-request, and cannot do otherwise because each AgentAcceptance and
+// the AgentRequestAcceptance sign it, so a retry of the same purchase through
+// the Broker reaches every Exchange as a replay of its sub-request.
+// ============================================================================
+
+// ============================================================================
+// Critical extensions
+//
+// A message with an `ext` Struct also carries `ext_critical`: the keys of `ext`
+// its consumer MUST understand (the COSE crit pattern, RFC 9052). An empty list
+// means every key of `ext` is safe to ignore.
+//
+// A request's ext_critical is for the party that receives that request. A
+// receiver that does not understand a key the list names does not act on the
+// request, and answers with the UNKNOWN_CRITICAL_EXTENSION reason of its RPC:
+//   - DiscoverResources and Resolve answer OK with no offers and
+//     OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION.
+//   - ExchangeService.ExecuteTransaction and BrokerService.ExecuteTransaction
+//     answer OK with every item denied in the body as
+//     DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION. A Broker that does not
+//     understand a key the agent's request lists sends no sub-request, so its
+//     answer carries no `exchanges` and no `totals`.
+//   - A catalog push is refused with
+//     CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION.
+//   - ReportUsage, DisputeTransaction, Register (a repeat registration
+//     included), RequestDomainVerification and ConfirmDomainVerification are
+//     refused with the Connect code invalid_argument and the
+//     UNKNOWN_CRITICAL_EXTENSION value of their reason family:
+//     USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION,
+//     DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION,
+//     REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION and
+//     DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION.
+//   - GetAccountStatus, whose refusals have no reason family, is refused with
+//     the Connect code invalid_argument and no typed reason.
+// RemoveResourcesRequest and RefreshCatalogRequest carry no `ext`.
+//
+// A Broker never copies the agent's request-level `ext` or `ext_critical` onto
+// a request it authors — the ResourceQuery it originates for discovery or the
+// TransactionRequest it re-packages for a purchase: those keys were addressed
+// to the Broker. A message the Broker carries unchanged (the agent's Requester,
+// each Offer, the acceptances) keeps its own `ext` and `ext_critical`.
+//
+// ResourceEntry.ext_critical is not for the Exchange. It names keys the agent
+// must understand: the Exchange carries it onto Offer.ext_critical, with the
+// `ext` keys it names, and does not consume it. A key the Exchange does not
+// itself understand there is no reason to refuse the push.
+// ============================================================================
+
+// ============================================================================
+// Edge discovery headers
+//
+// A publisher's edge answers a request for licensed content that carries no
+// valid signed delivery URL with HTTP 403. For an agent that did not read the
+// publisher's /.well-known/fora.json first, that refusal is where discovery
+// starts, and it carries two response headers that point the agent into the
+// protocol. They are HTTP conventions rather than messages; no RPC carries them.
+//
+//   HTTP/1.1 403 Forbidden
+//   X-Content-Rules: https://publisher.example/.well-known/fora.json
+//   X-FORA-Exchange: exchange.example
+//
+// When an edge sends them. Only on that 403. An edge SHOULD send X-Content-Rules
+// on every such refusal, and MAY add X-FORA-Exchange. It MUST NOT send
+// X-FORA-Exchange without X-Content-Rules: X-FORA-Exchange is an optimisation
+// over X-Content-Rules, never a replacement for it, and the manifest stays the
+// authority. Each header appears at most once and carries one value. On any
+// status other than 403 the headers carry no meaning, and an agent ignores them.
+//
+// X-Content-Rules — the publisher's manifest. The value is the absolute URL of
+// the publisher's /.well-known/fora.json, exactly "https://", a domain, and
+// "/.well-known/fora.json", with nothing else: no userinfo, query, fragment,
+// trailing slash or other path. The domain is the publisher's, in the shape
+// "Request recipient" defines above (a port allowed), and is the host the
+// refused request was sent to. "http://" is admitted only on a deployment that
+// serves plaintext, which an agent's transport refuses unless configured to
+// allow it. The manifest is where the agent reads the licensing terms and, in
+// WellKnownManifest.exchanges, the Exchanges that sell this content. An agent
+// that finds the header naming a host other than the one it sent the refused
+// request to SHOULD read the refused host's own manifest instead: the manifest
+// that authorises Exchanges to sell is the one the content's own domain serves.
+//
+// X-FORA-Exchange — an Exchange that sells this content directly. The value is
+// that Exchange's bare domain, in the same form as Offer.exchange: the
+// "Request recipient" shape, a port allowed, no scheme, path or other part. It
+// names exactly one Exchange, and that Exchange MUST be listed in the
+// publisher's WellKnownManifest.exchanges.
+//
+// How an agent uses them. With a well-formed X-FORA-Exchange, an agent MAY start
+// discovery at the named Exchange at once, without fetching the publisher's
+// manifest first. It resolves that Exchange's endpoint from the Exchange's own
+// /.well-known/fora.json, never from the header alone — the rule "Request
+// recipient" states for every addressed request. The header is a value the edge
+// chose, and an endpoint taken from it would let whoever wrote it pick where the
+// agent's next signed request is sent; the header says WHICH Exchange to ask,
+// never WHERE to send the request. The domain is also the `exchange` the agent
+// stamps on its ResourceQuery to that Exchange. Without X-FORA-Exchange, the
+// agent reads the manifest X-Content-Rules points at and chooses among its
+// exchanges as on the proactive path. A value that is not of the shape above is
+// ignored as if absent, and the two headers are judged separately: a malformed
+// X-FORA-Exchange does not discard a well-formed X-Content-Rules, and the
+// reverse.
+//
+// Trust. An agent MUST NOT treat X-FORA-Exchange as authorization. It is an
+// unsigned value, and it proves nothing about who may sell the content. The
+// Exchange's offers are verified by their own Ed25519 signatures, exactly as on
+// every other path, and the publisher's manifest remains the authority on which
+// Exchanges sell the content. When the two disagree — the header names an
+// Exchange that the manifest's exchanges do not list — the manifest wins: the
+// agent SHOULD discard the header, SHOULD NOT transact on an offer from the
+// unlisted Exchange, and discovers at the Exchanges the manifest lists. An agent
+// that started discovery at the named Exchange before reading the manifest
+// SHOULD confirm the listing before it commits to an offer from that Exchange.
+// Whether the manifest lists the Exchange is the identity match "Request
+// recipient" defines: exact domain, case folded, ":443" the same as no port, and
+// a subdomain a different party.
 // ============================================================================
 
 // ============================================================================
 // ExchangeService — THE core protocol.
 //
 // This is what SSPs, providers, or third parties deploy.
-// Agents and Brokers are both valid clients.
+// Agents and Brokers are both valid clients; see "Direct and relayed requests"
+// in the file header for how an Exchange tells their requests apart.
 // ============================================================================
 
 service ExchangeService {
   // Discover available resource offers matching the query.
   // Steps 2-3 in the FORA flow.
+  //
+  // Discovery has no side effects. It creates no transaction, no billing
+  // authorization and no reporting obligation; an agent commits to an offer only
+  // on the execute path (ExecuteTransaction). Discovery is therefore safe to
+  // retry. A transport failure, such as an unreachable Exchange or a timeout, is
+  // the client's concern: the protocol defines no transient-failure code for it.
   rpc DiscoverResources(ResourceQuery) returns (ResourceResponse);
 
   // Commit to an offer and receive delivery information.
   // Steps 4-5 in the FORA flow.
+  //
+  // Every per-item decision is answered in the body. The call returns OK with
+  // one TransactionResultItem per item, and an item the Exchange denies carries
+  // its TransactionResultItem.denial_reason. This holds whatever the item count:
+  // a one-item purchase that is denied is a successful response whose only item
+  // is denied, never a non-OK error. A non-OK answer carrying
+  // ErrorDetail.transaction_denial is used only when the Exchange refuses the
+  // whole request and decides no item (see TransactionDenial). Errors of other
+  // classes (a malformed request, a failed request signature, an internal fault)
+  // stay non-OK errors, as for every RPC.
   rpc ExecuteTransaction(TransactionRequest) returns (TransactionResponse);
 
   // Submit a post-usage report for a completed transaction.
@@ -231,6 +483,13 @@ service ExchangeService {
   // The Exchange records the dispute and initiates resolution.
   // Resolution mechanics (refund, credit, re-delivery) are implementation-
   // specific — this RPC standardizes the dispute signal, not the outcome.
+  //
+  // Every Exchange implements this RPC and accepts a filing that meets its
+  // checks: it is part of the core protocol, like ReportUsage, not an optional
+  // capability. A filing the Exchange accepts is answered with a
+  // DisputeResponse. A filing it refuses is a non-OK error carrying
+  // ErrorDetail.dispute_failure, whose DisputeFailureReason names the one check
+  // the filing failed.
   rpc DisputeTransaction(DisputeRequest) returns (DisputeResponse);
 
   // Request a domain verification challenge for provider onboarding.
@@ -255,7 +514,12 @@ service ExchangeService {
 
   // Read-only check of whether the calling agent's account is active.
   // Identity comes from the request signature, so the request carries no
-  // identifying field.
+  // identifying field. An agent the Exchange knows, its request signature
+  // verified, but that holds no account at this Exchange is answered with the
+  // Connect code NOT_FOUND. An agent whose signature does not verify is
+  // UNAUTHENTICATED, as on every RPC. A request whose ext_critical lists a key
+  // the Exchange does not understand is INVALID_ARGUMENT with no typed reason
+  // (see "Critical extensions" in the file header).
   rpc GetAccountStatus(GetAccountStatusRequest) returns (GetAccountStatusResponse);
 }
 
@@ -294,8 +558,9 @@ message ResourceQuery {
   string ver = 1;
 
   // Requester identity — who is making this request, what scopes they have,
-  // and optional delegation chain.
-  Requester requester = 3;
+  // and optional delegation chain. REQUIRED: a query names its requester, whose
+  // Requester.id and Requester.domain are required in turn.
+  Requester requester = 3 [(buf.validate.field).required = true];
 
   // Resource URIs being queried.
   repeated string uris = 8 [(buf.validate.field).repeated.max_items = 256];
@@ -306,24 +571,21 @@ message ResourceQuery {
   // enforcement); the agent self-selects and bears compliance.
   repeated AcceptableRestriction acceptable_restrictions = 9;
 
-  // Multi-hop forwarding (Agent → Broker → … → Exchange) is carried in the HTTP
-  // layer, not in this message: each forwarding party adds its own labeled
-  // RFC 9421 HTTP Message Signature (Signature / Signature-Input), and each
-  // signature covers the request plus the prior hop's signature — so the ordered
-  // set of signatures IS the forwarding chain, tamper-evident and order-bound.
-  // On this verbatim-forwarded path the originating agent signs its
-  // `@target-uri` against the FINAL recipient's resolved endpoint (the
-  // Exchange), not the relay URL it dials; each forwarding party then chains
-  // its own signature over the request as received. A message that TERMINATES
-  // at the Broker (DiscoveryRequest) is not forwarding: there the Broker is
-  // the final recipient, and the agent signs the Broker's URL.
-  // Each signature's keyid is the key's RFC 7638 thumbprint; fora.json carries
-  // no keys. The request carries ONE covered `Signature-Agent` header — the
-  // agent's WBA directory, forwarded unchanged by every relay — so the Exchange
-  // resolves the agent's key there, and takes each forwarding hop's key from
-  // the key set it is configured with (e.g. Brokers registered with it).
-  // The Exchange verifies every signature, and enforces RequestConstraints.max_hops /
-  // WellKnownManifest.max_intermediary_hops by counting them. (Field 5 unused.)
+  // Request authentication is carried in the HTTP layer, not in this message:
+  // the party that sends a request signs it with its own labeled RFC 9421 HTTP
+  // Message Signature (Signature / Signature-Input) and its own
+  // `Signature-Agent` dictionary member. Discovery through a Broker is
+  // Broker-led: the agent's DiscoveryRequest terminates at the Broker (the
+  // agent signs the Broker's URL), and the Broker originates each
+  // ResourceQuery it sends and signs it alone, covering its own request and
+  // only its own member. Each signature's keyid is the key's RFC 7638
+  // thumbprint; fora.json carries no keys. The Exchange counts the signatures
+  // against WellKnownManifest.max_intermediary_hops before it verifies any,
+  // resolves each keyid in the key directory that signature's own covered
+  // `Signature-Agent` member names, and verifies every signature. A party that
+  // forwards a request unchanged MAY cover an earlier signature under the
+  // general rule in the file header (WG-00 §5.2.2); FORA's Broker never does.
+  // (Field 5 unused.)
 
   // Maximum time the caller will wait for a response.
   // Exchange SHOULD prioritize speed over completeness when tight.
@@ -431,7 +693,10 @@ message OfferGroup {
   optional DiscoveryMethod discovery_method = 3;
 
   // Why no offers are available for this URI.
-  // Present when `offers` is empty. Enables agents/Brokers to distinguish
+  // Set only when `offers` is empty, and not always then: a resource the
+  // requester's scopes leave with no presentable offer is answered with empty
+  // `offers` and this field unset (the existence-hiding rule, stated on
+  // Requester.scopes). Enables agents/Brokers to distinguish
   // "resource not in catalog" from "resource blocked for your use case" without
   // trial-and-error transactions. Analogous to OpenRTB nbr codes and
   // Shutterstock per-item error metadata in batch responses.
@@ -462,6 +727,10 @@ enum DiscoveryMethod {
 // OfferAbsenceReason — Why no offers are available for a requested URI.
 // Used in OfferGroup.absence_reason when offers is empty.
 // Enables diagnostic feedback without requiring a transaction attempt.
+//
+// No value reports that the requester's scopes do not cover a resource. When
+// they leave no presentable offer, the Exchange answers with no offers and no
+// absence reason, under the existence-hiding rule stated on Requester.scopes.
 enum OfferAbsenceReason {
   OFFER_ABSENCE_REASON_UNSPECIFIED = 0;  // unset — output/optional; zero is a valid not-applicable/unset state
   // Resource URI is not in this Exchange's catalog.
@@ -479,23 +748,30 @@ enum OfferAbsenceReason {
   OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE = 4;
   // Exchange is not authorized by the provider to sell this resource.
   OFFER_ABSENCE_REASON_NOT_AUTHORIZED = 5;
-  // Requester's scopes/subscription do not cover this resource. Applies wherever
-  // access is gated by subscription or scope entitlements (not only enterprise
-  // deployments): the resource exists but the requester's delegation token or
-  // subscription does not grant it. The Exchange returns this so the requester
-  // learns the resource is reachable under the right subscription/scope. (Where
-  // existence itself must stay hidden, the Exchange MAY omit it silently instead.)
-  OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT = 6;
+  // DEPRECATED, never sent. An Exchange MUST NOT send this value. When the
+  // requester's scopes leave no presentable offer for a resource, the Exchange
+  // answers with no offers and no absence reason, exactly as for any resource
+  // with nothing to offer, so the requester never learns the resource exists
+  // (the existence-hiding rule, stated on Requester.scopes). An offer the
+  // Exchange did present is honoured until it expires, so no scope refusal
+  // follows at purchase either. A receiver treats this value as unknown.
+  //
+  // The number is retained because removing it would break the v1 wire
+  // contract, and it MUST NOT be reused or given a new meaning.
+  OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT = 6 [deprecated = true];
 
   // Consumer encountered ext_critical keys it does not recognize.
   // The unrecognized keys SHOULD be listed in the OfferGroup's ext field
   // under "unrecognized_critical_extensions" for diagnostic purposes.
   OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION = 7;
 
-  // Offers exist, but none fit within the requester's budget (e.g. every offer's
-  // price exceeds RequestConstraints.period_budget). Returned by Resolve as a
-  // successful "no result" answer when a budget/price ceiling filtered out every
-  // otherwise-licensable offer.
+  // Offers exist, but the agent's budget (RequestConstraints) left every one
+  // out: BrokerService.Resolve applied the budget as a filter and no offer
+  // remained. Resolve returns this as a successful "no result" answer, on
+  // OfferGroup.absence_reason for a URI the budget left with no offer and on
+  // DiscoveryResponse.absence_reason when it left none at all. It is the only
+  // way a budget is reported: never as NOT_AUTHORIZED, and never as a non-OK
+  // error such as RESOURCE_EXHAUSTED (see BrokerService.Resolve).
   OFFER_ABSENCE_REASON_BUDGET_EXCEEDED = 8;
 }
 
@@ -562,6 +838,35 @@ message SubscriptionQuotaInfo {
 // Combines pricing, delivery method, resource identity, and reporting terms.
 // CoMP-specific metadata (Package, Function) available via fora-comp-v1 extension profile.
 message Offer {
+  // An offer carries its price ONCE, in `pricing`. The term the offer sells
+  // (`terms`) carries no pricing: an Exchange projecting a catalog term onto an
+  // offer moves the term's price into `pricing` and leaves the term's own
+  // `pricing` unset. Two copies of one price on a signed offer could disagree,
+  // and nothing would say which one execute charges; with one copy there is
+  // nothing to disagree with.
+  option (buf.validate.message).cel = {
+    id: "offer.terms.pricing_unset"
+    message: "an offer's term must carry no pricing; the offer's price is Offer.pricing"
+    expression: "this.terms.all(t, !has(t.pricing))"
+  };
+
+  // A metered offer MAY carry an estimate. An offer is metered when its
+  // `pricing` is PER_UNIT, and its `pricing` states a rate with or without an
+  // estimated_quantity. Whether to state one is the publisher's decision, and
+  // nothing requires it. The purchase charges estimate × rate, or one unit,
+  // 1 × rate, without an estimate (see Pricing).
+  //
+  // An estimate that is stated is positive: a zero or negative estimate would
+  // price the purchase at nothing or less. The rule reads `pricing` only, because
+  // `pricing` is the offer's one price (see offer.terms.pricing_unset above).
+  // It is an offer rule, not a Pricing rule, so a term a publisher pushes is
+  // not bound by it.
+  option (buf.validate.message).cel = {
+    id: "offer.metered.estimate_positive"
+    message: "a metered (PER_UNIT) offer's pricing.estimated_quantity, when stated, must be positive"
+    expression: "this.pricing.model != fora.v1.PricingModel.PRICING_MODEL_PER_UNIT || !has(this.pricing.estimated_quantity) || this.pricing.estimated_quantity > 0"
+  };
+
   // Unique identifier for this offer, assigned by the Exchange.
   // Opaque to the caller: not derived from the resource, its URL, or any
   // other field, and carries no meaning beyond identifying this offer.
@@ -571,12 +876,27 @@ message Offer {
   // Resource title (human-readable, for display/logging).
   optional string title = 2;
 
-  // Pricing for this offer. An offer represents a single licensing
-  // arrangement: each projected LicenseTerm yields its own offer, so this is
-  // that term's pricing (the authoritative copy lives in `terms[].pricing`).
-  // Used for cross-exchange comparison and Broker ranking. A resource with
+  // The offer's price, and its ONLY price. An offer represents a single
+  // licensing arrangement: each projected LicenseTerm yields its own offer, and
+  // the Exchange moves that term's price here, so the term inside `terms`
+  // carries no pricing of its own (the offer.terms.pricing_unset rule). This is
+  // the price execute charges, the price a Broker ranks and compares across
+  // Exchanges, and the price a metered purchase is charged at. A resource with
   // multiple alternative terms (e.g. dual-licensed) produces multiple separate
   // offers, one per term — never one offer with a "headline" picked among them.
+  //
+  // It derives from exactly one catalog term: the term's pricing as the
+  // publisher declared it (ResourceEntry.terms). Each offer derives from one
+  // term, and the offer carries no second copy, so the offer's price and its
+  // term's price cannot disagree.
+  //
+  // On a metered (PER_UNIT) offer, the rate and the estimate a metered
+  // purchase is charged at are read from here (see Pricing). The estimate is
+  // optional. When the publisher states one — on the term's own pricing, or
+  // once for the resource on ResourceEntry.estimated_quantity — the Exchange
+  // carries it here as estimated_quantity, the term's own estimate taking
+  // precedence. When the publisher states none, the offer may carry none, and
+  // the purchase then charges one unit.
   Pricing pricing = 3;
 
   // How resource will be delivered.
@@ -775,6 +1095,12 @@ message Offer {
   // terms onto one offer makes every term but the first unsellable — a
   // dual-licensed resource sells only under whichever arrangement the
   // publisher happened to store first.
+  //
+  // The term here carries everything the publisher declared EXCEPT its price:
+  // its `pricing` MUST be unset (the offer.terms.pricing_unset rule), because
+  // the offer's price is `pricing` above. Its semantics, license,
+  // restrictions, quotas, obligations, scopes and part_label are the
+  // publisher's, unchanged.
   //
   // Where a term is reachable only under an existing subscription, its offer
   // carries `subscription_id` and prices at zero marginal cost; the terms a
@@ -1032,32 +1358,37 @@ message ResourceAttestation {
 //               metering=NONE, NOTICE obligation
 //     Term 2 — REFERENCE_ONLY — full MCPS/PRS terms at License.uri
 //
-// Pricing is REQUIRED on every term regardless of semantics — absent Pricing
-// is a validation error, and model=FREE must be stated explicitly (absent
-// Pricing ≠ free). The rest of the rules depend on semantics:
+// Pricing is REQUIRED on every term a catalog declares (ResourceEntry.terms),
+// regardless of semantics — absent Pricing is a validation error there, and
+// model=FREE must be stated explicitly (absent Pricing ≠ free). On an offer the
+// price moves to Offer.pricing and the term carries none (see Offer). The rest
+// of the rules depend on semantics:
 //   ENUMERATED  — the machine restrictions/quotas/obligations are the COMPLETE,
 //                 authoritative expression of the term; they must be internally
-//                 consistent (a term may not contradict itself) and are enforced
-//                 by the Exchange.
+//                 consistent (a term may not contradict itself). They are
+//                 declared terms the parties agree to when the agent accepts the
+//                 offer.
 //   REFERENCE_ONLY — the document at License.uri (which MUST be present) is the
 //                 authoritative, complete source; the agent MUST read it before
 //                 using. The machine restrictions/quotas/obligations are
 //                 OPTIONAL here — the publisher MAY send Pricing alone — but any
 //                 that ARE sent must be accurate: they MUST NOT contradict the
-//                 referenced document, and whatever is expressed IS enforced
-//                 just like ENUMERATED. Pricing is stated machine-readably here
-//                 either way.
+//                 referenced document, and whatever is expressed binds the
+//                 parties just like ENUMERATED. Pricing is stated
+//                 machine-readably here either way.
 //
 // LicenseTerm lives in ResourceEntry (ingestion) and Offer (emission) — the
-// same shape at both ends. The Exchange stores terms from PushResources and
+// same shape at both ends, with one difference: a catalog term carries its
+// Pricing, and an offer's term carries none, because the offer states its price
+// once, in Offer.pricing. The Exchange stores terms from PushResources and
 // surfaces them on DiscoverResources/ExecuteTransaction.
 // ============================================================================
 
 // TermSemantics — How the Exchange interprets a LicenseTerm's machine fields.
 enum TermSemantics {
   TERM_SEMANTICS_UNSPECIFIED    = 0;  // unset — rejected at ingest
-  TERM_SEMANTICS_ENUMERATED     = 1;  // Machine `restrictions`/`quotas`/`obligations` are the complete, authoritative expression of the term (internally consistent, no self-contradiction) and are enforced. `Pricing` MUST be present.
-  TERM_SEMANTICS_REFERENCE_ONLY = 2;  // The document at `License.uri` (MUST be non-empty) is the authoritative, complete source; the agent reads it before using. Machine `restrictions`/`quotas`/`obligations` are optional here (the publisher MAY send `Pricing` alone) but any that are sent must be accurate (MUST NOT contradict the referenced document) and are enforced just like ENUMERATED. `Pricing` is still required.
+  TERM_SEMANTICS_ENUMERATED     = 1;  // Machine `restrictions`/`quotas`/`obligations` are the complete, authoritative expression of the term (internally consistent, no self-contradiction): declared terms the parties agree to when the agent accepts the offer. `Pricing` MUST be present on a catalog term (on an offer it is Offer.pricing).
+  TERM_SEMANTICS_REFERENCE_ONLY = 2;  // The document at `License.uri` (MUST be non-empty) is the authoritative, complete source; the agent reads it before using. Machine `restrictions`/`quotas`/`obligations` are optional here (the publisher MAY send `Pricing` alone) but any that are sent must be accurate (MUST NOT contradict the referenced document) and bind the parties just like ENUMERATED. `Pricing` is still required on a catalog term (on an offer it is Offer.pricing).
 }
 
 // RestrictionKind — Which dimension a Restriction constrains.
@@ -1226,10 +1557,10 @@ message License {
 //
 // Restrictions model allowed and prohibited values on one axis (function,
 // geography, or user-type). They are validated and normalized at ingest and
-// RIDE ON THE OFFER: the AGENT is the responsible party — it self-selects the
-// term whose restrictions it can honour and bears compliance, and enforcement
-// happens downstream at accept → report → reconcile. Restrictions are NOT an
-// Exchange-side gate the requester must pass to see a term.
+// RIDE ON THE OFFER: they are declared terms the parties agree to when the
+// agent accepts the offer. The AGENT self-selects the term whose restrictions it
+// can honour and bears compliance. The Exchange never enforces a restriction:
+// it is NOT an Exchange-side gate the requester must pass to see or buy a term.
 //
 // An Exchange or Broker MAY, purely as a CONVENIENCE, pre-filter the offers it
 // returns against the limits the query states in ResourceQuery.acceptable_restrictions
@@ -1240,8 +1571,8 @@ message License {
 // matched to the request, never an enforcement verdict. When an Exchange does
 // drop offers this way it MAY signal it via OfferAbsenceReason.RESTRICTION_FILTERED
 // (with the axes in OfferGroup.restriction_filters). Term visibility is otherwise
-// gated only by resource_id/URI and delegation scope coverage — see
-// LicenseTerm.scopes.
+// gated only by resource_id/URI and by the scopes in the requester's signed
+// request — see LicenseTerm.scopes.
 //
 // Reading a restriction:
 //   A value is in-scope when it matches at least one permitted[] token
@@ -1287,7 +1618,7 @@ message Restriction {
   // so a new number was never the extension mechanism — accepting one would
   // admit a restriction no consumer can evaluate onto a term whose default is
   // BINDING (see advisory below), which fails open on the axis a publisher most
-  // needs enforced. Closing the axis does NOT bound the cost of the one-per-kind
+  // needs honoured. Closing the axis does NOT bound the cost of the one-per-kind
   // rule below, and must not be read as doing so: a number this rule refuses is
   // still distinct from every other, so that rule's all() finds no duplicate to
   // stop on and walks the list in full anyway. Its cost is bounded by the size
@@ -1322,10 +1653,12 @@ message Restriction {
   bool advisory = 4;
 }
 
-// Quota — A usage cap that gates whether this LicenseTerm remains valid.
+// Quota — A usage cap the term declares.
 //
-// Quotas limit how much a licensee may consume before the term expires or
-// must be renegotiated. They are NOT billing quantities — billing is in Pricing.
+// A quota states how much a licensee may consume under the term before the
+// term expires or must be renegotiated. Like a restriction, it is a declared
+// term the parties agree to. Quotas are NOT billing quantities — billing is in
+// Pricing.
 //
 // The metric vocabulary is authored ONLY in the (fora.v1.vocab) entries on
 // Quota.metric below; the quotametrics constants + IsRegistered derive from it.
@@ -1413,17 +1746,27 @@ message Obligation {
 // The same LicenseTerm shape appears at ingestion (ResourceEntry.terms) and
 // at emission (Offer.terms). The Exchange stores what the publisher pushed
 // and surfaces it on discovery, so agents see the same terms the publisher
-// declared — no translation or reformulation.
+// declared — no translation or reformulation — with one move: on an offer the
+// term's price is Offer.pricing, and the term itself carries none.
 //
 // Validation rules:
-//   - Pricing MUST be present on EVERY term, regardless of semantics.
-//     Absent Pricing → reject at ingest: an agent cannot act on a term with
-//     no price. This holds for REFERENCE_ONLY too — its License governs the
-//     human-readable terms, but the machine-readable price is still stated
+//   - Pricing MUST be present on EVERY catalog term (ResourceEntry.terms),
+//     regardless of semantics — the resource_entry.terms.pricing_required
+//     rule. Absent Pricing → reject at ingest: an agent cannot act on a term
+//     with no price. This holds for REFERENCE_ONLY too — its License governs
+//     the human-readable terms, but the machine-readable price is still stated
 //     here, not deferred to the document.
+//   - Pricing MUST be unset on the term an offer carries (Offer.terms) — the
+//     offer.terms.pricing_unset rule. The offer's price is Offer.pricing, and
+//     each offer derives from exactly one catalog term, so the price is stated
+//     once and cannot disagree with itself. The requirement is therefore a
+//     rule of the message that holds the term, not of LicenseTerm.
 //   - model=FREE must be explicit. Absent Pricing ≠ free. A term may be FREE
 //     under an arbitrary license; the agent still needs the price stated so it
 //     knows the access is free rather than unpriced.
+//   - A PER_UNIT term MAY state Pricing.estimated_quantity. It is not
+//     required, on the pushed term or on the offer it projects to — see
+//     Pricing.estimated_quantity.
 //   - REFERENCE_ONLY terms MUST carry a License with a non-empty uri. A
 //     REFERENCE_ONLY term that references no document is meaningless → reject
 //     at ingest.
@@ -1503,20 +1846,26 @@ message LicenseTerm {
   // At most 64, for the reason quotas carries.
   repeated Obligation obligations = 5 [(buf.validate.field).repeated.max_items = 64];
 
-  // Pricing for this term. REQUIRED for every term regardless of semantics —
-  // an agent cannot act on a priceless term, so absent Pricing is a validation
-  // error at ingest. model = FREE must be stated explicitly (absent Pricing is
-  // not free). A REFERENCE_ONLY term states its price here too; its License
-  // governs the human-readable terms but does not replace the machine-readable
-  // price.
-  optional Pricing pricing = 6 [(buf.validate.field).required = true];
+  // Pricing for this term. Where it is required depends on the message that
+  // holds the term, so the requirement is a rule of that message rather than of
+  // this field:
+  //   - On a catalog term (ResourceEntry.terms) it is REQUIRED regardless of
+  //     semantics — an agent cannot act on a priceless term, so absent Pricing
+  //     is a validation error at ingest (resource_entry.terms.pricing_required).
+  //     model = FREE must be stated explicitly (absent Pricing is not free). A
+  //     REFERENCE_ONLY term states its price here too; its License governs the
+  //     human-readable terms but does not replace the machine-readable price.
+  //   - On the term an offer carries (Offer.terms) it MUST be unset
+  //     (offer.terms.pricing_unset): the offer's price is Offer.pricing, stated
+  //     once.
+  optional Pricing pricing = 6;
 
-  // Delegation scope-gating: the Exchange returns this term to an agent iff the
-  // agent's delegation grant covers ALL of these scopes (AND-semantics).
-  // Empty = public. A subscription term is Pricing{model:FREE} +
-  // scopes:["subscription:..."].
+  // Scope-gating: the Exchange returns an offer for this term iff the scopes in
+  // the requester's signed request (Requester.scopes) cover ALL of these scopes
+  // (AND-semantics). Empty = public. A subscription term is Pricing{model:FREE}
+  // + scopes:["subscription:..."].
   //
-  // Coverage uses the SAME matching rule as Requester/delegation scopes:
+  // Coverage uses the SAME matching rule as Requester.scopes:
   // segment-wise (":" separated), each granted segment must equal the
   // corresponding required segment or be "*", a terminal "*" matches all
   // remaining segments, and there is NO implicit prefix match (a grant
@@ -1580,6 +1929,19 @@ message Preview {
 //
 // Fields: model, rate, currency, unit_cost, estimated_quantity,
 // license_duration_months, unit, metering.
+//
+// METERED PRICE. A PER_UNIT price is metered: it is charged per unit, and the
+// publisher states the rate R, the price of one `unit`, and the unit. The
+// offer may also state an estimate E (estimated_quantity, optional, positive
+// when stated; see Offer). The Exchange's offer signature covers both, so the
+// agent's acceptance of the offer is its consent to them.
+//
+// A metered purchase charges E × R, or one unit, 1 × R, when the offer states
+// no estimate. That is the amount TransactionResultItem.cost carries for the
+// item, and the charge is final. A disagreement about the quantity consumed
+// is a dispute, which this version does not define further. The charge reads
+// the offer's own `pricing` (Offer.pricing) — the offer's one price, which
+// execute charges.
 message Pricing {
   // Cross-field structural rules (protovalidate, OR form — CEL has no implies):
   //   PER_UNIT ⇒ unit must be set; FREE ⇒ rate must be 0.
@@ -1614,9 +1976,22 @@ message Pricing {
   // Denominated in the Exchange's base_currency (from its WellKnownManifest).
   optional string unit_cost = 4 [(buf.validate.field).string.pattern = "^([0-9]+([.][0-9]+)?)?$", (buf.validate.field).string.max_len = 32];
 
-  // Estimated quantity in the metering unit.
+  // Estimated quantity in the metering unit (`unit`).
   // For text: token count. For video: duration in seconds.
   // For documents: page count. For data: record count.
+  //
+  // OPTIONAL everywhere: on a LicenseTerm a publisher pushes and on an Offer.
+  // It is E in the metered price rule above. When a metered offer states it,
+  // it is positive (the offer.metered.estimate_positive rule), and the
+  // purchase charges E × rate. When a metered offer states none, the purchase
+  // charges one unit, 1 × rate. A PER_UNIT price may state a rate
+  // with or without an estimate; whether to state one is the publisher's
+  // decision, and nothing requires it.
+  //
+  // The estimate describes the resource rather than the arrangement, so a
+  // publisher may state it once on ResourceEntry.estimated_quantity instead of
+  // on each term. An estimate the publisher states either way is carried onto
+  // the offer's pricing (see Offer.pricing).
   optional int32 estimated_quantity = 5;
 
   // License duration in months. How long the granted access remains valid.
@@ -1661,7 +2036,7 @@ message Pricing {
 enum PricingModel {
   PRICING_MODEL_UNSPECIFIED = 0;  // unset — zero allowed on WellKnownManifest.pricing_models_supported (capability list); rejected (not_in:[0]) as the Pricing.model discriminator (omission cannot default to FREE)
   PRICING_MODEL_FREE        = 1;  // no charge; rate must be 0 (state FREE explicitly — absent Pricing is not free)
-  PRICING_MODEL_PER_UNIT    = 2;  // rate per Pricing.unit; unit REQUIRED (registered token or vendor:custom)
+  PRICING_MODEL_PER_UNIT    = 2;  // rate per Pricing.unit; unit REQUIRED (registered token or vendor:custom). Metered: the purchase charge follows the rule on Pricing; an estimated_quantity is optional, and positive when an offer states it
   PRICING_MODEL_FLAT        = 3;  // one-time flat fee; rate is the total, no unit
 }
 
@@ -1706,8 +2081,9 @@ enum DeliveryMethod {
 //   3. Delegation chain proves who authorized this requester
 //
 // The Exchange uses scopes to filter the catalog:
-//   - Resources outside the requester's scopes are NOT returned (not even
-//     as OfferAbsenceReason — the requester never learns they exist)
+//   - A resource outside the requester's scopes is answered with no offers and
+//     no absence reason, so the requester never learns it exists (the
+//     existence-hiding rule, stated on Requester.scopes)
 //   - Subscription entitlements are scopes: "subscription:marketdata-2026"
 //     tells the Exchange to return zero-cost subscription offers
 //
@@ -1727,16 +2103,53 @@ enum DeliveryMethod {
 // the Exchange resolves the caller's account (RegisterResponse.billing_ref)
 // from the verified signature, never from anything the caller sends.
 message Requester {
-  // Unique requester identifier (e.g., "agent-research-bot-001").
-  string id = 1;
+  // REQUIRED. A free label the agent chooses for attribution (e.g.
+  // "agent-research-bot-001"), 1 to 255 characters. Use it to tell apart the
+  // sub-agents or end customers that share one key directory. It is never
+  // identity: no verifier finds keys from it, and no party trusts it for an
+  // authentication or authorization decision. The requester's identity is
+  // `domain` together with the key that verifies. The acceptance signatures
+  // cover this label (see AgentAcceptancePayload), so a relaying Broker cannot
+  // rewrite it, but its value is still only what the agent says.
+  string id = 1 [
+    (buf.validate.field).string = {min_len: 1, max_len: 255}
+  ];
 
-  // Domain the requester belongs to. It carries the same bare-host shape
-  // "Request recipient" defines in the file header, for the same structural
+  // REQUIRED. Bare host of the requester's key directory: the WBA directory at
+  // {domain}/.well-known/http-message-signatures-directory that publishes the
+  // agent's Ed25519 keys. It carries the bare-host shape "Request recipient"
+  // defines in the file header (a port allowed), for the same structural
   // reason: a scheme, path or query smuggled in here would choose what gets
-  // fetched, not merely from where. It is NOT how a verifier finds this
-  // requester's keys: those live in the WBA directory, and verification resolves
-  // that directory from the COVERED `Signature-Agent` header, never from this
-  // self-asserted value.
+  // fetched, not merely from where. It is never a free label. Every verifier
+  // reads it as the name of that directory, and the rule that binds it depends
+  // on whether the request is direct or relayed, which the receiver decides as
+  // "Direct and relayed requests" in the file header states:
+  //
+  //   - Direct request. The agent's own RFC 9421 signature arrives because
+  //     the agent sent the request itself. The verifier resolves the agent's
+  //     keys from the COVERED `Signature-Agent` member, never from this field.
+  //     It then MUST require this field to name that same directory: the host
+  //     of the origin that member names, compared by
+  //     the identity rule "Request recipient" defines (the shape check first,
+  //     then case-folded, an absent port the same as ":443", a subdomain a
+  //     different party). A mismatch is refused as UNAUTHENTICATED with
+  //     `request_auth_failure` SIGNATURE_INVALID: the signature verifies, but
+  //     not for the requester the body names. A Broker applies this rule on
+  //     every request it receives. An Exchange applies it on every request
+  //     whose signer it does not admit as a Broker; a mismatch from a signer it
+  //     does admit is a relayed request, one of the two cases below.
+  //   - Purchase relayed through a Broker. BrokerService.ExecuteTransaction
+  //     re-packages the purchase, so the request signature and the covered
+  //     `Signature-Agent` member are the Broker's. They say only that the call comes
+  //     from the Broker, and they sign no purchase. The Exchange MUST verify
+  //     each item's AgentAcceptance, and the AgentRequestAcceptance, against
+  //     the Ed25519 keys currently valid in the directory this field names
+  //     (see AgentRequestAcceptance), never against the Broker's key. Those
+  //     acceptances are the only agent signatures the Exchange sees.
+  //   - Broker-led discovery. A ResourceQuery a Broker originated carries no agent
+  //     signature, so nothing on that leg authenticates this field: it is the
+  //     Broker's statement, under the Broker's own signature, of whom it
+  //     queries for.
   string domain = 2 [
     (buf.validate.field).string = {
       max_len: 260,
@@ -1753,10 +2166,19 @@ message Requester {
 
   // Entitlement scopes. Declare what the requester can access.
   //
-  // The Exchange filters its catalog to resources matching these scopes.
-  // Resources outside the scopes are not returned — the requester never
-  // learns they exist. This is the enforcement mechanism for both enterprise
-  // RBAC and open-market subscription entitlements.
+  // The Exchange filters its catalog to resources matching these scopes. This
+  // is the enforcement mechanism for both enterprise RBAC and open-market
+  // subscription entitlements.
+  //
+  // EXISTENCE HIDING. A requester never learns about a resource outside its
+  // scopes. When the scopes leave no presentable offer for a resource, the
+  // Exchange answers with no offers and no absence reason (an OfferGroup with
+  // empty `offers` and `absence_reason` unset), exactly as for any resource
+  // with nothing to offer. A Broker relaying that answer adds no reason of its
+  // own. At purchase, an offer the Exchange presented is honoured until it
+  // expires, so a scope refusal cannot arise there. No reason in the protocol
+  // reports a scope shortfall: OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT and
+  // DENIAL_REASON_SCOPE_INSUFFICIENT are deprecated and never sent.
   //
   // Scope format: colon-separated segments, "{domain}:{permission}" or
   // "{profile}:{permission}", optionally multi-segment ("dist:US:CA");
@@ -1784,8 +2206,11 @@ message Requester {
 
   // Request authentication is handled at the HTTP layer via RFC 9421
   // HTTP Message Signatures (alg=ed25519). The Requester's public keys are NOT
-  // in fora.json: they live in the WBA directory (WBAFile), and a verifier
-  // resolves that directory from the COVERED `Signature-Agent` header.
+  // in fora.json: they live in the WBA directory (WBAFile) that `domain` names.
+  // On a direct request a verifier resolves that directory from the COVERED
+  // `Signature-Agent` member and requires `domain` to name it; on a purchase a
+  // Broker relayed, it verifies the agent's acceptances against the directory
+  // `domain` names (see `domain`).
 
   // Optional delegation — present when the requester acts on behalf of
   // another entity (user, organization, upstream agent).
@@ -1830,7 +2255,14 @@ enum RequesterType {
 // thumbprint of the holder's key. Verification MUST check that the key signing
 // the request (RFC 9421) hashes to that thumbprint; a token possessed without
 // the matching private key is rejected. This is what makes a leaked token NOT
-// bearer-usable. Delegation is a chain of cnf-linked JWTs: a principal narrows a
+// bearer-usable. One exception, the relayed purchase: when a Broker re-packages
+// a purchase (BrokerService.ExecuteTransaction), the request an Exchange
+// receives is signed by the Broker, not by the holder. There the Exchange checks
+// the holder binding against the key each item's AgentAcceptance verifies under
+// — the agent's key, resolved from the requester's WBA directory — and not
+// against the request signer. A relayed purchase that carries a delegation
+// therefore needs an AgentAcceptance on every item; an item without one fails
+// the binding (DENIAL_REASON_DELEGATION_INVALID). Delegation is a chain of cnf-linked JWTs: a principal narrows a
 // grant by issuing a child JWT (cnf = the next holder, scopes ⊆ parent), signed
 // by the key the parent's cnf named — the chain-linkage invariant. Verifiers
 // need only the root issuer's public key; intermediate keys ride inside the
@@ -1963,8 +2395,19 @@ enum ResourceMutability {
 // it is topology-independent and content-bound, so it stays valid no matter how
 // many brokers relay the request, and binds the agent to THIS specific offer +
 // requester + transaction. It travels in the execute body alongside the
-// reflected Offer; the Exchange verifies it and binds the delivery URL to the
-// agent's key (RFC 7638 thumbprint of the acceptance key).
+// reflected Offer; the Exchange verifies it against an Ed25519 key currently
+// valid in the WBA directory `requester.domain` names, and binds the delivery
+// URL to that key (RFC 7638 thumbprint of the acceptance key).
+//
+// The acceptance MUST name a requester. Its canonical bytes carry a non-empty
+// requester_id and a non-empty requester_domain, taken from the enclosing
+// request's Requester. A signer refuses to sign bytes that name an empty
+// requester, and a verifier refuses an acceptance whose canonical bytes name
+// one, even when the signature over those bytes verifies. Such bytes bind the
+// agent's consent to nobody, and on a purchase relayed through
+// BrokerService.ExecuteTransaction this acceptance is the only agent signature
+// the Exchange sees: the request signature there is the Broker's, which says
+// only that the call comes from the Broker and never signs the purchase.
 //
 // `signature` is a hex-encoded detached Ed25519 signature (NOT a JWS) over the
 // CANONICAL SIGNING form of `AgentAcceptancePayload` — RFC 8785 JCS over canonical
@@ -1985,11 +2428,23 @@ message AgentAcceptance {
 
 // AgentRequestAcceptance — the agent's topology-independent authorization of
 // one complete ordered execute set. A Broker forwards this envelope unchanged
-// when it projects a mixed-Exchange request into per-Exchange subrequests.
+// when it projects a mixed-Exchange request into per-Exchange subrequests
+// (BrokerService.ExecuteTransaction).
 // Each receiving Exchange verifies the signature, then requires its subrequest
 // to equal the complete in-order projection of payload.items whose exchange
 // names that Exchange. This is what makes removal, append, and reorder visible
 // before request-level idempotency state is claimed.
+//
+// A subrequest whose items are not exactly that projection — an item dropped,
+// an item added, or the items reordered — is refused PER ITEM, IN THE BODY: the
+// Exchange answers OK and denies every item of the subrequest with
+// DENIAL_REASON_SIGNATURE_INVALID, because the agent's signature does not cover
+// what arrived. It is not an INVALID_ARGUMENT error and not a refusal of the
+// whole request: the request is well formed, and what fails is the agent's
+// signature over the set. The Exchange purchases nothing and claims no
+// request-level idempotency state for such a subrequest, so a retry carrying the
+// set the agent signed still executes. A direct request from the agent is the
+// degenerate projection, the whole set, and is held to the same rule.
 //
 // A projected subrequest is a NEW HTTP request its sender authors. The party
 // that projects — a Broker, or the agent itself when it splits its own
@@ -1998,11 +2453,15 @@ message AgentAcceptance {
 // signature covered the body the agent sent and does not travel with a
 // projected body; that is expected, not a gap, and it is why this proof
 // exists: like AgentAcceptance, it is a detached body signature that stays
-// valid however the request travels. The hop-signature stack applies only to
-// requests forwarded byte-for-byte. If a delegation rides the request, the
-// holder-binding rule is unchanged — the wire signer must be the delegation's
-// terminal holder — so a Broker may project a delegated request only when the
-// agent has delegated to the Broker's key.
+// valid however the request travels. If a delegation rides a projected request,
+// the wire signer is the Broker, so the Exchange checks the delegation's holder
+// binding (cnf.jkt) against the key each item's AgentAcceptance verifies under,
+// not against the wire signer (see Delegation). A Broker is never delegated to
+// and never becomes the holder.
+//
+// The payload names the requester exactly as AgentAcceptancePayload does, with
+// the same rule: a non-empty requester_id and requester_domain, which a signer
+// refuses to omit and a verifier refuses to accept empty.
 //
 // The verification key is the agent key published for the requester the signed
 // payload names. payload.requester_domain must equal the request's
@@ -2056,7 +2515,9 @@ message AgentRequestAcceptancePayload {
     (buf.validate.field).repeated.max_items = 256
   ];
 
+  // Requester.id of the request. Non-empty (see AgentRequestAcceptance).
   string requester_id = 2;
+  // Requester.domain of the request. Non-empty (see AgentRequestAcceptance).
   string requester_domain = 3;
   string idempotency_key = 4;
 }
@@ -2079,15 +2540,21 @@ message AgentRequestAcceptancePayload {
 // For batch mode, requester_* and idempotency_key come from the ENCLOSING
 // TransactionRequest (a TransactionItem carries neither); offer_sig is the
 // per-item Offer.signature.
+//
+// requester_id and requester_domain are never empty in an acceptance: a signer
+// refuses to build these bytes from a Requester missing either, and a verifier
+// refuses bytes that name an empty requester (see AgentAcceptance). The two
+// Requester fields are REQUIRED on the wire for the same reason.
 message AgentAcceptancePayload {
   // The accepted Offer's signature (Offer.signature). Anchors the whole signed
   // offer without re-serializing its terms/pricing/expiry.
   string offer_sig = 1;
 
-  // Requester identity (Requester.id) the acceptance is bound to.
+  // Requester label (Requester.id) the acceptance is bound to. Never empty.
   string requester_id = 2;
 
-  // Requester domain (Requester.domain) the acceptance is bound to.
+  // Requester domain (Requester.domain) the acceptance is bound to: the host of
+  // the key directory the acceptance verifies against. Never empty.
   string requester_domain = 3;
 
   // The transaction's idempotency key — binds the acceptance to a single
@@ -2111,17 +2578,22 @@ message TransactionRequest {
   string ver = 1;
 
   // Idempotency key (REQUIRED). The server MUST dedupe on this: a replay returns
-  // the original result rather than re-executing. The transaction's durable
-  // identity is the Exchange-assigned transaction_id in the response.
-  // Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per
-  // (authenticated caller, key), never globally, so a key chosen by one caller
-  // cannot collide with another's cached result.
+  // the original result rather than re-executing, and the same key with
+  // different items is refused with already_exists. The key is scoped per
+  // caller: per authenticated agent, and per (Broker, requester) on a purchase
+  // relayed through BrokerService.ExecuteTransaction, where the Broker forwards
+  // the agent's key unchanged. A key another agent or tenant used is never a
+  // collision. The full rule is "Idempotency" in the file header. The
+  // transaction's durable identity is the Exchange-assigned transaction_id in
+  // the response.
   string idempotency_key = 2 [
     (buf.validate.field).string = {min_len: 1, max_len: 255}
   ];
 
-  // Requester identity — forwarded for authorization and audit.
-  Requester requester = 4;
+  // Requester identity — forwarded for authorization and audit. REQUIRED: a
+  // purchase names its requester, whose Requester.id and Requester.domain are
+  // required in turn, and every acceptance binds that requester.
+  Requester requester = 4 [(buf.validate.field).required = true];
 
   // The offers committed in this request (REQUIRED, min 1), each carrying its
   // own reflected signed Offer + detached acceptance. A single offer is the
@@ -2168,8 +2640,13 @@ message TransactionItem {
 // Items-only: every per-result datum lives in `items`
 // (one TransactionResultItem per committed offer, in original order); the
 // top-level fields carry only the shared aggregate state. A single offer is the
-// degenerate 1-element `items`. The per-item denials remain in-body on
-// TransactionResultItem as partial results of a successful request.
+// degenerate 1-element `items`.
+//
+// Every per-item denial is in the body, on TransactionResultItem.denial_reason,
+// whatever the item count. A one-item purchase that is denied is this response
+// with its one item denied; it is never turned into a non-OK error. Only a
+// refusal of the whole request, which decides no item, is a non-OK error
+// carrying ErrorDetail.transaction_denial (see TransactionDenial).
 message TransactionResponse {
   // FORA protocol version — "1.0". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
@@ -2177,13 +2654,20 @@ message TransactionResponse {
 
   // Identity that a delivered retrieval_endpoint is bound to: the RFC 7638 JWK
   // Thumbprint of the agent's Ed25519 request-signing key (see "Retrieval-URL
-  // identity binding" above). Shared across the request; set once.
+  // identity binding" above). On a sub-request a Broker re-packaged, the request
+  // signer is the Broker, and this is the thumbprint of the agent key the
+  // AgentAcceptances verify under instead. Shared across the request; set once.
   string agent_identity_hash = 10;
 
   // Per-offer results (one entry per committed item, in original order).
   repeated TransactionResultItem items = 13;
 
-  // Aggregate cost across all items.
+  // Aggregate cost of the purchased items (those without denial_reason): their
+  // cost.amount summed as exact decimals, in their one shared currency.
+  // unit_cost is unset. UNSET when the purchased items span more than one
+  // currency: amounts are never summed across currencies, and currency
+  // conversion is out of scope for this version. A caller that needs the totals
+  // then sums each item's cost per currency itself.
   optional Cost total_cost = 14;
 
   // Post-transaction quota state. Tells the agent how much quota remains
@@ -2216,7 +2700,9 @@ message TransactionResultItem {
   // Resource title echoed from the Offer.
   optional string resource_title = 4;
 
-  // Cost for this item.
+  // Cost for this item. For a metered (PER_UNIT) item this is the purchase
+  // charge: the offer's estimated_quantity × rate, or one unit, 1 × rate, when
+  // the offer states no estimate (see Pricing).
   Cost cost = 5;
 
   // If under subscription, no per-request charge.
@@ -2227,19 +2713,24 @@ message TransactionResultItem {
   // of the access for accounting purposes (e.g., ASC 606 prepaid drawdown).
   optional Cost subscription_unit_value = 11;
 
-  // Set if this specific item was denied (others may succeed).
+  // Set if this specific item was denied (others may succeed). Every per-item
+  // denial is answered here, in a successful response, also when the request
+  // carried only this item: a denied one-item purchase is never a non-OK error.
   optional DenialReason denial_reason = 7;
 
-  // When denial_reason = RESTRICTION_NOT_SATISFIED, the restriction axes the
-  // request failed, in the same RestrictionKind vocabulary the terms use.
-  repeated RestrictionKind restriction_mismatches = 13;
+  // DEPRECATED, never set. It named the restriction axes a request failed under
+  // DENIAL_REASON_RESTRICTION_NOT_SATISFIED, which is never sent: the Exchange
+  // never enforces a restriction (see Restriction). The field is retained
+  // because removing it would break the v1 wire contract; a receiver ignores it.
+  repeated RestrictionKind restriction_mismatches = 13 [deprecated = true];
 
   // When retrieval_endpoint expires.
   optional google.protobuf.Timestamp expires_at = 8;
 
   // Signed retrieval URL for this item. Bound to the requesting agent's identity
   // via the parent TransactionResponse.agent_identity_hash (shared across all
-  // batch items); expires at expires_at. Absent if this item was denied or its
+  // batch items) — on a BrokerTransactionResponse, the agent_identity_hash of
+  // the ExchangeOutcome for this item's Exchange; expires at expires_at. Absent if this item was denied or its
   // delivery_method is not signed-URL-based.
   optional string retrieval_endpoint = 12;
 
@@ -2248,6 +2739,63 @@ message TransactionResultItem {
 
   // Reporting requirements for this item.
   optional ReportingObligation reporting_obligation = 10;
+
+  // Set only on a BrokerTransactionResponse, and only when the Exchange that
+  // owns this item refused the Broker's whole sub-request instead of answering
+  // it: a non-OK answer, or no answer at all. offer_id names the item;
+  // transaction_id, billing_id, cost, denial_reason, retrieval_endpoint and the
+  // other result fields stay unset. Every item the Broker sent in that
+  // sub-request carries the same refusal. Whether the item was purchased
+  // depends on the refusal's code. With the code "unavailable" or
+  // "deadline_exceeded" the outcome is unknown: the Exchange may have completed
+  // the purchase before the answer was lost, whether it gave no answer or
+  // answered that code, and retrying the agent's request with the same
+  // idempotency_key through the same Broker settles it (see
+  // UpstreamRefusal.code). With any other code the Exchange answered with a
+  // refusal that decided no item, so the item was not purchased. An Exchange
+  // never sets this field, and a Broker never replaces it with a denial_reason:
+  // an upstream refusal is not a per-item access decision.
+  optional UpstreamRefusal refusal = 14;
+}
+
+// UpstreamRefusal — a peer's refusal of a call made on the caller's behalf: the
+// party that refused, the Connect code it answered with, and its typed reason,
+// unchanged. It is the one shape for "a peer refused", in two places:
+//   - A Broker purchase. An Exchange's refusal of a whole sub-request a Broker
+//     sent it on BrokerService.ExecuteTransaction is carried in the Broker's
+//     response body on each affected item (TransactionResultItem.refusal) instead
+//     of being turned into an error of the Broker's own. The party is the
+//     Exchange, equal to the refused items' signed offer.exchange, which is the
+//     value a caller acts on.
+//   - An MCP tool error. An Identity Service tool whose call was refused
+//     answers with an error result whose structuredContent is
+//     {"refusal": UpstreamRefusal}: the party is the Broker or Exchange that
+//     refused, or the Identity Service itself when it refused the tool call.
+// Like TransactionDenial.exchange, nothing signs it: it is the relaying party's
+// report of what the refusing party answered.
+message UpstreamRefusal {
+  // Bare host of the party that refused the call made on the caller's behalf,
+  // in the form "Request recipient" defines in the file header.
+  string party = 1 [
+    (buf.validate.field).string = {
+      max_len: 260,
+      pattern: "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$"
+    }
+  ];
+
+  // The Connect code the party answered with, in its wire form, e.g.
+  // "permission_denied" or "unauthenticated". When the party gave no answer
+  // — unreachable, or the call timed out — it is the code the relaying party's
+  // call failed with ("unavailable", "deadline_exceeded"). A refusal with
+  // either of those codes is an ambiguous outcome: a purchase may have
+  // completed. On a Broker purchase, retrying the agent's request with the same
+  // idempotency_key through the same Broker is answered from each Exchange's
+  // stored result, so it settles the outcome without buying twice.
+  string code = 2 [(buf.validate.field).string = {min_len: 1, max_len: 64}];
+
+  // The party's typed reason, unchanged — the ErrorDetail it attached to its
+  // refusal. Absent when the party attached none or gave no answer.
+  optional ErrorDetail detail = 3;
 }
 
 // Cost — Actual transaction cost.
@@ -2261,19 +2809,50 @@ message Cost {
 // DenialReason — Standard vocabulary for transaction denial.
 // Logged as enum values, not strings. Enables automated processing
 // of denial patterns across the ecosystem.
+//
+// No value refuses a purchase because the requester's scopes do not cover the
+// resource. An offer the Exchange presented is honoured until it expires, and
+// a requester is never presented an offer its scopes do not cover (the
+// existence-hiding rule, stated on Requester.scopes).
 enum DenialReason {
   DENIAL_REASON_UNSPECIFIED = 0;  // output enum; zero = not-applicable on TransactionResultItem.denial_reason, rejected (not_in:[0]) where set on TransactionDenial.reason
   DENIAL_REASON_ACCOUNT_INACTIVE = 1;     // the requester's account (the billing_ref minted at Register) exists but is not active — typically awaiting the Exchange operator's out-of-band activation; the remedy is to wait or contact the operator, NOT to register again
   DENIAL_REASON_INSUFFICIENT_BALANCE = 2; // Requester's balance too low
   DENIAL_REASON_RATE_LIMITED = 3;         // Too many requests
-  DENIAL_REASON_CONTENT_UNAVAILABLE = 4;  // Resource no longer available
-  DENIAL_REASON_RESTRICTION_NOT_SATISFIED = 5;  // Accepted term's restriction not satisfied by the request; the axes are in TransactionDenial.restriction_mismatches (single) / TransactionResultItem.restriction_mismatches (batch), same RestrictionKind vocabulary as the terms
+  DENIAL_REASON_CONTENT_UNAVAILABLE = 4;  // the Exchange that owns the resource reports it no longer available; NOT a catch-all for upstream failures — a Broker reports an Exchange that refused or did not answer its sub-request on TransactionResultItem.refusal, never as this reason
+  // DEPRECATED, never sent. An Exchange MUST NOT send this value. Restrictions
+  // are declared terms the parties agree to, and the Exchange never enforces
+  // them (see Restriction), so a purchase is never denied for one. A receiver
+  // treats this value as unknown.
+  //
+  // The number is retained because removing it would break the v1 wire
+  // contract, and it MUST NOT be reused or given a new meaning.
+  DENIAL_REASON_RESTRICTION_NOT_SATISFIED = 5 [deprecated = true];
   DENIAL_REASON_REPORTING_OVERDUE = 6;    // Requester has >20% overdue reports (MAY threshold)
   DENIAL_REASON_OFFER_EXPIRED = 7;        // Offer TTL exceeded
-  DENIAL_REASON_SIGNATURE_INVALID = 8;    // Offer signature verification failed
+  // A signature this item depends on does not verify, or does not cover what
+  // arrived: the offer's Exchange signature (Offer.signature), the item's
+  // AgentAcceptance, or the agent's AgentRequestAcceptance over the request's
+  // items. A subrequest whose items are not exactly the agent's signed set
+  // projected onto this Exchange (an item dropped, added or reordered) has every
+  // item denied with this reason, in the body (see AgentRequestAcceptance). On a
+  // purchase a Broker relayed, an item whose AgentAcceptance does not verify
+  // under the keys the directory requester.domain names publishes is denied with
+  // this reason, in the body, exactly as for the AgentRequestAcceptance: the item
+  // is denied and the whole request is not refused.
+  DENIAL_REASON_SIGNATURE_INVALID = 8;
   DENIAL_REASON_QUOTA_EXCEEDED = 9;       // Subscription access count exhausted for this period
   DENIAL_REASON_DELEGATION_INVALID = 10;  // Delegation missing, unverifiable, expired, holder binding failed, or scopes/caps do not cover the request
-  DENIAL_REASON_SCOPE_INSUFFICIENT = 11;  // Requester scopes don't cover this resource
+  // DEPRECATED, never sent. An Exchange MUST NOT send this value. An offer the
+  // Exchange presented is honoured until it expires, so a purchase is never
+  // refused for scope. A resource the requester's scopes leave with no
+  // presentable offer is answered at discovery with no offers and no absence
+  // reason, so the requester never holds an offer to buy (the existence-hiding
+  // rule, stated on Requester.scopes). A receiver treats this value as unknown.
+  //
+  // The number is retained because removing it would break the v1 wire
+  // contract, and it MUST NOT be reused or given a new meaning.
+  DENIAL_REASON_SCOPE_INSUFFICIENT = 11 [deprecated = true];
 
   // Entitlement family — subscription/entitlement access failures on a
   // subscription-gated offer. Finer-grained than DELEGATION_INVALID so callers
@@ -2298,6 +2877,20 @@ enum DenialReason {
   // GetAccountStatus. TransactionDenial.exchange names WHERE to register, so the
   // agent converges without fetching a manifest first.
   DENIAL_REASON_ACCOUNT_NOT_REGISTERED = 18;         // no account exists for this caller at this Exchange — the remedy is to call Register
+
+  // The provider that sells this item's resource at this Exchange does not
+  // accept purchases relayed by a Broker (BrokerService.ExecuteTransaction).
+  // Decided PER ITEM, by each offer's own provider, and answered in the body on
+  // that item's denial_reason: other items in the same sub-request, sold by
+  // providers that accept relayed purchases, may succeed. It is never a refusal of the whole sub-request, and
+  // an Exchange MUST NOT send it as ErrorDetail.transaction_denial. The remedy is
+  // to buy this offer directly, calling ExchangeService.ExecuteTransaction at
+  // offer.exchange.
+  DENIAL_REASON_RELAY_NOT_ACCEPTED = 19;
+  // The request's ext_critical names a key the recipient does not understand
+  // (see "Critical extensions" in the file header). Every item of the request
+  // is denied with this reason, in the body.
+  DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION = 20;
 }
 
 // IngestionSource — How the catalog entry was discovered.
@@ -2351,22 +2944,30 @@ enum IngestionSource {
 service CatalogService {
   // Push or update resource entries in the Exchange catalog.
   rpc PushResources(PushResourcesRequest) returns (PushResourcesResponse);
-  // Remove resource entries.
+  // Remove resource entries. The request names each resource the way a push
+  // does, by domain and path (RemoveResourcesRequest.resources). For each one
+  // the Exchange resolves /.well-known/fora.json from its domain and checks
+  // that the signer of the request is authorized to push for that domain,
+  // exactly as for PushResources, and refuses the request as a push is refused
+  // when it is not. The caller is the party that signs the request.
   rpc RemoveResources(RemoveResourcesRequest) returns (RemoveResourcesResponse);
   // Trigger a full catalog refresh from configured sources.
   rpc RefreshCatalog(RefreshCatalogRequest) returns (RefreshCatalogResponse);
 }
 
-// BrokerService is the agent-facing gateway: it runs the broker discovery flow
+// BrokerService is the agent-facing gateway. It runs the broker discovery flow
 // (discover → select offers) across one or more Exchanges on the caller's
-// behalf and returns a single canonical DiscoveryResponse.
+// behalf and returns a single canonical DiscoveryResponse, and it buys the
+// selected offers in one call however many Exchanges issued them.
 service BrokerService {
   // Resolve runs the broker discovery flow for the requested URIs/query: it
   // fans out to one or more Exchanges and returns the merged offers. It is pure
   // discovery — it selects and returns offers, never executes a transaction, so
   // it neither charges nor produces transaction denials. A denial is raised only
-  // when the agent later calls ExchangeService.ExecuteTransaction on a selected
-  // offer, and rides there on TransactionResponse.DenialReason.
+  // when the agent later buys a selected offer — either directly, calling
+  // ExchangeService.ExecuteTransaction at the offer's Exchange, or through
+  // BrokerService.ExecuteTransaction — and rides there on the result item's
+  // denial_reason.
   //
   // A result returns OK with offers populated on DiscoveryResponse.offer_groups
   // (one OfferGroup per requested URI). A request that ran but yielded nothing
@@ -2377,7 +2978,113 @@ service BrokerService {
   // (→ OK + absence); transport authentication failures are a different axis and,
   // like malformed requests and internal faults, are non-OK transport errors
   // carrying an ErrorDetail.
+  //
+  // Budget. Resolve may apply the agent's budget (RequestConstraints) as a
+  // filter over the offers it returns. How the budget is computed is the
+  // Broker's own behaviour, and the protocol does not specify it. What the
+  // protocol fixes is how its effect is reported: an offer the budget leaves
+  // out is not returned, a URI the budget leaves with no offer is answered with
+  // OFFER_ABSENCE_REASON_BUDGET_EXCEEDED, and so is the whole resolve when the
+  // budget leaves no offer at all. A budget is never reported as
+  // OFFER_ABSENCE_REASON_NOT_AUTHORIZED and never as a non-OK error such as
+  // RESOURCE_EXHAUSTED.
+  //
+  // Resolve never charges: returning an offer reserves nothing.
   rpc Resolve(DiscoveryRequest) returns (DiscoveryResponse);
+
+  // ExecuteTransaction buys one or more offers, issued by one or more Exchanges,
+  // in one call. The request is the TransactionRequest an agent would send an
+  // Exchange, with every item's AgentAcceptance and the AgentRequestAcceptance
+  // over all items, signed (RFC 9421) by the agent for the Broker's URL. The
+  // request terminates at the Broker; it is not forwarded.
+  //
+  // The Broker RE-PACKAGES the purchase. It verifies the agent's request, groups
+  // the items by each signed offer's `exchange`, and sends one
+  // ExchangeService.ExecuteTransaction per Exchange. Each sub-request is a new
+  // request the Broker authors and signs with ITS OWN key; it carries that
+  // Exchange's items in request order, each with its reflected Offer and the
+  // agent's AgentAcceptance, plus the agent's AgentRequestAcceptance unchanged,
+  // the agent's `requester` and the agent's `idempotency_key` unchanged. So each
+  // Exchange still verifies the agent's consent: the acceptances are detached
+  // signatures over the body, and they do not depend on who signed the request.
+  // The Broker then combines the answers into one BrokerTransactionResponse.
+  //
+  // Why re-packaging and combining are safe: each item is atomic, and its
+  // integrity is per resource. Each offer carries the signature of the Exchange
+  // that issued it, covering price, terms, expiry and `exchange`; each item
+  // carries the agent's acceptance of that one offer, bound to the requester
+  // and the idempotency key; and each item's result comes from the Exchange that
+  // owns that resource. The Broker therefore assembles independent per-resource
+  // purchases. It cannot change what an item buys, from which Exchange, at what
+  // price or on what terms, or for whom, without breaking that offer's Exchange
+  // signature or the agent's acceptance; it cannot add an item the agent did not
+  // accept; and it cannot drop, add or reorder items within one Exchange's
+  // sub-request without that Exchange seeing it, because the
+  // AgentRequestAcceptance fixes the complete ordered set: that Exchange denies
+  // every item of such a sub-request with DENIAL_REASON_SIGNATURE_INVALID, in
+  // the body, and purchases none of them. No cross-item
+  // integrity is needed, and none is provided. On the response side, the one
+  // signed value in a result item is retrieval_endpoint, a URL the issuing
+  // Exchange signed, so the Broker cannot forge or alter one. Every other field
+  // of a result item, and every field of the combined response, is unsigned:
+  // it is the Broker's report of what each Exchange answered, and the charge
+  // itself is still bounded by the signed offer the Exchange verified.
+  //
+  // The Broker's own refusals are non-OK Connect errors carrying an
+  // ErrorDetail, and when the Broker refuses, it has sent no sub-request, so
+  // nothing was bought. They come first, in this order, and only a request that
+  // passes them reaches the critical-extension check (see "Critical extensions"
+  // in the file header), then routing:
+  //   - The agent's request signature does not verify: UNAUTHENTICATED with
+  //     `request_auth_failure`, exactly as at an Exchange.
+  //   - `requester.domain` is not the agent's verified signing directory — the
+  //     host of the origin the agent's covered `Signature-Agent` member names,
+  //     the directory the request-signing key resolved from: UNAUTHENTICATED
+  //     with `request_auth_failure` SIGNATURE_INVALID. The signature verifies,
+  //     but not as the requester the body claims, which is a signature that
+  //     does not verify for that requester. The Broker refuses it because every
+  //     Exchange would: they resolve the acceptance keys from requester.domain.
+  //   - A malformed request — no items, an item with no offer or no
+  //     AgentAcceptance, no AgentRequestAcceptance, or an AgentRequestAcceptance
+  //     whose payload does not list the request's items in order (each
+  //     offer.signature and offer.exchange) or names another requester or
+  //     idempotency key: INVALID_ARGUMENT.
+  //   - An item whose offer.exchange the Broker cannot route to, or does not
+  //     approve for purchases: a non-OK error (FAILED_PRECONDITION), with
+  //     ErrorDetail.metadata["exchange"] naming that host. The Broker checks
+  //     every item before it sends anything, so one unroutable Exchange
+  //     refuses the whole call rather than buying the rest.
+  //
+  // Upstream answers are ALWAYS IN THE BODY. Once the Broker has sent its
+  // sub-requests the call returns OK. An Exchange's refusal of its whole
+  // sub-request — a non-OK answer, or no answer at all — is never turned into
+  // an error of the Broker's own: it rides on each affected item as
+  // TransactionResultItem.refusal, and the other Exchanges' results come back
+  // unchanged. An Exchange's per-item denial is that Exchange's result item,
+  // unchanged; a one-item sub-request an Exchange denies is such a result item,
+  // because an Exchange answers every per-item denial in the body. A provider
+  // that does not accept relayed purchases is one such per-item denial,
+  // DENIAL_REASON_RELAY_NOT_ACCEPTED, decided by each offer's provider: the
+  // other items of the same sub-request may succeed. Only a refusal of the whole
+  // sub-request, which decides no item, becomes a refusal on each of its items.
+  // DENIAL_REASON_CONTENT_UNAVAILABLE is not a catch-all for
+  // upstream failures; the Broker never stamps it, or any denial_reason, onto
+  // an item an Exchange did not deny. The one exception is the Broker's own
+  // answer to a key the agent's request lists in ext_critical that the Broker
+  // does not understand: it then denies every item as
+  // DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION, in the body, and sends no
+  // sub-request (see "Critical extensions" in the file header). If an Exchange answers OK without exactly
+  // one result item per item sent, the Broker cannot attribute the answer, and
+  // reports every item of that sub-request with a refusal whose code is
+  // "internal" and no detail.
+  //
+  // A retry is safe: the Broker forwards the agent's idempotency_key unchanged,
+  // so each Exchange answers a repeated sub-request from its stored result (see
+  // "Idempotency" in the file header). That is also how an agent settles an
+  // item whose refusal left the outcome unknown (code "unavailable" or
+  // "deadline_exceeded"): it retries the same request, with the same key,
+  // through the same Broker.
+  rpc ExecuteTransaction(TransactionRequest) returns (BrokerTransactionResponse);
 }
 
 message PushResourcesRequest {
@@ -2393,13 +3100,24 @@ message PushResourcesRequest {
   // over entries because a submission is stored or refused whole, and a refusal
   // names each entry that failed; it does not bound the work of checking a
   // submission, which the recipient bounds at the transport.
+  //
+  // Both bounds are wire rules (min_items and max_items below). A push outside
+  // them is a malformed request, refused by wire validation with the Connect
+  // code invalid_argument like any other malformed request; it carries no
+  // catalog_rejection, because no entry was examined.
   repeated ResourceEntry entries = 3 [
     (buf.validate.field).repeated.min_items = 1,
     (buf.validate.field).repeated.max_items = 256
   ];
 
-  // Identity of the caller (who is pushing this data).
-  // The Exchange verifies this matches a registered CatalogService client.
+  // DEPRECATED, never needed. Each entry's domain names whose resource it is,
+  // and the caller is the party that signs the request: the Exchange checks
+  // that the verified signer may push for each entry's domain (see
+  // CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR), and a receiver does not
+  // rely on this field. The field is retained because removing it would break
+  // the v1 wire contract. It does not yet carry the `deprecated` field option,
+  // so implementations that still read it keep building; the option follows
+  // once they no longer do.
   string caller_id = 4;
 
   // REQUIRED. Bare host of the recipient this request is addressed to (e.g.
@@ -2441,6 +3159,16 @@ message PushResourcesRequest {
 // request size the recipient will read; a deployment that exposes CatalogService
 // sets that cap, and the SDK's server binding sets a default.
 message ResourceEntry {
+  // Every catalog term carries its price. An agent cannot act on a priceless
+  // term, and model = FREE must be stated explicitly: absent Pricing is not
+  // free. The rule lives here rather than on LicenseTerm.pricing because the
+  // term an offer carries holds no price (its price is Offer.pricing).
+  option (buf.validate.message).cel = {
+    id: "resource_entry.terms.pricing_required"
+    message: "every term of a resource entry must carry pricing"
+    expression: "this.terms.all(t, has(t.pricing))"
+  };
+
   // Provider domain — the bare host the resource lives on, in the shape
   // "Request recipient" defines in the file header: a port is allowed, a
   // scheme, path, query or userinfo is not. With path it forms the catalog URI
@@ -2501,11 +3229,13 @@ message ResourceEntry {
   repeated ResourceAttestation attestations = 12 [(buf.validate.field).repeated.max_items = 64];
 
   // Publisher-declared licensing terms for this resource.
-  // See LicenseTerm for the full model. For ENUMERATED terms, Pricing MUST
-  // be present. For REFERENCE_ONLY terms, License.uri is authoritative.
-  // The Exchange validates ENUMERATED terms at push time and surfaces them
-  // in Offer.terms on discovery. At most 32 terms per entry, stated on the wire
-  // so every implementation refuses the same size. An over-cap entry refuses the
+  // See LicenseTerm for the full model. Every term carries its Pricing (the
+  // resource_entry.terms.pricing_required rule above), whatever its semantics.
+  // For REFERENCE_ONLY terms, License.uri is authoritative.
+  // The Exchange validates ENUMERATED terms at push time and surfaces each term
+  // on its own offer on discovery: the term's price becomes Offer.pricing, and
+  // the term in Offer.terms carries no pricing. At most 32 terms per entry,
+  // stated on the wire so every implementation refuses the same size. An over-cap entry refuses the
   // whole submission, as every catalog rejection does; what being a wire rule
   // changes is WHEN — the refusal now happens at the boundary, before any
   // per-entry classification runs, which is why the rejection reason that named
@@ -2522,10 +3252,11 @@ message ResourceEntry {
   // Extension point
   google.protobuf.Struct ext = 15;
 
-  // Critical extension keys (COSE crit pattern, RFC 9052).
-  // Lists keys within ext that the consumer MUST understand.
-  // Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.
-  // Empty (default) → all ext keys are safe to ignore.
+  // Critical extension keys (COSE crit pattern, RFC 9052): keys within ext
+  // that the AGENT must understand. The Exchange carries them onto
+  // Offer.ext_critical and does not consume them, so an unknown key here never
+  // refuses the push (see "Critical extensions" in the file header). Empty
+  // (default) → all ext keys are safe to ignore.
   repeated string ext_critical = 90;
 }
 
@@ -2535,8 +3266,12 @@ message PushResourcesResponse {
   string ver = 1;
   // Number of entries accepted. A push is all-or-nothing, so a successful push
   // stored every entry it carried and this is the submission's own size. A push
-  // that could not be applied is not a response at all: it travels as a non-OK
-  // transport error carrying ErrorDetail.catalog_rejection.
+  // the Exchange processed and could not apply is not a response at all: it
+  // travels as a non-OK transport error carrying ErrorDetail.catalog_rejection.
+  // A push refused before processing is answered by the general rules instead:
+  // a mis-addressed push (see "Request recipient" in the file header) and a
+  // malformed one are invalid_argument with no typed reason, and one whose
+  // signature fails is unauthenticated with ErrorDetail.request_auth_failure.
   int32 accepted = 2;
   // Number of entries rejected. Structurally always 0 on this path, and kept for
   // the same reason CATALOG_REJECTION_REASON_TERMS_LIMIT_EXCEEDED is kept: a
@@ -2571,11 +3306,13 @@ message RemoveResourcesRequest {
   string ver = 1;
   // Tenant identifier
   string tenant_id = 2;
-  // Paths to remove — the absolute-path shape ResourceEntry.path carries, at
-  // least one and at most 256, the same batch bound PushResourcesRequest.entries
-  // carries and for the same reason.
+  // DEPRECATED, ignored. A bare path names no domain, so the Exchange cannot
+  // tell whose resource it is or whether the signer may remove it. Name each
+  // resource in `resources` instead; a request that carries only paths has no
+  // resources and is refused as malformed. The field and its item rules are
+  // retained because removing them would break the v1 wire contract.
   repeated string paths = 3 [
-    (buf.validate.field).repeated.min_items = 1,
+    deprecated = true,
     (buf.validate.field).repeated.max_items = 256,
     (buf.validate.field).repeated.items.string.min_len = 1,
     (buf.validate.field).repeated.items.string.max_len = 2048,
@@ -2590,6 +3327,35 @@ message RemoveResourcesRequest {
     (buf.validate.field).string = {
       max_len: 260,
       pattern: "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$"
+    }
+  ];
+
+  // The resources to remove, each named by the domain and path a push names it
+  // by — at least one and at most 256, the same batch bound
+  // PushResourcesRequest.entries carries and for the same reason.
+  repeated ResourceRef resources = 5 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.max_items = 256
+  ];
+}
+
+// ResourceRef — one catalog resource, named the way PushResources names it:
+// by ResourceEntry.domain and ResourceEntry.path, under the same rules, which
+// together form the catalog URI.
+message ResourceRef {
+  // The bare host the resource lives on, as ResourceEntry.domain.
+  string domain = 1 [
+    (buf.validate.field).string = {
+      max_len: 260,
+      pattern: "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$"
+    }
+  ];
+  // The resource's absolute path, as ResourceEntry.path.
+  string path = 2 [
+    (buf.validate.field).string = {
+      min_len: 1,
+      max_len: 2048,
+      pattern: "^/[^?#\\x00-\\x20\\x7f]*$"
     }
   ];
 }
@@ -2634,12 +3400,18 @@ message RefreshCatalogResponse {
 // ============================================================================
 
 // ReportingObligation — Requirements attached to a delivery.
+//
+// A usage report is a record of the quantity consumed. An honest report of a
+// quantity that differs from the estimate, above or below, is a valid report
+// and is never refused for that difference.
 message ReportingObligation {
   // Whether post-usage reporting is required.
   bool required = 1;
 
   // Duration within which the report must be submitted (e.g. "86400s" = 24
-  // hours; proto-JSON encodes Duration as seconds).
+  // hours; proto-JSON encodes Duration as seconds). A report that arrives after
+  // the window closed is refused with USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED
+  // (Connect code failed_precondition).
   optional google.protobuf.Duration window = 2;
 
   // URL to submit the usage report to (if different from Exchange).
@@ -2662,17 +3434,32 @@ message ReportingObligation {
 //
 // Filed by the agent or Broker after resource is used.
 // Failure to report may result in the Exchange blocking subsequent access.
+//
+// The report is a record of the quantity consumed (Usage.consumed_quantity).
+// The Exchange accepts it whatever that quantity is: a consumed quantity that
+// differs from the estimate is never a reason to refuse it.
+//
+// What refuses a report. A report that arrives after the transaction's
+// reporting window closed is refused with USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED
+// and the Connect code failed_precondition. A malformed report is refused with
+// USAGE_REPORT_REJECTION_REASON_MALFORMED and the Connect code invalid_argument;
+// a report whose billing_id is not the billing_id of the transaction it names is
+// malformed. A report for a transaction the Exchange recorded under a different
+// agent is answered exactly as a report for an unknown transaction:
+// USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND and the Connect code
+// not_found, so the answer does not reveal that the transaction exists.
+// The reported quantity is unrestricted: no check on it refuses a report (see
+// UsageReportRejectionReason).
 message UsageReport {
   // FORA protocol version — "1.0". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
   // Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed
-  // report does not double-count usage. The report's durable identity is the
-  // Exchange-assigned report_id in UsageReportResponse.
-  // Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per
-  // (authenticated caller, key), never globally, so a key chosen by one caller
-  // cannot collide with another's cached result.
+  // report does not double-count usage; the same key with a different report is
+  // refused with already_exists. Scoped per caller; see "Idempotency" in the
+  // file header. The report's durable identity is the Exchange-assigned
+  // report_id in UsageReportResponse.
   string idempotency_key = 2 [
     (buf.validate.field).string = {min_len: 1, max_len: 255}
   ];
@@ -2747,7 +3534,10 @@ message Usage {
 
   // REQUIRED. Actual quantity consumed, in the metering unit from the Offer's Pricing.
   // For text: tokens consumed. For video: seconds watched. For data: records accessed.
-  // Exchange cross-references against Offer.pricing.estimated_quantity.
+  //
+  // The agent reports what it consumed, not what it estimated: an Exchange
+  // MUST NOT refuse a report because this differs from the estimate, in either
+  // direction.
   int32 consumed_quantity = 3;
 
   // Whether resource/output was displayed to a human.
@@ -2811,7 +3601,10 @@ message UsageReportResponse {
 // These messages are for the Agent → Broker path. Step 1 is DiscoveryRequest;
 // Step 6 is DiscoveryResponse, which carries offers grouped by requested URI
 // (OfferGroup) — discovery only. Committing to an offer is a separate exchange
-// on the execute path, which returns TransactionResponse.
+// on the execute path, taken one of two ways: directly, a TransactionRequest to
+// each issuing Exchange, which returns TransactionResponse; or through the
+// Broker, one TransactionRequest to BrokerService.ExecuteTransaction for offers
+// from any number of Exchanges, which returns BrokerTransactionResponse.
 // When an agent talks directly to an Exchange, it uses
 // ResourceQuery/TransactionRequest directly instead.
 // ============================================================================
@@ -2823,8 +3616,10 @@ message DiscoveryRequest {
   string ver = 1;
 
   // Requester identity — who is making this request, what scopes they have.
-  // The Broker forwards this to Exchanges in ResourceQuery.requester.
-  Requester requester = 3;
+  // The Broker forwards this to Exchanges in ResourceQuery.requester. REQUIRED:
+  // a discovery names its requester, whose Requester.id and Requester.domain
+  // are required in turn.
+  Requester requester = 3 [(buf.validate.field).required = true];
 
   // Resource URIs the agent wants. The Broker forwards these to Exchanges in
   // ResourceQuery.uris. Optional when `query` / `search_filters` drive
@@ -2842,10 +3637,11 @@ message DiscoveryRequest {
 
   // Domain extension profiles the agent understands.
   //
-  // The Broker uses this to:
-  //   1. Route queries to Exchanges that support these profiles
-  //   2. Forward the profiles in ResourceQuery.supported_profiles
-  //   3. Include profile-specific ext fields when returning results
+  // The Broker MUST forward this list unchanged in
+  // ResourceQuery.supported_profiles on every query it sends an Exchange, and
+  // forward an absent list as absent. It does not route by it: which Exchanges
+  // it queries is decided on other grounds, and each Exchange answers for its
+  // own profiles (see ResourceQuery.supported_profiles).
   //
   // Examples: ["fora-academic-v1"] — agent working on literature review
   repeated string supported_profiles = 5;
@@ -2910,17 +3706,15 @@ message RequestConstraints {
     }
   ];
 
-  // Budget scope identifier for per-period tracking.
+  // Budget scope identifier: whose budget this is.
   // E.g. "user:u-12345" for per-user budgets, "team:eng" for per-team.
-  // The Broker tracks cumulative spend per scope across sessions.
   optional string budget_scope = 7;
 
-  // Per-period budget limit. The Broker tracks spend against this
-  // for the budget_scope. Transactions that would exceed are denied.
+  // Per-period budget limit for the budget_scope.
   optional Cost period_budget = 8;
 
   // Budget period (e.g. "2592000s" = 30 days; proto-JSON encodes Duration
-  // as seconds). Resets at period boundary.
+  // as seconds).
   optional google.protobuf.Duration budget_period = 9;
 
   // Maximum acceptable age of resource data. The Broker SHOULD
@@ -2935,12 +3729,14 @@ message RequestConstraints {
   //   30 days  — "drug interaction database updated this month"
   optional google.protobuf.Duration max_data_age = 10;
 
-  // Maximum forwarding hops the agent will allow (Agent → Broker → … →
-  // Exchange), counted as the number of RFC 9421 HTTP Message Signatures on the
-  // request. Caps chain depth so a request is not relayed through more brokers
-  // than the agent is willing to trust or pay. A Broker MUST NOT forward a
-  // request whose signature count would exceed this. Absent = agent imposes no
-  // cap (the Exchange's max_intermediary_hops still applies).
+  // Maximum number of hops the agent will allow its discovery to travel. It
+  // rides only on DiscoveryRequest, which terminates at the Broker, and a
+  // Broker originates its own queries rather than forwarding the agent's
+  // request, so no party receives or enforces it in this version: an Exchange
+  // never sees it, and an Exchange's own cap is
+  // WellKnownManifest.max_intermediary_hops. The field is kept for multi-hop
+  // Broker discovery, an open protocol question tracked separately. Absent =
+  // no cap stated.
   optional int32 max_hops = 11;
 }
 
@@ -2955,7 +3751,9 @@ message RequestConstraints {
 // auth methods). Identity keys are NOT here — every participant serves them in
 // the pure WBA directory (WBAFile) at
 // /.well-known/http-message-signatures-directory, referenced by RFC 7638
-// thumbprint. See WellKnownManifest and WBAFile below.
+// thumbprint. See WellKnownManifest and WBAFile below. A publisher's edge points
+// an agent it refuses at the publisher's fora.json with the X-Content-Rules
+// header; see "Edge discovery headers" in the file header.
 //
 // Caching contract:
 //   /.well-known/fora.json MAY be cached by consumers and CDNs for routine
@@ -2970,6 +3768,16 @@ message RequestConstraints {
 //   grants access against a stale revocation set bears that as its own
 //   business risk — it is not a protocol deficiency.
 //
+// Redirects: a key directory is never fetched through a redirect. It is served
+// over https at /.well-known/http-message-signatures-directory itself, answers
+// 200 with the media type application/http-message-signatures-directory+json,
+// and a verifier treats a redirect, like any other status, as a discovery
+// failure: its address is the origin the signer committed to in its covered
+// Signature-Agent member. A revocation list and /.well-known/fora.json carry
+// nothing to leak, so a party fetching one MAY follow up to five redirects,
+// re-pinning the address and re-vetting the scheme at each hop. A longer chain
+// fails the fetch.
+//
 // Domainless requesters — an individual agent with no public domain of its
 // own — are accommodated without a protocol change: a registry (operated by
 // an Exchange/Broker or a third party) hosts the agent's WellKnownManifest,
@@ -2983,18 +3791,26 @@ message RequestConstraints {
 // Role — Identifies which kind of FORA participant a WellKnownManifest
 // describes. Verifiers fold into the role of the domain that operates
 // them (typically EXCHANGE or PUBLISHER); they are not a distinct role.
+//
+// A role describes the document. It is the publisher's own statement, so no
+// party authorizes anything from it: an Exchange admits a Broker by its own
+// policy, never because a manifest says ROLE_BROKER (see "Direct and relayed
+// requests" in the file header).
 enum Role {
   ROLE_UNSPECIFIED = 0;  // unset — rejected at ingest
-  ROLE_AGENT = 1;
-  ROLE_EXCHANGE = 2;
-  ROLE_BROKER = 3;
-  ROLE_PUBLISHER = 4;
+  ROLE_AGENT = 1;        // an agent's manifest
+  ROLE_EXCHANGE = 2;     // an Exchange's manifest
+  ROLE_BROKER = 3;       // a Broker's manifest; the role never admits the Broker anywhere
+  ROLE_PUBLISHER = 4;    // a publisher's manifest
 }
 
 // JsonWebKey — Inline RFC 7517 JWK object.
 //
 // FORA v1.0 supports Ed25519 only: kty="OKP", crv="Ed25519", alg="EdDSA".
-// Additional curves are a later concern.
+// Additional curves are a later concern. `alg` is the JOSE name RFC 7517 §4.4
+// defines; WG-00 §5.5.1 restricts the member to HTTP Message Signatures names
+// (`ed25519`), a known and deliberate deviation. The RFC 9421 signature
+// parameter `alg` in Signature-Input is a different field and is "ed25519".
 //
 // Time bounds are RFC3339 strings (sortable, ops-debuggable, avoids the
 // JWT nbf/exp collision). At least one key in the served key set (WBAFile.keys)
@@ -3306,7 +4122,11 @@ message WellKnownManifest {
   // reachable on a non-default port names that port on both sides.
   optional string endpoint = 12;
 
-  // Exchange-only. Health check endpoint URL.
+  // Exchange-only. The URL a consumer, such as a Broker deciding whether to route
+  // to this Exchange, probes to judge whether it is serving: an absolute URL, or
+  // a path resolved against this manifest's own URL (RFC 3986). A 200 answer
+  // means serving. When absent, a consumer judges reachability by fetching this
+  // manifest itself; it never assumes a path the protocol does not name.
   optional string health_endpoint = 13;
 
   // Exchange-only. CatalogService endpoint URL (if exposed). It carries the
@@ -3362,10 +4182,14 @@ message WellKnownManifest {
   // values from this Exchange are denominated in this currency.
   optional string base_currency = 27;
 
-  // Exchange-only. Maximum forwarding hops this Exchange tolerates on an inbound
-  // request (Agent → Broker → … → Exchange), counted as RFC 9421 HTTP Message
-  // Signatures. A request carrying more SHOULD be rejected. Lets Exchanges
-  // publish their chain-depth tolerance so Brokers prune before forwarding.
+  // Exchange-only. Maximum number of RFC 9421 HTTP Message Signatures this
+  // Exchange accepts on an inbound request. Every signature counts, whether or
+  // not it covers another. A request signed only by the party that sent it — an
+  // agent, or a Broker for a request it authored — carries one, so the cap
+  // bounds a request that a party forwarded unchanged and signed again. An
+  // Exchange refuses a request carrying more before it verifies any signature,
+  // with the Connect code resource_exhausted (HTTP 429) and no typed reason.
+  // Lets Exchanges publish their tolerance so a sender stays within it.
   // Absent = no published limit (Exchange applies its own default policy).
   optional int32 max_intermediary_hops = 28;
 
@@ -3407,8 +4231,12 @@ message WellKnownManifest {
 }
 
 // WBAFile — Pure Web Bot Auth directory served at the WBA-canonical well-known
-// path (/.well-known/http-message-signatures-directory). A JOSE JWK Set per
-// RFC 7517 §5 plus a directory-level revocation pointer. JWKs carry no kid; the
+// path (/.well-known/http-message-signatures-directory), over https, with
+// status 200 and no redirect, as application/http-message-signatures-directory+json.
+// The response is signed once per listed key under
+// tag="http-message-signatures-directory", covering "@authority";req and
+// content-digest. A JOSE JWK Set per RFC 7517 §5 plus a directory-level
+// revocation pointer. JWKs carry no kid; the
 // RFC 9421 keyid is the RFC 7638 JWK Thumbprint. Off-the-shelf WBA verifiers
 // read the `keys` array and ignore FORA's extra members (per-key
 // not_before/not_after, and revocation_url) per RFC 7517 §5.
@@ -3420,6 +4248,10 @@ message WBAFile {
   // Directory-level emergency revocation channel. One per directory; the list
   // it points to enumerates revoked key thumbprints. Consumers poll on a 300s
   // cadence (±10% jitter) and replace their local revoked set with the response.
+  // The list revokes keys of this directory only: a consumer checks a
+  // signature against the list of the directory that published its key, and
+  // never applies this list to another party's key. A fetch of the list MAY
+  // follow up to five redirects (see "Redirects" under Well-Known Discovery).
   optional string revocation_url = 2;
 }
 
@@ -3431,6 +4263,9 @@ message WBAFile {
 // thumbprint stays revoked permanently; once dropped from the list, consumers
 // MAY drop it from their local set but the corresponding key SHOULD NOT be
 // re-introduced into WBAFile.keys.
+//
+// Scope: a list revokes only keys of the directory whose revocation_url names
+// it. A thumbprint of another party's key in this list revokes nothing.
 message KeyRevocationList {
   // Server's response time (RFC3339, UTC). Consumers use this to detect
   // clock skew.
@@ -3509,7 +4344,8 @@ enum AuthMethod {
 // Exchanges, grouped by the URI they were requested for. Committing to an offer
 // is a separate exchange on the execute path; that per-transaction result
 // (transaction_id, billing_id, cost, delivery_method, retrieval endpoint, …)
-// is returned by TransactionResponse, not here.
+// is returned by TransactionResponse, or by BrokerTransactionResponse when the
+// purchase goes through BrokerService.ExecuteTransaction, not here.
 message DiscoveryResponse {
   // FORA protocol version — "1.0". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
@@ -3531,12 +4367,15 @@ message DiscoveryResponse {
   // (unlike OfferGroup). A consumer needing the filtered axes calls
   // DiscoverResources.
   //
-  // Existence-oracle note: an authorization-flavored reason (SCOPE_INSUFFICIENT,
-  // NOT_AUTHORIZED, NOT_IN_CATALOG, CONTENT_BLOCKED) confirms a resource exists
+  // Existence-oracle note: an authorization-flavored reason (NOT_AUTHORIZED,
+  // NOT_IN_CATALOG, CONTENT_BLOCKED) confirms a resource exists
   // and why access was refused. Resolve surfaces the same oracle at the broker
   // that OfferGroup.absence_reason does at the Exchange, so the same mitigation
   // applies: where existence itself must stay hidden, the Broker MAY omit the
   // reason (leave this unset) rather than reveal it. See the threat model.
+  // A scope shortfall never reaches this field: the Exchange answers it with
+  // no absence reason, and the Broker MUST NOT supply one (the existence-hiding
+  // rule, stated on Requester.scopes).
   optional OfferAbsenceReason absence_reason = 16;
 
   // Extension point
@@ -3547,6 +4386,78 @@ message DiscoveryResponse {
   // Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.
   // Empty (default) → all ext keys are safe to ignore.
   repeated string ext_critical = 90;
+}
+
+// BrokerTransactionResponse — the Broker's combined answer to
+// BrokerService.ExecuteTransaction: the independent per-resource purchases it
+// made at one or more Exchanges, assembled in request order. Each item is
+// atomic and owned by the Exchange that issued its offer, so the combination
+// needs no integrity of its own and carries none: no field here is signed, and
+// a result item's one signed value is its retrieval_endpoint, signed by the
+// issuing Exchange (see BrokerService.ExecuteTransaction).
+message BrokerTransactionResponse {
+  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // constant; advisory on receive. See "Protocol version" in the file header.
+  string ver = 1;
+
+  // One per request item, in request order. A purchase that succeeded, or that
+  // its Exchange denied per item (denial_reason), is that Exchange's
+  // TransactionResultItem unchanged. An item whose Exchange refused the whole
+  // sub-request, or did not answer it, carries that refusal in `refusal`, with
+  // offer_id set and no other result field. When the Broker itself does not
+  // understand a key the agent's request lists in ext_critical, every item is
+  // the Broker's denial, DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION, and no
+  // Exchange was contacted.
+  repeated TransactionResultItem items = 2;
+
+  // One per Exchange the Broker contacted, in the order each Exchange first
+  // appears among the request items.
+  repeated ExchangeOutcome exchanges = 3;
+
+  // Charged totals, one per currency, in the order each currency first appears
+  // among the charged items. An item is charged when it carries neither
+  // denial_reason nor refusal; its cost.amount is added, as an exact decimal,
+  // into the entry for its cost.currency. Amounts are never summed across
+  // currencies and never converted: currency conversion is out of scope for
+  // this version. unit_cost is unset. Empty when no item was charged. An item
+  // whose refusal carries the code "unavailable" or "deadline_exceeded" may
+  // have been charged but is not counted, so totals is then a lower bound of
+  // what the purchase charged.
+  repeated Cost totals = 4;
+
+  // Extension point
+  google.protobuf.Struct ext = 15;
+
+  // Critical extension keys (COSE crit pattern, RFC 9052).
+  // Lists keys within ext that the consumer MUST understand.
+  // Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.
+  // Empty (default) → all ext keys are safe to ignore.
+  repeated string ext_critical = 90;
+}
+
+// ExchangeOutcome — the request-level state of one Exchange's answer to the
+// sub-request a Broker sent it on BrokerService.ExecuteTransaction: the fields
+// of its TransactionResponse that are not per item.
+message ExchangeOutcome {
+  // Bare host of the Exchange, in the form "Request recipient" defines in the
+  // file header: the offer.exchange its items share.
+  string exchange = 1 [
+    (buf.validate.field).string = {
+      max_len: 260,
+      pattern: "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$"
+    }
+  ];
+
+  // The offer_id of every item sent to this Exchange, in request order.
+  repeated string offer_ids = 2 [(buf.validate.field).repeated.max_items = 256];
+
+  // That Exchange's TransactionResponse.agent_identity_hash: the identity the
+  // retrieval_endpoint of each of its items is bound to. Empty when the
+  // Exchange refused the sub-request or did not answer.
+  string agent_identity_hash = 3;
+
+  // That Exchange's TransactionResponse.subscription_quota, unchanged.
+  repeated SubscriptionQuotaInfo subscription_quota = 4;
 }
 
 // ============================================================================
@@ -3570,11 +4481,10 @@ message DisputeRequest {
   string ver = 1;
 
   // Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed
-  // filing does not open a duplicate case. The dispute's durable identity is the
-  // Exchange-assigned dispute_id in DisputeResponse.
-  // Uniqueness is scoped to the verified RFC 9421 signer: the server dedupes per
-  // (authenticated caller, key), never globally, so a key chosen by one caller
-  // cannot collide with another's cached result.
+  // filing does not open a duplicate case; the same key with a different filing
+  // is refused with already_exists. Scoped per caller; see "Idempotency" in the
+  // file header. The dispute's durable identity is the Exchange-assigned
+  // dispute_id in DisputeResponse.
   string idempotency_key = 2 [
     (buf.validate.field).string = {min_len: 1, max_len: 255}
   ];
@@ -3934,8 +4844,10 @@ message DomainVerificationResult {
 //
 // What a repeat still runs is everything outside those gates. The request
 // signature is verified and the caller identified from it, RegisterRequest.exchange
-// is checked against the recipient, and the field-level constraints on the message
-// still apply. A repeat from an unverified caller, or one addressed to a different
+// is checked against the recipient, the field-level constraints on the message
+// still apply, and a key the request lists in ext_critical that the Exchange does
+// not understand is refused with REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION
+// before the stored record is returned. A repeat from an unverified caller, or one addressed to a different
 // Exchange, is refused exactly as a first call is.
 // ============================================================================
 
@@ -4198,7 +5110,10 @@ message GetAccountStatusResponse {
   string ver = 1;
 
   // The account handle minted at registration (see RegisterResponse.billing_ref).
-  // Empty when the calling agent has no account yet.
+  // Set on every OK answer: a calling agent with no account is answered
+  // NOT_FOUND, not with an empty handle (see GetAccountStatus). A receiver reads
+  // an empty handle, which an Exchange built before that rule may send, as the
+  // same answer.
   string billing_ref = 2;
 
   // Whether the account is currently active.
@@ -4275,8 +5190,8 @@ message GetAccountStatusResponse {
 // of failure: *Denial is an access decision (a transaction was denied),
 // *Rejection is a submission refused (catalog push, usage report), and *Failure
 // is an operation that could not complete (registration, dispute, domain
-// verification, retrieval auth). The distinction is deliberate; do not flatten
-// these to a single suffix.
+// verification, retrieval auth, request auth). The distinction is deliberate;
+// do not flatten these to a single suffix.
 //
 // The per-domain reason enums here are the single source of truth that replaces
 // the hand-rolled Go "Kind" enums (Exchange, Broker), the catalog free-text
@@ -4308,7 +5223,7 @@ message ErrorDetail {
   // generic transport-class failures (e.g. INVALID_ARGUMENT, INTERNAL) that
   // carry no domain-specific reason.
   oneof reason {
-    // `reason` oneof — ExecuteTransaction denial
+    // `reason` oneof — ExecuteTransaction refused as a whole request
     TransactionDenial transaction_denial = 10;
     // `reason` oneof — CatalogService rejection
     CatalogRejection catalog_rejection = 11;
@@ -4322,29 +5237,49 @@ message ErrorDetail {
     RetrievalAuthFailure retrieval_auth_failure = 15;
     // `reason` oneof — ReportUsage filing rejected
     UsageReportRejection usage_report_rejection = 16;
+    // `reason` oneof — RFC 9421 request signature on an RPC refused
+    RequestAuthFailure request_auth_failure = 17;
   }
 }
 
-// TransactionDenial — ExecuteTransaction could not complete. Carries the denial
-// reason the response body no longer holds (denial_reason / restriction_mismatches
-// move here in the response-shape normalization). Reuses the DenialReason vocab.
+// TransactionDenial — ExecuteTransaction refused the WHOLE request. Reuses the
+// DenialReason vocabulary.
+//
+// This is the only case an ExecuteTransaction answer is a non-OK error carrying
+// a DenialReason: the Exchange refuses the request as a whole and decides no
+// item, for a reason about the caller or the request that would deny every item
+// alike — for example the caller holds no account (ACCOUNT_NOT_REGISTERED), its
+// account is not active (ACCOUNT_INACTIVE), it has overdue reports
+// (REPORTING_OVERDUE), or it is rate limited (RATE_LIMITED). Nothing is
+// purchased. Every decision about an item is answered in the body instead, on
+// TransactionResultItem.denial_reason, whatever the item count: a denied
+// one-item purchase is a successful response whose one item is denied, never
+// this error. RELAY_NOT_ACCEPTED is a per-item decision and is never carried
+// here, and RESTRICTION_NOT_SATISFIED is never sent at all.
 message TransactionDenial {
   // The denial reason (defined-only, non-zero)
   DenialReason reason = 1 [
     (buf.validate.field).enum = {defined_only: true, not_in: [0]}
   ];
 
-  // When reason = RESTRICTION_NOT_SATISFIED, the failed axes (same
-  // RestrictionKind vocabulary the terms use).
-  repeated RestrictionKind restriction_mismatches = 2;
+  // DEPRECATED, never set. RESTRICTION_NOT_SATISFIED is never sent: the
+  // Exchange never enforces a restriction (see Restriction). The field is
+  // retained because removing it would break the v1 wire contract; a receiver
+  // ignores it.
+  repeated RestrictionKind restriction_mismatches = 2 [deprecated = true];
 
-  // Batch mode: the offer this denial pertains to.
-  optional string offer_id = 3;
+  // DEPRECATED, never set. A whole-request refusal pertains to no one offer; a
+  // denial of one offer rides on that offer's TransactionResultItem. The field
+  // is retained because removing it would break the v1 wire contract; a
+  // receiver ignores it.
+  optional string offer_id = 3 [deprecated = true];
 
   // Bare host of the Exchange that PRODUCED this denial, in the form "Request
   // recipient" defines in the file header. Not an echo of what the caller sent:
   // on a relayed or fanned-out execute the request went to a Broker, so the
-  // Exchange that refused may not be one the agent named. Carrying it here is
+  // Exchange that refused may not be one the agent named (through
+  // BrokerService.ExecuteTransaction this detail reaches the agent inside
+  // UpstreamRefusal.detail, beside UpstreamRefusal.party). Carrying it here is
   // what lets ACCOUNT_NOT_REGISTERED be actionable — the agent learns where to
   // call Register without fetching a manifest to work it out. NOTHING SIGNS THIS
   // VALUE: it rides in a response, and on a relayed path the response passed
@@ -4354,10 +5289,10 @@ message TransactionDenial {
   // handing an operator's business data and a signed acceptance of that
   // Exchange's terms to whoever answers — a caller MUST check the value against
   // a domain it already trusts for this transaction: the signed `offer.exchange`
-  // of the denied item, or its own RequestConstraints.exchanges set. A value
-  // matching neither is reported to the caller and never dialled, because a
-  // hostile intermediary that could choose it would be choosing where an
-  // unattended agent registers.
+  // of the items in the refused request, or its own RequestConstraints.exchanges
+  // set. A value matching neither is reported to the caller and never dialled,
+  // because a hostile intermediary that could choose it would be choosing where
+  // an unattended agent registers.
   optional string exchange = 4 [
     (buf.validate.field).string = {
       max_len: 260,
@@ -4371,10 +5306,23 @@ message TransactionDenial {
 // "tenant mismatch", "signature middleware missing").
 enum CatalogRejectionReason {
   CATALOG_REJECTION_REASON_UNSPECIFIED = 0;  // unset — rejected at ingest
-  CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR = 1; // caller is not an authorized contributor for the domain
+  // The signer is not authorized to push for an entry's domain: it is neither
+  // that domain's publisher nor a contributor the publisher's manifest lists in
+  // catalog_contributors. An entry naming a resource owner the signer may not
+  // push for is this reason too.
+  CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR = 1;
   CATALOG_REJECTION_REASON_TENANT_MISMATCH = 2;         // tenant_id does not match the authenticated caller
   CATALOG_REJECTION_REASON_DOMAIN_NOT_VERIFIED = 3;     // contributing domain is not verified
-  CATALOG_REJECTION_REASON_SIGNATURE_INVALID = 4;       // request signature missing or invalid
+  // DEPRECATED, never sent. An Exchange MUST NOT send this value. A catalog
+  // call whose request signature is missing, does not verify or is stale is
+  // refused like every other signed request: UNAUTHENTICATED with
+  // ErrorDetail.request_auth_failure (SIGNATURE_MISSING, SIGNATURE_INVALID or
+  // SIGNATURE_STALE; see RequestAuthFailureReason). A receiver treats this value
+  // as unknown.
+  //
+  // The number is retained because removing it would break the v1 wire
+  // contract, and it MUST NOT be reused or given a new meaning.
+  CATALOG_REJECTION_REASON_SIGNATURE_INVALID = 4 [deprecated = true];
   CATALOG_REJECTION_REASON_MALFORMED_ENTRY = 5;         // a resource entry failed schema/validation
   CATALOG_REJECTION_REASON_UNKNOWN_VOCAB_TOKEN = 6;     // an unregistered vocab token in a restriction/term
   CATALOG_REJECTION_REASON_QUOTA_EXCEEDED = 7;          // contributor push quota exceeded (per-caller)
@@ -4394,6 +5342,15 @@ enum CatalogRejectionReason {
   // to see full ownership); the human-readable message routes the caller there
   // without confirming who, if anyone, holds the URI.
   CATALOG_REJECTION_REASON_URI_UNAVAILABLE = 9;
+  // The push's own ext_critical names a key the Exchange does not understand
+  // (see "Critical extensions" in the file header). ResourceEntry.ext_critical
+  // is for the agent and never produces this reason.
+  CATALOG_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION = 10;
+  // The publisher's manifest does not list this Exchange: an entry's domain
+  // serves a /.well-known/fora.json whose WellKnownManifest.exchanges does not
+  // name the recipient, so the Exchange is not authorized to sell that domain's
+  // content.
+  CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED = 11;
 }
 
 // CatalogRejection — a CatalogService call could not be applied.
@@ -4435,6 +5392,10 @@ enum RegistrationFailureReason {
   REGISTRATION_FAILURE_REASON_QUOTA_EXCEEDED = 5;      // registration quota exceeded
   REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA = 6; // registration_data does not conform to the Exchange's published AccountRegistration.data_schema
   REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE = 7;        // terms_digest does not match the currently published WellKnownManifest.terms_digest, or was omitted while the Exchange publishes one
+  // The request's ext_critical names a key the Exchange does not understand (see
+  // "Critical extensions" in the file header), on a first registration and on a
+  // repeat alike. Refused with the Connect code invalid_argument.
+  REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION = 8;
 }
 
 // RegistrationFailure — a registration request could not be completed.
@@ -4483,13 +5444,36 @@ message RegistrationFieldError {
 // DisputeFailureReason — why a DisputeTransaction filing was refused. Distinct
 // from DisputeReason (why the agent disputes) and DisputeStatus (an accepted
 // dispute's lifecycle).
+//
+// A refused filing is a non-OK error carrying ErrorDetail.dispute_failure with
+// exactly one of these reasons. A filing that fails none of these checks is
+// accepted and answered with a DisputeResponse; a dispute that is accepted and
+// later found unsupported ends as RESOLUTION_TYPE_REJECTED, not as a refusal.
 enum DisputeFailureReason {
   DISPUTE_FAILURE_REASON_UNSPECIFIED = 0;  // unset — rejected at ingest
-  DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND = 1; // transaction_id is unknown
-  DISPUTE_FAILURE_REASON_REPORT_NOT_FILED = 2;      // no UsageReport precedes the dispute (report_id missing/unknown)
-  DISPUTE_FAILURE_REASON_WINDOW_EXPIRED = 3;        // filed outside the allowed dispute window
-  DISPUTE_FAILURE_REASON_DUPLICATE = 4;             // a dispute already exists for this transaction
-  DISPUTE_FAILURE_REASON_INELIGIBLE = 5;            // the transaction/state is not disputable
+  // transaction_id names no transaction this Exchange executed for the caller.
+  DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND = 1;
+  // No accepted usage report precedes the dispute: report_id is empty, unknown,
+  // or names a report for another transaction. The agent files the
+  // transaction's UsageReport first and disputes with the report_id it returns
+  // (see DisputeRequest.report_id).
+  DISPUTE_FAILURE_REASON_REPORT_NOT_FILED = 2;
+  // The filing arrived after the transaction's dispute window closed. The
+  // window is set by the Exchange; a filing after it is refused for that time
+  // cause alone.
+  DISPUTE_FAILURE_REASON_WINDOW_EXPIRED = 3;
+  // A dispute was already filed for this transaction. A retry of the same
+  // filing under the same idempotency_key is not a duplicate: it is a replay,
+  // answered with the original DisputeResponse.
+  DISPUTE_FAILURE_REASON_DUPLICATE = 4;
+  // The transaction exists and the filing passes the checks above, but the
+  // transaction's state admits no dispute under the Exchange's rules. Filing
+  // again does not change the answer.
+  DISPUTE_FAILURE_REASON_INELIGIBLE = 5;
+  // The filing's ext_critical names a key the Exchange does not understand (see
+  // "Critical extensions" in the file header). Refused with the Connect code
+  // invalid_argument.
+  DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION = 6;
 }
 
 // DisputeFailure — a dispute could not be filed.
@@ -4509,6 +5493,10 @@ enum DomainVerificationFailureReason {
   DOMAIN_VERIFICATION_FAILURE_REASON_FETCH_FAILED = 4;           // Exchange could not fetch the verification URL
   DOMAIN_VERIFICATION_FAILURE_REASON_EXCHANGE_NOT_AUTHORIZED = 5; // fora.json does not list this Exchange
   DOMAIN_VERIFICATION_FAILURE_REASON_KEY_REGISTRATION_FAILED = 6; // signing-key registration failed during confirmation
+  // The request's or confirmation's ext_critical names a key the Exchange does
+  // not understand (see "Critical extensions" in the file header). Refused with
+  // the Connect code invalid_argument.
+  DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION = 7;
 }
 
 // DomainVerificationFailure — RequestDomainVerification / ConfirmDomainVerification failed.
@@ -4549,20 +5537,64 @@ message RetrievalAuthFailure {
 }
 
 // UsageReportRejectionReason — why a ReportUsage filing was rejected. Replaces
-// the free-text UsageReportResponse.rejection_reason string.
+// the free-text UsageReportResponse.rejection_reason string. A rejected report
+// is a non-OK error carrying ErrorDetail.usage_report_rejection with exactly one
+// of these reasons.
+//
+// THE REPORTED QUANTITY IS UNRESTRICTED. No reason here refuses a report
+// because its consumed_quantity differs from the offer's estimate, above or
+// below, and an Exchange MUST NOT refuse a report for that; such a report is
+// not MALFORMED. Monitoring how far reports fall from estimates is the
+// Exchange operator's own business, not part of the protocol.
 enum UsageReportRejectionReason {
   USAGE_REPORT_REJECTION_REASON_UNSPECIFIED = 0;  // unset — rejected at ingest
   USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND = 1;     // transaction_id is unknown
   USAGE_REPORT_REJECTION_REASON_DUPLICATE = 2;                 // a report was already filed for this transaction
-  USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED = 3;            // filed outside the reporting window
+  // The reporting window closed before the report arrived: the transaction's
+  // ReportingObligation.window elapsed. This is the time cause, and it names
+  // only that: a report past its window is refused with this reason and the
+  // Connect code failed_precondition, whatever it reports. It is never used for
+  // a report's quantity.
+  USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED = 3;
   USAGE_REPORT_REJECTION_REASON_MISSING_REQUIRED_FIELDS = 4;   // ReportingObligation.required_fields not satisfied
-  USAGE_REPORT_REJECTION_REASON_MALFORMED = 5;                 // report payload failed validation
+  // The report payload failed validation: it breaks a field rule of UsageReport
+  // or carries a value the Exchange cannot read. Refused with the Connect code
+  // invalid_argument. A consumed_quantity that differs from the estimate is not
+  // malformed.
+  USAGE_REPORT_REJECTION_REASON_MALFORMED = 5;
+  // The report's ext_critical names a key the Exchange does not understand
+  // (see "Critical extensions" in the file header). Refused with the Connect
+  // code invalid_argument.
+  USAGE_REPORT_REJECTION_REASON_UNKNOWN_CRITICAL_EXTENSION = 6;
 }
 
 // UsageReportRejection — a usage report could not be accepted.
 message UsageReportRejection {
   // The rejection reason (defined-only, non-zero)
   UsageReportRejectionReason reason = 1 [
+    (buf.validate.field).enum = {defined_only: true, not_in: [0]}
+  ];
+}
+
+// RequestAuthFailureReason — why the RFC 9421 HTTP message signature on an RPC
+// request failed verification, refused with the Connect code UNAUTHENTICATED.
+// Deliberately coarse: each value names what the caller does next, never which
+// validation step failed, so a refusal tells a forger nothing about how far its
+// request got. Distinct from RetrievalAuthFailureReason, which covers the
+// signed-URL / proof-of-possession check at the delivery edge, not an RPC.
+// Every signed RPC is refused this way when its signature fails, a
+// CatalogService call included.
+enum RequestAuthFailureReason {
+  REQUEST_AUTH_FAILURE_REASON_UNSPECIFIED = 0;  // unset — rejected at ingest
+  REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING = 1;  // no signature, or none that parses; remedy: sign the request
+  REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID = 2;  // the signature does not verify: bad signature, unresolvable key, content-digest mismatch, required covered component missing
+  REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE = 3;    // outside its created/expires window, or already used (replay); remedy: re-sign now
+}
+
+// RequestAuthFailure — an RPC request's HTTP message signature was refused.
+message RequestAuthFailure {
+  // The failure reason (defined-only, non-zero)
+  RequestAuthFailureReason reason = 1 [
     (buf.validate.field).enum = {defined_only: true, not_in: [0]}
   ];
 }

@@ -1,0 +1,54 @@
+{
+  "note": "Whether the bytes at License.uri match License.uri_digest, produced by the sdk/go verifyLicenseDigest oracle; py/ts replay and must match every vector",
+  "vectors": [
+    {
+      "label": "sha256",
+      "body": "Licensed for retrieval-augmented answers, attribution required.\n",
+      "uri_digest": "sha256:8f4096ce467271bb987a9c31ff83a56a8e237176bc8b815503aaf9b8f0589337",
+      "verdict": "ok",
+      "digest": "sha256:8f4096ce467271bb987a9c31ff83a56a8e237176bc8b815503aaf9b8f0589337"
+    },
+    {
+      "label": "sha384",
+      "body": "Licensed for retrieval-augmented answers, attribution required.\n",
+      "uri_digest": "sha384:63016fd62828c40553e813645217e6e9d1e013c1afb241b0a79c7a20efdf39fa25e03ed01e8e0e9fec3adc7c8254bc2a",
+      "verdict": "ok",
+      "digest": "sha384:63016fd62828c40553e813645217e6e9d1e013c1afb241b0a79c7a20efdf39fa25e03ed01e8e0e9fec3adc7c8254bc2a"
+    },
+    {
+      "label": "sha512",
+      "body": "Licensed for retrieval-augmented answers, attribution required.\n",
+      "uri_digest": "sha512:920436340e11505fb22e9134cdc4c88d991cce9b97c3d6fd04b33785c343b951e3164faebc00ec08035c39e0011a6521756eb0c31f23d41f5c9ef0181b965d9d",
+      "verdict": "ok",
+      "digest": "sha512:920436340e11505fb22e9134cdc4c88d991cce9b97c3d6fd04b33785c343b951e3164faebc00ec08035c39e0011a6521756eb0c31f23d41f5c9ef0181b965d9d"
+    },
+    {
+      "label": "empty-document",
+      "body": "",
+      "uri_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "verdict": "ok",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "amended-document",
+      "body": "Licensed for retrieval-augmented answers, attribution required.\nAmended after the offer was signed.\n",
+      "uri_digest": "sha256:8f4096ce467271bb987a9c31ff83a56a8e237176bc8b815503aaf9b8f0589337",
+      "verdict": "mismatch",
+      "digest": ""
+    },
+    {
+      "label": "document-gone-empty",
+      "body": "",
+      "uri_digest": "sha256:8f4096ce467271bb987a9c31ff83a56a8e237176bc8b815503aaf9b8f0589337",
+      "verdict": "mismatch",
+      "digest": ""
+    },
+    {
+      "label": "method-swapped",
+      "body": "Licensed for retrieval-augmented answers, attribution required.\n",
+      "uri_digest": "sha512:63016fd62828c40553e813645217e6e9d1e013c1afb241b0a79c7a20efdf39fa25e03ed01e8e0e9fec3adc7c8254bc2a",
+      "verdict": "mismatch",
+      "digest": ""
+    }
+  ]
+}

@@ -15,7 +15,9 @@ import copy
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
+from pydantic import BaseModel
 from wire.models import (
+    BrokerTransactionResponse,
     DiscoveryRequest,
     DiscoveryResponse,
     DisputeRequest,
@@ -34,8 +36,8 @@ from wire.models import (
     ResourceQuery,
     ResourceResponse,
     TransactionRequest,
-    TransactionResponse,
     UsageReport,
+    TransactionResponse,
     UsageReportResponse,
 )
 
@@ -59,12 +61,14 @@ from fora_sdk.resolvers import (
     guarded_client,
 )
 from fora_sdk.window import Window
-from fora_sdk.wire import ProtocolVersion
+from fora_sdk.wire import ProtocolVersion, to_wire
 from fora_sdk.wire_canon import from_wire_offer
 
 from ._call import (
+    BeforeSign,
     DEFAULT_CALL_TIMEOUT_SEC,
     DEFAULT_MAX_RPC_READ_BYTES,
+    RawBody,
     Validation,
     decode,
     decode_with_raw,
@@ -73,7 +77,7 @@ from ._call import (
     validate_request,
 )
 from .._hostref import _redact_userinfo as redact_userinfo
-from ..hosts import is_bare_domain
+from ..hosts import check_audience, host_of, is_bare_domain
 from .errors import CallError, CallErrorKind, malformed, not_sent
 from .route import (
     EndpointResolver,
@@ -82,7 +86,7 @@ from .route import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
     import httpx
 
@@ -94,6 +98,11 @@ BROKER_SERVICE = "fora.v1.BrokerService"
 CATALOG_SERVICE = "fora.v1.CatalogService"
 
 
+#: A request a verb accepts: the generated wire model, the equivalent dict, or a
+#: :class:`RawBody` sent exactly as given.
+RequestMessage = dict[str, Any] | BaseModel | RawBody
+
+
 @dataclass
 class ClientConfig:
     """Everything a client is built from. Every field is injected; the client owns none."""
@@ -101,9 +110,11 @@ class ClientConfig:
     base_url: str
     #: The RFC 9421 request signer. Custody stays with the application.
     signer: SigningTransport | None = None
-    #: The agent's own identity, forwarded on discovery and required on a purchase: both
-    #: reference services resolve the calling agent from it and refuse a request that
-    #: names none.
+    #: The agent's own identity. A query and a purchase must name a requester, and a
+    #: request without one is refused, so the client stamps it on every query that names
+    #: none and on every purchase, where the detached acceptance also binds it. Under
+    #: strict validation (the default) a query left with no requester is refused before
+    #: it is sent.
     requester: dict[str, Any] | None = None
     #: The fail-closed offer Verifier. Defaults to STRICT with nothing resolvable, so an
     #: unconfigured client rejects every offer rather than surfacing it unchecked.
@@ -133,6 +144,23 @@ class ClientConfig:
     sign_window: Window | None = None
     #: Mints the X-Request-ID correlation value. ``None`` sends no header.
     request_id: Callable[[], str] | None = None
+    #: Called with every request just before it is signed, as an ``httpx.Request``; the
+    #: request it returns is what gets signed and sent, and the reply is decoded as usual.
+    #: For a test that must send a deliberately altered message through the SDK's own
+    #: signer and decoder. The method and URL cannot change, and a header the signer
+    #: emits cannot be set: either refuses the call as malformed.
+    before_sign: BeforeSign | None = None
+    #: Refuse an answer the contract does not describe: an unknown field at any depth, a
+    #: field-level rule broken, or a cross-field rule broken. The shape is the published
+    #: strict JSON Schema of the response message and the SDK's cross-field rules, so it
+    #: is defined once, by the proto. An error answer is checked too: the Connect
+    #: envelope may carry only ``code``, ``message`` and ``details``, must name a known
+    #: Connect code and carry well-formed details, and every ErrorDetail in it, its binary
+    #: ``value`` and its ``debug`` projection alike, must pass the strict ErrorDetail
+    #: schema and the cross-field rules. A refusal is MALFORMED with ``code`` and
+    #: ``status`` kept and no detail. Off by default, because the models accept fields a
+    #: newer minor version may add.
+    strict: bool = False
     #: The freshness window stamped on a delivery-fetch proof.
     proof_window: Window | None = None
     max_rpc_read_bytes: int = DEFAULT_MAX_RPC_READ_BYTES
@@ -146,26 +174,38 @@ class ClientConfig:
         return _NULL_VERIFIER
 
 
-def _with_requirements_reader(
-    config: ClientConfig,
-) -> tuple[ClientConfig, httpx.Client | None]:
-    """Fill in the default requirements reader ONCE, and report the transport that
-    came with it.
+@dataclass(frozen=True)
+class _Owned:
+    """The transports a client built for the defaults it filled in, and so must close."""
+
+    requirements: httpx.Client | None = None
+
+    def close(self) -> None:
+        if self.requirements is not None:
+            self.requirements.close()
+
+
+def _with_defaults(config: ClientConfig) -> tuple[ClientConfig, _Owned]:
+    """Fill in the default requirements reader ONCE, and report the transport that came
+    with it.
 
     Both client facades call this from their constructor, which is the tier Go resolves
-    the same default at. Per CALL it would build an SSRF-guarded httpx client for every
-    registration and close none of them; per CLIENT it is one pooled transport with an
+    the same defaults at. Per CALL it would build an SSRF-guarded httpx client for every
+    registration and close none of them; per CLIENT it is one pooled transport, with an
     owner that can close it.
 
     The caller's config is never mutated — a caller may hold it, reuse it across
-    clients, or read it back — so the filled-in reader rides on a copy. The second
-    return is the transport this client OWNS: ``None`` when the caller injected a
-    reader, because then the transport inside it is theirs.
+    clients, or read it back — so the filled-in default rides on a copy. The second
+    return is the transport this client OWNS: none for a seam the caller injected,
+    because then the transport inside it is theirs.
     """
-    if config.registration_requirements is not None:
-        return config, None
-    http = guarded_client()
-    return replace(config, registration_requirements=WellKnownRequirementsReader(http=http)), http
+    requirements: httpx.Client | None = None
+    if config.registration_requirements is None:
+        requirements = guarded_client()
+        config = replace(
+            config, registration_requirements=WellKnownRequirementsReader(http=requirements)
+        )
+    return config, _Owned(requirements=requirements)
 
 
 class _NullOfferKeyResolver:
@@ -176,9 +216,7 @@ class _NullOfferKeyResolver:
         return None
 
 
-_NULL_VERIFIER = Verifier(
-    mode=Mode.STRICT, resolver=_NullOfferKeyResolver(), now=lambda: 0
-)
+_NULL_VERIFIER = Verifier(mode=Mode.STRICT, resolver=_NullOfferKeyResolver(), now=lambda: 0)
 
 
 @dataclass(frozen=True)
@@ -195,9 +233,12 @@ class Plan:
     #: and so goes over the address-guarded transport. Mirrors the Go client, which keeps
     #: a second guarded client for exactly these two verbs.
     guarded: bool = False
-    #: The message as sent, kept so the finish step can read the query back (the flat
-    #: fallback's attribution needs the URIs the caller asked about).
+    #: The caller's message, before any ``before_sign`` hook altered it. Kept so the
+    #: finish step can read the query back: the flat fallback's attribution needs the
+    #: URIs the caller asked about.
     sent: dict[str, Any] = field(default_factory=dict)
+    #: Whether the answer is decoded strictly (``ClientConfig.strict``).
+    strict: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -205,7 +246,7 @@ class Plan:
 # ---------------------------------------------------------------------------
 
 
-def plan_discover(cfg: ClientConfig, query: dict[str, Any]) -> Plan:
+def plan_discover(cfg: ClientConfig, query: RequestMessage) -> Plan:
     """Assemble DiscoverResources.
 
     The query is CLONED before ``ver`` and the requester are filled in, so the message the
@@ -220,13 +261,16 @@ def plan_discover(cfg: ClientConfig, query: dict[str, Any]) -> Plan:
     target instead of checking it.
     """
     op = "discover"
+    route = _Route(op, cfg.base_url, EXCHANGE_SERVICE, "DiscoverResources")
+    if isinstance(query, RawBody):
+        return _plan(cfg, route, query)
     sent = _stamp_discovery(op, query, cfg.requester)
     validate_request(op, sent, ResourceQuery, cfg.validation)
-    return _plan(cfg, _Route(op, cfg.base_url, EXCHANGE_SERVICE, "DiscoverResources"), sent)
+    return _plan(cfg, route, sent)
 
 
 def finish_discover(cfg: ClientConfig, plan: Plan, status: int, body: str) -> DiscoveryResult:
-    msg, raw = decode_with_raw(plan.op, status, body, ResourceResponse)
+    msg, raw = decode_with_raw(plan.op, status, body, ResourceResponse, strict=plan.strict)
     return DiscoveryResult(
         # The offers are read from the RAW answer, not the parsed one. A model parse is
         # the GATE — it proves the answer well formed and its field names canonical — but
@@ -317,13 +361,15 @@ def _canonicalize_group(group: Any) -> Any:
 # ---------------------------------------------------------------------------
 
 
-def plan_resolve(cfg: ClientConfig, request: dict[str, Any]) -> Plan:
+def plan_resolve(cfg: ClientConfig, request: RequestMessage) -> Plan:
     """Assemble the Broker's Resolve.
 
     It carries no idempotency key. Pure discovery buys nothing and changes nothing, so
     there is nothing for a server to deduplicate — the request message has no such field.
     """
     op = "resolve"
+    if isinstance(request, RawBody):
+        return _plan(cfg, _Route(op, cfg.base_url, BROKER_SERVICE, "Resolve"), request)
     sent = _stamp_discovery(op, request, cfg.requester)
     # Refused locally rather than sent: a Broker resolves the calling agent from the
     # requester and declines a request that names none, so this is a verdict the client
@@ -346,7 +392,7 @@ def finish_resolve(cfg: ClientConfig, plan: Plan, status: int, body: str) -> Dis
     A resolve that finds nothing is a SUCCESSFUL answer carrying a typed reason, not a
     failure.
     """
-    msg, raw = decode_with_raw(plan.op, status, body, DiscoveryResponse)
+    msg, raw = decode_with_raw(plan.op, status, body, DiscoveryResponse, strict=plan.strict)
     groups = raw.get("offer_groups")
     return DiscoveryResult(
         groups=cfg.resolved_verifier().sort_groups(
@@ -365,21 +411,104 @@ def finish_resolve(cfg: ClientConfig, plan: Plan, status: int, body: str) -> Dis
 
 
 def plan_execute(
-    cfg: ClientConfig, offer: VerifiedOffer, idempotency_key: str | None
+    cfg: ClientConfig,
+    offer: VerifiedOffer | Sequence[VerifiedOffer] | RawBody,
+    idempotency_key: str | None,
 ) -> Plan:
-    """Assemble ExecuteTransaction for a VERIFIED offer.
+    """Assemble ExecuteTransaction for one VERIFIED offer, or several issued by ONE Exchange.
 
-    It accepts ONLY a VerifiedOffer — the construction token is module-private to the
-    core, so a rejected offer or a raw parsed one cannot be passed. A per-call idempotency
-    key is minted fresh unless one is pinned. It builds the whole TransactionRequest, so
-    it also stamps ``ver`` from ProtocolVersion — the caller neither supplies nor
-    overrides it.
+    It accepts ONLY VerifiedOffers — the construction token is module-private to the core,
+    so a rejected offer or a raw parsed one cannot be passed. A per-call idempotency key is
+    minted fresh unless one is pinned. It builds the whole TransactionRequest, so it also
+    stamps ``ver`` from ProtocolVersion — the caller neither supplies nor overrides it.
+
+    Several offers must all name the same Exchange: a direct purchase goes to one Exchange,
+    and an Exchange refuses a request carrying an item addressed to anyone else, so a mixed
+    set is refused here. Buying across Exchanges in one call is ``BrokerClient.execute``.
     """
     op = "execute"
+    if isinstance(offer, RawBody):
+        return _plan(cfg, _Route(op, cfg.base_url, EXCHANGE_SERVICE, "ExecuteTransaction"), offer)
+    offers = [offer] if isinstance(offer, VerifiedOffer) else list(offer)
+    _require_one_exchange(op, offers)
+    sent = _build_transaction(cfg, op, offers, idempotency_key)
+    validate_request(op, sent, TransactionRequest, cfg.validation)
+    return _plan(cfg, _Route(op, cfg.base_url, EXCHANGE_SERVICE, "ExecuteTransaction"), sent)
+
+
+def plan_broker_execute(
+    cfg: ClientConfig, offers: Sequence[VerifiedOffer] | RawBody, idempotency_key: str | None
+) -> Plan:
+    """Assemble the Broker's ExecuteTransaction: one purchase across any number of Exchanges.
+
+    The request is the one a direct purchase sends — every item with the agent's detached
+    acceptance, one request acceptance over the complete ordered set — and the Broker
+    re-packages it into one sub-request per Exchange, signed with its own key, carrying the
+    agent's acceptances unchanged.
+
+    Refused here, with nothing sent: no requester, or one with an empty ``id`` or
+    ``domain``, no signer, no offers, an unsigned offer, an offer that names no exchange,
+    and a ``requester.domain`` that is not the host of the directory the signer signs as.
+    The last mirrors the Broker's own check, which it refuses with ``request_auth_failure``
+    SIGNATURE_INVALID.
+    """
+    op = "broker execute"
+    if isinstance(offers, RawBody):
+        return _plan(cfg, _Route(op, cfg.base_url, BROKER_SERVICE, "ExecuteTransaction"), offers)
     if cfg.requester is None:
-        raise malformed(
-            op, "no requester configured; an Exchange resolves who is buying from it"
-        )
+        raise malformed(op, "no requester configured; a Broker resolves who is buying")
+    _require_named_requester(op, cfg.requester)
+    offers = list(offers)
+    for i, item in enumerate(offers):
+        if _str_field(_offer_wire(item), "exchange") == "":
+            raise malformed(
+                op,
+                f"item {i} names no exchange; a Broker routes each item to the Exchange its "
+                "offer names",
+            )
+    if cfg.signer is not None:
+        _require_requester_is_signer(op, cfg.requester, cfg.signer.signature_agent)
+    sent = _build_transaction(cfg, op, offers, idempotency_key)
+    validate_request(op, sent, TransactionRequest, cfg.validation)
+    return _plan(cfg, _Route(op, cfg.base_url, BROKER_SERVICE, "ExecuteTransaction"), sent)
+
+
+def finish_broker_execute(plan: Plan, status: int, body: str) -> BrokerTransactionResponse:
+    """Read the Broker's combined answer.
+
+    An Exchange that refused the Broker's whole sub-request is NOT a failure here: the call
+    succeeds, and each affected item carries the refusal in ``refusal`` while the other
+    Exchanges' items come back unchanged. A refusal whose code is ``unavailable`` or
+    ``deadline_exceeded`` leaves the item's outcome unknown — the Exchange may have bought
+    it before the answer was lost — and ``totals`` does not count it; retry the same
+    request with the same idempotency key through the same Broker to settle it. Only the
+    Broker's own refusals raise.
+    """
+    return decode(  # type: ignore[no-any-return]
+        plan.op, status, body, BrokerTransactionResponse, strict=plan.strict
+    )
+
+
+def _offer_wire(offer: VerifiedOffer) -> dict[str, Any]:
+    return offer.offer if isinstance(offer.offer, dict) else {}
+
+
+def _build_transaction(
+    cfg: ClientConfig, op: str, offers: list[VerifiedOffer], idempotency_key: str | None
+) -> dict[str, Any]:
+    """Build and sign the TransactionRequest every purchase verb sends.
+
+    Each item reflects its signed Offer back exactly as received at discovery and carries the
+    agent's detached acceptance of that one offer. The request acceptance over the complete
+    ordered set is attached when every offer names its Exchange; an item without one cannot
+    appear in that payload, which requires a recipient per item. Every acceptance covers the
+    offer, the requester and the idempotency key, so a retry that pins the same key
+    reproduces byte-identical acceptance bytes. That is the deliberate-replay semantic, not
+    an accident.
+    """
+    if cfg.requester is None:
+        raise malformed(op, "no requester configured; the party that sells resolves who is buying")
+    _require_named_requester(op, cfg.requester)
     if cfg.signer is None:
         # NOT_SIGNABLE, matching what fetch answers for the same missing holder: a caller
         # branching on the kind sees one condition under one class, whichever verb met it
@@ -392,30 +521,44 @@ def plan_execute(
                 "with the agent's own key — the same key the request is signed with"
             ),
         )
-    wire = offer.offer if isinstance(offer.offer, dict) else {}
-    offer_sig = wire.get("signature")
-    # An acceptance floating free of a concrete offer is meaningless, and an unsigned
-    # offer is reachable here: Mode.OFF and RejectedOffer.unsafe() both mint a
-    # VerifiedOffer without a signature check.
-    if not isinstance(offer_sig, str) or offer_sig == "":
-        raise malformed(op, "cannot accept an unsigned offer")
+    if not offers:
+        raise malformed(op, "no offers to buy")
+    wires = [_offer_wire(o) for o in offers]
+    offer_sigs: list[str] = []
+    for wire in wires:
+        offer_sig = wire.get("signature")
+        # An acceptance floating free of a concrete offer is meaningless, and an unsigned
+        # offer is reachable here: Mode.OFF and RejectedOffer.unsafe() both mint a
+        # VerifiedOffer without a signature check.
+        if not isinstance(offer_sig, str) or offer_sig == "":
+            raise malformed(op, "cannot accept an unsigned offer")
+        offer_sigs.append(offer_sig)
     key = idempotency_key or generate_idempotency_key()
-    # The acceptance covers the offer, the requester and the idempotency key, so a retry
-    # that pins the same key reproduces byte-identical acceptance bytes. That is the
-    # deliberate-replay semantic, not an accident.
     requester_id = _str_field(cfg.requester, "id")
     requester_domain = _str_field(cfg.requester, "domain")
-    exchange = _str_field(wire, "exchange")
-    request_items = [(offer_sig, exchange)]
+    request_items = [
+        (sig, _str_field(w, "exchange")) for sig, w in zip(offer_sigs, wires, strict=True)
+    ]
+    items: list[dict[str, Any]] = []
     request_acceptance: dict[str, Any] | None = None
     try:
-        signature, _algorithm = cfg.signer.sign_offer_acceptance(
-            offer_sig=offer_sig,
-            requester_id=requester_id,
-            requester_domain=requester_domain,
-            idempotency_key=key,
-        )
-        if exchange != "":
+        for wire, offer_sig in zip(wires, offer_sigs, strict=True):
+            signature, _algorithm = cfg.signer.sign_offer_acceptance(
+                offer_sig=offer_sig,
+                requester_id=requester_id,
+                requester_domain=requester_domain,
+                idempotency_key=key,
+            )
+            items.append(
+                {
+                    "offer": wire,
+                    "agent_acceptance": {
+                        "signature": signature,
+                        "signature_algorithm": ACCEPTANCE_SIGNATURE_ALGORITHM,
+                    },
+                }
+            )
+        if all(exchange != "" for _sig, exchange in request_items):
             request_signature, _request_algorithm = cfg.signer.sign_request_acceptance(
                 items=request_items,
                 requester_id=requester_id,
@@ -424,7 +567,9 @@ def plan_execute(
             )
             request_acceptance = {
                 "payload": {
-                    "items": [{"offer_sig": offer_sig, "exchange": exchange}],
+                    "items": [
+                        {"offer_sig": sig, "exchange": exchange} for sig, exchange in request_items
+                    ],
                     "requester_id": requester_id,
                     "requester_domain": requester_domain,
                     "idempotency_key": key,
@@ -434,32 +579,88 @@ def plan_execute(
             }
     except Exception as exc:  # custody can fail any way it likes
         raise CallError(CallErrorKind.NOT_SIGNABLE, op, cause=exc) from exc
-    # Items-only wire shape: a single offer is the degenerate 1-element items list, each
-    # item reflecting its signed Offer back exactly as received at discovery. The
+    # Items-only wire shape: a single offer is the degenerate 1-element items list. The
     # authoritative identity is the reflected offer; the optional top-level offer_id
     # correlation scalar is left unset.
     sent: dict[str, Any] = {
         "ver": ProtocolVersion,
         "idempotency_key": key,
         "requester": cfg.requester,
-        "items": [
-            {
-                "offer": wire,
-                "agent_acceptance": {
-                    "signature": signature,
-                    "signature_algorithm": ACCEPTANCE_SIGNATURE_ALGORITHM,
-                },
-            }
-        ],
+        "items": items,
     }
     if request_acceptance is not None:
         sent["agent_request_acceptance"] = request_acceptance
-    validate_request(op, sent, TransactionRequest, cfg.validation)
-    return _plan(cfg, _Route(op, cfg.base_url, EXCHANGE_SERVICE, "ExecuteTransaction"), sent)
+    return sent
+
+
+def _require_named_requester(op: str, requester: dict[str, Any]) -> None:
+    """Refuse a requester with an empty ``id`` or ``domain`` as MALFORMED.
+
+    Every acceptance a purchase carries names the requester, and the protocol requires both
+    fields, so the signer would refuse anyway; refusing here reports the configuration
+    fault as MALFORMED rather than as a custody failure (NOT_SIGNABLE).
+    """
+    for key in ("id", "domain"):
+        if _str_field(requester, key) == "":
+            raise malformed(
+                op,
+                f"requester.{key} is empty; a purchase's acceptances name the requester, and "
+                "both requester.id and requester.domain are required",
+            )
+
+
+def _require_one_exchange(op: str, offers: list[VerifiedOffer]) -> None:
+    """Refuse a direct purchase whose offers were issued by more than one Exchange."""
+    if not offers:
+        return
+    first = _str_field(_offer_wire(offers[0]), "exchange")
+    for i, item in enumerate(offers[1:], start=1):
+        other = _str_field(_offer_wire(item), "exchange")
+        if other != first:
+            raise malformed(
+                op,
+                f"item {i} is issued by {other!r} and item 0 by {first!r}; a direct purchase "
+                "goes to one Exchange (buy across Exchanges with BrokerClient.execute)",
+            )
+
+
+def _require_requester_is_signer(op: str, requester: dict[str, Any], signature_agent: str) -> None:
+    """Refuse a request whose ``requester.domain`` is not the host of the WBA directory the
+    signer signs as.
+
+    A Broker verifies the request signature against the key it resolves from the covered
+    Signature-Agent directory and requires ``requester.domain`` to name that directory:
+    every Exchange it relays to resolves the agent's acceptance keys from requester.domain.
+    The comparison is the recipient-identity rule — exact, case-folded, an explicit :443
+    the same as no port. An empty Signature-Agent names no directory, so it fails too.
+    """
+    if signature_agent == "":
+        raise malformed(
+            op,
+            "no Signature-Agent configured; a Broker checks that requester.domain names the "
+            "directory the request is signed from (set signature_agent on the signer)",
+        )
+    try:
+        host = host_of(signature_agent)
+        verdict = check_audience(host, _str_field(requester, "domain"))
+    except ValueError as exc:
+        raise malformed(
+            op, f"signature agent {redact_userinfo(signature_agent)!r} names no usable host"
+        ) from exc
+    if verdict != "accepted":
+        raise malformed(
+            op,
+            f"requester.domain {_str_field(requester, 'domain')!r} is not {host!r}, the host "
+            "of the directory this client signs as; a Broker refuses the request "
+            "(request_auth_failure SIGNATURE_INVALID)",
+        )
 
 
 def finish_execute(plan: Plan, status: int, body: str) -> TransactionResponse:
-    return decode(plan.op, status, body, TransactionResponse)  # type: ignore[no-any-return]
+    """Read the Exchange's answer."""
+    return decode(  # type: ignore[no-any-return]
+        plan.op, status, body, TransactionResponse, strict=plan.strict
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -468,7 +669,7 @@ def finish_execute(plan: Plan, status: int, body: str) -> TransactionResponse:
 
 
 def plan_report_usage(
-    cfg: ClientConfig, report: dict[str, Any], idempotency_key: str | None
+    cfg: ClientConfig, report: RequestMessage, idempotency_key: str | None
 ) -> Plan:
     """Assemble a usage report for the Exchange that ISSUED the offer — never through a
     Broker, and never to an address from configuration.
@@ -493,12 +694,10 @@ def plan_report_usage(
 
 
 def finish_report_usage(plan: Plan, status: int, body: str) -> UsageReportResponse:
-    return decode(plan.op, status, body, UsageReportResponse)  # type: ignore[no-any-return]
+    return decode(plan.op, status, body, UsageReportResponse, strict=plan.strict)  # type: ignore[no-any-return]
 
 
-def plan_dispute(
-    cfg: ClientConfig, request: dict[str, Any], idempotency_key: str | None
-) -> Plan:
+def plan_dispute(cfg: ClientConfig, request: RequestMessage, idempotency_key: str | None) -> Plan:
     """Assemble a dispute for the issuing Exchange, over the same vetted routing a usage
     report takes.
 
@@ -515,7 +714,7 @@ def plan_dispute(
 
 
 def finish_dispute(plan: Plan, status: int, body: str) -> DisputeResponse:
-    return decode(plan.op, status, body, DisputeResponse)  # type: ignore[no-any-return]
+    return decode(plan.op, status, body, DisputeResponse, strict=plan.strict)  # type: ignore[no-any-return]
 
 
 @dataclass(frozen=True)
@@ -530,11 +729,13 @@ class _OfferDerived:
 def _plan_offer_derived(
     cfg: ClientConfig,
     verb: _OfferDerived,
-    message: dict[str, Any],
+    message: RequestMessage,
     idempotency_key: str | None,
 ) -> Plan:
     # Discovery and execute keep the plain transport, because their address is the
     # operator's own configuration. The same split the Go client makes.
+    if isinstance(message, RawBody):
+        return _plan_raw_routed(cfg, verb.op, verb.method, message)
     sent = _stamp_envelope(verb.op, message, idempotency_key)
     return _plan_routed_keyless(cfg, _Routed(verb.op, verb.model, verb.method), sent)
 
@@ -558,7 +759,7 @@ def _plan_offer_derived(
 _CLIENT_ERROR_DOMAIN = "fora.v1.Client"
 
 
-def plan_register(cfg: ClientConfig, request: dict[str, Any]) -> Plan:
+def plan_register(cfg: ClientConfig, request: RequestMessage) -> Plan:
     """Assemble a registration for the Exchange the request names.
 
     The caller's identity is the request SIGNATURE. Nothing in the message says who is
@@ -578,6 +779,8 @@ def plan_register(cfg: ClientConfig, request: dict[str, Any]) -> Plan:
     Exchange decides.
     """
     op = "register"
+    if isinstance(request, RawBody):
+        return _plan_raw_routed(cfg, op, "Register", request)
     sent = _stamp_ver(op, request)
     _require_recipient(op, _str_field(sent, "exchange"))
     data = sent.get("registration_data")
@@ -590,10 +793,10 @@ def plan_register(cfg: ClientConfig, request: dict[str, Any]) -> Plan:
 
 
 def finish_register(plan: Plan, status: int, body: str) -> RegisterResponse:
-    return decode(plan.op, status, body, RegisterResponse)  # type: ignore[no-any-return]
+    return decode(plan.op, status, body, RegisterResponse, strict=plan.strict)  # type: ignore[no-any-return]
 
 
-def plan_get_account_status(cfg: ClientConfig, request: dict[str, Any]) -> Plan:
+def plan_get_account_status(cfg: ClientConfig, request: RequestMessage) -> Plan:
     """Assemble a status read for the Exchange the request names.
 
     The request carries no field identifying the caller — the Exchange resolves the
@@ -606,15 +809,15 @@ def plan_get_account_status(cfg: ClientConfig, request: dict[str, Any]) -> Plan:
     (key id, signature) accepts both.
     """
     op = "get account status"
+    if isinstance(request, RawBody):
+        return _plan_raw_routed(cfg, op, "GetAccountStatus", request)
     sent = _stamp_ver(op, request)
     _require_recipient(op, _str_field(sent, "exchange"))
-    return _plan_routed_keyless(
-        cfg, _Routed(op, GetAccountStatusRequest, "GetAccountStatus"), sent
-    )
+    return _plan_routed_keyless(cfg, _Routed(op, GetAccountStatusRequest, "GetAccountStatus"), sent)
 
 
 def finish_get_account_status(plan: Plan, status: int, body: str) -> GetAccountStatusResponse:
-    return decode(plan.op, status, body, GetAccountStatusResponse)  # type: ignore[no-any-return]
+    return decode(plan.op, status, body, GetAccountStatusResponse, strict=plan.strict)  # type: ignore[no-any-return]
 
 
 def _apply_registration_requirements(cfg: ClientConfig, op: str, sent: dict[str, Any]) -> None:
@@ -733,34 +936,34 @@ _REMOVE_RESOURCES = _CatalogVerb("remove resources", RemoveResourcesRequest, "Re
 _REFRESH_CATALOG = _CatalogVerb("refresh catalog", RefreshCatalogRequest, "RefreshCatalog")
 
 
-def plan_push_resources(cfg: ClientConfig, request: dict[str, Any]) -> Plan:
+def plan_push_resources(cfg: ClientConfig, request: RequestMessage) -> Plan:
     """Assemble PushResources. See :func:`_plan_catalog` for the envelope rule."""
     return _plan_catalog(cfg, _PUSH_RESOURCES, request)
 
 
 def finish_push_resources(plan: Plan, status: int, body: str) -> PushResourcesResponse:
-    return decode(plan.op, status, body, PushResourcesResponse)
+    return decode(plan.op, status, body, PushResourcesResponse, strict=plan.strict)
 
 
-def plan_remove_resources(cfg: ClientConfig, request: dict[str, Any]) -> Plan:
+def plan_remove_resources(cfg: ClientConfig, request: RequestMessage) -> Plan:
     """Assemble RemoveResources. See :func:`_plan_catalog` for the envelope rule."""
     return _plan_catalog(cfg, _REMOVE_RESOURCES, request)
 
 
 def finish_remove_resources(plan: Plan, status: int, body: str) -> RemoveResourcesResponse:
-    return decode(plan.op, status, body, RemoveResourcesResponse)
+    return decode(plan.op, status, body, RemoveResourcesResponse, strict=plan.strict)
 
 
-def plan_refresh_catalog(cfg: ClientConfig, request: dict[str, Any]) -> Plan:
+def plan_refresh_catalog(cfg: ClientConfig, request: RequestMessage) -> Plan:
     """Assemble RefreshCatalog. See :func:`_plan_catalog` for the envelope rule."""
     return _plan_catalog(cfg, _REFRESH_CATALOG, request)
 
 
 def finish_refresh_catalog(plan: Plan, status: int, body: str) -> RefreshCatalogResponse:
-    return decode(plan.op, status, body, RefreshCatalogResponse)
+    return decode(plan.op, status, body, RefreshCatalogResponse, strict=plan.strict)
 
 
-def _plan_catalog(cfg: ClientConfig, verb: _CatalogVerb, message: dict[str, Any]) -> Plan:
+def _plan_catalog(cfg: ClientConfig, verb: _CatalogVerb, message: RequestMessage) -> Plan:
     """The one shape all three catalog verbs share.
 
     The request is CLONED before ``ver`` is stamped (fill-when-empty; the caller's value
@@ -775,13 +978,16 @@ def _plan_catalog(cfg: ClientConfig, verb: _CatalogVerb, message: dict[str, Any]
     the plain transport — the posture of the home Exchange, not of the offer-derived leg.
     """
     op = verb.op
+    route = _Route(op, cfg.base_url, CATALOG_SERVICE, verb.method)
+    if isinstance(message, RawBody):
+        return _plan(cfg, route, message)
     sent = _stamp_ver(op, message)
     _require_recipient(op, _str_field(sent, "exchange"))
     validate_request(op, sent, verb.model, cfg.validation)
-    return _plan(cfg, _Route(op, cfg.base_url, CATALOG_SERVICE, verb.method), sent)
+    return _plan(cfg, route, sent)
 
 
-def _stamp_ver(op: str, message: dict[str, Any]) -> dict[str, Any]:
+def _stamp_ver(op: str, message: dict[str, Any] | BaseModel) -> dict[str, Any]:
     sent = _clone(op, message)
     if _str_field(sent, "ver") == "":
         sent["ver"] = ProtocolVersion
@@ -822,7 +1028,7 @@ def _require_recipient(op: str, exchange: str) -> None:
 
 
 def _stamp_discovery(
-    op: str, message: dict[str, Any], requester: dict[str, Any] | None
+    op: str, message: dict[str, Any] | BaseModel, requester: dict[str, Any] | None
 ) -> dict[str, Any]:
     """Fill the envelope a DISCOVERY call carries, which is the mutating envelope minus
     the idempotency key: pure discovery buys nothing and changes nothing, so there is no
@@ -830,8 +1036,8 @@ def _stamp_discovery(
 
     Both fills are only-when-empty. The caller's own value always wins — the message
     crossed a module boundary as an argument, not as a buffer to fill in — and the
-    requester is filled because both reference services resolve the calling agent from it
-    and refuse a request that names none, while the client already holds that identity.
+    requester is filled because a query must name one, while the client already holds
+    that identity.
     """
     sent = _clone(op, message)
     if not sent.get("ver"):
@@ -842,7 +1048,7 @@ def _stamp_discovery(
 
 
 def _stamp_envelope(
-    op: str, message: dict[str, Any], idempotency_key: str | None
+    op: str, message: dict[str, Any] | BaseModel, idempotency_key: str | None
 ) -> dict[str, Any]:
     """Fill the two envelope fields the protocol requires on a state-mutating call,
     WITHOUT overwriting what the caller already set.
@@ -886,10 +1092,16 @@ def _rate_limit(parsed: Any, wire: Any) -> dict[str, Any] | None:
     return standing
 
 
-def _clone(op: str, message: dict[str, Any]) -> dict[str, Any]:
+def _clone(op: str, message: dict[str, Any] | BaseModel) -> dict[str, Any]:
     """Copy a caller's message so the SDK can stamp its envelope without touching what the
     caller still holds. A deep copy, because the envelope fields are top-level but a
-    caller re-using a nested object across calls must not see it change either."""
+    caller re-using a nested object across calls must not see it change either.
+
+    A generated model is rendered through :func:`to_wire` instead, which already returns
+    a fresh object. This is the one point every dict-taking verb passes through, so a
+    model and the equivalent dict are serialized the same way exactly once."""
+    if isinstance(message, BaseModel):
+        return to_wire(message)
     try:
         return copy.deepcopy(dict(message))
     except Exception as exc:  # a message that cannot be copied cannot be sent
@@ -907,18 +1119,15 @@ class _Route:
 
 
 def _plan(
-    cfg: ClientConfig, route: _Route, sent: dict[str, Any], *, guarded: bool = False
+    cfg: ClientConfig,
+    route: _Route,
+    sent: dict[str, Any] | RawBody,
+    *,
+    guarded: bool = False,
 ) -> Plan:
     op = route.op
     url = rpc_url(route.base_url, route.service, route.method)
-    body, headers = prepare(
-        op,
-        url,
-        sent,
-        signer=cfg.signer,
-        request_id=cfg.request_id,
-        sign_window=cfg.sign_window,
-    )
+    body, headers = prepare(op, url, sent, cfg)
     return Plan(
         op=op,
         url=url,
@@ -927,9 +1136,22 @@ def _plan(
         timeout=cfg.call_timeout_sec,
         max_bytes=cfg.max_rpc_read_bytes,
         guarded=guarded,
-        sent=sent,
+        sent=sent.parsed() if isinstance(sent, RawBody) else sent,
+        strict=cfg.strict,
     )
 
+
+def _plan_raw_routed(cfg: ClientConfig, op: str, method: str, raw: RawBody) -> Plan:
+    """A raw call to a manifest-routed verb: the destination is the body's ``exchange``.
+
+    The address a signed call goes to is vetted whatever the message says, so the
+    resolution and its address checks run as for any routed call; a body that names no
+    usable Exchange has nothing to dial and is refused as not sent.
+    """
+    endpoint = vet_exchange_endpoint(
+        cfg.endpoint_resolver, _str_field(raw.parsed(), "exchange"), op
+    )
+    return _plan(cfg, _Route(op, endpoint, EXCHANGE_SERVICE, method), raw, guarded=True)
 
 
 def _str_field(record: dict[str, Any] | None, key: str) -> str:

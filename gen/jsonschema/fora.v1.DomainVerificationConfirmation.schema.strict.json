@@ -1,0 +1,54 @@
+{
+  "$id": "fora.v1.DomainVerificationConfirmation.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "DomainVerificationConfirmation — Provider confirms the challenge is placed.",
+  "properties": {
+    "cdn_type": {
+      "description": "Which delivery-URL verification scheme this key is for: \"edge-ed25519\" (a\n code-capable edge that verifies the Ed25519 URL signature itself) or\n \"cloudfront\" (AWS CloudFront trusted key groups, RSA, verified natively by\n the CDN). One value per Exchange-side tenant signing scheme:\n \"edge-ed25519\" is ED25519, \"cloudfront\" is AWS_CLOUDFRONT_RSA.",
+      "type": "string"
+    },
+    "domain": {
+      "default": "",
+      "description": "The domain being verified.",
+      "type": "string"
+    },
+    "exchange": {
+      "description": "REQUIRED. Bare host of the recipient this request is addressed to (e.g.\n \"exchange.example\" or \"exchange.example:8081\"). See \"Request recipient\" in\n the file header. Distinct from `domain` above, which is the provider domain\n being verified — the subject of the request, not its recipient.",
+      "maxLength": 260,
+      "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$",
+      "type": "string"
+    },
+    "ext": {
+      "description": "Extension point",
+      "type": "object"
+    },
+    "ext_critical": {
+      "description": "Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "signing_key": {
+      "description": "Format follows cdn_type: a PEM-encoded RSA public key for \"cloudfront\", or\n the base64url-encoded raw Ed25519 public key (the JWK \"x\" value) for\n \"edge-ed25519\".",
+      "title": "Optional: the delivery endpoint's verification key, registered atomically\n with the domain on successful verification. PUBLIC key material only.\n The Exchange signs delivery URLs with a private key it holds and never\n publishes; a delivery endpoint verifies with the public half and holds\n nothing secret. Where the Exchange has to sign with a key the provider\n generated -- a CloudFront trusted key group is the provider's own AWS\n resource -- the private half is provisioned to the Exchange out of band\n and never travels in this field.",
+      "type": "string"
+    },
+    "token": {
+      "default": "",
+      "description": "The challenge token (echoed from DomainVerificationChallenge).",
+      "type": "string"
+    },
+    "ver": {
+      "default": "",
+      "description": "FORA protocol version — \"1.0\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "exchange"
+  ],
+  "title": "Domain Verification Confirmation",
+  "type": "object"
+}

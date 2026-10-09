@@ -118,6 +118,23 @@ from wire.models import Offer, Pricing
 from vocab import pricingunits
 ```
 
+### JSON Schema
+
+The same generator run also emits one self-contained JSON Schema (draft 2020-12) per
+message under [`gen/jsonschema/`](gen/jsonschema), named by the fully-qualified message
+name, in a default and a strict variant. The strict variant refuses unknown fields at
+every depth, so a conformance check can catch an unknown or misspelled field. All three
+packages ship them: the Go module as that directory (plus `jsonschema.Load` and
+`jsonschema.FS` in package `github.com/FORA-Protocol/protocol/gen/jsonschema`), the
+Python package through `wire.schemas.load(name, strict=...)`, and the npm package under
+`@fora-protocol/sdk/jsonschema/*`. The [schemas' README](gen/jsonschema/README.md)
+records how they treat field naming, `google.protobuf.Struct` and 64-bit integers.
+
+```python
+from wire import schemas
+schema = schemas.load("fora.v1.ResourceResponse", strict=True)
+```
+
 ## Protocol SDK
 
 Beyond the generated wire types, the repo ships a hand-written **protocol SDK** in all

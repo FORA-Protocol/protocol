@@ -1,0 +1,35 @@
+{
+  "$id": "fora.v1.DomainVerificationResult.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "DomainVerificationResult — Exchange confirms verification.",
+  "properties": {
+    "ext": {
+      "description": "Extension point",
+      "type": "object"
+    },
+    "ext_critical": {
+      "description": "Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "key_id": {
+      "description": "If signing_key was provided: confirmation of key registration.",
+      "type": "string"
+    },
+    "valid_until": {
+      "description": "Verification is valid until this time. Provider must re-verify periodically.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "ver": {
+      "default": "",
+      "description": "FORA protocol version — \"1.0\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
+      "type": "string"
+    }
+  },
+  "title": "Domain Verification Result",
+  "type": "object"
+}

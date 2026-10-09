@@ -39,6 +39,34 @@
     {
       "name": "WellKnownPath",
       "value": "/.well-known/fora.json"
+    },
+    {
+      "name": "ContentRulesHeader",
+      "value": "X-Content-Rules"
+    },
+    {
+      "name": "ExchangeHeader",
+      "value": "X-FORA-Exchange"
+    },
+    {
+      "name": "WBATag",
+      "value": "web-bot-auth"
+    },
+    {
+      "name": "DirectoryResponseTag",
+      "value": "http-message-signatures-directory"
+    },
+    {
+      "name": "AcceptSignatureHeader",
+      "value": "Accept-Signature"
+    },
+    {
+      "name": "AcceptSignature",
+      "value": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\""
+    },
+    {
+      "name": "AcceptSignatureWithEntitlement",
+      "value": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\" \"x-entitlement-token\");created;expires;tag=\"web-bot-auth\""
     }
   ]
 }

@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 148 symbols at cross-language parity · 16 documented divergences · 185 Go-idiomatic exclusions · 38 conformance corpora, each tri-replayed.
+**At a glance:** 190 symbols at cross-language parity · 17 documented divergences · 228 Go-idiomatic exclusions · 44 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -24,6 +24,8 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 
 | Go | python | ts |
 |---|---|---|
+| `AcceptSignature` | `accept_signature` | `acceptSignature` |
+| `AcceptSignatureHeader` | `AcceptSignatureHeader` | `AcceptSignatureHeader` |
 | `AcceptanceSignatureAlgorithm` | `ACCEPTANCE_SIGNATURE_ALGORITHM` | `ACCEPTANCE_SIGNATURE_ALGORITHM` |
 | `AgentKeyHeader` | `AGENT_KEY_HEADER` | `AGENT_KEY_HEADER` |
 | `AppendSignature` | `append_signature` | `appendSignature` |
@@ -37,25 +39,41 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `CanonicalizeMoney` | `canonicalize_money` | `canonicalizeMoney` |
 | `CatalogRejectionDetail` | `catalog_rejection_detail` | `catalogRejectionDetail` |
 | `CheckAudience` | `check_audience` | `checkAudience` |
+| `CheckHTTPSOrigin` | `check_https_origin` | `checkHttpsOrigin` |
+| `CheckMeteredEstimate` | `check_metered_estimate` | `checkMeteredEstimate` |
+| `CheckOfferTermsUnpriced` | `check_offer_terms_unpriced` | `checkOfferTermsUnpriced` |
 | `CheckRegistrationData` | `check_registration_data` | `checkRegistrationData` |
+| `CheckStrict` | `check_strict` | `checkStrict` |
 | `CheckWellKnownManifestVersion` | `manifest_version_refusal` | `manifestVersionRefusal` |
 | `CompileRegistrationSchema` | `compile_registration_schema` | `compileRegistrationSchema` |
 | `ConnectProtocolVersion` | `ConnectProtocolVersion` | `ConnectProtocolVersion` |
 | `ConnectProtocolVersionHeader` | `ConnectProtocolVersionHeader` | `ConnectProtocolVersionHeader` |
 | `ContentDigest` | `content_digest` | `contentDigest` |
+| `ContentRulesHeader` | `ContentRulesHeader` | `ContentRulesHeader` |
 | `ContentTypeJSON` | `ContentTypeJSON` | `ContentTypeJSON` |
 | `ContentTypeProto` | `ContentTypeProto` | `ContentTypeProto` |
+| `DefaultKeyValidity` | `DEFAULT_KEY_VALIDITY` | `DEFAULT_KEY_VALIDITY_MS` |
+| `DirectoryDocument` | `directory_document` | `directoryDocument` |
+| `DirectoryResponseSignature` | `DirectoryResponseSignature` | `DirectoryResponseSignature` |
+| `DirectoryResponseTag` | `DirectoryResponseTag` | `DirectoryResponseTag` |
+| `DiscoveryHint` | `DiscoveryHint` | `DiscoveryHint` |
 | `DisputeFailureDetail` | `dispute_failure_detail` | `disputeFailureDetail` |
 | `DomainVerificationFailureDetail` | `domain_verification_failure_detail` | `domainVerificationFailureDetail` |
 | `EntryVerdict` | `EntryVerdict` | `EntryVerdict` |
 | `ErrManifestVersionRefused` | `ManifestVersionRefusedError` | `ManifestVersionRefused` |
+| `ErrStrictViolation` | `StrictViolationError` | `StrictViolation` |
 | `ErrUnknownKey` | `UnknownKeyError` | `UnknownKey` |
+| `ExchangeHeader` | `ExchangeHeader` | `ExchangeHeader` |
 | `FormatMoney` | `format_money` | `formatMoney` |
+| `GenerateKey` | `generate_key` | `generateKey` |
 | `HashURL` | `hash_url` | `hashUrl` |
+| `HintAgreement` | `HintAgreement` | `HintAgreement` |
+| `HintState` | `HintState` | `HintState` |
 | `HostAnchored` | `host_anchored` | `hostAnchored` |
 | `HostOf` | `host_of` | `hostOf` |
 | `IsBareDomain` | `is_bare_domain` | `isBareDomain` |
 | `IsBareHost` | `is_bare_host` | `isBareHost` |
+| `IsMeteredOffer` | `is_metered_offer` | `isMeteredOffer` |
 | `IsSafeSchemaPattern` | `is_safe_schema_pattern` | `isSafeSchemaPattern` |
 | `KeyResolver` | `KeyResolver` | `RequestKeyResolver` |
 | `KnownRestrictionToken` | `known_restriction_token` | `knownRestrictionToken` |
@@ -70,18 +88,23 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `MaxRegistrationSchemaDepth` | `MAX_REGISTRATION_SCHEMA_DEPTH` | `maxRegistrationSchemaDepth` |
 | `MaxRegistrationSchemaEvaluations` | `MAX_REGISTRATION_SCHEMA_EVALUATIONS` | `maxRegistrationSchemaEvaluations` |
 | `MaxRegistrationSchemaRefHops` | `MAX_REGISTRATION_SCHEMA_REF_HOPS` | `maxRegistrationSchemaRefHops` |
+| `MaxSignatureLifetime` | `MAX_SIGNATURE_LIFETIME` | `MAX_SIGNATURE_LIFETIME` |
 | `NewIdempotencyKey` | `generate_idempotency_key` | `generateIdempotencyKey` |
 | `NormalizeLicenseTerm` | `normalize_license_term` | `normalizeLicenseTerm` |
 | `NormalizeResourceEntry` | `normalize_resource_entry` | `normalizeResourceEntry` |
 | `NormalizeScopes` | `normalize_scopes` | `normalizeScopes` |
 | `OfferSignatureAlgorithm` | `OFFER_SIGNATURE_ALGORITHM` | `OFFER_SIGNATURE_ALGORITHM` |
+| `ParseDiscoveryHint` | `parse_discovery_hint` | `parseDiscoveryHint` |
 | `ParseMoney` | `parse_money` | `parseMoney` |
+| `PoPAcceptSignature` | `POP_ACCEPT_SIGNATURE` | `POP_ACCEPT_SIGNATURE` |
 | `ProtocolVersion` | `ProtocolVersion` | `ProtocolVersion` |
 | `Reason` | `reason` | `reason` |
+| `ReconcileDiscoveryHint` | `reconcile_discovery_hint` | `reconcileDiscoveryHint` |
 | `RegistrationDataVerdict` | `RegistrationDataVerdict` | `RegistrationDataVerdict` |
 | `RegistrationFailureDetail` | `registration_failure_detail` | `registrationFailureDetail` |
 | `RegistrationSchema` | `RegistrationSchema` | `RegistrationSchema` |
 | `RegistrationSchemaDialect` | `REGISTRATION_SCHEMA_DIALECT` | `registrationSchemaDialect` |
+| `RequestAuthFailureDetail` | `request_auth_failure_detail` | `requestAuthFailureDetail` |
 | `RequestIDHeader` | `RequestIDHeader` | `RequestIDHeader` |
 | `RetrievalAuthFailureDetail` | `retrieval_auth_failure_detail` | `retrievalAuthFailureDetail` |
 | `RuleObligationOtherRequiresDetail` | `RULE_OBLIGATION_OTHER_REQUIRES_DETAIL` | `RULE_OBLIGATION_OTHER_REQUIRES_DETAIL` |
@@ -94,6 +117,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `SchemaVerdict` | `SchemaVerdict` | `SchemaVerdict` |
 | `ScopesSubset` | `scopes_subset` | `scopesSubset` |
 | `SignAgentBinding` | `sign_agent_binding` | `signInbound` |
+| `SignDirectoryResponse` | `sign_directory_response` | `signDirectoryResponse` |
 | `SignOffer` | `sign_offer_jcs` | `signOffer` |
 | `SignOfferAcceptance` | `sign_offer_acceptance_jcs` | `signOfferAcceptance` |
 | `SignRequest` | `sign_request` | `signRequest` |
@@ -108,11 +132,14 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `ValidateLicenseTerm` | `validate_license_term` | `validateLicenseTerm` |
 | `ValidateResourceEntry` | `validate_resource_entry` | `validateResourceEntry` |
 | `ValidationRuleIDs` | `cross_field_rule_ids` | `crossFieldRuleIds` |
+| `VerifyAgentBinding` | `verify_agent_binding` | `verifyAgentBinding` |
+| `VerifyDirectoryResponse` | `verify_directory_response` | `verifyDirectoryResponse` |
 | `VerifyMultisigRequest` | `verify_multisig_request_server` | `verifyMultisigRequestServer` |
 | `VerifyOfferAcceptance` | `verify_offer_acceptance_jcs` | `verifyOfferAcceptance` |
 | `VerifyRequest` | `verify_request` | `verifyRequestServer` |
 | `VerifyRequestAcceptance` | `verify_request_acceptance_jcs` | `verifyRequestAcceptance` |
 | `VerifyURLEd25519` | `verify_ed25519_signed_url` | `verifyEd25519SignedUrl` |
+| `WBATag` | `WBATag` | `WBATag` |
 | `WellKnownManifestVersion` | `WellKnownManifestVersion` | `WellKnownManifestVersion` |
 | `WellKnownPath` | `WellKnownPath` | `WellKnownPath` |
 
@@ -128,6 +155,8 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `Content` | `Content` | `Content` |
 | `DefaultContentTimeout` | `DEFAULT_CONTENT_TIMEOUT_SEC` | `DEFAULT_CONTENT_TIMEOUT_MS` |
 | `DefaultMaxContentBytes` | `DEFAULT_MAX_CONTENT_BYTES` | `DEFAULT_MAX_CONTENT_BYTES` |
+| `Document` | `Document` | `Document` |
+| `ErrDigestMismatch` | `DigestMismatchError` | `DigestMismatch` |
 | `ErrDirectoryUnavailable` | `DirectoryUnavailableError` | `DirectoryUnavailable` |
 | `ErrEndpointRefused` | `EndpointRefusedError` | `EndpointRefused` |
 | `ErrExchangeNotPermitted` | `ExchangeNotPermittedError` | `ExchangeNotPermitted` |
@@ -136,14 +165,22 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `ErrManifestNotExchange` | `ManifestNotExchangeError` | `ManifestNotExchange` |
 | `ErrManifestUnusable` | `ManifestUnusableError` | `ManifestUnusable` |
 | `ErrManifestVersionRefused` | `ManifestVersionRefusedError` | `ManifestVersionRefused` |
+| `ErrMediaTypeRefused` | `MediaTypeRefusedError` | `MediaTypeRefused` |
 | `ErrNoEndpoint` | `NoEndpointError` | `NoEndpoint` |
 | `ErrRevocationUnevaluated` | `RevocationUnevaluatedError` | `RevocationUnevaluated` |
 | `ErrUnknownKey` | `UnknownKeyError` | `UnknownKey` |
+| `LicenseDocument` | `LicenseDocument` | `LicenseDocument` |
+| `ManifestMediaType` | `MANIFEST_MEDIA_TYPE` | `MANIFEST_MEDIA_TYPE` |
 | `NewGuardedClientFromEnv` | `guarded_client` | `guardedFetchFromEnv` |
 | `NewWBADirectoryFetcher` | `create_wba_offer_directory_fetch` | `createWBAOfferDirectoryFetch` |
 | `OfferDirectoryFetcher` | `DirectoryFetch` | `OfferDirectoryFetch` |
+| `ReadLicenseDocument` | `read_license_document` | `readLicenseDocument` |
+| `ReadManifest` | `read_manifest` | `readManifest` |
+| `ReadRevocationList` | `read_revocation_list` | `readRevocationList` |
+| `ReadWBADirectory` | `read_wba_directory` | `readWBADirectory` |
 | `RegistrationRequirements` | `RegistrationRequirements` | `RegistrationRequirements` |
 | `SSRFGuard` | `ssrf_guard` | `ssrfGuard` |
+| `WBADirectoryMediaType` | `WBA_DIRECTORY_MEDIA_TYPE` | `WBA_DIRECTORY_MEDIA_TYPE` |
 | `WBADirectoryPath` | `WBA_DIRECTORY_PATH` | `WBA_DIRECTORY_PATH` |
 | `WBADirectoryURL` | `wba_directory_url` | `wbaDirectoryURL` |
 | `WBAKeyResolver` | `WBAKeyResolver` | `WBAKeyResolver` |
@@ -165,6 +202,8 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `ReplayStore` | `ReplayStore` | `ReplayStore` |
 | `RequestIDHeader` | `RequestIDHeader` | `RequestIDHeader` |
 | `Result` | `Result` | `Result` |
+| `SignerSource` | `SignerSource` | `SignerSource` |
+| `SigningTransportFor` | `signing_transport_for` | `signingTransportFor` |
 | `VerifiedOffer` | `VerifiedOffer` | `VerifiedOffer` |
 | `Verifier` | `Verifier` | `Verifier` |
 | `Window` | `Window` | `Window` |
@@ -173,6 +212,8 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 
 | Go | python | ts |
 |---|---|---|
+| `AdminClient` | `AdminClient` | `AdminClient` |
+| `BeforeSign` | `BeforeSign` | `BeforeSign` |
 | `BrokerClient` | `BrokerClient` | `BrokerClient` |
 | `CallError` | `CallError` | `ForaCallError` |
 | `CallErrorKind` | `CallErrorKind` | `CallErrorKind` |
@@ -184,6 +225,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `ErrorDetailFrom` | `error_detail_from` | `errorDetailFrom` |
 | `RegistrationRequirementsReader` | `RegistrationRequirementsReader` | `RegistrationRequirementsReader` |
 | `Validation` | `Validation` | `Validation` |
+| `WithRawBody` | `RawBody` | `RawBody` |
 
 ### connectserver — server-verify handler binding
 
@@ -210,6 +252,7 @@ Deliberate, reason-backed asymmetries. The allowlist is **shrink-only** — a ne
 
 | Go symbol | python | ts | rationale |
 |---|---|---|---|
+| `connect.NewAdminClient` | — | `createAdminClient` | Go NewX factory folds into the Python class constructor (AdminClient(...)); idiomatic Python exposes the class, not a separate factory symbol. TS keeps the create* object-factory prefix. |
 | `connect.NewBrokerClient` | — | `createBrokerClient` | Go NewX factory folds into the Python class constructor (BrokerClient(...)); idiomatic Python exposes the class, not a separate factory symbol. TS keeps the create* object-factory prefix. |
 | `connect.NewCatalogClient` | — | `createCatalogClient` | Go NewX factory folds into the Python class constructor (CatalogClient(...)); idiomatic Python exposes the class, not a separate factory symbol. TS keeps the create* object-factory prefix. |
 | `connect.NewClient` | — | `createClient` | Go NewX factory folds into the Python class constructor (Client(...)); idiomatic Python exposes the class, not a separate factory symbol. TS keeps the create* object-factory prefix. |
@@ -247,6 +290,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `connect.ValidationOff` | Member of the mapped connect.Validation enum. Python and TypeScript spell it as a literal ("off" / "strict") rather than a named export. The defaults differ deliberately and that divergence is recorded in docs/design-history.md, not here. |
 | `connect.ValidationStrict` | Member of the mapped connect.Validation enum. Python and TypeScript spell it as a literal ("off" / "strict") rather than a named export. The defaults differ deliberately and that divergence is recorded in docs/design-history.md, not here. |
 | `connect.WithAgentKey` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
+| `connect.WithBeforeSign` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithClientOptions` | Go escape hatch for raw connectrpc.ClientOption values, mirroring connectserver.WithHandlerOptions; py/ts have no Connect option type to pass through. |
 | `connect.WithContentTimeout` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithEndpointResolver` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
@@ -264,6 +308,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `connect.WithSignWindow` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithSignatureAgent` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithSigner` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
+| `connect.WithStrictDecoding` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithValidation` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithVerification` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connectserver.AsConnectError` | Go-only Connect error mapping; TS/Python emit reject-reason tokens only (matrix SERVER-role reject-mapping row). |
@@ -304,10 +349,13 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `core.SigningOption` | Go functional-option type for the signing transport; py/ts pass options objects. |
 | `core.Strict` | Member of the mapped core.Mode enum. Python spells it Mode.STRICT / Mode.OFF and TypeScript as the literal "strict" / "off". |
 | `core.WithAppendSigner` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
+| `core.WithCoverPrevious` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `core.WithSignPredicate` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `core.WithSignatureAgent` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
+| `core.WithSignerSource` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `core.WithWindow` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
-| `helpers.AgentBinding` | Go value struct holding the three proof header values; Python returns a tuple of them and TS returns a prepared request, so neither names a public type. |
+| `helpers.AcceptSignatureFor` | Go maps a verification error to its Accept-Signature value; py/ts carry the value on the verification verdict (accept_signature / acceptSignature), so no error-to-value function exists to mirror. |
+| `helpers.AgentBinding` | Go value struct holding the four proof header values; Python returns a dataclass of the same name from fora_sdk.pop, and TS returns a prepared request, so TS names no public type and the pair is not a one-to-one face. |
 | `helpers.AgentIDParam` | Signed-URL query-parameter name; language-idiomatic inline constant, no cross-language public face. |
 | `helpers.AlgEd25519` | RFC 9421 alg tag constant; inlined per language. |
 | `helpers.AllSignaturesFromContext` | Go context.Context accessor; py/ts thread multisig state explicitly. |
@@ -316,14 +364,17 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `helpers.AudienceMalformed` | Member of the mapped helpers.AudienceVerdict vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared audience corpus pins the token every language must answer. |
 | `helpers.AudienceMismatch` | Member of the mapped helpers.AudienceVerdict vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared audience corpus pins the token every language must answer. |
 | `helpers.AudienceNoVerdict` | Member of the mapped helpers.AudienceVerdict vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared audience corpus pins the token every language must answer. |
-| `helpers.BrokerKeyIDPrefix` | Relay keyID wire-prefix constant; inlined per language. |
+| `helpers.BrokerKeyIDPrefix` | Deprecated Go constant kept for the v1 module surface; keyids are RFC 7638 thumbprints and nothing reads a relay prefix, so py/ts have no counterpart. |
 | `helpers.CheckRegistrationDataStruct` | Go-only raw-Struct face of the mapped helpers.CheckRegistrationData, and deliberately absent from the ports: it exists because a payload with NO JSON REPRESENTATION loses the evidence for that when Go converts a Struct to a map. The class has two members and the conversion erases both — a non-finite number becomes the string "NaN", "Infinity" or "-Infinity", which a payload may also carry legitimately, and a Value with no member of its kind oneof set becomes nil, which is also what a real JSON null gives — so the check has to run before the conversion. Python and TypeScript are handed a decoded object rather than protobuf nodes: it keeps the real float, so their check_registration_data / checkRegistrationData already see the non-finite member, and the unset-kind member has no spelling in either language. A second entry point there would be an alias with nothing to do. The verdict vocabulary is what the three share, and the registration-schema corpus pins it; neither member has a vector in any language, because JSON cannot write either value down. |
+| `helpers.CheckStrictMessage` | Go check of an already-decoded proto.Message, which is how the Go client holds a binary answer and every ErrorDetail; py/ts hold only proto-JSON, so check_strict/checkStrict over the decoded JSON is the whole of their check and there is no message object to pass. |
 | `helpers.ComponentParam` | Go value type for an RFC 9421 covered-component parameter; py/ts model components inline. |
 | `helpers.CoveredComponent` | Go value type for an RFC 9421 covered component; py/ts model components inline. |
+| `helpers.ErrAcceptanceRequesterEmpty` | Go errors.Is sentinel for an acceptance that names an empty requester; py raises ValueError and ts throws from the canonical-bytes and signing faces, and the shared refused-acceptance vectors pin that every language refuses the same inputs. |
 | `helpers.ErrAcceptanceSignatureInvalid` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrAudienceIdentity` | Go errors.Is sentinel for an unusable configured Exchange identity; py/ts raise/throw instead of exporting sentinels. |
 | `helpers.ErrBrokenSignatureChain` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrDigestMismatch` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
+| `helpers.ErrDirectoryResponseUnsigned` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrEmptyIdempotencyKey` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrEmptyMoney` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrExpired` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
@@ -334,6 +385,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `helpers.ErrInvalidPoPInput` | Go errors.Is sentinel for a proof input that cannot be written into a signature base; py/ts raise/throw instead of exporting sentinels. |
 | `helpers.ErrKeyIDMismatch` | Go errors.Is sentinel for a keyid that is not the presented key's thumbprint; py/ts raise/throw instead of exporting sentinels. |
 | `helpers.ErrMalformedSignatureInput` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
+| `helpers.ErrMeteredEstimateNotPositive` | Go errors.Is sentinel for a metered offer that states an estimate of zero or less; py raises ValueError and ts throws from the same faces, and the shared offer-verify vectors pin that every language refuses the same inputs. |
 | `helpers.ErrMissingContentDigest` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrMissingCreated` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrMissingExpires` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
@@ -343,9 +395,16 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `helpers.ErrMissingTargetURI` | Go errors.Is sentinel for a proof requested without the URL it binds; py/ts raise/throw instead of exporting sentinels. |
 | `helpers.ErrOfferExpired` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrOfferSignatureInvalid` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
+| `helpers.ErrOfferTermPriced` | Go errors.Is sentinel for an offer whose term carries pricing; py raises ValueError and ts throws from the same faces, and the shared offer-verify vectors pin that every language rejects the same offers. |
 | `helpers.ErrProofOfPossessionMismatch` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrRequestAcceptanceSignatureInvalid` | Go errors.Is sentinel; py/ts return false for a request-acceptance mismatch rather than exporting a sentinel. |
+| `helpers.ErrSignatureAgentForm` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
+| `helpers.ErrSignatureAgentNotOrigin` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
+| `helpers.ErrSignatureAgentRequired` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
+| `helpers.ErrSignatureLabel` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
+| `helpers.ErrSignatureLifetime` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrSignatureLifetimeTooLong` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
+| `helpers.ErrSignatureTag` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrSignatureVerify` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrTooManyHops` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrURLExpired` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
@@ -356,11 +415,36 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `helpers.ErrUnknownFields` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrUnsupportedAlgorithm` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.FromContext` | Go context.Context accessor; py/ts thread verified-request state explicitly. |
+| `helpers.HintAbsent` | Member of the mapped helpers.HintState vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer. |
+| `helpers.HintListed` | Member of the mapped helpers.HintAgreement vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer. |
+| `helpers.HintMalformed` | Member of the mapped helpers.HintState vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer. |
+| `helpers.HintNoExchange` | Member of the mapped helpers.HintAgreement vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer. |
+| `helpers.HintUnlisted` | Member of the mapped helpers.HintAgreement vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer. |
+| `helpers.HintValid` | Member of the mapped helpers.HintState vocabulary. Python and TypeScript spell it as a literal rather than a named export, and the shared discovery-hint corpus pins the token every language must answer. |
+| `helpers.MissingComponentError` | Go typed error behind errors.Is(ErrMissingRequiredComponent); py/ts report the refusal as a reason token and carry the Accept-Signature value on the verdict. |
 | `helpers.NewContext` | Go context.Context accessor; py/ts thread verified-request state explicitly. |
 | `helpers.NewEd25519Signer` | Go Ed25519 Signer constructor; py/ts inject a sign function rather than constructing a named signer. |
 | `helpers.NewEd25519SignerFromSeed` | Go Ed25519 Signer-from-seed constructor; py/ts inject a sign function rather than constructing a named signer. |
 | `helpers.NewMultisigContext` | Go context.Context accessor; py/ts thread multisig state explicitly. |
+| `helpers.PoPBadAgentKey` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPBadCoveredComponents` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPBadSignatureAgent` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPBadTag` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPError` | Go typed error carrying the refusal token and the Accept-Signature value; py/ts return them on the verdict (PopResult.reason / accept_signature, acceptSignature). |
+| `helpers.PoPExpired` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPFailure` | Go string type for the shared delivery-proof refusal tokens; py returns the token as a str on PopResult.reason and TS types it as the PopFailure literal union, so the tokens, pinned by pop-vectors.json, carry the parity claim. |
+| `helpers.PoPFutureCreated` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPKeyIDMismatch` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPMalformedSignature` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPMissingAgentKey` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPMissingCreated` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPMissingExpires` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPMissingSignature` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
 | `helpers.PoPOptions` | Go options struct for the delivery-proof signer; Python takes the same values as keyword arguments and TS as an options object. |
+| `helpers.PoPSignatureInvalid` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPThumbprintMismatch` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPUnsupportedAlg` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
+| `helpers.PoPVerifyOptions` | Go options struct for VerifyAgentBinding; py/ts pass now (and the injectable verify primitive) as arguments. |
 | `helpers.RedactURL` | Go query-stripping helper for a signed URL headed to a log; py/ts redact inline at the log site. |
 | `helpers.RegistrationDataAccepted` | Member of the mapped helpers.RegistrationDataVerdict vocabulary. Python and TypeScript spell it as a literal; the shared registration-schema corpus pins the token. |
 | `helpers.RegistrationDataNoVerdict` | Member of the mapped helpers.RegistrationDataVerdict vocabulary. Python and TypeScript spell it as a literal; the shared registration-schema corpus pins the token. |
@@ -394,6 +478,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `helpers.Signer` | Go Signer interface; py/ts inject a sign function (TS Ed25519SignFn; Python a signing callable) rather than a named Signer type — divergent handle shape, not a missing operation. |
 | `helpers.ThumbprintBytes` | Go raw-[32]byte thumbprint variant; py/ts expose only the string thumbprint. |
 | `helpers.Validate` | Go protovalidate wrapper; TS/Python ship no validation interceptor (matrix SERVER-role validation row: TS/Py absent). |
+| `helpers.VerifiedAgentBinding` | Go result struct for VerifyAgentBinding; py/ts return the PopResult verdict, which carries the same signature_agent / signatureAgent. |
 | `helpers.VerifiedRequest` | Go verified-request result value type; py/ts return language-native verdict objects. |
 | `helpers.VerifiedURL` | Go verified-URL result value type (PoP via CheckProofOfPossession); py/ts expose verify_agent_binding/verifyAgentBinding. |
 | `helpers.VerifyMultisigRequestResolved` | Go resolver-injected multisig-verify overload; py/ts expose a single multisig-verify entry point. |
@@ -417,6 +502,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `resolvers.NewContentFetcher` | Go constructor for the content-download leg; py/ts fold construction into their client, so there is no fetcher to build separately. |
 | `resolvers.NewGuardedTransport` | Go constructor composing the SSRF guard over a caller's base transport; py/ts expose their guarded fetch as a single factory with no separable base. |
 | `resolvers.ProofSigner` | Go interface seam that keeps key custody out of the dialing tier; py/ts inject a signing callable instead of a named interface. |
+| `resolvers.ReadOptions` | Go options struct for the document readers; Python takes the same values as keyword arguments (http=, scheme=) and TS as an options object (ReadDocumentOptions). |
 | `resolvers.SSRFCheckRedirect` | Go redirect-policy hook; py/ts fold redirect checks into the guard (async_ssrf_guard / the guarded fetch). |
 
 ## Cross-language conformance-vector replay
@@ -427,6 +513,8 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 |---|---|---|---|
 | `helpers/testdata/acceptance-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/audience-vectors.json` | ✅ | ✅ | ✅ |
+| `helpers/testdata/directory-response-vectors.json` | ✅ | ✅ | ✅ |
+| `helpers/testdata/discovery-hint-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/error-detail-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/hashurl-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/host-rule-vectors.json` | ✅ | ✅ | ✅ |
@@ -443,6 +531,7 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 | `helpers/testdata/sign-request-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/signedurl-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/thumbprint-vectors.json` | ✅ | ✅ | ✅ |
+| `helpers/testdata/verify-request-accept-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/verify-request-neg-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/wire-canonical-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/wire-constants-vectors.json` | ✅ | ✅ | ✅ |
@@ -450,7 +539,9 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 | `helpers/testdata/wire-null-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/active-ed25519-key-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/content-fetch-vectors.json` | ✅ | ✅ | ✅ |
+| `resolvers/testdata/document-check-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/endpoint-vet-vectors.json` | ✅ | ✅ | ✅ |
+| `resolvers/testdata/license-digest-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/offer-key-clamp-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/revocation-membership-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/ssrf-address-vectors.json` | ✅ | ✅ | ✅ |
@@ -461,6 +552,7 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 | `resolvers/testdata/wba-url-vectors.json` | ✅ | ✅ | ✅ |
 | `connect/testdata/client-request-vectors.json` | ✅ | ✅ | ✅ |
 | `connect/testdata/connect-error-vectors.json` | ✅ | ✅ | ✅ |
+| `connect/testdata/error-detail-wire-vectors.json` | ✅ | ✅ | ✅ |
 | `connect/testdata/synthesized-detail-vectors.json` | ✅ | ✅ | ✅ |
 | `connect/testdata/transport-failure-vectors.json` | ✅ | ✅ | ✅ |
 

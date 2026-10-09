@@ -49,6 +49,16 @@ const (
 	// WellKnownManifestVersion versions the document's content; WellKnownPath
 	// specifies where it is served.
 	WellKnownPath = "/.well-known/fora.json"
+	// ContentRulesHeader is the edge discovery header that points an agent the
+	// edge refused with 403 at the publisher's manifest: its value is the
+	// absolute URL of the publisher's /.well-known/fora.json. See "Edge
+	// discovery headers" in fora.proto, and ParseDiscoveryHint.
+	ContentRulesHeader = "X-Content-Rules"
+	// ExchangeHeader is the edge discovery header that names, on the same 403,
+	// one Exchange that sells the content directly, as a bare domain in the
+	// form of Offer.exchange. It is an optimisation over ContentRulesHeader and
+	// never authorization: the manifest stays the authority on who sells.
+	ExchangeHeader = "X-FORA-Exchange"
 )
 
 // signatureAgentLower is SignatureAgentHeader in the lowercase form RFC 9421

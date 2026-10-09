@@ -17,14 +17,20 @@ The canonical wire form is **snake_case proto-JSON** — the field names exactly
 
 This is **load-bearing for signatures**: signed messages (`Offer.signature`, `ResourceAttestation`, …) are Ed25519 over **JCS-canonicalized (RFC 8785) proto-JSON**, and JCS sorts keys lexicographically, so the field-name casing determines the signed bytes. snake_case proto-JSON is the canonical input the signature is computed over.
 
-One exception, and it is **transport framing** rather than a FORA message: the `debug` projection Connect attaches to an error detail is lowerCamelCase, and no server option changes it — `connect-go` renders that projection with its own `protojson` codec at default options, so the snake_case codec a deployment registers reaches the response **body** and not the error beside it. A JSON client normalizes that one projection back to the proto names before reading it, which is possible because `json_name` inverts to the field name for every field in this contract.
+One exception, and it is **transport framing** rather than a FORA message: the `debug` projection Connect attaches to an error detail is lowerCamelCase, and no server option changes it — `connect-go` renders that projection with its own `protojson` codec at default options, so the snake_case codec a deployment registers reaches the response **body** and not the error beside it. A JSON client normalizes that one projection back to the proto names before reading it, which is possible because `json_name` inverts to the field name for every field in this contract. The projection is a convenience beside the detail's binary `value`, which is the authoritative copy: the FORA SDKs read `value` first and fall back to the projection only when no `value` is present.
+:::
+
+:::note[Edge discovery headers]
+Two HTTP response headers are part of the contract without being in any message. A publisher's edge that refuses a request for licensed content carrying no valid signed URL answers `403` and SHOULD send `X-Content-Rules`, the absolute URL of the publisher's manifest: exactly `https://{domain}/.well-known/fora.json`, with the publisher's domain as a bare domain, a port allowed. It MAY add `X-FORA-Exchange`, the bare domain of one Exchange that sells the content directly, in the same form as `Offer.exchange`, and only together with `X-Content-Rules`. An agent reads them only from a `403`. It resolves the named Exchange's endpoint from that Exchange's own `fora.json`, never from the header. `X-FORA-Exchange` is never authorization: offers are verified by their signatures, the manifest's `exchanges` stays the authority on who sells, and when the two disagree the manifest wins. The normative text is the "Edge discovery headers" section of the `fora.proto` file header; [Discovery Paths](/protocol/discovery-paths/#edge-discovery-headers) summarizes it.
 :::
 
 ## Services
 
 ### ExchangeService
 
-The core protocol. Both AI agents and Brokers are valid clients.
+The core protocol. Both AI agents and Brokers are valid clients; an Exchange tells their requests apart as [Direct and relayed requests](/protocol/authentication/#direct-and-relayed-requests) states. Every Exchange implements all of its transaction RPCs, `DisputeTransaction` included.
+
+`ExecuteTransaction` answers every per-item denial in the body: an item the Exchange denies carries `TransactionResultItem.denial_reason` in a successful response, whatever the item count. A non-OK error carrying `ErrorDetail.transaction_denial` is used only when the Exchange refuses the whole request and decides no item.
 
 ::proto-service{name=ExchangeService}
 
@@ -36,7 +42,11 @@ Optional RPC for providers/CMS/third-party intelligence providers to push conten
 
 ### BrokerService
 
-The Broker entry point. `Resolve(DiscoveryRequest) → DiscoveryResponse` is discovery-only: a client sends the URIs/query it wants resolved and receives `offer_groups` (one `OfferGroup` per URI, each carrying the full signed `Offer`) or a typed `absence_reason` with empty `offer_groups` when nothing licensable was found. "No result" is a successful answer; malformed requests, auth failures, and internal faults are non-OK transport errors carrying an `ErrorDetail`. Resolve does **not** deliver inline — the per-transaction result (transaction id, billing id, retrieval endpoint, …) is returned on `TransactionResponse` via the separate execute path, routed by `Offer.exchange`.
+The Broker entry point. It has two methods.
+
+`Resolve(DiscoveryRequest) → DiscoveryResponse` is discovery-only: a client sends the URIs/query it wants resolved and receives `offer_groups` (one `OfferGroup` per URI, each carrying the full signed `Offer`) or a typed `absence_reason` with empty `offer_groups` when nothing licensable was found. "No result" is a successful answer; malformed requests, auth failures, and internal faults are non-OK transport errors carrying an `ErrorDetail`. Resolve may apply the agent's budget (`RequestConstraints`) as a filter. How the budget is computed is the Broker's own behaviour; the protocol fixes how its effect is reported: a URI left with no offer is answered with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`, never `NOT_AUTHORIZED` and never an error such as `RESOURCE_EXHAUSTED`. Resolve never charges. Resolve does **not** deliver inline. The per-transaction result (transaction id, billing id, retrieval endpoint, …) comes from the separate execute path, which the agent takes either directly, with `ExchangeService.ExecuteTransaction` at each offer's `Offer.exchange`, or through the Broker.
+
+`ExecuteTransaction(TransactionRequest) → BrokerTransactionResponse` buys offers from any number of Exchanges in one call. The Broker verifies the agent's request, groups the items by each signed offer's `exchange`, and sends one `ExchangeService.ExecuteTransaction` per Exchange, signed with **its own** key. The agent's per-item `AgentAcceptance` and its `AgentRequestAcceptance` travel in each sub-request body, so every Exchange still verifies the agent's consent. The Broker combines the answers in request order. Re-packaging is safe because each item is atomic and its integrity is per resource: the offer carries its Exchange's signature, the acceptance binds the agent to that one offer, and the result comes from the Exchange that owns the resource. The Broker's own refusals (a bad agent signature, a `requester.domain` that is not the agent's signing directory, a malformed request, an Exchange it cannot route to or does not approve) are non-OK errors and buy nothing. An Exchange's per-item denial, including `DENIAL_REASON_RELAY_NOT_ACCEPTED` (decided per item by each offer's provider), is that Exchange's result item unchanged. An Exchange's refusal of its whole sub-request is never turned into a Broker error: it rides in the body, on each affected item's `refusal`.
 
 ::proto-service{name=BrokerService}
 
@@ -70,7 +80,11 @@ Rate limit status modeled after IETF RateLimit header fields.
 
 ### Requester
 
-Identity and entitlements only — who is asking and what they're entitled to. What they're asking for (`uris`) and the limits they'll accept (`acceptable_restrictions`) live on the ask (`ResourceQuery` / `DiscoveryRequest`), not here. Used in `ResourceQuery` and `DiscoveryRequest`.
+Identity and entitlements only — who is asking and what they're entitled to. What they're asking for (`uris`) and the limits they'll accept (`acceptable_restrictions`) live on the ask (`ResourceQuery` / `DiscoveryRequest`), not here. Used in `ResourceQuery`, `DiscoveryRequest` and `TransactionRequest`.
+
+`id` and `domain` are both required. `domain` is the host of the requester's key directory and is never a free label: on a direct request a verifier resolves the agent's keys from the covered `Signature-Agent` header and requires `domain` to name that same directory, refusing a mismatch as `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`; on a purchase relayed through `BrokerService.ExecuteTransaction`, the Exchange verifies the agent's acceptances against the directory `domain` names, because the request signature there is the Broker's. `id` is a free label the agent chooses for attribution, such as which sub-agent or end customer is asking; it is never identity, never used to find keys, and never trusted. See [Requester domain and the key directory](/protocol/authentication/#requester-domain-and-the-key-directory).
+
+`scopes` hides existence: a requester never learns about a resource outside its scopes. When the scopes leave no presentable offer for a resource, the Exchange answers with no offers and no absence reason, exactly as for any resource with nothing to offer, and an offer it presented is honoured until it expires. See [Existence hiding](/protocol/authentication/#existence-hiding).
 
 ::proto-message{name=Requester}
 
@@ -80,7 +94,7 @@ Scoped, time-limited, spend-capped credential. The credential itself is opaque b
 
 ::proto-message{name=Delegation}
 
-**Delegation claims.** The claim vocabulary carried inside the token is **not re-listed here** — the authoritative registry is the [Delegation-Claims Profile](/protocol/authentication/#delegation-claims-profile) table in `authentication.mdx`. The one claim worth restating: every delegation **MUST** carry a **holder binding** (the `cnf` claim, `cnf.jkt` = the RFC 7638 thumbprint of the holder key) — the request-signing key MUST hash to `cnf.jkt`, or the token is rejected. Without it the token is bearer-usable. Everything else (scope, spend cap, expiry, etc.) is optional and defined in that single source of truth.
+**Delegation claims.** The claim vocabulary carried inside the token is **not re-listed here** — the authoritative registry is the [Delegation-Claims Profile](/protocol/authentication/#delegation-claims-profile) table in `authentication.mdx`. The one claim worth restating: every delegation **MUST** carry a **holder binding** (the `cnf` claim, `cnf.jkt` = the RFC 7638 thumbprint of the holder key) — the request-signing key MUST hash to `cnf.jkt`, or the token is rejected. Without it the token is bearer-usable. On a purchase a Broker re-packaged (`BrokerService.ExecuteTransaction`), the request reaching the Exchange is signed by the Broker, so the Exchange checks `cnf.jkt` against the key each item's `AgentAcceptance` verifies under instead of the request signer. Everything else (scope, spend cap, expiry, etc.) is optional and defined in that single source of truth.
 
 **Narrowing example**: An agent can further restrict (but never widen) a delegation by issuing a child JWT:
 - Original: `scope: credit:*, max_spend_cents: 100000`
@@ -88,13 +102,23 @@ Scoped, time-limited, spend-capped credential. The credential itself is opaque b
 
 ### Multi-hop forwarding (no message — HTTP layer)
 
-There is no in-message hop chain. Multi-hop forwarding (Agent → Broker → … → Exchange) is a **stack of RFC 9421 HTTP Message Signatures**: each forwarding party adds one labeled signature, and each signature covers the request plus the prior hop's signature, so the ordered set of signatures is the chain (tamper-evident, order-bound). The Exchange resolves each `keyid` (an RFC 7638 thumbprint) in the signer's WBA directory at `{domain}/.well-known/http-message-signatures-directory`, verifies every signature, and enforces `RequestConstraints.max_hops` / `WellKnownManifest.max_intermediary_hops` by counting them. Responses do not retrace the chain — the terminal Exchange returns directly to the originating agent (bound by `agent_identity_hash`).
+There is no in-message hop chain. Request authentication is carried in **RFC 9421 HTTP Message Signatures** in the headers: each party signs the request it sends with one labeled signature. A Broker originates its own discovery queries and re-packages execute requests, signing each alone; on a purchase the agent's identity and consent are `AgentAcceptance` in the body. Only where a party forwards a request unchanged and covers the signature before it do the signatures form a tamper-evident chain, and FORA's Broker never does (see [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding)). The Exchange counts the signatures against `WellKnownManifest.max_intermediary_hops` before it verifies any, then resolves each `keyid` (an RFC 7638 thumbprint) in the directory the signer's own `Signature-Agent` member names, at `{origin}/.well-known/http-message-signatures-directory`. `RequestConstraints.max_hops` never reaches an Exchange: it rides only on `DiscoveryRequest`, and no party enforces it in this version. Each request is answered to the party that sent it, and delivery needs no relay, because the signed `retrieval_endpoint` is bound to the agent (`agent_identity_hash`).
+
+`BrokerService.ExecuteTransaction` terminates at the Broker, which authors and signs one new request per Exchange. The agent's consent travels in the body as `AgentAcceptance` and `AgentRequestAcceptance`, not as a request signature.
 
 ## Messages -- Offers and Pricing
 
 ### Offer
 
 ::proto-message{name=Offer}
+
+:::note[An offer carries its price once]
+`Offer.pricing` is the offer's only price: the price execute charges, a Broker ranks, and a metered purchase is charged at. The one term the offer sells, in `Offer.terms`, carries no `pricing` (rule `offer.terms.pricing_unset`). Catalog terms (`ResourceEntry.terms`) still carry their pricing; each offer derives from exactly one of them, so the offer's price and its term's price cannot disagree.
+:::
+
+:::note[A metered offer may carry an estimate]
+An offer whose `pricing` is `PER_UNIT` may state `pricing.estimated_quantity` or not; whether to state one is the publisher's decision, and nothing requires it. Without one the purchase charges one unit. An estimate that is stated is positive (rule `offer.metered.estimate_positive`). An estimate the publisher stated, on the term or on `ResourceEntry.estimated_quantity`, is carried onto `Offer.pricing`. The estimate is always in the offer's own `pricing.unit`: a price per access has an estimate in accesses, never a token count.
+:::
 
 :::note[Breaking change in v1.0]
 `Offer.quality` (field 12, `ContentQuality`) has been removed. Use `Offer.attestations` with `ResourceAttestation` claims instead. See [Content Attestation](/protocol/content-attestation/).
@@ -119,6 +143,8 @@ Three verification levels:
 ::proto-message{name=Pricing}
 
 `Pricing` has no `ext` / `ext_critical` fields — the licensing core is closed.
+
+**Metered price.** With R = `rate` and E = `estimated_quantity` (optional, positive when stated), a metered purchase charges E × R, or one unit, 1 × R, when the offer states no estimate, and the charge is final. A disagreement about the quantity consumed is a dispute, which this version does not define further. See [Charging a metered purchase](/protocol/transaction-flow/#charging-a-metered-purchase).
 
 ### ResourceIdentity
 
@@ -148,8 +174,10 @@ Lightweight resource preview for offer evaluation. The Exchange populates previe
 
 ::proto-message{name=TransactionResponse}
 
-:::note[Denial is not a success body]
-A denied single transaction is **not** returned in this body. It travels as a non-OK transport error carrying [`ErrorDetail.transaction_denial`](#unified-error-model) (`DenialReason` + `restriction_mismatches`). Batch per-item denials remain in-body on `TransactionResultItem` (`denial_reason` / `restriction_mismatches`), as partial results of a successful batch.
+:::note[Denials are in the body]
+Every per-item denial is returned in this body, on `TransactionResultItem` (`denial_reason`), whatever the item count: a denied one-item purchase is a successful response whose only item is denied. A non-OK transport error carrying [`ErrorDetail.transaction_denial`](#unified-error-model) is used only when the Exchange refuses the whole request and decides no item, for a reason about the caller such as `DENIAL_REASON_ACCOUNT_NOT_REGISTERED`.
+
+`total_cost` is unset when the purchased items span more than one currency: amounts are never summed across currencies, and currency conversion is out of scope for this version.
 :::
 
 ### TransactionItem
@@ -160,19 +188,19 @@ A single offer commitment within a batch transaction.
 
 ### AgentAcceptance
 
-The agent's detached acceptance signature over an accepted Offer. It travels in the execute body alongside the reflected Offer and is independent of the transport (RFC 9421) request signature, so it survives any number of broker relays. The Exchange verifies it and binds the delivery URL to the agent's key (RFC 7638 thumbprint). `signature` is a hex-encoded detached Ed25519 signature over the JCS-canonicalized (RFC 8785) proto-JSON of [`AgentAcceptancePayload`](#agentacceptancepayload) — the same canonical signing form `Offer.signature` defines, reduced here to `JCS(protojson(payload))` because the payload carries no signature fields to clear; `signature_algorithm` is `EdDSA`.
+The agent's detached acceptance signature over an accepted Offer. It travels in the execute body alongside the reflected Offer and is independent of the transport (RFC 9421) request signature, so it survives any number of broker relays. The Exchange verifies it against an Ed25519 key in the WBA directory `requester.domain` names and binds the delivery URL to that key (RFC 7638 thumbprint). On a purchase relayed through a Broker it is the only agent signature the Exchange sees, so it must name a requester: its canonical bytes carry a non-empty `requester_id` and `requester_domain`, a signer refuses to sign bytes that name an empty requester, and a verifier refuses an acceptance whose bytes name one, even when the signature verifies. `signature` is a hex-encoded detached Ed25519 signature over the JCS-canonicalized (RFC 8785) proto-JSON of [`AgentAcceptancePayload`](#agentacceptancepayload) — the same canonical signing form `Offer.signature` defines, reduced here to `JCS(protojson(payload))` because the payload carries no signature fields to clear; `signature_algorithm` is `EdDSA`.
 
 ::proto-message{name=AgentAcceptance}
 
 ### AgentRequestAcceptance
 
-The agent's detached authorization of one complete ordered execute set. Its payload travels with the signature so a Broker can forward the same proof unchanged on every per-Exchange projection. A receiving Exchange verifies the agent signature and requires its subrequest to equal the complete in-order projection of signed items addressed to that Exchange before creating or serving request-level idempotency state.
+The agent's detached authorization of one complete ordered execute set. Its payload travels with the signature so a Broker can forward the same proof unchanged on every per-Exchange projection. A receiving Exchange verifies the agent signature and requires its subrequest to equal the complete in-order projection of signed items addressed to that Exchange before creating or serving request-level idempotency state. A subrequest whose items are not exactly that projection (an item dropped, added or reordered) is refused per item, in the body: every item is denied with `DENIAL_REASON_SIGNATURE_INVALID`, because the agent's signature does not cover what arrived. It is not an `invalid_argument` error.
 
 ::proto-message{name=AgentRequestAcceptance}
 
 ### AgentRequestAcceptancePayload
 
-The signed field set: ordered [`AgentRequestAcceptanceItem`](#agentrequestacceptanceitem) references plus the requester identity and idempotency key. Canonical bytes use the same RFC 8785 JCS over canonical proto-JSON rule as Offer and AgentAcceptance signatures.
+The signed field set: ordered [`AgentRequestAcceptanceItem`](#agentrequestacceptanceitem) references plus the requester identity and idempotency key. `requester_id` and `requester_domain` are never empty, under the same rule as [`AgentAcceptance`](#agentacceptance). Canonical bytes use the same RFC 8785 JCS over canonical proto-JSON rule as Offer and AgentAcceptance signatures.
 
 ::proto-message{name=AgentRequestAcceptancePayload}
 
@@ -184,15 +212,21 @@ A signed request-set reference containing `offer_sig` and `exchange`. The offer 
 
 ### AgentAcceptancePayload
 
-The canonical signing structure for [`AgentAcceptance`](#agentacceptance). It is **never sent on the wire** — this message fixes the *field set*, and the *byte layout* is the canonical signing form defined on `Offer.signature`: RFC 8785 JCS over canonical proto-JSON with a pinned option set. Both halves are normative, so signer and verifier derive byte-identical signed bytes in any language without a protobuf binary codec, and the contract cannot drift between implementations. `offer_sig` is the accepted `Offer.signature` (which transitively binds pricing, terms, and expiry); `requester_id`, `requester_domain`, and `idempotency_key` come from the enclosing `TransactionRequest`.
+The canonical signing structure for [`AgentAcceptance`](#agentacceptance). It is **never sent on the wire** — this message fixes the *field set*, and the *byte layout* is the canonical signing form defined on `Offer.signature`: RFC 8785 JCS over canonical proto-JSON with a pinned option set. Both halves are normative, so signer and verifier derive byte-identical signed bytes in any language without a protobuf binary codec, and the contract cannot drift between implementations. `offer_sig` is the accepted `Offer.signature` (which transitively binds pricing, terms, and expiry); `requester_id`, `requester_domain`, and `idempotency_key` come from the enclosing `TransactionRequest`, and the two requester fields are never empty.
 
 ::proto-message{name=AgentAcceptancePayload}
 
 ### TransactionResultItem
 
-Result for a single offer in a batch transaction.
+Result for a single offer in a batch transaction. `refusal` is set only in a `BrokerTransactionResponse`, on an item whose Exchange refused the Broker's whole sub-request or did not answer it. For a metered item, `cost` is the purchase charge: estimate × rate, or one unit's rate without an estimate. The charge is final.
 
 ::proto-message{name=TransactionResultItem}
+
+### UpstreamRefusal
+
+A peer's refusal of a call made on the caller's behalf: the refusing `party`, the Connect `code` it answered with, and its `ErrorDetail` unchanged. It is the one shape for "a peer refused". On a Broker purchase it rides on each affected item instead of becoming an error of the Broker's own, and the party is the Exchange. An Identity Service MCP tool error carries it as `{"refusal": UpstreamRefusal}`.
+
+::proto-message{name=UpstreamRefusal}
 
 ### Cost
 
@@ -230,7 +264,7 @@ A single asset included in the usage report.
 
 ### UsageReportResponse
 
-Acknowledgment of a usage report. A successful response means the report was accepted; a rejection travels as a non-OK transport error carrying [`ErrorDetail.usage_report_rejection`](#unified-error-model).
+Acknowledgment of a usage report. A successful response means the report was accepted; a rejection travels as a non-OK transport error carrying [`ErrorDetail.usage_report_rejection`](#unified-error-model). A report past its reporting window is refused with `USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED` and the code `failed_precondition`; a malformed report with `USAGE_REPORT_REJECTION_REASON_MALFORMED` and `invalid_argument`. The reported quantity is unrestricted: a consumed quantity that differs from the estimate, above or below, is never a reason to refuse a report.
 
 ::proto-message{name=UsageReportResponse}
 
@@ -244,7 +278,7 @@ Agent signals a content delivery problem for a completed transaction.
 
 ### DisputeResponse
 
-Exchange acknowledges and processes the dispute. A successful response means the dispute was accepted for processing; a refusal to file travels as a non-OK transport error carrying [`ErrorDetail.dispute_failure`](#unified-error-model).
+Exchange acknowledges and processes the dispute. Every Exchange implements `DisputeTransaction`. A successful response means the dispute was accepted for processing; a refusal to file travels as a non-OK transport error carrying [`ErrorDetail.dispute_failure`](#unified-error-model), whose `DisputeFailureReason` names the one check the filing failed.
 
 ::proto-message{name=DisputeResponse}
 
@@ -298,7 +332,7 @@ Read-only check of whether the calling agent's account is active. Deliberately c
 
 ### GetAccountStatusResponse
 
-The account's current state. `billing_ref` is empty when the calling agent has no account yet, and `balances` lists what the account can spend now, one entry per currency. An empty `balances` list means the Exchange does not report balances, not a zero balance.
+The account's current state. An agent the Exchange knows, its request signature verified, but that holds no account at this Exchange is answered with the Connect code `not_found` instead, so an OK answer always carries `billing_ref`; a receiver reads an empty `billing_ref` from an Exchange built before that rule as the same answer. `balances` `balances` lists what the account can spend now, one entry per currency. An empty `balances` list means the Exchange does not report balances, not a zero balance.
 
 ::proto-message{name=GetAccountStatusResponse}
 
@@ -324,7 +358,7 @@ How to open an account at an Exchange, published as the optional `account_regist
 
 ### WBAFile
 
-The pure WBA directory, served at `/.well-known/http-message-signatures-directory` (`Content-Type: application/jwk-set+json`). Holds each participant's inline signing keys and an optional emergency-revocation pointer. Keys are identified by their RFC 7638 thumbprint (the RFC 9421 `keyid`).
+The pure WBA directory, served at `/.well-known/http-message-signatures-directory` (`Content-Type: application/http-message-signatures-directory+json`). Holds each participant's inline signing keys and an optional emergency-revocation pointer. Keys are identified by their RFC 7638 thumbprint (the RFC 9421 `keyid`). Each key carries `alg` `EdDSA`, the JOSE name RFC 7517 defines, which is a known, deliberate deviation from WG-00 §5.5.1 (see [Key Directory](/protocol/authentication/#key-directory)).
 
 | Field | Type | Number | Description |
 |---|---|---|---|
@@ -357,7 +391,7 @@ A Exchange authorized to sell this provider's content.
 
 ## Messages -- Broker Protocol
 
-Messages for the Agent-to-Broker path (Steps 1 and 6). When an agent talks directly to an Exchange, it uses ResourceQuery/TransactionRequest instead.
+Messages for the Agent-to-Broker path (Steps 1 and 6), and the combined answer of a purchase through the Broker. When an agent talks directly to an Exchange, it uses ResourceQuery/TransactionRequest instead. `BrokerService.ExecuteTransaction` takes the same `TransactionRequest` an Exchange does.
 
 ### DiscoveryRequest
 
@@ -367,15 +401,27 @@ Agent sends to Broker (Step 1), carried by `BrokerService.Resolve`. Pure discove
 
 ### RequestConstraints
 
-Budget and preference constraints for exchange filtering and offer selection.
+Budget and preference constraints for exchange filtering and offer selection. `BrokerService.Resolve` may apply the budget as a filter over offers (`OFFER_ABSENCE_REASON_BUDGET_EXCEEDED` when no offer for a URI remains); it neither denies nor charges. How the budget is computed is the Broker's own behaviour.
 
 ::proto-message{name=RequestConstraints}
 
 ### DiscoveryResponse
 
-Broker returns to Agent (Step 6). Discovery-only: `offer_groups` (field 4, one `OfferGroup` per requested URI, each carrying the full signed `Offer` with `Offer.exchange` as the execute-routing target) or `absence_reason` (field 16) with empty `offer_groups`. There are no inline delivery fields — the per-transaction result rides on `TransactionResponse` via the separate execute path.
+Broker returns to Agent (Step 6). Discovery-only: `offer_groups` (field 4, one `OfferGroup` per requested URI, each carrying the full signed `Offer` with `Offer.exchange` as the execute-routing target) or `absence_reason` (field 16) with empty `offer_groups`. There are no inline delivery fields — the per-transaction result rides on `TransactionResponse`, or on `BrokerTransactionResponse` through the Broker, via the separate execute path.
 
 ::proto-message{name=DiscoveryResponse}
+
+### BrokerTransactionResponse
+
+The Broker's answer to `BrokerService.ExecuteTransaction`. `items` has one entry per request item, in request order: an Exchange's `TransactionResultItem` unchanged, or an item carrying `refusal`. `exchanges` has one `ExchangeOutcome` per Exchange contacted. `totals` holds the charged amounts, one `Cost` per currency, never summed across currencies and never converted: currency conversion is out of scope for this version. No field is signed; a result item's one signed value is its `retrieval_endpoint`, signed by the issuing Exchange.
+
+::proto-message{name=BrokerTransactionResponse}
+
+### ExchangeOutcome
+
+The request-level part of one Exchange's answer to its sub-request: the offers sent to it, its `agent_identity_hash` (what each of its retrieval URLs is bound to) and its `subscription_quota`.
+
+::proto-message{name=ExchangeOutcome}
 
 ## Messages -- CatalogService
 
@@ -385,7 +431,7 @@ Every pushed entry is checked in two tiers, and both are stated so a publisher c
 
 ### PushResourcesRequest
 
-Push or update content entries in the Exchange catalog. `entries` carries at least one entry and at most 256 — an empty push is refused rather than answered with zero counts, and a larger feed is pushed in several submissions. The cap bounds one submission, not the work of checking it: that is bounded by the maximum request size the recipient will read. `exchange` is the bare domain of the Exchange the push is meant for (the recipient-addressing rule), and `caller_id` names the contributor whose key signed the request.
+Push or update content entries in the Exchange catalog. `entries` carries at least one entry and at most 256 — an empty push is refused rather than answered with zero counts, and a larger feed is pushed in several submissions. Both bounds are wire rules: a push outside them is a malformed request, refused `invalid_argument` by wire validation with no `catalog_rejection`. The cap bounds one submission, not the work of checking it: that is bounded by the maximum request size the recipient will read. `exchange` is the bare domain of the Exchange the push is meant for (the recipient-addressing rule), and the caller is whoever signs the request: `caller_id` is deprecated and not needed, because each entry's domain names whose resource it is and the Exchange checks the signer against it.
 
 ::proto-message{name=PushResourcesRequest}
 
@@ -405,15 +451,21 @@ A single resource catalog entry. The envelope carries its own wire rules, so an 
 
 ### PushResourcesResponse
 
-`accepted` tallies the entries a successful push stored — and because a push is all-or-nothing, a success stores every entry it carried. A push that could not be applied travels as a non-OK transport error carrying [`ErrorDetail.catalog_rejection`](#unified-error-model).
+`accepted` tallies the entries a successful push stored — and because a push is all-or-nothing, a success stores every entry it carried. A push the Exchange processed and could not apply travels as a non-OK transport error carrying [`ErrorDetail.catalog_rejection`](#unified-error-model). A push refused before processing follows the general rules instead: a mis-addressed or malformed push is `invalid_argument` with no typed reason, and one whose signature fails is `unauthenticated` with `request_auth_failure`.
 
 ::proto-message{name=PushResourcesResponse}
 
 ### RemoveResourcesRequest
 
-`paths` carries at least one path and at most 256 — the same batch bound `PushResourcesRequest.entries` carries — each in the same absolute-path shape `ResourceEntry.path` carries.
+`resources` names at least one resource and at most 256 — the same batch bound `PushResourcesRequest.entries` carries — each by the domain and path a push names it by (`ResourceRef`). For each one the Exchange resolves `/.well-known/fora.json` from its domain and checks that the request's signer is authorized to push for that domain, exactly as for a push; the caller is whoever signs. `paths` is deprecated and ignored: a bare path names no domain, and a request carrying only `paths` has no `resources` and is refused as malformed.
 
 ::proto-message{name=RemoveResourcesRequest}
+
+### ResourceRef
+
+One catalog resource, named the way a push names it: `ResourceEntry.domain` and `ResourceEntry.path`, under the same rules.
+
+::proto-message{name=ResourceRef}
 
 ### RemoveResourcesResponse
 
@@ -439,7 +491,8 @@ One complete access arrangement for a resource. Lives at both ingestion (`Resour
 
 Validation rules (wire-enforced via protovalidate unless noted). A parenthetical
 code is the cross-field CEL rule `id:` that enforces the rule (e.g. `license_term.reference_only.requires_uri`); single-field rules use protovalidate's standard constraints (`enum.not_in`, `string.pattern`, …).
-- `pricing` MUST be present on **every** term, any semantics — absent Pricing is a validation error. `model = FREE` must be stated explicitly — absent Pricing is not free.
+- `pricing` MUST be present on **every catalog term** (`ResourceEntry.terms`), any semantics — absent Pricing is a validation error (`resource_entry.terms.pricing_required`). `model = FREE` must be stated explicitly — absent Pricing is not free.
+- `pricing` MUST be **unset** on the term an offer carries (`Offer.terms`), because the offer's price is `Offer.pricing`, stated once (`offer.terms.pricing_unset`). Both rules belong to the message that holds the term, so a `LicenseTerm` on its own is valid with or without pricing.
 - `semantics` MUST be set — `TERM_SEMANTICS_UNSPECIFIED` is rejected (the field's `enum.not_in:[0]` rule).
 - `REFERENCE_ONLY` requires `license.uri` to be non-empty (`license_term.reference_only.requires_uri`); a `License` with a `uri` requires a `uri_digest` (`license.digest_required_with_uri`).
 - At most one `Restriction` per `kind` (`license_term.one_restriction_per_kind`); a token cannot be both permitted and prohibited (`restriction.permitted_prohibited_disjoint`). That rule compares the tokens **as written**, because it runs over the request as received — so two accepted spellings of one token (an alias beside its registered form, or either in another ASCII case) clear it and collide once folded. The ingest tier asserts the same property over the canonicalised tokens as `restriction.canonical_disjoint`; both refuse the term, and a term that fails both is reported by both. Both are scoped to one `Restriction`: what makes one restriction the whole of an axis is `license_term.one_restriction_per_kind`, so the per-axis reading is held by the two rules together.
@@ -486,7 +539,7 @@ A post-use behavioral requirement attached to a `LicenseTerm`. Attribution and c
 
 One way to communicate failure across every RPC. The transport carries a coarse canonical code (gRPC / Connect Code) as the error **class**; an `ErrorDetail` message — attached to the non-OK transport error's details (the same mechanism protovalidate uses to attach its Violations) — carries the precise, machine-readable **reason** and structured context. Clients branch on the typed reason, never on a human string.
 
-**Error vs. body.** A query that ran successfully returns its answer in the response body, and "no results" / per-item absence (`OfferGroup.absence_reason`) is a **success**, not an error. Only a method that could not perform the requested action returns a non-OK code plus an `ErrorDetail`. The per-domain reason enums below are the single source of truth that replaces the former in-body failure fields (`denial_reason`, `rejection_reason`, `accepted`, `verified`, `failure_reason`).
+**Error vs. body.** A query that ran successfully returns its answer in the response body, and "no results" / per-item absence (`OfferGroup.absence_reason`) is a **success**, not an error. Only a method that could not perform the requested action returns a non-OK code plus an `ErrorDetail`. A per-item purchase denial is part of a successful answer, so it stays in the body on `TransactionResultItem.denial_reason`; `transaction_denial` carries only a refusal of the whole request. The per-domain reason enums below are the single source of truth that replaces the former in-body failure fields (`rejection_reason`, `accepted`, `verified`, `failure_reason`).
 
 ### ErrorDetail
 
@@ -498,7 +551,7 @@ Exactly one typed reason block is set, selected by the failing method. The `reas
 
 ### TransactionDenial
 
-ExecuteTransaction could not complete. Reuses the `DenialReason` vocabulary.
+ExecuteTransaction refused the **whole** request and decided no item, for a reason about the caller that would deny every item alike (for example `DENIAL_REASON_ACCOUNT_NOT_REGISTERED` or `DENIAL_REASON_REPORTING_OVERDUE`). Reuses the `DenialReason` vocabulary. A denial of an item is never carried here: it is that item's `TransactionResultItem.denial_reason`, in a successful response, whatever the item count. `restriction_mismatches` and `offer_id` are deprecated and never set.
 
 ::proto-message{name=TransactionDenial}
 
@@ -544,6 +597,12 @@ A usage report could not be accepted.
 
 ::proto-message{name=UsageReportRejection}
 
+### RequestAuthFailure
+
+The RFC 9421 HTTP message signature on an RPC request failed verification, refused with the Connect code `unauthenticated`. Distinct from `RetrievalAuthFailure`, which reports the signed-URL / proof-of-possession check at the delivery edge.
+
+::proto-message{name=RequestAuthFailure}
+
 ### CatalogRejectionReason
 
 ::proto-enum{name=CatalogRejectionReason numbers}
@@ -569,6 +628,12 @@ Single-sources the delivery-edge token unions (signed-URL checks in `verify.ts`,
 ### UsageReportRejectionReason
 
 ::proto-enum{name=UsageReportRejectionReason numbers}
+
+### RequestAuthFailureReason
+
+Deliberately coarse: each value names what the caller does next (sign the request, fix the signature, or re-sign now), never which validation step failed, so a refusal does not tell a forger how far its request got.
+
+::proto-enum{name=RequestAuthFailureReason numbers}
 
 ## Enums
 
@@ -641,6 +706,8 @@ When an `Obligation` activates.
 
 ### DenialReason
 
+Why a purchase was refused. No value refuses a purchase for scope: an offer the Exchange presented is honoured until it expires. The value the table marks deprecated is never sent, and a receiver treats it as unknown.
+
 ::proto-enum{name=DenialReason numbers}
 
 ### DisputeReason
@@ -667,7 +734,7 @@ How the citation is presented to the user.
 
 ### OfferAbsenceReason
 
-Why no offers are available for a requested URI.
+Why no offers are available for a requested URI. No value reports a scope shortfall: a resource outside the requester's scopes comes back with no offers and no absence reason. The value the table marks deprecated is never sent, and a receiver treats it as unknown.
 
 ::proto-enum{name=OfferAbsenceReason numbers}
 
