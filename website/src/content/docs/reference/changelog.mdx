@@ -39,15 +39,18 @@ as the same answer. The reference and AI-agent pages and the SDK doc comments of
 `GetAccountStatus` / `get_account_status` / `getAccountStatus` say the same; the SDKs
 return the refusal as their call error with the code `not_found`.
 
-**The hop cap counts every signature and is refused with `resource_exhausted` (comments
-only).** `WellKnownManifest.max_intermediary_hops` is the maximum number of RFC 9421
+**The hop cap counts every signature and is refused with `resource_exhausted` (a changed
+meaning for a released field; no wire change).** `WellKnownManifest.max_intermediary_hops` is the maximum number of RFC 9421
 signatures an Exchange accepts on a request, every signature counted whether or not it
 covers another. An Exchange refuses a request carrying more before it verifies any
 signature, with the Connect code `resource_exhausted` (HTTP 429) and no typed reason; the
 field comment states it once. Go's `connectserver.WithMaxSignatures` and
 `helpers.VerifyOptions.MaxSignatures` no longer say to set the cap to
 `max_intermediary_hops + 1`: they take `max_intermediary_hops` itself, as the Python and
-TypeScript verifiers already did.
+TypeScript verifiers already did. `RequestConstraints.max_hops` rides only on
+`DiscoveryRequest`, which ends at the Broker, and a Broker originates its own queries, so
+no party receives or enforces it in this version; it is kept for multi-hop Broker
+discovery, and the proto comments that said an Exchange enforces it no longer do.
 
 **An MCP tool error carries `{"refusal": UpstreamRefusal}`; `UpstreamRefusal.exchange`
 is renamed `party` (field rename; no released message changes).** `UpstreamRefusal` is the

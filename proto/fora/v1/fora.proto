@@ -100,9 +100,10 @@ import "fora/v1/vocab.proto";
 // party that does (WG-00 §5.2.2): it MAY cover an earlier signature, and if it
 // covers "signature";key=X it MUST also cover "signature-input";key=X and every
 // component X lists. A party that changed any value X was computed over MUST
-// NOT cover X. Every signature on a request must verify, and the hop caps
-// (RequestConstraints.max_hops, WellKnownManifest.max_intermediary_hops) count
-// all of them.
+// NOT cover X. Every signature on a request must verify. An Exchange counts the
+// signatures against its WellKnownManifest.max_intermediary_hops before it
+// verifies any; RequestConstraints.max_hops rides on DiscoveryRequest only, and
+// no party enforces it in this version (see both fields).
 //
 // Signed delivery URLs carry an Ed25519 signature made by the Exchange over
 // "GET\n<canonical URL>"; the delivery endpoint verifies it with the Exchange's
@@ -507,18 +508,18 @@ message ResourceQuery {
   // enforcement); the agent self-selects and bears compliance.
   repeated AcceptableRestriction acceptable_restrictions = 9;
 
-  // Multi-hop forwarding (Agent → Broker → … → Exchange) is carried in the HTTP
-  // layer, not in this message: each party signs the request it sends with its
-  // own labeled RFC 9421 HTTP Message Signature (Signature / Signature-Input)
-  // and its own `Signature-Agent` dictionary member. Discovery through a Broker
-  // is Broker-led: the agent's DiscoveryRequest terminates at the Broker (the
+  // Request authentication is carried in the HTTP layer, not in this message:
+  // the party that sends a request signs it with its own labeled RFC 9421 HTTP
+  // Message Signature (Signature / Signature-Input) and its own
+  // `Signature-Agent` dictionary member. Discovery through a Broker is
+  // Broker-led: the agent's DiscoveryRequest terminates at the Broker (the
   // agent signs the Broker's URL), and the Broker originates each
   // ResourceQuery it sends and signs it alone, covering its own request and
   // only its own member. Each signature's keyid is the key's RFC 7638
-  // thumbprint; fora.json carries no keys. The Exchange resolves each keyid in
-  // the key directory that signature's own covered `Signature-Agent` member
-  // names, verifies every signature, and enforces RequestConstraints.max_hops /
-  // WellKnownManifest.max_intermediary_hops by counting them. A party that
+  // thumbprint; fora.json carries no keys. The Exchange counts the signatures
+  // against WellKnownManifest.max_intermediary_hops before it verifies any,
+  // resolves each keyid in the key directory that signature's own covered
+  // `Signature-Agent` member names, and verifies every signature. A party that
   // forwards a request unchanged MAY cover an earlier signature under the
   // general rule in the file header (WG-00 §5.2.2); FORA's Broker never does.
   // (Field 5 unused.)
@@ -3642,12 +3643,14 @@ message RequestConstraints {
   //   30 days  — "drug interaction database updated this month"
   optional google.protobuf.Duration max_data_age = 10;
 
-  // Maximum forwarding hops the agent will allow (Agent → Broker → … →
-  // Exchange), counted as the number of RFC 9421 HTTP Message Signatures on the
-  // request. Caps chain depth so a request is not relayed through more brokers
-  // than the agent is willing to trust or pay. A Broker MUST NOT forward a
-  // request whose signature count would exceed this. Absent = agent imposes no
-  // cap (the Exchange's max_intermediary_hops still applies).
+  // Maximum number of hops the agent will allow its discovery to travel. It
+  // rides only on DiscoveryRequest, which terminates at the Broker, and a
+  // Broker originates its own queries rather than forwarding the agent's
+  // request, so no party receives or enforces it in this version: an Exchange
+  // never sees it, and an Exchange's own cap is
+  // WellKnownManifest.max_intermediary_hops. The field is kept for multi-hop
+  // Broker discovery, an open protocol question tracked separately. Absent =
+  // no cap stated.
   optional int32 max_hops = 11;
 }
 
@@ -4089,12 +4092,14 @@ message WellKnownManifest {
   optional string base_currency = 27;
 
   // Exchange-only. Maximum number of RFC 9421 HTTP Message Signatures this
-  // Exchange accepts on an inbound request (Agent → Broker → … → Exchange).
-  // Every signature counts, whether or not it covers another. An Exchange
-  // refuses a request carrying more before it verifies any signature, with the
-  // Connect code resource_exhausted (HTTP 429) and no typed reason. Lets
-  // Exchanges publish their tolerance so a sender stays within it. Absent = no
-  // published limit (Exchange applies its own default policy).
+  // Exchange accepts on an inbound request. Every signature counts, whether or
+  // not it covers another. A request signed only by the party that sent it — an
+  // agent, or a Broker for a request it authored — carries one, so the cap
+  // bounds a request that a party forwarded unchanged and signed again. An
+  // Exchange refuses a request carrying more before it verifies any signature,
+  // with the Connect code resource_exhausted (HTTP 429) and no typed reason.
+  // Lets Exchanges publish their tolerance so a sender stays within it.
+  // Absent = no published limit (Exchange applies its own default policy).
   optional int32 max_intermediary_hops = 28;
 
   // Exchange-only. How to open an account here — see AccountRegistration, which

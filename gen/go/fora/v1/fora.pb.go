@@ -7482,12 +7482,14 @@ type RequestConstraints struct {
 	//	1 hour   — "stock snapshot from the last hour"
 	//	30 days  — "drug interaction database updated this month"
 	MaxDataAge *durationpb.Duration `protobuf:"bytes,10,opt,name=max_data_age,json=maxDataAge,proto3,oneof" json:"max_data_age,omitempty"`
-	// Maximum forwarding hops the agent will allow (Agent → Broker → … →
-	// Exchange), counted as the number of RFC 9421 HTTP Message Signatures on the
-	// request. Caps chain depth so a request is not relayed through more brokers
-	// than the agent is willing to trust or pay. A Broker MUST NOT forward a
-	// request whose signature count would exceed this. Absent = agent imposes no
-	// cap (the Exchange's max_intermediary_hops still applies).
+	// Maximum number of hops the agent will allow its discovery to travel. It
+	// rides only on DiscoveryRequest, which terminates at the Broker, and a
+	// Broker originates its own queries rather than forwarding the agent's
+	// request, so no party receives or enforces it in this version: an Exchange
+	// never sees it, and an Exchange's own cap is
+	// WellKnownManifest.max_intermediary_hops. The field is kept for multi-hop
+	// Broker discovery, an open protocol question tracked separately. Absent =
+	// no cap stated.
 	MaxHops       *int32 `protobuf:"varint,11,opt,name=max_hops,json=maxHops,proto3,oneof" json:"max_hops,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -8060,12 +8062,14 @@ type WellKnownManifest struct {
 	// values from this Exchange are denominated in this currency.
 	BaseCurrency *string `protobuf:"bytes,27,opt,name=base_currency,json=baseCurrency,proto3,oneof" json:"base_currency,omitempty"`
 	// Exchange-only. Maximum number of RFC 9421 HTTP Message Signatures this
-	// Exchange accepts on an inbound request (Agent → Broker → … → Exchange).
-	// Every signature counts, whether or not it covers another. An Exchange
-	// refuses a request carrying more before it verifies any signature, with the
-	// Connect code resource_exhausted (HTTP 429) and no typed reason. Lets
-	// Exchanges publish their tolerance so a sender stays within it. Absent = no
-	// published limit (Exchange applies its own default policy).
+	// Exchange accepts on an inbound request. Every signature counts, whether or
+	// not it covers another. A request signed only by the party that sent it — an
+	// agent, or a Broker for a request it authored — carries one, so the cap
+	// bounds a request that a party forwarded unchanged and signed again. An
+	// Exchange refuses a request carrying more before it verifies any signature,
+	// with the Connect code resource_exhausted (HTTP 429) and no typed reason.
+	// Lets Exchanges publish their tolerance so a sender stays within it.
+	// Absent = no published limit (Exchange applies its own default policy).
 	MaxIntermediaryHops *int32 `protobuf:"varint,28,opt,name=max_intermediary_hops,json=maxIntermediaryHops,proto3,oneof" json:"max_intermediary_hops,omitempty"`
 	// Exchange-only. How to open an account here — see AccountRegistration, which
 	// owns the contract. Absent: registration_data is accepted uninspected,

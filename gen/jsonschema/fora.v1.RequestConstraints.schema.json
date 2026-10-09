@@ -76,7 +76,7 @@
       "type": "string"
     },
     "max_hops": {
-      "description": "Maximum forwarding hops the agent will allow (Agent → Broker → … →\n Exchange), counted as the number of RFC 9421 HTTP Message Signatures on the\n request. Caps chain depth so a request is not relayed through more brokers\n than the agent is willing to trust or pay. A Broker MUST NOT forward a\n request whose signature count would exceed this. Absent = agent imposes no\n cap (the Exchange's max_intermediary_hops still applies).",
+      "description": "Maximum number of hops the agent will allow its discovery to travel. It\n rides only on DiscoveryRequest, which terminates at the Broker, and a\n Broker originates its own queries rather than forwarding the agent's\n request, so no party receives or enforces it in this version: an Exchange\n never sees it, and an Exchange's own cap is\n WellKnownManifest.max_intermediary_hops. The field is kept for multi-hop\n Broker discovery, an open protocol question tracked separately. Absent =\n no cap stated.",
       "maximum": 2147483647,
       "minimum": -2147483648,
       "type": "integer"

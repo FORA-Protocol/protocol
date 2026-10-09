@@ -181,7 +181,7 @@
       "type": "string"
     },
     "max_intermediary_hops": {
-      "description": "Exchange-only. Maximum number of RFC 9421 HTTP Message Signatures this\n Exchange accepts on an inbound request (Agent → Broker → … → Exchange).\n Every signature counts, whether or not it covers another. An Exchange\n refuses a request carrying more before it verifies any signature, with the\n Connect code resource_exhausted (HTTP 429) and no typed reason. Lets\n Exchanges publish their tolerance so a sender stays within it. Absent = no\n published limit (Exchange applies its own default policy).",
+      "description": "Exchange-only. Maximum number of RFC 9421 HTTP Message Signatures this\n Exchange accepts on an inbound request. Every signature counts, whether or\n not it covers another. A request signed only by the party that sent it — an\n agent, or a Broker for a request it authored — carries one, so the cap\n bounds a request that a party forwarded unchanged and signed again. An\n Exchange refuses a request carrying more before it verifies any signature,\n with the Connect code resource_exhausted (HTTP 429) and no typed reason.\n Lets Exchanges publish their tolerance so a sender stays within it.\n Absent = no published limit (Exchange applies its own default policy).",
       "maximum": 2147483647,
       "minimum": -2147483648,
       "type": "integer"
