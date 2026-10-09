@@ -8,6 +8,115 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ## Unreleased
 
+### Breaking against v1.0.8
+
+This release does not interoperate with v1.0.8 inside one deployment: the request
+signature changed in both directions, so every party of a deployment upgrades together.
+Each bullet names what breaks, in which direction, and what to do; the entries below give
+the detail.
+
+**Every party**
+
+- **Request signatures and key directories (a hard cut).** A v1.0.8 verifier does not read
+  the dictionary `Signature-Agent` this release sends. This release refuses the bare value
+  v1.0.8 sends, a key directory served as `application/jwk-set+json` or unsigned, and a
+  delivery proof at the publisher edge that is not a full Web Bot Auth signature. Upgrade
+  every signer, verifier, publisher edge and key directory together, and serve each
+  directory with its own media type, signed by every key it lists. See "Request signatures
+  and key directories follow the Web Bot Auth profile".
+- **Reason values added since v1.0.8.** `CATALOG_REJECTION_REASON_EXCHANGE_NOT_LISTED`,
+  `DENIAL_REASON_RELAY_NOT_ACCEPTED`, and the `UNKNOWN_CRITICAL_EXTENSION` value of the
+  denial, catalog-rejection, usage-report, dispute, registration and domain-verification
+  reason families are new. The v1.0.8 Python and TypeScript SDKs check an answer against
+  generated models that do not list the new values, so they refuse a whole answer carrying
+  one, such as a purchase answer with one item denied as
+  `DENIAL_REASON_RELAY_NOT_ACCEPTED`. `ErrorDetail.request_auth_failure` is new as well;
+  those models drop it, so a v1.0.8 client sees a signature refusal's code with no typed
+  reason. Upgrade those clients.
+
+**Exchange operators**
+
+- **An offer carries its price once.** An offer whose term carries pricing is refused by a
+  validating receiver (`offer.terms.pricing_unset`) and by this release's offer signers and
+  verifiers; v1.0.8 accepted it. State the price in `Offer.pricing` only and leave the sold
+  term's pricing unset. A `PER_UNIT` offer whose `estimated_quantity` is zero or negative
+  is refused too (`offer.metered.estimate_positive`): omit the estimate or state a positive
+  one.
+- **A per-item denial is always in the body.** A denied one-item purchase is answered OK
+  with the item's `denial_reason`; v1.0.8 answered it with a non-OK error carrying
+  `transaction_denial`, which is now only for a refusal of the whole request. Answer
+  in the body; a client reads the body's `denial_reason` whatever the item count.
+- **A relayed request needs an admitted Broker.** A `ResourceQuery` or
+  `TransactionRequest` whose `requester.domain` is not the signer's directory is acted on
+  only when the Exchange admits the signer as a Broker, and is otherwise refused
+  `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`. A v1.0.8 Exchange
+  read a Broker-forwarded request's agent signature and took the Broker's key from a
+  configured key set; a Broker's request now carries the Broker's signature alone, with
+  its key in the directory it names. Decide which Brokers you admit, for example the ones
+  registered with you. See "An Exchange tells a relayed request from a direct one".
+- **The hop cap counts every signature.** `max_intermediary_hops` is the number of
+  signatures accepted, every one counted, and a request over it is refused with
+  `resource_exhausted` before any signature is verified. The Go guidance to configure one
+  more than you publish is gone: publish the count itself.
+- **Refusals that changed shape.** A catalog call whose signature fails is refused
+  `unauthenticated` with `request_auth_failure`, where v1.0.8 sent
+  `CATALOG_REJECTION_REASON_SIGNATURE_INVALID`. `GetAccountStatus` answers an agent with no
+  account `NOT_FOUND`, where a v1.0.8 Exchange could answer OK with an empty
+  `billing_ref`. The same idempotency key with a different request is refused
+  `already_exists`, where v1.0.8 replayed the stored result for any reuse of a key.
+- **Rules that stop applying.** `fora.admin.v1.ReportingPolicy.quantity_tolerance` is
+  ignored: never refuse a usage report for its quantity. The scope-shortfall and
+  restriction reasons deprecated in this release are never sent.
+
+**Agents and other clients**
+
+- **A query and a purchase name their requester.** `requester` is required on
+  `ResourceQuery`, `DiscoveryRequest` and `TransactionRequest`, and `Requester.id` is
+  required, 1 to 255 characters; v1.0.8 had neither rule. Name the requester, with an id
+  and with the host of your own key directory as its domain.
+- **Mint a new idempotency key for each distinct request**, since a reused key with a
+  different request is refused, and read a one-item denial from the body, as above.
+
+**Publishers and catalog contributors**
+
+- **`RemoveResources` names each resource in `resources`.** `paths` is ignored, so a v1.0.8
+  request carrying only `paths` is refused. Send `ResourceRef` items, each a domain and a
+  path.
+- **A catalog signature failure arrives as `request_auth_failure`**, as above.
+
+**Brokers**
+
+- **A Broker never forwards an agent's request unchanged.** It originates its own
+  discovery queries and signs them alone, where v1.0.8 relayed an agent-signed
+  `ResourceQuery` and chained its own signature onto it. It never copies the agent's
+  request-level `ext` or `ext_critical` onto a request it authors.
+
+**SDK users**
+
+- **Signing.** A signing transport requires the signer's directory (`WithSignatureAgent`,
+  `signature_agent`, `signatureAgent`) and refuses a signed call locally without one;
+  v1.0.8 signed with an empty `Signature-Agent`. `core.MonotonicWindow` and its peers sign
+  at the clock's time and are deprecated. Python's `sign_agent_binding` returns an
+  `AgentBinding` instead of a tuple.
+- **Key resolution.** The key resolver's scheme option is removed (Go
+  `WBAKeyResolverOptions.Scheme`, Python `WBAKeyResolver(scheme=...)`, TypeScript
+  `WBAKeyResolverOptions.scheme`). A custom request-key resolver receives the signature's
+  directory: Python's `KeyResolver.resolve` and TypeScript's `RequestKeyResolver.resolve`
+  take it as a second argument. `WBAKeyResolver.Revoked` / `revoked` takes the directory
+  and answers from that directory's own list, and the offer-key cache's predicate takes
+  `(thumbprint, exchange)`.
+- **Removed TypeScript helpers.** `COVERED_COMPONENTS`, `buildRequestSignatureBase`,
+  `maxSigLabelN`, `signatureBytesByLabel`, `parseMultisigSignatureInput` and the
+  regex-based proof parsers are gone.
+- **Stricter inputs and reads.** The offer signers refuse an offer whose term carries
+  pricing, and the acceptance signers and verifiers refuse an empty requester id or
+  domain. The generated Pydantic models, Zod schemas and TypeScript input types require
+  `requester` on the three requests. A document body over 1 MiB is refused rather than
+  truncated, and the TypeScript reader also ends a read at 30 seconds and follows at most
+  five redirects itself, never from https to http.
+
+### Changes since v1.0.8
+
 **Discovery has no side effects; usage-report and relayed-acceptance refusals are
 stated (comments only).** Five rules the contract implied but did not state:
 
@@ -30,7 +139,8 @@ stated (comments only).** Five rules the contract implied but did not state:
 The `DiscoverResources` RPC, the `UsageReport` message and `DENIAL_REASON_SIGNATURE_INVALID`
 state them, and the transaction-flow and Exchange request-flow pages follow.
 
-**`GetAccountStatus` answers an agent with no account `NOT_FOUND` (comments only).**
+**`GetAccountStatus` answers an agent with no account `NOT_FOUND` (a behaviour change; no
+wire change).**
 The RPC comment now states the answer for an agent the Exchange knows, its request
 signature verified, but that holds no account at that Exchange: the Connect code
 `NOT_FOUND`. `GetAccountStatusResponse.billing_ref` is therefore set on every OK answer,
@@ -238,7 +348,8 @@ extension-profiles, academic walkthrough, what-is-FORA, transaction-flow and
 medical-imaging pages state the rule.
 
 **A catalog call whose signature fails is refused with `request_auth_failure`;
-`CATALOG_REJECTION_REASON_SIGNATURE_INVALID` is deprecated (comments only).** A signed
+`CATALOG_REJECTION_REASON_SIGNATURE_INVALID` is deprecated (a behaviour change; no wire
+change).** A signed
 `CatalogService` call is refused like every other signed request when its signature is
 missing, does not verify or is stale: `unauthenticated` with
 `ErrorDetail.request_auth_failure` (`SIGNATURE_MISSING`, `SIGNATURE_INVALID` or
@@ -313,7 +424,7 @@ refused with `invalid_argument`.
 must not refuse a report on it.
 
 **Idempotency keys are scoped per caller, and a reused key with a different request is
-refused (comments only).** The file header gains "Idempotency", the one statement of the
+refused (a behaviour change; no wire change).** The file header gains "Idempotency", the one statement of the
 rule for `TransactionRequest`, `UsageReport` and `DisputeRequest`. A key is scoped to the
 authenticated agent, and to the pair (Broker, requester) on a purchase relayed through
 `BrokerService.ExecuteTransaction`; a key another agent or tenant used is never a
