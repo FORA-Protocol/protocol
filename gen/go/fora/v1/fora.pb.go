@@ -2229,7 +2229,8 @@ type ResourceQuery struct {
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Requester identity — who is making this request, what scopes they have,
-	// and optional delegation chain.
+	// and optional delegation chain. REQUIRED: a query names its requester, whose
+	// Requester.id and Requester.domain are required in turn.
 	Requester *Requester `protobuf:"bytes,3,opt,name=requester,proto3" json:"requester,omitempty"`
 	// Resource URIs being queried.
 	Uris []string `protobuf:"bytes,8,rep,name=uris,proto3" json:"uris,omitempty"`
@@ -5297,7 +5298,9 @@ type TransactionRequest struct {
 	// transaction's durable identity is the Exchange-assigned transaction_id in
 	// the response.
 	IdempotencyKey string `protobuf:"bytes,2,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
-	// Requester identity — forwarded for authorization and audit.
+	// Requester identity — forwarded for authorization and audit. REQUIRED: a
+	// purchase names its requester, whose Requester.id and Requester.domain are
+	// required in turn, and every acceptance binds that requester.
 	Requester *Requester `protobuf:"bytes,4,opt,name=requester,proto3" json:"requester,omitempty"`
 	// The offers committed in this request (REQUIRED, min 1), each carrying its
 	// own reflected signed Offer + detached acceptance. A single offer is the
@@ -7321,7 +7324,9 @@ type DiscoveryRequest struct {
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Requester identity — who is making this request, what scopes they have.
-	// The Broker forwards this to Exchanges in ResourceQuery.requester.
+	// The Broker forwards this to Exchanges in ResourceQuery.requester. REQUIRED:
+	// a discovery names its requester, whose Requester.id and Requester.domain
+	// are required in turn.
 	Requester *Requester `protobuf:"bytes,3,opt,name=requester,proto3" json:"requester,omitempty"`
 	// Resource URIs the agent wants. The Broker forwards these to Exchanges in
 	// ResourceQuery.uris. Optional when `query` / `search_filters` drive
@@ -10932,10 +10937,10 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x12fora/v1/fora.proto\x12\afora.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1bbuf/validate/validate.proto\x1a\x13fora/v1/vocab.proto\"\x84\x01\n" +
 	"\x15AcceptableRestriction\x12,\n" +
 	"\x04axis\x18\x01 \x01(\x0e2\x18.fora.v1.RestrictionKindR\x04axis\x12=\n" +
-	"\x06values\x18\x02 \x03(\tB%\xbaH\"\x92\x01\x1f\x10@\"\x1br\x19\x10\x01\x18@2\x13^[A-Za-z0-9._:*-]+$R\x06values\"\xeb\x04\n" +
+	"\x06values\x18\x02 \x03(\tB%\xbaH\"\x92\x01\x1f\x10@\"\x1br\x19\x10\x01\x18@2\x13^[A-Za-z0-9._:*-]+$R\x06values\"\xf3\x04\n" +
 	"\rResourceQuery\x12\x10\n" +
-	"\x03ver\x18\x01 \x01(\tR\x03ver\x120\n" +
-	"\trequester\x18\x03 \x01(\v2\x12.fora.v1.RequesterR\trequester\x12\x1d\n" +
+	"\x03ver\x18\x01 \x01(\tR\x03ver\x128\n" +
+	"\trequester\x18\x03 \x01(\v2\x12.fora.v1.RequesterB\x06\xbaH\x03\xc8\x01\x01R\trequester\x12\x1d\n" +
 	"\x04uris\x18\b \x03(\tB\t\xbaH\x06\x92\x01\x03\x10\x80\x02R\x04uris\x12W\n" +
 	"\x17acceptable_restrictions\x18\t \x03(\v2\x1e.fora.v1.AcceptableRestrictionR\x16acceptableRestrictions\x12:\n" +
 	"\bdeadline\x18\x06 \x01(\v2\x19.google.protobuf.DurationH\x00R\bdeadline\x88\x01\x01\x12-\n" +
@@ -11189,12 +11194,12 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\toffer_sig\x18\x01 \x01(\tR\bofferSig\x12!\n" +
 	"\frequester_id\x18\x02 \x01(\tR\vrequesterId\x12)\n" +
 	"\x10requester_domain\x18\x03 \x01(\tR\x0frequesterDomain\x12'\n" +
-	"\x0fidempotency_key\x18\x04 \x01(\tR\x0eidempotencyKey\"\x92\x03\n" +
+	"\x0fidempotency_key\x18\x04 \x01(\tR\x0eidempotencyKey\"\x9a\x03\n" +
 	"\x12TransactionRequest\x12\x10\n" +
 	"\x03ver\x18\x01 \x01(\tR\x03ver\x123\n" +
 	"\x0fidempotency_key\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x0eidempotencyKey\x120\n" +
-	"\trequester\x18\x04 \x01(\v2\x12.fora.v1.RequesterR\trequester\x128\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x0eidempotencyKey\x128\n" +
+	"\trequester\x18\x04 \x01(\v2\x12.fora.v1.RequesterB\x06\xbaH\x03\xc8\x01\x01R\trequester\x128\n" +
 	"\x05items\x18\a \x03(\v2\x18.fora.v1.TransactionItemB\b\xbaH\x05\x92\x01\x02\b\x01R\x05items\x12^\n" +
 	"\x18agent_request_acceptance\x18\b \x01(\v2\x1f.fora.v1.AgentRequestAcceptanceH\x00R\x16agentRequestAcceptance\x88\x01\x01\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
@@ -11372,10 +11377,10 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x03ver\x18\x01 \x01(\tR\x03ver\x12\x1b\n" +
 	"\treport_id\x18\x03 \x01(\tR\breportId\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
-	"\fext_critical\x18Z \x03(\tR\vextCritical\"\x9c\x04\n" +
+	"\fext_critical\x18Z \x03(\tR\vextCritical\"\xa4\x04\n" +
 	"\x10DiscoveryRequest\x12\x10\n" +
-	"\x03ver\x18\x01 \x01(\tR\x03ver\x120\n" +
-	"\trequester\x18\x03 \x01(\v2\x12.fora.v1.RequesterR\trequester\x12\x1d\n" +
+	"\x03ver\x18\x01 \x01(\tR\x03ver\x128\n" +
+	"\trequester\x18\x03 \x01(\v2\x12.fora.v1.RequesterB\x06\xbaH\x03\xc8\x01\x01R\trequester\x12\x1d\n" +
 	"\x04uris\x18\b \x03(\tB\t\xbaH\x06\x92\x01\x03\x10\x80\x02R\x04uris\x12W\n" +
 	"\x17acceptable_restrictions\x18\t \x03(\v2\x1e.fora.v1.AcceptableRestrictionR\x16acceptableRestrictions\x12B\n" +
 	"\vconstraints\x18\x04 \x01(\v2\x1b.fora.v1.RequestConstraintsH\x00R\vconstraints\x88\x01\x01\x12-\n" +

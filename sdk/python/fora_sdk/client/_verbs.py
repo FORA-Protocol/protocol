@@ -110,9 +110,11 @@ class ClientConfig:
     base_url: str
     #: The RFC 9421 request signer. Custody stays with the application.
     signer: SigningTransport | None = None
-    #: The agent's own identity, forwarded on discovery and required on a purchase: both
-    #: reference services resolve the calling agent from it and refuse a request that
-    #: names none.
+    #: The agent's own identity. A query and a purchase must name a requester, and a
+    #: request without one is refused, so the client stamps it on every query that names
+    #: none and on every purchase, where the detached acceptance also binds it. Under
+    #: strict validation (the default) a query left with no requester is refused before
+    #: it is sent.
     requester: dict[str, Any] | None = None
     #: The fail-closed offer Verifier. Defaults to STRICT with nothing resolvable, so an
     #: unconfigured client rejects every offer rather than surfacing it unchecked.
@@ -1034,8 +1036,8 @@ def _stamp_discovery(
 
     Both fills are only-when-empty. The caller's own value always wins — the message
     crossed a module boundary as an argument, not as a buffer to fill in — and the
-    requester is filled because both reference services resolve the calling agent from it
-    and refuse a request that names none, while the client already holds that identity.
+    requester is filled because a query must name one, while the client already holds
+    that identity.
     """
     sent = _clone(op, message)
     if not sent.get("ver"):

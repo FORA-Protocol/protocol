@@ -1832,6 +1832,19 @@
     }
   },
   {
+    "id": "DiscoveryRequest/requester/missing",
+    "message": "DiscoveryRequest",
+    "valid": false,
+    "rules": [
+      "required"
+    ],
+    "json": {
+      "uris": [
+        "x"
+      ]
+    }
+  },
+  {
     "id": "DiscoveryRequest/uris/too_many",
     "message": "DiscoveryRequest",
     "valid": false,
@@ -1839,6 +1852,14 @@
       "repeated.max_items"
     ],
     "json": {
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x",
         "x",
@@ -2105,6 +2126,14 @@
     "message": "DiscoveryRequest",
     "valid": true,
     "json": {
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -19968,6 +19997,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "https://exchange.example",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -19983,6 +20020,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "exchange.example/register",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -19998,6 +20043,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "exchange.example:0",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -20013,6 +20066,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "exchange.example:99999",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -20028,6 +20089,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "exchange.example?x=1",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -20043,6 +20112,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "user@exchange.example",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -20058,6 +20135,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "exchange.example:123456",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -20073,6 +20158,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "exchange.example:",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -20088,6 +20181,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "exchange.example.",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -20103,6 +20204,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "exchange..example",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -20118,6 +20227,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "-exchange.example",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -20133,6 +20250,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "[::1]:443",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -20147,6 +20272,14 @@
     ],
     "json": {
       "deadline": "90s",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -20162,6 +20295,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "two words",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -20177,6 +20318,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "!!bad!!",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -20192,6 +20341,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "\u0000ctl\u0000",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -20207,6 +20364,14 @@
     "json": {
       "deadline": "90s",
       "exchange": " ",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -20222,6 +20387,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "-5",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -20237,6 +20410,29 @@
     "json": {
       "deadline": "90s",
       "exchange": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
+      "uris": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ResourceQuery/requester/missing",
+    "message": "ResourceQuery",
+    "valid": false,
+    "rules": [
+      "required"
+    ],
+    "json": {
+      "deadline": "90s",
+      "exchange": "x",
       "uris": [
         "x"
       ]
@@ -20252,6 +20448,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "x",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x",
         "x",
@@ -20520,6 +20724,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "x",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -21952,7 +22164,15 @@
             ]
           }
         }
-      ]
+      ],
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      }
     }
   },
   {
@@ -21963,6 +22183,42 @@
       "string.min_len"
     ],
     "json": {
+      "items": [
+        {
+          "offer": {
+            "exchange": "exchange.example",
+            "offer_id": "offer-seed",
+            "pricing": {
+              "model": "PRICING_MODEL_FREE",
+              "rate": "0"
+            },
+            "terms": [
+              {
+                "semantics": "TERM_SEMANTICS_ENUMERATED"
+              }
+            ]
+          }
+        }
+      ],
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      }
+    }
+  },
+  {
+    "id": "TransactionRequest/requester/missing",
+    "message": "TransactionRequest",
+    "valid": false,
+    "rules": [
+      "required"
+    ],
+    "json": {
+      "idempotency_key": "idem-tx",
       "items": [
         {
           "offer": {
@@ -22004,7 +22260,15 @@
             ]
           }
         }
-      ]
+      ],
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      }
     }
   },
   {

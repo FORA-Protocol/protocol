@@ -1059,7 +1059,7 @@
     },
     "requester": {
       "$ref": "#/$defs/fora.v1.Requester",
-      "description": "Requester identity — forwarded for authorization and audit."
+      "description": "Requester identity — forwarded for authorization and audit. REQUIRED: a\n purchase names its requester, whose Requester.id and Requester.domain are\n required in turn, and every acceptance binds that requester."
     },
     "ver": {
       "default": "",
@@ -1068,7 +1068,8 @@
     }
   },
   "required": [
-    "idempotency_key"
+    "idempotency_key",
+    "requester"
   ],
   "title": "TransactionRequest — Commit to one or more offers.",
   "type": "object"

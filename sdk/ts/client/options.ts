@@ -77,9 +77,11 @@ export interface ClientOptions {
 	 * bound to that same thumbprint. A second key would be refused at execute, and any URL
 	 * it did produce could never be fetched. */
 	agentPublicKey?: CryptoKey;
-	/** The agent's own identity, forwarded on discovery and required on a purchase: both
-	 * reference services resolve the calling agent from it and refuse a request naming
-	 * none. */
+	/** The agent's own identity. A query and a purchase must name a requester, and a
+	 * request without one is refused, so the client stamps it on every query that names
+	 * none and on every purchase, where the detached acceptance also binds it. Under
+	 * strict validation (the default) a query left with no requester is refused before it
+	 * is sent. */
 	requester?: Record<string, unknown>;
 	/** Offer-verification strictness. Defaults to "strict" — fail-closed. */
 	verification?: Mode;

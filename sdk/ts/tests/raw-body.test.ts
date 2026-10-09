@@ -138,8 +138,9 @@ describe("typed request inputs", () => {
 	it("accept the generated request type as well as a plain record", async () => {
 		const { peer, options } = await fixture(ok({ ver: "1.0", exchange: "exchange.test" }));
 		const client = createClient("https://exchange.test", options);
-		const typed: ResourceQuery = { exchange: "exchange.test", uris: ["https://site.test/a"] };
-		const loose: Record<string, unknown> = { exchange: "exchange.test", uris: ["https://site.test/a"] };
+		const requester = { id: "agent", domain: "agent.test", type: "REQUESTER_TYPE_AGENT" } as const;
+		const typed: ResourceQuery = { exchange: "exchange.test", requester, uris: ["https://site.test/a"] };
+		const loose: Record<string, unknown> = { exchange: "exchange.test", requester, uris: ["https://site.test/a"] };
 		await client.discover(typed);
 		await client.discover(loose);
 		const [a, b] = peer.seen;

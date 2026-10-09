@@ -348,7 +348,7 @@
     },
     "requester": {
       "$ref": "#/$defs/fora.v1.Requester",
-      "description": "Requester identity — who is making this request, what scopes they have.\n The Broker forwards this to Exchanges in ResourceQuery.requester."
+      "description": "Requester identity — who is making this request, what scopes they have.\n The Broker forwards this to Exchanges in ResourceQuery.requester. REQUIRED:\n a discovery names its requester, whose Requester.id and Requester.domain\n are required in turn."
     },
     "search_filters": {
       "description": "Structured search filters (optional, alongside or instead of query).\n Keys are profile-specific: \"academic.topic\", \"news.category\",\n \"legal.jurisdiction\", etc. The Broker maps these to Exchange-specific\n query parameters.",
@@ -376,6 +376,9 @@
       "type": "string"
     }
   },
+  "required": [
+    "requester"
+  ],
   "title": "Discovery Request",
   "type": "object"
 }

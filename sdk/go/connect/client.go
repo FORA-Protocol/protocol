@@ -453,9 +453,8 @@ func stampEnvelope(ver, idempotencyKey *string, opts []CallOption) error {
 //
 // Both fills are only-when-empty. The caller's own value always wins — the
 // message crossed a package boundary as an argument, not as a buffer to fill in —
-// and the requester is filled because both reference services resolve the calling
-// agent from it and refuse a request that names none, while the client already
-// holds that identity.
+// and the requester is filled because a query must name one, while the client
+// already holds that identity.
 func stampDiscovery(ver *string, requester **forav1.Requester, configured *forav1.Requester) {
 	if *ver == "" {
 		*ver = helpers.ProtocolVersion

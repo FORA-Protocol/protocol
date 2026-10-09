@@ -22,6 +22,7 @@ verifies the signature with ``verify_request_server``.
 from __future__ import annotations
 
 import json
+import urllib.parse
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -94,7 +95,11 @@ def _minted() -> tuple[Ed25519PrivateKey, str]:
 
 def _discover_as(face: Face, signer: SigningTransport, peer: SignedPeer) -> None:
     config = ClientConfig(base_url="https://exchange.test", signer=signer)
-    face.run(face.client(config, peer).discover({"exchange": "exchange.test"}))
+    # A query names its requester; on a direct request that is the host of the
+    # directory the request is signed as.
+    domain = urllib.parse.urlsplit(signer.signature_agent).netloc
+    requester = {"id": "agent", "domain": domain, "type": "REQUESTER_TYPE_AGENT"}
+    face.run(face.client(config, peer).discover({"exchange": "exchange.test", "requester": requester}))
 
 
 # ---------------------------------------------------------------------------

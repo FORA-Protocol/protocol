@@ -52,11 +52,18 @@ func validOffer() *forav1.Offer {
 	}
 }
 
+// validRequester is a valid Requester; a purchase names one, since the message is
+// required.
+func validRequester() *forav1.Requester {
+	return &forav1.Requester{Id: "agent-1", Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}
+}
+
 // TestTransactionRequest_items_valid pins the happy path: a request whose items
 // each carry a valid offer passes validation (a single offer is a 1-item list).
 func TestTransactionRequest_items_valid(t *testing.T) {
 	req := &forav1.TransactionRequest{
 		IdempotencyKey: "idem-items-1",
+		Requester:      validRequester(),
 		Items: []*forav1.TransactionItem{
 			{Offer: validOffer()},
 		},
@@ -100,6 +107,7 @@ func TestTransactionItem_missingOffer_rejected(t *testing.T) {
 func TestTransactionRequest_multiItem_valid(t *testing.T) {
 	req := &forav1.TransactionRequest{
 		IdempotencyKey: "idem-multi-1",
+		Requester:      validRequester(),
 		Items: []*forav1.TransactionItem{
 			{Offer: validOffer()},
 			{Offer: validOffer()},

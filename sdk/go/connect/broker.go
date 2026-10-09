@@ -100,8 +100,8 @@ func NewBrokerClient(baseURL string, opts ...ClientOption) *BrokerClient {
 //
 // The request is CLONED before ver and the requester are filled in, so the message
 // the caller built stays untouched. Both are filled only when EMPTY: a value the
-// caller set is theirs. A Broker resolves the calling agent from requester.id and
-// refuses a request that names none, so leaving it to every caller to remember
+// caller set is theirs. A discovery must name its requester and a Broker refuses
+// one that names none, so leaving it to every caller to remember
 // would make the identity the client already holds useless exactly where it is
 // needed.
 //

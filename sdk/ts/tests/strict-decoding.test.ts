@@ -21,7 +21,13 @@ function client(answer: unknown, opts: ClientOptions = {}) {
 	});
 }
 
-const QUERY = { exchange: "exchange.test", uris: ["https://site.test/a"] };
+// A query names its requester: the message is required, and the client validates
+// what it sends before sending it.
+const QUERY = {
+	exchange: "exchange.test",
+	requester: { id: "agent", domain: "agent.test", type: "REQUESTER_TYPE_AGENT" },
+	uris: ["https://site.test/a"],
+};
 
 async function failure(p: Promise<unknown>): Promise<ForaCallError> {
 	try {

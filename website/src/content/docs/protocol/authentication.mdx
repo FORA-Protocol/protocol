@@ -15,7 +15,7 @@ These three layers are independent. A public agent with no delegation still auth
 
 ## Requester Identity
 
-Every FORA request carries a `Requester` message that identifies who is making the request.
+Every query and every purchase (`ResourceQuery`, `DiscoveryRequest` and `TransactionRequest`) carries a `Requester` message that identifies who is making the request. The message is required: a request that names no requester is refused as malformed. Registration, account status, usage reports and disputes carry no `Requester`.
 
 ### Fields
 

@@ -80,6 +80,18 @@ func seeds() map[string]proto.Message {
 			}},
 		}
 	}
+	// requester is the required sub-message of ResourceQuery, DiscoveryRequest and
+	// TransactionRequest, so auto-fill needs its seed. It is exactly the Requester the
+	// auto-fill built before the field was required, so the Requester/* cases are
+	// unchanged.
+	requester := func() *forav1.Requester {
+		return &forav1.Requester{
+			Id:     "x",
+			Domain: "x",
+			Type:   forav1.RequesterType_REQUESTER_TYPE_AGENT,
+			Scopes: []string{"x"},
+		}
+	}
 	return map[string]proto.Message{
 		"Pricing":     pricing(),
 		"License":     &forav1.License{Id: proto.String("CC-BY-4.0")},
@@ -97,7 +109,8 @@ func seeds() map[string]proto.Message {
 		// and TransactionRequest needs a valid 1-item items[] baseline because its
 		// items field is now repeated.min_items=1 (single-offer mode removed).
 		"Offer":              offer(),
-		"TransactionRequest": &forav1.TransactionRequest{IdempotencyKey: "idem-tx", Items: []*forav1.TransactionItem{{Offer: offer()}}},
+		"Requester":          requester(),
+		"TransactionRequest": &forav1.TransactionRequest{IdempotencyKey: "idem-tx", Requester: requester(), Items: []*forav1.TransactionItem{{Offer: offer()}}},
 		"AgentRequestAcceptancePayload": &forav1.AgentRequestAcceptancePayload{
 			Items: []*forav1.AgentRequestAcceptanceItem{{
 				OfferSig: "offer-signature",

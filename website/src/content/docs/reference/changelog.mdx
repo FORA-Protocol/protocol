@@ -379,8 +379,9 @@ ingestion page and the threat model now describe the pipeline's token count as t
 publisher states, in the price's own unit, and a usage report never changes the charge.
 The JSONL worked example no longer pairs a per-access price with a token-count estimate.
 
-**An acceptance names its requester: `Requester.id` and `Requester.domain` are required
-(validation rules added; no wire change).** An agent's offer acceptance signs canonical
+**A query and a purchase name their requester, and an acceptance names it too:
+`requester`, `Requester.id` and `Requester.domain` are required (validation rules added;
+no wire change).** An agent's offer acceptance signs canonical
 bytes built from the offer, the request's `Requester` and the idempotency key. The proto
 let `Requester.id` be empty, and the SDKs signed an empty `requester_domain` as well, so
 those bytes could name no requester. On a purchase relayed through
@@ -394,6 +395,10 @@ comes from the Broker and never signs the purchase.
 - `Requester.domain` is REQUIRED, a non-empty bare host under the same pattern every other
   domain field uses. The pattern already refused an empty value; the comment now says so.
   The field is the host of the agent's key directory, and never a free label.
+- `requester` itself is REQUIRED on `ResourceQuery`, `TransactionRequest` and
+  `DiscoveryRequest`. A rule on a field of an absent message never runs, so a request
+  that named no requester at all passed the two rules above. `RegisterRequest`,
+  `GetAccountStatusRequest`, `UsageReport` and `DisputeRequest` carry no `requester`.
 - The `Requester.domain` comment said verification never uses the field, which
   contradicted the relayed purchase. It now states the rule per path. On a direct request
   (the agent's own signature arrives), a verifier resolves the agent's keys from the
@@ -410,9 +415,12 @@ comes from the Broker and never signs the purchase.
   signer refuses to sign bytes that name an empty requester, and a verifier refuses an
   acceptance whose canonical bytes name one, even when the signature over them verifies.
 - `buf breaking` against v1.0.0 passes: adding validation rules is not a wire break. A
-  peer that sent an empty `Requester.id` is now refused by a validating receiver.
-- The validation corpus gains `Requester/id/too_short` and `Requester/id/too_long`, and
-  its `Requester` baseline now carries an `id`.
+  peer that sent an empty `Requester.id`, or a query or purchase with no `requester`, is
+  now refused by a validating receiver.
+- The validation corpus gains `Requester/id/too_short`, `Requester/id/too_long`,
+  `ResourceQuery/requester/missing`, `TransactionRequest/requester/missing` and
+  `DiscoveryRequest/requester/missing`. Its `Requester` baseline now carries an `id`, and
+  is seeded so the baselines of the three requests carry it.
 
 SDKs, in all three languages: the acceptance canonicalizers and signers refuse an empty
 requester id or domain, for the offer acceptance and the request acceptance alike, and
@@ -428,7 +436,13 @@ and the signers, and the verifiers return `false`. The purchase verbs of every c
 `domain` locally, as a malformed call, before signing or sending anything. The shared
 acceptance vectors move their empty-requester cases into a new `refused` list, which
 records the bytes and raw signature a signer without the check would produce, so each
-language proves it refuses them even though that signature verifies.
+language proves it refuses them even though that signature verifies. The generated
+Pydantic models, Zod schemas and TypeScript input types now require `requester` on the
+three requests, a type-level change for code that builds one without it. The Python and
+TypeScript clients validate an outgoing request by default, so a discover left with no
+requester (none configured and none in the message) is refused locally as malformed;
+resolve and the purchase verbs already refused it with a named remedy. Go validates only
+when asked, so its discover is refused by the receiver.
 
 Docs: the authentication page's Requester table and a new "Requester domain and the key
 directory" section, the projected-execute section, the transaction-flow page, the

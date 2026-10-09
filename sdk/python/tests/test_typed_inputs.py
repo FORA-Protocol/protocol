@@ -65,13 +65,17 @@ class _Case:
 
 
 _DIGEST = "sha256:" + "ab" * 32
+# A query and a discovery name their requester: the message is required. Its keys are
+# in the order the model renders them, so the dict and the model send the same bytes.
+_REQUESTER = {"domain": "agent.test", "id": "agent", "type": "REQUESTER_TYPE_AGENT"}
 _CASES = [
     _Case("discover", "Client", ResourceQuery,
-          {"exchange": "exchange.test", "uris": ["https://site.test/a"]}),
+          {"exchange": "exchange.test", "requester": _REQUESTER, "uris": ["https://site.test/a"]}),
     _Case("discover", "Client", ResourceQuery,
-          {"exchange": "exchange.test", "uris": ["https://site.test/a"], "ver": "9.9"}),
+          {"exchange": "exchange.test", "requester": _REQUESTER, "uris": ["https://site.test/a"],
+           "ver": "9.9"}),
     _Case("resolve", "BrokerClient", DiscoveryRequest,
-          {"query": "jazz", "uris": ["https://site.test/a"]}),
+          {"query": "jazz", "requester": _REQUESTER, "uris": ["https://site.test/a"]}),
     _Case("report_usage", "Client", UsageReport,
           {"billing_id": "bill-1", "exchange": "exchange.test", "idempotency_key": "idem-1",
            "transaction_id": "t-1"}),

@@ -1516,9 +1516,9 @@ class ResourceQuery(WireModel):
         None,
         description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
     )
-    requester: Requester | None = Field(
-        None,
-        description='Requester identity — who is making this request, what scopes they have,\n and optional delegation chain.',
+    requester: Requester = Field(
+        ...,
+        description='Requester identity — who is making this request, what scopes they have,\n and optional delegation chain. REQUIRED: a query names its requester, whose\n Requester.id and Requester.domain are required in turn.',
     )
     supported_profiles: list[str] | None = Field(
         None,
@@ -1786,9 +1786,9 @@ class DiscoveryRequest(WireModel):
         None,
         description="Search query for Broker-side resource discovery.\n Used when the agent doesn't know specific URIs but wants the Broker\n to find matching resources across Exchanges.\n When present, the Broker interprets the query and discovers resources\n across Exchanges on the agent's behalf. Results returned as Offers\n in DiscoveryResponse, same as for specific URI requests.\n Can be used alongside uris (specific URIs + search in one request).",
     )
-    requester: Requester | None = Field(
-        None,
-        description='Requester identity — who is making this request, what scopes they have.\n The Broker forwards this to Exchanges in ResourceQuery.requester.',
+    requester: Requester = Field(
+        ...,
+        description='Requester identity — who is making this request, what scopes they have.\n The Broker forwards this to Exchanges in ResourceQuery.requester. REQUIRED:\n a discovery names its requester, whose Requester.id and Requester.domain\n are required in turn.',
     )
     search_filters: dict[str, Any] | None = Field(
         None,
@@ -2114,8 +2114,9 @@ class TransactionRequest(WireModel):
         description="The offers committed in this request (REQUIRED, min 1), each carrying its\n own reflected signed Offer + detached acceptance. A single offer is the\n degenerate 1-element list. The Exchange verifies each item's\n `offer.signature` (which covers pricing, terms, and expires_at) over the\n presented bytes against its own key — stateless, self-contained bearer\n tokens, with no reconstruct-from-catalog.",
         min_length=1,
     )
-    requester: Requester | None = Field(
-        None, description='Requester identity — forwarded for authorization and audit.'
+    requester: Requester = Field(
+        ...,
+        description='Requester identity — forwarded for authorization and audit. REQUIRED: a\n purchase names its requester, whose Requester.id and Requester.domain are\n required in turn, and every acceptance binds that requester.',
     )
     ver: str | None = Field(
         '',

@@ -110,14 +110,16 @@ func WithInterceptors(is ...connectrpc.Interceptor) ClientOption {
 	return func(c *clientConfig) { c.extra = append(c.extra, is...) }
 }
 
-// WithRequester injects the agent's own identity, forwarded on a purchase for
-// authorization and audit and covered by the detached offer acceptance.
+// WithRequester injects the agent's own identity. A query and a purchase must
+// name a requester — the field is required, and a request without one is refused
+// — so the client stamps it on every query that names none and on every purchase,
+// where the detached offer acceptance also binds it.
 //
 // It is client-level rather than per-call on purpose: the requester IS the
 // identity the injected Signer already fixes for the transport signature, so a
 // per-call requester would let the two disagree about who is buying — the exact
 // ambiguity the acceptance exists to remove. A verifying Broker refuses a
-// requester id that does not normalise to the signer's own directory host.
+// requester whose domain does not name the signer's own directory host.
 //
 // The message is cloned here, so a later mutation by the caller cannot reach a
 // request already in flight.

@@ -518,8 +518,9 @@ message ResourceQuery {
   string ver = 1;
 
   // Requester identity — who is making this request, what scopes they have,
-  // and optional delegation chain.
-  Requester requester = 3;
+  // and optional delegation chain. REQUIRED: a query names its requester, whose
+  // Requester.id and Requester.domain are required in turn.
+  Requester requester = 3 [(buf.validate.field).required = true];
 
   // Resource URIs being queried.
   repeated string uris = 8 [(buf.validate.field).repeated.max_items = 256];
@@ -2547,8 +2548,10 @@ message TransactionRequest {
     (buf.validate.field).string = {min_len: 1, max_len: 255}
   ];
 
-  // Requester identity — forwarded for authorization and audit.
-  Requester requester = 4;
+  // Requester identity — forwarded for authorization and audit. REQUIRED: a
+  // purchase names its requester, whose Requester.id and Requester.domain are
+  // required in turn, and every acceptance binds that requester.
+  Requester requester = 4 [(buf.validate.field).required = true];
 
   // The offers committed in this request (REQUIRED, min 1), each carrying its
   // own reflected signed Offer + detached acceptance. A single offer is the
@@ -3571,8 +3574,10 @@ message DiscoveryRequest {
   string ver = 1;
 
   // Requester identity — who is making this request, what scopes they have.
-  // The Broker forwards this to Exchanges in ResourceQuery.requester.
-  Requester requester = 3;
+  // The Broker forwards this to Exchanges in ResourceQuery.requester. REQUIRED:
+  // a discovery names its requester, whose Requester.id and Requester.domain
+  // are required in turn.
+  Requester requester = 3 [(buf.validate.field).required = true];
 
   // Resource URIs the agent wants. The Broker forwards these to Exchanges in
   // ResourceQuery.uris. Optional when `query` / `search_filters` drive

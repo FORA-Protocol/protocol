@@ -239,7 +239,7 @@
     },
     "requester": {
       "$ref": "#/$defs/fora.v1.Requester",
-      "description": "Requester identity — who is making this request, what scopes they have,\n and optional delegation chain."
+      "description": "Requester identity — who is making this request, what scopes they have,\n and optional delegation chain. REQUIRED: a query names its requester, whose\n Requester.id and Requester.domain are required in turn."
     },
     "supported_profiles": {
       "description": "Declares which ext field vocabularies the caller can parse and act on.\n The Exchange SHOULD include profile-specific ext fields in Offers\n when the caller declares support. The Exchange MAY skip expensive\n metadata computation (e.g., retraction checking, consolidation\n verification) when the caller does not declare the relevant profile.\n\n Absence means \"send all available metadata\" — Exchange MUST NOT\n withhold ext fields solely because the caller omitted this field.\n\n Values match the Exchange's WellKnownManifest.supported_profiles entries.\n Examples: [\"fora-news-v1\", \"fora-academic-v1\", \"fora-legal-v1\"]",
@@ -264,7 +264,8 @@
     }
   },
   "required": [
-    "exchange"
+    "exchange",
+    "requester"
   ],
   "title": "ResourceQuery — Query an Exchange for available resource offers.",
   "type": "object"

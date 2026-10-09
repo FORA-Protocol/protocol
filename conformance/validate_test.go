@@ -129,9 +129,9 @@ func licensingCases() []validationCase {
 		{"offer term with pricing rejected", pricedTermOffer(meteredPricing(proto.Int32(2500)), meteredPricing(proto.Int32(2500))), false, "offer.terms.pricing_unset"},
 		{"offer term with free pricing rejected", pricedTermOffer(freePricing(), freePricing()), false, "offer.terms.pricing_unset"},
 		{"offer per_unit term under flat pricing rejected", pricedTermOffer(&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD"}, meteredPricing(nil)), false, "offer.terms.pricing_unset"},
-		{"transaction with priced offer term rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-p", Items: []*forav1.TransactionItem{{Offer: pricedTermOffer(freePricing(), freePricing())}}}, false, "offer.terms.pricing_unset"},
-		{"transaction with unestimated metered offer ok", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-m", Items: []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(nil))}}}, true, ""},
-		{"transaction with zero-estimate metered offer rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-z", Items: []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(proto.Int32(0)))}}}, false, "offer.metered.estimate_positive"},
+		{"transaction with priced offer term rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-p", Requester: exampleRequester(), Items: []*forav1.TransactionItem{{Offer: pricedTermOffer(freePricing(), freePricing())}}}, false, "offer.terms.pricing_unset"},
+		{"transaction with unestimated metered offer ok", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-m", Requester: exampleRequester(), Items: []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(nil))}}}, true, ""},
+		{"transaction with zero-estimate metered offer rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-z", Requester: exampleRequester(), Items: []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(proto.Int32(0)))}}}, false, "offer.metered.estimate_positive"},
 
 		// Pricing.unit format: empty / bare-dashed / vendor:namespaced.
 		{"pricing unit bare ok", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Unit: proto.String("sq-km"), Rate: "1"}, true, ""},
@@ -352,9 +352,14 @@ func TestIdempotencyKeyRequired(t *testing.T) {
 
 func idempotencyCases() []validationCase {
 	return []validationCase{
-		{"transaction empty key rejected", &forav1.TransactionRequest{IdempotencyKey: "", Items: []*forav1.TransactionItem{{Offer: &forav1.Offer{OfferId: "of_1", Exchange: exampleExchange, Pricing: freePricing(), Terms: freeTerms()}}}}, false, "string.min_len"},
-		{"transaction key ok", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-1", Items: []*forav1.TransactionItem{{Offer: &forav1.Offer{OfferId: "of_1", Exchange: exampleExchange, Pricing: freePricing(), Terms: freeTerms()}}}}, true, ""},
-		{"transaction empty items rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-empty"}, false, "repeated.min_items"},
+		{"transaction empty key rejected", &forav1.TransactionRequest{IdempotencyKey: "", Requester: exampleRequester(), Items: []*forav1.TransactionItem{{Offer: &forav1.Offer{OfferId: "of_1", Exchange: exampleExchange, Pricing: freePricing(), Terms: freeTerms()}}}}, false, "string.min_len"},
+		{"transaction key ok", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-1", Requester: exampleRequester(), Items: []*forav1.TransactionItem{{Offer: &forav1.Offer{OfferId: "of_1", Exchange: exampleExchange, Pricing: freePricing(), Terms: freeTerms()}}}}, true, ""},
+		{"transaction empty items rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-empty", Requester: exampleRequester()}, false, "repeated.min_items"},
+		// A query and a purchase name their requester: the message is required, so
+		// an absent one cannot skip the Requester.id and Requester.domain rules.
+		{"transaction without requester rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-nr", Items: []*forav1.TransactionItem{{Offer: &forav1.Offer{OfferId: "of_1", Exchange: exampleExchange, Pricing: freePricing(), Terms: freeTerms()}}}}, false, "required"},
+		{"resource query without requester rejected", &forav1.ResourceQuery{}, false, "required"},
+		{"discovery request without requester rejected", &forav1.DiscoveryRequest{}, false, "required"},
 		{"usage report empty key rejected", &forav1.UsageReport{IdempotencyKey: "", Exchange: exampleExchange}, false, "string.min_len"},
 		{"usage report key ok", &forav1.UsageReport{IdempotencyKey: "idem-ur-1", Exchange: exampleExchange}, true, ""},
 		{"dispute empty key rejected", &forav1.DisputeRequest{IdempotencyKey: "", Exchange: exampleExchange, Reason: forav1.DisputeReason_DISPUTE_REASON_CONTENT_MISMATCH}, false, "string.min_len"},
@@ -394,6 +399,12 @@ func pricedTermOffer(offerPricing, termPricing *forav1.Pricing) *forav1.Offer {
 		OfferId: "of_priced_term", Exchange: exampleExchange, Pricing: offerPricing,
 		Terms: []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: termPricing}},
 	}
+}
+
+// exampleRequester is a valid Requester: query and purchase cases carry one, since the
+// message is required on both.
+func exampleRequester() *forav1.Requester {
+	return &forav1.Requester{Id: "agent-1", Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}
 }
 
 func freePricing() *forav1.Pricing {
