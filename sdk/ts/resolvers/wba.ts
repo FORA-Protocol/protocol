@@ -84,13 +84,22 @@ export interface WBAKeyResolver {
 		directory: string,
 	): Promise<Uint8Array | undefined>;
 	run(signal: AbortSignal): Promise<void>;
-	/** Whether `keyId` (a thumbprint) is in ANY host's fetched revocation snapshot,
-	 * INDEPENDENT of WBA directory membership. `resolve` gates a key only when the
-	 * directory lists it (removal is not revocation), so a key resolved from another
-	 * source — e.g. a static bootstrap file — is invisible to that path; `revoked`
-	 * is the fail-closed hook a composite consults to reject a broker-revoked,
-	 * directory-absent thumbprint. False when no snapshot has been fetched. */
-	revoked(keyId: string): boolean;
+	/** Whether `keyId` (a thumbprint) is on the revocation list of the key directory
+	 * `directory` names, and on no other list. A list covers only its own directory's
+	 * keys: no party's list revokes another party's key, even when it names that key's
+	 * thumbprint. `directory` is a directory reference as `resolve` takes it (an https
+	 * origin or a bare host), normalized the same way, so letter case and a port of 443
+	 * written out name the same directory. An empty or unusable reference, or an empty
+	 * `keyId`, answers false.
+	 *
+	 * The answer is membership, INDEPENDENT of WBA directory membership: `resolve`
+	 * gates a key only when the directory lists it (removal is not revocation), so a
+	 * key resolved from another source — e.g. a static bootstrap file holding a copy of
+	 * that party's key — is invisible to that path, and `revoked` is the fail-closed
+	 * hook a composite consults against the key owner's own list. A directory's list is
+	 * known once the directory has been fetched, including a directory that lists no
+	 * key; before that it answers false (membership only, never an outage). */
+	revoked(keyId: string, directory: string): boolean;
 }
 
 /** Construct a WBA resolver with defaults applied (every option but `fetch`). */
@@ -258,12 +267,12 @@ class WBAResolverImpl implements WBAKeyResolver {
 		return this.revSnapshots.has(host);
 	}
 
-	revoked(keyId: string): boolean {
-		if (keyId === "") return false;
-		for (const set of this.revSnapshots.values()) {
-			if (set.thumbprints.has(keyId)) return true;
-		}
-		return false;
+	revoked(keyId: string, directory: string): boolean {
+		if (keyId === "" || directory === "") return false;
+		// directoryBase keys every snapshot by the WHATWG host, which folds letter case
+		// and a default port, so one directory spelled two ways reaches one list.
+		const host = directoryBase(directory)?.host;
+		return host !== undefined && this.isRevoked(host, keyId);
 	}
 
 	// Best-effort: a missing/cross-host/failed/undecodable revocation_url leaves the
@@ -438,9 +447,9 @@ function publicKeyOf(key: WBAJwk): Uint8Array {
  * it does NOT consult any revocation channel. A key that was emergency-revoked but
  * is still window-active in a (possibly CDN-cached) directory WILL be selected. A
  * caller on a VERIFICATION path MUST NOT trust the result until it has screened the
- * selected key's RFC 7638 thumbprint against the resolver's revoked-thumbprint set
- * (`WBAKeyResolver.revoked` / a revocation snapshot); otherwise adopting this
- * selector defeats emergency revocation. Prefer {@link activeEd25519KeyScreened},
+ * selected key's RFC 7638 thumbprint against the revocation list of the directory it
+ * came from (`WBAKeyResolver.revoked` with that directory, or a snapshot of that
+ * list); otherwise adopting this selector defeats emergency revocation. Prefer {@link activeEd25519KeyScreened},
  * which folds that screen into selection. This bare form is for non-verification
  * callers only. */
 export function activeEd25519Key(
@@ -481,9 +490,9 @@ export function activeEd25519KeyWithExpiry(
  * screen the bare {@link activeEd25519Key} leaves to the caller into selection
  * itself, so an emergency-revoked key still listed in a CDN-cached directory is
  * passed over for the next active, non-revoked key. `revoked` is REQUIRED: pass a
- * predicate over the resolver's revoked-thumbprint set (e.g. `WBAKeyResolver.revoked`)
- * or, for a caller with no revocation channel, an explicit `() => false` to make the
- * waiver visible. It is ASYNC because screening computes each candidate's RFC 7638
+ * predicate over the revocation list of the directory being selected from (e.g.
+ * `(tp) => wba.revoked(tp, directory)`) or, for a caller with no revocation channel,
+ * an explicit `() => false` to make the waiver visible. It is ASYNC because screening computes each candidate's RFC 7638
  * thumbprint (the SAME `crypto.subtle` primitive `WBAKeyResolver.resolve` keys on).
  * Returns `null` when no examined, non-revoked key qualifies. */
 export async function activeEd25519KeyScreened(

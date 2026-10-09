@@ -63,11 +63,16 @@ export interface CachedOfferKeyResolverOptions {
 	ttlMs?: number;
 	/** The cache-freshness + selection clock; undefined → Date.now. Tests inject. */
 	now?: () => number;
-	/** Screens a candidate key by its RFC 7638 thumbprint — a revoked key is skipped
-	 * during selection so a window-active-but-revoked key is never served. undefined
-	 * screens nothing; inject a revoked-set predicate on any verification path. A
-	 * throwing predicate fails closed (resolve → undefined), never propagates. */
-	revoked?: (thumbprint: string) => boolean;
+	/** Screens a candidate key by its RFC 7638 thumbprint and the exchange whose
+	 * directory it came from — a revoked key is skipped during selection so a
+	 * window-active-but-revoked key is never served. It must answer from that
+	 * exchange's own revocation list only: no party's list revokes another party's key.
+	 * undefined screens nothing; inject a predicate on any verification path.
+	 * `WBAKeyResolver.revoked` has this shape and can be passed directly (bind it,
+	 * `(tp, ex) => wba.revoked(tp, ex)`); it knows a directory's list only once that
+	 * resolver has fetched the directory. A throwing predicate fails closed
+	 * (resolve → undefined), never propagates. */
+	revoked?: (thumbprint: string, exchange: string) => boolean;
 }
 
 /** The public face: the OfferKeyResolver core.Verifier resolves offer keys through. */
@@ -97,7 +102,7 @@ class CachedOfferKeyResolverImpl implements OfferKeyResolver {
 	private readonly fetchFn: OfferDirectoryFetch;
 	private readonly ttlMs: number;
 	private readonly now: () => number;
-	private readonly revoked: (thumbprint: string) => boolean;
+	private readonly revoked: (thumbprint: string, exchange: string) => boolean;
 	private readonly cache = new Map<string, OfferKeyEntry>();
 	private readonly flight = new Map<
 		string,
@@ -155,10 +160,12 @@ class CachedOfferKeyResolverImpl implements OfferKeyResolver {
 			const dir = await this.fetchFn(exchange);
 			if (dir === undefined) return undefined; // unresolvable directory → fail closed
 			const nowMs = this.now();
+			// The selector screens by thumbprint alone; the exchange names whose list
+			// answers, so the predicate never consults another party's list.
 			const selected = await activeEd25519KeyWithExpiryScreened(
 				dir,
 				nowMs,
-				this.revoked,
+				(thumbprint) => this.revoked(thumbprint, exchange),
 			);
 			if (selected === null) return undefined; // no active, non-revoked key
 			// The decoded key bytes are ArrayBuffer-backed at runtime; the selector widens

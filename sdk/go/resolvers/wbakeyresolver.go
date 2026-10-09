@@ -844,29 +844,59 @@ func (r *WBAKeyResolver) revocationSnapshotPresent(host string) bool {
 	return ok
 }
 
-// Revoked reports whether keyID (an RFC 7638 thumbprint) is present in ANY
-// host's fetched revocation snapshot, INDEPENDENT of whether that thumbprint
-// appears in the corresponding WBA directory. Resolve gates a key only when the
-// directory lists it (removal is not revocation); a key resolved from a source
-// OTHER than the directory — e.g. a static bootstrap file — is invisible to that
-// path, so a composite resolver can still admit a broker-revoked, directory-
-// absent thumbprint. Revoked closes that gap: a caller that resolved a key
-// elsewhere consults it to fail closed against the revocation channel. It
-// returns false when no snapshot has been fetched (the snapshot is unavailable —
-// the caller decides whether an unavailable revocation channel is itself
-// fail-closed; this accessor reports membership only, never an outage).
-func (r *WBAKeyResolver) Revoked(keyID string) bool {
-	if keyID == "" {
+// Revoked reports whether keyID (an RFC 7638 thumbprint) is on the revocation
+// list of the key directory `directory` names, and on no other list. A list
+// covers only its own directory's keys: no party's list revokes another party's
+// key, even when it names that key's thumbprint, so a list fetched from any other
+// directory never answers here.
+//
+// directory is a directory reference in the form Resolve reads off a
+// Signature-Agent member — an https origin or a bare host — and it is normalized
+// the same way. Its host names the same directory as a fetched one under the
+// request-recipient identity rule: case is folded, and a port of 443 written out
+// is the same as none. A reference that is empty or names no fetchable directory
+// answers false, as does an empty keyID.
+//
+// The answer is membership, INDEPENDENT of whether the directory still lists the
+// key. Resolve gates a key only when the directory lists it (removal is not
+// revocation); a key resolved from another source — e.g. a static bootstrap
+// file holding a copy of that party's key — is invisible to that path, so a
+// composite resolver consults this to fail closed against the key owner's own
+// revocation list. A directory's list is known once the directory has been
+// fetched (Resolve loads it; Run keeps it fresh), including a directory that
+// lists no key, since a party that removed every key may still revoke the copies
+// held elsewhere. Before that it answers false: this accessor reports membership
+// only, never an outage, and the caller decides whether an unevaluated revocation
+// channel is itself fail-closed.
+func (r *WBAKeyResolver) Revoked(keyID, directory string) bool {
+	if keyID == "" || directory == "" {
+		return false
+	}
+	_, host, err := r.directoryBase(directory)
+	if err != nil {
 		return false
 	}
 	r.revMu.RLock()
 	defer r.revMu.RUnlock()
-	for _, set := range r.revoked {
+	for fetched, set := range r.revoked {
+		if fetched != host && !sameDirectoryHost(fetched, host) {
+			continue
+		}
 		if _, ok := set.thumbprints[keyID]; ok {
 			return true
 		}
 	}
 	return false
+}
+
+// sameDirectoryHost reports whether two directory hosts name one party under the
+// request-recipient identity rule that Requester.domain is compared by: case
+// folded, a port of 443 written out the same as none, a subdomain a different
+// party. Hosts that rule cannot read (an IP literal, an internationalized name)
+// match only when spelled identically, which the caller checks first.
+func sameDirectoryHost(a, b string) bool {
+	v, err := helpers.CheckAudience(a, b)
+	return err == nil && v == helpers.AudienceAccepted
 }
 
 // refreshRevocationFor replaces host's revocation snapshot from f's
@@ -1047,9 +1077,9 @@ type ActiveKeyScanOptions struct {
 // it does NOT consult any revocation channel. A key that was emergency-revoked but
 // is still window-active in a (possibly CDN-cached) directory WILL be selected. A
 // caller on a VERIFICATION path MUST NOT trust the result until it has screened the
-// selected key's RFC 7638 thumbprint against the resolver's revoked-thumbprint set
-// (WBAKeyResolver.Revoked / a revocation snapshot); otherwise adopting this selector
-// defeats emergency revocation. Prefer ActiveEd25519KeyScreened, which folds that
+// selected key's RFC 7638 thumbprint against the revocation list of the directory it
+// came from (WBAKeyResolver.Revoked with that directory, or a snapshot of that
+// list); otherwise adopting this selector defeats emergency revocation. Prefer ActiveEd25519KeyScreened, which folds that
 // screen into selection. This bare form is for non-verification callers only.
 func ActiveEd25519Key(directory *forav1.WBAFile, now time.Time, opts ...ActiveKeyScanOptions) (ed25519.PublicKey, error) {
 	pub, _, err := selectActiveEd25519Key(directory, now, nil, opts...)
@@ -1083,8 +1113,9 @@ func ActiveEd25519KeyWithExpiry(directory *forav1.WBAFile, now time.Time, opts .
 // selection itself, so an emergency-revoked key still listed in a CDN-cached
 // directory is passed over for the next active, non-revoked key. `revoked` is
 // REQUIRED: a nil predicate screens nothing (equivalent to the bare selector and
-// unsafe on a verification path). Pass one over the resolver's revoked-thumbprint
-// set (e.g. WBAKeyResolver.Revoked) or, for a caller with no revocation channel, an
+// unsafe on a verification path). Pass one over the revocation list of the
+// directory being selected from — e.g. func(tp string) bool { return
+// wba.Revoked(tp, directory) } — or, for a caller with no revocation channel, an
 // explicit func(string) bool { return false } to make the waiver visible. The
 // thumbprint is computed with helpers.Thumbprint (RFC 7638) — the SAME primitive
 // WBAKeyResolver.Resolve keys on. Returns (nil, ErrUnknownKey) when no well-formed

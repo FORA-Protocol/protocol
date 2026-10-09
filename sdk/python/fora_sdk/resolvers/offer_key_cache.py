@@ -49,7 +49,7 @@ def _default_now() -> datetime:
     return datetime.now(UTC)
 
 
-def _never_revoked(_thumbprint: str) -> bool:
+def _never_revoked(_thumbprint: str, _exchange: str) -> bool:
     return False
 
 
@@ -74,22 +74,27 @@ class CachedOfferKeyResolver:
         fetch: DirectoryFetch,
         now: Callable[[], datetime] | None = None,
         ttl_seconds: int = _DEFAULT_TTL_SECONDS,
-        revoked: Callable[[str], bool] | None = None,
+        revoked: Callable[[str, str], bool] | None = None,
     ) -> None:
         """Wire the resolver.
 
         ``fetch`` resolves a domain to its WBA directory (required). ``now`` is the
         cache-freshness + selection clock (default :func:`datetime.now(UTC)`).
         ``ttl_seconds`` bounds the per-domain cache. ``revoked`` screens a candidate
-        key by its RFC 7638 thumbprint — a revoked key is skipped during selection so
-        a window-active-but-revoked key is never served; default screens nothing, so
-        a verification-path caller SHOULD inject :meth:`WBAKeyResolver.revoked` (or an
-        equivalent revoked-set predicate).
+        key by its RFC 7638 thumbprint and the exchange whose directory it came from —
+        a revoked key is skipped during selection so a window-active-but-revoked key
+        is never served. It must answer from that exchange's own revocation list only:
+        no party's list revokes another party's key. The default screens nothing, so a
+        verification-path caller SHOULD inject one. :meth:`WBAKeyResolver.revoked` has
+        this shape and can be passed directly; it knows a directory's list only once
+        that resolver has fetched the directory.
         """
         self._fetch = fetch
         self._now = now if now is not None else _default_now
         self._ttl = ttl_seconds
-        self._revoked: Callable[[str], bool] = revoked if revoked is not None else _never_revoked
+        self._revoked: Callable[[str, str], bool] = (
+            revoked if revoked is not None else _never_revoked
+        )
         self._cache: dict[str, tuple[bytes, float]] = {}
 
     async def prefetch(self, exchanges: Iterable[str]) -> dict[str, bytes]:
@@ -128,7 +133,11 @@ class CachedOfferKeyResolver:
         for ex, wba in zip(misses, results, strict=True):
             if wba is None or isinstance(wba, BaseException):
                 continue
-            selected = active_ed25519_key_with_expiry_screened(wba, now_dt, self._revoked)
+            # The selector screens by thumbprint alone; the exchange names whose list
+            # answers, so the predicate never consults another party's list.
+            selected = active_ed25519_key_with_expiry_screened(
+                wba, now_dt, lambda tp, ex=ex: self._revoked(tp, ex)
+            )
             if selected is None:
                 continue
             key, not_after = selected

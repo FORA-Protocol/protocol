@@ -311,3 +311,41 @@ func TestRevocationAnchored_schemeMayNotDowngrade(t *testing.T) {
 		})
 	}
 }
+
+// TestRevokedMatchesTheDirectoryIdentity pins how Revoked finds the list it
+// answers from. The snapshot is stored under the host a fetch spelled, and a
+// caller may name the same directory another way — an offer's bare exchange
+// domain, an origin with :443 written out, different letter case. Those name the
+// same party under the request-recipient identity rule, so they must reach the
+// same list: matching the spelling only would read a revoked key as unrevoked.
+// A subdomain is a different party and never borrows the list.
+func TestRevokedMatchesTheDirectoryIdentity(t *testing.T) {
+	r := NewWBAKeyResolver(WBAKeyResolverOptions{})
+	r.revoked["exchange.example"] = wbaRevSet{thumbprints: map[string]struct{}{"tp": {}}}
+	r.revoked["127.0.0.1:8443"] = wbaRevSet{thumbprints: map[string]struct{}{"ip": {}}}
+
+	for _, tc := range []struct {
+		name, keyID, directory string
+		want                   bool
+	}{
+		{"origin as fetched", "tp", "https://exchange.example", true},
+		{"bare host", "tp", "exchange.example", true},
+		{"letter case folded", "tp", "https://Exchange.EXAMPLE", true},
+		{"port 443 written out", "tp", "https://exchange.example:443", true},
+		{"bare host with 443", "tp", "exchange.example:443", true},
+		{"subdomain is another party", "tp", "https://sub.exchange.example", false},
+		{"parent is another party", "tp", "https://example", false},
+		{"other port is another directory", "tp", "https://exchange.example:8443", false},
+		{"other key on the same list", "other", "https://exchange.example", false},
+		{"ip literal spelled identically", "ip", "https://127.0.0.1:8443", true},
+		{"ip literal on another port", "ip", "https://127.0.0.1:9443", false},
+		{"empty directory", "tp", "", false},
+		{"not a directory", "tp", "data:application/json,{}", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := r.Revoked(tc.keyID, tc.directory); got != tc.want {
+				t.Errorf("Revoked(%q, %q) = %v; want %v", tc.keyID, tc.directory, got, tc.want)
+			}
+		})
+	}
+}

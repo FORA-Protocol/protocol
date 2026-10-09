@@ -27,7 +27,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 from wire.models import JsonWebKey, KeyRevocationList, WBAFile
 
-from fora_sdk.hosts import host_anchored
+from fora_sdk.hosts import check_audience, host_anchored
 from fora_sdk.resolvers._http import guarded_client
 from fora_sdk.resolvers.documents import (
     WBA_DIRECTORY_PATH,
@@ -297,20 +297,39 @@ class WBAKeyResolver:
         with self._rev_lock:
             return host in self._revoked
 
-    def revoked(self, key_id: str) -> bool:
-        """Whether ``key_id`` (a thumbprint) is in ANY host's fetched revocation
-        snapshot, INDEPENDENT of WBA directory membership.
+    def revoked(self, key_id: str, directory: str) -> bool:
+        """Whether ``key_id`` (a thumbprint) is on the revocation list of the key
+        directory ``directory`` names, and on no other list.
 
+        A list covers only its own directory's keys: no party's list revokes another
+        party's key, even when it names that key's thumbprint. ``directory`` is a
+        directory reference as ``resolve`` reads it off a Signature-Agent member (an
+        https origin or a bare host), normalized the same way; its host names the
+        same directory as a fetched one under the request-recipient identity rule
+        (case folded, a port of 443 written out the same as none). An empty or
+        unusable reference, or an empty ``key_id``, answers False.
+
+        The answer is membership, INDEPENDENT of WBA directory membership:
         ``resolve`` gates a key only when the directory lists it (removal is not
         revocation), so a key resolved from another source — e.g. a static
-        bootstrap file — is invisible to that path; ``revoked`` is the fail-closed
-        hook a composite consults to reject a broker-revoked, directory-absent
-        thumbprint. Returns False when no snapshot has been fetched.
+        bootstrap file holding a copy of that party's key — is invisible to that
+        path, and ``revoked`` is the fail-closed hook a composite consults against
+        the key owner's own list. A directory's list is known once the directory
+        has been fetched, including a directory that lists no key; before that it
+        answers False (membership only, never an outage).
         """
-        if key_id == "":
+        if key_id == "" or directory == "":
             return False
+        base = _directory_base(directory)
+        if base is None:
+            return False
+        host = base[1]
         with self._rev_lock:
-            return any(key_id in rev.thumbprints for rev in self._revoked.values())
+            return any(
+                key_id in rev.thumbprints
+                for fetched, rev in self._revoked.items()
+                if fetched == host or _same_directory_host(fetched, host)
+            )
 
     def _refresh_revocation_for(self, host: str, file: WBAFile) -> None:
         rev_url = file.revocation_url
@@ -391,9 +410,9 @@ def active_ed25519_key(
     it does NOT consult any revocation channel. A key that was emergency-revoked but
     is still window-active in a (possibly CDN-cached) directory WILL be selected. A
     caller on a VERIFICATION path MUST NOT trust the result until it has screened the
-    selected key's RFC 7638 thumbprint against the resolver's revoked-thumbprint set
-    (:meth:`WBAKeyResolver.revoked` / a revocation snapshot); otherwise adopting this
-    selector defeats emergency revocation. Prefer :func:`active_ed25519_key_screened`,
+    selected key's RFC 7638 thumbprint against the revocation list of the directory it
+    came from (:meth:`WBAKeyResolver.revoked` with that directory, or a snapshot of that
+    list); otherwise adopting this selector defeats emergency revocation. Prefer :func:`active_ed25519_key_screened`,
     which folds that screen into selection. This bare form is for non-verification
     callers only.
     """
@@ -439,9 +458,9 @@ def active_ed25519_key_screened(
     :func:`active_ed25519_key` leaves to the caller into selection itself, so an
     emergency-revoked key still listed in a CDN-cached directory is passed over for
     the next active, non-revoked key. ``revoked`` is REQUIRED: pass a predicate over
-    the resolver's revoked-thumbprint set (e.g. :meth:`WBAKeyResolver.revoked`) or,
-    for a caller with no revocation channel, an explicit ``lambda _tp: False`` to make
-    the waiver visible. The thumbprint is computed with :func:`fora_sdk.thumbprint`
+    the revocation list of the directory being selected from (e.g.
+    ``lambda tp: wba.revoked(tp, directory)``) or, for a caller with no revocation
+    channel, an explicit ``lambda _tp: False`` to make the waiver visible. The thumbprint is computed with :func:`fora_sdk.thumbprint`
     (RFC 7638) — the SAME primitive :meth:`WBAKeyResolver.resolve` keys on. Returns
     ``None`` when no examined, non-revoked key qualifies.
     """
@@ -564,6 +583,19 @@ def _directory_base(ref: str) -> tuple[str, str] | None:
     if not parts.netloc:
         return None
     return f"{parts.scheme}://{parts.netloc}", parts.netloc
+
+
+def _same_directory_host(a: str, b: str) -> bool:
+    """Whether two directory hosts name one party under the request-recipient
+    identity rule ``requester.domain`` is compared by: case folded, a port of 443
+    written out the same as none, a subdomain a different party. Hosts that rule
+    cannot read (an IP literal, an internationalized name) match only when spelled
+    identically, which the caller checks first. Port of the Go
+    ``sameDirectoryHost``."""
+    try:
+        return check_audience(a, b) == "accepted"
+    except ValueError:
+        return False
 
 
 def _wba_host_anchored(anchor: str, candidate: str) -> bool:

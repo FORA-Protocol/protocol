@@ -42,12 +42,18 @@ type CachedOfferKeyResolverConfig struct {
 	TTL time.Duration
 	// Now is the cache-freshness + selection clock; nil uses time.Now. Tests inject.
 	Now func() time.Time
-	// Revoked screens a candidate offer-signing key by its RFC 7638 thumbprint: a
-	// revoked key is skipped during selection so the resolver never serves a
-	// window-active-but-revoked key on the verification path. nil screens nothing —
-	// inject WBAKeyResolver.Revoked (or an equivalent revoked-set predicate) on any
-	// verification path; leaving it nil is a visible waiver of emergency revocation.
-	Revoked func(thumbprint string) bool
+	// Revoked screens a candidate offer-signing key by its RFC 7638 thumbprint and
+	// the exchange domain whose directory it came from: a revoked key is skipped
+	// during selection so the resolver never serves a window-active-but-revoked key
+	// on the verification path. It must answer from that exchange's own revocation
+	// list only — no party's list revokes another party's key. nil screens nothing;
+	// leaving it nil is a visible waiver of emergency revocation.
+	//
+	// WBAKeyResolver.Revoked has this shape and injects directly. It knows the
+	// list of a directory only once that resolver has fetched the directory, so a
+	// predicate built on it screens only exchanges whose directories it has
+	// resolved.
+	Revoked func(thumbprint, exchange string) bool
 }
 
 // CachedOfferKeyResolver resolves an exchange DOMAIN to that exchange's active
@@ -62,7 +68,7 @@ type CachedOfferKeyResolver struct {
 	fetch   OfferDirectoryFetcher
 	ttl     time.Duration
 	now     func() time.Time
-	revoked func(string) bool
+	revoked func(thumbprint, exchange string) bool
 
 	// cache evicts least-recently-used at a fixed cap and carries its own lock, so
 	// this type holds no mutex. Concurrent misses for one domain still both fetch,
@@ -115,7 +121,13 @@ func (r *CachedOfferKeyResolver) Resolve(ctx context.Context, domain string) (ed
 	if err != nil {
 		return nil, err
 	}
-	key, notAfter, err := ActiveEd25519KeyWithExpiryScreened(dir, now, r.revoked)
+	var screen func(thumbprint string) bool
+	if r.revoked != nil {
+		// The selector screens by thumbprint alone; the domain names whose list
+		// answers, so the predicate never consults another party's list.
+		screen = func(thumbprint string) bool { return r.revoked(thumbprint, domain) }
+	}
+	key, notAfter, err := ActiveEd25519KeyWithExpiryScreened(dir, now, screen)
 	if err != nil {
 		return nil, err
 	}

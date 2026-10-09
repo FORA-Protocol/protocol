@@ -102,12 +102,15 @@ def buy_and_fetch(*, exchange: str, uri: str, seed: bytes) -> bytes:
     #    that is the fail-closed posture, not a bug.
     #
     #    `revoked` is NOT passed, and that is a choice worth making deliberately. It
-    #    screens a candidate key by thumbprint against a revocation snapshot, so leaving
-    #    it out waives emergency revocation. It is defensible here because this function
-    #    fetches the directory and spends the keys inside one call. A client that holds
-    #    its key map for hours must pass a revoked-set predicate, and must re-run the
-    #    prefetch rather than freeze one map for its lifetime — a frozen map keeps
-    #    serving a key after its TTL and its not_after have both passed.
+    #    screens a candidate key by thumbprint and exchange against that exchange's own
+    #    revocation list, so leaving it out waives emergency revocation. It is
+    #    defensible here because this function fetches the directory and spends the
+    #    keys inside one call. A client that holds its key map for hours must pass a
+    #    predicate `revoked(thumbprint, exchange)` that answers from that exchange's own
+    #    list (`WBAKeyResolver.revoked` has this shape, and knows a directory's list once
+    #    it has fetched that directory), and must re-run the prefetch rather than freeze
+    #    one map for its lifetime — a frozen map keeps serving a key after its TTL and
+    #    its not_after have both passed.
     directory = CachedOfferKeyResolver(fetch=create_wba_offer_directory_fetch(scheme=SCHEME))
     keys = asyncio.run(directory.prefetch([exchange]))
     verifier = Verifier(

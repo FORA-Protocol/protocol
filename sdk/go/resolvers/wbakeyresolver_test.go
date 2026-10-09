@@ -15,6 +15,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -530,11 +531,11 @@ func TestWBAKeyResolver_FetchError(t *testing.T) {
 
 // TestWBAKeyResolver_Revoked verifies the revocation-set-membership accessor:
 // after the snapshot is primed, Revoked reports true for a thumbprint present in
-// the revocation list even when the directory never listed it (directory-absent-
-// but-revoked), false for a directory-listed key that is not revoked, and false
-// for a thumbprint unknown to both. The accessor is INDEPENDENT of directory
-// membership — it is the fail-closed hook a composite resolver uses to reject a
-// static-bootstrap-only key the broker has revoked.
+// the directory's own revocation list even when the directory never listed it
+// (directory-absent-but-revoked), false for a directory-listed key that is not
+// revoked, and false for a thumbprint unknown to both. The accessor is
+// INDEPENDENT of directory membership — it is the fail-closed hook a composite
+// resolver uses to reject a static-bootstrap copy of a key its owner has revoked.
 func TestWBAKeyResolver_Revoked(t *testing.T) {
 	t.Parallel()
 	presentPriv, presentJWK := newSigningKey("present.v1", wbaAnchor.Add(-time.Hour), wbaAnchor.Add(1000*time.Hour))
@@ -558,7 +559,7 @@ func TestWBAKeyResolver_Revoked(t *testing.T) {
 	})
 
 	// Before any fetch the snapshot is unavailable → membership is false.
-	if r.Revoked(tpAbsentRevoked) {
+	if r.Revoked(tpAbsentRevoked, origin.url) {
 		t.Fatal("Revoked before priming must be false (no snapshot)")
 	}
 	// Prime the snapshot by resolving the directory-present key.
@@ -566,17 +567,83 @@ func TestWBAKeyResolver_Revoked(t *testing.T) {
 		t.Fatalf("prime resolve: %v", err)
 	}
 
-	if !r.Revoked(tpAbsentRevoked) {
+	if !r.Revoked(tpAbsentRevoked, origin.url) {
 		t.Fatal("directory-absent-but-revoked thumbprint must report Revoked=true")
 	}
-	if r.Revoked(tpPresent) {
+	if !r.Revoked(tpAbsentRevoked, strings.TrimPrefix(origin.url, "https://")) {
+		t.Fatal("the bare-host spelling of the directory must name the same list")
+	}
+	if r.Revoked(tpPresent, origin.url) {
 		t.Fatal("directory-present, not-revoked thumbprint must report Revoked=false")
 	}
-	if r.Revoked(tpUnknown) {
+	if r.Revoked(tpUnknown, origin.url) {
 		t.Fatal("thumbprint unknown to directory and revocation must report Revoked=false")
 	}
-	if r.Revoked("") {
+	if r.Revoked("", origin.url) {
 		t.Fatal("empty keyID must report Revoked=false")
+	}
+	if r.Revoked(tpAbsentRevoked, "") {
+		t.Fatal("an empty directory must report Revoked=false")
+	}
+	if r.Revoked(tpAbsentRevoked, "data:application/json,{}") {
+		t.Fatal("a reference that names no fetchable directory must report Revoked=false")
+	}
+}
+
+// TestWBAKeyResolver_RevokedIsScopedToItsDirectory pins that a revocation list
+// answers only for its own directory's keys. Directory B lists no key and its list
+// names directory A's key — exactly what a party could publish to revoke another
+// party's key. Once B's list has loaded, A's key must still resolve against A and
+// must not be reported revoked for A; it is a member of B's list only.
+func TestWBAKeyResolver_RevokedIsScopedToItsDirectory(t *testing.T) {
+	t.Parallel()
+	window := func(seed string) (ed25519.PrivateKey, *forav1.JsonWebKey) {
+		return newSigningKey(seed, wbaAnchor.Add(-time.Hour), wbaAnchor.Add(1000*time.Hour))
+	}
+	aPriv, aJWK := window("present.v1")
+	tpA := mustThumbprint(t, aPriv.Public().(ed25519.PublicKey))
+	absentPriv, _ := window("absent-revoked.v1")
+	tpAbsent := mustThumbprint(t, absentPriv.Public().(ed25519.PublicKey))
+	unknownPriv, _ := window("unknown.v1")
+	tpUnknown := mustThumbprint(t, unknownPriv.Public().(ed25519.PublicKey))
+
+	originA := newWBAOrigin(nil)
+	defer originA.close()
+	originA.setWBA(marshalWBAWithRevocation(aJWK, originA.revocationURL()))
+	originA.setRevocation(marshalRevocation(wbaAnchor, tpAbsent))
+
+	originB := newWBAOrigin(nil)
+	defer originB.close()
+	revB := originB.revocationURL()
+	rawB, _ := (protojson.MarshalOptions{UseProtoNames: true}).Marshal(&forav1.WBAFile{RevocationUrl: &revB})
+	originB.setWBA(rawB)
+	originB.setRevocation(marshalRevocation(wbaAnchor, tpA))
+
+	// Every httptest TLS server presents the same certificate, so one client
+	// trusts both origins.
+	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
+		HTTP: originA.Client(),
+		Now:  func() time.Time { return wbaAnchor },
+	})
+	// Loading B's list: the keyless directory resolves no key, but its list loads.
+	if _, err := r.Resolve(helpers.WithSignatureAgent(context.Background(), originB.url), tpUnknown); !errors.Is(err, resolvers.ErrUnknownKey) {
+		t.Fatalf("resolve against keyless B: want ErrUnknownKey, got %v", err)
+	}
+	if _, err := r.Resolve(helpers.WithSignatureAgent(context.Background(), originA.url), tpA); err != nil {
+		t.Fatalf("A's key must resolve against A although B's list names it: %v", err)
+	}
+
+	if r.Revoked(tpA, originA.url) {
+		t.Fatal("B's list must never revoke A's key")
+	}
+	if !r.Revoked(tpA, originB.url) {
+		t.Fatal("membership in B's own list must still answer for B")
+	}
+	if r.Revoked(tpAbsent, originB.url) {
+		t.Fatal("A's list must never answer for B")
+	}
+	if !r.Revoked(tpAbsent, originA.url) {
+		t.Fatal("A's own list must still answer for A")
 	}
 }
 
