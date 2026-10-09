@@ -31,10 +31,6 @@ on:
   # exact tagged commit. The push/pull_request triggers above are unchanged.
   workflow_call:
 
-permissions:
-  id-token: write
-  contents: read
-
 jobs:
   docs:
     runs-on: ubuntu-latest
@@ -43,45 +39,6 @@ jobs:
         working-directory: website
     steps:
       - uses: actions/checkout@v4
-
-      - name: Debug OIDC claims
-        run: |
-          echo "Event: ${{ github.event_name }}"
-          echo "Ref: ${{ github.ref }}"
-          echo "SHA: ${{ github.sha }}"
-          echo "Repository: ${{ github.repository }}"
-          echo "Actor: ${{ github.actor }}"
-          echo "Workflow: ${{ github.workflow }}"
-          echo "Job: ${{ github.job }}"
-          echo "Run ID: ${{ github.run_id }}"
-          echo "Run Number: ${{ github.run_number }}"
-          echo ""
-          echo "Checking OIDC token availability..."
-          if [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
-            echo "OIDC token is available"
-            echo "Request URL: $ACTIONS_ID_TOKEN_REQUEST_URL"
-            echo ""
-            echo "Fetching and decoding OIDC token..."
-            OIDC_TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
-            if [ -n "$OIDC_TOKEN" ]; then
-              echo "Token payload (decoded):"
-              echo "$OIDC_TOKEN" | cut -d'.' -f2 | base64 -d 2>/dev/null | jq . 2>/dev/null || echo "Failed to decode token"
-            else
-              echo "Failed to get token"
-            fi
-          else
-            echo "OIDC token is NOT available"
-          fi
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@bfb7dd8bb70aaa904cdc53cb6bae2fd43e78589b # v4.0.2
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          audience: sts.amazonaws.com
-          role-skip-session-tagging: true
-          role-duration-seconds: 900
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
