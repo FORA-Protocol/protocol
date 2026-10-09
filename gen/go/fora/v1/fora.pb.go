@@ -5618,12 +5618,19 @@ type TransactionResultItem struct {
 	ReportingObligation *ReportingObligation `protobuf:"bytes,10,opt,name=reporting_obligation,json=reportingObligation,proto3,oneof" json:"reporting_obligation,omitempty"`
 	// Set only on a BrokerTransactionResponse, and only when the Exchange that
 	// owns this item refused the Broker's whole sub-request instead of answering
-	// it: a non-OK answer, or no answer at all. The item was not purchased.
-	// offer_id names the item; transaction_id, billing_id, cost, denial_reason,
-	// retrieval_endpoint and the other result fields stay unset. Every item the
-	// Broker sent in that sub-request carries the same refusal. An Exchange never
-	// sets this field, and a Broker never replaces it with a denial_reason: an
-	// upstream refusal is not a per-item access decision.
+	// it: a non-OK answer, or no answer at all. offer_id names the item;
+	// transaction_id, billing_id, cost, denial_reason, retrieval_endpoint and the
+	// other result fields stay unset. Every item the Broker sent in that
+	// sub-request carries the same refusal. Whether the item was purchased
+	// depends on the refusal's code. With the code "unavailable" or
+	// "deadline_exceeded" the outcome is unknown: the Exchange may have completed
+	// the purchase before the answer was lost, whether it gave no answer or
+	// answered that code, and retrying the agent's request with the same
+	// idempotency_key through the same Broker settles it (see
+	// UpstreamRefusal.code). With any other code the Exchange answered with a
+	// refusal that decided no item, so the item was not purchased. An Exchange
+	// never sets this field, and a Broker never replaces it with a denial_reason:
+	// an upstream refusal is not a per-item access decision.
 	Refusal       *UpstreamRefusal `protobuf:"bytes,14,opt,name=refusal,proto3,oneof" json:"refusal,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -5782,10 +5789,11 @@ type UpstreamRefusal struct {
 	// The Connect code the party answered with, in its wire form, e.g.
 	// "permission_denied" or "unauthenticated". When the party gave no answer
 	// — unreachable, or the call timed out — it is the code the relaying party's
-	// call failed with ("unavailable", "deadline_exceeded"). A timeout is an
-	// ambiguous outcome: a purchase may have completed. Retrying the agent's
-	// request with the same idempotency_key is safe, because the Broker forwards
-	// the key unchanged and the Exchange answers a replay from its stored result.
+	// call failed with ("unavailable", "deadline_exceeded"). A refusal with
+	// either of those codes is an ambiguous outcome: a purchase may have
+	// completed. On a Broker purchase, retrying the agent's request with the same
+	// idempotency_key through the same Broker is answered from each Exchange's
+	// stored result, so it settles the outcome without buying twice.
 	Code string `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
 	// The party's typed reason, unchanged — the ErrorDetail it attached to its
 	// refusal. Absent when the party attached none or gave no answer.
@@ -8760,7 +8768,10 @@ type BrokerTransactionResponse struct {
 	// denial_reason nor refusal; its cost.amount is added, as an exact decimal,
 	// into the entry for its cost.currency. Amounts are never summed across
 	// currencies and never converted: currency conversion is out of scope for
-	// this version. unit_cost is unset. Empty when no item was charged.
+	// this version. unit_cost is unset. Empty when no item was charged. An item
+	// whose refusal carries the code "unavailable" or "deadline_exceeded" may
+	// have been charged but is not counted, so totals is then a lower bound of
+	// what the purchase charged.
 	Totals []*Cost `protobuf:"bytes,4,rep,name=totals,proto3" json:"totals,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`

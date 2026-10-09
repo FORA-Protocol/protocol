@@ -560,13 +560,14 @@ Re-packaging and combining are safe because each item is atomic and its integrit
 - `items` has one entry per request item, in request order. A success, or a per-item denial, is the Exchange's `TransactionResultItem` unchanged.
 - **Upstream refusals ride in the body.** When an Exchange refuses the Broker's whole sub-request, or does not answer it, the Broker does not turn that into an error of its own. Each affected item carries `refusal`: the Exchange, the Connect `code` it answered with, and its `ErrorDetail` unchanged. The other Exchanges' results come back unchanged. `DENIAL_REASON_CONTENT_UNAVAILABLE` is not a catch-all for upstream failures.
 - `exchanges` has one `ExchangeOutcome` per Exchange contacted. Its `agent_identity_hash` is what that Exchange's retrieval URLs are bound to.
-- `totals` sums only the charged items (those with neither `denial_reason` nor `refusal`), one `Cost` per currency. Amounts are never summed across currencies.
+- An item whose `refusal` carries the code `unavailable` or `deadline_exceeded` has an unknown outcome: the Exchange may have bought it before the answer was lost, whether it gave no answer or answered that code. With any other code the Exchange decided no item, and the item was not purchased.
+- `totals` sums only the charged items (those with neither `denial_reason` nor `refusal`), one `Cost` per currency. Amounts are never summed across currencies. An item with an unknown outcome is not counted, so `totals` is then a lower bound of the charge.
 - `DENIAL_REASON_RELAY_NOT_ACCEPTED` on an item means the provider that sells that item's resource at that Exchange does not accept purchases relayed by a Broker. It is decided per item, by each offer's provider, and answered in the body: other items of the same sub-request may succeed. It is never a refusal of the whole sub-request. Buy that offer directly.
 - A sub-request whose items are not exactly the agent's signed `AgentRequestAcceptance` projected onto that Exchange has every item denied with `DENIAL_REASON_SIGNATURE_INVALID`, in the body, and nothing is purchased.
 
 The Broker's own refusals are non-OK Connect errors carrying an `ErrorDetail`, and nothing was bought: an invalid agent signature is `unauthenticated` with `request_auth_failure`; a `requester.domain` that is not the agent's signing directory is `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`; a malformed request is `invalid_argument`; an Exchange the Broker cannot route to or does not approve is `failed_precondition`, with `metadata["exchange"]` naming it.
 
-A retry is safe. The Broker forwards the agent's `idempotency_key` unchanged to every Exchange, so each Exchange answers a repeated sub-request from its stored result. A timed-out sub-request is an ambiguous outcome, and retrying with the same key is how the agent resolves it.
+A retry is safe. The Broker forwards the agent's `idempotency_key` unchanged to every Exchange, so each Exchange answers a repeated sub-request from its stored result. A refusal with the code `unavailable` or `deadline_exceeded` is an ambiguous outcome, and retrying the same request with the same key through the same Broker is how the agent resolves it.
 
 ### Subscription TransactionResponse
 

@@ -173,7 +173,10 @@ func (b *BrokerClient) discoveryResult(ctx context.Context, msg *forav1.Discover
 // An Exchange that refused the Broker's whole sub-request is NOT an error here:
 // the call succeeds, and each affected item carries the refusal in
 // TransactionResultItem.Refusal while the other Exchanges' items come back
-// unchanged. Only the Broker's own refusals — a bad signature, a malformed
+// unchanged. A refusal whose code is "unavailable" or "deadline_exceeded" leaves
+// the item's outcome unknown — the Exchange may have bought it before the answer
+// was lost — and Totals does not count it; retry the same request with the same
+// idempotency key through the same Broker to settle it. Only the Broker's own refusals — a bad signature, a malformed
 // request, an Exchange it cannot route to or does not approve — return an error,
 // and then nothing was bought.
 //

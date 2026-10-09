@@ -717,7 +717,10 @@ type BrokerServiceClient interface {
 	//
 	// A retry is safe: the Broker forwards the agent's idempotency_key unchanged,
 	// so each Exchange answers a repeated sub-request from its stored result (see
-	// "Idempotency" in the file header).
+	// "Idempotency" in the file header). That is also how an agent settles an
+	// item whose refusal left the outcome unknown (code "unavailable" or
+	// "deadline_exceeded"): it retries the same request, with the same key,
+	// through the same Broker.
 	ExecuteTransaction(context.Context, *connect.Request[v1.TransactionRequest]) (*connect.Response[v1.BrokerTransactionResponse], error)
 }
 
@@ -878,7 +881,10 @@ type BrokerServiceHandler interface {
 	//
 	// A retry is safe: the Broker forwards the agent's idempotency_key unchanged,
 	// so each Exchange answers a repeated sub-request from its stored result (see
-	// "Idempotency" in the file header).
+	// "Idempotency" in the file header). That is also how an agent settles an
+	// item whose refusal left the outcome unknown (code "unavailable" or
+	// "deadline_exceeded"): it retries the same request, with the same key,
+	// through the same Broker.
 	ExecuteTransaction(context.Context, *connect.Request[v1.TransactionRequest]) (*connect.Response[v1.BrokerTransactionResponse], error)
 }
 

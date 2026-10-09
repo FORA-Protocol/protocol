@@ -476,7 +476,11 @@ def finish_broker_execute(plan: Plan, status: int, body: str) -> BrokerTransacti
 
     An Exchange that refused the Broker's whole sub-request is NOT a failure here: the call
     succeeds, and each affected item carries the refusal in ``refusal`` while the other
-    Exchanges' items come back unchanged. Only the Broker's own refusals raise.
+    Exchanges' items come back unchanged. A refusal whose code is ``unavailable`` or
+    ``deadline_exceeded`` leaves the item's outcome unknown — the Exchange may have bought
+    it before the answer was lost — and ``totals`` does not count it; retry the same
+    request with the same idempotency key through the same Broker to settle it. Only the
+    Broker's own refusals raise.
     """
     return decode(  # type: ignore[no-any-return]
         plan.op, status, body, BrokerTransactionResponse, strict=plan.strict

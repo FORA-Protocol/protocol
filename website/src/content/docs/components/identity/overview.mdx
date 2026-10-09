@@ -131,7 +131,7 @@ Registration must reach the Exchange directly, because the Exchange derives the 
 The value of `refusal` is the protocol's [`UpstreamRefusal`](/reference/proto-fora/#upstreamrefusal), the same shape a Broker uses for an Exchange's refusal of a relayed purchase:
 
 - `party` is the bare host of the party that refused: the Broker or the Exchange the tool called, or the Identity Service itself when it refused the tool call.
-- `code` is the Connect code that party answered with, in its wire form, or the code the call failed with when no answer came (`unavailable`, `deadline_exceeded`).
+- `code` is the Connect code that party answered with, in its wire form, or the code the call failed with when no answer came (`unavailable`, `deadline_exceeded`). Either of those two codes makes the outcome ambiguous: a call that changes state, such as a purchase, may have completed.
 - `detail` is the FORA `ErrorDetail` the party attached, unchanged, for example `request_auth_failure`, `registration_failure` or `transaction_denial`. It is absent when the party attached none.
 
 The agent branches on `detail` and `code`, never on the message text. Each tool's `outputSchema` declares two branches: the tool's own success shape, or an object with the single member `refusal`.

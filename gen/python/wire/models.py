@@ -2117,7 +2117,7 @@ class TransactionRequest(WireModel):
 class UpstreamRefusal(WireModel):
     code: constr(min_length=1, max_length=64) = Field(
         ...,
-        description='The Connect code the party answered with, in its wire form, e.g.\n "permission_denied" or "unauthenticated". When the party gave no answer\n — unreachable, or the call timed out — it is the code the relaying party\'s\n call failed with ("unavailable", "deadline_exceeded"). A timeout is an\n ambiguous outcome: a purchase may have completed. Retrying the agent\'s\n request with the same idempotency_key is safe, because the Broker forwards\n the key unchanged and the Exchange answers a replay from its stored result.',
+        description='The Connect code the party answered with, in its wire form, e.g.\n "permission_denied" or "unauthenticated". When the party gave no answer\n — unreachable, or the call timed out — it is the code the relaying party\'s\n call failed with ("unavailable", "deadline_exceeded"). A refusal with\n either of those codes is an ambiguous outcome: a purchase may have\n completed. On a Broker purchase, retrying the agent\'s request with the same\n idempotency_key through the same Broker is answered from each Exchange\'s\n stored result, so it settles the outcome without buying twice.',
     )
     detail: ErrorDetail | None = Field(
         None,
@@ -2207,7 +2207,7 @@ class TransactionResultItem(WireModel):
     offer_id: str | None = Field('', description='The offer_id this result is for.')
     refusal: UpstreamRefusal | None = Field(
         None,
-        description="Set only on a BrokerTransactionResponse, and only when the Exchange that\n owns this item refused the Broker's whole sub-request instead of answering\n it: a non-OK answer, or no answer at all. The item was not purchased.\n offer_id names the item; transaction_id, billing_id, cost, denial_reason,\n retrieval_endpoint and the other result fields stay unset. Every item the\n Broker sent in that sub-request carries the same refusal. An Exchange never\n sets this field, and a Broker never replaces it with a denial_reason: an\n upstream refusal is not a per-item access decision.",
+        description='Set only on a BrokerTransactionResponse, and only when the Exchange that\n owns this item refused the Broker\'s whole sub-request instead of answering\n it: a non-OK answer, or no answer at all. offer_id names the item;\n transaction_id, billing_id, cost, denial_reason, retrieval_endpoint and the\n other result fields stay unset. Every item the Broker sent in that\n sub-request carries the same refusal. Whether the item was purchased\n depends on the refusal\'s code. With the code "unavailable" or\n "deadline_exceeded" the outcome is unknown: the Exchange may have completed\n the purchase before the answer was lost, whether it gave no answer or\n answered that code, and retrying the agent\'s request with the same\n idempotency_key through the same Broker settles it (see\n UpstreamRefusal.code). With any other code the Exchange answered with a\n refusal that decided no item, so the item was not purchased. An Exchange\n never sets this field, and a Broker never replaces it with a denial_reason:\n an upstream refusal is not a per-item access decision.',
     )
     reporting_obligation: ReportingObligation | None = Field(
         None, description='Reporting requirements for this item.'
@@ -2251,7 +2251,7 @@ class BrokerTransactionResponse(WireModel):
     )
     totals: list[Cost] | None = Field(
         None,
-        description='Charged totals, one per currency, in the order each currency first appears\n among the charged items. An item is charged when it carries neither\n denial_reason nor refusal; its cost.amount is added, as an exact decimal,\n into the entry for its cost.currency. Amounts are never summed across\n currencies and never converted: currency conversion is out of scope for\n this version. unit_cost is unset. Empty when no item was charged.',
+        description='Charged totals, one per currency, in the order each currency first appears\n among the charged items. An item is charged when it carries neither\n denial_reason nor refusal; its cost.amount is added, as an exact decimal,\n into the entry for its cost.currency. Amounts are never summed across\n currencies and never converted: currency conversion is out of scope for\n this version. unit_cost is unset. Empty when no item was charged. An item\n whose refusal carries the code "unavailable" or "deadline_exceeded" may\n have been charged but is not counted, so totals is then a lower bound of\n what the purchase charged.',
     )
     ver: str | None = Field(
         '',

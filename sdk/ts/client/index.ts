@@ -472,8 +472,11 @@ async function execute(
  *
  * An Exchange that refused the Broker's whole sub-request is NOT an error here: the call
  * succeeds, and each affected item carries the refusal in `refusal` while the other
- * Exchanges' items come back unchanged. Only the Broker's own refusals throw, and then
- * nothing was bought.
+ * Exchanges' items come back unchanged. A refusal whose code is "unavailable" or
+ * "deadline_exceeded" leaves the item's outcome unknown — the Exchange may have bought it
+ * before the answer was lost — and `totals` does not count it; retry the same request with
+ * the same idempotency key through the same Broker to settle it. Only the Broker's own
+ * refusals throw, and then nothing was bought.
  */
 async function brokerExecute(
 	r: Resolved,

@@ -73,6 +73,18 @@ Exchange that refused the call, or the Identity Service itself when it refused t
 call; `detail` is the FORA `ErrorDetail` that party attached, unchanged. Each tool's
 `outputSchema` declares two branches, its success shape or `{refusal}`.
 
+**A Broker purchase item refused with no answer has an unknown outcome (comments only).**
+`TransactionResultItem.refusal` said an item carrying an Exchange's refusal was not
+purchased, while `UpstreamRefusal.code` said a timeout may have completed a purchase. They
+now agree. With the code `unavailable` or `deadline_exceeded` the item's outcome is
+unknown, whether the Exchange gave no answer or answered that code, and retrying the
+agent's request with the same `idempotency_key` through the same Broker settles it; with
+any other code the Exchange decided no item, and the item was not purchased.
+`BrokerTransactionResponse.totals` does not count an item with an unknown outcome, so it
+is then a lower bound of what the purchase charged. The Broker purchase verbs' doc
+comments in all three SDKs, the Python README, and the transaction-flow, Broker, Identity
+Service and fetch-flow pages say the same.
+
 **Revocation is scoped to the signer, and revocation-list and manifest fetches may
 follow up to five redirects (comments, docs and an SDK API change).** Each signature is verified against its own signer's
 key directory and the revocation list that directory names, and against no other party's.

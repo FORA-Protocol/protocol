@@ -286,6 +286,8 @@ for _, item := range resp.GetItems() {
     _ = content
 }
 // resp.GetTotals() holds the charged amount per currency, never summed across currencies.
+// An item refused with "unavailable" or "deadline_exceeded" may have been charged and is
+// not counted there; retry the same request with the same idempotency key to settle it.
 ```
 
 ## Error Handling
@@ -348,7 +350,7 @@ sentinel reachable through `errors.Is`.
 | Failure | Recovery | User Impact |
 |---|---|---|
 | `CallNotSent` | **None -- terminal.** The SDK refused before anything left the process, so retrying unchanged fails the same way | Caller fixes the address, the key or the requester |
-| `CallUnreachable` | Retry with backoff | Transparent if the retry succeeds |
+| `CallUnreachable` | Retry with backoff. On a purchase, retry with the same idempotency key: the call may have completed, and the Exchange answers a repeat from its stored result | Transparent if the retry succeeds |
 | `CallRefused` | Depends on the typed reason -- read it with `connect.ErrorDetailFrom` | A denial reason such as `DENIAL_REASON_REPORTING_OVERDUE` tells the caller what to fix. A `request_auth_failure` of `SIGNATURE_STALE` means sign the request again and retry; `SIGNATURE_MISSING` and `SIGNATURE_INVALID` are terminal until the signer is fixed |
 | `CallMalformed` | **None -- terminal.** The request could not be built or signed faithfully, or the answer could not be read as the protocol defines it | Caller fixes the message |
 | `CallTooLarge` | Raise `WithMaxContentBytes`, or ask for less | Caller decides whether the body is legitimate |
