@@ -2410,3 +2410,36 @@ The cache's predicate knows a directory's list only once a resolver has fetched 
 directory, so a predicate built on a resolver that has never fetched an Exchange's
 directory screens nothing for that Exchange. The cache polling each Exchange's own list
 itself would close that gap; this change leaves it as it was and only scopes the answer.
+
+## The TypeScript document reader carries its own bounds
+
+Go and Python bound a document read in the reader: Go reads the body through a limit and
+puts the whole fetch under one deadline, and Python streams the body against the same cap
+inside a total deadline. Whatever client a caller injects, the read stays bounded.
+TypeScript had put the same bounds in its transport instead — the undici client the Node
+entry defaults to capped the body, timed out the request and capped the redirect chain —
+and the reader trusted whatever came back. That was invisible while every read ran on the
+Node default. The edge entry made it visible: it hands the runtime's own `fetch` straight
+to the readers, so a read through a Worker's fetch had no cap, no deadline, and whatever
+redirect policy the runtime had, including a key-directory read whose host an
+unauthenticated `Signature-Agent` names.
+
+The read now owns its bounds on both entries. It reads the body through the stream with a
+byte budget and refuses it past 1 MiB without taking the rest, puts the whole read —
+every hop and the body — under one 30-second deadline whose signal it hands the
+transport, and follows redirects itself: it asks the transport not to follow, takes the
+Location, resolves it against the current URL, and refuses a hop out of http(s), from
+https down to plaintext http, or carrying credentials, up to the shared cap of five. A
+response the transport marks as redirected is refused, because the read asked it not to
+follow and could vet none of the hops it took. What stays with the transport is the
+address: which hosts it will dial at all, and TLS. The Node default keeps its SSRF guard
+and DNS pinning, and an edge caller keeps the equivalent for its runtime.
+
+Following redirects in the reader rather than in the transport is a deliberate difference
+from Go and Python, where the guarded client owns the redirect policy. TypeScript has no
+transport it controls on the edge, so the reader is the one place every read passes
+through. It also tightens one case on purpose: the reader refuses a step down from https
+to http whatever the configuration, where Go and Python permit one when a sandbox sets
+`ALLOW_INSECURE`. A sandbox that serves documents over plaintext starts the read over
+plaintext, and http to http is still followed. On Node, document reads therefore no longer
+follow a redirect from https to http either, which the undici redirect handler had done.

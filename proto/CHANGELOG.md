@@ -618,7 +618,8 @@ request only where it means to, and check every answer through the SDK's own dec
   verifies the bytes against `uri_digest` (`LicenseDocument`, or `DigestMismatchError`,
   `DigestMismatch`, `ErrDigestMismatch`). A failed fetch, a non-200 answer, a body that
   is not JSON and a body over 1 MiB are an unavailable document; a body over the cap is
-  now refused rather than truncated, in the resolvers as well. Go's
+  now refused rather than truncated, in the resolvers as well, and the cap is the read's
+  own in all three SDKs, whatever transport is injected. Go's
   `ErrDirectoryUnavailable` reads `resolvers: document unavailable`, and a manifest
   fetch failure in the Go endpoint resolver and requirements reader now wraps it. The
   endpoint resolver, the registration-requirements reader, the WBA key resolver and the
@@ -821,7 +822,13 @@ SDKs, in all three languages:
   `createWBAKeyResolver` and `createWBAOfferDirectoryFetch` take the injectable
   `verifyEd25519` primitive `verifyAgentBinding` already took, so a runtime without
   WebCrypto Ed25519, such as Fastly Compute, no longer reads every directory key as
-  unsigned.
+  unsigned. The document read bounds itself on both TypeScript entries, as Go's and
+  Python's readers do: it caps a body at 1 MiB, ends the whole read at 30 seconds and
+  passes its signal to the transport, and follows redirects itself, at most five,
+  refusing a hop out of http(s), from https down to plaintext http or carrying
+  credentials, and any redirect for a key directory. Those bounds lived only in the Node
+  transports, so a read through an edge runtime's own fetch was unbounded; on Node, a
+  document read no longer follows a redirect from https to http either.
 - TypeScript strict check: the strict schemas of the messages the SDK checks by name are
   compiled at build time with ajv's standalone output, into the generated, drift-gated
   `gen/ts/strict/`, so the strict readers and the client's strict decoding generate no code
