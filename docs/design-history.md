@@ -2375,3 +2375,38 @@ signed. A directory listing no key has nothing to sign.
 `application/jwk-set+json` is refused, like the bare `Signature-Agent` value: the
 profile names a hard cut, and accepting the old label would leave the reference
 directories unsigned with nothing to say so.
+
+## Revocation answers for one directory's own list
+
+The key resolvers kept one revocation snapshot per directory host, and `Resolve` already
+checked a key against its own directory's snapshot only. The public accessor beside it
+did not: `Revoked(keyID)` answered true when the thumbprint appeared on any snapshot the
+resolver held. It was written for a composite that resolves keys from a second source,
+such as a static bootstrap copy, so a key its owner had revoked could not slip in through
+the copy. But the resolver fetches whatever directory a request's `Signature-Agent` names,
+before the signature is checked, and a directory listing no key needs no response
+signature. Any party could therefore get a list polled that named someone else's key, and
+the union then reported that key revoked to every consumer of the accessor, including the
+offer-key cache it was documented for. That contradicts the protocol rule that no party's
+list revokes another party's key.
+
+The accessor now takes the directory it answers for, and the cross-directory form is
+gone rather than deprecated: a caller that kept the old call would keep the old meaning,
+and the point of the change is that no caller can. The offer-key cache's predicate gains
+the exchange the key came from, which is exactly the accessor's shape.
+
+The directory reference is normalized as `Resolve` normalizes a `Signature-Agent` member,
+and a fetched directory spelled differently still matches under the request-recipient
+identity rule: letter case folded, a port of 443 written out the same as none, a subdomain
+a different party. Matching the spelling only would fail open — an offer's bare exchange
+domain against a snapshot stored under an origin with `:443` would read a revoked key as
+unrevoked.
+
+Directories that list no key are still polled. With the accessor scoped, such a list can
+only answer for its own directory, and a party that has removed every key from its
+directory may still need its list to revoke the copies held elsewhere.
+
+The cache's predicate knows a directory's list only once a resolver has fetched that
+directory, so a predicate built on a resolver that has never fetched an Exchange's
+directory screens nothing for that Exchange. The cache polling each Exchange's own list
+itself would close that gap; this change leaves it as it was and only scopes the answer.
