@@ -5,7 +5,8 @@
 # .github/workflows/proto-ci.yml invokes THIS script (it does not re-list the
 # steps), so CI and local cannot drift.
 #
-# Coverage: the proto gate (lint/generate/drift/build/test/docs) AND the SDK types
+# Coverage: the proto gate (lint/generate/drift/build/test/docs, including the docs
+# site build that docs-ci.yml and the Amplify deploy run) AND the SDK types
 # export gate (regenerate gen-sdk-types + drift of the Pydantic/Zod models and the
 # published JSON Schemas + their parity with the Go oracle + canonical round-trip). The two run as SEPARATE CI workflows (proto-ci.yml + sdk-types-ci.yml,
 # path-filtered); locally they are one command. proto-ci.yml sets
@@ -94,11 +95,17 @@ else
   note "skipped — needs python3"
 fi
 
-step "docs guards (remark-proto fail-path)"
+step "docs guards (remark-proto fail-path) + site build"
 # Proves the build-gating doc guard still bites (throws on an unknown proto
-# reference). Skipped only if the docs deps aren't installed locally.
+# reference), then builds the site the way docs-ci.yml and the Amplify deploy of
+# main do: the build runs remark-proto over every page and the link validator, so a
+# page naming a renamed symbol or a dead anchor fails here, not after merge. The
+# build writes only website/dist and website/.astro, both gitignored. Skipped only
+# if the docs deps aren't installed locally (proto-ci.yml, which runs this script,
+# installs none; docs-ci.yml builds the site there).
 if [ -d website/node_modules ]; then
   (cd website && npm test --silent) || fail=1
+  (cd website && npm run build --silent) || fail=1
 else
   note "skipped — run 'npm install' in website/ to enable"
 fi
