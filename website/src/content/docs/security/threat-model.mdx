@@ -65,7 +65,7 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 
 ### T10: Usage underreporting (token count)
 **Attack**: Agent reports using 500 tokens of a 10,000-token document but ingested the entire thing.
-**Countermeasure (protocol)**: **Never a refused report; monitoring is the operator's.** The reported quantity is unrestricted: an Exchange never refuses a usage report because its quantity differs from the estimate, in either direction. Monitoring discrepancies is the Exchange operator's own business, not part of the protocol: an operator may reconcile a quantity far below the document's known size against CDN logs (bytes served for the signed URL) and the size the attestations state, and pursue it through the account relationship or a dispute. A publisher that must be paid for the whole document prices it per access or flat, not per token, so the charge does not depend on the reported count.
+**Countermeasure (protocol)**: **Never a refused report; monitoring is the operator's.** The reported quantity is unrestricted: an Exchange never refuses a usage report because its quantity differs from the estimate, in either direction. Monitoring discrepancies is the Exchange operator's own business, not part of the protocol: an operator may reconcile a quantity far below the document's known size against CDN logs (bytes served for the signed URL) and the size the attestations state, and pursue it through the account relationship or a dispute. The charge never depends on the reported count, in any pricing model: a metered purchase is charged at the estimate × rate the offer states (or one unit's rate without an estimate) when it is bought, and that charge is final. A publisher that wants the whole document paid for states an estimate that covers it, or prices it per access or flat.
 
 ### T11: Function misreporting (RAG vs training)
 **Attack**: Agent declares `function: ai-input` (cheaper) but uses content for `function: ai-train` (prohibited or more expensive).
@@ -320,5 +320,5 @@ The last row is the deliberate one — nobody but the operator can point that UR
 | sellers.json | 2019 | Exchange identity in ResourceResponse | In proto |
 | SupplyChain Object | 2019 | exchange_signature on Offer | In proto |
 | ads.cert | 2020 | exchange_signature + content_integrity_hash | In proto |
-| MRC Viewability Standard | 2014 | Minimum billable token count | Design principle |
+| MRC Viewability Standard | 2014 | A metered charge fixed at purchase (estimate × rate), never re-measured | Design principle |
 | Open Measurement SDK | 2018 | Three-sided reconciliation | In protocol flow |

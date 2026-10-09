@@ -27,7 +27,7 @@ type RawEntry struct {
     Tokens        int
     ContentID     string
     PricingModel  PricingModel
-    Rate          float64
+    Rate          string // exact decimal, e.g. "0.05"
     Currency      string
     Permissions   []comp.Function
     Prohibitions  []comp.Function

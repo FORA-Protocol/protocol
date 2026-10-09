@@ -188,19 +188,21 @@ Resource ingestion is a background pipeline, separate from request handling. It 
 
 ### Ingestion Tiers
 
-**Tier 1 (best): Provider provides token estimates**
+The tiers size each resource in tokens for `unit_cost`, the comparison metric. That size is never an offer's `estimated_quantity`: an offer carries only the estimate the publisher states, in the price's own unit, and a metered purchase charges that estimate × rate, or one unit's rate without one (see [Charging a metered purchase](/protocol/transaction-flow/#charging-a-metered-purchase)).
+
+**Tier 1 (best): Provider provides token counts**
 - Via RSL word count extension, sitemap XML extension, or CoMP Package.scope.text.wordcount
 - Exchange uses directly, no crawling needed
 
-**Tier 2 (good): Exchange crawls and estimates**
+**Tier 2 (good): Exchange crawls and sizes**
 - Crawl URLs from sitemap.xml
 - Extract main text using readability algorithm (Mozilla Readability.js equivalent in Go)
-- Count words -> estimate tokens (wordcount x 1.32)
+- Count words -> size in tokens (wordcount x 1.32)
 - Store in catalog, refresh periodically (daily or on provider webhook)
 
 **Tier 3 (fallback): Tenant-level defaults**
 - Provider sets average word count per content type via tenant management API
-- "My articles average 2000 words" -> estimated_quantity = 2640
+- "My articles average 2000 words" -> a size of 2640 tokens
 - Crude but functional for unit_cost comparison
 
 ### Ingestion Flow

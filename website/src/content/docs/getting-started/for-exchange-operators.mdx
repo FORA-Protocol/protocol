@@ -36,14 +36,19 @@ That's the whole protocol. Three RPCs. Your billing adapter plugs in where `Auth
 
 A media exchange meters in tokens. A legal exchange meters in pages. A medical exchange meters in studies. A geospatial exchange meters in sq_km. Same protocol, different units.
 
-FORA pricing uses three fields: `unit_cost` (price per unit), `unit` (what's being metered), and `estimated_quantity` (how much the agent will consume). No assumption about what's being metered:
+FORA pricing states what is metered and at what price, with no assumption about the unit:
+
+- `unit`: what is metered.
+- `rate`: the price of one `unit`.
+- `estimated_quantity`: optional, the publisher's own estimate, in `unit`. A metered purchase charges the estimate × `rate`, or one unit's `rate` when the offer states no estimate, and that charge is final (see [Charging a metered purchase](/protocol/transaction-flow/#charging-a-metered-purchase)).
+- `unit_cost`: the comparison metric, the price of one purchase divided by the resource's size in the comparison unit of its content type. It never enters the charge.
 
 ```
-Exchange Type       Metering Unit       Example unit_cost
+Exchange Type       Metering Unit       Example rate
 ──────────────────────────────────────────────────────────────
 Media                  tokens              $0.00003/token
 Legal                  pages               $0.50/page
-Academic               tokens              $0.05/article (flat)
+Academic               accesses            $0.05/access
 Medical imaging        studies             $2.00/study
 Credit/financial       records             $5.00/record
 Geospatial             sq_km               $0.10/sq_km
@@ -51,7 +56,7 @@ Streaming (audio)      minutes             $0.02/minute
 Pharma                 interaction_pairs   $0.001/pair
 ```
 
-Usage reporting follows the same pattern: `consumed_quantity` + `consumed_unit`. Your Exchange MUST support these fields on all offers and MUST NOT assume tokens as the default unit.
+Usage reporting follows the same pattern: `consumed_quantity` + `consumed_unit`, which matches the offer's `unit`. A report records the quantity consumed and is never refused for it. Your Exchange MUST support these fields on all offers and MUST NOT assume an offer is metered in tokens; only a usage report that omits `consumed_unit` is read as tokens.
 
 ## Extension Profiles
 

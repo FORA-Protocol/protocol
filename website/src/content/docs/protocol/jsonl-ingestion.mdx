@@ -29,8 +29,8 @@ Every length bound below is in **characters — Unicode code points, not bytes**
 | `path` | string | yes | `ResourceEntry.path` | URL path of the resource: starts with `/`, no `?` or `#`, no whitespace or control character, 1–2048 characters |
 | `title` | string | no | `ResourceEntry.title` | human label (≤ 512 characters) |
 | `content_id` | string | no | `ResourceEntry.content_id` | publisher's stable id; keys the resource id so a re-push upserts in place (≤ 255 characters) |
-| `word_count` | int | no | `ResourceEntry.word_count` | content metric; informs token estimation (≥ 0) |
-| `estimated_quantity` | int | no | `ResourceEntry.estimated_quantity` | pre-computed metering quantity (e.g. `word_count × 1.32`; ≥ 0) |
+| `word_count` | int | no | `ResourceEntry.word_count` | content metric; sizes the resource for `unit_cost` comparison, never a charge (≥ 0) |
+| `estimated_quantity` | int | no | `ResourceEntry.estimated_quantity` | your estimate of the quantity a purchase consumes, in the metered price's own `unit`, carried onto the offer's pricing. A metered purchase charges estimate × rate, or one unit's rate when you state none, so state it only in that unit: a price per access has an estimate in accesses, never a token count (≥ 0) |
 | `content_hash` | string | no | `ResourceEntry.content_hash` | integrity pin of the content bytes (≤ 255 characters; bare hex or `method:hexdigest`, not format-checked) |
 | `hash_method` | string | no | `ResourceEntry.hash_method` | algorithm for `content_hash` (e.g. `sha256`; ≤ 64 characters) |
 | `source` | string | no | `ResourceEntry.source` (`IngestionSource`) | provenance of the metadata (`INGESTION_SOURCE_CMS_API`, …) |
@@ -97,7 +97,7 @@ A publisher MAY place domain-profile data (e.g. [CoMP](/protocol/ext-comp/)) und
 
 ```json
 {"domain":"example.com","path":"/articles/42","title":"…","content_id":"22392",
- "word_count":359,"estimated_quantity":474,"content_hash":"sha256:…","hash_method":"sha256",
+ "word_count":359,"content_hash":"sha256:…","hash_method":"sha256",
  "source":"INGESTION_SOURCE_CMS_API","provenance_source":"example.com",
  "provenance_timestamp":"2026-06-18T09:23:45Z",
  "resource_mutability":"RESOURCE_MUTABILITY_STATIC",
@@ -108,4 +108,4 @@ A publisher MAY place domain-profile data (e.g. [CoMP](/protocol/ext-comp/)) und
  ]}
 ```
 
-One resource, one priced term: an AI-input license at $0.05/access with an attribution obligation, plus content-integrity and mutability metadata that surface on the discovered Offer.
+One resource, one priced term: an AI-input license at $0.05/access with an attribution obligation, plus content-integrity and mutability metadata that surface on the discovered Offer. The entry states no estimate, so a purchase charges one access, $0.05; `word_count` only sizes the resource for `unit_cost` comparison.

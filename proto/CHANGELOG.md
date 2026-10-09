@@ -330,7 +330,12 @@ Docs: the transaction-flow page gains "Charging a metered purchase", and its lis
 report checks drops the ±20% quantity tolerance that refused honest reports, as do the
 Exchange storage model and the scenario walkthrough. The licensing-terms page gains
 "Metered pricing: rate, unit and estimate", and the money-flow page, the reference page
-and the walkthroughs describe the charge.
+and the walkthroughs describe the charge. The content-ingestion pages, the billing
+adapter, the Exchange configuration and storage pages, the operator guide, the JSONL
+ingestion page and the threat model now describe the pipeline's token count as the size
+`unit_cost` compares by, never an offer's estimate: an offer carries only the estimate the
+publisher states, in the price's own unit, and a usage report never changes the charge.
+The JSONL worked example no longer pairs a per-access price with a token-count estimate.
 
 **An acceptance names its requester: `Requester.id` and `Requester.domain` are required
 (validation rules added; no wire change).** An agent's offer acceptance signs canonical

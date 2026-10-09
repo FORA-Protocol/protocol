@@ -246,29 +246,31 @@ The Exchange operator sets tenant-level defaults (e.g., "$0.05 per article for a
 
 `PricingModel` is the charging structure only. The metering basis ("per what") is the open `Pricing.unit` vocabulary (tokens, pages, accesses, records, ...), not a pricing model. Attribution and contribution are `Obligation`s, not pricing models. Subscriptions are expressed via delegation/scopes (offers come back FREE), not a pricing model.
 
-| Pricing Model | Billing Basis | Quantity Estimate Used For |
+| Pricing Model | Billing Basis | Charge |
 |---|---|---|
-| `per_unit` | Price per metering unit; the unit (tokens, pages, accesses, records, minutes, ...) comes from `Pricing.unit` | unit_cost comparison + initial estimate |
-| `flat` | Fixed price per transaction, independent of quantity | unit_cost comparison |
+| `per_unit` | Price per metering unit; the unit (tokens, pages, accesses, records, minutes, ...) comes from `Pricing.unit` | The offer's estimate × rate, or one unit's rate when the offer states no estimate. Final |
+| `flat` | Fixed price per transaction, independent of quantity | The rate. Final |
 | `free` | No charge | Not applicable |
+
+The estimate a metered offer carries (`Pricing.estimated_quantity`) is the publisher's own, stated in the price's `unit` on the term's pricing or once on `ResourceEntry.estimated_quantity`, and the Exchange carries it onto the offer unchanged. It is never computed by the Exchange, and a usage report never changes the charge: it records the quantity consumed, and a disagreement about that quantity is a dispute. See [Charging a metered purchase](/protocol/transaction-flow/#charging-a-metered-purchase).
 
 ---
 
 ## Unit Cost Normalization
 
-DiscoverResources includes `estimated_quantity` in each offer for unit_cost (cost per unit) comparison by AI agents. The unit of measurement (tokens, pages, minutes, records, etc.) is specified by `Pricing.unit`. This estimate is computed from content metadata, not from actual consumption.
+DiscoverResources includes `unit_cost` in each offer so AI agents and Brokers can compare offers across pricing models: the price of one purchase divided by the resource's size in the comparison unit of its content type (tokens for text, seconds for audio and video, pages for documents, records for data). See [unit_cost: Normalized Pricing](/getting-started/how-money-flows/#unit_cost-normalized-pricing). The size is computed from content metadata. It is a comparison input only: it is not `estimated_quantity`, which is the publisher's estimate in the price's own unit, and it never enters a charge.
 
-### Estimation Formula
+### Size Formula
 
 ```
-estimated_quantity = word_count x 1.32  (for token-based pricing)
+estimated_tokens = word_count x 1.32  (text, sized in tokens)
 ```
 
 The 1.32 multiplier is derived from empirical analysis of English-language content across common tokenizers (BPE-based: GPT-4, Claude). For non-English content, the multiplier may differ; tenant config can override.
 
 ### Data Source
 
-`word_count` comes from RSL content metadata or sitemap `<content:wordcount>` extensions. If unavailable, the Exchange estimates from content length: `word_count ~ content_length_bytes / 5.5`. For non-token metering units (`unit: "pages"`, `"minutes"`, `"records"`), the `estimated_quantity` is derived from content metadata specific to that unit type.
+`word_count` comes from RSL content metadata or sitemap `<content:wordcount>` extensions. If unavailable, the Exchange estimates it from content length: `word_count ~ content_length_bytes / 5.5`. For other comparison units (seconds, pages, records), the size is derived from content metadata specific to that unit type.
 
 ### Subscription Content and Unit Cost
 
