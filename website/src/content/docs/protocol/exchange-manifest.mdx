@@ -123,6 +123,7 @@ The Exchange's offer-signing keys are **not** carried in `fora.json`. They live 
 | `gnap_grant_endpoint` | string | No | GNAP grant endpoint when GNAP is supported |
 | `supported_profiles` | string[] | No | Domain extension profiles this Exchange conforms to (e.g., `["fora-academic-v1", "fora-news-v1"]`) |
 | `base_currency` | string | No | ISO 4217 currency code for all `unit_cost` values in offers (e.g., `"USD"`) |
+| `max_intermediary_hops` | int | No | The most RFC 9421 request signatures this Exchange accepts on one request. Every signature counts, whether or not it covers another; a request signed only by the party that sent it carries one. The Exchange counts them before it verifies any and refuses a request carrying more with `resource_exhausted` (HTTP 429) and no typed reason. Absent means no published limit |
 | `account_registration` | object | No | How to open an account here. Its `data_schema` is a JSON Schema (draft 2020-12) for the `registration_data` an agent sends to `Register`. Present means this Exchange enforces it **on account creation** **and accepts registration through the API**; absent means `registration_data` passes through uninspected. A repeat registration runs no schema check either way — it is answered from the stored record. It must satisfy every rule in [Registration schema rules](#registration-schema-rules) below — self-contained and acyclic, 16KB, 32 containers deep, 10,000 evaluations of work, and a restricted `pattern` alphabet |
 | `contact` | string | No | Contact email for integration inquiries |
 | `terms_uri` | string | No | Terms of service URL |
@@ -394,6 +395,7 @@ message WellKnownManifest {
   optional string oidc_issuer = 25;
   optional string gnap_grant_endpoint = 26;
   optional string base_currency = 27;
+  optional int32 max_intermediary_hops = 28;               // most request signatures accepted
   optional AccountRegistration account_registration = 30;  // how to open an account here
   optional string terms_digest = 31;                       // digest of the document at terms_uri
   google.protobuf.Struct ext = 15;

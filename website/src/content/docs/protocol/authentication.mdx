@@ -1,6 +1,6 @@
 ---
 title: "Authentication"
-description: "Three-layer identity model: Requester identity with Ed25519 signatures, holder-bound JWT delegation tokens for scoped authorization, and a stack of RFC 9421 HTTP Message Signatures for multi-hop request provenance."
+description: "Three-layer identity model: requester identity backed by Ed25519 keys, holder-bound JWT delegation tokens for scoped authorization, and RFC 9421 HTTP Message Signatures under the Web Bot Auth profile, each made by the party that sends the request."
 ---
 
 ## Overview
@@ -289,7 +289,7 @@ No `OfferAbsenceReason` or `DenialReason` value reports a scope shortfall. The t
 
 ## Multi-hop forwarding
 
-When a request reaches an Exchange through a forwarding party (e.g., Agent to Broker to Exchange), nothing about the route is carried in the message body. Each party signs the request it sends with its own labeled [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) signature in the HTTP headers. This section is the one place the rules for forwarding parties are specified; other pages refer to it.
+Nothing about a request's route is carried in the message body. Each party signs the request it sends with its own labeled [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) signature in the HTTP headers. FORA's own parties sign alone: an agent signs the requests it sends, and a Broker signs the requests it authors. This section is the one place the rules are specified, including the general rule for a third party that forwards a request unchanged; other pages refer to it.
 
 ### How It Works
 
@@ -314,15 +314,15 @@ A party that forwards a request unchanged in every component an earlier signatur
 
 The Exchange:
 
-1. Reads each labeled signature and its `keyid` from `Signature` / `Signature-Input`
-2. Resolves each signature's `keyid` (an RFC 7638 thumbprint) in the key directory that **its own** covered `Signature-Agent` member names, at `{origin}/.well-known/http-message-signatures-directory`. A verifier MUST NOT attribute a signature to a member that signature does not cover (WG-00 §5.2.2). A signature that covers an earlier one also covers that signature's member, so it covers several; it is attributed to the member keyed to its own label (WG-00 §5.2.1), and a signature covering several members none of which is keyed to its label is refused
-3. Verifies each signature independently against its own covered components and its own key, and authenticates the caller as the party that signed the request: the agent on a direct call, the Broker on a request the Broker sent. Where a party forwarded unchanged and covered an earlier signature, it also confirms that coverage
-4. On an execute request, verifies each item's `AgentAcceptance` against the agent's registered key, as above
-5. Enforces depth caps — `RequestConstraints.max_hops` and `WellKnownManifest.max_intermediary_hops` — by **counting every signature** on the request, before verifying any; a request over the Exchange's cap is refused as the `max_intermediary_hops` field specifies (`resource_exhausted`)
+1. Counts the signatures on the request before it verifies any, every signature counted whether or not it covers another, and refuses a request carrying more than its `WellKnownManifest.max_intermediary_hops` with the Connect code `resource_exhausted` (HTTP 429) and no typed reason. `RequestConstraints.max_hops` never reaches an Exchange: it rides only on the agent's `DiscoveryRequest` to the Broker, and no party enforces it in this version
+2. Reads each labeled signature and its `keyid` from `Signature` / `Signature-Input`
+3. Resolves each signature's `keyid` (an RFC 7638 thumbprint) in the key directory that **its own** covered `Signature-Agent` member names, at `{origin}/.well-known/http-message-signatures-directory`. A verifier MUST NOT attribute a signature to a member that signature does not cover (WG-00 §5.2.2). A signature that covers an earlier one also covers that signature's member, so it covers several; it is attributed to the member keyed to its own label (WG-00 §5.2.1), and a signature covering several members none of which is keyed to its label is refused
+4. Verifies each signature independently against its own covered components and its own key, and authenticates the caller as the party that signed the request: the agent on a direct call, the Broker on a request the Broker sent. Where a party forwarded unchanged and covered an earlier signature, it also confirms that coverage
+5. On an execute request, verifies each item's `AgentAcceptance` against the agent's registered key, as above
 
 Verifying a signature proves which party sent the request. Whether that party may send to this Exchange at all is the Exchange's own policy: an Exchange MAY accept requests from a Broker only when the Broker is registered with it.
 
-A purchase through a Broker does not use this chain. `BrokerService.ExecuteTransaction` terminates at the Broker, and the Broker re-packages the purchase into one new request per Exchange, signed by the Broker alone. See [Projected execute requests](#projected-execute-requests).
+Neither Broker RPC forwards a request. `BrokerService.Resolve` and `BrokerService.ExecuteTransaction` terminate at the Broker, which originates its own discovery queries and re-packages a purchase into one new request per Exchange, each signed by the Broker alone. See [Projected execute requests](#projected-execute-requests).
 
 See [Multi-Hop Example (Broker)](#multi-hop-example-broker) below for the concrete header layout.
 
@@ -696,7 +696,7 @@ Key differences from the parent agent's request:
 - `delegation.scopes` is narrowed to `["credit:read"]` (legal scopes removed)
 - `delegation.max_spend_cents` is reduced from `100000` ($1,000) to `20000` ($200)
 - `delegation.expires_at` is shortened (1 hour earlier)
-- The parent agent's forwarding is recorded **in the HTTP headers**, not the message: the parent adds a labeled RFC 9421 signature, and the sub-agent adds its own signature over the request plus the parent's (see [Multi-hop forwarding](#multi-hop-forwarding))
+- The sub-agent sends and signs the request alone, with its own labeled RFC 9421 signature and its own `Signature-Agent` member (see [Multi-hop forwarding](#multi-hop-forwarding)). The parent's authority does not travel as a request signature: it travels in the delegation's JWT chain
 - The delegation is a JWT chain: the authority JWT (signed by IAM) plus a child JWT (signed by the parent agent) whose `cnf.jkt` binds the grant to the sub-agent's key and whose `scope` is narrowed
 
 The Exchange verifies the full JWT chain: IAM signed the authority JWT; the parent agent signed the child JWT (its signing key matches the authority's `cnf` — chain linkage); the sub-agent's request key matches the child's `cnf.jkt`. No call to IAM was required for the delegation.

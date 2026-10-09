@@ -517,7 +517,7 @@ The Broker collects all 6 `ResourceResponse` results and builds an aggregate cos
 
 ## Step 6 — Batch ExecuteTransaction (4 Exchanges)
 
-The Broker sends batch `TransactionRequest` to each Exchange. One request per Exchange, with `TransactionItem` entries for each offer from that Exchange.
+The agent buys every selected offer in one call to the Broker, `BrokerService.ExecuteTransaction`, signing the request itself and carrying each item's `agent_acceptance` and the request's `agent_request_acceptance`. The Broker re-packages it into one `ExchangeService.ExecuteTransaction` per Exchange, with `TransactionItem` entries for each offer from that Exchange, and signs each of those alone. The agent's acceptances travel in each sub-request unchanged, so each Exchange verifies the agent's consent (see [Buying through a Broker](/protocol/transaction-flow/#buying-through-a-broker)). The sub-requests below omit the acceptances for brevity.
 
 ### Transaction to Credit Exchange (single item)
 
@@ -714,7 +714,7 @@ The Broker sends batch `TransactionRequest` to each Exchange. One request per Ex
 
 ## Step 7 — Mixed Delivery
 
-The Broker fetches all resources in parallel. Each resource type has a different delivery format:
+The agent fetches all resources in parallel: each signed URL is bound to the agent's key, so the agent presents the proof of possession. Each resource type has a different delivery format:
 
 | Resource | Delivery | Format | Hash Verification |
 |----------|----------|--------|-------------------|
@@ -726,7 +726,7 @@ The Broker fetches all resources in parallel. Each resource type has a different
 | Patents | Signed URL to CDN | HTML | SHA-256 verified (STATIC) |
 
 **Hash verification by mutability:**
-- **STATIC resources** (filings, records, articles, patents): The Broker computes SHA-256 of the delivered bytes and compares against `identity.content_hash` from the Offer. Mismatch is auto-disputable.
+- **STATIC resources** (filings, records, articles, patents): The agent computes SHA-256 of the delivered bytes and compares against `identity.content_hash` from the Offer. Mismatch is auto-disputable.
 - **DYNAMIC resources** (credit report): No hash verification. The content reflects the latest data. `data_as_of` confirmed freshness at offer time.
 
 ---
@@ -888,7 +888,7 @@ FORA replaces the **data acquisition** layer of due diligence, not the analysis.
 | 2 | — | Broker decomposes into 6 domain-specific queries |
 | 3 | `DiscoverResources` (x6) | 6 parallel SupplyQueries to 4+ Exchanges |
 | 4 | — | Broker aggregates offers, checks budget |
-| 5 | `ExecuteTransaction` (x4) | Batch transactions to each Exchange |
+| 5 | `BrokerService.ExecuteTransaction`, re-packaged as `ExchangeService.ExecuteTransaction` (x4) | One purchase through the Broker, one sub-request per Exchange |
 | 6 | — | Mixed-format fetch (JSON, PDF, HTML) with hash verification |
 | 7 | `ReportUsage` (x6+) | Per-transaction usage reports, all linked via budget_scope |
 

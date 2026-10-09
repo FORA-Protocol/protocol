@@ -18,8 +18,8 @@ sequenceDiagram
 
     Note over Handler: Validate request (proto validation)
     Note over Handler: Reject unless request.exchange names this Exchange's own domain (INVALID_ARGUMENT)
-    Note over Handler: Verify requester RFC 9421 HTTP Message Signature in the HTTP headers (Ed25519 via domain key lookup)
-    Note over Handler: Verify the stack of forwarding HTTP Message Signatures (RFC 9421, one per hop; if present)
+    Note over Handler: Count the RFC 9421 signatures against max_intermediary_hops before verifying any (over the cap: RESOURCE_EXHAUSTED)
+    Note over Handler: Verify the signature of the party that sent the request (Ed25519, key from the directory its Signature-Agent member names)
     Note over Handler: Extract tenant from ResourceQuery.uris[0] domain
     Note over Handler: (Volumetric rate limiting handled by infra layer — HAProxy/Envoy)
 
@@ -79,7 +79,7 @@ func (h *ExchangeHandler) DiscoverResources(
     //    keys or re-verifies bytes, and it fails closed when the proof is
     //    absent (a route the middleware does not guard).
     requester := req.Msg.Requester
-    verified := helpers.FromContext(ctx) // first (requester) signature; hops via helpers.AllSignaturesFromContext
+    verified := helpers.FromContext(ctx) // the first verified signature in header order; all of them via helpers.AllSignaturesFromContext
     if verified == nil {
         return nil, connect.NewError(connect.CodeUnauthenticated,
             errors.New("request reached the handler without a verified signature"))
@@ -295,23 +295,25 @@ The Exchange MUST:
 
 Every signature on the request must pass. If any one fails, the Exchange rejects the request with `CodeUnauthenticated`. The refusal carries an `ErrorDetail` whose `request_auth_failure` block holds a [`RequestAuthFailureReason`](/reference/proto-fora/#requestauthfailurereason): `SIGNATURE_MISSING` (sign the request), `SIGNATURE_INVALID` (the signature does not verify) or `SIGNATURE_STALE` (sign it again, now). The reason names what the caller does next, never which check failed.
 
-Depth is bounded by `RequestConstraints.max_hops` (agent-set) and `WellKnownManifest.max_intermediary_hops` (Exchange-published); the Exchange counts the signatures in the stack against these caps.
+Before it verifies any signature, the Exchange counts the signatures on the request against its `WellKnownManifest.max_intermediary_hops`, every signature counted whether or not it covers another, and refuses a request carrying more with `CodeResourceExhausted` (HTTP 429) and no typed reason. A request signed only by the party that sent it carries one. `RequestConstraints.max_hops` never reaches an Exchange: it rides only on the agent's `DiscoveryRequest` to the Broker, and no party enforces it in this version.
 
 ```go
 // Request-signature verification runs in the SDK's verify middleware at the
 // HTTP seam, before any handler. The middleware:
 //   1. Parses the Signature / Signature-Input headers into labeled signatures.
-//   2. Verifies the request signature against the key in the directory its
+//   2. Counts them against max_intermediary_hops before verifying any
+//      (connectserver.WithMaxSignatures). A request carrying more is refused
+//      with CodeResourceExhausted (HTTP 429) and no ErrorDetail.
+//   3. Verifies the request signature against the key in the directory its
 //      own Signature-Agent member names, at
 //      {origin}/.well-known/http-message-signatures-directory.
-//   3. Where a party forwarded unchanged and covered an earlier signature,
+//   4. Where a party forwarded unchanged and covered an earlier signature,
 //      verifies that signature and the coverage too.
-//   4. Counts the signatures against max_hops / max_intermediary_hops.
-// Any failure rejects the request with CodeUnauthenticated before the handler
-// runs, carrying ErrorDetail.request_auth_failure (SIGNATURE_MISSING,
-// SIGNATURE_INVALID or SIGNATURE_STALE). The handler reads the proven
-// signatures from the context, in header order:
-hops := helpers.AllSignaturesFromContext(ctx)
+// A signature that fails rejects the request with CodeUnauthenticated before
+// the handler runs, carrying ErrorDetail.request_auth_failure
+// (SIGNATURE_MISSING, SIGNATURE_INVALID or SIGNATURE_STALE). The handler reads
+// the proven signatures from the context, in header order:
+sigs := helpers.AllSignaturesFromContext(ctx)
 ```
 
 ### Delegation Verification

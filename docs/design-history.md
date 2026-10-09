@@ -9,6 +9,17 @@ git history.
 
 ## Request and hop authentication: RFC 9421, hop-by-hop
 
+> **Superseded in part — FORA's Broker no longer forwards.** Each party now signs the
+> request it authors: a Broker originates its discovery queries and re-packages a
+> purchase, signing each alone, so a FORA request carries one signature. A key is
+> resolved in the WBA directory its signer's covered `Signature-Agent` member names,
+> not from `/.well-known/fora.json`. `WellKnownManifest.max_intermediary_hops` counts
+> every signature and is checked before any is verified; `RequestConstraints.max_hops`
+> reaches no Exchange and no party enforces it. Each request is answered to the party
+> that sent it. The move from in-message signatures to RFC 9421 described below still
+> stands. See "Signing under the Web Bot Auth profile" and "The hop cap counts
+> signatures; max_hops waits for multi-hop Broker discovery".
+
 Early drafts carried authentication inside the protobuf messages: per-message
 signature fields on requests, on each intermediary hop, and on catalog pushes. We
 moved all request authentication to RFC 9421 HTTP Message Signatures
@@ -401,6 +412,10 @@ and because it fixes number formatting by specification rather than by whichever
 renderer a language reaches for.
 
 ## Recipient addressing: a body field, not the signed request URL
+
+> **Superseded in part.** FORA's Broker no longer forwards a request verbatim, so the
+> verbatim-forwarded path mentioned below no longer exists in FORA: every request is
+> signed by the party that authored it. The rest of the reasoning stands.
 
 Every addressed request carries `exchange`, the bare host of its intended
 recipient, and a recipient rejects a request naming someone else. The obvious
@@ -2443,3 +2458,30 @@ to http whatever the configuration, where Go and Python permit one when a sandbo
 `ALLOW_INSECURE`. A sandbox that serves documents over plaintext starts the read over
 plaintext, and http to http is still followed. On Node, document reads therefore no longer
 follow a redirect from https to http either, which the undici redirect handler had done.
+
+## The hop cap counts signatures; max_hops waits for multi-hop Broker discovery
+
+Under the forwarding chain both caps bounded the chain's depth: each party that passed a
+request on added a signature, so counting signatures counted hops.
+`WellKnownManifest.max_intermediary_hops` was the Exchange's tolerance and
+`RequestConstraints.max_hops` the agent's, and the Go SDK told an Exchange to configure
+one signature more than it published. Once a Broker signs alone — it originates its
+discovery queries and re-packages a purchase — every FORA request carries one signature,
+and neither cap measured anything a FORA party does.
+
+`max_intermediary_hops` is kept, with a meaning that holds without a chain: the most
+signatures an Exchange accepts on a request, every signature counted whether or not it
+covers another. It still bounds a third party that forwards a request unchanged and signs
+it again, and it caps the work an unauthenticated request can cause, since every signature
+names a directory to fetch. So the Exchange counts before it verifies any signature, and
+refuses a request carrying more with `resource_exhausted` and no typed reason. The value
+is the count itself: the Go guidance to add one went, which the Python and TypeScript
+verifiers had never applied, and a released field changing meaning is recorded as a
+behaviour change rather than a comment edit.
+
+`max_hops` rides only on `DiscoveryRequest`, which ends at the Broker, and a Broker never
+forwards the agent's request, so no party receives or enforces it. It is not deprecated.
+How discovery should travel through more than one Broker is an open protocol question,
+and an agent's bound on that is what this field would carry; deprecating it now would
+close the option for a field that costs nothing while unused. What changed is that no
+page or comment claims an Exchange enforces it.

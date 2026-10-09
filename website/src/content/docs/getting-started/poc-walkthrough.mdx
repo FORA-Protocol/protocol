@@ -166,7 +166,7 @@ curl -s https://exchange.demo.fora-protocol.org/.well-known/fora.json
 }
 ```
 
-`legal_entity` required, `email` optional — exactly what the agent reported back. The digest it echoed is `WellKnownManifest.terms_digest` from the manifest above: registration records **which revision of the terms you accepted**, by digest, so neither side can later disagree about what was agreed. The manifest also advertises `WellKnownManifest.supported_profiles` and `WellKnownManifest.base_currency`, which is how an agent knows what the Exchange speaks before it sends anything.
+`legal_entity` required, `email` optional — exactly what the agent reported back. The digest it echoed is `WellKnownManifest.terms_digest` from the manifest above: registration records **which revision of the terms you accepted**, by digest, so neither side can later disagree about what was agreed. The manifest also advertises `WellKnownManifest.supported_profiles` and `WellKnownManifest.base_currency`, which is how an agent knows what the Exchange speaks before it sends anything. `WellKnownManifest.max_intermediary_hops` is the most request signatures the Exchange accepts on one request. A request signed only by the party that sent it — the agent, or the Broker for a request it authored — carries one, so 4 leaves room for parties that forward a request unchanged and sign it again; the Exchange counts the signatures before it verifies any and refuses a request carrying more with `resource_exhausted`.
 
 ## 5. Watch the door close
 

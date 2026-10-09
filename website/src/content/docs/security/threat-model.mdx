@@ -256,11 +256,11 @@ Line 3: Legal/contractual enforcement
 **Attack**: Principal revokes a delegation but cached or stored tokens continue to work until their `expires_at` timestamp.
 **Countermeasure (protocol)**: Short `expires_at` (2-4 hours for standard access) limits the window of continued access. For high-value transactions, Exchange checks `revocation_uri` in real time before fulfillment. **Trade-off**: revocation checking adds latency (~50ms) so is only used for transactions above a configurable value threshold.
 
-### T-DEL-4: Forwarding chain forgery
+### T-DEL-4: Signer impersonation and forged forwarding
 
 FORA's Broker never forwards an agent's request unchanged: it originates discovery queries and re-packages purchases, and signs each alone. A purchase through a Broker is covered by T-BRK-1 and T-BRK-2.
 
-**Attack**: Attacker inserts a fake hop into the forwarding chain, claiming to be a trusted Broker to gain access or inject misleading provenance — or reorders or drops an existing hop.
+**Attack**: Attacker claims to be a trusted Broker, or another agent, to gain access or inject misleading provenance — or, where a third party forwards a request unchanged and signs it again, inserts, reorders or drops a signature.
 **Countermeasure (protocol)**: **Every sender signs its own request (RFC 9421, Ed25519).** A Broker originates discovery queries and re-packages execute requests, and signs each alone with its own key, so it cannot claim to be another Broker: the Exchange verifies that signature against the key in the directory the Broker's own `Signature-Agent` member names (the JWK Set at `{origin}/.well-known/http-message-signatures-directory`, the key identified by its RFC 7638 thumbprint, the RFC 9421 `keyid`). The agent's identity and consent on a purchase cannot be forged or moved onto another request, because they are the `AgentAcceptance` signed into the body over the offer signature, requester and idempotency key. Where a party forwards a request unchanged and covers the signature before it, a forged, reordered, dropped or inserted hop breaks a later signature and the request is rejected. See [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding). The refusal's typed reason (`RequestAuthFailureReason`) is deliberately coarse — missing, invalid or stale — so it never tells a forger which check its request failed or how far it got.
 
 ### T-DEL-5: Scope pollution

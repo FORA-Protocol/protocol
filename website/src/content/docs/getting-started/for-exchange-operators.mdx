@@ -172,7 +172,7 @@ A request from a Broker is the Broker's own: the Broker originates discovery que
 1. Verify the request signature: fetch the signer's public key from the directory its own `Signature-Agent` member names (the JWK Set at `{origin}/.well-known/http-message-signatures-directory`, `role=ROLE_AGENT`), identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`), and authenticate the caller as that party
 2. On an execute request, verify each item's `AgentAcceptance` in the body against the agent's registered key, resolved from `Requester.domain`; on a request a Broker re-packaged, that is the agent's identity and consent, its key gives the delivery-URL binding, and a delegation's `cnf.jkt` is checked against it
 3. Where a party forwarded a request unchanged and covered an earlier signature, verify that signature and the coverage too
-4. Enforce `max_intermediary_hops` by signature count — reject requests whose signature count exceeds your published limit
+4. Enforce `max_intermediary_hops` by signature count, before verifying any signature — refuse a request carrying more signatures than your published limit with `resource_exhausted` (HTTP 429) and no typed reason
 
 ### Scope-Based Catalog Filtering
 

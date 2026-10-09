@@ -260,6 +260,8 @@ Not on the hot path. Never blocks DiscoverResources or ExecuteTransaction.
 | Scenario | Sentinel Error | Connect Code | gRPC Code | HTTP Status |
 |---|---|---|---|---|
 | Invalid request fields | (validation) | `CodeInvalidArgument` | `INVALID_ARGUMENT` | 400 |
+| More request signatures than `max_intermediary_hops`, counted before any is verified (no typed reason) | `helpers.ErrTooManyHops` | `CodeResourceExhausted` | `RESOURCE_EXHAUSTED` | 429 |
+| Request signature missing, invalid or stale (`request_auth_failure`) | (verify middleware) | `CodeUnauthenticated` | `UNAUTHENTICATED` | 401 |
 | Offer signature verification failed | `ErrOfferSignature` | `CodeInvalidArgument` | `INVALID_ARGUMENT` | 400 |
 | Offer expired | `ErrOfferExpired` | `CodeNotFound` | `NOT_FOUND` | 404 |
 | Billing denied (general) | `ErrBillingDenied` | `CodePermissionDenied` | `PERMISSION_DENIED` | 403 |

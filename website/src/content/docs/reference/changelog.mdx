@@ -50,7 +50,13 @@ field comment states it once. Go's `connectserver.WithMaxSignatures` and
 TypeScript verifiers already did. `RequestConstraints.max_hops` rides only on
 `DiscoveryRequest`, which ends at the Broker, and a Broker originates its own queries, so
 no party receives or enforces it in this version; it is kept for multi-hop Broker
-discovery, and the proto comments that said an Exchange enforces it no longer do.
+discovery, and the proto comments and pages that said an Exchange enforces it no longer
+do. The transaction-flow, authentication, Exchange request-flow, reference,
+role-composition, what-is-FORA, Exchange overview and operator pages state the count-first
+rule and drop the forwarding-chain framing, the exchange-manifest page documents the
+field, and the academic, due-diligence and live-demo walkthroughs buy as the protocol now
+defines it: directly, or through `BrokerService.ExecuteTransaction` with the agent's
+acceptances.
 
 **An MCP tool error carries `{"refusal": UpstreamRefusal}`; `UpstreamRefusal.exchange`
 is renamed `party` (field rename; no released message changes).** `UpstreamRefusal` is the

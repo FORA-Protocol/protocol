@@ -613,7 +613,7 @@ The Broker also flags the retracted paper to the agent:
 
 ## Step 5 — Batch ExecuteTransaction
 
-The Broker commits to all 49 selected offers in a single batch `TransactionRequest`. Each item carries the full signed `offer`, reflected back exactly as received at discovery (stateless verification — the Exchange does not need to store offers).
+The research agent commits to all 49 selected offers in a single batch `TransactionRequest`, sent directly to the Exchange and signed by the agent: every selected offer is from ScholarsGate. Through the Broker it would send the same request, with each item's `agent_acceptance` and the request's `agent_request_acceptance`, to `BrokerService.ExecuteTransaction`, and the Broker would re-package it for the Exchange and sign that request alone (see [Buying through a Broker](/protocol/transaction-flow/#buying-through-a-broker)). Each item carries the full signed `offer`, reflected back exactly as received at discovery (stateless verification — the Exchange does not need to store offers).
 
 `POST https://exchange.scholarsgate.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
