@@ -52,6 +52,12 @@ agent's identity (`agent_identity_hash`) and needs no return-path relay.
 
 ## Canonical signing: JCS over proto-JSON, not deterministic protobuf
 
+> **Superseded in part.** An acceptance can no longer name an empty requester:
+> `Requester.id` now requires at least one character, and the acceptance signers and
+> verifiers refuse an empty requester id or domain, so the divergence below can no
+> longer arise. The omission rule it taught still binds every empty field, and the
+> acceptance vectors pin it with an empty `idempotency_key`.
+
 Three signed FORA payloads cover a protobuf message: `Offer.signature`, the
 agent's `AgentAcceptance.signature`, and the agent's
 `AgentRequestAcceptance.signature` — the request-set proof, added later and born
@@ -528,6 +534,13 @@ through the same dispute chain as the rest of the protocol.
 
 ## Universal Licensing Core
 
+> **Superseded in part.** An offer now carries its price once, in `Offer.pricing`:
+> the term inside `Offer.terms` carries no pricing, while every catalog term in
+> `ResourceEntry.terms` still does. The two ends therefore no longer share the
+> term's exact shape: the price a publisher pushes on a term reaches the agent as
+> `Offer.pricing`. The closed licensing core and agent-selected restrictions below
+> stand.
+
 Licensing collapsed from several parallel, partly-overlapping shapes into one
 `LicenseTerm` that carries `License`, `Restriction`, `Quota`, `Obligation`, and
 `Pricing`, and appears with the *same shape* at both ends of the protocol —
@@ -815,6 +828,11 @@ because one carrier message means uniform client code: there is exactly one type
 to look for.
 
 ## A failed action is not a success body
+
+> **Superseded in part.** A purchase no longer splits by item count. Every per-item
+> denial, a one-item purchase's included, is answered in the body on
+> `TransactionResultItem.denial_reason`, and `ErrorDetail.transaction_denial` is
+> sent only when the Exchange refuses the whole request and decides no item.
 
 The corollary decision is where a failure lives. The rule is the gRPC / AIP-193
 one: a method that could not perform the requested *action* returns a non-OK code
@@ -1667,6 +1685,11 @@ separately and for a different reason; see "Details the SDK writes itself are pi
 
 ## Discovery answers are grouped per URI, not flattened
 
+> **Superseded in part.** `OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT` is deprecated
+> and never sent: a requester never learns about a resource outside its scopes, so a
+> scope shortfall reads as a group with no offers and no reason. The grouping
+> argument below stands.
+
 A discovery call is per-URI: an agent asks about several resources at once, and both
 `DiscoverResources` and the Broker's `Resolve` answer with one `OfferGroup` per
 requested URI, each either carrying offers or carrying a typed `OfferAbsenceReason`
@@ -2418,7 +2441,7 @@ rest. A refusal the fetcher can fix by signing again carries `Accept-Signature`,
 does a request or proof whose `Signature-Agent` member is not an https origin: that is a
 form the client chose, not a forgery.
 
-**No option fetches a key directory in plaintext.** The key resolver's scheme option
+**No key resolver keeps a plaintext option.** The key resolver's scheme option
 (Go `WBAKeyResolverOptions.Scheme`, Python `WBAKeyResolver(scheme=...)`, TypeScript
 `WBAKeyResolverOptions.scheme`) let tests fetch an https origin's directory from a
 plaintext server, and any production configuration could set it too. It is gone from
