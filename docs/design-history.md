@@ -644,6 +644,15 @@ contiguous, with no gaps or reused numbers left by the removals.
 
 ## Delegation-claims profile: opaque token, bound holder
 
+> **Superseded in part.** The request signer is no longer always the holder. On a
+> direct request the key that signs the RFC 9421 request must still equal the holder
+> key the token names. On a purchase a Broker relays, the Broker signs the request,
+> so the Exchange checks the holder binding against the key each item's
+> `AgentAcceptance` verifies under, and an item without one fails it. A Broker is
+> never delegated to. How an agent proves a holder-of-key entitlement at discovery
+> time through a Broker is an open protocol question. See "A Broker signs alone,
+> because it changes what the agent signed".
+
 Delegation tokens stay opaque on the wire — FORA does not parse or re-encode the
 token, and `token_format` only names which verifier to run. But leaving the
 *meaning* of a token entirely to each issuer made delegations non-portable: an
@@ -737,6 +746,13 @@ minimal and its signed offers stay price-comparable.
 > sole delegation `token_format`, and the entitlement *mechanism* (a
 > holder-bound capability token on a covered header) is unchanged — only the
 > Biscuit format is gone. Read the "still optional" language below as historical.
+>
+> **Superseded in part — the key that proves possession.** On a direct request the
+> agent still proves possession with its RFC 9421 request signature. On a purchase a
+> Broker relays, the Broker signs the request, so the holder binding is checked
+> against the key each item's `AgentAcceptance` verifies under. The `cnf` chain and
+> its offline walk below stand. See "Delegation-claims profile: opaque token, bound
+> holder".
 
 The delegation token started as a Biscuit (`token_format` defaulted to
 `"biscuit-v3"`), chosen for offline attenuation. Modelling the holder-binding
@@ -913,6 +929,16 @@ autolink pass could not see into. All of it is deleted. `protoc-gen-foravocab` a
 (`pricingunits.IsRegistered`).
 
 ## A covered header the peer never receives is not bound
+
+> **Superseded in part.** The fifth covered component is now the signer's own
+> `"signature-agent";key="<label>"` member, and it is never empty: a signer refuses
+> to sign without an https directory, so only `authorization` is still bound whether
+> or not it carries a value. The FORA components are a minimum, and a verifier
+> accepts a signature that covers more. `sign-request-vectors.json` no longer has an
+> empty `signature_agent` case, and its append case pins what `AppendSignature`
+> emits on an unsigned request rather than a forwarding leg, since a Broker signs
+> alone. The emit rule below, empty `Authorization` included, still stands. See
+> "Signing under the Web Bot Auth profile".
 
 The RFC 9421 covered set is fixed and unconditional: `@method`, `@target-uri`,
 `content-digest`, `authorization` and `signature-agent` are bound into the signature base
@@ -1217,6 +1243,11 @@ property — the property has always been held jointly, and this change does not
 
 ## A catalog client is its own constructor
 
+> **Superseded in part.** `PushResourcesRequest.caller_id` is deprecated as never
+> needed: the caller is the party that signs the push, and the Exchange checks that
+> the verified signer may push for each entry's domain. The constructor reasoning
+> below stands.
+
 The usage-report decision recorded above settled a rule that generalises: a client's
 constructor takes its shape from where the address comes from. A report goes where a
 signed offer says, so the report verb resolves its destination from the message and
@@ -1513,6 +1544,13 @@ contract, not a gap in the docs.
 
 ## SSRF-guarded fetch: two flags, a corpus-locked transport
 
+> **Superseded in part.** The WBA directory fetch no longer takes its scheme from
+> `ALLOW_INSECURE`. A directory named by a signature's covered `Signature-Agent`
+> member is fetched over https, because that member must be an https origin, and the
+> fetch follows no redirect. The key resolvers' option to fetch an https origin's
+> directory in plaintext is gone from all three SDKs. The address guard described
+> below stands. See "Signing under the Web Bot Auth profile".
+
 Every third-party-influenceable fetch across all three SDKs runs through a guarded
 client governed by exactly two orthogonal environment flags and nothing else — no
 deployment allow-list, no config file, no per-stack policy. `SKIP_SSRF` toggles the
@@ -1653,6 +1691,12 @@ alternatives, never concatenated, because a responder that populates both would
 otherwise have every offer counted twice.
 
 ## A signed leg refuses redirects; the guarded fetch follows them
+
+> **Superseded in part.** Key directories are no longer among the documents this
+> client follows redirects for. A key directory answers `200` itself and is never
+> fetched through a redirect, as the Web Bot Auth profile requires; a
+> `/.well-known/fora.json` manifest and a revocation list may still follow up to five.
+> The refusal on signed legs below stands.
 
 The SSRF-guarded HTTP client follows up to five redirects, re-pinning the address and
 re-vetting the scheme at each hop. That is correct for what it was built for: fetching
@@ -1893,6 +1937,13 @@ this seam is living with today, in the other direction.
 
 ## The peer's token is ours to trust; the peer's sentence is only ours to carry
 
+> **Superseded in part.** The hazard in the last paragraph no longer arises. Every
+> signature a signing transport makes carries a fresh 64-byte nonce, so two
+> identical calls inside one second sign different bytes, and a peer screening
+> replays on (key id, signature) accepts both. `MonotonicWindow` now signs at the
+> clock's current time and is deprecated in all three SDKs, so no window drifts. See
+> "Signing under the Web Bot Auth profile".
+
 A caller reading why a call failed had the failure class and the peer's refusal token, both
 machine-readable, and no way to reach the peer's own sentence except by parsing it back out
 of a rendered error. That is a thing a layer will get wrong, and the platform's MCP adapter
@@ -1931,6 +1982,11 @@ drift is a separate change: today it compounds without a ceiling, which is its o
 and has its own answer.
 
 ## Four client defaults where the ports differ from Go on purpose
+
+> **Superseded in part.** The signature-window difference is gone: Python's default
+> is now five minutes, as Go's and TypeScript's are, and every signer refuses a
+> window longer than five minutes. The other three differences below still stand.
+> See "Signing under the Web Bot Auth profile".
 
 Go is the oracle and the ports mirror it, so a difference that survives review has to be
 written down or it reads as drift. Four survive, and none is an API-surface divergence —
@@ -2115,6 +2171,16 @@ risk — and the risk it removes is already contained by the anchoring above. Wo
 revisiting as a three-language change.
 
 ## One agent identity, one key
+
+> **Superseded in part.** An Exchange now verifies an acceptance against the Ed25519
+> keys currently valid in the directory `Requester.domain` names, not against the
+> key of whichever caller the request signature identified: on a purchase a Broker
+> relays, that caller is the Broker, and `agent_identity_hash` and the delivery URL
+> name the key the acceptances verify under. The sentences below about a
+> separately-custodied acceptance key describe the earlier rule. The SDKs still take
+> one key and offer no option for a separate acceptance key, so the key a delivery
+> URL is bound to is always the key the fetch proves possession of. See "A Broker
+> signs alone, because it changes what the agent signed".
 
 The protocol carries a single agent identity and the SDK does not offer a second.
 `agent_identity_hash` is defined as the RFC 7638 thumbprint of the agent's
