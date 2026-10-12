@@ -912,13 +912,15 @@ func buildWireCanonicalVectors(t *testing.T) []wireCanonicalVector {
 }
 
 // buildSignRequestVectors signs a fixed set of requests with the REAL Go
-// SignRequest and records the exact bytes it emits. Covered set is exactly
-// @method @target-uri content-digest authorization signature-agent (no
-// entitlement-token header present, so coveredFor never appends the conditional entitlement
-// component). created/expires are the non-zero pinned window (reused from the
-// pop emitter) so renderParamsTail never drops them. One vector carries an
-// empty-authorization bound value; one carries an absent Signature-Agent so the
-// empty-bind (static bootstrap) semantics are pinned cross-language.
+// SignRequest, or AppendSignature for the appendOnly cases, and records the exact
+// bytes it emits. Covered set is exactly @method @target-uri content-digest
+// authorization "signature-agent";key="sig1" (no entitlement-token header present,
+// so coveredFor never appends the conditional entitlement component).
+// created/expires are non-zero pinned windows (the fixture's, reused from the pop
+// emitter, or a documentation example's own) so renderParamsTail never drops them.
+// Several vectors bind an empty Authorization, which is still sent. Every vector
+// names an https Signature-Agent origin: a signer refuses to sign without one
+// (ErrSignatureAgentRequired), so the corpus has no empty Signature-Agent case.
 func buildSignRequestVectors(t *testing.T) []signRequestVector {
 	t.Helper()
 	const (

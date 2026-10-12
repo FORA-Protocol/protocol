@@ -70,12 +70,13 @@ export interface ClientOptions {
 	 * cannot yield it — custody keeps the private half, so the public half is supplied
 	 * alongside. Without it the client can buy but cannot fetch what it bought.
 	 *
-	 * There is deliberately no option for a separate agent PRIVATE key. The protocol
-	 * carries one agent identity: agent_identity_hash is the thumbprint of the agent's
-	 * request-signing key, an Exchange verifies the detached acceptance against the key
-	 * registered for the caller its request signature identified, and the delivery URL is
-	 * bound to that same thumbprint. A second key would be refused at execute, and any URL
-	 * it did produce could never be fetched. */
+	 * There is deliberately no option for a separate agent PRIVATE key: `signer` signs
+	 * requests, acceptances and delivery-fetch proofs, so the key a delivery URL is bound
+	 * to is always the key this client proves possession of. An Exchange verifies an
+	 * acceptance against the Ed25519 keys currently valid in the directory
+	 * requester.domain names, never against a Broker's key: on a purchase a Broker
+	 * relays, the request signer is the Broker, and the delivery URL is bound to the key
+	 * the acceptances verify under. */
 	agentPublicKey?: CryptoKey;
 	/** The agent's own identity. A query and a purchase must name a requester, and a
 	 * request without one is refused, so the client stamps it on every query that names

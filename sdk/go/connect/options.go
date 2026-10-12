@@ -147,13 +147,13 @@ func WithRequester(r *forav1.Requester) ClientOption {
 // keeps the private half, so the public half has to be supplied alongside.
 // Without it the client can buy but cannot fetch what it bought.
 //
-// There is deliberately no option for a SEPARATE acceptance key. The protocol
-// carries one agent identity: agent_identity_hash is defined as the thumbprint of
-// the agent's request-signing key, an Exchange verifies the detached acceptance
-// against the key registered for the caller its request signature identified, and
-// the delivery URL is bound to that same thumbprint. A second key would be
-// refused at execute, and any URL it did produce could never be fetched — the
-// presented key would not match the binding.
+// There is deliberately no option for a SEPARATE acceptance key. The client signs
+// requests, acceptances and delivery-fetch proofs with the one Signer WithSigner
+// injects, so the key a delivery URL is bound to is always the key the fetch
+// proves possession of. An Exchange verifies an acceptance against the Ed25519
+// keys currently valid in the directory requester.domain names, never against a
+// Broker's key: on a purchase a Broker relays, the request signer is the Broker,
+// and the delivery URL is bound to the key the acceptances verify under.
 // The key is COPIED for the same reason WithRequester clones: the caller keeps
 // the slice it passed, and a later append or overwrite there would otherwise
 // change which key every subsequent fetch presents.

@@ -172,12 +172,12 @@ class SigningTransport:
         """Sign the detached acceptance a purchase carries; return ``(hex_signature, alg)``.
 
         It signs with the REQUEST signer's key, and there is deliberately no option for a
-        separate acceptance key. The protocol carries one agent identity:
-        ``agent_identity_hash`` is defined as the thumbprint of the agent's request-signing
-        key, an Exchange verifies the detached acceptance against the key registered for
-        the caller its request signature identified, and the delivery URL is bound to that
-        same thumbprint. A second key would be refused at execute, and any URL it did
-        produce could never be fetched — the presented key would not match the binding.
+        separate acceptance key: one key signs requests, acceptances and delivery-fetch
+        proofs, so the key a delivery URL is bound to is always the key this transport
+        proves possession of. An Exchange verifies the acceptance against the Ed25519 keys
+        currently valid in the directory ``requester_domain`` names, never against a
+        Broker's key: on a purchase a Broker relays, the request signer is the Broker, and
+        the delivery URL is bound to the key the acceptances verify under.
 
         It lives on the transport so the key stays in one place: the client composes this
         seam and never handles key material, which is the shape the Go oracle has, where
