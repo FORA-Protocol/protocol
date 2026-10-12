@@ -17,8 +17,9 @@ git history.
 > every signature and is checked before any is verified; `RequestConstraints.max_hops`
 > reaches no Exchange and no party enforces it. Each request is answered to the party
 > that sent it. The move from in-message signatures to RFC 9421 described below still
-> stands. See "Signing under the Web Bot Auth profile" and "The hop cap counts
-> signatures; max_hops waits for multi-hop Broker discovery".
+> stands. Why the Broker signs alone is recorded in "A Broker signs alone, because it
+> changes what the agent signed"; see also "Signing under the Web Bot Auth profile"
+> and "The hop cap counts signatures; max_hops waits for multi-hop Broker discovery".
 
 Early drafts carried authentication inside the protobuf messages: per-message
 signature fields on requests, on each intermediary hop, and on catalog pushes. We
@@ -2532,3 +2533,58 @@ acceptances.
 A Broker is never relayed to: every request it receives is direct, so a mismatched
 requester at a Broker is always refused. Usage reports and disputes carry no
 `Requester`, so the comparison does not apply to them.
+
+## A Broker signs alone, because it changes what the agent signed
+
+Under the forwarding chain recorded in "Request and hop authentication: RFC 9421,
+hop-by-hop", a Broker passed the agent's signed request on and added a signature
+that covered it, so an Exchange verified the agent's own request signature behind
+the Broker's. WG-00 §5.2.2 lets a signer cover an earlier signature only by also
+covering that signature's `Signature-Input` member and every component it lists,
+and it says what a signer does when it cannot: "A signer that cannot cover one of
+those components, because it changed the value the inner signature was computed
+over, MUST NOT cover the inner signature member. It signs the request on its own
+terms, and the inner signature is left untouched."
+
+A Broker is always that signer. On execute it builds a new `TransactionRequest` for
+each Exchange and posts it to that Exchange's URL, so the body the agent's
+`Content-Digest` bound and the `@target-uri` the agent signed both change: a
+re-packaged body cannot travel under the agent's signature. On discovery there is no
+agent request to an Exchange to pass on: the point of a Broker is that the agent
+does not know the Exchanges, so the Broker chooses them and originates its own
+queries. In both cases the Broker signs alone. Its signature covers its own request
+components and only its own `Signature-Agent` member, the request carries no agent
+signature headers, and the Exchange authenticates the caller as the Broker. A party
+that forwards a request unchanged may still cover the earlier signature, and only
+then do signatures form a chain; FORA's Broker never forwards that way.
+
+The Exchange therefore takes the agent's identity from the body, from the detached
+signatures that carry its consent. WG-00 says as much of coverage itself: an outer
+signature that covers an inner one "does not express authorization, delegation, or
+consent. Those meanings are deployment policy, or are carried in separately signed
+fields." FORA's are each item's `AgentAcceptance` and the `AgentRequestAcceptance`
+over the ordered set, signed over the purchase rather than over the HTTP request
+that carries it, so the Broker's re-packaging leaves them intact. On a relayed
+purchase they are the only agent signatures the Exchange sees, and three rules make
+them carry the agent's identity:
+
+- **They verify against the requester's directory.** An Exchange checks them against
+  the Ed25519 keys currently valid in the directory `Requester.domain` names, never
+  against the Broker's key.
+- **The delivery URL follows them.** The request signer is the Broker, so
+  `agent_identity_hash` and the URL's binding name the key the acceptances verify
+  under.
+- **A delegation stays sealed to the agent.** Its `cnf.jkt` is checked against that
+  same key, so a relayed purchase that carries a delegation needs an
+  `AgentAcceptance` on every item. A Broker is never delegated to.
+
+On a query a Broker originated, `Requester.domain` is the Broker's statement, under
+its own signature, of whom it queries for. How an agent proves a holder-of-key
+entitlement at discovery time through a Broker is an open protocol question.
+
+A request a Broker sends carries one signature and one `Signature-Agent` member, so
+a single-member Web Bot Auth verifier, such as Cloudflare's `web-bot-auth` library,
+accepts every Broker signature. What the hop caps count now is recorded in "The hop
+cap counts signatures; max_hops waits for multi-hop Broker discovery", and how an
+Exchange tells a relayed request from a direct one in "A relay is a requester
+mismatch the Exchange admits".
