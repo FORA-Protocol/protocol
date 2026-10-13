@@ -85,48 +85,62 @@ func (h *ExchangeHandler) DiscoverResources(
             errors.New("request reached the handler without a verified signature"))
     }
 
-    // 2b. Requester.domain is the host of the agent's key directory, never a
-    //     free label. On a request the agent signed, it MUST name the directory
-    //     the signature resolved from: the host of the covered Signature-Agent
-    //     URL, compared by the request-recipient identity rule (case-folded,
-    //     an absent port the same as :443). A mismatch is a signature that
-    //     verifies, but not for the requester the body names. (A ResourceQuery
-    //     a Broker authored carries the Broker's signature instead; there the
-    //     domain is the Broker's statement of whom it queries for.)
+    // 2b. Direct or Broker-led ("Direct and relayed requests" in the protocol).
+    //     Requester.domain is the host of the agent's key directory, never a
+    //     free label. When it names the directory the signature resolved from
+    //     (the host of the covered Signature-Agent URL, compared by the
+    //     request-recipient identity rule: case-folded, an absent port the same
+    //     as :443), the query is DIRECT: the agent signed it. When it names
+    //     another directory, the query is one a Broker originated, which this
+    //     Exchange acts on only when it admits the signer as a Broker; there the
+    //     domain is the Broker's statement of whom it queries for, and nothing
+    //     on this leg authenticates the agent. Any other mismatch is a signature
+    //     that verifies, but not for the requester the body names.
     host, err := helpers.HostOf(verified.SignatureAgent)
     verdict := helpers.AudienceMalformed
     if err == nil {
         verdict, err = helpers.CheckAudience(host, requester.GetDomain())
     }
-    if err != nil || verdict != helpers.AudienceAccepted {
+    direct := err == nil && verdict == helpers.AudienceAccepted
+    brokerLed := err == nil && verdict == helpers.AudienceMismatch &&
+        h.brokers.Admits(verified.SignatureAgent)
+    if !direct && !brokerLed {
         return nil, connectserver.AttachDetail(
             connect.NewError(connect.CodeUnauthenticated, errors.New("requester.domain is not the signing directory")),
             helpers.RequestAuthFailureDetail("fora.v1.ExchangeService", "requester.domain is not the signing directory",
                 forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID))
     }
 
-    // 2c. Verify delegation (if present).
+    // 2c. Verify delegation (if present) on a DIRECT query.
     //     Verifies the delegation JWT chain (chain linkage + cnf holder binding)
-    //     against the principal's published key.
-    if requester.Delegation != nil {
+    //     against the principal's published key. On a query a Broker originated
+    //     the Broker signs alone, so nothing can pass the holder binding: the
+    //     delegation is not honoured, and the query is answered as if none were
+    //     present.
+    delegation := requester.GetDelegation()
+    if brokerLed {
+        delegation = nil
+    }
+    if delegation != nil {
         if err := h.verifyDelegationJWT(ctx, requester); err != nil {
             return nil, connect.NewError(connect.CodePermissionDenied, err)
         }
     }
 
-    // 2d. Resolve the caller's registered account from the VERIFIED identity:
-    //     the covered directory (verified.SignatureAgent) plus the RFC 7638
-    //     thumbprint of the key the signature actually verified against
-    //     (verified.PublicKey — not the claimed keyid). requester.id is a free
-    //     label and requester.domain was matched against the directory in 2b;
-    //     neither selects an account.
-    keyThumb, err := helpers.Thumbprint(verified.PublicKey)
-    if err != nil {
-        return nil, connect.NewError(connect.CodeInternal, err)
-    }
-    account, err := h.accounts.FromVerifiedKey(ctx, verified.SignatureAgent, keyThumb)
-    if err != nil {
-        return nil, connect.NewError(connect.CodePermissionDenied, err)
+    // 2d. On a DIRECT query, resolve the agent's registered account from the
+    //     directory the signature resolved from (verified.SignatureAgent; see
+    //     "Accounts" on the authentication page). Every currently valid key that
+    //     directory publishes acts for the account, so the key that verified
+    //     does not select it, and neither does requester.id, a free label. A
+    //     query a Broker originated authenticates no agent, so this Exchange
+    //     consults no account for it (its own choice; the protocol leaves it
+    //     open) and presents on the stated scopes alone.
+    var account *Account
+    if direct {
+        account, err = h.accounts.ForDirectory(ctx, verified.SignatureAgent)
+        if err != nil {
+            return nil, connect.NewError(connect.CodePermissionDenied, err)
+        }
     }
 
     // 3. Resolve tenant
@@ -142,31 +156,35 @@ func (h *ExchangeHandler) DiscoverResources(
 
     // 5. Catalog lookup (lock-free read, scope-filtered)
     //    The catalog is filtered by requester.scopes, the requester's own
-    //    statement — terms outside the stated scopes are not returned. When the
-    //    request carries a verified delegation, this Exchange also requires its
-    //    grant to cover a term's scopes (a narrower use of the MAY in
+    //    statement — terms outside the stated scopes are not returned. When a
+    //    direct query carries a verified delegation, this Exchange also requires
+    //    its grant to cover a term's scopes (a narrower use of the MAY in
     //    LicenseTerm.scopes): the effective scopes are the intersection of
-    //    requester.scopes and the delegation's granted scopes.
+    //    requester.scopes and the delegation's granted scopes. A query a Broker
+    //    originated honours no delegation (2c), so its stated scopes alone decide.
     effectiveScopes := requester.Scopes
-    if requester.Delegation != nil {
-        effectiveScopes = intersectScopes(requester.Scopes, requester.Delegation.Scopes)
+    if delegation != nil {
+        effectiveScopes = intersectScopes(requester.Scopes, delegation.Scopes)
     }
     offers, err := h.catalog.FindOffers(ctx, tenantCfg.ID, req.Msg.Uris, effectiveScopes)
     if err != nil {
         return nil, connect.NewError(connect.CodeInternal, err)
     }
 
-    // 5b. Check for active subscription.
+    // 5b. Check for active subscription, on a DIRECT query (step 2d).
     //     If the requester has an active subscription with this tenant, include a
     //     subscription offer variant (rate=0) for each catalog offer with
     //     SubscriptionQuotaInfo attached. Quota enforcement is deferred to
     //     ExecuteTransaction time — DiscoverResources checks subscription status
     //     and populates quota visibility. Subscription/entitlement is resolved
     //     from the registered account of step 2d (plus any delegation) — never
-    //     from the caller-written requester.id.
+    //     from the caller-written requester.id. A query a Broker originated has
+    //     no account here, so it gets no subscription variant.
     var subStatus *SubscriptionStatus
-    if sub, err := h.billing.CheckSubscription(ctx, account.BillingRef, tenantCfg.ID); err == nil && sub.Active {
-        subStatus = sub
+    if account != nil {
+        if sub, err := h.billing.CheckSubscription(ctx, account.BillingRef, tenantCfg.ID); err == nil && sub.Active {
+            subStatus = sub
+        }
     }
 
     // Build subscription offer variants per catalog offer (if subscription active).
@@ -284,7 +302,7 @@ type RequesterRecord struct {
 
 Nothing about the route is carried in the message: there is no `intermediaries` field. Each party that sends a `ResourceQuery` or `TransactionRequest` signs it with **one** labeled signature that conforms to Web Bot Auth, with its own `Signature-Agent` member. The rules are specified once, in [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding). In short, FORA's Broker never forwards an agent's request unchanged:
 
-- **Discovery is Broker-led.** The Broker chooses the Exchanges and originates its own `ResourceQuery`, signed by the Broker alone. How an agent proves a holder-of-key entitlement at discovery time through a Broker is an open protocol question, tracked separately.
+- **Discovery is Broker-led.** The Broker chooses the Exchanges and originates its own `ResourceQuery`, signed by the Broker alone, so the Exchange does not honour a delegation on it and answers as if none were present ([Which signature binds in a brokered request](/protocol/authentication/#verification)). How an agent proves a holder-of-key entitlement at discovery time through a Broker is an open protocol question.
 - **Execute is re-packaged.** The Broker builds a fresh `TransactionRequest` for each Exchange and signs it alone. The agent's identity and consent are the `AgentAcceptance`, a detached Ed25519 signature over `{offer_sig, requester_id, requester_domain, idempotency_key}` verified against the agent's registered key, resolved from `Requester.domain`.
 
 In both cases the Broker's signature covers its own request components and only its own `Signature-Agent` member, and the request carries no agent signature headers.
@@ -320,11 +338,11 @@ sigs := helpers.AllSignaturesFromContext(ctx)
 
 ### Delegation Verification
 
-When `Requester.delegation` is present, the Exchange verifies the delegation JWT chain before granting scoped access:
+When `Requester.delegation` is present, the Exchange verifies the delegation JWT chain before honouring it:
 
 1. Decode the base64url-encoded `token` (JWS) from the `Delegation` message
 2. Verify the Ed25519 signature chain — the authority JWT signed by `principal_domain`'s published key, each child JWT signed by the key its parent named in `cnf` (chain-linkage invariant)
-3. Verify holder binding — the key that signed the RFC 9421 request MUST hash to the final JWT's `cnf.jkt`. On a purchase sub-request a Broker re-packaged, the request signer is the Broker, so compare the key each item's `AgentAcceptance` verifies under instead
+3. Verify holder binding — the key that signed the RFC 9421 request MUST hash to the final JWT's `cnf.jkt`. On a purchase sub-request a Broker re-packaged, the request signer is the Broker, so compare the key each item's `AgentAcceptance` verifies under instead. On a query a Broker originated nothing can pass this check, so the delegation is not verified or honoured there, and the query is answered as if none were present
 4. Evaluate constraints (scope coverage, spend caps, expiration) — the grant covers scopes only if each child's `scope` is contained in its parent's
 5. Extract effective scopes (intersection of requester scopes and delegation scopes)
 6. Check `expires_at` against current time

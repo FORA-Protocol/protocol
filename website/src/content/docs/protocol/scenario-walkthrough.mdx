@@ -496,7 +496,7 @@ Broker → SSP-Alpha (multi-URI batch query) — `POST https://exchange.ssp-alph
 }
 ```
 
-SSP-Alpha's Exchange verifies the Broker's signature -- it looks up the public key by its `keyid` thumbprint in the key directory named by the Broker's `Signature-Agent` member, Ed25519 verifies, and authenticates the caller as the Broker. How an agent proves a holder-of-key entitlement at discovery time through a Broker is an open protocol question, tracked separately. A discovery query moves no money, so it carries no agent consent; see [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding).
+SSP-Alpha's Exchange verifies the Broker's signature -- it looks up the public key by its `keyid` thumbprint in the key directory named by the Broker's `Signature-Agent` member, Ed25519 verifies, and authenticates the caller as the Broker. The query carries no delegation, and the Exchange would not honour one: nothing on a query the Broker signs alone can pass its holder binding. How an agent proves a holder-of-key entitlement at discovery time through a Broker is an open protocol question. A discovery query moves no money, so it carries no agent consent; see [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding).
 
 SSP-Alpha returns `offer_groups` (batch mode -- multiple URIs in query):
 

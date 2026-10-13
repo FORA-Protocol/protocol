@@ -673,9 +673,12 @@ contiguous, with no gaps or reused numbers left by the removals.
 > key the token names. On a purchase a Broker relays, the Broker signs the request,
 > so the Exchange checks the holder binding against the key each item's
 > `AgentAcceptance` verifies under, and an item without one fails it. A Broker is
-> never delegated to. How an agent proves a holder-of-key entitlement at discovery
-> time through a Broker is an open protocol question. See "A Broker signs alone,
-> because it changes what the agent signed".
+> never delegated to. On a query a Broker originated, nothing can pass the holder
+> binding, so the Exchange does not honour the delegation and answers as if none were
+> present. How an agent proves a holder-of-key entitlement at discovery time through a
+> Broker is an open protocol question. See "A Broker signs alone, because it changes
+> what the agent signed" and "A delegation on a query a Broker originated is not
+> honoured".
 
 Delegation tokens stay opaque on the wire — FORA does not parse or re-encode the
 token, and `token_format` only names which verifier to run. But leaving the
@@ -2822,3 +2825,26 @@ check for every scoped term, such as a delegation from an issuer it trusts for t
 scope, and, on a query a Broker originated, a way for the agent to prove it holds that
 grant, which a request the Broker signs alone cannot carry. The purchase-time
 entitlement denials are unchanged.
+
+## A delegation on a query a Broker originated is not honoured
+
+A delegation's holder binding needs a key the request proves possession of: the request
+signature on a request the agent sends itself, the agent's acceptances on a purchase a
+Broker relays. A query a Broker originated has neither. The Broker signs it alone, as "A
+Broker signs alone, because it changes what the agent signed" records, and a Broker is
+never delegated to, so no delegation on that query can pass the binding. The pages left
+the outcome open, and the academic walkthrough had an Exchange verify a delegation
+against the key that signed a query the Broker sent, a check that can only fail.
+
+The Exchange does not honour such a delegation and answers as if none were present. That
+gives the Broker's query exactly what a query without a delegation gets, so ignoring the
+token discloses nothing, and existence hiding keeps the omission silent. Refusing the
+query instead would fail every resource in it over a credential the Exchange cannot
+check. A delegation still counts on a purchase through a Broker, where the holder
+binding is checked against the key the acceptances verify under.
+
+An Exchange that requires a verified delegation before it presents a scoped term
+therefore presents no such term on a Broker's query. An agent that needs those terms
+queries the Exchange directly, signing the query itself. How an agent proves a
+holder-of-key entitlement at discovery time through a Broker remains an open protocol
+question.

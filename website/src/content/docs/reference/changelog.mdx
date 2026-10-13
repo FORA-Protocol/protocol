@@ -1003,9 +1003,12 @@ SDKs implement it:
   an agent's request unchanged, so it never covers an agent's signature: discovery
   through the Broker is Broker-led, the Broker choosing the Exchanges and originating its
   own queries, and execute is re-packaged per Exchange; in both cases the Broker signs
-  alone, covering its own request and only its own member. How an agent proves a
-  holder-of-key entitlement at discovery time through a Broker is an open protocol
-  question, tracked separately. On a relayed purchase the agent's identity and consent
+  alone, covering its own request and only its own member. So a delegation on a query a
+  Broker originated cannot pass holder binding: the Exchange does not honour it and
+  answers as if none were present. How an agent proves a holder-of-key entitlement at
+  discovery time through a Broker is an open protocol question, and an Exchange that
+  requires a verified delegation before it presents a scoped term presents no such term
+  on that query. On a relayed purchase the agent's identity and consent
   come from `AgentAcceptance`, verified against the agent's registered key resolved from
   `Requester.domain`. That key gives the delivery-URL binding, and a delegation's
   `cnf.jkt` is checked against it; a Broker is never delegated to. The Exchange resolves

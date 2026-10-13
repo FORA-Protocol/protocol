@@ -4514,7 +4514,8 @@ type Requester struct {
 	//   - Broker-led discovery. A ResourceQuery a Broker originated carries no agent
 	//     signature, so nothing on that leg authenticates this field: it is the
 	//     Broker's statement, under the Broker's own signature, of whom it
-	//     queries for.
+	//     queries for. A delegation on such a query is not honoured (see
+	//     Delegation).
 	Domain string `protobuf:"bytes,2,opt,name=domain,proto3" json:"domain,omitempty"`
 	// What kind of entity is making this request.
 	Type RequesterType `protobuf:"varint,3,opt,name=type,proto3,enum=fora.v1.RequesterType" json:"type,omitempty"`
@@ -4565,7 +4566,10 @@ type Requester struct {
 	// returns all publicly available resources).
 	Scopes []string `protobuf:"bytes,6,rep,name=scopes,proto3" json:"scopes,omitempty"`
 	// Optional delegation — present when the requester acts on behalf of
-	// another entity (user, organization, upstream agent).
+	// another entity (user, organization, upstream agent). On a query a Broker
+	// originated it is not honoured, because the Broker signs alone and nothing
+	// on that leg can pass its holder binding; the Exchange answers as if none
+	// were present (see Delegation).
 	Delegation *Delegation `protobuf:"bytes,7,opt,name=delegation,proto3,oneof" json:"delegation,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
@@ -4685,7 +4689,15 @@ func (x *Requester) GetExtCritical() []string {
 // — the agent's key, resolved from the requester's WBA directory — and not
 // against the request signer. A relayed purchase that carries a delegation
 // therefore needs an AgentAcceptance on every item; an item without one fails
-// the binding (DENIAL_REASON_DELEGATION_INVALID). Delegation is a chain of cnf-linked JWTs: a principal narrows a
+// the binding (DENIAL_REASON_DELEGATION_INVALID). On a query a Broker
+// originated (Broker-led discovery), the Broker signs alone, so a delegation on
+// it cannot pass holder binding: the Exchange does not honour it and answers
+// as if none were present. How an agent proves a holder-of-key entitlement at
+// discovery time through a Broker is an open protocol question. An Exchange
+// that requires a verified delegation before it presents a scoped term (see
+// LicenseTerm.scopes) therefore presents no such term on that query.
+//
+// Delegation is a chain of cnf-linked JWTs: a principal narrows a
 // grant by issuing a child JWT (cnf = the next holder, scopes ⊆ parent), signed
 // by the key the parent's cnf named — the chain-linkage invariant. Verifiers
 // need only the root issuer's public key; intermediate keys ride inside the
@@ -7551,8 +7563,7 @@ type RequestConstraints struct {
 	// request, so no party receives or enforces it in this version: an Exchange
 	// never sees it, and an Exchange's own cap is
 	// WellKnownManifest.max_intermediary_hops. The field is kept for multi-hop
-	// Broker discovery, an open protocol question tracked separately. Absent =
-	// no cap stated.
+	// Broker discovery, an open protocol question. Absent = no cap stated.
 	MaxHops       *int32 `protobuf:"varint,11,opt,name=max_hops,json=maxHops,proto3,oneof" json:"max_hops,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
