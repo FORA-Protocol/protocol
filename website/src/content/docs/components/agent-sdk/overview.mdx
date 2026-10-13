@@ -387,9 +387,8 @@ The SDK reuses the same Go interfaces defined for the standalone Broker:
 - `ExchangeRegistry` interface is identical
 - `SelectionEngine` interface is identical (same `SelectionPolicy` abstraction)
 - `BudgetTracker` interface is identical
-- `ReportingRelay` becomes `UsageReporter` (same logic, different name because the SDK owns the full lifecycle)
 
-The concrete implementations differ in persistence strategy (in-memory vs Redis), but the interfaces are shared.
+The concrete implementations differ in persistence strategy (in-memory vs Redis), but the interfaces are shared. The SDK also has a `UsageReporter`, which files the agent's usage reports with each issuing Exchange. The standalone Broker has no counterpart, because an agent always files its own reports, for a purchase made through a Broker too.
 
 ## Relationship to the Broker
 
@@ -400,7 +399,6 @@ The concrete implementations differ in persistence strategy (in-memory vs Redis)
                        |  pkg/registry/    ExchangeRegistry   |
                        |  pkg/selection/   SelectionEngine       |
                        |  pkg/budget/      BudgetTracker         |
-                       |  pkg/reporting/   ReportingRelay        |
                        |  pkg/signing/     RequestSigner         |
                        |  pkg/discovery/   SupplyDiscoverer      |
                        +----------+--------------+---------------+
@@ -425,7 +423,7 @@ The concrete implementations differ in persistence strategy (in-memory vs Redis)
 | Concern | SDK | Broker |
 |---|---|---|
 | Content fetch | SDK does it (returns content) | Agent does it (Broker returns signed URL) |
-| Usage reporting | SDK does it automatically | Agent submits via RPC, Broker forwards |
+| Usage reporting | SDK does it automatically | Agent files it with the issuing Exchange; the Broker relays nothing |
 | Budget persistence | Local file (single process) | Redis (multi-tenant) |
 | Configuration | Struct literal in code | YAML + env vars + API |
 | Exchange trust | All configured = verified | Graduated trust model |

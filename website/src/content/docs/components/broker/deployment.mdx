@@ -9,7 +9,7 @@ import DeferredSdkNotice from '../../../../components/DeferredSdkNotice.mdx';
 
 ## Deployment Models
 
-The Broker is designed for three deployment modes. The core logic (selection, budget, reporting) is identical across all three; what changes is the process model, configuration surface, and what the agent is responsible for.
+The Broker is designed for three deployment modes. The core logic (selection, budget) is identical across all three; what changes is the process model, configuration surface, and what the agent is responsible for.
 
 ```mermaid
 graph LR
@@ -41,7 +41,7 @@ graph LR
 | **Multi-tenancy** | N/A (one license per instance) | N/A (one agent per sidecar) | Required -- session isolation |
 | **Latency overhead** | 0ms (in-process) | ~1ms (localhost RPC) | ~5-20ms (network hop) |
 | **Content fetch** | SDK fetches signed URL | Agent fetches signed URL | Agent fetches signed URL |
-| **Usage reporting** | Automatic (background) | Agent submits via RPC | Agent submits via RPC |
+| **Usage reporting** | The SDK files it in the background, signed with the agent's key | The agent files it with the issuing Exchange | The agent files it with the issuing Exchange |
 | **Who operates** | Agent developer | Agent operator | Broker SaaS provider |
 
 ### Recommended Deployment
@@ -98,7 +98,7 @@ func (m *multiTenantBroker) Resolve(
 
 ### What Changes Between Modes
 
-The core interfaces (`ExchangeRegistry`, `SelectionEngine`, `BudgetTracker`, `ReportingRelay`) are identical. What changes is persistence strategy, configuration surface, and process lifecycle.
+The core interfaces (`ExchangeRegistry`, `SelectionEngine`, `BudgetTracker`) are identical. What changes is persistence strategy, configuration surface, and process lifecycle.
 
 ## Configuration Reference
 
@@ -271,7 +271,7 @@ Even with caching enabled, 5 seconds is the maximum TTL. Offers can include `exp
 graph TD
     F1[All Exchanges Timeout] -->|Result| R1[Return error to agent<br/>agent can retry or go direct]
     F2[Preferred Exchange Down] -->|Result| R2[Fallback to remaining<br/>Exchanges automatically]
-    F3[Broker Crash<br/>Mid-Transaction] -->|Result| R3[Agent retries with<br/>same idempotency key]
+    F3[Broker Crash<br/>Mid-Transaction] -->|Result| R3[Agent retries with<br/>same idempotency key,<br/>on any route]
     F4[Budget Tracking Lost<br/>on Crash] -->|Result| R4[Agent re-declares budget<br/>Exchange is authoritative]
     F5[Partial Exchange<br/>Failures] -->|Result| R5[Proceed with partial<br/>results, best-effort]
 ```
@@ -287,8 +287,8 @@ graph TD
 | Crash Point | Impact | Recovery |
 |---|---|---|
 | Before ExecuteTransaction sent | No financial impact | Agent retries the full request |
-| After ExecuteTransaction sent, before response | Exchange has charged but agent doesn't know | Agent retries with same `TransactionRequest.idempotency_key` -- Exchange returns same response (idempotency) |
-| After TransactionResponse returned | Agent has the signed URL | Agent tracks reporting obligations independently |
+| After ExecuteTransaction sent, before response | Exchange has charged but agent doesn't know | Agent retries with the same `TransactionRequest.idempotency_key`, through this Broker once it is back, another Broker or directly -- each Exchange returns the same response (idempotency) |
+| After TransactionResponse returned | Agent has the signed URL | Agent tracks its reporting obligations and files its own reports |
 
 **Budget tracking lost on crash.** Session budget is ephemeral. The agent re-declares on reconnect. The Exchange's billing adapter is the authoritative source.
 
@@ -298,24 +298,9 @@ graph TD
 
 The Broker never generates `TransactionRequest.idempotency_key`. The key is the agent's, and the Broker forwards it unchanged on every sub-request: it cannot do otherwise, because each `AgentAcceptance` and the `AgentRequestAcceptance` sign it.
 
-Each Exchange scopes a relayed key per (Broker, requester the acceptances authenticate), so two agents behind one Broker that choose the same key do not collide. When the agent retries the same purchase with the same key, each Exchange recognizes a replay of its sub-request and answers from its stored result. When a key is reused with different items, or the same items in another order, the Exchange refuses the sub-request with `already_exists`, and the Broker reports that refusal on each affected item's `refusal`.
+Each Exchange scopes the key to the agent, whatever the route, so two agents behind one Broker that choose the same key do not collide. When the agent retries the same purchase with the same key, through this Broker, another one or directly, each Exchange recognizes a replay of its sub-request and answers from its stored result. When a key is reused with different items, or the same items in another order, the Exchange refuses the sub-request with `already_exists`, and the Broker reports that refusal on each affected item's `refusal`.
 
 ## Scaling Considerations
-
-### Reporting Relay
-
-The Broker tracks reporting obligations for every transaction and forwards `UsageReport` messages to the correct Exchange.
-
-```go
-type ReportingRelay interface {
-    Track(txn *forav1.TransactionResponse, exchange string)
-    Forward(ctx context.Context, report *forav1.UsageReport) (*forav1.UsageReportResponse, error)
-    PendingObligations() []ReportingObligation
-    OverdueObligations() []ReportingObligation
-}
-```
-
-A background goroutine checks for approaching deadlines and exposes them via the metrics interface. The agent files the UsageReport because only the agent knows how the content was actually used (token count, function, citation). The Broker is a relay, not a reporter.
 
 ### Security Considerations
 
@@ -350,6 +335,5 @@ The Broker exposes Prometheus-compatible metrics at `/metrics`:
 | `broker_unit_cost_savings_ratio` | Histogram | Runner-up vs winning unit_cost |
 | `broker_budget_utilization_ratio` | Histogram | Session budget utilization |
 | `broker_budget_exhausted_total` | Counter | URIs answered with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED` because the budget left no offer |
-| `broker_reporting_obligations_total` | Counter | Reporting obligations by status |
 | `broker_request_latency_seconds` | Histogram | Total DiscoveryRequest handling time |
 | `broker_requests_total` | Counter | Total DiscoveryRequests handled |

@@ -14,15 +14,13 @@ The FORA Broker is the optional demand-side router in the FORA protocol. It sits
 - **Budget filtering** -- `Resolve` drops offers that would exceed the agent's budget (per offer, per session, per period) and answers a URI left with none with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`. How it computes the budget is its own choice, not part of the protocol
 - **Resource deduplication** -- same article from two Exchanges, compare price
 - **Attestation-aware selection (v1.0)** -- prefer offers with higher attestation levels (Level 2 > Level 1 > Level 0)
-- **Reporting relay** -- forward UsageReports to the correct Exchange, track `report_id` for dispute chain
-- **Dispute relay (v1.0)** -- forward `DisputeRequest` messages to the correct Exchange
 - **Selection transparency** -- logged rationale for every selection decision
 
-The RPCs are identical whether the request comes from a Broker or directly from an agent. The Exchange authenticates whichever party signed the request: the agent on a direct call, the Broker on a request the Broker sent. On a purchase the Broker relays, the agent's consent arrives in the body as its acceptance signatures.
+The RPCs are identical whether the request comes from a Broker or directly from an agent. The Exchange authenticates whichever party signed the request: the agent on a direct call, the Broker on a request the Broker sent. On a purchase the Broker relays, the agent's consent arrives in the body as its acceptance signatures, and the purchase is the agent's, billed to the agent's account at each Exchange (see [Accounts](/protocol/authentication/#accounts)). Usage reports and disputes are not relayed: the agent files them itself, with the Exchange that issued the offer, for a purchase made through the Broker as for a direct one.
 
 ## Component Architecture
 
-The Broker is composed of five internal components. Each is a Go interface with a concrete implementation. No inter-component communication uses the network; everything is in-process function calls.
+The Broker is composed of four internal components. Each is a Go interface with a concrete implementation. No inter-component communication uses the network; everything is in-process function calls.
 
 ```mermaid
 graph TB
@@ -31,7 +29,6 @@ graph TB
         SD[Supply Discovery<br/>parallel fanout]
         SE[Selection Engine]
         BT[Budget Tracker]
-        RR[Reporting Relay]
     end
 
     Agent[AI Agent] -->|DiscoveryRequest| SD
@@ -44,9 +41,6 @@ graph TB
     BT -.->|budget check| SE
     SE -->|selected Offers| SD
     SD -->|DiscoveryResponse| Agent
-
-    Agent -->|UsageReport| RR
-    RR -->|forward| MPA
 ```
 
 ### Component Responsibilities
@@ -57,7 +51,6 @@ graph TB
 | **Supply Discovery** | Fans out DiscoverResources RPCs to N Exchanges concurrently | Per-request, stateless |
 | **Selection Engine** | Deduplicates, ranks, filters, and selects the best offer | Per-request, stateless |
 | **Budget Tracker** | Tracks spend per session/period, and filters out offers that would exceed the budget | Per-session in-memory, per-period in Redis |
-| **Reporting Relay** | Forwards UsageReports to the winning Exchange, tracks obligations | Per-transaction, short-lived |
 
 ## Internal Call Flow
 
@@ -119,11 +112,11 @@ The Broker re-packages the agent's purchase. What holds the set together is `Tra
 
 **Why re-packaging is safe.** Each item is atomic and its integrity is per resource. Each offer carries its own Exchange's signature, each acceptance binds the agent to that one offer, and each item's result comes from the Exchange that owns the resource. The Broker therefore assembles independent per-resource purchases. It cannot alter any of them without breaking that item's Exchange signature or the agent's acceptance, and no cross-item integrity is needed. In a result item, the one signed value is the `retrieval_endpoint`, signed by the issuing Exchange; the other fields are the Broker's unsigned report of what each Exchange answered.
 
-**Upstream refusals ride in the body.** An Exchange that refuses the Broker's whole sub-request, or does not answer it, never becomes an error of the Broker's own. Each affected item carries `TransactionResultItem.refusal`, an `UpstreamRefusal` whose `party` is the Exchange, with the Connect code it answered with and its `ErrorDetail` unchanged, and the other Exchanges' results come back unchanged. With the code `unavailable` or `deadline_exceeded` the item's outcome is unknown, since the Exchange may have bought it before the answer was lost, and the charged totals do not count it; retrying the same request with the same key through the same Broker settles it. With any other code the item was not purchased. `DENIAL_REASON_CONTENT_UNAVAILABLE` is never used as a catch-all for an upstream failure. Every per-item denial is the Exchange's result item, in the body, also for a one-item sub-request. Whether relayed purchases are accepted is decided per item, by the provider of each offer's resource: an item whose provider does not accept them is denied with `DENIAL_REASON_RELAY_NOT_ACCEPTED`, the other items of the sub-request may succeed, and the agent buys that offer directly.
+**Upstream refusals ride in the body.** An Exchange that refuses the Broker's whole sub-request, or does not answer it, never becomes an error of the Broker's own. Each affected item carries `TransactionResultItem.refusal`, an `UpstreamRefusal` whose `party` is the Exchange, with the Connect code it answered with and its `ErrorDetail` unchanged, and the other Exchanges' results come back unchanged. With the code `unavailable` or `deadline_exceeded` the item's outcome is unknown, since the Exchange may have bought it before the answer was lost, and the charged totals do not count it; retrying the same request with the same key settles it, through this Broker, another one or directly. With any other code the item was not purchased. `DENIAL_REASON_CONTENT_UNAVAILABLE` is never used as a catch-all for an upstream failure. Every per-item denial is the Exchange's result item, in the body, also for a one-item sub-request. Whether relayed purchases are accepted is decided per item, by the provider of each offer's resource: an item whose provider does not accept them is denied with `DENIAL_REASON_RELAY_NOT_ACCEPTED`, the other items of the sub-request may succeed, and the agent buys that offer directly.
 
 **The Broker's own refusals** are non-OK errors with an `ErrorDetail`: `unauthenticated` with `request_auth_failure` for a bad agent signature, and `SIGNATURE_INVALID` for a `requester.domain` that is not the signing directory; `invalid_argument` for a malformed request; `failed_precondition` for an Exchange it cannot route to or does not approve.
 
-**Idempotency.** The Broker forwards the agent's `idempotency_key` unchanged to every Exchange; it cannot change it, because the acceptances sign it. A retry through the Broker therefore reaches each Exchange as a replay and is answered from that Exchange's stored result. Each Exchange scopes the key per (Broker, requester), so two agents behind one Broker never collide, and refuses the same key with different items with `already_exists`.
+**Idempotency.** The Broker forwards the agent's `idempotency_key` unchanged to every Exchange; it cannot change it, because the acceptances sign it. A retry through the Broker therefore reaches each Exchange as a replay and is answered from that Exchange's stored result. Each Exchange scopes the key to the agent whatever the route, so a retry may go through this Broker, another one or directly, two agents behind one Broker never collide, and the same key with different items is refused with `already_exists`.
 
 **Delegation.** The Broker is the wire signer of every sub-request, so each Exchange checks a delegation's `cnf.jkt` against the key the item's `AgentAcceptance` verifies under, not against the Broker. The agent does not need to delegate to the Broker.
 
@@ -349,10 +342,9 @@ sequenceDiagram
 
     Note over Agent: Use content (RAG, grounding)
 
-    Agent->>Orch: UsageReport(transaction_id, consumed_quantity, function)
-    Orch->>MPA: Forward UsageReport
-    MPA-->>Orch: UsageReportResponse(accepted)
-    Orch-->>Agent: UsageReportResponse(accepted)
+    Note over Agent,MPA: The agent files its own report with the issuing Exchange,<br/>for a purchase made through the Broker too
+    Agent->>MPA: UsageReport(transaction_id, consumed_quantity, function)
+    MPA-->>Agent: UsageReportResponse(accepted)
 ```
 
 ## Key Design Decisions
@@ -390,9 +382,6 @@ github.com/FORA-Protocol/protocol/broker/
             policy.go           # Pluggable selection policies
         budget/                 # Budget Tracker
             tracker.go          # BudgetTracker interface + in-memory impl
-        reporting/              # Reporting Relay
-            relay.go            # ReportingRelay interface + impl
-            obligations.go      # Obligation tracking + deadline checker
         metrics/                # Prometheus metrics
             metrics.go          # All metric definitions
     internal/

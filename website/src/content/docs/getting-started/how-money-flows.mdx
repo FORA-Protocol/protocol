@@ -10,11 +10,11 @@ FORA never touches money. It follows the OpenRTB model: the protocol handles aut
 The chain works like this:
 
 ```
-Provider -> Exchange operator -> AI Company (Agent / Broker)
+Provider -> Exchange operator -> AI Company (the agent's account holder)
 ```
 
 1. The **Exchange** (operated by an Exchange operator, provider, or third party) handles all billing through its pluggable Billing Adapter
-2. The Exchange operator **invoices the AI company** via its existing system (monthly invoicing, prepaid balance, etc.)
+2. The Exchange operator **invoices the AI company** via its existing system (monthly invoicing, prepaid balance, etc.). A purchase made through a Broker is billed to the agent's own account, as a direct one is
 3. The Exchange operator **pays the provider** via its existing revenue-share agreement
 
 The `billing_id` in a `TransactionResponse` is an invoice line item, not a payment confirmation. Settlement happens offline, same as programmatic advertising.

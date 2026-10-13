@@ -733,7 +733,7 @@ The agent fetches all resources in parallel: each signed URL is bound to the age
 
 ## Step 8 — UsageReports (6 reports to 4+ Exchanges)
 
-The Broker files a `UsageReport` for every transaction, to every Exchange. All reports share the same `budget_scope` via the `ext` field, enabling cross-exchange spend tracking.
+The agent files a `UsageReport` for every transaction, itself, with each Exchange that issued the offer: the purchases went through the Broker, but they are the agent's, and no Broker files or relays a report (see [Accounts](/protocol/authentication/#accounts)). All reports share the same `budget_scope` via the `ext` field, enabling cross-exchange spend tracking.
 
 ### Report 1: Credit Report
 
@@ -805,7 +805,7 @@ The Broker files a `UsageReport` for every transaction, to every Exchange. All r
 
 ### Broker Budget Ledger (Post-Transaction)
 
-The Broker maintains a running budget ledger for `deal:acme-acquisition`:
+The Broker maintains a running budget ledger for `deal:acme-acquisition`, from the totals of the purchases it relayed:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -863,7 +863,7 @@ The same `ResourceIdentity` message handles both — the `resource_mutability` f
 The `budget_scope: "deal:acme-acquisition"` field in `RequestConstraints` enables deal-level spend tracking across all Exchanges. The Broker:
 1. Filters offers at discovery: `BrokerService.Resolve` drops any offer that would take the scope's spend past `period_budget`. When no offer for a URI remains, that URI comes back with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`, a successful "no result" rather than an error
 2. Counts the scope's spend in its own way; the protocol leaves the computation to the Broker. Discovery never charges
-3. Reports actual spend per Exchange in `UsageReport.ext.budget_scope`
+3. Records spend per Exchange from each `BrokerTransactionResponse.totals`, while the agent's own usage reports carry the scope in `UsageReport.ext.budget_scope`
 4. Maintains a ledger for audit (which Exchange got how much for what)
 
 ### 5. ROI: Licensed Data vs. Manual Research

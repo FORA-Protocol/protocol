@@ -27,7 +27,7 @@ sequenceDiagram
 
     Note over SD: Lookup URI(s) in radix trie
     Note over SD: Filter catalog by requester.scopes
-    Note over SD: One Offer per entitled LicenseTerm<br/>(restrictions ride on that offer's term; the agent chooses an offer, no server-side filter)
+    Note over SD: One Offer per entitled LicenseTerm<br/>(restrictions ride on that offer's term, and the agent chooses an offer, no server-side filter)
     Note over SD: Build []Offer from templates + live pricing
 
     SD-->>Handler: []Offer
@@ -264,7 +264,7 @@ Requester authentication uses an RFC 9421 HTTP Message Signature in the HTTP hea
 
 1. **Enterprise (out-of-band key exchange)**: During contract signing, the Exchange operator registers the requester's public key via an internal admin API: `POST /admin/requesters { requester_id, domain, public_key, subscription }`. The public key is exchanged out-of-band (email, portal, API) as part of the commercial agreement.
 
-2. **Self-signup (domain verification)**: The requester registers via the public API: `POST /exchange/v1/requesters/register { requester_id, domain }`. The Exchange fetches the requester's WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`) from the domain, reads the matching key (identified by its RFC 7638 thumbprint, the RFC 9421 `keyid`), and verifies that `requester_id` matches. No subscription is created — self-signup requesters use per-request billing only.
+2. **Self-signup**: The agent calls `ExchangeService.Register`, signed with a key its WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`) publishes. The Exchange verifies the signature against that directory, the key identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`), and creates the account for the directory, never for a `requester_id` (see [Accounts](/protocol/authentication/#accounts)). No subscription is created — self-signup requesters use per-request billing only.
 
 **Requester public key storage:**
 
@@ -362,7 +362,7 @@ sequenceDiagram
     Note over Handler: Reject unless EVERY items[].offer.exchange names this Exchange's own domain (INVALID_ARGUMENT)
     Note over Handler: Verify the sender's RFC 9421 HTTP Message Signature<br/>(the agent's, or the Broker's on a re-packaged sub-request)
     Note over Handler: Verify the agent's authorization: agent_request_acceptance and its projection,<br/>and on a re-packaged sub-request the item acceptances
-    Note over Handler: Resolve the agent's account (direct: the signer's directory;<br/>relayed: requester.domain, once the acceptances verify)
+    Note over Handler: Resolve the agent's account (direct: the signer's directory,<br/>relayed: requester.domain, once the acceptances verify)
     Note over Handler: Check idempotency key, scoped to the agent
 
     Handler->>Idemp: Check(agent, idempotency_key)
@@ -372,7 +372,7 @@ sequenceDiagram
     end
 
     loop For each item in items
-        Note over Handler: Verify the presented item.offer signature<br/>(Ed25519 default; no offer storage, no re-resolution)
+        Note over Handler: Verify the presented item.offer signature<br/>(Ed25519 default, no offer storage, no re-resolution)
         Note over Handler: Extract tenant via domain→tenant lookup
 
         Handler->>BA: Authorize(ctx, AuthorizeRequest)

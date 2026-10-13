@@ -293,7 +293,9 @@ type BillingAdapter interface {
     CheckSubscription(ctx, billingRef, providerGroup) → (sub, error)
 }
 // billingRef is the account handle the Exchange minted at Register and
-// resolves from the verified request signature on every call.
+// resolves on every call from what authenticates the agent: the request
+// signature on a direct request, the agent's acceptances on a purchase a
+// Broker relays. The account is the agent's, never the Broker's.
 ```
 
 Implement these three methods against your existing billing system. The reference implementation uses DynamoDB; production deployments wire it to their real ledger.

@@ -113,9 +113,13 @@ type TransactionRecord struct {
 
     // Idempotency. Stores the request's idempotency key
     // (TransactionRequest.idempotency_key) so a replay returns the original
-    // record. This is the durable dedupe key, NOT the wire correlation id —
-    // request/response correlation rides the X-Request-ID HTTP header.
+    // record. The dedupe key is the agent and this key, whatever the route: a
+    // retry through a Broker or directly finds the same record. It is NOT the
+    // wire correlation id — request/response correlation rides the X-Request-ID
+    // HTTP header.
     IdempotencyKey string `json:"idempotency_key"`
+    // The Broker that relayed the purchase, if any: attribution only. The
+    // purchase is the agent's and is billed to BillingRef.
     Broker string `json:"broker,omitempty"`
 
     // Offer snapshot (serialized JSON of the offer at transaction time).

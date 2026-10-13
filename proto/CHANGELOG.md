@@ -622,7 +622,11 @@ stored denial takes a new key and new acceptances.
 
 Docs: the authentication page gains "Accounts", and the transaction-flow, request-flows,
 threat-model and reference pages state the rule. The Broker retry comments in all three
-SDKs and the Python README say a retry may take any route.
+SDKs and the Python README say a retry may take any route. The Broker overview and
+deployment pages no longer describe a report or dispute relay or a `ReportingRelay`
+interface, and the agent SDK, due-diligence, scenario, money-flow and getting-started
+pages say the agent holds the account and files its own reports. The Exchange scaling
+and storage pages key the idempotency store by the agent and its key.
 
 **A scope shortfall is never disclosed: `OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT` and
 `DENIAL_REASON_SCOPE_INSUFFICIENT` are deprecated and never sent (no wire change).**
