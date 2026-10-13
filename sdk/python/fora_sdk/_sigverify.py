@@ -4,12 +4,13 @@
 
 The Python port of Go ``verifySingleSignature``, ``VerifyMultisigRequest`` and
 ``enforceEarlierCoverage``. Each signature is judged on its own, in header order, by
-the same chain: alg, the Web Bot Auth tag, the FORA RPC components, the key directory
-its own covered Signature-Agent member names, entitlement coverage, the created/expires
-window, the content digest, then the key that directory publishes and Ed25519 over the
-rebuilt base. A request carrying several signatures first has its hop budget checked,
-counting every signature, then every coverage of an earlier signature checked for
-completeness (WG-00 §5.2.2). Labels carry no meaning beyond naming.
+the same chain: alg (which, when present, must be ed25519), the Web Bot Auth tag, the
+FORA RPC components, the key directory its own covered Signature-Agent member names,
+entitlement coverage, the created/expires window, the content digest, then the key that
+directory publishes and Ed25519 over the rebuilt base. A request carrying several
+signatures first has its hop budget checked, counting every signature, then every
+coverage of an earlier signature checked for completeness (WG-00 §5.2.2). Labels carry
+no meaning beyond naming.
 
 A failure raises: a :class:`~fora_sdk.wba.SignatureProfileError` for the profile's
 form, or a :class:`~fora_sdk._sigbase.SignatureCheckError` carrying a fine-grained
@@ -28,6 +29,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from ._sigbase import (
     SignatureCheckError,
     SigParams,
+    alg_accepted,
     build_signature_base,
     component,
     component_name,
@@ -89,7 +91,9 @@ class Checks:
 @dataclass(frozen=True)
 class VerifiedSignature:
     """One signature that verified. ``signature_agent`` is the https origin of the key
-    directory its keyid was resolved in, the value of the member it covers."""
+    directory its keyid was resolved in, the value of the member it covers. ``alg`` is
+    the algorithm it verified under: the alg it declares, or ``ed25519`` when it
+    declares none and the key decided it."""
 
     label: str
     keyid: str
@@ -135,7 +139,7 @@ def verify_signature(
 ) -> VerifiedSignature:
     """The full per-signature chain. ``sig_count`` is the number of signatures on the
     request: the legacy String form of Signature-Agent is accepted only when it is one."""
-    if p.alg.lower() != "ed25519":
+    if not alg_accepted(p):
         raise SignatureCheckError("unsupported_alg", f"alg={p.alg!r}")
     if p.tag != WBATag:
         raise SignatureTagError(f"signature tag is not {WBATag!r}: {p.tag!r}")
@@ -154,7 +158,7 @@ def verify_signature(
     return VerifiedSignature(
         label=p.label,
         keyid=p.keyid,
-        alg=p.alg,
+        alg="ed25519" if p.alg_omitted else p.alg,
         created=p.created,
         expires=p.expires,
         signature=sig,

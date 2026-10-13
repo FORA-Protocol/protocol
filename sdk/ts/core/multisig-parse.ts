@@ -30,6 +30,14 @@ export interface ParsedSignature {
 	signature: Uint8Array<ArrayBuffer>;
 }
 
+/** Whether a verifier accepts the signature's alg parameter (Go sigParams.algAccepted).
+ * An absent alg is accepted: every key a verifier resolves is Ed25519, so the key
+ * decides the algorithm (RFC 9421 §3.2, step 6.3). An alg that is present must name
+ * ed25519, in any letter case, so an empty one is refused. */
+export function algAccepted(sig: Pick<ParsedSignature, "alg">): boolean {
+	return sig.alg === undefined || sig.alg.toLowerCase() === "ed25519";
+}
+
 /**
  * Split one SFV dictionary header value on TOP-LEVEL commas, honoring quoted strings
  * and their backslash escapes (Go splitTopLevelMembers). A comma inside a quoted keyid

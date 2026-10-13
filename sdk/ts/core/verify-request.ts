@@ -18,7 +18,7 @@
 // "replay".
 
 import { WBATag } from "../src/wire.ts";
-import { parseSignatureHeaders, type ParsedSignature } from "./multisig-parse.ts";
+import { algAccepted, parseSignatureHeaders, type ParsedSignature } from "./multisig-parse.ts";
 import { stdBase64, utf8Bytes } from "../src/base64url.ts";
 import {
 	buildSignatureBase,
@@ -242,10 +242,11 @@ const SIGNATURE: Refusal = { kind: "signature" };
 
 /**
  * verifyParsedSignature runs the full per-signature check shared by the single-sig and
- * multisig faces (mirrors Go verifySingleSignature, MINUS replay): alg, the Web Bot Auth
- * tag, the FORA RPC components, the signature's own Signature-Agent member, entitlement
- * coverage, the created/expires window, content-digest, then the key the member's
- * directory publishes and the Ed25519 check over the rebuilt base. `sigCount` is the
+ * multisig faces (mirrors Go verifySingleSignature, MINUS replay): alg (when present,
+ * ed25519), the Web Bot Auth tag, the FORA RPC components, the signature's own
+ * Signature-Agent member, entitlement coverage, the created/expires window,
+ * content-digest, then the key the member's directory publishes and the Ed25519 check
+ * over the rebuilt base. `sigCount` is the
  * number of signatures on the request: the legacy String form of Signature-Agent is
  * accepted only when it is one. `maxSignatureAge` (seconds, mirrors Go
  * VerifyOptions.MaxSignatureAge) clamps the declared lifetime: when > 0 a window
@@ -259,7 +260,7 @@ export async function verifyParsedSignature(
 	nowSec: number,
 	maxSignatureAge?: number,
 ): Promise<Checked<VerifiedSignature>> {
-	if (sig.alg === undefined || sig.alg.toLowerCase() !== "ed25519") return refuse(SIGNATURE);
+	if (!algAccepted(sig)) return refuse(SIGNATURE);
 	if (sig.tag !== WBATag) return refuse({ kind: "tag" });
 	const names = new Set(sig.covered.map((c) => c.name.toLowerCase()));
 	for (const need of REQUIRED_RPC_COMPONENTS) {

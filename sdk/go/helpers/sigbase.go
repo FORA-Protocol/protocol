@@ -92,10 +92,15 @@ type sigParams struct {
 	Covered []CoveredComponent
 	KeyID   string
 	Alg     string
-	Created int64
-	Expires int64
-	Nonce   string
-	Tag     string
+	// AlgOmitted records that the signature carries no alg parameter at all.
+	// Only the parser sets it, so the zero value reads as "alg present" and a
+	// sigParams built by hand is judged by Alg alone. An alg that is present but
+	// empty is not omitted.
+	AlgOmitted bool
+	Created    int64
+	Expires    int64
+	Nonce      string
+	Tag        string
 	// RawInner is the VERBATIM member value from the wire Signature-Input
 	// (everything after "label="). RFC 9421 §2.5 terminates the signature base
 	// with this exact byte sequence — parameter order and spacing are the
@@ -103,6 +108,14 @@ type sigParams struct {
 	// on the SIGN path, where the base and the emitted header both come from
 	// signatureInputInner and are identical by construction.
 	RawInner string
+}
+
+// algAccepted reports whether a verifier accepts the signature's alg parameter.
+// An absent alg is accepted: every key a verifier resolves is Ed25519, so the key
+// decides the algorithm (RFC 9421 §3.2, step 6.3). An alg that is present must
+// name ed25519, in any letter case, so an empty one is refused.
+func (p sigParams) algAccepted() bool {
+	return p.AlgOmitted || strings.EqualFold(p.Alg, AlgEd25519)
 }
 
 // requiredCoveredComponents is the set a FORA RPC signature must cover beyond the

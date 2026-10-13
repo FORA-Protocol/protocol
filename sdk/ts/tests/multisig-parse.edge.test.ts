@@ -15,9 +15,12 @@
 //     @signature-params bytes.
 //   core/multisig-parse.ts::parseSignatureHeaders — the structured parse of
 //     Signature-Input and Signature; refuses (never mis-slices) a malformed header.
+//   core/multisig-parse.ts::algAccepted — whether a verifier accepts a signature's alg
+//     parameter: absent (undefined) is accepted, present must name ed25519.
 
 import { describe, it, expect } from "vitest";
 import {
+  algAccepted,
   splitTopLevelMembers,
   rawInnerByLabel,
   parseSignatureHeaders,
@@ -110,5 +113,22 @@ describe("sdk/ts multi-member Signature-Input parse edges", () => {
       ok: false,
       refusal: { kind: "unsigned" },
     });
+  });
+
+  // An absent alg is accepted, because the Ed25519 key decides the algorithm; an alg
+  // that is present must name ed25519, so an empty one is refused.
+  it("tells an absent alg from an empty one, and accepts only absent or ed25519", () => {
+    for (const [params, alg, accepted] of [
+      ["", undefined, true],
+      [';alg="ed25519"', "ed25519", true],
+      [';alg="ED25519"', "ED25519", true],
+      [';alg=""', "", false],
+      [';alg="rsa-pss-sha512"', "rsa-pss-sha512", false],
+    ] as const) {
+      const parsed = parseSignatureHeaders(`sig1=("@method");keyid="k"${params}`, "sig1=:AAAA:");
+      if (!parsed.ok) throw new Error(`parse failed: ${params}`);
+      expect(parsed.value[0]?.alg, params).toBe(alg);
+      expect(algAccepted(parsed.value[0]!), params).toBe(accepted);
+    }
   });
 });

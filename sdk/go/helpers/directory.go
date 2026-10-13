@@ -15,9 +15,10 @@ import (
 // Appendix B.1), and FORA requires it. Each response signature covers
 // "@authority";req, the authority the directory was fetched from, and
 // content-digest, carries created, expires, keyid (the key's RFC 7638 thumbprint)
-// and alg, and has tag="http-message-signatures-directory". "@authority";req
-// takes its value from the request that fetched the directory, so the signature
-// cannot be served again under a different host.
+// and alg, and has tag="http-message-signatures-directory". A verifier also
+// accepts a response signature that carries no alg, as WG-00's own Appendix E.2.3
+// example does. "@authority";req takes its value from the request that fetched the
+// directory, so the signature cannot be served again under a different host.
 
 // ErrDirectoryResponseUnsigned signals a key directory whose response carries no
 // valid signature by a key the caller needs: none at all, or none by that key.
@@ -111,10 +112,10 @@ func directoryResponseBase(authority, digest, rawInner string) string {
 // wraps ErrDigestMismatch. A response with no signature at all wraps
 // ErrDirectoryResponseUnsigned. Otherwise each response signature is judged on its
 // own, and one that fails is ignored rather than fatal: it must carry
-// tag="http-message-signatures-directory" and alg="ed25519", cover exactly
-// "@authority";req and content-digest, carry created no later than now plus the
-// 300-second skew and expires no earlier than now, and verify under the listed key
-// whose thumbprint its keyid names.
+// tag="http-message-signatures-directory" and either no alg or alg="ed25519",
+// cover exactly "@authority";req and content-digest, carry created no later than
+// now plus the 300-second skew and expires no earlier than now, and verify under
+// the listed key whose thumbprint its keyid names.
 func VerifyDirectoryResponse(
 	authority string, h http.Header, body []byte, keys []ed25519.PublicKey, now time.Time,
 ) (map[string]bool, error) {
@@ -150,9 +151,9 @@ func VerifyDirectoryResponse(
 }
 
 // directoryResponseParamsValid applies the per-signature rules other than the
-// Ed25519 check: tag, alg, covered set and window.
+// Ed25519 check: tag, alg (when present, ed25519), covered set and window.
 func directoryResponseParamsValid(p sigParams, now time.Time) bool {
-	if p.Tag != DirectoryResponseTag || !strings.EqualFold(p.Alg, AlgEd25519) {
+	if p.Tag != DirectoryResponseTag || !p.algAccepted() {
 		return false
 	}
 	if len(p.Covered) != len(directoryResponseCovered) {

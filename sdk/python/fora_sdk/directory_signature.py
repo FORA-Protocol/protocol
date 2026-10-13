@@ -3,10 +3,11 @@
 A key directory's response is signed once per key it lists, and FORA requires it. Each
 response signature covers ``"@authority";req`` (the authority the directory was fetched
 from) and ``content-digest``, carries created, expires, keyid (the key's RFC 7638
-thumbprint) and alg, and has ``tag="http-message-signatures-directory"``.
-``"@authority";req`` takes its value from the request that fetched the directory, so
-the signature cannot be served again under a different host. The Python port of the Go
-oracle's helpers/directory.go, pinned to directory-response-vectors.json.
+thumbprint) and alg, and has ``tag="http-message-signatures-directory"``. A verifier
+also accepts a response signature that carries no alg, as WG-00's own Appendix E.2.3
+example does. ``"@authority";req`` takes its value from the request that fetched the
+directory, so the signature cannot be served again under a different host. The Python
+port of the Go oracle's helpers/directory.go, pinned to directory-response-vectors.json.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 from ._sigbase import (
     SignatureCheckError,
     SigParams,
+    alg_accepted,
     component,
     component_name,
     content_digest,
@@ -154,10 +156,10 @@ def verify_directory_response(
     Content-Digest or no signature, and :class:`DirectoryResponseDigestError` when the
     Content-Digest does not match the body. Otherwise each signature is judged on its
     own, and one that fails is skipped rather than fatal: it must carry
-    ``tag="http-message-signatures-directory"`` and alg ed25519, cover exactly
-    ``"@authority";req`` and ``content-digest``, carry created no later than now plus
-    300 seconds and expires no earlier than now, and verify under the listed key whose
-    thumbprint its keyid names.
+    ``tag="http-message-signatures-directory"`` and either no alg or alg ed25519, cover
+    exactly ``"@authority";req`` and ``content-digest``, carry created no later than now
+    plus 300 seconds and expires no earlier than now, and verify under the listed key
+    whose thumbprint its keyid names.
     """
     digest = joined_header(headers, "content-digest") or ""
     if digest == "":
@@ -190,9 +192,9 @@ def verify_directory_response(
 
 
 def _params_valid(p: SigParams, now: int) -> bool:
-    """The per-signature rules other than the Ed25519 check: tag, alg, covered set and
-    window."""
-    if p.tag != DirectoryResponseTag or p.alg.lower() != "ed25519":
+    """The per-signature rules other than the Ed25519 check: tag, alg (when present,
+    ed25519), covered set and window."""
+    if p.tag != DirectoryResponseTag or not alg_accepted(p):
         return False
     if len(p.covered) != len(_COVERED) or not all(covers_component(p.covered, c) for c in _COVERED):
         return False

@@ -28,6 +28,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"maps"
 	"net/http"
 	"os"
@@ -182,6 +183,37 @@ func replaceFirst(s, old, new string) string {
 	return s
 }
 
+// sigAlg says what a hand-signed vector puts in its alg signature parameter. The
+// zero value is what every shipped signer sends, so a case that does not set it
+// emits the same bytes as before.
+type sigAlg int
+
+const (
+	algShipped sigAlg = iota // alg="ed25519"
+	algOmitted               // no alg parameter at all: the key decides the algorithm
+	algEmpty                 // alg="", present but naming nothing
+	algOther                 // alg="rsa-pss-sha512", an algorithm an Ed25519 key cannot use
+)
+
+// innerWithAlg renders p's Signature-Input inner list with the alg parameter a
+// says. renderParamsTail leaves out an empty Alg, so the empty case is spliced in
+// right after keyid, where the parameter order puts alg.
+func innerWithAlg(p sigParams, a sigAlg) string {
+	switch a {
+	case algOmitted:
+		p.Alg = ""
+	case algEmpty:
+		p.Alg = ""
+		keyid := fmt.Sprintf(";keyid=%q", p.KeyID)
+		return strings.Replace(signatureInputInner(p), keyid, keyid+`;alg=""`, 1)
+	case algOther:
+		p.Alg = "rsa-pss-sha512"
+	default:
+		p.Alg = AlgEd25519
+	}
+	return signatureInputInner(p)
+}
+
 // popSpec names one agent-binding proof: the inputs to the shipped signer, or, for
 // a proof the signer refuses to make, the covered set and parameters to sign by
 // hand.
@@ -194,6 +226,7 @@ type popSpec struct {
 	signatureAgent string             // header value; "" means the signer's own sig1="<directory>"
 	covered        []CoveredComponent // nil means the shipped signer
 	tag            string
+	alg            sigAlg            // the alg of a proof signed by hand
 	presented      ed25519.PublicKey // nil means the signing key's public half
 	unsigned       bool              // no Signature-Input, Signature or Signature-Agent at all
 	now            int64
@@ -226,10 +259,10 @@ func signEdgePoP(t *testing.T, priv ed25519.PrivateKey, sp popSpec, created, exp
 // reject (or, for the legacy String form, accept).
 func signEdgePoPByHand(priv ed25519.PrivateKey, sp popSpec, created, expires int64) (sigInput, sig string) {
 	p := sigParams{
-		Covered: sp.covered, KeyID: sp.keyID, Alg: AlgEd25519,
+		Covered: sp.covered, KeyID: sp.keyID,
 		Created: created, Expires: expires, Nonce: sp.nonce, Tag: sp.tag,
 	}
-	inner := signatureInputInner(p)
+	inner := innerWithAlg(p, sp.alg)
 	lines := make([]string, 0, len(sp.covered)+1)
 	for _, c := range sp.covered {
 		switch {
@@ -343,6 +376,14 @@ func buildPopVectors(t *testing.T) []popVector {
 		}),
 		// A fetch that carries no signature at all.
 		with("unsigned", func(sp *popSpec) { sp.unsigned = true }),
+		// A proof with no alg verifies: the key, which is Ed25519, decides the
+		// algorithm. An alg that is present must name ed25519, so an empty one and
+		// another algorithm are refused.
+		with("valid_no_alg", func(sp *popSpec) {
+			sp.covered, sp.tag, sp.alg, sp.valid = wbaCovered, WBATag, algOmitted, true
+		}),
+		with("empty_alg", func(sp *popSpec) { sp.covered, sp.tag, sp.alg = wbaCovered, WBATag, algEmpty }),
+		with("unsupported_alg", func(sp *popSpec) { sp.covered, sp.tag, sp.alg = wbaCovered, WBATag, algOther }),
 	}
 	out := make([]popVector, 0, len(specs))
 	for _, sp := range specs {
@@ -1225,6 +1266,38 @@ func negFrom(req *http.Request, authorization string) negRequest {
 // outdated or hostile signer would.
 func signNegByHand(t *testing.T, seed []byte, agentHeader string, edit func(*sigParams)) negRequest {
 	t.Helper()
+	req, signer, p := negHandBase(t, seed, agentHeader)
+	edit(&p)
+	if err := signWithParams(context.Background(), req, p, signer, sigWriteSet); err != nil {
+		t.Fatalf("neg by hand: sign: %v", err)
+	}
+	return negFrom(req, "")
+}
+
+// signNegByHandAlg signs the fixed request with the production signer's sig1
+// parameters and the alg parameter a says. It writes the inner list itself:
+// signWithParams re-renders it, and the renderer leaves out an empty alg.
+func signNegByHandAlg(t *testing.T, seed []byte, agentHeader string, a sigAlg) negRequest {
+	t.Helper()
+	req, signer, p := negHandBase(t, seed, agentHeader)
+	p.RawInner = innerWithAlg(p, a)
+	base, err := buildSignatureBase(req, p)
+	if err != nil {
+		t.Fatalf("neg by hand: base: %v", err)
+	}
+	sig, err := signer.Sign(context.Background(), []byte(base))
+	if err != nil {
+		t.Fatalf("neg by hand: sign: %v", err)
+	}
+	req.Header.Set("Signature-Input", p.Label+"="+p.RawInner)
+	req.Header.Set("Signature", p.Label+"=:"+base64.StdEncoding.EncodeToString(sig)+":")
+	return negFrom(req, "")
+}
+
+// negHandBase is the request, signer and production sig1 parameters a hand-signed
+// vector starts from, under the Signature-Agent header agentHeader.
+func negHandBase(t *testing.T, seed []byte, agentHeader string) (*http.Request, Signer, sigParams) {
+	t.Helper()
 	req, err := http.NewRequest(negMethod, negURL, nil)
 	if err != nil {
 		t.Fatalf("neg by hand: new request: %v", err)
@@ -1236,12 +1309,7 @@ func signNegByHand(t *testing.T, seed []byte, agentHeader string, edit func(*sig
 	if err != nil {
 		t.Fatalf("neg by hand: signer: %v", err)
 	}
-	p := requestSigParams(req, "sig1", signer, SignOptions{Created: negCreated, Expires: negExpires})
-	edit(&p)
-	if err := signWithParams(context.Background(), req, p, signer, sigWriteSet); err != nil {
-		t.Fatalf("neg by hand: sign: %v", err)
-	}
-	return negFrom(req, "")
+	return req, signer, requestSigParams(req, "sig1", signer, SignOptions{Created: negCreated, Expires: negExpires})
 }
 
 // verifyNegOutcome drives the REAL Go verify path (VerifyMultisigRequestResolved,
@@ -1426,11 +1494,16 @@ func buildVerifyRequestNegVectors(t *testing.T) []verifyRequestNegVector {
 	// No signature at all.
 	unsigned := mk("neg_unsigned", negFreshNow)
 	unsigned.OmitHeaders = []string{"Signature-Input", "Signature"}
+	// An alg that is present must name ed25519: another algorithm is refused, and
+	// so is an empty alg, which names nothing.
+	otherAlg := mkFrom(signNegByHandAlg(t, seed, member, algOther), "neg_unsupported_alg", negFreshNow)
+	emptyAlg := mkFrom(signNegByHandAlg(t, seed, member, algEmpty), "neg_empty_alg", negFreshNow)
 
 	out := []verifyRequestNegVector{
 		badSig, replay, expired, wrongKey, tampered, repointed, entitlement, shadowedEntitlement,
 		absentAuthz, absentAgent, dupAuthz,
 		noTag, wrongTag, bare, noMember, typeOther, notOrigin, withPath, noAuthz, unsigned,
+		otherAlg, emptyAlg,
 	}
 	// Derive the expectations from the REAL Go verify path — never hand-author them.
 	for i := range out {
@@ -1447,8 +1520,8 @@ func buildVerifyRequestNegVectors(t *testing.T) []verifyRequestNegVector {
 // although the shipped signer never makes them, because WG-00 permits them and
 // other Web Bot Auth signers send them: the legacy String Signature-Agent on a
 // single-signature request, a member key that differs from the label, a
-// type=directory member parameter, no nonce, and a foreign parameter order. Same
-// shape as the negative corpus, with expected_reason "".
+// type=directory member parameter, no nonce, a foreign parameter order, and no alg.
+// Same shape as the negative corpus, with expected_reason "".
 func buildVerifyRequestAcceptVectors(t *testing.T) []verifyRequestNegVector {
 	t.Helper()
 	seed := fixedSeed(0x77)
@@ -1475,6 +1548,7 @@ func buildVerifyRequestAcceptVectors(t *testing.T) []verifyRequestNegVector {
 		mk("accept_no_nonce", signNegByHand(t, seed, member, func(p *sigParams) { p.Nonce = "" })),
 		mk("accept_other_members_beside", signNegByHand(t, seed, `other="https://other.example", `+member, func(*sigParams) {})),
 		mk("accept_nonce_of_other_length", signNegByHand(t, seed, member, func(p *sigParams) { p.Nonce = "AAECAwQFBgcICQoLDA0ODw" })),
+		mk("accept_no_alg", signNegByHandAlg(t, seed, member, algOmitted)),
 	}
 	for i := range out {
 		reason, accept, dir := oracleNegOutcome(t, out[i])

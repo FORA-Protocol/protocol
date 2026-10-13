@@ -350,6 +350,38 @@
         "Signature-Input",
         "Signature"
       ]
+    },
+    {
+      "name": "neg_unsupported_alg",
+      "method": "POST",
+      "url": "https://broker.example/fora.v1.BrokerService/Fetch",
+      "body_hex": "7b22757269223a2268747470733a2f2f63646e2e6578616d706c652f6e6567227d",
+      "authorization": "",
+      "signature_agent": "sig1=\"https://agent.example\"",
+      "content_digest": "sha-256=:pSx23M9GN/aTAKrW28T63jwIll86OG1oADLVexKgy/o=:",
+      "signature_input": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created=1700000000;expires=1700000300;keyid=\"mcp.v1\";alg=\"rsa-pss-sha512\";tag=\"web-bot-auth\"",
+      "signature": "sig1=:Q+993MquFxD1Dbj58Hy4PL4skqrlaJvUSSyy5i3/q/qMFVC6SMr03S/lHrhUF9hENdy3xVmqaNyg+GhyXPVsAg==:",
+      "keyid": "mcp.v1",
+      "resolver_keyid": "mcp.v1",
+      "resolver_pubkey_b64url": "8maX3DmN9ac27XK1RyyagkWLzGBgVz1IGHOC0LrN_cA",
+      "now": 1700000100,
+      "expected_reason": "signature"
+    },
+    {
+      "name": "neg_empty_alg",
+      "method": "POST",
+      "url": "https://broker.example/fora.v1.BrokerService/Fetch",
+      "body_hex": "7b22757269223a2268747470733a2f2f63646e2e6578616d706c652f6e6567227d",
+      "authorization": "",
+      "signature_agent": "sig1=\"https://agent.example\"",
+      "content_digest": "sha-256=:pSx23M9GN/aTAKrW28T63jwIll86OG1oADLVexKgy/o=:",
+      "signature_input": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created=1700000000;expires=1700000300;keyid=\"mcp.v1\";alg=\"\";tag=\"web-bot-auth\"",
+      "signature": "sig1=:R1bwKwZFivMp7EFW9Tw3VcB3wouTAYqez87+iQfQ/rYuZxuXQjuVsVIkwq9DZpLys4/HCsELqScFb1BI0UNlCQ==:",
+      "keyid": "mcp.v1",
+      "resolver_keyid": "mcp.v1",
+      "resolver_pubkey_b64url": "8maX3DmN9ac27XK1RyyagkWLzGBgVz1IGHOC0LrN_cA",
+      "now": 1700000100,
+      "expected_reason": "signature"
     }
   ]
 }

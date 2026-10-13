@@ -48,6 +48,7 @@ from ._sigbase import (
     MissingSignatureInputError,
     SignatureCheckError,
     SigParams,
+    alg_accepted,
     build_signature_base,
     component_name,
     parse_all_signatures,
@@ -317,13 +318,13 @@ def verify_agent_binding(
 ) -> PopResult:
     """Verify the agent's proof of possession of the key bound to ``agent_id``.
 
-    Returns ``ok=True`` only when every rule holds: the tag is ``web-bot-auth``; the
-    signature covers AT LEAST @method, @target-uri and its Signature-Agent member, so a
-    Web Bot Auth library's proof that also covers @authority verifies; the member
-    names an https origin, in the dictionary form or the legacy
-    String form; agent_id, keyid and the presented key's thumbprint agree; the window
-    holds at ``now`` (unix seconds); and the Ed25519 signature over the base rebuilt
-    with the verbatim URL verifies against the presented key. ``headers`` is
+    Returns ``ok=True`` only when every rule holds: alg, when present, is ed25519; the
+    tag is ``web-bot-auth``; the signature covers AT LEAST @method, @target-uri and its
+    Signature-Agent member, so a Web Bot Auth library's proof that also covers
+    @authority verifies; the member names an https origin, in the dictionary form or
+    the legacy String form; agent_id, keyid and the presented key's thumbprint agree;
+    the window holds at ``now`` (unix seconds); and the Ed25519 signature over the base
+    rebuilt with the verbatim URL verifies against the presented key. ``headers`` is
     lowercase-keyed.
     """
     presented = _read_presented_key(headers)
@@ -333,7 +334,7 @@ def verify_agent_binding(
     if isinstance(parsed, PopResult):
         return parsed
     p, sig_bytes, sig_count = parsed
-    if p.alg.lower() != "ed25519":
+    if not alg_accepted(p):
         return _refuse("unsupported_alg")
     if p.tag != WBATag:
         return _refuse("bad_tag", accept=True)

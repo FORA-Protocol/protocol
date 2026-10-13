@@ -96,6 +96,10 @@ class SigParams:
     ``raw_inner`` is the member value exactly as it arrived (everything after
     ``label=``), which the verifier terminates the base with. It is empty on the
     signing side, where the rendered inner is both what is signed and what is sent.
+
+    ``alg_omitted`` records that the signature carries no alg parameter at all. Only
+    the parser sets it, so a SigParams built by hand reads as alg present and is judged
+    by ``alg`` alone. An alg that is present but empty is not omitted.
     """
 
     label: str
@@ -107,6 +111,15 @@ class SigParams:
     nonce: str = ""
     tag: str = ""
     raw_inner: str = ""
+    alg_omitted: bool = False
+
+
+def alg_accepted(p: SigParams) -> bool:
+    """Whether a verifier accepts the signature's alg parameter. An absent alg is
+    accepted: every key a verifier resolves is Ed25519, so the key decides the algorithm
+    (RFC 9421 §3.2, step 6.3). An alg that is present must name ed25519, in any letter
+    case, so an empty one is refused. The Python port of Go ``sigParams.algAccepted``."""
+    return p.alg_omitted or p.alg.lower() == "ed25519"
 
 
 def render_params_tail(p: SigParams) -> str:
@@ -331,6 +344,7 @@ def _parse_input_member(label: str, member: sfv.Member, raw_inner: str) -> SigPa
         nonce=_str_param(member.params, "nonce"),
         tag=_str_param(member.params, "tag"),
         raw_inner=raw_inner,
+        alg_omitted="alg" not in member.params,
     )
 
 

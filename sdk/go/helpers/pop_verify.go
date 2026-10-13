@@ -103,7 +103,7 @@ func VerifyAgentBinding(method, rawURL string, h http.Header, agentID string, op
 		return nil, popRefusal(PoPMalformedSignature, false, err)
 	}
 	p := all[0]
-	if !strings.EqualFold(p.Alg, AlgEd25519) {
+	if !p.algAccepted() {
 		return nil, popRefusal(PoPUnsupportedAlg, false, nil)
 	}
 	if p.Tag != WBATag {

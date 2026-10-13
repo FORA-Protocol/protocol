@@ -229,8 +229,9 @@ member names, passing that origin to `KeyResolver.resolve(keyid, directory)`, an
 it on the verdict. Labels carry no meaning; coverage of an earlier signature is optional and
 must be complete. The verifier also accepts what other Web Bot Auth signers send — the
 legacy String form `"https://agent.example"` on a single signature, a member key that
-differs from the label, a `type=directory` member parameter, no nonce — and refuses the
-bare unquoted value. A refusal for a missing component, a wrong tag, a refused
+differs from the label, a `type=directory` member parameter, no nonce, no `alg` (the
+Ed25519 key decides the algorithm; an `alg` that is present must be `ed25519`) — and
+refuses the bare unquoted value. A refusal for a missing component, a wrong tag, a refused
 Signature-Agent form or a member that is not an https origin carries `accept_signature`, the `Accept-Signature` value
 (`accept_signature()`) to answer the 401 with. A signer given no directory, a value that
 is not an https origin (`check_https_origin`), or a window over `MAX_SIGNATURE_LIFETIME`

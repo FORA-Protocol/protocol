@@ -11,8 +11,9 @@ oracle's helpers/wba.go: the pieces of the profile the signer and the verifier s
   :data:`MAX_SIGNATURE_LIFETIME`.
 - A verifier also accepts the legacy sf-string form of Signature-Agent, covered as
   plain ``"signature-agent"``, on a request carrying one signature, a member key that
-  differs from the label, no nonce, and a ``type=directory`` member parameter. It
-  refuses the bare unquoted value the v1.0.8 SDKs sent.
+  differs from the label, no nonce, a ``type=directory`` member parameter, and no
+  alg, when the Ed25519 key decides the algorithm. An alg that is present must be
+  ed25519. It refuses the bare unquoted value the v1.0.8 SDKs sent.
 """
 
 from __future__ import annotations

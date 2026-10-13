@@ -2,7 +2,7 @@ import { thumbprint } from "./thumbprint.ts";
 import { AgentKeyHeader, SignatureAgentHeader, WBATag } from "./wire.ts";
 import { decodeBase64Url, utf8Bytes } from "./base64url.ts";
 import { opaqueUrl } from "./opaque-url.ts";
-import { parseSignatureHeaders, type ParsedSignature } from "../core/multisig-parse.ts";
+import { algAccepted, parseSignatureHeaders, type ParsedSignature } from "../core/multisig-parse.ts";
 import { buildSignatureBase, ComponentUnavailable, requestComponentValue } from "../core/sign-request.ts";
 import { keyed, plain, renderComponent, signatureDirectory } from "../core/wba.ts";
 
@@ -130,9 +130,10 @@ export async function verifyAgentBinding(input: PopInput): Promise<PopResult> {
   const parsed = parseProof(input.headers);
   if (!parsed.ok) return parsed.result;
   const { sig, count } = parsed;
-  // alg is an early reject only; the verify primitive is hard-pinned to Ed25519,
-  // so alg is never a key/algorithm SELECTION input (no downgrade possible).
-  if (sig.alg === undefined || sig.alg.toLowerCase() !== "ed25519") return fail("unsupported_alg");
+  // alg is never a key/algorithm SELECTION input: the verify primitive is hard-pinned
+  // to Ed25519, so an absent alg is accepted (the key decides the algorithm) and a
+  // present one must name ed25519, an early reject otherwise (no downgrade possible).
+  if (!algAccepted(sig)) return fail("unsupported_alg");
   if (sig.tag !== WBATag) return failAccept("bad_tag");
   if (!coversTheProfile(sig)) return failAccept("bad_covered_components");
   const directory = signatureDirectory(input.headers.get(SignatureAgentHeader) ?? undefined, sig, count);

@@ -16,13 +16,15 @@ Faces under test:
     exact @signature-params bytes.
   fora_sdk._sigbase.parse_all_signatures — the full multi-label parse; refuses a
     malformed header outright, never a mis-slice.
+  fora_sdk._sigbase.alg_accepted — whether a verifier accepts a signature's alg
+    parameter, read from the presence the parse records.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from fora_sdk._sigbase import SignatureCheckError, parse_all_signatures
+from fora_sdk._sigbase import SignatureCheckError, SigParams, alg_accepted, parse_all_signatures
 from fora_sdk.multisig_parse import raw_inner_by_label, split_top_level_members
 
 
@@ -83,3 +85,31 @@ def test_a_comma_inside_a_quoted_keyid_parses_to_two_signatures() -> None:
     params, sig_map = parse_all_signatures(headers)
     assert [(p.label, p.keyid) for p in params] == [("a", "x,y"), ("b", "z")]
     assert sig_map == {"a": b"\x00", "b": b"\x01"}
+
+
+@pytest.mark.parametrize(
+    ("params", "omitted", "accepted"),
+    [
+        ("", True, True),
+        (';alg="ed25519"', False, True),
+        (';alg="ED25519"', False, True),
+        (';alg=""', False, False),
+        (';alg="rsa-pss-sha512"', False, False),
+    ],
+)
+def test_the_parse_records_whether_alg_is_present(
+    params: str, omitted: bool, accepted: bool
+) -> None:
+    # An absent alg is accepted, because the Ed25519 key decides the algorithm; an
+    # alg that is present must name ed25519, so an empty one is refused.
+    headers = {
+        "signature-input": 'sig1=("@method");keyid="k"' + params,
+        "signature": "sig1=:AAAA:",
+    }
+    (p,), _ = parse_all_signatures(headers)
+    assert p.alg_omitted is omitted
+    assert alg_accepted(p) is accepted
+
+
+def test_a_sigparams_built_by_hand_reads_as_alg_present() -> None:
+    assert not alg_accepted(SigParams(label="sig1", covered=()))

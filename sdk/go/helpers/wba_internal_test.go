@@ -65,3 +65,56 @@ func TestWG00AppendixE2_signatureBasesVerify(t *testing.T) {
 		})
 	}
 }
+
+// TestWG00AppendixE23_directoryResponseVerifiesWithoutAlg: the draft's own signed
+// directory response carries no alg, and a FORA verifier accepts its signature,
+// because the key, which is Ed25519, decides the algorithm. Its key carries no
+// not_before or not_after, so a FORA resolver still would not hand it out; this
+// pins the response signature only.
+func TestWG00AppendixE23_directoryResponseVerifiesWithoutAlg(t *testing.T) {
+	pub := ed25519.NewKeyFromSeed(rfc9421Seed).Public().(ed25519.PublicKey)
+	body := []byte(`{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U","x":"JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs","use":"sig"}]}`)
+	h := http.Header{}
+	h.Set("Content-Digest", "sha-256=:CADMT2aBdV/rqQr/NIru64ERQkCobVvllA4V0fLFDu0=:")
+	h.Set("Signature-Input", `binding=("@authority";req "content-digest");created=1735689600;expires=4889289600;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";tag="http-message-signatures-directory"`)
+	h.Set("Signature", "binding=:l6P8R67tm3kujAxbHWio7ll01qrEZ0dKD/WWlGhNYEmTnFZM8Wt0VQ9zqGfvo7T/UMkBxsigzChM1Gpz7gOVBg==:")
+	got, err := VerifyDirectoryResponse("signature-agent.test", h, body, []ed25519.PublicKey{pub}, time.Unix(1735689700, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || !got["poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U"] {
+		t.Fatalf("verified %v, want the draft's one key", got)
+	}
+}
+
+// TestAlgAccepted_readsPresence: the parser records whether a signature carries
+// alg at all, so an absent alg is accepted and an empty one is refused. A sigParams
+// built by hand reads as alg present, so it is judged by its Alg alone.
+func TestAlgAccepted_readsPresence(t *testing.T) {
+	for _, tc := range []struct {
+		name, params string
+		want         bool
+	}{
+		{"absent", ``, true},
+		{"ed25519", `;alg="ed25519"`, true},
+		{"ed25519 in upper case", `;alg="ED25519"`, true},
+		{"empty", `;alg=""`, false},
+		{"another algorithm", `;alg="rsa-pss-sha512"`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := http.Header{}
+			h.Set("Signature-Input", `sig1=("@method");keyid="k"`+tc.params)
+			h.Set("Signature", "sig1=:AAAA:")
+			all, _, err := parseAllSignatures(h)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := all[0].algAccepted(); got != tc.want {
+				t.Errorf("algAccepted() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+	if (sigParams{}).algAccepted() {
+		t.Error("a hand-built sigParams with an empty Alg was accepted")
+	}
+}

@@ -242,6 +242,8 @@ func TestVerifyRequest_acceptsWhatWG00Permits(t *testing.T) {
 		{"no nonce", member, nil},
 		{"a nonce of another length", member, func(r *helpers.RawSignature) { r.Nonce = "AAECAwQFBgcICQoLDA0ODw" }},
 		{"other members beside the signer's", `x="https://x.example", ` + member, nil},
+		{"no alg", member, func(r *helpers.RawSignature) { r.OmitAlg = true }},
+		{"alg in upper case", member, func(r *helpers.RawSignature) { r.Alg = "ED25519" }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			req := profileRequest(t, body, tc.header)
@@ -252,6 +254,10 @@ func TestVerifyRequest_acceptsWhatWG00Permits(t *testing.T) {
 			}
 			if vr.SignatureAgent != tAgent {
 				t.Errorf("SignatureAgent = %q, want %q", vr.SignatureAgent, tAgent)
+			}
+			// The algorithm the signature verified under, declared or decided by the key.
+			if !strings.EqualFold(vr.Algorithm, helpers.AlgEd25519) {
+				t.Errorf("Algorithm = %q, want %q", vr.Algorithm, helpers.AlgEd25519)
 			}
 		})
 	}
@@ -272,6 +278,8 @@ func TestVerifyRequest_refusesWhatTheProfileDoesNot(t *testing.T) {
 		want       error
 		wantAccept bool
 	}{
+		{"an alg other than ed25519", member, func(r *helpers.RawSignature) { r.Alg = "rsa-pss-sha512" },
+			helpers.ErrUnsupportedAlgorithm, false},
 		{"no tag", member, func(r *helpers.RawSignature) { r.Tag = "" }, helpers.ErrSignatureTag, true},
 		{"another tag", member, func(r *helpers.RawSignature) { r.Tag = "fora" }, helpers.ErrSignatureTag, true},
 		{"the bare unquoted value v1.0.8 sent", "https://agent.example", plainAgent, helpers.ErrSignatureAgentForm, true},

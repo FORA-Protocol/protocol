@@ -336,10 +336,10 @@ def verify_request(
 
     ``signature_agent`` is the request's Signature-Agent header value ("" when the
     request carries none); ``content_digest`` its Content-Digest. Every rule of the
-    profile applies, as in Go ``helpers.VerifyRequest``: alg ed25519, tag web-bot-auth,
-    the FORA RPC components and the signature's own Signature-Agent member covered, the
-    member an https origin, the digest, the created/expires window, and the Ed25519
-    signature over the rebuilt base. Pure: the key and ``now`` are injected. The verdict
+    profile applies, as in Go ``helpers.VerifyRequest``: alg, when present, ed25519; tag
+    web-bot-auth; the FORA RPC components and the signature's own Signature-Agent member
+    covered; the member an https origin; the digest; the created/expires window; and the
+    Ed25519 signature over the rebuilt base. Pure: the key and ``now`` are injected. The verdict
     reports the directory the member names, and, for the refusals the profile answers
     that way, the Accept-Signature value.
     """

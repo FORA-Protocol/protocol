@@ -2,15 +2,17 @@
 // B.1), and FORA requires it. Each response signature covers "@authority";req, the
 // authority the directory was fetched from, and content-digest, carries created,
 // expires, keyid (the key's RFC 7638 thumbprint) and alg, and has
-// tag="http-message-signatures-directory". "@authority";req takes its value from the
-// request that fetched the directory, so the signature cannot be served again under a
-// different host. TS port of sdk/go/helpers/directory.go.
+// tag="http-message-signatures-directory". A verifier also accepts a response
+// signature that carries no alg, as WG-00's own Appendix E.2.3 example does.
+// "@authority";req takes its value from the request that fetched the directory, so the
+// signature cannot be served again under a different host. TS port of
+// sdk/go/helpers/directory.go.
 
 import { stdBase64, utf8Bytes } from "../src/base64url.ts";
 import type { Ed25519Verify } from "../src/pop.ts";
 import { thumbprint } from "../src/thumbprint.ts";
 import { DirectoryResponseTag } from "../src/wire.ts";
-import { parseSignatureHeaders, type ParsedSignature } from "./multisig-parse.ts";
+import { algAccepted, parseSignatureHeaders, type ParsedSignature } from "./multisig-parse.ts";
 import { buildSignatureBase, contentDigest, signatureInputInner } from "./sign-request.ts";
 import { ed25519Verify, readHeader } from "./verify-request.ts";
 import { type CoveredComponent, coversComponent, plain } from "./wba.ts";
@@ -130,10 +132,11 @@ export interface VerifyDirectoryResponseOptions {
  * DirectoryResponseError ("digest_mismatch"). A response with no Content-Digest or no
  * signature at all throws DirectoryResponseError ("unsigned"). Otherwise each response
  * signature is judged on its own, and one that fails is ignored rather than fatal: it
- * must carry tag="http-message-signatures-directory" and alg="ed25519", cover exactly
- * "@authority";req and content-digest, carry created no later than now plus the
- * 300-second skew and expires no earlier than now, and verify under the listed key whose
- * thumbprint its keyid names, through `opts.verifyEd25519` when one is given.
+ * must carry tag="http-message-signatures-directory" and either no alg or
+ * alg="ed25519", cover exactly "@authority";req and content-digest, carry created no
+ * later than now plus the 300-second skew and expires no earlier than now, and verify
+ * under the listed key whose thumbprint its keyid names, through `opts.verifyEd25519`
+ * when one is given.
  */
 export async function verifyDirectoryResponse(
 	authority: string,
@@ -167,10 +170,10 @@ export async function verifyDirectoryResponse(
 	return verified;
 }
 
-// paramsValid applies the per-signature rules other than the Ed25519 check: tag, alg,
-// covered set and window.
+// paramsValid applies the per-signature rules other than the Ed25519 check: tag, alg
+// (when present, ed25519), covered set and window.
 function paramsValid(sig: ParsedSignature, now: number): boolean {
-	if (sig.tag !== DirectoryResponseTag || sig.alg?.toLowerCase() !== "ed25519") return false;
+	if (sig.tag !== DirectoryResponseTag || !algAccepted(sig)) return false;
 	if (sig.covered.length !== DIRECTORY_RESPONSE_COVERED.length) return false;
 	if (!DIRECTORY_RESPONSE_COVERED.every((want) => coversComponent(sig.covered, want))) return false;
 	if (!sig.created || !sig.expires) return false;

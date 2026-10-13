@@ -85,6 +85,9 @@ type VerifyOptions struct {
 // SignatureAgent is the https origin of the signer's key directory: the value of
 // the Signature-Agent member this signature covers, the directory its keyid was
 // resolved in. It is covered, so it is signed.
+//
+// Algorithm is the algorithm the signature verified under: the alg it declares,
+// or "ed25519" when it declares none and the key decided it.
 type VerifiedRequest struct {
 	KeyID          string
 	Algorithm      string
@@ -120,13 +123,14 @@ func staticPub(pub ed25519.PublicKey) resolveFunc {
 	return func(string, string) (ed25519.PublicKey, error) { return pub, nil }
 }
 
-// verifySingleSignature runs the full per-signature validation chain (alg, the
-// Web Bot Auth tag, the FORA RPC components, the signature's own Signature-Agent
-// member, entitlement coverage, created/expires window, content-digest, then the
-// key the member's directory publishes and the Ed25519 check over the signature
-// base). Shared by the single-sig and multisig paths so both judge a signature by
-// identical rules. sigCount is the number of signatures on the request: the legacy
-// String form of Signature-Agent is accepted only when it is one.
+// verifySingleSignature runs the full per-signature validation chain (alg, which
+// when present must be ed25519; the Web Bot Auth tag; the FORA RPC components; the
+// signature's own Signature-Agent member; entitlement coverage; the created/expires
+// window; content-digest; then the key the member's directory publishes and the
+// Ed25519 check over the signature base). Shared by the single-sig and multisig
+// paths so both judge a signature by identical rules. sigCount is the number of
+// signatures on the request: the legacy String form of Signature-Agent is accepted
+// only when it is one.
 func verifySingleSignature(
 	req *http.Request, params sigParams, sigMap map[string][]byte,
 	body []byte, resolve resolveFunc, opts VerifyOptions, sigCount int,
@@ -139,7 +143,7 @@ func verifySingleSignature(
 	if maxSkew == 0 {
 		maxSkew = defaultMaxFutureSkew
 	}
-	if !strings.EqualFold(params.Alg, AlgEd25519) {
+	if !params.algAccepted() {
 		return nil, fmt.Errorf("%w: alg=%q", ErrUnsupportedAlgorithm, params.Alg)
 	}
 	if params.Tag != WBATag {
@@ -179,9 +183,13 @@ func verifySingleSignature(
 	if !ed25519.Verify(pub, []byte(base), sigBytes) {
 		return nil, ErrSignatureVerify
 	}
+	alg := params.Alg
+	if params.AlgOmitted {
+		alg = AlgEd25519
+	}
 	return &VerifiedRequest{
 		KeyID:          params.KeyID,
-		Algorithm:      params.Alg,
+		Algorithm:      alg,
 		Label:          params.Label,
 		Signature:      base64.StdEncoding.EncodeToString(sigBytes),
 		Created:        params.Created,
@@ -429,9 +437,11 @@ func coveredFromItem(item httpsfv.Item) (CoveredComponent, error) {
 }
 
 // applySignatureParams reads the keyid/alg/created/expires/nonce/tag signature
-// parameters off the inner list's params into p.
+// parameters off the inner list's params into p, and records whether alg was
+// present at all.
 func applySignatureParams(p *sigParams, params *httpsfv.Params) error {
 	if params == nil {
+		p.AlgOmitted = true
 		return nil
 	}
 	if v, ok := params.Get("keyid"); ok {
@@ -447,6 +457,8 @@ func applySignatureParams(p *sigParams, params *httpsfv.Params) error {
 			return fmt.Errorf("%w: alg not a string", ErrMalformedSignatureInput)
 		}
 		p.Alg = s
+	} else {
+		p.AlgOmitted = true
 	}
 	if v, ok := params.Get("created"); ok {
 		n, isInt := v.(int64)

@@ -70,6 +70,12 @@ describe("verifyDirectoryResponse matches the Go oracle", () => {
 			"unsigned",
 			"wrong_tag",
 			"no_authority_covered",
+			// A response signature with no alg verifies, WG-00's own Appendix E.2.3 among
+			// them; an empty alg and another algorithm verify no key.
+			"no_alg",
+			"empty_alg",
+			"unsupported_alg",
+			"wg00_appendix_e23",
 		]) {
 			expect(names.has(want), want).toBe(true);
 		}

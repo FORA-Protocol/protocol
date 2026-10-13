@@ -180,6 +180,10 @@ describe("sdk/ts single-sig server-verify mirrors the Go connectserver oracle", 
 			"neg_missing_fora_component",
 			"neg_unsigned",
 			"neg_repointed_signature_agent",
+			// An alg that is present must name ed25519: another algorithm, and an empty
+			// alg, which names nothing. A missing alg is accepted (accept_no_alg).
+			"neg_unsupported_alg",
+			"neg_empty_alg",
 		]) {
 			expect(names.has(want), want).toBe(true);
 		}

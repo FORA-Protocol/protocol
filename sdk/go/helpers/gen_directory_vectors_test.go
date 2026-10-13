@@ -101,13 +101,46 @@ func buildDirectoryResponseVectors(t *testing.T) []directoryResponseVector {
 	}
 	// Tag and covered set are checked per signature: signed by hand with another
 	// tag, and with a covered set lacking "@authority";req.
-	wrongTag := signedDirectoryByHand(t, "wrong_tag", "research.acme.com", docBody, agent, directoryResponseCovered, "web-bot-auth", one, created, expires, now)
+	wrongTag := signedDirectoryByHand(t, "wrong_tag", "research.acme.com", docBody, agent, directoryResponseCovered, "web-bot-auth", one, created, expires, now, algShipped)
 	noAuthority := signedDirectoryByHand(t, "no_authority_covered", "research.acme.com", docBody, agent,
-		[]CoveredComponent{{Name: "content-digest"}}, DirectoryResponseTag, one, created, expires, now)
+		[]CoveredComponent{{Name: "content-digest"}}, DirectoryResponseTag, one, created, expires, now, algShipped)
 	out = append(out, wrongHost, changed, unsigned, wrongTag, noAuthority)
+	// A response signature with no alg verifies: the key, which is Ed25519, decides
+	// the algorithm. An alg that is present must name ed25519, so an empty one and
+	// another algorithm verify no key.
+	byAlg := func(name string, a sigAlg) directoryResponseVector {
+		return signedDirectoryByHand(t, name, "research.acme.com", docBody, agent, directoryResponseCovered,
+			DirectoryResponseTag, one, created, expires, now, a)
+	}
+	out = append(out, byAlg("no_alg", algOmitted), byAlg("empty_alg", algEmpty), byAlg("unsupported_alg", algOther))
+	// WG-00 Appendix E.2.3, the draft's own signed directory response, verbatim. It
+	// carries no alg.
+	out = append(out, directoryResponseVector{
+		Name: "wg00_appendix_e23", Authority: "signature-agent.test",
+		Body:           `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U","x":"JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs","use":"sig"}]}`,
+		ContentDigest:  "sha-256=:CADMT2aBdV/rqQr/NIru64ERQkCobVvllA4V0fLFDu0=:",
+		SignatureInput: `binding=("@authority";req "content-digest");created=1735689600;expires=4889289600;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";tag="http-message-signatures-directory"`,
+		Signature:      "binding=:l6P8R67tm3kujAxbHWio7ll01qrEZ0dKD/WWlGhNYEmTnFZM8Wt0VQ9zqGfvo7T/UMkBxsigzChM1Gpz7gOVBg==:",
+		Keys:           []string{pubOf(rfc9421Seed)}, SignerSeedsHex: []string{hexOf(rfc9421Seed)},
+		Created: 1735689600, Expires: 4889289600, Now: 1735689700,
+	})
 
 	for i := range out {
 		out[i].ExpectedVerified, out[i].ExpectedError = directoryOracle(t, out[i])
+	}
+	// The alg cases must not be absorbed by a regeneration: a missing alg verifies
+	// the one signing key, and a present alg that is not ed25519 verifies none.
+	for _, v := range out {
+		want := -1
+		switch v.Name {
+		case "no_alg", "wg00_appendix_e23":
+			want = 1
+		case "empty_alg", "unsupported_alg":
+			want = 0
+		}
+		if want >= 0 && (len(v.ExpectedVerified) != want || v.ExpectedError != "") {
+			t.Fatalf("%s: verified %v (error %q), want %d key(s)", v.Name, v.ExpectedVerified, v.ExpectedError, want)
+		}
 	}
 	return out
 }
@@ -121,19 +154,20 @@ func hexOf(b []byte) string {
 	return string(out)
 }
 
-// signedDirectoryByHand signs a directory response with an arbitrary covered set
-// and tag, as a nonconformant server would.
+// signedDirectoryByHand signs a directory response with an arbitrary covered set,
+// tag and alg, as a nonconformant server, or one following the draft's minimum,
+// would.
 func signedDirectoryByHand(
 	t *testing.T, name, authority, body string, seed []byte, covered []CoveredComponent, tag string,
-	keys []string, created, expires, now int64,
+	keys []string, created, expires, now int64, alg sigAlg,
 ) directoryResponseVector {
 	t.Helper()
 	priv := ed25519.NewKeyFromSeed(seed)
 	p := sigParams{
-		Label: "sig1", Covered: covered, KeyID: seedThumbprint(t, seed), Alg: AlgEd25519,
+		Label: "sig1", Covered: covered, KeyID: seedThumbprint(t, seed),
 		Created: created, Expires: expires, Tag: tag,
 	}
-	p.RawInner = signatureInputInner(p)
+	p.RawInner = innerWithAlg(p, alg)
 	digest := ContentDigest([]byte(body))
 	raw := ed25519.Sign(priv, []byte(directoryResponseBaseFor(authority, digest, p)))
 	return directoryResponseVector{
