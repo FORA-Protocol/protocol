@@ -176,7 +176,9 @@ func (b *BrokerClient) discoveryResult(ctx context.Context, msg *forav1.Discover
 // unchanged. A refusal whose code is "unavailable" or "deadline_exceeded" leaves
 // the item's outcome unknown — the Exchange may have bought it before the answer
 // was lost — and Totals does not count it; retry the same request with the same
-// idempotency key through the same Broker to settle it. Only the Broker's own refusals — a bad signature, a malformed
+// idempotency key to settle it, through this Broker, another one or directly:
+// each Exchange scopes the key to the agent whatever the route. Only the Broker's
+// own refusals — a bad signature, a malformed
 // request, an Exchange it cannot route to or does not approve — return an error,
 // and then nothing was bought.
 //

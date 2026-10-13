@@ -730,8 +730,9 @@ type BrokerServiceClient interface {
 	// so each Exchange answers a repeated sub-request from its stored result (see
 	// "Idempotency" in the file header). That is also how an agent settles an
 	// item whose refusal left the outcome unknown (code "unavailable" or
-	// "deadline_exceeded"): it retries the same request, with the same key,
-	// through the same Broker.
+	// "deadline_exceeded"): it retries the same request with the same key,
+	// through the same Broker, another one, or directly. The purchase is the
+	// agent's (see "Accounts" in the file header).
 	ExecuteTransaction(context.Context, *connect.Request[v1.TransactionRequest]) (*connect.Response[v1.BrokerTransactionResponse], error)
 }
 
@@ -900,8 +901,9 @@ type BrokerServiceHandler interface {
 	// so each Exchange answers a repeated sub-request from its stored result (see
 	// "Idempotency" in the file header). That is also how an agent settles an
 	// item whose refusal left the outcome unknown (code "unavailable" or
-	// "deadline_exceeded"): it retries the same request, with the same key,
-	// through the same Broker.
+	// "deadline_exceeded"): it retries the same request with the same key,
+	// through the same Broker, another one, or directly. The purchase is the
+	// agent's (see "Accounts" in the file header).
 	ExecuteTransaction(context.Context, *connect.Request[v1.TransactionRequest]) (*connect.Response[v1.BrokerTransactionResponse], error)
 }
 

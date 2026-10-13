@@ -475,7 +475,8 @@ async function execute(
  * Exchanges' items come back unchanged. A refusal whose code is "unavailable" or
  * "deadline_exceeded" leaves the item's outcome unknown — the Exchange may have bought it
  * before the answer was lost — and `totals` does not count it; retry the same request with
- * the same idempotency key through the same Broker to settle it. Only the Broker's own
+ * the same idempotency key to settle it, through this Broker, another one or directly:
+ * each Exchange scopes the key to the agent whatever the route. Only the Broker's own
  * refusals throw, and then nothing was bought.
  */
 async function brokerExecute(

@@ -293,25 +293,60 @@ import "fora/v1/vocab.proto";
 // ============================================================================
 
 // ============================================================================
+// Accounts
+//
+// An account at an Exchange belongs to an agent's key directory, the one
+// Requester.domain names. Every currently valid key that directory publishes
+// acts for the account, and a key rotation keeps the account and its
+// billing_ref. The Exchange learns the directory only from what authenticates
+// it: on a request the agent sends itself, the request signature, whose
+// directory Requester.domain must name (see "Direct and relayed requests"); on
+// a purchase a Broker relays through BrokerService.ExecuteTransaction, the
+// agent's acceptances, verified against that directory's keys. Requester.id is
+// an attribution label and never selects an account.
+//
+// A purchase a Broker relays is the agent's. Billing, the account checks
+// (DENIAL_REASON_ACCOUNT_NOT_REGISTERED, DENIAL_REASON_ACCOUNT_INACTIVE,
+// DENIAL_REASON_REPORTING_OVERDUE), ownership of the transaction, and the right
+// to report on it and dispute it all refer to the agent's account, as on a
+// direct purchase. The agent files its usage reports and disputes with the
+// issuing Exchange itself; a Broker files none for it. The Exchange keeps the
+// Broker, the verified request signer, with the transaction record for
+// attribution; no field carries it. Which Brokers an Exchange admits stays its
+// own policy.
+// ============================================================================
+
+// ============================================================================
 // Idempotency
 //
 // The requests that change state — TransactionRequest, UsageReport and
 // DisputeRequest — each carry a REQUIRED idempotency_key. The rules for the key
 // are stated here once, and each of those fields points here.
 //
-// Scope. A key is scoped to the caller that authenticated the request, never
-// global. On a request the agent signed itself, the scope is that authenticated
-// agent, the verified RFC 9421 signer. On a purchase relayed through
-// BrokerService.ExecuteTransaction, the verified signer is the Broker, which
-// speaks for many agents, so the scope is the pair (Broker, requester the agent
-// acceptances authenticate). A key that another agent used, that the same agent
-// used through another Broker, or that was used at another tenant of the same
-// Exchange is a different key in a different scope: it is never a collision,
-// and it is never answered from another scope's stored result.
+// Scope. A key is scoped to the agent that authenticated the request, never
+// global: its authenticated key directory, which is also what its account
+// belongs to (see "Accounts"). On a request the agent signed itself, the
+// request signature authenticates it; on a purchase relayed through
+// BrokerService.ExecuteTransaction, the agent's acceptances authenticate the
+// directory Requester.domain names. The route does not change the scope: the
+// same key from the same agent names the same purchase whether it arrives
+// directly or through any Broker the Exchange admits. A key that another agent
+// used, or that was used at another tenant of the same Exchange is a different
+// key in a different scope: it is never a collision, and it is never answered
+// from another scope's stored result.
+//
+// Authorization first. Before it creates idempotency state for a key, or
+// answers from it, the Exchange verifies the agent's authorization: the request
+// signature on a direct request, the acceptances on a relayed purchase, and the
+// AgentRequestAcceptance with its projection whenever it is present. A request
+// that does not prove the agent's authorization creates no idempotency state
+// and is answered from none.
 //
 // Replay. Within one scope, a request that repeats a key with the SAME request
-// is a replay: the recipient answers it with the result it stored for the key
-// and executes nothing again. The same request is, for ExecuteTransaction, the
+// is a replay: the recipient answers it with the result it stored for the key,
+// the delivery binding it recorded included, and executes nothing again,
+// whether the repeat arrives directly or through a Broker. The same request is,
+// for ExecuteTransaction, the
 // same items in the same order (each item's offer.signature), and for
 // ReportUsage and DisputeTransaction the same report or filing, field for
 // field.
@@ -324,8 +359,11 @@ import "fora/v1/vocab.proto";
 //
 // Through a Broker the key is the agent's. The Broker forwards it unchanged on
 // every sub-request, and cannot do otherwise because each AgentAcceptance and
-// the AgentRequestAcceptance sign it, so a retry of the same purchase through
-// the Broker reaches every Exchange as a replay of its sub-request.
+// the AgentRequestAcceptance sign it. A retry of the same purchase therefore
+// reaches every Exchange as a replay of its sub-request, whether it goes through
+// the same Broker, another one the Exchange admits, or directly; that is how an
+// agent settles an outcome left unknown. A new attempt after a stored denial
+// takes a new key, and so new acceptances, because the acceptances sign the key.
 // ============================================================================
 
 // ============================================================================
@@ -2100,8 +2138,9 @@ enum DeliveryMethod {
 // not the identity, and live on ResourceQuery / DiscoveryRequest. The Exchange
 // verifies identity via the RFC 9421 request signature, then filters its
 // catalog by the requester's scopes. Billing needs nothing from this message:
-// the Exchange resolves the caller's account (RegisterResponse.billing_ref)
-// from the verified signature, never from anything the caller sends.
+// the Exchange resolves the agent's account (RegisterResponse.billing_ref) from
+// what authenticates the agent, never from a value the caller merely states
+// (see "Accounts" in the file header).
 message Requester {
   // REQUIRED. A free label the agent chooses for attribution (e.g.
   // "agent-research-bot-001"), 1 to 255 characters. Use it to tell apart the
@@ -2145,7 +2184,9 @@ message Requester {
   //     each item's AgentAcceptance, and the AgentRequestAcceptance, against
   //     the Ed25519 keys currently valid in the directory this field names
   //     (see AgentRequestAcceptance), never against the Broker's key. Those
-  //     acceptances are the only agent signatures the Exchange sees.
+  //     acceptances are the only agent signatures the Exchange sees, and the
+  //     purchase belongs to the account of the directory they verify under
+  //     (see "Accounts" in the file header).
   //   - Broker-led discovery. A ResourceQuery a Broker originated carries no agent
   //     signature, so nothing on that leg authenticates this field: it is the
   //     Broker's statement, under the Broker's own signature, of whom it
@@ -2558,7 +2599,9 @@ message AgentAcceptancePayload {
   string requester_domain = 3;
 
   // The transaction's idempotency key — binds the acceptance to a single
-  // execute so it cannot be replayed under a different transaction.
+  // execute so it cannot be replayed under a different transaction. The key is
+  // scoped to the agent whatever the route, so an acceptance executes at most
+  // once at an Exchange, however it arrives (see "Idempotency").
   string idempotency_key = 4;
 }
 
@@ -2579,10 +2622,10 @@ message TransactionRequest {
 
   // Idempotency key (REQUIRED). The server MUST dedupe on this: a replay returns
   // the original result rather than re-executing, and the same key with
-  // different items is refused with already_exists. The key is scoped per
-  // caller: per authenticated agent, and per (Broker, requester) on a purchase
-  // relayed through BrokerService.ExecuteTransaction, where the Broker forwards
-  // the agent's key unchanged. A key another agent or tenant used is never a
+  // different items is refused with already_exists. The key is scoped to the
+  // agent, whatever the route: a purchase repeated directly or through any
+  // Broker the Exchange admits is the same purchase, and the Broker forwards the
+  // agent's key unchanged. A key another agent or tenant used is never a
   // collision. The full rule is "Idempotency" in the file header. The
   // transaction's durable identity is the Exchange-assigned transaction_id in
   // the response.
@@ -2750,8 +2793,8 @@ message TransactionResultItem {
   // "deadline_exceeded" the outcome is unknown: the Exchange may have completed
   // the purchase before the answer was lost, whether it gave no answer or
   // answered that code, and retrying the agent's request with the same
-  // idempotency_key through the same Broker settles it (see
-  // UpstreamRefusal.code). With any other code the Exchange answered with a
+  // idempotency_key settles it, on any route: through the same Broker, another
+  // one, or directly (see UpstreamRefusal.code). With any other code the Exchange answered with a
   // refusal that decided no item, so the item was not purchased. An Exchange
   // never sets this field, and a Broker never replaces it with a denial_reason:
   // an upstream refusal is not a per-item access decision.
@@ -2789,8 +2832,8 @@ message UpstreamRefusal {
   // call failed with ("unavailable", "deadline_exceeded"). A refusal with
   // either of those codes is an ambiguous outcome: a purchase may have
   // completed. On a Broker purchase, retrying the agent's request with the same
-  // idempotency_key through the same Broker is answered from each Exchange's
-  // stored result, so it settles the outcome without buying twice.
+  // idempotency_key, on any route, is answered from each Exchange's stored
+  // result, so it settles the outcome without buying twice.
   string code = 2 [(buf.validate.field).string = {min_len: 1, max_len: 64}];
 
   // The party's typed reason, unchanged — the ErrorDetail it attached to its
@@ -2870,13 +2913,15 @@ enum DenialReason {
 
   // Split out of the former single billing-reference reason. An agent hits the
   // wall at execute, not at register, and "no account here" and "account awaiting
-  // activation" are two different states of the caller with two different
-  // remedies — call Register, which an agent can do unattended, versus wait for
-  // a human. Neither value discloses the Exchange's internal billing state; both
-  // describe the caller's own account, which it may already query with
-  // GetAccountStatus. TransactionDenial.exchange names WHERE to register, so the
+  // activation" are two different states of the agent's account with two
+  // different remedies — call Register, which an agent can do unattended,
+  // versus wait for a human. Neither value discloses the Exchange's internal
+  // billing state; both describe the agent's own account, also on a purchase a
+  // Broker relayed (see "Accounts" in the file header), which the agent may
+  // already query with GetAccountStatus. TransactionDenial.exchange names WHERE
+  // to register, so the
   // agent converges without fetching a manifest first.
-  DENIAL_REASON_ACCOUNT_NOT_REGISTERED = 18;         // no account exists for this caller at this Exchange — the remedy is to call Register
+  DENIAL_REASON_ACCOUNT_NOT_REGISTERED = 18;         // no account exists at this Exchange for the requester (the agent, also on a purchase a Broker relayed) — the remedy is for the agent to call Register
 
   // The provider that sells this item's resource at this Exchange does not
   // accept purchases relayed by a Broker (BrokerService.ExecuteTransaction).
@@ -3082,8 +3127,9 @@ service BrokerService {
   // so each Exchange answers a repeated sub-request from its stored result (see
   // "Idempotency" in the file header). That is also how an agent settles an
   // item whose refusal left the outcome unknown (code "unavailable" or
-  // "deadline_exceeded"): it retries the same request, with the same key,
-  // through the same Broker.
+  // "deadline_exceeded"): it retries the same request with the same key,
+  // through the same Broker, another one, or directly. The purchase is the
+  // agent's (see "Accounts" in the file header).
   rpc ExecuteTransaction(TransactionRequest) returns (BrokerTransactionResponse);
 }
 
@@ -3432,8 +3478,11 @@ message ReportingObligation {
 
 // UsageReport — Post-usage report for a completed transaction.
 //
-// Filed by the agent or Broker after resource is used.
-// Failure to report may result in the Exchange blocking subsequent access.
+// Filed by the agent itself after the resource is used, with the Exchange that
+// issued the offer (UsageReport.exchange), for a purchase a Broker relayed as for
+// a direct one: a Broker files no report for an agent (see "Accounts" in the
+// file header). Failure to report may result in the Exchange blocking
+// subsequent access.
 //
 // The report is a record of the quantity consumed (Usage.consumed_quantity).
 // The Exchange accepts it whatever that quantity is: a consumed quantity that
@@ -3445,7 +3494,7 @@ message ReportingObligation {
 // USAGE_REPORT_REJECTION_REASON_MALFORMED and the Connect code invalid_argument;
 // a report whose billing_id is not the billing_id of the transaction it names is
 // malformed. A report for a transaction the Exchange recorded under a different
-// agent is answered exactly as a report for an unknown transaction:
+// agent's account is answered exactly as a report for an unknown transaction:
 // USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND and the Connect code
 // not_found, so the answer does not reveal that the transaction exists.
 // The reported quantity is unrestricted: no check on it refuses a report (see
@@ -3457,7 +3506,7 @@ message UsageReport {
 
   // Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed
   // report does not double-count usage; the same key with a different report is
-  // refused with already_exists. Scoped per caller; see "Idempotency" in the
+  // refused with already_exists. Scoped to the agent; see "Idempotency" in the
   // file header. The report's durable identity is the Exchange-assigned
   // report_id in UsageReportResponse.
   string idempotency_key = 2 [
@@ -4485,7 +4534,11 @@ message ExchangeOutcome {
 //        → DisputeRequest (transaction_id + report_id) → DisputeResponse
 // ============================================================================
 
-// DisputeRequest — Agent signals a problem with delivered resource.
+// DisputeRequest — Agent signals a problem with delivered resource. Filed by
+// the agent itself, with the Exchange that executed the transaction, for a
+// purchase a Broker relayed as for a direct one: a Broker files no dispute for
+// an agent. The Exchange accepts it only for a transaction recorded under the
+// agent's account (see "Accounts" in the file header).
 message DisputeRequest {
   // FORA protocol version — "1.0". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
@@ -4493,7 +4546,7 @@ message DisputeRequest {
 
   // Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed
   // filing does not open a duplicate case; the same key with a different filing
-  // is refused with already_exists. Scoped per caller; see "Idempotency" in the
+  // is refused with already_exists. Scoped to the agent; see "Idempotency" in the
   // file header. The dispute's durable identity is the Exchange-assigned
   // dispute_id in DisputeResponse.
   string idempotency_key = 2 [
@@ -4823,8 +4876,11 @@ message DomainVerificationResult {
 // To transact for paid content it must REGISTER: the Exchange creates the
 // agent's account and mints billing_ref — the opaque, long-lived,
 // per-Exchange account handle. The agent never has to carry billing_ref
-// afterwards; the Exchange resolves the account from the verified request
-// signature on every call, never from anything the caller sends.
+// afterwards; the Exchange resolves the account on every call from what
+// authenticates the agent, never from anything the caller merely states: the
+// request signature on the account RPCs, which the agent always sends itself,
+// and the agent's acceptances on a purchase a Broker relays (see "Accounts" in
+// the file header).
 //
 // Whether the Exchange inspects the business payload (registration_data)
 // follows its manifest — see AccountRegistration.data_schema, which states that
@@ -5258,10 +5314,13 @@ message ErrorDetail {
 //
 // This is the only case an ExecuteTransaction answer is a non-OK error carrying
 // a DenialReason: the Exchange refuses the request as a whole and decides no
-// item, for a reason about the caller or the request that would deny every item
-// alike — for example the caller holds no account (ACCOUNT_NOT_REGISTERED), its
-// account is not active (ACCOUNT_INACTIVE), it has overdue reports
-// (REPORTING_OVERDUE), or it is rate limited (RATE_LIMITED). Nothing is
+// item, for a reason about the requester or the request that would deny every
+// item alike — for example the requester holds no account
+// (ACCOUNT_NOT_REGISTERED), its account is not active (ACCOUNT_INACTIVE), it has
+// overdue reports (REPORTING_OVERDUE), or the call is rate limited
+// (RATE_LIMITED). On a purchase a Broker relayed, the requester is the agent and
+// the account is the agent's, never the Broker's (see "Accounts" in the file
+// header). Nothing is
 // purchased. Every decision about an item is answered in the body instead, on
 // TransactionResultItem.denial_reason, whatever the item count: a denied
 // one-item purchase is a successful response whose one item is denied, never
@@ -5462,7 +5521,8 @@ message RegistrationFieldError {
 // later found unsupported ends as RESOLUTION_TYPE_REJECTED, not as a refusal.
 enum DisputeFailureReason {
   DISPUTE_FAILURE_REASON_UNSPECIFIED = 0;  // unset — rejected at ingest
-  // transaction_id names no transaction this Exchange executed for the caller.
+  // transaction_id names no transaction this Exchange recorded under the
+  // caller's account.
   DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND = 1;
   // No accepted usage report precedes the dispute: report_id is empty, unknown,
   // or names a report for another transaction. The agent files the

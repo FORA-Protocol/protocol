@@ -5,7 +5,7 @@
   "properties": {
     "idempotency_key": {
       "default": "",
-      "description": "The transaction's idempotency key — binds the acceptance to a single\n execute so it cannot be replayed under a different transaction.",
+      "description": "The transaction's idempotency key — binds the acceptance to a single\n execute so it cannot be replayed under a different transaction. The key is\n scoped to the agent whatever the route, so an acceptance executes at most\n once at an Exchange, however it arrives (see \"Idempotency\").",
       "type": "string"
     },
     "offer_sig": {

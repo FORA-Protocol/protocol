@@ -481,7 +481,8 @@ def finish_broker_execute(plan: Plan, status: int, body: str) -> BrokerTransacti
     Exchanges' items come back unchanged. A refusal whose code is ``unavailable`` or
     ``deadline_exceeded`` leaves the item's outcome unknown — the Exchange may have bought
     it before the answer was lost — and ``totals`` does not count it; retry the same
-    request with the same idempotency key through the same Broker to settle it. Only the
+    request with the same idempotency key to settle it, through this Broker, another one
+    or directly: each Exchange scopes the key to the agent whatever the route. Only the
     Broker's own refusals raise.
     """
     return decode(  # type: ignore[no-any-return]

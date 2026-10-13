@@ -182,8 +182,8 @@ call; `detail` is the FORA `ErrorDetail` that party attached, unchanged. Each to
 purchased, while `UpstreamRefusal.code` said a timeout may have completed a purchase. They
 now agree. With the code `unavailable` or `deadline_exceeded` the item's outcome is
 unknown, whether the Exchange gave no answer or answered that code, and retrying the
-agent's request with the same `idempotency_key` through the same Broker settles it; with
-any other code the Exchange decided no item, and the item was not purchased.
+agent's request with the same `idempotency_key` settles it, on any route; with any other
+code the Exchange decided no item, and the item was not purchased.
 `BrokerTransactionResponse.totals` does not count an item with an unknown outcome, so it
 is then a lower bound of what the purchase charged. The Broker purchase verbs' doc
 comments in all three SDKs, the Python README, and the transaction-flow, Broker, Identity
@@ -420,9 +420,10 @@ must not refuse a report on it.
 **Idempotency keys are scoped per caller, and a reused key with a different request is
 refused (a behaviour change; no wire change).** The file header gains "Idempotency", the one statement of the
 rule for `TransactionRequest`, `UsageReport` and `DisputeRequest`. A key is scoped to the
-authenticated agent, and to the pair (Broker, requester) on a purchase relayed through
-`BrokerService.ExecuteTransaction`; a key another agent or tenant used is never a
-collision. The same key with the same request is a replay answered from the stored result.
+authenticated agent, whatever the route: a purchase relayed through
+`BrokerService.ExecuteTransaction` shares the agent's scope with a direct one. A key
+another agent or tenant used is never a collision. The same key with the same request is
+a replay answered from the stored result.
 The same key with a different request (for a purchase, different items or another order)
 is refused with the Connect code `already_exists` and an `ErrorDetail` with no typed reason.
 
@@ -595,6 +596,34 @@ a Broker under `ROLE_BROKER`. The transaction-flow, production-architecture, pro
 Broker overview, exchange-manifest, request-flows and threat-model pages state the rule
 or link to it, and no page gives a Broker `ROLE_AGENT` any more.
 
+**A purchase a Broker relays is the agent's (comments and docs; no wire change).** Nothing
+said whose purchase a Broker relays: the account was resolved "from the verified
+signature", which on a relayed purchase is the Broker's, and an idempotency key was scoped
+to the pair (Broker, requester), so one signed consent could execute again through a
+second Broker. The file header gains "Accounts", the one statement of the rule. An
+account at an Exchange belongs to the agent's key directory: every currently valid key it
+publishes acts for the account, a key rotation keeps the account and its `billing_ref`,
+and `Requester.id` never selects one. The Exchange learns the directory only from what
+authenticates it: the request signature on a direct request, the agent's acceptances on a
+relayed purchase. Billing, the account denials (`DENIAL_REASON_ACCOUNT_NOT_REGISTERED`,
+`DENIAL_REASON_ACCOUNT_INACTIVE`, `DENIAL_REASON_REPORTING_OVERDUE`), ownership of the
+transaction, and the right to report on it and dispute it refer to the agent's account,
+and the Exchange keeps the Broker with the transaction record for attribution. The agent
+files its usage reports and disputes with the issuing Exchange itself; a Broker files
+none.
+
+An idempotency key is scoped to the agent whatever the route: a purchase repeated
+directly or through any Broker the Exchange admits is the same purchase, so one signed
+consent executes at most once at an Exchange, however it arrives. The Exchange verifies
+the agent's authorization before it creates idempotency state or answers from it, and a
+replay returns the stored result with the delivery binding it recorded. An unknown
+outcome is settled by retrying with the same key on any route, and a new attempt after a
+stored denial takes a new key and new acceptances.
+
+Docs: the authentication page gains "Accounts", and the transaction-flow, request-flows,
+threat-model and reference pages state the rule. The Broker retry comments in all three
+SDKs and the Python README say a retry may take any route.
+
 **A scope shortfall is never disclosed: `OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT` and
 `DENIAL_REASON_SCOPE_INSUFFICIENT` are deprecated and never sent (no wire change).**
 Their comments described an Exchange sending them, which contradicted `Requester.scopes`:
@@ -733,7 +762,8 @@ The contract now defines that relay.
   re-packaged purchase the delegation holder binding (`cnf.jkt`)
   and `agent_identity_hash` use the key the item's `AgentAcceptance` verifies
   under, not the request signer, which is the Broker. An Exchange scopes a relayed
-  request's idempotency key per Broker, authenticated requester and key.
+  request's idempotency key to the agent the acceptances authenticate, exactly as a
+  direct request's.
 
 SDKs, in all three languages:
 

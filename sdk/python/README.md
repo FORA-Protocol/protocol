@@ -477,7 +477,8 @@ affected items carry `refusal` with that Exchange's code and typed reason, and t
 items come back unchanged. A refusal whose code is `unavailable` or `deadline_exceeded`
 leaves the item's outcome unknown, since the Exchange may have bought it before the answer
 was lost, and `totals` does not count it; retry the same request with the same idempotency
-key through the same Broker to settle it. The signer must set `signature_agent`, and its directory host
+key to settle it, through this Broker, another one or directly: each Exchange scopes the key
+to the agent whatever the route. The signer must set `signature_agent`, and its directory host
 must be `requester.domain`: a Broker refuses any other pairing, so the client refuses it
 first, as `MALFORMED`. `Client.execute` with offers from more than one Exchange is refused
 the same way; buy those through the Broker.

@@ -1,7 +1,7 @@
 {
   "$id": "fora.v1.DisputeRequest.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "DisputeRequest — Agent signals a problem with delivered resource.",
+  "description": "DisputeRequest — Agent signals a problem with delivered resource. Filed by\n the agent itself, with the Exchange that executed the transaction, for a\n purchase a Broker relayed as for a direct one: a Broker files no dispute for\n an agent. The Exchange accepts it only for a transaction recorded under the\n agent's account (see \"Accounts\" in the file header).",
   "properties": {
     "billing_id": {
       "default": "",
@@ -30,7 +30,7 @@
       "type": "array"
     },
     "idempotency_key": {
-      "description": "Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed\n filing does not open a duplicate case; the same key with a different filing\n is refused with already_exists. Scoped per caller; see \"Idempotency\" in the\n file header. The dispute's durable identity is the Exchange-assigned\n dispute_id in DisputeResponse.",
+      "description": "Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed\n filing does not open a duplicate case; the same key with a different filing\n is refused with already_exists. Scoped to the agent; see \"Idempotency\" in the\n file header. The dispute's durable identity is the Exchange-assigned\n dispute_id in DisputeResponse.",
       "maxLength": 255,
       "minLength": 1,
       "type": "string"

@@ -598,6 +598,12 @@ records only the wire-shaping reasoning.
 > still stands — it is the same separation (identity = signature,
 > entitlement = scopes/delegation) taken one step further: billing needs no
 > request field at all.
+>
+> **Superseded in part — the account on a purchase a Broker relays.** There the
+> Broker signs the request, so the signature that names the account is the agent's
+> acceptance, verified against the directory `Requester.domain` names, not the
+> request signature. Identity is still a signature and never a field. See "A
+> purchase a Broker relays is the agent's".
 
 `Requester` once carried a `license_id`, and the name implied that the value was
 what entitled the requester to access — that holding the right `license_id`
@@ -2724,3 +2730,47 @@ third:
 Two further limits are choices WG-00 leaves to a verifier: FORA accepts only Ed25519
 keys, and it ignores a `Signature-Agent` member whose `type` is not `directory`. The
 authentication page lists all five under "Where FORA departs from WG-00".
+
+## A purchase a Broker relays is the agent's
+
+`BrokerService.ExecuteTransaction` gave FORA a purchase with two parties in it: the
+Broker signs the request, and the agent signs the consent in its body. Nothing said whose
+purchase it was. The account was resolved "from the verified signature", which on a
+relayed purchase is the Broker's, and the idempotency key was scoped to the pair (Broker,
+requester the acceptances authenticate). That scope let one signed consent execute again
+under a second Broker identity, against the acceptance's own promise that it "cannot be
+replayed under a different transaction".
+
+The purchase is the agent's. An account at an Exchange belongs to the agent's key
+directory, the one `Requester.domain` names: every currently valid key that directory
+publishes acts for the account, a key rotation keeps the account and its `billing_ref`,
+and `Requester.id` stays an attribution label. The Exchange learns the directory only
+from what authenticates it: the request signature on a direct request, the agent's
+acceptances on a relayed purchase. Billing, the account checks, the reporting gate,
+ownership of the transaction and the right to report on it and dispute it all refer to
+that account. The Exchange keeps the Broker with the transaction record for attribution,
+with no wire field, and which Brokers it admits stays its own policy. The agent files its
+usage reports and disputes with the issuing Exchange itself. The Broker service has no
+call for either, and the report and dispute relays some pages described belonged to the
+forwarding model that "A Broker signs alone, because it changes what the agent signed"
+records as gone.
+
+An idempotency key is scoped to the agent, whatever the route. The same key with the
+same items in the same order is answered from the stored result, with the delivery
+binding it recorded, whether it arrives directly or through any Broker the Exchange
+admits, so one signed consent executes at most once at an Exchange. The Exchange
+verifies the agent's authorization before it creates idempotency state or answers from
+it, so a request naming another agent's domain is answered from no stored result. An
+unknown outcome is settled by retrying with the same key on any route, and a new attempt
+after a stored denial takes a new key, and so new acceptances, because the acceptances
+sign the key.
+
+Two alternatives were rejected. Naming the Broker inside the signed consent would also
+close the replay, but it changes the signed bytes, the shared vectors and all three
+SDKs, and it ties a purchase to one route; "A relay is a requester mismatch the Exchange
+admits" had already declined to settle ownership through the acceptance. Making the
+Broker the account holder would leave the agent unable to report on or dispute its own
+purchase, since a report or a dispute is the agent's own signed request, and would let an
+agent blocked for overdue reports buy around the gate through a Broker. The scope keeps
+the existing tenant rule: a key used at another tenant of the same Exchange is still a
+different key.

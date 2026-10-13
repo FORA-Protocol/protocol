@@ -965,13 +965,15 @@ const (
 	DenialReason_DENIAL_REASON_ENTITLEMENT_NOT_GRANTED DenialReason = 17 // subscription exists but no buyer-side grant ties this caller to it
 	// Split out of the former single billing-reference reason. An agent hits the
 	// wall at execute, not at register, and "no account here" and "account awaiting
-	// activation" are two different states of the caller with two different
-	// remedies — call Register, which an agent can do unattended, versus wait for
-	// a human. Neither value discloses the Exchange's internal billing state; both
-	// describe the caller's own account, which it may already query with
-	// GetAccountStatus. TransactionDenial.exchange names WHERE to register, so the
+	// activation" are two different states of the agent's account with two
+	// different remedies — call Register, which an agent can do unattended,
+	// versus wait for a human. Neither value discloses the Exchange's internal
+	// billing state; both describe the agent's own account, also on a purchase a
+	// Broker relayed (see "Accounts" in the file header), which the agent may
+	// already query with GetAccountStatus. TransactionDenial.exchange names WHERE
+	// to register, so the
 	// agent converges without fetching a manifest first.
-	DenialReason_DENIAL_REASON_ACCOUNT_NOT_REGISTERED DenialReason = 18 // no account exists for this caller at this Exchange — the remedy is to call Register
+	DenialReason_DENIAL_REASON_ACCOUNT_NOT_REGISTERED DenialReason = 18 // no account exists at this Exchange for the requester (the agent, also on a purchase a Broker relayed) — the remedy is for the agent to call Register
 	// The provider that sells this item's resource at this Exchange does not
 	// accept purchases relayed by a Broker (BrokerService.ExecuteTransaction).
 	// Decided PER ITEM, by each offer's own provider, and answered in the body on
@@ -1794,7 +1796,8 @@ type DisputeFailureReason int32
 
 const (
 	DisputeFailureReason_DISPUTE_FAILURE_REASON_UNSPECIFIED DisputeFailureReason = 0 // unset — rejected at ingest
-	// transaction_id names no transaction this Exchange executed for the caller.
+	// transaction_id names no transaction this Exchange recorded under the
+	// caller's account.
 	DisputeFailureReason_DISPUTE_FAILURE_REASON_TRANSACTION_NOT_FOUND DisputeFailureReason = 1
 	// No accepted usage report precedes the dispute: report_id is empty, unknown,
 	// or names a report for another transaction. The agent files the
@@ -4452,8 +4455,9 @@ func (x *Pricing) GetMetering() PricingMetering {
 // not the identity, and live on ResourceQuery / DiscoveryRequest. The Exchange
 // verifies identity via the RFC 9421 request signature, then filters its
 // catalog by the requester's scopes. Billing needs nothing from this message:
-// the Exchange resolves the caller's account (RegisterResponse.billing_ref)
-// from the verified signature, never from anything the caller sends.
+// the Exchange resolves the agent's account (RegisterResponse.billing_ref) from
+// what authenticates the agent, never from a value the caller merely states
+// (see "Accounts" in the file header).
 type Requester struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// REQUIRED. A free label the agent chooses for attribution (e.g.
@@ -4495,7 +4499,9 @@ type Requester struct {
 	//     each item's AgentAcceptance, and the AgentRequestAcceptance, against
 	//     the Ed25519 keys currently valid in the directory this field names
 	//     (see AgentRequestAcceptance), never against the Broker's key. Those
-	//     acceptances are the only agent signatures the Exchange sees.
+	//     acceptances are the only agent signatures the Exchange sees, and the
+	//     purchase belongs to the account of the directory they verify under
+	//     (see "Accounts" in the file header).
 	//   - Broker-led discovery. A ResourceQuery a Broker originated carries no agent
 	//     signature, so nothing on that leg authenticates this field: it is the
 	//     Broker's statement, under the Broker's own signature, of whom it
@@ -5221,7 +5227,9 @@ type AgentAcceptancePayload struct {
 	// the key directory the acceptance verifies against. Never empty.
 	RequesterDomain string `protobuf:"bytes,3,opt,name=requester_domain,json=requesterDomain,proto3" json:"requester_domain,omitempty"`
 	// The transaction's idempotency key — binds the acceptance to a single
-	// execute so it cannot be replayed under a different transaction.
+	// execute so it cannot be replayed under a different transaction. The key is
+	// scoped to the agent whatever the route, so an acceptance executes at most
+	// once at an Exchange, however it arrives (see "Idempotency").
 	IdempotencyKey string `protobuf:"bytes,4,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -5298,10 +5306,10 @@ type TransactionRequest struct {
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Idempotency key (REQUIRED). The server MUST dedupe on this: a replay returns
 	// the original result rather than re-executing, and the same key with
-	// different items is refused with already_exists. The key is scoped per
-	// caller: per authenticated agent, and per (Broker, requester) on a purchase
-	// relayed through BrokerService.ExecuteTransaction, where the Broker forwards
-	// the agent's key unchanged. A key another agent or tenant used is never a
+	// different items is refused with already_exists. The key is scoped to the
+	// agent, whatever the route: a purchase repeated directly or through any
+	// Broker the Exchange admits is the same purchase, and the Broker forwards the
+	// agent's key unchanged. A key another agent or tenant used is never a
 	// collision. The full rule is "Idempotency" in the file header. The
 	// transaction's durable identity is the Exchange-assigned transaction_id in
 	// the response.
@@ -5655,8 +5663,8 @@ type TransactionResultItem struct {
 	// "deadline_exceeded" the outcome is unknown: the Exchange may have completed
 	// the purchase before the answer was lost, whether it gave no answer or
 	// answered that code, and retrying the agent's request with the same
-	// idempotency_key through the same Broker settles it (see
-	// UpstreamRefusal.code). With any other code the Exchange answered with a
+	// idempotency_key settles it, on any route: through the same Broker, another
+	// one, or directly (see UpstreamRefusal.code). With any other code the Exchange answered with a
 	// refusal that decided no item, so the item was not purchased. An Exchange
 	// never sets this field, and a Broker never replaces it with a denial_reason:
 	// an upstream refusal is not a per-item access decision.
@@ -5821,8 +5829,8 @@ type UpstreamRefusal struct {
 	// call failed with ("unavailable", "deadline_exceeded"). A refusal with
 	// either of those codes is an ambiguous outcome: a purchase may have
 	// completed. On a Broker purchase, retrying the agent's request with the same
-	// idempotency_key through the same Broker is answered from each Exchange's
-	// stored result, so it settles the outcome without buying twice.
+	// idempotency_key, on any route, is answered from each Exchange's stored
+	// result, so it settles the outcome without buying twice.
 	Code string `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
 	// The party's typed reason, unchanged — the ErrorDetail it attached to its
 	// refusal. Absent when the party attached none or gave no answer.
@@ -6847,8 +6855,11 @@ func (x *ReportingObligation) GetExtCritical() []string {
 
 // UsageReport — Post-usage report for a completed transaction.
 //
-// Filed by the agent or Broker after resource is used.
-// Failure to report may result in the Exchange blocking subsequent access.
+// Filed by the agent itself after the resource is used, with the Exchange that
+// issued the offer (UsageReport.exchange), for a purchase a Broker relayed as for
+// a direct one: a Broker files no report for an agent (see "Accounts" in the
+// file header). Failure to report may result in the Exchange blocking
+// subsequent access.
 //
 // The report is a record of the quantity consumed (Usage.consumed_quantity).
 // The Exchange accepts it whatever that quantity is: a consumed quantity that
@@ -6860,7 +6871,7 @@ func (x *ReportingObligation) GetExtCritical() []string {
 // USAGE_REPORT_REJECTION_REASON_MALFORMED and the Connect code invalid_argument;
 // a report whose billing_id is not the billing_id of the transaction it names is
 // malformed. A report for a transaction the Exchange recorded under a different
-// agent is answered exactly as a report for an unknown transaction:
+// agent's account is answered exactly as a report for an unknown transaction:
 // USAGE_REPORT_REJECTION_REASON_TRANSACTION_NOT_FOUND and the Connect code
 // not_found, so the answer does not reveal that the transaction exists.
 // The reported quantity is unrestricted: no check on it refuses a report (see
@@ -6872,7 +6883,7 @@ type UsageReport struct {
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed
 	// report does not double-count usage; the same key with a different report is
-	// refused with already_exists. Scoped per caller; see "Idempotency" in the
+	// refused with already_exists. Scoped to the agent; see "Idempotency" in the
 	// file header. The report's durable identity is the Exchange-assigned
 	// report_id in UsageReportResponse.
 	IdempotencyKey string `protobuf:"bytes,2,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
@@ -8979,7 +8990,11 @@ func (x *ExchangeOutcome) GetSubscriptionQuota() []*SubscriptionQuotaInfo {
 	return nil
 }
 
-// DisputeRequest — Agent signals a problem with delivered resource.
+// DisputeRequest — Agent signals a problem with delivered resource. Filed by
+// the agent itself, with the Exchange that executed the transaction, for a
+// purchase a Broker relayed as for a direct one: a Broker files no dispute for
+// an agent. The Exchange accepts it only for a transaction recorded under the
+// agent's account (see "Accounts" in the file header).
 type DisputeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// FORA protocol version — "1.0". Stamped by the sender from a single
@@ -8987,7 +9002,7 @@ type DisputeRequest struct {
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed
 	// filing does not open a duplicate case; the same key with a different filing
-	// is refused with already_exists. Scoped per caller; see "Idempotency" in the
+	// is refused with already_exists. Scoped to the agent; see "Idempotency" in the
 	// file header. The dispute's durable identity is the Exchange-assigned
 	// dispute_id in DisputeResponse.
 	IdempotencyKey string `protobuf:"bytes,2,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
@@ -10431,10 +10446,13 @@ func (*ErrorDetail_RequestAuthFailure) isErrorDetail_Reason() {}
 //
 // This is the only case an ExecuteTransaction answer is a non-OK error carrying
 // a DenialReason: the Exchange refuses the request as a whole and decides no
-// item, for a reason about the caller or the request that would deny every item
-// alike — for example the caller holds no account (ACCOUNT_NOT_REGISTERED), its
-// account is not active (ACCOUNT_INACTIVE), it has overdue reports
-// (REPORTING_OVERDUE), or it is rate limited (RATE_LIMITED). Nothing is
+// item, for a reason about the requester or the request that would deny every
+// item alike — for example the requester holds no account
+// (ACCOUNT_NOT_REGISTERED), its account is not active (ACCOUNT_INACTIVE), it has
+// overdue reports (REPORTING_OVERDUE), or the call is rate limited
+// (RATE_LIMITED). On a purchase a Broker relayed, the requester is the agent and
+// the account is the agent's, never the Broker's (see "Accounts" in the file
+// header). Nothing is
 // purchased. Every decision about an item is answered in the body instead, on
 // TransactionResultItem.denial_reason, whatever the item count: a denied
 // one-item purchase is a successful response whose one item is denied, never
