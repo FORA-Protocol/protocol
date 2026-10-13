@@ -612,8 +612,10 @@ only when it admits the signer as a Broker, by its own policy (for example, the 
 registered with it), and otherwise refuses as `unauthenticated` with
 `request_auth_failure` `SIGNATURE_INVALID`. No field marks a relay, and neither
 `WellKnownManifest.role` nor `Requester.type` admits a Broker: both are the sender's own
-statements. A Broker is never relayed to, so a mismatched requester at a Broker is always
-refused. An Exchange that accepts relayed requests needs an admitted-Broker policy. The
+statements. A Broker is never relayed to. It refuses a mismatched requester at
+`BrokerService.ExecuteTransaction`; at `BrokerService.Resolve` it refuses nothing for
+`requester.domain`, and every query it originates names the agent's verified directory.
+An Exchange that accepts relayed requests needs an admitted-Broker policy. The
 `Role` values gain comments: a Broker's manifest declares `ROLE_BROKER`, which describes
 the document and admits nothing.
 

@@ -37,8 +37,9 @@ func NewExchangeServiceHandler(svc forav1connect.ExchangeServiceHandler, opts ..
 // BrokerService handler, which carries both Broker methods: Resolve and the
 // relayed purchase, ExecuteTransaction. The verify face authenticates the
 // agent's request signature; the handler implementation owns the checks the
-// contract leaves to the Broker, among them that requester.domain names the
-// directory that signature resolved from.
+// contract leaves to the Broker, among them that a purchase's requester.domain
+// names the directory that signature resolved from, and that every query the
+// Broker originates for a Resolve names that directory's host.
 func NewBrokerServiceHandler(svc forav1connect.BrokerServiceHandler, opts ...ServerOption) (string, http.Handler) {
 	cfg := resolveServerConfig(opts)
 	path, connectHandler := forav1connect.NewBrokerServiceHandler(svc, cfg.connectHandlerOptions()...)

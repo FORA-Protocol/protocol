@@ -130,7 +130,7 @@ FORA uses a two-layer model: the **agent's request signature** authenticates the
 
 The `Requester` message carries identity and entitlements only (`id`, `domain`, `type`, `scopes`, optional `delegation`) — it has **no** signature field. The request is authenticated by an RFC 9421 HTTP Message Signature (alg=ed25519) carried in the headers and made to the [Web Bot Auth profile](/protocol/authentication/#the-web-bot-auth-profile). A verifier checks it against the public key published in the signer's key directory at `{origin}/.well-known/http-message-signatures-directory`, with the origin taken from the `Signature-Agent` member the signature covers.
 
-The Broker passes `Requester` through unchanged -- it never modifies the requester's identity, scopes, or delegation.
+The Broker passes `Requester` through unchanged -- it never modifies the requester's identity, scopes, or delegation -- with one exception on discovery: every query it originates names, as `requester.domain`, the host of the directory the agent's verified signature names, and a `Resolve` naming another host is answered all the same. On a purchase the agent's acceptances sign `requester.domain`, so there the Broker refuses a mismatch instead ([Direct and relayed requests](/protocol/authentication/#direct-and-relayed-requests)).
 
 ### The Broker Signs Alone (RFC 9421)
 

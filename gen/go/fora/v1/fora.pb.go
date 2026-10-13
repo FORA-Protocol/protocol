@@ -4497,10 +4497,13 @@ type Requester struct {
 	//     then case-folded, an absent port the same as ":443", a subdomain a
 	//     different party). A mismatch is refused as UNAUTHENTICATED with
 	//     `request_auth_failure` SIGNATURE_INVALID: the signature verifies, but
-	//     not for the requester the body names. A Broker applies this rule on
-	//     every request it receives. An Exchange applies it on every request
-	//     whose signer it does not admit as a Broker; a mismatch from a signer it
-	//     does admit is a relayed request, one of the two cases below.
+	//     not for the requester the body names. A Broker applies this rule at
+	//     BrokerService.ExecuteTransaction. At BrokerService.Resolve it refuses
+	//     nothing for this field: every query it originates names the host of
+	//     the origin that member names (see DiscoveryRequest.requester). An
+	//     Exchange applies it on every request whose signer it does not admit as
+	//     a Broker; a mismatch from a signer it does admit is a relayed request,
+	//     one of the two cases below.
 	//   - Purchase relayed through a Broker. BrokerService.ExecuteTransaction
 	//     re-packages the purchase, so the request signature and the covered
 	//     `Signature-Agent` member are the Broker's. They say only that the call comes
@@ -7368,9 +7371,13 @@ type DiscoveryRequest struct {
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Requester identity — who is making this request, the scopes it states.
-	// The Broker forwards this to Exchanges in ResourceQuery.requester. REQUIRED:
-	// a discovery names its requester, whose Requester.id and Requester.domain
-	// are required in turn.
+	// The Broker forwards this to Exchanges in ResourceQuery.requester, with
+	// Requester.domain the host of the origin that the covered `Signature-Agent`
+	// member of the agent's verified signature names. A Requester.domain that
+	// names another host is never forwarded, and the Broker answers the request
+	// all the same (see "Direct and relayed requests" in the file header).
+	// REQUIRED: a discovery names its requester, whose Requester.id and
+	// Requester.domain are required in turn.
 	Requester *Requester `protobuf:"bytes,3,opt,name=requester,proto3" json:"requester,omitempty"`
 	// Resource URIs the agent wants. The Broker forwards these to Exchanges in
 	// ResourceQuery.uris. Optional when `query` / `search_filters` drive

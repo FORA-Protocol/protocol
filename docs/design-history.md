@@ -2605,6 +2605,11 @@ page or comment claims an Exchange enforces it.
 
 ## A relay is a requester mismatch the Exchange admits
 
+> **Superseded in part.** A Broker refuses a mismatched requester only at
+> `BrokerService.ExecuteTransaction`. At `BrokerService.Resolve` it refuses nothing
+> for `requester.domain`, and every query it originates names the agent's verified
+> directory; see "A Broker names the agent it verified on the queries it originates".
+
 An Exchange receives the same `ResourceQuery` and `TransactionRequest` from an agent and
 from a Broker, and the protocol gave two different rules for them: on a direct request
 `Requester.domain` must name the signer's own directory, while on a request a Broker
@@ -2848,3 +2853,22 @@ therefore presents no such term on a Broker's query. An agent that needs those t
 queries the Exchange directly, signing the query itself. How an agent proves a
 holder-of-key entitlement at discovery time through a Broker remains an open protocol
 question.
+
+## A Broker names the agent it verified on the queries it originates
+
+"A relay is a requester mismatch the Exchange admits" closed with a Broker refusing a
+mismatched requester on every request it receives, `BrokerService.Resolve` included.
+Before that, the protocol named only `BrokerService.ExecuteTransaction`, and the
+protocol's author had decided `Resolve` the other way in the reference implementation's
+conformance suite: the Broker verifies the agent's signature, refuses nothing for
+`requester.domain`, and names the host of the agent's verified directory on every query
+it fans out. The protocol now states that decision.
+
+The two RPCs differ in what the agent signs. On a purchase, the agent's acceptances sign
+`requester.domain`, and every Exchange resolves the acceptance keys from it, so the
+Broker can neither replace a mismatched value nor pass it on: it refuses it, as every
+Exchange would. On discovery, the agent signs nothing an Exchange sees. The query is the
+Broker's own, and its `requester` is the Broker's statement of whom it queries for, so
+the Broker states the directory it has just verified, and a host the agent wrote that
+names any other directory never leaves the Broker. Either way, no request a Broker sends
+names a directory it did not verify.
