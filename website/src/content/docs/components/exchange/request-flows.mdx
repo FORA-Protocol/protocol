@@ -141,10 +141,12 @@ func (h *ExchangeHandler) DiscoverResources(
     // per-tenant RPS caps) belongs in HAProxy/Envoy/API Gateway in front of this service.
 
     // 5. Catalog lookup (lock-free read, scope-filtered)
-    //    The catalog is filtered by requester.scopes — resources outside the
-    //    requester's declared scopes are not returned. If a delegation
-    //    is present, effective scopes are the intersection of requester.scopes
-    //    and the delegation's granted scopes.
+    //    The catalog is filtered by requester.scopes, the requester's own
+    //    statement — terms outside the stated scopes are not returned. When the
+    //    request carries a verified delegation, this Exchange also requires its
+    //    grant to cover a term's scopes (a narrower use of the MAY in
+    //    LicenseTerm.scopes): the effective scopes are the intersection of
+    //    requester.scopes and the delegation's granted scopes.
     effectiveScopes := requester.Scopes
     if requester.Delegation != nil {
         effectiveScopes = intersectScopes(requester.Scopes, requester.Delegation.Scopes)

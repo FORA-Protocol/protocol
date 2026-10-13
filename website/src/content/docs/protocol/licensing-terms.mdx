@@ -116,8 +116,10 @@ FORA has no revenue-share pricing model, and that is deliberate. `PricingModel` 
 Instead, a revenue-share arrangement is expressed with primitives already in the core, exactly like a subscription:
 
 - A `Pricing{model: FREE}` term — there is no per-access charge.
-- Gated by an agreement scope, e.g. `scopes: ["revshare:publisher-x"]`. The agent that has signed the deal states the matching scope in its signed request (`Requester.scopes`); everyone else never sees the term.
+- Gated by an agreement scope, e.g. `scopes: ["revshare:publisher-x"]`. The agent that has signed the deal states the matching scope in its signed request (`Requester.scopes`); an agent that does not state it never sees the term.
 - A `ReportingObligation` (the offer-level reporting requirement) so usage is reported. Revenue is then settled off-protocol from those reports.
+
+A scope gate decides which terms are presented; it is not access control. The Exchange does not verify `Requester.scopes`, so an agent that states the scope without being party to the deal also sees the term. Its purchase is attributable to its account, and reconciling purchases against the deal's parties exposes it. A publisher that needs the term withheld from such an agent sells it through an Exchange that requires a verified delegation granting the scope before it presents the term (see [Scope-Based Access](/protocol/authentication/#scope-based-access)).
 
 So "pay per crawl **or** enter the revenue-share deal" is just two `LicenseTerm`s on the same resource: a public `PER_UNIT` term and a scope-gated `FREE` term. They reach the agent as two offers, and the agent buys one of them. This is the same shape as the [academic dataset subscription example](#academic-dataset--seat-quota--share-alike) below.
 
@@ -266,7 +268,7 @@ obligations:
     detail: "Trained models using this dataset must be released under CC-BY-NC-SA 4.0"
 ```
 
-The institutional subscription is settled off-protocol; access is gated on-protocol by the `subscription:institution` scope (the term is `model: FREE` because there is no per-access charge — the subscribing institution's delegation JWT carries the matching scope). Up to 10 researchers in the subscribing institution can use the dataset. Any model trained on this dataset that is released publicly must carry the same license.
+The institutional subscription is settled off-protocol; on-protocol, the term is presented to an agent whose request states the `subscription:institution` scope (the term is `model: FREE` because there is no per-access charge). An Exchange that requires proof presents it only with the subscribing institution's delegation JWT, which carries the matching scope. Up to 10 researchers in the subscribing institution can use the dataset. Any model trained on this dataset that is released publicly must carry the same license.
 
 ## Vocabulary registry
 

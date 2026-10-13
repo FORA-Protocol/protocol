@@ -25,7 +25,7 @@ Every query and every purchase (`ResourceQuery`, `DiscoveryRequest` and `Transac
 | `domain` | `string` | **Required**, a bare host (a port allowed). The requester's own domain, the host of its key directory `{domain}/.well-known/http-message-signatures-directory`. It is never a free label, but it is **not** where request-signing keys are looked up — that is the covered `Signature-Agent` member (see [Key Lookup](#key-lookup)). On a direct request it must name the same directory that member names. On a purchase a Broker re-packaged, the Exchange resolves the key that verifies the agent's `AgentAcceptance` from this domain, and the claim is authenticated only if that signature verifies |
 | `type` | `RequesterType` | What kind of entity is making the request |
 | `name` | `string` (optional) | Human-readable name (e.g., `"Acme Research Assistant"`) |
-| `scopes` | `repeated string` | Entitlement scopes — what the requester can access |
+| `scopes` | `repeated string` | Entitlement scopes the requester states; the Exchange does not verify them (see [Scope-Based Access](#scope-based-access)) |
 | `delegation` | `Delegation` (optional) | Holder-bound JWT delegation token from a principal |
 | `ext` | `Struct` | Implementer-specific extensions |
 | `ext_critical` | `repeated string` | Critical extension keys (COSE crit pattern) |
@@ -268,11 +268,13 @@ All use Ed25519 natively — the same key type as FORA identity signatures — s
 
 ## Scope-Based Access
 
-Scopes are the mechanism by which the Exchange decides what resources to show a requester. The flow is:
+Scopes are how the Exchange decides which terms to present to a requester. They are the requester's own statement of what it is entitled to, part of its signed request, attributable to the signer, and not verified by the Exchange; on a query a Broker originated, they are the Broker's statement for the agent. The flow is:
 
 1. Agent sends `ResourceQuery` with `Requester.scopes` (and optionally a `Delegation` that also carries scopes)
-2. Exchange filters its catalog — only resources matching the declared scopes are returned
-3. Resources outside the scopes are **not returned**. The requester never learns they exist (see [Existence hiding](#existence-hiding)).
+2. Exchange presents an offer for a term only when the stated scopes cover the term's `LicenseTerm.scopes`
+3. Terms the scopes do not cover are **not returned**. The requester never learns they exist (see [Existence hiding](#existence-hiding)).
+
+Scope coverage is not access control: it hides a term from a requester that does not state the scope, and it does not stop one that states it falsely. A false statement is traceable to the signing key, its directory and its [account](#accounts), and the agent's acceptance signs the scoped offer it buys, so it is settled through reconciliation and the account relationship. An Exchange **MAY** also require a verified delegation that grants a term's scopes before it presents the term; to a requester that presents none, it answers as if the term did not exist.
 
 ### Scope Format
 
@@ -304,9 +306,9 @@ Matching is **segment-wise** (`:`-separated). A granted scope **G** covers a req
 
 **No scopes (empty):** Exchange applies its default access policy — typically all publicly available resources. This is the common case for public agents.
 
-**Subscription scopes:** A scope like `subscription:nyt-2026` signals that the requester has a subscription entitlement. The Exchange returns subscription pricing (zero marginal cost) instead of per-request pricing.
+**Subscription scopes:** A scope like `subscription:nyt-2026` states that the requester holds a subscription entitlement. The Exchange presents the subscription terms that scope covers (zero marginal cost) instead of per-request pricing. An Exchange that requires proof of the subscription presents them only with a verified delegation that grants the scope.
 
-**Enterprise scopes:** Specific `{domain}:{permission}` scopes grant access to restricted resources. The Exchange enforces RBAC by filtering the catalog to matching resources.
+**Enterprise scopes:** Specific `{domain}:{permission}` scopes state roles, and the Exchange presents the restricted terms they cover. The enterprise's own policy point, typically its Broker, decides which scopes a user's request carries; the Exchange does not verify them, and may require a verified delegation for the terms it must not present on a statement alone.
 
 ### Existence hiding
 
@@ -314,6 +316,7 @@ A requester never learns about a resource outside its scopes. This is a rule of 
 
 - **At discovery:** when the requester's scopes leave no presentable offer for a resource, the Exchange answers with no offers and no absence reason (an `OfferGroup` with empty `offers` and `absence_reason` unset), exactly as for any resource with nothing to offer. A Broker relaying that answer adds no reason of its own.
 - **At purchase:** an offer the Exchange presented is honoured until it expires, so a purchase is never refused for scope.
+- **With a delegation required:** an Exchange that requires a verified delegation before it presents a scoped term answers a requester that presents none as if the term did not exist.
 
 No `OfferAbsenceReason` or `DenialReason` value reports a scope shortfall. The two values that once did are deprecated and never sent, and a receiver treats them as unknown.
 

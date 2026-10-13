@@ -329,12 +329,12 @@
       "type": "array"
     },
     "scopes": {
-      "description": "Coverage uses the SAME matching rule as Requester.scopes:\n segment-wise (\":\" separated), each granted segment must equal the\n corresponding required segment or be \"*\", a terminal \"*\" matches all\n remaining segments, and there is NO implicit prefix match (a grant\n narrower than the requirement does not cover it). \"dist:*\" covers\n \"dist:US\" and \"dist:US:CA\"; \"dist\" covers only \"dist\". There is exactly\n one scope-matching algorithm across the protocol.",
+      "description": "Requester.scopes is the requester's own statement, which the Exchange does\n not verify, so a scope gate hides a term from requesters that do not state\n the scope; it does not stop one that states it falsely. An Exchange MAY\n also require a verified delegation that grants these scopes before it\n presents the term. To a requester that presents none, it answers as if the\n term did not exist, as existence hiding requires (see Requester.scopes). An\n offer the Exchange presented is honoured until it expires.\n\n Coverage uses the SAME matching rule as Requester.scopes:\n segment-wise (\":\" separated), each granted segment must equal the\n corresponding required segment or be \"*\", a terminal \"*\" matches all\n remaining segments, and there is NO implicit prefix match (a grant\n narrower than the requirement does not cover it). \"dist:*\" covers\n \"dist:US\" and \"dist:US:CA\"; \"dist\" covers only \"dist\". There is exactly\n one scope-matching algorithm across the protocol.",
       "items": {
         "type": "string"
       },
       "maxItems": 64,
-      "title": "Scope-gating: the Exchange returns an offer for this term iff the scopes in\n the requester's signed request (Requester.scopes) cover ALL of these scopes\n (AND-semantics). Empty = public. A subscription term is Pricing{model:FREE}\n + scopes:[\"subscription:...\"].",
+      "title": "Scope-gating: the Exchange presents an offer for this term only when the\n scopes in the requester's signed request (Requester.scopes) cover ALL of\n these scopes (AND-semantics). Empty = public. A subscription term is\n Pricing{model:FREE} + scopes:[\"subscription:...\"].",
       "type": "array"
     },
     "semantics": {

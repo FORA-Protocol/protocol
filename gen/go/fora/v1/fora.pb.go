@@ -2237,7 +2237,7 @@ type ResourceQuery struct {
 	// FORA protocol version — "1.0". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
-	// Requester identity — who is making this request, what scopes they have,
+	// Requester identity — who is making this request, the scopes it states,
 	// and optional delegation chain. REQUIRED: a query names its requester, whose
 	// Requester.id and Requester.domain are required in turn.
 	Requester *Requester `protobuf:"bytes,3,opt,name=requester,proto3" json:"requester,omitempty"`
@@ -4066,10 +4066,18 @@ type LicenseTerm struct {
 	//     (offer.terms.pricing_unset): the offer's price is Offer.pricing, stated
 	//     once.
 	Pricing *Pricing `protobuf:"bytes,6,opt,name=pricing,proto3,oneof" json:"pricing,omitempty"`
-	// Scope-gating: the Exchange returns an offer for this term iff the scopes in
-	// the requester's signed request (Requester.scopes) cover ALL of these scopes
-	// (AND-semantics). Empty = public. A subscription term is Pricing{model:FREE}
-	// + scopes:["subscription:..."].
+	// Scope-gating: the Exchange presents an offer for this term only when the
+	// scopes in the requester's signed request (Requester.scopes) cover ALL of
+	// these scopes (AND-semantics). Empty = public. A subscription term is
+	// Pricing{model:FREE} + scopes:["subscription:..."].
+	//
+	// Requester.scopes is the requester's own statement, which the Exchange does
+	// not verify, so a scope gate hides a term from requesters that do not state
+	// the scope; it does not stop one that states it falsely. An Exchange MAY
+	// also require a verified delegation that grants these scopes before it
+	// presents the term. To a requester that presents none, it answers as if the
+	// term did not exist, as existence hiding requires (see Requester.scopes). An
+	// offer the Exchange presented is honoured until it expires.
 	//
 	// Coverage uses the SAME matching rule as Requester.scopes:
 	// segment-wise (":" separated), each granted segment must equal the
@@ -4453,8 +4461,9 @@ func (x *Pricing) GetMetering() PricingMetering {
 // entitled to (scopes, delegation). What they are asking for (uris) and the
 // limits they will operate within (acceptable_restrictions) belong to the ask,
 // not the identity, and live on ResourceQuery / DiscoveryRequest. The Exchange
-// verifies identity via the RFC 9421 request signature, then filters its
-// catalog by the requester's scopes. Billing needs nothing from this message:
+// verifies identity via the RFC 9421 request signature, then presents the
+// terms the requester's stated scopes cover (see LicenseTerm.scopes). Billing
+// needs nothing from this message:
 // the Exchange resolves the agent's account (RegisterResponse.billing_ref) from
 // what authenticates the agent, never from a value the caller merely states
 // (see "Accounts" in the file header).
@@ -4511,11 +4520,15 @@ type Requester struct {
 	Type RequesterType `protobuf:"varint,3,opt,name=type,proto3,enum=fora.v1.RequesterType" json:"type,omitempty"`
 	// Human-readable name (e.g., "Acme Research Assistant").
 	Name *string `protobuf:"bytes,4,opt,name=name,proto3,oneof" json:"name,omitempty"`
-	// Entitlement scopes. Declare what the requester can access.
-	//
-	// The Exchange filters its catalog to resources matching these scopes. This
-	// is the enforcement mechanism for both enterprise RBAC and open-market
-	// subscription entitlements.
+	// Entitlement scopes: the requester's own statement of what it is entitled
+	// to. On a query a Broker originated, they are the Broker's statement for the
+	// agent. They are signed and attributable, and the Exchange does not verify
+	// them. Scope coverage decides which terms the Exchange presents (see
+	// LicenseTerm.scopes, which also states when an Exchange MAY require a
+	// verified delegation); it is not access control. A false statement is
+	// traceable to the signing key, its directory and its account, and the
+	// agent's acceptance signs the scoped offer it buys; it is settled through
+	// reconciliation and the account relationship.
 	//
 	// EXISTENCE HIDING. A requester never learns about a resource outside its
 	// scopes. When the scopes leave no presentable offer for a resource, the
@@ -7342,7 +7355,7 @@ type DiscoveryRequest struct {
 	// FORA protocol version — "1.0". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
-	// Requester identity — who is making this request, what scopes they have.
+	// Requester identity — who is making this request, the scopes it states.
 	// The Broker forwards this to Exchanges in ResourceQuery.requester. REQUIRED:
 	// a discovery names its requester, whose Requester.id and Requester.domain
 	// are required in turn.

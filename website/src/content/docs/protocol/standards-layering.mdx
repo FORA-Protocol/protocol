@@ -92,7 +92,7 @@ graph LR
 
 | Role | Description | Standard |
 |---|---|---|
-| **AI Agent** | The LLM, RAG system, or agentic application that needs content. Authenticates via Ed25519 signatures. Identity is the RFC 9421 request signature and access is scopes + delegation. | CoMP: "Requesting Party". FORA v1.0 uses the `Requester` message (not CoMP `AISystem`); CoMP's `lid` is a public agent identifier with no counterpart field on the FORA request — not a credential. |
+| **AI Agent** | The LLM, RAG system, or agentic application that needs content. Authenticates via Ed25519 signatures. Identity is the RFC 9421 request signature; the scopes it states decide which terms it is shown, and a delegation can back them where an Exchange requires one. | CoMP: "Requesting Party". FORA v1.0 uses the `Requester` message (not CoMP `AISystem`); CoMP's `lid` is a public agent identifier with no counterpart field on the FORA request — not a credential. |
 | **FORA Broker** | Optional demand-side router. Queries multiple Exchanges, compares offers by unit_cost, deduplicates by ResourceIdentity, enforces budget constraints. | FORA v1.0: "FORA Broker" |
 | **Exchange** | Exposes resource catalog with pricing. Authorizes transactions. Issues delivery instructions (signed URLs). | FORA v1.0: "Exchange"; implementation of CoMP endpoints |
 | **Resource Provider** | The provider. Owns the resources, sets terms via RSL. | CoMP: "Content Owner"; RSL: "Licensor" |

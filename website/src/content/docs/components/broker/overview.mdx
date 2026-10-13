@@ -195,7 +195,7 @@ The Broker queries its Exchanges as it would without the profile, and each query
 
 ### Scope Forwarding
 
-The Broker forwards `Requester.scopes` to every Exchange it queries. Scopes control what the requester can access -- the Exchange filters its catalog to resources matching these scopes. The Broker does not modify scopes; it passes them through as-is.
+The Broker forwards `Requester.scopes` to every Exchange it queries. Scopes decide which terms each Exchange presents; they are the agent's statement, and the Exchange does not verify them. The Broker does not modify scopes; it passes them through as-is.
 
 ### Delegation Pass-Through
 

@@ -168,7 +168,7 @@ This verification is entirely offline — no callback to the principal is requir
 
 ### Scope-Based Catalog Filtering
 
-After verifying identity and delegation, filter your catalog by the requester's declared scopes. Only resources matching the scopes are returned in the `DiscoverResources` response.
+After verifying identity (and any delegation, as above), present the terms the requester's stated scopes cover; only those reach the `DiscoverResources` response. The scopes are the requester's own statement and you do not verify them. If a term must not be presented on a statement alone, require a verified delegation that grants its scopes, and answer a requester without one as if the term did not exist.
 
 For a resource that exists but falls outside the requester's scopes, answer exactly as for a resource you have nothing to offer for: an `OfferGroup` with no offers and `absence_reason` unset. Do not reveal that the resource exists, and do not send a reason that tells the two cases apart. This applies to enterprise RBAC and public marketplace subscriptions alike (see [Existence hiding](/protocol/authentication/#existence-hiding)).
 

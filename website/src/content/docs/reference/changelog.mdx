@@ -269,6 +269,26 @@ gated by delegation scope coverage. The Exchange returns an offer for a term whe
 scopes in the requester's signed request (`Requester.scopes`) cover the term's scopes.
 The threat model's scope-pollution and scope-gating entries say the same.
 
+**A requester's scopes are its own statement, and an Exchange may require a verified
+delegation before it presents a scoped term (comments and docs; no wire change).**
+`Requester.scopes` was called "the enforcement mechanism" for enterprise roles and
+subscriptions, and the threat model listed scope pollution as preventable at protocol
+level, yet nothing verifies the scopes a requester states: they are part of its signed
+request, attributable to the signer, and unverified. `Requester.scopes` and
+`LicenseTerm.scopes` now say so. Scope coverage decides which terms an Exchange presents
+(`LicenseTerm.scopes` says "only when" where it said "iff"); it is not access control. A
+false statement is traceable to the signing key, its directory and its account, and the
+agent's acceptance signs the scoped offer it buys; it is settled through reconciliation
+and the account relationship. An Exchange MAY also require a verified delegation that
+grants a term's scopes before it presents the term, and answers a requester that
+presents none as if the term did not exist. An offer the Exchange presented is still
+honoured until it expires, and the purchase-time entitlement denials are unchanged. The
+threat model's scope-pollution entry says what reconciliation compares and moves from
+"Preventable at protocol level" to "Detectable via reconciliation" and
+"Legal/contractual only". The authentication, licensing-terms, ingestion and
+getting-started pages say the same, and the design history records that verifying
+scopes is deferred.
+
 **Restrictions are declared terms, never enforced by the Exchange;
 `DENIAL_REASON_RESTRICTION_NOT_SATISFIED` and `TransactionResultItem.restriction_mismatches`
 are deprecated (comments only).** The licensing-core header, the ENUMERATED and

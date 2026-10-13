@@ -57,7 +57,7 @@ Every length bound below is in **characters — Unicode code points, not bytes**
 | `pricing` | `{model, unit, rate, currency}` | `LicenseTerm.pricing` (`model` ∈ `free` \| `per_unit` \| `flat`) |
 | `quotas` | `[{metric, limit, window}]` (≤ 64) | `LicenseTerm.Quota[]` |
 | `obligations` | `[{kind, trigger, scope_license, detail}]` (≤ 64) | `LicenseTerm.Obligation[]` |
-| `scopes` | string[] (≤ 64) | `LicenseTerm.scopes` (entitlement-gated, e.g. `subscription:premium`) |
+| `scopes` | string[] (≤ 64) | `LicenseTerm.scopes` (scope-gated: presented to requesters whose stated scopes cover it, e.g. `subscription:premium`) |
 
 Rules (enforced by protovalidate at the RPC boundary):
 

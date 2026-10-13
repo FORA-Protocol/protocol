@@ -185,9 +185,9 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 
 | Level | Threat IDs | What It Means |
 |---|---|---|
-| **Preventable at protocol level** | T3, T4, T5, T6, T7, T8, T9, T12, T16, T19, T22, T23, T24, T25, T26, T-BRK-1, T-ATT-1, T-ATT-2, T-ATT-3, T-ATT-5, T-DEL-1, T-DEL-2, T-DEL-3, T-DEL-4, T-DEL-5, T-DEL-6 | Protocol changes make the attack structurally impossible |
-| **Detectable via reconciliation** | T1, T2, T4, T5, T13, T14, T15, T17, T27, T-ATT-4 | Three-sided reconciliation catches it |
-| **Legal/contractual only** | T10, T11, T13, T17, T18, T20, T21, T28, T29, T30 | Can't enforce technically |
+| **Preventable at protocol level** | T3, T4, T5, T6, T7, T8, T9, T12, T16, T19, T22, T23, T24, T25, T26, T-BRK-1, T-ATT-1, T-ATT-2, T-ATT-3, T-ATT-5, T-DEL-1, T-DEL-2, T-DEL-3, T-DEL-4, T-DEL-6 | Protocol changes make the attack structurally impossible |
+| **Detectable via reconciliation** | T1, T2, T4, T5, T13, T14, T15, T17, T27, T-ATT-4, T-DEL-5 | Three-sided reconciliation catches it |
+| **Legal/contractual only** | T10, T11, T13, T17, T18, T20, T21, T28, T29, T30, T-DEL-5 | Can't enforce technically |
 
 ### The Three Lines of Defense
 
@@ -244,12 +244,12 @@ Line 3: Legal/contractual enforcement
 ### T-DEL-1: Delegation token theft
 
 **Attack**: Attacker steals a delegation token (e.g., via log exfiltration, memory dump, or network interception) and attempts to use it to access resources within the token's scope.
-**Countermeasure (protocol)**: **Holder binding neutralizes theft.** A delegation token is bound to the holder's key (via `cnf.jkt` on the JWT), and verification requires the key that signs the HTTP request ([RFC 9421](/protocol/authentication/#request-signatures-rfc-9421)) to equal the bound key (see [Verification](/protocol/authentication/#verification) step 3). A thief who steals the token bytes but not the private signing key cannot produce a valid request — the token is **not bearer-usable**, so theft alone grants nothing. Spend caps (`max_spend_cents`), access caps (`max_accesses`), short TTLs, and optional `revocation_uri` checking are **defense-in-depth** that bound the blast radius in the residual case where the holder's signing key is *also* compromised. This is why T-DEL-1 is listed as structurally preventable rather than merely mitigated.
+**Countermeasure (protocol)**: **Holder binding neutralizes theft.** A delegation token is bound to the holder's key (via `cnf.jkt` on the JWT), and verification requires the key the request proves possession of — the key that signs the HTTP request ([RFC 9421](/protocol/authentication/#request-signatures-rfc-9421)) on a direct call, the key the agent's `AgentAcceptance` verifies under on a purchase a Broker relays — to equal the bound key (see [Verification](/protocol/authentication/#verification) step 3). A thief who steals the token bytes but not the private signing key cannot produce a valid request — the token is **not bearer-usable**, so theft alone grants nothing. Spend caps (`max_spend_cents`), access caps (`max_accesses`), short TTLs, and optional `revocation_uri` checking are **defense-in-depth** that bound the blast radius in the residual case where the holder's signing key is *also* compromised. This is why T-DEL-1 is listed as structurally preventable rather than merely mitigated.
 
 ### T-DEL-2: Delegation scope escalation
 
 **Attack**: Attacker attempts to widen permissions by manipulating the delegation chain (e.g., editing a child JWT to escalate from `ai-search` to `ai-train`, or splicing in a forged link).
-**Countermeasure (protocol)**: **The delegation chain narrows only, and is cryptographically linked.** Each delegation JWT is Ed25519-signed, and a child's `scope` MUST be covered by its parent's (verified) — it can narrow, never widen. The **chain-linkage invariant** requires each JWT to be signed by the key the parent named in `cnf`; editing or splicing a link breaks signature verification against the upstream `cnf`. The Exchange verifies the full chain (and the request-signing key against the final `cnf.jkt`) before granting access.
+**Countermeasure (protocol)**: **The delegation chain narrows only, and is cryptographically linked.** Each delegation JWT is Ed25519-signed, and a child's `scope` MUST be covered by its parent's (verified) — it can narrow, never widen. The **chain-linkage invariant** requires each JWT to be signed by the key the parent named in `cnf`; editing or splicing a link breaks signature verification against the upstream `cnf`. The Exchange verifies the full chain (and the key the request proves possession of against the final `cnf.jkt`) before honouring the delegation.
 
 ### T-DEL-3: Revocation bypass
 
@@ -266,7 +266,7 @@ FORA's Broker never forwards an agent's request unchanged: it originates discove
 ### T-DEL-5: Scope pollution
 
 **Attack**: Agent declares scopes it doesn't actually have, hoping the Exchange returns premium content.
-**Countermeasure (protocol)**: The Exchange returns an offer for a term only when the scopes in the requester's signed request (`Requester.scopes`) cover the term's `LicenseTerm.scopes`. Those scopes are part of the request the agent signs, so they are the signer's own statement under its RFC 9421 signature.
+**Countermeasure (reconciliation + contractual)**: `Requester.scopes` is the requester's own statement, signed and attributable, and the Exchange does not verify it. The Exchange presents an offer for a term only when the stated scopes cover the term's `LicenseTerm.scopes`, which hides the term from a requester that does not state the scope but does not stop one that states it falsely, so a false statement is detected and settled rather than prevented. For every scoped term an account bought, the transaction record holds the Exchange-signed offer and the agent's acceptance of it, attributed to the signing key, its directory and its [account](/protocol/authentication/#accounts). Reconciling those purchases against what the term's issuer actually granted that account, such as a subscription roster, a revenue-share agreement or an enterprise grant, exposes a scope the agent never held, and the account relationship and the term's contract settle it. An Exchange that needs prevention MAY require a verified delegation that grants a term's scopes before it presents the term ([Delegation](/protocol/authentication/#delegation)), and answers a requester without one as if the term did not exist. Verifying stated scopes is deferred, not designed out.
 
 ### T-DEL-6: Quota gaming via multiple tokens
 

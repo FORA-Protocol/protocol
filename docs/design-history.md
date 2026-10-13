@@ -604,6 +604,11 @@ records only the wire-shaping reasoning.
 > acceptance, verified against the directory `Requester.domain` names, not the
 > request signature. Identity is still a signature and never a field. See "A
 > purchase a Broker relays is the agent's".
+>
+> **Superseded in part — what scopes are.** The scopes a requester states are its own
+> signed statement, which the Exchange does not verify: they decide which terms are
+> presented. A delegation the Exchange verifies grants scopes, where an Exchange
+> requires one. See "A requester's scopes are its own statement".
 
 `Requester` once carried a `license_id`, and the name implied that the value was
 what entitled the requester to access — that holding the right `license_id`
@@ -713,6 +718,12 @@ default.)
 
 ## One normative scope-matching algorithm
 
+> **Superseded in part — what a match decides.** The algorithm stands. The requester
+> side it compares is the requester's own statement, which the Exchange does not
+> verify, so a match decides which terms are presented, not what an actor may reach,
+> unless a verified delegation grants the scopes. See "A requester's scopes are its own
+> statement".
+
 Scopes appear in two places — on the requester/delegation side (what an actor may
 reach) and on `LicenseTerm.scopes` (what a term covers) — and earlier drafts left
 the matching semantics implicit, which invited each implementation to choose its
@@ -730,6 +741,13 @@ algorithm, not a separate semantics: it MUST produce identical results to the
 normative rule.
 
 ## Revenue share stays off-protocol
+
+> **Superseded in part — how the deal's party reaches the term.** It states the
+> matching scope in its signed request and need not hold a delegation; a delegation
+> counts only where an Exchange requires one before it presents a scoped term. An agent
+> that states the scope without being party to the deal is shown the term, and
+> reconciling purchases against the deal's parties exposes it. See "A requester's
+> scopes are its own statement".
 
 CoMP's `License` carries a `revshare` rate next to `price`, and FORA's
 `PricingModel` was reduced to three charging structures (`FREE`, `PER_UNIT`,
@@ -2774,3 +2792,33 @@ purchase, since a report or a dispute is the agent's own signed request, and wou
 agent blocked for overdue reports buy around the gate through a Broker. The scope keeps
 the existing tenant rule: a key used at another tenant of the same Exchange is still a
 different key.
+
+## A requester's scopes are its own statement
+
+`Requester.scopes` was described as "the enforcement mechanism" for enterprise roles and
+subscription entitlements, `LicenseTerm.scopes` said an Exchange returns an offer for a
+term "iff" the requester's scopes cover the term's, and the threat model listed scope
+pollution as preventable at protocol level. Nothing verifies those scopes. They are part
+of the signed request, so they are attributable to the signing key, its directory and
+its account, but attribution is not prevention: an Exchange that matches a term against
+them is matching a statement.
+
+The scopes are the requester's own statement: signed, attributable and unverified.
+Coverage decides which terms an Exchange presents, so a requester that does not state a
+scope never learns the term exists, while one that states it falsely is shown the term.
+The agent's acceptance signs the scoped offer it buys, so reconciling an account's
+purchases against what each term's issuer granted that account exposes a false
+statement, and the account relationship and the term's contract settle it. The threat
+model moves scope pollution to "Detectable via reconciliation" and "Legal/contractual
+only".
+
+An Exchange that needs prevention MAY require a verified delegation that grants a term's
+scopes before it presents the term, and answers a requester that presents none as if the
+term did not exist. Existence hiding already permits that silence, and an offer the
+Exchange did present is still honoured until it expires.
+
+Verifying stated scopes is deferred, not designed out. It needs a grant the Exchange can
+check for every scoped term, such as a delegation from an issuer it trusts for the
+scope, and, on a query a Broker originated, a way for the agent to prove it holds that
+grant, which a request the Broker signs alone cannot carry. The purchase-time
+entitlement denials are unchanged.
