@@ -361,7 +361,7 @@ curl -s https://marketdata.example.com/.well-known/fora.json | jq
 
 ### Step 2 — ResourceQuery with Delegation (JWT)
 
-Here is where v1.0's `Requester` + `Delegation` model shows its power. The agent includes a delegation JWT that carries its subscription entitlement:
+Here is where v1.0's `Requester` + `Delegation` model shows its power. The agent states its subscription scope and includes a delegation JWT that grants it:
 
 `POST https://exchange.marketdata-data.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
@@ -380,11 +380,11 @@ Here is where v1.0's `Requester` + `Delegation` model shows its power. The agent
     "id": "hedge-bot",
     "domain": "hedgefund.com",
     "type": "REQUESTER_TYPE_AGENT",
-    "scopes": ["quote:*", "earnings:*", "news:read"],
+    "scopes": ["quote:*", "earnings:*", "news:read", "subscription:enterprise-sub-HF-001"],
     "delegation": {
       "principal_domain": "marketdata.example.com",
       "principal_id": "enterprise-sub-HF-001",
-      "scopes": ["quote:*", "earnings:*", "news:read"],
+      "scopes": ["quote:*", "earnings:*", "news:read", "subscription:enterprise-sub-HF-001"],
       "expires_at": "2026-12-31T23:59:59Z",
       "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSjkuPGNsYWltczogaXNzLCBzY29wZSwgZXhwLCBjbmYuamt0Pi48c2lnPg",
       "token_format": "jwt"
@@ -402,7 +402,7 @@ The `delegation.token` is an authority JWT, signed by MarketData's Ed25519 key. 
 {
   "iss": "marketdata.example.com",
   "sub": "enterprise-sub-HF-001",
-  "scope": "quote:* earnings:* news:read",
+  "scope": "quote:* earnings:* news:read subscription:enterprise-sub-HF-001",
   "exp": 1798761599,
   "cnf": { "jkt": "<thumbprint of the agent's key>" }
 }
@@ -410,7 +410,7 @@ The `delegation.token` is an authority JWT, signed by MarketData's Ed25519 key. 
 
 The Exchange verifies the JWT chain:
 1. **Signature check** — the authority JWT is signed by `marketdata.example.com`'s Ed25519 key (fetched from the WBA directory at `marketdata.example.com/.well-known/http-message-signatures-directory`). This proves MarketData actually issued this delegation.
-2. **Scope matching** — the requested URI (`/earnings/NVDA/...`) matches the `earnings:*` scope in the JWT.
+2. **Scope matching** — the subscription term's scopes (`subscription:enterprise-sub-HF-001`) are covered by the scopes the request states, and by the scopes the JWT grants, which this Exchange also requires before it presents a subscription term ([Scope-Based Access](/protocol/authentication/#scope-based-access)).
 3. **Expiry check** — `exp` is in the future.
 4. **Holder binding** — the key that signed the request (RFC 9421) MUST hash to the final `cnf.jkt`, so a stolen token is useless without the matching private key.
 5. **No network call to MarketData** — delegation JWTs are offline-verifiable. MarketData does not need to be online or queried. This is the key property that makes delegation scale.
@@ -430,7 +430,7 @@ The Exchange verifies the JWT chain:
 
 ### Step 3 — ResourceResponse
 
-The Exchange verifies the JWT chain, confirms `earnings:*` covers the requested URI, and recognizes the subscription. It returns a zero-cost offer:
+The Exchange verifies the JWT chain, confirms that the stated and the granted scopes cover the subscription term's `subscription:enterprise-sub-HF-001`, and recognizes the subscription. It returns a zero-cost offer:
 
 ```json
 {
@@ -568,9 +568,9 @@ The `subscription_unit_value` ($0.15) is the imputed value of this access for ac
 | Aspect | Without Subscription (Scenario A) | With Subscription (Scenario B) |
 |--------|-----------------------------------|-------------------------------|
 | Delegation | None | delegation JWT from `marketdata.example.com` |
-| Requester scopes | `["*"]` (public) | `["earnings:*"]` (from delegation JWT) |
+| Requester scopes | `["*"]` (public) | `["quote:*", "earnings:*", "news:read", "subscription:enterprise-sub-HF-001"]`, stated by the agent and granted by the delegation JWT |
 | Offer pricing | $0.05 per article | $0.00 (subscription) |
-| How Exchange knows | No delegation, no subscription scope — per-article | delegation JWT carries subscription scope — zero cost |
+| How Exchange knows | No subscription scope stated — per-article | Stated subscription scope covers the subscription term, and this Exchange also requires the delegation JWT to grant it — zero cost |
 | Round trips to provider | 0 | 0 (delegation JWT is offline-verifiable) |
 | `subscription_id` in response | Absent | `"enterprise-sub-HF-001"` |
 | Financial attribution | `cost.amount = 0.05` | `cost.amount = 0`, `subscription_unit_value = 0.15` |
@@ -590,12 +590,14 @@ requester := &forav1.Requester{
     Id:     "hedge-bot",
     Domain: "hedgefund.com",
     Type:   forav1.RequesterType_REQUESTER_TYPE_AGENT,
-    // Scenario A: leave Delegation nil.
-    // Scenario B: attach the delegation the principal issued.
+    // Scenario A: leave Scopes and Delegation nil.
+    // Scenario B: state the scopes the subscription grants, and attach the
+    // delegation the principal issued that grants them.
+    Scopes: []string{"quote:*", "earnings:*", "news:read", "subscription:enterprise-sub-HF-001"},
     Delegation: &forav1.Delegation{
         PrincipalDomain: "marketdata.example.com",
         PrincipalId:     "enterprise-sub-HF-001",
-        Scopes:          []string{"earnings:*"},
+        Scopes:          []string{"quote:*", "earnings:*", "news:read", "subscription:enterprise-sub-HF-001"},
         Token:           delegationToken,
         TokenFormat:     "jwt",
     },

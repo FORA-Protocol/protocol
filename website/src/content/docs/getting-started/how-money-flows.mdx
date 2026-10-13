@@ -176,10 +176,11 @@ Credits are applied to the agent's balance with the Exchange. They reduce the ne
 
 ## Pricing Transparency
 
-Two fields provide cost transparency even when the per-request charge is zero:
+One field provides cost transparency even when the per-request charge is zero:
 
 - **`subscription_unit_value`**: Carried on subscription transactions where `cost.amount` is $0. Shows the per-unit value for financial attribution -- the AI company can track the value of resources consumed against its prepaid subscription balance.
-- **`broker_fee`**: When a Broker mediates the transaction, this field shows the Broker's fee separately from the content cost. Agents see exactly what they pay for the resource vs. what they pay for brokerage.
+
+A Broker's fee has no field. It is additive and disclosed out of band, never folded into the offer price the Exchange signed, so the agent sees what it pays for the resource and what it pays for brokerage (see [Selection Engine](/components/broker/selection-engine/)).
 
 ## Reconciliation
 

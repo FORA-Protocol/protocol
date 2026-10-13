@@ -626,7 +626,7 @@ A financial analysis agent carries a MarketData-issued delegation JWT that grant
     "delegation": {
       "principal_domain": "marketdata.example.com",
       "principal_id": "marketdata.example.com",
-      "scopes": ["quote:*", "earnings:*"],
+      "scopes": ["subscription:marketdata-2026", "quote:*", "earnings:*"],
       "expires_at": "2026-03-20T18:00:00Z",
       "max_spend_cents": 50000,
       "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSjkuPGNsYWltczogaXNzLCBzY29wZSwgZXhwLCBjbmYuamt0Pi48c2lnPg",
@@ -646,8 +646,8 @@ A financial analysis agent carries a MarketData-issued delegation JWT that grant
 The Exchange:
 1. Verifies the request's RFC 9421 HTTP Message Signature against `fintech.example.com`'s published key
 2. Verifies the delegation JWT — signed by `marketdata.example.com`'s key — and checks its `cnf.jkt` equals the thumbprint of the request signer (holder binding)
-3. Reads scopes from the token's `scope` claim (`quote:*`, `earnings:*`)
-4. Returns subscription-tier pricing (zero marginal cost) for matching resources
+3. Reads the scopes the token grants from its `scope` claim (`subscription:marketdata-2026`, `quote:*`, `earnings:*`)
+4. Presents the subscription-tier terms (zero marginal cost) whose scopes, such as `subscription:marketdata-2026`, the request states. This Exchange also requires a verified delegation that grants a subscription term's scopes before it presents the term, which the token in step 3 does ([Scope-Based Access](#scope-based-access))
 
 ### Enterprise Agent (IAM-Issued JWT)
 
