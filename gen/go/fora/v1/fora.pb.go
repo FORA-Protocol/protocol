@@ -7647,12 +7647,17 @@ func (x *RequestConstraints) GetMaxHops() int32 {
 // Additional curves are a later concern. `alg` is the JOSE name RFC 7517 §4.4
 // defines; WG-00 §5.5.1 restricts the member to HTTP Message Signatures names
 // (`ed25519`), a known and deliberate deviation. The RFC 9421 signature
-// parameter `alg` in Signature-Input is a different field and is "ed25519".
+// parameter `alg` in Signature-Input is a different field: a FORA signer sets
+// it to "ed25519", and a verifier also accepts a signature without it, the
+// Ed25519 key deciding the algorithm.
 //
 // Time bounds are RFC3339 strings (sortable, ops-debuggable, avoids the
 // JWT nbf/exp collision). At least one key in the served key set (WBAFile.keys)
 // MUST have `not_before <= now < not_after`. Verification MUST reject
-// signatures whose key falls outside its window.
+// signatures whose key falls outside its window. A key that lacks either bound,
+// or whose bound is not an RFC3339 timestamp, is never valid. WG-00 defines no
+// such members, so this is a deliberate departure: a directory written to WG-00
+// alone must add them before a FORA verifier uses its keys.
 //
 // Keys carry no `kid`: the RFC 9421 keyid is the RFC 7638 JWK Thumbprint,
 // computed locally by the verifier. Carrying a kid alongside the thumbprint
@@ -7669,10 +7674,11 @@ type JsonWebKey struct {
 	Alg string `protobuf:"bytes,5,opt,name=alg,proto3" json:"alg,omitempty"`
 	// base64url-encoded 32-byte Ed25519 public key.
 	X string `protobuf:"bytes,6,opt,name=x,proto3" json:"x,omitempty"`
-	// RFC3339 timestamp. Key is invalid before this instant.
+	// REQUIRED. RFC3339 timestamp. Key is invalid before this instant, and a key
+	// without it is never valid.
 	NotBefore string `protobuf:"bytes,7,opt,name=not_before,json=notBefore,proto3" json:"not_before,omitempty"`
-	// RFC3339 timestamp. Key is invalid at and after this instant
-	// (strict upper bound).
+	// REQUIRED. RFC3339 timestamp. Key is invalid at and after this instant
+	// (strict upper bound), and a key without it is never valid.
 	NotAfter      string `protobuf:"bytes,8,opt,name=not_after,json=notAfter,proto3" json:"not_after,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -8386,11 +8392,16 @@ func (x *WellKnownManifest) GetExtCritical() []string {
 // revocation pointer. JWKs carry no kid; the
 // RFC 9421 keyid is the RFC 7638 JWK Thumbprint. Off-the-shelf WBA verifiers
 // read the `keys` array and ignore FORA's extra members (per-key
-// not_before/not_after, and revocation_url) per RFC 7517 §5.
+// not_before/not_after, and revocation_url) per RFC 7517 §5. A FORA verifier
+// does not: it requires each key's bounds and uses only the keys whose
+// response signature verifies (see `keys`).
 type WBAFile struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// RFC 7517 JWK Set "keys" member. FORA v1: Ed25519 (OKP) keys, each with
-	// not_before/not_after FORA extension members.
+	// not_before/not_after FORA extension members, which a FORA verifier
+	// requires (see JsonWebKey). A verifier uses only the keys whose response
+	// signature verifies; WG-00 Appendix B.1 only RECOMMENDS signing the
+	// response, and FORA requires it.
 	Keys []*JsonWebKey `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
 	// Directory-level emergency revocation channel. One per directory; the list
 	// it points to enumerates revoked key thumbprints. Consumers poll on a 300s

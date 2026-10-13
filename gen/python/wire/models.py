@@ -499,10 +499,11 @@ class JsonWebKey(WireModel):
     kty: str | None = Field('', description='Key type. FORA v1.0: MUST be "OKP".')
     not_after: str | None = Field(
         '',
-        description='RFC3339 timestamp. Key is invalid at and after this instant\n (strict upper bound).',
+        description='REQUIRED. RFC3339 timestamp. Key is invalid at and after this instant\n (strict upper bound), and a key without it is never valid.',
     )
     not_before: str | None = Field(
-        '', description='RFC3339 timestamp. Key is invalid before this instant.'
+        '',
+        description='REQUIRED. RFC3339 timestamp. Key is invalid before this instant, and a key\n without it is never valid.',
     )
     use: str | None = Field(
         '', description='Intended key use. FORA v1.0: MUST be "sig".'
@@ -1150,7 +1151,7 @@ class UsageReportResponse(WireModel):
 class WBAFile(WireModel):
     keys: list[JsonWebKey] | None = Field(
         None,
-        description='RFC 7517 JWK Set "keys" member. FORA v1: Ed25519 (OKP) keys, each with\n not_before/not_after FORA extension members.',
+        description='RFC 7517 JWK Set "keys" member. FORA v1: Ed25519 (OKP) keys, each with\n not_before/not_after FORA extension members, which a FORA verifier\n requires (see JsonWebKey). A verifier uses only the keys whose response\n signature verifies; WG-00 Appendix B.1 only RECOMMENDS signing the\n response, and FORA requires it.',
     )
     revocation_url: str | None = Field(
         None,

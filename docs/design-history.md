@@ -2677,3 +2677,50 @@ accepts every Broker signature. What the hop caps count now is recorded in "The 
 cap counts signatures; max_hops waits for multi-hop Broker discovery", and how an
 Exchange tells a relayed request from a direct one in "A relay is a requester
 mismatch the Exchange admits".
+
+## A verifier takes the signature algorithm from the key
+
+The profile's signers always send `alg="ed25519"`, and its verifiers refused a
+signature that carried none. WG-00 does not ask for it: §5.2 requires `created`,
+`expires`, `keyid` and `tag`, and both its example request in §5.2.5 and its signed
+directory response in Appendix E.2.3 carry no `alg`. A Web Bot Auth library that sent
+the draft's minimum was refused by every FORA verifier, with nothing in
+`Accept-Signature` to say why.
+
+RFC 9421 lets a verifier take the algorithm from the key material (§3.2, step 6.3),
+and §7.3.6 advises against relying on a runtime `alg`, so that an attacker cannot
+substitute the algorithm. Every key a FORA verifier resolves is Ed25519, so the key
+fixes the algorithm and an absent `alg` selects nothing. The request verifier, the
+delivery proof of possession and the key-directory response verifier, in all three
+SDKs, now accept a signature without `alg`. An `alg` that is present must still name
+`ed25519`, in any letter case, as step 6.5 requires when the algorithm is stated in
+more than one place. An empty `alg` is present and names nothing, so it stays refused;
+Go and Python could not tell it from a missing one, which is why their parsers now
+record whether `alg` is there at all.
+
+The signers do not change. Cloudflare's `web-bot-auth` library requires `alg` when it
+verifies, and so do other deployed verifiers, so a FORA signature keeps carrying it.
+
+The same reading showed that "a FORA verifier accepts a signature made by any WBA
+library" needed qualifying beyond `alg`. FORA departs from WG-00 in three places, all
+in the key directory, and a directory written to WG-00 alone fails the second and
+third:
+
+- **A key's JWK `alg` is the JOSE name `EdDSA`.** This was the one departure already
+  listed. It affects only FORA's own directories, because a FORA verifier does not
+  read a key's `alg`.
+- **The response must be signed.** WG-00 Appendix B.1 only recommends it. FORA
+  requires it because some widely deployed verifiers will not register an unsigned
+  directory, and a verifier uses only the keys whose response signature verifies, over
+  exactly `"@authority";req` and `content-digest`.
+- **Each key must carry `not_before` and `not_after`.** A key without both bounds is
+  never valid. WG-00 defines no validity members: its example directory uses `nbf` and
+  `exp`, and E.2.3's key has neither, so a FORA resolver still would not use that key
+  although its response signature now verifies. The bounds stay required for the
+  reason recorded in "Inline keys instead of key-URI pointers": they let a verifier
+  judge a key's validity from the one document it already fetched. Accepting a key with
+  no bounds would change that, so the rule is listed as a departure and left in place.
+
+Two further limits are choices WG-00 leaves to a verifier: FORA accepts only Ed25519
+keys, and it ignores a `Signature-Agent` member whose `type` is not `directory`. The
+authentication page lists all five under "Where FORA departs from WG-00".

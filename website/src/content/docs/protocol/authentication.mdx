@@ -66,7 +66,7 @@ Which Brokers an Exchange admits is the Exchange's own policy, for example the B
 
 ### The WBA Directory Endpoint
 
-Signing keys are published in a dedicated Web Bot Auth key directory at `/.well-known/http-message-signatures-directory`, separate from the role manifest at `/.well-known/fora.json`. It is served over https, answers `200` with no redirect, and uses the media type `application/http-message-signatures-directory+json`. The body is a JWK Set: a `keys` array of Ed25519 JWKs plus an optional `revocation_url`. Each key is identified by its RFC 7638 thumbprint (the value carried as the RFC 9421 `keyid`), so the directory carries no `kid` labels. Each key carries `alg` `EdDSA`, the JOSE name, which deliberately differs from WG-00 §5.5.1 (see [Key Directory](#key-directory)). The response is signed by each key it lists. Every FORA participant — agent, exchange, broker, publisher — serves one. See [Key Directory](#key-directory) for the full rules.
+Signing keys are published in a dedicated Web Bot Auth key directory at `/.well-known/http-message-signatures-directory`, separate from the role manifest at `/.well-known/fora.json`. It is served over https, answers `200` with no redirect, and uses the media type `application/http-message-signatures-directory+json`. The body is a JWK Set: a `keys` array of Ed25519 JWKs plus an optional `revocation_url`. Each key is identified by its RFC 7638 thumbprint (the value carried as the RFC 9421 `keyid`), so the directory carries no `kid` labels. Each key carries `alg` `EdDSA`, the JOSE name, and FORA's `not_before` and `not_after` bounds, and the response is signed by each key it lists: three rules where FORA departs from WG-00 ([Where FORA departs from WG-00](#where-fora-departs-from-wg-00)). Every FORA participant — agent, exchange, broker, publisher — serves one. See [Key Directory](#key-directory) for the full rules.
 
 ### Web Bot Auth Conformance
 
@@ -75,15 +75,27 @@ FORA request signatures follow Web Bot Auth (WBA), as specified by the IETF webb
 Conformance is a property FORA has to maintain on purpose. It does not follow from sharing RFC 9421 and Ed25519 with WBA: a signature can use both and still be refused by every WBA verifier. Conformance means two things, and FORA requires both:
 
 - **FORA signatures verify as WBA.** Every signature a FORA participant creates is a conformant WG-00 signature. A WBA verifier that knows nothing about FORA can verify it and attribute it to the signer's directory.
-- **WBA signatures verify at FORA.** A FORA verifier accepts a signature made by any WBA library, provided the signature also covers the extra components FORA requires on that route. FORA advertises those components through WBA's `Accept-Signature` mechanism, so a WBA library that can add covered components can call FORA without FORA-specific code.
+- **WBA signatures verify at FORA.** A FORA verifier accepts a signature made by any WBA library, with or without `alg`, provided the signature also covers the extra components FORA requires on that route, its key is Ed25519, and the signer's directory meets the rules where FORA departs from WG-00. FORA advertises those components through WBA's `Accept-Signature` mechanism, so a WBA library that can add covered components can call FORA without FORA-specific code.
 
-The rules that make both true are in [The Web Bot Auth Profile](#the-web-bot-auth-profile). FORA departs from WG-00 in one deliberate place, stated with its reason where it applies: a key directory's JWK `alg` is the JOSE name `EdDSA` ([Key Directory](#key-directory)). It does not change how a WBA verifier checks a FORA request signature.
+The rules that make both true are in [The Web Bot Auth Profile](#the-web-bot-auth-profile). FORA departs from WG-00 in three places, all in the key directory, each listed with its reason in [Where FORA departs from WG-00](#where-fora-departs-from-wg-00). None of them changes how a WBA verifier checks a FORA request signature.
 
 WBA establishes identity: this bot is who it claims to be. FORA adds the transaction layer on top of that identity: this bot is authorised to access this content at this price.
 
 :::caution[Profile change in progress]
 The next SDK release implements this profile in Go, Python and TypeScript. The SDKs released as v1.0.8 do not. They send `Signature-Agent` as a bare, unquoted URL rather than a dictionary, set no `tag`, generate a 16-byte nonce, and refuse any signature that does not cover all five FORA components. The reference implementation's directories are served as `application/jwk-set+json` and unsigned until it adopts that release. The change is a hard cut with no transition window: verifiers of the new release refuse the bare unquoted `Signature-Agent` that v1.0.8 sends and a directory served under the old media type, so a v1.0.8 client must upgrade to keep working. The SDKs and the reference implementation change together; the [changelog](/reference/changelog/) lists each difference.
 :::
+
+#### Where FORA departs from WG-00
+
+FORA departs from WG-00 in three places, all in the key directory:
+
+- **A key's JWK `alg` is the JOSE name `EdDSA`** (RFC 7517 §4.4), not the HTTP Message Signatures name `ed25519` that WG-00 §5.5.1 uses. See the note under [Key Directory](#key-directory).
+- **The directory response must be signed.** WG-00 Appendix B.1 only RECOMMENDS it. A FORA verifier uses only the listed keys whose response signature verifies, and that signature covers exactly `"@authority";req` and `content-digest`. A response signature may carry no `alg`, as WG-00's own Appendix E.2.3 example does.
+- **Each key must carry `not_before` and `not_after`.** A key that lacks either bound is never valid ([Key Validity Windows](#key-validity-windows)). WG-00 defines no validity members, so a directory written to WG-00 alone must add them before a FORA verifier uses its keys.
+
+Within what WG-00 permits, a FORA verifier also accepts only Ed25519 keys, and ignores a `Signature-Agent` member whose `type` is anything but `directory`.
+
+None of this changes how a WBA verifier checks a FORA request signature: a FORA directory carries everything WG-00 asks for, and a WBA verifier ignores the members it does not know.
 
 ### Signature Verification
 
@@ -100,8 +112,8 @@ Covering a header is not the same as sending it, and both are required. A verifi
 The Exchange verifies it by:
 
 1. Parsing `Signature`, `Signature-Input` and `Signature-Agent`, and selecting the `Signature-Agent` member the signature covers
-2. Checking the signature against the profile: `tag="web-bot-auth"`, `created`, `expires`, `keyid` and `alg="ed25519"` present, `@target-uri` or `@authority` covered, and on a FORA RPC the four FORA components covered
-3. Fetching the key directory at `{origin}/.well-known/http-message-signatures-directory` for the origin that member names, and selecting the `JsonWebKey` whose RFC 7638 thumbprint matches the `keyid` (and whose `[not_before, not_after)` window covers now)
+2. Checking the signature against the profile: `tag="web-bot-auth"`, `created`, `expires` and `keyid` present, `alg` either absent or `"ed25519"`, `@target-uri` or `@authority` covered, and on a FORA RPC the four FORA components covered
+3. Fetching the key directory at `{origin}/.well-known/http-message-signatures-directory` for the origin that member names, and selecting the `JsonWebKey` whose RFC 7638 thumbprint matches the `keyid` (and whose `[not_before, not_after)` window covers now; a key without both bounds is never valid)
 4. Reconstructing the signature base from the declared components and verifying the Ed25519 signature in the `Signature` header against that key
 5. Confirming the `Content-Digest` matches the request body, and that the directory that published the key is the identity the caller is authorised as
 
@@ -391,7 +403,7 @@ Every FORA signature is a conformant WG-00 signature:
 | `@target-uri` or `@authority` | At least one covered (WG-00 §5.2). FORA RPCs always cover `@target-uri` |
 | `created`, `expires` | Both present, as integer seconds. The lifetime is a few minutes and always well under the 24 hours WG-00 recommends as the maximum. A signature is never reused as a long-lived credential (WG-00 §6.9) |
 | `keyid` | The key's RFC 7638 JWK thumbprint (RFC 8037 Appendix A.3 for Ed25519), base64url without padding |
-| `alg` | `"ed25519"`. WG-00 does not require `alg`, but widely deployed WBA verifiers do, so FORA always sends it |
+| `alg` | `"ed25519"`. WG-00 does not require `alg`, but widely deployed WBA verifiers do, so FORA always sends it. A FORA verifier also accepts a signature without one, because the key decides the algorithm; see [What a FORA verifier accepts](#what-a-fora-verifier-accepts) |
 | `tag` | `"web-bot-auth"` |
 | `nonce` | A fresh 64-byte random value for every signature, base64url without padding. See [Replay protection](#replay-protection) |
 
@@ -439,9 +451,10 @@ Agents in the field run many WBA libraries and some send earlier forms of the pr
 - **The legacy `Signature-Agent` form, on a direct single-hop call only.** A bare structured-field String (`Signature-Agent: "https://research.acme.com"`), covered as plain `"signature-agent"`. The verifier treats it as a dictionary with one member whose key is the label of the signature covering it. A party that forwards a request unchanged refuses this form, because it has to append its own member to the agent's `Signature-Agent` header and a String cannot take a second member; it answers with `Accept-Signature` asking for the dictionary form, as in the `Accept-Signature` example above. FORA signers never send this form.
 - **A member key different from the signature label.** Signers use a member key equal to the label, but when a signature covers one `Signature-Agent` member the verifier follows that member, `"signature-agent";key="<member>"`, whatever the label is called.
 - **No `nonce`.** WG-00 sets no nonce requirement.
+- **No `alg`.** WG-00 does not require it. The key decides the algorithm (RFC 9421 §3.2, step 6.3): every key a FORA verifier resolves is Ed25519, and nothing a signer sends at run time selects the algorithm (RFC 9421 §7.3.6). An `alg` that is present must name `ed25519`, in any letter case.
 - **A `type` parameter equal to `directory`** on the member. A member with any other `type` value is ignored, as WG-00 §5.2.1 requires.
 
-A FORA verifier refuses a signature with no `tag` or a `tag` other than `web-bot-auth`, a signature whose covered `Signature-Agent` member is not an https origin, and a bare unquoted `Signature-Agent` value such as `https://research.acme.com`, which is neither a dictionary nor a String. There is no transition window for that last form. A verifier that refuses a signature for a missing component, or for a form it does not accept, answers with `Accept-Signature` naming what it requires (WG-00 §5.3).
+A FORA verifier refuses a signature whose `alg` is present but is not `ed25519`, an empty `alg` included, a signature with no `tag` or a `tag` other than `web-bot-auth`, a signature whose covered `Signature-Agent` member is not an https origin, and a bare unquoted `Signature-Agent` value such as `https://research.acme.com`, which is neither a dictionary nor a String. There is no transition window for that last form. A verifier that refuses a signature for a missing component, or for a form it does not accept, answers with `Accept-Signature` naming what it requires (WG-00 §5.3); a refusal for `alg` carries none, because no covered component would fix it.
 
 ### Single-Hop Example
 
@@ -740,9 +753,9 @@ Every participant serves its keys as a WG-00 key directory (WG-00 §5.5 and §5.
 | Signed response | Signed once per listed key, as WG-00 Appendix B.1 describes: the signature covers `"@authority";req` and `content-digest`, carries `created`, `expires`, `keyid` (the thumbprint) and `alg`, and has `tag="http-message-signatures-directory"`. The response carries the matching `Content-Digest` header |
 | Access | Reachable without a signature and without bot challenges, and cacheable with standard HTTP caching |
 
-WG-00 makes the signed response RECOMMENDED. FORA requires it, because a directory that is not signed cannot be registered with some widely deployed WBA verifiers. A verifier checks the response signature with the key the directory lists, checks the `Content-Digest` against the body, and refuses a response signature whose `created` is in the future.
+WG-00 makes the signed response RECOMMENDED. FORA requires it, because a directory that is not signed cannot be registered with some widely deployed WBA verifiers. A verifier checks the response signature with the key the directory lists, checks the `Content-Digest` against the body, and refuses a response signature whose `created` is in the future. It uses only the listed keys whose response signature verifies, and a response signature counts only when it covers exactly `"@authority";req` and `content-digest`. It accepts a response signature that carries no `alg`, as WG-00's own Appendix E.2.3 example does; one that carries `alg` must name `ed25519`.
 
-FORA adds two extension members to the JWK Set: `not_before` and `not_after` on each key (see [Key Validity Windows](#key-validity-windows)), and `revocation_url` on the set (see [Emergency Revocation](#emergency-revocation)). A generic WBA verifier ignores members it does not know, as RFC 7517 allows.
+FORA adds two extension members to the JWK Set: `not_before` and `not_after` on each key (see [Key Validity Windows](#key-validity-windows)), and `revocation_url` on the set (see [Emergency Revocation](#emergency-revocation)). A generic WBA verifier ignores members it does not know, as RFC 7517 allows. A FORA verifier does not ignore the bounds: a key without both is never valid, so a directory written to WG-00 alone must add them before a FORA verifier uses its keys.
 
 A complete directory response for the agent in the [Single-Hop Example](#single-hop-example), signed with the same RFC 8037 test key:
 
@@ -787,7 +800,7 @@ The response signature base is:
 `"@authority";req` takes its value from the request that fetched the directory, so the signature cannot be served again under a different host. The `Content-Digest` is computed over the body exactly as shown, with two-space indentation and no trailing newline.
 
 :::note
-**Known, deliberate deviation from WG-00 §5.5.1.** A key's `alg` member is `EdDSA`, the JOSE name. RFC 7517 §4.4 defines the JWK `alg` member as a value from the JOSE algorithms registry, and Cloudflare's reference library follows RFC 7517. WG-00 §5.5.1 restricts the same member to HTTP Message Signatures names, where Ed25519 is `ed25519`. FORA follows RFC 7517 and the reference library here. The signature parameter `alg` in `Signature-Input` is a different field and is `ed25519`, as WG-00 requires.
+**Known, deliberate deviation from WG-00 §5.5.1.** A key's `alg` member is `EdDSA`, the JOSE name. RFC 7517 §4.4 defines the JWK `alg` member as a value from the JOSE algorithms registry, and Cloudflare's reference library follows RFC 7517. WG-00 §5.5.1 restricts the same member to HTTP Message Signatures names, where Ed25519 is `ed25519`. FORA follows RFC 7517 and the reference library here. The signature parameter `alg` in `Signature-Input` is a different field. WG-00 does not require it; FORA signers send `ed25519`, and a FORA verifier accepts a signature without it.
 :::
 
 ### Key Rotation
@@ -803,7 +816,7 @@ For delegation JWTs, key rotation at the issuer does not invalidate existing tok
 
 ### Key Validity Windows
 
-Each `JsonWebKey` carries RFC3339 `not_before` / `not_after` bounds. The window is **half-open** `[not_before, not_after)` — a key is valid at `not_before` and invalid **at and after** `not_after`. At least one key in the WBA directory's `keys` MUST be valid at serve time, and verifiers MUST reject signatures whose key falls outside its window.
+Each `JsonWebKey` carries RFC3339 `not_before` / `not_after` bounds. The window is **half-open** `[not_before, not_after)` — a key is valid at `not_before` and invalid **at and after** `not_after`. At least one key in the WBA directory's `keys` MUST be valid at serve time, and verifiers MUST reject signatures whose key falls outside its window. A key that lacks either bound, or whose bound is not an RFC 3339 timestamp, is never valid. WG-00 defines no validity members, so this is one of the places FORA departs from it ([Where FORA departs from WG-00](#where-fora-departs-from-wg-00)).
 
 ### Caching Contract
 
