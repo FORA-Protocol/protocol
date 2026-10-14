@@ -102,6 +102,7 @@ parsing responses itself or re-implementing request signing.
 | The operator RPCs: `AdminService` and domain verification | `connect.NewAdminClient` | `createAdminClient` | `AdminClient` |
 | Mint a throwaway agent: key, directory document, signer | `helpers.GenerateKey`, `helpers.DirectoryDocument`, `core.SigningTransportFor` | `generateKey`, `directoryDocument`, `signingTransportFor` | `generate_key`, `directory_document`, `signing_transport_for` |
 | Read a document a party publishes and check it: the well-known manifest, the WBA key directory, the key revocation list, the license document | `resolvers.ReadManifest`, `resolvers.ReadWBADirectory`, `resolvers.ReadRevocationList`, `resolvers.ReadLicenseDocument` | `readManifest`, `readWBADirectory`, `readRevocationList`, `readLicenseDocument` | `read_manifest`, `read_wba_directory`, `read_revocation_list`, `read_license_document` |
+| Tell a missing document or a refused redirect from an outage | `resolvers.ErrDocumentNotFound`, `resolvers.ErrRedirectRefused` | `DocumentNotFound`, `RedirectRefused` | `DocumentNotFoundError`, `RedirectRefusedError` |
 | Check a message against the strict contract | `helpers.CheckStrict` | `checkStrict` | `check_strict` |
 | Sign the proof of possession for a delivery fetch | `helpers.SignAgentBinding` | `signInbound` | `sign_agent_binding` |
 | Read the discovery headers of an edge's 403, and check the hinted Exchange against the publisher manifest | `helpers.ParseDiscoveryHint`, `helpers.ReconcileDiscoveryHint` | `parseDiscoveryHint`, `reconcileDiscoveryHint` (`./discovery-hint`) | `parse_discovery_hint`, `reconcile_discovery_hint` |
@@ -126,23 +127,28 @@ A few rules hold in every language:
   rules. A refused envelope is malformed, with the peer's Connect code still on the
   error's code field and no detail. An empty or non-JSON error body comes from a gateway
   rather than the service, so its HTTP status still classifies it.
-- **A document reader returns the document or a typed error, never nothing.** Each
-  reader fetches through the SDK's guarded client, so the SSRF guard and the https-only
-  scheme guard apply; `SKIP_SSRF` and `ALLOW_INSECURE` relax them for a sandbox. The
-  manifest must be served as `application/json` and the WBA directory as
+- **A document reader returns the document or a typed error, never nothing.** By default
+  each reader fetches through the SDK's guarded client, so the SSRF guard and the
+  https-only scheme guard apply; `SKIP_SSRF` and `ALLOW_INSECURE` relax them for a
+  sandbox. A caller may pass its own client instead. The TypeScript edge entry has no
+  default: it reads through the `fetch` it is given, so guarding an address another
+  party named is the caller's job there. The manifest must be served as
+  `application/json` and the WBA directory as
   `application/http-message-signatures-directory+json`; the protocol names no media type
   for a revocation list or a license document, so their label is reported and not
   checked. The manifest's `ver` is read before any other member. Every document must
   then pass the strict check, and the reader returns the parsed generated message with
-  the URL, the bytes and the media type. A WBA directory is fetched with no redirect, and
-  its response must carry a valid response signature by every key it lists. The license
-  reader checks the `License` itself first, then verifies the fetched bytes against
-  `uri_digest`. A failed fetch, a non-200 answer, a body that is not JSON and a body over
-  1 MiB are all reported as an unavailable document. The resolvers read the same
-  documents through the same fetch and decode, without the strict check, because a router
-  must accept a newer minor version. They still read a WBA directory under the Web Bot
-  Auth profile: no redirect, the profile's media type, and only the keys that signed the
-  response.
+  the URL, the bytes and the media type. A WBA directory is fetched with no redirect,
+  and its response must carry a valid response signature by every key it lists. The
+  license reader checks the `License` itself first, then verifies the fetched bytes
+  against `uri_digest`. A failed fetch, a non-200 answer, a body that is not JSON and a
+  body over 1 MiB are all reported as an unavailable document. Two of those failures
+  also say which, while staying an unavailable document: a `404` is a missing document,
+  and a key directory that answers with a redirect is a refused one. Whether either is
+  final is the caller's decision. The resolvers read the same documents through the same
+  fetch and decode, without the strict check, because a router must accept a newer minor
+  version. They still read a WBA directory under the Web Bot Auth profile: no redirect,
+  the profile's media type, and only the keys that signed the response.
 - **One strict check per language.** Client strict decoding, the error-envelope check and
   the document readers all call the same check. In Python and TypeScript it is the
   published strict JSON Schema of the message plus the cross-field rules. In Go it

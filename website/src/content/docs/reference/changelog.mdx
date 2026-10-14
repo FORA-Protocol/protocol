@@ -895,7 +895,14 @@ summarizes them per language.
   `DigestMismatch`, `ErrDigestMismatch`). A failed fetch, a non-200 answer, a body that
   is not JSON and a body over 1 MiB are an unavailable document; a body over the cap is
   now refused rather than truncated, in the resolvers as well, and the cap is the read's
-  own in all three SDKs, whatever transport is injected. Go's
+  own in all three SDKs, whatever transport is injected. Two of those failures also say
+  which: a 404 on any read is a missing document (`DocumentNotFoundError`,
+  `DocumentNotFound`, `ErrDocumentNotFound`), and any 3xx answering a key directory is a
+  refused redirect (`RedirectRefusedError`, `RedirectRefused`, `ErrRedirectRefused`),
+  whose error names the read and never the Location. Each is still an unavailable
+  document, as a subclass or a wrapped sentinel, so a check for one still matches; the
+  resolvers report them too, so a 404 or a refused redirect from the WBA key resolver or
+  the endpoint and requirements readers now carries the new class's name. Go's
   `ErrDirectoryUnavailable` reads `resolvers: document unavailable`, and a manifest
   fetch failure in the Go endpoint resolver and requirements reader now wraps it. The
   endpoint resolver, the registration-requirements reader, the WBA key resolver and the
@@ -904,8 +911,9 @@ summarizes them per language.
   check a directory's media type and response signatures. The Python and TypeScript readers return the
   generated model, which names an enum by its value name, so they refuse a document that
   writes an enum as its number; the Go reader accepts it. New corpora:
-  `document-check-vectors.json`, the verdict for a document's bytes and Content-Type, and
-  `license-digest-vectors.json`, both replayed by all three SDKs.
+  `document-check-vectors.json`, the verdict for a document's bytes and Content-Type,
+  `document-fetch-vectors.json`, the verdict for the status a read is answered with, and
+  `license-digest-vectors.json`, all replayed by all three SDKs.
 - **Public strict check.** `check_strict(message_name, payload)` (Python, from
   `fora_sdk` and `fora_sdk.client`, raising `StrictViolationError`), `checkStrict(message,
   payload, schema?)` (TypeScript, `./client`, throwing `StrictViolation`) and
@@ -1095,9 +1103,16 @@ SDKs, in all three languages:
   scheme option, which let a configuration fetch an https origin's directory in
   plaintext, is removed from all three SDKs (Go `WBAKeyResolverOptions.Scheme`, Python
   `WBAKeyResolver(scheme=...)`, TypeScript `WBAKeyResolverOptions.scheme`): a directory
-  is always fetched over https. The
-  constants `WBATag`, `DirectoryResponseTag` and `AcceptSignatureHeader` join the wire
-  constants.
+  is always fetched over https. A Content-Digest that does not match the body is an
+  unsigned response in Go too, as in Python and TypeScript, with
+  `helpers.ErrDigestMismatch` kept in the chain. The directory reader and the
+  offer-directory fetch judge response signatures at an injectable clock:
+  `read_wba_directory(now=)`, `ReadDocumentOptions.now` and `ReadOptions.Now` for the
+  reader; `create_wba_offer_directory_fetch(now=)`,
+  `createWBAOfferDirectoryFetch({ now })` and `WBADirectoryFetcherOptions`, an optional
+  trailing argument of Go's `NewWBADirectoryFetcher`, for the fetch, so it can share the
+  offer-key cache's clock. The constants `WBATag`, `DirectoryResponseTag` and
+  `AcceptSignatureHeader` join the wire constants.
 - TypeScript on edge runtimes: the SDK typechecks under `@cloudflare/workers-types`, and
   `npm test` runs that check. `@fora-protocol/sdk/resolvers/edge` is a new entry for an
   edge runtime: the resolvers with an injected `fetch` and no Node import. The existing

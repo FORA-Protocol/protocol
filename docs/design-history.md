@@ -2891,3 +2891,45 @@ Broker's own, and its `requester` is the Broker's statement of whom it queries f
 the Broker states the directory it has just verified, and a host the agent wrote that
 names any other directory never leaves the Broker. Either way, no request a Broker sends
 names a directory it did not verify.
+
+## A failed document read says when the answer was a 404 or a redirect
+
+Every failure of a document read was one sentinel, `ErrDirectoryUnavailable`
+(`DirectoryUnavailableError`, `DirectoryUnavailable`), so a caller that answers a
+missing key directory differently from an unreachable one could only read the message. A
+verifier that registers an agent on first contact is such a caller: it refuses an agent
+whose directory is missing or redirects, and asks one whose host is down to try again.
+WG-00 draws the same line: a non-200 answer and a redirect are discovery failures
+(§5.5), and network errors, TLS errors and 5xx answers are transient by default, unless
+local policy says otherwise (Appendix C.5).
+
+The reads now name two answers, each wrapped together with the sentinel they always
+returned: a 404 on every document read (`ErrDocumentNotFound`), and a redirect answering
+a key directory (`ErrRedirectRefused`). A check for an unavailable document still
+matches both, so nothing that halted on an outage stops halting. The SDK states the
+answer and leaves its meaning to the caller, as the resolvers' authority contract does:
+a directory a party has yet to publish answers 404 as well, and the route tiers still
+read a missing manifest as worth retrying.
+
+**A redirect is told by its status.** Go's client consults its redirect hook only for
+301, 302, 303, 307 and 308 carrying a Location, so a key directory answering 300, 304 or
+a redirect with no Location read as a plain status, and a refused one carried the raw
+Location, credentials included, into the error. The read now takes every answer back and
+refuses any 3xx itself, as the TypeScript read already did, naming only the address it
+read. A Location the HTTP client cannot parse never reaches the read in Go or Python,
+because their clients reject the answer first, and it is reported as unavailable only;
+nothing is fetched from it either way. `document-fetch-vectors.json` pins the verdict
+for each status in all three SDKs.
+
+**A body that is not a directory stays unavailable.** The resolvers decode a directory
+leniently, so a body that does not decode is a transport failure, as an unreadable
+manifest is: a proxy serving an error page under a 200 may not do so on the next
+attempt. A response whose Content-Digest does not match its body is unsigned in Go too,
+as Python and TypeScript already reported it.
+
+**A directory's response signatures are judged at the caller's clock.** The
+offer-directory fetch and the directory reader used the wall clock, while the key
+resolver and the offer-key cache took an injected one, so a cache on a test or replay
+clock selected keys at one time and checked the directory's signatures at another. Both
+now take a clock. Go's fetcher takes it as an optional trailing argument, so its
+released call still compiles, as the client verbs' call options were added.
