@@ -2558,14 +2558,33 @@ unauthenticated `Signature-Agent` names.
 
 The read now owns its bounds on both entries. It reads the body through the stream with a
 byte budget and refuses it past 1 MiB without taking the rest, puts the whole read —
-every hop and the body — under one 30-second deadline whose signal it hands the
-transport, and follows redirects itself: it asks the transport not to follow, takes the
-Location, resolves it against the current URL, and refuses a hop out of http(s), from
-https down to plaintext http, or carrying credentials, up to the shared cap of five. A
-response the transport marks as redirected is refused, because the read asked it not to
-follow and could vet none of the hops it took. What stays with the transport is the
-address: which hosts it will dial at all, and TLS. The Node default keeps its SSRF guard
-and DNS pinning, and an edge caller keeps the equivalent for its runtime.
+every hop and the body — under one 30-second deadline, and follows redirects itself: it
+asks the transport not to follow, takes the Location, resolves it against the current
+URL, and refuses a hop out of http(s), from https down to plaintext http, or carrying
+credentials, up to the shared cap of five. A response the transport marks as redirected
+is refused, because the read asked it not to follow and could vet none of the hops it
+took. What stays with the transport is the address: which hosts it will dial at all, and
+TLS. The Node default keeps its SSRF guard and DNS pinning, and an edge caller keeps the
+equivalent for its runtime.
+
+The deadline needs no `AbortController`. Fastly Compute's JavaScript runtime has none, nor
+`AbortSignal`, and the edge entry names Fastly among its runtimes. A read that built a
+controller threw before it fetched anything, so a Fastly edge could load no key directory
+at all. The deadline is a timer the read races against the transport and the body, so it
+ends the read at 30 seconds whatever the transport does. Where the runtime has
+`AbortController`, the transport is also handed a signal the read aborts then. On every
+runtime the read cancels a body it is still reading at the deadline and refuses it,
+because a cancelled stream reports an ordinary end and the read would otherwise hand back
+a short document. It also releases an answer that arrives after the deadline. At the
+deadline the read refuses first, and only then aborts the signal and cancels the body, so
+neither a transport that fails as its signal aborts nor a body that ends because it was
+cancelled can answer for the read in place of the deadline. A polyfill would have been a
+new dependency for one runtime, and would have stopped nothing there, because Fastly's
+`fetch` takes no signal. The Workers types and the Workers test sandbox both declare
+`AbortController`, so neither could notice it was missing. A test now runs the edge
+readers with only the globals Fastly Compute declares, and the edge guard fails on any
+global the edge-safe code reaches that the Workers types declare and Fastly lacks, unless
+the code checks for it first.
 
 Following redirects in the reader rather than in the transport is a deliberate difference
 from Go and Python, where the guarded client owns the redirect policy. TypeScript has no

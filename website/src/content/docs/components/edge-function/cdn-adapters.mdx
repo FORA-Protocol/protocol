@@ -277,6 +277,8 @@ mean writing the Ed25519 verifier as an EdgeWorker, which the platform's 4 ms bu
 - Fastly KV Store is strongly consistent within a POP, making single-use enforcement reliable without the eventual-consistency problems of Workers KV or EdgeKV.
 - Full WASM runtime means you can compile the same Rust/Go verification logic that runs in the Exchange.
 
+**With the TypeScript SDK**: Fastly's JavaScript runtime has no WebCrypto Ed25519 and no `AbortController`. Pass `verifyEd25519` to the SDK's verifiers and directory readers; its document reads need no `AbortController`, and still end at their 30-second deadline.
+
 **Recommended approach**: Single Compute service.
 
 ```mermaid

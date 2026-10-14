@@ -1091,17 +1091,22 @@ SDKs, in all three languages:
   edge runtime: the resolvers with an injected `fetch` and no Node import. The existing
   `@fora-protocol/sdk/resolvers` entry keeps its guarded Node default. A guard test fails
   on any `undici` or `node:` import, and any Node global, reachable from the edge entry,
-  `src/`, `core/` or `hono/`. `verifyDirectoryResponse`, `readWBADirectory`,
-  `createWBAKeyResolver` and `createWBAOfferDirectoryFetch` take the injectable
-  `verifyEd25519` primitive `verifyAgentBinding` already took, so a runtime without
-  WebCrypto Ed25519, such as Fastly Compute, no longer reads every directory key as
-  unsigned. The document read bounds itself on both TypeScript entries, as Go's and
-  Python's readers do: it caps a body at 1 MiB, ends the whole read at 30 seconds and
-  passes its signal to the transport, and follows redirects itself, at most five,
-  refusing a hop out of http(s), from https down to plaintext http or carrying
+  `src/`, `core/` or `hono/`, and on any global that code reaches which the Workers types
+  declare and Fastly Compute lacks, unless the code checks for it first.
+  `verifyDirectoryResponse`, `readWBADirectory`, `createWBAKeyResolver` and
+  `createWBAOfferDirectoryFetch` take the injectable `verifyEd25519` primitive
+  `verifyAgentBinding` already took, so a runtime without WebCrypto Ed25519, such as
+  Fastly Compute, no longer reads every directory key as unsigned. The document read
+  bounds itself on both TypeScript entries, as Go's and Python's readers do: it caps a
+  body at 1 MiB, ends the whole read at 30 seconds, and follows redirects itself, at most
+  five, refusing a hop out of http(s), from https down to plaintext http or carrying
   credentials, and any redirect for a key directory. Those bounds lived only in the Node
   transports, so a read through an edge runtime's own fetch was unbounded; on Node, a
-  document read no longer follows a redirect from https to http either.
+  document read no longer follows a redirect from https to http either. None of the
+  bounds needs `AbortController`, which Fastly Compute lacks: where the runtime has one,
+  the read also hands the transport a signal it aborts at the deadline, and on any
+  runtime it cancels a body it is still reading and refuses it rather than return it
+  short. A test runs the edge readers with only the globals Fastly Compute declares.
 - TypeScript strict check: the strict schemas of the messages the SDK checks by name are
   compiled at build time with ajv's standalone output, into the generated, drift-gated
   `gen/ts/strict/`, so the strict readers and the client's strict decoding generate no code
