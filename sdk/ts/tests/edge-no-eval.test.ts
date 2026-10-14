@@ -9,17 +9,13 @@
 // eval and new Function with the same EvalError. Every reader that runs the strict check
 // is driven to an accepted document, and a refused one, and the check by message name is
 // run too. The context has no global ReadableStream, as the reader's bounds must not
-// need one: an over-cap body and an https-to-http redirect are refused there too.
+// need one: an over-cap body and an https-to-http redirect are refused there too. The
+// build and the context come from edge-sandbox.ts, which the Fastly Compute probe shares.
 
-import { createRequire } from "node:module";
 import vm from "node:vm";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const require = createRequire(import.meta.url);
-const esbuild = require("esbuild") as typeof import("esbuild");
-
-const here = (p: string): string => fileURLToPath(new URL(p, import.meta.url));
+import { bundleProbe, here, sandbox, WORKERS_CONDITIONS, workersGlobals } from "./edge-sandbox.ts";
 
 // The probe a Worker would run: each reader against a fetch answering one document.
 const PROBE = `
@@ -85,50 +81,11 @@ globalThis.probe = async () => {
 };
 `;
 
-async function buildProbe(): Promise<string> {
-	const out = await esbuild.build({
-		stdin: { contents: PROBE, resolveDir: here("."), loader: "ts" },
-		bundle: true,
-		write: false,
-		format: "iife",
-		platform: "neutral",
-		conditions: ["workerd", "worker", "browser"],
-		mainFields: ["module", "main"],
-		// One zod for the bundle, the one this package installed (vitest.config.ts says why).
-		alias: { zod: here("../node_modules/zod") },
-		logLevel: "silent",
-	});
-	const file = out.outputFiles[0];
-	if (file === undefined) throw new Error("esbuild produced no output");
-	return file.text;
-}
+const buildProbe = (): Promise<string> => bundleProbe(PROBE, WORKERS_CONDITIONS);
 
 // noEvalContext is a context with the globals a Worker has and code generation from
 // strings disabled.
-function noEvalContext(): vm.Context {
-	return vm.createContext(
-		{
-			Response,
-			Headers,
-			Request,
-			URL,
-			URLSearchParams,
-			TextEncoder,
-			TextDecoder,
-			crypto,
-			console,
-			setTimeout,
-			clearTimeout,
-			AbortController,
-			AbortSignal,
-			atob,
-			btoa,
-			structuredClone,
-			queueMicrotask,
-		},
-		{ codeGeneration: { strings: false, wasm: false } },
-	);
-}
+const noEvalContext = (): vm.Context => sandbox(workersGlobals());
 
 describe("the edge entry in a context that refuses code generation from strings", () => {
 	it("refuses eval and new Function, as Workers does", () => {

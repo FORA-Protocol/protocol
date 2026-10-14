@@ -4,6 +4,8 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
+import { bundleSource, FASTLY_GLOBAL_NAMES, WORKERS_CONDITIONS } from "./edge-sandbox.ts";
+
 // Structural guard for the edge-safe surface.
 //
 // An edge runtime (Cloudflare Workers, Fastly Compute, Deno) has no undici and no Node
@@ -16,9 +18,19 @@ import { describe, expect, it } from "vitest";
 // __dirname). The Workers types declare Buffer and process as `any`, so the workers
 // typecheck (tsconfig.workers.json) cannot catch those two; this guard does.
 //
-// The meta-tests feed the detector synthetic source, and the last one walks the Node
-// entry (resolvers/index.ts), which must reach undici, to show the walk follows
-// re-exports at all.
+// The workers typecheck admits every global the Workers types declare, and Fastly
+// Compute's JavaScript runtime lacks most of them: AbortController, AbortSignal and
+// DOMException among others. On Fastly each is a ReferenceError. So the guard also bundles
+// the surface with each such global marked, wherever the code reaches it (by name, typeof,
+// instanceof, an alias, globalThis or self), and fails on any mark left in the bundle. Code
+// the bundle drops, such as an export nothing reaches, cannot run on Fastly and is not
+// counted. The one use it admits is the feature-detected form the document read builds its
+// AbortController with: typeof AbortController === "function" ? new AbortController() :
+// undefined.
+//
+// The meta-tests feed the detectors synthetic source, and one walks the Node entry
+// (resolvers/index.ts), which must reach undici, to show the walk follows re-exports at
+// all.
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 
@@ -83,6 +95,51 @@ function tsFilesUnder(dir: string): string[] {
 	return out;
 }
 
+// The globals the Workers types declare, which the workers typecheck admits in the
+// edge-safe surface, less those Fastly Compute's JavaScript runtime declares.
+const WORKERS_TYPES = readFileSync(join(root, "node_modules/@cloudflare/workers-types/index.d.ts"), "utf8");
+const FASTLY_ABSENT = [
+	...new Set(
+		[...WORKERS_TYPES.matchAll(/^declare (?:var|let|const|function|class|abstract class|namespace) ([A-Za-z_$][\w$]*)/gm)].map(
+			(m) => m[1] as string,
+		),
+	),
+]
+	.filter((name) => !FASTLY_GLOBAL_NAMES.includes(name))
+	.sort();
+
+// Each of those globals becomes one marked identifier in the bundle, however the code
+// reaches it: esbuild's define replaces a reference to the global and leaves a binding that
+// shadows it, a member of another object and a string alone.
+const MARK = "__FASTLY_ABSENT__";
+const DEFINE = Object.fromEntries(
+	FASTLY_ABSENT.flatMap((name) => [name, `globalThis.${name}`, `self.${name}`].map((ref) => [ref, `${MARK}${name}`])),
+);
+const MARKED = new RegExp(`${MARK}(\\w+)`, "g");
+
+// The one use admitted: a global built only where the runtime has it, as the document read
+// builds its AbortController. esbuild prints `undefined` as `void 0`.
+const FEATURE_DETECTED = new RegExp(`typeof (${MARK}\\w+) === "function" \\? new \\1\\(\\) : void 0`, "g");
+
+// fastlyAbsentGlobals returns every global Fastly Compute lacks that `source` reaches once
+// bundled, other than in the feature-detected form.
+async function fastlyAbsentGlobals(source: string): Promise<string[]> {
+	const bundle = await bundleSource(source, {
+		conditions: WORKERS_CONDITIONS,
+		format: "esm",
+		define: DEFINE,
+		external: ["zod", "hono", "hono/*"],
+	});
+	return [...new Set([...bundle.replace(FEATURE_DETECTED, "").matchAll(MARKED)].map((m) => m[1] as string))].sort();
+}
+
+// The edge-safe surface as one module: the edge entry and every file of the pure trees, each
+// re-exported whole so nothing in it is shaken out.
+function edgeSafeSurface(): string {
+	const files = ["resolvers/edge.ts", ...["src", "core", "hono"].flatMap(tsFilesUnder)];
+	return files.map((file, i) => `export * as m${i} from ${JSON.stringify(join(root, file))};`).join("\n");
+}
+
 describe("edge-safe import graph", () => {
 	it("the edge resolvers entry reaches no undici, Node built-in or Node global", () => {
 		expect(walk("resolvers/edge.ts")).toEqual([]);
@@ -95,6 +152,10 @@ describe("edge-safe import graph", () => {
 			expect(files.flatMap(walk)).toEqual([]);
 		});
 	}
+
+	it("the edge-safe surface reaches no global Fastly Compute lacks, unless it checks for it first", async () => {
+		expect(await fastlyAbsentGlobals(edgeSafeSurface())).toEqual([]);
+	}, 60_000);
 
 	it("the edge entry is published as ./resolvers/edge", () => {
 		const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { exports: Record<string, string> };
@@ -135,6 +196,39 @@ describe("edge-safe import graph", () => {
 	it("[meta negative] passes relative imports and edge-safe packages", () => {
 		for (const src of ['import { z } from "zod";', 'import canonicalize from "canonicalize";', 'import { x } from "./x.ts";']) {
 			expect(specifiers(src).some(isNodeOnly), src).toBe(false);
+		}
+	});
+
+	it("[meta] the marked globals are the Workers globals Fastly Compute lacks, and none it has", () => {
+		expect(FASTLY_ABSENT).toEqual(expect.arrayContaining(["AbortController", "AbortSignal", "DOMException", "HTMLRewriter"]));
+		for (const name of ["Response", "fetch", "crypto", "setTimeout", "ReadableStream", "TextDecoder"]) {
+			expect(FASTLY_ABSENT, name).not.toContain(name);
+		}
+	});
+
+	it("[meta positive] flags a global Fastly Compute lacks, however the code reaches it", async () => {
+		for (const src of [
+			"export const c = new AbortController();",
+			"export const isSignal = (x: unknown): boolean => x instanceof AbortSignal;",
+			"const C = AbortController; export const c = new C();",
+			"export const c = new globalThis.AbortController();",
+			"export const c = new self.AbortController();",
+			"export const s = AbortSignal.timeout(5);",
+			'export const c = typeof AbortSignal === "function" ? new AbortController() : undefined;',
+		]) {
+			expect(await fastlyAbsentGlobals(src), src).not.toEqual([]);
+		}
+	});
+
+	it("[meta negative] passes the feature-detected form, a shadowing binding, a member and a string", async () => {
+		for (const src of [
+			'export const c = typeof AbortController === "function" ? new AbortController() : undefined;',
+			"export const f = (AbortController: new () => object): object => new AbortController();",
+			"export const f = (o: { AbortController?: unknown }): unknown => o.AbortController;",
+			'export const s = "AbortController";',
+			"export const r = (): unknown[] => [new Response(null), setTimeout, crypto];",
+		]) {
+			expect(await fastlyAbsentGlobals(src), src).toEqual([]);
 		}
 	});
 

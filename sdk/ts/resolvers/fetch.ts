@@ -10,6 +10,10 @@
 // of every hop. What the transport owns is the address: which hosts it will dial at all
 // (the SSRF guard and DNS pinning the Node default carries) and TLS. An edge runtime that
 // injects its own fetch keeps that part, and gets the rest from here.
+//
+// None of it needs AbortController, which Fastly Compute's runtime does not have: the
+// deadline is a timer the read races, and a signal reaches the transport only where the
+// runtime can make one.
 
 import { DirectoryUnavailable } from "./errors.ts";
 import { allowedScheme, MAX_REDIRECTS, redirectChainRefused } from "./ssrf.ts";
@@ -65,9 +69,11 @@ export interface FetchResponse {
 
 /** What a read asks of the transport beyond the URL: a WHATWG RequestInit subset.
  * Every document read passes `redirect: "manual"` — the read follows a redirect itself,
- * vetting each hop, and a key directory is never fetched through one — and a `signal`
- * the read aborts at its deadline. The shipped transports honour both, and the global
- * fetch reads the same members. */
+ * vetting each hop, and a key directory is never fetched through one — and, where the
+ * runtime has AbortController, a `signal` the read aborts at its deadline. Fastly Compute
+ * has none, so there the transport is never told to stop, and the read ends at its
+ * deadline all the same. The shipped transports honour both members, and the global
+ * fetch reads the same ones. */
 export interface FetchInit {
 	redirect?: "follow" | "manual";
 	signal?: AbortSignal;
@@ -78,7 +84,7 @@ export interface FetchInit {
  * (@fora-protocol/sdk/resolvers) defaults to its SSRF-guarded undici transport. A
  * FetchLike that ignores `init` still cannot widen what a read accepts: the read refuses
  * a response marked `redirected`, bounds the body itself, and gives up at its deadline
- * whether or not the transport stops. */
+ * whether or not the transport stops, or was handed a signal at all. */
 export type FetchLike = (url: string, init?: FetchInit) => Promise<FetchResponse>;
 
 /** One document as it was served: its bytes, the media type it was labelled with, and
@@ -110,11 +116,14 @@ const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]
  * or a non-200 status throws DirectoryUnavailable (fail-closed halt) — the taxonomy a
  * composite relies on to distinguish an outage from an unknown key. A blocked SSRF
  * target and a body past the cap are transport failures and surface the same way
- * (never a valid empty doc). The one GET every document read shares, and the place its
- * bounds are enforced, whatever transport `fetchFn` is:
+ * (never a valid empty doc). So does any other failure of the read, its setup included:
+ * every error is a DirectoryUnavailable whose cause is the error that ended the read. The
+ * one GET every document read shares, and the place its bounds are enforced, whatever
+ * transport `fetchFn` is:
  *
  *  - the body is read up to MAX_DOC_BYTES and refused past it, never truncated;
- *  - the whole read, every hop and the body included, ends at DOCUMENT_READ_TIMEOUT_MS;
+ *  - the whole read, every hop and the body included, ends at DOCUMENT_READ_TIMEOUT_MS,
+ *    on a runtime with AbortController or without one;
  *  - only http and https URLs are fetched, the first one included;
  *  - a redirect is followed by the read itself, never by the transport: at most
  *    MAX_REDIRECTS hops, a relative Location resolved against the current URL, and a
@@ -131,31 +140,14 @@ export async function fetchDocument(
 	url: string,
 	opts: { noRedirect?: boolean } = {},
 ): Promise<Fetched> {
-	const controller = new AbortController();
-	let timer: ReturnType<typeof setTimeout> | undefined;
-	const expired = new Promise<never>((_resolve, reject) => {
-		timer = setTimeout(() => {
-			controller.abort();
-			reject(new DirectoryUnavailable(`no complete answer for ${url} within ${DOCUMENT_READ_TIMEOUT_MS} ms`));
-		}, DOCUMENT_READ_TIMEOUT_MS);
-	});
-	// The race below observes the deadline; this stops it surfacing as an unhandled
-	// rejection when the read finishes first.
-	expired.catch(() => undefined);
-	const beforeDeadline = <T>(work: Promise<T>): Promise<T> => Promise.race([work, expired]);
-
+	let deadline: ReadDeadline | undefined;
 	try {
+		deadline = startDeadline(url);
 		let target = url;
 		let current = documentURL(url);
 		let hops = 0;
 		for (;;) {
-			let resp: FetchResponse;
-			try {
-				resp = await beforeDeadline(fetchFn(target, { redirect: "manual", signal: controller.signal }));
-			} catch (err) {
-				if (err instanceof DirectoryUnavailable) throw err;
-				throw new DirectoryUnavailable(`fetch ${url}`, { cause: err });
-			}
+			const resp = await deadline.before(answerOf(fetchFn(target, readInit(deadline.signal)), deadline.onExpiry));
 			const isRedirect = resp.status >= 300 && resp.status < 400;
 			if (resp.redirected === true || (isRedirect && opts.noRedirect === true)) {
 				discardBody(resp);
@@ -179,13 +171,7 @@ export async function fetchDocument(
 				discardBody(resp);
 				throw new DirectoryUnavailable(`status ${resp.status} for ${url}`);
 			}
-			let body: Uint8Array;
-			try {
-				body = await beforeDeadline(readCapped(resp, url, controller.signal));
-			} catch (err) {
-				if (err instanceof DirectoryUnavailable) throw err;
-				throw new DirectoryUnavailable(`fetch ${url}`, { cause: err });
-			}
+			const body = await deadline.before(readCapped(resp, url, deadline.onExpiry));
 			const headers = resp.headers;
 			return {
 				url,
@@ -194,9 +180,91 @@ export async function fetchDocument(
 				header: (name) => headers?.get(name) ?? null,
 			};
 		}
+	} catch (err) {
+		// The deadline and every bound refuse with a DirectoryUnavailable of their own; any
+		// other failure, the transport's included, becomes the cause of one.
+		if (err instanceof DirectoryUnavailable) throw err;
+		throw new DirectoryUnavailable(`fetch ${url}`, { cause: err });
 	} finally {
-		if (timer !== undefined) clearTimeout(timer);
+		deadline?.clear();
 	}
+}
+
+/** Registers `stop` to run when a read's deadline passes, and returns its removal. */
+type OnExpiry = (stop: () => void) => () => void;
+
+/** The one deadline a read runs under, DOCUMENT_READ_TIMEOUT_MS from its start. */
+interface ReadDeadline {
+	/** The signal handed to the transport and aborted at the deadline, or undefined where
+	 * the runtime has no AbortController, as Fastly Compute has none. */
+	readonly signal: AbortSignal | undefined;
+	/** `work`, or the deadline's refusal if the deadline passes first. */
+	before<T>(work: Promise<T>): Promise<T>;
+	/** What else stops at the deadline: a body being read, an answer still awaited. */
+	readonly onExpiry: OnExpiry;
+	/** Clears the timer once the read is over. */
+	clear(): void;
+}
+
+/** startDeadline starts the deadline of a read of `url`. The deadline is a timer the read
+ * races, so it holds on every runtime and whatever the transport does. AbortController is
+ * looked for here, at each read, not when the module loads; where the runtime has one, the
+ * transport is handed its signal. When the timer fires it refuses the read first, then
+ * aborts the signal, then runs each registered stop. The order matters: a transport that
+ * fails as its signal aborts, or a body that ends because it was cancelled, would
+ * otherwise settle the read before the refusal does. */
+function startDeadline(url: string): ReadDeadline {
+	const controller = typeof AbortController === "function" ? new AbortController() : undefined;
+	const stops = new Set<() => void>();
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const expired = new Promise<never>((_resolve, reject) => {
+		timer = setTimeout(() => {
+			reject(new DirectoryUnavailable(`no complete answer for ${url} within ${DOCUMENT_READ_TIMEOUT_MS} ms`));
+			controller?.abort();
+			for (const stop of stops) {
+				try {
+					stop();
+				} catch {
+					// A stop that fails holds only its own resource; the read is over either way.
+				}
+			}
+		}, DOCUMENT_READ_TIMEOUT_MS);
+	});
+	// The race below observes the deadline; this stops it surfacing as an unhandled
+	// rejection when the read finishes first.
+	expired.catch(() => undefined);
+	return {
+		signal: controller?.signal,
+		before: <T>(work: Promise<T>): Promise<T> => Promise.race([work, expired]),
+		onExpiry: (stop) => {
+			stops.add(stop);
+			return () => {
+				stops.delete(stop);
+			};
+		},
+		clear: () => {
+			if (timer !== undefined) clearTimeout(timer);
+		},
+	};
+}
+
+/** The init every hop of a read hands its transport: follow no redirect, and carry the
+ * read's signal where it has one. Where it has none the member is left out, not set to
+ * undefined, so a transport that spreads init into the runtime's own fetch hands that fetch
+ * no signal either. A fresh object per hop, so a transport that changes the init it was
+ * handed changes nothing the next hop asks. */
+function readInit(signal: AbortSignal | undefined): FetchInit {
+	return signal === undefined ? { redirect: "manual" } : { redirect: "manual", signal };
+}
+
+/** The transport's answer to one hop. One that arrives after the deadline is released
+ * unread, as aborting the request releases it where the runtime has a signal to abort. */
+function answerOf(pending: Promise<FetchResponse>, onExpiry: OnExpiry): Promise<FetchResponse> {
+	const answer = Promise.resolve(pending);
+	const release = onExpiry(() => {
+		answer.then(discardBody, () => undefined);
+	});
+	return answer.finally(release);
 }
 
 /** The URL a read starts at: absolute, and http or https. Any other scheme names no
@@ -246,8 +314,10 @@ function redirectTarget(current: URL, location: string | null, url: string): URL
  * never ends costs at most the cap; without one it takes `arrayBuffer()` (or `text()`)
  * whole and refuses the result. A chunk is accepted by ArrayBuffer.isView rather than
  * instanceof, so a stream from another realm (a Worker isolate, a vm context) reads the
- * same. */
-async function readCapped(resp: FetchResponse, url: string, signal: AbortSignal): Promise<Uint8Array> {
+ * same. At the deadline the read cancels the stream itself, with no AbortSignal involved,
+ * and refuses what it had: a cancelled stream reports an ordinary end, and a body cut off
+ * there is never returned short. */
+async function readCapped(resp: FetchResponse, url: string, onExpiry: OnExpiry): Promise<Uint8Array> {
 	const stream = resp.body;
 	if (stream === undefined || stream === null) {
 		const bytes = resp.arrayBuffer !== undefined
@@ -262,13 +332,19 @@ async function readCapped(resp: FetchResponse, url: string, signal: AbortSignal)
 	const stop = (): void => {
 		reader.cancel().catch(() => undefined);
 	};
-	// At the deadline the read stops waiting on the stream; this lets the stream stop too.
-	signal.addEventListener("abort", stop, { once: true });
+	// At the deadline the read stops waiting on the stream; this stops the stream too, and
+	// marks the read so it refuses what it had rather than returning it.
+	let cutOff = false;
+	const release = onExpiry(() => {
+		cutOff = true;
+		stop();
+	});
 	try {
 		const chunks: Uint8Array[] = [];
 		let total = 0;
 		for (;;) {
 			const { done, value } = await reader.read();
+			if (cutOff) throw new DirectoryUnavailable(`the body of ${url} was cut off at the deadline`);
 			if (done) break;
 			if (value === undefined || !ArrayBuffer.isView(value)) {
 				stop();
@@ -289,7 +365,7 @@ async function readCapped(resp: FetchResponse, url: string, signal: AbortSignal)
 		}
 		return out;
 	} finally {
-		signal.removeEventListener("abort", stop);
+		release();
 	}
 }
 

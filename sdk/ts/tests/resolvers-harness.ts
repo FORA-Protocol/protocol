@@ -333,6 +333,28 @@ export const loopbackFetch = (
 export const httpsToLoopback: FetchLike = (url, init) =>
 	fetch(url.replace(/^https:\/\/127\.0\.0\.1:/, "http://127.0.0.1:"), init?.redirect === "manual" ? { redirect: "manual" } : {});
 
+/** A served body that yields `first`, when given, and then never another chunk, recording
+ * whether its reader cancelled it: what a document read meets from an origin that stops
+ * sending, before or after its first bytes. */
+export function stalledBody(first?: Uint8Array): { stream: ReadableStream<Uint8Array>; cancelled: () => boolean } {
+	let cancelled = false;
+	let sent = false;
+	const stream = new ReadableStream<Uint8Array>({
+		pull(controller) {
+			if (first !== undefined && !sent) {
+				sent = true;
+				controller.enqueue(first);
+				return;
+			}
+			return new Promise<void>(() => undefined);
+		},
+		cancel() {
+			cancelled = true;
+		},
+	});
+	return { stream, cancelled: () => cancelled };
+}
+
 // Parsed-WBAFile builders. These mirror the inline helpers the active-key
 // behavior suite uses, hoisted here so the offer-key-cache suite consumes a
 // PARSED WBAFile (the shape the cache's injected OfferDirectoryFetch seam

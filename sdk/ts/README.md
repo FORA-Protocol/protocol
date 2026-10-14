@@ -101,7 +101,9 @@ call takes `fetch`, the runtime's own fetch or a wrapper around it. The read bou
 whatever fetch it is given, on both entries: a body over 1 MiB is refused, never
 truncated; the whole read ends at 30 seconds; and the read follows redirects itself, at
 most five, never out of http(s), never from https down to http and never for a key
-directory. The address guard for a host another party named is the caller's:
+directory. None of these bounds needs `AbortController`, which Fastly Compute lacks: where
+the runtime has one, the transport is also handed a signal the read aborts at the deadline.
+The address guard for a host another party named is the caller's:
 `blockedAddress` is exported for it, and `allowedScheme`, the scheme allowlist (http and
 https) that guard applies, which is not an https-only rule. The protocol mechanics (`core`, `identity`,
 `hono`, and the `src` helpers such as `pop` and `verify`) are edge-safe too.
