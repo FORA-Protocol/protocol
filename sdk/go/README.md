@@ -269,7 +269,9 @@ import "github.com/FORA-Protocol/protocol/sdk/go/resolvers"
   `NewWBAKeyResolver` (WBA directory, revocation/expiry-aware, with a `Run` poller). A
   WBA directory is fetched with no redirect, must be served as
   `application/http-message-signatures-directory+json`, and only the keys that signed
-  its response (`helpers.VerifyDirectoryResponse`) are handed out.
+  its response (`helpers.VerifyDirectoryResponse`) are handed out. A directory that
+  answers 404 is also `ErrDocumentNotFound`, and one that answers with any 3xx
+  `ErrRedirectRefused`, each wrapped with `ErrDirectoryUnavailable`.
 - **Endpoint resolver** — `NewWellKnownEndpointResolver` discovers an Exchange's
   own service endpoint (`WellKnownManifest.endpoint`) from `/.well-known/fora.json`,
   host-keyed and cached per host. Three sentinels, and the difference decides whether
@@ -302,7 +304,10 @@ import "github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 - **Active-key selection** — `ActiveEd25519Key` / `ActiveEd25519KeyWithExpiry` pick
   an identity's window-active key by document order; the `…Screened` variants fold in
   a revoked-thumbprint screen. `NewCachedOfferKeyResolver` caches the selected offer
-  key with an expiry clamped to the key's `not_after`.
+  key with an expiry clamped to the key's `not_after`. `NewWBADirectoryFetcher` is the
+  directory fetch it runs on; give it `WBADirectoryFetcherOptions{Now: …}` with the
+  cache's own clock, so the directory's response signatures and the key selection are
+  judged at one time.
 - **SSRF-guarded client** — `NewGuardedClientFromEnv` is the single construction path
   every fetch uses; `NewGuardedTransport` composes the same guard over a caller's
   own base transport, so application settings ride UNDER the guard rather than
@@ -372,8 +377,12 @@ response or re-implements signing:
   `ReadRevocationList` and `ReadLicenseDocument` read what a party publishes, through
   the guarded client unless `ReadOptions.Client` replaces it, and return a `Document`
   (the parsed message, URL, bytes and media type) or a `LicenseDocument` verified
-  against `uri_digest`. A failure wraps `ErrDirectoryUnavailable`, `ErrMediaTypeRefused`,
-  `ErrManifestVersionRefused`, `helpers.ErrStrictViolation` or `ErrDigestMismatch`.
+  against `uri_digest`. A failure wraps `helpers.ErrInvalidHost`, `ErrDirectoryUnavailable`
+  (with `ErrDocumentNotFound` for a 404, and `ErrRedirectRefused` for a key directory that
+  answers with any 3xx), `ErrMediaTypeRefused`, `ErrManifestVersionRefused`,
+  `helpers.ErrStrictViolation`, `helpers.ErrDirectoryResponseUnsigned` or
+  `ErrDigestMismatch`. `ReadOptions.Now` is the instant `ReadWBADirectory` judges a
+  directory's response signatures at; zero is the wall clock.
 - **`helpers.CheckStrict(name, payload)`** checks proto-JSON against the strict
   contract: no unknown field, proto field names only, no 32-bit number or bool written
   as a string, and protovalidate. `helpers.CheckStrictMessage` is the same check on a

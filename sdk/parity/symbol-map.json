@@ -197,8 +197,9 @@
     "resolvers.NewContentFetcher": "Go constructor for the content-download leg; py/ts fold construction into their client, so there is no fetcher to build separately.",
     "resolvers.NewGuardedTransport": "Go constructor composing the SSRF guard over a caller's base transport; py/ts expose their guarded fetch as a single factory with no separable base.",
     "resolvers.ProofSigner": "Go interface seam that keeps key custody out of the dialing tier; py/ts inject a signing callable instead of a named interface.",
-    "resolvers.ReadOptions": "Go options struct for the document readers; Python takes the same values as keyword arguments (http=, scheme=) and TS as an options object (ReadDocumentOptions).",
+    "resolvers.ReadOptions": "Go options struct for the document readers; Python takes the same values as keyword arguments (http=, scheme=, now=) and TS as an options object (ReadDocumentOptions).",
     "resolvers.SSRFCheckRedirect": "Go redirect-policy hook; py/ts fold redirect checks into the guard (async_ssrf_guard / the guarded fetch).",
+    "resolvers.WBADirectoryFetcherOptions": "Go options struct for NewWBADirectoryFetcher's optional trailing argument; Python takes the same value as a keyword argument (now=) and TS as a member of WBAOfferDirectoryFetchOptions.",
     "helpers.ErrSignatureTag": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.ErrSignatureAgentForm": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
     "helpers.ErrSignatureAgentNotOrigin": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
@@ -1019,6 +1020,11 @@
       "python": "DirectoryUnavailableError",
       "ts": "DirectoryUnavailable"
     },
+    "resolvers.ErrDocumentNotFound": {
+      "allowlist_reason": null,
+      "python": "DocumentNotFoundError",
+      "ts": "DocumentNotFound"
+    },
     "resolvers.ErrEndpointRefused": {
       "allowlist_reason": null,
       "python": "EndpointRefusedError",
@@ -1063,6 +1069,11 @@
       "allowlist_reason": null,
       "python": "NoEndpointError",
       "ts": "NoEndpoint"
+    },
+    "resolvers.ErrRedirectRefused": {
+      "allowlist_reason": null,
+      "python": "RedirectRefusedError",
+      "ts": "RedirectRefused"
     },
     "resolvers.ErrRevocationUnevaluated": {
       "allowlist_reason": null,

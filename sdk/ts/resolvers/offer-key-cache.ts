@@ -238,6 +238,10 @@ export interface WBAOfferDirectoryFetchOptions {
 	/** The Ed25519 verify primitive the directory's response signatures are checked with,
 	 * for a runtime without WebCrypto Ed25519. Defaults to WebCrypto. */
 	verifyEd25519?: Ed25519Verify;
+	/** The clock, in epoch milliseconds, the directory's response signatures are judged
+	 * against, read on every fetch. Defaults to Date.now. Pass the clock the offer-key
+	 * cache selects keys with (CachedOfferKeyResolverOptions.now), so the two agree. */
+	now?: () => number;
 }
 
 /**
@@ -262,6 +266,7 @@ export function createWBAOfferDirectoryFetch(opts: WBAOfferDirectoryFetchOptions
 	return async (domain: string) => {
 		try {
 			return await fetchWBAFile(fetchFn, wbaDirectoryURL(scheme, joinDirectoryHost(domain, port)), {
+				now: opts.now?.(),
 				verifyEd25519: opts.verifyEd25519,
 			});
 		} catch {

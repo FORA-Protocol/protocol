@@ -42,8 +42,10 @@ from fora_sdk.resolvers import (
     DigestMismatchError,
     DirectoryResponseUnsignedError,
     DirectoryUnavailableError,
+    DocumentNotFoundError,
     ManifestVersionRefusedError,
     MediaTypeRefusedError,
+    RedirectRefusedError,
     read_license_document,
     read_manifest,
     read_revocation_list,
@@ -142,10 +144,18 @@ def test_read_manifest_reads_the_version_before_anything_else(origin: Origin) ->
         read_manifest(origin.host, scheme="http")
 
 
-def test_read_manifest_reports_a_missing_document_as_unavailable(origin: Origin) -> None:
+def test_read_manifest_reports_a_missing_document_as_not_found(origin: Origin) -> None:
+    # A 404 is an unavailable document that says which, so a caller can tell an absent
+    # manifest from an unreachable host; a 503 is unavailable and nothing more.
     origin.set_manifest_status(404)
-    with pytest.raises(DirectoryUnavailableError):
+    with pytest.raises(DocumentNotFoundError) as caught:
         read_manifest(origin.host, scheme="http")
+    assert isinstance(caught.value, DirectoryUnavailableError)
+    assert not isinstance(caught.value, RedirectRefusedError)
+    origin.set_manifest_status(503)
+    with pytest.raises(DirectoryUnavailableError) as caught:
+        read_manifest(origin.host, scheme="http")
+    assert not isinstance(caught.value, DocumentNotFoundError)
 
 
 def test_read_manifest_refuses_a_value_that_is_not_a_bare_host(origin: Origin) -> None:
@@ -223,11 +233,36 @@ def test_read_wba_directory_refuses_a_key_that_did_not_sign_the_response(
 
 def test_read_wba_directory_refuses_a_redirect(origin: Origin, other: Origin) -> None:
     # The directory's address is the origin its signer committed to: a redirect would
-    # hand key lookup to another one, so the reader never follows it.
+    # hand key lookup to another one, so the reader never follows it. The refusal names
+    # the read and its status, never the Location.
     other.set_wba(wba_file_json([active_jwk(make_key().x)]))
+    assert read_wba_directory(other.url + WBA_DIR_PATH).url == other.url + WBA_DIR_PATH
     origin.set_redirect(WBA_DIR_PATH, other.url + WBA_DIR_PATH)
-    with pytest.raises(DirectoryUnavailableError):
+    with pytest.raises(RedirectRefusedError) as caught:
         read_wba_directory(origin.host, scheme="http")
+    assert isinstance(caught.value, DirectoryUnavailableError)
+    assert not isinstance(caught.value, DocumentNotFoundError)
+    assert other.host not in str(caught.value)
+
+
+@pytest.mark.parametrize("status", [300, 302, 304])
+def test_read_wba_directory_refuses_any_3xx(origin: Origin, status: int) -> None:
+    # Whether or not the HTTP client would follow it: a 300, a 304, or a 302 that names
+    # no Location is a redirect answer all the same.
+    origin.set_wba_status(status)
+    with pytest.raises(RedirectRefusedError, match=f"status {status}"):
+        read_wba_directory(origin.host, scheme="http")
+
+
+def test_read_wba_directory_a_location_httpx_cannot_parse(origin: Origin) -> None:
+    # httpx parses the Location even with redirects off, and rejects one it cannot read
+    # before the read sees the status: the read reports an unavailable directory, not a
+    # refused redirect. Nothing is fetched from it either way. The TypeScript read sees
+    # the status first and reports a refused redirect.
+    origin.set_redirect(WBA_DIR_PATH, "http://[::1")
+    with pytest.raises(DirectoryUnavailableError) as caught:
+        read_wba_directory(origin.host, scheme="http")
+    assert not isinstance(caught.value, RedirectRefusedError)
 
 
 def test_read_wba_directory_refuses_a_key_carrying_a_kid(origin: Origin) -> None:
@@ -239,9 +274,23 @@ def test_read_wba_directory_refuses_a_key_carrying_a_kid(origin: Origin) -> None
         read_wba_directory(origin.host, scheme="http")
 
 
-def test_read_wba_directory_reports_an_unpublished_directory(origin: Origin) -> None:
-    with pytest.raises(DirectoryUnavailableError):
+def test_read_wba_directory_judges_response_signatures_at_now(origin: Origin) -> None:
+    # The reader judges the response signatures at ``now`` (unix seconds), and at the
+    # wall clock by default.
+    created = 1_000_000_000
+    key = make_key()
+    origin.set_wba(wba_file_json([active_jwk(key.x)]))
+    origin.set_wba_signature_window(created, created + 60)
+    doc = read_wba_directory(origin.host, scheme="http", now=created + 30)
+    assert [k.x for k in doc.message.keys or []] == [key.x]
+    with pytest.raises(DirectoryResponseUnsignedError):
         read_wba_directory(origin.host, scheme="http")
+
+
+def test_read_wba_directory_reports_an_unpublished_directory(origin: Origin) -> None:
+    with pytest.raises(DocumentNotFoundError) as caught:
+        read_wba_directory(origin.host, scheme="http")
+    assert isinstance(caught.value, DirectoryUnavailableError)
 
 
 # --- revocation list --------------------------------------------------------------------
@@ -263,6 +312,20 @@ def test_read_revocation_list_follows_a_redirect(origin: Origin, other: Origin) 
     other.set_revocation(revocation_json(ANCHOR, [tp]))
     origin.set_redirect(REVOCATION_PATH, other.revocation_url())
     assert read_revocation_list(origin.revocation_url()).message.revoked == [tp]
+
+
+def test_read_revocation_list_reports_a_redirect_to_a_missing_list_as_not_found(
+    origin: Origin, other: Origin
+) -> None:
+    # A followed redirect that ends at a 404 is a missing document, never a refused
+    # redirect: only a key directory refuses one outright.
+    other.set_revocation(revocation_json(ANCHOR, []))
+    origin.set_redirect(REVOCATION_PATH, other.revocation_url())
+    assert read_revocation_list(origin.revocation_url()).message.revoked == []
+    origin.set_redirect(REVOCATION_PATH, other.url + "/missing.json")
+    with pytest.raises(DocumentNotFoundError) as caught:
+        read_revocation_list(origin.revocation_url())
+    assert not isinstance(caught.value, RedirectRefusedError)
 
 
 def test_read_revocation_list_refuses_an_unknown_member(origin: Origin) -> None:

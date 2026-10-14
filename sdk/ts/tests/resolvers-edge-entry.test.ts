@@ -42,6 +42,22 @@ describe("the edge resolvers entry", () => {
 		expect(seen).toEqual(["https://exchange.example/.well-known/fora.json"]);
 	});
 
+	it("names a missing document and a refused redirect on both entries, each still an unavailable document", () => {
+		for (const entry of [edge, node]) {
+			const notFound = new entry.DocumentNotFound("status 404 for https://exchange.example/d");
+			const refused = new entry.RedirectRefused("a key directory is never fetched through a redirect");
+			expect(notFound).toBeInstanceOf(edge.DirectoryUnavailable);
+			expect(refused).toBeInstanceOf(edge.DirectoryUnavailable);
+			expect(notFound).not.toBeInstanceOf(edge.RedirectRefused);
+			expect(refused).not.toBeInstanceOf(edge.DocumentNotFound);
+			expect(notFound).not.toBeInstanceOf(edge.UnknownKey);
+			expect(refused).not.toBeInstanceOf(edge.UnknownKey);
+			expect([notFound.name, refused.name]).toEqual(["DocumentNotFound", "RedirectRefused"]);
+		}
+		expect(node.DocumentNotFound).toBe(edge.DocumentNotFound);
+		expect(node.RedirectRefused).toBe(edge.RedirectRefused);
+	});
+
 	it("refuses a manifest the injected fetch serves under the wrong media type", async () => {
 		const { fetch } = serving({
 			"https://exchange.example/.well-known/fora.json": { body: MANIFEST, contentType: "text/plain" },

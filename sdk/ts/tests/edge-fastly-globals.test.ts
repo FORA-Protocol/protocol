@@ -216,7 +216,7 @@ describe("the edge entry where only Fastly Compute's globals exist", () => {
 			overCapCalls: 1,
 			downgrade: expect.stringMatching(/^DirectoryUnavailable: a redirect from https to plaintext http /),
 			downgradeCalls: 1,
-			keyDirectoryRedirect: expect.stringMatching(/^DirectoryUnavailable: a key directory is never fetched through a redirect/),
+			keyDirectoryRedirect: expect.stringMatching(/^RedirectRefused: a key directory is never fetched through a redirect/),
 			keyDirectoryRedirectCalls: 1,
 			offerDirectoryControl: "ok",
 			offerDirectoryRedirect: "absent",

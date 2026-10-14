@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
@@ -165,25 +166,183 @@ func TestReadWBADirectoryByDomainAndByURL(t *testing.T) {
 	}
 }
 
-// TestReadWBADirectoryRefusesARedirect: a key directory answers 200 itself. A
-// redirect fails the fetch even when it leads to a well-formed, signed directory,
-// while a revocation list or a manifest may still follow one.
+// TestReadWBADirectoryRefusesARedirect: a key directory answers 200 itself. Any
+// 3xx fails the read as ErrRedirectRefused, wrapped with ErrDirectoryUnavailable,
+// whether or not the HTTP client would have followed it, and even when it leads to
+// a well-formed, signed directory; a revocation list or a manifest may still follow
+// one. The error names the read and its status, never the Location.
 func TestReadWBADirectoryRefusesARedirect(t *testing.T) {
+	cases := []struct {
+		name     string
+		status   int
+		location string
+	}{
+		{"301", http.StatusMovedPermanently, "/elsewhere"},
+		{"302", http.StatusFound, "/elsewhere"},
+		{"303", http.StatusSeeOther, "/elsewhere"},
+		{"307", http.StatusTemporaryRedirect, "/elsewhere"},
+		{"308", http.StatusPermanentRedirect, "/elsewhere"},
+		{"302 to another host, with credentials", http.StatusFound, "https://user:secret@elsewhere.example/d?token=t"},
+		{"302 with no Location", http.StatusFound, ""},
+		{"300", http.StatusMultipleChoices, "/elsewhere"},
+		{"304", http.StatusNotModified, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sandbox(t)
+			mux := http.NewServeMux()
+			mux.HandleFunc(resolvers.WBADirectoryPath, func(w http.ResponseWriter, _ *http.Request) {
+				if tc.location != "" {
+					w.Header().Set("Location", tc.location)
+				}
+				w.WriteHeader(tc.status)
+			})
+			mux.HandleFunc("/elsewhere", func(w http.ResponseWriter, r *http.Request) {
+				writeSignedDirectory(w, r, []byte(`{"keys":[`+readerJWK+`]}`))
+			})
+			srv := httptest.NewServer(mux)
+			t.Cleanup(srv.Close)
+			if _, err := resolvers.ReadWBADirectory(context.Background(), srv.URL+"/elsewhere", plain); err != nil {
+				t.Fatalf("the document the redirect names, fetched directly: %v", err)
+			}
+			_, err := resolvers.ReadWBADirectory(context.Background(), hostOf(t, srv), plain)
+			if !errors.Is(err, resolvers.ErrRedirectRefused) || !errors.Is(err, resolvers.ErrDirectoryUnavailable) {
+				t.Fatalf("err = %v, want ErrRedirectRefused wrapped with ErrDirectoryUnavailable", err)
+			}
+			if errors.Is(err, resolvers.ErrDocumentNotFound) || errors.Is(err, resolvers.ErrUnknownKey) {
+				t.Errorf("err = %v also reads as not found or as an unknown key", err)
+			}
+			for _, part := range []string{"secret", "token", "elsewhere"} {
+				if strings.Contains(err.Error(), part) {
+					t.Errorf("err = %q carries the Location (%q)", err, part)
+				}
+			}
+		})
+	}
+}
+
+// TestReadWBADirectoryALocationTheClientCannotParse: Go's HTTP client rejects an
+// answer whose Location it cannot parse before the read sees the status, so the
+// read reports an unavailable directory and not a refused redirect. Nothing is
+// fetched from that Location either way. The TypeScript read sees the status first
+// and reports a refused redirect.
+func TestReadWBADirectoryALocationTheClientCannotParse(t *testing.T) {
+	sandbox(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Location", "http://[::1")
+		w.WriteHeader(http.StatusFound)
+	}))
+	t.Cleanup(srv.Close)
+	_, err := resolvers.ReadWBADirectory(context.Background(), hostOf(t, srv), plain)
+	if !errors.Is(err, resolvers.ErrDirectoryUnavailable) || errors.Is(err, resolvers.ErrRedirectRefused) {
+		t.Fatalf("err = %v, want ErrDirectoryUnavailable and not ErrRedirectRefused", err)
+	}
+}
+
+// TestReadWBADirectoryReportsADigestMismatchAsUnsigned: a response whose
+// Content-Digest does not match its body carries no signature any listed key can
+// be checked against, so the reader refuses it as unsigned, as the Python and
+// TypeScript readers do, and the digest mismatch stays in the chain.
+func TestReadWBADirectoryReportsADigestMismatchAsUnsigned(t *testing.T) {
+	sandbox(t)
+	body := []byte(`{"keys":[` + readerJWK + `]}`)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/signed", func(w http.ResponseWriter, r *http.Request) { writeSignedDirectory(w, r, body) })
+	mux.HandleFunc("/wrong-digest", func(w http.ResponseWriter, r *http.Request) { writeDirectoryWithWrongDigest(w, r, body) })
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	if _, err := resolvers.ReadWBADirectory(context.Background(), srv.URL+"/signed", plain); err != nil {
+		t.Fatalf("the directory with its own digest: %v", err)
+	}
+	_, err := resolvers.ReadWBADirectory(context.Background(), srv.URL+"/wrong-digest", plain)
+	if !errors.Is(err, helpers.ErrDirectoryResponseUnsigned) || !errors.Is(err, helpers.ErrDigestMismatch) {
+		t.Fatalf("err = %v, want ErrDirectoryResponseUnsigned with ErrDigestMismatch", err)
+	}
+}
+
+// TestDocumentReadsReportA404AsNotFound: a document the server does not have is an
+// unavailable document, like any other failed read, and also ErrDocumentNotFound,
+// so a caller can tell an absent document from an unreachable one without reading
+// the message. Every document read reports it; a 503 is unavailable and nothing
+// more.
+func TestDocumentReadsReportA404AsNotFound(t *testing.T) {
+	sandbox(t)
+	sum := sha256.Sum256([]byte(licenseText))
+	digest := "sha256:" + hex.EncodeToString(sum[:])
+	srv := documentOrigin(t, map[string]served{
+		"/ok":   {body: `{"as_of":"2026-05-01T12:00:00Z","revoked":[]}`, contentType: "application/json"},
+		"/down": {status: http.StatusServiceUnavailable, contentType: "application/json"},
+	})
+	ctx := context.Background()
+	if _, err := resolvers.ReadRevocationList(ctx, srv.URL+"/ok", plain); err != nil {
+		t.Fatalf("a document the origin has: %v", err)
+	}
+	host, missing := hostOf(t, srv), srv.URL+"/missing"
+	for name, read := range map[string]func() error{
+		"manifest":        func() error { _, err := resolvers.ReadManifest(ctx, host, plain); return err },
+		"key directory":   func() error { _, err := resolvers.ReadWBADirectory(ctx, host, plain); return err },
+		"revocation list": func() error { _, err := resolvers.ReadRevocationList(ctx, missing, plain); return err },
+		"license document": func() error {
+			_, err := resolvers.ReadLicenseDocument(ctx, &forav1.License{Uri: &missing, UriDigest: &digest}, plain)
+			return err
+		},
+	} {
+		err := read()
+		if !errors.Is(err, resolvers.ErrDocumentNotFound) || !errors.Is(err, resolvers.ErrDirectoryUnavailable) {
+			t.Errorf("%s: err = %v, want ErrDocumentNotFound wrapped with ErrDirectoryUnavailable", name, err)
+		}
+		if errors.Is(err, resolvers.ErrRedirectRefused) || errors.Is(err, resolvers.ErrUnknownKey) {
+			t.Errorf("%s: err = %v also reads as a refused redirect or an unknown key", name, err)
+		}
+	}
+	_, err := resolvers.ReadRevocationList(ctx, srv.URL+"/down", plain)
+	if !errors.Is(err, resolvers.ErrDirectoryUnavailable) || errors.Is(err, resolvers.ErrDocumentNotFound) {
+		t.Errorf("a 503: err = %v, want ErrDirectoryUnavailable alone", err)
+	}
+}
+
+// TestReadRevocationListFollowsARedirect: a revocation list may follow a redirect,
+// so a followed one that ends at a 404 is a missing document, never a refused
+// redirect, and a 3xx the read does not follow is unavailable and nothing more.
+func TestReadRevocationListFollowsARedirect(t *testing.T) {
 	sandbox(t)
 	mux := http.NewServeMux()
-	mux.HandleFunc(resolvers.WBADirectoryPath, func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/elsewhere", http.StatusFound)
+	mux.HandleFunc("/list", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"as_of":"2026-05-01T12:00:00Z","revoked":[]}`))
 	})
-	mux.HandleFunc("/elsewhere", func(w http.ResponseWriter, r *http.Request) {
-		writeSignedDirectory(w, r, []byte(`{"keys":[`+readerJWK+`]}`))
+	mux.HandleFunc("/moved", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/list", http.StatusFound)
+	})
+	mux.HandleFunc("/moved-away", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/gone", http.StatusFound)
+	})
+	mux.HandleFunc("/no-location", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusFound)
+	})
+	mux.HandleFunc("/choices", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Location", "/list")
+		w.WriteHeader(http.StatusMultipleChoices)
+	})
+	mux.HandleFunc("/not-modified", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotModified)
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
-	if _, err := resolvers.ReadWBADirectory(context.Background(), hostOf(t, srv), plain); !errors.Is(err, resolvers.ErrDirectoryUnavailable) {
-		t.Fatalf("ReadWBADirectory through a redirect: err = %v, want ErrDirectoryUnavailable", err)
+	ctx := context.Background()
+	if _, err := resolvers.ReadRevocationList(ctx, srv.URL+"/moved", plain); err != nil {
+		t.Fatalf("a redirect to the list: %v", err)
 	}
-	if _, err := resolvers.ReadWBADirectory(context.Background(), srv.URL+"/elsewhere", plain); err != nil {
-		t.Fatalf("the same document fetched directly: %v", err)
+	_, err := resolvers.ReadRevocationList(ctx, srv.URL+"/moved-away", plain)
+	if !errors.Is(err, resolvers.ErrDocumentNotFound) || errors.Is(err, resolvers.ErrRedirectRefused) {
+		t.Errorf("a redirect to a 404: err = %v, want ErrDocumentNotFound and not ErrRedirectRefused", err)
+	}
+	for _, path := range []string{"/no-location", "/choices", "/not-modified"} {
+		_, err := resolvers.ReadRevocationList(ctx, srv.URL+path, plain)
+		if !errors.Is(err, resolvers.ErrDirectoryUnavailable) ||
+			errors.Is(err, resolvers.ErrRedirectRefused) || errors.Is(err, resolvers.ErrDocumentNotFound) {
+			t.Errorf("%s: err = %v, want ErrDirectoryUnavailable alone", path, err)
+		}
 	}
 }
 
@@ -265,5 +424,26 @@ func TestReadLicenseDocument(t *testing.T) {
 	id := "CC-BY-4.0"
 	if _, err := resolvers.ReadLicenseDocument(context.Background(), &forav1.License{Id: &id}, plain); err == nil {
 		t.Error("a license with no uri was read")
+	}
+}
+
+// TestReadWBADirectoryJudgesResponseSignaturesAtReadOptionsNow: the reader judges a
+// directory's response signatures at ReadOptions.Now, and at the wall clock when it
+// is zero.
+func TestReadWBADirectoryJudgesResponseSignaturesAtReadOptionsNow(t *testing.T) {
+	sandbox(t)
+	created := int64(1_000_000_000)
+	body := []byte(`{"keys":[` + readerJWK + `]}`)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeSignedDirectoryWindow(w, r, body, created, created+60)
+	}))
+	t.Cleanup(srv.Close)
+	at := plain
+	at.Now = time.Unix(created+30, 0)
+	if _, err := resolvers.ReadWBADirectory(context.Background(), hostOf(t, srv), at); err != nil {
+		t.Fatalf("inside the window: %v", err)
+	}
+	if _, err := resolvers.ReadWBADirectory(context.Background(), hostOf(t, srv), plain); !errors.Is(err, helpers.ErrDirectoryResponseUnsigned) {
+		t.Fatalf("at the wall clock: err = %v, want ErrDirectoryResponseUnsigned", err)
 	}
 }

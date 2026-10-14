@@ -41,6 +41,7 @@ from resolvers_harness import (
 # RED: the WBA face and its typed sentinels do not exist yet (TDD red).
 from fora_sdk.resolvers import (  # type: ignore[import-not-found]
     DirectoryUnavailableError,
+    DocumentNotFoundError,
     KeyExpiredError,
     KeyRevokedError,
     UnknownKeyError,
@@ -235,17 +236,22 @@ def test_wba_ttl_cache_hit() -> None:
         origin.close()
 
 
-def test_wba_fetch_error_directory_unavailable_distinct_from_unknown() -> None:
+@pytest.mark.parametrize(("status", "not_found"), [(500, False), (404, True)])
+def test_wba_fetch_error_directory_unavailable_distinct_from_unknown(
+    status: int, not_found: bool
+) -> None:
     # A fetch/500 failure raises DirectoryUnavailableError, which MUST be a
     # distinct class from UnknownKeyError so a composite fails closed rather than
-    # falling through.
+    # falling through. A 404 is the same failure, and also DocumentNotFoundError, so a
+    # caller can tell a directory that is not there from one that is down.
     origin = Origin(tls=True)
-    origin.set_wba_status(500)
+    origin.set_wba_status(status)
     try:
         r = WBAKeyResolver(http=loopback_client(), now=MutableClock(ANCHOR))
         with pytest.raises(DirectoryUnavailableError) as exc:
             r.resolve("any-thumbprint", origin.origin)
         assert not isinstance(exc.value, UnknownKeyError)
+        assert isinstance(exc.value, DocumentNotFoundError) is not_found
     finally:
         origin.close()
 

@@ -189,6 +189,7 @@ def create_wba_offer_directory_fetch(
     http: httpx.Client | None = None,
     scheme: str = "",
     port: str = "",
+    now: Callable[[], datetime] | None = None,
 ) -> DirectoryFetch:
     """The default :data:`DirectoryFetch`: GET one exchange's Web Bot Auth directory,
     with no redirect, check its media type and response signatures, and decode the
@@ -210,13 +211,16 @@ def create_wba_offer_directory_fetch(
     :func:`~fora_sdk.resolvers.wba.wba_directory_url`, so it is the exact string the
     tri-language ``wba-url-vectors.json`` corpus pins.
 
+    ``now`` is the clock the directory's response signatures are judged against, read on
+    every fetch; ``None`` is the wall clock. Pass the clock the
+    :class:`CachedOfferKeyResolver` selects keys with, so the two agree.
+
     **Every failure is contained as None and none is raised.** That is
-    :data:`DirectoryFetch`'s contract rather than a preference:
-    :meth:`CachedOfferKeyResolver.prefetch` gathers these calls through
-    ``asyncio.gather`` WITHOUT ``return_exceptions``, so one raised error abandons the
-    whole batch instead of leaving a single exchange unresolved. An unresolvable
-    exchange is simply absent from the map, and the Verifier then rejects that
-    exchange's offers fail-closed.
+    :data:`DirectoryFetch`'s contract rather than a preference: every caller of the seam
+    reads ``None`` as an unresolvable exchange, which is then simply absent from the
+    map, and the Verifier rejects that exchange's offers fail-closed.
+    :meth:`CachedOfferKeyResolver.prefetch` also treats a raised error as absent, but
+    only as a backstop.
 
     The GET runs on a worker thread because the guarded client is synchronous.
     :mod:`fora_sdk.client` records the reason for that shape: an async twin of each
@@ -231,7 +235,8 @@ def create_wba_offer_directory_fetch(
     async def fetch(domain: str) -> WBAFile | None:
         url = wba_directory_url(scheme, _join_host_port(domain, port))
         try:
-            return await asyncio.to_thread(fetch_wba_directory, client, url)
+            at = None if now is None else int(now().timestamp())
+            return await asyncio.to_thread(fetch_wba_directory, client, url, now=at)
         except Exception:
             # EVERY exception, because the seam's contract is absolute: a
             # DirectoryFetch returns None and never raises, so a caller batching

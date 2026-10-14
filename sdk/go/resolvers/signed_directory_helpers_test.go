@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"net/http"
+	"net/http/httptest"
 	"sync"
 
 	"google.golang.org/protobuf/encoding/protojson"
@@ -37,6 +38,12 @@ const (
 // media type and a response signature by each listed key a test registered. A
 // listed key nobody registered is left unsigned, which a reader treats as absent.
 func writeSignedDirectory(w http.ResponseWriter, r *http.Request, body []byte) {
+	writeSignedDirectoryWindow(w, r, body, directoryResponseCreated, directoryResponseExpires)
+}
+
+// writeSignedDirectoryWindow is writeSignedDirectory with the response signatures'
+// window given: a test of the clock a read judges them at signs for a narrow one.
+func writeSignedDirectoryWindow(w http.ResponseWriter, r *http.Request, body []byte, created, expires int64) {
 	var file forav1.WBAFile
 	_ = protojson.UnmarshalOptions{DiscardUnknown: true}.Unmarshal(body, &file)
 	var signers []helpers.Signer
@@ -59,8 +66,7 @@ func writeSignedDirectory(w http.ResponseWriter, r *http.Request, body []byte) {
 		signers = append(signers, s)
 	}
 	if len(signers) > 0 {
-		sig, err := helpers.SignDirectoryResponse(r.Context(), r.Host, body, signers,
-			directoryResponseCreated, directoryResponseExpires)
+		sig, err := helpers.SignDirectoryResponse(r.Context(), r.Host, body, signers, created, expires)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -69,4 +75,18 @@ func writeSignedDirectory(w http.ResponseWriter, r *http.Request, body []byte) {
 	}
 	w.Header().Set("Content-Type", resolvers.WBADirectoryMediaType)
 	_, _ = w.Write(body)
+}
+
+// writeDirectoryWithWrongDigest answers r as writeSignedDirectory does, but with a
+// Content-Digest that does not match the body: the response signatures cover a
+// digest of some other bytes, so no listed key can be checked against what was
+// served.
+func writeDirectoryWithWrongDigest(w http.ResponseWriter, r *http.Request, body []byte) {
+	rec := httptest.NewRecorder()
+	writeSignedDirectory(rec, r, body)
+	for k, v := range rec.Header() {
+		w.Header()[k] = v
+	}
+	w.Header().Set("Content-Digest", helpers.ContentDigest([]byte("some other body")))
+	_, _ = w.Write(rec.Body.Bytes())
 }

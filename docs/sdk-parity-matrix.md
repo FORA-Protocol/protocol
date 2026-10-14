@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 190 symbols at cross-language parity · 17 documented divergences · 228 Go-idiomatic exclusions · 44 conformance corpora, each tri-replayed.
+**At a glance:** 192 symbols at cross-language parity · 17 documented divergences · 229 Go-idiomatic exclusions · 45 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -158,6 +158,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `Document` | `Document` | `Document` |
 | `ErrDigestMismatch` | `DigestMismatchError` | `DigestMismatch` |
 | `ErrDirectoryUnavailable` | `DirectoryUnavailableError` | `DirectoryUnavailable` |
+| `ErrDocumentNotFound` | `DocumentNotFoundError` | `DocumentNotFound` |
 | `ErrEndpointRefused` | `EndpointRefusedError` | `EndpointRefused` |
 | `ErrExchangeNotPermitted` | `ExchangeNotPermittedError` | `ExchangeNotPermitted` |
 | `ErrKeyExpired` | `KeyExpiredError` | `KeyExpired` |
@@ -167,6 +168,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `ErrManifestVersionRefused` | `ManifestVersionRefusedError` | `ManifestVersionRefused` |
 | `ErrMediaTypeRefused` | `MediaTypeRefusedError` | `MediaTypeRefused` |
 | `ErrNoEndpoint` | `NoEndpointError` | `NoEndpoint` |
+| `ErrRedirectRefused` | `RedirectRefusedError` | `RedirectRefused` |
 | `ErrRevocationUnevaluated` | `RevocationUnevaluatedError` | `RevocationUnevaluated` |
 | `ErrUnknownKey` | `UnknownKeyError` | `UnknownKey` |
 | `LicenseDocument` | `LicenseDocument` | `LicenseDocument` |
@@ -502,8 +504,9 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `resolvers.NewContentFetcher` | Go constructor for the content-download leg; py/ts fold construction into their client, so there is no fetcher to build separately. |
 | `resolvers.NewGuardedTransport` | Go constructor composing the SSRF guard over a caller's base transport; py/ts expose their guarded fetch as a single factory with no separable base. |
 | `resolvers.ProofSigner` | Go interface seam that keeps key custody out of the dialing tier; py/ts inject a signing callable instead of a named interface. |
-| `resolvers.ReadOptions` | Go options struct for the document readers; Python takes the same values as keyword arguments (http=, scheme=) and TS as an options object (ReadDocumentOptions). |
+| `resolvers.ReadOptions` | Go options struct for the document readers; Python takes the same values as keyword arguments (http=, scheme=, now=) and TS as an options object (ReadDocumentOptions). |
 | `resolvers.SSRFCheckRedirect` | Go redirect-policy hook; py/ts fold redirect checks into the guard (async_ssrf_guard / the guarded fetch). |
+| `resolvers.WBADirectoryFetcherOptions` | Go options struct for NewWBADirectoryFetcher's optional trailing argument; Python takes the same value as a keyword argument (now=) and TS as a member of WBAOfferDirectoryFetchOptions. |
 
 ## Cross-language conformance-vector replay
 
@@ -540,6 +543,7 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 | `resolvers/testdata/active-ed25519-key-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/content-fetch-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/document-check-vectors.json` | ✅ | ✅ | ✅ |
+| `resolvers/testdata/document-fetch-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/endpoint-vet-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/license-digest-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/offer-key-clamp-vectors.json` | ✅ | ✅ | ✅ |

@@ -1,0 +1,180 @@
+{
+  "note": "The verdict a document read reports for each status it can be answered with, derived by driving the shared GET. A key_directory read refuses every 3xx; a document read may follow redirects, so only the 3xx answers it does not follow are recorded. not_found and redirect_refused are also unavailable.",
+  "vectors": [
+    {
+      "name": "key_directory_ok",
+      "read": "key_directory",
+      "status": 200,
+      "location": "",
+      "verdict": "ok"
+    },
+    {
+      "name": "document_ok",
+      "read": "document",
+      "status": 200,
+      "location": "",
+      "verdict": "ok"
+    },
+    {
+      "name": "key_directory_not_found",
+      "read": "key_directory",
+      "status": 404,
+      "location": "",
+      "verdict": "not_found"
+    },
+    {
+      "name": "document_not_found",
+      "read": "document",
+      "status": 404,
+      "location": "",
+      "verdict": "not_found"
+    },
+    {
+      "name": "key_directory_forbidden",
+      "read": "key_directory",
+      "status": 403,
+      "location": "",
+      "verdict": "unavailable"
+    },
+    {
+      "name": "key_directory_gone",
+      "read": "key_directory",
+      "status": 410,
+      "location": "",
+      "verdict": "unavailable"
+    },
+    {
+      "name": "key_directory_server_error",
+      "read": "key_directory",
+      "status": 500,
+      "location": "",
+      "verdict": "unavailable"
+    },
+    {
+      "name": "key_directory_unavailable",
+      "read": "key_directory",
+      "status": 503,
+      "location": "",
+      "verdict": "unavailable"
+    },
+    {
+      "name": "document_forbidden",
+      "read": "document",
+      "status": 403,
+      "location": "",
+      "verdict": "unavailable"
+    },
+    {
+      "name": "document_gone",
+      "read": "document",
+      "status": 410,
+      "location": "",
+      "verdict": "unavailable"
+    },
+    {
+      "name": "document_unavailable",
+      "read": "document",
+      "status": 503,
+      "location": "",
+      "verdict": "unavailable"
+    },
+    {
+      "name": "key_directory_moved_permanently",
+      "read": "key_directory",
+      "status": 301,
+      "location": "https://elsewhere.example/.well-known/http-message-signatures-directory",
+      "verdict": "redirect_refused"
+    },
+    {
+      "name": "key_directory_found",
+      "read": "key_directory",
+      "status": 302,
+      "location": "https://elsewhere.example/.well-known/http-message-signatures-directory",
+      "verdict": "redirect_refused"
+    },
+    {
+      "name": "key_directory_see_other",
+      "read": "key_directory",
+      "status": 303,
+      "location": "https://elsewhere.example/.well-known/http-message-signatures-directory",
+      "verdict": "redirect_refused"
+    },
+    {
+      "name": "key_directory_temporary_redirect",
+      "read": "key_directory",
+      "status": 307,
+      "location": "https://elsewhere.example/.well-known/http-message-signatures-directory",
+      "verdict": "redirect_refused"
+    },
+    {
+      "name": "key_directory_permanent_redirect",
+      "read": "key_directory",
+      "status": 308,
+      "location": "https://elsewhere.example/.well-known/http-message-signatures-directory",
+      "verdict": "redirect_refused"
+    },
+    {
+      "name": "key_directory_found_relative",
+      "read": "key_directory",
+      "status": 302,
+      "location": "/elsewhere",
+      "verdict": "redirect_refused"
+    },
+    {
+      "name": "key_directory_found_with_credentials",
+      "read": "key_directory",
+      "status": 302,
+      "location": "https://user:secret@elsewhere.example/d?token=t",
+      "verdict": "redirect_refused"
+    },
+    {
+      "name": "key_directory_found_not_http",
+      "read": "key_directory",
+      "status": 302,
+      "location": "ftp://elsewhere.example/d",
+      "verdict": "redirect_refused"
+    },
+    {
+      "name": "key_directory_found_no_location",
+      "read": "key_directory",
+      "status": 302,
+      "location": "",
+      "verdict": "redirect_refused"
+    },
+    {
+      "name": "key_directory_multiple_choices",
+      "read": "key_directory",
+      "status": 300,
+      "location": "https://elsewhere.example/.well-known/http-message-signatures-directory",
+      "verdict": "redirect_refused"
+    },
+    {
+      "name": "key_directory_not_modified",
+      "read": "key_directory",
+      "status": 304,
+      "location": "",
+      "verdict": "redirect_refused"
+    },
+    {
+      "name": "document_found_no_location",
+      "read": "document",
+      "status": 302,
+      "location": "",
+      "verdict": "unavailable"
+    },
+    {
+      "name": "document_multiple_choices",
+      "read": "document",
+      "status": 300,
+      "location": "https://elsewhere.example/.well-known/http-message-signatures-directory",
+      "verdict": "unavailable"
+    },
+    {
+      "name": "document_not_modified",
+      "read": "document",
+      "status": 304,
+      "location": "",
+      "verdict": "unavailable"
+    }
+  ]
+}

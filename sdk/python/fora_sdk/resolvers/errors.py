@@ -6,7 +6,9 @@ can HALT on a fail-closed verdict rather than fall through as if the key were
 merely unknown. The port preserves that distinctness as distinct exception
 classes: each fail-closed verdict is its own catchable class, and (critically)
 ``DirectoryUnavailableError`` is NOT a subclass of ``UnknownKeyError`` — an
-outage must stay distinguishable from an unknown key.
+outage must stay distinguishable from an unknown key. Two unavailable documents
+also say which: ``DocumentNotFoundError`` (a 404) and ``RedirectRefusedError`` (a key
+directory that answers with a redirect) subclass ``DirectoryUnavailableError``.
 """
 
 from __future__ import annotations
@@ -52,6 +54,38 @@ class DirectoryUnavailableError(ResolverError):
     Deliberately NOT a subclass of :class:`UnknownKeyError`: a fail-closed
     composite must be able to halt on a directory outage rather than fall
     through as if the key were merely unknown.
+
+    Two of its failures say which: :class:`DocumentNotFoundError` and
+    :class:`RedirectRefusedError` are subclasses, so an ``except`` for this class
+    still catches both.
+    """
+
+
+class DocumentNotFoundError(DirectoryUnavailableError):
+    """The server answered a document read with 404 Not Found: it serves no document
+    at that address.
+
+    Every document read raises it: the key directory, the manifest, the revocation list
+    and the license document alike. A subclass of :class:`DirectoryUnavailableError`,
+    so a caller that handles an unavailable document handles this too. It states what
+    the server answered and no more: a document a party has yet to publish answers the
+    same way, so whether the absence is final is the caller's decision. Peer of Go
+    ``ErrDocumentNotFound`` / TS ``DocumentNotFound``.
+    """
+
+
+class RedirectRefusedError(DirectoryUnavailableError):
+    """A key directory answered with a redirect: any 3xx status.
+
+    A directory answers 200 itself, because its address is the origin its signer
+    committed to and a redirect would hand key lookup to another one. A VERDICT on what
+    the party serves, like :class:`MediaTypeRefusedError`, and a subclass of
+    :class:`DirectoryUnavailableError` because the directory still could not be read;
+    the message names the read and its status, never the Location. Only a key directory
+    read refuses a redirect outright: a manifest or revocation list read follows up to
+    five, and a hop it will not follow is a plain :class:`DirectoryUnavailableError`, as
+    is a Location the HTTP client cannot parse. Peer of Go ``ErrRedirectRefused`` / TS
+    ``RedirectRefused``.
     """
 
 

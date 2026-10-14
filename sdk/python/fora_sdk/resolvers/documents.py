@@ -210,9 +210,11 @@ def fetch_wba_directory(http: httpx.Client, url: str, *, now: int | None = None)
     Every failure leaves as :class:`DirectoryUnavailableError`, which is what lets each
     caller make its own raise-or-contain choice against ONE exception type.
     ``fetch_document`` folds in every transport failure, every non-200, and every way the
-    URL itself can be refused — a malformed A-label and an over-long label included.
-    This adds the arms it does not cover: a redirect, a wrong media type, a body that is
-    not a valid directory, and a response that cannot be checked for signatures.
+    URL itself can be refused — a malformed A-label and an over-long label included —
+    and raises two subclasses that say which: :class:`DocumentNotFoundError` for a 404
+    and :class:`RedirectRefusedError` for any 3xx. This adds the arms it does not cover:
+    a wrong media type, a body that is not a valid directory, and a response that cannot
+    be checked for signatures.
     """
     fetched = fetch_document(http, url, follow_redirects=False)
     if fetched.media_type != WBA_DIRECTORY_MEDIA_TYPE:
@@ -392,8 +394,8 @@ def read_manifest(
 
     Raises ``ValueError`` when ``domain`` is not a bare host (a port is allowed), before
     anything is dialled; :class:`DirectoryUnavailableError` when the fetch fails or the
-    body is not JSON; :class:`MediaTypeRefusedError`;
-    :class:`ManifestVersionRefusedError`; and
+    body is not JSON (its subclass :class:`DocumentNotFoundError` for a 404);
+    :class:`MediaTypeRefusedError`; :class:`ManifestVersionRefusedError`; and
     :class:`~fora_sdk.strict.StrictViolationError`.
 
     ``http`` defaults to :func:`~fora_sdk.resolvers.guarded_client`, built for this call
@@ -407,7 +409,11 @@ def read_manifest(
 
 
 def read_wba_directory(
-    url_or_domain: str, *, scheme: str = "https", http: httpx.Client | None = None
+    url_or_domain: str,
+    *,
+    scheme: str = "https",
+    http: httpx.Client | None = None,
+    now: int | None = None,
 ) -> Document[WBAFile]:
     """Fetch and check a WBA key directory.
 
@@ -417,15 +423,22 @@ def read_wba_directory(
     fetched with no redirect: a redirect fails the fetch. The media type must be
     ``application/http-message-signatures-directory+json``, the body must pass the
     strict ``WBAFile`` schema and the cross-field rules, and the response must carry a
-    valid response signature by EVERY key it lists. Key validity windows and revocation
-    are not evaluated: that is the WBA key resolver's job, and a directory listing an
-    expired key is still a well-formed directory.
+    valid response signature by EVERY key it lists, judged at ``now`` (unix seconds,
+    default the wall clock). Key validity windows and revocation are not evaluated:
+    that is the WBA key resolver's job, and a directory listing an expired key is still
+    a well-formed directory.
 
     Raises ``ValueError`` for a value that is neither a URL nor a bare host;
-    :class:`DirectoryUnavailableError`; :class:`MediaTypeRefusedError`;
-    :class:`~fora_sdk.strict.StrictViolationError`; and
+    :class:`DirectoryUnavailableError` (its subclasses :class:`DocumentNotFoundError`
+    for a 404 and :class:`RedirectRefusedError` for any 3xx);
+    :class:`MediaTypeRefusedError`; :class:`~fora_sdk.strict.StrictViolationError`; and
     :class:`DirectoryResponseUnsignedError` when a listed key did not sign the
     response. ``http`` is as for :func:`read_manifest`.
+
+    It checks what a party publishes, so every listed key must have signed. A verifier
+    reads a directory through :class:`~fora_sdk.resolvers.WBAKeyResolver` or
+    :func:`~fora_sdk.resolvers.create_wba_offer_directory_fetch` instead, which use only
+    the keys whose response signature verifies, as ``WBAFile.keys`` requires.
     """
     if "://" in url_or_domain:
         url = url_or_domain
@@ -438,7 +451,9 @@ def read_wba_directory(
     doc = accept(WBA_DIRECTORY, fetched)
     listed = doc.message.keys or []
     try:
-        signed = signed_directory_keys(fetched, doc.message, int(time.time()))
+        signed = signed_directory_keys(
+            fetched, doc.message, int(time.time()) if now is None else now
+        )
     except ValueError as exc:
         raise DirectoryResponseUnsignedError(f"{url}: {exc}") from exc
     if len(signed.keys or []) != len(listed):
@@ -458,7 +473,8 @@ def read_revocation_list(
     cross-field rules. Whether ``url`` is anchored to the directory's host is the
     caller's question: the WBA key resolver skips a list that is not.
 
-    Raises :class:`DirectoryUnavailableError` and
+    Raises :class:`DirectoryUnavailableError` (its subclass
+    :class:`DocumentNotFoundError` for a 404) and
     :class:`~fora_sdk.strict.StrictViolationError`. ``http`` is as for
     :func:`read_manifest`.
     """
@@ -485,8 +501,9 @@ def read_license_document(
     :class:`DirectoryUnavailableError`: it names a document, not a place to fetch one.
 
     Raises ``ValueError`` when the license carries no ``uri``;
-    :class:`~fora_sdk.strict.StrictViolationError`; :class:`DirectoryUnavailableError`;
-    and :class:`DigestMismatchError`. ``http`` is as for :func:`read_manifest`.
+    :class:`~fora_sdk.strict.StrictViolationError`; :class:`DirectoryUnavailableError`
+    (its subclass :class:`DocumentNotFoundError` for a 404); and
+    :class:`DigestMismatchError`. ``http`` is as for :func:`read_manifest`.
     """
     if not license.uri:
         raise ValueError("license carries no uri: there is no document to read")

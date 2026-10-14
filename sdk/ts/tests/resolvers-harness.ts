@@ -81,11 +81,14 @@ const RESPONSE_EXPIRES = 2 ** 40;
 
 /** The headers a key directory response carries: the profile's media type and a
  * response signature by each listed key the harness registered (all of them, or only
- * those whose `x` is in `signedBy`), for `authority`. */
+ * those whose `x` is in `signedBy`), for `authority`. The signatures' window is the wide
+ * default unless `window` gives one: a test of the clock a read judges them at signs for
+ * a narrow one (unix seconds). */
 export async function signedDirectoryHeaders(
 	authority: string,
 	body: string,
 	signedBy?: readonly string[],
+	window: { created: number; expires: number } = { created: RESPONSE_CREATED, expires: RESPONSE_EXPIRES },
 ): Promise<Record<string, string>> {
 	const headers: Record<string, string> = { "content-type": WBA_DIRECTORY_MEDIA_TYPE };
 	let listed: string[] = [];
@@ -105,8 +108,8 @@ export async function signedDirectoryHeaders(
 		authority,
 		new TextEncoder().encode(body) as Uint8Array<ArrayBuffer>,
 		signers,
-		RESPONSE_CREATED,
-		RESPONSE_EXPIRES,
+		window.created,
+		window.expires,
 	);
 	headers["content-digest"] = sig.contentDigest;
 	headers["signature-input"] = sig.signatureInput;

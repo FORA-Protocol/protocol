@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -162,5 +164,49 @@ func TestWellKnownDoc_toleranceDoesNotSwallowAConformantMember(t *testing.T) {
 	if got.Verdict != helpers.SchemaAccepted || got.Schema == nil {
 		t.Errorf("verdict = %v, schema nil = %t; want an accepted, usable schema",
 			got.Verdict, got.Schema == nil)
+	}
+}
+
+// The three faces share one fetch, so a manifest the host does not publish reads
+// the same way on each: an unavailable document, like any failed read, and also
+// ErrDocumentNotFound, so a caller can tell an absent manifest from an unreachable
+// host. It is never an unknown key, and never a refused redirect.
+func TestWellKnownDoc_aMissingManifestIsNotFoundOnEveryFace(t *testing.T) {
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+	ctx, host := context.Background(), hostOf(t, srv)
+	for name, read := range map[string]func() error{
+		"key": func() error {
+			r := resolvers.NewWellKnownKeyResolver(srv.URL+helpers.WellKnownPath, resolvers.WellKnownOptions{TTL: time.Hour})
+			_, err := r.Resolve(ctx, "ex.v1")
+			return err
+		},
+		"endpoint": func() error {
+			r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{
+				TTL: time.Hour, Scheme: "http", HTTP: http.DefaultClient,
+			})
+			_, err := r.ResolveEndpoint(ctx, host)
+			return err
+		},
+		"requirements": func() error {
+			_, err := loopbackReader(nil).ResolveRegistrationRequirements(ctx, host)
+			return err
+		},
+	} {
+		before := hits.Load()
+		err := read()
+		if hits.Load() == before {
+			t.Fatalf("%s: the host was never asked", name)
+		}
+		if !errors.Is(err, resolvers.ErrDocumentNotFound) || !errors.Is(err, resolvers.ErrDirectoryUnavailable) {
+			t.Errorf("%s: err = %v, want ErrDocumentNotFound wrapped with ErrDirectoryUnavailable", name, err)
+		}
+		if errors.Is(err, resolvers.ErrUnknownKey) || errors.Is(err, resolvers.ErrRedirectRefused) {
+			t.Errorf("%s: err = %v also reads as an unknown key or a refused redirect", name, err)
+		}
 	}
 }

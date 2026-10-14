@@ -17,7 +17,7 @@ import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { readRevocationList } from "../resolvers/edge.ts";
-import { DirectoryUnavailable } from "../resolvers/errors.ts";
+import { DirectoryUnavailable, DocumentNotFound, RedirectRefused } from "../resolvers/errors.ts";
 import {
 	DOCUMENT_READ_TIMEOUT_MS,
 	type FetchInit,
@@ -160,8 +160,24 @@ describe.each(RUNTIMES)("on $name", ({ abort }) => {
 			const { fetch, calls } = recordingFetch((url) =>
 				url === "https://doc.example/start" ? redirect(location) : ok("{}"),
 			);
-			await expect(fetchDocument(fetch, "https://doc.example/start")).rejects.toBeInstanceOf(DirectoryUnavailable);
+			const err = await fetchDocument(fetch, "https://doc.example/start").catch((e: unknown) => e);
+			// A hop a follow read will not take is an unavailable document, not a refused
+			// redirect: only a key directory refuses a redirect outright.
+			expect(err).toBeInstanceOf(DirectoryUnavailable);
+			expect(err).not.toBeInstanceOf(RedirectRefused);
 			expect(calls).toHaveLength(1);
+		});
+
+		it("reads a followed redirect that ends at a 404 as a missing document", async () => {
+			const moved = recordingFetch((url) => (url === "https://doc.example/start" ? redirect("/list") : ok("{}")));
+			expect((await fetchDocument(moved.fetch, "https://doc.example/start")).url).toBe("https://doc.example/start");
+			const gone = recordingFetch((url) =>
+				url === "https://doc.example/start" ? redirect("/gone") : new Response(null, { status: 404 }),
+			);
+			const err = await fetchDocument(gone.fetch, "https://doc.example/start").catch((e: unknown) => e);
+			expect(err).toBeInstanceOf(DocumentNotFound);
+			expect(err).not.toBeInstanceOf(RedirectRefused);
+			expect(gone.calls).toHaveLength(2);
 		});
 
 		it("follows http to http, where the read started in plaintext", async () => {
@@ -173,22 +189,45 @@ describe.each(RUNTIMES)("on $name", ({ abort }) => {
 
 		it("refuses a 3xx that names no new location, and any 3xx for a key directory", async () => {
 			const notModified = recordingFetch(() => new Response(null, { status: 300 }));
-			await expect(fetchDocument(notModified.fetch, "https://doc.example/d")).rejects.toBeInstanceOf(DirectoryUnavailable);
+			const plain = await fetchDocument(notModified.fetch, "https://doc.example/d").catch((e: unknown) => e);
+			expect(plain).toBeInstanceOf(DirectoryUnavailable);
+			expect(plain).not.toBeInstanceOf(RedirectRefused);
 			expect(notModified.calls).toHaveLength(1);
 
 			const directory = recordingFetch(() => redirect("https://doc.example/elsewhere"));
-			await expect(
-				fetchDocument(directory.fetch, "https://doc.example/dir", { noRedirect: true }),
-			).rejects.toBeInstanceOf(DirectoryUnavailable);
+			const refused = await fetchDocument(directory.fetch, "https://doc.example/dir", { noRedirect: true }).catch(
+				(e: unknown) => e,
+			);
+			expect(refused).toBeInstanceOf(RedirectRefused);
+			expect(refused).toBeInstanceOf(DirectoryUnavailable);
+			expect((refused as Error).message).not.toContain("elsewhere");
 			expect(directory.calls).toHaveLength(1);
 		});
 
-		it("refuses a response the transport followed although it was asked not to", async () => {
-			const followed = ok("{}");
-			Object.defineProperty(followed, "redirected", { value: true });
-			const { fetch, calls } = recordingFetch(() => followed);
-			await expect(fetchDocument(fetch, "https://doc.example/d")).rejects.toBeInstanceOf(DirectoryUnavailable);
+		it("refuses as a redirect a Location no URL parser reads, on a key-directory read", async () => {
+			// The read sees the status before it looks at the Location, so this is a refused
+			// redirect here. Go's and Python's HTTP clients reject that answer before their
+			// reads see its status, and report an unavailable document.
+			const { fetch, calls } = recordingFetch(() => redirect("http://[::1"));
+			const err = await fetchDocument(fetch, "https://doc.example/dir", { noRedirect: true }).catch((e: unknown) => e);
+			expect(err).toBeInstanceOf(RedirectRefused);
 			expect(calls).toHaveLength(1);
+		});
+
+		it("refuses a response the transport followed although it was asked not to", async () => {
+			const { fetch, calls } = recordingFetch(() => {
+				const followed = ok("{}");
+				Object.defineProperty(followed, "redirected", { value: true });
+				return followed;
+			});
+			const plain = await fetchDocument(fetch, "https://doc.example/d").catch((e: unknown) => e);
+			expect(plain).toBeInstanceOf(DirectoryUnavailable);
+			expect(plain).not.toBeInstanceOf(RedirectRefused);
+			const directory = await fetchDocument(fetch, "https://doc.example/dir", { noRedirect: true }).catch(
+				(e: unknown) => e,
+			);
+			expect(directory).toBeInstanceOf(RedirectRefused);
+			expect(calls).toHaveLength(2);
 		});
 
 		it("never fetches a URL that is not http(s)", async () => {

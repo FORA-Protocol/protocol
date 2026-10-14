@@ -91,10 +91,18 @@ def register_directory_key(priv: Ed25519PrivateKey) -> None:
         _DIRECTORY_KEYS[x] = priv
 
 
-def signed_directory_headers(authority: str, body: bytes) -> dict[str, str]:
+def signed_directory_headers(
+    authority: str,
+    body: bytes,
+    *,
+    created: int = _DIRECTORY_SIGNATURE_CREATED,
+    expires: int = _DIRECTORY_SIGNATURE_EXPIRES,
+) -> dict[str, str]:
     """The response-signature headers for a directory ``body`` served under
     ``authority``: one signature per listed key a test registered, none when the
-    body lists no registered key or is not a directory at all."""
+    body lists no registered key or is not a directory at all. The window is the wide
+    default unless ``created`` and ``expires`` (unix seconds) give one: a test of the
+    clock a read judges the signatures at signs for a narrow one."""
     try:
         listed = [k.get("x") for k in json.loads(body).get("keys") or []]
     except (ValueError, AttributeError, TypeError):
@@ -104,9 +112,7 @@ def signed_directory_headers(authority: str, body: bytes) -> dict[str, str]:
     if not privs:
         return {}
     seeds = [p.private_bytes_raw() for p in privs]
-    signed = sign_directory_response(
-        authority, body, seeds, _DIRECTORY_SIGNATURE_CREATED, _DIRECTORY_SIGNATURE_EXPIRES
-    )
+    signed = sign_directory_response(authority, body, seeds, created, expires)
     return signed.headers()
 
 
@@ -278,6 +284,8 @@ def manifest_json(
 class _State:
     wba: str | None = None
     wba_status: int = 0
+    # The directory's response-signature window (created, expires); None is the wide one.
+    wba_window: tuple[int, int] | None = None
     rev: str | None = None
     jwks: str | None = None
     jwks_status: int = 0
@@ -356,7 +364,15 @@ class Origin:
                     self.send_header("content-type", content_type)
                 if path == WBA_DIR_PATH and code == 200:
                     authority = (self.headers.get("Host") or "").lower()
-                    for name, value in signed_directory_headers(authority, body).items():
+                    window = state.wba_window
+                    signed = (
+                        signed_directory_headers(authority, body)
+                        if window is None
+                        else signed_directory_headers(
+                            authority, body, created=window[0], expires=window[1]
+                        )
+                    )
+                    for name, value in signed.items():
                         self.send_header(name, value)
                 self.end_headers()
                 self.wfile.write(body)
@@ -378,6 +394,10 @@ class Origin:
 
     def set_wba_status(self, code: int) -> None:
         self._state.wba_status = code
+
+    def set_wba_signature_window(self, created: int, expires: int) -> None:
+        """Sign the directory's response for ``[created, expires]`` (unix seconds)."""
+        self._state.wba_window = (created, expires)
 
     def set_revocation(self, body: str) -> None:
         self._state.rev = body

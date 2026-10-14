@@ -86,7 +86,11 @@ URL, bytes and media type; the license reader also verifies the bytes against
 `uri_digest` (`DigestMismatch`). A key directory is fetched with no redirect, must be
 served as `application/http-message-signatures-directory+json`, and must carry a response
 signature by every key it lists (`DirectoryResponseUnsigned`); the WBA key resolver hands
-out only the keys that signed. `checkStrict(message, payload)` from
+out only the keys that signed. A failed read throws `DirectoryUnavailable`, and two say
+which: `DocumentNotFound` for a 404 and `RedirectRefused` for a key directory that answers
+with any 3xx, both subclasses of it. `readWBADirectory` and `createWBAOfferDirectoryFetch`
+take `now`, the clock in epoch milliseconds a directory's response signatures are judged
+at; give the offer fetch the offer-key cache's own. `checkStrict(message, payload)` from
 `@fora-protocol/sdk/client` applies the same check to any decoded message. The strict
 schema of every message the SDK reads is compiled when the SDK is built, so the check
 generates no code at run time and works where `eval` is refused, as on Cloudflare

@@ -20,6 +20,7 @@ is the thing most likely to be wrong.
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -28,6 +29,7 @@ from resolvers_harness import (
     ANCHOR,
     HOUR,
     WBA_DIR_PATH,
+    MutableClock,
     Origin,
     loopback_client,
     make_key,
@@ -36,10 +38,12 @@ from resolvers_harness import (
 )
 
 from fora_sdk.b64 import b64url_nopad
-from fora_sdk.resolvers import create_wba_offer_directory_fetch
+from fora_sdk.resolvers import CachedOfferKeyResolver, create_wba_offer_directory_fetch
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
+
+    from resolvers_harness import TestKey
 
 
 @pytest.fixture
@@ -237,3 +241,61 @@ def test_an_injected_client_that_raises_is_contained_as_none() -> None:
 
     fetch = create_wba_offer_directory_fetch(http=closed, scheme="http")
     assert asyncio.run(fetch("127.0.0.1:1")) is None
+
+
+# A response-signature window long before the wall clock, and an instant inside it.
+_CREATED = 1_000_000_000
+_EXPIRES = _CREATED + 60
+_IN_WINDOW = datetime.fromtimestamp(_CREATED + 30, tz=UTC)
+
+
+def _serve_directory_signed_for_a_window(o: Origin) -> TestKey:
+    """Publish one key, valid around ``_IN_WINDOW``, whose response signature is good
+    only inside ``[_CREATED, _EXPIRES]``."""
+    key = make_key()
+    o.set_wba(wba_file_json([wba_jwk(key.x, _IN_WINDOW - HOUR, _IN_WINDOW + HOUR)]))
+    o.set_wba_signature_window(_CREATED, _EXPIRES)
+    return key
+
+
+def _keys(wba: Any) -> list[str]:
+    return [k.x for k in wba.keys or []]
+
+
+def test_judges_response_signatures_at_its_clock_on_every_fetch(origin: Origin) -> None:
+    """The fetch judges the directory's response signatures at ``now``, read on every
+    fetch; the default, the wall clock, is long past the window."""
+    key = _serve_directory_signed_for_a_window(origin)
+    assert _keys(_run(origin)) == []
+    clock = MutableClock(_IN_WINDOW)
+    fetch = create_wba_offer_directory_fetch(http=loopback_client(), scheme="http", now=clock)
+    assert _keys(asyncio.run(fetch(origin.host))) == [key.x]
+    clock.t = datetime.fromtimestamp(_EXPIRES + 1, tz=UTC)
+    assert _keys(asyncio.run(fetch(origin.host))) == []
+
+
+def test_one_clock_serves_the_cache_and_its_fetch(origin: Origin) -> None:
+    """The cache that selects keys and the fetch that checks the directory agree when
+    they share a clock; a fetch on the wall clock leaves the cache nothing to select."""
+    key = _serve_directory_signed_for_a_window(origin)
+    clock = MutableClock(_IN_WINDOW)
+    shared = CachedOfferKeyResolver(
+        fetch=create_wba_offer_directory_fetch(http=loopback_client(), scheme="http", now=clock),
+        now=clock,
+    )
+    assert asyncio.run(shared.prefetch([origin.host])) == {origin.host: key.raw_pub}
+    split = CachedOfferKeyResolver(
+        fetch=create_wba_offer_directory_fetch(http=loopback_client(), scheme="http"),
+        now=clock,
+    )
+    assert asyncio.run(split.prefetch([origin.host])) == {}
+
+
+def test_a_clock_that_raises_is_contained_as_none(origin: Origin) -> None:
+    """The seam contains every failure as None, the clock's own included."""
+    _serve_directory(origin)
+
+    def broken() -> datetime:
+        raise RuntimeError("no clock")
+
+    assert _run(origin, now=broken) is None

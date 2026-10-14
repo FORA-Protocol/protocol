@@ -39,10 +39,12 @@ import {
 // RED: the WBA face and its typed sentinels do not exist yet.
 import {
 	DirectoryUnavailable,
+	DocumentNotFound,
 	KeyExpired,
 	KeyRevoked,
 	createWBAKeyResolver,
 	createWBAOfferDirectoryFetch,
+	RedirectRefused,
 	RevocationUnevaluated,
 	WBA_DIRECTORY_MEDIA_TYPE,
 	WBA_DIRECTORY_PATH,
@@ -321,9 +323,19 @@ describe("createWBAKeyResolver.resolve", () => {
 
 		const r = createWBAKeyResolver({ fetch: httpsToLoopback, now: () => ANCHOR_MS });
 		// Directory outage is a thrown halt, never an undefined fall-through.
-		await expect(r.resolve("any-thumbprint", origin.url)).rejects.toBeInstanceOf(
-			DirectoryUnavailable,
-		);
+		const outage = await r.resolve("any-thumbprint", origin.url).catch((e: unknown) => e);
+		expect(outage).toBeInstanceOf(DirectoryUnavailable);
+		expect(outage).not.toBeInstanceOf(DocumentNotFound);
+	});
+
+	it("throws DocumentNotFound for a directory that is not there, still a DirectoryUnavailable", async () => {
+		origin = await startOrigin();
+		origin.setWBAStatus(404);
+
+		const r = createWBAKeyResolver({ fetch: httpsToLoopback, now: () => ANCHOR_MS });
+		const missing = await r.resolve("any-thumbprint", origin.url).catch((e: unknown) => e);
+		expect(missing).toBeInstanceOf(DocumentNotFound);
+		expect(missing).toBeInstanceOf(DirectoryUnavailable);
 	});
 });
 
@@ -501,11 +513,13 @@ describe("createWBAKeyResolver under the Web Bot Auth profile", () => {
 
 		// The global fetch honours redirect: "manual" and answers the 302 itself.
 		const honouring = createWBAKeyResolver({ fetch: httpsToLoopback, now: () => ANCHOR_MS });
-		await expect(honouring.resolve(k.tp, host)).rejects.toBeInstanceOf(DirectoryUnavailable);
+		await expect(honouring.resolve(k.tp, host)).rejects.toBeInstanceOf(RedirectRefused);
 
-		// A transport that follows anyway is caught by the response it reports.
+		// A transport that follows anyway is caught by the response it reports. It reaches
+		// the loopback origin as httpsToLoopback does, and then ignores the "manual" it is
+		// asked for, so the read meets a response marked redirected.
 		const following: FetchLike = async (url) => {
-			const resp = await globalThis.fetch(url);
+			const resp = await globalThis.fetch(url.replace(/^https:\/\/127\.0\.0\.1:/, "http://127.0.0.1:"));
 			return {
 				status: resp.status,
 				redirected: resp.redirected,
@@ -515,7 +529,7 @@ describe("createWBAKeyResolver under the Web Bot Auth profile", () => {
 			};
 		};
 		const ignoring = createWBAKeyResolver({ fetch: following, now: () => ANCHOR_MS });
-		await expect(ignoring.resolve(k.tp, host)).rejects.toBeInstanceOf(DirectoryUnavailable);
+		await expect(ignoring.resolve(k.tp, host)).rejects.toBeInstanceOf(RedirectRefused);
 	});
 
 	it("resolves each signature in its own signer's directory", async () => {

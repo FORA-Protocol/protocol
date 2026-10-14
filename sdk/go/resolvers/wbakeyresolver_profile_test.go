@@ -53,14 +53,18 @@ func TestWBAKeyResolver_handsOutOnlyKeysThatSignedTheResponse(t *testing.T) {
 
 // TestWBAKeyResolver_refusesTheWrongMediaTypeAndRedirects: a directory served as
 // application/jwk-set+json, or reached through a redirect, is a directory that is
-// unavailable, never one whose keys are read.
+// unavailable, never one whose keys are read. Each also carries its own sentinel,
+// so a caller can tell the refusal from an outage.
 func TestWBAKeyResolver_refusesTheWrongMediaTypeAndRedirects(t *testing.T) {
 	t.Parallel()
 	priv, jwk := newSigningKey("k-media", wbaAnchor.Add(-time.Hour), wbaAnchor.Add(time.Hour))
 	tp := mustThumbprint(t, priv.Public().(ed25519.PublicKey))
 	body := marshalWBA(jwk)
-	for name, handler := range map[string]http.HandlerFunc{
-		"the JWK Set media type": func(w http.ResponseWriter, r *http.Request) {
+	for name, tc := range map[string]struct {
+		handler http.HandlerFunc
+		also    error
+	}{
+		"the JWK Set media type": {func(w http.ResponseWriter, r *http.Request) {
 			rec := httptest.NewRecorder()
 			writeSignedDirectory(rec, r, body)
 			for k, v := range rec.Header() {
@@ -68,21 +72,22 @@ func TestWBAKeyResolver_refusesTheWrongMediaTypeAndRedirects(t *testing.T) {
 			}
 			w.Header().Set("Content-Type", "application/jwk-set+json")
 			_, _ = w.Write(rec.Body.Bytes())
-		},
-		"a redirect": func(w http.ResponseWriter, r *http.Request) {
+		}, resolvers.ErrMediaTypeRefused},
+		"a redirect": {func(w http.ResponseWriter, r *http.Request) {
 			if strings.HasSuffix(r.URL.Path, "/moved") {
 				writeSignedDirectory(w, r, body)
 				return
 			}
 			http.Redirect(w, r, "/moved", http.StatusFound)
-		},
+		}, resolvers.ErrRedirectRefused},
 	} {
 		t.Run(name, func(t *testing.T) {
-			srv := httptest.NewTLSServer(handler)
+			srv := httptest.NewTLSServer(tc.handler)
 			defer srv.Close()
 			ctx := helpers.WithSignatureAgent(context.Background(), srv.URL)
-			if _, err := profileResolver(srv.Client()).Resolve(ctx, tp); !errors.Is(err, resolvers.ErrDirectoryUnavailable) {
-				t.Fatalf("err = %v, want ErrDirectoryUnavailable", err)
+			_, err := profileResolver(srv.Client()).Resolve(ctx, tp)
+			if !errors.Is(err, resolvers.ErrDirectoryUnavailable) || !errors.Is(err, tc.also) {
+				t.Fatalf("err = %v, want ErrDirectoryUnavailable with %v", err, tc.also)
 			}
 		})
 	}

@@ -15,7 +15,7 @@
 // deadline is a timer the read races, and a signal reaches the transport only where the
 // runtime can make one.
 
-import { DirectoryUnavailable } from "./errors.ts";
+import { DirectoryUnavailable, DocumentNotFound, RedirectRefused } from "./errors.ts";
 import { allowedScheme, MAX_REDIRECTS, redirectChainRefused } from "./ssrf.ts";
 
 /** The most bytes one document read accepts. A body past it is refused, never truncated:
@@ -114,12 +114,13 @@ const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]
 
 /** GET `url` and return the body, its media type and its headers. A transport failure
  * or a non-200 status throws DirectoryUnavailable (fail-closed halt) — the taxonomy a
- * composite relies on to distinguish an outage from an unknown key. A blocked SSRF
- * target and a body past the cap are transport failures and surface the same way
- * (never a valid empty doc). So does any other failure of the read, its setup included:
- * every error is a DirectoryUnavailable whose cause is the error that ended the read. The
- * one GET every document read shares, and the place its bounds are enforced, whatever
- * transport `fetchFn` is:
+ * composite relies on to distinguish an outage from an unknown key — and a 404 throws its
+ * subclass DocumentNotFound, so a caller can tell an absent document from an
+ * unreachable one. A blocked SSRF target and a body past the cap are transport failures
+ * and surface the same way (never a valid empty doc). So does any other failure of the
+ * read, its setup included: every error is a DirectoryUnavailable whose cause is the
+ * error that ended the read. The one GET every document read shares, and the place its
+ * bounds are enforced, whatever transport `fetchFn` is:
  *
  *  - the body is read up to MAX_DOC_BYTES and refused past it, never truncated;
  *  - the whole read, every hop and the body included, ends at DOCUMENT_READ_TIMEOUT_MS,
@@ -131,10 +132,12 @@ const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]
  *    carries credentials;
  *  - `noRedirect` is set for a key directory, which is never fetched through a redirect:
  *    its address is the origin its signer committed to, and a redirect would hand key
- *    lookup to another one, so any 3xx fails the read.
+ *    lookup to another one, so any 3xx fails the read as RedirectRefused, a subclass of
+ *    DirectoryUnavailable that names the read and never the Location.
  *
- * A response the transport marks `redirected` is refused either way: the read asked it
- * not to follow, so the hops it took were never vetted here. */
+ * A response the transport marks `redirected` is refused either way, as RedirectRefused on
+ * a key-directory read: the read asked it not to follow, so the hops it took were never
+ * vetted here. */
 export async function fetchDocument(
 	fetchFn: FetchLike,
 	url: string,
@@ -151,11 +154,10 @@ export async function fetchDocument(
 			const isRedirect = resp.status >= 300 && resp.status < 400;
 			if (resp.redirected === true || (isRedirect && opts.noRedirect === true)) {
 				discardBody(resp);
-				throw new DirectoryUnavailable(
-					opts.noRedirect === true
-						? `a key directory is never fetched through a redirect: ${url}`
-						: `the transport followed a redirect it was asked not to: ${url}`,
-				);
+				if (opts.noRedirect === true) {
+					throw new RedirectRefused(`a key directory is never fetched through a redirect: ${url}`);
+				}
+				throw new DirectoryUnavailable(`the transport followed a redirect it was asked not to: ${url}`);
 			}
 			if (isRedirect && REDIRECT_STATUSES.has(resp.status)) {
 				discardBody(resp);
@@ -169,6 +171,7 @@ export async function fetchDocument(
 			}
 			if (resp.status !== 200) {
 				discardBody(resp);
+				if (resp.status === 404) throw new DocumentNotFound(`status ${resp.status} for ${url}`);
 				throw new DirectoryUnavailable(`status ${resp.status} for ${url}`);
 			}
 			const body = await deadline.before(readCapped(resp, url, deadline.onExpiry));

@@ -48,7 +48,11 @@ var (
 	// WBA directory, a well-known manifest, a revocation list or a license
 	// document. It is deliberately errors.Is-DISTINCT from ErrUnknownKey: a
 	// fail-closed composite must be able to halt on a directory outage rather
-	// than fall through as if the key were merely unknown.
+	// than fall through as if the key were merely unknown. Two of its failures
+	// also carry a sentinel of their own, wrapped together with it:
+	// ErrDocumentNotFound for a 404, and ErrRedirectRefused for a key directory
+	// that answers with a redirect. A check for ErrDirectoryUnavailable still
+	// matches both.
 	ErrDirectoryUnavailable = errors.New("resolvers: document unavailable")
 	// ErrRevocationUnevaluated signals that the key resolved, but its directory
 	// declares a revocation_url whose snapshot has never been fetched (unreachable

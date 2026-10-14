@@ -18,9 +18,11 @@ import {
 	DigestMismatch,
 	DirectoryResponseUnsigned,
 	DirectoryUnavailable,
+	DocumentNotFound,
 	MANIFEST_MEDIA_TYPE,
 	ManifestVersionRefused,
 	MediaTypeRefused,
+	RedirectRefused,
 	readLicenseDocument,
 	readManifest,
 	readRevocationList,
@@ -121,7 +123,8 @@ describe("readManifest", () => {
 		["the wrong media type", { body: '{"ver":"1.0","role":"ROLE_EXCHANGE"}', contentType: "text/plain" }, MediaTypeRefused],
 		["no media type", { body: '{"ver":"1.0","role":"ROLE_EXCHANGE"}' }, MediaTypeRefused],
 		["a version read before the rest", { body: '{"ver":"2.0","role":"ROLE_EXCHANGE","endpoints":[]}', contentType: "application/json" }, ManifestVersionRefused],
-		["a document that is not published", { body: "", contentType: "application/json", status: 404 }, DirectoryUnavailable],
+		["a document that is not published", { body: "", contentType: "application/json", status: 404 }, DocumentNotFound],
+		["a document the host cannot serve", { body: "", contentType: "application/json", status: 503 }, DirectoryUnavailable],
 	] as [string, Served, new (...args: never[]) => Error][])("refuses %s", async (_name, served, want) => {
 		docs.set(MANIFEST_PATH, served);
 		await expect(readManifest(host, plain)).rejects.toBeInstanceOf(want);
@@ -198,7 +201,15 @@ describe("readWBADirectory", () => {
 		docs.set(WBA_DIRECTORY_PATH, { body: "", status: 302, location: "/elsewhere" });
 		docs.set("/elsewhere", { body: JSON.stringify({ keys: [JWK] }), contentType: WBA_DIRECTORY_MEDIA_TYPE, signedBy: "all" });
 		await expect(readWBADirectory(`http://${host}/elsewhere`, plain)).resolves.toBeDefined();
-		await expect(readWBADirectory(host, plain)).rejects.toBeInstanceOf(DirectoryUnavailable);
+		const err = await readWBADirectory(host, plain).catch((e: unknown) => e);
+		expect(err).toBeInstanceOf(RedirectRefused);
+		expect(err).toBeInstanceOf(DirectoryUnavailable);
+	});
+
+	it("reports a directory that is not published as a missing document", async () => {
+		const err = await readWBADirectory(host, plain).catch((e: unknown) => e);
+		expect(err).toBeInstanceOf(DocumentNotFound);
+		expect(err).toBeInstanceOf(DirectoryUnavailable);
 	});
 });
 

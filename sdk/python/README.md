@@ -329,7 +329,9 @@ and still defaults to a plain one, which is a known gap rather than a decision. 
   `WBAKeyResolver` (Web Bot Auth directory, revocation- and expiry-aware, with a
   background poller). A key directory is fetched with no redirect, must be served as
   `application/http-message-signatures-directory+json`, and only the keys that signed its
-  response (`verify_directory_response`) are handed out. A Signature-Agent member is always
+  response (`verify_directory_response`) are handed out. A directory that answers 404
+  raises `DocumentNotFoundError`, and one that answers with any 3xx `RedirectRefusedError`,
+  both subclasses of `DirectoryUnavailableError`. A Signature-Agent member is always
   an https origin and its directory is always fetched over https; a local sandbox serves
   the directory over TLS and injects an `http=` client that trusts it.
 - **Endpoint resolver** — `WellKnownEndpointResolver` discovers an Exchange's own service
@@ -342,8 +344,9 @@ and still defaults to a plain one, which is a known gap rather than a decision. 
   retrying.
 - **Offer keys** — `CachedOfferKeyResolver` caches an Exchange's offer-signing key with an
   expiry clamped to the key's own `not_after`, and `create_wba_offer_directory_fetch` is
-  the fetch it runs on. `active_ed25519_key_screened` and its siblings are the underlying
-  window-and-revocation selection.
+  the fetch it runs on. Give both the same `now=` clock, so the directory's response
+  signatures and the key selection are judged at one time. `active_ed25519_key_screened`
+  and its siblings are the underlying window-and-revocation selection.
 - **Registration requirements** — `WellKnownRequirementsReader` reads what one Exchange
   asks of a registration from the same manifest, and holds no document cache: the contract
   requires the terms digest to come from a freshly fetched document.
@@ -519,9 +522,11 @@ a service through the SDK and check every answer through it:
   the strict contract refuses (`StrictViolationError`), and returns a `Document` with the
   parsed model, the URL, the bytes and the media type. The license reader verifies the
   bytes against `uri_digest` (`DigestMismatchError`) and returns a `LicenseDocument`. A
-  failed fetch is `DirectoryUnavailableError`; no reader returns `None`. The directory
-  reader fetches with no redirect and refuses a directory unless every listed key signed
-  its response (`DirectoryResponseUnsignedError`).
+  failed fetch is `DirectoryUnavailableError`, and two say which: `DocumentNotFoundError`
+  for a 404 and `RedirectRefusedError` for a directory that answers with any 3xx, both
+  subclasses of it; no reader returns `None`. The directory reader fetches with no
+  redirect and refuses a directory unless every listed key signed its response
+  (`DirectoryResponseUnsignedError`), judged at `now=` (unix seconds) or the wall clock.
 - **`check_strict(message_name, payload)`** applies the same strict check to any decoded
   message, raising `StrictViolationError`. A delivery-fetch proof is signed with the
   public `sign_agent_binding` (or `SigningTransport.sign_agent_binding`).

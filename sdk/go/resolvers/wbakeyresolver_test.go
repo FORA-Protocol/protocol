@@ -495,8 +495,10 @@ func TestWBAKeyResolver_TTLCacheHit(t *testing.T) {
 
 // ── Test 14 ────────────────────────────────────────────────────────────────
 
-// TestWBAKeyResolver_FetchError verifies that a fetch/500 failure returns an
-// error wrapping ErrDirectoryUnavailable that is NOT errors.Is(ErrUnknownKey).
+// TestWBAKeyResolver_FetchError verifies that a directory answering 500, or 404,
+// returns an error wrapping ErrDirectoryUnavailable that is NOT
+// errors.Is(ErrUnknownKey). A 404 also wraps ErrDocumentNotFound, so a caller can
+// tell a directory that is not there from one that is down; a 500 does not.
 //
 // This distinction is load-bearing: the broker composite fails closed on any
 // non-ErrUnknownKey error; if a well-known outage returned ErrUnknownKey the
@@ -504,26 +506,41 @@ func TestWBAKeyResolver_TTLCacheHit(t *testing.T) {
 // possibly-revoked key.
 func TestWBAKeyResolver_FetchError(t *testing.T) {
 	t.Parallel()
-	origin := newWBAOrigin(nil)
-	defer origin.close()
-	origin.setWBAStatus(http.StatusInternalServerError) // force 500
+	for _, tc := range []struct {
+		status   int
+		notFound bool
+	}{
+		{http.StatusInternalServerError, false},
+		{http.StatusNotFound, true},
+	} {
+		t.Run(http.StatusText(tc.status), func(t *testing.T) {
+			t.Parallel()
+			origin := newWBAOrigin(nil)
+			defer origin.close()
+			origin.setWBAStatus(tc.status)
 
-	ctx := helpers.WithSignatureAgent(context.Background(), origin.url)
-	r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
-		HTTP: origin.Client(),
-		Now:  func() time.Time { return wbaAnchor },
-	})
-	_, err := r.Resolve(ctx, "any-thumbprint")
-	if err == nil {
-		t.Fatal("want error from 500 origin, got nil")
-	}
-	if !errors.Is(err, resolvers.ErrDirectoryUnavailable) {
-		t.Fatalf("want error wrapping ErrDirectoryUnavailable, got %v", err)
-	}
-	// CRITICAL: fetch failure MUST NOT be confused with an unknown key; the
-	// composite resolver must halt (fail closed), not fall through.
-	if errors.Is(err, helpers.ErrUnknownKey) {
-		t.Fatal("fetch/parse failure must be errors.Is-DISTINCT from ErrUnknownKey to preserve broker composite fail-closed semantics")
+			ctx := helpers.WithSignatureAgent(context.Background(), origin.url)
+			r := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{
+				HTTP: origin.Client(),
+				Now:  func() time.Time { return wbaAnchor },
+			})
+			_, err := r.Resolve(ctx, "any-thumbprint")
+			if err == nil {
+				t.Fatalf("want error from a %d origin, got nil", tc.status)
+			}
+			if !errors.Is(err, resolvers.ErrDirectoryUnavailable) {
+				t.Fatalf("want error wrapping ErrDirectoryUnavailable, got %v", err)
+			}
+			if errors.Is(err, resolvers.ErrDocumentNotFound) != tc.notFound {
+				t.Fatalf("errors.Is(err, ErrDocumentNotFound) = %v for a %d, want %v: %v",
+					!tc.notFound, tc.status, tc.notFound, err)
+			}
+			// CRITICAL: fetch failure MUST NOT be confused with an unknown key; the
+			// composite resolver must halt (fail closed), not fall through.
+			if errors.Is(err, helpers.ErrUnknownKey) {
+				t.Fatal("fetch/parse failure must be errors.Is-DISTINCT from ErrUnknownKey to preserve broker composite fail-closed semantics")
+			}
+		})
 	}
 }
 

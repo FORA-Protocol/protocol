@@ -155,21 +155,43 @@ func clampOfferKeyExpiry(now time.Time, ttl time.Duration, notAfter time.Time) t
 // NewWBADirectoryFetcher returns the default OfferDirectoryFetcher: it GETs
 // scheme://domain[:port]/.well-known/http-message-signatures-directory through
 // client, with no redirect, checks its media type and response signatures, and
-// protojson-decodes the WBAFile, keeping only the keys that signed the response
-// (any transport/status/media-type/decode failure wraps ErrDirectoryUnavailable). client nil installs the same SSRF-guarded default
-// WBAKeyResolver uses — the exchange domain is signature-covered but
-// attacker-influenceable, so the guard costs nothing. scheme empty → https; port
-// empty → the scheme default.
-func NewWBADirectoryFetcher(client *http.Client, scheme, port string) OfferDirectoryFetcher {
+// protojson-decodes the WBAFile, keeping only the keys that signed the response.
+// client nil installs the same SSRF-guarded default WBAKeyResolver uses — the
+// exchange domain is signature-covered but attacker-influenceable, so the guard
+// costs nothing. scheme empty → https; port empty → the scheme default.
+//
+// Any failure wraps ErrDirectoryUnavailable. A 404 also wraps ErrDocumentNotFound,
+// a redirect ErrRedirectRefused, the wrong media type ErrMediaTypeRefused, and a
+// response whose signatures cannot be checked helpers.ErrDirectoryResponseUnsigned
+// (with helpers.ErrDigestMismatch when its Content-Digest does not match). A body
+// that does not decode is ErrDirectoryUnavailable alone. A response no listed key
+// signed returns a file listing no key, and no error.
+//
+// opts is variadic so the common call omits it; at most ONE options value is honored
+// (the first). Its Now is the clock the response signatures are judged at.
+func NewWBADirectoryFetcher(client *http.Client, scheme, port string, opts ...WBADirectoryFetcherOptions) OfferDirectoryFetcher {
 	if client == nil {
 		client = newGuardedWBAClient()
 	}
 	if scheme == "" {
 		scheme = "https"
 	}
-	return func(ctx context.Context, domain string) (*forav1.WBAFile, error) {
-		return fetchWBAFile(ctx, client, scheme+"://"+joinDirectoryHost(domain, port), time.Now())
+	now := time.Now
+	if len(opts) > 0 && opts[0].Now != nil {
+		now = opts[0].Now
 	}
+	return func(ctx context.Context, domain string) (*forav1.WBAFile, error) {
+		return fetchWBAFile(ctx, client, scheme+"://"+joinDirectoryHost(domain, port), now())
+	}
+}
+
+// WBADirectoryFetcherOptions tunes NewWBADirectoryFetcher; omitting it is its zero
+// value.
+type WBADirectoryFetcherOptions struct {
+	// Now is the clock a directory's response signatures are judged against, read on
+	// every fetch; nil uses time.Now. Pass the clock CachedOfferKeyResolverConfig.Now
+	// selects keys with, so the two agree. Tests inject.
+	Now func() time.Time
 }
 
 // joinDirectoryHost joins an exchange domain and a configured port into the

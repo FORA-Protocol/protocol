@@ -131,6 +131,9 @@ export interface ReadDocumentOptions {
 	/** The Ed25519 verify primitive readWBADirectory checks the directory's response
 	 * signatures with, for a runtime without WebCrypto Ed25519. Defaults to WebCrypto. */
 	verifyEd25519?: Ed25519Verify;
+	/** The clock, in epoch milliseconds, readWBADirectory judges the directory's response
+	 * signatures at. Defaults to Date.now. Only readWBADirectory reads it. */
+	now?: () => number;
 }
 
 /** How the resolvers' lenient directory read checks a response. */
@@ -174,7 +177,8 @@ export async function fetchManifest(
  * response (signedDirectoryKeys), so no caller can hand out a key the directory did not
  * sign for. `opts` carries the clock the response signatures' windows are judged against
  * and the Ed25519 primitive they are checked with. The one read of a directory the WBA key resolver and the offer-directory
- * fetch share, so the two never drift. Every failure throws DirectoryUnavailable. */
+ * fetch share, so the two never drift. Every failure throws DirectoryUnavailable: a 404
+ * as its subclass DocumentNotFound, and any 3xx as its subclass RedirectRefused. */
 export async function fetchWBAFile(
 	fetchFn: FetchLike,
 	url: string,
@@ -383,8 +387,9 @@ function constantTimeEqual(a: string, b: string): boolean {
  * WellKnownManifest schema and the cross-field rules.
  *
  * Throws an Error when `domain` is not a bare host (a port is allowed), before anything
- * is dialled; DirectoryUnavailable when the fetch fails or the body is not JSON;
- * MediaTypeRefused; ManifestVersionRefused; and StrictViolation.
+ * is dialled; DirectoryUnavailable when the fetch fails or the body is not JSON (its
+ * subclass DocumentNotFound for a 404); MediaTypeRefused; ManifestVersionRefused; and
+ * StrictViolation.
  */
 export async function readManifest(
 	domain: string,
@@ -404,11 +409,16 @@ export async function readManifest(
  * must be application/http-message-signatures-directory+json, the body must pass the
  * strict WBAFile schema and the cross-field rules, and the response must carry a valid
  * response signature by every key it lists, checked through `opts.verifyEd25519` when one
- * is given. Key validity windows and revocation are not
- * evaluated: that is the WBA key resolver's job, and a directory listing an expired key
- * is still a well-formed directory. Throws an Error for a value that is neither a URL nor
- * a bare host; DirectoryUnavailable; MediaTypeRefused; StrictViolation; and
- * DirectoryResponseUnsigned.
+ * is given and judged at `opts.now`, or the wall clock. Key validity windows and
+ * revocation are not evaluated: that is the WBA key resolver's job, and a directory
+ * listing an expired key is still a well-formed directory. Throws an Error for a value
+ * that is neither a URL nor a bare host; DirectoryUnavailable (its subclasses
+ * DocumentNotFound for a 404 and RedirectRefused for any 3xx); MediaTypeRefused;
+ * StrictViolation; and DirectoryResponseUnsigned.
+ *
+ * It checks what a party publishes, so every listed key must have signed. A verifier
+ * reads a directory through createWBAKeyResolver or createWBAOfferDirectoryFetch instead,
+ * which use only the keys whose response signature verifies, as WBAFile.keys requires.
  */
 export async function readWBADirectory(
 	urlOrDomain: string,
@@ -421,9 +431,10 @@ export async function readWBADirectory(
 	}
 	const fetched = await fetchDocument(opts.fetch, url, { noRedirect: true });
 	const doc = accept(WBA_DIRECTORY, fetched);
+	const at = opts.now?.() ?? Date.now();
 	let signed: WBAFile;
 	try {
-		signed = await signedDirectoryKeys(fetched, doc.message, Date.now(), opts.verifyEd25519);
+		signed = await signedDirectoryKeys(fetched, doc.message, at, opts.verifyEd25519);
 	} catch (err) {
 		throw new DirectoryResponseUnsigned(`${url}: ${(err as Error).message}`, { cause: err });
 	}
@@ -442,7 +453,7 @@ export async function readWBADirectory(
  * reported and not checked. The body must pass the strict KeyRevocationList schema and
  * the cross-field rules. Whether `url` is anchored to the directory's host is the caller's
  * question: the WBA key resolver skips a list that is not. Throws DirectoryUnavailable
- * and StrictViolation.
+ * (its subclass DocumentNotFound for a 404) and StrictViolation.
  */
 export async function readRevocationList(
 	url: string,
@@ -464,8 +475,8 @@ export async function readRevocationList(
  * scheme guard and reported as DirectoryUnavailable: it names a document, not a place to
  * fetch one.
  *
- * Throws an Error when the license carries no uri; StrictViolation; DirectoryUnavailable;
- * and DigestMismatch.
+ * Throws an Error when the license carries no uri; StrictViolation; DirectoryUnavailable
+ * (its subclass DocumentNotFound for a 404); and DigestMismatch.
  */
 export async function readLicenseDocument(
 	license: License,

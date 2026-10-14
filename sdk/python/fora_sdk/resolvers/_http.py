@@ -44,11 +44,17 @@ import httpcore
 import httpx
 
 from fora_sdk.resolvers import _ssrf
-from fora_sdk.resolvers.errors import DirectoryUnavailableError
+from fora_sdk.resolvers.errors import (
+    DirectoryUnavailableError,
+    DocumentNotFoundError,
+    RedirectRefusedError,
+)
 
 _MAX_DOC_BYTES = 1 << 20  # 1 MiB — well-known documents are small
 _TIMEOUT_S = 10.0
 _HTTP_OK = 200
+_HTTP_NOT_FOUND = 404
+_HTTP_REDIRECTS = range(300, 400)
 
 # Overall wall-clock budget for ONE guarded GET. httpx's timeout is PER-PHASE
 # (connect / read / write / pool) and does NOT cover the getaddrinfo the guarded
@@ -377,7 +383,7 @@ def _stream_bounded(client: httpx.Client, url: str, *, follow_redirects: bool = 
     digest mismatch it is not. A non-2xx returns an empty body for the caller to
     classify. httpx owns redirect following and status handling — a non-2xx is an
     ordinary response, never a crash. With ``follow_redirects`` off, a 3xx is returned
-    as itself, which every caller refuses as a non-200.
+    as itself, which :func:`fetch_document` refuses as a :class:`RedirectRefusedError`.
     """
     with client.stream("GET", url, follow_redirects=follow_redirects) as resp:
         content_type = resp.headers.get("content-type")
@@ -433,7 +439,7 @@ def media_type_essence(header: str | None) -> str | None:
 
 def fetch_document(client: httpx.Client, url: str, *, follow_redirects: bool = True) -> Fetched:
     """GET ``url``; return the body and its media type on 200, else raise
-    DirectoryUnavailableError.
+    DirectoryUnavailableError. A 404 raises its subclass DocumentNotFoundError.
 
     A transport failure (an ``httpx.HTTPError`` — including a redirect to an
     unsupported scheme — or an ``OSError``, which ``SsrfError`` and the over-cap refusal
@@ -452,13 +458,23 @@ def fetch_document(client: httpx.Client, url: str, *, follow_redirects: bool = T
 
     ``follow_redirects=False`` refuses every redirect, whatever policy the client
     carries: a key directory answers 200 itself, because its address is the origin its
-    signer committed to and a redirect would hand key lookup to another one.
+    signer committed to and a redirect would hand key lookup to another one. Any 3xx then
+    raises the subclass RedirectRefusedError, naming the read and its status and never
+    the Location. A Location httpx cannot parse fails inside the client before the
+    status is seen, and is a plain DirectoryUnavailableError.
     """
     try:
         answer = _get_bounded(client, url, follow_redirects=follow_redirects)
     except (httpx.HTTPError, httpx.InvalidURL, OSError, ValueError) as exc:
         raise DirectoryUnavailableError(f"fetch {url}") from exc
     if answer.status != _HTTP_OK:
+        if not follow_redirects and answer.status in _HTTP_REDIRECTS:
+            raise RedirectRefusedError(
+                f"status {answer.status} for {url}: "
+                "a key directory is never fetched through a redirect"
+            )
+        if answer.status == _HTTP_NOT_FOUND:
+            raise DocumentNotFoundError(f"status {answer.status} for {url}")
         raise DirectoryUnavailableError(f"status {answer.status} for {url}")
     return Fetched(
         url=url,

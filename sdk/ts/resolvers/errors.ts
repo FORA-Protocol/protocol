@@ -26,11 +26,43 @@ export class UnknownKey extends ResolverError {
 /** A document could not be fetched, returned non-200, or failed to decode: the
  * WBA identity directory, a well-known JWKS or manifest, a revocation list, or a
  * license document. DISTINCT from unknown-key so a
- * fail-closed composite halts on an outage instead of falling through. */
+ * fail-closed composite halts on an outage instead of falling through. Two of its
+ * failures say which: DocumentNotFound and RedirectRefused extend it, so
+ * `instanceof DirectoryUnavailable` still matches both. */
 export class DirectoryUnavailable extends ResolverError {
   constructor(message: string, options?: { cause?: unknown }) {
     super(message, options);
     this.name = "DirectoryUnavailable";
+  }
+}
+
+/** The server answered a document read with 404 Not Found: it serves no document at
+ * that address. Every document read throws it: the key directory, the manifest, the
+ * revocation list and the license document alike. Extends DirectoryUnavailable, so a
+ * caller that handles an unavailable document handles this too. It states what the
+ * server answered and no more: a document a party has yet to publish answers the same
+ * way, so whether the absence is final is the caller's decision. Peer of Go
+ * `ErrDocumentNotFound` / Python `DocumentNotFoundError`. */
+export class DocumentNotFound extends DirectoryUnavailable {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "DocumentNotFound";
+  }
+}
+
+/** A key directory answered with a redirect: any 3xx status, or a response the
+ * transport marks `redirected`. A directory answers 200 itself, because its address
+ * is the origin its signer committed to and a redirect would hand key lookup to
+ * another one. A VERDICT on what the party serves, like MediaTypeRefused, and it
+ * extends DirectoryUnavailable because the directory still could not be read; the
+ * message names the read, never the Location. Only a key directory read refuses a
+ * redirect outright: a manifest or revocation list read follows up to five, and a hop
+ * it will not follow is a plain DirectoryUnavailable. Peer of Go `ErrRedirectRefused`
+ * / Python `RedirectRefusedError`. */
+export class RedirectRefused extends DirectoryUnavailable {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "RedirectRefused";
   }
 }
 

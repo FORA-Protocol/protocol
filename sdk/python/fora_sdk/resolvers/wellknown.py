@@ -177,8 +177,10 @@ class WellKnownEndpointResolver:
         carries a ``ver`` this reader does not accept, or none at all;
         ``NoEndpointError`` when the manifest is reachable but advertises nothing;
         ``EndpointRefusedError`` when it advertises an endpoint the rule will not
-        hand back. The fifth, ``DirectoryUnavailableError``, is a transport failure
-        — unreachable or undecodable — and is the only one worth retrying.
+        hand back. The fifth, ``DirectoryUnavailableError``, is a failed read —
+        unreachable, undecodable, or answered 404 (its subclass
+        ``DocumentNotFoundError``, which still says only what the host answered) —
+        and is the only one worth retrying.
         """
         # Checked BEFORE the allow overlay and before the cache. The fetch URL is
         # built by concatenation, so a value carrying a path or a query would

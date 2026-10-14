@@ -32,6 +32,7 @@ from fora_sdk.httpsig import append_signature, sign_request
 from fora_sdk.resolvers import (
     DirectoryUnavailableError,
     KeyExpiredError,
+    RedirectRefusedError,
     UnknownKeyError,
     WBAKeyResolver,
 )
@@ -130,8 +131,9 @@ def test_a_directory_reached_through_a_redirect_is_unavailable(
     _, x, tp = _key(signs=True)
     other.set_wba(wba_file_json([active_jwk(x)]))
     origin.set_redirect(WBA_DIR_PATH, other.url + WBA_DIR_PATH)
-    with pytest.raises(DirectoryUnavailableError):
+    with pytest.raises(RedirectRefusedError) as caught:
         _resolver().resolve(tp, origin.origin)
+    assert isinstance(caught.value, DirectoryUnavailableError)
 
 
 def test_each_signature_resolves_in_its_own_directory(origin: Origin, other: Origin) -> None:
