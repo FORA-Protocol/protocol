@@ -526,10 +526,10 @@ a service through the SDK and check every answer through it:
 - **`CallError.headers`** holds the header fields of a refusal, an answer of status 400 or
   above on an RPC leg or `fetch`: a verifier's `Accept-Signature`, a gateway's
   `Retry-After`, an edge's discovery headers, which `parse_discovery_hint(err.status,
-  err.headers)` reads. It is a read-only mapping looked up case-insensitively, a field sent
-  on several lines joined with ", ". A refused redirect, a 2xx the client could not read
-  and a local or transport failure carry none, and the fields are never rendered into the
-  message.
+  err.headers)` reads. It is the error's own copy, looked up case-insensitively, a field
+  sent on several lines joined with ", ". A refused redirect, a 2xx the client could not
+  read and a local or transport failure carry none, and the fields are never rendered into
+  the message.
 - **Identity helpers** in `fora_sdk.identity` mint a throwaway agent: `generate_key()`,
   `directory_document(keys)` for the directory to serve, and
   `signing_transport_for(key, directory)`. Serve the directory as

@@ -852,7 +852,7 @@ request only where it means to, and check every answer through the SDK's own dec
   rows carrying only `value`, and the new `error-detail-wire-vectors.json` pins the
   binary decoding of every field of the ErrorDetail subtree against the descriptor.
 - **Refusal headers.** A refusal carries the header fields of the answer that refused:
-  `CallError.headers` (Python, a read-only mapping looked up case-insensitively),
+  `CallError.headers` (Python, a mapping looked up case-insensitively),
   `ForaCallError.headers` (TypeScript, a Fetch `Headers`) and `CallError.Header` with
   `resolvers.FetchError.Header` (Go, an `http.Header`), on the RPC legs and the delivery
   fetch alike. A Web Bot Auth verifier's `Accept-Signature`, a gateway's `Retry-After` and
