@@ -93,6 +93,8 @@ if TYPE_CHECKING:
     from fora_sdk.signing_transport import SigningTransport
     from fora_sdk.window import Window
 
+    from ._call import Answer
+
 EXCHANGE_SERVICE = "fora.v1.ExchangeService"
 BROKER_SERVICE = "fora.v1.BrokerService"
 CATALOG_SERVICE = "fora.v1.CatalogService"
@@ -157,9 +159,9 @@ class ClientConfig:
     #: envelope may carry only ``code``, ``message`` and ``details``, must name a known
     #: Connect code and carry well-formed details, and every ErrorDetail in it, its binary
     #: ``value`` and its ``debug`` projection alike, must pass the strict ErrorDetail
-    #: schema and the cross-field rules. A refusal is MALFORMED with ``code`` and
-    #: ``status`` kept and no detail. Off by default, because the models accept fields a
-    #: newer minor version may add.
+    #: schema and the cross-field rules. A refusal is MALFORMED with ``code``, ``status``
+    #: and ``headers`` kept and no detail. Off by default, because the models accept fields
+    #: a newer minor version may add.
     strict: bool = False
     #: The freshness window stamped on a delivery-fetch proof.
     proof_window: Window | None = None
@@ -241,6 +243,19 @@ class Plan:
     strict: bool = False
 
 
+def decode_answer(plan: Plan, answer: Answer, model: type[BaseModel]) -> Any:
+    """Decode one answer into ``model`` as the plan says, handing every failure built from
+    it the answer's header fields."""
+    return decode(
+        plan.op,
+        answer.status,
+        answer.body,
+        model,
+        strict=plan.strict,
+        headers=answer.headers,
+    )
+
+
 # ---------------------------------------------------------------------------
 # discover
 # ---------------------------------------------------------------------------
@@ -269,8 +284,15 @@ def plan_discover(cfg: ClientConfig, query: RequestMessage) -> Plan:
     return _plan(cfg, route, sent)
 
 
-def finish_discover(cfg: ClientConfig, plan: Plan, status: int, body: str) -> DiscoveryResult:
-    msg, raw = decode_with_raw(plan.op, status, body, ResourceResponse, strict=plan.strict)
+def finish_discover(cfg: ClientConfig, plan: Plan, answer: Answer) -> DiscoveryResult:
+    msg, raw = decode_with_raw(
+        plan.op,
+        answer.status,
+        answer.body,
+        ResourceResponse,
+        strict=plan.strict,
+        headers=answer.headers,
+    )
     return DiscoveryResult(
         # The offers are read from the RAW answer, not the parsed one. A model parse is
         # the GATE — it proves the answer well formed and its field names canonical — but
@@ -381,7 +403,7 @@ def plan_resolve(cfg: ClientConfig, request: RequestMessage) -> Plan:
     return _plan(cfg, _Route(op, cfg.base_url, BROKER_SERVICE, "Resolve"), sent)
 
 
-def finish_resolve(cfg: ClientConfig, plan: Plan, status: int, body: str) -> DiscoveryResult:
+def finish_resolve(cfg: ClientConfig, plan: Plan, answer: Answer) -> DiscoveryResult:
     """Read the Broker's answer.
 
     Every returned offer is verified through the SAME fail-closed Verifier discover uses —
@@ -392,7 +414,14 @@ def finish_resolve(cfg: ClientConfig, plan: Plan, status: int, body: str) -> Dis
     A resolve that finds nothing is a SUCCESSFUL answer carrying a typed reason, not a
     failure.
     """
-    msg, raw = decode_with_raw(plan.op, status, body, DiscoveryResponse, strict=plan.strict)
+    msg, raw = decode_with_raw(
+        plan.op,
+        answer.status,
+        answer.body,
+        DiscoveryResponse,
+        strict=plan.strict,
+        headers=answer.headers,
+    )
     groups = raw.get("offer_groups")
     return DiscoveryResult(
         groups=cfg.resolved_verifier().sort_groups(
@@ -473,7 +502,7 @@ def plan_broker_execute(
     return _plan(cfg, _Route(op, cfg.base_url, BROKER_SERVICE, "ExecuteTransaction"), sent)
 
 
-def finish_broker_execute(plan: Plan, status: int, body: str) -> BrokerTransactionResponse:
+def finish_broker_execute(plan: Plan, answer: Answer) -> BrokerTransactionResponse:
     """Read the Broker's combined answer.
 
     An Exchange that refused the Broker's whole sub-request is NOT a failure here: the call
@@ -485,9 +514,7 @@ def finish_broker_execute(plan: Plan, status: int, body: str) -> BrokerTransacti
     or directly: each Exchange scopes the key to the agent whatever the route. Only the
     Broker's own refusals raise.
     """
-    return decode(  # type: ignore[no-any-return]
-        plan.op, status, body, BrokerTransactionResponse, strict=plan.strict
-    )
+    return decode_answer(plan, answer, BrokerTransactionResponse)  # type: ignore[no-any-return]
 
 
 def _offer_wire(offer: VerifiedOffer) -> dict[str, Any]:
@@ -657,11 +684,9 @@ def _require_requester_is_signer(op: str, requester: dict[str, Any], signature_a
         )
 
 
-def finish_execute(plan: Plan, status: int, body: str) -> TransactionResponse:
+def finish_execute(plan: Plan, answer: Answer) -> TransactionResponse:
     """Read the Exchange's answer."""
-    return decode(  # type: ignore[no-any-return]
-        plan.op, status, body, TransactionResponse, strict=plan.strict
-    )
+    return decode_answer(plan, answer, TransactionResponse)  # type: ignore[no-any-return]
 
 
 # ---------------------------------------------------------------------------
@@ -694,8 +719,8 @@ def plan_report_usage(
     )
 
 
-def finish_report_usage(plan: Plan, status: int, body: str) -> UsageReportResponse:
-    return decode(plan.op, status, body, UsageReportResponse, strict=plan.strict)  # type: ignore[no-any-return]
+def finish_report_usage(plan: Plan, answer: Answer) -> UsageReportResponse:
+    return decode_answer(plan, answer, UsageReportResponse)  # type: ignore[no-any-return]
 
 
 def plan_dispute(cfg: ClientConfig, request: RequestMessage, idempotency_key: str | None) -> Plan:
@@ -714,8 +739,8 @@ def plan_dispute(cfg: ClientConfig, request: RequestMessage, idempotency_key: st
     )
 
 
-def finish_dispute(plan: Plan, status: int, body: str) -> DisputeResponse:
-    return decode(plan.op, status, body, DisputeResponse, strict=plan.strict)  # type: ignore[no-any-return]
+def finish_dispute(plan: Plan, answer: Answer) -> DisputeResponse:
+    return decode_answer(plan, answer, DisputeResponse)  # type: ignore[no-any-return]
 
 
 @dataclass(frozen=True)
@@ -793,8 +818,8 @@ def plan_register(cfg: ClientConfig, request: RequestMessage) -> Plan:
     return _plan_routed_keyless(cfg, _Routed(op, RegisterRequest, "Register"), sent)
 
 
-def finish_register(plan: Plan, status: int, body: str) -> RegisterResponse:
-    return decode(plan.op, status, body, RegisterResponse, strict=plan.strict)  # type: ignore[no-any-return]
+def finish_register(plan: Plan, answer: Answer) -> RegisterResponse:
+    return decode_answer(plan, answer, RegisterResponse)  # type: ignore[no-any-return]
 
 
 def plan_get_account_status(cfg: ClientConfig, request: RequestMessage) -> Plan:
@@ -817,8 +842,8 @@ def plan_get_account_status(cfg: ClientConfig, request: RequestMessage) -> Plan:
     return _plan_routed_keyless(cfg, _Routed(op, GetAccountStatusRequest, "GetAccountStatus"), sent)
 
 
-def finish_get_account_status(plan: Plan, status: int, body: str) -> GetAccountStatusResponse:
-    return decode(plan.op, status, body, GetAccountStatusResponse, strict=plan.strict)  # type: ignore[no-any-return]
+def finish_get_account_status(plan: Plan, answer: Answer) -> GetAccountStatusResponse:
+    return decode_answer(plan, answer, GetAccountStatusResponse)  # type: ignore[no-any-return]
 
 
 def _apply_registration_requirements(cfg: ClientConfig, op: str, sent: dict[str, Any]) -> None:
@@ -942,8 +967,8 @@ def plan_push_resources(cfg: ClientConfig, request: RequestMessage) -> Plan:
     return _plan_catalog(cfg, _PUSH_RESOURCES, request)
 
 
-def finish_push_resources(plan: Plan, status: int, body: str) -> PushResourcesResponse:
-    return decode(plan.op, status, body, PushResourcesResponse, strict=plan.strict)
+def finish_push_resources(plan: Plan, answer: Answer) -> PushResourcesResponse:
+    return decode_answer(plan, answer, PushResourcesResponse)
 
 
 def plan_remove_resources(cfg: ClientConfig, request: RequestMessage) -> Plan:
@@ -951,8 +976,8 @@ def plan_remove_resources(cfg: ClientConfig, request: RequestMessage) -> Plan:
     return _plan_catalog(cfg, _REMOVE_RESOURCES, request)
 
 
-def finish_remove_resources(plan: Plan, status: int, body: str) -> RemoveResourcesResponse:
-    return decode(plan.op, status, body, RemoveResourcesResponse, strict=plan.strict)
+def finish_remove_resources(plan: Plan, answer: Answer) -> RemoveResourcesResponse:
+    return decode_answer(plan, answer, RemoveResourcesResponse)
 
 
 def plan_refresh_catalog(cfg: ClientConfig, request: RequestMessage) -> Plan:
@@ -960,8 +985,8 @@ def plan_refresh_catalog(cfg: ClientConfig, request: RequestMessage) -> Plan:
     return _plan_catalog(cfg, _REFRESH_CATALOG, request)
 
 
-def finish_refresh_catalog(plan: Plan, status: int, body: str) -> RefreshCatalogResponse:
-    return decode(plan.op, status, body, RefreshCatalogResponse, strict=plan.strict)
+def finish_refresh_catalog(plan: Plan, answer: Answer) -> RefreshCatalogResponse:
+    return decode_answer(plan, answer, RefreshCatalogResponse)
 
 
 def _plan_catalog(cfg: ClientConfig, verb: _CatalogVerb, message: RequestMessage) -> Plan:

@@ -855,6 +855,7 @@ def test_fetch_proves_possession_of_the_signers_key_not_a_second_one(face: Face)
 )
 def test_a_rate_limit_is_handed_back_as_the_peer_sent_it(reset_at: str) -> None:
     from fora_sdk.client import _verbs
+    from fora_sdk.client._call import Answer
 
     plan = _verbs.Plan(
         op="discover", url="u", body=b"", headers={}, timeout=1.0, max_bytes=1 << 20, sent={}
@@ -866,7 +867,9 @@ def test_a_rate_limit_is_handed_back_as_the_peer_sent_it(reset_at: str) -> None:
             "rate_limit": {"reset_at": reset_at, "remaining": 5},
         }
     )
-    result = _verbs.finish_discover(_verbs.ClientConfig(base_url="https://e.test"), plan, 200, body)
+    result = _verbs.finish_discover(
+        _verbs.ClientConfig(base_url="https://e.test"), plan, Answer(200, body)
+    )
     assert result.rate_limit is not None
     assert result.rate_limit["reset_at"] == reset_at
 
@@ -877,6 +880,7 @@ def test_a_rate_limit_is_handed_back_as_the_peer_sent_it(reset_at: str) -> None:
 # they said 300, and kept a vendor key they both dropped.
 def test_a_rate_limits_other_members_are_the_decoded_ones() -> None:
     from fora_sdk.client import _verbs
+    from fora_sdk.client._call import Answer
 
     plan = _verbs.Plan(
         op="discover", url="u", body=b"", headers={}, timeout=1.0, max_bytes=1 << 20, sent={}
@@ -889,7 +893,9 @@ def test_a_rate_limits_other_members_are_the_decoded_ones() -> None:
             "rate_limit": {"limit": "300", "remaining": 299, "vendor_extra": "x"},
         }
     )
-    result = _verbs.finish_discover(_verbs.ClientConfig(base_url="https://e.test"), plan, 200, body)
+    result = _verbs.finish_discover(
+        _verbs.ClientConfig(base_url="https://e.test"), plan, Answer(200, body)
+    )
     assert result.rate_limit is not None
     assert result.rate_limit["limit"] == 300, "a string-spelled int32 reached the caller"
     assert result.rate_limit["remaining"] == 299

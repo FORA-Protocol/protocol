@@ -14,7 +14,11 @@ from __future__ import annotations
 import enum
 from typing import TYPE_CHECKING
 
+import httpx
+
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from wire.models import ErrorDetail
 
 #: The reason a peer's answer is refused for spelling its field names the wrong way.
@@ -25,6 +29,9 @@ if TYPE_CHECKING:
 #: protojson accepts both spellings on the way in — so this is a value only the JSON
 #: clients can observe, not a divergence in the shared failure taxonomy.
 NOT_CANONICAL_WIRE_NAMING = "not_canonical_wire_naming"
+
+#: The status from which an answer is an error, and its header fields a refusal's.
+_ERROR_STATUS = 400
 
 
 class CallErrorKind(enum.Enum):
@@ -70,6 +77,7 @@ class CallError(Exception):
         peer_message: str = "",
         cause: BaseException | str | None = None,
         code: str | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> None:
         self.kind = kind
         #: The verb that failed, in the SDK's own words ("discover", "fetch content").
@@ -110,6 +118,20 @@ class CallError(Exception):
         #: refusals are edge tokens rather than Connect codes. ``reason`` may hold either
         #: kind of token; this field holds only the Connect code.
         self.code = code
+        #: The header fields of the peer's error answer, 400 or above: an
+        #: ``Accept-Signature`` naming what a verifier requires, a ``Retry-After``, an
+        #: edge's discovery headers (:func:`fora_sdk.parse_discovery_hint` reads them
+        #: with ``status``). Empty for any other failure — a local one, a transport one, a
+        #: 2xx this client could not read, and a refused redirect, whose ``Location``
+        #: names a URL the peer chose and so must not reach a caller here.
+        #:
+        #: A copy, read case-insensitively; a field sent on several lines reads as one
+        #: value joined with ", ". The values are the peer's, unvalidated, and never
+        #: rendered into the message.
+        #:
+        #: The rule is applied here, once: a call site passes the answer's fields and
+        #: this constructor keeps them only for an error status.
+        self.headers: Mapping[str, str] = _refusal_headers(status, headers)
         self.cause = cause
         super().__init__(_render(kind, op, status, reason, cause))
 
@@ -117,6 +139,16 @@ class CallError(Exception):
         """The most specific machine-readable reason available: the peer's own token when
         it sent one, otherwise the failure class."""
         return self.reason or self.kind.value
+
+
+def _refusal_headers(
+    status: int | None, headers: Mapping[str, str] | None
+) -> Mapping[str, str]:
+    """The fields a failure carries for the answer that produced it: a copy for an error
+    status, nothing for any other answer."""
+    if headers is None or status is None or status < _ERROR_STATUS:
+        return httpx.Headers()
+    return httpx.Headers(headers)
 
 
 def _render(

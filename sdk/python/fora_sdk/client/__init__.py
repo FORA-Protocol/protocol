@@ -37,6 +37,7 @@ from . import _admin, _verbs
 from ._call import (
     DEFAULT_CALL_TIMEOUT_SEC,
     DEFAULT_MAX_RPC_READ_BYTES,
+    Answer,
     BeforeSign,
     RawBody,
     Validation,
@@ -176,7 +177,7 @@ class _Face:
                 CallErrorKind.NOT_SENT, op, cause="the client has been closed"
             )
 
-    async def _send(self, plan: _verbs.Plan) -> tuple[int, str]:
+    async def _send(self, plan: _verbs.Plan) -> Answer:
         """Send one RPC and read its answer under the cap.
 
         Streamed, so the cap bounds the READ. httpx buffers a whole response before
@@ -200,10 +201,10 @@ class _Face:
                 follow_redirects=False,
             ) as response:
                 refuse_unrequested_encoding(plan.op, response)
-                read = bounded_chunks(plan.op, plan.max_bytes, response.status_code)
+                read = bounded_chunks(plan.op, plan.max_bytes, response)
                 async for chunk in response.aiter_bytes():
                     read.add(chunk)
-                return response.status_code, read.text()
+                return Answer(response.status_code, read.text(), response.headers)
         except httpx.HTTPError as exc:
             raise as_call_error(plan.op, exc) from exc
         except _ssrf.SsrfError as exc:
@@ -242,9 +243,9 @@ class Client(_Face):
         an absence.
         """
         plan = _verbs.plan_discover(self._config, query)
-        status, body = await self._send(plan)
+        answer = await self._send(plan)
         return await asyncio.to_thread(
-            _verbs.finish_discover, self._config, plan, status, body
+            _verbs.finish_discover, self._config, plan, answer
         )
 
     async def execute(
@@ -261,8 +262,8 @@ class Client(_Face):
         Checking one is the delivery edge's job: :meth:`fetch` presents the agent's proof
         of possession, and the edge verifies the URL's signature and binding."""
         plan = _verbs.plan_execute(self._config, offer, idempotency_key)
-        status, body = await self._send(plan)
-        return _verbs.finish_execute(plan, status, body)
+        answer = await self._send(plan)
+        return _verbs.finish_execute(plan, answer)
 
     async def report_usage(
         self, report: RequestMessage, *, idempotency_key: str | None = None
@@ -271,8 +272,8 @@ class Client(_Face):
         plan = await asyncio.to_thread(
             _verbs.plan_report_usage, self._config, report, idempotency_key
         )
-        status, body = await self._send(plan)
-        return _verbs.finish_report_usage(plan, status, body)
+        answer = await self._send(plan)
+        return _verbs.finish_report_usage(plan, answer)
 
     async def dispute(
         self, request: RequestMessage, *, idempotency_key: str | None = None
@@ -281,8 +282,8 @@ class Client(_Face):
         plan = await asyncio.to_thread(
             _verbs.plan_dispute, self._config, request, idempotency_key
         )
-        status, body = await self._send(plan)
-        return _verbs.finish_dispute(plan, status, body)
+        answer = await self._send(plan)
+        return _verbs.finish_dispute(plan, answer)
 
     async def register(self, request: RequestMessage) -> RegisterResponse:
         """Create this agent's account at the Exchange the request names.
@@ -293,8 +294,8 @@ class Client(_Face):
         requirements from a freshly fetched manifest.
         """
         plan = await asyncio.to_thread(_verbs.plan_register, self._config, request)
-        status, body = await self._send(plan)
-        return _verbs.finish_register(plan, status, body)
+        answer = await self._send(plan)
+        return _verbs.finish_register(plan, answer)
 
     async def get_account_status(
         self, request: RequestMessage
@@ -309,8 +310,8 @@ class Client(_Face):
         plan = await asyncio.to_thread(
             _verbs.plan_get_account_status, self._config, request
         )
-        status, body = await self._send(plan)
-        return _verbs.finish_get_account_status(plan, status, body)
+        answer = await self._send(plan)
+        return _verbs.finish_get_account_status(plan, answer)
 
     async def fetch(self, signed_url: str) -> Content:
         """Retrieve the content a signed delivery URL names, presenting proof of
@@ -357,6 +358,7 @@ class Client(_Face):
                         op,
                         status=response.status_code,
                         cause="peer answered with a redirect, which this client does not follow",
+                        headers=response.headers,
                     )
                 if not response.is_success:
                     # A refusal body is a small JSON object carrying a reason token. It is
@@ -370,7 +372,7 @@ class Client(_Face):
                         if len(refusal) >= MAX_ERROR_BODY_BYTES:
                             break
                     raise edge_refusal(response, refusal[:MAX_ERROR_BODY_BYTES])
-                read = bounded_chunks(op, max_bytes, response.status_code)
+                read = bounded_chunks(op, max_bytes, response)
                 async for chunk in response.aiter_bytes():
                     read.add(chunk)
                 return read_content(url, response, read.body())
@@ -407,9 +409,9 @@ class BrokerClient(_Face):
     async def resolve(self, request: RequestMessage) -> DiscoveryResult:
         """Run discovery through the Broker, which fans out to the Exchanges it knows."""
         plan = _verbs.plan_resolve(self._config, request)
-        status, body = await self._send(plan)
+        answer = await self._send(plan)
         return await asyncio.to_thread(
-            _verbs.finish_resolve, self._config, plan, status, body
+            _verbs.finish_resolve, self._config, plan, answer
         )
 
     async def execute(
@@ -430,8 +432,8 @@ class BrokerClient(_Face):
         :meth:`Client.execute` does.
         """
         plan = _verbs.plan_broker_execute(self._config, offers, idempotency_key)
-        status, body = await self._send(plan)
-        return _verbs.finish_broker_execute(plan, status, body)
+        answer = await self._send(plan)
+        return _verbs.finish_broker_execute(plan, answer)
 
 
 class CatalogClient(_Face):
@@ -459,20 +461,20 @@ class CatalogClient(_Face):
     async def push_resources(self, request: RequestMessage) -> PushResourcesResponse:
         """Push or update catalog entries."""
         plan = await asyncio.to_thread(_verbs.plan_push_resources, self._config, request)
-        status, body = await self._send(plan)
-        return _verbs.finish_push_resources(plan, status, body)
+        answer = await self._send(plan)
+        return _verbs.finish_push_resources(plan, answer)
 
     async def remove_resources(self, request: RequestMessage) -> RemoveResourcesResponse:
         """Remove the catalog entries the request's paths name."""
         plan = await asyncio.to_thread(_verbs.plan_remove_resources, self._config, request)
-        status, body = await self._send(plan)
-        return _verbs.finish_remove_resources(plan, status, body)
+        answer = await self._send(plan)
+        return _verbs.finish_remove_resources(plan, answer)
 
     async def refresh_catalog(self, request: RequestMessage) -> RefreshCatalogResponse:
         """Ask the Exchange to refresh the tenant's catalog from its configured sources."""
         plan = await asyncio.to_thread(_verbs.plan_refresh_catalog, self._config, request)
-        status, body = await self._send(plan)
-        return _verbs.finish_refresh_catalog(plan, status, body)
+        answer = await self._send(plan)
+        return _verbs.finish_refresh_catalog(plan, answer)
 
 
 class AdminClient(_Face):
@@ -498,30 +500,30 @@ class AdminClient(_Face):
     async def set_tenant_fee_rate(self, request: RequestMessage) -> SetTenantFeeRateResponse:
         """Replace a tenant's fee rate (AdminService.SetTenantFeeRate)."""
         plan = _admin.plan_set_tenant_fee_rate(self._config, request)
-        status, body = await self._send(plan)
-        return _admin.finish_set_tenant_fee_rate(plan, status, body)
+        answer = await self._send(plan)
+        return _admin.finish_set_tenant_fee_rate(plan, answer)
 
     async def set_reporting_policy(self, request: RequestMessage) -> SetReportingPolicyResponse:
         """Replace a tenant's reporting policy (AdminService.SetReportingPolicy)."""
         plan = _admin.plan_set_reporting_policy(self._config, request)
-        status, body = await self._send(plan)
-        return _admin.finish_set_reporting_policy(plan, status, body)
+        answer = await self._send(plan)
+        return _admin.finish_set_reporting_policy(plan, answer)
 
     async def request_domain_verification(
         self, request: RequestMessage
     ) -> DomainVerificationChallenge:
         """Ask for a domain-verification challenge (ExchangeService.RequestDomainVerification)."""
         plan = _admin.plan_request_domain_verification(self._config, request)
-        status, body = await self._send(plan)
-        return _admin.finish_request_domain_verification(plan, status, body)
+        answer = await self._send(plan)
+        return _admin.finish_request_domain_verification(plan, answer)
 
     async def confirm_domain_verification(
         self, request: RequestMessage
     ) -> DomainVerificationResult:
         """Confirm a placed challenge (ExchangeService.ConfirmDomainVerification)."""
         plan = _admin.plan_confirm_domain_verification(self._config, request)
-        status, body = await self._send(plan)
-        return _admin.finish_confirm_domain_verification(plan, status, body)
+        answer = await self._send(plan)
+        return _admin.finish_confirm_domain_verification(plan, answer)
 
 
 def _fetch_inputs(config: ClientConfig, signed_url: str) -> tuple[dict[str, str], float, int]:

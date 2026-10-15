@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 from fora_sdk.client import _admin, _fetch_inputs, _verbs
-from fora_sdk.client._call import as_call_error
+from fora_sdk.client._call import Answer, as_call_error
 from fora_sdk.client._read import (
     IDENTITY_ENCODING,
     bounded_chunks,
@@ -121,7 +121,7 @@ class _Face:
                 CallErrorKind.NOT_SENT, op, cause="the client has been closed"
             )
 
-    def _send(self, plan: _verbs.Plan) -> tuple[int, str]:
+    def _send(self, plan: _verbs.Plan) -> Answer:
         """Send one RPC and read its answer under the cap. The async twin's own docstring
         carries the reasoning; only the iteration differs."""
         self._refuse_if_closed(plan.op)
@@ -140,10 +140,10 @@ class _Face:
                 follow_redirects=False,
             ) as response:
                 refuse_unrequested_encoding(plan.op, response)
-                read = bounded_chunks(plan.op, plan.max_bytes, response.status_code)
+                read = bounded_chunks(plan.op, plan.max_bytes, response)
                 for chunk in response.iter_bytes():
                     read.add(chunk)
-                return response.status_code, read.text()
+                return Answer(response.status_code, read.text(), response.headers)
         except httpx.HTTPError as exc:
             raise as_call_error(plan.op, exc) from exc
         except _ssrf.SsrfError as exc:
@@ -165,8 +165,8 @@ class Client(_Face):
 
     def discover(self, query: RequestMessage) -> DiscoveryResult:
         plan = _verbs.plan_discover(self._config, query)
-        status, body = self._send(plan)
-        return _verbs.finish_discover(self._config, plan, status, body)
+        answer = self._send(plan)
+        return _verbs.finish_discover(self._config, plan, answer)
 
     def execute(
         self,
@@ -175,32 +175,32 @@ class Client(_Face):
         idempotency_key: str | None = None,
     ) -> TransactionResponse:
         plan = _verbs.plan_execute(self._config, offer, idempotency_key)
-        status, body = self._send(plan)
-        return _verbs.finish_execute(plan, status, body)
+        answer = self._send(plan)
+        return _verbs.finish_execute(plan, answer)
 
     def report_usage(
         self, report: RequestMessage, *, idempotency_key: str | None = None
     ) -> UsageReportResponse:
         plan = _verbs.plan_report_usage(self._config, report, idempotency_key)
-        status, body = self._send(plan)
-        return _verbs.finish_report_usage(plan, status, body)
+        answer = self._send(plan)
+        return _verbs.finish_report_usage(plan, answer)
 
     def dispute(
         self, request: RequestMessage, *, idempotency_key: str | None = None
     ) -> DisputeResponse:
         plan = _verbs.plan_dispute(self._config, request, idempotency_key)
-        status, body = self._send(plan)
-        return _verbs.finish_dispute(plan, status, body)
+        answer = self._send(plan)
+        return _verbs.finish_dispute(plan, answer)
 
     def register(self, request: RequestMessage) -> RegisterResponse:
         plan = _verbs.plan_register(self._config, request)
-        status, body = self._send(plan)
-        return _verbs.finish_register(plan, status, body)
+        answer = self._send(plan)
+        return _verbs.finish_register(plan, answer)
 
     def get_account_status(self, request: RequestMessage) -> GetAccountStatusResponse:
         plan = _verbs.plan_get_account_status(self._config, request)
-        status, body = self._send(plan)
-        return _verbs.finish_get_account_status(plan, status, body)
+        answer = self._send(plan)
+        return _verbs.finish_get_account_status(plan, answer)
 
     def fetch(self, signed_url: str) -> Content:
         url = signed_url
@@ -231,6 +231,7 @@ class Client(_Face):
                         op,
                         status=response.status_code,
                         cause="peer answered with a redirect, which this client does not follow",
+                        headers=response.headers,
                     )
                 if not response.is_success:
                     refusal = b""
@@ -239,7 +240,7 @@ class Client(_Face):
                         if len(refusal) >= MAX_ERROR_BODY_BYTES:
                             break
                     raise edge_refusal(response, refusal[:MAX_ERROR_BODY_BYTES])
-                read = bounded_chunks(op, max_bytes, response.status_code)
+                read = bounded_chunks(op, max_bytes, response)
                 for chunk in response.iter_bytes():
                     read.add(chunk)
                 return read_content(url, response, read.body())
@@ -259,15 +260,15 @@ class BrokerClient(_Face):
 
     def resolve(self, request: RequestMessage) -> DiscoveryResult:
         plan = _verbs.plan_resolve(self._config, request)
-        status, body = self._send(plan)
-        return _verbs.finish_resolve(self._config, plan, status, body)
+        answer = self._send(plan)
+        return _verbs.finish_resolve(self._config, plan, answer)
 
     def execute(
         self, offers: Sequence[VerifiedOffer] | RawBody, *, idempotency_key: str | None = None
     ) -> BrokerTransactionResponse:
         plan = _verbs.plan_broker_execute(self._config, offers, idempotency_key)
-        status, body = self._send(plan)
-        return _verbs.finish_broker_execute(plan, status, body)
+        answer = self._send(plan)
+        return _verbs.finish_broker_execute(plan, answer)
 
 
 class CatalogClient(_Face):
@@ -278,18 +279,18 @@ class CatalogClient(_Face):
 
     def push_resources(self, request: RequestMessage) -> PushResourcesResponse:
         plan = _verbs.plan_push_resources(self._config, request)
-        status, body = self._send(plan)
-        return _verbs.finish_push_resources(plan, status, body)
+        answer = self._send(plan)
+        return _verbs.finish_push_resources(plan, answer)
 
     def remove_resources(self, request: RequestMessage) -> RemoveResourcesResponse:
         plan = _verbs.plan_remove_resources(self._config, request)
-        status, body = self._send(plan)
-        return _verbs.finish_remove_resources(plan, status, body)
+        answer = self._send(plan)
+        return _verbs.finish_remove_resources(plan, answer)
 
     def refresh_catalog(self, request: RequestMessage) -> RefreshCatalogResponse:
         plan = _verbs.plan_refresh_catalog(self._config, request)
-        status, body = self._send(plan)
-        return _verbs.finish_refresh_catalog(plan, status, body)
+        answer = self._send(plan)
+        return _verbs.finish_refresh_catalog(plan, answer)
 
 
 class AdminClient(_Face):
@@ -300,20 +301,20 @@ class AdminClient(_Face):
 
     def set_tenant_fee_rate(self, request: RequestMessage) -> SetTenantFeeRateResponse:
         plan = _admin.plan_set_tenant_fee_rate(self._config, request)
-        status, body = self._send(plan)
-        return _admin.finish_set_tenant_fee_rate(plan, status, body)
+        answer = self._send(plan)
+        return _admin.finish_set_tenant_fee_rate(plan, answer)
 
     def set_reporting_policy(self, request: RequestMessage) -> SetReportingPolicyResponse:
         plan = _admin.plan_set_reporting_policy(self._config, request)
-        status, body = self._send(plan)
-        return _admin.finish_set_reporting_policy(plan, status, body)
+        answer = self._send(plan)
+        return _admin.finish_set_reporting_policy(plan, answer)
 
     def request_domain_verification(self, request: RequestMessage) -> DomainVerificationChallenge:
         plan = _admin.plan_request_domain_verification(self._config, request)
-        status, body = self._send(plan)
-        return _admin.finish_request_domain_verification(plan, status, body)
+        answer = self._send(plan)
+        return _admin.finish_request_domain_verification(plan, answer)
 
     def confirm_domain_verification(self, request: RequestMessage) -> DomainVerificationResult:
         plan = _admin.plan_confirm_domain_verification(self._config, request)
-        status, body = self._send(plan)
-        return _admin.finish_confirm_domain_verification(plan, status, body)
+        answer = self._send(plan)
+        return _admin.finish_confirm_domain_verification(plan, answer)

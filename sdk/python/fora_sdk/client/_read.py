@@ -74,13 +74,19 @@ def require_dialable_scheme(op: str, url: str) -> None:
         ) from exc
 
 
-def over_cap(op: str, max_bytes: int, status: int | None = None) -> CallError:
+def over_cap(
+    op: str,
+    max_bytes: int,
+    status: int | None = None,
+    headers: httpx.Headers | None = None,
+) -> CallError:
     """The refusal for an answer past its cap."""
     return CallError(
         CallErrorKind.TOO_LARGE,
         op,
         status=status,
         cause=f"body exceeds the {max_bytes} byte cap",
+        headers=headers,
     )
 
 
@@ -106,6 +112,7 @@ def refuse_unrequested_encoding(op: str, response: httpx.Response) -> None:
             f"peer answered with content-encoding {coding!r} after being asked for "
             "identity; a coding this client did not negotiate cannot be read under a bound"
         ),
+        headers=response.headers,
     )
 
 
@@ -130,9 +137,15 @@ def guarded_leg(plan: _verbs.Plan) -> bool:
     return plan.guarded
 
 
-def bounded_chunks(op: str, max_bytes: int, status: int) -> _Bounded:
-    """An accumulator that refuses at the first byte past the cap."""
-    return _Bounded(op=op, max_bytes=max_bytes, status=status)
+def bounded_chunks(op: str, max_bytes: int, response: httpx.Response) -> _Bounded:
+    """An accumulator for ``response``'s body that refuses at the first byte past the cap.
+
+    The refusal keeps the answer's status and header fields, as every failure built from
+    an answer does.
+    """
+    return _Bounded(
+        op=op, max_bytes=max_bytes, status=response.status_code, headers=response.headers
+    )
 
 
 class _Bounded:
@@ -142,19 +155,22 @@ class _Bounded:
     and the rule must not.
     """
 
-    __slots__ = ("_chunks", "_max", "_op", "_status", "_total")
+    __slots__ = ("_chunks", "_headers", "_max", "_op", "_status", "_total")
 
-    def __init__(self, *, op: str, max_bytes: int, status: int) -> None:
+    def __init__(
+        self, *, op: str, max_bytes: int, status: int, headers: httpx.Headers
+    ) -> None:
         self._op = op
         self._max = max_bytes
         self._status = status
+        self._headers = headers
         self._chunks: list[bytes] = []
         self._total = 0
 
     def add(self, chunk: bytes) -> None:
         self._total += len(chunk)
         if self._total > self._max:
-            raise over_cap(self._op, self._max, self._status)
+            raise over_cap(self._op, self._max, self._status, self._headers)
         self._chunks.append(chunk)
 
     @property
