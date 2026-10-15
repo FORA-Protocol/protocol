@@ -89,7 +89,7 @@ func fieldErrorProjection(d *forav1.ErrorDetail) []errorDetailFieldError {
 }
 
 // errorDetailJSONOptions is the PINNED proto-JSON option set the ErrorDetail wire
-// form uses — identical to canonicalSignJSONOptions: snake_case field names
+// form uses — identical to canonicalsign.JSONOptions: snake_case field names
 // (UseProtoNames), enums as NAME strings (UseEnumNumbers=false), unpopulated
 // omitted (EmitUnpopulated=false). This is the exact shape the generated
 // Pydantic/Zod ErrorDetail models parse.

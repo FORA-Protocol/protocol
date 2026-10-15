@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/canonicalsign"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
@@ -17,7 +18,7 @@ func RefusingSchemaLoaderForTest() jsonschema.URLLoader { return refusingSchemaL
 // external test binary can pin it to the wire rule on
 // AgentRequestAcceptancePayload.items. Declared in a _test.go file, so it never
 // reaches the API-parity gate.
-const MaxRequestAcceptanceItemsForTest = maxRequestAcceptanceItems
+const MaxRequestAcceptanceItemsForTest = canonicalsign.MaxRequestAcceptanceItems
 
 // RawSignature describes a signature by its exact covered set and parameters, for
 // the tests that need a signature the shipped signers refuse to make: no tag, a
