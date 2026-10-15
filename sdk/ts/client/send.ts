@@ -30,6 +30,7 @@ import { Agent, type Dispatcher, request as undiciRequest } from "undici";
 import { skipSSRF, ssrfGuard } from "../resolvers/http.ts";
 import { ForaCallError } from "./errors.ts";
 import {
+	answerHeaders,
 	refuseUnrequestedEncoding,
 	type UnaryRequest,
 	type UnaryResponse,
@@ -80,6 +81,7 @@ export function createUnarySend(opts: SendOptions): UnarySend {
 			return {
 				status: response.statusCode,
 				body: await readBounded(response.body, req.maxBytes, req.op),
+				headers: answerHeaders(response.headers),
 			};
 		} finally {
 			reclaim(response.body);

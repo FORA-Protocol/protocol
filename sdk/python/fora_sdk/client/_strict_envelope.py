@@ -23,13 +23,16 @@ before it gets here.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fora_sdk._errordetail_wire import WireDecodeError, _b64decode, decode_error_detail_value
 from fora_sdk.errordetail import ERROR_DETAIL_TYPE, REASON_FIELDS, _proto_names, _TooDeepError
 from fora_sdk.strict import strict_violation
 
 from .errors import CallError, CallErrorKind
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 #: The members the Connect protocol defines for an error envelope and for a details entry.
 _ENVELOPE_MEMBERS = frozenset({"code", "message", "details"})
@@ -58,12 +61,19 @@ CONNECT_CODES = frozenset(
 )
 
 
-def check_strict_envelope(op: str, status: int, payload: Any, code: str | None) -> None:
+def check_strict_envelope(
+    op: str,
+    status: int,
+    payload: Any,
+    code: str | None,
+    *,
+    headers: Mapping[str, str] | None = None,
+) -> None:
     """Refuse an error answer whose envelope the strict contract does not accept.
 
-    Raises the MALFORMED ``CallError`` naming the first failure. It keeps ``status`` and
-    ``code``, the Connect code the lenient read reports, and carries no detail: the detail
-    is part of what was refused.
+    Raises the MALFORMED ``CallError`` naming the first failure. It keeps ``status``,
+    ``code`` (the Connect code the lenient read reports) and the answer's header fields,
+    and carries no detail: the detail is part of what was refused.
     """
     problem = envelope_violation(payload)
     if problem is not None:
@@ -73,6 +83,7 @@ def check_strict_envelope(op: str, status: int, payload: Any, code: str | None) 
             status=status,
             cause=f"strict decoding refused the error answer: {problem}",
             code=code,
+            headers=headers,
         )
 
 

@@ -31,7 +31,7 @@ from wire.models import (
     SetTenantFeeRateResponse,
 )
 
-from ._call import RawBody, decode, validate_request
+from ._call import RawBody, validate_request
 from ._verbs import (
     EXCHANGE_SERVICE,
     ClientConfig,
@@ -42,10 +42,13 @@ from ._verbs import (
     _Route,
     _stamp_ver,
     _str_field,
+    decode_answer,
 )
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
+
+    from ._call import Answer
 
 ADMIN_SERVICE = "fora.admin.v1.AdminService"
 
@@ -57,8 +60,8 @@ def plan_set_tenant_fee_rate(cfg: ClientConfig, request: RequestMessage) -> Plan
     )
 
 
-def finish_set_tenant_fee_rate(plan: Plan, status: int, body: str) -> SetTenantFeeRateResponse:
-    return decode(plan.op, status, body, SetTenantFeeRateResponse, strict=plan.strict)  # type: ignore[no-any-return]
+def finish_set_tenant_fee_rate(plan: Plan, answer: Answer) -> SetTenantFeeRateResponse:
+    return decode_answer(plan, answer, SetTenantFeeRateResponse)  # type: ignore[no-any-return]
 
 
 def plan_set_reporting_policy(cfg: ClientConfig, request: RequestMessage) -> Plan:
@@ -68,8 +71,8 @@ def plan_set_reporting_policy(cfg: ClientConfig, request: RequestMessage) -> Pla
     )
 
 
-def finish_set_reporting_policy(plan: Plan, status: int, body: str) -> SetReportingPolicyResponse:
-    return decode(plan.op, status, body, SetReportingPolicyResponse, strict=plan.strict)  # type: ignore[no-any-return]
+def finish_set_reporting_policy(plan: Plan, answer: Answer) -> SetReportingPolicyResponse:
+    return decode_answer(plan, answer, SetReportingPolicyResponse)  # type: ignore[no-any-return]
 
 
 def plan_request_domain_verification(cfg: ClientConfig, request: RequestMessage) -> Plan:
@@ -83,10 +86,8 @@ def plan_request_domain_verification(cfg: ClientConfig, request: RequestMessage)
     )
 
 
-def finish_request_domain_verification(
-    plan: Plan, status: int, body: str
-) -> DomainVerificationChallenge:
-    return decode(plan.op, status, body, DomainVerificationChallenge, strict=plan.strict)  # type: ignore[no-any-return]
+def finish_request_domain_verification(plan: Plan, answer: Answer) -> DomainVerificationChallenge:
+    return decode_answer(plan, answer, DomainVerificationChallenge)  # type: ignore[no-any-return]
 
 
 def plan_confirm_domain_verification(cfg: ClientConfig, request: RequestMessage) -> Plan:
@@ -100,10 +101,8 @@ def plan_confirm_domain_verification(cfg: ClientConfig, request: RequestMessage)
     )
 
 
-def finish_confirm_domain_verification(
-    plan: Plan, status: int, body: str
-) -> DomainVerificationResult:
-    return decode(plan.op, status, body, DomainVerificationResult, strict=plan.strict)  # type: ignore[no-any-return]
+def finish_confirm_domain_verification(plan: Plan, answer: Answer) -> DomainVerificationResult:
+    return decode_answer(plan, answer, DomainVerificationResult)  # type: ignore[no-any-return]
 
 
 def _plan_admin(
@@ -117,8 +116,8 @@ def _plan_admin(
     route = _Route(op, cfg.base_url, ADMIN_SERVICE, method)
     if isinstance(request, RawBody):
         return _plan(cfg, route, request)
-    sent = _stamp_ver(op, request)
-    validate_request(op, sent, model, cfg.validation)
+    sent = _stamp_ver(op, request, model=model, strict_requests=cfg.strict_requests)
+    validate_request(op, sent, model, cfg.validation, strict_requests=cfg.strict_requests)
     return _plan(cfg, route, sent)
 
 
@@ -135,7 +134,9 @@ def _plan_domain(
     route = _Route(op, cfg.base_url, EXCHANGE_SERVICE, method)
     if isinstance(request, RawBody):
         return _plan(cfg, route, request)
-    sent: dict[str, Any] = _stamp_ver(op, request)
+    sent: dict[str, Any] = _stamp_ver(
+        op, request, model=model, strict_requests=cfg.strict_requests
+    )
     _require_recipient(op, _str_field(sent, "exchange"))
-    validate_request(op, sent, model, cfg.validation)
+    validate_request(op, sent, model, cfg.validation, strict_requests=cfg.strict_requests)
     return _plan(cfg, route, sent)

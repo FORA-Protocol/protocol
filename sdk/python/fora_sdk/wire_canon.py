@@ -5,8 +5,8 @@ scalars, empty repeateds, null messages and ``*_UNSPECIFIED`` enums are all pres
 That is what ``sdk/go/connectserver/codec.go`` marshals (``UseProtoNames: true``), and
 what ``codec_test.go`` guards — a stray ``UseProtoNames=false`` is the regression it
 catches. The offer SIGNATURE covers the CANONICAL form: the same snake_case proto
-names, but omit-unpopulated, enums-as-names (sdk/go helpers
-``canonicalSignJSONOptions``), then RFC 8785 JCS. Both sides share the naming, so what
+names, but omit-unpopulated, enums-as-names (``JSONOptions`` in
+sdk/go/internal/canonicalsign), then RFC 8785 JCS. Both sides share the naming, so what
 this inversion undoes is the zero-inflation, NOT the naming. It does NOT clear the
 signature fields — :func:`from_wire_offer` keeps ``signature`` /
 ``signature_algorithm`` verbatim, and

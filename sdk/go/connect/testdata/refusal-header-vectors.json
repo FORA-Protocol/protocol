@@ -1,0 +1,223 @@
+{
+  "note": "Which failures carry the header fields of the answer that produced them, captured from the real Go client: an answer of status 400 or above on either leg, and never a redirect or a 2xx the client could not read. Each row records its own field lines only; carried maps each lowercased name to the value read, a repeated field joined with \", \", and is empty when no field is carried at all.",
+  "refusals": [
+    {
+      "name": "rpc_401_accept_signature",
+      "leg": "rpc",
+      "strict": false,
+      "status": 401,
+      "content_type": "application/json",
+      "body": "{\"code\":\"unauthenticated\",\"message\":\"the request is not signed\"}",
+      "headers": [
+        [
+          "Accept-Signature",
+          "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\""
+        ]
+      ],
+      "carried": {
+        "accept-signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\""
+      },
+      "hint": {
+        "content_rules": "",
+        "content_rules_state": "absent",
+        "exchange": "",
+        "exchange_state": "absent"
+      }
+    },
+    {
+      "name": "rpc_401_strict_envelope_refused",
+      "leg": "rpc",
+      "strict": true,
+      "status": 401,
+      "content_type": "application/json",
+      "body": "{\"code\":\"unauthenticated\",\"message\":\"the request is not signed\",\"bogus\":true}",
+      "headers": [
+        [
+          "Accept-Signature",
+          "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\""
+        ]
+      ],
+      "carried": {
+        "accept-signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\""
+      },
+      "hint": {
+        "content_rules": "",
+        "content_rules_state": "absent",
+        "exchange": "",
+        "exchange_state": "absent"
+      }
+    },
+    {
+      "name": "rpc_503_retry_after",
+      "leg": "rpc",
+      "strict": false,
+      "status": 503,
+      "content_type": "text/plain",
+      "body": "draining",
+      "headers": [
+        [
+          "Retry-After",
+          "86400"
+        ]
+      ],
+      "carried": {
+        "retry-after": "86400"
+      },
+      "hint": {
+        "content_rules": "",
+        "content_rules_state": "absent",
+        "exchange": "",
+        "exchange_state": "absent"
+      }
+    },
+    {
+      "name": "rpc_400_two_field_lines",
+      "leg": "rpc",
+      "strict": false,
+      "status": 400,
+      "content_type": "application/json",
+      "body": "{\"code\":\"invalid_argument\",\"message\":\"refused\"}",
+      "headers": [
+        [
+          "X-Fora-Probe",
+          "first"
+        ],
+        [
+          "X-Fora-Probe",
+          "second"
+        ]
+      ],
+      "carried": {
+        "x-fora-probe": "first, second"
+      },
+      "hint": {
+        "content_rules": "",
+        "content_rules_state": "absent",
+        "exchange": "",
+        "exchange_state": "absent"
+      }
+    },
+    {
+      "name": "rpc_302_location",
+      "leg": "rpc",
+      "strict": false,
+      "status": 302,
+      "content_type": "text/plain",
+      "body": "",
+      "headers": [
+        [
+          "Location",
+          "https://elsewhere.test/next?token=s3cret"
+        ],
+        [
+          "X-Fora-Probe",
+          "redirect"
+        ]
+      ],
+      "carried": {},
+      "hint": {
+        "content_rules": "",
+        "content_rules_state": "absent",
+        "exchange": "",
+        "exchange_state": "absent"
+      }
+    },
+    {
+      "name": "rpc_200_not_json",
+      "leg": "rpc",
+      "strict": false,
+      "status": 200,
+      "content_type": "text/html",
+      "body": "\u003chtml\u003e\u003c/html\u003e",
+      "headers": [
+        [
+          "X-Fora-Probe",
+          "success"
+        ]
+      ],
+      "carried": {},
+      "hint": {
+        "content_rules": "",
+        "content_rules_state": "absent",
+        "exchange": "",
+        "exchange_state": "absent"
+      }
+    },
+    {
+      "name": "content_401_pop_accept_signature",
+      "leg": "content",
+      "strict": false,
+      "status": 401,
+      "content_type": "application/json",
+      "body": "{\"error\":\"unauthorized\",\"reason\":\"pop_sig_invalid\"}",
+      "headers": [
+        [
+          "Accept-Signature",
+          "sig1=(\"@method\" \"@target-uri\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\""
+        ]
+      ],
+      "carried": {
+        "accept-signature": "sig1=(\"@method\" \"@target-uri\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\""
+      },
+      "hint": {
+        "content_rules": "",
+        "content_rules_state": "absent",
+        "exchange": "",
+        "exchange_state": "absent"
+      }
+    },
+    {
+      "name": "content_403_discovery_hint",
+      "leg": "content",
+      "strict": false,
+      "status": 403,
+      "content_type": "application/json",
+      "body": "{\"error\":\"forbidden\"}",
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.test/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.test"
+        ]
+      ],
+      "carried": {
+        "x-content-rules": "https://publisher.test/.well-known/fora.json",
+        "x-fora-exchange": "exchange.test"
+      },
+      "hint": {
+        "content_rules": "https://publisher.test/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "exchange.test",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_302_location",
+      "leg": "content",
+      "strict": false,
+      "status": 302,
+      "content_type": "text/plain",
+      "body": "",
+      "headers": [
+        [
+          "Location",
+          "https://elsewhere.test/doc?token=s3cret"
+        ],
+        [
+          "X-Fora-Probe",
+          "redirect"
+        ]
+      ],
+      "carried": {},
+      "hint": {
+        "content_rules": "",
+        "content_rules_state": "absent",
+        "exchange": "",
+        "exchange_state": "absent"
+      }
+    }
+  ]
+}

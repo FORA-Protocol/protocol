@@ -35,6 +35,7 @@
     "./identity": "./core/identity.ts",
     "./hono": "./hono/middleware.ts",
     "./acceptance": "./src/acceptance.ts",
+    "./testing": "./src/testing.ts",
     "./resolvers": "./resolvers/index.ts",
     "./resolvers/edge": "./resolvers/edge.ts",
     "./client": "./client/index.ts"

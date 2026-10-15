@@ -17,7 +17,7 @@ import type { Window } from "../core/window.ts";
 import { errorDetailFrom } from "../src/errordetail.ts";
 import { MAX_BODY_DEPTH, rawNestingDepth } from "../src/jsondepth.ts";
 import { parseWire, WireNamingError } from "../../../gen/ts/wire/base.ts";
-import { requireScheme } from "../resolvers/http.ts";
+import { requireScheme, undiciHeaderFields } from "../resolvers/http.ts";
 import {
 	ConnectProtocolVersion,
 	ConnectProtocolVersionHeader,
@@ -81,6 +81,9 @@ export interface UnaryRequest {
 export interface UnaryResponse {
 	status: number;
 	body: string;
+	/** The answer's header fields. A refusal carries them (`ForaCallError.headers`); a send
+	 * that leaves them out yields a refusal carrying none. */
+	headers?: Headers;
 }
 
 /**
@@ -390,11 +393,30 @@ export function refuseUnrequestedEncoding(
 		kind: "malformed",
 		op,
 		status,
+		headers: answerHeaders(headers),
 		cause: new Error(
 			`peer answered with content-encoding "${coding}" after being asked for identity; ` +
 				"a coding this client did not negotiate cannot be read under a bound",
 		),
 	});
+}
+
+/**
+ * answerHeaders turns undici's raw response headers into the Fetch `Headers` a failure
+ * carries. A field whose value `Headers` cannot hold — undici decodes values as UTF-8, and
+ * `Headers` refuses a character above U+00FF — is left out rather than thrown on, because
+ * building the description of a failure must never become a second failure.
+ */
+export function answerHeaders(record: Record<string, string | string[] | undefined>): Headers {
+	const out = new Headers();
+	for (const [name, value] of undiciHeaderFields(record)) {
+		try {
+			out.append(name, value);
+		} catch {
+			// A value outside the ByteString range: left out, as documented above.
+		}
+	}
+	return out;
 }
 
 /**
@@ -423,14 +445,15 @@ export function decodeResponse(op: string, response: UnaryResponse, strict = fal
 			kind: "unreachable",
 			op,
 			status: response.status,
+			headers: response.headers,
 			cause: new Error("peer answered with a redirect, which this client does not follow"),
 		});
 	}
 	const payload = parseJSON(op, response);
 	if (response.status < 200 || response.status >= 300) {
-		const error = connectEnvelopeError(op, response.status, payload);
+		const error = connectEnvelopeError(op, response.status, payload, response.headers);
 		if (strict && response.body.trim() !== "") {
-			checkStrictEnvelope(op, response.status, payload, error.code);
+			checkStrictEnvelope(op, response.status, payload, error.code, response.headers);
 		}
 		throw error;
 	}
@@ -452,6 +475,7 @@ function parseJSON(op: string, response: UnaryResponse): unknown {
 			kind: "malformed",
 			op,
 			status: response.status,
+			headers: response.headers,
 			cause: new Error(`answer nests deeper than ${MAX_BODY_DEPTH} containers`),
 		});
 	}
@@ -470,6 +494,7 @@ function parseJSON(op: string, response: UnaryResponse): unknown {
 				kind: kindOfConnectCode(code),
 				op,
 				status: response.status,
+				headers: response.headers,
 				reason: code,
 				code,
 				cause,
@@ -479,6 +504,7 @@ function parseJSON(op: string, response: UnaryResponse): unknown {
 			kind: "malformed",
 			op,
 			status: response.status,
+			headers: response.headers,
 			cause,
 		});
 	}
@@ -488,6 +514,7 @@ function connectEnvelopeError(
 	op: string,
 	status: number,
 	payload: unknown,
+	headers: Headers | undefined,
 ): ForaCallError {
 	const envelope = isRecord(payload) ? payload : {};
 	// An envelope carrying no code is not a verdict the peer reached, so the STATUS decides
@@ -514,6 +541,7 @@ function connectEnvelopeError(
 		cause:
 			typeof envelope["message"] === "string" ? envelope["message"] : undefined,
 		code,
+		headers,
 	});
 }
 

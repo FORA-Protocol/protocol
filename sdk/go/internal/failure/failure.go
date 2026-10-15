@@ -64,6 +64,28 @@ func Name[K comparable](names map[K]string, k K) string {
 	return "unknown"
 }
 
+// RefusalHeader returns the header fields a failure carries for the answer that
+// produced it: a copy of h when the peer answered with an error status, 400 or
+// above, and nil otherwise.
+//
+// The rule has one owner because every leg must apply it identically, and the
+// cases it leaves out are deliberate. A redirect carries none: its Location names
+// a URL the peer chose, credentials included, and the error that refuses it
+// already withholds that target, so the fields must not hand it back. A 2xx the
+// client could not read is not a refusal, and a failure where no answer arrived
+// has no fields to carry.
+//
+// The copy is the caller's to keep, since the response the fields came from is
+// closed before the error surfaces. The values are the peer's: unvalidated,
+// bounded only by the HTTP client's own header limit, and never rendered into an
+// error message.
+func RefusalHeader(status int, h http.Header) http.Header {
+	if status < http.StatusBadRequest {
+		return nil
+	}
+	return h.Clone()
+}
+
 // RefuseRedirect builds the http.Client CheckRedirect both credentialed legs
 // install: neither an RPC nor a bound fetch is ever legitimately redirected, and
 // following one would re-sign for a target the peer chose.

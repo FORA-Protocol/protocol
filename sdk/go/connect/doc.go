@@ -14,8 +14,9 @@
 // is the delivery edge's job when Fetch presents it. The client carries what a
 // conformance harness needs to drive a service through it:
 // a pre-signing hook (WithBeforeSign), raw mode (WithRawBody), strict response
-// decoding (WithStrictDecoding) and the Connect code of every peer answer
-// (CallError.Code).
+// decoding (WithStrictDecoding), the Connect code of every peer answer
+// (CallError.Code), and the status and header fields of every refusal
+// (CallError.Status, CallError.Header).
 //
 // The account verbs sit on NewClient rather than on a fourth constructor because
 // they are the same party holding the same key: an account is per-Exchange and

@@ -8,57 +8,17 @@ import (
 	"fmt"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/canonicalsign"
 )
 
 // ErrRequestAcceptanceSignatureInvalid signals that the agent did not sign the
 // request-acceptance payload presented by the caller.
 var ErrRequestAcceptanceSignatureInvalid = errors.New("helpers: request-acceptance signature invalid")
 
-// maxRequestAcceptanceItems mirrors the repeated.max_items rule on
-// AgentRequestAcceptancePayload.items. The helper enforces it itself, before
-// any canonicalization work, because a verifier may run with wire validation
-// off and rendering an unbounded caller-controlled list to canonical JSON is
-// the expensive step. A test pins this constant to the wire rule.
-const maxRequestAcceptanceItems = 256
-
 // RequestAcceptancePayload builds the complete ordered request-set payload an
 // agent signs before any Broker fan-out.
 func RequestAcceptancePayload(req *forav1.TransactionRequest) (*forav1.AgentRequestAcceptancePayload, error) {
-	if req == nil {
-		return nil, errors.New("helpers: transaction request is nil")
-	}
-	if req.GetRequester() == nil {
-		return nil, errors.New("helpers: requester is nil")
-	}
-	if err := checkAcceptanceRequester(req.GetRequester().GetId(), req.GetRequester().GetDomain()); err != nil {
-		return nil, err
-	}
-	if len(req.GetItems()) == 0 {
-		return nil, errors.New("helpers: transaction request has no items")
-	}
-	items := make([]*forav1.AgentRequestAcceptanceItem, 0, len(req.GetItems()))
-	for i, item := range req.GetItems() {
-		offer := item.GetOffer()
-		if offer == nil {
-			return nil, fmt.Errorf("helpers: item %d offer is nil", i)
-		}
-		if offer.GetSignature() == "" {
-			return nil, fmt.Errorf("helpers: item %d offer is unsigned", i)
-		}
-		if offer.GetExchange() == "" {
-			return nil, fmt.Errorf("helpers: item %d offer exchange is empty", i)
-		}
-		items = append(items, &forav1.AgentRequestAcceptanceItem{
-			OfferSig: offer.GetSignature(),
-			Exchange: offer.GetExchange(),
-		})
-	}
-	return &forav1.AgentRequestAcceptancePayload{
-		Items:           items,
-		RequesterId:     req.GetRequester().GetId(),
-		RequesterDomain: req.GetRequester().GetDomain(),
-		IdempotencyKey:  req.GetIdempotencyKey(),
-	}, nil
+	return canonicalsign.RequestAcceptancePayload(req, checkAcceptanceRequester)
 }
 
 // CanonicalRequestAcceptanceBytes returns the exact JCS(protojson(...)) bytes
@@ -66,48 +26,12 @@ func RequestAcceptancePayload(req *forav1.TransactionRequest) (*forav1.AgentRequ
 // refuses a payload that names an empty requester (ErrAcceptanceRequesterEmpty),
 // so neither signing nor verification accepts such bytes.
 func CanonicalRequestAcceptanceBytes(payload *forav1.AgentRequestAcceptancePayload) ([]byte, error) {
-	if payload == nil {
-		return nil, errors.New("helpers: request-acceptance payload is nil")
-	}
-	if err := checkAcceptanceRequester(payload.GetRequesterId(), payload.GetRequesterDomain()); err != nil {
-		return nil, err
-	}
-	if len(payload.GetItems()) == 0 {
-		return nil, errors.New("helpers: request-acceptance payload has no items")
-	}
-	if len(payload.GetItems()) > maxRequestAcceptanceItems {
-		return nil, fmt.Errorf("helpers: request-acceptance payload has %d items, the maximum is %d",
-			len(payload.GetItems()), maxRequestAcceptanceItems)
-	}
-	for i, item := range payload.GetItems() {
-		if item.GetOfferSig() == "" {
-			return nil, fmt.Errorf("helpers: request-acceptance item %d offer signature is empty", i)
-		}
-		if item.GetExchange() == "" {
-			return nil, fmt.Errorf("helpers: request-acceptance item %d exchange is empty", i)
-		}
-	}
-	return canonicalSignPayload(payload)
+	return canonicalsign.RequestAcceptanceBytes(payload, checkAcceptanceRequester)
 }
 
 // SignRequestAcceptance signs req's complete ordered request set with priv.
 func SignRequestAcceptance(priv ed25519.PrivateKey, req *forav1.TransactionRequest) (*forav1.AgentRequestAcceptance, error) {
-	if len(priv) != ed25519.PrivateKeySize {
-		return nil, fmt.Errorf("helpers: ed25519 private key must be %d bytes, got %d", ed25519.PrivateKeySize, len(priv))
-	}
-	payload, err := RequestAcceptancePayload(req)
-	if err != nil {
-		return nil, err
-	}
-	canonical, err := CanonicalRequestAcceptanceBytes(payload)
-	if err != nil {
-		return nil, err
-	}
-	return &forav1.AgentRequestAcceptance{
-		Payload:            payload,
-		Signature:          hex.EncodeToString(ed25519.Sign(priv, canonical)),
-		SignatureAlgorithm: AcceptanceSignatureAlgorithm,
-	}, nil
+	return canonicalsign.SignRequestAcceptance(priv, req, checkAcceptanceRequester, AcceptanceSignatureAlgorithm)
 }
 
 // SignRequestAcceptanceWith is SignRequestAcceptance for a KMS/HSM-backed

@@ -74,6 +74,11 @@ func TestConnectErrorCorpusReplay(t *testing.T) {
 			if got := callErr.Code.String(); got != v.Code {
 				t.Errorf("code = %q, want %q", got, v.Code)
 			}
+			// The status of the answer rides beside the code, every row, as the Python
+			// and TypeScript replays assert it.
+			if callErr.Status != v.HTTPStatus {
+				t.Errorf("status = %d, want %d", callErr.Status, v.HTTPStatus)
+			}
 			assertStrictRead(t, v, callErr)
 			if !ok {
 				return
@@ -145,6 +150,9 @@ func assertStrictRead(t *testing.T, v connectErrorVector, lenient *foraconnect.C
 	strict := clientFailureServing(t, v, foraconnect.WithStrictDecoding())
 	if got := strict.Code.String(); got != v.Code {
 		t.Errorf("strict: code = %q, want %q", got, v.Code)
+	}
+	if strict.Status != v.HTTPStatus {
+		t.Errorf("strict: status = %d, want %d", strict.Status, v.HTTPStatus)
 	}
 	detail, hasDetail := foraconnect.ErrorDetailFrom(strict)
 	if v.StrictMalformed {

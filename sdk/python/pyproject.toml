@@ -80,6 +80,12 @@ select = [
 # second type that exists only to satisfy an argument count. PLR0913 is waived for exactly
 # this constructor.
 "fora_sdk/client/errors.py" = ["PLR0913"]
+# The decode step reads one answer — the verb, its status, body and header fields — into
+# one model under the strict flag. The answer's parts stay separate arguments because the
+# shared corpora replay them as separate columns straight into decode, so folding them into
+# an object would make every replay assemble one; the client faces pass their Answer
+# through decode_answer instead. PLR0913 is waived for exactly this module.
+"fora_sdk/client/_call.py" = ["PLR0913"]
 # The L2 core mirrors the same crypto-primitive shape: the offer-verify _check
 # walks each fail-closed rejection reason as its own early return (resolver-miss,
 # bad-hex, sig-invalid, expired), and the acceptance verify keeps the four

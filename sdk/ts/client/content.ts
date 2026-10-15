@@ -15,7 +15,7 @@ import { retrievalAuthFailureDetail } from "../src/errordetail.ts";
 import { escapePair } from "../src/host-ref.ts";
 import { MAX_BODY_DEPTH, rawNestingDepth } from "../src/jsondepth.ts";
 import { RequestIDHeader, SignatureAgentHeader } from "../src/wire.ts";
-import { IDENTITY_ENCODING, refuseUnrequestedEncoding } from "./transport.ts";
+import { answerHeaders, IDENTITY_ENCODING, refuseUnrequestedEncoding } from "./transport.ts";
 import { requireScheme, skipSSRF, ssrfGuard } from "../resolvers/http.ts";
 import { ForaCallError } from "./errors.ts";
 import { concat, reclaim } from "./send.ts";
@@ -175,11 +175,17 @@ export async function fetchContent(
 					kind: "unreachable",
 					op,
 					status: response.statusCode,
+					headers: answerHeaders(response.headers),
 					cause: new Error("peer answered with a redirect, which this client does not follow"),
 				});
 			}
 			if (response.statusCode < 200 || response.statusCode >= 300) {
-				throw await edgeRefusal(op, response.statusCode, response.body);
+				throw await edgeRefusal(
+					op,
+					response.statusCode,
+					response.body,
+					answerHeaders(response.headers),
+				);
 			}
 			const body = await readBody(op, response.body, maxBytes);
 			return {
@@ -343,12 +349,14 @@ async function edgeRefusal(
 	op: string,
 	status: number,
 	body: AsyncIterable<Uint8Array>,
+	headers: Headers,
 ): Promise<ForaCallError> {
 	const token = await edgeReason(body);
 	const init = {
 		kind: "refused" as const,
 		op,
 		status,
+		headers,
 		...(token !== "" ? { reason: token } : {}),
 	};
 	if (token === "") return new ForaCallError(init);

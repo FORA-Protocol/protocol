@@ -62,8 +62,9 @@ an example does not follow fails a gate instead of reaching a reader.
 its verified offers and, for the rest, the reason they were refused. Failures across every
 verb arrive as one `connect.CallError` with a `CallErrorKind` -- `CallNotSent`,
 `CallRefused`, `CallUnreachable`, `CallMalformed`, `CallTooLarge`, `CallNotSignable` --
-plus the peer's own reason token, the Connect code of its answer (`Code`) and, when it
-sent one, a typed detail reachable through `connect.ErrorDetailFrom`.
+plus the peer's own reason token, the Connect code of its answer (`Code`), the status and
+header fields of a refusal (`Status`, `Header`) and, when it sent one, a typed detail
+reachable through `connect.ErrorDetailFrom`.
 
 ### TypeScript
 
@@ -98,9 +99,12 @@ parsing responses itself or re-implementing request signing.
 | Pre-signing hook: change a request after the SDK built it, before it is signed | `connect.WithBeforeSign` | `beforeSign` in `ClientOptions` | `ClientConfig.before_sign` |
 | Raw mode: send a body exactly as given, still signed and decoded | `connect.WithRawBody` | `new RawBody(body)` in place of the request | `RawBody(body)` in place of the request |
 | Strict decoding: refuse an unknown field, a field-level or a cross-field violation, in a success answer or in an error envelope and its `ErrorDetail` | `connect.WithStrictDecoding` | `strict: true` | `ClientConfig(strict=True)` |
+| Strict requests: refuse a plain dict, and a request with an unknown member or a cross-field violation, before it is signed | — (verbs take the generated messages) | — (verbs are typed with the request input types) | `ClientConfig(strict_requests=True)` |
 | The Connect code of a refusal, on its own field | `CallError.Code` | `ForaCallError.code` | `CallError.code` |
+| The header fields of a refusal, such as `Accept-Signature` or `Retry-After`, and its status | `CallError.Header`, `CallError.Status` | `ForaCallError.headers`, `ForaCallError.status` | `CallError.headers`, `CallError.status` |
 | The operator RPCs: `AdminService` and domain verification | `connect.NewAdminClient` | `createAdminClient` | `AdminClient` |
 | Mint a throwaway agent: key, directory document, signer | `helpers.GenerateKey`, `helpers.DirectoryDocument`, `core.SigningTransportFor` | `generateKey`, `directoryDocument`, `signingTransportFor` | `generate_key`, `directory_document`, `signing_transport_for` |
+| Sign an acceptance that names an empty requester, to test that a verifier refuses it | `helperstest.SignOfferAcceptanceAnyRequester`, `helperstest.SignRequestAcceptanceAnyRequester` | `signOfferAcceptanceAnyRequester`, `signRequestAcceptanceAnyRequester` (`./testing`) | `sign_offer_acceptance_any_requester`, `sign_request_acceptance_any_requester` (`fora_sdk.testing`) |
 | Read a document a party publishes and check it: the well-known manifest, the WBA key directory, the key revocation list, the license document | `resolvers.ReadManifest`, `resolvers.ReadWBADirectory`, `resolvers.ReadRevocationList`, `resolvers.ReadLicenseDocument` | `readManifest`, `readWBADirectory`, `readRevocationList`, `readLicenseDocument` | `read_manifest`, `read_wba_directory`, `read_revocation_list`, `read_license_document` |
 | Tell a missing document or a refused redirect from an outage | `resolvers.ErrDocumentNotFound`, `resolvers.ErrRedirectRefused` | `DocumentNotFound`, `RedirectRefused` | `DocumentNotFoundError`, `RedirectRefusedError` |
 | Check a message against the strict contract | `helpers.CheckStrict` | `checkStrict` | `check_strict` |
@@ -127,6 +131,15 @@ A few rules hold in every language:
   rules. A refused envelope is malformed, with the peer's Connect code still on the
   error's code field and no detail. An empty or non-JSON error body comes from a gateway
   rather than the service, so its HTTP status still classifies it.
+- **Strict requests are Python's.** A Python verb also takes a plain dict, and the
+  generated models ignore a member they do not declare, so a misspelled key would be
+  signed, sent and discarded by the server. `strict_requests` refuses the dict before
+  anything is resolved or signed, and checks the message as stamped, with the configured
+  requester and a purchase's reflected offers in it, against the published strict JSON
+  Schema of the request and the cross-field rules. `RawBody` is still sent exactly as
+  given. A Go verb takes the generated message, which has no member the proto does not
+  declare, and a TypeScript verb is typed with the request input types, so a misspelled
+  key in an object literal does not compile.
 - **A document reader returns the document or a typed error, never nothing.** By default
   each reader fetches through the SDK's guarded client, so the SSRF guard and the
   https-only scheme guard apply; `SKIP_SSRF` and `ALLOW_INSECURE` relax them for a
@@ -164,6 +177,20 @@ A few rules hold in every language:
 - **Error details are read from the binary `value`.** A Connect error carries its typed
   reason as `details[].value`, the binary `ErrorDetail`. All three SDKs read it; the JSON
   SDKs fall back to the lowerCamelCase `debug` projection only when `value` is absent.
+- **A refusal carries its answer's header fields, and only a refusal does.** An answer of
+  status 400 or above, on an RPC leg or the delivery fetch, hands its header fields to the
+  failure: a verifier's `Accept-Signature`, a gateway's `Retry-After`, an edge's discovery
+  headers, which the discovery-hint parser reads with the failure's status. A local
+  failure, a transport failure, a 2xx the client could not read and a refused redirect
+  carry none; a redirect's `Location` names a URL the peer chose. The fields are a copy,
+  looked up by any spelling of the name, a field sent on several lines joined with ", ",
+  and never rendered into the message. Go keeps each line in its `http.Header`.
+- **The test signers are not protocol signers.** A protocol signer refuses to sign an
+  acceptance that names an empty requester, so a verifier's refusal of one can only be
+  tested with a signer that does not. The test-support packages hold twins of the four
+  acceptance functions that skip that refusal and keep every other one, reproducing the
+  `refused` rows of the shared acceptance corpora. Nothing in the SDK imports them, and an
+  acceptance they sign is one a conforming party must never send.
 - **The delivery edge checks the delivery URL.** A purchase returns each URL as the
   Exchange issued it, and fetch sends any URL it is given, so a harness can put any URL
   in front of an edge. The edge's refusal comes back with a `retrieval_auth_failure`
