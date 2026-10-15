@@ -210,11 +210,25 @@ async function requestBounded(
 		throw err;
 	}
 	const body = await readBounded(resp.body as AsyncIterable<Uint8Array> | null);
-	return boundedResponse(resp.statusCode, body, (name) => {
-		const value = resp.headers[name.toLowerCase()];
-		if (value === undefined) return null;
-		return Array.isArray(value) ? value.join(", ") : value;
-	});
+	const fields = undiciHeaderFields(resp.headers);
+	return boundedResponse(resp.statusCode, body, (name) => fields.get(name.toLowerCase()) ?? null);
+}
+
+/**
+ * undiciHeaderFields reads undici's raw response headers as one value per field: the name
+ * lowercased, as undici already gives it, and a field sent on several lines joined with
+ * ", ", which is how a Fetch Headers object and the other two SDKs read it. An absent value
+ * is skipped. The one reading of undici's shape, shared by this tier and the client's.
+ */
+export function undiciHeaderFields(
+	record: Record<string, string | string[] | undefined>,
+): Map<string, string> {
+	const fields = new Map<string, string>();
+	for (const [name, value] of Object.entries(record)) {
+		if (value === undefined) continue;
+		fields.set(name.toLowerCase(), Array.isArray(value) ? value.join(", ") : value);
+	}
+	return fields;
 }
 
 /** The SSRF-guarded default transport. The directory host is derived from a
