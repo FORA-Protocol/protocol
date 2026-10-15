@@ -899,6 +899,26 @@ summarizes them per language.
   `fora_sdk.identity`); `generateKey`, `directoryDocument`, `signingTransportFor`
   (TypeScript, export path `./identity`); `helpers.GenerateKey`,
   `helpers.DirectoryDocument`, `core.SigningTransportFor` (Go).
+- **Test-only acceptance signers.** A receiver must refuse an acceptance that names an
+  empty requester even when its signature verifies, and the SDK's own signers refuse to
+  produce one, so the test proving the refusal needs a signer that does. A test-support
+  package in each language holds twins of the four acceptance functions that skip only
+  that refusal: `helperstest.CanonicalAcceptanceBytesAnyRequester`,
+  `SignOfferAcceptanceAnyRequester`, `CanonicalRequestAcceptanceBytesAnyRequester` and
+  `SignRequestAcceptanceAnyRequester` (Go, package `sdk/go/helperstest`);
+  `jcs_acceptance_payload_any_requester`, `sign_offer_acceptance_any_requester`,
+  `jcs_request_acceptance_payload_any_requester` and
+  `sign_request_acceptance_any_requester` (Python, `fora_sdk.testing`, not re-exported
+  from `fora_sdk`); `acceptancePayloadAnyRequester`, `signOfferAcceptanceAnyRequester`,
+  `requestAcceptancePayloadAnyRequester` and `signRequestAcceptanceAnyRequester`
+  (TypeScript, export path `./testing`). Every other refusal is kept, in the same text
+  and order, and the protocol's signers and verifiers are unchanged and still refuse.
+  Each language renders both through one canonical renderer that takes the requester
+  check as a parameter: `sdk/go/internal/canonicalsign` in Go, private functions in
+  Python's `fora_sdk.core`, and `src/acceptance-render.ts` in TypeScript, which neither
+  package manifest exports. The twins reproduce the `refused` rows of
+  `acceptance-vectors.json` and `request-acceptance-vectors.json` byte for byte in all
+  three SDKs, and a test in each fails if production code imports the test package.
 - **Document readers.** Read and check the documents a party publishes over HTTPS:
   `read_manifest`, `read_wba_directory`, `read_revocation_list` and
   `read_license_document` (Python, `fora_sdk.resolvers`); `readManifest`,

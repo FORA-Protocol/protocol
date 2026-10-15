@@ -10,6 +10,7 @@ no I/O can be used on their own.
 | **L1** | **`fora_sdk`** (top level) | stateless, **IO-free** protocol mechanics — RFC 9421/7638 crypto, offer and acceptance signatures, signed URLs, validation. Includes `fora_sdk.core` (transport-neutral: `Verifier`, `VerifiedOffer`, `DiscoveryResult`), `fora_sdk.window` (`Window`) and `fora_sdk.server_verify` (the server side of RFC 9421). Byte-parity-guarded against the `sdk/go` oracle |
 | L2 · I/O | **`fora_sdk.resolvers`** | the only tier that dials the network: Web Bot Auth directories, well-known JWKS and `fora.json`, plus the SSRF-guarded HTTP client. Which faces take that client by default is decided by URL provenance, below — `WellKnownEndpointResolver` is the one request-derived face that still defaults to a plain client |
 | L2 · transport | `fora_sdk.client` (the async Connect-unary JSON client: the agent verbs **`discover` · `execute` · `report_usage` · `dispute` · `fetch`**, the account-setup verbs **`register` · `get_account_status`**, the broker verbs **`resolve` · `execute`** and the publisher verbs **`push_resources` · `remove_resources` · `refresh_catalog`**) · `fora_sdk.sync` (the same faces, blocking) | state is injected, never owned |
+| test support | `fora_sdk.testing` | acceptance signers that admit an empty requester, for a test proving a verifier refuses one. Not re-exported from `fora_sdk`, and imported by no module of it |
 
 ```sh
 pip install fora-protocol-sdk
@@ -523,6 +524,13 @@ a service through the SDK and check every answer through it:
   `sign_directory_response(authority, body, seeds, created, expires)` returns, signed by
   every key it lists for the authority it is served under; a verifier hands out no key
   that did not sign.
+- **`fora_sdk.testing`** signs an acceptance that names an empty requester, which the
+  `fora_sdk.core` signers refuse to produce, as fora.proto requires of a signer:
+  `jcs_acceptance_payload_any_requester`, `sign_offer_acceptance_any_requester`,
+  `jcs_request_acceptance_payload_any_requester` and
+  `sign_request_acceptance_any_requester`. Each skips only that refusal, so the acceptance
+  is valid in every respect but the requester, and a verifier's refusal of it is
+  attributable to that alone. Test support only: import it from a test or a harness.
 - **Document readers** in `fora_sdk.resolvers` read what a party publishes and check it:
   `read_manifest(domain)`, `read_wba_directory(url_or_domain)`,
   `read_revocation_list(url)` and `read_license_document(license)`. Each fetches through

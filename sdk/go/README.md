@@ -11,6 +11,7 @@ directly with no `replace` directive.
 | L2 · I/O | **`sdk/go/resolvers`** | the network-fetching tier: well-known JWKS / WBA directory / `fora.json` endpoint / offer-key resolvers, the uncached registration-requirements reader, + the SSRF-guarded HTTP client. Runs on a maintained `net/http` client behind the SSRF guard; composes L1, never the reverse |
 | L2 · transport | `sdk/go/core` (transport-neutral: Verifier, {verified,rejected}, `DiscoveryResult` per-URI groups, VerifiedOffer guard, signing RoundTripper, ReplayStore — zero Connect) · `sdk/go/connect` (Connect **client** binding: `NewClient` + `NewBrokerClient` + `NewCatalogClient` + `NewAdminClient`; the agent verbs **`Discover` · `Resolve` · `Execute` · `ExecuteBatch` · `ReportUsage` · `Dispute` · `Fetch`**, the Broker purchase **`BrokerClient.Execute`** (offers from several Exchanges in one call), the account-setup verbs **`Register` · `GetAccountStatus`** and the publisher verbs **`PushResources` · `RemoveResources` · `RefreshCatalog`**, the operator verbs **`SetTenantFeeRate` · `SetReportingPolicy` · `RequestDomainVerification` · `ConfirmDomainVerification`** + client options + the `CallError` taxonomy + `ErrorDetailFrom`) · `sdk/go/connectserver` (Connect **server** binding: `NewExchangeServiceHandler` + `NewBrokerServiceHandler` + `NewCatalogServiceHandler` + server options + `AsConnectError` + `AttachErrorDetail`/`AttachDetail` + the reject answer **`RejectCode` · `IsBodyTooLarge` · `WriteReject`**, the one place the 413/429/401 split and the error-envelope body are decided) | transport-neutral core + Connect client/server bindings (state injected) |
 | L3 | separate packages | framework adapters (convert, never replace) — later |
+| test support | `sdk/go/helperstest` | acceptance signers that admit an empty requester, for a test proving a verifier refuses one. Never imported by production code |
 
 The `L2` tier is split by kind: the **I/O** package (`resolvers`) is the only tier
 that dials the network (it holds the maintained HTTP client and the SSRF guard),
@@ -382,6 +383,13 @@ response or re-implements signing:
   `core.SigningTransportFor` returns a signing transport that signs as the key.
   `core.WithSignerSource` signs each request as the identity a callback picks, for a
   service that signs as many agents.
+- **Acceptances that name an empty requester.** The `helpers` signers refuse to produce
+  one, as fora.proto requires of a signer, so `sdk/go/helperstest` holds their twins:
+  `CanonicalAcceptanceBytesAnyRequester`, `SignOfferAcceptanceAnyRequester`,
+  `CanonicalRequestAcceptanceBytesAnyRequester` and `SignRequestAcceptanceAnyRequester`.
+  Each skips only the empty-requester refusal, so the acceptance it signs is valid in every
+  respect but the requester, and a verifier's refusal of it is attributable to that alone.
+  Test support only: a test fails if production code imports the package.
 - **Document readers.** `resolvers.ReadManifest`, `ReadWBADirectory`,
   `ReadRevocationList` and `ReadLicenseDocument` read what a party publishes, through
   the guarded client unless `ReadOptions.Client` replaces it, and return a `Document`

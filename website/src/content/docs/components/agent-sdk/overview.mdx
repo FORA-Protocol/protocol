@@ -103,6 +103,7 @@ parsing responses itself or re-implementing request signing.
 | The header fields of a refusal, such as `Accept-Signature` or `Retry-After`, and its status | `CallError.Header`, `CallError.Status` | `ForaCallError.headers`, `ForaCallError.status` | `CallError.headers`, `CallError.status` |
 | The operator RPCs: `AdminService` and domain verification | `connect.NewAdminClient` | `createAdminClient` | `AdminClient` |
 | Mint a throwaway agent: key, directory document, signer | `helpers.GenerateKey`, `helpers.DirectoryDocument`, `core.SigningTransportFor` | `generateKey`, `directoryDocument`, `signingTransportFor` | `generate_key`, `directory_document`, `signing_transport_for` |
+| Sign an acceptance that names an empty requester, to test that a verifier refuses it | `helperstest.SignOfferAcceptanceAnyRequester`, `helperstest.SignRequestAcceptanceAnyRequester` | `signOfferAcceptanceAnyRequester`, `signRequestAcceptanceAnyRequester` (`./testing`) | `sign_offer_acceptance_any_requester`, `sign_request_acceptance_any_requester` (`fora_sdk.testing`) |
 | Read a document a party publishes and check it: the well-known manifest, the WBA key directory, the key revocation list, the license document | `resolvers.ReadManifest`, `resolvers.ReadWBADirectory`, `resolvers.ReadRevocationList`, `resolvers.ReadLicenseDocument` | `readManifest`, `readWBADirectory`, `readRevocationList`, `readLicenseDocument` | `read_manifest`, `read_wba_directory`, `read_revocation_list`, `read_license_document` |
 | Tell a missing document or a refused redirect from an outage | `resolvers.ErrDocumentNotFound`, `resolvers.ErrRedirectRefused` | `DocumentNotFound`, `RedirectRefused` | `DocumentNotFoundError`, `RedirectRefusedError` |
 | Check a message against the strict contract | `helpers.CheckStrict` | `checkStrict` | `check_strict` |
@@ -174,6 +175,12 @@ A few rules hold in every language:
   carry none; a redirect's `Location` names a URL the peer chose. The fields are a copy,
   looked up by any spelling of the name, a field sent on several lines joined with ", ",
   and never rendered into the message. Go keeps each line in its `http.Header`.
+- **The test signers are not protocol signers.** A protocol signer refuses to sign an
+  acceptance that names an empty requester, so a verifier's refusal of one can only be
+  tested with a signer that does not. The test-support packages hold twins of the four
+  acceptance functions that skip that refusal and keep every other one, reproducing the
+  `refused` rows of the shared acceptance corpora. Nothing in the SDK imports them, and an
+  acceptance they sign is one a conforming party must never send.
 - **The delivery edge checks the delivery URL.** A purchase returns each URL as the
   Exchange issued it, and fetch sends any URL it is given, so a harness can put any URL
   in front of an edge. The edge's refusal comes back with a `retrieval_auth_failure`

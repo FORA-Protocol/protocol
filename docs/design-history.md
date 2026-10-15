@@ -2993,3 +2993,50 @@ refused redirect and for a 2xx it could not read, where the two JSON clients rep
 status. A 2xx that is not a FORA answer is a refusal in Go, which connect-go classifies by
 its content type, and malformed in Python and TypeScript. Each predates this change, and
 none decides whether fields are carried.
+
+## A signer the protocol forbids lives in a test package
+
+fora.proto requires an acceptance to name its requester: "A signer refuses to sign bytes
+that name an empty requester, and a verifier refuses an acceptance whose canonical bytes
+name one, even when the signature over those bytes verifies." The SDK's acceptance signers
+are that signer in all three languages, so none of them can produce the input a verifier's
+refusal is tested with. The shared corpora recorded those bytes in their `refused` lists
+("what a signer without the check would produce"), but only the Go vector emitter could make
+them, through an unexported renderer, and a conformance suite had to write the canonical
+bytes and the Ed25519 signature by hand.
+
+The SDK now ships that signer, as test support. Each language has twins of its four
+acceptance functions that skip the empty-requester refusal and nothing else: Go's
+`sdk/go/helperstest`, Python's `fora_sdk.testing`, and TypeScript's
+`@fora-protocol/sdk/testing`.
+
+**Not a flag on the protocol's signer.** A parameter that turns the refusal off would leave
+every production call one argument away from signing what the protocol forbids. That is the
+shape this file already rules out for the SSRF guard ("An option that could silently disarm
+the guard is exactly how a security property becomes advisory"), and the reasoning carries
+over unchanged.
+
+**Not a client seam either.** The pre-signing hook and raw mode shape the message a
+conforming signer then signs. Neither makes the SDK produce a signature the protocol says a
+signer refuses to make. An artifact a conforming party must refuse to produce is a different
+kind of thing, so it lives where production code does not reach. In Go that is a test
+package, named the way `net/http/httptest` is. In Python it is a module the package root
+does not re-export, and in TypeScript an export path of its own. A test in each language
+fails if production code imports it.
+
+**Only the requester check is skipped.** It is the refusal the `refused` vectors record, so
+what the twins produce is pinned byte for byte in all three languages. The other refusals
+stay. Skipping them would reach inputs the shared vectors do not pin, such as an empty item
+list or an empty item field. Python and TypeScript build those payloads by hand, and their
+omission of an empty member is pinned only for the shapes the vectors carry.
+
+**One renderer per language serves both.** The canonical renderer takes the requester check
+as a parameter and runs it where the protocol's signer does. The protocol's signers pass
+their check, and the test package passes an unexported one that admits any requester, so
+nothing outside it can name the bypass. In Go the renderer and the other checks moved into
+`sdk/go/internal/canonicalsign`. In Python they are private functions of `fora_sdk.core`, and
+in TypeScript a module neither package manifest exports. Tests pin the text and the order of
+every refusal; they passed before the move and after it.
+
+The sentence in fora.proto is unchanged, because it describes a conforming signer and the
+twins are not one: an acceptance they sign is one a conforming party must never send.

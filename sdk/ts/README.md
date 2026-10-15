@@ -59,7 +59,11 @@ or an edge's discovery headers for `parseDiscoveryHint`. An injected send return
 the URL, and its refusal comes back with the edge's `retrieval_auth_failure` reason.
 `createAdminClient` covers the operator RPCs, and `@fora-protocol/sdk/identity` mints an
 agent key, its key directory, the directory's response signatures
-(`signDirectoryResponse`) and a signer.
+(`signDirectoryResponse`) and a signer. `@fora-protocol/sdk/testing` signs what the
+`./acceptance` signers refuse to: an acceptance naming an empty requester
+(`signOfferAcceptanceAnyRequester`, `signRequestAcceptanceAnyRequester` and the two payload
+functions), so a test can prove a verifier refuses it. Test support only; nothing in the SDK
+imports it.
 
 Requests are signed under the Web Bot Auth profile of RFC 9421
 (draft-ietf-webbotauth-httpsig-protocol-00). A signature covers `@method`, `@target-uri`,
