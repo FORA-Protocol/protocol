@@ -355,6 +355,51 @@ func TestContentFetcher_EdgeRefusal(t *testing.T) {
 	}
 }
 
+// A FetchError carries the header fields of the edge's error answer and of no other
+// answer. A 304, or a 3xx the client cannot follow because it names no Location,
+// reaches the refusal branch with its status and still carries none.
+func TestContentFetcher_ARefusalCarriesItsHeaderFields(t *testing.T) {
+	tests := map[string]struct {
+		status  int
+		carried bool
+	}{
+		"a refused proof is asked for again": {http.StatusUnauthorized, true},
+		"not modified carries none":          {http.StatusNotModified, false},
+		"a redirect naming no location":      {http.StatusFound, false},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set(helpers.AcceptSignatureHeader, helpers.PoPAcceptSignature)
+				w.WriteHeader(tc.status)
+			}))
+			defer srv.Close()
+
+			_, err := plainFetcher(t, resolvers.ContentFetchOptions{}).
+				Fetch(context.Background(), srv.URL+"/doc", newPopSigner(t))
+			var ferr *resolvers.FetchError
+			if !errors.As(err, &ferr) || ferr.Failure != resolvers.FetchRefused {
+				t.Fatalf("error = %v, want a FetchRefused FetchError", err)
+			}
+			if ferr.Status != tc.status {
+				t.Errorf("Status = %d, want %d", ferr.Status, tc.status)
+			}
+			if !tc.carried {
+				if ferr.Header != nil {
+					t.Errorf("Header = %v, want nil", ferr.Header)
+				}
+				return
+			}
+			if got := ferr.Header.Get(helpers.AcceptSignatureHeader); got != helpers.PoPAcceptSignature {
+				t.Errorf("Accept-Signature = %q, want %q", got, helpers.PoPAcceptSignature)
+			}
+			if strings.Contains(ferr.Error(), helpers.PoPAcceptSignature) {
+				t.Errorf("the message renders the edge's header value: %s", ferr.Error())
+			}
+		})
+	}
+}
+
 // No credential may reach a log or an error string: the signed URL carries sig,
 // kid, exp and agent_id in its query.
 func TestContentFetcher_ErrorsCarryNoCredential(t *testing.T) {

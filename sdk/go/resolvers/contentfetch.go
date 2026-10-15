@@ -158,9 +158,14 @@ func (f FetchFailure) String() string { return failure.Name(fetchFailureNames, f
 type FetchError struct {
 	Failure FetchFailure
 	Op      string
-	Status  int    // HTTP status when the edge answered; 0 otherwise
-	Reason  string // the edge's refusal token when it sent one
-	Err     error
+	Status  int // HTTP status when the edge answered; 0 otherwise
+	// Header holds the header fields of the edge's error answer, 400 or above: the
+	// Accept-Signature a refused proof is answered with, or the discovery headers
+	// of a 403. Nil for any other answer, a redirect's included. The values are the
+	// edge's, unvalidated, and Error() never renders them.
+	Header http.Header
+	Reason string // the edge's refusal token when it sent one
+	Err    error
 }
 
 func (e *FetchError) Error() string {
@@ -247,7 +252,8 @@ func (f *ContentFetcher) Fetch(ctx context.Context, signedURL string, signer Pro
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return Content{}, &FetchError{
-			Failure: FetchRefused, Op: op, Status: resp.StatusCode, Reason: edgeReason(resp.Body),
+			Failure: FetchRefused, Op: op, Status: resp.StatusCode,
+			Header: failure.RefusalHeader(resp.StatusCode, resp.Header), Reason: edgeReason(resp.Body),
 		}
 	}
 	body, err := f.read(resp.Body)

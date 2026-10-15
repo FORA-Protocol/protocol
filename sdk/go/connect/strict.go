@@ -28,8 +28,9 @@ import (
 // envelope (its members, a known Connect code, well-formed details) and every
 // ErrorDetail it carries, both the binary value and the debug projection, against
 // the same two checks. An envelope that fails is refused as CallMalformed, and
-// CallError.Code still holds the Connect code the peer answered with; the detail is
-// not reported, because it is part of what was refused. A body that is empty or not
+// CallError.Code, Status and Header still hold the peer's Connect code, HTTP status
+// and header fields; the detail is not reported, because it is part of what was
+// refused. A body that is empty or not
 // JSON is a gateway's answer rather than an envelope, and its status classifies it
 // as before. Without this option an error answer is read leniently, as connect-go
 // reads it.

@@ -246,6 +246,7 @@ func fetchCallError(op, signedURL string, err error) error {
 		Kind:   fetchKinds[ferr.Failure],
 		Op:     op,
 		Status: ferr.Status,
+		Header: ferr.Header.Clone(),
 		Reason: ferr.Reason,
 		Err:    err,
 	}
