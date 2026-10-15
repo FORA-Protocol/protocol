@@ -15,7 +15,7 @@ package helpers
 // carries), its typed reason is read back through the REAL helpers.Reason
 // accessor, and its wire form is the PINNED canonical proto-JSON (snake_case field
 // names, enums as NAME strings, unpopulated omitted) — the same option set the
-// signing payload uses (canonicalsign.go) and the exact form the generated
+// signing payload uses (internal/canonicalsign) and the exact form the generated
 // Pydantic/Zod ErrorDetail models parse. Deterministic protobuf BINARY is
 // explicitly NOT a cross-language primitive (protobuf's own caveat), so the shared
 // wire is proto-JSON, which any language reproduces without a binary codec.

@@ -96,7 +96,7 @@ func messageHasUnknown(m protoreflect.Message) bool {
 			// Map KEYS are scalars; only a message-typed value can nest one. The
 			// synthetic ENTRY messages are not visited: protobuf-go discards unknown
 			// bytes planted on an entry at unmarshal, so they never reach here (nor
-			// the wire again). offer_test.go pins that, and fails loudly if a
+			// the wire again). helpers/offer_test.go pins that, and fails loudly if a
 			// protobuf upgrade starts retaining them.
 			if fd.MapValue().Kind() == protoreflect.MessageKind ||
 				fd.MapValue().Kind() == protoreflect.GroupKind {
