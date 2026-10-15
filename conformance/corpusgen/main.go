@@ -68,7 +68,8 @@ func seeds() map[string]proto.Message {
 	// and the audience statement of a TransactionRequest), so a seed without it
 	// is not a valid baseline — seeds bypass auto-fill entirely. terms is bounded
 	// to exactly one: an offer IS one licensing arrangement, so the baseline
-	// carries the single term it sells rather than an empty list.
+	// carries the single term it sells rather than an empty list. The term
+	// carries no pricing: the offer states its price once, in Offer.pricing.
 	offer := func() *forav1.Offer {
 		return &forav1.Offer{
 			OfferId:  "offer-seed",
@@ -76,8 +77,19 @@ func seeds() map[string]proto.Message {
 			Pricing:  pricing(),
 			Terms: []*forav1.LicenseTerm{{
 				Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
-				Pricing:   pricing(),
 			}},
+		}
+	}
+	// requester is the required sub-message of ResourceQuery, DiscoveryRequest and
+	// TransactionRequest, so auto-fill needs its seed. It is exactly the Requester the
+	// auto-fill built before the field was required, so the Requester/* cases are
+	// unchanged.
+	requester := func() *forav1.Requester {
+		return &forav1.Requester{
+			Id:     "x",
+			Domain: "x",
+			Type:   forav1.RequesterType_REQUESTER_TYPE_AGENT,
+			Scopes: []string{"x"},
 		}
 	}
 	return map[string]proto.Message{
@@ -97,7 +109,8 @@ func seeds() map[string]proto.Message {
 		// and TransactionRequest needs a valid 1-item items[] baseline because its
 		// items field is now repeated.min_items=1 (single-offer mode removed).
 		"Offer":              offer(),
-		"TransactionRequest": &forav1.TransactionRequest{IdempotencyKey: "idem-tx", Items: []*forav1.TransactionItem{{Offer: offer()}}},
+		"Requester":          requester(),
+		"TransactionRequest": &forav1.TransactionRequest{IdempotencyKey: "idem-tx", Requester: requester(), Items: []*forav1.TransactionItem{{Offer: offer()}}},
 		"AgentRequestAcceptancePayload": &forav1.AgentRequestAcceptancePayload{
 			Items: []*forav1.AgentRequestAcceptanceItem{{
 				OfferSig: "offer-signature",
@@ -212,8 +225,8 @@ var patternKillers = map[string][]string{
 	},
 }
 
-// resourcePathPattern is the absolute-path shape ResourceEntry.path and
-// RemoveResourcesRequest.paths carry, quoted from the proto for the same
+// resourcePathPattern is the absolute-path shape ResourceEntry.path,
+// ResourceRef.path and the deprecated RemoveResourcesRequest.paths carry, quoted from the proto for the same
 // reason bareDomainPattern is — and, like it, a drift between this copy and the
 // fields is caught by conformance's own descriptor guard, not here. That matters
 // more for this one than for a plain constant: the killer table above is keyed by
@@ -320,6 +333,56 @@ func writeCrossField(v protovalidate.Validator) {
 			"Pricing/cel/free_zero_rate",
 			&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "5"},
 			"pricing.free.zero_rate",
+		},
+		{
+			// A metered offer may state no estimate (the purchase then charges
+			// one unit), but an estimate it does state is positive: zero would
+			// price the purchase at nothing.
+			"Offer/cel/metered_estimate_positive/zero",
+			meteredOffer(proto.Int32(0)),
+			"offer.metered.estimate_positive",
+		},
+		{
+			"Offer/cel/metered_estimate_positive/negative",
+			meteredOffer(proto.Int32(-1)),
+			"offer.metered.estimate_positive",
+		},
+		{
+			// An offer states its price once, in Offer.pricing: a term that
+			// carries pricing of its own is refused, even when the two prices
+			// agree.
+			"Offer/cel/terms_pricing_unset/same_price",
+			func() *forav1.Offer {
+				o := meteredOffer(proto.Int32(2500))
+				o.Terms[0].Pricing = proto.Clone(o.Pricing).(*forav1.Pricing)
+				return o
+			}(),
+			"offer.terms.pricing_unset",
+		},
+		{
+			// A PER_UNIT term under FLAT offer pricing no longer makes the offer
+			// metered — the metered rule reads Offer.pricing only — but the term's
+			// pricing is refused for being there at all.
+			"Offer/cel/terms_pricing_unset/per_unit_term",
+			func() *forav1.Offer {
+				o := meteredOffer(nil)
+				o.Pricing = &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1.00", Currency: "USD"}
+				o.Terms[0].Pricing = &forav1.Pricing{
+					Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.00002", Currency: "USD", Unit: proto.String("tokens"),
+				}
+				return o
+			}(),
+			"offer.terms.pricing_unset",
+		},
+		{
+			// A catalog term carries its price: absent Pricing is not free.
+			"ResourceEntry/cel/terms_pricing_required",
+			&forav1.ResourceEntry{
+				Domain: "publisher.example",
+				Path:   "/article",
+				Terms:  []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}},
+			},
+			"resource_entry.terms.pricing_required",
 		},
 		{
 			"License/cel/digest_required_with_uri",
@@ -464,6 +527,23 @@ func writeCrossField(v protovalidate.Validator) {
 	must(err)
 	must(os.WriteFile("conformance/corpus/crossfield.json", append(out, '\n'), 0o644))
 	fmt.Printf("wrote %d cross-field cases -> conformance/corpus/crossfield.json\n", len(cases))
+}
+
+// meteredOffer is a PER_UNIT offer, otherwise valid, whose pricing carries the
+// given estimate (nil leaves it unset). The term carries no pricing: the offer
+// states its price once, in Offer.pricing.
+func meteredOffer(estimate *int32) *forav1.Offer {
+	return &forav1.Offer{
+		OfferId:  "offer-metered",
+		Exchange: "exchange.example",
+		Pricing: &forav1.Pricing{
+			Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.00002", Currency: "USD", Unit: proto.String("tokens"),
+			EstimatedQuantity: estimate,
+		},
+		Terms: []*forav1.LicenseTerm{{
+			Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+		}},
+	}
 }
 
 // ── baseline construction ────────────────────────────────────────────────────

@@ -36,7 +36,7 @@ func TestWithValidation_StrictRejectsInvalidRequest(t *testing.T) {
 	// Client A (validation Off) surfaces the offer so we can obtain a VerifiedOffer
 	// wrapping the proto-minimal fixture (no pricing.model).
 	surfacer := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()),
 		foraconnect.WithVerification(core.Off),
 	)
 	res, err := surfacer.Discover(context.Background(), &forav1.ResourceQuery{})
@@ -51,7 +51,7 @@ func TestWithValidation_StrictRejectsInvalidRequest(t *testing.T) {
 	// the model-less offer, which the bidirectional validate interceptor must reject
 	// with CodeInvalidArgument BEFORE the round-trip.
 	strict := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithRequester(testRequester()),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()),
 		foraconnect.WithValidation(foraconnect.ValidationStrict),
 	)
 	_, err = strict.Execute(context.Background(), res.Verified()[0])

@@ -20,7 +20,9 @@
     "exactOptionalPropertyTypes": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    // The client imports the published strict JSON Schemas as JSON modules.
+    "resolveJsonModule": true
   },
   "include": [".stage/**/*"]
 }

@@ -106,7 +106,9 @@ func TestWriteReject_StatusAgreesWithTheCodeItIsGiven(t *testing.T) {
 				t.Errorf("status = %d, want %d — the status and the body must name one verdict",
 					rec.Code, tc.want)
 			}
-			var body map[string]string
+			// map[string]any, not map[string]string: an Unauthenticated refusal also
+			// carries a details array, which is not a string.
+			var body map[string]any
 			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 				t.Fatalf("body is not the Connect error envelope: %v", err)
 			}
@@ -165,27 +167,59 @@ func TestWriteReject_NeverAnswersSuccess(t *testing.T) {
 	}
 }
 
-// TestWriteReject_BodyCarriesOnlyCodeAndMessage pins the response shape now that it
-// is a public contract. The message is the error's own text, so a caller learns what
-// it publishes by rejecting with a wrapped internal error; nothing else leaves.
-func TestWriteReject_BodyCarriesOnlyCodeAndMessage(t *testing.T) {
+// TestWriteReject_BodyCarriesOnlyCodeMessageAndTheTypedDetail pins the response shape
+// now that it is a public contract. The message is the error's own text, so a caller
+// learns what it publishes by rejecting with a wrapped internal error. An
+// Unauthenticated refusal adds exactly one details entry, the fora.v1.ErrorDetail
+// carrying the typed reason; a resource-limit refusal adds nothing. No other key
+// leaves either way.
+func TestWriteReject_BodyCarriesOnlyCodeMessageAndTheTypedDetail(t *testing.T) {
 	t.Parallel()
-	err := errors.New("signature verification failed")
-	rec := httptest.NewRecorder()
-	foraserver.WriteReject(rec, connectrpc.CodeUnauthenticated, err)
+	cases := []struct {
+		name        string
+		code        connectrpc.Code
+		err         error
+		wantDetails bool
+	}{
+		{"unauthenticated", connectrpc.CodeUnauthenticated, errors.New("signature verification failed"), true},
+		{"resource exhausted", connectrpc.CodeResourceExhausted, helpers.ErrTooManyHops, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			foraserver.WriteReject(rec, tc.code, tc.err)
 
-	var body map[string]any
-	if uerr := json.Unmarshal(rec.Body.Bytes(), &body); uerr != nil {
-		t.Fatalf("unmarshal body: %v", uerr)
-	}
-	if len(body) != 2 || body["code"] == nil || body["message"] == nil {
-		t.Errorf("body carries %v, want exactly the keys code and message", body)
-	}
-	if body["message"] != err.Error() {
-		t.Errorf("message = %v, want the error's own text %q", body["message"], err.Error())
-	}
-	if got := len(rec.Header()); got != 1 || rec.Header().Get("Content-Type") != "application/json" {
-		t.Errorf("writer set headers %v, want only Content-Type: application/json", rec.Header())
+			var body map[string]any
+			if uerr := json.Unmarshal(rec.Body.Bytes(), &body); uerr != nil {
+				t.Fatalf("unmarshal body: %v", uerr)
+			}
+			wantKeys := 2
+			if tc.wantDetails {
+				wantKeys = 3
+			}
+			if len(body) != wantKeys || body["code"] == nil || body["message"] == nil {
+				t.Errorf("body carries %v, want the keys code and message (and details: %v) only",
+					body, tc.wantDetails)
+			}
+			if body["message"] != tc.err.Error() {
+				t.Errorf("message = %v, want the error's own text %q", body["message"], tc.err.Error())
+			}
+			details, _ := body["details"].([]any)
+			switch {
+			case !tc.wantDetails && body["details"] != nil:
+				t.Errorf("a %v refusal carries details %v; only a signature refusal has a reason block",
+					tc.code, body["details"])
+			case tc.wantDetails && len(details) != 1:
+				t.Errorf("details = %v, want exactly one entry", body["details"])
+			case tc.wantDetails:
+				if entry, _ := details[0].(map[string]any); entry["type"] != "fora.v1.ErrorDetail" {
+					t.Errorf("details[0] = %v, want a fora.v1.ErrorDetail", details[0])
+				}
+			}
+			if got := len(rec.Header()); got != 1 || rec.Header().Get("Content-Type") != "application/json" {
+				t.Errorf("writer set headers %v, want only Content-Type: application/json", rec.Header())
+			}
+		})
 	}
 }
 

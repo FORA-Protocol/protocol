@@ -16,8 +16,9 @@ import (
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
-// The agent-binding sign face. The positive assertion is a replay of the shared
-// cross-language corpus: pop-vectors.json stores the seed that produced each
+// The agent-binding sign face: a Web Bot Auth signature plus @method and
+// @target-uri. The positive assertion is a replay of the shared cross-language
+// corpus: pop-vectors.json stores the seed that produced each
 // stored signature, so re-signing the same inputs must reproduce the stored
 // header bytes exactly (Ed25519 is deterministic). Python replays the same file
 // against its own signer, which is what makes the three faces one contract.
@@ -31,9 +32,16 @@ type popVector struct {
 	AgentID            string `json:"agent_id"`
 	PresentedKeyB64URL string `json:"presented_key_b64url"`
 	SignerSeedHex      string `json:"signer_seed_hex"`
+	AgentDirectory     string `json:"agent_directory"`
+	Nonce              string `json:"nonce"`
+	SignatureAgent     string `json:"signature_agent"`
 	SignatureInput     string `json:"signature_input"`
 	Signature          string `json:"signature"`
+	NowUnix            int64  `json:"now_unix"`
 	ExpectedValid      bool   `json:"expected_valid"`
+	// ExpectedReason and ExpectedAcceptSignature are the verify face's refusal.
+	ExpectedReason          string `json:"expected_reason"`
+	ExpectedAcceptSignature string `json:"expected_accept_signature"`
 }
 
 func loadPopVectors(t *testing.T) []popVector {
@@ -52,16 +60,26 @@ func loadPopVectors(t *testing.T) []popVector {
 	return vectors
 }
 
-// validPopVector returns the one vector whose stored proof is expected to verify.
+// validPopVector returns the vector the shipped signer produced with a nonce.
 func validPopVector(t *testing.T) popVector {
 	t.Helper()
 	for _, v := range loadPopVectors(t) {
-		if v.ExpectedValid {
+		if v.Name == "valid" {
 			return v
 		}
 	}
 	t.Fatal("no valid pop vector found")
 	return popVector{}
+}
+
+// popOptions are the signer inputs that reproduce v.
+func popOptions(t *testing.T, v popVector) helpers.PoPOptions {
+	t.Helper()
+	created, expires := parseWindow(t, v.SignatureInput)
+	return helpers.PoPOptions{
+		URL: v.URL, KeyID: v.AgentID, Created: created, Expires: expires, Method: v.Method,
+		SignatureAgent: v.AgentDirectory, Nonce: v.Nonce,
+	}
 }
 
 // signerFor rebuilds the keypair a vector was produced with.
@@ -114,25 +132,33 @@ func mustAtoi(t *testing.T, s string) int64 {
 	return n
 }
 
+// Every vector the shipped signer can produce — the valid ones, made with the
+// agent's own key and an https origin — is reproduced byte for byte.
 func TestSignAgentBinding_ReproducesSharedVector(t *testing.T) {
-	v := validPopVector(t)
-	signer, pub := signerFor(t, v.SignerSeedHex, v.AgentID)
-	created, expires := parseWindow(t, v.SignatureInput)
-
-	got, err := helpers.SignAgentBinding(context.Background(), signer, pub, helpers.PoPOptions{
-		URL: v.URL, KeyID: v.AgentID, Created: created, Expires: expires, Method: v.Method,
-	})
-	if err != nil {
-		t.Fatalf("sign agent binding: %v", err)
-	}
-	if got.SignatureInput != v.SignatureInput {
-		t.Errorf("Signature-Input\n got %q\nwant %q", got.SignatureInput, v.SignatureInput)
-	}
-	if got.Signature != v.Signature {
-		t.Errorf("Signature\n got %q\nwant %q", got.Signature, v.Signature)
-	}
-	if got.AgentKey != v.PresentedKeyB64URL {
-		t.Errorf("X-FORA-Agent-Key got %q, want %q", got.AgentKey, v.PresentedKeyB64URL)
+	for _, name := range []string{"valid", "valid_no_nonce"} {
+		var v popVector
+		for _, c := range loadPopVectors(t) {
+			if c.Name == name {
+				v = c
+			}
+		}
+		signer, pub := signerFor(t, v.SignerSeedHex, v.AgentID)
+		got, err := helpers.SignAgentBinding(context.Background(), signer, pub, popOptions(t, v))
+		if err != nil {
+			t.Fatalf("%s: sign agent binding: %v", name, err)
+		}
+		if got.SignatureInput != v.SignatureInput {
+			t.Errorf("%s Signature-Input\n got %q\nwant %q", name, got.SignatureInput, v.SignatureInput)
+		}
+		if got.Signature != v.Signature {
+			t.Errorf("%s Signature\n got %q\nwant %q", name, got.Signature, v.Signature)
+		}
+		if got.SignatureAgent != v.SignatureAgent {
+			t.Errorf("%s Signature-Agent got %q, want %q", name, got.SignatureAgent, v.SignatureAgent)
+		}
+		if got.AgentKey != v.PresentedKeyB64URL {
+			t.Errorf("%s X-FORA-Agent-Key got %q, want %q", name, got.AgentKey, v.PresentedKeyB64URL)
+		}
 	}
 }
 
@@ -142,11 +168,8 @@ func TestSignAgentBinding_ReproducesSharedVector(t *testing.T) {
 func TestSignAgentBinding_EncodingAsymmetry(t *testing.T) {
 	v := validPopVector(t)
 	signer, pub := signerFor(t, v.SignerSeedHex, v.AgentID)
-	created, expires := parseWindow(t, v.SignatureInput)
 
-	got, err := helpers.SignAgentBinding(context.Background(), signer, pub, helpers.PoPOptions{
-		URL: v.URL, KeyID: v.AgentID, Created: created, Expires: expires,
-	})
+	got, err := helpers.SignAgentBinding(context.Background(), signer, pub, popOptions(t, v))
 	if err != nil {
 		t.Fatalf("sign agent binding: %v", err)
 	}
@@ -162,30 +185,27 @@ func TestSignAgentBinding_EncodingAsymmetry(t *testing.T) {
 	}
 }
 
-// The covered set is exactly the two components. content-digest and authorization
-// are absent by design: a GET has no body, and the signed URL is itself the
-// credential and is already covered by @target-uri.
+// The covered set is @method, @target-uri and the agent's Signature-Agent member.
+// content-digest and authorization are absent by design: a GET has no body, and
+// the signed URL is itself the credential and is already covered by @target-uri.
 func TestSignAgentBinding_CoversExactlyMethodAndTargetURI(t *testing.T) {
 	v := validPopVector(t)
 	signer, pub := signerFor(t, v.SignerSeedHex, v.AgentID)
-	created, expires := parseWindow(t, v.SignatureInput)
 
-	got, err := helpers.SignAgentBinding(context.Background(), signer, pub, helpers.PoPOptions{
-		URL: v.URL, KeyID: v.AgentID, Created: created, Expires: expires,
-	})
+	got, err := helpers.SignAgentBinding(context.Background(), signer, pub, popOptions(t, v))
 	if err != nil {
 		t.Fatalf("sign agent binding: %v", err)
 	}
-	if !strings.HasPrefix(got.SignatureInput, `sig1=("@method" "@target-uri");`) {
-		t.Errorf("covered set is not the agent-binding pair: %q", got.SignatureInput)
+	if !strings.HasPrefix(got.SignatureInput, `sig1=("@method" "@target-uri" "signature-agent";key="sig1");`) {
+		t.Errorf("covered set is not the agent-binding set: %q", got.SignatureInput)
 	}
-	for _, banned := range []string{"content-digest", "authorization", "signature-agent"} {
+	for _, banned := range []string{"content-digest", "authorization"} {
 		if strings.Contains(got.SignatureInput, banned) {
 			t.Errorf("covered set carries %q, which this profile must not bind: %q", banned, got.SignatureInput)
 		}
 	}
-	// keyid, alg, created, expires — the order the verifiers reconstruct from.
-	wantOrder := []string{";keyid=", ";alg=", ";created=", ";expires="}
+	// created, expires, keyid, alg, nonce, tag — the order every FORA signer emits.
+	wantOrder := []string{";created=", ";expires=", ";keyid=", ";alg=", ";nonce=", `;tag="web-bot-auth"`}
 	at := 0
 	for _, token := range wantOrder {
 		idx := strings.Index(got.SignatureInput[at:], token)
@@ -196,8 +216,8 @@ func TestSignAgentBinding_CoversExactlyMethodAndTargetURI(t *testing.T) {
 	}
 }
 
-func TestAgentBinding_ApplyWritesTheThreeHeaders(t *testing.T) {
-	binding := helpers.AgentBinding{AgentKey: "key", SignatureInput: "sig1=()", Signature: "sig1=::"}
+func TestAgentBinding_ApplyWritesTheFourHeaders(t *testing.T) {
+	binding := helpers.AgentBinding{AgentKey: "key", SignatureAgent: `sig1="https://a.example"`, SignatureInput: "sig1=()", Signature: "sig1=::"}
 	h := http.Header{}
 	binding.Apply(h)
 
@@ -210,8 +230,11 @@ func TestAgentBinding_ApplyWritesTheThreeHeaders(t *testing.T) {
 	if got := h.Get("Signature"); got != "sig1=::" {
 		t.Errorf("Signature = %q", got)
 	}
-	if len(h) != 3 {
-		t.Errorf("Apply wrote %d headers, want exactly 3: %v", len(h), h)
+	if got := h.Get(helpers.SignatureAgentHeader); got != `sig1="https://a.example"` {
+		t.Errorf("Signature-Agent = %q", got)
+	}
+	if len(h) != 4 {
+		t.Errorf("Apply wrote %d headers, want exactly 4: %v", len(h), h)
 	}
 }
 
@@ -221,7 +244,7 @@ func TestSignAgentBinding_RefusesBadPreconditions(t *testing.T) {
 	v := validPopVector(t)
 	signer, pub := signerFor(t, v.SignerSeedHex, v.AgentID)
 	created, expires := parseWindow(t, v.SignatureInput)
-	ok := helpers.PoPOptions{URL: v.URL, KeyID: v.AgentID, Created: created, Expires: expires}
+	ok := popOptions(t, v)
 
 	// A second keypair whose thumbprint is NOT the vector's agent_id.
 	otherSigner, otherPub := signerFor(t, strings.Repeat("44", ed25519.SeedSize), v.AgentID)
@@ -238,6 +261,10 @@ func TestSignAgentBinding_RefusesBadPreconditions(t *testing.T) {
 		{"empty target uri", signer, pub, withURL(ok, ""), helpers.ErrMissingTargetURI},
 		{"missing created", signer, pub, withWindow(ok, 0, expires), helpers.ErrMissingCreated},
 		{"missing expires", signer, pub, withWindow(ok, created, 0), helpers.ErrMissingExpires},
+		{"six-minute window", signer, pub, withWindow(ok, created, created+360), helpers.ErrSignatureLifetime},
+		{"no Signature-Agent", signer, pub, withAgent(ok, ""), helpers.ErrSignatureAgentRequired},
+		{"plaintext origin", signer, pub, withAgent(ok, "http://agent.example"), helpers.ErrSignatureAgentNotOrigin},
+		{"nonce outside base64url", signer, pub, withNonce(ok, "a+b/"), helpers.ErrInvalidNonce},
 		{"keyid is not the presented key's thumbprint", otherSigner, otherPub, ok, helpers.ErrKeyIDMismatch},
 		// Both values are written verbatim into a line-delimited signature base,
 		// so a control byte would add or split a component line and the signed
@@ -267,11 +294,10 @@ func TestSignAgentBinding_RefusesBadPreconditions(t *testing.T) {
 func TestSignAgentBinding_KeyIDDefaultsToTheSigner(t *testing.T) {
 	v := validPopVector(t)
 	signer, pub := signerFor(t, v.SignerSeedHex, v.AgentID)
-	created, expires := parseWindow(t, v.SignatureInput)
+	opts := popOptions(t, v)
+	opts.KeyID = ""
 
-	got, err := helpers.SignAgentBinding(context.Background(), signer, pub, helpers.PoPOptions{
-		URL: v.URL, Created: created, Expires: expires,
-	})
+	got, err := helpers.SignAgentBinding(context.Background(), signer, pub, opts)
 	if err != nil {
 		t.Fatalf("sign agent binding: %v", err)
 	}
@@ -292,5 +318,15 @@ func withWindow(o helpers.PoPOptions, created, expires int64) helpers.PoPOptions
 
 func withMethod(o helpers.PoPOptions, method string) helpers.PoPOptions {
 	o.Method = method
+	return o
+}
+
+func withAgent(o helpers.PoPOptions, origin string) helpers.PoPOptions {
+	o.SignatureAgent = origin
+	return o
+}
+
+func withNonce(o helpers.PoPOptions, nonce string) helpers.PoPOptions {
+	o.Nonce = nonce
 	return o
 }

@@ -10,19 +10,21 @@
 import { endpointRefusal } from "../src/endpoint-rule.ts";
 import { invalidHost } from "../src/host-ref.ts";
 import { isBareHost } from "../src/hosts.ts";
-import { manifestVersionRefusal, WellKnownPath } from "../src/wire.ts";
+import { manifestVersionRefusal } from "../src/wire.ts";
+import { fetchManifest, manifestURL } from "./documents.ts";
 import { DirectoryUnavailable, EndpointRefused, ManifestVersionRefused, NoEndpoint } from "./errors.ts";
-import { type FetchLike, defaultFetch, fetchStrict } from "./http.ts";
+import { type FetchLike, fetchStrict } from "./fetch.ts";
 import { ed25519KeysFromJwks } from "./jwks.ts";
 
 const DEFAULT_TTL_MS = 300_000; // 5 minutes
 
 /** Options for the well-known fetching resolvers. `now` is epoch-ms; tests inject
- * it for deterministic TTL expiry. `fetch` defaults to the global fetch. */
+ * it for deterministic TTL expiry. `fetch` is required here; the Node entry's
+ * factories default it to the plain, unguarded transport (see defaultFetch). */
 export interface WellKnownOptions {
   ttlMs?: number;
   now?: () => number;
-  fetch?: FetchLike;
+  fetch: FetchLike;
   /** Trust allowlist: a keyid (key resolver) or host (endpoint resolver) the
    * allowlist rejects never reaches the network. */
   allow?: (id: string) => boolean;
@@ -47,14 +49,14 @@ export interface WellKnownEndpointResolver {
 /** Lazily fetch the JWKS at `url`, cache resolved keys with a TTL. */
 export function createWellKnownKeyResolver(
   url: string,
-  opts: WellKnownOptions = {},
+  opts: WellKnownOptions,
 ): WellKnownKeyResolver {
   return new KeyResolverImpl(url, opts);
 }
 
 /** Host-keyed resolver of an Exchange domain → its self-advertised endpoint. */
 export function createWellKnownEndpointResolver(
-  opts: EndpointOptions = {},
+  opts: EndpointOptions,
 ): WellKnownEndpointResolver {
   return new EndpointResolverImpl(opts);
 }
@@ -72,7 +74,7 @@ class KeyResolverImpl implements WellKnownKeyResolver {
     private readonly url: string,
     opts: WellKnownOptions,
   ) {
-    this.fetchFn = opts.fetch ?? defaultFetch;
+    this.fetchFn = opts.fetch;
     this.ttlMs = opts.ttlMs && opts.ttlMs > 0 ? opts.ttlMs : DEFAULT_TTL_MS;
     this.now = opts.now ?? Date.now;
     this.allow = opts.allow;
@@ -130,7 +132,7 @@ class EndpointResolverImpl implements WellKnownEndpointResolver {
   private readonly flight = new Map<string, Promise<string>>();
 
   constructor(opts: EndpointOptions) {
-    this.fetchFn = opts.fetch ?? defaultFetch;
+    this.fetchFn = opts.fetch;
     this.ttlMs = opts.ttlMs && opts.ttlMs > 0 ? opts.ttlMs : DEFAULT_TTL_MS;
     this.now = opts.now ?? Date.now;
     this.scheme = opts.scheme && opts.scheme !== "" ? opts.scheme : "https";
@@ -179,14 +181,9 @@ class EndpointResolverImpl implements WellKnownEndpointResolver {
   private async fetchEndpoint(host: string): Promise<string> {
     const hit = this.cached(host);
     if (hit !== undefined) return hit; // filled while we queued behind the flight lock
-    const url = `${this.scheme}://${host}${WellKnownPath}`;
-    const body = await fetchStrict(this.fetchFn, url);
-    let doc: unknown;
-    try {
-      doc = JSON.parse(body);
-    } catch (err) {
-      throw new DirectoryUnavailable(`manifest decode ${url}`, { cause: err });
-    }
+    // The manifest is read where every reader of it reads it, leniently: an unknown
+    // member is a newer minor version, not a reason to stop routing.
+    const { doc } = await fetchManifest(this.fetchFn, manifestURL(this.scheme, host));
     // The document version gate runs before the endpoint is so much as looked
     // at, and never caches: the next resolve fetches again.
     const versionRefusal = manifestVersionRefusal((doc as { ver?: unknown } | null)?.ver);

@@ -169,8 +169,7 @@
     "message": "LicenseTerm",
     "valid": false,
     "rules": [
-      "license_term.reference_only.requires_uri",
-      "required"
+      "license_term.reference_only.requires_uri"
     ],
     "json": {
       "semantics": "TERM_SEMANTICS_REFERENCE_ONLY"
@@ -186,6 +185,113 @@
     "json": {
       "kind": "OBLIGATION_KIND_SHARE_ALIKE",
       "trigger": "OBLIGATION_TRIGGER_ON_USE"
+    }
+  },
+  {
+    "id": "Offer/cel/metered_estimate_positive/negative",
+    "message": "Offer",
+    "valid": false,
+    "rules": [
+      "offer.metered.estimate_positive"
+    ],
+    "json": {
+      "exchange": "exchange.example",
+      "offer_id": "offer-metered",
+      "pricing": {
+        "currency": "USD",
+        "estimated_quantity": -1,
+        "model": "PRICING_MODEL_PER_UNIT",
+        "rate": "0.00002",
+        "unit": "tokens"
+      },
+      "terms": [
+        {
+          "semantics": "TERM_SEMANTICS_ENUMERATED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "Offer/cel/metered_estimate_positive/zero",
+    "message": "Offer",
+    "valid": false,
+    "rules": [
+      "offer.metered.estimate_positive"
+    ],
+    "json": {
+      "exchange": "exchange.example",
+      "offer_id": "offer-metered",
+      "pricing": {
+        "currency": "USD",
+        "estimated_quantity": 0,
+        "model": "PRICING_MODEL_PER_UNIT",
+        "rate": "0.00002",
+        "unit": "tokens"
+      },
+      "terms": [
+        {
+          "semantics": "TERM_SEMANTICS_ENUMERATED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "Offer/cel/terms_pricing_unset/per_unit_term",
+    "message": "Offer",
+    "valid": false,
+    "rules": [
+      "offer.terms.pricing_unset"
+    ],
+    "json": {
+      "exchange": "exchange.example",
+      "offer_id": "offer-metered",
+      "pricing": {
+        "currency": "USD",
+        "model": "PRICING_MODEL_FLAT",
+        "rate": "1.00"
+      },
+      "terms": [
+        {
+          "pricing": {
+            "currency": "USD",
+            "model": "PRICING_MODEL_PER_UNIT",
+            "rate": "0.00002",
+            "unit": "tokens"
+          },
+          "semantics": "TERM_SEMANTICS_ENUMERATED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "Offer/cel/terms_pricing_unset/same_price",
+    "message": "Offer",
+    "valid": false,
+    "rules": [
+      "offer.terms.pricing_unset"
+    ],
+    "json": {
+      "exchange": "exchange.example",
+      "offer_id": "offer-metered",
+      "pricing": {
+        "currency": "USD",
+        "estimated_quantity": 2500,
+        "model": "PRICING_MODEL_PER_UNIT",
+        "rate": "0.00002",
+        "unit": "tokens"
+      },
+      "terms": [
+        {
+          "pricing": {
+            "currency": "USD",
+            "estimated_quantity": 2500,
+            "model": "PRICING_MODEL_PER_UNIT",
+            "rate": "0.00002",
+            "unit": "tokens"
+          },
+          "semantics": "TERM_SEMANTICS_ENUMERATED"
+        }
+      ]
     }
   },
   {
@@ -228,6 +334,23 @@
         }
       ],
       "reason": "REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE"
+    }
+  },
+  {
+    "id": "ResourceEntry/cel/terms_pricing_required",
+    "message": "ResourceEntry",
+    "valid": false,
+    "rules": [
+      "resource_entry.terms.pricing_required"
+    ],
+    "json": {
+      "domain": "publisher.example",
+      "path": "/article",
+      "terms": [
+        {
+          "semantics": "TERM_SEMANTICS_ENUMERATED"
+        }
+      ]
     }
   },
   {

@@ -24,27 +24,21 @@ export function clockWindow(now: () => number, ttlSec: number): Window {
 }
 
 /**
- * monotonicWindow returns a Window whose expires cutoff strictly increases
- * across calls: it tracks floor(now()) + ttlSec but, when a burst of requests
- * lands in the same wall-clock second, bumps expires by one second per call so
- * no two back-to-back signatures share an (keyid, expires) pair. The signing
- * transport no longer needs this for uniqueness: every signature carries a fresh
- * nonce, so clockWindow is enough. During a burst expires − created grows past
- * ttlSec, which a verifier with maxSignatureAge = ttlSec refuses. created tracks
- * floor(now()), so the pair stays clock-consistent.
+ * monotonicWindow returns a Window that stamps each signature at the clock's current
+ * time: created = floor(now()) and expires = created + ttlSec, exactly as clockWindow
+ * does.
  *
- * ONE INSTANCE PER CLIENT, never one per call. The running maximum is the whole
- * mechanism: a window created per request starts from zero, cannot see the
- * previous signature, and provides exactly none of the uniqueness it was chosen
- * for — while still looking correct at the call site.
+ * It once bumped expires (and later created with it) by one second per call inside a
+ * wall-clock second, so that no two signatures shared a window. Above one request per
+ * second that stamped signatures in the future, by as many seconds as there were
+ * requests, and they passed only on the verifier's future-skew allowance. Uniqueness
+ * never needed it: every signature carries a fresh 64-byte nonce, so two identical
+ * requests in the same second already sign to different bytes. Go
+ * core.MonotonicWindow and the Python SDK behave the same way.
+ *
+ * @deprecated Use clockWindow. monotonicWindow is kept so existing callers compile,
+ * and behaves identically.
  */
 export function monotonicWindow(now: () => number, ttlSec: number): Window {
-	let lastExpires = 0;
-	return () => {
-		const created = Math.floor(now());
-		const floor = created + ttlSec;
-		const next = lastExpires >= floor ? lastExpires + 1 : floor;
-		lastExpires = next;
-		return [created, next];
-	};
+	return clockWindow(now, ttlSec);
 }

@@ -115,7 +115,11 @@ def _config(base_url: str) -> ClientConfig:
     return ClientConfig(
         base_url=base_url,
         requester=_REQUESTER,
-        signer=SigningTransport(signer_seed=_SEED, keyid="agent.v1"),
+        signer=SigningTransport(
+            signer_seed=_SEED,
+            keyid="agent.v1",
+            signature_agent="https://agent.test",
+        ),
     )
 
 
@@ -223,14 +227,16 @@ def test_the_delivery_deadline_covers_proof_minting() -> None:
     """
 
     class _SlowSigner(SigningTransport):
-        def sign_agent_binding(self, *, url: str, window: Any) -> tuple[str, str, str]:
+        def sign_agent_binding(self, *, url: str, window: Any) -> Any:
             time.sleep(0.3)
             return super().sign_agent_binding(url=url, window=window)
 
     config = ClientConfig(
         base_url="https://exchange.test",
         requester=_REQUESTER,
-        signer=_SlowSigner(signer_seed=_SEED, keyid="agent.v1"),
+        signer=_SlowSigner(
+            signer_seed=_SEED, keyid="agent.v1", signature_agent="https://agent.test"
+        ),
         content_timeout_sec=0.05,
     )
     with blocking.Client(config) as client, pytest.raises(CallError) as caught:

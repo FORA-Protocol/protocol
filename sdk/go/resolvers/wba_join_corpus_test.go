@@ -60,7 +60,7 @@ func (t *recordingTransport) RoundTrip(req *http.Request) (*http.Response, error
 	return &http.Response{
 		StatusCode: http.StatusOK,
 		Body:       io.NopCloser(strings.NewReader(`{"keys":[]}`)),
-		Header:     make(http.Header),
+		Header:     http.Header{"Content-Type": {resolvers.WBADirectoryMediaType}},
 		Request:    req,
 	}, nil
 }

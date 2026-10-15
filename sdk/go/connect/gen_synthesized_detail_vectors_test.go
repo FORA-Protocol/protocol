@@ -229,7 +229,7 @@ func refusedByTheEdge(t *testing.T, token string) *foraconnect.CallError {
 
 	client := foraconnect.NewClient("http://home.invalid",
 		append(allowLoopback(t),
-			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
 			foraconnect.WithAgentKey(sig.pub),
 		)...)
 	_, err := client.Fetch(context.Background(), edge.URL+"/doc?agent_id=tp")

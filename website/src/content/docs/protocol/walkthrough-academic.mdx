@@ -16,7 +16,7 @@ A university AI research agent needs 50 academic papers for a literature review 
 | **Elsevier** (no subscription) | Paywalled | 17 | $1.50/article |
 | **Springer Nature** | Paywalled, retracted | 1 | $1.50/article (flagged) |
 
-The agent carries a delegation JWT from the university, granting `academic:*` scope. The Broker resolves DOIs via OpenAlex, discovers Exchanges via `fora.json`, and uses the `fora-academic-v1` extension profile to access version, OA status, and retraction metadata.
+The agent carries a delegation JWT from the university, granting `academic:*` scope, and states the university's subscription scope in its requests. The Broker resolves DOIs via OpenAlex, discovers Exchanges via `fora.json`, and uses the `fora-academic-v1` extension profile to access version, OA status, and retraction metadata.
 
 **Six-step flow:**
 
@@ -96,7 +96,7 @@ All three publishers route through the same academic aggregator Exchange (`excha
 
 ## Step 2 — ResourceQuery
 
-The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris`. The `Requester` carries the university's delegation JWT with `academic:*` scope, and the query declares support for `fora-academic-v1` so the Exchange includes version, OA status, and retraction metadata in its response.
+The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris`. The `Requester` states the agent's scopes, the university's subscription scope among them, and carries the university's delegation JWT, which the Exchange does not honour on a query the Broker originated (see below). The query declares support for `fora-academic-v1` so the Exchange includes version, OA status, and retraction metadata in its response.
 
 `POST https://exchange.scholarsgate.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
@@ -110,7 +110,7 @@ The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris
     "domain": "cs.stanford.edu",
     "type": "REQUESTER_TYPE_AGENT",
     "name": "Stanford CS Literature Review Agent",
-    "scopes": ["academic:*"],
+    "scopes": ["academic:*", "subscription:inst-sub-stanford-2026"],
     "delegation": {
       "principal_domain": "stanford.edu",
       "principal_id": "inst-sub-stanford-2026",
@@ -182,7 +182,7 @@ The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris
 **Key fields in this request:**
 
 - **`ResourceQuery.uris`** — 50 DOIs in `doi:` URI scheme. The Exchange resolves these against its catalog. DOIs are the universal dedup key for academic content: the same paper on arXiv and Elsevier shares the same DOI (or is linked via `academic.related_works`).
-- **`requester.scopes`** — `["academic:*"]` declares full academic access. The Exchange will check this against the delegation JWT to determine subscription entitlements.
+- **`requester.scopes`** — the agent's own statement: `academic:*` for full academic access, and `subscription:inst-sub-stanford-2026` for the university's subscription. The Exchange does not verify them. It presents each term whose scopes they cover, so the subscription term, which carries `subscription:inst-sub-stanford-2026`, is presented.
 - **`delegation`** — A delegation JWT signed by `stanford.edu`'s Ed25519 key. Its claims contain:
   ```json
   {
@@ -195,14 +195,14 @@ The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris
     "cnf": { "jkt": "<thumbprint of the agent's key>" }
   }
   ```
-  The Exchange verifies the JWT chain offline (no call to Stanford needed) — including the holder-binding step, that the request-signing key hashes to the delegation's `cnf.jkt` — confirms the subscription covers Elsevier content, and returns zero-cost offers for covered papers.
+  On this query the Exchange does not honour the delegation: the Broker originated the query and signs it alone, so nothing on it can pass the holder binding, and the Exchange answers as if no delegation were present ([Which signature binds in a brokered request](/protocol/authentication/#verification)). The agent's direct purchase in Step 5 verifies it instead, offline and with no call to Stanford. An Exchange that requires a verified delegation before it presents a scoped term would omit the subscription term from this answer, as if it did not exist; the agent would then query the Exchange directly, signing the query itself, with a delegation that grants the subscription scope.
 - **`supported_profiles`** — `["fora-academic-v1"]` tells the Exchange to include academic-specific `ext` fields (OA status, version, retraction status) and attestation claims. Without this declaration, the Exchange MAY skip expensive metadata computation like retraction checking.
 
 ---
 
 ## Step 3 — ResourceResponse
 
-The Exchange resolves all 50 DOIs against its catalog, checks the delegation JWT for institutional subscription coverage, and returns 50 `OfferGroup` entries. Below are representative examples from each category — the full response contains all 50 groups.
+The Exchange resolves all 50 DOIs against its catalog, presents the terms the stated scopes cover, the institutional subscription term among them, and returns 50 `OfferGroup` entries. Below are representative examples from each category — the full response contains all 50 groups.
 
 ```json
 {
@@ -382,7 +382,7 @@ The Exchange resolves all 50 DOIs against its catalog, checks the delegation JWT
             "rate": "1.50",
             "currency": "USD",
             "unit_cost": "0.0001136",
-            "estimated_quantity": 13200,
+            "estimated_quantity": 1,
             "unit": "accesses"
           },
           "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
@@ -456,7 +456,7 @@ The Exchange resolves all 50 DOIs against its catalog, checks the delegation JWT
             "rate": "1.50",
             "currency": "USD",
             "unit_cost": "0.0001071",
-            "estimated_quantity": 14000,
+            "estimated_quantity": 1,
             "unit": "accesses"
           },
           "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
@@ -538,7 +538,7 @@ The Exchange resolves all 50 DOIs against its catalog, checks the delegation JWT
 
 ### Offer Categories
 
-The Exchange classified each of the 50 DOIs into one of four categories based on the publisher's access model and the delegation JWT:
+The Exchange classified each of the 50 DOIs into one of four categories based on the publisher's access model and the scopes the requester stated:
 
 | Category | Count | Pricing Model | Rate | Key Signal |
 |---|---|---|---|---|
@@ -562,7 +562,7 @@ The retracted paper (DOI `10.1038/s41592-024-02467-x`) is immediately identifiab
 
 1. **Attestation claim**: `academic.retraction_status: "retracted"` in `ResourceAttestation.claims`, signed by `springer.com`.
 2. **Ext field**: `academic.retraction_status: "retracted"` in `Offer.ext`.
-3. **Critical signaling**: `ext_critical: ["academic.retraction_status"]` — the consumer MUST understand retraction semantics. An agent that does not support `fora-academic-v1` would reject this offer with `OFFER_ABSENCE_REASON_UNKNOWN_CRITICAL_EXTENSION` rather than silently consuming a retracted paper.
+3. **Critical signaling**: `ext_critical: ["academic.retraction_status"]` — the consumer MUST understand retraction semantics. An agent that does not support `fora-academic-v1` does not use this offer, rather than silently consuming a retracted paper.
 4. **Offer.title**: Prefixed with "RETRACTED:" as a human-readable signal.
 
 ### Content Identity and Dedup
@@ -578,7 +578,7 @@ For the 20 Elsevier papers covered by Stanford's institutional subscription:
 - subscription (FREE + subscription scope): `pricing.model` is `PRICING_MODEL_FREE` with `rate: 0`, and the term carries `scopes: ["subscription:inst-sub-stanford-2026"]`
 - `subscription_id` matches the delegation JWT's `principal_id` (`inst-sub-stanford-2026`)
 - `subscription_quota` shows remaining capacity (76,520 of 100,000 accesses this period)
-- The Exchange verified the JWT chain offline — no call to Stanford's identity provider was needed
+- The Exchange presented the term on the stated scope alone; the agent's direct purchase in Step 5 verifies the delegation's JWT chain offline, with no call to Stanford's identity provider
 
 ---
 
@@ -603,7 +603,7 @@ The Broker applies a cost-minimization strategy across all 50 OfferGroups:
 | Retracted (excluded) | 1 | — | $0.00 |
 | **Total** | **49 acquired** | | **$25.50** |
 
-Without the institutional subscription, all 50 papers at $1.50 each would cost $75.00. The delegation JWT saved $30.00 (40%), and free OA saved another $18.00 (24%). The Broker reports the savings breakdown to the research agent.
+Without the institutional subscription, all 50 papers at $1.50 each would cost $75.00. The institutional subscription saved $30.00 (40%), and free OA saved another $18.00 (24%). The Broker reports the savings breakdown to the research agent.
 
 The Broker also flags the retracted paper to the agent:
 
@@ -613,7 +613,7 @@ The Broker also flags the retracted paper to the agent:
 
 ## Step 5 — Batch ExecuteTransaction
 
-The Broker commits to all 49 selected offers in a single batch `TransactionRequest`. Each item carries the full signed `offer`, reflected back exactly as received at discovery (stateless verification — the Exchange does not need to store offers).
+The research agent commits to all 49 selected offers in a single batch `TransactionRequest`, sent directly to the Exchange and signed by the agent: every selected offer is from ScholarsGate. Through the Broker it would send the same request, with each item's `agent_acceptance` and the request's `agent_request_acceptance`, to `BrokerService.ExecuteTransaction`, and the Broker would re-package it for the Exchange and sign that request alone (see [Buying through a Broker](/protocol/transaction-flow/#buying-through-a-broker)). Each item carries the full signed `offer`, reflected back exactly as received at discovery (stateless verification — the Exchange does not need to store offers).
 
 `POST https://exchange.scholarsgate.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
@@ -626,7 +626,7 @@ The Broker commits to all 49 selected offers in a single batch `TransactionReque
     "id": "litrev-agent",
     "domain": "cs.stanford.edu",
     "type": "REQUESTER_TYPE_AGENT",
-    "scopes": ["academic:*"],
+    "scopes": ["academic:*", "subscription:inst-sub-stanford-2026"],
     "delegation": {
       "principal_domain": "stanford.edu",
       "principal_id": "inst-sub-stanford-2026",
@@ -663,15 +663,7 @@ The Broker commits to all 49 selected offers in a single batch `TransactionReque
         },
         "terms": [
           {
-            "semantics": "TERM_SEMANTICS_ENUMERATED",
-            "pricing": {
-              "model": "PRICING_MODEL_FREE",
-              "rate": "0",
-              "currency": "USD",
-              "unit_cost": "0",
-              "estimated_quantity": 12800,
-              "unit": "tokens"
-            }
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ],
         "signature": "base64-ed25519-arxiv-offer-sig...",
@@ -703,15 +695,7 @@ The Broker commits to all 49 selected offers in a single batch `TransactionReque
         },
         "terms": [
           {
-            "semantics": "TERM_SEMANTICS_ENUMERATED",
-            "pricing": {
-              "model": "PRICING_MODEL_FREE",
-              "rate": "0",
-              "currency": "USD",
-              "unit_cost": "0",
-              "estimated_quantity": 15200,
-              "unit": "tokens"
-            }
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ],
         "signature": "base64-ed25519-elsevier-sub-offer-sig...",
@@ -729,7 +713,7 @@ The Exchange processes all 49 items in a single batch:
 1. **Signature verification** — verifies each item's `offer.signature` is its own Ed25519 signature over the reflected Offer (stateless, no stored offers).
 2. **Agent authentication** — verifies the request's RFC 9421 HTTP Message Signature (alg=ed25519, carried in the HTTP headers) against the agent's public key published in the WBA directory at `cs.stanford.edu/.well-known/http-message-signatures-directory`.
 3. **Delegation verification** — verifies the JWT chain for the 20 subscription items. Confirms `academic:*` scope covers Elsevier content.
-4. **Balance check** — confirms `litrev-agent@cs.stanford.edu` has sufficient balance ($25.50 for 17 paid items).
+4. **Balance check** — confirms the account of the `cs.stanford.edu` key directory has sufficient balance ($25.50 for 17 paid items); `litrev-agent` is only a label and selects no account.
 5. **Quota check** — confirms 49 accesses fit within the subscription's remaining quota (76,520).
 6. **WAL write** — records all 49 transactions in the write-ahead log before generating signed URLs (write-before-sign invariant).
 7. **Signed URL generation** — generates 49 Ed25519 signed URLs, each binding `agent_id`.
@@ -828,7 +812,7 @@ The agent then fetches all 49 PDFs via the signed URLs. For each paper, because 
 
 ## Step 6 — ReportUsage
 
-Usage reporting is mandatory for all 49 transactions. The agent submits an aggregated report with per-DOI consumption data:
+Usage reporting is mandatory for all 49 transactions. A usage report settles one transaction, so the agent files one report per transaction: 49 reports. Each report states consumption in the unit of that item's offer. The 12 arXiv and 20 Elsevier subscription offers are priced in `tokens`, so their reports carry token counts. The 17 paid offers are priced per access, so each of their reports carries one access. Here is the report for the paid CellViT paper:
 
 `POST https://exchange.scholarsgate.com/fora/v1/fora.v1.ExchangeService/ReportUsage`
 
@@ -837,33 +821,18 @@ Usage reporting is mandatory for all 49 transactions. The agent submits an aggre
 {
   "ver": "1.0",
   "exchange": "exchange.scholarsgate.com",
-  "idempotency_key": "ur-litrev-001",
-  "transaction_id": "txn-litrev-batch-001",
-  "billing_id": "bill-litrev-batch-001",
+  "idempotency_key": "ur-litrev-springer-001",
+  "transaction_id": "txn-springer-paid-001",
+  "billing_id": "bill-springer-paid-001",
   "usage": {
     "function": ["ai-input"],
-    "consumed_quantity": 614200,
-    "consumed_unit": "tokens",
+    "consumed_quantity": 1,
+    "consumed_unit": "accesses",
     "displayed_to_user": true,
     "citation_included": true
   },
   "timestamp": "2026-03-20T13:00:00Z",
   "assets": [
-    {
-      "uri": "doi:10.48550/arXiv.2406.11838",
-      "title": "MedViT: A Robust Vision Transformer for Medical Image Classification",
-      "package_id": "PKG-ARXIV-2406-11838"
-    },
-    {
-      "uri": "doi:10.48550/arXiv.2405.09781",
-      "title": "SwinMed: Swin Transformer for Multi-Organ Segmentation",
-      "package_id": "PKG-ARXIV-2405-09781"
-    },
-    {
-      "uri": "doi:10.1016/j.media.2024.103250",
-      "title": "TransUNet++: Rethinking Multi-Scale Feature Fusion for Medical Image Segmentation",
-      "package_id": "PKG-ELSEVIER-MEDIA-103250"
-    },
     {
       "uri": "doi:10.1038/s41592-024-02401-5",
       "title": "CellViT: Vision Transformers for Precise Cell Segmentation and Classification",
@@ -883,10 +852,10 @@ Response:
 
 **Reporting details:**
 
-- **`consumed_quantity: 614200`** — total tokens consumed across all 49 papers. The Exchange cross-references this against the sum of `estimated_quantity` values from the offers to detect significant discrepancies.
+- **`consumed_quantity: 1`, `consumed_unit: "accesses"`** — the unit matches the offer's `pricing.unit`. The offer's estimate was 1 access at $1.50, so the purchase charged 1 × $1.50 = $1.50, and that charge is final. A report is never refused because its quantity differs from the estimate.
 - **`citation_included: true`** — the literature review includes proper citations for all 49 papers. This is relevant for publishers who offer attribution-only pricing or require citation as a license condition.
-- **`assets`** — per-DOI breakdown enables the Exchange to attribute usage to individual publishers. Elsevier sees 20 accesses against Stanford's subscription. Springer sees 15 paid accesses. arXiv sees 12 free accesses. Each publisher receives its share of the usage data.
-- **`report_id: "rpt-litrev-001"`** — enables the dispute chain. If any paper's content hash mismatched during fetch, the agent would reference this report when filing a `DisputeTransaction`.
+- **`assets`** — names the paper the transaction covers, so the Exchange can attribute usage to its publisher. Across the 49 reports, Elsevier sees 20 accesses against Stanford's subscription, the paid publishers see 17 paid accesses, and arXiv sees 12 free accesses.
+- **`report_id: "rpt-litrev-001"`** — enables the dispute chain. If this paper's content hash had not matched on delivery, the agent would reference this report when filing a `DisputeTransaction`.
 
 ---
 
@@ -895,15 +864,15 @@ Response:
 | Step | RPC | Free OA (12) | Subscription (20) | Paid (17) | Retracted (1) |
 |------|-----|---|---|---|---|
 | 1 | -- | `fora.json` discovery | `fora.json` discovery | `fora.json` discovery | `fora.json` discovery |
-| 2 | `DiscoverResources` | `Requester` with `academic:*` scope | Same + delegation JWT | Same | Same |
+| 2 | `DiscoverResources` (Broker-led) | `Requester` stating `academic:*` | Stated subscription scope covers the term; delegation JWT not honoured | Same | Same |
 | 3 | -- | Offers at $0, `oa_status: "gold"` | Offers at $0, `subscription_id` set | Offers at $1.50 | Offer with `retraction_status: "retracted"` in `ext_critical` |
 | 4 | -- | Broker selects (free) | Broker selects (free via sub) | Broker selects (cheapest) | Broker flags and excludes |
 | 5 | `ExecuteTransaction` | Batch, cost $0 | Batch, cost $0, sub quota decremented | Batch, cost $1.50/ea | Not transacted |
-| 6 | `ReportUsage` | Aggregated report, 614K tokens across 49 papers | | | |
+| 6 | `ReportUsage` | One report per transaction, in tokens | One report per transaction, in tokens | One report per transaction, 1 access each | No report |
 
 **Authentication at every step:**
 - **Agent to Exchange**: signed with an RFC 9421 HTTP Message Signature (alg=ed25519) in the HTTP headers
-- **Institutional delegation**: delegation JWT signed by `stanford.edu`'s Ed25519 key, holder-of-key bound via `cnf.jkt` (offline-verifiable)
+- **Institutional delegation**: delegation JWT signed by `stanford.edu`'s Ed25519 key, holder-of-key bound via `cnf.jkt` (offline-verifiable), verified on the agent's direct purchase and not honoured on the Broker's query
 - **Exchange to Agent**: `exchange_signature` on each Offer (Ed25519, stateless verification)
 - **Signed URLs**: Ed25519 (Exchange-signed, publicly verifiable, agent identity bound)
 - **Content integrity**: SHA-256 hash verification on all 49 delivered PDFs (`RESOURCE_MUTABILITY_STATIC`)
@@ -911,7 +880,7 @@ Response:
 **Key academic-specific capabilities demonstrated:**
 - **DOI as universal dedup key** -- cross-exchange resource identification
 - **Mixed pricing in single batch** -- FREE + subscription (FREE + subscription scope) + PER_UNIT in one transaction
-- **Institutional subscription via delegation JWT** -- offline-verifiable delegation, no call to Stanford
+- **Institutional subscription** -- presented on the stated subscription scope; the delegation JWT is verified offline at purchase, no call to Stanford
 - **Retraction flagging via `ext_critical`** -- consumers MUST understand retraction semantics or reject
 - **`fora-academic-v1` profile** -- OA status, version lifecycle, peer review status, retraction metadata
 - **Aggregator as Exchange** -- one Exchange serves content from multiple publishers

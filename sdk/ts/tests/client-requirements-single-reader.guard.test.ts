@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -20,10 +20,16 @@ import { describe, expect, it } from "vitest";
 // this decision. The detector is whitespace-tolerant so a formatter reflow cannot let a
 // revert slip; the meta-tests below exercise that.
 
-const clientPath = fileURLToPath(new URL("../client/index.ts", import.meta.url));
+const clientDir = fileURLToPath(new URL("../client/", import.meta.url));
 
+/** Every module of the client, read as one text: the resolved-once record lives in
+ * options.ts, and a construction in any other client module is still a second one. */
 function readClient(): string {
-	return readFileSync(clientPath, "utf8");
+	return readdirSync(clientDir)
+		.filter((f) => f.endsWith(".ts"))
+		.sort()
+		.map((f) => readFileSync(`${clientDir}${f}`, "utf8"))
+		.join("\n");
 }
 
 /** Every construction of the default reader, wherever it appears. */

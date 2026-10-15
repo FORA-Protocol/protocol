@@ -6,10 +6,16 @@ can HALT on a fail-closed verdict rather than fall through as if the key were
 merely unknown. The port preserves that distinctness as distinct exception
 classes: each fail-closed verdict is its own catchable class, and (critically)
 ``DirectoryUnavailableError`` is NOT a subclass of ``UnknownKeyError`` — an
-outage must stay distinguishable from an unknown key.
+outage must stay distinguishable from an unknown key. Two unavailable documents
+also say which: ``DocumentNotFoundError`` (a 404) and ``RedirectRefusedError`` (a key
+directory that answers with a redirect) subclass ``DirectoryUnavailableError``.
 """
 
 from __future__ import annotations
+
+from fora_sdk.directory_signature import (
+    DirectoryResponseUnsignedError as _L1DirectoryResponseUnsignedError,
+)
 
 
 class ResolverError(Exception):
@@ -42,11 +48,44 @@ class RevocationUnevaluatedError(ResolverError):
 
 
 class DirectoryUnavailableError(ResolverError):
-    """A well-known directory/JWKS/manifest could not be fetched or decoded.
+    """A document could not be fetched or decoded: a well-known manifest, a WBA
+    directory or JWKS, a revocation list, or a license document.
 
     Deliberately NOT a subclass of :class:`UnknownKeyError`: a fail-closed
     composite must be able to halt on a directory outage rather than fall
     through as if the key were merely unknown.
+
+    Two of its failures say which: :class:`DocumentNotFoundError` and
+    :class:`RedirectRefusedError` are subclasses, so an ``except`` for this class
+    still catches both.
+    """
+
+
+class DocumentNotFoundError(DirectoryUnavailableError):
+    """The server answered a document read with 404 Not Found: it serves no document
+    at that address.
+
+    Every document read raises it: the key directory, the manifest, the revocation list
+    and the license document alike. A subclass of :class:`DirectoryUnavailableError`,
+    so a caller that handles an unavailable document handles this too. It states what
+    the server answered and no more: a document a party has yet to publish answers the
+    same way, so whether the absence is final is the caller's decision. Peer of Go
+    ``ErrDocumentNotFound`` / TS ``DocumentNotFound``.
+    """
+
+
+class RedirectRefusedError(DirectoryUnavailableError):
+    """A key directory answered with a redirect: any 3xx status.
+
+    A directory answers 200 itself, because its address is the origin its signer
+    committed to and a redirect would hand key lookup to another one. A VERDICT on what
+    the party serves, like :class:`MediaTypeRefusedError`, and a subclass of
+    :class:`DirectoryUnavailableError` because the directory still could not be read;
+    the message names the read and its status, never the Location. Only a key directory
+    read refuses a redirect outright: a manifest or revocation list read follows up to
+    five, and a hop it will not follow is a plain :class:`DirectoryUnavailableError`, as
+    is a Location the HTTP client cannot parse. Peer of Go ``ErrRedirectRefused`` / TS
+    ``RedirectRefused``.
     """
 
 
@@ -127,4 +166,39 @@ class ManifestVersionRefusedError(ResolverError):
     failure to retry — and it is never cached. The gate runs before any other
     member of the document is read, for the reason stated once on
     ``WellKnownManifest.ver`` in the proto.
+    """
+
+
+class MediaTypeRefusedError(ResolverError):
+    """A document was served under a media type other than the one the protocol names
+    for it: ``application/json`` for ``/.well-known/fora.json`` and
+    ``application/http-message-signatures-directory+json`` for the WBA directory.
+
+    A VERDICT on what the party publishes, not a failed read, so it is never worth
+    retrying. Only the document readers in :mod:`fora_sdk.resolvers.documents` raise
+    it. The resolvers that read a key directory for key resolution check its label too
+    and report a wrong one as :class:`DirectoryUnavailableError`, like any directory
+    they cannot use. Peer of Go ``ErrMediaTypeRefused`` / TS ``MediaTypeRefused``.
+    """
+
+
+class DirectoryResponseUnsignedError(ResolverError, _L1DirectoryResponseUnsignedError):
+    """A key directory whose response is not signed by every key it lists: no response
+    signature at all, or none by one of the listed keys.
+
+    Raised by :func:`~fora_sdk.resolvers.documents.read_wba_directory`. A VERDICT on what
+    the party publishes, never worth retrying. It is also the L1
+    :class:`fora_sdk.directory_signature.DirectoryResponseUnsignedError`, so one
+    ``except`` catches the verdict from either face. Peer of Go
+    ``ErrDirectoryResponseUnsigned``.
+    """
+
+
+class DigestMismatchError(ResolverError):
+    """The bytes served at ``License.uri`` do not hash to ``License.uri_digest``.
+
+    The digest is covered by the offer signature, so a mismatch means the document
+    changed after the offer was signed, or the server answering is not the one the
+    offer named. A VERDICT, never retried. Peer of Go ``ErrDigestMismatch`` / TS
+    ``DigestMismatch``.
     """

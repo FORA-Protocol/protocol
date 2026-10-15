@@ -21,6 +21,12 @@ Contents:
 - `wire/names.ts` — the rule that recovers a proto field name from protojson's
   lowerCamelCase spelling of it. Shared, so the refusal above and any reader of Connect's
   `debug` projection answer alike.
+- `strict/*.ts` — the precompiled strict validators of the messages the SDK checks by
+  name: each message's strict JSON Schema (`gen/jsonschema/`) compiled by ajv's standalone
+  code generation when this directory is generated, one module per message plus
+  `index.ts`. The SDK's strict check uses them, so it generates no code at run time; an
+  edge runtime such as Cloudflare Workers refuses code built from strings. Internal to
+  the SDK, not a package export.
 - `vocab/*.ts` — registered vocabulary constants per axis (`pricingunits`, …) with
   `isRegistered()`, plus the accepted aliases authored beside the tokens (`Aliases`,
   `canonical()` — an exact lookup; the SDK folds case before it looks up).

@@ -89,7 +89,7 @@ describe("content coding", () => {
 			"verify",
 		])) as CryptoKeyPair;
 		await withLoopback(() =>
-			fetchContent(`http://127.0.0.1:${port}/x`, { keyPair: keys }).catch(() => undefined),
+			fetchContent(`http://127.0.0.1:${port}/x`, { keyPair: keys, signatureAgent: "https://agent.test" }).catch(() => undefined),
 		);
 		expect(negotiated()).toBe("identity");
 		server.close();
@@ -122,7 +122,7 @@ describe("content coding", () => {
 			"verify",
 		])) as CryptoKeyPair;
 		const failure = await withLoopback(() =>
-			fetchContent(`http://127.0.0.1:${port}/x`, { keyPair: keys }).catch(
+			fetchContent(`http://127.0.0.1:${port}/x`, { keyPair: keys, signatureAgent: "https://agent.test" }).catch(
 				(e: unknown) => e,
 			),
 		);

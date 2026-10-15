@@ -120,6 +120,20 @@ patterns=(
   # signed_url_hash. Anchored to the URL forms so the patterns do NOT collide
   # with the legitimate slog field name `txn_id` in Go samples.
   '&txn_id=' '[?]txn_id=' 'txn_id=txn-' 'baseURL.nexpires'
+  # A metered offer no longer has to carry an estimate: without one the purchase
+  # charges one unit at the rate (1 x R) instead of E x R, and either charge is
+  # final; a usage report is only a record. The rule that required one was replaced by
+  # offer.metered.estimate_positive (an estimate that is stated is positive), and
+  # the Go sentinel for a missing estimate by ErrMeteredEstimateNotPositive.
+  'offer\.metered\.requires_estimate' 'ErrMeteredEstimateMissing'
+  # A metered purchase's charge is final: estimate x rate, or one unit's rate.
+  # estimate_tolerance_bps and the settlement on the usage report were removed
+  # before any release, with the SDK helpers that computed it. The field was
+  # never released, so the proto does not reserve its number or name.
+  'pricing\.estimate_tolerance\.requires_per_unit' '"?estimate_tolerance_bps"?[[:space:]]*:'
+  'estimateTolerance' 'EstimateToleranceBps' 'MeteredSettlement'
+  'metered_settlement' 'meteredSettlement' 'SettleMeteredUsage' 'settle_metered_usage'
+  'settleMeteredUsage' 'settling-a-metered-purchase'
 )
 
 # Files where naming a removed identifier is legitimate (they record history).
@@ -215,6 +229,23 @@ num_hits=$(grep -rEn -- '[A-Z][A-Z0-9_]{4,}`?[[:space:]]*\(value[[:space:]]*[0-9
 if [ -n "$num_hits" ]; then
   echo "::error::enum wire number hand-typed in prose — cite the named constant only, drop the '(value N)':"
   echo "$num_hits"
+  status=1
+fi
+
+# --- 1d. Deprecated, never-sent values must not be named in the guides ------
+# OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT and DENIAL_REASON_SCOPE_INSUFFICIENT
+# are deprecated and never sent: a scope shortfall is answered with no offers
+# and no absence reason, and an offer presented is honoured until it expires.
+# The guides once told an Exchange to send them and an agent how to react to
+# them. The proto must keep naming them (the numbers stay reserved), so this
+# check skips proto/fora and covers only the authored guides. The reference
+# tables render both values from the descriptor, marked deprecated, without the
+# directive source ever naming them, so the ban does not reach the reference.
+deprecated_roots=(website/src/content docs)
+dep_hits=$(grep -rEn -- 'SCOPE_INSUFFICIENT' "${deprecated_roots[@]}" 2>/dev/null | grep -Ev "$exclude_re" || true)
+if [ -n "$dep_hits" ]; then
+  echo "::error::deprecated, never-sent reason named in the guides — describe the existence-hiding rule (no offers, no absence reason) instead:"
+  echo "$dep_hits"
   status=1
 fi
 

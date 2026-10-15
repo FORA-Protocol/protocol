@@ -19,8 +19,14 @@ const (
 
 var tNow = time.Unix(1700000100, 0) // inside [created, expires]
 
-// signResolvedFixture builds a signed request carrying signatureAgent in its
-// Signature-Agent header, plus a spy KeyResolver that records the directory the
+// tAgent and tBroker are the key-directory origins the fixtures sign as.
+const (
+	tAgent  = "https://agent.example"
+	tBroker = "https://broker.example"
+)
+
+// signResolvedFixture builds a request signed as signatureAgent, the origin its
+// Signature-Agent member names, plus a spy KeyResolver that records the directory the
 // SDK threaded into the resolution context. It exists because the
 // resolver-context assertions need a keyID the resolver can be seeded with, which
 // signFixture does not expose — every such test was otherwise re-inlining the
@@ -46,9 +52,8 @@ func signResolvedFixture(t *testing.T, body []byte, keyID, signatureAgent string
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.Header.Set(helpers.SignatureAgentHeader, signatureAgent)
 	if err := helpers.SignRequest(context.Background(), req, body, signer,
-		helpers.SignOptions{Created: tCreated, Expires: tExpires}); err != nil {
+		helpers.SignOptions{Created: tCreated, Expires: tExpires, SignatureAgent: signatureAgent}); err != nil {
 		t.Fatalf("SignRequest: %v", err)
 	}
 
@@ -79,7 +84,8 @@ func signFixture(t *testing.T, body []byte, mutate func(*http.Request)) (*http.R
 	if mutate != nil {
 		mutate(req)
 	}
-	if err := helpers.SignRequest(context.Background(), req, body, signer, helpers.SignOptions{Created: tCreated, Expires: tExpires}); err != nil {
+	if err := helpers.SignRequest(context.Background(), req, body, signer,
+		helpers.SignOptions{Created: tCreated, Expires: tExpires, SignatureAgent: tAgent}); err != nil {
 		t.Fatalf("SignRequest: %v", err)
 	}
 	return req, pub
@@ -100,6 +106,9 @@ func TestVerifyRequest_roundTrip(t *testing.T) {
 	}
 	if !pub.Equal(vr.PublicKey) {
 		t.Error("proven key should be echoed back")
+	}
+	if vr.SignatureAgent != tAgent {
+		t.Errorf("SignatureAgent = %q, want the covered member's origin %q", vr.SignatureAgent, tAgent)
 	}
 }
 

@@ -22,6 +22,7 @@
 import canonicalize from "canonicalize";
 
 import { utf8Bytes } from "../src/base64url.ts";
+import { checkMeteredEstimate, checkOfferTermsUnpriced } from "../src/money.ts";
 
 // OFFER_SIGNATURE_ALGORITHM is the JOSE/JWA algorithm identifier advertised on
 // signed offers. Always
@@ -106,8 +107,8 @@ export interface Result {
 // offer, so nothing survives to say which resource was refused or why.
 //
 // That distinction is the point of the vocabulary: "not in the catalogue" means give up,
-// "scope insufficient" means acquire an entitlement and retry, and "content blocked"
-// means never retry. Flattened, all three read as "found nothing".
+// "temporarily unavailable" means retry later, and "content blocked" means never retry.
+// Flattened, all three read as "found nothing".
 //
 // The fail-closed {verified, rejected} split is preserved inside each group, through the
 // same Verifier — not a second verification path.
@@ -350,8 +351,10 @@ export class Verifier {
 	}
 
 	// check verifies a single offer: resolve the exchange offer-signing key, verify
-	// the JCS signature, and enforce the not-in-the-past expiry. Any step failing
-	// rejects the offer (fail-closed) — including an unresolvable key.
+	// the JCS signature, enforce the not-in-the-past expiry, require the offer's term
+	// to carry no pricing, and require an estimate a metered offer states to be
+	// positive. Any step
+	// failing rejects the offer (fail-closed) — including an unresolvable key.
 	private async check(offer: unknown): Promise<string | undefined> {
 		if (typeof offer !== "object" || offer === null)
 			return "offer is not an object";
@@ -383,6 +386,20 @@ export class Verifier {
 		if (!valid) return "offer signature invalid";
 
 		if (this.expired(rec)) return "offer expires_at is in the past";
+		// An offer states its price once, in Offer.pricing; a term carrying a second
+		// copy could disagree with it (fora.proto Offer).
+		try {
+			checkOfferTermsUnpriced(rec);
+		} catch (cause) {
+			return cause instanceof Error ? cause.message : String(cause);
+		}
+		// A metered offer may state no estimate, but one it states is positive: a
+		// zero estimate would fix a ceiling of nothing (fora.proto Offer).
+		try {
+			checkMeteredEstimate(rec);
+		} catch (cause) {
+			return cause instanceof Error ? cause.message : String(cause);
+		}
 		return undefined;
 	}
 

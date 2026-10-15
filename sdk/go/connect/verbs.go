@@ -2,13 +2,17 @@ package connect
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"time"
 
 	connectrpc "connectrpc.com/connect"
+	"google.golang.org/protobuf/proto"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
 	"github.com/FORA-Protocol/protocol/sdk/go/core"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
@@ -58,6 +62,10 @@ const edgeErrorDomain = "fora.v1.Edge"
 // silently discarded and see every retry counted as a second report.
 func (c *Client) ReportUsage(ctx context.Context, report *forav1.UsageReport, opts ...CallOption) (*forav1.UsageReportResponse, error) {
 	const op = "report usage"
+	if cc := resolveCall(opts); cc.rawSet {
+		return routedRaw[forav1.UsageReportResponse](ctx, c, op, cc.rawBody, &forav1.UsageReport{},
+			forav1connect.ExchangeServiceReportUsageProcedure)
+	}
 	if report == nil {
 		return nil, malformed(op, errors.New("report is nil"))
 	}
@@ -96,6 +104,10 @@ func (c *Client) ReportUsage(ctx context.Context, report *forav1.UsageReport, op
 // req.TransactionId both name links the Exchange already holds.
 func (c *Client) Dispute(ctx context.Context, req *forav1.DisputeRequest, opts ...CallOption) (*forav1.DisputeResponse, error) {
 	const op = "dispute"
+	if cc := resolveCall(opts); cc.rawSet {
+		return routedRaw[forav1.DisputeResponse](ctx, c, op, cc.rawBody, &forav1.DisputeRequest{},
+			forav1connect.ExchangeServiceDisputeTransactionProcedure)
+	}
 	if req == nil {
 		return nil, malformed(op, errors.New("request is nil"))
 	}
@@ -134,16 +146,16 @@ func (c *Client) Dispute(ctx context.Context, req *forav1.DisputeRequest, opts .
 // maps onto the protocol's, so ErrorDetailFrom reads a fetch failure and an RPC
 // failure through the same accessor.
 //
-// It takes no CallOption: a fetch is a GET against an already-issued URL, so
-// there is no idempotency key to pin — nothing on this path mutates state.
+// A fetch is a GET against an already-issued URL, so there is no idempotency key
+// to pin — nothing on this path mutates state. It reads no CallOption; it takes
+// them only because every verb does.
 //
-// The URL is taken as given. Whether it is one this agent bought, and whether its
-// agent_id matches this agent's key, are the CALLER's checks to make — the SDK
-// exports helpers.VerifyURLEd25519 and VerifiedURL.CheckProofOfPossession for
-// exactly that, and running them first turns an edge 403 into a local answer.
-// Worth doing when the URL reached the caller from anywhere but its own execute
-// response: a proof of possession is minted for whatever URL is passed in.
-func (c *Client) Fetch(ctx context.Context, signedURL string) (resolvers.Content, error) {
+// The URL is taken as given. Verifying it is the delivery edge's job: the edge
+// checks the URL signature and, where it can, the agent binding against the proof
+// presented here. An edge that cannot check the binding (CloudFront with its
+// pre-arranged RSA key pair) checks its own signature and treats the URL as a
+// bearer token.
+func (c *Client) Fetch(ctx context.Context, signedURL string, _ ...CallOption) (resolvers.Content, error) {
 	const op = "fetch content"
 	signer, err := c.proofSigner()
 	if err != nil {
@@ -154,6 +166,22 @@ func (c *Client) Fetch(ctx context.Context, signedURL string) (resolvers.Content
 		return resolvers.Content{}, fetchCallError(op, signedURL, err)
 	}
 	return content, nil
+}
+
+// routedRaw sends a raw body on a verb whose destination is read off the request:
+// the body's exchange is decoded and routed exactly as a built request's is.
+func routedRaw[Res any](
+	ctx context.Context, c *Client, op string, body []byte, as proto.Message, procedure string,
+) (*Res, error) {
+	exchange, err := rawExchange(op, body, as)
+	if err != nil {
+		return nil, err
+	}
+	endpoint, err := vetExchangeEndpoint(ctx, c.endpoints, exchange, op)
+	if err != nil {
+		return nil, err
+	}
+	return rawCall[Res](ctx, c.rawPool, op, endpoint, procedure, body)
 }
 
 // proofSigner composes the injected custody into the seam the content tier asks
@@ -167,24 +195,35 @@ func (c *Client) proofSigner() (resolvers.ProofSigner, error) {
 	if len(c.cfg.agentKey) == 0 {
 		return nil, errors.New("no agent public key configured; a bound fetch presents it alongside the proof (see WithAgentKey)")
 	}
+	if c.cfg.signatureAgent == "" {
+		return nil, errors.New("no Signature-Agent configured; a bound fetch names the agent's key directory (see WithSignatureAgent)")
+	}
 	window := c.cfg.proofWindow
 	if window == nil {
 		window = core.ClockWindow(time.Now, defaultProofWindow)
 	}
-	return proofSigner{signer: signer, pub: c.cfg.agentKey, window: window}, nil
+	return proofSigner{signer: signer, pub: c.cfg.agentKey, window: window, directory: c.cfg.signatureAgent}, nil
 }
 
 // proofSigner mints one agent binding per fetch.
 type proofSigner struct {
-	signer helpers.Signer
-	pub    []byte
-	window core.Window
+	signer    helpers.Signer
+	pub       []byte
+	window    core.Window
+	directory string
 }
+
+// proofNonceBytes is the entropy of a fetch proof's nonce: 64 bytes, the length
+// the signing transport gives every request signature.
+const proofNonceBytes = 64
 
 func (p proofSigner) SignFetch(ctx context.Context, target string) (helpers.AgentBinding, error) {
 	created, expires := p.window()
+	nonce := make([]byte, proofNonceBytes)
+	_, _ = rand.Read(nonce) // never fails since Go 1.24; on entropy failure the process crashes
 	return helpers.SignAgentBinding(ctx, p.signer, p.pub, helpers.PoPOptions{
 		URL: target, Created: created, Expires: expires,
+		SignatureAgent: p.directory, Nonce: base64.RawURLEncoding.EncodeToString(nonce),
 	})
 }
 

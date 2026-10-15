@@ -140,6 +140,7 @@ export default defineConfig({
 					items: [
 						{ label: 'Proto: FORA v1', slug: 'reference/proto-fora' },
 						{ label: 'Proto: Admin v1', slug: 'reference/proto-admin' },
+						{ label: 'JSON Schemas', slug: 'reference/json-schemas' },
 						{ label: 'Standards & References', slug: 'reference/standards' },
 						{ label: 'fora.json Example', slug: 'reference/fora-json-example' },
 						{ label: 'Changelog', slug: 'reference/changelog' },

@@ -82,6 +82,7 @@
 /publishers/onboarding/
 /reference/changelog/
 /reference/fora-json-example/
+/reference/json-schemas/
 /reference/proto-admin/
 /reference/proto-fora/
 /reference/standards/

@@ -90,7 +90,8 @@ When a bot is detected on a protected path without a signed URL:
 ```http
 HTTP/1.1 403 Forbidden
 Content-Type: application/json
-X-Content-Rules: https://exchange.ssp-example.com/fora/v1
+X-Content-Rules: https://techcrunch.com/.well-known/fora.json
+X-FORA-Exchange: exchange.ssp-example.com
 Cache-Control: no-store
 ```
 
@@ -99,21 +100,20 @@ Cache-Control: no-store
   "error": "Licensed content. Negotiate access via the Exchange.",
   "protocol": "FORA",
   "version": "1.0",
-  "info_url": "https://exchange.ssp-example.com/fora/v1/info",
   "fora_json_url": "https://techcrunch.com/.well-known/fora.json"
 }
 ```
 
-**Header semantics**:
-- `X-Content-Rules` -- the Exchange info endpoint. This is the key discovery mechanism for bots that did not check `fora.json`. The header value is a URL that the agent can `GET` to learn about available content and pricing.
+**Header semantics** (the FORA edge discovery headers; the normative rules are in [Discovery Paths](/protocol/discovery-paths/#edge-discovery-headers)):
+- `X-Content-Rules` -- the absolute URL of the provider's own manifest, `https://<provider domain>/.well-known/fora.json`. This is the key discovery mechanism for bots that did not check `fora.json`: the manifest carries the licensing terms and, in `exchanges[]`, the Exchanges that sell this content. It never points at an Exchange.
+- `X-FORA-Exchange` -- optional. The bare domain of one Exchange that sells this content directly, in the same form as `Offer.exchange` (no scheme, no path). An agent can start discovery there without fetching the manifest first, resolving the Exchange's endpoint from the Exchange's own `fora.json`. It is an optimisation, not authorization: the edge sends it only beside `X-Content-Rules` and only for an Exchange the manifest lists, and when the two disagree the manifest wins.
 - `Cache-Control: no-store` -- the 403 should not be cached. Content availability may change.
 
 **Body semantics**:
 - `error` -- human/machine readable explanation.
 - `protocol` -- identifies this as a FORA protocol response, not a generic 403.
 - `version` -- protocol version for forward compatibility.
-- `info_url` -- same as `X-Content-Rules` header, in the body for agents that parse JSON responses.
-- `fora_json_url` -- direct link to `fora.json` so the agent can discover all authorized Exchanges, not just the one in `X-Content-Rules`.
+- `fora_json_url` -- same as the `X-Content-Rules` header, in the body for agents that parse JSON responses. The body is informative; the headers are the protocol.
 
 ## Classification Algorithm
 

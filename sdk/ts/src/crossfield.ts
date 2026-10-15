@@ -4,11 +4,14 @@ import {
   LicenseSchema,
   LicenseTermSchema,
   ObligationSchema,
+  OfferSchema,
   PricingSchema,
   RegistrationFailureSchema,
+  ResourceEntrySchema,
   RestrictionSchema,
   WellKnownManifestSchema,
 } from "../../../gen/ts/wire/schemas.ts";
+import { checkMeteredEstimate, checkOfferTermsUnpriced } from "./money.ts";
 
 // Cross-field (message-CEL) refinements — the one genuinely net-new L1 surface.
 //
@@ -155,6 +158,47 @@ function pricingRules(o: Obj): string[] {
   return out;
 }
 
+/**
+ * Offer rules:
+ *   - terms.pricing_unset: `this.terms.all(t, !has(t.pricing))` — the offer's price is
+ *     `Offer.pricing`, stated once.
+ *   - metered.estimate_positive: `this.pricing.model != PER_UNIT ||
+ *     !has(this.pricing.estimated_quantity) || this.pricing.estimated_quantity > 0`.
+ * Both predicates are the ones the agent-side Verifier applies, so this face and that
+ * one share checkOfferTermsUnpriced and checkMeteredEstimate rather than keeping two
+ * copies.
+ */
+function offerRules(o: Obj): string[] {
+  const out: string[] = [];
+  try {
+    checkOfferTermsUnpriced(o);
+  } catch {
+    out.push("offer.terms.pricing_unset");
+  }
+  try {
+    checkMeteredEstimate(o);
+  } catch {
+    out.push("offer.metered.estimate_positive");
+  }
+  return out;
+}
+
+/**
+ * ResourceEntry.terms.pricing_required: `this.terms.all(t, has(t.pricing))`. A catalog
+ * term carries its price; the rule is the entry's because the term an offer carries
+ * holds none. `null` is proto-JSON for absent.
+ */
+function resourceEntryRules(o: Obj): string[] {
+  const terms = field(o, "terms");
+  if (!Array.isArray(terms)) return [];
+  for (const t of terms) {
+    const term = asObj(t);
+    const pricing = term ? field(term, "pricing") : undefined;
+    if (pricing === undefined || pricing === null) return ["resource_entry.terms.pricing_required"];
+  }
+  return [];
+}
+
 /** Restriction.permitted_prohibited_disjoint: `this.permitted.all(p, !(p in this.prohibited))`. */
 function restrictionRules(o: Obj): string[] {
   const permitted = field(o, "permitted");
@@ -253,11 +297,21 @@ const RULES_BY_MESSAGE: Record<string, (o: Obj) => string[]> = {
   License: licenseRules,
   LicenseTerm: licenseTermRules,
   Obligation: obligationRules,
+  Offer: offerRules,
   Pricing: pricingRules,
   Restriction: restrictionRules,
   RegistrationFailure: registrationFailureRules,
+  ResourceEntry: resourceEntryRules,
   WellKnownManifest: wellKnownManifestRules,
 };
+
+/**
+ * hasCrossFieldRules reports whether `message` (the bare message name, e.g. "Pricing")
+ * carries cross-field rules, i.e. whether crossFieldRuleIds accepts it.
+ */
+export function hasCrossFieldRules(message: string): boolean {
+  return Object.prototype.hasOwnProperty.call(RULES_BY_MESSAGE, message);
+}
 
 /**
  * crossFieldRuleIds returns the cross-field (message-CEL) rule-ids the instance
@@ -309,7 +363,9 @@ export const GetAccountStatusResponseCrossFieldSchema: CrossField<typeof GetAcco
 export const LicenseCrossFieldSchema: CrossField<typeof LicenseSchema> = attach(LicenseSchema, "License");
 export const LicenseTermCrossFieldSchema: CrossField<typeof LicenseTermSchema> = attach(LicenseTermSchema, "LicenseTerm");
 export const ObligationCrossFieldSchema: CrossField<typeof ObligationSchema> = attach(ObligationSchema, "Obligation");
+export const OfferCrossFieldSchema: CrossField<typeof OfferSchema> = attach(OfferSchema, "Offer");
 export const PricingCrossFieldSchema: CrossField<typeof PricingSchema> = attach(PricingSchema, "Pricing");
 export const RestrictionCrossFieldSchema: CrossField<typeof RestrictionSchema> = attach(RestrictionSchema, "Restriction");
 export const RegistrationFailureCrossFieldSchema: CrossField<typeof RegistrationFailureSchema> = attach(RegistrationFailureSchema, "RegistrationFailure");
+export const ResourceEntryCrossFieldSchema: CrossField<typeof ResourceEntrySchema> = attach(ResourceEntrySchema, "ResourceEntry");
 export const WellKnownManifestCrossFieldSchema: CrossField<typeof WellKnownManifestSchema> = attach(WellKnownManifestSchema, "WellKnownManifest");

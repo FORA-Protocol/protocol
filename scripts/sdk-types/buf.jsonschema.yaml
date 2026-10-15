@@ -1,6 +1,7 @@
 # buf template that emits JSON Schema from the proto, via the protovalidate-aware
 # bufbuild/protoschema generator. Run by scripts/gen-sdk-types.sh into a work dir
-# (the per-message files are an intermediate; only the merged Pydantic/Zod are kept).
+# (the per-message files feed the merged Pydantic/Zod models and, reshaped by
+# gen_jsonschema.py, the published schemas under gen/jsonschema/).
 version: v2
 plugins:
   - local: ["go", "run", "github.com/bufbuild/protoschema-plugins/cmd/protoc-gen-jsonschema@v0.6.0"]

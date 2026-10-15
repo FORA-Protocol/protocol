@@ -56,6 +56,20 @@ func TestErrorDetail_retrievalAuthFailureRoundTrip(t *testing.T) {
 	}
 }
 
+func TestErrorDetail_requestAuthFailureRoundTrip(t *testing.T) {
+	detail := helpers.RequestAuthFailureDetail("fora.v1.ExchangeService", "signature expired",
+		forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE)
+	cerr := foraserver.AsConnectError(connectrpc.CodeUnauthenticated, detail)
+	got, ok := foraconnect.ErrorDetailFrom(cerr)
+	if !ok {
+		t.Fatal("extract failed")
+	}
+	reason, ok := helpers.Reason(got).(forav1.RequestAuthFailureReason)
+	if !ok || reason != forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE {
+		t.Errorf("reason = %v (%T)", helpers.Reason(got), helpers.Reason(got))
+	}
+}
+
 func TestErrorDetailFrom_nonConnectError(t *testing.T) {
 	if _, ok := foraconnect.ErrorDetailFrom(errors.New("plain")); ok {
 		t.Error("plain error should not yield a detail")

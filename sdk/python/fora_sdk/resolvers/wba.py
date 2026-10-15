@@ -25,12 +25,18 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from pydantic import ValidationError
 from wire.models import JsonWebKey, KeyRevocationList, WBAFile
 
-from fora_sdk.b64 import b64url_decode_strict
-from fora_sdk.hosts import host_anchored
-from fora_sdk.resolvers._http import fetch_soft, fetch_strict, guarded_client
+from fora_sdk.hosts import check_audience, host_anchored
+from fora_sdk.resolvers._http import guarded_client
+from fora_sdk.resolvers.documents import (
+    WBA_DIRECTORY_PATH,
+    fetch_revocation_list,
+    fetch_wba_directory,
+)
+from fora_sdk.resolvers.documents import (
+    jwk_ed25519_public_key as _public_key_of_safe,
+)
 from fora_sdk.resolvers.errors import (
     DirectoryUnavailableError,
     KeyExpiredError,
@@ -39,54 +45,6 @@ from fora_sdk.resolvers.errors import (
     UnknownKeyError,
 )
 from fora_sdk.thumbprint import thumbprint
-
-WBA_DIRECTORY_PATH = "/.well-known/http-message-signatures-directory"
-
-
-def _get_wba_directory(http: httpx.Client, url: str) -> WBAFile:
-    """GET ``url`` and decode the body as a :class:`WBAFile`.
-
-    The ONE place Python turns a directory URL into a directory. Both faces that need
-    one call it: :meth:`WBAKeyResolver._fetch_directory` on the signature-verification
-    path, and :func:`~fora_sdk.resolvers.offer_key_cache.create_wba_offer_directory_fetch`
-    on the offer-key path. Go shares a single ``fetchWBAFile`` between the same two
-    call sites for the same reason, so the two paths cannot drift apart.
-
-    Every failure leaves as :class:`DirectoryUnavailableError`, which is what lets each
-    caller make its own raise-or-contain choice against ONE exception type.
-    ``fetch_strict`` folds in every transport failure, every non-200, and every way the
-    URL itself can be refused — a malformed A-label and an over-long label included.
-    This adds the one arm it does not cover: a body that is not a valid directory.
-    """
-    body = fetch_strict(http, url)
-    try:
-        return WBAFile.model_validate_json(body)
-    except ValidationError as exc:
-        raise DirectoryUnavailableError("wba directory decode") from exc
-
-
-def wba_directory_url(scheme: str, host: str) -> str:
-    """Build the full WBA identity-directory URL: ``scheme://host`` + the shared
-    :data:`WBA_DIRECTORY_PATH`. An empty ``scheme`` defaults to ``https``.
-
-    A PURE string function — the host arrives ALREADY-JOINED (any port-join / IPv6
-    bracketing is the caller's concern), there is NO env read (the app keeps its
-    consumer-side ``FORA_WELLKNOWN_SCHEME`` read) and NO scheme-in-host detection.
-    It mirrors the sdk/go ``WBADirectoryURL`` oracle byte-for-byte, locked by the
-    tri-replayed ``wba-url-vectors.json`` corpus.
-
-    Its production call-site inside the SDK is
-    :func:`~fora_sdk.resolvers.offer_key_cache.create_wba_offer_directory_fetch`, the
-    default offer-directory fetch, which joins any port onto the host and hands the
-    result here. :class:`WBAKeyResolver` does NOT use it: that class's
-    ``_fetch_directory`` seam receives an already-joined ``base`` and appends
-    :data:`WBA_DIRECTORY_PATH` directly, so the two paths reach the same URL by
-    different routes. The tri-language corpus is what holds them to the same answer.
-    """
-    if scheme == "":
-        scheme = "https"
-    return f"{scheme}://{host}{WBA_DIRECTORY_PATH}"
-
 
 _DEFAULT_TTL = timedelta(hours=1)
 _DEFAULT_POLL_INTERVAL = timedelta(seconds=300)
@@ -100,7 +58,6 @@ _DEFAULT_SYNC_DEBOUNCE = timedelta(seconds=5)
 # is clamped, so a compromised origin cannot stamp a far-future baseline that
 # permanently freezes later (legitimately earlier) snapshots under the guard.
 _AS_OF_SKEW = timedelta(seconds=300)
-_ED25519_PUBLIC_KEY_BYTES = 32
 
 # Diagnostics for the active-key selector's bounded-scan exhaustion (see
 # _select_active_ed25519_key). The unbounded default never logs; only an explicit
@@ -149,12 +106,17 @@ class _Inflight:
 
 class WBAKeyResolver:
     """Resolve signing keys from WBA identity directories, matching by RFC 7638
-    thumbprint and enforcing validity windows + the host's revocation snapshot."""
+    thumbprint and enforcing validity windows + the host's revocation snapshot.
+
+    The directory is the origin the signature's own covered Signature-Agent member
+    names. It is fetched with no redirect, must be served as
+    ``application/http-message-signatures-directory+json``, and only the keys that
+    signed its response are ever handed out: a listed key with no valid response
+    signature resolves as unknown."""
 
     def __init__(
         self,
         *,
-        scheme: str = "https",
         ttl: timedelta = _DEFAULT_TTL,
         poll_interval: timedelta = _DEFAULT_POLL_INTERVAL,
         sync_debounce: timedelta = _DEFAULT_SYNC_DEBOUNCE,
@@ -173,7 +135,6 @@ class WBAKeyResolver:
         # injection.
         http: httpx.Client | None = None,
     ) -> None:
-        self._scheme = scheme or "https"
         self._ttl = ttl if ttl > timedelta(0) else _DEFAULT_TTL
         self._poll_interval = (
             poll_interval if poll_interval > timedelta(0) else _DEFAULT_POLL_INTERVAL
@@ -216,7 +177,7 @@ class WBAKeyResolver:
         """
         if directory == "" or keyid == "":
             raise UnknownKeyError(f"no signature-agent directory for keyid={keyid!r}")
-        parsed = _directory_base(directory, self._scheme)
+        parsed = _directory_base(directory)
         if parsed is None:
             # A malformed Signature-Agent cannot name a directory: fall-through,
             # NOT a fail-closed DirectoryUnavailableError halt.
@@ -315,7 +276,11 @@ class WBAKeyResolver:
             pending.event.set()
 
     def _fetch_directory(self, base: str) -> WBAFile:
-        return _get_wba_directory(self._http, base + WBA_DIRECTORY_PATH)
+        # No redirect, the profile's media type, and only the keys that signed the
+        # response, judged at this resolver's clock.
+        return fetch_wba_directory(
+            self._http, base + WBA_DIRECTORY_PATH, now=int(self._now().timestamp())
+        )
 
     def _is_revoked(self, host: str, thumbprint_key: str) -> bool:
         with self._rev_lock:
@@ -332,20 +297,39 @@ class WBAKeyResolver:
         with self._rev_lock:
             return host in self._revoked
 
-    def revoked(self, key_id: str) -> bool:
-        """Whether ``key_id`` (a thumbprint) is in ANY host's fetched revocation
-        snapshot, INDEPENDENT of WBA directory membership.
+    def revoked(self, key_id: str, directory: str) -> bool:
+        """Whether ``key_id`` (a thumbprint) is on the revocation list of the key
+        directory ``directory`` names, and on no other list.
 
+        A list covers only its own directory's keys: no party's list revokes another
+        party's key, even when it names that key's thumbprint. ``directory`` is a
+        directory reference as ``resolve`` reads it off a Signature-Agent member (an
+        https origin or a bare host), normalized the same way; its host names the
+        same directory as a fetched one under the request-recipient identity rule
+        (case folded, a port of 443 written out the same as none). An empty or
+        unusable reference, or an empty ``key_id``, answers False.
+
+        The answer is membership, INDEPENDENT of WBA directory membership:
         ``resolve`` gates a key only when the directory lists it (removal is not
         revocation), so a key resolved from another source — e.g. a static
-        bootstrap file — is invisible to that path; ``revoked`` is the fail-closed
-        hook a composite consults to reject a broker-revoked, directory-absent
-        thumbprint. Returns False when no snapshot has been fetched.
+        bootstrap file holding a copy of that party's key — is invisible to that
+        path, and ``revoked`` is the fail-closed hook a composite consults against
+        the key owner's own list. A directory's list is known once the directory
+        has been fetched, including a directory that lists no key; before that it
+        answers False (membership only, never an outage).
         """
-        if key_id == "":
+        if key_id == "" or directory == "":
             return False
+        base = _directory_base(directory)
+        if base is None:
+            return False
+        host = base[1]
         with self._rev_lock:
-            return any(key_id in rev.thumbprints for rev in self._revoked.values())
+            return any(
+                key_id in rev.thumbprints
+                for fetched, rev in self._revoked.items()
+                if fetched == host or _same_directory_host(fetched, host)
+            )
 
     def _refresh_revocation_for(self, host: str, file: WBAFile) -> None:
         rev_url = file.revocation_url
@@ -353,13 +337,10 @@ class WBAKeyResolver:
         # cross-host revocation_url is skipped, leaving the prior snapshot.
         if not rev_url or not _wba_host_anchored(host, rev_url):
             return
-        body = fetch_soft(self._http, rev_url)  # best-effort: a blip keeps prior
-        if body is None:
-            return
         try:
-            snapshot = KeyRevocationList.model_validate_json(body)
-        except ValidationError:
-            return
+            snapshot = fetch_revocation_list(self._http, rev_url)
+        except DirectoryUnavailableError:
+            return  # best-effort: a blip or an undecodable list keeps the prior snapshot
         self._apply_revocation(host, snapshot)
 
     def _apply_revocation(self, host: str, snapshot: KeyRevocationList) -> None:
@@ -429,9 +410,9 @@ def active_ed25519_key(
     it does NOT consult any revocation channel. A key that was emergency-revoked but
     is still window-active in a (possibly CDN-cached) directory WILL be selected. A
     caller on a VERIFICATION path MUST NOT trust the result until it has screened the
-    selected key's RFC 7638 thumbprint against the resolver's revoked-thumbprint set
-    (:meth:`WBAKeyResolver.revoked` / a revocation snapshot); otherwise adopting this
-    selector defeats emergency revocation. Prefer :func:`active_ed25519_key_screened`,
+    selected key's RFC 7638 thumbprint against the revocation list of the directory it
+    came from (:meth:`WBAKeyResolver.revoked` with that directory, or a snapshot of that
+    list); otherwise adopting this selector defeats emergency revocation. Prefer :func:`active_ed25519_key_screened`,
     which folds that screen into selection. This bare form is for non-verification
     callers only.
     """
@@ -477,9 +458,9 @@ def active_ed25519_key_screened(
     :func:`active_ed25519_key` leaves to the caller into selection itself, so an
     emergency-revoked key still listed in a CDN-cached directory is passed over for
     the next active, non-revoked key. ``revoked`` is REQUIRED: pass a predicate over
-    the resolver's revoked-thumbprint set (e.g. :meth:`WBAKeyResolver.revoked`) or,
-    for a caller with no revocation channel, an explicit ``lambda _tp: False`` to make
-    the waiver visible. The thumbprint is computed with :func:`fora_sdk.thumbprint`
+    the revocation list of the directory being selected from (e.g.
+    ``lambda tp: wba.revoked(tp, directory)``) or, for a caller with no revocation
+    channel, an explicit ``lambda _tp: False`` to make the waiver visible. The thumbprint is computed with :func:`fora_sdk.thumbprint`
     (RFC 7638) — the SAME primitive :meth:`WBAKeyResolver.resolve` keys on. Returns
     ``None`` when no examined, non-revoked key qualifies.
     """
@@ -589,14 +570,32 @@ def _wait_timer(timer: queue.Queue[datetime], stop: threading.Event) -> bool:
     return False
 
 
-def _directory_base(ref: str, scheme: str) -> tuple[str, str] | None:
-    """Normalize a Signature-Agent value (bare host, host:port, or full URL) into
-    a ``scheme://host`` base and its host key, or None when it names no host."""
-    candidate = ref if "://" in ref else f"{scheme}://{ref}"
+def _directory_base(ref: str) -> tuple[str, str] | None:
+    """Normalize a directory reference (an https origin, a bare host or host:port) into
+    a ``scheme://host`` base and its host key, or None when it names no host.
+
+    A bare host is prefixed with ``https://``, and an origin keeps the scheme it names,
+    so a Signature-Agent member, always an https origin, is fetched over https. There is
+    no option to fetch it in plaintext: a test or a sandbox serves its directory over TLS
+    and injects an ``http=`` client that trusts it."""
+    candidate = ref if "://" in ref else f"https://{ref}"
     parts = urllib.parse.urlsplit(candidate)
     if not parts.netloc:
         return None
     return f"{parts.scheme}://{parts.netloc}", parts.netloc
+
+
+def _same_directory_host(a: str, b: str) -> bool:
+    """Whether two directory hosts name one party under the request-recipient
+    identity rule ``requester.domain`` is compared by: case folded, a port of 443
+    written out the same as none, a subdomain a different party. Hosts that rule
+    cannot read (an IP literal, an internationalized name) match only when spelled
+    identically, which the caller checks first. Port of the Go
+    ``sameDirectoryHost``."""
+    try:
+        return check_audience(a, b) == "accepted"
+    except ValueError:
+        return False
 
 
 def _wba_host_anchored(anchor: str, candidate: str) -> bool:
@@ -636,24 +635,6 @@ def _key_by_thumbprint(file: WBAFile, keyid: str) -> JsonWebKey | None:
         if thumbprint(pub) == keyid:
             return key
     return None
-
-
-def _public_key_of_safe(key: JsonWebKey) -> bytes | None:
-    # kty/crv are matched CASE-INSENSITIVELY — a deliberate lenient SDK convention
-    # (RFC 7517/8037 specify the exact-case "OKP" / "Ed25519"); the three SDKs accept
-    # any case identically so a case-varying directory resolves the SAME key.
-    if (key.kty or "").upper() != "OKP" or (key.crv or "").lower() != "ed25519":
-        return None
-    try:
-        # JWK OKP `x` is UNPADDED base64url (RFC 8037); reject padding / the
-        # standard alphabet so this matches Go's base64.RawURLEncoding and the
-        # tri-language selector picks the SAME key on a malformed-`x` directory.
-        raw = b64url_decode_strict(key.x or "")
-    except ValueError:
-        return None
-    if len(raw) != _ED25519_PUBLIC_KEY_BYTES:
-        return None
-    return raw
 
 
 def _public_key_of(key: JsonWebKey) -> bytes:

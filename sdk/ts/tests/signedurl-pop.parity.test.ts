@@ -1,4 +1,4 @@
-// Signed-URL + RFC 9421 GET-PoP byte-parity (TypeScript side).
+// Signed-URL + Web Bot Auth delivery-proof byte-parity (TypeScript side).
 //
 // The Core Invariant for these two helpers is byte-identical output to the
 // sdk/go oracle. Per the user-decided parity contract ("Go golden-emitter ->
@@ -6,14 +6,11 @@
 // emitter under sdk/go/helpers that signs with the REAL Go signer and writes:
 //
 //   sdk/go/helpers/testdata/signedurl-vectors.json  (SignURLEd25519 output)
-//   sdk/go/helpers/testdata/pop-vectors.json        (RFC 9421 GET-PoP output)
+//   sdk/go/helpers/testdata/pop-vectors.json        (Web Bot Auth delivery-proof output)
 //
-// This test asserts sdk/ts verify reaches the recorded verdict for each vector.
-// It is RED now for TWO reasons, both expected:
-//   1. sdk/ts/src/{verify,pop}.ts do not exist yet (imports cannot resolve).
-//   2. The two vector JSON files do not exist yet (the Go emitter is a later
-//      step). A missing vector file is itself a clean red — the guard is not
-//      yet in place.
+// This test asserts sdk/ts verify reaches the recorded verdict for each vector. The
+// pop vectors' verdicts, refusal tokens and Accept-Signature values come from the Go
+// verifier (helpers.VerifyAgentBinding), and all three are replayed.
 //
 // LOAD-BEARING (why vectors come from the Go signer, never hand-authored):
 // SignURLEd25519 emits the URL with a SORTED query (url.Values.Encode()); the
@@ -27,10 +24,10 @@
 // default path, not merely asserted in prose) AND an injected-primitive case.
 import { describe, it, expect } from "vitest";
 import { verifyEd25519SignedUrl } from "../src/verify.ts";
-import { verifyAgentBinding } from "../src/pop.ts";
-// These vector files are produced by the Go golden-emitter in a later step;
-// referencing them by their planned paths keeps this test RED now (missing
-// module) and green once the emitter + sdk/ts land.
+import { POP_ACCEPT_SIGNATURE, verifyAgentBinding } from "../src/pop.ts";
+import { signInbound } from "../core/sign.ts";
+import { importSigningKey } from "./wba-fixtures.ts";
+// The vector files are produced by the Go golden emitter (helpers/gen_vectors_test.go).
 import signedUrlVectors from "../../go/helpers/testdata/signedurl-vectors.json";
 import popVectors from "../../go/helpers/testdata/pop-vectors.json";
 
@@ -48,9 +45,9 @@ type SignedUrlVector = {
 };
 
 // ---- PoP vectors -----------------------------------------------------------
-// Each vector carries the full RFC 9421 GET-PoP material the Go signer emitted:
-// the presented raw public key, the request line, the Signature-Input / Signature
-// headers, the URL-bound agent_id (== thumbprint of presented key), and the
+// Each vector carries the full delivery-proof material the Go signer emitted: the
+// presented raw public key, the request line, the Signature-Agent / Signature-Input /
+// Signature headers, the URL-bound agent_id (== thumbprint of presented key), and the
 // clock. TS verifyAgentBinding must reach the recorded verdict.
 type PopVector = {
   name: string;
@@ -58,10 +55,16 @@ type PopVector = {
   url: string; // @target-uri (carries agent_id param)
   agent_id: string; // thumbprint of the presented key
   presented_key_b64url: string; // raw 32-byte Ed25519 public key
+  signer_seed_hex: string;
+  agent_directory: string; // the directory origin the signer was given
+  nonce?: string;
+  signature_agent: string; // Signature-Agent header value; "" means absent
   signature_input: string; // RFC 9421 Signature-Input header value
   signature: string; // RFC 9421 Signature header value
   now_unix: number;
   expected_valid: boolean;
+  expected_reason: string; // the Go verifier's refusal token; "" when valid
+  expected_accept_signature?: string; // set when the refusal is answered with one
 };
 
 function b64urlToBytes(s: string): Uint8Array<ArrayBuffer> {
@@ -99,19 +102,37 @@ describe("sdk/ts signed-URL verify matches the Go signer vectors", () => {
   }
 });
 
-describe("sdk/ts RFC 9421 GET-PoP verify matches the Go signer vectors", () => {
+describe("sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vectors", () => {
   const vectors = popVectors as PopVector[];
 
   it("vector file is non-empty", () => {
     expect(vectors.length).toBeGreaterThan(0);
   });
 
+  it("every vector records its refusal token, and some refusals an Accept-Signature", () => {
+    for (const v of vectors) {
+      expect(typeof v.expected_reason, v.name).toBe("string");
+      expect(v.expected_valid, v.name).toBe(v.expected_reason === "");
+    }
+    expect(vectors.filter((v) => v.expected_accept_signature !== undefined).length).toBeGreaterThan(0);
+  });
+
+  // headersFor writes a vector's request headers: the presented key and, when the
+  // vector carries them, the three signature headers ("" means absent).
   function headersFor(v: PopVector): Headers {
     const h = new Headers();
     h.set("x-fora-agent-key", v.presented_key_b64url);
-    h.set("signature-input", v.signature_input);
-    h.set("signature", v.signature);
+    if (v.signature_input !== "") h.set("signature-input", v.signature_input);
+    if (v.signature !== "") h.set("signature", v.signature);
+    if (v.signature_agent !== "") h.set("signature-agent", v.signature_agent);
     return h;
+  }
+
+  // The vector's whole verdict: validity, the refusal token and the Accept-Signature.
+  function expectVerdict(v: PopVector, res: Awaited<ReturnType<typeof verifyAgentBinding>>): void {
+    expect(res.ok).toBe(v.expected_valid);
+    expect(res.reason ?? "").toBe(v.expected_reason);
+    expect(res.acceptSignature).toBe(v.expected_accept_signature);
   }
 
   // DEFAULT-primitive path: verifyAgentBinding uses its built-in WebCrypto
@@ -125,9 +146,49 @@ describe("sdk/ts RFC 9421 GET-PoP verify matches the Go signer vectors", () => {
         agentId: v.agent_id,
         now: () => v.now_unix * 1000,
       });
-      expect(res.ok).toBe(v.expected_valid);
+      expectVerdict(v, res);
+      if (v.expected_valid) expect(res.signatureAgent).toBe(v.agent_directory);
+      if (v.expected_accept_signature !== undefined) expect(res.acceptSignature).toBe(POP_ACCEPT_SIGNATURE);
     });
   }
+
+  // RE-SIGN: signInbound, given the vector's seed, directory, nonce and window,
+  // reproduces the Go signer's Signature-Agent, Signature-Input and Signature byte for
+  // byte. Only the vectors Go produced through SignAgentBinding unaltered qualify.
+  for (const v of vectors.filter((x) => ["valid", "valid_no_nonce", "expired"].includes(x.name))) {
+    it(`[re-sign] ${v.name}: signInbound reproduces the Go proof`, async () => {
+      const created = Number(/;created=(\d+)/.exec(v.signature_input)?.[1]);
+      const expires = Number(/;expires=(\d+)/.exec(v.signature_input)?.[1]);
+      const keyPair = {
+        privateKey: await importSigningKey(v.signer_seed_hex),
+        publicKey: await crypto.subtle.importKey("raw", b64urlToBytes(v.presented_key_b64url), { name: "Ed25519" }, true, [
+          "verify",
+        ]),
+      };
+      const req = await signInbound(keyPair, v.url, {
+        signatureAgent: v.agent_directory,
+        ...(v.nonce !== undefined ? { nonce: v.nonce } : {}),
+        window: () => [created, expires],
+      });
+      expect(req.headers.get("signature-agent")).toBe(v.signature_agent);
+      expect(req.headers.get("signature-input")).toBe(v.signature_input);
+      expect(req.headers.get("signature")).toBe(v.signature);
+      expect(req.headers.get("x-fora-agent-key")).toBe(v.presented_key_b64url);
+    });
+  }
+
+  it("[re-sign] member_not_https_origin: signInbound refuses a directory that is not an https origin", async () => {
+    const v = vectors.find((x) => x.name === "member_not_https_origin") as PopVector;
+    const keyPair = {
+      privateKey: await importSigningKey(v.signer_seed_hex),
+      publicKey: await crypto.subtle.importKey("raw", b64urlToBytes(v.presented_key_b64url), { name: "Ed25519" }, true, [
+        "verify",
+      ]),
+    };
+    await expect(signInbound(keyPair, v.url, { signatureAgent: v.agent_directory })).rejects.toMatchObject({
+      reason: "signature_agent_not_origin",
+    });
+  });
 
   // INJECTED-primitive path: the same vectors verified through a caller-supplied
   // Ed25519 verify primitive (the Fastly-style non-WebCrypto path). The verdict
@@ -151,7 +212,7 @@ describe("sdk/ts RFC 9421 GET-PoP verify matches the Go signer vectors", () => {
         now: () => v.now_unix * 1000,
         verifyEd25519: injectedVerify,
       });
-      expect(res.ok).toBe(v.expected_valid);
+      expectVerdict(v, res);
     });
   }
 });

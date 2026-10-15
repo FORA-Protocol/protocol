@@ -261,6 +261,13 @@ func buildWireConstantsVectors() []wireConstantVector {
 		{"SignatureAgentHeader", SignatureAgentHeader},
 		{"AgentKeyHeader", AgentKeyHeader},
 		{"WellKnownPath", WellKnownPath},
+		{"ContentRulesHeader", ContentRulesHeader},
+		{"ExchangeHeader", ExchangeHeader},
+		{"WBATag", WBATag},
+		{"DirectoryResponseTag", DirectoryResponseTag},
+		{"AcceptSignatureHeader", AcceptSignatureHeader},
+		{"AcceptSignature", AcceptSignature(false)},
+		{"AcceptSignatureWithEntitlement", AcceptSignature(true)},
 	}
 }
 

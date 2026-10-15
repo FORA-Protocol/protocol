@@ -1,7 +1,7 @@
 // An empty covered header has to reach the WIRE, not just the header map.
 //
-// The whole point of binding `authorization` and `signature-agent` unconditionally is
-// that a verifier rebuilds the signature base from the request it RECEIVED. A value
+// The whole point of binding `authorization` unconditionally, even empty, is that a
+// verifier rebuilds the signature base from the request it RECEIVED. A value
 // bound but never transmitted is not bound at all — the verifier reads the covered
 // names off Signature-Input, finds nothing on the wire under one of them, and refuses.
 //
@@ -18,6 +18,7 @@
 import { createServer, type Server } from "node:http";
 import { describe, expect, it } from "vitest";
 
+import { ForaCallError } from "../client/errors.ts";
 import { createUnarySend } from "../client/send.ts";
 import { unaryCall } from "../client/transport.ts";
 import { SignatureAgentHeader } from "../src/wire.ts";
@@ -63,7 +64,7 @@ function linesFor(raw: string[], name: string): string[] {
 }
 
 describe("an empty covered header survives the transport", () => {
-	it("both covered names arrive present-and-empty, exactly once each", async () => {
+	it("the empty authorization arrives present-and-empty, and every covered name exactly once", async () => {
 		const [server, port, raw] = await recordingServer();
 		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
 			"sign",
@@ -81,11 +82,9 @@ describe("an empty covered header survives the transport", () => {
 					},
 					message: {},
 					send: createUnarySend({ guarded: true }),
-					// The static-bootstrap signer: no bearer token and no key directory, so
-					// BOTH covered values are empty. This is the shape that never left the
-					// socket before, and the shape a request from an agent without a WBA
-					// directory takes.
-					signer: { privKey: keys.privateKey, keyid: "agent.test.v1" },
+					// No bearer token, so the covered authorization value is empty: the shape
+					// that never left the socket before.
+					signer: { privKey: keys.privateKey, keyid: "agent.test.v1", signatureAgent: "https://agent.test" },
 				}),
 			);
 
@@ -93,7 +92,7 @@ describe("an empty covered header survives the transport", () => {
 			// PRESENT, and empty — not absent. An adapter that drops an empty value would
 			// leave zero lines here and every signed call would be refused downstream.
 			expect(linesFor(received, "authorization")).toEqual([""]);
-			expect(linesFor(received, SIGNATURE_AGENT_LOWER)).toEqual([""]);
+			expect(linesFor(received, SIGNATURE_AGENT_LOWER)).toEqual(['sig1="https://agent.test"']);
 			// And exactly ONE line per covered name: two lines under one name join with
 			// ", " before the base is rebuilt, which breaks an otherwise valid signature.
 			for (const name of [
@@ -105,6 +104,31 @@ describe("an empty covered header survives the transport", () => {
 			]) {
 				expect(linesFor(received, name), `field lines for ${name}`).toHaveLength(1);
 			}
+		} finally {
+			server.close();
+		}
+	});
+
+	it("a signer with no key directory is refused as malformed and nothing leaves the socket", async () => {
+		const [server, port, raw] = await recordingServer();
+		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
+		try {
+			const err = await withLoopback(() =>
+				unaryCall({
+					op: "discover",
+					target: {
+						baseURL: `http://127.0.0.1:${port}`,
+						service: "fora.v1.ExchangeService",
+						method: "DiscoverResources",
+					},
+					message: {},
+					send: createUnarySend({ guarded: true }),
+					signer: { privKey: keys.privateKey, keyid: "agent.test.v1" },
+				}),
+			).catch((e: unknown) => e);
+			expect(err).toBeInstanceOf(ForaCallError);
+			expect((err as ForaCallError).kind).toBe("malformed");
+			expect(raw()).toEqual([]);
 		} finally {
 			server.close();
 		}

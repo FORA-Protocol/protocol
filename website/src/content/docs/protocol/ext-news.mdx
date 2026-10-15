@@ -46,7 +46,7 @@ An Exchange declares support for this profile by including `"fora-news-v1"` in i
 }
 ```
 
-Brokers use `supported_profiles` to route news-specific queries to Exchanges that understand this vocabulary.
+A Broker forwards the agent's `supported_profiles` to the Exchanges it queries and does not route by them; an Exchange that declares this profile includes its fields.
 
 ---
 
@@ -337,8 +337,8 @@ An Exchange returns an offer for a New York Times article. The article has been 
     "rate": "0.15",
     "currency": "USD",
     "unit_cost": "0.000061",
-    "estimated_quantity": 2450,
-    "unit": "tokens"
+    "estimated_quantity": 1,
+    "unit": "accesses"
   },
   "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
   "identity": {

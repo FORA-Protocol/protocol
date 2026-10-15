@@ -67,7 +67,7 @@ func TestOnReject_ReplayIsObservedAsErrReplayed(t *testing.T) {
 	obs := &capturedReject{}
 	srv := serveWithOnReject(t, f, alwaysReplayStore{}, obs)
 
-	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(f.signer))
+	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(f.signer), foraconnect.WithSignatureAgent("https://agent.example"))
 	if _, err := client.Discover(context.Background(), &forav1.ResourceQuery{}); err == nil {
 		t.Fatal("a replayed request must be rejected")
 	}

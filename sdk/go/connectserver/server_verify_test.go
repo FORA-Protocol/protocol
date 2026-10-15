@@ -199,7 +199,7 @@ func TestServerVerify_RejectsReplayViaInjectedStore(t *testing.T) {
 	f := newServerFixture(t)
 	srv := f.serve(t, alwaysReplayStore{}) // every nonce is a replay
 
-	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(f.signer))
+	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(f.signer), foraconnect.WithSignatureAgent("https://agent.example"))
 	_, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err == nil {
 		t.Fatal("a replayed request must be rejected by the verify face")
@@ -228,7 +228,7 @@ func TestServerVerify_ReExecuteWithSameKeyAndWindowPassesGate(t *testing.T) {
 	now := time.Now()
 
 	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(f.signer),
+		foraconnect.WithSigner(f.signer), foraconnect.WithSignatureAgent("https://agent.example"),
 		foraconnect.WithSignWindow(core.ClockWindow(func() time.Time { return now }, 5*time.Minute)),
 		foraconnect.WithOfferKey(off.exchangePub),
 		// A purchase carries a detached acceptance covering the requester, so a
@@ -269,7 +269,7 @@ func TestServerVerify_RequestIDStampedOnRejectPath(t *testing.T) {
 	f := newServerFixture(t)
 	srv := f.serve(t, alwaysReplayStore{})
 
-	spy := &headerSpyTransport{next: core.NewSigningTransport(f.signer, http.DefaultTransport)}
+	spy := &headerSpyTransport{next: core.NewSigningTransport(f.signer, http.DefaultTransport, core.WithSignatureAgent("https://agent.example"))}
 	client := forav1connect.NewExchangeServiceClient(&http.Client{Transport: spy}, srv.URL)
 
 	_, err := client.DiscoverResources(context.Background(), connectrpc.NewRequest(&forav1.ResourceQuery{}))

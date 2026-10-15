@@ -22,7 +22,7 @@ Offer
           -> DisputeResponse (dispute_id, status, resolution)
 ```
 
-`DisputeRequest.report_id` is **required** -- the Exchange refuses to file any dispute without a prior usage report. A refusal to file is not a `DisputeResponse` with a rejection field; it is a non-OK transport error carrying a typed `ErrorDetail.dispute_failure` (e.g. `DISPUTE_FAILURE_REASON_REPORT_NOT_FILED`). This prevents fire-and-forget disputes and fabricated usage data. `DisputeRequest.idempotency_key` (required) dedupes retried filings.
+Every Exchange implements `DisputeTransaction`: it is part of the core protocol, not an optional capability, and an Exchange accepts every filing that passes its checks. `DisputeRequest.report_id` is **required** -- the Exchange refuses to file any dispute without a prior usage report. A refusal to file is not a `DisputeResponse` with a rejection field; it is a non-OK transport error carrying a typed `ErrorDetail.dispute_failure`, whose `DisputeFailureReason` names the one check the filing failed: an unknown transaction (`TRANSACTION_NOT_FOUND`), no accepted report for this transaction (`REPORT_NOT_FILED`), a closed dispute window (`WINDOW_EXPIRED`), a dispute already filed (`DUPLICATE`), or a transaction whose state admits no dispute (`INELIGIBLE`). This prevents fire-and-forget disputes and fabricated usage data. `DisputeRequest.idempotency_key` (required) dedupes retried filings: a retry of the same filing under the same key is a replay and returns the original `DisputeResponse`, not `DUPLICATE`, and the same key with a different filing is refused with `already_exists`.
 
 ## What Is Auto-Disputable
 

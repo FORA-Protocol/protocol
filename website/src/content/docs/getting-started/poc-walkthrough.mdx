@@ -117,12 +117,12 @@ Once connected, five tools appear — the protocol verbs.
 | Tool | Where the call goes |
 |---|---|
 | `Fora discover` | `BrokerService.Resolve`, via the Broker |
-| `Fora execute` | the Broker's execute relay |
+| `Fora execute` | `BrokerService.ExecuteTransaction` |
 | `Fora register` | `ExchangeService.Register`, direct to the Exchange |
 | `Fora report` | `ExchangeService.ReportUsage`, direct to the offer's Exchange |
 | `Fora status` | `ExchangeService.GetAccountStatus`, direct to the Exchange |
 
-Two of them traverse the Broker and three go straight to an Exchange. Registration has to be direct, because the Exchange binds your account to your identity using your own inbound signature, and the Broker relay would re-sign that hop with its own key. See [Identity Service](/components/identity/overview/) for the rest of that reasoning.
+Two of them traverse the Broker and three go straight to an Exchange. Registration has to be direct, because the Exchange binds your account to your identity using your own inbound signature, and a purchase through the Broker is re-signed with the Broker's own key. See [Identity Service](/components/identity/overview/) for the rest of that reasoning.
 
 ## 3. The demo publisher
 
@@ -166,7 +166,7 @@ curl -s https://exchange.demo.fora-protocol.org/.well-known/fora.json
 }
 ```
 
-`legal_entity` required, `email` optional — exactly what the agent reported back. The digest it echoed is `WellKnownManifest.terms_digest` from the manifest above: registration records **which revision of the terms you accepted**, by digest, so neither side can later disagree about what was agreed. The manifest also advertises `WellKnownManifest.supported_profiles` and `WellKnownManifest.base_currency`, which is how an agent knows what the Exchange speaks before it sends anything.
+`legal_entity` required, `email` optional — exactly what the agent reported back. The digest it echoed is `WellKnownManifest.terms_digest` from the manifest above: registration records **which revision of the terms you accepted**, by digest, so neither side can later disagree about what was agreed. The manifest also advertises `WellKnownManifest.supported_profiles` and `WellKnownManifest.base_currency`, which is how an agent knows what the Exchange speaks before it sends anything. `WellKnownManifest.max_intermediary_hops` is the most request signatures the Exchange accepts on one request. A request signed only by the party that sent it — the agent, or the Broker for a request it authored — carries one, so 4 leaves room for parties that forward a request unchanged and sign it again; the Exchange counts the signatures before it verifies any and refuses a request carrying more with `resource_exhausted`.
 
 ## 5. Watch the door close
 
@@ -206,7 +206,7 @@ Ask for the same URL again, and let the agent use the protocol.
 Three tool calls, and the article arrives:
 
 1. **`Fora discover`** (`BrokerService.Resolve`, via the Broker) — the Broker asks the Exchange, which returns an offer per licensing term available to you. This one is free under the Stoa Press AI License.
-2. **`Fora execute`** (the Broker's execute relay) — the agent chooses a signed offer, and the Broker relays the purchase to the Exchange. The Exchange verifies `Offer.signature` and answers with a signed retrieval URL in `TransactionResultItem.retrieval_endpoint`. The MCP server then fetches the content from that URL itself, because only it holds the key the URL is bound to. The delivery edge verifies the URL and serves the bytes, the same bytes the door refused, and the article comes back in the tool result.
+2. **`Fora execute`** (`BrokerService.ExecuteTransaction`, via the Broker) — the agent chooses a signed offer, and the Broker re-packages the purchase into a request to the offer's Exchange, signed with its own key, with the agent's acceptance in the body. The Exchange verifies `Offer.signature` and answers with a signed retrieval URL in `TransactionResultItem.retrieval_endpoint`. The MCP server then fetches the content from that URL itself, because only it holds the key the URL is bound to. The delivery edge verifies the URL and serves the bytes, the same bytes the door refused, and the article comes back in the tool result.
 3. **`Fora report`** (`ExchangeService.ReportUsage`, direct to the offer's Exchange) — the offer carried a `ReportingObligation`, so the agent files a report and gets back a `UsageReportResponse.report_id`.
 
 See [Why the service fetches the content](/components/identity/overview/#why-the-service-fetches-the-content) for the reason the fetch happens inside `Fora execute`.
@@ -225,12 +225,20 @@ The tools above are ergonomics. The wire is [Connect](https://connectrpc.com/) o
 EX=https://exchange.demo.fora-protocol.org
 
 # Discovery — requires a signed request; see Authentication for the signature base.
+# The digest and signature are computed over query.json's exact bytes, so send them
+# unchanged with --data-binary. 'Authorization;' sends the header empty; it is covered
+# even when empty.
 curl -sS "$EX/fora.v1.ExchangeService/DiscoverResources" \
   -H 'Content-Type: application/json' \
-  -H 'Signature-Agent: https://agent-duci2vuk.mcp.demo.fora-protocol.org' \
-  -H 'Signature-Input: ...' -H 'Signature: ...' \
-  --data @query.json
+  -H 'Content-Digest: sha-256=:<base64 SHA-256 of query.json>:' \
+  -H 'Authorization;' \
+  -H 'Signature-Agent: sig1="https://agent-duci2vuk.mcp.demo.fora-protocol.org"' \
+  -H 'Signature-Input: sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=<now>;expires=<now+300>;keyid="<key thumbprint>";alg="ed25519";nonce="<random>";tag="web-bot-auth"' \
+  -H 'Signature: sig1=:<Ed25519 signature over the signature base>:' \
+  --data-binary @query.json
 ```
+
+The headers have the shape of the [Single-Hop Example](/protocol/authentication/#single-hop-example): `Signature-Agent` is a dictionary whose `sig1` member names the agent's https origin, the same host as `requester.domain`, and the signature covers that member.
 
 with `query.json`:
 

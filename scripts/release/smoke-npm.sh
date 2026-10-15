@@ -5,6 +5,10 @@
 #   - imports one L1 module, the client, the generated schemas and a cross-field
 #     schema under plain Node (no TypeScript loader) and parses valid and invalid
 #     inputs;
+#   - resolves a published JSON Schema through the ./jsonschema/* export path, both
+#     with require.resolve and with a JSON import, and validates with Ajv (a dependency
+#     of the package): a valid message passes, an unknown field fails the strict
+#     variant, an empty required string fails;
 #   - replays the shared wire-canonical vectors through fromWireOffer, so the
 #     canonical bytes a consumer signs and verifies are the Go oracle's under
 #     BOTH Zod majors (the inversion reads Zod internals, which differ per major);
@@ -48,7 +52,9 @@ for zod in ${ZOD_VERSIONS:-3.23.0 3 4}; do
   cp "$vectors" vectors.json
   cat > check.mjs <<'JS'
 import { readFileSync, readdirSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname } from "node:path";
+import Ajv2020 from "ajv/dist/2020.js";
 import canonicalize from "canonicalize";
 import { thumbprint } from "@fora-protocol/sdk/thumbprint";
 import { createClient } from "@fora-protocol/sdk/client";
@@ -69,6 +75,17 @@ if (!PricingCrossFieldSchema.safeParse({ model: "PRICING_MODEL_FREE" }).success)
 if (PricingCrossFieldSchema.safeParse({ currency: 42 }).success) throw new Error("invalid Pricing accepted");
 const crossField = PricingCrossFieldSchema.safeParse({ model: "PRICING_MODEL_PER_UNIT" });
 if (crossField.success || !crossField.error.issues.some((i) => i.params?.ruleId)) throw new Error("cross-field rule not applied");
+// published JSON Schemas: the ./jsonschema/* export path resolves, and the strict
+// variant refuses an unknown field
+const rr = "@fora-protocol/sdk/jsonschema/fora.v1.ResourceResponse.schema";
+const strictSchema = JSON.parse(readFileSync(createRequire(import.meta.url).resolve(`${rr}.strict.json`), "utf8"));
+const { default: defaultSchema } = await import(`${rr}.json`, { with: { type: "json" } });
+const ajv = new Ajv2020({ strict: true, validateFormats: false });
+const strictCheck = ajv.compile(strictSchema), defaultCheck = ajv.compile(defaultSchema);
+if (!strictCheck({ exchange: "exchange.example" })) throw new Error("strict schema rejected a valid ResourceResponse");
+if (strictCheck({ exchange: "exchange.example", unknown_field: 1 })) throw new Error("strict schema accepted an unknown field");
+if (!defaultCheck({ exchange: "exchange.example", unknown_field: 1 })) throw new Error("default schema rejected an unknown field");
+if (defaultCheck({ exchange: "" })) throw new Error("schema accepted an empty required string");
 // wire-canonical vectors: the bytes a consumer verifies offer signatures over
 const { vectors } = JSON.parse(readFileSync("vectors.json", "utf8"));
 if (vectors.length === 0) throw new Error("no wire-canonical vectors");
@@ -80,13 +97,14 @@ for (const v of vectors) {
 // imports it. The vocab wildcard expands against the installed directory.
 const pkgDir = "node_modules/@fora-protocol/sdk";
 const subpaths = Object.entries(JSON.parse(readFileSync(`${pkgDir}/package.json`, "utf8")).exports).flatMap(([sub, t]) => {
+  if (sub === "./jsonschema/*") return []; // JSON data, not a module: checked above
   if (!sub.endsWith("/*")) return [sub];
   const stems = readdirSync(`${pkgDir}/${dirname(t.default)}`).filter((f) => f.endsWith(".js")).map((f) => f.slice(0, -3));
   if (stems.length === 0) throw new Error(`${sub} expands to nothing`);
   return stems.map((s) => sub.replace("*", s));
 });
 for (const sub of subpaths) await import(`@fora-protocol/sdk${sub.slice(1)}`);
-console.log(`plain Node import of ${subpaths.length} subpaths + validation + ${vectors.length} wire-canonical vectors ok`);
+console.log(`plain Node import of ${subpaths.length} subpaths + validation + JSON Schemas + ${vectors.length} wire-canonical vectors ok`);
 JS
   node check.mjs
 

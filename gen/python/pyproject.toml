@@ -1,7 +1,8 @@
 # Packaging for the generated FORA Python types export (mirrors gen/ts/package.json).
-# wire/models.py and vocab/* are generated from proto/ by scripts/gen-sdk-types.sh — do
-# not edit them by hand. Only this file, README.md, and the hand-written wire/base.py
-# seam are authored.
+# wire/models.py, wire/unique.py, vocab/* and the schemas under wire/jsonschema/ are
+# generated from proto/ by scripts/gen-sdk-types.sh (and buf) — do not edit them by hand.
+# Only this file, README.md, and the hand-written wire/base.py, wire/names.py and
+# wire/schemas.py are authored.
 [build-system]
 requires = ["setuptools>=77"] # license-files (PEP 639)
 build-backend = "setuptools.build_meta"
@@ -9,7 +10,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "fora-protocol"
 version = "1.0.8"
-description = "Generated types export for Python: Pydantic v2 models (wire.models, extending wire.base.WireModel) + registered vocabulary constants (vocab.*), generated from the proto via JSON Schema."
+description = "Generated types export for Python: Pydantic v2 models (wire.models, extending wire.base.WireModel), registered vocabulary constants (vocab.*) and the published per-message JSON Schemas (wire.schemas.load), generated from the proto via JSON Schema."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "Apache-2.0"
@@ -31,7 +32,10 @@ namespaces = true
 include = ["wire*", "vocab*"]
 
 # The inline-types marker, one per namespace package (a namespace package has no
-# __init__.py to carry it), in the wheel and the sdist.
+# __init__.py to carry it), in the wheel and the sdist. wire/jsonschema/ holds the
+# published JSON Schemas wire.schemas.load reads. In the repository it is a symlink to
+# gen/jsonschema/ (one generated copy, drift-gated there); the sdist stores the files
+# themselves, so the wheel built from it carries them too.
 [tool.setuptools.package-data]
-wire = ["py.typed"]
+wire = ["py.typed", "jsonschema/*.json"]
 vocab = ["py.typed"]

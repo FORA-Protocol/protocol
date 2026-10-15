@@ -1,28 +1,27 @@
-"""SigningTransport.signature_agent — bound into the base, and carried on the wire.
+"""SigningTransport.signature_agent — the signer's key-directory origin, required.
 
-Signature-Agent is a COVERED component: the sign seam binds its value into the
-signature base unconditionally, empty included. A verifier rebuilds that base from the
-request it RECEIVED, so binding is only half of it — the header has to arrive, or the
-verifier reads the covered name off signature-input, finds nothing under it, and
-refuses the request.
+Every Web Bot Auth signature names its signer's key directory: the transport writes
+the member ``sig1="<origin>"`` into Signature-Agent and the signature covers it as
+``"signature-agent";key="sig1"``. A verifier rebuilds the base from the request it
+RECEIVED, so the header has to arrive carrying exactly the member that was signed.
 
-(a) signature_agent="https://agent.example" → the header carries that directory, and
-    'signature-agent' appears in the Signature-Input covered-component list.
+(a) signature_agent="https://agent.example" → the header carries the one-member
+    dictionary, and the keyed member appears in the Signature-Input covered list.
 
-(b) default signature_agent='' → the header is still carried, EMPTY. This is the
-    static-bootstrap case, and it used to assert the opposite: that a caller who
-    configured no directory received no header. That read as a tidy conditional and
-    was the defect written down as intent — a request signed that way was refused by
-    every conformant verifier. The empty value is the point: it is what lets the peer
-    rebuild a base that bound an empty directory.
+(b) no directory, or one that is not an https origin → nothing is signed. The old
+    static-bootstrap case signed an EMPTY directory; the profile has no such form,
+    and a verifier would have nowhere to resolve the key.
 
 The whole emitted set is pinned against the Go oracle by the shared corpus, in
-test_signrequest_parity.py; this file covers the two signature_agent shapes directly.
+test_signrequest_parity.py; this file covers the signature_agent shapes directly.
 """
 
 from __future__ import annotations
 
+import pytest
+
 from fora_sdk.signing_transport import SigningTransport
+from fora_sdk.wba import SignatureAgentNotOriginError, SignatureAgentRequiredError
 
 
 def _make_transport(*, signature_agent: str = "") -> SigningTransport:
@@ -63,37 +62,45 @@ def test_signature_agent_covered_in_signature_input_when_configured() -> None:
         authorization="",
     )
     sig_input = signed.headers.get("signature-input") or signed.headers.get("Signature-Input") or ""
-    assert '"signature-agent"' in sig_input, (
+    assert '"signature-agent";key="sig1"' in sig_input, (
         f"Expected 'signature-agent' in Signature-Input covered set; got: {sig_input!r}"
     )
 
 
-# ---- (b) default (empty) signature_agent → header present, EMPTY ----------
+# ---- (b) no directory, or not an origin → refused before signing -----------
 
 
-def test_signature_agent_header_is_carried_empty_when_not_configured() -> None:
-    """Default (signature_agent='') still carries Signature-Agent, with an empty value.
+@pytest.mark.parametrize(
+    ("signature_agent", "error"),
+    [
+        ("", SignatureAgentRequiredError),
+        ("agent.example", SignatureAgentNotOriginError),
+        ("https://agent.example/keys", SignatureAgentNotOriginError),
+        ("https://agent.example:443", SignatureAgentNotOriginError),
+    ],
+    ids=["empty", "bare_host", "with_path", "default_port"],
+)
+def test_a_transport_without_an_origin_signs_nothing(
+    signature_agent: str, error: type[Exception]
+) -> None:
+    transport = _make_transport(signature_agent=signature_agent)
+    with pytest.raises(error):
+        transport.sign_outbound(
+            method="POST",
+            url="https://broker.example/fora.v1/Discover",
+            body=b'{"query":"x"}',
+            authorization="",
+        )
 
-    The static-bootstrap case. The covered set binds the empty directory, so the header
-    has to arrive for the verifier to rebuild the base — an absent one is refused, not
-    tolerated. Measured: a request signed without it is answered
-    ``header "signature-agent" missing from request``.
 
-    Authorization is asserted beside it because the two are one mechanism: both are
-    covered unconditionally, and fixing only the first leaves the second failing the
-    identical way.
-    """
-    transport = _make_transport(signature_agent="")
+def test_the_emitted_member_is_the_one_the_signature_covers() -> None:
+    """The header is the one-member dictionary, and Authorization is carried empty."""
+    transport = _make_transport(signature_agent="https://agent.example")
     signed = transport.sign_outbound(
         method="POST",
         url="https://broker.example/fora.v1/Discover",
         body=b'{"query":"x"}',
         authorization="",
     )
-    emitted = {k.lower(): v for k, v in signed.headers.items()}
-    assert emitted.get("signature-agent") == "", (
-        f"empty signature_agent must still be CARRIED, not dropped; headers: {emitted}"
-    )
-    assert emitted.get("authorization") == "", (
-        f"empty authorization must still be CARRIED, not dropped; headers: {emitted}"
-    )
+    assert signed.headers["signature-agent"] == 'sig1="https://agent.example"'
+    assert signed.headers["authorization"] == ""

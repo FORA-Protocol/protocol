@@ -1,7 +1,7 @@
 // sdk/ts server-verify (Hono) binding smoke.
 //
 // Edge (src/edge/src/app.ts) is a SERVER/VERIFIER: it verifies inbound Ed25519
-// signed-URLs and RFC 9421 GET-PoP agent-bindings and returns 403/deny. It is the
+// signed-URLs and Web Bot Auth delivery-proof agent-bindings and denies a refusal. It is the
 // ONLY in-repo TS consumer this ticket ships a binding for. This smoke drives an
 // inbound signed request through the opt-in sdk/ts server/verify binding (a thin
 // Hono middleware over sdk/ts/core's verify seam) and asserts the verdict comes
@@ -12,10 +12,13 @@
 // covered by the L1 parity suites. This smoke pins the BINDING WIRING: a genuinely
 // signed inbound request passes; an unsigned/forged one is denied, and the guarded
 // handler never runs on the negative path (fail-closed, mirroring the Go
-// connectserver verify middleware).
+// connectserver verify middleware). A refusal the agent can fix by signing again is
+// answered 401 with Accept-Signature; any other refusal is 403.
 //
 import { describe, it, expect } from "vitest";
 import { foraVerify } from "../hono/middleware.ts";
+import { POP_ACCEPT_SIGNATURE } from "../src/pop.ts";
+import { AGENT_DIRECTORY } from "./wba-fixtures.ts";
 
 // A trivial WebCrypto Ed25519 keypair helper — the binding's verify primitive is
 // WebCrypto by default (the same primitive the L1 pop/verify helpers use). The
@@ -73,7 +76,7 @@ describe("sdk/ts Hono server-verify binding (Edge's real consumer)", () => {
 });
 
 describe("sdk/ts Hono server-verify binding — takes no key resolver", () => {
-  // These two cases pin that the binding takes no key resolver: the GET-PoP path
+  // These two cases pin that the binding takes no key resolver: the delivery-proof path
   // is self-verifying via the presented key, so ForaVerifyOptions deliberately
   // has no resolver field (one existed once, was never read, and misled a
   // consumer assessment — these cases keep it from growing back unread).
@@ -117,10 +120,55 @@ describe("sdk/ts Hono server-verify binding — takes no key resolver", () => {
   });
 });
 
-// signInboundRequest produces a genuinely RFC 9421 GET-PoP-signed inbound Request
-// the binding must accept. Its body reuses the L1 sign path via sdk/ts/core's
+describe("sdk/ts Hono server-verify binding — Accept-Signature on a fixable refusal", () => {
+  async function denied(edit: (h: Headers) => void): Promise<Response | undefined> {
+    const signed = await signInboundRequest(await generateAgentKey());
+    const headers = new Headers(signed.headers);
+    edit(headers);
+    const ctx = {
+      req: { raw: new Request(signed.url, { method: "GET", headers }) },
+      res: undefined as Response | undefined,
+    };
+    let reachedHandler = false;
+    await foraVerify({})(ctx, async () => {
+      reachedHandler = true;
+    });
+    expect(reachedHandler).toBe(false);
+    return ctx.res;
+  }
+
+  it("a presented key with no signature is answered 401 with Accept-Signature", async () => {
+    const res = await denied((h) => {
+      h.delete("signature-input");
+      h.delete("signature");
+    });
+    expect(res?.status).toBe(401);
+    expect(res?.headers.get("Accept-Signature")).toBe(POP_ACCEPT_SIGNATURE);
+  });
+
+  it("a proof whose Signature-Agent is the bare v1.0.8 value is answered 401 with Accept-Signature", async () => {
+    const res = await denied((h) => h.set("signature-agent", AGENT_DIRECTORY));
+    expect(res?.status).toBe(401);
+    expect(res?.headers.get("Accept-Signature")).toBe(POP_ACCEPT_SIGNATURE);
+  });
+
+  it("a proof whose Signature-Agent member is not an https origin is answered 401 with Accept-Signature", async () => {
+    const res = await denied((h) => h.set("signature-agent", 'sig1="http://agent.example"'));
+    expect(res?.status).toBe(401);
+    expect(res?.headers.get("Accept-Signature")).toBe(POP_ACCEPT_SIGNATURE);
+  });
+
+  it("a forged signature is answered 403 with no Accept-Signature", async () => {
+    const res = await denied((h) => h.set("signature", "sig1=:" + "A".repeat(86) + "==:"));
+    expect(res?.status).toBe(403);
+    expect(res?.headers.get("Accept-Signature")).toBeNull();
+  });
+});
+
+// signInboundRequest produces a Web Bot Auth delivery-proof-signed inbound Request the
+// binding must accept. Its body reuses the L1 sign path via sdk/ts/core's
 // sign-over-Fetch-Request seam.
 async function signInboundRequest(_kp: CryptoKeyPair): Promise<Request> {
   const { signInbound } = await import("../core/sign.ts");
-  return signInbound(_kp, "https://edge.example/fora.v1/resource");
+  return signInbound(_kp, "https://edge.example/fora.v1/resource", { signatureAgent: AGENT_DIRECTORY });
 }

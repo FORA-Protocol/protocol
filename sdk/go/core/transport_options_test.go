@@ -1,8 +1,6 @@
 package core_test
 
-// TDD-red suite for the new SigningTransport options and the sigwindow
-// constructors (yxaeb Step 1). Every test MUST fail today because the API
-// does not exist yet — the compile error is the red state.
+// The SigningTransport options and the sigwindow constructors.
 //
 // Behavioral expectations are ported from:
 //   - internal/signingtransport/transport.go  (WithAppendSigner, Signature-Agent
@@ -16,6 +14,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"encoding/base64"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -78,6 +78,9 @@ func testSigner(t *testing.T) helpers.Signer {
 	return signer
 }
 
+// testDir is the key-directory origin the transports under test sign as.
+const testDir = "https://agent.example.com"
+
 // fixedWindow returns a core.Window that always supplies the same pair of
 // unix-seconds values. Used to assert that WithWindow injects the supplied
 // values into the emitted Signature-Input.
@@ -98,7 +101,7 @@ func TestWithWindow_InjectsCreatedExpiresIntoSignatureInput(t *testing.T) {
 	const wantCreated int64 = 1_700_000_000
 	const wantExpires int64 = 1_700_000_300
 
-	tr := core.NewSigningTransport(testSigner(t), cap,
+	tr := core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent(testDir),
 		core.WithWindow(fixedWindow(wantCreated, wantExpires)),
 	)
 
@@ -132,7 +135,7 @@ func TestWithWindow_InjectsCreatedExpiresIntoSignatureInput(t *testing.T) {
 func TestWithAppendSigner_AppendsSigOnPreSignedRequest(t *testing.T) {
 	t.Parallel()
 	cap := &captureTransport{}
-	tr := core.NewSigningTransport(testSigner(t), cap, core.WithAppendSigner())
+	tr := core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent(testDir), core.WithAppendSigner())
 
 	req := bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")
 	// Pre-stamp a synthetic sig1 to simulate a relayed request.
@@ -163,7 +166,7 @@ func TestWithAppendSigner_AppendsSigOnPreSignedRequest(t *testing.T) {
 func TestWithAppendSigner_AppendsSigOnFreshRequest(t *testing.T) {
 	t.Parallel()
 	cap := &captureTransport{}
-	tr := core.NewSigningTransport(testSigner(t), cap, core.WithAppendSigner())
+	tr := core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent(testDir), core.WithAppendSigner())
 
 	req := bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")
 	if _, err := tr.RoundTrip(req); err != nil {
@@ -176,14 +179,12 @@ func TestWithAppendSigner_AppendsSigOnFreshRequest(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// (c) WithSignatureAgent — set-if-absent; preserves existing header.
+// (c) WithSignatureAgent — every signature's own Signature-Agent member.
 // ---------------------------------------------------------------------------
 
-// TestWithSignatureAgent_SetsHeaderWhenAbsent pins that a transport built with
-// WithSignatureAgent("https://broker.example.com") stamps the Signature-Agent
-// header when the request does not already carry one, so the directory origin
-// is in the covered component set.
-func TestWithSignatureAgent_SetsHeaderWhenAbsent(t *testing.T) {
+// TestWithSignatureAgent_StampsTheSignersMember pins that the directory becomes
+// the signature's own dictionary member, covered by it.
+func TestWithSignatureAgent_StampsTheSignersMember(t *testing.T) {
 	t.Parallel()
 	cap := &captureTransport{}
 	const dir = "https://broker.example.com"
@@ -193,33 +194,157 @@ func TestWithSignatureAgent_SetsHeaderWhenAbsent(t *testing.T) {
 	if _, err := tr.RoundTrip(req); err != nil {
 		t.Fatalf("RoundTrip: %v", err)
 	}
-	got := cap.req.Header.Get("Signature-Agent")
-	if got != dir {
-		t.Errorf("Signature-Agent = %q; want %q (set-if-absent must stamp the directory)", got, dir)
+	if got := cap.req.Header.Get("Signature-Agent"); got != `sig1="`+dir+`"` {
+		t.Errorf("Signature-Agent = %q; want the one-member dictionary", got)
+	}
+	if got := cap.req.Header.Get("Signature-Input"); !strings.Contains(got, `"signature-agent";key="sig1"`) ||
+		!strings.Contains(got, `tag="web-bot-auth"`) {
+		t.Errorf("Signature-Input = %q; want the member covered and the Web Bot Auth tag", got)
 	}
 }
 
-// TestWithSignatureAgent_PreservesExistingHeader pins that a transport built
-// with WithSignatureAgent does NOT overwrite a Signature-Agent header that the
-// originating agent already set — the relay must not clobber the agent's header,
-// which is covered by sig1 and would break sig1 verification at the Exchange.
-func TestWithSignatureAgent_PreservesExistingHeader(t *testing.T) {
+// TestWithSignatureAgent_AppendsBesideTheEarlierMember pins that a second signer
+// adds its own member beside the agent's, which stays byte-for-byte untouched so
+// the agent's signature still verifies.
+func TestWithSignatureAgent_AppendsBesideTheEarlierMember(t *testing.T) {
 	t.Parallel()
 	cap := &captureTransport{}
-	tr := core.NewSigningTransport(testSigner(t), cap,
-		core.WithSignatureAgent("https://broker.example.com"),
-	)
-
+	agent := core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent("https://agent.example.com"))
 	req := bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")
-	const agentDir = "https://agent.example.com"
-	req.Header.Set("Signature-Agent", agentDir)
-
-	if _, err := tr.RoundTrip(req); err != nil {
-		t.Fatalf("RoundTrip: %v", err)
+	if _, err := agent.RoundTrip(req); err != nil {
+		t.Fatalf("agent RoundTrip: %v", err)
 	}
-	got := cap.req.Header.Get("Signature-Agent")
-	if got != agentDir {
-		t.Errorf("Signature-Agent = %q; want %q (originating agent's header must be preserved)", got, agentDir)
+	signed := cap.req.Clone(context.Background())
+	signed.Body = io.NopCloser(bytes.NewReader([]byte(`{"test":true}`)))
+	relay := core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent("https://broker.example.com"))
+	if _, err := relay.RoundTrip(signed); err != nil {
+		t.Fatalf("relay RoundTrip: %v", err)
+	}
+	want := `sig1="https://agent.example.com", sig2="https://broker.example.com"`
+	if got := cap.req.Header.Get("Signature-Agent"); got != want {
+		t.Errorf("Signature-Agent = %q; want %q", got, want)
+	}
+}
+
+// TestSigningTransport_RefusesWithoutADirectory pins that a request is never
+// sent with a signature naming no directory: the transport returns the error and
+// the base transport is not reached.
+func TestSigningTransport_RefusesWithoutADirectory(t *testing.T) {
+	t.Parallel()
+	cap := &captureTransport{}
+	for name, tr := range map[string]http.RoundTripper{
+		"no directory":        core.NewSigningTransport(testSigner(t), cap),
+		"not an https origin": core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent("http://agent.example.com")),
+	} {
+		_, err := tr.RoundTrip(bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources"))
+		if !errors.Is(err, helpers.ErrSignatureAgentRequired) && !errors.Is(err, helpers.ErrSignatureAgentNotOrigin) {
+			t.Errorf("%s: RoundTrip error = %v; want a Signature-Agent refusal", name, err)
+		}
+	}
+	if cap.req != nil {
+		t.Error("a refused request reached the base transport")
+	}
+}
+
+// TestSigningTransport_NonceIs64Bytes pins the nonce length widely deployed Web
+// Bot Auth verifiers require: 64 random bytes, 86 base64url characters.
+func TestSigningTransport_NonceIs64Bytes(t *testing.T) {
+	t.Parallel()
+	cap := &captureTransport{}
+	tr := core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent(testDir))
+	if _, err := tr.RoundTrip(bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")); err != nil {
+		t.Fatal(err)
+	}
+	in := cap.req.Header.Get("Signature-Input")
+	i := strings.Index(in, `;nonce="`)
+	if i < 0 {
+		t.Fatalf("no nonce in %s", in)
+	}
+	nonce := in[i+len(`;nonce="`):]
+	nonce = nonce[:strings.IndexByte(nonce, '"')]
+	raw, err := base64.RawURLEncoding.DecodeString(nonce)
+	if err != nil || len(raw) != 64 {
+		t.Fatalf("nonce %q decodes to %d bytes (%v), want 64", nonce, len(raw), err)
+	}
+}
+
+// TestWithSignerSource_SignsAsTheSourcesIdentity pins the per-request signer: the
+// signature names the source's key and directory, and two identical requests from
+// one source in the same second carry distinct signatures.
+func TestWithSignerSource_SignsAsTheSourcesIdentity(t *testing.T) {
+	t.Parallel()
+	cap := &captureTransport{}
+	signer := testSigner(t)
+	src := func(_ context.Context, req *http.Request) (helpers.Signer, string, error) {
+		return signer, "https://" + req.Header.Get("X-Tenant") + ".agents.example", nil
+	}
+	frozen := time.Unix(1_700_000_000, 0)
+	tr := core.NewSigningTransport(nil, cap, core.WithSignerSource(src),
+		core.WithWindow(core.ClockWindow(func() time.Time { return frozen }, time.Minute)))
+	var sigs []string
+	for range 2 {
+		req := bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")
+		req.Header.Set("X-Tenant", "alice")
+		if _, err := tr.RoundTrip(req); err != nil {
+			t.Fatalf("RoundTrip: %v", err)
+		}
+		if got := cap.req.Header.Get("Signature-Agent"); got != `sig1="https://alice.agents.example"` {
+			t.Errorf("Signature-Agent = %q; want the source's directory", got)
+		}
+		if !strings.Contains(cap.req.Header.Get("Signature-Input"), `keyid="`+signer.KeyID()+`"`) {
+			t.Errorf("Signature-Input does not name the source's key: %s", cap.req.Header.Get("Signature-Input"))
+		}
+		sigs = append(sigs, cap.req.Header.Get("Signature"))
+	}
+	if sigs[0] == sigs[1] {
+		t.Error("two identical requests in one second carry the same signature; the second is a replay")
+	}
+}
+
+// TestWithSignerSource_AnErrorSendsNothing pins that a source that fails, or
+// names no signer, stops the request before the base transport.
+func TestWithSignerSource_AnErrorSendsNothing(t *testing.T) {
+	t.Parallel()
+	for name, src := range map[string]core.SignerSource{
+		"error": func(context.Context, *http.Request) (helpers.Signer, string, error) {
+			return nil, "", errors.New("no identity for this caller")
+		},
+		"no signer": func(context.Context, *http.Request) (helpers.Signer, string, error) { return nil, testDir, nil },
+	} {
+		cap := &captureTransport{}
+		tr := core.NewSigningTransport(nil, cap, core.WithSignerSource(src))
+		if _, err := tr.RoundTrip(bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")); err == nil {
+			t.Errorf("%s: RoundTrip succeeded", name)
+		}
+		if cap.req != nil {
+			t.Errorf("%s: the request reached the base transport", name)
+		}
+	}
+}
+
+// TestWithCoverPrevious_CoversTheEarlierSignature pins the forwarder's option: an
+// appended signature covers the earlier one's Signature and Signature-Input
+// members and its components.
+func TestWithCoverPrevious_CoversTheEarlierSignature(t *testing.T) {
+	t.Parallel()
+	cap := &captureTransport{}
+	agent := core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent(testDir))
+	if _, err := agent.RoundTrip(bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")); err != nil {
+		t.Fatal(err)
+	}
+	signed := cap.req.Clone(context.Background())
+	signed.Body = io.NopCloser(bytes.NewReader([]byte(`{"test":true}`)))
+	fwd := core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent("https://relay.example.com"),
+		core.WithAppendSigner(), core.WithCoverPrevious())
+	if _, err := fwd.RoundTrip(signed); err != nil {
+		t.Fatal(err)
+	}
+	in := cap.req.Header.Get("Signature-Input")
+	sig2 := in[strings.Index(in, "sig2="):]
+	for _, want := range []string{`"signature";key="sig1"`, `"signature-input";key="sig1"`, `"signature-agent";key="sig1"`} {
+		if !strings.Contains(sig2, want) {
+			t.Errorf("sig2 does not cover %s: %s", want, sig2)
+		}
 	}
 }
 
@@ -234,7 +359,7 @@ func TestWithSignPredicate_SkipsSigningWhenFalse(t *testing.T) {
 	t.Parallel()
 	cap := &captureTransport{}
 	neverSign := func(_ *http.Request) bool { return false }
-	tr := core.NewSigningTransport(testSigner(t), cap, core.WithSignPredicate(neverSign))
+	tr := core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent(testDir), core.WithSignPredicate(neverSign))
 
 	req := bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")
 	if _, err := tr.RoundTrip(req); err != nil {
@@ -252,7 +377,7 @@ func TestWithSignPredicate_SignsWhenTrue(t *testing.T) {
 	t.Parallel()
 	cap := &captureTransport{}
 	alwaysSign := func(_ *http.Request) bool { return true }
-	tr := core.NewSigningTransport(testSigner(t), cap, core.WithSignPredicate(alwaysSign))
+	tr := core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent(testDir), core.WithSignPredicate(alwaysSign))
 
 	// /other.* path — default behavior would skip it, but predicate overrides.
 	req := bodiedRequest(t, "/other.service/Method")
@@ -274,7 +399,7 @@ func TestWithSignPredicate_SignsWhenTrue(t *testing.T) {
 func TestDefaultBehavior_SignsBodiedRequest(t *testing.T) {
 	t.Parallel()
 	cap := &captureTransport{}
-	tr := core.NewSigningTransport(testSigner(t), cap) // zero options
+	tr := core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent(testDir)) // zero options
 
 	req := bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")
 	if _, err := tr.RoundTrip(req); err != nil {
@@ -308,41 +433,20 @@ func TestClockWindow_TTLArithmetic(t *testing.T) {
 	}
 }
 
-// TestMonotonicWindow_UniqueUnderRepeatedCallsWithinSameSecond pins that
-// MonotonicWindow's expires is strictly increasing across back-to-back calls
-// even when the wall clock does not advance — no two calls in the same second
-// share the same expires value, so identical relay requests do not collide in
-// the server's replay store.
-func TestMonotonicWindow_UniqueUnderRepeatedCallsWithinSameSecond(t *testing.T) {
-	t.Parallel()
-	const ttl = 5 * time.Minute
-	// Freeze the clock so every call lands in the "same second" scenario.
-	frozen := time.Unix(1_700_000_000, 0)
-	w := core.MonotonicWindow(func() time.Time { return frozen }, ttl)
-
-	_, expires1 := w()
-	_, expires2 := w()
-	_, expires3 := w()
-
-	if expires2 <= expires1 {
-		t.Errorf("call 2 expires=%d must be > call 1 expires=%d (monotonic uniqueness)", expires2, expires1)
-	}
-	if expires3 <= expires2 {
-		t.Errorf("call 3 expires=%d must be > call 2 expires=%d (monotonic uniqueness)", expires3, expires2)
-	}
-}
-
-// TestMonotonicWindow_CreatedTracksWallClock pins that the created value still
-// tracks now() even when the monotonic bump adjusts expires upward — the
-// created/expires pair stays clock-consistent for callers that read created.
-func TestMonotonicWindow_CreatedTracksWallClock(t *testing.T) {
+// TestMonotonicWindow_NeverStampsAheadOfTheClock pins the fix for the forward
+// shift: a burst of a thousand calls inside one frozen second stamps every one at
+// the clock's time, so no signature is created in the future, and each window is
+// exactly ttl. Uniqueness comes from the nonce, not from the window.
+func TestMonotonicWindow_NeverStampsAheadOfTheClock(t *testing.T) {
 	t.Parallel()
 	const ttl = 5 * time.Minute
 	frozen := time.Unix(1_700_000_000, 0)
 	w := core.MonotonicWindow(func() time.Time { return frozen }, ttl)
-
-	created, _ := w()
-	if created != frozen.Unix() {
-		t.Errorf("created = %d; want %d (clock-consistent, tracks now)", created, frozen.Unix())
+	for i := range 1000 {
+		created, expires := w()
+		if created != frozen.Unix() || expires != frozen.Unix()+int64(ttl.Seconds()) {
+			t.Fatalf("call %d = (%d, %d); want (%d, %d) — a signature stamped ahead of the clock",
+				i, created, expires, frozen.Unix(), frozen.Unix()+int64(ttl.Seconds()))
+		}
 	}
 }

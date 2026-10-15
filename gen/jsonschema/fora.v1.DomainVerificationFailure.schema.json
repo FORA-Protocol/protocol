@@ -1,0 +1,35 @@
+{
+  "$id": "fora.v1.DomainVerificationFailure.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "DomainVerificationFailure — RequestDomainVerification / ConfirmDomainVerification failed.",
+  "properties": {
+    "reason": {
+      "anyOf": [
+        {
+          "enum": [
+            "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_NOT_FOUND",
+            "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_MISMATCH",
+            "DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_EXPIRED",
+            "DOMAIN_VERIFICATION_FAILURE_REASON_FETCH_FAILED",
+            "DOMAIN_VERIFICATION_FAILURE_REASON_EXCHANGE_NOT_AUTHORIZED",
+            "DOMAIN_VERIFICATION_FAILURE_REASON_KEY_REGISTRATION_FAILED",
+            "DOMAIN_VERIFICATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION"
+          ],
+          "type": "string"
+        },
+        {
+          "maximum": 7,
+          "minimum": 1,
+          "type": "integer"
+        }
+      ],
+      "description": "The failure reason (defined-only, non-zero)",
+      "title": "Domain Verification Failure Reason"
+    }
+  },
+  "required": [
+    "reason"
+  ],
+  "title": "Domain Verification Failure",
+  "type": "object"
+}

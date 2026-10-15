@@ -12,6 +12,7 @@
 import { describe, it, expect } from "vitest";
 // RED: sdk/ts/src/wire.ts does not exist yet (TDD red — missing face).
 import * as wire from "../src/wire.ts";
+import { acceptSignature } from "../core/sign-request.ts";
 import vectorsFile from "../../go/helpers/testdata/wire-constants-vectors.json";
 
 type WireVector = { name: string; value: string };
@@ -33,6 +34,18 @@ const exportFor: Record<string, keyof typeof wire> = {
 	SignatureAgentHeader: "SignatureAgentHeader",
 	AgentKeyHeader: "AgentKeyHeader",
 	WellKnownPath: "WellKnownPath",
+	ContentRulesHeader: "ContentRulesHeader",
+	ExchangeHeader: "ExchangeHeader",
+	WBATag: "WBATag",
+	DirectoryResponseTag: "DirectoryResponseTag",
+	AcceptSignatureHeader: "AcceptSignatureHeader",
+};
+
+// The two Accept-Signature values are not constants in any SDK: they are what
+// acceptSignature(entitlement) renders, so the vector pins the function's output.
+const computed: Record<string, string> = {
+	AcceptSignature: acceptSignature(false),
+	AcceptSignatureWithEntitlement: acceptSignature(true),
 };
 
 describe("sdk/ts wire constants match the sdk/go oracle vectors", () => {
@@ -42,6 +55,10 @@ describe("sdk/ts wire constants match the sdk/go oracle vectors", () => {
 
 	for (const v of vectors) {
 		it(`wire.${v.name} === ${JSON.stringify(v.value)}`, () => {
+			if (v.name in computed) {
+				expect(computed[v.name]).toBe(v.value);
+				return;
+			}
 			const sym = exportFor[v.name];
 			expect(sym).toBeDefined();
 			expect((wire as Record<string, unknown>)[sym as string]).toBe(v.value);

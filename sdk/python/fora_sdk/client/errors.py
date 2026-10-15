@@ -69,6 +69,7 @@ class CallError(Exception):
         detail: ErrorDetail | None = None,
         peer_message: str = "",
         cause: BaseException | str | None = None,
+        code: str | None = None,
     ) -> None:
         self.kind = kind
         #: The verb that failed, in the SDK's own words ("discover", "fetch content").
@@ -103,6 +104,12 @@ class CallError(Exception):
         #: token quoted into it. Deriving from the field would put the SDK's words in the
         #: field that claims to hold a remote party's.
         self.peer_message = peer_message
+        #: The Connect code of the peer's answer, set only where a Connect answer was
+        #: decoded: an error envelope, or a non-JSON error status classified by its code.
+        #: ``None`` for a local failure, a refused redirect, and the content leg, whose
+        #: refusals are edge tokens rather than Connect codes. ``reason`` may hold either
+        #: kind of token; this field holds only the Connect code.
+        self.code = code
         self.cause = cause
         super().__init__(_render(kind, op, status, reason, cause))
 

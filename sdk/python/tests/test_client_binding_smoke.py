@@ -51,7 +51,11 @@ def test_client_signs_outbound_request_via_core_sign_seam() -> None:
     # smoke asserts the transport emits a signed request carrying the RFC 9421
     # Signature-Input / Signature headers — the seam MCP adopts.
     signer_seed = bytes(range(1, 33))
-    transport = SigningTransport(signer_seed=signer_seed, keyid="agent.test.v1")
+    transport = SigningTransport(
+        signer_seed=signer_seed,
+        keyid="agent.test.v1",
+        signature_agent="https://agent.test",
+    )
 
     signed = transport.sign_outbound(
         method="POST",

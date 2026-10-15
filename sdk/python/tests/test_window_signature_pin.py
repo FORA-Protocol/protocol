@@ -25,9 +25,9 @@ _URL = "https://broker.example/fora.v1/Discover"
 _BODY = b'{"query":"x"}'
 # A fractional-second now: int(1_700_000_000.987) == 1_700_000_000.
 _NOW = 1_700_000_000.987
-_TTL = 600
+_TTL = 300
 _EXPECT_CREATED = 1_700_000_000
-_EXPECT_EXPIRES = 1_700_000_600
+_EXPECT_EXPIRES = 1_700_000_300
 
 
 def _sign() -> dict[str, str]:
@@ -36,6 +36,7 @@ def _sign() -> dict[str, str]:
         keyid=_KEYID,
         now=lambda: _NOW,
         ttl_sec=_TTL,
+        signature_agent="https://agent.example",
     )
     # The nonce is random per signature; pin it so the bytes are comparable.
     transport._nonce = lambda: "AAECAwQFBgcICQoLDA0ODw"

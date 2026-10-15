@@ -430,15 +430,7 @@ The agent selects the **standard tier** ($61.99) — sufficient depth for due di
         },
         "terms": [
           {
-            "semantics": "TERM_SEMANTICS_ENUMERATED",
-            "pricing": {
-              "model": "PRICING_MODEL_PER_UNIT",
-              "rate": "61.99",
-              "currency": "USD",
-              "unit_cost": "61.99",
-              "estimated_quantity": 1,
-              "unit": "records"
-            }
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ],
         "signature": "base64-ed25519-dnb-offer-std-sig...",
@@ -637,7 +629,7 @@ All credit-specific fields live in `ext` — the core protocol does not need cre
 | Hash verification | SHOULD verify; mismatch is disputable | Informational; mismatch is expected |
 | `data_as_of` | Not set (content does not change) | `2026-03-18T23:59:59Z` |
 | Pricing model | `PER_UNIT` ($0.05) | `PER_UNIT` ($2 / $61.99 / $150) |
-| Metering unit | `tokens` (3,200 estimated) | `reports` (1) |
+| Metering unit | `accesses` (1 estimated) | `records` (1 estimated) |
 | Multi-tier offers | No (single offer per article) | Yes (3 tiers, same D-U-N-S) |
 | Entity resolution | Not needed (URL is the identifier) | Required (company name to D-U-N-S) |
 | Redistribution | Training prohibited | Training, indexing, and (for comprehensive) search prohibited |

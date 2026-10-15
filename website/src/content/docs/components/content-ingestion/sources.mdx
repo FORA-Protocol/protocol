@@ -27,7 +27,7 @@ type RawEntry struct {
     Tokens        int
     ContentID     string
     PricingModel  PricingModel
-    Rate          float64
+    Rate          string // exact decimal, e.g. "0.05"
     Currency      string
     Permissions   []comp.Function
     Prohibitions  []comp.Function
@@ -252,21 +252,24 @@ CatalogService is NOT how Exchange operators push their own inventory. Exchange 
 
 ### Authentication and Authorization
 
-`PushResources` requests must be signed. The `caller_id` field (field 4) identifies the registered CatalogService client, and the request itself is signed with an [RFC 9421 HTTP Message Signature](https://www.rfc-editor.org/rfc/rfc9421) carried in the HTTP headers (`Signature` / `Signature-Input`, with a `Content-Digest` over the body) — there is no in-message caller signature field.
+`PushResources` requests must be signed. The request's signer is the caller; the deprecated `caller_id` field (field 4) is not needed. The request is signed with an [RFC 9421 HTTP Message Signature](https://www.rfc-editor.org/rfc/rfc9421) carried in the HTTP headers (`Signature` / `Signature-Input`, with a `Content-Digest` over the body) — there is no in-message caller signature field.
 
-The Exchange verifies the RFC 9421 signature against the caller's published Ed25519 key in its WBA directory (the JWK Set at `{caller domain}/.well-known/http-message-signatures-directory`), identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`), and confirms that `caller_id` is authorized to push content for the specified `tenant_id`.
+The Exchange verifies the RFC 9421 signature against the caller's published Ed25519 key in its WBA directory (the JWK Set at `{caller domain}/.well-known/http-message-signatures-directory`), identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`), and confirms that the signer is authorized to push content for each entry's domain and the specified `tenant_id`.
 
 ### Pushing with the Publisher SDK
 
-The SDK carries the publisher role in all three languages: a catalog client that signs and sends the three CatalogService verbs, and the Exchange's own two validation tiers as a pre-check. The client is a separate constructor from the agent client because CatalogService is a separate address (the manifest's `catalog_endpoint`) and its caller holds a contributor key named by `caller_id`; the publisher chose the Exchange, so the origin is configuration.
+The SDK carries the publisher role in all three languages: a catalog client that signs and sends the three CatalogService verbs, and the Exchange's own two validation tiers as a pre-check. The client is a separate constructor from the agent client because CatalogService is a separate address (the manifest's `catalog_endpoint`) and its caller holds a publisher's or contributor's key, identified by the request signature; the publisher chose the Exchange, so the origin is configuration.
 
 ```go
-client := connect.NewCatalogClient(catalogEndpoint, connect.WithSigner(contributorSigner))
+client := connect.NewCatalogClient(catalogEndpoint,
+    connect.WithSigner(contributorSigner),
+    connect.WithSignatureAgent("https://publisher.example"), // the signer's key directory
+)
 if v := helpers.ValidateResourceEntry(entry); !v.OK() {   // what the Exchange will say, before signing
     return fmt.Errorf("entry refused: %+v", v.Violations)
 }
 resp, err := client.PushResources(ctx, &forav1.PushResourcesRequest{
-    Exchange: "exchange.example", TenantId: tenantID, CallerId: "publisher.example",
+    Exchange: "exchange.example", TenantId: tenantID,
     Entries:  []*forav1.ResourceEntry{entry},
 })
 ```
@@ -275,25 +278,30 @@ resp, err := client.PushResources(ctx, &forav1.PushResourcesRequest{
 import { createCatalogClient } from "@fora-protocol/sdk/client";
 import { validateResourceEntry } from "@fora-protocol/sdk/licenseterm";
 
-const client = createCatalogClient(catalogEndpoint, { signer: contributorSigner });
+const client = createCatalogClient(catalogEndpoint, {
+  signer: contributorSigner,
+  signatureAgent: "https://publisher.example", // the signer's key directory
+});
 const verdict = validateResourceEntry(entry);
 if (!verdict.ok) throw new Error(JSON.stringify(verdict.violations));
 const resp = await client.pushResources({
-  exchange: "exchange.example", tenant_id: tenantId, caller_id: "publisher.example",
+  exchange: "exchange.example", tenant_id: tenantId,
   entries: [entry],
 });
 ```
 
 ```python
-from fora_sdk import validate_resource_entry
+from fora_sdk import signing_transport_for, validate_resource_entry
 from fora_sdk.client import CatalogClient, ClientConfig
 
+# Signs as contributor_key, naming its key directory in Signature-Agent.
+contributor_signer = signing_transport_for(contributor_key, "https://publisher.example")
 verdict = validate_resource_entry(entry)
 if not verdict.ok:
     raise ValueError(verdict.violations)
 async with CatalogClient(ClientConfig(base_url=catalog_endpoint, signer=contributor_signer)) as client:
     resp = await client.push_resources({
-        "exchange": "exchange.example", "tenant_id": tenant_id, "caller_id": "publisher.example",
+        "exchange": "exchange.example", "tenant_id": tenant_id,
         "entries": [entry],
     })
 ```

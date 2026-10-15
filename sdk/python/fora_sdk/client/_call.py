@@ -18,13 +18,17 @@ loss-free against Go protojson.
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any, Literal
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 
+import httpx
 from pydantic import ValidationError
 from wire.base import JSON_NAME_ALIAS_ERROR
 
 from fora_sdk._jsondepth import _MAX_BODY_DEPTH, _raw_nesting_depth
 from fora_sdk.errordetail import error_detail_from
+from fora_sdk.wba import SignatureProfileError
 from fora_sdk.wire import (
     ConnectProtocolVersion,
     ConnectProtocolVersionHeader,
@@ -32,6 +36,8 @@ from fora_sdk.wire import (
     RequestIDHeader,
 )
 
+from ._strict import refuse_unless_strict
+from ._strict_envelope import check_strict_envelope
 from .errors import (
     NOT_CANONICAL_WIRE_NAMING,
     CallError,
@@ -42,8 +48,6 @@ from .errors import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from pydantic import BaseModel
 
     from fora_sdk.signing_transport import SigningTransport
@@ -75,24 +79,89 @@ def rpc_url(base_url: str, service: str, method: str) -> str:
     return f"{base_url.rstrip('/')}/{service}/{method}"
 
 
+#: The pre-signing hook: receives the request the SDK is about to sign and returns the
+#: request to sign and send instead. See ``ClientConfig.before_sign``.
+BeforeSign = Callable[[httpx.Request], httpx.Request]
+
+
+@dataclass(frozen=True)
+class RawBody:
+    """A request body a verb sends exactly as given — raw mode, chosen per call.
+
+    Pass one to any verb in place of its request (to ``execute`` in place of the offers).
+    The verb then fills in nothing — no ``ver``, no ``idempotency_key``, no ``requester``
+    — checks nothing about the message, and refuses nothing about it locally. It still
+    signs the bytes when a signer is configured, still runs ``before_sign``, still caps
+    the read, and still decodes the reply into the verb's response model, strictly when
+    the client is strict. It is for a test that must put a message on the wire the SDK
+    would never build, and see how the peer answers.
+
+    ``bytes`` are sent verbatim and ``str`` as its UTF-8 bytes; any other value is
+    serialized once, as compact JSON. A verb that routes by the message — a usage report,
+    a dispute, a registration, an account-status read — still reads the destination from
+    the body's ``exchange`` member and resolves it as usual, because the address a signed
+    call goes to is not a property of the message under test. A body with no usable
+    ``exchange`` is refused as not sent: there is nothing to dial.
+    """
+
+    body: Any
+
+    def encoded(self, op: str) -> bytes:
+        """The bytes the call sends."""
+        if isinstance(self.body, bytes):
+            return self.body
+        if isinstance(self.body, str):
+            return self.body.encode()
+        try:
+            return json.dumps(self.body, separators=(",", ":")).encode()
+        except (TypeError, ValueError) as exc:
+            raise malformed(op, exc) from exc
+
+    def parsed(self) -> dict[str, Any]:
+        """The body as a JSON object, or ``{}`` when it is not one.
+
+        Read only for what the SDK still needs from a raw call: the destination of a
+        routed verb, and the URIs a flat discovery answer is attributed to.
+        """
+        if isinstance(self.body, dict):
+            return self.body
+        raw = self.body.encode() if isinstance(self.body, str) else self.body
+        if not isinstance(raw, bytes):
+            return {}
+        try:
+            value = json.loads(raw)
+        except (ValueError, RecursionError):
+            return {}
+        return value if isinstance(value, dict) else {}
+
+
+class SigningSettings(Protocol):
+    """The signing knobs ``prepare`` reads. ``ClientConfig`` satisfies it as it stands."""
+
+    signer: SigningTransport | None
+    request_id: Callable[[], str] | None
+    sign_window: Window | None
+    before_sign: BeforeSign | None
+
+
 def prepare(
     op: str,
     url: str,
     message: Any,
-    *,
-    signer: SigningTransport | None,
-    request_id: Callable[[], str] | None,
-    sign_window: Window | None = None,
+    settings: SigningSettings,
 ) -> tuple[bytes, dict[str, str]]:
     """Render one request to the bytes that are both signed and sent.
 
     Serialized ONCE: RFC 9530 Content-Digest covers the exact octets, so re-rendering
     between signing and sending would produce a digest for a body the peer never received.
     """
-    try:
-        body = json.dumps(message, separators=(",", ":")).encode()
-    except (TypeError, ValueError) as exc:
-        raise malformed(op, exc) from exc
+    if isinstance(message, RawBody):
+        body = message.encoded(op)
+    else:
+        try:
+            body = json.dumps(message, separators=(",", ":")).encode()
+        except (TypeError, ValueError) as exc:
+            raise malformed(op, exc) from exc
     headers = {
         "content-type": ContentTypeJSON,
         ConnectProtocolVersionHeader: ConnectProtocolVersion,
@@ -101,20 +170,70 @@ def prepare(
     # here can be mistaken for part of the proof. The correlation id is not covered and is
     # not meant to be: it identifies the request in two sets of logs, it authorises
     # nothing.
-    if request_id is not None:
-        headers[RequestIDHeader] = request_id()
-    if signer is not None:
+    if settings.request_id is not None:
+        headers[RequestIDHeader] = settings.request_id()
+    if settings.before_sign is not None:
+        body, headers = _apply_before_sign(op, url, body, headers, settings.before_sign)
+    if settings.signer is not None:
         try:
-            signed = signer.sign_outbound(
-                method="POST", url=url, body=body, authorization="", window=sign_window
+            signed = settings.signer.sign_outbound(
+                method="POST", url=url, body=body, authorization="", window=settings.sign_window
             )
+        except SignatureProfileError as exc:
+            # The signer refused the request before anything was sent: no Signature-Agent
+            # origin configured, a value that is not an https origin, a window longer than
+            # the profile allows, an unusable nonce, or a Signature-Agent that cannot take
+            # another member. Each is a malformed call, never a peer that did not answer.
+            raise malformed(op, exc) from exc
         except Exception as exc:  # custody can fail any way it likes
             # NOT_SIGNABLE, matching what the content leg answers for the same missing
             # holder: a caller branching on the kind sees one condition under one class,
             # whichever verb met it first.
             raise CallError(CallErrorKind.NOT_SIGNABLE, op, cause=exc) from exc
+        if settings.before_sign is not None:
+            # The signer owns every header it emits. Derived from what it emitted, not
+            # listed, so the refused set cannot drift from the signer.
+            owned = {name.lower() for name in signed.headers}
+            clash = sorted(name for name in headers if name.lower() in owned)
+            if clash:
+                raise malformed(op, f"before_sign set headers the signer owns: {clash}")
         headers.update(signed.headers)
     return body, headers
+
+
+# Headers httpx computes from the request itself. A hook's request carries them, and a
+# patched body would otherwise travel with a stale length.
+_TRANSPORT_HEADERS = frozenset({"host", "content-length"})
+
+
+def _apply_before_sign(
+    op: str, url: str, body: bytes, headers: dict[str, str], hook: BeforeSign
+) -> tuple[bytes, dict[str, str]]:
+    """Hand the request to the caller's hook; return the body and headers it chose.
+
+    The request object exists only for this call. The method and URL stay the ones the
+    SDK planned: the address checks and the routing were decided on them.
+    """
+    request = httpx.Request("POST", url, content=body, headers=headers)
+    try:
+        returned = hook(request)
+        if not isinstance(returned, httpx.Request):
+            raise malformed(op, "before_sign must return an httpx.Request")
+        # Read inside the guard: a request whose body cannot be read synchronously is a
+        # hook failure, refused like the others rather than escaping as an httpx error.
+        new_body = returned.read()
+    except CallError:
+        raise
+    except Exception as exc:  # the hook is caller code and may fail any way it likes
+        raise malformed(op, exc) from exc
+    if returned.method != "POST" or returned.url != httpx.URL(url):
+        raise malformed(op, "before_sign must not change the request method or URL")
+    kept = {
+        name: value
+        for name, value in returned.headers.items()
+        if name.lower() not in _TRANSPORT_HEADERS
+    }
+    return new_body, kept
 
 
 #: Whether a request is checked against its generated model before it is signed and sent.
@@ -132,9 +251,7 @@ def prepare(
 Validation = Literal["strict", "off"]
 
 
-def validate_request(
-    op: str, message: Any, model: type[BaseModel], validation: Validation
-) -> None:
+def validate_request(op: str, message: Any, model: type[BaseModel], validation: Validation) -> None:
     """Refuse a request the protocol would reject anyway, before it costs a signature and
     a round trip.
 
@@ -159,7 +276,7 @@ def validate_request(
 
 
 def decode_with_raw(
-    op: str, status: int, body: str, model: type[BaseModel]
+    op: str, status: int, body: str, model: type[BaseModel], *, strict: bool = False
 ) -> tuple[Any, dict[str, Any]]:
     """Decode one answer and hand back the RAW object beside the parsed message.
 
@@ -171,20 +288,30 @@ def decode_with_raw(
     """
     _refuse_redirect(op, status)
     payload = _parse_json(op, status, body)
-    parsed = _validate(op, status, payload, model)
+    _refuse_error_answer(op, status, body, payload, strict=strict)
+    parsed = _validate(op, payload, model, strict=strict)
     return parsed, payload if isinstance(payload, dict) else {}
 
 
-def decode(op: str, status: int, body: str, model: type[BaseModel]) -> Any:
+def decode(
+    op: str, status: int, body: str, model: type[BaseModel], *, strict: bool = False
+) -> Any:
     """Turn one answer into a parsed message, or raise the typed failure.
 
     A non-2xx is the Connect error envelope ``{code, message, details}``. The typed reason
-    rides in ``details``, which :func:`~fora_sdk.errordetail.error_detail_from` reads —
-    including the lowerCamelCase ``debug`` projection connect-go emits there and no server
-    codec replaces.
+    rides in ``details``, which :func:`~fora_sdk.errordetail.error_detail_from` reads:
+    each entry's binary ``value`` first, and the lowerCamelCase ``debug`` projection
+    connect-go emits beside it only when the value is absent.
+
+    ``strict`` also refuses a success answer carrying an unknown field or breaking a
+    cross-field rule (see :func:`fora_sdk.strict.check_strict`), and an error
+    answer whose envelope or ErrorDetail the contract does not accept (see
+    :func:`fora_sdk.client._strict_envelope.check_strict_envelope`).
     """
     _refuse_redirect(op, status)
-    return _validate(op, status, _parse_json(op, status, body), model)
+    payload = _parse_json(op, status, body)
+    _refuse_error_answer(op, status, body, payload, strict=strict)
+    return _validate(op, payload, model, strict=strict)
 
 
 _HTTP_MULTIPLE_CHOICES_END = 400
@@ -208,9 +335,25 @@ def _refuse_redirect(op: str, status: int) -> None:
         )
 
 
-def _validate(op: str, status: int, payload: Any, model: type[BaseModel]) -> Any:
-    if not _HTTP_OK <= status < _HTTP_MULTIPLE_CHOICES:
-        raise _connect_envelope_error(op, status, payload)
+def _refuse_error_answer(op: str, status: int, body: str, payload: Any, *, strict: bool) -> None:
+    """Raise the typed failure a non-2xx answer is; return on a 2xx.
+
+    Under ``strict`` the envelope is checked first, and a refusal keeps the Connect code
+    the lenient read reports. An empty body is not an envelope — the lenient read takes it
+    as one naming no code — so it is classified by its status in either mode, like a body
+    that is not JSON, which never reaches here.
+    """
+    if _HTTP_OK <= status < _HTTP_MULTIPLE_CHOICES:
+        return
+    error = _connect_envelope_error(op, status, payload)
+    if strict and body.strip():
+        check_strict_envelope(op, status, payload, error.code)
+    raise error
+
+
+def _validate(op: str, payload: Any, model: type[BaseModel], *, strict: bool = False) -> Any:
+    if strict:
+        refuse_unless_strict(op, model, payload)
     try:
         return model.model_validate(payload)
     except ValidationError as exc:
@@ -260,12 +403,14 @@ def _parse_json(op: str, status: int, body: str) -> Any:
         # is broken" class. A 2xx that is not JSON is a different thing: the service
         # claimed to answer and did not, which IS malformed.
         if not _HTTP_OK <= status < _HTTP_MULTIPLE_CHOICES:
+            code = connect_code_from_status(status)
             raise CallError(
-                kind_of_connect_code(connect_code_from_status(status)),
+                kind_of_connect_code(code),
                 op,
                 status=status,
-                reason=connect_code_from_status(status),
+                reason=code,
                 cause=exc,
+                code=code,
             ) from exc
         raise CallError(CallErrorKind.MALFORMED, op, status=status, cause=exc) from exc
 
@@ -295,6 +440,7 @@ def _connect_envelope_error(op: str, status: int, payload: Any) -> CallError:
         # content leg, whose detail this SDK writes itself.
         peer_message=detail.message if detail is not None and detail.message else "",
         cause=message if isinstance(message, str) else None,
+        code=code,
     )
 
 

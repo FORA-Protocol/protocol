@@ -30,6 +30,9 @@ func RequestAcceptancePayload(req *forav1.TransactionRequest) (*forav1.AgentRequ
 	if req.GetRequester() == nil {
 		return nil, errors.New("helpers: requester is nil")
 	}
+	if err := checkAcceptanceRequester(req.GetRequester().GetId(), req.GetRequester().GetDomain()); err != nil {
+		return nil, err
+	}
 	if len(req.GetItems()) == 0 {
 		return nil, errors.New("helpers: transaction request has no items")
 	}
@@ -59,10 +62,15 @@ func RequestAcceptancePayload(req *forav1.TransactionRequest) (*forav1.AgentRequ
 }
 
 // CanonicalRequestAcceptanceBytes returns the exact JCS(protojson(...)) bytes
-// covered by an AgentRequestAcceptance signature.
+// covered by an AgentRequestAcceptance signature. Like the offer acceptance, it
+// refuses a payload that names an empty requester (ErrAcceptanceRequesterEmpty),
+// so neither signing nor verification accepts such bytes.
 func CanonicalRequestAcceptanceBytes(payload *forav1.AgentRequestAcceptancePayload) ([]byte, error) {
 	if payload == nil {
 		return nil, errors.New("helpers: request-acceptance payload is nil")
+	}
+	if err := checkAcceptanceRequester(payload.GetRequesterId(), payload.GetRequesterDomain()); err != nil {
+		return nil, err
 	}
 	if len(payload.GetItems()) == 0 {
 		return nil, errors.New("helpers: request-acceptance payload has no items")

@@ -1,0 +1,68 @@
+{
+  "$defs": {
+    "fora.v1.RegistrationFieldError": {
+      "description": "RegistrationFieldError — one registration_data member that failed the\n Exchange's published schema (AccountRegistration.data_schema).",
+      "properties": {
+        "error": {
+          "description": "Developer-facing, NON-authoritative description of what failed\n (e.g. \"required\", \"must match ^[A-Z]{2}[0-9]+$\"). Wording is\n validator-defined and not stable across Exchanges; clients branch on\n `reason`, never on this text. States the constraint, NEVER the submitted\n value — the ErrorDetail leakage rule applies here too.",
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        },
+        "path": {
+          "default": "",
+          "description": "RFC 6901 JSON Pointer to the offending member, relative to\n registration_data (e.g. \"/vat_id\", \"/address/postal_code\"). The empty\n string addresses registration_data itself, for whole-object failures\n (oneOf, minProperties) that belong to no single member.",
+          "maxLength": 255,
+          "type": "string"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "title": "Registration Field Error",
+      "type": "object"
+    }
+  },
+  "$id": "fora.v1.RegistrationFailure.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "RegistrationFailure — a registration request could not be completed.",
+  "properties": {
+    "field_errors": {
+      "description": "When reason = INVALID_REGISTRATION_DATA: the registration_data members\n that are missing or do not conform. Empty for every other reason — enforced\n by the message rule above, not left to prose.",
+      "items": {
+        "$ref": "#/$defs/fora.v1.RegistrationFieldError"
+      },
+      "maxItems": 64,
+      "type": "array"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "enum": [
+            "REGISTRATION_FAILURE_REASON_DOMAIN_NOT_VERIFIED",
+            "REGISTRATION_FAILURE_REASON_INVALID_KEY",
+            "REGISTRATION_FAILURE_REASON_SIGNATURE_INVALID",
+            "REGISTRATION_FAILURE_REASON_ALREADY_REGISTERED",
+            "REGISTRATION_FAILURE_REASON_QUOTA_EXCEEDED",
+            "REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA",
+            "REGISTRATION_FAILURE_REASON_TERMS_DIGEST_STALE",
+            "REGISTRATION_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION"
+          ],
+          "type": "string"
+        },
+        {
+          "maximum": 8,
+          "minimum": 1,
+          "type": "integer"
+        }
+      ],
+      "description": "The failure reason (defined-only, non-zero)",
+      "title": "Registration Failure Reason"
+    }
+  },
+  "required": [
+    "reason"
+  ],
+  "title": "Registration Failure",
+  "type": "object"
+}

@@ -149,6 +149,7 @@ describe("the delivery leg refuses plaintext", () => {
 		};
 		const err = await fetchContent("http://edge.test/a?token=live-credential", {
 			keyPair: watched as never,
+			signatureAgent: "https://agent.test",
 		}).catch((e: unknown) => e);
 		expect(err).toBeInstanceOf(ForaCallError);
 		expect((err as ForaCallError).kind).toBe("unreachable");
@@ -158,6 +159,7 @@ describe("the delivery leg refuses plaintext", () => {
 	it("and does not echo the credential in its message", async () => {
 		const err = (await fetchContent("http://edge.test/a?token=live-credential", {
 			keyPair: (await keyPair) as CryptoKeyPair,
+			signatureAgent: "https://agent.test",
 		}).catch((e: unknown) => e)) as ForaCallError;
 		expect(String(err.cause ?? "")).not.toContain("live-credential");
 	});

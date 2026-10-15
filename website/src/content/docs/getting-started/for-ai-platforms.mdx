@@ -55,7 +55,7 @@ With FORA:
 |----------|------------|---------|------|--------|
 | All of the above | `client.Fetch()` | One Broker budget | Ed25519 | Standard FORA Offer → signed URL |
 
-One integration. One SDK. One billing relationship (per Exchange, or aggregated through a Broker). Resources behind the signed URL come in their native format — FORA handles the transaction layer, not the content format.
+One integration. One SDK. One account at each Exchange the agent buys from, with one Broker budget across them: a purchase made through a Broker is billed to the agent's own account at that Exchange. Resources behind the signed URL come in their native format — FORA handles the transaction layer, not the content format.
 
 ## Enterprise Architecture
 
@@ -145,21 +145,18 @@ Internal resources are typically `PRICING_MODEL_FREE` — no money changes hands
 
 Even at $0, the transaction creates an audit trail: who accessed what, when, which agent, which function. For regulated industries (finance, healthcare, government), this audit trail is not optional.
 
-### External Exchange Routing
+### External Exchanges and Profiles
 
-The Broker routes external requests based on the agent's `supported_profiles` and the Exchange's declared capabilities:
+The Broker forwards the agent's `supported_profiles` to every Exchange it queries and does not route by them. Each Exchange answers for its own profiles:
 
 ```
 Agent: supported_profiles: ["fora-legal-v1", "fora-news-v1"]
   │
-  ├── Legal request (court filing) → routes to Legal Exchange
-  │   (declared: supported_profiles: ["fora-legal-v1"])
+  ├── Legal Exchange (declares fora-legal-v1) → offers with legal.* fields
   │
-  ├── News request (article) → routes to Media Exchange
-  │   (declared: supported_profiles: ["fora-news-v1"])
+  ├── Media Exchange (declares fora-news-v1) → offers with news.* fields
   │
-  └── Credit request (D&B report) → routes to Financial Exchange
-      (no profile needed — core protocol handles it)
+  └── Financial Exchange (declares no profile) → offers with core fields
 ```
 
 ## What You Can Do Today

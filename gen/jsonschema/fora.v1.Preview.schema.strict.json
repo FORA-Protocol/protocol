@@ -1,0 +1,42 @@
+{
+  "$id": "fora.v1.Preview.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The Exchange holds URLs (50–200 bytes per preview); the provider's\n CDN serves the actual bytes. This follows the universal pattern:\n Shutterstock (multi-size thumbnail URLs), Spotify (preview_url to\n 30s clip), IIIF (parameterized image URLs), OpenRTB (img.url + dims).\n\n Previews are free to fetch — no FORA transaction required. They are\n the equivalent of looking at a book cover before buying. Providers\n MAY watermark visual previews or truncate text/audio previews.\n\n The Exchange populates preview URLs during catalog ingestion. Preview\n URLs MAY be signed with a short TTL to prevent hotlinking, or public\n (provider's choice). Agents fetch previews only when evaluating\n offers, not on every discovery query.",
+  "properties": {
+    "duration": {
+      "description": "Duration in seconds (for audio and video clips).",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "height": {
+      "description": "Height in pixels (images and video)",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "media_type": {
+      "default": "",
+      "description": "MIME type of the preview.\n Examples: \"image/jpeg\", \"image/webp\", \"audio/mpeg\", \"video/mp4\",\n           \"text/plain\", \"application/json\"",
+      "type": "string"
+    },
+    "size": {
+      "description": "Size category hint. Agents use this to select the right preview\n without fetching all of them.\n Standard values:\n   \"thumbnail\"  — smallest useful preview (100–150px or 5–10s)\n   \"preview\"    — mid-size for evaluation (300–500px or 15–30s)\n   \"sample\"     — larger / more detailed (for data: 1–3 sample records)",
+      "type": "string"
+    },
+    "url": {
+      "default": "",
+      "description": "URL to a preview asset (thumbnail, clip, snippet, sample).\n Served by the provider's CDN, not by the Exchange.",
+      "type": "string"
+    },
+    "width": {
+      "description": "Dimensions in pixels (for images and video).",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    }
+  },
+  "title": "Preview — Lightweight resource preview for offer evaluation.",
+  "type": "object"
+}

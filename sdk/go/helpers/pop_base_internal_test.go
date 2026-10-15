@@ -20,21 +20,25 @@ import (
 // popSignatureBase takes the verbatim string, so anyone tempted to "simplify" it
 // back onto the request type fails here with the reason attached.
 
-// foraBaseFor renders the FORA base builder's view of the same two covered
-// components, so the two builders can be compared directly.
+// foraBaseFor renders the FORA base builder's view of the same covered set
+// (@method, @target-uri and the agent's Signature-Agent member), so the two
+// builders can be compared directly.
 func foraBaseFor(t *testing.T, method, rawURL, keyID string, created, expires int64) string {
 	t.Helper()
 	req, err := http.NewRequest(method, rawURL, nil)
 	if err != nil {
 		t.Fatalf("build request for %q: %v", rawURL, err)
 	}
+	req.Header.Set(SignatureAgentHeader, signatureAgentMember(popLabel, baseTestAgent))
 	base, err := buildSignatureBase(req, sigParams{
 		Label:   popLabel,
-		Covered: plainComponents("@method", "@target-uri"),
+		Covered: []CoveredComponent{{Name: "@method"}, {Name: "@target-uri"}, signatureAgentComponent(popLabel)},
 		KeyID:   keyID,
 		Alg:     AlgEd25519,
 		Created: created,
 		Expires: expires,
+		Nonce:   baseTestNonce,
+		Tag:     WBATag,
 	})
 	if err != nil {
 		t.Fatalf("build fora signature base for %q: %v", rawURL, err)
@@ -45,12 +49,14 @@ func foraBaseFor(t *testing.T, method, rawURL, keyID string, created, expires in
 const (
 	baseTestKeyID   = "wSp1Ud8Phi33WBixrTcV5U38Q5JZ0VGpTAetgQUQw2k"
 	baseTestCreated = int64(1_700_000_000)
-	baseTestExpires = int64(1_700_000_600)
+	baseTestExpires = int64(1_700_000_300)
+	baseTestAgent   = "https://agent.example"
+	baseTestNonce   = "AAECAwQFBgcICQoLDA0ODw"
 )
 
 func popBaseFor(rawURL string) string {
-	return popSignatureBase(http.MethodGet, rawURL,
-		popSignatureParams(baseTestKeyID, baseTestCreated, baseTestExpires))
+	return popSignatureBase(http.MethodGet, rawURL, baseTestAgent,
+		popSignatureParams(baseTestKeyID, baseTestNonce, baseTestCreated, baseTestExpires))
 }
 
 // Where the two builders agree, and it is a wider set than one might assume: a

@@ -126,7 +126,7 @@ func TestSigningTransport_NonceMakesIdenticalRequestsUnique(t *testing.T) {
 	window := core.ClockWindow(func() time.Time { return now }, 5*time.Minute)
 	rec := &recordingTransport{next: http.DefaultTransport}
 	client := forav1connect.NewExchangeServiceClient(
-		&http.Client{Transport: core.NewSigningTransport(agent, rec, core.WithWindow(window))}, srv.URL)
+		&http.Client{Transport: core.NewSigningTransport(agent, rec, core.WithWindow(window), core.WithSignatureAgent("https://agent.example"))}, srv.URL)
 
 	for i := range 2 {
 		if _, err := client.DiscoverResources(context.Background(), connect.NewRequest(&forav1.ResourceQuery{})); err != nil {
@@ -140,8 +140,8 @@ func TestSigningTransport_NonceMakesIdenticalRequestsUnique(t *testing.T) {
 	if nonce1 == nil || nonce2 == nil {
 		t.Fatalf("signature carries no nonce: %q", first.header.Get("Signature-Input"))
 	}
-	if raw, err := base64.RawURLEncoding.DecodeString(nonce1[1]); err != nil || len(raw) != 16 {
-		t.Fatalf("nonce %q is not 16 bytes of base64url: %v", nonce1[1], err)
+	if raw, err := base64.RawURLEncoding.DecodeString(nonce1[1]); err != nil || len(raw) != 64 {
+		t.Fatalf("nonce %q is not 64 bytes of base64url: %v", nonce1[1], err)
 	}
 	if nonce1[1] == nonce2[1] {
 		t.Fatal("two signatures share a nonce")
@@ -189,7 +189,7 @@ func TestSigningTransport_NonceMakesIdenticalRequestsUnique(t *testing.T) {
 
 	t.Run("accepted sig1 cannot be replayed under a fresh sig2", func(t *testing.T) {
 		relay := core.NewSigningTransport(broker, http.DefaultTransport,
-			core.WithWindow(window), core.WithAppendSigner())
+			core.WithWindow(window), core.WithAppendSigner(), core.WithSignatureAgent("https://broker.example"))
 		if code := send(t, relay, first, nil); code != http.StatusUnauthorized {
 			t.Fatalf("status %d, want 401", code)
 		}
@@ -206,7 +206,7 @@ func TestSigningTransport_NonceMakesIdenticalRequestsUnique(t *testing.T) {
 		}
 		req.Header.Set("Content-Type", "application/json")
 		created, expires := window()
-		if err := helpers.SignRequest(context.Background(), req, body, agent, helpers.SignOptions{Created: created, Expires: expires}); err != nil {
+		if err := helpers.SignRequest(context.Background(), req, body, agent, helpers.SignOptions{Created: created, Expires: expires, SignatureAgent: "https://agent.example"}); err != nil {
 			t.Fatal(err)
 		}
 		if strings.Contains(req.Header.Get("Signature-Input"), "nonce") {

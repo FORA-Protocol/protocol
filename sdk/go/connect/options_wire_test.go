@@ -36,7 +36,7 @@ func TestWithSignWindow_ReachesTheEmittedSignature(t *testing.T) {
 
 	sig := newSigningFixture(t)
 	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
 		foraconnect.WithSignWindow(func() (int64, int64) { return created, expires }),
 	)
 	// The call fails at the response; the signature was already on the wire.
@@ -63,7 +63,7 @@ func TestSignWindow_DefaultsWhenUnset(t *testing.T) {
 	defer srv.Close()
 
 	sig := newSigningFixture(t)
-	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(sig.signer))
+	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))
 	_, _ = client.Discover(context.Background(), &forav1.ResourceQuery{Uris: []string{"https://a.test/x"}})
 
 	if !strings.Contains(got, "created=") || !strings.Contains(got, "expires=") {
@@ -83,7 +83,7 @@ func TestWithMaxContentBytes_BoundsTheFetchedBody(t *testing.T) {
 
 	sig := newSigningFixture(t)
 	opts := append(allowLoopback(t),
-		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
 		foraconnect.WithAgentKey(sig.pub),
 		foraconnect.WithMaxContentBytes(16),
 	)
@@ -101,7 +101,7 @@ func TestWithMaxContentBytes_BoundsTheFetchedBody(t *testing.T) {
 	// The same body under the default cap succeeds, so the refusal above is the
 	// supplied bound rather than something else about the response.
 	relaxed := append(allowLoopback(t),
-		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
 		foraconnect.WithAgentKey(sig.pub),
 	)
 	if _, err := foraconnect.NewClient("http://home.invalid", relaxed...).
@@ -126,7 +126,7 @@ func TestWithContentTimeout_BoundsTheFetch(t *testing.T) {
 
 	sig := newSigningFixture(t)
 	opts := append(allowLoopback(t),
-		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
 		foraconnect.WithAgentKey(sig.pub),
 		foraconnect.WithContentTimeout(50*time.Millisecond),
 	)
@@ -155,7 +155,7 @@ func TestReportUsage_KeepsAKeyTheCallerPutOnTheMessage(t *testing.T) {
 	domain, _ := selfAdvertisingExchange(t, sig, origin)
 
 	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
 
 	const own = "app-owned-key-1"
 	report := &forav1.UsageReport{
@@ -186,7 +186,7 @@ func TestWithProofWindow_ReachesTheFetchSignature(t *testing.T) {
 
 	sig := newSigningFixture(t)
 	opts := append(allowLoopback(t),
-		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
 		foraconnect.WithAgentKey(sig.pub),
 		foraconnect.WithProofWindow(func() (int64, int64) { return created, expires }),
 	)
@@ -213,7 +213,7 @@ func TestProofWindow_DefaultsWhenUnset(t *testing.T) {
 
 	sig := newSigningFixture(t)
 	opts := append(allowLoopback(t),
-		foraconnect.WithSigner(sig.signer), foraconnect.WithAgentKey(sig.pub))
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithAgentKey(sig.pub))
 	if _, err := foraconnect.NewClient("http://home.invalid", opts...).
 		Fetch(context.Background(), content.URL+"/doc"); err != nil {
 		t.Fatalf("Fetch: %v", err)

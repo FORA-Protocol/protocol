@@ -1,0 +1,37 @@
+{
+  "$id": "fora.v1.AttributionDetail.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "AttributionDetail — Structured attribution metadata for usage reporting.",
+  "properties": {
+    "displayed_url": {
+      "description": "URL displayed to the user as the attribution link.",
+      "type": "string"
+    },
+    "format": {
+      "anyOf": [
+        {
+          "enum": [
+            "CITATION_FORMAT_LINK",
+            "CITATION_FORMAT_FOOTNOTE",
+            "CITATION_FORMAT_INLINE"
+          ],
+          "type": "string"
+        },
+        {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        }
+      ],
+      "description": "How the citation was presented.",
+      "title": "Citation Format"
+    },
+    "visible_to_user": {
+      "description": "Whether the attribution was visible to the end user.",
+      "type": "boolean"
+    }
+  },
+  "title": "Attribution Detail",
+  "type": "object"
+}

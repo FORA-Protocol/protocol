@@ -13,6 +13,7 @@
 // use); the caller supplies the imported CryptoKey, exactly as acceptance.ts does.
 
 import { canonicalOfferPayload, OFFER_SIGNATURE_ALGORITHM } from "../core/verifier.ts";
+import { checkOfferTermsUnpriced } from "./money.ts";
 
 export { OFFER_SIGNATURE_ALGORITHM };
 
@@ -23,11 +24,16 @@ export { OFFER_SIGNATURE_ALGORITHM };
  * canonical proto-JSON (snake_case, enums-as-names, omit-unpopulated), as the
  * verify face requires — canonicalOfferPayload clears the two signature keys and
  * re-JCS-es.
+ *
+ * Throws for an offer whose term carries pricing: an offer states its price once,
+ * in `Offer.pricing`, so a priced term is an offer built wrong and a signature over
+ * it would only be refused by every verifier (Go `helpers.ErrOfferTermPriced`).
  */
 export async function signOffer(
 	offer: Record<string, unknown>,
 	privateKey: CryptoKey,
 ): Promise<string> {
+	checkOfferTermsUnpriced(offer);
 	const payload = canonicalOfferPayload(offer);
 	const sig = new Uint8Array(await crypto.subtle.sign("Ed25519", privateKey, payload));
 	let hex = "";

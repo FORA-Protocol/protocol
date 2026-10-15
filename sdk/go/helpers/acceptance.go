@@ -33,6 +33,31 @@ const AcceptanceSignatureAlgorithm = "EdDSA"
 // idempotency key).
 var ErrAcceptanceSignatureInvalid = errors.New("helpers: offer-acceptance signature invalid")
 
+// ErrAcceptanceRequesterEmpty signals an acceptance that would name no
+// requester: an empty requester id or an empty requester domain. Both are
+// REQUIRED (fora.proto Requester), and an acceptance binds the agent's consent
+// to the requester its canonical bytes name, so bytes naming an empty one bind
+// it to nobody. On a purchase a Broker relays, the acceptance is the only agent
+// signature the Exchange sees, and the Exchange resolves the verification key
+// from the requester domain. Signers refuse to produce such bytes, and verifiers
+// refuse them even when the signature over them verifies. Match it with
+// errors.Is.
+var ErrAcceptanceRequesterEmpty = errors.New("helpers: acceptance names an empty requester")
+
+// checkAcceptanceRequester refuses an empty requester id or domain. It is the
+// one rule both acceptances share: the offer acceptance (CanonicalAcceptanceBytes)
+// and the request acceptance (RequestAcceptancePayload,
+// CanonicalRequestAcceptanceBytes) each run it before rendering canonical bytes.
+func checkAcceptanceRequester(id, domain string) error {
+	if id == "" {
+		return fmt.Errorf("%w: requester id is empty", ErrAcceptanceRequesterEmpty)
+	}
+	if domain == "" {
+		return fmt.Errorf("%w: requester domain is empty", ErrAcceptanceRequesterEmpty)
+	}
+	return nil
+}
+
 // CanonicalAcceptanceBytes returns the exact canonical byte sequence an agent's
 // offer acceptance covers: the accepted Offer.signature (which transitively binds
 // the offer's pricing, terms, expiry, and issuing Exchange), plus the requester
@@ -61,14 +86,18 @@ var ErrAcceptanceSignatureInvalid = errors.New("helpers: offer-acceptance signat
 // so it cannot carry the unknown fields CanonicalOfferBytes has to refuse; only the
 // values read off the offer and requester reach the signed bytes.
 //
-// Unpopulated fields are OMITTED before JCS — EVERY empty string field, not just the
-// domain: the bytes for an empty requester id are not the bytes for any populated
-// one. A port that assembles this object by hand instead of rendering the proto must
-// reproduce that omission per field, or it signs bytes this function never produces.
+// Unpopulated fields are OMITTED before JCS. Of the four, only the idempotency key
+// can reach the render empty, since the requester fields are refused first (below);
+// a port that assembles this object by hand instead of rendering the proto must
+// still reproduce that omission per field, or it signs bytes this function never
+// produces.
 //
 // Fails closed on a nil offer, a nil requester, or an unsigned offer (empty
 // Offer.signature) — an empty anchor would let the acceptance float free of any
-// concrete offer.
+// concrete offer. Fails closed, with ErrAcceptanceRequesterEmpty, on an empty
+// requester id or domain: an acceptance must name the requester it binds the
+// agent's consent to. Because signing and verifying both go through this function,
+// neither SignOfferAcceptance nor VerifyOfferAcceptance accepts such bytes.
 func CanonicalAcceptanceBytes(offer *forav1.Offer, requester *forav1.Requester, idempotencyKey string) ([]byte, error) {
 	if offer == nil {
 		return nil, errors.New("helpers: offer is nil")
@@ -78,6 +107,9 @@ func CanonicalAcceptanceBytes(offer *forav1.Offer, requester *forav1.Requester, 
 	}
 	if offer.GetSignature() == "" {
 		return nil, errors.New("helpers: cannot accept an unsigned offer (empty offer signature)")
+	}
+	if err := checkAcceptanceRequester(requester.GetId(), requester.GetDomain()); err != nil {
+		return nil, err
 	}
 	payload := &forav1.AgentAcceptancePayload{
 		OfferSig:        offer.GetSignature(),
@@ -134,7 +166,9 @@ func SignOfferAcceptanceWith(ctx context.Context, signer Signer, offer *forav1.O
 
 // VerifyOfferAcceptance verifies signatureHex (an AgentAcceptance.signature)
 // against the canonical acceptance payload for the offer, using pub. It returns
-// ErrAcceptanceSignatureInvalid on any mismatch (wrong key or tampered binding).
+// ErrAcceptanceSignatureInvalid on any mismatch (wrong key or tampered binding),
+// and ErrAcceptanceRequesterEmpty when the requester id or domain is empty, even
+// if the signature over those bytes would verify.
 func VerifyOfferAcceptance(offer *forav1.Offer, requester *forav1.Requester, idempotencyKey, signatureHex string, pub ed25519.PublicKey) error {
 	if len(pub) != ed25519.PublicKeySize {
 		return fmt.Errorf("helpers: ed25519 public key must be %d bytes, got %d", ed25519.PublicKeySize, len(pub))

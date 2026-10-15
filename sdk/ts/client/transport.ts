@@ -11,6 +11,7 @@
 // are produced and parsed by the generated Zod schemas, which is the same path the
 // canonical proto-JSON round-trip gate already proves loss-free against Go protojson.
 
+import { WebBotAuthError } from "../core/wba.ts";
 import { signOutbound } from "../core/signing-transport.ts";
 import type { Window } from "../core/window.ts";
 import { errorDetailFrom } from "../src/errordetail.ts";
@@ -29,6 +30,22 @@ import {
 	malformed,
 	ForaCallError,
 } from "./errors.ts";
+import { RawBody, rawBytes } from "./raw.ts";
+import { checkStrictEnvelope } from "./strict-envelope.ts";
+
+/**
+ * The pre-signing hook: receives every RPC request just before it is signed, as a Fetch
+ * API `Request`, and returns the request to sign and send instead.
+ *
+ * For a test that must send a deliberately altered message through the SDK's own signer
+ * and decoder: the returned request's body bytes and headers are what get signed and
+ * sent, and the reply is decoded as usual. The method and URL must not change (the address
+ * checks already ran against the planned URL), and a header the signer emits must not be
+ * set; either refuses the call as `malformed` with nothing sent. A `host` or
+ * `content-length` on the returned request is dropped, so a patched body never travels
+ * with a stale length.
+ */
+export type BeforeSign = (request: Request) => Request | Promise<Request>;
 
 /**
  * DEFAULT_MAX_RPC_READ_BYTES caps the response body a single FORA call will read.
@@ -97,8 +114,10 @@ export interface UnaryTarget {
 export interface CallSigner {
 	privKey: CryptoKey;
 	keyid: string;
-	/** The WBA directory origin this client signs as. Covered by the signature even when
-	 * empty, so it is passed through verbatim rather than defaulted here. */
+	/** The key-directory origin this client signs as ("https://agent.example"), written
+	 * as every signature's Signature-Agent member. Required to sign: a call signed with
+	 * none, or with a value that is not an https origin, is refused locally as
+	 * `malformed` before anything is sent. */
 	signatureAgent?: string;
 	/** The RFC 9421 freshness window. Defaults to the signing transport's own. */
 	window?: Window;
@@ -108,7 +127,8 @@ export interface CallSigner {
 export interface UnaryCallOptions {
 	target: UnaryTarget;
 	op: string;
-	/** The request message, already validated by its generated schema. */
+	/** The request message, already validated by its generated schema, or a RawBody whose
+	 * bytes are sent as given. */
 	message: unknown;
 	send: UnarySend;
 	/** Whether this leg dials a host another party named — an offer-derived Exchange. The
@@ -117,8 +137,12 @@ export interface UnaryCallOptions {
 	guarded?: boolean;
 	signer?: CallSigner;
 	requestId?: () => string;
+	beforeSign?: BeforeSign;
 	maxBytes?: number;
 	timeoutMs?: number;
+	/** Check an error answer's envelope and ErrorDetails strictly (ClientOptions.strict).
+	 * A success answer's strict check runs in the tier above, against its message. */
+	strict?: boolean;
 }
 
 /**
@@ -176,8 +200,9 @@ export async function unaryCall(opts: UnaryCallOptions): Promise<unknown> {
 			throw new ForaCallError({ kind: "unreachable", op: opts.op, cause });
 		}
 	}
-	const body = encodeBody(opts.op, opts.message);
-	const headers: Record<string, string> = {
+	let body =
+		opts.message instanceof RawBody ? rawBytes(opts.message) : encodeBody(opts.op, opts.message);
+	let headers: Record<string, string> = {
 		"content-type": ContentTypeJSON,
 		[ConnectProtocolVersionHeader]: ConnectProtocolVersion,
 		...IDENTITY_ENCODING,
@@ -202,8 +227,13 @@ export async function unaryCall(opts: UnaryCallOptions): Promise<unknown> {
 	);
 	let response: UnaryResponse;
 	try {
+		if (opts.beforeSign !== undefined) {
+			({ body, headers } = await applyBeforeSign(opts.op, url, body, headers, opts.beforeSign));
+		}
 		if (opts.signer !== undefined) {
-			Object.assign(headers, await signCall(opts.op, url, body, opts.signer));
+			const signed = await signCall(opts.op, url, body, opts.signer);
+			if (opts.beforeSign !== undefined) refuseSignerHeaders(opts.op, headers, signed);
+			Object.assign(headers, signed);
 		}
 		response = await opts.send({
 			url,
@@ -218,7 +248,61 @@ export async function unaryCall(opts: UnaryCallOptions): Promise<unknown> {
 	} finally {
 		clearTimeout(timer);
 	}
-	return decodeResponse(opts.op, response);
+	return decodeResponse(opts.op, response, opts.strict === true);
+}
+
+// Headers the runtime computes from the request itself. A hook's request carries them,
+// and a patched body would otherwise travel with a stale length.
+const TRANSPORT_HEADERS = new Set(["host", "content-length"]);
+
+// applyBeforeSign hands the request to the caller's hook and returns the body and headers
+// it chose. The Request exists only for this call; the method and URL stay the ones the
+// client planned, because the address checks and the routing were decided on them.
+async function applyBeforeSign(
+	op: string,
+	url: string,
+	body: Uint8Array<ArrayBuffer>,
+	headers: Record<string, string>,
+	hook: BeforeSign,
+): Promise<{ body: Uint8Array<ArrayBuffer>; headers: Record<string, string> }> {
+	let returned: unknown;
+	let patched: Uint8Array<ArrayBuffer>;
+	try {
+		returned = await hook(new Request(url, { method: "POST", headers, body }));
+		if (!(returned instanceof Request)) {
+			throw malformed(op, new Error("beforeSign must return a Request"));
+		}
+		// Read inside the guard: a body that cannot be read is a hook failure, refused like
+		// the others rather than escaping as the runtime's own error.
+		patched = new Uint8Array(await returned.arrayBuffer()) as Uint8Array<ArrayBuffer>;
+	} catch (cause) {
+		if (cause instanceof ForaCallError) throw cause;
+		throw malformed(op, cause);
+	}
+	if (returned.method !== "POST" || returned.url !== new Request(url).url) {
+		throw malformed(op, new Error("beforeSign must not change the request method or URL"));
+	}
+	const kept: Record<string, string> = {};
+	returned.headers.forEach((value, name) => {
+		if (!TRANSPORT_HEADERS.has(name.toLowerCase())) kept[name] = value;
+	});
+	return { body: patched, headers: kept };
+}
+
+// refuseSignerHeaders refuses a hook that set a header the signer owns. Derived from what
+// the signer emitted, not listed, so the refused set cannot drift from the signer.
+function refuseSignerHeaders(
+	op: string,
+	headers: Record<string, string>,
+	signed: Record<string, string>,
+): void {
+	const owned = new Set(Object.keys(signed).map((name) => name.toLowerCase()));
+	const clash = Object.keys(headers)
+		.filter((name) => owned.has(name.toLowerCase()))
+		.sort();
+	if (clash.length > 0) {
+		throw malformed(op, new Error(`beforeSign set headers the signer owns: ${clash.join(", ")}`));
+	}
 }
 
 // encodeBody renders the message as the canonical proto-JSON bytes that get both signed
@@ -234,7 +318,10 @@ function encodeBody(op: string, message: unknown): Uint8Array<ArrayBuffer> {
 	return new TextEncoder().encode(text) as Uint8Array<ArrayBuffer>;
 }
 
-// signCall produces the RFC 9421 headers for this request. A custody failure is
+// signCall produces the RFC 9421 headers for this request. A request the profile will
+// not sign — no Signature-Agent origin, one that is not an https origin, a window longer
+// than the profile allows — is `malformed`, refused before anything is sent, as Go
+// classifies the same signing refusal. Any other failure is a custody failure and is
 // `not_signable`, matching what the content leg answers for the same missing holder: a
 // caller branching on the kind sees one condition under one class, whichever verb met it
 // first.
@@ -257,6 +344,7 @@ async function signCall(
 		});
 		return signed.headers;
 	} catch (cause) {
+		if (cause instanceof WebBotAuthError) throw malformed(op, cause);
 		throw new ForaCallError({ kind: "not_signable", op, cause });
 	}
 }
@@ -313,10 +401,17 @@ export function refuseUnrequestedEncoding(
  * decodeResponse turns one answer into a parsed message, or throws the typed failure.
  *
  * A non-2xx is the Connect error envelope: `{code, message, details}`. The typed reason
- * rides in `details`, which errorDetailFrom reads — including the lowerCamelCase `debug`
- * projection connect-go emits there and no server codec replaces.
+ * rides in `details`, which errorDetailFrom reads — the binary `value` first, and the
+ * lowerCamelCase `debug` projection connect-go emits beside it only when `value` is
+ * absent. The envelope's Connect code lands on the failure's `code`.
+ *
+ * With `strict`, an error answer's envelope and every ErrorDetail in it are checked
+ * first (see checkStrictEnvelope), and a refusal is `malformed` keeping the code the
+ * lenient read reports. An empty body is not an envelope — the lenient read takes it as
+ * one naming no code — so it is classified by its status in either mode, like a body
+ * that is not JSON.
  */
-export function decodeResponse(op: string, response: UnaryResponse): unknown {
+export function decodeResponse(op: string, response: UnaryResponse, strict = false): unknown {
 	// A 3xx before anything is read out of the body. Every leg refuses to follow a
 	// redirect, so one reaching here is a server that did not answer rather than one that
 	// declined — and there is nothing in a redirect body to interpret. Unconditional on
@@ -333,7 +428,11 @@ export function decodeResponse(op: string, response: UnaryResponse): unknown {
 	}
 	const payload = parseJSON(op, response);
 	if (response.status < 200 || response.status >= 300) {
-		throw connectEnvelopeError(op, response.status, payload);
+		const error = connectEnvelopeError(op, response.status, payload);
+		if (strict && response.body.trim() !== "") {
+			checkStrictEnvelope(op, response.status, payload, error.code);
+		}
+		throw error;
 	}
 	return payload;
 }
@@ -372,6 +471,7 @@ function parseJSON(op: string, response: UnaryResponse): unknown {
 				op,
 				status: response.status,
 				reason: code,
+				code,
 				cause,
 			});
 		}
@@ -413,6 +513,7 @@ function connectEnvelopeError(
 			: {}),
 		cause:
 			typeof envelope["message"] === "string" ? envelope["message"] : undefined,
+		code,
 	});
 }
 

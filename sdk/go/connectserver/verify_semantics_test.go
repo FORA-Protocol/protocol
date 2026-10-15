@@ -11,7 +11,7 @@ package connectserver_test
 //  2. REPLAY NONCE — the replay guard keys on the SIGNATURE (per verified
 //     signature: keyid + signature bytes), never on the body digest. An
 //     idempotent retry re-signs the same body with a fresh created window and
-//     MUST pass the transport gate (the handler dedups per verified signer via
+//     MUST pass the transport gate (the handler dedups per agent via
 //     idempotency_key and returns the original result); replaying the exact
 //     signed bytes MUST still be rejected.
 
@@ -92,7 +92,7 @@ func signedDiscover(t *testing.T, srvURL string, f serverFixture, body []byte, c
 		t.Fatal(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if err := helpers.SignRequest(context.Background(), req, body, f.signer, helpers.SignOptions{Created: created, Expires: expires}); err != nil {
+	if err := helpers.SignRequest(context.Background(), req, body, f.signer, helpers.SignOptions{Created: created, Expires: expires, SignatureAgent: "https://agent.example"}); err != nil {
 		t.Fatalf("SignRequest: %v", err)
 	}
 	req.Body = io.NopCloser(bytes.NewReader(body))

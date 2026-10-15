@@ -1,0 +1,21 @@
+{
+  "$id": "fora.v1.RemoveResourcesResponse.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "removed": {
+      "default": 0,
+      "description": "Number of entries removed",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "ver": {
+      "default": "",
+      "description": "FORA protocol version — \"1.0\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
+      "type": "string"
+    }
+  },
+  "title": "Remove Resources Response",
+  "type": "object"
+}

@@ -24,10 +24,13 @@ import pytest
 from resolvers_harness import (
     ANCHOR,
     HOUR,
+    WBA_MEDIA_TYPE,
     MutableClock,
     long_jwk,
     loopback_client,
     make_key,
+    serve_tls,
+    signed_directory_headers,
     wba_file_json,
 )
 
@@ -68,7 +71,10 @@ class CountingOrigin:
                     self.end_headers()
                     return
                 self.send_response(200)
-                self.send_header("content-type", "application/json")
+                self.send_header("content-type", WBA_MEDIA_TYPE)
+                authority = (self.headers.get("Host") or "").lower()
+                for name, value in signed_directory_headers(authority, doc).items():
+                    self.send_header(name, value)
                 self.end_headers()
                 self.wfile.write(doc)
 
@@ -76,7 +82,8 @@ class CountingOrigin:
                 return
 
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
-        self.url = f"http://127.0.0.1:{self._server.server_address[1]}"
+        serve_tls(self._server)
+        self.url = f"https://127.0.0.1:{self._server.server_address[1]}"
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
 
@@ -109,7 +116,6 @@ def test_unknown_thumbprint_burst_debounced() -> None:
         clock = MutableClock(ANCHOR)
         r = WBAKeyResolver(
             http=loopback_client(),
-            scheme="http",
             ttl=HOUR,
             sync_debounce=timedelta(seconds=5),
             now=clock,
@@ -145,9 +151,7 @@ def test_concurrent_refresh_singleflight() -> None:
     origin.gate = threading.Event()
     origin.arrived = queue.Queue()
     try:
-        r = WBAKeyResolver(
-            http=loopback_client(), scheme="http", ttl=HOUR, now=MutableClock(ANCHOR)
-        )
+        r = WBAKeyResolver(http=loopback_client(), ttl=HOUR, now=MutableClock(ANCHOR))
 
         burst = 12
         barrier = threading.Barrier(burst)

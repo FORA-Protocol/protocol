@@ -1170,7 +1170,8 @@ export function compileRegistrationSchema(raw: Uint8Array | string): {
 
 	let doc: unknown;
 	try {
-		doc = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+		// ignoreBOM: false is the default, spelled out for the Workers runtime types.
+		doc = JSON.parse(new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(bytes));
 	} catch {
 		return { schema: null, verdict: "malformed" };
 	}

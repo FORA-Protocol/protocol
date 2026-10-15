@@ -20,7 +20,7 @@ The core is independently useful — it provisions Web Bot Auth identity for any
 
 ## Why an agent needs this at all
 
-FORA's authentication is holder-of-key. A verifier resolves the signer's public key from a directory at the signer's own origin, named in a covered `Signature-Agent` header. It then matches the signature's `keyid` against the [RFC 7638](https://www.rfc-editor.org/rfc/rfc7638) thumbprint of a key in that directory. Nothing about that is FORA-specific — it is the Web Bot Auth shape, so a FORA-provisioned agent is verifiable by any Web Bot Auth origin, not only by an Exchange.
+FORA's authentication is holder-of-key. A verifier resolves the signer's public key from a directory at the signer's own origin, named in the `Signature-Agent` member the signature covers. It then matches the signature's `keyid` against the [RFC 7638](https://www.rfc-editor.org/rfc/rfc7638) thumbprint of a key in that directory. Nothing about that is FORA-specific — it is the Web Bot Auth shape. Signed to FORA's [Web Bot Auth profile](/protocol/authentication/#the-web-bot-auth-profile), a FORA-provisioned agent is verifiable by any Web Bot Auth origin, not only by an Exchange.
 
 An agent that holds its own key and publishes its own directory needs none of this service. It is the same participant on the wire and speaks the same protocol. The Identity Service is for the agents that cannot, which today is most of them.
 
@@ -38,14 +38,16 @@ The account row is the authoritative record of registration, and sign-up reserve
 
 | Path | What it is | Media type |
 |---|---|---|
-| `/.well-known/http-message-signatures-directory` | Web Bot Auth key directory — an RFC 7517 JWK Set | `application/jwk-set+json` |
+| `/.well-known/http-message-signatures-directory` | Web Bot Auth key directory — an RFC 7517 JWK Set, with a signed response | `application/http-message-signatures-directory+json` |
 | `/.well-known/signature-agent-card.json` | Signature Agent Card, the agent's self-description | `application/json` |
 | `/.well-known/fora-key-revocations.json` | Key revocation list | `application/json` |
 | `/.well-known/fora.json` | FORA role marker | `application/json` |
 
+The directory follows the [Key Directory](/protocol/authentication/#key-directory) rules: https, a direct `200`, the media type above, and a response signed by each key it lists. The service release that predates the Web Bot Auth profile serves it as `application/jwk-set+json` and unsigned.
+
 Two properties of the directory are load-bearing. It is assembled as a real JWK Set with a JOSE library rather than marshalled from FORA's protobuf. The audience is any Web Bot Auth verifier on the open internet, and those implement RFC 7517, not `fora.v1`. And keys come out **newest-first**, which matters for the signing tie-break described below.
 
-Keys carry no `kid`. Identity is the RFC 7638 thumbprint, so entries are deduplicated on the JWK `x` member actually emitted into the document. The FORA-specific `not_before` / `not_after` validity window is spliced onto each key as an extension member, which a generic verifier ignores.
+Keys carry no `kid`. Identity is the RFC 7638 thumbprint, so entries are deduplicated on the JWK `x` member actually emitted into the document. The FORA-specific `not_before` / `not_after` validity window is spliced onto each key as an extension member, which a generic verifier ignores. Each key also carries `alg` `EdDSA`, the JOSE name RFC 7517 defines, which is a known, deliberate deviation from WG-00 §5.5.1 (see [Key Directory](/protocol/authentication/#key-directory)).
 
 A key is active when the present instant falls inside the **half-open** window `[not_before, not_after)`. During a rotation overlap more than one key is active. Which key is used then depends on the operation:
 
@@ -105,10 +107,34 @@ Each tool is one protocol verb. What differs between them is where the call goes
 | `fora_register` | `ExchangeService.Register` | direct to the named Exchange |
 | `fora_status` | `ExchangeService.GetAccountStatus` | direct to the named Exchange |
 | `fora_discover` | `BrokerService.Resolve` | via the Broker |
-| `fora_execute` | the Broker's execute relay | via the Broker |
+| `fora_execute` | `BrokerService.ExecuteTransaction` | via the Broker |
 | `fora_report` | `ExchangeService.ReportUsage` | direct to the offer's own Exchange |
 
-Registration must reach the Exchange directly, because the Exchange derives the binding between an account and an identity from the agent's **own** inbound signature. The Broker relay re-signs the transport hop with the Broker's key and carries agent identity in a detached body acceptance — right for fan-out purchases, and it would defeat registration's identity model.
+Registration must reach the Exchange directly, because the Exchange derives the binding between an account and an identity from the agent's **own** inbound signature. `BrokerService.ExecuteTransaction` re-packages a purchase into requests signed with the Broker's key and carries agent identity in detached body acceptances — right for multi-Exchange purchases, and it would defeat registration's identity model.
+
+**Tool errors carry the refusal.** When a call a tool made is refused, the tool answers with an error result (`isError: true`) whose `structuredContent` is
+
+```json
+{
+  "refusal": {
+    "party": "exchange.example",
+    "code": "permission_denied",
+    "detail": {
+      "domain": "fora.v1.ExchangeService",
+      "message": "no account at this Exchange",
+      "transaction_denial": { "reason": "DENIAL_REASON_ACCOUNT_NOT_REGISTERED", "exchange": "exchange.example" }
+    }
+  }
+}
+```
+
+The value of `refusal` is the protocol's [`UpstreamRefusal`](/reference/proto-fora/#upstreamrefusal), the same shape a Broker uses for an Exchange's refusal of a relayed purchase:
+
+- `party` is the bare host of the party that refused: the Broker or the Exchange the tool called, or the Identity Service itself when it refused the tool call.
+- `code` is the Connect code that party answered with, in its wire form, or the code the call failed with when no answer came (`unavailable`, `deadline_exceeded`). Either of those two codes makes the outcome ambiguous: a call that changes state, such as a purchase, may have completed.
+- `detail` is the FORA `ErrorDetail` the party attached, unchanged, for example `request_auth_failure`, `registration_failure` or `transaction_denial`. It is absent when the party attached none.
+
+The agent branches on `detail` and `code`, never on the message text. Each tool's `outputSchema` declares two branches: the tool's own success shape, or an object with the single member `refusal`.
 
 `fora_report` takes no endpoint argument. The destination is read off the report's own exchange field, which the offer signed, and resolved from that Exchange's manifest. There is no parameter a misconfigured origin could arrive through.
 
@@ -132,7 +158,7 @@ The endpoint is `/mcp` and speaks MCP over Streamable HTTP. It is stateless: eve
 
 Two decisions collided here, and the resolution is worth understanding before deploying this.
 
-A signed delivery URL is bound to the thumbprint of the key that signed the offer acceptance, and a capable edge refuses any fetcher that cannot prove possession of that key. That is what makes a stolen URL worthless. But under custody the *registry* signs the acceptance, so the URL is bound to the registry's key — and the agent, which holds no key, can never produce the proof. Composed naively, every URL issued through this flow could only be used by the service itself, and every agent fetch got a 403.
+A signed delivery URL is bound to the thumbprint of the key that signed the offer acceptance, and a capable edge refuses any fetcher that cannot prove possession of that key. That is what makes a stolen URL worthless. But under custody the service signs the acceptance with that agent's own custodied key, so the URL is bound to a key the agent never holds — and the agent can never produce the proof. Composed naively, every URL issued through this flow could only be used by the service itself, and every agent fetch got a 403.
 
 The resolution: **the service fetches the licensed bytes itself**, presenting the custodied key as the proof of possession, and returns the content to the agent inside the tool result. The constraint was never that nobody could produce the proof, only that the *agent* could not. Moving the fetch to where the key already lives makes the proof producible by construction, with no change to the protocol, the Exchange, the edge's contract, or any agent client.
 

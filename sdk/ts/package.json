@@ -4,6 +4,7 @@
   "private": true,
   "description": "FORA protocol SDK for TypeScript — the IO-free protocol mechanics (signing, verification, canonicalization) plus the IO tiers built on them: the key/endpoint resolvers and the Connect-unary JSON client. Exposed at the repo root so plain npm — which has no git-subdirectory support — can pin the TS SDK by commit as a whole-repo git dependency (parity with the Go/pip git+subdir+rev pins). Re-exports sdk/ts, which compiles the in-repo gen/ts by relative path. Self-contained packaging and npm publish are not yet implemented.",
   "type": "module",
+  "sideEffects": false,
   "exports": {
     "./base64url": "./src/base64url.ts",
     "./thumbprint": "./src/thumbprint.ts",
@@ -18,6 +19,7 @@
     "./scopes": "./src/scopes.ts",
     "./hashurl": "./src/hashurl.ts",
     "./hosts": "./src/hosts.ts",
+    "./discovery-hint": "./src/discovery-hint.ts",
     "./regschema": "./src/regschema.ts",
     "./licenseterm": "./src/licenseterm.ts",
     "./music": "./src/music.ts",
@@ -30,14 +32,16 @@
     "./core/verify-request": "./core/verify-request.ts",
     "./core/verify-multisig-request": "./core/verify-multisig-request.ts",
     "./core/window": "./core/window.ts",
+    "./identity": "./core/identity.ts",
     "./hono": "./hono/middleware.ts",
     "./acceptance": "./src/acceptance.ts",
     "./resolvers": "./resolvers/index.ts",
+    "./resolvers/edge": "./resolvers/edge.ts",
     "./client": "./client/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --strict --noEmit",
-    "test": "tsc -p tsconfig.json --strict --noEmit && vitest run",
+    "typecheck": "tsc -p tsconfig.json --strict --noEmit && tsc -p tsconfig.workers.json --noEmit",
+    "test": "tsc -p tsconfig.json --strict --noEmit && tsc -p tsconfig.workers.json --noEmit && vitest run",
     "build": "node scripts/build.mjs"
   },
   "dependencies": {
@@ -55,9 +59,12 @@
     }
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "5.20261005.1",
     "@types/node": "^26.1.0",
+    "esbuild": "0.21.5",
     "typescript": "^6.0.3",
     "vitest": "^2.1.0",
+    "web-bot-auth": "0.2.0",
     "zod": "^3.23.0"
   }
 }
