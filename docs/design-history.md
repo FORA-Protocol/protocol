@@ -3084,6 +3084,13 @@ right for a harness and wrong as a default.
 **`RawBody` is exempt.** Raw mode exists to put on the wire a message the SDK would never
 build, so the switch checks nothing about it and adds nothing to it.
 
+**The refusal names the member.** A harness has to see which key was refused, so the
+refusal carries the text strict decoding gives an answer: the path and the schema's
+complaint, which quotes the member's name and, when a field breaks a rule, its value. A
+reflected offer's member is the Exchange's text, and a strict client already gets the same
+text when the discovery answer carrying that offer is refused. It is bounded by the read
+cap that answer was read under, and quoted with escapes, so it cannot break a log line.
+
 **The gap left.** A keyword argument that a generated model's constructor does not declare
 is dropped by the model before the SDK sees it, so neither check can report it. A type
 checker does: the models are dataclass transforms, and mypy reports the unexpected keyword
