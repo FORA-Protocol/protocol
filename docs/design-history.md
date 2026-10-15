@@ -3040,3 +3040,53 @@ every refusal; they passed before the move and after it.
 
 The sentence in fora.proto is unchanged, because it describes a conforming signer and the
 twins are not one: an acceptance they sign is one a conforming party must never send.
+
+## The Python client can refuse a request the strict contract does not describe
+
+A Python verb takes a plain dict as well as the generated request model, and the models
+ignore a member they do not declare (`extra="ignore"` in `gen/python/wire/base.py`, the
+forward-compatible choice for reading an answer). So a misspelled key passes the default
+`validation="strict"` check, which is the generated model's field-level one, and is signed
+and sent. A Connect server's JSON codec discards the unknown field, and the request is
+served as if the key were absent. A harness whose negative test mutates a key then has a
+test that passes while testing nothing.
+
+`ClientConfig.strict_requests` closes that with two checks, and is off by default.
+
+**A type gate where every message enters.** Every verb that takes a dict or a model copies
+it once, before it stamps the envelope, and that copy is where the switch refuses anything
+but the verb's own generated model. It runs before the verb resolves an endpoint, reads a
+manifest or signs, so a refused message costs nothing. A model of another message is
+refused there too, and the error names the model to pass.
+
+**The strict check on the stamped message.** The gate cannot see what the client adds
+itself: `ver`, the configured `requester`, the offers a purchase reflects, and the items
+and acceptances it builds. So the message as stamped is checked just before it is signed,
+against the published strict JSON Schema of the request message and the cross-field rules,
+by the same check strict decoding runs on an answer. The generated model's own check does
+not run the cross-field rules, so a catalog push whose term carries no price is now refused
+locally rather than by the server.
+
+**Not a value of `validation`.** `Validation` is mapped across the three SDKs with the same
+two values, and the switch has no counterpart in Go or TypeScript. A Go verb takes the
+generated message, which has no member the proto does not declare, and
+`WithValidation(ValidationStrict)` runs its rules, cross-field ones included. A TypeScript
+verb is typed with the request input types, so a misspelled key in an object literal does
+not compile. A third Python value would make the mapped type diverge. The switch is
+therefore a field of its own, independent of `validation`: turning `validation` off leaves
+it in force.
+
+**Off by default.** A dict is the common way to build a request. A purchase also reflects
+each offer exactly as discovery returned it, so an offer from a newer minor version carries
+a member this SDK does not know, and under the switch that purchase is refused. That is
+right for a harness and wrong as a default.
+
+**`RawBody` is exempt.** Raw mode exists to put on the wire a message the SDK would never
+build, so the switch checks nothing about it and adds nothing to it.
+
+**The gap left.** A keyword argument that a generated model's constructor does not declare
+is dropped by the model before the SDK sees it, so neither check can report it. A type
+checker does: the models are dataclass transforms, and mypy reports the unexpected keyword
+argument. A model built with `model_construct` skips validation and still drops an
+undeclared keyword, but it renders a nested value exactly as given. The check of the stamped
+message therefore refuses an unknown member inside such a value.

@@ -961,6 +961,20 @@ request only where it means to, and check every answer through the SDK's own dec
   dicts, and `to_wire(model)` renders a model as the JSON object the SDK sends.
   TypeScript exports the request input types its verbs are typed with. Go verbs already
   take the generated messages.
+- **Strict requests (Python).** `ClientConfig(strict_requests=True)` refuses a request the
+  contract does not describe, before it is signed. The generated models ignore a member
+  they do not declare, so a misspelled key in a plain dict passes the default check, is
+  signed and sent, and is discarded by the server's JSON codec. Under the switch a verb
+  takes only its own generated request model or a `RawBody`: a plain dict, or a model of
+  another message, is refused as malformed before anything is resolved, read or sent,
+  naming the model to pass. The message as stamped, with `ver`, the configured
+  `requester` and a purchase's reflected offers in it, must then pass the published
+  strict JSON Schema of the request message and the cross-field rules, so an unknown
+  member at any depth is refused and named by its path. A `RawBody` is still sent exactly
+  as given. The switch applies whatever `validation` says and is off by default. A
+  keyword argument a generated model does not declare is dropped by the model before the
+  SDK sees it; a type checker reports it. Go verbs take the generated messages and
+  TypeScript verbs are typed with the request input types, so neither has the switch.
 
 **A request-signature refusal carries a typed reason (additive wire change).**
 An RPC request whose RFC 9421 HTTP message signature failed verification was

@@ -413,6 +413,7 @@ The rest are bounds and seams with working defaults:
 | `validation` | `"strict"` | whether an outbound message is checked against its generated model before it is sent. Orthogonal to offer verification, which is about what comes back |
 | `registration_requirements` | a reader built on the guarded client, once per client | where `register` reads an Exchange's terms revision and registration schema. It holds no document cache on purpose: the contract requires the terms digest to come from a freshly fetched manifest |
 | `strict` | `False` | refuse an answer carrying an unknown field, or breaking a field-level or cross-field rule, and an error envelope or `ErrorDetail` the contract does not define. See [Testing a FORA service](#testing-a-fora-service) |
+| `strict_requests` | `False` | refuse a plain dict, and a request carrying an unknown field or breaking a cross-field rule, before it is signed. Independent of `validation`. See [Testing a FORA service](#testing-a-fora-service) |
 | `before_sign` | `None` | a hook that receives each request just before it is signed. See [Testing a FORA service](#testing-a-fora-service) |
 
 **Build a client once and reuse it.** `ClientConfig`, the resolvers and the `Verifier`
@@ -426,6 +427,8 @@ processes is the signing key.
 
 Requests are plain dicts in proto-JSON **snake_case**, or the generated request models
 from `wire.models`; a camelCase key is refused as malformed rather than silently ignored.
+Any other key the model does not declare passes the check and is sent, and the server's
+JSON codec discards it; `ClientConfig(strict_requests=True)` refuses it instead.
 `to_wire(model)` shows the JSON object a model is sent as. Responses are the generated
 Pydantic models.
 
@@ -510,6 +513,16 @@ a service through the SDK and check every answer through it:
   `ErrorDetail`, binary `value` and `debug` projection alike, must pass the strict
   `ErrorDetail` schema and the cross-field rules. A refused envelope is
   `CallError(MALFORMED)` with `code` still set to the peer's Connect code.
+- **`ClientConfig(strict_requests=True)`** refuses a request the contract does not
+  describe, before it is signed. A verb then takes only its generated request model or a
+  `RawBody`: a plain dict, or a model of another message, is `CallError(MALFORMED)`
+  naming the model to pass, raised before anything is resolved, read or sent. The message
+  as stamped, with `ver`, the configured `requester` and a purchase's reflected offers in
+  it, must pass the published strict JSON Schema of the request message and the
+  cross-field rules, and an unknown member is named by its path. It applies whatever
+  `validation` says, and a `RawBody` is still sent exactly as given. A keyword argument a
+  model does not declare is dropped by the model itself, so run a type checker over the
+  harness: it reports one.
 - **`CallError.headers`** holds the header fields of a refusal, an answer of status 400 or
   above on an RPC leg or `fetch`: a verifier's `Accept-Signature`, a gateway's
   `Retry-After`, an edge's discovery headers, which `parse_discovery_hint(err.status,
