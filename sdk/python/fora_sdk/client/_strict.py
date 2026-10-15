@@ -1,9 +1,10 @@
-"""Strict response decoding: refuse an answer the contract does not describe.
+"""Strict decoding, and strict requests: refuse a message the contract does not describe.
 
-``ClientConfig.strict`` turns this on. The check itself is :mod:`fora_sdk.strict`, the
-one the document readers and the error-envelope check use too; this module only names
-the message a verb's generated model decodes and reports a refusal the way every other
-answer failure is reported, as a MALFORMED ``CallError``.
+``ClientConfig.strict`` turns it on for answers, ``ClientConfig.strict_requests`` for
+requests. The check itself is :mod:`fora_sdk.strict`, the one the document readers and the
+error-envelope check use too; this module only names the message a verb's generated model
+describes and reports a refusal the way every other client failure is reported, as a
+MALFORMED ``CallError``.
 """
 
 from __future__ import annotations
@@ -28,9 +29,21 @@ def refuse_unless_strict(op: str, model: type[BaseModel], payload: Any) -> None:
     complaint for an unknown field or a field-level rule, or the violated rule ids for a
     cross-field rule.
     """
+    _refuse_unless_strict(op, model, payload, "strict decoding refused the answer")
+
+
+def refuse_unless_strict_request(op: str, model: type[BaseModel], payload: Any) -> None:
+    """Refuse an outgoing ``model`` request the strict contract does not accept, before it
+    is signed (``ClientConfig.strict_requests``). The same check as an answer's, naming the
+    first failure the same way: an unknown member by its path, so a misspelled key cannot
+    reach the wire unnoticed."""
+    _refuse_unless_strict(op, model, payload, "strict_requests refused the request")
+
+
+def _refuse_unless_strict(op: str, model: type[BaseModel], payload: Any, lead: str) -> None:
     problem = strict_violation(_schema_name(model), payload)
     if problem is not None:
-        raise malformed(op, f"strict decoding refused the answer{problem}")
+        raise malformed(op, f"{lead}{problem}")
 
 
 @cache

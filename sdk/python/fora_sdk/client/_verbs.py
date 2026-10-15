@@ -169,6 +169,19 @@ class ClientConfig:
     call_timeout_sec: float = DEFAULT_CALL_TIMEOUT_SEC
     content_timeout_sec: float | None = None
     max_content_bytes: int | None = None
+    #: Refuse a request the contract does not describe, before it is signed. A verb then
+    #: takes only its own generated request model from ``wire.models``, or a
+    #: :class:`RawBody`, which is sent exactly as given and never checked: a plain dict,
+    #: or a model of another message, is refused as MALFORMED before anything is
+    #: resolved, read or sent. The message as stamped, with ``ver``, the configured
+    #: ``requester`` and a purchase's reflected offers in it, must then pass the
+    #: published strict JSON Schema of the request message and the SDK's cross-field
+    #: rules, so an unknown member at any depth is refused and named. Applies whatever
+    #: ``validation`` says. Off by default, because a dict is the common way to build a
+    #: request and a purchase reflects offers that may carry a member a newer minor
+    #: version added. A keyword argument a generated model does not declare is dropped
+    #: by the model before the SDK sees it, so that mistake is a type checker's to catch.
+    strict_requests: bool = False
 
     def resolved_verifier(self) -> Verifier:
         if self.verifier is not None:
@@ -279,8 +292,10 @@ def plan_discover(cfg: ClientConfig, query: RequestMessage) -> Plan:
     route = _Route(op, cfg.base_url, EXCHANGE_SERVICE, "DiscoverResources")
     if isinstance(query, RawBody):
         return _plan(cfg, route, query)
-    sent = _stamp_discovery(op, query, cfg.requester)
-    validate_request(op, sent, ResourceQuery, cfg.validation)
+    sent = _stamp_discovery(
+        op, query, cfg.requester, model=ResourceQuery, strict_requests=cfg.strict_requests
+    )
+    validate_request(op, sent, ResourceQuery, cfg.validation, strict_requests=cfg.strict_requests)
     return _plan(cfg, route, sent)
 
 
@@ -392,14 +407,18 @@ def plan_resolve(cfg: ClientConfig, request: RequestMessage) -> Plan:
     op = "resolve"
     if isinstance(request, RawBody):
         return _plan(cfg, _Route(op, cfg.base_url, BROKER_SERVICE, "Resolve"), request)
-    sent = _stamp_discovery(op, request, cfg.requester)
+    sent = _stamp_discovery(
+        op, request, cfg.requester, model=DiscoveryRequest, strict_requests=cfg.strict_requests
+    )
     # Refused locally rather than sent: a Broker resolves the calling agent from the
     # requester and declines a request that names none, so this is a verdict the client
     # already knows, and naming the remedy beats relaying "requester required" from a
     # round trip away. execute refuses the same way.
     if sent.get("requester") is None:
         raise malformed(op, "no requester configured; a Broker resolves who is asking")
-    validate_request(op, sent, DiscoveryRequest, cfg.validation)
+    validate_request(
+        op, sent, DiscoveryRequest, cfg.validation, strict_requests=cfg.strict_requests
+    )
     return _plan(cfg, _Route(op, cfg.base_url, BROKER_SERVICE, "Resolve"), sent)
 
 
@@ -461,7 +480,9 @@ def plan_execute(
     offers = [offer] if isinstance(offer, VerifiedOffer) else list(offer)
     _require_one_exchange(op, offers)
     sent = _build_transaction(cfg, op, offers, idempotency_key)
-    validate_request(op, sent, TransactionRequest, cfg.validation)
+    validate_request(
+        op, sent, TransactionRequest, cfg.validation, strict_requests=cfg.strict_requests
+    )
     return _plan(cfg, _Route(op, cfg.base_url, EXCHANGE_SERVICE, "ExecuteTransaction"), sent)
 
 
@@ -498,7 +519,9 @@ def plan_broker_execute(
     if cfg.signer is not None:
         _require_requester_is_signer(op, cfg.requester, cfg.signer.signature_agent)
     sent = _build_transaction(cfg, op, offers, idempotency_key)
-    validate_request(op, sent, TransactionRequest, cfg.validation)
+    validate_request(
+        op, sent, TransactionRequest, cfg.validation, strict_requests=cfg.strict_requests
+    )
     return _plan(cfg, _Route(op, cfg.base_url, BROKER_SERVICE, "ExecuteTransaction"), sent)
 
 
@@ -762,7 +785,13 @@ def _plan_offer_derived(
     # operator's own configuration. The same split the Go client makes.
     if isinstance(message, RawBody):
         return _plan_raw_routed(cfg, verb.op, verb.method, message)
-    sent = _stamp_envelope(verb.op, message, idempotency_key)
+    sent = _stamp_envelope(
+        verb.op,
+        message,
+        idempotency_key,
+        model=verb.model,
+        strict_requests=cfg.strict_requests,
+    )
     return _plan_routed_keyless(cfg, _Routed(verb.op, verb.model, verb.method), sent)
 
 
@@ -807,7 +836,7 @@ def plan_register(cfg: ClientConfig, request: RequestMessage) -> Plan:
     op = "register"
     if isinstance(request, RawBody):
         return _plan_raw_routed(cfg, op, "Register", request)
-    sent = _stamp_ver(op, request)
+    sent = _stamp_ver(op, request, model=RegisterRequest, strict_requests=cfg.strict_requests)
     _require_recipient(op, _str_field(sent, "exchange"))
     data = sent.get("registration_data")
     verdict = check_registration_data(data if isinstance(data, dict) else None)
@@ -837,7 +866,9 @@ def plan_get_account_status(cfg: ClientConfig, request: RequestMessage) -> Plan:
     op = "get account status"
     if isinstance(request, RawBody):
         return _plan_raw_routed(cfg, op, "GetAccountStatus", request)
-    sent = _stamp_ver(op, request)
+    sent = _stamp_ver(
+        op, request, model=GetAccountStatusRequest, strict_requests=cfg.strict_requests
+    )
     _require_recipient(op, _str_field(sent, "exchange"))
     return _plan_routed_keyless(cfg, _Routed(op, GetAccountStatusRequest, "GetAccountStatus"), sent)
 
@@ -937,7 +968,7 @@ def _plan_routed_keyless(cfg: ClientConfig, verb: _Routed, sent: dict[str, Any])
     """
     op = verb.op
     endpoint = vet_exchange_endpoint(cfg.endpoint_resolver, _str_field(sent, "exchange"), op)
-    validate_request(op, sent, verb.model, cfg.validation)
+    validate_request(op, sent, verb.model, cfg.validation, strict_requests=cfg.strict_requests)
     # The manifest-derived leg, so the guarded transport: the caller named a domain, the
     # manifest it serves named this endpoint, and a signed call now goes there.
     return _plan(cfg, _Route(op, endpoint, EXCHANGE_SERVICE, verb.method), sent, guarded=True)
@@ -1007,14 +1038,20 @@ def _plan_catalog(cfg: ClientConfig, verb: _CatalogVerb, message: RequestMessage
     route = _Route(op, cfg.base_url, CATALOG_SERVICE, verb.method)
     if isinstance(message, RawBody):
         return _plan(cfg, route, message)
-    sent = _stamp_ver(op, message)
+    sent = _stamp_ver(op, message, model=verb.model, strict_requests=cfg.strict_requests)
     _require_recipient(op, _str_field(sent, "exchange"))
-    validate_request(op, sent, verb.model, cfg.validation)
+    validate_request(op, sent, verb.model, cfg.validation, strict_requests=cfg.strict_requests)
     return _plan(cfg, route, sent)
 
 
-def _stamp_ver(op: str, message: dict[str, Any] | BaseModel) -> dict[str, Any]:
-    sent = _clone(op, message)
+def _stamp_ver(
+    op: str,
+    message: dict[str, Any] | BaseModel,
+    *,
+    model: type[BaseModel],
+    strict_requests: bool,
+) -> dict[str, Any]:
+    sent = _clone(op, message, model=model, strict_requests=strict_requests)
     if _str_field(sent, "ver") == "":
         sent["ver"] = ProtocolVersion
     return sent
@@ -1054,7 +1091,12 @@ def _require_recipient(op: str, exchange: str) -> None:
 
 
 def _stamp_discovery(
-    op: str, message: dict[str, Any] | BaseModel, requester: dict[str, Any] | None
+    op: str,
+    message: dict[str, Any] | BaseModel,
+    requester: dict[str, Any] | None,
+    *,
+    model: type[BaseModel],
+    strict_requests: bool,
 ) -> dict[str, Any]:
     """Fill the envelope a DISCOVERY call carries, which is the mutating envelope minus
     the idempotency key: pure discovery buys nothing and changes nothing, so there is no
@@ -1065,7 +1107,7 @@ def _stamp_discovery(
     requester is filled because a query must name one, while the client already holds
     that identity.
     """
-    sent = _clone(op, message)
+    sent = _clone(op, message, model=model, strict_requests=strict_requests)
     if not sent.get("ver"):
         sent["ver"] = ProtocolVersion
     if sent.get("requester") is None and requester is not None:
@@ -1074,7 +1116,12 @@ def _stamp_discovery(
 
 
 def _stamp_envelope(
-    op: str, message: dict[str, Any] | BaseModel, idempotency_key: str | None
+    op: str,
+    message: dict[str, Any] | BaseModel,
+    idempotency_key: str | None,
+    *,
+    model: type[BaseModel],
+    strict_requests: bool,
 ) -> dict[str, Any]:
     """Fill the two envelope fields the protocol requires on a state-mutating call,
     WITHOUT overwriting what the caller already set.
@@ -1085,7 +1132,7 @@ def _stamp_envelope(
     there is theirs — discarding it would turn each of their retries into a fresh action,
     which is the double-counting the field exists to prevent. A pinned key overrides both.
     """
-    sent = _clone(op, message)
+    sent = _clone(op, message, model=model, strict_requests=strict_requests)
     if not sent.get("ver"):
         sent["ver"] = ProtocolVersion
     on_message = sent.get("idempotency_key")
@@ -1118,14 +1165,33 @@ def _rate_limit(parsed: Any, wire: Any) -> dict[str, Any] | None:
     return standing
 
 
-def _clone(op: str, message: dict[str, Any] | BaseModel) -> dict[str, Any]:
+def _clone(
+    op: str,
+    message: dict[str, Any] | BaseModel,
+    *,
+    model: type[BaseModel],
+    strict_requests: bool,
+) -> dict[str, Any]:
     """Copy a caller's message so the SDK can stamp its envelope without touching what the
     caller still holds. A deep copy, because the envelope fields are top-level but a
     caller re-using a nested object across calls must not see it change either.
 
     A generated model is rendered through :func:`to_wire` instead, which already returns
     a fresh object. This is the one point every dict-taking verb passes through, so a
-    model and the equivalent dict are serialized the same way exactly once."""
+    model and the equivalent dict are serialized the same way exactly once — and so it is
+    where ``strict_requests`` refuses anything but the verb's own ``model``, before the
+    verb resolves, reads or sends anything."""
+    if strict_requests and not isinstance(message, model):
+        given = (
+            "a plain dict"
+            if isinstance(message, dict)
+            else f"a value of type {type(message).__name__}"
+        )
+        raise malformed(
+            op,
+            f"strict_requests refuses {given}; pass wire.models.{model.__name__}, "
+            "or RawBody to send a body exactly as given",
+        )
     if isinstance(message, BaseModel):
         return to_wire(message)
     try:

@@ -36,7 +36,7 @@ from fora_sdk.wire import (
     RequestIDHeader,
 )
 
-from ._strict import refuse_unless_strict
+from ._strict import refuse_unless_strict, refuse_unless_strict_request
 from ._strict_envelope import check_strict_envelope
 from .errors import (
     NOT_CANONICAL_WIRE_NAMING,
@@ -263,7 +263,14 @@ def _apply_before_sign(
 Validation = Literal["strict", "off"]
 
 
-def validate_request(op: str, message: Any, model: type[BaseModel], validation: Validation) -> None:
+def validate_request(
+    op: str,
+    message: Any,
+    model: type[BaseModel],
+    validation: Validation,
+    *,
+    strict_requests: bool,
+) -> None:
     """Refuse a request the protocol would reject anyway, before it costs a signature and
     a round trip.
 
@@ -276,15 +283,21 @@ def validate_request(op: str, message: Any, model: type[BaseModel], validation: 
     The validated value is DISCARDED and the caller's own object is what gets sent: a
     parse fills declared defaults, and sending those would put fields on the wire the
     caller never set.
+
+    ``strict_requests`` (``ClientConfig.strict_requests``) adds the strict contract on top,
+    whatever ``validation`` says: the published strict JSON Schema of the request, which
+    refuses an unknown member at any depth and names it, and the cross-field rules. It runs
+    on the fully stamped message, so what it passes is what gets signed.
     """
-    if validation == "off":
-        return
-    try:
-        model.model_validate(message)
-    except ValidationError as exc:
-        raise _schema_failure(
-            op, exc, "request failed its generated schema; the server could only refuse it"
-        ) from exc
+    if validation != "off":
+        try:
+            model.model_validate(message)
+        except ValidationError as exc:
+            raise _schema_failure(
+                op, exc, "request failed its generated schema; the server could only refuse it"
+            ) from exc
+    if strict_requests:
+        refuse_unless_strict_request(op, model, message)
 
 
 def decode_with_raw(
