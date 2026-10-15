@@ -30,9 +30,10 @@
 //
 // The acceptance functions take the requester check as a parameter and run it at
 // the exact position the protocol's signer does, with every other check their own.
-// helpers passes the check fora.proto requires of a signer; a test signer that must
-// produce what a verifier refuses passes one that admits an empty requester. One
-// renderer and one copy of every other check serve both, so neither can drift.
+// helpers passes the check fora.proto requires of a signer; helperstest, whose test
+// signers must produce what a verifier refuses, passes one that admits an empty
+// requester. One renderer and one copy of every other check serve both, so neither
+// can drift.
 //
 // The messages keep the helpers prefix: helpers' exported functions return them, and
 // a caller reads them there. Internal on purpose: none of this is an API of its own.

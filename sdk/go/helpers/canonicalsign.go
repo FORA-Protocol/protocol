@@ -5,7 +5,8 @@ import "github.com/FORA-Protocol/protocol/sdk/go/internal/canonicalsign"
 // The canonical signing form — RFC 8785 JCS over proto-JSON under one pinned option
 // set, defined on Offer.signature in fora.proto — is rendered by
 // internal/canonicalsign, whose package doc states the pinned options. This
-// package's offer and acceptance functions render through it.
+// package's offer and acceptance functions render through it, and so do the test
+// signers in helperstest.
 
 // ErrUnknownFields refuses a message the canonical form cannot faithfully
 // represent. proto-JSON renders only fields the schema defines, so a message
