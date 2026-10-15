@@ -116,6 +116,11 @@ _CORPUS_SPECS: list[tuple[pathlib.Path, Callable[[Any], Any], str]] = [
         "transport-failure",
     ),
     (
+        GO_CONNECT_TESTDATA / "refusal-header-vectors.json",
+        lambda d: d["refusals"],
+        "refusal-header",
+    ),
+    (
         GO_TESTDATA / "wire-names-vectors.json",
         lambda d: d["snake_from_json_name"],
         "wire-names-snake",
