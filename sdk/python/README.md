@@ -458,8 +458,9 @@ as a `CallError` carrying a `retrieval_auth_failure` detail with the edge's reas
 
 Failures arrive as one `CallError` carrying a `CallErrorKind` — `NOT_SENT`, `REFUSED`,
 `UNREACHABLE`, `MALFORMED`, `TOO_LARGE`, `NOT_SIGNABLE`, `UNKNOWN` — plus the peer's own
-reason token, the Connect `code` when the peer answered with one, and, when the peer sent
-one, a typed `ErrorDetail`, decoded from the binary `details[].value` the error carries. One failure type for
+reason token, the Connect `code` when the peer answered with one, the `status` and
+`headers` of a refusal, and, when the peer sent one, a typed `ErrorDetail`, decoded from
+the binary `details[].value` the error carries. One failure type for
 every verb, so a caller branches in one place. `NOT_SENT` is worth singling out: it means
 the client refused before anything left the process, so retrying without changing
 something will fail the same way.
@@ -508,6 +509,13 @@ a service through the SDK and check every answer through it:
   `ErrorDetail`, binary `value` and `debug` projection alike, must pass the strict
   `ErrorDetail` schema and the cross-field rules. A refused envelope is
   `CallError(MALFORMED)` with `code` still set to the peer's Connect code.
+- **`CallError.headers`** holds the header fields of a refusal, an answer of status 400 or
+  above on an RPC leg or `fetch`: a verifier's `Accept-Signature`, a gateway's
+  `Retry-After`, an edge's discovery headers, which `parse_discovery_hint(err.status,
+  err.headers)` reads. It is a read-only mapping looked up case-insensitively, a field sent
+  on several lines joined with ", ". A refused redirect, a 2xx the client could not read
+  and a local or transport failure carry none, and the fields are never rendered into the
+  message.
 - **Identity helpers** in `fora_sdk.identity` mint a throwaway agent: `generate_key()`,
   `directory_document(keys)` for the directory to serve, and
   `signing_transport_for(key, directory)`. Serve the directory as

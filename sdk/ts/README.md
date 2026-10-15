@@ -48,10 +48,13 @@ Strict decoding uses these same files: `createClient(url, { strict: true })` ref
 answer that carries an unknown field or breaks a cross-field rule, and an error answer
 whose Connect envelope or `ErrorDetail` (binary `value` or `debug` projection) the
 contract does not define; a refused envelope is `malformed` with `code` kept. A harness that tests
-FORA services through the client has three more seams on it: `beforeSign` alters a
+FORA services through the client has four more seams on it: `beforeSign` alters a
 request just before it is signed, a `RawBody` passed in place of a verb's request is sent
-exactly as given, and `ForaCallError.code` carries the Connect code of a refusal next to
-its typed `detail`. `execute` returns each delivery URL as the Exchange issued it, and
+exactly as given, `ForaCallError.code` carries the Connect code of a refusal next to its
+typed `detail`, and `ForaCallError.headers` carries the header fields of a refusal (an
+answer of status 400 or above, never a redirect), such as a verifier's `Accept-Signature`
+or an edge's discovery headers for `parseDiscoveryHint`. An injected send returns them as
+`UnaryResponse.headers`; one that leaves them out yields refusals carrying none. `execute` returns each delivery URL as the Exchange issued it, and
 `fetch` dials it as given with the agent's proof of possession: the delivery edge verifies
 the URL, and its refusal comes back with the edge's `retrieval_auth_failure` reason.
 `createAdminClient` covers the operator RPCs, and `@fora-protocol/sdk/identity` mints an

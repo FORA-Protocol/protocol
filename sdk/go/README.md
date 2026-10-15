@@ -360,6 +360,15 @@ response or re-implements signing:
   a non-JSON error status — and zero when no answer arrived. The typed `ErrorDetail` is
   decoded from the binary `value`; the shared `connect-error-vectors.json` and
   `error-detail-wire-vectors.json` corpora hold all three SDKs to the same reading.
+- **`CallError.Status` and `CallError.Header`** carry the HTTP status and the header
+  fields of the peer's error answer, 400 or above, on every RPC leg and on `Fetch`, where
+  `resolvers.FetchError.Header` holds them first: a verifier's `Accept-Signature`, a
+  gateway's `Retry-After`, an edge's discovery headers for
+  `helpers.ParseDiscoveryHint(err.Status, err.Header)`. A refused redirect, a 2xx the client
+  could not read and a failure where nothing answered carry none, and `Error()` never
+  renders the fields. Read a field sent on several lines as
+  `strings.Join(err.Header.Values(name), ", ")`, the value the other two SDKs return;
+  `refusal-header-vectors.json` holds all three to it.
 - **Delivery URLs are the edge's to check.** `Execute`, `ExecuteBatch` and
   `BrokerClient.Execute` return every `retrieval_endpoint` exactly as the Exchange
   issued it, and `Fetch` dials a URL as given with the agent's proof of possession, so

@@ -2933,3 +2933,63 @@ resolver and the offer-key cache took an injected one, so a cache on a test or r
 clock selected keys at one time and checked the directory's signatures at another. Both
 now take a clock. Go's fetcher takes it as an optional trailing argument, so its
 released call still compiles, as the client verbs' call options were added.
+
+## A refusal carries its answer's header fields, and only a refusal does
+
+A peer that refuses a call often says in its header fields what it wants next. A Web Bot
+Auth verifier names the signature it requires in `Accept-Signature` (WG-00 §5.3), a
+draining gateway sets `Retry-After`, and a delivery edge's 403 names the publisher's terms
+and Exchange in `X-Content-Rules` and `X-FORA-Exchange`. None of the three clients handed
+those fields back. A conformance suite checking a verifier's `Accept-Signature` had to post
+raw HTTP and parse the raw answer, which is the work these clients exist to do for it.
+
+Each client's failure now carries them: `CallError.headers` in Python, `ForaCallError.headers`
+in TypeScript, and `CallError.Header` in Go, with `resolvers.FetchError.Header` beneath it on
+the content leg.
+
+**Only an error answer carries fields.** Status 400 or above, on either leg. A failure where
+no answer arrived has none to carry, and a 2xx the client could not read is not a refusal.
+A redirect is left out on purpose. Its `Location` names a URL the peer chose, credentials
+included, and the SDK already withholds that target everywhere else: a signed leg refuses
+the redirect and redacts its target (see "A signed leg refuses redirects; the guarded fetch
+follows them"), and a key directory's refused redirect names only the address read (see "A
+failed document read says when the answer was a 404 or a redirect"). Carrying the fields
+would hand the target straight back. The rule has one owner per language: the failure's
+constructor in Python and TypeScript, so every site passes the answer's fields and the
+constructor decides; and `failure.RefusalHeader` in Go, which both legs call.
+
+**The fields are values, never prose.** They are the peer's, unvalidated, and no client
+renders them into an error message or a log line. Like `peer_message`, they are bounded
+only by the HTTP client's own header limit, and truncating them is the business of
+whoever displays them.
+
+**One reading across three HTTP libraries.** net/http canonicalizes field names and keeps
+each line of a repeated field; undici lowercases names and decodes values as UTF-8; httpx
+keeps names as sent. A caller reads a field by any spelling of its name, and a repeated
+field as one value joined with ", " (RFC 9110 §5.3). Go keeps the lines in its
+`http.Header`, and `strings.Join(Header.Values(name), ", ")` reads the same value. In
+TypeScript a value the Fetch `Headers` type cannot hold, a character above U+00FF, is
+left out rather than thrown on, because describing a failure must not become a second
+failure. `refusal-header-vectors.json` pins the reading in all three SDKs, captured from the
+real Go client. It records each row's own field lines only, since `Date` and
+`Content-Length` change with the run and say nothing about the rule.
+
+**Go records the answer itself.** connect-go's `Error.Meta()` holds response headers only
+when the body decoded as a Connect envelope, so a gateway's plain-text 503 and its
+`Retry-After` would have carried nothing. The client's transport already recorded that a
+response arrived, to tell a peer's Connect code from one connect-go derived; it now keeps
+that answer's status and copied fields too. The same record fixes `CallError.Status` on the
+RPC path, which its doc described and nothing set.
+
+**A refused redirect's target stays out of Go's RPC errors, and a test now says so.**
+net/http wraps the refusal in a `*url.Error` naming the raw `Location`, and the Go client
+keeps that out of its errors only because connect-go discards the wrapper before the error
+surfaces. A test now pins that on every RPC face, so a dependency that stopped discarding it
+fails a test rather than leaking into a log.
+
+**Differences left as they are.** TypeScript's RPC read cap refuses without a status, so
+that failure carries no fields, where Python's carries both. Go reports `Status` 0 for a
+refused redirect and for a 2xx it could not read, where the two JSON clients report the
+status. A 2xx that is not a FORA answer is a refusal in Go, which connect-go classifies by
+its content type, and malformed in Python and TypeScript. Each predates this change, and
+none decides whether fields are carried.

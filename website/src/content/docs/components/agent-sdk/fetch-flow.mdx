@@ -305,7 +305,8 @@ switching over a family of per-failure structs.
 type CallError struct {
     Kind   CallErrorKind       // the class; branch on this
     Op     string              // the verb that failed
-    Status int                 // HTTP status when the peer answered, 0 otherwise
+    Status int                 // HTTP status of the refusing answer; 0 when none arrived
+    Header http.Header         // that answer's header fields, when its status is 400 or above
     Reason string              // the peer's own refusal token when it sent one
     Code   connectrpc.Code     // the Connect code of the peer's answer; zero when none
     Detail *forav1.ErrorDetail // the peer's typed reason when it sent one
@@ -333,14 +334,18 @@ type FetchError struct {
     Failure FetchFailure // FetchRefused, FetchUnreachable, FetchTooLarge,
                          // FetchNotSignable, FetchMalformed
     Op      string
-    Status  int    // HTTP status when the edge answered, 0 otherwise
-    Reason  string // the edge's own refusal token when it sent one
+    Status  int         // HTTP status when the edge answered, 0 otherwise
+    Header  http.Header // the header fields of the edge's error answer (400 or above)
+    Reason  string      // the edge's own refusal token when it sent one
     Err     error
 }
 ```
 
 Both carry `ReasonOf()`, which answers the peer's own token when it sent one and the
-failure class otherwise. `connect.ErrorDetailFrom(err)` pulls the typed
+failure class otherwise. `Header` holds what a refusal asks for next — a verifier's
+`Accept-Signature`, a gateway's `Retry-After`, an edge's discovery headers, which
+`helpers.ParseDiscoveryHint(err.Status, err.Header)` reads — and is nil for any failure
+that is not an error answer, a refused redirect included. `connect.ErrorDetailFrom(err)` pulls the typed
 `ErrorDetail` out of any error that carries one, including the `retrieval_auth_failure`
 the client synthesizes from a delivery edge's refusal token. `resolvers.ErrEndpointRefused` is a
 sentinel reachable through `errors.Is`.

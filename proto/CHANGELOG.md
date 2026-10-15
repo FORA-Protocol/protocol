@@ -108,6 +108,10 @@ the detail.
   `requester` on the three requests. A document body over 1 MiB is refused rather than
   truncated, and the TypeScript reader also ends a read at 30 seconds and follows at most
   five redirects itself, never from https to http.
+- **Go client errors.** `connect.CallError` and `resolvers.FetchError` gain a `Header`
+  field, an `http.Header`, so neither struct compares with `==` any more. An RPC
+  `CallError` now carries the `Status` of the peer's error answer, which v1.0.8 left at 0,
+  so its message names that status, as the content leg's always did.
 
 ### Changes since v1.0.8
 
@@ -847,6 +851,23 @@ request only where it means to, and check every answer through the SDK's own dec
   (Go). `connect-error-vectors.json` now pins the code and the whole detail, including
   rows carrying only `value`, and the new `error-detail-wire-vectors.json` pins the
   binary decoding of every field of the ErrorDetail subtree against the descriptor.
+- **Refusal headers.** A refusal carries the header fields of the answer that refused:
+  `CallError.headers` (Python, a read-only mapping looked up case-insensitively),
+  `ForaCallError.headers` (TypeScript, a Fetch `Headers`) and `CallError.Header` with
+  `resolvers.FetchError.Header` (Go, an `http.Header`), on the RPC legs and the delivery
+  fetch alike. A Web Bot Auth verifier's `Accept-Signature`, a gateway's `Retry-After` and
+  an edge's discovery headers are read through the SDK; `parse_discovery_hint`,
+  `parseDiscoveryHint` and `helpers.ParseDiscoveryHint` read the last with the error's
+  status. Only an error answer, status 400 or above, carries fields: a local failure, a
+  transport failure, a 2xx the client could not read and a refused redirect carry none,
+  the redirect because its `Location` names a URL the peer chose. The fields are a copy and
+  are never rendered into the message. A field sent on several lines reads as one value
+  joined with ", " in Python and TypeScript; Go keeps the lines, and
+  `strings.Join(Header.Values(name), ", ")` reads the same value. Go's RPC
+  `CallError.Status` is now set beside them. TypeScript's `UnaryResponse` gains an optional
+  `headers`, which the default send fills; an injected send that leaves it out yields
+  refusals carrying none. The new `refusal-header-vectors.json` pins which failures carry
+  fields and what they read as, in all three SDKs.
 - **Delivery URLs pass through unchanged.** Execute, the Broker purchase and fetch hand
   back each retrieval URL as the Exchange issued it, and fetch presents the agent's proof
   of possession. The delivery edge verifies the URL signature and, where it can, the agent
