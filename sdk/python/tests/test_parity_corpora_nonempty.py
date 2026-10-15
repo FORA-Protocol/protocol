@@ -56,6 +56,13 @@ def _whole(doc: Any) -> Any:
 _CORPUS_SPECS: list[tuple[pathlib.Path, Callable[[Any], Any], str]] = [
     (GO_TESTDATA / "offer-verify-vectors.json", _vectors, "offer-verify"),
     (GO_TESTDATA / "acceptance-vectors.json", _vectors, "acceptance"),
+    (GO_TESTDATA / "acceptance-vectors.json", lambda d: d["refused"], "acceptance-refused"),
+    (GO_TESTDATA / "request-acceptance-vectors.json", _vectors, "request-acceptance"),
+    (
+        GO_TESTDATA / "request-acceptance-vectors.json",
+        lambda d: d["refused"],
+        "request-acceptance-refused",
+    ),
     (GO_TESTDATA / "hashurl-vectors.json", _vectors, "hashurl"),
     (GO_TESTDATA / "multisig-chain-vectors.json", _vectors, "multisig-chain"),
     (GO_TESTDATA / "money-vectors.json", _vectors, "money"),
