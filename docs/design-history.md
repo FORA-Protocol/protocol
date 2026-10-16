@@ -2962,6 +2962,6 @@ Exchange's public keys.
 
 Neither choice removes anything from the contract. The domain-verification RPCs stay in
 v1 for deployments that verify that way, and a publisher that pushes its own catalog with
-its own key still can, because the push path accepts any contributor the manifest names.
-What changed is which path the publisher guide describes: the guide follows the console,
-not the other way round.
+its own key still can, because the push path accepts the domain's own publisher as well
+as any contributor its manifest names. What changed is which path the publisher guide
+describes: the guide follows the console, not the other way round.
