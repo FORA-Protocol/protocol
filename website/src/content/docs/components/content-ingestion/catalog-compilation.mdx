@@ -51,31 +51,53 @@ Each `CatalogEntry` maps to a protocol `OfferTemplate`. The content identity is 
 | `Authors` | `comp.Text` | `author` | String array |
 | `SourceType` | `comp.Text` | `sourcetype` | 0=human, 1=ai, 2=hybrid |
 | `PricingModel` | `fora.Pricing` | `model` | Enum mapping |
-| `Rate` | `fora.Pricing` | `rate` | Decimal |
+| `Rate` | `fora.Pricing` | `rate` | Exact decimal string |
 | `Currency` | `fora.Pricing` | `currency` | ISO 4217 |
-| `EstimatedTokens` | `fora.Pricing` | `estimated_quantity` | `WordCount * 1.32` |
-| `Rate / EstimatedTokens` | `fora.Pricing` | `unit_cost` | Computed at compilation |
+| `Unit` | `fora.Pricing` | `unit` | The metering unit of a `PER_UNIT` price |
+| `EstimatedQuantity` | `fora.Pricing` | `estimated_quantity` | The publisher's own estimate, in `Unit` (from the term's pricing or `ResourceEntry.estimated_quantity`), carried unchanged; absent when the publisher states none |
+| price of one purchase / `EstimatedTokens` | `fora.Pricing` | `unit_cost` | Comparison metric, computed at compilation. `EstimatedTokens` (`WordCount * 1.32`) is the resource's size, never `estimated_quantity` |
 | `Domain + Path` | `fora.ResourceIdentity` | `canonical_url` | Full URL |
 | `Permissions` | `fora.Restriction` (kind `RESTRICTION_KIND_FUNCTION`, on `LicenseTerm.restrictions`) | `permitted` | From RSL permits (hyphenated tokens, e.g. `ai-input`) |
 | `Prohibitions` | `fora.Restriction` (kind `RESTRICTION_KIND_FUNCTION`, on `LicenseTerm.restrictions`) | `prohibited` | From RSL prohibits (hyphenated tokens, e.g. `ai-train`) |
 
 ## Pricing Attachment
 
-Pricing is attached at compilation time by the Pricer stage (Stage 4), which runs before compilation. The unit_cost (effective cost per unit) is computed during the mapping:
+Pricing is attached at compilation time by the Pricer stage (Stage 4), which runs before compilation. The offer's estimate is the publisher's own, never the pipeline's token count: a metered purchase charges the estimate × rate, or one unit's rate without an estimate, and that charge is final (see [Charging a metered purchase](/protocol/transaction-flow/#charging-a-metered-purchase)). The unit_cost (effective cost per unit, for comparison only) is computed during the mapping:
 
 ```go
 pricing := &forav1.Pricing{
     Model:    mapPricingModel(entry.PricingModel),
-    Rate:     entry.Rate,
+    Rate:     entry.Rate, // exact decimal string
     Currency: entry.Currency,
 }
-if entry.EstimatedTokens > 0 {
-    quantity := int32(entry.EstimatedTokens)
-    pricing.EstimatedQuantity = &quantity
-    if entry.Rate > 0 {
-        unitCost := entry.Rate / float64(entry.EstimatedTokens)
-        pricing.UnitCost = &unitCost
+if entry.Unit != "" {
+    pricing.Unit = &entry.Unit
+}
+// The estimate is the publisher's, in the price's unit, or none.
+if entry.EstimatedQuantity > 0 {
+    estimate := entry.EstimatedQuantity
+    pricing.EstimatedQuantity = &estimate
+}
+if unitCost, ok := comparisonUnitCost(entry); ok {
+    pricing.UnitCost = &unitCost
+}
+
+// comparisonUnitCost is the price of one purchase over the resource's size in tokens,
+// the comparison unit for text. A price already per token is its own unit_cost.
+func comparisonUnitCost(entry CatalogEntry) (string, bool) {
+    if entry.Unit == "tokens" {
+        return entry.Rate, true
     }
+    rate, err := helpers.ParseMoney(entry.Rate)
+    if err != nil || entry.EstimatedTokens <= 0 {
+        return "", false
+    }
+    price := rate // a flat price, or one unit of a metered price without an estimate
+    if entry.PricingModel == PricingModelPerUnit && entry.EstimatedQuantity > 0 {
+        price = rate.Mul(decimal.NewFromInt32(entry.EstimatedQuantity))
+    }
+    unitCost, err := helpers.FormatMoney(price.DivRound(decimal.NewFromInt(int64(entry.EstimatedTokens)), 12))
+    return unitCost, err == nil
 }
 ```
 
@@ -104,7 +126,7 @@ When a catalog entry has attestations from multiple verifiers (e.g., a provider 
 Content integrity signals flow into the `OfferTemplate` from multiple sources:
 
 - **Attestation claims (v1.0)**: Signed claims from providers (Level 1) or third-party vendors (Level 2) provide cryptographically verifiable token counts, content hashes, and metadata. Attestations replace the former `ResourceAttestation` concept with independently verifiable data.
-- **Token estimate accuracy**: Provider-provided tokens (Source 1) are the most accurate. Crawl-derived estimates carry +/-15% uncertainty.
+- **Token estimate accuracy**: Provider-provided tokens (Source 1) are the most accurate. Crawl-derived estimates carry +/-15% uncertainty. The token estimate sizes a resource for `unit_cost` only, so its error moves the comparison metric, never a charge.
 - **Freshness**: `BuiltAt` timestamp on the `CatalogSnapshot` and per-entry `Freshness` timestamps enable staleness detection. Attestation `attested_at` timestamps provide per-entry freshness for verified claims.
 - **Source hashes**: SHA-256 of each input source (rsl.txt, sitemap.xml). If unchanged since last build, the pipeline can skip rebuild.
 

@@ -52,7 +52,11 @@ def _config(**overrides: Any) -> ClientConfig:
     base: dict[str, Any] = {
         "base_url": "https://exchange.test",
         "requester": _REQUESTER,
-        "signer": SigningTransport(signer_seed=_SEED, keyid="agent.v1"),
+        "signer": SigningTransport(
+            signer_seed=_SEED,
+            keyid="agent.v1",
+            signature_agent="https://agent.test",
+        ),
     }
     base.update(overrides)
     return ClientConfig(**base)

@@ -1,11 +1,18 @@
-// The one HTTP transport seam the fetching resolvers share. Transport-neutral
+// The Node-only HTTP transports the fetching resolvers default to. Transport-neutral
 // per the SDK dependency policy (the resolvers accept an injected fetch-compatible
-// callable) but the DEFAULT transport now runs on a maintained HTTP client
-// (undici) instead of a hand-rolled node:http request. undici owns the response
-// state machine — status, redirects, 1xx, decompression — so this module owns
-// only the SSRF guard (an injectable connection-level connector) and the
-// fail-closed status→body taxonomy. Integration tests / on-prem deployments that
-// must reach a private origin inject their own FetchLike (the escape hatch).
+// callable, whose contract is in fetch.ts) but the DEFAULT transport runs on a
+// maintained HTTP client (undici) instead of a hand-rolled node:http request. undici
+// owns the response state machine — status, redirects, 1xx, decompression — so this
+// module owns only the SSRF guard (an injectable connection-level connector) and the
+// bounded body read. It imports undici and node:dns, so only the Node entry
+// (resolvers/index.ts) and the client reach it; the edge entry (resolvers/edge.ts) never
+// does. Integration tests / on-prem deployments that must reach a private origin inject
+// their own FetchLike (the escape hatch).
+//
+// A document read asks these transports not to follow redirects and follows them itself
+// (resolvers/fetch.ts), so the reader vets every hop's scheme and counts the chain
+// whatever transport it was given. The redirect-cap interceptor below still bounds a
+// caller that uses a transport directly.
 
 import { lookup as dnsLookup } from "node:dns/promises";
 
@@ -17,24 +24,33 @@ import {
 	request as undiciRequest,
 } from "undici";
 
-import { DirectoryUnavailable } from "./errors.ts";
+import { type FetchLike, type FetchResponse, MAX_DOC_BYTES } from "./fetch.ts";
 import { allowedScheme, blockedAddress, MAX_REDIRECTS } from "./ssrf.ts";
 
-/** The minimal response shape the resolvers read — a structural subset of the
- * WHATWG `Response`, so the global `fetch` (and undici's) satisfies it. */
-export interface FetchResponse {
-	status: number;
-	text(): Promise<string>;
-}
+// The transport contract and the document GET are edge-safe and live in fetch.ts; they
+// are re-exported here so every import of them through this module keeps working.
+export {
+	type FetchInit,
+	type FetchLike,
+	type FetchResponse,
+	type Fetched,
+	fetchDocument,
+	fetchSoft,
+	fetchStrict,
+	mediaTypeEssence,
+} from "./fetch.ts";
 
-/** An injected HTTP GET. Defaults to the SSRF-guarded transport (guardedFetch). */
-export type FetchLike = (url: string) => Promise<FetchResponse>;
-
-/** Bounds the guarded default transport's GET so a slow origin cannot pin a
- * Resolve call or the poller (Go: defaultWBAHTTPTimeout). */
+/** Bounds one GET of the guarded default transport so a slow origin cannot pin a
+ * Resolve call or the poller (Go: defaultWBAHTTPTimeout). A document read also carries
+ * its own whole-read deadline (fetch.ts), which arrives as the caller's signal. */
 const DEFAULT_HTTP_TIMEOUT_MS = 10_000;
-/** Well-known documents are small; bound the body read (Go: maxDocBytes). */
-const MAX_DOC_BYTES = 1 << 20; // 1 MiB
+
+/** The signal one GET runs under: the per-request timeout, and the caller's signal when
+ * it passed one, whichever fires first. */
+function requestSignal(caller: AbortSignal | undefined): AbortSignal {
+	const timeout = AbortSignal.timeout(DEFAULT_HTTP_TIMEOUT_MS);
+	return caller === undefined ? timeout : AbortSignal.any([caller, timeout]);
+}
 
 /** An SSRF error surfaced when the guarded transport refuses to dial a target.
  * fetchStrict/fetchSoft see it as an ordinary transport failure (fail-closed
@@ -107,26 +123,50 @@ export function ssrfGuard(): buildConnector.connector {
  * composed redirect interceptor bounds the chain to the shared MAX_REDIRECTS cap so
  * undici does not inherit its ~20-hop default. Beyond the cap the interceptor stops
  * following and surfaces the 3xx as an ordinary non-2xx (fail-closed at fetchStrict). */
-const guardedAgent = new Agent({ connect: ssrfGuard() }).compose(
+const guardedBase = new Agent({ connect: ssrfGuard() });
+const guardedAgent = guardedBase.compose(
 	interceptors.redirect({ maxRedirections: MAX_REDIRECTS }),
 );
 
-/** Reads an undici response body as text, bounded to MAX_DOC_BYTES. Iterates the
- * body stream (async-iterable in Node) so a hostile origin cannot force an
- * unbounded read; breaking the loop cancels the stream once the cap is hit. */
+/** Reads a response body, bounded to MAX_DOC_BYTES. Iterates the body stream
+ * (async-iterable in Node) so a hostile origin cannot force an unbounded read, and
+ * REFUSES a body past the cap rather than truncating it: a truncated document that
+ * happens to decode is worse than a refusal, and a truncated license document would
+ * be reported as a digest mismatch it is not. The refusal is thrown inside the
+ * FetchLike, so fetchStrict reports it as DirectoryUnavailable and fetchSoft as
+ * undefined, like every other failed read. */
 async function readBounded(
 	body: AsyncIterable<Uint8Array> | null,
-): Promise<string> {
-	if (body === null) return "";
+): Promise<Uint8Array> {
+	if (body === null) return new Uint8Array();
 	const chunks: Uint8Array[] = [];
 	let total = 0;
 	for await (const chunk of body) {
-		chunks.push(chunk);
 		total += chunk.length;
-		if (total >= MAX_DOC_BYTES) break;
+		if (total > MAX_DOC_BYTES) {
+			throw new Error(`document exceeds the ${MAX_DOC_BYTES} byte cap`);
+		}
+		chunks.push(chunk);
 	}
-	const buf = Buffer.concat(chunks.map((c) => Buffer.from(c)));
-	return buf.subarray(0, MAX_DOC_BYTES).toString("utf8");
+	return new Uint8Array(Buffer.concat(chunks.map((c) => Buffer.from(c))));
+}
+
+/** The FetchResponse a bounded read answers with: the bytes as read, their UTF-8
+ * text, and the response's headers. */
+function boundedResponse(
+	status: number,
+	body: Uint8Array,
+	header: (name: string) => string | null,
+): FetchResponse {
+	return {
+		status,
+		text: () => Promise.resolve(Buffer.from(body).toString("utf8")),
+		arrayBuffer: () =>
+			Promise.resolve(
+				body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer,
+			),
+		headers: { get: header },
+	};
 }
 
 /** GET `url` through `dispatcher` (an undici Agent carrying the SSRF connector
@@ -140,6 +180,7 @@ async function requestBounded(
 	url: string,
 	dispatcher: Dispatcher,
 	allowScheme: (scheme: string) => boolean,
+	signal: AbortSignal | undefined,
 ): Promise<FetchResponse> {
 	let parsed: URL;
 	try {
@@ -160,7 +201,7 @@ async function requestBounded(
 	try {
 		resp = await undiciRequest(url, {
 			dispatcher,
-			signal: AbortSignal.timeout(DEFAULT_HTTP_TIMEOUT_MS),
+			signal: requestSignal(signal),
 		});
 	} catch (err) {
 		if (err instanceof SsrfBlockedError) throw err;
@@ -169,7 +210,11 @@ async function requestBounded(
 		throw err;
 	}
 	const body = await readBounded(resp.body as AsyncIterable<Uint8Array> | null);
-	return { status: resp.statusCode, text: () => Promise.resolve(body) };
+	return boundedResponse(resp.statusCode, body, (name) => {
+		const value = resp.headers[name.toLowerCase()];
+		if (value === undefined) return null;
+		return Array.isArray(value) ? value.join(", ") : value;
+	});
 }
 
 /** The SSRF-guarded default transport. The directory host is derived from a
@@ -179,8 +224,13 @@ async function requestBounded(
  * deny-by-default, every dial (initial + each redirect hop) is address-checked and
  * pinned, the redirect chain is bounded to MAX_REDIRECTS, and undici owns
  * status/redirect/1xx so a non-2xx is an ordinary response, never a crash. */
-export const guardedFetch: FetchLike = (url) =>
-	requestBounded(url, guardedAgent, allowedScheme);
+export const guardedFetch: FetchLike = (url, init) =>
+	requestBounded(
+		url,
+		init?.redirect === "manual" ? guardedBase : guardedAgent,
+		allowedScheme,
+		init?.signal,
+	);
 
 // ---------------------------------------------------------------------------
 // The ONE env-driven, best-effort guarded fetch factory.
@@ -262,7 +312,15 @@ export function guardedFetchFromEnv(): FetchLike {
 	const dispatcher = base.compose(
 		interceptors.redirect({ maxRedirections: MAX_REDIRECTS }),
 	);
-	return (url) => requestBounded(url, dispatcher, schemeGuardAllows);
+	// A read that refuses redirects dials the base agent, which follows none: the 3xx
+	// comes back as the answer and the read fails on it.
+	return (url, init) =>
+		requestBounded(
+			url,
+			init?.redirect === "manual" ? base : dispatcher,
+			schemeGuardAllows,
+			init?.signal,
+		);
 }
 
 /** Default transport for a resolver whose URL is a FIXED, operator-chosen address
@@ -280,8 +338,11 @@ export function guardedFetchFromEnv(): FetchLike {
  * here, which is a known gap being closed separately; it is not the rule. Do not
  * reach for this transport for a new resolver without first asking where its URL
  * comes from. */
-export const defaultFetch: FetchLike = async (url) => {
-	const r = await fetch(url);
+export const defaultFetch: FetchLike = async (url, init) => {
+	const r = await fetch(url, {
+		...(init?.redirect === "manual" ? { redirect: "manual" as const } : {}),
+		...(init?.signal !== undefined ? { signal: init.signal } : {}),
+	});
 	// Bound the body read even on the unguarded path: a misconfigured / hostile
 	// well-known origin cannot force an unbounded read into the JSON decoder. The
 	// WHATWG Response body is async-iterable in Node, so it reuses readBounded (the
@@ -289,42 +350,6 @@ export const defaultFetch: FetchLike = async (url) => {
 	const body = await readBounded(
 		r.body as unknown as AsyncIterable<Uint8Array> | null,
 	);
-	return { status: r.status, text: () => Promise.resolve(body) };
+	return boundedResponse(r.status, body, (name) => r.headers.get(name));
 };
 
-/** GET `url` and return the body text. A transport failure or a non-200 status
- * throws DirectoryUnavailable (fail-closed halt) — the taxonomy a composite
- * relies on to distinguish an outage from an unknown key. A blocked SSRF target
- * is a transport failure and surfaces the same way (never a valid empty doc). */
-export async function fetchStrict(
-	fetchFn: FetchLike,
-	url: string,
-): Promise<string> {
-	let resp: FetchResponse;
-	try {
-		resp = await fetchFn(url);
-	} catch (err) {
-		throw new DirectoryUnavailable(`fetch ${url}`, { cause: err });
-	}
-	if (resp.status !== 200) {
-		throw new DirectoryUnavailable(`status ${resp.status} for ${url}`);
-	}
-	return resp.text();
-}
-
-/** Best-effort GET: returns the body text on 200, or `undefined` on any
- * transport/status failure. The revocation refresh uses this so a fetch blip
- * leaves the prior snapshot in place (Go: best-effort refresh) rather than
- * propagating — a stale-but-present snapshot is safer than dropping revocations. */
-export async function fetchSoft(
-	fetchFn: FetchLike,
-	url: string,
-): Promise<string | undefined> {
-	try {
-		const resp = await fetchFn(url);
-		if (resp.status !== 200) return undefined;
-		return await resp.text();
-	} catch {
-		return undefined;
-	}
-}

@@ -1,0 +1,50 @@
+{
+  "$defs": {
+    "fora.admin.v1.TenantFeeRate": {
+      "description": "TenantFeeRate is the fee-rate payload shared by SetTenantFeeRate's request\n and response. The field rules live here once, so the write and the echoed\n read-back stay in lockstep.",
+      "properties": {
+        "fee_rate_bps": {
+          "default": 0,
+          "description": "Fee rate in basis points of gross: fee = floor(gross * bps / 10000).\n Below 10000 keeps the fee strictly under 100%; integer basis points avoid\n float drift when aggregating many charges. 0 is a legitimate explicit\n value (\"no fee\"), not an unset sentinel.",
+          "exclusiveMaximum": 10000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "notes": {
+          "description": "Operator commentary on the rate (why it was set, by whom, ticket link).\n Omitted clears any existing note.",
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "tenant_id": {
+          "description": "The tenant whose fee rate is being set.",
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id"
+      ],
+      "title": "Tenant Fee Rate",
+      "type": "object"
+    }
+  },
+  "$id": "fora.admin.v1.SetTenantFeeRateRequest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "rate": {
+      "$ref": "#/$defs/fora.admin.v1.TenantFeeRate",
+      "description": "The fee rate to apply. Required — an absent payload would otherwise skip\n validation of its fields."
+    },
+    "ver": {
+      "default": "",
+      "description": "FORA protocol version — \"1.0\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in fora.proto.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "rate"
+  ],
+  "title": "Set Tenant Fee Rate Request",
+  "type": "object"
+}

@@ -1,36 +1,31 @@
-"""sdk/python multi-member Signature-Input parser parse-edge units.
+"""Signature-Input parse-edge units: the verbatim-inner split and the clean refusal.
 
-The canonical Go golden vectors (multisig-chain-vectors.json) are well-behaved
-(no comma/paren inside a quoted keyid, no backslash escapes, canonical
-whitespace), so passing every vector does NOT gate the Python parser's
-correctness on an ADVERSARIAL Signature-Input. Go itself delegates the dictionary
-parse to dunglas/httpsfv and only hand-rolls the verbatim-inner split
-(raw_inner_by_label / split_top_level_members). The Python port hand-rolls both,
-so these parse-edge units are the correct level (parser primitives → unit tests)
-— they pin the exact quoted-string / backslash-escape / top-level-comma behavior
-the RFC 8941 dictionary grammar requires.
+The canonical Go golden vectors are well-behaved (no comma or paren inside a quoted
+keyid, no backslash escapes, canonical whitespace), so passing every vector does NOT
+gate correctness on an ADVERSARIAL Signature-Input. Go delegates the dictionary parse
+to dunglas/httpsfv and hand-rolls only the verbatim-inner split
+(rawInnerByLabel / splitTopLevelMembers); Python parses with fora_sdk.sfv and keeps the
+same split. These parser units pin the quoted-string / backslash-escape / top-level
+comma behavior the RFC 8941 dictionary grammar requires.
 
-Faces under test (do NOT exist yet — RED):
-  fora_sdk.multisig_parse.split_top_level_members — split one SFV dictionary
-    header value on TOP-LEVEL commas, honoring quoted strings + backslash escapes
-    (mirrors Go splitTopLevelMembers).
+Faces under test:
+  fora_sdk.multisig_parse.split_top_level_members — split one SFV dictionary header
+    value on TOP-LEVEL commas, honoring quoted strings and backslash escapes.
   fora_sdk.multisig_parse.raw_inner_by_label — the VERBATIM member value after
-    ``label=`` for each label (mirrors Go rawInnerByLabel), so each hop's base
-    terminates with the signer's exact @signature-params bytes.
-  fora_sdk.multisig_parse.parse_multisig_signature_input — full multi-label parse;
-    returns None (clean reject) on a malformed header, never a mis-slice.
-
-RED until fora_sdk/multisig_parse.py exists: the import raises ImportError.
+    ``label=`` for each label, so each signature's base terminates with the signer's
+    exact @signature-params bytes.
+  fora_sdk._sigbase.parse_all_signatures — the full multi-label parse; refuses a
+    malformed header outright, never a mis-slice.
+  fora_sdk._sigbase.alg_accepted — whether a verifier accepts a signature's alg
+    parameter, read from the presence the parse records.
 """
 
 from __future__ import annotations
 
-# RED: fora_sdk.multisig_parse does not exist yet (TDD red step).
-from fora_sdk.multisig_parse import (  # type: ignore[import-not-found]
-    parse_multisig_signature_input,
-    raw_inner_by_label,
-    split_top_level_members,
-)
+import pytest
+
+from fora_sdk._sigbase import SignatureCheckError, SigParams, alg_accepted, parse_all_signatures
+from fora_sdk.multisig_parse import raw_inner_by_label, split_top_level_members
 
 
 def test_splits_on_top_level_commas_into_one_member_per_label() -> None:
@@ -74,7 +69,47 @@ def test_preserves_the_verbatim_inner_value_per_label() -> None:
 
 
 def test_cleanly_rejects_a_malformed_header_rather_than_mis_slicing() -> None:
-    # An unterminated inner list must be REJECTED (None), not partially sliced into
-    # a bogus covered set.
+    # An unterminated inner list must be REFUSED, not partially sliced into a bogus
+    # covered set.
     malformed = 'sig1=("@method" "@target-uri";keyid="agent.v1"'
-    assert parse_multisig_signature_input([malformed]) is None
+    with pytest.raises(SignatureCheckError) as caught:
+        parse_all_signatures({"signature-input": malformed, "signature": "sig1=:AA==:"})
+    assert caught.value.reason == "malformed_sig_input"
+
+
+def test_a_comma_inside_a_quoted_keyid_parses_to_two_signatures() -> None:
+    headers = {
+        "signature-input": 'a=("@method");keyid="x,y", b=("@method");keyid="z"',
+        "signature": "a=:AA==:, b=:AQ==:",
+    }
+    params, sig_map = parse_all_signatures(headers)
+    assert [(p.label, p.keyid) for p in params] == [("a", "x,y"), ("b", "z")]
+    assert sig_map == {"a": b"\x00", "b": b"\x01"}
+
+
+@pytest.mark.parametrize(
+    ("params", "omitted", "accepted"),
+    [
+        ("", True, True),
+        (';alg="ed25519"', False, True),
+        (';alg="ED25519"', False, True),
+        (';alg=""', False, False),
+        (';alg="rsa-pss-sha512"', False, False),
+    ],
+)
+def test_the_parse_records_whether_alg_is_present(
+    params: str, omitted: bool, accepted: bool
+) -> None:
+    # An absent alg is accepted, because the Ed25519 key decides the algorithm; an
+    # alg that is present must name ed25519, so an empty one is refused.
+    headers = {
+        "signature-input": 'sig1=("@method");keyid="k"' + params,
+        "signature": "sig1=:AAAA:",
+    }
+    (p,), _ = parse_all_signatures(headers)
+    assert p.alg_omitted is omitted
+    assert alg_accepted(p) is accepted
+
+
+def test_a_sigparams_built_by_hand_reads_as_alg_present() -> None:
+    assert not alg_accepted(SigParams(label="sig1", covered=()))

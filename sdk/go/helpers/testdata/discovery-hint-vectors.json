@@ -1,0 +1,1127 @@
+{
+  "header_names": {
+    "content_rules": "X-Content-Rules",
+    "exchange": "X-FORA-Exchange"
+  },
+  "parse": [
+    {
+      "name": "both_valid",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "https://publisher.example/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "both_valid_with_ports",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example:8443/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example:8081"
+        ]
+      ],
+      "expected": {
+        "content_rules": "https://publisher.example:8443/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "exchange.example:8081",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "header_names_any_case",
+      "status": 403,
+      "headers": [
+        [
+          "x-content-rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-EXCHANGE",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "https://publisher.example/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "surrounding_whitespace_trimmed",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          " https://publisher.example/.well-known/fora.json\t"
+        ],
+        [
+          "X-FORA-Exchange",
+          "  exchange.example "
+        ]
+      ],
+      "expected": {
+        "content_rules": "https://publisher.example/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "plaintext_scheme_is_a_transport_question",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "http://publisher.example:8080/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "http://publisher.example:8080/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "exchange_kept_as_sent",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "Exchange.Example:443"
+        ]
+      ],
+      "expected": {
+        "content_rules": "https://publisher.example/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "Exchange.Example:443",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "exchange_missing",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ]
+      ],
+      "expected": {
+        "content_rules": "https://publisher.example/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "",
+        "exchange_state": "absent"
+      }
+    },
+    {
+      "name": "content_rules_missing",
+      "status": 403,
+      "headers": [
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "absent",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "neither_header",
+      "status": 403,
+      "headers": [
+        [
+          "Content-Type",
+          "application/json"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "absent",
+        "exchange": "",
+        "exchange_state": "absent"
+      }
+    },
+    {
+      "name": "status_200_ignored",
+      "status": 200,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "absent",
+        "exchange": "",
+        "exchange_state": "absent"
+      }
+    },
+    {
+      "name": "status_401_ignored",
+      "status": 401,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "absent",
+        "exchange": "",
+        "exchange_state": "absent"
+      }
+    },
+    {
+      "name": "status_402_ignored",
+      "status": 402,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "absent",
+        "exchange": "",
+        "exchange_state": "absent"
+      }
+    },
+    {
+      "name": "status_404_ignored",
+      "status": 404,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "absent",
+        "exchange": "",
+        "exchange_state": "absent"
+      }
+    },
+    {
+      "name": "content_rules_points_at_an_exchange",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://exchange.example/v1/info"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_relative",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_schemeless",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_scheme_relative",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "//publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_other_scheme",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "ftp://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_uppercase_scheme",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "HTTPS://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_other_path",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_path_prefix",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/x/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_trailing_slash",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json/"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_query",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json?v=1"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_fragment",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json#terms"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_userinfo",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://agent@publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_ipv6_literal",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://[::1]/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_trailing_root_dot",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example./.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_bad_port",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example:0/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_no_host",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https:///.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_empty",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          ""
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_sent_twice",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-Content-Rules",
+          "https://other.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "exchange.example",
+        "exchange_state": "valid"
+      }
+    },
+    {
+      "name": "content_rules_comma_list",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json, https://other.example/.well-known/fora.json"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "",
+        "exchange_state": "absent"
+      }
+    },
+    {
+      "name": "exchange_is_a_url",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "https://exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "https://publisher.example/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "",
+        "exchange_state": "malformed"
+      }
+    },
+    {
+      "name": "exchange_has_a_path",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example/v1"
+        ]
+      ],
+      "expected": {
+        "content_rules": "https://publisher.example/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "",
+        "exchange_state": "malformed"
+      }
+    },
+    {
+      "name": "exchange_endpoint_url",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "https://exchange.example/fora.v1.ExchangeService"
+        ]
+      ],
+      "expected": {
+        "content_rules": "https://publisher.example/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "",
+        "exchange_state": "malformed"
+      }
+    },
+    {
+      "name": "exchange_underscore",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "ex_change.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "https://publisher.example/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "",
+        "exchange_state": "malformed"
+      }
+    },
+    {
+      "name": "exchange_port_out_of_range",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example:65536"
+        ]
+      ],
+      "expected": {
+        "content_rules": "https://publisher.example/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "",
+        "exchange_state": "malformed"
+      }
+    },
+    {
+      "name": "exchange_trailing_root_dot",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example."
+        ]
+      ],
+      "expected": {
+        "content_rules": "https://publisher.example/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "",
+        "exchange_state": "malformed"
+      }
+    },
+    {
+      "name": "exchange_non_ascii",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchänge.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "https://publisher.example/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "",
+        "exchange_state": "malformed"
+      }
+    },
+    {
+      "name": "exchange_empty",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          ""
+        ]
+      ],
+      "expected": {
+        "content_rules": "https://publisher.example/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "",
+        "exchange_state": "malformed"
+      }
+    },
+    {
+      "name": "exchange_sent_twice",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ],
+        [
+          "X-FORA-Exchange",
+          "other-exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "https://publisher.example/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "",
+        "exchange_state": "malformed"
+      }
+    },
+    {
+      "name": "exchange_comma_list",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example, other-exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "https://publisher.example/.well-known/fora.json",
+        "content_rules_state": "valid",
+        "exchange": "",
+        "exchange_state": "malformed"
+      }
+    },
+    {
+      "name": "both_malformed",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://exchange.example/v1/info"
+        ],
+        [
+          "X-FORA-Exchange",
+          "https://exchange.example"
+        ]
+      ],
+      "expected": {
+        "content_rules": "",
+        "content_rules_state": "malformed",
+        "exchange": "",
+        "exchange_state": "malformed"
+      }
+    }
+  ],
+  "reconcile": [
+    {
+      "name": "listed",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "listed": [
+        "exchange.example"
+      ],
+      "expected_agreement": "listed"
+    },
+    {
+      "name": "listed_among_several",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "listed": [
+        "other-exchange.example",
+        "exchange.example"
+      ],
+      "expected_agreement": "listed"
+    },
+    {
+      "name": "listed_case_folded",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "EXCHANGE.example"
+        ]
+      ],
+      "listed": [
+        "exchange.example"
+      ],
+      "expected_agreement": "listed"
+    },
+    {
+      "name": "listed_default_port_folded",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example:443"
+        ]
+      ],
+      "listed": [
+        "exchange.example"
+      ],
+      "expected_agreement": "listed"
+    },
+    {
+      "name": "listed_with_same_port",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example:8081"
+        ]
+      ],
+      "listed": [
+        "exchange.example:8081"
+      ],
+      "expected_agreement": "listed"
+    },
+    {
+      "name": "unlisted",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "listed": [
+        "other-exchange.example"
+      ],
+      "expected_agreement": "unlisted"
+    },
+    {
+      "name": "unlisted_manifest_lists_none",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "listed": [],
+      "expected_agreement": "unlisted"
+    },
+    {
+      "name": "unlisted_subdomain_is_another_party",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "eu.exchange.example"
+        ]
+      ],
+      "listed": [
+        "exchange.example"
+      ],
+      "expected_agreement": "unlisted"
+    },
+    {
+      "name": "unlisted_parent_is_another_party",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "listed": [
+        "eu.exchange.example"
+      ],
+      "expected_agreement": "unlisted"
+    },
+    {
+      "name": "unlisted_other_port",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example:8443"
+        ]
+      ],
+      "listed": [
+        "exchange.example"
+      ],
+      "expected_agreement": "unlisted"
+    },
+    {
+      "name": "unlisted_port_80_not_folded",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example:80"
+        ]
+      ],
+      "listed": [
+        "exchange.example"
+      ],
+      "expected_agreement": "unlisted"
+    },
+    {
+      "name": "unlisted_malformed_listing_matches_nothing",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "listed": [
+        "https://exchange.example"
+      ],
+      "expected_agreement": "unlisted"
+    },
+    {
+      "name": "no_exchange_header_missing",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ]
+      ],
+      "listed": [
+        "exchange.example"
+      ],
+      "expected_agreement": "no_exchange"
+    },
+    {
+      "name": "no_exchange_header_malformed",
+      "status": 403,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "https://exchange.example"
+        ]
+      ],
+      "listed": [
+        "exchange.example"
+      ],
+      "expected_agreement": "no_exchange"
+    },
+    {
+      "name": "no_exchange_not_a_403",
+      "status": 200,
+      "headers": [
+        [
+          "X-Content-Rules",
+          "https://publisher.example/.well-known/fora.json"
+        ],
+        [
+          "X-FORA-Exchange",
+          "exchange.example"
+        ]
+      ],
+      "listed": [
+        "exchange.example"
+      ],
+      "expected_agreement": "no_exchange"
+    }
+  ]
+}

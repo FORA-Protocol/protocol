@@ -32,7 +32,10 @@ prove Go/TS/Python agree on the SAME JCS canonicalization for both signed payloa
 
 from __future__ import annotations
 
+import base64
+
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from conftest import GO_TESTDATA, load_json
 
@@ -101,3 +104,45 @@ def test_acceptance_verify_accepts_regenerated_signature(vector: dict[str, objec
         idempotency_key=str(vector["idempotency_key"]),
     )
     assert ok is True
+
+
+# An acceptance must name its requester: Requester.id and Requester.domain are both
+# REQUIRED. The oracle records one acceptance per requester field left empty, with the
+# canonical bytes and the raw signature a signer WITHOUT that check would produce. All
+# three faces refuse it: the canonicalizer and the signer raise, and the verifier raises
+# too, although the recorded signature does verify over the recorded bytes.
+_REFUSED = _DOC["refused"]
+
+
+def test_refused_acceptance_vectors_cover_each_requester_field() -> None:
+    assert sorted(str(v["empty"]) for v in _REFUSED) == ["requester_domain", "requester_id"]
+
+
+def _refused_fields(vector: dict[str, object]) -> dict[str, str]:
+    assert vector[str(vector["empty"])] == ""
+    return {
+        "offer_sig": str(vector["offer_sig"]),
+        "requester_id": str(vector["requester_id"]),
+        "requester_domain": str(vector["requester_domain"]),
+        "idempotency_key": str(vector["idempotency_key"]),
+    }
+
+
+@pytest.mark.parametrize("vector", _REFUSED, ids=[v["name"] for v in _REFUSED])
+def test_acceptance_naming_an_empty_requester_is_refused(vector: dict[str, object]) -> None:
+    fields = _refused_fields(vector)
+    # The recorded signature is genuine over the recorded bytes, so the refusals below
+    # are about the empty requester, not about a bad signature.
+    Ed25519PublicKey.from_public_bytes(base64.b64decode(str(vector["pubkey_b64"]))).verify(
+        bytes.fromhex(str(vector["signature_hex"])), str(vector["canonical_jcs"]).encode()
+    )
+    with pytest.raises(ValueError, match="empty requester"):
+        jcs_acceptance_payload(**fields)
+    with pytest.raises(ValueError, match="empty requester"):
+        sign_offer_acceptance_jcs(seed=bytes.fromhex(str(vector["seed_hex"])), **fields)
+    with pytest.raises(ValueError, match="empty requester"):
+        verify_offer_acceptance_jcs(
+            pubkey_b64=str(vector["pubkey_b64"]),
+            signature_hex=str(vector["signature_hex"]),
+            **fields,
+        )

@@ -1,0 +1,22 @@
+{
+  "$id": "fora.v1.AgentRequestAcceptanceItem.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "AgentRequestAcceptanceItem is the minimum reference needed to authorize an\n offer's membership, order, and fan-out destination without repeating the\n full Offer in every projected subrequest. Offer.signature transitively binds\n the full offer, including its exchange field; the explicit exchange lets a\n recipient derive which signed references must appear in its projection.",
+  "properties": {
+    "exchange": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "offer_sig": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "exchange",
+    "offer_sig"
+  ],
+  "title": "Agent Request Acceptance Item",
+  "type": "object"
+}

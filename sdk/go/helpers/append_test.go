@@ -12,10 +12,10 @@ import (
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
-// Ported from the v2 internal/httpsig/append_test.go behavioral spec, re-expressed
-// in the L1 idiom: the Signer interface (not a raw ed25519 key) and
-// VerifyOptions.Now (not a clock package). These pin AppendSignature's chain
-// semantics: empty→sig1, sig1→sig2, twice→sig3, and header preservation.
+// These pin AppendSignature's labelling and preservation semantics: empty→sig1,
+// sig1→sig2, twice→sig3, and the earlier signatures' headers left untouched. Each
+// appended signature covers only its own request and its own Signature-Agent
+// member unless CoverPrevious is set (see multisig_test.go).
 
 func appendReq(t *testing.T, target string, body []byte, auth string) *http.Request {
 	t.Helper()
@@ -49,7 +49,7 @@ func TestAppendSignature_EmptyHeaders(t *testing.T) {
 	req := appendReq(t, "https://broker.example/fora.v1.BrokerService/Resolve", body, "Bearer token123")
 
 	now := time.Unix(1700000000, 0)
-	opts := helpers.SignOptions{Created: now.Unix(), Expires: now.Add(100 * time.Second).Unix()}
+	opts := helpers.SignOptions{SignatureAgent: tAgent, Created: now.Unix(), Expires: now.Add(100 * time.Second).Unix()}
 	if err := helpers.AppendSignature(ctx, req, body, signer, opts); err != nil {
 		t.Fatalf("AppendSignature: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestAppendSignature_ByteIdenticalToSignRequest(t *testing.T) {
 	}
 	body := []byte(`{"hello":"world"}`)
 	now := time.Unix(1700000000, 0)
-	opts := helpers.SignOptions{Created: now.Unix(), Expires: now.Add(100 * time.Second).Unix()}
+	opts := helpers.SignOptions{SignatureAgent: tAgent, Created: now.Unix(), Expires: now.Add(100 * time.Second).Unix()}
 
 	reqSign := appendReq(t, "https://broker.example/fora.v1.BrokerService/Resolve", body, "Bearer t")
 	if err := helpers.SignRequest(ctx, reqSign, body, signerA, opts); err != nil {
@@ -114,16 +114,16 @@ func TestAppendSignature_ByteIdenticalToSignRequest(t *testing.T) {
 func TestAppendSignature_ExistingSig1(t *testing.T) {
 	ctx := context.Background()
 	agentSigner, agentPub := mustSigner(t, "agent.test")
-	brokerSigner, brokerPub := mustSigner(t, helpers.BrokerKeyIDPrefix+"test")
+	brokerSigner, brokerPub := mustSigner(t, "broker.test")
 	body := []byte(`{"url":"https://publisher.example/content"}`)
 	req := appendReq(t, "https://broker.example/fora.v1.BrokerService/Resolve", body, "Bearer agent-token")
 
 	now := time.Unix(1700000000, 0)
-	opts := helpers.SignOptions{Created: now.Unix(), Expires: now.Add(100 * time.Second).Unix()}
+	opts := helpers.SignOptions{SignatureAgent: tAgent, Created: now.Unix(), Expires: now.Add(100 * time.Second).Unix()}
 	if err := helpers.SignRequest(ctx, req, body, agentSigner, opts); err != nil {
 		t.Fatalf("agent SignRequest: %v", err)
 	}
-	opts2 := helpers.SignOptions{Created: now.Unix() + 1, Expires: now.Add(101 * time.Second).Unix()}
+	opts2 := helpers.SignOptions{SignatureAgent: tBroker, Created: now.Unix() + 1, Expires: now.Add(101 * time.Second).Unix()}
 	if err := helpers.AppendSignature(ctx, req, body, brokerSigner, opts2); err != nil {
 		t.Fatalf("broker AppendSignature: %v", err)
 	}
@@ -134,8 +134,8 @@ func TestAppendSignature_ExistingSig1(t *testing.T) {
 	}
 
 	resolver := helpers.NewStaticKeyResolver(map[string]ed25519.PublicKey{
-		"agent.test":                       agentPub,
-		helpers.BrokerKeyIDPrefix + "test": brokerPub,
+		"agent.test":  agentPub,
+		"broker.test": brokerPub,
 	})
 	verified, err := helpers.VerifyMultisigRequestResolved(ctx, req, body, resolver, helpers.VerifyOptions{Now: now.Add(time.Second)})
 	if err != nil {
@@ -151,14 +151,14 @@ func TestAppendSignature_ExistingSig1(t *testing.T) {
 func TestAppendSignature_TwiceAppends(t *testing.T) {
 	ctx := context.Background()
 	s1, p1 := mustSigner(t, "signer1.test")
-	s2, p2 := mustSigner(t, helpers.BrokerKeyIDPrefix+"signer2")
-	s3, p3 := mustSigner(t, helpers.BrokerKeyIDPrefix+"signer3")
+	s2, p2 := mustSigner(t, "signer2.test")
+	s3, p3 := mustSigner(t, "signer3.test")
 	body := []byte(`{"relay":"chain"}`)
 	req := appendReq(t, "https://exchange.example/fora.v1.ExchangeService/CreateOffer", body, "")
 
 	now := time.Unix(1700000000, 0)
 	mk := func(d int64) helpers.SignOptions {
-		return helpers.SignOptions{Created: now.Unix() + d, Expires: now.Add(100*time.Second).Unix() + d}
+		return helpers.SignOptions{SignatureAgent: tAgent, Created: now.Unix() + d, Expires: now.Add(100*time.Second).Unix() + d}
 	}
 	if err := helpers.SignRequest(ctx, req, body, s1, mk(0)); err != nil {
 		t.Fatalf("SignRequest: %v", err)
@@ -171,9 +171,9 @@ func TestAppendSignature_TwiceAppends(t *testing.T) {
 	}
 
 	resolver := helpers.NewStaticKeyResolver(map[string]ed25519.PublicKey{
-		"signer1.test":                        p1,
-		helpers.BrokerKeyIDPrefix + "signer2": p2,
-		helpers.BrokerKeyIDPrefix + "signer3": p3,
+		"signer1.test": p1,
+		"signer2.test": p2,
+		"signer3.test": p3,
 	})
 	verified, err := helpers.VerifyMultisigRequestResolved(ctx, req, body, resolver, helpers.VerifyOptions{Now: now.Add(3 * time.Second)})
 	if err != nil {
@@ -195,19 +195,19 @@ func TestAppendSignature_TwiceAppends(t *testing.T) {
 func TestAppendSignature_PreservesExistingHeaders(t *testing.T) {
 	ctx := context.Background()
 	s1, p1 := mustSigner(t, "first.test")
-	s2, _ := mustSigner(t, helpers.BrokerKeyIDPrefix+"second")
+	s2, _ := mustSigner(t, "second.test")
 	body := []byte(`{"test":"preserve"}`)
 	req := appendReq(t, "https://broker.example/fora.v1.BrokerService/Resolve", body, "Bearer original-token")
 
 	now := time.Unix(1700000000, 0)
-	opts := helpers.SignOptions{Created: now.Unix(), Expires: now.Add(100 * time.Second).Unix()}
+	opts := helpers.SignOptions{SignatureAgent: tAgent, Created: now.Unix(), Expires: now.Add(100 * time.Second).Unix()}
 	if err := helpers.SignRequest(ctx, req, body, s1, opts); err != nil {
 		t.Fatalf("SignRequest: %v", err)
 	}
 	originalDigest := req.Header.Get("Content-Digest")
 	originalAuth := req.Header.Get("Authorization")
 
-	opts2 := helpers.SignOptions{Created: now.Unix() + 1, Expires: now.Add(101 * time.Second).Unix()}
+	opts2 := helpers.SignOptions{SignatureAgent: tAgent, Created: now.Unix() + 1, Expires: now.Add(101 * time.Second).Unix()}
 	if err := helpers.AppendSignature(ctx, req, body, s2, opts2); err != nil {
 		t.Fatalf("AppendSignature: %v", err)
 	}

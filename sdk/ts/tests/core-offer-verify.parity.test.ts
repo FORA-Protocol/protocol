@@ -90,6 +90,23 @@ describe("sdk/ts/core Verifier offer-verify matches the shared JCS oracle matrix
     }
   });
 
+  it("matrix covers the metered-estimate dimension", () => {
+    // A PER_UNIT offer may state an estimate on its own pricing or none, and the port
+    // verifies both; one it states is positive, or the port rejects it although its
+    // signature and expiry are good. If the corpus loses these, this guard goes red
+    // before a port can drift on either side.
+    const names = new Set(vectors.vectors.map((v) => v.name));
+    for (const required of [
+      "metered_with_estimate",
+      "metered_without_estimate",
+      "metered_zero_estimate",
+      "metered_term_estimate_only",
+      "flat_without_estimate",
+    ]) {
+      expect(names).toContain(required);
+    }
+  });
+
   for (const v of vectors.vectors) {
     it(`${v.name} -> verified=${v.expected_verified}`, async () => {
       const exchangePub = b64urlToBytes(v.exchange_pub_b64url);

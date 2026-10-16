@@ -11,9 +11,15 @@ package connect
 // usage report over a momentary outage.
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
+
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 func TestTransportFailureCorpusReplay(t *testing.T) {
@@ -47,6 +53,11 @@ func TestTransportFailureCorpusReplay(t *testing.T) {
 			if want.Retryable != (want.Kind == CallUnreachable.String()) {
 				t.Errorf("kind %q and retryable %v disagree", want.Kind, want.Retryable)
 			}
+			// An answer that did not come from the service still came from a peer: its
+			// status is classified by its code, and that code is the failure's Code.
+			if got := transportFailureCode(t, i); got != want.Reason {
+				t.Errorf("code = %q, want %q", got, want.Reason)
+			}
 		})
 		if want.Retryable {
 			retryable++
@@ -59,4 +70,23 @@ func TestTransportFailureCorpusReplay(t *testing.T) {
 		t.Errorf("corpus carries %d retryable and %d final vectors; both are needed",
 			retryable, final)
 	}
+}
+
+// transportFailureCode replays case i through the real client and returns the
+// Connect code its CallError carries.
+func transportFailureCode(t *testing.T, i int) string {
+	t.Helper()
+	c := transportFailureCases[i]
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", c.contentType)
+		w.WriteHeader(c.status)
+		_, _ = w.Write([]byte(c.body))
+	}))
+	defer srv.Close()
+	_, err := NewClient(srv.URL).Discover(context.Background(), &forav1.ResourceQuery{Exchange: "exchange.test"})
+	var callErr *CallError
+	if !errors.As(err, &callErr) {
+		t.Fatalf("%s: not a typed failure: %v", c.name, err)
+	}
+	return callErr.Code.String()
 }

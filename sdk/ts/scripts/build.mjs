@@ -1,14 +1,16 @@
 // Build the publishable @fora-protocol/sdk package into dist/.
 //
-// 1. Stage: copy gen/ts (wire, vocab) and sdk/ts (src, core, client, hono,
+// 1. Stage: copy gen/ts (wire, vocab), gen/jsonschema and sdk/ts (src, core, client, hono,
 //    resolvers) into .stage/ with the same relative layout, so every
 //    ../../../gen/ts import keeps resolving inside the package.
 // 2. Compile .stage/ with tsconfig.build.json (NodeNext, .ts import suffixes
 //    rewritten to .js, declarations) into dist/.
-// 3. Write the staged release manifest dist/package.json: the sdk/ts export map
-//    pointed at the compiled files, plus the generated schemas and vocabulary.
-//    This manifest is the only one named @fora-protocol/sdk; npm pack / publish
-//    run against dist/.
+// 3. Copy the published JSON Schemas (gen/jsonschema/*.json) into dist/gen/jsonschema,
+//    the same relative layout the repo-root manifest exports them from.
+// 4. Write the staged release manifest dist/package.json: the sdk/ts export map
+//    pointed at the compiled files, plus the generated schemas and vocabulary, plus
+//    the JSON Schema export. This manifest is the only one named @fora-protocol/sdk;
+//    npm pack / publish run against dist/.
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -21,10 +23,13 @@ const dist = join(pkgDir, "dist");
 
 const sdkPkg = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8"));
 const genPkg = JSON.parse(readFileSync(join(repo, "gen/ts/package.json"), "utf8"));
+const rootPkg = JSON.parse(readFileSync(join(repo, "package.json"), "utf8"));
 
 rmSync(stage, { recursive: true, force: true });
 rmSync(dist, { recursive: true, force: true });
-for (const dir of ["gen/ts/wire", "gen/ts/vocab"]) cpSync(join(repo, dir), join(stage, dir), { recursive: true });
+// gen/jsonschema is staged too: the client's strict decoding imports the strict schemas
+// as JSON modules, so they must resolve inside the compilation root.
+for (const dir of ["gen/ts/wire", "gen/ts/vocab", "gen/ts/strict", "gen/jsonschema"]) cpSync(join(repo, dir), join(stage, dir), { recursive: true });
 for (const dir of ["src", "core", "client", "hono", "resolvers"]) cpSync(join(pkgDir, dir), join(stage, "sdk/ts", dir), { recursive: true });
 
 execFileSync("npx", ["tsc", "-p", "tsconfig.build.json"], { cwd: pkgDir, stdio: "inherit" });
@@ -60,10 +65,23 @@ const exports = {};
 for (const [subpath, target] of Object.entries(sdkPkg.exports)) exports[subpath] = compiled("sdk/ts", target, ".d.ts");
 for (const [subpath, target] of Object.entries(genPkg.exports)) exports[subpath] = compiled("gen/ts", target, ".ts");
 
+// The JSON Schemas are data, shipped as they are generated. The subpath and its target
+// are read from the repo-root manifest, the map a git-dependency consumer resolves
+// through, so the two install paths expose the schemas at the same subpath. dist/ keeps
+// the repo's relative layout, so the target is valid in both manifests unchanged.
+const schemaSubpath = "./jsonschema/*";
+const schemaTarget = rootPkg.exports[schemaSubpath];
+if (schemaTarget !== "./gen/jsonschema/*") throw new Error(`root package.json exports ${schemaSubpath} -> ${schemaTarget}, expected ./gen/jsonschema/*`);
+const schemaFiles = readdirSync(join(repo, "gen/jsonschema")).filter((f) => f.endsWith(".json"));
+if (schemaFiles.length === 0) throw new Error("gen/jsonschema/ holds no schemas; run scripts/gen-sdk-types.sh");
+mkdirSync(join(dist, "gen/jsonschema"), { recursive: true });
+for (const f of schemaFiles) cpSync(join(repo, "gen/jsonschema", f), join(dist, "gen/jsonschema", f));
+
 // Every export target must exist in dist/. The export map is derived from the
 // manifests but the staged directory list above is hand-written, so a subpath
 // in a directory that is not staged would publish as ERR_MODULE_NOT_FOUND.
 const missing = [];
+if (!existsSync(join(dist, schemaTarget.replace("*", "fora.v1.ResourceResponse.schema.strict.json")))) missing.push(schemaSubpath);
 for (const [subpath, t] of Object.entries(exports)) {
   const stems = subpath.endsWith("/*")
     ? readdirSync(join(dist, dirname(t.default))).filter((f) => f.endsWith(".js")).map((f) => f.slice(0, -3))
@@ -77,13 +95,16 @@ const manifest = {
   name: "@fora-protocol/sdk",
   version: sdkPkg.version,
   description:
-    "FORA protocol SDK for TypeScript: the generated wire schemas (Zod) and vocabulary, the IO-free protocol mechanics (signing, verification, canonicalization), the key/endpoint resolvers and the Connect-unary JSON client.",
+    "FORA protocol SDK for TypeScript: the generated wire schemas (Zod) and vocabulary, the published JSON Schemas, the IO-free protocol mechanics (signing, verification, canonicalization), the key/endpoint resolvers and the Connect-unary JSON client.",
   license: "Apache-2.0",
   repository: { type: "git", url: "git+https://github.com/FORA-Protocol/protocol.git", directory: "sdk/ts" },
   homepage: "https://fora-protocol.org",
   type: "module",
+  // No module has an effect on import, so a bundler drops every module a program does not
+  // use. Read from sdk/ts/package.json, which states the same for the git-install path.
+  sideEffects: sdkPkg.sideEffects,
   files: ["gen", "sdk"],
-  exports,
+  exports: { ...exports, [schemaSubpath]: schemaTarget },
   dependencies: sdkPkg.dependencies,
   peerDependencies: sdkPkg.peerDependencies,
   peerDependenciesMeta: sdkPkg.peerDependenciesMeta,

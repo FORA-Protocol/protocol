@@ -13,11 +13,11 @@ the send, and nothing else. That is what keeps the two faces from becoming two d
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import httpx
 
-from fora_sdk.client import _fetch_inputs, _verbs
+from fora_sdk.client import _admin, _fetch_inputs, _verbs
 from fora_sdk.client._call import as_call_error
 from fora_sdk.client._read import (
     IDENTITY_ENCODING,
@@ -26,7 +26,7 @@ from fora_sdk.client._read import (
     require_dialable_scheme,
     rpc_headers,
 )
-from fora_sdk.client._verbs import ClientConfig, _with_requirements_reader
+from fora_sdk.client._verbs import ClientConfig, _with_defaults
 from fora_sdk.client.content import (
     MAX_ERROR_BODY_BYTES,
     Content,
@@ -39,20 +39,29 @@ from fora_sdk.client.errors import CallError, CallErrorKind
 from fora_sdk.resolvers import _ssrf, guarded_client
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from wire.models import (
+        BrokerTransactionResponse,
         DisputeResponse,
+        DomainVerificationChallenge,
+        DomainVerificationResult,
         GetAccountStatusResponse,
         PushResourcesResponse,
         RefreshCatalogResponse,
         RegisterResponse,
         RemoveResourcesResponse,
+        SetReportingPolicyResponse,
+        SetTenantFeeRateResponse,
         TransactionResponse,
         UsageReportResponse,
     )
 
+    from fora_sdk.client._call import RawBody
+    from fora_sdk.client._verbs import RequestMessage
     from fora_sdk.core import DiscoveryResult, VerifiedOffer
 
-__all__ = ["BrokerClient", "CatalogClient", "Client", "ClientConfig"]
+__all__ = ["AdminClient", "BrokerClient", "CatalogClient", "Client", "ClientConfig"]
 
 
 class _Face:
@@ -79,15 +88,17 @@ class _Face:
         self._guarded = guarded if guarded is not None else (
             self._http if not self._owns else guarded_client(follow_redirects=False)
         )
-        self._config, self._requirements_http = _with_requirements_reader(config)
+        self._config, self._owned = _with_defaults(config)
+        #: The requirements reader's transport when this client built it; kept by name
+        #: because a test proves it is closed with the client.
+        self._requirements_http = self._owned.requirements
 
     def close(self) -> None:
         """Close the transports this client built. An injected one is left alone."""
         # Independent of the RPC legs above: this client is built here whenever the
         # caller injected no reader, whether or not it injected an RPC transport, so it
         # is closed on its own terms rather than behind that ownership question.
-        if self._requirements_http is not None:
-            self._requirements_http.close()
+        self._owned.close()
         if not self._owns:
             return
         self._http.close()
@@ -152,54 +163,58 @@ class Client(_Face):
     def __init__(self, config: ClientConfig, *, http: httpx.Client | None = None) -> None:
         super().__init__(config, http)
 
-    def discover(self, query: dict[str, Any]) -> DiscoveryResult:
+    def discover(self, query: RequestMessage) -> DiscoveryResult:
         plan = _verbs.plan_discover(self._config, query)
         status, body = self._send(plan)
         return _verbs.finish_discover(self._config, plan, status, body)
 
     def execute(
-        self, offer: VerifiedOffer, *, idempotency_key: str | None = None
+        self,
+        offer: VerifiedOffer | Sequence[VerifiedOffer] | RawBody,
+        *,
+        idempotency_key: str | None = None,
     ) -> TransactionResponse:
         plan = _verbs.plan_execute(self._config, offer, idempotency_key)
         status, body = self._send(plan)
         return _verbs.finish_execute(plan, status, body)
 
     def report_usage(
-        self, report: dict[str, Any], *, idempotency_key: str | None = None
+        self, report: RequestMessage, *, idempotency_key: str | None = None
     ) -> UsageReportResponse:
         plan = _verbs.plan_report_usage(self._config, report, idempotency_key)
         status, body = self._send(plan)
         return _verbs.finish_report_usage(plan, status, body)
 
     def dispute(
-        self, request: dict[str, Any], *, idempotency_key: str | None = None
+        self, request: RequestMessage, *, idempotency_key: str | None = None
     ) -> DisputeResponse:
         plan = _verbs.plan_dispute(self._config, request, idempotency_key)
         status, body = self._send(plan)
         return _verbs.finish_dispute(plan, status, body)
 
-    def register(self, request: dict[str, Any]) -> RegisterResponse:
+    def register(self, request: RequestMessage) -> RegisterResponse:
         plan = _verbs.plan_register(self._config, request)
         status, body = self._send(plan)
         return _verbs.finish_register(plan, status, body)
 
-    def get_account_status(self, request: dict[str, Any]) -> GetAccountStatusResponse:
+    def get_account_status(self, request: RequestMessage) -> GetAccountStatusResponse:
         plan = _verbs.plan_get_account_status(self._config, request)
         status, body = self._send(plan)
         return _verbs.finish_get_account_status(plan, status, body)
 
     def fetch(self, signed_url: str) -> Content:
-        headers, timeout, max_bytes = _fetch_inputs(self._config, signed_url)
+        url = signed_url
+        headers, timeout, max_bytes = _fetch_inputs(self._config, url)
         op = "fetch content"
         self._refuse_if_closed(op)
         # A delivery URL always names a host another party chose.
-        require_dialable_scheme(op, signed_url)
+        require_dialable_scheme(op, url)
         try:
             # Redirects are REFUSED, and the body is STREAMED under the cap, for the
             # reasons the async face records.
             with self._guarded.stream(
                 "GET",
-                signed_url,
+                url,
                 headers={**headers, **IDENTITY_ENCODING},
                 timeout=timeout,
                 follow_redirects=False,
@@ -227,7 +242,7 @@ class Client(_Face):
                 read = bounded_chunks(op, max_bytes, response.status_code)
                 for chunk in response.iter_bytes():
                     read.add(chunk)
-                return read_content(signed_url, response, read.body())
+                return read_content(url, response, read.body())
         except httpx.HTTPError as exc:
             raise transport_failure(exc) from exc
         except _ssrf.SsrfError as exc:
@@ -242,10 +257,17 @@ class BrokerClient(_Face):
     def __init__(self, config: ClientConfig, *, http: httpx.Client | None = None) -> None:
         super().__init__(config, http)
 
-    def resolve(self, request: dict[str, Any]) -> DiscoveryResult:
+    def resolve(self, request: RequestMessage) -> DiscoveryResult:
         plan = _verbs.plan_resolve(self._config, request)
         status, body = self._send(plan)
         return _verbs.finish_resolve(self._config, plan, status, body)
+
+    def execute(
+        self, offers: Sequence[VerifiedOffer] | RawBody, *, idempotency_key: str | None = None
+    ) -> BrokerTransactionResponse:
+        plan = _verbs.plan_broker_execute(self._config, offers, idempotency_key)
+        status, body = self._send(plan)
+        return _verbs.finish_broker_execute(plan, status, body)
 
 
 class CatalogClient(_Face):
@@ -254,17 +276,44 @@ class CatalogClient(_Face):
     def __init__(self, config: ClientConfig, *, http: httpx.Client | None = None) -> None:
         super().__init__(config, http)
 
-    def push_resources(self, request: dict[str, Any]) -> PushResourcesResponse:
+    def push_resources(self, request: RequestMessage) -> PushResourcesResponse:
         plan = _verbs.plan_push_resources(self._config, request)
         status, body = self._send(plan)
         return _verbs.finish_push_resources(plan, status, body)
 
-    def remove_resources(self, request: dict[str, Any]) -> RemoveResourcesResponse:
+    def remove_resources(self, request: RequestMessage) -> RemoveResourcesResponse:
         plan = _verbs.plan_remove_resources(self._config, request)
         status, body = self._send(plan)
         return _verbs.finish_remove_resources(plan, status, body)
 
-    def refresh_catalog(self, request: dict[str, Any]) -> RefreshCatalogResponse:
+    def refresh_catalog(self, request: RequestMessage) -> RefreshCatalogResponse:
         plan = _verbs.plan_refresh_catalog(self._config, request)
         status, body = self._send(plan)
         return _verbs.finish_refresh_catalog(plan, status, body)
+
+
+class AdminClient(_Face):
+    """The blocking operator client. See :class:`fora_sdk.client.AdminClient`."""
+
+    def __init__(self, config: ClientConfig, *, http: httpx.Client | None = None) -> None:
+        super().__init__(config, http)
+
+    def set_tenant_fee_rate(self, request: RequestMessage) -> SetTenantFeeRateResponse:
+        plan = _admin.plan_set_tenant_fee_rate(self._config, request)
+        status, body = self._send(plan)
+        return _admin.finish_set_tenant_fee_rate(plan, status, body)
+
+    def set_reporting_policy(self, request: RequestMessage) -> SetReportingPolicyResponse:
+        plan = _admin.plan_set_reporting_policy(self._config, request)
+        status, body = self._send(plan)
+        return _admin.finish_set_reporting_policy(plan, status, body)
+
+    def request_domain_verification(self, request: RequestMessage) -> DomainVerificationChallenge:
+        plan = _admin.plan_request_domain_verification(self._config, request)
+        status, body = self._send(plan)
+        return _admin.finish_request_domain_verification(plan, status, body)
+
+    def confirm_domain_verification(self, request: RequestMessage) -> DomainVerificationResult:
+        plan = _admin.plan_confirm_domain_verification(self._config, request)
+        status, body = self._send(plan)
+        return _admin.finish_confirm_domain_verification(plan, status, body)

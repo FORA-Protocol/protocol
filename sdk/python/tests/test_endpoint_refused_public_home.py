@@ -29,6 +29,8 @@ def test_it_sits_beside_its_siblings() -> None:
         "NoEndpointError",
         "ManifestVersionRefusedError",
         "DirectoryUnavailableError",
+        "DocumentNotFoundError",
+        "RedirectRefusedError",
         "UnknownKeyError",
         "KeyRevokedError",
         "KeyExpiredError",

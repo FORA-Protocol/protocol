@@ -57,7 +57,11 @@ def _client(vector: dict[str, Any]) -> Client:
     return Client(
         ClientConfig(
             base_url="https://exchange.test",
-            signer=SigningTransport(signer_seed=_AGENT_SEED, keyid="agent.v1"),
+            signer=SigningTransport(
+                signer_seed=_AGENT_SEED,
+                keyid="agent.v1",
+                signature_agent="https://agent.test",
+            ),
         ),
         http=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
     )
@@ -105,7 +109,11 @@ def test_a_url_the_leg_will_not_dial_is_classified_the_way_the_oracle_classifies
     client = Client(
         ClientConfig(
             base_url="https://exchange.test",
-            signer=SigningTransport(signer_seed=_AGENT_SEED, keyid="agent.v1"),
+            signer=SigningTransport(
+                signer_seed=_AGENT_SEED,
+                keyid="agent.v1",
+                signature_agent="https://agent.test",
+            ),
         )
     )
     with pytest.raises(CallError) as excinfo:

@@ -109,4 +109,25 @@ describe("sdk/ts offer sign is byte-identical to the Go oracle", () => {
       expect(sigHex).not.toBe(embeddedSig);
     });
   }
+
+  // An offer states its price once, in Offer.pricing; the sign face refuses an offer
+  // whose term carries pricing, as Go helpers.SignOffer does (ErrOfferTermPriced), and
+  // every verifier rejects one.
+  const pricedTerm = doc.vectors.filter((x) =>
+    (Array.isArray(x.offer_json.terms) ? x.offer_json.terms : []).some(
+      (t) => typeof t === "object" && t !== null && "pricing" in t,
+    ),
+  );
+
+  it("the matrix carries a priced-term vector", () => {
+    expect(pricedTerm.length).toBeGreaterThan(0);
+  });
+
+  for (const v of pricedTerm) {
+    it(`${v.name}: TS refuses to sign an offer whose term carries pricing`, async () => {
+      expect(v.expected_verified).toBe(false);
+      const priv = await importSigningKey(v.exchange_seed_hex);
+      await expect(signOffer(v.offer_json, priv)).rejects.toThrow(/Offer\.pricing/);
+    });
+  }
 });

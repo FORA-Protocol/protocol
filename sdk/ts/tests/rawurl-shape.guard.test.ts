@@ -6,14 +6,15 @@ import { describe, expect, it } from "vitest";
 // sweep-verify atom requires a class-level counter-measure so a future edit
 // cannot silently re-introduce the disease the fix eliminated: a URL-consuming
 // SDK boundary that feeds its RAW url parameter into a string-op / @target-uri
-// sink (canonicalMessage/new URL/signatureBase) instead of the opaqueUrl-coerced
+// sink (canonicalMessage/new URL/the signature-base component resolver) instead of the
+// opaqueUrl-coerced
 // value. A URL-like object (Fastly Compute) then either throws (canonicalUrl
 // string ops) or silently WHATWG-normalizes (@target-uri template literal).
 //
 // SCOPE — every URL-consuming SDK face: the verify faces (src/verify.ts,
 // src/pop.ts), the sign faces (src/signurl.ts, core/sign.ts), and the shared
-// 5-component request signature-base sink (core/sign-request.ts, used by BOTH
-// signRequest and verifyRequestServer). signurl.ts:53 canonicalUrl(unsigned) is
+// @target-uri sink of the signature base (core/sign-request.ts requestComponentValue,
+// used by every signer and verifier). signurl.ts:53 canonicalUrl(unsigned) is
 // intentionally NOT guarded: `unsigned` is canonicalUrl's own output, always a
 // primitive string.
 //
@@ -22,7 +23,7 @@ import { describe, expect, it } from "vitest";
 // sweep atom asks for: it pins that the boundary coercion stays in place.
 //
 // The detector is REGEX-based and whitespace-tolerant on purpose: a naive
-// substring like "signatureBase(input.method, input.url" silently stops matching
+// substring like "url: input.url" silently stops matching
 // the moment a formatter wraps the args onto separate lines, so a revert would
 // slip. The "would-be-missed" meta-test below feeds exactly that reformatted
 // variant and asserts the guard still catches it.
@@ -67,9 +68,9 @@ const GUARDS: SiteGuard[] = [
   },
   {
     file: "src/pop.ts",
-    // The raw `input.url` must NOT flow directly into the signature base; the
+    // The raw `input.url` must NOT flow directly into the signature base's request; the
     // boundary must pass the opaqueUrl-coerced local instead.
-    forbidden: [/\bsignatureBase\(\s*[^,]+,\s*input\.url\b/],
+    forbidden: [/\burl\s*:\s*input\.url\b/],
     required: [/\bopaqueUrl\(\s*input\.url\s*\)/],
   },
   {
@@ -83,15 +84,15 @@ const GUARDS: SiteGuard[] = [
     file: "core/sign.ts",
     // The raw `url` must NOT flow into the signature base or the emitted Request;
     // both must consume the opaqueUrl-coerced `target`.
-    forbidden: [/\bsignatureBase\(\s*[^,]+,\s*url\b/, /\bnew Request\(\s*url\b/],
+    forbidden: [/\burl\s*:\s*url\b/, /\bnew Request\(\s*url\b/],
     required: [/\bopaqueUrl\(\s*url\s*\)/],
   },
   {
     file: "core/sign-request.ts",
-    // The shared @target-uri sink (used by BOTH signRequest and verifyRequestServer)
-    // must coerce fields.url, never interpolate it raw.
-    forbidden: [/"@target-uri": \$\{\s*fields\.url\s*\}/],
-    required: [/\bopaqueUrl\(\s*fields\.url\s*\)/],
+    // The shared @target-uri sink (requestComponentValue, used by every signer and
+    // verifier) must coerce req.url, never return it raw.
+    forbidden: [/\breturn\s+req\.url\b/],
+    required: [/\bopaqueUrl\(\s*req\.url\s*\)/],
   },
 ];
 
@@ -106,25 +107,25 @@ describe("raw-URL runtime-shape structural guard", () => {
   const popGuard = GUARDS.find((g) => g.file === "src/pop.ts")!;
 
   it("[meta positive] catches the raw input.url disease", () => {
-    const bad = "const base = signatureBase(input.method, input.url, parsed.rawParams);";
+    const bad = "requestComponentValue({ method: input.method, url: input.url, header })";
     expect(evalSite(bad, popGuard).length).toBeGreaterThan(0);
   });
 
   it("[meta negative] passes the coerced-boundary form", () => {
     const good = [
       "const url = opaqueUrl(input.url);",
-      "const base = signatureBase(input.method, url, parsed.rawParams);",
+      "requestComponentValue({ method: input.method, url, header })",
     ].join("\n");
     expect(evalSite(good, popGuard)).toEqual([]);
   });
 
   it("[meta would-be-missed] catches the reformatted (multiline / no-space) variant a substring guard would slip", () => {
     const reformatted = [
-      "const base = signatureBase(",
-      "  input.method,",
-      "  input.url,",
-      "  parsed.rawParams,",
-      ");",
+      "requestComponentValue({",
+      "  method: input.method,",
+      "  url:input.url,",
+      "  header,",
+      "});",
       "const url = opaqueUrl(input.url);", // required marker present so ONLY the forbidden fires
     ].join("\n");
     const violations = evalSite(reformatted, popGuard);

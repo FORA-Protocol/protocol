@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"testing"
 
 	connectrpc "connectrpc.com/connect"
@@ -63,9 +64,17 @@ func TestConnectErrorCorpusReplay(t *testing.T) {
 			// BEFORE the early return, because the row that carries no detail is the one
 			// this column exists for: its envelope has a `message` of its own and the
 			// client must still report none.
-			if got := peerMessageServing(t, v); got != v.PeerMessage {
+			callErr := clientFailureServing(t, v)
+			if got := callErr.PeerMessage; got != v.PeerMessage {
 				t.Errorf("peer message = %q, want %q", got, v.PeerMessage)
 			}
+			// The Connect code of the peer's answer, as its own field — every row,
+			// the derived ones included, because the code rides on the envelope and
+			// not on the detail.
+			if got := callErr.Code.String(); got != v.Code {
+				t.Errorf("code = %q, want %q", got, v.Code)
+			}
+			assertStrictRead(t, v, callErr)
 			if !ok {
 				return
 			}
@@ -84,6 +93,11 @@ func TestConnectErrorCorpusReplay(t *testing.T) {
 			if field != v.Expect.ReasonFrom || enum != v.Expect.ReasonEnum {
 				t.Errorf("reason = (%q, %q), want (%q, %q)",
 					field, enum, v.Expect.ReasonFrom, v.Expect.ReasonEnum)
+			}
+			// The whole detail, not only the projection: a nested member lost on the way
+			// (field_errors, a metadata entry) fails here.
+			if got := protoJSONOf(detail); !reflect.DeepEqual(got, v.Expect.Detail) {
+				t.Errorf("detail = %v, want %v", got, v.Expect.Detail)
 			}
 		})
 	}
@@ -122,8 +136,41 @@ func callServing(t *testing.T, v connectErrorVector) error {
 	return err
 }
 
-// peerMessageServing serves the same recorded envelope and reads the peer's sentence back
-// off the CLIENT's own failure, which is where the field lives — one tier above the
+// assertStrictRead replays the row through a client with strict decoding on. A row the
+// corpus marks strict_malformed is refused as CallMalformed, keeping the row's Connect
+// code and reporting no detail; any other row reads exactly as the lenient client read
+// it, kind, code and detail alike.
+func assertStrictRead(t *testing.T, v connectErrorVector, lenient *foraconnect.CallError) {
+	t.Helper()
+	strict := clientFailureServing(t, v, foraconnect.WithStrictDecoding())
+	if got := strict.Code.String(); got != v.Code {
+		t.Errorf("strict: code = %q, want %q", got, v.Code)
+	}
+	detail, hasDetail := foraconnect.ErrorDetailFrom(strict)
+	if v.StrictMalformed {
+		if strict.Kind != foraconnect.CallMalformed {
+			t.Errorf("strict: kind = %v, want malformed (%v)", strict.Kind, strict)
+		}
+		if hasDetail {
+			t.Errorf("strict: a refused envelope still reports a detail: %v", detail)
+		}
+		return
+	}
+	if strict.Kind != lenient.Kind {
+		t.Errorf("strict: kind = %v, want the lenient read's %v (%v)", strict.Kind, lenient.Kind, strict)
+	}
+	if hasDetail != v.Expect.HasDetail {
+		t.Fatalf("strict: has-detail = %v, want %v", hasDetail, v.Expect.HasDetail)
+	}
+	if hasDetail {
+		if got := protoJSONOf(detail); !reflect.DeepEqual(got, v.Expect.Detail) {
+			t.Errorf("strict: detail = %v, want %v", got, v.Expect.Detail)
+		}
+	}
+}
+
+// clientFailureServing serves the same recorded envelope and returns the CLIENT's own
+// failure, which is where the peer's sentence and the Connect code live — one tier above the
 // ErrorDetail the rest of this replay projects.
 //
 // The rule it pins is provenance: the field carries a message the PEER emitted and
@@ -132,7 +179,7 @@ func callServing(t *testing.T, v connectErrorVector) error {
 // envelope would make its value a property of the language rather than of the answer —
 // which is the drift a shared corpus exists to catch, and could not have caught while
 // each language was faithfully reporting its own transport.
-func peerMessageServing(t *testing.T, v connectErrorVector) string {
+func clientFailureServing(t *testing.T, v connectErrorVector, opts ...foraconnect.ClientOption) *foraconnect.CallError {
 	t.Helper()
 	body, err := json.Marshal(v.Envelope)
 	if err != nil {
@@ -145,11 +192,11 @@ func peerMessageServing(t *testing.T, v connectErrorVector) string {
 	}))
 	defer srv.Close()
 
-	_, derr := foraconnect.NewClient(srv.URL).Discover(
+	_, derr := foraconnect.NewClient(srv.URL, opts...).Discover(
 		context.Background(), &forav1.ResourceQuery{Exchange: "exchange.test"})
 	var callErr *foraconnect.CallError
 	if !errors.As(derr, &callErr) {
 		t.Fatalf("the client did not report a typed failure: %v", derr)
 	}
-	return callErr.PeerMessage
+	return callErr
 }

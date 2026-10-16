@@ -120,6 +120,20 @@ patterns=(
   # signed_url_hash. Anchored to the URL forms so the patterns do NOT collide
   # with the legitimate slog field name `txn_id` in Go samples.
   '&txn_id=' '[?]txn_id=' 'txn_id=txn-' 'baseURL.nexpires'
+  # A metered offer no longer has to carry an estimate: without one the purchase
+  # charges one unit at the rate (1 x R) instead of E x R, and either charge is
+  # final; a usage report is only a record. The rule that required one was replaced by
+  # offer.metered.estimate_positive (an estimate that is stated is positive), and
+  # the Go sentinel for a missing estimate by ErrMeteredEstimateNotPositive.
+  'offer\.metered\.requires_estimate' 'ErrMeteredEstimateMissing'
+  # A metered purchase's charge is final: estimate x rate, or one unit's rate.
+  # estimate_tolerance_bps and the settlement on the usage report were removed
+  # before any release, with the SDK helpers that computed it. The field was
+  # never released, so the proto does not reserve its number or name.
+  'pricing\.estimate_tolerance\.requires_per_unit' '"?estimate_tolerance_bps"?[[:space:]]*:'
+  'estimateTolerance' 'EstimateToleranceBps' 'MeteredSettlement'
+  'metered_settlement' 'meteredSettlement' 'SettleMeteredUsage' 'settle_metered_usage'
+  'settleMeteredUsage' 'settling-a-metered-purchase'
 )
 
 # Files where naming a removed identifier is legitimate (they record history).
@@ -218,6 +232,23 @@ if [ -n "$num_hits" ]; then
   status=1
 fi
 
+# --- 1d. Deprecated, never-sent values must not be named in the guides ------
+# OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT and DENIAL_REASON_SCOPE_INSUFFICIENT
+# are deprecated and never sent: a scope shortfall is answered with no offers
+# and no absence reason, and an offer presented is honoured until it expires.
+# The guides once told an Exchange to send them and an agent how to react to
+# them. The proto must keep naming them (the numbers stay reserved), so this
+# check skips proto/fora and covers only the authored guides. The reference
+# tables render both values from the descriptor, marked deprecated, without the
+# directive source ever naming them, so the ban does not reach the reference.
+deprecated_roots=(website/src/content docs)
+dep_hits=$(grep -rEn -- 'SCOPE_INSUFFICIENT' "${deprecated_roots[@]}" 2>/dev/null | grep -Ev "$exclude_re" || true)
+if [ -n "$dep_hits" ]; then
+  echo "::error::deprecated, never-sent reason named in the guides — describe the existence-hiding rule (no offers, no absence reason) instead:"
+  echo "$dep_hits"
+  status=1
+fi
+
 # --- 2. Positive facts: required identifiers MUST be documented -------------
 # A denylist is necessary but not sufficient: it cannot catch a value that was
 # silently dropped from a "closed enum" table or a registry that drifted. These
@@ -269,8 +300,13 @@ fi
 # appear anywhere — code, docs, config, copyright. The literal is built from two
 # pieces below so this script does not contain it verbatim, and therefore scans its
 # own file too (no self-exclusion blind spot).
+#
+# One host is allowed: the publisher console runs under the company's own domain,
+# and the site must link to it. The host is assembled from the same two pieces so
+# the self-scan rule holds. Any other use of the name is still an error.
 old_org='postin''dustria'
-org_hits=$(git grep -niF "$old_org" -- . 2>/dev/null || true)
+console_host="console.fora.${old_org}.com"
+org_hits=$(git grep -niF "$old_org" -- . 2>/dev/null | grep -vF "$console_host" || true)
 if [ -n "$org_hits" ]; then
   echo "::error::stale '${old_org}' org reference (the project is github.com/FORA-Protocol):"
   echo "$org_hits"

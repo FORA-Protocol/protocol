@@ -232,8 +232,9 @@ func allowLoopbackForWiringTest(t *testing.T) {
 
 // TestGuardedWBAClientSurfacesNon2xx: a non-2xx directory response must surface
 // as an ordinary (StatusCode, nil-error) response, never a transport error — the
-// resolver classifies the status itself (a 404 directory is "unknown key", not an
-// outage). Parity with the Python (fetch_soft→None / fetch_strict→outage) and TS
+// read classifies the status itself (a 404 is ErrDocumentNotFound and a 5xx is
+// not, both wrapped with ErrDirectoryUnavailable, and neither is an unknown key).
+// Parity with the Python (fetch_soft→None / fetch_strict→outage) and TS
 // (fetchStrict→DirectoryUnavailable) non-2xx behavioral tests; Go's path is stock
 // net/http, so this locks the contract rather than guarding custom wiring (the
 // non-2xx crash that motivated this suite was Python's hand-built opener).

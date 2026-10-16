@@ -1,4 +1,4 @@
-// The GET-PoP sign face refuses control bytes in the target URI.
+// The delivery-proof sign face refuses control bytes in the target URI.
 //
 // The signature base is line-delimited and the target is written into it verbatim,
 // so a newline would add or split a component line and the signed bytes would stop
@@ -13,6 +13,7 @@
 import { describe, expect, it } from "vitest";
 
 import { signInbound } from "../core/sign.ts";
+import { AGENT_DIRECTORY } from "./wba-fixtures.ts";
 
 const now = () => 1_700_000_000_000;
 
@@ -35,7 +36,7 @@ describe("signInbound refuses control bytes in the target URI", () => {
 		it(`refuses a ${name}`, async () => {
 			const kp = await keypair();
 			await expect(
-				signInbound(kp, url, { now, ttlSec: 300 }),
+				signInbound(kp, url, { signatureAgent: AGENT_DIRECTORY, now, ttlSec: 300 }),
 			).rejects.toThrow(/control byte/);
 		});
 	}
@@ -48,7 +49,7 @@ describe("signInbound refuses control bytes in the target URI", () => {
 			"https://cdn.test/a?agent_id=x",
 			"https://cdn.test/a%20b%2Fc",
 		]) {
-			const req = await signInbound(kp, url, { now, ttlSec: 300 });
+			const req = await signInbound(kp, url, { signatureAgent: AGENT_DIRECTORY, now, ttlSec: 300 });
 			expect(req.headers.get("signature-input")).toMatch(/^sig1=/);
 		}
 	});

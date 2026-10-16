@@ -29,7 +29,7 @@ func TestSignHelpers_RejectNonceOutsideBase64url(t *testing.T) {
 		for _, nonce := range []string{`abc";expires=1`, `a\b`, "a b", "abc=", "a+b/c", "é"} {
 			t.Run(name+"/"+nonce, func(t *testing.T) {
 				req, _ := http.NewRequest(http.MethodPost, "https://broker.example/x", nil)
-				err := fn(context.Background(), req, nil, signer, helpers.SignOptions{Created: 1, Expires: 2, Nonce: nonce})
+				err := fn(context.Background(), req, nil, signer, helpers.SignOptions{SignatureAgent: tAgent, Created: 1, Expires: 2, Nonce: nonce})
 				if !errors.Is(err, helpers.ErrInvalidNonce) {
 					t.Fatalf("err = %v, want ErrInvalidNonce", err)
 				}
@@ -40,7 +40,7 @@ func TestSignHelpers_RejectNonceOutsideBase64url(t *testing.T) {
 		}
 		t.Run(name+"/valid", func(t *testing.T) {
 			req, _ := http.NewRequest(http.MethodPost, "https://broker.example/x", nil)
-			if err := fn(context.Background(), req, nil, signer, helpers.SignOptions{Created: 1, Expires: 2, Nonce: "AZaz09-_"}); err != nil {
+			if err := fn(context.Background(), req, nil, signer, helpers.SignOptions{SignatureAgent: tAgent, Created: 1, Expires: 2, Nonce: "AZaz09-_"}); err != nil {
 				t.Fatalf("valid nonce refused: %v", err)
 			}
 		})

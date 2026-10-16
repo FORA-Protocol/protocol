@@ -1,0 +1,85 @@
+{
+  "$id": "fora.v1.DisputeResponse.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "DisputeResponse — Exchange acknowledges the dispute.",
+  "properties": {
+    "dispute_id": {
+      "description": "Exchange-assigned dispute case identifier.",
+      "type": "string"
+    },
+    "estimated_resolution": {
+      "description": "Expected resolution timeline.",
+      "format": "duration",
+      "type": "string"
+    },
+    "ext": {
+      "description": "Extension point",
+      "type": "object"
+    },
+    "ext_critical": {
+      "description": "Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "resolution": {
+      "anyOf": [
+        {
+          "enum": [
+            "RESOLUTION_TYPE_UNSPECIFIED",
+            "RESOLUTION_TYPE_CREDIT",
+            "RESOLUTION_TYPE_REDELIVERY",
+            "RESOLUTION_TYPE_REJECTED",
+            "RESOLUTION_TYPE_INVESTIGATION"
+          ],
+          "type": "string"
+        },
+        {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        }
+      ],
+      "description": "Resolution outcome, populated when the dispute reaches a terminal\n state (RESOLVED, SETTLED, or FINAL). Absent while dispute is in\n progress (FILED, UNDER_REVIEW, ESCALATED, etc.).",
+      "title": "Resolution Type"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "pattern": "^DISPUTE_STATUS_UNSPECIFIED$",
+          "type": "string"
+        },
+        {
+          "enum": [
+            "DISPUTE_STATUS_FILED",
+            "DISPUTE_STATUS_AUTO_RESOLVED",
+            "DISPUTE_STATUS_EVIDENCE_NEEDED",
+            "DISPUTE_STATUS_UNDER_REVIEW",
+            "DISPUTE_STATUS_ESCALATED",
+            "DISPUTE_STATUS_RESOLVED",
+            "DISPUTE_STATUS_APPEALED",
+            "DISPUTE_STATUS_SETTLED",
+            "DISPUTE_STATUS_FINAL"
+          ],
+          "type": "string"
+        },
+        {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        }
+      ],
+      "default": 0,
+      "description": "Current lifecycle status of the dispute. Tracks progression through\n the three-tier resolution process:\n   Tier 1 (automated, <1s): FILED → AUTO_RESOLVED or EVIDENCE_NEEDED\n   Tier 2 (rule-based, <24h): UNDER_REVIEW → RESOLVED\n   Tier 3 (pattern investigation, async): ESCALATED → SETTLED → FINAL\n Losing party may appeal: RESOLVED → APPEALED → back to UNDER_REVIEW.",
+      "title": "Dispute Status"
+    },
+    "ver": {
+      "default": "",
+      "description": "FORA protocol version — \"1.0\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
+      "type": "string"
+    }
+  },
+  "title": "Dispute Response",
+  "type": "object"
+}

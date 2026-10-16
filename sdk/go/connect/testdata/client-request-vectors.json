@@ -92,6 +92,15 @@
       "requester_id": "agent-1"
     },
     {
+      "name": "broker_execute_key_pinned",
+      "verb": "brokerExecute",
+      "path": "/fora.v1.BrokerService/ExecuteTransaction",
+      "ver": "1.0",
+      "idempotency_key": "idem-pinned-1",
+      "key_minted": false,
+      "requester_id": "agent-1"
+    },
+    {
       "name": "push_resources",
       "verb": "pushResources",
       "path": "/fora.v1.CatalogService/PushResources",

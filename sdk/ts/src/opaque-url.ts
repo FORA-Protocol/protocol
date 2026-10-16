@@ -1,7 +1,7 @@
 // opaqueUrl coerces a URL-like input to the primitive string the OPAQUE-URL-BYTES
 // contract (signurl.ts) operates on, ONCE at each public SDK boundary.
 //
-// The URL-consuming faces (Ed25519 signed-URL verify, RFC 9421 GET-PoP verify)
+// The URL-consuming faces (Ed25519 signed-URL verify, Web Bot Auth delivery-proof verify)
 // type their input as `string`, but some edge runtimes — Fastly Compute — hand
 // the request URL as a URL-LIKE OBJECT. Left uncoerced, that object either throws
 // (canonicalUrl's indexOf/slice string ops) or silently WHATWG-normalizes (a

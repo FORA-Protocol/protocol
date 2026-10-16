@@ -139,13 +139,21 @@ describe("CachedOfferKeyResolver", () => {
 		const { fetch } = countingFetch({
 			[EXCHANGE]: directory([activeJwk(revoked.x), activeJwk(live.x)]),
 		});
+		const asked: string[] = [];
 		const resolver = createCachedOfferKeyResolver({
 			fetch,
 			now: () => ANCHOR_MS,
-			revoked: (tp) => tp === revoked.tp,
+			revoked: (tp, exchange) => {
+				asked.push(exchange);
+				return tp === revoked.tp;
+			},
 		});
 
 		expect(await resolver.resolve(EXCHANGE)).toEqual(live.rawPub);
+		// The predicate is asked about the exchange the key came from, so it can answer
+		// from that exchange's own list and no other.
+		expect(asked.length).toBeGreaterThan(0);
+		expect(new Set(asked)).toEqual(new Set([EXCHANGE]));
 	});
 
 	it("returns undefined when the fetch is unresolvable (returns undefined)", async () => {

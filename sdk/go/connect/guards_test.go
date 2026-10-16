@@ -40,7 +40,7 @@ func (f fixedEndpoint) ResolveEndpoint(_ context.Context, _ string) (string, err
 func TestReportUsage_GuardRefusesAPrivateEndpoint(t *testing.T) {
 	sig := newSigningFixture(t)
 	client := foraconnect.NewClient("https://home.invalid",
-		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
 		// Anchored to the domain, so the check passes: localhost:1 advertises
 		// localhost:1. The PORT is named on both sides deliberately — anchoring
 		// compares it, so an endpoint on a port the exchange value does not carry
@@ -91,7 +91,7 @@ func TestReportUsage_GuardSurvivesACallerSuppliedTransport(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			sig := newSigningFixture(t)
 			client := foraconnect.NewClient("https://home.invalid",
-				foraconnect.WithSigner(sig.signer),
+				foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
 				foraconnect.WithGuardedBaseTransport(base),
 				foraconnect.WithEndpointResolver(fixedEndpoint{endpoint: "https://localhost:1"}),
 			)
@@ -123,7 +123,7 @@ func TestFetch_GuardSurvivesACallerSuppliedTLSDialer(t *testing.T) {
 	tlsCfg := content.Client().Transport.(*http.Transport).TLSClientConfig
 
 	client := foraconnect.NewClient("https://home.invalid",
-		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
 		foraconnect.WithAgentKey(sig.pub),
 		foraconnect.WithGuardedBaseTransport(&http.Transport{
 			TLSClientConfig: tlsCfg,
@@ -155,7 +155,7 @@ func TestReportUsage_RefusesAnInjectedEndpointCarryingUserinfo(t *testing.T) {
 	sig := newSigningFixture(t)
 	client := foraconnect.NewClient("http://home.invalid",
 		append(allowLoopback(t),
-			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
 			// Anchored to the domain, so only the userinfo arm can refuse it.
 			foraconnect.WithEndpointResolver(fixedEndpoint{
 				endpoint: "http://agent:s3cret@exchange.test",
@@ -203,7 +203,7 @@ func TestReportUsage_RefusesRedirectAndNeverContactsTheTarget(t *testing.T) {
 	}))
 
 	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
 
 	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      domain,
@@ -233,7 +233,7 @@ func TestReportUsage_PeerRefusalIsATypedCallError(t *testing.T) {
 	}))
 
 	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer))...)
+		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
 
 	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      domain,

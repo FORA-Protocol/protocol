@@ -97,7 +97,11 @@ def _config(**overrides: Any) -> ClientConfig:
     base = {
         "base_url": "https://exchange.test",
         "requester": REQUESTER,
-        "signer": SigningTransport(signer_seed=AGENT_SEED, keyid="agent.v1"),
+        "signer": SigningTransport(
+            signer_seed=AGENT_SEED,
+            keyid="agent.v1",
+            signature_agent="https://agent.test",
+        ),
     }
     base.update(overrides)
     return ClientConfig(**base)  # type: ignore[arg-type]
@@ -163,7 +167,7 @@ def test_every_requested_uri_keeps_its_group_and_its_reason(face: Face) -> None:
                 {"uri": "https://site.test/a", "offers": [offer]},
                 {
                     "uri": "https://site.test/b",
-                    "absence_reason": "OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT",
+                    "absence_reason": "OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE",
                 },
             ],
         }
@@ -174,9 +178,9 @@ def test_every_requested_uri_keeps_its_group_and_its_reason(face: Face) -> None:
 
     assert len(result.groups) == 2
     assert len(result.groups[0].result.verified) == 1
-    # The refusal is an ANSWER: the agent can tell "acquire an entitlement and retry" from
-    # "give up" only because the reason survived.
-    assert result.groups[1].absence_reason == "OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT"
+    # The reason is an ANSWER: the agent can tell "retry later" from "give up" only because
+    # the reason survived.
+    assert result.groups[1].absence_reason == "OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE"
     assert result.exchange == "exchange.test"
 
 
@@ -338,7 +342,8 @@ def test_a_connect_error_envelope_becomes_the_typed_failure(face: Face) -> None:
             "details": [
                 {
                     "type": "fora.v1.ErrorDetail",
-                    "value": "aWdub3JlZA",
+                    # The binary ErrorDetail the debug projection below describes.
+                    "value": "Cg9iYWxhbmNlIHRvbyBsb3cSF2ZvcmEudjEuRXhjaGFuZ2VTZXJ2aWNlUgIIAg",
                     "debug": {
                         "domain": "fora.v1.ExchangeService",
                         "message": "balance too low",
@@ -511,6 +516,22 @@ def test_execute_refuses_an_unsigned_offer_that_verification_off_can_surface(fac
     with pytest.raises(CallError) as excinfo:
         face.run(client.execute(unsigned))
     assert excinfo.value.kind is CallErrorKind.MALFORMED
+
+
+@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("field", ["id", "domain"])
+def test_execute_refuses_a_requester_missing_either_half(face: Face, field: str) -> None:
+    # Every acceptance names the requester, and Requester.id and Requester.domain are both
+    # required, so the client refuses before signing or sending anything.
+    offer, public = _signed_offer()
+    rec = Recorder({})
+    client = face.client(_config(requester={**REQUESTER, field: ""}), rec)
+
+    with pytest.raises(CallError) as excinfo:
+        face.run(client.execute(_verified(public, offer)))
+    assert excinfo.value.kind is CallErrorKind.MALFORMED
+    assert f"requester.{field} is empty" in str(excinfo.value)
+    assert rec.seen == []
 
 
 # ---------------------------------------------------------------------------

@@ -11,6 +11,11 @@ constant and the check that reads it sit together.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pydantic import BaseModel
+
 #: Content-Type for binary protobuf bodies.
 ContentTypeProto = "application/proto"
 #: Content-Type for canonical proto-JSON bodies.
@@ -36,8 +41,17 @@ ProtocolVersion = "1.0"
 WellKnownManifestVersion = "1.0"
 #: Header correlating a request across services and the edge.
 RequestIDHeader = "X-Request-ID"
-#: Header carrying the signer's Web Bot Auth key-directory URL.
+#: Header naming the key directory of each request signature: a structured-field
+#: Dictionary whose member ``<label>="https://<origin>"`` each signature covers.
 SignatureAgentHeader = "Signature-Agent"
+#: The RFC 9421 ``tag`` every Web Bot Auth request signature carries.
+WBATag = "web-bot-auth"
+#: The ``tag`` a key directory's response signature carries (WG-00 Appendix B.1).
+DirectoryResponseTag = "http-message-signatures-directory"
+#: The RFC 9421 §5.1 field a verifier answers with when it refuses a signature for a
+#: missing component or a form it does not accept, naming what it requires
+#: (WG-00 §5.3). Its value is :func:`fora_sdk.wba.accept_signature`.
+AcceptSignatureHeader = "Accept-Signature"
 #: Header carrying the fetcher's raw Ed25519 public key on a PoP GET. Canonical
 #: (Go) casing; HTTP field names are case-insensitive, so lookups lowercase it —
 #: see ``AGENT_KEY_HEADER`` in ``pop``, which derives from this rather than
@@ -51,6 +65,16 @@ AgentKeyHeader = "X-FORA-Agent-Key"
 #: ``WellKnownManifestVersion`` versions the document's content; ``WellKnownPath``
 #: specifies where it is served.
 WellKnownPath = "/.well-known/fora.json"
+#: Edge discovery header pointing an agent the edge refused with 403 at the
+#: publisher's manifest: the absolute URL of its ``/.well-known/fora.json``. See
+#: "Edge discovery headers" in fora.proto, and
+#: :func:`fora_sdk.parse_discovery_hint`.
+ContentRulesHeader = "X-Content-Rules"
+#: Edge discovery header naming, on the same 403, one Exchange that sells the
+#: content directly, as a bare domain in the form of ``Offer.exchange``. An
+#: optimisation over ``ContentRulesHeader`` and never authorization: the manifest
+#: stays the authority on who sells.
+ExchangeHeader = "X-FORA-Exchange"
 
 
 def _parse_major(ver: str) -> str | None:
@@ -108,3 +132,15 @@ _MAX_ECHOED_VER = 64
 
 def _echo_ver(ver: str) -> str:
     return ver if len(ver) <= _MAX_ECHOED_VER else ver[:_MAX_ECHOED_VER] + "..."
+
+
+def to_wire(model: BaseModel) -> dict[str, Any]:
+    """Render a generated wire model as the JSON object the SDK sends.
+
+    Only the fields the caller set are rendered, under their proto field names. A
+    declared default such as ``ver: ""`` stays off the wire: sending it would put a field
+    on the message the caller never set, and an empty ``ver`` reads as a protocol version
+    the sender does not speak. Every verb that accepts a model serializes it here, so a
+    model and the equivalent dict reach the wire as the same bytes.
+    """
+    return model.model_dump(mode="json", exclude_unset=True)

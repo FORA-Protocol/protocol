@@ -45,7 +45,7 @@ A Exchange declares support for this profile by including `"fora-legal-v1"` in t
 }
 ```
 
-A Broker uses `supported_profiles` to route legal queries only to Exchanges that understand this vocabulary.
+A Broker forwards the agent's `supported_profiles` to the Exchanges it queries and does not route by them; an Exchange that declares this profile includes its fields.
 
 ## Field Naming Conventions
 

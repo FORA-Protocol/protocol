@@ -25,7 +25,11 @@ client.Fetch(ctx, "https://techcrunch.com/premium/article.html")
   |         - Parse WellKnownManifest, extract authorized Exchanges
   |         - Cache result (TTL: 1 hour, configurable)
   |         - If fora.json fetch fails: attempt direct GET to URL
-  |           - If 403 + X-Content-Rules header: extract Exchange endpoint
+  |           - If 403: read the discovery headers (ParseDiscoveryHint)
+  |             - X-FORA-Exchange: an Exchange domain; resolve its endpoint
+  |               from that Exchange's own fora.json, never from the header
+  |             - X-Content-Rules: the publisher's fora.json URL; read it and
+  |               confirm the hinted Exchange is listed (ReconcileDiscoveryHint)
   |           - If 403 without header or non-403: return NoExchangeError
   |
   |  3. Pre-flight budget check
@@ -63,7 +67,8 @@ client.Fetch(ctx, "https://techcrunch.com/premium/article.html")
   |       - Authenticate via RFC 9421 HTTP Message Signature in the HTTP headers
   |       - Send ExecuteTransaction RPC to winning Exchange
   |       - On DenialReason: return typed error (see Error Handling below)
-  |       - On success: extract signed URL from retrieval_endpoint
+  |       - On success: extract signed URL from retrieval_endpoint, as issued.
+  |         The SDK does not verify it; the delivery edge does, at step 9
   |
   |  8. Record spend
   |     BudgetTracker.Record(txn.Cost)
@@ -73,6 +78,8 @@ client.Fetch(ctx, "https://techcrunch.com/premium/article.html")
   |  9. Fetch content
   |     ContentFetcher.Fetch(ctx, signedURL)
   |       - GET signed URL: present agent public key + RFC 9421 signature
+  |       - The edge verifies the URL signature and, where it can, the agent
+  |         binding against that proof
   |       - Read response body
   |       - On HTTP error: return ContentFetchError
   |
@@ -197,8 +204,10 @@ carries the same flow with its example executed by the package's own test suite.
 
 The single-call `FetchBatch` above is part of the deferred layer. What ships is the
 part that matters most for round trips: `ResourceQuery.uris` is a repeated field, so
-one Discover call covers every URI you want from one Exchange. Purchase and delivery
-are then per offer.
+one Discover call covers every URI you want from one Exchange. Purchase can be per
+offer, as below, or batched: `Client.ExecuteBatch` buys several offers from one Exchange
+in one request, and `BrokerClient.Execute` buys offers from several Exchanges in one call
+to a Broker (shown after this example). Delivery is per offer.
 
 ```go
 found, err := client.Discover(ctx, &forav1.ResourceQuery{
@@ -225,13 +234,60 @@ for _, group := range found.Groups {
         return err
     }
     item := tx.GetItems()[0]
+    if item.DenialReason != nil {
+        continue // denied: no retrieval URL
+    }
 
+    // Fetch presents the agent's proof of possession; the delivery edge checks the
+    // URL and the proof.
     content, err := client.Fetch(ctx, item.GetRetrievalEndpoint())
     if err != nil {
         return err
     }
     _ = content
 }
+```
+
+### Buying across Exchanges through a Broker
+
+`BrokerClient.Execute` sends one `BrokerService.ExecuteTransaction` for offers issued by
+any number of Exchanges. The client signs each offer's acceptance and one request
+acceptance over the whole set; the Broker re-packages the purchase into one sub-request
+per Exchange and returns the results in request order. The client must sign as the
+directory its requester's domain names (`WithSignatureAgent`), because a Broker refuses
+a request whose `requester.domain` is anything else, and the client refuses it locally
+first. Each result item's retrieval URL comes back exactly as the Exchange that issued
+the item's offer signed it, and the delivery edge verifies it when Fetch presents it.
+
+```go
+broker := foraconnect.NewBrokerClient("https://broker.example",
+    foraconnect.WithSigner(signer),
+    foraconnect.WithSignatureAgent("https://agent.example"),
+    foraconnect.WithRequester(&forav1.Requester{Id: "agent-1", Domain: "agent.example",
+        Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}),
+)
+resp, err := broker.Execute(ctx, selected) // []core.VerifiedOffer from several Exchanges
+if err != nil {
+    return err // the Broker's own refusal: nothing was bought
+}
+for _, item := range resp.GetItems() {
+    if r := item.GetRefusal(); r != nil {
+        // That Exchange refused the whole sub-request; the other items are unaffected.
+        log.Printf("%s refused %s: %s", r.GetParty(), item.GetOfferId(), r.GetCode())
+        continue
+    }
+    if item.DenialReason != nil {
+        continue // a per-item denial from the Exchange
+    }
+    content, err := client.Fetch(ctx, item.GetRetrievalEndpoint())
+    if err != nil {
+        return err
+    }
+    _ = content
+}
+// resp.GetTotals() holds the charged amount per currency, never summed across currencies.
+// An item refused with "unavailable" or "deadline_exceeded" may have been charged and is
+// not counted there; retry the same request with the same idempotency key to settle it.
 ```
 
 ## Error Handling
@@ -251,6 +307,7 @@ type CallError struct {
     Op     string              // the verb that failed
     Status int                 // HTTP status when the peer answered, 0 otherwise
     Reason string              // the peer's own refusal token when it sent one
+    Code   connectrpc.Code     // the Connect code of the peer's answer; zero when none
     Detail *forav1.ErrorDetail // the peer's typed reason when it sent one
     // PeerMessage is the developer message on the peer's typed reason.
     // NON-AUTHORITATIVE and unbounded -- branch on Kind or on the typed reason,
@@ -265,7 +322,8 @@ const (
     CallRefused                   // the server answered and said no
     CallUnreachable               // the server did not answer
     CallNotSent                   // THIS SDK declined to send
-    CallMalformed                 // the request could not be built or signed faithfully
+    CallMalformed                 // the request could not be built or signed faithfully,
+                                  // or the answer could not be read as the protocol defines it
     CallTooLarge                  // the response body was past the configured cap
     CallNotSignable               // a signature or proof could not be produced
 )
@@ -283,7 +341,8 @@ type FetchError struct {
 
 Both carry `ReasonOf()`, which answers the peer's own token when it sent one and the
 failure class otherwise. `connect.ErrorDetailFrom(err)` pulls the typed
-`ErrorDetail` out of any error that carries one. `resolvers.ErrEndpointRefused` is a
+`ErrorDetail` out of any error that carries one, including the `retrieval_auth_failure`
+the client synthesizes from a delivery edge's refusal token. `resolvers.ErrEndpointRefused` is a
 sentinel reachable through `errors.Is`.
 
 ### Error Recovery Strategy
@@ -291,9 +350,9 @@ sentinel reachable through `errors.Is`.
 | Failure | Recovery | User Impact |
 |---|---|---|
 | `CallNotSent` | **None -- terminal.** The SDK refused before anything left the process, so retrying unchanged fails the same way | Caller fixes the address, the key or the requester |
-| `CallUnreachable` | Retry with backoff | Transparent if the retry succeeds |
-| `CallRefused` | Depends on the typed reason -- read it with `connect.ErrorDetailFrom` | A denial reason such as `DENIAL_REASON_REPORTING_OVERDUE` tells the caller what to fix |
-| `CallMalformed` | **None -- terminal.** The request could not be built or signed faithfully | Caller fixes the message |
+| `CallUnreachable` | Retry with backoff. On a purchase, retry with the same idempotency key: the call may have completed, and the Exchange answers a repeat from its stored result | Transparent if the retry succeeds |
+| `CallRefused` | Depends on the typed reason -- read it with `connect.ErrorDetailFrom` | A denial reason such as `DENIAL_REASON_REPORTING_OVERDUE` tells the caller what to fix. A `request_auth_failure` of `SIGNATURE_STALE` means sign the request again and retry; `SIGNATURE_MISSING` and `SIGNATURE_INVALID` are terminal until the signer is fixed |
+| `CallMalformed` | **None -- terminal.** The request could not be built or signed faithfully, or the answer could not be read as the protocol defines it | Caller fixes the message |
 | `CallTooLarge` | Raise `WithMaxContentBytes`, or ask for less | Caller decides whether the body is legitimate |
 | `CallNotSignable` | **None -- terminal.** No signature or proof could be produced | Caller fixes key custody or the signing window |
 | `FetchRefused` | Read `Reason` -- the edge's own token says whether the URL expired or the proof did not match | An expired delivery URL means buying again |
@@ -349,4 +408,10 @@ test prove an Exchange would have been accepted, instead of proving the calls di
 not panic.
 
 `sdk/python/tests/exchange_harness.py` is a worked example of exactly that, in under
-300 lines, and it is what executes the Python README's agent example on every run.
+300 lines, and it is what executes the Python README's agent example on every run. Its
+directory publishes the key it signs delivery URLs with, and each URL names that key by
+thumbprint in `kid`, as the protocol says.
+
+Testing a FORA service rather than an agent works the other way round, and the clients
+support it directly: a pre-signing hook, raw mode, strict decoding, an admin client and
+identity helpers. See [Testing a FORA Service Through the SDK](/components/agent-sdk/overview/#testing-a-fora-service-through-the-sdk).

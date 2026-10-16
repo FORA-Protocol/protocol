@@ -177,7 +177,7 @@ Attestation is most useful for STATIC resources where the hash remains stable. F
 
 **Key publication**: Your domain hosts a WBA directory — a JWK Set at `/.well-known/http-message-signatures-directory` — carrying your public keys (inline RFC 7517 Ed25519 JWKs, each identified by its RFC 7638 thumbprint). Agents and Exchanges fetch this to verify your attestation signatures; keys no longer live in `fora.json`. FORA has no dedicated verifier role; a verifier publishes under its operator's role — here `ROLE_PUBLISHER` for self-attestation.
 
-**`catalog_contributors`**: You can authorize third-party verification vendors to push attestations on your behalf. Declare authorized contributors in your provider manifest. Only contributors listed in `catalog_contributors` can push resource metadata to the Exchange for your domain.
+**`catalog_contributors`**: You can authorize third-party verification vendors to push attestations on your behalf. Declare authorized contributors in your provider manifest. You may always push for your own domain; besides your own domain, only contributors listed in `catalog_contributors` can push resource metadata to the Exchange for it.
 
 ## Extension Profiles
 

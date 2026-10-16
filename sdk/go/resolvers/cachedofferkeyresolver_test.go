@@ -123,10 +123,14 @@ func TestCachedOfferKeyResolver_SkipsRevokedKey(t *testing.T) {
 	pub2, k2 := activeWindowJWK("rev-b")
 	revokedTP := mustThumbprint(t, pub1)
 	var calls atomic.Int64
+	var asked []string
 	r := resolvers.NewCachedOfferKeyResolver(resolvers.CachedOfferKeyResolverConfig{
-		Fetch:   countingFetch(wbaDirectory(k1, k2), &calls),
-		Now:     func() time.Time { return wbaAnchor },
-		Revoked: func(tp string) bool { return tp == revokedTP },
+		Fetch: countingFetch(wbaDirectory(k1, k2), &calls),
+		Now:   func() time.Time { return wbaAnchor },
+		Revoked: func(tp, exchange string) bool {
+			asked = append(asked, exchange)
+			return tp == revokedTP
+		},
 	})
 	got, err := r.Resolve(context.Background(), "ex")
 	if err != nil {
@@ -137,6 +141,16 @@ func TestCachedOfferKeyResolver_SkipsRevokedKey(t *testing.T) {
 	}
 	if !got.Equal(pub2) {
 		t.Fatal("the next active, non-revoked key must be selected")
+	}
+	// The predicate is asked about the exchange the key came from, so it can answer
+	// from that exchange's own list and no other.
+	if len(asked) == 0 {
+		t.Fatal("the revocation predicate was never consulted")
+	}
+	for _, ex := range asked {
+		if ex != "ex" {
+			t.Fatalf("predicate asked about exchange %q, want the resolved domain %q", ex, "ex")
+		}
 	}
 }
 

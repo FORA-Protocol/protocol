@@ -4,11 +4,12 @@ package connect_test
 //
 // The ADR-019 ErrorDetail corpus (sdk/go/helpers/testdata/error-detail-vectors.json)
 // pins the DETAIL's own proto-JSON. It says nothing about the ENVELOPE the detail
-// arrives in, and the envelope is where the JSON-only SDKs actually read from: they
-// have no protobuf binary codec, so they cannot open the detail's `value` (a base64
-// Any) and must read Connect's `debug` projection instead.
+// arrives in, and the envelope is where the JSON SDKs actually read from: the detail's
+// `value` (the binary ErrorDetail, base64), and Connect's `debug` projection when no
+// `value` is present. The binary decoding itself is pinned field by field by
+// error-detail-wire-vectors.json.
 //
-// That projection does not follow the FORA wire naming, and no server option changes
+// The projection does not follow the FORA wire naming, and no server option changes
 // it. connect-go builds it with its own protojson codec at default options, so the
 // keys are lowerCamelCase — `transactionDenial`, `fieldErrors` — while everything else
 // on the FORA wire, including the response bodies the same server emits through
@@ -27,7 +28,33 @@ package connect_test
 // Each vector carries the envelope AS SERVED plus the projection every SDK must extract
 // from it. The Go replay (connect_error_corpus_test.go) serves the recorded bytes back
 // through a real client and asserts ErrorDetailFrom reaches the projection; the Python
-// and TS replays parse the same envelope with their own error_detail_from / reason.
+// and TS replays parse the same envelope with their own error_detail_from / reason, and
+// decode it through their own client to read the Connect code off the typed failure.
+//
+// The detail's `value` is the authoritative copy: it is the binary ErrorDetail itself,
+// while `debug` is a projection connect-go adds for JSON readers and is free to omit.
+// Every SDK reads `value` and falls back to `debug` only when `value` is absent. Three
+// kinds of DERIVED vector hold that rule, each built by editing a captured envelope:
+// a `.value_only` twin of every captured case with a detail, which carries no `debug`
+// at all; `value_wins_over_debug`, whose `debug` describes a different detail than its
+// `value`; and `undecodable_value_skipped`, whose `value` is not an ErrorDetail and
+// whose `debug` must still not be read in its place. Go reads only `value`, so its
+// replay of the derived rows is the same real round trip as for the captured ones.
+//
+// Every row also records how a STRICT client reads it (strict_malformed). Strict decoding
+// checks the envelope itself — only the members code, message and details, a known
+// Connect code, well-formed details — and every ErrorDetail it carries, binary value and
+// debug projection alike, against the strict ErrorDetail schema and its rules. A row it
+// refuses is reported as malformed with the row's Connect code kept and no detail; a row
+// it accepts reads exactly as the lenient client reads it. Three DERIVED rows exist for
+// this column: `envelope_unknown_member`, whose envelope carries a member Connect does
+// not define; `debug_projection_unknown_field`, whose debug projection carries a field
+// ErrorDetail does not define; and the captured
+// `registration_failure_field_errors_out_of_scope`, whose reason block breaks the
+// RegistrationFailure message rule (field_errors only with INVALID_REGISTRATION_DATA).
+// `undecodable_value_skipped` is refused too: a value that does not decode is not a
+// well-formed detail. The column is declared here, not derived from Go's own strict run,
+// so the Go replay is held to it like the other two.
 //
 // Like the other emitters this test is a verification no-op by default (it asserts the
 // committed file matches a fresh emit) and (re)writes it under FORA_UPDATE_VECTORS=1.
@@ -37,6 +64,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -45,6 +73,8 @@ import (
 	"testing"
 
 	connectrpc "connectrpc.com/connect"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
@@ -84,6 +114,11 @@ type connectErrorVector struct {
 	// property of the CallError one tier up. The column gate reads top-level keys, so
 	// placing it here is also what obliges all three replays to assert it.
 	PeerMessage string `json:"peer_message"`
+	// StrictMalformed is how a client with strict decoding on reads the row: true when
+	// it refuses the answer as malformed, keeping Code and reporting no detail; false
+	// when it reads the row exactly as the lenient client does. Top-level for the same
+	// reason as PeerMessage: it is a property of the CallError, not of the detail.
+	StrictMalformed bool `json:"strict_malformed"`
 }
 
 // connectErrorExpectation mirrors the error-detail corpus's projection so the two read
@@ -95,6 +130,11 @@ type connectErrorExpectation struct {
 	Metadata   map[string]string `json:"metadata"`
 	ReasonFrom string            `json:"reason_field"`
 	ReasonEnum string            `json:"reason_enum"`
+	// Detail is the whole ErrorDetail as canonical proto-JSON under the proto field
+	// names, or null when the envelope carries none. The projection above names the
+	// fields a caller branches on; this pins every field, so a decoder that reads the
+	// reason and drops a nested member (field_errors, metadata) fails here.
+	Detail any `json:"detail"`
 }
 
 // errorCase is one server-side failure to capture.
@@ -103,6 +143,8 @@ type errorCase struct {
 	code   connectrpc.Code
 	msg    string
 	detail *forav1.ErrorDetail
+	// strictMalformed is the row's strict_malformed column.
+	strictMalformed bool
 }
 
 // connectErrorCases are the failures the envelope must carry faithfully.
@@ -171,6 +213,28 @@ func connectErrorCases() []errorCase {
 				forav1.DomainVerificationFailureReason_DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_NOT_FOUND),
 		},
 		{
+			// The request-signature refusal. The verify seam writes it with
+			// connectserver.WriteReject rather than through a handler; a test in that
+			// package holds the writer's envelope equal to what connect-go writes for
+			// the same error, which is what this capture records. The domain is empty
+			// because that writer is handed no request and so cannot name a service.
+			name: "request_auth_failure_signature_stale",
+			code: connectrpc.CodeUnauthenticated, msg: "helpers: signature expired",
+			detail: helpers.RequestAuthFailureDetail("", "helpers: signature expired",
+				forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE),
+		},
+		{
+			// A server that breaks a rule of the detail it sends. field_errors is only
+			// allowed beside INVALID_REGISTRATION_DATA (the RegistrationFailure message
+			// rule), so this detail decodes in every SDK and a strict client refuses it.
+			name: "registration_failure_field_errors_out_of_scope",
+			code: connectrpc.CodeFailedPrecondition, msg: "domain not verified",
+			detail: helpers.RegistrationFailureDetail(exchangeDomain, "domain not verified",
+				forav1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_DOMAIN_NOT_VERIFIED,
+				fieldErr),
+			strictMalformed: true,
+		},
+		{
 			name: "generic_detail_no_reason",
 			code: connectrpc.CodeInternal, msg: "internal error",
 			detail: connectserver.NewErrorDetail(exchangeDomain, "internal error", nil),
@@ -193,10 +257,14 @@ func connectErrorCases() []errorCase {
 func TestGenerateConnectErrorVectors(t *testing.T) {
 	doc := map[string]any{
 		"note": "Connect JSON error envelopes captured from a real connect-go handler. " +
-			"details[].debug is lowerCamelCase — connect-go builds it with its own protojson " +
-			"codec at default options, which no server codec replaces — while every FORA " +
-			"message body is snake_case. details[].value is the base64 binary Any, which the " +
-			"JSON-only SDKs deliberately cannot open.",
+			"details[].value is the base64 binary ErrorDetail and is the authoritative copy; " +
+			"details[].debug is a lowerCamelCase projection — connect-go builds it with its own " +
+			"protojson codec at default options, which no server codec replaces — read only " +
+			"when value is absent. Rows named *.value_only, value_wins_over_debug, " +
+			"undecodable_value_skipped, envelope_unknown_member and debug_projection_unknown_field " +
+			"are derived by editing a captured envelope. strict_malformed is how a client with " +
+			"strict decoding on reads the row: refused as malformed with the code kept and no " +
+			"detail, or read exactly as the lenient client reads it.",
 		"vectors": buildConnectErrorVectors(t),
 	}
 	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
@@ -217,19 +285,136 @@ func TestGenerateConnectErrorVectors(t *testing.T) {
 func buildConnectErrorVectors(t *testing.T) []connectErrorVector {
 	t.Helper()
 	cases := connectErrorCases()
-	out := make([]connectErrorVector, 0, len(cases))
+	captured := make([]connectErrorVector, 0, len(cases))
 	for _, c := range cases {
 		status, envelope, peerMessage := captureEnvelope(t, c)
-		out = append(out, connectErrorVector{
-			Name:        c.name,
-			Code:        c.code.String(),
-			HTTPStatus:  status,
-			Envelope:    envelope,
-			Expect:      expectationOf(c.detail),
-			PeerMessage: peerMessage,
+		captured = append(captured, connectErrorVector{
+			Name:            c.name,
+			Code:            c.code.String(),
+			HTTPStatus:      status,
+			Envelope:        envelope,
+			Expect:          expectationOf(c.detail),
+			PeerMessage:     peerMessage,
+			StrictMalformed: c.strictMalformed,
 		})
 	}
+	return append(captured, derivedConnectErrorVectors(t, captured)...)
+}
+
+// derivedConnectErrorVectors builds the rows that hold the value-before-debug rule, by
+// editing captured envelopes. See the file comment for what each kind proves.
+func derivedConnectErrorVectors(t *testing.T, captured []connectErrorVector) []connectErrorVector {
+	t.Helper()
+	byName := make(map[string]connectErrorVector, len(captured))
+	var out []connectErrorVector
+	for _, v := range captured {
+		byName[v.Name] = v
+		if !v.Expect.HasDetail {
+			continue
+		}
+		twin := v
+		twin.Name = v.Name + ".value_only"
+		twin.Envelope = editDetails(t, v.Envelope, func(d map[string]any) { delete(d, "debug") })
+		out = append(out, twin)
+	}
+
+	// The value names one detail and the debug projection another. The value is the
+	// detail; the projection describing something else is not read at all.
+	denial, dispute := byName["transaction_denial_insufficient_balance"], byName["dispute_failure"]
+	otherDebug := firstDetail(t, dispute.Envelope)["debug"]
+	wins := denial
+	wins.Name = "value_wins_over_debug"
+	wins.Envelope = editDetails(t, denial.Envelope, func(d map[string]any) { d["debug"] = otherDebug })
+	out = append(out, wins)
+
+	// A value that is not an ErrorDetail ("ignored", base64) makes the entry unreadable.
+	// Its debug projection is intact and still must not be read in the value's place:
+	// the fallback is for a value that is ABSENT, never for one that failed to decode.
+	skipped := denial
+	skipped.Name = "undecodable_value_skipped"
+	skipped.Envelope = editDetails(t, denial.Envelope, func(d map[string]any) { d["value"] = "aWdub3JlZA" })
+	skipped.Expect = connectErrorExpectation{}
+	skipped.PeerMessage = ""
+	skipped.StrictMalformed = true
+	out = append(out, skipped)
+
+	// A member the Connect protocol does not define, at the envelope's top level. A
+	// lenient reader ignores it; a strict one refuses the envelope.
+	member := denial
+	member.Name = "envelope_unknown_member"
+	member.Envelope = editEnvelope(t, denial.Envelope, func(e map[string]any) { e["retryable"] = true })
+	member.StrictMalformed = true
+	out = append(out, member)
+
+	// A field ErrorDetail does not define, in the debug projection beside an intact value.
+	// The value is still what every SDK reads, so the lenient read is the denial's; a
+	// strict client checks the projection too and refuses it.
+	debug := denial
+	debug.Name = "debug_projection_unknown_field"
+	debug.Envelope = editDetails(t, denial.Envelope, func(d map[string]any) {
+		projection, _ := d["debug"].(map[string]any)
+		projection["severity"] = "high"
+	})
+	debug.StrictMalformed = true
+	out = append(out, debug)
 	return out
+}
+
+// editEnvelope returns a deep copy of envelope with edit applied to its top level.
+func editEnvelope(t *testing.T, envelope any, edit func(map[string]any)) any {
+	t.Helper()
+	b, err := json.Marshal(envelope)
+	if err != nil {
+		t.Fatalf("copy envelope: %v", err)
+	}
+	var copied map[string]any
+	if err := json.Unmarshal(b, &copied); err != nil {
+		t.Fatalf("copy envelope: %v", err)
+	}
+	edit(copied)
+	return copied
+}
+
+// editDetails returns a deep copy of envelope with edit applied to every details entry.
+func editDetails(t *testing.T, envelope any, edit func(map[string]any)) any {
+	t.Helper()
+	return editEnvelope(t, envelope, func(e map[string]any) {
+		details, _ := e["details"].([]any)
+		for _, d := range details {
+			if entry, ok := d.(map[string]any); ok {
+				edit(entry)
+			}
+		}
+	})
+}
+
+// firstDetail returns the first details entry of a captured envelope.
+func firstDetail(t *testing.T, envelope any) map[string]any {
+	t.Helper()
+	env, _ := envelope.(map[string]any)
+	details, _ := env["details"].([]any)
+	if len(details) == 0 {
+		t.Fatalf("envelope carries no details entry")
+	}
+	entry, ok := details[0].(map[string]any)
+	if !ok {
+		t.Fatalf("details entry is not an object")
+	}
+	return entry
+}
+
+// protoJSONOf renders a message as canonical proto-JSON under the proto field names,
+// parsed back so the committed corpus stores it as a JSON value.
+func protoJSONOf(m proto.Message) any {
+	b, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(m)
+	if err != nil {
+		panic(fmt.Sprintf("render %T: %v", m, err))
+	}
+	var v any
+	if err := json.Unmarshal(b, &v); err != nil {
+		panic(fmt.Sprintf("parse rendered %T: %v", m, err))
+	}
+	return v
 }
 
 // expectationOf renders what every SDK must read out of the envelope, DERIVED from the
@@ -244,6 +429,7 @@ func expectationOf(detail *forav1.ErrorDetail) connectErrorExpectation {
 		Domain:    detail.GetDomain(),
 		Message:   detail.GetMessage(),
 		Metadata:  detail.GetMetadata(),
+		Detail:    protoJSONOf(detail),
 	}
 	switch r := helpers.Reason(detail).(type) {
 	case nil:
@@ -261,6 +447,8 @@ func expectationOf(detail *forav1.ErrorDetail) connectErrorExpectation {
 		exp.ReasonFrom, exp.ReasonEnum = "retrieval_auth_failure", r.String()
 	case forav1.UsageReportRejectionReason:
 		exp.ReasonFrom, exp.ReasonEnum = "usage_report_rejection", r.String()
+	case forav1.RequestAuthFailureReason:
+		exp.ReasonFrom, exp.ReasonEnum = "request_auth_failure", r.String()
 	}
 	return exp
 }

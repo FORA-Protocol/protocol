@@ -16,15 +16,29 @@
 // WHAT IS ASSERTED, AND WHY NOT THE OBVIOUS THING. Counting how many connections the
 // server accepted cannot tell the two states apart: a stranded socket is never reused, so
 // the next request opens a fresh one and the totals match either way. What separates them
-// is whether those sockets were CLOSED. Six refusals close six sockets once the release
-// lands and none before it, so that count is the property. A live socket survives either
-// way — undici holds one idle connection in the pool — and the point is that it does not
-// grow with the refusals, so it is bounded rather than required to be zero.
+// is whether the sockets that CARRIED a refused answer were closed. The server records
+// each socket a request arrived on, and the test waits for the close event of every one
+// of them. With the release in place each one closes within milliseconds. Without it none
+// does, because this server never hangs up, and the wait fails at its deadline.
+//
+// The test does not count the sockets that are still open, and it does not wait a fixed
+// time first. undici's pool opens connections of its own when bodies are torn down one
+// after another: it ends up with more clients than requests in flight, and each extra
+// client holds a fresh connection that never carries a request. Plain undici shows it with
+// no SDK code involved: forty destroyed bodies on one Agent leave three or four pool
+// clients and two or three idle connections, depending on timing. That count does not
+// grow with the refusals (six, thirty and sixty all end at two or three), and undici
+// closes those connections after about three seconds idle. An earlier version bounded the
+// open count at two after a 250 ms pause. It failed whenever the pool held a third idle
+// connection: about one run in three alone, and every full-suite run with Zod 4
+// installed. Those idle connections carry no answer, so they cannot be stranded, and
+// waiting on the sockets that did carry one is both deterministic and the property.
 //
 // The last case asserts what a caller actually feels instead: with the pool bounded to one
 // connection, a single unreleased socket means nothing afterwards can dial at all.
 
 import { createServer, type Server } from "node:http";
+import type { Socket } from "node:net";
 import { randomBytes } from "node:crypto";
 import { gzipSync } from "node:zlib";
 import { Agent } from "undici";
@@ -38,16 +52,23 @@ import type { UnaryRequest } from "../client/transport.ts";
 const BIG = randomBytes(2 << 20);
 const BIG_GZIP = gzipSync(BIG);
 
-/** What the server saw happen to its connections. */
+/** What the server saw happen to the connections that carried a request. */
 interface Sockets {
-	/** How many were closed — one per released response body. */
-	closed: () => number;
-	/** How many are still open. Bounded, not zero: undici keeps one idle. */
-	live: () => number;
+	/** How many distinct sockets carried a request whose path starts with the prefix. */
+	served: (prefix?: string) => number;
+	/**
+	 * Resolves once every socket that carried such a request has closed. Idle connections
+	 * the pool opened and never used are not counted: they carry no answer to strand.
+	 */
+	released: (prefix?: string) => Promise<void>;
 }
 
-/** Idle pool connections that survive a run and do not grow with the refusal count. */
-const IDLE_POOL_SLACK = 2;
+/**
+ * How long the release may take before the test calls it stranded. A released socket
+ * closes within milliseconds; a stranded one never closes, because this server never
+ * hangs up. The bound turns that hang into a failure and does not pace a passing run.
+ */
+const RELEASE_DEADLINE_MS = 5000;
 
 /**
  * serving stands up a loopback server and reports what its sockets are doing.
@@ -59,10 +80,14 @@ const IDLE_POOL_SLACK = 2;
 async function serving(
 	handler: (path: string) => { status: number; headers: Record<string, string>; body: Buffer },
 ): Promise<[Server, string, Sockets]> {
-	let opened = 0;
-	let closed = 0;
+	// Each socket's close is captured when it connects, so a socket that closes before the
+	// test starts waiting has already settled its promise rather than being missed.
+	const closes = new Map<Socket, Promise<void>>();
+	const served = new Map<Socket, string>();
 	const server = createServer((req, res) => {
-		const answer = handler(String(req.url ?? "/"));
+		const path = String(req.url ?? "/");
+		if (!served.has(req.socket)) served.set(req.socket, path);
+		const answer = handler(path);
 		res.writeHead(answer.status, {
 			...answer.headers,
 			"content-length": String(answer.body.length),
@@ -70,15 +95,21 @@ async function serving(
 		res.end(answer.body);
 	});
 	server.on("connection", (socket) => {
-		opened++;
-		socket.on("close", () => closed++);
+		closes.set(socket, new Promise<void>((done) => socket.once("close", () => done())));
 	});
+	const carrying = (prefix: string) =>
+		[...served].filter(([, path]) => path.startsWith(prefix)).map(([socket]) => socket);
 	await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
 	const port = (server.address() as { port: number }).port;
 	return [
 		server,
 		`http://127.0.0.1:${port}`,
-		{ closed: () => closed, live: () => opened - closed },
+		{
+			served: (prefix = "/") => carrying(prefix).length,
+			released: async (prefix = "/") => {
+				await Promise.all(carrying(prefix).map((socket) => closes.get(socket)));
+			},
+		},
 	];
 }
 
@@ -108,11 +139,6 @@ async function agentKeys(): Promise<CryptoKeyPair> {
 	])) as CryptoKeyPair;
 }
 
-/** Sockets close on a later tick than the refusal, so give the event loop one turn. */
-async function settle(): Promise<void> {
-	await new Promise((done) => setTimeout(done, 250));
-}
-
 /** A sentinel that beats a call which never settles, so a wedge fails rather than hangs. */
 const WEDGED = Symbol("wedged");
 async function within<T>(ms: number, call: Promise<T>): Promise<T | typeof WEDGED> {
@@ -138,17 +164,17 @@ describe("a refusal above the read", () => {
 				for (let i = 0; i < REFUSALS; i++) {
 					const failure = await fetchContent(`${base}/a${i}`, {
 						keyPair,
+						signatureAgent: "https://agent.test",
 						dispatcher,
 						timeoutMs: 5000,
 					}).catch((e: unknown) => e);
 					expect(failure).toBeInstanceOf(Error);
 				}
-				await settle();
 				expect(
-					sockets.closed(),
+					await within(RELEASE_DEADLINE_MS, sockets.released()),
 					"a refused redirect never released its socket",
-				).toBeGreaterThanOrEqual(REFUSALS);
-				expect(sockets.live()).toBeLessThanOrEqual(IDLE_POOL_SLACK);
+				).not.toBe(WEDGED);
+				expect(sockets.served()).toBe(REFUSALS);
 				dispatcher.destroy();
 			});
 		} finally {
@@ -170,17 +196,17 @@ describe("a refusal above the read", () => {
 				for (let i = 0; i < REFUSALS; i++) {
 					const failure = await fetchContent(`${base}/a${i}`, {
 						keyPair,
+						signatureAgent: "https://agent.test",
 						dispatcher,
 						timeoutMs: 5000,
 					}).catch((e: unknown) => e);
 					expect(failure).toBeInstanceOf(Error);
 				}
-				await settle();
 				expect(
-					sockets.closed(),
+					await within(RELEASE_DEADLINE_MS, sockets.released()),
 					"a refused coding never released its socket",
-				).toBeGreaterThanOrEqual(REFUSALS);
-				expect(sockets.live()).toBeLessThanOrEqual(IDLE_POOL_SLACK);
+				).not.toBe(WEDGED);
+				expect(sockets.served()).toBe(REFUSALS);
 				dispatcher.destroy();
 			});
 		} finally {
@@ -190,7 +216,7 @@ describe("a refusal above the read", () => {
 	}, 30000);
 
 	// The RPC leg builds its own dispatcher and takes no seam for one, so this case cannot
-	// bound the pool the way the delivery cases do. Liveness is the whole signal here.
+	// bound the pool the way the last case does. The server-side close is the whole signal.
 	it("does not strand the socket behind a refused coding on the RPC leg", async () => {
 		const [server, base, sockets] = await serving(() => ({
 			status: 200,
@@ -211,12 +237,11 @@ describe("a refusal above the read", () => {
 				const failure = await send(req).catch((e: unknown) => e);
 				expect(failure).toBeInstanceOf(Error);
 			}
-			await settle();
 			expect(
-				sockets.closed(),
+				await within(RELEASE_DEADLINE_MS, sockets.released()),
 				"a refused coding never released its socket",
-			).toBeGreaterThanOrEqual(REFUSALS);
-			expect(sockets.live()).toBeLessThanOrEqual(IDLE_POOL_SLACK);
+			).not.toBe(WEDGED);
+			expect(sockets.served()).toBe(REFUSALS);
 		} finally {
 			server.closeAllConnections();
 			await new Promise<void>((done) => server.close(() => done()));
@@ -239,6 +264,7 @@ describe("a refusal above the read", () => {
 				const dispatcher = new Agent({ connections: 1 });
 				const refused = await fetchContent(`${base}/refuse`, {
 					keyPair,
+					signatureAgent: "https://agent.test",
 					dispatcher,
 					timeoutMs: 5000,
 				}).catch((e: unknown) => e);
@@ -246,12 +272,16 @@ describe("a refusal above the read", () => {
 
 				const answer = await within(
 					6000,
-					fetchContent(`${base}/ok`, { keyPair, dispatcher, timeoutMs: 5000 }),
+					fetchContent(`${base}/ok`, { keyPair, signatureAgent: "https://agent.test", dispatcher, timeoutMs: 5000 }),
 				);
 				expect(answer, "the refusal wedged the pool: nothing after it can dial").not.toBe(
 					WEDGED,
 				);
-				expect(sockets.closed()).toBeGreaterThanOrEqual(1);
+				expect(
+					await within(RELEASE_DEADLINE_MS, sockets.released("/refuse")),
+					"the refused redirect never released its socket",
+				).not.toBe(WEDGED);
+				expect(sockets.served("/refuse")).toBe(1);
 				dispatcher.destroy();
 			});
 		} finally {

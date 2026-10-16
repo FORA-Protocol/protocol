@@ -190,7 +190,7 @@ Since the default offer signature algorithm is Ed25519, these are **public keys*
 **WBA directory entries (the Exchange's `keys`):**
 ```json
 // GET /.well-known/http-message-signatures-directory
-// Content-Type: application/jwk-set+json
+// Content-Type: application/http-message-signatures-directory+json
 {
   "keys": [
     {
@@ -227,16 +227,12 @@ Since the default offer signature algorithm is Ed25519, these are **public keys*
 
 The Exchange exposes `CatalogService` (PushResources, RemoveResources, RefreshCatalog) for external parties to push resource metadata. Every CatalogService request is authenticated:
 
-1. **Verify the RFC 9421 HTTP Message Signature**: The `caller_id` field identifies the pusher, and the request is signed with an [RFC 9421 HTTP Message Signature](https://www.rfc-editor.org/rfc/rfc9421) carried in the HTTP headers (`Signature` / `Signature-Input`, with a `Content-Digest` over the body) — there is no in-message caller signature field. The Exchange verifies it against the caller's published Ed25519 key in the caller's WBA directory (the JWK Set at `{caller domain}/.well-known/http-message-signatures-directory`), identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`). Invalid signatures are rejected with `CodeUnauthenticated`.
+1. **Verify the RFC 9421 HTTP Message Signature**: The request's signer is the pusher. The request is signed with an [RFC 9421 HTTP Message Signature](https://www.rfc-editor.org/rfc/rfc9421) carried in the HTTP headers (`Signature` / `Signature-Input`, with a `Content-Digest` over the body) — there is no in-message caller signature field. The Exchange verifies it against the caller's published Ed25519 key in the caller's WBA directory (the JWK Set at `{caller domain}/.well-known/http-message-signatures-directory`), identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`). Invalid signatures are rejected with `CodeUnauthenticated` and an `ErrorDetail.request_auth_failure` reason: `SIGNATURE_MISSING`, `SIGNATURE_INVALID` or `SIGNATURE_STALE`.
 
-2. **Check `caller_id` authorization**: The Exchange verifies that `caller_id` is registered and authorized to push resources for the specified `tenant_id`. Unauthorized tenant access is rejected with `CodePermissionDenied`.
+2. **Check the signer's authorization**: For each entry, the Exchange resolves `/.well-known/fora.json` from the entry's domain and verifies that the signer is that domain's publisher or one of its `catalog_contributors`. Unauthorized tenant access is rejected with `CodePermissionDenied`. The deprecated `caller_id` field is not needed: the caller is whoever signs.
 
-3. **Caller registration**: CatalogService callers are registered out-of-band (admin API or configuration). Registration includes:
-   - `caller_id` — unique identifier for the caller
-   - Caller domain — where the Ed25519 signing key is published (the WBA directory at `{domain}/.well-known/http-message-signatures-directory`)
-   - Authorized `tenant_id` set — which providers this caller can push for
-   - Caller type — "cms_plugin", "intelligence_provider", "syndicator"
+3. **Caller registration**: CatalogService callers may also be registered out-of-band (admin API or configuration), for example with the domain where the Ed25519 signing key is published (the WBA directory at `{domain}/.well-known/http-message-signatures-directory`), the authorized `tenant_id` set, and a caller type ("cms_plugin", "intelligence_provider", "syndicator").
 
-This prevents unauthorized parties from injecting or modifying catalog entries. The same authentication mechanism applies to RemoveResources and RefreshCatalog calls.
+This prevents unauthorized parties from injecting or modifying catalog entries. The same authentication mechanism applies to RemoveResources and RefreshCatalog calls. RemoveResources names each resource by domain and path, as a push does, and the Exchange checks that the signer is authorized for each item's domain exactly as for a push.
 
 An Exchange implemented on the Go SDK mounts the service through `connectserver.NewCatalogServiceHandler`, which composes the same request-id · verify · validate · error-detail stack as the Exchange and Broker bindings: an unsigned push never reaches the handler, the wire tier (the `ResourceEntry` envelope rules and the `LicenseTerm` rules) refuses a malformed entry before it **on a mount that passes `connectserver.WithValidation(connect.ValidationStrict)`** — that option composes protovalidate and is not the default, so a deployment relying on the boundary rules names it explicitly — and the proven signer is available to the handler from the request context. Steps 2 and 3 above — contributor authorisation and tenant binding — and the ingest-tier term checks (`helpers.ValidateResourceEntry`) are the handler implementation's job.

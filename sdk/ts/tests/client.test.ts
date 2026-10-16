@@ -17,6 +17,8 @@ import {
 } from "../client/index.ts";
 import { createVerifier } from "../core/verifier.ts";
 import { signOffer } from "../src/offer-sign.ts";
+import { verifyAgentBinding } from "../src/pop.ts";
+import { thumbprint } from "../src/thumbprint.ts";
 import { verifyOfferAcceptance, verifyRequestAcceptance } from "../src/acceptance.ts";
 
 const REQUESTER = { id: "agent-1", domain: "agent.test", type: "REQUESTER_TYPE_AGENT" };
@@ -162,7 +164,7 @@ describe("discover", () => {
 				{ uri: "https://site.test/a", offers: [offer] },
 				{
 					uri: "https://site.test/b",
-					absence_reason: "OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT",
+					absence_reason: "OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE",
 				},
 			],
 		});
@@ -177,7 +179,7 @@ describe("discover", () => {
 		expect(result.groups).toHaveLength(2);
 		expect(result.groups[0]?.result.verified).toHaveLength(1);
 		expect(result.groups[1]?.absenceReason).toBe(
-			"OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT",
+			"OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE",
 		);
 		expect(result.exchange).toBe("exchange.test");
 	});
@@ -273,7 +275,7 @@ describe("reading an answer", () => {
 				details: [
 					{
 						type: "fora.v1.ErrorDetail",
-						value: "aWdub3JlZA",
+						value: "Cg9iYWxhbmNlIHRvbyBsb3cSF2ZvcmEudjEuRXhjaGFuZ2VTZXJ2aWNlUgIIAg",
 						debug: {
 							domain: "fora.v1.ExchangeService",
 							message: "balance too low",
@@ -345,6 +347,7 @@ describe("execute", () => {
 		const client = createClient("https://exchange.test", {
 			requester: REQUESTER,
 			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			signatureAgent: "https://agent.test",
 			send,
 		});
 
@@ -415,6 +418,7 @@ describe("execute", () => {
 		const client = createClient("https://exchange.test", {
 			requester: REQUESTER,
 			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			signatureAgent: "https://agent.test",
 			send,
 			validation: "off",
 		});
@@ -434,6 +438,7 @@ describe("execute", () => {
 		const client = createClient("https://exchange.test", {
 			requester: REQUESTER,
 			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			signatureAgent: "https://agent.test",
 			send,
 		});
 
@@ -455,6 +460,7 @@ describe("execute", () => {
 
 		const noRequester = createClient("https://exchange.test", {
 			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			signatureAgent: "https://agent.test",
 			send: recordingSend({}).send,
 		});
 		await expect(noRequester.execute(accepted)).rejects.toMatchObject({
@@ -470,6 +476,27 @@ describe("execute", () => {
 		});
 	});
 
+	it("refuses locally a requester missing its id or its domain", async () => {
+		// Every acceptance names the requester, and Requester.id and Requester.domain are
+		// both required, so the client refuses before signing or sending anything.
+		const { offer, publicKey } = await signedOffer();
+		const accepted = await verifiedOffer(publicKey, offer);
+		const keys = await agentKeys();
+		for (const field of ["id", "domain"] as const) {
+			const { send, seen } = recordingSend({});
+			const client = createClient("https://exchange.test", {
+				requester: { ...REQUESTER, [field]: "" },
+				signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+				signatureAgent: "https://agent.test",
+				send,
+			});
+			const err = (await client.execute(accepted).catch((e: unknown) => e)) as ForaCallError;
+			expect(err.kind, field).toBe("malformed");
+			expect(String(err.cause), field).toContain(`requester.${field} is empty`);
+			expect(seen, field).toEqual([]);
+		}
+	});
+
 	it("refuses an unsigned offer, which verification-off can still surface", async () => {
 		const verifier = createVerifier("off", {
 			resolve: async () => undefined,
@@ -480,6 +507,7 @@ describe("execute", () => {
 		const client = createClient("https://exchange.test", {
 			requester: REQUESTER,
 			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			signatureAgent: "https://agent.test",
 			send: recordingSend({}).send,
 		});
 
@@ -675,6 +703,21 @@ describe("fetch", () => {
 		});
 	});
 
+	it("refuses a bound fetch without the agent's key directory", async () => {
+		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
+			"sign",
+			"verify",
+		])) as CryptoKeyPair;
+		const client = createClient("https://exchange.test", {
+			requester: REQUESTER,
+			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			agentPublicKey: keys.publicKey,
+		});
+		await expect(client.fetch("https://edge.test/x")).rejects.toMatchObject({
+			kind: "not_signable",
+		});
+	});
+
 	it("refuses without the public half a bound fetch has to present", async () => {
 		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
 			"sign",
@@ -683,6 +726,7 @@ describe("fetch", () => {
 		const client = createClient("https://exchange.test", {
 			requester: REQUESTER,
 			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			signatureAgent: "https://agent.test",
 		});
 		await expect(client.fetch("https://edge.test/x")).rejects.toMatchObject({
 			kind: "not_signable",
@@ -701,8 +745,12 @@ describe("fetch", () => {
 		const raw = new Uint8Array(await crypto.subtle.exportKey("raw", keys.publicKey));
 
 		let presented: string | undefined;
+		let proof: Headers | undefined;
+		let target = "";
 		const server = createServer((req, res) => {
 			presented = req.headers["x-fora-agent-key"] as string | undefined;
+			proof = new Headers(req.headers as Record<string, string>);
+			target = `http://${req.headers.host}${req.url}`;
 			res.writeHead(200, { "content-type": "text/plain" });
 			res.end("body");
 		});
@@ -718,6 +766,7 @@ describe("fetch", () => {
 			const client = createClient("https://exchange.test", {
 				requester: REQUESTER,
 				signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+				signatureAgent: "https://agent.test",
 				agentPublicKey: keys.publicKey,
 			});
 			await client.fetch(`http://127.0.0.1:${port}/x`);
@@ -731,6 +780,18 @@ describe("fetch", () => {
 
 		expect(presented, "no proof header reached the edge").toBeDefined();
 		expect(presented).toBe(base64url(raw));
+
+		// The proof is a Web Bot Auth signature: it names the agent's directory, carries a
+		// 64-byte nonce, and verifies for the agent the URL is bound to.
+		expect(proof?.get("signature-agent")).toBe('sig1="https://agent.test"');
+		expect(/;nonce="([^"]*)"/.exec(proof?.get("signature-input") ?? "")?.[1]).toHaveLength(86);
+		const verdict = await verifyAgentBinding({
+			url: target,
+			method: "GET",
+			headers: proof ?? new Headers(),
+			agentId: await thumbprint(raw),
+		});
+		expect(verdict).toEqual({ ok: true, signatureAgent: "https://agent.test" });
 	});
 });
 

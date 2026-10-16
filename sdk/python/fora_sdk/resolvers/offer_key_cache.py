@@ -29,12 +29,9 @@ from typing import TYPE_CHECKING
 from wire.models import WBAFile
 
 from fora_sdk.resolvers._http import guarded_client
+from fora_sdk.resolvers.documents import fetch_wba_directory, wba_directory_url
 from fora_sdk.resolvers.errors import DirectoryUnavailableError
-from fora_sdk.resolvers.wba import (
-    _get_wba_directory,
-    active_ed25519_key_with_expiry_screened,
-    wba_directory_url,
-)
+from fora_sdk.resolvers.wba import active_ed25519_key_with_expiry_screened
 
 if TYPE_CHECKING:
     import httpx
@@ -52,7 +49,7 @@ def _default_now() -> datetime:
     return datetime.now(UTC)
 
 
-def _never_revoked(_thumbprint: str) -> bool:
+def _never_revoked(_thumbprint: str, _exchange: str) -> bool:
     return False
 
 
@@ -77,22 +74,27 @@ class CachedOfferKeyResolver:
         fetch: DirectoryFetch,
         now: Callable[[], datetime] | None = None,
         ttl_seconds: int = _DEFAULT_TTL_SECONDS,
-        revoked: Callable[[str], bool] | None = None,
+        revoked: Callable[[str, str], bool] | None = None,
     ) -> None:
         """Wire the resolver.
 
         ``fetch`` resolves a domain to its WBA directory (required). ``now`` is the
         cache-freshness + selection clock (default :func:`datetime.now(UTC)`).
         ``ttl_seconds`` bounds the per-domain cache. ``revoked`` screens a candidate
-        key by its RFC 7638 thumbprint — a revoked key is skipped during selection so
-        a window-active-but-revoked key is never served; default screens nothing, so
-        a verification-path caller SHOULD inject :meth:`WBAKeyResolver.revoked` (or an
-        equivalent revoked-set predicate).
+        key by its RFC 7638 thumbprint and the exchange whose directory it came from —
+        a revoked key is skipped during selection so a window-active-but-revoked key
+        is never served. It must answer from that exchange's own revocation list only:
+        no party's list revokes another party's key. The default screens nothing, so a
+        verification-path caller SHOULD inject one. :meth:`WBAKeyResolver.revoked` has
+        this shape and can be passed directly; it knows a directory's list only once
+        that resolver has fetched the directory.
         """
         self._fetch = fetch
         self._now = now if now is not None else _default_now
         self._ttl = ttl_seconds
-        self._revoked: Callable[[str], bool] = revoked if revoked is not None else _never_revoked
+        self._revoked: Callable[[str, str], bool] = (
+            revoked if revoked is not None else _never_revoked
+        )
         self._cache: dict[str, tuple[bytes, float]] = {}
 
     async def prefetch(self, exchanges: Iterable[str]) -> dict[str, bytes]:
@@ -131,7 +133,11 @@ class CachedOfferKeyResolver:
         for ex, wba in zip(misses, results, strict=True):
             if wba is None or isinstance(wba, BaseException):
                 continue
-            selected = active_ed25519_key_with_expiry_screened(wba, now_dt, self._revoked)
+            # The selector screens by thumbprint alone; the exchange names whose list
+            # answers, so the predicate never consults another party's list.
+            selected = active_ed25519_key_with_expiry_screened(
+                wba, now_dt, lambda tp, ex=ex: self._revoked(tp, ex)
+            )
             if selected is None:
                 continue
             key, not_after = selected
@@ -183,9 +189,11 @@ def create_wba_offer_directory_fetch(
     http: httpx.Client | None = None,
     scheme: str = "",
     port: str = "",
+    now: Callable[[], datetime] | None = None,
 ) -> DirectoryFetch:
-    """The default :data:`DirectoryFetch`: GET one exchange's Web Bot Auth directory
-    and decode the ``WBAFile``.
+    """The default :data:`DirectoryFetch`: GET one exchange's Web Bot Auth directory,
+    with no redirect, check its media type and response signatures, and decode the
+    ``WBAFile``, keeping only the keys that signed the response.
 
     Port of the Go oracle's ``NewWBADirectoryFetcher(client, scheme, port)`` and the
     TypeScript ``createWBAOfferDirectoryFetch({fetch, scheme, port})``. An exchange's
@@ -203,13 +211,16 @@ def create_wba_offer_directory_fetch(
     :func:`~fora_sdk.resolvers.wba.wba_directory_url`, so it is the exact string the
     tri-language ``wba-url-vectors.json`` corpus pins.
 
+    ``now`` is the clock the directory's response signatures are judged against, read on
+    every fetch; ``None`` is the wall clock. Pass the clock the
+    :class:`CachedOfferKeyResolver` selects keys with, so the two agree.
+
     **Every failure is contained as None and none is raised.** That is
-    :data:`DirectoryFetch`'s contract rather than a preference:
-    :meth:`CachedOfferKeyResolver.prefetch` gathers these calls through
-    ``asyncio.gather`` WITHOUT ``return_exceptions``, so one raised error abandons the
-    whole batch instead of leaving a single exchange unresolved. An unresolvable
-    exchange is simply absent from the map, and the Verifier then rejects that
-    exchange's offers fail-closed.
+    :data:`DirectoryFetch`'s contract rather than a preference: every caller of the seam
+    reads ``None`` as an unresolvable exchange, which is then simply absent from the
+    map, and the Verifier rejects that exchange's offers fail-closed.
+    :meth:`CachedOfferKeyResolver.prefetch` also treats a raised error as absent, but
+    only as a backstop.
 
     The GET runs on a worker thread because the guarded client is synchronous.
     :mod:`fora_sdk.client` records the reason for that shape: an async twin of each
@@ -224,7 +235,8 @@ def create_wba_offer_directory_fetch(
     async def fetch(domain: str) -> WBAFile | None:
         url = wba_directory_url(scheme, _join_host_port(domain, port))
         try:
-            return await asyncio.to_thread(_get_wba_directory, client, url)
+            at = None if now is None else int(now().timestamp())
+            return await asyncio.to_thread(fetch_wba_directory, client, url, now=at)
         except Exception:
             # EVERY exception, because the seam's contract is absolute: a
             # DirectoryFetch returns None and never raises, so a caller batching
@@ -233,8 +245,8 @@ def create_wba_offer_directory_fetch(
             # Go's seam is (file, error) and returns the error for that one domain.
             #
             # DirectoryUnavailableError is the expected arrival, because
-            # _get_wba_directory is the shared GET-and-decode and it folds every arm
-            # into this error: fetch_strict maps httpx.HTTPError and OSError (SsrfError
+            # fetch_wba_directory is the shared GET-and-decode and it folds every arm
+            # into this error: fetch_document maps httpx.HTTPError and OSError (SsrfError
             # is one, so is the deadline's TimeoutError) plus any non-200, and the
             # helper adds the malformed-URL and not-a-directory arms on top. Catching a
             # list of families here is what let the docstring's "every failure" drift

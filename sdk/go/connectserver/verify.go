@@ -73,8 +73,8 @@ func (cfg serverConfig) reject(w http.ResponseWriter, r *http.Request, err error
 //
 // The replay nonce is PER VERIFIED SIGNATURE — keyid plus the signature bytes —
 // never the body digest: an idempotent retry re-signs the same body with a
-// fresh window and must pass the transport gate (the handler dedups per
-// verified signer via idempotency_key and returns the original result), while
+// fresh window and must pass the transport gate (the handler dedups per agent
+// via idempotency_key and returns the original result), while
 // replaying the exact signed bytes trips the store. The check is two-phase —
 // read-only Seen over every signature, then SeenOrAdd commits them all — so a
 // request rejected part-way never burns its other signatures' nonces.

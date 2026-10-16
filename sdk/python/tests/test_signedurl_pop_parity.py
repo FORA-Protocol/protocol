@@ -83,12 +83,27 @@ def test_pop_vector_file_is_nonempty() -> None:
 
 
 def _pop_headers(vector: dict[str, object]) -> dict[str, str]:
-    """RFC 9421 PoP headers as the verifier receives them off the wire."""
-    return {
-        "x-fora-agent-key": str(vector["presented_key_b64url"]),
-        "signature-input": str(vector["signature_input"]),
-        "signature": str(vector["signature"]),
-    }
+    """RFC 9421 PoP headers as the verifier receives them off the wire. An empty
+    ``signature_agent``, ``signature_input`` or ``signature`` is a header the request
+    does not carry at all."""
+    headers = {"x-fora-agent-key": str(vector["presented_key_b64url"])}
+    for field, name in (
+        ("signature_agent", "signature-agent"),
+        ("signature_input", "signature-input"),
+        ("signature", "signature"),
+    ):
+        if vector[field]:
+            headers[name] = str(vector[field])
+    return headers
+
+
+def _assert_oracle_verdict(result: object, vector: dict[str, object]) -> None:
+    """The verdict, the refusal token and the Accept-Signature value the Go
+    VerifyAgentBinding reached for this vector."""
+    assert result.ok is bool(vector["expected_valid"])  # type: ignore[attr-defined]
+    assert (result.reason or "") == vector["expected_reason"]  # type: ignore[attr-defined]
+    expected_accept = vector.get("expected_accept_signature") or None
+    assert result.accept_signature == expected_accept  # type: ignore[attr-defined]
 
 
 @pytest.mark.parametrize(
@@ -107,7 +122,10 @@ def test_pop_verify_default_primitive_matches_go_oracle(vector: dict[str, object
         agent_id=str(vector["agent_id"]),
         now=int(vector["now_unix"]),  # type: ignore[arg-type]
     )
-    assert result.ok is bool(vector["expected_valid"])
+    _assert_oracle_verdict(result, vector)
+    # A proof that verifies names the agent's key directory, as its member carries it.
+    if result.ok:
+        assert result.signature_agent == str(vector["agent_directory"])
 
 
 @pytest.mark.parametrize(
@@ -135,4 +153,44 @@ def test_pop_verify_injected_primitive_matches_go_oracle(vector: dict[str, objec
         now=int(vector["now_unix"]),  # type: ignore[arg-type]
         verify_ed25519=injected_verify,
     )
-    assert result.ok is bool(vector["expected_valid"])
+    _assert_oracle_verdict(result, vector)
+
+
+def test_pop_a_covered_component_the_request_cannot_supply_is_refused_with_accept() -> None:
+    # A superset proof covering a header the request does not carry cannot have its base
+    # rebuilt. The Go oracle answers bad_covered_components with Accept-Signature, and so
+    # does this face: the fetcher fixes it by covering what it sends.
+    from fora_sdk.pop import POP_ACCEPT_SIGNATURE
+
+    vector = next(v for v in _POP_VECTORS if v["name"] == "superset_authority_first_and_agent_key")
+    headers = _pop_headers(vector)
+    headers["signature-input"] = str(vector["signature_input"]).replace(
+        '"x-fora-agent-key"', '"x-missing-header"'
+    )
+    result = verify_agent_binding(
+        method=str(vector["method"]),
+        url=str(vector["url"]),
+        headers=headers,
+        agent_id=str(vector["agent_id"]),
+        now=int(vector["now_unix"]),  # type: ignore[arg-type]
+    )
+    assert (result.ok, result.reason, result.accept_signature) == (
+        False,
+        "bad_covered_components",
+        POP_ACCEPT_SIGNATURE,
+    )
+
+
+@pytest.mark.parametrize(
+    ("url", "authority"),
+    [
+        ("https://CDN.Example/doc?x=1", "cdn.example"),
+        ("https://cdn.example:8443/a%2Fb", "cdn.example:8443"),
+        ("https://user@cdn.example/doc", "cdn.example"),
+        ("https://cdn.example?x=1", "cdn.example"),
+    ],
+)
+def test_authority_is_read_off_the_url_text(url: str, authority: str) -> None:
+    from fora_sdk._sigbase import authority_of
+
+    assert authority_of(url) == authority

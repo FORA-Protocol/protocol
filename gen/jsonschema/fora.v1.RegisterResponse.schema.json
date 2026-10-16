@@ -1,0 +1,35 @@
+{
+  "$id": "fora.v1.RegisterResponse.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "RegisterResponse — Exchange returns the minted account handle.",
+  "properties": {
+    "active": {
+      "default": false,
+      "description": "Whether the account is currently active. Accounts may start inactive\n and be activated out-of-band by the Exchange operator.",
+      "type": "boolean"
+    },
+    "billing_ref": {
+      "default": "",
+      "description": "Opaque, long-lived, per-Exchange account handle minted by the Exchange.\n Means nothing on its own and is never accepted as caller input. A repeat\n Register for the same agent returns the same value.",
+      "type": "string"
+    },
+    "ext": {
+      "description": "Extension point",
+      "type": "object"
+    },
+    "ext_critical": {
+      "description": "Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "ver": {
+      "default": "",
+      "description": "FORA protocol version — \"1.0\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
+      "type": "string"
+    }
+  },
+  "title": "Register Response",
+  "type": "object"
+}

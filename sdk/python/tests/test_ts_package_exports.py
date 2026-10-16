@@ -103,10 +103,17 @@ def test_mirrored_paths_use_the_root_prefix(maps) -> None:
     )
 
 
+def _target_exists(target: str) -> bool:
+    """A file target exists; a wildcard target (``./jsonschema/*``) matches at least one file."""
+    if "*" in target:
+        return any(p.is_file() for p in _REPO_ROOT.glob(target[2:]))
+    return (_REPO_ROOT / target[2:]).is_file()
+
+
 def test_root_export_targets_exist(maps) -> None:
     """A mirrored path that points at nothing is worse than a missing one — it fails at import."""
     root, _ = maps
-    absent = [(k, v) for k, v in root.items() if not (_REPO_ROOT / v[2:]).is_file()]
+    absent = [(k, v) for k, v in root.items() if not _target_exists(v)]
     assert not absent, "root exports point at files that do not exist:\n  " + "\n  ".join(
         f"{k} -> {v}" for k, v in absent
     )

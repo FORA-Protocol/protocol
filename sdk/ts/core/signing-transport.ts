@@ -4,9 +4,9 @@
 //
 // Core Invariant: this module is a pure ORCHESTRATION of the already
 // byte-parity-locked primitives signRequest / appendSignature (core/sign-request.ts)
-// and clockWindow / monotonicWindow (core/window.ts). It stamps EVERY covered header
-// at the value that entered the signature base — Content-Digest / Signature-Input /
-// Signature, and the Authorization / Signature-Agent whose values may be empty —
+// and the clockWindow (core/window.ts). It stamps EVERY covered header
+// at the value that entered the signature base — Content-Digest / Signature-Agent /
+// Signature-Input / Signature, and the Authorization whose value may be empty —
 // byte-identical to the shared Go/Python oracle, forwards the request body UNMODIFIED,
 // and adds NO new crypto and NO new signature-base rendering.
 //
@@ -19,9 +19,10 @@
 //     send(url, init) — buffers the body, computes headers via signOutbound, and
 //     forwards the SAME body bytes to send.
 //
-// Signature-Agent is SET-IF-ABSENT (mirror Go transport.go:143-145, NOT Python's
-// always-stamp): TS carries the relay/append chain, where an upstream sig1 already
-// covers its own Signature-Agent value and must never be overwritten.
+// Every signature names its signer's key directory: the transport's own
+// signatureAgent, or the one a per-request SignerSource returns. On the append branch
+// the new member is added to the request's Signature-Agent dictionary beside the
+// earlier signers' members, which stay untouched (Go helpers.AppendSignature).
 
 import { encodeBase64Url } from "../src/base64url.ts";
 import { SignatureAgentHeader } from "../src/wire.ts";
@@ -31,39 +32,45 @@ import {
 	type SignRequestOptions,
 	signRequest,
 } from "./sign-request.ts";
+import { MAX_SIGNATURE_LIFETIME } from "./wba.ts";
 import { clockWindow, type Window } from "./window.ts";
 
-// The DEFAULT freshness window: clock-derived created + a 5-minute TTL, matching
-// Go's `signWindow = 5 * time.Minute` (transport.go:18) — NOT Python's 600s. The
+// The DEFAULT freshness window: clock-derived created + MAX_SIGNATURE_LIFETIME, the
+// longest a Web Bot Auth request signature may live (Go signWindow). A caller with its
+// own freshness policy injects a shorter window; a longer one is refused at signing. The
 // clock reads seconds (Date.now()/1000); clockWindow floors to Go's .Unix().
-const DEFAULT_WINDOW_TTL_SEC = 300;
+const DEFAULT_WINDOW_TTL_SEC = MAX_SIGNATURE_LIFETIME;
 
 function defaultWindow(): Window {
 	return clockWindow(() => Date.now() / 1000, DEFAULT_WINDOW_TTL_SEC);
 }
 
-// Entropy per signature nonce (128 bits, 22 base64url chars), matching Go.
-const NONCE_BYTES = 16;
+// Entropy per signature nonce: 64 bytes, 86 base64url characters. 64 bytes is the
+// length the Web Bot Auth test vectors use, and widely deployed WBA verifiers refuse a
+// nonce of any other length. Matches Go and Python.
+const NONCE_BYTES = 64;
 
 // A fresh RFC 9421 nonce from the platform CSPRNG, base64url without padding.
 // getRandomValues throws when it cannot produce random bytes; the error
 // propagates, so nothing is signed or sent without a nonce.
-function newNonce(): string {
+export function newNonce(): string {
 	return encodeBase64Url(crypto.getRandomValues(new Uint8Array(NONCE_BYTES)));
 }
 
 // Case-insensitive header lookup over a plain header record. Incoming requests may
 // spell header names in any case; the covered values (authorization, prior
-// Signature state, Signature-Agent) must be read regardless of casing.
+// Signature state, Signature-Agent) must be read regardless of casing. Repeated
+// spellings are joined, as the wire reads one field per name.
 function getHeader(
 	headers: Record<string, string>,
 	name: string,
 ): string | undefined {
 	const lower = name.toLowerCase();
+	const values: string[] = [];
 	for (const k of Object.keys(headers)) {
-		if (k.toLowerCase() === lower) return headers[k];
+		if (k.toLowerCase() === lower) values.push(headers[k] as string);
 	}
-	return undefined;
+	return values.length === 0 ? undefined : values.join(", ").trim();
 }
 
 /**
@@ -98,18 +105,21 @@ export interface SignOutboundOptions {
 	// sdk/ts WebCrypto convention (core/sign-request.ts, core/verifier.ts).
 	body: Uint8Array<ArrayBuffer>;
 	authorization: string;
-	// The COVERED Signature-Agent value to bind ("" binds an empty header, the
-	// no-directory bootstrap path). The transport resolves set-if-absent BEFORE
-	// calling — this is the already-resolved value.
+	// The signer's key-directory origin ("https://agent.example"), written as the
+	// signature's Signature-Agent member and covered. Required: empty or not an https
+	// origin throws WebBotAuthError and nothing is signed.
 	signatureAgent: string;
-	// Freshness window; defaults to clockWindow(now, 300s) (Go 5m) when absent.
+	// Freshness window; defaults to clockWindow(now, MAX_SIGNATURE_LIFETIME) when absent.
 	window?: Window;
-	// appendOnly routes through appendSignature even for a fresh request (relay
-	// mode); AppendSignature degrades to a byte-identical sig1 when prior is empty.
+	// appendOnly routes through appendSignature even for a fresh request;
+	// appendSignature produces a byte-identical sig1 when prior is empty.
 	appendOnly?: boolean;
-	// Prior signature state carried by the incoming request (the relay/chain path).
+	// coverPrevious makes an appended signature cover the last signature already on the
+	// request (SignRequestOptions.coverPrevious). Read on the append branch only.
+	coverPrevious?: boolean;
+	// Prior signature state carried by the incoming request.
 	prior?: PriorSignatures;
-	// Nonce source, called once per signature; defaults to 16 random bytes,
+	// Nonce source, called once per signature; defaults to 64 random bytes,
 	// base64url. Replace it only for deterministic output in tests. An empty nonce
 	// is refused: without one, identical requests in one second collide.
 	nonce?: () => string;
@@ -122,11 +132,14 @@ export interface SignedOutbound {
 }
 
 /**
- * signOutbound computes the RFC 9421 Content-Digest / Signature-Input / Signature
- * headers for one outbound request and returns them with the body untouched — the
- * transport-neutral core (Python SignedOutbound sibling). It orchestrates the
- * parity-locked primitives: appendSignature when appendOnly is set OR a prior
- * Signature is present (forwarding chain), signRequest otherwise.
+ * signOutbound computes the Web Bot Auth Signature-Agent and the RFC 9421
+ * Content-Digest / Signature-Input / Signature headers for one outbound request and
+ * returns them with the body untouched — the transport-neutral core (Python
+ * SignedOutbound sibling). It orchestrates the parity-locked primitives:
+ * appendSignature when appendOnly is set OR a prior Signature is present, signRequest
+ * otherwise. Throws, before anything is signed, when the signer's directory is missing
+ * or not an https origin, the window is longer than MAX_SIGNATURE_LIFETIME, or the
+ * prior Signature-Agent cannot take another member (WebBotAuthError).
  *
  * It returns EVERY covered header at the value that entered the signature base, empty
  * values included — see the emit below for why. The keys are LOWERCASE, which is the
@@ -155,23 +168,17 @@ export async function signOutbound(
 	const prior = o.prior ?? { signatureInput: "", signature: "" };
 	const chained = (o.appendOnly ?? false) || prior.signature !== "";
 	const signed = chained
-		? await appendSignature(o.privKey, prior, signOpts)
+		? await appendSignature(o.privKey, prior, { ...signOpts, coverPrevious: o.coverPrevious ?? false })
 		: await signRequest(o.privKey, signOpts);
 
 	// EVERY covered header is emitted, at exactly the value that entered the signature
-	// base — empty values included. A verifier rebuilds the base from the request it
-	// received, so a value bound but never sent is not bound at all: it reads the covered
-	// names off signature-input, finds nothing on the wire under one of them, and refuses.
-	// Measured: the covered set binds authorization and signature-agent unconditionally,
-	// and a request carrying neither is answered `header "authorization" missing from
-	// request` by every conformant verifier — so the ports agreed byte-for-byte with the
-	// oracle on what they signed and could not complete a single call.
-	//
-	// EVERY covered header, at exactly the value that entered the signature base — empty
-	// values included. See docs/design-history.md, "A covered header the peer never
-	// receives is not bound", for why binding one without sending it is not binding it,
-	// and why the emitted key is LOWERCASE (a signed key spelled differently from the
-	// caller's survives the merge beside it, putting the name on the wire twice).
+	// base — the empty authorization included. A verifier rebuilds the base from the
+	// request it received, so a value bound but never sent is not bound at all: it reads
+	// the covered names off signature-input, finds nothing on the wire under one of them,
+	// and refuses. See docs/design-history.md, "A covered header the peer never receives
+	// is not bound", for why, and why the emitted key is LOWERCASE (a signed key spelled
+	// differently from the caller's survives the merge beside it, putting the name on the
+	// wire twice).
 	//
 	// Taken straight off `signed`, never re-read from `o`: the primitive echoes what it
 	// bound, so there is one place the emitted value can come from and no way for the two
@@ -196,7 +203,7 @@ export interface OutboundInit {
 /** The seam createSigningTransport wraps: a WHATWG-fetch-shaped send(url, init). */
 export type OutboundSend<R> = (url: string, init: OutboundInit) => Promise<R>;
 
-/** What a sign predicate inspects to decide whether a request is signed. */
+/** What a sign predicate or a signer source inspects about one outbound request. */
 export interface OutboundRequest {
 	url: string;
 	method: string;
@@ -204,19 +211,51 @@ export interface OutboundRequest {
 	body: Uint8Array<ArrayBuffer> | undefined;
 }
 
-/**
- * Options for createSigningTransport — an idiomatic TS options object, one field per
- * Go WithX (transport.go:47-96). window replaces the default freshness window;
- * appendOnly forces the relay append branch; signatureAgent supplies the covered
- * directory value stamped SET-IF-ABSENT; predicate gates which requests are signed
- * (default: sign every bodied request).
- */
-export interface SigningTransportOptions {
+/** The identity one signature is made as: the private key, its keyid, and the https
+ * origin of the key directory that publishes it. */
+export interface SignerIdentity {
 	privKey: CryptoKey;
 	keyid: string;
-	window?: Window;
-	appendOnly?: boolean;
+	signatureAgent: string;
+}
+
+/**
+ * SignerSource returns the signer and its Signature-Agent directory origin for one
+ * request, for a service that signs as many identities: an identity service signing as
+ * the calling agent, a console signing as the calling publisher (Go core.SignerSource).
+ * A source that throws, or returns no signer, means nothing is sent.
+ */
+export type SignerSource = (req: OutboundRequest) => SignerIdentity | undefined | Promise<SignerIdentity | undefined>;
+
+/**
+ * Options for createSigningTransport — an idiomatic TS options object, one field per Go
+ * WithX. privKey/keyid/signatureAgent name the one identity the transport signs as;
+ * signerSource replaces all three with a per-request identity. window replaces the
+ * default freshness window; appendOnly forces the append branch and coverPrevious makes
+ * an appended signature cover the last earlier one; predicate gates which requests are
+ * signed (default: sign every bodied request).
+ */
+export interface SigningTransportOptions {
+	privKey?: CryptoKey;
+	keyid?: string;
+	/** The signer's key-directory origin ("https://agent.example"), written as every
+	 * signature's Signature-Agent member. Required unless signerSource supplies it: a
+	 * request signed with no directory is refused (WebBotAuthError) and never sent. */
 	signatureAgent?: string;
+	/** Resolves the signer and its directory per request, in place of privKey, keyid and
+	 * signatureAgent (Go WithSignerSource). Every signature it makes follows the same
+	 * profile, with a fresh nonce. */
+	signerSource?: SignerSource;
+	window?: Window;
+	/** Route EVERY signed request through appendSignature (Go WithAppendSigner): a fresh
+	 * request gets sig1, a request already carrying signatures gets one more with its own
+	 * label and Signature-Agent member, leaving the earlier ones untouched. */
+	appendOnly?: boolean;
+	/** Make an appended signature cover the last signature already on the request, as
+	 * WG-00 §5.2.2 permits a party that forwards a request unchanged in every component
+	 * that signature covers (Go WithCoverPrevious). Append branch only. A party that
+	 * changed the request, such as a Broker re-packaging a purchase, must not set it. */
+	coverPrevious?: boolean;
 	predicate?: (req: OutboundRequest) => boolean;
 	// Nonce source for each signature (see SignOutboundOptions.nonce). Every signed
 	// request gets a fresh nonce by default, so identical requests in the same second
@@ -224,16 +263,32 @@ export interface SigningTransportOptions {
 	nonce?: () => string;
 }
 
+// identityFor returns the signer and directory for req: the source's when one is
+// configured, the transport's own otherwise.
+async function identityFor(opts: SigningTransportOptions, req: OutboundRequest): Promise<SignerIdentity> {
+	if (opts.signerSource === undefined) {
+		if (opts.privKey === undefined || opts.keyid === undefined) {
+			throw new TypeError("signing transport: no signer configured (privKey and keyid, or signerSource)");
+		}
+		return { privKey: opts.privKey, keyid: opts.keyid, signatureAgent: opts.signatureAgent ?? "" };
+	}
+	const identity = await opts.signerSource(req);
+	if (identity === undefined) throw new Error("signing transport: signer source returned no signer");
+	return identity;
+}
+
 /**
  * createSigningTransport wraps a WHATWG-fetch-shaped send and returns a send with the
- * same shape that auto-signs each outbound request: it buffers the body, computes
- * the RFC 9421 headers via signOutbound, merges them, and forwards the SAME body
- * bytes to the wrapped send. A request with no body — or one the predicate
- * excludes — passes through UNSIGNED (there is nothing to bind a Content-Digest
- * to); that is not an error. A request already carrying a Signature is CHAINED
- * onto (appendSignature), never replaced. Naming stays family-consistent with the
- * newXResolver siblings; the whole-surface newX -> create rename is a separate,
- * broader change, not this module's concern.
+ * same shape that auto-signs each outbound request: it buffers the body, computes the
+ * Signature-Agent and RFC 9421 headers via signOutbound, merges them, and forwards the
+ * SAME body bytes to the wrapped send. A request with no body — or one the predicate
+ * excludes — passes through UNSIGNED (there is nothing to bind a Content-Digest to);
+ * that is not an error. A request already carrying a Signature gets an additional
+ * signature (appendSignature) rather than having its signature replaced. A signing
+ * refusal — no signer, no directory, a source error — rejects, and the wrapped send is
+ * never called. Naming stays family-consistent with the newXResolver siblings; the
+ * whole-surface newX -> create rename is a separate, broader change, not this module's
+ * concern.
  */
 export function createSigningTransport<R>(
 	send: OutboundSend<R>,
@@ -253,26 +308,25 @@ export function createSigningTransport<R>(
 			return send(url, init);
 		}
 
-		// Signature-Agent SET-IF-ABSENT: the incoming header (an upstream sig1's
-		// covered directory) wins; otherwise the transport stamps its own.
-		const existingAgent = getHeader(headers, SignatureAgentHeader);
-		const signatureAgent = existingAgent ?? opts.signatureAgent ?? "";
-
+		const identity = await identityFor(opts, { url, method, headers, body });
 		const prior: PriorSignatures = {
 			signatureInput: getHeader(headers, "signature-input") ?? "",
 			signature: getHeader(headers, "signature") ?? "",
+			signatureAgent: getHeader(headers, SignatureAgentHeader) ?? "",
+			contentDigest: getHeader(headers, "content-digest") ?? "",
 		};
 
 		const signed = await signOutbound({
-			privKey: opts.privKey,
-			keyid: opts.keyid,
+			privKey: identity.privKey,
+			keyid: identity.keyid,
 			method,
 			url,
 			body,
 			authorization: getHeader(headers, "authorization") ?? "",
-			signatureAgent,
+			signatureAgent: identity.signatureAgent,
 			window,
 			appendOnly: opts.appendOnly ?? false,
+			coverPrevious: opts.coverPrevious ?? false,
 			prior,
 			...(opts.nonce !== undefined ? { nonce: opts.nonce } : {}),
 		});

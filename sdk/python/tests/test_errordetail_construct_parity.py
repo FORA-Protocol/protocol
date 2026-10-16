@@ -3,7 +3,7 @@
 Sibling of the read-side test_errordetail_parity.py and the TS construct leg
 sdk/ts/tests/errordetail-construct.parity.test.ts. Where the read-side suite proves
 Python can PARSE the shared Go-oracle ErrorDetail wire, this suite proves Python can
-CONSTRUCT it: the 7 typed domain error-detail builders — the Python peers of the Go
+CONSTRUCT it: the 8 typed domain error-detail builders — the Python peers of the Go
 sdk/go/helpers.*Detail constructors (errordetail.go:24-75) — must, from
 (domain, message, reason), emit byte-for-byte the same canonical proto-JSON the Go
 emitter recorded in error-detail-vectors.json.
@@ -44,6 +44,7 @@ from fora_sdk.errordetail import (  # type: ignore[attr-defined]
     dispute_failure_detail,
     domain_verification_failure_detail,
     registration_failure_detail,
+    request_auth_failure_detail,
     retrieval_auth_failure_detail,
     transaction_denial_detail,
     usage_report_rejection_detail,
@@ -60,6 +61,7 @@ _BUILDERS = {
     "registration_failure": registration_failure_detail,
     "domain_verification_failure": domain_verification_failure_detail,
     "usage_report_rejection": usage_report_rejection_detail,
+    "request_auth_failure": request_auth_failure_detail,
 }
 
 _VECTORS = load_json(GO_TESTDATA / "error-detail-vectors.json")["vectors"]
@@ -83,6 +85,7 @@ def test_all_seven_builders_are_present() -> None:
         "registration_failure",
         "domain_verification_failure",
         "usage_report_rejection",
+        "request_auth_failure",
     }
     assert all(callable(b) for b in _BUILDERS.values())
 

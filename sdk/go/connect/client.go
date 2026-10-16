@@ -42,6 +42,11 @@ type Client struct {
 	requirements RegistrationRequirementsReader
 	// fetcher is the content leg. It dials, so it lives one tier down.
 	fetcher *resolvers.ContentFetcher
+
+	// baseURL is the home Exchange's origin, which a raw call addresses directly.
+	baseURL string
+	// raw and rawPool are the home and offer-derived legs a raw call is sent over.
+	raw, rawPool rawLeg
 }
 
 // resolvedConfig applies opts over the defaults every client shares.
@@ -91,10 +96,14 @@ func plumbing(cfg clientConfig) (*http.Client, []connectrpc.ClientOption, core.V
 func NewClient(baseURL string, opts ...ClientOption) *Client {
 	cfg := resolvedConfig(opts...)
 	httpClient, connectOpts, verifier := plumbing(cfg)
+	pooled := offerDerivedClient(cfg, resolvers.NewGuardedTransport(cfg.guardedBase))
 	return &Client{
 		rpc:      forav1connect.NewExchangeServiceClient(httpClient, baseURL, connectOpts...),
 		verifier: verifier,
 		cfg:      cfg,
+		baseURL:  baseURL,
+		raw:      newRawLeg(cfg, httpClient),
+		rawPool:  newRawLeg(cfg, pooled),
 		// A SECOND signing client for the offer-derived leg, over the guarded
 		// transport: the caller names a domain, the manifest it serves names an
 		// endpoint, and a signed call then goes there. Without the guard one hop
@@ -104,8 +113,7 @@ func NewClient(baseURL string, opts ...ClientOption) *Client {
 		// it carries its own deadline, because an offer-named Exchange that accepts
 		// a connection and then never answers would otherwise hold the call, a
 		// goroutine and a socket open indefinitely.
-		exchanges: newExchangePool(
-			offerDerivedClient(cfg, resolvers.NewGuardedTransport(cfg.guardedBase)), connectOpts...),
+		exchanges:    newExchangePool(pooled, connectOpts...),
 		endpoints:    cfg.resolveEndpointResolver(),
 		requirements: cfg.resolveRequirementsReader(),
 		fetcher: resolvers.NewContentFetcher(resolvers.ContentFetchOptions{
@@ -132,7 +140,14 @@ func signedHTTPClient(cfg clientConfig, base http.RoundTripper) *http.Client {
 		base = http.DefaultTransport
 	}
 	signed := *cfg.httpClient
-	signed.Transport = core.NewSigningTransport(cfg.signer, base, signingOptions(cfg)...)
+	var transport http.RoundTripper = core.NewSigningTransport(cfg.signer, base, signingOptions(cfg)...)
+	// The hook sits immediately in front of the signer, so the bytes it returns are
+	// the bytes signed, and behind the answer recorder, which must see the response
+	// whatever the hook did.
+	if cfg.beforeSign != nil {
+		transport = beforeSignTransport{hook: cfg.beforeSign, next: transport}
+	}
+	signed.Transport = answerRecorder{next: transport}
 	signed.CheckRedirect = refuseRPCRedirect
 	return &signed
 }
@@ -191,8 +206,22 @@ func offerDerivedClient(cfg clientConfig, base http.RoundTripper) *http.Client {
 // if the shared validator fails to build, which is a programmer/config error, not
 // a runtime condition.
 func clientInterceptors(cfg clientConfig) []connectrpc.Interceptor {
-	out := []connectrpc.Interceptor{newRequestIDInterceptor(cfg.requestID)}
-	if cfg.validation == ValidationStrict {
+	return interceptorStack(cfg, cfg.validation == ValidationStrict)
+}
+
+// interceptorStack is the stack every client is built with, optionally without
+// the validate interceptor. A raw call leaves it out: its request is caller bytes,
+// not a message to validate, and the answer still passes strict decoding.
+//
+// answerInterceptor is OUTERMOST so it observes the failure every inner layer
+// produced; strictInterceptor sits inside it, so a refused OK answer is never
+// mistaken for one the peer refused.
+func interceptorStack(cfg clientConfig, validateRequests bool) []connectrpc.Interceptor {
+	out := []connectrpc.Interceptor{answerInterceptor{}, newRequestIDInterceptor(cfg.requestID)}
+	if cfg.strictDecoding {
+		out = append(out, strictInterceptor{})
+	}
+	if validateRequests {
 		if v, err := NewValidateInterceptor(); err == nil {
 			out = append(out, v)
 		}
@@ -224,8 +253,22 @@ func clientInterceptors(cfg clientConfig) []connectrpc.Interceptor {
 // purpose — the point of the field is to state whom the SENDER meant, and a
 // value the transport filled in from the address it was already dialling would
 // restate the dial target instead of checking it.
-func (c *Client) Discover(ctx context.Context, query *forav1.ResourceQuery) (core.DiscoveryResult, error) {
+//
+// WithRawBody sends caller bytes instead; the answer's offers are still verified.
+func (c *Client) Discover(ctx context.Context, query *forav1.ResourceQuery, opts ...CallOption) (core.DiscoveryResult, error) {
 	const op = "discover"
+	if cc := resolveCall(opts); cc.rawSet {
+		msg, err := rawCall[forav1.ResourceResponse](ctx, c.raw, op, c.baseURL,
+			forav1connect.ExchangeServiceDiscoverResourcesProcedure, cc.rawBody)
+		if err != nil {
+			return core.DiscoveryResult{}, err
+		}
+		// The flat fallback attributes its offers to the query's only URI, read off
+		// the raw body when it decodes as a query.
+		sent := &forav1.ResourceQuery{}
+		_ = proto.UnmarshalOptions{DiscardUnknown: true}.Unmarshal(cc.rawBody, sent)
+		return c.discoveryResult(ctx, sent, msg), nil
+	}
 	if query == nil {
 		return core.DiscoveryResult{}, malformed(op, errors.New("query is nil"))
 	}
@@ -238,12 +281,15 @@ func (c *Client) Discover(ctx context.Context, query *forav1.ResourceQuery) (cor
 	if err != nil {
 		return core.DiscoveryResult{}, sendError(op, err)
 	}
-	msg := resp.Msg
+	return c.discoveryResult(ctx, sent, resp.Msg), nil
+}
+
+func (c *Client) discoveryResult(ctx context.Context, sent *forav1.ResourceQuery, msg *forav1.ResourceResponse) core.DiscoveryResult {
 	return core.DiscoveryResult{
 		Groups:    c.discoveredGroups(ctx, sent, msg),
 		Exchange:  msg.GetExchange(),
 		RateLimit: msg.GetRateLimit(),
-	}, nil
+	}
 }
 
 // discoveredGroups folds a ResourceResponse's two offer representations into the
@@ -276,16 +322,30 @@ func (c *Client) discoveredGroups(ctx context.Context, query *forav1.ResourceQue
 	return []core.OfferGroupResult{{URI: uri, Result: c.verifier.Sort(ctx, flat)}}
 }
 
-// CallOption tunes a single state-mutating call.
+// CallOption tunes a single call: the idempotency key of a state-mutating call,
+// and raw mode. Every verb takes
+// them; an option that does not apply to a verb is inert there.
 type CallOption func(*callConfig)
 
 // ExecuteOption is the original name for CallOption, kept because the option set
-// is identical across execute, report and dispute — the three RPCs the protocol
-// requires an idempotency key on.
+// began as the one shared by execute, report and dispute — the three RPCs the
+// protocol requires an idempotency key on.
 type ExecuteOption = CallOption
 
 type callConfig struct {
 	idempotencyKey string
+	// rawBody, when rawSet, replaces the request the verb would build (WithRawBody).
+	rawBody []byte
+	rawSet  bool
+}
+
+// resolveCall applies a call's options.
+func resolveCall(opts []CallOption) callConfig {
+	var cc callConfig
+	for _, o := range opts {
+		o(&cc)
+	}
+	return cc
 }
 
 // WithIdempotencyKey pins the idempotency key for this call. Reusing a key makes
@@ -305,10 +365,7 @@ func WithIdempotencyKey(key string) CallOption {
 // pinned for this call, then whatever the caller already put on the message, then
 // a freshly minted one.
 func idempotencyKeyFor(opts []CallOption, onMessage string) (string, error) {
-	var cc callConfig
-	for _, o := range opts {
-		o(&cc)
-	}
+	cc := resolveCall(opts)
 	if cc.idempotencyKey != "" {
 		return cc.idempotencyKey, nil
 	}
@@ -324,62 +381,43 @@ func idempotencyKeyFor(opts []CallOption, onMessage string) (string, error) {
 // key is minted fresh unless WithIdempotencyKey pins one. Execute builds the whole
 // TransactionRequest, so it also stamps ver from helpers.ProtocolVersion — the
 // caller neither supplies nor overrides it.
+//
+// Items-only wire shape: a single offer is the degenerate 1-element items list.
+// ExecuteBatch buys several offers from the same Exchange in one request.
+//
+// The retrieval_endpoint of each item is returned exactly as the Exchange issued
+// it. Verifying it is the delivery edge's job, when Fetch presents it.
 func (c *Client) Execute(ctx context.Context, offer core.VerifiedOffer, opts ...CallOption) (*forav1.TransactionResponse, error) {
-	const op = "execute"
-	if c.cfg.requester == nil {
-		return nil, malformed(op, errors.New(
-			"no requester configured; an Exchange resolves who is buying from it (see WithRequester)"))
+	return c.executeDirect(ctx, "execute", []core.VerifiedOffer{offer}, opts)
+}
+
+// ExecuteBatch commits to several VERIFIED offers issued by ONE Exchange in a
+// single request — the batch form of Execute, built by the same code. Each item
+// carries its own detached acceptance, and the request carries one
+// AgentRequestAcceptance over the complete ordered set.
+//
+// The offers must all name the same Exchange: a direct purchase goes to one
+// Exchange, and an Exchange refuses a request carrying an item addressed to anyone
+// else, so a mixed set is refused locally with CallMalformed. Buying across
+// Exchanges in one call is BrokerClient.Execute.
+func (c *Client) ExecuteBatch(ctx context.Context, offers []core.VerifiedOffer, opts ...CallOption) (*forav1.TransactionResponse, error) {
+	return c.executeDirect(ctx, "execute", offers, opts)
+}
+
+func (c *Client) executeDirect(ctx context.Context, op string, offers []core.VerifiedOffer, opts []CallOption) (*forav1.TransactionResponse, error) {
+	cc := resolveCall(opts)
+	if cc.rawSet {
+		return rawCall[forav1.TransactionResponse](ctx, c.raw, op, c.baseURL,
+			forav1connect.ExchangeServiceExecuteTransactionProcedure, cc.rawBody)
 	}
-	signer := c.cfg.signer
-	if signer == nil {
-		// CallNotSignable, matching what Fetch answers for the same missing
-		// holder: a caller branching on the kind sees one condition under one
-		// class, whichever verb met it first.
-		return nil, &CallError{Kind: CallNotSignable, Op: op, Err: errors.New(
-			"no signer configured; a purchase carries a detached acceptance signed with the agent's own key (see WithSigner)")}
+	if err := requireOneExchange(op, offers); err != nil {
+		return nil, err
 	}
-	// An acceptance floating free of a concrete offer is meaningless, and an
-	// unsigned offer is reachable here: WithVerification(Off) and
-	// RejectedOffer.Unsafe() both mint a VerifiedOffer without a signature check.
-	if offer.Offer().GetSignature() == "" {
-		return nil, malformed(op, errors.New("cannot accept an unsigned offer"))
-	}
-	key, err := idempotencyKeyFor(opts, "")
+	req, err := buildTransaction(ctx, purchase{
+		op: op, signer: c.cfg.signer, requester: c.cfg.requester, offers: offers, opts: opts,
+	})
 	if err != nil {
-		return nil, malformed(op, err)
-	}
-	// The acceptance covers the offer, the requester, and the idempotency key, so
-	// a retry that pins the same key reproduces byte-identical acceptance bytes.
-	// That is the deliberate-replay semantic, not an accident.
-	acceptance, err := helpers.SignOfferAcceptanceWith(ctx, signer, offer.Offer(), c.cfg.requester, key)
-	if err != nil {
-		return nil, &CallError{Kind: CallNotSignable, Op: op, Err: err}
-	}
-	// Items-only wire shape: a single offer is the degenerate 1-element items
-	// list, each item reflecting its signed Offer back exactly as received at
-	// discovery. The authoritative identity is the reflected offer; the optional
-	// top-level offer_id correlation scalar is left unset.
-	//
-	// ver comes from helpers.ProtocolVersion — the single owner of the protocol
-	// version across all three SDKs — never a literal, so a bump is one edit.
-	req := &forav1.TransactionRequest{
-		Ver:            helpers.ProtocolVersion,
-		IdempotencyKey: key,
-		Requester:      c.cfg.requester,
-		Items: []*forav1.TransactionItem{{
-			Offer: offer.Offer(),
-			AgentAcceptance: &forav1.AgentAcceptance{
-				Signature:          acceptance,
-				SignatureAlgorithm: helpers.AcceptanceSignatureAlgorithm,
-			},
-		}},
-	}
-	if offer.Offer().GetExchange() != "" {
-		requestAcceptance, signErr := helpers.SignRequestAcceptanceWith(ctx, signer, req)
-		if signErr != nil {
-			return nil, &CallError{Kind: CallNotSignable, Op: op, Err: signErr}
-		}
-		req.AgentRequestAcceptance = requestAcceptance
+		return nil, err
 	}
 	resp, err := c.rpc.ExecuteTransaction(ctx, connectrpc.NewRequest(req))
 	if err != nil {
@@ -415,9 +453,8 @@ func stampEnvelope(ver, idempotencyKey *string, opts []CallOption) error {
 //
 // Both fills are only-when-empty. The caller's own value always wins — the
 // message crossed a package boundary as an argument, not as a buffer to fill in —
-// and the requester is filled because both reference services resolve the calling
-// agent from it and refuse a request that names none, while the client already
-// holds that identity.
+// and the requester is filled because a query must name one, while the client
+// already holds that identity.
 func stampDiscovery(ver *string, requester **forav1.Requester, configured *forav1.Requester) {
 	if *ver == "" {
 		*ver = helpers.ProtocolVersion

@@ -8,6 +8,11 @@ frontend:
     build:
       commands:
         - npm run build
+    postBuild:
+      # Apply the committed redirect rules to this app. cwd is website/, where
+      # preBuild left it. Skips unless this is a production Amplify build.
+      commands:
+        - bash ../scripts/apply-redirects.sh
   artifacts:
     baseDirectory: website/dist
     files:

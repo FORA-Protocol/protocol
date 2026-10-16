@@ -47,6 +47,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PublicKey,
 )
 
+from .money import check_metered_estimate, check_offer_terms_unpriced
+
 # OFFER_SIGNATURE_ALGORITHM / ACCEPTANCE_SIGNATURE_ALGORITHM — the JOSE/JWA algorithm
 # identifier advertised
 # on signed offers/acceptances. Always EdDSA for Ed25519 (mirror the Go constants).
@@ -151,8 +153,8 @@ class Result:
 # offer, so nothing survives to say which resource was refused or why.
 #
 # That distinction is the point of the vocabulary: "not in the catalogue" means give up,
-# "scope insufficient" means acquire an entitlement and retry, and "content blocked"
-# means never retry. Flattened, all three read as "found nothing".
+# "temporarily unavailable" means retry later, and "content blocked" means never retry.
+# Flattened, all three read as "found nothing".
 #
 # The fail-closed {verified, rejected} split is preserved inside each group, through the
 # same Verifier — not a second verification path.
@@ -256,7 +258,13 @@ def sign_offer_jcs(*, seed: bytes, offer: dict[str, Any]) -> tuple[str, str]:
     signature is byte-identical to the Go oracle (``helpers.SignOffer``). The offer
     must already be canonical proto-JSON (snake_case, enums-as-names,
     omit-unpopulated), as the verify face requires.
+
+    Raises ``ValueError`` for an offer whose term carries pricing: an offer states its
+    price once, in ``Offer.pricing``, so a priced term is an offer built wrong and a
+    signature over it would only be refused by every verifier (Go
+    ``helpers.ErrOfferTermPriced``).
     """
+    check_offer_terms_unpriced(offer)
     payload = canonical_offer_payload(offer)
     priv = Ed25519PrivateKey.from_private_bytes(seed)
     return priv.sign(payload).hex(), OFFER_SIGNATURE_ALGORITHM
@@ -362,6 +370,18 @@ class Verifier:
 
         if self._expired(offer):
             return "offer expires_at is in the past"
+        # An offer states its price once, in Offer.pricing; a term carrying a second
+        # copy could disagree with it (fora.proto Offer).
+        try:
+            check_offer_terms_unpriced(offer)
+        except ValueError as exc:
+            return str(exc)
+        # A metered offer may state no estimate, but one it states is positive: a zero
+        # estimate would fix a ceiling of nothing (fora.proto Offer).
+        try:
+            check_metered_estimate(offer)
+        except ValueError as exc:
+            return str(exc)
         return None
 
     def _expired(self, offer: dict[str, Any]) -> bool:
@@ -390,6 +410,22 @@ class Verifier:
 # ---------------------------------------------------------------------------
 
 
+def _require_named_requester(requester_id: str, requester_domain: str) -> None:
+    """Refuse an acceptance whose canonical bytes would name an empty requester.
+
+    ``Requester.id`` and ``Requester.domain`` are both REQUIRED, and an acceptance binds the
+    agent's consent to the requester its bytes name, so bytes naming an empty one bind it
+    to nobody. On a purchase a Broker relays, the acceptance is the only agent signature the
+    Exchange sees, and the Exchange resolves the verification key from the requester
+    domain. Both acceptances (offer and request) run this before rendering, so neither
+    signing nor verifying accepts such bytes (mirror Go ``ErrAcceptanceRequesterEmpty``).
+    """
+    if requester_id == "":
+        raise ValueError("acceptance names an empty requester: requester_id is empty")
+    if requester_domain == "":
+        raise ValueError("acceptance names an empty requester: requester_domain is empty")
+
+
 def jcs_acceptance_payload(
     *,
     offer_sig: str,
@@ -400,20 +436,23 @@ def jcs_acceptance_payload(
     """Canonical acceptance bytes = JCS(protojson(AgentAcceptancePayload)).
 
     The same JCS(protojson(...)) canonicalization the offer signature uses. proto-JSON
-    OMITS unpopulated fields, so EVERY empty string field is absent from the object
-    before JCS — not just ``requester_domain``. The Go oracle gets that structurally
-    from ``EmitUnpopulated=false``; this object is hand-built, so the omission is
-    applied once over the whole record rather than per key. A per-key guard is how the
-    rule went missing for ``requester_id`` — wire-valid, since ``Requester.id`` carries
-    no ``min_len`` — which signed bytes Go never produces. The filter tests for the
-    empty STRING, which covers every member ``AgentAcceptancePayload`` has (the field-set
-    guard in the Go suite pins that list), so a string field added to the message cannot
-    arrive without its omission. A non-string field would need its own zero-value test.
-    Fail-closed on an empty ``offer_sig`` (mirror Go CanonicalAcceptanceBytes): an
-    empty anchor would let the acceptance float free of any concrete offer.
+    OMITS unpopulated fields, so every empty string field is absent from the object
+    before JCS. The Go oracle gets that structurally from ``EmitUnpopulated=false``; this
+    object is hand-built, so the omission is applied once over the whole record rather
+    than per key. Only ``idempotency_key`` can still reach it empty, because the
+    requester fields are refused first, but the filter tests for the empty STRING, which
+    covers every member ``AgentAcceptancePayload`` has (the field-set guard in the Go
+    suite pins that list), so a string field added to the message cannot arrive without
+    its omission. A non-string field would need its own zero-value test.
+
+    Fail-closed, with ``ValueError``, on an empty ``offer_sig`` (mirror Go
+    CanonicalAcceptanceBytes): an empty anchor would let the acceptance float free of any
+    concrete offer. Fail-closed the same way on an empty ``requester_id`` or
+    ``requester_domain``: an acceptance must name the requester it binds.
     """
     if offer_sig == "":
         raise ValueError("cannot accept an unsigned offer (empty offer signature)")
+    _require_named_requester(requester_id, requester_domain)
     payload: dict[str, str] = {
         "offer_sig": offer_sig,
         "requester_id": requester_id,
@@ -446,7 +485,11 @@ def sign_offer_acceptance_jcs(
     requester_domain: str,
     idempotency_key: str,
 ) -> tuple[str, str]:
-    """Sign the JCS acceptance payload; return ``(hex_signature, "EdDSA")``."""
+    """Sign the JCS acceptance payload; return ``(hex_signature, "EdDSA")``.
+
+    Raises ``ValueError``, signing nothing, on an empty offer signature or an empty
+    requester id or domain.
+    """
     payload = jcs_acceptance_payload(
         offer_sig=offer_sig,
         requester_id=requester_id,
@@ -466,7 +509,12 @@ def verify_offer_acceptance_jcs(
     requester_domain: str,
     idempotency_key: str,
 ) -> bool:
-    """Verify a hex acceptance signature over the JCS payload with a std-base64 key."""
+    """Verify a hex acceptance signature over the JCS payload with a std-base64 key.
+
+    Raises ``ValueError`` when the payload names an empty requester (or an empty offer
+    signature), even if the signature over those bytes would verify: such bytes are
+    refused, never accepted.
+    """
     payload = jcs_acceptance_payload(
         offer_sig=offer_sig,
         requester_id=requester_id,
@@ -490,7 +538,12 @@ def jcs_request_acceptance_payload(
     requester_domain: str,
     idempotency_key: str,
 ) -> bytes:
-    """Canonical bytes for the complete ordered execute-set acceptance."""
+    """Canonical bytes for the complete ordered execute-set acceptance.
+
+    Raises ``ValueError`` on no items, an item with an empty offer signature or exchange,
+    and an empty ``requester_id`` or ``requester_domain`` (see the offer acceptance).
+    """
+    _require_named_requester(requester_id, requester_domain)
     if not items:
         raise ValueError("request acceptance requires at least one item")
     refs: list[dict[str, str]] = []
@@ -539,7 +592,11 @@ def verify_request_acceptance_jcs(
     requester_domain: str,
     idempotency_key: str,
 ) -> bool:
-    """Verify a complete ordered request-set acceptance."""
+    """Verify a complete ordered request-set acceptance.
+
+    Returns ``False`` for a payload the canonical form refuses, including one that names an
+    empty requester, even if the signature over those bytes would verify.
+    """
     try:
         payload = jcs_request_acceptance_payload(
             items=items,

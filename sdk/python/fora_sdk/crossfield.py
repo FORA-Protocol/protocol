@@ -26,11 +26,15 @@ from wire.models import (
     License,
     LicenseTerm,
     Obligation,
+    Offer,
     Pricing,
     RegistrationFailure,
+    ResourceEntry,
     Restriction,
     WellKnownManifest,
 )
+
+from .money import check_metered_estimate, check_offer_terms_unpriced
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -133,6 +137,47 @@ def _pricing_rules(o: dict[str, Any]) -> list[str]:
     return out
 
 
+def _offer_rules(o: dict[str, Any]) -> list[str]:
+    """Offer.terms.pricing_unset + Offer.metered.estimate_positive.
+
+    - terms.pricing_unset: ``this.terms.all(t, !has(t.pricing))`` — the offer's price
+      is ``Offer.pricing``, stated once.
+    - metered.estimate_positive: ``this.pricing.model != PER_UNIT ||
+      !has(this.pricing.estimated_quantity) || this.pricing.estimated_quantity > 0``.
+
+    Both predicates are the ones the agent-side Verifier applies, so this face and that
+    one share :func:`fora_sdk.money.check_offer_terms_unpriced` and
+    :func:`fora_sdk.money.check_metered_estimate` rather than keeping two copies.
+    """
+    out: list[str] = []
+    try:
+        check_offer_terms_unpriced(o)
+    except ValueError:
+        out.append("offer.terms.pricing_unset")
+    try:
+        check_metered_estimate(o)
+    except ValueError:
+        out.append("offer.metered.estimate_positive")
+    return out
+
+
+def _resource_entry_rules(o: dict[str, Any]) -> list[str]:
+    """ResourceEntry.terms.pricing_required: ``this.terms.all(t, has(t.pricing))``.
+
+    A catalog term carries its price; the rule is the entry's because the term an
+    offer carries holds none. A present ``pricing`` counts whatever its value, as
+    ``has()`` does.
+    """
+    terms = _field(o, "terms")
+    if not isinstance(terms, list):
+        return []
+    for t in terms:
+        term = _as_obj(t)
+        if term is None or _field(term, "pricing") is None:
+            return ["resource_entry.terms.pricing_required"]
+    return []
+
+
 def _restriction_rules(o: dict[str, Any]) -> list[str]:
     """Restriction.permitted_prohibited_disjoint: ``permitted.all(p, !(p in prohibited))``."""
     permitted = _field(o, "permitted")
@@ -228,9 +273,11 @@ _RULES_BY_MESSAGE: dict[str, Callable[[dict[str, Any]], list[str]]] = {
     "License": _license_rules,
     "LicenseTerm": _license_term_rules,
     "Obligation": _obligation_rules,
+    "Offer": _offer_rules,
     "Pricing": _pricing_rules,
     "Restriction": _restriction_rules,
     "RegistrationFailure": _registration_failure_rules,
+    "ResourceEntry": _resource_entry_rules,
     "WellKnownManifest": _well_known_manifest_rules,
 }
 
@@ -287,7 +334,9 @@ GetAccountStatusResponseCrossField = _make_cross_field(
 LicenseCrossField = _make_cross_field(License, "License")
 LicenseTermCrossField = _make_cross_field(LicenseTerm, "LicenseTerm")
 ObligationCrossField = _make_cross_field(Obligation, "Obligation")
+OfferCrossField = _make_cross_field(Offer, "Offer")
 PricingCrossField = _make_cross_field(Pricing, "Pricing")
 RestrictionCrossField = _make_cross_field(Restriction, "Restriction")
 RegistrationFailureCrossField = _make_cross_field(RegistrationFailure, "RegistrationFailure")
+ResourceEntryCrossField = _make_cross_field(ResourceEntry, "ResourceEntry")
 WellKnownManifestCrossField = _make_cross_field(WellKnownManifest, "WellKnownManifest")

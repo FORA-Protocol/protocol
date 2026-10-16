@@ -15,6 +15,20 @@ const ED25519_PUBLIC_KEY_BYTES = 32;
  * builds the same canonical JWK via go-jose). Both are pinned to the shared
  * testdata/thumbprint-vectors.json.
  */
+/**
+ * exportRawPublicKey returns the raw bytes of a public CryptoKey (for Ed25519, the 32
+ * key bytes). WebCrypto answers a raw export with an ArrayBuffer; the Workers runtime
+ * types widen the result to ArrayBuffer | JsonWebKey, so the bytes are checked here once
+ * rather than cast at every caller.
+ */
+export async function exportRawPublicKey(key: CryptoKey): Promise<Uint8Array<ArrayBuffer>> {
+  const raw: unknown = await crypto.subtle.exportKey("raw", key);
+  if (typeof (raw as { byteLength?: unknown } | null)?.byteLength !== "number") {
+    throw new TypeError("raw export of a public key did not return bytes");
+  }
+  return new Uint8Array(raw as ArrayBuffer);
+}
+
 export async function thumbprint(pubkey: Uint8Array): Promise<string> {
   if (pubkey.length !== ED25519_PUBLIC_KEY_BYTES) {
     throw new Error(`thumbprint: public key must be ${ED25519_PUBLIC_KEY_BYTES} bytes`);

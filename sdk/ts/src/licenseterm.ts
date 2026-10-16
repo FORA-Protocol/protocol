@@ -381,7 +381,10 @@ function zodPath(path: readonly PropertyKey[]): string {
 // rule, with its entry-relative path. The generated schema is field-level and
 // the composed cross-field schemas attach per message, so the walk is explicit.
 function crossFieldSites(entry: Obj): Array<{ path: string; message: string; value: unknown }> {
-	const sites: Array<{ path: string; message: string; value: unknown }> = [];
+	// The entry itself carries one: every catalog term carries its pricing
+	// (resource_entry.terms.pricing_required). It is the entry's rule, not the
+	// term's, because the term an offer carries holds no price.
+	const sites: Array<{ path: string; message: string; value: unknown }> = [{ path: "", message: "ResourceEntry", value: entry }];
 	const terms = asArr(entry["terms"]);
 	for (let i = 0; i < terms.length; i++) {
 		const term = asObj(terms[i]);

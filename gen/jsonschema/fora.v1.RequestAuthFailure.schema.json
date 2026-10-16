@@ -1,0 +1,31 @@
+{
+  "$id": "fora.v1.RequestAuthFailure.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "RequestAuthFailure — an RPC request's HTTP message signature was refused.",
+  "properties": {
+    "reason": {
+      "anyOf": [
+        {
+          "enum": [
+            "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING",
+            "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID",
+            "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE"
+          ],
+          "type": "string"
+        },
+        {
+          "maximum": 3,
+          "minimum": 1,
+          "type": "integer"
+        }
+      ],
+      "description": "The failure reason (defined-only, non-zero)",
+      "title": "Request Auth Failure Reason"
+    }
+  },
+  "required": [
+    "reason"
+  ],
+  "title": "Request Auth Failure",
+  "type": "object"
+}

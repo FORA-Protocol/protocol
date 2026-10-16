@@ -40,6 +40,12 @@ type clientConfig struct {
 	connectOpts    []connectrpc.ClientOption
 	fetchTimeout   time.Duration
 	fetchMaxByte   int64
+
+	// beforeSign is the pre-signing hook (WithBeforeSign); nil runs none.
+	beforeSign BeforeSign
+	// strictDecoding refuses an answer with an unknown field or a broken rule
+	// (WithStrictDecoding).
+	strictDecoding bool
 }
 
 // ClientOption configures a Client. Options are the ONLY way to inject the
@@ -104,14 +110,16 @@ func WithInterceptors(is ...connectrpc.Interceptor) ClientOption {
 	return func(c *clientConfig) { c.extra = append(c.extra, is...) }
 }
 
-// WithRequester injects the agent's own identity, forwarded on a purchase for
-// authorization and audit and covered by the detached offer acceptance.
+// WithRequester injects the agent's own identity. A query and a purchase must
+// name a requester — the field is required, and a request without one is refused
+// — so the client stamps it on every query that names none and on every purchase,
+// where the detached offer acceptance also binds it.
 //
 // It is client-level rather than per-call on purpose: the requester IS the
 // identity the injected Signer already fixes for the transport signature, so a
 // per-call requester would let the two disagree about who is buying — the exact
 // ambiguity the acceptance exists to remove. A verifying Broker refuses a
-// requester id that does not normalise to the signer's own directory host.
+// requester whose domain does not name the signer's own directory host.
 //
 // The message is cloned here, so a later mutation by the caller cannot reach a
 // request already in flight.
@@ -139,13 +147,13 @@ func WithRequester(r *forav1.Requester) ClientOption {
 // keeps the private half, so the public half has to be supplied alongside.
 // Without it the client can buy but cannot fetch what it bought.
 //
-// There is deliberately no option for a SEPARATE acceptance key. The protocol
-// carries one agent identity: agent_identity_hash is defined as the thumbprint of
-// the agent's request-signing key, an Exchange verifies the detached acceptance
-// against the key registered for the caller its request signature identified, and
-// the delivery URL is bound to that same thumbprint. A second key would be
-// refused at execute, and any URL it did produce could never be fetched — the
-// presented key would not match the binding.
+// There is deliberately no option for a SEPARATE acceptance key. The client signs
+// requests, acceptances and delivery-fetch proofs with the one Signer WithSigner
+// injects, so the key a delivery URL is bound to is always the key the fetch
+// proves possession of. An Exchange verifies an acceptance against the Ed25519
+// keys currently valid in the directory requester.domain names, never against a
+// Broker's key: on a purchase a Broker relays, the request signer is the Broker,
+// and the delivery URL is bound to the key the acceptances verify under.
 // The key is COPIED for the same reason WithRequester clones: the caller keeps
 // the slice it passed, and a later append or overwrite there would otherwise
 // change which key every subsequent fetch presents.
@@ -186,24 +194,21 @@ func WithSignWindow(w core.Window) ClientOption {
 	return func(c *clientConfig) { c.signWindow = w }
 }
 
-// WithSignatureAgent names the WBA directory origin this client signs as — the
-// place a peer fetches to find the key that signed the request. It is stamped into
-// the Signature-Agent header of every outbound RFC 9421 request.
+// WithSignatureAgent names the key-directory origin this client signs as, such as
+// "https://agent.example" — the place a peer fetches to find the key that signed
+// the request. Every outbound RFC 9421 request signature, and every delivery-fetch
+// proof, carries it as its own Signature-Agent dictionary member,
+// sig1="<origin>", covered by the signature.
 //
-// Leaving it unset does not omit the header: signature-agent is one of the five
-// REQUIRED covered components, so the signature covers it either way and an unset
-// client signs an EMPTY value. A peer that resolves the caller's key from that
-// origin then has nothing to resolve, and refuses the call at verification — after
-// the request was routed, signed and sent, which is why the symptom is a 401 from
-// a healthy Exchange rather than anything the routing checks would catch.
+// It is required to sign. A client with no directory refuses every signed call
+// locally, as a malformed call (helpers.ErrSignatureAgentRequired), before
+// anything is sent, and a value that is not an https origin is refused the same
+// way (helpers.ErrSignatureAgentNotOrigin).
 //
 // One value per client, because one client speaks for one agent — the same reason
 // WithRequester is held rather than passed per call. An application signing as
-// several agents builds a client per agent.
-//
-// Stamped SET-IF-ABSENT. A request that already carries a Signature-Agent keeps
-// it, so a relay forwarding an originating agent's call does not overwrite the
-// value that agent's own signature covers.
+// several agents builds a client per agent, or composes core.NewSigningTransport
+// with core.WithSignerSource.
 func WithSignatureAgent(dir string) ClientOption {
 	return func(c *clientConfig) { c.signatureAgent = dir }
 }

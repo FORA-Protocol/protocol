@@ -25,11 +25,11 @@ import { utf8Bytes } from "./base64url.ts";
  * (mirror helpers.AcceptanceSignatureAlgorithm). */
 export const ACCEPTANCE_SIGNATURE_ALGORITHM = "EdDSA";
 
-/** The acceptance binding fields. EVERY empty field is omitted from the canonical
- * payload, not only requesterDomain (proto omit-unpopulated) — so an empty value and
- * an absent one sign the same bytes, and neither signs the bytes of a populated one.
- * An empty offerSig is rejected fail-closed — an empty anchor would let the
- * acceptance float free of any concrete offer. */
+/** The acceptance binding fields. requesterId and requesterDomain are both required:
+ * an acceptance names the requester it binds the agent's consent to, so an empty one is
+ * refused (see requireNamedRequester). An empty offerSig is refused too — an empty anchor
+ * would let the acceptance float free of any concrete offer. An empty idempotencyKey is
+ * omitted from the canonical payload (proto omit-unpopulated). */
 export interface AcceptanceInput {
 	offerSig: string;
 	requesterId: string;
@@ -63,10 +63,30 @@ function bytesToHex(bytes: Uint8Array): string {
 }
 
 /**
+ * requireNamedRequester refuses an acceptance whose canonical bytes would name an empty
+ * requester. Requester.id and Requester.domain are both REQUIRED, and bytes naming an
+ * empty requester bind the agent's consent to nobody. On a purchase a Broker relays, the
+ * acceptance is the only agent signature the Exchange sees, and the Exchange resolves the
+ * verification key from the requester domain. Both acceptances (offer and request) run
+ * this before rendering, so neither signing nor verifying accepts such bytes (mirror Go
+ * ErrAcceptanceRequesterEmpty / Python ValueError).
+ */
+function requireNamedRequester(requesterId: string, requesterDomain: string): void {
+	if (requesterId === "") {
+		throw new Error("fora/acceptance: acceptance names an empty requester: requesterId is empty");
+	}
+	if (requesterDomain === "") {
+		throw new Error(
+			"fora/acceptance: acceptance names an empty requester: requesterDomain is empty",
+		);
+	}
+}
+
+/**
  * acceptancePayload reproduces the canonical signed bytes:
- * JCS(protojson(AgentAcceptancePayload)) with EVERY empty string field omitted.
- * Throws on an empty offer signature (fail-closed, mirror Go
- * CanonicalAcceptanceBytes / Python jcs_acceptance_payload).
+ * JCS(protojson(AgentAcceptancePayload)) with every empty string field omitted.
+ * Throws on an empty offer signature and on an empty requesterId or requesterDomain
+ * (fail-closed, mirror Go CanonicalAcceptanceBytes / Python jcs_acceptance_payload).
  */
 export function acceptancePayload(input: AcceptanceInput): Uint8Array<ArrayBuffer> {
 	if (input.offerSig === "") {
@@ -74,15 +94,15 @@ export function acceptancePayload(input: AcceptanceInput): Uint8Array<ArrayBuffe
 			"fora/acceptance: cannot accept an unsigned offer (empty offer signature)",
 		);
 	}
+	requireNamedRequester(input.requesterId, input.requesterDomain);
 	// proto omit-unpopulated: every empty string field is absent before JCS. The Go
 	// oracle gets that structurally from EmitUnpopulated=false; this record is
 	// hand-built, so the omission is applied once over the whole record rather than
-	// per key. A per-key guard is how the rule went missing for requester_id --
-	// wire-valid, since Requester.id carries no min_len -- which signed bytes Go never
-	// produces. The filter tests for the empty STRING, which covers every member
-	// AgentAcceptancePayload has (the field-set guard in the Go suite pins that list),
-	// so a string field added to the message cannot arrive without its omission. A
-	// non-string field would need its own zero-value test.
+	// per key. Only idempotency_key can still arrive empty, because the requester
+	// fields are refused above, but the filter tests for the empty STRING, which
+	// covers every member AgentAcceptancePayload has (the field-set guard in the Go
+	// suite pins that list), so a string field added to the message cannot arrive
+	// without its omission. A non-string field would need its own zero-value test.
 	const payload: Record<string, string> = {
 		offer_sig: input.offerSig,
 		requester_id: input.requesterId,
@@ -113,7 +133,8 @@ export async function signOfferAcceptance(
 /**
  * verifyOfferAcceptance verifies a hex acceptance signature over the canonical
  * payload with the agent's Ed25519 public key. Returns false (never throws) on a
- * bad binding, a bad key, or an unsigned offer.
+ * bad binding, a bad key, an unsigned offer, or an empty requester — the last even
+ * when the signature over those bytes verifies.
  */
 export async function verifyOfferAcceptance(
 	input: AcceptanceInput,
@@ -147,10 +168,13 @@ export interface RequestAcceptanceInput {
 	idempotencyKey: string;
 }
 
-/** Canonical JCS(protojson(...)) bytes for the complete ordered execute set. */
+/** Canonical JCS(protojson(...)) bytes for the complete ordered execute set. Throws on
+ * no items, an item with an empty offer signature or exchange, and an empty requesterId
+ * or requesterDomain (the same requester rule as the offer acceptance). */
 export function requestAcceptancePayload(
 	input: RequestAcceptanceInput,
 ): Uint8Array<ArrayBuffer> {
+	requireNamedRequester(input.requesterId, input.requesterDomain);
 	if (input.items.length === 0) {
 		throw new Error("fora/acceptance: request acceptance requires at least one item");
 	}

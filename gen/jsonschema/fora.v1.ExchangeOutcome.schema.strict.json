@@ -1,0 +1,84 @@
+{
+  "$defs": {
+    "fora.v1.SubscriptionQuotaInfo": {
+      "additionalProperties": false,
+      "description": "Analogous to RateLimitInfo (which signals API request rate limits), this\n signals subscription consumption quotas. Enables agents to throttle\n proactively instead of discovering exhaustion via denial.\n\n Returned on Offer (per-offer quota visibility) and TransactionResponse\n (post-transaction remaining quota). A subscription may have multiple\n independent quotas (access count + spend cap + burst limit), so this\n message is used as a repeated field.\n\n Quota decrement timing: the counter increments at ExecuteTransaction\n (optimistic decrement, before delivery). If delivery fails, the agent\n files a DisputeTransaction which may reverse the decrement. This is\n consistent with the billing model (billing_id created at transaction time).",
+      "properties": {
+        "quota_limit": {
+          "default": 0,
+          "description": "Total allowed in the current period.",
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        },
+        "quota_remaining": {
+          "default": 0,
+          "description": "Remaining in the current period.",
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        },
+        "quota_used": {
+          "default": 0,
+          "description": "Used so far in the current period.",
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        },
+        "resets_at": {
+          "description": "When the quota counter resets (UTC).",
+          "format": "date-time",
+          "type": "string"
+        },
+        "subscription_id": {
+          "default": "",
+          "description": "Subscription this quota applies to.",
+          "type": "string"
+        },
+        "unit": {
+          "description": "What is being metered. Distinguishes access count quotas from\n spend quotas from burst limits.\n Standard values: \"accesses\", \"tokens\", \"spend_cents\", \"burst\"",
+          "type": "string"
+        }
+      },
+      "title": "SubscriptionQuotaInfo — Proactive quota signaling for subscription access.",
+      "type": "object"
+    }
+  },
+  "$id": "fora.v1.ExchangeOutcome.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "ExchangeOutcome — the request-level state of one Exchange's answer to the\n sub-request a Broker sent it on BrokerService.ExecuteTransaction: the fields\n of its TransactionResponse that are not per item.",
+  "properties": {
+    "agent_identity_hash": {
+      "default": "",
+      "description": "That Exchange's TransactionResponse.agent_identity_hash: the identity the\n retrieval_endpoint of each of its items is bound to. Empty when the\n Exchange refused the sub-request or did not answer.",
+      "type": "string"
+    },
+    "exchange": {
+      "description": "Bare host of the Exchange, in the form \"Request recipient\" defines in the\n file header: the offer.exchange its items share.",
+      "maxLength": 260,
+      "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$",
+      "type": "string"
+    },
+    "offer_ids": {
+      "description": "The offer_id of every item sent to this Exchange, in request order.",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 256,
+      "type": "array"
+    },
+    "subscription_quota": {
+      "description": "That Exchange's TransactionResponse.subscription_quota, unchanged.",
+      "items": {
+        "$ref": "#/$defs/fora.v1.SubscriptionQuotaInfo"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "exchange"
+  ],
+  "title": "Exchange Outcome",
+  "type": "object"
+}

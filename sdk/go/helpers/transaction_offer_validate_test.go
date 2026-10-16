@@ -44,12 +44,18 @@ func validOffer() *forav1.Offer {
 		Exchange: "exchange.example",
 		Pricing:  free,
 		// terms is bounded to exactly one: an offer sells a single licensing
-		// arrangement, so a valid offer always carries the term it sells.
+		// arrangement, so a valid offer always carries the term it sells. The
+		// term carries no pricing: the offer's price is Offer.pricing.
 		Terms: []*forav1.LicenseTerm{{
 			Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
-			Pricing:   free,
 		}},
 	}
+}
+
+// validRequester is a valid Requester; a purchase names one, since the message is
+// required.
+func validRequester() *forav1.Requester {
+	return &forav1.Requester{Id: "agent-1", Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}
 }
 
 // TestTransactionRequest_items_valid pins the happy path: a request whose items
@@ -57,6 +63,7 @@ func validOffer() *forav1.Offer {
 func TestTransactionRequest_items_valid(t *testing.T) {
 	req := &forav1.TransactionRequest{
 		IdempotencyKey: "idem-items-1",
+		Requester:      validRequester(),
 		Items: []*forav1.TransactionItem{
 			{Offer: validOffer()},
 		},
@@ -100,6 +107,7 @@ func TestTransactionItem_missingOffer_rejected(t *testing.T) {
 func TestTransactionRequest_multiItem_valid(t *testing.T) {
 	req := &forav1.TransactionRequest{
 		IdempotencyKey: "idem-multi-1",
+		Requester:      validRequester(),
 		Items: []*forav1.TransactionItem{
 			{Offer: validOffer()},
 			{Offer: validOffer()},

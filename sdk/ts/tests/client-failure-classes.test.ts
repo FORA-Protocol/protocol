@@ -62,6 +62,7 @@ describe("the DELIVERY leg's own failures", () => {
 		try {
 			failure = await fetchContent(`http://127.0.0.1:${port}/x`, {
 				keyPair: keys,
+				signatureAgent: "https://agent.test",
 				dispatcher: new Agent(),
 				timeoutMs: 400,
 				maxBytes: 64 << 20,
@@ -110,6 +111,7 @@ describe("a redirect on the DELIVERY leg", () => {
 		process.env["ALLOW_INSECURE"] = "true";
 		const failure = (await fetchContent(`http://127.0.0.1:${port}/x`, {
 			keyPair: keys,
+			signatureAgent: "https://agent.test",
 			dispatcher: new Agent(),
 		}).catch((e: unknown) => e)) as ForaCallError;
 		if (saved === undefined) delete process.env["ALLOW_INSECURE"];
@@ -141,7 +143,7 @@ describe("a dial the guard refused", () => {
 		// Loopback is what the address pin refuses; the scheme gate is satisfied by https.
 		const failure = (await fetchContent(
 			"https://localhost/a?token=live-credential-value",
-			{ keyPair: keys },
+			{ keyPair: keys, signatureAgent: "https://agent.test" },
 		).catch((e: unknown) => e)) as ForaCallError;
 
 		expect(failure).toBeInstanceOf(ForaCallError);

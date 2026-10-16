@@ -74,10 +74,11 @@ _GO_PACKAGES = ("helpers", "resolvers", "core", "connect", "connectserver", "pro
 #     docs/sdk-parity-matrix.md reached via decision_anchor (the three connectserver
 #     handler bindings).
 #   * PARTIAL gap (one language present, the other genuinely absent) — backed by an
-#     inline allowlist_reason naming the one-sided divergence. The 13 partial gaps are
-#     all language-idiom folds absorbed from the old BASELINE_PY_ONLY_GAP ratchet —
-#     Go NewX constructor funcs that fold into Python class constructors, and Go/TS
-#     options types that fold into Python constructor kwargs. Each carries
+#     inline allowlist_reason naming the one-sided divergence. The 14 partial gaps are
+#     all language-idiom folds, most absorbed from the old BASELINE_PY_ONLY_GAP ratchet —
+#     Go NewX constructor funcs that fold into Python class constructors (among them
+#     the four client factories, connect.NewAdminClient included), and Go/TS options
+#     types that fold into Python constructor kwargs. Each carries
 #     a per-entry reason; none is a symbol Python is missing. (The two former
 #     ErrUnknownKey partial gaps are RESOLVED: TS now exports the UnknownKey error
 #     class, completing the resolver error taxonomy in all three languages.)
@@ -106,7 +107,12 @@ _GO_PACKAGES = ("helpers", "resolvers", "core", "connect", "connectserver", "pro
 # path, and that one has no default at all. The gate could not catch it, because it checks
 # the mapping and never the prose. Shipping the factory makes the entry a real 1:1 mapping
 # and the ratchet tightens with it.
-BASELINE_ALLOWLIST = 16
+#
+# Then 16 -> 17 under the sanctioned shape again: connect.NewAdminClient, the operator
+# client's Go factory, folds into the Python AdminClient class constructor exactly as
+# every other NewX does, and carries that same recorded reason. One entry, one
+# already-recorded class.
+BASELINE_ALLOWLIST = 17
 
 # HARD ZERO (was a shrink-only ratchet at 19) — undocumented TS-present / Python-null
 # gaps. The PRESENCE check skips nulls, so absent this ceiling a NEW Python-null gap

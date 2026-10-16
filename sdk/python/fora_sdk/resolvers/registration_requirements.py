@@ -29,22 +29,22 @@ from typing import Any
 
 import httpx
 
+from fora_sdk._hostref import _invalid_host
 from fora_sdk.hosts import is_bare_domain
 from fora_sdk.regschema import (
     RegistrationSchema,
     SchemaVerdict,
     compile_registration_schema,
 )
-from fora_sdk.resolvers._http import fetch_strict, guarded_client
+from fora_sdk.resolvers._http import guarded_client
+from fora_sdk.resolvers.documents import fetch_manifest, manifest_url
 from fora_sdk.resolvers.errors import (
-    DirectoryUnavailableError,
     ExchangeNotPermittedError,
     ManifestNotExchangeError,
     ManifestUnusableError,
 )
-from fora_sdk._hostref import _invalid_host
 from fora_sdk.resolvers.wellknown import AllowFn
-from fora_sdk.wire import WellKnownPath, manifest_version_refusal
+from fora_sdk.wire import manifest_version_refusal
 
 __all__ = [
     "RegistrationRequirements",
@@ -132,18 +132,13 @@ class WellKnownRequirementsReader:
             raise _invalid_host(exchange, "not a bare domain")
         if self._allow is not None and not self._allow(exchange):
             raise ExchangeNotPermittedError(f"exchange {exchange} not permitted by policy")
-        url = f"{self._scheme}://{exchange}{WellKnownPath}"
-        raw_body = fetch_strict(self._http, url)
-        try:
-            # Decoded ONCE, and the member below is sliced out of this text and
-            # re-encoded. The round trip is exact for valid UTF-8 — including a byte
-            # order mark, which the schema rules refuse and which must therefore
-            # survive to reach them — and invalid UTF-8 raises here, where it reads as
-            # an undecodable manifest rather than as a schema fault.
-            body = raw_body.decode("utf-8")
-            doc = json.loads(body)
-        except ValueError as exc:
-            raise DirectoryUnavailableError(f"manifest decode {url}") from exc
+        # The manifest is fetched and decoded where every reader of it does that, and
+        # decoded as UTF-8 exactly once: the member below is sliced out of this text
+        # and re-encoded. The round trip is exact for valid UTF-8 — including a byte
+        # order mark, which the schema rules refuse and which must therefore survive to
+        # reach them — and invalid UTF-8 reads as an undecodable manifest rather than
+        # as a schema fault.
+        _fetched, body, doc = fetch_manifest(self._http, manifest_url(self._scheme, exchange))
         # The document version gate, before any other member is read — the contract's own
         # ordering, and the same call the sibling endpoint face makes. A document that is
         # not an object carries no ``ver``, so it is refused here as an absent one rather

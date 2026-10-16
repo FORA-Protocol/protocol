@@ -91,12 +91,18 @@ def test_skips_revoked_key() -> None:
     live_key = make_key()
     directory = _directory([active_jwk(revoked_key.x), active_jwk(live_key.x)])
     fetch = _CountingFetch({"ex": directory})
-    cache = CachedOfferKeyResolver(
-        fetch=fetch,
-        now=MutableClock(ANCHOR),
-        revoked=lambda tp: tp == revoked_key.tp,
-    )
+    asked: list[str] = []
+
+    def revoked(tp: str, exchange: str) -> bool:
+        asked.append(exchange)
+        return tp == revoked_key.tp
+
+    cache = CachedOfferKeyResolver(fetch=fetch, now=MutableClock(ANCHOR), revoked=revoked)
     assert asyncio.run(cache.prefetch(["ex"])) == {"ex": live_key.raw_pub}
+    # The predicate is asked about the exchange the key came from, so it can answer
+    # from that exchange's own list and no other.
+    assert asked
+    assert set(asked) == {"ex"}
 
 
 def test_absent_when_no_active_key() -> None:

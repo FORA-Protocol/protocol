@@ -1552,7 +1552,7 @@
       "enum.defined_only"
     ],
     "json": {
-      "reason": 10
+      "reason": 12
     }
   },
   {
@@ -1832,6 +1832,19 @@
     }
   },
   {
+    "id": "DiscoveryRequest/requester/missing",
+    "message": "DiscoveryRequest",
+    "valid": false,
+    "rules": [
+      "required"
+    ],
+    "json": {
+      "uris": [
+        "x"
+      ]
+    }
+  },
+  {
     "id": "DiscoveryRequest/uris/too_many",
     "message": "DiscoveryRequest",
     "valid": false,
@@ -1839,6 +1852,14 @@
       "repeated.max_items"
     ],
     "json": {
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x",
         "x",
@@ -2105,6 +2126,14 @@
     "message": "DiscoveryRequest",
     "valid": true,
     "json": {
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -2127,7 +2156,7 @@
       "enum.defined_only"
     ],
     "json": {
-      "reason": 6
+      "reason": 7
     }
   },
   {
@@ -2663,7 +2692,7 @@
       "enum.defined_only"
     ],
     "json": {
-      "reason": 7
+      "reason": 8
     }
   },
   {
@@ -2887,6 +2916,552 @@
     "valid": true,
     "json": {
       "exchange": "x"
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/killer#0",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "exchange": "https://exchange.example",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/killer#1",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "exchange": "exchange.example/register",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/killer#10",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "exchange": "exchange.example:0",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/killer#11",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "exchange": "exchange.example:99999",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/killer#2",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "exchange": "exchange.example?x=1",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/killer#3",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "exchange": "user@exchange.example",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/killer#4",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "exchange": "exchange.example:123456",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/killer#5",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "exchange": "exchange.example:",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/killer#6",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "exchange": "exchange.example.",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/killer#7",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "exchange": "exchange..example",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/killer#8",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "exchange": "-exchange.example",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/killer#9",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "exchange": "[::1]:443",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/missing_empty",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/pattern#0",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "exchange": "two words",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/pattern#2",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "exchange": "!!bad!!",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/pattern#3",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "exchange": "\u0000ctl\u0000",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/pattern#4",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "exchange": " ",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/pattern#5",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "exchange": "-5",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/exchange/too_long",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "string.max_len"
+    ],
+    "json": {
+      "exchange": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "offer_ids": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/offer_ids/too_many",
+    "message": "ExchangeOutcome",
+    "valid": false,
+    "rules": [
+      "repeated.max_items"
+    ],
+    "json": {
+      "exchange": "x",
+      "offer_ids": [
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x",
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ExchangeOutcome/valid",
+    "message": "ExchangeOutcome",
+    "valid": true,
+    "json": {
+      "exchange": "x",
+      "offer_ids": [
+        "x"
+      ]
     }
   },
   {
@@ -3655,17 +4230,6 @@
     }
   },
   {
-    "id": "LicenseTerm/pricing/missing",
-    "message": "LicenseTerm",
-    "valid": false,
-    "rules": [
-      "required"
-    ],
-    "json": {
-      "semantics": "TERM_SEMANTICS_ENUMERATED"
-    }
-  },
-  {
     "id": "LicenseTerm/quotas/too_many",
     "message": "LicenseTerm",
     "valid": false,
@@ -4235,10 +4799,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4262,10 +4822,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4289,10 +4845,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4316,10 +4868,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4343,10 +4891,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4370,10 +4914,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4397,10 +4937,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4424,10 +4960,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4451,10 +4983,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4478,10 +5006,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4505,10 +5029,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4532,10 +5052,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4558,10 +5074,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4585,10 +5097,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4612,10 +5120,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4639,10 +5143,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4666,10 +5166,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4693,10 +5189,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4720,10 +5212,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -4734,6 +5222,7 @@
     "message": "Offer",
     "valid": false,
     "rules": [
+      "offer.terms.pricing_unset",
       "repeated.max_items"
     ],
     "json": {
@@ -4747,10 +5236,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         },
         {
@@ -4778,10 +5263,6 @@
       },
       "terms": [
         {
-          "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0"
-          },
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]
@@ -13995,7 +14476,7 @@
           "error": "matched 2 branches of oneOf, exactly 1 required"
         }
       ],
-      "reason": 8
+      "reason": 9
     }
   },
   {
@@ -14066,6 +14547,12 @@
       "exchange": "https://exchange.example",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14080,6 +14567,12 @@
       "exchange": "exchange.example/register",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14094,6 +14587,12 @@
       "exchange": "exchange.example:0",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14108,6 +14607,12 @@
       "exchange": "exchange.example:99999",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14122,6 +14627,12 @@
       "exchange": "exchange.example?x=1",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14136,6 +14647,12 @@
       "exchange": "user@exchange.example",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14150,6 +14667,12 @@
       "exchange": "exchange.example:123456",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14164,6 +14687,12 @@
       "exchange": "exchange.example:",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14178,6 +14707,12 @@
       "exchange": "exchange.example.",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14192,6 +14727,12 @@
       "exchange": "exchange..example",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14206,6 +14747,12 @@
       "exchange": "-exchange.example",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14220,6 +14767,12 @@
       "exchange": "[::1]:443",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14233,6 +14786,12 @@
     "json": {
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14247,6 +14806,12 @@
       "exchange": "two words",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14261,6 +14826,12 @@
       "exchange": "!!bad!!",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14275,6 +14846,12 @@
       "exchange": "\u0000ctl\u0000",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14289,6 +14866,12 @@
       "exchange": " ",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14303,6 +14886,12 @@
       "exchange": "-5",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14317,6 +14906,12 @@
       "exchange": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14332,6 +14927,12 @@
       "paths": [
         "/x",
         "x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14347,6 +14948,12 @@
       "paths": [
         "/x",
         "/a?b"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14362,6 +14969,12 @@
       "paths": [
         "/x",
         "/a#b"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14377,6 +14990,12 @@
       "paths": [
         "/x",
         "/a b"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14392,6 +15011,12 @@
       "paths": [
         "/x",
         "/a"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14407,6 +15032,12 @@
       "paths": [
         "/x",
         "two words"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14423,6 +15054,12 @@
       "paths": [
         "/x",
         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14439,6 +15076,12 @@
       "paths": [
         "/x",
         ""
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14709,6 +15352,1056 @@
         "/x",
         "/x",
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
+      ]
+    }
+  },
+  {
+    "id": "RemoveResourcesRequest/resources/too_many",
+    "message": "RemoveResourcesRequest",
+    "valid": false,
+    "rules": [
+      "repeated.max_items"
+    ],
+    "json": {
+      "exchange": "x",
+      "paths": [
+        "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        },
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14720,6 +16413,12 @@
       "exchange": "x",
       "paths": [
         "/x"
+      ],
+      "resources": [
+        {
+          "domain": "x",
+          "path": "/x"
+        }
       ]
     }
   },
@@ -14927,6 +16626,34 @@
       ],
       "tenant_id": "tenant-seed",
       "window_seconds": 0
+    }
+  },
+  {
+    "id": "RequestAuthFailure/reason/not_in",
+    "message": "RequestAuthFailure",
+    "valid": false,
+    "rules": [
+      "enum.not_in"
+    ],
+    "json": {}
+  },
+  {
+    "id": "RequestAuthFailure/reason/undefined",
+    "message": "RequestAuthFailure",
+    "valid": false,
+    "rules": [
+      "enum.defined_only"
+    ],
+    "json": {
+      "reason": 4
+    }
+  },
+  {
+    "id": "RequestAuthFailure/valid",
+    "message": "RequestAuthFailure",
+    "valid": true,
+    "json": {
+      "reason": "REQUEST_AUTH_FAILURE_REASON_SIGNATURE_MISSING"
     }
   },
   {
@@ -15721,6 +17448,7 @@
     ],
     "json": {
       "domain": "https://exchange.example",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15736,6 +17464,7 @@
     ],
     "json": {
       "domain": "exchange.example/register",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15751,6 +17480,7 @@
     ],
     "json": {
       "domain": "exchange.example:0",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15766,6 +17496,7 @@
     ],
     "json": {
       "domain": "exchange.example:99999",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15781,6 +17512,7 @@
     ],
     "json": {
       "domain": "exchange.example?x=1",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15796,6 +17528,7 @@
     ],
     "json": {
       "domain": "user@exchange.example",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15811,6 +17544,7 @@
     ],
     "json": {
       "domain": "exchange.example:123456",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15826,6 +17560,7 @@
     ],
     "json": {
       "domain": "exchange.example:",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15841,6 +17576,7 @@
     ],
     "json": {
       "domain": "exchange.example.",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15856,6 +17592,7 @@
     ],
     "json": {
       "domain": "exchange..example",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15871,6 +17608,7 @@
     ],
     "json": {
       "domain": "-exchange.example",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15886,6 +17624,7 @@
     ],
     "json": {
       "domain": "[::1]:443",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15900,6 +17639,7 @@
       "string.pattern"
     ],
     "json": {
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15915,6 +17655,7 @@
     ],
     "json": {
       "domain": "two words",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15930,6 +17671,7 @@
     ],
     "json": {
       "domain": "!!bad!!",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15945,6 +17687,7 @@
     ],
     "json": {
       "domain": "\u0000ctl\u0000",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15960,6 +17703,7 @@
     ],
     "json": {
       "domain": " ",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15975,6 +17719,7 @@
     ],
     "json": {
       "domain": "-5",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -15990,6 +17735,38 @@
     ],
     "json": {
       "domain": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "id": "x",
+      "scopes": [
+        "x"
+      ],
+      "type": "REQUESTER_TYPE_AGENT"
+    }
+  },
+  {
+    "id": "Requester/id/too_long",
+    "message": "Requester",
+    "valid": false,
+    "rules": [
+      "string.max_len"
+    ],
+    "json": {
+      "domain": "x",
+      "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "scopes": [
+        "x"
+      ],
+      "type": "REQUESTER_TYPE_AGENT"
+    }
+  },
+  {
+    "id": "Requester/id/too_short",
+    "message": "Requester",
+    "valid": false,
+    "rules": [
+      "string.min_len"
+    ],
+    "json": {
+      "domain": "x",
       "scopes": [
         "x"
       ],
@@ -16005,6 +17782,7 @@
     ],
     "json": {
       "domain": "x",
+      "id": "x",
       "scopes": [
         "x",
         "x",
@@ -16084,6 +17862,7 @@
     ],
     "json": {
       "domain": "x",
+      "id": "x",
       "scopes": [
         "x"
       ]
@@ -16095,6 +17874,7 @@
     "valid": true,
     "json": {
       "domain": "x",
+      "id": "x",
       "scopes": [
         "x"
       ],
@@ -18217,6 +19997,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "https://exchange.example",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18232,6 +20020,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "exchange.example/register",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18247,6 +20043,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "exchange.example:0",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18262,6 +20066,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "exchange.example:99999",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18277,6 +20089,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "exchange.example?x=1",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18292,6 +20112,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "user@exchange.example",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18307,6 +20135,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "exchange.example:123456",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18322,6 +20158,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "exchange.example:",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18337,6 +20181,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "exchange.example.",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18352,6 +20204,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "exchange..example",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18367,6 +20227,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "-exchange.example",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18382,6 +20250,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "[::1]:443",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18396,6 +20272,14 @@
     ],
     "json": {
       "deadline": "90s",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18411,6 +20295,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "two words",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18426,6 +20318,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "!!bad!!",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18441,6 +20341,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "\u0000ctl\u0000",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18456,6 +20364,14 @@
     "json": {
       "deadline": "90s",
       "exchange": " ",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18471,6 +20387,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "-5",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
@@ -18486,6 +20410,29 @@
     "json": {
       "deadline": "90s",
       "exchange": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
+      "uris": [
+        "x"
+      ]
+    }
+  },
+  {
+    "id": "ResourceQuery/requester/missing",
+    "message": "ResourceQuery",
+    "valid": false,
+    "rules": [
+      "required"
+    ],
+    "json": {
+      "deadline": "90s",
+      "exchange": "x",
       "uris": [
         "x"
       ]
@@ -18501,6 +20448,14 @@
     "json": {
       "deadline": "90s",
       "exchange": "x",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x",
         "x",
@@ -18769,9 +20724,458 @@
     "json": {
       "deadline": "90s",
       "exchange": "x",
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      },
       "uris": [
         "x"
       ]
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#0",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "https://exchange.example",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#1",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "exchange.example/register",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#10",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "exchange.example:0",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#11",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "exchange.example:99999",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#2",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "exchange.example?x=1",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#3",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "user@exchange.example",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#4",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "exchange.example:123456",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#5",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "exchange.example:",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#6",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "exchange.example.",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#7",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "exchange..example",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#8",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "-exchange.example",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/killer#9",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "[::1]:443",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/missing_empty",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/pattern#0",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "two words",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/pattern#2",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "!!bad!!",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/pattern#3",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "\u0000ctl\u0000",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/pattern#4",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": " ",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/pattern#5",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "-5",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/domain/too_long",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.max_len"
+    ],
+    "json": {
+      "domain": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "path": "/x"
+    }
+  },
+  {
+    "id": "ResourceRef/path/killer#0",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "x"
+    }
+  },
+  {
+    "id": "ResourceRef/path/killer#1",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "/a?b"
+    }
+  },
+  {
+    "id": "ResourceRef/path/killer#2",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "/a#b"
+    }
+  },
+  {
+    "id": "ResourceRef/path/killer#3",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "/a b"
+    }
+  },
+  {
+    "id": "ResourceRef/path/killer#4",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "/a"
+    }
+  },
+  {
+    "id": "ResourceRef/path/missing_empty",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.min_len",
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x"
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#0",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "two words"
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#1",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "1.2.3"
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#2",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "!!bad!!"
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#3",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "\u0000ctl\u0000"
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#4",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": " "
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#5",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "-5"
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#6",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "NaN"
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#7",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "Infinity"
+    }
+  },
+  {
+    "id": "ResourceRef/path/pattern#8",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "1E3"
+    }
+  },
+  {
+    "id": "ResourceRef/path/too_long",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.max_len",
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x",
+      "path": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "id": "ResourceRef/path/too_short",
+    "message": "ResourceRef",
+    "valid": false,
+    "rules": [
+      "string.min_len",
+      "string.pattern"
+    ],
+    "json": {
+      "domain": "x"
+    }
+  },
+  {
+    "id": "ResourceRef/valid",
+    "message": "ResourceRef",
+    "valid": true,
+    "json": {
+      "domain": "x",
+      "path": "/x"
     }
   },
   {
@@ -19694,7 +22098,7 @@
     ],
     "json": {
       "exchange": "x",
-      "reason": 19
+      "reason": 21
     }
   },
   {
@@ -19729,10 +22133,6 @@
         },
         "terms": [
           {
-            "pricing": {
-              "model": "PRICING_MODEL_FREE",
-              "rate": "0"
-            },
             "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ]
@@ -19759,16 +22159,20 @@
             },
             "terms": [
               {
-                "pricing": {
-                  "model": "PRICING_MODEL_FREE",
-                  "rate": "0"
-                },
                 "semantics": "TERM_SEMANTICS_ENUMERATED"
               }
             ]
           }
         }
-      ]
+      ],
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      }
     }
   },
   {
@@ -19790,10 +22194,42 @@
             },
             "terms": [
               {
-                "pricing": {
-                  "model": "PRICING_MODEL_FREE",
-                  "rate": "0"
-                },
+                "semantics": "TERM_SEMANTICS_ENUMERATED"
+              }
+            ]
+          }
+        }
+      ],
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      }
+    }
+  },
+  {
+    "id": "TransactionRequest/requester/missing",
+    "message": "TransactionRequest",
+    "valid": false,
+    "rules": [
+      "required"
+    ],
+    "json": {
+      "idempotency_key": "idem-tx",
+      "items": [
+        {
+          "offer": {
+            "exchange": "exchange.example",
+            "offer_id": "offer-seed",
+            "pricing": {
+              "model": "PRICING_MODEL_FREE",
+              "rate": "0"
+            },
+            "terms": [
+              {
                 "semantics": "TERM_SEMANTICS_ENUMERATED"
               }
             ]
@@ -19819,16 +22255,279 @@
             },
             "terms": [
               {
-                "pricing": {
-                  "model": "PRICING_MODEL_FREE",
-                  "rate": "0"
-                },
                 "semantics": "TERM_SEMANTICS_ENUMERATED"
               }
             ]
           }
         }
-      ]
+      ],
+      "requester": {
+        "domain": "x",
+        "id": "x",
+        "scopes": [
+          "x"
+        ],
+        "type": "REQUESTER_TYPE_AGENT"
+      }
+    }
+  },
+  {
+    "id": "UpstreamRefusal/code/too_long",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.max_len"
+    ],
+    "json": {
+      "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "party": "x"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/code/too_short",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.min_len"
+    ],
+    "json": {
+      "party": "x"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/killer#0",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x",
+      "party": "https://exchange.example"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/killer#1",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x",
+      "party": "exchange.example/register"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/killer#10",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x",
+      "party": "exchange.example:0"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/killer#11",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x",
+      "party": "exchange.example:99999"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/killer#2",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x",
+      "party": "exchange.example?x=1"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/killer#3",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x",
+      "party": "user@exchange.example"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/killer#4",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x",
+      "party": "exchange.example:123456"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/killer#5",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x",
+      "party": "exchange.example:"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/killer#6",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x",
+      "party": "exchange.example."
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/killer#7",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x",
+      "party": "exchange..example"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/killer#8",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x",
+      "party": "-exchange.example"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/killer#9",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x",
+      "party": "[::1]:443"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/missing_empty",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/pattern#0",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x",
+      "party": "two words"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/pattern#2",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x",
+      "party": "!!bad!!"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/pattern#3",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x",
+      "party": "\u0000ctl\u0000"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/pattern#4",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x",
+      "party": " "
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/pattern#5",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "code": "x",
+      "party": "-5"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/party/too_long",
+    "message": "UpstreamRefusal",
+    "valid": false,
+    "rules": [
+      "string.max_len"
+    ],
+    "json": {
+      "code": "x",
+      "party": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "id": "UpstreamRefusal/valid",
+    "message": "UpstreamRefusal",
+    "valid": true,
+    "json": {
+      "code": "x",
+      "party": "x"
     }
   },
   {
@@ -20244,7 +22943,7 @@
       "enum.defined_only"
     ],
     "json": {
-      "reason": 6
+      "reason": 7
     }
   },
   {
