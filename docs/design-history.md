@@ -2934,6 +2934,38 @@ clock selected keys at one time and checked the directory's signatures at anothe
 now take a clock. Go's fetcher takes it as an optional trailing argument, so its
 released call still compiles, as the client verbs' call options were added.
 
+## A publisher proves its domain with the manifest it serves
+
+The contract carries `RequestDomainVerification` and `ConfirmDomainVerification`, an
+ACME-style challenge in which the publisher places a token and the Exchange fetches it.
+The publisher guide does not walk through them, because the console publishers onboard
+through proves the domain another way: from the `fora.json` the domain serves. One fetch
+of that document answers three questions at once. It shows the publisher controls the
+domain, it names the account that gets paid, and it lists the catalog contributor the
+publisher authorizes. The account travels as a `resource_owner_id` key in the Exchange
+entry's `ext`, which the v1 contract does not define: the console writes it and its
+Exchange reads it. The Exchange reads the document fresh at registration and again at
+every catalog push, there through a short-lived cache, so the proof keeps being renewed
+rather than being a token checked once and remembered.
+
+The catalog key follows from who runs the import. Pages are imported automatically, by
+the operator, from the sitemap the console found at registration, so the operator holds
+the contributor key and serves its directory from a host of its own; the publisher
+generates and uploads no key. Authorization stays with the publisher: the manifest the
+domain serves names the operator's contributor host, and removing it refuses the imports
+that follow, once the Exchange's cached copy has expired, with nothing on the Exchange
+side able to restore it. What counts is the document the domain serves, not the file the
+console hands over: an edge package in front of `/.well-known/fora.json` answers that
+address itself, from the same values held in its settings, so there the authorization
+lives in those settings. The edge package carries no secret either; it fetches the
+Exchange's public keys.
+
+Neither choice removes anything from the contract. The domain-verification RPCs stay in
+v1 for deployments that verify that way, and a publisher that pushes its own catalog with
+its own key still can, because the push path accepts the domain's own publisher as well
+as any contributor its manifest names. What changed is which path the publisher guide
+describes: the guide follows the console, not the other way round.
+
 ## A refusal carries its answer's header fields, and only a refusal does
 
 A peer that refuses a call often says in its header fields what it wants next. A Web Bot

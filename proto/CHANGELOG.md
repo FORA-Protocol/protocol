@@ -2,6 +2,76 @@
 
 ## Unreleased
 
+### Breaking against v1.1.0
+
+**SDK users**
+
+- **Go client errors.** `connect.CallError` and `resolvers.FetchError` gain a `Header`
+  field, an `http.Header`, so neither struct compares with `==` any more. An RPC
+  `CallError` now carries the `Status` of the peer's error answer, which v1.1.0 left at 0,
+  so its message names that status, as the content leg's always did.
+
+### Changes since v1.1.0
+
+**Three more SDK capabilities for conformance and e2e harnesses (no wire change).** A
+harness can now read the header fields a refusal arrived with, sign an acceptance that
+names an empty requester to prove that a receiver refuses it, and, in Python, have the
+client refuse a request the contract does not describe before it is signed.
+
+- **Refusal headers.** A refusal carries the header fields of the answer that refused:
+  `CallError.headers` (Python, a mapping looked up case-insensitively),
+  `ForaCallError.headers` (TypeScript, a Fetch `Headers`) and `CallError.Header` with
+  `resolvers.FetchError.Header` (Go, an `http.Header`), on the RPC legs and the delivery
+  fetch alike. A Web Bot Auth verifier's `Accept-Signature`, a gateway's `Retry-After` and
+  an edge's discovery headers are read through the SDK; `parse_discovery_hint`,
+  `parseDiscoveryHint` and `helpers.ParseDiscoveryHint` read the last with the error's
+  status. Only an error answer, status 400 or above, carries fields: a local failure, a
+  transport failure, a 2xx the client could not read and a refused redirect carry none,
+  the redirect because its `Location` names a URL the peer chose. The fields are a copy and
+  are never rendered into the message. A field sent on several lines reads as one value
+  joined with ", " in Python and TypeScript; Go keeps the lines, and
+  `strings.Join(Header.Values(name), ", ")` reads the same value. Go's RPC
+  `CallError.Status` is now set beside them. TypeScript's `UnaryResponse` gains an optional
+  `headers`, which the default send fills; an injected send that leaves it out yields
+  refusals carrying none. The new `refusal-header-vectors.json` pins which failures carry
+  fields and what they read as, in all three SDKs.
+- **Test-only acceptance signers.** A receiver must refuse an acceptance that names an
+  empty requester even when its signature verifies, and the SDK's own signers refuse to
+  produce one, so the test proving the refusal needs a signer that does. A test-support
+  package in each language holds twins of the four acceptance functions that skip only
+  that refusal: `helperstest.CanonicalAcceptanceBytesAnyRequester`,
+  `SignOfferAcceptanceAnyRequester`, `CanonicalRequestAcceptanceBytesAnyRequester` and
+  `SignRequestAcceptanceAnyRequester` (Go, package `sdk/go/helperstest`);
+  `jcs_acceptance_payload_any_requester`, `sign_offer_acceptance_any_requester`,
+  `jcs_request_acceptance_payload_any_requester` and
+  `sign_request_acceptance_any_requester` (Python, `fora_sdk.testing`, not re-exported
+  from `fora_sdk`); `acceptancePayloadAnyRequester`, `signOfferAcceptanceAnyRequester`,
+  `requestAcceptancePayloadAnyRequester` and `signRequestAcceptanceAnyRequester`
+  (TypeScript, export path `./testing`). Every other refusal is kept, in the same text
+  and order, and the protocol's signers and verifiers are unchanged and still refuse.
+  Each language renders both through one canonical renderer that takes the requester
+  check as a parameter: `sdk/go/internal/canonicalsign` in Go, private functions in
+  Python's `fora_sdk.core`, and `src/acceptance-render.ts` in TypeScript, which neither
+  package manifest exports. The twins reproduce the `refused` rows of
+  `acceptance-vectors.json` and `request-acceptance-vectors.json` byte for byte in all
+  three SDKs, and a test in each fails if production code imports the test package.
+- **Strict requests (Python).** `ClientConfig(strict_requests=True)` refuses a request the
+  contract does not describe, before it is signed. The generated models ignore a member
+  they do not declare, so a misspelled key in a plain dict passes the default check, is
+  signed and sent, and is discarded by the server's JSON codec. Under the switch a verb
+  takes only its own generated request model or a `RawBody`: a plain dict, or a model of
+  another message, is refused as malformed before anything is resolved, read or sent,
+  naming the model to pass. The message as stamped, with `ver`, the configured
+  `requester` and a purchase's reflected offers in it, must then pass the published
+  strict JSON Schema of the request message and the cross-field rules, so an unknown
+  member at any depth is refused and named by its path. A `RawBody` is still sent exactly
+  as given. The switch applies whatever `validation` says and is off by default. A
+  keyword argument a generated model does not declare is dropped by the model before the
+  SDK sees it; a type checker reports it. Go verbs take the generated messages and
+  TypeScript verbs are typed with the request input types, so neither has the switch.
+
+## v1.1.0
+
 ### Breaking against v1.0.8
 
 This release does not interoperate with v1.0.8 inside one deployment: the request
@@ -108,10 +178,6 @@ the detail.
   `requester` on the three requests. A document body over 1 MiB is refused rather than
   truncated, and the TypeScript reader also ends a read at 30 seconds and follows at most
   five redirects itself, never from https to http.
-- **Go client errors.** `connect.CallError` and `resolvers.FetchError` gain a `Header`
-  field, an `http.Header`, so neither struct compares with `==` any more. An RPC
-  `CallError` now carries the `Status` of the peer's error answer, which v1.0.8 left at 0,
-  so its message names that status, as the content leg's always did.
 
 ### Changes since v1.0.8
 
@@ -851,23 +917,6 @@ request only where it means to, and check every answer through the SDK's own dec
   (Go). `connect-error-vectors.json` now pins the code and the whole detail, including
   rows carrying only `value`, and the new `error-detail-wire-vectors.json` pins the
   binary decoding of every field of the ErrorDetail subtree against the descriptor.
-- **Refusal headers.** A refusal carries the header fields of the answer that refused:
-  `CallError.headers` (Python, a mapping looked up case-insensitively),
-  `ForaCallError.headers` (TypeScript, a Fetch `Headers`) and `CallError.Header` with
-  `resolvers.FetchError.Header` (Go, an `http.Header`), on the RPC legs and the delivery
-  fetch alike. A Web Bot Auth verifier's `Accept-Signature`, a gateway's `Retry-After` and
-  an edge's discovery headers are read through the SDK; `parse_discovery_hint`,
-  `parseDiscoveryHint` and `helpers.ParseDiscoveryHint` read the last with the error's
-  status. Only an error answer, status 400 or above, carries fields: a local failure, a
-  transport failure, a 2xx the client could not read and a refused redirect carry none,
-  the redirect because its `Location` names a URL the peer chose. The fields are a copy and
-  are never rendered into the message. A field sent on several lines reads as one value
-  joined with ", " in Python and TypeScript; Go keeps the lines, and
-  `strings.Join(Header.Values(name), ", ")` reads the same value. Go's RPC
-  `CallError.Status` is now set beside them. TypeScript's `UnaryResponse` gains an optional
-  `headers`, which the default send fills; an injected send that leaves it out yields
-  refusals carrying none. The new `refusal-header-vectors.json` pins which failures carry
-  fields and what they read as, in all three SDKs.
 - **Delivery URLs pass through unchanged.** Execute, the Broker purchase and fetch hand
   back each retrieval URL as the Exchange issued it, and fetch presents the agent's proof
   of possession. The delivery edge verifies the URL signature and, where it can, the agent
@@ -887,26 +936,6 @@ request only where it means to, and check every answer through the SDK's own dec
   `fora_sdk.identity`); `generateKey`, `directoryDocument`, `signingTransportFor`
   (TypeScript, export path `./identity`); `helpers.GenerateKey`,
   `helpers.DirectoryDocument`, `core.SigningTransportFor` (Go).
-- **Test-only acceptance signers.** A receiver must refuse an acceptance that names an
-  empty requester even when its signature verifies, and the SDK's own signers refuse to
-  produce one, so the test proving the refusal needs a signer that does. A test-support
-  package in each language holds twins of the four acceptance functions that skip only
-  that refusal: `helperstest.CanonicalAcceptanceBytesAnyRequester`,
-  `SignOfferAcceptanceAnyRequester`, `CanonicalRequestAcceptanceBytesAnyRequester` and
-  `SignRequestAcceptanceAnyRequester` (Go, package `sdk/go/helperstest`);
-  `jcs_acceptance_payload_any_requester`, `sign_offer_acceptance_any_requester`,
-  `jcs_request_acceptance_payload_any_requester` and
-  `sign_request_acceptance_any_requester` (Python, `fora_sdk.testing`, not re-exported
-  from `fora_sdk`); `acceptancePayloadAnyRequester`, `signOfferAcceptanceAnyRequester`,
-  `requestAcceptancePayloadAnyRequester` and `signRequestAcceptanceAnyRequester`
-  (TypeScript, export path `./testing`). Every other refusal is kept, in the same text
-  and order, and the protocol's signers and verifiers are unchanged and still refuse.
-  Each language renders both through one canonical renderer that takes the requester
-  check as a parameter: `sdk/go/internal/canonicalsign` in Go, private functions in
-  Python's `fora_sdk.core`, and `src/acceptance-render.ts` in TypeScript, which neither
-  package manifest exports. The twins reproduce the `refused` rows of
-  `acceptance-vectors.json` and `request-acceptance-vectors.json` byte for byte in all
-  three SDKs, and a test in each fails if production code imports the test package.
 - **Document readers.** Read and check the documents a party publishes over HTTPS:
   `read_manifest`, `read_wba_directory`, `read_revocation_list` and
   `read_license_document` (Python, `fora_sdk.resolvers`); `readManifest`,
@@ -961,20 +990,6 @@ request only where it means to, and check every answer through the SDK's own dec
   dicts, and `to_wire(model)` renders a model as the JSON object the SDK sends.
   TypeScript exports the request input types its verbs are typed with. Go verbs already
   take the generated messages.
-- **Strict requests (Python).** `ClientConfig(strict_requests=True)` refuses a request the
-  contract does not describe, before it is signed. The generated models ignore a member
-  they do not declare, so a misspelled key in a plain dict passes the default check, is
-  signed and sent, and is discarded by the server's JSON codec. Under the switch a verb
-  takes only its own generated request model or a `RawBody`: a plain dict, or a model of
-  another message, is refused as malformed before anything is resolved, read or sent,
-  naming the model to pass. The message as stamped, with `ver`, the configured
-  `requester` and a purchase's reflected offers in it, must then pass the published
-  strict JSON Schema of the request message and the cross-field rules, so an unknown
-  member at any depth is refused and named by its path. A `RawBody` is still sent exactly
-  as given. The switch applies whatever `validation` says and is off by default. A
-  keyword argument a generated model does not declare is dropped by the model before the
-  SDK sees it; a type checker reports it. Go verbs take the generated messages and
-  TypeScript verbs are typed with the request input types, so neither has the switch.
 
 **A request-signature refusal carries a typed reason (additive wire change).**
 An RPC request whose RFC 9421 HTTP message signature failed verification was

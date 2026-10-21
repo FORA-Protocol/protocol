@@ -156,6 +156,7 @@ import '../../styles/brand.css';
     .pill.ok { color: var(--str); border-color: #7ec8a066; background: #7ec8a014; }
     .pill.none { color: var(--warn); border-color: #e0a45866; background: #e0a45814; }
     .card p { color: var(--gray); font-size: .9375rem; }
+    .cdn-contact { margin-top: 1rem; }
     .evidence { margin-top: 1rem; border-top: 1px solid var(--mid); padding-top: .875rem; }
     .evidence p { margin-bottom: .75rem; }
     .evidence .k {
@@ -452,16 +453,17 @@ import '../../styles/brand.css';
 
 <!--
   A bundled script, not is:inline: it imports the preview client and the
-  configured service URL from astro:env, and is:inline would skip the bundler
-  and leave both unresolved.
+  configured service and contact URLs from astro:env, and is:inline would skip
+  the bundler and leave them unresolved.
 -->
 <script>
   import {
     FORA_ONBOARDING_API_BASE,
+    FORA_PUBLISHER_CONTACT_URL,
   } from 'astro:env/client';
   import { buildPagePreviewRequest, previewPageUrl, withPreviewPageUrl } from '../../lib/onboarding/request.mjs';
   import { fetchPreview } from '../../lib/onboarding/preview-client.mjs';
-  import { cdnPresentation } from '../../lib/onboarding/cdn-integrations.mjs';
+  import { CONTACT_LABEL, cdnPresentation } from '../../lib/onboarding/cdn-integrations.mjs';
   import { OFFERED_USES, partitionUses } from '../../lib/onboarding/terms-vocab.mjs';
   import { previewDetails, unreadableNote } from '../../lib/onboarding/default-preview.mjs';
   import { escapeHtml as esc, highlightJson } from '../../lib/onboarding/record.mjs';
@@ -582,12 +584,24 @@ import '../../styles/brand.css';
     return list;
   }
 
+  // The page's one way to link to the publisher contact address. Built from
+  // nodes, so neither the configured address nor the label is parsed as markup.
+  // The class goes on before the href, and only when given, so the markup reads
+  // exactly as it would have been written by hand.
+  function contactLink(label, className) {
+    const link = document.createElement('a');
+    if (className) link.className = className;
+    link.href = FORA_PUBLISHER_CONTACT_URL;
+    link.textContent = label;
+    return link;
+  }
+
   function renderManifest() {
     const d = state.domain;
     const manifest = state.preview?.manifest;
     if (!manifest) {
-      $('manifest').textContent =
-        'We could not generate your discovery document for this domain. Ask us and we will send it.';
+      $('manifest').replaceChildren(
+        'We could not generate your discovery document for this domain. ', contactLink(CONTACT_LABEL), ' and we will send it.');
     } else {
       $('manifest').innerHTML = `<span class="c"># https://${esc(d)}/.well-known/fora.json  (configuration preview)</span>\n`
         + highlightJson(JSON.stringify(manifest, null, 2));
@@ -598,7 +612,8 @@ import '../../styles/brand.css';
     const cdn = cdnPresentation(state.preview.cdn);
     let html = `<span class="pill ${esc(cdn.tone)}">${esc(cdn.badge)}</span>`
       + `<h3>${esc(cdn.title)}</h3><p>${esc(cdn.description)}</p>`
-      + (cdn.guidance ? `<p class="note">${esc(cdn.guidance)}</p>` : '');
+      + (cdn.guidance ? `<p class="note">${esc(cdn.guidance)}</p>` : '')
+      + (cdn.contact ? '<p class="cdn-contact"></p>' : '');
 
     if (state.preview.evidence.length) {
       html += `<div class="evidence"><p>How we detected your CDN? ${esc(cdn.evidenceIntro)}</p><dl>`
@@ -606,6 +621,7 @@ import '../../styles/brand.css';
         + '</dl></div>';
     }
     $('cdn-card').innerHTML = html;
+    if (cdn.contact) $('cdn-card').querySelector('.cdn-contact').append(contactLink(cdn.contact, 'btn btn-ghost'));
   }
 
   function renderAll() {
