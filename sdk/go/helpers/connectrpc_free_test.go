@@ -2,28 +2,23 @@ package helpers_test
 
 // Structural neutrality guard for the sdk/go L1 helpers package (the
 // core/connect split with the folded-in AsConnectError decouple). The Core
-// Invariant of that refactor is transport neutrality: a grpc-go / plain
+// Invariant of that split is transport neutrality: a grpc-go / plain
 // net/http / any-transport consumer that only wants the neutral L1 mechanics
 // (ErrorDetail builders, sign/verify, key-resolution, money, signed URLs) must
-// compile ZERO Connect. Today that invariant is VIOLATED — errordetail.go
-// imports connectrpc.com/connect for AsConnectError(connect.Code, ...) and the
-// connect.Error unwrap path in ErrorDetailFrom — so this guard FAILS now (TDD
-// red). The refactor moves AsConnectError into the connect binding, at which
-// point the only connectrpc importer left in helpers disappears and this guard
-// passes.
+// compile ZERO Connect. The Connect-coupled pieces (AsConnectError, the
+// connect.Error unwrap in ErrorDetailFrom) live in the connect binding.
 //
-// This is a STRUCTURAL guard, not a behavior test: the refactor it pins is
-// behavior-preserving, so the byte-level behavior net lives in the L2 suites
-// (sdk/go/core/*, sdk/go/connect/*) which must stay green through the move. This
-// guard pins the package-boundary invariant those suites cannot see.
+// This is a STRUCTURAL guard, not a behavior test: the byte-level behavior net
+// lives in the L2 suites (sdk/go/core/*, sdk/go/connect/*). This guard pins the
+// package-boundary invariant those suites cannot see.
 //
-// SCOPE — the sdk/go/helpers directory ONLY. It is the fast source-scan
-// complement to the authoritative deps-closure gate
-// (`go list -deps ./sdk/go/helpers | grep -c connectrpc == 0`), which the
-// IMPLEMENT step adds alongside the core-side neutrality guard. A source scan
-// and the deps-closure gate are NOT equivalent (the scan cannot see a
-// transitive import pulled in via another package), so both are kept; this file
-// is the scan half for helpers.
+// SCOPE — every package of this module that helpers is built from, helpers
+// included (helpersClosure, in io_leaf_guard_test.go). A scan of this directory
+// alone could not see a Connect import pulled in through another package, such
+// as an internal package helpers calls; the closure follows imports through
+// them. The generated wire packages under gen/ are scanned too: the check reads
+// import specs, so their comments cannot trip it, and a generated Connect stub
+// entering the closure would.
 //
 // Import detection uses go/parser (real import specs), NOT a raw substring
 // match, so a doc comment that merely mentions "connectrpc.com" (e.g.
@@ -37,6 +32,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/importclosure"
 )
 
 const connectrpcModulePrefix = "connectrpc.com"
@@ -74,31 +71,28 @@ func readSourceFile(t *testing.T, path string) string {
 	return string(b)
 }
 
-// TestHelpersConnectrpcFree pins the neutrality invariant: no non-test .go file
-// in sdk/go/helpers may import connectrpc.com/*. It FAILS today because
-// errordetail.go imports connectrpc.com/connect; it passes once the refactor
-// moves AsConnectError into the connect binding.
+// TestHelpersConnectrpcFree pins the neutrality invariant: no non-test .go file of
+// a package helpers is built from may import connectrpc.com/*.
 func TestHelpersConnectrpcFree(t *testing.T) {
-	entries, err := os.ReadDir(".")
-	if err != nil {
-		t.Fatalf("read helpers dir: %v", err)
-	}
+	root, _, closure := helpersClosure(t)
 	scanned := 0
-	for _, e := range entries {
-		name := e.Name()
-		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
-			continue
+	for _, dir := range closure {
+		files, err := importclosure.SourceFiles(dir)
+		if err != nil {
+			t.Fatal(err)
 		}
-		scanned++
-		src := readSourceFile(t, name)
-		if path, bad := importsConnectrpc(t, name, src); bad {
-			t.Errorf(
-				"sdk/go/helpers/%s imports %q; the L1 helpers package must be transport-neutral (zero Connect) so a non-Connect consumer compiles no connectrpc — move the Connect-coupled code (AsConnectError / connect.Error unwrap) into the connect binding",
-				name, path)
+		for _, file := range files {
+			scanned++
+			name, _ := filepath.Rel(root, file)
+			if path, bad := importsConnectrpc(t, name, readSourceFile(t, file)); bad {
+				t.Errorf(
+					"%s imports %q; every package the L1 helpers are built from must be transport-neutral (zero Connect) so a non-Connect consumer compiles no connectrpc — move the Connect-coupled code (AsConnectError / connect.Error unwrap) into the connect binding",
+					name, path)
+			}
 		}
 	}
 	if scanned == 0 {
-		t.Fatal("scanned 0 non-test .go files in sdk/go/helpers; the guard is not looking at the right directory")
+		t.Fatal("scanned 0 non-test .go files for sdk/go/helpers; the guard is not looking at the right packages")
 	}
 	// Cross-check the scan is anchored on the real package, not an empty cwd.
 	if _, statErr := os.Stat(filepath.Join(".", "errordetail.go")); statErr != nil {
