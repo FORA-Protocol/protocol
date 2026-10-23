@@ -54,9 +54,14 @@ func TestTransportFailureCorpusReplay(t *testing.T) {
 				t.Errorf("kind %q and retryable %v disagree", want.Kind, want.Retryable)
 			}
 			// An answer that did not come from the service still came from a peer: its
-			// status is classified by its code, and that code is the failure's Code.
-			if got := transportFailureCode(t, i); got != want.Reason {
+			// status is classified by its code, and that code is the failure's Code. The
+			// status itself rides beside it.
+			callErr := transportFailureCallError(t, i)
+			if got := callErr.Code.String(); got != want.Reason {
 				t.Errorf("code = %q, want %q", got, want.Reason)
+			}
+			if callErr.Status != want.Status {
+				t.Errorf("status = %d, want %d", callErr.Status, want.Status)
 			}
 		})
 		if want.Retryable {
@@ -72,9 +77,9 @@ func TestTransportFailureCorpusReplay(t *testing.T) {
 	}
 }
 
-// transportFailureCode replays case i through the real client and returns the
-// Connect code its CallError carries.
-func transportFailureCode(t *testing.T, i int) string {
+// transportFailureCallError replays case i through the real client and returns its
+// CallError.
+func transportFailureCallError(t *testing.T, i int) *CallError {
 	t.Helper()
 	c := transportFailureCases[i]
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -88,5 +93,5 @@ func transportFailureCode(t *testing.T, i int) string {
 	if !errors.As(err, &callErr) {
 		t.Fatalf("%s: not a typed failure: %v", c.name, err)
 	}
-	return callErr.Code.String()
+	return callErr
 }

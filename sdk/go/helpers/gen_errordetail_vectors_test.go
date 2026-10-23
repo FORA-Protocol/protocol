@@ -15,7 +15,7 @@ package helpers
 // carries), its typed reason is read back through the REAL helpers.Reason
 // accessor, and its wire form is the PINNED canonical proto-JSON (snake_case field
 // names, enums as NAME strings, unpopulated omitted) — the same option set the
-// signing payload uses (canonicalsign.go) and the exact form the generated
+// signing payload uses (internal/canonicalsign) and the exact form the generated
 // Pydantic/Zod ErrorDetail models parse. Deterministic protobuf BINARY is
 // explicitly NOT a cross-language primitive (protobuf's own caveat), so the shared
 // wire is proto-JSON, which any language reproduces without a binary codec.
@@ -89,7 +89,7 @@ func fieldErrorProjection(d *forav1.ErrorDetail) []errorDetailFieldError {
 }
 
 // errorDetailJSONOptions is the PINNED proto-JSON option set the ErrorDetail wire
-// form uses — identical to canonicalSignJSONOptions: snake_case field names
+// form uses — identical to canonicalsign.JSONOptions: snake_case field names
 // (UseProtoNames), enums as NAME strings (UseEnumNumbers=false), unpopulated
 // omitted (EmitUnpopulated=false). This is the exact shape the generated
 // Pydantic/Zod ErrorDetail models parse.

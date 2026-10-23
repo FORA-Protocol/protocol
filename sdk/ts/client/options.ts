@@ -150,7 +150,8 @@ export interface ClientOptions {
 	 * the Connect envelope may carry only code, message and details, must name a known
 	 * Connect code and carry well-formed details, and every ErrorDetail in it, binary
 	 * `value` and `debug` projection alike, must pass the strict ErrorDetail schema and the
-	 * cross-field rules; a refused envelope keeps `code` and `status` and carries no detail.
+	 * cross-field rules; a refused envelope keeps `code`, `status` and `headers` and carries
+	 * no detail.
 	 * Defaults to false: the generated schemas drop unknown fields, which keeps a client
 	 * working against a newer Exchange. */
 	strict?: boolean;

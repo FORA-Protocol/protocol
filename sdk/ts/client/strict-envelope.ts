@@ -69,15 +69,16 @@ function firstUnknown(obj: Obj, known: ReadonlySet<string>): string | undefined 
 
 /**
  * checkStrictEnvelope refuses an error answer whose envelope the strict contract does not
- * accept, as `malformed` naming the first failure. The refusal keeps `status` and `code`,
- * the Connect code the lenient read reports, and carries no detail: the detail is part
- * of what was refused.
+ * accept, as `malformed` naming the first failure. The refusal keeps `status`, `code` (the
+ * Connect code the lenient read reports) and the answer's header fields, and carries no
+ * detail: the detail is part of what was refused.
  */
 export function checkStrictEnvelope(
 	op: string,
 	status: number,
 	payload: unknown,
 	code: string | undefined,
+	headers?: Headers,
 ): void {
 	const problem = envelopeViolation(payload);
 	if (problem === undefined) return;
@@ -85,6 +86,7 @@ export function checkStrictEnvelope(
 		kind: "malformed",
 		op,
 		status,
+		headers,
 		cause: new Error(`strict decoding refused the error answer: ${problem}`),
 		...(code !== undefined ? { code } : {}),
 	});

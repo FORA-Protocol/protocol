@@ -11,13 +11,17 @@ directly with no `replace` directive.
 | L2 · I/O | **`sdk/go/resolvers`** | the network-fetching tier: well-known JWKS / WBA directory / `fora.json` endpoint / offer-key resolvers, the uncached registration-requirements reader, + the SSRF-guarded HTTP client. Runs on a maintained `net/http` client behind the SSRF guard; composes L1, never the reverse |
 | L2 · transport | `sdk/go/core` (transport-neutral: Verifier, {verified,rejected}, `DiscoveryResult` per-URI groups, VerifiedOffer guard, signing RoundTripper, ReplayStore — zero Connect) · `sdk/go/connect` (Connect **client** binding: `NewClient` + `NewBrokerClient` + `NewCatalogClient` + `NewAdminClient`; the agent verbs **`Discover` · `Resolve` · `Execute` · `ExecuteBatch` · `ReportUsage` · `Dispute` · `Fetch`**, the Broker purchase **`BrokerClient.Execute`** (offers from several Exchanges in one call), the account-setup verbs **`Register` · `GetAccountStatus`** and the publisher verbs **`PushResources` · `RemoveResources` · `RefreshCatalog`**, the operator verbs **`SetTenantFeeRate` · `SetReportingPolicy` · `RequestDomainVerification` · `ConfirmDomainVerification`** + client options + the `CallError` taxonomy + `ErrorDetailFrom`) · `sdk/go/connectserver` (Connect **server** binding: `NewExchangeServiceHandler` + `NewBrokerServiceHandler` + `NewCatalogServiceHandler` + server options + `AsConnectError` + `AttachErrorDetail`/`AttachDetail` + the reject answer **`RejectCode` · `IsBodyTooLarge` · `WriteReject`**, the one place the 413/429/401 split and the error-envelope body are decided) | transport-neutral core + Connect client/server bindings (state injected) |
 | L3 | separate packages | framework adapters (convert, never replace) — later |
+| test support | `sdk/go/helperstest` | acceptance signers that admit an empty requester, for a test proving a verifier refuses one. Never imported by production code |
 
 The `L2` tier is split by kind: the **I/O** package (`resolvers`) is the only tier
 that dials the network (it holds the maintained HTTP client and the SSRF guard),
 while the **transport** packages (`core` / `connect` / `connectserver`) hold no
 dialing surface of their own — `connect` composes the I/O tier's guarded
 transport and content fetcher rather than opening a second one. An io-leaf guard (`helpers/io_leaf_guard_test.go`) fails the build if any pure
-L1 file drags in a dialing surface, so the fetch surface cannot leak back down.
+L1 file drags in a dialing surface, so the fetch surface cannot leak back down. It scans
+helpers and every package of the module helpers is built from (today
+`internal/canonicalsign` and `internal/hostredact`), not one directory, and the
+connect-free guards of helpers and core scan their packages' closures the same way.
 
 ## L1 — `helpers`
 
@@ -354,12 +358,23 @@ response or re-implements signing:
   is checked too: the Connect error envelope must carry only `code`, `message` and
   `details`, name a known Connect code and carry well-formed details, and every
   `ErrorDetail`, binary `value` and `debug` projection alike, must pass the same two
-  checks. A refused envelope is `CallMalformed` with `CallError.Code` still set to the
-  peer's code.
+  checks. A refused envelope is `CallMalformed` with `CallError.Code`, `Status` and
+  `Header` still holding the peer's code, HTTP status and header fields.
 - **`CallError.Code`** is the Connect code of the peer's answer — an error envelope or
   a non-JSON error status — and zero when no answer arrived. The typed `ErrorDetail` is
   decoded from the binary `value`; the shared `connect-error-vectors.json` and
   `error-detail-wire-vectors.json` corpora hold all three SDKs to the same reading.
+- **`CallError.Status` and `CallError.Header`** carry the HTTP status and the header
+  fields of the peer's error answer, 400 or above, on every RPC leg and on `Fetch`, where
+  `resolvers.FetchError.Header` holds them first: a verifier's `Accept-Signature`, a
+  gateway's `Retry-After`, an edge's discovery headers for
+  `helpers.ParseDiscoveryHint(err.Status, err.Header)`. A refused redirect, a 2xx the client
+  could not read and a failure where nothing answered carry none, and `Error()` never
+  renders the fields. Read a field sent on several lines as
+  `strings.Join(err.Header.Values(name), ", ")`, the value the other two SDKs return;
+  `refusal-header-vectors.json` holds all three to it. When an interceptor passed to
+  `WithInterceptors` retries a call, `Status`, `Header` and `Code` describe the last
+  request it sent.
 - **Delivery URLs are the edge's to check.** `Execute`, `ExecuteBatch` and
   `BrokerClient.Execute` return every `retrieval_endpoint` exactly as the Exchange
   issued it, and `Fetch` dials a URL as given with the agent's proof of possession, so
@@ -373,6 +388,13 @@ response or re-implements signing:
   `core.SigningTransportFor` returns a signing transport that signs as the key.
   `core.WithSignerSource` signs each request as the identity a callback picks, for a
   service that signs as many agents.
+- **Acceptances that name an empty requester.** The `helpers` signers refuse to produce
+  one, as fora.proto requires of a signer, so `sdk/go/helperstest` holds their twins:
+  `CanonicalAcceptanceBytesAnyRequester`, `SignOfferAcceptanceAnyRequester`,
+  `CanonicalRequestAcceptanceBytesAnyRequester` and `SignRequestAcceptanceAnyRequester`.
+  Each skips only the empty-requester refusal, so the acceptance it signs is valid in every
+  respect but the requester, and a verifier's refusal of it is attributable to that alone.
+  Test support only: a test fails if production code imports the package.
 - **Document readers.** `resolvers.ReadManifest`, `ReadWBADirectory`,
   `ReadRevocationList` and `ReadLicenseDocument` read what a party publishes, through
   the guarded client unless `ReadOptions.Client` replaces it, and return a `Document`

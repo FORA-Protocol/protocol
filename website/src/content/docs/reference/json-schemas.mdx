@@ -99,6 +99,12 @@ well-known manifest (`fora.v1.WellKnownManifest`), the WBA key directory
 [the agent SDK overview](/components/agent-sdk/overview/#testing-a-fora-service-through-the-sdk)
 for the readers in each language.
 
+The Python client applies the check to what it sends as well, when it is built with
+`ClientConfig(strict_requests=True)`. Each request, as the client stamped it and just
+before it is signed, must pass the strict schema of its request message and the
+cross-field rules, so an unknown member is refused rather than sent and discarded by the
+server, and a verb refuses a plain dict in place of its generated request model.
+
 ## What the schemas accept
 
 The schemas describe canonical proto-JSON as the FORA wire carries it. The two variants

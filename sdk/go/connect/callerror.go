@@ -2,6 +2,7 @@ package connect
 
 import (
 	"errors"
+	"net/http"
 
 	connectrpc "connectrpc.com/connect"
 
@@ -71,10 +72,28 @@ func (k CallErrorKind) String() string { return failure.Name(callErrorKindNames,
 // are the failures the Exchange would have named had the request been sent.
 // ErrorDetailFrom reads all three, so a caller branches on one vocabulary whichever
 // side declined.
+//
+// Status, Header and Code describe the last request the call sent, so a call that an
+// interceptor passed to WithInterceptors retries reports its last attempt.
 type CallError struct {
-	Kind   CallErrorKind
-	Op     string
-	Status int    // HTTP status when the peer answered; 0 otherwise
+	Kind CallErrorKind
+	Op   string
+	// Status is the HTTP status of the answer the failure is about: on an RPC leg,
+	// the peer's error answer (400 or above), and on the content leg, the edge's
+	// answer when it was not a success. It is 0 when no such answer arrived — a
+	// local failure, a transport failure, a refused redirect, or a 2xx this client
+	// could not read.
+	Status int
+	// Header holds the header fields of the peer's error answer, 400 or above, on
+	// either leg: an Accept-Signature naming what a verifier requires, a
+	// Retry-After, an edge's discovery headers (helpers.ParseDiscoveryHint reads
+	// them with Status). It is nil when Status is not an error status, so a refused
+	// redirect's Location never reaches a caller through it.
+	//
+	// The values are the peer's, unvalidated, and Error() never renders them. A
+	// field sent on several lines keeps each line; strings.Join(Header.Values(name),
+	// ", ") reads the combined value the Python and TypeScript clients return.
+	Header http.Header
 	Reason string // the peer's own refusal token when it sent one
 	Detail *forav1.ErrorDetail
 	// PeerMessage is the developer message the peer put on its TYPED reason, when
@@ -207,8 +226,10 @@ func sendError(op string, err error) error {
 		out.Kind = CallRefused
 	}
 	out.Reason = cerr.Code().String()
-	if peerAnswered(err) {
+	if answered, ok := peerAnswer(err); ok {
 		out.Code = cerr.Code()
+		out.Status = answered.status
+		out.Header = answered.header
 	}
 	if detail, ok := errorDetailFromConnect(cerr); ok {
 		out.Detail = detail
@@ -239,6 +260,12 @@ func localRefusal(op string, err error) *CallError {
 			// code is still the peer's, so it stays readable; the detail does not, since
 			// it is part of what was refused.
 			out.Code = strict.code
+		}
+		// The status and header fields are the answer's, not the envelope's, so a
+		// refused envelope keeps them as the code is kept.
+		if answered, ok := peerAnswer(err); ok {
+			out.Status = answered.status
+			out.Header = answered.header
 		}
 		return out
 	}

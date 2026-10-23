@@ -284,6 +284,7 @@ def edge_refusal(response: httpx.Response, body: bytes) -> CallError:
         status=response.status_code,
         reason=token or None,
         detail=_typed_reason(token) if token else None,
+        headers=response.headers,
     )
 
 

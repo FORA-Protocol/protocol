@@ -39,6 +39,7 @@ import (
 	"time"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/canonicalsign"
 	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 	"github.com/gowebpki/jcs"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -624,7 +625,7 @@ type offerVerifyDoc struct {
 // reproduce JCS(protojson(offer)) byte-for-byte.
 func offerCanonicalProtoJSON(t *testing.T, offer *forav1.Offer) json.RawMessage {
 	t.Helper()
-	pj, err := canonicalSignJSONOptions.Marshal(offer)
+	pj, err := canonicalsign.JSONOptions.Marshal(offer)
 	if err != nil {
 		t.Fatalf("offer proto-JSON marshal: %v", err)
 	}
@@ -1758,7 +1759,7 @@ func buildAcceptanceVectors(t *testing.T) []acceptanceVector {
 // buildRefusedAcceptanceVectors records one acceptance per requester field left
 // empty, and checks the Go oracle refuses each with ErrAcceptanceRequesterEmpty at
 // all three entry points. The recorded bytes are rendered and signed BELOW the
-// refusal (canonicalSignPayload and a raw Ed25519 signature), so a port can prove
+// refusal (canonicalsign.Render and a raw Ed25519 signature), so a port can prove
 // its verifier refuses them although the signature over them verifies.
 func buildRefusedAcceptanceVectors(t *testing.T) []refusedAcceptanceVector {
 	t.Helper()
@@ -1778,7 +1779,7 @@ func buildRefusedAcceptanceVectors(t *testing.T) []refusedAcceptanceVector {
 		v := &specs[i]
 		offer := &forav1.Offer{Signature: v.OfferSig}
 		requester := &forav1.Requester{Id: v.RequesterID, Domain: v.RequesterDomain}
-		unchecked, err := canonicalSignPayload(&forav1.AgentAcceptancePayload{
+		unchecked, err := canonicalsign.Render(&forav1.AgentAcceptancePayload{
 			OfferSig: v.OfferSig, RequesterId: v.RequesterID,
 			RequesterDomain: v.RequesterDomain, IdempotencyKey: v.IdempotencyKey,
 		})

@@ -9,15 +9,14 @@ package core_test
 //     9421 sign/verify. If a future edit reintroduces the disease — a bespoke
 //     sign/verify in L2 — a required marker disappears and the guard fails.
 //
-//  2. TRANSPORT NEUTRALITY — no non-test .go file in sdk/go/core OR sdk/go/helpers
-//     may import connectrpc.com/*. That is the Core Invariant of the split: a
-//     grpc-go / plain net/http / any-transport consumer of core (and of the L1
-//     helpers it builds on) compiles ZERO Connect. Connect lives ONLY in the
-//     bindings sdk/go/connect (client) and sdk/go/connectserver (server). This
-//     source-scan is the fast complement to the authoritative `go list -deps`
-//     closure gate (which the CI + the acceptance criteria run); the two are NOT
-//     equivalent (a scan cannot see a transitive import via another package), so
-//     both are kept — this file is the scan half for core + helpers.
+//  2. TRANSPORT NEUTRALITY — no non-test .go file of a package core is built from
+//     (core itself, the L1 helpers it builds on, the internal packages they call
+//     and the generated wire types) may import connectrpc.com/*. That is the Core
+//     Invariant of the split: a grpc-go / plain net/http / any-transport consumer
+//     of core compiles ZERO Connect. Connect lives ONLY in the bindings
+//     sdk/go/connect (client) and sdk/go/connectserver (server). The scan follows
+//     imports through other packages (internal/importclosure), so a Connect import
+//     core would reach only through another package fails here too.
 //
 // SCOPE — deliberately the sdk/go L2/L1 packages ONLY. A tree-wide ban on
 // hand-rolled sign/verify would false-fire on the app's internal/httpsig +
@@ -38,6 +37,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/importclosure"
 )
 
 // evalSite is the pure guard predicate: it returns one message per violation (a
@@ -121,7 +122,7 @@ func TestLibraryAdoptionGuard_Meta_PassesCleanSource(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Transport-neutrality guard: no connectrpc.com import in core/*.go or helpers/*.go.
+// Transport-neutrality guard: no connectrpc.com import in any package core is built from.
 // ---------------------------------------------------------------------------
 
 const connectrpcModulePrefix = "connectrpc.com"
@@ -147,52 +148,47 @@ func importsConnectrpc(t *testing.T, filename, src string) (string, bool) {
 	return "", false
 }
 
-// scanNoConnectrpc asserts no non-test .go file in dir imports connectrpc.com/*.
-func scanNoConnectrpc(t *testing.T, dir string) {
-	t.Helper()
-	entries, err := os.ReadDir(dir)
+// TestCoreConnectrpcFree pins that no non-test .go file of a package core is built
+// from imports connectrpc.com/* — the transport-neutral L2 substance, and everything
+// under it, imposes no Connect dependency. The L1 helpers are among those packages, so
+// this pins their neutrality from the guard that owns the core/connect boundary too;
+// the helpers package also guards itself (connectrpc_free_test.go).
+func TestCoreConnectrpcFree(t *testing.T) {
+	root := filepath.Join("..", "..", "..")
+	module, err := importclosure.ModulePath(root)
 	if err != nil {
-		t.Fatalf("read %s: %v", dir, err)
+		t.Fatal(err)
+	}
+	closure, err := importclosure.Walk(root, module, module+"/sdk/go/core")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, pkg := range []string{"sdk/go/core", "sdk/go/helpers"} {
+		if _, ok := closure[module+"/"+pkg]; !ok {
+			t.Fatalf("the closure of sdk/go/core no longer reaches %s, so the guard would not scan it", pkg)
+		}
 	}
 	scanned := 0
-	for _, e := range entries {
-		name := e.Name()
-		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
-			continue
+	for _, dir := range closure {
+		files, err := importclosure.SourceFiles(dir)
+		if err != nil {
+			t.Fatal(err)
 		}
-		scanned++
-		src := readSource(t, filepath.Join(dir, name))
-		if path, bad := importsConnectrpc(t, name, src); bad {
-			t.Errorf(
-				"%s/%s imports %q; this package must be transport-neutral (zero Connect) so a non-Connect consumer compiles no connectrpc — the Connect binding lives ONLY in sdk/go/connect",
-				dir, name, path)
+		for _, file := range files {
+			scanned++
+			name, _ := filepath.Rel(root, file)
+			if path, bad := importsConnectrpc(t, name, readSource(t, file)); bad {
+				t.Errorf(
+					"%s imports %q; core and every package it is built from must be transport-neutral (zero Connect) so a non-Connect consumer compiles no connectrpc — the Connect binding lives ONLY in sdk/go/connect",
+					name, path)
+			}
 		}
 	}
 	if scanned == 0 {
-		t.Fatalf("scanned 0 non-test .go files in %s; the guard is not looking at the right directory", dir)
+		t.Fatal("scanned 0 non-test .go files for sdk/go/core; the guard is not looking at the right packages")
 	}
-}
-
-// TestCoreConnectrpcFree pins that no non-test .go file in sdk/go/core imports
-// connectrpc.com/* — the transport-neutral L2 substance imposes no Connect
-// dependency.
-func TestCoreConnectrpcFree(t *testing.T) {
-	scanNoConnectrpc(t, ".")
 	if _, statErr := os.Stat("verifier.go"); statErr != nil {
 		t.Fatalf("expected sdk/go/core/verifier.go to exist as the guard's anchor: %v", statErr)
-	}
-}
-
-// TestHelpersConnectrpcFree pins that no non-test .go file in sdk/go/helpers imports
-// connectrpc.com/* — the L1 helpers a core consumer builds on stay Connect-free too
-// (the AsConnectError/ErrorDetailFrom bridge moved to sdk/go/connect). The helpers
-// package also carries its own copy of this scan (connectrpc_free_test.go); this
-// assertion is the core-side dual so the neutrality of BOTH layers is pinned from
-// the guard that owns the core/connect boundary.
-func TestHelpersConnectrpcFree(t *testing.T) {
-	scanNoConnectrpc(t, "../helpers")
-	if _, statErr := os.Stat(filepath.Join("../helpers", "errordetail.go")); statErr != nil {
-		t.Fatalf("expected sdk/go/helpers/errordetail.go to exist as the guard's anchor: %v", statErr)
 	}
 }
 

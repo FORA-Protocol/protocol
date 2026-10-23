@@ -2965,3 +2965,190 @@ v1 for deployments that verify that way, and a publisher that pushes its own cat
 its own key still can, because the push path accepts the domain's own publisher as well
 as any contributor its manifest names. What changed is which path the publisher guide
 describes: the guide follows the console, not the other way round.
+
+## A refusal carries its answer's header fields, and only a refusal does
+
+A peer that refuses a call often says in its header fields what it wants next. A Web Bot
+Auth verifier names the signature it requires in `Accept-Signature` (WG-00 §5.3), a
+draining gateway sets `Retry-After`, and a delivery edge's 403 names the publisher's terms
+and Exchange in `X-Content-Rules` and `X-FORA-Exchange`. None of the three clients handed
+those fields back. A conformance suite checking a verifier's `Accept-Signature` had to post
+raw HTTP and parse the raw answer, which is the work these clients exist to do for it.
+
+Each client's failure now carries them: `CallError.headers` in Python, `ForaCallError.headers`
+in TypeScript, and `CallError.Header` in Go, with `resolvers.FetchError.Header` beneath it on
+the content leg.
+
+**Only an error answer carries fields.** Status 400 or above, on either leg. A failure where
+no answer arrived has none to carry, and a 2xx the client could not read is not a refusal.
+A redirect is left out on purpose. Its `Location` names a URL the peer chose, credentials
+included, and the SDK already withholds that target everywhere else: a signed leg refuses
+the redirect and redacts its target (see "A signed leg refuses redirects; the guarded fetch
+follows them"), and a key directory's refused redirect names only the address read (see "A
+failed document read says when the answer was a 404 or a redirect"). Carrying the fields
+would hand the target straight back. The rule has one owner per language: the failure's
+constructor in Python and TypeScript, so every site passes the answer's fields and the
+constructor decides; and `failure.RefusalHeader` in Go, which both legs call.
+
+**The fields are values, never prose.** They are the peer's, unvalidated, and no client
+renders them into an error message or a log line. Like `peer_message`, they are bounded
+only by the HTTP client's own header limit, and truncating them is the business of
+whoever displays them.
+
+**One reading across three HTTP libraries.** net/http canonicalizes field names and keeps
+each line of a repeated field; undici lowercases names and decodes values as UTF-8; httpx
+keeps names as sent. A caller reads a field by any spelling of its name, and a repeated
+field as one value joined with ", " (RFC 9110 §5.3). Go keeps the lines in its
+`http.Header`, and `strings.Join(Header.Values(name), ", ")` reads the same value. In
+TypeScript a value the Fetch `Headers` type cannot hold, a character above U+00FF, is
+left out rather than thrown on, because describing a failure must not become a second
+failure. `refusal-header-vectors.json` pins the reading in all three SDKs, captured from the
+real Go client. It records each row's own field lines only, since `Date` and
+`Content-Length` change with the run and say nothing about the rule.
+
+**Go records the answer itself.** connect-go's `Error.Meta()` holds response headers only
+when the body decoded as a Connect envelope, so a gateway's plain-text 503 and its
+`Retry-After` would have carried nothing. The client's transport already recorded that a
+response arrived, to tell a peer's Connect code from one connect-go derived; it now keeps
+that answer's status and copied fields too. The same record fixes `CallError.Status` on the
+RPC path, which its doc described and nothing set.
+
+**The record is one request's.** An interceptor passed to `WithInterceptors` runs inside the
+client's own and may call `next` again to retry a call, so one call can send several
+requests. Each request clears the record, and the strict-decoding capture of its error body,
+before it is sent. A failure therefore describes the last request the call sent: a transport
+failure after an earlier error answer carries no code, status or header fields, and an
+earlier attempt's error envelope is never judged in its place. The record is cleared before
+the request rather than when no answer comes back, because a 2xx, an error body past the
+read cap and one in a coding the client did not ask for all arrive and store nothing. The
+record cannot tell which attempt an error came from, so an interceptor that builds its own
+error, returns an earlier attempt's or sends attempts concurrently gets the last request's
+record beside it: a retrying interceptor returns its last attempt's error and sends its
+attempts one at a time. Tying every error to its attempt would mean threading an attempt
+through each layer, and a strict-decoding refusal does not even wrap the Connect error it
+judged. The Python and TypeScript clients build each failure from the response their send
+returned, so a retry cannot mix two attempts there.
+
+**A refused redirect's target stays out of Go's RPC errors, and a test now says so.**
+net/http wraps the refusal in a `*url.Error` naming the raw `Location`, and the Go client
+keeps that out of its errors only because connect-go discards the wrapper before the error
+surfaces. A test now pins that on every RPC face, so a dependency that stopped discarding it
+fails a test rather than leaking into a log.
+
+**Differences left as they are.** TypeScript's RPC read cap refuses without a status, so
+that failure carries no fields, where Python's carries both. Go reports `Status` 0 for a
+refused redirect and for a 2xx it could not read, where the two JSON clients report the
+status. A 2xx that is not a FORA answer is a refusal in Go, which connect-go classifies by
+its content type, and malformed in Python and TypeScript. Each predates this change, and
+none decides whether fields are carried.
+
+## A signer the protocol forbids lives in a test package
+
+fora.proto requires an acceptance to name its requester: "A signer refuses to sign bytes
+that name an empty requester, and a verifier refuses an acceptance whose canonical bytes
+name one, even when the signature over those bytes verifies." The SDK's acceptance signers
+are that signer in all three languages, so none of them can produce the input a verifier's
+refusal is tested with. The shared corpora recorded those bytes in their `refused` lists
+("what a signer without the check would produce"), but only the Go vector emitter could make
+them, through an unexported renderer, and a conformance suite had to write the canonical
+bytes and the Ed25519 signature by hand.
+
+The SDK now ships that signer, as test support. Each language has twins of its four
+acceptance functions that skip the empty-requester refusal and nothing else: Go's
+`sdk/go/helperstest`, Python's `fora_sdk.testing`, and TypeScript's
+`@fora-protocol/sdk/testing`.
+
+**Not a flag on the protocol's signer.** A parameter that turns the refusal off would leave
+every production call one argument away from signing what the protocol forbids. That is the
+shape this file already rules out for the SSRF guard ("An option that could silently disarm
+the guard is exactly how a security property becomes advisory"), and the reasoning carries
+over unchanged.
+
+**Not a client seam either.** The pre-signing hook and raw mode shape the message a
+conforming signer then signs. Neither makes the SDK produce a signature the protocol says a
+signer refuses to make. An artifact a conforming party must refuse to produce is a different
+kind of thing, so it lives where production code does not reach. In Go that is a test
+package, named the way `net/http/httptest` is. In Python it is a module the package root
+does not re-export, and in TypeScript an export path of its own. A test in each language
+fails if production code imports it.
+
+**Only the requester check is skipped.** It is the refusal the `refused` vectors record, so
+what the twins produce is pinned byte for byte in all three languages. The other refusals
+stay. Skipping them would reach inputs the shared vectors do not pin, such as an empty item
+list or an empty item field. Python and TypeScript build those payloads by hand, and their
+omission of an empty member is pinned only for the shapes the vectors carry.
+
+**One renderer per language serves both.** The canonical renderer takes the requester check
+as a parameter and runs it where the protocol's signer does. The protocol's signers pass
+their check, and the test package passes an unexported one that admits any requester, so
+nothing outside it can name the bypass. In Go the renderer and the other checks moved into
+`sdk/go/internal/canonicalsign`. In Python they are private functions of `fora_sdk.core`, and
+in TypeScript a module neither package manifest exports. Tests pin the text and the order of
+every refusal; they passed before the move and after it.
+
+**The Go purity guards follow the code.** The IO-leaf guard and the connect-free guards of
+helpers and core used to scan one directory each, so the move took the renderer out of their
+reach. They now scan every package of the module their package is built from, through other
+packages too, and helpers' guards pin the canonical renderer among them, so code that moves
+into an internal package stays guarded. The walk reads import specs with `go/parser` and
+runs no go command.
+
+The sentence in fora.proto is unchanged, because it describes a conforming signer and the
+twins are not one: an acceptance they sign is one a conforming party must never send.
+
+## The Python client can refuse a request the strict contract does not describe
+
+A Python verb takes a plain dict as well as the generated request model, and the models
+ignore a member they do not declare (`extra="ignore"` in `gen/python/wire/base.py`, the
+forward-compatible choice for reading an answer). So a misspelled key passes the default
+`validation="strict"` check, which is the generated model's field-level one, and is signed
+and sent. A Connect server's JSON codec discards the unknown field, and the request is
+served as if the key were absent. A harness whose negative test mutates a key then has a
+test that passes while testing nothing.
+
+`ClientConfig.strict_requests` closes that with two checks, and is off by default.
+
+**A type gate where every message enters.** Every verb that takes a dict or a model copies
+it once, before it stamps the envelope, and that copy is where the switch refuses anything
+but the verb's own generated model. It runs before the verb resolves an endpoint, reads a
+manifest or signs, so a refused message costs nothing. A model of another message is
+refused there too, and the error names the model to pass.
+
+**The strict check on the stamped message.** The gate cannot see what the client adds
+itself: `ver`, the configured `requester`, the offers a purchase reflects, and the items
+and acceptances it builds. So the message as stamped is checked just before it is signed,
+against the published strict JSON Schema of the request message and the cross-field rules,
+by the same check strict decoding runs on an answer. The generated model's own check does
+not run the cross-field rules, so a catalog push whose term carries no price is now refused
+locally rather than by the server.
+
+**Not a value of `validation`.** `Validation` is mapped across the three SDKs with the same
+two values, and the switch has no counterpart in Go or TypeScript. A Go verb takes the
+generated message, which has no member the proto does not declare, and
+`WithValidation(ValidationStrict)` runs its rules, cross-field ones included. A TypeScript
+verb is typed with the request input types, so a misspelled key in an object literal does
+not compile. A third Python value would make the mapped type diverge. The switch is
+therefore a field of its own, independent of `validation`: turning `validation` off leaves
+it in force.
+
+**Off by default.** A dict is the common way to build a request. A purchase also reflects
+each offer exactly as discovery returned it, so an offer from a newer minor version carries
+a member this SDK does not know, and under the switch that purchase is refused. That is
+right for a harness and wrong as a default.
+
+**`RawBody` is exempt.** Raw mode exists to put on the wire a message the SDK would never
+build, so the switch checks nothing about it and adds nothing to it.
+
+**The refusal names the member.** A harness has to see which key was refused, so the
+refusal carries the text strict decoding gives an answer: the path and the schema's
+complaint, which quotes the member's name and, when a field breaks a rule, its value. A
+reflected offer's member is the Exchange's text, and a strict client already gets the same
+text when the discovery answer carrying that offer is refused. It is bounded by the read
+cap that answer was read under, and quoted with escapes, so it cannot break a log line.
+
+**The gap left.** A keyword argument that a generated model's constructor does not declare
+is dropped by the model before the SDK sees it, so neither check can report it. A type
+checker does: the models are dataclass transforms, and mypy reports the unexpected keyword
+argument. A model built with `model_construct` skips validation and still drops an
+undeclared keyword, but it renders a nested value exactly as given. The check of the stamped
+message therefore refuses an unknown member inside such a value.

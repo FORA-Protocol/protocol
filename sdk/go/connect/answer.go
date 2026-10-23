@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 
 	connectrpc "connectrpc.com/connect"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/failure"
 )
 
 // CallError.Code is the Connect code of the peer's ANSWER. connect-go hands back a
@@ -15,28 +17,76 @@ import (
 // not marked as one the server sent, and neither is CodeUnavailable for a dial that
 // never connected. Python and TypeScript both report a code for the first and none
 // for the second, so this client records the fact itself: the interceptor below
-// puts a holder on the call's context, and the client's transport writes the status
-// of whatever response arrived into it. connect-go builds the HTTP request with the
-// context the interceptor chain passed down, so the two meet without any verb
-// knowing.
+// puts a holder on the call's context, and the client's transport writes the
+// answer that arrived into it. connect-go builds the HTTP request with the context
+// the interceptor chain passed down, so the two meet without any verb knowing.
+//
+// The same record supplies CallError.Status and CallError.Header. connect-go's own
+// Error.Meta() cannot: it is filled only when the body decoded as a Connect error
+// envelope, so a gateway's 503 and its Retry-After, which arrive as plain text,
+// would carry nothing.
+//
+// The record belongs to one round trip. An interceptor passed to WithInterceptors runs
+// inside answerInterceptor and may call next more than once to retry the call, and
+// every request it sends clears the record before it goes out. A failure therefore
+// describes the last request the call sent: a transport failure after an earlier error
+// answer carries no code, status or header fields. The record cannot tell which attempt
+// an error came from, so an interceptor that builds its own error, returns an earlier
+// attempt's or sends attempts concurrently gets the last request's record beside it.
 
 type answerKey struct{}
 
-// answerHolder carries the HTTP status of the response that arrived, if any.
-type answerHolder struct{ status atomic.Int64 }
+// answer is the response that arrived on a call: its status, and the header fields
+// a failure may carry for it (failure.RefusalHeader).
+type answer struct {
+	status int
+	header http.Header
+}
+
+// answerHolder carries the answer the call's last request received, if any. It is
+// written by the transport and read by the interceptor, so it is held atomically rather
+// than relying on the two running on one goroutine.
+type answerHolder struct{ last atomic.Pointer[answer] }
+
+// forget drops what an earlier request on the call recorded. A nil holder, the one a
+// request no SDK verb sent has, holds nothing to forget.
+func (h *answerHolder) forget() {
+	if h != nil {
+		h.last.Store(nil)
+	}
+}
+
+// record keeps resp's status and the header fields a failure may carry for it.
+func (h *answerHolder) record(resp *http.Response) {
+	if h != nil {
+		h.last.Store(&answer{
+			status: resp.StatusCode,
+			header: failure.RefusalHeader(resp.StatusCode, resp.Header),
+		})
+	}
+}
 
 // answeredError marks a failure whose call received an HTTP error status: the
-// peer answered, so its Connect code is the peer's. It wraps rather than replaces
-// the error, so errors.As still reaches the *connect.Error and its details.
-type answeredError struct{ err error }
+// peer answered, so its Connect code is the peer's, and the status and header
+// fields are those of its refusal. It wraps rather than replaces the error, so
+// errors.As still reaches the *connect.Error and its details.
+type answeredError struct {
+	err    error
+	status int
+	header http.Header
+}
 
 func (e *answeredError) Error() string { return e.err.Error() }
 func (e *answeredError) Unwrap() error { return e.err }
 
-// peerAnswered reports whether err came from a call the peer answered.
-func peerAnswered(err error) bool {
+// peerAnswer returns the error answer err came from, when the peer answered the
+// call with one.
+func peerAnswer(err error) (*answeredError, bool) {
 	var a *answeredError
-	return errors.As(err, &a)
+	if errors.As(err, &a) {
+		return a, true
+	}
+	return nil, false
 }
 
 // answerInterceptor is the outermost client interceptor: it opens the holder the
@@ -52,8 +102,8 @@ func (answerInterceptor) WrapUnary(next connectrpc.UnaryFunc) connectrpc.UnaryFu
 		// 3xx is a redirect this client refused to follow — a server that did not
 		// answer the call. Neither carries a verdict of the peer's.
 		if err != nil {
-			if holder.status.Load() >= http.StatusBadRequest {
-				return resp, &answeredError{err: err}
+			if last := holder.last.Load(); last != nil && last.status >= http.StatusBadRequest {
+				return resp, &answeredError{err: err, status: last.status, header: last.header}
 			}
 		}
 		return resp, err
@@ -69,17 +119,26 @@ func (answerInterceptor) WrapStreamingHandler(next connectrpc.StreamingHandlerFu
 }
 
 // answerRecorder is the outermost RoundTripper on every signed leg: it records the
-// status of the response that came back into the call's holder, and, under strict
-// decoding, the error body into the call's envelope capture.
+// answer that came back into the call's holder, and, under strict decoding, the
+// error body into the call's envelope capture. The header fields are copied here,
+// under failure.RefusalHeader, so the record holds nothing of a redirect's and
+// keeps no reference to a response the caller will close.
+//
+// Both are cleared before the request is sent, not when no answer comes back: a 2xx,
+// an error body past the read cap and one in a coding this client did not ask for all
+// arrive and store nothing, and none of them may leave an earlier attempt's record in
+// place.
 type answerRecorder struct{ next http.RoundTripper }
 
 func (r answerRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
+	holder, _ := req.Context().Value(answerKey{}).(*answerHolder)
+	capture := envelopeCaptureOf(req)
+	holder.forget()
+	capture.forget()
 	resp, err := r.next.RoundTrip(req)
 	if resp != nil {
-		if holder, ok := req.Context().Value(answerKey{}).(*answerHolder); ok {
-			holder.status.Store(int64(resp.StatusCode))
-		}
-		captureErrorBody(req, resp)
+		holder.record(resp)
+		captureErrorBody(capture, resp)
 	}
 	return resp, err
 }

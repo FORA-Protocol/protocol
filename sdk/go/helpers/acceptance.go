@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/canonicalsign"
 )
 
 // Agent offer-acceptance (fora.proto AgentAcceptance). An agent
@@ -99,25 +100,7 @@ func checkAcceptanceRequester(id, domain string) error {
 // agent's consent to. Because signing and verifying both go through this function,
 // neither SignOfferAcceptance nor VerifyOfferAcceptance accepts such bytes.
 func CanonicalAcceptanceBytes(offer *forav1.Offer, requester *forav1.Requester, idempotencyKey string) ([]byte, error) {
-	if offer == nil {
-		return nil, errors.New("helpers: offer is nil")
-	}
-	if requester == nil {
-		return nil, errors.New("helpers: requester is nil")
-	}
-	if offer.GetSignature() == "" {
-		return nil, errors.New("helpers: cannot accept an unsigned offer (empty offer signature)")
-	}
-	if err := checkAcceptanceRequester(requester.GetId(), requester.GetDomain()); err != nil {
-		return nil, err
-	}
-	payload := &forav1.AgentAcceptancePayload{
-		OfferSig:        offer.GetSignature(),
-		RequesterId:     requester.GetId(),
-		RequesterDomain: requester.GetDomain(),
-		IdempotencyKey:  idempotencyKey,
-	}
-	return canonicalSignPayload(payload)
+	return canonicalsign.AcceptanceBytes(offer, requester, idempotencyKey, checkAcceptanceRequester)
 }
 
 // SignOfferAcceptance signs the canonical acceptance payload for the accepted
@@ -125,14 +108,7 @@ func CanonicalAcceptanceBytes(offer *forav1.Offer, requester *forav1.Requester, 
 // AgentAcceptance.signature field. requester and idempotencyKey come from the
 // enclosing execute request.
 func SignOfferAcceptance(priv ed25519.PrivateKey, offer *forav1.Offer, requester *forav1.Requester, idempotencyKey string) (string, error) {
-	if len(priv) != ed25519.PrivateKeySize {
-		return "", fmt.Errorf("helpers: ed25519 private key must be %d bytes, got %d", ed25519.PrivateKeySize, len(priv))
-	}
-	payload, err := CanonicalAcceptanceBytes(offer, requester, idempotencyKey)
-	if err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(ed25519.Sign(priv, payload)), nil
+	return canonicalsign.SignOfferAcceptance(priv, offer, requester, idempotencyKey, checkAcceptanceRequester)
 }
 
 // SignOfferAcceptanceWith signs the canonical acceptance payload through an

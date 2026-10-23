@@ -10,6 +10,7 @@ no I/O can be used on their own.
 | **L1** | **`fora_sdk`** (top level) | stateless, **IO-free** protocol mechanics — RFC 9421/7638 crypto, offer and acceptance signatures, signed URLs, validation. Includes `fora_sdk.core` (transport-neutral: `Verifier`, `VerifiedOffer`, `DiscoveryResult`), `fora_sdk.window` (`Window`) and `fora_sdk.server_verify` (the server side of RFC 9421). Byte-parity-guarded against the `sdk/go` oracle |
 | L2 · I/O | **`fora_sdk.resolvers`** | the only tier that dials the network: Web Bot Auth directories, well-known JWKS and `fora.json`, plus the SSRF-guarded HTTP client. Which faces take that client by default is decided by URL provenance, below — `WellKnownEndpointResolver` is the one request-derived face that still defaults to a plain client |
 | L2 · transport | `fora_sdk.client` (the async Connect-unary JSON client: the agent verbs **`discover` · `execute` · `report_usage` · `dispute` · `fetch`**, the account-setup verbs **`register` · `get_account_status`**, the broker verbs **`resolve` · `execute`** and the publisher verbs **`push_resources` · `remove_resources` · `refresh_catalog`**) · `fora_sdk.sync` (the same faces, blocking) | state is injected, never owned |
+| test support | `fora_sdk.testing` | acceptance signers that admit an empty requester, for a test proving a verifier refuses one. Not re-exported from `fora_sdk`, and imported by no module of it |
 
 ```sh
 pip install fora-protocol-sdk
@@ -412,6 +413,7 @@ The rest are bounds and seams with working defaults:
 | `validation` | `"strict"` | whether an outbound message is checked against its generated model before it is sent. Orthogonal to offer verification, which is about what comes back |
 | `registration_requirements` | a reader built on the guarded client, once per client | where `register` reads an Exchange's terms revision and registration schema. It holds no document cache on purpose: the contract requires the terms digest to come from a freshly fetched manifest |
 | `strict` | `False` | refuse an answer carrying an unknown field, or breaking a field-level or cross-field rule, and an error envelope or `ErrorDetail` the contract does not define. See [Testing a FORA service](#testing-a-fora-service) |
+| `strict_requests` | `False` | refuse a plain dict, and a request carrying an unknown field or breaking a cross-field rule, before it is signed. Independent of `validation`. See [Testing a FORA service](#testing-a-fora-service) |
 | `before_sign` | `None` | a hook that receives each request just before it is signed. See [Testing a FORA service](#testing-a-fora-service) |
 
 **Build a client once and reuse it.** `ClientConfig`, the resolvers and the `Verifier`
@@ -425,6 +427,8 @@ processes is the signing key.
 
 Requests are plain dicts in proto-JSON **snake_case**, or the generated request models
 from `wire.models`; a camelCase key is refused as malformed rather than silently ignored.
+Any other key the model does not declare passes the check and is sent, and the server's
+JSON codec discards it; `ClientConfig(strict_requests=True)` refuses it instead.
 `to_wire(model)` shows the JSON object a model is sent as. Responses are the generated
 Pydantic models.
 
@@ -458,8 +462,9 @@ as a `CallError` carrying a `retrieval_auth_failure` detail with the edge's reas
 
 Failures arrive as one `CallError` carrying a `CallErrorKind` — `NOT_SENT`, `REFUSED`,
 `UNREACHABLE`, `MALFORMED`, `TOO_LARGE`, `NOT_SIGNABLE`, `UNKNOWN` — plus the peer's own
-reason token, the Connect `code` when the peer answered with one, and, when the peer sent
-one, a typed `ErrorDetail`, decoded from the binary `details[].value` the error carries. One failure type for
+reason token, the Connect `code` when the peer answered with one, the `status` and
+`headers` of a refusal, and, when the peer sent one, a typed `ErrorDetail`, decoded from
+the binary `details[].value` the error carries. One failure type for
 every verb, so a caller branches in one place. `NOT_SENT` is worth singling out: it means
 the client refused before anything left the process, so retrying without changing
 something will fail the same way.
@@ -507,7 +512,26 @@ a service through the SDK and check every answer through it:
   and `details`, must name a known Connect code and carry well-formed details, and every
   `ErrorDetail`, binary `value` and `debug` projection alike, must pass the strict
   `ErrorDetail` schema and the cross-field rules. A refused envelope is
-  `CallError(MALFORMED)` with `code` still set to the peer's Connect code.
+  `CallError(MALFORMED)` keeping `code`, `status` and `headers`: the peer's Connect code,
+  HTTP status and header fields.
+- **`ClientConfig(strict_requests=True)`** refuses a request the contract does not
+  describe, before it is signed. A verb then takes only its generated request model or a
+  `RawBody`: a plain dict, or a model of another message, is `CallError(MALFORMED)`
+  naming the model to pass, raised before anything is resolved, read or sent. The message
+  as stamped, with `ver`, the configured `requester` and a purchase's reflected offers in
+  it, must pass the published strict JSON Schema of the request message and the
+  cross-field rules, and an unknown member is named by its path. It applies whatever
+  `validation` says, and a `RawBody` is still sent exactly as given. A keyword argument a
+  model does not declare is dropped by the model itself, so run a type checker over the
+  harness: it reports one.
+- **`CallError.headers`** holds the header fields of a refusal, an answer of status 400 or
+  above on an RPC leg or `fetch`: a verifier's `Accept-Signature`, a gateway's
+  `Retry-After`, an edge's discovery headers, which
+  `parse_discovery_hint(err.status or 0, err.headers)` reads (`status` is `None` when no
+  answer arrived). It is the error's own copy, looked up case-insensitively, a field
+  sent on several lines joined with ", ". A refused redirect, a 2xx the client could not
+  read and a local or transport failure carry none, and the fields are never rendered into
+  the message.
 - **Identity helpers** in `fora_sdk.identity` mint a throwaway agent: `generate_key()`,
   `directory_document(keys)` for the directory to serve, and
   `signing_transport_for(key, directory)`. Serve the directory as
@@ -515,6 +539,13 @@ a service through the SDK and check every answer through it:
   `sign_directory_response(authority, body, seeds, created, expires)` returns, signed by
   every key it lists for the authority it is served under; a verifier hands out no key
   that did not sign.
+- **`fora_sdk.testing`** signs an acceptance that names an empty requester, which the
+  `fora_sdk.core` signers refuse to produce, as fora.proto requires of a signer:
+  `jcs_acceptance_payload_any_requester`, `sign_offer_acceptance_any_requester`,
+  `jcs_request_acceptance_payload_any_requester` and
+  `sign_request_acceptance_any_requester`. Each skips only that refusal, so the acceptance
+  is valid in every respect but the requester, and a verifier's refusal of it is
+  attributable to that alone. Test support only: import it from a test or a harness.
 - **Document readers** in `fora_sdk.resolvers` read what a party publishes and check it:
   `read_manifest(domain)`, `read_wba_directory(url_or_domain)`,
   `read_revocation_list(url)` and `read_license_document(license)`. Each fetches through

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 import httpx
@@ -36,7 +36,7 @@ from fora_sdk.wire import (
     RequestIDHeader,
 )
 
-from ._strict import refuse_unless_strict
+from ._strict import refuse_unless_strict, refuse_unless_strict_request
 from ._strict_envelope import check_strict_envelope
 from .errors import (
     NOT_CANONICAL_WIRE_NAMING,
@@ -48,6 +48,8 @@ from .errors import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from pydantic import BaseModel
 
     from fora_sdk.signing_transport import SigningTransport
@@ -82,6 +84,16 @@ def rpc_url(base_url: str, service: str, method: str) -> str:
 #: The pre-signing hook: receives the request the SDK is about to sign and returns the
 #: request to sign and send instead. See ``ClientConfig.before_sign``.
 BeforeSign = Callable[[httpx.Request], httpx.Request]
+
+
+@dataclass(frozen=True)
+class Answer:
+    """One answer as a face's send read it: the status, the body under the read cap, and
+    the header fields, which a refusal carries (``CallError.headers``)."""
+
+    status: int
+    body: str
+    headers: httpx.Headers = field(default_factory=httpx.Headers)
 
 
 @dataclass(frozen=True)
@@ -251,7 +263,14 @@ def _apply_before_sign(
 Validation = Literal["strict", "off"]
 
 
-def validate_request(op: str, message: Any, model: type[BaseModel], validation: Validation) -> None:
+def validate_request(
+    op: str,
+    message: Any,
+    model: type[BaseModel],
+    validation: Validation,
+    *,
+    strict_requests: bool,
+) -> None:
     """Refuse a request the protocol would reject anyway, before it costs a signature and
     a round trip.
 
@@ -264,19 +283,31 @@ def validate_request(op: str, message: Any, model: type[BaseModel], validation: 
     The validated value is DISCARDED and the caller's own object is what gets sent: a
     parse fills declared defaults, and sending those would put fields on the wire the
     caller never set.
+
+    ``strict_requests`` (``ClientConfig.strict_requests``) adds the strict contract on top,
+    whatever ``validation`` says: the published strict JSON Schema of the request, which
+    refuses an unknown member at any depth and names it, and the cross-field rules. It runs
+    on the fully stamped message, so what it passes is what gets signed.
     """
-    if validation == "off":
-        return
-    try:
-        model.model_validate(message)
-    except ValidationError as exc:
-        raise _schema_failure(
-            op, exc, "request failed its generated schema; the server could only refuse it"
-        ) from exc
+    if validation != "off":
+        try:
+            model.model_validate(message)
+        except ValidationError as exc:
+            raise _schema_failure(
+                op, exc, "request failed its generated schema; the server could only refuse it"
+            ) from exc
+    if strict_requests:
+        refuse_unless_strict_request(op, model, message)
 
 
 def decode_with_raw(
-    op: str, status: int, body: str, model: type[BaseModel], *, strict: bool = False
+    op: str,
+    status: int,
+    body: str,
+    model: type[BaseModel],
+    *,
+    strict: bool = False,
+    headers: Mapping[str, str] | None = None,
 ) -> tuple[Any, dict[str, Any]]:
     """Decode one answer and hand back the RAW object beside the parsed message.
 
@@ -286,15 +317,21 @@ def decode_with_raw(
     a signature covers no such thing. Parsing the body twice would be a second read of the
     same bytes for no gain.
     """
-    _refuse_redirect(op, status)
-    payload = _parse_json(op, status, body)
-    _refuse_error_answer(op, status, body, payload, strict=strict)
+    _refuse_redirect(op, status, headers)
+    payload = _parse_json(op, status, body, headers)
+    _refuse_error_answer(op, status, body, payload, strict=strict, headers=headers)
     parsed = _validate(op, payload, model, strict=strict)
     return parsed, payload if isinstance(payload, dict) else {}
 
 
 def decode(
-    op: str, status: int, body: str, model: type[BaseModel], *, strict: bool = False
+    op: str,
+    status: int,
+    body: str,
+    model: type[BaseModel],
+    *,
+    strict: bool = False,
+    headers: Mapping[str, str] | None = None,
 ) -> Any:
     """Turn one answer into a parsed message, or raise the typed failure.
 
@@ -307,17 +344,20 @@ def decode(
     cross-field rule (see :func:`fora_sdk.strict.check_strict`), and an error
     answer whose envelope or ErrorDetail the contract does not accept (see
     :func:`fora_sdk.client._strict_envelope.check_strict_envelope`).
+
+    ``headers`` are the answer's header fields. Every failure built from the answer is
+    handed them, and :class:`CallError` keeps them only for an error status.
     """
-    _refuse_redirect(op, status)
-    payload = _parse_json(op, status, body)
-    _refuse_error_answer(op, status, body, payload, strict=strict)
+    _refuse_redirect(op, status, headers)
+    payload = _parse_json(op, status, body, headers)
+    _refuse_error_answer(op, status, body, payload, strict=strict, headers=headers)
     return _validate(op, payload, model, strict=strict)
 
 
 _HTTP_MULTIPLE_CHOICES_END = 400
 
 
-def _refuse_redirect(op: str, status: int) -> None:
+def _refuse_redirect(op: str, status: int, headers: Mapping[str, str] | None = None) -> None:
     """A 3xx is a server that did not answer, not one that declined.
 
     Every leg refuses to follow a redirect, so one reaching a reader means the call did not
@@ -332,22 +372,32 @@ def _refuse_redirect(op: str, status: int) -> None:
             op,
             status=status,
             cause="peer answered with a redirect, which this client does not follow",
+            headers=headers,
         )
 
 
-def _refuse_error_answer(op: str, status: int, body: str, payload: Any, *, strict: bool) -> None:
+def _refuse_error_answer(
+    op: str,
+    status: int,
+    body: str,
+    payload: Any,
+    *,
+    strict: bool,
+    headers: Mapping[str, str] | None = None,
+) -> None:
     """Raise the typed failure a non-2xx answer is; return on a 2xx.
 
     Under ``strict`` the envelope is checked first, and a refusal keeps the Connect code
-    the lenient read reports. An empty body is not an envelope — the lenient read takes it
-    as one naming no code — so it is classified by its status in either mode, like a body
-    that is not JSON, which never reaches here.
+    the lenient read reports, the status and the answer's header fields. An empty body is
+    not an envelope — the lenient read takes it as one naming no code — so it is
+    classified by its status in either mode, like a body that is not JSON, which never
+    reaches here.
     """
     if _HTTP_OK <= status < _HTTP_MULTIPLE_CHOICES:
         return
-    error = _connect_envelope_error(op, status, payload)
+    error = _connect_envelope_error(op, status, payload, headers)
     if strict and body.strip():
-        check_strict_envelope(op, status, payload, error.code)
+        check_strict_envelope(op, status, payload, error.code, headers=headers)
     raise error
 
 
@@ -376,7 +426,7 @@ def _schema_failure(op: str, exc: ValidationError, summary: str) -> CallError:
     return malformed(op, summary)
 
 
-def _parse_json(op: str, status: int, body: str) -> Any:
+def _parse_json(op: str, status: int, body: str, headers: Mapping[str, str] | None = None) -> Any:
     # Depth BEFORE the parse, because ``json.loads`` descends recursively and aborts on a
     # deep document by raising ``RecursionError`` — which is not a ``ValueError``, so the
     # handler below never saw it, and not a failure this package says it raises. A 40 KB
@@ -392,6 +442,7 @@ def _parse_json(op: str, status: int, body: str) -> Any:
             op,
             status=status,
             cause=f"answer nests deeper than {_MAX_BODY_DEPTH} containers",
+            headers=headers,
         )
     try:
         return json.loads(body or "{}")
@@ -411,11 +462,16 @@ def _parse_json(op: str, status: int, body: str) -> Any:
                 reason=code,
                 cause=exc,
                 code=code,
+                headers=headers,
             ) from exc
-        raise CallError(CallErrorKind.MALFORMED, op, status=status, cause=exc) from exc
+        raise CallError(
+            CallErrorKind.MALFORMED, op, status=status, cause=exc, headers=headers
+        ) from exc
 
 
-def _connect_envelope_error(op: str, status: int, payload: Any) -> CallError:
+def _connect_envelope_error(
+    op: str, status: int, payload: Any, headers: Mapping[str, str] | None = None
+) -> CallError:
     envelope = payload if isinstance(payload, dict) else {}
     code = envelope.get("code")
     code = code if isinstance(code, str) else ""
@@ -441,6 +497,7 @@ def _connect_envelope_error(op: str, status: int, payload: Any) -> CallError:
         peer_message=detail.message if detail is not None and detail.message else "",
         cause=message if isinstance(message, str) else None,
         code=code,
+        headers=headers,
     )
 
 

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/canonicalsign"
 )
 
 type requestAcceptanceVectorItem struct {
@@ -138,7 +139,7 @@ func buildRefusedRequestAcceptanceVectors(t *testing.T, priv ed25519.PrivateKey)
 				OfferSig: item.OfferSig, Exchange: item.Exchange,
 			})
 		}
-		unchecked, err := canonicalSignPayload(payload)
+		unchecked, err := canonicalsign.Render(payload)
 		if err != nil {
 			t.Fatalf("%s: unchecked render: %v", v.Name, err)
 		}

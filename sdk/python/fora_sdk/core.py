@@ -33,6 +33,7 @@ from __future__ import annotations
 import base64
 import enum
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -40,7 +41,7 @@ from typing import TYPE_CHECKING, Any
 import rfc8785
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Sequence
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
@@ -450,9 +451,35 @@ def jcs_acceptance_payload(
     concrete offer. Fail-closed the same way on an empty ``requester_id`` or
     ``requester_domain``: an acceptance must name the requester it binds.
     """
+    return _acceptance_payload(
+        offer_sig=offer_sig,
+        requester_id=requester_id,
+        requester_domain=requester_domain,
+        idempotency_key=idempotency_key,
+        requester_check=_require_named_requester,
+    )
+
+
+#: Refuses a requester an acceptance may not name, given its id and domain, by raising
+#: ``ValueError``. The protocol's signer passes :func:`_require_named_requester`;
+#: :mod:`fora_sdk.testing` passes one that admits an empty requester.
+_RequesterCheck = Callable[[str, str], None]
+
+
+def _acceptance_payload(
+    *,
+    offer_sig: str,
+    requester_id: str,
+    requester_domain: str,
+    idempotency_key: str,
+    requester_check: _RequesterCheck,
+) -> bytes:
+    """The canonical AgentAcceptancePayload bytes, refusing an unsigned offer and then
+    whatever ``requester_check`` refuses. The one renderer both the protocol's signer and
+    the test signers use."""
     if offer_sig == "":
         raise ValueError("cannot accept an unsigned offer (empty offer signature)")
-    _require_named_requester(requester_id, requester_domain)
+    requester_check(requester_id, requester_domain)
     payload: dict[str, str] = {
         "offer_sig": offer_sig,
         "requester_id": requester_id,
@@ -460,6 +487,12 @@ def jcs_acceptance_payload(
         "idempotency_key": idempotency_key,
     }
     return rfc8785.dumps({k: v for k, v in payload.items() if v != ""})
+
+
+def _sign_payload(seed: bytes, payload: bytes) -> tuple[str, str]:
+    """Sign canonical acceptance bytes; return ``(hex_signature, "EdDSA")``."""
+    priv = Ed25519PrivateKey.from_private_bytes(seed)
+    return priv.sign(payload).hex(), ACCEPTANCE_SIGNATURE_ALGORITHM
 
 
 #: The shape a hex-encoded signature may have. Checked BEFORE ``bytes.fromhex``, which
@@ -496,8 +529,7 @@ def sign_offer_acceptance_jcs(
         requester_domain=requester_domain,
         idempotency_key=idempotency_key,
     )
-    priv = Ed25519PrivateKey.from_private_bytes(seed)
-    return priv.sign(payload).hex(), ACCEPTANCE_SIGNATURE_ALGORITHM
+    return _sign_payload(seed, payload)
 
 
 def verify_offer_acceptance_jcs(
@@ -543,7 +575,27 @@ def jcs_request_acceptance_payload(
     Raises ``ValueError`` on no items, an item with an empty offer signature or exchange,
     and an empty ``requester_id`` or ``requester_domain`` (see the offer acceptance).
     """
-    _require_named_requester(requester_id, requester_domain)
+    return _request_acceptance_payload(
+        items=items,
+        requester_id=requester_id,
+        requester_domain=requester_domain,
+        idempotency_key=idempotency_key,
+        requester_check=_require_named_requester,
+    )
+
+
+def _request_acceptance_payload(
+    *,
+    items: list[tuple[str, str]],
+    requester_id: str,
+    requester_domain: str,
+    idempotency_key: str,
+    requester_check: _RequesterCheck,
+) -> bytes:
+    """The canonical request-set bytes, refusing whatever ``requester_check`` refuses, then
+    no items, then an item's empty offer signature or exchange. The one renderer both the
+    protocol's signer and the test signers use."""
+    requester_check(requester_id, requester_domain)
     if not items:
         raise ValueError("request acceptance requires at least one item")
     refs: list[dict[str, str]] = []
@@ -579,8 +631,7 @@ def sign_request_acceptance_jcs(
         requester_domain=requester_domain,
         idempotency_key=idempotency_key,
     )
-    priv = Ed25519PrivateKey.from_private_bytes(seed)
-    return priv.sign(payload).hex(), ACCEPTANCE_SIGNATURE_ALGORITHM
+    return _sign_payload(seed, payload)
 
 
 def verify_request_acceptance_jcs(

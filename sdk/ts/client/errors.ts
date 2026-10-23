@@ -56,10 +56,16 @@ export interface CallErrorInit {
 	peerMessage?: string;
 	/** The Connect code of the peer's answer, when one was decoded. */
 	code?: string;
+	/** The header fields of the answer the failure was built from. Kept only when `status`
+	 * is an error status, 400 or above; see `ForaCallError.headers`. */
+	headers?: Headers | undefined;
 	/** The underlying failure, kept so a caller can still reach a custody or resolver
 	 * sentinel after the failure has been classified here. */
 	cause?: unknown;
 }
+
+/** The status from which an answer is an error, and its header fields a refusal's. */
+const ERROR_STATUS = 400;
 
 /**
  * ForaCallError is the client's typed failure. Every verb throws this and nothing else,
@@ -91,6 +97,20 @@ export class ForaCallError extends Error {
 	 * refusals are edge tokens rather than Connect codes. `reason` may hold either kind of
 	 * token; this field holds only the Connect code. */
 	readonly code: string | undefined;
+	/** The header fields of the peer's error answer, 400 or above: an `Accept-Signature`
+	 * naming what a verifier requires, a `Retry-After`, an edge's discovery headers
+	 * (`parseDiscoveryHint(err.status ?? 0, err.headers)` reads them). Empty for any other
+	 * failure — a local one, a transport one, a 2xx this client could not read, and a
+	 * refused redirect, whose `Location` names a URL the peer chose and so must not reach a
+	 * caller here.
+	 *
+	 * A copy; `get` is case-insensitive and joins a field sent on several lines with ", ".
+	 * The values are the peer's, unvalidated, and never rendered into `message`. A value
+	 * the Fetch `Headers` type cannot hold (a character above U+00FF) is left out.
+	 *
+	 * The rule is applied here, once: a site passes the answer's fields and this
+	 * constructor keeps them only for an error status. */
+	readonly headers: Headers;
 
 	constructor(init: CallErrorInit) {
 		super(renderCallError(init), init.cause !== undefined ? { cause: init.cause } : undefined);
@@ -108,6 +128,10 @@ export class ForaCallError extends Error {
 		// thing this field exists not to do.
 		this.peerMessage = init.peerMessage ?? "";
 		this.code = init.code;
+		this.headers =
+			init.headers !== undefined && init.status !== undefined && init.status >= ERROR_STATUS
+				? new Headers(init.headers)
+				: new Headers();
 	}
 
 	/**

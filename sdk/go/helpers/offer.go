@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/canonicalsign"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -142,5 +143,5 @@ func CanonicalOfferBytes(offer *forav1.Offer) ([]byte, error) {
 	}
 	clone.Signature = ""
 	clone.SignatureAlgorithm = ""
-	return canonicalSignPayload(clone)
+	return canonicalsign.Render(clone)
 }

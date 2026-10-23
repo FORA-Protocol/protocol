@@ -17,9 +17,7 @@
 // WebCrypto is the crypto primitive (the same one the L1 pop/verify faces use);
 // the caller supplies the imported CryptoKey, exactly as core/sign.ts does.
 
-import canonicalize from "canonicalize";
-
-import { utf8Bytes } from "./base64url.ts";
+import { renderAcceptance, renderRequestAcceptance, signPayload } from "./acceptance-render.ts";
 
 /** The JOSE/JWA algorithm identifier advertised on AgentAcceptance.signature. Always EdDSA for Ed25519
  * (mirror helpers.AcceptanceSignatureAlgorithm). */
@@ -56,12 +54,6 @@ function hexToBytes(hex: string): Uint8Array<ArrayBuffer> | undefined {
 	return out;
 }
 
-function bytesToHex(bytes: Uint8Array): string {
-	let hex = "";
-	for (const b of bytes) hex += b.toString(16).padStart(2, "0");
-	return hex;
-}
-
 /**
  * requireNamedRequester refuses an acceptance whose canonical bytes would name an empty
  * requester. Requester.id and Requester.domain are both REQUIRED, and bytes naming an
@@ -89,32 +81,7 @@ function requireNamedRequester(requesterId: string, requesterDomain: string): vo
  * (fail-closed, mirror Go CanonicalAcceptanceBytes / Python jcs_acceptance_payload).
  */
 export function acceptancePayload(input: AcceptanceInput): Uint8Array<ArrayBuffer> {
-	if (input.offerSig === "") {
-		throw new Error(
-			"fora/acceptance: cannot accept an unsigned offer (empty offer signature)",
-		);
-	}
-	requireNamedRequester(input.requesterId, input.requesterDomain);
-	// proto omit-unpopulated: every empty string field is absent before JCS. The Go
-	// oracle gets that structurally from EmitUnpopulated=false; this record is
-	// hand-built, so the omission is applied once over the whole record rather than
-	// per key. Only idempotency_key can still arrive empty, because the requester
-	// fields are refused above, but the filter tests for the empty STRING, which
-	// covers every member AgentAcceptancePayload has (the field-set guard in the Go
-	// suite pins that list), so a string field added to the message cannot arrive
-	// without its omission. A non-string field would need its own zero-value test.
-	const payload: Record<string, string> = {
-		offer_sig: input.offerSig,
-		requester_id: input.requesterId,
-		requester_domain: input.requesterDomain,
-		idempotency_key: input.idempotencyKey,
-	};
-	const obj = Object.fromEntries(Object.entries(payload).filter(([, v]) => v !== ""));
-	const jcs = canonicalize(obj);
-	if (jcs === undefined) {
-		throw new Error("fora/acceptance: payload is not JSON-serializable");
-	}
-	return utf8Bytes(jcs);
+	return renderAcceptance(input, requireNamedRequester);
 }
 
 /**
@@ -125,9 +92,7 @@ export async function signOfferAcceptance(
 	input: AcceptanceInput,
 	privateKey: CryptoKey,
 ): Promise<string> {
-	const payload = acceptancePayload(input);
-	const sig = new Uint8Array(await crypto.subtle.sign("Ed25519", privateKey, payload));
-	return bytesToHex(sig);
+	return signPayload(acceptancePayload(input), privateKey);
 }
 
 /**
@@ -174,44 +139,14 @@ export interface RequestAcceptanceInput {
 export function requestAcceptancePayload(
 	input: RequestAcceptanceInput,
 ): Uint8Array<ArrayBuffer> {
-	requireNamedRequester(input.requesterId, input.requesterDomain);
-	if (input.items.length === 0) {
-		throw new Error("fora/acceptance: request acceptance requires at least one item");
-	}
-	const items = input.items.map((item, index) => {
-		if (item.offerSig === "") {
-			throw new Error(
-				`fora/acceptance: request item ${index} has an empty offer signature`,
-			);
-		}
-		if (item.exchange === "") {
-			throw new Error(`fora/acceptance: request item ${index} has an empty exchange`);
-		}
-		return { offer_sig: item.offerSig, exchange: item.exchange };
-	});
-	const payload: Record<string, unknown> = {
-		items,
-		requester_id: input.requesterId,
-		requester_domain: input.requesterDomain,
-		idempotency_key: input.idempotencyKey,
-	};
-	const obj = Object.fromEntries(
-		Object.entries(payload).filter(([, value]) => value !== ""),
-	);
-	const jcs = canonicalize(obj);
-	if (jcs === undefined) {
-		throw new Error("fora/acceptance: request payload is not JSON-serializable");
-	}
-	return utf8Bytes(jcs);
+	return renderRequestAcceptance(input, requireNamedRequester);
 }
 
 export async function signRequestAcceptance(
 	input: RequestAcceptanceInput,
 	privateKey: CryptoKey,
 ): Promise<string> {
-	const payload = requestAcceptancePayload(input);
-	const sig = new Uint8Array(await crypto.subtle.sign("Ed25519", privateKey, payload));
-	return bytesToHex(sig);
+	return signPayload(requestAcceptancePayload(input), privateKey);
 }
 
 export async function verifyRequestAcceptance(

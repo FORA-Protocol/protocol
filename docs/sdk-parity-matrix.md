@@ -10,9 +10,9 @@
      Regenerate:  python3 scripts/gen-parity-matrix.py
      Drift-gated in scripts/ci-local.sh. Narrative/rationale: docs/design-history.md. -->
 
-Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
+Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 192 symbols at cross-language parity · 17 documented divergences · 229 Go-idiomatic exclusions · 45 conformance corpora, each tri-replayed.
+**At a glance:** 196 symbols at cross-language parity · 17 documented divergences · 229 Go-idiomatic exclusions · 46 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -241,6 +241,15 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 |---|---|---|
 | `Music` | `Music` | `Music` |
 | `ProfileID` | `PROFILE_ID` | `ProfileID` |
+
+### helperstest — test support: acceptance signers that admit an empty requester
+
+| Go | python | ts |
+|---|---|---|
+| `CanonicalAcceptanceBytesAnyRequester` | `jcs_acceptance_payload_any_requester` | `acceptancePayloadAnyRequester` |
+| `CanonicalRequestAcceptanceBytesAnyRequester` | `jcs_request_acceptance_payload_any_requester` | `requestAcceptancePayloadAnyRequester` |
+| `SignOfferAcceptanceAnyRequester` | `sign_offer_acceptance_any_requester` | `signOfferAcceptanceAnyRequester` |
+| `SignRequestAcceptanceAnyRequester` | `sign_request_acceptance_any_requester` | `signRequestAcceptanceAnyRequester` |
 
 ## Documented divergences & DECISIONs
 
@@ -557,6 +566,7 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 | `connect/testdata/client-request-vectors.json` | ✅ | ✅ | ✅ |
 | `connect/testdata/connect-error-vectors.json` | ✅ | ✅ | ✅ |
 | `connect/testdata/error-detail-wire-vectors.json` | ✅ | ✅ | ✅ |
+| `connect/testdata/refusal-header-vectors.json` | ✅ | ✅ | ✅ |
 | `connect/testdata/synthesized-detail-vectors.json` | ✅ | ✅ | ✅ |
 | `connect/testdata/transport-failure-vectors.json` | ✅ | ✅ | ✅ |
 

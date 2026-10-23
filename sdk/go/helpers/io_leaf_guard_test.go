@@ -13,12 +13,23 @@ package helpers_test
 // pulled in http.Client / http.Get / net.Dial / an http.Transport would drag the
 // pre-auth-reachable network surface into the trust core — exactly the regression
 // this guard bans, matching the other two SDKs' io-leaf guards.
+//
+// The scan covers every package of this module that helpers is built from, not only
+// this directory: code helpers calls in an internal package (the canonical renderer in
+// internal/canonicalsign, for one) is as much the trust core as helpers' own files, and
+// moving code there must not move it out of the guard's reach. The generated wire
+// packages under gen/ are left out of this substring scan: they are regenerated rather
+// than written, and the connect-free guard (connectrpc_free_test.go) checks their
+// imports.
 
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/importclosure"
 )
 
 // forbiddenDialingTokens are the DIAL/socket surfaces a pure-tier file must not
@@ -52,34 +63,63 @@ func importsDialingSurface(source string) bool {
 	return false
 }
 
-func pureHelperSources(t *testing.T) []string {
+// helpersClosure returns the module root, the module path, and the directory of every
+// package of this module that sdk/go/helpers is built from, helpers included, keyed by
+// import path. Both purity guards of this package scan it.
+func helpersClosure(t *testing.T) (root, module string, closure map[string]string) {
 	t.Helper()
-	matches, err := filepath.Glob("*.go")
+	root = filepath.Join("..", "..", "..")
+	module, err := importclosure.ModulePath(root)
 	if err != nil {
-		t.Fatalf("glob helpers sources: %v", err)
+		t.Fatal(err)
 	}
-	out := make([]string, 0, len(matches))
-	for _, m := range matches {
-		if strings.HasSuffix(m, "_test.go") {
+	closure, err = importclosure.Walk(root, module, module+"/sdk/go/helpers")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Pinned, so a closure that stopped reaching them fails here instead of scanning
+	// less: helpers itself, the canonical renderer it calls, and the wire types it reads.
+	for _, pkg := range []string{"sdk/go/helpers", "sdk/go/internal/canonicalsign", "gen/go/fora/v1"} {
+		if _, ok := closure[module+"/"+pkg]; !ok {
+			t.Fatalf("the closure of sdk/go/helpers no longer reaches %s, so the purity guards would not scan it", pkg)
+		}
+	}
+	return root, module, closure
+}
+
+// pureHelperSources returns the module root and every non-test Go file of a package
+// helpers is built from, except the generated ones.
+func pureHelperSources(t *testing.T) (string, []string) {
+	t.Helper()
+	root, module, closure := helpersClosure(t)
+	var out []string
+	for path, dir := range closure {
+		if strings.HasPrefix(path, module+"/gen/") {
 			continue
 		}
-		out = append(out, m)
+		files, err := importclosure.SourceFiles(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, files...)
 	}
-	return out
+	sort.Strings(out)
+	return root, out
 }
 
 func TestHelpersIoLeafGuard_NoDialingSurface(t *testing.T) {
-	sources := pureHelperSources(t)
+	root, sources := pureHelperSources(t)
 	if len(sources) == 0 {
 		t.Fatal("no helpers sources found — the io-leaf guard would vacuously pass")
 	}
-	for _, name := range sources {
-		b, err := os.ReadFile(name)
+	for _, file := range sources {
+		b, err := os.ReadFile(file) //nolint:gosec // a source file of this module
 		if err != nil {
-			t.Fatalf("read %s: %v", name, err)
+			t.Fatalf("read %s: %v", file, err)
 		}
 		if importsDialingSurface(string(b)) {
-			t.Errorf("pure helpers file %s names a DIALING/socket surface — the trust core must open no sockets; move any fetch into sdk/go/resolvers behind the SSRF guard", name)
+			name, _ := filepath.Rel(root, file)
+			t.Errorf("pure L1 file %s names a DIALING/socket surface — the trust core must open no sockets; move any fetch into sdk/go/resolvers behind the SSRF guard", name)
 		}
 	}
 }
