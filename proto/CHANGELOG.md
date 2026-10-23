@@ -70,6 +70,15 @@ client refuse a request the contract does not describe before it is signed.
   SDK sees it; a type checker reports it. Go verbs take the generated messages and
   TypeScript verbs are typed with the request input types, so neither has the switch.
 
+**Go: a call an interceptor retries reports its last attempt (Go SDK fix; no wire
+change).** An interceptor passed to `connect.WithInterceptors` may call `next` again to
+retry a call. In v1.1.0 the client then kept what an earlier attempt had received: a call
+whose last attempt got no answer reported its Connect code as the peer's
+(`CallError.Code`), and under `WithStrictDecoding` an earlier attempt's error envelope could
+be checked, and refused, in place of the last attempt's failure. Each request the call
+sends is now recorded on its own, so `Code`, and the new `Status` and `Header`, describe
+the last request sent.
+
 ## v1.1.0
 
 ### Breaking against v1.0.8

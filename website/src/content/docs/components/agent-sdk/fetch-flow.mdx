@@ -345,7 +345,9 @@ Both carry `ReasonOf()`, which answers the peer's own token when it sent one and
 failure class otherwise. `Header` holds what a refusal asks for next — a verifier's
 `Accept-Signature`, a gateway's `Retry-After`, an edge's discovery headers, which
 `helpers.ParseDiscoveryHint(err.Status, err.Header)` reads — and is nil for any failure
-that is not an error answer, a refused redirect included. `connect.ErrorDetailFrom(err)` pulls the typed
+that is not an error answer, a refused redirect included. When an interceptor passed to
+`connect.WithInterceptors` retries a call, `Status`, `Header` and `Code` describe the last
+request it sent. `connect.ErrorDetailFrom(err)` pulls the typed
 `ErrorDetail` out of any error that carries one, including the `retrieval_auth_failure`
 the client synthesizes from a delivery edge's refusal token. `resolvers.ErrEndpointRefused` is a
 sentinel reachable through `errors.Is`.

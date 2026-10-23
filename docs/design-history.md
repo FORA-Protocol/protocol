@@ -3013,6 +3013,22 @@ response arrived, to tell a peer's Connect code from one connect-go derived; it 
 that answer's status and copied fields too. The same record fixes `CallError.Status` on the
 RPC path, which its doc described and nothing set.
 
+**The record is one request's.** An interceptor passed to `WithInterceptors` runs inside the
+client's own and may call `next` again to retry a call, so one call can send several
+requests. Each request clears the record, and the strict-decoding capture of its error body,
+before it is sent. A failure therefore describes the last request the call sent: a transport
+failure after an earlier error answer carries no code, status or header fields, and an
+earlier attempt's error envelope is never judged in its place. The record is cleared before
+the request rather than when no answer comes back, because a 2xx, an error body past the
+read cap and one in a coding the client did not ask for all arrive and store nothing. The
+record cannot tell which attempt an error came from, so an interceptor that builds its own
+error, returns an earlier attempt's or sends attempts concurrently gets the last request's
+record beside it: a retrying interceptor returns its last attempt's error and sends its
+attempts one at a time. Tying every error to its attempt would mean threading an attempt
+through each layer, and a strict-decoding refusal does not even wrap the Connect error it
+judged. The Python and TypeScript clients build each failure from the response their send
+returned, so a retry cannot mix two attempts there.
+
 **A refused redirect's target stays out of Go's RPC errors, and a test now says so.**
 net/http wraps the refusal in a `*url.Error` naming the raw `Location`, and the Go client
 keeps that out of its errors only because connect-go discards the wrapper before the error
@@ -3069,6 +3085,13 @@ nothing outside it can name the bypass. In Go the renderer and the other checks 
 `sdk/go/internal/canonicalsign`. In Python they are private functions of `fora_sdk.core`, and
 in TypeScript a module neither package manifest exports. Tests pin the text and the order of
 every refusal; they passed before the move and after it.
+
+**The Go purity guards follow the code.** The IO-leaf guard and the connect-free guards of
+helpers and core used to scan one directory each, so the move took the renderer out of their
+reach. They now scan every package of the module their package is built from, through other
+packages too, and helpers' guards pin the canonical renderer among them, so code that moves
+into an internal package stays guarded. The walk reads import specs with `go/parser` and
+runs no go command.
 
 The sentence in fora.proto is unchanged, because it describes a conforming signer and the
 twins are not one: an acceptance they sign is one a conforming party must never send.

@@ -18,7 +18,10 @@ that dials the network (it holds the maintained HTTP client and the SSRF guard),
 while the **transport** packages (`core` / `connect` / `connectserver`) hold no
 dialing surface of their own — `connect` composes the I/O tier's guarded
 transport and content fetcher rather than opening a second one. An io-leaf guard (`helpers/io_leaf_guard_test.go`) fails the build if any pure
-L1 file drags in a dialing surface, so the fetch surface cannot leak back down.
+L1 file drags in a dialing surface, so the fetch surface cannot leak back down. It scans
+helpers and every package of the module helpers is built from (today
+`internal/canonicalsign` and `internal/hostredact`), not one directory, and the
+connect-free guards of helpers and core scan their packages' closures the same way.
 
 ## L1 — `helpers`
 
@@ -369,7 +372,9 @@ response or re-implements signing:
   could not read and a failure where nothing answered carry none, and `Error()` never
   renders the fields. Read a field sent on several lines as
   `strings.Join(err.Header.Values(name), ", ")`, the value the other two SDKs return;
-  `refusal-header-vectors.json` holds all three to it.
+  `refusal-header-vectors.json` holds all three to it. When an interceptor passed to
+  `WithInterceptors` retries a call, `Status`, `Header` and `Code` describe the last
+  request it sent.
 - **Delivery URLs are the edge's to check.** `Execute`, `ExecuteBatch` and
   `BrokerClient.Execute` return every `retrieval_endpoint` exactly as the Exchange
   issued it, and `Fetch` dials a URL as given with the agent's proof of possession, so
