@@ -5,8 +5,9 @@
 // nothing the SDK's verifiers accept, and stay out of the SDK: no source file imports
 // them. Mirrors sdk/python/tests/test_testing_any_requester.py.
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -182,7 +183,27 @@ describe("every other refusal is the signers'", () => {
 });
 
 describe("the test signers stay out of the SDK", () => {
+	// An import is checked by the module it resolves to, the way the compiler resolves it
+	// under this package's tsconfig, as the Go and Python guards read imports with their
+	// languages' parsers. So an extensionless or .js specifier, the package's own name and
+	// a literal import() are all caught, and a comment or a string that merely names the
+	// module is not. Only an import() of a computed string is beyond a static check.
 	const root = fileURLToPath(new URL("..", import.meta.url));
+	const tsconfig = ts.parseJsonConfigFileContent(
+		ts.readConfigFile(join(root, "tsconfig.json"), ts.sys.readFile).config,
+		ts.sys,
+		root,
+	);
+	const testing = join(root, "src", "testing.ts");
+	const renderer = join(root, "src", "acceptance-render.ts");
+
+	/** Whether source, written as file, imports module (an absolute path). */
+	const imports = (file: string, source: string, module: string): boolean =>
+		ts.preProcessFile(source, true, true).importedFiles.some(({ fileName }) => {
+			const resolved = ts.resolveModuleName(fileName, file, tsconfig.options, ts.sys).resolvedModule;
+			return resolved !== undefined && resolve(resolved.resolvedFileName) === module;
+		});
+
 	const sources = (dir: string): string[] =>
 		readdirSync(join(root, dir)).flatMap((name) => {
 			const path = join(root, dir, name);
@@ -191,17 +212,53 @@ describe("the test signers stay out of the SDK", () => {
 		});
 	const files = ["src", "core", "client", "resolvers", "hono"].flatMap(sources);
 	const importsOf = (file: string, module: string): boolean =>
-		new RegExp(`from\\s+["'][^"']*/${module}\\.ts["']`).test(readFileSync(join(root, file), "utf8"));
+		imports(join(root, file), readFileSync(join(root, file), "utf8"), module);
 
 	it("no source file imports ./testing", () => {
+		expect(tsconfig.errors).toEqual([]);
 		expect(files.length).toBeGreaterThan(0);
-		expect(files.filter((f) => importsOf(f, "testing"))).toEqual([]);
+		expect(files.filter((f) => importsOf(f, testing))).toEqual([]);
 	});
 
 	it("only the two signers import the shared renderer", () => {
-		expect(files.filter((f) => importsOf(f, "acceptance-render")).sort()).toEqual([
+		expect(files.filter((f) => importsOf(f, renderer)).sort()).toEqual([
 			join("src", "acceptance.ts"),
 			join("src", "testing.ts"),
 		]);
+	});
+
+	describe("the check itself", () => {
+		const inSrc = join(root, "src", "probe.ts");
+		const inClient = join(root, "client", "probe.ts");
+		const bt = "`";
+
+		it.each([
+			["an extensionless specifier", inSrc, `import { a } from "./testing";`],
+			["a .js specifier", inSrc, `import { a } from "./testing.js";`],
+			["a .ts specifier", inSrc, `import { a } from "./testing.ts";`],
+			["a path from another directory", inClient, `import { a } from "../src/testing";`],
+			["a re-export", inSrc, `export * from "./testing.ts";`],
+			["a side-effect import", inSrc, `import "./testing.ts";`],
+			["a dynamic import", inSrc, `const m = await import("./testing.ts");`],
+			["a dynamic import of a template literal", inSrc, `const m = await import(${bt}./testing.ts${bt});`],
+			["a type-only import", inSrc, `import type { A } from "./testing.ts";`],
+			["the package's own name", inSrc, `import { a } from "@fora-protocol/sdk-l1/testing";`],
+		])("catches %s", (_, file, source) => {
+			expect(imports(file, source, testing)).toBe(true);
+		});
+
+		it.each([
+			["a line comment", `// import { a } from "./testing.ts";`],
+			["a block comment", `/* import { a } from "./testing.ts"; */`],
+			["a string", `const s = "./testing.ts";`],
+			["the protocol's signers", `import { a } from "./acceptance.ts";`],
+			["a dependency", `import { describe } from "vitest";`],
+		])("ignores %s", (_, source) => {
+			expect(imports(inSrc, source, testing)).toBe(false);
+		});
+
+		it("catches an extensionless import of the shared renderer", () => {
+			expect(imports(inClient, `import { r } from "../src/acceptance-render";`, renderer)).toBe(true);
+		});
 	});
 });
