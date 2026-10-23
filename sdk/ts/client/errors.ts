@@ -99,9 +99,10 @@ export class ForaCallError extends Error {
 	readonly code: string | undefined;
 	/** The header fields of the peer's error answer, 400 or above: an `Accept-Signature`
 	 * naming what a verifier requires, a `Retry-After`, an edge's discovery headers
-	 * (`parseDiscoveryHint` reads them with `status`). Empty for any other failure — a
-	 * local one, a transport one, a 2xx this client could not read, and a refused redirect,
-	 * whose `Location` names a URL the peer chose and so must not reach a caller here.
+	 * (`parseDiscoveryHint(err.status ?? 0, err.headers)` reads them). Empty for any other
+	 * failure — a local one, a transport one, a 2xx this client could not read, and a
+	 * refused redirect, whose `Location` names a URL the peer chose and so must not reach a
+	 * caller here.
 	 *
 	 * A copy; `get` is case-insensitive and joins a field sent on several lines with ", ".
 	 * The values are the peer's, unvalidated, and never rendered into `message`. A value

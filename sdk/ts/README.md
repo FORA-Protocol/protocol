@@ -53,7 +53,7 @@ request just before it is signed, a `RawBody` passed in place of a verb's reques
 exactly as given, `ForaCallError.code` carries the Connect code of a refusal next to its
 typed `detail`, and `ForaCallError.headers` carries the header fields of a refusal (an
 answer of status 400 or above, never a redirect), such as a verifier's `Accept-Signature`
-or an edge's discovery headers for `parseDiscoveryHint`. An injected send returns them as
+or an edge's discovery headers for `parseDiscoveryHint(err.status ?? 0, err.headers)`. An injected send returns them as
 `UnaryResponse.headers`; one that leaves them out yields refusals carrying none. `execute` returns each delivery URL as the Exchange issued it, and
 `fetch` dials it as given with the agent's proof of possession: the delivery edge verifies
 the URL, and its refusal comes back with the edge's `retrieval_auth_failure` reason.

@@ -120,8 +120,8 @@ class CallError(Exception):
         self.code = code
         #: The header fields of the peer's error answer, 400 or above: an
         #: ``Accept-Signature`` naming what a verifier requires, a ``Retry-After``, an
-        #: edge's discovery headers (:func:`fora_sdk.parse_discovery_hint` reads them
-        #: with ``status``). Empty for any other failure — a local one, a transport one, a
+        #: edge's discovery headers, which ``parse_discovery_hint(err.status or 0,
+        #: err.headers)`` reads. Empty for any other failure — a local one, a transport one, a
         #: 2xx this client could not read, and a refused redirect, whose ``Location``
         #: names a URL the peer chose and so must not reach a caller here.
         #:

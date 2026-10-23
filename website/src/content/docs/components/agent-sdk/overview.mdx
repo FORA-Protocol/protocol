@@ -180,11 +180,12 @@ A few rules hold in every language:
 - **A refusal carries its answer's header fields, and only a refusal does.** An answer of
   status 400 or above, on an RPC leg or the delivery fetch, hands its header fields to the
   failure: a verifier's `Accept-Signature`, a gateway's `Retry-After`, an edge's discovery
-  headers, which the discovery-hint parser reads with the failure's status. A local
-  failure, a transport failure, a 2xx the client could not read and a refused redirect
-  carry none; a redirect's `Location` names a URL the peer chose. The fields are a copy,
-  looked up by any spelling of the name, a field sent on several lines joined with ", ",
-  and never rendered into the message. Go keeps each line in its `http.Header`.
+  headers, which the discovery-hint parser reads with the failure's status (0 when it has
+  none). A local failure, a transport failure, a 2xx the client could not read and a
+  refused redirect carry none; a redirect's `Location` names a URL the peer chose. The
+  fields are a copy, looked up by any spelling of the name, a field sent on several lines
+  joined with ", ", and never rendered into the message. Go keeps each line in its
+  `http.Header`.
 - **The test signers are not protocol signers.** A protocol signer refuses to sign an
   acceptance that names an empty requester, so a verifier's refusal of one can only be
   tested with a signer that does not. The test-support packages hold twins of the four
