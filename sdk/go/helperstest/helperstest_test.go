@@ -318,9 +318,6 @@ func TestNothingButTestsImportThisPackage(t *testing.T) {
 		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
-		if filepath.Base(filepath.Dir(path)) == "helperstest" {
-			return nil
-		}
 		file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
 		if err != nil {
 			return err
