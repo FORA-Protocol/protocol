@@ -106,6 +106,11 @@ func WithRequestIDFunc(fn core.RequestIDFunc) ClientOption {
 
 // WithInterceptors appends application interceptors (tracing, metrics) to the client
 // SDK stack. They run inside the SDK cross-cutting interceptors.
+//
+// An interceptor that calls next more than once retries the call. A failed call's
+// CallError then describes the last request the call sent, Status, Header and Code
+// included, so a retrying interceptor returns that attempt's error and sends its
+// attempts one at a time.
 func WithInterceptors(is ...connectrpc.Interceptor) ClientOption {
 	return func(c *clientConfig) { c.extra = append(c.extra, is...) }
 }

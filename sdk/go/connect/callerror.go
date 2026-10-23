@@ -72,6 +72,9 @@ func (k CallErrorKind) String() string { return failure.Name(callErrorKindNames,
 // are the failures the Exchange would have named had the request been sent.
 // ErrorDetailFrom reads all three, so a caller branches on one vocabulary whichever
 // side declined.
+//
+// Status, Header and Code describe the last request the call sent, so a call that an
+// interceptor passed to WithInterceptors retries reports its last attempt.
 type CallError struct {
 	Kind CallErrorKind
 	Op   string

@@ -25,6 +25,14 @@ import (
 // Error.Meta() cannot: it is filled only when the body decoded as a Connect error
 // envelope, so a gateway's 503 and its Retry-After, which arrive as plain text,
 // would carry nothing.
+//
+// The record belongs to one round trip. An interceptor passed to WithInterceptors runs
+// inside answerInterceptor and may call next more than once to retry the call, and
+// every request it sends clears the record before it goes out. A failure therefore
+// describes the last request the call sent: a transport failure after an earlier error
+// answer carries no code, status or header fields. The record cannot tell which attempt
+// an error came from, so an interceptor that builds its own error, returns an earlier
+// attempt's or sends attempts concurrently gets the last request's record beside it.
 
 type answerKey struct{}
 
@@ -35,10 +43,28 @@ type answer struct {
 	header http.Header
 }
 
-// answerHolder carries the answer that arrived on a call, if any. It is written by
-// the transport and read by the interceptor, so it is held atomically rather than
-// relying on the two running on one goroutine.
+// answerHolder carries the answer the call's last request received, if any. It is
+// written by the transport and read by the interceptor, so it is held atomically rather
+// than relying on the two running on one goroutine.
 type answerHolder struct{ last atomic.Pointer[answer] }
+
+// forget drops what an earlier request on the call recorded. A nil holder, the one a
+// request no SDK verb sent has, holds nothing to forget.
+func (h *answerHolder) forget() {
+	if h != nil {
+		h.last.Store(nil)
+	}
+}
+
+// record keeps resp's status and the header fields a failure may carry for it.
+func (h *answerHolder) record(resp *http.Response) {
+	if h != nil {
+		h.last.Store(&answer{
+			status: resp.StatusCode,
+			header: failure.RefusalHeader(resp.StatusCode, resp.Header),
+		})
+	}
+}
 
 // answeredError marks a failure whose call received an HTTP error status: the
 // peer answered, so its Connect code is the peer's, and the status and header
@@ -97,18 +123,22 @@ func (answerInterceptor) WrapStreamingHandler(next connectrpc.StreamingHandlerFu
 // error body into the call's envelope capture. The header fields are copied here,
 // under failure.RefusalHeader, so the record holds nothing of a redirect's and
 // keeps no reference to a response the caller will close.
+//
+// Both are cleared before the request is sent, not when no answer comes back: a 2xx,
+// an error body past the read cap and one in a coding this client did not ask for all
+// arrive and store nothing, and none of them may leave an earlier attempt's record in
+// place.
 type answerRecorder struct{ next http.RoundTripper }
 
 func (r answerRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
+	holder, _ := req.Context().Value(answerKey{}).(*answerHolder)
+	capture := envelopeCaptureOf(req)
+	holder.forget()
+	capture.forget()
 	resp, err := r.next.RoundTrip(req)
 	if resp != nil {
-		if holder, ok := req.Context().Value(answerKey{}).(*answerHolder); ok {
-			holder.last.Store(&answer{
-				status: resp.StatusCode,
-				header: failure.RefusalHeader(resp.StatusCode, resp.Header),
-			})
-		}
-		captureErrorBody(req, resp)
+		holder.record(resp)
+		captureErrorBody(capture, resp)
 	}
 	return resp, err
 }

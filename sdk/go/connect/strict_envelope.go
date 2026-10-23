@@ -53,12 +53,21 @@ const errorDetailType = "fora.v1.ErrorDetail"
 // envelopeKey keys the capture the strict interceptor opens on a call's context.
 type envelopeKey struct{}
 
-// envelopeCapture holds the error body of the response that arrived, when there was one
-// and it fit under the read cap.
+// envelopeCapture holds the error body of the response the current round trip received,
+// when there was one and it fit under the read cap. The answer recorder forgets it before
+// every round trip, as it forgets the answer, so a call an interceptor retries is judged
+// on the error body of its last request alone.
 type envelopeCapture struct {
 	mu   sync.Mutex
 	body []byte
 	ok   bool
+}
+
+// envelopeCaptureOf returns the capture the strict interceptor opened on req's call, or
+// nil when the call is not strictly decoded.
+func envelopeCaptureOf(req *http.Request) *envelopeCapture {
+	capture, _ := req.Context().Value(envelopeKey{}).(*envelopeCapture)
+	return capture
 }
 
 func (c *envelopeCapture) store(body []byte) {
@@ -73,12 +82,22 @@ func (c *envelopeCapture) load() ([]byte, bool) {
 	return c.body, c.ok
 }
 
-// captureErrorBody copies an error response's body into the call's capture, when the
-// strict interceptor opened one, and hands connect-go a body that reads the same bytes.
-// A body past the read cap is not captured: connect-go refuses it on its own.
-func captureErrorBody(req *http.Request, resp *http.Response) {
-	capture, ok := req.Context().Value(envelopeKey{}).(*envelopeCapture)
-	if !ok || resp.StatusCode < http.StatusBadRequest || resp.Body == nil {
+// forget drops what an earlier round trip on the call captured. A nil capture, the one a
+// call without strict decoding has, holds nothing to forget.
+func (c *envelopeCapture) forget() {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.body, c.ok = nil, false
+}
+
+// captureErrorBody copies an error response's body into capture, when the strict
+// interceptor opened one, and hands connect-go a body that reads the same bytes. A body
+// past the read cap is not captured: connect-go refuses it on its own.
+func captureErrorBody(capture *envelopeCapture, resp *http.Response) {
+	if capture == nil || resp.StatusCode < http.StatusBadRequest || resp.Body == nil {
 		return
 	}
 	head, err := io.ReadAll(io.LimitReader(resp.Body, DefaultMaxRPCReadBytes+1))
