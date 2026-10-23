@@ -358,8 +358,8 @@ response or re-implements signing:
   is checked too: the Connect error envelope must carry only `code`, `message` and
   `details`, name a known Connect code and carry well-formed details, and every
   `ErrorDetail`, binary `value` and `debug` projection alike, must pass the same two
-  checks. A refused envelope is `CallMalformed` with `CallError.Code` still set to the
-  peer's code.
+  checks. A refused envelope is `CallMalformed` with `CallError.Code`, `Status` and
+  `Header` still holding the peer's code, HTTP status and header fields.
 - **`CallError.Code`** is the Connect code of the peer's answer — an error envelope or
   a non-JSON error status — and zero when no answer arrived. The typed `ErrorDetail` is
   decoded from the binary `value`; the shared `connect-error-vectors.json` and

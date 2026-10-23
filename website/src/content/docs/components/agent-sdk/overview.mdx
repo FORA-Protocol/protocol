@@ -128,9 +128,9 @@ A few rules hold in every language:
   only `code`, `message` and `details`, must name a known Connect code, and must carry
   well-formed details. Every `ErrorDetail` in it, the decoded binary `value` and the
   `debug` projection alike, is checked against the strict `ErrorDetail` schema and its
-  rules. A refused envelope is malformed, with the peer's Connect code still on the
-  error's code field and no detail. An empty or non-JSON error body comes from a gateway
-  rather than the service, so its HTTP status still classifies it.
+  rules. A refused envelope is malformed, with the peer's Connect code, HTTP status and
+  header fields still on the error, and no detail. An empty or non-JSON error body comes
+  from a gateway rather than the service, so its HTTP status still classifies it.
 - **Strict requests are Python's.** A Python verb also takes a plain dict, and the
   generated models ignore a member they do not declare, so a misspelled key would be
   signed, sent and discarded by the server. `strict_requests` refuses the dict before

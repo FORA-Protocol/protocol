@@ -388,9 +388,10 @@ def _refuse_error_answer(
     """Raise the typed failure a non-2xx answer is; return on a 2xx.
 
     Under ``strict`` the envelope is checked first, and a refusal keeps the Connect code
-    the lenient read reports. An empty body is not an envelope — the lenient read takes it
-    as one naming no code — so it is classified by its status in either mode, like a body
-    that is not JSON, which never reaches here.
+    the lenient read reports, the status and the answer's header fields. An empty body is
+    not an envelope — the lenient read takes it as one naming no code — so it is
+    classified by its status in either mode, like a body that is not JSON, which never
+    reaches here.
     """
     if _HTTP_OK <= status < _HTTP_MULTIPLE_CHOICES:
         return

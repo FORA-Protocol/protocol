@@ -33,8 +33,9 @@ client refuse a request the contract does not describe before it is signed.
   `parseDiscoveryHint` and `helpers.ParseDiscoveryHint` read the last with the error's
   status. Only an error answer, status 400 or above, carries fields: a local failure, a
   transport failure, a 2xx the client could not read and a refused redirect carry none,
-  the redirect because its `Location` names a URL the peer chose. The fields are a copy and
-  are never rendered into the message. A field sent on several lines reads as one value
+  the redirect because its `Location` names a URL the peer chose. A strictly refused error
+  envelope keeps them, as it keeps its code. The fields are a copy and are never rendered
+  into the message. A field sent on several lines reads as one value
   joined with ", " in Python and TypeScript; Go keeps the lines, and
   `strings.Join(Header.Values(name), ", ")` reads the same value. Go's RPC
   `CallError.Status` is now set beside them. TypeScript's `UnaryResponse` gains an optional

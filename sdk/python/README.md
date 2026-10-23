@@ -512,7 +512,8 @@ a service through the SDK and check every answer through it:
   and `details`, must name a known Connect code and carry well-formed details, and every
   `ErrorDetail`, binary `value` and `debug` projection alike, must pass the strict
   `ErrorDetail` schema and the cross-field rules. A refused envelope is
-  `CallError(MALFORMED)` with `code` still set to the peer's Connect code.
+  `CallError(MALFORMED)` keeping `code`, `status` and `headers`: the peer's Connect code,
+  HTTP status and header fields.
 - **`ClientConfig(strict_requests=True)`** refuses a request the contract does not
   describe, before it is signed. A verb then takes only its generated request model or a
   `RawBody`: a plain dict, or a model of another message, is `CallError(MALFORMED)`
