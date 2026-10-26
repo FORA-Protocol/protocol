@@ -162,21 +162,57 @@ This is the answer, shortened:
           "offer_id": "a6476bfc-8f87-455e-8a7d-58b782b194c2",
           "pricing": { "model": "PRICING_MODEL_FLAT", "rate": "29", "currency": "EUR", "metering": "PRICING_METERING_NONE" },
           "signature": "97c1a9ab90d9f31c…",
-          "terms": [ /* … */ ]
+          "terms": [
+            {
+              "semantics": "TERM_SEMANTICS_REFERENCE_ONLY",
+              // license: the same license document for all three offers, see the next step
+              "restrictions": [
+                { "kind": "RESTRICTION_KIND_FUNCTION", "permitted": ["sync", "stream"], "prohibited": ["ai-train", "advertising", "broadcast"] },
+                { "kind": "RESTRICTION_KIND_USER_TYPE", "permitted": ["individual"] },
+                { "kind": "RESTRICTION_KIND_GEOGRAPHY", "permitted": ["*"] }
+              ],
+              "quotas": [ /* … */ ],
+              "obligations": [ /* … */ ]
+            }
+          ]
         },
         // Broadcast
         {
           "offer_id": "5b4de095-dd07-40a5-b7da-5fc12787eb14",
           "pricing": { "model": "PRICING_MODEL_FLAT", "rate": "450", "currency": "EUR", "metering": "PRICING_METERING_NONE" },
           "signature": "6cd3bb212edc8036…",
-          "terms": [ /* … */ ]
+          "terms": [
+            {
+              "semantics": "TERM_SEMANTICS_REFERENCE_ONLY",
+              // license: the same license document for all three offers, see the next step
+              "restrictions": [
+                { "kind": "RESTRICTION_KIND_FUNCTION", "permitted": ["sync", "broadcast", "stream"], "prohibited": ["ai-train", "advertising"] },
+                { "kind": "RESTRICTION_KIND_USER_TYPE", "permitted": ["broadcaster", "commercial_entity"] },
+                { "kind": "RESTRICTION_KIND_GEOGRAPHY", "permitted": ["*"] }
+              ],
+              "quotas": [ /* … */ ],
+              "obligations": [ /* … */ ]
+            }
+          ]
         },
         // Advertising
         {
           "offer_id": "97047021-7bb5-4ac1-ac2b-267f3446caaa",
           "pricing": { "model": "PRICING_MODEL_FLAT", "rate": "1200", "currency": "EUR", "metering": "PRICING_METERING_NONE" },
           "signature": "d368437e39231aa0…",
-          "terms": [ /* … */ ]
+          "terms": [
+            {
+              "semantics": "TERM_SEMANTICS_REFERENCE_ONLY",
+              // license: the same license document for all three offers, see the next step
+              "restrictions": [
+                { "kind": "RESTRICTION_KIND_FUNCTION", "permitted": ["sync", "advertising", "broadcast", "stream"], "prohibited": ["ai-train", "editorial"] },
+                { "kind": "RESTRICTION_KIND_USER_TYPE", "permitted": ["commercial_entity"] },
+                { "kind": "RESTRICTION_KIND_GEOGRAPHY", "permitted": ["*"] }
+              ],
+              "quotas": [ /* … */ ],
+              "obligations": [ /* … */ ]
+            }
+          ]
         }
       ]
     }
@@ -184,7 +220,7 @@ This is the answer, shortened:
 }
 ```
 
-Each track comes back as one `OfferGroup`. This is the group for Ancient Rite: three offers, each with its own price and its own Exchange signature. The next step shows the Online Creator term in full.
+Each track comes back as one `OfferGroup`. This is the group for Ancient Rite: three offers, each with its own price, its own term and its own Exchange signature. The terms differ in who can buy (`RESTRICTION_KIND_USER_TYPE`) and which uses are allowed (`RESTRICTION_KIND_FUNCTION`). The next step explains how the agent reads a term.
 
 </details>
 </Aside>
