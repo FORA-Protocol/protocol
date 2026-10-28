@@ -610,6 +610,12 @@
       "python": null,
       "ts": null
     },
+    "helpers.MaxDelegationNumericDate": {
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land",
+      "decision_anchor": "delegation verifier",
+      "python": null,
+      "ts": null
+    },
     "helpers.MaxDelegationTokenBytes": {
       "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land",
       "decision_anchor": "delegation verifier",

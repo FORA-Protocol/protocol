@@ -1045,6 +1045,198 @@
       }
     },
     {
+      "name": "raw_baseline",
+      "note": "the raw-signed root every raw syntax case starts from",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJpc3MiOiJtYXJrZXRkYXRhLmV4YW1wbGUiLCJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJleHAiOjE3ODAzMTg4MDAsInNjb3BlIjoicXVvdGU6KiIsImNuZiI6eyJqa3QiOiJXaS12TlR2Tzg0cG9kSnBJdlhLVWxHTkRVdWhLSktTNHpWemhuUnZUM1k0In19.RaDmXu0At-6BCwtbBaVhSHLRfRoVLjW7Xx1jkk3TnPL8_E140yPlCgewpohI13OcLYJDqGIcYhGV35tZZbWGAw",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": true,
+        "root_issuer": "marketdata.example",
+        "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+        "scopes": [
+          "quote:*"
+        ],
+        "expires_at": "2026-06-01T13:00:00Z",
+        "depth": 1
+      }
+    },
+    {
+      "name": "payload_trailing_object",
+      "note": "a second JSON object after the claims object, under a valid signature",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJpc3MiOiJtYXJrZXRkYXRhLmV4YW1wbGUiLCJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJleHAiOjE3ODAzMTg4MDAsInNjb3BlIjoicXVvdGU6KiIsImNuZiI6eyJqa3QiOiJXaS12TlR2Tzg0cG9kSnBJdlhLVWxHTkRVdWhLSktTNHpWemhuUnZUM1k0In19IHsic2NvcGUiOiIqIn0.jL1reIpgSllgn-xhmiKCbOD0jt321zBRHFhdCddyuxazWfV2cR3fca5N4lQVv4sPKb9V-hWqbPuY9aVNQsN-DQ",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "malformed"
+      }
+    },
+    {
+      "name": "payload_trailing_text",
+      "note": "text after the claims object, under a valid signature",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJpc3MiOiJtYXJrZXRkYXRhLmV4YW1wbGUiLCJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJleHAiOjE3ODAzMTg4MDAsInNjb3BlIjoicXVvdGU6KiIsImNuZiI6eyJqa3QiOiJXaS12TlR2Tzg0cG9kSnBJdlhLVWxHTkRVdWhLSktTNHpWemhuUnZUM1k0In19anVuaw.mdD9Ivx3dXaHf_1QOA3Z45Id4nUfasPXj_jLTPM5vMpFGzdN8D2zsuRQ1IbnkPQusgJc8lNJBjtcW9VPbjEXAg",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "malformed"
+      }
+    },
+    {
+      "name": "payload_not_object",
+      "note": "a JSON array as payload",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.WzFd.PsabWxjdcznvpOlb5u-kTl781Kl8pj8ACe7Ry1S1JEI7-gXIlsUoaXwurpr77PpH0mJbfsR3ssSVEgPBbL9-Bw",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "malformed"
+      }
+    },
+    {
+      "name": "header_b64_false",
+      "note": "RFC 7797 b64:false without crit",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QiLCJiNjQiOmZhbHNlfQ.eyJpc3MiOiJtYXJrZXRkYXRhLmV4YW1wbGUiLCJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJleHAiOjE3ODAzMTg4MDAsInNjb3BlIjoicXVvdGU6KiIsImNuZiI6eyJqa3QiOiJXaS12TlR2Tzg0cG9kSnBJdlhLVWxHTkRVdWhLSktTNHpWemhuUnZUM1k0In19.nQtr-rlnLsFjrzxb3prW3H_kQ8nX5Zs4gyWzIXyUBvRC90-VtpT9u21ogQRXMKMKFNqZZN3CxXh4GpGtxXLTDA",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "malformed"
+      }
+    },
+    {
+      "name": "signature_crlf",
+      "note": "CR LF appended to the signature segment",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJpc3MiOiJtYXJrZXRkYXRhLmV4YW1wbGUiLCJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJleHAiOjE3ODAzMTg4MDAsInNjb3BlIjoicXVvdGU6KiIsImNuZiI6eyJqa3QiOiJXaS12TlR2Tzg0cG9kSnBJdlhLVWxHTkRVdWhLSktTNHpWemhuUnZUM1k0In19.RaDmXu0At-6BCwtbBaVhSHLRfRoVLjW7Xx1jkk3TnPL8_E140yPlCgewpohI13OcLYJDqGIcYhGV35tZZbWGAw\r\n",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "malformed"
+      }
+    },
+    {
+      "name": "signature_padded",
+      "note": "a padding character in the signature segment",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJpc3MiOiJtYXJrZXRkYXRhLmV4YW1wbGUiLCJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJleHAiOjE3ODAzMTg4MDAsInNjb3BlIjoicXVvdGU6KiIsImNuZiI6eyJqa3QiOiJXaS12TlR2Tzg0cG9kSnBJdlhLVWxHTkRVdWhLSktTNHpWemhuUnZUM1k0In19.RaDmXu0At-6BCwtbBaVhSHLRfRoVLjW7Xx1jkk3TnPL8_E140yPlCgewpohI13OcLYJDqGIcYhGV35tZZbWGAw=",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "malformed"
+      }
+    },
+    {
+      "name": "exp_beyond_numeric_date_range",
+      "note": "exp 1e100 is finite but no date the profile can return",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJpc3MiOiJtYXJrZXRkYXRhLmV4YW1wbGUiLCJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJleHAiOjFlMTAwLCJzY29wZSI6InF1b3RlOioiLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9fQ.GGyNSSAUCrX56_o-0T7l-_QQmlh1KfQwl1BMHz-5QBvv7kak31ehILTOipUEI1dUJaG3lSrTWVo1Trpg8dH9Bg",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "bad_claim"
+      }
+    },
+    {
+      "name": "exp_negative",
+      "note": "",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJpc3MiOiJtYXJrZXRkYXRhLmV4YW1wbGUiLCJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJleHAiOi0xLCJzY29wZSI6InF1b3RlOioiLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9fQ.l0xObm_vpP6v7ZMkm0ythyuzRpSt4x7L8indSGxrhg_Gl1MqwfTugPsNhDLZJpoQoawfnj5WiNRunyxsIM1kAA",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "bad_claim"
+      }
+    },
+    {
+      "name": "exp_at_numeric_date_max",
+      "note": "253402300799 is the last accepted second",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJpc3MiOiJtYXJrZXRkYXRhLmV4YW1wbGUiLCJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJleHAiOjI1MzQwMjMwMDc5OSwic2NvcGUiOiJxdW90ZToqIiwiY25mIjp7ImprdCI6IldpLXZOVHZPODRwb2RKcEl2WEtVbEdORFV1aEtKS1M0elZ6aG5SdlQzWTQifX0.s1Xu2NMIfF2ZM0Lp14nk_Hx0pZs2xHN4ZNlkSbL9ofiBgjOEkmbUSkltK3aH8ZZ5kXpqdFJGYRXC4gdAPwmDBg",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": true,
+        "root_issuer": "marketdata.example",
+        "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+        "scopes": [
+          "quote:*"
+        ],
+        "expires_at": "9999-12-31T23:59:59Z",
+        "depth": 1
+      }
+    },
+    {
       "name": "docs_subscription_agent",
       "note": "authentication page, Subscription Agent example: a MarketData root token bound to FinBot's request key",
       "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoibTBMODhtcUx3MnZzRnpMY0FHVGlNdWlOajY3RjF0QXlBb2RoOW13S3p4OCJ9LCJleHAiOjE3ODAzMTg4MDAsImlzcyI6Im1hcmtldGRhdGEuZXhhbXBsZS5jb20iLCJqdGkiOiJtZC1zdWItMjAyNi0wNDgxIiwic2NvcGUiOiJzdWJzY3JpcHRpb246bWFya2V0ZGF0YS0yMDI2IHF1b3RlOiogZWFybmluZ3M6KiJ9.d7R4gaXcCgy9nR304l_KxO9sQEWpKDk8uV4PEnIsze-Qnr_J0_9__m3gW8bGFeibWezuTB8jF2G7JlelimohAg",

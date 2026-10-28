@@ -75,8 +75,11 @@
   under either `alg` name, because the pinned go-jose accepts only `EdDSA`. It meters
   nothing, so a chain carrying `fora_max_spend_cents`, `fora_max_accesses` or
   `fora_quota_period` is refused. The constants `MaxDelegationTokenBytes`,
-  `MaxDelegationChainDepth`, `DelegationClockLeeway` and `DelegationTokenType` are
-  the profile's values. The TypeScript and Python verifiers are deferred and recorded
+  `MaxDelegationChainDepth`, `DelegationClockLeeway`, `DelegationTokenType` and
+  `MaxDelegationNumericDate` are the profile's values; the last bounds `exp` and `nbf`
+  to `9999-12-31T23:59:59Z` so the returned expiry always fits a `Timestamp`. The
+  verifier accepts only unpadded base64url segments and exactly one JSON object as
+  payload, and refuses a `b64` header parameter. The TypeScript and Python verifiers are deferred and recorded
   as a decision in the parity matrix.
 - **Shared delegation chain cases.** `sdk/go/helpers/testdata/delegation-chains.json`
   carries signed chains from fixed test keys and a fixed clock with outcomes declared

@@ -1,11 +1,13 @@
 package helpers
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"strings"
 	"time"
@@ -49,6 +51,11 @@ const (
 	DelegationClockLeeway = 60 * time.Second
 	// DelegationTokenType is the protected header typ every token must carry.
 	DelegationTokenType = "fora-delegation+jwt"
+	// MaxDelegationNumericDate is the largest exp or nbf the profile accepts:
+	// 9999-12-31T23:59:59Z, the last second a protocol Timestamp can carry, so
+	// the effective expiry the verifier returns always fits one. The smallest
+	// is 0.
+	MaxDelegationNumericDate = 253402300799
 )
 
 // TrustedIssuer is one configured root key and the issuer identity it belongs
@@ -338,6 +345,14 @@ func decodeDelegationToken(raw string, index int) (*delegationToken, error) {
 	if len(parts) != 3 {
 		return nil, refuse(DelegationMalformed, 0, where+": not a compact JWS")
 	}
+	// Go's base64 decoder skips CR and LF, so the alphabet is checked by hand:
+	// a segment is base64url without padding and nothing else, so the bytes
+	// the signature covers are exactly the bytes that were read.
+	for _, seg := range parts {
+		if seg == "" || !isBase64URL(seg) {
+			return nil, refuse(DelegationMalformed, 0, where+": a segment is not unpadded base64url")
+		}
+	}
 	hdrBytes, err := base64.RawURLEncoding.Strict().DecodeString(parts[0])
 	if err != nil {
 		return nil, refuse(DelegationMalformed, 0, where+": protected header is not base64url")
@@ -365,14 +380,26 @@ func decodeDelegationToken(raw string, index int) (*delegationToken, error) {
 	if _, has := hdr["crit"]; has {
 		return nil, refuse(DelegationCritPresent, 0, where+": crit is not allowed")
 	}
+	// RFC 7797 unencoded payloads are not part of the profile; a b64 parameter
+	// without crit is itself invalid under that RFC, and with crit it is caught
+	// above, so its presence is malformed either way.
+	if _, has := hdr["b64"]; has {
+		return nil, refuse(DelegationMalformed, 0, where+": b64 is not allowed")
+	}
 	if jwk, has := hdr["jwk"]; has {
 		tok.jwk = jwk
 	}
 
-	dec := json.NewDecoder(strings.NewReader(string(payload)))
+	// The payload is exactly one JSON object: json.Unmarshal would refuse
+	// trailing bytes, but the decoder is needed for UseNumber, and a decoder
+	// stops after the first value, so the rest of the input is checked by hand.
+	dec := json.NewDecoder(bytes.NewReader(payload))
 	dec.UseNumber()
 	if err := dec.Decode(&tok.claims); err != nil || tok.claims == nil {
 		return nil, refuse(DelegationMalformed, 0, where+": payload is not a JSON object")
+	}
+	if _, err := dec.Token(); err != io.EOF {
+		return nil, refuse(DelegationMalformed, 0, where+": payload carries bytes after the JSON object")
 	}
 	if err := checkDelegationClaims(tok, where); err != nil {
 		return nil, err
@@ -481,16 +508,30 @@ func checkDelegationClaims(tok *delegationToken, where string) error {
 	return nil
 }
 
-// numericDate reads a NumericDate claim: any JSON number, which is finite by
-// construction; a value JSON could not parse into a float64 is not accepted.
+// numericDate reads a NumericDate claim: a JSON number between 0 and
+// MaxDelegationNumericDate. A value outside that range is finite but not a
+// date this profile can return, so it is refused before any conversion.
 func numericDate(v any) (float64, bool) {
 	n, ok := v.(json.Number)
 	if !ok {
 		return 0, false
 	}
 	f, err := n.Float64()
-	if err != nil || math.IsInf(f, 0) || math.IsNaN(f) {
+	if err != nil || math.IsInf(f, 0) || math.IsNaN(f) || f < 0 || f > MaxDelegationNumericDate {
 		return 0, false
 	}
 	return f, true
+}
+
+// isBase64URL reports whether s holds only the unpadded base64url alphabet.
+func isBase64URL(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z', c >= '0' && c <= '9', c == '-', c == '_':
+		default:
+			return false
+		}
+	}
+	return true
 }

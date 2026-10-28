@@ -175,7 +175,7 @@ Every field except `token` and `token_format` is a mirror of the signed chain (s
 
 ### Chain encoding and limits
 
-`Delegation.token` is **one** compact JWS (three base64url segments separated by dots). The chain is nested, not listed:
+`Delegation.token` is **one** compact JWS: three non-empty segments of unpadded base64url separated by dots, with no other character anywhere, whitespace included. The header segment decodes to one JSON object and the payload segment to exactly one JSON object with nothing after it. The chain is nested, not listed:
 
 - Every child token carries its **complete parent**, as the parent's compact serialization, in the string claim `fora_parent`. The parent's signature is therefore inside the child's signed payload, so a child cannot be re-attached to a different parent.
 - The **root token has no `fora_parent`** claim: the innermost token of the chain is the root, and it is verified with a configured key, never with a key it carries.
@@ -194,6 +194,7 @@ Every token in the chain is signed with an **Ed25519** key, and the verifier acc
 | `jwk` | **Yes** on every child; ignored on the root | The signing key as a public JWK: `{"kty":"OKP","crv":"Ed25519","x":"<base64url>"}`. Its RFC 7638 thumbprint MUST equal the parent's `cnf.jkt`. A `jwk` on the root is not read; the root is verified only with the configured key. |
 | `kid` | No | Informational; the verifier does not use it to choose a key. |
 | `crit` | MUST NOT be present | The profile defines no extension header parameters, so a token that marks any as critical is rejected. |
+| `b64` | MUST NOT be present | Unencoded payloads ([RFC 7797](https://www.rfc-editor.org/rfc/rfc7797)) are not part of the profile. A token that carries `b64` is malformed, with or without `crit`. |
 
 The verifier checks the signature over the **original signed bytes** (the base64url header and payload exactly as received). It never re-serializes or rewrites a header, so a token stays valid or invalid regardless of the library that produced it.
 
@@ -225,7 +226,7 @@ Rules:
 
 ### Time and clock leeway
 
-Times are NumericDate seconds. The verifier evaluates every token in the chain against one clock reading `now` with a fixed leeway of **60 seconds**:
+Times are NumericDate seconds, as JSON numbers between **0** and **253402300799** (`9999-12-31T23:59:59Z`, the last second a protocol `Timestamp` carries); a value outside that range is a bad claim, so the effective expiry the verifier returns always fits a `Timestamp`. The verifier evaluates every token in the chain against one clock reading `now` with a fixed leeway of **60 seconds**:
 
 - A token is **expired** when `now >= exp + 60`.
 - A token is **not yet valid** when it carries `nbf` and `now < nbf - 60`.
@@ -329,9 +330,15 @@ eyJhbGciOiJFZDI1NTE5IiwiandrIjp7ImNydiI6IkVkMjU1MTkiLCJrdHkiOiJPS1AiLCJ4IjoieUYw
 
 ### Verification
 
-The Exchange or edge verifies a delegation offline, with the configured issuer keys as its only input besides the request. Every step fails closed, and any failure is reported as `DENIAL_REASON_DELEGATION_INVALID`. The Go SDK implements exactly this order in `VerifyDelegation`, and the shared chain cases in `sdk/go/helpers/testdata/delegation-chains.json` pin which check refuses which input:
+The Exchange or edge verifies a delegation offline, with the configured issuer keys as its only input besides the request. Every step fails closed. What a failure produces depends on where it happens:
 
-1. **Size and shape.** The `Delegation.token` is at most 32768 bytes (checked at wire validation and again here, before parsing) and is one compact JWS. `token_format` is `"jwt"` or empty.
+- A `token` over 32768 bytes fails **wire validation**: the whole request is refused as invalid, before any item is read, like any other field that breaks a wire rule.
+- At **discovery**, a chain that fails any later step is treated as if no delegation were present: the terms gated behind it are hidden (see [Existence hiding](#existence-hiding)), and no denial reason reports why. The Exchange MAY journal the failure.
+- At **purchase**, a chain that fails any later step denies the item with `DENIAL_REASON_DELEGATION_INVALID`.
+
+The Go SDK implements exactly this order in `VerifyDelegation`, and the shared chain cases in `sdk/go/helpers/testdata/delegation-chains.json` pin which check refuses which input:
+
+1. **Size and shape.** The `Delegation.token` is at most 32768 bytes (checked at wire validation and again here, before parsing) and is one compact JWS with the segment rules above. `token_format` is `"jwt"` or empty.
 2. **Walk the chain inward.** Decode the outer token's protected header and claims and check them against the profile: `alg` is `EdDSA` or `Ed25519`, `typ` is `fora-delegation+jwt`, no `crit`, the required claims are present with the right types, no unknown top-level claim, no cap claim the verifier cannot enforce, no profile name inside `fora_advisory`. If the token carries `fora_parent`, check the remaining depth and the parent's size, then decode the parent the same way, and repeat until a token without `fora_parent` is reached: that token is the root. A fifth token or an oversized parent is a rejection.
 3. **Verify the root** with the configured key whose identity equals the root's `iss`. No configured key for that identity, or a signature that does not verify, is a rejection. The root's `jwk`, if any, is ignored.
 4. **Verify each child** outward from the root: its protected `jwk` is an Ed25519 OKP public key, `thumbprint(jwk) == parent.cnf.jkt` (the **chain-linkage invariant**), its `iss` equals that thumbprint, and its signature verifies with that key over the original signed bytes.
@@ -354,7 +361,7 @@ When delegation verification fails, the Exchange returns a specific denial reaso
 | Denial Reason | Meaning |
 |---|---|
 | `DENIAL_REASON_QUOTA_EXCEEDED` | Subscription access count exhausted for this period |
-| `DENIAL_REASON_DELEGATION_INVALID` | Delegation token missing, oversized, malformed, unverifiable (broken chain linkage, wrong issuer or holder-binding mismatch), expired, not valid yet, addressed to another recipient, or it widens scope, audience or a cap beyond its parent |
+| `DENIAL_REASON_DELEGATION_INVALID` | On a purchase item: delegation token missing, malformed, unverifiable (broken chain linkage, wrong issuer or holder-binding mismatch), expired, not valid yet, addressed to another recipient, or it widens scope, audience or a cap beyond its parent. A token over 32768 bytes never reaches an item: wire validation refuses the request. At discovery none of these is reported; the gated terms are hidden instead |
 
 ### Libraries
 

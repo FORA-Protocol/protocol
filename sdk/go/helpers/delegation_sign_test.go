@@ -48,6 +48,15 @@ func signCompact(t *testing.T, priv ed25519.PrivateKey, header, claims map[strin
 	return input + "." + base64.RawURLEncoding.EncodeToString(sig)
 }
 
+// signCompactRaw signs header and payload exactly as given, bytes the JSON
+// marshaller would never produce: trailing text after the object, a b64
+// parameter, a non-object payload. The signature is valid over those bytes, so
+// only the syntax checks can refuse the token.
+func signCompactRaw(priv ed25519.PrivateKey, header, payload string) string {
+	input := base64.RawURLEncoding.EncodeToString([]byte(header)) + "." + base64.RawURLEncoding.EncodeToString([]byte(payload))
+	return input + "." + base64.RawURLEncoding.EncodeToString(ed25519.Sign(priv, []byte(input)))
+}
+
 // tokenSpec describes one token of a test chain. Zero values take the profile's
 // happy-path defaults so a test names only what it changes.
 type tokenSpec struct {

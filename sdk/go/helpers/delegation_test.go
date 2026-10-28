@@ -3,6 +3,7 @@ package helpers
 import (
 	"crypto/ed25519"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -173,6 +174,48 @@ func TestVerifyDelegation_Refusals(t *testing.T) {
 		})
 	}
 }
+
+func TestVerifyDelegation_RawSyntax(t *testing.T) {
+	// A valid root, as raw header and payload strings, then mutated below the
+	// JSON layer: every mutation keeps a valid signature over the bytes sent.
+	header := `{"alg":"EdDSA","typ":"fora-delegation+jwt"}`
+	payload := `{"iss":"marketdata.example","aud":["exchange.example"],"exp":` + strconvF(dExp) + `,"scope":"quote:*","cnf":{"jkt":"` + mustThumbprint(t, dHolderPub) + `"}}`
+	good := signCompactRaw(dIssuerPriv, header, payload)
+	if _, err := dVerify(t, good); err != nil {
+		t.Fatalf("baseline raw token must verify: %v", err)
+	}
+	cases := []struct {
+		name  string
+		token string
+		want  DelegationFailure
+	}{
+		{"trailing_second_object", signCompactRaw(dIssuerPriv, header, payload+` {"scope":"*"}`), DelegationMalformed},
+		{"trailing_garbage", signCompactRaw(dIssuerPriv, header, payload+`junk`), DelegationMalformed},
+		{"payload_not_an_object", signCompactRaw(dIssuerPriv, header, `[1]`), DelegationMalformed},
+		{"header_trailing_garbage", signCompactRaw(dIssuerPriv, header+`x`, payload), DelegationMalformed},
+		{"b64_false_without_crit", signCompactRaw(dIssuerPriv, `{"alg":"EdDSA","typ":"fora-delegation+jwt","b64":false}`, payload), DelegationMalformed},
+		{"crlf_after_signature", good + "\r\n", DelegationMalformed},
+		{"crlf_inside_signature", good[:len(good)-4] + "\r\n" + good[len(good)-4:], DelegationMalformed},
+		{"padded_segment", good + "=", DelegationMalformed},
+		{"empty_segment", strings.Replace(good, ".", "..", 1), DelegationMalformed},
+		{"exp_1e100", signCompactRaw(dIssuerPriv, header, strings.Replace(payload, strconvF(dExp), "1e100", 1)), DelegationBadClaim},
+		{"exp_negative", signCompactRaw(dIssuerPriv, header, strings.Replace(payload, strconvF(dExp), "-1", 1)), DelegationBadClaim},
+		{"nbf_beyond_range", signCompactRaw(dIssuerPriv, header, strings.Replace(payload, `"scope"`, `"nbf":253402300800,"scope"`, 1)), DelegationBadClaim},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := dVerify(t, c.token)
+			wantFailure(t, err, c.want)
+		})
+	}
+	max := signCompactRaw(dIssuerPriv, header, strings.Replace(payload, strconvF(dExp), "253402300799", 1))
+	got, err := dVerify(t, max)
+	if err != nil || got.ExpiresAt.Year() != 9999 {
+		t.Fatalf("the largest NumericDate must verify and convert exactly: %v %v", got, err)
+	}
+}
+
+func strconvF(f float64) string { return fmt.Sprintf("%d", int64(f)) }
 
 func TestVerifyDelegation_SizeLimitBeforeParsing(t *testing.T) {
 	in := dInput(t, strings.Repeat("a", MaxDelegationTokenBytes+1))

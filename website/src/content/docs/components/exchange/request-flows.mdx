@@ -111,26 +111,7 @@ func (h *ExchangeHandler) DiscoverResources(
                 forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID))
     }
 
-    // 2c. Verify delegation (if present) on a DIRECT query.
-    //     The SDK verifier walks the fora_parent chain, verifies the root with
-    //     the keys configured on the subscription record (never a fetched key),
-    //     each child with the key in its protected jwk, and the holder binding
-    //     against the request signer. On a query a Broker originated the Broker
-    //     signs alone, so nothing can pass the holder binding: the delegation
-    //     is not honoured, and the query is answered as if none were present.
-    var verified *helpers.VerifiedDelegation
-    if requester.GetDelegation() != nil && !brokerLed {
-        trusted := h.subscriptions.TrustedIssuers(ctx, tenantCfg.ID) // per record
-        verified, err = helpers.VerifyDelegation(helpers.DelegationInput{
-            Token: requester.GetDelegation().GetToken(), TrustedIssuers: trusted,
-            Audience: tenantCfg.Identity, Holder: signerThumbprint, Now: h.clock.Now(),
-        })
-        if err != nil {
-            return nil, connect.NewError(connect.CodePermissionDenied, err)
-        }
-    }
-
-    // 2d. On a DIRECT query, resolve the agent's registered account from the
+    // 2c. On a DIRECT query, resolve the agent's registered account from the
     //     directory the signature resolved from (verified.SignatureAgent; see
     //     "Accounts" on the authentication page). Every currently valid key that
     //     directory publishes acts for the account, so the key that verified
@@ -152,6 +133,39 @@ func (h *ExchangeHandler) DiscoverResources(
         return nil, connect.NewError(connect.CodeNotFound, err)
     }
 
+    // 3b. Verify the delegation (if present) on a DIRECT query, once per
+    //     subscription record. Trust is per record: the SDK verifier is given
+    //     the keys that record lists, so an issuer trusted for one subscription
+    //     grants nothing on another. A record whose keys refuse the chain keeps
+    //     its gated terms hidden; the refusal is journaled, never reported. The
+    //     holder is the RFC 9421 signer's key from the HTTP proof of step 2,
+    //     which stays separate from the delegation result. On a query a Broker
+    //     originated the Broker signs alone, so nothing can pass the holder
+    //     binding: the delegation is not honoured, and the query is answered
+    //     as if none were present. A token over the size limit never gets
+    //     here: step 1 refused the request.
+    grants := map[string]*helpers.VerifiedDelegation{} // subscription record ID -> verified grant
+    if direct && requester.GetDelegation() != nil {
+        holder, err := helpers.Thumbprint(verified.PublicKey)
+        if err != nil {
+            return nil, connect.NewError(connect.CodeInternal, err)
+        }
+        for _, record := range h.subscriptions.RecordsForTenant(ctx, tenantCfg.ID) {
+            grant, err := helpers.VerifyDelegation(helpers.DelegationInput{
+                Token:          requester.GetDelegation().GetToken(),
+                TrustedIssuers: record.TrustedIssuers,
+                Audience:       tenantCfg.Identity,
+                Holder:         holder,
+                Now:            h.clock.Now(),
+            })
+            if err != nil {
+                h.journal.DelegationRefused(ctx, record.ID, err)
+                continue
+            }
+            grants[record.ID] = grant
+        }
+    }
+
     // 4. Application-level abuse check (optional — volumetric rate limiting is at infra layer)
     // The Exchange MAY return 429 for application-level abuse, e.g., query-to-transaction
     // ratio too low (agent discovering but never buying). Volumetric rate limiting (per-IP,
@@ -160,17 +174,14 @@ func (h *ExchangeHandler) DiscoverResources(
     // 5. Catalog lookup (lock-free read, scope-filtered)
     //    A non-gated term is filtered by requester.scopes, the requester's own
     //    statement — terms outside the stated scopes are not returned. A gated
-    //    term (a subscription term) is presented only when the verified
-    //    delegation's effective scopes cover it, by the one matching rule on
-    //    Requester.scopes; requester.scopes is ignored for gated terms. A query
-    //    with no verified delegation — a query a Broker originated among them
-    //    (2c) — is answered as if the gated terms did not exist. A gated offer
-    //    expires no later than verified.ExpiresAt.
-    var verifiedScopes []string
-    if verified != nil {
-        verifiedScopes = verified.Scopes
-    }
-    offers, err := h.catalog.FindOffers(ctx, tenantCfg.ID, req.Msg.Uris, requester.Scopes, verifiedScopes)
+    //    term (a subscription term) is presented only when the grant verified
+    //    under the term's own subscription record covers the term's scopes, by
+    //    the one matching rule on Requester.scopes; requester.scopes is ignored
+    //    for it, and a record with no grant — every record on a query a Broker
+    //    originated (3b) — keeps its gated terms hidden, as if they did not
+    //    exist. The catalog bounds each gated offer's expires_at by its grant's
+    //    ExpiresAt, so the offer never outlives the chain.
+    offers, err := h.catalog.FindOffers(ctx, tenantCfg.ID, req.Msg.Uris, requester.Scopes, grants)
     if err != nil {
         return nil, connect.NewError(connect.CodeInternal, err)
     }
@@ -200,17 +211,17 @@ func (h *ExchangeHandler) DiscoverResources(
             subOffer := proto.Clone(offer).(*forav1.Offer)
             // A subscription variant is a distinct offer, so it gets a fresh
             // opaque offer_id — never one derived from the base offer's id.
-            subOffer.OfferId = "offer-" + ulid.Make().String()
+            subOffer.OfferId = "offer-" + newOpaqueID()
             subOffer.SubscriptionId = proto.String(subStatus.SubscriptionID)
             subOffer.Pricing = &forav1.Pricing{
-                Model:           offer.Pricing.Model,
-                Rate:            0, // zero marginal cost under subscription
-                Currency:        offer.Pricing.Currency,
-                UnitCost:          proto.Float64(0),
+                Model:             offer.Pricing.Model,
+                Rate:              "0", // zero marginal cost under subscription; money is a decimal string
+                Currency:          offer.Pricing.Currency,
+                UnitCost:          proto.String("0"),
                 EstimatedQuantity: offer.Pricing.EstimatedQuantity,
             }
             // Populate SubscriptionQuotaInfo for proactive quota signaling
-            subOffer.SubscriptionQuota = h.billing.GetSubscriptionQuota(
+            subOffer.SubscriptionQuota = h.billing.SubscriptionQuota(
                 ctx, subStatus.SubscriptionID, tenantCfg.ID,
             )
             subOffers = append(subOffers, subOffer)

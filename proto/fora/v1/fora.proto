@@ -2958,7 +2958,7 @@ enum DenialReason {
   // is denied and the whole request is not refused.
   DENIAL_REASON_SIGNATURE_INVALID = 8;
   DENIAL_REASON_QUOTA_EXCEEDED = 9;       // Subscription access count exhausted for this period
-  DENIAL_REASON_DELEGATION_INVALID = 10;  // Delegation missing, oversized, malformed, unverifiable (chain linkage, issuer, signature), expired or not yet valid, addressed to another recipient, holder binding failed, a child widens its parent, or scopes/caps do not cover the request
+  DENIAL_REASON_DELEGATION_INVALID = 10;  // On a purchase item: delegation missing, malformed, unverifiable (chain linkage, issuer, signature), expired or not yet valid, addressed to another recipient, holder binding failed, a child widens its parent, or scopes/caps do not cover the request. A token over the size limit is refused at wire validation, before any item; at discovery a failed delegation hides the gated terms and reports nothing
   // DEPRECATED, never sent. An Exchange MUST NOT send this value. An offer the
   // Exchange presented is honoured until it expires, so a purchase is never
   // refused for scope. A resource the requester's scopes leave with no

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -166,6 +167,23 @@ func buildDelegationChains(t *testing.T) []chainCase {
 			e.Mirrors = &chainMirrors{Issuer: "attacker.example", PrincipalDomain: "attacker.example", Scopes: []string{"*"}, ExpiresAt: "2099-01-01T00:00:00Z"}
 		}),
 	}
+	// Raw-byte syntax cases: a valid signature over bytes the JSON marshaller
+	// never produces, so only the syntax checks can refuse them.
+	rawHeader := `{"alg":"EdDSA","typ":"fora-delegation+jwt"}`
+	rawPayload := `{"iss":"` + iss + `","aud":["exchange.example"],"exp":` + fmt.Sprintf("%d", int64(exp)) + `,"scope":"quote:*","cnf":{"jkt":"` + holder + `"}}`
+	rawGood := signCompactRaw(issuer, rawHeader, rawPayload)
+	cases = append(cases,
+		c("raw_baseline", "the raw-signed root every raw syntax case starts from", rawGood, ok([]string{"quote:*"}, 1)),
+		c("payload_trailing_object", "a second JSON object after the claims object, under a valid signature", signCompactRaw(issuer, rawHeader, rawPayload+` {"scope":"*"}`), fail(DelegationMalformed)),
+		c("payload_trailing_text", "text after the claims object, under a valid signature", signCompactRaw(issuer, rawHeader, rawPayload+`junk`), fail(DelegationMalformed)),
+		c("payload_not_object", "a JSON array as payload", signCompactRaw(issuer, rawHeader, `[1]`), fail(DelegationMalformed)),
+		c("header_b64_false", "RFC 7797 b64:false without crit", signCompactRaw(issuer, `{"alg":"EdDSA","typ":"fora-delegation+jwt","b64":false}`, rawPayload), fail(DelegationMalformed)),
+		c("signature_crlf", "CR LF appended to the signature segment", rawGood+"\r\n", fail(DelegationMalformed)),
+		c("signature_padded", "a padding character in the signature segment", rawGood+"=", fail(DelegationMalformed)),
+		c("exp_beyond_numeric_date_range", "exp 1e100 is finite but no date the profile can return", signCompactRaw(issuer, rawHeader, strings.Replace(rawPayload, fmt.Sprintf("%d", int64(exp)), "1e100", 1)), fail(DelegationBadClaim)),
+		c("exp_negative", "", signCompactRaw(issuer, rawHeader, strings.Replace(rawPayload, fmt.Sprintf("%d", int64(exp)), "-1", 1)), fail(DelegationBadClaim)),
+		c("exp_at_numeric_date_max", "253402300799 is the last accepted second", signCompactRaw(issuer, rawHeader, strings.Replace(rawPayload, fmt.Sprintf("%d", int64(exp)), "253402300799", 1)), okAt([]string{"quote:*"}, 1, time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC))),
+	)
 	cases = append(cases, documentedChains(t)...)
 	return cases
 }
