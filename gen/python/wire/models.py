@@ -179,7 +179,7 @@ class Delegation(WireModel):
     )
     revocation_uri: str | None = Field(
         None,
-        description='Optional: URI for real-time revocation checking.\n Exchange MAY check this for high-value transactions.\n Not checked for routine low-value access (performance tradeoff).',
+        description='Informational. Revocation lookup is not part of the delegation profile:\n the verifier never fetches this URI. A chain is invalidated early by\n withdrawing the configured root key.',
     )
     scopes: list[str] | None = Field(
         None,

@@ -13,15 +13,16 @@ A university AI research agent needs 50 academic papers for a literature review 
 |---|---|---|---|
 | **arXiv** | Open Access (Gold) | 12 | Free |
 | **University subscription** | Institutional deal via Elsevier | 20 | $0.00 (subscription) |
-| **Elsevier** (no subscription) | Paywalled | 17 | $1.50/article |
+| **Elsevier** (outside the subscription) | Paywalled | 2 | $1.50/article |
+| **Springer Nature** | Paywalled | 15 | $1.50/article |
 | **Springer Nature** | Paywalled, retracted | 1 | $1.50/article (flagged) |
 
-The agent carries a delegation JWT from the university, granting `academic:*` scope, and states the university's subscription scope in its requests. The Broker resolves DOIs via OpenAlex, discovers Exchanges via `fora.json`, and uses the `fora-academic-v1` extension profile to access version, OA status, and retraction metadata.
+The agent carries a delegation JWT from the university, granting `academic:*` and the subscription scope `subscription:inst-sub-stanford-2026`. The subscription term is gated behind that delegation, and the Exchange honors a delegation only on a request the agent signs itself, so the agent queries the Exchange directly for the papers the Broker found only at a price. The Broker resolves DOIs via OpenAlex, discovers Exchanges via `fora.json`, and uses the `fora-academic-v1` extension profile to access version, OA status, and retraction metadata.
 
-**Six-step flow:**
+**Seven-step flow:**
 
 ```
-Discovery → ResourceQuery → ResourceResponse → Broker Selection → Batch ExecuteTransaction → ReportUsage
+Discovery → ResourceQuery (Broker-led) → ResourceResponse → Direct ResourceQuery with the delegation → Broker Selection → Batch ExecuteTransaction → ReportUsage
 ```
 
 ---
@@ -94,9 +95,9 @@ All three publishers route through the same academic aggregator Exchange (`excha
 
 ---
 
-## Step 2 — ResourceQuery
+## Step 2 — ResourceQuery (Broker-led)
 
-The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris`. The `Requester` states the agent's scopes, the university's subscription scope among them, and carries the university's delegation token (the shared chain case `docs_walkthrough_academic`), which the Exchange does not honour on a query the Broker originated (see below). The query declares support for `fora-academic-v1` so the Exchange includes version, OA status, and retraction metadata in its response.
+The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris`. The `Requester` states the agent's scopes, the university's subscription scope among them, and carries the university's delegation token (the shared chain case `docs_walkthrough_academic`), which the Exchange does not honor on a query the Broker originated (see below). The query declares support for `fora-academic-v1` so the Exchange includes version, OA status, and retraction metadata in its response.
 
 `POST https://exchange.scholarsgate.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
@@ -115,9 +116,9 @@ The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris
     "delegation": {
       "principal_domain": "stanford.edu",
       "principal_id": "inst-sub-stanford-2026",
-      "scopes": ["academic:*"],
+      "scopes": ["academic:*", "subscription:inst-sub-stanford-2026"],
       "expires_at": "2026-12-31T23:59:59Z",
-      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVjMk5vYjJ4aGNuTm5ZWFJsTG1OdmJTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVFWTk9hVUZGVTNOUWNYVTNaRmhOTlRoTU5rTmhiMHRzVEdSRlZWaE1WRzVpVUVwcmFFaHBhbDk1UlNKOUxDSmxlSEFpT2pFM09UZzNOakUxT1Rrc0ltbHpjeUk2SW5OMFlXNW1iM0prTG1Wa2RTSXNJbXAwYVNJNkltbHVjM1F0YzNWaUxYTjBZVzVtYjNKa0xUSXdNall0TURFNU15SXNJbk5qYjNCbElqb2lZV05oWkdWdGFXTTZLaUlzSW5OMVlpSTZJbWx1YzNRdGMzVmlMWE4wWVc1bWIzSmtMVEl3TWpZaWZRLnAxN05DOHdnbFVBTW42cEhMWlVxUzZQMXUxTHh3RW9QTmpmTFRYU2JFOUZCZHN3SW9IaFJhdTBPdEcwMENiYkZWSUprN0lGU2swa2dWZUpxamhsakFR",
+      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVjMk5vYjJ4aGNuTm5ZWFJsTG1OdmJTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVFWTk9hVUZGVTNOUWNYVTNaRmhOTlRoTU5rTmhiMHRzVEdSRlZWaE1WRzVpVUVwcmFFaHBhbDk1UlNKOUxDSmxlSEFpT2pFM09UZzNOakUxT1Rrc0ltbHpjeUk2SW5OMFlXNW1iM0prTG1Wa2RTSXNJbXAwYVNJNkltbHVjM1F0YzNWaUxYTjBZVzVtYjNKa0xUSXdNall0TURFNU15SXNJbk5qYjNCbElqb2lZV05oWkdWdGFXTTZLaUJ6ZFdKelkzSnBjSFJwYjI0NmFXNXpkQzF6ZFdJdGMzUmhibVp2Y21RdE1qQXlOaUlzSW5OMVlpSTZJbWx1YzNRdGMzVmlMWE4wWVc1bWIzSmtMVEl3TWpZaWZRLnExb3RueTVnM092WWxnOHpyUUU2aUNZZFd4eEltT0pmNjRyMDRyNVowUGFZWTY5blRVWF9NWHpCcUZmcDVIWjRaTTQ1bWt1eDZBY2RWeVJVbHJQX0N3",
       "token_format": "jwt"
     }
   },
@@ -181,7 +182,7 @@ The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris
 **Key fields in this request:**
 
 - **`ResourceQuery.uris`** — 50 DOIs in `doi:` URI scheme. The Exchange resolves these against its catalog. DOIs are the universal dedup key for academic content: the same paper on arXiv and Elsevier shares the same DOI (or is linked via `academic.related_works`).
-- **`requester.scopes`** — the agent's own statement: `academic:*` for full academic access, and `subscription:inst-sub-stanford-2026` for the university's subscription. The Exchange does not verify them. It presents each term whose scopes they cover, so the subscription term, which carries `subscription:inst-sub-stanford-2026`, is presented.
+- **`requester.scopes`** — the agent's own statement: `academic:*` for full academic access, and `subscription:inst-sub-stanford-2026` for the university's subscription. The Exchange does not verify them, and they decide only which non-gated terms are presented. The subscription term is gated behind a verified delegation, so stating its scope does not present it ([Scope-Based Access](/protocol/authentication/#scope-based-access)).
 - **`delegation`** — A root token in the [delegation profile](/protocol/authentication/#delegation), signed by `stanford.edu`'s Ed25519 key. Decoded, its header and claims contain:
   ```json
   // protected header
@@ -192,20 +193,20 @@ The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris
     "sub": "inst-sub-stanford-2026",
     "aud": ["exchange.scholarsgate.com"],
     "jti": "inst-sub-stanford-2026-0193",
-    "scope": "academic:*",
+    "scope": "academic:* subscription:inst-sub-stanford-2026",
     "exp": 1798761599,
     "cnf": { "jkt": "ASNiAESsPqu7dXM58L6CaoKlLdEUXLTnbPJkhHij_yE" }
   }
   ```
   The monthly access quota is not a token claim: the Exchange meters it on the subscription record and reports it in `subscription_quota`.
-  On this query the Exchange does not honour the delegation: the Broker originated the query and signs it alone, so nothing on it can pass the holder binding, and the Exchange answers as if no delegation were present ([Which signature binds in a brokered request](/protocol/authentication/#verification)). The agent's direct purchase in Step 5 verifies it instead, offline and with no call to Stanford. An Exchange that requires a verified delegation before it presents a scoped term would omit the subscription term from this answer, as if it did not exist; the agent would then query the Exchange directly, signing the query itself, with a delegation that grants the subscription scope.
+  On this query the Exchange does not honor the delegation: the Broker originated the query and signs it alone, so nothing on it can pass the holder binding, and the Exchange answers as if no delegation were present ([Which signature binds in a brokered request](/protocol/authentication/#verification)). The subscription term is therefore hidden from this answer, as if it did not exist. In Step 4 the agent queries the Exchange directly, signing the query itself, and the delegation is verified there, offline and with no call to Stanford.
 - **`supported_profiles`** — `["fora-academic-v1"]` tells the Exchange to include academic-specific `ext` fields (OA status, version, retraction status) and attestation claims. Without this declaration, the Exchange MAY skip expensive metadata computation like retraction checking.
 
 ---
 
 ## Step 3 — ResourceResponse
 
-The Exchange resolves all 50 DOIs against its catalog, presents the terms the stated scopes cover, the institutional subscription term among them, and returns 50 `OfferGroup` entries. Below are representative examples from each category — the full response contains all 50 groups.
+The Exchange resolves all 50 DOIs against its catalog, presents the non-gated terms the stated scopes cover, and returns 50 `OfferGroup` entries. The institutional subscription term is gated behind a verified delegation, and the Exchange honors none on this query, so the 20 Elsevier papers under Stanford's subscription come back with their paid offer, exactly as for a requester with no subscription. Below are representative examples from each category — the full response contains all 50 groups.
 
 ```json
 {
@@ -291,18 +292,17 @@ The Exchange resolves all 50 DOIs against its catalog, presents the terms the st
       "uri": "doi:10.1016/j.media.2024.103250",
       "offers": [
         {
-          "offer_id": "ba9b114a-1e5b-473c-886c-4b9ac9b89a9d",
+          "offer_id": "5d1f3c0a-8b64-4e2f-9a7d-2c6e41b0f9e3",
           "exchange": "exchange.scholarsgate.com",
           "title": "TransUNet++: Rethinking Multi-Scale Feature Fusion for Medical Image Segmentation",
           "pricing": {
-            "model": "PRICING_MODEL_FREE",
-            "rate": "0",
+            "model": "PRICING_MODEL_PER_UNIT",
+            "rate": "1.50",
             "currency": "USD",
-            "unit_cost": "0",
-            "estimated_quantity": 15200,
-            "unit": "tokens"
+            "unit_cost": "0.0000987",
+            "estimated_quantity": 1,
+            "unit": "accesses"
           },
-          "subscription_id": "inst-sub-stanford-2026",
           "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
           "reporting": {
             "required": true,
@@ -343,21 +343,10 @@ The Exchange resolves all 50 DOIs against its catalog, presents the terms the st
                   "permitted": ["ai-input", "search"],
                   "prohibited": ["ai-train"]
                 }
-              ],
-              "scopes": ["subscription:inst-sub-stanford-2026"]
+              ]
             }
           ],
-          "subscription_quota": [
-            {
-              "subscription_id": "inst-sub-stanford-2026",
-              "quota_limit": 100000,
-              "quota_used": 23480,
-              "quota_remaining": 76520,
-              "resets_at": "2026-04-01T00:00:00Z",
-              "unit": "accesses"
-            }
-          ],
-          "signature": "base64-ed25519-elsevier-sub-offer-sig...",
+          "signature": "base64-ed25519-elsevier-paid-offer-sig...",
           "signature_algorithm": "EdDSA",
           "ext": {
             "comp.package_id": "PKG-ELSEVIER-MEDIA-103250",
@@ -541,13 +530,12 @@ The Exchange resolves all 50 DOIs against its catalog, presents the terms the st
 
 ### Offer Categories
 
-The Exchange classified each of the 50 DOIs into one of four categories based on the publisher's access model and the scopes the requester stated:
+The Exchange classified each of the 50 DOIs into one of three categories based on the publisher's access model; the subscription term cannot appear on this query:
 
 | Category | Count | Pricing Model | Rate | Key Signal |
 |---|---|---|---|---|
 | **Free OA (arXiv)** | 12 | `PRICING_MODEL_FREE` | $0.00 | `academic.oa_status: "gold"`, `academic.version: "preprint"` |
-| **Subscription (Elsevier)** | 20 | subscription (FREE + subscription scope) | $0.00 | `subscription_id: "inst-sub-stanford-2026"` |
-| **Paid (Springer + Elsevier)** | 17 | `PRICING_MODEL_PER_UNIT` | $1.50 | No subscription match, `academic.oa_status: "closed"` |
+| **Paid (Elsevier + Springer)** | 37 | `PRICING_MODEL_PER_UNIT` | $1.50 | `academic.oa_status: "closed"`; 20 of them are under Stanford's subscription, which this query cannot show |
 | **Retracted (Springer)** | 1 | `PRICING_MODEL_PER_UNIT` | $1.50 | `academic.retraction_status: "retracted"` in `ext_critical` |
 
 ### Extension Profile Fields (`fora-academic-v1`)
@@ -575,25 +563,199 @@ Every offer carries a `ResourceIdentity` with:
 - **`content_hash`** — SHA-256 hash for post-delivery verification. Because `resource_mutability` is `RESOURCE_MUTABILITY_STATIC` for all academic papers (published articles do not change — corrections and retractions create new resources), the agent SHOULD verify the hash on delivery.
 - **`canonical_url`** — The publisher's authoritative URL. Different from the DOI URI but resolves to the same resource.
 
+## Step 4 — Direct ResourceQuery with the delegation
+
+The Broker's answer prices 37 papers at $1.50, and Stanford's subscription covers 20 of them. The Exchange presents the subscription term only to a requester whose delegation it has verified, and verification needs the agent's own signature on the request. The agent therefore sends a second `ResourceQuery` directly to ScholarsGate, signed with its own key and carrying the same delegation, for the 37 DOIs the Broker found only at a price.
+
+`POST https://exchange.scholarsgate.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
+
+{/* delegation-chain: docs_walkthrough_academic */}
+{/* fora-validate: ResourceQuery */}
+```json
+{
+  "ver": "1.0",
+  "exchange": "exchange.scholarsgate.com",
+  "requester": {
+    "id": "litrev-agent",
+    "domain": "cs.stanford.edu",
+    "type": "REQUESTER_TYPE_AGENT",
+    "name": "Stanford CS Literature Review Agent",
+    "scopes": ["academic:*", "subscription:inst-sub-stanford-2026"],
+    "delegation": {
+      "principal_domain": "stanford.edu",
+      "principal_id": "inst-sub-stanford-2026",
+      "scopes": ["academic:*", "subscription:inst-sub-stanford-2026"],
+      "expires_at": "2026-12-31T23:59:59Z",
+      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVjMk5vYjJ4aGNuTm5ZWFJsTG1OdmJTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVFWTk9hVUZGVTNOUWNYVTNaRmhOTlRoTU5rTmhiMHRzVEdSRlZWaE1WRzVpVUVwcmFFaHBhbDk1UlNKOUxDSmxlSEFpT2pFM09UZzNOakUxT1Rrc0ltbHpjeUk2SW5OMFlXNW1iM0prTG1Wa2RTSXNJbXAwYVNJNkltbHVjM1F0YzNWaUxYTjBZVzVtYjNKa0xUSXdNall0TURFNU15SXNJbk5qYjNCbElqb2lZV05oWkdWdGFXTTZLaUJ6ZFdKelkzSnBjSFJwYjI0NmFXNXpkQzF6ZFdJdGMzUmhibVp2Y21RdE1qQXlOaUlzSW5OMVlpSTZJbWx1YzNRdGMzVmlMWE4wWVc1bWIzSmtMVEl3TWpZaWZRLnExb3RueTVnM092WWxnOHpyUUU2aUNZZFd4eEltT0pmNjRyMDRyNVowUGFZWTY5blRVWF9NWHpCcUZmcDVIWjRaTTQ1bWt1eDZBY2RWeVJVbHJQX0N3",
+      "token_format": "jwt"
+    }
+  },
+  "uris": [
+    "doi:10.1016/j.media.2024.103250",
+    "doi:10.1016/j.media.2024.103178",
+    "doi:10.1016/j.media.2024.103095",
+    "doi:10.1016/j.media.2023.103012",
+    "doi:10.1016/j.media.2023.102956",
+    "doi:10.1016/j.media.2023.102891",
+    "doi:10.1016/j.media.2023.102834",
+    "doi:10.1016/j.media.2023.102770",
+    "doi:10.1016/j.media.2022.102689",
+    "doi:10.1016/j.media.2022.102615",
+    "doi:10.1016/j.media.2022.102542",
+    "doi:10.1016/j.media.2022.102478",
+    "doi:10.1016/j.media.2022.102410",
+    "doi:10.1016/j.media.2021.102345",
+    "doi:10.1016/j.media.2021.102287",
+    "doi:10.1016/j.media.2021.102219",
+    "doi:10.1016/j.media.2021.102154",
+    "doi:10.1038/s41592-024-02401-5",
+    "doi:10.1038/s41592-024-02318-0",
+    "doi:10.1038/s41592-024-02245-7",
+    "doi:10.1038/s41592-023-02112-4",
+    "doi:10.1038/s41592-023-02038-1",
+    "doi:10.1038/s41592-023-01975-3",
+    "doi:10.1038/s41592-023-01901-x",
+    "doi:10.1038/s41592-023-01847-2",
+    "doi:10.1038/s41592-022-01789-5",
+    "doi:10.1038/s41592-022-01714-6",
+    "doi:10.1038/s41592-022-01648-3",
+    "doi:10.1038/s41592-022-01581-5",
+    "doi:10.1038/s41592-022-01517-1",
+    "doi:10.1038/s41592-021-01389-9",
+    "doi:10.1038/s41592-021-01312-y",
+    "doi:10.1016/j.media.2024.103301",
+    "doi:10.1016/j.media.2024.103267",
+    "doi:10.1016/j.media.2023.103189",
+    "doi:10.1016/j.media.2023.103145",
+    "doi:10.1016/j.media.2023.103078"
+  ],
+  "acceptable_restrictions": [{ "axis": "RESTRICTION_KIND_FUNCTION", "values": ["ai-input"] }],
+  "supported_profiles": ["fora-academic-v1"]
+}
+```
+
+This request is direct, so the Exchange verifies the delegation as [Verification](/protocol/authentication/#verification) describes, with the key configured for `stanford.edu` on the subscription record. The key that signed the request (RFC 9421) hashes to the token's `cnf.jkt`, so the holder binding passes. The effective scopes the verifier returns, `academic:*` and `subscription:inst-sub-stanford-2026`, cover the subscription term's scope, so for each of the 20 covered DOIs the response carries the subscription offer next to the paid one from Step 3. The 17 papers outside the subscription come back exactly as in Step 3. One covered DOI:
+
+```json
+{
+  "ver": "1.0",
+  "exchange": "exchange.scholarsgate.com",
+  "offer_groups": [
+    {
+      "uri": "doi:10.1016/j.media.2024.103250",
+      "offers": [
+        {
+          "offer_id": "ba9b114a-1e5b-473c-886c-4b9ac9b89a9d",
+          "exchange": "exchange.scholarsgate.com",
+          "title": "TransUNet++: Rethinking Multi-Scale Feature Fusion for Medical Image Segmentation",
+          "pricing": {
+            "model": "PRICING_MODEL_FREE",
+            "rate": "0",
+            "currency": "USD",
+            "unit_cost": "0",
+            "estimated_quantity": 15200,
+            "unit": "tokens"
+          },
+          "subscription_id": "inst-sub-stanford-2026",
+          "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
+          "reporting": {
+            "required": true,
+            "window": "86400s",
+            "required_fields": ["consumed_quantity"]
+          },
+          "identity": {
+            "canonical_url": "https://www.sciencedirect.com/science/article/pii/S1361841524001250",
+            "doi": "10.1016/j.media.2024.103250",
+            "content_hash": "sha256:b2c3d4e5f6a789012345678bcdefa0123456789abcdef0123456789abcdef02",
+            "hash_method": "sha256",
+            "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
+          },
+          "attestations": [
+            {
+              "verifier": "elsevier.com",
+              "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
+              "attested_at": "2026-03-10T06:00:00Z",
+              "uri": "doi:10.1016/j.media.2024.103250",
+              "claims": {
+                "estimated_quantity": 15200,
+                "word_count": 11500,
+                "language": "en",
+                "academic.oa_status": "closed",
+                "academic.version": "vor",
+                "academic.retraction_status": "active",
+                "academic.peer_review_status": "peer_reviewed"
+              },
+              "signature": "base64-ed25519-elsevier-self-attestation..."
+            }
+          ],
+          "terms": [
+            {
+              "semantics": "TERM_SEMANTICS_ENUMERATED",
+              "restrictions": [
+                {
+                  "kind": "RESTRICTION_KIND_FUNCTION",
+                  "permitted": ["ai-input", "search"],
+                  "prohibited": ["ai-train"]
+                }
+              ],
+              "scopes": ["subscription:inst-sub-stanford-2026"]
+            }
+          ],
+          "subscription_quota": [
+            {
+              "subscription_id": "inst-sub-stanford-2026",
+              "quota_limit": 100000,
+              "quota_used": 23480,
+              "quota_remaining": 76520,
+              "resets_at": "2026-04-01T00:00:00Z",
+              "unit": "accesses"
+            }
+          ],
+          "signature": "base64-ed25519-elsevier-sub-offer-sig...",
+          "signature_algorithm": "EdDSA",
+          "ext": {
+            "comp.package_id": "PKG-ELSEVIER-MEDIA-103250",
+            "comp.seller": "elsevier.com",
+            "comp.citation_required": true,
+            "comp.retrieval_type": ["RETRIEVAL_TYPE_PDF", "RETRIEVAL_TYPE_XML"],
+            "academic.oa_status": "closed",
+            "academic.version": "vor",
+            "academic.journal": "Medical Image Analysis",
+            "academic.issn": "1361-8415",
+            "academic.publisher": "Elsevier"
+          }
+        }
+      ]
+    }
+  ],
+  "rate_limit": {
+    "limit": 100,
+    "remaining": 93,
+    "reset_at": "2026-03-20T13:00:00Z",
+    "window": "3600s"
+  }
+}
+```
+
 ### Subscription Detection
 
 For the 20 Elsevier papers covered by Stanford's institutional subscription:
-- subscription (FREE + subscription scope): `pricing.model` is `PRICING_MODEL_FREE` with `rate: 0`, and the term carries `scopes: ["subscription:inst-sub-stanford-2026"]`
+- the subscription offer is `PRICING_MODEL_FREE` with `rate: 0`, and its term carries `scopes: ["subscription:inst-sub-stanford-2026"]`
 - `subscription_id` matches the delegation JWT's `principal_id` (`inst-sub-stanford-2026`)
 - `subscription_quota` shows remaining capacity (76,520 of 100,000 accesses this period)
-- The Exchange presented the term on the stated scope alone; the agent's direct purchase in Step 5 verifies the delegation's JWT chain offline, with no call to Stanford's identity provider
+- the Exchange presented the term because the verified delegation's effective scopes cover it; the stated `requester.scopes` play no part for a gated term, and the delegation was verified offline, with no call to Stanford's identity provider
 
 ---
 
-## Step 4 — Broker Selection
+## Step 5 — Broker Selection
 
-The Broker applies a cost-minimization strategy across all 50 OfferGroups:
+The agent hands the direct answer from Step 4 to the Broker, which applies a cost-minimization strategy across all 50 OfferGroups, with the 20 subscription offers in place of the paid Elsevier offers for those DOIs:
 
 ### Selection Rules
 
 1. **Exclude retracted papers** — The retracted paper is flagged to the research agent. The agent decides whether to exclude it from the review or include it with a retraction annotation.
 2. **Prefer free OA** — 12 arXiv papers at $0.00 each.
-3. **Prefer subscription** — 20 Elsevier papers at $0.00 each (institutional deal).
+3. **Prefer subscription** — 20 Elsevier papers at $0.00 each (the subscription offers from Step 4).
 4. **Cheapest paid for the rest** — 17 papers at $1.50 each from Springer and Elsevier (no subscription coverage).
 
 ### Cost Summary
@@ -614,7 +776,7 @@ The Broker also flags the retracted paper to the agent:
 
 ---
 
-## Step 5 — Batch ExecuteTransaction
+## Step 6 — Batch ExecuteTransaction
 
 The research agent commits to all 49 selected offers in a single batch `TransactionRequest`, sent directly to the Exchange and signed by the agent: every selected offer is from ScholarsGate. Through the Broker it would send the same request, with each item's `agent_acceptance` and the request's `agent_request_acceptance`, to `BrokerService.ExecuteTransaction`, and the Broker would re-package it for the Exchange and sign that request alone (see [Buying through a Broker](/protocol/transaction-flow/#buying-through-a-broker)). Each item carries the full signed `offer`, reflected back exactly as received at discovery (stateless verification — the Exchange does not need to store offers).
 
@@ -634,9 +796,9 @@ The research agent commits to all 49 selected offers in a single batch `Transact
     "delegation": {
       "principal_domain": "stanford.edu",
       "principal_id": "inst-sub-stanford-2026",
-      "scopes": ["academic:*"],
+      "scopes": ["academic:*", "subscription:inst-sub-stanford-2026"],
       "expires_at": "2026-12-31T23:59:59Z",
-      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVjMk5vYjJ4aGNuTm5ZWFJsTG1OdmJTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVFWTk9hVUZGVTNOUWNYVTNaRmhOTlRoTU5rTmhiMHRzVEdSRlZWaE1WRzVpVUVwcmFFaHBhbDk1UlNKOUxDSmxlSEFpT2pFM09UZzNOakUxT1Rrc0ltbHpjeUk2SW5OMFlXNW1iM0prTG1Wa2RTSXNJbXAwYVNJNkltbHVjM1F0YzNWaUxYTjBZVzVtYjNKa0xUSXdNall0TURFNU15SXNJbk5qYjNCbElqb2lZV05oWkdWdGFXTTZLaUlzSW5OMVlpSTZJbWx1YzNRdGMzVmlMWE4wWVc1bWIzSmtMVEl3TWpZaWZRLnAxN05DOHdnbFVBTW42cEhMWlVxUzZQMXUxTHh3RW9QTmpmTFRYU2JFOUZCZHN3SW9IaFJhdTBPdEcwMENiYkZWSUprN0lGU2swa2dWZUpxamhsakFR",
+      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVjMk5vYjJ4aGNuTm5ZWFJsTG1OdmJTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVFWTk9hVUZGVTNOUWNYVTNaRmhOTlRoTU5rTmhiMHRzVEdSRlZWaE1WRzVpVUVwcmFFaHBhbDk1UlNKOUxDSmxlSEFpT2pFM09UZzNOakUxT1Rrc0ltbHpjeUk2SW5OMFlXNW1iM0prTG1Wa2RTSXNJbXAwYVNJNkltbHVjM1F0YzNWaUxYTjBZVzVtYjNKa0xUSXdNall0TURFNU15SXNJbk5qYjNCbElqb2lZV05oWkdWdGFXTTZLaUJ6ZFdKelkzSnBjSFJwYjI0NmFXNXpkQzF6ZFdJdGMzUmhibVp2Y21RdE1qQXlOaUlzSW5OMVlpSTZJbWx1YzNRdGMzVmlMWE4wWVc1bWIzSmtMVEl3TWpZaWZRLnExb3RueTVnM092WWxnOHpyUUU2aUNZZFd4eEltT0pmNjRyMDRyNVowUGFZWTY5blRVWF9NWHpCcUZmcDVIWjRaTTQ1bWt1eDZBY2RWeVJVbHJQX0N3",
       "token_format": "jwt"
     }
   },
@@ -708,15 +870,15 @@ The research agent commits to all 49 selected offers in a single batch `Transact
 }
 ```
 
-*(Abbreviated: 2 of 49 items shown. The remaining 47 follow the same shape — each carries the full signed Offer reflected back: 12 arXiv (free), 18 more Elsevier (subscription), 15 Springer + 2 Elsevier (paid).)*
+*(Abbreviated: 2 of 49 items shown. The remaining 47 follow the same shape — each carries the full signed Offer reflected back: 11 more arXiv (free), 19 more Elsevier (subscription), 15 Springer + 2 Elsevier (paid).)*
 
 The Exchange processes all 49 items in a single batch:
 
 1. **Signature verification** — verifies each item's `offer.signature` is its own Ed25519 signature over the reflected Offer (stateless, no stored offers).
 2. **Agent authentication** — verifies the request's RFC 9421 HTTP Message Signature (alg=ed25519, carried in the HTTP headers) against the agent's public key published in the WBA directory at `cs.stanford.edu/.well-known/http-message-signatures-directory`.
-3. **Delegation verification** — verifies the chain for the 20 subscription items with the key configured for `stanford.edu` on the subscription record, checks `aud` names this Exchange and `cnf.jkt` is the agent's request key, and confirms the effective scope `academic:*` covers the subscription term. For this gated term the stated scopes are ignored.
+3. **Delegation verification** — verifies the chain again for the 20 subscription items, as in Step 4: the key configured for `stanford.edu` on the subscription record, `aud` naming this Exchange, `cnf.jkt` equal to the agent's request key, and effective scopes that cover the subscription term. For this gated term the stated scopes are ignored.
 4. **Balance check** — confirms the account of the `cs.stanford.edu` key directory has sufficient balance ($25.50 for 17 paid items); `litrev-agent` is only a label and selects no account.
-5. **Quota check** — confirms 49 accesses fit within the subscription's remaining quota (76,520).
+5. **Quota check** — confirms the 20 subscription accesses fit within the subscription's remaining quota (76,520).
 6. **WAL write** — records all 49 transactions in the write-ahead log before generating signed URLs (write-before-sign invariant).
 7. **Signed URL generation** — generates 49 Ed25519 signed URLs, each binding `agent_id`.
 
@@ -812,7 +974,7 @@ The agent then fetches all 49 PDFs via the signed URLs. For each paper, because 
 
 ---
 
-## Step 6 — ReportUsage
+## Step 7 — ReportUsage
 
 Usage reporting is mandatory for all 49 transactions. A usage report settles one transaction, so the agent files one report per transaction: 49 reports. Each report states consumption in the unit of that item's offer. The 12 arXiv and 20 Elsevier subscription offers are priced in `tokens`, so their reports carry token counts. The 17 paid offers are priced per access, so each of their reports carries one access. Here is the report for the paid CellViT paper:
 
@@ -866,15 +1028,16 @@ Response:
 | Step | RPC | Free OA (12) | Subscription (20) | Paid (17) | Retracted (1) |
 |------|-----|---|---|---|---|
 | 1 | -- | `fora.json` discovery | `fora.json` discovery | `fora.json` discovery | `fora.json` discovery |
-| 2 | `DiscoverResources` (Broker-led) | `Requester` stating `academic:*` | Stated subscription scope covers the term; delegation JWT not honoured | Same | Same |
-| 3 | -- | Offers at $0, `oa_status: "gold"` | Offers at $0, `subscription_id` set | Offers at $1.50 | Offer with `retraction_status: "retracted"` in `ext_critical` |
-| 4 | -- | Broker selects (free) | Broker selects (free via sub) | Broker selects (cheapest) | Broker flags and excludes |
-| 5 | `ExecuteTransaction` | Batch, cost $0 | Batch, cost $0, sub quota decremented | Batch, cost $1.50/ea | Not transacted |
-| 6 | `ReportUsage` | One report per transaction, in tokens | One report per transaction, in tokens | One report per transaction, 1 access each | No report |
+| 2 | `DiscoverResources` (Broker-led) | `Requester` stating `academic:*` | Subscription term hidden: the delegation is not honored on the Broker's query | Same | Same |
+| 3 | -- | Offers at $0, `oa_status: "gold"` | Paid offers at $1.50 only | Offers at $1.50 | Offer with `retraction_status: "retracted"` in `ext_critical` |
+| 4 | `DiscoverResources` (direct, with the delegation) | -- | Delegation verified; offers at $0, `subscription_id` set | Unchanged, $1.50 | -- |
+| 5 | -- | Broker selects (free) | Broker selects (free via sub) | Broker selects (cheapest) | Broker flags and excludes |
+| 6 | `ExecuteTransaction` | Batch, cost $0 | Batch, cost $0, sub quota decremented | Batch, cost $1.50/ea | Not transacted |
+| 7 | `ReportUsage` | One report per transaction, in tokens | One report per transaction, in tokens | One report per transaction, 1 access each | No report |
 
 **Authentication at every step:**
 - **Agent to Exchange**: signed with an RFC 9421 HTTP Message Signature (alg=ed25519) in the HTTP headers
-- **Institutional delegation**: delegation JWT signed by `stanford.edu`'s Ed25519 key, holder-of-key bound via `cnf.jkt` (offline-verifiable), verified on the agent's direct purchase and not honoured on the Broker's query
+- **Institutional delegation**: delegation JWT signed by `stanford.edu`'s Ed25519 key, holder-of-key bound via `cnf.jkt` (offline-verifiable), verified on the agent's direct query and direct purchase, not honored on the Broker's query
 - **Exchange to Agent**: `exchange_signature` on each Offer (Ed25519, stateless verification)
 - **Signed URLs**: Ed25519 (Exchange-signed, publicly verifiable, agent identity bound)
 - **Content integrity**: SHA-256 hash verification on all 49 delivered PDFs (`RESOURCE_MUTABILITY_STATIC`)
@@ -882,7 +1045,7 @@ Response:
 **Key academic-specific capabilities demonstrated:**
 - **DOI as universal dedup key** -- cross-exchange resource identification
 - **Mixed pricing in single batch** -- FREE + subscription (FREE + subscription scope) + PER_UNIT in one transaction
-- **Institutional subscription** -- presented on the stated subscription scope; the delegation JWT is verified offline at purchase, no call to Stanford
+- **Institutional subscription** -- hidden on the Broker's query, presented on the agent's direct query once the delegation JWT is verified offline, no call to Stanford
 - **Retraction flagging via `ext_critical`** -- consumers MUST understand retraction semantics or reject
 - **`fora-academic-v1` profile** -- OA status, version lifecycle, peer review status, retraction metadata
 - **Aggregator as Exchange** -- one Exchange serves content from multiple publishers

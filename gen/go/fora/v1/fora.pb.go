@@ -4685,68 +4685,27 @@ func (x *Requester) GetExtCritical() []string {
 
 // Delegation — Scoped, time-limited, spend-capped credential.
 //
-// The token is a signed JWT (token_format "jwt"); the field stays open for a
-// future format. Its claims are the AUTHORITATIVE source of the grant; the
-// plaintext fields below (scopes, expires_at, max_spend_cents, …) are a mirror
-// the Exchange MAY use for fast pre-filtering before it verifies the token. A
-// mirror establishes nothing: it cannot grant a scope, extend validity or
-// raise a cap beyond what the signed chain says. The normative profile — chain
-// encoding, protected header, claims, clock leeway, issuer and audience rules
-// — is the "Delegation" section of the authentication page; the Go SDK
-// verifier (sdk/go/helpers) and the shared vectors are derived from it.
+// The token is a signed JWT (token_format "jwt"; the field stays open for a
+// future format) carrying a holder-bound delegation chain. Its claims are the
+// AUTHORITATIVE source of the grant; the plaintext fields below (scopes,
+// expires_at, max_spend_cents, …) are a mirror the Exchange MAY use for fast
+// pre-filtering before it verifies the token. A mirror establishes nothing: it
+// cannot grant a scope, extend validity or raise a cap beyond what the signed
+// chain says.
 //
-// Holder binding (the load-bearing property). The grant is bound to a holder key
-// via the RFC 7800 `cnf` confirmation claim — `cnf.jkt`, the RFC 7638 JWK
-// thumbprint of the holder's key. Verification MUST check that the key signing
-// the request (RFC 9421) hashes to that thumbprint; a token possessed without
-// the matching private key is rejected. This is what makes a leaked token NOT
-// bearer-usable. One exception, the relayed purchase: when a Broker re-packages
-// a purchase (BrokerService.ExecuteTransaction), the request an Exchange
-// receives is signed by the Broker, not by the holder. There the Exchange checks
-// the holder binding against the key each item's AgentAcceptance verifies under
-// — the agent's key, resolved from the requester's WBA directory — and not
-// against the request signer. A relayed purchase that carries a delegation
-// therefore needs an AgentAcceptance on every item; an item without one fails
-// the binding (DENIAL_REASON_DELEGATION_INVALID). On a query a Broker
-// originated (Broker-led discovery), the Broker signs alone, so a delegation on
-// it cannot pass holder binding: the Exchange does not honour it and answers
-// as if none were present. How an agent proves a holder-of-key entitlement at
-// discovery time through a Broker is an open protocol question. An Exchange
-// that requires a verified delegation before it presents a scoped term (see
-// LicenseTerm.scopes) therefore presents no such term on that query.
-//
-// Delegation is a chain of cnf-linked JWTs: a principal narrows a grant by
-// issuing a child JWT (cnf = the next holder, scopes covered by the parent's,
-// exp no later than the parent's), signed by the key the parent's cnf named —
-// the chain-linkage invariant. The chain is nested inside one token: every
-// child carries its complete signed parent in the `fora_parent` claim and its
-// own signing key in the protected `jwk` header; the root carries neither. At
-// most four tokens, and the complete token is at most 32768 bytes (the wire
-// rule on `token`). Verifiers need only the root issuer's key, which is
-// CONFIGURED, never discovered: no OIDC discovery, no JWKS fetch, no key taken
-// from the token itself. Verification is offline.
-//
-// Every token requires the protected header `typ` "fora-delegation+jwt" and
-// `alg` "EdDSA" or "Ed25519" with an Ed25519 key, and the claims `iss`, `aud`,
-// `cnf.jkt` and a finite `exp`; `nbf` is honoured when present and `jti` is
-// recommended. The root's `iss` is the identity configured with the trusted
-// key; a child's `iss` is the RFC 7638 thumbprint of its own signing key, which
-// is the parent's `cnf.jkt`. A claim the profile does not list is a
-// restriction the verifier cannot evaluate and is rejected (fail closed);
-// vendor metadata travels inside the signed `fora_advisory` object, which the
-// verifier does not interpret and which cannot carry the name of a profile
-// claim. Restrictions are inherited: omitting a cap on a child does not remove
-// the parent's, and a parent's cap bounds all descendants together.
-//
-// For a term an Exchange gates behind a verified delegation, only the chain's
-// verified effective scopes decide whether the term is presented; the
-// requester's own stated scopes (Requester.scopes) are ignored for that term.
-// A gated offer MUST NOT expire later than the chain's effective expiry, the
-// earliest `exp` in the chain, which the verifier returns without leeway.
-//
-// Scope/time/spend caps are defense-in-depth that bound the blast radius only in
-// the residual case where the holder's signing key is also compromised; the
-// primary protection against theft is the holder binding above.
+// The profile — chain encoding and limits, protected header, claims, clock
+// leeway, issuer, audience and holder-binding rules, the verification
+// procedure and the outcome of each failure — is the "Delegation" section of
+// the authentication page and is not restated here; the Go SDK verifier
+// (sdk/go/helpers) and the shared chain cases are derived from it. What a
+// field reader must know: the grant is bound to a holder key by `cnf.jkt`, and
+// the key a request proves possession of MUST hash to the terminal token's
+// `cnf.jkt` (the RFC 9421 request signer on a direct call; on a purchase a
+// Broker relayed, the key each item's AgentAcceptance verifies under), so a
+// token possessed without its private key grants nothing. On a query a Broker
+// originated nothing can pass that binding: the Exchange does not honour the
+// delegation, answers as if none were present, and presents no term gated
+// behind one (see LicenseTerm.scopes).
 type Delegation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Mirror of the ROOT token's `iss`, the configured trust anchor's identity.
@@ -4784,9 +4743,9 @@ type Delegation struct {
 	// Token format: "jwt" (default). Empty is treated as "jwt". The field stays
 	// open for a future format.
 	TokenFormat string `protobuf:"bytes,7,opt,name=token_format,json=tokenFormat,proto3" json:"token_format,omitempty"`
-	// Optional: URI for real-time revocation checking.
-	// Exchange MAY check this for high-value transactions.
-	// Not checked for routine low-value access (performance tradeoff).
+	// Informational. Revocation lookup is not part of the delegation profile:
+	// the verifier never fetches this URI. A chain is invalidated early by
+	// withdrawing the configured root key.
 	RevocationUri *string `protobuf:"bytes,8,opt,name=revocation_uri,json=revocationUri,proto3,oneof" json:"revocation_uri,omitempty"`
 	// Mirror of the ROOT token's `iss`, the identity configured with the trusted
 	// key (never an intermediate or terminal issuer). Informational: the

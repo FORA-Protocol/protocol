@@ -164,7 +164,7 @@ The token is carried in the `Delegation` message, nested inside `Requester`:
 | `max_spend_cents` | `int64` (optional) | Maximum spend in currency minor units (e.g. cents for USD) |
 | `token` | `bytes` | The complete chain as one compact JWS, at most 32768 bytes (a wire rule, `bytes.max_len`) |
 | `token_format` | `string` | Token format: `"jwt"` (the sole/default format) |
-| `revocation_uri` | `string` (optional) | URI for real-time revocation checking (high-value transactions) |
+| `revocation_uri` | `string` (optional) | Informational. Revocation lookup is not part of this profile; a chain is invalidated early by withdrawing the configured key (see [Verification](#verification)) |
 | `max_accesses` | `int32` (optional) | Maximum number of accesses allowed under this delegation. Exchange tracks count and denies with `DENIAL_REASON_QUOTA_EXCEEDED` when count >= limit. |
 | `quota_period` | `Duration` (optional) | How often access/spend counters reset. E.g., `"2592000s"` (30 days) for monthly subscriptions — proto-JSON encodes `Duration` as seconds. When absent, quota is lifetime (bounded only by `expires_at`). |
 | `issuer` | `string` (optional) | Mirror of the root token's `iss`, the configured trust anchor's identity. Informational: no key is ever looked up from it |

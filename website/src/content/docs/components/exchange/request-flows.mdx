@@ -353,17 +353,12 @@ sigs := helpers.AllSignaturesFromContext(ctx)
 
 ### Delegation Verification
 
-When `Requester.delegation` is present, the Exchange verifies the delegation JWT chain before honouring it:
+When `Requester.delegation` is present, the Exchange runs the chain through the profile's verifier before honoring it. The procedure, the limits and the outcome of each failure are stated once, in [Verification](/protocol/authentication/#verification). What the handler supplies and does:
 
-1. Refuse a `token` over 32768 bytes at wire validation; otherwise read it as one compact JWS and walk `fora_parent` inward to the root, at most four tokens deep
-2. Verify the Ed25519 signature chain — the root with the key configured for its `iss` on the subscription record (never a key fetched from `principal_domain`), each child with the key in its protected `jwk` header, which must hash to the parent's `cnf.jkt` (chain-linkage invariant)
-3. Verify holder binding — the key that signed the RFC 9421 request MUST hash to the last token's `cnf.jkt`. On a purchase sub-request a Broker re-packaged, the request signer is the Broker, so compare the key each item's `AgentAcceptance` verifies under instead. On a query a Broker originated nothing can pass this check, so the delegation is not verified or honoured there, and the query is answered as if none were present
-4. Check headers, claims, audience and time on every token — `typ`, `alg`, the required claims, `aud` naming this Exchange, `exp` and `nbf` with the 60-second leeway — and that each child narrows its parent's scopes, audiences and expiry
-5. Take the effective scopes and the effective expiry from the verified chain. For a gated term, those scopes alone decide; `Requester.scopes` is ignored
-6. Issue a gated offer that expires no later than the effective expiry
-7. Optionally check `revocation_uri` for high-value transactions
-
-See [Authentication](/protocol/authentication/) for the full delegation model.
+1. The trusted root keys come from the subscription record that owns the gated term, never from `principal_domain` or a fetched directory
+2. The holder is the key the request proved: the RFC 9421 request signer on a direct call, the key each item's `AgentAcceptance` verifies under on a purchase a Broker relayed. On a query a Broker originated nothing can pass this check, so the delegation is not verified or honored there, and the query is answered as if none were present
+3. For a gated term, the effective scopes the verifier returns alone decide; `Requester.scopes` is ignored
+4. A gated offer expires no later than the effective expiry the verifier returns
 
 ### Provider Trust Verification
 

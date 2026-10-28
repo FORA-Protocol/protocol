@@ -414,11 +414,11 @@ The `delegation.token` is a root token in the [delegation profile](/protocol/aut
 }
 ```
 
-The Exchange verifies the chain as [Verification](/protocol/authentication/#verification) describes:
-1. **Signature check** — the root token verifies with the Ed25519 key the Exchange has configured for the issuer `marketdata.example.com` on the subscription record. Nothing is fetched: trust is configured, and a key not on the record verifies nothing. This proves MarketData actually issued this delegation.
-2. **Audience and time** — `aud` names `exchange.marketdata-data.com`, and `exp` is in the future (with a 60-second leeway). The verifier returns the effective expiry, and the subscription offer expires no later than it.
-3. **Holder binding** — the key that signed the request (RFC 9421) MUST hash to the last `cnf.jkt`, so a stolen token is useless without the matching private key.
-4. **Scope matching** — the subscription term's scopes (`subscription:enterprise-sub-HF-001`) are covered by the effective scopes the verifier returns. For this gated term the Exchange reads scopes from the verified delegation only and ignores the scopes the request states ([Scope-Based Access](/protocol/authentication/#scope-based-access)).
+The Exchange verifies the chain as [Verification](/protocol/authentication/#verification) describes. What that means for this request:
+1. **Trust is configured** — the root token verifies with the Ed25519 key the Exchange has configured for the issuer `marketdata.example.com` on the subscription record. Nothing is fetched, and a key not on the record verifies nothing. This proves MarketData actually issued this delegation.
+2. **Holder binding** — the key that signed this request (RFC 9421) hashes to the token's `cnf.jkt`, so a stolen token is useless without the matching private key.
+3. **Scope matching** — the subscription term's scopes (`subscription:enterprise-sub-HF-001`) are covered by the effective scopes the verifier returns. For this gated term the Exchange reads scopes from the verified delegation only and ignores the scopes the request states ([Scope-Based Access](/protocol/authentication/#scope-based-access)).
+4. **Effective expiry** — the verifier returns the token's `exp` as the effective expiry, and the subscription offer expires no later than it.
 5. **No network call to MarketData** — delegation tokens are offline-verifiable. MarketData does not need to be online or queried. This is the key property that makes delegation scale.
 
 **Narrowing the grant**: If the hedge fund wanted to restrict its agent further (e.g., limit to NVDA earnings only, for a shorter time), it issues a child token — signed by the principal key named in the root's `cnf`, bound to the agent's key, carrying the complete root in `fora_parent` — without going back to MarketData:

@@ -28,8 +28,9 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
   gated offer's expiry. `Delegation.issuer` and `Delegation.principal_domain` mirror
   the root's `iss` and establish nothing. For a term gated behind a verified
   delegation the Exchange reads scopes from the chain only and ignores
-  `Requester.scopes`. The tokens the documentation shows are real and verified by a
-  conformance test.
+  `Requester.scopes`. Revocation lookup through `Delegation.revocation_uri` is not part
+  of the profile: withdrawing a configured key is how a chain is invalidated early. The
+  tokens the documentation shows are real and verified by a conformance test.
 
 **Wire**
 
