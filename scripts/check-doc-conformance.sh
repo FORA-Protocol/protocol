@@ -261,13 +261,10 @@ fi
 # remark-proto guard forbids re-introducing a hand-typed copy. The grep here would
 # only have searched the directive source, not the rendered values.)
 
-# Delegation-claim registry guard. The registered JWT claims are
-# named `fora_<field>` where <field> is a Delegation proto field. Self-extending:
-# derive the registered claim names straight from the auth registry (the only
-# place `fora_` underscored identifiers appear) and assert each maps to a real
-# field on the Delegation proto message — so a typo'd or orphaned registry claim
-# fails the build, and a newly-registered claim is checked automatically with no
-# hardcoded list to drift.
+# Delegation-claim registry guard. Apart from the two JWT-only claims below,
+# registered claims are named `fora_<field>` for a Delegation proto field.
+# Derive claim names from the authentication page and require each remaining
+# claim to map to a real field, so typos and orphaned mirror claims fail the build.
 # Scope the field lookup to the Delegation message body only — grepping the whole
 # proto would falsely accept e.g. `fora_offer_id` (offer_id exists on
 # TransactionItem, not Delegation).
@@ -276,6 +273,10 @@ claim_n=0
 while read -r claim; do
   [ -z "$claim" ] && continue
   claim_n=$((claim_n + 1))
+  # Chain structure and advisory metadata live only inside the signed token.
+  case "$claim" in
+    fora_parent|fora_advisory) continue ;;
+  esac
   field=${claim#fora_}
   # Defensive: only [a-z_] field names are expected. Reject anything else rather
   # than interpolate it into the grep pattern below, so a future change to the
