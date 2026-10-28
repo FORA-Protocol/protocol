@@ -81,7 +81,8 @@ type DelegationInput struct {
 	// of: the RFC 9421 request key on a direct call, the AgentAcceptance key on
 	// a purchase a Broker relayed.
 	Holder string
-	// Now is the clock reading every token is checked against.
+	// Now is the clock reading every token is checked against. A zero Now
+	// means time.Now(); an explicitly supplied Now is used as given.
 	Now time.Time
 }
 
@@ -282,7 +283,12 @@ func VerifyDelegation(in DelegationInput) (*VerifiedDelegation, error) {
 	}
 
 	// Time, then attenuation against the parent, then audience, on every token.
-	now := float64(in.Now.UnixNano()) / 1e9
+	// The clock is read once so every token is judged against the same instant.
+	clock := in.Now
+	if clock.IsZero() {
+		clock = time.Now()
+	}
+	now := float64(clock.Unix()) + float64(clock.Nanosecond())/1e9
 	leeway := DelegationClockLeeway.Seconds()
 	want := normalizeDomain(in.Audience)
 	earliest := math.Inf(1)

@@ -257,6 +257,14 @@ func TestVerifyDelegation_LeewayBoundaries(t *testing.T) {
 	}
 }
 
+func TestVerifyDelegation_ZeroNowIsTheCurrentTime(t *testing.T) {
+	expired := float64(time.Now().Add(-365 * 24 * time.Hour).Unix())
+	in := dInput(t, mintChain(t, []ed25519.PrivateKey{dIssuerPriv}, dHolderPub, "marketdata.example", dAud, "quote:*", expired, []tokenSpec{{}}))
+	in.Now = time.Time{}
+	_, err := VerifyDelegation(in)
+	wantFailure(t, err, DelegationExpired)
+}
+
 func TestVerifyDelegation_BadAudienceConfiguration(t *testing.T) {
 	in := dInput(t, "a.b.c")
 	in.Audience = "https://exchange.example"

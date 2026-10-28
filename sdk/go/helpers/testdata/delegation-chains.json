@@ -1,4 +1,5 @@
 {
+  "note": "Signed delegation chain cases with declared outcomes; regenerate with FORA_UPDATE_VECTORS=1 in sdk/go/helpers. expect.token_index is 0 when the refusal is found while decoding, before the chain depth is known (size, syntax, header and claim checks), otherwise the root-relative position, 1 for the root. mirrors are the plaintext Delegation fields next to the token; only an Exchange's own tests replay them, nothing in the protocol repository reads them.",
   "cases": [
     {
       "name": "root_only_eddsa",
@@ -164,6 +165,24 @@
       }
     },
     {
+      "name": "five_tokens_fifth_malformed",
+      "note": "the fifth token is not a compact JWS; depth is counted before it would be decoded, so the outcome is too_deep, not malformed",
+      "token": "eyJhbGciOiJFZERTQSIsImp3ayI6eyJjcnYiOiJFZDI1NTE5Iiwia3R5IjoiT0tQIiwieCI6InZ1bzlQNXl0WEZXQ1l0alBVZTZndGhPQ0tjb3ZJd1ZUaExEOEZuWlREQkUifSwidHlwIjoiZm9yYS1kZWxlZ2F0aW9uK2p3dCJ9.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9LCJleHAiOjE3ODAzMTg4MDAsImZvcmFfcGFyZW50IjoiZXlKaGJHY2lPaUpGWkVSVFFTSXNJbXAzYXlJNmV5SmpjbllpT2lKRlpESTFOVEU1SWl3aWEzUjVJam9pVDB0UUlpd2llQ0k2SW04d09FaHFRVjlYT1RNNVkySmpkV3hOVWtwTmMyNDNkM0ZVU2tGUU5uWkthV0o2WVRsRWVqbDBVVFFpZlN3aWRIbHdJam9pWm05eVlTMWtaV3hsWjJGMGFXOXVLMnAzZENKOS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVJuSXRUbU5IYWtaNVNUWmhOazR6VUVKdlJrb3lOM04yUjJWdFdubGtOSFZuTUVkc1ZWOWxUMjFOT0NKOUxDSmxlSEFpT2pFM09EQXpNVGc0TURBc0ltWnZjbUZmY0dGeVpXNTBJam9pWlhsS2FHSkhZMmxQYVVwR1drVlNWRkZUU1hOSmJYQXpZWGxKTm1WNVNtcGpibGxwVDJsS1JscEVTVEZPVkVVMVNXbDNhV0V6VWpWSmFtOXBWREIwVVVscGQybGxRMGsyU1c1c1IwMUdUbXRqVlhneVVqSmFOVk5HV1RCVVJtUnZWRVV3ZEZvd01UUk9NMHBSV2pFNVRWUllhR0ZUTTBKM1UyMVNXazR5TlZOa2JHdHBabE4zYVdSSWJIZEphbTlwV20wNWVWbFRNV3RhVjNoc1dqSkdNR0ZYT1hWTE1uQXpaRU5LT1M1bGVVcG9aRmRSYVU5c2MybGFXR2hxWVVkR2RWb3lWWFZhV0dob1lsaENjMXBUU21STVEwcHFZbTFaYVU5dWMybGhiWFF3U1dwdmFVNVlVa05TUms0elZqTkNNMUpXT1d0aGJVWmFZMWQ0Y2xGdFVsTlVhMW8yVkdwYVNGb3pjRWhUYld4WVlucFNhRnBWYXpSWmExSlhWbE5LT1V4RFNteGxTRUZwVDJwRk0wOUVRWHBOVkdjMFRVUkJjMGx0V25aamJVWm1ZMGRHZVZwWE5UQkphbTlwV2xoc1MyRkhTa2haTW14UVlWVndSMWRyVmxOV1JrWlVVMWhPU21Kc1NURlpNRTVLVG10c2RGZHVXbXBpVlZZd1YydGtWMk14Y0ZoYVIyaHJVako0TWxsdGJEQmpWMUY2VlZkc2JWVlROV3hsVlhCdldrWmtVbUZWT1hOak1teGhWMGRvY1ZsVlpFZGtWbTk1VmxoV1lWZEhhRzlaYkdoRFl6RndWRk50VWsxUk1IQnhXVzB4V21GVk9YVmpNbXhvWWxoUmQxTlhjSFpoVm1SSVZXcE9XbGRGY0VaVWExWXpaREF4VjFGc2NFOWlSVnBvVkZWb1UyRkZNVFpSYmtKcFlUQndUbFZxVG1GV1ZUVlZXa2hDYTFKVVJsWldNVlp6WVRBeGNtRkVXbEpOTUZwVVZXeE9TMDlWZUVSVGJYaHNVMFZHY0ZReWNFWk5NRGxGVVZod1RsWkhZekJVVlZKQ1l6QnNkRmR1V21waVZWcHRXVEJrUjJWV2NGaE9WRUpLWVcwNWNGbHRNRFZOUlhoWVVsaFNXazFxYkRCWk1HUkhZVzFTUkUxWVJtdE5NREZ3VkVWT1MyTkhUWHBVVjJ4UVlWVndNRmRXYUV0amJIQlpWVzEwV2xkR1NtOVVSekZYVGtac1dFMVlaR2xTTVZad1ZFVk9TMlZzYTNsUFdHUmhWVEJyTWxOWE5VZE5WMGw2VlcxNFVHRlhPWEJhYkVWMVpEQTFTR1F6WjNoUFIzUjNVMjA1YVdOWWFFWldWV3h1WW5wU2IweFhjREpUTUZWNVlXdGpNbVZZU25GVFNGa3dZek5XUTFaVVFrMU9iRGxwVFcxU1VHTkhOV2xVYm1oNVlsZDBabFl5TVZsWk1uQkVVMnhOZVdSRlNqRmFWWGh6VVZWa05XSnVWa2hhU0Zac1ZETm9lbEZWUldsTVEwcHdZek5OYVU5cFNsbGFTR1JvWTJ0Uk1GUkVRWGhWUm1zeVZWWnZkMlJIUlhwTlIyeDFVV3Q0U0dSc1VURk9NbXd3VkZaU1dsTlhVWGxUU0hCRVkxWktSa2xwZDJsak1rNTJZMGRWYVU5cFNuaGtWemt3V2xSdmNVbHVNQzVoU1V0NmVqSTBjMDlPTTAxeFZFRnJXVlZ5U0d0SlpVYzFlbXBuYm1adWR5MTZXRlpmU1ZOMVFqSmtOVGxRWDNaellrVnBWVVZxY1RGblozTkZWa1JVWXpSbFZsUkpTR0pmZDJkNVJtTlVRbEk0VlhGQ2R5SXNJbWx6Y3lJNklqVjBRa1JUZDFkd2QwVmZaR3BoV1hGc2EwSmtVazVHZWs0MlIyZDZSMHBwVjI4MFlXVkpPR0pFVmxVaUxDSnpZMjl3WlNJNkluRjFiM1JsT2lvaWZRLktVXzYtaEcwVGYxczdNRmRNRDY5bzk2SE5yVE1kbUsyQTRpLXQ2aktwUUt3QUJzZEs3QmFac2taTWtqeXhPX1F3bFZ3X1lKd0JHYzd2cWxYaXdwY0J3IiwiaXNzIjoiRnItTmNHakZ5STZhNk4zUEJvRkoyN3N2R2VtWnlkNHVnMEdsVV9lT21NOCIsInNjb3BlIjoicXVvdGU6KiJ9.2wGABtn6HWIcMcnv1uWrgeJonLc19j1OrGFJ94qUd1MKvmrLRBRsimTg8-e9rMxjPVYCfkZGVFJJp_l94j8tCg",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "too_deep"
+      }
+    },
+    {
       "name": "jti_present",
       "note": "jti is recommended and checked for shape only",
       "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9LCJleHAiOjE3ODAzMTg4MDAsImlzcyI6Im1hcmtldGRhdGEuZXhhbXBsZSIsImp0aSI6Im1kLTIwMjYtMDAwNDgxIiwic2NvcGUiOiJxdW90ZToqIn0.Ml16C75OaEql47jolG1GGwjEZsYfOz0DJneedtnLUhDM1Pbsd1Z_Bb5GvABBbclqXKsAFotAmSVtdZ382Q-wDQ",
@@ -227,6 +246,42 @@
       "name": "typ_wrong_on_child",
       "note": "typ JWT on a child",
       "token": "eyJhbGciOiJFZERTQSIsImp3ayI6eyJjcnYiOiJFZDI1NTE5Iiwia3R5IjoiT0tQIiwieCI6InlGMFNkcUx2R2Z5SFY0TFdoTE0tZ014N3JQZ19MTXhaS3BwSmRZN25SdlkifSwidHlwIjoiSldUIn0.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9LCJleHAiOjE3ODAzMTg4MDAsImZvcmFfcGFyZW50IjoiZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVdHUjNZWEpFTkV3d01WQlpObEZhTUhSaE16QnBia0pNUjNaVU5UZHBkRTFVV1Vsa01raDZRM0ZTUlNKOUxDSmxlSEFpT2pFM09EQXpNVGc0TURBc0ltbHpjeUk2SW0xaGNtdGxkR1JoZEdFdVpYaGhiWEJzWlNJc0luTmpiM0JsSWpvaWNYVnZkR1U2S2lKOS5va0dIanBoMHFCZTFvMnZSNmZ4UmEyRkdScnh0Qi1hVHZnTU1yODBZQXliV0hpMjRpOEhvLUZnSzRxWTl6ZGZUV0lrajhNem1jRnhTWG53eFBDTG9BZyIsImlzcyI6Ilhkd2FyRDRMMDFQWTZRWjB0YTMwaW5CTEd2VDU3aXRNVFlJZDJIekNxUkUiLCJzY29wZSI6InF1b3RlOioifQ.9UhS2CIqbQjQ148WOW56ztDM4bXTjvStKrDIuhLn5KhLt062ZcngqFGczdy3iLZU4Md6HroCiI-t1jmXppSHAA",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "bad_typ"
+      }
+    },
+    {
+      "name": "root_typ_wrong_under_child",
+      "note": "typ JWT on the root under a valid child: every token's header is checked",
+      "token": "eyJhbGciOiJFZERTQSIsImp3ayI6eyJjcnYiOiJFZDI1NTE5Iiwia3R5IjoiT0tQIiwieCI6InlGMFNkcUx2R2Z5SFY0TFdoTE0tZ014N3JQZ19MTXhaS3BwSmRZN25SdlkifSwidHlwIjoiZm9yYS1kZWxlZ2F0aW9uK2p3dCJ9.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9LCJleHAiOjE3ODAzMTg4MDAsImZvcmFfcGFyZW50IjoiZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNklrcFhWQ0o5LmV5SmhkV1FpT2xzaVpYaGphR0Z1WjJVdVpYaGhiWEJzWlNKZExDSmpibVlpT25zaWFtdDBJam9pV0dSM1lYSkVORXd3TVZCWk5sRmFNSFJoTXpCcGJrSk1SM1pVTlRkcGRFMVVXVWxrTWtoNlEzRlNSU0o5TENKbGVIQWlPakUzT0RBek1UZzRNREFzSW1semN5STZJbTFoY210bGRHUmhkR0V1WlhoaGJYQnNaU0lzSW5OamIzQmxJam9pY1hWdmRHVTZLaUo5Ll9WQklldTFOQVBsMUlLVnlSNkRhczNMbmdXcG8zWDNnSUJ4Y00yUGY3T2xGR3l2SWU2N0dLeFQ2enVNZGJZU1ZCdnNHUFY3WTNEem9aRm8tNWlFd0F3IiwiaXNzIjoiWGR3YXJENEwwMVBZNlFaMHRhMzBpbkJMR3ZUNTdpdE1UWUlkMkh6Q3FSRSIsInNjb3BlIjoicXVvdGU6KiJ9.Wi01--_tsrMPHd_MjTrRj9TGgULmjwbiKLirAMjF7y4_JwltXr-Le7UCDRdFAb_h6wOzqzBzxlOKl9L-dvsnBQ",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "bad_typ"
+      }
+    },
+    {
+      "name": "middle_typ_wrong",
+      "note": "typ JWT on the middle token of three",
+      "token": "eyJhbGciOiJFZERTQSIsImp3ayI6eyJjcnYiOiJFZDI1NTE5Iiwia3R5IjoiT0tQIiwieCI6Im8wOEhqQV9XOTM5Y2JjdWxNUkpNc243d3FUSkFQNnZKaWJ6YTlEejl0UTQifSwidHlwIjoiZm9yYS1kZWxlZ2F0aW9uK2p3dCJ9.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9LCJleHAiOjE3ODAzMTg4MDAsImZvcmFfcGFyZW50IjoiZXlKaGJHY2lPaUpGWkVSVFFTSXNJbXAzYXlJNmV5SmpjbllpT2lKRlpESTFOVEU1SWl3aWEzUjVJam9pVDB0UUlpd2llQ0k2SW5sR01GTmtjVXgyUjJaNVNGWTBURmRvVEUwdFowMTROM0pRWjE5TVRYaGFTM0J3U21SWk4yNVNkbGtpZlN3aWRIbHdJam9pU2xkVUluMC5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaU5YUkNSRk4zVjNCM1JWOWthbUZaY1d4clFtUlNUa1o2VGpaSFozcEhTbWxYYnpSaFpVazRZa1JXVlNKOUxDSmxlSEFpT2pFM09EQXpNVGc0TURBc0ltWnZjbUZmY0dGeVpXNTBJam9pWlhsS2FHSkhZMmxQYVVwR1drVlNWRkZUU1hOSmJsSTFZME5KTmtsdFduWmpiVVYwV2tkV2MxcFhaR2hrUjJ4MlltbDBjV1F6VVdsbVVTNWxlVXBvWkZkUmFVOXNjMmxhV0docVlVZEdkVm95VlhWYVdHaG9ZbGhDYzFwVFNtUk1RMHBxWW0xWmFVOXVjMmxoYlhRd1NXcHZhVmRIVWpOWldFcEZUa1YzZDAxV1FscE9iRVpoVFVoU2FFMTZRbkJpYTBwTlVqTmFWVTVVWkhCa1JURlZWMVZzYTAxcmFEWlJNMFpUVWxOS09VeERTbXhsU0VGcFQycEZNMDlFUVhwTlZHYzBUVVJCYzBsdGJIcGplVWsyU1cweGFHTnRkR3hrUjFKb1pFZEZkVnBZYUdoaVdFSnpXbE5KYzBsdVRtcGlNMEpzU1dwdmFXTllWblprUjFVMlMybEtPUzV2YTBkSWFuQm9NSEZDWlRGdk1uWlNObVo0VW1FeVJrZFNjbmgwUWkxaFZIWm5UVTF5T0RCWlFYbGlWMGhwTWpScE9FaHZMVVpuU3pSeFdUbDZaR1pVVjBscmFqaE5lbTFqUm5oVFdHNTNlRkJEVEc5Qlp5SXNJbWx6Y3lJNklsaGtkMkZ5UkRSTU1ERlFXVFpSV2pCMFlUTXdhVzVDVEVkMlZEVTNhWFJOVkZsSlpESklla054VWtVaUxDSnpZMjl3WlNJNkluRjFiM1JsT2lvaWZRLlBONlBBRVNKSkhFVk44bl9sazI1UUVTY2RTN3RzdXFwTTJKazEzWXBmQ2hpU0NLUUxsTExuNHg3cXk2bWZpWnRTOVFlLTNVTUtLNm9mbVA3OHRGY0NnIiwiaXNzIjoiNXRCRFN3V3B3RV9kamFZcWxrQmRSTkZ6TjZHZ3pHSmlXbzRhZUk4YkRWVSIsInNjb3BlIjoicXVvdGU6KiJ9.KK-VgzKx8InnZNg85gOW_JoHbA11SceEwgRGhnnYkPYXWppkMfpYJ2pggxXETJxgUMXlm6ARmsolQwoD5SqjBg",
       "trusted": [
         {
           "identity": "marketdata.example",
@@ -424,7 +479,8 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "expired"
+        "failure": "expired",
+        "token_index": 1
       }
     },
     {
@@ -466,7 +522,46 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "not_yet_valid"
+        "failure": "not_yet_valid",
+        "token_index": 1
+      }
+    },
+    {
+      "name": "root_nbf_beyond_leeway",
+      "note": "nbf on the root only, under a valid child: time is checked on every token",
+      "token": "eyJhbGciOiJFZERTQSIsImp3ayI6eyJjcnYiOiJFZDI1NTE5Iiwia3R5IjoiT0tQIiwieCI6InlGMFNkcUx2R2Z5SFY0TFdoTE0tZ014N3JQZ19MTXhaS3BwSmRZN25SdlkifSwidHlwIjoiZm9yYS1kZWxlZ2F0aW9uK2p3dCJ9.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9LCJleHAiOjE3ODAzMTg4MDAsImZvcmFfcGFyZW50IjoiZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVdHUjNZWEpFTkV3d01WQlpObEZhTUhSaE16QnBia0pNUjNaVU5UZHBkRTFVV1Vsa01raDZRM0ZTUlNKOUxDSmxlSEFpT2pFM09EQXpNVGc0TURBc0ltbHpjeUk2SW0xaGNtdGxkR1JoZEdFdVpYaGhiWEJzWlNJc0ltNWlaaUk2TVRjNE1ETXhOVEkyTVN3aWMyTnZjR1VpT2lKeGRXOTBaVG9xSW4wLnJBSXdMeGQtVG15WG9kN1RoQVZzUmtPdEVQNk5TNVQ3emJyWHVuTURHNXZVYzJqbEVRY2dvWE85S1N6LUFhZEdQMWpNZjMwZnJWUGJPUFNPVmtSQ0RRIiwiaXNzIjoiWGR3YXJENEwwMVBZNlFaMHRhMzBpbkJMR3ZUNTdpdE1UWUlkMkh6Q3FSRSIsInNjb3BlIjoicXVvdGU6KiJ9.nwPJq3y19H9NRSI-zviovv3b2v2eokc_HkDAJ_gsUw2aIjcuuL-STxk7k5bQuXvWxLiT2-o1CKHTXS30W1MZBA",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "not_yet_valid",
+        "token_index": 1
+      }
+    },
+    {
+      "name": "middle_nbf_beyond_leeway",
+      "note": "nbf on the middle token of three",
+      "token": "eyJhbGciOiJFZERTQSIsImp3ayI6eyJjcnYiOiJFZDI1NTE5Iiwia3R5IjoiT0tQIiwieCI6Im8wOEhqQV9XOTM5Y2JjdWxNUkpNc243d3FUSkFQNnZKaWJ6YTlEejl0UTQifSwidHlwIjoiZm9yYS1kZWxlZ2F0aW9uK2p3dCJ9.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9LCJleHAiOjE3ODAzMTg4MDAsImZvcmFfcGFyZW50IjoiZXlKaGJHY2lPaUpGWkVSVFFTSXNJbXAzYXlJNmV5SmpjbllpT2lKRlpESTFOVEU1SWl3aWEzUjVJam9pVDB0UUlpd2llQ0k2SW5sR01GTmtjVXgyUjJaNVNGWTBURmRvVEUwdFowMTROM0pRWjE5TVRYaGFTM0J3U21SWk4yNVNkbGtpZlN3aWRIbHdJam9pWm05eVlTMWtaV3hsWjJGMGFXOXVLMnAzZENKOS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaU5YUkNSRk4zVjNCM1JWOWthbUZaY1d4clFtUlNUa1o2VGpaSFozcEhTbWxYYnpSaFpVazRZa1JXVlNKOUxDSmxlSEFpT2pFM09EQXpNVGc0TURBc0ltWnZjbUZmY0dGeVpXNTBJam9pWlhsS2FHSkhZMmxQYVVwR1drVlNWRkZUU1hOSmJsSTFZME5KTmtsdFduWmpiVVYwV2tkV2MxcFhaR2hrUjJ4MlltbDBjV1F6VVdsbVVTNWxlVXBvWkZkUmFVOXNjMmxhV0docVlVZEdkVm95VlhWYVdHaG9ZbGhDYzFwVFNtUk1RMHBxWW0xWmFVOXVjMmxoYlhRd1NXcHZhVmRIVWpOWldFcEZUa1YzZDAxV1FscE9iRVpoVFVoU2FFMTZRbkJpYTBwTlVqTmFWVTVVWkhCa1JURlZWMVZzYTAxcmFEWlJNMFpUVWxOS09VeERTbXhsU0VGcFQycEZNMDlFUVhwTlZHYzBUVVJCYzBsdGJIcGplVWsyU1cweGFHTnRkR3hrUjFKb1pFZEZkVnBZYUdoaVdFSnpXbE5KYzBsdVRtcGlNMEpzU1dwdmFXTllWblprUjFVMlMybEtPUzV2YTBkSWFuQm9NSEZDWlRGdk1uWlNObVo0VW1FeVJrZFNjbmgwUWkxaFZIWm5UVTF5T0RCWlFYbGlWMGhwTWpScE9FaHZMVVpuU3pSeFdUbDZaR1pVVjBscmFqaE5lbTFqUm5oVFdHNTNlRkJEVEc5Qlp5SXNJbWx6Y3lJNklsaGtkMkZ5UkRSTU1ERlFXVFpSV2pCMFlUTXdhVzVDVEVkMlZEVTNhWFJOVkZsSlpESklla054VWtVaUxDSnVZbVlpT2pFM09EQXpNVFV5TmpFc0luTmpiM0JsSWpvaWNYVnZkR1U2S2lKOS5QdTY1clhaYzhiUm84dFpLRHB2MV9jOU80aTJVT1pKNjBPT29SOVA2MUlUY0w1UnRsY3RRTF94LWtqLVpOY1ZITHA1N3hrLW5lSXhiT2ptZ21lbzRDQSIsImlzcyI6IjV0QkRTd1dwd0VfZGphWXFsa0JkUk5Gek42R2d6R0ppV280YWVJOGJEVlUiLCJzY29wZSI6InF1b3RlOioifQ.Mjdlr9T-X0W-ChZrcG8zZcTnulAxKxw6UhtxSk52en2qfS-ujb_xtKO1vSehDDAEzN_3zhEgqwjw00U2Cp42Dw",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "not_yet_valid",
+        "token_index": 2
       }
     },
     {
@@ -508,7 +603,8 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "audience_mismatch"
+        "failure": "audience_mismatch",
+        "token_index": 1
       }
     },
     {
@@ -568,7 +664,8 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "audience_widened"
+        "failure": "audience_widened",
+        "token_index": 2
       }
     },
     {
@@ -610,7 +707,83 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "bad_signature"
+        "failure": "bad_signature",
+        "token_index": 1
+      }
+    },
+    {
+      "name": "issuer_two_keys_old_signed",
+      "note": "two keys listed under one identity while a key is being replaced; the root signed with the old key verifies",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9LCJleHAiOjE3ODAzMTg4MDAsImlzcyI6Im1hcmtldGRhdGEuZXhhbXBsZSIsInNjb3BlIjoicXVvdGU6KiJ9.pr2ux5pWGLBl8t5SDdj4EyOUBkaH_WyRqR3DR2xawwuTAK64Ky13IdrilNJNrhNlZlHHJpm58p15dU0uCxHXAA",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        },
+        {
+          "identity": "marketdata.example",
+          "key_x": "Gbry6M2SGFcpzBJCnfNhyd2WvkuQxEN_hRWojjOvQXE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": true,
+        "root_issuer": "marketdata.example",
+        "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+        "scopes": [
+          "quote:*"
+        ],
+        "expires_at": "2026-06-01T13:00:00Z",
+        "depth": 1
+      }
+    },
+    {
+      "name": "issuer_two_keys_new_signed",
+      "note": "two keys listed under one identity; the root signed with the new key verifies",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9LCJleHAiOjE3ODAzMTg4MDAsImlzcyI6Im1hcmtldGRhdGEuZXhhbXBsZSIsInNjb3BlIjoicXVvdGU6KiJ9.2IaWHk2tAoGcQZchHb7JheETHRLiJ8c62M6zC54pO8cly_pihQSWm6xy5fRHXaaibNTkTVDx6kkePRWL0TZWDg",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        },
+        {
+          "identity": "marketdata.example",
+          "key_x": "Gbry6M2SGFcpzBJCnfNhyd2WvkuQxEN_hRWojjOvQXE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": true,
+        "root_issuer": "marketdata.example",
+        "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+        "scopes": [
+          "quote:*"
+        ],
+        "expires_at": "2026-06-01T13:00:00Z",
+        "depth": 1
+      }
+    },
+    {
+      "name": "issuer_key_withdrawn",
+      "note": "only the new key is listed; a root signed with the withdrawn key is refused",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9LCJleHAiOjE3ODAzMTg4MDAsImlzcyI6Im1hcmtldGRhdGEuZXhhbXBsZSIsInNjb3BlIjoicXVvdGU6KiJ9.pr2ux5pWGLBl8t5SDdj4EyOUBkaH_WyRqR3DR2xawwuTAK64Ky13IdrilNJNrhNlZlHHJpm58p15dU0uCxHXAA",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "Gbry6M2SGFcpzBJCnfNhyd2WvkuQxEN_hRWojjOvQXE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "bad_signature",
+        "token_index": 1
       }
     },
     {
@@ -628,7 +801,8 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "untrusted_issuer"
+        "failure": "untrusted_issuer",
+        "token_index": 1
       }
     },
     {
@@ -646,7 +820,8 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "bad_signature"
+        "failure": "bad_signature",
+        "token_index": 1
       }
     },
     {
@@ -664,7 +839,8 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "bad_signature"
+        "failure": "bad_signature",
+        "token_index": 2
       }
     },
     {
@@ -682,7 +858,8 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "child_issuer_mismatch"
+        "failure": "child_issuer_mismatch",
+        "token_index": 2
       }
     },
     {
@@ -700,7 +877,8 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "bad_signature"
+        "failure": "bad_signature",
+        "token_index": 2
       }
     },
     {
@@ -718,7 +896,8 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "jwk_mismatch"
+        "failure": "jwk_mismatch",
+        "token_index": 2
       }
     },
     {
@@ -736,7 +915,8 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "jwk_mismatch"
+        "failure": "jwk_mismatch",
+        "token_index": 2
       }
     },
     {
@@ -754,7 +934,8 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "bad_jwk"
+        "failure": "bad_jwk",
+        "token_index": 2
       }
     },
     {
@@ -772,7 +953,8 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "bad_jwk"
+        "failure": "bad_jwk",
+        "token_index": 2
       }
     },
     {
@@ -814,7 +996,8 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "holder_mismatch"
+        "failure": "holder_mismatch",
+        "token_index": 1
       }
     },
     {
@@ -850,7 +1033,8 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "scope_widened"
+        "failure": "scope_widened",
+        "token_index": 2
       }
     },
     {
@@ -892,7 +1076,8 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "scope_widened"
+        "failure": "scope_widened",
+        "token_index": 2
       }
     },
     {
@@ -931,7 +1116,8 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": false,
-        "failure": "expiry_widened"
+        "failure": "expiry_widened",
+        "token_index": 2
       }
     },
     {
@@ -956,6 +1142,78 @@
       "name": "unknown_claim",
       "note": "a claim the profile does not list is a restriction the verifier cannot evaluate",
       "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9LCJleHAiOjE3ODAzMTg4MDAsImlzcyI6Im1hcmtldGRhdGEuZXhhbXBsZSIsInNjb3BlIjoicXVvdGU6KiIsInZlbmRvcjpwbGFuIjoiZ29sZCJ9.R29GZ6ZvSGgPDBdSe4s7YmnXThNhl1-FtKeOcCB3_l_jQb3x_GGqtNkeog_Js6tOy_D1dY5HQlhAUJHHi-aOAA",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "unknown_claim"
+      }
+    },
+    {
+      "name": "root_cap_unsupported",
+      "note": "a cap on the root under a clean child: claims are checked on every token",
+      "token": "eyJhbGciOiJFZERTQSIsImp3ayI6eyJjcnYiOiJFZDI1NTE5Iiwia3R5IjoiT0tQIiwieCI6InlGMFNkcUx2R2Z5SFY0TFdoTE0tZ014N3JQZ19MTXhaS3BwSmRZN25SdlkifSwidHlwIjoiZm9yYS1kZWxlZ2F0aW9uK2p3dCJ9.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9LCJleHAiOjE3ODAzMTg4MDAsImZvcmFfcGFyZW50IjoiZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVdHUjNZWEpFTkV3d01WQlpObEZhTUhSaE16QnBia0pNUjNaVU5UZHBkRTFVV1Vsa01raDZRM0ZTUlNKOUxDSmxlSEFpT2pFM09EQXpNVGc0TURBc0ltWnZjbUZmYldGNFgzTndaVzVrWDJObGJuUnpJam8xTURBd01Dd2lhWE56SWpvaWJXRnlhMlYwWkdGMFlTNWxlR0Z0Y0d4bElpd2ljMk52Y0dVaU9pSnhkVzkwWlRvcUluMC5fSU9fU2lkZ1Y4ZEpvLUM0SFJTa1BITjQtVFV5RU9yaWF4OUttOTZSUlJib2hIdnZZWmFoYjlTQXZYWlVDZHVJUGl6UDFhSEVXdzFBU0l1bTNjTU9BQSIsImlzcyI6Ilhkd2FyRDRMMDFQWTZRWjB0YTMwaW5CTEd2VDU3aXRNVFlJZDJIekNxUkUiLCJzY29wZSI6InF1b3RlOioifQ.MkEsj27SitBICg5JWhFbHFEaHC2mxahW4p8KVVPAMMAvXEfKLEmIrahtG-DB8NQL1CVMJi9dpiLBtS8u3HiSBg",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "unsupported_restriction"
+      }
+    },
+    {
+      "name": "root_unknown_claim",
+      "note": "an unknown claim on the root under a clean child",
+      "token": "eyJhbGciOiJFZERTQSIsImp3ayI6eyJjcnYiOiJFZDI1NTE5Iiwia3R5IjoiT0tQIiwieCI6InlGMFNkcUx2R2Z5SFY0TFdoTE0tZ014N3JQZ19MTXhaS3BwSmRZN25SdlkifSwidHlwIjoiZm9yYS1kZWxlZ2F0aW9uK2p3dCJ9.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9LCJleHAiOjE3ODAzMTg4MDAsImZvcmFfcGFyZW50IjoiZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVdHUjNZWEpFTkV3d01WQlpObEZhTUhSaE16QnBia0pNUjNaVU5UZHBkRTFVV1Vsa01raDZRM0ZTUlNKOUxDSmxlSEFpT2pFM09EQXpNVGc0TURBc0ltbHpjeUk2SW0xaGNtdGxkR1JoZEdFdVpYaGhiWEJzWlNJc0luTmpiM0JsSWpvaWNYVnZkR1U2S2lJc0luWmxibVJ2Y2pwd2JHRnVJam9pWjI5c1pDSjkubHl3ZDN4b2tac2dZMGlQOW9SSDJfa0o2VXU1TndBTm14WUdmV3pHYzNkZERyUGNjOGZSMWk0UGU3dGlJeURmSGRuRUhENnlHUFJxb0EtcHpVNnBMQmciLCJpc3MiOiJYZHdhckQ0TDAxUFk2UVowdGEzMGluQkxHdlQ1N2l0TVRZSWQySHpDcVJFIiwic2NvcGUiOiJxdW90ZToqIn0.40RbXxuMO4jDh1OorN44ZI4Ec66sZlQyH932_WFBor-gavj9P-8FF-7v3Y7Fh0_TUWEQl2Zp8Q-xAjrgZTNACw",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "unknown_claim"
+      }
+    },
+    {
+      "name": "middle_cap_unsupported",
+      "note": "a cap on the middle token of three",
+      "token": "eyJhbGciOiJFZERTQSIsImp3ayI6eyJjcnYiOiJFZDI1NTE5Iiwia3R5IjoiT0tQIiwieCI6Im8wOEhqQV9XOTM5Y2JjdWxNUkpNc243d3FUSkFQNnZKaWJ6YTlEejl0UTQifSwidHlwIjoiZm9yYS1kZWxlZ2F0aW9uK2p3dCJ9.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9LCJleHAiOjE3ODAzMTg4MDAsImZvcmFfcGFyZW50IjoiZXlKaGJHY2lPaUpGWkVSVFFTSXNJbXAzYXlJNmV5SmpjbllpT2lKRlpESTFOVEU1SWl3aWEzUjVJam9pVDB0UUlpd2llQ0k2SW5sR01GTmtjVXgyUjJaNVNGWTBURmRvVEUwdFowMTROM0pRWjE5TVRYaGFTM0J3U21SWk4yNVNkbGtpZlN3aWRIbHdJam9pWm05eVlTMWtaV3hsWjJGMGFXOXVLMnAzZENKOS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaU5YUkNSRk4zVjNCM1JWOWthbUZaY1d4clFtUlNUa1o2VGpaSFozcEhTbWxYYnpSaFpVazRZa1JXVlNKOUxDSmxlSEFpT2pFM09EQXpNVGc0TURBc0ltWnZjbUZmYldGNFgyRmpZMlZ6YzJWeklqb3hNQ3dpWm05eVlWOXdZWEpsYm5RaU9pSmxlVXBvWWtkamFVOXBTa1phUlZKVVVWTkpjMGx1VWpWalEwazJTVzFhZG1OdFJYUmFSMVp6V2xka2FHUkhiSFppYVhSeFpETlJhV1pSTG1WNVNtaGtWMUZwVDJ4emFWcFlhR3BoUjBaMVdqSlZkVnBZYUdoaVdFSnpXbE5LWkV4RFNtcGliVmxwVDI1emFXRnRkREJKYW05cFYwZFNNMWxZU2tWT1JYZDNUVlpDV2s1c1JtRk5TRkpvVFhwQ2NHSnJTazFTTTFwVlRsUmtjR1JGTVZWWFZXeHJUV3RvTmxFelJsTlNVMG81VEVOS2JHVklRV2xQYWtVelQwUkJlazFVWnpSTlJFRnpTVzFzZW1ONVNUWkpiVEZvWTIxMGJHUkhVbWhrUjBWMVdsaG9hR0pZUW5OYVUwbHpTVzVPYW1JelFteEphbTlwWTFoV2RtUkhWVFpMYVVvNUxtOXJSMGhxY0dnd2NVSmxNVzh5ZGxJMlpuaFNZVEpHUjFKeWVIUkNMV0ZVZG1kTlRYSTRNRmxCZVdKWFNHa3lOR2s0U0c4dFJtZExOSEZaT1hwa1psUlhTV3RxT0UxNmJXTkdlRk5ZYm5kNFVFTk1iMEZuSWl3aWFYTnpJam9pV0dSM1lYSkVORXd3TVZCWk5sRmFNSFJoTXpCcGJrSk1SM1pVTlRkcGRFMVVXVWxrTWtoNlEzRlNSU0lzSW5OamIzQmxJam9pY1hWdmRHVTZLaUo5LjhsU182ZVNseFcyZk1BU2g5ZWFhM1hDM2VJVDAtRkJUY0pNbVFadkttZzVpR3N0QzVvODJza2wtYmlHc3B4RTFuU1hVQmdCVkZpWmQweEpSY2p3U0FRIiwiaXNzIjoiNXRCRFN3V3B3RV9kamFZcWxrQmRSTkZ6TjZHZ3pHSmlXbzRhZUk4YkRWVSIsInNjb3BlIjoicXVvdGU6KiJ9._koA3STLQINlc4TDYEp-Ba_dP4guVBUnEQKQRow5wc31CZH4cxDbxEshX53AiDIz9MT-ofYRTD7mOt1k0lAHCw",
+      "trusted": [
+        {
+          "identity": "marketdata.example",
+          "key_x": "C0eCPnEJXdWb54rCccV27zifh7ZFYasHz5pOvNAtIEE"
+        }
+      ],
+      "audience": "exchange.example",
+      "holder": "Wi-vNTvO84podJpIvXKUlGNDUuhKJKS4zVzhnRvT3Y4",
+      "now": "2026-06-01T12:00:00Z",
+      "expect": {
+        "valid": false,
+        "failure": "unsupported_restriction"
+      }
+    },
+    {
+      "name": "middle_unknown_claim",
+      "note": "an unknown claim on the middle token of three",
+      "token": "eyJhbGciOiJFZERTQSIsImp3ayI6eyJjcnYiOiJFZDI1NTE5Iiwia3R5IjoiT0tQIiwieCI6Im8wOEhqQV9XOTM5Y2JjdWxNUkpNc243d3FUSkFQNnZKaWJ6YTlEejl0UTQifSwidHlwIjoiZm9yYS1kZWxlZ2F0aW9uK2p3dCJ9.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9LCJleHAiOjE3ODAzMTg4MDAsImZvcmFfcGFyZW50IjoiZXlKaGJHY2lPaUpGWkVSVFFTSXNJbXAzYXlJNmV5SmpjbllpT2lKRlpESTFOVEU1SWl3aWEzUjVJam9pVDB0UUlpd2llQ0k2SW5sR01GTmtjVXgyUjJaNVNGWTBURmRvVEUwdFowMTROM0pRWjE5TVRYaGFTM0J3U21SWk4yNVNkbGtpZlN3aWRIbHdJam9pWm05eVlTMWtaV3hsWjJGMGFXOXVLMnAzZENKOS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaU5YUkNSRk4zVjNCM1JWOWthbUZaY1d4clFtUlNUa1o2VGpaSFozcEhTbWxYYnpSaFpVazRZa1JXVlNKOUxDSmxlSEFpT2pFM09EQXpNVGc0TURBc0ltWnZjbUZmY0dGeVpXNTBJam9pWlhsS2FHSkhZMmxQYVVwR1drVlNWRkZUU1hOSmJsSTFZME5KTmtsdFduWmpiVVYwV2tkV2MxcFhaR2hrUjJ4MlltbDBjV1F6VVdsbVVTNWxlVXBvWkZkUmFVOXNjMmxhV0docVlVZEdkVm95VlhWYVdHaG9ZbGhDYzFwVFNtUk1RMHBxWW0xWmFVOXVjMmxoYlhRd1NXcHZhVmRIVWpOWldFcEZUa1YzZDAxV1FscE9iRVpoVFVoU2FFMTZRbkJpYTBwTlVqTmFWVTVVWkhCa1JURlZWMVZzYTAxcmFEWlJNMFpUVWxOS09VeERTbXhsU0VGcFQycEZNMDlFUVhwTlZHYzBUVVJCYzBsdGJIcGplVWsyU1cweGFHTnRkR3hrUjFKb1pFZEZkVnBZYUdoaVdFSnpXbE5KYzBsdVRtcGlNMEpzU1dwdmFXTllWblprUjFVMlMybEtPUzV2YTBkSWFuQm9NSEZDWlRGdk1uWlNObVo0VW1FeVJrZFNjbmgwUWkxaFZIWm5UVTF5T0RCWlFYbGlWMGhwTWpScE9FaHZMVVpuU3pSeFdUbDZaR1pVVjBscmFqaE5lbTFqUm5oVFdHNTNlRkJEVEc5Qlp5SXNJbWx6Y3lJNklsaGtkMkZ5UkRSTU1ERlFXVFpSV2pCMFlUTXdhVzVDVEVkMlZEVTNhWFJOVkZsSlpESklla054VWtVaUxDSnpZMjl3WlNJNkluRjFiM1JsT2lvaUxDSjJaVzVrYjNJNmNHeGhiaUk2SW1kdmJHUWlmUS5SRm5oenF1eVI1QlpLOXlrcmhUTEM2TGJOelU4SzdGODlHaHZwZkptNk9UUHJzWWdQQmxYdnRIY0R5X1J3MkNNMGhGa0VCVUtVbUlRSjg3RzhSRDZCQSIsImlzcyI6IjV0QkRTd1dwd0VfZGphWXFsa0JkUk5Gek42R2d6R0ppV280YWVJOGJEVlUiLCJzY29wZSI6InF1b3RlOioifQ.2hTNoSuNR5hYAoPuIJLz5iSI246ya9l-LCd_r4d31Ydvk99zuoqLTnPxVdUSI_9JVCsf3fnCzbGWolgfBGzGAg",
       "trusted": [
         {
           "identity": "marketdata.example",
@@ -1342,7 +1600,7 @@
     {
       "name": "docs_walkthrough_academic",
       "note": "academic walkthrough: Stanford's root token for the literature review agent, addressed to exchange.scholarsgate.com",
-      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOlsiZXhjaGFuZ2Uuc2Nob2xhcnNnYXRlLmNvbSJdLCJjbmYiOnsiamt0IjoiQVNOaUFFU3NQcXU3ZFhNNThMNkNhb0tsTGRFVVhMVG5iUEpraEhpal95RSJ9LCJleHAiOjE3OTg3NjE1OTksImlzcyI6InN0YW5mb3JkLmVkdSIsImp0aSI6Imluc3Qtc3ViLXN0YW5mb3JkLTIwMjYtMDE5MyIsInNjb3BlIjoiYWNhZGVtaWM6KiIsInN1YiI6Imluc3Qtc3ViLXN0YW5mb3JkLTIwMjYifQ.p17NC8wglUAMn6pHLZUqS6P1u1LxwEoPNjfLTXSbE9FBdswIoHhRau0OtG00CbbFVIJk7IFSk0kgVeJqjhljAQ",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOlsiZXhjaGFuZ2Uuc2Nob2xhcnNnYXRlLmNvbSJdLCJjbmYiOnsiamt0IjoiQVNOaUFFU3NQcXU3ZFhNNThMNkNhb0tsTGRFVVhMVG5iUEpraEhpal95RSJ9LCJleHAiOjE3OTg3NjE1OTksImlzcyI6InN0YW5mb3JkLmVkdSIsImp0aSI6Imluc3Qtc3ViLXN0YW5mb3JkLTIwMjYtMDE5MyIsInNjb3BlIjoiYWNhZGVtaWM6KiBzdWJzY3JpcHRpb246aW5zdC1zdWItc3RhbmZvcmQtMjAyNiIsInN1YiI6Imluc3Qtc3ViLXN0YW5mb3JkLTIwMjYifQ.q1otny5g3OvYlg8zrQE6iCYdWxxImOJf64r04r5Z0PaYY69nTUX_MXzBqFfp5HZ4ZM45mkux6AcdVyRUlrP_Cw",
       "trusted": [
         {
           "identity": "stanford.edu",
@@ -1357,7 +1615,8 @@
         "root_issuer": "stanford.edu",
         "holder": "ASNiAESsPqu7dXM58L6CaoKlLdEUXLTnbPJkhHij_yE",
         "scopes": [
-          "academic:*"
+          "academic:*",
+          "subscription:inst-sub-stanford-2026"
         ],
         "expires_at": "2026-12-31T23:59:59Z",
         "depth": 1

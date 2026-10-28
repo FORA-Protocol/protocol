@@ -569,73 +569,73 @@
       "ts": "DEFAULT_KEY_VALIDITY_MS"
     },
     "helpers.DelegationClockLeeway": {
-      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land",
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
       "decision_anchor": "delegation verifier",
       "python": null,
       "ts": null
     },
     "helpers.DelegationError": {
-      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land",
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
       "decision_anchor": "delegation verifier",
       "python": null,
       "ts": null
     },
     "helpers.DelegationFailure": {
-      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land",
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
       "decision_anchor": "delegation verifier",
       "python": null,
       "ts": null
     },
     "helpers.DelegationInput": {
-      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land",
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
       "decision_anchor": "delegation verifier",
       "python": null,
       "ts": null
     },
     "helpers.DelegationTokenType": {
-      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land",
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
       "decision_anchor": "delegation verifier",
       "python": null,
       "ts": null
     },
     "helpers.ErrDelegationInvalid": {
-      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land",
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
       "decision_anchor": "delegation verifier",
       "python": null,
       "ts": null
     },
     "helpers.MaxDelegationChainDepth": {
-      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land",
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
       "decision_anchor": "delegation verifier",
       "python": null,
       "ts": null
     },
     "helpers.MaxDelegationNumericDate": {
-      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land",
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
       "decision_anchor": "delegation verifier",
       "python": null,
       "ts": null
     },
     "helpers.MaxDelegationTokenBytes": {
-      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land",
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
       "decision_anchor": "delegation verifier",
       "python": null,
       "ts": null
     },
     "helpers.TrustedIssuer": {
-      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land",
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
       "decision_anchor": "delegation verifier",
       "python": null,
       "ts": null
     },
     "helpers.VerifiedDelegation": {
-      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land",
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
       "decision_anchor": "delegation verifier",
       "python": null,
       "ts": null
     },
     "helpers.VerifyDelegation": {
-      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land",
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
       "decision_anchor": "delegation verifier",
       "python": null,
       "ts": null
