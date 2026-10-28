@@ -425,7 +425,28 @@ def mark_unique(defs, unique_items):
     return defs
 
 
-def main(src_dir, desc_path, out_file, required_path=None, unique_path=None):
+def mark_bytes_max_len(defs, bytes_max_len):
+    """protoschema renders (buf.validate.field).bytes.max_len = n as a maxLength on the
+    base64 string that counts the padding characters, which is not exact: 32768 bytes and
+    32769 bytes both encode to 43692 characters, so a value one byte over the limit passes
+    the schema while Go protovalidate rejects it. bytes_max_len (from the Go byteslengen
+    manifest) names the byte limit per field; rewrite the pattern to allow at most
+    ceil(4n/3) data characters, which is exact, and keep maxLength as the bound on the
+    whole string."""
+    for msg, fields in bytes_max_len.items():
+        d = defs.get(msg)
+        if not isinstance(d, dict) or "properties" not in d:
+            continue
+        for jname, n in fields.items():
+            prop = d["properties"].get(jname)
+            if not isinstance(prop, dict):
+                continue
+            data_chars = -(-4 * n // 3)
+            prop["pattern"] = f"^[A-Za-z0-9+/]{{0,{data_chars}}}={{0,2}}$"
+    return defs
+
+
+def main(src_dir, desc_path, out_file, required_path=None, unique_path=None, bytes_path=None):
     fds = load_descriptor(desc_path)
     enum_name = enum_names_from_descriptor(fds)
     field_types = field_type_names_from_descriptor(fds)
@@ -493,6 +514,8 @@ def main(src_dir, desc_path, out_file, required_path=None, unique_path=None):
         mark_required(defs, json.load(open(required_path)))
     if unique_path:
         mark_unique(defs, json.load(open(unique_path)))
+    if bytes_path:
+        mark_bytes_max_len(defs, json.load(open(bytes_path)))
     defs.update(enum_defs)
 
     combined = {
@@ -516,4 +539,4 @@ def main(src_dir, desc_path, out_file, required_path=None, unique_path=None):
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:6])
+    main(*sys.argv[1:7])

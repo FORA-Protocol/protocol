@@ -195,13 +195,13 @@ The Broker queries its Exchanges as it would without the profile, and each query
 
 ### Scope Forwarding
 
-The Broker forwards `Requester.scopes` to every Exchange it queries. Scopes decide which terms each Exchange presents; they are the agent's statement, which the Broker passes on under its own signature, and the Exchange does not verify them. The Broker does not modify scopes; it passes them through as-is.
+The Broker forwards `Requester.scopes` to every Exchange it queries. Scopes decide which non-gated terms each Exchange presents; they are the agent's statement, which the Broker passes on under its own signature, and the Exchange does not verify them. The Broker does not modify scopes; it passes them through as-is. For a term an Exchange gates behind a verified delegation, the stated scopes count for nothing: the Exchange reads scopes from the verified delegation only, and since it honours no delegation on a query the Broker originated, a gated term stays hidden on that query.
 
 ### Delegation Pass-Through
 
 The Broker passes `Requester.delegation` through unchanged, and the **agent remains the holder**. A Broker is never delegated to. On a purchase, the Exchange matches the delegation's `cnf.jkt` against the key that signed the agent's `AgentAcceptance`, so the delegation stays bound to the agent's private key through the Broker, exactly as on a direct call. On a query the Broker originates, the Broker signs alone, so nothing can pass the delegation's holder binding: the Exchange does not honour it and answers as if none were present. Through a Broker, the delegation counts only on a purchase, through the agent's acceptances. How an agent proves a holder-of-key entitlement at discovery time through a Broker is an open protocol question. An Exchange that requires a verified delegation before it presents a scoped term presents no such term on the Broker's query.
 
-The Broker cannot narrow a delegation: only the key named in the chain's `cnf` can issue a valid child JWT, and that is the agent's key, not the Broker's. Narrowing is done by a holder in the chain, as [Delegation](/protocol/authentication/#verification) describes.
+The Broker cannot narrow a delegation: only the key named in the chain's `cnf` can issue a valid child token, and that is the agent's key, not the Broker's. Narrowing is done by a holder in the chain, as [Delegation](/protocol/authentication/#delegation) describes: the child carries its complete parent in `fora_parent`, so the Broker also cannot swap a parent, and the Exchange verifies the root with a key it has configured, so the Broker cannot introduce one.
 
 ### SubscriptionQuotaInfo Aggregation
 

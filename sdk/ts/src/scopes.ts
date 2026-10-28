@@ -2,7 +2,9 @@
 // (helpers/scopes.go). The subscriptions/entitlements a requester holds are a
 // SUPPLIED credential: the application hands the SDK what it holds and the SDK
 // plumbs it into the request. NormalizeScopes/ScopesSubset are pure, byte-
-// deterministic string ops pinned to the shared scopes-vectors.json.
+// deterministic string ops pinned to the shared scopes-vectors.json;
+// scopeCovers/scopesCover implement the protocol's segment-wise scope-matching
+// rule and are pinned to scope-match-vectors.json.
 
 /**
  * normalizeScopes returns scopes with empty entries dropped, duplicates removed
@@ -24,16 +26,44 @@ export function normalizeScopes(scopes: string[]): string[] {
 }
 
 /**
- * scopesSubset reports whether every scope in `sub` is present in `sup`. It is
- * the delegation-attenuation rule (Delegation.scopes MUST be a subset of the
- * principal's granted scopes). An empty `sub` is always a subset.
+ * scopeCovers reports whether one granted scope covers one required scope under
+ * the protocol's scope-matching rule (stated on Requester.scopes): split both
+ * on ":"; each granted segment equals the required segment or is "*"; a "*" in
+ * the last position of the grant covers every remaining required segment and
+ * there must be at least one; no implicit prefix match; a grant with more
+ * segments than the requirement never covers it; a "*" inside the requirement
+ * is a literal segment; an empty string covers nothing and is covered by
+ * nothing. Case-sensitive, no trimming.
+ */
+export function scopeCovers(granted: string, required: string): boolean {
+	if (granted === "" || required === "") return false;
+	const g = granted.split(":");
+	const r = required.split(":");
+	for (let i = 0; i < g.length; i++) {
+		const seg = g[i];
+		if (seg === "*" && i === g.length - 1) return i < r.length;
+		if (i >= r.length || (seg !== "*" && seg !== r[i])) return false;
+	}
+	return g.length === r.length;
+}
+
+/**
+ * scopesCover reports whether every scope in `required` is covered
+ * (scopeCovers) by at least one scope in `granted`. An empty `required` is
+ * always covered.
+ */
+export function scopesCover(granted: string[], required: string[]): boolean {
+	return required.every((req) => granted.some((g) => scopeCovers(g, req)));
+}
+
+/**
+ * scopesSubset reports whether every scope in `sub` is covered by some scope in
+ * `sup` under scopeCovers (grant containment, not exact set membership). It is
+ * the delegation-attenuation rule: a child may narrow a parent wildcard but may
+ * not widen one. Same check as scopesCover(sup, sub).
  */
 export function scopesSubset(sub: string[], sup: string[]): boolean {
-	const set = new Set(sup);
-	for (const s of sub) {
-		if (!set.has(s)) return false;
-	}
-	return true;
+	return scopesCover(sup, sub);
 }
 
 /**

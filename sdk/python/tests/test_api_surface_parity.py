@@ -120,7 +120,15 @@ _GO_PACKAGES = (
 # client's Go factory, folds into the Python AdminClient class constructor exactly as
 # every other NewX does, and carries that same recorded reason. One entry, one
 # already-recorded class.
-BASELINE_ALLOWLIST = 17
+#
+# Then 17 -> 28, a NEW decision class: the holder-bound JWT delegation profile ships with
+# one verifier, in Go (helpers.VerifyDelegation and its ten input, result, error and
+# profile-constant symbols), which the Exchange imports; the TypeScript and Python
+# verifiers are deferred and tracked as a FORA-84 follow-up. All eleven entries carry the
+# "delegation verifier" decision_anchor, so the gap is a DECISION bullet in the matrix,
+# never a silent null. The failure-token constants sit in go_exclusions like the PoP
+# tokens. Shrinks back by eleven when the two ports land.
+BASELINE_ALLOWLIST = 28
 
 # HARD ZERO (was a shrink-only ratchet at 19) — undocumented TS-present / Python-null
 # gaps. The PRESENCE check skips nulls, so absent this ceiling a NEW Python-null gap

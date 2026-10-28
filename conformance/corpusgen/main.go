@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -681,6 +682,8 @@ func validScalar(fd protoreflect.FieldDescriptor, fr *validate.FieldRules) (prot
 			}
 		}
 		return protoreflect.ValueOfFloat64(0), nil
+	case protoreflect.BytesKind:
+		return protoreflect.ValueOfBytes(nil), nil // the contract's bytes rules only bound length from above
 	case protoreflect.MessageKind:
 		return protoreflect.Value{}, nil // handled by caller via seed
 	}
@@ -709,6 +712,8 @@ func edges(fd protoreflect.FieldDescriptor, fr *validate.FieldRules, sd map[stri
 		es = append(es, enumEdges(fd, fr.GetEnum())...)
 	case protoreflect.StringKind:
 		es = append(es, stringEdges(fd, fr.GetString())...)
+	case protoreflect.BytesKind:
+		es = append(es, bytesEdges(fd, fr.GetBytes())...)
 	case protoreflect.Int64Kind:
 		if r := fr.GetInt64(); r != nil {
 			if _, ok := r.GetGreaterThan().(*validate.Int64Rules_Gte); ok {
@@ -877,6 +882,23 @@ func stringEdges(fd protoreflect.FieldDescriptor, r *validate.StringRules) []edg
 	return es
 }
 
+// bytesEdges emits the length boundary of a bytes field: exactly max_len bytes is a
+// positive edge Go must accept, max_len+1 bytes trips bytes.max_len. The bytes are a
+// run of one letter, deliberately not a parseable token, so the corpus proves the wire
+// size rule alone and never a format rule.
+func bytesEdges(fd protoreflect.FieldDescriptor, r *validate.BytesRules) []edge {
+	var es []edge
+	if n := r.GetMaxLen(); n > 0 {
+		fit := bytes.Repeat([]byte{'a'}, int(n))
+		over := bytes.Repeat([]byte{'a'}, int(n)+1)
+		es = append(es, edge{label: "max_ok", valid: true,
+			apply: func(m protoreflect.Message) { m.Set(fd, protoreflect.ValueOfBytes(fit)) }})
+		es = append(es, edge{label: "too_long", want: "bytes.max_len",
+			apply: func(m protoreflect.Message) { m.Set(fd, protoreflect.ValueOfBytes(over)) }})
+	}
+	return es
+}
+
 // failingBadStringIdxs returns the indices of badStrings the pattern rejects, in order.
 // Shared by stringEdges (multi-emit) and listEdges item_pattern (first only), so the two
 // call sites stay in lockstep on what "a bad string for this pattern" means.
@@ -973,6 +995,9 @@ func hasConstraint(fr *validate.FieldRules) bool {
 		return true
 	}
 	if s := fr.GetString(); s != nil && (s.GetPattern() != "" || s.GetMinLen() > 0 || s.GetMaxLen() > 0) {
+		return true
+	}
+	if b := fr.GetBytes(); b != nil && b.GetMaxLen() > 0 {
 		return true
 	}
 	if i := fr.GetInt64(); i != nil && i.GetGreaterThan() != nil {

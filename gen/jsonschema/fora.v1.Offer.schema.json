@@ -71,7 +71,7 @@
           "type": "array"
         },
         "scopes": {
-          "description": "Requester.scopes is the requester's own statement, which the Exchange does\n not verify, so a scope gate hides a term from requesters that do not state\n the scope; it does not stop one that states it falsely. An Exchange MAY\n also require a verified delegation that grants these scopes before it\n presents the term. To a requester that presents none, it answers as if the\n term did not exist, as existence hiding requires (see Requester.scopes). An\n offer the Exchange presented is honoured until it expires.\n\n Coverage uses the SAME matching rule as Requester.scopes:\n segment-wise (\":\" separated), each granted segment must equal the\n corresponding required segment or be \"*\", a terminal \"*\" matches all\n remaining segments, and there is NO implicit prefix match (a grant\n narrower than the requirement does not cover it). \"dist:*\" covers\n \"dist:US\" and \"dist:US:CA\"; \"dist\" covers only \"dist\". There is exactly\n one scope-matching algorithm across the protocol.",
+          "description": "Requester.scopes is the requester's own statement, which the Exchange does\n not verify, so a scope gate hides a term from requesters that do not state\n the scope; it does not stop one that states it falsely. An Exchange MAY\n instead gate a term behind a verified delegation (a subscription term is\n the usual case): then only the delegation chain's verified effective scopes\n are matched against these scopes, and Requester.scopes is ignored for that\n term. To a requester that presents no valid delegation, it answers as if\n the term did not exist, as existence hiding requires (see\n Requester.scopes). An offer the Exchange presented is honoured until it\n expires, and a gated offer expires no later than the chain's effective\n expiry (see Delegation).\n\n Coverage uses the SAME matching rule as Requester.scopes:\n segment-wise (\":\" separated), each granted segment must equal the\n corresponding required segment or be \"*\", a terminal \"*\" matches all\n remaining segments (at least one), and there is NO implicit prefix match\n (a grant narrower than the requirement does not cover it). \"dist:*\" covers\n \"dist:US\" and \"dist:US:CA\"; \"dist\" covers only \"dist\". There is exactly\n one scope-matching algorithm across the protocol.",
           "items": {
             "type": "string"
           },
@@ -666,7 +666,7 @@
       "type": "string"
     },
     "expires_at": {
-      "description": "When this offer expires (ISO 8601).",
+      "description": "When this offer expires (ISO 8601). An offer for a term gated behind a\n verified delegation MUST NOT expire later than that delegation chain's\n effective expiry, the earliest `exp` in the chain (see Delegation).",
       "format": "date-time",
       "type": "string"
     },

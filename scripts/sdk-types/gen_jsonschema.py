@@ -71,6 +71,7 @@ from merge_schema import (  # noqa: E402  (sibling module, same pinned toolchain
     FLOAT_STR_PATTERN,
     INT_STR_PATTERN,
     load_descriptor,
+    mark_bytes_max_len,
     mark_required,
     mark_unique,
 )
@@ -271,7 +272,7 @@ def assert_no_string_bypass(doc, name):
         sys.exit(f"gen_jsonschema: {name}: a string form bypasses a numeric bound at {bad}")
 
 
-def main(src_dir, desc_path, required_path, unique_path, out_dir):
+def main(src_dir, desc_path, required_path, unique_path, bytes_path, out_dir):
     kinds = field_kinds(load_descriptor(desc_path))
     raw = {}
     for f in sorted(glob.glob(os.path.join(src_dir, "*.schema.json"))):
@@ -295,6 +296,7 @@ def main(src_dir, desc_path, required_path, unique_path, out_dir):
     bare = {fqn.rsplit(".", 1)[1]: messages[fqn] for fqn in fqns}
     mark_required(bare, json.load(open(required_path)))
     mark_unique(bare, json.load(open(unique_path)))
+    mark_bytes_max_len(bare, json.load(open(bytes_path)))
 
     os.makedirs(out_dir, exist_ok=True)
     for stale in glob.glob(os.path.join(out_dir, "*.json")):
@@ -310,4 +312,4 @@ def main(src_dir, desc_path, required_path, unique_path, out_dir):
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:6])
+    main(*sys.argv[1:7])

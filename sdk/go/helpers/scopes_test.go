@@ -42,4 +42,25 @@ func TestScopesSubset(t *testing.T) {
 	if !helpers.ScopesSubset(nil, granted) {
 		t.Error("empty subset is always a subset")
 	}
+	if !helpers.ScopesSubset([]string{"publisher:news:read"}, []string{"publisher:*:read"}) {
+		t.Error("a child may narrow a parent wildcard")
+	}
+	if helpers.ScopesSubset([]string{"publisher:news:*"}, []string{"publisher:*:read"}) {
+		t.Error("a child may not widen the parent grant")
+	}
+}
+
+func TestScopeCovers(t *testing.T) {
+	if !helpers.ScopeCovers("dist:*", "dist:US:CA") {
+		t.Error("terminal wildcard covers all remaining segments")
+	}
+	if helpers.ScopeCovers("dist", "dist:US") {
+		t.Error("no implicit prefix match")
+	}
+	if !helpers.ScopesCover([]string{"dist:*", "credit:read"}, []string{"dist:US", "credit:read"}) {
+		t.Error("every required scope is covered by some grant")
+	}
+	if helpers.ScopesCover(nil, []string{"credit:read"}) {
+		t.Error("an empty grant covers nothing")
+	}
 }

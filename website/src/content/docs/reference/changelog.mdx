@@ -10,14 +10,85 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ### Breaking against v1.1.0
 
+**Protocol**
+
+- **Delegation profile.** The holder-bound JWT delegation chain is now a fixed profile
+  on the authentication page, and the Exchange verifies it as written. The chain is
+  one compact JWS: each child carries its complete signed parent in the `fora_parent`
+  claim and its own Ed25519 public key in the protected `jwk` header, at most four
+  tokens deep. Every token requires the protected header `typ` `fora-delegation+jwt`
+  and `alg` `EdDSA` or `Ed25519` with an Ed25519 key, and the claims `iss`, `aud`,
+  `cnf.jkt` and a finite `exp`; `nbf` is honoured, `jti` is recommended, and a claim
+  the profile does not list is refused, with vendor metadata inside the signed
+  `fora_advisory` object only. `aud` follows the Request recipient rule. The root's
+  `iss` is the identity configured with the trusted key, on the subscription record
+  that owns the gated term; a child's `iss` is the thumbprint of its own signing key.
+  No key is discovered through OIDC, JWKS or the token. The clock leeway is 60 seconds
+  and never extends the effective expiry, the chain's earliest `exp`, which bounds a
+  gated offer's expiry. `Delegation.issuer` and `Delegation.principal_domain` mirror
+  the root's `iss` and establish nothing. For a term gated behind a verified
+  delegation the Exchange reads scopes from the chain only and ignores
+  `Requester.scopes`. The tokens the documentation shows are real and verified by a
+  conformance test.
+
+**Wire**
+
+- **Delegation token size.** `Delegation.token` is at most 32768 bytes, declared as
+  `bytes.max_len` on the field. The limit holds for the complete chain, every embedded
+  parent included, and is checked at wire validation before the token is parsed, so a
+  longer token is an invalid request rather than a per-item denial, whether or not the
+  bytes are a valid JWT. The generated Pydantic and Zod models, the published JSON
+  Schemas and the precompiled strict validators carry the same limit as an exact
+  base64 pattern, because a plain `maxLength` on the base64 string would admit a token
+  one byte over the limit. The validation corpus carries a 32768-byte token that is
+  accepted and a 32769-byte token that is refused.
+
 **SDK users**
 
+- **`ScopesSubset` is grant containment.** `helpers.ScopesSubset`, `scopes_subset` and
+  `scopesSubset` report whether every scope in the first list is covered by some scope
+  in the second under the protocol's segment-wise rule, not whether it is an exact
+  member. A child `publisher:news:read` under a parent `publisher:*:read` now passes,
+  as the proto always said it should, and a child `publisher:news:*` under that parent
+  still fails. A caller that relied on exact membership sees wildcard grants accepted.
+  The `subset` section of `scopes-vectors.json` carries the new cases.
 - **Go client errors.** `connect.CallError` and `resolvers.FetchError` gain a `Header`
   field, an `http.Header`, so neither struct compares with `==` any more. An RPC
   `CallError` now carries the `Status` of the peer's error answer, which v1.1.0 left at 0,
   so its message names that status, as the content leg's always did.
 
 ### Changes since v1.1.0
+
+**Scope matching and delegation verification in the SDKs.**
+
+- **Scope matching helpers.** `helpers.ScopeCovers` and `helpers.ScopesCover` (Go),
+  `scope_covers` and `scopes_cover` (Python), `scopeCovers` and `scopesCover`
+  (TypeScript) implement the protocol's segment-wise scope rule: each granted segment
+  equals the required one or is `*`, a terminal `*` covers the remaining segments and
+  needs at least one, no implicit prefix match, a grant with more segments than the
+  requirement never covers it, and a `*` in the requirement is a literal segment. All
+  three are pinned to `sdk/go/helpers/testdata/scope-match-vectors.json`, whose
+  verdicts are written from the rule, not emitted by an implementation.
+- **Delegation chain verifier (Go).** `helpers.VerifyDelegation` verifies a chain
+  against the profile: the size and depth limits, the protected header, the chain walk
+  through `fora_parent`, the root under caller-configured `TrustedIssuer` keys, each
+  child under its `jwk` and the intermediate issuer rule, the claims table, the clock
+  leeway, attenuation of scopes, audiences and expiry, the audience and the holder
+  binding. It takes a `DelegationInput` and returns a `VerifiedDelegation` (root
+  issuer, holder thumbprint, effective scopes, effective expiry, depth) or a
+  `DelegationError` naming one `DelegationFailure`, which unwraps to
+  `ErrDelegationInvalid`. It verifies the Ed25519 signature with the standard library
+  under either `alg` name, because the pinned go-jose accepts only `EdDSA`. It meters
+  nothing, so a chain carrying `fora_max_spend_cents`, `fora_max_accesses` or
+  `fora_quota_period` is refused. The constants `MaxDelegationTokenBytes`,
+  `MaxDelegationChainDepth`, `DelegationClockLeeway` and `DelegationTokenType` are
+  the profile's values. The TypeScript and Python verifiers are deferred and recorded
+  as a decision in the parity matrix.
+- **Shared delegation chain cases.** `sdk/go/helpers/testdata/delegation-chains.json`
+  carries signed chains from fixed test keys and a fixed clock with outcomes declared
+  from the profile, one case per rule, plus the chains the documentation embeds. The
+  Go tests re-verify every case; an Exchange's tests and the deferred ports replay the
+  same file.
 
 **Three more SDK capabilities for conformance and e2e harnesses (no wire change).** A
 harness can now read the header fields a refusal arrived with, sign an acceptance that

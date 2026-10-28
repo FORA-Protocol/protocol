@@ -668,6 +668,13 @@ contiguous, with no gaps or reused numbers left by the removals.
 
 ## Delegation-claims profile: opaque token, bound holder
 
+> **Superseded in part — the claim set is fixed, not open.** "Everything in the
+> vocabulary is optional" below no longer holds. The profile requires `iss`, `aud`,
+> `cnf.jkt` and a finite `exp` on every token and the protected header `typ`
+> `fora-delegation+jwt`; a claim the profile does not list is refused, and vendor
+> metadata travels only inside the signed `fora_advisory` object. See "The delegation
+> chain is one nested token with a fixed profile".
+>
 > **Superseded in part.** The request signer is no longer always the holder. On a
 > direct request the key that signs the RFC 9421 request must still equal the holder
 > key the token names. On a purchase a Broker relays, the Broker signs the request,
@@ -720,6 +727,16 @@ default**, and `biscuit-v3` is the optional alternative profile, never the
 default.)
 
 ## One normative scope-matching algorithm
+
+> **Superseded in part — the SDK helpers now implement the rule.** `ScopesSubset` was
+> an exact set check and called itself the attenuation rule; it is now grant
+> containment under this algorithm, and `ScopeCovers` / `ScopesCover` expose the rule
+> itself in all three SDKs, pinned to a hand-written `scope-match-vectors.json`. Two
+> precisions were added while writing the vectors: a terminal `*` needs at least one
+> remaining segment to match (`dist:US:*` does not cover `dist:US`), and a `*` in the
+> required scope is a literal segment, which is what stops a delegation child from
+> widening its parent. See "The delegation chain is one nested token with a fixed
+> profile".
 
 > **Superseded in part — what a match decides.** The algorithm stands. The requester
 > side it compares is the requester's own statement, which the Exchange does not
@@ -780,6 +797,11 @@ minimal and its signed offers stay price-comparable.
 
 ## JWT (holder-of-key) is the default delegation token; Biscuit is optional
 
+> **Superseded in part — how the chain travels and who is trusted.** The chain is
+> nested, not listed: each child carries its complete parent in `fora_parent`, and the
+> root verifies with a key configured on the subscription record, never a published
+> one. See "The delegation chain is one nested token with a fixed profile".
+>
 > **Biscuit removed pre-v1; superseded by JWT.** This section records the
 > transition from Biscuit-default to JWT-default. The optional `biscuit-v3`
 > profile it leaves in place was itself dropped before v1 shipped: JWT is now the
@@ -3152,3 +3174,95 @@ checker does: the models are dataclass transforms, and mypy reports the unexpect
 argument. A model built with `model_construct` skips validation and still drops an
 undeclared keyword, but it renders a nested value exactly as given. The check of the stamped
 message therefore refuses an unknown member inside such a value.
+
+## The delegation chain is one nested token with a fixed profile
+
+The holder-bound JWT chain was specified loosely: linkage by the child's `jwk` header
+alone, every claim optional except `cnf`, `alg` `EdDSA` only, no size or depth limit,
+and placeholder tokens in the documentation that no test could verify. An Exchange
+about to verify delegations for subscription-gated terms needs one profile a verifier
+can be written from, so the profile is now normative on the authentication page, the
+Go SDK carries the verifier, and the shared chain cases are derived from the page.
+
+**The parent travels inside the child.** A child carries its complete signed parent in
+the `fora_parent` claim. The alternative, a list of tokens the verifier re-links by
+`jwk` and `cnf.jkt`, lets a child be presented under any parent whose `cnf.jkt` names
+the same principal key, so one principal's grant from issuer A could carry a child
+minted under issuer B's grant. Embedding the parent puts the parent's signature inside
+the child's signed payload: a child is bound to one specific parent grant, and
+verification is still offline, because every token the verifier needs is inside the
+one it was given. The price is size, so the chain is at most four tokens and the
+complete token at most 32768 bytes, a wire rule checked before any parsing and again
+on every embedded parent before it is decoded.
+
+**Required claims, and nothing unknown.** `iss`, `aud`, `cnf.jkt` and a finite `exp`
+are required, and the protected header `typ` is `fora-delegation+jwt`. `aud` is
+required because a token minted for one Exchange must not be presentable to another
+that trusts the same issuer; it follows the Request recipient rule the `exchange`
+field already uses, so the two identities are compared the same way. `exp` is
+required because an open-ended grant has no bound a verifier can return. `typ` keeps
+an access token or an ID token from the same issuer from being read as a delegation.
+A claim the profile does not list is refused: the earlier text let a verifier skip a
+claim the issuer marked advisory, which means the issuer decides what the verifier may
+ignore; now vendor metadata travels only inside the signed `fora_advisory` object,
+which may not carry the name of a profile claim. The clock leeway is one number, 60
+seconds, with the comparisons written out, because two verifiers that disagree by a
+second at a boundary disagree on the vectors.
+
+**Intermediate issuers name their key.** A child's `iss` is the RFC 7638 thumbprint
+of its own signing key, which is also the parent's `cnf.jkt`. Any other rule would
+need an input the verifier does not have, a registry of intermediate identities; this
+one is checkable from the chain alone, and it makes a child whose signature and key
+linkage are valid but whose `iss` claims to be someone else a refusal.
+
+**Trust is configured, never discovered.** The root verifies with a key the Exchange
+has configured for the issuer's identity, on the subscription record that owns the
+gated term. `Delegation.issuer` once pointed at an OIDC issuer URL for a JWKS lookup;
+a token-supplied URL is the token choosing its own verifier, and a directory fetch is a
+network dependency on the issuer at request time. Both are gone. `issuer` and
+`principal_domain` are mirrors of the root's `iss`, the trust anchor's identity,
+never an intermediate issuer, and establish nothing; the other plaintext fields mirror
+the terminal token's effective grant and cannot widen it. Removing a key from the
+record is the explicit withdrawal of trust; per-token revocation through
+`revocation_uri` is not part of this profile.
+
+**Caps are refused by the verifier of this release.** `fora_max_spend_cents`,
+`fora_max_accesses` and `fora_quota_period` stay profile claims, but the Go verifier
+meters nothing, so a chain that carries one is refused rather than the cap dropped,
+which is what fail-closed means for a restriction. An Exchange that enforces caps
+verifies them in its own step. A gated offer never expires later than the chain's
+effective expiry, the earliest `exp` without leeway, which the verifier returns.
+
+**The documentation shows real tokens.** Every documented token is a case in the
+shared chain file, named on the line above its fence, and a conformance test verifies
+it cryptographically under that case's inputs. A page can no longer show a chain that
+does not verify.
+
+## The delegation verifier checks Ed25519 itself, under either algorithm name
+
+The holder-bound delegation profile accepts two protected-header `alg` values for one
+key type: `EdDSA`, the polymorphic name RFC 8037 registered, and `Ed25519`, the
+fully-specified name RFC 9864 registered in 2025 while marking `EdDSA` deprecated. Current
+issuers (panva `jose` from 5.10, `joserfc`) emit `Ed25519`; older ones emit `EdDSA`. A
+verifier that accepted only one name would refuse valid chains from the other half.
+
+**go-jose cannot be the signature check.** The pinned go-jose v4 knows only `EdDSA`. A
+token whose header says `Ed25519` is refused by its parser before any key is inspected,
+even when `Ed25519` is placed in the allowed-algorithms list, and its main branch has no
+such algorithm either. Rewriting the header to `EdDSA` before handing the token over would
+change the signed bytes, so that is not an option.
+
+**The check is small enough to own.** A compact JWS is three base64url segments; the
+signing input is the first two joined by a dot; an Ed25519 signature is 64 bytes;
+`crypto/ed25519` verifies it in one call. `helpers.VerifyDelegation` therefore splits the
+token, reads the protected header, and verifies the signature with the standard library
+over the original bytes, under either `alg` name. go-jose keeps the two jobs it does well:
+it parses the protected `jwk` header, where its OKP decoder refuses any curve but Ed25519,
+and it computes the RFC 7638 thumbprint through `helpers.Thumbprint`, as it already did.
+
+**One verifier, in Go, for now.** The Exchange imports this verifier; the TypeScript and
+Python ports are deferred and recorded as a decision in the parity matrix, so the gap is
+visible rather than silent. The chain cases the Go tests replay are kept outside the
+`*-vectors.json` convention until those ports exist, because that convention is a promise
+of tri-language replay and the completeness gate enforces it without exemption.
+

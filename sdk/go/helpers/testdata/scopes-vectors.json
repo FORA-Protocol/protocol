@@ -180,6 +180,66 @@
         "read"
       ],
       "expected": false
+    },
+    {
+      "name": "wildcard_super_covers_narrower_sub",
+      "sub": [
+        "publisher:news:read"
+      ],
+      "super": [
+        "publisher:*:read"
+      ],
+      "expected": true
+    },
+    {
+      "name": "sub_wildcard_wider_than_super",
+      "sub": [
+        "publisher:news:*"
+      ],
+      "super": [
+        "publisher:*:read"
+      ],
+      "expected": false
+    },
+    {
+      "name": "terminal_wildcard_super_covers_deeper_sub",
+      "sub": [
+        "dist:US:CA"
+      ],
+      "super": [
+        "dist:*"
+      ],
+      "expected": true
+    },
+    {
+      "name": "sub_bare_star_not_covered_by_narrow_super",
+      "sub": [
+        "*"
+      ],
+      "super": [
+        "read"
+      ],
+      "expected": false
+    },
+    {
+      "name": "no_implicit_prefix_in_subset",
+      "sub": [
+        "dist:US"
+      ],
+      "super": [
+        "dist"
+      ],
+      "expected": false
+    },
+    {
+      "name": "sub_longer_than_super_terminal_star",
+      "sub": [
+        "dist:US"
+      ],
+      "super": [
+        "dist:US:*"
+      ],
+      "expected": false
     }
   ]
 }

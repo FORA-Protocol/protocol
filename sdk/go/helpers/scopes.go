@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"sort"
+	"strings"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
@@ -54,19 +55,67 @@ func ApplyScopes(r *forav1.Requester, scopes ...string) {
 	r.Scopes = NormalizeScopes(scopes)
 }
 
-// ScopesSubset reports whether every scope in sub is present in super. It is the
-// delegation-attenuation rule (Delegation.scopes MUST be a subset of the
-// principal's granted scopes): use it to validate a delegation before relying on
-// it, so an over-broad delegation is caught at the SDK boundary.
-func ScopesSubset(sub, super []string) bool {
-	set := make(map[string]struct{}, len(super))
-	for _, s := range super {
-		set[s] = struct{}{}
+// ScopeCovers reports whether one granted scope covers one required scope under
+// the protocol's scope-matching rule (the rule stated on Requester.scopes, which
+// LicenseTerm.scopes and delegation attenuation share):
+//
+//   - both scopes are split on ":" into segments;
+//   - each granted segment must equal the required segment at the same position
+//     or be "*";
+//   - a "*" in the last position of the grant covers every remaining required
+//     segment, and there must be at least one;
+//   - there is no implicit prefix match: "dist" covers only "dist", not "dist:US";
+//   - a grant with more segments than the requirement is narrower and never
+//     covers it, even when its last segment is "*" ("dist:US:*" does not cover
+//     "dist:US");
+//   - a "*" inside the requirement is a literal segment, so a narrow grant never
+//     covers a wildcard requirement ("credit:read" does not cover "*");
+//   - an empty string covers nothing and is covered by nothing.
+//
+// Matching is case-sensitive and never trims.
+func ScopeCovers(granted, required string) bool {
+	if granted == "" || required == "" {
+		return false
 	}
-	for _, s := range sub {
-		if _, ok := set[s]; !ok {
+	g := strings.Split(granted, ":")
+	r := strings.Split(required, ":")
+	for i, seg := range g {
+		if seg == "*" && i == len(g)-1 {
+			return i < len(r)
+		}
+		if i >= len(r) || (seg != "*" && seg != r[i]) {
+			return false
+		}
+	}
+	return len(g) == len(r)
+}
+
+// ScopesCover reports whether every scope in required is covered (ScopeCovers)
+// by at least one scope in granted. An empty required list is always covered;
+// an empty granted list covers nothing but an empty required list.
+func ScopesCover(granted, required []string) bool {
+	for _, req := range required {
+		covered := false
+		for _, g := range granted {
+			if ScopeCovers(g, req) {
+				covered = true
+				break
+			}
+		}
+		if !covered {
 			return false
 		}
 	}
 	return true
+}
+
+// ScopesSubset reports whether every scope in sub is covered by some scope in
+// super under ScopeCovers (grant containment, not exact set membership). It is
+// the delegation-attenuation rule: a child's scopes must be contained in its
+// parent's grant. A child may narrow a wildcard ("publisher:news:read" under
+// "publisher:*:read") but may not widen one ("publisher:news:*" under
+// "publisher:*:read" is refused). ScopesSubset(sub, super) is
+// ScopesCover(super, sub) read from the child's side.
+func ScopesSubset(sub, super []string) bool {
+	return ScopesCover(super, sub)
 }

@@ -112,17 +112,20 @@ func (h *ExchangeHandler) DiscoverResources(
     }
 
     // 2c. Verify delegation (if present) on a DIRECT query.
-    //     Verifies the delegation JWT chain (chain linkage + cnf holder binding)
-    //     against the principal's published key. On a query a Broker originated
-    //     the Broker signs alone, so nothing can pass the holder binding: the
-    //     delegation is not honoured, and the query is answered as if none were
-    //     present.
-    delegation := requester.GetDelegation()
-    if brokerLed {
-        delegation = nil
-    }
-    if delegation != nil {
-        if err := h.verifyDelegationJWT(ctx, requester); err != nil {
+    //     The SDK verifier walks the fora_parent chain, verifies the root with
+    //     the keys configured on the subscription record (never a fetched key),
+    //     each child with the key in its protected jwk, and the holder binding
+    //     against the request signer. On a query a Broker originated the Broker
+    //     signs alone, so nothing can pass the holder binding: the delegation
+    //     is not honoured, and the query is answered as if none were present.
+    var verified *helpers.VerifiedDelegation
+    if requester.GetDelegation() != nil && !brokerLed {
+        trusted := h.subscriptions.TrustedIssuers(ctx, tenantCfg.ID) // per record
+        verified, err = helpers.VerifyDelegation(helpers.DelegationInput{
+            Token: requester.GetDelegation().GetToken(), TrustedIssuers: trusted,
+            Audience: tenantCfg.Identity, Holder: signerThumbprint, Now: h.clock.Now(),
+        })
+        if err != nil {
             return nil, connect.NewError(connect.CodePermissionDenied, err)
         }
     }
@@ -155,18 +158,19 @@ func (h *ExchangeHandler) DiscoverResources(
     // per-tenant RPS caps) belongs in HAProxy/Envoy/API Gateway in front of this service.
 
     // 5. Catalog lookup (lock-free read, scope-filtered)
-    //    The catalog is filtered by requester.scopes, the requester's own
-    //    statement — terms outside the stated scopes are not returned. When a
-    //    direct query carries a verified delegation, this Exchange also requires
-    //    its grant to cover a term's scopes (a narrower use of the MAY in
-    //    LicenseTerm.scopes): the effective scopes are the intersection of
-    //    requester.scopes and the delegation's granted scopes. A query a Broker
-    //    originated honours no delegation (2c), so its stated scopes alone decide.
-    effectiveScopes := requester.Scopes
-    if delegation != nil {
-        effectiveScopes = intersectScopes(requester.Scopes, delegation.Scopes)
+    //    A non-gated term is filtered by requester.scopes, the requester's own
+    //    statement — terms outside the stated scopes are not returned. A gated
+    //    term (a subscription term) is presented only when the verified
+    //    delegation's effective scopes cover it, by the one matching rule on
+    //    Requester.scopes; requester.scopes is ignored for gated terms. A query
+    //    with no verified delegation — a query a Broker originated among them
+    //    (2c) — is answered as if the gated terms did not exist. A gated offer
+    //    expires no later than verified.ExpiresAt.
+    var verifiedScopes []string
+    if verified != nil {
+        verifiedScopes = verified.Scopes
     }
-    offers, err := h.catalog.FindOffers(ctx, tenantCfg.ID, req.Msg.Uris, effectiveScopes)
+    offers, err := h.catalog.FindOffers(ctx, tenantCfg.ID, req.Msg.Uris, requester.Scopes, verifiedScopes)
     if err != nil {
         return nil, connect.NewError(connect.CodeInternal, err)
     }
@@ -340,12 +344,12 @@ sigs := helpers.AllSignaturesFromContext(ctx)
 
 When `Requester.delegation` is present, the Exchange verifies the delegation JWT chain before honouring it:
 
-1. Decode the base64url-encoded `token` (JWS) from the `Delegation` message
-2. Verify the Ed25519 signature chain — the authority JWT signed by `principal_domain`'s published key, each child JWT signed by the key its parent named in `cnf` (chain-linkage invariant)
-3. Verify holder binding — the key that signed the RFC 9421 request MUST hash to the final JWT's `cnf.jkt`. On a purchase sub-request a Broker re-packaged, the request signer is the Broker, so compare the key each item's `AgentAcceptance` verifies under instead. On a query a Broker originated nothing can pass this check, so the delegation is not verified or honoured there, and the query is answered as if none were present
-4. Evaluate constraints (scope coverage, spend caps, expiration) — the grant covers scopes only if each child's `scope` is contained in its parent's
-5. Extract effective scopes (intersection of requester scopes and delegation scopes)
-6. Check `expires_at` against current time
+1. Refuse a `token` over 32768 bytes at wire validation; otherwise read it as one compact JWS and walk `fora_parent` inward to the root, at most four tokens deep
+2. Verify the Ed25519 signature chain — the root with the key configured for its `iss` on the subscription record (never a key fetched from `principal_domain`), each child with the key in its protected `jwk` header, which must hash to the parent's `cnf.jkt` (chain-linkage invariant)
+3. Verify holder binding — the key that signed the RFC 9421 request MUST hash to the last token's `cnf.jkt`. On a purchase sub-request a Broker re-packaged, the request signer is the Broker, so compare the key each item's `AgentAcceptance` verifies under instead. On a query a Broker originated nothing can pass this check, so the delegation is not verified or honoured there, and the query is answered as if none were present
+4. Check headers, claims, audience and time on every token — `typ`, `alg`, the required claims, `aud` naming this Exchange, `exp` and `nbf` with the 60-second leeway — and that each child narrows its parent's scopes, audiences and expiry
+5. Take the effective scopes and the effective expiry from the verified chain. For a gated term, those scopes alone decide; `Requester.scopes` is ignored
+6. Issue a gated offer that expires no later than the effective expiry
 7. Optionally check `revocation_uri` for high-value transactions
 
 See [Authentication](/protocol/authentication/) for the full delegation model.

@@ -146,7 +146,7 @@ class Cost(WireModel):
 class Delegation(WireModel):
     expires_at: AwareDatetime | None = Field(
         None,
-        description='When this delegation expires. Exchange MUST reject expired tokens.',
+        description="Mirror of the chain's earliest `exp`. The Exchange MUST reject an expired\n token; the signed `exp` values decide, not this field.",
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
@@ -155,7 +155,7 @@ class Delegation(WireModel):
     )
     issuer: str | None = Field(
         None,
-        description='Token issuer. OIDC issuer URL or GNAP grant server URL.\n Exchange uses this for JWT validation (OIDC discovery → JWKS)\n or GNAP token introspection.',
+        description="Mirror of the ROOT token's `iss`, the identity configured with the trusted\n key (never an intermediate or terminal issuer). Informational: the\n Exchange never discovers a key from it, through OIDC, JWKS or otherwise.",
     )
     max_accesses: conint(ge=-2147483648, le=2147483647) | None = Field(
         None,
@@ -166,11 +166,12 @@ class Delegation(WireModel):
         description='Maximum spend in currency minor units (e.g., cents for USD).\n Exchange tracks cumulative spend against this cap.',
     )
     principal_domain: str | None = Field(
-        '', description='Who granted this delegation (domain for public key lookup).'
+        '',
+        description="Mirror of the ROOT token's `iss`, the configured trust anchor's identity.\n Informational: no key is looked up from it, and it establishes no trust.",
     )
     principal_id: str | None = Field(
         '',
-        description='Principal\'s identifier (e.g., "user@acme.com", "marketdata.example.com").',
+        description='Principal\'s identifier (e.g., "user@acme.com", "marketdata.example.com").\n Informational; not read by the verifier.',
     )
     quota_period: str | None = Field(
         None,
@@ -182,10 +183,13 @@ class Delegation(WireModel):
     )
     scopes: list[str] | None = Field(
         None,
-        description="Scopes granted by this delegation. MUST be a subset of the\n principal's own scopes (attenuation — can only narrow, not widen).",
+        description="Mirror of the terminal token's effective scopes. In the chain, each\n child's scopes are covered by its parent's under the scope-matching rule\n on Requester.scopes (attenuation — can only narrow, not widen).",
     )
-    token: constr(pattern=r'^[A-Za-z0-9+/]*={0,2}$') | None = Field(
-        '', description='Token bytes. A JWT (base64url-encoded JWS).'
+    token: (
+        constr(pattern=r'^[A-Za-z0-9+/]{0,43691}={0,2}$', max_length=43692) | None
+    ) = Field(
+        '',
+        description='Token bytes. A JWT (base64url-encoded JWS). At most 32768 bytes: the\n complete chain, every embedded parent included, must fit. The limit is a\n wire rule, checked before the token is parsed and independent of whether\n the bytes are a valid JWT; a longer token is an invalid request, not a\n per-item denial.',
     )
     token_format: str | None = Field(
         '',
@@ -1438,7 +1442,7 @@ class Requester(WireModel):
     )
     scopes: list[str] | None = Field(
         None,
-        description='Entitlement scopes: the requester\'s own statement of what it is entitled\n to. On a query a Broker originated, they are the Broker\'s statement for the\n agent. They are signed and attributable, and the Exchange does not verify\n them. Scope coverage decides which terms the Exchange presents (see\n LicenseTerm.scopes, which also states when an Exchange MAY require a\n verified delegation); it is not access control. A false statement is\n traceable to the signing key, its directory and its account, and the\n agent\'s acceptance signs the scoped offer it buys; it is settled through\n reconciliation and the account relationship.\n\nEXISTENCE HIDING. A requester never learns about a resource outside its\n scopes. When the scopes leave no presentable offer for a resource, the\n Exchange answers with no offers and no absence reason (an OfferGroup with\n empty `offers` and `absence_reason` unset), exactly as for any resource\n with nothing to offer. A Broker relaying that answer adds no reason of its\n own. At purchase, an offer the Exchange presented is honoured until it\n expires, so a scope refusal cannot arise there. No reason in the protocol\n reports a scope shortfall: OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT and\n DENIAL_REASON_SCOPE_INSUFFICIENT are deprecated and never sent.\n\n Scope format: colon-separated segments, "{domain}:{permission}" or\n "{profile}:{permission}", optionally multi-segment ("dist:US:CA");\n matching is segment-wise per the rule below (no implicit hierarchy).\n Examples:\n   "credit:read"                — can access credit reports\n   "subscription:marketdata-2026" — has active MarketData subscription\n   "academic:*"                 — full access to academic resources\n   "internal:reports"           — can access internal reports\n   "*"                         — unrestricted (public Exchange default)\n\n Matching is SEGMENT-WISE (":" separated). A granted scope G covers a\n required scope R iff, segment by segment, each G segment equals the\n corresponding R segment or is "*"; a terminal "*" matches all remaining\n segments. There is NO implicit prefix match, and a grant NARROWER than\n the requirement does not cover it (G must be equal-to-or-broader than R).\n Examples: "dist:*" covers "dist:US" and "dist:US:CA"; "dist:US:*" covers\n "dist:US:CA" but not "dist:EU"; bare "dist" covers only "dist"; granted\n "dist:US:CA" does NOT cover required "dist:US"; "*" covers everything.\n This same rule governs LicenseTerm.scopes — one algorithm protocol-wide.\n\n When empty, Exchange applies its default access policy (typically\n returns all publicly available resources).',
+        description='Entitlement scopes: the requester\'s own statement of what it is entitled\n to. On a query a Broker originated, they are the Broker\'s statement for the\n agent. They are signed and attributable, and the Exchange does not verify\n them. Scope coverage decides which terms the Exchange presents (see\n LicenseTerm.scopes, which also states when an Exchange MAY require a\n verified delegation); it is not access control. A false statement is\n traceable to the signing key, its directory and its account, and the\n agent\'s acceptance signs the scoped offer it buys; it is settled through\n reconciliation and the account relationship.\n\nEXISTENCE HIDING. A requester never learns about a resource outside its\n scopes. When the scopes leave no presentable offer for a resource, the\n Exchange answers with no offers and no absence reason (an OfferGroup with\n empty `offers` and `absence_reason` unset), exactly as for any resource\n with nothing to offer. A Broker relaying that answer adds no reason of its\n own. At purchase, an offer the Exchange presented is honoured until it\n expires, so a scope refusal cannot arise there. No reason in the protocol\n reports a scope shortfall: OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT and\n DENIAL_REASON_SCOPE_INSUFFICIENT are deprecated and never sent.\n\n Scope format: colon-separated segments, "{domain}:{permission}" or\n "{profile}:{permission}", optionally multi-segment ("dist:US:CA");\n matching is segment-wise per the rule below (no implicit hierarchy).\n Examples:\n   "credit:read"                — can access credit reports\n   "subscription:marketdata-2026" — has active MarketData subscription\n   "academic:*"                 — full access to academic resources\n   "internal:reports"           — can access internal reports\n   "*"                         — unrestricted (public Exchange default)\n\n Matching is SEGMENT-WISE (":" separated). A granted scope G covers a\n required scope R iff, segment by segment, each G segment equals the\n corresponding R segment or is "*"; a terminal "*" matches all remaining\n segments, of which there must be at least one. There is NO implicit prefix\n match, and a grant NARROWER than the requirement does not cover it (G must\n be equal-to-or-broader than R), so a grant with more segments than the\n requirement never covers it, even when its last segment is "*". A "*" in R\n is a literal segment: a narrow grant never covers a wildcard requirement.\n Matching is case-sensitive and never trims. Examples: "dist:*" covers\n "dist:US", "dist:US:CA" and "dist:US:*" but not "dist"; "dist:US:*" covers\n "dist:US:CA" but not "dist:EU" or "dist:US"; "publisher:*:read" covers\n "publisher:news:read" but not "publisher:news:*"; bare "dist" covers only\n "dist"; granted "dist:US:CA" does NOT cover required "dist:US"; "*" covers\n everything. This same rule governs LicenseTerm.scopes and the attenuation\n of a delegation child against its parent — one algorithm protocol-wide.\n\n When empty, Exchange applies its default access policy (typically\n returns all publicly available resources).',
         max_length=64,
     )
     type: RequesterType = Field(
@@ -1882,7 +1886,7 @@ class LicenseTerm(WireModel):
     )
     scopes: list[str] | None = Field(
         None,
-        description='Scope-gating: the Exchange presents an offer for this term only when the\n scopes in the requester\'s signed request (Requester.scopes) cover ALL of\n these scopes (AND-semantics). Empty = public. A subscription term is\n Pricing{model:FREE} + scopes:["subscription:..."].\n\nRequester.scopes is the requester\'s own statement, which the Exchange does\n not verify, so a scope gate hides a term from requesters that do not state\n the scope; it does not stop one that states it falsely. An Exchange MAY\n also require a verified delegation that grants these scopes before it\n presents the term. To a requester that presents none, it answers as if the\n term did not exist, as existence hiding requires (see Requester.scopes). An\n offer the Exchange presented is honoured until it expires.\n\n Coverage uses the SAME matching rule as Requester.scopes:\n segment-wise (":" separated), each granted segment must equal the\n corresponding required segment or be "*", a terminal "*" matches all\n remaining segments, and there is NO implicit prefix match (a grant\n narrower than the requirement does not cover it). "dist:*" covers\n "dist:US" and "dist:US:CA"; "dist" covers only "dist". There is exactly\n one scope-matching algorithm across the protocol.',
+        description='Scope-gating: the Exchange presents an offer for this term only when the\n scopes in the requester\'s signed request (Requester.scopes) cover ALL of\n these scopes (AND-semantics). Empty = public. A subscription term is\n Pricing{model:FREE} + scopes:["subscription:..."].\n\nRequester.scopes is the requester\'s own statement, which the Exchange does\n not verify, so a scope gate hides a term from requesters that do not state\n the scope; it does not stop one that states it falsely. An Exchange MAY\n instead gate a term behind a verified delegation (a subscription term is\n the usual case): then only the delegation chain\'s verified effective scopes\n are matched against these scopes, and Requester.scopes is ignored for that\n term. To a requester that presents no valid delegation, it answers as if\n the term did not exist, as existence hiding requires (see\n Requester.scopes). An offer the Exchange presented is honoured until it\n expires, and a gated offer expires no later than the chain\'s effective\n expiry (see Delegation).\n\n Coverage uses the SAME matching rule as Requester.scopes:\n segment-wise (":" separated), each granted segment must equal the\n corresponding required segment or be "*", a terminal "*" matches all\n remaining segments (at least one), and there is NO implicit prefix match\n (a grant narrower than the requirement does not cover it). "dist:*" covers\n "dist:US" and "dist:US:CA"; "dist" covers only "dist". There is exactly\n one scope-matching algorithm across the protocol.',
         max_length=64,
     )
     semantics: TermSemantics = Field(
@@ -1913,7 +1917,8 @@ class Offer(WireModel):
         description='REQUIRED. Bare host of the Exchange that issued this offer (e.g.\n "exchange.example" or "exchange.example:8081"), in the form "Request\n recipient" defines in the file header. This is the execute-routing target:\n the agent, or a relaying Broker, sends the ExecuteTransaction call for this\n offer to this Exchange, and a Broker relaying a mixed batch groups the items\n by this value. Because it is an ordinary Offer field it falls inside the\n signed bytes (see `signature` below — the signature covers every field\n except `signature` / `signature_algorithm`), so an intermediary cannot\n redirect the execute call to a different Exchange without invalidating the\n offer, and it is what retires the X-FORA-Exchange-Endpoint transport header.\n It is also the audience statement of an ExecuteTransaction, which is why\n TransactionRequest carries no top-level `exchange`: on receipt, an Exchange\n MUST reject the request unless EVERY item\'s offer.exchange names its own\n domain. Presence is enforced because an empty value is unroutable — a\n relaying Broker has nothing to group or dial on, and the swap-protection\n above is vacuous when the signed bytes carry no recipient at all.',
     )
     expires_at: AwareDatetime | None = Field(
-        None, description='When this offer expires (ISO 8601).'
+        None,
+        description="When this offer expires (ISO 8601). An offer for a term gated behind a\n verified delegation MUST NOT expire later than that delegation chain's\n effective expiry, the earliest `exp` in the chain (see Delegation).",
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(

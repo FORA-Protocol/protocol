@@ -42,8 +42,10 @@ type scopesNormalizeVector struct {
 	Normalized []string `json:"normalized"`
 }
 
-// scopesSubsetVector is one ScopesSubset case: (sub ⊆ super) as the REAL
-// ScopesSubset computes it. Empty sub ⇒ true.
+// scopesSubsetVector is one ScopesSubset case: whether every scope in sub is
+// covered by some scope in super under the segment-wise matching rule, as the
+// REAL ScopesSubset computes it. Empty sub ⇒ true. The single-pair rule itself
+// is pinned by the hand-written scope-match-vectors.json.
 type scopesSubsetVector struct {
 	Name     string   `json:"name"`
 	Sub      []string `json:"sub"`
@@ -113,7 +115,10 @@ func buildScopesNormalizeVectors() []scopesNormalizeVector {
 }
 
 // buildScopesSubsetVectors emits the ScopesSubset corpus, deriving expected from
-// the REAL ScopesSubset (sub ⊆ super; empty sub ⇒ true).
+// the REAL ScopesSubset (every sub scope covered by some super scope; empty
+// sub ⇒ true). The exact-string cases keep their old verdicts under the
+// containment rule; the wildcard cases are what separate containment from
+// set membership.
 func buildScopesSubsetVectors() []scopesSubsetVector {
 	cases := []struct {
 		name       string
@@ -127,6 +132,12 @@ func buildScopesSubsetVectors() []scopesSubsetVector {
 		{"partial_overlap_not_subset", []string{"read", "admin"}, []string{"read", "write"}},
 		{"sub_nonempty_super_empty", []string{"read"}, nil},
 		{"case_sensitive_not_subset", []string{"Read"}, []string{"read"}},
+		{"wildcard_super_covers_narrower_sub", []string{"publisher:news:read"}, []string{"publisher:*:read"}},
+		{"sub_wildcard_wider_than_super", []string{"publisher:news:*"}, []string{"publisher:*:read"}},
+		{"terminal_wildcard_super_covers_deeper_sub", []string{"dist:US:CA"}, []string{"dist:*"}},
+		{"sub_bare_star_not_covered_by_narrow_super", []string{"*"}, []string{"read"}},
+		{"no_implicit_prefix_in_subset", []string{"dist:US"}, []string{"dist"}},
+		{"sub_longer_than_super_terminal_star", []string{"dist:US"}, []string{"dist:US:*"}},
 	}
 	out := make([]scopesSubsetVector, 0, len(cases))
 	for _, c := range cases {

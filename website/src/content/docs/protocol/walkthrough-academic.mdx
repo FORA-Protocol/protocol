@@ -96,10 +96,11 @@ All three publishers route through the same academic aggregator Exchange (`excha
 
 ## Step 2 — ResourceQuery
 
-The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris`. The `Requester` states the agent's scopes, the university's subscription scope among them, and carries the university's delegation JWT, which the Exchange does not honour on a query the Broker originated (see below). The query declares support for `fora-academic-v1` so the Exchange includes version, OA status, and retraction metadata in its response.
+The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris`. The `Requester` states the agent's scopes, the university's subscription scope among them, and carries the university's delegation token (the shared chain case `docs_walkthrough_academic`), which the Exchange does not honour on a query the Broker originated (see below). The query declares support for `fora-academic-v1` so the Exchange includes version, OA status, and retraction metadata in its response.
 
 `POST https://exchange.scholarsgate.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
+{/* delegation-chain: docs_walkthrough_academic */}
 {/* fora-validate: ResourceQuery */}
 ```json
 {
@@ -116,9 +117,7 @@ The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris
       "principal_id": "inst-sub-stanford-2026",
       "scopes": ["academic:*"],
       "expires_at": "2026-12-31T23:59:59Z",
-      "max_accesses": 100000,
-      "quota_period": "2592000s",
-      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSjkuPGNsYWltczogaXNzLCBzY29wZSwgZXhwLCBjbmYuamt0Pi48c2lnPg",
+      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVjMk5vYjJ4aGNuTm5ZWFJsTG1OdmJTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVFWTk9hVUZGVTNOUWNYVTNaRmhOTlRoTU5rTmhiMHRzVEdSRlZWaE1WRzVpVUVwcmFFaHBhbDk1UlNKOUxDSmxlSEFpT2pFM09UZzNOakUxT1Rrc0ltbHpjeUk2SW5OMFlXNW1iM0prTG1Wa2RTSXNJbXAwYVNJNkltbHVjM1F0YzNWaUxYTjBZVzVtYjNKa0xUSXdNall0TURFNU15SXNJbk5qYjNCbElqb2lZV05oWkdWdGFXTTZLaUlzSW5OMVlpSTZJbWx1YzNRdGMzVmlMWE4wWVc1bWIzSmtMVEl3TWpZaWZRLnAxN05DOHdnbFVBTW42cEhMWlVxUzZQMXUxTHh3RW9QTmpmTFRYU2JFOUZCZHN3SW9IaFJhdTBPdEcwMENiYkZWSUprN0lGU2swa2dWZUpxamhsakFR",
       "token_format": "jwt"
     }
   },
@@ -183,18 +182,22 @@ The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris
 
 - **`ResourceQuery.uris`** — 50 DOIs in `doi:` URI scheme. The Exchange resolves these against its catalog. DOIs are the universal dedup key for academic content: the same paper on arXiv and Elsevier shares the same DOI (or is linked via `academic.related_works`).
 - **`requester.scopes`** — the agent's own statement: `academic:*` for full academic access, and `subscription:inst-sub-stanford-2026` for the university's subscription. The Exchange does not verify them. It presents each term whose scopes they cover, so the subscription term, which carries `subscription:inst-sub-stanford-2026`, is presented.
-- **`delegation`** — A delegation JWT signed by `stanford.edu`'s Ed25519 key. Its claims contain:
+- **`delegation`** — A root token in the [delegation profile](/protocol/authentication/#delegation), signed by `stanford.edu`'s Ed25519 key. Decoded, its header and claims contain:
   ```json
+  // protected header
+  { "alg": "EdDSA", "typ": "fora-delegation+jwt" }
+  // claims
   {
     "iss": "stanford.edu",
     "sub": "inst-sub-stanford-2026",
+    "aud": ["exchange.scholarsgate.com"],
+    "jti": "inst-sub-stanford-2026-0193",
     "scope": "academic:*",
-    "fora_max_accesses": 100000,
-    "fora_quota_period": "2592000s",
     "exp": 1798761599,
-    "cnf": { "jkt": "<thumbprint of the agent's key>" }
+    "cnf": { "jkt": "ASNiAESsPqu7dXM58L6CaoKlLdEUXLTnbPJkhHij_yE" }
   }
   ```
+  The monthly access quota is not a token claim: the Exchange meters it on the subscription record and reports it in `subscription_quota`.
   On this query the Exchange does not honour the delegation: the Broker originated the query and signs it alone, so nothing on it can pass the holder binding, and the Exchange answers as if no delegation were present ([Which signature binds in a brokered request](/protocol/authentication/#verification)). The agent's direct purchase in Step 5 verifies it instead, offline and with no call to Stanford. An Exchange that requires a verified delegation before it presents a scoped term would omit the subscription term from this answer, as if it did not exist; the agent would then query the Exchange directly, signing the query itself, with a delegation that grants the subscription scope.
 - **`supported_profiles`** — `["fora-academic-v1"]` tells the Exchange to include academic-specific `ext` fields (OA status, version, retraction status) and attestation claims. Without this declaration, the Exchange MAY skip expensive metadata computation like retraction checking.
 
@@ -617,6 +620,7 @@ The research agent commits to all 49 selected offers in a single batch `Transact
 
 `POST https://exchange.scholarsgate.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
+{/* delegation-chain: docs_walkthrough_academic */}
 {/* fora-validate: TransactionRequest */}
 ```json
 {
@@ -632,9 +636,7 @@ The research agent commits to all 49 selected offers in a single batch `Transact
       "principal_id": "inst-sub-stanford-2026",
       "scopes": ["academic:*"],
       "expires_at": "2026-12-31T23:59:59Z",
-      "max_accesses": 100000,
-      "quota_period": "2592000s",
-      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSjkuPGNsYWltczogaXNzLCBzY29wZSwgZXhwLCBjbmYuamt0Pi48c2lnPg",
+      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVjMk5vYjJ4aGNuTm5ZWFJsTG1OdmJTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVFWTk9hVUZGVTNOUWNYVTNaRmhOTlRoTU5rTmhiMHRzVEdSRlZWaE1WRzVpVUVwcmFFaHBhbDk1UlNKOUxDSmxlSEFpT2pFM09UZzNOakUxT1Rrc0ltbHpjeUk2SW5OMFlXNW1iM0prTG1Wa2RTSXNJbXAwYVNJNkltbHVjM1F0YzNWaUxYTjBZVzVtYjNKa0xUSXdNall0TURFNU15SXNJbk5qYjNCbElqb2lZV05oWkdWdGFXTTZLaUlzSW5OMVlpSTZJbWx1YzNRdGMzVmlMWE4wWVc1bWIzSmtMVEl3TWpZaWZRLnAxN05DOHdnbFVBTW42cEhMWlVxUzZQMXUxTHh3RW9QTmpmTFRYU2JFOUZCZHN3SW9IaFJhdTBPdEcwMENiYkZWSUprN0lGU2swa2dWZUpxamhsakFR",
       "token_format": "jwt"
     }
   },
@@ -712,7 +714,7 @@ The Exchange processes all 49 items in a single batch:
 
 1. **Signature verification** — verifies each item's `offer.signature` is its own Ed25519 signature over the reflected Offer (stateless, no stored offers).
 2. **Agent authentication** — verifies the request's RFC 9421 HTTP Message Signature (alg=ed25519, carried in the HTTP headers) against the agent's public key published in the WBA directory at `cs.stanford.edu/.well-known/http-message-signatures-directory`.
-3. **Delegation verification** — verifies the JWT chain for the 20 subscription items. Confirms `academic:*` scope covers Elsevier content.
+3. **Delegation verification** — verifies the chain for the 20 subscription items with the key configured for `stanford.edu` on the subscription record, checks `aud` names this Exchange and `cnf.jkt` is the agent's request key, and confirms the effective scope `academic:*` covers the subscription term. For this gated term the stated scopes are ignored.
 4. **Balance check** — confirms the account of the `cs.stanford.edu` key directory has sufficient balance ($25.50 for 17 paid items); `litrev-agent` is only a label and selects no account.
 5. **Quota check** — confirms 49 accesses fit within the subscription's remaining quota (76,520).
 6. **WAL write** — records all 49 transactions in the write-ahead log before generating signed URLs (write-before-sign invariant).
