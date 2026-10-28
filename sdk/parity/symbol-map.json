@@ -1,6 +1,29 @@
 {
   "_comment": "Symbol-level Go->Python->TS API-surface parity map. Go is the oracle (sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}). One entry per Go public symbol (pkg-qualified). 'python'/'ts' hold the mapped public name or null when that language exposes no public symbol of that name. allowlist_reason marks a deliberate documented divergence (shrink-only). Enforced by sdk/python/tests/test_api_surface_parity.py. TS object factories use the create* prefix and value generators use generate* (Go NewX stays idiomatic); the guarded-client names (guarded_client/guarded_async_client vs guardedFetchFromEnv) are a documented idiomatic divergence, not a transliteration.",
   "go_exclusions": {
+    "helpers.DelegationOversized": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationMalformed": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationTooDeep": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationBadAlg": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationBadTyp": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationCritPresent": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationMissingClaim": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationBadClaim": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationUnknownClaim": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationUnsupportedRestriction": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationAdvisoryShadowsClaim": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationUntrustedIssuer": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationBadSignature": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationBadJWK": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationJWKMismatch": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationChildIssuerMismatch": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationExpired": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationNotYetValid": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationExpiryWidened": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationAudienceMismatch": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationAudienceWidened": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationScopeWidened": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
+    "helpers.DelegationHolderMismatch": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
     "connect.CallMalformed": "Member of the mapped connect.CallErrorKind enum. Go declares each as a package-level constant; Python spells it CallErrorKind.<NAME> and TypeScript as a member of the CallErrorKind literal union, so neither is a top-level export the surface enumerator can see. The TYPE carries the parity claim and the shared corpora pin the values.",
     "connect.CallNotSent": "Member of the mapped connect.CallErrorKind enum. Go declares each as a package-level constant; Python spells it CallErrorKind.<NAME> and TypeScript as a member of the CallErrorKind literal union, so neither is a top-level export the surface enumerator can see. The TYPE carries the parity claim and the shared corpora pin the values.",
     "connect.CallNotSignable": "Member of the mapped connect.CallErrorKind enum. Go declares each as a package-level constant; Python spells it CallErrorKind.<NAME> and TypeScript as a member of the CallErrorKind literal union, so neither is a top-level export the surface enumerator can see. The TYPE carries the parity claim and the shared corpora pin the values.",
@@ -545,6 +568,78 @@
       "python": "DEFAULT_KEY_VALIDITY",
       "ts": "DEFAULT_KEY_VALIDITY_MS"
     },
+    "helpers.DelegationClockLeeway": {
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
+      "decision_anchor": "delegation verifier",
+      "python": null,
+      "ts": null
+    },
+    "helpers.DelegationError": {
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
+      "decision_anchor": "delegation verifier",
+      "python": null,
+      "ts": null
+    },
+    "helpers.DelegationFailure": {
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
+      "decision_anchor": "delegation verifier",
+      "python": null,
+      "ts": null
+    },
+    "helpers.DelegationInput": {
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
+      "decision_anchor": "delegation verifier",
+      "python": null,
+      "ts": null
+    },
+    "helpers.DelegationTokenType": {
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
+      "decision_anchor": "delegation verifier",
+      "python": null,
+      "ts": null
+    },
+    "helpers.ErrDelegationInvalid": {
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
+      "decision_anchor": "delegation verifier",
+      "python": null,
+      "ts": null
+    },
+    "helpers.MaxDelegationChainDepth": {
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
+      "decision_anchor": "delegation verifier",
+      "python": null,
+      "ts": null
+    },
+    "helpers.MaxDelegationNumericDate": {
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
+      "decision_anchor": "delegation verifier",
+      "python": null,
+      "ts": null
+    },
+    "helpers.MaxDelegationTokenBytes": {
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
+      "decision_anchor": "delegation verifier",
+      "python": null,
+      "ts": null
+    },
+    "helpers.TrustedIssuer": {
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
+      "decision_anchor": "delegation verifier",
+      "python": null,
+      "ts": null
+    },
+    "helpers.VerifiedDelegation": {
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
+      "decision_anchor": "delegation verifier",
+      "python": null,
+      "ts": null
+    },
+    "helpers.VerifyDelegation": {
+      "allowlist_reason": "Go-only delegation chain verifier \u2014 OPEN DECISION in docs/sdk-parity-matrix.md: the holder-bound JWT profile ships with one verifier, in Go, that the Exchange imports; the TypeScript and Python verifiers are deferred and tracked as a FORA-84 follow-up, and the chain cases in sdk/go/helpers/testdata/delegation-chains.json become a tri-replayed *-vectors.json corpus when they land. The mirrors a case carries (the plaintext Delegation fields next to the token) are replayed only by an Exchange's own tests; nothing in this repository reads them",
+      "decision_anchor": "delegation verifier",
+      "python": null,
+      "ts": null
+    },
     "helpers.DirectoryDocument": {
       "allowlist_reason": null,
       "python": "directory_document",
@@ -849,6 +944,16 @@
       "allowlist_reason": null,
       "python": "SchemaVerdict",
       "ts": "SchemaVerdict"
+    },
+    "helpers.ScopeCovers": {
+      "allowlist_reason": null,
+      "python": "scope_covers",
+      "ts": "scopeCovers"
+    },
+    "helpers.ScopesCover": {
+      "allowlist_reason": null,
+      "python": "scopes_cover",
+      "ts": "scopesCover"
     },
     "helpers.ScopesSubset": {
       "allowlist_reason": null,

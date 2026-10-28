@@ -185,7 +185,7 @@ from .resolvers import (
     WellKnownKeyResolver,
     wba_directory_url,
 )
-from .scopes import apply_scopes, normalize_scopes, scopes_subset
+from .scopes import apply_scopes, normalize_scopes, scope_covers, scopes_cover, scopes_subset
 from .signedurl import sign_ed25519_signed_url, verify_ed25519_signed_url
 from .signing_transport import OutboundRequest, SignedOutbound, SignerSource, SigningTransport
 from .strict import StrictViolationError, check_strict
@@ -383,6 +383,8 @@ __all__ = [
     "registration_failure_detail",
     "request_auth_failure_detail",
     "retrieval_auth_failure_detail",
+    "scope_covers",
+    "scopes_cover",
     "scopes_subset",
     "sign_agent_binding",
     "sign_ed25519_signed_url",

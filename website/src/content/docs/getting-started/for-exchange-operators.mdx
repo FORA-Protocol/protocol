@@ -154,21 +154,18 @@ Cache directories and keys with a TTL and re-fetch them to pick up rotation, wit
 
 ### Delegation Verification
 
-When a request includes a `Delegation` message (nested inside `Requester`), your Exchange verifies the JWT chain:
+When a request includes a `Delegation` message (nested inside `Requester`), run the chain through the profile's verifier (`helpers.VerifyDelegation` in the Go SDK). The procedure, the limits and the checks are stated once, in [Verification](/protocol/authentication/#verification). This page adds only what your Exchange supplies to the verifier and what it does with the result:
 
-1. Verify the JWT chain from the base64url `token` in the `Delegation` message
-2. Verify the authority JWT is signed by the Ed25519 key published in the principal's WBA directory (the JWK Set at `{principal_domain}/.well-known/http-message-signatures-directory`)
-3. Verify each child delegation JWT's signature (each signed by the key its parent named in `cnf`)
-4. **Verify holder binding** — the key the request proves possession of MUST equal the key named in `cnf` (`cnf.jkt`): on a direct request the key that signed it (RFC 9421), on a purchase a Broker relays the key that signed each item's `AgentAcceptance`. Reject with `DENIAL_REASON_DELEGATION_INVALID` if they differ. This is mandatory: it is what makes a stolen token unusable, so a token possessed without its signing key grants nothing. On a query a Broker originated, which proves possession of no agent key, do not verify or honour the delegation: answer as if none were present.
-5. Evaluate the grant's registered claims — scope restrictions, spend caps (`max_spend_cents`), access caps (`max_accesses`) — and confirm they cover the request (URI access is gated through scopes). For the JWT this means checking the registered claims along the `cnf` chain.
-6. Check `expires_at` against current time — reject expired tokens with `DENIAL_REASON_DELEGATION_INVALID`
-7. Optionally check `revocation_uri` for high-value transactions
+1. **Trust comes from the subscription record.** Give the verifier the trusted root keys of the subscription record that owns the gated term, each with the issuer identity it belongs to. Trust is configured on that record, never fetched: not from `principal_domain`, not from `issuer`, not from a WBA directory, OIDC or JWKS. A key trusted on one record grants nothing on another. Withdraw trust by removing a key from the record's list; `revocation_uri` is not part of the profile.
+2. **The holder is the key the request proved.** Give the verifier the thumbprint of that key: on a direct request the key that signed it (RFC 9421), on a purchase a Broker relays the key that signed each item's `AgentAcceptance`. The verifier refuses a mismatch. This is mandatory: it is what makes a stolen token unusable, so a token possessed without its signing key grants nothing. On a query a Broker originated, which proves possession of no agent key, do not verify or honor the delegation: answer as if none were present.
+3. **One outcome per failure.** A `token` over 32768 bytes fails wire validation: the whole request is refused as invalid, before any item is read. At discovery, a chain the verifier refuses is treated as if no delegation were present: the gated terms stay hidden and no denial reason reports why; you MAY journal the refusal. At purchase, a chain the verifier refuses denies that item with `DENIAL_REASON_DELEGATION_INVALID`.
+4. **Use what the verifier returns:** the root issuer, the holder thumbprint, the effective scopes and the effective expiry. A gated offer you issue MUST NOT expire later than that effective expiry. A chain that carries a cap claim (`fora_max_spend_cents`, `fora_max_accesses`, `fora_quota_period`) is refused by this release's verifier; meter subscriptions on the record, as [Subscription Quota Signaling](#subscription-quota-signaling) describes.
 
 This verification is entirely offline — no callback to the principal is required.
 
 ### Scope-Based Catalog Filtering
 
-After verifying identity (and any delegation, as above), present the terms the requester's stated scopes cover; only those reach the `DiscoverResources` response. The scopes are the requester's own statement and you do not verify them. If a term must not be presented on a statement alone, require a verified delegation that grants its scopes, and answer a requester without one as if the term did not exist.
+After verifying identity (and any delegation, as above), present the non-gated terms the requester's stated scopes cover; only those reach the `DiscoverResources` response. The scopes are the requester's own statement and you do not verify them. A gated term, a subscription term in the usual case, is different: present it only when the verified delegation's effective scopes cover it, ignore `requester.scopes` for that term, and answer a requester without a verified delegation as if the term did not exist. The matching rule is stated once, in [Scope Matching](/protocol/authentication/#scope-matching).
 
 For a resource that exists but falls outside the requester's scopes, answer exactly as for a resource you have nothing to offer for: an `OfferGroup` with no offers and `absence_reason` unset. Do not reveal that the resource exists, and do not send a reason that tells the two cases apart. This applies to enterprise RBAC and public marketplace subscriptions alike (see [Existence hiding](/protocol/authentication/#existence-hiding)).
 
@@ -185,7 +182,7 @@ FORA defines identity- and entitlement-related denial reasons your Exchange MUST
 | Denial Reason | When to Return |
 |---|---|
 | `DENIAL_REASON_QUOTA_EXCEEDED` | Subscription access count exhausted for the current `quota_period` |
-| `DENIAL_REASON_DELEGATION_INVALID` | Delegation token missing, unverifiable (broken chain linkage or holder-binding mismatch), expired (`expires_at` in the past), or it widens scope beyond its parent |
+| `DENIAL_REASON_DELEGATION_INVALID` | On a purchase item only: the delegation is missing, or the verifier refuses the chain (malformed, chain linkage, issuer or signature, expired or not yet valid by the signed chain, another recipient, holder binding, a child that widens its parent, or scopes or caps that do not cover the request). Never at discovery, where the gated terms are hidden instead, and never for an oversized token, which wire validation refuses. See [Verification](/protocol/authentication/#verification) |
 
 And the entitlement/subscription family, for subscription-gated offers:
 

@@ -361,10 +361,11 @@ curl -s https://marketdata.example.com/.well-known/fora.json | jq
 
 ### Step 2 — ResourceQuery with Delegation (JWT)
 
-Here is where v1.0's `Requester` + `Delegation` model shows its power. The agent states its subscription scope and includes a delegation JWT that grants it:
+Here is where v1.0's `Requester` + `Delegation` model shows its power. The agent states its subscription scope and includes a delegation token that grants it. The token is a real one from the shared chain cases (`docs_walkthrough_v1`), addressed to `exchange.marketdata-data.com` and bound to the agent's request key:
 
 `POST https://exchange.marketdata-data.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
+{/* delegation-chain: docs_walkthrough_v1 */}
 {/* fora-validate: ResourceQuery */}
 ```json
 {
@@ -386,7 +387,7 @@ Here is where v1.0's `Requester` + `Delegation` model shows its power. The agent
       "principal_id": "enterprise-sub-HF-001",
       "scopes": ["quote:*", "earnings:*", "news:read", "subscription:enterprise-sub-HF-001"],
       "expires_at": "2026-12-31T23:59:59Z",
-      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSjkuPGNsYWltczogaXNzLCBzY29wZSwgZXhwLCBjbmYuamt0Pi48c2lnPg",
+      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXViV0Z5YTJWMFpHRjBZUzFrWVhSaExtTnZiU0pkTENKamJtWWlPbnNpYW10MElqb2lVMlpqZVdaVVFucFVVbWhTYnkxbE1WQmxSQzFwVEMxSlgxZ3RVVVJzWjBGS1ozWlZlVFpPTjI5RFJTSjlMQ0psZUhBaU9qRTNPVGczTmpFMU9Ua3NJbWx6Y3lJNkltMWhjbXRsZEdSaGRHRXVaWGhoYlhCc1pTNWpiMjBpTENKcWRHa2lPaUp0WkMxb1ppMHdNREV0TWpBeU5pSXNJbk5qYjNCbElqb2ljWFZ2ZEdVNktpQmxZWEp1YVc1bmN6b3FJRzVsZDNNNmNtVmhaQ0J6ZFdKelkzSnBjSFJwYjI0NlpXNTBaWEp3Y21selpTMXpkV0l0U0VZdE1EQXhJaXdpYzNWaUlqb2laVzUwWlhKd2NtbHpaUzF6ZFdJdFNFWXRNREF4SW4wLklfdmZQS1ZWSEowYVFGSnhqcWd5WEd5MS0tMHE4NlA3Z2VmMldTT3RpWHZDWmtfeXNrWHVGLVhUeTB0VG43alQ3dm1MWUNFZTBpTlFKYkkxb1I4YkR3",
       "token_format": "jwt"
     }
   },
@@ -396,35 +397,44 @@ Here is where v1.0's `Requester` + `Delegation` model shows its power. The agent
 
 **What happens with the delegation token (JWT):**
 
-The `delegation.token` is an authority JWT, signed by MarketData's Ed25519 key. Its claims carry the grant:
+The `delegation.token` is a root token in the [delegation profile](/protocol/authentication/#delegation), signed by MarketData's Ed25519 key. Decoded, its header and claims carry the grant:
 
 ```json
+// protected header
+{ "alg": "EdDSA", "typ": "fora-delegation+jwt" }
+// claims
 {
   "iss": "marketdata.example.com",
   "sub": "enterprise-sub-HF-001",
+  "aud": ["exchange.marketdata-data.com"],
+  "jti": "md-hf-001-2026",
   "scope": "quote:* earnings:* news:read subscription:enterprise-sub-HF-001",
   "exp": 1798761599,
-  "cnf": { "jkt": "<thumbprint of the agent's key>" }
+  "cnf": { "jkt": "SfcyfTBzTRhRo-e1PeD-iL-I_X-QDlgAJgvUy6N7oCE" }
 }
 ```
 
-The Exchange verifies the JWT chain:
-1. **Signature check** — the authority JWT is signed by `marketdata.example.com`'s Ed25519 key (fetched from the WBA directory at `marketdata.example.com/.well-known/http-message-signatures-directory`). This proves MarketData actually issued this delegation.
-2. **Scope matching** — the subscription term's scopes (`subscription:enterprise-sub-HF-001`) are covered by the scopes the request states, and by the scopes the JWT grants, which this Exchange also requires before it presents a subscription term ([Scope-Based Access](/protocol/authentication/#scope-based-access)).
-3. **Expiry check** — `exp` is in the future.
-4. **Holder binding** — the key that signed the request (RFC 9421) MUST hash to the final `cnf.jkt`, so a stolen token is useless without the matching private key.
-5. **No network call to MarketData** — delegation JWTs are offline-verifiable. MarketData does not need to be online or queried. This is the key property that makes delegation scale.
+The Exchange verifies the chain as [Verification](/protocol/authentication/#verification) describes. What that means for this request:
+1. **Trust is configured** — the root token verifies with the Ed25519 key the Exchange has configured for the issuer `marketdata.example.com` on the subscription record. Nothing is fetched, and a key not on the record verifies nothing. This proves MarketData actually issued this delegation.
+2. **Holder binding** — the key that signed this request (RFC 9421) hashes to the token's `cnf.jkt`, so a stolen token is useless without the matching private key.
+3. **Scope matching** — the subscription term's scopes (`subscription:enterprise-sub-HF-001`) are covered by the effective scopes the verifier returns. For this gated term the Exchange reads scopes from the verified delegation only and ignores the scopes the request states ([Scope-Based Access](/protocol/authentication/#scope-based-access)).
+4. **Effective expiry** — the verifier returns the token's `exp` as the effective expiry, and the subscription offer expires no later than it.
+5. **No network call to MarketData** — delegation tokens are offline-verifiable. MarketData does not need to be online or queried. This is the key property that makes delegation scale.
 
-**Narrowing the grant**: If the hedge fund wanted to restrict its agent further (e.g., limit to NVDA only, cap spend at $100), it issues a child delegation JWT (narrowing) — signed by the principal key named in the authority's `cnf` and bound to the agent's key — without going back to MarketData:
+**Narrowing the grant**: If the hedge fund wanted to restrict its agent further (e.g., limit to NVDA earnings only, for a shorter time), it issues a child token — signed by the principal key named in the root's `cnf`, bound to the agent's key, carrying the complete root in `fora_parent` — without going back to MarketData:
 
 ```json
-// child delegation JWT — signed by the principal key, bound to the agent
+// child token — protected header carries the principal's public key
+{ "alg": "Ed25519", "typ": "fora-delegation+jwt",
+  "jwk": { "kty": "OKP", "crv": "Ed25519", "x": "<the principal's public key>" } }
+// claims — iss is the thumbprint of that key, which is also the root's cnf.jkt
 {
-  "iss": "hedgefund.com",
+  "iss": "<thumbprint of the principal's key>",
+  "aud": ["exchange.marketdata-data.com"],
   "scope": "earnings:NVDA",
-  "fora_max_spend_cents": 10000,
-  "exp": 1798761599,
-  "cnf": { "jkt": "<thumbprint of the agent's key>" }
+  "exp": 1790000000,
+  "cnf": { "jkt": "<thumbprint of the agent's key>" },
+  "fora_parent": "<the complete root token>"
 }
 ```
 

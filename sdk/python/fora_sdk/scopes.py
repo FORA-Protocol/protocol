@@ -2,7 +2,9 @@
 (helpers/scopes.go). The subscriptions/entitlements a requester holds are a
 SUPPLIED credential: the application hands the SDK what it holds and the SDK
 plumbs it into the request. ``normalize_scopes``/``scopes_subset`` are pure,
-byte-deterministic string ops pinned to the shared scopes-vectors.json.
+byte-deterministic string ops pinned to the shared scopes-vectors.json;
+``scope_covers``/``scopes_cover`` implement the protocol's segment-wise
+scope-matching rule and are pinned to scope-match-vectors.json.
 """
 
 from __future__ import annotations
@@ -27,12 +29,42 @@ def normalize_scopes(scopes: list[str]) -> list[str]:
     return out
 
 
-def scopes_subset(sub: list[str], superset: list[str]) -> bool:
-    """Report whether every scope in ``sub`` is present in ``superset`` — the
-    delegation-attenuation rule (Delegation.scopes MUST be a subset of the
-    principal's granted scopes). An empty ``sub`` is always a subset.
+def scope_covers(granted: str, required: str) -> bool:
+    """Report whether one granted scope covers one required scope under the
+    protocol's scope-matching rule (stated on Requester.scopes): split both on
+    ``:``; each granted segment equals the required segment or is ``*``; a
+    ``*`` in the last position of the grant covers every remaining required
+    segment and there must be at least one; no implicit prefix match; a grant
+    with more segments than the requirement never covers it; a ``*`` inside the
+    requirement is a literal segment; an empty string covers nothing and is
+    covered by nothing. Case-sensitive, no trimming.
     """
-    return set(sub).issubset(superset)
+    if granted == "" or required == "":
+        return False
+    g = granted.split(":")
+    r = required.split(":")
+    for i, seg in enumerate(g):
+        if seg == "*" and i == len(g) - 1:
+            return i < len(r)
+        if i >= len(r) or (seg != "*" and seg != r[i]):
+            return False
+    return len(g) == len(r)
+
+
+def scopes_cover(granted: list[str], required: list[str]) -> bool:
+    """Report whether every scope in ``required`` is covered (``scope_covers``)
+    by at least one scope in ``granted``. An empty ``required`` is always covered.
+    """
+    return all(any(scope_covers(g, req) for g in granted) for req in required)
+
+
+def scopes_subset(sub: list[str], superset: list[str]) -> bool:
+    """Report whether every scope in ``sub`` is covered by some scope in
+    ``superset`` under ``scope_covers`` (grant containment, not exact set
+    membership) — the delegation-attenuation rule. A child may narrow a parent
+    wildcard but may not widen one. Same check as ``scopes_cover(superset, sub)``.
+    """
+    return scopes_cover(superset, sub)
 
 
 def apply_scopes(scopes: list[str]) -> list[str]:

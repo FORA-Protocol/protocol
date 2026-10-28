@@ -129,9 +129,11 @@ If verification fails, the Exchange rejects the request. No fallback, no degrade
 
 ## Delegation
 
-The delegation token is a **JWT** (the default and fully-specified format) that is **holder-of-key bound**: the grant is tied to a specific key via the [RFC 7800](https://www.rfc-editor.org/rfc/rfc7800) `cnf` confirmation claim, and the holder proves possession by signing the request with that key (the same RFC 9421 signature it already sends). The token is *not* a bearer credential — copying it is useless without the matching private key.
+The delegation token is a **JWT** (the only token format) that is **holder-of-key bound**: the grant is tied to a specific key via the [RFC 7800](https://www.rfc-editor.org/rfc/rfc7800) `cnf` confirmation claim, and the holder proves possession by signing the request with that key (the same RFC 9421 signature it already sends). The token is *not* a bearer credential — copying it is useless without the matching private key.
 
 > **Why not a plain bearer JWT?** A bearer JWT is usable by anyone who holds it, and it can't be narrowed for a sub-agent without a round trip to the issuer. FORA fixes both with one mechanism: `cnf` holder-of-key binding (theft-resistance) plus **chained `cnf` JWTs** (offline delegation). A principal narrows a grant for an agent by issuing a child JWT — no call back to the original issuer.
+
+This section is the normative profile of that token. Every value a verifier needs is stated here as a number or an exact string; the Go SDK verifier and the shared test vectors are derived from this text.
 
 ### Holder-of-key, not bearer
 
@@ -141,13 +143,13 @@ Each delegation JWT carries `cnf.jkt` — the [RFC 7638](https://www.rfc-editor.
 
 Delegation is a chain of `cnf`-linked JWTs, content owner → principal → agent:
 
-- **Authority JWT** — signed by the **resource owner** (the issuer). Carries the granted `scope`, `exp`, and `cnf.jkt` = the **principal's** key. The owner's public key is the verifier's only trust anchor.
-- **Delegation JWT** — signed by the **principal**, narrowing the grant for a specific **agent**: `scope ⊆ parent`, shorter `exp`, `cnf.jkt` = the **agent's** key. It carries the principal's public key in its JOSE header (`jwk`) so the verifier can both link it to the authority's `cnf` and verify it.
-- **Request** — signed by the **agent** (RFC 9421); the verifier checks `thumbprint(request key) == delegation cnf.jkt`.
+- **Root token** — signed by the **issuer** the verifier trusts (the resource owner, or a subscription provider acting for it). Carries the granted `scope`, `exp`, and `cnf.jkt` = the **principal's** key. The issuer's configured public key is the verifier's only trust anchor.
+- **Child token** — signed by the **principal**, narrowing the grant for a specific **agent**: `scope` covered by the parent's, `exp` no later than the parent's, `cnf.jkt` = the **agent's** key. It carries the principal's public key in its protected header (`jwk`) and the complete signed parent in its `fora_parent` claim, so the verifier can link it to the parent's `cnf` and verify it with no other input.
+- **Request** — signed by the **agent** (RFC 9421); the verifier checks `thumbprint(request key) == cnf.jkt` of the last child.
 
-**Chain-linkage invariant:** each JWT's signer MUST be the key the parent named in `cnf`. The owner verifies the authority; `authority.cnf` pins the principal; the delegation's header key must match that pin (and verifies the delegation); `delegation.cnf` pins the agent; the request key must match that pin. A token signed by a key not named upstream is rejected.
+**Chain-linkage invariant:** each JWT's signer MUST be the key the parent named in `cnf`. The configured key verifies the root; `root.cnf` pins the principal; the child's header key must match that pin (and verifies the child); `child.cnf` pins the agent; the request key must match that pin. A token signed by a key not named upstream is rejected.
 
-The chain narrows only — a child's `scope` must be covered by its parent's (see [Scope Matching](#scope-matching)). The principal can delegate to a sub-agent (and that sub-agent further) by issuing another child JWT, entirely offline. Verifiers need only the **owner's** public key; the principal and agent keys ride inside the chain.
+The chain narrows only — a child's `scope` must be covered by its parent's (see [Scope Matching](#scope-matching)). The principal can delegate to a sub-agent (and that sub-agent further) by issuing another child JWT, entirely offline, up to the chain limit below. Verifiers need only the **issuer's** public key; the principal and agent keys ride inside the chain.
 
 ### The Delegation Message
 
@@ -155,97 +157,202 @@ The token is carried in the `Delegation` message, nested inside `Requester`:
 
 | Field | Type | Description |
 |---|---|---|
-| `principal_domain` | `string` | Who granted this delegation (domain for public key lookup) |
+| `principal_domain` | `string` | Mirror of the root token's `iss`. Informational: trust comes from the configured key, not from this field |
 | `principal_id` | `string` | Principal's identifier (e.g., `"user@acme.com"`, `"marketdata.example.com"`) |
-| `scopes` | `repeated string` | Scopes granted — convenience mirror of the token's `scope` claim |
+| `scopes` | `repeated string` | Mirror of the terminal token's effective scopes |
 | `expires_at` | `Timestamp` | When this delegation expires. Exchange MUST reject expired tokens |
 | `max_spend_cents` | `int64` (optional) | Maximum spend in currency minor units (e.g. cents for USD) |
-| `token` | `bytes` | Token bytes — a JWT (base64url JWS) by default |
+| `token` | `bytes` | The complete chain as one compact JWS, at most 32768 bytes (a wire rule, `bytes.max_len`) |
 | `token_format` | `string` | Token format: `"jwt"` (the sole/default format) |
-| `revocation_uri` | `string` (optional) | URI for real-time revocation checking (high-value transactions) |
+| `revocation_uri` | `string` (optional) | Informational. Revocation lookup is not part of this profile; a chain is invalidated early by withdrawing the configured key (see [Verification](#verification)) |
 | `max_accesses` | `int32` (optional) | Maximum number of accesses allowed under this delegation. Exchange tracks count and denies with `DENIAL_REASON_QUOTA_EXCEEDED` when count >= limit. |
 | `quota_period` | `Duration` (optional) | How often access/spend counters reset. E.g., `"2592000s"` (30 days) for monthly subscriptions — proto-JSON encodes `Duration` as seconds. When absent, quota is lifetime (bounded only by `expires_at`). |
-| `issuer` | `string` (optional) | Token issuer — OIDC issuer URL (for JWT signature validation via OIDC→JWKS) |
+| `issuer` | `string` (optional) | Mirror of the root token's `iss`, the configured trust anchor's identity. Informational: no key is ever looked up from it |
 | `ext` | `Struct` | Implementer-specific extensions |
 | `ext_critical` | `repeated string` | Critical extension keys (COSE crit pattern) |
 
-The `scopes` field is a convenience mirror — the Exchange MAY use it for fast catalog filtering before performing full token verification. The token's claims are authoritative.
+Every field except `token` and `token_format` is a mirror of the signed chain (see [Mirror fields](#mirror-fields)). The Exchange MAY use `scopes` for fast catalog filtering before it verifies the token; the token's claims are authoritative.
+
+### Chain encoding and limits
+
+`Delegation.token` is **one** compact JWS: three non-empty segments of unpadded base64url separated by dots, with no other character anywhere, whitespace included. The header segment decodes to one JSON object and the payload segment to exactly one JSON object with nothing after it. The chain is nested, not listed:
+
+- Every child token carries its **complete parent**, as the parent's compact serialization, in the string claim `fora_parent`. The parent's signature is therefore inside the child's signed payload, so a child cannot be re-attached to a different parent.
+- The **root token has no `fora_parent`** claim: the innermost token of the chain is the root, and it is verified with a configured key, never with a key it carries.
+- A chain holds **at most 4 tokens**: the root and up to three children. The verifier never decodes a fifth token.
+- The complete `Delegation.token` is **at most 32768 bytes**. The limit is a wire rule, `bytes.max_len` on the field, so an oversized token is refused as an invalid request before any JWT is parsed, whether or not the bytes are a valid JWT.
+- Before each nested decode the verifier checks the **remaining depth** (fewer than 4 tokens read so far) and that the embedded parent string is **not longer than 32768 bytes**; only then does it parse the parent. The verifier never fetches an ancestor from anywhere: every token it needs is inside the one it was given.
+
+### Signing algorithm and protected header
+
+Every token in the chain is signed with an **Ed25519** key, and the verifier accepts exactly two names for it in the protected header:
+
+| Header | Required? | Allowed values |
+|---|---|---|
+| `alg` | **Yes** | `EdDSA` ([RFC 8037](https://www.rfc-editor.org/rfc/rfc8037)) or `Ed25519` ([RFC 9864](https://www.rfc-editor.org/rfc/rfc9864)). In both cases the signing key MUST be an Ed25519 OKP key; any other algorithm or curve is rejected. A chain may mix the two names. |
+| `typ` | **Yes** | The exact string `fora-delegation+jwt`, on every token. A token with another `typ`, or none, is rejected. |
+| `jwk` | **Yes** on every child; ignored on the root | The signing key as a public JWK: `{"kty":"OKP","crv":"Ed25519","x":"<base64url>"}`. Its RFC 7638 thumbprint MUST equal the parent's `cnf.jkt`. A `jwk` on the root is not read; the root is verified only with the configured key. |
+| `kid` | No | Informational; the verifier does not use it to choose a key. |
+| `crit` | MUST NOT be present | The profile defines no extension header parameters, so a token that marks any as critical is rejected. |
+| `b64` | MUST NOT be present | Unencoded payloads ([RFC 7797](https://www.rfc-editor.org/rfc/rfc7797)) are not part of the profile. A token that carries `b64` is malformed, with or without `crit`. |
+
+The verifier checks the signature over the **original signed bytes** (the base64url header and payload exactly as received). It never re-serializes or rewrites a header, so a token stays valid or invalid regardless of the library that produced it.
 
 ### Delegation-Claims Profile
 
-The `token`'s claims are the **authoritative** source of the grant (the plaintext `Delegation` fields are only the convenience mirror). FORA defines a small **registered claim vocabulary** — the same registered-tokens + optional-fields + vendor-namespace pattern used elsewhere in the protocol:
+The token's claims are the **authoritative** source of the grant; the plaintext `Delegation` fields are only a mirror (see [Mirror fields](#mirror-fields)).
 
-| Claim | JWT claim | Required? | Meaning |
-|---|---|---|---|
-| holder | `cnf` (with `jkt`) | **Yes** | Binds the grant to a key by RFC 7638 thumbprint — verified per [Verification](#verification) (the agent's key the request proves possession of MUST hash to `cnf.jkt`). Without it the token is bearer-usable. |
-| issuer | `iss` | Yes | Who granted it (resource owner / principal). |
-| `scope` | `scope` | No | Granted scopes (space-delimited; segment-wise matching — see [Scope Matching](#scope-matching)). |
-| `exp` | `exp` | No (recommended) | Expiry. |
-| `max_spend_cents` | `fora_max_spend_cents` | No | Spend cap (currency minor units). |
-| `max_accesses` | `fora_max_accesses` | No | Access-count cap. |
-| `quota_period` | `fora_quota_period` | No | Counter reset period. |
+| Claim | Required? | Type and rule |
+|---|---|---|
+| `iss` | **Yes** | String. On the root: the identity configured with the trusted key, matched exactly (see [Issuers and trust](#issuers-and-trust)). On a child: the RFC 7638 thumbprint of the child's own signing key, which is also the parent's `cnf.jkt`. |
+| `aud` | **Yes** | A string or a non-empty array of strings. Each value names a recipient by the proto's Request recipient rule (see [Audience](#audience)). A child's audiences MUST be a subset of its parent's. |
+| `cnf` with `jkt` | **Yes** | Object with the string member `jkt`: the base64url RFC 7638 SHA-256 thumbprint (43 characters, no padding) of the Ed25519 public JWK the grant is bound to. |
+| `exp` | **Yes** | A finite JSON number: NumericDate seconds since the epoch ([RFC 7519](https://www.rfc-editor.org/rfc/rfc7519)). A child's `exp` MUST NOT be later than its parent's. |
+| `nbf` | No | A finite JSON number, NumericDate. Honored on every token that carries it. |
+| `jti` | Recommended | A non-empty string, unique per issuer. Present so a future revocation check can name the token; the verifier checks only its shape. |
+| `iat`, `sub` | No | Accepted and not interpreted. |
+| `scope` | No | Space-separated scopes. A missing or empty `scope` grants **no** scoped access; the token is still valid for holder binding alone. A child's scopes MUST be covered by its parent's (see [Scope Matching](#scope-matching)): `publisher:news:read` under `publisher:*:read` is valid narrowing, `publisher:news:*` under `publisher:*:read` widens and is rejected. |
+| `fora_parent` | **Yes** on every child; MUST be absent on the root | The complete parent token as a compact JWS string. |
+| `fora_max_spend_cents` | No | Integer, currency minor units. Mirrors `Delegation.max_spend_cents`. |
+| `fora_max_accesses` | No | Integer. Mirrors `Delegation.max_accesses`. |
+| `fora_quota_period` | No | Duration string in seconds, the proto-JSON form (`"2592000s"`). Mirrors `Delegation.quota_period`. |
+| `fora_advisory` | No | A JSON object of informational members the verifier does not interpret (see [Advisory information](#advisory-information)). |
 
 Rules:
 
-- **Everything except the holder binding (`cnf`) is optional.** An issuer that only wants scope + expiry sets just those; absent caps mean "no cap from the delegation" (the Exchange's own limits still apply).
-- **Vendors MAY add namespaced claims** (`vendor:claim`).
-- **Constraints fail closed.** A claim a verifier cannot evaluate is **binding by default** — it MUST reject rather than ignore (a dropped constraint would fail *open*, granting more than intended). This mirrors [`Restriction.advisory`](/protocol/licensing-terms/): the issuer may mark a custom claim *advisory* to downgrade it to ignorable. (The issuer lists the mandatory-to-understand claims; an unrecognized non-advisory claim is rejected.)
-- **`fora_`-prefixed claim names are reserved** for this registry. Vendors MUST use their own `vendor:` namespace and MUST NOT define `fora_*` names, so registered claims can never be shadowed.
-- **Claim values keep their home encoding.** RFC-registered claims use the encoding their RFC defines — `exp` is a NumericDate (seconds since epoch, RFC 7519). `fora_*` claims mirror a `Delegation` field and use that field's proto-JSON encoding — for example, `fora_quota_period` is a Duration string in seconds (`"2592000s"`), the same form the [`quota_period` field](/reference/proto-fora/#delegation) carries on the wire.
+- **Any other top-level claim is rejected.** A claim this table does not list is a mandatory restriction the verifier cannot evaluate, and a dropped constraint would fail *open*. Vendors put their metadata inside `fora_advisory`; they MUST NOT define top-level `fora_*` or other claims.
+- **Claim values keep their home encoding.** RFC-registered claims use the encoding their RFC defines; `fora_*` claims that mirror a `Delegation` field use that field's proto-JSON encoding, so `fora_quota_period` is the same `"2592000s"` string the [`quota_period` field](/reference/proto-fora/#delegation) carries on the wire.
+- **A wrong type is a rejection.** A non-numeric `exp`, an empty `jti`, a `cnf` without `jkt` or an `aud` that is not a string or array of strings makes the token invalid; the verifier never coerces a value.
 
-> **Token format.** The delegation token is a **holder-bound JWT** — `token_format: "jwt"` is the sole format conformant implementations support. Multi-hop attenuation is expressed as a chain of `cnf`-linked child JWTs (each signed by the key its parent named, each narrowing scope), and the holder binding always applies (the key the request proves possession of — the request-signing key on a direct call, the `AgentAcceptance` key on a purchase a Broker relayed — must match the holder the token is sealed to).
+### Time and clock leeway
+
+Times are NumericDate seconds, as JSON numbers between **0** and **253402300799** (`9999-12-31T23:59:59Z`, the last second a protocol `Timestamp` carries); a value outside that range is a bad claim, so the effective expiry the verifier returns always fits a `Timestamp`. The verifier evaluates every token in the chain against one clock reading `now` with a fixed leeway of **60 seconds**:
+
+- A token is **expired** when `now >= exp + 60`.
+- A token is **not yet valid** when it carries `nbf` and `now < nbf - 60`.
+- Leeway is for clock skew only. The **effective expiry** the verifier returns is the smallest `exp` in the chain, without leeway, and an Exchange never issues a gated offer that expires later than it.
+
+### Issuers and trust
+
+Trust is configured, never discovered. The verifier is given a list of trusted root keys, each with the issuer identity it belongs to; in an Exchange that list comes from the subscription record that owns the gated term. The verifier:
+
+- verifies the root token with one of those keys and requires the root's `iss` to equal that key's configured identity, as an exact string. The identity is normally the issuer's domain (`marketdata.example.com`), but it is an opaque label: it need not equal the publisher segment of a subscription scope, because a subscription provider may be a different party from the publisher;
+- requires every child's `iss` to equal the RFC 7638 thumbprint of the key that signed it, which is the parent's `cnf.jkt`. This makes the intermediate issuer checkable with no extra configuration: a child whose signature and `jwk` are valid but whose `iss` names something else is rejected;
+- never fetches a key through OIDC discovery, a JWKS endpoint, a `jku`/`x5u` header or any token-supplied URL, and never trusts a `jwk` on the root. A key that is not configured verifies nothing.
+
+Removing a key from the configured list withdraws trust from every token it signed; a token that was valid yesterday is refused at the next request.
+
+### Audience
+
+Each `aud` value is a recipient identity by the proto's **Request recipient** rule, the same rule the `exchange` field of a request follows:
+
+1. Validate the value **as sent**: a bare host with an optional port `1-65535`, ASCII only, no scheme, path, query, userinfo or trailing dot.
+2. Only then lowercase it, and treat an absent port and `:443` as the same port.
+3. Compare it **exactly** with the verifier's own identity. A subdomain is a different party.
+
+Several audiences are listed explicitly; there is no wildcard audience. A child MAY drop audiences its parent listed and MUST NOT add one. A chain whose terminal token does not name the verifier is rejected.
+
+### Mirror fields
+
+The plaintext `Delegation` fields repeat values from the signed chain so an Exchange can filter cheaply before it verifies. They establish nothing: a verifier reads the chain, and a mirror that disagrees with it cannot grant a scope, extend validity or raise a cap.
+
+| Field | Mirrors |
+|---|---|
+| `issuer`, `principal_domain` | The **root** token's `iss` — the trust anchor's identity, never an intermediate or terminal issuer. |
+| `principal_id` | Informational identifier of the principal; not read by the verifier. |
+| `scopes` | The terminal token's effective scopes. |
+| `expires_at` | The chain's earliest `exp`. |
+| `max_spend_cents`, `max_accesses`, `quota_period` | The terminal token's effective caps. |
+
+### Inherited restrictions
+
+Every restriction travels down the chain. The verifier checks every ancestor, not only the terminal token:
+
+- **Scopes narrow only.** The effective scopes are the terminal token's `scope`, and each token's scopes are covered by its parent's.
+- **Expiry narrows only.** A child's `exp` is no later than its parent's, and every token is checked against the clock. The effective expiry is the earliest `exp` in the chain.
+- **Omitting a restriction does not remove it.** A child without `fora_max_spend_cents` is still bound by its parent's cap. A child that states a cap MUST NOT state one higher than its parent's.
+- **Caps are shared, not multiplied.** A parent's spend or access limit applies to all descendants together; issuing three children does not create three allowances. The effective cap is the smallest in the chain.
+- **Unsupported mandatory restrictions reject.** A verifier that cannot enforce a cap the chain carries, or meets a claim it does not know, rejects the delegation rather than ignoring the restriction. The Go SDK verifier of this release meters nothing, so it refuses any chain that carries `fora_max_spend_cents`, `fora_max_accesses` or `fora_quota_period`; an Exchange that enforces caps verifies them in its own step.
+
+### Advisory information
+
+Optional vendor metadata is carried **inside** the signed `fora_advisory` object, and only there. The verifier does not interpret its members, so an unknown name there is never a rejection. Two limits keep it from weakening the chain:
+
+- A `fora_advisory` member that uses the name of a profile claim (`scope`, `exp`, `aud`, `fora_max_spend_cents` and the rest) is rejected: an authorization claim cannot be downgraded to advisory information.
+- `fora_advisory` cannot loosen an ancestor. A child's advisory object says nothing about its parent's mandatory claims, which are checked as written.
 
 ### Delegation chain example
 
-MarketData (resource owner) issues an authority JWT to the Acme principal, bound to Acme's key:
+MarketData (the trusted issuer) issues a root token to the Acme principal, bound to Acme's key. The verifier's configured entry for this issuer is the identity `marketdata.example.com` with MarketData's Ed25519 public key.
 
 ```json
-// authority JWT — signed by marketdata.example.com (the owner key)
-// header
-{ "alg": "EdDSA", "typ": "JWT" }
+// root token — signed by marketdata.example.com with the configured key
+// protected header
+{ "alg": "Ed25519", "typ": "fora-delegation+jwt" }
 // claims
 {
   "iss": "marketdata.example.com",
+  "aud": ["exchange.example.com"],
+  "jti": "md-2026-000481",
   "scope": "quote:* earnings:*",
-  "max_spend_cents": 50000,
   "exp": 1781787345,
   "cnf": { "jkt": "<thumbprint of Acme's principal key>" }
 }
 ```
 
-Acme delegates to a research agent that only needs earnings data, narrowing scope and shortening the TTL — no call back to MarketData:
+Acme delegates to a research agent that only needs earnings data, narrowing scope and shortening the TTL — no call back to MarketData. The child names its own signing key as `iss`, carries that key in `jwk`, and carries the complete root token in `fora_parent`:
 
 ```json
-// delegation JWT — signed by Acme's principal key
-// header carries the principal pubkey so the verifier links it to authority.cnf
-{ "alg": "EdDSA", "typ": "JWT",
+// child token — signed by Acme's principal key, the key root.cnf.jkt names
+// protected header
+{ "alg": "EdDSA", "typ": "fora-delegation+jwt",
   "jwk": { "kty": "OKP", "crv": "Ed25519", "x": "<Acme principal pubkey>" } }
 // claims
 {
-  "iss": "acme",
+  "iss": "<thumbprint of Acme's principal key>",
+  "aud": ["exchange.example.com"],
+  "jti": "acme-research-0007",
   "scope": "earnings:*",
   "exp": 1781701545,
-  "cnf": { "jkt": "<thumbprint of the agent's key>" }
+  "cnf": { "jkt": "<thumbprint of the agent's key>" },
+  "fora_parent": "<the complete root token, compact JWS>"
 }
 ```
 
-The agent then signs its request (RFC 9421) with its own key. **Zero round trips to MarketData** — each delegation is a locally-issued child JWT.
+`Delegation.token` carries the child token only. The agent then signs its request (RFC 9421) with its own key. **Zero round trips to MarketData** — each delegation is a locally-issued child JWT. The chain's effective expiry is `1781701545`, the child's `exp`. The `fora_max_spend_cents` claim on the root is a cap this release's Go verifier refuses, as [Inherited restrictions](#inherited-restrictions) explains; an Exchange that meters spend verifies it in its own step.
+
+A chain of exactly this shape, signed with the fixed test keys of the shared chain cases, is the case `two_tokens`: the root (`marketdata.example`, `quote:* earnings:*`, `alg: EdDSA`) inside a child (`earnings:*`, `alg: Ed25519`), addressed to `exchange.example`. The Go SDK re-verifies it on every test run:
+
+{/* delegation-chain: two_tokens */}
+```text
+eyJhbGciOiJFZDI1NTE5IiwiandrIjp7ImNydiI6IkVkMjU1MTkiLCJrdHkiOiJPS1AiLCJ4IjoieUYwU2RxTHZHZnlIVjRMV2hMTS1nTXg3clBnX0xNeFpLcHBKZFk3blJ2WSJ9LCJ0eXAiOiJmb3JhLWRlbGVnYXRpb24rand0In0.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiV2ktdk5Udk84NHBvZEpwSXZYS1VsR05EVXVoS0pLUzR6VnpoblJ2VDNZNCJ9LCJleHAiOjE3ODAzMTg4MDAsImZvcmFfcGFyZW50IjoiZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVdHUjNZWEpFTkV3d01WQlpObEZhTUhSaE16QnBia0pNUjNaVU5UZHBkRTFVV1Vsa01raDZRM0ZTUlNKOUxDSmxlSEFpT2pFM09EQXpNVGc0TURBc0ltbHpjeUk2SW0xaGNtdGxkR1JoZEdFdVpYaGhiWEJzWlNJc0luTmpiM0JsSWpvaWNYVnZkR1U2S2lCbFlYSnVhVzVuY3pvcUluMC5pa0tTX2tzVkZTSzk2eE9ja2ZjMW8zc2prd1VpUUhMSUFpNFpCM3B1eHdmMWJQOTgzcGl6RkhLNy16Q2pid2VLVmNWaFczeTlkOEEyTTJnVGxtTk5BUSIsImlzcyI6Ilhkd2FyRDRMMDFQWTZRWjB0YTMwaW5CTEd2VDU3aXRNVFlJZDJIekNxUkUiLCJzY29wZSI6ImVhcm5pbmdzOioifQ.BYPx8_MNws93olALVra3qZDnx-Xw9wIhtansjrBcAJzEid1psR764LvcyE0pdJ1GhXfuMd9SYWRHQHRy6fOoCA
+```
 
 ### Verification
 
-The Exchange/edge verifies a delegation by (offline, using only the owner's public key):
+The Exchange or edge verifies a delegation offline, with the configured issuer keys as its only input besides the request. Every step fails closed. What a failure produces depends on where it happens:
 
-1. **Verify the authority JWT** with the resource owner's published key (the trust anchor). Read its `scope`, `exp`, and `cnf.jkt`.
-2. **Verify each delegation JWT** with the key in its own JOSE header `jwk` — but only after checking `thumbprint(header key) == parent cnf.jkt` (the **chain-linkage invariant**). Reject a JWT signed by a key the parent did not name. Check each child's `scope` is covered by its parent's.
-3. **Verify holder binding** — the agent's key that the request proves possession of MUST hash to the final delegation's `cnf.jkt`: on a direct call the key that signed the HTTP request ([RFC 9421](#request-signatures-rfc-9421)), on a purchase a Broker relayed the key that signed the agent's `AgentAcceptance` ([Which signature binds in a brokered request](#verification)). If not, **reject** (`DENIAL_REASON_DELEGATION_INVALID`). On a query a Broker originated, which proves possession of no agent key, the delegation is not verified at all: it is not honoured, and the query is answered as if none were present. This is what makes a leaked token useless to a thief: possessing the bytes is not enough — you must control the bound private key. It is **not optional** and **not skippable**; an Exchange that omits it reduces the token to a bearer credential and breaks the anti-theft guarantee.
-4. Check `exp` on every JWT in the chain against current time.
-5. Optionally check `revocation_uri` for high-value transactions.
+- A `token` over 32768 bytes fails **wire validation**: the whole request is refused as invalid, before any item is read, like any other field that breaks a wire rule.
+- At **discovery**, a chain that fails any later step is treated as if no delegation were present: the terms gated behind it are hidden (see [Existence hiding](#existence-hiding)), and no denial reason reports why. The Exchange MAY journal the failure.
+- At **purchase**, a chain that fails any later step denies the item with `DENIAL_REASON_DELEGATION_INVALID`.
 
-This is entirely offline — no callback to the issuer. The verifier needs only the owner's published public key (cacheable); the principal and agent keys arrive inside the chain (header `jwk` + `cnf.jkt`).
+The Go SDK implements exactly this order in `VerifyDelegation`, and the shared chain cases in `sdk/go/helpers/testdata/delegation-chains.json` pin which check refuses which input:
 
-**Binding across hops.** Each delegation re-binds to the next holder's key (`cnf.jkt` of the child = the next agent), so at every hop the bound key is whoever now signs the request. The chain of JWT signatures carries the binding forward — there is no point at which the token reverts to bearer form.
+1. **Size and shape.** The `Delegation.token` is at most 32768 bytes (checked at wire validation and again here, before parsing) and is one compact JWS with the segment rules above. `token_format` is `"jwt"` or empty.
+2. **Walk the chain inward.** Decode the outer token's protected header and claims and check them against the profile: `alg` is `EdDSA` or `Ed25519`, `typ` is `fora-delegation+jwt`, no `crit`, the required claims are present with the right types, no unknown top-level claim, no cap claim the verifier cannot enforce, no profile name inside `fora_advisory`. If the token carries `fora_parent`, check the remaining depth and the parent's size, then decode the parent the same way, and repeat until a token without `fora_parent` is reached: that token is the root. A fifth token or an oversized parent is a rejection.
+3. **Verify the root** with the configured key whose identity equals the root's `iss`. No configured key for that identity, or a signature that does not verify, is a rejection. The root's `jwk`, if any, is ignored.
+4. **Verify each child** outward from the root: its protected `jwk` is an Ed25519 OKP public key, `thumbprint(jwk) == parent.cnf.jkt` (the **chain-linkage invariant**), its `iss` equals that thumbprint, and its signature verifies with that key over the original signed bytes.
+5. **Check time on every token** with the 60-second leeway: not expired, not before `nbf`, and each child's `exp` no later than its parent's.
+6. **Check attenuation on every child:** audiences a subset of the parent's, scopes covered by the parent's.
+7. **Check the audience on every token:** `aud` names the verifier's own identity by the Request recipient rule.
+8. **Verify holder binding** — the agent's key that the request proves possession of MUST hash to the terminal token's `cnf.jkt`: on a direct call the key that signed the HTTP request ([RFC 9421](#request-signatures-rfc-9421)), on a purchase a Broker relayed the key that signed the agent's `AgentAcceptance` ([Which signature binds in a brokered request](#verification)). On a query a Broker originated, which proves possession of no agent key, the delegation is not verified at all: it is not honored, and the query is answered as if none were present. This is what makes a leaked token useless to a thief: possessing the bytes is not enough — you must control the bound private key. It is **not optional** and **not skippable**; an Exchange that omits it reduces the token to a bearer credential and breaks the anti-theft guarantee.
+9. **Return the verified result:** the root issuer identity, the terminal holder thumbprint, the effective scopes and the effective expiry. A gated offer the Exchange then issues MUST NOT expire later than that effective expiry.
 
-**Which signature binds in a brokered request.** The holder-binding check always matches the **terminal holder** — the key named in the *final* delegation's `cnf.jkt` — and that key is always a key the request proves possession of. On a direct call the proof is the agent's RFC 9421 request signature, so `cnf.jkt` is checked against the key that signed the request. On a purchase relayed by a Broker (`BrokerService.ExecuteTransaction`), the Broker signs the transport request alone, so `cnf.jkt` is checked against the key that signed the agent's `AgentAcceptance` in the body, and an item without an `AgentAcceptance` fails the binding. The delegation therefore stays bound to the agent's private key through the Broker, exactly as on a direct call. A Broker is never delegated to and never becomes the holder. On a query a Broker originated (Broker-led discovery), the Broker signs alone, so a delegation on it cannot pass holder binding: the Exchange does not honour it and answers as if none were present. How an agent proves a holder-of-key entitlement at discovery time through a Broker is an open protocol question. An Exchange that requires a verified delegation before it presents a scoped term ([Scope-Based Access](#scope-based-access)) therefore presents no such term on that query; the agent can query that Exchange directly, where its own request signature passes the holder binding.
+Revocation lookup through `revocation_uri` is not part of this profile; withdrawing a configured key is the way to invalidate a chain early.
+
+**Binding across hops.** Each child re-binds to the next holder's key (`cnf.jkt` of the child = the next agent), so at every hop the bound key is whoever now signs the request. The chain of JWT signatures carries the binding forward — there is no point at which the token reverts to bearer form.
+
+**Which signature binds in a brokered request.** The holder-binding check always matches the **terminal holder** — the key named in the *last* child's `cnf.jkt` — and that key is always a key the request proves possession of. On a direct call the proof is the agent's RFC 9421 request signature, so `cnf.jkt` is checked against the key that signed the request. On a purchase relayed by a Broker (`BrokerService.ExecuteTransaction`), the Broker signs the transport request alone, so `cnf.jkt` is checked against the key that signed the agent's `AgentAcceptance` in the body, and an item without an `AgentAcceptance` fails the binding. The delegation therefore stays bound to the agent's private key through the Broker, exactly as on a direct call. A Broker is never delegated to and never becomes the holder. On a query a Broker originated (Broker-led discovery), the Broker signs alone, so a delegation on it cannot pass holder binding: the Exchange does not honor it and answers as if none were present. How an agent proves a holder-of-key entitlement at discovery time through a Broker is an open protocol question. An Exchange that requires a verified delegation before it presents a scoped term ([Scope-Based Access](#scope-based-access)) therefore presents no such term on that query; the agent can query that Exchange directly, where its own request signature passes the holder binding.
 
 ### Delegation Denial Reasons
 
@@ -254,17 +361,17 @@ When delegation verification fails, the Exchange returns a specific denial reaso
 | Denial Reason | Meaning |
 |---|---|
 | `DENIAL_REASON_QUOTA_EXCEEDED` | Subscription access count exhausted for this period |
-| `DENIAL_REASON_DELEGATION_INVALID` | Delegation token missing, unverifiable (broken chain linkage or holder-binding mismatch), expired, or it widens scope beyond its parent |
+| `DENIAL_REASON_DELEGATION_INVALID` | On a purchase item: delegation token missing, malformed, unverifiable (broken chain linkage, wrong issuer or holder-binding mismatch), expired, not valid yet, addressed to another recipient, or it widens scope, audience or a cap beyond its parent. A token over 32768 bytes never reaches an item: wire validation refuses the request. At discovery none of these is reported; the gated terms are hidden instead |
 
 ### Libraries
 
 | Language | Library | Notes |
 |---|---|---|
-| Go | `golang-jwt/jwt` | EdDSA (Ed25519) signing/verification, JOSE headers |
-| TypeScript | `jose` | EdDSA, runs in Node and the browser |
-| Python | `PyJWT` (+ `cryptography`) | EdDSA |
+| Go | `sdk/go/helpers` (`VerifyDelegation`) | The reference verifier of this profile. It checks the Ed25519 signature with the standard library under either `alg` name and uses go-jose for the `jwk` header and the RFC 7638 thumbprint, because go-jose alone does not accept `alg: Ed25519`. Issuers may sign with go-jose (`EdDSA`) or any JOSE library. |
+| TypeScript | `jose` (5.10 or later) | Signs and verifies under `Ed25519` and `EdDSA`; runs in Node and the browser. A TypeScript chain verifier is deferred (see the parity matrix). |
+| Python | `joserfc` or `PyJWT` (+ `cryptography`) | Signs under `Ed25519` or `EdDSA`. A Python chain verifier is deferred (see the parity matrix). |
 
-All use Ed25519 natively — the same key type as FORA identity signatures — so the delegation token and the RFC 9421 request signature share one key type and one library surface.
+All use Ed25519 natively — the same key type as FORA identity signatures — so the delegation token and the RFC 9421 request signature share one key type.
 
 ## Scope-Based Access
 
@@ -292,15 +399,19 @@ Scopes follow the pattern `{domain}:{permission}` or `{profile}:{permission}`:
 
 ### Scope Matching
 
-Matching is **segment-wise** (`:`-separated). A granted scope **G** covers a required scope **R** iff, comparing segment by segment, each G segment equals the corresponding R segment **or** is `*`; a **terminal `*` matches all remaining segments**. There is **no implicit prefix match**. A grant that is **more specific than what is required does not cover it** — coverage requires G to be equal-to-or-broader-than R, never narrower (e.g. granted `dist:US:CA` does not cover required `dist:US`).
+Matching is **segment-wise** (`:`-separated). A granted scope **G** covers a required scope **R** iff, comparing segment by segment, each G segment equals the corresponding R segment **or** is `*`; a **terminal `*` matches all remaining segments**, of which there must be at least one. There is **no implicit prefix match**. A grant that is **more specific than what is required does not cover it** — coverage requires G to be equal-to-or-broader-than R, never narrower (e.g. granted `dist:US:CA` does not cover required `dist:US`, and granted `dist:US:*` does not cover required `dist:US`). A `*` in the required scope is a literal segment, so a narrow grant never covers a wildcard requirement; this is what stops a delegation child from widening its parent's grant. Matching is case-sensitive and never trims. One algorithm applies protocol-wide: to `Requester.scopes` against `LicenseTerm.scopes`, and to a child delegation's scopes against its parent's.
 
 | Granted | Covers | Does **not** cover |
 |---|---|---|
-| `dist:*` | `dist:US`, `dist:US:CA` | — |
-| `dist:US:*` | `dist:US:CA` | `dist:EU` |
+| `dist:*` | `dist:US`, `dist:US:CA`, `dist:US:*` | `dist` (a terminal `*` needs a segment to match) |
+| `dist:US:*` | `dist:US:CA` | `dist:EU`, `dist:US` |
+| `publisher:*:read` | `publisher:news:read`, `publisher:*:read` | `publisher:news:write`, `publisher:news:*` (the required `*` is literal) |
 | `dist` | `dist` | `dist:US` |
 | `dist:US:CA` | `dist:US:CA` | `dist:US` (grant narrower than required) |
+| `credit:read` | `credit:read` | `*`, `Credit:read` |
 | `*` | everything | — |
+
+A set of granted scopes covers a set of required scopes when every required scope is covered by at least one granted scope. An empty required set is always covered; an empty granted set covers nothing else. The SDKs expose this as `ScopeCovers` / `ScopesCover` (`scope_covers` / `scopes_cover`, `scopeCovers` / `scopesCover`), and `ScopesSubset` is the same check read from the child's side.
 
 ### Access Tiers
 
@@ -606,8 +717,9 @@ The Exchange verifies the signature by fetching the key directory at `https://re
 
 ### Subscription Agent (MarketData JWT)
 
-A financial analysis agent carries a MarketData-issued delegation JWT that grants access to subscription-tier data. `delegation.token` is a `bytes` field, so proto-JSON carries the compact JWS base64-encoded (decoded here for illustration: `eyJhbGciOiJFZERTQSJ9.<claims: iss, scope, exp, cnf.jkt>.<sig>`).
+A financial analysis agent carries a MarketData-issued root token that grants access to subscription-tier data. `delegation.token` is a `bytes` field, so proto-JSON carries the compact JWS base64-encoded. The token below is a real one from the shared chain cases (`docs_subscription_agent`): it verifies with MarketData's configured key, is addressed to `exchange.example`, and is bound to FinBot's request key.
 
+{/* delegation-chain: docs_subscription_agent */}
 {/* fora-validate: ResourceQuery */}
 ```json
 {
@@ -627,9 +739,8 @@ A financial analysis agent carries a MarketData-issued delegation JWT that grant
       "principal_domain": "marketdata.example.com",
       "principal_id": "marketdata.example.com",
       "scopes": ["subscription:marketdata-2026", "quote:*", "earnings:*"],
-      "expires_at": "2026-03-20T18:00:00Z",
-      "max_spend_cents": 50000,
-      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSjkuPGNsYWltczogaXNzLCBzY29wZSwgZXhwLCBjbmYuamt0Pi48c2lnPg",
+      "expires_at": "2026-06-01T13:00:00Z",
+      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaWJUQk1PRGh0Y1V4M01uWnpSbnBNWTBGSFZHbE5kV2xPYWpZM1JqRjBRWGxCYjJSb09XMTNTM3A0T0NKOUxDSmxlSEFpT2pFM09EQXpNVGc0TURBc0ltbHpjeUk2SW0xaGNtdGxkR1JoZEdFdVpYaGhiWEJzWlM1amIyMGlMQ0pxZEdraU9pSnRaQzF6ZFdJdE1qQXlOaTB3TkRneElpd2ljMk52Y0dVaU9pSnpkV0p6WTNKcGNIUnBiMjQ2YldGeWEyVjBaR0YwWVMweU1ESTJJSEYxYjNSbE9pb2daV0Z5Ym1sdVozTTZLaUo5LmQ3UjRnYVhjQ2d5OW5SMzA0bF9LeE85c1FFV3BLRGs4dVY0UEVuSXN6ZS1RbnJfSjBfOV9fbTNnVzhiR0ZlaWJXZXp1VEI4akYyRzdKbGVsaW1vaEFn",
       "token_format": "jwt"
     }
   },
@@ -645,14 +756,15 @@ A financial analysis agent carries a MarketData-issued delegation JWT that grant
 
 The Exchange:
 1. Verifies the request's RFC 9421 HTTP Message Signature against `fintech.example.com`'s published key
-2. Verifies the delegation JWT — signed by `marketdata.example.com`'s key — and checks its `cnf.jkt` equals the thumbprint of the request signer (holder binding)
-3. Reads the scopes the token grants from its `scope` claim (`subscription:marketdata-2026`, `quote:*`, `earnings:*`)
-4. Presents the subscription-tier terms (zero marginal cost) whose scopes, such as `subscription:marketdata-2026`, the request states. This Exchange also requires a verified delegation that grants a subscription term's scopes before it presents the term, which the token in step 3 does ([Scope-Based Access](#scope-based-access))
+2. Verifies the delegation chain as [Verification](#verification) describes: the root verifies with the key configured for the issuer `marketdata.example.com` on the subscription record, `aud` names this Exchange, and `cnf.jkt` equals the thumbprint of the request signer (holder binding)
+3. Reads the effective scopes the verifier returns (`subscription:marketdata-2026`, `quote:*`, `earnings:*`) and the effective expiry (`2026-06-01T13:00:00Z`)
+4. Presents the subscription-tier terms (zero marginal cost) whose scopes, such as `subscription:marketdata-2026`, the verified delegation covers. For such a gated term the Exchange reads scopes from the verified delegation only and ignores `requester.scopes`; the non-gated terms are still filtered by the stated scopes ([Scope-Based Access](#scope-based-access)). A gated offer expires no later than `2026-06-01T13:00:00Z`
 
 ### Enterprise Agent (IAM-Issued JWT)
 
-An internal agent at a law firm carries a delegation JWT issued by the firm's IAM system, granting access to legal and credit resources.
+An internal agent at a law firm carries a root token issued by the firm's IAM system, granting access to legal and credit resources. The token is the shared chain case `docs_enterprise_agent`.
 
+{/* delegation-chain: docs_enterprise_agent */}
 {/* fora-validate: ResourceQuery */}
 ```json
 {
@@ -671,9 +783,8 @@ An internal agent at a law firm carries a delegation JWT issued by the firm's IA
       "principal_domain": "iam.kirkland.com",
       "principal_id": "user@kirkland.com",
       "scopes": ["legal:case-law", "legal:statutes", "credit:read"],
-      "expires_at": "2026-03-20T20:00:00Z",
-      "max_spend_cents": 100000,
-      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSjkuPGNsYWltczogaXNzLCBzY29wZSwgZXhwLCBjbmYuamt0Pi48c2lnPg",
+      "expires_at": "2026-06-01T13:00:00Z",
+      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVJtVm1Ta3N5VDB0YVNtSkNVbGxqZW1kTU9IbFphelJyVXpWVVNGOVVVbW94ZDNJM1IxSnlhVE15TkNKOUxDSmxlSEFpT2pFM09EQXpNVGc0TURBc0ltbHpjeUk2SW1saGJTNXJhWEpyYkdGdVpDNWpiMjBpTENKcWRHa2lPaUpwWVcwdE4yTXhaU0lzSW5OamIzQmxJam9pYkdWbllXdzZZMkZ6WlMxc1lYY2diR1ZuWVd3NmMzUmhkSFYwWlhNZ1kzSmxaR2wwT25KbFlXUWlMQ0p6ZFdJaU9pSjFjMlZ5UUd0cGNtdHNZVzVrTG1OdmJTSjkucjZuYXhKa08tT2FDU0czbENnYXNGRXVFUDktbHg3UFNDVU1ydG1pa1A5YS1rbkVndTlyR1FwYk9kVTdPbWlpc2Jkb1RYT1g3SEh4dmxsN1pzdFRNQ1E=",
       "token_format": "jwt"
     }
   },
@@ -687,12 +798,13 @@ An internal agent at a law firm carries a delegation JWT issued by the firm's IA
 }
 ```
 
-The internal Exchange verifies the delegation JWT against `iam.kirkland.com`'s published key. If the agent requests a resource outside its scopes, that URI's group comes back with no offers and no absence reason, the same answer as for a resource the Exchange has nothing for (see [Existence hiding](#existence-hiding)).
+The internal Exchange verifies the chain with the key it has configured for the issuer `iam.kirkland.com`; nothing is fetched from IAM. If the agent requests a resource outside its scopes, that URI's group comes back with no offers and no absence reason, the same answer as for a resource the Exchange has nothing for (see [Existence hiding](#existence-hiding)).
 
 ### Delegated Sub-Agent (cnf-chained delegation)
 
-The Kirkland legal agent from the previous example delegates to a sub-agent that only needs credit data. It issues a child delegation JWT (bound to the sub-agent's key) that removes legal access and lowers the spend cap.
+The Kirkland legal agent from the previous example delegates to a sub-agent that only needs credit data. It issues a child token, bound to the sub-agent's key, that removes legal access and expires 30 minutes earlier. The token is the shared chain case `docs_delegated_sub_agent`: the child, with the complete IAM root token inside its `fora_parent` claim.
 
+{/* delegation-chain: docs_delegated_sub_agent */}
 {/* fora-validate: ResourceQuery */}
 ```json
 {
@@ -710,9 +822,8 @@ The Kirkland legal agent from the previous example delegates to a sub-agent that
       "principal_domain": "iam.kirkland.com",
       "principal_id": "user@kirkland.com",
       "scopes": ["credit:read"],
-      "expires_at": "2026-03-20T19:00:00Z",
-      "max_spend_cents": 20000,
-      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSjkuPGNoaWxkIGNsYWltczogaXNzLCBzY29wZSwgZXhwLCBjbmYuamt0Pi48c2lnPg",
+      "expires_at": "2026-06-01T12:30:00Z",
+      "token": "ZXlKaGJHY2lPaUpGWkRJMU5URTVJaXdpYW5kcklqcDdJbU55ZGlJNklrVmtNalUxTVRraUxDSnJkSGtpT2lKUFMxQWlMQ0o0SWpvaVpHdFZlVkpXTm10dE4xcERWa3BaV1dac1VUTXdNWEZaY21KNk5ESnZaR2h5WWxWU1dIRmtiVlJ6T0NKOUxDSjBlWEFpT2lKbWIzSmhMV1JsYkdWbllYUnBiMjRyYW5kMEluMC5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVZtbGlSak15UWtNMVQyVnlSSFl0U2pOdGNERllRM1YzYnprM1dGSkRTaTFGZFZOS2JHeEtTMEp4VlNKOUxDSmxlSEFpT2pFM09EQXpNVGN3TURBc0ltWnZjbUZmY0dGeVpXNTBJam9pWlhsS2FHSkhZMmxQYVVwR1drVlNWRkZUU1hOSmJsSTFZME5KTmtsdFduWmpiVVYwV2tkV2MxcFhaR2hrUjJ4MlltbDBjV1F6VVdsbVVTNWxlVXBvWkZkUmFVOXNjMmxhV0docVlVZEdkVm95VlhWYVdHaG9ZbGhDYzFwVFNtUk1RMHBxWW0xWmFVOXVjMmxoYlhRd1NXcHZhVkp0Vm0xVGEzTjVWREIwWVZOdFNrTlZiR3hxWlcxa1RVOUliRnBoZWxKeVZYcFdWVk5HT1ZWVmJXOTRaRE5KTTFJeFNubGhWRTE1VGtOS09VeERTbXhsU0VGcFQycEZNMDlFUVhwTlZHYzBUVVJCYzBsdGJIcGplVWsyU1cxc2FHSlROWEpoV0VweVlrZEdkVnBETldwaU1qQnBURU5LY1dSSGEybFBhVXB3V1Zjd2RFNHlUWGhhVTBselNXNU9hbUl6UW14SmFtOXBZa2RXYmxsWGR6WlpNa1o2V2xNeGMxbFlZMmRpUjFadVdWZDNObU16VW1oa1NGWXdXbGhOWjFrelNteGFSMnd3VDI1S2JGbFhVV2xNUTBwNlpGZEphVTlwU2pGak1sWjVVVWQwY0dOdGRITlpWelZyVEcxT2RtSlRTamt1Y2padVlYaEthMDh0VDJGRFUwY3piRU5uWVhOR1JYVkZVRGt0YkhnM1VGTkRWVTF5ZEcxcGExQTVZUzFyYmtWbmRUbHlSMUZ3WWs5a1ZUZFBiV2xwYzJKa2IxUllUMWczU0VoNGRteHNOMXB6ZEZSTlExRWlMQ0pwYzNNaU9pSkdaV1pLU3pKUFMxcEtZa0pTV1dONlowdzRlVmxyTkd0VE5WUklYMVJTYWpGM2NqZEhVbkpwTXpJMElpd2lhblJwSWpvaWJHVm5ZV3d0YzNWaUxUQXdNRGNpTENKelkyOXdaU0k2SW1OeVpXUnBkRHB5WldGa0luMC5jYkFYNlo2bi03aVVHNEFhQTQ5a1NRVzR4bi1MaWdVUWN3R3RRaVRFT2VDQjBhRlVsUHZOdmloUDZYTnBwVVo4OThuMXNOMmhJQ29mY3NtMkJ3dFhCUQ==",
       "token_format": "jwt"
     }
   },
@@ -727,13 +838,12 @@ The Kirkland legal agent from the previous example delegates to a sub-agent that
 
 Key differences from the parent agent's request:
 - `type` is `REQUESTER_TYPE_DELEGATED` — signals this agent acts on behalf of another
-- `delegation.scopes` is narrowed to `["credit:read"]` (legal scopes removed)
-- `delegation.max_spend_cents` is reduced from `100000` ($1,000) to `20000` ($200)
-- `delegation.expires_at` is shortened (1 hour earlier)
-- The sub-agent sends and signs the request alone, with its own labeled RFC 9421 signature and its own `Signature-Agent` member (see [Multi-hop forwarding](#multi-hop-forwarding)). The parent's authority does not travel as a request signature: it travels in the delegation's JWT chain
-- The delegation is a JWT chain: the authority JWT (signed by IAM) plus a child JWT (signed by the parent agent) whose `cnf.jkt` binds the grant to the sub-agent's key and whose `scope` is narrowed
+- `delegation.scopes` is narrowed to `["credit:read"]` (legal scopes removed); the mirrors `principal_domain` and `principal_id` still describe the root, because they mirror the root token's `iss`
+- `delegation.expires_at` is shortened (30 minutes earlier), the child's own `exp`
+- The sub-agent sends and signs the request alone, with its own labeled RFC 9421 signature and its own `Signature-Agent` member (see [Multi-hop forwarding](#multi-hop-forwarding)). The parent's authority does not travel as a request signature: it travels inside the delegation token
+- The delegation is a nested chain: the child token, signed by the parent agent with `alg: Ed25519`, carries the complete IAM root token in `fora_parent`, the parent agent's public key in its protected `jwk` header, that key's thumbprint as its `iss`, and the sub-agent's key thumbprint as its `cnf.jkt`
 
-The Exchange verifies the full JWT chain: IAM signed the authority JWT; the parent agent signed the child JWT (its signing key matches the authority's `cnf` — chain linkage); the sub-agent's request key matches the child's `cnf.jkt`. No call to IAM was required for the delegation.
+The Exchange verifies the full chain: IAM signed the root token, checked with the configured key; the parent agent signed the child (its `jwk` hashes to the root's `cnf.jkt` — chain linkage); the sub-agent's request key matches the child's `cnf.jkt`. No call to IAM was required for the delegation.
 
 ## Key Management
 
@@ -821,7 +931,7 @@ Key rotation follows a standard overlap pattern:
 3. After a grace period (Exchange-defined, typically 24-48 hours), remove the old key
 4. Exchanges SHOULD cache keys with a TTL and re-fetch periodically
 
-For delegation JWTs, key rotation at the issuer does not invalidate existing tokens — the authority JWT was signed with the key that was current at issuance time. Exchanges SHOULD accept tokens signed by recently-rotated keys within a configurable grace period.
+For delegation tokens, an issuer's keys are configured on the subscription record, not published in a directory, so rotation is an edit to that list: the new key is added, and the old key stays listed until every token it signed has expired, then it is removed. A root token verifies with any listed key whose identity equals its `iss`, so rotation does not invalidate existing tokens, and removing a key is the explicit withdrawal of trust from everything it signed.
 
 ### Key Validity Windows
 

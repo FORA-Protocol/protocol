@@ -111,23 +111,7 @@ func (h *ExchangeHandler) DiscoverResources(
                 forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID))
     }
 
-    // 2c. Verify delegation (if present) on a DIRECT query.
-    //     Verifies the delegation JWT chain (chain linkage + cnf holder binding)
-    //     against the principal's published key. On a query a Broker originated
-    //     the Broker signs alone, so nothing can pass the holder binding: the
-    //     delegation is not honoured, and the query is answered as if none were
-    //     present.
-    delegation := requester.GetDelegation()
-    if brokerLed {
-        delegation = nil
-    }
-    if delegation != nil {
-        if err := h.verifyDelegationJWT(ctx, requester); err != nil {
-            return nil, connect.NewError(connect.CodePermissionDenied, err)
-        }
-    }
-
-    // 2d. On a DIRECT query, resolve the agent's registered account from the
+    // 2c. On a DIRECT query, resolve the agent's registered account from the
     //     directory the signature resolved from (verified.SignatureAgent; see
     //     "Accounts" on the authentication page). Every currently valid key that
     //     directory publishes acts for the account, so the key that verified
@@ -149,24 +133,55 @@ func (h *ExchangeHandler) DiscoverResources(
         return nil, connect.NewError(connect.CodeNotFound, err)
     }
 
+    // 3b. Verify the delegation (if present) on a DIRECT query, once per
+    //     subscription record. Trust is per record: the SDK verifier is given
+    //     the keys that record lists, so an issuer trusted for one subscription
+    //     grants nothing on another. A record whose keys refuse the chain keeps
+    //     its gated terms hidden; the refusal is journaled, never reported. The
+    //     holder is the RFC 9421 signer's key from the HTTP proof of step 2,
+    //     which stays separate from the delegation result. On a query a Broker
+    //     originated the Broker signs alone, so nothing can pass the holder
+    //     binding: the delegation is not honoured, and the query is answered
+    //     as if none were present. A token over the size limit never gets
+    //     here: step 1 refused the request.
+    grants := map[string]*helpers.VerifiedDelegation{} // subscription record ID -> verified grant
+    if direct && requester.GetDelegation() != nil {
+        holder, err := helpers.Thumbprint(verified.PublicKey)
+        if err != nil {
+            return nil, connect.NewError(connect.CodeInternal, err)
+        }
+        for _, record := range h.subscriptions.RecordsForTenant(ctx, tenantCfg.ID) {
+            grant, err := helpers.VerifyDelegation(helpers.DelegationInput{
+                Token:          requester.GetDelegation().GetToken(),
+                TrustedIssuers: record.TrustedIssuers,
+                Audience:       tenantCfg.Identity,
+                Holder:         holder,
+                Now:            h.clock.Now(),
+            })
+            if err != nil {
+                h.journal.DelegationRefused(ctx, record.ID, err)
+                continue
+            }
+            grants[record.ID] = grant
+        }
+    }
+
     // 4. Application-level abuse check (optional — volumetric rate limiting is at infra layer)
     // The Exchange MAY return 429 for application-level abuse, e.g., query-to-transaction
     // ratio too low (agent discovering but never buying). Volumetric rate limiting (per-IP,
     // per-tenant RPS caps) belongs in HAProxy/Envoy/API Gateway in front of this service.
 
     // 5. Catalog lookup (lock-free read, scope-filtered)
-    //    The catalog is filtered by requester.scopes, the requester's own
-    //    statement — terms outside the stated scopes are not returned. When a
-    //    direct query carries a verified delegation, this Exchange also requires
-    //    its grant to cover a term's scopes (a narrower use of the MAY in
-    //    LicenseTerm.scopes): the effective scopes are the intersection of
-    //    requester.scopes and the delegation's granted scopes. A query a Broker
-    //    originated honours no delegation (2c), so its stated scopes alone decide.
-    effectiveScopes := requester.Scopes
-    if delegation != nil {
-        effectiveScopes = intersectScopes(requester.Scopes, delegation.Scopes)
-    }
-    offers, err := h.catalog.FindOffers(ctx, tenantCfg.ID, req.Msg.Uris, effectiveScopes)
+    //    A non-gated term is filtered by requester.scopes, the requester's own
+    //    statement — terms outside the stated scopes are not returned. A gated
+    //    term (a subscription term) is presented only when the grant verified
+    //    under the term's own subscription record covers the term's scopes, by
+    //    the one matching rule on Requester.scopes; requester.scopes is ignored
+    //    for it, and a record with no grant — every record on a query a Broker
+    //    originated (3b) — keeps its gated terms hidden, as if they did not
+    //    exist. The catalog bounds each gated offer's expires_at by its grant's
+    //    ExpiresAt, so the offer never outlives the chain.
+    offers, err := h.catalog.FindOffers(ctx, tenantCfg.ID, req.Msg.Uris, requester.Scopes, grants)
     if err != nil {
         return nil, connect.NewError(connect.CodeInternal, err)
     }
@@ -196,17 +211,17 @@ func (h *ExchangeHandler) DiscoverResources(
             subOffer := proto.Clone(offer).(*forav1.Offer)
             // A subscription variant is a distinct offer, so it gets a fresh
             // opaque offer_id — never one derived from the base offer's id.
-            subOffer.OfferId = "offer-" + ulid.Make().String()
+            subOffer.OfferId = "offer-" + newOpaqueID()
             subOffer.SubscriptionId = proto.String(subStatus.SubscriptionID)
             subOffer.Pricing = &forav1.Pricing{
-                Model:           offer.Pricing.Model,
-                Rate:            0, // zero marginal cost under subscription
-                Currency:        offer.Pricing.Currency,
-                UnitCost:          proto.Float64(0),
+                Model:             offer.Pricing.Model,
+                Rate:              "0", // zero marginal cost under subscription; money is a decimal string
+                Currency:          offer.Pricing.Currency,
+                UnitCost:          proto.String("0"),
                 EstimatedQuantity: offer.Pricing.EstimatedQuantity,
             }
             // Populate SubscriptionQuotaInfo for proactive quota signaling
-            subOffer.SubscriptionQuota = h.billing.GetSubscriptionQuota(
+            subOffer.SubscriptionQuota = h.billing.SubscriptionQuota(
                 ctx, subStatus.SubscriptionID, tenantCfg.ID,
             )
             subOffers = append(subOffers, subOffer)
@@ -338,17 +353,12 @@ sigs := helpers.AllSignaturesFromContext(ctx)
 
 ### Delegation Verification
 
-When `Requester.delegation` is present, the Exchange verifies the delegation JWT chain before honouring it:
+When `Requester.delegation` is present, the Exchange runs the chain through the profile's verifier before honoring it. The procedure, the limits and the outcome of each failure are stated once, in [Verification](/protocol/authentication/#verification). What the handler supplies and does:
 
-1. Decode the base64url-encoded `token` (JWS) from the `Delegation` message
-2. Verify the Ed25519 signature chain — the authority JWT signed by `principal_domain`'s published key, each child JWT signed by the key its parent named in `cnf` (chain-linkage invariant)
-3. Verify holder binding — the key that signed the RFC 9421 request MUST hash to the final JWT's `cnf.jkt`. On a purchase sub-request a Broker re-packaged, the request signer is the Broker, so compare the key each item's `AgentAcceptance` verifies under instead. On a query a Broker originated nothing can pass this check, so the delegation is not verified or honoured there, and the query is answered as if none were present
-4. Evaluate constraints (scope coverage, spend caps, expiration) — the grant covers scopes only if each child's `scope` is contained in its parent's
-5. Extract effective scopes (intersection of requester scopes and delegation scopes)
-6. Check `expires_at` against current time
-7. Optionally check `revocation_uri` for high-value transactions
-
-See [Authentication](/protocol/authentication/) for the full delegation model.
+1. The trusted root keys come from the subscription record that owns the gated term, never from `principal_domain` or a fetched directory
+2. The holder is the key the request proved: the RFC 9421 request signer on a direct call, the key each item's `AgentAcceptance` verifies under on a purchase a Broker relayed. On a query a Broker originated nothing can pass this check, so the delegation is not verified or honored there, and the query is answered as if none were present
+3. For a gated term, the effective scopes the verifier returns alone decide; `Requester.scopes` is ignored
+4. A gated offer expires no later than the effective expiry the verifier returns
 
 ### Provider Trust Verification
 

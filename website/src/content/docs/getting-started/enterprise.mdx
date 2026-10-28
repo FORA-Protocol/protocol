@@ -64,10 +64,10 @@ Enterprise IAM maps user roles to FORA scopes. The Broker states them on each qu
 
 1. User authenticates via SSO (SAML/OIDC to enterprise IdP)
 2. Enterprise token service maps AD groups to FORA scopes
-3. Service mints a delegation JWT signed by `iam.acme.com`'s Ed25519 key
+3. Service mints a root delegation token signed by `iam.acme.com`'s Ed25519 key, in the [profile](/protocol/authentication/#delegation) the protocol defines
 4. Agent carries this token in the `Delegation.token` field and presents it to the enterprise Broker with each request
-5. The Broker verifies the authority JWT against IAM's published key and states the token's scopes on the queries it originates
-6. The Exchange checks each term's scopes against the stated scopes. It does not honour the delegation on the Broker's query, which the Broker signs alone; on a purchase it verifies the delegation against the key that signed the agent's `AgentAcceptance`
+5. The Broker verifies the root token with the IAM key it has configured, never a fetched one, and states the token's scopes on the queries it originates
+6. The Exchange checks each non-gated term's scopes against the stated scopes. It does not honour the delegation on the Broker's query, which the Broker signs alone; a term it gates behind a verified delegation is hidden on that query. On a purchase it verifies the chain with the IAM key configured on the subscription record, against the key that signed the agent's `AgentAcceptance`
 
 ### Concrete Example
 
@@ -119,19 +119,24 @@ The enterprise token service bridges your existing IAM into FORA's JWT-based aut
                                    └──────────────┘
 ```
 
-The authority JWT contains FORA-specific claims:
+The root token carries the profile's claims:
 
 ```json
-// Authority JWT claims (signed by iam.acme.com Ed25519 key)
+// root token — protected header
+{ "alg": "Ed25519", "typ": "fora-delegation+jwt" }
+// claims (signed by iam.acme.com's Ed25519 key)
 {
   "iss": "iam.acme.com",
   "sub": "jane@acme.com",
+  "aud": ["exchange.acme.internal", "exchange.dnb.example"],
+  "jti": "iam-2026-03-20-7c1e",
   "scope": "tax:customer:read legal:read",
-  "fora_max_spend_cents": 100000,    // $1,000 department budget
   "exp": 1774375200,                  // 2026-03-20T18:00:00Z, 2-hour session
   "cnf": { "jkt": "<thumbprint of the agent's key>" }
 }
 ```
+
+The department budget is not a token claim: the Broker tracks it by `budget_scope`, and a chain that carries a cap claim is refused by the protocol's verifier of this release.
 
 The `Delegation` message carries this token on the wire:
 
@@ -141,8 +146,7 @@ Delegation {
   principal_id: "jane@acme.com"
   scopes: ["tax:customer:read", "legal:read"]
   expires_at: "2026-03-20T18:00:00Z"
-  max_spend_cents: 100000  // $1,000 in currency minor units
-  token: "eyJhbGciOiJFZERTQSJ9.<claims: iss, scope, exp, cnf.jkt>.<sig>"
+  token: "<the root token, one compact JWS>"
   token_format: "jwt"
 }
 ```
@@ -151,12 +155,12 @@ Key properties of this flow:
 
 - **No FORA-specific password.** Users authenticate through existing SSO. The token service is the only component that needs FORA awareness.
 - **Scopes derived from roles.** A single mapping table (`AD group → FORA scopes`) governs all access. Update the mapping, and every future token reflects the change.
-- **Time-bounded.** Tokens expire with the SSO session. A leaked token is useless after expiry.
-- **Spend-capped.** `max_spend_cents` prevents runaway costs. The Exchange tracks cumulative spend against this cap.
+- **Time-bounded.** Tokens expire with the SSO session. A leaked token is useless after expiry, and useless before it too without the agent's private key, because the grant is bound to that key.
+- **Budget-capped at the Broker.** The Broker tracks cumulative spend per `budget_scope`, so runaway cost is stopped at the chokepoint every request passes.
 
 ## Agent Delegation Within the Enterprise
 
-Delegation JWTs support offline narrowing — an agent can narrow a token's permissions by issuing a child delegation JWT without calling back to IAM. This enables safe sub-agent delegation.
+Delegation tokens support offline narrowing — an agent can narrow a token's permissions by issuing a child token without calling back to IAM. The child carries the complete parent in its `fora_parent` claim and the agent's public key in its header, so the chain verifies on its own. This enables safe sub-agent delegation.
 
 ### The Pattern
 
@@ -166,26 +170,26 @@ Delegation JWTs support offline narrowing — an agent can narrow a token's perm
 │  Token: full scopes      │
 │  • tax:customer:read     │
 │  • legal:read            │
-│  • max_spend_cents: 100000│
+│  • exp: session end      │
 └──────────┬──────────────┘
-           │ Issue child delegation JWT (narrowing)
+           │ Issue child token (narrowing, parent inside fora_parent)
            ▼
 ┌─────────────────────────┐
 │  Tax Lookup Sub-Agent    │
 │  Token: narrowed scopes  │
 │  • tax:customer:read     │  ← legal:read removed
-│  • max_spend_cents: 20000 │  ← spend cap reduced
+│  • exp: 30 minutes       │  ← shorter than the parent
 │  • exp: +1h              │  ← shorter TTL
 └─────────────────────────┘
 ```
 
-The narrowed token is a new child delegation JWT linked into the chain via `cnf`. The sub-agent **cannot** widen permissions — it can only further restrict the registered grant dimensions: scope, spend (`max_spend_cents`), access count (`max_accesses`), and time (`exp`). Resource/URI access is gated through *scopes* (each requested URI is checked against the token's scopes), so confining a sub-agent to `internal://tax/` is expressed as a narrower scope, not a separate URI claim. Per-URI pattern confinement that is independent of scopes is not part of the JWT registered-claim set; deployments that need it use a vendor-namespaced claim.
+The narrowed token is a new child token linked into the chain via `cnf`. The sub-agent **cannot** widen permissions — it can only further restrict the grant dimensions: scope, audience (`aud`) and time (`exp`). Resource/URI access is gated through *scopes* (each requested URI is checked against the token's scopes), so confining a sub-agent to `internal://tax/` is expressed as a narrower scope, not a separate URI claim. Per-URI pattern confinement that is independent of scopes is not part of the JWT registered-claim set; deployments that need it use a vendor-namespaced claim.
 
 This happens entirely offline. No call to IAM. No network round-trip. No central bottleneck.
 
 **Why this matters:**
-- A research agent spawns 10 sub-agents for parallel data gathering. Each gets a narrowly scoped token. If one is compromised, damage is bounded by its attenuated scope and spend cap.
-- A compliance agent delegates to a document retrieval agent with read-only scope and a $50 spend limit. The retrieval agent cannot access resources outside its scope or exceed its budget — the holder binding (`cnf`) and scope/spend claims are cryptographically bound to the token, so a narrowed child grant cannot be widened.
+- A research agent spawns 10 sub-agents for parallel data gathering. Each gets a narrowly scoped, short-lived token. If one is compromised, damage is bounded by its attenuated scope and expiry, and by the Broker's budget for its `budget_scope`.
+- A compliance agent delegates to a document retrieval agent with read-only scope. The retrieval agent cannot access resources outside its scope — the holder binding (`cnf`) and the scope claim are signed into the token, and the verifier checks every ancestor, so a narrowed child grant cannot be widened.
 
 ## Data Classification
 

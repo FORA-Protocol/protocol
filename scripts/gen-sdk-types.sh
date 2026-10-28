@@ -53,8 +53,12 @@ go run ./conformance/requiredgen "$WORK/required_fields.json"
 # .refine()) and gen_unique_py.py emits wire/unique.py for the wire/base.py seam, because
 # datamodel-codegen drops `uniqueItems` for pydantic v2.
 go run ./conformance/uniquegen "$WORK/unique_items.json"
+# bytes_max_len.json: the protovalidate bytes.max_len view. protoschema renders it as a
+# maxLength that counts base64 padding, which lets a value one byte over the limit pass;
+# merge_schema and gen_jsonschema rewrite the pattern to the exact data-character bound.
+go run ./conformance/byteslengen "$WORK/bytes_max_len.json"
 "$PY" scripts/sdk-types/merge_schema.py "$JS" gen/descriptor.binpb "$COMBINED" \
-  "$WORK/required_fields.json" "$WORK/unique_items.json"
+  "$WORK/required_fields.json" "$WORK/unique_items.json" "$WORK/bytes_max_len.json"
 
 echo "==> 3/6 Pydantic v2 (datamodel-code-generator, --base-class + --collapse-root-models)"
 "$WORK/venv/bin/datamodel-codegen" \
@@ -94,7 +98,7 @@ echo "==> 5/6 published JSON Schemas (gen/jsonschema/)"
 # default and a strict variant. The wire decisions (field naming, Struct, int64) are
 # documented in the header of gen_jsonschema.py.
 "$PY" scripts/sdk-types/gen_jsonschema.py "$JS" gen/descriptor.binpb \
-  "$WORK/required_fields.json" "$WORK/unique_items.json" gen/jsonschema
+  "$WORK/required_fields.json" "$WORK/unique_items.json" "$WORK/bytes_max_len.json" gen/jsonschema
 
 echo "==> 6/6 precompiled strict validators (gen/ts/strict/)"
 # From the strict schemas step 5 wrote, with the ajv the pinned manifest above installed.

@@ -937,7 +937,7 @@ const (
 	// is denied and the whole request is not refused.
 	DenialReason_DENIAL_REASON_SIGNATURE_INVALID  DenialReason = 8
 	DenialReason_DENIAL_REASON_QUOTA_EXCEEDED     DenialReason = 9  // Subscription access count exhausted for this period
-	DenialReason_DENIAL_REASON_DELEGATION_INVALID DenialReason = 10 // Delegation missing, unverifiable, expired, holder binding failed, or scopes/caps do not cover the request
+	DenialReason_DENIAL_REASON_DELEGATION_INVALID DenialReason = 10 // On a purchase item: delegation missing, malformed, unverifiable (chain linkage, issuer, signature), expired or not yet valid, addressed to another recipient, holder binding failed, a child widens its parent, or scopes/caps do not cover the request. A token over the size limit is refused at wire validation, before any item; at discovery a failed delegation hides the gated terms and reports nothing
 	// DEPRECATED, never sent. An Exchange MUST NOT send this value. An offer the
 	// Exchange presented is honoured until it expires, so a purchase is never
 	// refused for scope. A resource the requester's scopes leave with no
@@ -2813,7 +2813,9 @@ type Offer struct {
 	DeliveryMethod DeliveryMethod `protobuf:"varint,4,opt,name=delivery_method,json=deliveryMethod,proto3,enum=fora.v1.DeliveryMethod" json:"delivery_method,omitempty"`
 	// Post-usage reporting requirements for this offer.
 	Reporting *ReportingObligation `protobuf:"bytes,5,opt,name=reporting,proto3,oneof" json:"reporting,omitempty"`
-	// When this offer expires (ISO 8601).
+	// When this offer expires (ISO 8601). An offer for a term gated behind a
+	// verified delegation MUST NOT expire later than that delegation chain's
+	// effective expiry, the earliest `exp` in the chain (see Delegation).
 	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
 	// Resource identity for cross-exchange deduplication.
 	// Enables Brokers to recognize the same resource offered by
@@ -4074,16 +4076,20 @@ type LicenseTerm struct {
 	// Requester.scopes is the requester's own statement, which the Exchange does
 	// not verify, so a scope gate hides a term from requesters that do not state
 	// the scope; it does not stop one that states it falsely. An Exchange MAY
-	// also require a verified delegation that grants these scopes before it
-	// presents the term. To a requester that presents none, it answers as if the
-	// term did not exist, as existence hiding requires (see Requester.scopes). An
-	// offer the Exchange presented is honoured until it expires.
+	// instead gate a term behind a verified delegation (a subscription term is
+	// the usual case): then only the delegation chain's verified effective scopes
+	// are matched against these scopes, and Requester.scopes is ignored for that
+	// term. To a requester that presents no valid delegation, it answers as if
+	// the term did not exist, as existence hiding requires (see
+	// Requester.scopes). An offer the Exchange presented is honoured until it
+	// expires, and a gated offer expires no later than the chain's effective
+	// expiry (see Delegation).
 	//
 	// Coverage uses the SAME matching rule as Requester.scopes:
 	// segment-wise (":" separated), each granted segment must equal the
 	// corresponding required segment or be "*", a terminal "*" matches all
-	// remaining segments, and there is NO implicit prefix match (a grant
-	// narrower than the requirement does not cover it). "dist:*" covers
+	// remaining segments (at least one), and there is NO implicit prefix match
+	// (a grant narrower than the requirement does not cover it). "dist:*" covers
 	// "dist:US" and "dist:US:CA"; "dist" covers only "dist". There is exactly
 	// one scope-matching algorithm across the protocol.
 	Scopes []string `protobuf:"bytes,7,rep,name=scopes,proto3" json:"scopes,omitempty"`
@@ -4558,12 +4564,18 @@ type Requester struct {
 	// Matching is SEGMENT-WISE (":" separated). A granted scope G covers a
 	// required scope R iff, segment by segment, each G segment equals the
 	// corresponding R segment or is "*"; a terminal "*" matches all remaining
-	// segments. There is NO implicit prefix match, and a grant NARROWER than
-	// the requirement does not cover it (G must be equal-to-or-broader than R).
-	// Examples: "dist:*" covers "dist:US" and "dist:US:CA"; "dist:US:*" covers
-	// "dist:US:CA" but not "dist:EU"; bare "dist" covers only "dist"; granted
-	// "dist:US:CA" does NOT cover required "dist:US"; "*" covers everything.
-	// This same rule governs LicenseTerm.scopes — one algorithm protocol-wide.
+	// segments, of which there must be at least one. There is NO implicit prefix
+	// match, and a grant NARROWER than the requirement does not cover it (G must
+	// be equal-to-or-broader than R), so a grant with more segments than the
+	// requirement never covers it, even when its last segment is "*". A "*" in R
+	// is a literal segment: a narrow grant never covers a wildcard requirement.
+	// Matching is case-sensitive and never trims. Examples: "dist:*" covers
+	// "dist:US", "dist:US:CA" and "dist:US:*" but not "dist"; "dist:US:*" covers
+	// "dist:US:CA" but not "dist:EU" or "dist:US"; "publisher:*:read" covers
+	// "publisher:news:read" but not "publisher:news:*"; bare "dist" covers only
+	// "dist"; granted "dist:US:CA" does NOT cover required "dist:US"; "*" covers
+	// everything. This same rule governs LicenseTerm.scopes and the attenuation
+	// of a delegation child against its parent — one algorithm protocol-wide.
 	//
 	// When empty, Exchange applies its default access policy (typically
 	// returns all publicly available resources).
@@ -4673,60 +4685,41 @@ func (x *Requester) GetExtCritical() []string {
 
 // Delegation — Scoped, time-limited, spend-capped credential.
 //
-// The token is an opaque, signed credential. The format is a JWT (token_format
-// "jwt"); the field stays open for a future format. Its claims are the
-// AUTHORITATIVE source of the grant; the
-// plaintext fields below (scopes, expires_at, max_spend_cents, …) are a
-// convenience mirror the Exchange MAY use for fast pre-filtering before it
-// verifies the token.
+// The token is a signed JWT (token_format "jwt"; the field stays open for a
+// future format) carrying a holder-bound delegation chain. Its claims are the
+// AUTHORITATIVE source of the grant; the plaintext fields below (scopes,
+// expires_at, max_spend_cents, …) are a mirror the Exchange MAY use for fast
+// pre-filtering before it verifies the token. A mirror establishes nothing: it
+// cannot grant a scope, extend validity or raise a cap beyond what the signed
+// chain says.
 //
-// Holder binding (the load-bearing property). The grant is bound to a holder key
-// via the RFC 7800 `cnf` confirmation claim — `cnf.jkt`, the RFC 7638 JWK
-// thumbprint of the holder's key. Verification MUST check that the key signing
-// the request (RFC 9421) hashes to that thumbprint; a token possessed without
-// the matching private key is rejected. This is what makes a leaked token NOT
-// bearer-usable. One exception, the relayed purchase: when a Broker re-packages
-// a purchase (BrokerService.ExecuteTransaction), the request an Exchange
-// receives is signed by the Broker, not by the holder. There the Exchange checks
-// the holder binding against the key each item's AgentAcceptance verifies under
-// — the agent's key, resolved from the requester's WBA directory — and not
-// against the request signer. A relayed purchase that carries a delegation
-// therefore needs an AgentAcceptance on every item; an item without one fails
-// the binding (DENIAL_REASON_DELEGATION_INVALID). On a query a Broker
-// originated (Broker-led discovery), the Broker signs alone, so a delegation on
-// it cannot pass holder binding: the Exchange does not honour it and answers
-// as if none were present. How an agent proves a holder-of-key entitlement at
-// discovery time through a Broker is an open protocol question. An Exchange
-// that requires a verified delegation before it presents a scoped term (see
-// LicenseTerm.scopes) therefore presents no such term on that query.
-//
-// Delegation is a chain of cnf-linked JWTs: a principal narrows a
-// grant by issuing a child JWT (cnf = the next holder, scopes ⊆ parent), signed
-// by the key the parent's cnf named — the chain-linkage invariant. Verifiers
-// need only the root issuer's public key; intermediate keys ride inside the
-// chain (JOSE header `jwk`), so verification is offline.
-//
-// The claim schema is a small registered vocabulary — see the FORA
-// delegation-claims profile in the auth spec. All claims are OPTIONAL except the
-// holder binding (cnf). Vendors MAY add namespaced claims (their own "vendor:"
-// namespace; "fora_"-prefixed names are reserved for the registered vocabulary
-// and MUST NOT be redefined); any constraint a verifier cannot evaluate is
-// binding by default (fail closed) unless the issuer marks it advisory —
-// mirroring Restriction.advisory.
-//
-// Scope/time/spend caps are defense-in-depth that bound the blast radius only in
-// the residual case where the holder's signing key is also compromised; the
-// primary protection against theft is the holder binding above.
+// The profile — chain encoding and limits, protected header, claims, clock
+// leeway, issuer, audience and holder-binding rules, the verification
+// procedure and the outcome of each failure — is the "Delegation" section of
+// the authentication page and is not restated here; the Go SDK verifier
+// (sdk/go/helpers) and the shared chain cases are derived from it. What a
+// field reader must know: the grant is bound to a holder key by `cnf.jkt`, and
+// the key a request proves possession of MUST hash to the terminal token's
+// `cnf.jkt` (the RFC 9421 request signer on a direct call; on a purchase a
+// Broker relayed, the key each item's AgentAcceptance verifies under), so a
+// token possessed without its private key grants nothing. On a query a Broker
+// originated nothing can pass that binding: the Exchange does not honour the
+// delegation, answers as if none were present, and presents no term gated
+// behind one (see LicenseTerm.scopes).
 type Delegation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Who granted this delegation (domain for public key lookup).
+	// Mirror of the ROOT token's `iss`, the configured trust anchor's identity.
+	// Informational: no key is looked up from it, and it establishes no trust.
 	PrincipalDomain string `protobuf:"bytes,1,opt,name=principal_domain,json=principalDomain,proto3" json:"principal_domain,omitempty"`
 	// Principal's identifier (e.g., "user@acme.com", "marketdata.example.com").
+	// Informational; not read by the verifier.
 	PrincipalId string `protobuf:"bytes,2,opt,name=principal_id,json=principalId,proto3" json:"principal_id,omitempty"`
-	// Scopes granted by this delegation. MUST be a subset of the
-	// principal's own scopes (attenuation — can only narrow, not widen).
+	// Mirror of the terminal token's effective scopes. In the chain, each
+	// child's scopes are covered by its parent's under the scope-matching rule
+	// on Requester.scopes (attenuation — can only narrow, not widen).
 	Scopes []string `protobuf:"bytes,3,rep,name=scopes,proto3" json:"scopes,omitempty"`
-	// When this delegation expires. Exchange MUST reject expired tokens.
+	// Mirror of the chain's earliest `exp`. The Exchange MUST reject an expired
+	// token; the signed `exp` values decide, not this field.
 	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	// Maximum spend in currency minor units (e.g., cents for USD).
 	// Exchange tracks cumulative spend against this cap.
@@ -4741,18 +4734,22 @@ type Delegation struct {
 	// (proto-JSON encodes Duration as seconds; "720h" is not accepted).
 	// When absent, the quota is lifetime (bounded only by expires_at).
 	QuotaPeriod *durationpb.Duration `protobuf:"bytes,10,opt,name=quota_period,json=quotaPeriod,proto3,oneof" json:"quota_period,omitempty"`
-	// Token bytes. A JWT (base64url-encoded JWS).
+	// Token bytes. A JWT (base64url-encoded JWS). At most 32768 bytes: the
+	// complete chain, every embedded parent included, must fit. The limit is a
+	// wire rule, checked before the token is parsed and independent of whether
+	// the bytes are a valid JWT; a longer token is an invalid request, not a
+	// per-item denial.
 	Token []byte `protobuf:"bytes,6,opt,name=token,proto3" json:"token,omitempty"`
 	// Token format: "jwt" (default). Empty is treated as "jwt". The field stays
 	// open for a future format.
 	TokenFormat string `protobuf:"bytes,7,opt,name=token_format,json=tokenFormat,proto3" json:"token_format,omitempty"`
-	// Optional: URI for real-time revocation checking.
-	// Exchange MAY check this for high-value transactions.
-	// Not checked for routine low-value access (performance tradeoff).
+	// Informational. Revocation lookup is not part of the delegation profile:
+	// the verifier never fetches this URI. A chain is invalidated early by
+	// withdrawing the configured root key.
 	RevocationUri *string `protobuf:"bytes,8,opt,name=revocation_uri,json=revocationUri,proto3,oneof" json:"revocation_uri,omitempty"`
-	// Token issuer. OIDC issuer URL or GNAP grant server URL.
-	// Exchange uses this for JWT validation (OIDC discovery → JWKS)
-	// or GNAP token introspection.
+	// Mirror of the ROOT token's `iss`, the identity configured with the trusted
+	// key (never an intermediate or terminal issuer). Informational: the
+	// Exchange never discovers a key from it, through OIDC, JWKS or otherwise.
 	Issuer *string `protobuf:"bytes,11,opt,name=issuer,proto3,oneof" json:"issuer,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
@@ -11220,7 +11217,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
 	"\fext_critical\x18Z \x03(\tR\vextCriticalB\a\n" +
 	"\x05_nameB\r\n" +
-	"\v_delegation\"\xe9\x04\n" +
+	"\v_delegation\"\xf4\x04\n" +
 	"\n" +
 	"Delegation\x12)\n" +
 	"\x10principal_domain\x18\x01 \x01(\tR\x0fprincipalDomain\x12!\n" +
@@ -11231,8 +11228,8 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x0fmax_spend_cents\x18\x05 \x01(\x03H\x00R\rmaxSpendCents\x88\x01\x01\x12&\n" +
 	"\fmax_accesses\x18\t \x01(\x05H\x01R\vmaxAccesses\x88\x01\x01\x12A\n" +
 	"\fquota_period\x18\n" +
-	" \x01(\v2\x19.google.protobuf.DurationH\x02R\vquotaPeriod\x88\x01\x01\x12\x14\n" +
-	"\x05token\x18\x06 \x01(\fR\x05token\x12!\n" +
+	" \x01(\v2\x19.google.protobuf.DurationH\x02R\vquotaPeriod\x88\x01\x01\x12\x1f\n" +
+	"\x05token\x18\x06 \x01(\fB\t\xbaH\x06z\x04\x18\x80\x80\x02R\x05token\x12!\n" +
 	"\ftoken_format\x18\a \x01(\tR\vtokenFormat\x12*\n" +
 	"\x0erevocation_uri\x18\b \x01(\tH\x03R\rrevocationUri\x88\x01\x01\x12\x1b\n" +
 	"\x06issuer\x18\v \x01(\tH\x04R\x06issuer\x88\x01\x01\x12)\n" +

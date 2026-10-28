@@ -186,7 +186,7 @@ When an item is denied, the Exchange returns a specific `DenialReason` so your a
 | Denial Reason | Meaning | What to Do |
 |---|---|---|
 | `DENIAL_REASON_QUOTA_EXCEEDED` | Subscription access count exhausted for this period | Wait for quota reset or upgrade subscription |
-| `DENIAL_REASON_DELEGATION_INVALID` | Delegation missing, unverifiable (broken chain linkage or holder-binding mismatch), expired, or it widens scope beyond its parent | Obtain a fresh delegation from the principal |
+| `DENIAL_REASON_DELEGATION_INVALID` | On a purchase item: your delegation is missing, or the Exchange refused the chain (malformed, chain linkage, issuer or signature, expired or not yet valid by the signed chain, addressed to another Exchange, holder binding, a child that widens its parent, or scopes or caps that do not cover the request). A token over 32768 bytes is refused as an invalid request instead, and at discovery a refused delegation hides the gated terms with no reason. See [Verification](/protocol/authentication/#verification) | Obtain a fresh delegation from the principal, bound to the key you sign with |
 | `DENIAL_REASON_INSUFFICIENT_BALANCE` | Requester's balance too low for this transaction | Add funds or reduce request scope |
 | `DENIAL_REASON_SIGNATURE_INVALID` | A signature the item depends on did not verify: the offer's, or your request acceptance, including when the items that arrived are not the set you signed | Check your signing key configuration, and that the request carries exactly the offers you signed, in order |
 | `DENIAL_REASON_RELAY_NOT_ACCEPTED` | The provider of this offer does not accept purchases relayed by a Broker | Buy this offer directly at its Exchange |
