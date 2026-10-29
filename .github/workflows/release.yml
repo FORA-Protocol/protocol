@@ -170,9 +170,16 @@ jobs:
         run: |
           v=${GITHUB_REF_NAME#v}
           mkdir sdists
+          # The wheel step above proves the release is on PyPI, but the per-version
+          # JSON page behind the CDN can still answer 404 for a short while after
+          # that, so the lookup retries like the wheel install does.
           for n in fora-protocol fora-protocol-sdk; do
-            url=$(curl -sf "https://pypi.org/pypi/$n/$v/json" | jq -r '.urls[] | select(.packagetype == "sdist") | .url')
-            curl -sfLo "sdists/$(basename "$url")" "$url"
+            for i in 1 2 3 4 5 6; do
+              url=$(curl -sSf "https://pypi.org/pypi/$n/$v/json" | jq -r '.urls[] | select(.packagetype == "sdist") | .url') && break
+              [ "$i" = 6 ] && { echo "::error::$n $v sdist not visible on PyPI after 3 minutes"; exit 1; }
+              sleep 30
+            done
+            curl -sSfLo "sdists/$(basename "$url")" "$url"
           done
           scripts/release/smoke-python.sh sdists/*.tar.gz
       - name: npm package installs, imports and typechecks
