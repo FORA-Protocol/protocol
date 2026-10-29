@@ -1,6 +1,6 @@
 # FORA Protocol Changelog
 
-## Unreleased
+## v1.2.0
 
 ### Breaking against v1.1.0
 
