@@ -120,14 +120,14 @@ Viewability Report       →  Usage Report
 
 For each provider, you:
 
-1. Run domain verification (ACME-based) to prove provider domain ownership and provision signing keys
+1. Generate their `fora.json` and have them publish it on their origin: the file they serve proves they control the domain and names your Exchange
 2. Ingest their `rsl.txt` to build a resource catalog with pricing
 3. Configure their pricing tier (the `rsl.txt` rate is a ceiling; your private rate can be lower)
 4. Authorize `catalog_contributors` -- third-party verification vendors the provider permits to push attestations for their content
 5. If applicable, deploy the FORA edge function to their delivery endpoint (CDN, API gateway, PACS server) for signed URL verification
 6. Done. Their content is now available to AI requesters through your Exchange
 
-Providers deploy nothing themselves in the managed model. You manage everything. This is the [Exchange-Managed deployment model](/architecture/deployment-models/). Some providers (large publishers, data vendors) may prefer to manage their own delivery endpoint -- the protocol supports both.
+Providers publish that one file and deploy nothing else in the managed model. You manage the rest. This is the [Exchange-Managed deployment model](/architecture/deployment-models/). Some providers (large publishers, data vendors) may prefer to manage their own delivery endpoint -- the protocol supports both.
 
 ## Requester Onboarding
 

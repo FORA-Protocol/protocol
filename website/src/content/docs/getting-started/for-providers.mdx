@@ -41,7 +41,7 @@ import { Aside } from '@astrojs/starlight/components';
 
 If your resources are served through a CDN — news articles, editorial content, research papers hosted on your site — deploy the FORA edge function. This is the standard approach for CDN-hosted resources.
 
-**Nothing to deploy if your Exchange operator supports FORA.** Your Exchange operator deploys the CDN edge function on your behalf and manages everything. You sign a contract, grant CDN access, done.
+**No code to deploy if your Exchange operator supports FORA.** Your Exchange operator deploys the CDN edge function on your behalf and manages it. You sign a contract, grant CDN access and publish the `fora.json` they generate on your site, done.
 
 If you self-manage, deploy using the [Terraform module](https://github.com/FORA-Protocol/protocol/tree/main/terraform/aws-fora-edge/):
 
@@ -60,7 +60,7 @@ module "fora_edge" {
 The edge function does three things:
 - Blocks unauthorized AI bots and tells them where to buy access
 - Verifies signed URLs for bots that paid
-- Serves a `fora.json` file declaring your Exchange relationships
+- Passes your own `fora.json` file, which declares your Exchange relationships, through to your origin for every agent
 
 **You don't change your CMS. You don't change your content workflow. You don't talk to AI companies directly.**
 
@@ -166,15 +166,6 @@ As a provider, you can sign claims about your own resources — Level 1 self-att
 Attestation is most useful for STATIC resources where the hash remains stable. For DYNAMIC resources, attestation covers metadata claims (provider identity, resource type, data source) rather than content hashes. For LIVE resources, attestation covers the stream endpoint and format claims.
 </Aside>
 
-**Key provisioning uses ACME domain verification.** You prove you control your domain (just like getting a TLS certificate from Let's Encrypt), and the Exchange provisions your Ed25519 signing key:
-
-```
-1. fora-cli key push  -> Exchange issues ACME challenge
-2. Place challenge at   /.well-known/fora-verify/{token}
-3. Exchange fetches  -> domain ownership proven
-4. Key is provisioned   -> ready to sign attestations
-```
-
 **Key publication**: Your domain hosts a WBA directory — a JWK Set at `/.well-known/http-message-signatures-directory` — carrying your public keys (inline RFC 7517 Ed25519 JWKs, each identified by its RFC 7638 thumbprint). Agents and Exchanges fetch this to verify your attestation signatures; keys no longer live in `fora.json`. FORA has no dedicated verifier role; a verifier publishes under its operator's role — here `ROLE_PUBLISHER` for self-attestation.
 
 **`catalog_contributors`**: You can authorize third-party verification vendors to push attestations on your behalf. Declare authorized contributors in your provider manifest. You may always push for your own domain; besides your own domain, only contributors listed in `catalog_contributors` can push resource metadata to the Exchange for it.
@@ -195,7 +186,7 @@ Your provider manifest can declare `supported_profiles` to signal which profiles
 
 ## The `fora.json` Provider Manifest
 
-Every provider with a web presence can host a `fora.json` file at their domain root (like `ads.txt` for advertising). This file declares:
+Every provider with a web presence can host a `fora.json` file at `/.well-known/fora.json` on their domain (like `ads.txt` for advertising). This file declares:
 
 - Which Exchange(s) are authorized to sell your resources
 - Which extension profiles your resources support
@@ -203,7 +194,7 @@ Every provider with a web presence can host a `fora.json` file at their domain r
 
 Your public verification keys are published separately in your WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`), not in `fora.json`.
 
-AI agents and Brokers read `fora.json` to discover how to access your resources through FORA.
+AI agents and Brokers read `fora.json` to discover how to access your resources through FORA. You serve the file from your own origin and the edge function [passes it through](/components/edge-function/overview/#forajson-and-rsltxt-pass-through), so you change any of this by editing the file.
 
 ## FAQ
 
@@ -227,7 +218,7 @@ FORA's core protocol works without profiles. You get discovery, pricing, transac
 
 ## Next Steps
 
-1. **Web-facing content providers**: Where your Exchange operator runs a publisher console, register your site there; [Publisher Onboarding](/getting-started/publisher-onboarding/) walks you through it. Otherwise, ask your Exchange operator if they support FORA. If yes, they deploy everything. If no, [self-service deployment](/architecture/deployment-models/) takes 15 minutes.
+1. **Web-facing content providers**: Where your Exchange operator runs a publisher console, register your site there; [Publisher Onboarding](/getting-started/publisher-onboarding/) walks you through it. Otherwise, ask your Exchange operator if they support FORA. If yes, they deploy the edge function and you publish the file they generate. If no, [self-service deployment](/architecture/deployment-models/) takes 15 minutes.
 2. **Data and API providers**: Contact a [Exchange operator](/getting-started/for-exchange-operators/) to discuss integration.
 3. **All providers**: Review [How Money Flows](/getting-started/how-money-flows/) to understand the billing chain and pricing models.
 
