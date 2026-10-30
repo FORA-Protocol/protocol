@@ -1,5 +1,22 @@
 # FORA Protocol Changelog
 
+## Unreleased
+
+**The publisher docs describe the console's onboarding and the file on the publisher's
+origin (docs and comments only; no wire change).** The public onboarding page and the
+publisher guide walk the console's four steps: Your business, which is required, then
+Your domain, Your terms and Connect your site, which can be finished later and which
+every further domain takes again. Prices read "per fetch", and those two pages call the
+artifact the discovery file. The edge pages say a provider's `fora.json` and `rsl.txt`
+are files on its own origin: the edge forwards exactly those two paths for every client,
+ahead of all its checks, and keeps no copy, so the serving modes, the caching strategy
+and the settings that fed an edge-built document are gone. A domain is proven by the
+`fora.json` it serves. `RequestDomainVerification` and `ConfirmDomainVerification` stay in
+the contract, and their comments no longer name a `fora-cli` tool or an edge KV store. The
+Exchange pages lose the `/provider/{domain}/fora.json` and `/provider/{domain}/rsl.txt`
+endpoints, whose only reader was such an edge. The documentation conformance gate refuses
+the retired phrasings, and a website test holds both pages to the console's step names.
+
 ## v1.2.0
 
 ### Breaking against v1.1.0

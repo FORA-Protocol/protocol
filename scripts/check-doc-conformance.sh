@@ -134,6 +134,16 @@ patterns=(
   'estimateTolerance' 'EstimateToleranceBps' 'MeteredSettlement'
   'metered_settlement' 'meteredSettlement' 'SettleMeteredUsage' 'settle_metered_usage'
   'settleMeteredUsage' 'settling-a-metered-purchase'
+  # The edge serves no publisher document: a provider's fora.json and rsl.txt are
+  # files on its origin, and the edge forwards both addresses for every client. So
+  # no serving mode picks a source for them, no Exchange endpoint hands them to an
+  # edge, and no edge store answers the domain-verification challenge. These are the
+  # retired phrasings of those claims, with the CLI that was said to drive them.
+  # fora-verify is NOT listed: the contract's domain-verification messages name that
+  # path, and the RPC pair stays. The /provider/ pattern names the two documents
+  # because /provider/{domain}/transactions is a live audit route.
+  'fora-cli' 'auto-serve' 'serving_mode' 'servingMode' 'exchange_api_url' 'exchangeApiUrl'
+  '/provider/\{domain\}/(fora\.json|rsl\.txt)'
 )
 
 # Files where naming a removed identifier is legitimate (they record history).

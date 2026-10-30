@@ -2958,6 +2958,12 @@ released call still compiles, as the client verbs' call options were added.
 
 ## A publisher proves its domain with the manifest it serves
 
+> **Superseded in part — the edge package no longer answers the manifest's address.** The
+> manifest is a file on the publisher's origin and the package passes the address through,
+> so the authorization below always lives in that file, never in the package's settings.
+> The proof, the catalog key and the RPCs stand as written. See "A publisher's documents
+> are files on its origin".
+
 The contract carries `RequestDomainVerification` and `ConfirmDomainVerification`, an
 ACME-style challenge in which the publisher places a token and the Exchange fetches it.
 The publisher guide does not walk through them, because the console publishers onboard
@@ -3266,3 +3272,32 @@ visible rather than silent. The chain cases the Go tests replay are kept outside
 `*-vectors.json` convention until those ports exist, because that convention is a promise
 of tri-language replay and the completeness gate enforces it without exemption.
 
+
+## A publisher's documents are files on its origin
+
+An edge package used to carry a publisher's manifest and RSL file in its settings and
+answer both addresses itself. That made two copies of the document that decides who may
+sell a publisher's pages: the file the console handed over and the values in the package.
+A publisher who edited the file changed nothing an agent or the Exchange read, and on
+CloudFront which copy answered depended on which cache behavior the function was attached
+to. A publisher's own `/rsl.txt` was hidden the same way, behind a 404 from the package.
+
+So the edge serves no publisher document. GET and HEAD of exactly `/.well-known/fora.json`
+and `/rsl.txt` go to the origin for every client, AI bots included, ahead of the bot check,
+the licensed-path check and signed URL verification, and the origin's answer comes back
+unchanged. A bot refused at an article is told to read that document, so it has to be able
+to, whatever it calls itself. The match is exact, so the rule frees nothing else.
+
+The reasons are the ones a single file gives. There is one copy, under the publisher's
+control. It behaves the same on every CDN and cache-behavior layout. A publisher adds an
+Exchange or changes a contributor by editing the file, with nothing to redeploy, and nothing
+drifts when another network is added. The cost is that a publisher has to place the file,
+which the console's last step asks for, and that an unreachable origin is a `502`: a
+document the edge made up would say nothing about the domain.
+
+Two things left the docs with it. `/provider/{domain}/fora.json` and
+`/provider/{domain}/rsl.txt` were Exchange endpoints for an edge to fetch, and an edge was
+their only reader. And no `fora-cli` ever drove the domain-verification challenge, and no
+edge store ever answered it. The RPC pair itself stays in the contract, for deployments
+that verify that way, and a publisher answering such a challenge places the token on its
+origin like any other file.
