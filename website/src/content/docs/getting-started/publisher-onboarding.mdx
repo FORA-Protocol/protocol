@@ -1,20 +1,20 @@
 ---
 title: "Publisher Onboarding"
-description: "Register your site on the publisher console: publish one file, install one package on your CDN and set your terms. The operator imports your catalog from your sitemap."
+description: "Register your site on the publisher console: name your business, add your domain, set your terms, then serve one file on your site and install one package on your CDN. The operator imports your catalog from your sitemap."
 ---
 
 import { Aside, LinkButton } from '@astrojs/starlight/components';
 import { FORA_PUBLISHER_CONSOLE_URL } from 'astro:env/client';
 
-The publisher console takes your site from registration to its first sale. You tell it your domain and your terms, and it generates the two things that run on your side: a discovery document and an edge package for your CDN. You place one file and one function. From then on, AI agents pay for your pages and your readers are unaffected.
+The publisher console takes your site from registration to its first sale. You name your business and tell it your domain and your terms, and it generates the two things that run on your side: a discovery file (`fora.json`) and an edge package for your CDN. You serve one file and install one package. From then on, AI agents pay for your pages and your readers are unaffected.
 
 You generate no keys and you never push a catalog. The operator, the company that runs the console and the Exchange, imports your pages from your sitemap. Registering costs nothing. Start at the <a href={FORA_PUBLISHER_CONSOLE_URL}>publisher console</a>.
 
 ## Before you start
 
 - Your domain is served by Cloudflare or AWS CloudFront, the two networks the console sets up. For any other network, see [If your network is not supported](#if-your-network-is-not-supported).
-- You can publish a file at `/.well-known/fora.json` on that domain.
-- You can deploy to your CDN account: a Worker on Cloudflare, or a Lambda@Edge function on CloudFront.
+- You can put a file at `/.well-known/fora.json` on that domain, where anyone can read it, AI agents included.
+- You can deploy to your CDN account: a Worker on Cloudflare, which needs Node.js 22 or newer on your machine, or a Lambda@Edge function on CloudFront.
 - Your site has a sitemap, at `/sitemap.xml` or named on a `Sitemap:` line in `robots.txt`. The console finds it by itself. Without one, your pages are not imported automatically.
 
 ## Create your account
@@ -25,77 +25,49 @@ The console sends you to its sign-in page first, and that page also lets you cre
 
 An account made with an email address needs confirming. Open the message you receive, follow the link, then sign in again. Until you do, the console shows only "Please confirm your email address". A Google account arrives already confirmed.
 
-## Add your domain
+Your first sign-in opens the setup on its first step, "Your business".
 
-Once you are signed in, the console offers "Add your first domain". Press "Add domain" to start. The setup has five steps: "Your business", "Your domain", "Publish a file", "Install the package" and "Set your terms".
+## The four steps
 
-<Aside type="note">
-Nothing about your domain is saved until you press "Finish setup" in the last step. Only your business name is kept along the way.
-</Aside>
+The first time through, the setup has four steps. Only the first is required before you can use the console. The other three set up a domain, and you can finish them later.
+
+| Step | What you do | Required? |
+|---|---|---|
+| Your business | Name the business your payments are made out to | Yes |
+| Your domain | Say which domain you license | No, you can finish it later |
+| Your terms | Choose what agents may do with your pages and what they pay | No, you can finish it later |
+| Connect your site | Serve one file on your site and install one package on your CDN | No, you can finish it later |
+
+You name your business once. Every domain you add afterwards takes the last three steps (see [Add another domain](#add-another-domain)).
+
+Each step's "Next" saves what the step asked, so leaving loses nothing you have saved (see [Finish later](#finish-later)).
 
 ### Your business
 
-The console asks for your business name once, before your first domain. It is the name your payments are made out to, and you cannot change it in the console later.
+The console asks "What is your business called?" This is the name your payments are made out to. You give it once, and you cannot change it in the console later.
+
+This step has no "Finish later". Until your business is named, every page of the console brings you back here. Once you press "Next", the setup moves on and does not return to this step.
 
 ### Your domain
 
-Enter the hostname only, such as `www.example.com`, with no `https://` in front and no path after it, then press "Check". The console works out which CDN serves the domain, because that decides how the rest of the setup goes.
+Enter the hostname only, such as `www.example.com`, with no `https://` in front and no path after it. The console works out which CDN serves the domain, because that decides how the rest of the setup goes. It looks the domain up when you press Enter, or when you press "Next" if you have not.
 
 Under "Licensed paths", list the parts of the domain you license, separated by commas, like `/articles/, /archive/`. Leave the field empty to license the whole domain.
 
-If the domain is already registered to another publisher, the console says so. If it is yours, ask the operator to transfer it.
+"Next" saves the domain and its paths, and neither can be changed afterwards. From then on the hostname is held for you, and the domain is listed in "My domains" as "Not verified". Nothing on it is sold until it is verified.
 
-### Publish a file
+The console saves nothing, and says why, in these cases:
 
-The console generates your `fora.json`. Download it and serve it, unchanged, at `https://<your-domain>/.well-known/fora.json`. The console checks for it as soon as you open this step, and "Next" unlocks once the file is found and matches.
+- The domain is registered to another publisher. If it is yours, ask the operator to transfer it.
+- The domain is already one of yours. The console links to it instead.
+- You already have 10 domains that are not verified. Finish setting one of them up before you add another.
+- The console cannot set up the network that serves the domain (see [If your network is not supported](#if-your-network-is-not-supported)).
 
-The file proves that the domain is yours. It also names the Exchange that sells access to your pages, the account that gets paid, and the operator's catalog contributor, which imports your pages (see [Keys and your catalog](#keys-and-your-catalog)). The [fora.json example](/reference/fora-json-example/) describes the standard fields. The account that gets paid is an entry of the operator's own, in the `ext` of the Exchange's entry, which the example does not cover.
+### Your terms
 
-The check reads the file from your domain. It does not test delivery through your CDN; the next step checks part of that. If the file does not match yet, the console says why. The fix is always the same: serve the downloaded file exactly as it is, then press "Check again".
+Choose what an AI agent may do with your pages and what it pays. The console shows the offer an agent would get as you choose.
 
-### Install the package
-
-The package is the one function you place. It runs in front of your licensed paths: it lets people and search crawlers through, refuses AI agents that identify themselves and have no license, and accepts an agent that comes back with the signed address the Exchange gave it. The console builds it for your domain, with your settings already in it. It holds no secret; it fetches the Exchange's public keys.
-
-The package recognizes AI agents mainly by the name they give, so a scraper that passes itself off as a browser or a search crawler gets through. Keep your CDN's bot protection for those (see [Bot Detection](/components/edge-function/bot-detection/#bot-classification-tiers)), but do not let it refuse AI agents that announce themselves: that refuses paying agents too, and the console's package check cannot pass.
-
-The console shows the commands for your network.
-
-#### Cloudflare
-
-Download `fora-cloudflare.zip`. It holds the Worker and its `wrangler.toml`, with your settings and your route already filled in. Unpack it and deploy it with Wrangler.
-
-The route covers your whole hostname, because the Worker also serves your discovery document at `/.well-known/fora.json`, built from the settings in the package. From then on, that copy is the one your domain serves.
-
-<Aside type="caution">
-Keep your DNS records proxied through Cloudflare, or requests never reach the Worker.
-</Aside>
-
-#### AWS CloudFront
-
-Download `fora-lambda-edge.zip`. It holds the function, with your settings beside it, because Lambda@Edge takes no environment variables. Then:
-
-1. Create the function from the package in the `us-east-1` region, with a role that Lambda@Edge can assume.
-2. Publish a version of it. CloudFront attaches a published version, never `$LATEST`.
-3. In your distribution, edit the cache behavior for your licensed paths and add that version as a viewer-request association.
-
-The function also answers `/.well-known/fora.json` from its settings, but only for requests that reach it. If the cache behavior you attached it to also handles that path, as the default behavior does, its copy is the one your domain serves; otherwise your origin keeps serving your file.
-
-<Aside type="caution">
-Leave the distribution's own signed-URL check off. The function does the checking.
-</Aside>
-
-#### Check the package
-
-Once the package is deployed, the console checks your live site, asking both as an AI agent and as an ordinary browser. It confirms three things: an AI agent that identifies itself and has no license is refused, people and search crawlers are let through, and your discovery document is still served. You can go on once the package is confirmed and no check has failed. These checks do not complete a paid delivery.
-
-If your discovery document stops answering after you deploy, the package's routes have to cover the well-known paths as well.
-
-### Set your terms
-
-Choose what an AI agent may do with your pages and what it pays. This is what an agent is offered when it asks for one of them.
-
-- Price: "Free" or "Charge". Charge fills in a default price per unit, in the Exchange's currency, and you can change it.
+- Price: "Free" or "Charge". Charge fills in a default price per fetch, in the Exchange's currency, and you can change it.
 - Uses: "Search" (listing and linking your pages), "AI input" (answers and retrieval, quoting your pages) and "AI training" (training a model on your pages).
 - Attribution: "Required" means every use must credit you.
 
@@ -103,7 +75,91 @@ If your site publishes an RSL licensing file, the form opens on the terms it sta
 
 Pages of your domain that were in the catalog before automatic import, for example from a feed, keep their own terms unless you tick "Replace the terms of pages that are already in the catalog". Their titles and descriptions are kept either way.
 
-Press "Finish setup". The console reads your discovery document once more and saves the domain. The domain's page then shows your terms and "Your setup files", which you can download again. The console does not let you change the terms yet.
+"Next" saves your terms on the domain. You can change them until the domain is verified. After that the domain's page shows them, and the console does not let you change them yet.
+
+### Connect your site
+
+This step has two tasks, "Serve your discovery file" and "Install the package on your CDN". Both are on screen from the start, and you can do them in either order. When both are in place, your domain is verified.
+
+#### Serve your discovery file
+
+Download the file and serve it, unchanged, at `https://<your-domain>/.well-known/fora.json`, from your own site.
+
+The file tells AI agents and the Exchange who sells access to your pages and who gets paid, and serving it proves the domain is yours. It names the Exchange, the account that gets paid, and the operator's catalog contributor, which imports your pages (see [Keys and your catalog](#keys-and-your-catalog)). The file is public and holds no secret. The [fora.json example](/reference/fora-json-example/) describes the standard fields. The account that gets paid is an entry of the operator's own, in the `ext` of the Exchange's entry, which the example does not cover.
+
+The Exchange reads the file from your domain, and the task says what it found:
+
+- "We found no file at /.well-known/fora.json on your site yet."
+- "We read the file at your site and it does not match yet." The console lists each thing that differs. The fix is always the same: serve the downloaded file exactly as it is.
+- "Your file is in place and names your account."
+
+Once the package answers, the console also asks for the file as an AI agent, because the package sends every agent it refuses to this address. If your site refuses them there, the task says so, and you have to let them read it.
+
+#### Install the package on your CDN
+
+The package runs in front of your licensed paths: it lets people and search crawlers through, refuses AI agents that identify themselves and have no license, and accepts an agent that comes back with the signed address the Exchange gave it. The console builds it for your domain, with your settings already in it. It holds no secret; it fetches the Exchange's public keys.
+
+The package serves no document of yours. It [passes](/components/edge-function/overview/#forajson-and-rsltxt-pass-through) `/.well-known/fora.json` and `/rsl.txt`, those exact addresses, through to your site for every visitor, AI agents included, so the file you serve is the one agents read.
+
+The package recognizes AI agents mainly by the name they give, so a scraper that passes itself off as a browser or a search crawler gets through. Keep your CDN's bot protection for those (see [Bot Detection](/components/edge-function/bot-detection/#bot-classification-tiers)), but do not let it refuse AI agents that announce themselves: that refuses paying agents too, and the console's package check cannot pass.
+
+The console shows the commands for your network under "Show the deploy commands".
+
+##### Cloudflare
+
+Download `fora-cloudflare.zip`. It holds the Worker and its `wrangler.toml`, with your settings and your route already filled in. Unpack it and deploy it with Wrangler, which needs Node.js 22 or newer:
+
+```sh
+unzip fora-cloudflare.zip -d fora-edge
+cd fora-edge
+npx wrangler login
+npx wrangler deploy
+```
+
+The login opens your browser once to authorize your Cloudflare account. The deploy uploads the Worker and attaches it to your route.
+
+The route covers your whole hostname, so the Worker sees every path you license. Which paths it guards is a setting in the package, not the route.
+
+<Aside type="caution">
+Keep your DNS records proxied through Cloudflare, or requests never reach the Worker.
+</Aside>
+
+##### AWS CloudFront
+
+Download `fora-lambda-edge.zip`. It holds the function, with your settings beside it, because Lambda@Edge takes no environment variables. Then:
+
+1. Create the function from the package in the `us-east-1` region, with a role that Lambda@Edge can assume.
+2. Publish a version of it. CloudFront attaches a published version, never `$LATEST`.
+3. In your distribution, edit the cache behavior for your licensed paths and add that version as a viewer-request association.
+
+<Aside type="caution">
+Leave the distribution's own signed-URL check off. The function does the checking.
+</Aside>
+
+#### When both are in place
+
+The console checks both tasks when the step opens, again every 15 seconds while the page is open, and at once when you press "Check now". It pauses while the tab is hidden.
+
+For the package, it asks your site both as an AI agent and as an ordinary browser. An AI agent without a license has to be refused and sent to buy access, and people and search crawlers have to be let through. If something other than the package refuses the request, such as a bot filter, the task says so. These checks do not complete a paid delivery.
+
+When the file and the package both pass, the console asks the Exchange to verify the domain, and the step says the domain is verified. "Go to your domain" opens its page, which shows your terms and "Your setup files", which you can download again.
+
+## Finish later
+
+Every step after "Your business" has a "Finish later" link until the domain is verified. It takes you to "My domains". Closing the tab has the same effect, because each "Next" has already saved what its step asked.
+
+- Before "Next" on "Your domain", nothing about the domain is saved.
+- After it, the domain stays in "My domains" as "Not verified", with everything you entered kept, and the hostname stays held for you. Nothing on it is sold until both tasks of "Connect your site" pass.
+
+To pick up where you left off, press "Finish setup" on the domain, in "My domains" or on the domain's page. The setup reopens on "Your terms" if you have not chosen any, and on "Connect your site" otherwise.
+
+You cannot remove a saved domain from the console. If you saved one you no longer want, ask the operator to release it.
+
+## Add another domain
+
+In "My domains", press "Add domain". Your business is already named, so the setup has three steps, numbered from 1: "Your domain", "Your terms" and "Connect your site". They work as described above, each domain has its own terms and its own files, and each one can be finished later.
+
+Before you have saved a domain, "My domains" says "No domains yet." and offers the same button.
 
 ## After setup
 
@@ -118,17 +174,21 @@ The rest of the console shows what your pages earn:
 
 ## Keys and your catalog
 
-You generate no keys and upload none, and you never push your catalog yourself. The operator holds the catalog contributor key that imports your pages, and your discovery document authorizes the operator's contributor to do that for your domain. Serve it as the console generated it: removing that authorization stops the import, and nothing on the Exchange side can restore it. Where the edge package answers `/.well-known/fora.json` (see [Install the package](#install-the-package)), the document comes from the package's settings, so editing your file changes nothing there: a change goes into those settings, and the package is deployed again. The edge package holds no secret either; it fetches the Exchange's public keys.
+You generate no keys and upload none, and you never push your catalog yourself. The operator holds the catalog contributor key that imports your pages, and your discovery file authorizes the operator's contributor to do that for your domain. The edge package holds no secret either; it fetches the Exchange's public keys.
+
+The file on your site is the document. The package keeps no copy of it, and the Exchange reads it from your site again for each import, through a short-lived cache. Editing that file is how you change who may sell or import your pages, and nothing needs redeploying.
+
+Keep the Exchange's entry and the account in it: a file that stops naming them stops the domain's imports. Removing the operator's contributor stops them too, and nothing on the Exchange side can restore that authorization.
 
 ## If your network is not supported
 
-The console sets up sites served by Cloudflare or AWS CloudFront. For any other network, or when it cannot tell which network serves your domain, it stops at the domain step and shows an address to write to. A site behind a service that hides its origin can end up here too, so write even if you do use one of the two.
+The console sets up sites served by Cloudflare or AWS CloudFront. For any other network, or when it cannot tell which network serves your domain, it stops at "Your domain" with nothing saved and shows an address to write to. A site behind a service that hides its origin can end up here too, so write even if you do use one of the two.
 
 ## Without a publisher console
 
 A publisher console is the operator's tool, not part of the protocol. Where an operator runs FORA without one, a publisher sets up the same pieces directly:
 
-- The discovery document: the [fora.json example](/reference/fora-json-example/) and the field reference in [Exchange Manifest](/protocol/exchange-manifest/).
+- The discovery file: the [fora.json example](/reference/fora-json-example/) and the field reference in [Exchange Manifest](/protocol/exchange-manifest/).
 - The edge function: [Edge function deployment](/components/edge-function/deployment/).
 - The catalog, pushed with the publisher's own key or with a contributor key that the publisher's `fora.json` authorizes: [Pushing with the Publisher SDK](/components/content-ingestion/sources/#pushing-with-the-publisher-sdk) and the [JSONL Ingestion Feed](/protocol/jsonl-ingestion/).
 - Self-attestation with the publisher's own signing key: [Content Attestation](/protocol/content-attestation/).
