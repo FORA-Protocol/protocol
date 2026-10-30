@@ -147,7 +147,7 @@ Target: **100 requests/minute per IP** before throttling.
 
 **Level 2: Per-IP rate limiting on fora.json**
 
-fora.json is cacheable, but an aggressive agent might poll it. Rate limit to **10 requests/minute per IP** and rely on `Cache-Control` for normal operation.
+fora.json is cacheable, but an aggressive agent might poll it. Rate limit to **10 requests/minute per IP** and rely on `Cache-Control` for normal operation. This is a platform rule in front of the edge function, which only forwards the path to the origin. An Exchange reads the file at registration, on every check of a domain being verified and at every catalog push, so keep the limit above that rate.
 
 Rate limiting implementation:
 - **Cloudflare**: Use `request.cf.botManagement` and Cloudflare Rate Limiting rules (not in Worker code -- use platform rate limiting for efficiency).
