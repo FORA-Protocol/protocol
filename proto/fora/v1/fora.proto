@@ -536,7 +536,7 @@ service ExchangeService {
   rpc DisputeTransaction(DisputeRequest) returns (DisputeResponse);
 
   // Request a domain verification challenge for provider onboarding.
-  // Used by fora-cli to prove domain control before pushing signing keys.
+  // Proves domain control before signing keys are pushed.
   // Follows the ACME HTTP-01 pattern (Let's Encrypt).
   rpc RequestDomainVerification(DomainVerificationRequest) returns (DomainVerificationChallenge);
 
@@ -4751,13 +4751,12 @@ message DisputeResponse {
 //
 // ACME HTTP-01 style domain verification for provider onboarding.
 // Proves that the caller controls the provider domain before accepting
-// signing keys or configuration changes. Used by fora-cli.
+// signing keys or configuration changes.
 //
 // Flow:
 //   1. Provider calls RequestDomainVerification with their domain
 //   2. Exchange returns a challenge token
 //   3. Provider places the token at {domain}/.well-known/fora-verify/{token}
-//      (edge function can auto-serve this from KV store)
 //   4. Provider calls ConfirmDomainVerification
 //   5. Exchange fetches the challenge URL to verify domain control
 //   6. If verified: Exchange accepts subsequent operations for this domain

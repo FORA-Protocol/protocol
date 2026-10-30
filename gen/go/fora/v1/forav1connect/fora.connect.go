@@ -145,7 +145,7 @@ type ExchangeServiceClient interface {
 	// the filing failed.
 	DisputeTransaction(context.Context, *connect.Request[v1.DisputeRequest]) (*connect.Response[v1.DisputeResponse], error)
 	// Request a domain verification challenge for provider onboarding.
-	// Used by fora-cli to prove domain control before pushing signing keys.
+	// Proves domain control before signing keys are pushed.
 	// Follows the ACME HTTP-01 pattern (Let's Encrypt).
 	RequestDomainVerification(context.Context, *connect.Request[v1.DomainVerificationRequest]) (*connect.Response[v1.DomainVerificationChallenge], error)
 	// Confirm domain verification and register a signing key.
@@ -328,7 +328,7 @@ type ExchangeServiceHandler interface {
 	// the filing failed.
 	DisputeTransaction(context.Context, *connect.Request[v1.DisputeRequest]) (*connect.Response[v1.DisputeResponse], error)
 	// Request a domain verification challenge for provider onboarding.
-	// Used by fora-cli to prove domain control before pushing signing keys.
+	// Proves domain control before signing keys are pushed.
 	// Follows the ACME HTTP-01 pattern (Let's Encrypt).
 	RequestDomainVerification(context.Context, *connect.Request[v1.DomainVerificationRequest]) (*connect.Response[v1.DomainVerificationChallenge], error)
 	// Confirm domain verification and register a signing key.

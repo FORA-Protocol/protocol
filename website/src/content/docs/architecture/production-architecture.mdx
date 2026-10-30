@@ -91,7 +91,7 @@ Dispute lifecycle: `FILED` -> `AUTO_RESOLVED` / `EVIDENCE_NEEDED` -> `UNDER_REVI
 
 ### Provider Domain Verification (v1.0)
 
-The `RequestDomainVerification` and `ConfirmDomainVerification` RPCs provide ACME HTTP-01 style domain verification for provider onboarding. Providers prove domain control before the Exchange accepts signing keys or configuration changes. The WBA directory at `/.well-known/http-message-signatures-directory` enables verification vendors to publish their Ed25519 keys (in its `keys`) for attestation validation. FORA has no dedicated verifier role; a verifier publishes under its operator's role (`ROLE_PUBLISHER` for a self-attesting publisher, `ROLE_EXCHANGE` for a standalone vendor).
+A provider proves it controls its domain with the `fora.json` it serves, which the Exchange reads before it accepts catalog pushes or configuration changes for that domain, and again at each push. The contract also carries the `RequestDomainVerification` and `ConfirmDomainVerification` RPCs, for deployments that verify a domain with a challenge instead. The WBA directory at `/.well-known/http-message-signatures-directory` enables verification vendors to publish their Ed25519 keys (in its `keys`) for attestation validation. FORA has no dedicated verifier role; a verifier publishes under its operator's role (`ROLE_PUBLISHER` for a self-attesting publisher, `ROLE_EXCHANGE` for a standalone vendor).
 
 ### Discovery: Three Complementary Standards
 

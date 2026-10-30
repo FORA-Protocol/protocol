@@ -5,12 +5,12 @@ description: "How the Exchange generates standards-compliant rsl.txt from the co
 
 ## Exchange as RSL Producer
 
-The Exchange is both an RSL consumer (ingesting provider rsl.txt to build the catalog) and an RSL producer (generating rsl.txt for providers who don't have one). This enables a zero-configuration provider onboarding path: the Exchange operator sets tenant defaults, and the Exchange generates a standards-compliant rsl.txt that the edge function can serve.
+The Exchange is both an RSL consumer (ingesting provider rsl.txt to build the catalog) and an RSL producer (generating rsl.txt for providers who don't have one). This enables a zero-configuration provider onboarding path: the Exchange operator sets tenant defaults, and the Exchange generates a standards-compliant rsl.txt that the provider publishes on its own origin.
 
 ```mermaid
 sequenceDiagram
-    participant PUB as Provider (no rsl.txt)
     participant MP as Exchange
+    participant PUB as Provider's Origin (no rsl.txt yet)
     participant EDGE as Edge Function
     participant AGENT as AI Agent
 
@@ -19,11 +19,13 @@ sequenceDiagram
     MP->>MP: Build catalog from tenant defaults + sitemap
     MP->>MP: Generate rsl.txt from catalog
 
-    AGENT->>PUB: GET /rsl.txt
-    PUB->>EDGE: Viewer request
-    EDGE->>MP: GET /provider/{domain}/rsl.txt
-    MP-->>EDGE: Generated RSL XML
-    EDGE-->>AGENT: rsl.txt (cached at edge)
+    MP-->>PUB: Generated RSL XML, handed over by the operator
+    Note over PUB: Provider publishes it at /rsl.txt
+
+    AGENT->>EDGE: GET /rsl.txt
+    EDGE->>PUB: Forward the request
+    PUB-->>EDGE: rsl.txt
+    EDGE-->>AGENT: The origin's answer, unchanged
 ```
 
 ## RSL Generator
@@ -137,13 +139,7 @@ For a tenant with defaults "flat, $0.05, permits ai-input + search, prohibits ai
 
 ## Serving the Generated RSL
 
-The Exchange exposes the generated RSL via an HTTP endpoint:
-
-```
-GET /provider/{domain}/rsl.txt
-```
-
-The provider's edge function fetches and caches this, serving it at the standard `/rsl.txt` path. Cache TTL matches the ingestion refresh interval (default: 24h for full refresh, 5m for incremental).
+The provider publishes the generated document at the standard `/rsl.txt` path on its own origin, and replaces it when the catalog changes. The edge function [passes that address through](/components/edge-function/overview/#forajson-and-rsltxt-pass-through) for every client, so an agent reads the file the provider published.
 
 ## FORA Sitemap Namespace (XSD)
 

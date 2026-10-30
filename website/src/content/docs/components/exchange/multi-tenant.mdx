@@ -159,27 +159,7 @@ For managed providers, the Exchange supports automatic rotation on a configurabl
 
 ---
 
-## Provider Manifest and RSL Endpoints
-
-The edge function expects to fetch `fora.json` (WellKnownManifest, `role=ROLE_PUBLISHER`) and `rsl.txt` from the Exchange on behalf of provider domains. The Exchange generates these from its tenant catalog and serves them for edge caching.
-
-### Endpoints
-
-```
-GET /provider/{domain}/fora.json
-```
-
-Returns a generated `WellKnownManifest` (`role=ROLE_PUBLISHER`) for the given domain. The manifest is built from the tenant's catalog configuration (pricing, access restrictions, exchange endpoint). Cached by the edge function with a TTL matching the tenant's `rsl_poll_interval`.
-
-```
-GET /provider/{domain}/rsl.txt
-```
-
-Returns a generated RSL document for the given domain. The RSL is synthesized from the tenant's catalog entries (URI patterns, pricing, access policies). Cached by the edge function. Regenerated when the catalog is updated.
-
-Both endpoints return `404 Not Found` if the domain is not associated with any tenant.
-
-### Public Key Exchange
+## Public Key Exchange
 
 Brokers and agents fetch the Exchange's WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`) and read its `keys` to verify `exchange_signature` on Offers without manual key exchange. The Exchange's offer-signing Ed25519 public keys are inline in that directory as RFC 7517 JWKs, each identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`).
 

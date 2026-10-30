@@ -7,17 +7,9 @@ Three deployment models cover the full provider spectrum: enterprise providers w
 
 ## Provider Onboarding: Domain Verification (v1.0)
 
-Before any deployment model, the provider must prove it controls its domain. With the contract's domain-verification RPCs, that is an ACME HTTP-01 style challenge, handled by `fora-cli`:
+Before any deployment model, the provider must prove it controls its domain. The proof is the `fora.json` the domain serves from the provider's own origin. The Exchange reads that file at registration, on every check of a domain being verified and at every catalog push, so the proof keeps being renewed: a file that stops listing the Exchange stops the domain's pushes. [Publisher Onboarding](/getting-started/publisher-onboarding/) describes that path through a publisher console.
 
-1. Provider runs `fora-cli verify --domain techcrunch.com --exchange exchange.ssp-alpha.com`
-2. CLI calls `RequestDomainVerification` -- Exchange returns a challenge token
-3. CLI places the token at `{domain}/.well-known/fora-verify/{token}` (the edge function can auto-serve this from KV store)
-4. CLI calls `ConfirmDomainVerification` -- Exchange fetches the challenge URL to verify domain control
-5. If verified: Exchange accepts subsequent operations (signing key registration, catalog pushes) for this domain
-
-The Exchange also checks `fora.json` to verify it is listed as an authorized exchange for this provider -- providing double protection.
-
-An Exchange can instead take the `fora.json` the domain serves as that proof, as the Exchange behind a publisher console does; [Publisher Onboarding](/getting-started/publisher-onboarding/) describes that path.
+The contract also carries `RequestDomainVerification` and `ConfirmDomainVerification`, for deployments that verify a domain with a challenge instead (see the [contract reference](/reference/proto-fora/#messages--domain-verification)).
 
 ### catalog_contributors in fora.json
 
@@ -43,22 +35,24 @@ The Exchange operator deploys and maintains the FORA edge function on the provid
 ### How It Works
 
 1. Provider signs a contract with the Exchange operator and grants CDN access (e.g., AWS IAM role for CloudFront, Cloudflare API token for Workers)
-2. Exchange operator runs domain verification on behalf of the provider (`fora-cli verify`)
-3. Exchange operator deploys the edge function to the provider's CDN
-4. Exchange operator configures: `fora.json` (including `catalog_contributors`), `rsl.txt` generation from the Exchange, bot detection rules
-5. Exchange operator maintains, updates, and monitors the edge function on an ongoing basis
+2. Exchange operator generates the provider's `fora.json` (including `catalog_contributors`) and, where the provider has none, its `rsl.txt`
+3. Provider publishes those files on its own origin, which proves it controls the domain
+4. Exchange operator deploys the edge function to the provider's CDN
+5. Exchange operator configures bot detection rules
+6. Exchange operator maintains, updates, and monitors the edge function on an ongoing basis
 
 ### Provider Actions
 
 - Sign contract with Exchange operator
 - Grant CDN role/access to the Exchange operator
-- Nothing else -- the Exchange operator handles all FORA infrastructure
+- Publish the generated files on its own origin
+- The Exchange operator handles the rest of the FORA infrastructure
 
 ### Exchange Operator Responsibilities
 
 - Deploy edge function to provider's CDN account
-- Generate and serve `fora.json` from Exchange tenant config
-- Generate and serve `rsl.txt` from Exchange catalog
+- Generate `fora.json` from Exchange tenant config, for the provider to publish on its origin
+- Generate `rsl.txt` from Exchange catalog, where the provider has none of its own
 - Configure bot detection rules (User-Agent matching, behavioral signals)
 - Rotate signing keys on schedule (default: 90 days)
 - Monitor edge function health, latency, and error rates
@@ -81,7 +75,7 @@ The provider deploys the edge function themselves using tooling provided by FORA
    ```bash
    npx @fora/edge-deploy --cdn cloudfront --exchange exchange.ssp.com
    ```
-3. Edge function pulls `fora.json` and `rsl.txt` from the Exchange, caches in KV/edge storage
+3. Provider publishes `fora.json`, and `rsl.txt` if it has one, on its own origin; the edge function passes both through to it
 4. Provider manages their own CDN access and can customize bot detection rules
 
 ### Supported CDNs
@@ -149,15 +143,15 @@ For CDNs with limited compute capabilities, the edge function can be reduced to 
 
 1. **Signed URL verification**: verify the Ed25519 signature over the canonical URL -- valid? pass through : return 403. A CloudFront distribution verifies its RSA signed URLs natively, so there the function skips this step.
 2. **Bot detection**: Check `User-Agent` for known AI crawler strings -- match? return 403 with `X-Content-Rules` header
-3. **Serve `fora.json`**: Return `/.well-known/fora.json` inline or proxied from the Exchange
+3. **Let `fora.json` through**: Leave `/.well-known/fora.json` to the origin, ahead of the bot check, so a refused bot can read it
 
 ### Minimum Viable Decision Table
 
 ```
 Request arrives at edge:
 
-1. Path = /.well-known/fora.json?
-   YES -> Return inline fora.json (or proxy from Exchange)
+1. Path = /.well-known/fora.json or /rsl.txt?
+   YES -> Pass through to origin
 
 2. Has signed URL params (sig, exp)?
    YES -> Verify signature
@@ -170,4 +164,4 @@ Request arrives at edge:
 4. Default -> Pass through to origin (non-bot, non-protected)
 ```
 
-Step 1 needs a runtime that can run code: Cloudflare Workers and Fastly Compute verify the signature themselves, and a CloudFront distribution verifies its own RSA signed URLs without any function at all. A declarative rule language -- Fastly VCL, Akamai Property Manager -- cannot verify a signature, so it can serve `fora.json` and refuse known crawlers but cannot admit a paid request.
+Step 1 needs a runtime that can run code: Cloudflare Workers and Fastly Compute verify the signature themselves, and a CloudFront distribution verifies its own RSA signed URLs without any function at all. A declarative rule language -- Fastly VCL, Akamai Property Manager -- cannot verify a signature, so it can refuse known crawlers but cannot admit a paid request.

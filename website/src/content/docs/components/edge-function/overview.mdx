@@ -7,21 +7,21 @@ The Edge Function is the provider-side enforcement point of the FORA protocol. I
 
 ## What It Does
 
-The Edge Function has three jobs:
+The Edge Function has four jobs:
 
 1. **Block unauthorized bots** -- detect AI crawlers hitting protected content without a signed URL and return `403` with an `X-Content-Rules` header pointing them at the provider's own `fora.json`, and optionally an `X-FORA-Exchange` header naming an Exchange that sells the content.
 2. **Verify signed URL access** -- validate that incoming signed URLs are authentic, unexpired, bound to the correct agent identity, and (optionally) single-use.
-3. **Serve fora.json and rsl.txt** -- generate, cache, and serve `/.well-known/fora.json` and `/rsl.txt` so protocol-aware agents discover the Exchange without triggering a 403.
+3. **Pass fora.json and rsl.txt through to the origin** -- forward `/.well-known/fora.json` and `/rsl.txt` to the provider's own origin for every client, ahead of both checks above, so protocol-aware agents discover the Exchange without triggering a 403.
 4. **Serve verifier keys via the WBA directory (v1.0)** -- serve the JWK Set at `/.well-known/http-message-signatures-directory` for providers that self-attest resources. This publishes the provider's Ed25519 public keys in its WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`), with the claims schema in the `fora.json` `ext["fora.attestation.claims_schema"]`, so agents and Exchanges can verify attestation signatures. FORA has no dedicated verifier role; a verifier publishes under its operator's role (`role=ROLE_PUBLISHER` when a publisher self-attests).
-5. **Serve ACME domain verification challenges (v1.0)** -- auto-serve challenge tokens at `/.well-known/fora-verify/{token}` from the CDN's KV store during provider onboarding domain verification.
 
 ## Single Deploy for Providers
 
 The absolute minimum a provider needs to do:
 
 1. **Get an Exchange endpoint** from their Exchange operator (one-time business relationship).
-2. **Deploy the edge function** using the [Terraform module](https://github.com/FORA-Protocol/protocol/tree/main/terraform/aws-fora-edge/).
-3. **Verify** -- `curl -I https://example.com/.well-known/fora.json` returns the manifest.
+2. **Publish `fora.json`** on their own origin, at `/.well-known/fora.json`.
+3. **Deploy the edge function** using the [Terraform module](https://github.com/FORA-Protocol/protocol/tree/main/terraform/aws-fora-edge/).
+4. **Verify** -- `curl -I https://example.com/.well-known/fora.json` returns the origin's file through the edge function.
 
 import { Aside } from '@astrojs/starlight/components';
 
@@ -46,11 +46,9 @@ The Edge Function sits at the CDN layer between AI agents and provider content. 
 
 ```mermaid
 flowchart TD
-    REQ[Incoming Request] --> FORA_JSON{Path = /.well-known/fora.json?}
-    FORA_JSON -->|Yes| SERVE_MANIFEST[Serve WellKnownManifest<br/>200 OK + Cache-Control]
-    FORA_JSON -->|No| RSL_TXT{Path = /rsl.txt?}
-    RSL_TXT -->|Yes| SERVE_RSL[Serve rsl.txt<br/>200 OK + Cache-Control]
-    RSL_TXT -->|No| PROTECTED{Path matches<br/>protected pattern?}
+    REQ[Incoming Request] --> PROVIDER_DOCS{Path = /.well-known/fora.json<br/>or /rsl.txt?}
+    PROVIDER_DOCS -->|Yes| FORWARD_DOCS[Forward to origin<br/>Return its answer unchanged]
+    PROVIDER_DOCS -->|No| PROTECTED{Path matches<br/>protected pattern?}
     PROTECTED -->|No| PASSTHROUGH[Pass through to origin]
     PROTECTED -->|Yes| HAS_SIG{Has signed URL<br/>parameters?}
     HAS_SIG -->|Yes| VERIFY_SIG{Signature valid?}
@@ -77,21 +75,18 @@ The decision logic is CDN-agnostic. Every adapter calls the same core function:
 
 ```
 handleRequest(ctx):
-  1. If path == "/.well-known/fora.json":
-       -> Serve cached WellKnownManifest JSON
-       -> For self-attesting providers, the verifier keys live in the WBA
-          directory (/.well-known/http-message-signatures-directory) and the
-          claims schema in ext["fora.attestation.claims_schema"]
-       -> Return 200
+  1. If method is GET or HEAD and path is exactly "/.well-known/fora.json"
+     or "/rsl.txt":
+       -> Forward to the origin, for every client, ahead of every step below
+       -> Return the origin's status, headers and body unchanged
+       -> Return 502 if the origin cannot be reached, never a document
+          of the edge function's own
 
-  1b. If path == "/rsl.txt":
-       -> Serve cached rsl.txt content
-       -> Return 200
-
-  1d. If path starts with "/.well-known/fora-verify/":
-       -> Read challenge token from KV store
-       -> Return 200 + text/plain (ACME domain verification)
-       -> Return 404 if token not found or expired
+  1b. If path == "/.well-known/http-message-signatures-directory":
+       -> Serve the WBA directory of a self-attesting provider's verifier keys
+          (the claims schema stays in fora.json, in
+          ext["fora.attestation.claims_schema"])
+       -> Return 404 if no keys are configured
 
   2. If path does not match any protected pattern in contentPolicy:
        -> Pass through (no edge function involvement)
@@ -112,7 +107,7 @@ handleRequest(ctx):
        -> Pass through (normal website traffic)
 ```
 
-**Key invariant**: A request with signed URL parameters that fails signature verification always gets a 403, regardless of whether the requester is a bot or a browser. Bot detection only applies to requests *without* signed URL parameters.
+**Key invariant**: A request with signed URL parameters that fails signature verification always gets a 403, regardless of whether the requester is a bot or a browser. Bot detection only applies to requests *without* signed URL parameters. Step 1 comes before both: the two provider documents are forwarded whatever a request carries.
 
 ## Responsibilities
 
@@ -120,9 +115,11 @@ handleRequest(ctx):
 
 When an AI crawler requests protected content without signed URL parameters, the edge function detects the request is from a bot and returns `403 Forbidden` with an `X-Content-Rules` header carrying the URL of the provider's `/.well-known/fora.json`, and optionally an `X-FORA-Exchange` header carrying the bare domain of an Exchange that manifest lists. This is the "accidental discovery" path (Path C in the protocol flow). The 403 is not punitive -- it is a protocol handshake directing the bot to the provider's terms and the Exchanges that sell its content. See [Bot Detection](/components/edge-function/bot-detection/) for details.
 
-### fora.json and rsl.txt Generation and Serving
+### fora.json and rsl.txt Pass-Through
 
-The edge function serves `/.well-known/fora.json` containing the `WellKnownManifest` message (`role=ROLE_PUBLISHER`) and `/rsl.txt` containing the machine-readable licensing signal. Both files are sourced from the same configuration (Exchange API, inline config, or KV store), cached aggressively with `Cache-Control: public, max-age=3600`.
+`/.well-known/fora.json`, containing the `WellKnownManifest` message (`role=ROLE_PUBLISHER`), and `/rsl.txt`, containing the machine-readable licensing signal, are files on the provider's own origin. The edge function generates neither and keeps no copy of either. It forwards GET and HEAD of exactly those two paths to the origin for every client, an AI bot included, ahead of bot detection, the protected-path check and signed URL verification, and returns the origin's status, headers and body unchanged. Where the CDN fetches the origin itself, as CloudFront does, the function hands the request back to it. If the origin cannot be reached the answer is a `502`: the edge function never makes a document of its own. Any other spelling of either path, such as `/.well-known/fora.json/`, is an ordinary path, gated like the rest of the site.
+
+This keeps one copy of each document, under the provider's control, and it works the same on every CDN and cache-behavior layout. The file an agent is sent to by a 403, the file an Exchange reads and the file the provider edits are the same file, so a provider adds an Exchange or changes its catalog contributors by editing it, with nothing to redeploy.
 
 ### Signed URL Passthrough with Agent Identity Validation
 
@@ -149,8 +146,8 @@ Full functionality
 Single-use disabled, everything else works
   | Config refresh fails
 Stale config, core functionality preserved
-  | fora.json generation fails
-Bot detection + 403 redirect still work
+  | Origin cannot be reached
+fora.json and rsl.txt answer 502, bot detection + 403 redirect still work
   | Verification key unavailable
 Bot detection works, paid access broken (503 verify_unavailable)
   | Edge function itself crashes
