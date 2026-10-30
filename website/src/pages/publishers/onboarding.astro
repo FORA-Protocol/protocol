@@ -186,6 +186,10 @@ import '../../styles/brand.css';
     .configuration .cmd { max-width: none; width: 100%; }
     .configuration .card h3 { margin-top: 0; }
     .embed { margin-top: 1.25rem; }
+    /* brand.css resets every element's padding, which takes a list's numbers with it. */
+    .configuration ol { color: var(--gray); max-width: 46rem; margin-top: 1rem; padding-left: 1.5rem; }
+    .configuration li + li { margin-top: .35rem; }
+    .configuration li strong { color: var(--light-gray); font-weight: 600; }
 
     /* sample */
     .sample { margin-block: 1.25rem; }
@@ -393,12 +397,12 @@ import '../../styles/brand.css';
             <span class="k" id="k-model">Pricing model</span>
             <div class="seg" role="radiogroup" aria-labelledby="k-model">
               <input type="radio" name="model" id="m-free" value="free" checked /><label for="m-free">Free</label>
-              <input type="radio" name="model" id="m-paid" value="per_unit" /><label for="m-paid">Per access</label>
+              <input type="radio" name="model" id="m-paid" value="per_unit" /><label for="m-paid">Per fetch</label>
             </div>
           </div>
           <div class="ctl">
-            <span class="k">Price per access</span>
-            <div class="price"><span>EUR</span><input id="price" type="number" min="0" step="0.000001" value="0.02" disabled aria-label="Price per access in EUR" aria-describedby="price-error" /></div>
+            <span class="k">Price per fetch</span>
+            <div class="price"><span>EUR</span><input id="price" type="number" min="0" step="0.000001" value="0.02" disabled aria-label="Price per fetch in EUR" aria-describedby="price-error" /></div>
             <p class="field-error" id="price-error" aria-live="polite"></p>
           </div>
           <div class="ctl">
@@ -422,12 +426,18 @@ import '../../styles/brand.css';
       <ul class="notes" id="r-warnings"></ul>
       <section class="configuration" aria-labelledby="configuration-heading">
         <h2 id="configuration-heading">How do you configure it?</h2>
-        <p>The configuration has two parts: a discovery file that identifies your Exchange, and a CDN integration that checks access to licensed content.</p>
-        <h3>Step 1 · Publish the discovery file we generate for you</h3>
-        <p>We’ll generate your <code>fora.json</code> with the Exchange details already filled in. You publish it at <code>/.well-known/fora.json</code> on your domain so agents and Exchanges can find it. Below is a preview for the domain you provided.</p>
+        <p>The publisher console takes you through four steps. The first, your business name, is required. The other three set up a domain: you can finish them later, and each domain you add after that takes the same three steps.</p>
+        <ol>
+          <li><strong>Your business.</strong> The name your payments are made out to.</li>
+          <li><strong>Your domain.</strong> The domain you license, and which of its paths.</li>
+          <li><strong>Your terms.</strong> What an agent may do with your pages and what it pays, as in the controls above.</li>
+          <li><strong>Connect your site.</strong> One file on your site and one package on your CDN, in any order. When both are in place, your domain is verified.</li>
+        </ol>
+        <h3>Serve your discovery file</h3>
+        <p>We’ll generate your <code>fora.json</code> with the Exchange details already filled in. You serve it from your own site at <code>/.well-known/fora.json</code> so agents and Exchanges can find it. Below is a preview for the domain you provided.</p>
         <div class="cmd embed" id="manifest"></div>
-        <h3>Step 2 · Connect your CDN</h3>
-        <p>Your CDN checks signed delivery URLs before granting access to licensed content. The integration works in front of your existing site. The detected network determines the integration path below.</p>
+        <h3>Install the package on your CDN</h3>
+        <p>Your CDN checks signed delivery URLs before granting access to licensed content. The package works in front of your existing site. The detected network determines the integration path below.</p>
         <div class="embed card" id="cdn-card"></div>
       </section>
     </div>
@@ -438,7 +448,7 @@ import '../../styles/brand.css';
       <div class="cta">
         <div class="label">Ready to connect your site?</div>
         <h2 id="register-heading">Register on the publisher console.</h2>
-        <p>The console walks you through both steps above. It generates your discovery file and your CDN package with your site and your terms already filled in. You publish one file and connect one function. Registering is free.</p>
+        <p>The console takes you through four steps: Your business, Your domain, Your terms and Connect your site. Only your business name is required to get started; you can finish the other three later. The console generates your discovery file and your CDN package with your site’s details already filled in, so you serve one file on your site and install one package on your CDN. Registering is free.</p>
         <div class="cta-actions">
           <a class="btn btn-primary" href={FORA_PUBLISHER_CONSOLE_URL} target="_blank" rel="noopener noreferrer">Register on the publisher console<span class="sr-only"> (opens in a new tab)</span></a>
           <a class="btn btn-ghost" href="/getting-started/publisher-onboarding/" target="_blank" rel="noopener noreferrer">Read the publisher guide<span class="sr-only"> (opens in a new tab)</span></a>
@@ -601,7 +611,7 @@ import '../../styles/brand.css';
     const manifest = state.preview?.manifest;
     if (!manifest) {
       $('manifest').replaceChildren(
-        'We could not generate your discovery document for this domain. ', contactLink(CONTACT_LABEL), ' and we will send it.');
+        'We could not generate your discovery file for this domain. ', contactLink(CONTACT_LABEL), ' and we will send it.');
     } else {
       $('manifest').innerHTML = `<span class="c"># https://${esc(d)}/.well-known/fora.json  (configuration preview)</span>\n`
         + highlightJson(JSON.stringify(manifest, null, 2));
