@@ -3,14 +3,27 @@
 ## Unreleased
 
 **A Broker's catalog search is configured per deployment (docs only; no wire change).** The
-Broker overview describes what a free-text query does: the configured search turns it into
-catalog URIs, each URI takes the normal per-URL route, and the search never produces an
-offer. A new section lists the providers: none, the tag-based one, and Elasticsearch, which
-runs the operator's search template against an existing index and applies the filter keys the
-deployment declares. The fora-music-v1 page scopes its
-tag and model sentences to the tag-based provider, and states that a Broker whose configured
-search does not apply the filters answers `UNIMPLEMENTED`, as a Broker with no catalog search
-does.
+Broker overview says what a free-text query does: the configured catalog search turns it
+into catalog URIs, each URI takes the normal per-URL route and comes back as its own
+`OfferGroup`, stamped `DISCOVERY_METHOD_SEARCH`, and the search never produces an offer. A
+failed search answers `TEMPORARILY_UNAVAILABLE` and never falls back to another provider.
+URIs the agent names win, and the query and `search_filters` are then not used. A new
+section lists the providers: none, the tag-based one, and Elasticsearch, which runs the
+operator's search template against an existing index and applies the filter keys the
+deployment declares, refusing an undeclared key with `UNIMPLEMENTED` and a malformed value
+with `INVALID_ARGUMENT`. Structured Search says the catalog search applies the filters,
+Combining Modes combines a query with filters but never named URIs with a search, and the
+v1 sentence counts the catalog search as a source of URIs. On the fora-music-v1 page, the
+tag, model and ISRC-query sentences and the ranking in Example 2 are scoped to the
+tag-based provider, and the order of checks, with the paragraph on range keys, applies to a
+Broker that takes its filter keys from the profile. A Broker whose deployment declares its
+filter keys has its own order: an undeclared key, a `music.*` key included, is
+`UNIMPLEMENTED` before any value is checked against a format, a declared key's value must
+fit the format the deployment declares, and a declared `music.*` key keeps the profile's
+matching rules. Example 3 names that `UNIMPLEMENTED` case, and the conformance rule for a
+defined filter key that the configured catalog search does not apply is stated per key. The
+live demo and the extension profiles page name the tag-based provider where they describe
+it, and the documentation conformance gate refuses the overview's retired claims.
 
 ## v1.2.1
 
