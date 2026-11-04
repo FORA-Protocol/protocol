@@ -1,6 +1,6 @@
 # FORA Protocol Changelog
 
-## Unreleased
+## v1.2.1
 
 **The publisher docs describe the console's onboarding and the file on the publisher's
 origin (docs and comments only; no wire change).** The public onboarding page and the
