@@ -187,7 +187,7 @@ A person with two roles appears twice, once per role. An empty array means known
 
 ## Query Vocabulary (`DiscoveryRequest.search_filters`)
 
-An agent can limit a catalog search with `DiscoveryRequest.search_filters`. The Broker answers these filters only when its catalog search (query discovery) is switched on.
+An agent can limit a catalog search with `DiscoveryRequest.search_filters`. The Broker answers these filters only when its catalog search (query discovery) is switched on and its provider applies them. See [Discovery providers](/components/broker/overview/#discovery-providers).
 
 | Key | Type | Required | Description |
 |-----|------|----------|-------------|
@@ -222,9 +222,9 @@ A range key is the name of the field it limits, followed by `_range`. A value ou
 - `music.subgenres` and `music.themes` match like `music.mood`: the track has at least one of the given labels.
 - `music.release_date_range`: a bound with fewer parts covers its whole period, so `2015` as `START` means 2015-01-01 and as `END` means 2015-12-31. A track's `release_date` is read the same way, and the track matches when its whole period is inside the range. A track dated `2015` matches `2010/2019` and does not match `2015-06/`, because its month is unknown.
 - `music.contains_ai` works like `music.vocals`: a track without the key does not match `false`.
-- The Broker also reads tags from the free-text `query`. These tags are preferences, and they apply only to the tracks that pass every filter. Among those tracks, the tracks that match the most query tags come first. When no passing track matches a query tag, or the query has no known tag, the Broker returns every track that passes the filters. A query tag never adds a track that fails a filter.
-- When both the filters and the query give bounds for the same field, the Broker uses the overlap of the two ranges. If the ranges do not overlap, no track matches.
-- A request with filters and no `query` does not call the query model. This includes a request with only an identifier filter such as `music.isrc`, or only a range filter such as `music.bpm_range`.
+- With the tag-based provider, the Broker also reads tags from the free-text `query`. These tags are preferences, and they apply only to the tracks that pass every filter. Among those tracks, the tracks that match the most query tags come first. When no passing track matches a query tag, or the query has no known tag, the Broker returns every track that passes the filters. A query tag never adds a track that fails a filter.
+- With the tag-based provider, when both the filters and the query give bounds for the same field, the Broker uses the overlap of the two ranges. If the ranges do not overlap, no track matches.
+- With the tag-based provider, a request with filters and no `query` does not call the query model. This includes a request with only an identifier filter such as `music.isrc`, or only a range filter such as `music.bpm_range`.
 - A valid filter value that no track has, for example `music.genre: "funk"` in a catalog without funk, matches no track. The answer is `NOT_IN_CATALOG`. The Broker never drops such a filter.
 
 ### Order of Checks and Errors
@@ -235,7 +235,7 @@ The Broker checks a request in this order:
 2. **Unknown keys are ignored.** A key that this profile does not define is ignored, for example `music.tempo` or a key of another profile.
 3. **Invalid values are rejected.** A defined key with a value outside its format rejects the request with `INVALID_ARGUMENT`, and no search runs. Examples: `music.bpm_range: "fast"`, an upper-case label, an ISRC with hyphens or lower-case letters, a UPC with a letter, a `music.release_date_range` written with a dash (`2015-2019`) or with the month `13`, a `music.parental_warning` outside its three values, an empty array.
 4. **A search input is required.** A request with no `uris`, no `query` and no defined filter key is rejected with `INVALID_ARGUMENT`. This is the same as a request with neither `query` nor `uris`.
-5. **Filters need catalog search.** When the Broker's query discovery is switched off, a request with a defined filter key is rejected with `UNIMPLEMENTED`. The Broker in this configuration cannot apply the filters, and it must not return results that ignore them. The code is not `INVALID_ARGUMENT`, because the request is valid. It is not `FAILED_PRECONDITION`, because the caller cannot change the Broker's configuration.
+5. **Filters need catalog search.** When the Broker's query discovery is switched off, a request with a defined filter key is rejected with `UNIMPLEMENTED`. The Broker in this configuration cannot apply the filters, and it must not return results that ignore them. The code is not `INVALID_ARGUMENT`, because the request is valid. It is not `FAILED_PRECONDITION`, because the caller cannot change the Broker's configuration. The same applies when its configured catalog search does not apply the filters.
 
 ### Older Brokers
 
@@ -250,7 +250,7 @@ Check 2 also covers a filter key that this profile defined after the Broker was 
 | Party | What it checks |
 |---|---|
 | The [JSON Schema](#json-schema) | The shape of every field: the identifier formats, the date form, the three parental-warning values, the contributor objects and the label format. It does not check the UPC check digit. |
-| Broker | The 19 matching fields, when it loads its catalog feed. An invalid matching field fails the load, and the error names the record and the field. The Broker does not read the descriptive fields. |
+| Broker | With the tag-based provider, the 19 matching fields, when it loads its catalog feed. An invalid matching field fails the load, and the error names the record and the field. The Broker does not read the descriptive fields. |
 | Exchange | Nothing. It forwards the `music.*` keys unchanged inside the signed offer, so the offer signature covers every key, including unknown ones. |
 
 ### Tempo Groups
@@ -361,8 +361,8 @@ An agent sends a tempo word instead of a range:
 The profile defines no conformance levels. Every field is optional, and a publisher sends the fields it knows.
 
 - An **Exchange** that declares `fora-music-v1` MUST forward the publisher's `music.*` keys unchanged inside the signed offer. It does not validate them.
-- A **Broker** that answers `music.*` search filters MUST apply them as required constraints, in the [order of checks](#order-of-checks-and-errors) above. When its catalog search is switched off, it MUST reject a request with a defined filter key with `UNIMPLEMENTED`.
-- A **publisher** can validate the `ext` of each record against the [JSON Schema](#json-schema) before it pushes the feed. This finds the errors early, because the Broker refuses a feed with an invalid matching field.
+- A **Broker** that answers `music.*` search filters MUST apply them as required constraints, in the [order of checks](#order-of-checks-and-errors) above. When its catalog search is switched off, it MUST reject a request with a defined filter key with `UNIMPLEMENTED`. The same applies when its configured catalog search does not apply the filters.
+- A **publisher** can validate the `ext` of each record against the [JSON Schema](#json-schema) before it pushes the feed. This finds the errors early, because a Broker on the tag-based provider refuses a feed with an invalid matching field.
 
 ---
 

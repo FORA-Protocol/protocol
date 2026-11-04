@@ -1,5 +1,17 @@
 # FORA Protocol Changelog
 
+## Unreleased
+
+**A Broker's catalog search is configured per deployment (docs only; no wire change).** The
+Broker overview describes what a free-text query does: the configured search turns it into
+catalog URIs, each URI takes the normal per-URL route, and the search never produces an
+offer. A new section lists the providers: none, the tag-based one, and Elasticsearch, which
+runs the operator's search template against an existing index and applies the filter keys the
+deployment declares. The fora-music-v1 page scopes its
+tag and model sentences to the tag-based provider, and states that a Broker whose configured
+search does not apply the filters answers `UNIMPLEMENTED`, as a Broker with no catalog search
+does.
+
 ## v1.2.1
 
 **The publisher docs describe the console's onboarding and the file on the publisher's

@@ -241,7 +241,7 @@ Filter keys are profile-specific: `academic.topic`, `news.category`, `legal.juri
 
 ### 3. Natural Language
 
-The agent describes what it needs in free text. It sends `DiscoveryRequest.query` with a natural-language description. The Broker interprets the query and searches across Exchanges on the agent's behalf.
+The agent describes what it needs in free text. It sends `DiscoveryRequest.query` with a natural-language description. The Broker's configured catalog search turns the query into catalog URIs, and each URI then takes the same route as a URI the agent named: the publisher's `fora.json` names the Exchange, and that Exchange answers with signed offers. The Broker returns one `OfferGroup` per URI, best match first, stamped `DISCOVERY_METHOD_SEARCH`, and it never merges groups. URIs the agent names win: the query is then not used.
 
 ```json
 {
@@ -249,7 +249,17 @@ The agent describes what it needs in free text. It sends `DiscoveryRequest.query
 }
 ```
 
-This mode is useful for exploratory research where the agent cannot formulate structured filters. The Broker resolves the intent into Exchange queries.
+This mode is useful for exploratory research where the agent cannot formulate structured filters.
+
+#### Discovery providers
+
+A Broker runs one catalog search, which its operator chooses per deployment. The search only proposes URIs: prices, license terms and signatures always come from the Exchange, so a search result cannot produce an offer the Exchange does not stand behind. A failed search answers `TEMPORARILY_UNAVAILABLE`, and the Broker never falls back to another provider.
+
+| Provider | What it does with the query | `search_filters` |
+|---|---|---|
+| None | The Broker has no catalog search. | A [fora-music-v1](/protocol/ext-music/) key is refused with `UNIMPLEMENTED`, and a key the profile does not define is ignored, in the profile's [order of checks](/protocol/ext-music/#order-of-checks-and-errors). |
+| Tag-based | A model reads tags from the query, and the Broker matches them against an index it builds from the catalog feed. | Applied as required constraints, by the [fora-music-v1](/protocol/ext-music/) profile. |
+| Elasticsearch | The Broker runs the operator's search template against an existing index the operator points it at. It does not interpret the query, and it calls no model. | Applied for the keys the deployment declares. An undeclared key is refused with `UNIMPLEMENTED` and a malformed value with `INVALID_ARGUMENT`, both naming `search_filters.<key>`, because results that ignore a filter would answer a different question. |
 
 ### Combining Modes
 
