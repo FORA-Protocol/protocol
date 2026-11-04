@@ -144,6 +144,15 @@ patterns=(
   # because /provider/{domain}/transactions is a live audit route.
   'fora-cli' 'auto-serve' 'serving_mode' 'servingMode' 'exchange_api_url' 'exchangeApiUrl'
   '/provider/\{domain\}/(fora\.json|rsl\.txt)'
+  # A Broker's catalog search turns a query and its filters into catalog URIs, and
+  # URIs the agent names win: the Broker then uses neither the query nor the filters,
+  # so it never merges a search with named URIs. The filters are applied by that
+  # search, not translated into each Exchange's own query format, and in v1 the
+  # search is already a source of URIs. These are the retired phrasings of those
+  # claims. "maps these to Exchange-specific" is NOT listed: the comment on
+  # DiscoveryRequest.search_filters in fora.proto still says it.
+  'plus a search query to discover additional' 'merges results from all modes'
+  'In v1, all URIs come from the agent' 'native query format of each Exchange'
 )
 
 # Files where naming a removed identifier is legitimate (they record history).

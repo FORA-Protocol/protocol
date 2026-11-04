@@ -225,23 +225,25 @@ This is the simplest mode -- the agent has exact references and wants the best p
 
 ### 2. Structured Search
 
-The agent knows what kind of content it needs but not the exact URIs. It sends `DiscoveryRequest.search_filters` with profile-specific key-value pairs. The Broker maps these to Exchange-specific query parameters and discovers matching resources.
+The agent knows what kind of content it needs but not the exact URIs. It sends `DiscoveryRequest.search_filters` with profile-specific key-value pairs, with or without a `query`. The Broker's catalog search applies each filter as a required constraint, and each matching URI then takes the same route as a query's results (see [Natural Language](#3-natural-language)).
 
 ```json
 {
   "search_filters": {
-    "academic.topic": "CRISPR gene therapy",
-    "academic.year_min": 2023,
-    "academic.peer_reviewed": true
+    "music.genre": ["jazz", "blues"],
+    "music.vocals": false,
+    "music.bpm_range": "80-100"
   }
 }
 ```
 
-Filter keys are profile-specific: `academic.topic`, `news.category`, `legal.jurisdiction`, `medical.specialty`, etc. The Broker translates these into the native query format of each Exchange it contacts.
+This asks for jazz or blues tracks with no vocals, from 80 to 100 BPM.
+
+Filter keys are profile-specific. The [fora-music-v1](/protocol/ext-music/#query-vocabulary-discoveryrequestsearch_filters) profile defines 19, among them `music.genre`, `music.bpm_range` and the exact-match `music.isrc`. Which keys a Broker applies, and what it answers for a key it does not apply, depends on its catalog search: see [Discovery providers](#discovery-providers).
 
 ### 3. Natural Language
 
-The agent describes what it needs in free text. It sends `DiscoveryRequest.query` with a natural-language description. The Broker's configured catalog search turns the query into catalog URIs, and each URI then takes the same route as a URI the agent named: the publisher's `fora.json` names the Exchange, and that Exchange answers with signed offers. The Broker returns one `OfferGroup` per URI, best match first, stamped `DISCOVERY_METHOD_SEARCH`, and it never merges groups. URIs the agent names win: the query is then not used.
+The agent describes what it needs in free text. It sends `DiscoveryRequest.query` with a natural-language description. The Broker's configured catalog search turns the query into catalog URIs, and each URI then takes the same route as a URI the agent named: the publisher's `fora.json` names the Exchange, and that Exchange answers with signed offers. The Broker returns one `OfferGroup` per URI, best match first, stamped `DISCOVERY_METHOD_SEARCH`, and it never merges groups. URIs the agent names win: the query and `search_filters` are then not used.
 
 ```json
 {
@@ -263,23 +265,23 @@ A Broker runs one catalog search, which its operator chooses per deployment. The
 
 ### Combining Modes
 
-All three modes can be combined in a single request. For example, an agent can send specific URIs it already knows about, plus a search query to discover additional relevant resources:
+A request can carry a `query` and `search_filters` together. Every filter the Broker applies is a required constraint, so every result passes it; which keys it applies, and what the query adds, depend on its catalog search (see [Discovery providers](#discovery-providers)). For example:
 
 ```json
 {
-  "uris": ["doi:10.1038/s41586-024-07386-0"],
-  "query": "Related studies on CRISPR delivery mechanisms",
+  "query": "piano",
   "search_filters": {
-    "academic.year_min": 2022
+    "music.vocals": false,
+    "music.bpm_range": "80-100"
   }
 }
 ```
 
-The Broker merges results from all modes, deduplicates across them, and feeds everything into the Selection Engine for comparison and ranking.
+On a Broker that applies both keys, every result has no vocals and a tempo from 80 to 100 BPM. Named URIs do not combine with a search (see [Natural Language](#3-natural-language)), so an agent that wants both sends two requests.
 
 ## Discovery Extension Point (v2)
 
-The Broker's internal `SupplySource` interface is the extension point for content discovery beyond Exchange queries. In v1, all URIs come from the agent's request. In v2, the Broker can discover URIs on the agent's behalf:
+The Broker's internal `SupplySource` interface is the extension point for content discovery beyond Exchange queries. In v1, URIs come from the agent's request or from the Broker's own catalog search (see [Discovery providers](#discovery-providers)). In v2, the Broker can discover URIs from further sources on the agent's behalf:
 
 ```go
 // SupplySource abstracts where content offers come from.
