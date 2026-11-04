@@ -211,13 +211,13 @@ An agent can limit a catalog search with `DiscoveryRequest.search_filters`. The 
 | `music.themes` | label or label[] | Optional | Themes. An array must not be empty. Example: `"christmas"`. |
 | `music.contains_ai` | boolean | Optional | Example: `false`. |
 
-A range key is the name of the field it limits, followed by `_range`. A value outside its format, for example `music.release_date_range: "2015-2019"` or `music.upc: "ABC"`, rejects the whole request with `INVALID_ARGUMENT`; see [Order of Checks and Errors](#order-of-checks-and-errors). A key this profile does not define is ignored.
+A range key is the name of the field it limits, followed by `_range`. On a Broker that takes its filter keys from this profile, a value outside its format, for example `music.release_date_range: "2015-2019"` or `music.upc: "ABC"`, rejects the whole request with `INVALID_ARGUMENT`, and a key this profile does not define is ignored. [Order of Checks and Errors](#order-of-checks-and-errors) gives the full order, and the order a Broker follows when its deployment declares its filter keys.
 
 ### How Filters Match
 
 - Filters are required. A track must match every filter key. When a key has several values, the track must match at least one of them. In other words, the values of one key are combined with OR, and the keys are combined with AND.
 - A track with an unknown field does not match a filter on that field.
-- `music.isrc` matches a track only when the track's `music.isrc` is exactly one of the given values. The Broker never reads an ISRC from the free-text `query`, so only this filter finds a track by its ISRC. `music.upc`, `music.grid`, `music.iswc` and `music.parental_warning` match the same way.
+- `music.isrc` matches a track only when the track's `music.isrc` is exactly one of the given values. `music.upc`, `music.grid`, `music.iswc` and `music.parental_warning` match the same way. With the tag-based provider, the Broker never reads an ISRC from the free-text `query`, so only this filter finds a track by its ISRC.
 - `music.label` and `music.language` match case-insensitively. For `music.language`, a given tag matches a track tag that equals it, or that starts with it followed by a hyphen. `pt` matches `pt` and `pt-BR`. `pt-BR` matches `pt-BR` and `pt-BR-x-private`, but not `pt` and not `pt-PT`. The hyphen matters: `zh` does not match `zha`.
 - `music.subgenres` and `music.themes` match like `music.mood`: the track has at least one of the given labels.
 - `music.release_date_range`: a bound with fewer parts covers its whole period, so `2015` as `START` means 2015-01-01 and as `END` means 2015-12-31. A track's `release_date` is read the same way, and the track matches when its whole period is inside the range. A track dated `2015` matches `2010/2019` and does not match `2015-06/`, because its month is unknown.
@@ -229,13 +229,22 @@ A range key is the name of the field it limits, followed by `_range`. A value ou
 
 ### Order of Checks and Errors
 
-The Broker checks a request in this order:
+The order below applies to a Broker that takes its filter keys from this profile, such as one with no catalog search or one on the [tag-based provider](/components/broker/overview/#discovery-providers). It checks a request in this order:
 
 1. **Explicit URIs come first.** When the request lists `uris`, the Broker resolves them and ignores `query` and `search_filters`. It does not validate the filters, and the query discovery switch does not apply.
 2. **Unknown keys are ignored.** A key that this profile does not define is ignored, for example `music.tempo` or a key of another profile.
 3. **Invalid values are rejected.** A defined key with a value outside its format rejects the request with `INVALID_ARGUMENT`, and no search runs. Examples: `music.bpm_range: "fast"`, an upper-case label, an ISRC with hyphens or lower-case letters, a UPC with a letter, a `music.release_date_range` written with a dash (`2015-2019`) or with the month `13`, a `music.parental_warning` outside its three values, an empty array.
 4. **A search input is required.** A request with no `uris`, no `query` and no defined filter key is rejected with `INVALID_ARGUMENT`. This is the same as a request with neither `query` nor `uris`.
-5. **Filters need catalog search.** When the Broker's query discovery is switched off, a request with a defined filter key is rejected with `UNIMPLEMENTED`. The Broker in this configuration cannot apply the filters, and it must not return results that ignore them. The code is not `INVALID_ARGUMENT`, because the request is valid. It is not `FAILED_PRECONDITION`, because the caller cannot change the Broker's configuration. The same applies when its configured catalog search does not apply the filters.
+5. **Filters need catalog search.** When the Broker's query discovery is switched off, a request with a defined filter key is rejected with `UNIMPLEMENTED`. The Broker in this configuration cannot apply the filters, and it must not return results that ignore them. The code is not `INVALID_ARGUMENT`, because the request is valid. It is not `FAILED_PRECONDITION`, because the caller cannot change the Broker's configuration.
+
+A Broker whose deployment declares the filter keys it applies, such as one on the Elasticsearch provider, checks a request against that declaration instead, also when it declares only this profile's keys. Its checks run in this order:
+
+- **Explicit URIs still come first**, as in check 1.
+- **Then undeclared keys are rejected.** A key the deployment does not declare rejects the request with `UNIMPLEMENTED`, before any value is checked against a format. This holds for `music.tempo`, for an undeclared key of another profile, for a key this profile defined after the declaration was written, and for an undeclared `music.*` key whatever its format: an undeclared `music.bpm_range: "fast"` gets `UNIMPLEMENTED`, not `INVALID_ARGUMENT`.
+- **Then invalid values are rejected.** A declared key with a value outside the format the deployment declares for it rejects the request with `INVALID_ARGUMENT`, and no search runs.
+- **Then a search input is required.** A request with no `uris`, no `query` and no filter key is rejected with `INVALID_ARGUMENT`.
+
+A `music.*` key the deployment declares is applied as a required constraint, by the rules in [How Filters Match](#how-filters-match); its value format is the one the deployment declares. See [Discovery providers](/components/broker/overview/#discovery-providers) for which keys each provider applies and how its errors name the key.
 
 ### Older Brokers
 
@@ -337,7 +346,7 @@ An agent asks for funk tracks between 115 and 125 BPM with no vocals, released i
 }
 ```
 
-The Broker returns only tracks with `music.genre: "funk"`, a `music.bpm` from 115 to 125, `music.vocals: false`, a `music.release_date` in 2015 or later and `music.parental_warning: "not_explicit"`. A track with no `music.vocals` key, no `music.release_date` key or no `music.parental_warning` key is not returned. Among the tracks that pass, the tracks that match the most tags the Broker reads from the `query` come first. If the catalog has no funk track, the answer is `NOT_IN_CATALOG`.
+A Broker that applies these filters returns only tracks with `music.genre: "funk"`, a `music.bpm` from 115 to 125, `music.vocals: false`, a `music.release_date` in 2015 or later and `music.parental_warning: "not_explicit"`. A track with no `music.vocals` key, no `music.release_date` key or no `music.parental_warning` key is not returned. With the tag-based provider, among the tracks that pass, the tracks that match the most tags the Broker reads from the `query` come first. If the catalog has no funk track, the answer is `NOT_IN_CATALOG`.
 
 ### Example 3: Rejected Filter
 
@@ -352,7 +361,7 @@ An agent sends a tempo word instead of a range:
 }
 ```
 
-`"fast"` is not in the `MIN-MAX`, `MIN-` or `-MAX` format, so the Broker rejects the request with `INVALID_ARGUMENT` and runs no search. The agent can send `"music.bpm_range": "160-"`, or leave the tempo in the free-text `query`. A date range written with a dash, `"music.release_date_range": "2015-2019"`, is rejected the same way: the separator of a date range is `/`.
+`"fast"` is not in the `MIN-MAX`, `MIN-` or `-MAX` format, so a Broker that takes its filter keys from this profile rejects the request with `INVALID_ARGUMENT` and runs no search. The agent can send `"music.bpm_range": "160-"`, or leave the tempo in the free-text `query`. A date range written with a dash, `"music.release_date_range": "2015-2019"`, is rejected the same way: the separator of a date range is `/`. A Broker whose deployment declares its filter keys without `music.bpm_range` rejects the request with `UNIMPLEMENTED` whatever the format; there, the agent leaves the tempo in the `query`.
 
 ---
 
@@ -361,7 +370,7 @@ An agent sends a tempo word instead of a range:
 The profile defines no conformance levels. Every field is optional, and a publisher sends the fields it knows.
 
 - An **Exchange** that declares `fora-music-v1` MUST forward the publisher's `music.*` keys unchanged inside the signed offer. It does not validate them.
-- A **Broker** that answers `music.*` search filters MUST apply them as required constraints, in the [order of checks](#order-of-checks-and-errors) above. When its catalog search is switched off, it MUST reject a request with a defined filter key with `UNIMPLEMENTED`. The same applies when its configured catalog search does not apply the filters.
+- A **Broker** that answers `music.*` search filters MUST apply them as required constraints, in the [order of checks](#order-of-checks-and-errors) above. When its catalog search is switched off, it MUST reject a request with a defined filter key with `UNIMPLEMENTED`. The same applies to a defined filter key that its configured catalog search does not apply.
 - A **publisher** can validate the `ext` of each record against the [JSON Schema](#json-schema) before it pushes the feed. This finds the errors early, because a Broker on the tag-based provider refuses a feed with an invalid matching field.
 
 ---
