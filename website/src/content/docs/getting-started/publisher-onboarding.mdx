@@ -101,7 +101,7 @@ The package runs in front of your licensed paths: it lets people and search craw
 
 The package serves no document of yours. It [passes](/components/edge-function/overview/#forajson-and-rsltxt-pass-through) `/.well-known/fora.json` and `/rsl.txt`, those exact addresses, through to your site for every visitor, AI agents included, so the file you serve is the one agents read.
 
-The package recognizes AI agents mainly by the name they give, so a scraper that passes itself off as a browser or a search crawler gets through. Keep your CDN's bot protection for those (see [Bot Detection](/components/edge-function/bot-detection/#bot-classification-tiers)), but do not let it refuse AI agents that announce themselves: that refuses paying agents too, and the console's package check cannot pass.
+The package recognizes AI agents mainly by the name they give, so a scraper that passes itself off as a browser or a search crawler gets through. Keep your CDN's bot protection for those (see [Bot Detection](/components/edge-function/bot-detection/#bot-classification-tiers)), but let AI agents that announce themselves reach the package, which refuses them with the address of your file. If your bot protection must stay on for them too, let signed requests and your two files through instead, as [Keeping CDN Bot Protection On](/components/edge-function/bot-detection/#keeping-cdn-bot-protection-on) describes. Add that exception only after Connect your site has verified the domain: the console checks the package by asking as an AI agent without a license, and your bot protection would answer it first.
 
 The console shows the commands for your network under "Show the deploy commands".
 
