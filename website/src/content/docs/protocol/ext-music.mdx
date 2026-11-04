@@ -7,11 +7,12 @@ description: "Music recording discovery profile — the music.* ext keys, the mu
 
 FORA-Music v1 defines a standardized vocabulary of `ext` field keys for music recordings traded through FORA Exchanges. It enables agents and Brokers to:
 
-- **Discover** recordings by genre, mood, instruments, suitability, energy, vocals, tempo and duration
+- **Discover** recordings by genre, sub-genre, theme, mood, instruments, suitability, energy, vocals, tempo, duration, release date, language, parental warning and AI content
 - **Filter** a catalog search with required `music.*` constraints in `DiscoveryRequest.search_filters`
-- **Find** a specific recording by its ISRC, and identify the source recording of a delivered file
+- **Find** a specific recording by its ISRC, a release by its UPC or GRid, and every recording of one work by its ISWC
+- **Show** the release and credit block that a label keeps for every recording: title, release title and date, label, catalog number, P-line and C-line, contributors and artwork
 
-The profile is recording-discovery metadata. It is not a rights model: it has no fields for composition ownership, royalty splits or clearance. Permission to use a recording comes only from the offer's [license terms](/protocol/licensing-terms/).
+The profile is recording-discovery metadata. It is not a rights model: it has no fields for composition ownership, royalty splits or clearance. Permission to use a recording comes only from the offer's [license terms](/protocol/licensing-terms/). DDEX deal terms such as territory, use type, commercial model and validity period map to the license terms, not to this profile.
 
 ### Who Should Implement This
 
@@ -54,12 +55,12 @@ The Broker does not route requests by `supported_profiles`.
 
 ## Field Summary
 
-This profile defines **10 field names** and **9 search filter keys**. Every key is namespaced with `music.`, and all keys are optional.
+This profile defines **29 field names** and **19 search filter keys**. Every key is namespaced with `music.`, and all keys are optional.
 
 | Message | Field Count | Purpose |
 |---------|-------------|---------|
-| `Offer.ext` | 10 | Recording metadata on an offer: 1 descriptive field and 9 fields used for matching |
-| `DiscoveryRequest.search_filters` | 9 | Required constraints on a catalog search |
+| `Offer.ext` | 29 | Recording metadata on an offer: 10 descriptive fields and 19 fields used for matching |
+| `DiscoveryRequest.search_filters` | 19 | Required constraints on a catalog search |
 
 ---
 
@@ -74,8 +75,11 @@ The search filter keys use the same names: `music.genre` filters on the field wh
 | Key | Type | Required | Used for Matching | Description |
 |-----|------|----------|-------------------|-------------|
 | `music.artist` | string | Optional | No | Display credit. Case is preserved. It does not identify the publisher, the rights owner or a contributor. |
+| `music.title` | string | Optional | No | Display title of the recording. Case is preserved. |
 | `music.isrc` | string | Optional | Yes | ISRC of the **source recording**: 12 characters without hyphens (`^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$`). When the delivered file is an excerpt or an edit, `isrc` still names the source recording. |
 | `music.genre` | label | Optional | Yes | One primary genre. |
+| `music.subgenres` | label[] | Optional | Yes | Finer genre labels under the primary genre, for example `lo-fi` or `bebop`. |
+| `music.themes` | label[] | Optional | Yes | What the music or the lyrics are about, for example `christmas`, `summer` or `travel`. |
 | `music.mood` | label[] | Optional | Yes | Moods. |
 | `music.instruments` | label[] | Optional | Yes | Instruments heard in the file. Category labels such as `brass` or `strings` are valid. |
 | `music.suitable_for` | label[] | Optional | Yes | Editorial suitability, for example `vlog`, `documentary` or `trailer`. It does not give permission to use the file. |
@@ -83,12 +87,37 @@ The search filter keys use the same names: `music.genre` filters on the field wh
 | `music.vocals` | boolean | Optional | Yes | See [Vocals](#vocals). |
 | `music.bpm` | integer | Optional | Yes | Tempo in beats per minute, 1 or more. Fractional BPM is not supported. |
 | `music.duration_seconds` | number | Optional | Yes | Duration of the **delivered file**, more than 0. For a 60-second excerpt it is the excerpt's duration (for example `60.03`), not the duration of the source recording. |
+| `music.version` | label | Optional | No | Which version of the recording this is, for example `instrumental`, `live`, `remix` or `radio`. |
+| `music.language` | string | Optional | Yes | Language of the performance as a BCP 47 tag, for example `en` or `pt-BR`. See [Language](#language). |
+| `music.parental_warning` | string | Optional | Yes | `explicit`, `explicit_edited` or `not_explicit`. See [Parental Warning](#parental-warning). |
+| `music.contains_ai` | boolean | Optional | Yes | `true` when the recording contains AI-generated content. See [AI Content](#ai-content). |
 
-`artist` is descriptive. No search filter refers to it. `isrc` is used only by the `music.isrc` filter, as an exact match.
+`artist`, `title` and `version` are descriptive. No search filter refers to them. `isrc` is used only by the `music.isrc` filter, as an exact match.
+
+### Release, Identifiers and Credits
+
+These fields describe the release the recording belongs to, and the credits a label keeps for it. The identifier formats are in [Identifiers](#identifiers), and the contributor object is in [Contributors](#contributors).
+
+| Key | Type | Required | Used for Matching | Description |
+|-----|------|----------|-------------------|-------------|
+| `music.release_title` | string | Optional | No | Display title of the album, EP or single the recording was released on. |
+| `music.release_date` | string | Optional | Yes | Date the release was first made available: `YYYY`, `YYYY-MM` or `YYYY-MM-DD`. See [Release Date](#release-date). |
+| `music.label` | string | Optional | Yes | Name of the record label of the release. Case is preserved. |
+| `music.catalog_number` | string | Optional | No | The label's own number for the release. It is meaningful only together with `label`. |
+| `music.upc` | string | Optional | Yes | UPC or EAN of the release: 12 to 14 digits. |
+| `music.grid` | string | Optional | Yes | Global Release Identifier of the release: 18 characters. |
+| `music.iswc` | string | Optional | Yes | ISWC of the **work** (the composition), in the compact form `T` and 10 digits. |
+| `music.proprietary_ids` | string[] | Optional | No | The publisher's own identifiers of the recording, each as `namespace:value`, for example `fma:12345`. |
+| `music.p_line` | string | Optional | No | The full P-line (phonogram notice), for example `(P) 2015 Example Records`. |
+| `music.c_line` | string | Optional | No | The full C-line (copyright notice), for example `(C) 2015 Example Music Publishing`. |
+| `music.contributors` | object[] | Optional | No | Credits: who did what. Each object has `name`, `role`, and optional `instrument` and `isni`. |
+| `music.artwork_url` | string | Optional | No | URL of the cover image. |
+
+`upc`, `grid` and `iswc` are matched like `isrc`: each only by the filter of the same name, as an exact match.
 
 ### Labels
 
-`genre`, `mood`, `instruments` and `suitable_for` hold labels. A label:
+`genre`, `subgenres`, `themes`, `mood`, `instruments`, `suitable_for` and `version` hold labels, and so do the `role` and `instrument` of a contributor. A label:
 
 - is not empty;
 - has no whitespace at the start or at the end;
@@ -98,18 +127,61 @@ Both rules use Unicode. Whitespace includes the non-breaking space. Upper case a
 
 Consumers do no stemming and no singular/plural matching, so `guitar` and `guitars` are different labels. The feed must use one label for one thing.
 
+A publisher that fills a label from a DDEX allowed value writes the value as a label: split the CamelCase value into words, lower-case them, and join them with one space. `HipHop` becomes `hip hop`, `FeelingGood` becomes `feeling good`, `4OnTheFloor` becomes `4 on the floor`, and `R'n'B` becomes `r'n'b`. [Recommended Labels](#recommended-labels) lists the result for the DDEX value sets this profile uses, so that two publishers spell the same thing the same way.
+
+`language` is not a label. It is a BCP 47 tag, and consumers compare it case-insensitively.
+
 ### Vocals
 
 `vocals` describes the delivered file. It is `true` when the file contains any human voice that can be heard: sung lyrics, wordless singing, choir or spoken word. It is `false` only when the file contains no human voice.
 
 The definition is broad on purpose. An agent that filters on `vocals: false` usually needs a track that does not compete with narration, and any voice does.
 
+### Release Date
+
+`release_date` is the date the release was first made available, in the form `YYYY`, `YYYY-MM` or `YYYY-MM-DD`. A publisher writes the parts it knows: `2015` when only the year is known. It is not the date the file was uploaded, and not the date the offer was made.
+
+### Identifiers
+
+- `upc` is the UPC or EAN of the release: 12 to 14 digits. The last digit is the GS1 check digit. The publisher checks it before it sends the feed. The schema checks only the digit count, because a JSON Schema pattern cannot compute a check digit.
+- `grid` is the Global Release Identifier of the release: 18 characters without hyphens. They are `A1`, a 5-character issuer code, a 10-character release number and a check character.
+- `iswc` identifies the work (the composition), not the recording. It is written in the compact form: `T` followed by 10 digits, for example `T0345246801`. The display form `T-034.524.680-1` is written without its hyphens and dots, the same way `isrc` is written without hyphens.
+- `isni` on a contributor identifies the person or group: 16 characters without spaces, 15 digits and a check character `0` to `9` or `X`.
+- `proprietary_ids` holds the publisher's own identifiers of the recording. Each entry is `namespace:value`, for example `fma:12345`. The namespace is a DNS name or a short name of the source.
+
+`isrc`, `upc`, `grid` and `iswc` name the recording, the release and the work that a license covers, so a usage report or a dispute can name them. They say nothing about who owns the work. Other identifiers, such as IPI, DPID, ISAN, EIDR and HFA, are not defined keys. A publisher can send them as unknown fields.
+
+### Contributors
+
+`contributors` is an array of objects, one per credit. Each object has these keys:
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `name` | string | Yes | Display name of the person or group. Case is preserved. |
+| `role` | label | Yes | What the contributor did, for example `composer`, `lyricist` or `mixing engineer`. [Recommended Labels](#recommended-labels) lists the roles. |
+| `instrument` | label | Optional | The instrument the contributor played, for a performer. |
+| `isni` | string | Optional | ISNI of the person or group. See [Identifiers](#identifiers). |
+
+A person with two roles appears twice, once per role. An empty array means known to be empty, like every array of this profile. An absent key means the credits are unknown.
+
+### Language
+
+`language` is the language of the sung or spoken words as a BCP 47 tag, for example `en`, `de` or `pt-BR`. It is not a label: upper-case letters are allowed, and consumers compare it case-insensitively. An instrumental recording leaves it out.
+
+### Parental Warning
+
+`parental_warning` is `explicit`, `explicit_edited` or `not_explicit`. `explicit_edited` means an edited version of an explicit recording. When the publisher has no advice, it leaves the key out.
+
+### AI Content
+
+`contains_ai` is `true` when the recording contains AI-generated content, and `false` when the publisher states that it contains none. An absent key means unknown. It never means `false`.
+
 ### Absent, Empty and Null
 
 - An absent field means "unknown". An absent `vocals` never means `false`.
 - An empty array means "known to be empty". It is different from an absent array.
 - `null` is not a valid value, and the schema rejects it. A publisher leaves out an unknown field. A consumer that receives `null` treats the field as absent.
-- Consumers ignore fields they do not know. A publisher can send other fields, for example other rights or release identifiers, and consumers still work. A field is added to this profile when a consumer uses it.
+- Consumers ignore fields they do not know. A publisher can send other fields, for example an identifier this profile does not define, and consumers still work. A field is added to this profile when a consumer uses it.
 
 ---
 
@@ -128,17 +200,31 @@ An agent can limit a catalog search with `DiscoveryRequest.search_filters`. The 
 | `music.vocals` | boolean | Optional | Example: `false`. |
 | `music.bpm_range` | string | Optional | `MIN-MAX`, `MIN-` or `-MAX` with positive integers. Both bounds are inclusive, and `MIN` is not greater than `MAX`. Example: `"115-125"`, `"120-"`. |
 | `music.duration_seconds_range` | string | Optional | `MIN-MAX`, `MIN-` or `-MAX` with positive numbers of seconds. Both bounds are inclusive, and `MIN` is not greater than `MAX`. Example: `"30-90"`, `"-60.5"`. |
+| `music.upc` | string or string[] | Optional | UPC or EAN, 12 to 14 digits. The match is exact. An array must not be empty. Example: `"020123456782"`. |
+| `music.grid` | string or string[] | Optional | GRid, 18 characters without hyphens. The match is exact. An array must not be empty. Example: `"A10302B0001234567D"`. |
+| `music.iswc` | string or string[] | Optional | ISWC in the compact form, `T` and 10 digits. The match is exact. An array must not be empty. Example: `"T0345246801"`. |
+| `music.label` | string or string[] | Optional | Record label name. The match is case-insensitive and otherwise exact. An array must not be empty. Example: `"Example Records"`. |
+| `music.release_date_range` | string | Optional | `START/END`, `START/` or `/END` with dates in the `YYYY`, `YYYY-MM` or `YYYY-MM-DD` form. Both bounds are inclusive, and `START` is not after `END`. The separator is `/` (the ISO 8601 interval form), because `-` is part of a date. Example: `"2015/2019"`, `"2020-06/"`, `"/1999-12-31"`. |
+| `music.parental_warning` | string or string[] | Optional | `explicit`, `explicit_edited` or `not_explicit`. An array must not be empty. Example: `"not_explicit"`. |
+| `music.language` | string or string[] | Optional | BCP 47 tag. The match is case-insensitive. A tag matches a track tag that equals it, or that continues it after a hyphen: `pt` matches `pt-BR`. An array must not be empty. Example: `"es"`. |
+| `music.subgenres` | label or label[] | Optional | Sub-genres. An array must not be empty. Example: `["lo-fi", "ambient"]`. |
+| `music.themes` | label or label[] | Optional | Themes. An array must not be empty. Example: `"christmas"`. |
+| `music.contains_ai` | boolean | Optional | Example: `false`. |
 
-A range key is the name of the field it limits, followed by `_range`.
+A range key is the name of the field it limits, followed by `_range`. A value outside its format, for example `music.release_date_range: "2015-2019"` or `music.upc: "ABC"`, rejects the whole request with `INVALID_ARGUMENT`; see [Order of Checks and Errors](#order-of-checks-and-errors). A key this profile does not define is ignored.
 
 ### How Filters Match
 
 - Filters are required. A track must match every filter key. When a key has several values, the track must match at least one of them. In other words, the values of one key are combined with OR, and the keys are combined with AND.
 - A track with an unknown field does not match a filter on that field.
-- `music.isrc` matches a track only when the track's `music.isrc` is exactly one of the given values. The Broker never reads an ISRC from the free-text `query`, so only this filter finds a track by its ISRC.
+- `music.isrc` matches a track only when the track's `music.isrc` is exactly one of the given values. The Broker never reads an ISRC from the free-text `query`, so only this filter finds a track by its ISRC. `music.upc`, `music.grid`, `music.iswc` and `music.parental_warning` match the same way.
+- `music.label` and `music.language` match case-insensitively. For `music.language`, a given tag matches a track tag that equals it, or that starts with it followed by a hyphen. `pt` matches `pt` and `pt-BR`. `pt-BR` matches `pt-BR` and `pt-BR-x-private`, but not `pt` and not `pt-PT`. The hyphen matters: `zh` does not match `zha`.
+- `music.subgenres` and `music.themes` match like `music.mood`: the track has at least one of the given labels.
+- `music.release_date_range`: a bound with fewer parts covers its whole period, so `2015` as `START` means 2015-01-01 and as `END` means 2015-12-31. A track's `release_date` is read the same way, and the track matches when its whole period is inside the range. A track dated `2015` matches `2010/2019` and does not match `2015-06/`, because its month is unknown.
+- `music.contains_ai` works like `music.vocals`: a track without the key does not match `false`.
 - The Broker also reads tags from the free-text `query`. These tags are preferences, and they apply only to the tracks that pass every filter. Among those tracks, the tracks that match the most query tags come first. When no passing track matches a query tag, or the query has no known tag, the Broker returns every track that passes the filters. A query tag never adds a track that fails a filter.
 - When both the filters and the query give bounds for the same field, the Broker uses the overlap of the two ranges. If the ranges do not overlap, no track matches.
-- A request with filters and no `query` does not call the query model. This includes a request with only `music.isrc`, `music.bpm_range` or `music.duration_seconds_range`.
+- A request with filters and no `query` does not call the query model. This includes a request with only an identifier filter such as `music.isrc`, or only a range filter such as `music.bpm_range`.
 - A valid filter value that no track has, for example `music.genre: "funk"` in a catalog without funk, matches no track. The answer is `NOT_IN_CATALOG`. The Broker never drops such a filter.
 
 ### Order of Checks and Errors
@@ -147,9 +233,13 @@ The Broker checks a request in this order:
 
 1. **Explicit URIs come first.** When the request lists `uris`, the Broker resolves them and ignores `query` and `search_filters`. It does not validate the filters, and the query discovery switch does not apply.
 2. **Unknown keys are ignored.** A key that this profile does not define is ignored, for example `music.tempo` or a key of another profile.
-3. **Invalid values are rejected.** A defined key with a value outside its format rejects the request with `INVALID_ARGUMENT`, and no search runs. Examples: `music.bpm_range: "fast"`, an upper-case label, an ISRC with hyphens or lower-case letters, an empty array.
+3. **Invalid values are rejected.** A defined key with a value outside its format rejects the request with `INVALID_ARGUMENT`, and no search runs. Examples: `music.bpm_range: "fast"`, an upper-case label, an ISRC with hyphens or lower-case letters, a UPC with a letter, a `music.release_date_range` written with a dash (`2015-2019`) or with the month `13`, a `music.parental_warning` outside its three values, an empty array.
 4. **A search input is required.** A request with no `uris`, no `query` and no defined filter key is rejected with `INVALID_ARGUMENT`. This is the same as a request with neither `query` nor `uris`.
 5. **Filters need catalog search.** When the Broker's query discovery is switched off, a request with a defined filter key is rejected with `UNIMPLEMENTED`. The Broker in this configuration cannot apply the filters, and it must not return results that ignore them. The code is not `INVALID_ARGUMENT`, because the request is valid. It is not `FAILED_PRECONDITION`, because the caller cannot change the Broker's configuration.
+
+### Older Brokers
+
+Check 2 also covers a filter key that this profile defined after the Broker was built. Such a Broker ignores the key. When the request also has a `query` or a filter key the Broker knows, the request succeeds, and the results are not filtered by the ignored key. When the ignored key is the only search input, check 4 rejects the request with `INVALID_ARGUMENT`. In neither case does the response tell the agent which filter keys the Broker applied. This is accepted, because the Broker version is known in a deployment. New offer keys need no such rule: a consumer ignores the keys it does not know, and the offer stays valid.
 
 ---
 
@@ -159,8 +249,8 @@ The Broker checks a request in this order:
 
 | Party | What it checks |
 |---|---|
-| The [JSON Schema](#json-schema) | The shape of all ten fields, including the ISRC format and the label format. |
-| Broker | The nine matching fields, when it loads its catalog feed. An invalid matching field fails the load, and the error names the record and the field. The Broker does not read `artist`. |
+| The [JSON Schema](#json-schema) | The shape of every field: the identifier formats, the date form, the three parental-warning values, the contributor objects and the label format. It does not check the UPC check digit. |
+| Broker | The 19 matching fields, when it loads its catalog feed. An invalid matching field fails the load, and the error names the record and the field. The Broker does not read the descriptive fields. |
 | Exchange | Nothing. It forwards the `music.*` keys unchanged inside the signed offer, so the offer signature covers every key, including unknown ones. |
 
 ### Tempo Groups
@@ -173,12 +263,12 @@ Tempo groups such as slow, medium and fast are Broker behavior. They are not par
 
 ### Example 1: Music Track Offer
 
-An Exchange returns an offer for a 60-second excerpt of an instrumental track. The offer sells a one-time license for one personal video. The `terms` are shortened; see [Licensing Terms](/protocol/licensing-terms/).
+An Exchange returns an offer for a 60-second excerpt of an instrumental track, with the release and credit block the label keeps for it. The offer sells a one-time license for one personal video. The `terms` are shortened; see [Licensing Terms](/protocol/licensing-terms/).
 
 ```jsonc
 {
   "offer_id": "1f0c7a52-8d3e-4b1a-9c6e-2a4f5b7d8e90",
-  "title": "Mesmerizing Galaxy — Kevin MacLeod",
+  "title": "Galaxy Drift — Nova Orbit",
   "pricing": {
     "model": "PRICING_MODEL_FLAT",
     "rate": "29",
@@ -187,33 +277,52 @@ An Exchange returns an offer for a 60-second excerpt of an instrumental track. T
   },
   "delivery_method": "DELIVERY_METHOD_DIRECT",
   "identity": {
-    "canonical_url": "https://music-exchange.example.com/tracks/mesmerizing-galaxy-loop.mp3",
+    "canonical_url": "https://music-exchange.example.com/tracks/galaxy-drift-loop.mp3",
     "content_hash": "sha256:b430ef4d...",
     "hash_method": "sha256",
     "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
   },
   "terms": [ /* one LicenseTerm: individuals, one personal video */ ],
   "ext": {
-    "music.artist": "Kevin MacLeod",
+    "music.artist": "Nova Orbit",
+    "music.title": "Galaxy Drift",
     "music.genre": "electronica",
+    "music.subgenres": ["downtempo", "ambient"],
+    "music.themes": ["space"],
     "music.mood": ["grooving", "mysterious"],
-    "music.instruments": ["synths"],
+    "music.instruments": ["synthesizer"],
     "music.suitable_for": ["podcast", "game"],
     "music.energy": "medium",
     "music.vocals": false,
     "music.bpm": 124,
-    "music.duration_seconds": 60.03
+    "music.duration_seconds": 60.03,
+    "music.version": "instrumental",
+    "music.parental_warning": "not_explicit",
+    "music.contains_ai": false,
+    "music.release_title": "Galaxy Drift",
+    "music.release_date": "2015-06-17",
+    "music.label": "Example Records",
+    "music.catalog_number": "EXR-0042",
+    "music.upc": "020123456782",
+    "music.p_line": "(P) 2015 Example Records",
+    "music.c_line": "(C) 2015 Example Music Publishing",
+    "music.contributors": [
+      {"name": "Nova Orbit", "role": "composer"},
+      {"name": "Nova Orbit", "role": "performer", "instrument": "synthesizer"},
+      {"name": "Sam Example", "role": "mixing engineer"}
+    ],
+    "music.artwork_url": "https://music-exchange.example.com/tracks/galaxy-drift/cover.jpg"
   },
   "signature": "ZXhjaGFuZ2Utc2lnbmF0dXJl...",
   "signature_algorithm": "EdDSA"
 }
 ```
 
-The offer has no `music.isrc`, so the source recording is unknown. The offer has no `ext_critical`, so a consumer that does not know this profile can ignore the `music.*` keys.
+The offer has no `music.isrc`, so the source recording is unknown, and no `music.language`, because the track has no vocals. The offer has no `ext_critical`, so a consumer that does not know this profile can ignore the `music.*` keys.
 
 ### Example 2: Filtered Discovery Request
 
-An agent asks for funk tracks between 115 and 125 BPM with no vocals, for a cooking video:
+An agent asks for funk tracks between 115 and 125 BPM with no vocals, released in 2015 or later and without an explicit-content warning, for a cooking video:
 
 ```json
 {
@@ -221,12 +330,14 @@ An agent asks for funk tracks between 115 and 125 BPM with no vocals, for a cook
   "search_filters": {
     "music.genre": "funk",
     "music.bpm_range": "115-125",
-    "music.vocals": false
+    "music.vocals": false,
+    "music.release_date_range": "2015/",
+    "music.parental_warning": "not_explicit"
   }
 }
 ```
 
-The Broker returns only tracks with `music.genre: "funk"`, a `music.bpm` from 115 to 125 and `music.vocals: false`. A track with no `music.vocals` key is not returned. Among the tracks that pass, the tracks that match the most tags the Broker reads from the `query` come first. If the catalog has no funk track, the answer is `NOT_IN_CATALOG`.
+The Broker returns only tracks with `music.genre: "funk"`, a `music.bpm` from 115 to 125, `music.vocals: false`, a `music.release_date` in 2015 or later and `music.parental_warning: "not_explicit"`. A track with no `music.vocals` key, no `music.release_date` key or no `music.parental_warning` key is not returned. Among the tracks that pass, the tracks that match the most tags the Broker reads from the `query` come first. If the catalog has no funk track, the answer is `NOT_IN_CATALOG`.
 
 ### Example 3: Rejected Filter
 
@@ -241,7 +352,7 @@ An agent sends a tempo word instead of a range:
 }
 ```
 
-`"fast"` is not in the `MIN-MAX`, `MIN-` or `-MAX` format, so the Broker rejects the request with `INVALID_ARGUMENT` and runs no search. The agent can send `"music.bpm_range": "160-"`, or leave the tempo in the free-text `query`.
+`"fast"` is not in the `MIN-MAX`, `MIN-` or `-MAX` format, so the Broker rejects the request with `INVALID_ARGUMENT` and runs no search. The agent can send `"music.bpm_range": "160-"`, or leave the tempo in the free-text `query`. A date range written with a dash, `"music.release_date_range": "2015-2019"`, is rejected the same way: the separator of a date range is `/`.
 
 ---
 
@@ -261,11 +372,11 @@ The SDKs have a typed view of the `music.*` keys of `Offer.ext`:
 
 | Language | Import | Names |
 |---|---|---|
-| Go | `github.com/FORA-Protocol/protocol/sdk/go/profiles/music` | `music.Music`, `music.ProfileID` |
-| TypeScript | `@fora-protocol/sdk/music` | `Music`, `ProfileID` |
-| Python | `fora_sdk.music` | `Music`, `PROFILE_ID` |
+| Go | `github.com/FORA-Protocol/protocol/sdk/go/profiles/music` | `music.Music`, `music.Contributor`, `music.ProfileID` |
+| TypeScript | `@fora-protocol/sdk/music` | `Music`, `Contributor`, `ProfileID` |
+| Python | `fora_sdk.music` | `Music`, `Contributor`, `PROFILE_ID` |
 
-The types keep the rules from [Absent, Empty and Null](#absent-empty-and-null): an absent key stays absent, and an empty list stays an empty list. Decoding an `Offer.ext` into the Go type keeps only the `music.*` keys. A `music.bpm` written as a whole number with a fraction or an exponent, for example `90.0` or `1e2`, is valid, because JSON Schema counts it as an integer. The Go type accepts it as `90` or `100`. The types do not validate the values. Use the JSON Schema to validate input that you do not trust.
+`Contributor` is the type of one entry of `music.contributors`, with `name`, `role` and the optional `instrument` and `isni`. The types keep the rules from [Absent, Empty and Null](#absent-empty-and-null): an absent key stays absent, and an empty list stays an empty list. Decoding an `Offer.ext` into the Go type keeps only the `music.*` keys. A `music.bpm` written as a whole number with a fraction or an exponent, for example `90.0` or `1e2`, is valid, because JSON Schema counts it as an integer. The Go type accepts it as `90` or `100`. The types do not validate the values. Use the JSON Schema to validate input that you do not trust.
 
 ---
 
@@ -282,25 +393,56 @@ The schema is `music-v1.schema.json` (JSON Schema Draft 2020-12). It applies to 
   "additionalProperties": true,
   "properties": {
     "music.artist": {"type": "string", "minLength": 1},
+    "music.title": {"type": "string", "minLength": 1},
     "music.isrc": {"type": "string", "pattern": "^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$"},
     "music.genre": {"$ref": "#/$defs/Label"},
+    "music.subgenres": {"$ref": "#/$defs/Labels"},
+    "music.themes": {"$ref": "#/$defs/Labels"},
     "music.mood": {"$ref": "#/$defs/Labels"},
     "music.instruments": {"$ref": "#/$defs/Labels"},
     "music.suitable_for": {"$ref": "#/$defs/Labels"},
     "music.energy": {"enum": ["low", "medium", "high"]},
     "music.vocals": {"type": "boolean"},
     "music.bpm": {"type": "integer", "minimum": 1},
-    "music.duration_seconds": {"type": "number", "exclusiveMinimum": 0}
+    "music.duration_seconds": {"type": "number", "exclusiveMinimum": 0},
+    "music.version": {"$ref": "#/$defs/Label"},
+    "music.language": {"type": "string", "pattern": "^(?:(?:en-GB-oed|i-ami|i-bnn|i-default|i-enochian|i-hak|i-klingon|i-lux|i-mingo|i-navajo|i-pwn|i-tao|i-tay|i-tsu|sgn-BE-FR|sgn-BE-NL|sgn-CH-DE|art-lojban|cel-gaulish|no-bok|no-nyn|zh-guoyu|zh-hakka|zh-min|zh-min-nan|zh-xiang)|(?:(?:[A-Za-z]{2,3}(?:-[A-Za-z]{3}){0,3}|[A-Za-z]{4,8})(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|[0-9]{3}))?(?:-(?:[A-Za-z0-9]{5,8}|[0-9][A-Za-z0-9]{3}))*(?:-[0-9A-WY-Za-wy-z](?:-[A-Za-z0-9]{2,8})+)*(?:-[Xx](?:-[A-Za-z0-9]{1,8})+)?)|[Xx](?:-[A-Za-z0-9]{1,8})+)$"},
+    "music.parental_warning": {"enum": ["explicit", "explicit_edited", "not_explicit"]},
+    "music.contains_ai": {"type": "boolean"},
+    "music.release_title": {"type": "string", "minLength": 1},
+    "music.release_date": {"type": "string", "pattern": "^(?:[0-9]{4}(?:-(?:0[1-9]|1[0-2]))?|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:[02468][048]|[13579][26])00)-02-29)$"},
+    "music.label": {"type": "string", "minLength": 1},
+    "music.catalog_number": {"type": "string", "minLength": 1},
+    "music.upc": {"type": "string", "pattern": "^[0-9]{12,14}$"},
+    "music.grid": {"type": "string", "pattern": "^A1[A-Z0-9]{5}[A-Z0-9]{10}[A-Z0-9]$"},
+    "music.iswc": {"type": "string", "pattern": "^T[0-9]{10}$"},
+    "music.proprietary_ids": {"type": "array", "items": {"type": "string", "pattern": "^[A-Za-z0-9.-]+:.+$"}},
+    "music.p_line": {"type": "string", "minLength": 1},
+    "music.c_line": {"type": "string", "minLength": 1},
+    "music.contributors": {"type": "array", "items": {"$ref": "#/$defs/Contributor"}},
+    "music.artwork_url": {"type": "string", "format": "uri"}
   },
   "$defs": {
     "Label": {
       "type": "string",
       "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$"
     },
-    "Labels": { "type": "array", "items": { "$ref": "#/$defs/Label" } }
+    "Labels": { "type": "array", "items": { "$ref": "#/$defs/Label" } },
+    "Contributor": {
+      "type": "object",
+      "required": ["name", "role"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "role": {"$ref": "#/$defs/Label"},
+        "instrument": {"$ref": "#/$defs/Label"},
+        "isni": {"type": "string", "pattern": "^[0-9]{15}[0-9X]$"}
+      }
+    }
   }
 }
 ```
+
+The patterns check the shape of an identifier, not its check digit. The `music.release_date` pattern accepts only calendar dates: `2016-02-29` is valid, `2015-02-29` and `2015-04-31` are not. The `music.language` pattern is the well-formedness grammar of [RFC 5646 section 2.1](https://www.rfc-editor.org/rfc/rfc5646#section-2.1), so a private-use tag such as `x-klingon` and a registered irregular tag such as `i-klingon` are valid, and `en-a` is not. It is not the label pattern, because a BCP 47 tag may contain upper-case letters. `music.artwork_url` uses `format: uri`. A validator checks a `format` only when its format assertion is switched on: `AssertFormat` in santhosh-tekuri/jsonschema, the ajv-formats package for Ajv, a format checker in the Python `jsonschema` package.
 
 ### Validating in Python
 
@@ -344,12 +486,26 @@ This prints the error for the upper-case label `Jazz`. Save the schema above as 
 
 ---
 
-## Out of Scope
+## Recommended Labels
 
-- Rights-model fields: composition ownership, royalty splits, clearance.
-- Rights and release identifiers other than ISRC: ISWC, ISNI, IPI, UPC, GRid, ISAN, EIDR, HFA. Publishers can send them as unknown fields.
-- Broker routing by `supported_profiles`.
-- Validation of the `music.*` keys by the Exchange.
+This section is not normative. Labels stay free. The lists below are the DDEX allowed values this profile's fields correspond to, written with the normalization rule from [Labels](#labels), so that two publishers spell the same thing the same way. The Broker matches labels exactly, so a shared spelling is what makes a filter find a track. The DDEX value `UserDefined` and the values DDEX has deprecated are left out.
+
+**`music.genre`**, from avs:ClassifiedGenre: `blues`, `classical music`, `country music`, `electronic music`, `folk`, `gospel`, `hip hop`, `jazz`, `latin`, `pop`, `r'n'b`, `reggae`, `rock`, `spoken`, `traditional`, `world music`.
+
+**`music.mood`**, from avs:Mood: `afraid`, `aggressive`, `angry`, `anticipating`, `bitter`, `calm`, `cerebral`, `chill`, `confident`, `dark`, `depressed`, `disgusting`, `dramatic`, `dreaming`, `empowered`, `energized`, `evil`, `feeling good`, `fragile`, `free`, `friendly`, `funny`, `glamorous`, `happy`, `heroic`, `humorous`, `impulsive`, `innocent`, `inspiring`, `lively`, `meditative`, `melodramatic`, `motivating`, `nourishing`, `passionate`, `peaceful`, `playful`, `rebellious`, `revitalizing`, `romantic`, `sad`, `sensual`, `shy`, `soulful`, `suspenseful`, `swaggering`, `warm hearted`.
+
+**`music.instruments`** and a contributor's **`instrument`**, from avs:InstrumentType. The set has about 750 values arranged in families. A publisher uses the most specific value it knows, and the family name when it knows only the family:
+
+- `string instrument`: `banjo`, `bass`, `bass guitar`, `cello`, `double bass`, `fiddle`, `guitar`, `acoustic guitar`, `electric guitar`, `harp`, `lute`, `mandolin`, `ukulele`, `viola`, `violin`, `zither`
+- `wind instrument`: `brass instrument` (`horn`, `trombone`, `trumpet`, `tuba`), `woodwind instrument` (`flute`, `recorder`, `reed instrument`)
+- `percussion instrument`: `drum`, `drum kit`, `bells`, `pitched percussion instrument`, `unpitched percussion instrument`, `latin percussion`, `african percussion`, `brazilian percussion`, `orchestral percussion`
+- `keyboard`: `klavier` (the piano family), `organ`, `digital piano`, `harmonium`
+- `synthesizer`, `drum machine`, `sampler`, `turntable`
+- `voice`, `choir`
+
+**`music.version`**, from avs:VersionType, with the word `Version` dropped before normalization: `a cappella`, `album`, `alternative`, `demo`, `instrumental`, `karaoke`, `live`, `mix`, `mono`, `radio`, `remix`, `session`, `single`, `stereo`.
+
+**A contributor's `role`**, from avs:ContributorRole. The set has more than 300 values. These are the roles a music credit usually needs: `composer`, `lyricist`, `arranger`, `performer`, `musician`, `vocalist`, `soloist`, `conductor`, `orchestra`, `ensemble`, `choir`, `remixer`, `programmer`, `recording engineer`, `mixing engineer`, `mastering engineer`, `studio producer`, `executive producer`.
 
 ---
 
@@ -358,6 +514,18 @@ This prints the error for the upper-case label `Jazz`. Save the schema above as 
 ### Normative
 
 - [ISO 3901 International Standard Recording Code (ISRC)](https://www.iso.org/standard/64817.html) / [ISRC Handbook](https://isrc.ifpi.org/)
+- [ISO 15707 International Standard Musical Work Code (ISWC)](https://www.iso.org/standard/28780.html)
+- [ISO 27729 International Standard Name Identifier (ISNI)](https://www.iso.org/standard/44292.html)
+- [GS1 General Specifications](https://www.gs1.org/standards/barcodes-epcrfid-id-keys/gs1-general-specifications): the UPC and EAN formats and the check digit
+- [GRid Standard](https://www.ifpi.org/resources/grid/): the Global Release Identifier
+- [RFC 5646 Tags for Identifying Languages (BCP 47)](https://www.rfc-editor.org/rfc/rfc5646)
+- [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html): the date forms and the `/` interval separator
 - [JSON Schema Draft 2020-12](https://json-schema.org/draft/2020-12)
 - [Unicode Character Database (UAX #44)](https://www.unicode.org/reports/tr44/): the general categories Lu and Lt, and the White_Space property
 - [ECMA-262 regular expressions](https://tc39.es/ecma262/#sec-regexp-regular-expression-objects): the syntax of the schema's `pattern` values
+
+### Informative
+
+- [DDEX ERN 4.3.2 data dictionary](https://service.ddex.net/dd/DD-ERN-432/dd/): the release, identifier and credit fields the profile's keys correspond to
+- [DDEX MEAD 1.1 data dictionary](https://service.ddex.net/dd/DD-MEAD-11/dd/): mood, theme, sub-genre, instrument and intensity
+- [DDEX allowed value sets](https://service.ddex.net/dd/DD-AVS-CURRENT/dd/): the value sets behind [Recommended Labels](#recommended-labels)

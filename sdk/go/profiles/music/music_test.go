@@ -15,7 +15,9 @@ type roundTripCase struct {
 	Output json.RawMessage `json:"output"`
 }
 
-func TestMusicRoundTrip(t *testing.T) {
+// loadCases reads the shared cases. The TS and Python tests read the same file.
+func loadCases(t *testing.T) []roundTripCase {
+	t.Helper()
 	raw, err := os.ReadFile("testdata/music-cases.json")
 	if err != nil {
 		t.Fatal(err)
@@ -29,7 +31,11 @@ func TestMusicRoundTrip(t *testing.T) {
 	if len(file.Cases) == 0 {
 		t.Fatal("no cases in testdata/music-cases.json")
 	}
-	for _, c := range file.Cases {
+	return file.Cases
+}
+
+func TestMusicRoundTrip(t *testing.T) {
+	for _, c := range loadCases(t) {
 		t.Run(c.Name, func(t *testing.T) {
 			var m music.Music
 			if err := json.Unmarshal(c.Input, &m); err != nil {
