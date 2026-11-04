@@ -11,20 +11,30 @@ from __future__ import annotations
 
 from conftest import _REPO_ROOT, load_json
 
-from fora_sdk.music import PROFILE_ID, Music
+from fora_sdk.music import PROFILE_ID, Contributor, Music
 
 _CASES = load_json(
     _REPO_ROOT / "sdk" / "go" / "profiles" / "music" / "testdata" / "music-cases.json"
 )["cases"]
+(_ALL_FIELDS,) = [c for c in _CASES if c["name"] == "all_fields"]
 
 
 def test_music_keys_match_the_shared_all_fields_case() -> None:
-    (all_fields,) = [c for c in _CASES if c["name"] == "all_fields"]
-    assert set(Music.__annotations__) == set(all_fields["input"])
+    assert set(Music.__annotations__) == set(_ALL_FIELDS["input"])
 
 
 def test_music_keys_are_all_optional() -> None:
     assert Music.__required_keys__ == frozenset()
+
+
+def test_contributor_keys_match_the_shared_all_fields_contributor() -> None:
+    # The one contributor of the all_fields case names every key of a contributor.
+    (contributor,) = _ALL_FIELDS["input"]["music.contributors"]
+    assert set(Contributor.__annotations__) == set(contributor)
+
+
+def test_contributor_requires_only_name_and_role() -> None:
+    assert Contributor.__required_keys__ == frozenset({"name", "role"})
 
 
 def test_profile_id() -> None:

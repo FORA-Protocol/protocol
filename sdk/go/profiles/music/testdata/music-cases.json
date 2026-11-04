@@ -1,31 +1,73 @@
 {
-  "_comment": "Round-trip cases for the fora-music-v1 typed view. Each case decodes input (an Offer.ext object) into the typed view and encodes it again; the result must equal output (key order does not matter). The Go, TS and Python tests read this file. The all_fields case names every key of the profile.",
+  "_comment": "Round-trip cases for the fora-music-v1 typed view. Each case decodes input (an Offer.ext object) into the typed view and encodes it again; the result must equal output (key order does not matter). The Go, TS and Python tests read this file, and the Go schema test validates every input against the profile's JSON Schema. The all_fields case names every key of the profile, and its one contributor names every key of a contributor.",
   "cases": [
     {
       "name": "all_fields",
       "input": {
         "music.artist": "Example Ensemble",
+        "music.title": "Night Orbit",
         "music.isrc": "USXXX2300011",
         "music.genre": "electronica",
+        "music.subgenres": ["downtempo", "ambient"],
+        "music.themes": ["space", "night"],
         "music.mood": ["grooving", "mysterious"],
-        "music.instruments": ["synths", "percussion"],
+        "music.instruments": ["synthesizer", "percussion"],
         "music.suitable_for": ["podcast", "game"],
         "music.energy": "medium",
         "music.vocals": true,
         "music.bpm": 124,
-        "music.duration_seconds": 60.03
+        "music.duration_seconds": 60.03,
+        "music.version": "radio",
+        "music.language": "pt-BR",
+        "music.parental_warning": "not_explicit",
+        "music.contains_ai": false,
+        "music.release_title": "Night Orbit",
+        "music.release_date": "2015-06-17",
+        "music.label": "Example Records",
+        "music.catalog_number": "EXR-0042",
+        "music.upc": "020123456782",
+        "music.grid": "A10302B0001234567D",
+        "music.iswc": "T0345246801",
+        "music.proprietary_ids": ["fma:12345", "example.com:track-42"],
+        "music.p_line": "(P) 2015 Example Records",
+        "music.c_line": "(C) 2015 Example Music Publishing",
+        "music.contributors": [
+          {"name": "Sam Example", "role": "performer", "instrument": "synthesizer", "isni": "0000000123456789"}
+        ],
+        "music.artwork_url": "https://music-exchange.example.com/tracks/night-orbit/cover.jpg"
       },
       "output": {
         "music.artist": "Example Ensemble",
+        "music.title": "Night Orbit",
         "music.isrc": "USXXX2300011",
         "music.genre": "electronica",
+        "music.subgenres": ["downtempo", "ambient"],
+        "music.themes": ["space", "night"],
         "music.mood": ["grooving", "mysterious"],
-        "music.instruments": ["synths", "percussion"],
+        "music.instruments": ["synthesizer", "percussion"],
         "music.suitable_for": ["podcast", "game"],
         "music.energy": "medium",
         "music.vocals": true,
         "music.bpm": 124,
-        "music.duration_seconds": 60.03
+        "music.duration_seconds": 60.03,
+        "music.version": "radio",
+        "music.language": "pt-BR",
+        "music.parental_warning": "not_explicit",
+        "music.contains_ai": false,
+        "music.release_title": "Night Orbit",
+        "music.release_date": "2015-06-17",
+        "music.label": "Example Records",
+        "music.catalog_number": "EXR-0042",
+        "music.upc": "020123456782",
+        "music.grid": "A10302B0001234567D",
+        "music.iswc": "T0345246801",
+        "music.proprietary_ids": ["fma:12345", "example.com:track-42"],
+        "music.p_line": "(P) 2015 Example Records",
+        "music.c_line": "(C) 2015 Example Music Publishing",
+        "music.contributors": [
+          {"name": "Sam Example", "role": "performer", "instrument": "synthesizer", "isni": "0000000123456789"}
+        ],
+        "music.artwork_url": "https://music-exchange.example.com/tracks/night-orbit/cover.jpg"
       }
     },
     {
@@ -40,12 +82,32 @@
     },
     {
       "name": "empty_lists",
-      "input": {"music.mood": [], "music.instruments": [], "music.suitable_for": []},
-      "output": {"music.mood": [], "music.instruments": [], "music.suitable_for": []}
+      "input": {"music.mood": [], "music.instruments": [], "music.suitable_for": [], "music.subgenres": [], "music.themes": [], "music.proprietary_ids": []},
+      "output": {"music.mood": [], "music.instruments": [], "music.suitable_for": [], "music.subgenres": [], "music.themes": [], "music.proprietary_ids": []}
+    },
+    {
+      "name": "empty_contributors",
+      "input": {"music.contributors": []},
+      "output": {"music.contributors": []}
+    },
+    {
+      "name": "absent_contributors",
+      "input": {"music.release_title": "Night Orbit", "music.release_date": "2015"},
+      "output": {"music.release_title": "Night Orbit", "music.release_date": "2015"}
+    },
+    {
+      "name": "contributor_without_instrument_and_isni",
+      "input": {"music.contributors": [{"name": "Sam Example", "role": "composer"}, {"name": "Sam Example", "role": "lyricist"}]},
+      "output": {"music.contributors": [{"name": "Sam Example", "role": "composer"}, {"name": "Sam Example", "role": "lyricist"}]}
+    },
+    {
+      "name": "explicit_contains_ai_false",
+      "input": {"music.contains_ai": false},
+      "output": {"music.contains_ai": false}
     },
     {
       "name": "unknown_keys_dropped",
-      "input": {"music.genre": "funk", "music.iswc": "T-034524680-1", "news.section": "Culture"},
+      "input": {"music.genre": "funk", "music.release_type": "Album", "news.section": "Culture"},
       "output": {"music.genre": "funk"}
     },
     {

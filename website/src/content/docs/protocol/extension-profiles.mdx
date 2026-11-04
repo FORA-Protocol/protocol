@@ -240,8 +240,8 @@ See the [full fora-c2pa-v1 specification](/protocol/ext-c2pa/).
 
 | Property | Detail |
 |---|---|
-| **Ext fields** | Ten optional `music.*` keys in `Offer.ext`: `music.artist`, `music.isrc`, `music.genre`, `music.mood`, `music.instruments`, `music.suitable_for`, `music.energy`, `music.vocals`, `music.bpm`, `music.duration_seconds` |
-| **Search filters** | Nine `music.*` keys in `DiscoveryRequest.search_filters`, for example `music.genre`, `music.bpm_range` and the exact-match `music.isrc` |
+| **Ext fields** | 29 optional `music.*` keys in `Offer.ext`: the musical description (`music.genre`, `music.subgenres`, `music.themes`, `music.mood`, `music.instruments`, `music.suitable_for`, `music.energy`, `music.vocals`, `music.bpm`, `music.duration_seconds`, `music.version`, `music.language`, `music.parental_warning`, `music.contains_ai`), the identifiers (`music.isrc`, `music.upc`, `music.grid`, `music.iswc`, `music.proprietary_ids`) and the release and credit block (`music.artist`, `music.title`, `music.release_title`, `music.release_date`, `music.label`, `music.catalog_number`, `music.p_line`, `music.c_line`, `music.contributors`, `music.artwork_url`) |
+| **Search filters** | 19 `music.*` keys in `DiscoveryRequest.search_filters`, for example `music.genre`, `music.bpm_range`, `music.release_date_range` and the exact-match `music.isrc`, `music.upc`, `music.grid` and `music.iswc` |
 | **Validation** | The Broker validates the matching fields when it loads its catalog feed. The Exchange forwards the `music.*` keys unchanged and does not validate them. |
 | **SDK types** | Go `profiles/music`, TypeScript `@fora-protocol/sdk/music`, Python `fora_sdk.music` |
 

@@ -1315,6 +1315,11 @@
       "python": "WellKnownRequirementsReader",
       "ts": "WellKnownRequirementsReader"
     },
+    "profiles/music.Contributor": {
+      "allowlist_reason": null,
+      "python": "Contributor",
+      "ts": "Contributor"
+    },
     "profiles/music.Music": {
       "allowlist_reason": null,
       "python": "Music",
