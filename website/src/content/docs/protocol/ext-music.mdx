@@ -12,7 +12,7 @@ FORA-Music v1 defines a standardized vocabulary of `ext` field keys for music re
 - **Find** a specific recording by its ISRC, a release by its UPC or GRid, and every recording of one work by its ISWC
 - **Show** the release and credit block that a label keeps for every recording: title, release title and date, label, catalog number, P-line and C-line, contributors and artwork
 
-The profile is recording-discovery metadata. It is not a rights model: it has no fields for composition ownership, royalty splits or clearance. Permission to use a recording comes only from the offer's [license terms](/protocol/licensing-terms/).
+The profile is recording-discovery metadata. It is not a rights model: it has no fields for composition ownership, royalty splits or clearance. Permission to use a recording comes only from the offer's [license terms](/protocol/licensing-terms/). DDEX deal terms such as territory, use type, commercial model and validity period map to the license terms, not to this profile.
 
 ### Who Should Implement This
 
@@ -149,7 +149,7 @@ The definition is broad on purpose. An agent that filters on `vocals: false` usu
 - `isni` on a contributor identifies the person or group: 16 characters without spaces, 15 digits and a check character `0` to `9` or `X`.
 - `proprietary_ids` holds the publisher's own identifiers of the recording. Each entry is `namespace:value`, for example `fma:12345`. The namespace is a DNS name or a short name of the source.
 
-`isrc`, `upc`, `grid` and `iswc` name the recording, the release and the work that a license covers, so a usage report or a dispute can name them. They say nothing about who owns the work.
+`isrc`, `upc`, `grid` and `iswc` name the recording, the release and the work that a license covers, so a usage report or a dispute can name them. They say nothing about who owns the work. Other identifiers, such as IPI, DPID, ISAN, EIDR and HFA, are not defined keys. A publisher can send them as unknown fields.
 
 ### Contributors
 
@@ -483,16 +483,6 @@ for error in validator.iter_errors(music):
 ```
 
 This prints the error for the upper-case label `Jazz`. Save the schema above as `music-v1.schema.json` before you run it.
-
----
-
-## Out of Scope
-
-- Rights-model fields: composition ownership, royalty splits, clearance.
-- Identifiers other than ISRC, ISWC, UPC, GRid and the contributor's ISNI: IPI, DPID, ISAN, EIDR, HFA. Publishers can send them as unknown fields.
-- Rights data from DDEX deal terms (territory, use type, commercial model, validity period). It maps to the offer's [license terms](/protocol/licensing-terms/), not to this profile.
-- Broker routing by `supported_profiles`.
-- Validation of the `music.*` keys by the Exchange.
 
 ---
 
