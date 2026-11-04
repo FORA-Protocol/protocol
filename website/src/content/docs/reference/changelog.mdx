@@ -31,6 +31,21 @@ defined filter key that the configured catalog search does not apply is stated p
 live demo and the extension profiles page name the tag-based provider where they describe
 it, and the documentation conformance gate refuses the overview's retired claims.
 
+**The bot-detection page says how a provider can keep its CDN's bot protection in front of the
+edge function (docs only; no wire change).** Signed requests on the hosts and paths where the
+edge function checks them, and GET and HEAD of `/.well-known/fora.json` and `/rsl.txt`, must get
+through the bot product whatever it thinks of the client. Letting signed requests skip the bot
+product does not weaken access control where the edge function checks them; the exception is
+limited to those hosts and paths and matches the parameter name case-sensitively. Two setups
+are described: the edge function decides for every client, which is recommended, or the bot
+product stays on with that exception, and AI bots without a license then get the CDN's answer
+without the discovery headers. The page gives the Cloudflare rule that skips Super Bot Fight
+Mode, says that the rule needs the edge function on the whole hostname, that the Free plan's
+Bot Fight Mode cannot be skipped and that AI Crawl Control needs the same exception, and gives
+the AWS WAF Bot Control scope-down statement for CloudFront, which compares paths after removing
+dot segments. The publisher guide says to add the exception only after the console has verified
+the domain.
+
 ## v1.2.1
 
 **The publisher docs describe the console's onboarding and the file on the publisher's
