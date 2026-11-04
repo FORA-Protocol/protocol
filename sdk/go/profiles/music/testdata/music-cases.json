@@ -1,5 +1,5 @@
 {
-  "_comment": "Round-trip cases for the fora-music-v1 typed view. Each case decodes input (an Offer.ext object) into the typed view and encodes it again; the result must equal output (key order does not matter). The Go, TS and Python tests read this file, and the Go schema test validates every input against the profile's JSON Schema. The all_fields case names every key of the profile, and its one contributor names every key of a contributor.",
+  "_comment": "Round-trip cases for the fora-music-v1 typed view. Each case decodes input (an Offer.ext object) into the typed view and encodes it again; the result must equal output (key order does not matter). The Go, TS and Python tests read this file, and the Go schema test validates every input against the profile's JSON Schema. The all_fields case names every key of the profile, and its one contributor names every key of a contributor. The original_ten_keys case is an offer from the profile's first release and must stay valid.",
   "cases": [
     {
       "name": "all_fields",
@@ -68,6 +68,33 @@
           {"name": "Sam Example", "role": "performer", "instrument": "synthesizer", "isni": "0000000123456789"}
         ],
         "music.artwork_url": "https://music-exchange.example.com/tracks/night-orbit/cover.jpg"
+      }
+    },
+    {
+      "name": "original_ten_keys",
+      "input": {
+        "music.artist": "Example Ensemble",
+        "music.isrc": "USXXX2300011",
+        "music.genre": "electronica",
+        "music.mood": ["grooving", "mysterious"],
+        "music.instruments": ["synths", "percussion"],
+        "music.suitable_for": ["podcast", "game"],
+        "music.energy": "medium",
+        "music.vocals": true,
+        "music.bpm": 124,
+        "music.duration_seconds": 60.03
+      },
+      "output": {
+        "music.artist": "Example Ensemble",
+        "music.isrc": "USXXX2300011",
+        "music.genre": "electronica",
+        "music.mood": ["grooving", "mysterious"],
+        "music.instruments": ["synths", "percussion"],
+        "music.suitable_for": ["podcast", "game"],
+        "music.energy": "medium",
+        "music.vocals": true,
+        "music.bpm": 124,
+        "music.duration_seconds": 60.03
       }
     },
     {

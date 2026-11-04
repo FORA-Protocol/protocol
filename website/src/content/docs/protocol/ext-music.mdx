@@ -206,7 +206,7 @@ An agent can limit a catalog search with `DiscoveryRequest.search_filters`. The 
 | `music.label` | string or string[] | Optional | Record label name. The match is case-insensitive and otherwise exact. An array must not be empty. Example: `"Example Records"`. |
 | `music.release_date_range` | string | Optional | `START/END`, `START/` or `/END` with dates in the `YYYY`, `YYYY-MM` or `YYYY-MM-DD` form. Both bounds are inclusive, and `START` is not after `END`. The separator is `/` (the ISO 8601 interval form), because `-` is part of a date. Example: `"2015/2019"`, `"2020-06/"`, `"/1999-12-31"`. |
 | `music.parental_warning` | string or string[] | Optional | `explicit`, `explicit_edited` or `not_explicit`. An array must not be empty. Example: `"not_explicit"`. |
-| `music.language` | string or string[] | Optional | BCP 47 tag. The match is case-insensitive, and a tag also matches the longer tags that start with it: `pt` matches `pt-BR`. An array must not be empty. Example: `"es"`. |
+| `music.language` | string or string[] | Optional | BCP 47 tag. The match is case-insensitive. A tag matches a track tag that equals it, or that continues it after a hyphen: `pt` matches `pt-BR`. An array must not be empty. Example: `"es"`. |
 | `music.subgenres` | label or label[] | Optional | Sub-genres. An array must not be empty. Example: `["lo-fi", "ambient"]`. |
 | `music.themes` | label or label[] | Optional | Themes. An array must not be empty. Example: `"christmas"`. |
 | `music.contains_ai` | boolean | Optional | Example: `false`. |
@@ -218,7 +218,7 @@ A range key is the name of the field it limits, followed by `_range`. A value ou
 - Filters are required. A track must match every filter key. When a key has several values, the track must match at least one of them. In other words, the values of one key are combined with OR, and the keys are combined with AND.
 - A track with an unknown field does not match a filter on that field.
 - `music.isrc` matches a track only when the track's `music.isrc` is exactly one of the given values. The Broker never reads an ISRC from the free-text `query`, so only this filter finds a track by its ISRC. `music.upc`, `music.grid`, `music.iswc` and `music.parental_warning` match the same way.
-- `music.label` and `music.language` match case-insensitively. For `music.language`, a given tag also matches a longer tag with the same prefix: `pt` matches `pt` and `pt-BR`, and `pt-BR` matches only `pt-BR`.
+- `music.label` and `music.language` match case-insensitively. For `music.language`, a given tag matches a track tag that equals it, or that starts with it followed by a hyphen. `pt` matches `pt` and `pt-BR`. `pt-BR` matches `pt-BR` and `pt-BR-x-private`, but not `pt` and not `pt-PT`. The hyphen matters: `zh` does not match `zha`.
 - `music.subgenres` and `music.themes` match like `music.mood`: the track has at least one of the given labels.
 - `music.release_date_range`: a bound with fewer parts covers its whole period, so `2015` as `START` means 2015-01-01 and as `END` means 2015-12-31. A track's `release_date` is read the same way, and the track matches when its whole period is inside the range. A track dated `2015` matches `2010/2019` and does not match `2015-06/`, because its month is unknown.
 - `music.contains_ai` works like `music.vocals`: a track without the key does not match `false`.
@@ -239,7 +239,7 @@ The Broker checks a request in this order:
 
 ### Older Brokers
 
-Check 2 also covers a filter key that this profile defined after the Broker was built. Such a Broker ignores the key: the request succeeds, and the results are not filtered by that key. The response does not tell the agent which filter keys the Broker applied. This is accepted, because the Broker version is known in a deployment. New offer keys need no such rule: a consumer ignores the keys it does not know, and the offer stays valid.
+Check 2 also covers a filter key that this profile defined after the Broker was built. Such a Broker ignores the key. When the request also has a `query` or a filter key the Broker knows, the request succeeds, and the results are not filtered by the ignored key. When the ignored key is the only search input, check 4 rejects the request with `INVALID_ARGUMENT`. In neither case does the response tell the agent which filter keys the Broker applied. This is accepted, because the Broker version is known in a deployment. New offer keys need no such rule: a consumer ignores the keys it does not know, and the offer stays valid.
 
 ---
 
@@ -406,11 +406,11 @@ The schema is `music-v1.schema.json` (JSON Schema Draft 2020-12). It applies to 
     "music.bpm": {"type": "integer", "minimum": 1},
     "music.duration_seconds": {"type": "number", "exclusiveMinimum": 0},
     "music.version": {"$ref": "#/$defs/Label"},
-    "music.language": {"type": "string", "pattern": "^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$"},
+    "music.language": {"type": "string", "pattern": "^(?:(?:en-GB-oed|i-ami|i-bnn|i-default|i-enochian|i-hak|i-klingon|i-lux|i-mingo|i-navajo|i-pwn|i-tao|i-tay|i-tsu|sgn-BE-FR|sgn-BE-NL|sgn-CH-DE|art-lojban|cel-gaulish|no-bok|no-nyn|zh-guoyu|zh-hakka|zh-min|zh-min-nan|zh-xiang)|(?:(?:[A-Za-z]{2,3}(?:-[A-Za-z]{3}){0,3}|[A-Za-z]{4,8})(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|[0-9]{3}))?(?:-(?:[A-Za-z0-9]{5,8}|[0-9][A-Za-z0-9]{3}))*(?:-[0-9A-WY-Za-wy-z](?:-[A-Za-z0-9]{2,8})+)*(?:-[Xx](?:-[A-Za-z0-9]{1,8})+)?)|[Xx](?:-[A-Za-z0-9]{1,8})+)$"},
     "music.parental_warning": {"enum": ["explicit", "explicit_edited", "not_explicit"]},
     "music.contains_ai": {"type": "boolean"},
     "music.release_title": {"type": "string", "minLength": 1},
-    "music.release_date": {"type": "string", "pattern": "^[0-9]{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12][0-9]|3[01]))?)?$"},
+    "music.release_date": {"type": "string", "pattern": "^(?:[0-9]{4}(?:-(?:0[1-9]|1[0-2]))?|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:[02468][048]|[13579][26])00)-02-29)$"},
     "music.label": {"type": "string", "minLength": 1},
     "music.catalog_number": {"type": "string", "minLength": 1},
     "music.upc": {"type": "string", "pattern": "^[0-9]{12,14}$"},
@@ -442,7 +442,7 @@ The schema is `music-v1.schema.json` (JSON Schema Draft 2020-12). It applies to 
 }
 ```
 
-The patterns check the shape of an identifier, not its check digit. `music.language` has no label pattern: a BCP 47 tag may contain upper-case letters.
+The patterns check the shape of an identifier, not its check digit. The `music.release_date` pattern accepts only calendar dates: `2016-02-29` is valid, `2015-02-29` and `2015-04-31` are not. The `music.language` pattern is the well-formedness grammar of [RFC 5646 section 2.1](https://www.rfc-editor.org/rfc/rfc5646#section-2.1), so a private-use tag such as `x-klingon` and a registered irregular tag such as `i-klingon` are valid, and `en-a` is not. It is not the label pattern, because a BCP 47 tag may contain upper-case letters. `music.artwork_url` uses `format: uri`. A validator checks a `format` only when its format assertion is switched on: `AssertFormat` in santhosh-tekuri/jsonschema, the ajv-formats package for Ajv, a format checker in the Python `jsonschema` package.
 
 ### Validating in Python
 

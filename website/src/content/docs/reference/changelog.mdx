@@ -37,8 +37,10 @@ with `name`, `role` and the optional `instrument` and `isni`), `parental_warning
 `music.contains_ai`, and `music.release_date_range` in the ISO 8601 interval form
 `START/END`, `START/` or `/END`, because a dash is part of a date. A malformed value
 rejects the request with `INVALID_ARGUMENT`. A Broker ignores a filter key it does not
-know, so a Broker built before this change answers such a request without filtering by
-that key, and the response does not say so. Every existing key keeps its meaning, no key
+know, so a Broker built before this change answers a request that also has a `query` or
+a filter key it knows without filtering by the new key, and the response does not say
+so; a request whose only search input is a new key is rejected as a request without a
+search input. Every existing key keeps its meaning, no key
 becomes required, and the profile name does not change. The JSON Schema on the profile
 page gains the new properties and a `Contributor` definition, and a Go test validates the
 shared cases against that schema. The Go, TypeScript and Python `Music` types gain the

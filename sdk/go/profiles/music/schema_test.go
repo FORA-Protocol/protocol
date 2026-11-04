@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -34,6 +35,9 @@ func compileSchema(t *testing.T) *jsonschema.Schema {
 		t.Fatalf("the schema block is not JSON: %v", err)
 	}
 	c := jsonschema.NewCompiler()
+	// Draft 2020-12 treats "format" as an annotation unless the validator asserts
+	// it. Assert it here, so music.artwork_url's "format": "uri" is checked.
+	c.AssertFormat()
 	if err := c.AddResource(schemaID, doc); err != nil {
 		t.Fatal(err)
 	}
@@ -53,22 +57,36 @@ func validate(t *testing.T, sch *jsonschema.Schema, raw string) error {
 	return sch.Validate(v)
 }
 
-// Every shared case is a valid Offer.ext, so an offer with every key and an offer
-// with the ten original keys both validate. The cases also cover what the schema
-// allows on purpose: unknown keys, a nested "music" object, and a bpm written as
-// 90.0 or 1e2. Each form of the release date is valid.
-func TestSchemaAcceptsSharedCasesAndDateForms(t *testing.T) {
+// Every shared case is a valid Offer.ext: all_fields has every key, and
+// original_ten_keys has only the keys of the profile's first release. The cases
+// also cover what the schema allows on purpose: unknown keys, a nested "music"
+// object, and a bpm written as 90.0 or 1e2. Each form of the release date is valid,
+// including the leap day of a leap year, and a language tag in any shape RFC 5646
+// allows is valid.
+func TestSchemaAcceptsSharedCasesAndValueForms(t *testing.T) {
 	sch := compileSchema(t)
-	for _, c := range loadCases(t) {
+	cases := loadCases(t)
+	for _, name := range []string{"all_fields", "original_ten_keys"} {
+		if !slices.ContainsFunc(cases, func(c roundTripCase) bool { return c.Name == name }) {
+			t.Errorf("shared case %q is missing", name)
+		}
+	}
+	for _, c := range cases {
 		t.Run(c.Name, func(t *testing.T) {
 			if err := validate(t, sch, string(c.Input)); err != nil {
 				t.Errorf("input is invalid:\n%v", err)
 			}
 		})
 	}
-	for _, d := range []string{"2015", "2015-06", "2015-06-17"} {
-		if err := validate(t, sch, `{"music.release_date": "`+d+`"}`); err != nil {
-			t.Errorf("release_date %q is invalid:\n%v", d, err)
+	valid := map[string][]string{
+		"music.release_date": {"2015", "2015-06", "2015-06-17", "2015-12-31", "2016-02-29", "2000-02-29"},
+		"music.language":     {"en", "pt-BR", "zh-Hant-TW", "de-CH-1901", "sl-rozaj-biske", "en-US-u-islamcal", "x-klingon", "i-klingon"},
+	}
+	for key, values := range valid {
+		for _, v := range values {
+			if err := validate(t, sch, `{"`+key+`": "`+v+`"}`); err != nil {
+				t.Errorf("%s %q is invalid:\n%v", key, v, err)
+			}
 		}
 	}
 }
@@ -83,11 +101,21 @@ func TestSchemaRejectsInvalidValuesAtTheKey(t *testing.T) {
 		{"upc_with_letter", `{"music.upc": "02012345678A"}`, "/music.upc"},
 		{"upper_case_subgenre", `{"music.subgenres": ["lo-fi", "Ambient"]}`, "/music.subgenres/1"},
 		{"release_date_month_13", `{"music.release_date": "2015-13"}`, "/music.release_date"},
+		{"release_date_month_without_zero", `{"music.release_date": "2015-6"}`, "/music.release_date"},
+		{"release_date_feb_29_in_a_common_year", `{"music.release_date": "2015-02-29"}`, "/music.release_date"},
+		{"release_date_feb_29_in_a_century_year", `{"music.release_date": "1900-02-29"}`, "/music.release_date"},
+		{"release_date_feb_31", `{"music.release_date": "2015-02-31"}`, "/music.release_date"},
+		{"release_date_april_31", `{"music.release_date": "2015-04-31"}`, "/music.release_date"},
 		{"parental_warning_outside_values", `{"music.parental_warning": "clean"}`, "/music.parental_warning"},
 		{"contributor_without_name", `{"music.contributors": [{"role": "composer"}]}`, "/music.contributors/0"},
 		{"contributor_without_role", `{"music.contributors": [{"name": "Sam Example"}]}`, "/music.contributors/0"},
 		{"iswc_in_display_form", `{"music.iswc": "T-034.524.680-1"}`, "/music.iswc"},
 		{"language_is_not_a_tag", `{"music.language": "portuguese (brazil)"}`, "/music.language"},
+		{"language_singleton_without_extension", `{"music.language": "en-a"}`, "/music.language"},
+		{"language_one_letter_primary", `{"music.language": "a-DE"}`, "/music.language"},
+		{"language_empty_subtag", `{"music.language": "en--US"}`, "/music.language"},
+		{"artwork_url_is_not_a_url", `{"music.artwork_url": "not a URL"}`, "/music.artwork_url"},
+		{"artwork_url_is_relative", `{"music.artwork_url": "/tracks/night-orbit/cover.jpg"}`, "/music.artwork_url"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
