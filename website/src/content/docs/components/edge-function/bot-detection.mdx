@@ -72,7 +72,7 @@ The edge function catches **cooperative AI bots** -- those that identify themsel
 
 The edge function is **additive** to the WAF, not a replacement. It must deploy alongside existing WAF rules without conflict.
 
-**Integration requirement**: The edge function runs *after* the WAF (or alongside it, depending on CDN architecture). WAF rules should not block requests to `/.well-known/fora.json` or `/rsl.txt`, and should not interfere with signed URL parameters. Providers must allowlist these paths in their WAF configuration.
+**Integration requirement**: on most CDNs the WAF and the bot product run *before* the edge function, so what they let through decides what the edge function sees. [Keeping CDN Bot Protection On](#keeping-cdn-bot-protection-on) says which requests they must let through, and how a provider can keep its bot product on in front of the edge function.
 
 ## CDN WAF Products by Platform
 
@@ -82,6 +82,152 @@ The edge function is **additive** to the WAF, not a replacement. It must deploy 
 | Cloudflare | Cloudflare Bot Management (Enterprise), Super Bot Fight Mode (Pro/Business) |
 | Akamai | Akamai Bot Manager (Premier / Standard) |
 | Fastly | Fastly Signal Sciences (next-gen WAF) |
+
+## Keeping CDN Bot Protection On
+
+A request that the CDN's WAF or bot product blocks or challenges never reaches the edge function. Whatever the WAF and the bot product think of the client, two kinds of request MUST get through them:
+
+- **Signed requests** on the hosts and paths where the edge function checks them: requests that carry the signed URL parameters `agent_id`, `exp`, `kid` and `sig` (see [Signed URL Verification](/components/edge-function/signed-url-verification/)).
+- **GET and HEAD of the two provider documents**, `/.well-known/fora.json` and `/rsl.txt`, which have to reach the origin for every client. The edge function forwards them where it runs on them. Where it does not, as on a CloudFront cache behavior it is not associated with, the CDN fetches them from the origin itself.
+
+Letting signed requests skip the bot product does not weaken access control where the edge function checks them. There, a request whose signature does not check out gets a `403` whether the client is a bot or a browser, so a forged signature is refused by the edge function instead of by the bot product. Two limits keep this true:
+
+- **Limit the exception to where the edge function checks signed requests**: its hostnames, and the paths on which it checks signed URL parameters. The console's package checks them on every path it runs on: the whole hostname on Cloudflare, the paths of its cache behaviors on CloudFront. An edge function that checks them only on its protected paths needs the exception limited to those paths. A request that carries `sig` anywhere else reaches the origin with no signature check at all.
+- **Match the parameter name exactly and case-sensitively**, the way the edge function reads it. A case-insensitive match lets `?SIG=x` past the bot product, while the edge function treats that request as unsigned, so a scraper that claims to be a browser is served the page.
+
+A provider chooses one of two setups.
+
+### Setup 1: the edge function decides for every client
+
+This is the recommended setup. The bot product leaves the protected paths and the two documents to the edge function, and keeps protecting the rest of the site. Every cooperative AI bot without a license gets the edge function's `403` with `X-Content-Rules` and `X-FORA-Exchange` (see [The 403 Response](#the-403-response)), so it learns where to buy access.
+
+### Setup 2: the bot product stays on, signed requests skip it
+
+The bot product keeps blocking automated traffic on the protected paths too, with an exception for signed requests and the two documents. This setup has two costs:
+
+- An AI bot without a license gets the CDN's own answer, an HTML block or challenge page or a short JSON message, without the discovery headers, so it does not learn where to buy access. Agents that already know the provider's `fora.json`, or find the content in an Exchange's catalog, are not affected.
+- The exception matches the shape of a request, and that shape is public. Anyone can add `sig` to an address to pass the bot product. The edge function refuses each such request whose signature does not check out, so no content is released, but the bot product no longer filters that traffic.
+
+The bot product also sees two automated readers of the provider's own setup. An Exchange that reads the provider's sitemap to build its catalog needs the sitemap exempted too, or the catalog stays empty. An onboarding console that checks the edge function by asking as an AI bot without a license gets the CDN's answer under this setup, so it cannot see the edge function: finish onboarding under setup 1, then add the exception.
+
+To check the exception, ask for a protected page with a signature that cannot be valid:
+
+```bash
+curl -s -i -A "GPTBot/1.0" \
+  "https://publisher.example/premium/article.html?sig=check"
+# Expect: 403, content-type: application/json, a reason in the body.
+#         Any other answer, such as an HTML page, means the CDN answered, and the
+#         exception does not match.
+```
+
+Tell the edge function's answers from the CDN's by `content-type`, the body and the discovery headers. Headers such as `server: cloudflare` and `cf-ray` appear on the edge function's answers too.
+
+### Cloudflare
+
+WAF custom rules, managed rules and the bot products run before a Worker. Super Bot Fight Mode, on the Pro and Business plans, can be skipped by a WAF custom rule with the action **Skip** and only **All Super Bot Fight Mode rules** ticked, placed above every rule that blocks or challenges. For a provider at `publisher.example`:
+
+```
+http.host eq "publisher.example" and (any(http.request.uri.args.names[*] eq "sig") or http.request.uri.path in {"/.well-known/fora.json" "/rsl.txt"})
+```
+
+The expression names the host and no path, so it is safe only where the edge function runs on the whole hostname and checks every request that carries `sig` there, as the console's package does with the route `publisher.example/*`. The skip also takes these requests past Cloudflare's AI crawler and agent access policies, so they need no rule of their own.
+
+The Free plan's Bot Fight Mode cannot be skipped by any rule, so setup 2 is not available there. AI Crawl Control blocks crawlers with a custom rule of its own, which the skip does not cover. Put that rule's expression in parentheses and add the skip expression after it, with `and not` in front, so the crawler block lets the same requests through on this host:
+
+```
+and not (http.host eq "publisher.example" and (any(http.request.uri.args.names[*] eq "sig") or http.request.uri.path in {"/.well-known/fora.json" "/rsl.txt"}))
+```
+
+AI Crawl Control answers a crawler it blocks with a `403` and the JSON `{"message":"Please contact the site owner for access."}`, not with an HTML page.
+
+### CloudFront
+
+AWS WAF evaluates a request before the Lambda@Edge viewer-request function. With the Bot Control managed rule group (`AWSManagedRulesBotControlRuleSet`), a scope-down statement, set inside the rule's `ManagedRuleGroupStatement`, leaves the exceptions out of what Bot Control inspects. The statement below matches `sig` on the query string with no text transformation, because a `SingleQueryArgument` match compares the name without regard to case. Its path statements remove dot segments and repeated slashes first (`NORMALIZE_PATH`), as CloudFront also does before it picks a cache behavior, so `/premium/../account/login?sig=x` is not taken for a protected path. It leaves a signed request out only on the provider's host and on the path prefix of the cache behavior the function is associated with:
+
+```json
+{
+  "NotStatement": {
+    "Statement": {
+      "OrStatement": {
+        "Statements": [
+          {
+            "AndStatement": {
+              "Statements": [
+                {
+                  "ByteMatchStatement": {
+                    "FieldToMatch": { "SingleHeader": { "Name": "host" } },
+                    "PositionalConstraint": "EXACTLY",
+                    "SearchString": "publisher.example",
+                    "TextTransformations": [{ "Priority": 0, "Type": "NONE" }]
+                  }
+                },
+                {
+                  "OrStatement": {
+                    "Statements": [
+                      {
+                        "ByteMatchStatement": {
+                          "FieldToMatch": { "QueryString": {} },
+                          "PositionalConstraint": "STARTS_WITH",
+                          "SearchString": "sig=",
+                          "TextTransformations": [
+                            { "Priority": 0, "Type": "NONE" }
+                          ]
+                        }
+                      },
+                      {
+                        "ByteMatchStatement": {
+                          "FieldToMatch": { "QueryString": {} },
+                          "PositionalConstraint": "CONTAINS",
+                          "SearchString": "&sig=",
+                          "TextTransformations": [
+                            { "Priority": 0, "Type": "NONE" }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "ByteMatchStatement": {
+                    "FieldToMatch": { "UriPath": {} },
+                    "PositionalConstraint": "STARTS_WITH",
+                    "SearchString": "/premium/",
+                    "TextTransformations": [
+                      { "Priority": 0, "Type": "NORMALIZE_PATH" }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "ByteMatchStatement": {
+              "FieldToMatch": { "UriPath": {} },
+              "PositionalConstraint": "EXACTLY",
+              "SearchString": "/.well-known/fora.json",
+              "TextTransformations": [
+                { "Priority": 0, "Type": "NORMALIZE_PATH" }
+              ]
+            }
+          },
+          {
+            "ByteMatchStatement": {
+              "FieldToMatch": { "UriPath": {} },
+              "PositionalConstraint": "EXACTLY",
+              "SearchString": "/rsl.txt",
+              "TextTransformations": [
+                { "Priority": 0, "Type": "NORMALIZE_PATH" }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+Bot Control's AI category blocks AI bots even when they are verified, so under setup 2 no AI bot without a license gets the edge function's `403`.
 
 ## The 403 Response
 
