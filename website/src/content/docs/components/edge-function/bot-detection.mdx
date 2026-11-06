@@ -105,7 +105,7 @@ This is the recommended setup. The bot product leaves the protected paths and th
 
 The bot product keeps blocking automated traffic on the protected paths too, with an exception for signed requests and the two documents. This setup has two costs:
 
-- An AI bot without a license gets the CDN's own answer, an HTML block or challenge page, without the discovery headers, so it does not learn where to buy access. Agents that already know the provider's `fora.json`, or find the content in an Exchange's catalog, are not affected.
+- An AI bot without a license gets the CDN's own answer, an HTML block or challenge page or a short JSON message, without the discovery headers, so it does not learn where to buy access. Agents that already know the provider's `fora.json`, or find the content in an Exchange's catalog, are not affected.
 - The exception matches the shape of a request, and that shape is public. Anyone can add `sig` to an address to pass the bot product. The edge function refuses each such request whose signature does not check out, so no content is released, but the bot product no longer filters that traffic.
 
 The bot product also sees two automated readers of the provider's own setup. An Exchange that reads the provider's sitemap to build its catalog needs the sitemap exempted too, or the catalog stays empty. An onboarding console that checks the edge function by asking as an AI bot without a license gets the CDN's answer under this setup, so it cannot see the edge function: finish onboarding under setup 1, then add the exception.
@@ -116,7 +116,8 @@ To check the exception, ask for a protected page with a signature that cannot be
 curl -s -i -A "GPTBot/1.0" \
   "https://publisher.example/premium/article.html?sig=check"
 # Expect: 403, content-type: application/json, a reason in the body.
-#         An HTML page means the CDN answered, and the exception does not match.
+#         Any other answer, such as an HTML page, means the CDN answered, and the
+#         exception does not match.
 ```
 
 Tell the edge function's answers from the CDN's by `content-type`, the body and the discovery headers. Headers such as `server: cloudflare` and `cf-ray` appear on the edge function's answers too.
@@ -129,13 +130,15 @@ WAF custom rules, managed rules and the bot products run before a Worker. Super 
 http.host eq "publisher.example" and (any(http.request.uri.args.names[*] eq "sig") or http.request.uri.path in {"/.well-known/fora.json" "/rsl.txt"})
 ```
 
-The expression names the host and no path, so it is safe only where the edge function runs on the whole hostname and checks every request that carries `sig` there, as the console's package does with the route `publisher.example/*`.
+The expression names the host and no path, so it is safe only where the edge function runs on the whole hostname and checks every request that carries `sig` there, as the console's package does with the route `publisher.example/*`. The skip also takes these requests past Cloudflare's AI crawler and agent access policies, so they need no rule of their own.
 
 The Free plan's Bot Fight Mode cannot be skipped by any rule, so setup 2 is not available there. AI Crawl Control blocks crawlers with a custom rule of its own, which the skip does not cover. Put that rule's expression in parentheses and add the skip expression after it, with `and not` in front, so the crawler block lets the same requests through on this host:
 
 ```
 and not (http.host eq "publisher.example" and (any(http.request.uri.args.names[*] eq "sig") or http.request.uri.path in {"/.well-known/fora.json" "/rsl.txt"}))
 ```
+
+AI Crawl Control answers a crawler it blocks with a `403` and the JSON `{"message":"Please contact the site owner for access."}`, not with an HTML page.
 
 ### CloudFront
 
