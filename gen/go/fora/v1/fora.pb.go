@@ -8449,6 +8449,18 @@ type WBAFile struct {
 	// signature against the list of the directory that published its key, and
 	// never applies this list to another party's key. A fetch of the list MAY
 	// follow up to five redirects (see "Redirects" under Well-Known Discovery).
+	//
+	// The URL MUST be absolute and on the same host AND PORT that serve this
+	// directory, or on a subdomain of that host on that port. A consumer MUST NOT
+	// poll a revocation_url anywhere else: a directory is fetched from whichever
+	// host a signature names, before that signature is checked, so a list on an
+	// unrelated host would let any party aim every verifier's poller at a host of
+	// its choosing. A list named anywhere else therefore revokes nothing, and a
+	// party that serves one directory per host advertises a separate
+	// revocation_url in each. The host match is on a full dot-delimited label
+	// boundary, and a port equal to the scheme's default and an omitted port are
+	// the SAME port. The protocol names no path for the list: the publishing party
+	// chooses it, and a consumer reads it from this field and never derives it.
 	RevocationUrl *string `protobuf:"bytes,2,opt,name=revocation_url,json=revocationUrl,proto3,oneof" json:"revocation_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
