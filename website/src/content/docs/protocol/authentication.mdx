@@ -947,6 +947,10 @@ Enforcement is operational, not protocol-guaranteed: a consumer that grants acce
 
 When a WBA directory sets `revocation_url`, consumers poll it on a 300s cadence (±10% jitter) and replace their local revoked set with the response — a `KeyRevocationList` (thumbprint-only snapshot: `as_of` + `revoked[]`). A revoked thumbprint stays revoked; reject any signature whose key thumbprint is in the set. When `revocation_url` is unset, consumers rely on routine rotation and `not_after` expiry.
 
+`revocation_url` **MUST** be an absolute URL on the same host **and port** that serve the key directory, or on a subdomain of that host on that port. A consumer **MUST NOT** poll a `revocation_url` anywhere else: a directory is fetched from whichever origin a signature's covered `Signature-Agent` member names, before that signature is checked, so a list on an unrelated host would let any party aim every verifier's poller wherever it liked. A list named anywhere else therefore revokes nothing. Host and port match as for an Exchange's [endpoint](/protocol/exchange-manifest/#endpoint-host-binding): on a full dot-delimited label boundary, with a port equal to the scheme's default the same as an omitted port.
+
+A party that serves one directory per host, such as a registry that gives each agent its own subdomain, advertises a separate `revocation_url` in each; one shared URL anchors to at most one of them, and every other agent's revocations go unread. The protocol names no path for the list: the publishing party chooses it, and a consumer reads it from `revocation_url` and never derives it.
+
 ### Whose list revokes whose key
 
 Revocation is scoped to the signer. Each signature is verified against its own signer's key directory and the revocation list that directory names, and against no other party's:

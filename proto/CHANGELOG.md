@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+**A key directory's `revocation_url` must sit on the directory's own host (comments and docs
+only; no wire change).** The `WBAFile.revocation_url` comment and the Emergency Revocation
+section of the authentication page state the rule all three SDKs already enforce: the URL is
+absolute and on the same host and port that serve the key directory, or on a subdomain of
+that host on that port, with a port equal to the scheme's default the same as an omitted one,
+and a consumer polls no other value. A party that serves one directory per host, such as a
+registry that gives each agent its own subdomain, advertises a separate `revocation_url` in
+each. The protocol names no path for the list, and the SDK exports none: a consumer reads the
+location from `revocation_url` and never derives it. The proto reference, the verification
+steps for Exchange operators and the Identity Service page link to the rule, and the design
+history records why the SDK names no path.
+
 **A Broker's catalog search is configured per deployment (docs only; no wire change).** The
 Broker overview says what a free-text query does: the configured catalog search turns it
 into catalog URIs, each URI takes the normal per-URL route and comes back as its own

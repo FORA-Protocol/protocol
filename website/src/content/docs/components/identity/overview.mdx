@@ -45,6 +45,8 @@ The account row is the authoritative record of registration, and sign-up reserve
 
 The directory follows the [Key Directory](/protocol/authentication/#key-directory) rules: https, a direct `200`, the media type above, and a response signed by each key it lists. The service release that predates the Web Bot Auth profile serves it as `application/jwk-set+json` and unsigned.
 
+Each agent's directory names its revocation list on the agent's own subdomain, at the path above. A verifier polls a revocation list only on the host that served the directory (see [Emergency Revocation](/protocol/authentication/#emergency-revocation)), so one URL shared by every agent would leave all but one agent's revocations unread. The path itself is this service's choice; the protocol names none.
+
 Two properties of the directory are load-bearing. It is assembled as a real JWK Set with a JOSE library rather than marshalled from FORA's protobuf. The audience is any Web Bot Auth verifier on the open internet, and those implement RFC 7517, not `fora.v1`. And keys come out **newest-first**, which matters for the signing tie-break described below.
 
 Keys carry no `kid`. Identity is the RFC 7638 thumbprint, so entries are deduplicated on the JWK `x` member actually emitted into the document. The FORA-specific `not_before` / `not_after` validity window is spliced onto each key as an extension member, which a generic verifier ignores. Each key also carries `alg` `EdDSA`, the JOSE name RFC 7517 defines, which is a known, deliberate deviation from WG-00 §5.5.1 (see [Key Directory](/protocol/authentication/#key-directory)).
