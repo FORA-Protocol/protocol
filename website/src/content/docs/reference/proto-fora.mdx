@@ -363,7 +363,7 @@ The pure WBA directory, served at `/.well-known/http-message-signatures-director
 | Field | Type | Number | Description |
 |---|---|---|---|
 | `keys` | repeated JsonWebKey | 1 | Signature-verification keys; ≥1 valid at serve time |
-| `revocation_url` | optional string | 2 | Emergency key-revocation list URL (`KeyRevocationList`) |
+| `revocation_url` | optional string | 2 | Emergency key-revocation list URL (`KeyRevocationList`), on the directory's own host and port or a subdomain of it; see [Emergency Revocation](/protocol/authentication/#emergency-revocation) |
 
 ### JsonWebKey
 
