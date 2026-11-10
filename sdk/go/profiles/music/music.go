@@ -58,6 +58,9 @@ type Music struct {
 	// Version is a label for which version of the recording this is, for example
 	// "instrumental" or "live". It is not a matching input.
 	Version *string `json:"music.version,omitempty"`
+	// Key is a label for the musical key, for example "a minor" or "f# major". It is
+	// not a matching input.
+	Key *string `json:"music.key,omitempty"`
 	// Language is the BCP 47 tag of the sung or spoken words. It is not a label:
 	// consumers compare it case-insensitively.
 	Language *string `json:"music.language,omitempty"`
@@ -88,12 +91,14 @@ type Music struct {
 	CLine *string `json:"music.c_line,omitempty"`
 	// Contributors are the credits, one entry per role.
 	Contributors []Contributor `json:"music.contributors,omitzero"`
+	// Publishers are the music publishers of the work, with the data a cue sheet needs.
+	Publishers []Publisher `json:"music.publishers,omitzero"`
 	// ArtworkURL is the URL of the cover image.
 	ArtworkURL *string `json:"music.artwork_url,omitempty"`
 }
 
 // Contributor is one entry of music.contributors: one credit. The schema requires
-// Name and Role, so they are plain strings. Instrument and ISNI are optional.
+// Name and Role, so they are plain strings. The other keys are optional.
 type Contributor struct {
 	// Name is the display name of the person or group.
 	Name string `json:"name"`
@@ -103,6 +108,25 @@ type Contributor struct {
 	Instrument *string `json:"instrument,omitempty"`
 	// ISNI identifies the person or group: 16 characters.
 	ISNI *string `json:"isni,omitempty"`
+	// IPI is the IPI name number of a writer: 9 to 11 digits.
+	IPI *string `json:"ipi,omitempty"`
+	// PRO is a label for the writer's collecting society, for example "ascap".
+	PRO *string `json:"pro,omitempty"`
+	// Share is the writer's share of the work in percent, more than 0 and at most 100.
+	Share *float64 `json:"share,omitempty"`
+}
+
+// Publisher is one entry of music.publishers: a music publisher of the work. The
+// schema requires Name. The other keys are optional.
+type Publisher struct {
+	// Name is the name of the publisher.
+	Name string `json:"name"`
+	// IPI is the IPI name number of the publisher: 9 to 11 digits.
+	IPI *string `json:"ipi,omitempty"`
+	// PRO is a label for the publisher's collecting society, for example "prs".
+	PRO *string `json:"pro,omitempty"`
+	// Share is the publisher's share of the work in percent, more than 0 and at most 100.
+	Share *float64 `json:"share,omitempty"`
 }
 
 // UnmarshalJSON decodes m as encoding/json does, with one difference: music.bpm

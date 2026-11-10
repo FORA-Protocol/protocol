@@ -11,8 +11,9 @@ FORA-Music v1 defines a standardized vocabulary of `ext` field keys for music re
 - **Filter** a catalog search with required `music.*` constraints in `DiscoveryRequest.search_filters`
 - **Find** a specific recording by its ISRC, a release by its UPC or GRid, and every recording of one work by its ISWC
 - **Show** the release and credit block that a label keeps for every recording: title, release title and date, label, catalog number, P-line and C-line, contributors and artwork
+- **Carry** the rights data a cue sheet needs: the writers and the music publishers of the work, each with an IPI number, a collecting society and a share
 
-The profile is recording-discovery metadata. It is not a rights model: it has no fields for composition ownership, royalty splits or clearance. Permission to use a recording comes only from the offer's [license terms](/protocol/licensing-terms/). DDEX deal terms such as territory, use type, commercial model and validity period map to the license terms, not to this profile.
+The profile describes the recording and the work. It is not a license: the writer and publisher fields say who to credit and report, not what a buyer may do. Permission to use a recording comes only from the offer's [license terms](/protocol/licensing-terms/). DDEX deal terms such as territory, use type, commercial model and validity period map to the license terms, not to this profile.
 
 ### Who Should Implement This
 
@@ -55,11 +56,11 @@ The Broker does not route requests by `supported_profiles`.
 
 ## Field Summary
 
-This profile defines **29 field names** and **19 search filter keys**. Every key is namespaced with `music.`, and all keys are optional.
+This profile defines **31 field names** and **19 search filter keys**. Every key is namespaced with `music.`, and all keys are optional.
 
 | Message | Field Count | Purpose |
 |---------|-------------|---------|
-| `Offer.ext` | 29 | Recording metadata on an offer: 10 descriptive fields and 19 fields used for matching |
+| `Offer.ext` | 31 | Recording metadata on an offer: 12 descriptive fields and 19 fields used for matching |
 | `DiscoveryRequest.search_filters` | 19 | Required constraints on a catalog search |
 
 ---
@@ -88,11 +89,12 @@ The search filter keys use the same names: `music.genre` filters on the field wh
 | `music.bpm` | integer | Optional | Yes | Tempo in beats per minute, 1 or more. Fractional BPM is not supported. |
 | `music.duration_seconds` | number | Optional | Yes | Duration of the **delivered file**, more than 0. For a 60-second excerpt it is the excerpt's duration (for example `60.03`), not the duration of the source recording. |
 | `music.version` | label | Optional | No | Which version of the recording this is, for example `instrumental`, `live`, `remix` or `radio`. |
+| `music.key` | label | Optional | No | Musical key of the recording, for example `a minor` or `f# major`. See [Key](#key). |
 | `music.language` | string | Optional | Yes | Language of the performance as a BCP 47 tag, for example `en` or `pt-BR`. See [Language](#language). |
 | `music.parental_warning` | string | Optional | Yes | `explicit`, `explicit_edited` or `not_explicit`. See [Parental Warning](#parental-warning). |
 | `music.contains_ai` | boolean | Optional | Yes | `true` when the recording contains AI-generated content. See [AI Content](#ai-content). |
 
-`artist`, `title` and `version` are descriptive. No search filter refers to them. `isrc` is used only by the `music.isrc` filter, as an exact match.
+`artist`, `title`, `version` and `key` are descriptive. No search filter refers to them. `isrc` is used only by the `music.isrc` filter, as an exact match.
 
 ### Release, Identifiers and Credits
 
@@ -110,14 +112,15 @@ These fields describe the release the recording belongs to, and the credits a la
 | `music.proprietary_ids` | string[] | Optional | No | The publisher's own identifiers of the recording, each as `namespace:value`, for example `fma:12345`. |
 | `music.p_line` | string | Optional | No | The full P-line (phonogram notice), for example `(P) 2015 Example Records`. |
 | `music.c_line` | string | Optional | No | The full C-line (copyright notice), for example `(C) 2015 Example Music Publishing`. |
-| `music.contributors` | object[] | Optional | No | Credits: who did what. Each object has `name`, `role`, and optional `instrument` and `isni`. |
+| `music.contributors` | object[] | Optional | No | Credits: who did what. Each object has `name`, `role`, and optional `instrument`, `isni`, `ipi`, `pro` and `share`. |
+| `music.publishers` | object[] | Optional | No | Music publishers of the work, for a cue sheet. Each object has `name`, and optional `ipi`, `pro` and `share`. See [Publishers](#publishers). |
 | `music.artwork_url` | string | Optional | No | URL of the cover image. |
 
 `upc`, `grid` and `iswc` are matched like `isrc`: each only by the filter of the same name, as an exact match.
 
 ### Labels
 
-`genre`, `subgenres`, `themes`, `mood`, `instruments`, `suitable_for` and `version` hold labels, and so do the `role` and `instrument` of a contributor. A label:
+`genre`, `subgenres`, `themes`, `mood`, `instruments`, `suitable_for`, `version` and `key` hold labels, and so do the `role` and `instrument` of a contributor and the `pro` of a contributor or a publisher. A label:
 
 - is not empty;
 - has no whitespace at the start or at the end;
@@ -137,6 +140,10 @@ A publisher that fills a label from a DDEX allowed value writes the value as a l
 
 The definition is broad on purpose. An agent that filters on `vocals: false` usually needs a track that does not compete with narration, and any voice does.
 
+### Key
+
+`key` is the musical key of the recording: the tonic, then `major` or `minor`, in lower case. Write a sharp as `#` and a flat as `b`: `a minor`, `f# major`, `bb minor`. A recording that changes key gives the key it starts in.
+
 ### Release Date
 
 `release_date` is the date the release was first made available, in the form `YYYY`, `YYYY-MM` or `YYYY-MM-DD`. A publisher writes the parts it knows: `2015` when only the year is known. It is not the date the file was uploaded, and not the date the offer was made.
@@ -147,9 +154,10 @@ The definition is broad on purpose. An agent that filters on `vocals: false` usu
 - `grid` is the Global Release Identifier of the release: 18 characters without hyphens. They are `A1`, a 5-character issuer code, a 10-character release number and a check character.
 - `iswc` identifies the work (the composition), not the recording. It is written in the compact form: `T` followed by 10 digits, for example `T0345246801`. The display form `T-034.524.680-1` is written without its hyphens and dots, the same way `isrc` is written without hyphens.
 - `isni` on a contributor identifies the person or group: 16 characters without spaces, 15 digits and a check character `0` to `9` or `X`.
+- `ipi` on a contributor or a publisher is the IPI name number that collecting societies use to pay the right party: 9 to 11 digits without spaces.
 - `proprietary_ids` holds the publisher's own identifiers of the recording. Each entry is `namespace:value`, for example `fma:12345`. The namespace is a DNS name or a short name of the source.
 
-`isrc`, `upc`, `grid` and `iswc` name the recording, the release and the work that a license covers, so a usage report or a dispute can name them. They say nothing about who owns the work. Other identifiers, such as IPI, DPID, ISAN, EIDR and HFA, are not defined keys. A publisher can send them as unknown fields.
+`isrc`, `upc`, `grid` and `iswc` name the recording, the release and the work that a license covers, so a usage report or a dispute can name them. They say nothing about who owns the work; `contributors` and `publishers` do. Other identifiers, such as DPID, ISAN, EIDR and HFA, are not defined keys. A publisher can send them as unknown fields.
 
 ### Contributors
 
@@ -161,8 +169,24 @@ The definition is broad on purpose. An agent that filters on `vocals: false` usu
 | `role` | label | Yes | What the contributor did, for example `composer`, `lyricist` or `mixing engineer`. [Recommended Labels](#recommended-labels) lists the roles. |
 | `instrument` | label | Optional | The instrument the contributor played, for a performer. |
 | `isni` | string | Optional | ISNI of the person or group. See [Identifiers](#identifiers). |
+| `ipi` | string | Optional | IPI name number of a writer. See [Identifiers](#identifiers). |
+| `pro` | label | Optional | The collecting society the writer belongs to, for example `ascap`, `bmi`, `prs`, `gema` or `sacem`. |
+| `share` | number | Optional | The writer's share of the work, in percent: more than 0 and at most 100. |
 
 A person with two roles appears twice, once per role. An empty array means known to be empty, like every array of this profile. An absent key means the credits are unknown.
+
+### Publishers
+
+`publishers` lists the music publishers of the work (the composition), one object per publisher:
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `name` | string | Yes | Name of the publisher. Case is preserved. |
+| `ipi` | string | Optional | IPI name number of the publisher. See [Identifiers](#identifiers). |
+| `pro` | label | Optional | The collecting society the publisher belongs to. |
+| `share` | number | Optional | The publisher's share of the work, in percent: more than 0 and at most 100. |
+
+Together with `iswc`, the writers' `ipi`, `pro` and `share`, and the title and duration, this is the data a cue sheet asks for. The data travels in the offer the agent buys, so the buyer, or the broadcaster it delivers to, can file the cue sheet without asking the publisher again. The profile does not check that the shares add up: writer and publisher shares are often counted separately, and the rule differs between societies.
 
 ### Language
 
@@ -306,6 +330,7 @@ An Exchange returns an offer for a 60-second excerpt of an instrumental track, w
     "music.bpm": 124,
     "music.duration_seconds": 60.03,
     "music.version": "instrumental",
+    "music.key": "a minor",
     "music.parental_warning": "not_explicit",
     "music.contains_ai": false,
     "music.release_title": "Galaxy Drift",
@@ -313,12 +338,16 @@ An Exchange returns an offer for a 60-second excerpt of an instrumental track, w
     "music.label": "Example Records",
     "music.catalog_number": "EXR-0042",
     "music.upc": "020123456782",
+    "music.iswc": "T0345246801",
     "music.p_line": "(P) 2015 Example Records",
     "music.c_line": "(C) 2015 Example Music Publishing",
     "music.contributors": [
-      {"name": "Nova Orbit", "role": "composer"},
+      {"name": "Nova Orbit", "role": "composer", "ipi": "00123456789", "pro": "prs", "share": 50},
       {"name": "Nova Orbit", "role": "performer", "instrument": "synthesizer"},
       {"name": "Sam Example", "role": "mixing engineer"}
+    ],
+    "music.publishers": [
+      {"name": "Example Music Publishing", "ipi": "00987654321", "pro": "prs", "share": 50}
     ],
     "music.artwork_url": "https://music-exchange.example.com/tracks/galaxy-drift/cover.jpg"
   },
@@ -381,11 +410,11 @@ The SDKs have a typed view of the `music.*` keys of `Offer.ext`:
 
 | Language | Import | Names |
 |---|---|---|
-| Go | `github.com/FORA-Protocol/protocol/sdk/go/profiles/music` | `music.Music`, `music.Contributor`, `music.ProfileID` |
-| TypeScript | `@fora-protocol/sdk/music` | `Music`, `Contributor`, `ProfileID` |
-| Python | `fora_sdk.music` | `Music`, `Contributor`, `PROFILE_ID` |
+| Go | `github.com/FORA-Protocol/protocol/sdk/go/profiles/music` | `music.Music`, `music.Contributor`, `music.Publisher`, `music.ProfileID` |
+| TypeScript | `@fora-protocol/sdk/music` | `Music`, `Contributor`, `Publisher`, `ProfileID` |
+| Python | `fora_sdk.music` | `Music`, `Contributor`, `Publisher`, `PROFILE_ID` |
 
-`Contributor` is the type of one entry of `music.contributors`, with `name`, `role` and the optional `instrument` and `isni`. The types keep the rules from [Absent, Empty and Null](#absent-empty-and-null): an absent key stays absent, and an empty list stays an empty list. Decoding an `Offer.ext` into the Go type keeps only the `music.*` keys. A `music.bpm` written as a whole number with a fraction or an exponent, for example `90.0` or `1e2`, is valid, because JSON Schema counts it as an integer. The Go type accepts it as `90` or `100`. The types do not validate the values. Use the JSON Schema to validate input that you do not trust.
+`Contributor` is the type of one entry of `music.contributors`, with `name`, `role` and the optional `instrument`, `isni`, `ipi`, `pro` and `share`. `Publisher` is the type of one entry of `music.publishers`, with `name` and the optional `ipi`, `pro` and `share`. The types keep the rules from [Absent, Empty and Null](#absent-empty-and-null): an absent key stays absent, and an empty list stays an empty list. Decoding an `Offer.ext` into the Go type keeps only the `music.*` keys. A `music.bpm` written as a whole number with a fraction or an exponent, for example `90.0` or `1e2`, is valid, because JSON Schema counts it as an integer. The Go type accepts it as `90` or `100`. The types do not validate the values. Use the JSON Schema to validate input that you do not trust.
 
 ---
 
@@ -415,6 +444,7 @@ The schema is `music-v1.schema.json` (JSON Schema Draft 2020-12). It applies to 
     "music.bpm": {"type": "integer", "minimum": 1},
     "music.duration_seconds": {"type": "number", "exclusiveMinimum": 0},
     "music.version": {"$ref": "#/$defs/Label"},
+    "music.key": {"$ref": "#/$defs/Label"},
     "music.language": {"type": "string", "pattern": "^(?:(?:en-GB-oed|i-ami|i-bnn|i-default|i-enochian|i-hak|i-klingon|i-lux|i-mingo|i-navajo|i-pwn|i-tao|i-tay|i-tsu|sgn-BE-FR|sgn-BE-NL|sgn-CH-DE|art-lojban|cel-gaulish|no-bok|no-nyn|zh-guoyu|zh-hakka|zh-min|zh-min-nan|zh-xiang)|(?:(?:[A-Za-z]{2,3}(?:-[A-Za-z]{3}){0,3}|[A-Za-z]{4,8})(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|[0-9]{3}))?(?:-(?:[A-Za-z0-9]{5,8}|[0-9][A-Za-z0-9]{3}))*(?:-[0-9A-WY-Za-wy-z](?:-[A-Za-z0-9]{2,8})+)*(?:-[Xx](?:-[A-Za-z0-9]{1,8})+)?)|[Xx](?:-[A-Za-z0-9]{1,8})+)$"},
     "music.parental_warning": {"enum": ["explicit", "explicit_edited", "not_explicit"]},
     "music.contains_ai": {"type": "boolean"},
@@ -429,6 +459,7 @@ The schema is `music-v1.schema.json` (JSON Schema Draft 2020-12). It applies to 
     "music.p_line": {"type": "string", "minLength": 1},
     "music.c_line": {"type": "string", "minLength": 1},
     "music.contributors": {"type": "array", "items": {"$ref": "#/$defs/Contributor"}},
+    "music.publishers": {"type": "array", "items": {"$ref": "#/$defs/Publisher"}},
     "music.artwork_url": {"type": "string", "format": "uri"}
   },
   "$defs": {
@@ -444,9 +475,24 @@ The schema is `music-v1.schema.json` (JSON Schema Draft 2020-12). It applies to 
         "name": {"type": "string", "minLength": 1},
         "role": {"$ref": "#/$defs/Label"},
         "instrument": {"$ref": "#/$defs/Label"},
-        "isni": {"type": "string", "pattern": "^[0-9]{15}[0-9X]$"}
+        "isni": {"type": "string", "pattern": "^[0-9]{15}[0-9X]$"},
+        "ipi": {"$ref": "#/$defs/IPI"},
+        "pro": {"$ref": "#/$defs/Label"},
+        "share": {"$ref": "#/$defs/Share"}
       }
-    }
+    },
+    "Publisher": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "ipi": {"$ref": "#/$defs/IPI"},
+        "pro": {"$ref": "#/$defs/Label"},
+        "share": {"$ref": "#/$defs/Share"}
+      }
+    },
+    "IPI": {"type": "string", "pattern": "^[0-9]{9,11}$"},
+    "Share": {"type": "number", "exclusiveMinimum": 0, "maximum": 100}
   }
 }
 ```
@@ -525,6 +571,7 @@ This section is not normative. Labels stay free. The lists below are the DDEX al
 - [ISO 3901 International Standard Recording Code (ISRC)](https://www.iso.org/standard/64817.html) / [ISRC Handbook](https://isrc.ifpi.org/)
 - [ISO 15707 International Standard Musical Work Code (ISWC)](https://www.iso.org/standard/28780.html)
 - [ISO 27729 International Standard Name Identifier (ISNI)](https://www.iso.org/standard/44292.html)
+- [CISAC IPI system](https://www.cisac.org/services/information-services/ipi): the Interested Party Information name number of a writer or a publisher
 - [GS1 General Specifications](https://www.gs1.org/standards/barcodes-epcrfid-id-keys/gs1-general-specifications): the UPC and EAN formats and the check digit
 - [GRid Standard](https://www.ifpi.org/resources/grid/): the Global Release Identifier
 - [RFC 5646 Tags for Identifying Languages (BCP 47)](https://www.rfc-editor.org/rfc/rfc5646)

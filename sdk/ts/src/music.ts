@@ -27,6 +27,24 @@ export interface Contributor {
 	instrument?: string;
 	/** ISNI of the person or group: 16 characters. */
 	isni?: string;
+	/** IPI name number of a writer: 9 to 11 digits. */
+	ipi?: string;
+	/** The writer's collecting society, as a label, for example "ascap". */
+	pro?: string;
+	/** The writer's share of the work in percent, more than 0 and at most 100. */
+	share?: number;
+}
+
+/** One entry of "music.publishers": a music publisher of the work. */
+export interface Publisher {
+	/** Name of the publisher. */
+	name: string;
+	/** IPI name number of the publisher: 9 to 11 digits. */
+	ipi?: string;
+	/** The publisher's collecting society, as a label, for example "prs". */
+	pro?: string;
+	/** The publisher's share of the work in percent, more than 0 and at most 100. */
+	share?: number;
 }
 
 /** The music.<field> keys of Offer.ext. Every key is optional. */
@@ -56,6 +74,8 @@ export interface Music {
 	"music.duration_seconds"?: number;
 	/** Which version of the recording this is, as a label, for example "instrumental". Not a matching input. */
 	"music.version"?: string;
+	/** Musical key, as a label, for example "a minor". Not a matching input. */
+	"music.key"?: string;
 	/** BCP 47 tag of the sung or spoken words. Not a label: compared case-insensitively. */
 	"music.language"?: string;
 	"music.parental_warning"?: "explicit" | "explicit_edited" | "not_explicit";
@@ -83,6 +103,8 @@ export interface Music {
 	"music.c_line"?: string;
 	/** The credits, one entry per role. */
 	"music.contributors"?: Contributor[];
+	/** The music publishers of the work, with the data a cue sheet needs. */
+	"music.publishers"?: Publisher[];
 	/** URL of the cover image. */
 	"music.artwork_url"?: string;
 }

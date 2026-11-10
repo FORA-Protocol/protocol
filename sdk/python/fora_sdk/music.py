@@ -24,18 +24,19 @@ from __future__ import annotations
 
 from typing import Literal, NotRequired, TypedDict
 
-__all__ = ["PROFILE_ID", "Contributor", "Music"]
+__all__ = ["PROFILE_ID", "Contributor", "Music", "Publisher"]
 
 #: The profile identifier an Exchange lists in WellKnownManifest.supported_profiles.
 PROFILE_ID = "fora-music-v1"
 
 
 #: One entry of ``music.contributors``: one credit. The schema requires ``name`` and
-#: ``role``. ``role`` and ``instrument`` are labels. ``isni`` is the 16-character ISNI
-#: of the person or group. The functional form is used on purpose: under
-#: ``from __future__ import annotations`` a class body stores its annotations as
-#: strings, and ``NotRequired`` is then not seen, so ``__required_keys__`` would list
-#: every key.
+#: ``role``. ``role``, ``instrument`` and ``pro`` are labels. ``isni`` is the
+#: 16-character ISNI of the person or group, ``ipi`` the IPI name number of a writer
+#: and ``share`` the writer's share of the work in percent. The functional form is
+#: used on purpose: under ``from __future__ import annotations`` a class body stores
+#: its annotations as strings, and ``NotRequired`` is then not seen, so
+#: ``__required_keys__`` would list every key.
 Contributor = TypedDict(  # noqa: UP013
     "Contributor",
     {
@@ -43,6 +44,23 @@ Contributor = TypedDict(  # noqa: UP013
         "role": str,
         "instrument": NotRequired[str],
         "isni": NotRequired[str],
+        "ipi": NotRequired[str],
+        "pro": NotRequired[str],
+        "share": NotRequired[float],
+    },
+)
+
+
+#: One entry of ``music.publishers``: a music publisher of the work. The schema
+#: requires ``name``. ``pro`` is a label, ``ipi`` the IPI name number and ``share`` the
+#: publisher's share of the work in percent.
+Publisher = TypedDict(  # noqa: UP013
+    "Publisher",
+    {
+        "name": str,
+        "ipi": NotRequired[str],
+        "pro": NotRequired[str],
+        "share": NotRequired[float],
     },
 )
 
@@ -70,6 +88,7 @@ Music = TypedDict(
         "music.bpm": int,
         "music.duration_seconds": float,
         "music.version": str,
+        "music.key": str,
         "music.language": str,
         "music.parental_warning": Literal["explicit", "explicit_edited", "not_explicit"],
         "music.contains_ai": bool,
@@ -84,6 +103,7 @@ Music = TypedDict(
         "music.p_line": str,
         "music.c_line": str,
         "music.contributors": list[Contributor],
+        "music.publishers": list[Publisher],
         "music.artwork_url": str,
     },
     total=False,
