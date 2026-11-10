@@ -10,7 +10,7 @@ interface Props {
 const { current } = Astro.props;
 ---
 <nav class="hero-nav" aria-label="Main">
-  <a href="/" class="logo">fora protocol</a>
+  <a href="/" class="logo"><img src="/brand/fora-lockup-small-on-dark.svg" alt="FORA protocol" width="163" height="28" /></a>
   <button
     type="button"
     class="menu-btn"
@@ -32,6 +32,7 @@ const { current } = Astro.props;
         aria-current={current === 'publishers' ? 'page' : undefined}
       >For publishers</a>
     </li>
+    <li><a href="/brand/">Brand</a></li>
     <li><a href="https://github.com/FORA-Protocol/protocol">GitHub</a></li>
   </ul>
 </nav>
@@ -61,7 +62,9 @@ const { current } = Astro.props;
     text-decoration: none;
     color: var(--off-white);
     text-transform: lowercase;
+    display: inline-flex;
   }
+  .logo img { display: block; height: 28px; width: auto; }
 
   .nav-links {
     display: flex;

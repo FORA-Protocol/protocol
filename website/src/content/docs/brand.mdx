@@ -1,0 +1,162 @@
+---
+title: "Brand & Media Kit"
+description: "The FORA logo, colours, type and naming rules, plus a ready-made agent skill that applies them for you."
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Writing, presenting or building something about FORA? Use the files on this page
+as they are. The fastest way to get it right is to hand the work to your AI agent
+with the FORA brand skill loaded: it carries the logo files, the tokens and the
+rules below, and checks its own output against them.
+
+<div class="bk-actions">
+  <a class="bk-btn bk-primary" href="/brand/fora-brand.zip" download>Download the agent skill (.zip)</a>
+  <a class="bk-btn" href="/brand/fora-logos.zip" download>Download all logos (.zip)</a>
+</div>
+
+## Let your agent do it
+
+The skill is a folder with a `SKILL.md`, the logo files, colour and type tokens,
+and a naming and claims reference. It works in any agent that reads Agent Skills,
+and the `SKILL.md` is plain Markdown that any other agent can follow.
+
+**Claude (web, desktop, mobile).** Download
+[`fora-brand.zip`](/brand/fora-brand.zip). In Claude, open **Customize → Skills**,
+choose **+ → Create skill → Upload a skill**, upload the zip and switch it on.
+Skills need code execution turned on in **Settings → Capabilities**.
+
+**Claude Code.** Unzip it into your personal skills folder,
+`~/.claude/skills/fora-brand/`, or into `.claude/skills/fora-brand/` in a repository
+to share it with your team. If you already uploaded it to your Claude account and
+sign in to Claude Code with that account, it syncs on its own.
+
+**Any other agent.** Give it [`SKILL.md`](/brand/SKILL.md) and
+[`messaging.md`](/brand/messaging.md) as instructions and the logo files from the
+logo pack.
+
+Then ask for the thing you need:
+
+```text
+Make a 6-slide intro to FORA for a publisher audience. Use the fora-brand skill.
+```
+
+<Aside type="note">
+The skill only knows what is public on this site. If you add customer names,
+prices or numbers, it will keep them but tell you they need to be public first.
+</Aside>
+
+## Logo
+
+The mark is a wax seal pressed with the open forum. Before signatures and
+cryptography, a wax seal proved who sent a letter and that nobody had opened it
+on the way, and any recipient could check it without asking a central office.
+That is what FORA's signed offers and acceptances do. The impression is an open
+square with no walls, the forum anyone can enter, around one point: the
+transaction it seals.
+
+<div class="bk-grid">
+  <figure class="bk-tile bk-dark"><img src="/brand/fora-lockup-on-dark.svg" alt="FORA lockup on dark" /><figcaption>On dark · <a href="/brand/fora-lockup-on-dark.svg" download>SVG</a> · <a href="/brand/fora-lockup-on-dark.png" download>PNG</a></figcaption></figure>
+  <figure class="bk-tile bk-light"><img src="/brand/fora-lockup-on-light.svg" alt="FORA lockup on light" /><figcaption>On light · <a href="/brand/fora-lockup-on-light.svg" download>SVG</a> · <a href="/brand/fora-lockup-on-light.png" download>PNG</a></figcaption></figure>
+  <figure class="bk-tile bk-blue"><img src="/brand/fora-lockup-mono-white.svg" alt="FORA lockup, white" /><figcaption>White, for colour or photos · <a href="/brand/fora-lockup-mono-white.svg" download>SVG</a> · <a href="/brand/fora-lockup-mono-white.png" download>PNG</a></figcaption></figure>
+  <figure class="bk-tile bk-light"><img src="/brand/fora-lockup-mono-black.svg" alt="FORA lockup, black" /><figcaption>Black, one-colour print · <a href="/brand/fora-lockup-mono-black.svg" download>SVG</a> · <a href="/brand/fora-lockup-mono-black.png" download>PNG</a></figcaption></figure>
+</div>
+
+<div class="bk-grid bk-marks">
+  <figure class="bk-tile bk-dark"><img src="/brand/fora-mark-on-dark.svg" alt="FORA seal on dark" /><figcaption>Seal · <a href="/brand/fora-mark-on-dark.svg" download>SVG</a> · <a href="/brand/fora-mark-on-dark-512.png" download>PNG</a></figcaption></figure>
+  <figure class="bk-tile bk-light"><img src="/brand/fora-mark-on-light.svg" alt="FORA seal on light" /><figcaption>Seal · <a href="/brand/fora-mark-on-light.svg" download>SVG</a> · <a href="/brand/fora-mark-on-light-512.png" download>PNG</a></figcaption></figure>
+  <figure class="bk-tile bk-light"><img src="/brand/fora-mark-small.svg" alt="FORA plain seal for small sizes" /><figcaption>Under 32 px · <a href="/brand/fora-mark-small.svg" download>SVG</a> · <a href="/brand/fora-mark-small-512.png" download>PNG</a></figcaption></figure>
+  <figure class="bk-tile bk-dark"><img src="/brand/fora-icon.svg" alt="FORA avatar" /><figcaption>Avatar · <a href="/brand/fora-icon-512.png" download>PNG</a></figcaption></figure>
+  <figure class="bk-tile bk-dark"><img src="/brand/fora-social-card.png" alt="FORA social card" /><figcaption>Link preview · <a href="/brand/fora-social-card.png" download>PNG</a></figcaption></figure>
+</div>
+
+- Use the lockup by default. Use the seal alone where space is square or tiny, or
+  where "FORA" is already written nearby.
+- **Under 32 px** (the seal's own height; about 8 mm in print) the impression
+  can't be read, so use the plain seal: `fora-mark-small.svg`, or the
+  `fora-lockup-small-…` files. The favicon is the plain seal.
+- Keep clear space of at least a quarter of the seal's height on every side.
+- The seal is always FORA Blue, except in the white and black versions. The
+  impression is cut through, so the background shows in it.
+- Don't stretch, rotate, recolour, outline or add effects, wax textures or 3D.
+  Don't put a different emblem in the seal, don't retype "fora protocol" in a
+  font as a substitute, and don't attach other words to the mark.
+
+## Colour
+
+Dark-first: ink background, white text, one blue accent.
+
+<div class="bk-swatches">
+  <div><span style="background:#0a0a0f"></span><b>Ink</b><code>#0a0a0f</code></div>
+  <div><span style="background:#12121a"></span><b>Near-black</b><code>#12121a</code></div>
+  <div><span style="background:#2a2a3a"></span><b>Line</b><code>#2a2a3a</code></div>
+  <div><span style="background:#a5a5b8"></span><b>Gray</b><code>#a5a5b8</code></div>
+  <div><span style="background:#f5f5fa"></span><b>White</b><code>#f5f5fa</code></div>
+  <div><span style="background:#4f6df5"></span><b>FORA Blue</b><code>#4f6df5</code></div>
+  <div><span style="background:#9aaeff"></span><b>Blue text, on dark</b><code>#9aaeff</code></div>
+  <div><span style="background:#3d58d6"></span><b>Blue text, on light</b><code>#3d58d6</code></div>
+</div>
+
+- Blue is the only brand colour. Use it for fills, buttons and one highlight per
+  view.
+- On dark backgrounds, blue text is `#9aaeff`. On light backgrounds, blue text and
+  links are `#3d58d6`. Small white text on a blue fill sits on `#3d58d6`.
+
+Tokens: [`tokens.css`](/brand/tokens.css) · [`tokens.json`](/brand/tokens.json)
+
+## Type
+
+**Instrument Sans** for everything: headlines 700 with −0.03em tracking, UI 600,
+body 400–500. **DM Mono** for code, field and RPC names, IDs and small labels.
+Both are free on Google Fonts. Headlines and buttons are sentence case.
+
+## Name and claims
+
+- Write **FORA**. Use "the FORA protocol" or "FORA Protocol" when you need the
+  noun. The lowercase "fora protocol" exists only inside the logo. Never "Fora" or
+  the old name "RAMP".
+- FORA stands for Federated Open Resource Access.
+- Call it an **open protocol**. No standards body has adopted it, so not "the
+  FORA standard".
+- FORA carries the rights holder's terms and a signed acceptance. It does not
+  grant rights, clear rights or give legal cover; don't say it does.
+- AI training is its own licence permission and is never implied by another term.
+- Demo purchases use test money and grant no real rights.
+- Only name customers, partners or numbers that appear on this site.
+
+The full reference, with facts you may state and phrases to avoid, is
+[`messaging.md`](/brand/messaging.md).
+
+## Using the name and logo
+
+The Apache 2.0 and CC BY-ND 4.0 licences cover the code, specification and
+documentation, not the FORA name or logo. You may use the name and logo to refer
+to FORA: in articles, talks and diagrams, and as "works with FORA" or "built on
+FORA" for software that implements the protocol. Don't use them in your own
+product or company name, don't alter them, and don't imply that the FORA project
+endorses, certifies or partners with you unless it says so in writing.
+
+Questions: open an issue on [GitHub](https://github.com/FORA-Protocol/protocol/issues).
+
+<style>{`
+  .bk-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.25rem 0 0.5rem; }
+  .bk-btn { display: inline-block; padding: 0.6rem 1.2rem; border: 1px solid var(--sl-color-gray-5); border-radius: 3px; font-weight: 600; text-decoration: none; color: var(--sl-color-white); }
+  .bk-btn:hover { border-color: var(--sl-color-gray-3); }
+  .bk-primary { background: #3d58d6; border-color: #3d58d6; color: #fff; }
+  .bk-primary:hover { background: #4f6df5; border-color: #4f6df5; }
+  .bk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-top: 1rem; }
+  .bk-marks { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .bk-tile { margin: 0 !important; border: 1px solid var(--sl-color-gray-5); border-radius: 10px; overflow: hidden; }
+  .bk-tile img { display: block; width: 100%; height: 120px; object-fit: contain; padding: 1.75rem; box-sizing: border-box; margin: 0 !important; }
+  .bk-marks .bk-tile img { height: 120px; padding: 1.5rem; }
+  .bk-tile figcaption { font-size: 0.8rem; padding: 0.5rem 0.75rem; background: var(--sl-color-bg-nav); color: var(--sl-color-gray-2); margin: 0 !important; }
+  .bk-dark img { background: #0a0a0f; }
+  .bk-light img { background: #fafafa; }
+  .bk-blue img { background: #4f6df5; }
+  .bk-swatches { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-top: 1rem; }
+  .bk-swatches > div { border: 1px solid var(--sl-color-gray-5); border-radius: 10px; overflow: hidden; font-size: 0.8rem; margin: 0 !important; }
+  .bk-swatches span { display: block; height: 56px; border-bottom: 1px solid var(--sl-color-gray-5); }
+  .bk-swatches b, .bk-swatches code { display: block; padding: 0.1rem 0.6rem; margin: 0 !important; }
+  .bk-swatches b { padding-top: 0.45rem; }
+  .bk-swatches code { padding-bottom: 0.5rem; background: none; }
+`}</style>

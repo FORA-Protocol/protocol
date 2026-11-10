@@ -78,6 +78,18 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'FORA Protocol',
+			logo: {
+				dark: './src/assets/brand/fora-lockup-small-on-dark.svg',
+				light: './src/assets/brand/fora-lockup-small-on-light.svg',
+				alt: 'FORA protocol',
+				replacesTitle: true,
+			},
+			head: [
+				{ tag: 'link', attrs: { rel: 'icon', href: '/favicon-32.png', sizes: '32x32', type: 'image/png' } },
+				{ tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' } },
+				{ tag: 'meta', attrs: { property: 'og:image', content: 'https://fora-protocol.org/brand/fora-social-card.png' } },
+				{ tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
+			],
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/FORA-Protocol/protocol' }],
 			plugins: [starlightMermaid(), starlightLinksValidator()],
 			components: {
@@ -139,6 +151,10 @@ export default defineConfig({
 							],
 						},
 					],
+				},
+				{
+					label: 'Resources',
+					items: [{ label: 'Brand & Media Kit', slug: 'brand' }],
 				},
 				{
 					label: 'Reference',

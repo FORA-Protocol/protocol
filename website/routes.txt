@@ -8,6 +8,7 @@
 /architecture/deployment-models/
 /architecture/nfr/
 /architecture/production-architecture/
+/brand/
 /components/agent-sdk/budget-reporting/
 /components/agent-sdk/fetch-flow/
 /components/agent-sdk/overview/

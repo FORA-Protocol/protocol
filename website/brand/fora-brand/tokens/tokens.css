@@ -1,0 +1,35 @@
+/* FORA brand tokens. Values match fora-protocol.org (website/src/styles/brand.css). */
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Neutrals, dark-first */
+  --fora-ink: #0a0a0f;
+  --fora-near-black: #12121a;
+  --fora-dark: #1a1a26;
+  --fora-line: #2a2a3a;
+  --fora-gray: #a5a5b8;
+  --fora-light-gray: #c0c0d0;
+  --fora-off-white: #e8e8f0;
+  --fora-white: #f5f5fa;
+  --fora-paper: #fafafa;
+
+  /* The one accent */
+  --fora-blue: #4f6df5;        /* fills, logo point, buttons */
+  --fora-blue-text: #9aaeff;   /* coloured text on dark */
+  --fora-blue-dark: #3d58d6;   /* coloured text on light, hover, fill under small white text */
+  --fora-blue-glow: #4f6df533; /* hero glow */
+
+  /* Type */
+  --fora-sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --fora-mono: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --fora-tracking-headline: -0.03em;
+
+  /* Shape */
+  --fora-radius-button: 3px;
+  --fora-radius-card: 10px;
+
+  /* Hero background */
+  --fora-hero-bg:
+    radial-gradient(ellipse 80% 60% at 50% 0%, var(--fora-blue-glow) 0%, transparent 70%),
+    linear-gradient(180deg, var(--fora-near-black) 0%, var(--fora-ink) 100%);
+}
