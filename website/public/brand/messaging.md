@@ -8,11 +8,16 @@ anything version- or date-sensitive, read the site's changelog
 
 Lead with what it does for the owner of the content, then how.
 
-**Headline:** FORA makes a website or a music catalog licensable to AI agents,
-instantly.
+**Headline (the home page):** Every AI agent is a storefront. Be on the shelf,
+on your terms.
 
-**One sentence:** Set your terms once, and FORA turns every page or track into a
-signed offer that any AI agent can find, buy and verify, with no deal to
+**Under the headline:** People are starting to search, research and buy through
+AI agents instead of websites. FORA lets any agent find your pages or tracks,
+read your license, pay, and get a signed receipt. You decide every term.
+
+**The outcome in one line:** FORA makes a website or a music catalog licensable
+to AI agents, instantly. Set your terms once, and FORA turns every page or track
+into a signed offer that any AI agent can find, buy and verify, with no deal to
 negotiate per buyer.
 
 **For engineers:** FORA is an open transaction protocol that lets AI agents
@@ -20,7 +25,7 @@ discover, license, pay for and receive content on terms the rights holder sets,
 with every step signed.
 
 Pick the line for the audience. Rights holders, publishers and labels get the
-headline and the sentence. Developers and agent builders can get the protocol
+headline, or the outcome line where there is room for only one sentence. Developers and agent builders can get the protocol
 line first.
 
 ### What "instantly" means
@@ -62,8 +67,11 @@ Name these five, in this order, when you need the detail:
 
 ### Taglines
 
+- Every AI agent is a storefront. *Be on the shelf, on your terms.*
+- Your terms, on every agent's shelf.
 - Make your website or music catalog licensable. *Instantly.*
-- Your terms, on sale to every AI agent.
+- Free is a price too. (Charging nothing still carries your terms: attribution,
+  permitted uses, no AI training unless offered.)
 - Licensed content access for AI agents. (The older line. Still true; use it
   where the reader is an agent builder.)
 
@@ -72,8 +80,13 @@ Name these five, in this order, when you need the detail:
 - FORA stands for Federated Open Resource Access.
 - The protocol specification and the reference implementation are open source
   under Apache 2.0. The documentation is CC BY-ND 4.0.
-- SDKs exist for Go, TypeScript and Python. A hostable reference exchange is
-  written in Go. Agents can also use FORA through an MCP server.
+- SDKs exist for Go, TypeScript and Python. Agents can also use FORA through an
+  MCP server.
+- **FORA Server** is the reference implementation, written in Go. Call it FORA
+  Server, not "the reference app" or "a sample": it is a working stack
+  (exchange, broker and search, identity and registration, content ingestion,
+  an MCP endpoint and edge protection). An owner can run all of it or one piece.
+  The protocol and FORA Server are free and open source.
 - The flow has six steps, named as on the site: **Discover, Query, Transact,
   Deliver, Report, Dispute.** Use these names; do not rename them.
   - Discover: the agent reads `/.well-known/fora.json` to find the Exchange.
@@ -96,8 +109,14 @@ Name these five, in this order, when you need the detail:
 - License terms can permit or prohibit specific uses. AI training (`ai-train`)
   is its own permission, separate from using content as input (`ai-input`);
   training is never implied by any other term.
-- There is a public demo exchange and a demo music catalog (tracks under their own
-  Creative Commons or public-domain licenses). Demo purchases use test money and grant no real rights.
+- Two live demos run on a public demo exchange, and anyone can try them today:
+  the publisher demo (an agent licenses an article) and the music demo (an agent
+  licenses a track from a demo catalog of tracks under their own Creative Commons
+  or public-domain licenses). Both are fully connected marketplaces. Demo
+  purchases use test money and grant no real rights.
+- For music, FORA builds on the identifiers and vocabularies the industry already
+  uses: DDEX (ERN and MEAD), ISRC, ISWC, IPI, ISNI, GRid and UPC/EAN. Name these,
+  not IAB Tech Lab, when the reader is in music.
 
 ## Do not say
 
@@ -114,6 +133,7 @@ Name these five, in this order, when you need the detail:
 | "blockchain", "crypto", "tokens" | FORA uses signatures, not a chain | "signed", "cryptographically verifiable" |
 | "set up in minutes", "one click", "no setup" | Setup is one-time but real: a file and a CDN package, or a feed | "licensable instantly once connected", then name the setup |
 | "stop AI scrapers", "block bots" as the promise | FORA sells access; blocking is a side effect of the edge package | "agents are pointed to your offer, not just turned away" |
+| "FORA brings you buyers" | FORA makes the content findable and buyable; it does not market it | "when an agent comes looking, it can find you, read your terms and pay" |
 | "walled gardens" about other marketplaces | Knocks people FORA works with | "a deal per buyer" / "one offer for every agent" |
 | "RAMP", "Fora", "F.O.R.A." | Old name, wrong spelling | "FORA" |
 

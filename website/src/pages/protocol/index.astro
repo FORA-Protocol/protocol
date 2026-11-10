@@ -1,0 +1,707 @@
+---
+// Protocol overview: the two worked scenarios, step by step, and the
+// standards FORA builds on. These blocks lived on the home page until the
+// home page moved to the rights holder's story; the detail is here, one
+// click from the "Protocol" link in the top navigation.
+import SiteNav from '../../components/SiteNav.astro';
+import SiteFooter from '../../components/SiteFooter.astro';
+import '../../styles/brand.css';
+import '../../styles/landing.css';
+
+const SPEC_LINKS = [
+  { href: '/protocol/transaction-flow/', title: 'Transaction Flow', text: 'The four RPCs, their messages and the signatures on each.' },
+  { href: '/protocol/discovery-paths/', title: 'Discovery Paths', text: 'How an agent finds the Exchange that sells a URL.' },
+  { href: '/protocol/exchange-manifest/', title: 'Exchange Manifest', text: 'What an Exchange publishes about itself.' },
+  { href: '/protocol/licensing-terms/', title: 'Licensing Terms', text: 'Restrictions, quotas, obligations and pricing in one term.' },
+  { href: '/protocol/authentication/', title: 'Authentication', text: 'Agent identity, Web Bot Auth and HTTP Message Signatures.' },
+  { href: '/protocol/content-attestation/', title: 'Resource Attestation', text: 'Content hashes and signed delivery.' },
+  { href: '/protocol/dispute-resolution/', title: 'Dispute Resolution', text: 'Automated resolution backed by signed evidence.' },
+  { href: '/protocol/extension-profiles/', title: 'Extension Profiles', text: 'Search fields for news, music, academic and legal content.' },
+  { href: '/reference/proto-fora/', title: 'Proto Reference', text: 'Every message and field, generated from the .proto files.' },
+];
+---
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <meta property="og:image" content="https://fora-protocol.org/brand/fora-social-card.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <title>The FORA protocol — how an agent licenses content</title>
+  <meta name="description" content="FORA is an open transaction protocol: AI agents discover, license, pay for and receive content on terms the rights holder sets, with every step signed. Two worked examples, step by step, and the standards it builds on." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style is:global>
+    .hero.hero-short { min-height: 0; }
+    .hero-short .hero-content { padding: 4rem 2rem 5rem; }
+
+    /* ========= ARCHITECTURE FLOW ========= */
+    .arch-section {
+      background: var(--black);
+      padding: 5rem 2rem;
+      border-top: 1px solid var(--mid);
+    }
+
+    .arch-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+    .arch-tab {
+      font-family: var(--sans);
+      font-size: 1rem;
+      font-weight: 600;
+      min-height: 44px;
+      padding: 0.5rem 1.25rem;
+      background: var(--dark);
+      border: 1px solid var(--mid);
+      color: var(--gray);
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .arch-tab:hover { border-color: var(--accent); color: var(--off-white); }
+    .arch-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    .arch-story {
+      max-width: 1000px;
+      margin: 0 auto 1.5rem;
+      padding: 1.25rem 1.5rem;
+      background: var(--dark);
+      border-radius: 4px;
+      border-left: 3px solid var(--accent);
+      font-size: 1rem;
+      color: var(--light-gray);
+      line-height: 1.7;
+    }
+
+    .arch-container {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
+      gap: 2rem;
+    }
+
+    .arch-steps-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      min-width: 0;
+    }
+
+    /* Each step row: number | from → to | description */
+    .arch-step-row {
+      display: grid;
+      grid-template-columns: 2rem 12rem minmax(0, 1fr);
+      width: 100%;
+      font: inherit;
+      text-align: left;
+      background: transparent;
+      color: var(--off-white);
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.625rem 0.75rem;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+    }
+    .arch-step-row:hover {
+      background: var(--dark);
+    }
+    .arch-step-row.active {
+      background: rgba(79, 109, 245, 0.08);
+      border-color: rgba(79, 109, 245, 0.3);
+    }
+
+    .arch-step-num {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      background: var(--mid);
+      color: var(--gray);
+      font-family: var(--sans);
+      font-size: 0.875rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.3s;
+    }
+    .arch-step-row.active .arch-step-num {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .arch-step-parties {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .arch-party {
+      font-family: var(--sans);
+      font-size: 0.875rem;
+      padding: 0.2rem 0.4rem;
+      border-radius: 2px;
+      background: var(--dark);
+      color: var(--light-gray);
+      border: 1px solid var(--mid);
+      white-space: nowrap;
+    }
+    .arch-party.exchange {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .arch-step-row.active .arch-party {
+      border-color: var(--accent);
+    }
+
+    .arch-step-arrow {
+      color: var(--gray);
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+    .arch-step-row.active .arch-step-arrow { color: var(--accent-text); }
+
+    .arch-step-desc {
+      font-size: 1rem;
+      overflow-wrap: anywhere;
+      color: var(--gray);
+      line-height: 1.4;
+    }
+    .arch-step-row.active .arch-step-desc { color: var(--light-gray); }
+
+    /* Detail panel */
+    .arch-detail {
+      background: var(--near-black);
+      border: 1px solid var(--mid);
+      border-radius: 4px;
+      padding: 1.5rem;
+      font-family: var(--mono);
+      font-size: 0.875rem;
+      line-height: 1.7;
+      color: var(--gray);
+      align-self: start;
+      position: sticky;
+      top: 2rem;
+      min-height: 200px;
+      min-width: 0;
+    }
+
+    @media (max-width: 1000px) {
+      .arch-container { grid-template-columns: 1fr; }
+      .arch-detail { position: static; }
+    }
+
+    @media (max-width: 600px) {
+      .arch-step-row { grid-template-columns: 2rem minmax(0, 1fr); }
+      .arch-step-num { grid-row: span 2; }
+      .arch-step-desc { grid-column: 2; }
+    }
+
+
+    /* ========= STANDARDS STACK ========= */
+    .standards-section {
+      background: var(--near-black);
+      padding: 5rem 2rem;
+    }
+
+    .stack-table {
+      max-width: 1000px;
+      margin: 0 auto 2.5rem;
+    }
+
+    .stack-row {
+      display: grid;
+      grid-template-columns: 5rem 13rem minmax(0, 1fr);
+      gap: 0.75rem;
+      align-items: center;
+      padding: 1rem 0.75rem;
+      border-bottom: 1px solid var(--mid);
+    }
+    .stack-row:last-child { border-bottom: none; }
+
+    .stack-row.stack-fora {
+      background: rgba(79, 109, 245, 0.08);
+      border: 1px solid rgba(79, 109, 245, 0.25);
+      border-radius: 4px;
+      margin: 0.25rem -0.25rem;
+      padding: 0.625rem 1rem;
+    }
+
+    .stack-layer {
+      font-family: var(--sans);
+      font-size: 0.875rem;
+      color: var(--gray);
+      text-transform: uppercase;
+    }
+
+    .stack-name {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--off-white);
+    }
+    .stack-fora .stack-name {
+      color: var(--accent-text);
+    }
+
+    .stack-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.375rem;
+      align-items: center;
+    }
+
+    .standard-tag {
+      font-family: var(--sans);
+      font-size: 0.9375rem;
+      color: var(--light-gray);
+      padding: 0.2rem 0.5rem;
+      background: var(--dark);
+      border-radius: 2px;
+      white-space: nowrap;
+    }
+
+    .standard-tag.fora-tag {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 500;
+    }
+
+    .stack-note {
+      font-size: 0.9375rem;
+      color: var(--accent-text);
+      font-style: italic;
+    }
+
+    .standards-feeds {
+      max-width: 1000px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .feeds-row {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+
+    .feeds-group {
+      text-align: center;
+    }
+
+    .feeds-label {
+      font-family: var(--sans);
+      font-size: 0.875rem;
+      color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+    }
+
+    .standard-tag.feed-tag {
+      background: transparent;
+      border: 1px solid var(--mid);
+      color: var(--light-gray);
+    }
+
+    .feeds-link {
+      font-family: var(--sans);
+      font-size: 1rem;
+      color: var(--accent-text);
+      text-decoration: none;
+    }
+    .feeds-link:hover { text-decoration: underline; }
+    .feeds-music { margin-top: 1.5rem; justify-content: center; }
+    .feeds-music .feeds-group { text-align: center; }
+    .feeds-music .stack-tags { justify-content: center; }
+    .feeds-links { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; justify-content: center; margin-top: 1.5rem; }
+
+    @media (max-width: 768px) {
+      .stack-row { grid-template-columns: 1fr; gap: 0.25rem; }
+      .feeds-row { flex-direction: column; gap: 1.25rem; }
+    }
+
+
+    .payload-code { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .payload-label, .payload-link, .payload-desc { font-family: var(--sans); }
+    .payload-label {
+      display: block;
+      color: var(--light-gray);
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+    .payload-desc { font-size: 1rem; color: var(--light-gray); margin-bottom: 1rem; }
+    .payload-link {
+      display: block;
+      margin-top: 1rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--mid);
+      font-size: 0.9375rem;
+      color: var(--accent-text);
+    }
+    .arch-transfer {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .arch-transfer .arch-party { padding: 0.75rem; white-space: normal; }
+    .transfer-line { flex: 1; min-width: 1rem; height: 2px; background: var(--mid); }
+    .transfer-line::after {
+      content: '';
+      display: block;
+      width: 100%;
+      height: 2px;
+      background: var(--accent-text);
+      transform-origin: left;
+      animation: transfer 0.6s ease-out both;
+    }
+    @keyframes transfer { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+    @media (max-width: 768px) {
+      .arch-detail { padding: 1rem; }
+      .arch-step-row { padding: 0.75rem; }
+      .stack-row { gap: 0.75rem; }
+      .standards-feeds .stack-tags { justify-content: center; }
+    }
+    @media (max-width: 400px) {
+      .arch-section, .standards-section, .spec-section { padding-left: 1rem; padding-right: 1rem; }
+    }
+
+    /* ========= SPEC LINKS ========= */
+    .spec-section {
+      background: var(--black);
+      padding: 5rem 2rem 6rem;
+    }
+    .spec-grid {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+    .spec-card {
+      display: block;
+      background: var(--near-black);
+      border: 1px solid var(--mid);
+      border-radius: 8px;
+      padding: 1.25rem;
+      text-decoration: none;
+      transition: border-color 0.2s;
+    }
+    .spec-card:hover { border-color: var(--accent); }
+    .spec-card b {
+      display: block;
+      color: var(--white);
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+    .spec-card span { color: var(--gray); font-size: 0.9375rem; line-height: 1.5; }
+    @media (max-width: 860px) { .spec-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 560px) { .spec-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+  <section class="hero hero-short">
+    <SiteNav current="protocol" />
+    <div class="hero-content">
+      <div class="hero-badge">The FORA protocol</div>
+      <h1 class="animate-in delay-1">How an agent licenses content.<br><em>Every step signed.</em></h1>
+      <p class="hero-sub animate-in delay-2">FORA is an open transaction protocol. AI agents discover, license, pay for and receive content on terms the rights holder sets. The Exchange signs every offer, the agent signs every request, and both keep evidence anyone can check.</p>
+      <div class="hero-buttons animate-in delay-3">
+        <a href="/protocol/transaction-flow/" class="btn btn-primary">Read the specification</a>
+        <a href="https://github.com/FORA-Protocol/protocol" class="btn btn-ghost">GitHub</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARCHITECTURE FLOW (scenarios) -->
+  <section class="arch-section">
+    <div class="section-header">
+      <div class="section-label">How it works</div>
+      <h2>Same protocol for an article and a track. Click each step.</h2>
+    </div>
+
+    <div class="arch-tabs">
+      <button class="arch-tab active" aria-pressed="true" id="archTab0" onclick="switchScenario(0)">Web article access</button>
+      <button class="arch-tab" aria-pressed="false" id="archTab1" onclick="switchScenario(1)">Music sample licensing</button>
+    </div>
+
+    <div class="arch-story" id="archStory"></div>
+
+    <div class="arch-container">
+      <div class="arch-steps-list" id="archStepsList"></div>
+      <div class="arch-detail" id="archDetail">
+        <div class="arch-detail-inner" id="archDetailInner"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STANDARDS STACK -->
+  <section class="standards-section" id="standards">
+    <div class="section-header">
+      <div class="section-label">Standards</div>
+      <h2>Built on open standards. FORA is the transaction layer between them.</h2>
+      <p>FORA reads the rights signals publishers already use, signs with standard cryptography, and leaves payment to the rails that exist.</p>
+    </div>
+
+    <div class="stack-table">
+      <div class="stack-row">
+        <div class="stack-layer">Layer 5</div>
+        <div class="stack-name">Orchestration</div>
+        <div class="stack-tags">
+          <span class="standard-tag">LangGraph</span>
+          <span class="standard-tag">CrewAI</span>
+          <span class="standard-tag">OpenAI Agents</span>
+        </div>
+      </div>
+      <div class="stack-row stack-fora">
+        <div class="stack-layer">Layer 4</div>
+        <div class="stack-name">Transaction &amp; Metering</div>
+        <div class="stack-tags">
+          <span class="standard-tag fora-tag">FORA Protocol</span>
+          <span class="stack-note">← this layer was empty</span>
+        </div>
+      </div>
+      <div class="stack-row">
+        <div class="stack-layer">Layer 3</div>
+        <div class="stack-name">Payment Rails</div>
+        <div class="stack-tags">
+          <span class="standard-tag">Stripe</span>
+          <span class="standard-tag">x402</span>
+          <span class="standard-tag">L402</span>
+        </div>
+      </div>
+      <div class="stack-row">
+        <div class="stack-layer">Layer 2</div>
+        <div class="stack-name">Identity &amp; Auth</div>
+        <div class="stack-tags">
+          <span class="standard-tag">GNAP</span>
+          <span class="standard-tag">OAuth 2.0</span>
+          <span class="standard-tag">WebBotAuth</span>
+          <span class="standard-tag">JWT</span>
+        </div>
+      </div>
+      <div class="stack-row">
+        <div class="stack-layer">Layer 1</div>
+        <div class="stack-name">Communication</div>
+        <div class="stack-tags">
+          <span class="standard-tag">MCP</span>
+          <span class="standard-tag">A2A</span>
+          <span class="standard-tag">NLWeb</span>
+        </div>
+      </div>
+      <div class="stack-row">
+        <div class="stack-layer">Layer 0</div>
+        <div class="stack-name">Transport</div>
+        <div class="stack-tags">
+          <span class="standard-tag">HTTP/2</span>
+          <span class="standard-tag">gRPC</span>
+          <span class="standard-tag">WebSocket</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="standards-feeds">
+      <div class="feeds-row">
+        <div class="feeds-group">
+          <div class="feeds-label">FORA ingests</div>
+          <div class="stack-tags">
+            <span class="standard-tag feed-tag">RSL 1.0</span>
+            <span class="standard-tag feed-tag">TDMRep</span>
+            <span class="standard-tag feed-tag">C2PA</span>
+            <span class="standard-tag feed-tag">CoMP</span>
+          </div>
+        </div>
+        <div class="feeds-group">
+          <div class="feeds-label">FORA signs with</div>
+          <div class="stack-tags">
+            <span class="standard-tag feed-tag">Ed25519</span>
+            <span class="standard-tag feed-tag">JWS</span>
+            <span class="standard-tag feed-tag">JWKS</span>
+            <span class="standard-tag feed-tag">RFC 9421</span>
+          </div>
+        </div>
+        <div class="feeds-group">
+          <div class="feeds-label">FORA encodes with</div>
+          <div class="stack-tags">
+            <span class="standard-tag feed-tag">Protobuf</span>
+            <span class="standard-tag feed-tag">JSON</span>
+            <span class="standard-tag feed-tag">Connect</span>
+          </div>
+        </div>
+      </div>
+      <div class="feeds-row feeds-music">
+        <div class="feeds-group">
+          <div class="feeds-label">The music profile builds on</div>
+          <div class="stack-tags">
+            <span class="standard-tag feed-tag">DDEX ERN</span>
+            <span class="standard-tag feed-tag">DDEX MEAD</span>
+            <span class="standard-tag feed-tag">ISRC</span>
+            <span class="standard-tag feed-tag">ISWC</span>
+            <span class="standard-tag feed-tag">IPI</span>
+            <span class="standard-tag feed-tag">ISNI</span>
+            <span class="standard-tag feed-tag">GRid</span>
+            <span class="standard-tag feed-tag">UPC / EAN</span>
+          </div>
+        </div>
+      </div>
+      <div class="feeds-links">
+        <a href="/protocol/standards-layering/" class="feeds-link">Full standards landscape →</a>
+        <a href="/protocol/ext-music/#references" class="feeds-link">Music profile references →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- SPEC LINKS -->
+  <section class="spec-section">
+    <div class="section-header">
+      <div class="section-label">Specification</div>
+      <h2>Read the details</h2>
+    </div>
+    <div class="spec-grid">
+      {SPEC_LINKS.map((l) => (
+        <a class="spec-card" href={l.href}><b>{l.title}</b><span>{l.text}</span></a>
+      ))}
+    </div>
+  </section>
+
+  <SiteFooter />
+
+  <script is:inline>
+    // Per-step JSON payloads
+    // Syntax colors for the example payloads
+    const K = 'color:#9cdcfe';       // key
+    const S = 'color:#7ec8a0';       // string
+    const N = 'color:#d4a56a';       // number
+    const B = 'color:#a5a5b8';          // brace
+    const C = 'color:#a5a5b8;font-style:italic'; // comment
+    const SIG = 'color:#9aaeff';  // signature (accent)
+
+    const k = (v) => `<span style="${K}">"${v}"</span>`;
+    const s = (v) => `<span style="${S}">"${v}"</span>`;
+    const n = (v) => `<span style="${N}">${v}</span>`;
+    const b = (v) => `<span style="${B}">${v}</span>`;
+    const c = (v) => `<span style="${C}">${v}</span>`;
+
+
+
+
+    // ========= Architecture Flow =========
+    const archDetailEl = document.getElementById('archDetailInner');
+    const archStepsList = document.getElementById('archStepsList');
+    let currentScenario = 0;
+
+    function party(name, isEx) {
+      return `<span class="arch-party${isEx ? ' exchange' : ''}">${name}</span>`;
+    }
+    const arrow = '<span class="arch-step-arrow" aria-hidden="true">→</span>';
+
+    const scenarios = [
+      { title: 'Web article access',
+        story: 'An AI research assistant needs a news article for a user query. It tries to fetch the URL directly but hits the provider\u2019s edge function, which returns a 403 whose headers point at the publisher\u2019s FORA manifest and the Exchange that sells the article. The agent discovers the article is available for $0.05, commits to the offer, receives a time-limited signed URL, fetches the full article from the provider\u2019s CDN, and reports how many tokens it consumed.',
+        steps: [
+        { from: 'Agent', to: 'Edge', exFrom: false, exTo: false, desc: '403 with discovery headers', link: '/protocol/discovery-paths/#edge-discovery-headers', linkText: 'Discovery Paths →',
+          json: `${c('// Agent hits publisher URL, gets 403')}\n${c('// X-Content-Rules → the publisher manifest')}\n${c('// X-FORA-Exchange → an Exchange it lists')}\n\n${b('{')}\n  ${k('status')}: ${n('403')},\n  ${k('X-Content-Rules')}: ${s('https://news.example/.well-known/fora.json')},\n  ${k('X-FORA-Exchange')}: ${s('exchange.example.com')}\n${b('}')}`},
+        { from: 'Agent', to: 'Exchange', exFrom: false, exTo: true, desc: 'DiscoverResources request', link: '/protocol/transaction-flow/', linkText: 'Transaction Flow →',
+          json: `${c('// POST DiscoverResources')}\n\n${b('{')}\n  ${k('requester')}: ${b('{')}\n    ${k('domain')}: ${s('agent.acme.com')}\n  ${b('}')},\n  ${k('uris')}: [${s('https://news.example/article')}],\n  ${k('acceptable_restrictions')}: [${b('{')} ${k('axis')}: ${s('FUNCTION')}, ${k('values')}: [${s('ai-input')}] ${b('}')}]\n${b('}')}`},
+        { from: 'Exchange', to: 'Agent', exFrom: true, exTo: false, desc: 'Signed offers with pricing', link: '/protocol/transaction-flow/', linkText: 'Offer Response →',
+          json: `${c('// ResourceResponse')}\n\n${b('{')}\n  ${k('offer_id')}: ${s('offer-4921')},\n  ${k('pricing')}: ${b('{')}\n    ${k('rate')}: ${n('0.05')},\n    ${k('unit_cost')}: ${n('0.000015')}\n  ${b('}')},\n  ${k('signature')}: <span style="${SIG}">"ed25519:a4c9..."</span>\n${b('}')}`},
+        { from: 'Agent', to: 'Exchange', exFrom: false, exTo: true, desc: 'ExecuteTransaction', link: '/protocol/transaction-flow/#rpc-2-executetransaction', linkText: 'ExecuteTransaction →',
+          json: `${c('// Commit to offer (full signed Offer reflected back)')}\n\n${b('{')}\n  ${k('offer')}: ${b('{')}\n    ${k('offer_id')}: ${s('offer-4921')},\n    ${k('pricing')}: ${b('{')} ${k('rate')}: ${s('0.05')} ${b('}')},\n    ${k('signature')}: <span style="${SIG}">"ed25519:a4c9..."</span>\n  ${b('}')}\n${b('}')}`},
+        { from: 'Exchange', to: 'Billing', exFrom: true, exTo: false, desc: 'Billing authorization', link: '/getting-started/how-money-flows/', linkText: 'How Money Flows →',
+          json: `${c('// Billing adapter (Stripe, x402, etc)')}\n\n${b('{')}\n  ${k('billing_id')}: ${s('bill-93a7f2')},\n  ${k('amount')}: ${n('0.05')},\n  ${k('status')}: ${s('AUTHORIZED')}\n${b('}')}`},
+        { from: 'Exchange', to: 'Agent', exFrom: true, exTo: false, desc: 'Signed URL + billing_id', link: '/protocol/content-attestation/', linkText: 'Content Attestation →',
+          json: `${c('// TransactionResponse')}\n\n${b('{')}\n  ${k('transaction_id')}: ${s('txn-93a7f2')},\n  ${k('billing_id')}: ${s('bill-93a7f2')},\n  ${k('url')}: ${s('https://cdn.news.example/...?sig=...')},\n  ${k('content_hash')}: ${s('sha256:a1b2...')}\n${b('}')}`},
+        { from: 'Agent', to: 'Provider', exFrom: false, exTo: false, desc: 'Fetch article via signed URL', link: '/protocol/transaction-flow/', linkText: 'Signed URL Delivery →',
+          json: `${c('// CDN verifies signed URL natively')}\n${c('// 5-min TTL, identity-bound')}\n\n${b('{')}\n  ${k('status')}: ${n('200')},\n  ${k('content_type')}: ${s('text/html')},\n  ${k('content_hash')}: ${s('sha256:a1b2...')} ${c('✓ match')}\n${b('}')}`},
+        { from: 'Agent', to: 'Exchange', exFrom: false, exTo: true, desc: 'ReportUsage', link: '/protocol/transaction-flow/#rpc-3-reportusage', linkText: 'ReportUsage →',
+          json: `${c('// Post-usage report')}\n\n${b('{')}\n  ${k('transaction_id')}: ${s('txn-93a7f2')},\n  ${k('function')}: ${s('AI_INPUT')},\n  ${k('consumed_quantity')}: ${n('3247')},\n  ${k('consumed_unit')}: ${s('tokens')}\n${b('}')}`}
+      ]},
+      { title: 'Music sample licensing',
+        story: 'An AI music production tool needs a funk sample for a user\u2019s track. A song has two separate rights: the master recording (owned by the label or distributor) and the composition (owned by the songwriter\u2019s publisher). Traditionally, clearing both requires weeks of emails and lawyers. With FORA, the Broker queries two Exchanges \u2014 one for masters, one for compositions \u2014 and returns both offers in one response. The agent licenses both for $0.03 total, fetches the audio file and the MIDI notation, and reports usage to each rights holder.',
+        steps: [
+        { from: 'Agent', to: 'Broker', exFrom: false, exTo: false, desc: 'Search: "funk loop 120bpm clearable for AI"', link: '/protocol/discovery-paths/', linkText: 'Discovery Paths →',
+          json: `${c('// AI music tool needs a sample')}\n${c('// Two rights needed: master + composition')}\n\n${b('{')}\n  ${k('query')}: ${s('funk loop 120bpm clearable')},\n  ${k('search_filters')}: ${b('{')}\n    ${k('music.genre')}: ${s('funk')},\n    ${k('music.bpm_range')}: ${s('115-125')}\n  ${b('}')},\n  ${k('supported_profiles')}: [${s('fora-music-v1')}]\n${b('}')}`},
+        { from: 'Broker', to: 'Exchanges', exFrom: false, exTo: true, desc: 'Fan-out: label catalog + publishing catalog', link: '/protocol/transaction-flow/', linkText: 'Transaction Flow →',
+          json: `${c('// Broker queries two Exchanges:')}\n${c('// Exchange A = label/distributor (masters)')}\n${c('// Exchange B = publisher (compositions)')}\n\n${c('// → Exchange A (label catalog)')}\n${b('{')}\n  ${k('uris')}: [${s('isrc:USRC11700001')}],\n  ${k('acceptable_restrictions')}: [${b('{')} ${k('axis')}: ${s('FUNCTION')}, ${k('values')}: [${s('ai-input')}] ${b('}')}]\n${b('}')}\n\n${c('// → Exchange B (publisher catalog)')}\n${b('{')}\n  ${k('uris')}: [${s('iswc:T-070.237.108-8')}],\n  ${k('acceptable_restrictions')}: [${b('{')} ${k('axis')}: ${s('FUNCTION')}, ${k('values')}: [${s('ai-input')}] ${b('}')}]\n${b('}')}`},
+        { from: 'Exchanges', to: 'Broker', exFrom: true, exTo: false, desc: 'Two offers: master recording + composition', link: '/protocol/transaction-flow/', linkText: 'Multi-Exchange Offers →',
+          json: `${c('// Exchange A: master recording')}\n${b('{')}\n  ${k('offer_id')}: ${s('offer-master-4401')},\n  ${k('title')}: ${s('Get Up (Loop)')},\n  ${k('pricing')}: ${b('{')}\n    ${k('model')}: ${s('PER_UNIT')},\n    ${k('rate')}: ${n('0.02')},\n    ${k('unit')}: ${s('accesses')}\n  ${b('}')},\n  ${k('identity')}: ${b('{')}\n    ${k('canonical_url')}: ${s('isrc:USRC11700001')}\n  ${b('}')}\n${b('}')}\n\n${c('// Exchange B: composition')}\n${b('{')}\n  ${k('offer_id')}: ${s('offer-comp-8820')},\n  ${k('title')}: ${s('Get Up (Composition)')},\n  ${k('pricing')}: ${b('{')}\n    ${k('model')}: ${s('PER_UNIT')},\n    ${k('rate')}: ${n('0.01')},\n    ${k('unit')}: ${s('accesses')}\n  ${b('}')},\n  ${k('identity')}: ${b('{')}\n    ${k('canonical_url')}: ${s('iswc:T-070.237.108-8')}\n  ${b('}')}\n${b('}')}`},
+        { from: 'Broker', to: 'Agent', exFrom: false, exTo: false, desc: 'Linked offers: $0.02 master + $0.01 composition', link: '/protocol/transaction-flow/', linkText: 'Offer Selection →',
+          json: `${c('// Broker presents both as a bundle')}\n${c('// Agent sees total cost: $0.03')}\n\n${b('{')}\n  ${k('offers')}: [\n    ${b('{')}\n      ${k('title')}: ${s('Master: Get Up (Loop)')},\n      ${k('rate')}: ${n('0.02')},\n      ${k('exchange')}: ${s('label-exchange.example')}\n    ${b('}')},\n    ${b('{')}\n      ${k('title')}: ${s('Composition: Get Up')},\n      ${k('rate')}: ${n('0.01')},\n      ${k('exchange')}: ${s('publishing-exchange.example')}\n    ${b('}')}\n  ],\n  ${k('total')}: ${n('0.03')}\n${b('}')}`},
+        { from: 'Agent', to: 'Exchange A', exFrom: false, exTo: true, desc: 'ExecuteTransaction for master recording', link: '/protocol/transaction-flow/#rpc-2-executetransaction', linkText: 'ExecuteTransaction →',
+          json: `${c('// Transaction 1: master recording')}\n\n${b('{')}\n  ${k('offer_id')}: ${s('offer-master-4401')},\n  ${k('transaction_id')}: ${s('txn-master-a1')},\n  ${k('cost')}: ${b('{')}\n    ${k('amount')}: ${n('0.02')},\n    ${k('currency')}: ${s('USD')}\n  ${b('}')}\n${b('}')}`},
+        { from: 'Agent', to: 'Exchange B', exFrom: false, exTo: true, desc: 'ExecuteTransaction for composition', link: '/protocol/transaction-flow/#rpc-2-executetransaction', linkText: 'ExecuteTransaction →',
+          json: `${c('// Transaction 2: composition rights')}\n\n${b('{')}\n  ${k('offer_id')}: ${s('offer-comp-8820')},\n  ${k('transaction_id')}: ${s('txn-comp-b2')},\n  ${k('cost')}: ${b('{')}\n    ${k('amount')}: ${n('0.01')},\n    ${k('currency')}: ${s('USD')}\n  ${b('}')}\n${b('}')}`},
+        { from: 'Agent', to: 'CDN', exFrom: false, exTo: false, desc: 'Fetch audio (master) + notation (composition)', link: '/protocol/content-attestation/', linkText: 'Content Attestation →',
+          json: `${c('// Two signed URLs, two fetches')}\n\n${c('// Master: audio/wav from label CDN')}\n${b('{')}\n  ${k('url')}: ${s('https://cdn.label.example/...')},\n  ${k('content_type')}: ${s('audio/wav')},\n  ${k('content_hash')}: ${s('sha256:f1a2...')} ${c('✓')}\n${b('}')}\n\n${c('// Composition: MIDI from publisher')}\n${b('{')}\n  ${k('url')}: ${s('https://cdn.publisher.example/...')},\n  ${k('content_type')}: ${s('audio/midi')},\n  ${k('content_hash')}: ${s('sha256:b3c4...')} ${c('✓')}\n${b('}')}`},
+        { from: 'Agent', to: 'Exchanges', exFrom: false, exTo: true, desc: 'ReportUsage to both Exchanges', link: '/protocol/transaction-flow/#rpc-3-reportusage', linkText: 'ReportUsage →',
+          json: `${c('// Usage report to each Exchange')}\n\n${c('// → Exchange A (master)')}\n${b('{')}\n  ${k('transaction_id')}: ${s('txn-master-a1')},\n  ${k('function')}: ${s('AI_INPUT')},\n  ${k('consumed_unit')}: ${s('seconds')},\n  ${k('consumed_quantity')}: ${n('8')}\n${b('}')}\n\n${c('// → Exchange B (composition)')}\n${b('{')}\n  ${k('transaction_id')}: ${s('txn-comp-b2')},\n  ${k('function')}: ${s('AI_INPUT')},\n  ${k('consumed_unit')}: ${s('bars')},\n  ${k('consumed_quantity')}: ${n('4')}\n${b('}')}`}
+      ]}
+    ];
+
+    function renderArchSteps() {
+      archStepsList.innerHTML = scenarios[currentScenario].steps.map((step, i) => `
+        <button type="button" class="arch-step-row" aria-controls="archDetail" onclick="setArchStep(${i})">
+          <span class="arch-step-num">${i + 1}</span>
+          <span class="arch-step-parties">${party(step.from, step.exFrom)}${arrow}${party(step.to, step.exTo)}</span>
+          <span class="arch-step-desc">${step.desc}</span>
+        </button>`).join('');
+    }
+
+    function setArchStep(index) {
+      const step = scenarios[currentScenario].steps[index];
+      archStepsList.querySelectorAll('button').forEach((row, i) => {
+        row.classList.toggle('active', i === index);
+        row.setAttribute('aria-pressed', String(i === index));
+      });
+      archDetailEl.innerHTML = `
+        <span class="payload-label">Step ${index + 1} — ${step.from} → ${step.to}</span>
+        <div class="arch-transfer" aria-hidden="true">${party(step.from, step.exFrom)}<span class="transfer-line"></span>${party(step.to, step.exTo)}</div>
+        <p class="payload-desc">${step.desc}</p>
+        <pre class="payload-code">${step.json}</pre>
+        <a class="payload-link" href="${step.link}">${step.linkText}</a>`;
+    }
+
+    function renderStory() {
+      const scenario = scenarios[currentScenario];
+      document.getElementById('archStory').innerHTML = scenario.story;
+    }
+
+    function switchScenario(idx) {
+      currentScenario = idx;
+      document.getElementById('archTab0').classList.toggle('active', idx === 0);
+      document.getElementById('archTab1').classList.toggle('active', idx === 1);
+      document.getElementById('archTab0').setAttribute('aria-pressed', String(idx === 0));
+      document.getElementById('archTab1').setAttribute('aria-pressed', String(idx === 1));
+      renderStory();
+      renderArchSteps();
+      setArchStep(0);
+    }
+
+    // Init
+    renderStory();
+    renderArchSteps();
+    setArchStep(0);
+  </script>
+
+</body>
+</html>

@@ -90,8 +90,8 @@ Rules:
 - Sentence case for headlines and buttons. No title case, no all-caps
   headlines.
 - The highlight pattern from the site: a two-line headline whose second line is
-  in blue text, e.g. "Make your website or music catalog licensable.
-  *Instantly.*"
+  in blue text, e.g. "Every AI agent is a storefront. *Be on the shelf, on
+  your terms.*"
 
 ## 4. Layout
 
@@ -106,10 +106,11 @@ Rules:
 
 Read `reference/messaging.md` before writing any copy. The short version:
 
-- **Lead with the owner's outcome:** FORA makes a website or a music catalog
-  licensable to AI agents, instantly. Then the mechanism: set your terms once,
-  and every page or track becomes a signed offer any agent can find, buy and
-  verify, with no deal per buyer. "Instantly" means once connected, not zero
+- **Lead with the owner's outcome:** "Every AI agent is a storefront. Be on the
+  shelf, on your terms." In one sentence: FORA makes a website or a music
+  catalog licensable to AI agents, instantly. Then the mechanism: set your terms
+  once, and every page or track becomes a signed offer any agent can find, buy
+  and verify, with no deal per buyer. "Instantly" means once connected, not zero
   setup; never promise minutes or one click.
 - Write **FORA** in prose. "The FORA protocol" or "FORA Protocol" when you need
   the noun. The lowercase "fora protocol" exists only inside the logo.
@@ -132,8 +133,8 @@ Check every item:
 2. Only the palette above; blue used sparingly; text contrast as in section 2.
 3. Instrument Sans and DM Mono (or the stated fallbacks).
 4. "FORA" spelled right; no "RAMP"; "open protocol", not "standard".
-   Copy for rights holders leads with "licensable, instantly", not with the
-   protocol mechanics.
+   Copy for rights holders leads with the owner's outcome (the storefront line,
+   or "licensable, instantly"), not with the protocol mechanics.
 5. Every factual claim is in `reference/messaging.md` or on fora-protocol.org,
    or flagged to the user as unverified.
 6. A link to <https://fora-protocol.org> is present where the format allows.

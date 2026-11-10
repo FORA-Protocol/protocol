@@ -112,6 +112,7 @@ export default defineConfig({
 				{
 					label: 'Protocol',
 					items: [
+						{ label: 'Overview', link: '/protocol/' },
 						{ label: 'Transaction Flow', slug: 'protocol/transaction-flow' },
 						{ label: 'Standards Layering', slug: 'protocol/standards-layering' },
 						{ label: 'Discovery Paths', slug: 'protocol/discovery-paths' },

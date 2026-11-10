@@ -5,7 +5,7 @@
 // `current` marks the entry for the page being rendered, which the publisher
 // preview design calls for.
 interface Props {
-  current?: 'publishers';
+  current?: 'publishers' | 'protocol';
 }
 const { current } = Astro.props;
 ---
@@ -24,7 +24,13 @@ const { current } = Astro.props;
   </button>
   <ul id="site-nav-links" class="nav-links">
     <li><a href="/getting-started/what-is-fora/">Docs</a></li>
-    <li><a href="/protocol/transaction-flow/">Protocol</a></li>
+    <li>
+      <a
+        href="/protocol/"
+        class={current === 'protocol' ? 'on' : undefined}
+        aria-current={current === 'protocol' ? 'page' : undefined}
+      >Protocol</a>
+    </li>
     <li>
       <a
         href="/publishers/onboarding/"
@@ -32,7 +38,7 @@ const { current } = Astro.props;
         aria-current={current === 'publishers' ? 'page' : undefined}
       >For publishers</a>
     </li>
-    <li><a href="/brand/">Brand</a></li>
+    <li><a href="/getting-started/live-demo-music/">For music</a></li>
     <li><a href="https://github.com/FORA-Protocol/protocol">GitHub</a></li>
   </ul>
 </nav>

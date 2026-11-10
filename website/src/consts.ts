@@ -43,13 +43,13 @@ export const PACKAGES = {
 	},
 } as const satisfies Record<string, PackageLink>;
 
-/** Landing-page strip order: the three SDKs, then the reference app. */
+/** Landing-page strip order: the three SDKs, then FORA Server (the reference implementation, a working exchange). */
 export const BUILD_LINKS: readonly PackageLink[] = [
 	PACKAGES.ts,
 	PACKAGES.python,
 	PACKAGES.go,
 	{
-		label: 'Reference App',
+		label: 'FORA Server',
 		url: 'https://github.com/FORA-Protocol/reference-implementation',
 		coordinate: 'FORA-Protocol/reference-implementation',
 		icon: '/icons/github.svg',
