@@ -15,8 +15,8 @@ import '../styles/brand.css';
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <meta property="og:image" content="https://fora-protocol.org/brand/fora-social-card.png" />
   <meta name="twitter:card" content="summary_large_image" />
-  <title>FORA Protocol — Open Transaction Protocol for AI Content Access</title>
-  <meta name="description" content="The open protocol that turns blocked bots into paying customers. Discover, price, transact, deliver, verify — one protocol for any content." />
+  <title>FORA — Make your website or music catalog licensable to AI agents</title>
+  <meta name="description" content="Set your terms once, and FORA turns every page or track into a signed offer that any AI agent can find, buy and verify. No deal to negotiate per buyer. An open protocol, Apache 2.0." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -123,6 +123,143 @@ import '../styles/brand.css';
     .hero-resources a:hover {
       border-color: var(--accent-text);
       color: var(--white);
+    }
+
+    /* ========= WAYS IN ========= */
+    .ways-section {
+      background: var(--black);
+      padding: 5rem 2rem;
+    }
+    .ways-grid {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+    .way-card {
+      display: flex;
+      flex-direction: column;
+      background: var(--near-black);
+      border: 1px solid var(--mid);
+      border-radius: 10px;
+      padding: 1.75rem 1.5rem;
+    }
+    .way-card:first-child,
+    .way-card:nth-child(2) { border-top: 2px solid var(--accent); }
+    .way-kicker {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent-text);
+      margin-bottom: 0.5rem;
+    }
+    .way-card h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.3;
+      color: var(--white);
+      margin-bottom: 1rem;
+    }
+    .way-steps {
+      list-style: none;
+      counter-reset: way;
+      margin-bottom: 1rem;
+    }
+    .way-steps li {
+      counter-increment: way;
+      position: relative;
+      padding-left: 2rem;
+      margin-bottom: 0.75rem;
+      color: var(--light-gray);
+      font-size: 0.9375rem;
+      line-height: 1.55;
+    }
+    .way-steps li::before {
+      content: counter(way, decimal-leading-zero);
+      position: absolute;
+      left: 0;
+      top: 0.1rem;
+      font-family: var(--mono);
+      font-size: 0.8125rem;
+      color: var(--accent-text);
+    }
+    .way-steps code {
+      font-family: var(--mono);
+      font-size: 0.8125rem;
+      background: var(--mid);
+      padding: 0.1rem 0.35rem;
+      border-radius: 2px;
+      color: var(--off-white);
+      white-space: nowrap;
+    }
+    .way-result {
+      color: var(--gray);
+      font-size: 0.9375rem;
+      line-height: 1.55;
+      padding-top: 1rem;
+      border-top: 1px solid var(--mid);
+      margin-bottom: 1.25rem;
+    }
+    .way-links {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .way-links a {
+      color: var(--accent-text);
+      font-size: 0.9375rem;
+      text-decoration: none;
+    }
+    .way-links a + a { color: var(--gray); font-size: 0.875rem; }
+    .way-links a:hover { text-decoration: underline; }
+
+    .gets {
+      max-width: 1100px;
+      margin: 3rem auto 0;
+    }
+    .gets-label {
+      text-align: center;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--light-gray);
+      margin-bottom: 1rem;
+    }
+    .gets-list {
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      border: 1px solid var(--mid);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .gets-list li {
+      padding: 1.25rem 1rem;
+      border-left: 1px solid var(--mid);
+    }
+    .gets-list li:first-child { border-left: 0; }
+    .gets-list b {
+      display: block;
+      color: var(--white);
+      font-weight: 600;
+      font-size: 0.9375rem;
+      margin-bottom: 0.35rem;
+    }
+    .gets-list span {
+      color: var(--gray);
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+    @media (max-width: 960px) {
+      .ways-grid { grid-template-columns: 1fr; max-width: 640px; }
+      .gets-list { grid-template-columns: 1fr; max-width: 640px; margin: 0 auto; }
+      .gets-list li { border-left: 0; border-top: 1px solid var(--mid); }
+      .gets-list li:first-child { border-top: 0; }
     }
 
     /* ========= FLOW SECTION ========= */
@@ -594,7 +731,7 @@ import '../styles/brand.css';
       max-width: 1000px;
       margin: 0 auto;
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       gap: 1.5rem;
     }
 
@@ -937,11 +1074,11 @@ import '../styles/brand.css';
 
     <div class="hero-content">
       <div class="hero-badge">Open Protocol · Apache 2.0</div>
-      <h1 class="animate-in delay-1">AI agents consume content.<br><em>Nobody gets paid.</em></h1>
-      <p class="hero-sub animate-in delay-2">FORA is the open transaction protocol that turns blocked bots into paying customers. Discover, price, transact, deliver, verify — one protocol for any content.</p>
+      <h1 class="animate-in delay-1">Make your website or music catalog licensable.<br><em>Instantly.</em></h1>
+      <p class="hero-sub animate-in delay-2">Set your terms once, and FORA turns every page or track into a signed offer that any AI agent can find, buy and verify. No deal to negotiate per buyer, no change to how you publish.</p>
       <div class="hero-buttons animate-in delay-3">
-        <a href="/getting-started/what-is-fora/" class="btn btn-primary">Read the Docs</a>
-        <a href="https://github.com/FORA-Protocol/protocol" target="_blank" rel="noopener noreferrer" class="btn btn-ghost">View on GitHub</a>
+        <a href="/publishers/onboarding/" class="btn btn-primary">Check your website</a>
+        <a href="/getting-started/live-demo-music/" class="btn btn-ghost">See a track licensed</a>
       </div>
       <nav class="hero-resources" aria-labelledby="hero-resources-label">
         <p class="hero-resources-label" id="hero-resources-label">Build with FORA</p>
@@ -952,11 +1089,75 @@ import '../styles/brand.css';
     </div>
   </section>
 
+  <!-- WAYS IN -->
+  <section class="ways-section">
+    <div class="section-header">
+      <div class="section-label">Get licensable</div>
+      <h2>One setup. Then every agent can buy.</h2>
+      <p>You connect once. From then on every page or track is on sale to any compatible AI agent, on your terms. You don't negotiate a deal or build an integration for each buyer.</p>
+    </div>
+
+    <div class="ways-grid">
+      <article class="way-card">
+        <div class="way-kicker">A website</div>
+        <h3>Your pages, priced and licensed</h3>
+        <ol class="way-steps">
+          <li>Choose your terms on the publisher console: free or a price per fetch, and whether agents may use pages for search, AI input or AI training.</li>
+          <li>Serve one file at <code>/.well-known/fora.json</code>.</li>
+          <li>Install one package on your CDN, Cloudflare or CloudFront. No CMS changes, and readers see no difference.</li>
+        </ol>
+        <p class="way-result">Your pages are imported from your sitemap. An agent that requests one is pointed to your signed offer, not just turned away.</p>
+        <div class="way-links">
+          <a href="/publishers/onboarding/">See what an agent gets for your page &rarr;</a>
+          <a href="/getting-started/publisher-onboarding/">Publisher onboarding</a>
+        </div>
+      </article>
+
+      <article class="way-card">
+        <div class="way-kicker">A music catalog</div>
+        <h3>Your tracks, under the licenses you already sell</h3>
+        <ol class="way-steps">
+          <li>Describe each track in one feed, one line per track: the audio file, its search fields, your license document and the licenses you sell, with prices.</li>
+          <li>Push the feed to an Exchange, and set up delivery from your domain and CDN once. No code to write.</li>
+        </ol>
+        <p class="way-result">Agents search by genre, mood, tempo and the other music fields, read each license, and buy the one that fits the use.</p>
+        <div class="way-links">
+          <a href="/getting-started/live-demo-music/">Watch an agent license a track &rarr;</a>
+          <a href="/protocol/ext-music/">The music fields</a>
+        </div>
+      </article>
+
+      <article class="way-card">
+        <div class="way-kicker">A marketplace you already run</div>
+        <h3>Your catalog, search and delivery stay yours</h3>
+        <ol class="way-steps">
+          <li>Publish your catalog as a feed. The content never moves.</li>
+          <li>Answer agent questions with your own search, ranking or recommender.</li>
+        </ol>
+        <p class="way-result">Your customers reach you through the FORA SDKs and MCP endpoint they already have. You write no client library.</p>
+        <div class="way-links">
+          <a href="/getting-started/existing-marketplace/">Map your marketplace onto FORA &rarr;</a>
+        </div>
+      </article>
+    </div>
+
+    <div class="gets">
+      <div class="gets-label">What you get, whichever way in</div>
+      <ul class="gets-list">
+        <li><b>Search</b><span>Agents find your content by what it is about.</span></li>
+        <li><b>Terms an agent can read</b><span>Each license becomes a signed offer with the price and the main terms.</span></li>
+        <li><b>Payment</b><span>The Exchange checks the offer, charges the agent and records the sale.</span></li>
+        <li><b>Delivery</b><span>A short-lived signed link, checked by your CDN before it serves the file.</span></li>
+        <li><b>Evidence</b><span>Signed records of each purchase that anyone can check later.</span></li>
+      </ul>
+    </div>
+  </section>
+
   <!-- ARCHITECTURE FLOW (scenarios) -->
   <section class="arch-section">
     <div class="section-header">
-      <div class="section-label">How FORA Works</div>
-      <h2>Multiple scenarios. Same protocol. Click each step.</h2>
+      <div class="section-label">See it work</div>
+      <h2>Same protocol for an article and a track. Click each step.</h2>
     </div>
 
     <div class="arch-tabs">
@@ -1064,15 +1265,15 @@ import '../styles/brand.css';
   <!-- N×M vs N+M -->
   <section class="nxm-section">
     <div class="section-header" style="color: var(--near-black);">
-      <div class="section-label">The Problem FORA Solves</div>
-      <h2 style="color: var(--near-black);">Publishers locked behind walled gardens vs. open access</h2>
-      <p style="color: #777;">Today, publishers are gated behind exclusive platform deals. Agents need separate integrations for each. FORA opens the market.</p>
+      <div class="section-label">Why it is instant</div>
+      <h2 style="color: var(--near-black);">A deal per buyer, or one offer for every agent</h2>
+      <p style="color: #555;">Licensing content to AI today means a negotiation and an integration for each buyer. With FORA you publish your terms once, and every agent reads and buys them the same way.</p>
     </div>
 
     <div class="nxm-grid">
       <!-- Without FORA -->
       <div class="nxm-panel without" id="nxmWithout">
-        <div class="nxm-label">Today — walled gardens</div>
+        <div class="nxm-label">Today — one deal at a time</div>
         <div class="nxm-diagram" id="diagramWithout" style="display:flex;justify-content:space-between;align-items:center;gap:0;padding:1.5rem 0;position:relative;">
           <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
             <div class="nxm-node agent" data-nxm="a" style="padding:0.3rem 0.5rem;font-size:0.625rem;">A1</div>
@@ -1080,26 +1281,26 @@ import '../styles/brand.css';
             <div class="nxm-node agent" data-nxm="a" style="padding:0.3rem 0.5rem;font-size:0.625rem;">A3</div>
           </div>
           <div style="display:flex;flex-direction:column;gap:10px;flex-shrink:0;">
-            <div class="nxm-node" style="background:#e74c3c;color:#fff;font-weight:600;font-size:0.625rem;padding:0.3rem 0.75rem;" data-nxm="p">TollBit</div>
-            <div class="nxm-node" style="background:#e74c3c;color:#fff;font-weight:600;font-size:0.625rem;padding:0.3rem 0.75rem;" data-nxm="p">PCM</div>
-            <div class="nxm-node" style="background:#e74c3c;color:#fff;font-weight:600;font-size:0.625rem;padding:0.3rem 0.75rem;" data-nxm="p">Dappier</div>
+            <div class="nxm-node" style="background:#e4e4ec;color:#555;font-weight:600;font-size:0.625rem;padding:0.3rem 0.75rem;" data-nxm="p">Deal 1</div>
+            <div class="nxm-node" style="background:#e4e4ec;color:#555;font-weight:600;font-size:0.625rem;padding:0.3rem 0.75rem;" data-nxm="p">Deal 2</div>
+            <div class="nxm-node" style="background:#e4e4ec;color:#555;font-weight:600;font-size:0.625rem;padding:0.3rem 0.75rem;" data-nxm="p">Deal 3</div>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
-            <div class="nxm-node" style="background:#f5f5f5;color:#888;font-size:0.75rem;border:1px dashed #ccc;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub">NYT</div>
-            <div class="nxm-node" style="background:#f5f5f5;color:#888;font-size:0.75rem;border:1px dashed #ccc;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub">Reuters</div>
-            <div class="nxm-node" style="background:#f5f5f5;color:#888;font-size:0.75rem;border:1px dashed #ccc;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub">AP</div>
-            <div class="nxm-node" style="background:#f5f5f5;color:#888;font-size:0.75rem;border:1px dashed #ccc;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub">WSJ</div>
-            <div class="nxm-node" style="background:#f5f5f5;color:#888;font-size:0.75rem;border:1px dashed #ccc;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub">Nature</div>
+            <div class="nxm-node" style="background:#f5f5f5;color:#888;font-size:0.75rem;border:1px dashed #ccc;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub">News site</div>
+            <div class="nxm-node" style="background:#f5f5f5;color:#888;font-size:0.75rem;border:1px dashed #ccc;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub">Blog</div>
+            <div class="nxm-node" style="background:#f5f5f5;color:#888;font-size:0.75rem;border:1px dashed #ccc;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub">Label</div>
+            <div class="nxm-node" style="background:#f5f5f5;color:#888;font-size:0.75rem;border:1px dashed #ccc;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub">Music library</div>
+            <div class="nxm-node" style="background:#f5f5f5;color:#888;font-size:0.75rem;border:1px dashed #ccc;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub">Journal</div>
           </div>
           <canvas id="canvasWithout"></canvas>
         </div>
-        <div class="nxm-stat">Walled gardens</div>
-        <div class="nxm-caption">Publishers locked behind exclusive platform deals. Each agent needs a separate proprietary integration. Publishers can't switch. Agents can't compare.</div>
+        <div class="nxm-stat">A deal per buyer</div>
+        <div class="nxm-caption">Each buyer is its own contract and its own integration. Terms live in documents nobody's software can read, and agents can't compare offers.</div>
       </div>
 
       <!-- With FORA -->
       <div class="nxm-panel with" id="nxmWith">
-        <div class="nxm-label">With FORA — open market</div>
+        <div class="nxm-label">With FORA — one offer, every agent</div>
         <div class="nxm-diagram" id="diagramWith" style="display:flex;justify-content:space-between;align-items:center;gap:0;padding:1.5rem 0;position:relative;">
           <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
             <div class="nxm-node agent" data-nxm="a2" style="padding:0.3rem 0.5rem;font-size:0.625rem;">A1</div>
@@ -1115,16 +1316,16 @@ import '../styles/brand.css';
             <div class="nxm-node" style="background:#4f6df5;color:#fff;font-size:0.6rem;font-weight:500;padding:0.25rem 0.5rem;" data-nxm="ex">Ex 3</div>
           </div>
           <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;">
-            <div class="nxm-node" style="background:#f0f5ff;color:#4f6df5;font-size:0.75rem;border:1px solid #c0d0ff;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub2">NYT</div>
-            <div class="nxm-node" style="background:#f0f5ff;color:#4f6df5;font-size:0.75rem;border:1px solid #c0d0ff;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub2">Reuters</div>
-            <div class="nxm-node" style="background:#f0f5ff;color:#4f6df5;font-size:0.75rem;border:1px solid #c0d0ff;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub2">AP</div>
-            <div class="nxm-node" style="background:#f0f5ff;color:#4f6df5;font-size:0.75rem;border:1px solid #c0d0ff;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub2">WSJ</div>
-            <div class="nxm-node" style="background:#f0f5ff;color:#4f6df5;font-size:0.75rem;border:1px solid #c0d0ff;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub2">Nature</div>
+            <div class="nxm-node" style="background:#f0f5ff;color:#4f6df5;font-size:0.75rem;border:1px solid #c0d0ff;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub2">News site</div>
+            <div class="nxm-node" style="background:#f0f5ff;color:#4f6df5;font-size:0.75rem;border:1px solid #c0d0ff;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub2">Blog</div>
+            <div class="nxm-node" style="background:#f0f5ff;color:#4f6df5;font-size:0.75rem;border:1px solid #c0d0ff;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub2">Label</div>
+            <div class="nxm-node" style="background:#f0f5ff;color:#4f6df5;font-size:0.75rem;border:1px solid #c0d0ff;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub2">Music library</div>
+            <div class="nxm-node" style="background:#f0f5ff;color:#4f6df5;font-size:0.75rem;border:1px solid #c0d0ff;padding:0.35rem 0.75rem;font-weight:500;" data-nxm="pub2">Journal</div>
           </div>
           <canvas id="canvasWith"></canvas>
         </div>
-        <div class="nxm-stat">Open market</div>
-        <div class="nxm-caption">Publishers choose Exchanges. Exchanges compete. Agents access any publisher through any Exchange — one protocol.</div>
+        <div class="nxm-stat">Licensable, once</div>
+        <div class="nxm-caption">You set your terms once and choose your Exchange. Any agent finds and buys your content through any Exchange, on the same signed terms.</div>
       </div>
     </div>
   </section>
@@ -1132,44 +1333,17 @@ import '../styles/brand.css';
   <!-- PICK YOUR ROLE -->
   <section class="roles-section">
     <div class="section-header">
-      <div class="section-label">Get Started</div>
-      <h2>Pick your role</h2>
-      <p>Three roles, three deployment paths. Click to see yours.</p>
+      <div class="section-label">The other side</div>
+      <h2>Building agents or running an Exchange?</h2>
+      <p>The same protocol, from the buyer's side and the operator's. Click to see yours.</p>
     </div>
 
     <div class="roles-grid">
       <details class="role-card" name="roles">
         <summary>
           <span class="role-icon">&#9881;</span>
-          <span class="role-title">I'm a Publisher</span>
-          <span class="role-teaser">Stop losing revenue to AI scrapers. Monetize every bot visit without changing your CMS.</span>
-        </summary>
-        <div class="role-steps">
-          <div class="role-step">
-            <div class="role-step-num">01</div>
-            <div class="role-step-text">Drop <code>rsl.txt</code> on your domain — declare your pricing and usage terms.</div>
-          </div>
-          <div class="role-step">
-            <div class="role-step-num">02</div>
-            <div class="role-step-text">Drop <code>fora.json</code> at <code>/.well-known/</code> — declare which Exchanges can sell your content.</div>
-          </div>
-          <div class="role-step">
-            <div class="role-step-num">03</div>
-            <div class="role-step-text">Deploy the edge function on your CDN. One function, &lt;2ms overhead. Bots get redirected to your Exchange.</div>
-          </div>
-          <div class="role-step">
-            <div class="role-step-num">04</div>
-            <div class="role-step-text">Done. Blocked bots become paying customers. No CMS changes. No new infrastructure.</div>
-          </div>
-          <a class="role-footer role-footer-link" href="/publishers/onboarding/" target="_blank" rel="noopener noreferrer">Preview your page &rarr;</a>
-        </div>
-      </details>
-
-      <details class="role-card" name="roles">
-        <summary>
-          <span class="role-icon">&#9881;</span>
-          <span class="role-title">I Run AI Agents</span>
-          <span class="role-teaser">Access premium content legally with one protocol. No scraping, no legal risk, any Exchange.</span>
+          <span class="role-title">I build AI agents</span>
+          <span class="role-teaser">Buy content on the rights holder's terms through one protocol. Licensed access, signed and verifiable, from any Exchange.</span>
         </summary>
         <div class="role-steps">
           <div class="role-step">
@@ -1195,7 +1369,7 @@ import '../styles/brand.css';
       <details class="role-card" name="roles">
         <summary>
           <span class="role-icon">&#9881;</span>
-          <span class="role-title">I Run an Exchange</span>
+          <span class="role-title">I run an Exchange</span>
           <span class="role-teaser">Aggregate provider catalogs. Handle transactions. Earn a margin on every access.</span>
         </summary>
         <div class="role-steps">
@@ -1321,11 +1495,11 @@ import '../styles/brand.css';
 
   <!-- CTA -->
   <section class="cta-section">
-    <h2>The fragmentation clock is running.</h2>
-    <p>Every bilateral deal signed today makes a universal standard harder tomorrow. FORA is the open protocol — adopt it before the window closes.</p>
+    <h2>Your terms, on sale to every AI agent.</h2>
+    <p>See what an agent would get for one of your pages and the terms behind it. The check reads your page and changes nothing on your site.</p>
     <div class="cta-buttons">
-      <a href="/getting-started/what-is-fora/" class="btn btn-primary">Read the Docs</a>
-      <a href="/protocol/transaction-flow/" class="btn btn-ghost">Protocol Spec</a>
+      <a href="/publishers/onboarding/" class="btn btn-primary">Check your website</a>
+      <a href="/getting-started/what-is-fora/" class="btn btn-ghost">Read the docs</a>
       <a href="https://github.com/FORA-Protocol/protocol" class="btn btn-ghost">GitHub</a>
     </div>
   </section>
@@ -1507,7 +1681,7 @@ ${c('// → RESOLUTION_TYPE_CREDIT applied')}`
       // Platforms → Publishers (locked, dashed)
       ctx.strokeStyle = '#ddd';
       ctx.setLineDash([3, 3]);
-      // TollBit → NYT, Reuters, AP
+      // Deal 1 → the first three owners
       [0,1,2].forEach(i => {
         if (pubs[i]) {
           const from = nodeCenter(platforms[0], container);
@@ -1515,7 +1689,7 @@ ${c('// → RESOLUTION_TYPE_CREDIT applied')}`
           ctx.beginPath(); ctx.moveTo(from.r, from.y); ctx.lineTo(to.l, to.y); ctx.stroke();
         }
       });
-      // MS PCM → WSJ, Nature
+      // Deal 2 → the next two
       [3,4].forEach(i => {
         if (pubs[i]) {
           const from = nodeCenter(platforms[1], container);
@@ -1523,7 +1697,7 @@ ${c('// → RESOLUTION_TYPE_CREDIT applied')}`
           ctx.beginPath(); ctx.moveTo(from.r, from.y); ctx.lineTo(to.l, to.y); ctx.stroke();
         }
       });
-      // Dappier → BMJ, MarketData
+      // Deal 3 → any further owners
       [5,6].forEach(i => {
         if (pubs[i]) {
           const from = nodeCenter(platforms[2], container);
@@ -1618,12 +1792,12 @@ ${c('// → RESOLUTION_TYPE_CREDIT applied')}`
 
     const scenarios = [
       { title: 'Web article access',
-        story: 'An AI research assistant needs a New York Times article for a user query. It tries to fetch the URL directly but hits the provider\u2019s edge function, which returns a 403 whose headers point at the publisher\u2019s FORA manifest and the Exchange that sells the article. The agent discovers the article is available for $0.05, commits to the offer, receives a time-limited signed URL, fetches the full article from the provider\u2019s CDN, and reports how many tokens it consumed.',
+        story: 'An AI research assistant needs a news article for a user query. It tries to fetch the URL directly but hits the provider\u2019s edge function, which returns a 403 whose headers point at the publisher\u2019s FORA manifest and the Exchange that sells the article. The agent discovers the article is available for $0.05, commits to the offer, receives a time-limited signed URL, fetches the full article from the provider\u2019s CDN, and reports how many tokens it consumed.',
         steps: [
         { from: 'Agent', to: 'Edge', exFrom: false, exTo: false, desc: '403 with discovery headers', link: '/protocol/discovery-paths/#edge-discovery-headers', linkText: 'Discovery Paths →',
-          json: `${c('// Agent hits publisher URL, gets 403')}\n${c('// X-Content-Rules → the publisher manifest')}\n${c('// X-FORA-Exchange → an Exchange it lists')}\n\n${b('{')}\n  ${k('status')}: ${n('403')},\n  ${k('X-Content-Rules')}: ${s('https://nyt.com/.well-known/fora.json')},\n  ${k('X-FORA-Exchange')}: ${s('exchange.example.com')}\n${b('}')}`},
+          json: `${c('// Agent hits publisher URL, gets 403')}\n${c('// X-Content-Rules → the publisher manifest')}\n${c('// X-FORA-Exchange → an Exchange it lists')}\n\n${b('{')}\n  ${k('status')}: ${n('403')},\n  ${k('X-Content-Rules')}: ${s('https://news.example/.well-known/fora.json')},\n  ${k('X-FORA-Exchange')}: ${s('exchange.example.com')}\n${b('}')}`},
         { from: 'Agent', to: 'Exchange', exFrom: false, exTo: true, desc: 'DiscoverResources request', link: '/protocol/transaction-flow/', linkText: 'Transaction Flow →',
-          json: `${c('// POST DiscoverResources')}\n\n${b('{')}\n  ${k('requester')}: ${b('{')}\n    ${k('domain')}: ${s('agent.acme.com')}\n  ${b('}')},\n  ${k('uris')}: [${s('https://nyt.com/article')}],\n  ${k('acceptable_restrictions')}: [${b('{')} ${k('axis')}: ${s('FUNCTION')}, ${k('values')}: [${s('ai-input')}] ${b('}')}]\n${b('}')}`},
+          json: `${c('// POST DiscoverResources')}\n\n${b('{')}\n  ${k('requester')}: ${b('{')}\n    ${k('domain')}: ${s('agent.acme.com')}\n  ${b('}')},\n  ${k('uris')}: [${s('https://news.example/article')}],\n  ${k('acceptable_restrictions')}: [${b('{')} ${k('axis')}: ${s('FUNCTION')}, ${k('values')}: [${s('ai-input')}] ${b('}')}]\n${b('}')}`},
         { from: 'Exchange', to: 'Agent', exFrom: true, exTo: false, desc: 'Signed offers with pricing', link: '/protocol/transaction-flow/', linkText: 'Offer Response →',
           json: `${c('// ResourceResponse')}\n\n${b('{')}\n  ${k('offer_id')}: ${s('offer-4921')},\n  ${k('pricing')}: ${b('{')}\n    ${k('rate')}: ${n('0.05')},\n    ${k('unit_cost')}: ${n('0.000015')}\n  ${b('}')},\n  ${k('signature')}: <span style="${SIG}">"ed25519:a4c9..."</span>\n${b('}')}`},
         { from: 'Agent', to: 'Exchange', exFrom: false, exTo: true, desc: 'ExecuteTransaction', link: '/protocol/transaction-flow/#rpc-2-executetransaction', linkText: 'ExecuteTransaction →',
@@ -1631,7 +1805,7 @@ ${c('// → RESOLUTION_TYPE_CREDIT applied')}`
         { from: 'Exchange', to: 'Billing', exFrom: true, exTo: false, desc: 'Billing authorization', link: '/getting-started/how-money-flows/', linkText: 'How Money Flows →',
           json: `${c('// Billing adapter (Stripe, x402, etc)')}\n\n${b('{')}\n  ${k('billing_id')}: ${s('bill-93a7f2')},\n  ${k('amount')}: ${n('0.05')},\n  ${k('status')}: ${s('AUTHORIZED')}\n${b('}')}`},
         { from: 'Exchange', to: 'Agent', exFrom: true, exTo: false, desc: 'Signed URL + billing_id', link: '/protocol/content-attestation/', linkText: 'Content Attestation →',
-          json: `${c('// TransactionResponse')}\n\n${b('{')}\n  ${k('transaction_id')}: ${s('txn-93a7f2')},\n  ${k('billing_id')}: ${s('bill-93a7f2')},\n  ${k('url')}: ${s('https://cdn.nyt.com/...?sig=...')},\n  ${k('content_hash')}: ${s('sha256:a1b2...')}\n${b('}')}`},
+          json: `${c('// TransactionResponse')}\n\n${b('{')}\n  ${k('transaction_id')}: ${s('txn-93a7f2')},\n  ${k('billing_id')}: ${s('bill-93a7f2')},\n  ${k('url')}: ${s('https://cdn.news.example/...?sig=...')},\n  ${k('content_hash')}: ${s('sha256:a1b2...')}\n${b('}')}`},
         { from: 'Agent', to: 'Provider', exFrom: false, exTo: false, desc: 'Fetch article via signed URL', link: '/protocol/transaction-flow/', linkText: 'Signed URL Delivery →',
           json: `${c('// CDN verifies signed URL natively')}\n${c('// 5-min TTL, identity-bound')}\n\n${b('{')}\n  ${k('status')}: ${n('200')},\n  ${k('content_type')}: ${s('text/html')},\n  ${k('content_hash')}: ${s('sha256:a1b2...')} ${c('✓ match')}\n${b('}')}`},
         { from: 'Agent', to: 'Exchange', exFrom: false, exTo: true, desc: 'ReportUsage', link: '/protocol/transaction-flow/#rpc-3-reportusage', linkText: 'ReportUsage →',
@@ -1643,17 +1817,17 @@ ${c('// → RESOLUTION_TYPE_CREDIT applied')}`
         { from: 'Agent', to: 'Broker', exFrom: false, exTo: false, desc: 'Search: "funk loop 120bpm clearable for AI"', link: '/protocol/discovery-paths/', linkText: 'Discovery Paths →',
           json: `${c('// AI music tool needs a sample')}\n${c('// Two rights needed: master + composition')}\n\n${b('{')}\n  ${k('query')}: ${s('funk loop 120bpm clearable')},\n  ${k('search_filters')}: ${b('{')}\n    ${k('music.genre')}: ${s('funk')},\n    ${k('music.bpm_range')}: ${s('115-125')}\n  ${b('}')},\n  ${k('supported_profiles')}: [${s('fora-music-v1')}]\n${b('}')}`},
         { from: 'Broker', to: 'Exchanges', exFrom: false, exTo: true, desc: 'Fan-out: label catalog + publishing catalog', link: '/protocol/transaction-flow/', linkText: 'Transaction Flow →',
-          json: `${c('// Broker queries two Exchanges:')}\n${c('// Exchange A = label/distributor (masters)')}\n${c('// Exchange B = publisher (compositions)')}\n\n${c('// → Exchange A (DistroKid catalog)')}\n${b('{')}\n  ${k('uris')}: [${s('isrc:USRC11700001')}],\n  ${k('acceptable_restrictions')}: [${b('{')} ${k('axis')}: ${s('FUNCTION')}, ${k('values')}: [${s('ai-input')}] ${b('}')}]\n${b('}')}\n\n${c('// → Exchange B (Songtrust catalog)')}\n${b('{')}\n  ${k('uris')}: [${s('iswc:T-070.237.108-8')}],\n  ${k('acceptable_restrictions')}: [${b('{')} ${k('axis')}: ${s('FUNCTION')}, ${k('values')}: [${s('ai-input')}] ${b('}')}]\n${b('}')}`},
+          json: `${c('// Broker queries two Exchanges:')}\n${c('// Exchange A = label/distributor (masters)')}\n${c('// Exchange B = publisher (compositions)')}\n\n${c('// → Exchange A (label catalog)')}\n${b('{')}\n  ${k('uris')}: [${s('isrc:USRC11700001')}],\n  ${k('acceptable_restrictions')}: [${b('{')} ${k('axis')}: ${s('FUNCTION')}, ${k('values')}: [${s('ai-input')}] ${b('}')}]\n${b('}')}\n\n${c('// → Exchange B (publisher catalog)')}\n${b('{')}\n  ${k('uris')}: [${s('iswc:T-070.237.108-8')}],\n  ${k('acceptable_restrictions')}: [${b('{')} ${k('axis')}: ${s('FUNCTION')}, ${k('values')}: [${s('ai-input')}] ${b('}')}]\n${b('}')}`},
         { from: 'Exchanges', to: 'Broker', exFrom: true, exTo: false, desc: 'Two offers: master recording + composition', link: '/protocol/transaction-flow/', linkText: 'Multi-Exchange Offers →',
-          json: `${c('// Exchange A: master recording')}\n${b('{')}\n  ${k('offer_id')}: ${s('offer-master-4401')},\n  ${k('title')}: ${s('Funk Brothers - Get Up Loop')},\n  ${k('pricing')}: ${b('{')}\n    ${k('model')}: ${s('PER_UNIT')},\n    ${k('rate')}: ${n('0.02')},\n    ${k('unit')}: ${s('accesses')}\n  ${b('}')},\n  ${k('identity')}: ${b('{')}\n    ${k('canonical_url')}: ${s('isrc:USRC11700001')}\n  ${b('}')}\n${b('}')}\n\n${c('// Exchange B: composition')}\n${b('{')}\n  ${k('offer_id')}: ${s('offer-comp-8820')},\n  ${k('title')}: ${s('Get Up (Composition)')},\n  ${k('pricing')}: ${b('{')}\n    ${k('model')}: ${s('PER_UNIT')},\n    ${k('rate')}: ${n('0.01')},\n    ${k('unit')}: ${s('accesses')}\n  ${b('}')},\n  ${k('identity')}: ${b('{')}\n    ${k('canonical_url')}: ${s('iswc:T-070.237.108-8')}\n  ${b('}')}\n${b('}')}`},
+          json: `${c('// Exchange A: master recording')}\n${b('{')}\n  ${k('offer_id')}: ${s('offer-master-4401')},\n  ${k('title')}: ${s('Get Up (Loop)')},\n  ${k('pricing')}: ${b('{')}\n    ${k('model')}: ${s('PER_UNIT')},\n    ${k('rate')}: ${n('0.02')},\n    ${k('unit')}: ${s('accesses')}\n  ${b('}')},\n  ${k('identity')}: ${b('{')}\n    ${k('canonical_url')}: ${s('isrc:USRC11700001')}\n  ${b('}')}\n${b('}')}\n\n${c('// Exchange B: composition')}\n${b('{')}\n  ${k('offer_id')}: ${s('offer-comp-8820')},\n  ${k('title')}: ${s('Get Up (Composition)')},\n  ${k('pricing')}: ${b('{')}\n    ${k('model')}: ${s('PER_UNIT')},\n    ${k('rate')}: ${n('0.01')},\n    ${k('unit')}: ${s('accesses')}\n  ${b('}')},\n  ${k('identity')}: ${b('{')}\n    ${k('canonical_url')}: ${s('iswc:T-070.237.108-8')}\n  ${b('}')}\n${b('}')}`},
         { from: 'Broker', to: 'Agent', exFrom: false, exTo: false, desc: 'Linked offers: $0.02 master + $0.01 composition', link: '/protocol/transaction-flow/', linkText: 'Offer Selection →',
-          json: `${c('// Broker presents both as a bundle')}\n${c('// Agent sees total cost: $0.03')}\n\n${b('{')}\n  ${k('offers')}: [\n    ${b('{')}\n      ${k('title')}: ${s('Master: Funk Brothers Loop')},\n      ${k('rate')}: ${n('0.02')},\n      ${k('exchange')}: ${s('distrokid-exchange.com')}\n    ${b('}')},\n    ${b('{')}\n      ${k('title')}: ${s('Composition: Get Up')},\n      ${k('rate')}: ${n('0.01')},\n      ${k('exchange')}: ${s('songtrust-exchange.com')}\n    ${b('}')}\n  ],\n  ${k('total')}: ${n('0.03')}\n${b('}')}`},
+          json: `${c('// Broker presents both as a bundle')}\n${c('// Agent sees total cost: $0.03')}\n\n${b('{')}\n  ${k('offers')}: [\n    ${b('{')}\n      ${k('title')}: ${s('Master: Get Up (Loop)')},\n      ${k('rate')}: ${n('0.02')},\n      ${k('exchange')}: ${s('label-exchange.example')}\n    ${b('}')},\n    ${b('{')}\n      ${k('title')}: ${s('Composition: Get Up')},\n      ${k('rate')}: ${n('0.01')},\n      ${k('exchange')}: ${s('publishing-exchange.example')}\n    ${b('}')}\n  ],\n  ${k('total')}: ${n('0.03')}\n${b('}')}`},
         { from: 'Agent', to: 'Exchange A', exFrom: false, exTo: true, desc: 'ExecuteTransaction for master recording', link: '/protocol/transaction-flow/#rpc-2-executetransaction', linkText: 'ExecuteTransaction →',
           json: `${c('// Transaction 1: master recording')}\n\n${b('{')}\n  ${k('offer_id')}: ${s('offer-master-4401')},\n  ${k('transaction_id')}: ${s('txn-master-a1')},\n  ${k('cost')}: ${b('{')}\n    ${k('amount')}: ${n('0.02')},\n    ${k('currency')}: ${s('USD')}\n  ${b('}')}\n${b('}')}`},
         { from: 'Agent', to: 'Exchange B', exFrom: false, exTo: true, desc: 'ExecuteTransaction for composition', link: '/protocol/transaction-flow/#rpc-2-executetransaction', linkText: 'ExecuteTransaction →',
           json: `${c('// Transaction 2: composition rights')}\n\n${b('{')}\n  ${k('offer_id')}: ${s('offer-comp-8820')},\n  ${k('transaction_id')}: ${s('txn-comp-b2')},\n  ${k('cost')}: ${b('{')}\n    ${k('amount')}: ${n('0.01')},\n    ${k('currency')}: ${s('USD')}\n  ${b('}')}\n${b('}')}`},
         { from: 'Agent', to: 'CDN', exFrom: false, exTo: false, desc: 'Fetch audio (master) + notation (composition)', link: '/protocol/content-attestation/', linkText: 'Content Attestation →',
-          json: `${c('// Two signed URLs, two fetches')}\n\n${c('// Master: audio/wav from label CDN')}\n${b('{')}\n  ${k('url')}: ${s('https://cdn.distrokid.com/...')},\n  ${k('content_type')}: ${s('audio/wav')},\n  ${k('content_hash')}: ${s('sha256:f1a2...')} ${c('✓')}\n${b('}')}\n\n${c('// Composition: MIDI from publisher')}\n${b('{')}\n  ${k('url')}: ${s('https://cdn.songtrust.com/...')},\n  ${k('content_type')}: ${s('audio/midi')},\n  ${k('content_hash')}: ${s('sha256:b3c4...')} ${c('✓')}\n${b('}')}`},
+          json: `${c('// Two signed URLs, two fetches')}\n\n${c('// Master: audio/wav from label CDN')}\n${b('{')}\n  ${k('url')}: ${s('https://cdn.label.example/...')},\n  ${k('content_type')}: ${s('audio/wav')},\n  ${k('content_hash')}: ${s('sha256:f1a2...')} ${c('✓')}\n${b('}')}\n\n${c('// Composition: MIDI from publisher')}\n${b('{')}\n  ${k('url')}: ${s('https://cdn.publisher.example/...')},\n  ${k('content_type')}: ${s('audio/midi')},\n  ${k('content_hash')}: ${s('sha256:b3c4...')} ${c('✓')}\n${b('}')}`},
         { from: 'Agent', to: 'Exchanges', exFrom: false, exTo: true, desc: 'ReportUsage to both Exchanges', link: '/protocol/transaction-flow/#rpc-3-reportusage', linkText: 'ReportUsage →',
           json: `${c('// Usage report to each Exchange')}\n\n${c('// → Exchange A (master)')}\n${b('{')}\n  ${k('transaction_id')}: ${s('txn-master-a1')},\n  ${k('function')}: ${s('AI_INPUT')},\n  ${k('consumed_unit')}: ${s('seconds')},\n  ${k('consumed_quantity')}: ${n('8')}\n${b('}')}\n\n${c('// → Exchange B (composition)')}\n${b('{')}\n  ${k('transaction_id')}: ${s('txn-comp-b2')},\n  ${k('function')}: ${s('AI_INPUT')},\n  ${k('consumed_unit')}: ${s('bars')},\n  ${k('consumed_quantity')}: ${n('4')}\n${b('}')}`}
       ]}

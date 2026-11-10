@@ -1,6 +1,6 @@
 ---
 title: "Brand & Media Kit"
-description: "The FORA logo, colours, type and naming rules, plus a ready-made agent skill that applies them for you."
+description: "The FORA logo, colors, type and naming rules, plus a ready-made agent skill that applies them for you."
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -17,7 +17,7 @@ rules below, and checks its own output against them.
 
 ## Let your agent do it
 
-The skill is a folder with a `SKILL.md`, the logo files, colour and type tokens,
+The skill is a folder with a `SKILL.md`, the logo files, color and type tokens,
 and a naming and claims reference. It works in any agent that reads Agent Skills,
 and the `SKILL.md` is plain Markdown that any other agent can follow.
 
@@ -46,6 +46,41 @@ The skill only knows what is public on this site. If you add customer names,
 prices or numbers, it will keep them but tell you they need to be public first.
 </Aside>
 
+## How to talk about FORA
+
+Lead with what FORA does for the owner of the content. The mechanism comes
+second.
+
+<div class="bk-pitch">
+  <p class="bk-pitch-h">Make your website or music catalog licensable. <em>Instantly.</em></p>
+  <p>Set your terms once, and FORA turns every page or track into a signed offer
+  that any AI agent can find, buy and verify, with no deal to negotiate per
+  buyer.</p>
+</div>
+
+For an engineering audience, start one step lower: FORA is an open transaction
+protocol that lets AI agents discover, license, pay for and receive content on
+terms the rights holder sets, with every step signed.
+
+**"Instantly" has one meaning.** Once a site or catalog is connected, every page
+or track is on sale to every compatible agent at once, on the owner's terms.
+It does not mean there is no setup. Don't promise minutes or one click; name the
+setup instead:
+
+| Who | The one-time setup | Read more |
+|---|---|---|
+| A website | Choose your terms on the publisher console, serve one file at `/.well-known/fora.json`, install one package on your CDN. No CMS changes. | [Publisher Onboarding](/getting-started/publisher-onboarding/) |
+| A music catalog | Describe tracks, licenses and prices in one feed and push it to an Exchange; set up delivery from your domain and CDN once. No code. | [Live Demo: Music](/getting-started/live-demo-music/#for-catalog-owners) |
+| A marketplace | Keep your catalog, search and delivery; publish the catalog as a feed. | [For Content Marketplaces](/getting-started/existing-marketplace/) |
+
+**What the owner gets**, in this order: search, terms an agent can read,
+payment, delivery and evidence. Each license becomes a signed offer, each
+purchase a signed record anyone can check later.
+
+**Tone.** Plain, specific, a little dry. Show what is signed, by whom, and what
+the agent receives, instead of adjectives. No "revolutionary", "seamless",
+"unlock" or "game-changing".
+
 ## Logo
 
 The mark is a wax seal pressed with the open forum. Before signatures and
@@ -58,8 +93,8 @@ transaction it seals.
 <div class="bk-grid">
   <figure class="bk-tile bk-dark"><img src="/brand/fora-lockup-on-dark.svg" alt="FORA lockup on dark" /><figcaption>On dark · <a href="/brand/fora-lockup-on-dark.svg" download>SVG</a> · <a href="/brand/fora-lockup-on-dark.png" download>PNG</a></figcaption></figure>
   <figure class="bk-tile bk-light"><img src="/brand/fora-lockup-on-light.svg" alt="FORA lockup on light" /><figcaption>On light · <a href="/brand/fora-lockup-on-light.svg" download>SVG</a> · <a href="/brand/fora-lockup-on-light.png" download>PNG</a></figcaption></figure>
-  <figure class="bk-tile bk-blue"><img src="/brand/fora-lockup-mono-white.svg" alt="FORA lockup, white" /><figcaption>White, for colour or photos · <a href="/brand/fora-lockup-mono-white.svg" download>SVG</a> · <a href="/brand/fora-lockup-mono-white.png" download>PNG</a></figcaption></figure>
-  <figure class="bk-tile bk-light"><img src="/brand/fora-lockup-mono-black.svg" alt="FORA lockup, black" /><figcaption>Black, one-colour print · <a href="/brand/fora-lockup-mono-black.svg" download>SVG</a> · <a href="/brand/fora-lockup-mono-black.png" download>PNG</a></figcaption></figure>
+  <figure class="bk-tile bk-blue"><img src="/brand/fora-lockup-mono-white.svg" alt="FORA lockup, white" /><figcaption>White, for color or photos · <a href="/brand/fora-lockup-mono-white.svg" download>SVG</a> · <a href="/brand/fora-lockup-mono-white.png" download>PNG</a></figcaption></figure>
+  <figure class="bk-tile bk-light"><img src="/brand/fora-lockup-mono-black.svg" alt="FORA lockup, black" /><figcaption>Black, one-color print · <a href="/brand/fora-lockup-mono-black.svg" download>SVG</a> · <a href="/brand/fora-lockup-mono-black.png" download>PNG</a></figcaption></figure>
 </div>
 
 <div class="bk-grid bk-marks">
@@ -78,11 +113,11 @@ transaction it seals.
 - Keep clear space of at least a quarter of the seal's height on every side.
 - The seal is always FORA Blue, except in the white and black versions. The
   impression is cut through, so the background shows in it.
-- Don't stretch, rotate, recolour, outline or add effects, wax textures or 3D.
+- Don't stretch, rotate, recolor, outline or add effects, wax textures or 3D.
   Don't put a different emblem in the seal, don't retype "fora protocol" in a
   font as a substitute, and don't attach other words to the mark.
 
-## Colour
+## Color
 
 Dark-first: ink background, white text, one blue accent.
 
@@ -97,7 +132,7 @@ Dark-first: ink background, white text, one blue accent.
   <div><span style="background:#3d58d6"></span><b>Blue text, on light</b><code>#3d58d6</code></div>
 </div>
 
-- Blue is the only brand colour. Use it for fills, buttons and one highlight per
+- Blue is the only brand color. Use it for fills, buttons and one highlight per
   view.
 - On dark backgrounds, blue text is `#9aaeff`. On light backgrounds, blue text and
   links are `#3d58d6`. Small white text on a blue fill sits on `#3d58d6`.
@@ -120,7 +155,7 @@ Both are free on Google Fonts. Headlines and buttons are sentence case.
   FORA standard".
 - FORA carries the rights holder's terms and a signed acceptance. It does not
   grant rights, clear rights or give legal cover; don't say it does.
-- AI training is its own licence permission and is never implied by another term.
+- AI training is its own license permission and is never implied by another term.
 - Demo purchases use test money and grant no real rights.
 - Only name customers, partners or numbers that appear on this site.
 
@@ -129,7 +164,7 @@ The full reference, with facts you may state and phrases to avoid, is
 
 ## Using the name and logo
 
-The Apache 2.0 and CC BY-ND 4.0 licences cover the code, specification and
+The Apache 2.0 and CC BY-ND 4.0 licenses cover the code, specification and
 documentation, not the FORA name or logo. You may use the name and logo to refer
 to FORA: in articles, talks and diagrams, and as "works with FORA" or "built on
 FORA" for software that implements the protocol. Don't use them in your own
@@ -139,6 +174,10 @@ endorses, certifies or partners with you unless it says so in writing.
 Questions: open an issue on [GitHub](https://github.com/FORA-Protocol/protocol/issues).
 
 <style>{`
+  .bk-pitch { border: 1px solid var(--sl-color-gray-5); border-left: 3px solid #4f6df5; border-radius: 10px; padding: 1.25rem 1.5rem; margin: 1rem 0; }
+  .bk-pitch p { margin: 0; }
+  .bk-pitch .bk-pitch-h { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.2; margin-bottom: 0.6rem; color: var(--sl-color-white); }
+  .bk-pitch .bk-pitch-h em { font-style: normal; color: var(--sl-color-text-accent); }
   .bk-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.25rem 0 0.5rem; }
   .bk-btn { display: inline-block; padding: 0.6rem 1.2rem; border: 1px solid var(--sl-color-gray-5); border-radius: 3px; font-weight: 600; text-decoration: none; color: var(--sl-color-white); }
   .bk-btn:hover { border-color: var(--sl-color-gray-3); }

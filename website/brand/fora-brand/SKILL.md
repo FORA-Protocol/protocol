@@ -5,9 +5,9 @@ description: Apply the FORA protocol brand and claims rules. Use when making any
 
 # FORA brand
 
-This skill carries the official FORA logo files, colour and type tokens, and the
+This skill carries the official FORA logo files, color and type tokens, and the
 rules for naming FORA and describing what it does. Use the files as they are.
-Do not redraw, retype, recolour or "improve" anything in `assets/`.
+Do not redraw, retype, recolor or "improve" anything in `assets/`.
 
 Source of truth: <https://fora-protocol.org/brand/>. If this skill and that page
 disagree, the page wins.
@@ -27,7 +27,7 @@ shapes yourself.
 | Dark (ink, navy, dark photo) | `fora-lockup-on-dark.svg` | `fora-lockup-small-on-dark.svg` | `fora-mark-on-dark.svg` | `fora-mark-small.svg` |
 | Light (white, off-white) | `fora-lockup-on-light.svg` | `fora-lockup-small-on-light.svg` | `fora-mark-on-light.svg` | `fora-mark-small.svg` |
 | FORA Blue or a busy photo | `fora-lockup-mono-white.svg` | `fora-lockup-small-mono-white.svg` | `fora-mark-mono-white.svg` | `fora-mark-small-mono-white.svg` |
-| One-colour print, emboss | `fora-lockup-mono-black.svg` | `fora-lockup-small-mono-black.svg` | `fora-mark-mono-black.svg` | `fora-mark-small-mono-black.svg` |
+| One-color print, emboss | `fora-lockup-mono-black.svg` | `fora-lockup-small-mono-black.svg` | `fora-mark-mono-black.svg` | `fora-mark-small-mono-black.svg` |
 
 All files are in `assets/`. PNG copies sit next to the SVGs for tools that
 cannot take SVG. `fora-icon.svg` is the square avatar (seal on an ink tile).
@@ -51,7 +51,7 @@ Rules:
   different emblem in the seal, and do not combine the mark with any other word
   (product names, event names, "certified").
 
-## 2. Colour
+## 2. Color
 
 Tokens are in `tokens/tokens.css` (CSS custom properties) and `tokens/tokens.json`.
 The brand is dark-first: ink background, white text, one blue accent.
@@ -70,10 +70,10 @@ The brand is dark-first: ink background, white text, one blue accent.
 | `--fora-blue-dark` | `#3d58d6` | Blue for text and links on light; button hover; fill behind small white text |
 
 Rules:
-- One accent. Blue is the only brand colour; do not add oranges, greens or
-  rainbow palettes. Status colours in UI or charts are fine if they stay muted.
-- On dark, coloured text uses `--fora-blue-text`, never `--fora-blue` (too dim).
-- On light, coloured text and links use `--fora-blue-dark`.
+- One accent. Blue is the only brand color; do not add oranges, greens or
+  rainbow palettes. Status colors in UI or charts are fine if they stay muted.
+- On dark, colored text uses `--fora-blue-text`, never `--fora-blue` (too dim).
+- On light, colored text and links use `--fora-blue-dark`.
 - White text under 18 px on a blue fill goes on `--fora-blue-dark`, not
   `--fora-blue` (contrast).
 - Hero backgrounds may use the site glow: a soft radial of FORA Blue at about 20%
@@ -90,7 +90,8 @@ Rules:
 - Sentence case for headlines and buttons. No title case, no all-caps
   headlines.
 - The highlight pattern from the site: a two-line headline whose second line is
-  in blue text, e.g. "AI agents consume content. *Nobody gets paid.*"
+  in blue text, e.g. "Make your website or music catalog licensable.
+  *Instantly.*"
 
 ## 4. Layout
 
@@ -105,6 +106,11 @@ Rules:
 
 Read `reference/messaging.md` before writing any copy. The short version:
 
+- **Lead with the owner's outcome:** FORA makes a website or a music catalog
+  licensable to AI agents, instantly. Then the mechanism: set your terms once,
+  and every page or track becomes a signed offer any agent can find, buy and
+  verify, with no deal per buyer. "Instantly" means once connected, not zero
+  setup; never promise minutes or one click.
 - Write **FORA** in prose. "The FORA protocol" or "FORA Protocol" when you need
   the noun. The lowercase "fora protocol" exists only inside the logo.
 - It stands for **Federated Open Resource Access**. Spell it out once, if at all.
@@ -114,7 +120,7 @@ Read `reference/messaging.md` before writing any copy. The short version:
 - Do not claim customers, partners, pilots, prices or numbers that are not on
   fora-protocol.org. If the user gives you such a claim, keep it but tell them
   it must be public before publishing.
-- Demo licences are test money and grant no real rights. Say so wherever a
+- Demo licenses are test money and grant no real rights. Say so wherever a
   demo appears.
 
 ## 6. Before you hand it over
@@ -126,6 +132,8 @@ Check every item:
 2. Only the palette above; blue used sparingly; text contrast as in section 2.
 3. Instrument Sans and DM Mono (or the stated fallbacks).
 4. "FORA" spelled right; no "RAMP"; "open protocol", not "standard".
+   Copy for rights holders leads with "licensable, instantly", not with the
+   protocol mechanics.
 5. Every factual claim is in `reference/messaging.md` or on fora-protocol.org,
    or flagged to the user as unverified.
 6. A link to <https://fora-protocol.org> is present where the format allows.
