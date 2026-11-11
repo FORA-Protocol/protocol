@@ -594,7 +594,7 @@ A retry is safe. The Broker forwards the agent's `idempotency_key` unchanged to 
 
 ## RPC 3: ReportUsage
 
-After content has been used, the agent submits a usage report. When `ReportingObligation.required` is set on the offer, reporting is mandatory -- failure to report within the window may trigger `DENIAL_REASON_REPORTING_OVERDUE` on subsequent transactions.
+After content has been used, the agent submits a usage report. When `ReportingObligation.required` is set on the offer, reporting is mandatory -- failure to report within the window may trigger `DENIAL_REASON_REPORTING_OVERDUE` on subsequent transactions. When the term the offer sells carries a `REPORTING` obligation, the Exchange sets `Offer.reporting` from it and `required` is true (see [Licensing Terms](/protocol/licensing-terms/#obligations)).
 
 ```
 POST /fora.v1.ExchangeService/ReportUsage

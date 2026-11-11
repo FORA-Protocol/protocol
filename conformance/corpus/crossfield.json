@@ -176,6 +176,56 @@
     }
   },
   {
+    "id": "LicenseTerm/cel/reporting_metering_none",
+    "message": "LicenseTerm",
+    "valid": false,
+    "rules": [
+      "license_term.reporting.metering_none"
+    ],
+    "json": {
+      "obligations": [
+        {
+          "kind": "OBLIGATION_KIND_REPORTING",
+          "trigger": "OBLIGATION_TRIGGER_ON_USE"
+        }
+      ],
+      "pricing": {
+        "metering": "PRICING_METERING_NONE",
+        "model": "PRICING_MODEL_FREE",
+        "rate": "0"
+      },
+      "semantics": "TERM_SEMANTICS_ENUMERATED"
+    }
+  },
+  {
+    "id": "Obligation/cel/reporting_no_endpoint",
+    "message": "Obligation",
+    "valid": false,
+    "rules": [
+      "obligation.reporting.no_endpoint"
+    ],
+    "json": {
+      "kind": "OBLIGATION_KIND_REPORTING",
+      "reporting": {
+        "endpoint": "https://publisher.example/report"
+      },
+      "trigger": "OBLIGATION_TRIGGER_ON_USE"
+    }
+  },
+  {
+    "id": "Obligation/cel/reporting_requires_reporting_kind",
+    "message": "Obligation",
+    "valid": false,
+    "rules": [
+      "obligation.reporting.requires_reporting_kind"
+    ],
+    "json": {
+      "kind": "OBLIGATION_KIND_ATTRIBUTION",
+      "reporting": {},
+      "trigger": "OBLIGATION_TRIGGER_ON_USE"
+    }
+  },
+  {
     "id": "Obligation/cel/share_alike_requires_scope_license",
     "message": "Obligation",
     "valid": false,
@@ -230,6 +280,35 @@
       },
       "terms": [
         {
+          "semantics": "TERM_SEMANTICS_ENUMERATED"
+        }
+      ]
+    }
+  },
+  {
+    "id": "Offer/cel/reporting_required_by_term",
+    "message": "Offer",
+    "valid": false,
+    "rules": [
+      "offer.reporting.required_by_term"
+    ],
+    "json": {
+      "exchange": "exchange.example",
+      "offer_id": "offer-metered",
+      "pricing": {
+        "currency": "USD",
+        "model": "PRICING_MODEL_PER_UNIT",
+        "rate": "0.00002",
+        "unit": "tokens"
+      },
+      "terms": [
+        {
+          "obligations": [
+            {
+              "kind": "OBLIGATION_KIND_REPORTING",
+              "trigger": "OBLIGATION_TRIGGER_ON_USE"
+            }
+          ],
           "semantics": "TERM_SEMANTICS_ENUMERATED"
         }
       ]

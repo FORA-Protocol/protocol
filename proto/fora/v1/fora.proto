@@ -909,6 +909,13 @@ message Offer {
     message: "a metered (PER_UNIT) offer's pricing.estimated_quantity, when stated, must be positive"
     expression: "this.pricing.model != fora.v1.PricingModel.PRICING_MODEL_PER_UNIT || !has(this.pricing.estimated_quantity) || this.pricing.estimated_quantity > 0"
   };
+  // The term an offer sells carries a REPORTING obligation only when the
+  // publisher requires a report, so the offer must say a report is required.
+  option (buf.validate.message).cel = {
+    id: "offer.reporting.required_by_term"
+    message: "an offer whose term carries a REPORTING obligation must set reporting.required"
+    expression: "!this.terms.exists(t, t.obligations.exists(o, o.kind == fora.v1.ObligationKind.OBLIGATION_KIND_REPORTING)) || (has(this.reporting) && this.reporting.required)"
+  };
 
   // Unique identifier for this offer, assigned by the Exchange.
   // Opaque to the caller: not derived from the resource, its URL, or any
@@ -946,6 +953,13 @@ message Offer {
   DeliveryMethod delivery_method = 4;
 
   // Post-usage reporting requirements for this offer.
+  //
+  // When the term the offer sells carries an OBLIGATION_KIND_REPORTING
+  // obligation, the Exchange sets this from it: `required` is true (the
+  // offer.reporting.required_by_term rule), `window` and `required_fields` are
+  // the obligation's where it states them and the Exchange's own where it does
+  // not, and `endpoint` is the Exchange's. Otherwise the Exchange applies its
+  // own reporting policy.
   optional ReportingObligation reporting = 5;
 
   // When this offer expires (ISO 8601). An offer for a term gated behind a
@@ -1530,6 +1544,7 @@ enum ObligationKind {
   OBLIGATION_KIND_NETWORK_COPYLEFT = 4;  // Network service triggers copyleft (AGPL style)
   OBLIGATION_KIND_NOTICE           = 5;  // Include the specified copyright notice
   OBLIGATION_KIND_OTHER            = 6;  // Custom requirement, described in Obligation.detail
+  OBLIGATION_KIND_REPORTING        = 7;  // Report usage with ReportUsage; Obligation.reporting may state the window and the required fields, and the Exchange carries the obligation onto Offer.reporting
 }
 
 // ObligationTrigger — When the obligation activates.
@@ -1760,6 +1775,20 @@ message Obligation {
     message: "SHARE_ALIKE requires scope_license to identify a license (id or uri)"
     expression: "this.kind != fora.v1.ObligationKind.OBLIGATION_KIND_SHARE_ALIKE || (has(this.scope_license) && (this.scope_license.id != '' || this.scope_license.uri != ''))"
   };
+  // `reporting` details a REPORTING obligation and means nothing on any other
+  // kind, so it is refused there rather than silently ignored.
+  option (buf.validate.message).cel = {
+    id: "obligation.reporting.requires_reporting_kind"
+    message: "reporting may be set only on a REPORTING obligation"
+    expression: "!has(this.reporting) || this.kind == fora.v1.ObligationKind.OBLIGATION_KIND_REPORTING"
+  };
+  // Where a report is filed is the Exchange's to say: it sets
+  // Offer.reporting.endpoint. A term does not name an endpoint.
+  option (buf.validate.message).cel = {
+    id: "obligation.reporting.no_endpoint"
+    message: "a REPORTING obligation on a term does not set reporting.endpoint; the Exchange sets it on the offer"
+    expression: "!has(this.reporting) || !has(this.reporting.endpoint)"
+  };
 
   // What the agent must do.
   ObligationKind kind = 1 [(buf.validate.field).enum = {not_in: [0]}];
@@ -1778,6 +1807,16 @@ message Obligation {
   // Free-form detail: attribution string, notice file URI, etc.
   // OBLIGATION_KIND_OTHER without it → lint warning.
   optional string detail = 4;
+
+  // The reporting requirement of an OBLIGATION_KIND_REPORTING obligation: the
+  // window within which the agent files ReportUsage and the fields the report
+  // must carry. Set only on a REPORTING obligation (the
+  // obligation.reporting.requires_reporting_kind rule). `endpoint` is not set
+  // here (obligation.reporting.no_endpoint) and `required` is not read: a
+  // REPORTING obligation always requires a report. Absent, the obligation still
+  // requires a report, under the Exchange's own window and fields. The Exchange
+  // carries the obligation onto Offer.reporting (see that field).
+  optional ReportingObligation reporting = 5;
 }
 
 // LicenseTerm — Universal licensing unit.
@@ -1849,6 +1888,14 @@ message LicenseTerm {
     id: "license_term.one_restriction_per_kind"
     message: "at most one restriction is allowed per kind"
     expression: "this.restrictions.size() > 8 || this.restrictions.all(r, this.restrictions.filter(o, o.kind == r.kind).size() <= 1)"
+  };
+  // A term whose metering is NONE needs no usage report, so a REPORTING
+  // obligation on it contradicts the term; the push is refused rather than one
+  // of the two silently winning.
+  option (buf.validate.message).cel = {
+    id: "license_term.reporting.metering_none"
+    message: "a term whose pricing.metering is NONE cannot carry a REPORTING obligation"
+    expression: "!(has(this.pricing) && has(this.pricing.metering) && this.pricing.metering == fora.v1.PricingMetering.PRICING_METERING_NONE) || !this.obligations.exists(o, o.kind == fora.v1.ObligationKind.OBLIGATION_KIND_REPORTING)"
   };
 
   // Governing license document. Authoritative for REFERENCE_ONLY terms, which

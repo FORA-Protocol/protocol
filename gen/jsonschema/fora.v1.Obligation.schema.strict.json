@@ -30,6 +30,46 @@
       },
       "title": "License",
       "type": "object"
+    },
+    "fora.v1.ReportingObligation": {
+      "additionalProperties": false,
+      "description": "A usage report is a record of the quantity consumed. An honest report of a\n quantity that differs from the estimate, above or below, is a valid report\n and is never refused for that difference.",
+      "properties": {
+        "endpoint": {
+          "description": "URL to submit the usage report to (if different from Exchange).",
+          "type": "string"
+        },
+        "ext": {
+          "description": "Extension point",
+          "type": "object"
+        },
+        "ext_critical": {
+          "description": "Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "required": {
+          "default": false,
+          "description": "Whether post-usage reporting is required.",
+          "type": "boolean"
+        },
+        "required_fields": {
+          "description": "Field names that must be present in the report.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "window": {
+          "description": "Duration within which the report must be submitted (e.g. \"86400s\" = 24\n hours; proto-JSON encodes Duration as seconds). A report that arrives after\n the window closed is refused with USAGE_REPORT_REJECTION_REASON_WINDOW_EXPIRED\n (Connect code failed_precondition).",
+          "format": "duration",
+          "type": "string"
+        }
+      },
+      "title": "ReportingObligation — Requirements attached to a delivery.",
+      "type": "object"
     }
   },
   "$id": "fora.v1.Obligation.schema.strict.json",
@@ -50,7 +90,8 @@
             "OBLIGATION_KIND_SHARE_ALIKE",
             "OBLIGATION_KIND_NETWORK_COPYLEFT",
             "OBLIGATION_KIND_NOTICE",
-            "OBLIGATION_KIND_OTHER"
+            "OBLIGATION_KIND_OTHER",
+            "OBLIGATION_KIND_REPORTING"
           ],
           "type": "string"
         },
@@ -62,6 +103,10 @@
       ],
       "description": "What the agent must do.",
       "title": "Obligation Kind"
+    },
+    "reporting": {
+      "$ref": "#/$defs/fora.v1.ReportingObligation",
+      "description": "The reporting requirement of an OBLIGATION_KIND_REPORTING obligation: the\n window within which the agent files ReportUsage and the fields the report\n must carry. Set only on a REPORTING obligation (the\n obligation.reporting.requires_reporting_kind rule). `endpoint` is not set\n here (obligation.reporting.no_endpoint) and `required` is not read: a\n REPORTING obligation always requires a report. Absent, the obligation still\n requires a report, under the Exchange's own window and fields. The Exchange\n carries the obligation onto Offer.reporting (see that field)."
     },
     "scope_license": {
       "$ref": "#/$defs/fora.v1.License",

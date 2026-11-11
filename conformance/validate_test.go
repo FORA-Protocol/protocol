@@ -8,10 +8,12 @@ package conformance
 import (
 	"strings"
 	"testing"
+	"time"
 
 	protovalidate "buf.build/go/protovalidate"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
@@ -214,6 +216,18 @@ func licensingCases() []validationCase {
 		{"obligation share_alike scope_license uri+digest ok", &forav1.Obligation{Kind: forav1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE, ScopeLicense: &forav1.License{Uri: proto.String("https://creativecommons.org/licenses/by-sa/4.0/"), UriDigest: proto.String("sha256:" + hex64)}}, true, ""},
 		{"obligation share_alike scope_license uri without digest rejected", &forav1.Obligation{Kind: forav1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE, ScopeLicense: &forav1.License{Uri: proto.String("https://creativecommons.org/licenses/by-sa/4.0/")}}, false, "license.digest_required_with_uri"},
 
+		// REPORTING obligations: reporting only on that kind, no endpoint on a term,
+		// not on a NONE-metered term, and an offer selling one requires a report.
+		{"obligation reporting with window ok", reportingObligation(&forav1.ReportingObligation{Window: durationpb.New(30 * 24 * time.Hour), RequiredFields: []string{"consumed_quantity"}}), true, ""},
+		{"obligation reporting without details ok", reportingObligation(nil), true, ""},
+		{"obligation reporting on attribution rejected", &forav1.Obligation{Kind: forav1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE, Reporting: &forav1.ReportingObligation{}}, false, "obligation.reporting.requires_reporting_kind"},
+		{"obligation reporting with endpoint rejected", reportingObligation(&forav1.ReportingObligation{Endpoint: proto.String("https://publisher.example/report")}), false, "obligation.reporting.no_endpoint"},
+		{"term reporting under online metering ok", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: freePricing(), Obligations: []*forav1.Obligation{reportingObligation(nil)}}, true, ""},
+		{"term reporting under none metering rejected", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0", Metering: forav1.PricingMetering_PRICING_METERING_NONE.Enum()}, Obligations: []*forav1.Obligation{reportingObligation(nil)}}, false, "license_term.reporting.metering_none"},
+		{"offer selling a reporting term with reporting required ok", reportingOffer(&forav1.ReportingObligation{Required: true}), true, ""},
+		{"offer selling a reporting term without reporting rejected", reportingOffer(nil), false, "offer.reporting.required_by_term"},
+		{"offer selling a reporting term with reporting not required rejected", reportingOffer(&forav1.ReportingObligation{Required: false}), false, "offer.reporting.required_by_term"},
+
 		// Required-enum discriminators — UNSPECIFIED (zero) is never a valid value.
 		// These guard the gap where the conditional coherence CELs above are
 		// vacuously satisfied by an unset discriminator.
@@ -405,6 +419,20 @@ func pricedTermOffer(offerPricing, termPricing *forav1.Pricing) *forav1.Offer {
 // message is required on both.
 func exampleRequester() *forav1.Requester {
 	return &forav1.Requester{Id: "agent-1", Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}
+}
+
+// reportingObligation is a REPORTING obligation with the given details.
+func reportingObligation(r *forav1.ReportingObligation) *forav1.Obligation {
+	return &forav1.Obligation{Kind: forav1.ObligationKind_OBLIGATION_KIND_REPORTING, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE, Reporting: r}
+}
+
+// reportingOffer is a free offer whose term carries a REPORTING obligation,
+// with the given Offer.reporting.
+func reportingOffer(r *forav1.ReportingObligation) *forav1.Offer {
+	return &forav1.Offer{
+		OfferId: "of_reporting", Exchange: exampleExchange, Pricing: freePricing(), Reporting: r,
+		Terms: []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Obligations: []*forav1.Obligation{reportingObligation(nil)}}},
+	}
 }
 
 func freePricing() *forav1.Pricing {

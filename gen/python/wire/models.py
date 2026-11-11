@@ -562,6 +562,7 @@ class ObligationKind(Enum):
     OBLIGATION_KIND_NETWORK_COPYLEFT = 'OBLIGATION_KIND_NETWORK_COPYLEFT'
     OBLIGATION_KIND_NOTICE = 'OBLIGATION_KIND_NOTICE'
     OBLIGATION_KIND_OTHER = 'OBLIGATION_KIND_OTHER'
+    OBLIGATION_KIND_REPORTING = 'OBLIGATION_KIND_REPORTING'
 
 
 class ObligationTrigger(Enum):
@@ -1309,6 +1310,10 @@ class Obligation(WireModel):
         description='Free-form detail: attribution string, notice file URI, etc.\n OBLIGATION_KIND_OTHER without it → lint warning.',
     )
     kind: ObligationKind = Field(..., description='What the agent must do.')
+    reporting: ReportingObligation | None = Field(
+        None,
+        description="The reporting requirement of an OBLIGATION_KIND_REPORTING obligation: the\n window within which the agent files ReportUsage and the fields the report\n must carry. Set only on a REPORTING obligation (the\n obligation.reporting.requires_reporting_kind rule). `endpoint` is not set\n here (obligation.reporting.no_endpoint) and `required` is not read: a\n REPORTING obligation always requires a report. Absent, the obligation still\n requires a report, under the Exchange's own window and fields. The Exchange\n carries the obligation onto Offer.reporting (see that field).",
+    )
     scope_license: License | None = Field(
         None,
         description="The license that derivatives must be released under. REQUIRED for\n SHARE_ALIKE (rejected if absent), where it MUST identify a license — set\n `id` (SPDX short-id, the common copyleft case, often the term's own\n License.id) and/or `uri`. Because it is a License, a referenced `uri`\n inherits the uri_digest swap-protection rule: a uri without a digest is\n rejected, exactly as for any other license reference.",
@@ -1946,7 +1951,8 @@ class Offer(WireModel):
         description='The offer\'s price, and its ONLY price. An offer represents a single\n licensing arrangement: each projected LicenseTerm yields its own offer, and\n the Exchange moves that term\'s price here, so the term inside `terms`\n carries no pricing of its own (the offer.terms.pricing_unset rule). This is\n the price execute charges, the price a Broker ranks and compares across\n Exchanges, and the price a metered purchase is charged at. A resource with\n multiple alternative terms (e.g. dual-licensed) produces multiple separate\n offers, one per term — never one offer with a "headline" picked among them.\n\nIt derives from exactly one catalog term: the term\'s pricing as the\n publisher declared it (ResourceEntry.terms). Each offer derives from one\n term, and the offer carries no second copy, so the offer\'s price and its\n term\'s price cannot disagree.\n\n On a metered (PER_UNIT) offer, the rate and the estimate a metered\n purchase is charged at are read from here (see Pricing). The estimate is\n optional. When the publisher states one — on the term\'s own pricing, or\n once for the resource on ResourceEntry.estimated_quantity — the Exchange\n carries it here as estimated_quantity, the term\'s own estimate taking\n precedence. When the publisher states none, the offer may carry none, and\n the purchase then charges one unit.',
     )
     reporting: ReportingObligation | None = Field(
-        None, description='Post-usage reporting requirements for this offer.'
+        None,
+        description="Post-usage reporting requirements for this offer.\n\nWhen the term the offer sells carries an OBLIGATION_KIND_REPORTING\n obligation, the Exchange sets this from it: `required` is true (the\n offer.reporting.required_by_term rule), `window` and `required_fields` are\n the obligation's where it states them and the Exchange's own where it does\n not, and `endpoint` is the Exchange's. Otherwise the Exchange applies its\n own reporting policy.",
     )
     signature: str | None = Field(
         '',

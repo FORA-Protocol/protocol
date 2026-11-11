@@ -23,9 +23,11 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
@@ -700,6 +702,41 @@ func buildLTEntryVectors(t *testing.T) []ltEntryVector {
 			e.Terms[0].Obligations = []*forav1.Obligation{{
 				Kind:    forav1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE,
 				Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+			}}
+		})},
+		{"cross_field_obligation_reporting_requires_reporting_kind", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0].Obligations = []*forav1.Obligation{{
+				Kind:      forav1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION,
+				Trigger:   forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+				Reporting: &forav1.ReportingObligation{},
+			}}
+		})},
+		{"cross_field_obligation_reporting_no_endpoint", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0].Obligations = []*forav1.Obligation{{
+				Kind:      forav1.ObligationKind_OBLIGATION_KIND_REPORTING,
+				Trigger:   forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+				Reporting: &forav1.ReportingObligation{Endpoint: proto.String("https://publisher.example/report")},
+			}}
+		})},
+		{"cross_field_license_term_reporting_metering_none", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0].Pricing = &forav1.Pricing{
+				Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0",
+				Metering: forav1.PricingMetering_PRICING_METERING_NONE.Enum(),
+			}
+			e.Terms[0].Obligations = []*forav1.Obligation{{
+				Kind:    forav1.ObligationKind_OBLIGATION_KIND_REPORTING,
+				Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+			}}
+		})},
+		// A REPORTING obligation with a window under the default metering is valid.
+		{"reporting_obligation_with_window_accepted", entry(func(e *forav1.ResourceEntry) {
+			e.Terms[0].Obligations = []*forav1.Obligation{{
+				Kind:    forav1.ObligationKind_OBLIGATION_KIND_REPORTING,
+				Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+				Reporting: &forav1.ReportingObligation{
+					Window:         durationpb.New(30 * 24 * time.Hour),
+					RequiredFields: []string{"consumed_quantity"},
+				},
 			}}
 		})},
 		{"cross_field_pricing_free_zero_rate", entry(func(e *forav1.ResourceEntry) {
