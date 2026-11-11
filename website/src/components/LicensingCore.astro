@@ -4,6 +4,8 @@
 // one LicenseTerm. The terms follow /protocol/licensing-terms/ and the vocab
 // options in proto/fora/v1/fora.proto: registered tokens only, or a `vendor:`
 // token where the registry has none. Digests are shortened placeholders.
+import SlideDeck from './landing/SlideDeck.astro';
+import Slide from './landing/Slide.astro';
 
 type Restriction = { kind: string; permitted?: string[]; prohibited?: string[] };
 type Obligation = {
@@ -396,17 +398,9 @@ const QUESTIONS = [
     <p>FORA doesn't ask you to fit a template. It breaks your license into the parts every license has, keeps your document as the reference, and signs the result.</p>
   </div>
 
-  <div class="deck" data-deck>
-    <div class="deck-viewport">
-      <ol class="deck-track">
-        {SLIDES.map((sl, i) => (
-          <li class="slide" data-slide={i} aria-roledescription="slide" aria-label={`${i + 1} of ${SLIDES.length}`}>
-            <div class="slide-copy">
-              <span class="slide-num">{String(i + 1).padStart(2, '0')}</span>
-              <h3>{sl.title}</h3>
-              <p>{sl.text}</p>
-            </div>
-            <div class="slide-art" aria-hidden="true">
+  <SlideDeck label="The Universal Licensing Core">
+    {SLIDES.map((sl) => (
+      <Slide title={sl.title} text={sl.text}>
               {sl.kind === 'questions' && (
                 <div class="q-grid">
                   {QUESTIONS.map(([q, f, ex]) => (
@@ -450,21 +444,9 @@ const QUESTIONS = [
                   </div>
                 </div>
               )}
-            </div>
-          </li>
-        ))}
-      </ol>
-    </div>
-    <div class="deck-nav">
-      <button type="button" class="deck-btn" data-deck-prev aria-label="Previous slide">←</button>
-      <div class="deck-dots">
-        {SLIDES.map((sl, i) => (
-          <button type="button" class="deck-dot" data-deck-dot={i} aria-label={`Slide ${i + 1}: ${sl.title}`} aria-current={i === 0 ? 'true' : 'false'}></button>
-        ))}
-      </div>
-      <button type="button" class="deck-btn" data-deck-next aria-label="Next slide">→</button>
-    </div>
-  </div>
+      </Slide>
+    ))}
+  </SlideDeck>
 
   <div class="explorer" data-explorer>
     <div class="explorer-head">
@@ -519,48 +501,6 @@ const QUESTIONS = [
   .core-section .section-label { color: #555568; }
   .core-section .section-header h2 { color: var(--black); }
   .core-section .section-header p { color: #444456; }
-
-  /* ---- deck ---- */
-  .deck { max-width: 1100px; margin: 0 auto; }
-  .deck-viewport {
-    overflow: hidden;
-    border-radius: 16px;
-    background: var(--black);
-    box-shadow: 0 30px 70px -36px rgba(10, 10, 15, 0.55);
-  }
-  .deck-track {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    transition: transform 0.45s cubic-bezier(0.3, 0.7, 0.2, 1);
-  }
-  .slide {
-    flex: 0 0 100%;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-    gap: 3rem;
-    align-items: center;
-    min-height: 400px;
-    padding: 3rem;
-    color: var(--light-gray);
-  }
-  .slide-num {
-    display: block;
-    font-family: var(--mono);
-    font-size: 0.875rem;
-    color: var(--accent-text);
-    margin-bottom: 1rem;
-  }
-  .slide h3 {
-    color: var(--white);
-    font-size: clamp(1.375rem, 2.4vw, 1.875rem);
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    line-height: 1.2;
-    margin-bottom: 1rem;
-  }
-  .slide p { font-size: 1.1875rem; line-height: 1.65; color: var(--light-gray); max-width: 34rem; }
 
   .q-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; }
   .q-card {
@@ -665,43 +605,6 @@ const QUESTIONS = [
     color: var(--accent-text);
   }
 
-  .deck-nav {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 1.25rem;
-    margin-top: 1.25rem;
-  }
-  .deck-btn {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    border: 1px solid #dcdce6;
-    background: #fff;
-    color: var(--black);
-    font-size: 1.125rem;
-    cursor: pointer;
-  }
-  .deck-btn:hover:not(:disabled) { border-color: var(--accent-dark); color: var(--accent-dark); }
-  .deck-btn:disabled { opacity: 0.35; cursor: default; }
-  .deck-dots { display: flex; gap: 0.5rem; }
-  .deck-dot {
-    width: 10px;
-    height: 10px;
-    padding: 0;
-    border-radius: 50%;
-    border: 0;
-    background: #c9c9d6;
-    cursor: pointer;
-    transition: width 0.25s, background 0.25s;
-  }
-  .deck-dot[aria-current='true'] { width: 28px; border-radius: 5px; background: var(--accent-dark); }
-  .deck-btn:focus-visible, .deck-dot:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 2px; }
-
-  /* Without scripts, the slides stack. */
-  .deck:not(.js) .deck-track { flex-direction: column; gap: 1px; }
-  .deck:not(.js) .deck-nav { display: none; }
-
   /* ---- explorer ---- */
   .explorer { max-width: 1100px; margin: 5rem auto 0; }
   .explorer-head { text-align: center; max-width: 640px; margin: 0 auto 2rem; }
@@ -755,7 +658,6 @@ const QUESTIONS = [
   .explorer.js .lic-panel:not([hidden]) { animation: lic-in 0.3s ease both; }
   @keyframes lic-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) {
-    .deck-track { transition: none; }
     .explorer.js .lic-panel:not([hidden]) { animation: none; }
   }
 
@@ -850,7 +752,6 @@ const QUESTIONS = [
   .explorer-foot a:hover { text-decoration: underline; }
 
   @media (max-width: 900px) {
-    .slide { grid-template-columns: 1fr; gap: 2rem; padding: 2rem 1.5rem; min-height: 0; align-items: start; }
     .lic-panel { grid-template-columns: 1fr; }
   }
   @media (max-width: 560px) {
@@ -863,43 +764,6 @@ const QUESTIONS = [
 </style>
 
 <script>
-  document.querySelectorAll<HTMLElement>('[data-deck]').forEach((deck) => {
-    deck.classList.add('js');
-    const track = deck.querySelector<HTMLElement>('.deck-track')!;
-    const slides = [...deck.querySelectorAll<HTMLElement>('.slide')];
-    const dots = [...deck.querySelectorAll<HTMLButtonElement>('[data-deck-dot]')];
-    const prev = deck.querySelector<HTMLButtonElement>('[data-deck-prev]')!;
-    const next = deck.querySelector<HTMLButtonElement>('[data-deck-next]')!;
-    let at = 0;
-    const go = (i: number) => {
-      at = Math.max(0, Math.min(slides.length - 1, i));
-      track.style.transform = `translateX(${-100 * at}%)`;
-      slides.forEach((s, j) => {
-        s.setAttribute('aria-hidden', String(j !== at));
-        s.inert = j !== at;
-      });
-      dots.forEach((d, j) => d.setAttribute('aria-current', String(j === at)));
-      prev.disabled = at === 0;
-      next.disabled = at === slides.length - 1;
-    };
-    prev.addEventListener('click', () => go(at - 1));
-    next.addEventListener('click', () => go(at + 1));
-    dots.forEach((d, j) => d.addEventListener('click', () => go(j)));
-    deck.addEventListener('keydown', (ev) => {
-      if (ev.key === 'ArrowLeft') go(at - 1);
-      if (ev.key === 'ArrowRight') go(at + 1);
-    });
-    let x0: number | null = null;
-    track.addEventListener('touchstart', (ev) => { x0 = ev.touches[0].clientX; }, { passive: true });
-    track.addEventListener('touchend', (ev) => {
-      if (x0 === null) return;
-      const dx = ev.changedTouches[0].clientX - x0;
-      if (Math.abs(dx) > 40) go(at + (dx < 0 ? 1 : -1));
-      x0 = null;
-    });
-    go(0);
-  });
-
   document.querySelectorAll<HTMLElement>('[data-explorer]').forEach((root) => {
     root.classList.add('js');
     const tabs = [...root.querySelectorAll<HTMLButtonElement>('[data-lic-tab]')];
