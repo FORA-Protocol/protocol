@@ -150,6 +150,10 @@ const FAQ = [
 
     /* ========= HERO EXTRAS ========= */
     .hero h1 { max-width: 15em; }
+    /* Size the hero to its content, so the story starts on the first screen. */
+    .hero.hero-home { min-height: 0; }
+    .hero-home .hero-content { padding: 5.5rem 2rem 4.5rem; }
+    .hero-home + .band { padding-top: 3.5rem; }
     .hero-resources a.is-server {
       border-color: var(--accent);
       color: var(--white);
@@ -174,6 +178,13 @@ const FAQ = [
       margin-bottom: 1.25rem;
     }
     .story-body p:last-child { margin-bottom: 0; }
+    .story-body .story-lead {
+      color: var(--white);
+      font-size: 1.5rem;
+      line-height: 1.45;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
     .story-body .story-turn {
       color: var(--light-gray);
       padding-left: 1.25rem;
@@ -706,6 +717,9 @@ const FAQ = [
     }
     @media (max-width: 768px) {
       .band, .terms-section { padding: 4.5rem 1.5rem; }
+      .hero-home .hero-content { padding: 3rem 1.5rem 3.5rem; }
+      .hero-home + .band { padding-top: 2.5rem; }
+      .story-body .story-lead { font-size: 1.25rem; }
       .sale-steps { grid-template-columns: 1fr; gap: 1.75rem; }
       .sale-steps li { padding-top: 0; padding-left: 3.25rem; }
       .sale-steps li:not(:last-child)::after {
@@ -730,7 +744,7 @@ const FAQ = [
 <body>
 
   <!-- 1. HERO -->
-  <section class="hero">
+  <section class="hero hero-home">
     <SiteNav />
 
     <div class="hero-content">
@@ -764,9 +778,9 @@ const FAQ = [
         <h2>Agents are the new customers</h2>
       </div>
       <div class="story-body">
-        <p>You don't care what the website of the shop that sells you cables looks like. You go where one interface covers every store, and that is why marketplaces won.</p>
-        <p>AI agents are becoming that interface for everything: articles, music, data, files. Twenty years ago, “should we sell online?” was a real question. Today nobody asks it. Being readable and buyable by agents is going the same way.</p>
-        <p class="story-turn">Until now, that kind of convenience came with a company in the middle that owned the customer, the ranking and the margin. <strong>FORA gives you the convenience without the middleman.</strong> It is an open protocol, so no single company owns the shelf, and your terms travel with your content.</p>
+        <p class="story-lead">Nobody browses a cable shop's website. People go where one search covers every store. That is how marketplaces won.</p>
+        <p>Now agents do the searching, and the buying, for articles, music, data and files. Selling to them will soon be as obvious as selling online.</p>
+        <p class="story-turn">Marketplaces put a middleman between you and the buyer. <strong>FORA doesn't.</strong> It is an open protocol: no one owns the customer, and your terms travel with your content.</p>
       </div>
     </div>
   </section>

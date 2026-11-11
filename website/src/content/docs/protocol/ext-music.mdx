@@ -293,6 +293,12 @@ Check 2 also covers a filter key that this profile defined after the Broker was 
 | Broker | With the tag-based provider, the matching fields it applies, when it loads its catalog feed. An invalid matching field fails the load, and the error names the record and the field. The Broker does not read the descriptive fields. |
 | Exchange | Nothing. It forwards the `music.*` keys unchanged inside the signed offer, so the offer signature covers every key, including unknown ones. |
 
+### Which Agents See Which Keys
+
+This profile does not decide which agents see which keys. That is up to the Exchange and the catalog owner. The Exchange knows the agent behind every request, so it can show one agent a short offer and another a full one: for example, the musical description to every agent, and the writer and publisher details only to agents with an account. A key left out of an offer reads as unknown, like any absent key, and every offer is signed whatever it contains.
+
+The writer and publisher keys are there to credit and report the music. FORA does not settle royalties, and a collecting society pays from its own registration of the work, which it finds by `iswc` and `ipi`. `share` is optional for that reason.
+
 ### Tempo Groups
 
 Tempo groups such as slow, medium and fast are Broker behavior. They are not part of the profile. The profile carries only the exact `bpm`.
