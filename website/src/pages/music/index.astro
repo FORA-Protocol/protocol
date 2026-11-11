@@ -5,6 +5,7 @@
 // fora-music-v1 profile (/protocol/ext-music/).
 import SiteNav from '../../components/SiteNav.astro';
 import SiteFooter from '../../components/SiteFooter.astro';
+import SaleSteps from '../../components/SaleSteps.astro';
 import { EXAMPLES } from '../../data/license-examples';
 import '../../styles/brand.css';
 import '../../styles/landing.css';
@@ -44,14 +45,6 @@ const FILTER_GROUPS = [
   { name: 'How it sounds', keys: ['genre', 'sub-genres', 'mood', 'instruments', 'energy', 'vocals', 'tempo range', 'key', 'version', 'duration range'] },
   { name: 'Where it fits', keys: ['themes', 'suitable for', 'language', 'release date range', 'parental warning', 'contains AI'] },
   { name: 'Exactly which', keys: ['ISRC', 'ISWC', 'UPC / EAN', 'GRid', 'IPI', 'publisher', 'label'] },
-];
-
-const STEPS = [
-  { title: 'Search', text: 'The agent finds the track by mood, tempo, key or version, or by its ISRC.' },
-  { title: 'Terms', text: 'It reads the signed offer: who may use the track, for which media, where, for how long, at what price. Your license text is one link away.' },
-  { title: 'Payment', text: 'The Exchange checks the offer and charges the agent\'s account.' },
-  { title: 'Delivery', text: 'The agent gets a short-lived signed link. Your CDN checks it before it serves the file.' },
-  { title: 'Evidence', text: 'Every purchase leaves signed records anyone can check later, with the credits and the rights data attached.' },
 ];
 
 const STANDARDS = ['DDEX ERN', 'DDEX MEAD', 'ISRC', 'ISWC', 'IPI', 'ISNI', 'GRid', 'UPC / EAN', 'CWR publisher roles'];
@@ -254,11 +247,7 @@ const FAQ = [
     .m-query .c { color: #6b6b80; }
 
     /* sale */
-    .m-steps { list-style: none; display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin-top: 2.5rem; counter-reset: step; }
-    .m-steps li { padding: 1.5rem 1.25rem; border: 1px solid var(--mid); border-radius: 12px; background: var(--near-black); counter-increment: step; }
-    .m-steps li::before { content: counter(step, decimal-leading-zero); display: block; font-family: var(--mono); color: var(--accent-text); margin-bottom: 0.75rem; }
-    .m-steps b { display: block; color: var(--white); font-size: 1.0625rem; margin-bottom: 0.5rem; }
-    .m-steps p { color: var(--light-gray); font-size: 0.9375rem; line-height: 1.55; }
+    .m-steps-wrap { margin-top: 2.5rem; }
 
     /* connect */
     .m-connect { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 2.5rem; }
@@ -295,12 +284,10 @@ const FAQ = [
     @media (max-width: 900px) {
       .m-cards, .m-filters, .m-connect, .m-faq { grid-template-columns: 1fr; }
       .m-split, .m-rights { grid-template-columns: 1fr; gap: 2.5rem; }
-      .m-steps { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 560px) {
       .m-band { padding: 4rem 1rem; }
       .hero-music .hero-content { padding: 3rem 1rem 3.5rem; }
-      .m-steps { grid-template-columns: 1fr; }
       .m-table-card { padding: 1.25rem 1rem; }
       .m-rights-table { padding: 1rem; }
       .m-rights-table table { font-size: 0.8125rem; }
@@ -432,11 +419,9 @@ const FAQ = [
 
   <section class="m-band m-black">
     <div class="m-wrap">
-      <div class="m-label">How a sale works</div>
-      <h2>From search to signed receipt</h2>
-      <ol class="m-steps">
-        {STEPS.map((s) => (<li><b>{s.title}</b><p>{s.text}</p></li>))}
-      </ol>
+      <div class="m-label">The six steps</div>
+      <h2>How a sale works</h2>
+      <div class="m-steps-wrap"><SaleSteps variant="music" /></div>
       <div class="m-links">
         <a href="/getting-started/live-demo-music/">Watch an agent license a track, step by step &rarr;</a>
       </div>

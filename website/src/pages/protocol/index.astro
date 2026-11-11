@@ -178,6 +178,19 @@ const SPEC_LINKS = [
     }
     .arch-step-row.active .arch-step-arrow { color: var(--accent-text); }
 
+    .arch-phase {
+      display: inline-block;
+      margin-right: 0.25rem;
+      padding: 0.05rem 0.45rem;
+      border: 1px solid var(--mid);
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--accent-text);
+      vertical-align: 0.1em;
+    }
     .arch-step-desc {
       font-size: 1rem;
       overflow-wrap: anywhere;
@@ -663,12 +676,20 @@ const SPEC_LINKS = [
       ]}
     ];
 
+    // Each step belongs to one of the six protocol steps (Discover, Query,
+    // Transact, Deliver, Report, Dispute), as the home page and the docs name them.
+    const PHASES = [
+      ['Discover', 'Query', 'Query', 'Transact', 'Transact', 'Transact', 'Deliver', 'Report'],
+      ['Discover', 'Query', 'Query', 'Query', 'Transact', 'Transact', 'Deliver', 'Report'],
+    ];
+    scenarios.forEach((sc, i) => sc.steps.forEach((st, j) => { st.phase = PHASES[i][j]; }));
+
     function renderArchSteps() {
       archStepsList.innerHTML = scenarios[currentScenario].steps.map((step, i) => `
         <button type="button" class="arch-step-row" aria-controls="archDetail" onclick="setArchStep(${i})">
           <span class="arch-step-num">${i + 1}</span>
           <span class="arch-step-parties">${party(step.from, step.exFrom)}${arrow}${party(step.to, step.exTo)}</span>
-          <span class="arch-step-desc">${step.desc}</span>
+          <span class="arch-step-desc"><span class="arch-phase">${step.phase}</span> ${step.desc}</span>
         </button>`).join('');
     }
 
@@ -679,7 +700,7 @@ const SPEC_LINKS = [
         row.setAttribute('aria-pressed', String(i === index));
       });
       archDetailEl.innerHTML = `
-        <span class="payload-label">Step ${index + 1} — ${step.from} → ${step.to}</span>
+        <span class="payload-label"><span class="arch-phase">${step.phase}</span> Step ${index + 1}: ${step.from} → ${step.to}</span>
         <div class="arch-transfer" aria-hidden="true">${party(step.from, step.exFrom)}<span class="transfer-line"></span>${party(step.to, step.exTo)}</div>
         <p class="payload-desc">${step.desc}</p>
         <pre class="payload-code">${step.json}</pre>
