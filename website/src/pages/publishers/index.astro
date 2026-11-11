@@ -47,6 +47,13 @@ const RESPONSE: [string, string][] = [
   ['Cache-Control', 'no-store'],
 ];
 
+// The Search Only Terms Contract's robots.txt lines (https://m4ow.uk/socw/).
+const CONTRACT_LINES: [string, string][] = [
+  ['User-agent:', '*'],
+  ['tdl:', 'https://m4ow.uk/socw/3.txt'],
+  ['Allow:', '/'],
+];
+
 const CONNECT = [
   {
     title: 'Try your website',
@@ -152,6 +159,17 @@ const FAQ = [
   <span class="k">"fora_json_url"</span>: <span class="s">"https://publisher.example/.well-known/fora.json"</span>
 {'}'}</pre>
     </CodeCard>
+  </Band>
+
+  <Band
+    tone="light"
+    label="Do this today"
+    title="Put every crawler on notice"
+    lead="Three lines in your robots.txt and two clauses in your site's terms attach the Movement for an Open Web's Search Only Terms Contract. Search stays free, and every other access carries the fee you set. It covers your open paths and the scrapers that hide what they are. <strong>An agent that wants more than search buys a license through FORA.</strong>"
+    asideWidth="440px"
+  >
+    <LinkRow slot="intro" links={[{ href: '/getting-started/search-only-contract/', text: 'How to adopt it' }]} />
+    <CodeCard slot="aside" head="robots.txt" tag="search-only contract" rows={CONTRACT_LINES} label="The robots.txt lines that attach the search-only contract" />
   </Band>
 
   <Band tone="near" label="The six steps" title="How a sale works">
