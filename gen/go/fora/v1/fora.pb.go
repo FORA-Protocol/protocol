@@ -3579,7 +3579,7 @@ type License struct {
 	// Examples:
 	//
 	//	"https://creativecommons.org/licenses/by/4.0/"
-	//	"https://techcrunch.com/licensing/ai-terms-2026"
+	//	"https://news.example/licensing/ai-terms-2026"
 	//
 	// "MUST NOT URL-validate" means do not REJECT non-URL schemes — it does NOT
 	// mean fetch blindly. A consumer that dereferences this URI MUST apply the
@@ -3601,10 +3601,8 @@ type License struct {
 	// verify the bytes it fetches match what was offered; covered by the offer
 	// signature, so it is tamper-evident end to end. REQUIRED whenever `uri` is
 	// non-empty — any semantics, mutable or not: without a pinned digest a MitM
-	// (or the publisher) can swap the document the agent reads. The Exchange pins
-	// it at ingestion (computing it over the safely-fetched document, or
-	// accepting a publisher-supplied value when uri is not HTTP-fetchable, e.g. a
-	// non-URL TDL scheme).
+	// (or the publisher) can swap the document the agent reads. The party that
+	// sets uri supplies uri_digest with it: the publisher on a term it pushes.
 	//
 	// The method MUST be a collision-resistant hash — sha256, sha384, or sha512.
 	// Legacy md5/sha1 are rejected on the wire: a forgeable digest would defeat
@@ -3989,10 +3987,12 @@ func (x *Obligation) GetDetail() string {
 // case (one per use category, user type, or commercial arrangement).
 //
 // The same LicenseTerm shape appears at ingestion (ResourceEntry.terms) and
-// at emission (Offer.terms). The Exchange stores what the publisher pushed
-// and surfaces it on discovery, so agents see the same terms the publisher
-// declared — no translation or reformulation — with one move: on an offer the
-// term's price is Offer.pricing, and the term itself carries none.
+// at emission (Offer.terms). The Exchange stores what the publisher pushed,
+// with each restriction token in its canonical form (trimmed, case-folded and
+// alias-resolved, as the ingest tier below describes), and surfaces it on
+// discovery, so agents see the terms the publisher declared, with no other
+// translation or reformulation — and one move: on an offer the term's price is
+// Offer.pricing, and the term itself carries none.
 //
 // Validation rules:
 //   - Pricing MUST be present on EVERY catalog term (ResourceEntry.terms),
@@ -9306,7 +9306,7 @@ type DomainVerificationRequest struct {
 	// FORA protocol version — "1.0". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
-	// The provider domain to verify (e.g., "techcrunch.com").
+	// The provider domain to verify (e.g., "news.example").
 	Domain string `protobuf:"bytes,2,opt,name=domain,proto3" json:"domain,omitempty"`
 	// Caller identity (registered with the Exchange).
 	CallerId *string `protobuf:"bytes,3,opt,name=caller_id,json=callerId,proto3,oneof" json:"caller_id,omitempty"`
