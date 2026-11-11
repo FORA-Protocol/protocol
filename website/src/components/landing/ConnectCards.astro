@@ -1,0 +1,25 @@
+---
+// Two or more white cards, one per way to get connected, each ending in a link.
+interface Props {
+  items: { title: string; text: string; href: string; link: string }[];
+}
+const { items } = Astro.props;
+---
+<div class="connect">
+  {items.map((it) => (
+    <div class="connect-card">
+      <h3>{it.title}</h3>
+      <p>{it.text}</p>
+      <a href={it.href}>{it.link} &rarr;</a>
+    </div>
+  ))}
+</div>
+
+<style>
+  .connect { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 1rem; margin-top: 2.5rem; }
+  .connect-card { padding: 2rem; background: #fff; border: 1px solid #e4e4ec; border-radius: 12px; }
+  h3 { font-size: 1.25rem; font-weight: 700; color: var(--black); margin-bottom: 0.75rem; }
+  p { color: #444456; line-height: 1.65; margin-bottom: 1rem; }
+  a { color: var(--accent-dark); font-weight: 600; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+</style>

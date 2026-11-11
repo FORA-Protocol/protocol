@@ -24,18 +24,19 @@ from __future__ import annotations
 
 from typing import Literal, NotRequired, TypedDict
 
-__all__ = ["PROFILE_ID", "Contributor", "Music"]
+__all__ = ["PROFILE_ID", "Contributor", "Music", "Publisher"]
 
 #: The profile identifier an Exchange lists in WellKnownManifest.supported_profiles.
 PROFILE_ID = "fora-music-v1"
 
 
 #: One entry of ``music.contributors``: one credit. The schema requires ``name`` and
-#: ``role``. ``role`` and ``instrument`` are labels. ``isni`` is the 16-character ISNI
-#: of the person or group. The functional form is used on purpose: under
-#: ``from __future__ import annotations`` a class body stores its annotations as
-#: strings, and ``NotRequired`` is then not seen, so ``__required_keys__`` would list
-#: every key.
+#: ``role``. ``role``, ``instrument`` and ``pro`` are labels. ``isni`` is the
+#: 16-character ISNI of the person or group, ``ipi`` the IPI name number of a writer
+#: and ``share`` the writer's share of the performing right in the work, in percent.
+#: The functional form is used on purpose: under ``from __future__ import
+#: annotations`` a class body stores its annotations as strings, and ``NotRequired``
+#: is then not seen, so ``__required_keys__`` would list every key.
 Contributor = TypedDict(  # noqa: UP013
     "Contributor",
     {
@@ -43,14 +44,32 @@ Contributor = TypedDict(  # noqa: UP013
         "role": str,
         "instrument": NotRequired[str],
         "isni": NotRequired[str],
+        "ipi": NotRequired[str],
+        "pro": NotRequired[str],
+        "share": NotRequired[float],
+    },
+)
+
+
+#: One entry of ``music.publishers``: a music publisher of the work. The schema
+#: requires ``name``. ``role`` and ``pro`` are labels, ``ipi`` the IPI name number and
+#: ``share`` the publisher's share of the performing right in the work, in percent.
+Publisher = TypedDict(  # noqa: UP013
+    "Publisher",
+    {
+        "name": str,
+        "role": NotRequired[str],
+        "ipi": NotRequired[str],
+        "pro": NotRequired[str],
+        "share": NotRequired[float],
     },
 )
 
 
 #: The ``music.<field>`` keys of ``Offer.ext``. Every key is optional.
-#: ``music.artist``, ``music.title`` and ``music.version`` are descriptive, not
-#: matching inputs. Only the ``music.isrc`` filter matches ``music.isrc``, as an exact
-#: match, and ``music.upc``, ``music.grid`` and ``music.iswc`` work the same way.
+#: ``music.artist`` and ``music.title`` are descriptive, not matching inputs. Only
+#: the ``music.isrc`` filter matches ``music.isrc``, as an exact match, and
+#: ``music.upc``, ``music.grid``, ``music.iswc`` and an ``ipi`` work the same way.
 #: ``music.duration_seconds`` is the duration of the delivered asset.
 #: ``music.language`` is a BCP 47 tag, not a label.
 Music = TypedDict(
@@ -70,6 +89,7 @@ Music = TypedDict(
         "music.bpm": int,
         "music.duration_seconds": float,
         "music.version": str,
+        "music.key": str,
         "music.language": str,
         "music.parental_warning": Literal["explicit", "explicit_edited", "not_explicit"],
         "music.contains_ai": bool,
@@ -84,6 +104,7 @@ Music = TypedDict(
         "music.p_line": str,
         "music.c_line": str,
         "music.contributors": list[Contributor],
+        "music.publishers": list[Publisher],
         "music.artwork_url": str,
     },
     total=False,

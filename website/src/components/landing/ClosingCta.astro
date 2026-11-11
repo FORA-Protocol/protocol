@@ -1,0 +1,15 @@
+---
+// The closing call to action of a landing page: a heading, an optional line,
+// and the buttons (default slot). Styled by .cta-section in styles/landing.css.
+interface Props {
+  /** May hold one <em> phrase, shown in blue. */
+  title: string;
+  text?: string;
+}
+const { title, text } = Astro.props;
+---
+<section class="cta-section">
+  <h2 set:html={title} />
+  {text && <p>{text}</p>}
+  <div class="cta-buttons"><slot /></div>
+</section>

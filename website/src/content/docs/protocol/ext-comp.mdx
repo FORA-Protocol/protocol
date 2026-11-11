@@ -90,8 +90,8 @@ Earlier CoMP drafts carried a `License` array with a `revshare` rate (alongside
 `comp.proto` mirrors the removal — there is no `revshare` field to carry. FORA
 likewise has no revenue-share pricing model: such arrangements are expressed with
 core primitives — a `Pricing{model: FREE}` term gated by an agreement scope (e.g.
-`scopes: ["revshare:publisher-x"]`) plus a `ReportingObligation`, settled
-off-protocol. See
+`scopes: ["revshare:publisher-x"]`), with usage reported under the default `ONLINE`
+metering mode as the offer's `Offer.reporting` states, settled off-protocol. See
 [Licensing Terms → Revenue-share arrangements](/protocol/licensing-terms/#revenue-share-arrangements).
 :::
 

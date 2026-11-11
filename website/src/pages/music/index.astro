@@ -1,0 +1,302 @@
+---
+// The music landing page: FORA for labels, publishers and music libraries.
+// Built from the landing components (src/components/landing/), like
+// /publishers/. The licenses and the signed offer are the music demo's, shared
+// with the home page through src/data/license-examples.ts. Field and filter
+// names follow the fora-music-v1 profile (/protocol/ext-music/).
+import LandingLayout from '../../layouts/LandingLayout.astro';
+import AudienceHero from '../../components/landing/AudienceHero.astro';
+import Band from '../../components/landing/Band.astro';
+import CardGrid from '../../components/landing/CardGrid.astro';
+import OfferCard from '../../components/landing/OfferCard.astro';
+import TermsTable from '../../components/landing/TermsTable.astro';
+import CodeCard from '../../components/landing/CodeCard.astro';
+import PointList from '../../components/landing/PointList.astro';
+import ConnectCards from '../../components/landing/ConnectCards.astro';
+import TagStrip from '../../components/landing/TagStrip.astro';
+import FaqGrid from '../../components/landing/FaqGrid.astro';
+import LinkRow from '../../components/landing/LinkRow.astro';
+import ClosingCta from '../../components/landing/ClosingCta.astro';
+import SaleSteps from '../../components/SaleSteps.astro';
+import { EXAMPLES } from '../../data/license-examples';
+import { DEMO_MUSIC_CATALOG_URL } from '../../consts';
+
+const TRACK = EXAMPLES.find((e) => e.id === 'track')!;
+const DEMO = '/getting-started/live-demo-music/';
+
+const BUYERS = [
+  { title: 'Video and ad tools', text: 'An editing agent scores a client\'s ad tonight and needs a track it can clear for online and TV.' },
+  { title: 'Games and apps', text: 'A builder agent needs background music for every level, licensed for the platforms the game ships on.' },
+  { title: 'Podcasts and broadcast', text: 'A production agent needs intros, beds and stings, with a cue sheet for the broadcaster.' },
+];
+
+const RIGHTS_POINTS = [
+  { title: 'The recording and the work.', text: 'ISRC, ISWC, UPC and GRid identify exactly what was licensed.' },
+  { title: 'Writers and publishers.', text: 'Names, roles, IPI numbers, collecting societies and shares: what a cue sheet reports.' },
+  { title: 'The release block.', text: 'Label, release title and date, P-line and C-line, artwork.' },
+  { title: 'Your own taxonomy.', text: 'Genre, mood, themes and suitability in your own labels, searchable as they are.' },
+];
+
+// The track card: the music.* keys of one offer, as an agent reads them,
+// from Example 1 of the music profile (/protocol/ext-music/#example-1-music-track-offer).
+const TRACK_CARD: [string, string][] = [
+  ['music.title', '"Galaxy Drift"'],
+  ['music.artist', '"Nova Orbit"'],
+  ['music.iswc', '"T0345246801"'],
+  ['music.upc', '"020123456782"'],
+  ['music.genre', '"electronica"'],
+  ['music.mood', '["grooving", "mysterious"]'],
+  ['music.bpm', '124'],
+  ['music.key', '"a minor"'],
+  ['music.version', '"instrumental"'],
+  ['music.p_line', '"(P) 2015 Example Records"'],
+];
+
+// music.contributors and music.publishers of the same offer, as a cue sheet
+// lists them: name, role, IPI, collecting society (pro) and share of the
+// performing right.
+const RIGHTS_ROWS = [
+  { name: 'Nova Orbit', role: 'Composer', ipi: '00123456789', pro: 'PRS', share: '50%' },
+  { name: 'Example Music Publishing', role: 'Original publisher', ipi: '00987654321', pro: 'PRS', share: '50%' },
+];
+
+const FILTER_GROUPS = [
+  { name: 'How it sounds', keys: ['genre', 'sub-genres', 'mood', 'instruments', 'energy', 'vocals', 'tempo range', 'key', 'version', 'duration range'] },
+  { name: 'Where it fits', keys: ['themes', 'suitable for', 'language', 'release date range', 'parental warning', 'contains AI'] },
+  { name: 'Exactly which', keys: ['ISRC', 'ISWC', 'UPC / EAN', 'GRid', 'IPI', 'publisher', 'label'] },
+];
+
+const CONNECT = [
+  {
+    title: 'You run a catalog',
+    text: 'Describe your tracks, your license documents and the licenses you sell, with prices, in one feed: JSON Lines, one track per line, with the music profile\'s fields. Push it to an Exchange. Delivery runs from your own domain and CDN, set up once.',
+    href: '/protocol/jsonl-ingestion/',
+    link: 'Catalog feeds',
+  },
+  {
+    title: 'You run a marketplace',
+    text: 'Keep your catalog, your search and your delivery. Publish the catalog as a feed, and agents reach it through the FORA SDKs and the MCP endpoint, next to every other catalog on the network.',
+    href: '/getting-started/existing-marketplace/',
+    link: 'For content marketplaces',
+  },
+];
+
+const STANDARDS = ['DDEX ERN', 'DDEX MEAD', 'ISRC', 'ISWC', 'IPI', 'ISNI', 'GRid', 'UPC / EAN', 'CWR publisher roles'];
+
+const FAQ = [
+  {
+    q: 'Does FORA pay royalties or file cue sheets?',
+    a: 'No. FORA sells the license and keeps the evidence. Your license states what the licensee owes, such as a credit or a cue sheet, and the writers, publishers, IPI numbers and ISWC travel with every license, so collecting societies pay from their own registrations.',
+  },
+  {
+    q: 'What about AI training?',
+    a: "Training is its own permission, and it is off unless you offer it. A sync license doesn't include it.",
+  },
+  {
+    q: 'Who sees my catalog metadata?',
+    a: 'No one anonymously. Every request comes from an identified agent, and you and your Exchange decide which agents see which fields.',
+  },
+  {
+    q: 'Can I keep my existing deals and blanket licenses?',
+    a: 'Yes. A license too detailed to list field by field points to your document as the authority, and a subscription is a term that only your subscribers\' agents see.',
+  },
+  {
+    q: 'What about the master and the publishing side?',
+    a: 'Each owner sells its own side from its own Exchange. An agent licenses the recording from the label and the composition from the publisher, and gets a receipt from each.',
+  },
+  {
+    q: 'What does it cost?',
+    a: 'The protocol and FORA Server are free and open source. Run it yourself, or <a href="/getting-started/publisher-onboarding/">have it hosted for you</a>.',
+  },
+];
+---
+<LandingLayout
+  title="FORA for music — license your catalog to every AI agent"
+  description="FORA turns your sync licenses into signed offers that AI agents can find, read, pay for and keep a receipt of. Built on DDEX, ISRC, ISWC and IPI."
+>
+  <AudienceHero
+    current="music"
+    badge="For labels, publishers and music libraries"
+    title="License your catalog<br>to every AI agent. <em>On your terms.</em>"
+    sub="Agents that make videos, ads, games and podcasts need music they can clear on the spot. FORA turns your sync licenses into signed offers an agent can find, read, pay for and keep a receipt of. Your catalog, your prices, your license text."
+  >
+    <a href={DEMO} class="btn btn-primary">Watch an agent license a track</a>
+    <a href={DEMO_MUSIC_CATALOG_URL} class="btn btn-ghost">Browse the demo catalog</a>
+  </AudienceHero>
+
+  <Band
+    label="Why now"
+    title="Sync is still sold by email."
+    lead="Sync, the hardest kind of music licensing, still runs on email threads and rate-card PDFs. Media, territory, term, cue sheets and exclusions are hard to express in a form a machine can act on. <strong>FORA expresses all of them</strong>, so the agents that now make the videos and the ads can license your music the moment they need it."
+  >
+    <CardGrid items={BUYERS} />
+  </Band>
+
+  <Band
+    tone="light"
+    label="Your licenses"
+    title="Every license you sell, as an offer an agent can read"
+    lead="An online creator license, a broadcast license, an advertising buyout, a subscription: each becomes a signed offer that says who may buy, for which media, where, for how long and at what price, with the obligations that come with it. <strong>The agent still receives your full license text.</strong>"
+    asideWidth="420px"
+  >
+    <OfferCard slot="aside" offer={TRACK.offer} label="A signed offer for a track, as an agent receives it" />
+    <TermsTable example={TRACK} />
+    <LinkRow links={[
+      { href: '/protocol/#licensing-core', text: 'See how any license maps to FORA' },
+      { href: '/protocol/licensing-terms/', text: 'Licensing terms' },
+    ]} />
+  </Band>
+
+  <Band
+    label="Rights data"
+    title="The credits and the cue-sheet data travel with every license"
+    lead="Each track carries the fields your catalog already keeps, in the <code>fora-music-v1</code> profile."
+  >
+    <Fragment slot="intro">
+      <PointList items={RIGHTS_POINTS} />
+      <LinkRow links={[{ href: '/protocol/ext-music/', text: 'Read the music profile' }]} />
+    </Fragment>
+    <CodeCard slot="aside" head="Offer.ext" tag="fora-music-v1" rows={TRACK_CARD} label="The music fields of one offer">
+      <div class="rights">
+        <div class="rights-title">music.contributors · music.publishers</div>
+        <div class="rights-scroll"><table>
+          <thead><tr><th scope="col">Name</th><th scope="col">Role</th><th scope="col">IPI</th><th scope="col">Society</th><th scope="col">Share</th></tr></thead>
+          <tbody>
+            {RIGHTS_ROWS.map((r) => (
+              <tr><th scope="row">{r.name}</th><td>{r.role}</td><td class="mono">{r.ipi}</td><td>{r.pro}</td><td>{r.share}</td></tr>
+            ))}
+          </tbody>
+        </table></div>
+        <p>Shares of the performing right in the work: what a cue sheet reports.</p>
+      </div>
+    </CodeCard>
+  </Band>
+
+  <Band
+    tone="near"
+    label="Search"
+    title="Agents search the way music supervisors do"
+    lead="An agent asks for a calm instrumental around 100 BPM in a minor key, or for every recording of one writer by IPI. The music profile gives it 23 search filters, so it finds your track instead of a stock loop."
+  >
+    <div class="filters">
+      {FILTER_GROUPS.map((g) => (
+        <div class="filter-group"><b>{g.name}</b><div class="chips">{g.keys.map((k) => <span>{k}</span>)}</div></div>
+      ))}
+    </div>
+    <pre class="query"><span class="c">// search_filters on a catalog search</span>
+{'{'}
+  <span class="k">"music.mood"</span>: <span class="s">"calm"</span>,
+  <span class="k">"music.version"</span>: <span class="s">"instrumental"</span>,
+  <span class="k">"music.bpm_range"</span>: <span class="s">"90-110"</span>,
+  <span class="k">"music.key"</span>: [<span class="s">"a minor"</span>, <span class="s">"d minor"</span>]
+{'}'}</pre>
+    <a class="catalog" href={DEMO_MUSIC_CATALOG_URL}>
+      <span class="catalog-text">
+        <b>Browse the demo catalog</b>
+        <span>5,931 tracks, searchable by genre, mood, instrument, vocals, tempo and length. Open a track to see its fields and the licenses an agent can buy.</span>
+      </span>
+      <span class="catalog-go" aria-hidden="true">&rarr;</span>
+    </a>
+  </Band>
+
+  <Band label="The six steps" title="How a sale works">
+    <div class="steps-wrap"><SaleSteps variant="music" /></div>
+    <LinkRow links={[{ href: DEMO, text: 'Watch an agent license a track, step by step' }]} />
+  </Band>
+
+  <Band tone="light" label="Getting connected" title="Your catalog, your CDN, one feed">
+    <ConnectCards items={CONNECT} />
+  </Band>
+
+  <Band
+    tone="near"
+    label="Standards"
+    title="Built on the identifiers your catalog already has"
+    lead="FORA doesn't invent a new music schema. It carries the codes and roles the industry registers today."
+  >
+    <TagStrip items={STANDARDS} />
+  </Band>
+
+  <Band id="faq" label="Questions" title="What rights holders ask">
+    <FaqGrid items={FAQ} />
+  </Band>
+
+  <ClosingCta
+    title="Every AI agent is a customer. <em>FORA is your storefront.</em>"
+    text="See a track found, licensed, paid for and delivered on a live exchange."
+  >
+    <a href={DEMO} class="btn btn-primary">Watch an agent license a track</a>
+    <a href={DEMO_MUSIC_CATALOG_URL} class="btn btn-ghost">Browse the demo catalog</a>
+  </ClosingCta>
+</LandingLayout>
+
+<style>
+  /* rights table, inside the track card */
+  .rights { font-family: var(--sans); }
+  .rights-title { font-family: var(--mono); font-size: 0.75rem; color: #9cdcfe; margin-bottom: 0.75rem; }
+  .rights-scroll { overflow-x: auto; }
+  .rights table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  .rights th, .rights td { text-align: left; padding: 0.5rem 0.5rem 0.5rem 0; border-top: 1px solid var(--mid); vertical-align: top; }
+  .rights thead th { border-top: 0; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gray); }
+  .rights tbody th { color: var(--white); font-weight: 600; }
+  .rights td { color: var(--light-gray); }
+  .rights .mono { font-family: var(--mono); font-size: 0.8125rem; }
+  .rights p { margin-top: 0.75rem; font-size: 0.8125rem; color: var(--gray); }
+
+  /* search */
+  .filters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 2.5rem; }
+  .filter-group { padding: 1.5rem; border: 1px solid var(--mid); border-radius: 12px; background: var(--black); }
+  .filter-group b { display: block; color: var(--white); margin-bottom: 0.875rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .chips span {
+    font-size: 0.875rem;
+    padding: 0.3rem 0.65rem;
+    border-radius: 999px;
+    border: 1px solid var(--mid);
+    color: var(--off-white);
+  }
+  .query {
+    margin-top: 1.5rem;
+    padding: 1.25rem 1.5rem;
+    border-radius: 12px;
+    background: var(--black);
+    border: 1px solid var(--mid);
+    font-family: var(--mono);
+    font-size: 0.875rem;
+    line-height: 1.7;
+    color: var(--gray);
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .query .k { color: #9cdcfe; }
+  .query .s { color: #7ec8a0; }
+  .query .c { color: #6b6b80; }
+  .catalog {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    text-decoration: none;
+    transition: background 0.15s ease;
+  }
+  .catalog:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+  .catalog-text { display: grid; gap: 0.25rem; }
+  .catalog b { color: var(--white); font-size: 1.125rem; }
+  .catalog-text span { color: var(--light-gray); line-height: 1.55; }
+  .catalog-go { color: var(--accent-text); font-size: 1.5rem; }
+
+  .steps-wrap { margin-top: 2.5rem; }
+
+  @media (max-width: 900px) {
+    .filters { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .rights table { font-size: 0.8125rem; }
+    .rights .mono { font-size: 0.75rem; }
+  }
+</style>

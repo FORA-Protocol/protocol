@@ -8,6 +8,7 @@
 /architecture/deployment-models/
 /architecture/nfr/
 /architecture/production-architecture/
+/brand/
 /components/agent-sdk/budget-reporting/
 /components/agent-sdk/fetch-flow/
 /components/agent-sdk/overview/
@@ -54,6 +55,8 @@
 /getting-started/poc-walkthrough/
 /getting-started/publisher-onboarding/
 /getting-started/what-is-fora/
+/music/
+/protocol/
 /protocol/authentication/
 /protocol/content-attestation/
 /protocol/content-mutability/
@@ -79,6 +82,7 @@
 /protocol/walkthrough-eu-regulation/
 /protocol/walkthrough-medical-imaging/
 /protocol/walkthrough-v1/
+/publishers/
 /publishers/onboarding/
 /reference/changelog/
 /reference/fora-json-example/

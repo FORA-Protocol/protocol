@@ -1,0 +1,44 @@
+---
+// A signed offer as an agent receives it, from one entry of
+// src/data/license-examples.ts.
+import type { Example } from '../../data/license-examples';
+
+interface Props {
+  offer: Example['offer'];
+  label: string;
+}
+const { offer, label } = Astro.props;
+---
+<div class="offer" role="figure" aria-label={label}>
+  <div class="offer-head"><span>Signed offer</span><span>{offer.name}</span></div>
+  <dl>
+    {offer.fields.map(([k, v]) => (<><dt>{k}</dt><dd>{v}</dd></>))}
+  </dl>
+  <div class="offer-sig">{offer.digest}<br />signed by the Exchange ✓</div>
+</div>
+
+<style>
+  .offer {
+    background: var(--black);
+    border-radius: 10px;
+    padding: 1.5rem;
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    color: var(--gray);
+    box-shadow: 0 24px 60px -24px rgba(10, 10, 15, 0.45);
+  }
+  .offer-head {
+    display: flex;
+    justify-content: space-between;
+    padding-bottom: 0.875rem;
+    margin-bottom: 0.875rem;
+    border-bottom: 1px solid var(--mid);
+    color: var(--off-white);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1rem; }
+  dd { color: var(--off-white); }
+  .offer-sig { margin-top: 0.875rem; padding-top: 0.875rem; border-top: 1px solid var(--mid); color: var(--accent-text); }
+</style>
