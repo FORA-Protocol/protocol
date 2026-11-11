@@ -58,14 +58,14 @@ The edge function keeps these lists in configuration (KV store or inline config)
 
 #### Search crawlers that also serve AI
 
-Googlebot, Bingbot and Applebot feed ordinary search and the AI features built on it: Google's AI Overviews and AI Mode, Bing's Copilot, Apple's Siri and Spotlight. The edge function never matches them, because refusing them takes the site out of search. Each vendor offers a separate control for its AI uses, and a provider sets those outside the edge function:
+Googlebot, Bingbot and Applebot feed ordinary search and the AI features built on it: Google's AI Overviews and AI Mode, Bing's Copilot, Apple's Siri and Spotlight. The edge function never matches them, because refusing them takes the site out of search. These vendors treat their AI uses as allowed unless the site refuses them. Under FORA it is the other way round: a use is allowed only when the provider offers it in its terms. Until these vendors license those uses, a provider that has not offered them refuses them with each vendor's own control, outside the edge function:
 
 - `Google-Extended` in `robots.txt`: Gemini training and grounding in Gemini Apps and Vertex AI. It does not affect Google Search.
 - The "Search generative AI" setting in Google Search Console: AI Overviews, AI Mode and Discover.
 - `Applebot-Extended` in `robots.txt`: Apple's model training. The `nosnippet` robots meta tag keeps a page out of Apple's AI answers.
 - Bing's page-level `ai-training` and `ai-grounding` settings: Microsoft's training and Copilot grounding.
 
-`Google-Extended` and `Applebot-Extended` are `robots.txt` tokens only. No crawler sends them as a User-Agent, so the edge function does not list them. The same holds for the `__usage_ai-training` token of [draft-kelley-aipref-training-preference-signal](https://datatracker.ietf.org/doc/draft-kelley-aipref-training-preference-signal/), a training opt-out for every crawler that honors it.
+`Google-Extended` and `Applebot-Extended` are `robots.txt` tokens only. No crawler sends them as a User-Agent, so the edge function does not list them. The same holds for the `__usage_ai-training` token of [draft-kelley-aipref-training-preference-signal](https://datatracker.ietf.org/doc/draft-kelley-aipref-training-preference-signal/), which refuses training to every crawler that honors it.
 
 ### Layer 2: CDN-Native Bot Classification (0ms -- pre-computed)
 
