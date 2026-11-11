@@ -16,13 +16,14 @@ disagree, the page wins.
 
 The mark is a blue wax seal pressed with the open forum: an open square with no
 walls around one point. The seal is the signature anyone can check; the
-impression is the open market it seals. Below 32 px the impression cannot be
-read, so small uses get the plain seal.
+impression is the open market it seals. It comes in two drawings: the full seal
+for 48 px and up, and a compact seal (smoother edge, heavier corners, the point
+cut through) that keeps the open square and point readable down to 16 px.
 
 Pick the file by background and by size. Never build the logo from text or
 shapes yourself.
 
-| Background | Lockup, 32 px tall and up | Lockup, under 32 px | Mark, 32 px and up | Mark, under 32 px |
+| Background | Lockup, seal 48 px and up | Lockup, seal under 48 px | Mark, 48 px and up | Mark, under 48 px |
 |---|---|---|---|---|
 | Dark (ink, navy, dark photo) | `fora-lockup-on-dark.svg` | `fora-lockup-small-on-dark.svg` | `fora-mark-on-dark.svg` | `fora-mark-small.svg` |
 | Light (white, off-white) | `fora-lockup-on-light.svg` | `fora-lockup-small-on-light.svg` | `fora-mark-on-light.svg` | `fora-mark-small.svg` |
@@ -30,17 +31,17 @@ shapes yourself.
 | One-color print, emboss | `fora-lockup-mono-black.svg` | `fora-lockup-small-mono-black.svg` | `fora-mark-mono-black.svg` | `fora-mark-small-mono-black.svg` |
 
 All files are in `assets/`. PNG copies sit next to the SVGs for tools that
-cannot take SVG. `fora-icon.svg` is the square avatar (seal on an ink tile).
+cannot take SVG. `fora-icon.svg` is the square avatar (compact seal on an ink tile).
 `fora-social-card.png` is a ready 1200×630 link preview.
 
 Rules:
 - Use the lockup by default. Use the mark alone only where space is square or
   tiny (avatars, favicons, a corner bug on a video) or where "FORA" is already
   written nearby.
-- "32 px" means the rendered height of the seal itself. In print, 32 px ≈ 8 mm.
+- "48 px" means the rendered height of the seal itself. In print, about 12 mm.
 - Clear space on every side: at least one quarter of the seal's height. The
   SVGs already include part of it; add the rest around them.
-- Minimum size: plain seal 16 px; lockup 100 px wide.
+- Minimum size: compact seal 16 px; lockup 100 px wide.
 - The seal is always FORA Blue, except in the mono files. The impression is
   cut through the seal, so the background shows in it; that is intended.
 - Scale proportionally. No stretching, rotating, outlines, shadows, glows,
@@ -129,7 +130,7 @@ Read `reference/messaging.md` before writing any copy. The short version:
 Check every item:
 
 1. Logo is an unmodified file from `assets/`, the right variant for the
-   background and for its size (plain seal under 32 px), with clear space.
+   background and for its size (compact seal under 48 px), with clear space.
 2. Only the palette above; blue used sparingly; text contrast as in section 2.
 3. Instrument Sans and DM Mono (or the stated fallbacks).
 4. "FORA" spelled right; no "RAMP"; "open protocol", not "standard".

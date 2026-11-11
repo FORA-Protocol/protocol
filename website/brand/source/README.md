@@ -1,7 +1,7 @@
 # Brand source
 
 `generate.py` draws every logo file from geometry: the wax seal, the open-forum
-impression, the plain seal for small sizes, and the wordmark outlined from
+impression, the compact seal for small sizes, and the wordmark outlined from
 Instrument Sans 600 (via `glyphs.py`). Edit the geometry here, never the SVGs.
 
 Needs Python with `fontTools` and `shapely`, and `rsvg-convert` for the PNGs.
