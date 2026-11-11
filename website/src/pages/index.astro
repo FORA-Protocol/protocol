@@ -10,24 +10,30 @@ import '../styles/landing.css';
 
 const SERVER_URL = BUILD_LINKS[BUILD_LINKS.length - 1].url;
 
-// The two worked examples in "If you can write it in a contract". One switch
-// shows either; both tables have the same rows, so they line up.
+// The two worked examples in "If you can write it in a contract". The audience
+// switch at the top of the section shows one of them: the offer card, the
+// quote, the table and the demo link all change with it. Both tables have the
+// same rows, so they line up.
 // The track is the music demo (/getting-started/live-demo-music/, Harmonia
 // Records); the article is an example.
 const EXAMPLES = [
   {
     id: 'article',
-    tab: 'An article',
-    title: 'One article, three uses',
-    cols: ['Search and citation', 'AI answer input', 'AI training'],
+    tab: 'For publishers',
+    sub: 'Articles, pages, data',
+    icon: 'doc',
+    quote: "That is why most publishers can only block AI crawlers or sign a one-off deal with one AI company. A search index, an AI answer and a training run are different uses, worth different prices, and robots.txt can only say yes or no. <strong>FORA gives each use its own price and terms.</strong>",
+    demo: { text: 'This demo runs on a live exchange. You can try it today.', href: '/getting-started/poc-walkthrough/', link: 'See what an agent gets for an article' },
+    title: 'One article, four terms',
+    cols: ['Search and citation', 'AI answer input', 'AI answers, subscribers', 'AI training'],
     rows: [
-      { label: 'Price', cells: ['Free', '$0.05 per fetch', 'Not offered'], price: true },
-      { label: 'Who may buy', cells: ['Any identified agent', 'Any identified agent', '—'] },
-      { label: 'Allowed', cells: ['Search index, citation', 'Input to an AI answer', '—'] },
-      { label: 'Not allowed', cells: ['AI training', 'AI training', '—'] },
-      { label: 'Obligations', cells: ['Attribution', 'Attribution; usage report', '—'] },
+      { label: 'How it is paid', cells: ['Free', 'Per fetch', 'Subscription', 'Not offered'] },
+      { label: 'Who may buy', cells: ['Any identified agent', 'Any identified agent', 'Agents of your subscribers', '—'] },
+      { label: 'Allowed', cells: ['Search index, citation', 'Input to an AI answer', 'Input to an AI answer', '—'] },
+      { label: 'Not allowed', cells: ['AI training', 'AI training', 'AI training', '—'] },
+      { label: 'Obligations', cells: ['Attribution', 'Attribution; usage report', 'Attribution; usage report', '—'] },
     ],
-    note: 'An example. You set your own prices and uses.',
+    note: 'An example. You set your own uses and prices. A subscription is a term that only your subscribers\' agents see; the fee is agreed outside the offer.',
     offer: {
       name: 'AI answer input',
       fields: [
@@ -46,17 +52,21 @@ const EXAMPLES = [
   },
   {
     id: 'track',
-    tab: 'A track',
-    title: 'One track, three licenses',
-    cols: ['Online Creator', 'Broadcast', 'Advertising'],
+    tab: 'For music',
+    sub: 'Tracks, stems, catalogs',
+    icon: 'note',
+    quote: 'That is why sync, the hardest kind of music licensing, still gets sold by email and rate-card PDF. Media, territory, term, cue sheets and exclusions are hard to express in a form a machine can act on. <strong>FORA expresses all of them.</strong>',
+    demo: { text: 'This demo runs on a live exchange. You can try it today.', href: '/getting-started/live-demo-music/', link: 'Watch an agent license a track' },
+    title: 'One track, four licenses',
+    cols: ['Online Creator', 'Broadcast', 'Advertising', 'Creator subscription'],
     rows: [
-      { label: 'Price', cells: ['€29', '€450', '€1,200'], price: true },
-      { label: 'Who may buy', cells: ['Individuals', 'Broadcasters, companies', 'Companies'] },
-      { label: 'Allowed', cells: ['Personal video, online', 'Sync, broadcast, streaming', 'Sync, advertising, broadcast, streaming'] },
-      { label: 'Not allowed', cells: ['Commercial use, AI training', 'Advertising, AI training', 'Editorial, AI training'] },
-      { label: 'Obligations', cells: ['Attribution', 'One production; cue sheet through the broadcaster', 'One ad; placement records; cue sheet for TV'] },
+      { label: 'How it is paid', cells: ['One-time fee', 'One-time fee', 'One-time fee', 'Subscription'] },
+      { label: 'Who may buy', cells: ['Individuals', 'Broadcasters, companies', 'Companies', 'Agents of your subscribers'] },
+      { label: 'Allowed', cells: ['Personal video, online', 'Sync, broadcast, streaming', 'Sync, advertising, broadcast, streaming', 'Personal video, online'] },
+      { label: 'Not allowed', cells: ['Commercial use, AI training', 'Advertising, AI training', 'Editorial, AI training', 'Commercial use, AI training'] },
+      { label: 'Obligations', cells: ['Attribution', 'One production; cue sheet through the broadcaster', 'One ad; placement records; cue sheet for TV', 'Attribution'] },
     ],
-    note: 'The three licenses of the music demo. Fictional licenses, test money, no real rights.',
+    note: 'The first three are the licenses of the music demo: fictional, paid with test money, no real rights. The subscription is an example: the protocol expresses it as a term only your subscribers\' agents see, with the fee agreed outside the offer. The demo does not sell it.',
     offer: {
       name: 'Online Creator',
       fields: [
@@ -289,7 +299,6 @@ const FAQ = [
     }
     .offer-card dt { color: var(--gray); }
     .offer-card dd { color: var(--off-white); }
-    .offer-card dd.price { color: var(--white); font-weight: 500; }
     .offer-sig {
       margin-top: 0.875rem;
       padding-top: 0.875rem;
@@ -338,29 +347,60 @@ const FAQ = [
       font-size: 0.9375rem;
       line-height: 1.45;
     }
-    .example-table { table-layout: fixed; min-width: 560px; }
-    .example-table .col-label { width: 8.5rem; }
-    .example-switch {
-      display: flex;
-      gap: 0.25rem;
-      width: fit-content;
-      margin: 0 auto 1rem;
-      padding: 0.25rem;
+    .example-table { table-layout: fixed; min-width: 720px; }
+    .example-table .col-label { width: 9.5rem; }
+    .audience {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      max-width: 640px;
+      margin: 0 auto 4rem;
+      padding: 0.375rem;
+      gap: 0.375rem;
       border: 1px solid #dcdce6;
-      border-radius: 999px;
-      background: #fff;
+      border-radius: 14px;
+      background: #ececf2;
     }
-    .example-switch button {
-      font: 600 0.875rem var(--sans);
-      color: #444456;
+    .audience-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.875rem;
+      text-align: left;
+      font-family: var(--sans);
+      color: #555568;
       background: transparent;
-      border: 0;
-      border-radius: 999px;
-      padding: 0.45rem 1.1rem;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      padding: 0.875rem 1.125rem;
       cursor: pointer;
+      transition: background 0.2s, color 0.2s, box-shadow 0.2s;
     }
-    .example-switch button[aria-pressed='true'] { background: var(--accent-dark); color: #fff; }
-    .example-switch button:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 2px; }
+    .audience-btn:hover { color: var(--black); }
+    .audience-btn[aria-pressed='true'] {
+      background: #fff;
+      color: var(--black);
+      border-color: #dcdce6;
+      box-shadow: 0 6px 18px -10px rgba(10, 10, 15, 0.35);
+    }
+    .audience-btn:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 2px; }
+    .audience-icon {
+      display: grid;
+      place-items: center;
+      flex: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #dcdce6;
+      color: #555568;
+      transition: background 0.2s, color 0.2s;
+    }
+    .audience-btn[aria-pressed='true'] .audience-icon { background: var(--accent-dark); color: #fff; }
+    .audience-text { display: grid; gap: 0.125rem; }
+    .audience-text b { font-size: 1.0625rem; font-weight: 600; }
+    .audience-text span { font-size: 0.875rem; color: #6b6b80; }
+    [data-examples]:not(.js) .audience { display: none; }
+    [data-examples].js [data-example]:not([hidden]) { animation: example-in 0.35s ease both; }
+    @keyframes example-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { [data-examples].js [data-example]:not([hidden]) { animation: none; } }
     [data-examples].js [data-example][hidden] { display: none; }
     .terms-live {
       margin-top: 2.5rem;
@@ -369,6 +409,7 @@ const FAQ = [
       font-weight: 500;
     }
     .terms-live + .terms-links { margin-top: 0.75rem; }
+    [data-examples]:not(.js) .terms-demo + .terms-demo .terms-live { display: none; }
     .table-card th,
     .table-card td {
       text-align: left;
@@ -394,11 +435,6 @@ const FAQ = [
       padding-left: 0;
     }
     .table-card td { color: #444456; }
-    .table-card tr.price td {
-      font-weight: 700;
-      font-size: 1.125rem;
-      color: var(--black);
-    }
     .table-note {
       margin-top: 1rem;
       font-size: 0.8125rem;
@@ -731,6 +767,11 @@ const FAQ = [
       .table-card { padding: 1.25rem 1rem; }
     }
     @media (max-width: 560px) {
+      .audience { margin-bottom: 2.5rem; }
+      .audience-btn { padding: 0.75rem; gap: 0.625rem; }
+      .audience-icon { display: none; }
+      .audience-text b { font-size: 0.9375rem; }
+      .audience-text span { font-size: 0.75rem; }
       .stack-grid { grid-template-columns: 1fr; }
       .net-panel { padding: 1rem 0.75rem; }
       .net-node { font-size: 0.625rem; padding: 0.3rem 0.4rem; }
@@ -817,6 +858,19 @@ const FAQ = [
   <!-- 4. CONTRACT → AGENT -->
   <section class="terms-section" data-examples>
     <div class="wrap">
+      <div class="audience" role="group" aria-label="Show the example for">
+        {EXAMPLES.map((e, i) => (
+          <button type="button" class="audience-btn" data-example-tab={e.id} aria-pressed={i === 0 ? 'true' : 'false'}>
+            <span class="audience-icon" aria-hidden="true">
+              {e.icon === 'doc'
+                ? <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4M9 12h6M9 16h6" /></svg>
+                : <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13" /><circle cx="6.5" cy="18" r="2.5" /><circle cx="17.5" cy="16" r="2.5" /></svg>}
+            </span>
+            <span class="audience-text"><b>{e.tab}</b><span>{e.sub}</span></span>
+          </button>
+        ))}
+      </div>
+
       <div class="terms-top">
         <div class="terms-copy split-head">
           <div class="section-label">Your terms</div>
@@ -825,18 +879,13 @@ const FAQ = [
           <p>FORA turns your license into a signed offer that an agent understands: who may buy, for what use, where, for how long, at what price, and with which obligations. The agent still receives your full license document. <strong>Making terms machine-readable doesn't mean making them simpler.</strong></p>
         </div>
         <div class="offer-card-wrap">
-          <div class="example-switch" role="group" aria-label="Example">
-            {EXAMPLES.map((e, i) => (
-              <button type="button" data-example-tab={e.id} aria-pressed={i === 0 ? 'true' : 'false'}>{e.tab}</button>
-            ))}
-          </div>
           {EXAMPLES.map((e) => (
             <div data-example={e.id}>
-              <div class="offer-card" role="figure" aria-label={`An example signed offer for ${e.tab.toLowerCase()}, as an agent receives it`}>
+              <div class="offer-card" role="figure" aria-label={`An example signed offer, ${e.tab.toLowerCase()}, as an agent receives it`}>
                 <div class="offer-card-head"><span>Signed offer</span><span>{e.offer.name}</span></div>
                 <dl>
                   {e.offer.fields.map(([k, v]) => (
-                    <><dt>{k}</dt><dd class={k === 'price' ? 'price' : undefined}>{v}</dd></>
+                    <><dt>{k}</dt><dd>{v}</dd></>
                   ))}
                 </dl>
                 <div class="offer-sig">{e.offer.digest}<br />signed by the Exchange ✓</div>
@@ -847,20 +896,22 @@ const FAQ = [
         </div>
       </div>
 
-      <p class="sync-quote">That is why sync, the hardest kind of music licensing, still gets sold by email and rate-card PDF. Media, territory, term, cue sheets and exclusions are hard to express in a form a machine can act on. <strong>FORA expresses all of them.</strong></p>
+      {EXAMPLES.map((e) => (
+        <p class="sync-quote" data-example={e.id} set:html={e.quote} />
+      ))}
 
       {EXAMPLES.map((e) => (
         <div class="table-card" data-example={e.id}>
           <h3>{e.title}</h3>
           <div class="table-scroll">
             <table class="example-table">
-              <colgroup><col class="col-label" /><col /><col /><col /></colgroup>
+              <colgroup><col class="col-label" />{e.cols.map(() => <col />)}</colgroup>
               <thead>
                 <tr><td></td>{e.cols.map((h) => <th scope="col">{h}</th>)}</tr>
               </thead>
               <tbody>
                 {e.rows.map((r) => (
-                  <tr class={r.price ? 'price' : undefined}>
+                  <tr>
                     <th scope="row">{r.label}</th>
                     {r.cells.map((c) => <td>{c}</td>)}
                   </tr>
@@ -872,11 +923,15 @@ const FAQ = [
         </div>
       ))}
 
-      <p class="terms-live">Both demos run on a live exchange. You can try them today.</p>
-      <div class="terms-links">
-        <a href="/getting-started/poc-walkthrough/">See what an agent gets for an article &rarr;</a>
-        <a href="/getting-started/live-demo-music/">Watch an agent license a track &rarr;</a>
-      </div>
+      {EXAMPLES.map((e) => (
+        <div class="terms-demo" data-example={e.id}>
+          <p class="terms-live">{e.demo.text}</p>
+          <div class="terms-links">
+            <a href={e.demo.href}>{e.demo.link} &rarr;</a>
+            <a href="/protocol/#licensing-core">See how any license maps to FORA &rarr;</a>
+          </div>
+        </div>
+      ))}
     </div>
   </section>
 
@@ -1106,7 +1161,7 @@ const FAQ = [
       exs.forEach((e) => cats.forEach((c) => line(e, c)));
       ctx.globalAlpha = 1;
     }
-    // The article / track switch in "If you can write it in a contract".
+    // The audience switch in "If you can write it in a contract".
     document.querySelectorAll('[data-examples]').forEach((root) => {
       root.classList.add('js');
       const show = (id) => {

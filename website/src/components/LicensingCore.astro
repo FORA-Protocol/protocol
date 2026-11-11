@@ -1,0 +1,903 @@
+---
+// The Universal Licensing Core on /protocol/: five slides that explain the
+// model, then a picker of familiar licenses, each mapped clause by clause to
+// one LicenseTerm. The terms follow /protocol/licensing-terms/ and the vocab
+// options in proto/fora/v1/fora.proto: registered tokens only, or a `vendor:`
+// token where the registry has none. Digests are shortened placeholders.
+
+type Restriction = { kind: string; permitted?: string[]; prohibited?: string[] };
+type Obligation = { kind: string; trigger: string; detail?: string; scope_license?: string };
+type Term = {
+  semantics: 'ENUMERATED' | 'REFERENCE_ONLY';
+  license?: { id?: string; name?: string; uri?: string; uri_digest?: string };
+  scopes?: string[];
+  restrictions?: Restriction[];
+  quotas?: { metric: string; limit: number; window: string }[];
+  pricing: Record<string, string | number>;
+  obligations?: Obligation[];
+};
+type Row = { says: string; goes: string; doc?: boolean };
+type Lic = { id: string; group: string; name: string; blurb: string; rows: Row[]; term: Term; note?: string };
+
+const LICENSES: Lic[] = [
+  {
+    id: 'cc-by',
+    group: 'Open content',
+    name: 'CC BY 4.0',
+    blurb: 'The most common open license for articles, photos and music: use it for anything, credit the creator.',
+    rows: [
+      { says: 'Copy and redistribute the material in any medium or format', goes: 'FUNCTION permitted: reproduce, distribute' },
+      { says: 'Remix, transform and build upon it', goes: 'FUNCTION permitted: modify' },
+      { says: 'For any purpose, even commercially', goes: 'FUNCTION permitted: commercial; no USER_TYPE restriction' },
+      { says: 'Worldwide, free of charge, no end date', goes: 'GEOGRAPHY *; pricing FREE, metering NONE' },
+      { says: 'Give credit, link to the license, and say if you made changes', goes: 'ATTRIBUTION obligation, on distribution' },
+      { says: 'No warranties; no additional restrictions on what the license permits', goes: 'Stays in the license text, which the term identifies', doc: true },
+    ],
+    term: {
+      semantics: 'ENUMERATED',
+      license: { id: 'CC-BY-4.0', uri: 'https://creativecommons.org/licenses/by/4.0/legalcode', uri_digest: 'sha256:9d1c…' },
+      restrictions: [
+        { kind: 'FUNCTION', permitted: ['reproduce', 'distribute', 'modify', 'commercial'] },
+        { kind: 'GEOGRAPHY', permitted: ['*'] },
+      ],
+      pricing: { model: 'FREE', metering: 'NONE' },
+      obligations: [{ kind: 'ATTRIBUTION', trigger: 'ON_DISTRIBUTION', detail: 'Credit the creator, link the license, note any changes' }],
+    },
+  },
+  {
+    id: 'cc-by-nc-sa',
+    group: 'Open content',
+    name: 'CC BY-NC-SA 4.0',
+    blurb: 'Free for non-commercial use, and anything you make from it carries the same license.',
+    rows: [
+      { says: 'Copy, redistribute and adapt the material', goes: 'FUNCTION permitted: reproduce, distribute, modify' },
+      { says: 'NonCommercial: not primarily for commercial advantage', goes: 'FUNCTION prohibited: commercial' },
+      { says: 'ShareAlike: share your adaptations under the same license', goes: 'SHARE_ALIKE obligation, scope_license CC-BY-NC-SA-4.0' },
+      { says: 'Give credit and link to the license', goes: 'ATTRIBUTION obligation, on distribution' },
+      { says: 'Free, worldwide', goes: 'GEOGRAPHY *; pricing FREE' },
+      { says: 'What exactly counts as commercial', goes: 'Defined in the license text, which the term identifies', doc: true },
+    ],
+    term: {
+      semantics: 'ENUMERATED',
+      license: { id: 'CC-BY-NC-SA-4.0', uri: 'https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode', uri_digest: 'sha256:2b7e…' },
+      restrictions: [
+        { kind: 'FUNCTION', permitted: ['reproduce', 'distribute', 'modify'], prohibited: ['commercial'] },
+        { kind: 'GEOGRAPHY', permitted: ['*'] },
+      ],
+      pricing: { model: 'FREE', metering: 'NONE' },
+      obligations: [
+        { kind: 'SHARE_ALIKE', trigger: 'ON_DISTRIBUTION', scope_license: 'CC-BY-NC-SA-4.0' },
+        { kind: 'ATTRIBUTION', trigger: 'ON_DISTRIBUTION', detail: 'Credit the creator and link the license' },
+      ],
+    },
+  },
+  {
+    id: 'mit',
+    group: 'Software',
+    name: 'MIT',
+    blurb: 'The short permissive software license: do anything, keep the notice.',
+    rows: [
+      { says: 'Deal in the Software without restriction: use, copy, modify, merge, publish, distribute, sublicense, sell', goes: 'FUNCTION permitted: all' },
+      { says: 'Free of charge, to any person', goes: 'pricing FREE; no USER_TYPE restriction' },
+      { says: 'Include the copyright notice and this permission notice in all copies', goes: 'NOTICE obligation, on distribution' },
+      { says: 'Provided "as is", without warranty', goes: 'Stays in the license text', doc: true },
+    ],
+    term: {
+      semantics: 'ENUMERATED',
+      license: { id: 'MIT' },
+      restrictions: [{ kind: 'FUNCTION', permitted: ['all'] }],
+      pricing: { model: 'FREE', metering: 'NONE' },
+      obligations: [{ kind: 'NOTICE', trigger: 'ON_DISTRIBUTION', detail: 'Keep the copyright and permission notice' }],
+    },
+  },
+  {
+    id: 'agpl',
+    group: 'Software',
+    name: 'AGPL-3.0',
+    blurb: 'Copyleft that also reaches software offered as a network service.',
+    rows: [
+      { says: 'Run, study, modify and share the program', goes: 'FUNCTION permitted: all' },
+      { says: 'Distribute modified versions only under the AGPL', goes: 'SHARE_ALIKE obligation, scope_license AGPL-3.0-only' },
+      { says: 'Users who interact with it over a network get the source', goes: 'NETWORK_COPYLEFT obligation, on network service' },
+      { says: 'Keep the copyright and license notices', goes: 'NOTICE obligation, on distribution' },
+      { says: 'Patent grant, termination and cure periods', goes: 'Stay in the license text', doc: true },
+    ],
+    term: {
+      semantics: 'ENUMERATED',
+      license: { id: 'AGPL-3.0-only' },
+      restrictions: [{ kind: 'FUNCTION', permitted: ['all'] }],
+      pricing: { model: 'FREE', metering: 'NONE' },
+      obligations: [
+        { kind: 'SHARE_ALIKE', trigger: 'ON_DISTRIBUTION', scope_license: 'AGPL-3.0-only' },
+        { kind: 'NETWORK_COPYLEFT', trigger: 'ON_NETWORK_SERVICE', detail: 'Offer the source to network users' },
+        { kind: 'NOTICE', trigger: 'ON_DISTRIBUTION' },
+      ],
+    },
+  },
+  {
+    id: 'rsl',
+    group: 'Web and AI',
+    name: 'RSL: AI answers, pay per crawl',
+    blurb: 'A Really Simple Licensing file for a news site: AI answers allowed for a fee per crawl, training not allowed.',
+    rows: [
+      { says: 'permits usage: ai-input, search', goes: 'FUNCTION permitted: ai-input, search (the same tokens: FORA starts from RSL 1.0\'s AI-use vocabulary)' },
+      { says: 'prohibits usage: ai-train', goes: 'FUNCTION prohibited: ai-train' },
+      { says: 'payment type crawl, an amount per crawl', goes: 'pricing PER_UNIT, unit accesses' },
+      { says: 'Credit the publication', goes: 'ATTRIBUTION obligation, on use' },
+    ],
+    term: {
+      semantics: 'ENUMERATED',
+      license: { uri: 'https://news.example/license.xml', uri_digest: 'sha256:4c1f…' },
+      restrictions: [{ kind: 'FUNCTION', permitted: ['ai-input', 'search'], prohibited: ['ai-train'] }],
+      pricing: { model: 'PER_UNIT', unit: 'accesses', rate: '0.05', currency: 'USD' },
+      obligations: [{ kind: 'ATTRIBUTION', trigger: 'ON_USE', detail: 'Cite the publication at the original URL' }],
+    },
+  },
+  {
+    id: 'subscription',
+    group: 'Web and AI',
+    name: 'Annual AI access deal',
+    blurb: 'A subscription: one AI company pays a yearly fee and its agents use the archive within a monthly cap.',
+    rows: [
+      { says: 'Only for the subscriber, Acme AI', goes: 'scopes: subscription:acme-ai-2027. Only an agent that states the scope sees the term' },
+      { says: 'Yearly fee, invoiced under the deal', goes: 'pricing FREE per access; the fee is settled outside the offer' },
+      { says: 'For AI answers and search, not for training', goes: 'FUNCTION permitted: ai-input, ai-index; prohibited: ai-train' },
+      { says: 'Up to 100,000 articles a month', goes: 'Quota: accesses, 100000, MONTHLY' },
+      { says: 'Report usage monthly', goes: 'The offer\'s reporting requirement, so usage can be reconciled' },
+      { says: 'Liability, audit rights, renewal', goes: 'Stay in the deal document', doc: true },
+    ],
+    term: {
+      semantics: 'ENUMERATED',
+      license: { uri: 'https://news.example/deals/acme-ai-2027.pdf', uri_digest: 'sha256:a07e…' },
+      scopes: ['subscription:acme-ai-2027'],
+      restrictions: [{ kind: 'FUNCTION', permitted: ['ai-input', 'ai-index'], prohibited: ['ai-train'] }],
+      quotas: [{ metric: 'accesses', limit: 100000, window: 'MONTHLY' }],
+      pricing: { model: 'FREE', license_duration_months: 12 },
+      obligations: [{ kind: 'ATTRIBUTION', trigger: 'ON_USE' }],
+    },
+  },
+  {
+    id: 'stock',
+    group: 'Photos',
+    name: 'Royalty-free stock photo',
+    blurb: 'A typical standard stock license: pay once, use the image in many places, up to a print run.',
+    rows: [
+      { says: 'Use the image in websites, social media, print and advertising', goes: 'FUNCTION permitted: display, reproduce, advertising' },
+      { says: 'Not as a product you sell, such as posters or merchandise', goes: 'FUNCTION prohibited: sell' },
+      { says: 'Up to 500,000 printed copies', goes: 'Quota: copies, 500000, TOTAL' },
+      { says: 'Pay once, use forever, worldwide', goes: 'pricing FLAT, metering NONE; GEOGRAPHY *' },
+      { says: 'No use in a trademark or logo; sensitive-subject rules', goes: 'Stay in the license text', doc: true },
+    ],
+    term: {
+      semantics: 'ENUMERATED',
+      license: { uri: 'https://stock.example/license/standard', uri_digest: 'sha256:51a3…' },
+      restrictions: [
+        { kind: 'FUNCTION', permitted: ['display', 'reproduce', 'advertising'], prohibited: ['sell'] },
+        { kind: 'GEOGRAPHY', permitted: ['*'] },
+      ],
+      quotas: [{ metric: 'copies', limit: 500000, window: 'TOTAL' }],
+      pricing: { model: 'FLAT', rate: '29.00', currency: 'USD', metering: 'NONE' },
+    },
+  },
+  {
+    id: 'editorial',
+    group: 'Photos',
+    name: 'Editorial-only news photo',
+    blurb: 'A news photo for reporting, never for ads, with a credit line on every use.',
+    rows: [
+      { says: 'Editorial use only: news, commentary, education', goes: 'FUNCTION permitted: editorial' },
+      { says: 'No advertising, promotion or merchandise', goes: 'FUNCTION prohibited: advertising, commercial, sell' },
+      { says: 'Licensed to news organizations', goes: 'USER_TYPE permitted: news_publisher, broadcaster' },
+      { says: 'Credit: photographer / agency, next to the image', goes: 'ATTRIBUTION obligation, on use' },
+      { says: 'For one year', goes: 'pricing license_duration_months: 12' },
+    ],
+    term: {
+      semantics: 'ENUMERATED',
+      license: { uri: 'https://photos.example/license/editorial', uri_digest: 'sha256:e8f2…' },
+      restrictions: [
+        { kind: 'FUNCTION', permitted: ['editorial'], prohibited: ['advertising', 'commercial', 'sell'] },
+        { kind: 'USER_TYPE', permitted: ['news_publisher', 'broadcaster'] },
+      ],
+      pricing: { model: 'FLAT', rate: '150.00', currency: 'USD', license_duration_months: 12, metering: 'NONE' },
+      obligations: [{ kind: 'ATTRIBUTION', trigger: 'ON_USE', detail: 'Photo: J. Doe / Example Agency' }],
+    },
+  },
+  {
+    id: 'sync',
+    group: 'Music',
+    name: 'TV sync license',
+    blurb: 'A track synchronized into one TV program, in two countries, for three years.',
+    rows: [
+      { says: 'Synchronize the track into one program, broadcast it and stream it', goes: 'FUNCTION permitted: sync, broadcast, stream' },
+      { says: 'Not in advertising; no AI training', goes: 'FUNCTION prohibited: advertising, ai-train' },
+      { says: 'Licensee: a broadcaster or production company', goes: 'USER_TYPE permitted: broadcaster, commercial_entity' },
+      { says: 'Territory: United Kingdom and Ireland', goes: 'GEOGRAPHY permitted: GB, IE' },
+      { says: 'Term: three years', goes: 'pricing license_duration_months: 36' },
+      { says: 'One production', goes: 'Quota: vendor:productions, 1, TOTAL' },
+      { says: 'Deliver a cue sheet through the broadcaster', goes: 'OTHER obligation, on distribution' },
+      { says: 'Credit the track; show the ℗ line', goes: 'NOTICE obligation, on distribution' },
+      { says: 'Most-favored-nation terms, edit rights, credit placement', goes: 'Stay in the license document, the authority for this term', doc: true },
+    ],
+    term: {
+      semantics: 'REFERENCE_ONLY',
+      license: { name: 'Sync license, one program', uri: 'https://label.example/licenses/sync-tv.pdf', uri_digest: 'sha256:bfab…' },
+      restrictions: [
+        { kind: 'FUNCTION', permitted: ['sync', 'broadcast', 'stream'], prohibited: ['advertising', 'ai-train'] },
+        { kind: 'USER_TYPE', permitted: ['broadcaster', 'commercial_entity'] },
+        { kind: 'GEOGRAPHY', permitted: ['GB', 'IE'] },
+      ],
+      quotas: [{ metric: 'vendor:productions', limit: 1, window: 'TOTAL' }],
+      pricing: { model: 'FLAT', rate: '450.00', currency: 'EUR', license_duration_months: 36, metering: 'NONE' },
+      obligations: [
+        { kind: 'OTHER', trigger: 'ON_DISTRIBUTION', detail: 'Cue sheet through the broadcaster' },
+        { kind: 'NOTICE', trigger: 'ON_DISTRIBUTION', detail: '℗ 2026 Example Records' },
+      ],
+    },
+  },
+  {
+    id: 'blanket',
+    group: 'Music',
+    name: 'Collective blanket license',
+    blurb: 'A collecting society\'s agreement, too long and conditional to enumerate field by field.',
+    rows: [
+      { says: 'Dozens of pages of tariffs, reporting schedules and exclusions', goes: 'semantics REFERENCE_ONLY: the document is the authority, and the agent reads it before use' },
+      { says: 'The document itself', goes: 'license uri, pinned with uri_digest so it cannot be swapped' },
+      { says: 'The price for this use', goes: 'pricing FLAT. A price is always machine-readable, even here' },
+      { says: 'Anything you do state as a field', goes: 'Must agree with the document, and binds like any other term' },
+    ],
+    term: {
+      semantics: 'REFERENCE_ONLY',
+      license: { name: 'Blanket sync license MR-7741', uri: 'https://society.example/license/MR-7741', uri_digest: 'sha256:3b1f…' },
+      pricing: { model: 'FLAT', rate: '500.00', currency: 'USD' },
+    },
+  },
+  {
+    id: 'dataset',
+    group: 'Data',
+    name: 'Research dataset, institutional',
+    blurb: 'A dataset free to subscribing universities, for training and inference, with share-alike on the models.',
+    rows: [
+      { says: 'For subscribing institutions', goes: 'scopes: subscription:institution' },
+      { says: 'Train and run models on it', goes: 'FUNCTION permitted: ai-train, ai-input' },
+      { says: 'Academic and non-profit use only', goes: 'USER_TYPE permitted: academic, non_profit' },
+      { says: 'Ten researchers a month', goes: 'Quota: seats, 10, MONTHLY' },
+      { says: 'Release trained models under CC BY-NC-SA 4.0', goes: 'SHARE_ALIKE obligation, scope_license CC-BY-NC-SA-4.0' },
+    ],
+    term: {
+      semantics: 'ENUMERATED',
+      scopes: ['subscription:institution'],
+      restrictions: [
+        { kind: 'FUNCTION', permitted: ['ai-train', 'ai-input'] },
+        { kind: 'USER_TYPE', permitted: ['academic', 'non_profit'] },
+      ],
+      quotas: [{ metric: 'seats', limit: 10, window: 'MONTHLY' }],
+      pricing: { model: 'FREE' },
+      obligations: [{ kind: 'SHARE_ALIKE', trigger: 'ON_DISTRIBUTION', scope_license: 'CC-BY-NC-SA-4.0' }],
+    },
+  },
+  {
+    id: 'design',
+    group: 'Design files',
+    name: 'Manufacturing license',
+    blurb: 'A 3D-printable part, licensed for production runs reported after the fact.',
+    rows: [
+      { says: 'Manufacture the part', goes: 'FUNCTION permitted: manufacture' },
+      { says: 'Up to 1,000 units for the fee', goes: 'Quota: units-manufactured, 1000, TOTAL' },
+      { says: 'Report production runs; the licensor may audit', goes: 'pricing metering OFFLINE_SELF_REPORTED' },
+      { says: 'Suggested royalty above 1,000 units', goes: 'CONTRIBUTION obligation, on use' },
+    ],
+    term: {
+      semantics: 'ENUMERATED',
+      restrictions: [
+        { kind: 'FUNCTION', permitted: ['manufacture'] },
+        { kind: 'GEOGRAPHY', permitted: ['*'] },
+      ],
+      quotas: [{ metric: 'units-manufactured', limit: 1000, window: 'TOTAL' }],
+      pricing: { model: 'FLAT', rate: '200.00', currency: 'USD', metering: 'OFFLINE_SELF_REPORTED' },
+      obligations: [{ kind: 'CONTRIBUTION', trigger: 'ON_USE', detail: 'Suggested royalty: $0.50 per unit above 1,000' }],
+    },
+  },
+];
+
+const GROUPS = [...new Set(LICENSES.map((l) => l.group))];
+
+// The term as an agent reads it, compact YAML with syntax colors.
+const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const k = (v: string) => `<span class="tk">${v}</span>`;
+const e = (v: string) => `<span class="te">${esc(v)}</span>`;
+const s = (v: string) => `<span class="ts">"${esc(v)}"</span>`;
+const n = (v: string | number) => (typeof v === 'number' ? `<span class="tn">${v}</span>` : /^[0-9.]+$/.test(v) ? `<span class="ts">"${v}"</span>` : /^[A-Z_]+$/.test(v) ? e(v) : s(v));
+const list = (xs: string[]) => `[${xs.map((x) => s(x)).join(', ')}]`;
+function termYaml(t: Term): string {
+  const out: string[] = [];
+  out.push(`${k('semantics')}: ${e(t.semantics)}`);
+  if (t.license) {
+    out.push(`${k('license')}:`);
+    for (const [key, v] of Object.entries(t.license)) out.push(`  ${k(key)}: ${s(v as string)}`);
+  }
+  if (t.scopes) out.push(`${k('scopes')}: ${list(t.scopes)}`);
+  if (t.restrictions?.length) {
+    out.push(`${k('restrictions')}:`);
+    for (const r of t.restrictions) {
+      out.push(`  - ${k('kind')}: ${e(r.kind)}`);
+      if (r.permitted) out.push(`    ${k('permitted')}: ${list(r.permitted)}`);
+      if (r.prohibited) out.push(`    ${k('prohibited')}: ${list(r.prohibited)}`);
+    }
+  }
+  if (t.quotas?.length) {
+    out.push(`${k('quotas')}:`);
+    for (const q of t.quotas) out.push(`  - { ${k('metric')}: ${s(q.metric)}, ${k('limit')}: ${n(q.limit)}, ${k('window')}: ${e(q.window)} }`);
+  }
+  out.push(`${k('pricing')}:`);
+  for (const [key, v] of Object.entries(t.pricing)) out.push(`  ${k(key)}: ${n(v)}`);
+  if (t.obligations?.length) {
+    out.push(`${k('obligations')}:`);
+    for (const o of t.obligations) {
+      out.push(`  - ${k('kind')}: ${e(o.kind)}`);
+      out.push(`    ${k('trigger')}: ${e(o.trigger)}`);
+      if (o.scope_license) out.push(`    ${k('scope_license')}: { ${k('id')}: ${s(o.scope_license)} }`);
+      if (o.detail) out.push(`    ${k('detail')}: ${s(o.detail)}`);
+    }
+  }
+  return out.join('\n');
+}
+
+const SLIDES = [
+  {
+    title: 'Every license answers the same questions',
+    text: 'Who may use it, for what, where, how much, at what price, for how long, and what they owe afterwards. Each question has a field, so one model fits an article, a track, a dataset or a design file.',
+    kind: 'questions',
+  },
+  {
+    title: 'One resource, many terms, one offer each',
+    text: 'Attach as many terms as you sell: free for search, per fetch for AI answers, a subscription for one company. The agent gets one signed offer per term and buys the one it can honor. A subscription term is shown only to the subscriber\'s agents.',
+    kind: 'offers',
+  },
+  {
+    title: 'Fields when they can say it all, the document when they can\'t',
+    text: 'An ENUMERATED term is complete in its fields. A REFERENCE_ONLY term makes your license document the authority, for agreements too conditional to list. Either way the price is machine-readable, and every field you state binds.',
+    kind: 'semantics',
+  },
+  {
+    title: 'Shared words, open to new ones',
+    text: 'Uses, places and buyers come from shared vocabularies, so every agent reads them the same way. Common synonyms fold into one token. Anything else gets your own namespaced token. A restriction binds by default: an agent that cannot evaluate it must decline the term.',
+    kind: 'vocab',
+  },
+  {
+    title: 'Signed, with your document pinned',
+    text: 'The Exchange signs each whole offer: the term, the price and the expiry. A Broker that relays it cannot change any of them. The license document travels by address with a sha256 digest, so anyone can tell whether the text they fetched is the text the offer was signed with.',
+    kind: 'signed',
+  },
+];
+
+const QUESTIONS = [
+  ['Who may use it', 'restrictions · USER_TYPE', 'individual, academic, broadcaster…'],
+  ['For what', 'restrictions · FUNCTION', 'ai-input, sync, editorial…'],
+  ['Where', 'restrictions · GEOGRAPHY', '*, EU, GB, US…'],
+  ['How much of it', 'quotas', '500,000 copies, 10 seats a month…'],
+  ['Price and term', 'pricing', 'free, per unit, flat; months'],
+  ['What they owe', 'obligations', 'attribution, notice, share-alike…'],
+];
+---
+<section class="core-section" id="licensing-core">
+  <div class="section-header">
+    <div class="section-label">Universal Licensing Core</div>
+    <h2>Any license, in one model an agent can act on</h2>
+    <p>FORA doesn't ask you to fit a template. It breaks your license into the parts every license has, keeps your document as the reference, and signs the result.</p>
+  </div>
+
+  <div class="deck" data-deck>
+    <div class="deck-viewport">
+      <ol class="deck-track">
+        {SLIDES.map((sl, i) => (
+          <li class="slide" data-slide={i} aria-roledescription="slide" aria-label={`${i + 1} of ${SLIDES.length}`}>
+            <div class="slide-copy">
+              <span class="slide-num">{String(i + 1).padStart(2, '0')}</span>
+              <h3>{sl.title}</h3>
+              <p>{sl.text}</p>
+            </div>
+            <div class="slide-art" aria-hidden="true">
+              {sl.kind === 'questions' && (
+                <div class="q-grid">
+                  {QUESTIONS.map(([q, f, ex]) => (
+                    <div class="q-card"><b>{q}</b><code>{f}</code><span>{ex}</span></div>
+                  ))}
+                </div>
+              )}
+              {sl.kind === 'offers' && (
+                <div class="fan">
+                  <div class="fan-node fan-res">One article</div>
+                  <div class="fan-cols">
+                    <div class="fan-col"><span class="fan-term">Term: search, free</span><span class="fan-arrow">↓</span><span class="fan-offer">Signed offer</span></div>
+                    <div class="fan-col"><span class="fan-term">Term: AI answers, per fetch</span><span class="fan-arrow">↓</span><span class="fan-offer">Signed offer</span></div>
+                    <div class="fan-col"><span class="fan-term fan-gated">Term: subscription<small>scope subscription:acme</small></span><span class="fan-arrow">↓</span><span class="fan-offer">Only for Acme's agents</span></div>
+                  </div>
+                </div>
+              )}
+              {sl.kind === 'semantics' && (
+                <div class="sem">
+                  <div class="sem-card"><code>ENUMERATED</code><p>The fields are the whole term. A link to your license text is optional.</p><span class="sem-bar"><i style="width:100%"></i></span><small>fields: complete</small></div>
+                  <div class="sem-card"><code>REFERENCE_ONLY</code><p>The document is the authority. Price required; other fields optional.</p><span class="sem-bar"><i style="width:30%"></i></span><small>fields: price, plus what you choose</small></div>
+                </div>
+              )}
+              {sl.kind === 'vocab' && (
+                <div class="vocab">
+                  <div><b>FUNCTION</b><span>ai-train</span><span>ai-input</span><span>search</span><span>sync</span><span>broadcast</span><span>editorial</span><span>manufacture</span><span class="v-more">+16</span></div>
+                  <div><b>GEOGRAPHY</b><span>*</span><span>EU</span><span>EEA</span><span>GB</span><span>US</span><span class="v-more">any ISO code</span></div>
+                  <div><b>USER_TYPE</b><span>individual</span><span>academic</span><span>non_profit</span><span>broadcaster</span><span class="v-more">+2</span></div>
+                  <div><b>Your own</b><span class="v-vendor">vendor:productions</span><span class="v-vendor">vendor:podcast-ad</span></div>
+                </div>
+              )}
+              {sl.kind === 'signed' && (
+                <div class="sig">
+                  <div class="sig-offer">
+                    <span class="sig-head">Signed offer</span>
+                    <span>term · restrictions, quotas, obligations</span>
+                    <span>pricing · EUR 450, flat</span>
+                    <span>expires_at · 2026-11-11T18:00Z</span>
+                    <span class="sig-doc">license · uri + sha256:bfab…</span>
+                    <span class="sig-by">signed by the Exchange ✓</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+    <div class="deck-nav">
+      <button type="button" class="deck-btn" data-deck-prev aria-label="Previous slide">←</button>
+      <div class="deck-dots">
+        {SLIDES.map((sl, i) => (
+          <button type="button" class="deck-dot" data-deck-dot={i} aria-label={`Slide ${i + 1}: ${sl.title}`} aria-current={i === 0 ? 'true' : 'false'}></button>
+        ))}
+      </div>
+      <button type="button" class="deck-btn" data-deck-next aria-label="Next slide">→</button>
+    </div>
+  </div>
+
+  <div class="explorer" data-explorer>
+    <div class="explorer-head">
+      <h3>Try it on a license you know</h3>
+      <p>Pick a license. Each clause goes to a field of one FORA term, or stays in the license document that the term pins.</p>
+    </div>
+    <div class="lic-picker" role="group" aria-label="License">
+      {GROUPS.map((g) => (
+        <div class="lic-group">
+          <span class="lic-group-name">{g}</span>
+          <div class="lic-chips">
+            {LICENSES.filter((l) => l.group === g).map((l) => (
+              <button type="button" class="lic-chip" data-lic-tab={l.id} aria-pressed={l.id === LICENSES[0].id ? 'true' : 'false'}>{l.name}</button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+
+    {LICENSES.map((l) => (
+      <div class="lic-panel" data-lic={l.id}>
+        <div class="lic-map">
+          <h4>{l.name}</h4>
+          <p class="lic-blurb">{l.blurb}</p>
+          <ul class="lic-rows">
+            {l.rows.map((r) => (
+              <li class={r.doc ? 'is-doc' : undefined}>
+                <span class="lic-says">{r.says}</span>
+                <span class="lic-arrow" aria-hidden="true">→</span>
+                <span class="lic-goes">{r.doc && <em>Document</em>}{r.goes}</span>
+              </li>
+            ))}
+          </ul>
+          {l.note && <p class="lic-note">{l.note}</p>}
+        </div>
+        <div class="lic-term">
+          <div class="lic-term-head"><span>LicenseTerm</span><span>{l.term.semantics}</span></div>
+          <pre set:html={termYaml(l.term)} />
+        </div>
+      </div>
+    ))}
+    <p class="explorer-foot">Typical terms, simplified to show the mapping; each real license is the authority for itself. Digests are shortened. <a href="/protocol/licensing-terms/">The licensing terms specification &rarr;</a></p>
+  </div>
+</section>
+
+<style>
+  .core-section {
+    background: var(--bg-light);
+    color: var(--near-black);
+    padding: 5.5rem 2rem;
+  }
+  .core-section .section-label { color: #555568; }
+  .core-section .section-header h2 { color: var(--black); }
+  .core-section .section-header p { color: #444456; }
+
+  /* ---- deck ---- */
+  .deck { max-width: 1100px; margin: 0 auto; }
+  .deck-viewport {
+    overflow: hidden;
+    border-radius: 16px;
+    background: var(--black);
+    box-shadow: 0 30px 70px -36px rgba(10, 10, 15, 0.55);
+  }
+  .deck-track {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    transition: transform 0.45s cubic-bezier(0.3, 0.7, 0.2, 1);
+  }
+  .slide {
+    flex: 0 0 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 3rem;
+    align-items: center;
+    min-height: 400px;
+    padding: 3rem;
+    color: var(--light-gray);
+  }
+  .slide-num {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.875rem;
+    color: var(--accent-text);
+    margin-bottom: 1rem;
+  }
+  .slide h3 {
+    color: var(--white);
+    font-size: clamp(1.375rem, 2.4vw, 1.875rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin-bottom: 1rem;
+  }
+  .slide p { font-size: 1.1875rem; line-height: 1.65; color: var(--light-gray); max-width: 34rem; }
+
+  .q-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; }
+  .q-card {
+    display: grid;
+    gap: 0.3rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--mid);
+    border-radius: 10px;
+    background: var(--near-black);
+  }
+  .q-card b { color: var(--white); font-weight: 600; font-size: 1.0625rem; }
+  .q-card code { font-family: var(--mono); font-size: 0.8125rem; color: var(--accent-text); }
+  .q-card span { font-size: 0.9375rem; color: var(--light-gray); }
+
+  .fan { display: grid; gap: 1rem; justify-items: center; }
+  .fan-node {
+    padding: 0.625rem 1.25rem;
+    border-radius: 999px;
+    background: var(--accent-dark);
+    color: #fff;
+    font-weight: 600;
+  }
+  .fan-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.625rem; width: 100%; }
+  .fan-col { display: grid; gap: 0.5rem; justify-items: center; text-align: center; }
+  .fan-term, .fan-offer {
+    width: 100%;
+    padding: 0.75rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.9375rem;
+    line-height: 1.4;
+  }
+  .fan-term { display: grid; align-content: center; min-height: 5.25rem; border: 1px solid var(--mid); background: var(--near-black); color: var(--off-white); }
+  .fan-offer { display: grid; align-content: center; min-height: 3.25rem; }
+  .fan-term small { display: block; margin-top: 0.35rem; font-family: var(--mono); font-size: 0.8125rem; color: var(--accent-text); }
+  .fan-gated { border-style: dashed; border-color: var(--accent-text); }
+  .fan-arrow { color: var(--light-gray); font-size: 1.125rem; }
+  .fan-offer { border: 1px solid var(--accent); background: rgba(79, 109, 245, 0.14); color: var(--white); font-weight: 600; }
+
+  .sem { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .sem-card {
+    display: grid;
+    gap: 0.625rem;
+    align-content: start;
+    padding: 1.25rem;
+    border: 1px solid var(--mid);
+    border-radius: 10px;
+    background: var(--near-black);
+  }
+  .sem-card code { font-family: var(--mono); color: var(--white); font-size: 0.9375rem; }
+  .sem-card p { font-size: 1rem; line-height: 1.5; color: var(--light-gray); max-width: none; }
+  .sem-bar { display: block; height: 6px; border-radius: 3px; background: var(--mid); overflow: hidden; }
+  .sem-bar i { display: block; height: 100%; background: var(--accent); }
+  .sem-card small { font-family: var(--mono); font-size: 0.8125rem; color: var(--light-gray); }
+
+  .vocab { display: grid; gap: 0.75rem; }
+  .vocab div { display: flex; flex-wrap: wrap; gap: 0.375rem; align-items: center; }
+  .vocab b {
+    width: 100%;
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: var(--light-gray);
+  }
+  .vocab span {
+    font-family: var(--mono);
+    font-size: 0.9375rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    background: var(--near-black);
+    border: 1px solid var(--mid);
+    color: var(--off-white);
+  }
+  .vocab .v-more { border-style: dashed; color: var(--light-gray); }
+  .vocab .v-vendor { border-color: var(--accent-text); color: var(--accent-text); }
+
+  .sig { display: grid; place-items: center; }
+  .sig-offer {
+    display: grid;
+    gap: 0.5rem;
+    width: min(100%, 420px);
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--mid);
+    border-radius: 10px;
+    background: var(--near-black);
+    font-family: var(--mono);
+    font-size: 0.9375rem;
+    color: var(--off-white);
+  }
+  .sig-head {
+    padding-bottom: 0.625rem;
+    border-bottom: 1px solid var(--mid);
+    color: var(--gray);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.8125rem;
+  }
+  .sig-doc { color: var(--accent-text); }
+  .sig-by {
+    padding-top: 0.625rem;
+    border-top: 1px solid var(--mid);
+    color: var(--accent-text);
+  }
+
+  .deck-nav {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.25rem;
+    margin-top: 1.25rem;
+  }
+  .deck-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid #dcdce6;
+    background: #fff;
+    color: var(--black);
+    font-size: 1.125rem;
+    cursor: pointer;
+  }
+  .deck-btn:hover:not(:disabled) { border-color: var(--accent-dark); color: var(--accent-dark); }
+  .deck-btn:disabled { opacity: 0.35; cursor: default; }
+  .deck-dots { display: flex; gap: 0.5rem; }
+  .deck-dot {
+    width: 10px;
+    height: 10px;
+    padding: 0;
+    border-radius: 50%;
+    border: 0;
+    background: #c9c9d6;
+    cursor: pointer;
+    transition: width 0.25s, background 0.25s;
+  }
+  .deck-dot[aria-current='true'] { width: 28px; border-radius: 5px; background: var(--accent-dark); }
+  .deck-btn:focus-visible, .deck-dot:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 2px; }
+
+  /* Without scripts, the slides stack. */
+  .deck:not(.js) .deck-track { flex-direction: column; gap: 1px; }
+  .deck:not(.js) .deck-nav { display: none; }
+
+  /* ---- explorer ---- */
+  .explorer { max-width: 1100px; margin: 5rem auto 0; }
+  .explorer-head { text-align: center; max-width: 640px; margin: 0 auto 2rem; }
+  .explorer-head h3 {
+    font-size: clamp(1.375rem, 2.4vw, 1.75rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--black);
+    margin-bottom: 0.5rem;
+  }
+  .explorer-head p { color: #444456; line-height: 1.6; }
+
+  .lic-picker {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .lic-group-name {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #6b6b80;
+    margin-bottom: 0.5rem;
+  }
+  .lic-chips { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+  .lic-chip {
+    font: 500 0.875rem var(--sans);
+    color: #2a2a3a;
+    background: #fff;
+    border: 1px solid #dcdce6;
+    border-radius: 999px;
+    padding: 0.45rem 0.9rem;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+  }
+  .lic-chip:hover { border-color: var(--accent-dark); }
+  .lic-chip[aria-pressed='true'] { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
+  .lic-chip:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 2px; }
+
+  .lic-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  .explorer.js .lic-panel[hidden] { display: none; }
+  .explorer:not(.js) .lic-panel + .lic-panel { margin-top: 2.5rem; }
+  .explorer.js .lic-panel:not([hidden]) { animation: lic-in 0.3s ease both; }
+  @keyframes lic-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .deck-track { transition: none; }
+    .explorer.js .lic-panel:not([hidden]) { animation: none; }
+  }
+
+  .lic-map {
+    background: #fff;
+    border: 1px solid #e4e4ec;
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+  .lic-map h4 { font-size: 1.25rem; font-weight: 700; color: var(--black); letter-spacing: -0.01em; }
+  .lic-blurb { color: #444456; margin: 0.375rem 0 1.25rem; line-height: 1.55; }
+  .lic-rows { list-style: none; margin: 0; padding: 0; }
+  .lic-rows li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: baseline;
+    padding: 0.75rem 0;
+    border-top: 1px solid #ececf2;
+    font-size: 0.9375rem;
+    line-height: 1.45;
+  }
+  .lic-says { color: #2a2a3a; }
+  .lic-arrow { color: var(--accent-dark); }
+  .lic-goes { font-family: var(--mono); font-size: 0.8125rem; color: var(--accent-dark); }
+  .lic-rows li.is-doc .lic-goes { color: #6b6b80; }
+  .lic-goes em {
+    display: inline-block;
+    margin-right: 0.4rem;
+    padding: 0.05rem 0.4rem;
+    border: 1px dashed #b8b8c8;
+    border-radius: 4px;
+    font-style: normal;
+    font-family: var(--sans);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #555568;
+  }
+  .lic-note {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    background: #eef1fe;
+    color: #2a2a3a;
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .lic-term {
+    background: var(--black);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px -30px rgba(10, 10, 15, 0.5);
+  }
+  .lic-term-head {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.875rem 1.25rem;
+    border-bottom: 1px solid var(--mid);
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gray);
+  }
+  .lic-term-head span:first-child { color: var(--off-white); }
+  .lic-term pre {
+    margin: 0;
+    padding: 1.25rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    color: var(--gray);
+  }
+  .lic-term pre :global(.tk) { color: #9cdcfe; }
+  .lic-term pre :global(.ts) { color: #7ec8a0; }
+  .lic-term pre :global(.tn) { color: #d4a56a; }
+  .lic-term pre :global(.te) { color: var(--accent-text); }
+
+  .explorer-foot {
+    margin-top: 1.5rem;
+    text-align: center;
+    font-size: 0.875rem;
+    color: #6b6b80;
+    line-height: 1.6;
+  }
+  .explorer-foot a { color: var(--accent-dark); font-weight: 600; text-decoration: none; }
+  .explorer-foot a:hover { text-decoration: underline; }
+
+  @media (max-width: 900px) {
+    .slide { grid-template-columns: 1fr; gap: 2rem; padding: 2rem 1.5rem; min-height: 0; align-items: start; }
+    .lic-panel { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .core-section { padding: 4rem 1rem; }
+    .q-grid, .sem { grid-template-columns: 1fr; }
+    .fan-cols { grid-template-columns: 1fr; }
+    .lic-rows li { grid-template-columns: 1fr; gap: 0.25rem; }
+    .lic-arrow { display: none; }
+  }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-deck]').forEach((deck) => {
+    deck.classList.add('js');
+    const track = deck.querySelector<HTMLElement>('.deck-track')!;
+    const slides = [...deck.querySelectorAll<HTMLElement>('.slide')];
+    const dots = [...deck.querySelectorAll<HTMLButtonElement>('[data-deck-dot]')];
+    const prev = deck.querySelector<HTMLButtonElement>('[data-deck-prev]')!;
+    const next = deck.querySelector<HTMLButtonElement>('[data-deck-next]')!;
+    let at = 0;
+    const go = (i: number) => {
+      at = Math.max(0, Math.min(slides.length - 1, i));
+      track.style.transform = `translateX(${-100 * at}%)`;
+      slides.forEach((s, j) => {
+        s.setAttribute('aria-hidden', String(j !== at));
+        s.inert = j !== at;
+      });
+      dots.forEach((d, j) => d.setAttribute('aria-current', String(j === at)));
+      prev.disabled = at === 0;
+      next.disabled = at === slides.length - 1;
+    };
+    prev.addEventListener('click', () => go(at - 1));
+    next.addEventListener('click', () => go(at + 1));
+    dots.forEach((d, j) => d.addEventListener('click', () => go(j)));
+    deck.addEventListener('keydown', (ev) => {
+      if (ev.key === 'ArrowLeft') go(at - 1);
+      if (ev.key === 'ArrowRight') go(at + 1);
+    });
+    let x0: number | null = null;
+    track.addEventListener('touchstart', (ev) => { x0 = ev.touches[0].clientX; }, { passive: true });
+    track.addEventListener('touchend', (ev) => {
+      if (x0 === null) return;
+      const dx = ev.changedTouches[0].clientX - x0;
+      if (Math.abs(dx) > 40) go(at + (dx < 0 ? 1 : -1));
+      x0 = null;
+    });
+    go(0);
+  });
+
+  document.querySelectorAll<HTMLElement>('[data-explorer]').forEach((root) => {
+    root.classList.add('js');
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>('[data-lic-tab]')];
+    const show = (id: string) => {
+      root.querySelectorAll<HTMLElement>('[data-lic]').forEach((p) => { p.hidden = p.dataset.lic !== id; });
+      tabs.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.licTab === id)));
+    };
+    tabs.forEach((b) => b.addEventListener('click', () => show(b.dataset.licTab!)));
+    show(tabs[0].dataset.licTab!);
+  });
+</script>

@@ -1,10 +1,12 @@
 ---
 // Protocol overview: the two worked scenarios, step by step, and the
-// standards FORA builds on. These blocks lived on the home page until the
+// standards FORA builds on, after the Universal Licensing Core explainer
+// (components/LicensingCore.astro). These blocks lived on the home page until the
 // home page moved to the rights holder's story; the detail is here, one
 // click from the "Protocol" link in the top navigation.
 import SiteNav from '../../components/SiteNav.astro';
 import SiteFooter from '../../components/SiteFooter.astro';
+import LicensingCore from '../../components/LicensingCore.astro';
 import '../../styles/brand.css';
 import '../../styles/landing.css';
 
@@ -428,10 +430,13 @@ const SPEC_LINKS = [
       <p class="hero-sub animate-in delay-2">FORA is an open transaction protocol. AI agents discover, license, pay for and receive content on terms the rights holder sets. The Exchange signs every offer, the agent signs every request, and both keep evidence anyone can check.</p>
       <div class="hero-buttons animate-in delay-3">
         <a href="/protocol/transaction-flow/" class="btn btn-primary">Read the specification</a>
-        <a href="https://github.com/FORA-Protocol/protocol" class="btn btn-ghost">GitHub</a>
+        <a href="#licensing-core" class="btn btn-ghost">The licensing core</a>
       </div>
     </div>
   </section>
+
+  <!-- UNIVERSAL LICENSING CORE -->
+  <LicensingCore />
 
   <!-- ARCHITECTURE FLOW (scenarios) -->
   <section class="arch-section">
