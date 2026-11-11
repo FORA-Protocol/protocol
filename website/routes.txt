@@ -55,6 +55,7 @@
 /getting-started/poc-walkthrough/
 /getting-started/publisher-onboarding/
 /getting-started/what-is-fora/
+/music/
 /protocol/
 /protocol/authentication/
 /protocol/content-attestation/
