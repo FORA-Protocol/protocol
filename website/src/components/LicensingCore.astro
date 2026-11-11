@@ -6,7 +6,13 @@
 // token where the registry has none. Digests are shortened placeholders.
 
 type Restriction = { kind: string; permitted?: string[]; prohibited?: string[] };
-type Obligation = { kind: string; trigger: string; detail?: string; scope_license?: string };
+type Obligation = {
+  kind: string;
+  trigger: string;
+  detail?: string;
+  scope_license?: string;
+  reporting?: { window: string; required_fields: string[] };
+};
 type Term = {
   semantics: 'ENUMERATED' | 'REFERENCE_ONLY';
   license?: { id?: string; name?: string; uri?: string; uri_digest?: string };
@@ -143,7 +149,7 @@ const LICENSES: Lic[] = [
       { says: 'Yearly fee, invoiced under the deal', goes: 'pricing FREE per access; the fee is settled outside the offer' },
       { says: 'For AI answers and search, not for training', goes: 'FUNCTION permitted: ai-input, ai-index; prohibited: ai-train' },
       { says: 'Up to 100,000 articles a month', goes: 'Quota: accesses, 100000, MONTHLY' },
-      { says: 'Report usage monthly', goes: 'The offer\'s reporting requirement, so usage can be reconciled' },
+      { says: 'Report usage within 30 days, with the quantity used', goes: 'REPORTING obligation: window 30 days, required field consumed_quantity' },
       { says: 'Liability, audit rights, renewal', goes: 'Stay in the deal document', doc: true },
     ],
     term: {
@@ -153,7 +159,10 @@ const LICENSES: Lic[] = [
       restrictions: [{ kind: 'FUNCTION', permitted: ['ai-input', 'ai-index'], prohibited: ['ai-train'] }],
       quotas: [{ metric: 'accesses', limit: 100000, window: 'MONTHLY' }],
       pricing: { model: 'FREE', license_duration_months: 12 },
-      obligations: [{ kind: 'ATTRIBUTION', trigger: 'ON_USE' }],
+      obligations: [
+        { kind: 'ATTRIBUTION', trigger: 'ON_USE' },
+        { kind: 'REPORTING', trigger: 'ON_USE', reporting: { window: '2592000s', required_fields: ['consumed_quantity'] } },
+      ],
     },
   },
   {
@@ -337,6 +346,7 @@ function termYaml(t: Term): string {
       out.push(`    ${k('trigger')}: ${e(o.trigger)}`);
       if (o.scope_license) out.push(`    ${k('scope_license')}: { ${k('id')}: ${s(o.scope_license)} }`);
       if (o.detail) out.push(`    ${k('detail')}: ${s(o.detail)}`);
+      if (o.reporting) out.push(`    ${k('reporting')}: { ${k('window')}: ${s(o.reporting.window)}, ${k('required_fields')}: ${list(o.reporting.required_fields)} }`);
     }
   }
   return out.join('\n');
