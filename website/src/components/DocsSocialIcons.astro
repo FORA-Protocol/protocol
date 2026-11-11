@@ -1,0 +1,39 @@
+---
+// Starlight's header shows this component at the right, before the theme and
+// language pickers. Besides Starlight's own social icons, it links back to the
+// landing pages, so a reader inside the docs can return to the overview pages
+// without going through the logo.
+import Default from '@astrojs/starlight/components/SocialIcons.astro';
+
+const LINKS = [
+  { href: '/protocol/', label: 'Protocol' },
+  { href: '/publishers/onboarding/', label: 'For publishers' },
+  { href: '/music/', label: 'For music' },
+];
+---
+<nav class="docs-site-links" aria-label="Site">
+  {LINKS.map((l) => <a href={l.href}>{l.label}</a>)}
+</nav>
+<Default />
+
+<style>
+  .docs-site-links {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-inline-end: 0.75rem;
+    padding-inline-end: 1rem;
+    border-inline-end: 1px solid var(--sl-color-gray-5);
+  }
+  .docs-site-links a {
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-sm);
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .docs-site-links a:hover { color: var(--sl-color-white); }
+  @media (max-width: 72rem) {
+    .docs-site-links { display: none; }
+  }
+</style>

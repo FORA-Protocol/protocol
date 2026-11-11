@@ -94,6 +94,7 @@ export default defineConfig({
 			plugins: [starlightMermaid(), starlightLinksValidator()],
 			components: {
 				Footer: './src/components/Footer.astro',
+				SocialIcons: './src/components/DocsSocialIcons.astro',
 			},
 			sidebar: [
 				{
