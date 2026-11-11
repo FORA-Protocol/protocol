@@ -31,19 +31,21 @@ export interface Contributor {
 	ipi?: string;
 	/** The writer's collecting society, as a label, for example "ascap". */
 	pro?: string;
-	/** The writer's share of the work in percent, more than 0 and at most 100. */
+	/** The writer's share of the performing right in the work, in percent: more than 0 and at most 100. */
 	share?: number;
 }
 
 /** One entry of "music.publishers": a music publisher of the work. */
 export interface Publisher {
-	/** Name of the publisher. */
+	/** Name of the publisher. The music.publisher filter matches it, ignoring case. */
 	name: string;
+	/** What the publisher does for the work, as a label, for example "original publisher", "sub-publisher" or "administrator". */
+	role?: string;
 	/** IPI name number of the publisher: 9 to 11 digits. */
 	ipi?: string;
 	/** The publisher's collecting society, as a label, for example "prs". */
 	pro?: string;
-	/** The publisher's share of the work in percent, more than 0 and at most 100. */
+	/** The publisher's share of the performing right in the work, in percent: more than 0 and at most 100. */
 	share?: number;
 }
 
@@ -72,9 +74,9 @@ export interface Music {
 	"music.bpm"?: number;
 	/** Duration of the delivered asset, not of the source recording. */
 	"music.duration_seconds"?: number;
-	/** Which version of the recording this is, as a label, for example "instrumental". Not a matching input. */
+	/** Which version of the recording this is, as a label, for example "instrumental". The music.version filter matches it. */
 	"music.version"?: string;
-	/** Musical key, as a label, for example "a minor". Not a matching input. */
+	/** Musical key, as a label, for example "a minor". The music.key filter matches it. */
 	"music.key"?: string;
 	/** BCP 47 tag of the sung or spoken words. Not a label: compared case-insensitively. */
 	"music.language"?: string;

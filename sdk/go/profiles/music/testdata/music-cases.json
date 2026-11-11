@@ -36,7 +36,7 @@
           {"name": "Sam Example", "role": "performer", "instrument": "synthesizer", "isni": "0000000123456789", "ipi": "00123456789", "pro": "ascap", "share": 50}
         ],
         "music.publishers": [
-          {"name": "Example Music Publishing", "ipi": "00987654321", "pro": "prs", "share": 50}
+          {"name": "Example Music Publishing", "role": "original publisher", "ipi": "00987654321", "pro": "prs", "share": 50}
         ],
         "music.artwork_url": "https://music-exchange.example.com/tracks/night-orbit/cover.jpg"
       },
@@ -73,7 +73,7 @@
           {"name": "Sam Example", "role": "performer", "instrument": "synthesizer", "isni": "0000000123456789", "ipi": "00123456789", "pro": "ascap", "share": 50}
         ],
         "music.publishers": [
-          {"name": "Example Music Publishing", "ipi": "00987654321", "pro": "prs", "share": 50}
+          {"name": "Example Music Publishing", "role": "original publisher", "ipi": "00987654321", "pro": "prs", "share": 50}
         ],
         "music.artwork_url": "https://music-exchange.example.com/tracks/night-orbit/cover.jpg"
       }

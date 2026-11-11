@@ -116,6 +116,7 @@ func TestSchemaRejectsInvalidValuesAtTheKey(t *testing.T) {
 		{"share_over_100", `{"music.publishers": [{"name": "Example", "share": 100.5}]}`, "/music.publishers/0/share"},
 		{"upper_case_pro", `{"music.publishers": [{"name": "Example", "pro": "ASCAP"}]}`, "/music.publishers/0/pro"},
 		{"upper_case_key", `{"music.key": "A minor"}`, "/music.key"},
+		{"upper_case_publisher_role", `{"music.publishers": [{"name": "Example", "role": "Original Publisher"}]}`, "/music.publishers/0/role"},
 		{"iswc_in_display_form", `{"music.iswc": "T-034.524.680-1"}`, "/music.iswc"},
 		{"language_is_not_a_tag", `{"music.language": "portuguese (brazil)"}`, "/music.language"},
 		{"language_singleton_without_extension", `{"music.language": "en-a"}`, "/music.language"},

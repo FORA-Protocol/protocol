@@ -33,10 +33,10 @@ PROFILE_ID = "fora-music-v1"
 #: One entry of ``music.contributors``: one credit. The schema requires ``name`` and
 #: ``role``. ``role``, ``instrument`` and ``pro`` are labels. ``isni`` is the
 #: 16-character ISNI of the person or group, ``ipi`` the IPI name number of a writer
-#: and ``share`` the writer's share of the work in percent. The functional form is
-#: used on purpose: under ``from __future__ import annotations`` a class body stores
-#: its annotations as strings, and ``NotRequired`` is then not seen, so
-#: ``__required_keys__`` would list every key.
+#: and ``share`` the writer's share of the performing right in the work, in percent.
+#: The functional form is used on purpose: under ``from __future__ import
+#: annotations`` a class body stores its annotations as strings, and ``NotRequired``
+#: is then not seen, so ``__required_keys__`` would list every key.
 Contributor = TypedDict(  # noqa: UP013
     "Contributor",
     {
@@ -52,12 +52,13 @@ Contributor = TypedDict(  # noqa: UP013
 
 
 #: One entry of ``music.publishers``: a music publisher of the work. The schema
-#: requires ``name``. ``pro`` is a label, ``ipi`` the IPI name number and ``share`` the
-#: publisher's share of the work in percent.
+#: requires ``name``. ``role`` and ``pro`` are labels, ``ipi`` the IPI name number and
+#: ``share`` the publisher's share of the performing right in the work, in percent.
 Publisher = TypedDict(  # noqa: UP013
     "Publisher",
     {
         "name": str,
+        "role": NotRequired[str],
         "ipi": NotRequired[str],
         "pro": NotRequired[str],
         "share": NotRequired[float],
@@ -66,9 +67,9 @@ Publisher = TypedDict(  # noqa: UP013
 
 
 #: The ``music.<field>`` keys of ``Offer.ext``. Every key is optional.
-#: ``music.artist``, ``music.title`` and ``music.version`` are descriptive, not
-#: matching inputs. Only the ``music.isrc`` filter matches ``music.isrc``, as an exact
-#: match, and ``music.upc``, ``music.grid`` and ``music.iswc`` work the same way.
+#: ``music.artist`` and ``music.title`` are descriptive, not matching inputs. Only
+#: the ``music.isrc`` filter matches ``music.isrc``, as an exact match, and
+#: ``music.upc``, ``music.grid``, ``music.iswc`` and an ``ipi`` work the same way.
 #: ``music.duration_seconds`` is the duration of the delivered asset.
 #: ``music.language`` is a BCP 47 tag, not a label.
 Music = TypedDict(

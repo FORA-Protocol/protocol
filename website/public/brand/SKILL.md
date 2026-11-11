@@ -90,8 +90,8 @@ Rules:
 - Sentence case for headlines and buttons. No title case, no all-caps
   headlines.
 - The highlight pattern from the site: a two-line headline whose second line is
-  in blue text, e.g. "Every AI agent is a storefront. *Be on the shelf, on
-  your terms.*"
+  in blue text, e.g. "Every AI agent is a customer. *FORA is your
+  storefront.*"
 
 ## 4. Layout
 
@@ -106,8 +106,8 @@ Rules:
 
 Read `reference/messaging.md` before writing any copy. The short version:
 
-- **Lead with the owner's outcome:** "Every AI agent is a storefront. Be on the
-  shelf, on your terms." In one sentence: FORA makes a website or a music
+- **Lead with the owner's outcome:** "Every AI agent is a customer. FORA is your
+  storefront." The agent is the buyer, never the store. In one sentence: FORA makes a website or a music
   catalog licensable to AI agents, instantly. Then the mechanism: set your terms
   once, and every page or track becomes a signed offer any agent can find, buy
   and verify, with no deal per buyer. "Instantly" means once connected, not zero

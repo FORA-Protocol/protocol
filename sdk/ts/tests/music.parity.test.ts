@@ -58,6 +58,7 @@ const CONTRIBUTOR_FIELDS: Record<keyof Contributor, true> = {
 // The one publisher of the all_fields case names every key of a publisher.
 const PUBLISHER_FIELDS: Record<keyof Publisher, true> = {
 	name: true,
+	role: true,
 	ipi: true,
 	pro: true,
 	share: true,

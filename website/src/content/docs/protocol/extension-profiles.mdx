@@ -240,12 +240,12 @@ See the [full fora-c2pa-v1 specification](/protocol/ext-c2pa/).
 
 | Property | Detail |
 |---|---|
-| **Ext fields** | 29 optional `music.*` keys in `Offer.ext`: the musical description (`music.genre`, `music.subgenres`, `music.themes`, `music.mood`, `music.instruments`, `music.suitable_for`, `music.energy`, `music.vocals`, `music.bpm`, `music.duration_seconds`, `music.version`, `music.language`, `music.parental_warning`, `music.contains_ai`), the identifiers (`music.isrc`, `music.upc`, `music.grid`, `music.iswc`, `music.proprietary_ids`) and the release and credit block (`music.artist`, `music.title`, `music.release_title`, `music.release_date`, `music.label`, `music.catalog_number`, `music.p_line`, `music.c_line`, `music.contributors`, `music.artwork_url`) |
-| **Search filters** | 19 `music.*` keys in `DiscoveryRequest.search_filters`, for example `music.genre`, `music.bpm_range`, `music.release_date_range` and the exact-match `music.isrc`, `music.upc`, `music.grid` and `music.iswc` |
+| **Ext fields** | 31 optional `music.*` keys in `Offer.ext`: the musical description (`music.genre`, `music.subgenres`, `music.themes`, `music.mood`, `music.instruments`, `music.suitable_for`, `music.energy`, `music.vocals`, `music.bpm`, `music.duration_seconds`, `music.version`, `music.key`, `music.language`, `music.parental_warning`, `music.contains_ai`), the identifiers (`music.isrc`, `music.upc`, `music.grid`, `music.iswc`, `music.proprietary_ids`) and the release and credit block (`music.artist`, `music.title`, `music.release_title`, `music.release_date`, `music.label`, `music.catalog_number`, `music.p_line`, `music.c_line`, `music.contributors`, `music.publishers`, `music.artwork_url`) |
+| **Search filters** | 23 `music.*` keys in `DiscoveryRequest.search_filters`, for example `music.genre`, `music.key`, `music.bpm_range`, `music.release_date_range`, `music.publisher` and the exact-match `music.isrc`, `music.upc`, `music.grid`, `music.iswc` and `music.ipi` |
 | **Validation** | A Broker on the tag-based catalog search validates the matching fields when it loads its catalog feed. The Exchange forwards the `music.*` keys unchanged and does not validate them. |
 | **SDK types** | Go `profiles/music`, TypeScript `@fora-protocol/sdk/music`, Python `fora_sdk.music` |
 
-The music profile is not a rights model. It has no fields for composition ownership, royalty splits or clearance, and permission to use a recording comes only from the offer's license terms. The Broker does not route requests to Exchanges by this profile.
+The music profile is not a license. It names the writers and publishers of the work with their IPI numbers, collecting societies and performing-right shares, so a buyer can credit and report the music, but it grants nothing: permission to use a recording comes only from the offer's license terms. The Broker does not route requests to Exchanges by this profile.
 
 See the [full fora-music-v1 specification](/protocol/ext-music/).
 

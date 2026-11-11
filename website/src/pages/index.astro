@@ -94,7 +94,7 @@ const FAQ = [
   },
   {
     q: 'What does it cost?',
-    a: 'The protocol and FORA Server are free and open source. Run it yourself, or have it hosted for you.',
+    a: 'The protocol and FORA Server are free and open source. Run it yourself, or <a href="/getting-started/publisher-onboarding/">have it hosted for you</a>.',
   },
   {
     q: 'Is this a standard?',
@@ -111,7 +111,7 @@ const FAQ = [
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <meta property="og:image" content="https://fora-protocol.org/brand/fora-social-card.png" />
   <meta name="twitter:card" content="summary_large_image" />
-  <title>FORA — Every AI agent is a storefront. Be on the shelf, on your terms.</title>
+  <title>FORA — Every AI agent is a customer. FORA is your storefront.</title>
   <meta name="description" content="FORA lets any AI agent find your pages or tracks, read your license, pay, and get a signed receipt. You decide every term. An open protocol, Apache 2.0." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -505,6 +505,8 @@ const FAQ = [
       margin-bottom: 0.5rem;
     }
     .faq-item p { color: var(--gray); line-height: 1.65; }
+    .faq-item a { color: var(--accent-text); text-decoration: underline; text-underline-offset: 3px; }
+    .faq-item a:hover { color: var(--white); }
 
     /* ========= 8. THE STACK ========= */
     .stack-grid {
@@ -733,7 +735,7 @@ const FAQ = [
 
     <div class="hero-content">
       <div class="hero-badge">Open protocol · Apache 2.0</div>
-      <h1 class="animate-in delay-1">Every AI agent is a storefront.<br><em>Be on the shelf, on your terms.</em></h1>
+      <h1 class="animate-in delay-1">Every AI agent is a customer.<br><em>FORA is your storefront.</em></h1>
       <p class="hero-sub animate-in delay-2">People are starting to search, research and buy through AI agents instead of websites. FORA lets any agent find your pages or tracks, read your license, pay, and get a signed receipt. You decide every term.</p>
       <div class="hero-buttons animate-in delay-3">
         <a href="/publishers/onboarding/" class="btn btn-primary">Check your website</a>
@@ -754,12 +756,12 @@ const FAQ = [
     </div>
   </section>
 
-  <!-- 2. AGENTS ARE THE NEW STOREFRONT -->
+  <!-- 2. AGENTS ARE THE NEW CUSTOMERS -->
   <section class="band band-black">
     <div class="wrap story">
       <div class="split-head">
         <div class="section-label">Why now</div>
-        <h2>Agents are the new storefront</h2>
+        <h2>Agents are the new customers</h2>
       </div>
       <div class="story-body">
         <p>You don't care what the website of the shop that sells you cables looks like. You go where one interface covers every store, and that is why marketplaces won.</p>
@@ -931,7 +933,7 @@ const FAQ = [
         {FAQ.map((f) => (
           <div class="faq-item">
             <h3>{f.q}</h3>
-            <p>{f.a}</p>
+            <p set:html={f.a} />
           </div>
         ))}
       </div>
@@ -1049,7 +1051,7 @@ const FAQ = [
   </div>
 
   <section class="cta-section">
-    <h2>Your terms, on every agent's shelf.</h2>
+    <h2>One storefront. Every agent.</h2>
     <div class="cta-buttons">
       <a href="/publishers/onboarding/" class="btn btn-primary">Check your website</a>
       <a href="/getting-started/live-demo-music/" class="btn btn-ghost">See a track licensed</a>

@@ -56,10 +56,10 @@ type Music struct {
 	// DurationSeconds is the duration of the delivered asset, not of the source recording.
 	DurationSeconds *float64 `json:"music.duration_seconds,omitempty"`
 	// Version is a label for which version of the recording this is, for example
-	// "instrumental" or "live". It is not a matching input.
+	// "instrumental" or "live". The music.version filter matches it.
 	Version *string `json:"music.version,omitempty"`
-	// Key is a label for the musical key, for example "a minor" or "f# major". It is
-	// not a matching input.
+	// Key is a label for the musical key, for example "a minor" or "f# major". The
+	// music.key filter matches it.
 	Key *string `json:"music.key,omitempty"`
 	// Language is the BCP 47 tag of the sung or spoken words. It is not a label:
 	// consumers compare it case-insensitively.
@@ -108,24 +108,32 @@ type Contributor struct {
 	Instrument *string `json:"instrument,omitempty"`
 	// ISNI identifies the person or group: 16 characters.
 	ISNI *string `json:"isni,omitempty"`
-	// IPI is the IPI name number of a writer: 9 to 11 digits.
+	// IPI is the IPI name number of a writer: 9 to 11 digits. The music.ipi filter
+	// matches it exactly.
 	IPI *string `json:"ipi,omitempty"`
 	// PRO is a label for the writer's collecting society, for example "ascap".
 	PRO *string `json:"pro,omitempty"`
-	// Share is the writer's share of the work in percent, more than 0 and at most 100.
+	// Share is the writer's share of the performing right in the work, in percent:
+	// more than 0 and at most 100.
 	Share *float64 `json:"share,omitempty"`
 }
 
 // Publisher is one entry of music.publishers: a music publisher of the work. The
 // schema requires Name. The other keys are optional.
 type Publisher struct {
-	// Name is the name of the publisher.
+	// Name is the name of the publisher. The music.publisher filter matches it,
+	// ignoring case.
 	Name string `json:"name"`
-	// IPI is the IPI name number of the publisher: 9 to 11 digits.
+	// Role is a label for what the publisher does for the work, for example
+	// "original publisher", "sub-publisher" or "administrator".
+	Role *string `json:"role,omitempty"`
+	// IPI is the IPI name number of the publisher: 9 to 11 digits. The music.ipi
+	// filter matches it exactly.
 	IPI *string `json:"ipi,omitempty"`
 	// PRO is a label for the publisher's collecting society, for example "prs".
 	PRO *string `json:"pro,omitempty"`
-	// Share is the publisher's share of the work in percent, more than 0 and at most 100.
+	// Share is the publisher's share of the performing right in the work, in
+	// percent: more than 0 and at most 100.
 	Share *float64 `json:"share,omitempty"`
 }
 

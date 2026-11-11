@@ -2,18 +2,24 @@
 
 ## Unreleased
 
-**fora-music-v1 carries the rights data a cue sheet needs (additive; no wire change).** The
-profile gains two optional keys and three optional keys on a contributor. `music.publishers`
-lists the music publishers of the work, each with `name` and an optional `ipi` (IPI name
-number, 9 to 11 digits), `pro` (the collecting society, as a label) and `share` (percent,
-more than 0 and at most 100). A contributor gains the same `ipi`, `pro` and `share`, so a
-writer's credit carries what a collecting society pays on. `music.key` is the musical key as
-a label, for example `a minor` or `f# major`. None of the new keys is a search filter, so the
-profile now defines 31 field names and still 19 filter keys. The schema adds the `Publisher`,
-`IPI` and `Share` definitions; the Go, TypeScript and Python SDKs add a `Publisher` type and
-the new fields; the shared round-trip cases name every new key. The overview says the profile
-describes the recording and the work but is not a license: the writer and publisher fields
-say whom to credit and report, not what a buyer may do.
+**fora-music-v1 carries the rights data a cue sheet needs, and finds tracks by key, version,
+publisher and IPI (additive; no wire change).** `music.publishers` lists the music publishers
+of the work, each with `name` and an optional `role` (`original publisher`, `sub-publisher`,
+`administrator` and the other CWR publisher types, as a label), `ipi` (IPI name number, 9 to
+11 digits), `pro` (the collecting society, as a label) and `share`. A contributor gains the
+same `ipi`, `pro` and `share`, so a writer's credit carries what a collecting society pays on.
+`share` is the share of the performing right, in percent (more than 0, at most 100), because
+that is what a cue sheet reports. `music.key` is the musical key as a label, for example
+`a minor` or `f# major`. Four search filter keys are added: `music.key` and `music.version`
+match by label, `music.publisher` matches a publisher's name ignoring case, and `music.ipi`
+matches the IPI of any contributor or publisher exactly. The profile now defines 31 field
+names and 23 filter keys. A Broker built before these keys ignores them, as the profile's
+Older Brokers rule says; FORA Server's tag-based catalog search does not apply them yet. The
+schema adds the `Publisher`, `IPI` and `Share` definitions; the Go, TypeScript and Python SDKs
+add a `Publisher` type and the new fields; the shared round-trip cases name every new key.
+Recommended Labels lists the publisher roles and the usual society names. The overview says
+the profile describes the recording and the work but is not a license: the writer and
+publisher fields say whom to credit and report, not what a buyer may do.
 
 **A Broker's catalog search is configured per deployment (docs only; no wire change).** The
 Broker overview says what a free-text query does: the configured catalog search turns it

@@ -8,8 +8,8 @@ anything version- or date-sensitive, read the site's changelog
 
 Lead with what it does for the owner of the content, then how.
 
-**Headline (the home page):** Every AI agent is a storefront. Be on the shelf,
-on your terms.
+**Headline (the home page):** Every AI agent is a customer. FORA is your
+storefront.
 
 **Under the headline:** People are starting to search, research and buy through
 AI agents instead of websites. FORA lets any agent find your pages or tracks,
@@ -67,8 +67,8 @@ Name these five, in this order, when you need the detail:
 
 ### Taglines
 
-- Every AI agent is a storefront. *Be on the shelf, on your terms.*
-- Your terms, on every agent's shelf.
+- Every AI agent is a customer. *FORA is your storefront.*
+- One storefront. Every agent.
 - Make your website or music catalog licensable. *Instantly.*
 - Free is a price too. (Charging nothing still carries your terms: attribution,
   permitted uses, no AI training unless offered.)
@@ -86,7 +86,10 @@ Name these five, in this order, when you need the detail:
   Server, not "the reference app" or "a sample": it is a working stack
   (exchange, broker and search, identity and registration, content ingestion,
   an MCP endpoint and edge protection). An owner can run all of it or one piece.
-  The protocol and FORA Server are free and open source.
+  The protocol and FORA Server are free and open source. An owner who does not
+  want to run it can have it hosted: the operator of the publisher console runs
+  the Exchange and the edge setup for them
+  (<https://fora-protocol.org/getting-started/publisher-onboarding/>).
 - The flow has six steps, named as on the site: **Discover, Query, Transact,
   Deliver, Report, Dispute.** Use these names; do not rename them.
   - Discover: the agent reads `/.well-known/fora.json` to find the Exchange.
@@ -133,6 +136,7 @@ Name these five, in this order, when you need the detail:
 | "blockchain", "crypto", "tokens" | FORA uses signatures, not a chain | "signed", "cryptographically verifiable" |
 | "set up in minutes", "one click", "no setup" | Setup is one-time but real: a file and a CDN package, or a feed | "licensable instantly once connected", then name the setup |
 | "stop AI scrapers", "block bots" as the promise | FORA sells access; blocking is a side effect of the edge package | "agents are pointed to your offer, not just turned away" |
+| "Every AI agent is a storefront", "be on the agent's shelf" | In FORA the agent is the buyer: it reads the offer, pays and gets the receipt. Casting it as the store makes it the middleman FORA removes | "Every AI agent is a customer. FORA is your storefront." |
 | "FORA brings you buyers" | FORA makes the content findable and buyable; it does not market it | "when an agent comes looking, it can find you, read your terms and pay" |
 | "walled gardens" about other marketplaces | Knocks people FORA works with | "a deal per buyer" / "one offer for every agent" |
 | "RAMP", "Fora", "F.O.R.A." | Old name, wrong spelling | "FORA" |
