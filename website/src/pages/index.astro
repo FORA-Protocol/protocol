@@ -5,6 +5,7 @@
 import SiteNav from '../components/SiteNav.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 import SaleSteps from '../components/SaleSteps.astro';
+import ClosingCta from '../components/landing/ClosingCta.astro';
 import { BUILD_LINKS } from '../consts';
 import { EXAMPLES } from '../data/license-examples';
 import '../styles/brand.css';
@@ -984,13 +985,10 @@ const FAQ = [
     <a class="text-link" href="/protocol/#standards">Full standards landscape &rarr;</a>
   </div>
 
-  <section class="cta-section">
-    <h2>One storefront. <em>Every agent.</em></h2>
-    <div class="cta-buttons">
-      <a href="/publishers/onboarding/" class="btn btn-primary">Check your website</a>
-      <a href="/music/" class="btn btn-ghost">FORA for music</a>
-    </div>
-  </section>
+  <ClosingCta title="One storefront. <em>Every agent.</em>">
+    <a href="/publishers/onboarding/" class="btn btn-primary">Check your website</a>
+    <a href="/music/" class="btn btn-ghost">FORA for music</a>
+  </ClosingCta>
 
   <SiteFooter />
 

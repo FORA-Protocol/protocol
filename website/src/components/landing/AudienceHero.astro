@@ -1,0 +1,54 @@
+---
+// The hero of an audience landing page (/publishers/, /music/): the nav, a
+// badge, the heading, the lead and the buttons (default slot). With an `aside`
+// slot, the text moves left and the aside sits beside it.
+import SiteNav from '../SiteNav.astro';
+
+interface Props {
+  current: 'publishers' | 'music';
+  badge: string;
+  /** The heading; may hold <br> and one <em> phrase, shown in blue. */
+  title: string;
+  sub: string;
+}
+const { current, badge, title, sub } = Astro.props;
+const hasAside = Astro.slots.has('aside');
+---
+<section class="hero audience-hero">
+  <SiteNav current={current} />
+  <div class:list={['hero-content', { 'with-aside': hasAside }]}>
+    <div class="audience-text">
+      <div class="hero-badge">{badge}</div>
+      <h1 class="animate-in delay-1" set:html={title} />
+      <p class="hero-sub animate-in delay-2">{sub}</p>
+      <div class="hero-buttons animate-in delay-3"><slot /></div>
+    </div>
+    {hasAside && <div class="audience-aside animate-in delay-3"><slot name="aside" /></div>}
+  </div>
+</section>
+
+<style>
+  .audience-hero { min-height: 0; }
+  .audience-hero .hero-content { padding: 5rem 2rem; }
+  .audience-text { display: flex; flex-direction: column; align-items: center; }
+
+  .hero-content.with-aside {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
+    gap: 4rem;
+    align-items: center;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    text-align: left;
+  }
+  .with-aside .audience-text { align-items: flex-start; }
+  .with-aside .hero-buttons { justify-content: flex-start; }
+
+  @media (max-width: 900px) {
+    .hero-content.with-aside { grid-template-columns: 1fr; gap: 3rem; }
+  }
+  @media (max-width: 560px) {
+    .audience-hero .hero-content { padding: 3rem 1rem 3.5rem; }
+  }
+</style>

@@ -4,7 +4,21 @@
 // same rows, so they line up.
 // The track is the music demo (/getting-started/live-demo-music/, Harmonia
 // Records); the article is an example.
-export const EXAMPLES = [
+export interface Example {
+  id: string;
+  tab: string;
+  sub: string;
+  icon: string;
+  quote: string;
+  demo: { text: string; href: string; link: string };
+  title: string;
+  cols: string[];
+  rows: { label: string; cells: string[] }[];
+  note: string;
+  offer: { name: string; fields: [string, string][]; digest: string; note: string };
+}
+
+export const EXAMPLES: Example[] = [
   {
     id: 'article',
     tab: 'For publishers',

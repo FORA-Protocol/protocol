@@ -4,15 +4,10 @@
 // landing pages, so a reader inside the docs can return to the overview pages
 // without going through the logo.
 import Default from '@astrojs/starlight/components/SocialIcons.astro';
-
-const LINKS = [
-  { href: '/protocol/', label: 'Protocol' },
-  { href: '/publishers/onboarding/', label: 'For publishers' },
-  { href: '/music/', label: 'For music' },
-];
+import { LANDING_PAGES } from '../consts';
 ---
 <nav class="docs-site-links" aria-label="Site">
-  {LINKS.map((l) => <a href={l.href}>{l.label}</a>)}
+  {LANDING_PAGES.map((l) => <a href={l.href}>{l.label}</a>)}
 </nav>
 <Default />
 

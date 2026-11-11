@@ -1,0 +1,47 @@
+---
+// "Try your website": one field that opens the agent preview
+// (/publishers/onboarding/) for the page entered. The preview reads `url` from
+// its address and runs at once, so this is a plain GET form with no script.
+interface Props {
+  id?: string;
+}
+const { id = 'try' } = Astro.props;
+---
+<form class="try" action="/publishers/onboarding/" method="get" aria-labelledby={`${id}-title`}>
+  <h2 id={`${id}-title`}>Try your website</h2>
+  <p>Paste the address of one of your pages. See what an AI agent gets for it: the content, your terms and a price.</p>
+  <label for={`${id}-url`} class="sr-only">Page address</label>
+  <input id={`${id}-url`} name="url" type="url" inputmode="url" spellcheck="false" autocapitalize="none" placeholder="https://publisher.example/news/…" required />
+  <button class="btn btn-primary" type="submit">Show me</button>
+  <small>No account needed.</small>
+</form>
+
+<style>
+  .try {
+    display: grid;
+    gap: 0.875rem;
+    padding: 1.75rem;
+    border: 1px solid var(--mid);
+    border-radius: 14px;
+    background: rgba(10, 10, 15, 0.72);
+    backdrop-filter: blur(6px);
+    text-align: left;
+  }
+  h2 { font-size: 1.375rem; font-weight: 700; color: var(--white); letter-spacing: -0.01em; }
+  p { color: var(--light-gray); line-height: 1.55; }
+  input {
+    width: 100%;
+    font: inherit;
+    font-family: var(--mono);
+    font-size: 0.9375rem;
+    padding: 0.75rem 0.875rem;
+    border: 1px solid var(--mid);
+    border-radius: 8px;
+    background: var(--black);
+    color: var(--white);
+  }
+  input::placeholder { color: var(--gray); }
+  input:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 1px; border-color: var(--accent); }
+  button { justify-content: center; width: 100%; padding: 0.75rem 1.5rem; cursor: pointer; }
+  small { color: var(--gray); font-size: 0.8125rem; }
+</style>

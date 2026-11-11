@@ -4,19 +4,16 @@
 //
 // `current` marks the entry for the page being rendered, which the publisher
 // preview design calls for.
+import { LANDING_PAGES, type LandingPageKey } from '../consts';
+
 interface Props {
-  current?: 'publishers' | 'protocol' | 'music';
+  current?: LandingPageKey;
 }
 const { current } = Astro.props;
 
 // The landing pages come first; the docs and the code are set apart on the
 // right, so a reader can tell "keep reading the story" from "go into the
 // technical documentation".
-const PAGES = [
-  { key: 'protocol', href: '/protocol/', label: 'Protocol' },
-  { key: 'publishers', href: '/publishers/onboarding/', label: 'For publishers' },
-  { key: 'music', href: '/music/', label: 'For music' },
-] as const;
 ---
 <nav class="hero-nav" aria-label="Main">
   <a href="/" class="logo"><img src="/brand/fora-lockup-small-on-dark.svg" alt="FORA protocol, home" width="163" height="28" /></a>
@@ -32,7 +29,7 @@ const PAGES = [
     </svg>
   </button>
   <ul id="site-nav-links" class="nav-links">
-    {PAGES.map((p) => (
+    {LANDING_PAGES.map((p) => (
       <li>
         <a
           href={p.href}
