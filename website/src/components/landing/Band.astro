@@ -1,0 +1,93 @@
+---
+// One full-width section of a landing page: a label, a heading, a lead, then
+// the section's content. An `aside` slot puts the header and the `intro` slot
+// in a column beside it (an offer card, a code card).
+//
+// The tone sets the colour variables that the components inside read
+// (--lp-heading, --lp-text, --lp-label, --lp-strong, --lp-link, --lp-rule), so
+// a component looks right on a dark or a light band without knowing which.
+interface Props {
+  tone?: 'black' | 'near' | 'light';
+  label?: string;
+  title?: string;
+  /** May hold inline HTML such as <strong> or <code>. */
+  lead?: string;
+  id?: string;
+  /** Width of the aside column, when there is one. */
+  asideWidth?: string;
+}
+const { tone = 'black', label, title, lead, id, asideWidth = '1fr' } = Astro.props;
+const hasAside = Astro.slots.has('aside');
+---
+<section class={`band band-${tone}`} id={id}>
+  <div class="band-wrap">
+    <div class={hasAside ? 'band-pair' : undefined} style={hasAside ? `--aside: ${asideWidth}` : undefined}>
+      <div>
+        {label && <div class="band-label">{label}</div>}
+        {title && <h2>{title}</h2>}
+        {lead && <p class="band-lead" set:html={lead} />}
+        <slot name="intro" />
+      </div>
+      {hasAside && <div><slot name="aside" /></div>}
+    </div>
+    <slot />
+  </div>
+</section>
+
+<style>
+  .band { padding: 5.5rem 2rem; }
+  .band-black, .band-near {
+    --lp-heading: var(--white);
+    --lp-text: var(--light-gray);
+    --lp-label: var(--light-gray);
+    --lp-strong: var(--white);
+    --lp-link: var(--accent-text);
+    --lp-rule: var(--mid);
+  }
+  .band-black { background: var(--black); border-top: 1px solid var(--mid); }
+  .band-near { background: var(--near-black); }
+  .band-light {
+    --lp-heading: var(--black);
+    --lp-text: #444456;
+    --lp-label: #555568;
+    --lp-strong: var(--black);
+    --lp-link: var(--accent-dark);
+    --lp-rule: #e4e4ec;
+    background: var(--bg-light);
+    color: var(--near-black);
+  }
+  .band-wrap { max-width: 1100px; margin: 0 auto; }
+  .band-pair {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, var(--aside));
+    gap: 4rem;
+    align-items: center;
+  }
+  .band-pair:not(:last-child) { margin-bottom: 3.5rem; }
+  .band-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--lp-label);
+    margin-bottom: 0.75rem;
+  }
+  h2 {
+    font-size: clamp(1.75rem, 3.4vw, 2.5rem);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    color: var(--lp-heading);
+    margin-bottom: 1.25rem;
+  }
+  .band-lead { font-size: 1.125rem; line-height: 1.7; color: var(--lp-text); max-width: 44rem; }
+  .band-lead :global(strong) { color: var(--lp-strong); font-weight: 600; }
+  .band :global(a:focus-visible) { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+
+  @media (max-width: 900px) {
+    .band-pair { grid-template-columns: 1fr; gap: 2.5rem; }
+  }
+  @media (max-width: 560px) {
+    .band { padding: 4rem 1rem; }
+  }
+</style>

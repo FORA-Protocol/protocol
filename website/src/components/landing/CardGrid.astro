@@ -1,0 +1,27 @@
+---
+// A row of three short cards: a bold title and a sentence or two.
+interface Props {
+  items: { title: string; text: string }[];
+}
+const { items } = Astro.props;
+---
+<div class="card-grid">
+  {items.map((it) => (
+    <div class="card"><b>{it.title}</b><p>{it.text}</p></div>
+  ))}
+</div>
+
+<style>
+  .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 3rem; }
+  .card {
+    padding: 1.5rem;
+    border: 1px solid var(--mid);
+    border-radius: 12px;
+    background: var(--near-black);
+  }
+  b { display: block; color: var(--white); font-size: 1.125rem; margin-bottom: 0.5rem; }
+  p { color: var(--light-gray); line-height: 1.6; }
+  @media (max-width: 900px) {
+    .card-grid { grid-template-columns: 1fr; }
+  }
+</style>

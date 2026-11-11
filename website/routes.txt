@@ -82,6 +82,7 @@
 /protocol/walkthrough-eu-regulation/
 /protocol/walkthrough-medical-imaging/
 /protocol/walkthrough-v1/
+/publishers/
 /publishers/onboarding/
 /reference/changelog/
 /reference/fora-json-example/

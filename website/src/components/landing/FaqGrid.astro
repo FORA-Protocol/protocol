@@ -1,0 +1,22 @@
+---
+// Questions and answers in two columns. An answer may hold a link.
+interface Props {
+  items: { q: string; a: string }[];
+}
+const { items } = Astro.props;
+---
+<div class="faq">
+  {items.map((f) => (
+    <div class="faq-item"><h3>{f.q}</h3><p set:html={f.a} /></div>
+  ))}
+</div>
+
+<style>
+  .faq { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 2.5rem; margin-top: 2.5rem; }
+  h3 { color: var(--lp-heading); font-size: 1.0625rem; font-weight: 600; margin-bottom: 0.5rem; }
+  p { color: var(--lp-text); line-height: 1.65; }
+  p :global(a) { color: var(--lp-link); }
+  @media (max-width: 900px) {
+    .faq { grid-template-columns: 1fr; }
+  }
+</style>

@@ -57,3 +57,18 @@ export const BUILD_LINKS: readonly PackageLink[] = [
 ];
 
 export const REPO_URL = 'https://github.com/FORA-Protocol/protocol';
+
+/** The Demo Music Catalog: the music demo's tracks, as people and agents search them. */
+export const DEMO_MUSIC_CATALOG_URL = 'https://demo-music.fora-protocol.org/';
+
+/**
+ * The landing pages, in nav order. The site nav (SiteNav.astro) and the docs
+ * header (DocsSocialIcons.astro) both list them, so they cannot drift apart.
+ */
+export const LANDING_PAGES = [
+	{ key: 'protocol', href: '/protocol/', label: 'Protocol' },
+	{ key: 'publishers', href: '/publishers/', label: 'For publishers' },
+	{ key: 'music', href: '/music/', label: 'For music' },
+] as const;
+
+export type LandingPageKey = (typeof LANDING_PAGES)[number]['key'];

@@ -1,0 +1,202 @@
+---
+// The publishers landing page: FORA for sites that publish articles, pages and
+// data. Built from the landing components (src/components/landing/), like
+// /music/. The hero's form opens the agent preview (/publishers/onboarding/)
+// for one page. The article example is shared with the home page through
+// src/data/license-examples.ts; the 403 follows the edge function's response
+// (/components/edge-function/bot-detection/#the-403-response).
+import LandingLayout from '../../layouts/LandingLayout.astro';
+import AudienceHero from '../../components/landing/AudienceHero.astro';
+import TryWebsite from '../../components/landing/TryWebsite.astro';
+import Band from '../../components/landing/Band.astro';
+import CardGrid from '../../components/landing/CardGrid.astro';
+import OfferCard from '../../components/landing/OfferCard.astro';
+import TermsTable from '../../components/landing/TermsTable.astro';
+import CodeCard from '../../components/landing/CodeCard.astro';
+import PointList from '../../components/landing/PointList.astro';
+import ConnectCards from '../../components/landing/ConnectCards.astro';
+import TagStrip from '../../components/landing/TagStrip.astro';
+import FaqGrid from '../../components/landing/FaqGrid.astro';
+import LinkRow from '../../components/landing/LinkRow.astro';
+import ClosingCta from '../../components/landing/ClosingCta.astro';
+import SaleSteps from '../../components/SaleSteps.astro';
+import { EXAMPLES } from '../../data/license-examples';
+
+const ARTICLE = EXAMPLES.find((e) => e.id === 'article')!;
+const DEMO = '/getting-started/poc-walkthrough/';
+const GUIDE = '/getting-started/publisher-onboarding/';
+
+const BUYERS = [
+  { title: 'Answer engines', text: 'An answer agent needs today\'s article to answer a question, and credits you as your terms require.' },
+  { title: 'Research agents', text: 'A research agent reads dozens of sources for one report and needs a license for each one it uses.' },
+  { title: 'AI labs', text: 'A lab that wants your archive for training asks for that use. It is off unless you offer it.' },
+];
+
+const SITE_POINTS = [
+  { title: 'Readers see no change.', text: 'People get your pages as before.' },
+  { title: 'Open pages stay open.', text: 'FORA acts only on the paths you choose to protect.' },
+  { title: 'Unlicensed AI bots learn where to buy.', text: 'On a protected path, a known AI bot without a license gets a 403 that points to your terms and your Exchange.' },
+  { title: 'Agents that paid get the page.', text: 'A signed link, checked at your CDN, lets a paying agent through.' },
+  { title: 'Cloudflare or AWS CloudFront.', text: 'The publisher console builds the package for your network, with your settings filled in. You deploy it once.' },
+];
+
+// The edge function's 403 on a protected path, for a provider at publisher.example.
+const RESPONSE: [string, string][] = [
+  ['X-Content-Rules', 'https://publisher.example/.well-known/fora.json'],
+  ['X-FORA-Exchange', 'exchange.example'],
+  ['Cache-Control', 'no-store'],
+];
+
+const CONNECT = [
+  {
+    title: 'Try your website',
+    text: 'Paste the address of one page and see what an AI agent gets for it: the content, your terms and a price. No account needed.',
+    href: '/publishers/onboarding/',
+    link: 'Try your website',
+  },
+  {
+    title: 'Register on the publisher console',
+    text: 'Name your business, add your domain and set your terms. Then serve one file on your site and install one package on your CDN. The operator imports your pages from your sitemap.',
+    href: GUIDE,
+    link: 'Read the publisher guide',
+  },
+  {
+    title: 'See what you earn',
+    text: 'The console lists every sale with its signed offer and acceptance, which you can verify in your browser. It totals your income by day and exports it as CSV.',
+    href: `${GUIDE}#after-setup`,
+    link: 'After setup',
+  },
+];
+
+const STANDARDS = ['IAB Tech Lab CoMP', 'RSL 1.0', 'TDMRep', 'C2PA', 'Web Bot Auth', 'RFC 9421', 'Sitemaps'];
+
+const FAQ = [
+  {
+    q: 'Does FORA bring me buyers?',
+    a: 'No, and neither does your online store. It makes sure that when an agent comes looking, it can find you, understand your terms and pay, instead of hitting a 403 or scraping you.',
+  },
+  {
+    q: 'My pages are public. What changes?',
+    a: 'For people, nothing. On the paths you protect, an AI bot without a license gets a 403 that tells it where to buy access, and an agent that paid gets the page through a signed link. Pages you leave open stay open.',
+  },
+  {
+    q: 'Do I have to block AI crawlers?',
+    a: 'No. You choose the paths FORA protects, and every other path stays as it is. Your CDN\'s own bot rules keep working beside it.',
+  },
+  {
+    q: 'What about AI training?',
+    a: "Training is a separate permission, and it is off unless you offer it. A paid fetch doesn't include it.",
+  },
+  {
+    q: 'Can I keep my existing deals?',
+    a: 'Yes. A subscription is a term that only your subscribers\' agents see, and its fee stays agreed outside the offer.',
+  },
+  {
+    q: 'What does it cost?',
+    a: `The protocol and FORA Server are free and open source. Run it yourself, or <a href="${GUIDE}">have it hosted for you</a>.`,
+  },
+];
+---
+<LandingLayout
+  title="FORA for publishers — license your pages to every AI agent"
+  description="FORA turns your pages into signed offers that AI agents can find, read, pay for and keep a receipt of. Try your website: see what an agent gets for one of your pages."
+>
+  <AudienceHero
+    current="publishers"
+    badge="For news, media and data publishers"
+    title="License your pages<br>to every AI agent.<br><em>On your terms.</em>"
+    sub="Agents now read the web to search, to answer questions and to train models. FORA turns your pages into signed offers an agent can find, read, pay for and keep a receipt of. Your pages, your prices, your terms."
+  >
+    <a href={DEMO} class="btn btn-ghost">Watch an agent buy a license</a>
+    <a href={GUIDE} class="btn btn-ghost">Read the publisher guide</a>
+    <TryWebsite slot="aside" id="hero-try" />
+  </AudienceHero>
+
+  <Band
+    label="Why now"
+    title="Today you can only say yes or no."
+    lead="Most publishers can only block AI crawlers or sign a one-off deal with one AI company. A search index, an AI answer and a training run are different uses, worth different prices, and robots.txt can only say yes or no. <strong>FORA gives each use its own price and terms.</strong>"
+  >
+    <CardGrid items={BUYERS} />
+  </Band>
+
+  <Band
+    tone="light"
+    label="Your licenses"
+    title="Every use you allow, as an offer an agent can read"
+    lead="Search and citation, input to an AI answer, answers for your subscribers, training: each becomes a signed offer that says who may buy, what the agent may do, for how long and at what price, with the obligations that come with it. <strong>The agent still receives your full license text.</strong>"
+    asideWidth="420px"
+  >
+    <OfferCard slot="aside" offer={ARTICLE.offer} label="A signed offer for an article, as an agent receives it" />
+    <TermsTable example={ARTICLE} />
+    <LinkRow links={[
+      { href: '/protocol/#licensing-core', text: 'See how any license maps to FORA' },
+      { href: '/protocol/licensing-terms/', text: 'Licensing terms' },
+    ]} />
+  </Band>
+
+  <Band
+    label="Your site"
+    title="Readers keep reading. Agents buy."
+    lead="A small function on your CDN stands at the door of the paths you choose to sell."
+  >
+    <Fragment slot="intro">
+      <PointList items={SITE_POINTS} />
+      <LinkRow links={[{ href: '/components/edge-function/bot-detection/', text: 'How the edge function works' }]} />
+    </Fragment>
+    <CodeCard slot="aside" head="HTTP/1.1 403 Forbidden" tag="protected path" rows={RESPONSE} label="What an AI bot without a license gets on a protected path">
+      <pre class="body"><span class="c">// the body, for agents that read JSON</span>
+{'{'}
+  <span class="k">"error"</span>: <span class="s">"Licensed content. Negotiate access via the Exchange."</span>,
+  <span class="k">"protocol"</span>: <span class="s">"FORA"</span>,
+  <span class="k">"fora_json_url"</span>: <span class="s">"https://publisher.example/.well-known/fora.json"</span>
+{'}'}</pre>
+    </CodeCard>
+  </Band>
+
+  <Band tone="near" label="The six steps" title="How a sale works">
+    <div class="steps-wrap"><SaleSteps variant="web" /></div>
+    <LinkRow links={[{ href: DEMO, text: 'Watch an agent buy a license, step by step' }]} />
+  </Band>
+
+  <Band tone="light" label="Getting connected" title="From one page to your whole site">
+    <ConnectCards items={CONNECT} />
+  </Band>
+
+  <Band
+    tone="near"
+    label="Standards"
+    title="Built on the standards the web already uses"
+    lead="FORA reads the licensing signals you may already publish, identifies agents with Web Bot Auth, and imports your pages from your sitemap."
+  >
+    <TagStrip items={STANDARDS} />
+  </Band>
+
+  <Band id="faq" label="Questions" title="What publishers ask">
+    <FaqGrid items={FAQ} />
+  </Band>
+
+  <ClosingCta
+    title="Every AI agent is a customer. <em>FORA is your storefront.</em>"
+    text="See what an AI agent gets for one of your pages."
+  >
+    <a href="/publishers/onboarding/" class="btn btn-primary">Try your website</a>
+    <a href={GUIDE} class="btn btn-ghost">Read the publisher guide</a>
+  </ClosingCta>
+</LandingLayout>
+
+<style>
+  .body {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    line-height: 1.7;
+    color: var(--gray);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .body .k { color: #9cdcfe; }
+  .body .s { color: #7ec8a0; }
+  .body .c { color: #6b6b80; }
+  .steps-wrap { margin-top: 2.5rem; }
+</style>
