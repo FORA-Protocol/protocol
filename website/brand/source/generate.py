@@ -178,14 +178,15 @@ write('favicon.svg', f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 6
 write('fora-icon.svg', svg(512, 512, f'<rect width="512" height="512" fill="{INK}"/>' + mark('compact', BLUE, None, 64, 64, 6), 'FORA'))
 
 # 5. Social card 1200x630.
-d_h1, _ = outline(SANS700, 'Your website or music catalog,', 72, 96, 330, tracking_em=-0.03)
-d_h2, _ = outline(SANS700, 'licensable. Instantly.', 72, 96, 418, tracking_em=-0.03)
+d_h1, w_h1 = outline(SANS700, 'Every AI agent is a customer.', 72, 96, 330, tracking_em=-0.03)
+d_h2, w_h2 = outline(SANS700, 'FORA is your storefront.', 72, 96, 418, tracking_em=-0.03)
+assert 96 + max(w_h1, w_h2) <= 1200 - 96, ('headline too wide', w_h1, w_h2)
 d_sub, _ = outline(SANS400, 'Open protocol · Apache 2.0 · fora-protocol.org', 28, 96, 520)
 card = (f'<defs><radialGradient id="g" cx="50%" cy="0%" r="80%">'
         f'<stop offset="0" stop-color="{BLUE}" stop-opacity=".22"/><stop offset="1" stop-color="{BLUE}" stop-opacity="0"/></radialGradient></defs>'
         f'<rect width="1200" height="630" fill="{INK}"/><rect width="1200" height="630" fill="url(#g)"/>'
         f'<g transform="translate(88 84) scale(0.55)">{lockup("full", BLUE, WHITE, WHITE)}</g>'
         f'<path fill="{WHITE}" d="{d_h1}"/><path fill="{BLUE_TEXT}" d="{d_h2}"/><path fill="{GRAY}" d="{d_sub}"/>')
-write('fora-social-card.svg', svg(1200, 630, card, 'FORA protocol: your website or music catalog, licensable. Instantly.'))
+write('fora-social-card.svg', svg(1200, 630, card, 'FORA protocol: Every AI agent is a customer. FORA is your storefront.'))
 
 print('lockup', round(total_w, 1), 'x', round(lock_h, 1))

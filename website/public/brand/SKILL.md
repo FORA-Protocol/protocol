@@ -108,8 +108,8 @@ Rules:
 Read `reference/messaging.md` before writing any copy. The short version:
 
 - **Lead with the owner's outcome:** "Every AI agent is a customer. FORA is your
-  storefront." The agent is the buyer, never the store. In one sentence: FORA makes a website or a music
-  catalog licensable to AI agents, instantly. Then the mechanism: set your terms
+  storefront." The agent is the buyer, never the store. In one sentence: FORA
+  makes a website or a music catalog licensable to AI agents, instantly. Then the mechanism: set your terms
   once, and every page or track becomes a signed offer any agent can find, buy
   and verify, with no deal per buyer. "Instantly" means once connected, not zero
   setup; never promise minutes or one click.
