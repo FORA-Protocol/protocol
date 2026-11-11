@@ -1,0 +1,34 @@
+---
+// /resources/: one card per topic, from src/data/resources.ts.
+import LandingLayout from '../../layouts/LandingLayout.astro';
+import AudienceHero from '../../components/landing/AudienceHero.astro';
+import Band from '../../components/landing/Band.astro';
+import ResourceCards from '../../components/landing/ResourceCards.astro';
+import ClosingCta from '../../components/landing/ClosingCta.astro';
+import { RESOURCES } from '../../data/resources';
+---
+<LandingLayout
+  title="FORA resources — guides, slides and demos for publishers and AI agents"
+  description="What publishers can do about AI crawlers, how any license maps to one model an agent can act on, and live demos of agents buying licenses."
+>
+  <AudienceHero
+    current="resources"
+    badge="Resources"
+    title="What publishers ask about AI.<br><em>Answered.</em>"
+    sub="Guides, slides and live demos: what to do about AI crawlers today, how a license becomes something an agent can act on, and what a sale looks like."
+  >
+    <a href={RESOURCES[0].href} class="btn btn-primary">{RESOURCES[0].title}</a>
+  </AudienceHero>
+
+  <Band label="Topics" title="Start here">
+    <ResourceCards items={RESOURCES} />
+  </Band>
+
+  <ClosingCta
+    title="Every AI agent is a customer. <em>FORA is your storefront.</em>"
+    text="See what an AI agent gets for one of your pages."
+  >
+    <a href="/publishers/onboarding/" class="btn btn-primary">Try your website</a>
+    <a href="/publishers/" class="btn btn-ghost">FORA for publishers</a>
+  </ClosingCta>
+</LandingLayout>

@@ -21,6 +21,7 @@ import LinkRow from '../../components/landing/LinkRow.astro';
 import ClosingCta from '../../components/landing/ClosingCta.astro';
 import SaleSteps from '../../components/SaleSteps.astro';
 import { EXAMPLES } from '../../data/license-examples';
+import { SEARCH_ONLY_CONTRACT_URL } from '../../consts';
 
 const ARTICLE = EXAMPLES.find((e) => e.id === 'article')!;
 const DEMO = '/getting-started/poc-walkthrough/';
@@ -50,7 +51,7 @@ const RESPONSE: [string, string][] = [
 // The Search Only Terms Contract's robots.txt lines (https://m4ow.uk/socw/).
 const CONTRACT_LINES: [string, string][] = [
   ['User-agent:', '*'],
-  ['tdl:', 'https://m4ow.uk/socw/3.txt'],
+  ['tdl:', SEARCH_ONLY_CONTRACT_URL],
   ['Allow:', '/'],
 ];
 
@@ -89,6 +90,10 @@ const FAQ = [
   {
     q: 'Do I have to block AI crawlers?',
     a: 'No. You choose the paths FORA protects, and every other path stays as it is. Your CDN\'s own bot rules keep working beside it.',
+  },
+  {
+    q: 'What can I do about AI crawlers today?',
+    a: 'Refuse training in the form each AI company honors, keep the search crawlers that bring your traffic, and put a contract and a price on the rest. <a href="/resources/ai-crawlers/">Every bot, and a generator for your robots.txt</a>.',
   },
   {
     q: 'Will I drop out of ChatGPT answers or AI Overviews?',
@@ -172,7 +177,10 @@ const FAQ = [
     lead="Three lines in your robots.txt and two clauses in your site's terms attach the Movement for an Open Web's Search Only Terms Contract. Search stays free, and every other access carries the fee you set. It covers your open paths and the scrapers that hide what they are. <strong>An agent that wants more than search buys a license through FORA.</strong>"
     asideWidth="440px"
   >
-    <LinkRow slot="intro" links={[{ href: '/getting-started/search-only-contract/', text: 'How to adopt it' }]} />
+    <LinkRow slot="intro" links={[
+      { href: '/resources/ai-crawlers/#generator', text: 'Generate your robots.txt and headers' },
+      { href: '/getting-started/search-only-contract/', text: 'How to adopt the contract' },
+    ]} />
     <CodeCard slot="aside" head="robots.txt" tag="search-only contract" rows={CONTRACT_LINES} label="The robots.txt lines that attach the search-only contract" />
   </Band>
 
