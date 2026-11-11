@@ -139,7 +139,7 @@ Name these five, in this order, when you need the detail:
 | "Every AI agent is a storefront", "be on the agent's shelf" | In FORA the agent is the buyer: it reads the offer, pays and gets the receipt. Casting it as the store makes it the middleman FORA removes | "Every AI agent is a customer. FORA is your storefront." |
 | "FORA brings you buyers" | FORA makes the content findable and buyable; it does not market it | "when an agent comes looking, it can find you, read your terms and pay" |
 | "walled gardens" about other marketplaces | Knocks people FORA works with | "a deal per buyer" / "one offer for every agent" |
-| "RAMP", "Fora", "F.O.R.A." | Old name, wrong spelling | "FORA" |
+| "Fora", "F.O.R.A." | Wrong spelling | "FORA" |
 
 ## Tone
 

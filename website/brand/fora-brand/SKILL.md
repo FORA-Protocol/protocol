@@ -116,7 +116,7 @@ Read `reference/messaging.md` before writing any copy. The short version:
 - Write **FORA** in prose. "The FORA protocol" or "FORA Protocol" when you need
   the noun. The lowercase "fora protocol" exists only inside the logo.
 - It stands for **Federated Open Resource Access**. Spell it out once, if at all.
-- Never "Fora", "F.O.R.A.", or the old name "RAMP".
+- Never "Fora" or "F.O.R.A.".
 - FORA is an **open protocol**, not an "industry standard" and not adopted by any
   standards body.
 - Do not claim customers, partners, pilots, prices or numbers that are not on
@@ -133,7 +133,7 @@ Check every item:
    background and for its size (compact seal under 48 px), with clear space.
 2. Only the palette above; blue used sparingly; text contrast as in section 2.
 3. Instrument Sans and DM Mono (or the stated fallbacks).
-4. "FORA" spelled right; no "RAMP"; "open protocol", not "standard".
+4. "FORA" spelled right; "open protocol", not "standard".
    Copy for rights holders leads with the owner's outcome (the storefront line,
    or "licensable, instantly"), not with the protocol mechanics.
 5. Every factual claim is in `reference/messaging.md` or on fora-protocol.org,

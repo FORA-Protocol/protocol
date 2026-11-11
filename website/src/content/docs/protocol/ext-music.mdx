@@ -13,7 +13,7 @@ FORA-Music v1 defines a standardized vocabulary of `ext` field keys for music re
 - **Show** the release and credit block that a label keeps for every recording: title, release title and date, label, catalog number, P-line and C-line, contributors and artwork
 - **Carry** the rights data a cue sheet needs: the writers and the music publishers of the work, each with an IPI number, a collecting society and a share
 
-The profile describes the recording and the work. It is not a license: the writer and publisher fields say who to credit and report, not what a buyer may do. Permission to use a recording comes only from the offer's [license terms](/protocol/licensing-terms/). DDEX deal terms such as territory, use type, commercial model and validity period map to the license terms, not to this profile.
+The profile describes the recording and the work. It is not a license: the writer and publisher fields say who to credit and report, not what the Requester may do. Permission to use a recording comes only from the offer's [license terms](/protocol/licensing-terms/). DDEX deal terms such as territory, use type, commercial model and validity period map to the license terms, not to this profile.
 
 ### Who Should Implement This
 
@@ -187,7 +187,7 @@ A person with two roles appears twice, once per role. An empty array means known
 | `pro` | label | Optional | The collecting society the publisher belongs to. |
 | `share` | number | Optional | The publisher's share of the performing right in the work, in percent: more than 0 and at most 100. |
 
-Together with `iswc`, the writers' `ipi`, `pro` and `share`, and the title and duration, this is the data a cue sheet asks for about the music. The rest of a cue sheet, such as how the music is used and for how long in the production, comes from the buyer. The data travels in the offer the agent buys, so the buyer, or the broadcaster it delivers to, can file the cue sheet without asking the publisher again. `share` is the share of the performing right, because that is the share a cue sheet reports. Mechanical and synchronization splits can differ from it, and they are not keys of this profile. The profile does not check that the shares add up: writer and publisher shares are often counted separately, and the rule differs between societies. A sub-publisher's share applies in its own territory, which is not a key of this profile either.
+Together with `iswc`, the writers' `ipi`, `pro` and `share`, and the title and duration, this is the data a cue sheet asks for about the music. The rest of a cue sheet, such as how the music is used and for how long in the production, comes from the Requester. The data travels in the offer the agent buys, so the Requester, or the broadcaster it delivers to, can file the cue sheet without asking the publisher again. `share` is the share of the performing right, because that is the share a cue sheet reports. Mechanical and synchronization splits can differ from it, and they are not keys of this profile. The profile does not check that the shares add up: writer and publisher shares are often counted separately, and the rule differs between societies. A sub-publisher's share applies in its own territory, which is not a key of this profile either.
 
 ### Language
 
