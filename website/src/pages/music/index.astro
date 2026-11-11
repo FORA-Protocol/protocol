@@ -29,9 +29,15 @@ const TRACK_CARD: [string, string][] = [
   ['music.bpm', '124'],
   ['music.key', '"a minor"'],
   ['music.version', '"instrumental"'],
-  ['music.contributors', '[{ "Nova Orbit", composer, IPI 00123456789, prs, 50 }]'],
-  ['music.publishers', '[{ "Example Music Publishing", original publisher, IPI 00987654321, prs, 50 }]'],
   ['music.p_line', '"(P) 2015 Example Records"'],
+];
+
+// music.contributors and music.publishers of the same offer, as a cue sheet
+// lists them: name, role, IPI, collecting society (pro) and share of the
+// performing right.
+const RIGHTS_ROWS = [
+  { name: 'Nova Orbit', role: 'Composer', key: 'contributors', ipi: '00123456789', pro: 'PRS', share: '50%' },
+  { name: 'Example Music Publishing', role: 'Original publisher', key: 'publishers', ipi: '00987654321', pro: 'PRS', share: '50%' },
 ];
 
 const FILTER_GROUPS = [
@@ -207,6 +213,16 @@ const FAQ = [
     .m-trackcard dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.45rem 1rem; padding: 1.25rem; }
     .m-trackcard dt { color: #9cdcfe; }
     .m-trackcard dd { color: #7ec8a0; overflow-wrap: anywhere; }
+    .m-rights-table { border-top: 1px solid var(--mid); padding: 1.25rem; font-family: var(--sans); }
+    .m-rights-title { font-family: var(--mono); font-size: 0.75rem; color: #9cdcfe; margin-bottom: 0.75rem; }
+    .m-rights-table table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .m-rights-table th, .m-rights-table td { text-align: left; padding: 0.5rem 0.5rem 0.5rem 0; border-top: 1px solid var(--mid); vertical-align: top; }
+    .m-rights-table thead th { border-top: 0; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gray); }
+    .m-rights-table tbody th { color: var(--white); font-weight: 600; }
+    .m-rights-table td { color: var(--light-gray); }
+    .m-rights-table .m-mono { font-family: var(--mono); font-size: 0.8125rem; }
+    .m-rights-table p { margin-top: 0.75rem; font-size: 0.8125rem; color: var(--gray); }
+    .m-rights-scroll { overflow-x: auto; }
 
     /* search */
     .m-filters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 2.5rem; }
@@ -286,6 +302,9 @@ const FAQ = [
       .hero-music .hero-content { padding: 3rem 1rem 3.5rem; }
       .m-steps { grid-template-columns: 1fr; }
       .m-table-card { padding: 1.25rem 1rem; }
+      .m-rights-table { padding: 1rem; }
+      .m-rights-table table { font-size: 0.8125rem; }
+      .m-rights-table .m-mono { font-size: 0.75rem; }
     }
   </style>
 </head>
@@ -375,6 +394,18 @@ const FAQ = [
         <dl>
           {TRACK_CARD.map(([k, v]) => (<><dt>{k}</dt><dd>{v}</dd></>))}
         </dl>
+        <div class="m-rights-table">
+          <div class="m-rights-title"><span>music.contributors</span> · <span>music.publishers</span></div>
+          <div class="m-rights-scroll"><table>
+            <thead><tr><th scope="col">Name</th><th scope="col">Role</th><th scope="col">IPI</th><th scope="col">Society</th><th scope="col">Share</th></tr></thead>
+            <tbody>
+              {RIGHTS_ROWS.map((r) => (
+                <tr><th scope="row">{r.name}</th><td>{r.role}</td><td class="m-mono">{r.ipi}</td><td>{r.pro}</td><td>{r.share}</td></tr>
+              ))}
+            </tbody>
+          </table></div>
+          <p>Shares of the performing right in the work: what a cue sheet reports.</p>
+        </div>
       </div>
     </div>
   </section>
