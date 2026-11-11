@@ -4,6 +4,7 @@
 // /protocol/, built from the blocks that used to live here.
 import SiteNav from '../components/SiteNav.astro';
 import SiteFooter from '../components/SiteFooter.astro';
+import SaleSteps from '../components/SaleSteps.astro';
 import { BUILD_LINKS } from '../consts';
 import { EXAMPLES } from '../data/license-examples';
 import '../styles/brand.css';
@@ -385,52 +386,7 @@ const FAQ = [
     .terms-links a:hover { text-decoration: underline; }
     .terms-section :is(a):focus-visible { outline-color: var(--accent-dark); }
 
-    /* ========= 5. HOW A SALE WORKS ========= */
-    .sale-steps {
-      list-style: none;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 2rem;
-      counter-reset: sale;
-    }
-    .sale-steps li {
-      counter-increment: sale;
-      position: relative;
-      padding-top: 3.25rem;
-    }
-    .sale-steps li::before {
-      content: counter(sale, decimal-leading-zero);
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 2.25rem;
-      height: 2.25rem;
-      display: grid;
-      place-items: center;
-      border-radius: 50%;
-      border: 1px solid var(--accent);
-      background: var(--black);
-      color: var(--accent-text);
-      font-family: var(--mono);
-      font-size: 0.8125rem;
-      z-index: 1;
-    }
-    .sale-steps li:not(:last-child)::after {
-      content: '';
-      position: absolute;
-      top: 1.125rem;
-      left: 2.75rem;
-      right: -1.5rem;
-      height: 1px;
-      background: linear-gradient(90deg, var(--accent), var(--mid));
-    }
-    .sale-steps h3 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: var(--white);
-      margin-bottom: 0.5rem;
-    }
-    .sale-steps p { color: var(--gray); line-height: 1.6; }
+    /* ========= 5. HOW A SALE WORKS: components/SaleSteps.astro ========= */
     .center-link { text-align: center; margin-top: 3rem; }
 
     /* ========= 6. BUILT FOR WHAT YOU HAVE ========= */
@@ -685,13 +641,6 @@ const FAQ = [
       .hero-home .hero-content { padding: 3rem 1.5rem 3.5rem; }
       .hero-home + .band { padding-top: 2.5rem; }
       .story-body .story-lead { font-size: 1.25rem; }
-      .sale-steps { grid-template-columns: 1fr; gap: 1.75rem; }
-      .sale-steps li { padding-top: 0; padding-left: 3.25rem; }
-      .sale-steps li:not(:last-child)::after {
-        top: 2.75rem; bottom: -1.25rem; left: 1.125rem; right: auto;
-        width: 1px; height: auto;
-        background: linear-gradient(180deg, var(--accent), var(--mid));
-      }
       .faq-grid, .side-grid { grid-template-columns: 1fr; }
       .table-card { padding: 1.25rem 1rem; }
     }
@@ -871,20 +820,7 @@ const FAQ = [
         <div class="section-label">How it works</div>
         <h2>How a sale works</h2>
       </div>
-      <ol class="sale-steps">
-        <li>
-          <h3>Find</h3>
-          <p>An agent searches across catalogs by what the content is about: topic, genre, mood, tempo, use.</p>
-        </li>
-        <li>
-          <h3>License</h3>
-          <p>It reads the offers, picks the one that fits the use, and pays through the Exchange.</p>
-        </li>
-        <li>
-          <h3>Receive</h3>
-          <p>It gets the file through a short-lived link bound to its identity. You both keep a signed receipt that anyone can verify later.</p>
-        </li>
-      </ol>
+      <SaleSteps />
       <p class="center-link"><a class="text-link" href="/protocol/">See the full protocol flow &rarr;</a></p>
     </div>
   </section>

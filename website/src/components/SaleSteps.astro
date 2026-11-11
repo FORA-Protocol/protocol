@@ -1,0 +1,114 @@
+---
+// "How a sale works": the six steps of a FORA transaction, named as the
+// protocol names them (getting-started/what-is-fora): Discover, Query,
+// Transact, Deliver, Report, Dispute. One component, so the home page and
+// /music/ show the same steps the same way; `variant` picks the wording.
+interface Props {
+  variant?: 'web' | 'music';
+}
+const { variant = 'web' } = Astro.props;
+
+const WEB = [
+  'The agent finds the Exchange that sells your content: from your site, or through a Broker\'s search across catalogs.',
+  'It asks for the content and gets signed offers: the price, the permitted uses, the obligations.',
+  'It commits to one offer, pays through the Exchange and gets a signed receipt.',
+  'It fetches the file through a short-lived link bound to its identity.',
+  'It reports what it used, when the offer asks for a report.',
+  'If the file is wrong or never arrives, it opens a dispute backed by signed evidence.',
+];
+const MUSIC = [
+  'The agent finds the Exchange that sells your catalog: from your site, or through a Broker\'s search.',
+  'It searches by mood, tempo, key or ISRC and gets signed offers: media, territory, term and price.',
+  'It commits to one offer, pays through the Exchange and gets a signed receipt.',
+  'It fetches the file through a short-lived link that your CDN checks.',
+  'It reports what it used, when the license asks for a report.',
+  'If the file is wrong or never arrives, it opens a dispute backed by signed evidence.',
+];
+const NAMES = ['Discover', 'Query', 'Transact', 'Deliver', 'Report', 'Dispute'];
+const texts = variant === 'music' ? MUSIC : WEB;
+const steps = NAMES.map((name, i) => ({ name, text: texts[i], optional: name === 'Dispute' }));
+---
+<ol class="sale-steps">
+  {steps.map((st) => (
+    <li class={st.optional ? 'is-optional' : undefined}>
+      <h3>{st.name}{st.optional && <small> if needed</small>}</h3>
+      <p>{st.text}</p>
+    </li>
+  ))}
+</ol>
+
+<style>
+  .sale-steps {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 1.5rem;
+    counter-reset: sale;
+  }
+  .sale-steps li {
+    counter-increment: sale;
+    position: relative;
+    padding-top: 3.25rem;
+  }
+  .sale-steps li::before {
+    content: counter(sale, decimal-leading-zero);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1px solid var(--accent);
+    background: var(--black);
+    color: var(--accent-text);
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    z-index: 1;
+  }
+  .sale-steps li:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 1.125rem;
+    left: 2.75rem;
+    right: -1.125rem;
+    height: 1px;
+    background: linear-gradient(90deg, var(--accent), var(--mid));
+  }
+  /* Dispute happens only when something went wrong: a dashed circle and path. */
+  .sale-steps li.is-optional::before { border-style: dashed; }
+  .sale-steps li:nth-last-child(2)::after {
+    background: repeating-linear-gradient(90deg, var(--mid) 0 4px, transparent 4px 8px);
+  }
+  .sale-steps h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--white);
+    margin-bottom: 0.5rem;
+  }
+  .sale-steps h3 small { font-size: 0.75rem; font-weight: 500; color: var(--gray); }
+  .sale-steps p { color: var(--gray); line-height: 1.55; font-size: 0.9375rem; }
+
+  @media (max-width: 1024px) and (min-width: 769px) {
+    .sale-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 2.5rem; }
+    .sale-steps li:nth-child(3)::after { display: none; }
+  }
+  @media (max-width: 768px) {
+    .sale-steps { grid-template-columns: 1fr; gap: 1.75rem; }
+    .sale-steps li { padding-top: 0; padding-left: 3.25rem; }
+    .sale-steps li:not(:last-child)::after,
+    .sale-steps li:nth-last-child(2)::after {
+      top: 2.75rem;
+      bottom: -1.25rem;
+      left: 1.125rem;
+      right: auto;
+      width: 1px;
+      height: auto;
+      background: linear-gradient(180deg, var(--accent), var(--mid));
+    }
+    .sale-steps li:nth-last-child(2)::after {
+      background: repeating-linear-gradient(180deg, var(--mid) 0 4px, transparent 4px 8px);
+    }
+  }
+</style>

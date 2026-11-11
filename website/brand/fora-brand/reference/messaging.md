@@ -53,7 +53,10 @@ The one-time setup, as the site describes it:
 
 ### What the owner gets
 
-Name these five, in this order, when you need the detail:
+Name these five, in this order, when you need the detail. They are what the owner
+gets, not the steps of a sale: when you describe the flow step by step, use the
+six protocol step names below (Discover, Query, Transact, Deliver, Report,
+Dispute), as the home page and /music/ do.
 
 1. **Search.** Agents find the content by what it is about (for music: genre,
    mood, tempo and the other `music.*` fields).
