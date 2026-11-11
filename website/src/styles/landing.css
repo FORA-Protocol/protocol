@@ -51,7 +51,8 @@
   color: var(--white);
   margin-bottom: 1.25rem;
 }
-.hero h1 em {
+.hero h1 em,
+.cta-section h2 em {
   font-style: normal;
   color: var(--accent-text);
 }
