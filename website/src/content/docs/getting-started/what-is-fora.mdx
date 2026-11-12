@@ -65,7 +65,7 @@ What differs between industries is the unit, the resource's mutability and the d
 
 ### Unit-agnostic metering
 
-Pricing uses `unit_cost` + `unit` + `estimated_quantity`. No assumption about what's being metered. The unit is a registered one, such as `tokens`, `pages`, `seconds`, `records` or `sq-km`, or a namespaced one of your own, such as `pharma:interaction_pairs`.
+Pricing uses `rate` + `unit` + `estimated_quantity`: a metered purchase charges the estimate times the rate, or one unit at the rate when the offer states no estimate. `unit_cost` is a normalized figure for comparing offers across Exchanges. No assumption about what's being metered. The unit is a registered one, such as `tokens`, `pages`, `seconds`, `records` or `sq-km`, or a namespaced one of your own, such as `pharma:interaction_pairs`.
 
 ### Content mutability
 
