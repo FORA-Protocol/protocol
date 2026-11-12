@@ -25,7 +25,7 @@ sequenceDiagram
     participant MP as Exchange
     participant Agent as AI Agent
 
-    Note over Provider,MP: Provider sets terms via RSL<br/>Exchange operator configures private pricing
+    Note over Provider,MP: Provider sets its terms and prices<br/>Exchange turns them into Offers
 
     Agent->>MP: ExecuteTransaction (offer_id)
     MP->>MP: BillingAdapter.Authorize(requester, amount)
@@ -36,7 +36,7 @@ sequenceDiagram
 
     Note over Provider,MP: Settlement (outside protocol)
 
-    MP->>Agent: Monthly invoice (sum of billing_ids)
+    MP->>Agent: Monthly invoice for the account (billing_ref), summing its billing_ids
     Agent->>MP: Payment
     MP->>Provider: Provider payout (off-protocol settlement)
 ```
@@ -55,7 +55,7 @@ A `PER_UNIT` price is metered. A `PER_UNIT` offer may carry an `estimated_quanti
 
 A **subscription** is `FREE` + a concrete subscription scope such as `subscription:daily-meridian-2027` (settled off-protocol). **Attribution** and **contribution** are `Obligation`s, not pricing models. There is no revenue-share model — settlement is off-protocol.
 
-Providers set their preferred pricing model and rate in their RSL file. The Exchange operationalizes these into live Offers. RSL pricing serves as a price ceiling (public declaration); private pricing between provider and Exchange may be lower.
+Providers set their pricing model and rate in their terms, which the publisher console can fill in from the provider's RSL license. The Exchange turns these terms into live Offers.
 
 ## unit_cost: Normalized Pricing
 
@@ -139,9 +139,9 @@ Here is a concrete transaction with dollar amounts.
 - Provider: *The Daily Meridian*, a mid-size tech publisher
 - Exchange: SSP-Alpha, which sells The Daily Meridian's catalog
 - Article: "AI Regulation: What Providers Need to Know" (2,500 words, ~3,300 tokens)
-- RSL price ceiling: $0.08 per crawl
-- SSP-Alpha private pricing: $0.05 per article (below RSL ceiling)
-- Requester: Acme AI, whose agent has a registered account at SSP-Alpha (account handle `acct_7f3e21c9` — an opaque value minted by the Exchange at registration, meaningless on its own)
+- The Daily Meridian's RSL license: $0.08 per crawl
+- SSP-Alpha's price for the article: $0.05
+- Requester: Acme AI, whose agent has a registered account at SSP-Alpha (account handle `RegisterResponse.billing_ref`, here `acct_7f3e21c9` — an opaque value minted by the Exchange at registration, meaningless on its own)
 - Acme AI has an annual subscription to The Daily Meridian through SSP-Alpha
 
 **What happens:**
