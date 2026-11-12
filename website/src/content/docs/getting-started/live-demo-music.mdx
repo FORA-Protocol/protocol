@@ -148,7 +148,7 @@ search_filters: music.energy     low
                 music.vocals     false
 ```
 
-The Broker's `Resolve` call does the rest. This deployment runs the tag-based catalog search: the Broker reads search fields from the text — mood, vocals, duration and so on — matches them and the filters against the `music.*` fields that the catalog's feed carries in `ext` for each track, and ranks the results. For each track it returns one `OfferGroup` with the Exchange's signed offers, unchanged. `Resolve` only discovers; buying is a separate call to the Exchange. See [Broker: natural language](/components/broker/overview/#3-natural-language).
+The Broker's `Resolve` call does the rest. This deployment runs the tag-based catalog search: the Broker reads search fields from the text — mood, vocals, duration and so on — matches them and the filters against the `music.*` fields that the catalog's feed carries in `ext` for each track, and ranks the results. For each track it returns one `OfferGroup` with the Exchange's signed offers, unchanged. `Resolve` only discovers; buying is a separate call to the Exchange. See [Broker: search backends](/components/broker/overview/#search-backends).
 
 <details>
 <summary>What came back in the recorded run</summary>
