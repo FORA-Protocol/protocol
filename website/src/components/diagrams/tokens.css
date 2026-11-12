@@ -17,7 +17,8 @@
   /* Starlight's gray-3, a step towards gray-2: 4.5:1 or more on a card in both themes. */
   --dg-muted: color-mix(in srgb, var(--sl-color-gray-3) 75%, var(--sl-color-gray-2));
   --dg-hairline: var(--sl-color-gray-5);
-  --dg-lane: var(--sl-color-gray-5);
+  /* Role lines: between Starlight's gray-4 and gray-3, 3:1 or more on the page in both themes. */
+  --dg-lane: color-mix(in srgb, var(--sl-color-gray-4) 55%, var(--sl-color-gray-3));
 
   /* Brand blue (src/styles/brand.css): lines and fills in both themes. */
   --dg-accent: #4f6df5;
@@ -27,8 +28,8 @@
   --dg-accent-fill: #3d58d6;
   --dg-on-accent: #ffffff;
 
-  --dg-font: var(--__sl-font);
-  --dg-mono: var(--__sl-font-mono);
+  /* Starlight's public mono stack; the sans face is inherited from the page. */
+  --dg-mono: var(--sl-font-mono, var(--sl-font-system-mono));
 }
 
 :root[data-theme='light'] .fora-diagram {
