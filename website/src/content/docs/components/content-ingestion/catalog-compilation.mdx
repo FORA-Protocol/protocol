@@ -128,7 +128,7 @@ Content integrity signals flow into the `OfferTemplate` from multiple sources:
 - **Attestation claims (v1.0)**: Signed claims from providers (Level 1) or third-party vendors (Level 2) provide cryptographically verifiable token counts, content hashes, and metadata. Attestations replace the former `ResourceAttestation` concept with independently verifiable data.
 - **Token estimate accuracy**: Provider-provided tokens (Source 1) are the most accurate. Crawl-derived estimates carry +/-15% uncertainty. The token estimate sizes a resource for `unit_cost` only, so its error moves the comparison metric, never a charge.
 - **Freshness**: `BuiltAt` timestamp on the `CatalogSnapshot` and per-entry `Freshness` timestamps enable staleness detection. Attestation `attested_at` timestamps provide per-entry freshness for verified claims.
-- **Source hashes**: SHA-256 of each input source (rsl.txt, sitemap.xml). If unchanged since last build, the pipeline can skip rebuild.
+- **Source hashes**: SHA-256 of each input source (RSL license, sitemap.xml). If unchanged since last build, the pipeline can skip rebuild.
 
 ## Radix Trie Construction
 

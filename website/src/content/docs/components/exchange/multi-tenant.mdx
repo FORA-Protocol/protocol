@@ -22,7 +22,7 @@ type TenantConfig struct {
     Domains []string // All provider domains (e.g., ["cosmopolitan.com", "esquire.com", "elle.com"])
 
     // Resource catalog (per-domain RSL discovery)
-    RSLURLs         map[string]string // domain -> RSL URL (e.g., "cosmopolitan.com" -> "https://cosmopolitan.com/rsl.txt")
+    RSLURLs         map[string]string // domain -> RSL URL (e.g., "cosmopolitan.com" -> "https://cosmopolitan.com/license.xml")
     RSLPollInterval time.Duration     // How often to re-fetch RSL (default: 5m)
 
     // Pricing overrides (Exchange is the price authority — RSL pricing is a fallback hint)
