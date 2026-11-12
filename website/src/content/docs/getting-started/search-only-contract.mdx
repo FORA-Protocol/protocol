@@ -102,10 +102,11 @@ The guide also allows links in each page's HTML `<head>`. Its own example lists 
 <link rel="terms-of-service" href="https://publisher.example/terms" />
 ```
 
-Where you can set response headers, at your origin or on your CDN, the same links can go on every response as an HTTP `Link` header, with the `terms-of-service` relation of [RFC 6903](https://www.rfc-editor.org/rfc/rfc6903). In a `Link` header the angle brackets enclose each URL; they are the header's syntax ([RFC 8288](https://www.rfc-editor.org/rfc/rfc8288)), not an HTML tag:
+Or, where you can set response headers at your origin or on your CDN, as one `Link` header per document:
 
 ```http
-Link: <https://m4ow.uk/socw/3.txt>; rel="terms-of-service", <https://publisher.example/terms>; rel="terms-of-service"
+Link: <https://m4ow.uk/socw/3.txt>; rel="terms-of-service"
+Link: <https://publisher.example/terms>; rel="terms-of-service"
 ```
 
 ## Keep your FORA terms in line with it
