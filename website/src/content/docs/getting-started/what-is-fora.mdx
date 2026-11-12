@@ -5,6 +5,7 @@ description: "An introduction to the Federated Open Resource Access — the open
 
 import { Steps } from '@astrojs/starlight/components';
 import { PACKAGES } from '../../../consts';
+import ArchitectureDiagram from '../../../components/diagrams/ArchitectureDiagram.astro';
 
 ## The Problem
 
@@ -129,29 +130,24 @@ No fire-and-forget disputes. The agent must file a `UsageReport` before disputin
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  subgraph requester["Requester side"]
-    agent["AI agent"]
-    broker["Broker (optional)<br/>queries Exchanges, compares offers,<br/>enforces budgets"]
-  end
-  subgraph provider_side["Provider side"]
-    exchange["Exchange<br/>catalog, pricing, transactions"]
-    provider["Resource provider<br/>owns the content, sets the terms"]
-    delivery["Delivery endpoint<br/>CDN, API, PACS, DICOMweb"]
-  end
-  agent --> broker
-  broker -- "DiscoverResources<br/>ExecuteTransaction" --> exchange
-  agent -. "or directly" .-> exchange
-  provider -- "catalog and terms" --> exchange
-  agent -- "signed URL" --> delivery
-```
+FORA has four roles. The agent, the Requester, buys resources. A Broker can shop across Exchanges for it. The Exchange sells the provider's catalog, and the provider owns the content. Each role is a component of FORA Server.
 
-1. An AI agent calls `DiscoverResources` and `ExecuteTransaction` on an Exchange, either directly or through a Broker.
-2. The Exchange holds the provider's catalog and terms, prices each request and records each transaction.
-3. The agent fetches the resource from the provider's delivery endpoint, such as a CDN, an API or a PACS, with the signed URL it was given.
+<ArchitectureDiagram />
 
-The Broker is optional — agents can query Exchanges directly. A Broker queries several Exchanges, merges their offers, and can filter them by the agent's budget and data freshness.
+Before any sale, the provider sets its terms in the publisher console, and the Exchange imports the provider's catalog from the site's sitemap. Then one sale takes six steps:
+
+1. **Discover.** The agent reads the provider's `/.well-known/fora.json`, which names the Exchange that sells the content. A Broker can do this for the agent.
+2. **Query.** The agent calls `DiscoverResources` on that Exchange and gets signed offers. A Broker can do this for the agent: it queries the Exchanges, ranks their offers and leaves out the ones over the agent's budget.
+3. **Transact.** The agent calls `ExecuteTransaction` and gets a signed URL for each item it buys. Through a Broker, one call buys offers from several Exchanges.
+4. **Deliver.** The agent fetches the content from the provider's CDN with the signed URL. The edge function there checks the URL's signature and expiry before it serves the content. An AI bot that comes without a signed URL is refused.
+5. **Report.** The agent calls `ReportUsage` on the Exchange that sold the item and reports what it used.
+6. **Dispute, if needed.** The agent calls `DisputeTransaction` on that Exchange, citing its usage report.
+
+The Broker is optional: an agent can call an Exchange directly at every step. Reports and disputes always go from the agent to the Exchange that sold the item.
+
+In FORA Server, an agent signs its own requests with an SDK, or connects over MCP to the Identity Service, which holds a key for the agent and signs its requests with it. The Broker and the Exchange are services of their own, and the provider uses the publisher console that comes with the Exchange. The edge function runs on the provider's CDN.
+
+Money moves outside the protocol: the Exchange operator bills the agent's account holder and pays the provider. See [How Money Flows](/getting-started/how-money-flows/).
 
 ## Scope
 
