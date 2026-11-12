@@ -57,11 +57,11 @@ The Exchange operator's publisher console builds a package for the provider's do
 
 The reference implementation's Terraform modules deploy the edge worker to the provider's own CDN account. They are in [`deploy/terraform/modules/`](https://github.com/FORA-Protocol/reference-implementation/tree/v1.1.0/deploy/terraform/modules) at release `v1.1.0`, and the examples below pin their `source` to that tag.
 
-Each module deploys a bundle that you build first, from a checkout of the reference implementation. The build needs Node.js, npm and git. Neither module builds the bundle, and each fails the plan if the bundle is missing.
+Each module deploys a bundle that you build first, from a checkout of the reference implementation. The build needs Node.js, npm, git, and either `uv` or a `python3` that can import `cryptography`. Neither module builds the bundle, and each fails the plan if the bundle is missing.
 
 #### CloudFront
 
-The [`aws-cloudfront-edge`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/deploy/terraform/modules/aws-cloudfront-edge/README.md) module creates a CloudFront distribution in front of your origin, with the edge worker as its Lambda@Edge viewer-request function and an ACM certificate for your hostname. It creates no DNS record for the hostname. The [`route53-dns`](https://github.com/FORA-Protocol/reference-implementation/tree/v1.1.0/deploy/terraform/modules/route53-dns) module points the hostname at the distribution.
+The [`aws-cloudfront-edge`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/deploy/terraform/modules/aws-cloudfront-edge/README.md) module creates a CloudFront distribution in front of your origin, with the edge worker as its Lambda@Edge viewer-request function and an ACM certificate for your hostname. The distribution caches nothing: it uses CloudFront's `Managed-CachingDisabled` cache policy. The hostname's DNS must be in a Route 53 hosted zone, because the module validates the certificate with a record in that zone; `zone_id` is the zone that serves the hostname. The module creates no DNS record for the hostname itself. The [`route53-dns`](https://github.com/FORA-Protocol/reference-implementation/tree/v1.1.0/deploy/terraform/modules/route53-dns) module points the hostname at the distribution.
 
 Lambda@Edge has no environment variables, so the edge worker's settings go inside the bundle. Write them to a JSON file, then build the bundle for the hostname the function serves. The build also needs `zip`.
 
@@ -162,9 +162,13 @@ module "fora_edge" {
 }
 ```
 
-The module requires an origin mode. `same_zone_origin = "true"` sends the requests the Worker lets through on to the origin the zone already routes the hostname to. To send them to another host, set `origin_url` to its URL instead. If the hostname has no DNS record on the zone yet, set `worker_hostname` to it, and the module creates a proxied placeholder record.
+Every hostname in `route_patterns` needs a proxied DNS record on the zone, or the Worker never runs for it. The example assumes `news.example.com` already has one.
 
-Cloudflare's zone protections, such as WAF managed rules and Bot Fight Mode, run before the Worker. The module README describes how to exempt the Worker's hostnames, and lists every input. The reference implementation also has a ready-made root configuration for this module, [`deploy/terraform/stacks/edge`](https://github.com/FORA-Protocol/reference-implementation/tree/v1.1.0/deploy/terraform/stacks/edge), with a [step-by-step guide](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/deploy/terraform/docs/deploy-edge-standalone.md).
+The module requires an origin mode. `same_zone_origin = "true"` sends the requests the Worker lets through on to the origin that the hostname's existing proxied record routes to. To send them to another host, set `origin_url` to its URL instead.
+
+If the hostname has no DNS record yet, set `worker_hostname` to it. The module then creates a proxied placeholder record, `AAAA 100::`, which has no origin behind it. With that record, set `origin_url`, not `same_zone_origin`.
+
+Cloudflare's zone protections, such as WAF managed rules and Bot Fight Mode, run before the Worker. The module README describes how to exempt the Worker's hostnames. The module's [`variables.tf`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/deploy/terraform/modules/cloudflare-edge/variables.tf) lists every input. The reference implementation also has a ready-made root configuration for this module, [`deploy/terraform/stacks/edge`](https://github.com/FORA-Protocol/reference-implementation/tree/v1.1.0/deploy/terraform/stacks/edge), with a [step-by-step guide](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/deploy/terraform/docs/deploy-edge-standalone.md).
 
 ## Environment Configuration
 
