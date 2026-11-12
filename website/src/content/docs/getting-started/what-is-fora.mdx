@@ -55,7 +55,7 @@ The same messages price a news article by the token, a court filing by the page 
 | Government | Property records | `records` |
 | Geospatial | Satellite imagery | `sq-km` |
 | Pharma | Drug interaction lookups | `calls`, `pharma:interaction_pairs` |
-| Media monitoring | Continuous news feeds | `items` |
+| Media monitoring | Continuous news feeds | `minutes` |
 
 Every unit in the table is in the protocol's [registered list](/reference/proto-fora/#pricingmodel) except `pharma:interaction_pairs`. A unit outside that list carries a namespace of its own, as that one does; a bare unregistered unit is rejected when the catalog is ingested. Through a Broker, one purchase can hold items from several Exchanges, each priced in its own unit.
 
@@ -73,7 +73,7 @@ Every resource declares whether it's **static** (articles, patents — hash is s
 
 ### Data freshness
 
-Offers carry `data_as_of` — when the data was current. Agents set `max_data_age` — how fresh they need it. The Broker should drop offers older than that. Essential for credit reports (days), stock quotes (seconds), drug databases (weeks).
+Offers carry `data_as_of` — when the data was current. Agents set `max_data_age` — how fresh they need it. The Broker should drop offers older than that. Examples: a credit report updated within the last week, a drug database updated this month.
 
 ### Extension profiles
 
