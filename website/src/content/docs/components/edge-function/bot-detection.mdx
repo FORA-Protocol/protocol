@@ -3,6 +3,10 @@ title: "Bot Detection"
 description: "AI crawler detection via User-Agent analysis, behavioral signals, and CDN-native bot classification"
 ---
 
+import { AI_BOTS } from '../../../../data/ai-bots';
+
+export const botLines = (kind) => AI_BOTS.filter((b) => b.kind === kind).map((b) => `${b.name.padEnd(24)}- ${b.vendor}`).join('\n');
+
 The Edge Function detects AI crawlers accessing protected content without a signed URL and returns a `403 Forbidden` response directing them to the Exchange. Bot detection only applies to requests *without* signed URL parameters -- a valid signed URL always takes precedence.
 
 ## Detection Signals
@@ -11,32 +15,42 @@ Three layers of bot detection, from cheapest to most expensive:
 
 ### Layer 1: User-Agent String Matching (< 0.01ms)
 
-Known AI crawler User-Agents. This is the primary detection mechanism.
+Known AI crawler User-Agents. This is the primary detection mechanism. The AI companies run three kinds of bot, and the edge function treats each kind differently on a licensed path:
 
-```
-# Well-known AI bot User-Agents (maintained list)
-ClaudeBot/1.0           - Anthropic training crawler
-anthropic-ai            - Anthropic inference/RAG
-GPTBot/1.0              - OpenAI training crawler
-ChatGPT-User            - OpenAI inference/RAG
-CCBot/2.0               - Common Crawl
-Google-Extended          - Google AI training
-Googlebot-Extended       - Google AI training (alternate)
-Bytespider              - ByteDance training crawler
-PerplexityBot           - Perplexity AI
-YouBot                  - You.com
-Applebot-Extended        - Apple AI training
-cohere-ai               - Cohere
-Meta-ExternalAgent       - Meta AI training
-Amazonbot               - Amazon AI
-AI2Bot                  - Allen Institute for AI
-Diffbot                 - Diffbot
-Omgilibot               - Webz.io
-FacebookBot             - Meta
-fora-ai-buyer          - FORA protocol agent (self-identified)
-```
+| Kind | What it does | On a licensed path |
+|---|---|---|
+| Training and datasets | Collects pages to train models or build datasets | `403` |
+| Live fetch | Loads a page because a person asked a question | `403` |
+| AI search | Builds the index that the vendor's AI search and answers draw on | Let through by default; the provider may choose `403` |
 
-The edge function maintains this list in configuration (KV store or inline config). The list is additive -- new bots are added, existing entries are never removed.
+A live fetch and a training crawl are what an agent buys a license for, so both get the `403` that points to the Exchange. An AI search crawler decides whether the site appears in that vendor's AI search at all. The vendors document that blocking one removes the site from those results, so the provider chooses, and by default the edge function lets it through.
+
+<pre><code>{[
+  '# Training and datasets: 403 on licensed paths',
+  botLines('training'),
+  '',
+  '# Live fetch: 403 on licensed paths',
+  botLines('live-fetch'),
+  `${'fora-ai-buyer'.padEnd(24)}- a FORA agent that names itself`,
+  '',
+  '# AI search: let through unless the provider chooses 403',
+  botLines('ai-search'),
+].join('\n')}</code></pre>
+
+The lists come from one file, `website/src/data/ai-bots.ts`, with each bot's vendor documentation; they are also published as [`/registry/ai-bots.json`](/registry/ai-bots.json) and shown, with what refusing each one costs, on [What you can do about AI crawlers today](/resources/ai-crawlers/).
+
+The edge function keeps these lists in configuration (KV store or inline config): the first two kinds in `bot_detection.user_agent_patterns`, the AI search crawlers in `bot_detection.ai_search_patterns`, with the provider's choice in `bot_detection.ai_search_policy` (see [Edge function deployment](/components/edge-function/deployment/)). A bot moves between lists when its vendor changes what it does, and leaves them when its vendor retires it.
+
+#### Search crawlers that also serve AI
+
+Googlebot, Bingbot and Applebot feed ordinary search and the AI features built on it: Google's AI Overviews and AI Mode, Bing's Copilot, Apple's Siri and Spotlight. The edge function never matches them, because refusing them takes the site out of search. These vendors treat their AI uses as allowed unless the site refuses them, so a provider refuses each use it has not offered with that vendor's own control, outside the edge function:
+
+- `Google-Extended` in `robots.txt`: Gemini training and grounding in Gemini Apps and Vertex AI. It does not affect Google Search.
+- The "Search generative AI" setting in Google Search Console: AI Overviews, AI Mode and Discover.
+- `Applebot-Extended` in `robots.txt`: Apple's model training. The `nosnippet` robots meta tag keeps a page out of Apple's AI answers.
+- Bing's page-level `ai-training` and `ai-grounding` settings: Microsoft's training and Copilot grounding.
+
+`Google-Extended` and `Applebot-Extended` are `robots.txt` tokens only. No crawler sends them as a User-Agent, so the edge function does not list them. The same holds for the `__usage_ai-training` token of [draft-kelley-aipref-training-preference-signal](https://datatracker.ietf.org/doc/draft-kelley-aipref-training-preference-signal/), which refuses training to every crawler that honors it.
 
 ### Layer 2: CDN-Native Bot Classification (0ms -- pre-computed)
 

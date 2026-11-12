@@ -54,6 +54,7 @@
 /getting-started/live-demo-music/
 /getting-started/poc-walkthrough/
 /getting-started/publisher-onboarding/
+/getting-started/search-only-contract/
 /getting-started/what-is-fora/
 /music/
 /protocol/
@@ -90,4 +91,6 @@
 /reference/proto-admin/
 /reference/proto-fora/
 /reference/standards/
+/resources/
+/resources/ai-crawlers/
 /security/threat-model/

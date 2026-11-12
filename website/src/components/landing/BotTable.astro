@@ -1,0 +1,57 @@
+---
+// The AI bot list (src/data/ai-bots.ts) as tables, one per kind, each with
+// what the refusal does for that kind. Each bot links to its vendor's page.
+import { AI_BOTS, CHECKED, type BotKind } from '../../data/ai-bots';
+
+const GROUPS: { kind: BotKind; title: string; rule: string }[] = [
+  { kind: 'training', title: 'Training and datasets', rule: 'Refused in robots.txt across the site, and a 403 on the paths you sell.' },
+  { kind: 'live-fetch', title: 'Live fetch', rule: 'A 403 on the paths you sell, where they can buy. Many don\'t follow robots.txt.' },
+  { kind: 'ai-search', title: 'AI search', rule: 'Your choice. Refusing one takes you out of that vendor\'s AI search.' },
+  { kind: 'search', title: 'Search crawlers that also feed AI', rule: 'Never refused: they bring your search traffic. Their AI uses are refused with the tokens and page settings below.' },
+  { kind: 'token', title: 'robots.txt tokens', rule: 'No crawler sends these names. They exist only to refuse a use in robots.txt.' },
+];
+const date = new Date(`${CHECKED}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+---
+<div class="bots">
+  {GROUPS.map((g) => (
+    <section class="bot-group">
+      <div class="bot-group-head"><h3>{g.title}</h3><p>{g.rule}</p></div>
+      <div class="bot-scroll">
+        <table>
+          <thead><tr><th scope="col">Name</th><th scope="col">Vendor</th><th scope="col">What it's for</th><th scope="col">Follows robots.txt</th>{g.kind !== 'training' && g.kind !== 'token' && <th scope="col">Refusing it costs</th>}</tr></thead>
+          <tbody>
+            {AI_BOTS.filter((b) => b.kind === g.kind).map((b) => (
+              <tr>
+                <th scope="row">{b.source ? <a href={b.source}><code>{b.name}</code></a> : <code>{b.name}</code>}</th>
+                <td>{b.vendor}</td>
+                <td>{b.purpose}</td>
+                <td>{b.kind === 'token' ? '—' : b.robots === 'yes' ? 'Yes' : b.robots === 'not always' ? 'Not always' : 'Not stated'}</td>
+                {g.kind !== 'training' && g.kind !== 'token' && <td>{b.cost ?? '—'}</td>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  ))}
+  <p class="bots-foot">From each vendor's own documentation, checked {date}. The list is also published as <a href="/registry/ai-bots.json">JSON</a>.</p>
+</div>
+
+<style>
+  .bots { display: grid; gap: 2.5rem; margin-top: 2.5rem; }
+  .bot-group { min-width: 0; }
+  .bot-group-head { display: grid; gap: 0.25rem; margin-bottom: 0.75rem; }
+  h3 { color: var(--lp-heading); font-size: 1.125rem; font-weight: 600; }
+  .bot-group-head p { color: var(--lp-text); line-height: 1.55; }
+  .bot-scroll { overflow-x: auto; }
+  table { width: 100%; min-width: 680px; border-collapse: collapse; font-size: 0.9375rem; line-height: 1.45; }
+  th, td { text-align: left; vertical-align: top; padding: 0.55rem 0.75rem 0.55rem 0; border-top: 1px solid var(--lp-rule); }
+  thead th { border-top: 0; font-size: 0.75rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--lp-label); }
+  tbody th { font-weight: 500; white-space: nowrap; }
+  td { color: var(--lp-text); }
+  code { font-family: var(--mono); font-size: 0.875rem; color: var(--lp-heading); }
+  a { color: var(--lp-link); text-decoration: none; }
+  a code { color: inherit; }
+  a:hover { text-decoration: underline; }
+  .bots-foot { font-size: 0.875rem; color: var(--lp-label); }
+</style>

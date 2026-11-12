@@ -182,8 +182,14 @@ interface EdgeConfigDocument {
 
   /** Bot detection configuration. */
   bot_detection: {
-    /** User-Agent substrings to match (case-insensitive). */
+    /** User-Agent substrings to match (case-insensitive): training crawlers
+     * and live fetchers, which get the 403 on licensed paths. */
     user_agent_patterns: string[];
+    /** User-Agent substrings of AI search crawlers (case-insensitive). */
+    ai_search_patterns?: string[];
+    /** What an AI search crawler gets on a licensed path: "allow" passes it
+     * through, "block" returns the 403. Defaults to "allow". */
+    ai_search_policy?: "allow" | "block";
     /** Whether to use CDN-native bot scoring (platform-specific). */
     use_cdn_bot_score: boolean;
     /** CDN bot score threshold (0-100, lower = more likely bot). */

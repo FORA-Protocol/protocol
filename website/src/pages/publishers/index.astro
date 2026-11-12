@@ -19,8 +19,10 @@ import TagStrip from '../../components/landing/TagStrip.astro';
 import FaqGrid from '../../components/landing/FaqGrid.astro';
 import LinkRow from '../../components/landing/LinkRow.astro';
 import ClosingCta from '../../components/landing/ClosingCta.astro';
+import ContractSteps from '../../components/landing/ContractSteps.astro';
 import SaleSteps from '../../components/SaleSteps.astro';
 import { EXAMPLES } from '../../data/license-examples';
+import { SEARCH_ONLY_CONTRACT_URL } from '../../consts';
 
 const ARTICLE = EXAMPLES.find((e) => e.id === 'article')!;
 const DEMO = '/getting-started/poc-walkthrough/';
@@ -45,6 +47,13 @@ const RESPONSE: [string, string][] = [
   ['X-Content-Rules', 'https://publisher.example/.well-known/fora.json'],
   ['X-FORA-Exchange', 'exchange.example'],
   ['Cache-Control', 'no-store'],
+];
+
+// The Search Only Terms Contract's robots.txt lines (https://m4ow.uk/socw/).
+const CONTRACT_LINES: [string, string][] = [
+  ['User-agent:', '*'],
+  ['tdl:', SEARCH_ONLY_CONTRACT_URL],
+  ['Allow:', '/'],
 ];
 
 const CONNECT = [
@@ -82,6 +91,14 @@ const FAQ = [
   {
     q: 'Do I have to block AI crawlers?',
     a: 'No. You choose the paths FORA protects, and every other path stays as it is. Your CDN\'s own bot rules keep working beside it.',
+  },
+  {
+    q: 'What can I do about AI crawlers today?',
+    a: 'Refuse AI training in the form each AI company honors, keep the search crawlers that bring your traffic, and put a contract and a price on the rest. <a href="/resources/ai-crawlers/">Every bot, and a generator for your robots.txt</a>.',
+  },
+  {
+    q: 'Will I drop out of ChatGPT answers or AI Overviews?',
+    a: 'No. AI Overviews, Copilot and Siri draw on Googlebot, Bingbot and Applebot, the same crawlers as ordinary search, and FORA lets them through. ChatGPT, Claude, Perplexity and Meta AI each run a search crawler of their own, and FORA lets those through too unless you choose otherwise. On your protected paths, the 403 goes to training crawlers and to bots that load a page live to answer a question: that is where an agent buys. <a href="/components/edge-function/bot-detection/">Which bot is which</a>.',
   },
   {
     q: 'What about AI training?',
@@ -152,6 +169,23 @@ const FAQ = [
   <span class="k">"fora_json_url"</span>: <span class="s">"https://publisher.example/.well-known/fora.json"</span>
 {'}'}</pre>
     </CodeCard>
+  </Band>
+
+  <Band
+    tone="light"
+    label="Do this today"
+    title="Put every crawler on notice"
+    lead="The Movement for an Open Web's Search Only Terms Contract keeps search free and puts the fee you set on every other access. It covers your open paths and the scrapers that hide what they are. <strong>An agent that wants more than search buys a license through FORA.</strong>"
+    asideWidth="440px"
+  >
+    <Fragment slot="intro">
+    <ContractSteps />
+    <LinkRow links={[
+      { href: '/resources/ai-crawlers/#generator', text: 'Generate your robots.txt and headers' },
+      { href: '/getting-started/search-only-contract/', text: 'How to adopt the contract' },
+    ]} />
+    </Fragment>
+    <CodeCard slot="aside" head="robots.txt" tag="search-only contract" rows={CONTRACT_LINES} label="The robots.txt lines that attach the search-only contract" />
   </Band>
 
   <Band tone="near" label="The six steps" title="How a sale works">

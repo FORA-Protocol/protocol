@@ -91,7 +91,11 @@ export default defineConfig({
 				{ tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
 			],
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/FORA-Protocol/protocol' }],
-			plugins: [starlightMermaid(), starlightLinksValidator()],
+			plugins: [
+				starlightMermaid(),
+				// The Resources pages are bespoke Astro pages, which the validator cannot see.
+				starlightLinksValidator({ exclude: ['/resources/', '/resources/**'] }),
+			],
 			components: {
 				Footer: './src/components/Footer.astro',
 				SocialIcons: './src/components/DocsSocialIcons.astro',
@@ -105,6 +109,7 @@ export default defineConfig({
 						{ label: 'Live Demo: Music', slug: 'getting-started/live-demo-music' },
 						{ label: 'For Providers', slug: 'getting-started/for-providers' },
 						{ label: 'Publisher Onboarding', slug: 'getting-started/publisher-onboarding' },
+						{ label: 'Search-Only Contract', slug: 'getting-started/search-only-contract' },
 						{ label: 'For Content Marketplaces', slug: 'getting-started/existing-marketplace' },
 						{ label: 'For AI Agents', slug: 'getting-started/for-ai-agents' },
 						{ label: 'How Money Flows', slug: 'getting-started/how-money-flows' },

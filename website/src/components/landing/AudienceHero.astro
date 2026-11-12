@@ -1,11 +1,12 @@
 ---
-// The hero of an audience landing page (/publishers/, /music/): the nav, a
+// The hero of a landing page (/publishers/, /music/, /resources/): the nav, a
 // badge, the heading, the lead and the buttons (default slot). With an `aside`
 // slot, the text moves left and the aside sits beside it.
 import SiteNav from '../SiteNav.astro';
+import type { LandingPageKey } from '../../consts';
 
 interface Props {
-  current: 'publishers' | 'music';
+  current: LandingPageKey;
   badge: string;
   /** The heading; may hold <br> and one <em> phrase, shown in blue. */
   title: string;

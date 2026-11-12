@@ -1,0 +1,133 @@
+---
+title: "Search-Only Contract"
+description: "Attach the Movement for an Open Web's Search Only Terms Contract to your site: free search indexing, a fee for every other access, and FORA as the place where that fee is paid."
+---
+
+The Movement for an Open Web (MOW) publishes the [Search Only Terms Contract](https://m4ow.uk/socw/), a contract for automated access to a website. It lets crawlers index your pages for search for free, and it sets a fee for every other access: training AI models, building embeddings and datasets, and generating AI summaries or AI-enriched answers. The contract is under the law of England and Wales.
+
+We recommend it to every FORA publisher, whether or not you run the FORA edge function. Each one does a different job:
+
+- The edge function stops the AI bots that name themselves, on the paths you protect, and tells them where to buy.
+- The contract covers what the edge function does not see: your open paths, and scrapers that hide what they are.
+- FORA is where the fee gets paid. An agent that wants more than search buys a license from your offers and gets a signed receipt, instead of running up a fee under the contract.
+
+Adopting it means setting your fee, adding the contract and the fee to your site's terms, and pointing `robots.txt` at it. Choosing it, and the fee, are your decisions. This page is not legal advice.
+
+## Adopt the contract
+
+You don't edit the contract. It is one fixed document at MOW's address, the same for every site, and you link to it. Your price goes in your own site's terms, which the contract points to. These steps follow MOW's [implementation guide](https://m4ow.uk/socw/), which warns that skipping a step can leave the contract unenforceable.
+
+1. **Link the official URL; don't host a copy.** Each version of the contract has a fixed URL that never changes. The current version is `https://m4ow.uk/socw/3.txt`. A new version gets a new URL.
+2. **Set your access fee.** The contract sets no default. It charges "a fee per Product accessed, in the amount set out in the Website Terms and Conditions" (clause 4.3), where a product "may include: an article, an item, an image, a video, an audio file or other media" (clause 4.3.2). Choose one fee for every product, or one per type. Set it on your own: the guide says each publisher "must set its Access Fee independently" and must not discuss or agree it with other publishers.
+3. **Add the contract and your fee to your site's terms**, with the guide's two pieces of mandatory wording, one after the other. Replace only what is in square brackets: the name of your terms, your clause numbers, and the amounts.
+
+   Wording (A) incorporates the contract:
+
+   ```text
+   [Clause #] These [terms of service] refer to and incorporate the following
+   additional terms, which also apply to your use of our [site]:
+
+   [Clause 1.1] Our Search Only Terms Contract: for Access and Use of Website
+   (available at the version-controlled URL published by MOW, currently being
+   the following link: https://m4ow.uk/socw/3.txt) governs access to the
+   Website and its content.
+
+   [Clause 1.2] If there is an inconsistency between any of the provisions of
+   these [Terms and Conditions] and the provisions of [Search Only Terms
+   Contract: for Access and Use of Website as linked above], the provisions of
+   the Search Only Terms Contract: for Access and Use of Website, the version
+   hosted at the referenced MOW URL shall prevail.
+   ```
+
+   Wording (B) sets your fee. Use clause 1.3 for one fee for every product:
+
+   ```text
+   [Clause 1.3] For the purposes of Clause 4.3 of the Search Only Terms
+   Contract: for Access and Use of Website, the Access Fee payable in respect of
+   each Product accessed as a result of an Access Event that is Unlicenced
+   Access is [£● (● pounds sterling)] exclusive of VAT, which shall be payable
+   in addition where applicable.
+   ```
+
+   Or this clause 1.3, for a fee per type of product:
+
+   ```text
+   [Clause 1.3] For the purposes of Clause 4.3 of the Search Only Terms
+   Contract: for Access and Use of Website, the Access Fee payable in respect of
+   each Product accessed as a result of an Access Event that is Unlicensed
+   Access is: (a) for each written work, £[●]; (b) for each image or
+   photographic work, £[●]; (c) for each video, £[●]; (d) for each audio work,
+   £[●]; and (e) for any other Product, £[●], in each case exclusive of VAT,
+   which shall be payable in addition where applicable.
+   ```
+
+   Then clause 1.4, with either version:
+
+   ```text
+   [Clause 1.4] The Access Fee is a contractual debt which becomes immediately
+   due and payable in accordance with Clause 4 of the Search Only Terms
+   Contract: for Access and Use of Website. Capitalised terms used in [Clauses
+   1.3 and 1.4] and not otherwise defined in these [Terms and Conditions] have
+   the meanings given to them in the Search Only Terms Contract: for Access and
+   Use of Website.
+   ```
+
+   Link your terms from every page, for example in the footer. When you change the fee, update your terms and archive them again.
+4. **Add the contract to your `robots.txt`.** The `tdl` (Terms Document Locator) line tells every crawler where the contract is:
+
+   ```
+   # License https://m4ow.uk/socw/3.txt
+   User-agent: *
+   tdl: https://m4ow.uk/socw/3.txt
+   Allow: /
+   ```
+
+   If your `robots.txt` already has a `User-agent: *` group, add the `tdl` line to that group instead of starting a second one.
+5. **Keep the evidence.** Take screenshots of the changes, and archive your `robots.txt` with the Internet Archive after you update it.
+
+### How a crawler finds your fee
+
+Nothing in `robots.txt` carries a price. The `tdl` line points to the contract, and the contract points to your terms. It "is incorporated into, and forms part of, the Website Operator's Website Terms and Conditions, published on the Website and accessible via a hyperlink or URL made available on the Website for that purpose (including, without limitation, in the website footer, navigation menu, or account registration interface)". Its clause 4.3 then takes the fee "in the amount set out in the Website Terms and Conditions".
+
+So a crawler that follows the chain goes from `robots.txt` to the contract to your terms, and finds the fee there. The contract binds by notice rather than by a field a machine parses, which is why the guide puts it in several places at once: `robots.txt`, your terms, and letters to the companies that run the crawlers.
+
+To make your terms as easy to find as the contract, link both from every page (see below). A price an agent can read, pay and get a receipt for, without a person reading your terms, is what your FORA offers are.
+
+### Mark every page
+
+The guide also allows links in each page's HTML `<head>`. Its own example lists more than one, so you can link the contract and your terms together:
+
+```html
+<link rel="terms-of-service" href="https://m4ow.uk/socw/3.txt" />
+<link rel="terms-of-service" href="https://publisher.example/terms" />
+```
+
+Or, where you can set response headers at your origin or on your CDN, as one `Link` header per document:
+
+```http
+Link: <https://m4ow.uk/socw/3.txt>; rel="terms-of-service"
+Link: <https://publisher.example/terms>; rel="terms-of-service"
+```
+
+## Keep your FORA terms in line with it
+
+The contract charges for everything beyond search. If your FORA terms give some of that away for free, they undercut the fee.
+
+- Keep search free, as the contract does.
+- Price AI input and AI training, or don't offer them. In the publisher console, set this in [Your terms](/getting-started/publisher-onboarding/#your-terms): its default allows AI input for free.
+
+A term can also name the contract as its license document, so an agent that reads your offers reads the same contract. Set `License.uri` to the contract's URL, `License.uri_digest` to its digest, and `License.immutable` to `true`, since the text at that URL never changes. For version 3:
+
+```
+uri:        https://m4ow.uk/socw/3.txt
+uri_digest: sha256:0ba4cfba7f5cb74a64ad58e42b4caa575b7b6faa3b21df62ea9ff718be55b2a7
+immutable:  true
+```
+
+The contract is under English law. If you publish in several countries, adopt it on the domains where that suits you. Each domain has its own terms and its own `robots.txt`.
+
+## Related
+
+- [Publisher Onboarding](/getting-started/publisher-onboarding/): register your domain and set your terms
+- [Bot Detection](/components/edge-function/bot-detection/): which AI bots the edge function stops
+- [Licensing Terms](/protocol/licensing-terms/): the `License` fields and how terms are read
