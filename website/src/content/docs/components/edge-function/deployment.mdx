@@ -41,7 +41,7 @@ The absolute minimum a provider needs to do:
 1. **Get an Exchange endpoint** from their Exchange operator (one-time business relationship).
 2. **Publish `fora.json`** on their own origin, at `/.well-known/fora.json`.
 3. **Deploy the edge function** from the package the Exchange operator's console builds, or with a Terraform module (see [Distribution Formats](#distribution-formats)).
-4. **Verify** -- `curl -I https://techcrunch.com/.well-known/fora.json` returns the origin's file through the edge function.
+4. **Verify** -- `curl -I https://news.example.com/.well-known/fora.json` returns the origin's file through the edge function.
 
 Target: **under 10 minutes** from Exchange operator contract to live edge function.
 
@@ -174,17 +174,18 @@ Cloudflare's zone protections, such as WAF managed rules and Bot Fight Mode, run
 
 ### What the Edge Function Needs to Know
 
-| Configuration Item | Source | Change Frequency | Example |
-|---|---|---|---|
-| Exchange domain | Provider-Exchange contract | Rarely | `exchange.ssp.com` |
-| Origin | Deployment config | Rarely | `https://origin.techcrunch.com`, or the CDN's own configured origin |
-| Protected path patterns | Provider editorial policy | Monthly | `["/premium/*", "/archive/*"]` |
-| Bot User-Agent patterns | FORA community list | Weekly | `["ClaudeBot", "GPTBot", ...]` |
-| Exchange key directory | Provider-Exchange contract | Rarely | `https://exchange.example/.well-known/http-message-signatures-directory` |
-| Pinned verify keys | Optional; skips the directory fetch | Rarely | `[{"kty":"OKP","crv":"Ed25519",...}]` |
-| Max URL TTL | Policy | Rarely | `300` (seconds) |
-| Single-use enabled | Policy | Rarely | `true` |
-| Agent binding enabled | Policy | Rarely | `false` |
+The edge worker reads a flat set of string settings. On Cloudflare Workers they are the Worker's variables, which the `cloudflare-edge` module sets from its inputs. On Lambda@Edge they are the JSON file built into the bundle. On Fastly Compute they are the service's environment. The worker reads no KV store and stores nothing of its own. [`CONFIGURATION.md`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/src/edge/CONFIGURATION.md) describes every setting, its default and what happens when it is wrong.
+
+| Setting | Required | What it is |
+|---|---|---|
+| `EXCHANGE_URL` | Yes | Base URL of the Exchange. The worker never calls it. |
+| `EXCHANGE_WBA_URL` | Yes | The Exchange's key directory, which the worker fetches to verify signed URLs |
+| `ORIGIN_URL` or `SAME_ZONE_ORIGIN` | On Cloudflare, one of the two; on Fastly, `ORIGIN_URL` | Where the worker sends the requests it lets through. On CloudFront, neither is set, and CloudFront fetches the origin itself. |
+| `FORA_VERIFY_KEYS` | No | Pinned Exchange public keys, which skip the directory fetch |
+| `LICENSED_PATHS_JSON` | No | The path prefixes the provider licenses. Unset means the whole site. |
+| `BOT_UA_ALLOW_JSON`, `BOT_UA_DENY_JSON` | No | Replace the built-in lists of search crawlers and AI bots |
+| `FORA_ENFORCE_BINDING` | No | `"false"` turns off the agent-binding check. Unset means the check runs. |
+| `WBA_KEYS_JSON`, `WBA_REVOCATION_URL`, `WBA_SIGNED_DIRECTORY_JSON` | No | The provider's own key directory, for a provider that self-attests |
 
 ### Discovery Headers on the 403
 
@@ -192,119 +193,31 @@ The edge function's refusal of an unlicensed bot carries the two FORA edge disco
 
 | Header | Value | Built from |
 |---|---|---|
-| `X-Content-Rules` | `https://techcrunch.com/.well-known/fora.json` | The host of the refused request. It is the URL of the provider's own manifest, which the provider serves from its origin, never an Exchange URL. |
-| `X-FORA-Exchange` | `exchange.ssp.com` | The Exchange domain, as a bare domain in the form of `Offer.exchange`. Send it only for an Exchange the provider's manifest lists, and only together with `X-Content-Rules`. |
+| `X-Content-Rules` | `https://news.example.com/.well-known/fora.json` | The host of the refused request. It is the URL of the provider's own manifest, which the provider serves from its origin, never an Exchange URL. |
+| `X-FORA-Exchange` | `exchange.example.net` | The Exchange domain, as a bare domain in the form of `Offer.exchange`. Send it only for an Exchange the provider's manifest lists, and only together with `X-Content-Rules`. |
 
 An agent that receives `X-FORA-Exchange` resolves the Exchange's endpoint from the Exchange's own `/.well-known/fora.json`, and treats the provider's manifest as the authority on which Exchanges sell the content. See [Edge discovery headers](/protocol/discovery-paths/#edge-discovery-headers) for the rules.
 
-### Configuration Sources
-
-```mermaid
-graph TD
-    subgraph "Config Sources"
-        ENV[Environment Variables<br/>Exchange directory URL,<br/>Exchange domain, mode flags]
-        KV[Edge KV Store<br/>Bot patterns,<br/>content policy]
-        INLINE[Inline / Compiled<br/>Protocol version]
-        CMS[CMS API<br/>Content policies,<br/>path rules]
-    end
-
-    subgraph "Edge Function"
-        CONFIG_LOADER[Config Loader<br/>Merges all sources<br/>Validates on load]
-        HANDLER[Request Handler]
-    end
-
-    ENV --> CONFIG_LOADER
-    KV --> CONFIG_LOADER
-    INLINE --> CONFIG_LOADER
-    CMS --> CONFIG_LOADER
-    CONFIG_LOADER --> HANDLER
-```
-
-**Merge order** (later overrides earlier):
-
-1. **Inline / compiled defaults** -- protocol version.
-2. **Environment variables** -- the Exchange key directory URL, the Exchange domain, mode flags. No secret: the edge holds public keys only.
-3. **Edge KV** -- bot patterns (updated frequently), content policy rules.
-4. **CMS API** -- dynamic content policy (which paths are newly protected/released). Only fetched if CMS integration is configured. Cached at edge with TTL.
-
-### Configuration Schema
-
-```typescript
-/**
- * Complete edge function configuration.
- * Serializable to JSON for storage in KV.
- * Secrets are resolved from environment, not stored here.
- */
-interface EdgeConfigDocument {
-  /** Config schema version (for forward compatibility). */
-  config_version: "1.0";
-
-  /** The X-FORA-Exchange value on a 403: the bare domain of an Exchange the
-   * provider's fora.json lists (e.g. "exchange.example"), never a URL. */
-  exchange_domain?: string;
-
-  /** Content access policy. */
-  content_policy: {
-    /** Default policy for paths not matching any rule. */
-    default: "open" | "licensed" | "blocked";
-    /** Path-specific rules. Evaluated in order, first match wins. */
-    rules: Array<{
-      /** Glob pattern (e.g. "/premium/*"). */
-      pattern: string;
-      /** Policy for matching paths. */
-      policy: "open" | "licensed" | "blocked";
-    }>;
-  };
-
-  /** Bot detection configuration. */
-  bot_detection: {
-    /** User-Agent substrings to match (case-insensitive): training crawlers
-     * and live fetchers, which get the 403 on licensed paths. */
-    user_agent_patterns: string[];
-    /** User-Agent substrings of AI search crawlers (case-insensitive). */
-    ai_search_patterns?: string[];
-    /** What an AI search crawler gets on a licensed path: "allow" passes it
-     * through, "block" returns the 403. Defaults to "allow". */
-    ai_search_policy?: "allow" | "block";
-    /** Whether to use CDN-native bot scoring (platform-specific). */
-    use_cdn_bot_score: boolean;
-    /** CDN bot score threshold (0-100, lower = more likely bot). */
-    cdn_bot_score_threshold?: number;
-  };
-
-  /** Signed URL verification configuration. */
-  signing: {
-    /** Exchange key directory the edge resolves `kid` against. */
-    exchange_wba_url: string;
-    /** Optional pinned public keys; a covering `kid` skips the fetch. */
-    verify_keys?: JsonWebKey[];
-    /** Whether to enforce agent identity binding. Defaults to true. */
-    enforce_binding: boolean;
-    /** Whether to enforce single-use URLs (best-effort, see Section 5.3). */
-    single_use_enabled: boolean;
-  };
-}
-```
-
 ## Secrets Management
 
-- **The edge function holds no secret.** It verifies with a public key, so its signing configuration is a directory URL and, optionally, pinned public keys. Neither is confidential, and both may live in plain configuration or KV.
-- Configuration is loaded once at function initialization (cold start), not per-request. Where a deployment does carry a secret for unrelated reasons, it belongs in the platform secret store, never in KV.
+The edge function holds no secret. It verifies signed URLs with the Exchange's public keys, fetched from the key directory or pinned in `FORA_VERIFY_KEYS`, so every setting is plain configuration and none needs a secret store.
 
 ### Platform-Specific Wrangler Deployment (Cloudflare)
 
-For Cloudflare Workers, use `wrangler` for deployment:
+To deploy the Cloudflare Worker with Wrangler instead of Terraform, set its routes and variables in `src/edge/wrangler.toml`, in an environment block such as `[env.production]`. Then deploy from a checkout of the reference implementation:
 
 ```bash
+cd src/edge
+npm ci
+
 # Local development
-cd packages/edge-function && npx wrangler dev
+npx wrangler dev
 
-# Production deploy
-cd packages/edge-function && npx wrangler deploy
-
-# Point the worker at the Exchange key directory
-npx wrangler deploy --var EXCHANGE_WBA_URL=https://exchange.example/.well-known/http-message-signatures-directory
+# Deploy the environment block you filled in
+npx wrangler deploy --env production
 ```
+
+[`DEPLOYMENT.md`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/src/edge/DEPLOYMENT.md) walks through each step, including the zone settings Wrangler does not change.
 
 ### CDN-Specific Deployment Commands
 
@@ -335,7 +248,7 @@ After deployment, verify with these checks:
 
 1. `GET /.well-known/fora.json` with bot User-Agent returns the origin's file with `200 OK`. A `404` means the site has no file at that address. A `403` means something on the site refuses AI agents there, and they have to be let through.
 2. `GET /rsl.txt` with bot User-Agent returns the origin's answer: valid RSL content with `200 OK`, or the origin's `404` if the provider has no RSL file.
-3. `GET /premium/article.html` with bot User-Agent returns `403` with `X-Content-Rules` set to the provider's own `https://<domain>/.well-known/fora.json`, and, when configured, `X-FORA-Exchange` set to the bare domain of an Exchange that manifest lists (for example `exchange.ssp-example.com`, not a URL).
+3. `GET /premium/article.html` with bot User-Agent returns `403` with `X-Content-Rules` set to the provider's own `https://<domain>/.well-known/fora.json`, and, when configured, `X-FORA-Exchange` set to the bare domain of an Exchange that manifest lists (for example `exchange.example.net`, not a URL).
 4. `GET /premium/article.html` with valid signed URL returns `200`.
 5. `GET /premium/article.html` with expired signed URL returns `403`.
 6. `GET /premium/article.html` with tampered signed URL returns `403`.
