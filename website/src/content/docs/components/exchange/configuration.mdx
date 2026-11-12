@@ -49,13 +49,13 @@ transaction_log:
 tenants:
   - id: "hearst-media"
     domains:
-      - "cosmopolitan.com"
-      - "esquire.com"
-      - "elle.com"
+      - "style.example"
+      - "outdoors.example"
+      - "home.example"
     rsl_urls:
-      cosmopolitan.com: "https://cosmopolitan.com/license.xml"
-      esquire.com: "https://esquire.com/license.xml"
-      elle.com: "https://elle.com/license.xml"
+      style.example: "https://style.example/license.xml"
+      outdoors.example: "https://outdoors.example/license.xml"
+      home.example: "https://home.example/license.xml"
     rsl_poll_interval: "5m"
     content_base_url: "https://cdn.hearst.com"
     cdn_type: "cloudfront"
@@ -81,10 +81,10 @@ tenants:
       agent_dispute_rate_warning: 0.03                     # 3% warning threshold
       agent_dispute_rate_block: 0.05                       # 5% blocking threshold
 
-  - id: "techcrunch-com"
-    domains: ["techcrunch.com"]
+  - id: "news-example"
+    domains: ["news.example"]
     rsl_urls:
-      techcrunch.com: "https://techcrunch.com/license.xml"
+      news.example: "https://news.example/license.xml"
     # ...
 ```
 
@@ -209,7 +209,7 @@ The tiers size each resource in tokens for `unit_cost`, the comparison metric. T
 
 ```
 1. Crawl sitemap.xml for each tenant domain → discover all content URLs
-2. Fetch each domain's RSL license from its `rsl_urls` entry → parse pricing, restrictions, terms
+2. Check for an RSL license at each domain → parse pricing, restrictions, terms
 3. If no RSL license: fall back to tenant-level defaults from config
 4. Build OfferTemplates from merged data (sitemap URLs + RSL pricing + tenant defaults)
 5. Atomic pointer swap into CatalogSnapshot

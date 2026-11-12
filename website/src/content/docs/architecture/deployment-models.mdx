@@ -74,7 +74,7 @@ The provider deploys the edge function themselves using tooling provided by FORA
    ```bash
    npx @fora/edge-deploy --cdn cloudfront --exchange exchange.ssp.com
    ```
-3. Provider publishes `fora.json`, and `rsl.txt` if it has one, on its own origin; the edge function passes both through to it
+3. Provider publishes `fora.json`, and an RSL license kept at `/rsl.txt` if it has one, on its own origin; the edge function passes both through to it
 4. Provider manages their own CDN access and can customize bot detection rules
 
 ### Supported CDNs
@@ -100,7 +100,7 @@ A CMS plugin (WordPress, Drupal, Ghost, Django) that integrates with the FORA pr
 
 ### What the Plugin Does
 
-1. **Generates an RSL license** from the CMS content structure, and names it in `robots.txt` with a `License:` line
+1. **Auto-generates an RSL license** from the CMS content structure
 2. **Pushes content metadata to the Exchange** via `CatalogService.PushResources`
 3. **Adds `/.well-known/fora.json` response** via CMS routing
 

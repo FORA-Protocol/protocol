@@ -11,6 +11,7 @@ The Exchange is both an RSL consumer (ingesting a provider's RSL license to buil
 sequenceDiagram
     participant MP as Exchange
     participant PUB as Provider's Origin (no RSL license yet)
+    participant EDGE as Edge Function
     participant AGENT as AI Agent
 
     Note over PUB,MP: Tenant onboarded with defaults
@@ -19,12 +20,12 @@ sequenceDiagram
     MP->>MP: Generate RSL license from catalog
 
     MP-->>PUB: Generated RSL XML, handed over by the operator
-    Note over PUB: Provider publishes it at a URL of its choice<br/>and names it in robots.txt with a License: line
+    Note over PUB: Provider publishes it at /rsl.txt
 
-    AGENT->>PUB: GET /robots.txt
-    PUB-->>AGENT: License: https://publisher.example/license.xml
-    AGENT->>PUB: GET /license.xml
-    PUB-->>AGENT: The generated RSL license
+    AGENT->>EDGE: GET /rsl.txt
+    EDGE->>PUB: Forward the request
+    PUB-->>EDGE: RSL license
+    EDGE-->>AGENT: The origin's answer, unchanged
 ```
 
 ## RSL Generator
@@ -138,7 +139,7 @@ For a tenant with defaults "flat, $0.05, permits ai-input + search, prohibits ai
 
 ## Serving the Generated RSL
 
-The provider publishes the generated document on its own origin, at a URL it chooses, and replaces it when the catalog changes. RSL 1.0 fixes no file name. The provider points to the document with a `License:` line in `robots.txt` or another carrier that [Where an RSL license is found](/protocol/standards-layering/#where-an-rsl-license-is-found) lists.
+The provider publishes the generated document at `/rsl.txt` on its own origin, and replaces it when the catalog changes. The edge function [passes that address through](/components/edge-function/overview/#forajson-and-rsltxt-pass-through) for every client, so an agent reads the file the provider published.
 
 ## FORA Sitemap Namespace (XSD)
 
