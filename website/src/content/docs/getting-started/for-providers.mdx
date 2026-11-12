@@ -126,7 +126,7 @@ You set your prices through your Exchange operator. Pricing models include:
 | Subscription | flat | Unlimited access for $500/month |
 | Free | any | Public domain content, metered for tracking |
 
-You can also declare your pricing and terms in an RSL license: an XML file at any address on your site, named in your `robots.txt` with a `License:` line. The publisher console reads it and fills in your terms from it. See [Where an RSL license is found](/protocol/standards-layering/#where-an-rsl-license-is-found) for the other ways RSL lets you point to it.
+You can also declare your pricing and terms in an RSL license, an XML file on your site. The publisher console looks for it at `/rsl.txt`, then at each address a `License:` line in your `robots.txt` names, and fills in your terms from it when its form can express them. Keep the license at `/rsl.txt` and name it in `robots.txt` with `License: https://<your domain>/rsl.txt`: behind the FORA edge package, `/rsl.txt` is the [only license address that every visitor reaches](/components/edge-function/overview/#forajson-and-rsltxt-pass-through), AI agents included. See [Where an RSL license is found](/protocol/standards-layering/#where-an-rsl-license-is-found) for the other ways RSL lets you point to a license.
 
 ## What Changes vs. Today
 

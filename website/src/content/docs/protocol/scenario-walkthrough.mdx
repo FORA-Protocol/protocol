@@ -21,16 +21,22 @@ Before any agent request, providers configure their domains and Exchanges ingest
 
 ### 0a. Hearst (TechCrunch) — RSL + fora.json
 
-**RSL license** — declares licensing terms and a maximum rate (price ceiling). `robots.txt` names it with `License: https://techcrunch.com/license.xml`:
+**RSL license** — declares licensing terms and a maximum rate (price ceiling). The provider keeps it at `/rsl.txt`, which the edge function passes through, and names it in `robots.txt` with a `License:` line:
 
 ```xml
-<!-- https://techcrunch.com/license.xml -->
-<content url="/premium/*">
-  <permits type="usage">ai-input ai-index search</permits>
-  <prohibits type="usage">ai-train</prohibits>
-  <payment type="crawl" currency="USD" amount="0.08"/>
-  <!-- RSL amount is the MAXIMUM (price ceiling). Exchange may offer at or below. -->
-</content>
+<!-- GET /rsl.txt -->
+<rsl xmlns="https://rslstandard.org/rsl">
+  <content url="/premium/*">
+    <license>
+      <permits type="usage">ai-input ai-index search</permits>
+      <prohibits type="usage">ai-train</prohibits>
+      <payment type="crawl">
+        <amount currency="USD">0.08</amount>
+      </payment>
+      <!-- RSL amount is the MAXIMUM (price ceiling). Exchange may offer at or below. -->
+    </license>
+  </content>
+</rsl>
 ```
 
 **fora.json** — declares which Exchange is authorized to transact:
