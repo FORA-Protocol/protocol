@@ -20,14 +20,8 @@ The absolute minimum a provider needs to do:
 
 1. **Get an Exchange endpoint** from their Exchange operator (one-time business relationship).
 2. **Publish `fora.json`** on their own origin, at `/.well-known/fora.json`.
-3. **Deploy the edge function** using the [Terraform module](https://github.com/FORA-Protocol/protocol/tree/main/terraform/aws-fora-edge/).
+3. **Deploy the edge function** from the package the Exchange operator's console builds, or with the reference implementation's Terraform module for CloudFront or Cloudflare. See [Distribution Formats](/components/edge-function/deployment/#distribution-formats).
 4. **Verify** -- `curl -I https://example.com/.well-known/fora.json` returns the origin's file through the edge function.
-
-import { Aside } from '@astrojs/starlight/components';
-
-<Aside type="tip">
-The `@fora/cli` tool is planned to automate this process. For now, deploy manually -- see [Edge Function Deployment](/components/edge-function/deployment/).
-</Aside>
 
 Target: **under 10 minutes** from Exchange operator contract to live edge function.
 
