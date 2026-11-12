@@ -3,7 +3,7 @@
 // response headers, HTML tags and manual steps out. The rules come from
 // src/lib/ai-rules.ts, which renders the default here and every change in the
 // browser, so the page reads right without scripts too.
-import { buildRules, DEFAULT_CHOICES } from '../../lib/ai-rules';
+import { buildRules, DEFAULT_CHOICES, DEFAULT_TERMS_URL } from '../../lib/ai-rules';
 
 const initial = buildRules(DEFAULT_CHOICES);
 ---
@@ -12,6 +12,10 @@ const initial = buildRules(DEFAULT_CHOICES);
     <legend>Your choices</legend>
     <label><input type="checkbox" data-opt="visible" checked={DEFAULT_CHOICES.visible} /> <span><b>Stay visible in AI search and answers.</b> Let ChatGPT search, Claude, Perplexity and Copilot index and cite your pages.</span></label>
     <label><input type="checkbox" data-opt="contract" checked={DEFAULT_CHOICES.contract} /> <span><b>Attach the search-only contract.</b> Free search, and a fee for every other access.</span></label>
+    <div class="gen-terms" data-terms>
+      <label for="gen-terms-url">Your terms page, where you set the fee</label>
+      <input id="gen-terms-url" type="url" inputmode="url" spellcheck="false" autocapitalize="none" placeholder={DEFAULT_TERMS_URL} data-opt-text="termsUrl" />
+    </div>
     <label><input type="checkbox" data-opt="eu" checked={DEFAULT_CHOICES.eu} /> <span><b>Add the EU reservation signals.</b> TDMRep and Content Signals: a machine-readable reservation of text and data mining.</span></label>
   </fieldset>
 
@@ -45,6 +49,21 @@ const initial = buildRules(DEFAULT_CHOICES);
   label { display: grid; grid-template-columns: auto 1fr; gap: 0.75rem; color: var(--light-gray); line-height: 1.5; cursor: pointer; }
   label b { color: var(--white); font-weight: 600; display: block; }
   input[type='checkbox'] { width: 1.125rem; height: 1.125rem; margin-top: 0.2rem; accent-color: var(--accent); }
+  .gen-terms { display: grid; gap: 0.375rem; padding-left: 1.875rem; }
+  .gen-terms[hidden] { display: none; }
+  .gen-terms label { display: block; font-size: 0.875rem; color: var(--gray); cursor: default; }
+  .gen-terms input {
+    width: 100%;
+    font: inherit;
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    padding: 0.5rem 0.625rem;
+    border: 1px solid var(--mid);
+    border-radius: 6px;
+    background: var(--black);
+    color: var(--white);
+  }
+  .gen-terms input::placeholder { color: var(--gray); }
   .gen-out { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.75rem; min-width: 0; }
   .gen-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.375rem; }
   h3 { color: var(--white); font-size: 1.125rem; font-weight: 600; }
@@ -94,7 +113,9 @@ const initial = buildRules(DEFAULT_CHOICES);
     const out = (k: string) => root.querySelector<HTMLElement>(`[data-out="${k}"]`)!;
 
     const render = () => {
-      const rules = buildRules({ visible: opt('visible'), contract: opt('contract'), eu: opt('eu') });
+      const termsField = root.querySelector<HTMLInputElement>('[data-opt-text="termsUrl"]')!;
+      root.querySelector<HTMLElement>('[data-terms]')!.hidden = !opt('contract');
+      const rules = buildRules({ visible: opt('visible'), contract: opt('contract'), eu: opt('eu'), termsUrl: termsField.value });
       out('robots').textContent = rules.robots;
       out('headers').textContent = rules.headers;
       out('html').textContent = rules.html;
@@ -103,6 +124,7 @@ const initial = buildRules(DEFAULT_CHOICES);
     };
 
     root.querySelectorAll<HTMLInputElement>('[data-opt]').forEach((i) => i.addEventListener('change', render));
+    root.querySelector<HTMLInputElement>('[data-opt-text="termsUrl"]')!.addEventListener('input', render);
     root.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((b) =>
       b.addEventListener('click', async () => {
         try {

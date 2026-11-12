@@ -19,7 +19,7 @@ export const CONTRACT_STEPS: ContractStep[] = [
   },
   {
     title: 'Add the contract to your site\'s terms.',
-    text: `Two pieces of wording from MOW's <a href="${CONTRACT_GUIDE_URL}">guide</a>: (A) incorporates the contract by its fixed URL, and (B) states your fee. You link the contract and never copy or edit it.`,
+    text: `Paste two pieces of wording from MOW's <a href="${CONTRACT_GUIDE_URL}">guide</a> into your terms page and fill in the brackets: (A) incorporates the contract by its fixed URL, and (B) states your fee. The contract itself stays unchanged; it points to your terms for the fee. <a href="/getting-started/search-only-contract/#adopt-the-contract">The wording</a>.`,
   },
   {
     title: 'Add it to robots.txt.',
