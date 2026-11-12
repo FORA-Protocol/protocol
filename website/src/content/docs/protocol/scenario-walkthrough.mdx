@@ -21,7 +21,7 @@ Before any agent request, providers configure their domains and Exchanges ingest
 
 ### 0a. Hearst (TechCrunch) — RSL + fora.json
 
-**RSL license** — declares licensing terms and a maximum rate (price ceiling). The provider keeps it at `/rsl.txt`, which the edge function passes through, and names it in `robots.txt` with a `License:` line:
+**RSL license** — declares licensing terms and a rate of $0.08 per crawl, which Hearst treats as the most any Exchange may charge for this content. The provider keeps it at `/rsl.txt`, which the edge function passes through, and names it in `robots.txt` with a `License:` line:
 
 ```xml
 <!-- GET /rsl.txt -->
@@ -33,7 +33,6 @@ Before any agent request, providers configure their domains and Exchanges ingest
       <payment type="crawl">
         <amount currency="USD">0.08</amount>
       </payment>
-      <!-- RSL amount is the MAXIMUM (price ceiling). Exchange may offer at or below. -->
     </license>
   </content>
 </rsl>
@@ -121,7 +120,7 @@ SSP-Alpha's Resource Ingestion Pipeline runs in the background:
 
 ```
 1. Crawl techcrunch.com/sitemap.xml -> discover all /premium/* URLs
-2. Fetch the RSL license robots.txt names -> extract permits/prohibits and RSL pricing ceiling ($0.08/crawl)
+2. Fetch the RSL license robots.txt names -> extract permits/prohibits and its rate ($0.08/crawl), Hearst's cap
 3. HTML crawl via readability -> extract text -> word count -> estimate tokens
 4. Apply Hearst's private pricing (from SSP-Alpha config DB): $0.05/article
    (Below the RSL ceiling of $0.08 — compliant)
