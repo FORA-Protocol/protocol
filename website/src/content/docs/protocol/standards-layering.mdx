@@ -9,7 +9,7 @@ FORA does not replace RSL or CoMP. The three standards work together, each handl
 
 | Standard | What It Does | Provider Action | File / Endpoint |
 |---|---|---|---|
-| **RSL 1.0** | Declares licensing terms and pricing | Drop `rsl.txt` on domain | `rsl.txt` |
+| **RSL 1.0** | Declares licensing terms and pricing | Publish an RSL license and point to it | Any URL, named by a `License:` line in `robots.txt` or another [RSL carrier](#where-an-rsl-license-is-found) |
 | **CoMP V1** | Defines content metadata objects | (Used internally by Exchange) | -- |
 | **C2PA 2.x** | Content provenance and authenticity | Embed Content Credentials in assets | (In-asset or sidecar manifest) |
 | **FORA** | Transaction protocol + discovery | Drop `fora.json` on domain | `/.well-known/fora.json` |
@@ -39,13 +39,13 @@ Every FORA request signature is a conformant signature under that draft, so a CD
 
 ```mermaid
 graph TB
-    subgraph "Provider drops two files"
-        RSL["rsl.txt<br/><i>Pricing, permits, prohibits</i>"]
+    subgraph "Provider publishes"
+        RSL["RSL license<br/><i>Pricing, permits, prohibits</i>"]
         PJ["fora.json<br/><i>Exchange routing</i>"]
     end
 
     subgraph "Exchange"
-        Ingest["Resource Ingestion<br/><i>Crawls rsl.txt, builds catalog</i>"]
+        Ingest["Publisher console<br/><i>Reads the RSL license,<br/>fills in the terms the provider saves</i>"]
         Catalog["Resource Catalog<br/><i>CoMP Package + Scope objects<br/>with FORA Pricing + Restrictions</i>"]
         RPC["ExchangeService RPCs<br/><i>DiscoverResources<br/>ExecuteTransaction<br/>ReportUsage</i>"]
     end
@@ -54,7 +54,7 @@ graph TB
         Agent["AI Agent"]
     end
 
-    RSL -->|ingested by| Ingest
+    RSL -->|read by| Ingest
     Ingest --> Catalog
     Catalog --> RPC
     PJ -->|read by| Agent
@@ -63,7 +63,7 @@ graph TB
 
 A provider that wants to monetize AI traffic does two things:
 
-1. **Drops `rsl.txt`** -- declares pricing and usage terms. The Exchange reads this file and builds its resource catalog from it.
+1. **Sets its terms** -- pricing and usage rules, in the publisher console. A provider that publishes an RSL license finds the console's terms form filled in from it. The Exchange's catalog carries the terms the provider saves.
 2. **Drops `fora.json`** -- declares which Exchanges are authorized to sell this provider's resources. Agents read this file to find where to transact.
 
 Everything else is handled by the Exchange and the protocol.
@@ -101,20 +101,31 @@ graph LR
 
 ## RSL Integration
 
-The Exchange ingests the provider's `rsl.txt` to build its resource catalog:
+### Where an RSL license is found
 
-1. RSL declares terms (pricing, usage rules, path policies)
-2. The Exchange operationalizes those terms into live FORA Offers
-3. Provider manages one file (`rsl.txt`), Exchange does the rest
+An RSL license is an XML document, of media type `application/rsl+xml`, at any URL the provider chooses. RSL 1.0 fixes no file name. It defines five ways to associate a license with content, and states that "all mechanisms are functionally equivalent; clients MUST honor whichever is provided" ([RSL 1.0, §4.2](https://rslstandard.org/rsl#_4-2-discovery-and-association-mechanisms)):
+
+| Carrier | What the provider adds | RSL 1.0 |
+|---|---|---|
+| `robots.txt` | A `License:` line with the license's absolute URL, for all crawlers or inside one `User-agent` group | [§4.4](https://rslstandard.org/rsl#_4-4-robots-txt-license-association) |
+| HTTP header | `Link: <https://publisher.example/license.xml>; rel="license"; type="application/rsl+xml"` on a response | [§4.5](https://rslstandard.org/rsl#_4-5-http-header-license-association) |
+| HTML | A `<link rel="license" type="application/rsl+xml">` element, or the license embedded in a `<script type="application/rsl+xml">` element | [§4.6](https://rslstandard.org/rsl#_4-6-html-license-association) |
+| RSS feed | An `<rsl:content>` element inside each licensed `<item>` | [§4.7](https://rslstandard.org/rsl#_4-7-rss-license-association) |
+| Media or data file | The license in the file's metadata, such as XMP, ID3 or EPUB `<metadata>` | [§4.8](https://rslstandard.org/rsl#_4-8-media-and-data-file-association) |
+
+The shortest setup is one line in `robots.txt`:
+
+```
+License: https://publisher.example/license.xml
+```
+
+When several licenses apply to the same content, the most specific one takes precedence, and clients honor the most restrictive combination of conflicting terms ([§4.9](https://rslstandard.org/rsl#_4-9-precedence-and-specificity)).
+
+### How FORA Server reads it
+
+The publisher console reads a provider's RSL license when the provider opens the terms step for a domain. It requests `/rsl.txt` on the domain first, then each address on the same host that a `License:` line in the domain's `robots.txt` names. It maps the license's rule for a page of the domain to FORA terms, and opens the terms form on them when the form can express them. The provider confirms or changes the form, and the Exchange's catalog carries the terms the provider saves.
 
 RSL pricing is a **fallback hint and price ceiling**. The Exchange is the price authority. Private pricing (negotiated between provider and Exchange operator) may be lower than RSL's published rate but cannot exceed it.
-
-```
-Provider drops rsl.txt + fora.json on their domain
-  -> Exchange crawls rsl.txt -> builds resource catalog with pricing
-  -> Agent checks fora.json -> finds Exchange -> DiscoverResources
-  -> Exchange returns Offers derived from RSL terms
-```
 
 RSL permits and prohibits map directly to FORA `Restriction` entries carried on each `LicenseTerm.restrictions` (on that term's own offer, at `Offer.terms[0]`):
 
@@ -172,7 +183,7 @@ FORA adds its own objects on top of CoMP:
 +----------------------------------------------------------+
 |                                                          |
 |  +----------+   Provider declares terms                 |
-|  |  RSL 1.0 |   rsl.txt: pricing, permits, prohibits    |
+|  |  RSL 1.0 |   license: pricing, permits, prohibits    |
 |  +----+-----+                                            |
 |       | ingested by                                      |
 |       v                                                  |
@@ -256,11 +267,11 @@ FORA covers metered access to resources that exist before the transaction:
 
 ## Discovery: Three Complementary Files
 
-Discovery uses three files that work together. FORA itself defines one well-known file -- `/.well-known/fora.json` -- which every participant serves; the `role` field says which participant it is (provider, exchange, agent, publisher). The other two are existing web standards:
+Discovery uses three documents that work together. FORA itself defines one well-known file -- `/.well-known/fora.json` -- which every participant serves; the `role` field says which participant it is (provider, exchange, agent, publisher). The other two are existing web standards:
 
 ```
 robots.txt              -> who can crawl (existing standard)
-rsl.txt                 -> licensing terms and pricing signals (RSL 1.0)
+RSL license             -> licensing terms and pricing signals (RSL 1.0, any URL)
 fora.json              -> role-tagged WellKnownManifest (FORA, all participants)
 ```
 
@@ -295,7 +306,7 @@ An Exchange serves its `fora.json` (`role=ROLE_EXCHANGE`) declaring:
 }
 ```
 
-Content policy (what is licensed, what is free, what is blocked) lives in `rsl.txt` only -- no duplication.
+Content policy (what is licensed, what is free, what is blocked) lives in the RSL license only -- no duplication.
 
 ## FORA in the Universal Agent Protocol Stack
 
