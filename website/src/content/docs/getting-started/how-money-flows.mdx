@@ -61,7 +61,7 @@ Providers set their preferred pricing model and rate in their RSL file. The Exch
 
 Different pricing models make direct comparison difficult. An article priced at $0.05 per access is not directly comparable to a resource priced at $0.00002 per token.
 
-**unit_cost** normalizes all pricing to a per-unit basis, analogous to eCPM in advertising. It is stated in the comparison unit of the content type: tokens for text, seconds for audio and video, pages for documents, records for data.
+**unit_cost** normalizes all pricing to a per-unit basis, analogous to eCPM in advertising. It is stated in the comparison unit of the content type: tokens for text, seconds for video, records for data, calls for APIs.
 
 ```
 unit_cost = price of one purchase / size of the resource in the comparison unit
@@ -72,8 +72,8 @@ The denominator is the size of the resource, **not** `estimated_quantity`. `esti
 For example:
 - Article at $0.05 per access (`unit: "accesses"`, `estimated_quantity: 1`), 3,300 tokens long: unit_cost = $0.05 / 3,300 = $0.00001515 per token
 - Per-token pricing at $0.00002 (`unit: "tokens"`): unit_cost = $0.00002 per token, the rate itself
-- Per-page at $0.10 (`unit: "pages"`, `estimated_quantity: 15`): unit_cost = $0.10 per page, the rate itself
-- Audio at $0.50 per minute (`unit: "minutes"`, `estimated_quantity: 45`): unit_cost = $0.50 / 60 = $0.0083 per second
+- Data at $0.002 per record (`unit: "records"`, `estimated_quantity: 500`): unit_cost = $0.002 per record, the rate itself
+- Video at $0.50 per minute (`unit: "minutes"`, `estimated_quantity: 45`): unit_cost = $0.50 / 60 = $0.0083 per second
 
 The Broker uses `unit_cost` to compare offers across Exchanges and pricing models, selecting the most cost-effective option regardless of how the provider originally priced it.
 
