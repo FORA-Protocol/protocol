@@ -1,11 +1,11 @@
 ---
 title: "Broker"
-description: "The FORA Broker finds offers for an AI agent. From a list of URLs or a request in plain words, it reaches the Exchanges that sell each resource, checks their signed offers, returns them in an order it chooses, and can buy them in one call."
+description: "The FORA Broker finds offers for an AI agent. From a list of URLs or a request in plain words, it reaches the Exchanges that sell each resource, checks their signed offers, returns them in order of relevance, and can buy them in one call."
 ---
 
 An AI agent often knows what it needs but not who sells it. Each publisher names the Exchanges that sell its content, and an agent that asks each one in turn spends its time on lookups. A Broker does that work in one step: the agent sends one request, a list of URLs or a description in plain words, and gets back signed offers from the Exchanges that sell those resources, grouped by resource.
 
-Each offer is a full package: the license terms, the resource's identity and attestations, and the price, all signed by the Exchange. The Broker presents the offers in an order it chooses, which is why an agent works with a Broker it trusts, and the agent decides which offer to take. The Broker is optional: an agent can always call the Exchanges itself, with the same protocol.
+Each offer is a full package: the publisher's brand, the license terms, the attestations and the price, all signed by the Exchange. Who the agent buys from matters as much as what it costs. The Broker presents the offers in order of relevance, as it judges it, which is why an agent works with a Broker it trusts, and the agent decides which offer to take. The Broker is optional: an agent can always call the Exchanges itself, with the same protocol.
 
 ## How a request becomes offers
 
