@@ -114,15 +114,15 @@ Viewability Report       →  Usage Report
 **FORA adds:**
 - A Exchange service (Go binary, stateless, horizontally scalable)
 - An edge function deployed to provider CDNs (bot blocking + signed URL verification)
-- A resource catalog built from provider `rsl.txt` files and CMS integrations
+- A resource catalog imported from provider sitemaps, with the terms each provider sets in the publisher console
 
 ## Provider Onboarding
 
 For each provider, you:
 
 1. Generate their `fora.json` and have them publish it on their origin: the file they serve proves they control the domain and names your Exchange
-2. Ingest their `rsl.txt` to build a resource catalog with pricing
-3. Configure their pricing tier (the `rsl.txt` rate is a ceiling; your private rate can be lower)
+2. Import their pages from their sitemap into the catalog, with the terms they set in the publisher console, which fills them in from their RSL license when they publish one
+3. Configure their pricing tier (the rate in their RSL license is a ceiling; your private rate can be lower)
 4. Authorize `catalog_contributors` -- third-party verification vendors the provider permits to push attestations for their content
 5. If applicable, deploy the FORA edge function to their delivery endpoint (CDN, API gateway, PACS server) for signed URL verification
 6. Done. Their content is now available to AI requesters through your Exchange
