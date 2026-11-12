@@ -13,3 +13,32 @@ import Default from '@astrojs/starlight/components/MarkdownContent.astro';
   const boxes = [...document.querySelectorAll<HTMLElement>('.sl-markdown-content .mermaid')];
   renderMermaid(boxes);
 </script>
+
+<style is:global>
+  /* A diagram wider than the column scrolls inside its own frame, never the page. */
+  .sl-markdown-content .mermaid {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  .sl-markdown-content .mermaid:is([data-status='rendered'], [data-status='error']) {
+    padding: 0.75rem;
+    border: 1px solid var(--sl-color-hairline-light);
+    border-radius: 0.5rem;
+  }
+  .sl-markdown-content .mermaid svg {
+    display: block;
+    margin-inline: auto;
+    height: auto;
+  }
+  .sl-markdown-content .mermaid[data-status='error'] {
+    font-family: var(--__sl-font-mono);
+    font-size: var(--sl-text-code-sm);
+    color: var(--sl-color-red-high);
+    white-space: pre-wrap;
+  }
+  .sl-markdown-content .mermaid:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+</style>

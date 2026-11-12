@@ -8,9 +8,14 @@
 // page like a code block does. Lines, arrows and notes take the brand accent from
 // src/styles/brand.css, which is what marks a diagram as FORA's.
 //
-// Text is set in the docs body font.
+// Text is set at FONT_PX in the docs body font. A diagram wider than the content column
+// scales down only as far as MIN_SCALE, which keeps rendered text at 14px or more; past
+// that the diagram keeps its size and scrolls inside its own box, never the page.
 
 import type { MermaidConfig } from 'mermaid';
+
+const FONT_PX = 16;
+const MIN_SCALE = 14 / FONT_PX;
 
 const ACCENT = '#4f6df5'; // --accent in brand.css
 
@@ -56,6 +61,7 @@ const DARK: Palette = {
 
 export function mermaidConfig(dark: boolean, fontFamily: string): MermaidConfig {
   const p = dark ? DARK : LIGHT;
+  const font = `${FONT_PX}px`;
   return {
     startOnLoad: false,
     theme: 'base',
@@ -71,6 +77,7 @@ export function mermaidConfig(dark: boolean, fontFamily: string): MermaidConfig 
     themeVariables: {
       darkMode: dark,
       fontFamily,
+      fontSize: font,
       background: p.bg,
       textColor: p.text,
       lineColor: p.line,
@@ -126,7 +133,55 @@ export function mermaidConfig(dark: boolean, fontFamily: string): MermaidConfig 
       specialStateColor: p.text,
       innerEndBackground: p.border,
     },
+    flowchart: {
+      useMaxWidth: true,
+      curve: 'basis',
+      padding: 12,
+      nodeSpacing: 32,
+      rankSpacing: 40,
+      wrappingWidth: 160, // long labels wrap rather than widen the diagram
+      subGraphTitleMargin: { top: 4, bottom: 8 }, // keeps a group's title off its first node
+    },
+    sequence: {
+      useMaxWidth: true,
+      actorFontSize: FONT_PX,
+      messageFontSize: FONT_PX,
+      noteFontSize: FONT_PX,
+      // Not `wrap: true`. It would make most diagrams narrow enough for the column, but
+      // Mermaid then splits any word wider than an actor with a hyphen, which garbles
+      // identifiers such as BillingAdapter.Authorize, and squeezes a note that already
+      // has <br/> into one actor's width, clipping its text. Breaking a long label is
+      // left to each page, with <br/>.
+      width: 120,
+      actorMargin: 28,
+      height: 52,
+      boxMargin: 8,
+      noteMargin: 10,
+      messageMargin: 36,
+      diagramMarginX: 8,
+      diagramMarginY: 8,
+      mirrorActors: true,
+    },
+    state: {
+      useMaxWidth: true,
+      padding: 8,
+      nodeSpacing: 32,
+      rankSpacing: 40,
+    },
   };
+}
+
+// Keep text at or above 14px: let the SVG shrink to fit the column only down to
+// MIN_SCALE of its natural width, then let its box scroll. Mermaid already caps the
+// width at the natural size (`useMaxWidth`), so a small diagram is never enlarged.
+function fit(box: HTMLElement) {
+  const svg = box.querySelector('svg');
+  const natural = svg?.viewBox.baseVal?.width;
+  if (!svg || !natural) return;
+  svg.style.minWidth = `${Math.ceil(natural * MIN_SCALE)}px`;
+  // A box that scrolls must be reachable by keyboard.
+  if (box.scrollWidth > box.clientWidth) box.tabIndex = 0;
+  else box.removeAttribute('tabindex');
 }
 
 let ids = 0;
@@ -148,6 +203,7 @@ export async function renderMermaid(boxes: HTMLElement[]) {
         if (run !== generation) return; // the theme changed again; the newer pass wins
         box.innerHTML = svg;
         box.dataset.status = 'rendered';
+        fit(box);
       } catch (error) {
         if (run !== generation) return;
         box.textContent = String(error);
