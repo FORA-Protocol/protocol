@@ -78,7 +78,7 @@ EOF
 deploy/terraform/scripts/build-lambda-edge.sh lambda-edge-config.json news.example.com
 ```
 
-The script writes `src/edge/dist/lambda-edge.zip`. Every value in the settings file is a string. [`CONFIGURATION.md`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/src/edge/CONFIGURATION.md) lists the settings. After a change to the settings, build the bundle again and apply again: the function runs what is in the zip.
+The script writes `src/edge/dist/lambda-edge.zip` in the checkout. Every value in the settings file is a string. [`CONFIGURATION.md`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/src/edge/CONFIGURATION.md) lists the settings. After a change to the settings, build the bundle again and apply again: the function runs what is in the zip.
 
 Then write the Terraform configuration in the directory that holds the checkout:
 
@@ -129,7 +129,7 @@ git clone --branch v1.1.0 https://github.com/FORA-Protocol/reference-implementat
 reference-implementation/deploy/terraform/scripts/build-cloudflare-edge.sh
 ```
 
-The script writes `src/edge/dist/worker.mjs`. Then write the Terraform configuration in the directory that holds the checkout:
+The script writes `src/edge/dist/worker.mjs` in the checkout. Then write the Terraform configuration in the directory that holds the checkout:
 
 ```hcl
 terraform {
@@ -162,7 +162,7 @@ module "fora_edge" {
 }
 ```
 
-The module requires an origin mode. `same_zone_origin = "true"` sends verified requests on to the origin the zone already routes the hostname to. To send them to another host, set `origin_url` to its URL instead. If the hostname has no DNS record on the zone yet, set `worker_hostname` to it, and the module creates a proxied placeholder record.
+The module requires an origin mode. `same_zone_origin = "true"` sends the requests the Worker lets through on to the origin the zone already routes the hostname to. To send them to another host, set `origin_url` to its URL instead. If the hostname has no DNS record on the zone yet, set `worker_hostname` to it, and the module creates a proxied placeholder record.
 
 Cloudflare's zone protections, such as WAF managed rules and Bot Fight Mode, run before the Worker. The module README describes how to exempt the Worker's hostnames, and lists every input. The reference implementation also has a ready-made root configuration for this module, [`deploy/terraform/stacks/edge`](https://github.com/FORA-Protocol/reference-implementation/tree/v1.1.0/deploy/terraform/stacks/edge), with a [step-by-step guide](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/deploy/terraform/docs/deploy-edge-standalone.md).
 
