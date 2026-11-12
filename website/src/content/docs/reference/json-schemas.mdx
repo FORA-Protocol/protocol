@@ -160,3 +160,13 @@ transaction.
   against the compiled proto descriptors.
 - Both variants must reach the verdict of Go `protovalidate` on every case of the
   conformance corpus, in Python (with `jsonschema`) and in TypeScript (with Ajv).
+
+## Profile schemas
+
+An extension profile can publish its own files under `/schemas/`. These are not wire
+messages and are not generated from the proto. The fora-music-v1 search filter keys are
+[`/schemas/music/v1/music-v1.search-filters.schema.json`](/schemas/music/v1/music-v1.search-filters.schema.json),
+which the profile page's [filter table](/protocol/ext-music/#query-vocabulary-discoveryrequestsearch_filters)
+is rendered from. The Go module embeds the same file in package
+`github.com/FORA-Protocol/protocol/schemas`, as `schemas.FS` at the path
+`schemas.MusicSearchFilters`.
