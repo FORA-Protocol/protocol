@@ -21,7 +21,7 @@ sequenceDiagram
     Note over Origin: The provider's own file<br/>rsl.txt, if any, lives here too
 
     Provider->>CDN: Deploy edge function (platform-specific)
-    Note over CDN: CloudFront: deploy CF Function + update behavior<br/>Cloudflare: wrangler deploy<br/>Fastly: fastly compute deploy
+    Note over CDN: CloudFront: Lambda@Edge viewer-request function<br/>Cloudflare: wrangler deploy<br/>Fastly: fastly compute deploy
 
     Provider->>CDN: Verify: GET /.well-known/fora.json
     CDN->>Origin: Forward the request
@@ -40,59 +40,131 @@ The absolute minimum a provider needs to do:
 
 1. **Get an Exchange endpoint** from their Exchange operator (one-time business relationship).
 2. **Publish `fora.json`** on their own origin, at `/.well-known/fora.json`.
-3. **Deploy the edge function** using the Terraform module or manual deployment (see below).
+3. **Deploy the edge function** from the package the Exchange operator's console builds, or with a Terraform module (see [Distribution Formats](#distribution-formats)).
 4. **Verify** -- `curl -I https://techcrunch.com/.well-known/fora.json` returns the origin's file through the edge function.
-
-import { Aside } from '@astrojs/starlight/components';
-
-<Aside type="tip">
-The `@fora/cli` tool is planned. For now, deploy manually using the [Terraform module](https://github.com/FORA-Protocol/protocol/tree/main/terraform/aws-fora-edge/) or follow the CDN-specific deployment steps below.
-</Aside>
 
 Target: **under 10 minutes** from Exchange operator contract to live edge function.
 
 ## Distribution Formats
 
-The edge function is distributed in multiple formats to match provider deployment practices.
+The edge function is the edge worker in the reference implementation, [`src/edge`](https://github.com/FORA-Protocol/reference-implementation/tree/v1.1.0/src/edge). The same application runs on Cloudflare Workers, AWS Lambda@Edge and Fastly Compute. It reaches a provider's CDN in one of two formats.
 
-### Format 1: CloudFront Function (Reference Implementation)
+### Format 1: Console Package
 
-The reference implementation is a vanilla JavaScript CloudFront Function that handles bot detection and signed URL verification.
+The Exchange operator's publisher console builds a package for the provider's domain, with the provider's settings in it: a Worker for Cloudflare, or a Lambda@Edge function for CloudFront. [Publisher Onboarding](/getting-started/publisher-onboarding/#install-the-package-on-your-cdn) gives the steps to install it.
 
-<Aside type="note">
-The `@fora/edge-function` npm package is planned. For now, use the reference implementation directly or deploy via the Terraform module.
-</Aside>
+### Format 2: Terraform Modules
 
-### Format 2: Terraform Module
+The reference implementation's Terraform modules deploy the edge worker to the provider's own CDN account. They are in [`deploy/terraform/modules/`](https://github.com/FORA-Protocol/reference-implementation/tree/v1.1.0/deploy/terraform/modules) at release `v1.1.0`, and the examples below pin their `source` to that tag.
+
+Each module deploys a bundle that you build first, from a checkout of the reference implementation. The build needs Node.js, npm and git. Neither module builds the bundle, and each fails the plan if the bundle is missing.
+
+#### CloudFront
+
+The [`aws-cloudfront-edge`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/deploy/terraform/modules/aws-cloudfront-edge/README.md) module creates a CloudFront distribution in front of your origin, with the edge worker as its Lambda@Edge viewer-request function and an ACM certificate for your hostname. It creates no DNS record for the hostname. The [`route53-dns`](https://github.com/FORA-Protocol/reference-implementation/tree/v1.1.0/deploy/terraform/modules/route53-dns) module points the hostname at the distribution.
+
+Lambda@Edge has no environment variables, so the edge worker's settings go inside the bundle. Write them to a JSON file, then build the bundle for the hostname the function serves. The build also needs `zip`.
+
+```bash
+git clone --branch v1.1.0 https://github.com/FORA-Protocol/reference-implementation.git
+cd reference-implementation
+cat > lambda-edge-config.json <<'EOF'
+{
+  "EXCHANGE_URL": "https://exchange.example.net",
+  "EXCHANGE_WBA_URL": "https://exchange.example.net/.well-known/http-message-signatures-directory",
+  "LICENSED_PATHS_JSON": "[\"/premium/\", \"/archive/\"]"
+}
+EOF
+deploy/terraform/scripts/build-lambda-edge.sh lambda-edge-config.json news.example.com
+```
+
+The script writes `src/edge/dist/lambda-edge.zip`. Every value in the settings file is a string. [`CONFIGURATION.md`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/src/edge/CONFIGURATION.md) lists the settings. After a change to the settings, build the bundle again and apply again: the function runs what is in the zip.
+
+Then write the Terraform configuration in the directory that holds the checkout:
 
 ```hcl
-module "fora_edge" {
-  source = "github.com/FORA-Protocol/protocol//terraform/aws-fora-edge"
+provider "aws" {
+  region = "us-east-1" # Lambda@Edge and the CloudFront certificate live here
+}
 
-  cloudfront_distribution_id = aws_cloudfront_distribution.main.id
-  exchange_endpoint       = "https://exchange.ssp.com/fora/v1"
-  exchange_domain         = "exchange.ssp.com"
-  protected_paths            = ["/premium/*", "/archive/*"]
-  signing_key_pair_id        = aws_cloudfront_public_key.fora.id
+data "aws_route53_zone" "site" {
+  name = "example.com"
+}
+
+module "fora_edge" {
+  source = "github.com/FORA-Protocol/reference-implementation//deploy/terraform/modules/aws-cloudfront-edge?ref=v1.1.0"
+
+  lambda_zip_path = "${path.root}/reference-implementation/src/edge/dist/lambda-edge.zip"
+  hostname        = "news.example.com"
+  zone_id         = data.aws_route53_zone.site.zone_id
+  origin_domain   = "origin.example.com"
+}
+
+module "fora_dns" {
+  source = "github.com/FORA-Protocol/reference-implementation//deploy/terraform/modules/route53-dns?ref=v1.1.0"
+
+  zone_id   = data.aws_route53_zone.site.zone_id
+  a_records = {}
+  alias_records = {
+    news = {
+      target_domain  = module.fora_edge.distribution_domain_name
+      target_zone_id = module.fora_edge.distribution_hosted_zone_id
+    }
+  }
 }
 ```
 
-The Terraform module provisions: CloudFront Function, cache behavior update, trusted key group association, and optional Lambda@Edge + DynamoDB table for single-use enforcement.
+The module needs an AWS provider in `us-east-1`, because Lambda@Edge functions and the certificate CloudFront serves are created there. With any other region, the plan fails. If your configuration's default AWS provider is in another region, declare a second provider with `alias = "us_east_1"` and `region = "us-east-1"`, and pass it to the module with `providers = { aws = aws.us_east_1 }`.
 
-### Format 3: CDN Exchange App
+`origin_domain` is the host CloudFront fetches content from, and it must serve TLS for its own name. The module README describes the two optional inputs, `name_prefix` and `price_class`, and the outputs.
 
-For providers who prefer click-to-deploy:
+The module always creates a new distribution. To run the edge worker on a distribution you already have, create the function from the same zip and attach it, as the [AWS CloudFront steps](/getting-started/publisher-onboarding/#aws-cloudfront) in Publisher Onboarding describe.
 
-- **Cloudflare Apps** -- installable from Cloudflare dashboard. Provider enters Exchange endpoint, protected paths. The app deploys a Worker.
-- **AWS CloudFormation StackSet** -- one-click deploy via AWS Exchange or a shared CloudFormation template.
+#### Cloudflare
 
-### Format 4: CLI Tool (Planned)
+The [`cloudflare-edge`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/deploy/terraform/modules/cloudflare-edge/README.md) module uploads the edge worker as a Worker and creates its routes. The Worker's settings are module inputs, so the bundle needs none. Build it:
 
-<Aside type="caution">
-The `@fora/cli` tool is planned but not yet available. For now, use the [Terraform module](https://github.com/FORA-Protocol/protocol/tree/main/terraform/aws-fora-edge/) for automated deployment.
-</Aside>
+```bash
+git clone --branch v1.1.0 https://github.com/FORA-Protocol/reference-implementation.git
+reference-implementation/deploy/terraform/scripts/build-cloudflare-edge.sh
+```
 
-When available, the CLI will generate the platform-specific deployment artifact (CloudFront Function JS, Cloudflare Worker, etc.) and output deployment instructions.
+The script writes `src/edge/dist/worker.mjs`. Then write the Terraform configuration in the directory that holds the checkout:
+
+```hcl
+terraform {
+  required_providers {
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 4.52"
+    }
+  }
+}
+
+provider "cloudflare" {} # reads the API token from CLOUDFLARE_API_TOKEN
+
+data "cloudflare_zone" "site" {
+  name = "example.com"
+}
+
+module "fora_edge" {
+  source = "github.com/FORA-Protocol/reference-implementation//deploy/terraform/modules/cloudflare-edge?ref=v1.1.0"
+
+  account_id         = data.cloudflare_zone.site.account_id
+  zone_id            = data.cloudflare_zone.site.id
+  worker_bundle_path = "${path.root}/reference-implementation/src/edge/dist/worker.mjs"
+  route_patterns     = ["news.example.com/*"]
+
+  exchange_url        = "https://exchange.example.net"
+  exchange_wba_url    = "https://exchange.example.net/.well-known/http-message-signatures-directory"
+  same_zone_origin    = "true"
+  licensed_paths_json = jsonencode(["/premium/", "/archive/"])
+}
+```
+
+The module requires an origin mode. `same_zone_origin = "true"` sends verified requests on to the origin the zone already routes the hostname to. To send them to another host, set `origin_url` to its URL instead. If the hostname has no DNS record on the zone yet, set `worker_hostname` to it, and the module creates a proxied placeholder record.
+
+Cloudflare's zone protections, such as WAF managed rules and Bot Fight Mode, run before the Worker. The module README describes how to exempt the Worker's hostnames, and lists every input. The reference implementation also has a ready-made root configuration for this module, [`deploy/terraform/stacks/edge`](https://github.com/FORA-Protocol/reference-implementation/tree/v1.1.0/deploy/terraform/stacks/edge), with a [step-by-step guide](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/deploy/terraform/docs/deploy-edge-standalone.md).
 
 ## Environment Configuration
 
@@ -235,7 +307,7 @@ npx wrangler deploy --var EXCHANGE_WBA_URL=https://exchange.example/.well-known/
 | CDN | Deploy Command |
 |---|---|
 | Cloudflare | `npx wrangler deploy` |
-| CloudFront | Deploy CF Function + update behavior via AWS CLI or Terraform |
+| CloudFront | `terraform apply` with the `aws-cloudfront-edge` module |
 | Fastly | `fastly compute deploy` |
 
 ## The Provider's Own Documents
