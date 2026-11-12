@@ -193,7 +193,7 @@ Three independent records ensure transaction integrity:
 2. **Exchange transaction log** (Exchange operator controls): every `billing_id` issued with cost, requester, offer snapshot (including Ed25519 exchange signature for non-repudiation)
 3. **Usage reports** (agent files): what the agent actually did with the resource (token count, function, citation)
 
-All three records must agree. Discrepancies are resolved offline, like ad-tech billing discrepancy resolution (~5-10% tolerance).
+All three records must agree. Discrepancies are resolved offline, like ad-tech billing discrepancies.
 
 A provider registered on the operator's publisher console sees its sales there. "Overview" totals transactions, gross, the Exchange fee and net for a period. "Transactions" lists each sale, filterable by domain and by usage-report status, and "Verify" checks the sale's two Ed25519 signatures in the browser. "Income" shows daily totals, with "Download CSV". The console is the operator's tool, not part of the protocol. See [After setup](/getting-started/publisher-onboarding/#after-setup) in Publisher Onboarding.
 
