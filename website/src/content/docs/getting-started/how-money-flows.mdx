@@ -136,28 +136,29 @@ Each Exchange independently tracks per-requester balance. The Broker keeps its o
 Here is a concrete transaction with dollar amounts.
 
 **Setup:**
-- Provider: TechCrunch (Hearst Media)
+- Provider: *The Daily Meridian*, a mid-size tech publisher
+- Exchange: SSP-Alpha, which sells The Daily Meridian's catalog
 - Article: "AI Regulation: What Providers Need to Know" (2,500 words, ~3,300 tokens)
 - RSL price ceiling: $0.08 per crawl
 - SSP-Alpha private pricing: $0.05 per article (below RSL ceiling)
-- Requester: Anthropic (Claude), with a registered account at SSP-Alpha (account handle `acct_7f3e21c9` — an opaque value minted by the Exchange at registration, meaningless on its own)
-- Anthropic has an annual subscription with Hearst via SSP-Alpha
+- Requester: Acme AI, whose agent has a registered account at SSP-Alpha (account handle `acct_7f3e21c9` — an opaque value minted by the Exchange at registration, meaningless on its own)
+- Acme AI has an annual subscription to The Daily Meridian through SSP-Alpha
 
 **What happens:**
 
 | Step | Action | Cost |
 |---|---|---|
-| 1 | Claude queries SSP-Alpha via `DiscoverResources` | $0 |
+| 1 | Acme AI's agent queries SSP-Alpha via `DiscoverResources` | $0 |
 | 2 | SSP-Alpha returns two offers: per-request ($0.05) and subscription ($0.00) | -- |
 | 3 | Broker selects subscription offer (zero marginal cost) | $0.00 |
 | 4 | `ExecuteTransaction` -- subscription quota checked (850,000 tokens remaining), 3,300 deducted | $0.00 |
-| 5 | Signed URL issued, Claude fetches article from CDN | -- |
+| 5 | Signed URL issued, the agent fetches the article from CDN | -- |
 | 6 | Usage report filed: 3,150 actual tokens consumed | -- |
 
 **Financial attribution:**
 - `cost.amount`: $0.00 (subscription)
 - `subscription_unit_value.amount`: $0.05 (the per-article value for accounting)
-- Anthropic tracks: $0.05 drawn against prepaid subscription balance
+- Acme AI tracks: $0.05 drawn against prepaid subscription balance
 
 **Without the subscription**, the per-request path would have charged $0.05 for this article, with a `unit_cost` of $0.00001515 per token.
 
