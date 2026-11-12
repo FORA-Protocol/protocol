@@ -77,8 +77,8 @@ export default defineConfig({
 		// remarkStandards: link the first mention of each external standard (RFC NNNN, C2PA,
 		//   …) to its canonical source. Runs after remarkProto so generated tables link too.
 		// remarkMermaid: turn each ```mermaid block into a placeholder that
-		//   src/components/MarkdownContent.astro renders in the browser (src/lib/mermaid.ts).
-		//   Runs LAST, as the plugin it replaces did.
+		//   src/components/MarkdownContent.astro renders in the browser, in the brand theme
+		//   from src/lib/mermaid.ts. Runs LAST, as the plugin it replaces did.
 		remarkPlugins: [remarkDirective, remarkExample, remarkProto, remarkVersion, remarkStandards, remarkMermaid],
 	},
 	integrations: [

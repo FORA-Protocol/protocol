@@ -2,7 +2,7 @@
 // browser renders: <div class="mermaid" data-content="…source…" data-status="loading">.
 //
 // The rendering half lives in src/components/MarkdownContent.astro (the Starlight
-// override) and src/lib/mermaid.ts. Both halves used to come from
+// override) and src/lib/mermaid.ts (the brand theme). Both halves used to come from
 // @pasqal-io/starlight-client-mermaid, which hardcodes Mermaid's `default` and `dark`
 // themes with no option to change them. Owning the twenty lines of tagging here lets the
 // site own the override as well, without the plugin warning that a second
