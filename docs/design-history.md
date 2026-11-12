@@ -3301,3 +3301,28 @@ their only reader. And no `fora-cli` ever drove the domain-verification challeng
 edge store ever answered it. The RPC pair itself stays in the contract, for deployments
 that verify that way, and a publisher answering such a challenge places the token on its
 origin like any other file.
+
+## A profile's search filter keys are a file the page renders from
+
+The fora-music-v1 filter keys lived only in a table on the profile page. An implementation
+that needed them retyped them, and FORA Server did so in three places, which drifted to
+different key sets. So the keys are one hand-written file,
+`schemas/music/v1/music-v1.search-filters.schema.json`, and the page's table is rendered from
+it by the `::profile-filters` directive, as the proto reference tables are rendered from the
+descriptor.
+
+The file is source, not generated. The keys are not in the proto, and the proto's generator
+has nothing to derive them from. It sits outside `gen/`, whose JSON Schemas are one per wire
+message and checked against the descriptor. It takes the form a Broker's deployment declares
+its filter vocabulary in: a draft 2020-12 object whose properties are the keys, each with a
+description, a type, a value pattern and examples, and `additionalProperties: false`, with no
+`$id`, reference or `default`. A key that takes one value or a list is `type: ["string",
+"array"]` with the same pattern on the string and on each item, so the file needs no `oneOf`.
+
+The value patterns are the offer schema's, and a test in `sdk/go/profiles/music` holds them
+equal, so the two schemas cannot drift. The label pattern uses the Unicode classes `\p{Lu}`,
+`\p{Lt}` and `\p{Z}`, because the label rule is defined over Unicode categories. A schema
+with them is outside the portable pattern alphabet that the SDK's registration-schema
+compiler admits, so that compiler refuses the file. The site publishes the file at
+`/schemas/music/v1/`, the path of the offer schema's `$id`, and the Go module embeds it in
+package `schemas`.

@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+**The fora-music-v1 search filter keys are a published JSON Schema (docs and schema; no wire
+change).** The 23 keys of `DiscoveryRequest.search_filters` are one file,
+`schemas/music/v1/music-v1.search-filters.schema.json`, published at
+`https://fora-protocol.org/schemas/music/v1/music-v1.search-filters.schema.json` and embedded in
+the Go module's new package `schemas`. It is a draft 2020-12 object with one property per key,
+each with a description, its type, its value pattern and examples, and
+`additionalProperties: false`. The patterns are the offer schema's. The profile page's filter
+table is now rendered from the file by the `::profile-filters` directive, and the build fails
+on an unknown profile. Each description now also says how the key matches, as How Filters
+Match states it. The keys, their types and their formats are unchanged. A Go test holds the
+file to the key pattern, the key count the page states and the offer schema's patterns, and
+runs shared valid and invalid vectors for every key.
+
 **fora-music-v1 carries the rights data a cue sheet needs, and finds tracks by key, version,
 publisher and IPI (additive; no wire change).** `music.publishers` lists the music publishers
 of the work, each with `name` and an optional `role` (`original publisher`, `sub-publisher`,
