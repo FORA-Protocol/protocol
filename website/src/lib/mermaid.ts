@@ -197,6 +197,18 @@ function overflow(box: HTMLElement) {
   } else {
     for (const name of ['tabindex', 'role', 'aria-label']) box.removeAttribute(name);
   }
+  edges(box);
+}
+
+// Mark the side(s) of the frame with more diagram to scroll to, so the frame can fade
+// that edge: overlay scrollbars (macOS, iOS, Android) give no other sign. Runs on
+// scroll as well as on resize.
+function edges(box: HTMLElement) {
+  const frame = box.parentElement;
+  if (!frame) return;
+  const hidden = box.scrollWidth - box.clientWidth;
+  frame.toggleAttribute('data-more-start', hidden > 1 && box.scrollLeft > 1);
+  frame.toggleAttribute('data-more-end', hidden > 1 && box.scrollLeft < hidden - 1);
 }
 
 // "Diagram: <the heading the diagram sits under>", or plain "Diagram" before any heading.
@@ -217,6 +229,16 @@ let generation = 0;
 export async function renderMermaid(boxes: HTMLElement[]) {
   if (boxes.length === 0) return;
   const { default: mermaid } = await import('mermaid');
+
+  // Each box scrolls inside a frame that does not, which carries the border and the
+  // edge fades (MarkdownContent.astro).
+  for (const box of boxes) {
+    const frame = document.createElement('div');
+    frame.className = 'mermaid-frame';
+    box.replaceWith(frame);
+    frame.append(box);
+    box.addEventListener('scroll', () => edges(box), { passive: true });
+  }
 
   async function render() {
     const run = ++generation;
