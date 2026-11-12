@@ -17,10 +17,10 @@ export const RESOURCES: Resource[] = [
   {
     href: '/resources/ai-crawlers/',
     title: 'What you can do about AI crawlers today',
-    summary: 'Refuse training in the form each AI company honors, stay in search and in the AI answers that cite you, and put a price on the rest. With a generator for your robots.txt and headers.',
+    summary: 'Refuse AI training in the form each AI company honors, stay in search and in the AI answers that cite you, and put a price on the rest. With a generator for your robots.txt and headers.',
     audience: 'Publishers',
-    formats: ['Guide', 'Generator', 'Slides'],
-    updated: '2026-11-11',
+    formats: ['Guide', 'Generator'],
+    updated: '2026-11-12',
   },
   {
     href: '/protocol/#licensing-core',
