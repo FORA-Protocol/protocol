@@ -39,30 +39,31 @@ A FORA transaction follows six steps:
 6. Dispute     If needed: DisputeTransaction → evidence-based dispute with report_id
 ```
 
-## What Makes It Universal
+## One Protocol Across Industries
 
-FORA was validated across **18 real-world scenarios** spanning 10 industries:
+The same messages price a news article by the token, a court filing by the page and satellite imagery by the square kilometer. Each offer names its metering unit in `Pricing.unit`:
 
-| Industry | Resource | Metering Unit | Validated |
-|----------|----------|---------------|-----------|
-| News/Media | Articles, podcasts, live broadcasts | tokens, minutes | UC1, UC14, UC16 |
-| Legal | Court filings, EU legislation, patents | pages, documents | UC3, UC4, UC5 |
-| Finance | Stock quotes, credit reports | records, minutes | UC6, UC7 |
-| Academic | Journal articles, preprints | tokens, articles | UC2 |
-| Medical | Clinical trials, brain MRI scans | records, studies | UC8, UC13 |
-| Government | Property records | records | UC9 |
-| Geospatial | Satellite imagery | sq_km | UC12 |
-| Pharma | Drug interaction databases | queries, interaction_pairs | UC10 |
-| Media Intelligence | Continuous news monitoring | alerts, articles | UC18 |
-| Composite | Due diligence packages | mixed | UC17 |
+| Industry | Resource | `Pricing.unit` |
+|----------|----------|----------------|
+| News/Media | Articles, podcasts, live broadcasts | `tokens`, `minutes` |
+| Legal | Court filings, legislation, patents | `pages`, `items` |
+| Finance | Stock quotes, credit reports | `records`, `minutes` |
+| Academic | Journal articles, preprints | `tokens`, `items` |
+| Medical | Clinical trial data, imaging studies | `records`, `images` |
+| Government | Property records | `records` |
+| Geospatial | Satellite imagery | `sq-km` |
+| Pharma | Drug interaction lookups | `calls`, `pharma:interaction_pairs` |
+| Media monitoring | Continuous news feeds | `items` |
 
-The same protocol handles all of them. The differences are in the `ext` fields, not the protocol.
+Every unit in the table is in the protocol's [registered list](/reference/proto-fora/#pricingmodel) except `pharma:interaction_pairs`. A unit outside that list carries a namespace of its own, as that one does; a bare unregistered unit is rejected when the catalog is ingested. Through a Broker, one purchase can hold items from several Exchanges, each priced in its own unit.
+
+What differs between industries is the unit, the resource's mutability and the domain metadata in the `ext` fields. The messages are the same.
 
 ## Key Design Decisions
 
 ### Unit-agnostic metering
 
-Pricing uses `unit_cost` + `unit` + `estimated_quantity`. No assumption about what's being metered. Tokens, pages, seconds, records, sq_km, interaction_pairs — all work.
+Pricing uses `unit_cost` + `unit` + `estimated_quantity`. No assumption about what's being metered. The unit is a registered one, such as `tokens`, `pages`, `seconds`, `records` or `sq-km`, or a namespaced one of your own, such as `pharma:interaction_pairs`.
 
 ### Content mutability
 
