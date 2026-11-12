@@ -1,0 +1,32 @@
+---
+// The four steps to adopt the search-only contract, numbered, from
+// src/data/search-only-contract.ts. Reads the band's colour variables, so it
+// works on a dark or a light band.
+import { CONTRACT_STEPS } from '../../data/search-only-contract';
+---
+<ol class="steps">
+  {CONTRACT_STEPS.map((st) => (
+    <li><b>{st.title}</b> <span set:html={st.text} /></li>
+  ))}
+</ol>
+
+<style>
+  .steps { list-style: none; counter-reset: step; display: grid; gap: 0.875rem; margin-top: 1.75rem; }
+  li { counter-increment: step; display: grid; grid-template-columns: 1.75rem 1fr; column-gap: 0.75rem; color: var(--lp-text); line-height: 1.55; }
+  li::before {
+    content: counter(step);
+    grid-row: span 2;
+    width: 1.75rem;
+    height: 1.75rem;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1px solid var(--accent);
+    color: var(--lp-link);
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+  }
+  b { color: var(--lp-strong); font-weight: 600; }
+  span :global(a) { color: var(--lp-link); }
+  span :global(code) { font-family: var(--mono); font-size: 0.9em; }
+</style>

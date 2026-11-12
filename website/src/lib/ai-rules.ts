@@ -56,7 +56,7 @@ export function buildRules({ visible, contract, eu }: RuleChoices): Rules {
   }
 
   const steps: string[] = [];
-  if (contract) steps.push('Add the contract\'s two clauses to your site\'s terms, and set your access fee: <a href="/getting-started/search-only-contract/">the wording</a>.');
+  if (contract) steps.push('Set your access fee, and add the contract to your site\'s terms with the guide\'s wording (A), which incorporates it, and (B), which states your fee: <a href="/resources/ai-crawlers/#contract">the steps</a>.');
   if (!visible) steps.push('In Google Search Console, use the "Search generative AI" setting to keep your site out of AI Overviews and AI Mode. No file can set it.');
   steps.push('Archive your robots.txt with the Internet Archive after each change, as dated evidence.');
   steps.push('Put FORA\'s edge function on the paths you sell. Live fetchers that ignore robots.txt get a 403 that tells them where to buy.');

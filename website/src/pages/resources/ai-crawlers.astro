@@ -2,8 +2,7 @@
 // Resource: what a publisher can do about AI crawlers today. The bot list is
 // src/data/ai-bots.ts, the generator's rules src/lib/ai-rules.ts; every vendor
 // claim on this page is from the vendor's own documentation, linked from the
-// bot table. The video script and the social posts for this topic are drafts
-// in docs/content-ops/resources/ai-crawlers/.
+// bot table.
 import LandingLayout from '../../layouts/LandingLayout.astro';
 import AudienceHero from '../../components/landing/AudienceHero.astro';
 import Band from '../../components/landing/Band.astro';
@@ -16,7 +15,15 @@ import Slide from '../../components/landing/Slide.astro';
 import FaqGrid from '../../components/landing/FaqGrid.astro';
 import LinkRow from '../../components/landing/LinkRow.astro';
 import ClosingCta from '../../components/landing/ClosingCta.astro';
+import ContractSteps from '../../components/landing/ContractSteps.astro';
+import CodeCard from '../../components/landing/CodeCard.astro';
 import { SEARCH_ONLY_CONTRACT_URL } from '../../consts';
+
+const CONTRACT_LINES: [string, string][] = [
+  ['User-agent:', '*'],
+  ['tdl:', SEARCH_ONLY_CONTRACT_URL],
+  ['Allow:', '/'],
+];
 
 const SHORT_ANSWER = [
   { title: 'Refuse training', text: 'Each AI company that trains on the web names its own crawler or robots.txt token for it. Refuse them all by name, and training stops without touching your search traffic.' },
@@ -122,6 +129,21 @@ const FAQ = [
     ]} />
   </Band>
 
+  <Band
+    tone="light"
+    id="contract"
+    label="Put it in writing"
+    title="Set your price for everything beyond search"
+    lead="The Movement for an Open Web's Search Only Terms Contract binds whoever accesses your site, however they identify. Search stays free; every other access owes the fee you set."
+    asideWidth="440px"
+  >
+    <Fragment slot="intro">
+      <ContractSteps />
+      <LinkRow links={[{ href: '/getting-started/search-only-contract/', text: 'The full steps' }]} />
+    </Fragment>
+    <CodeCard slot="aside" head="robots.txt" tag="search-only contract" rows={CONTRACT_LINES} label="The robots.txt lines that point to the search-only contract" />
+  </Band>
+
   <Band label="Slides" title="The whole answer in six slides">
     <SlideDeck label="What you can do about AI crawlers today" tone="dark">
       <Slide title="The AI companies ask you to say no" text="They treat training, AI search and AI answers as allowed unless your site refuses them, each in its own form.">
@@ -156,7 +178,7 @@ Disallow: /</pre>
 X-Content-Rules: https://publisher.example/.well-known/fora.json
 X-FORA-Exchange: exchange.example</pre>
       </Slide>
-      <Slide title="Put it in writing" text="The search-only contract makes search free and puts a fee on every other access. Three lines in robots.txt and two clauses in your site's terms.">
+      <Slide title="Put it in writing" text="The search-only contract makes search free and puts your fee on every other access. You set the fee in your site's terms, add the contract there by its URL, and point robots.txt at it.">
         <pre class="art-code">User-agent: *
 tdl: {SEARCH_ONLY_CONTRACT_URL}
 Allow: /</pre>

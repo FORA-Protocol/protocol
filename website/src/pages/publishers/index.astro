@@ -19,6 +19,7 @@ import TagStrip from '../../components/landing/TagStrip.astro';
 import FaqGrid from '../../components/landing/FaqGrid.astro';
 import LinkRow from '../../components/landing/LinkRow.astro';
 import ClosingCta from '../../components/landing/ClosingCta.astro';
+import ContractSteps from '../../components/landing/ContractSteps.astro';
 import SaleSteps from '../../components/SaleSteps.astro';
 import { EXAMPLES } from '../../data/license-examples';
 import { SEARCH_ONLY_CONTRACT_URL } from '../../consts';
@@ -174,13 +175,16 @@ const FAQ = [
     tone="light"
     label="Do this today"
     title="Put every crawler on notice"
-    lead="Three lines in your robots.txt and two clauses in your site's terms attach the Movement for an Open Web's Search Only Terms Contract. Search stays free, and every other access carries the fee you set. It covers your open paths and the scrapers that hide what they are. <strong>An agent that wants more than search buys a license through FORA.</strong>"
+    lead="The Movement for an Open Web's Search Only Terms Contract keeps search free and puts the fee you set on every other access. It covers your open paths and the scrapers that hide what they are. <strong>An agent that wants more than search buys a license through FORA.</strong>"
     asideWidth="440px"
   >
-    <LinkRow slot="intro" links={[
+    <Fragment slot="intro">
+    <ContractSteps />
+    <LinkRow links={[
       { href: '/resources/ai-crawlers/#generator', text: 'Generate your robots.txt and headers' },
       { href: '/getting-started/search-only-contract/', text: 'How to adopt the contract' },
     ]} />
+    </Fragment>
     <CodeCard slot="aside" head="robots.txt" tag="search-only contract" rows={CONTRACT_LINES} label="The robots.txt lines that attach the search-only contract" />
   </Band>
 
