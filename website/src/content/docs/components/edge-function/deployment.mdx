@@ -21,7 +21,7 @@ sequenceDiagram
     Note over Origin: The provider's own file<br/>rsl.txt, if any, lives here too
 
     Provider->>CDN: Deploy edge function (platform-specific)
-    Note over CDN: CloudFront: Lambda@Edge viewer-request function<br/>Cloudflare: wrangler deploy<br/>Fastly: fastly compute deploy
+    Note over CDN: CloudFront: Lambda@Edge viewer-request function<br/>Cloudflare: Worker
 
     Provider->>CDN: Verify: GET /.well-known/fora.json
     CDN->>Origin: Forward the request
@@ -43,11 +43,9 @@ The absolute minimum a provider needs to do:
 3. **Deploy the edge function** from the package the Exchange operator's console builds, or with a Terraform module (see [Distribution Formats](#distribution-formats)).
 4. **Verify** -- `curl -I https://news.example.com/.well-known/fora.json` returns the origin's file through the edge function.
 
-Target: **under 10 minutes** from Exchange operator contract to live edge function.
-
 ## Distribution Formats
 
-The edge function is the edge worker in the reference implementation, [`src/edge`](https://github.com/FORA-Protocol/reference-implementation/tree/v1.1.0/src/edge). The same application runs on Cloudflare Workers, AWS Lambda@Edge and Fastly Compute. It reaches a provider's CDN in one of two formats.
+The edge function is the edge worker in the reference implementation, [`src/edge`](https://github.com/FORA-Protocol/reference-implementation/tree/v1.1.0/src/edge). It runs on Cloudflare Workers and AWS Lambda@Edge. The reference implementation also has a Fastly Compute entry point, `src/entries/fastly.ts`, which its tests run locally under Viceroy. The edge worker reaches a provider's CDN in one of two formats.
 
 ### Format 1: Console Package
 
@@ -174,18 +172,16 @@ Cloudflare's zone protections, such as WAF managed rules and Bot Fight Mode, run
 
 ### What the Edge Function Needs to Know
 
-The edge worker reads a flat set of string settings. On Cloudflare Workers they are the Worker's variables, which the `cloudflare-edge` module sets from its inputs. On Lambda@Edge they are the JSON file built into the bundle. On Fastly Compute they are the service's environment. The worker reads no KV store and stores nothing of its own. [`CONFIGURATION.md`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/src/edge/CONFIGURATION.md) describes every setting, its default and what happens when it is wrong.
+The edge worker reads a flat set of string settings. On Cloudflare Workers they are the Worker's variables, which the `cloudflare-edge` module sets from its inputs. On Lambda@Edge they are the JSON file built into the bundle. The worker reads no KV store and stores nothing of its own. [`CONFIGURATION.md`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/src/edge/CONFIGURATION.md) describes every setting, its default and what happens when it is wrong.
 
-| Setting | Required | What it is |
-|---|---|---|
-| `EXCHANGE_URL` | Yes | Base URL of the Exchange. The worker never calls it. |
-| `EXCHANGE_WBA_URL` | Yes | The Exchange's key directory, which the worker fetches to verify signed URLs |
-| `ORIGIN_URL` or `SAME_ZONE_ORIGIN` | On Cloudflare, one of the two; on Fastly, `ORIGIN_URL` | Where the worker sends the requests it lets through. On CloudFront, neither is set, and CloudFront fetches the origin itself. |
-| `FORA_VERIFY_KEYS` | No | Pinned Exchange public keys, which skip the directory fetch |
-| `LICENSED_PATHS_JSON` | No | The path prefixes the provider licenses. Unset means the whole site. |
-| `BOT_UA_ALLOW_JSON`, `BOT_UA_DENY_JSON` | No | Replace the built-in lists of search crawlers and AI bots |
-| `FORA_ENFORCE_BINDING` | No | `"false"` turns off the agent-binding check. Unset means the check runs. |
-| `WBA_KEYS_JSON`, `WBA_REVOCATION_URL`, `WBA_SIGNED_DIRECTORY_JSON` | No | The provider's own key directory, for a provider that self-attests |
+- `EXCHANGE_URL` (required): the Exchange's base URL. The worker never calls it. Its only effect is that the worker sends it as `X-FORA-Exchange` on a refusal.
+- `EXCHANGE_WBA_URL` (required): the Exchange's key directory, which the worker fetches to verify signed URLs.
+- `ORIGIN_URL` or `SAME_ZONE_ORIGIN` (one of the two, on Cloudflare): where the worker sends the requests it lets through. On CloudFront, neither is set, and CloudFront fetches the origin itself.
+- `FORA_VERIFY_KEYS` (optional): pinned Exchange public keys, which skip the directory fetch.
+- `LICENSED_PATHS_JSON` (optional): the path prefixes the provider licenses. Unset means the whole site.
+- `BOT_UA_ALLOW_JSON` and `BOT_UA_DENY_JSON` (optional): replace the built-in lists of search crawlers and AI bots.
+- `FORA_ENFORCE_BINDING` (optional): `"false"` turns off the agent-binding check. Unset means the check runs.
+- `WBA_KEYS_JSON`, `WBA_REVOCATION_URL` and `WBA_SIGNED_DIRECTORY_JSON` (optional): the provider's own key directory, for a provider that self-attests.
 
 ### Discovery Headers on the 403
 
@@ -204,7 +200,7 @@ The edge function holds no secret. It verifies signed URLs with the Exchange's p
 
 ### Platform-Specific Wrangler Deployment (Cloudflare)
 
-To deploy the Cloudflare Worker with Wrangler instead of Terraform, set its routes and variables in `src/edge/wrangler.toml`, in an environment block such as `[env.production]`. Then deploy from a checkout of the reference implementation:
+To deploy the Cloudflare Worker with Wrangler instead of Terraform, set its routes and variables in `src/edge/wrangler.toml`, in an environment block such as `[env.production]`. With `SAME_ZONE_ORIGIN`, that block also sets `workers_dev = false`, because same-zone forwarding works only on a zone route. Then deploy from a checkout of the reference implementation:
 
 ```bash
 cd src/edge
@@ -223,9 +219,8 @@ npx wrangler deploy --env production
 
 | CDN | Deploy Command |
 |---|---|
-| Cloudflare | `npx wrangler deploy` |
+| Cloudflare | `npx wrangler deploy --env production` from `src/edge`, or the `cloudflare-edge` module |
 | CloudFront | `terraform apply` with the `aws-cloudfront-edge` module |
-| Fastly | `fastly compute deploy` |
 
 ## The Provider's Own Documents
 
@@ -239,8 +234,8 @@ The edge function is only effective if all requests to protected content pass th
 |---|---|
 | Direct origin access (skipping CDN) | Origin should only accept requests from CDN IPs. Use origin shield, security groups, or origin access identity (CloudFront OAI/OAC). |
 | Alternate domain pointing to same origin | All domains serving protected content must have the edge function deployed. |
-| CDN cache serving stale content without re-verification | Set `Cache-Control: private` or short TTL on protected content. Or use CDN-native signed URL verification which applies to cached responses too. |
-| Agent using a different path to the same content (URL alias) | Content policy rules must cover all URL patterns that resolve to protected content. |
+| CDN cache serving content without re-verification | The edge function runs before the cache. On CloudFront it runs at viewer-request, which also runs on cache hits. On Cloudflare the Worker runs before the zone's cache. |
+| Agent using a different path to the same content (URL alias) | `LICENSED_PATHS_JSON` must cover every path that serves the content. Unset, it covers the whole site. |
 
 ## Verification Procedure
 
@@ -252,4 +247,4 @@ After deployment, verify with these checks:
 4. `GET /premium/article.html` with valid signed URL returns `200`.
 5. `GET /premium/article.html` with expired signed URL returns `403`.
 6. `GET /premium/article.html` with tampered signed URL returns `403`.
-7. `GET /free/article.html` with bot User-Agent returns `200` (open content).
+7. With `LICENSED_PATHS_JSON` set and leaving `/free/` out, `GET /free/article.html` with bot User-Agent returns `200` (open content).
