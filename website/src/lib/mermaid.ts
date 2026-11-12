@@ -64,6 +64,10 @@ export function mermaidConfig(dark: boolean, fontFamily: string): MermaidConfig 
   const font = `${FONT_PX}px`;
   return {
     startOnLoad: false,
+    // Without this, a diagram that fails to parse also leaves Mermaid's "Syntax error"
+    // graphic appended to <body>, below the footer, one more on every theme switch.
+    // The error is shown in the diagram's own frame instead (renderMermaid).
+    suppressErrorRendering: true,
     theme: 'base',
     darkMode: dark,
     fontFamily,
@@ -198,13 +202,18 @@ export async function renderMermaid(boxes: HTMLElement[]) {
     for (const box of boxes) {
       const source = box.dataset.content;
       if (!source) continue;
+      const id = `mermaid-${++ids}`;
       try {
-        const { svg } = await mermaid.render(`mermaid-${++ids}`, source);
+        const { svg } = await mermaid.render(id, source);
         if (run !== generation) return; // the theme changed again; the newer pass wins
         box.innerHTML = svg;
         box.dataset.status = 'rendered';
         fit(box);
       } catch (error) {
+        // Mermaid removes its scratch elements itself when errors are suppressed; this
+        // makes sure none survives a failure it did not anticipate.
+        document.getElementById(`d${id}`)?.remove();
+        document.getElementById(id)?.remove();
         if (run !== generation) return;
         box.textContent = String(error);
         box.dataset.status = 'error';
