@@ -23,8 +23,6 @@ The absolute minimum a provider needs to do:
 3. **Deploy the edge function** from the package the Exchange operator's console builds, or with the reference implementation's Terraform module for CloudFront or Cloudflare. See [Distribution Formats](/components/edge-function/deployment/#distribution-formats).
 4. **Verify** -- `curl -I https://example.com/.well-known/fora.json` returns the origin's file through the edge function.
 
-Target: **under 10 minutes** from Exchange operator contract to live edge function.
-
 ## Signing Scope
 
 The edge function deals exclusively with **signed URL verification**. It does NOT verify offer signatures. Both subsystems use Ed25519; they differ in which key signs and who verifies:
