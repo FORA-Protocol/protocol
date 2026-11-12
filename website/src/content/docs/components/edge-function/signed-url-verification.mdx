@@ -66,9 +66,9 @@ sequenceDiagram
 
     Agent->>Edge: GET /premium/article.html?agent_id=<thumbprint>&exp=1773451434&kid=<thumbprint>&sig=...
 
-    Note over Edge: 1. No sig parameter? bot gate, then origin<br/>2. Resolve kid to a public key<br/>3. Rebuild "GET\n&lt;canonical URL&gt;"<br/>4. Ed25519 verify and exp check<br/>5. Method gate<br/>6. Proof of possession, if agent_id is present
+    Note over Edge: 1. No sig parameter? bot gate, then origin<br/>2. Resolve kid to a public key<br/>3. Rebuild "GET\n#lt;canonical URL#gt;"<br/>4. Ed25519 verify and exp check<br/>5. Method gate<br/>6. Proof of possession, if agent_id is present
 
-    Edge->>Dir: fetch public keys (cached; skipped when keys are pinned in config)
+    Edge->>Dir: fetch public keys (cached#59; skipped when keys are pinned in config)
     Dir-->>Edge: JWK Set
 
     alt Key resolution fails
@@ -292,7 +292,7 @@ sequenceDiagram
 
     Note over Edge: Signature verified OK
 
-    Edge->>KV: PUT-IF-ABSENT<br/>key: "used:&lt;sig&gt;"<br/>value: timestamp<br/>TTL: URL lifetime + 60s
+    Edge->>KV: PUT-IF-ABSENT<br/>key: "used:#lt;sig#gt;"<br/>value: timestamp<br/>TTL: URL lifetime + 60s
 
     alt Key did not exist (first use)
         KV-->>Edge: success (inserted)

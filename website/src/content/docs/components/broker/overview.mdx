@@ -37,7 +37,7 @@ graph TB
     SD -->|DiscoverResources| MPC[Exchange C]
 
     MR -.->|endpoint list| SD
-    SD -->|[]ResourceResponse| SE
+    SD -->|"[]ResourceResponse"| SE
     BT -.->|budget check| SE
     SE -->|selected Offers| SD
     SD -->|DiscoveryResponse| Agent
