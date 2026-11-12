@@ -36,7 +36,7 @@ A FORA transaction follows six steps:
 1. Discover    Agent checks /.well-known/fora.json → finds Exchange endpoint
 2. Query       Agent calls DiscoverResources → gets Offers with pricing + attestations
 3. Transact    Agent calls ExecuteTransaction → gets delivery instructions + billing_id
-4. Deliver     Agent fetches resource via signed URL → expires, optionally bound to the agent's key
+4. Deliver     Agent fetches resource via signed URL → expires; may be bound to agent's key
 5. Report      Agent calls ReportUsage → reports consumption (tokens, pages, minutes, records)
 6. Dispute     If needed: DisputeTransaction → evidence-based dispute with report_id
 ```
@@ -135,7 +135,7 @@ No fire-and-forget disputes. The agent must file a `UsageReport` before disputin
 │                       SUPPLY SIDE                           │
 │                                                             │
 │   Exchange ──→ Resource Provider ──→ Delivery Endpoint      │
-│   (catalog, pricing,   (owns content,    (CDN, API, PACS,  │
+│   (catalog, pricing,   (owns content,    (CDN, API, PACS,   │
 │    transactions)        sets terms)       DICOMweb, etc.)   │
 └─────────────────────────────────────────────────────────────┘
 ```
