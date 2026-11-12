@@ -53,7 +53,7 @@ sequenceDiagram
 
 A `PER_UNIT` price is metered. A `PER_UNIT` offer may carry an `estimated_quantity` in its `unit`, or none; whether to state one is the publisher's decision. The purchase charges estimate × rate, or one unit's rate without an estimate, and the charge is final. A disagreement about the quantity consumed is a dispute. See [Charging a metered purchase](/protocol/transaction-flow/#charging-a-metered-purchase).
 
-A **subscription** is `FREE` + a `subscription:*` scope (settled off-protocol). **Attribution** and **contribution** are `Obligation`s, not pricing models. There is no revenue-share model — settlement is off-protocol.
+A **subscription** is `FREE` + a concrete subscription scope such as `subscription:daily-meridian-2027` (settled off-protocol). **Attribution** and **contribution** are `Obligation`s, not pricing models. There is no revenue-share model — settlement is off-protocol.
 
 Providers set their preferred pricing model and rate in their RSL file. The Exchange operationalizes these into live Offers. RSL pricing serves as a price ceiling (public declaration); private pricing between provider and Exchange may be lower.
 
@@ -115,7 +115,7 @@ An item with a zero price skips the Billing Adapter: FORA Server calls neither `
 
 ### Subscription Billing
 
-The AI company pays for a subscription off-protocol. On-protocol, a subscription is a `LicenseTerm` priced `PRICING_MODEL_FREE` whose `LicenseTerm.scopes` include a `subscription:` scope:
+The AI company pays for a subscription off-protocol. On-protocol, a subscription is a `LicenseTerm` priced `PRICING_MODEL_FREE` whose `LicenseTerm.scopes` include one concrete subscription scope, such as `subscription:daily-meridian-2027`:
 
 1. During `DiscoverResources`, FORA Server presents the term only when the request carries a delegation chain (`Requester.delegation`) that verifies against the subscription record owning that scope, bound to the key that signed the request, and whose scopes cover the term's. It ignores `Requester.scopes` for such a term. A query a Broker originates is signed by the Broker alone, so it never yields the term
 2. During `ExecuteTransaction`, the item carries the agent's signed `AgentAcceptance`, and the Exchange verifies the delegation chain against the key that signed it
