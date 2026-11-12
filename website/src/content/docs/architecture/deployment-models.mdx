@@ -136,7 +136,7 @@ Content published in WordPress
 
 For CDNs with limited compute capabilities, the edge function can be reduced to a minimal feature set:
 
-1. **Signed URL verification**: verify the Ed25519 signature over the canonical URL -- valid? pass through : return 403. A CloudFront distribution verifies its RSA signed URLs natively, so there the function skips this step.
+1. **Signed URL verification**: verify the Ed25519 signature over the canonical URL -- valid? pass through : return 403.
 2. **Bot detection**: Check `User-Agent` for known AI crawler strings -- match? return 403 with `X-Content-Rules` header
 3. **Let `fora.json` through**: Leave `/.well-known/fora.json` to the origin, ahead of the bot check, so a refused bot can read it
 
@@ -159,4 +159,4 @@ Request arrives at edge:
 4. Default -> Pass through to origin (non-bot, non-protected)
 ```
 
-Step 1 needs a runtime that can run code: Cloudflare Workers and Fastly Compute verify the signature themselves, and a CloudFront distribution verifies its own RSA signed URLs without any function at all. A declarative rule language -- Fastly VCL, Akamai Property Manager -- cannot verify a signature, so it can refuse known crawlers but cannot admit a paid request.
+Signature verification needs a runtime that can run code. The reference implementation verifies the Ed25519 signature in a Cloudflare Worker, and on CloudFront in a Lambda@Edge viewer-request function. The `aws-cloudfront-edge` module leaves CloudFront's own signed-URL check off, with `trusted_key_groups = []`. A declarative rule language -- Fastly VCL, Akamai Property Manager -- cannot verify a signature, so it can refuse known crawlers but cannot admit a paid request.
