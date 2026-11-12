@@ -141,6 +141,12 @@ export default defineConfig({
 					label: 'Components',
 					items: [
 						{
+							label: 'Broker',
+							items: [
+								{ label: 'Overview', slug: 'components/broker/overview' },
+							],
+						},
+						{
 							label: 'Identity Service',
 							items: [
 								{ label: 'Overview', slug: 'components/identity/overview' },
