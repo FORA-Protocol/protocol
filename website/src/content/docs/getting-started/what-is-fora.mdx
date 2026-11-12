@@ -117,7 +117,7 @@ Providers and third-party verifiers sign claims about resources using Ed25519. T
 
 ### Dispute chain
 
-No fire-and-forget disputes. The agent must file a `UsageReport` before disputing, creating an evidence chain: each `DisputeRequest` names the transaction and the `report_id` of its usage report. The Exchange refuses a filing that fails a check, such as a missing usage report or a closed dispute window, with a typed reason. The protocol standardizes the dispute signal, its states and its outcomes (credit, redelivery or rejection); how an Exchange decides a dispute is up to the Exchange. See [Dispute Resolution](/protocol/dispute-resolution/).
+No fire-and-forget disputes. The agent must file a `UsageReport` before disputing, creating an evidence chain: each `DisputeRequest` names the transaction and the `report_id` of its usage report. The Exchange refuses a filing that fails a check, such as a missing usage report or a closed dispute window, with a typed reason. The protocol standardizes the dispute signal, its states and its outcomes (credit, redelivery, rejection or further investigation); how an Exchange decides a dispute is up to the Exchange. See [Dispute Resolution](/protocol/dispute-resolution/).
 
 ## Architecture
 
