@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+**An RSL license is found where RSL 1.0 says (docs only; no wire change).** RSL 1.0 fixes no
+file name: a license is an XML document (`application/rsl+xml`) at any URL, associated with
+content by a `License:` line in `robots.txt`, a `Link` header with `rel="license"`, an HTML
+`<link>` or `<script>` element, an RSS item, or a media file's metadata. Standards Layering lists
+the five carriers and says how the publisher console reads a license: at `/rsl.txt` on the
+domain first, then at each same-host address a `License:` line in `robots.txt` names. Discovery Paths' Path D shows the `robots.txt` carrier, and the other pages name an
+RSL license rather than a file. The `INGESTION_SOURCE_RSL` comment says "RSL 1.0 license
+document".
+
 **fora-music-v1 carries the rights data a cue sheet needs, and finds tracks by key, version,
 publisher and IPI (additive; no wire change).** `music.publishers` lists the music publishers
 of the work, each with `name` and an optional `role` (`original publisher`, `sub-publisher`,
