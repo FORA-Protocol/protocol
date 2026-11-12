@@ -10,5 +10,6 @@ const files = import.meta.glob('../../../../schemas/**/*.json', { query: '?raw',
 export const getStaticPaths: GetStaticPaths = () =>
   Object.entries(files).map(([file, body]) => ({ params: { path: file.slice(ROOT.length) }, props: { body } }));
 
-export const GET: APIRoute = ({ props }) =>
-  new Response(props.body as string, { headers: { 'Content-Type': 'application/schema+json' } });
+// The build writes the body to a file; the host sets the Content-Type from the
+// .json extension.
+export const GET: APIRoute = ({ props }) => new Response(props.body as string);
