@@ -19,10 +19,7 @@ The result: agents are locked into whichever providers their developers happened
 
 FORA — the **Federated Open Resource Access** — is an open transaction layer for metered resource access by AI agents. One protocol for discovering, pricing, transacting, delivering, and verifying digital resources.
 
-```
-Agent → Broker → Exchange → Resource
-         (routes)       (prices)      (delivers)
-```
+An agent buys access to a resource from an Exchange, directly or through an optional Broker, and fetches it from the provider with a signed URL the Exchange issues.
 
 **For agents:** Query any Exchange. Compare offers across providers. Pay per use. Verify what you got.
 
@@ -32,23 +29,31 @@ Agent → Broker → Exchange → Resource
 
 ## How It Works
 
-A FORA transaction follows six steps:
+<ArchitectureDiagram />
+
+Before any sale, the provider sets its terms, serves `/.well-known/fora.json`, which names the Exchanges that sell its content, and installs the edge function on its CDN. The Exchange builds the provider's catalog: in FORA Server, its catalog importer reads the site's sitemap with the terms set in the publisher console, or the provider pushes the catalog with `CatalogService.PushResources`. The agent opens an account at the Exchange with `ExchangeService.Register`; a paid item bought without one is denied with `DENIAL_REASON_ACCOUNT_NOT_REGISTERED`.
+
+Then one sale takes six steps:
 
 <Steps>
 
-1. **Discover.** The agent reads `/.well-known/fora.json` and finds the Exchange's endpoint.
+1. **Discover.** The agent reads the provider's `/.well-known/fora.json` and finds the Exchanges that sell the content. A Broker can do this instead of the agent.
 
-2. **Query.** The agent calls `DiscoverResources` and gets Offers with pricing and attestations.
+2. **Query.** The agent calls `DiscoverResources` on an Exchange and gets Offers with pricing and attestations, each signed by the Exchange. A Broker can do this instead: it queries the Exchanges, ranks the offers and holds the agent to its spending limit.
 
-3. **Transact.** The agent calls `ExecuteTransaction` and gets delivery instructions and, for a paid item, a `billing_id`.
+3. **Transact.** The agent calls `ExecuteTransaction` and gets delivery instructions: a signed URL the Exchange issues, which expires and may be bound to the agent's key, and, for a paid item, a `billing_id`. Through a Broker, one call buys offers from several Exchanges.
 
-4. **Deliver.** The agent fetches the resource through a signed URL, which expires and may be bound to the agent's key.
+4. **Deliver.** The agent fetches the resource from the provider's CDN with the signed URL. The edge function there checks the URL's signature and expiry and, when the URL is bound to the agent's key, that the fetcher holds that key, before it serves the resource. On the paths the provider licenses, it refuses an AI bot that comes without a signed URL.
 
-5. **Report.** The agent calls `ReportUsage` and reports what it consumed: tokens, pages, minutes or records.
+5. **Report.** The agent calls `ReportUsage` on the Exchange that sold the item and reports what it consumed: tokens, pages, minutes or records.
 
-6. **Dispute, if needed.** The agent calls `DisputeTransaction` with the `report_id` of its usage report and the evidence.
+6. **Dispute, if needed.** The agent calls `DisputeTransaction` on that Exchange with the `report_id` of its usage report and the evidence.
 
 </Steps>
+
+The Broker is optional: an agent can call an Exchange directly at every step. Reports and disputes always go from the agent to the Exchange that sold the item.
+
+Money moves outside the protocol: the Exchange operator bills the agent's account holder and pays the provider. See [How Money Flows](/getting-started/how-money-flows/).
 
 ## One Protocol Across Industries
 
@@ -130,24 +135,14 @@ No fire-and-forget disputes. The agent must file a `UsageReport` before disputin
 
 ## Architecture
 
-FORA has four roles. The agent, the Requester, buys resources. A Broker can shop across Exchanges for it. The Exchange sells the provider's catalog, and the provider owns the content. Each role is a component of FORA Server.
+FORA has four roles, and FORA Server has a component for each. The agent is the AI platform's own software, and the provider is the publisher's own site and CDN, where it deploys only the edge function.
 
-<ArchitectureDiagram />
+- **Agent**, the Requester: finds, buys and uses resources. In FORA Server, the optional Identity Service is an MCP endpoint that holds a key for the agent and signs its requests. An agent with an SDK signs its own.
+- **Broker**, optional: finds the Exchanges, ranks offers, holds the agent to its spending limit and buys from several Exchanges in one call. FORA Server's Broker plays this role.
+- **Exchange**: holds the catalog and terms, signs offers, records each sale, issues signed URLs, and takes usage reports and disputes. FORA Server's Exchange plays this role, with its catalog importer. The publisher console is a separate, optional service the Exchange operator runs, where a publisher registers its sites and sets its terms.
+- **Provider**, the publisher: owns the content, sets the terms and serves `/.well-known/fora.json`. It runs FORA Server's edge function on its CDN.
 
-Before any sale, the provider sets its terms in the publisher console, and the Exchange imports the provider's catalog from the site's sitemap. Then one sale takes six steps:
-
-1. **Discover.** The agent reads the provider's `/.well-known/fora.json`, which names the Exchange that sells the content. A Broker can do this for the agent.
-2. **Query.** The agent calls `DiscoverResources` on that Exchange and gets signed offers. A Broker can do this for the agent: it queries the Exchanges, ranks their offers and leaves out the ones over the agent's budget.
-3. **Transact.** The agent calls `ExecuteTransaction` and gets a signed URL for each item it buys. Through a Broker, one call buys offers from several Exchanges.
-4. **Deliver.** The agent fetches the content from the provider's CDN with the signed URL. The edge function there checks the URL's signature and expiry before it serves the content. An AI bot that comes without a signed URL is refused.
-5. **Report.** The agent calls `ReportUsage` on the Exchange that sold the item and reports what it used.
-6. **Dispute, if needed.** The agent calls `DisputeTransaction` on that Exchange, citing its usage report.
-
-The Broker is optional: an agent can call an Exchange directly at every step. Reports and disputes always go from the agent to the Exchange that sold the item.
-
-In FORA Server, an agent signs its own requests with an SDK, or connects over MCP to the Identity Service, which holds a key for the agent and signs its requests with it. The Broker and the Exchange are services of their own, and the provider uses the publisher console that comes with the Exchange. The edge function runs on the provider's CDN.
-
-Money moves outside the protocol: the Exchange operator bills the agent's account holder and pays the provider. See [How Money Flows](/getting-started/how-money-flows/).
+Through the Identity Service's MCP endpoint, an agent registers at an Exchange, discovers and buys through the Broker, and reports usage to the Exchange. Its `fora_execute` tool fetches the content for the agent by default. An agent files a dispute through an SDK, calling `DisputeTransaction` itself.
 
 ## Scope
 
