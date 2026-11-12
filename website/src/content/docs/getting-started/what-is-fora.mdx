@@ -3,6 +3,7 @@ title: "What Is FORA?"
 description: "An introduction to the Federated Open Resource Access — the open transaction layer for metered access to digital resources by AI agents."
 ---
 
+import { Steps } from '@astrojs/starlight/components';
 import { PACKAGES } from '../../../consts';
 
 ## The Problem
@@ -32,14 +33,21 @@ Agent → Broker → Exchange → Resource
 
 A FORA transaction follows six steps:
 
-```
-1. Discover    Agent checks /.well-known/fora.json → finds Exchange endpoint
-2. Query       Agent calls DiscoverResources → gets Offers with pricing + attestations
-3. Transact    Agent calls ExecuteTransaction → gets delivery instructions + billing_id
-4. Deliver     Agent fetches resource via signed URL → expires; may be bound to agent's key
-5. Report      Agent calls ReportUsage → reports consumption (tokens, pages, minutes, records)
-6. Dispute     If needed: DisputeTransaction → evidence-based dispute with report_id
-```
+<Steps>
+
+1. **Discover.** The agent reads `/.well-known/fora.json` and finds the Exchange's endpoint.
+
+2. **Query.** The agent calls `DiscoverResources` and gets Offers with pricing and attestations.
+
+3. **Transact.** The agent calls `ExecuteTransaction` and gets delivery instructions and, for a paid item, a `billing_id`.
+
+4. **Deliver.** The agent fetches the resource through a signed URL, which expires and may be bound to the agent's key.
+
+5. **Report.** The agent calls `ReportUsage` and reports what it consumed: tokens, pages, minutes or records.
+
+6. **Dispute, if needed.** The agent calls `DisputeTransaction` with the `report_id` of its usage report and the evidence.
+
+</Steps>
 
 ## One Protocol Across Industries
 
@@ -121,24 +129,27 @@ No fire-and-forget disputes. The agent must file a `UsageReport` before disputin
 
 ## Architecture
 
+```mermaid
+flowchart LR
+  subgraph requester["Requester side"]
+    agent["AI agent"]
+    broker["Broker (optional)<br/>queries Exchanges, compares offers,<br/>enforces budgets"]
+  end
+  subgraph provider_side["Provider side"]
+    exchange["Exchange<br/>catalog, pricing, transactions"]
+    provider["Resource provider<br/>owns the content, sets the terms"]
+    delivery["Delivery endpoint<br/>CDN, API, PACS, DICOMweb"]
+  end
+  agent --> broker
+  broker -- "DiscoverResources<br/>ExecuteTransaction" --> exchange
+  agent -. "or directly" .-> exchange
+  provider -- "catalog and terms" --> exchange
+  agent -- "signed URL" --> delivery
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                       DEMAND SIDE                           │
-│                                                             │
-│   AI Agent ──→ Broker                                       │
-│   (needs resources)   (routes queries, compares offers,     │
-│                        enforces budgets)                    │
-└───────────────────────────┬─────────────────────────────────┘
-                            │ DiscoverResources / ExecuteTransaction
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                       SUPPLY SIDE                           │
-│                                                             │
-│   Exchange ──→ Resource Provider ──→ Delivery Endpoint      │
-│   (catalog, pricing,   (owns content,    (CDN, API, PACS,   │
-│    transactions)        sets terms)       DICOMweb, etc.)   │
-└─────────────────────────────────────────────────────────────┘
-```
+
+1. An AI agent calls `DiscoverResources` and `ExecuteTransaction` on an Exchange, either directly or through a Broker.
+2. The Exchange holds the provider's catalog and terms, prices each request and records each transaction.
+3. The agent fetches the resource from the provider's delivery endpoint, such as a CDN, an API or a PACS, with the signed URL it was given.
 
 The Broker is optional — agents can query Exchanges directly. A Broker queries several Exchanges, merges their offers, and can filter them by the agent's budget and data freshness.
 
