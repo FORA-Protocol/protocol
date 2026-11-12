@@ -1,6 +1,6 @@
 ---
 title: "What Is FORA?"
-description: "An introduction to the Federated Open Resource Access — the open transaction layer for fast, metered access to any digital resource by AI agents."
+description: "An introduction to the Federated Open Resource Access — the open transaction layer for metered access to digital resources by AI agents."
 ---
 
 import { PACKAGES } from '../../../consts';
@@ -36,7 +36,7 @@ A FORA transaction follows six steps:
 1. Discover    Agent checks /.well-known/fora.json → finds Exchange endpoint
 2. Query       Agent calls DiscoverResources → gets Offers with pricing + attestations
 3. Transact    Agent calls ExecuteTransaction → gets delivery instructions + billing_id
-4. Deliver     Agent fetches resource via signed URL → time-limited, identity-bound
+4. Deliver     Agent fetches resource via signed URL → time-limited, can be bound to the agent's key
 5. Report      Agent calls ReportUsage → reports consumption (tokens, pages, minutes, records)
 6. Dispute     If needed: DisputeTransaction → evidence-based dispute with report_id
 ```
@@ -69,11 +69,11 @@ Pricing uses `unit_cost` + `unit` + `estimated_quantity`. No assumption about wh
 
 ### Content mutability
 
-Every resource declares whether it's **static** (articles, patents — hash is stable), **dynamic** (credit reports, drug databases — content changes between offer and fetch), or **live** (streaming feeds — no content exists at offer time). This drives hash verification, attestation cadence, and dispute rules.
+Every resource declares whether it's **static** (articles, patents — hash is stable), **dynamic** (credit reports, drug databases — content changes between offer and fetch), or **live** (streaming feeds — no content exists at offer time). This decides whether the agent checks the content hash on delivery, and whether a hash mismatch can be disputed.
 
 ### Data freshness
 
-Offers carry `data_as_of` — when the data was current. Agents set `max_data_age` — how fresh they need it. The Broker filters. Essential for credit reports (days), stock quotes (seconds), drug databases (weeks).
+Offers carry `data_as_of` — when the data was current. Agents set `max_data_age` — how fresh they need it. The Broker should drop offers older than that. Essential for credit reports (days), stock quotes (seconds), drug databases (weeks).
 
 ### Extension profiles
 
@@ -140,7 +140,7 @@ No fire-and-forget disputes. The agent must file a `UsageReport` before disputin
 └─────────────────────────────────────────────────────────────┘
 ```
 
-The Broker is optional — agents can query Exchanges directly. But it adds multi-exchange comparison, budget enforcement, freshness filtering, and profile-based routing.
+The Broker is optional — agents can query Exchanges directly. A Broker queries several Exchanges, merges their offers, and can filter them by the agent's budget and data freshness.
 
 ## Scope
 
