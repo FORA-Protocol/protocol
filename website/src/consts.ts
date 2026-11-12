@@ -69,6 +69,14 @@ export const LANDING_PAGES = [
 	{ key: 'protocol', href: '/protocol/', label: 'Protocol' },
 	{ key: 'publishers', href: '/publishers/', label: 'For publishers' },
 	{ key: 'music', href: '/music/', label: 'For music' },
+	{ key: 'resources', href: '/resources/', label: 'Resources' },
 ] as const;
 
 export type LandingPageKey = (typeof LANDING_PAGES)[number]['key'];
+
+/**
+ * The current version of the Movement for an Open Web's Search Only Terms
+ * Contract. Each version has a fixed URL that never changes; a new version
+ * gets a new one (https://m4ow.uk/socw/).
+ */
+export const SEARCH_ONLY_CONTRACT_URL = 'https://m4ow.uk/socw/3.txt';

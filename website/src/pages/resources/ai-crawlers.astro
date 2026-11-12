@@ -1,0 +1,225 @@
+---
+// Resource: what a publisher can do about AI crawlers today. The bot list is
+// src/data/ai-bots.ts, the generator's rules src/lib/ai-rules.ts; every vendor
+// claim on this page is from the vendor's own documentation, linked from the
+// bot table.
+import LandingLayout from '../../layouts/LandingLayout.astro';
+import AudienceHero from '../../components/landing/AudienceHero.astro';
+import Band from '../../components/landing/Band.astro';
+import CardGrid from '../../components/landing/CardGrid.astro';
+import PointList from '../../components/landing/PointList.astro';
+import BotTable from '../../components/landing/BotTable.astro';
+import AiRulesGenerator from '../../components/landing/AiRulesGenerator.astro';
+import SlideDeck from '../../components/landing/SlideDeck.astro';
+import Slide from '../../components/landing/Slide.astro';
+import FaqGrid from '../../components/landing/FaqGrid.astro';
+import LinkRow from '../../components/landing/LinkRow.astro';
+import ClosingCta from '../../components/landing/ClosingCta.astro';
+import ContractSteps from '../../components/landing/ContractSteps.astro';
+import CodeCard from '../../components/landing/CodeCard.astro';
+import { SEARCH_ONLY_CONTRACT_URL } from '../../consts';
+
+const CONTRACT_LINES: [string, string][] = [
+  ['User-agent:', '*'],
+  ['tdl:', SEARCH_ONLY_CONTRACT_URL],
+  ['Allow:', '/'],
+];
+
+const SHORT_ANSWER = [
+  { title: 'Refuse training', text: 'Each AI company that trains on the web names its own crawler or robots.txt token for it. Refuse them all by name, and training stops without touching your search traffic.' },
+  { title: 'Stay in search', text: 'Googlebot, Bingbot and Applebot bring your search traffic and also feed AI Overviews, Copilot and Siri. Keep them, and refuse their AI uses with each vendor\'s own setting.' },
+  { title: 'Sell the rest', text: 'Bots that load your page to answer a question meet FORA on the paths you sell: a 403 that tells them where to buy. A search-only contract covers whoever hides.' },
+];
+
+const CHANNELS = [
+  { title: 'robots.txt.', text: 'Where the AI companies read most refusals: a group that names each training crawler and token. It covers your whole site, open pages included.' },
+  { title: 'A header or a tag on each page.', text: 'For the few controls that exist only per page: Microsoft\'s training and Copilot grounding settings, the EU reservation of text and data mining, and the link to your contract.' },
+  { title: 'A 403 at your CDN.', text: 'For what ignores robots.txt. FORA\'s edge function refuses AI bots on the paths you sell and points them to your offers.' },
+  { title: 'A vendor\'s own console.', text: 'One control lives in no file: Google\'s setting that keeps a site out of AI Overviews and AI Mode is in Search Console.' },
+];
+
+const CANT_STOP = [
+  { title: 'Live fetchers.', text: 'OpenAI says robots.txt "may not apply" to ChatGPT-User. Perplexity says Perplexity-User "generally ignores" it, and Google says the same of its user-triggered fetchers, Google-Agent among them. On the paths you sell, FORA\'s edge function gives them a 403 and the way to buy.' },
+  { title: 'Crawlers that hide.', text: 'Cloudflare has documented undeclared crawlers that change their name to get past blocks. Your CDN\'s bot management catches what it can, and the search-only contract binds whoever accesses the site, however they identify.' },
+  { title: 'Agents that sign.', text: 'ChatGPT\'s agent signs its requests with Web Bot Auth, and Google-Agent does in an experiment, so a site can check who is really asking rather than trust a name. FORA agents identify themselves the same way.' },
+];
+
+const FAQ = [
+  {
+    q: 'Will refusing training hurt my Google ranking?',
+    a: 'No. Google says Google-Extended "does not impact a site\'s inclusion in Google Search". Apple says the same of Applebot-Extended.',
+  },
+  {
+    q: 'Can I keep my pages out of AI Overviews?',
+    a: 'Yes, with the "Search generative AI" setting in Google Search Console. No robots.txt line does it without taking you out of Google Search too, because AI Overviews draw on Googlebot, the crawler that brings your search traffic.',
+  },
+  {
+    q: 'What about Perplexity?',
+    a: 'Perplexity says PerplexityBot builds its search index and is not used to train models, so refusing it takes you out of Perplexity\'s results. Perplexity-User loads pages when someone asks and generally ignores robots.txt: on the paths you sell, FORA gives it a 403.',
+  },
+  {
+    q: 'Does robots.txt bind anyone?',
+    a: 'It is a request, which the AI companies document that they follow. The search-only contract turns the same lines into terms of access, and FORA turns the access into a sale with a signed receipt.',
+  },
+  {
+    q: 'Which line refuses every AI company at once?',
+    a: 'None yet. The shared <code>__usage_ai-training</code> token comes closest: Anthropic recognizes it now, OpenAI has announced it, Google plans early 2027 and Microsoft starts on 1 February 2027. The generator includes it next to each vendor\'s own name.',
+  },
+  {
+    q: 'How current is the list?',
+    a: 'Every bot is checked against its vendor\'s documentation, and the date is under the table. The same list is published as <a href="/registry/ai-bots.json">JSON</a> for tools that generate from it.',
+  },
+];
+---
+<LandingLayout
+  title="What you can do about AI crawlers today — FORA resources"
+  description="Refuse AI training in the form each AI company honors, stay in search and in the AI answers that cite you, and put a price on the rest. Every bot by what it does, and a generator for your robots.txt and headers."
+>
+  <AudienceHero
+    current="resources"
+    badge="Resource · For publishers"
+    title="What you can do about<br>AI crawlers. <em>Today.</em>"
+    sub="Refuse training in the form each AI company honors. Stay in search and in the AI answers that cite you. Put a contract and a price on everything else."
+  >
+    <a href="#generator" class="btn btn-primary">Generate your rules</a>
+    <a href="#bots" class="btn btn-ghost">See every bot</a>
+  </AudienceHero>
+
+  <Band label="The short answer" title="Refuse training. Stay in search. Sell the rest.">
+    <CardGrid items={SHORT_ANSWER} />
+  </Band>
+
+  <Band
+    tone="near"
+    label="Why one line is not enough"
+    title="Each AI company reads its own refusal"
+    lead="The AI companies treat their uses as allowed unless a site refuses them, and there is no single signal they all honor. So a refusal has to be said in each vendor's own form, in up to four places."
+  >
+    <PointList items={CHANNELS} />
+  </Band>
+
+  <Band
+    tone="light"
+    id="bots"
+    label="Every bot"
+    title="Who is crawling, and what for"
+    lead="The same company often runs three bots: one that trains, one that builds its AI search, and one that loads a page when a person asks. Each gets a different answer."
+  >
+    <BotTable />
+  </Band>
+
+  <Band
+    id="generator"
+    label="Generator"
+    title="Generate your rules"
+    lead="Choose what you want, and copy what goes into your robots.txt, your page headers and your site's terms."
+  >
+    <AiRulesGenerator />
+  </Band>
+
+  <Band
+    tone="near"
+    label="The limits"
+    title="What robots.txt can't stop"
+  >
+    <PointList items={CANT_STOP} />
+    <LinkRow links={[
+      { href: '/components/edge-function/bot-detection/', text: 'How the edge function tells bots apart' },
+      { href: '/getting-started/search-only-contract/', text: 'The search-only contract' },
+    ]} />
+  </Band>
+
+  <Band
+    tone="light"
+    id="contract"
+    label="Put it in writing"
+    title="Set your price for everything beyond search"
+    lead="The Movement for an Open Web's Search Only Terms Contract binds whoever accesses your site, however they identify. Search stays free; every other access owes the fee you set."
+    asideWidth="440px"
+  >
+    <Fragment slot="intro">
+      <ContractSteps />
+      <LinkRow links={[{ href: '/getting-started/search-only-contract/', text: 'The full steps' }]} />
+    </Fragment>
+    <CodeCard slot="aside" head="robots.txt" tag="search-only contract" rows={CONTRACT_LINES} label="The robots.txt lines that point to the search-only contract" />
+  </Band>
+
+  <Band label="Slides" title="The whole answer in six slides">
+    <SlideDeck label="What you can do about AI crawlers today" tone="dark">
+      <Slide title="The AI companies ask you to say no" text="They treat training, AI search and AI answers as allowed unless your site refuses them, each in its own form.">
+        <pre class="art-code"><span class="c"># the default, unless you say otherwise</span>
+User-agent: *
+Allow: /</pre>
+      </Slide>
+      <Slide title="Three kinds of bot" text="One company often runs three: a <strong>training</strong> crawler, an <strong>AI search</strong> crawler, and a <strong>live fetcher</strong> that loads a page when a person asks.">
+        <div class="art-cols">
+          <div><b>Training</b><code>GPTBot</code><code>ClaudeBot</code><code>Meta-ExternalAgent</code></div>
+          <div><b>AI search</b><code>OAI-SearchBot</code><code>Claude-SearchBot</code><code>PerplexityBot</code></div>
+          <div><b>Live fetch</b><code>ChatGPT-User</code><code>Claude-User</code><code>Perplexity-User</code></div>
+        </div>
+      </Slide>
+      <Slide title="Refuse training by name" text="Name every training crawler and token in one robots.txt group. Search is untouched: Google says Google-Extended doesn't affect inclusion in Google Search.">
+        <pre class="art-code">User-agent: GPTBot
+User-agent: ClaudeBot
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: __usage_ai-training
+<span class="c"># … every training crawler</span>
+Disallow: /</pre>
+      </Slide>
+      <Slide title="Stay in search" text="Googlebot, Bingbot and Applebot bring your traffic and feed AI Overviews, Copilot and Siri. Keep them, and refuse their AI uses with each vendor's own setting.">
+        <div class="art-cols art-two">
+          <div><b>Keep</b><code>Googlebot</code><code>Bingbot</code><code>Applebot</code></div>
+          <div><b>Refuse their AI uses</b><code>Google-Extended</code><code>Applebot-Extended</code><code>ai-training:disallow</code></div>
+        </div>
+      </Slide>
+      <Slide title="Sell what's left" text="Bots that load a page to answer someone often ignore robots.txt. On the paths you sell, FORA's edge function gives them a 403 that points to your offers.">
+        <pre class="art-code">HTTP/1.1 403 Forbidden
+X-Content-Rules: https://publisher.example/.well-known/fora.json
+X-FORA-Exchange: exchange.example</pre>
+      </Slide>
+      <Slide title="Put it in writing" text="The search-only contract makes search free and puts your fee on every other access. You set the fee in your site's terms, add the contract there by its URL, and point robots.txt at it.">
+        <pre class="art-code">User-agent: *
+tdl: {SEARCH_ONLY_CONTRACT_URL}
+Allow: /</pre>
+      </Slide>
+    </SlideDeck>
+  </Band>
+
+  <Band tone="near" id="faq" label="Questions" title="What publishers ask">
+    <FaqGrid items={FAQ} />
+  </Band>
+
+  <ClosingCta
+    title="Every AI agent is a customer. <em>FORA is your storefront.</em>"
+    text="See what an AI agent gets for one of your pages."
+  >
+    <a href="/publishers/onboarding/" class="btn btn-primary">Try your website</a>
+    <a href="/publishers/" class="btn btn-ghost">FORA for publishers</a>
+  </ClosingCta>
+</LandingLayout>
+
+<style>
+  .art-code {
+    margin: 0;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--mid);
+    border-radius: 12px;
+    background: var(--near-black);
+    color: #7ec8a0;
+    font-family: var(--mono);
+    font-size: 0.875rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .art-code .c { color: #6b6b80; }
+  .art-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+  .art-two { grid-template-columns: repeat(2, 1fr); }
+  .art-cols div { display: grid; gap: 0.5rem; align-content: start; padding: 1rem; border: 1px solid var(--mid); border-radius: 10px; background: var(--near-black); }
+  .art-cols b { color: var(--white); font-weight: 600; margin-bottom: 0.25rem; }
+  .art-cols code { font-family: var(--mono); font-size: 0.8125rem; color: var(--accent-text); overflow-wrap: anywhere; }
+  @media (max-width: 560px) {
+    .art-cols, .art-two { grid-template-columns: 1fr; }
+  }
+</style>

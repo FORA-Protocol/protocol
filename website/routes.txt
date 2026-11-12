@@ -91,4 +91,6 @@
 /reference/proto-admin/
 /reference/proto-fora/
 /reference/standards/
+/resources/
+/resources/ai-crawlers/
 /security/threat-model/
