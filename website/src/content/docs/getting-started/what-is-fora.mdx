@@ -3,6 +3,8 @@ title: "What Is FORA?"
 description: "An introduction to the Federated Open Resource Access — the open transaction layer for fast, metered access to any digital resource by AI agents."
 ---
 
+import { PACKAGES } from '../../../consts';
+
 ## The Problem
 
 AI agents need resources. Not just web pages — court filings, academic papers, credit reports, medical imaging, satellite data, drug interaction databases, live market feeds. These resources are scattered across thousands of providers, each with their own API, pricing model, authentication scheme, and terms of use.
@@ -150,11 +152,12 @@ FORA covers **metered access to resources that exist**. The test: "Does the reso
 
 ## What Exists Today
 
-- **Protocol specification** — protobuf IDL with generated Go and TypeScript SDKs
-- **Three extension profiles** — news, academic, legal (spec + JSON Schema each)
-- **18-scenario validation** — cross-industry proof that the protocol works
-- **Working proof of concept** — bot detection, exchange discovery, signed URL delivery
-- **Alignment with IAB standards** — layers on RSL (terms) and CoMP (metadata)
+- **The wire format**: the `fora.v1` and `fora.admin.v1` protobuf packages, with a [JSON Schema](/reference/json-schemas/) for each message. See [Proto: FORA v1](/reference/proto-fora/).
+- **SDKs in three languages**: <a href={PACKAGES.go.url}><code>{PACKAGES.go.coordinate}</code></a> for Go, <a href={PACKAGES.ts.url}><code>{PACKAGES.ts.coordinate}</code></a> on npm and <a href={PACKAGES.python.url}><code>{PACKAGES.python.coordinate}</code></a> on PyPI.
+- **Six extension profiles**: [news](/protocol/ext-news/), [academic](/protocol/ext-academic/), [legal](/protocol/ext-legal/), [CoMP](/protocol/ext-comp/), [C2PA](/protocol/ext-c2pa/) and [music](/protocol/ext-music/).
+- **Two live demos** on a demo Exchange. In [First License](/getting-started/poc-walkthrough/), an agent buys a license to an article whose site refuses its direct request. In [Music](/getting-started/live-demo-music/), an agent buys two different licenses to the same track.
+- **FORA Server**: an [open-source implementation](https://github.com/FORA-Protocol/reference-implementation) of the Exchange, the Broker, an identity service with an MCP adapter, and the edge function.
+- **The standards it builds on**: IAB Tech Lab's CoMP V1 is mapped field for field and carried as the `fora-comp-v1` profile. The RSL 1.0 AI-use terms seed FORA's restriction vocabulary. See [Standards Layering](/protocol/standards-layering/).
 
 ## Next Steps
 
