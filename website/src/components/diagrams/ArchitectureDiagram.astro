@@ -140,16 +140,10 @@ function place(step: Step) {
   const hi = Math.max(a, b);
   const span = hi - lo + 1;
   const rtl = b < a;
-  // A right-to-left label reads back from the caller, so it may use the whole
-  // width before it; a left-to-right one keeps to the arrow's own area.
-  const labelLo = rtl ? 1 : lo;
-  const labelSpan = hi - labelLo + 1;
   const at = (k: number) => (100 * (k - a)) / (b - a);
   const vars = [
     `--arrow-cols: ${lo} / ${hi + 1}`,
     `--arrow-inset: ${100 / (span * 2)}%`,
-    `--label-cols: ${labelLo} / ${hi + 1}`,
-    `--label-inset: ${100 / (labelSpan * 2)}%`,
   ];
   const passes: number[] = [];
   for (let k = lo + 1; k < hi; k++) {
@@ -204,7 +198,7 @@ const steps = STEPS.map((s) => ({ ...s, ...place(s) }));
         <span class="sr-only"> to </span><span class="route-arrow" aria-hidden="true">→</span>
         <span class:list={['party', { 'party-spine': setup.to === 'exchange' }]}>{nameOf(setup.to)}</span>
       </p>
-      <p class="label"><span class="txt"><strong>{setup.name}.</strong> {setup.text}</span></p>
+      <p class="label"><span class="box"><strong>{setup.name}.</strong> {setup.text}</span></p>
       <span class="arrow" aria-hidden="true">
         {setup.passes.map((x) => <span class="pass" style={`left: ${x}%`} />)}
         <span class="line" /><span class="tail" />
@@ -221,10 +215,10 @@ const steps = STEPS.map((s) => ({ ...s, ...place(s) }));
             <span class:list={['party', { 'party-spine': s.to === 'exchange' }]}>{nameOf(s.to)}</span>
           </p>
           <p class="label">
-            <span class="txt">
+            <span class="box">
               <strong>{s.name}{s.qualifier && <span class="qualifier">, {s.qualifier}</span>}.</strong> {s.text}
+              {s.wire && <><br /><code class="wire">{s.wire}</code></>}
             </span>
-            {s.wire && <><br /><code class="wire">{s.wire}</code></>}
           </p>
           {s.relay && <p class="relay"><span class="relay-mark" aria-hidden="true" />{s.relay}</p>}
           <span class="arrow" aria-hidden="true">
@@ -424,34 +418,41 @@ const steps = STEPS.map((s) => ({ ...s, ...place(s) }));
     font-family: var(--dg-mono);
     font-size: 0.875rem;
   }
+  /* The setup step's marker: an unnumbered ring on the provider's line, where
+     its arrow starts. */
   .num-setup {
-    display: none;
-    width: 0.75rem;
-    height: 0.75rem;
+    justify-self: end;
+    margin-inline: 0 calc(var(--arrow-inset) - 1rem);
     border-color: var(--dg-muted);
+  }
+  .num-setup::after {
+    content: '';
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
     background: var(--dg-muted);
   }
   .step.is-optional .num { border-style: dashed; }
 
+  /* A step's text starts just past the circle on the caller's line. A
+     right-to-left arrow's text starts just past its head instead, so it still
+     reads left to right next to its own arrow. */
   .label {
-    grid-column: var(--label-cols);
+    grid-column: var(--arrow-cols);
     grid-row: 1;
     align-self: end;
-    padding-inline: calc(var(--label-inset) + 1.375rem) 0.25rem;
-    padding-bottom: 0.125rem;
+    padding-inline: calc(var(--arrow-inset) + 1.125rem) 0;
   }
-  .rtl .label {
-    text-align: end;
-    padding-inline: 0.25rem calc(var(--label-inset) + 0.625rem);
-  }
-  /* Text sits on the page colour, so a role's line never runs through a word. */
-  .txt,
-  .wire {
+  .rtl .label { padding-inline-start: calc(var(--arrow-inset) + 0.375rem); }
+  /* The text is one compact block on the page colour: a role's line stops
+     behind it and never runs through a word. */
+  .box {
+    display: block;
+    width: fit-content;
+    max-width: 24rem;
+    padding: 0.25rem 0.375rem 0.375rem;
     background: var(--dg-bg);
-    -webkit-box-decoration-break: clone;
-    box-decoration-break: clone;
   }
-  .txt { padding-inline: 0.125rem; }
   .label strong {
     font-weight: 600;
     color: var(--dg-ink);
@@ -460,7 +461,6 @@ const steps = STEPS.map((s) => ({ ...s, ...place(s) }));
   .wire {
     display: inline-block;
     margin-top: 0.125rem;
-    padding: 0 0.125rem;
     font-family: var(--dg-mono);
     font-size: 0.875rem;
     color: var(--dg-accent-text);
@@ -514,13 +514,14 @@ const steps = STEPS.map((s) => ({ ...s, ...place(s) }));
     background: currentColor;
   }
   .rtl .tail { left: auto; right: -4px; }
-  /* A gap in a role's line where the arrow passes it by. */
+  /* A gap in a role's line where the arrow passes it by. It fills the arrow's
+     row, so it meets the text block above and leaves no stub of line. */
   .pass {
     position: absolute;
-    top: 50%;
+    top: 0;
+    bottom: 0;
     width: 10px;
-    height: 22px;
-    margin: -11px 0 0 -5px;
+    margin-left: -5px;
     background: var(--dg-bg);
   }
   .ring {
@@ -635,7 +636,14 @@ const steps = STEPS.map((s) => ({ ...s, ...place(s) }));
       align-self: start;
       margin: 0;
     }
-    .num-setup { display: block; margin: 0.375rem 0 0 0.625rem; }
+    .num-setup {
+      justify-self: start;
+      width: 0.75rem;
+      height: 0.75rem;
+      margin: 0.375rem 0 0 0.625rem;
+      background: var(--dg-muted);
+    }
+    .num-setup::after { display: none; }
     .route,
     .relay {
       position: static;
@@ -652,7 +660,10 @@ const steps = STEPS.map((s) => ({ ...s, ...place(s) }));
       grid-column: 2;
       grid-row: auto;
       padding: 0;
-      text-align: start;
+    }
+    .box {
+      display: inline;
+      padding: 0;
     }
     .relay {
       display: flex;
