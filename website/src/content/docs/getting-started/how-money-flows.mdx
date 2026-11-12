@@ -15,7 +15,7 @@ Provider -> Exchange operator -> AI Company (the agent's account holder)
 
 1. The **Exchange** (operated by an Exchange operator, provider, or third party) handles all billing through its pluggable Billing Adapter
 2. The Exchange operator **invoices the AI company** via its existing system (monthly invoicing, prepaid balance, etc.). A purchase made through a Broker is billed to the agent's own account, as a direct one is
-3. The Exchange operator **pays the provider** via its existing revenue-share agreement
+3. The Exchange operator **pays the provider** via its existing revenue-share agreement. The operator sets the Exchange's fee for each provider (a tenant of the Exchange) in basis points of gross, with `AdminService.SetTenantFeeRate` on the operator plane
 
 Each item of a `TransactionResponse` carries a `TransactionResultItem.billing_id`, minted by the Exchange's Billing Adapter. It is an invoice line item, not a payment confirmation. Settlement happens offline, same as programmatic advertising.
 
@@ -194,6 +194,8 @@ Three independent records ensure transaction integrity:
 3. **Usage reports** (agent files): what the agent actually did with the resource (token count, function, citation)
 
 All three records must agree. Discrepancies are resolved offline, like ad-tech billing discrepancy resolution (~5-10% tolerance).
+
+A provider registered on the operator's publisher console sees its sales there. "Overview" totals transactions, gross, the Exchange fee and net for a period. "Transactions" lists each sale, filterable by domain and by usage-report status, and "Verify" checks the sale's two Ed25519 signatures in the browser. "Income" shows daily totals, with "Download CSV". The console is the operator's tool, not part of the protocol. See [After setup](/getting-started/publisher-onboarding/#after-setup) in Publisher Onboarding.
 
 ## Next Steps
 
