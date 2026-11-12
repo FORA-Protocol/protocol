@@ -12,7 +12,7 @@ An AI agent can enter the FORA flow through six paths. All paths converge on the
 | [A: Proactive Discovery](#path-a-proactive-discovery-via-forajson) | `fora.json` | Agent checks before accessing content |
 | [B: Broker-Mediated](#path-b-broker-mediated-multi-exchange) | Broker | Agent hands discovery to a multi-exchange router |
 | [C: Accidental Discovery](#path-c-accidental-discovery-via-edge-function-403) | 403 response | Wandering bot hits protected content |
-| [D: RSL-First](#path-d-agent-reads-rsl-directly) | `rsl.txt` | Agent reads terms, then finds Exchange |
+| [D: RSL-First](#path-d-agent-reads-rsl-directly) | RSL license | Agent reads terms, then finds Exchange |
 | [E: Batch Multi-URL](#path-e-batch-multi-url-acquisition) | Broker | Agent needs multiple resources at once |
 | [F: Subscription](#path-f-subscription-based-access) | Exchange | Agent has existing subscription deal |
 
@@ -201,7 +201,9 @@ The three SDKs read the headers with one parser each, pinned to a shared corpus:
 
 ## Path D: Agent Reads RSL Directly
 
-An agent reads `rsl.txt` to understand terms, then uses `fora.json` to find the Exchange for transacting. RSL tells the agent *what it costs*; FORA tells it *where to pay*.
+An agent reads the provider's RSL license to understand terms, then uses `fora.json` to find the Exchange for transacting. RSL tells the agent *what it costs*; FORA tells it *where to pay*.
+
+RSL 1.0 fixes no file name for the license. The agent finds its URL through whichever carrier the provider uses: a `License:` line in `robots.txt`, a `Link` header with `rel="license"`, an HTML `<link>` or `<script>` element, an RSS item, or the metadata of a media file. [Where an RSL license is found](/protocol/standards-layering/#where-an-rsl-license-is-found) lists them. The diagram shows the `robots.txt` carrier.
 
 ```mermaid
 sequenceDiagram
@@ -209,7 +211,9 @@ sequenceDiagram
     participant PUB as Provider Domain
     participant MP as Exchange
 
-    Agent->>PUB: GET /rsl.txt
+    Agent->>PUB: GET /robots.txt
+    PUB-->>Agent: License: https://publisher.example/license.xml
+    Agent->>PUB: GET /license.xml
     PUB-->>Agent: RSL document (permits, pricing, terms)
 
     Note over Agent: /premium/* requires payment<br/>per-crawl: $0.05 USD<br/>permits: ai-input, search<br/>prohibits: ai-train
@@ -226,7 +230,7 @@ sequenceDiagram
 
 | Step | Standard |
 |---|---|
-| Read rsl.txt | **RSL 1.0** -- terms declaration |
+| Find and read the RSL license | **RSL 1.0** -- terms declaration |
 | Read fora.json | **FORA** -- exchange routing |
 | DiscoverResources | Exchange returns Offers with pricing derived from RSL |
 | Offer.terms[0].restrictions | Maps RSL permits/prohibits to FORA `Restriction` (kind `RESTRICTION_KIND_FUNCTION`) on the offer's `LicenseTerm` |
