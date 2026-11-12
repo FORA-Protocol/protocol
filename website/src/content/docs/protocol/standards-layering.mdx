@@ -103,9 +103,9 @@ graph LR
 
 ### Where an RSL license is found
 
-An RSL license is an XML document, of media type `application/rsl+xml`, at any URL the provider chooses. RSL 1.0 fixes no file name. It defines five ways to associate a license with content, and states that "all mechanisms are functionally equivalent; clients MUST honor whichever is provided" ([RSL 1.0, §4.2](https://rslstandard.org/rsl#_4-2-discovery-and-association-mechanisms)):
+An RSL license is an XML document, of media type `application/rsl+xml`, linked at any URL the provider chooses, or embedded in the page, feed or file it licenses. RSL 1.0 fixes no file name. It defines five ways to associate a license with content, and states: "All mechanisms are functionally equivalent; clients MUST honor whichever is provided." ([RSL 1.0, §4.2](https://rslstandard.org/rsl#_4-2-discovery-and-association-mechanisms))
 
-| Carrier | What the provider adds | RSL 1.0 |
+| Carrier | What the provider adds | Spec |
 |---|---|---|
 | `robots.txt` | A `License:` line with the license's absolute URL, for all crawlers or inside one `User-agent` group | [§4.4](https://rslstandard.org/rsl#_4-4-robots-txt-license-association) |
 | HTTP header | `Link: <https://publisher.example/license.xml>; rel="license"; type="application/rsl+xml"` on a response | [§4.5](https://rslstandard.org/rsl#_4-5-http-header-license-association) |
@@ -113,7 +113,7 @@ An RSL license is an XML document, of media type `application/rsl+xml`, at any U
 | RSS feed | An `<rsl:content>` element inside each licensed `<item>` | [§4.7](https://rslstandard.org/rsl#_4-7-rss-license-association) |
 | Media or data file | The license in the file's metadata, such as XMP, ID3 or EPUB `<metadata>` | [§4.8](https://rslstandard.org/rsl#_4-8-media-and-data-file-association) |
 
-The shortest setup is one line in `robots.txt`:
+A `License:` line in `robots.txt` looks like this:
 
 ```
 License: https://publisher.example/license.xml
@@ -123,9 +123,11 @@ When several licenses apply to the same content, the most specific one takes pre
 
 ### How FORA Server reads it
 
-The publisher console reads a provider's RSL license when the provider opens the terms step for a domain. It requests `/rsl.txt` on the domain first, then each address on the same host that a `License:` line in the domain's `robots.txt` names. It maps the license's rule for a page of the domain to FORA terms, and opens the terms form on them when the form can express them. The provider confirms or changes the form, and the Exchange's catalog carries the terms the provider saves.
+The publisher console reads a provider's RSL license when the provider opens the terms step for a domain, as part of reading the domain's site. If it cannot read the site, it reads no license. It reads `/rsl.txt` first. If nothing is there, it tries, in order, each `License:` address in `robots.txt` that is on the same site (the bare name or its `www.` form) and carries no credentials, and uses the first document found. It takes `License:` lines from every `User-agent` group. A document it finds but cannot read ends the search, and the form opens on the defaults with a note saying so.
 
-RSL pricing is a **fallback hint and price ceiling**. The Exchange is the price authority. Private pricing (negotiated between provider and Exchange operator) may be lower than RSL's published rate but cannot exceed it.
+The console maps the license's rule for a page of the domain to FORA terms, and opens the terms form on them when the form can express them. The provider confirms or changes the form, and the Exchange's catalog carries the terms the provider saves.
+
+Behind the FORA edge function, `/rsl.txt` is the only address for an RSL license that reaches every client: the edge function [passes it through](/components/edge-function/overview/#forajson-and-rsltxt-pass-through) with `/.well-known/fora.json`, ahead of its checks. `robots.txt`, and a license at any other path, are gated like any other page: inside the licensed paths, an AI agent without a license is refused them. A provider behind the edge function keeps its license at `/rsl.txt` and names it with `License: https://publisher.example/rsl.txt`, which RSL allows because a `License:` line takes any absolute URL. Otherwise it keeps both `robots.txt` and the license outside the licensed paths.
 
 RSL permits and prohibits map directly to FORA `Restriction` entries carried on each `LicenseTerm.restrictions` (on that term's own offer, at `Offer.terms[0]`):
 
@@ -133,7 +135,7 @@ RSL permits and prohibits map directly to FORA `Restriction` entries carried on 
 |---|---|
 | `<permits type="usage">ai-input</permits>` | `terms[].restrictions: [{ kind: RESTRICTION_KIND_FUNCTION, permitted: ["ai-input"] }]` |
 | `<prohibits type="usage">ai-train</prohibits>` | `terms[].restrictions: [{ kind: RESTRICTION_KIND_FUNCTION, prohibited: ["ai-train"] }]` |
-| `<payment type="crawl" amount="0.05"/>` | `pricing.model: PRICING_MODEL_PER_UNIT, pricing.unit: "fetches", pricing.rate: 0.05` |
+| `<payment type="crawl"><amount currency="USD">0.05</amount></payment>` | `pricing.model: PRICING_MODEL_PER_UNIT, pricing.unit: "fetches", pricing.rate: 0.05` |
 
 Spellings other vocabularies use for the same tokens are accepted aliases, authored beside the tokens in the proto and canonicalised at ingest: AIPREF's `train-ai` is FORA's `ai-train`, `scrape` is `crawl`, the industry's `generative-ai` is `ai-input`, and `tdm` is `text-and-data-mining`. A feed may carry either spelling; the catalog stores the registered token.
 
@@ -306,7 +308,7 @@ An Exchange serves its `fora.json` (`role=ROLE_EXCHANGE`) declaring:
 }
 ```
 
-Content policy (what is licensed, what is free, what is blocked) lives in the RSL license only -- no duplication.
+`fora.json` carries no content policy (what is licensed, what is free, what is blocked). That lives in the terms the provider saves in the publisher console, which the console fills in from the provider's RSL license when it has one.
 
 ## FORA in the Universal Agent Protocol Stack
 
