@@ -39,7 +39,7 @@ Then one sale takes six steps:
 
 1. **Discover.** The agent reads the provider's `/.well-known/fora.json` and finds the Exchanges that sell the content. A Broker can do this instead of the agent.
 
-2. **Query.** The agent calls `DiscoverResources` on an Exchange and gets Offers with pricing and attestations, each signed by the Exchange. A Broker can do this instead: it asks the Exchanges, checks their signed offers and returns them in its own order of relevance.
+2. **Query.** The agent calls `DiscoverResources` on an Exchange and gets Offers with pricing and attestations, each signed by the Exchange. A Broker can do this instead: it asks the Exchanges, checks their signed offers and returns them in an order it chooses.
 
 3. **Transact.** The agent calls `ExecuteTransaction` and gets delivery instructions: a signed URL the Exchange issues, which expires and may be bound to the agent's key, and, for a paid item, a `billing_id`. Through a Broker, one call buys offers from several Exchanges.
 
@@ -79,7 +79,7 @@ What differs between industries is the unit, the resource's mutability and the d
 
 ### Unit-agnostic metering
 
-Pricing uses `rate` + `unit` + `estimated_quantity`: a metered purchase charges the estimate times the rate, or one unit at the rate when the offer states no estimate. `unit_cost` states the price per unit of the resource's size, such as per token for text, in the Exchange's base currency. No assumption about what's being metered. The unit is a registered one, such as `tokens`, `pages`, `seconds`, `records` or `sq-km`, or a namespaced one of your own, such as `pharma:interaction_pairs`.
+Pricing uses `rate` + `unit` + `estimated_quantity`: a metered purchase charges the estimate times the rate, or one unit at the rate when the offer states no estimate. `unit_cost` is the normalized price per unit, such as per token for text or per second for video, in the Exchange's base currency. No assumption about what's being metered. The unit is a registered one, such as `tokens`, `pages`, `seconds`, `records` or `sq-km`, or a namespaced one of your own, such as `pharma:interaction_pairs`.
 
 ### Content mutability
 
@@ -138,7 +138,7 @@ No fire-and-forget disputes. The agent must file a `UsageReport` before disputin
 FORA has four roles, and FORA Server has a component for each. The agent is the AI platform's own software, and the provider is the publisher's own site and CDN, where it deploys only the edge function.
 
 - **Agent**, the Requester: finds, buys and uses resources. An AI assistant in a chat app has no safe place for a key and no domain to publish one on. FORA Server's optional [Identity Service](/components/identity/overview/) gives it both, behind an MCP endpoint: its own subdomain, and a key the service keeps and signs its requests with. An agent with an SDK holds and signs with its own key.
-- **Broker**, optional: turns one request, a list of URLs or a description in plain words, into signed offers from the Exchanges that sell those resources. It presents them in its own order of relevance, and the agent chooses which to take. It can also buy offers from several Exchanges in one call. FORA Server's [Broker](/components/broker/overview/) plays this role.
+- **Broker**, optional: turns one request, a list of URLs or a description in plain words, into signed offers from the Exchanges that sell those resources. It presents them in an order it chooses, and the agent, which works with a Broker it trusts, decides which to take. It can also buy offers from several Exchanges in one call. FORA Server's [Broker](/components/broker/overview/) plays this role.
 - **Exchange**: holds the catalog and terms, signs offers, records each sale, issues signed URLs, and takes usage reports and disputes. FORA Server's Exchange plays this role, with its catalog importer. The publisher console is a separate, optional service the Exchange operator runs, where a publisher registers its sites and sets its terms.
 - **Provider**, the publisher: owns the content, sets the terms and serves `/.well-known/fora.json`. It runs FORA Server's edge function on its CDN.
 
