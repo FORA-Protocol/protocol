@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"reflect"
 	"regexp"
 	"slices"
 	"strconv"
@@ -14,11 +15,14 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6/kind"
 
 	"github.com/FORA-Protocol/protocol/schemas"
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
 // The fora-music-v1 search filter keys are one file, schemas/music/v1/
 // music-v1.search-filters.schema.json. The profile page renders its filter table from
-// it, and FORA Server reads it as a deployment's filter vocabulary. These tests read
+// it. It has the form of a Broker deployment's filter vocabulary, although the SDK's
+// registration-schema compiler refuses its patterns today (see
+// TestFilterSchemaRegistrationCompilerVerdict). These tests read
 // it through the published schemas.FS and hold it to the profile: the form a filter
 // vocabulary takes, the key count the page states, the value formats of the offer
 // schema, and the shared vectors.
@@ -38,16 +42,9 @@ var filterTopLevel = []string{"$schema", "$comment", "title", "description", "ty
 var filterForbidden = []string{"$id", "$ref", "$defs", "$anchor", "$dynamicRef", "$dynamicAnchor", "default"}
 
 type filterProp struct {
-	Description string          `json:"description"`
-	Type        json.RawMessage `json:"type"`
-	Pattern     string          `json:"pattern"`
-	MinLength   *int            `json:"minLength"`
-	MinItems    *int            `json:"minItems"`
-	Items       *struct {
-		Type    string `json:"type"`
-		Pattern string `json:"pattern"`
-	} `json:"items"`
-	Examples []json.RawMessage `json:"examples"`
+	Description string            `json:"description"`
+	Type        json.RawMessage   `json:"type"`
+	Examples    []json.RawMessage `json:"examples"`
 }
 
 type filterDoc struct {
@@ -177,68 +174,137 @@ func TestFilterSchemaHasTheKeyCountThePageStates(t *testing.T) {
 	}
 }
 
-// Each key filters on a field of the offer schema, and its values have that field's
-// format: a label key uses the Label pattern, an identifier key the identifier's
-// pattern, music.language the language tag pattern, and music.release_date_range
-// two release dates. So the two schemas cannot drift apart.
+// Each key filters on a field of the offer schema, and its value rule is derived from
+// that field's rule: a label key uses the Label pattern; an identifier key, music.ipi
+// and music.language the field's pattern; music.energy and music.parental_warning a
+// pattern of the field's enum; music.label and music.publisher the name's minLength;
+// the range keys the offer's lower bound for music.bpm and music.duration_seconds, and
+// two release dates; the boolean keys the boolean type. A key that takes a list has
+// minItems 1 and the same rule on each item. Every key must have a derived rule, so a
+// new key fails here until its rule is tied to the offer schema.
 func TestFilterSchemaUsesTheOfferSchemaFormats(t *testing.T) {
-	offer := offerSchemaDoc(t)
-	label := offer.Defs["Label"].Pattern
-	date := offer.Properties["music.release_date"].Pattern
-	date = date[1 : len(date)-1]
-	want := map[string]string{
-		"music.isrc":               offer.Properties["music.isrc"].Pattern,
-		"music.upc":                offer.Properties["music.upc"].Pattern,
-		"music.grid":               offer.Properties["music.grid"].Pattern,
-		"music.iswc":               offer.Properties["music.iswc"].Pattern,
-		"music.language":           offer.Properties["music.language"].Pattern,
-		"music.ipi":                offer.Defs["IPI"].Pattern,
-		"music.release_date_range": "^(?:" + date + "/" + date + "|" + date + "/|/" + date + ")$",
+	offer := offerSchemaRaw(t)
+	prop := func(path ...string) map[string]any {
+		node := offer
+		for _, k := range path {
+			next, ok := node[k].(map[string]any)
+			if !ok {
+				t.Fatalf("the offer schema has no %s", strings.Join(path, "/"))
+			}
+			node = next
+		}
+		return node
 	}
-	labelKeys := []string{
+	str := func(m map[string]any, k string) string {
+		v, ok := m[k].(string)
+		if !ok || v == "" {
+			t.Fatalf("the offer schema has no %q here: %v", k, m)
+		}
+		return v
+	}
+	enumPattern := func(m map[string]any) string {
+		vals, ok := m["enum"].([]any)
+		if !ok || len(vals) == 0 {
+			t.Fatalf("the offer schema has no enum here: %v", m)
+		}
+		alts := make([]string, len(vals))
+		for i, v := range vals {
+			alts[i] = regexp.QuoteMeta(v.(string))
+		}
+		return "^(?:" + strings.Join(alts, "|") + ")$"
+	}
+	props := func(k string) map[string]any { return prop("properties", k) }
+
+	// The bounds the range patterns encode: a bpm is an integer of at least 1, and a
+	// duration a number above 0.
+	if b := props("music.bpm"); b["type"] != "integer" || b["minimum"] != 1.0 {
+		t.Errorf("offer music.bpm is %v; music.bpm_range encodes an integer of at least 1", b)
+	}
+	if d := props("music.duration_seconds"); d["type"] != "number" || d["exclusiveMinimum"] != 0.0 {
+		t.Errorf("offer music.duration_seconds is %v; music.duration_seconds_range encodes a number above 0", d)
+	}
+	const posInt = "[0-9]*[1-9][0-9]*"
+	const posNum = `(?:[0-9]*[1-9][0-9]*(?:\.[0-9]+)?|[0-9]+\.[0-9]*[1-9][0-9]*)`
+	rangeOf := func(n string) string { return "^(?:" + n + "-" + n + "|" + n + "-|-" + n + ")$" }
+	date := str(props("music.release_date"), "pattern")
+	date = date[1 : len(date)-1]
+
+	type rule struct {
+		Type      any
+		Pattern   any
+		MinLength any
+	}
+	many := func(r rule) map[string]any {
+		item := map[string]any{"type": "string"}
+		out := map[string]any{"type": []any{"string", "array"}, "minItems": 1.0}
+		for k, v := range map[string]any{"pattern": r.Pattern, "minLength": r.MinLength} {
+			if v != nil {
+				item[k], out[k] = v, v
+			}
+		}
+		out["items"] = item
+		return out
+	}
+	label := str(prop("$defs", "Label"), "pattern")
+	pat := func(p string) map[string]any { return many(rule{Pattern: p}) }
+	want := map[string]map[string]any{
+		"music.isrc":                   pat(str(props("music.isrc"), "pattern")),
+		"music.upc":                    pat(str(props("music.upc"), "pattern")),
+		"music.grid":                   pat(str(props("music.grid"), "pattern")),
+		"music.iswc":                   pat(str(props("music.iswc"), "pattern")),
+		"music.language":               pat(str(props("music.language"), "pattern")),
+		"music.ipi":                    pat(str(prop("$defs", "IPI"), "pattern")),
+		"music.energy":                 pat(enumPattern(props("music.energy"))),
+		"music.parental_warning":       pat(enumPattern(props("music.parental_warning"))),
+		"music.label":                  many(rule{MinLength: props("music.label")["minLength"]}),
+		"music.publisher":              many(rule{MinLength: prop("$defs", "Publisher", "properties", "name")["minLength"]}),
+		"music.bpm_range":              {"type": "string", "pattern": rangeOf(posInt)},
+		"music.duration_seconds_range": {"type": "string", "pattern": rangeOf(posNum)},
+		"music.release_date_range":     {"type": "string", "pattern": "^(?:" + date + "/" + date + "|" + date + "/|/" + date + ")$"},
+		"music.vocals":                 {"type": props("music.vocals")["type"]},
+		"music.contains_ai":            {"type": props("music.contains_ai")["type"]},
+	}
+	for _, k := range []string{
 		"music.genre", "music.subgenres", "music.themes", "music.mood", "music.instruments",
 		"music.suitable_for", "music.key", "music.version",
+	} {
+		want[k] = pat(label)
 	}
-	for _, k := range labelKeys {
-		want[k] = label
+
+	var doc struct {
+		Properties map[string]map[string]any `json:"properties"`
+	}
+	if err := json.Unmarshal(readFilters(t), &doc); err != nil {
+		t.Fatal(err)
 	}
 	// music.publisher and music.ipi filter on keys inside music.publishers and
 	// music.contributors; every other key names its field, a range key with _range.
 	inside := map[string]bool{"music.publisher": true, "music.ipi": true}
-	for key, p := range loadFilters(t).Properties {
+	for key, p := range doc.Properties {
 		field := strings.TrimSuffix(key, "_range")
-		if _, ok := offer.Properties[field]; !ok && !inside[key] {
+		if _, ok := offer["properties"].(map[string]any)[field]; !ok && !inside[key] {
 			t.Errorf("%s filters on %s, which the offer schema does not define", key, field)
 		}
 		w, ok := want[key]
 		if !ok {
+			t.Errorf("%s has no rule derived from the offer schema", key)
 			continue
 		}
-		got := p.Pattern
-		if p.Items != nil {
-			if p.Items.Pattern != p.Pattern {
-				t.Errorf("%s: the item pattern differs from the string pattern", key)
+		got := map[string]any{}
+		for k, v := range p {
+			if k != "description" && k != "examples" {
+				got[k] = v
 			}
 		}
-		if got != w {
-			t.Errorf("%s: pattern %q, want the offer schema's %q", key, got, w)
+		if !reflect.DeepEqual(got, w) {
+			gj, _ := json.Marshal(got)
+			wj, _ := json.Marshal(w)
+			t.Errorf("%s:\n got %s\nwant %s", key, gj, wj)
 		}
 	}
-	if label == "" || date == "" {
-		t.Fatal("the offer schema has no Label or music.release_date pattern")
-	}
 }
 
-type offerPattern struct {
-	Pattern string `json:"pattern"`
-}
-
-type offerDoc struct {
-	Properties map[string]offerPattern `json:"properties"`
-	Defs       map[string]offerPattern `json:"$defs"`
-}
-
-func offerSchemaDoc(t *testing.T) offerDoc {
+func offerSchemaRaw(t *testing.T) map[string]any {
 	t.Helper()
 	page, err := os.ReadFile(specPage)
 	if err != nil {
@@ -248,11 +314,47 @@ func offerSchemaDoc(t *testing.T) offerDoc {
 	if m == nil {
 		t.Fatalf("no ```json block under \"## JSON Schema\" in %s", specPage)
 	}
-	var doc offerDoc
+	var doc map[string]any
 	if err := json.Unmarshal(m[1], &doc); err != nil {
 		t.Fatal(err)
 	}
 	return doc
+}
+
+// The protocol SDK's registration-schema compiler, which FORA Server's filter
+// vocabulary loader uses, refuses the file today: eleven keys have a pattern outside
+// its portable alphabet. The eight label keys use \p{...} classes, and music.language,
+// music.release_date_range and music.duration_seconds_range quantify a group whose body
+// repeats or branches. This test records that verdict, so a change in either the file
+// or the compiler is noticed.
+func TestFilterSchemaRegistrationCompilerVerdict(t *testing.T) {
+	raw := readFilters(t)
+	if _, v := helpers.CompileRegistrationSchema(raw); v != helpers.SchemaUnsafePattern {
+		t.Errorf("CompileRegistrationSchema = %s, want %s", v, helpers.SchemaUnsafePattern)
+	}
+	var doc struct {
+		Properties map[string]struct {
+			Pattern string `json:"pattern"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	var unsafe []string
+	for k, p := range doc.Properties {
+		if p.Pattern != "" && !helpers.IsSafeSchemaPattern(p.Pattern) {
+			unsafe = append(unsafe, k)
+		}
+	}
+	slices.Sort(unsafe)
+	want := []string{
+		"music.duration_seconds_range", "music.genre", "music.instruments", "music.key",
+		"music.language", "music.mood", "music.release_date_range", "music.subgenres",
+		"music.suitable_for", "music.themes", "music.version",
+	}
+	if !slices.Equal(unsafe, want) {
+		t.Errorf("keys outside the portable pattern alphabet:\n got %v\nwant %v", unsafe, want)
+	}
 }
 
 type filterCase struct {
