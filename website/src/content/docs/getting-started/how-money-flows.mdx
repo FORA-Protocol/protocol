@@ -15,9 +15,9 @@ Provider -> Exchange operator -> AI Company (the agent's account holder)
 
 1. The **Exchange** (operated by an Exchange operator, provider, or third party) handles all billing through its pluggable Billing Adapter
 2. The Exchange operator **invoices the AI company** via its existing system (monthly invoicing, prepaid balance, etc.). A purchase made through a Broker is billed to the agent's own account, as a direct one is
-3. The Exchange operator **pays the provider** via its existing revenue-share agreement
+3. The Exchange operator **pays the provider** via its existing revenue-share agreement. The operator sets the Exchange's fee in basis points of gross with `AdminService.SetTenantFeeRate` on the operator plane, and FORA Server applies it as the default rate on that Exchange's sales
 
-The `billing_id` in a `TransactionResponse` is an invoice line item, not a payment confirmation. Settlement happens offline, same as programmatic advertising.
+Each paid item of a `TransactionResponse` carries a `TransactionResultItem.billing_id`, minted by the Exchange's Billing Adapter. A denied item has none, and neither does an item with a zero price, which FORA Server sells without calling the Billing Adapter. It is an invoice line item, not a payment confirmation. Settlement happens offline, same as programmatic advertising.
 
 ```mermaid
 sequenceDiagram
@@ -53,7 +53,7 @@ sequenceDiagram
 
 A `PER_UNIT` price is metered. A `PER_UNIT` offer may carry an `estimated_quantity` in its `unit`, or none; whether to state one is the publisher's decision. The purchase charges estimate × rate, or one unit's rate without an estimate, and the charge is final. A disagreement about the quantity consumed is a dispute. See [Charging a metered purchase](/protocol/transaction-flow/#charging-a-metered-purchase).
 
-A **subscription** is `FREE` + a `subscription:*` scope (settled off-protocol). **Attribution** and **contribution** are `Obligation`s, not pricing models. There is no revenue-share model — settlement is off-protocol.
+A **subscription** is `FREE` + a concrete subscription scope such as `subscription:daily-meridian-2027` (settled off-protocol). **Attribution** and **contribution** are `Obligation`s, not pricing models. There is no revenue-share model — settlement is off-protocol.
 
 Providers set their preferred pricing model and rate in their RSL file. The Exchange operationalizes these into live Offers. RSL pricing serves as a price ceiling (public declaration); private pricing between provider and Exchange may be lower.
 
@@ -61,7 +61,7 @@ Providers set their preferred pricing model and rate in their RSL file. The Exch
 
 Different pricing models make direct comparison difficult. An article priced at $0.05 per access is not directly comparable to a resource priced at $0.00002 per token.
 
-**unit_cost** normalizes all pricing to a per-unit basis, analogous to eCPM in advertising. It is stated in the comparison unit of the content type: tokens for text, seconds for audio and video, pages for documents, records for data.
+**unit_cost** normalizes all pricing to a per-unit basis, analogous to eCPM in advertising. It is stated in the comparison unit of the content type: tokens for text, seconds for video, records for data, calls for APIs.
 
 ```
 unit_cost = price of one purchase / size of the resource in the comparison unit
@@ -72,8 +72,8 @@ The denominator is the size of the resource, **not** `estimated_quantity`. `esti
 For example:
 - Article at $0.05 per access (`unit: "accesses"`, `estimated_quantity: 1`), 3,300 tokens long: unit_cost = $0.05 / 3,300 = $0.00001515 per token
 - Per-token pricing at $0.00002 (`unit: "tokens"`): unit_cost = $0.00002 per token, the rate itself
-- Per-page at $0.10 (`unit: "pages"`, `estimated_quantity: 15`): unit_cost = $0.10 per page, the rate itself
-- Audio at $0.50 per minute (`unit: "minutes"`, `estimated_quantity: 45`): unit_cost = $0.50 / 60 = $0.0083 per second
+- Data at $0.002 per record (`unit: "records"`, `estimated_quantity: 500`): unit_cost = $0.002 per record, the rate itself
+- Video at $0.50 per minute (`unit: "minutes"`, `estimated_quantity: 45`): unit_cost = $0.50 / 60 = $0.0083 per second
 
 The Broker uses `unit_cost` to compare offers across Exchanges and pricing models, selecting the most cost-effective option regardless of how the provider originally priced it.
 
@@ -107,20 +107,20 @@ The protocol supports two billing patterns:
 The default model. Each transaction is independently authorized and billed:
 
 1. Agent sends `ExecuteTransaction` with a selected offer
-2. Exchange calls `BillingAdapter.Authorize(requester, amount)` -- checks the requester's balance/credit
-3. If authorized, Exchange issues a signed URL and records the transaction
+2. Exchange calls `BillingAdapter.Authorize` for the offer's charge. The adapter reserves the amount against the requester's balance, or checks that the requester can pay
+3. If authorized, Exchange issues a signed URL, writes the transaction to its log, and calls `BillingAdapter.Record` to confirm the charge
 4. The AI company is invoiced for the sum of all transactions
+
+An item with a zero price skips the Billing Adapter: FORA Server calls neither `Authorize` nor `Record` and issues no `billing_id`, and still issues the signed URL and logs the transaction.
 
 ### Subscription Billing
 
-When an AI company has a subscription deal with an Exchange:
+The AI company pays for a subscription off-protocol. On-protocol, a subscription is a `LicenseTerm` priced `PRICING_MODEL_FREE` whose `LicenseTerm.scopes` include one concrete subscription scope, such as `subscription:daily-meridian-2027`:
 
-1. During `DiscoverResources`, the Exchange detects the requester's subscription and includes a subscription offer with `rate=0` and `subscription_id`
-2. The Broker prefers subscription offers (zero marginal cost)
-3. During `ExecuteTransaction`, the Exchange skips `BillingAdapter.Authorize` (already paid under subscription) but checks quota
-4. Usage reporting is still mandatory -- providers need consumption data for subscription renewals
-
-Subscription transactions include a `subscription_unit_value` field that carries the per-unit cost even though `cost.amount` is 0. This enables financial attribution: the AI company can track the value of resources consumed against the subscription's total prepaid amount.
+1. During `DiscoverResources`, FORA Server presents the term only when the request carries a delegation chain (`Requester.delegation`) that verifies against the subscription record owning that scope, bound to the key that signed the request, and whose scopes cover the term's. It ignores `Requester.scopes` for such a term. A query a Broker originates is signed by the Broker alone, so it never yields the term
+2. During `ExecuteTransaction`, the item carries the agent's signed `AgentAcceptance`, and the Exchange verifies the delegation chain against the key that signed it
+3. The price is zero, so the Exchange skips the Billing Adapter and issues no `billing_id`
+4. Usage reporting is still required, unless the term's metering is `PRICING_METERING_NONE` -- providers need consumption data for subscription renewals
 
 ## Overspend Prevention
 
@@ -136,49 +136,47 @@ Each Exchange independently tracks per-requester balance. The Broker keeps its o
 Here is a concrete transaction with dollar amounts.
 
 **Setup:**
-- Provider: TechCrunch (Hearst Media)
+- Provider: *The Daily Meridian*, a mid-size tech publisher
+- Exchange: SSP-Alpha, which sells The Daily Meridian's catalog
 - Article: "AI Regulation: What Providers Need to Know" (2,500 words, ~3,300 tokens)
 - RSL price ceiling: $0.08 per crawl
 - SSP-Alpha private pricing: $0.05 per article (below RSL ceiling)
-- Requester: Anthropic (Claude), with a registered account at SSP-Alpha (account handle `acct_7f3e21c9` — an opaque value minted by the Exchange at registration, meaningless on its own)
-- Anthropic has an annual subscription with Hearst via SSP-Alpha
+- Requester: Acme AI, whose agent has a registered account at SSP-Alpha (account handle `acct_7f3e21c9` — an opaque value minted by the Exchange at registration, meaningless on its own)
+- Acme AI has an annual subscription to The Daily Meridian through SSP-Alpha
 
 **What happens:**
 
 | Step | Action | Cost |
 |---|---|---|
-| 1 | Claude queries SSP-Alpha via `DiscoverResources` | $0 |
-| 2 | SSP-Alpha returns two offers: per-request ($0.05) and subscription ($0.00) | -- |
-| 3 | Broker selects subscription offer (zero marginal cost) | $0.00 |
-| 4 | `ExecuteTransaction` -- subscription quota checked (850,000 tokens remaining), 3,300 deducted | $0.00 |
-| 5 | Signed URL issued, Claude fetches article from CDN | -- |
+| 1 | Acme AI's agent queries SSP-Alpha via `DiscoverResources`, signed with its own key and carrying its delegation from Acme AI | $0 |
+| 2 | SSP-Alpha returns two offers: per-access ($0.05) and subscription ($0.00) | -- |
+| 3 | The agent selects the subscription offer (zero marginal cost) | $0.00 |
+| 4 | `ExecuteTransaction` -- SSP-Alpha verifies the delegation chain; the price is zero, so no Billing Adapter call and no `billing_id` | $0.00 |
+| 5 | Signed URL issued, the agent fetches the article from CDN | -- |
 | 6 | Usage report filed: 3,150 actual tokens consumed | -- |
 
 **Financial attribution:**
 - `cost.amount`: $0.00 (subscription)
-- `subscription_unit_value.amount`: $0.05 (the per-article value for accounting)
-- Anthropic tracks: $0.05 drawn against prepaid subscription balance
+- The annual subscription fee is settled off-protocol between Acme AI and SSP-Alpha
 
 **Without the subscription**, the per-request path would have charged $0.05 for this article, with a `unit_cost` of $0.00001515 per token.
 
 ## Dispute Credits
 
-When an agent files a successful dispute via `DisputeTransaction`, the resolution may include a credit:
+When an agent files a dispute via `DisputeTransaction`, `DisputeResponse.resolution` carries the outcome once the dispute reaches `RESOLVED`, `SETTLED` or `FINAL`; while the dispute is in progress, the field is absent. The outcome is one of four `ResolutionType` values, each named with the prefix `RESOLUTION_TYPE_`, and one of them is a credit:
 
 | Resolution | When | Effect |
 |---|---|---|
-| `CREDIT` | CDN delivery failure, content hash mismatch, size anomaly | Full transaction amount credited back to agent's balance |
-| `PARTIAL_CREDIT` | Token count discrepancy corroborated by CDN size | Prorated credit based on discrepancy |
-| `REDELIVERY` | Transient failure, content still available | New signed URL issued, no credit |
-| `REJECTED` | Insufficient evidence, fabricated claims | No credit, dispute pattern logged |
+| `CREDIT` | CDN delivery failure, signed URL expired before fetch, content hash mismatch, token-count discrepancy corroborated by CDN response size | Account credit applied to the agent's next billing cycle |
+| `REDELIVERY` | Transient failure, content still available | New signed URL issued for the same resource, no credit |
+| `REJECTED` | The dispute, once reviewed, is not corroborated | No remedy |
+| `INVESTIGATION` | The dispute needs pattern analysis across transactions | Escalated to Tier 3 pattern analysis |
 
-Credits are applied to the agent's balance with the Exchange. They reduce the next invoice -- same as ad-tech billing discrepancy adjustments. The protocol does not prescribe how credits are settled between Exchange operator and provider; that follows the existing revenue-share agreement.
+See [Dispute Resolution](/protocol/dispute-resolution/) for the tiers and the rules for each dispute reason.
+
+The protocol does not prescribe how credits are settled between Exchange operator and provider; that follows the existing revenue-share agreement.
 
 ## Pricing Transparency
-
-One field provides cost transparency even when the per-request charge is zero:
-
-- **`subscription_unit_value`**: Carried on subscription transactions where `cost.amount` is $0. Shows the per-unit value for financial attribution -- the AI company can track the value of resources consumed against its prepaid subscription balance.
 
 A Broker's fee has no field. It is additive and disclosed out of band, never folded into the offer price the Exchange signed, so the agent sees what it pays for the resource and what it pays for brokerage (see [Selection Engine](/components/broker/selection-engine/)).
 
@@ -187,13 +185,15 @@ A Broker's fee has no field. It is additive and disclosed out of band, never fol
 Three independent records ensure transaction integrity:
 
 1. **CDN access logs** (provider controls): every signed URL access with transaction ID, agent ID, timestamp
-2. **Exchange transaction log** (Exchange operator controls): every `billing_id` issued with cost, requester, offer snapshot (including Ed25519 exchange signature for non-repudiation)
+2. **Exchange transaction log** (Exchange operator controls): every transaction with its `billing_id` (none for a zero-price item), unit cost and currency, the requester, the signed offer and the agent's signed acceptance, with the public keys their Ed25519 signatures verify under
 3. **Usage reports** (agent files): what the agent actually did with the resource (token count, function, citation)
 
-All three records must agree. Discrepancies are resolved offline, like ad-tech billing discrepancy resolution (~5-10% tolerance).
+All three records must agree. Discrepancies are resolved offline, like ad-tech billing discrepancies.
+
+A provider registered on the operator's publisher console sees its sales there. "Overview" totals transactions, gross, the Exchange fee and net for a period. "Transactions" lists each sale, filterable by domain and by usage-report status, and "Verify" checks the sale's two Ed25519 signatures in the browser. "Income" shows daily totals, with "Download CSV". The console is the operator's tool, not part of the protocol. See [After setup](/getting-started/publisher-onboarding/#after-setup) in Publisher Onboarding.
 
 ## Next Steps
 
-- [Industry Landscape](/getting-started/industry-landscape/) -- how FORA fits among competing approaches
+- [Publisher Onboarding](/getting-started/publisher-onboarding/) -- register a site and see what its pages earn
 - [Transaction Flow](/protocol/transaction-flow/) -- detailed protocol messages for each step
 - [Scenario Walkthrough](/protocol/scenario-walkthrough/) -- a complete end-to-end scenario with all wire formats
