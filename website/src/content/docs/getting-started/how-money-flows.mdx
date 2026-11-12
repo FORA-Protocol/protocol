@@ -164,14 +164,14 @@ Here is a concrete transaction with dollar amounts.
 
 ## Dispute Credits
 
-When an agent files a dispute via `DisputeTransaction`, the outcome is in `DisputeResponse.resolution`, one of four `ResolutionType` values. One of them is a credit:
+When an agent files a dispute via `DisputeTransaction`, `DisputeResponse.resolution` carries the outcome once the dispute reaches `RESOLVED`, `SETTLED` or `FINAL`; while the dispute is in progress, the field is absent. The outcome is one of four `ResolutionType` values, each named with the prefix `RESOLUTION_TYPE_`, and one of them is a credit:
 
 | Resolution | When | Effect |
 |---|---|---|
-| `RESOLUTION_TYPE_CREDIT` | CDN delivery failure, signed URL expired before fetch, content hash mismatch, token-count discrepancy corroborated by CDN response size | Account credit applied to the agent's next billing cycle |
-| `RESOLUTION_TYPE_REDELIVERY` | Transient failure, content still available | New signed URL issued for the same resource, no credit |
-| `RESOLUTION_TYPE_REJECTED` | The dispute, once reviewed, is not corroborated | No remedy |
-| `RESOLUTION_TYPE_INVESTIGATION` | The dispute needs pattern analysis across transactions | Escalated to Tier 3 pattern analysis |
+| `CREDIT` | CDN delivery failure, signed URL expired before fetch, content hash mismatch, token-count discrepancy corroborated by CDN response size | Account credit applied to the agent's next billing cycle |
+| `REDELIVERY` | Transient failure, content still available | New signed URL issued for the same resource, no credit |
+| `REJECTED` | The dispute, once reviewed, is not corroborated | No remedy |
+| `INVESTIGATION` | The dispute needs pattern analysis across transactions | Escalated to Tier 3 pattern analysis |
 
 See [Dispute Resolution](/protocol/dispute-resolution/) for the tiers and the rules for each dispute reason.
 
