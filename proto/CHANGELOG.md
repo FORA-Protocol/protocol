@@ -12,8 +12,10 @@ each with a description, its type, its value pattern and examples, and
 table is now rendered from the file by the `::profile-filters` directive, and the build fails
 on an unknown profile. Each description now also says how the key matches, as How Filters
 Match states it. The keys, their types and their formats are unchanged. A Go test holds the
-file to the key pattern, the key count the page states and the offer schema's patterns, and
-runs shared valid and invalid vectors for every key.
+file to the key pattern, the key count the page states and the offer schema's value rules, and
+runs shared valid and invalid vectors for every key. The SDK's registration-schema compiler
+refuses the file, because the label, language, release-date-range and duration-range patterns
+are outside its portable pattern alphabet; a second test records that verdict.
 
 **fora-music-v1 carries the rights data a cue sheet needs, and finds tracks by key, version,
 publisher and IPI (additive; no wire change).** `music.publishers` lists the music publishers
