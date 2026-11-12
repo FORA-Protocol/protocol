@@ -13,13 +13,13 @@ A single Exchange Node serves many providers. This is the multi-tenant model —
 
 ```go
 // TenantConfig holds all provider-specific configuration.
-// A tenant represents a provider account (e.g., "Hearst Media") which may
-// operate multiple domains (cosmopolitan.com, esquire.com, elle.com, etc.).
+// A tenant represents a provider account (e.g., "Meridian Media") which may
+// operate multiple domains (style.example, outdoors.example, home.example, etc.).
 // URI resolution uses a domain→tenant lookup map, not offer_id prefix parsing.
 type TenantConfig struct {
     // Identity
-    ID      string   // Unique tenant identifier (e.g., "hearst-media")
-    Domains []string // All provider domains (e.g., ["cosmopolitan.com", "esquire.com", "elle.com"])
+    ID      string   // Unique tenant identifier (e.g., "meridian-media")
+    Domains []string // All provider domains (e.g., ["style.example", "outdoors.example", "home.example"])
 
     // Resource catalog (per-domain RSL discovery)
     RSLURLs         map[string]string // domain -> RSL URL (e.g., "style.example" -> "https://style.example/license.xml")
@@ -30,7 +30,7 @@ type TenantConfig struct {
     PricingOverrides map[string]*forav1.Pricing // path pattern -> pricing
 
     // Content delivery
-    ContentBaseURL string        // CDN base URL (e.g., "https://cdn.techcrunch.com")
+    ContentBaseURL string        // CDN base URL (e.g., "https://cdn.meridian.example")
     Scheme         SigningScheme // ED25519 or AWS_CLOUDFRONT_RSA
     SigningKeyRef  string        // Reference to key in secrets manager
 
@@ -97,7 +97,7 @@ type TenantConfig struct {
 
 ## Domain-to-Tenant Mapping
 
-**Tenant resolution**: The Exchange resolves tenant from the requested URI(s) in the ResourceQuery. The URI's domain is matched against a domain-to-tenant lookup map. A tenant (e.g., "Hearst Media") maps to many domains (cosmopolitan.com, esquire.com, etc.). For ExecuteTransaction, the tenant is resolved from the domain embedded in the signed offer token — no offer_id prefix parsing.
+**Tenant resolution**: The Exchange resolves tenant from the requested URI(s) in the ResourceQuery. The URI's domain is matched against a domain-to-tenant lookup map. A tenant (e.g., "Meridian Media") maps to many domains (style.example, outdoors.example, etc.). For ExecuteTransaction, the tenant is resolved from the domain embedded in the signed offer token — no offer_id prefix parsing.
 
 ```go
 // Resolve tenant from the request's URIs (repeated string uris)

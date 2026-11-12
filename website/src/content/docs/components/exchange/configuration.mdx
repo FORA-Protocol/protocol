@@ -47,7 +47,7 @@ transaction_log:
     flush_batch_size: 100
 
 tenants:
-  - id: "hearst-media"
+  - id: "meridian-media"
     domains:
       - "style.example"
       - "outdoors.example"
@@ -57,9 +57,9 @@ tenants:
       outdoors.example: "https://outdoors.example/license.xml"
       home.example: "https://home.example/license.xml"
     rsl_poll_interval: "5m"
-    content_base_url: "https://cdn.hearst.com"
+    content_base_url: "https://cdn.meridian.example"
     cdn_type: "cloudfront"
-    signing_key_ref: "arn:aws:secretsmanager:us-east-1:123456:secret:hearst-signing-key"
+    signing_key_ref: "arn:aws:secretsmanager:us-east-1:123456:secret:meridian-signing-key"
     url_ttl_seconds: 300
     bind_agent_id: true
     reporting:                                           # Tenant-level default — inherited by all offers
@@ -113,13 +113,13 @@ The `signing_key_ref` in tenant configuration points to the key's location in th
 
 ```yaml
 # AWS Secrets Manager
-signing_key_ref: "arn:aws:secretsmanager:us-east-1:123456:secret:hearst-signing-key"
+signing_key_ref: "arn:aws:secretsmanager:us-east-1:123456:secret:meridian-signing-key"
 
 # HashiCorp Vault
-signing_key_ref: "vault://secret/exchange/tenants/hearst-media/signing-key"
+signing_key_ref: "vault://secret/exchange/tenants/meridian-media/signing-key"
 
 # Local file (development only)
-signing_key_ref: "file:///var/lib/exchange/keys/hearst-media.pem"
+signing_key_ref: "file:///var/lib/exchange/keys/meridian-media.pem"
 ```
 
 Keys are loaded from the secrets provider at startup and cached in memory. A background goroutine polls for rotations every 60 seconds.
