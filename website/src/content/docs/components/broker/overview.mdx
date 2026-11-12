@@ -1,271 +1,54 @@
 ---
-title: "Broker Overview"
-description: "The FORA Broker is a demand-side router that queries multiple Exchanges, compares offers, enforces budget, and selects the best resource deal for AI agents."
+title: "Broker"
+description: "The FORA Broker finds offers for an AI agent. From a list of URLs or a request in plain words, it reaches the Exchanges that sell each resource, checks their signed offers, returns them in its own order, and can buy them in one call."
 ---
 
-## What the Broker Does
+An AI agent often knows what it needs but not who sells it. Each publisher names the Exchanges that sell its content, and an agent that asks each one in turn spends its time on lookups. A Broker does that work in one step: the agent sends one request, a list of URLs or a description in plain words, and gets back signed offers from the Exchanges that sell those resources, one group per resource.
 
-The FORA Broker is the optional demand-side router in the FORA protocol. It sits with or near the AI agent, queries multiple Exchanges in parallel, compares offers, enforces budget, and selects the best deal. It is the "DSP" of metered resource access.
+Each offer is a full package: the license terms, the publisher's brand and attestations, and the price, all signed by the Exchange. The Broker presents the offers in its own order of relevance, which is why an agent works with a Broker it trusts, and the agent decides which offer to take. The Broker is optional: an agent can always call the Exchanges itself, with the same protocol.
 
-**The Broker is optional.** Agents can talk directly to Exchanges using the same `DiscoverResources`/`ExecuteTransaction`/`UsageReport` RPCs. The Broker adds value through:
-
-- **Multi-exchange comparison** -- fan out DiscoverResources to N Exchanges, pick cheapest
-- **Multi-exchange purchase** -- buy offers from several Exchanges in one `BrokerService.ExecuteTransaction` call, with the results combined in request order
-- **Budget filtering** -- `Resolve` drops offers that would exceed the agent's budget (per offer, per session, per period) and answers a URI left with none with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`. How it computes the budget is its own choice, not part of the protocol
-- **Resource deduplication** -- same article from two Exchanges, compare price
-- **Attestation-aware selection (v1.0)** -- prefer offers with higher attestation levels (Level 2 > Level 1 > Level 0)
-- **Selection transparency** -- logged rationale for every selection decision
-
-The RPCs are identical whether the request comes from a Broker or directly from an agent. The Exchange authenticates whichever party signed the request: the agent on a direct call, the Broker on a request the Broker sent. On a purchase the Broker relays, the agent's consent arrives in the body as its acceptance signatures, and the purchase is the agent's, billed to the agent's account at each Exchange (see [Accounts](/protocol/authentication/#accounts)). Usage reports and disputes are not relayed: the agent files them itself, with the Exchange that issued the offer, for a purchase made through the Broker as for a direct one.
-
-## Component Architecture
-
-The Broker is composed of four internal components. Each is a Go interface with a concrete implementation. No inter-component communication uses the network; everything is in-process function calls.
+## How a request becomes offers
 
 ```mermaid
-graph TB
-    subgraph "FORA Broker"
-        MR[Exchange Registry]
-        SD[Supply Discovery<br/>parallel fanout]
-        SE[Selection Engine]
-        BT[Budget Tracker]
-    end
+sequenceDiagram
+    participant Agent
+    participant Broker
+    participant Search as Search backend
+    participant Site as Publisher site
+    participant Exchange
 
-    Agent[AI Agent] -->|DiscoveryRequest| SD
-    SD -->|DiscoverResources| MPA[Exchange A]
-    SD -->|DiscoverResources| MPB[Exchange B]
-    SD -->|DiscoverResources| MPC[Exchange C]
-
-    MR -.->|endpoint list| SD
-    SD -->|[]ResourceResponse| SE
-    BT -.->|budget check| SE
-    SE -->|selected Offers| SD
-    SD -->|DiscoveryResponse| Agent
+    Agent->>Broker: BrokerService.Resolve (URLs, or words and filters)
+    Broker->>Search: words and filters
+    Search-->>Broker: URLs, best match first
+    Broker->>Site: GET /.well-known/fora.json
+    Site-->>Broker: the Exchanges that sell this site
+    Broker->>Exchange: DiscoverResources (only this Exchange's URLs, Broker-signed)
+    Note over Broker,Exchange: The Exchange sees URLs, never the agent's words
+    Exchange-->>Broker: offers, each signed by the Exchange
+    Note over Broker: Checks every offer's signature
+    Broker-->>Agent: one offer group per URL
 ```
 
-### Component Responsibilities
+1. **The agent asks.** It sends `BrokerService.Resolve` a `DiscoveryRequest` that lists URLs in `uris`, or describes the need in `query` with optional `search_filters`. When a request has both, FORA Server's Broker uses the URLs and ignores the words and filters.
+2. **The search backend finds URLs.** For a request in words, the Broker's search backend turns the words and filters into a list of URLs, best match first. A request that lists URLs skips this step.
+3. **The publisher names its Exchanges.** For each URL, the Broker reads the publisher's `/.well-known/fora.json`, which names the Exchanges that sell the site's content. It routes the URL to one of them that its operator trusts and that is reachable.
+4. **The Exchange quotes.** The Broker sends each Exchange one `DiscoverResources` query that carries only the URLs routed to it, signed with the Broker's own key. The query names URLs and never carries the agent's words.
+5. **The Broker checks.** The Exchange answers with offers it signed. The Broker checks each offer's signature and drops any offer that fails.
+6. **The agent gets offer groups.** The Broker returns a `DiscoveryResponse` with one `OfferGroup` per URL. Each group holds the offers in the Broker's order, or says why there is none.
 
-| Component | Responsibility | State |
-|---|---|---|
-| **Exchange Registry** | Knows which Exchanges exist and their health status. Bootstraps from [Exchange Manifest](/protocol/exchange-manifest/) (`/.well-known/fora.json`) instead of HEAD probes -- extracting endpoints, capabilities, and accepted verifiers in a single fetch | Long-lived, refreshed periodically |
-| **Supply Discovery** | Fans out DiscoverResources RPCs to N Exchanges concurrently | Per-request, stateless |
-| **Selection Engine** | Deduplicates, ranks, filters, and selects the best offer | Per-request, stateless |
-| **Budget Tracker** | Tracks spend per session/period, and filters out offers that would exceed the budget | Per-session in-memory, per-period in Redis |
+Prices and terms come only from the Exchange, so a search hit never becomes an offer the Exchange did not sign. `Resolve` only discovers: it never charges, and returning an offer reserves nothing.
 
-## Internal Call Flow
+## Two kinds of request
 
-`Resolve` is **discovery-only**. It gathers offers across Exchanges, selects the best per URI, and returns them as a `DiscoveryResponse` (one `OfferGroup` per requested URI). It does **not** execute or deliver — committing to an offer is a separate call: `ExchangeService.ExecuteTransaction` at the offer's Exchange, or `BrokerService.ExecuteTransaction` at the Broker (see [Execution](#execution-separate-step) below).
-
-```go
-func (o *Broker) Resolve(ctx context.Context, req *forav1.DiscoveryRequest) (*forav1.DiscoveryResponse, error) {
-    // 1. Resolve which Exchanges to query
-    exchanges := o.registry.Resolve(req.Constraints)
-
-    // 2. Fan out DiscoverResources to all Exchanges (multi-URI: all URIs in one query per MP)
-    responses := o.discovery.FanOut(ctx, exchanges, req)
-
-    // 3. Build one OfferGroup per requested URI: dedup, rank, and budget-filter
-    //    the gathered offers for that URI. A URI with no viable offer is not an
-    //    error — its group carries absence_reason and an empty offers list
-    //    (mirrors OfferGroup from DiscoverResources). Non-OK errors are reserved
-    //    for malformed requests, auth failures, and internal faults.
-    groups := make([]*forav1.OfferGroup, 0, len(req.Uris))
-    for _, uri := range req.Uris {
-        selection, err := o.selector.SelectForURI(ctx, uri, responses, req.Constraints, o.budget)
-        if err != nil {
-            groups = append(groups, &forav1.OfferGroup{
-                Uri:            uri,
-                AbsenceReason:  o.absenceReason(err).Enum(),
-            })
-            continue
-        }
-        groups = append(groups, &forav1.OfferGroup{
-            Uri:    uri,
-            Offers: selection.Offers, // full signed Offers, forwarded unchanged
-        })
-    }
-
-    // 4. Return the offers to the agent. The agent (or the Broker, on the agent's
-    //    behalf) commits separately via ExecuteTransaction — see below.
-    return &forav1.DiscoveryResponse{
-        OfferGroups: groups,
-    }, nil
-}
-```
-
-### Execution (separate step)
-
-After the agent picks offers from the `DiscoveryResponse`, committing to them is a distinct exchange on the execute path. The execute target of each offer is `Offer.exchange` — the canonical Exchange domain carried inside the signed Offer bytes, so a relaying Broker cannot redirect execution without invalidating the signature. The agent buys either way:
-
-- **Directly** — one `ExchangeService.ExecuteTransaction` per Exchange, signed by the agent.
-- **Through the Broker** — one `BrokerService.ExecuteTransaction` call for offers from any number of Exchanges. The request is the same `TransactionRequest`, and it returns a `BrokerTransactionResponse`.
-
-### BrokerService.ExecuteTransaction: re-packaging
-
-The Broker re-packages the agent's purchase. What holds the set together is `TransactionRequest.agent_request_acceptance` — a detached Ed25519 signature by the **agent** over the complete ordered list of `(offer signature, exchange)` references plus the requester and the idempotency key — and each item's `agent_acceptance`.
-
-1. The agent signs one `AgentAcceptance` per offer and one `AgentRequestAcceptance` over every selected offer, in order, across all Exchanges, and sends the request to the Broker, RFC 9421-signed for the Broker's URL. The request terminates at the Broker.
-2. The Broker verifies the agent's signature and checks that `requester.domain` is the agent's verified signing directory (the host of the WBA directory the covered `Signature-Agent` header names). It checks that every item's Exchange is one it can route to and approves for purchases. It refuses anything else before it sends a single sub-request.
-3. It groups the items by `offer.exchange` and sends one `ExchangeService.ExecuteTransaction` to each Exchange. Each sub-request is a new HTTP request the Broker authors and signs with **its own** key. It carries only the items addressed to that Exchange, in request order, with their acceptances, plus the **unchanged** `AgentRequestAcceptance`, `requester` and idempotency key. See [Projected execute requests](/protocol/authentication/#projected-execute-requests) for who signs what and how the Exchange resolves the acceptance verification key.
-4. Each Exchange verifies the acceptance signatures and requires its sub-request to equal the complete in-order projection of the signed set addressed to itself — so the Broker cannot drop, reorder, append, or split the items for that Exchange without that Exchange seeing it. A sub-request that is not that projection has every item denied with `DENIAL_REASON_SIGNATURE_INVALID`, in the body, and nothing is bought.
-5. The Broker combines the answers into one `BrokerTransactionResponse`: one result per request item in request order, one `ExchangeOutcome` per Exchange contacted, and charged totals per currency.
-
-**Why re-packaging is safe.** Each item is atomic and its integrity is per resource. Each offer carries its own Exchange's signature, each acceptance binds the agent to that one offer, and each item's result comes from the Exchange that owns the resource. The Broker therefore assembles independent per-resource purchases. It cannot alter any of them without breaking that item's Exchange signature or the agent's acceptance, and no cross-item integrity is needed. In a result item, the one signed value is the `retrieval_endpoint`, signed by the issuing Exchange; the other fields are the Broker's unsigned report of what each Exchange answered.
-
-**Upstream refusals ride in the body.** An Exchange that refuses the Broker's whole sub-request, or does not answer it, never becomes an error of the Broker's own. Each affected item carries `TransactionResultItem.refusal`, an `UpstreamRefusal` whose `party` is the Exchange, with the Connect code it answered with and its `ErrorDetail` unchanged, and the other Exchanges' results come back unchanged. With the code `unavailable` or `deadline_exceeded` the item's outcome is unknown, since the Exchange may have bought it before the answer was lost, and the charged totals do not count it; retrying the same request with the same key settles it, through this Broker, another one or directly. With any other code the item was not purchased. `DENIAL_REASON_CONTENT_UNAVAILABLE` is never used as a catch-all for an upstream failure. Every per-item denial is the Exchange's result item, in the body, also for a one-item sub-request. Whether relayed purchases are accepted is decided per item, by the provider of each offer's resource: an item whose provider does not accept them is denied with `DENIAL_REASON_RELAY_NOT_ACCEPTED`, the other items of the sub-request may succeed, and the agent buys that offer directly.
-
-**The Broker's own refusals** are non-OK errors with an `ErrorDetail`: `unauthenticated` with `request_auth_failure` for a bad agent signature, and `SIGNATURE_INVALID` for a `requester.domain` that is not the signing directory; `invalid_argument` for a malformed request; `failed_precondition` for an Exchange it cannot route to or does not approve.
-
-**Idempotency.** The Broker forwards the agent's `idempotency_key` unchanged to every Exchange; it cannot change it, because the acceptances sign it. A retry through the Broker therefore reaches each Exchange as a replay and is answered from that Exchange's stored result. Each Exchange scopes the key to the agent whatever the route, so a retry may go through this Broker, another one or directly, two agents behind one Broker never collide, and the same key with different items is refused with `already_exists`.
-
-**Delegation.** The Broker is the wire signer of every sub-request, so each Exchange checks a delegation's `cnf.jkt` against the key the item's `AgentAcceptance` verifies under, not against the Broker. The agent does not need to delegate to the Broker.
-
-A single-Exchange purchase is the degenerate case: the projection is the whole set, and the SDK clients attach the acceptance there too.
-
-## Request Signing
-
-FORA uses a two-layer model: the **agent's request signature** authenticates the agent to the Broker, and the **Broker's own signature** authenticates the Broker to the Exchange. On a purchase, the agent's identity and consent travel to the Exchange in the body, not in the headers.
-
-### Request Authentication
-
-The `Requester` message carries identity and entitlements only (`id`, `domain`, `type`, `scopes`, optional `delegation`) — it has **no** signature field. The request is authenticated by an RFC 9421 HTTP Message Signature (alg=ed25519) carried in the headers and made to the [Web Bot Auth profile](/protocol/authentication/#the-web-bot-auth-profile). A verifier checks it against the public key published in the signer's key directory at `{origin}/.well-known/http-message-signatures-directory`, with the origin taken from the `Signature-Agent` member the signature covers.
-
-The Broker passes `Requester` through unchanged -- it never modifies the requester's identity, scopes, or delegation -- with one exception on discovery: every query it originates names, as `requester.domain`, the host of the directory the agent's verified signature names, and a `Resolve` naming another host is answered all the same. On a purchase the agent's acceptances sign `requester.domain`, so there the Broker refuses a mismatch instead ([Direct and relayed requests](/protocol/authentication/#direct-and-relayed-requests)).
-
-### The Broker Signs Alone (RFC 9421)
-
-The Broker never forwards an agent's request unchanged, so it never covers an agent's signature ([Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding)):
-
-- **Discovery is Broker-led.** The agent does not know the Exchange at discovery time; that is the point of the Broker. The Broker chooses the Exchanges and originates its own `DiscoverResources` queries, signed by the Broker alone, so an Exchange does not honour a delegation on them ([Which signature binds in a brokered request](/protocol/authentication/#verification)). How an agent proves a holder-of-key entitlement at discovery time through a Broker is an open protocol question.
-- **Execute is re-packaged.** The Broker builds a fresh `TransactionRequest` for each Exchange and signs it alone.
-
-Each signature the Broker makes has:
-
-- **Label and member** -- its own label and its own `Signature-Agent` member, naming its directory. It is the only member on the request.
-- **`keyid`** -- the Broker's RFC 7638 thumbprint, resolved in the key directory its `Signature-Agent` member names
-- **`created`** -- when the Broker sent the request
-- **the covered components** -- its own request components (`@method`, `@target-uri`, `content-digest`, `authorization`) and its own `Signature-Agent` member
-
-Because every Broker signature covers exactly one `Signature-Agent` member, single-member WBA verifiers such as Cloudflare's `web-bot-auth` library accept it.
-
-```go
-// Broker signs a request it originates (discovery) or re-packages (execute).
-func (o *Broker) signOutbound(req *http.Request) {
-    label := "sig1"
-    // The Broker's own member is the only Signature-Agent member on the request.
-    req.Header.Set("Signature-Agent", label+`="https://`+o.domain+`"`)
-    // Covers @method, @target-uri, content-digest, authorization and
-    // "signature-agent";key="sig1".
-    sigInput, sig := o.rfc9421Sign(req, label) // Ed25519, keyid=o.thumbprint, tag="web-bot-auth"
-    req.Header.Set("Signature-Input", sigInput)
-    req.Header.Set("Signature", sig)
-}
-```
-
-### Exchange Verification
-
-The Exchange verifies:
-
-1. **The Broker's signature** -- against the key its `keyid` thumbprint selects in the directory named by the Broker's `Signature-Agent` member. The Exchange authenticates the caller as the Broker.
-2. **The agent's identity and consent, on a purchase** -- each item carries the agent's `AgentAcceptance`, a detached Ed25519 signature over `{offer_sig, requester_id, requester_domain, idempotency_key}` verified against the agent's registered key, which the Exchange resolves from `Requester.domain`. The same key gives the delivery-URL binding (`agent_id` is its RFC 7638 thumbprint), and a delegation's `cnf.jkt` is checked against it, so a delegation stays bound to the agent's private key through the Broker. `agent_request_acceptance` additionally binds the ordered set of offers. These are application-level signatures, not WBA transport signatures, and the Web Bot Auth profile does not change them. See [Projected execute requests](/protocol/authentication/#projected-execute-requests).
-
-The Broker publishes its keys in its WBA directory (the JWK Set at `{domain}/.well-known/http-message-signatures-directory`) — RFC 7517 Ed25519 JWKs, each identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`). Its `fora.json` manifest uses the same format as an agent's, with `role=ROLE_BROKER`. The Broker names that directory in its `Signature-Agent` member on every request it sends, so an Exchange resolves the Broker's key the same way it resolves any signer's. A request the Broker sends names the agent in `requester.domain`, which differs from the Broker's own directory, so the Exchange treats it as relayed and acts on it only when it admits the Broker. Admission is the Exchange's own policy, for example requiring the Broker to be registered with it; the manifest role never decides it. See [Direct and relayed requests](/protocol/authentication/#direct-and-relayed-requests).
-
-## Profiles Are Forwarded, Not Routed
-
-The Broker does not route queries by profile. It forwards the agent's declared profiles, and each Exchange answers for its own.
-
-1. **Agent declares profiles** -- `DiscoveryRequest.supported_profiles` lists which domain extension profiles the agent understands (e.g., `["fora-academic-v1"]`)
-2. **Broker forwards them** -- the Broker MUST copy the declared profiles unchanged into `ResourceQuery.supported_profiles` on every Exchange it queries, and forward an absent list as absent. It chooses which Exchanges to query on other grounds, never by profile
-3. **Each Exchange answers for its own profiles** -- an Exchange includes the profile-specific `ext` fields of the profiles it declares in its `WellKnownManifest.supported_profiles`; an Exchange that declares none of the agent's profiles answers with the core fields
-
-### Example: Academic Research Agent
-
-An agent working on a literature review sends:
+**By URL.** The agent already knows which resources it wants and lists them in `DiscoveryRequest.uris`, up to 256:
 
 ```json
 {
-  "supported_profiles": ["fora-academic-v1"]
+  "uris": ["https://news.example/2026/11/central-bank-rates"]
 }
 ```
 
-The Broker queries its Exchanges as it would without the profile, and each query carries `supported_profiles: ["fora-academic-v1"]`. An Exchange that declares `fora-academic-v1` returns offers with academic metadata (e.g., retraction status); one that does not returns its offers with the core fields only.
-
-## Scope Forwarding, Delegation Pass-Through, and Quota Aggregation
-
-### Scope Forwarding
-
-The Broker forwards `Requester.scopes` to every Exchange it queries. Scopes decide which non-gated terms each Exchange presents; they are the agent's statement, which the Broker passes on under its own signature, and the Exchange does not verify them. The Broker does not modify scopes; it passes them through as-is. For a term an Exchange gates behind a verified delegation, the stated scopes count for nothing: the Exchange reads scopes from the verified delegation only, and since it honours no delegation on a query the Broker originated, a gated term stays hidden on that query.
-
-### Delegation Pass-Through
-
-The Broker passes `Requester.delegation` through unchanged, and the **agent remains the holder**. A Broker is never delegated to. On a purchase, the Exchange matches the delegation's `cnf.jkt` against the key that signed the agent's `AgentAcceptance`, so the delegation stays bound to the agent's private key through the Broker, exactly as on a direct call. On a query the Broker originates, the Broker signs alone, so nothing can pass the delegation's holder binding: the Exchange does not honour it and answers as if none were present. Through a Broker, the delegation counts only on a purchase, through the agent's acceptances. How an agent proves a holder-of-key entitlement at discovery time through a Broker is an open protocol question. An Exchange that requires a verified delegation before it presents a scoped term presents no such term on the Broker's query.
-
-The Broker cannot narrow a delegation: only the key named in the chain's `cnf` can issue a valid child token, and that is the agent's key, not the Broker's. Narrowing is done by a holder in the chain, as [Delegation](/protocol/authentication/#delegation) describes: the child carries its complete parent in `fora_parent`, so the Broker also cannot swap a parent, and the Exchange verifies the root with a key it has configured, so the Broker cannot introduce one.
-
-### SubscriptionQuotaInfo Aggregation
-
-When multiple Exchanges return `SubscriptionQuotaInfo` on their offers or transaction responses, the Broker MAY aggregate this quota information before returning it to the agent. This gives the agent a consolidated view of remaining quota across Exchanges, enabling proactive throttling without the agent needing to track per-Exchange quota independently.
-
-## Three Discovery Modes
-
-Agents can discover content through the Broker in three ways, depending on how much they know about what they need. All three modes feed into the same Selection Engine -- the Broker compares offers identically regardless of how they were discovered.
-
-### 1. Specific URIs
-
-The agent already knows which resources it wants. It sends `DiscoveryRequest.uris` with one or more specific content identifiers (DOIs, URLs, etc.). The Broker forwards these as a `ResourceQuery` to each Exchange and collects offers.
-
-```json
-{
-  "uris": ["doi:10.1038/s41586-024-07386-0", "doi:10.1126/science.adq3854"]
-}
-```
-
-This is the simplest mode -- the agent has exact references and wants the best price across Exchanges.
-
-### 2. Structured Search
-
-The agent knows what kind of content it needs but not the exact URIs. It sends `DiscoveryRequest.search_filters` with profile-specific key-value pairs, with or without a `query`. The Broker's catalog search applies each filter as a required constraint, and each matching URI then takes the same route as a query's results (see [Natural Language](#3-natural-language)).
-
-```json
-{
-  "search_filters": {
-    "music.genre": ["jazz", "blues"],
-    "music.vocals": false,
-    "music.bpm_range": "80-100"
-  }
-}
-```
-
-This asks for jazz or blues tracks with no vocals, from 80 to 100 BPM.
-
-Filter keys are profile-specific. The [fora-music-v1](/protocol/ext-music/#query-vocabulary-discoveryrequestsearch_filters) profile defines 23, among them `music.genre`, `music.bpm_range` and the exact-match `music.isrc`. Which keys a Broker applies, and what it answers for a key it does not apply, depends on its catalog search: see [Discovery providers](#discovery-providers).
-
-### 3. Natural Language
-
-The agent describes what it needs in free text. It sends `DiscoveryRequest.query` with a natural-language description. The Broker's configured catalog search turns the query into catalog URIs, and each URI then takes the same route as a URI the agent named: the publisher's `fora.json` names the Exchange, and that Exchange answers with signed offers. The Broker returns one `OfferGroup` per URI, best match first, stamped `DISCOVERY_METHOD_SEARCH`, and it never merges groups. URIs the agent names win: the query and `search_filters` are then not used.
-
-```json
-{
-  "query": "Recent peer-reviewed studies on mRNA vaccine efficacy in immunocompromised patients"
-}
-```
-
-This mode is useful for exploratory research where the agent cannot formulate structured filters.
-
-#### Discovery providers
-
-A Broker runs one catalog search, which its operator chooses per deployment. The search only proposes URIs: prices, license terms and signatures always come from the Exchange, so a search result cannot produce an offer the Exchange does not stand behind. A failed search answers `TEMPORARILY_UNAVAILABLE`, and the Broker never falls back to another provider.
-
-| Provider | What it does with the query | `search_filters` |
-|---|---|---|
-| None | The Broker has no catalog search. | A [fora-music-v1](/protocol/ext-music/) key is refused with `UNIMPLEMENTED`, and a key the profile does not define is ignored, in the profile's [order of checks](/protocol/ext-music/#order-of-checks-and-errors). |
-| Tag-based | A model reads tags from the query, and the Broker matches them against an index it builds from the catalog feed. | Applied as required constraints, by the [fora-music-v1](/protocol/ext-music/) profile. FORA Server's tag-based provider does not yet apply `music.key`, `music.version`, `music.publisher` and `music.ipi`, which the profile added later. It ignores them, as [Older Brokers](/protocol/ext-music/#older-brokers) describes. |
-| Elasticsearch | The Broker runs the operator's search template against an existing index the operator points it at. It does not interpret the query, and it calls no model. | Applied for the keys the deployment declares. An undeclared key is refused with `UNIMPLEMENTED` and a malformed value with `INVALID_ARGUMENT`, both naming `search_filters.<key>`, because results that ignore a filter would answer a different question. |
-
-### Combining Modes
-
-A request can carry a `query` and `search_filters` together. Every filter the Broker applies is a required constraint, so every result passes it; which keys it applies, and what the query adds, depend on its catalog search (see [Discovery providers](#discovery-providers)). For example:
+**In plain words.** The agent describes what it needs in `DiscoveryRequest.query`, and can narrow the search with `DiscoveryRequest.search_filters`:
 
 ```json
 {
@@ -277,125 +60,94 @@ A request can carry a `query` and `search_filters` together. Every filter the Br
 }
 ```
 
-On a Broker that applies both keys, every result has no vocals and a tempo from 80 to 100 BPM. Named URIs do not combine with a search (see [Natural Language](#3-natural-language)), so an agent that wants both sends two requests.
+Every filter the search backend applies is a required constraint, so every result passes it. Which filter keys a Broker applies depends on its search backend (see [Search backends](#search-backends)). The URLs a search finds take the same route as URLs the agent names. Their groups are marked `DISCOVERY_METHOD_SEARCH`, and groups for named URLs `DISCOVERY_METHOD_EXCHANGE`.
 
-## Discovery Extension Point (v2)
+An agent that wants offers for named URLs and a search sends two requests.
 
-The Broker's internal `SupplySource` interface is the extension point for content discovery beyond Exchange queries. In v1, URIs come from the agent's request or from the Broker's own catalog search (see [Discovery providers](#discovery-providers)). In v2, the Broker can discover URIs from further sources on the agent's behalf:
+## Search backends
 
-```go
-// SupplySource abstracts where content offers come from.
-// v1: only ExchangeSource (queries an Exchange).
-// v2: SearchSource (Exa, Tavily), RecommendationSource, etc.
-type SupplySource interface {
-    // Query returns offers from this source matching the request.
-    Query(ctx context.Context, req *forav1.ResourceQuery) (*forav1.ResourceResponse, error)
+FORA does not specify search. `DiscoveryRequest.query` is free text that the Broker interprets, and `ResourceQuery` has no field for it, so an Exchange only ever sees URLs. Whoever runs a Broker decides how its search works, through the search backend it plugs in. The backend only proposes URLs: the offers, prices and license terms always come from the Exchange.
 
-    // Domain returns the source identifier (exchange domain or service name).
-    Domain() string
+A FORA Server Broker runs one search backend, chosen per deployment. FORA Server ships two:
 
-    // Kind returns the source type for selection policy routing.
-    Kind() SupplySourceKind // Exchange, SearchEngine, Archive, etc.
-}
-```
+| Backend | What it does with the words | `search_filters` |
+|---|---|---|
+| Elasticsearch | Runs the index owner's search template against an index the owner already runs. The template decides which fields are searched, how hits rank and how each filter applies. The Broker calls no model and does not interpret the words. | Applied for the keys the deployment's filter schema declares. An undeclared key is refused with `UNIMPLEMENTED` and a malformed value with `INVALID_ARGUMENT`, both naming `search_filters.<key>`, because results that ignore a filter would answer a different question. |
+| Tag search, for music | A model on Amazon Bedrock reads music tags from the words, and the Broker matches them against an index it builds from the catalog feed. | Applied as required constraints, by the [fora-music-v1](/protocol/ext-music/) profile, for nine of its keys: `music.isrc`, `music.genre`, `music.mood`, `music.instruments`, `music.suitable_for`, `music.energy`, `music.vocals`, `music.bpm_range` and `music.duration_seconds_range`. It ignores any other key, as [Older Brokers](/protocol/ext-music/#older-brokers) describes. |
 
-The flow: search/recommendation produces URIs, the Broker looks up an Exchange for each URI's domain (via fora.json), the Exchange provides pricing/offers, and the standard transaction flow continues. Discovery is upstream of transactions -- it produces URIs, not offers. The `OfferGroup.discovery_method` field tells the agent how each URI was found.
+A Broker with no search backend finds offers for URLs the agent names. It refuses a [fora-music-v1](/protocol/ext-music/) filter key, with `INVALID_ARGUMENT` when the value is malformed and otherwise with `UNIMPLEMENTED`, and ignores a key the profile does not define, in the profile's [order of checks](/protocol/ext-music/#order-of-checks-and-errors).
 
-This positions the Broker as the natural integration point for agentic search -- agents that need content don't just request known URLs, they ask "find me articles about X" and the Broker discovers and prices the matching offers, returning them for the agent to commit to via a separate `ExecuteTransaction` call.
+With the Elasticsearch backend, the Broker needs only read access to the index. It refuses a template file that would insert the agent's text unescaped, because that text could then write query syntax. The Identity Service publishes the same filter schema in its `fora_discover` tool, so an agent sees the accepted keys before it calls. The index owner's guide is [Writing the Search Template](https://github.com/FORA-Protocol/reference-implementation/blob/main/src/broker/SEARCH-TEMPLATE.md) in the FORA Server repository.
 
-## Request Lifecycle (End-to-End)
+A search that matches nothing is answered with `OFFER_ABSENCE_REASON_NOT_IN_CATALOG`, and a search that fails with `OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE`. The Broker never falls back to another backend.
 
-Full request lifecycle from agent to content delivery:
+Another backend is one more implementation of the same interface, `Searcher` in the Broker's `catalogsearch` package: it takes the words and the parsed filters and returns URLs, best first. A search API built for agents, such as Exa, Tavily, Brave Search API, Perplexity or Parallel, can sit behind it, and so can any index a Broker operator already runs.
 
-```mermaid
-sequenceDiagram
-    participant Agent as AI Agent
-    participant Orch as Broker
-    participant Reg as Exchange Registry
-    participant MPA as Exchange A
-    participant MPB as Exchange B
-    participant CDN as Provider CDN
+## Offers and absences
 
-    Agent->>Orch: DiscoveryRequest (requester + constraints)
+Each offer carries its Exchange's signature over the price, the terms, the expiry and `Offer.exchange`. The Broker returns the offers unchanged and cannot alter one without breaking that signature. It checks every signature before it returns an offer, so an agent behind a Broker gets only offers that verified.
 
-    Orch->>Reg: Resolve(constraints)
-    Reg-->>Orch: [Exchange A, Exchange B]
+Every requested URL comes back as exactly one `OfferGroup`, in request order, or in search order for a request in words. A URL that no trusted Exchange serves, or that its Exchange does not catalog, is answered with `OFFER_ABSENCE_REASON_NOT_IN_CATALOG`. An absence reason the Exchange gave for a URL is passed on. "No offer" is a successful answer, not an error: `BrokerService.Resolve` returns OK with the reason in the group.
 
-    par Parallel Discovery (60ms deadline)
-        Orch->>MPA: DiscoverResources(ResourceQuery)
-        MPA-->>Orch: ResourceResponse (3 offers)
-    and
-        Orch->>MPB: DiscoverResources(ResourceQuery)
-        MPB-->>Orch: ResourceResponse (2 offers)
-    end
+## Buying through the Broker
 
-    Note over Orch: Selection Engine:<br/>5 offers received<br/>4 carry a term the agent can honour (Offer.terms[0].restrictions)<br/>3 pass RequestConstraints<br/>2 after dedup (1 AP article from both)<br/>Rank by unit_cost: MP-A offer leads
+An agent commits to offers in a separate call, one of two ways. The execute target of each offer is `Offer.exchange`, which the Exchange signed, so a Broker cannot redirect a purchase.
 
-    Note over Orch: Budget Tracker (advisory):<br/>Session spent $0.12 of $1.00<br/>Best offer: $0.05<br/>Within budget
+- **Directly**: one `ExchangeService.ExecuteTransaction` per Exchange, signed by the agent.
+- **Through the Broker**: one `BrokerService.ExecuteTransaction` for offers from any number of Exchanges. The request is the same `TransactionRequest`, and it returns a `BrokerTransactionResponse`.
 
-    Orch-->>Agent: DiscoveryResponse (offer_groups: best Offer per URI)
+Either way, each Exchange charges the agent's own account there (see [Accounts](/protocol/authentication/#accounts)). The Broker never charges anyone.
 
-    Note over Agent: Agent picks an Offer.<br/>Execute target = Offer.exchange (signed)
+Through the Broker, the purchase is re-packaged. What holds it together is the agent's own consent: `TransactionRequest.agent_request_acceptance`, a detached Ed25519 signature by the agent over the complete ordered list of offers, the requester and the idempotency key, and each item's `agent_acceptance`.
 
-    alt Direct purchase
-        Agent->>MPA: ExchangeService.ExecuteTransaction(chosen offer)
-        MPA-->>Agent: TransactionResponse(retrieval_endpoint + billing_id)
-    else Through the Broker
-        Agent->>Orch: BrokerService.ExecuteTransaction(chosen offers + acceptances)
-        Orch->>MPA: ExecuteTransaction(Exchange A's items, Broker-signed)
-        MPA-->>Orch: TransactionResponse
-        Orch-->>Agent: BrokerTransactionResponse(items in request order)
-    end
+1. The agent signs one `AgentAcceptance` per offer and one `AgentRequestAcceptance` over every selected offer, in order, across all Exchanges. It sends the request to the Broker, RFC 9421-signed for the Broker's URL. The request ends at the Broker.
+2. The Broker verifies the agent's signature and checks that `requester.domain` is the host of the key directory the agent signed from. It checks that every item's Exchange is one it routes to and approves for purchases. It refuses anything else before it sends a single sub-request.
+3. It groups the items by `Offer.exchange` and sends each Exchange one `ExchangeService.ExecuteTransaction`, which the Broker authors and signs with its own key. Each sub-request carries only that Exchange's items, in request order, with their acceptances, plus the unchanged `AgentRequestAcceptance`, `requester` and idempotency key. See [Projected execute requests](/protocol/authentication/#projected-execute-requests) for who signs what.
+4. Each Exchange verifies the acceptances and requires its sub-request to be the complete, in-order share of the signed set addressed to it. A sub-request that is not has every item denied with `DENIAL_REASON_SIGNATURE_INVALID`, in the body, and nothing is bought.
+5. The Broker combines the answers into one `BrokerTransactionResponse`: one result per request item, in request order, one `ExchangeOutcome` per Exchange contacted, and the charged totals per currency.
 
-    Note over Agent: Track reporting obligation<br/>Record spend: $0.05
+**Why re-packaging is safe.** Each item is atomic, and its integrity is per resource. Each offer carries its own Exchange's signature, each acceptance binds the agent to that one offer, and each item's result comes from the Exchange that owns the resource. The Broker cannot alter an item without breaking that Exchange's signature or the agent's acceptance. In a result item, the one signed value is the `retrieval_endpoint`, signed by the issuing Exchange. The other fields are the Broker's report of what each Exchange answered.
 
-    Agent->>CDN: GET retrieval_endpoint
-    CDN-->>Agent: 200 OK + content
+**Upstream refusals ride in the body.** An Exchange that refuses the Broker's whole sub-request, or does not answer it, never becomes an error of the Broker's own. Each affected item carries `TransactionResultItem.refusal`, an `UpstreamRefusal` whose `party` is the Exchange, with the Connect code it answered with and its `ErrorDetail` unchanged. The other Exchanges' results come back unchanged. With the code `unavailable` or `deadline_exceeded`, the item's outcome is unknown, because the Exchange may have bought it before the answer was lost, and the charged totals do not count it. Retrying with the same key settles it, through this Broker, another one or directly. With any other code, the item was not purchased.
 
-    Note over Agent: Use content (RAG, grounding)
+Every per-item denial is the Exchange's result item, in the body. Whether relayed purchases are accepted is decided per item, by the provider of each offer's resource. An item whose provider does not accept them is denied with `DENIAL_REASON_RELAY_NOT_ACCEPTED`, the other items may succeed, and the agent buys that offer directly.
 
-    Note over Agent,MPA: The agent files its own report with the issuing Exchange,<br/>for a purchase made through the Broker too
-    Agent->>MPA: UsageReport(transaction_id, consumed_quantity, function)
-    MPA-->>Agent: UsageReportResponse(accepted)
-```
+**The Broker's own refusals** are non-OK errors with an `ErrorDetail`: `unauthenticated` with `request_auth_failure` for a bad agent signature, and `SIGNATURE_INVALID` for a `requester.domain` that is not the signing directory; `invalid_argument` for a malformed request; `failed_precondition` for an Exchange it does not route to or approve.
 
-## Key Design Decisions
+**Idempotency.** The Broker forwards the agent's `idempotency_key` unchanged to every Exchange. It cannot change it, because the acceptances sign it. A retry through the Broker therefore reaches each Exchange as a replay and is answered from that Exchange's stored result. Each Exchange scopes the key to the agent whatever the route, so two agents behind one Broker never collide, and the same key with different items is refused with `already_exists`.
 
-| Decision | Rationale |
-|---|---|
-| **Broker is optional** | Agents can query Exchanges directly. The Broker adds multi-exchange intelligence but is not required by the protocol. |
-| **Same protocol, Broker signs alone** | The Broker calls the Exchange with the same RPCs an agent uses and signs each request alone. A purchase the Broker relays is signed by the Broker, and the Exchange verifies the agent's consent from the body acceptances. |
-| **Signed offer pass-through** | Exchange signatures cover pricing fields. The Broker cannot inflate prices without invalidating the signature. |
-| **Budget as an offer filter** | `Resolve` drops offers that would exceed the agent's budget and reports `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED` when none remain. It never charges. How the budget is computed is the Broker's own behaviour, not part of the protocol. The Exchange's balance check stays the authoritative gate on what is charged. |
-| **Ed25519 request signatures, consent in the body** | Requester signs the HTTP request with an RFC 9421 HTTP Message Signature that follows the Web Bot Auth profile (covering `@method`/`@target-uri`/`content-digest`/`authorization` and its `Signature-Agent` member). The Broker originates discovery queries and re-packages execute requests, and signs each alone, covering its own request and only its own `Signature-Agent` member. The Exchange authenticates the Broker and, on a purchase, takes the agent's identity and consent from the `AgentAcceptance` in the body. Public keys discoverable via the WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`). |
-| **Partial results are normal** | If 3 of 5 Exchanges respond within the deadline, the Broker proceeds with 3 responses. Availability of any individual Exchange does not block the system. |
+**Delegation.** The Broker signs every sub-request, so each Exchange checks a delegation's `cnf.jkt` against the key the item's `AgentAcceptance` verifies under, not against the Broker. The agent does not delegate to the Broker.
 
-## Go Module Structure
+## How the Broker signs
 
-```
-github.com/FORA-Protocol/protocol/broker/
-    cmd/
-        broker/           # Sidecar binary entrypoint
-            main.go
-    pkg/
-        broker/           # Core broker logic (used by all deployment modes)
-            broker.go     # Broker struct + Resolve
-            config.go           # Configuration loading
-        registry/               # Exchange Registry
-            registry.go         # ExchangeRegistry interface + in-memory impl
-            crawler.go          # fora.json crawler
-            health.go           # Health checker
-        discovery/              # Supply Discovery (parallel fanout)
-            fanout.go           # FanOut implementation
-            clientpool.go       # Connect client pool management
-        selection/              # Selection Engine
-            engine.go           # SelectionEngine interface + default impl
-            pipeline.go         # Filter, dedup, rank stages
-            policy.go           # Pluggable selection policies
-        budget/                 # Budget Tracker
-            tracker.go          # BudgetTracker interface + in-memory impl
-        metrics/                # Prometheus metrics
-            metrics.go          # All metric definitions
-    internal/
-        testutil/               # Test helpers
-```
+The Broker never forwards an agent's request unchanged. Every request it sends an Exchange is its own, signed by the Broker alone with one RFC 9421 HTTP Message Signature made to the [Web Bot Auth profile](/protocol/authentication/#the-web-bot-auth-profile):
+
+- **Discovery is Broker-led.** The agent does not know the Exchange at discovery time; finding it is the Broker's job. The Broker originates each `DiscoverResources` query and signs it, so the Exchange authenticates the caller as the Broker.
+- **A purchase is re-packaged**, as above. The Exchange authenticates the Broker and takes the agent's identity and consent from the `AgentAcceptance` in the body.
+
+The Broker publishes its public keys in its own key directory, `/.well-known/http-message-signatures-directory`, and its `fora.json` carries `ROLE_BROKER`. A request the Broker sends names the agent in `requester.domain`, so the Exchange treats it as relayed. The Exchange acts on it only when its own policy admits that Broker, for example because the Broker is registered with it; the manifest role never decides that. See [Direct and relayed requests](/protocol/authentication/#direct-and-relayed-requests).
+
+The Broker forwards `Requester.scopes` unchanged and in order, because the Exchange selects the terms it presents by them. It forwards `Requester.delegation` as a copy and is never a delegation holder itself. On a query the Broker originates, the Exchange does not honour a delegation, so a term the Exchange gates behind one stays hidden there. Through a Broker, a delegation counts on a purchase, through the agent's acceptances.
+
+## What a Broker never does
+
+- **Charge.** `Resolve` never charges, and on a purchase each Exchange charges the agent's account.
+- **Hold the agent's keys.** The agent, or the [Identity Service](/components/identity/overview/) for an agent on MCP, signs the acceptances.
+- **Issue signed URLs.** The Exchange issues each delivery URL, and the Broker passes it on.
+- **See the content.** The Broker is not on the delivery path: the agent fetches the resource from the provider's CDN.
+- **Relay usage reports or disputes.** `BrokerService` has two calls, `Resolve` and `ExecuteTransaction`. The agent files `ExchangeService.ReportUsage` and `ExchangeService.DisputeTransaction` itself, with the Exchange that issued the offer, for a purchase made through the Broker as for a direct one.
+
+## Who runs a Broker
+
+Anyone may run a Broker, with or without an Exchange of their own. It is a role of its own, with its own key and its own `fora.json`, and each Exchange decides which Brokers it admits. A search company, for example, can run only a Broker, behind its own search.
+
+FORA Server's Broker is a separate service. It needs PostgreSQL, Redis, a public hostname with TLS, and a registry that lists the Exchanges its operator trusts. The address of each Exchange always comes from that Exchange's own `fora.json`, never from the registry. The [deployment guide](https://github.com/FORA-Protocol/reference-implementation/blob/main/src/broker/DEPLOYMENT.md) is in the FORA Server repository.
+
+Gutefrage runs the whole FORA stack itself, on its own servers, and launched it on helpster.de, one of its properties. Its Broker searches the Elasticsearch index Gutefrage already runs, with a search template in which Gutefrage decides which fields are searched, how results rank and which filters agents may use.
+
+## Related pages
+
+- [Identity Service](/components/identity/overview/): the MCP endpoint whose `fora_discover` and `fora_execute` tools go through the Broker
+- [Authentication](/protocol/authentication/): request signatures, relayed requests and projected execute requests
+- [Exchange Manifest](/protocol/exchange-manifest/): the `fora.json` a publisher uses to name its Exchanges
+- [Ext: Music](/protocol/ext-music/#query-vocabulary-discoveryrequestsearch_filters): the `search_filters` keys of the music profile
