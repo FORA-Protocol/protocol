@@ -1,17 +1,27 @@
 ---
 title: "Identity Service"
-description: "The FORA Identity Service gives an agent that cannot hold a key a Web Bot Auth identity: it mints and custodies the key, publishes the agent's well-known documents, and signs protocol requests on the agent's behalf behind an MCP endpoint."
+description: "The FORA Identity Service lets an AI assistant use FORA over MCP. It gives the agent its own subdomain and a key it keeps and never hands out, publishes the agent's key directory, and turns five MCP tools into signed FORA requests."
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
 ## What it is
 
-The Identity Service is a single Go binary that does two jobs: it is the **custodian of every agent's private key**, and it is the **MCP endpoint an agent connects to** in order to use FORA.
+FORA knows who is asking by a signature. Each request is signed with a private key, and the matching public key is published on the signer's own domain. An AI assistant in a chat app has neither a safe place for a key nor a domain to publish one on. The Identity Service gives it both, and signs for it.
 
-It exists because FORA identifies a participant by an Ed25519 key it controls. Possession is proven per request with an [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) HTTP Message Signature, and the key is resolved from a directory published on a domain the participant owns. An agent running inside a chat client has none of that: no key store, no domain, no way to publish a well-known document. The Identity Service supplies all three and signs on the agent's behalf.
+When a developer signs in, the service gives the agent its own subdomain, creates an Ed25519 key pair for it and keeps the private key in its key store. It never hands that key out. It publishes the public key in the agent's key directory at that subdomain, so the Broker, the Exchange and any Web Bot Auth verifier can check the agent's signatures.
 
-The binary is two layers, and the split is deliberate:
+The agent connects to the service over MCP (Model Context Protocol), the standard way AI assistants call tools, and gets five tools:
+
+- `fora_register` opens an account at an Exchange, and `fora_status` checks it. Both go straight to the Exchange.
+- `fora_discover` finds offers, and `fora_execute` buys them. Both go through the [Broker](/components/broker/overview/).
+- `fora_report` reports usage to the Exchange that issued the offer.
+
+The service turns each tool call into a FORA request signed with that agent's key. It checks the Exchange's signature on every offer before the agent sees it, because an agent on MCP runs no verifier of its own. By default, `fora_execute` also fetches the purchased content and returns it in the tool result.
+
+Identity and the FORA client are one service because signing has to happen where the key is kept. The key never leaves the service, so the agent could not make these signatures itself, nor the proof of key possession a delivery edge asks for.
+
+In FORA Server, the Identity Service is a single Go binary: the **custodian of every agent's private key**, and the **MCP endpoint an agent connects to** in order to use FORA. It is two layers, and the split is deliberate:
 
 - A **Web Bot Auth identity core** that knows nothing about FORA. It generates and custodies keys, mints a subdomain per agent, publishes the standards-shaped documents a generic verifier reads, and signs outbound requests.
 - A **thin FORA adapter** on top: an MCP endpoint exposing five tools, each turning a tool call into a key-signed FORA request to a Broker or an Exchange.
@@ -22,7 +32,7 @@ The core is independently useful — it provisions Web Bot Auth identity for any
 
 FORA's authentication is holder-of-key. A verifier resolves the signer's public key from a directory at the signer's own origin, named in the `Signature-Agent` member the signature covers. It then matches the signature's `keyid` against the [RFC 7638](https://www.rfc-editor.org/rfc/rfc7638) thumbprint of a key in that directory. Nothing about that is FORA-specific — it is the Web Bot Auth shape. Signed to FORA's [Web Bot Auth profile](/protocol/authentication/#the-web-bot-auth-profile), a FORA-provisioned agent is verifiable by any Web Bot Auth origin, not only by an Exchange.
 
-An agent that holds its own key and publishes its own directory needs none of this service. It is the same participant on the wire and speaks the same protocol. The Identity Service is for the agents that cannot, which today is most of them.
+An agent that holds its own key and publishes its own directory needs none of this service. It is the same participant on the wire and speaks the same protocol. The Identity Service is for the agents that cannot.
 
 ## What an agent gets on sign-up
 
@@ -171,8 +181,6 @@ The service transits content it does not license. That is bandwidth, latency, an
 ## Key custody
 
 Private keys live behind a `KeyStore` interface whose shipped backend is HashiCorp Vault (KV v2), which owns encryption at rest, access control and the audit log. Whoever can read that store can impersonate every agent in it, which makes it the most security-sensitive component in the service.
-
-The interface hands back a `crypto.Signer` rather than the private key, so a stronger backend — Vault Transit, a KMS, an HSM — is a drop-in that signs without ever surrendering key bytes. The RFC 9421 signing libraries currently need raw Ed25519 bytes, so the signing path narrows the signer back and fails explicitly when a backend will not hand them over. That failure is an honest report of a real gap: moving custody to an HSM means teaching the signing path to drive a `crypto.Signer`, not swapping an adapter.
 
 Keys are addressed by `{subdomain, thumbprint}` together. The agent's durable identity is its subdomain; the thumbprint selects which of that agent's keys is meant. An account keyed on the thumbprint alone would be orphaned by the agent's first rotation.
 
