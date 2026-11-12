@@ -16,6 +16,8 @@ export interface RuleChoices {
   contract: boolean;
   /** Add the EU reservation signals (TDMRep, Content Signals). */
   eu: boolean;
+  /** The site's own terms page, where the contract's access fee is set. */
+  termsUrl: string;
 }
 
 export interface Rules {
@@ -26,11 +28,14 @@ export interface Rules {
   steps: string[];
 }
 
-export const DEFAULT_CHOICES: RuleChoices = { visible: true, contract: true, eu: true };
+export const DEFAULT_TERMS_URL = 'https://publisher.example/terms';
+
+export const DEFAULT_CHOICES: RuleChoices = { visible: true, contract: true, eu: true, termsUrl: DEFAULT_TERMS_URL };
 
 const names = (...kinds: BotKind[]) => AI_BOTS.filter((b) => kinds.includes(b.kind)).map((b) => b.name);
 
-export function buildRules({ visible, contract, eu }: RuleChoices): Rules {
+export function buildRules({ visible, contract, eu, termsUrl }: RuleChoices): Rules {
+  const terms = termsUrl.trim() || DEFAULT_TERMS_URL;
   const url = SEARCH_ONLY_CONTRACT_URL;
   const refused = names('training', 'token').concat(visible ? [] : names('ai-search', 'live-fetch'));
 
@@ -41,22 +46,22 @@ export function buildRules({ visible, contract, eu }: RuleChoices): Rules {
   if (star.length) robots.push('', ...(contract ? [`# License ${url}`] : []), 'User-agent: *', ...star, 'Allow: /');
 
   const headers = ['X-Robots-Tag: Bingbot: ai-training:disallow'];
-  const html = ['<meta name="Bingbot" content="ai-training:disallow">'];
+  const html = ['<meta name="Bingbot" content="ai-training:disallow" />'];
   if (!visible) {
     headers.push('X-Robots-Tag: Bingbot: ai-grounding:disallow');
-    html.push('<meta name="Bingbot" content="ai-grounding:disallow">');
+    html.push('<meta name="Bingbot" content="ai-grounding:disallow" />');
   }
   if (eu) {
     headers.push('tdm-reservation: 1');
-    html.push('<meta name="tdm-reservation" content="1">');
+    html.push('<meta name="tdm-reservation" content="1" />');
   }
   if (contract) {
-    headers.push(`Link: <${url}>; rel="terms-of-service"`);
-    html.push(`<link rel="terms-of-service" href="${url}">`);
+    headers.push(`Link: <${url}>; rel="terms-of-service", <${terms}>; rel="terms-of-service"`);
+    html.push(`<link rel="terms-of-service" href="${url}" />`, `<link rel="terms-of-service" href="${terms}" />`);
   }
 
   const steps: string[] = [];
-  if (contract) steps.push('Set your access fee, and add the contract to your site\'s terms with the guide\'s wording (A), which incorporates it, and (B), which states your fee: <a href="/resources/ai-crawlers/#contract">the steps</a>.');
+  if (contract) steps.push('Set your access fee in your terms page: paste the guide\'s wording (A), which incorporates the contract, and (B), which states your fee, and fill in the brackets. The contract itself stays unchanged: <a href="/getting-started/search-only-contract/#adopt-the-contract">the wording to paste</a>.');
   if (!visible) steps.push('In Google Search Console, use the "Search generative AI" setting to keep your site out of AI Overviews and AI Mode. No file can set it.');
   steps.push('Archive your robots.txt with the Internet Archive after each change, as dated evidence.');
   steps.push('Put FORA\'s edge function on the paths you sell. Live fetchers that ignore robots.txt get a 403 that tells them where to buy.');
