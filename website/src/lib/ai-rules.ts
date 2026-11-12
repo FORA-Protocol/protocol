@@ -56,7 +56,7 @@ export function buildRules({ visible, contract, eu, termsUrl }: RuleChoices): Ru
     html.push('<meta name="tdm-reservation" content="1" />');
   }
   if (contract) {
-    headers.push(`Link: <${url}>; rel="terms-of-service", <${terms}>; rel="terms-of-service"`);
+    headers.push(`Link: <${url}>; rel="terms-of-service"`, `Link: <${terms}>; rel="terms-of-service"`);
     html.push(`<link rel="terms-of-service" href="${url}" />`, `<link rel="terms-of-service" href="${terms}" />`);
   }
 
