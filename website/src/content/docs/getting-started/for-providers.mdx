@@ -43,19 +43,28 @@ If your resources are served through a CDN — news articles, editorial content,
 
 **No code to deploy if your Exchange operator supports FORA.** Your Exchange operator deploys the CDN edge function on your behalf and manages it. You sign a contract, grant CDN access and publish the `fora.json` they generate on your site, done.
 
-If you self-manage, deploy using the [Terraform module](https://github.com/FORA-Protocol/protocol/tree/main/terraform/aws-fora-edge/):
+If you self-manage, deploy the edge function with the reference implementation's Terraform modules: [`aws-cloudfront-edge`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/deploy/terraform/modules/aws-cloudfront-edge/README.md) on CloudFront, or [`cloudflare-edge`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/deploy/terraform/modules/cloudflare-edge/README.md) on Cloudflare. On CloudFront, the module creates a distribution for your hostname, with the edge function in it. It needs an AWS provider in `us-east-1`, and a bundle you build first with your Exchange's settings inside. The example expects your checkout of the reference implementation, with the built bundle, in the same directory as your Terraform configuration:
 
 ```hcl
-module "fora_edge" {
-  source = "github.com/FORA-Protocol/protocol//terraform/aws-fora-edge"
+provider "aws" {
+  region = "us-east-1" # Lambda@Edge and the CloudFront certificate live here
+}
 
-  cloudfront_distribution_id = aws_cloudfront_distribution.main.id
-  exchange_endpoint       = "https://exchange.your-ssp.com/fora/v1"
-  exchange_domain         = "exchange.your-ssp.com"
-  protected_paths            = ["/premium/*", "/archive/*"]
-  signing_key_pair_id        = aws_cloudfront_public_key.fora.id
+data "aws_route53_zone" "site" {
+  name = "example.com"
+}
+
+module "fora_edge" {
+  source = "github.com/FORA-Protocol/reference-implementation//deploy/terraform/modules/aws-cloudfront-edge?ref=v1.1.0"
+
+  lambda_zip_path = "${path.root}/reference-implementation/src/edge/dist/lambda-edge.zip"
+  hostname        = "news.example.com"
+  zone_id         = data.aws_route53_zone.site.zone_id
+  origin_domain   = "origin.example.com"
 }
 ```
+
+[Distribution Formats](/components/edge-function/deployment/#distribution-formats) gives the build step, the DNS record that points your hostname at the distribution, and the Cloudflare module.
 
 The edge function does three things:
 - Blocks unauthorized AI bots and tells them where to buy access

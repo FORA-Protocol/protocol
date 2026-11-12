@@ -18,9 +18,9 @@ Providers can authorize third parties (verification vendors, enrichment services
 ```json
 {
   "ver": "1.0",
-  "provider": "techcrunch.com",
+  "provider": "news.example.com",
   "catalog_contributors": [
-    { "domain": "gumgum.com", "relationship": "verifier" }
+    { "domain": "verifier.example.org", "relationship": "verifier" }
   ],
   "exchanges": [...]
 }
@@ -65,28 +65,23 @@ The Exchange operator deploys and maintains the FORA edge function on the provid
 
 ## Model 2: Self-Service (Mid-Market)
 
-The provider deploys the edge function themselves using tooling provided by FORA.
+The provider deploys the edge function itself, with the reference implementation's Terraform modules.
 
 ### How It Works
 
-1. Provider installs the FORA deployment package
-2. One command deploys the edge function to their CDN:
-   ```bash
-   npx @fora/edge-deploy --cdn cloudfront --exchange exchange.ssp.com
-   ```
+1. Provider builds the edge function's bundle from the reference implementation
+2. Provider applies the Terraform module for its CDN: `aws-cloudfront-edge` on CloudFront, `cloudflare-edge` on Cloudflare (see [Distribution Formats](/components/edge-function/deployment/#distribution-formats))
 3. Provider publishes `fora.json`, and an RSL license kept at `/rsl.txt` if it has one, on its own origin; the edge function passes both through to it
 4. Provider manages their own CDN access and can customize bot detection rules
 
 ### Supported CDNs
 
-| CDN | Deploy Method | KV Support | Full Feature Set |
+| CDN | Runtime | Deploy method | Where the settings live |
 |---|---|---|---|
-| CloudFront | Lambda@Edge via Terraform/CLI | DynamoDB or S3 | Yes |
-| Cloudflare | Workers via Wrangler | Workers KV | Yes |
-| Fastly | Compute@Edge via CLI | KV Store | Yes |
-| Akamai | Not supported | EdgeKV | No |
-| Vercel | Edge Functions via CLI | KV | Yes |
-| Generic | Reverse proxy config | External KV | Partial |
+| CloudFront | Lambda@Edge | The `aws-cloudfront-edge` Terraform module | A JSON file built into the bundle |
+| Cloudflare | Workers | The `cloudflare-edge` Terraform module, or Wrangler | The Worker's variables |
+
+The edge function stores nothing of its own on either: it reads no KV store. The reference implementation also has a Fastly Compute entry point, `src/entries/fastly.ts`, which its tests run locally under Viceroy.
 
 ### When to Use
 
@@ -140,7 +135,7 @@ Content published in WordPress
 
 For CDNs with limited compute capabilities, the edge function can be reduced to a minimal feature set:
 
-1. **Signed URL verification**: verify the Ed25519 signature over the canonical URL -- valid? pass through : return 403. A CloudFront distribution verifies its RSA signed URLs natively, so there the function skips this step.
+1. **Signed URL verification**: verify the Ed25519 signature over the canonical URL -- valid? pass through : return 403.
 2. **Bot detection**: Check `User-Agent` for known AI crawler strings -- match? return 403 with `X-Content-Rules` header
 3. **Let `fora.json` through**: Leave `/.well-known/fora.json` to the origin, ahead of the bot check, so a refused bot can read it
 
@@ -163,4 +158,4 @@ Request arrives at edge:
 4. Default -> Pass through to origin (non-bot, non-protected)
 ```
 
-Step 1 needs a runtime that can run code: Cloudflare Workers and Fastly Compute verify the signature themselves, and a CloudFront distribution verifies its own RSA signed URLs without any function at all. A declarative rule language -- Fastly VCL, Akamai Property Manager -- cannot verify a signature, so it can refuse known crawlers but cannot admit a paid request.
+Signature verification needs a runtime that can run code. The reference implementation verifies the Ed25519 signature in a Cloudflare Worker, and on CloudFront in a Lambda@Edge viewer-request function. The `aws-cloudfront-edge` module leaves CloudFront's own signed-URL check off, with `trusted_key_groups = []`. A declarative rule language -- Fastly VCL, Akamai Property Manager -- cannot verify a signature, so it can refuse known crawlers but cannot admit a paid request.
