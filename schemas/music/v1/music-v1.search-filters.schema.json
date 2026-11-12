@@ -188,7 +188,7 @@
       "examples": [false]
     },
     "music.key": {
-      "description": "Musical key, written as in `music.key`: the tonic, then `major` or `minor`, in lower case, with `#` for a sharp and `b` for a flat. The track's key is one of the given labels.",
+      "description": "Musical key, written as in the offer field `music.key`: the tonic, then `major` or `minor`, in lower case, with `#` for a sharp and `b` for a flat. The track's key is one of the given labels.",
       "type": ["string", "array"],
       "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$",
       "minItems": 1,
