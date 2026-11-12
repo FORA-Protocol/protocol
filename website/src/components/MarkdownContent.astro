@@ -1,0 +1,15 @@
+---
+// Starlight's Markdown wrapper, plus the client-side renderer for the Mermaid
+// placeholders that plugins/remark-mermaid.mjs writes into the page. Mermaid itself
+// loads only on a page that has a diagram.
+import Default from '@astrojs/starlight/components/MarkdownContent.astro';
+---
+
+<Default {...Astro.props}><slot /></Default>
+
+<script>
+  import { renderMermaid } from '../lib/mermaid';
+
+  const boxes = [...document.querySelectorAll<HTMLElement>('.sl-markdown-content .mermaid')];
+  renderMermaid(boxes);
+</script>
