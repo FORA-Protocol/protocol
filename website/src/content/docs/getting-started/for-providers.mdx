@@ -43,7 +43,7 @@ If your resources are served through a CDN — news articles, editorial content,
 
 **No code to deploy if your Exchange operator supports FORA.** Your Exchange operator deploys the CDN edge function on your behalf and manages it. You sign a contract, grant CDN access and publish the `fora.json` they generate on your site, done.
 
-If you self-manage, deploy the edge function with the reference implementation's Terraform modules: [`aws-cloudfront-edge`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/deploy/terraform/modules/aws-cloudfront-edge/README.md) on CloudFront, or [`cloudflare-edge`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/deploy/terraform/modules/cloudflare-edge/README.md) on Cloudflare. On CloudFront, the module creates a distribution for your hostname, with the edge function in it. It needs an AWS provider in `us-east-1`, and a bundle you build first with your Exchange's settings inside:
+If you self-manage, deploy the edge function with the reference implementation's Terraform modules: [`aws-cloudfront-edge`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/deploy/terraform/modules/aws-cloudfront-edge/README.md) on CloudFront, or [`cloudflare-edge`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/deploy/terraform/modules/cloudflare-edge/README.md) on Cloudflare. On CloudFront, the module creates a distribution for your hostname, with the edge function in it. It needs an AWS provider in `us-east-1`, and a bundle you build first with your Exchange's settings inside. The example expects your checkout of the reference implementation, with the built bundle, in the same directory as your Terraform configuration:
 
 ```hcl
 provider "aws" {
