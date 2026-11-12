@@ -5,6 +5,7 @@ import starlightMermaid from '@pasqal-io/starlight-client-mermaid';
 import starlightLinksValidator from 'starlight-links-validator';
 import remarkDirective from 'remark-directive';
 import remarkExample from './plugins/remark-example.mjs';
+import remarkProfile from './plugins/remark-profile.mjs';
 import remarkProto from './plugins/remark-proto.mjs';
 import remarkStandards from './plugins/remark-standards.mjs';
 import remarkVersion from './plugins/remark-version.mjs';
@@ -63,6 +64,10 @@ export default defineConfig({
 		//   of a file an existing gate compiles or runs — so a code block on the site
 		//   cannot show code that does not build. Runs FIRST so the block it produces is
 		//   an ordinary code node to everything after it. See plugins/remark-example.mjs.
+		// remarkProfile: render a profile's search filter table (::profile-filters) from its
+		//   filter schema in schemas/, and fail the build on an unknown profile. Runs before
+		//   remarkProto so the generated cells are checked and linked like prose. See
+		//   plugins/remark-profile.mjs + profile-schema.mjs.
 		// remarkProto: render proto-derived tables (::proto-enum / ::proto-vocab) from the
 		//   descriptor AND autolink/validate every proto reference in one mdast pass — so a
 		//   reference in a rendered table links like one in prose, and an unknown reference
@@ -73,7 +78,7 @@ export default defineConfig({
 		//   text it produces is a plain version rather than something to link.
 		// remarkStandards: link the first mention of each external standard (RFC NNNN, C2PA,
 		//   …) to its canonical source. Runs after remarkProto so generated tables link too.
-		remarkPlugins: [remarkDirective, remarkExample, remarkProto, remarkVersion, remarkStandards],
+		remarkPlugins: [remarkDirective, remarkExample, remarkProfile, remarkProto, remarkVersion, remarkStandards],
 	},
 	integrations: [
 		starlight({
