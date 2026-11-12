@@ -101,7 +101,7 @@ Every request carries a `Requester` message — a universal actor identity with 
 
 **RequesterType** classifies the caller: `AGENT` (autonomous), `HUMAN_TOOL` (copilot), `SERVICE` (enterprise pipeline), `DELEGATED` (acting on behalf of another), `RESEARCH` (batch data collection).
 
-**Scopes** are the Requester's signed statement of what it is entitled to. Examples: `subscription:marketdata-2026`, `credit:read`, `academic:*`, `*` (unrestricted). They decide which license terms the Exchange presents, and a Requester never learns of a resource outside its scopes. The Exchange does not verify them; a false statement is traceable to the key that signed it.
+**Scopes** are the Requester's signed statement of what it is entitled to. Examples: `subscription:marketdata-2026`, `credit:read`, `academic:*`, `*` (unrestricted). They decide which license terms the Exchange presents, and a Requester never learns of a resource outside its scopes. The Exchange does not verify them; a false statement is traceable to the key that signed it. An Exchange may instead gate a term behind a verified delegation; then only the delegation chain's verified scopes count for that term.
 
 **Delegation with JWTs** enables offline-verifiable, narrowable authorization. An issuer the verifier trusts, such as the resource owner or a subscription provider, issues a root delegation JWT bound to a principal's key. Each holder in the chain can narrow permissions by issuing a child delegation JWT — restrict scopes, lower spend caps, shorten expiry — but can never widen them. A chain holds at most four tokens, and the verifier needs only the issuer's public key, with no call to the issuer.
 
