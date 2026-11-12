@@ -1,0 +1,694 @@
+---
+// The architecture of one FORA sale, drawn by hand for "What is FORA?".
+//
+// Four roles stand in columns, each with the FORA Server component that plays
+// it, and a line drops from each role. Every step of a sale is one row: an
+// arrow from the party that makes the call to the party that answers it, with
+// the step's name and, where there is one, the RPC it is. Dashed means
+// optional: the Broker, the Identity Service and a dispute. A ring on the
+// Broker's line marks a step the Broker can make for the agent.
+//
+// Every box and arrow is checked against proto/fora/v1/fora.proto and FORA
+// Server; the page under the diagram carries the same content as a numbered
+// list. Under 40rem of width the columns fold into a vertical list of steps.
+import './tokens.css';
+
+type PartyId = 'agent' | 'broker' | 'exchange' | 'provider';
+
+interface Party {
+  id: PartyId;
+  name: string;
+  role?: string;
+  optional?: boolean;
+  job: string;
+  server: { label: string; optional?: boolean }[];
+}
+
+interface Step {
+  from: PartyId;
+  to: PartyId;
+  name: string;
+  qualifier?: string;
+  text: string;
+  wire?: string;
+  relay?: string;
+  optional?: boolean;
+}
+
+const PARTIES: Party[] = [
+  {
+    id: 'agent',
+    name: 'Agent',
+    role: 'the Requester',
+    job: 'Finds, buys and uses resources, with an SDK or over MCP.',
+    server: [{ label: 'Identity Service', optional: true }],
+  },
+  {
+    id: 'broker',
+    name: 'Broker',
+    optional: true,
+    job: 'Finds the Exchange, ranks offers and applies the agent’s budget.',
+    server: [{ label: 'Broker' }],
+  },
+  {
+    id: 'exchange',
+    name: 'Exchange',
+    job: 'Lists the catalog, signs offers and records each sale.',
+    server: [{ label: 'Exchange' }, { label: 'Publisher console' }],
+  },
+  {
+    id: 'provider',
+    name: 'Provider',
+    job: 'Owns the content and sets the terms. Its CDN refuses AI bots without a signed URL.',
+    server: [{ label: 'Edge function' }],
+  },
+];
+
+const SETUP: Step = {
+  from: 'provider',
+  to: 'exchange',
+  name: 'Before any sale',
+  text: 'The provider sets its terms in the publisher console, and the Exchange imports its catalog.',
+};
+
+const RELAY = 'The Broker can do this step for the agent.';
+
+const STEPS: Step[] = [
+  {
+    from: 'agent',
+    to: 'provider',
+    name: 'Discover',
+    text: 'Reads the provider’s discovery file, which names its Exchange.',
+    wire: '/.well-known/fora.json',
+    relay: RELAY,
+  },
+  {
+    from: 'agent',
+    to: 'exchange',
+    name: 'Query',
+    text: 'Asks for offers and gets signed offers back.',
+    wire: 'DiscoverResources',
+    relay: RELAY,
+  },
+  {
+    from: 'agent',
+    to: 'exchange',
+    name: 'Transact',
+    text: 'Buys an offer and gets a signed URL for it.',
+    wire: 'ExecuteTransaction',
+    relay: RELAY,
+  },
+  {
+    from: 'agent',
+    to: 'provider',
+    name: 'Deliver',
+    text: 'Fetches the content with the signed URL. The edge function on the provider’s CDN checks it first.',
+  },
+  {
+    from: 'agent',
+    to: 'exchange',
+    name: 'Report',
+    text: 'Reports what it used.',
+    wire: 'ReportUsage',
+  },
+  {
+    from: 'agent',
+    to: 'exchange',
+    name: 'Dispute',
+    qualifier: 'if needed',
+    text: 'Disputes a purchase, citing its usage report.',
+    wire: 'DisputeTransaction',
+    optional: true,
+  },
+];
+
+const order: PartyId[] = PARTIES.map((p) => p.id);
+const nameOf = (id: PartyId) => PARTIES.find((p) => p.id === id)!.name;
+const BROKER = order.indexOf('broker') + 1;
+
+// Where a step sits on the grid: party n (1-based) is grid column n. The arrow
+// runs from the centre of the caller's column to the centre of the answering
+// party's, so it is inset by half a column at each end of its area; percentages
+// on a grid item resolve against its grid area, which is why the inset is
+// written as a fraction of it. Where the arrow passes a role's line without
+// stopping, the line is broken, so the arrow does not read as calling that
+// role; on the Broker's line, a step the Broker can make gets a ring instead.
+function place(step: Step) {
+  const a = order.indexOf(step.from) + 1;
+  const b = order.indexOf(step.to) + 1;
+  const lo = Math.min(a, b);
+  const hi = Math.max(a, b);
+  const span = hi - lo + 1;
+  const rtl = b < a;
+  // A right-to-left label reads back from the caller, so it may use the whole
+  // width before it; a left-to-right one keeps to the arrow's own area.
+  const labelLo = rtl ? 1 : lo;
+  const labelSpan = hi - labelLo + 1;
+  const at = (k: number) => (100 * (k - a)) / (b - a);
+  const vars = [
+    `--arrow-cols: ${lo} / ${hi + 1}`,
+    `--arrow-inset: ${100 / (span * 2)}%`,
+    `--label-cols: ${labelLo} / ${hi + 1}`,
+    `--label-inset: ${100 / (labelSpan * 2)}%`,
+  ];
+  const passes: number[] = [];
+  for (let k = lo + 1; k < hi; k++) {
+    if (step.relay && k === BROKER) continue;
+    passes.push(at(k));
+  }
+  if (step.relay) vars.push(`--relay-at: ${at(BROKER)}%`);
+  return { rtl, passes, style: vars.join('; ') };
+}
+
+const setup = { ...SETUP, ...place(SETUP) };
+const steps = STEPS.map((s) => ({ ...s, ...place(s) }));
+---
+<figure class="fora-diagram arch not-content">
+  <div class="sides" aria-hidden="true">
+    <span class="side side-requester">Requester side</span>
+    <span class="side side-provider">Provider side</span>
+  </div>
+
+  <div class="board">
+    <div class="lanes" aria-hidden="true">
+      {PARTIES.map((p) => <span class={`lane lane-${p.id}`} />)}
+    </div>
+
+    <ul class="cards" aria-label="The four roles">
+      {PARTIES.map((p) => (
+        <li class:list={['card', `card-${p.id}`, { 'is-optional': p.optional }]}>
+          <p class="card-name">
+            {p.name}
+            {p.role && <span class="card-role">{p.role}</span>}
+            {p.optional && <span class="card-role">optional</span>}
+          </p>
+          <p class="card-job">{p.job}</p>
+          <div class="card-server">
+            <p class="card-server-label">In FORA Server</p>
+            <ul class="chips">
+              {p.server.map((c) => (
+                <li class:list={['chip', { 'is-optional': c.optional }]}>
+                  {c.label}{c.optional && <span class="sr-only"> (optional)</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </li>
+      ))}
+    </ul>
+
+    <div class:list={['step', 'step-setup', { rtl: setup.rtl }]} style={setup.style}>
+      <span class="num num-setup" aria-hidden="true"></span>
+      <p class="route">
+        <span class="party">{nameOf(setup.from)}</span>
+        <span class="sr-only"> to </span><span class="route-arrow" aria-hidden="true">→</span>
+        <span class:list={['party', { 'party-spine': setup.to === 'exchange' }]}>{nameOf(setup.to)}</span>
+      </p>
+      <p class="label"><span class="txt"><strong>{setup.name}.</strong> {setup.text}</span></p>
+      <span class="arrow" aria-hidden="true">
+        {setup.passes.map((x) => <span class="pass" style={`left: ${x}%`} />)}
+        <span class="line" /><span class="tail" />
+      </span>
+    </div>
+
+    <ol class="steps" aria-label="One sale, step by step">
+      {steps.map((s, i) => (
+        <li class:list={['step', { rtl: s.rtl, 'is-optional': s.optional }]} style={s.style}>
+          <span class="num" aria-hidden="true">{i + 1}</span>
+          <p class="route">
+            <span class="party">{nameOf(s.from)}</span>
+            <span class="sr-only"> to </span><span class="route-arrow" aria-hidden="true">→</span>
+            <span class:list={['party', { 'party-spine': s.to === 'exchange' }]}>{nameOf(s.to)}</span>
+          </p>
+          <p class="label">
+            <span class="txt">
+              <strong>{s.name}{s.qualifier && <span class="qualifier">, {s.qualifier}</span>}.</strong> {s.text}
+            </span>
+            {s.wire && <><br /><code class="wire">{s.wire}</code></>}
+          </p>
+          {s.relay && <p class="relay"><span class="relay-mark" aria-hidden="true" />{s.relay}</p>}
+          <span class="arrow" aria-hidden="true">
+            {s.passes.map((x) => <span class="pass" style={`left: ${x}%`} />)}
+            <span class="line" />
+            {s.relay && <span class="ring" />}
+          </span>
+        </li>
+      ))}
+    </ol>
+  </div>
+
+  <figcaption>
+    <ul class="legend">
+      <li><span class="key key-solid" aria-hidden="true"></span>Every sale</li>
+      <li><span class="key key-dashed" aria-hidden="true"></span>Optional</li>
+      <li><span class="key key-ring" aria-hidden="true"></span>The Broker can do this step for the agent</li>
+    </ul>
+  </figcaption>
+</figure>
+
+<style>
+  .arch {
+    --gutter: 2.75rem;
+    --cols: repeat(4, minmax(0, 1fr));
+    container-type: inline-size;
+    margin: 2rem 0 2.25rem;
+    font-family: var(--dg-font);
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    color: var(--dg-text);
+  }
+  /* Zero-specificity resets, so every class below wins over them. */
+  .arch :where(p, ul, ol) {
+    margin: 0;
+    padding: 0;
+  }
+  .arch :where(ul, ol) {
+    list-style: none;
+  }
+
+  /* Which side of the market each pair of roles is on. */
+  .sides {
+    display: grid;
+    grid-template-columns: var(--cols);
+    margin-bottom: 0.625rem;
+  }
+  .side {
+    margin-inline: 0.375rem;
+    padding-top: 0.375rem;
+    border-top: 1px solid var(--dg-hairline);
+    font-size: 0.875rem;
+    color: var(--dg-muted);
+    text-align: center;
+  }
+  .side-requester { grid-column: 1 / 3; }
+  .side-provider { grid-column: 3 / 5; }
+
+  .board {
+    position: relative;
+  }
+
+  /* The line each role drops through the steps. The Exchange's is the spine. */
+  .lanes {
+    position: absolute;
+    inset: 0 0 -0.5rem;
+    display: grid;
+    grid-template-columns: var(--cols);
+    pointer-events: none;
+  }
+  .lane {
+    position: relative;
+  }
+  .lane::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    border-left: 1px solid var(--dg-lane);
+  }
+  .lane-broker::before { border-left-style: dashed; }
+  .lane-exchange::before {
+    margin-left: -1px;
+    border-left: 2px solid color-mix(in srgb, var(--dg-accent) 55%, transparent);
+  }
+
+  /* The roles. */
+  .cards {
+    position: relative;
+    display: grid;
+    grid-template-columns: var(--cols);
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    margin-inline: 0.3125rem;
+    padding: 0.75rem 0.6875rem 0.8125rem;
+    background: var(--dg-surface);
+    border: 1px solid var(--dg-hairline);
+    border-radius: 6px;
+  }
+  .card.is-optional {
+    border: 1px dashed var(--dg-muted);
+  }
+  .card-exchange {
+    background: var(--dg-accent-fill);
+    border-color: var(--dg-accent-fill);
+    color: var(--dg-on-accent);
+  }
+  .card-name {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--dg-ink);
+  }
+  .card-role {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--dg-muted);
+  }
+  .card-job {
+    margin-top: 0.375rem;
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+  .card-server {
+    margin-top: auto;
+    padding-top: 0.75rem;
+  }
+  .card-server-label {
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--dg-hairline);
+    font-size: 0.875rem;
+    color: var(--dg-muted);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3125rem;
+    margin-top: 0.3125rem;
+  }
+  .chip {
+    padding: 0.0625rem 0.375rem;
+    border: 1px solid var(--dg-hairline);
+    border-radius: 4px;
+    background: var(--dg-bg);
+    font-size: 0.875rem;
+    color: var(--dg-ink);
+  }
+  .chip.is-optional { border-style: dashed; border-color: var(--dg-muted); }
+  .card-exchange .card-name,
+  .card-exchange .card-role,
+  .card-exchange .card-server-label { color: var(--dg-on-accent); }
+  .card-exchange .card-server-label { border-top-color: rgb(255 255 255 / 0.35); }
+  .card-exchange .chip {
+    background: transparent;
+    border-color: rgb(255 255 255 / 0.55);
+    color: var(--dg-on-accent);
+  }
+
+  /* The steps: one row each, an arrow from the caller to the party that answers. */
+  .steps {
+    display: grid;
+    gap: 1.5rem;
+    margin-top: 0.75rem;
+  }
+  .step {
+    position: relative;
+    display: grid;
+    grid-template-columns: var(--cols);
+    grid-template-rows: auto 2rem;
+  }
+  .step-setup {
+    margin-top: 1.5rem;
+    padding-bottom: 1.25rem;
+  }
+  /* On a wide screen the step's number sits on its arrow's tail, on the
+     caller's line. */
+  .num {
+    grid-column: var(--arrow-cols);
+    grid-row: 2;
+    justify-self: start;
+    align-self: center;
+    position: relative;
+    z-index: 1;
+    margin-inline-start: calc(var(--arrow-inset) - 1rem);
+    width: 2rem;
+    height: 2rem;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--dg-accent);
+    border-radius: 50%;
+    background: var(--dg-bg);
+    color: var(--dg-accent-text);
+    font-family: var(--dg-mono);
+    font-size: 0.875rem;
+  }
+  .num-setup {
+    display: none;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-color: var(--dg-muted);
+    background: var(--dg-muted);
+  }
+  .step.is-optional .num { border-style: dashed; }
+
+  .label {
+    grid-column: var(--label-cols);
+    grid-row: 1;
+    align-self: end;
+    padding-inline: calc(var(--label-inset) + 1.375rem) 0.25rem;
+    padding-bottom: 0.125rem;
+  }
+  .rtl .label {
+    text-align: end;
+    padding-inline: 0.25rem calc(var(--label-inset) + 0.625rem);
+  }
+  /* Text sits on the page colour, so a role's line never runs through a word. */
+  .txt,
+  .wire {
+    background: var(--dg-bg);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+  .txt { padding-inline: 0.125rem; }
+  .label strong {
+    font-weight: 600;
+    color: var(--dg-ink);
+  }
+  .qualifier { font-weight: 400; color: var(--dg-muted); }
+  .wire {
+    display: inline-block;
+    margin-top: 0.125rem;
+    padding: 0 0.125rem;
+    font-family: var(--dg-mono);
+    font-size: 0.875rem;
+    color: var(--dg-accent-text);
+  }
+
+  .arrow {
+    grid-column: var(--arrow-cols);
+    grid-row: 2;
+    position: relative;
+    margin-inline: var(--arrow-inset);
+    color: var(--dg-accent);
+  }
+  .line {
+    position: absolute;
+    left: 0;
+    right: 9px;
+    top: 50%;
+    height: 2px;
+    margin-top: -1px;
+    background: currentColor;
+  }
+  .arrow::after {
+    content: '';
+    position: absolute;
+    right: -1px;
+    top: 50%;
+    width: 11px;
+    height: 12px;
+    margin-top: -6px;
+    background: currentColor;
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
+  }
+  .rtl .line { left: 9px; right: 0; }
+  .rtl .arrow::after {
+    right: auto;
+    left: -1px;
+    clip-path: polygon(100% 0, 0 50%, 100% 100%);
+  }
+  .step-setup .arrow { color: var(--dg-muted); }
+  .step.is-optional .line {
+    background: repeating-linear-gradient(90deg, currentColor 0 7px, transparent 7px 12px);
+  }
+  .tail {
+    position: absolute;
+    top: 50%;
+    left: -4px;
+    width: 9px;
+    height: 9px;
+    margin-top: -4.5px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .rtl .tail { left: auto; right: -4px; }
+  /* A gap in a role's line where the arrow passes it by. */
+  .pass {
+    position: absolute;
+    top: 50%;
+    width: 10px;
+    height: 22px;
+    margin: -11px 0 0 -5px;
+    background: var(--dg-bg);
+  }
+  .ring {
+    position: absolute;
+    top: 50%;
+    left: var(--relay-at);
+    width: 15px;
+    height: 15px;
+    margin: -7.5px 0 0 -7.5px;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: var(--dg-bg);
+  }
+
+  /* Words the arrows say on a wide screen, and the list says on a narrow one. */
+  .route,
+  .relay {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .party {
+    display: inline-block;
+    padding: 0 0.4375rem;
+    border: 1px solid var(--dg-hairline);
+    border-radius: 4px;
+    background: var(--dg-surface);
+    color: var(--dg-ink);
+  }
+  .party-spine {
+    background: var(--dg-accent-fill);
+    border-color: var(--dg-accent-fill);
+    color: var(--dg-on-accent);
+  }
+  .route-arrow { margin-inline: 0.375rem; color: var(--dg-accent-text); }
+
+  /* The legend. */
+  figcaption {
+    margin-top: 1.75rem;
+    padding-top: 0.875rem;
+    border-top: 1px solid var(--dg-hairline);
+    font-size: 0.875rem;
+    color: var(--dg-muted);
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 1.5rem;
+  }
+  .legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .key {
+    position: relative;
+    display: inline-block;
+    width: 1.75rem;
+    height: 2px;
+    color: var(--dg-accent);
+    background: currentColor;
+  }
+  .key-dashed {
+    background: repeating-linear-gradient(90deg, currentColor 0 7px, transparent 7px 12px);
+  }
+  .key-ring {
+    width: 15px;
+    height: 15px;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: transparent;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  /* Narrow: the roles as a two-by-two grid, the steps as a numbered list. */
+  @container (max-width: 40rem) {
+    .sides,
+    .lanes,
+    .arrow { display: none; }
+
+    .cards {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.625rem;
+    }
+    .card { margin: 0; }
+    .card:first-child { grid-column: auto; }
+
+    .step {
+      grid-template-columns: var(--gutter) minmax(0, 1fr);
+      grid-template-rows: none;
+      align-items: start;
+    }
+    .step-setup {
+      margin-top: 1.5rem;
+      padding: 0 0 1.25rem;
+      border-bottom: 1px solid var(--dg-hairline);
+    }
+    .num {
+      grid-column: 1;
+      grid-row: 1 / span 3;
+      align-self: start;
+      margin: 0;
+    }
+    .num-setup { display: block; margin: 0.375rem 0 0 0.625rem; }
+    .route,
+    .relay {
+      position: static;
+      width: auto;
+      height: auto;
+      overflow: visible;
+      clip: auto;
+      white-space: normal;
+      grid-column: 2;
+    }
+    .route { margin: 0.125rem 0 0.375rem; font-size: 0.875rem; }
+    .label,
+    .rtl .label {
+      grid-column: 2;
+      grid-row: auto;
+      padding: 0;
+      text-align: start;
+    }
+    .relay {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.375rem;
+      font-size: 0.875rem;
+      color: var(--dg-muted);
+    }
+    .relay-mark {
+      flex: none;
+      width: 13px;
+      height: 13px;
+      border: 2px solid var(--dg-accent);
+      border-radius: 50%;
+    }
+    /* The numbers join into one line down the sale; the step to a dispute is dashed. */
+    .steps .step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: calc(1rem - 1px);
+      top: 2.25rem;
+      bottom: -1rem;
+      width: 2px;
+      background: color-mix(in srgb, var(--dg-accent) 55%, transparent);
+    }
+    .steps .step:nth-last-child(2)::after {
+      background: repeating-linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--dg-accent) 70%, transparent) 0 5px,
+        transparent 5px 10px
+      );
+    }
+  }
+
+  @container (max-width: 22rem) {
+    .cards { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>
