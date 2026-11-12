@@ -183,9 +183,32 @@ function fit(box: HTMLElement) {
   const natural = svg?.viewBox.baseVal?.width;
   if (!svg || !natural) return;
   svg.style.minWidth = `${Math.ceil(natural * MIN_SCALE)}px`;
-  // A box that scrolls must be reachable by keyboard.
-  if (box.scrollWidth > box.clientWidth) box.tabIndex = 0;
-  else box.removeAttribute('tabindex');
+  overflow(box);
+}
+
+// A box that scrolls must be reachable by keyboard, and a focusable box needs a role
+// and a name for a screen reader to announce it. Whether it scrolls changes with the
+// page width, so this runs again whenever the box is resized.
+function overflow(box: HTMLElement) {
+  if (box.scrollWidth > box.clientWidth + 1) {
+    box.tabIndex = 0;
+    box.setAttribute('role', 'region');
+    box.setAttribute('aria-label', label(box));
+  } else {
+    for (const name of ['tabindex', 'role', 'aria-label']) box.removeAttribute(name);
+  }
+}
+
+// "Diagram: <the heading the diagram sits under>", or plain "Diagram" before any heading.
+function label(box: HTMLElement) {
+  const headings = box.closest('.sl-markdown-content')?.querySelectorAll('h2, h3, h4, h5, h6') ?? [];
+  let under: Element | undefined;
+  for (const heading of headings) {
+    if (heading.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING) under = heading;
+    else break;
+  }
+  const title = under?.textContent?.trim();
+  return title ? `Diagram: ${title}` : 'Diagram';
 }
 
 let ids = 0;
@@ -222,6 +245,10 @@ export async function renderMermaid(boxes: HTMLElement[]) {
   }
 
   await render();
+  const resized = new ResizeObserver((entries) => {
+    for (const entry of entries) overflow(entry.target as HTMLElement);
+  });
+  for (const box of boxes) resized.observe(box);
   new MutationObserver(render).observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['data-theme'],
