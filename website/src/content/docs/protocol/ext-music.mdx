@@ -277,10 +277,6 @@ A Broker whose deployment declares the filter keys it applies, such as one on th
 
 A `music.*` key the deployment declares is applied as a required constraint, by the rules in [How Filters Match](#how-filters-match); its value format is the one the deployment declares. See [Search backends](/components/broker/overview/#search-backends) for which keys each provider applies and how its errors name the key.
 
-### Older Brokers
-
-Check 2 also covers a filter key that this profile defined after the Broker was built. Such a Broker ignores the key. When the request also has a `query` or a filter key the Broker knows, the request succeeds, and the results are not filtered by the ignored key. When the ignored key is the only search input, check 4 rejects the request with `INVALID_ARGUMENT`. In neither case does the response tell the agent which filter keys the Broker applied. This is accepted, because the Broker version is known in a deployment. New offer keys need no such rule: a consumer ignores the keys it does not know, and the offer stays valid.
-
 ---
 
 ## Behavioral Conventions
