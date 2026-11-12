@@ -66,15 +66,12 @@ The Exchange operator deploys and maintains the FORA edge function on the provid
 
 ## Model 2: Self-Service (Mid-Market)
 
-The provider deploys the edge function themselves using tooling provided by FORA.
+The provider deploys the edge function itself, with the reference implementation's Terraform modules.
 
 ### How It Works
 
-1. Provider installs the FORA deployment package
-2. One command deploys the edge function to their CDN:
-   ```bash
-   npx @fora/edge-deploy --cdn cloudfront --exchange exchange.ssp.com
-   ```
+1. Provider builds the edge function's bundle from the reference implementation
+2. Provider applies the Terraform module for its CDN: `aws-cloudfront-edge` on CloudFront, `cloudflare-edge` on Cloudflare (see [Distribution Formats](/components/edge-function/deployment/#distribution-formats))
 3. Provider publishes `fora.json`, and `rsl.txt` if it has one, on its own origin; the edge function passes both through to it
 4. Provider manages their own CDN access and can customize bot detection rules
 
@@ -82,8 +79,8 @@ The provider deploys the edge function themselves using tooling provided by FORA
 
 | CDN | Deploy Method | KV Support | Full Feature Set |
 |---|---|---|---|
-| CloudFront | Lambda@Edge via Terraform/CLI | DynamoDB or S3 | Yes |
-| Cloudflare | Workers via Wrangler | Workers KV | Yes |
+| CloudFront | Lambda@Edge via the `aws-cloudfront-edge` Terraform module | DynamoDB or S3 | Yes |
+| Cloudflare | Workers via the `cloudflare-edge` Terraform module or Wrangler | Workers KV | Yes |
 | Fastly | Compute@Edge via CLI | KV Store | Yes |
 | Akamai | Not supported | EdgeKV | No |
 | Vercel | Edge Functions via CLI | KV | Yes |
