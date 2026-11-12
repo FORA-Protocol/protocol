@@ -1,32 +1,34 @@
 ---
 title: "Broker"
-description: "The FORA Broker finds offers for an AI agent. From a list of URLs or a request in plain words, it reaches the Exchanges that sell each resource, checks their signed offers, returns them in its own order, and can buy them in one call."
+description: "The FORA Broker finds offers for an AI agent. From a list of URLs or a request in plain words, it reaches the Exchanges that sell each resource, checks their signed offers, returns them in an order it chooses, and can buy them in one call."
 ---
 
-An AI agent often knows what it needs but not who sells it. Each publisher names the Exchanges that sell its content, and an agent that asks each one in turn spends its time on lookups. A Broker does that work in one step: the agent sends one request, a list of URLs or a description in plain words, and gets back signed offers from the Exchanges that sell those resources, one group per resource.
+An AI agent often knows what it needs but not who sells it. Each publisher names the Exchanges that sell its content, and an agent that asks each one in turn spends its time on lookups. A Broker does that work in one step: the agent sends one request, a list of URLs or a description in plain words, and gets back signed offers from the Exchanges that sell those resources, grouped by resource.
 
-Each offer is a full package: the license terms, the publisher's brand and attestations, and the price, all signed by the Exchange. The Broker presents the offers in its own order of relevance, which is why an agent works with a Broker it trusts, and the agent decides which offer to take. The Broker is optional: an agent can always call the Exchanges itself, with the same protocol.
+Each offer is a full package: the license terms, the resource's identity and attestations, and the price, all signed by the Exchange. The Broker presents the offers in an order it chooses, which is why an agent works with a Broker it trusts, and the agent decides which offer to take. The Broker is optional: an agent can always call the Exchanges itself, with the same protocol.
 
 ## How a request becomes offers
 
 ```mermaid
+%%{init: {"sequence": {"mirrorActors": false, "width": 110, "actorMargin": 30}}}%%
 sequenceDiagram
     participant Agent
     participant Broker
     participant Search as Search backend
-    participant Site as Publisher site
+    participant Site as Publisher
     participant Exchange
 
-    Agent->>Broker: BrokerService.Resolve (URLs, or words and filters)
-    Broker->>Search: words and filters
-    Search-->>Broker: URLs, best match first
-    Broker->>Site: GET /.well-known/fora.json
-    Site-->>Broker: the Exchanges that sell this site
-    Broker->>Exchange: DiscoverResources (only this Exchange's URLs, Broker-signed)
-    Note over Broker,Exchange: The Exchange sees URLs, never the agent's words
-    Exchange-->>Broker: offers, each signed by the Exchange
-    Note over Broker: Checks every offer's signature
-    Broker-->>Agent: one offer group per URL
+    Agent->>Broker: Resolve
+    opt request in words
+        Broker->>Search: words, filters
+        Search-->>Broker: URLs, best first
+    end
+    Broker->>Site: GET fora.json
+    Site-->>Broker: its Exchanges
+    Broker->>Exchange: DiscoverResources (its URLs only)
+    Exchange-->>Broker: signed offers
+    Note over Broker: checks signatures
+    Broker-->>Agent: offer groups
 ```
 
 1. **The agent asks.** It sends `BrokerService.Resolve` a `DiscoveryRequest` that lists URLs in `uris`, or describes the need in `query` with optional `search_filters`. When a request has both, FORA Server's Broker uses the URLs and ignores the words and filters.
@@ -34,7 +36,7 @@ sequenceDiagram
 3. **The publisher names its Exchanges.** For each URL, the Broker reads the publisher's `/.well-known/fora.json`, which names the Exchanges that sell the site's content. It routes the URL to one of them that its operator trusts and that is reachable.
 4. **The Exchange quotes.** The Broker sends each Exchange one `DiscoverResources` query that carries only the URLs routed to it, signed with the Broker's own key. The query names URLs and never carries the agent's words.
 5. **The Broker checks.** The Exchange answers with offers it signed. The Broker checks each offer's signature and drops any offer that fails.
-6. **The agent gets offer groups.** The Broker returns a `DiscoveryResponse` with one `OfferGroup` per URL. Each group holds the offers in the Broker's order, or says why there is none.
+6. **The agent gets offer groups.** The Broker returns a `DiscoveryResponse`. When at least one URL has an offer, it holds one `OfferGroup` per URL, with the offers in the Broker's order or the reason there is none. When no URL has an offer, it holds no groups and states the reason once.
 
 Prices and terms come only from the Exchange, so a search hit never becomes an offer the Exchange did not sign. `Resolve` only discovers: it never charges, and returning an offer reserves nothing.
 
@@ -60,7 +62,7 @@ Prices and terms come only from the Exchange, so a search hit never becomes an o
 }
 ```
 
-Every filter the search backend applies is a required constraint, so every result passes it. Which filter keys a Broker applies depends on its search backend (see [Search backends](#search-backends)). The URLs a search finds take the same route as URLs the agent names. Their groups are marked `DISCOVERY_METHOD_SEARCH`, and groups for named URLs `DISCOVERY_METHOD_EXCHANGE`.
+Which filter keys a Broker accepts, and how they apply, depends on its search backend (see [Search backends](#search-backends)). The URLs a search finds take the same route as URLs the agent names. Their groups are marked `DISCOVERY_METHOD_SEARCH`, and groups for named URLs `DISCOVERY_METHOD_EXCHANGE`.
 
 An agent that wants offers for named URLs and a search sends two requests.
 
@@ -70,23 +72,25 @@ FORA does not specify search. `DiscoveryRequest.query` is free text that the Bro
 
 A FORA Server Broker runs one search backend, chosen per deployment. FORA Server ships two.
 
-**Elasticsearch.** The Broker runs the index owner's search template against an index the owner already runs. The template decides which fields are searched, how hits rank and how each filter applies. The Broker calls no model and does not interpret the words. It applies the `search_filters` keys the deployment's filter schema declares. An undeclared key is refused with `UNIMPLEMENTED` and a malformed value with `INVALID_ARGUMENT`, both naming `search_filters.<key>`, because results that ignore a filter would answer a different question.
+**Elasticsearch.** The Broker runs the index owner's search template against an index the owner already runs. The template decides which fields are searched, how hits rank and how each filter applies. The Broker calls no model and does not interpret the words. The Broker accepts the `search_filters` keys the deployment's filter schema declares, never drops one, and passes each to the template, which applies it. An undeclared key is refused with `UNIMPLEMENTED` and a malformed value with `INVALID_ARGUMENT`, both naming `search_filters.<key>`, because results that ignore a filter would answer a different question.
 
-**Tag search, for music.** A model on Amazon Bedrock reads music tags from the words, and the Broker matches them against an index it builds from the catalog feed. It applies nine keys of the [fora-music-v1](/protocol/ext-music/) profile as required constraints: `music.isrc`, `music.genre`, `music.mood`, `music.instruments`, `music.suitable_for`, `music.energy`, `music.vocals`, `music.bpm_range` and `music.duration_seconds_range`. It ignores any other key.
+**Tag search, for music.** A model on Amazon Bedrock reads music tags from the words, and the Broker matches them against an index it builds from the catalog feed. It applies the [fora-music-v1](/protocol/ext-music/) keys it supports as required constraints, so every result passes them. It ignores any other key.
 
-A Broker with no search backend finds offers for URLs the agent names. It refuses a [fora-music-v1](/protocol/ext-music/) filter key, with `INVALID_ARGUMENT` when the value is malformed and otherwise with `UNIMPLEMENTED`, and ignores a key the profile does not define, in the profile's [order of checks](/protocol/ext-music/#order-of-checks-and-errors).
+A Broker with no search backend finds offers only for URLs the agent names. It refuses a [fora-music-v1](/protocol/ext-music/) filter key, with `INVALID_ARGUMENT` when the value is malformed and otherwise with `UNIMPLEMENTED`, and ignores a key the profile does not define, in the profile's [order of checks](/protocol/ext-music/#order-of-checks-and-errors).
 
-With the Elasticsearch backend, the Broker needs only read access to the index. It refuses a template file that would insert the agent's text unescaped, because that text could then write query syntax. The Identity Service publishes the same filter schema in its `fora_discover` tool, so an agent sees the accepted keys before it calls. The index owner's guide is [Writing the Search Template](https://github.com/FORA-Protocol/reference-implementation/blob/main/src/broker/SEARCH-TEMPLATE.md) in the FORA Server repository.
+With the Elasticsearch backend, the Broker needs only read access to the index. It refuses a template file that would insert the agent's text unescaped, because that text could then write query syntax. The Identity Service publishes the same filter schema in its `fora_discover` tool when its operator gives it the same file, so an agent sees the accepted keys before it calls. The index owner's guide is [Writing the Search Template](https://github.com/FORA-Protocol/reference-implementation/blob/main/src/broker/SEARCH-TEMPLATE.md) in the FORA Server repository.
 
 A search that matches nothing is answered with `OFFER_ABSENCE_REASON_NOT_IN_CATALOG`, and a search that fails with `OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE`. The Broker never falls back to another backend.
 
-Another backend is one more implementation of the same interface, `Searcher` in the Broker's `catalogsearch` package: it takes the words and the parsed filters and returns URLs, best first. A search API built for agents, such as Exa, Tavily, Brave Search API, Perplexity or Parallel, can sit behind it, and so can any index a Broker operator already runs.
+Another backend is an implementation of `Searcher`, in the Broker's `catalogsearch` package, wired as a new `BROKER_QUERY_PROVIDER` value. A `Searcher` takes the words and the parsed filters and returns URLs, best first. Web search APIs can sit behind it, such as [Exa](https://exa.ai/docs/reference/search), [Tavily](https://docs.tavily.com/documentation/api-reference/endpoint/search), [Brave Search API](https://api-dashboard.search.brave.com/app/documentation/web-search/get-started), [Perplexity](https://docs.perplexity.ai/api-reference/search-post) and [Parallel](https://docs.parallel.ai/api-reference/search/search) (API documentation checked November 2026), and so can any index a Broker operator already runs.
 
 ## Offers and absences
 
 Each offer carries its Exchange's signature over the price, the terms, the expiry and `Offer.exchange`. The Broker returns the offers unchanged and cannot alter one without breaking that signature. It checks every signature before it returns an offer, so an agent behind a Broker gets only offers that verified.
 
-Every requested URL comes back as exactly one `OfferGroup`, in request order, or in search order for a request in words. A URL that no trusted Exchange serves, or that its Exchange does not catalog, is answered with `OFFER_ABSENCE_REASON_NOT_IN_CATALOG`. An absence reason the Exchange gave for a URL is passed on. "No offer" is a successful answer, not an error: `BrokerService.Resolve` returns OK with the reason in the group.
+When at least one URL has an offer, every requested URL comes back as one `OfferGroup`, in request order, or in search order for a request in words. A URL that no trusted Exchange serves, or that its Exchange does not catalog, has an empty group with `OFFER_ABSENCE_REASON_NOT_IN_CATALOG`, and an absence reason the Exchange gave for a URL is passed on.
+
+When no URL has an offer, or no publisher's `fora.json` can be read, the response carries no groups and states the reason once, in `DiscoveryResponse.absence_reason`. "No offer" is a successful answer, not an error: `BrokerService.Resolve` returns OK with the reason.
 
 ## Buying through the Broker
 
@@ -142,7 +146,7 @@ Anyone may run a Broker, with or without an Exchange of their own. It is a role 
 
 FORA Server's Broker is a separate service. It needs PostgreSQL, Redis, a public hostname with TLS, and a registry that lists the Exchanges its operator trusts. The address of each Exchange always comes from that Exchange's own `fora.json`, never from the registry. The [deployment guide](https://github.com/FORA-Protocol/reference-implementation/blob/main/src/broker/DEPLOYMENT.md) is in the FORA Server repository.
 
-Gutefrage runs the whole FORA stack itself, on its own servers, and launched it on helpster.de, one of its properties. Its Broker searches the Elasticsearch index Gutefrage already runs, with a search template in which Gutefrage decides which fields are searched, how results rank and which filters agents may use.
+As of November 2026, Gutefrage runs the whole FORA stack itself, on its own servers, and has launched it on [helpster.de](https://www.helpster.de/), one of its properties. Its Broker searches the Elasticsearch index Gutefrage already runs, with a search template in which Gutefrage decides which fields are searched, how results rank and which filters agents may use.
 
 ## Related pages
 
