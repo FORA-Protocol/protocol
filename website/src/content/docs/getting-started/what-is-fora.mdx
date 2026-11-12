@@ -77,20 +77,23 @@ Offers carry `data_as_of` — when the data was current. Agents set `max_data_ag
 
 ### Extension profiles
 
-A three-layer governance model prevents fragmentation:
+Domain metadata is governed in three layers:
 
 | Layer | What | Example |
 |-------|------|---------|
-| **Core proto** | Fields every implementation supports | `resource_mutability`, `data_as_of` |
-| **Standard extensions** | Cross-domain conventions in `fora.*` namespace | `fora.compliance.dua_required` |
-| **Domain profiles** | Industry-specific vocabularies | `news.iptc_guid`, `academic.doi`, `legal.eli` |
+| **Core proto** | Fields defined in `fora.proto` | `resource_mutability`, `data_as_of` |
+| **Standard extensions** | Cross-domain conventions in `fora.*` namespace | `fora.attestation.claims_schema` |
+| **Domain profiles** | Industry-specific vocabularies | `news.iptc_guid`, `academic.pmid`, `legal.legislation.eli` |
 
 Exchanges declare which profiles they support. Agents declare which profiles they understand. A Broker forwards the agent's profiles to each Exchange, and each Exchange answers for its own.
 
-Three v1 profiles exist:
-- **fora-news-v1** — articles, podcasts, broadcasting (IPTC NewsML-G2, Podcasting 2.0)
-- **fora-academic-v1** — scholarly articles, preprints (CrossRef, OpenAlex, COUNTER 5.1)
-- **fora-legal-v1** — legislation, case law, patents (ELI, ECLI, Akoma Ntoso)
+Six v1 profiles exist:
+- **[fora-news-v1](/protocol/ext-news/)** — articles, podcasts, broadcasting (IPTC NewsML-G2, Podcasting 2.0)
+- **[fora-academic-v1](/protocol/ext-academic/)** — scholarly articles, preprints (CrossRef, OpenAlex, COUNTER 5.1)
+- **[fora-legal-v1](/protocol/ext-legal/)** — legislation, case law, patents (ELI, ECLI, Akoma Ntoso)
+- **[fora-comp-v1](/protocol/ext-comp/)** — IAB Tech Lab CoMP V1 metadata
+- **[fora-c2pa-v1](/protocol/ext-c2pa/)** — C2PA provenance results and training and mining restrictions
+- **[fora-music-v1](/protocol/ext-music/)** — music recordings and the works they record (ISRC, ISWC, IPI)
 
 ### Identity and authorization
 
