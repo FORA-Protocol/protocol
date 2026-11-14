@@ -1,0 +1,41 @@
+---
+// A pull quote: one sentence quoted verbatim, who said it, and a link to the
+// source. Used on /resources/transparent-collective/. The quote is plain text;
+// the curly quotation marks come from the stylesheet.
+interface Props {
+  quote: string;
+  /** Who said it: a company, a regulator, a person. */
+  who: string;
+  /** The source's title, linked to `href`. */
+  source: string;
+  href: string;
+}
+const { quote, who, source, href } = Astro.props;
+---
+<figure class="pq">
+  <blockquote cite={href}><p>{quote}</p></blockquote>
+  <figcaption>{who}, <a href={href}>{source}</a></figcaption>
+</figure>
+
+<style>
+  .pq {
+    margin: 2.5rem 0;
+    padding: 0.25rem 0 0.25rem 1.5rem;
+    border-left: 3px solid var(--lp-link);
+    max-width: 46rem;
+  }
+  blockquote { margin: 0; }
+  p {
+    margin: 0 0 0.875rem;
+    font-size: clamp(1.125rem, 2.1vw, 1.375rem);
+    font-weight: 500;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+    color: var(--lp-heading);
+  }
+  p::before { content: '\201C'; }
+  p::after { content: '\201D'; }
+  figcaption { font-size: 0.875rem; line-height: 1.5; color: var(--lp-label); }
+  figcaption::before { content: '\2014\00a0'; }
+  a { color: var(--lp-link); }
+</style>

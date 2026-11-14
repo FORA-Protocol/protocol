@@ -1,0 +1,193 @@
+---
+// The evidence page of /resources/transparent-collective/: every factual
+// claim the article makes, with its verbatim quote, source, locator and kind.
+// The data is src/data/collective-evidence.ts; each card's id is the claim
+// id, so the article can link to #<id>.
+import LandingLayout from '../../../layouts/LandingLayout.astro';
+import AudienceHero from '../../../components/landing/AudienceHero.astro';
+import { resourceUpdated } from '../../../data/resources';
+import Band from '../../../components/landing/Band.astro';
+import { EVIDENCE, type EvidenceClaim, type EvidenceKind } from '../../../data/collective-evidence';
+
+const ARTICLE = '/resources/transparent-collective/';
+
+const KIND: Record<EvidenceKind, string> = {
+  primary: 'Primary source',
+  reported: 'Reported by',
+  reading: 'Our reading',
+};
+
+// Notes cross-reference other claims (#id) and pages (/path/); make those links.
+const linkify = (note: string) =>
+  note.split(/((?:\/[a-z0-9-]+)+\/(?:#[a-z0-9-]+)?|#[a-z][a-z0-9-]+)/).map((part, i) => (i % 2 ? { href: part, text: part } : { text: part }));
+
+const total = EVIDENCE.reduce((sum, g) => sum + g.claims.length, 0);
+
+// Claims in a group, split by topic where the group has topics.
+const parts = (claims: EvidenceClaim[]) => {
+  const out: { topic?: string; claims: EvidenceClaim[] }[] = [];
+  for (const c of claims) {
+    const last = out[out.length - 1];
+    if (last && last.topic === c.topic) last.claims.push(c);
+    else out.push({ topic: c.topic, claims: [c] });
+  }
+  return out;
+};
+---
+<LandingLayout
+  title="The evidence behind 'A fair licensing collective' — FORA resources"
+  description="Every factual claim in the article on fair licensing collectives, with the verbatim quote that supports it, its source and the section it comes from."
+>
+  <AudienceHero
+    current="resources"
+    badge="Resource · Evidence"
+    title="The evidence behind<br><em>A fair licensing collective</em>"
+    sub={`Each factual claim in the article, in one sentence, with the quote that supports it and its source: ${total} claims.`}
+    updated={resourceUpdated('/resources/transparent-collective/')}
+  >
+    <a href={ARTICLE} class="btn btn-primary">Read the article</a>
+    <a href="#groups" class="btn btn-ghost">Jump to a topic</a>
+  </AudienceHero>
+
+  <Band tone="light" id="groups" label="Evidence" title="Claims, quotes and sources">
+    <div class="intro">
+      <p>This page backs the article <a href={ARTICLE}>A fair licensing collective</a>. Quotes are copied from the source, and joined with an ellipsis where they come from two places in the same source. Non-English quotes are given in the original, with a translation. A claim that rests on something a source doesn't say, or on FORA's own status, has no quote. Two documents ILC shows publishers in its portal, the participation agreement and the Royalty Distribution Policy, have no public URL, so they are cited by section.</p>
+      <dl class="legend">
+        <div><dt><span class="kind kind-primary">{KIND.primary}</span></dt><dd>The source says it: a scheme's own documents, a law, or FORA's own documentation and specification.</dd></div>
+        <div><dt><span class="kind kind-reported">{KIND.reported}</span></dt><dd>Press or another third party reports it.</dd></div>
+        <div><dt><span class="kind kind-reading">{KIND.reading}</span></dt><dd>An inference drawn from the sources, something a scheme's public pages don't say, or how a collective on FORA is meant to work. The reasoning is under the source.</dd></div>
+      </dl>
+    </div>
+
+    <nav class="jump" aria-label="Topics on this page">
+      <ol>
+        {EVIDENCE.map((g) => (
+          <li><a href={`#${g.id}`}>{g.title}</a> <span class="count">{g.claims.length}</span></li>
+        ))}
+      </ol>
+    </nav>
+
+    {EVIDENCE.map((g) => (
+      <section class="group" id={g.id} aria-labelledby={`${g.id}-title`}>
+        <h2 id={`${g.id}-title`}>{g.title}</h2>
+        {parts(g.claims).map((p) => (
+          <>
+            {p.topic && <h3 class="topic">{p.topic}</h3>}
+            <div class="cards">
+              {p.claims.map((c) => (
+                <article class="card" id={c.id}>
+                  <div class="card-head">
+                    <span class={`kind kind-${c.kind}`}>{KIND[c.kind]}</span>
+                    <a class="anchor" href={`#${c.id}`} aria-label={`Link to this claim: ${c.id}`}>#{c.id}</a>
+                  </div>
+                  <p class="claim">{c.claim}</p>
+                  {c.quote && <blockquote>{c.quote}</blockquote>}
+                  <p class="source">
+                    {c.source.url ? <a href={c.source.url}>{c.source.title}</a> : <b>{c.source.title}</b>}
+                    <span>{c.source.by}</span>
+                    {c.source.locator && <span>{c.source.locator}</span>}
+                    {!c.source.url && <span>no public URL</span>}
+                  </p>
+                  {c.note && <p class="note">{linkify(c.note).map((p) => (p.href ? <a href={p.href}>{p.text}</a> : p.text))}</p>}
+                </article>
+              ))}
+            </div>
+          </>
+        ))}
+        <p class="top"><a href="#groups">Back to the topics</a></p>
+      </section>
+    ))}
+  </Band>
+</LandingLayout>
+
+<style>
+  .intro { max-width: 46rem; }
+  .intro p { color: var(--lp-text); line-height: 1.65; margin: 0 0 1.5rem; }
+  .intro a { color: var(--lp-link); }
+  .legend { display: grid; gap: 0.625rem; margin: 0; }
+  .legend div { display: grid; grid-template-columns: 9rem 1fr; gap: 0.75rem; align-items: baseline; }
+  .legend dd { margin: 0; color: var(--lp-text); font-size: 0.9375rem; line-height: 1.5; }
+
+  .jump { margin: 2.5rem 0 1rem; padding: 1.25rem 1.5rem; border: 1px solid var(--lp-rule); border-radius: 8px; background: #fff; }
+  .jump ol { margin: 0; padding-left: 1.5rem; columns: 2 18rem; column-gap: 2.5rem; }
+  .jump li { break-inside: avoid; padding: 0.25rem 0; color: var(--lp-label); }
+  .jump a { color: var(--lp-link); font-weight: 600; text-decoration: none; }
+  .jump a:hover { text-decoration: underline; }
+  .count { font-family: var(--mono); font-size: 0.8125rem; color: var(--lp-label); }
+
+  .group { padding-top: 3.5rem; scroll-margin-top: 1rem; }
+  .group h2 {
+    font-size: clamp(1.375rem, 2.6vw, 1.75rem);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+    color: var(--lp-heading);
+    margin: 0 0 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--lp-rule);
+  }
+  .topic {
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--lp-label);
+    margin: 2rem 0 0.875rem;
+  }
+  .cards { display: grid; gap: 1rem; max-width: 52rem; }
+
+  .card {
+    scroll-margin-top: 1rem;
+    background: #fff;
+    border: 1px solid var(--lp-rule);
+    border-radius: 8px;
+    padding: 1.125rem 1.25rem 1.25rem;
+    min-width: 0;
+  }
+  .card:target { border-color: var(--accent-dark); box-shadow: 0 0 0 2px var(--accent-dark); }
+  .card-head { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: center; justify-content: space-between; margin-bottom: 0.625rem; }
+  .anchor { font-family: var(--mono); font-size: 0.75rem; color: var(--lp-label); text-decoration: none; overflow-wrap: anywhere; }
+  .anchor:hover { color: var(--lp-link); text-decoration: underline; }
+  .claim { margin: 0 0 0.75rem; color: var(--lp-heading); font-weight: 600; line-height: 1.5; }
+  blockquote {
+    margin: 0 0 0.75rem;
+    padding: 0.125rem 0 0.125rem 1rem;
+    border-left: 3px solid var(--accent-dark);
+    color: var(--lp-text);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+  .source { display: flex; flex-wrap: wrap; gap: 0.125rem 0; margin: 0; font-size: 0.875rem; line-height: 1.5; color: var(--lp-label); }
+  .source > * { overflow-wrap: anywhere; }
+  .source > *:not(:first-child)::before { content: '·'; margin: 0 0.45rem; }
+  .source a { color: var(--lp-link); font-weight: 600; text-decoration: none; }
+  .source a:hover { text-decoration: underline; }
+  .source b { color: var(--lp-heading); font-weight: 600; }
+  .note a { color: var(--lp-link); overflow-wrap: anywhere; }
+  .note { margin: 0.75rem 0 0; padding-top: 0.75rem; border-top: 1px dashed var(--lp-rule); font-size: 0.875rem; line-height: 1.55; color: var(--lp-text); }
+  .top { margin: 1.25rem 0 0; font-size: 0.875rem; }
+  .top a { color: var(--lp-link); }
+
+  .kind {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .kind-primary { background: #e6ebff; color: #2a3f9e; }
+  .kind-reported { background: #fff1d6; color: #7a4b00; }
+  .kind-reading { background: #ececf2; color: #44445a; }
+
+  @media (max-width: 560px) {
+    .legend div { grid-template-columns: 1fr; gap: 0.25rem; }
+    .jump { padding: 1rem 1rem 1rem 0.75rem; }
+    .card { padding: 1rem; }
+  }
+</style>
