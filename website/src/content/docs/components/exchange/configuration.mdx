@@ -47,19 +47,19 @@ transaction_log:
     flush_batch_size: 100
 
 tenants:
-  - id: "hearst-media"
+  - id: "meridian-media"
     domains:
-      - "cosmopolitan.com"
-      - "esquire.com"
-      - "elle.com"
+      - "style.example"
+      - "outdoors.example"
+      - "home.example"
     rsl_urls:
-      cosmopolitan.com: "https://cosmopolitan.com/rsl.txt"
-      esquire.com: "https://esquire.com/rsl.txt"
-      elle.com: "https://elle.com/rsl.txt"
+      style.example: "https://style.example/license.xml"
+      outdoors.example: "https://outdoors.example/license.xml"
+      home.example: "https://home.example/license.xml"
     rsl_poll_interval: "5m"
-    content_base_url: "https://cdn.hearst.com"
+    content_base_url: "https://cdn.meridian.example"
     cdn_type: "cloudfront"
-    signing_key_ref: "arn:aws:secretsmanager:us-east-1:123456:secret:hearst-signing-key"
+    signing_key_ref: "arn:aws:secretsmanager:us-east-1:123456:secret:meridian-signing-key"
     url_ttl_seconds: 300
     bind_agent_id: true
     reporting:                                           # Tenant-level default — inherited by all offers
@@ -81,10 +81,10 @@ tenants:
       agent_dispute_rate_warning: 0.03                     # 3% warning threshold
       agent_dispute_rate_block: 0.05                       # 5% blocking threshold
 
-  - id: "techcrunch-com"
-    domains: ["techcrunch.com"]
+  - id: "news-example"
+    domains: ["news.example"]
     rsl_urls:
-      techcrunch.com: "https://techcrunch.com/rsl.txt"
+      news.example: "https://news.example/license.xml"
     # ...
 ```
 
@@ -113,13 +113,13 @@ The `signing_key_ref` in tenant configuration points to the key's location in th
 
 ```yaml
 # AWS Secrets Manager
-signing_key_ref: "arn:aws:secretsmanager:us-east-1:123456:secret:hearst-signing-key"
+signing_key_ref: "arn:aws:secretsmanager:us-east-1:123456:secret:meridian-signing-key"
 
 # HashiCorp Vault
-signing_key_ref: "vault://secret/exchange/tenants/hearst-media/signing-key"
+signing_key_ref: "vault://secret/exchange/tenants/meridian-media/signing-key"
 
 # Local file (development only)
-signing_key_ref: "file:///var/lib/exchange/keys/hearst-media.pem"
+signing_key_ref: "file:///var/lib/exchange/keys/meridian-media.pem"
 ```
 
 Keys are loaded from the secrets provider at startup and cached in memory. A background goroutine polls for rotations every 60 seconds.
@@ -209,8 +209,8 @@ The tiers size each resource in tokens for `unit_cost`, the comparison metric. T
 
 ```
 1. Crawl sitemap.xml for each tenant domain → discover all content URLs
-2. Check for rsl.txt at each domain → parse pricing, restrictions, terms
-3. If no rsl.txt: fall back to tenant-level defaults from config
+2. Check for an RSL license at each domain → parse pricing, restrictions, terms
+3. If no RSL license: fall back to tenant-level defaults from config
 4. Build OfferTemplates from merged data (sitemap URLs + RSL pricing + tenant defaults)
 5. Atomic pointer swap into CatalogSnapshot
 ```
@@ -245,7 +245,7 @@ The ingestion pipeline runs as a separate background process (not in the Exchang
 1. Crawl sitemap.xml -> discover content URLs
 2. For each URL: check for FORA sitemap extensions -> use if present
 3. If no extensions: crawl HTML -> extract text (readability algorithm) -> count words -> estimate tokens
-4. Check rsl.txt -> merge pricing terms
+4. Check the RSL license -> merge pricing terms
 5. Build catalog entries with token estimates
 6. Serialize radix trie to binary file
 7. Exchange process loads pre-built binary via atomic pointer swap

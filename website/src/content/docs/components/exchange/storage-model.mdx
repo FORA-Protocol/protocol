@@ -27,7 +27,7 @@ type CatalogSnapshot struct {
     BuiltAt time.Time
 
     // Source hashes used to build this snapshot (for diff detection).
-    // Tracks all input sources (rsl.txt, sitemap, robots.txt, etc.), not just RSL.
+    // Tracks all input sources (RSL license, sitemap, robots.txt, etc.), not just RSL.
     SourceHashes map[string]string // tenant ID -> SHA-256 of combined source inputs
 }
 

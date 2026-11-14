@@ -18,7 +18,7 @@ sequenceDiagram
     MO-->>Provider: Exchange endpoint + fora.json
 
     Provider->>Origin: Publish /.well-known/fora.json
-    Note over Origin: The provider's own file<br/>rsl.txt, if any, lives here too
+    Note over Origin: The provider's RSL license,<br/>if kept at /rsl.txt, lives here too
 
     Provider->>CDN: Deploy edge function (platform-specific)
     Note over CDN: CloudFront: Lambda@Edge viewer-request function<br/>Cloudflare: Worker
@@ -242,7 +242,7 @@ The edge function is only effective if all requests to protected content pass th
 After deployment, verify with these checks:
 
 1. `GET /.well-known/fora.json` with bot User-Agent returns the origin's file with `200 OK`. A `404` means the site has no file at that address. A `403` means something on the site refuses AI agents there, and they have to be let through.
-2. `GET /rsl.txt` with bot User-Agent returns the origin's answer: valid RSL content with `200 OK`, or the origin's `404` if the provider has no RSL file.
+2. `GET /rsl.txt` with bot User-Agent returns the origin's answer: valid RSL content with `200 OK`, or the origin's `404` if the provider keeps no RSL license there.
 3. `GET /premium/article.html` with bot User-Agent returns `403` with `X-Content-Rules` set to the provider's own `https://<domain>/.well-known/fora.json`, and, when configured, `X-FORA-Exchange` set to the bare domain of an Exchange that manifest lists (for example `exchange.example.net`, not a URL).
 4. `GET /premium/article.html` with valid signed URL returns `200`.
 5. `GET /premium/article.html` with expired signed URL returns `403`.

@@ -3022,7 +3022,7 @@ enum DenialReason {
 enum IngestionSource {
   INGESTION_SOURCE_UNSPECIFIED = 0;  // unset — output/optional; zero is a valid not-applicable/unset state
   INGESTION_SOURCE_FORA_SITEMAP = 1;  // FORA XML namespace in sitemap
-  INGESTION_SOURCE_RSL = 2;            // RSL rsl.txt
+  INGESTION_SOURCE_RSL = 2;            // RSL 1.0 license document
   INGESTION_SOURCE_SITEMAP = 3;        // Standard sitemap.xml
   INGESTION_SOURCE_HTML_CRAWL = 4;     // HTML crawl + readability extraction
   INGESTION_SOURCE_CMS_API = 5;        // CMS REST API (WordPress, etc.)

@@ -1076,7 +1076,7 @@ type IngestionSource int32
 const (
 	IngestionSource_INGESTION_SOURCE_UNSPECIFIED  IngestionSource = 0 // unset — output/optional; zero is a valid not-applicable/unset state
 	IngestionSource_INGESTION_SOURCE_FORA_SITEMAP IngestionSource = 1 // FORA XML namespace in sitemap
-	IngestionSource_INGESTION_SOURCE_RSL          IngestionSource = 2 // RSL rsl.txt
+	IngestionSource_INGESTION_SOURCE_RSL          IngestionSource = 2 // RSL 1.0 license document
 	IngestionSource_INGESTION_SOURCE_SITEMAP      IngestionSource = 3 // Standard sitemap.xml
 	IngestionSource_INGESTION_SOURCE_HTML_CRAWL   IngestionSource = 4 // HTML crawl + readability extraction
 	IngestionSource_INGESTION_SOURCE_CMS_API      IngestionSource = 5 // CMS REST API (WordPress, etc.)
