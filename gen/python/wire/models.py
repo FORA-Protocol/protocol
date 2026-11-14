@@ -394,7 +394,7 @@ class DomainVerificationRequest(WireModel):
         None, description='Caller identity (registered with the Exchange).'
     )
     domain: str | None = Field(
-        '', description='The provider domain to verify (e.g., "techcrunch.com").'
+        '', description='The provider domain to verify (e.g., "news.example").'
     )
     exchange: constr(
         pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
@@ -542,7 +542,7 @@ class License(WireModel):
     )
     uri: str | None = Field(
         None,
-        description='Canonical identity of the license document (RFC 3986). MUST NOT be\n URL-validated — data-labels TDL identifiers use non-URL schemes.\n For REFERENCE_ONLY terms this is the authoritative specification.\n Examples:\n   "https://creativecommons.org/licenses/by/4.0/"\n   "https://techcrunch.com/licensing/ai-terms-2026"\n\n"MUST NOT URL-validate" means do not REJECT non-URL schemes — it does NOT\n mean fetch blindly. A consumer that dereferences this URI MUST apply the\n SSRF countermeasures in the security threat model (T-LIC-1): scheme\n allowlist, block loopback/private/metadata addresses (resolve-then-check),\n fetch via an egress proxy, and treat the response as untrusted content.\n Verify the fetched bytes against `uri_digest` before use.',
+        description='Canonical identity of the license document (RFC 3986). MUST NOT be\n URL-validated — data-labels TDL identifiers use non-URL schemes.\n For REFERENCE_ONLY terms this is the authoritative specification.\n Examples:\n   "https://creativecommons.org/licenses/by/4.0/"\n   "https://news.example/licensing/ai-terms-2026"\n\n"MUST NOT URL-validate" means do not REJECT non-URL schemes — it does NOT\n mean fetch blindly. A consumer that dereferences this URI MUST apply the\n SSRF countermeasures in the security threat model (T-LIC-1): scheme\n allowlist, block loopback/private/metadata addresses (resolve-then-check),\n fetch via an egress proxy, and treat the response as untrusted content.\n Verify the fetched bytes against `uri_digest` before use.',
     )
     uri_digest: (
         constr(
@@ -551,7 +551,7 @@ class License(WireModel):
         | None
     ) = Field(
         None,
-        description='Cryptographic digest of the document at `uri`, in "method:hexdigest" form\n (e.g. "sha256:9f86d081..."). Pins the referenced document so a consumer can\n verify the bytes it fetches match what was offered; covered by the offer\n signature, so it is tamper-evident end to end. REQUIRED whenever `uri` is\n non-empty — any semantics, mutable or not: without a pinned digest a MitM\n (or the publisher) can swap the document the agent reads. The Exchange pins\n it at ingestion (computing it over the safely-fetched document, or\n accepting a publisher-supplied value when uri is not HTTP-fetchable, e.g. a\n non-URL TDL scheme).\n\nThe method MUST be a collision-resistant hash — sha256, sha384, or sha512.\n Legacy md5/sha1 are rejected on the wire: a forgeable digest would defeat\n the swap-protection this field exists for. The CEL is STRUCTURE ONLY\n (allowlisted prefix + matching hex length); presence (digest-when-uri) is\n enforced at ingest.',
+        description='Cryptographic digest of the document at `uri`, in "method:hexdigest" form\n (e.g. "sha256:9f86d081..."). Pins the referenced document so a consumer can\n verify the bytes it fetches match what was offered; covered by the offer\n signature, so it is tamper-evident end to end. REQUIRED whenever `uri` is\n non-empty — any semantics, mutable or not: without a pinned digest a MitM\n (or the publisher) can swap the document the agent reads. The party that\n sets uri supplies uri_digest with it: the publisher on a term it pushes.\n\nThe method MUST be a collision-resistant hash — sha256, sha384, or sha512.\n Legacy md5/sha1 are rejected on the wire: a forgeable digest would defeat\n the swap-protection this field exists for. The CEL is STRUCTURE ONLY\n (allowlisted prefix + matching hex length); presence (digest-when-uri) is\n enforced at ingest.',
     )
 
 
@@ -562,6 +562,7 @@ class ObligationKind(Enum):
     OBLIGATION_KIND_NETWORK_COPYLEFT = 'OBLIGATION_KIND_NETWORK_COPYLEFT'
     OBLIGATION_KIND_NOTICE = 'OBLIGATION_KIND_NOTICE'
     OBLIGATION_KIND_OTHER = 'OBLIGATION_KIND_OTHER'
+    OBLIGATION_KIND_REPORTING = 'OBLIGATION_KIND_REPORTING'
 
 
 class ObligationTrigger(Enum):
@@ -1309,6 +1310,10 @@ class Obligation(WireModel):
         description='Free-form detail: attribution string, notice file URI, etc.\n OBLIGATION_KIND_OTHER without it → lint warning.',
     )
     kind: ObligationKind = Field(..., description='What the agent must do.')
+    reporting: ReportingObligation | None = Field(
+        None,
+        description="The reporting requirement of an OBLIGATION_KIND_REPORTING obligation: the\n window within which the agent files ReportUsage and the fields the report\n must carry. Set only on a REPORTING obligation (the\n obligation.reporting.requires_reporting_kind rule). `endpoint` is not set\n here (obligation.reporting.no_endpoint) and `required` is not read: a\n REPORTING obligation always requires a report. Absent, the obligation still\n requires a report, under the Exchange's own window and fields. The Exchange\n carries the obligation onto Offer.reporting (see that field).",
+    )
     scope_license: License | None = Field(
         None,
         description="The license that derivatives must be released under. REQUIRED for\n SHARE_ALIKE (rejected if absent), where it MUST identify a license — set\n `id` (SPDX short-id, the common copyleft case, often the term's own\n License.id) and/or `uri`. Because it is a License, a referenced `uri`\n inherits the uri_digest swap-protection rule: a uri without a digest is\n rejected, exactly as for any other license reference.",
@@ -1946,7 +1951,8 @@ class Offer(WireModel):
         description='The offer\'s price, and its ONLY price. An offer represents a single\n licensing arrangement: each projected LicenseTerm yields its own offer, and\n the Exchange moves that term\'s price here, so the term inside `terms`\n carries no pricing of its own (the offer.terms.pricing_unset rule). This is\n the price execute charges, the price a Broker ranks and compares across\n Exchanges, and the price a metered purchase is charged at. A resource with\n multiple alternative terms (e.g. dual-licensed) produces multiple separate\n offers, one per term — never one offer with a "headline" picked among them.\n\nIt derives from exactly one catalog term: the term\'s pricing as the\n publisher declared it (ResourceEntry.terms). Each offer derives from one\n term, and the offer carries no second copy, so the offer\'s price and its\n term\'s price cannot disagree.\n\n On a metered (PER_UNIT) offer, the rate and the estimate a metered\n purchase is charged at are read from here (see Pricing). The estimate is\n optional. When the publisher states one — on the term\'s own pricing, or\n once for the resource on ResourceEntry.estimated_quantity — the Exchange\n carries it here as estimated_quantity, the term\'s own estimate taking\n precedence. When the publisher states none, the offer may carry none, and\n the purchase then charges one unit.',
     )
     reporting: ReportingObligation | None = Field(
-        None, description='Post-usage reporting requirements for this offer.'
+        None,
+        description="Post-usage reporting requirements for this offer.\n\nWhen the term the offer sells carries an OBLIGATION_KIND_REPORTING\n obligation, the Exchange sets this from it: `required` is true (the\n offer.reporting.required_by_term rule), `window` and `required_fields` are\n the obligation's where it states them and the Exchange's own where it does\n not, and `endpoint` is the Exchange's. Otherwise the Exchange applies its\n own reporting policy.",
     )
     signature: str | None = Field(
         '',
