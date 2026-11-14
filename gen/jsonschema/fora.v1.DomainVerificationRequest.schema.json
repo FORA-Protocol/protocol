@@ -9,7 +9,7 @@
     },
     "domain": {
       "default": "",
-      "description": "The provider domain to verify (e.g., \"techcrunch.com\").",
+      "description": "The provider domain to verify (e.g., \"news.example\").",
       "type": "string"
     },
     "exchange": {

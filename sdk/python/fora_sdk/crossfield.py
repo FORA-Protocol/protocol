@@ -41,6 +41,8 @@ if TYPE_CHECKING:
 
 # ---- generated enum members (reused, not forked) --------------------------
 _OBLIGATION_KIND_SHARE_ALIKE = "OBLIGATION_KIND_SHARE_ALIKE"
+_OBLIGATION_KIND_REPORTING = "OBLIGATION_KIND_REPORTING"
+_PRICING_METERING_NONE = "PRICING_METERING_NONE"
 _TERM_SEMANTICS_REFERENCE_ONLY = "TERM_SEMANTICS_REFERENCE_ONLY"
 _REGISTRATION_FAILURE_INVALID_DATA = "REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA"
 _PRICING_MODEL_FREE = "PRICING_MODEL_FREE"
@@ -108,20 +110,50 @@ def _license_term_rules(o: dict[str, Any]) -> list[str]:
         kinds = [_str(_field(_as_obj(r) or {}, "kind")) for r in restrictions]
         if len(set(kinds)) != len(kinds):
             out.append("license_term.one_restriction_per_kind")
+    # reporting.metering_none: ``!(has(this.pricing) && has(this.pricing.metering) &&
+    # this.pricing.metering == NONE) || !this.obligations.exists(o, o.kind == REPORTING)``
+    pricing = _as_obj(_field(o, "pricing"))
+    if (
+        pricing is not None
+        and _str(_field(pricing, "metering")) == _PRICING_METERING_NONE
+        and _has_reporting_obligation(_field(o, "obligations"))
+    ):
+        out.append("license_term.reporting.metering_none")
     return out
 
 
-def _obligation_rules(o: dict[str, Any]) -> list[str]:
-    """Obligation.share_alike.requires_scope_license."""
-    if _str(_field(o, "kind")) != _OBLIGATION_KIND_SHARE_ALIKE:
-        return []
-    raw = _field(o, "scope_license")
-    raw_obj = _as_obj(raw)
-    identified = (isinstance(raw, str) and raw != "") or (
-        raw_obj is not None
-        and (_str(_field(raw_obj, "id")) != "" or _str(_field(raw_obj, "uri")) != "")
+def _has_reporting_obligation(obligations: Any) -> bool:
+    """True when any obligation in the list is a REPORTING obligation."""
+    return isinstance(obligations, list) and any(
+        _str(_field(_as_obj(ob) or {}, "kind")) == _OBLIGATION_KIND_REPORTING for ob in obligations
     )
-    return [] if identified else ["obligation.share_alike.requires_scope_license"]
+
+
+def _obligation_rules(o: dict[str, Any]) -> list[str]:
+    """Obligation share_alike.requires_scope_license + the reporting rules.
+
+    - reporting.requires_reporting_kind:
+      ``!has(this.reporting) || this.kind == REPORTING``
+    - reporting.no_endpoint: ``!has(this.reporting) || !has(this.reporting.endpoint)``
+    """
+    out: list[str] = []
+    kind = _str(_field(o, "kind"))
+    if kind == _OBLIGATION_KIND_SHARE_ALIKE:
+        raw = _field(o, "scope_license")
+        raw_obj = _as_obj(raw)
+        identified = (isinstance(raw, str) and raw != "") or (
+            raw_obj is not None
+            and (_str(_field(raw_obj, "id")) != "" or _str(_field(raw_obj, "uri")) != "")
+        )
+        if not identified:
+            out.append("obligation.share_alike.requires_scope_license")
+    reporting = _as_obj(_field(o, "reporting"))
+    if reporting is not None:
+        if kind != _OBLIGATION_KIND_REPORTING:
+            out.append("obligation.reporting.requires_reporting_kind")
+        if _field(reporting, "endpoint") is not None:
+            out.append("obligation.reporting.no_endpoint")
+    return out
 
 
 def _pricing_rules(o: dict[str, Any]) -> list[str]:
@@ -145,8 +177,11 @@ def _offer_rules(o: dict[str, Any]) -> list[str]:
     - metered.estimate_positive: ``this.pricing.model != PER_UNIT ||
       !has(this.pricing.estimated_quantity) || this.pricing.estimated_quantity > 0``.
 
-    Both predicates are the ones the agent-side Verifier applies, so this face and that
-    one share :func:`fora_sdk.money.check_offer_terms_unpriced` and
+    - reporting.required_by_term: ``!this.terms.exists(t, t.obligations.exists(o,
+      o.kind == REPORTING)) || (has(this.reporting) && this.reporting.required)``.
+
+    The first two predicates are the ones the agent-side Verifier applies, so this face
+    and that one share :func:`fora_sdk.money.check_offer_terms_unpriced` and
     :func:`fora_sdk.money.check_metered_estimate` rather than keeping two copies.
     """
     out: list[str] = []
@@ -158,6 +193,13 @@ def _offer_rules(o: dict[str, Any]) -> list[str]:
         check_metered_estimate(o)
     except ValueError:
         out.append("offer.metered.estimate_positive")
+    terms = _field(o, "terms")
+    if isinstance(terms, list) and any(
+        _has_reporting_obligation(_field(_as_obj(t) or {}, "obligations")) for t in terms
+    ):
+        reporting = _as_obj(_field(o, "reporting"))
+        if reporting is None or _field(reporting, "required") is not True:
+            out.append("offer.reporting.required_by_term")
     return out
 
 

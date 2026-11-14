@@ -310,7 +310,7 @@ The last row is the deliberate one — nobody but the operator can point that UR
 ### T-LIC-4: Referenced-document swap
 
 **Attack**: A term carries a `License.uri`; the agent fetches and trusts the document. The publisher (or a MitM on the fetch) later changes the bytes at `uri` — which is just a URL — so the agent's understanding of the terms silently diverges from what was offered. `immutable: true` makes this worse (the agent caches and stops re-checking), but a mutable `uri` is swappable too.
-**Countermeasure (protocol)**: `License.uri_digest` pins the document as `method:hexdigest` and is **required whenever `uri` is present** — any semantics, mutable or not. The Exchange pins it at ingestion (computing it over the safely-fetched document per T-LIC-1, or accepting a publisher-supplied value for non-HTTP schemes). Because the entire Offer is signed, the digest is tamper-evident; the agent verifies the bytes it fetches against it and refuses on mismatch.
+**Countermeasure (protocol)**: `License.uri_digest` pins the document as `method:hexdigest` and is **required whenever `uri` is present** — any semantics, mutable or not. The party that sets `uri` supplies the digest with it: the publisher, on a term it pushes. Because the entire Offer is signed, the digest is tamper-evident; the agent verifies the bytes it fetches against it and refuses on mismatch.
 
 ## Comparison to Ad-Tech Fixes
 
