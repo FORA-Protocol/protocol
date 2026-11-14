@@ -214,31 +214,9 @@ Together with `iswc`, the writers' `ipi`, `pro` and `share`, and the title and d
 
 An agent can limit a catalog search with `DiscoveryRequest.search_filters`. The Broker answers these filters only when its catalog search (query discovery) is switched on and its provider applies them. See [Search backends](/components/broker/overview/#search-backends).
 
-| Key | Type | Required | Description |
-|-----|------|----------|-------------|
-| `music.isrc` | string or string[] | Optional | ISRC, 12 upper-case characters without hyphens (`^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$`). The match is exact. An array must not be empty. Example: `"USXXX2300011"`. |
-| `music.genre` | label or label[] | Optional | Genre. An array must not be empty. Example: `"cinematic"`, `["jazz", "blues"]`. |
-| `music.mood` | label or label[] | Optional | Mood. An array must not be empty. Example: `"calm"`. |
-| `music.instruments` | label or label[] | Optional | Instruments. An array must not be empty. Example: `["piano", "strings"]`. |
-| `music.suitable_for` | label or label[] | Optional | Editorial suitability. An array must not be empty. Example: `"trailer"`. |
-| `music.energy` | string or string[] | Optional | `low`, `medium` or `high`. An array must not be empty. Example: `"high"`. |
-| `music.vocals` | boolean | Optional | Example: `false`. |
-| `music.bpm_range` | string | Optional | `MIN-MAX`, `MIN-` or `-MAX` with positive integers. Both bounds are inclusive, and `MIN` is not greater than `MAX`. Example: `"115-125"`, `"120-"`. |
-| `music.duration_seconds_range` | string | Optional | `MIN-MAX`, `MIN-` or `-MAX` with positive numbers of seconds. Both bounds are inclusive, and `MIN` is not greater than `MAX`. Example: `"30-90"`, `"-60.5"`. |
-| `music.upc` | string or string[] | Optional | UPC or EAN, 12 to 14 digits. The match is exact. An array must not be empty. Example: `"020123456782"`. |
-| `music.grid` | string or string[] | Optional | GRid, 18 characters without hyphens. The match is exact. An array must not be empty. Example: `"A10302B0001234567D"`. |
-| `music.iswc` | string or string[] | Optional | ISWC in the compact form, `T` and 10 digits. The match is exact. An array must not be empty. Example: `"T0345246801"`. |
-| `music.label` | string or string[] | Optional | Record label name. The match is case-insensitive and otherwise exact. An array must not be empty. Example: `"Example Records"`. |
-| `music.release_date_range` | string | Optional | `START/END`, `START/` or `/END` with dates in the `YYYY`, `YYYY-MM` or `YYYY-MM-DD` form. Both bounds are inclusive, and `START` is not after `END`. The separator is `/` (the ISO 8601 interval form), because `-` is part of a date. Example: `"2015/2019"`, `"2020-06/"`, `"/1999-12-31"`. |
-| `music.parental_warning` | string or string[] | Optional | `explicit`, `explicit_edited` or `not_explicit`. An array must not be empty. Example: `"not_explicit"`. |
-| `music.language` | string or string[] | Optional | BCP 47 tag. The match is case-insensitive. A tag matches a track tag that equals it, or that continues it after a hyphen: `pt` matches `pt-BR`. An array must not be empty. Example: `"es"`. |
-| `music.subgenres` | label or label[] | Optional | Sub-genres. An array must not be empty. Example: `["lo-fi", "ambient"]`. |
-| `music.themes` | label or label[] | Optional | Themes. An array must not be empty. Example: `"christmas"`. |
-| `music.contains_ai` | boolean | Optional | Example: `false`. |
-| `music.key` | label or label[] | Optional | Musical key, written as in [Key](#key). An array must not be empty. Example: `["a minor", "c major"]`. |
-| `music.version` | label or label[] | Optional | Version of the recording. An array must not be empty. Example: `"instrumental"`. |
-| `music.publisher` | string or string[] | Optional | Publisher name. The match is case-insensitive and otherwise exact, against the `name` of each entry of `music.publishers`. An array must not be empty. Example: `"Example Music Publishing"`. |
-| `music.ipi` | string or string[] | Optional | IPI name number, 9 to 11 digits. The match is exact, against the `ipi` of each contributor and each publisher. An array must not be empty. Example: `"00012345678"`. |
+::profile-filters{profile="fora-music-v1"}
+
+The same keys are published as the profile's filter schema, [`music-v1.search-filters.schema.json`](/schemas/music/v1/music-v1.search-filters.schema.json) (JSON Schema Draft 2020-12), and the Go module embeds it in package `github.com/FORA-Protocol/protocol/schemas`. It has one property per key, with the key's description, type, value pattern and examples, and `additionalProperties: false`, so it refuses a key it does not list. The schema checks the format of each value. It does not check that `MIN` is not greater than `MAX`, or that `START` is not after `END`. The label pattern uses the same Unicode classes as in the offer schema, so a Python validator needs the change in [Validating in Python](#validating-in-python).
 
 A range key is the name of the field it limits, followed by `_range`. On a Broker that takes its filter keys from this profile, a value outside its format, for example `music.release_date_range: "2015-2019"` or `music.upc: "ABC"`, rejects the whole request with `INVALID_ARGUMENT`, and a key this profile does not define is ignored. [Order of Checks and Errors](#order-of-checks-and-errors) gives the full order, and the order a Broker follows when its deployment declares its filter keys.
 
@@ -251,6 +229,7 @@ A range key is the name of the field it limits, followed by `_range`. On a Broke
 - `music.publisher` matches a track when the `name` of at least one of its publishers equals one of the given names, ignoring case. `music.ipi` matches a track when the `ipi` of at least one of its contributors or publishers is exactly one of the given numbers, so one filter finds a writer's or a publisher's tracks whatever name they are credited under. A track without `music.publishers`, or with no `ipi` anywhere, does not match.
 - `music.label` and `music.language` match case-insensitively. For `music.language`, a given tag matches a track tag that equals it, or that starts with it followed by a hyphen. `pt` matches `pt` and `pt-BR`. `pt-BR` matches `pt-BR` and `pt-BR-x-private`, but not `pt` and not `pt-PT`. The hyphen matters: `zh` does not match `zha`.
 - `music.subgenres` and `music.themes` match like `music.mood`: the track has at least one of the given labels.
+- `music.instruments` and `music.suitable_for` also match like `music.mood`. `music.energy` matches like `music.genre`: the track's energy is one of the given values.
 - `music.release_date_range`: a bound with fewer parts covers its whole period, so `2015` as `START` means 2015-01-01 and as `END` means 2015-12-31. A track's `release_date` is read the same way, and the track matches when its whole period is inside the range. A track dated `2015` matches `2010/2019` and does not match `2015-06/`, because its month is unknown.
 - `music.contains_ai` works like `music.vocals`: a track without the key does not match `false`.
 - With the tag-based provider, the Broker also reads tags from the free-text `query`. These tags are preferences, and they apply only to the tracks that pass every filter. Among those tracks, the tracks that match the most query tags come first. When no passing track matches a query tag, or the query has no known tag, the Broker returns every track that passes the filters. A query tag never adds a track that fails a filter.

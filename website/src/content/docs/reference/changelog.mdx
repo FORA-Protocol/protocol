@@ -8,6 +8,21 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ## Unreleased
 
+**The fora-music-v1 search filter keys are a published JSON Schema (docs and schema; no wire
+change).** The 23 keys of `DiscoveryRequest.search_filters` are one file,
+`schemas/music/v1/music-v1.search-filters.schema.json`, published at
+`https://fora-protocol.org/schemas/music/v1/music-v1.search-filters.schema.json` and embedded in
+the Go module's new package `schemas`. It is a draft 2020-12 object with one property per key,
+each with a description, its type, its value pattern and examples, and
+`additionalProperties: false`. The patterns are the offer schema's. The profile page's filter
+table is now rendered from the file by the `::profile-filters` directive, and the build fails
+on an unknown profile. Each description now also says how the key matches, as How Filters
+Match states it. The keys, their types and their formats are unchanged. A Go test holds the
+file to the key pattern, the key count the page states and the offer schema's value rules, and
+runs shared valid and invalid vectors for every key. The SDK's registration-schema compiler
+refuses the file, because the label, language, release-date-range and duration-range patterns
+are outside its portable pattern alphabet; a second test records that verdict.
+
 **An RSL license is found where RSL 1.0 says (docs and comments only; no wire change).** RSL
 1.0 fixes no file name: a license is an XML document (`application/rsl+xml`), linked at any
 URL or embedded in the page, feed or file it licenses, and associated with content by a

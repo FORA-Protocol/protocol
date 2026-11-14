@@ -3301,3 +3301,46 @@ their only reader. And no `fora-cli` ever drove the domain-verification challeng
 edge store ever answered it. The RPC pair itself stays in the contract, for deployments
 that verify that way, and a publisher answering such a challenge places the token on its
 origin like any other file.
+
+## A profile's search filter keys are a file the page renders from
+
+The fora-music-v1 filter keys lived only in a table on the profile page. An implementation
+that needed them retyped them, and FORA Server did so in three places, which drifted to
+different key sets. So the keys are one hand-written file,
+`schemas/music/v1/music-v1.search-filters.schema.json`, and the page's table is rendered from
+it by the `::profile-filters` directive, as the proto reference tables are rendered from the
+descriptor.
+
+The file is source, not generated. The keys are not in the proto, and the proto's generator
+has nothing to derive them from. It sits outside `gen/`, whose JSON Schemas are one per wire
+message and checked against the descriptor. It takes the form a Broker's deployment declares
+its filter vocabulary in: a draft 2020-12 object whose properties are the keys, each with a
+description, a type, a value pattern and examples, and `additionalProperties: false`, with no
+`$id`, reference or `default`. A key that takes one value or a list is `type: ["string",
+"array"]` with the same pattern on the string and on each item, so the file needs no `oneOf`.
+
+Each key's value rule is derived from the offer schema's rule for the field it filters, and
+a test in `sdk/go/profiles/music` holds them equal: the label, identifier, IPI and language
+patterns, a pattern of the energy and parental-warning enums, the `minLength` of a record
+label and a publisher name, the lower bounds of `music.bpm` and `music.duration_seconds`,
+two release dates for the date range, and the boolean type. Every key that takes a list has
+`minItems: 1`, and a key with no derived rule fails the test. The range bounds are written
+as patterns, because a JSON Schema cannot compare two numbers in one string. A duration bound
+is a plain decimal (`60`, `60.5`, `0.5`); `.5`, `5.` and an exponent such as `1e2` are not.
+FORA Server's tag-based Broker reads a bound with Go's `ParseFloat`, which accepts all three,
+so it is looser than the schema.
+
+The SDK's registration-schema compiler refuses the file, with the verdict `unsafe_pattern`,
+for eleven keys. The eight label keys use the Unicode classes `\p{Lu}`, `\p{Lt}` and `\p{Z}`,
+because the label rule is defined over Unicode categories, and those classes are outside the
+portable pattern alphabet. `music.language`, `music.release_date_range` and
+`music.duration_seconds_range` quantify a group whose body repeats or branches, which the
+compiler refuses as a backtracking risk. FORA Server loads a deployment's filter vocabulary
+with that compiler, so it cannot load the file unchanged today. Widening the alphabet, or
+loading the protocol's own file by another rule, is a decision for FORA Server, not for this
+file. A test records the verdict, so a change in either is noticed.
+
+The site publishes the file at `/schemas/music/v1/`, and the Go module embeds it in package
+`schemas`. The offer schema's `$id`, `https://fora-protocol.org/schemas/music/v1/music-v1.schema.json`,
+names the same directory, but that URL answers 404: the offer schema exists only as the code
+block on the profile page, not as a file the route can serve.
