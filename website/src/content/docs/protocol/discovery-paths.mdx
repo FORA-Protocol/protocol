@@ -12,7 +12,7 @@ An AI agent can enter the FORA flow through six paths. All paths converge on the
 | [A: Proactive Discovery](#path-a-proactive-discovery-via-forajson) | `fora.json` | Agent checks before accessing content |
 | [B: Broker-Mediated](#path-b-broker-mediated-multi-exchange) | Broker | Agent hands discovery to a multi-exchange router |
 | [C: Accidental Discovery](#path-c-accidental-discovery-via-edge-function-403) | 403 response | Wandering bot hits protected content |
-| [D: RSL-First](#path-d-agent-reads-rsl-directly) | `rsl.txt` | Agent reads terms, then finds Exchange |
+| [D: RSL-First](#path-d-agent-reads-rsl-directly) | RSL license | Agent reads terms, then finds Exchange |
 | [E: Batch Multi-URL](#path-e-batch-multi-url-acquisition) | Broker | Agent needs multiple resources at once |
 | [F: Subscription](#path-f-subscription-based-access) | Exchange | Agent has existing subscription deal |
 
@@ -201,7 +201,11 @@ The three SDKs read the headers with one parser each, pinned to a shared corpus:
 
 ## Path D: Agent Reads RSL Directly
 
-An agent reads `rsl.txt` to understand terms, then uses `fora.json` to find the Exchange for transacting. RSL tells the agent *what it costs*; FORA tells it *where to pay*.
+An agent reads the provider's RSL license to understand terms, then uses `fora.json` to find the Exchange for transacting. RSL tells the agent *what it costs*; FORA tells it *where to pay*.
+
+RSL 1.0 fixes no file name for the license. The license is linked at any URL, or embedded in the page, feed or file it licenses, and the agent finds it through whichever carrier the provider uses: a `License:` line in `robots.txt`, a `Link` header with `rel="license"` and `type="application/rsl+xml"`, an HTML `<link>` or `<script>` element, an RSS item, or the metadata of a media file. [Where an RSL license is found](/protocol/standards-layering/#where-an-rsl-license-is-found) lists them. The diagram shows the `robots.txt` carrier, with `robots.txt` outside the licensed paths and the license kept at `/rsl.txt`.
+
+Behind the FORA edge function, `/rsl.txt` is the only address for an RSL license that reaches every client: the edge function [passes it through](/components/edge-function/overview/#forajson-and-rsltxt-pass-through) ahead of its checks. `robots.txt`, and a license at any other path, are gated like any other page: inside the licensed paths, an AI agent's request without a signed URL is refused with a 403. Unset or `[]`, `LICENSED_PATHS_JSON` makes the whole site licensed, `robots.txt` included, so the agent can read the `License:` line only when `LICENSED_PATHS_JSON` leaves `robots.txt` outside the licensed paths.
 
 ```mermaid
 sequenceDiagram
@@ -209,6 +213,9 @@ sequenceDiagram
     participant PUB as Provider Domain
     participant MP as Exchange
 
+    Note over PUB: robots.txt is outside the licensed paths
+    Agent->>PUB: GET /robots.txt
+    PUB-->>Agent: License: https://publisher.example/rsl.txt
     Agent->>PUB: GET /rsl.txt
     PUB-->>Agent: RSL document (permits, pricing, terms)
 
@@ -226,9 +233,9 @@ sequenceDiagram
 
 | Step | Standard |
 |---|---|
-| Read rsl.txt | **RSL 1.0** -- terms declaration |
+| Find and read the RSL license | **RSL 1.0** -- terms declaration |
 | Read fora.json | **FORA** -- exchange routing |
-| DiscoverResources | Exchange returns Offers with pricing derived from RSL |
+| DiscoverResources | Exchange returns Offers priced by the terms the provider saved, which the publisher console fills in from the RSL license |
 | Offer.terms[0].restrictions | Maps RSL permits/prohibits to FORA `Restriction` (kind `RESTRICTION_KIND_FUNCTION`) on the offer's `LicenseTerm` |
 
 ## Path E: Batch Multi-URL Acquisition

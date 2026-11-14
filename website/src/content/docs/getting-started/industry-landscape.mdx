@@ -19,7 +19,7 @@ Three complementary standards are emerging to fill this gap:
 
 Released December 2025. Like `robots.txt` but for licensing.
 
-- Provider drops an `rsl.txt` file on their domain
+- Provider links a license file at any URL, for example from a `License:` line in `robots.txt`, or embeds the license in a page, feed or media file
 - Machine-readable terms: attribution requirements, pay-per-crawl, pay-per-inference, training restrictions
 - 1,500+ media organizations endorsing
 - **Limitation**: Declares terms but provides no transaction infrastructure. An agent can read what content costs but has no way to pay for it through RSL alone.
@@ -40,7 +40,7 @@ The open transaction protocol that completes the stack.
 - Adds discovery (`fora.json`), transaction execution, signed URL delivery, and usage reporting
 - Resource attestation (three verification levels) and automated dispute resolution
 - Provider onboarding where the `fora.json` a domain serves proves control of that domain
-- Layers on RSL (ingests `rsl.txt` for pricing) and CoMP (wraps CoMP objects in transaction messages)
+- Layers on RSL (the publisher console reads a provider's RSL license to fill in its terms) and CoMP (wraps CoMP objects in transaction messages)
 - Multi-exchange architecture with an optional Broker for cross-exchange comparison
 
 ## Closed Platforms
@@ -78,8 +78,8 @@ AI resource access is at the same inflection point. Microsoft PCM and TollBit ar
 
 | Layer | RSL | CoMP | Microsoft PCM | TollBit | FORA |
 |---|---|---|---|---|---|
-| Terms declaration | rsl.txt | Package object | Provider dashboard | Provider dashboard | RSL ingestion by Exchange |
-| Discovery | File on domain | Not defined | Microsoft index | TollBit API | `fora.json` + edge function fallback |
+| Terms declaration | RSL license | Package object | Provider dashboard | Provider dashboard | Publisher console, filled in from the RSL license |
+| Discovery | `robots.txt`, `Link` header, HTML, RSS or file metadata | Not defined | Microsoft index | TollBit API | `fora.json` + edge function fallback |
 | Transaction protocol | None | Not defined | Proprietary | Proprietary | **Open protocol** |
 | Content verification | None | None | Not defined | Not defined | **Three-level attestation** |
 | Dispute resolution | None | None | Not defined | Not defined | **Automated (three-tier)** |

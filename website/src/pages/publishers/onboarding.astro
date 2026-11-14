@@ -516,7 +516,8 @@ import '../../styles/brand.css';
   // ---- terms from the controls --------------------------------------------
   // The offer is built by the Exchange, so the controls travel with the request
   // rather than being applied to a record here. Until the visitor touches one,
-  // no terms are sent and the service resolves them from the site's own rsl.txt.
+  // no terms are sent and the service resolves them from the site's own RSL
+  // license.
   let termsTouched = false;
 
   function controlState() {
@@ -532,7 +533,7 @@ import '../../styles/brand.css';
   }
 
   // ---- rendering -----------------------------------------------------------
-  // A site that publishes an rsl.txt has already stated its terms, so the
+  // A site that publishes an RSL license has already stated its terms, so the
   // controls open on those rather than on a default nobody chose. Only until
   // the visitor changes one: from then on the controls are theirs and a
   // rebuilt offer must not move them.

@@ -131,7 +131,7 @@ type rateElement struct {
 }
 ```
 
-## Source 2: RSL rsl.txt (Priority 2)
+## Source 2: RSL License (Priority 2)
 
 Parses RSL 1.0 XML to extract permits, prohibits, and payment hints per content path. RSL is the provider's authoritative declaration of content availability and licensing terms. Pricing in RSL (`<payment>`, `<amount>`) is optional -- omitting it means "contact the Exchange for pricing."
 
@@ -336,7 +336,7 @@ This creates an audit trail for "where did this catalog entry come from?" -- ess
 Does the provider have a FORA-extended sitemap.xml?
 +-- YES -> Source 1 (FORA Sitemap) -- best fidelity
 |
-+-- NO -> Does the provider have rsl.txt?
++-- NO -> Does the provider have an RSL license?
          +-- YES -> Source 2 (RSL) + Source 3 (Standard Sitemap) + Source 4 (HTML Crawl)
          |
          +-- NO -> Does the provider have a standard sitemap.xml?
