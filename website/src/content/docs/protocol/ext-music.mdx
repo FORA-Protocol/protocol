@@ -212,7 +212,7 @@ Together with `iswc`, the writers' `ipi`, `pro` and `share`, and the title and d
 
 ## Query Vocabulary (`DiscoveryRequest.search_filters`)
 
-An agent can limit a catalog search with `DiscoveryRequest.search_filters`. The Broker answers these filters only when its catalog search (query discovery) is switched on and its provider applies them. See [Discovery providers](/components/broker/overview/#discovery-providers).
+An agent can limit a catalog search with `DiscoveryRequest.search_filters`. The Broker answers these filters only when its catalog search (query discovery) is switched on and its provider applies them. See [Search backends](/components/broker/overview/#search-backends).
 
 | Key | Type | Required | Description |
 |-----|------|----------|-------------|
@@ -260,7 +260,7 @@ A range key is the name of the field it limits, followed by `_range`. On a Broke
 
 ### Order of Checks and Errors
 
-The order below applies to a Broker that takes its filter keys from this profile, such as one with no catalog search or one on the [tag-based provider](/components/broker/overview/#discovery-providers). It checks a request in this order:
+The order below applies to a Broker that takes its filter keys from this profile, such as one with no catalog search or one with the [tag search](/components/broker/overview/#search-backends). It checks a request in this order:
 
 1. **Explicit URIs come first.** When the request lists `uris`, the Broker resolves them and ignores `query` and `search_filters`. It does not validate the filters, and the query discovery switch does not apply.
 2. **Unknown keys are ignored.** A key that this profile does not define is ignored, for example `music.tempo` or a key of another profile.
@@ -275,11 +275,7 @@ A Broker whose deployment declares the filter keys it applies, such as one on th
 - **Then invalid values are rejected.** A declared key with a value outside the format the deployment declares for it rejects the request with `INVALID_ARGUMENT`, and no search runs.
 - **Then a search input is required.** A request with no `uris`, no `query` and no filter key is rejected with `INVALID_ARGUMENT`.
 
-A `music.*` key the deployment declares is applied as a required constraint, by the rules in [How Filters Match](#how-filters-match); its value format is the one the deployment declares. See [Discovery providers](/components/broker/overview/#discovery-providers) for which keys each provider applies and how its errors name the key.
-
-### Older Brokers
-
-Check 2 also covers a filter key that this profile defined after the Broker was built. Such a Broker ignores the key. When the request also has a `query` or a filter key the Broker knows, the request succeeds, and the results are not filtered by the ignored key. When the ignored key is the only search input, check 4 rejects the request with `INVALID_ARGUMENT`. In neither case does the response tell the agent which filter keys the Broker applied. This is accepted, because the Broker version is known in a deployment. New offer keys need no such rule: a consumer ignores the keys it does not know, and the offer stays valid.
+A `music.*` key the deployment declares is applied as a required constraint, by the rules in [How Filters Match](#how-filters-match); its value format is the one the deployment declares. See [Search backends](/components/broker/overview/#search-backends) for which keys each backend applies and how its errors name the key.
 
 ---
 

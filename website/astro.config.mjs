@@ -120,6 +120,7 @@ export default defineConfig({
 					items: [
 						{ label: 'Overview', link: '/protocol/' },
 						{ label: 'Transaction Flow', slug: 'protocol/transaction-flow' },
+						{ label: 'Licensing Terms', slug: 'protocol/licensing-terms' },
 						{ label: 'Standards Layering', slug: 'protocol/standards-layering' },
 						{ label: 'Discovery Paths', slug: 'protocol/discovery-paths' },
 						{ label: 'JSONL Ingestion', slug: 'protocol/jsonl-ingestion' },
@@ -140,6 +141,12 @@ export default defineConfig({
 				{
 					label: 'Components',
 					items: [
+						{
+							label: 'Broker',
+							items: [
+								{ label: 'Overview', slug: 'components/broker/overview' },
+							],
+						},
 						{
 							label: 'Identity Service',
 							items: [

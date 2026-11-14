@@ -1,26 +1,27 @@
 ---
 title: "What Is FORA?"
-description: "An introduction to the Federated Open Resource Access — the open transaction layer for fast, metered access to any digital resource by AI agents."
+description: "An introduction to the Federated Open Resource Access — the open transaction layer for metered access to digital resources by AI agents."
 ---
+
+import { Steps } from '@astrojs/starlight/components';
+import { PACKAGES } from '../../../consts';
+import ArchitectureDiagram from '../../../components/diagrams/ArchitectureDiagram.astro';
 
 ## The Problem
 
-AI agents need resources. Not just web pages — court filings, academic papers, credit reports, medical imaging, satellite data, drug interaction databases, live market feeds. These resources are scattered across thousands of providers, each with their own API, pricing model, authentication scheme, and terms of use.
+AI agents need resources. Not just web pages — court filings, academic papers, credit reports, medical imaging, satellite data, drug interaction databases, live market feeds. These resources are scattered across many providers, each with their own API, pricing model, authentication scheme, and terms of use.
 
-Today, every integration is bespoke. An agent that needs a D&B credit report speaks a completely different protocol than one that needs a PACER court filing or a DrugBank interaction check. There is no common way to discover what's available, negotiate a price, execute a transaction, verify what was delivered, or dispute a problem.
+Today, every integration is bespoke. An agent that needs a report from a credit bureau speaks a completely different protocol than one that needs a filing from a federal court records system or a check against a drug interaction database. There is no common way to discover what's available, negotiate a price, execute a transaction, verify what was delivered, or dispute a problem.
 
 The result: agents are locked into whichever providers their developers happened to integrate. Providers who want to serve AI agents must build custom APIs for each consumer. Neither side scales.
 
 ## What FORA Does
 
-FORA — the **Federated Open Resource Access** — is an open transaction layer for metered resource access by AI agents. One protocol for discovering, pricing, transacting, delivering, and verifying any digital resource.
+FORA — the **Federated Open Resource Access** — is an open transaction layer for metered resource access by AI agents. One protocol for discovering, pricing, transacting, delivering, and verifying digital resources.
 
-```
-Agent → Broker → Exchange → Resource
-         (routes)       (prices)      (delivers)
-```
+An agent buys access to a resource from an Exchange, directly or through an optional Broker, and fetches it from the provider with a signed URL the Exchange issues.
 
-**For agents:** Query any Exchange. Compare offers across providers. Pay per use. Verify what you got.
+**For agents:** Find offers at any Exchange, directly or through a Broker. Pay per use. Verify what you got.
 
 **For resource providers:** Expose your catalog through an Exchange. Set your price. Get paid per access. No custom integrations per consumer.
 
@@ -28,66 +29,85 @@ Agent → Broker → Exchange → Resource
 
 ## How It Works
 
-A FORA transaction follows six steps:
+<ArchitectureDiagram />
 
-```
-1. Discover    Agent checks /.well-known/fora.json → finds Exchange endpoint
-2. Query       Agent calls DiscoverResources → gets Offers with pricing + attestations
-3. Transact    Agent calls ExecuteTransaction → gets delivery instructions + billing_id
-4. Deliver     Agent fetches resource via signed URL → time-limited, identity-bound
-5. Report      Agent calls ReportUsage → reports consumption (tokens, pages, minutes, records)
-6. Dispute     If needed: DisputeTransaction → evidence-based dispute with report_id
-```
+Before any sale, the provider sets its terms, serves `/.well-known/fora.json`, which names the Exchanges that sell its content, and installs the edge function on its CDN. The Exchange builds the provider's catalog: in FORA Server, its catalog importer reads the site's sitemap with the terms set in the publisher console, or the provider pushes the catalog with `CatalogService.PushResources`. The agent opens an account at the Exchange with `ExchangeService.Register`; a paid item bought without one is denied with `DENIAL_REASON_ACCOUNT_NOT_REGISTERED`.
 
-## What Makes It Universal
+Then one sale takes six steps:
 
-FORA was validated across **18 real-world scenarios** spanning 10 industries:
+<Steps>
 
-| Industry | Resource | Metering Unit | Validated |
-|----------|----------|---------------|-----------|
-| News/Media | Articles, podcasts, live broadcasts | tokens, minutes | UC1, UC14, UC16 |
-| Legal | Court filings, EU legislation, patents | pages, documents | UC3, UC4, UC5 |
-| Finance | Stock quotes, credit reports | records, minutes | UC6, UC7 |
-| Academic | Journal articles, preprints | tokens, articles | UC2 |
-| Medical | Clinical trials, brain MRI scans | records, studies | UC8, UC13 |
-| Government | Property records | records | UC9 |
-| Geospatial | Satellite imagery | sq_km | UC12 |
-| Pharma | Drug interaction databases | queries, interaction_pairs | UC10 |
-| Media Intelligence | Continuous news monitoring | alerts, articles | UC18 |
-| Composite | Due diligence packages | mixed | UC17 |
+1. **Discover.** The agent reads the provider's `/.well-known/fora.json` and finds the Exchanges that sell the content. A Broker can do this instead of the agent.
 
-The same protocol handles all of them. The differences are in the `ext` fields, not the protocol.
+2. **Query.** The agent calls `DiscoverResources` on an Exchange and gets Offers with pricing and attestations, each signed by the Exchange. A Broker can do this instead: it asks the Exchanges, checks their signed offers and returns them in order of relevance, as the Broker judges it.
+
+3. **Transact.** The agent calls `ExecuteTransaction` and gets delivery instructions: a signed URL the Exchange issues, which expires and may be bound to the agent's key, and, for a paid item, a `billing_id`. Through a Broker, one call buys offers from several Exchanges.
+
+4. **Deliver.** The agent fetches the resource from the provider's CDN with the signed URL. The edge function there checks the URL's signature and expiry and, when the URL is bound to the agent's key, that the fetcher holds that key, before it serves the resource. On the paths the provider licenses, it refuses an AI bot that comes without a signed URL.
+
+5. **Report.** The agent calls `ReportUsage` on the Exchange that sold the item and reports what it consumed: tokens, pages, minutes or records.
+
+6. **Dispute, if needed.** The agent calls `DisputeTransaction` on that Exchange with the `report_id` of its usage report and the evidence.
+
+</Steps>
+
+The Broker is optional: an agent can call an Exchange directly at every step. Reports and disputes always go from the agent to the Exchange that sold the item.
+
+Money moves outside the protocol: the Exchange operator bills the agent's account holder and pays the provider. See [How Money Flows](/getting-started/how-money-flows/).
+
+## One Protocol Across Industries
+
+The same messages price a news article by the token, a court filing by the page and satellite imagery by the square kilometer. Each offer names its metering unit in `Pricing.unit`:
+
+| Industry | Resource | `Pricing.unit` |
+|----------|----------|----------------|
+| News/Media | Articles, podcasts, live broadcasts | `tokens`, `minutes` |
+| Legal | Court filings, legislation, patents | `pages`, `items` |
+| Finance | Stock quotes, credit reports | `records`, `minutes` |
+| Academic | Journal articles, preprints | `tokens`, `items` |
+| Medical | Clinical trial data, imaging studies | `records`, `images` |
+| Government | Property records | `records` |
+| Geospatial | Satellite imagery | `sq-km` |
+| Pharma | Drug interaction lookups | `calls`, `pharma:interaction_pairs` |
+| Media monitoring | Continuous news feeds | `minutes` |
+
+Every unit in the table is in the protocol's [registered list](/reference/proto-fora/#pricingmodel) except `pharma:interaction_pairs`. A unit outside that list carries a namespace of its own, as that one does; a bare unregistered unit is rejected when the catalog is ingested. Through a Broker, one purchase can hold items from several Exchanges, each priced in its own unit.
+
+What differs between industries is the unit, the resource's mutability and the domain metadata in the `ext` fields. The messages are the same.
 
 ## Key Design Decisions
 
 ### Unit-agnostic metering
 
-Pricing uses `unit_cost` + `unit` + `estimated_quantity`. No assumption about what's being metered. Tokens, pages, seconds, records, sq_km, interaction_pairs — all work.
+Pricing uses `rate` + `unit` + `estimated_quantity`: a metered purchase charges the estimate times the rate, or one unit at the rate when the offer states no estimate. `unit_cost` is the normalized price per unit, such as per token for text or per second for video, in the Exchange's base currency. No assumption about what's being metered. The unit is a registered one, such as `tokens`, `pages`, `seconds`, `records` or `sq-km`, or a namespaced one of your own, such as `pharma:interaction_pairs`.
 
 ### Content mutability
 
-Every resource declares whether it's **static** (articles, patents — hash is stable), **dynamic** (credit reports, drug databases — content changes between offer and fetch), or **live** (streaming feeds — no content exists at offer time). This drives hash verification, attestation cadence, and dispute rules.
+Every resource declares whether it's **static** (articles, patents — hash is stable), **dynamic** (credit reports, drug databases — content changes between offer and fetch), or **live** (streaming feeds — no content exists at offer time). This decides whether the agent checks the content hash on delivery, and whether a hash mismatch can be disputed.
 
 ### Data freshness
 
-Offers carry `data_as_of` — when the data was current. Agents set `max_data_age` — how fresh they need it. The Broker filters. Essential for credit reports (days), stock quotes (seconds), drug databases (weeks).
+Offers carry `data_as_of` — when the data was current. Agents set `max_data_age` — how fresh they need it. The Broker should drop offers older than that. Examples: a credit report updated within the last week, a drug database updated this month.
 
 ### Extension profiles
 
-A three-layer governance model prevents fragmentation:
+Domain metadata is governed in three layers:
 
 | Layer | What | Example |
 |-------|------|---------|
-| **Core proto** | Fields every implementation supports | `resource_mutability`, `data_as_of` |
-| **Standard extensions** | Cross-domain conventions in `fora.*` namespace | `fora.compliance.dua_required` |
-| **Domain profiles** | Industry-specific vocabularies | `news.iptc_guid`, `academic.doi`, `legal.eli` |
+| **Core proto** | Fields defined in `fora.proto` | `resource_mutability`, `data_as_of` |
+| **Standard extensions** | Cross-domain conventions in `fora.*` namespace | `fora.attestation.claims_schema` |
+| **Domain profiles** | Industry-specific vocabularies | `news.iptc_guid`, `academic.pmid`, `legal.legislation.eli` |
 
 Exchanges declare which profiles they support. Agents declare which profiles they understand. A Broker forwards the agent's profiles to each Exchange, and each Exchange answers for its own.
 
-Three v1 profiles exist:
-- **fora-news-v1** — articles, podcasts, broadcasting (IPTC NewsML-G2, Podcasting 2.0)
-- **fora-academic-v1** — scholarly articles, preprints (CrossRef, OpenAlex, COUNTER 5.1)
-- **fora-legal-v1** — legislation, case law, patents (ELI, ECLI, Akoma Ntoso)
+Six v1 profiles exist:
+- **[fora-news-v1](/protocol/ext-news/)** — articles, podcasts, broadcasting (IPTC NewsML-G2, Podcasting 2.0)
+- **[fora-academic-v1](/protocol/ext-academic/)** — scholarly articles, preprints (CrossRef, OpenAlex, COUNTER 5.1)
+- **[fora-legal-v1](/protocol/ext-legal/)** — legislation, case law, patents (ELI, ECLI, Akoma Ntoso)
+- **[fora-comp-v1](/protocol/ext-comp/)** — IAB Tech Lab CoMP V1 metadata
+- **[fora-c2pa-v1](/protocol/ext-c2pa/)** — C2PA provenance results and training and mining restrictions
+- **[fora-music-v1](/protocol/ext-music/)** — music recordings and the works they record (ISRC, ISWC, IPI)
 
 ### Identity and authorization
 
@@ -95,9 +115,9 @@ Every request carries a `Requester` message — a universal actor identity with 
 
 **RequesterType** classifies the caller: `AGENT` (autonomous), `HUMAN_TOOL` (copilot), `SERVICE` (enterprise pipeline), `DELEGATED` (acting on behalf of another), `RESEARCH` (batch data collection).
 
-**Scopes** filter what the Requester can access. Examples: `subscription:marketdata-2026`, `credit:read`, `academic:*`, `*` (unrestricted). The Exchange returns only resources matching the declared scopes.
+**Scopes** are the Requester's signed statement of what it is entitled to. Examples: `subscription:marketdata-2026`, `credit:read`, `academic:*`, `*` (unrestricted). They decide which license terms the Exchange presents, and a Requester never learns of a resource outside its scopes. The Exchange does not verify them; a false statement is traceable to the key that signed it. An Exchange may instead gate a term behind a verified delegation; then only the delegation chain's verified scopes count for that term.
 
-**Delegation with JWTs** enables offline-verifiable, narrowable authorization. A principal (organization, IAM, upstream agent) issues a delegation JWT. Each holder in the chain can narrow permissions by issuing a child delegation JWT — restrict scopes, lower spend caps, shorten expiry — but can never widen them. Zero round trips to the original issuer, regardless of how many delegation levels deep.
+**Delegation with JWTs** enables offline-verifiable, narrowable authorization. An issuer the verifier trusts, such as the resource owner or a subscription provider, issues a root delegation JWT bound to a principal's key. Each holder in the chain can narrow permissions by issuing a child delegation JWT — restrict scopes, lower spend caps, shorten expiry — but can never widen them. A chain holds at most four tokens, and the verifier needs only the issuer's public key, with no call to the issuer.
 
 **Request signatures** are carried in the HTTP headers, whoever sends the request. Each party signs the request it sends with one labeled RFC 9421 HTTP Message Signature. A Broker originates its own discovery queries and re-packages execute requests, signing each alone, and on a purchase the agent's identity and consent travel in the body as `AgentAcceptance`. The Exchange counts the signatures against its `max_intermediary_hops` before verifying any, then verifies the request signature.
 
@@ -111,30 +131,18 @@ Providers and third-party verifiers sign claims about resources using Ed25519. T
 
 ### Dispute chain
 
-No fire-and-forget disputes. The agent must file a `UsageReport` before disputing, creating an evidence chain. Routine disputes (delivery failure, hash mismatch on static content) auto-resolve in under one second.
+No fire-and-forget disputes. The agent must file a `UsageReport` before disputing, creating an evidence chain: each `DisputeRequest` names the transaction and the `report_id` of its usage report. The Exchange refuses a filing that fails a check, such as a missing usage report or a closed dispute window, with a typed reason. The protocol standardizes the dispute signal, its states and its outcomes (credit, redelivery, rejection or further investigation); how an Exchange decides a dispute is up to the Exchange. See [Dispute Resolution](/protocol/dispute-resolution/).
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                       DEMAND SIDE                           │
-│                                                             │
-│   AI Agent ──→ Broker                                 │
-│   (needs resources)   (routes queries, compares offers,     │
-│                        enforces budgets, tracks freshness)  │
-└───────────────────────────┬─────────────────────────────────┘
-                            │ DiscoverResources / ExecuteTransaction
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                       SUPPLY SIDE                           │
-│                                                             │
-│   Exchange ──→ Resource Provider ──→ Delivery Endpoint   │
-│   (catalog, pricing,   (owns content,    (CDN, API, PACS,  │
-│    transactions)        sets terms)       DICOMweb, etc.)   │
-└─────────────────────────────────────────────────────────────┘
-```
+FORA has four roles, and FORA Server has a component for each. The agent is the AI platform's own software, and the provider is the publisher's own site and CDN, where it deploys only the edge function.
 
-The Broker is optional — agents can query Exchanges directly. But it adds multi-exchange comparison, budget enforcement, freshness filtering, and profile-based routing.
+- **Agent**, the Requester: finds, buys and uses resources. An AI assistant in a chat app has no safe place for a key and no domain to publish one on. FORA Server's optional [Identity Service](/components/identity/overview/) gives it both, behind an MCP endpoint: its own subdomain, and a key the service keeps and signs its requests with. An agent with an SDK holds and signs with its own key.
+- **Broker**, optional: turns one request, a list of URLs or a description in plain words, into signed offers from the Exchanges that sell those resources. It presents them in order of relevance, as it judges it, and the agent, which works with a Broker it trusts, decides which to take. It can also buy offers from several Exchanges in one call. FORA Server's [Broker](/components/broker/overview/) plays this role.
+- **Exchange**: holds the catalog and terms, signs offers, records each sale, issues signed URLs, and takes usage reports and disputes. FORA Server's Exchange plays this role, with its catalog importer. The publisher console is a separate, optional service the Exchange operator runs, where a publisher registers its sites and sets its terms.
+- **Provider**, the publisher: owns the content, sets the terms and serves `/.well-known/fora.json`. It runs FORA Server's edge function on its CDN.
+
+Through the Identity Service's MCP endpoint, an agent registers at an Exchange, discovers and buys through the Broker, and reports usage to the Exchange. Its `fora_execute` tool fetches the content for the agent by default. An agent files a dispute through an SDK, calling `DisputeTransaction` itself.
 
 ## Scope
 
@@ -149,11 +157,12 @@ FORA covers **metered access to resources that exist**. The test: "Does the reso
 
 ## What Exists Today
 
-- **Protocol specification** — protobuf IDL with generated Go and TypeScript SDKs
-- **Three extension profiles** — news, academic, legal (spec + JSON Schema each)
-- **18-scenario validation** — cross-industry proof that the protocol works
-- **Working proof of concept** — bot detection, exchange discovery, signed URL delivery
-- **Alignment with IAB standards** — layers on RSL (terms) and CoMP (metadata)
+- **The wire format**: the `fora.v1` and `fora.admin.v1` protobuf packages, with a [JSON Schema](/reference/json-schemas/) for each message. See [Proto: FORA v1](/reference/proto-fora/).
+- **SDKs in three languages**: <a href={PACKAGES.go.url}><code>{PACKAGES.go.coordinate}</code></a> for Go, <a href={PACKAGES.ts.url}><code>{PACKAGES.ts.coordinate}</code></a> on npm and <a href={PACKAGES.python.url}><code>{PACKAGES.python.coordinate}</code></a> on PyPI.
+- **Six extension profiles**: [news](/protocol/ext-news/), [academic](/protocol/ext-academic/), [legal](/protocol/ext-legal/), [CoMP](/protocol/ext-comp/), [C2PA](/protocol/ext-c2pa/) and [music](/protocol/ext-music/).
+- **Two live demos** on a demo Exchange. In [First License](/getting-started/poc-walkthrough/), an agent buys a license to an article whose site refuses its direct request. In [Music](/getting-started/live-demo-music/), an agent buys two different licenses to the same track.
+- **FORA Server**: an [open-source implementation](https://github.com/FORA-Protocol/reference-implementation) of the Exchange, the Broker, an identity service with an MCP adapter, and the edge function.
+- **The standards it builds on**: IAB Tech Lab's CoMP V1 is mapped field for field and carried as the `fora-comp-v1` profile. The RSL 1.0 AI-use terms seed FORA's restriction vocabulary. See [Standards Layering](/protocol/standards-layering/).
 
 ## Next Steps
 
