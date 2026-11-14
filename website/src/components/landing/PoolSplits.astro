@@ -1,0 +1,133 @@
+---
+// Three ways to split a royalty pool, as three small pictures of the same
+// month: two listeners pay $10 each, one plays artist A 90 times, the other
+// plays artist B 10 times. Each picture is inline SVG in RoyaltyFlow's visual
+// grammar, with its text equivalent in the caption under it. The page passes
+// the words; the numbers in the pictures are fixed here. Used on
+// /resources/music-dsp/.
+type Kind = 'prorata' | 'listener' | 'weighted';
+interface Item {
+  kind: Kind;
+  title: string;
+  /** The allocation rule, as a formula. */
+  rule: string;
+  /** What the picture shows, in words. May hold inline HTML. */
+  text: string;
+  /** Who splits this way, with sources. May hold inline HTML. */
+  who: string;
+  /** How a FORA operator publishes and runs the rule. May hold inline HTML. */
+  fora: string;
+}
+interface Props {
+  items: Item[];
+}
+const { items } = Astro.props;
+
+const marker = (p: string) => `<defs>
+    <marker id="${p}-ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead2"/></marker>
+  </defs>`;
+const listeners = (bSub: string) => `<rect class="box" x="8" y="6" width="134" height="46" rx="8"/>
+  <text class="t" x="75" y="25" text-anchor="middle">Listener 1</text>
+  <text class="s" x="75" y="42" text-anchor="middle">$10 · 90 plays of A</text>
+  <rect class="box" x="158" y="6" width="134" height="46" rx="8"/>
+  <text class="t" x="225" y="25" text-anchor="middle">Listener 2</text>
+  <text class="s" x="225" y="42" text-anchor="middle">${bSub}</text>`;
+const artists = (a: string, am: string, b: string, bm: string) => `<path class="arrow accent" d="M75,126 V150" marker-end="url(#P-ah2)"/>
+  <path class="arrow accent" d="M225,126 V150" marker-end="url(#P-ah2)"/>
+  <rect class="box" x="8" y="152" width="134" height="52" rx="8"/>
+  <text class="t" x="75" y="173" text-anchor="middle">${a}</text>
+  <text class="m" x="75" y="193" text-anchor="middle">${am}</text>
+  <rect class="box" x="158" y="152" width="134" height="52" rx="8"/>
+  <text class="t" x="225" y="173" text-anchor="middle">${b}</text>
+  <text class="m" x="225" y="193" text-anchor="middle">${bm}</text>`;
+const pool = (sub: string) => `<path class="arrow accent" d="M75,52 V64 H146 V78" marker-end="url(#P-ah2)"/>
+  <path class="arrow accent" d="M225,52 V64 H154 V78" marker-end="url(#P-ah2)"/>
+  <rect class="box strong" x="8" y="80" width="284" height="46" rx="8"/>
+  <text class="t" x="150" y="99" text-anchor="middle">One pool: $20</text>
+  <text class="s" x="150" y="116" text-anchor="middle">${sub}</text>`;
+
+const BODY: Record<Kind, { label: string; body: string }> = {
+  prorata: {
+    label: 'Pro-rata: both listeners pay $20 into one pool of 100 plays. Artist A gets 20 × 90 ÷ 100 = $18, artist B gets $2.',
+    body: `${listeners('$10 · 10 plays of B')}
+  ${pool('100 plays in all')}
+  ${artists('Artist A: $18', '20 × 90 ÷ 100', 'Artist B: $2', '20 × 10 ÷ 100')}`,
+  },
+  listener: {
+    label: 'Per listener: each listener\'s $10 goes to the artists that listener played. Listener 1 played only A and listener 2 only B, so each artist gets $10.',
+    body: `${listeners('$10 · 10 plays of B')}
+  <path class="arrow accent" d="M75,52 V78" marker-end="url(#P-ah2)"/>
+  <path class="arrow accent" d="M225,52 V78" marker-end="url(#P-ah2)"/>
+  <rect class="box strong" x="8" y="80" width="134" height="46" rx="8"/>
+  <text class="t" x="75" y="99" text-anchor="middle">Listener 1's $10</text>
+  <text class="s" x="75" y="116" text-anchor="middle">all their plays of A</text>
+  <rect class="box strong" x="158" y="80" width="134" height="46" rx="8"/>
+  <text class="t" x="225" y="99" text-anchor="middle">Listener 2's $10</text>
+  <text class="s" x="225" y="116" text-anchor="middle">all their plays of B</text>
+  ${artists('Artist A: $10', '10 × 100%', 'Artist B: $10', '10 × 100%')}`,
+  },
+  weighted: {
+    label: 'Weighted: one pool of $20. Listener 2 searched for B, so each of B\'s plays counts twice: 90 + 20 = 110 weighted plays. Artist A gets 20 × 90 ÷ 110 = $16.36, artist B gets 20 × 20 ÷ 110 = $3.64.',
+    body: `${listeners('$10 · 10 plays of B')}
+  ${pool('B\'s plays count twice: 90 + 20 = 110')}
+  ${artists('Artist A: $16.36', '20 × 90 ÷ 110', 'Artist B: $3.64', '20 × 20 ÷ 110')}`,
+  },
+};
+
+const svg = (kind: Kind) => {
+  const p = `ps-${kind}`;
+  const { label, body } = BODY[kind];
+  return `<svg viewBox="0 0 300 212" role="img" aria-label="${label.replace(/"/g, '&quot;')}" xmlns="http://www.w3.org/2000/svg">
+  ${marker(p)}
+  ${body.replaceAll('#P-ah2', `#${p}-ah2`)}
+</svg>`;
+};
+---
+<div class="splits">
+  {items.map((it) => (
+    <figure class="split">
+      <p class="split-title">{it.title}</p>
+      <Fragment set:html={svg(it.kind)} />
+      <figcaption>
+        <p class="split-rule"><code>{it.rule}</code></p>
+        <p set:html={it.text} />
+        <p class="split-who" set:html={it.who} />
+        <p class="split-fora" set:html={`<b>On FORA:</b> ${it.fora}`} />
+      </figcaption>
+    </figure>
+  ))}
+</div>
+
+<style>
+  .splits {
+    --d-box: #ffffff;
+    --d-box-strong: #e6eaff;
+    --d-stroke: #8a8aa0;
+    --d-accent: #3d58d6;
+    --d-text: #12121a;
+    --d-muted: #55556a;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0 0;
+  }
+  .split { margin: 0; background: #fff; border: 1px solid #e4e4ec; border-radius: 12px; padding: 1rem 1rem 1.25rem; display: flex; flex-direction: column; }
+  .split-title { font: 600 0.75rem var(--mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--d-accent); margin: 0 0 0.5rem; }
+  .split :global(svg) { width: 100%; height: auto; display: block; }
+  .split :global(.box) { fill: var(--d-box); stroke: var(--d-stroke); stroke-width: 1.2; }
+  .split :global(.box.strong) { fill: var(--d-box-strong); stroke: var(--d-accent); }
+  .split :global(.t) { fill: var(--d-text); font: 600 13px var(--sans); }
+  .split :global(.s) { fill: var(--d-muted); font: 400 11.5px var(--sans); }
+  .split :global(.m) { fill: var(--d-text); font: 500 11.5px var(--mono); }
+  .split :global(.arrow) { stroke: var(--d-stroke); stroke-width: 1.4; fill: none; }
+  .split :global(.arrow.accent) { stroke: var(--d-accent); }
+  .split :global(.ahead2) { fill: var(--d-accent); }
+  figcaption { margin-top: 1rem; display: grid; gap: 0.625rem; }
+  figcaption p { margin: 0; font-size: 0.9375rem; line-height: 1.55; color: #444456; }
+  figcaption :global(a) { color: var(--accent-dark); }
+  figcaption :global(b) { color: var(--d-text); }
+  .split-rule code { display: block; font: 500 0.8125rem/1.5 var(--mono); color: var(--d-text); background: #f3f4fb; border-radius: 6px; padding: 0.5rem 0.625rem; overflow-wrap: anywhere; }
+  .split-who { font-size: 0.875rem; }
+  .split-fora { border-top: 1px solid #e4e4ec; padding-top: 0.625rem; }
+  @media (max-width: 900px) { .splits { grid-template-columns: 1fr; max-width: 30rem; } }
+</style>
