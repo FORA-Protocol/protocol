@@ -11,8 +11,11 @@ interface Props {
   /** The heading; may hold <br> and one <em> phrase, shown in blue. */
   title: string;
   sub: string;
+  /** ISO date (YYYY-MM-DD) a resource page was last updated; shown under the lead. */
+  updated?: string;
 }
-const { current, badge, title, sub } = Astro.props;
+const { current, badge, title, sub, updated } = Astro.props;
+const fmt = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 const hasAside = Astro.slots.has('aside');
 ---
 <section class="hero audience-hero">
@@ -22,6 +25,7 @@ const hasAside = Astro.slots.has('aside');
       <div class="hero-badge">{badge}</div>
       <h1 class="animate-in delay-1" set:html={title} />
       <p class="hero-sub animate-in delay-2">{sub}</p>
+      {updated && <p class="hero-updated animate-in delay-2">Updated <time datetime={updated}>{fmt(updated)}</time></p>}
       <div class="hero-buttons animate-in delay-3"><slot /></div>
     </div>
     {hasAside && <div class="audience-aside animate-in delay-3"><slot name="aside" /></div>}
@@ -32,6 +36,7 @@ const hasAside = Astro.slots.has('aside');
   .audience-hero { min-height: 0; }
   .audience-hero .hero-content { padding: 5rem 2rem; }
   .audience-text { display: flex; flex-direction: column; align-items: center; }
+  .hero-updated { margin: -0.75rem 0 1.75rem; font-family: var(--mono); font-size: 0.8125rem; letter-spacing: 0.04em; color: var(--gray, #8a8aa0); }
 
   .hero-content.with-aside {
     display: grid;

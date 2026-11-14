@@ -1,0 +1,661 @@
+---
+// Resource: what a fair AI licensing collective looks like for a web
+// publisher, how one works on FORA, and how the eight schemes running or
+// announced today compare. Scheme facts are quoted from each scheme's own
+// documents; every claim, with its quote and source, is on the evidence page
+// (src/data/collective-evidence.ts), so section references live there, not
+// here. Content bands are light and set in 18px text; the styles at the foot
+// scope that to this page through .tc. Music has its own page,
+// /resources/music-dsp/. Text with links is HTML and goes through set:html;
+// the URLs are in SRC.
+import LandingLayout from '../../layouts/LandingLayout.astro';
+import AudienceHero from '../../components/landing/AudienceHero.astro';
+import { resourceUpdated } from '../../data/resources';
+import Band from '../../components/landing/Band.astro';
+import FaqGrid from '../../components/landing/FaqGrid.astro';
+import ClosingCta from '../../components/landing/ClosingCta.astro';
+import PullQuote from '../../components/landing/PullQuote.astro';
+import SourceList from '../../components/landing/SourceList.astro';
+import ArticleJourney from '../../components/landing/ArticleJourney.astro';
+import Scorecard from '../../components/landing/Scorecard.astro';
+
+// Every external source the page cites.
+const SRC = {
+  ilcPress: 'https://internetcollective.org/press/ilc-launch-2026',
+  ilcFaq: 'https://internetcollective.org/faq',
+  ilcPublishers: 'https://internetcollective.org/publishers',
+  ilcGuide: 'https://internetcollective.org/docs/publishers/onboard',
+  prorataTerms: 'https://gist.ai/support/ga/wpnewpartner',
+  prorataPublishers: 'https://prorata.ai/solutions/publishers-and-creators',
+  cometPlus: 'https://www.perplexity.ai/hub/blog/introducing-comet-plus',
+  cometPartners: 'https://www.perplexity.ai/hub/blog/announcing-comet-plus-launch-partners',
+  pplxPricing: 'https://www.perplexity.ai/hub/pricing',
+  pplxDigiday: 'https://digiday.com/media/how-perplexity-new-revenue-model-works-according-to-its-head-of-publisher-partnerships/',
+  cnnSuit: 'https://www.thewrap.com/industry-news/public-policy-legal/cnn-sues-perplexity-ai-stealing-news-chatbot-copyright/',
+  cccSheet: 'https://www.copyright.com/wp-content/uploads/2026/03/AISTL-Overview-Sheet.pdf',
+  plsNews: 'https://www.pls.org.uk/news-events-policy/news/pls-offers-new-collective-ai-licensing-opportunity-to-publishers/',
+  plsCharter: 'https://www.pls.org.uk/distribution-charter/',
+  plsFlyer: 'https://www.pls.org.uk/media/2425/pls-opt-in-licences_flyer_sept26-digital.pdf',
+  dpcmoReport: 'https://dpcmo.dk/wp-content/uploads/2026/06/Gennemsigtighedsrapport-2025-1.pdf',
+  dpcmoProrata: 'https://dpcmo.dk/2025/12/10/prorata-partners-with-dpcmo-to-launch-the-first-decentralized-sovereign-ai-answer-engine/',
+  dpcmoOpenai: 'https://dpcmo.dk/2026/02/27/a-united-danish-media-industry-takes-openai-to-court/',
+  kopinorAgreement: 'https://kopinor.no/wp-content/uploads/2026/02/Agreement-on-the-use-of-copyright-protected-material-in-the-training-of-Norwegian-language-models.pdf',
+  ndpNews: 'https://ioplus.nl/en/posts/dutch-news-publishers-contribute-to-developing-gpt-nl',
+  gptnlRevenue: 'https://gpt-nl.nl/publish/pages/7064/annex_6_revenue_sharing_mechanism.pdf',
+  gptnlTemplate: 'https://gpt-nl.nl/publish/pages/7064/template_content_contributor_agreement_oktober_2025.pdf',
+  gptnlProtocol: 'https://gpt-nl.nl/publish/pages/7064/annex_2_training_content_protocol.pdf',
+  gptnlCharter: 'https://gpt-nl.nl/publish/pages/7064/annex_3_governance_charter.pdf',
+  zurich: 'https://www.netzwoche.ch/news/2025-04-11/verlegerverbaende-fordern-regeln-fuer-den-umgang-von-ki-mit-journalistischen',
+  kopinorPayout: 'https://kommunikasjon.ntb.no/pressemelding/19066576/kopinors-storste-utbetaling-noensinne?publisherId=17848361',
+};
+const a = (href: string, text: string) => `<a href="${href}">${text}</a>`;
+
+const EVIDENCE = '/resources/transparent-collective/evidence/';
+
+// The page's main point, stated once here and once in the selection section.
+const SELECTION = 'None of the eight schemes below publishes how an AI system picks whose content to use in an answer, and in a pool split by use that pick decides who gets paid.';
+
+// The opening diagram: one article, followed through a pool today and through
+// a collective on FORA. "A pool today" sums up the eight schemes, so each cell
+// is worded to hold for all eight (scorecard.md, matrix rows 9, 13 to 17, 24).
+const JOURNEY = {
+  title: 'Your article is used in an AI answer',
+  columns: ['A pool today', 'A collective on FORA'] as [string, string],
+  input: {
+    label: 'What you put in',
+    today: { main: 'The uses the scheme defines: every AI use, or a fixed list.' },
+    fora: { main: 'Your own terms, as simple or as detailed as you want.' },
+  },
+  steps: [
+    {
+      label: 'Picked',
+      today: { main: 'The AI company\'s or the operator\'s own system', sub: 'No scheme publishes how it picks for an answer' },
+      fora: { main: 'The operator\'s search', sub: 'The operator can publish the method' },
+    },
+    {
+      label: 'Counted',
+      today: { main: 'The payer\'s own report or engine', sub: 'Or no count at all' },
+      fora: { main: 'A signed record of every fetch', sub: 'The payer didn\'t write it' },
+    },
+    {
+      label: 'Split',
+      today: { main: 'Undisclosed rules or weights', sub: 'In seven of the eight schemes' },
+      fora: { main: 'A published formula and published weights' },
+    },
+    {
+      label: 'You see',
+      today: { main: 'A statement, at most' },
+      fora: { main: 'Your own records', sub: 'You can redo the sum' },
+    },
+  ],
+  legend: ['You can\'t look inside', 'You can check it'] as [string, string],
+  caption: 'The money takes the same path on both sides. The left column sums up the eight schemes below. CCC and CLA haven\'t said how they will count AI use, and one scheme, GPT-NL, publishes its split rule.',
+};
+
+// Each formula is a list of pieces. A line breaks only between pieces, so a
+// narrow screen never splits an expression in the middle.
+const FORMULA: { label: string; parts: string[] }[] = [
+  { label: 'each AI company pays', parts: ['min( cap,', 'max( rate × its revenue,', 'floor × fetches ) )'] },
+  { label: 'your pay', parts: ['( pool − operator\'s cut )', '× your weight', '÷ all members\' weight'] },
+];
+
+// A few sentences per scheme, from its own documents. `wide` gives ILC, the
+// scheme most publishers are weighing, the full row; the eighth card takes the
+// last row to itself.
+const SCHEMES = [
+  {
+    name: 'Internet Licensing Collective (ILC)',
+    tag: 'Live · United States',
+    wide: true,
+    text: `ILC ${a(SRC.ilcPress, 'launched on November 12, 2026')}, with Yahoo Scout as its first licensee. An AI company takes one blanket license for a negotiated fee, which ILC doesn't publish, and reports its own use. Two terms favor the publisher: ${a(SRC.ilcFaq, 'participation is non-exclusive')}, and a publisher can exclude a specific AI company. Uses are all or nothing. ${a(SRC.ilcPublishers, 'ILC\'s site')} tells publishers: "Choose which AI uses you authorize". Its participation agreement sets the uses in each AI company's license, and the check in ILC's publisher portal accepts only a license declaration, the file where a publisher states its terms, that grants every AI use, training included. The launch release says "There is no black box". The Royalty Distribution Policy that ILC shows publishers in its portal says the detailed calculations "are not publicly disclosed".`,
+  },
+  {
+    name: 'ProRata / Gist',
+    tag: 'Live · the operator is the buyer',
+    text: `${a(SRC.prorataTerms, 'ProRata\'s partner agreement')} puts "fifty percent (50%) of the Total Revenue" of its own answer products into a pool for all content partners, and ProRata's attribution engine splits it. No outside AI company pays in. Partner content "is never used for model training", ${a(SRC.prorataPublishers, 'ProRata says')}.`,
+  },
+  {
+    name: 'Perplexity Comet Plus',
+    tag: 'Launched in 2025 · the operator is the buyer',
+    text: `Perplexity ${a(SRC.cometPlus, 'announced Comet Plus')} in August 2025: subscription revenue goes to participating publishers, "minus a small portion for Perplexity's compute costs", split by "human visits, search citations, and agent actions". Perplexity runs the pool and is its only payer. Its ${a(SRC.cometPartners, 'launch partners')} were Condé Nast, Fortune, Le Figaro, Le Monde, the Los Angeles Times and The Washington Post. Perplexity's ${a(SRC.pplxPricing, 'pricing page')} doesn't list Comet Plus. CNN's short agreement with Perplexity never became final, and CNN ${a(SRC.cnnSuit, 'sued Perplexity')} in May 2026.`,
+  },
+  {
+    name: 'CCC AI Systems Training License',
+    tag: 'Offered · no licensee named · United States',
+    text: `The Copyright Clearance Center describes ${a(SRC.cccSheet, 'this license')} as "a voluntary, non-exclusive collective license" for training AI systems and for "the subsequent use of the trained system as a service". CCC tells rightsholders: "This license is open for your participation." Its public pages name no licensee, no price and no distribution rule for it.`,
+  },
+  {
+    name: 'CLA, with PLS and ALCS',
+    tag: 'Sign-up open · no license sold · United Kingdom',
+    text: `The UK's Copyright Licensing Agency is building a generative AI license with PLS, which represents publishers, and ALCS, which represents authors. CLA and PLS are regulated collectives. Publishers decide "the type of generative AI use they wish to license for", ${a(SRC.plsNews, 'PLS says')}, and it names two: training and retrieval. Publishers that license through NLA Media Access can't join. No AI licensee has been announced, and the license terms sit behind PLS's member login.`,
+  },
+  {
+    name: 'DPCMO',
+    tag: 'Test with ProRata · Denmark',
+    text: `Denmark's collective for press publishers is regulated, and its members vote in a general assembly. Its one signed AI agreement is a ${a(SRC.dpcmoProrata, 'framework with ProRata')}, which its ${a(SRC.dpcmoReport, 'transparency report')} calls a test; each member opts in on its own. In February 2026, DPCMO ${a(SRC.dpcmoOpenai, 'took OpenAI to court')}.`,
+  },
+  {
+    name: 'Kopinor and the National Library of Norway',
+    tag: 'Live and paid · Norway · closed',
+    text: `Kopinor licensed the National Library to train Norwegian language models on newspapers. ${a(SRC.kopinorAgreement, 'The contract')} sets "an annual total remuneration of NOK 45,000,000 (in 2026)", the one published price among these schemes. Kopinor ${a(SRC.kopinorPayout, 'paid NOK 44.1 million')} to MBL, the Norwegian media businesses' association. It has one licensee and covers Norwegian press only.`,
+  },
+  {
+    name: 'NDP Nieuwsmedia and GPT-NL',
+    tag: 'Live · no revenue shown · Netherlands · closed',
+    text: `NDP Nieuwsmedia, the Dutch news publishers' association, ${a(SRC.ndpNews, 'licensed articles')} from more than 30 news titles, plus the news agency ANP, to TNO, a public research body, to train the GPT-NL model. Contributors who choose revenue sharing split 50% of the net revenue from licensing the model; the template also offers no compensation, or a one-time payment. "TNO will retain 50% of Net Revenues", says ${a(SRC.gptnlRevenue, 'the published rule')}, and its half "will be re-invested" in the model. Each share is a token count times a quality multiplier. Publishers choose what to contribute, and TNO filters and weights it. Leaving takes six months' notice, and models already trained may be used for two more years. The ${a(SRC.gptnlTemplate, 'published terms')} are TNO's template; NDP's own contract isn't public. No paying licensee of the model and no payout has been shown. The license covers NDP's Dutch member titles only.`,
+  },
+];
+
+// The eight rows where the eight existing schemes differ from each other. Rows where
+// only FORA differs are in ADDS, not here. `key` marks the selection row.
+const SCORE = {
+  columns: ['ILC', 'ProRata / Gist', 'Perplexity Comet Plus', 'CCC', 'CLA / PLS', 'DPCMO', 'Kopinor', 'NDP / GPT-NL', 'On FORA'],
+  rows: [
+    {
+      q: 'Who pays you today?',
+      cells: [
+        'Yahoo Scout',
+        'ProRata itself, from its own products',
+        'Perplexity itself, from subscriptions',
+        'No licensee named',
+        'No licensee announced',
+        'ProRata, as a test',
+        'The National Library: NOK 45 million a year',
+        'TNO, from GPT-NL license revenue; no paying licensee shown',
+        'No one: no collective runs on FORA yet',
+      ],
+    },
+    {
+      q: 'Which uses do you license, and who picks them?',
+      cells: [
+        'Every AI use in each license; you can exclude a licensee or a section',
+        'Answers; no training; fixed',
+        'Pays on visits, citations and agent actions; choice not stated',
+        'Training; you opt into the license',
+        'You pick: training or retrieval',
+        'Retrieval; you opt in per deal',
+        'Training only; fixed',
+        'Training only; fixed',
+        'You pick, per term; a pool leaves training out',
+      ],
+    },
+    {
+      q: 'Who picks whose content gets used, and is the method published?',
+      key: true,
+      cells: [
+        'The AI company; method not published',
+        'ProRata\'s own engine; method not published',
+        'Perplexity\'s own engine; method not published',
+        'The AI company, from content it already buys; method not stated',
+        'You choose what to offer; the AI company\'s pick is not stated',
+        'ProRata\'s engine, in the test; DPCMO\'s documents don\'t say',
+        'The National Library "shall determine which publications are used"; method not published',
+        'You choose what to contribute; TNO filters and weights it for training, by a published rule',
+        'The operator\'s search; the ranking rule is the operator\'s own, and it can publish it',
+      ],
+    },
+    {
+      q: 'Who counts the use your share rests on?',
+      cells: [
+        'The AI company, in its own report',
+        'ProRata\'s attribution engine',
+        'Perplexity',
+        'Not stated for AI; licensee surveys in CCC\'s other licenses',
+        'Not stated for AI; licensee reports, audits and surveys in CLA\'s other licenses',
+        'ProRata\'s attribution engine',
+        'No one: a lump sum',
+        'TNO, once: your tokens in the training set, and their quality',
+        'Signed fetch records, with AI companies\' reports checked against them',
+      ],
+    },
+    {
+      q: 'Is the split rule published?',
+      cells: [
+        'Principles; the calculations "are not publicly disclosed"',
+        'The formula, not the attribution weights',
+        'Three categories of traffic',
+        'No',
+        'General splits; no AI rule yet',
+        'Not online',
+        'General guidelines; the split among newspapers not found',
+        'Yes, in TNO\'s template: token count times a quality multiplier',
+        'Every weight and threshold',
+      ],
+    },
+    {
+      q: 'What does the operator keep?',
+      cells: [
+        'Its costs, "projected at or below 10%"',
+        '50%',
+        '"a small portion"; 20% in press reports',
+        'Not published',
+        '11% (CLA) and 6% (PLS) on standard licenses; not stated for AI',
+        'Not published',
+        'Not published for this money',
+        '50%, re-invested in the model',
+        'The operator sets it, and publishes it',
+      ],
+    },
+    {
+      q: 'Is it regulated, and do members vote?',
+      cells: [
+        'Not regulated; no member vote; a publisher steering committee',
+        'A private company; no vote',
+        'A private company; no vote found',
+        'Not regulated; no vote found',
+        'Regulated; publishers vote through trade associations',
+        'Regulated; members vote',
+        'Regulated; member organizations vote',
+        'Not regulated; no direct vote; a contributors\' Content Board',
+        'Not regulated; each operator sets its governance',
+      ],
+    },
+    {
+      q: 'Does it reach copies an AI company took before any license?',
+      cells: [
+        'Yes',
+        'No: retrieval only',
+        'Not stated',
+        'Not stated',
+        'No: "No retrospective cover"',
+        'No; DPCMO is suing OpenAI over it',
+        'The library\'s own collections, yes; earlier training of its base models, no',
+        'No: it covers GPT-NL\'s own training only',
+        'No: a copy already held leaves no record to check',
+      ],
+    },
+  ],
+};
+
+// Points that no scheme's public documents offer and a collective on FORA
+// does. They are a list, not table rows.
+const ADDS = [
+  { title: 'A record of every fetch that the payer didn\'t produce.', text: 'In the six schemes that say how use is counted, the AI company reports its own use, the operator or the licensee counts it, or no one counts per use. CCC and CLA haven\'t said for AI. On FORA, every fetch is a transaction for one URL. The operator\'s Exchange, the marketplace that lists members\' content, signs the offer, and the AI company signs its acceptance.' },
+  { title: 'Reports checked against the records, every period.', text: 'The schemes\' public terms offer at most an audit or a dispute right. On FORA, the operator reconciles each AI company\'s report with the fetch records before it splits the pool.' },
+  { title: 'A share you can recompute.', text: 'Seven of the eight don\'t publish enough to redo the sum. GPT-NL publishes its rule; its public documents don\'t say whether a contributor gets the token counts and quality scores the sum needs. On FORA, your statement gives your weight, the total weight, the pool, the operator\'s cut and the version of the rule.' },
+  { title: 'Your own data, fetch by fetch.', text: 'ProRata sends monthly statements down to the article; ILC sends periodic ones and makes them confidential. None promises data per fetch. On FORA, you see each of your transactions, and the report filed against it, as it arrives.' },
+  { title: 'Your own priced terms beside the pool\'s.', text: 'Join the pool with one term for everything, or a term per section and per use. Terms you price yourself run next to it, and the same fetch records back both.' },
+];
+
+// "Around the world": what publishers' bodies outside the eight schemes are
+// doing about AI licensing, one line each (the Netherlands is the eighth
+// scheme, so it isn't repeated here). `tag` is one of:
+// live, test, announced, internal use only, litigation, complaint.
+const W = {
+  stim: 'https://www.cisac.org/Newsroom/society-news/stim-launches-worlds-first-collective-ai-music-licence',
+  gema: 'https://www.gema.de/en/w/generative-ai-licensing-model',
+  gemaPlai: 'https://www.gema.de/en/w/plai-by-gema-musikdatensatz',
+  kopiosto: 'https://kopiosto.fi/en/kopiosto/for-users-of-works/copying-of-publications-and-works/companies-and-other-organisations/frequently-asked-questions/',
+  sitra: 'https://www.sitra.fi/en/articles/ai-can-create-new-business-opportunities-for-media-a-pilot-project-tests-the-marketplace-concept/',
+  cedro: 'https://elderecho.com/un-paso-necesario-para-avanzar-en-el-uso-responsable-de-contenidos-por-la-ia',
+  dvp: 'https://presseagence.fr/paris-droits-voisins-et-ia-la-presse-attaque-de-nouveau-google-devant-lautorite-de-la-concurrence/',
+  apig: 'https://www.blogdumoderateur.com/google-ai-overviews-presse-francaise-saisit-autorite-concurrence/',
+  epc: 'https://www.epceurope.eu/post/european-publishers-council-files-formal-antitrust-complaint-against-google-over-ai-overviews-and-ai',
+  cjeu: 'https://www.dhnet.be/dernieres-depeches/2026/11/03/la-reutilisation-darticles-par-un-chatbot-peut-violer-le-droit-de-lue-6HDNHHLYVFEM3PWKNHFKWQXAUE/',
+  kpf: 'https://www.journalist.or.kr/news/article.html?no=56814',
+  daum: 'https://journalist.or.kr/news/article.html?no=61718',
+  nsk: 'https://www.pressnet.or.jp/statement/copyright/260420_16248.html',
+  jpSuits: 'https://www.theregister.com/2025/08/26/perplexity_asahi_nikkei_lawsuits/',
+  ani: 'https://spicyip.com/2026/07/training-chatgpt-on-copyrighted-works-prima-facie-protected-under-indian-copyright-act-delhi-high-court-refuses-interim-injunction-against-openai.html',
+  dpiit: 'https://intepat.com/blog/ai-training-copyright-india-dpiit-hybrid-model',
+  linc: 'https://joinlinc.com/ilc/',
+  auAgency: 'https://www.copyright.com.au/membership/ai-and-copyright-new-licensing-opportunities-for-members/collective-licensing-for-ai/',
+  auNbi: 'https://thenextweb.com/news/australia-news-bargaining-incentive-passes-parliament',
+  caOpenai: 'https://www.litigate.com/canadian-news-media-companies-v-openai-jurisdiction-motion',
+  caAnthropic: 'https://mobilesyrup.com/2026/10/19/canadian-publishers-launch-copyright-suit-against-ai-company-anthropic/',
+  brMeta: 'https://www.jornaldocomercio.com/economia/2026/11/1269286-justica-proibe-meta-de-usar-conteudo-jornalistico-sem-autorizacao.html',
+  brBill: 'https://www.migalhas.com.br/depeso/422014/ia-e-direitos-autorais-o-que-diz-o-pl-2-338-23-aprovado-pelo-senado',
+};
+const WORLD: { region: string; items: { tag: string; who: string; text: string }[] }[] = [
+  {
+    region: 'Europe',
+    items: [
+      { tag: 'Live · music', who: 'Sweden and Germany, music collectives.', text: `STIM runs ${a(W.stim, 'a collective license')} for AI training and output; its first licensee is Songfox. GEMA licensed ${a(W.gemaPlai, 'a training dataset')} to Klangio. It also publishes ${a(W.gema, 'a licensing model')} at 30% of an AI provider's net income, with no licensee found.` },
+      { tag: 'Internal use only · test', who: 'Finland, Kopiosto and a media pilot.', text: `Kopiosto's ${a(W.kopiosto, 'AI license')} covers a company's own staff, not AI developers. In ${a(W.sitra, 'a pilot')}, Finnish news media are "testing content use and pricing models with AI developers".` },
+      { tag: 'Announced', who: 'Spain, CEDRO.', text: `CEDRO signed as ${a(W.cedro, 'the exclusive Spanish partner')} of the RSL Collective, a name ILC's partner page still uses. It has no license yet.` },
+      { tag: 'Complaint', who: 'France, DVP and APIG.', text: `${a(W.dvp, 'DVP')} and ${a(W.apig, 'APIG')} each went to the competition authority in 2026 over Google's AI Overviews and AI Mode.` },
+      { tag: 'Complaint', who: 'European Union, European Publishers Council.', text: `It filed ${a(W.epc, 'an antitrust complaint')} over Google's AI Overviews. An Advocate General at the EU's top court ${a(W.cjeu, 'says')} chatbot answers can infringe press publishers' rights.` },
+    ],
+  },
+  {
+    region: 'Asia',
+    items: [
+      { tag: 'Live', who: 'Korea, Korea Press Foundation.', text: `It ${a(W.kpf, 'sells news data')} for AI training from the outlets it manages in trust, 97 of them in 2024. Each outlet sets its own price, and no buyer is named.` },
+      { tag: 'Announced', who: 'Korea, Daum.', text: `The portal ${a(W.daum, 'plans a pool')} of KRW 2 billion a year for partner outlets, split each quarter by how often its own AI summaries cite them.` },
+      { tag: 'Litigation', who: 'Japan, the newspaper association.', text: `It ${a(W.nsk, 'says')} AI training and AI search need permission. Nikkei and Asahi are ${a(W.jpSuits, 'suing Perplexity')}, as is Yomiuri.` },
+      { tag: 'Litigation', who: 'India, ANI v OpenAI.', text: `The Delhi High Court ${a(W.ani, 'refused an interim ban')}; ANI has appealed. A government committee has ${a(W.dpiit, 'proposed')} a mandatory training license paid into one collective.` },
+      { tag: 'Live', who: 'Asia, LINC.', text: `LINC, a Singapore company, ${a(W.linc, 'enrolls Asian publishers in ILC')} and other licensing channels. It names no AI licensee of its own.` },
+    ],
+  },
+  {
+    region: 'Australia',
+    items: [
+      { tag: 'Internal use only', who: 'Copyright Agency.', text: `It licenses business staff to use news in AI prompts; ${a(W.auAgency, 'a license for AI developers')} is at member consultation. The new ${a(W.auNbi, 'News Bargaining Incentive')} leaves AI answer services out.` },
+    ],
+  },
+  {
+    region: 'The Americas',
+    items: [
+      { tag: 'Litigation', who: 'Canada, news publishers.', text: `They are suing ${a(W.caOpenai, 'OpenAI')}, where the Ontario court kept jurisdiction, and ${a(W.caAnthropic, 'Anthropic')}.` },
+      { tag: 'Litigation', who: 'Brazil, ANJ.', text: `ANJ and two other media associations ${a(W.brMeta, 'won an injunction')} that bars Meta from using members' content for AI training. A Senate-passed ${a(W.brBill, 'AI bill')} would require pay for training.` },
+    ],
+  },
+];
+
+const AHEAD = [
+  { title: 'They run, and some pay.', text: `ILC has a licensee in Yahoo Scout. ProRata shares revenue with its partners under a public agreement. Kopinor has paid NOK 44.1 million to MBL. No collective runs on FORA yet.` },
+  { title: 'A legal mandate, and enforcement.', text: `CLA, PLS, DPCMO and Kopinor are regulated: the law sets what they must disclose, and a supervisor oversees them. DPCMO is ${a(SRC.dpcmoOpenai, 'suing OpenAI')}, and ILC's participation agreement lets it sue unlicensed AI companies in a publisher's name. FORA is a protocol. It has no mandate, and it takes no one to court.` },
+  { title: 'Copies AI companies already hold.', text: `ILC's license reaches content that AI companies already hold, "acquired before the RSL declaration was published", says ${a(SRC.ilcGuide, 'its guide')}. RSL is the format ILC uses for that declaration. CCC, CLA, Kopinor and NDP license training. A pool on FORA licenses what leaves a fetch record, and a model trained on a copy it already holds leaves none.` },
+  { title: 'A vote.', text: `DPCMO's members vote in a general assembly, as its ${a(SRC.dpcmoReport, 'transparency report')} sets out. FORA leaves governance to each operator.` },
+];
+
+const FAQ = [
+  { q: 'What does it cost to run a collective on FORA?', a: 'FORA is free. Each collective chooses how it prices its service.' },
+  { q: 'Can I keep one AI company out?', a: 'Yes. Scope your terms to the AI companies you license. Any you leave out get no offer.' },
+  { q: 'Does FORA hold the pool\'s money?', a: 'No. The operator collects the fees and pays publishers through its own payment provider. The protocol signs and records. It never moves money.' },
+  { q: 'Can I stay in ILC and join a collective on FORA?', a: `ILC allows it. Its ${a(SRC.ilcFaq, 'FAQ')} says: "Participation is non-exclusive. You keep the right to license your content directly to anyone, and any existing licensing deals remain unchanged." If you want an ILC licensee to pay through a FORA collective, exclude it in ILC first.` },
+  { q: 'Does a collective on FORA license training?', a: 'No. The pool licenses uses that start with a fetch, such as AI answers and search. A model that trains on a copy it holds fetches nothing, so no record exists to check its report against. You can still license training on your own priced term.' },
+  { q: 'Why would an AI company join?', a: 'For one license to many publishers and one report format. It also gets licensed access to each member\'s pages, where an AI company outside the collective meets a per-fetch price or a block. No law makes it join.' },
+];
+
+const SOURCES = [
+  {
+    name: 'The Internet Licensing Collective',
+    items: [
+      { title: 'ILC launches with Yahoo Scout as first commercial partner', publisher: 'Internet Licensing Collective, press release', href: SRC.ilcPress },
+      { title: 'For publishers', publisher: 'Internet Licensing Collective', href: SRC.ilcPublishers },
+      { title: 'Frequently asked questions', publisher: 'Internet Licensing Collective', href: SRC.ilcFaq },
+      { title: 'Publisher Onboarding Guide', publisher: 'Internet Licensing Collective', href: SRC.ilcGuide },
+      { title: 'Publisher Participation Agreement, version 1.0', publisher: 'Internet Licensing Collective', where: 'No public URL: the agreement ILC\'s publisher portal asks publishers to accept' },
+      { title: 'ILC Royalty Distribution Policy', publisher: 'Internet Licensing Collective', where: 'No public URL: shown to publishers in ILC\'s publisher portal' },
+    ],
+  },
+  {
+    name: 'ProRata and Perplexity',
+    items: [
+      { title: 'Partner agreement for Gist', publisher: 'ProRata.ai', href: SRC.prorataTerms },
+      { title: 'For publishers and creators', publisher: 'ProRata.ai', href: SRC.prorataPublishers },
+      { title: 'Introducing Comet Plus', publisher: 'Perplexity', href: SRC.cometPlus },
+      { title: 'Announcing Comet Plus launch partners', publisher: 'Perplexity', href: SRC.cometPartners },
+      { title: 'Pricing', publisher: 'Perplexity', href: SRC.pplxPricing },
+      { title: 'How Perplexity\'s new revenue model works', publisher: 'Digiday', href: SRC.pplxDigiday },
+      { title: 'CNN sues Perplexity', publisher: 'TheWrap', href: SRC.cnnSuit },
+    ],
+  },
+  {
+    name: 'CCC, CLA and PLS',
+    items: [
+      { title: 'AI Systems Training License: overview', publisher: 'Copyright Clearance Center', href: SRC.cccSheet },
+      { title: 'PLS offers new collective AI licensing opportunity to publishers', publisher: 'Publishers\' Licensing Services', href: SRC.plsNews },
+      { title: 'Distribution Charter', publisher: 'Publishers\' Licensing Services', href: SRC.plsCharter },
+      { title: 'PLS opt-in licences: flyer', publisher: 'Publishers\' Licensing Services', href: SRC.plsFlyer },
+    ],
+  },
+  {
+    name: 'DPCMO and Kopinor',
+    items: [
+      { title: 'Transparency report 2025 (in Danish)', publisher: 'DPCMO', href: SRC.dpcmoReport },
+      { title: 'ProRata partners with DPCMO', publisher: 'DPCMO', href: SRC.dpcmoProrata },
+      { title: 'A united Danish media industry takes OpenAI to court', publisher: 'DPCMO', href: SRC.dpcmoOpenai },
+      { title: 'Agreement on the use of copyright-protected material in the training of Norwegian language models', publisher: 'Kopinor and the National Library of Norway', href: SRC.kopinorAgreement },
+      { title: 'Kopinor\'s largest payout ever (in Norwegian)', publisher: 'Kopinor, via NTB', href: SRC.kopinorPayout },
+    ],
+  },
+  {
+    name: 'NDP Nieuwsmedia and GPT-NL',
+    items: [
+      { title: 'Dutch news publishers contribute to developing GPT-NL', publisher: 'IO+', href: SRC.ndpNews },
+      { title: 'Content Contributor Agreement (template)', publisher: 'TNO, GPT-NL', href: SRC.gptnlTemplate },
+      { title: 'Annex 2: Training Content Protocol', publisher: 'TNO, GPT-NL', href: SRC.gptnlProtocol },
+      { title: 'Annex 3: Governance Charter', publisher: 'TNO, GPT-NL', href: SRC.gptnlCharter },
+      { title: 'Annex 6: Revenue Sharing Mechanism', publisher: 'TNO, GPT-NL', href: SRC.gptnlRevenue },
+    ],
+  },
+  {
+    name: 'FORA',
+    items: [
+      { title: 'Licensing terms', publisher: 'FORA documentation', href: '/protocol/licensing-terms/' },
+      { title: 'Transaction flow', publisher: 'FORA documentation', href: '/protocol/transaction-flow/' },
+      { title: 'How money flows', publisher: 'FORA documentation', href: '/getting-started/how-money-flows/' },
+      { title: 'Protocol reference', publisher: 'FORA documentation', href: '/reference/proto-fora/' },
+    ],
+  },
+];
+---
+<LandingLayout
+  title="A fair licensing collective — FORA resources"
+  description="What a fair AI licensing collective looks like for a web publisher: your own terms, a signed record of every fetch, a published formula, and a share you can recompute. With a scorecard of the eight schemes running or announced today."
+>
+  <AudienceHero
+    current="resources"
+    badge="Resource · For publishers"
+    title="A fair<br><em>licensing collective.</em>"
+    sub="One license, many publishers, one pool of money. A collective is fair when each member can see what the pool collects and check its own share. This page sets a collective on FORA beside the eight schemes running or announced today."
+    updated={resourceUpdated('/resources/transparent-collective/')}
+  >
+    <a href="#how" class="btn btn-primary">How it works</a>
+    <a href="#scorecard" class="btn btn-ghost">The scorecard</a>
+  </AudienceHero>
+
+  <div class="tc">
+    <Band
+      tone="light"
+      id="how"
+      label="Follow one article"
+      title="Same money. Open boxes."
+      lead="A trade group, a publisher alliance or a company working for one runs the collective as its operator. Follow one article through a pool today and through a collective on FORA."
+    >
+      <ArticleJourney {...JOURNEY} />
+      <p class="keyline"><strong>{SELECTION}</strong> <a href="#selection">Who decides</a></p>
+      <div class="formula">
+        <div>
+          <h3>The formula behind step 3</h3>
+          <p>Each AI company pays the greater of a share of its own revenue and a floor per fetch, up to a cap, so the pool never falls below the floor. The formula and the per-fetch floor are published; each AI company's rate and cap are in its agreement with the operator.</p>
+        </div>
+        <div class="formula-card" role="figure" aria-label="The pool formula">
+          <p class="formula-head"><span>The pool, each period</span><span>formula and floor published</span></p>
+          <dl>
+            {FORMULA.map((f) => (
+              <>
+                <dt>{f.label}</dt>
+                <dd>{f.parts.map((part) => <><span>{part}</span>{' '}</>)}</dd>
+              </>
+            ))}
+          </dl>
+        </div>
+      </div>
+      <p class="evidence-line">Every claim on this page, with the quote and the source behind it: <a href={EVIDENCE}>the evidence</a>.</p>
+    </Band>
+
+    <Band
+      tone="light"
+      id="today"
+      label="Today"
+      title="How collectives run today"
+      lead="Eight schemes pool publishers' content for AI companies, or pay publishers from a pool. Each is described here from its own documents."
+    >
+      <div class="schemes">
+        {SCHEMES.map((s) => (
+          <article class:list={['scheme', { wide: s.wide }]}>
+            <p class="scheme-tag">{s.tag}</p>
+            <h3>{s.name}</h3>
+            <p set:html={s.text} />
+          </article>
+        ))}
+      </div>
+      <p class="aside-note">Music has run on pools for decades: a streaming service is a licensing collective with a player on top. <a href="/resources/music-dsp/">See how it maps onto FORA</a>.</p>
+    </Band>
+
+    <Band
+      tone="light"
+      id="world"
+      label="Elsewhere"
+      title="Around the world"
+      lead="What publishers' bodies elsewhere are doing about AI licensing, one line each."
+    >
+      <div class="world">
+        {WORLD.map((g) => (
+          <section class="world-region">
+            <h3>{g.region}</h3>
+            <ul>
+              {g.items.map((it) => (
+                <li>
+                  <span class="world-tag">{it.tag}</span>
+                  <span><b>{it.who}</b> <Fragment set:html={it.text} /></span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+      <p class="aside-note">Publishers' associations in Europe and Asia are asking AI platforms for transparency and equal treatment. The <a href={SRC.zurich}>Zurich declaration</a> of the German-speaking countries' publishers' associations says platforms "dürfen weder eigene Inhalte noch Inhalte einzelner Medien privilegieren": they may favor neither their own content nor that of individual outlets.</p>
+    </Band>
+
+    <Band
+      tone="light"
+      id="scorecard"
+      label="The scorecard"
+      title="Eight questions the collectives answer differently"
+      lead="A question is in the table only if the eight schemes differ from each other on it. The last column describes a collective run on FORA."
+    >
+      <Scorecard label="Eight collective licensing schemes and a collective on FORA, compared on eight questions" columns={SCORE.columns} rows={SCORE.rows} />
+      <p class="aside-note">"Not stated" and "not found" mean the scheme's public pages don't say. These schemes compete as ways to pool content, and they can run side by side: six of the eight say participation is non-exclusive.</p>
+    </Band>
+
+    <Band
+      tone="light"
+      id="adds"
+      label="Beyond the table"
+      title="What FORA adds"
+      lead="No scheme's public documents offer these."
+    >
+      <ul class="points">
+        {ADDS.map((it) => <li><span><b>{it.title}</b> {it.text}</span></li>)}
+      </ul>
+      <p class="aside-note">One limit holds everywhere, FORA included. A record proves the fetch. What a model did with the page afterward comes from the AI company's report, and an audit checks it.</p>
+    </Band>
+
+    <Band tone="light" id="selection" label="Selection" title="Who decides which publisher gets used">
+      <div class="prose">
+        <p><strong>No scheme publishes how an AI system picks whose content to use in an answer.</strong> An AI company pays the same fee whichever publisher its system picks, so the split between publishers follows the pick.</p>
+        <p>Where the schemes say, the buyer decides. ProRata's and Perplexity's own engines choose the sources. ILC's public pages, its agreement and its policy don't say how a licensee chooses. GPT-NL comes closest, for training only: it publishes how TNO filters and weights each contributor's text. One contract names the picker:</p>
+        <PullQuote
+          quote="The National Library shall determine which publications are used in the training of the various language models."
+          who="Kopinor and the National Library of Norway"
+          source="training agreement"
+          href={SRC.kopinorAgreement}
+        />
+        <p>On FORA, the operator runs the search, and licensing is per URL. The operator writes the ranking rule, so the collective holds it and can publish it. Gutefrage, which runs FORA on helpster.de, uses the Elasticsearch search engine. The search only proposes URLs: each fetch is licensed on its publisher's terms, and the AI company's model still decides what to cite.</p>
+      </div>
+    </Band>
+
+    <Band tone="light" id="ahead" label="What FORA lacks" title="Where others are ahead of FORA">
+      <ul class="points plain">
+        {AHEAD.map((it) => <li><span><b>{it.title}</b> <Fragment set:html={it.text} /></span></li>)}
+      </ul>
+    </Band>
+
+    <Band tone="light" id="faq" label="Questions" title="Questions publishers ask">
+      <FaqGrid items={FAQ} />
+    </Band>
+
+    <Band tone="light" id="sources" label="Sources" title="Where each claim comes from">
+      <p class="evidence-line first">The quote behind each claim is on <a href={EVIDENCE}>the evidence page</a>.</p>
+      <details class="all-sources">
+        <summary>All sources ({SOURCES.reduce((n, g) => n + g.items.length, 0)})</summary>
+        <SourceList groups={SOURCES} compact />
+      </details>
+    </Band>
+  </div>
+
+  <ClosingCta
+    title="Ask your collective <em>these questions.</em>"
+    text="Take the scorecard's eight questions to any collective you're weighing. If you run a collective, see how one works on FORA."
+  >
+    <a href="#scorecard" class="btn btn-primary">The eight questions</a>
+    <a href="/getting-started/how-money-flows/" class="btn btn-ghost">How money flows</a>
+    <a href="/getting-started/for-exchange-operators/" class="btn btn-ghost">For Exchange operators</a>
+  </ClosingCta>
+</LandingLayout>
+
+<style>
+  /* Readability, scoped to this page: every content band is light, bands
+     alternate between two light grounds, and body text is 18px. Band's own
+     defaults are untouched; the overrides reach the components through .tc. */
+  .tc :global(.band) { --lp-text: #2e2e3c; --lp-label: #55556a; --sc-bg: #fff; background: #fff; border-top: 1px solid #e4e4ec; }
+  .tc :global(.band:nth-of-type(even)) { background: #f5f5f9; }
+  .tc :global(.band-lead) { font-size: 1.25rem; line-height: 1.6; max-width: 42rem; }
+  .tc :global(.faq) { gap: 2rem 3.5rem; }
+  .tc :global(.faq h3) { font-size: 1.25rem; line-height: 1.35; }
+  .tc :global(.faq p) { font-size: 1.125rem; line-height: 1.7; }
+  .tc :global(.pq figcaption) { font-size: 1rem; }
+  .tc :global(.src h3) { font-size: 0.875rem; }
+  .tc :global(.src.compact a), .tc :global(.src.compact li > b) { font-size: 1.0625rem; }
+  .tc :global(.src.compact .src-meta), .tc :global(.src .src-url) { font-size: 0.9375rem; }
+  /* The scorecard has ten columns: on a wide screen the table runs wider than
+     the text column, so its cells hold 15px text. */
+  @media (min-width: 1101px) {
+    .tc :global(#scorecard .sc-wrap) { margin-inline: min(0px, calc((1100px - min(100vw - 4rem, 1360px)) / 2)); }
+  }
+
+  h3 { font-size: 1.375rem; font-weight: 700; letter-spacing: -0.015em; line-height: 1.25; color: var(--lp-heading); margin: 0 0 0.75rem; }
+  p { color: var(--lp-text); font-size: 1.125rem; line-height: 1.7; margin: 0 0 1.125rem; }
+  p a, .scheme :global(a), .points :global(a) { color: var(--lp-link); }
+  .prose { max-width: 42rem; }
+  .prose p:last-child { margin-bottom: 0; }
+  .prose strong, .keyline strong { color: var(--lp-strong); font-weight: 700; }
+  .keyline { max-width: 46rem; margin: 2.5rem 0 0; padding: 1.25rem 1.5rem; border-left: 4px solid var(--lp-link); border-radius: 0 10px 10px 0; background: rgba(79, 109, 245, 0.08); font-size: 1.3125rem; line-height: 1.5; }
+  .keyline a { font-size: 1.125rem; font-weight: 600; white-space: nowrap; }
+  .keyline a::after { content: ' →'; }
+  .aside-note { max-width: 44rem; margin: 2rem 0 0; font-size: 1.0625rem; color: var(--lp-label); }
+  .evidence-line { margin: 2rem 0 0; font-size: 1.0625rem; color: var(--lp-label); }
+  .evidence-line.first { margin-top: 0; }
+  .all-sources { margin-top: 1.5rem; }
+  .all-sources summary { display: inline-block; padding: 0.625rem 1rem; border: 1px solid var(--lp-rule); border-radius: 8px; background: #fff; font-size: 1.0625rem; font-weight: 600; color: var(--lp-heading); cursor: pointer; list-style: none; }
+  .all-sources summary::-webkit-details-marker { display: none; }
+  .all-sources summary::after { content: ' +'; color: var(--lp-link); }
+  .all-sources[open] summary::after { content: ' −'; }
+  .formula { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 3rem; align-items: center; margin-top: 3.5rem; }
+  .formula p { margin: 0; }
+  .formula-card { border: 1px solid var(--lp-rule); border-radius: 12px; background: #fff; overflow: hidden; }
+  .formula-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1rem; margin: 0; padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--lp-rule); font: 500 0.875rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--lp-label); }
+  .formula-card dl { display: grid; gap: 0.375rem; margin: 0; padding: 1.25rem; font-family: var(--mono); }
+  .formula-card dt { font-size: 0.9375rem; color: var(--lp-link); }
+  .formula-card dd { margin: 0 0 0.875rem; font-size: 1rem; line-height: 1.6; color: var(--lp-heading); }
+  .formula-card dd:last-child { margin-bottom: 0; }
+  .formula-card dd span { white-space: nowrap; }
+  .schemes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; margin-top: 2.5rem; }
+  .scheme { padding: 1.75rem; border: 1px solid var(--lp-rule); border-radius: 12px; background: #fff; min-width: 0; }
+  .scheme.wide, .scheme:last-child:nth-child(even) { grid-column: 1 / -1; }
+  .scheme p { margin: 0; overflow-wrap: break-word; }
+  .scheme .scheme-tag { font: 500 0.875rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; line-height: 1.4; color: var(--lp-link); margin-bottom: 0.625rem; }
+  .scheme.wide p:not(.scheme-tag), .scheme:last-child:nth-child(even) p:not(.scheme-tag) { max-width: 46rem; }
+  .world { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; align-items: start; margin-top: 2.5rem; }
+  .world-region { padding: 1.5rem 1.75rem; border: 1px solid var(--lp-rule); border-radius: 12px; background: #fff; min-width: 0; }
+  .world-region:first-child { grid-row: span 3; }
+  .world-region h3 { font-size: 1.25rem; margin-bottom: 1rem; }
+  .world-region ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.125rem; }
+  .world-region li { display: grid; gap: 0.25rem; color: var(--lp-text); font-size: 1.0625rem; line-height: 1.6; overflow-wrap: break-word; }
+  .world-region b { color: var(--lp-strong); font-weight: 700; }
+  .world-region :global(a) { color: var(--lp-link); }
+  .world-tag { font: 500 0.875rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--lp-link); }
+  /* The same look as PointList, for lists whose text carries links. */
+  .points { list-style: none; margin: 2rem 0 0; padding: 0; display: grid; gap: 1.25rem; max-width: 44rem; }
+  .points li { display: grid; grid-template-columns: auto 1fr; gap: 0.75rem; color: var(--lp-text); font-size: 1.125rem; line-height: 1.7; }
+  .points li::before { content: '✓'; color: var(--lp-link); font-weight: 700; }
+  .points.plain li::before { content: '→'; color: var(--lp-label); font-weight: 400; }
+  .points b { color: var(--lp-strong); font-weight: 700; }
+  @media (max-width: 900px) {
+    .formula { grid-template-columns: 1fr; gap: 1.5rem; }
+    .schemes, .world { grid-template-columns: 1fr; }
+    .world-region:first-child { grid-row: auto; }
+  }
+  @media (max-width: 560px) {
+    .keyline { padding: 1rem 1.125rem; font-size: 1.1875rem; }
+    .scheme, .world-region { padding: 1.25rem; }
+    /* One piece of the formula per line, the continuation lines indented. */
+    .formula-card dd span { display: block; }
+    .formula-card dd span + span { padding-left: 1.25rem; }
+    .formula-card dd { font-size: 0.9375rem; }
+  }
+</style>

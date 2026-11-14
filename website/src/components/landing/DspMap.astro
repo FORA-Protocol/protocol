@@ -1,0 +1,117 @@
+---
+// The DSP-to-FORA mapping as a side-by-side schema: a streaming service's
+// parts on the left, in the order money and plays move through them, and the
+// FORA term for each on the right. Inline SVG beside its text equivalent, an
+// ordered list the page passes in. Drawn in RoyaltyFlow's visual grammar, for
+// a light band. Used on /resources/music-dsp/.
+interface Props {
+  title: string;
+  /** The text equivalent, one item per row of the schema; may hold inline HTML. */
+  steps: string[];
+}
+const { title, steps } = Astro.props;
+
+// [streaming service: title, sub] → [FORA: title, sub]; the last row is what
+// whoever holds a signed record can verify.
+const ROWS: [string, string, string, string][] = [
+  ['The catalog', 'licensed recordings', 'Resources', 'on the operator\'s Exchange'],
+  ['Rights holder deals', 'per market, private', 'License terms', 'use, market, price, scope'],
+  ['Playlists, radio', 'the service\'s ranking', 'The operator\'s search', 'a ranking it can publish'],
+  ['A stream', 'counted by the service', 'A transaction', 'metered in streams, signed'],
+  ['Reports to The MLC', 'streams per recording', 'Usage reports', 'bound to each transaction'],
+  ['The royalty pool', '≈ ⅔ of net revenue', 'The operator\'s pool', 'settled by the operator'],
+  ['Streamshare', 'share of all streams', 'The allocation rule', 'published with the terms'],
+  ['Audits', 'once in three years', 'Signed records', 'verifiable by whoever holds them'],
+];
+const TOP = 30;
+const STEP = 66;
+const H = 50;
+const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const rows = ROWS.map(([lt, ls, rt, rs], i) => {
+  const y = TOP + i * STEP;
+  const last = i === ROWS.length - 1;
+  const down = last ? '' : `<path class="arrow" d="M81,${y + H} V${y + STEP - 2}" marker-end="url(#dm-ah)"/><path class="arrow accent" d="M266,${y + H} V${y + STEP - 2}" marker-end="url(#dm-ah2)"/>`;
+  return `<rect class="box" x="8" y="${y}" width="146" height="${H}" rx="8"/>
+  <text class="t" x="81" y="${y + 21}" text-anchor="middle">${esc(lt)}</text>
+  <text class="s" x="81" y="${y + 38}" text-anchor="middle">${esc(ls)}</text>
+  <path class="arrow ${last ? 'check' : 'accent'}" d="M154,${y + 25} H176" marker-end="url(#${last ? 'dm-ah3' : 'dm-ah2'})"/>
+  <rect class="box ${last ? 'check' : 'strong'}" x="180" y="${y}" width="172" height="${H}" rx="8"/>
+  <text class="t" x="266" y="${y + 21}" text-anchor="middle">${esc(rt)}</text>
+  <text class="s" x="266" y="${y + 38}" text-anchor="middle">${esc(rs)}</text>
+  ${down}`;
+}).join('\n  ');
+const height = TOP + (ROWS.length - 1) * STEP + H + 8;
+// The schema in words, one clause per row, with the verb each subject needs.
+const desc = 'The catalog becomes resources; rights holder deals become license terms; playlists and radio become the operator\'s search; a stream becomes a transaction; reports to The MLC become usage reports; the royalty pool becomes the operator\'s pool; streamshare becomes the allocation rule; audits become signed records, verifiable by whoever holds them';
+const SVG = `<svg viewBox="0 0 360 ${height}" role="img" aria-labelledby="dm-t dm-d" xmlns="http://www.w3.org/2000/svg">
+  <title id="dm-t">A streaming service, part by part, and the FORA term for each part</title>
+  <desc id="dm-d">${esc(desc)}.</desc>
+  <defs>
+    <marker id="dm-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead"/></marker>
+    <marker id="dm-ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead2"/></marker>
+    <marker id="dm-ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead3"/></marker>
+  </defs>
+  <text class="hd" x="81" y="16" text-anchor="middle">A STREAMING SERVICE</text>
+  <text class="hd accent" x="266" y="16" text-anchor="middle">ON FORA</text>
+  ${rows}
+</svg>`;
+---
+<figure class="map">
+  <div class="map-panel">
+    <p class="map-title">{title}</p>
+    <Fragment set:html={SVG} />
+    <p class="map-key">
+      <span><i class="k-dsp"></i>a streaming service today</span>
+      <span><i class="k-fora"></i>the same part on FORA</span>
+      <span><i class="k-check"></i>what a record's holder can verify</span>
+    </p>
+  </div>
+  <ol class="map-steps">
+    {steps.map((st) => <li set:html={st} />)}
+  </ol>
+</figure>
+
+<style>
+  .map {
+    --d-box: #ffffff;
+    --d-box-strong: #e6eaff;
+    --d-stroke: #8a8aa0;
+    --d-accent: #3d58d6;
+    --d-text: #12121a;
+    --d-muted: #55556a;
+    --d-check: #1f7a4d;
+    --d-check-soft: #e2f5ea;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 2rem;
+    align-items: center;
+    margin: 2rem 0 2.5rem;
+  }
+  .map-panel { background: #fff; border: 1px solid #e4e4ec; border-radius: 12px; padding: 1rem; }
+  .map-title { font: 600 0.75rem var(--mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--d-accent); margin: 0 0 0.5rem; }
+  .map-panel :global(svg) { width: 100%; height: auto; display: block; }
+  .map-panel :global(.box) { fill: var(--d-box); stroke: var(--d-stroke); stroke-width: 1.2; }
+  .map-panel :global(.box.strong) { fill: var(--d-box-strong); stroke: var(--d-accent); }
+  .map-panel :global(.box.check) { fill: var(--d-check-soft); stroke: var(--d-check); }
+  .map-panel :global(.hd) { fill: var(--d-muted); font: 600 10px var(--mono); letter-spacing: 0.08em; }
+  .map-panel :global(.hd.accent) { fill: var(--d-accent); }
+  .map-panel :global(.t) { fill: var(--d-text); font: 600 13px var(--sans); }
+  .map-panel :global(.s) { fill: var(--d-muted); font: 400 11px var(--sans); }
+  .map-panel :global(.arrow) { stroke: var(--d-stroke); stroke-width: 1.4; fill: none; }
+  .map-panel :global(.arrow.accent) { stroke: var(--d-accent); }
+  .map-panel :global(.arrow.check) { stroke: var(--d-check); stroke-dasharray: 4 3; }
+  .map-panel :global(.ahead) { fill: var(--d-stroke); }
+  .map-panel :global(.ahead2) { fill: var(--d-accent); }
+  .map-panel :global(.ahead3) { fill: var(--d-check); }
+  .map-key { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0.75rem 0 0; font-size: 0.8125rem; color: var(--d-muted); }
+  .map-key span { display: inline-flex; align-items: center; gap: 0.4rem; }
+  .map-key i { display: inline-block; width: 0.875rem; height: 0.625rem; border-radius: 2px; }
+  .map-key .k-dsp { background: var(--d-box); border: 1px solid var(--d-stroke); }
+  .map-key .k-fora { background: var(--d-box-strong); border: 1px solid var(--d-accent); }
+  .map-key .k-check { background: var(--d-check-soft); border: 1px dashed var(--d-check); }
+  .map-steps { margin: 0; padding-left: 1.25rem; display: grid; gap: 0.75rem; color: var(--lp-text); font-size: 1rem; line-height: 1.55; }
+  .map-steps :global(b) { color: var(--lp-strong); }
+  .map-steps :global(a) { color: var(--lp-link); }
+  .map-steps :global(code) { font-family: var(--mono); font-size: 0.9em; }
+  @media (max-width: 860px) { .map { grid-template-columns: 1fr; } }
+</style>

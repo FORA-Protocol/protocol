@@ -1,0 +1,75 @@
+---
+// A scorecard: one row per question, one column per scheme, for more schemes
+// than CompareTable holds. On a wide screen it is a table. On a narrow one the
+// table is hidden and each question is a <details> that lists every scheme's
+// answer, so the page never scrolls sideways and stays short; the `key` row
+// starts open. Cells may hold inline HTML. The last column is FORA's.
+interface Props {
+  columns: string[];
+  /** `key` marks the row the page treats as its main point. */
+  rows: { q: string; cells: string[]; key?: boolean }[];
+  label: string;
+}
+const { columns, rows, label } = Astro.props;
+---
+<div class="sc-wrap">
+  <table class="sc" aria-label={label}>
+    <thead>
+      <tr><th scope="col"><span class="sr">Question</span></th>{columns.map((c) => <th scope="col">{c}</th>)}</tr>
+    </thead>
+    <tbody>
+      {rows.map((r) => (
+        <tr class:list={{ key: r.key }}>
+          <th scope="row">{r.q}</th>
+          {r.cells.map((c, i) => <td data-scheme={columns[i]}><span set:html={c} /></td>)}
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
+<div class="sc-cards" role="group" aria-label={label}>
+  {rows.map((r) => (
+    <details class:list={{ key: r.key }} open={r.key}>
+      <summary>{r.q}</summary>
+      <dl>
+        {r.cells.map((c, i) => <div><dt>{columns[i]}</dt><dd set:html={c} /></div>)}
+      </dl>
+    </details>
+  ))}
+</div>
+
+<style>
+  .sc-wrap { margin-top: 2.5rem; border: 1px solid var(--lp-rule, #2a2a3a); border-radius: 12px; overflow: hidden; background: var(--sc-bg, transparent); }
+  .sc { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: clamp(0.875rem, 1.1vw, 0.9375rem); line-height: 1.5; }
+  .sc th, .sc td { padding: 0.875rem 0.5rem; text-align: left; vertical-align: top; border-top: 1px solid var(--lp-rule, #2a2a3a); color: var(--lp-text); overflow-wrap: break-word; }
+  .sc thead th { border-top: 0; font-family: var(--mono); font-size: 0.8125rem; letter-spacing: 0.03em; text-transform: uppercase; color: var(--lp-label); vertical-align: bottom; }
+  .sc thead th:first-child, .sc tbody th { width: 12.5%; padding-left: 0.875rem; }
+  .sc tbody th { color: var(--lp-strong); font-weight: 600; font-size: 0.9375rem; line-height: 1.4; }
+  .sc td:last-child, .sc thead th:last-child { background: rgba(79, 109, 245, 0.1); }
+  .sc thead th:last-child { color: var(--lp-link); }
+  /* A row the page marks as its main point. */
+  .sc tr.key th, .sc tr.key td { background: rgba(79, 109, 245, 0.1); }
+  .sc tr.key th { box-shadow: inset 4px 0 0 var(--lp-link); }
+  .sc tr.key td:last-child { background: rgba(79, 109, 245, 0.2); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  .sc-cards { display: none; }
+
+  @media (max-width: 1100px) {
+    .sc-wrap { display: none; }
+    .sc-cards { display: grid; gap: 0.75rem; margin-top: 2.5rem; }
+    details { border: 1px solid var(--lp-rule, #2a2a3a); border-radius: 12px; overflow: hidden; background: var(--sc-bg, transparent); }
+    details.key { border: 2px solid var(--lp-link); }
+    summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.75rem; align-items: start; padding: 1rem; font-size: 1.125rem; font-weight: 600; line-height: 1.4; color: var(--lp-strong); cursor: pointer; list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: '+'; font-family: var(--mono); color: var(--lp-link); }
+    details[open] summary::after { content: '−'; }
+    details.key summary { background: rgba(79, 109, 245, 0.1); }
+    dl { margin: 0; }
+    dl div { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: 0.75rem; padding: 0.75rem 1rem; border-top: 1px solid var(--lp-rule, #2a2a3a); font-size: 1rem; line-height: 1.5; color: var(--lp-text); }
+    dt { font-family: var(--mono); font-size: 0.875rem; letter-spacing: 0.03em; text-transform: uppercase; color: var(--lp-label); padding-top: 0.1rem; overflow-wrap: break-word; }
+    dd { margin: 0; overflow-wrap: break-word; }
+    dl div:last-child { background: rgba(79, 109, 245, 0.1); }
+    dl div:last-child dt { color: var(--lp-link); }
+  }
+</style>

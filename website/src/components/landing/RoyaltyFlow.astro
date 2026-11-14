@@ -1,0 +1,183 @@
+---
+// A royalty flow diagram, as inline SVG beside its text equivalent: how money
+// moves in music streaming, or in a content pool on FORA. Used on
+// /resources/transparent-collective/ and /resources/music-dsp/ (kind music).
+// The SVGs are drawn for a light band.
+interface Props {
+  kind: 'music' | 'pool';
+  title: string;
+  steps: string[];
+}
+const { kind, title, steps } = Astro.props;
+const SVG = {
+  music: String.raw`<svg viewBox="0 0 360 660" role="img" aria-labelledby="mus-t mus-d" xmlns="http://www.w3.org/2000/svg">
+  <title id="mus-t">How money moves in music streaming</title>
+  <desc id="mus-d">Listeners and advertisers pay the service. About two-thirds of its net music revenue in each market goes into a monthly royalty pool, split between recordings and compositions, and each rights holder gets the pool times its share of the streams. In the US the Copyright Royalty Board sets the mechanical rate, the service reports the number of streams of each recording to The MLC each month, and The MLC can audit it.</desc>
+  <defs>
+    <marker id="m-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead"/></marker>
+    <marker id="m-ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead2"/></marker>
+    <marker id="m-ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead3"/></marker>
+  </defs>
+  <rect class="box" x="10" y="6" width="340" height="56" rx="8"/>
+  <text class="t" x="180" y="29" text-anchor="middle">Listeners and advertisers</text>
+  <text class="s" x="180" y="48" text-anchor="middle">subscriptions and ads, in each market</text>
+
+  <path class="arrow" d="M180,62 V90" marker-end="url(#m-ah)"/>
+  <rect class="box" x="10" y="92" width="340" height="56" rx="8"/>
+  <text class="t" x="180" y="115" text-anchor="middle">The service's net music revenue</text>
+  <text class="s" x="180" y="134" text-anchor="middle">per market, per month, after taxes and fees</text>
+
+  <path class="arrow" d="M92,148 V176" marker-end="url(#m-ah)"/>
+  <path class="arrow accent" d="M267,148 V176" marker-end="url(#m-ah2)"/>
+  <rect class="box" x="10" y="178" width="165" height="56" rx="8"/>
+  <text class="t" x="92" y="201" text-anchor="middle">≈ ⅓ the service</text>
+  <text class="s" x="92" y="220" text-anchor="middle">keeps</text>
+  <rect class="box strong" x="185" y="178" width="165" height="56" rx="8"/>
+  <text class="t" x="267" y="201" text-anchor="middle">≈ ⅔ royalty pool</text>
+  <text class="s" x="267" y="220" text-anchor="middle">Spotify's figure</text>
+
+  <path class="arrow accent" d="M267,234 V250 H92 V264" marker-end="url(#m-ah2)"/>
+  <path class="arrow accent" d="M267,234 V264" marker-end="url(#m-ah2)"/>
+  <rect class="box" x="10" y="266" width="165" height="62" rx="8"/>
+  <text class="t" x="92" y="290" text-anchor="middle">Recordings</text>
+  <text class="s" x="92" y="310" text-anchor="middle">labels, distributors</text>
+  <rect class="box" x="185" y="266" width="165" height="62" rx="8"/>
+  <text class="t" x="267" y="290" text-anchor="middle">Compositions</text>
+  <text class="s" x="267" y="310" text-anchor="middle">publishers; US: The MLC</text>
+
+  <path class="arrow accent" d="M92,328 V352" marker-end="url(#m-ah2)"/>
+  <path class="arrow accent" d="M267,328 V352" marker-end="url(#m-ah2)"/>
+  <rect class="box strong" x="10" y="354" width="340" height="70" rx="8"/>
+  <text class="t" x="180" y="377" text-anchor="middle">Each rights holder's share</text>
+  <text class="m" x="180" y="398" text-anchor="middle">pool × its streams ÷ all streams</text>
+  <text class="s" x="180" y="415" text-anchor="middle">"streamshare", per market, per month</text>
+
+  <path class="arrow" d="M180,424 V448" marker-end="url(#m-ah)"/>
+  <rect class="box" x="10" y="450" width="340" height="56" rx="8"/>
+  <text class="t" x="180" y="473" text-anchor="middle">Artists and songwriters</text>
+  <text class="s" x="180" y="492" text-anchor="middle">paid by rights holders, under private contracts</text>
+
+  <rect class="box check" x="10" y="540" width="340" height="104" rx="8"/>
+  <text class="t" x="180" y="562" text-anchor="middle">US compositions: set in public law</text>
+  <text class="mc" x="26" y="586">✓ rate set by the Copyright Royalty Board</text>
+  <text class="mc" x="26" y="607">✓ streams per recording reported monthly</text>
+  <text class="mc" x="26" y="628">✓ The MLC may audit the service</text>
+  <path class="arrow check" d="M350,120 H356 V592 H352" marker-end="url(#m-ah3)"/>
+</svg>`,
+  pool: String.raw`<svg viewBox="0 0 360 660" role="img" aria-labelledby="pool-t pool-d" xmlns="http://www.w3.org/2000/svg">
+  <title id="pool-t">How money moves in a pool on FORA</title>
+  <desc id="pool-d">An AI company's revenue share and its metered fetches set the pool, capped. The operator deducts its published fee, checks the reports against FORA's records, publishers' referral logs and audits, and splits the rest by the published weights.</desc>
+  <defs>
+    <marker id="p-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead"/></marker>
+    <marker id="p-ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead2"/></marker>
+    <marker id="p-ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead3"/></marker>
+  </defs>
+  <rect class="box" x="10" y="6" width="340" height="56" rx="8"/>
+  <text class="t" x="180" y="29" text-anchor="middle">AI company, a pool licensee</text>
+  <text class="s" x="180" y="48" text-anchor="middle">signs every fetch with its Web Bot Auth key</text>
+
+  <path class="arrow" d="M95,62 V90" marker-end="url(#p-ah)"/>
+  <path class="arrow" d="M265,62 V90" marker-end="url(#p-ah)"/>
+  <rect class="box" x="10" y="92" width="165" height="62" rx="8"/>
+  <text class="m" x="92" y="117" text-anchor="middle">rate × revenue</text>
+  <text class="s" x="92" y="138" text-anchor="middle">revenue checked by audit</text>
+  <rect class="box" x="185" y="92" width="165" height="62" rx="8"/>
+  <text class="m" x="267" y="117" text-anchor="middle">floor × fetches</text>
+  <text class="s" x="267" y="138" text-anchor="middle">each a FORA transaction</text>
+
+  <path class="arrow accent" d="M92,154 V170 H175 V184" marker-end="url(#p-ah2)"/>
+  <path class="arrow accent" d="M267,154 V170 H185 V184" marker-end="url(#p-ah2)"/>
+  <rect class="box strong" x="10" y="186" width="340" height="62" rx="8"/>
+  <text class="m" x="180" y="211" text-anchor="middle">pool = min(cap, max(…, …))</text>
+  <text class="s" x="180" y="232" text-anchor="middle">the greater of the two, up to the cap</text>
+
+  <path class="arrow accent" d="M180,248 V272" marker-end="url(#p-ah2)"/>
+  <rect class="box" x="10" y="274" width="340" height="52" rx="8"/>
+  <text class="t" x="180" y="296" text-anchor="middle">− the operator's fee</text>
+  <text class="s" x="180" y="314" text-anchor="middle">a rate in the pool's published terms</text>
+
+  <path class="arrow accent" d="M180,326 V350" marker-end="url(#p-ah2)"/>
+  <rect class="box check" x="10" y="352" width="340" height="104" rx="8"/>
+  <text class="t" x="180" y="374" text-anchor="middle">Reports checked before the split</text>
+  <text class="mc" x="26" y="398">✓ fetches against FORA's signed records</text>
+  <text class="mc" x="26" y="419">✓ click-outs against publishers' referral logs</text>
+  <text class="mc" x="26" y="440">✓ citations and revenue by audit</text>
+  <path class="arrow check" d="M350,34 H356 V404 H352" marker-end="url(#p-ah3)"/>
+
+  <path class="arrow accent" d="M180,456 V480" marker-end="url(#p-ah2)"/>
+  <rect class="box strong" x="10" y="482" width="340" height="62" rx="8"/>
+  <text class="t" x="180" y="505" text-anchor="middle">Split by the published rule</text>
+  <text class="m" x="180" y="527" text-anchor="middle">your weight ÷ all members' weight</text>
+
+  <path class="arrow accent" d="M60,544 V572" marker-end="url(#p-ah2)"/>
+  <path class="arrow accent" d="M180,544 V572" marker-end="url(#p-ah2)"/>
+  <path class="arrow accent" d="M300,544 V572" marker-end="url(#p-ah2)"/>
+  <rect class="box" x="10" y="574" width="105" height="70" rx="8"/>
+  <rect class="box" x="127" y="574" width="106" height="70" rx="8"/>
+  <rect class="box" x="245" y="574" width="105" height="70" rx="8"/>
+  <text class="t" x="62" y="598" text-anchor="middle">Publisher A</text>
+  <text class="t" x="180" y="598" text-anchor="middle">Publisher B</text>
+  <text class="t" x="297" y="598" text-anchor="middle">Publisher C</text>
+  <text class="s" x="62" y="617" text-anchor="middle">sees its own</text><text class="s" x="62" y="632" text-anchor="middle">records live</text>
+  <text class="s" x="180" y="617" text-anchor="middle">sees its own</text><text class="s" x="180" y="632" text-anchor="middle">records live</text>
+  <text class="s" x="297" y="617" text-anchor="middle">sees its own</text><text class="s" x="297" y="632" text-anchor="middle">records live</text>
+</svg>`,
+};
+---
+<figure class="flow">
+  <div class="flow-panel">
+    <p class="flow-title">{title}</p>
+    <Fragment set:html={SVG[kind]} />
+    <p class="flow-key">
+      <span><i class="k-pool"></i>the pool and the rule that splits it</span>
+      <span><i class="k-arrow"></i>the pool's money</span>
+      <span><i class="k-check"></i>what can be checked</span>
+    </p>
+  </div>
+  <ol class="flow-steps">
+    {steps.map((st) => <li set:html={st} />)}
+  </ol>
+</figure>
+
+<style>
+  .flow {
+    --d-box: #ffffff;
+    --d-box-strong: #e6eaff;
+    --d-stroke: #8a8aa0;
+    --d-accent: #3d58d6;
+    --d-text: #12121a;
+    --d-muted: #55556a;
+    --d-check: #1f7a4d;
+    --d-check-soft: #e2f5ea;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 2rem;
+    align-items: center;
+    margin: 2rem 0 2.5rem;
+  }
+  .flow-panel { background: #fff; border: 1px solid #e4e4ec; border-radius: 12px; padding: 1rem; }
+  .flow-title { font: 600 0.75rem var(--mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--d-accent); margin: 0 0 0.5rem; }
+  .flow-panel :global(svg) { width: 100%; height: auto; display: block; }
+  .flow-panel :global(.box) { fill: var(--d-box); stroke: var(--d-stroke); stroke-width: 1.2; }
+  .flow-panel :global(.box.strong) { fill: var(--d-box-strong); stroke: var(--d-accent); }
+  .flow-panel :global(.box.check) { fill: var(--d-check-soft); stroke: var(--d-check); }
+  .flow-panel :global(.t) { fill: var(--d-text); font: 600 13px var(--sans); }
+  .flow-panel :global(.s) { fill: var(--d-muted); font: 400 11.5px var(--sans); }
+  .flow-panel :global(.m) { fill: var(--d-text); font: 500 11.5px var(--mono); }
+  .flow-panel :global(.mc) { fill: var(--d-check); font: 500 11px var(--sans); }
+  .flow-panel :global(.arrow) { stroke: var(--d-stroke); stroke-width: 1.4; fill: none; }
+  .flow-panel :global(.arrow.accent) { stroke: var(--d-accent); }
+  .flow-panel :global(.arrow.check) { stroke: var(--d-check); stroke-dasharray: 4 3; }
+  .flow-panel :global(.ahead) { fill: var(--d-stroke); }
+  .flow-panel :global(.ahead2) { fill: var(--d-accent); }
+  .flow-panel :global(.ahead3) { fill: var(--d-check); }
+  .flow-key { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0.75rem 0 0; font-size: 0.8125rem; color: var(--d-muted); }
+  .flow-key span { display: inline-flex; align-items: center; gap: 0.4rem; }
+  .flow-key i { display: inline-block; width: 0.875rem; height: 0.625rem; border-radius: 2px; }
+  .flow-key .k-pool { background: var(--d-box-strong); border: 1px solid var(--d-accent); }
+  .flow-key .k-arrow { height: 0; border-top: 2px solid var(--d-accent); border-radius: 0; }
+  .flow-key .k-check { background: var(--d-check-soft); border: 1px dashed var(--d-check); }
+  .flow-steps { margin: 0; padding-left: 1.25rem; display: grid; gap: 0.75rem; color: var(--lp-text); font-size: 1rem; line-height: 1.55; }
+  .flow-steps :global(b) { color: var(--lp-strong); }
+  @media (max-width: 860px) { .flow { grid-template-columns: 1fr; } }
+</style>

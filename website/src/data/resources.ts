@@ -23,12 +23,28 @@ export const RESOURCES: Resource[] = [
     updated: '2026-11-12',
   },
   {
+    href: '/resources/transparent-collective/',
+    title: 'A fair licensing collective',
+    summary: 'How a fair AI licensing collective works on FORA: published money, your own terms per URL, a signed record of every fetch. With a scorecard of the eight schemes running or announced today.',
+    audience: 'Publishers and collectives',
+    formats: ['Guide', 'Scorecard'],
+    updated: '2026-11-14',
+  },
+  {
+    href: '/resources/music-dsp/',
+    title: 'FORA for a music DSP',
+    summary: 'How a streaming service pays rights holders from a pool, and the FORA term for each part: the license, the stream, the pool, the split, the report, the audit and the ranking. With three ways to split a pool.',
+    audience: 'Music rights holders and builders',
+    formats: ['Guide', 'Diagrams'],
+    updated: '2026-11-14',
+  },
+  {
     href: '/protocol/#licensing-core',
     title: 'The Universal Licensing Core',
-    summary: 'How any license, from CC BY to a TV sync license, becomes one model an agent can act on, clause by clause.',
+    summary: 'How any license, from CC BY to a TV sync license, becomes one model an agent can act on, clause by clause. With the same license in RSL and in IAB CoMP, and what each can\'t say.',
     audience: 'Publishers and engineers',
     formats: ['Slides', 'License explorer'],
-    updated: '2026-11-11',
+    updated: '2026-11-14',
   },
   {
     href: '/getting-started/search-only-contract/',
@@ -55,3 +71,8 @@ export const RESOURCES: Resource[] = [
     updated: '2026-11-10',
   },
 ];
+
+/** The date a resource page shows in its hero: its entry's `updated`. */
+export function resourceUpdated(href: string): string | undefined {
+  return RESOURCES.find((r) => r.href === href)?.updated;
+}
