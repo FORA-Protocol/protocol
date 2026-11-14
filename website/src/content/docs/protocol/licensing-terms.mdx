@@ -11,7 +11,7 @@ The **Universal Licensing Core** is FORA's model for the commercial licensing te
 The same `LicenseTerm` shape appears at both ends of the pipeline:
 
 - **Ingestion** (`ResourceEntry.terms`). A publisher declares terms when it pushes resources into an Exchange catalog with `CatalogService.PushResources`. A term in `ResourceEntry.terms` is a *catalog term*.
-- **Emission** (`Offer.terms`). An *offer* is a signed `Offer` that the Exchange presents for exactly one catalog term. The Exchange moves the term's price into `Offer.pricing` and carries the rest of the term on the offer, without translating or reformulating it.
+- **Emission** (`Offer.terms`). An *offer* is a signed `Offer` that the Exchange presents for exactly one catalog term. The Exchange moves the term's price into `Offer.pricing` and carries the rest of the term on the offer, with each restriction token in its canonical form (see [Restrictions](#restrictions)) and no other translation or reformulation.
 
 The Exchange presents a term when the scopes the requester states cover the term's `LicenseTerm.scopes`. For a term the Exchange gates behind a delegation, it presents the term only when a verified delegation grants those scopes (see [Scope-Based Access](/protocol/authentication/#scope-based-access)). A term with no `scopes` is public. Unless the Exchange pre-filters (see [Restrictions](#restrictions)), a resource with three presented terms yields three offers, one per term.
 
@@ -39,7 +39,7 @@ Restrictions ride on every offer. They are not an Exchange-side gate that a requ
 
 **`REFERENCE_ONLY`**: the document at `License.uri` is the authoritative, complete source for `restrictions`, `quotas` and `obligations`, and the agent must read it before it uses the resource. A `REFERENCE_ONLY` term without a `License.uri` is refused. The machine fields are **optional** in this mode, and the publisher may send `Pricing` alone. Any `restrictions`, `quotas` or `obligations` the publisher does include must not contradict the referenced document, and they bind the parties exactly as under `ENUMERATED`. `Pricing` is still stated machine-readably. This mode is for license arrangements whose terms cannot be fully enumerated in machine-readable form, such as music rights, patent portfolios and collective management agreements.
 
-**`License.uri_digest`**: every `License` that sets `uri` must also set `uri_digest`, whatever the term's semantics (rule `license.digest_required_with_uri`). The digest has the form `method:hexdigest`, where the method is `sha256`, `sha384` or `sha512` and the hex digest has the method's full length. `md5` and `sha1` are refused on the wire. The digest pins the document, so an agent can check that the bytes it fetched are the ones the offer was signed with.
+**`License.uri_digest`**: every `License` that sets `uri` must also set `uri_digest`, whatever the term's semantics (rule `license.digest_required_with_uri`). The party that sets `uri` supplies the digest: the publisher, on a term it pushes. The digest has the form `method:hexdigest`, where the method is `sha256`, `sha384` or `sha512` and the hex digest has the method's full length. `md5` and `sha1` are refused on the wire. The digest pins the document, so an agent can check that the bytes it fetched are the ones the offer was signed with.
 
 :::caution[Fetching `License.uri` safely]
 `License.uri` MUST NOT be URL-validated, because TDL identifiers use non-URL schemes. That means *do not reject* a non-URL scheme, **not** *fetch blindly*. A consumer that dereferences the URI MUST apply the SSRF countermeasures in the [threat model (T-LIC-1)](/security/threat-model/#t-lic-1-ssrf--phishing-via-licenseuri): a scheme allowlist; blocking loopback, link-local, private and cloud-metadata addresses, resolving before checking; fetching client-side through an egress proxy; and treating the response as untrusted. It verifies the fetched bytes against `License.uri_digest` and refuses the document on a mismatch.
@@ -115,12 +115,15 @@ Each obligation has:
 - `trigger`: when the obligation applies.
 - `scope_license`: the license derivatives must be released under, as a `License`. It is required for `SHARE_ALIKE`; set `id` to an SPDX short-id and/or set `uri`. A `uri` requires a `uri_digest`, as on any other `License`.
 - `detail`: human-readable text, such as the exact attribution wording or notice text. It is recommended for every kind. The Exchange accepts an `OTHER` obligation without `detail` and reports it in `PushResourcesResponse.warnings`.
+- `reporting`: for a `REPORTING` obligation only (rule `obligation.reporting.requires_reporting_kind`), a `ReportingObligation` that states the `window` within which the agent files `ReportUsage` and the `required_fields` the report carries. The term does not set `endpoint` (rule `obligation.reporting.no_endpoint`); the Exchange sets it on the offer. `required` is not read on a term: a `REPORTING` obligation always requires a report. Without `reporting`, the obligation still requires a report, under the Exchange's own window and fields.
 
 ::proto-enum{name=ObligationKind label=Kind}
 
 ::proto-enum{name=ObligationTrigger label=Trigger}
 
 Because obligations are separate from pricing, any combination is possible: a resource can require attribution **and** charge per access.
+
+**Reporting.** When the term an offer sells carries a `REPORTING` obligation, the Exchange sets `Offer.reporting` from it: `required` is true (rule `offer.reporting.required_by_term`), `window` and `required_fields` are the obligation's where it states them and the Exchange's own where it does not, and `endpoint` is the Exchange's. A term without a `REPORTING` obligation gets the Exchange's own reporting policy. A term whose `Pricing.metering` is `NONE` needs no report, so it cannot carry a `REPORTING` obligation (rule `license_term.reporting.metering_none`).
 
 ## Revenue-share arrangements
 
@@ -130,7 +133,7 @@ A revenue-share arrangement is expressed with primitives already in the core:
 
 - A term with `Pricing{model: FREE}`, because there is no per-access charge.
 - Gated by an agreement scope, for example `scopes: ["revshare:publisher-x"]`. An agent party to the deal states the matching scope in its signed request (`Requester.scopes`); an agent that does not state it never sees the term.
-- Usage reporting: under the default metering mode, `ONLINE`, the agent reports usage with `ReportUsage`, and the Exchange states the reporting requirement on the offer in `Offer.reporting`. `ResourceEntry` and `LicenseTerm` have no reporting field of their own.
+- A `REPORTING` obligation, so usage is reported. It can state the window and the fields the deal needs, for example a monthly report of `consumed_quantity`, and the Exchange carries it onto the offer's `Offer.reporting`.
 
 A scope gate decides which terms are presented; it is not access control. The Exchange does not verify `Requester.scopes`, so an agent that states the scope without being party to the deal also sees the term. The Exchange records that purchase under the agent's account. To withhold the term from such agents, the publisher needs an Exchange that presents the term only to a requester with a verified delegation granting the scope (see [Scope-Based Access](/protocol/authentication/#scope-based-access)).
 

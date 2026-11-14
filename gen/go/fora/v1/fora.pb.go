@@ -405,6 +405,7 @@ const (
 	ObligationKind_OBLIGATION_KIND_NETWORK_COPYLEFT ObligationKind = 4 // Network service triggers copyleft (AGPL style)
 	ObligationKind_OBLIGATION_KIND_NOTICE           ObligationKind = 5 // Include the specified copyright notice
 	ObligationKind_OBLIGATION_KIND_OTHER            ObligationKind = 6 // Custom requirement, described in Obligation.detail
+	ObligationKind_OBLIGATION_KIND_REPORTING        ObligationKind = 7 // Report usage with ReportUsage; Obligation.reporting may state the window and the required fields, and the Exchange carries the obligation onto Offer.reporting
 )
 
 // Enum value maps for ObligationKind.
@@ -417,6 +418,7 @@ var (
 		4: "OBLIGATION_KIND_NETWORK_COPYLEFT",
 		5: "OBLIGATION_KIND_NOTICE",
 		6: "OBLIGATION_KIND_OTHER",
+		7: "OBLIGATION_KIND_REPORTING",
 	}
 	ObligationKind_value = map[string]int32{
 		"OBLIGATION_KIND_UNSPECIFIED":      0,
@@ -426,6 +428,7 @@ var (
 		"OBLIGATION_KIND_NETWORK_COPYLEFT": 4,
 		"OBLIGATION_KIND_NOTICE":           5,
 		"OBLIGATION_KIND_OTHER":            6,
+		"OBLIGATION_KIND_REPORTING":        7,
 	}
 )
 
@@ -1073,7 +1076,7 @@ type IngestionSource int32
 const (
 	IngestionSource_INGESTION_SOURCE_UNSPECIFIED  IngestionSource = 0 // unset — output/optional; zero is a valid not-applicable/unset state
 	IngestionSource_INGESTION_SOURCE_FORA_SITEMAP IngestionSource = 1 // FORA XML namespace in sitemap
-	IngestionSource_INGESTION_SOURCE_RSL          IngestionSource = 2 // RSL rsl.txt
+	IngestionSource_INGESTION_SOURCE_RSL          IngestionSource = 2 // RSL 1.0 license document
 	IngestionSource_INGESTION_SOURCE_SITEMAP      IngestionSource = 3 // Standard sitemap.xml
 	IngestionSource_INGESTION_SOURCE_HTML_CRAWL   IngestionSource = 4 // HTML crawl + readability extraction
 	IngestionSource_INGESTION_SOURCE_CMS_API      IngestionSource = 5 // CMS REST API (WordPress, etc.)
@@ -2812,6 +2815,13 @@ type Offer struct {
 	// How resource will be delivered.
 	DeliveryMethod DeliveryMethod `protobuf:"varint,4,opt,name=delivery_method,json=deliveryMethod,proto3,enum=fora.v1.DeliveryMethod" json:"delivery_method,omitempty"`
 	// Post-usage reporting requirements for this offer.
+	//
+	// When the term the offer sells carries an OBLIGATION_KIND_REPORTING
+	// obligation, the Exchange sets this from it: `required` is true (the
+	// offer.reporting.required_by_term rule), `window` and `required_fields` are
+	// the obligation's where it states them and the Exchange's own where it does
+	// not, and `endpoint` is the Exchange's. Otherwise the Exchange applies its
+	// own reporting policy.
 	Reporting *ReportingObligation `protobuf:"bytes,5,opt,name=reporting,proto3,oneof" json:"reporting,omitempty"`
 	// When this offer expires (ISO 8601). An offer for a term gated behind a
 	// verified delegation MUST NOT expire later than that delegation chain's
@@ -3579,7 +3589,7 @@ type License struct {
 	// Examples:
 	//
 	//	"https://creativecommons.org/licenses/by/4.0/"
-	//	"https://techcrunch.com/licensing/ai-terms-2026"
+	//	"https://news.example/licensing/ai-terms-2026"
 	//
 	// "MUST NOT URL-validate" means do not REJECT non-URL schemes — it does NOT
 	// mean fetch blindly. A consumer that dereferences this URI MUST apply the
@@ -3601,10 +3611,8 @@ type License struct {
 	// verify the bytes it fetches match what was offered; covered by the offer
 	// signature, so it is tamper-evident end to end. REQUIRED whenever `uri` is
 	// non-empty — any semantics, mutable or not: without a pinned digest a MitM
-	// (or the publisher) can swap the document the agent reads. The Exchange pins
-	// it at ingestion (computing it over the safely-fetched document, or
-	// accepting a publisher-supplied value when uri is not HTTP-fetchable, e.g. a
-	// non-URL TDL scheme).
+	// (or the publisher) can swap the document the agent reads. The party that
+	// sets uri supplies uri_digest with it: the publisher on a term it pushes.
 	//
 	// The method MUST be a collision-resistant hash — sha256, sha384, or sha512.
 	// Legacy md5/sha1 are rejected on the wire: a forgeable digest would defeat
@@ -3919,7 +3927,16 @@ type Obligation struct {
 	ScopeLicense *License `protobuf:"bytes,3,opt,name=scope_license,json=scopeLicense,proto3,oneof" json:"scope_license,omitempty"`
 	// Free-form detail: attribution string, notice file URI, etc.
 	// OBLIGATION_KIND_OTHER without it → lint warning.
-	Detail        *string `protobuf:"bytes,4,opt,name=detail,proto3,oneof" json:"detail,omitempty"`
+	Detail *string `protobuf:"bytes,4,opt,name=detail,proto3,oneof" json:"detail,omitempty"`
+	// The reporting requirement of an OBLIGATION_KIND_REPORTING obligation: the
+	// window within which the agent files ReportUsage and the fields the report
+	// must carry. Set only on a REPORTING obligation (the
+	// obligation.reporting.requires_reporting_kind rule). `endpoint` is not set
+	// here (obligation.reporting.no_endpoint) and `required` is not read: a
+	// REPORTING obligation always requires a report. Absent, the obligation still
+	// requires a report, under the Exchange's own window and fields. The Exchange
+	// carries the obligation onto Offer.reporting (see that field).
+	Reporting     *ReportingObligation `protobuf:"bytes,5,opt,name=reporting,proto3,oneof" json:"reporting,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3982,6 +3999,13 @@ func (x *Obligation) GetDetail() string {
 	return ""
 }
 
+func (x *Obligation) GetReporting() *ReportingObligation {
+	if x != nil {
+		return x.Reporting
+	}
+	return nil
+}
+
 // LicenseTerm — Universal licensing unit.
 //
 // One LicenseTerm describes one complete access arrangement for a resource.
@@ -3989,10 +4013,12 @@ func (x *Obligation) GetDetail() string {
 // case (one per use category, user type, or commercial arrangement).
 //
 // The same LicenseTerm shape appears at ingestion (ResourceEntry.terms) and
-// at emission (Offer.terms). The Exchange stores what the publisher pushed
-// and surfaces it on discovery, so agents see the same terms the publisher
-// declared — no translation or reformulation — with one move: on an offer the
-// term's price is Offer.pricing, and the term itself carries none.
+// at emission (Offer.terms). The Exchange stores what the publisher pushed,
+// with each restriction token in its canonical form (trimmed, case-folded and
+// alias-resolved, as the ingest tier below describes), and surfaces it on
+// discovery, so agents see the terms the publisher declared, with no other
+// translation or reformulation — and one move: on an offer the term's price is
+// Offer.pricing, and the term itself carries none.
 //
 // Validation rules:
 //   - Pricing MUST be present on EVERY catalog term (ResourceEntry.terms),
@@ -9306,7 +9332,7 @@ type DomainVerificationRequest struct {
 	// FORA protocol version — "1.0". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
-	// The provider domain to verify (e.g., "techcrunch.com").
+	// The provider domain to verify (e.g., "news.example").
 	Domain string `protobuf:"bytes,2,opt,name=domain,proto3" json:"domain,omitempty"`
 	// Caller identity (registered with the Exchange).
 	CallerId *string `protobuf:"bytes,3,opt,name=caller_id,json=callerId,proto3,oneof" json:"caller_id,omitempty"`
@@ -11051,7 +11077,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x04unit\x18\x06 \x01(\tH\x01R\x04unit\x88\x01\x01B\f\n" +
 	"\n" +
 	"_resets_atB\a\n" +
-	"\x05_unit\"\xe5\f\n" +
+	"\x05_unit\"\xfb\x0e\n" +
 	"\x05Offer\x12\x19\n" +
 	"\boffer_id\x18\x01 \x01(\tR\aofferId\x12\x19\n" +
 	"\x05title\x18\x02 \x01(\tH\x00R\x05title\x88\x01\x01\x12*\n" +
@@ -11075,9 +11101,10 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x05terms\x18\x13 \x03(\v2\x14.fora.v1.LicenseTermB\n" +
 	"\xbaH\a\x92\x01\x04\b\x01\x10\x01R\x05terms\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
-	"\fext_critical\x18Z \x03(\tR\vextCritical:\xa1\x03\xbaH\x9d\x03\x1a\x8a\x01\n" +
+	"\fext_critical\x18Z \x03(\tR\vextCritical:\xb7\x05\xbaH\xb3\x05\x1a\x8a\x01\n" +
 	"\x19offer.terms.pricing_unset\x12Ian offer's term must carry no pricing; the offer's price is Offer.pricing\x1a\"this.terms.all(t, !has(t.pricing))\x1a\x8d\x02\n" +
-	"\x1foffer.metered.estimate_positive\x12Va metered (PER_UNIT) offer's pricing.estimated_quantity, when stated, must be positive\x1a\x91\x01this.pricing.model != fora.v1.PricingModel.PRICING_MODEL_PER_UNIT || !has(this.pricing.estimated_quantity) || this.pricing.estimated_quantity > 0B\b\n" +
+	"\x1foffer.metered.estimate_positive\x12Va metered (PER_UNIT) offer's pricing.estimated_quantity, when stated, must be positive\x1a\x91\x01this.pricing.model != fora.v1.PricingModel.PRICING_MODEL_PER_UNIT || !has(this.pricing.estimated_quantity) || this.pricing.estimated_quantity > 0\x1a\x93\x02\n" +
+	" offer.reporting.required_by_term\x12Nan offer whose term carries a REPORTING obligation must set reporting.required\x1a\x9e\x01!this.terms.exists(t, t.obligations.exists(o, o.kind == fora.v1.ObligationKind.OBLIGATION_KIND_REPORTING)) || (has(this.reporting) && this.reporting.required)B\b\n" +
 	"\x06_titleB\f\n" +
 	"\n" +
 	"_reportingB\r\n" +
@@ -11147,16 +11174,21 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x05Quota\x12\xcf\x01\n" +
 	"\x06metric\x18\x01 \x01(\tB\xb6\x01\xbaH4r2\x18@2.^([a-z0-9-]+|[A-Za-z0-9._-]+:[A-Za-z0-9._-]+)$\x8a\xb5\x18\rdisplay-words\x8a\xb5\x18\vimpressions\x8a\xb5\x18\x06tokens\x8a\xb5\x18\finput-tokens\x8a\xb5\x18\x12units-manufactured\x8a\xb5\x18\baccesses\x8a\xb5\x18\x06copies\x8a\xb5\x18\x05seats\x9a\xb5\x18\fquotametricsR\x06metric\x12\x1d\n" +
 	"\x05limit\x18\x02 \x01(\x03B\a\xbaH\x04\"\x02(\x01R\x05limit\x126\n" +
-	"\x06window\x18\x03 \x01(\x0e2\x14.fora.v1.QuotaWindowB\b\xbaH\x05\x82\x01\x02 \x00R\x06window\"\x98\x04\n" +
+	"\x06window\x18\x03 \x01(\x0e2\x14.fora.v1.QuotaWindowB\b\xbaH\x05\x82\x01\x02 \x00R\x06window\"\xe5\a\n" +
 	"\n" +
 	"Obligation\x125\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x17.fora.v1.ObligationKindB\b\xbaH\x05\x82\x01\x02 \x00R\x04kind\x12>\n" +
 	"\atrigger\x18\x02 \x01(\x0e2\x1a.fora.v1.ObligationTriggerB\b\xbaH\x05\x82\x01\x02 \x00R\atrigger\x12:\n" +
 	"\rscope_license\x18\x03 \x01(\v2\x10.fora.v1.LicenseH\x00R\fscopeLicense\x88\x01\x01\x12\x1b\n" +
-	"\x06detail\x18\x04 \x01(\tH\x01R\x06detail\x88\x01\x01:\x9c\x02\xbaH\x98\x02\x1a\x95\x02\n" +
-	"-obligation.share_alike.requires_scope_license\x12DSHARE_ALIKE requires scope_license to identify a license (id or uri)\x1a\x9d\x01this.kind != fora.v1.ObligationKind.OBLIGATION_KIND_SHARE_ALIKE || (has(this.scope_license) && (this.scope_license.id != '' || this.scope_license.uri != ''))B\x10\n" +
+	"\x06detail\x18\x04 \x01(\tH\x01R\x06detail\x88\x01\x01\x12?\n" +
+	"\treporting\x18\x05 \x01(\v2\x1c.fora.v1.ReportingObligationH\x02R\treporting\x88\x01\x01:\x9a\x05\xbaH\x96\x05\x1a\x95\x02\n" +
+	"-obligation.share_alike.requires_scope_license\x12DSHARE_ALIKE requires scope_license to identify a license (id or uri)\x1a\x9d\x01this.kind != fora.v1.ObligationKind.OBLIGATION_KIND_SHARE_ALIKE || (has(this.scope_license) && (this.scope_license.id != '' || this.scope_license.uri != ''))\x1a\xba\x01\n" +
+	",obligation.reporting.requires_reporting_kind\x123reporting may be set only on a REPORTING obligation\x1aU!has(this.reporting) || this.kind == fora.v1.ObligationKind.OBLIGATION_KIND_REPORTING\x1a\xbe\x01\n" +
+	" obligation.reporting.no_endpoint\x12ca REPORTING obligation on a term does not set reporting.endpoint; the Exchange sets it on the offer\x1a5!has(this.reporting) || !has(this.reporting.endpoint)B\x10\n" +
 	"\x0e_scope_licenseB\t\n" +
-	"\a_detail\"\x8b\a\n" +
+	"\a_detailB\f\n" +
+	"\n" +
+	"_reporting\"\xd9\t\n" +
 	"\vLicenseTerm\x12/\n" +
 	"\alicense\x18\x01 \x01(\v2\x10.fora.v1.LicenseH\x00R\alicense\x88\x01\x01\x12>\n" +
 	"\tsemantics\x18\x02 \x01(\x0e2\x16.fora.v1.TermSemanticsB\b\xbaH\x05\x82\x01\x02 \x00R\tsemantics\x12B\n" +
@@ -11166,9 +11198,10 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\apricing\x18\x06 \x01(\v2\x10.fora.v1.PricingH\x01R\apricing\x88\x01\x01\x12 \n" +
 	"\x06scopes\x18\a \x03(\tB\b\xbaH\x05\x92\x01\x02\x10@R\x06scopes\x12\"\n" +
 	"\n" +
-	"part_label\x18\b \x01(\tH\x02R\tpartLabel\x88\x01\x01:\xb5\x03\xbaH\xb1\x03\x1a\xe2\x01\n" +
+	"part_label\x18\b \x01(\tH\x02R\tpartLabel\x88\x01\x01:\x83\x06\xbaH\xff\x05\x1a\xe2\x01\n" +
 	"(license_term.reference_only.requires_uri\x12>REFERENCE_ONLY terms must carry a license with a non-empty uri\x1avthis.semantics != fora.v1.TermSemantics.TERM_SEMANTICS_REFERENCE_ONLY || (has(this.license) && this.license.uri != '')\x1a\xc9\x01\n" +
-	"%license_term.one_restriction_per_kind\x12+at most one restriction is allowed per kind\x1asthis.restrictions.size() > 8 || this.restrictions.all(r, this.restrictions.filter(o, o.kind == r.kind).size() <= 1)B\n" +
+	"%license_term.one_restriction_per_kind\x12+at most one restriction is allowed per kind\x1asthis.restrictions.size() > 8 || this.restrictions.all(r, this.restrictions.filter(o, o.kind == r.kind).size() <= 1)\x1a\xcb\x02\n" +
+	"$license_term.reporting.metering_none\x12Ia term whose pricing.metering is NONE cannot carry a REPORTING obligation\x1a\xd7\x01!(has(this.pricing) && has(this.pricing.metering) && this.pricing.metering == fora.v1.PricingMetering.PRICING_METERING_NONE) || !this.obligations.exists(o, o.kind == fora.v1.ObligationKind.OBLIGATION_KIND_REPORTING)B\n" +
 	"\n" +
 	"\b_licenseB\n" +
 	"\n" +
@@ -11774,7 +11807,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x13QUOTA_WINDOW_HOURLY\x10\x01\x12\x16\n" +
 	"\x12QUOTA_WINDOW_DAILY\x10\x02\x12\x18\n" +
 	"\x14QUOTA_WINDOW_MONTHLY\x10\x03\x12\x16\n" +
-	"\x12QUOTA_WINDOW_TOTAL\x10\x04*\xf2\x01\n" +
+	"\x12QUOTA_WINDOW_TOTAL\x10\x04*\x91\x02\n" +
 	"\x0eObligationKind\x12\x1f\n" +
 	"\x1bOBLIGATION_KIND_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bOBLIGATION_KIND_ATTRIBUTION\x10\x01\x12 \n" +
@@ -11782,7 +11815,8 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x1bOBLIGATION_KIND_SHARE_ALIKE\x10\x03\x12$\n" +
 	" OBLIGATION_KIND_NETWORK_COPYLEFT\x10\x04\x12\x1a\n" +
 	"\x16OBLIGATION_KIND_NOTICE\x10\x05\x12\x19\n" +
-	"\x15OBLIGATION_KIND_OTHER\x10\x06*\xcf\x01\n" +
+	"\x15OBLIGATION_KIND_OTHER\x10\x06\x12\x1d\n" +
+	"\x19OBLIGATION_KIND_REPORTING\x10\a*\xcf\x01\n" +
 	"\x11ObligationTrigger\x12\"\n" +
 	"\x1eOBLIGATION_TRIGGER_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19OBLIGATION_TRIGGER_ON_USE\x10\x01\x12&\n" +
@@ -12149,159 +12183,160 @@ var file_fora_v1_fora_proto_depIdxs = []int32{
 	5,   // 34: fora.v1.Obligation.kind:type_name -> fora.v1.ObligationKind
 	6,   // 35: fora.v1.Obligation.trigger:type_name -> fora.v1.ObligationTrigger
 	38,  // 36: fora.v1.Obligation.scope_license:type_name -> fora.v1.License
-	38,  // 37: fora.v1.LicenseTerm.license:type_name -> fora.v1.License
-	2,   // 38: fora.v1.LicenseTerm.semantics:type_name -> fora.v1.TermSemantics
-	39,  // 39: fora.v1.LicenseTerm.restrictions:type_name -> fora.v1.Restriction
-	40,  // 40: fora.v1.LicenseTerm.quotas:type_name -> fora.v1.Quota
-	41,  // 41: fora.v1.LicenseTerm.obligations:type_name -> fora.v1.Obligation
-	44,  // 42: fora.v1.LicenseTerm.pricing:type_name -> fora.v1.Pricing
-	7,   // 43: fora.v1.Pricing.model:type_name -> fora.v1.PricingModel
-	8,   // 44: fora.v1.Pricing.metering:type_name -> fora.v1.PricingMetering
-	10,  // 45: fora.v1.Requester.type:type_name -> fora.v1.RequesterType
-	46,  // 46: fora.v1.Requester.delegation:type_name -> fora.v1.Delegation
-	106, // 47: fora.v1.Requester.ext:type_name -> google.protobuf.Struct
-	107, // 48: fora.v1.Delegation.expires_at:type_name -> google.protobuf.Timestamp
-	105, // 49: fora.v1.Delegation.quota_period:type_name -> google.protobuf.Duration
-	106, // 50: fora.v1.Delegation.ext:type_name -> google.protobuf.Struct
-	50,  // 51: fora.v1.AgentRequestAcceptance.payload:type_name -> fora.v1.AgentRequestAcceptancePayload
-	49,  // 52: fora.v1.AgentRequestAcceptancePayload.items:type_name -> fora.v1.AgentRequestAcceptanceItem
-	45,  // 53: fora.v1.TransactionRequest.requester:type_name -> fora.v1.Requester
-	53,  // 54: fora.v1.TransactionRequest.items:type_name -> fora.v1.TransactionItem
-	48,  // 55: fora.v1.TransactionRequest.agent_request_acceptance:type_name -> fora.v1.AgentRequestAcceptance
-	106, // 56: fora.v1.TransactionRequest.ext:type_name -> google.protobuf.Struct
-	35,  // 57: fora.v1.TransactionItem.offer:type_name -> fora.v1.Offer
-	47,  // 58: fora.v1.TransactionItem.agent_acceptance:type_name -> fora.v1.AgentAcceptance
-	55,  // 59: fora.v1.TransactionResponse.items:type_name -> fora.v1.TransactionResultItem
-	57,  // 60: fora.v1.TransactionResponse.total_cost:type_name -> fora.v1.Cost
-	34,  // 61: fora.v1.TransactionResponse.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
-	106, // 62: fora.v1.TransactionResponse.ext:type_name -> google.protobuf.Struct
-	57,  // 63: fora.v1.TransactionResultItem.cost:type_name -> fora.v1.Cost
-	57,  // 64: fora.v1.TransactionResultItem.subscription_unit_value:type_name -> fora.v1.Cost
-	13,  // 65: fora.v1.TransactionResultItem.denial_reason:type_name -> fora.v1.DenialReason
-	3,   // 66: fora.v1.TransactionResultItem.restriction_mismatches:type_name -> fora.v1.RestrictionKind
-	107, // 67: fora.v1.TransactionResultItem.expires_at:type_name -> google.protobuf.Timestamp
-	9,   // 68: fora.v1.TransactionResultItem.delivery_method:type_name -> fora.v1.DeliveryMethod
-	66,  // 69: fora.v1.TransactionResultItem.reporting_obligation:type_name -> fora.v1.ReportingObligation
-	56,  // 70: fora.v1.TransactionResultItem.refusal:type_name -> fora.v1.UpstreamRefusal
-	94,  // 71: fora.v1.UpstreamRefusal.detail:type_name -> fora.v1.ErrorDetail
-	59,  // 72: fora.v1.PushResourcesRequest.entries:type_name -> fora.v1.ResourceEntry
-	106, // 73: fora.v1.PushResourcesRequest.ext:type_name -> google.protobuf.Struct
-	14,  // 74: fora.v1.ResourceEntry.source:type_name -> fora.v1.IngestionSource
-	107, // 75: fora.v1.ResourceEntry.provenance_timestamp:type_name -> google.protobuf.Timestamp
-	37,  // 76: fora.v1.ResourceEntry.attestations:type_name -> fora.v1.ResourceAttestation
-	42,  // 77: fora.v1.ResourceEntry.terms:type_name -> fora.v1.LicenseTerm
-	12,  // 78: fora.v1.ResourceEntry.resource_mutability:type_name -> fora.v1.ResourceMutability
-	106, // 79: fora.v1.ResourceEntry.ext:type_name -> google.protobuf.Struct
-	106, // 80: fora.v1.PushResourcesResponse.ext:type_name -> google.protobuf.Struct
-	62,  // 81: fora.v1.RemoveResourcesRequest.resources:type_name -> fora.v1.ResourceRef
-	105, // 82: fora.v1.ReportingObligation.window:type_name -> google.protobuf.Duration
-	106, // 83: fora.v1.ReportingObligation.ext:type_name -> google.protobuf.Struct
-	69,  // 84: fora.v1.UsageReport.usage:type_name -> fora.v1.Usage
-	107, // 85: fora.v1.UsageReport.timestamp:type_name -> google.protobuf.Timestamp
-	70,  // 86: fora.v1.UsageReport.assets:type_name -> fora.v1.UsageAsset
-	106, // 87: fora.v1.UsageReport.ext:type_name -> google.protobuf.Struct
-	15,  // 88: fora.v1.AttributionDetail.format:type_name -> fora.v1.CitationFormat
-	68,  // 89: fora.v1.Usage.attribution:type_name -> fora.v1.AttributionDetail
-	106, // 90: fora.v1.UsageReportResponse.ext:type_name -> google.protobuf.Struct
-	45,  // 91: fora.v1.DiscoveryRequest.requester:type_name -> fora.v1.Requester
-	29,  // 92: fora.v1.DiscoveryRequest.acceptable_restrictions:type_name -> fora.v1.AcceptableRestriction
-	73,  // 93: fora.v1.DiscoveryRequest.constraints:type_name -> fora.v1.RequestConstraints
-	106, // 94: fora.v1.DiscoveryRequest.search_filters:type_name -> google.protobuf.Struct
-	106, // 95: fora.v1.DiscoveryRequest.ext:type_name -> google.protobuf.Struct
-	57,  // 96: fora.v1.RequestConstraints.max_price:type_name -> fora.v1.Cost
-	9,   // 97: fora.v1.RequestConstraints.delivery_preference:type_name -> fora.v1.DeliveryMethod
-	57,  // 98: fora.v1.RequestConstraints.period_budget:type_name -> fora.v1.Cost
-	105, // 99: fora.v1.RequestConstraints.budget_period:type_name -> google.protobuf.Duration
-	105, // 100: fora.v1.RequestConstraints.max_data_age:type_name -> google.protobuf.Duration
-	106, // 101: fora.v1.AccountRegistration.data_schema:type_name -> google.protobuf.Struct
-	16,  // 102: fora.v1.WellKnownManifest.role:type_name -> fora.v1.Role
-	80,  // 103: fora.v1.WellKnownManifest.exchanges:type_name -> fora.v1.AuthorizedExchange
-	79,  // 104: fora.v1.WellKnownManifest.catalog_contributors:type_name -> fora.v1.CatalogContributor
-	7,   // 105: fora.v1.WellKnownManifest.pricing_models_supported:type_name -> fora.v1.PricingModel
-	9,   // 106: fora.v1.WellKnownManifest.delivery_methods_supported:type_name -> fora.v1.DeliveryMethod
-	18,  // 107: fora.v1.WellKnownManifest.supported_auth_methods:type_name -> fora.v1.AuthMethod
-	75,  // 108: fora.v1.WellKnownManifest.account_registration:type_name -> fora.v1.AccountRegistration
-	106, // 109: fora.v1.WellKnownManifest.ext:type_name -> google.protobuf.Struct
-	74,  // 110: fora.v1.WBAFile.keys:type_name -> fora.v1.JsonWebKey
-	107, // 111: fora.v1.KeyRevocationList.as_of:type_name -> google.protobuf.Timestamp
-	17,  // 112: fora.v1.AuthorizedExchange.relationship:type_name -> fora.v1.ProviderRelationship
-	106, // 113: fora.v1.AuthorizedExchange.ext:type_name -> google.protobuf.Struct
-	32,  // 114: fora.v1.DiscoveryResponse.offer_groups:type_name -> fora.v1.OfferGroup
-	1,   // 115: fora.v1.DiscoveryResponse.absence_reason:type_name -> fora.v1.OfferAbsenceReason
-	106, // 116: fora.v1.DiscoveryResponse.ext:type_name -> google.protobuf.Struct
-	55,  // 117: fora.v1.BrokerTransactionResponse.items:type_name -> fora.v1.TransactionResultItem
-	83,  // 118: fora.v1.BrokerTransactionResponse.exchanges:type_name -> fora.v1.ExchangeOutcome
-	57,  // 119: fora.v1.BrokerTransactionResponse.totals:type_name -> fora.v1.Cost
-	106, // 120: fora.v1.BrokerTransactionResponse.ext:type_name -> google.protobuf.Struct
-	34,  // 121: fora.v1.ExchangeOutcome.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
-	19,  // 122: fora.v1.DisputeRequest.reason:type_name -> fora.v1.DisputeReason
-	106, // 123: fora.v1.DisputeRequest.ext:type_name -> google.protobuf.Struct
-	105, // 124: fora.v1.DisputeResponse.estimated_resolution:type_name -> google.protobuf.Duration
-	20,  // 125: fora.v1.DisputeResponse.status:type_name -> fora.v1.DisputeStatus
-	21,  // 126: fora.v1.DisputeResponse.resolution:type_name -> fora.v1.ResolutionType
-	106, // 127: fora.v1.DisputeResponse.ext:type_name -> google.protobuf.Struct
-	106, // 128: fora.v1.DomainVerificationRequest.ext:type_name -> google.protobuf.Struct
-	107, // 129: fora.v1.DomainVerificationChallenge.expires_at:type_name -> google.protobuf.Timestamp
-	106, // 130: fora.v1.DomainVerificationChallenge.ext:type_name -> google.protobuf.Struct
-	106, // 131: fora.v1.DomainVerificationConfirmation.ext:type_name -> google.protobuf.Struct
-	107, // 132: fora.v1.DomainVerificationResult.valid_until:type_name -> google.protobuf.Timestamp
-	106, // 133: fora.v1.DomainVerificationResult.ext:type_name -> google.protobuf.Struct
-	106, // 134: fora.v1.RegisterRequest.registration_data:type_name -> google.protobuf.Struct
-	106, // 135: fora.v1.RegisterRequest.ext:type_name -> google.protobuf.Struct
-	106, // 136: fora.v1.RegisterResponse.ext:type_name -> google.protobuf.Struct
-	106, // 137: fora.v1.GetAccountStatusRequest.ext:type_name -> google.protobuf.Struct
-	57,  // 138: fora.v1.GetAccountStatusResponse.balances:type_name -> fora.v1.Cost
-	106, // 139: fora.v1.GetAccountStatusResponse.ext:type_name -> google.protobuf.Struct
-	104, // 140: fora.v1.ErrorDetail.metadata:type_name -> fora.v1.ErrorDetail.MetadataEntry
-	95,  // 141: fora.v1.ErrorDetail.transaction_denial:type_name -> fora.v1.TransactionDenial
-	96,  // 142: fora.v1.ErrorDetail.catalog_rejection:type_name -> fora.v1.CatalogRejection
-	97,  // 143: fora.v1.ErrorDetail.registration_failure:type_name -> fora.v1.RegistrationFailure
-	99,  // 144: fora.v1.ErrorDetail.dispute_failure:type_name -> fora.v1.DisputeFailure
-	100, // 145: fora.v1.ErrorDetail.domain_verification_failure:type_name -> fora.v1.DomainVerificationFailure
-	101, // 146: fora.v1.ErrorDetail.retrieval_auth_failure:type_name -> fora.v1.RetrievalAuthFailure
-	102, // 147: fora.v1.ErrorDetail.usage_report_rejection:type_name -> fora.v1.UsageReportRejection
-	103, // 148: fora.v1.ErrorDetail.request_auth_failure:type_name -> fora.v1.RequestAuthFailure
-	13,  // 149: fora.v1.TransactionDenial.reason:type_name -> fora.v1.DenialReason
-	3,   // 150: fora.v1.TransactionDenial.restriction_mismatches:type_name -> fora.v1.RestrictionKind
-	22,  // 151: fora.v1.CatalogRejection.reason:type_name -> fora.v1.CatalogRejectionReason
-	23,  // 152: fora.v1.RegistrationFailure.reason:type_name -> fora.v1.RegistrationFailureReason
-	98,  // 153: fora.v1.RegistrationFailure.field_errors:type_name -> fora.v1.RegistrationFieldError
-	24,  // 154: fora.v1.DisputeFailure.reason:type_name -> fora.v1.DisputeFailureReason
-	25,  // 155: fora.v1.DomainVerificationFailure.reason:type_name -> fora.v1.DomainVerificationFailureReason
-	26,  // 156: fora.v1.RetrievalAuthFailure.reason:type_name -> fora.v1.RetrievalAuthFailureReason
-	27,  // 157: fora.v1.UsageReportRejection.reason:type_name -> fora.v1.UsageReportRejectionReason
-	28,  // 158: fora.v1.RequestAuthFailure.reason:type_name -> fora.v1.RequestAuthFailureReason
-	30,  // 159: fora.v1.ExchangeService.DiscoverResources:input_type -> fora.v1.ResourceQuery
-	52,  // 160: fora.v1.ExchangeService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
-	67,  // 161: fora.v1.ExchangeService.ReportUsage:input_type -> fora.v1.UsageReport
-	84,  // 162: fora.v1.ExchangeService.DisputeTransaction:input_type -> fora.v1.DisputeRequest
-	86,  // 163: fora.v1.ExchangeService.RequestDomainVerification:input_type -> fora.v1.DomainVerificationRequest
-	88,  // 164: fora.v1.ExchangeService.ConfirmDomainVerification:input_type -> fora.v1.DomainVerificationConfirmation
-	90,  // 165: fora.v1.ExchangeService.Register:input_type -> fora.v1.RegisterRequest
-	92,  // 166: fora.v1.ExchangeService.GetAccountStatus:input_type -> fora.v1.GetAccountStatusRequest
-	58,  // 167: fora.v1.CatalogService.PushResources:input_type -> fora.v1.PushResourcesRequest
-	61,  // 168: fora.v1.CatalogService.RemoveResources:input_type -> fora.v1.RemoveResourcesRequest
-	64,  // 169: fora.v1.CatalogService.RefreshCatalog:input_type -> fora.v1.RefreshCatalogRequest
-	72,  // 170: fora.v1.BrokerService.Resolve:input_type -> fora.v1.DiscoveryRequest
-	52,  // 171: fora.v1.BrokerService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
-	31,  // 172: fora.v1.ExchangeService.DiscoverResources:output_type -> fora.v1.ResourceResponse
-	54,  // 173: fora.v1.ExchangeService.ExecuteTransaction:output_type -> fora.v1.TransactionResponse
-	71,  // 174: fora.v1.ExchangeService.ReportUsage:output_type -> fora.v1.UsageReportResponse
-	85,  // 175: fora.v1.ExchangeService.DisputeTransaction:output_type -> fora.v1.DisputeResponse
-	87,  // 176: fora.v1.ExchangeService.RequestDomainVerification:output_type -> fora.v1.DomainVerificationChallenge
-	89,  // 177: fora.v1.ExchangeService.ConfirmDomainVerification:output_type -> fora.v1.DomainVerificationResult
-	91,  // 178: fora.v1.ExchangeService.Register:output_type -> fora.v1.RegisterResponse
-	93,  // 179: fora.v1.ExchangeService.GetAccountStatus:output_type -> fora.v1.GetAccountStatusResponse
-	60,  // 180: fora.v1.CatalogService.PushResources:output_type -> fora.v1.PushResourcesResponse
-	63,  // 181: fora.v1.CatalogService.RemoveResources:output_type -> fora.v1.RemoveResourcesResponse
-	65,  // 182: fora.v1.CatalogService.RefreshCatalog:output_type -> fora.v1.RefreshCatalogResponse
-	81,  // 183: fora.v1.BrokerService.Resolve:output_type -> fora.v1.DiscoveryResponse
-	82,  // 184: fora.v1.BrokerService.ExecuteTransaction:output_type -> fora.v1.BrokerTransactionResponse
-	172, // [172:185] is the sub-list for method output_type
-	159, // [159:172] is the sub-list for method input_type
-	159, // [159:159] is the sub-list for extension type_name
-	159, // [159:159] is the sub-list for extension extendee
-	0,   // [0:159] is the sub-list for field type_name
+	66,  // 37: fora.v1.Obligation.reporting:type_name -> fora.v1.ReportingObligation
+	38,  // 38: fora.v1.LicenseTerm.license:type_name -> fora.v1.License
+	2,   // 39: fora.v1.LicenseTerm.semantics:type_name -> fora.v1.TermSemantics
+	39,  // 40: fora.v1.LicenseTerm.restrictions:type_name -> fora.v1.Restriction
+	40,  // 41: fora.v1.LicenseTerm.quotas:type_name -> fora.v1.Quota
+	41,  // 42: fora.v1.LicenseTerm.obligations:type_name -> fora.v1.Obligation
+	44,  // 43: fora.v1.LicenseTerm.pricing:type_name -> fora.v1.Pricing
+	7,   // 44: fora.v1.Pricing.model:type_name -> fora.v1.PricingModel
+	8,   // 45: fora.v1.Pricing.metering:type_name -> fora.v1.PricingMetering
+	10,  // 46: fora.v1.Requester.type:type_name -> fora.v1.RequesterType
+	46,  // 47: fora.v1.Requester.delegation:type_name -> fora.v1.Delegation
+	106, // 48: fora.v1.Requester.ext:type_name -> google.protobuf.Struct
+	107, // 49: fora.v1.Delegation.expires_at:type_name -> google.protobuf.Timestamp
+	105, // 50: fora.v1.Delegation.quota_period:type_name -> google.protobuf.Duration
+	106, // 51: fora.v1.Delegation.ext:type_name -> google.protobuf.Struct
+	50,  // 52: fora.v1.AgentRequestAcceptance.payload:type_name -> fora.v1.AgentRequestAcceptancePayload
+	49,  // 53: fora.v1.AgentRequestAcceptancePayload.items:type_name -> fora.v1.AgentRequestAcceptanceItem
+	45,  // 54: fora.v1.TransactionRequest.requester:type_name -> fora.v1.Requester
+	53,  // 55: fora.v1.TransactionRequest.items:type_name -> fora.v1.TransactionItem
+	48,  // 56: fora.v1.TransactionRequest.agent_request_acceptance:type_name -> fora.v1.AgentRequestAcceptance
+	106, // 57: fora.v1.TransactionRequest.ext:type_name -> google.protobuf.Struct
+	35,  // 58: fora.v1.TransactionItem.offer:type_name -> fora.v1.Offer
+	47,  // 59: fora.v1.TransactionItem.agent_acceptance:type_name -> fora.v1.AgentAcceptance
+	55,  // 60: fora.v1.TransactionResponse.items:type_name -> fora.v1.TransactionResultItem
+	57,  // 61: fora.v1.TransactionResponse.total_cost:type_name -> fora.v1.Cost
+	34,  // 62: fora.v1.TransactionResponse.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
+	106, // 63: fora.v1.TransactionResponse.ext:type_name -> google.protobuf.Struct
+	57,  // 64: fora.v1.TransactionResultItem.cost:type_name -> fora.v1.Cost
+	57,  // 65: fora.v1.TransactionResultItem.subscription_unit_value:type_name -> fora.v1.Cost
+	13,  // 66: fora.v1.TransactionResultItem.denial_reason:type_name -> fora.v1.DenialReason
+	3,   // 67: fora.v1.TransactionResultItem.restriction_mismatches:type_name -> fora.v1.RestrictionKind
+	107, // 68: fora.v1.TransactionResultItem.expires_at:type_name -> google.protobuf.Timestamp
+	9,   // 69: fora.v1.TransactionResultItem.delivery_method:type_name -> fora.v1.DeliveryMethod
+	66,  // 70: fora.v1.TransactionResultItem.reporting_obligation:type_name -> fora.v1.ReportingObligation
+	56,  // 71: fora.v1.TransactionResultItem.refusal:type_name -> fora.v1.UpstreamRefusal
+	94,  // 72: fora.v1.UpstreamRefusal.detail:type_name -> fora.v1.ErrorDetail
+	59,  // 73: fora.v1.PushResourcesRequest.entries:type_name -> fora.v1.ResourceEntry
+	106, // 74: fora.v1.PushResourcesRequest.ext:type_name -> google.protobuf.Struct
+	14,  // 75: fora.v1.ResourceEntry.source:type_name -> fora.v1.IngestionSource
+	107, // 76: fora.v1.ResourceEntry.provenance_timestamp:type_name -> google.protobuf.Timestamp
+	37,  // 77: fora.v1.ResourceEntry.attestations:type_name -> fora.v1.ResourceAttestation
+	42,  // 78: fora.v1.ResourceEntry.terms:type_name -> fora.v1.LicenseTerm
+	12,  // 79: fora.v1.ResourceEntry.resource_mutability:type_name -> fora.v1.ResourceMutability
+	106, // 80: fora.v1.ResourceEntry.ext:type_name -> google.protobuf.Struct
+	106, // 81: fora.v1.PushResourcesResponse.ext:type_name -> google.protobuf.Struct
+	62,  // 82: fora.v1.RemoveResourcesRequest.resources:type_name -> fora.v1.ResourceRef
+	105, // 83: fora.v1.ReportingObligation.window:type_name -> google.protobuf.Duration
+	106, // 84: fora.v1.ReportingObligation.ext:type_name -> google.protobuf.Struct
+	69,  // 85: fora.v1.UsageReport.usage:type_name -> fora.v1.Usage
+	107, // 86: fora.v1.UsageReport.timestamp:type_name -> google.protobuf.Timestamp
+	70,  // 87: fora.v1.UsageReport.assets:type_name -> fora.v1.UsageAsset
+	106, // 88: fora.v1.UsageReport.ext:type_name -> google.protobuf.Struct
+	15,  // 89: fora.v1.AttributionDetail.format:type_name -> fora.v1.CitationFormat
+	68,  // 90: fora.v1.Usage.attribution:type_name -> fora.v1.AttributionDetail
+	106, // 91: fora.v1.UsageReportResponse.ext:type_name -> google.protobuf.Struct
+	45,  // 92: fora.v1.DiscoveryRequest.requester:type_name -> fora.v1.Requester
+	29,  // 93: fora.v1.DiscoveryRequest.acceptable_restrictions:type_name -> fora.v1.AcceptableRestriction
+	73,  // 94: fora.v1.DiscoveryRequest.constraints:type_name -> fora.v1.RequestConstraints
+	106, // 95: fora.v1.DiscoveryRequest.search_filters:type_name -> google.protobuf.Struct
+	106, // 96: fora.v1.DiscoveryRequest.ext:type_name -> google.protobuf.Struct
+	57,  // 97: fora.v1.RequestConstraints.max_price:type_name -> fora.v1.Cost
+	9,   // 98: fora.v1.RequestConstraints.delivery_preference:type_name -> fora.v1.DeliveryMethod
+	57,  // 99: fora.v1.RequestConstraints.period_budget:type_name -> fora.v1.Cost
+	105, // 100: fora.v1.RequestConstraints.budget_period:type_name -> google.protobuf.Duration
+	105, // 101: fora.v1.RequestConstraints.max_data_age:type_name -> google.protobuf.Duration
+	106, // 102: fora.v1.AccountRegistration.data_schema:type_name -> google.protobuf.Struct
+	16,  // 103: fora.v1.WellKnownManifest.role:type_name -> fora.v1.Role
+	80,  // 104: fora.v1.WellKnownManifest.exchanges:type_name -> fora.v1.AuthorizedExchange
+	79,  // 105: fora.v1.WellKnownManifest.catalog_contributors:type_name -> fora.v1.CatalogContributor
+	7,   // 106: fora.v1.WellKnownManifest.pricing_models_supported:type_name -> fora.v1.PricingModel
+	9,   // 107: fora.v1.WellKnownManifest.delivery_methods_supported:type_name -> fora.v1.DeliveryMethod
+	18,  // 108: fora.v1.WellKnownManifest.supported_auth_methods:type_name -> fora.v1.AuthMethod
+	75,  // 109: fora.v1.WellKnownManifest.account_registration:type_name -> fora.v1.AccountRegistration
+	106, // 110: fora.v1.WellKnownManifest.ext:type_name -> google.protobuf.Struct
+	74,  // 111: fora.v1.WBAFile.keys:type_name -> fora.v1.JsonWebKey
+	107, // 112: fora.v1.KeyRevocationList.as_of:type_name -> google.protobuf.Timestamp
+	17,  // 113: fora.v1.AuthorizedExchange.relationship:type_name -> fora.v1.ProviderRelationship
+	106, // 114: fora.v1.AuthorizedExchange.ext:type_name -> google.protobuf.Struct
+	32,  // 115: fora.v1.DiscoveryResponse.offer_groups:type_name -> fora.v1.OfferGroup
+	1,   // 116: fora.v1.DiscoveryResponse.absence_reason:type_name -> fora.v1.OfferAbsenceReason
+	106, // 117: fora.v1.DiscoveryResponse.ext:type_name -> google.protobuf.Struct
+	55,  // 118: fora.v1.BrokerTransactionResponse.items:type_name -> fora.v1.TransactionResultItem
+	83,  // 119: fora.v1.BrokerTransactionResponse.exchanges:type_name -> fora.v1.ExchangeOutcome
+	57,  // 120: fora.v1.BrokerTransactionResponse.totals:type_name -> fora.v1.Cost
+	106, // 121: fora.v1.BrokerTransactionResponse.ext:type_name -> google.protobuf.Struct
+	34,  // 122: fora.v1.ExchangeOutcome.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
+	19,  // 123: fora.v1.DisputeRequest.reason:type_name -> fora.v1.DisputeReason
+	106, // 124: fora.v1.DisputeRequest.ext:type_name -> google.protobuf.Struct
+	105, // 125: fora.v1.DisputeResponse.estimated_resolution:type_name -> google.protobuf.Duration
+	20,  // 126: fora.v1.DisputeResponse.status:type_name -> fora.v1.DisputeStatus
+	21,  // 127: fora.v1.DisputeResponse.resolution:type_name -> fora.v1.ResolutionType
+	106, // 128: fora.v1.DisputeResponse.ext:type_name -> google.protobuf.Struct
+	106, // 129: fora.v1.DomainVerificationRequest.ext:type_name -> google.protobuf.Struct
+	107, // 130: fora.v1.DomainVerificationChallenge.expires_at:type_name -> google.protobuf.Timestamp
+	106, // 131: fora.v1.DomainVerificationChallenge.ext:type_name -> google.protobuf.Struct
+	106, // 132: fora.v1.DomainVerificationConfirmation.ext:type_name -> google.protobuf.Struct
+	107, // 133: fora.v1.DomainVerificationResult.valid_until:type_name -> google.protobuf.Timestamp
+	106, // 134: fora.v1.DomainVerificationResult.ext:type_name -> google.protobuf.Struct
+	106, // 135: fora.v1.RegisterRequest.registration_data:type_name -> google.protobuf.Struct
+	106, // 136: fora.v1.RegisterRequest.ext:type_name -> google.protobuf.Struct
+	106, // 137: fora.v1.RegisterResponse.ext:type_name -> google.protobuf.Struct
+	106, // 138: fora.v1.GetAccountStatusRequest.ext:type_name -> google.protobuf.Struct
+	57,  // 139: fora.v1.GetAccountStatusResponse.balances:type_name -> fora.v1.Cost
+	106, // 140: fora.v1.GetAccountStatusResponse.ext:type_name -> google.protobuf.Struct
+	104, // 141: fora.v1.ErrorDetail.metadata:type_name -> fora.v1.ErrorDetail.MetadataEntry
+	95,  // 142: fora.v1.ErrorDetail.transaction_denial:type_name -> fora.v1.TransactionDenial
+	96,  // 143: fora.v1.ErrorDetail.catalog_rejection:type_name -> fora.v1.CatalogRejection
+	97,  // 144: fora.v1.ErrorDetail.registration_failure:type_name -> fora.v1.RegistrationFailure
+	99,  // 145: fora.v1.ErrorDetail.dispute_failure:type_name -> fora.v1.DisputeFailure
+	100, // 146: fora.v1.ErrorDetail.domain_verification_failure:type_name -> fora.v1.DomainVerificationFailure
+	101, // 147: fora.v1.ErrorDetail.retrieval_auth_failure:type_name -> fora.v1.RetrievalAuthFailure
+	102, // 148: fora.v1.ErrorDetail.usage_report_rejection:type_name -> fora.v1.UsageReportRejection
+	103, // 149: fora.v1.ErrorDetail.request_auth_failure:type_name -> fora.v1.RequestAuthFailure
+	13,  // 150: fora.v1.TransactionDenial.reason:type_name -> fora.v1.DenialReason
+	3,   // 151: fora.v1.TransactionDenial.restriction_mismatches:type_name -> fora.v1.RestrictionKind
+	22,  // 152: fora.v1.CatalogRejection.reason:type_name -> fora.v1.CatalogRejectionReason
+	23,  // 153: fora.v1.RegistrationFailure.reason:type_name -> fora.v1.RegistrationFailureReason
+	98,  // 154: fora.v1.RegistrationFailure.field_errors:type_name -> fora.v1.RegistrationFieldError
+	24,  // 155: fora.v1.DisputeFailure.reason:type_name -> fora.v1.DisputeFailureReason
+	25,  // 156: fora.v1.DomainVerificationFailure.reason:type_name -> fora.v1.DomainVerificationFailureReason
+	26,  // 157: fora.v1.RetrievalAuthFailure.reason:type_name -> fora.v1.RetrievalAuthFailureReason
+	27,  // 158: fora.v1.UsageReportRejection.reason:type_name -> fora.v1.UsageReportRejectionReason
+	28,  // 159: fora.v1.RequestAuthFailure.reason:type_name -> fora.v1.RequestAuthFailureReason
+	30,  // 160: fora.v1.ExchangeService.DiscoverResources:input_type -> fora.v1.ResourceQuery
+	52,  // 161: fora.v1.ExchangeService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
+	67,  // 162: fora.v1.ExchangeService.ReportUsage:input_type -> fora.v1.UsageReport
+	84,  // 163: fora.v1.ExchangeService.DisputeTransaction:input_type -> fora.v1.DisputeRequest
+	86,  // 164: fora.v1.ExchangeService.RequestDomainVerification:input_type -> fora.v1.DomainVerificationRequest
+	88,  // 165: fora.v1.ExchangeService.ConfirmDomainVerification:input_type -> fora.v1.DomainVerificationConfirmation
+	90,  // 166: fora.v1.ExchangeService.Register:input_type -> fora.v1.RegisterRequest
+	92,  // 167: fora.v1.ExchangeService.GetAccountStatus:input_type -> fora.v1.GetAccountStatusRequest
+	58,  // 168: fora.v1.CatalogService.PushResources:input_type -> fora.v1.PushResourcesRequest
+	61,  // 169: fora.v1.CatalogService.RemoveResources:input_type -> fora.v1.RemoveResourcesRequest
+	64,  // 170: fora.v1.CatalogService.RefreshCatalog:input_type -> fora.v1.RefreshCatalogRequest
+	72,  // 171: fora.v1.BrokerService.Resolve:input_type -> fora.v1.DiscoveryRequest
+	52,  // 172: fora.v1.BrokerService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
+	31,  // 173: fora.v1.ExchangeService.DiscoverResources:output_type -> fora.v1.ResourceResponse
+	54,  // 174: fora.v1.ExchangeService.ExecuteTransaction:output_type -> fora.v1.TransactionResponse
+	71,  // 175: fora.v1.ExchangeService.ReportUsage:output_type -> fora.v1.UsageReportResponse
+	85,  // 176: fora.v1.ExchangeService.DisputeTransaction:output_type -> fora.v1.DisputeResponse
+	87,  // 177: fora.v1.ExchangeService.RequestDomainVerification:output_type -> fora.v1.DomainVerificationChallenge
+	89,  // 178: fora.v1.ExchangeService.ConfirmDomainVerification:output_type -> fora.v1.DomainVerificationResult
+	91,  // 179: fora.v1.ExchangeService.Register:output_type -> fora.v1.RegisterResponse
+	93,  // 180: fora.v1.ExchangeService.GetAccountStatus:output_type -> fora.v1.GetAccountStatusResponse
+	60,  // 181: fora.v1.CatalogService.PushResources:output_type -> fora.v1.PushResourcesResponse
+	63,  // 182: fora.v1.CatalogService.RemoveResources:output_type -> fora.v1.RemoveResourcesResponse
+	65,  // 183: fora.v1.CatalogService.RefreshCatalog:output_type -> fora.v1.RefreshCatalogResponse
+	81,  // 184: fora.v1.BrokerService.Resolve:output_type -> fora.v1.DiscoveryResponse
+	82,  // 185: fora.v1.BrokerService.ExecuteTransaction:output_type -> fora.v1.BrokerTransactionResponse
+	173, // [173:186] is the sub-list for method output_type
+	160, // [160:173] is the sub-list for method input_type
+	160, // [160:160] is the sub-list for extension type_name
+	160, // [160:160] is the sub-list for extension extendee
+	0,   // [0:160] is the sub-list for field type_name
 }
 
 func init() { file_fora_v1_fora_proto_init() }

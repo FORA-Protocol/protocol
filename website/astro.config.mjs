@@ -1,10 +1,10 @@
 // @ts-check
 import { defineConfig, envField } from 'astro/config';
 import starlight from '@astrojs/starlight';
-import starlightMermaid from '@pasqal-io/starlight-client-mermaid';
 import starlightLinksValidator from 'starlight-links-validator';
 import remarkDirective from 'remark-directive';
 import remarkExample from './plugins/remark-example.mjs';
+import remarkMermaid from './plugins/remark-mermaid.mjs';
 import remarkProfile from './plugins/remark-profile.mjs';
 import remarkProto from './plugins/remark-proto.mjs';
 import remarkStandards from './plugins/remark-standards.mjs';
@@ -12,6 +12,9 @@ import remarkVersion from './plugins/remark-version.mjs';
 
 export default defineConfig({
 	vite: {
+		// Mermaid is imported only from the browser; pre-bundling it keeps `astro dev` from
+		// loading its dependencies one ESM request at a time.
+		optimizeDeps: { include: ['mermaid'] },
 		server: {
 			// Dev only. The preview service does not answer cross-origin calls from
 			// localhost, so `.env.development` points the page at this path and
@@ -78,7 +81,10 @@ export default defineConfig({
 		//   text it produces is a plain version rather than something to link.
 		// remarkStandards: link the first mention of each external standard (RFC NNNN, C2PA,
 		//   …) to its canonical source. Runs after remarkProto so generated tables link too.
-		remarkPlugins: [remarkDirective, remarkExample, remarkProfile, remarkProto, remarkVersion, remarkStandards],
+		// remarkMermaid: turn each ```mermaid block into a placeholder that
+		//   src/components/MarkdownContent.astro renders in the browser, in the brand theme
+		//   from src/lib/mermaid.ts. Runs LAST, as the plugin it replaces did.
+		remarkPlugins: [remarkDirective, remarkExample, remarkProfile, remarkProto, remarkVersion, remarkStandards, remarkMermaid],
 	},
 	integrations: [
 		starlight({
@@ -97,12 +103,12 @@ export default defineConfig({
 			],
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/FORA-Protocol/protocol' }],
 			plugins: [
-				starlightMermaid(),
 				// The Resources pages are bespoke Astro pages, which the validator cannot see.
 				starlightLinksValidator({ exclude: ['/resources/', '/resources/**'] }),
 			],
 			components: {
 				Footer: './src/components/Footer.astro',
+				MarkdownContent: './src/components/MarkdownContent.astro',
 				SocialIcons: './src/components/DocsSocialIcons.astro',
 			},
 			sidebar: [
@@ -125,6 +131,7 @@ export default defineConfig({
 					items: [
 						{ label: 'Overview', link: '/protocol/' },
 						{ label: 'Transaction Flow', slug: 'protocol/transaction-flow' },
+						{ label: 'Licensing Terms', slug: 'protocol/licensing-terms' },
 						{ label: 'Standards Layering', slug: 'protocol/standards-layering' },
 						{ label: 'Discovery Paths', slug: 'protocol/discovery-paths' },
 						{ label: 'JSONL Ingestion', slug: 'protocol/jsonl-ingestion' },
@@ -145,6 +152,12 @@ export default defineConfig({
 				{
 					label: 'Components',
 					items: [
+						{
+							label: 'Broker',
+							items: [
+								{ label: 'Overview', slug: 'components/broker/overview' },
+							],
+						},
 						{
 							label: 'Identity Service',
 							items: [

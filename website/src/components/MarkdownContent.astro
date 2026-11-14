@@ -1,0 +1,79 @@
+---
+// Starlight's Markdown wrapper, plus the client-side renderer for the Mermaid
+// placeholders that plugins/remark-mermaid.mjs writes into the page. The theme lives in
+// src/lib/mermaid.ts; Mermaid itself loads only on a page that has a diagram.
+import Default from '@astrojs/starlight/components/MarkdownContent.astro';
+---
+
+<Default {...Astro.props}><slot /></Default>
+
+<script>
+  import { renderMermaid } from '../lib/mermaid';
+
+  const boxes = [...document.querySelectorAll<HTMLElement>('.sl-markdown-content .mermaid')];
+  renderMermaid(boxes);
+</script>
+
+<style is:global>
+  /*
+   * The frame (added by src/lib/mermaid.ts) holds the border; the diagram inside it
+   * scrolls when it is wider than the column, never the page.
+   */
+  .sl-markdown-content .mermaid-frame {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--sl-color-hairline-light);
+    border-radius: 0.5rem;
+  }
+  .sl-markdown-content .mermaid-frame:has(> .mermaid[data-status='loading']) {
+    border-color: transparent;
+  }
+  .sl-markdown-content .mermaid {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding: 0.75rem;
+  }
+  .sl-markdown-content .mermaid svg {
+    display: block;
+    margin-inline: auto;
+    height: auto;
+  }
+
+  /* The side with more to scroll to fades into the page. */
+  .sl-markdown-content .mermaid-frame::before,
+  .sl-markdown-content .mermaid-frame::after {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    z-index: 1;
+    width: 3rem;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 150ms ease-out;
+  }
+  .sl-markdown-content .mermaid-frame::before {
+    left: 0;
+    background: linear-gradient(to right, var(--sl-color-bg), transparent);
+  }
+  .sl-markdown-content .mermaid-frame::after {
+    right: 0;
+    background: linear-gradient(to left, var(--sl-color-bg), transparent);
+  }
+  .sl-markdown-content .mermaid-frame[data-more-start]::before,
+  .sl-markdown-content .mermaid-frame[data-more-end]::after {
+    opacity: 1;
+  }
+
+  .sl-markdown-content .mermaid[data-status='error'] {
+    font-family: var(--__sl-font-mono);
+    font-size: var(--sl-text-code-sm);
+    color: var(--sl-color-red-high);
+    white-space: pre-wrap;
+  }
+  /* Inset, because the frame clips anything drawn outside it. */
+  .sl-markdown-content .mermaid:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: -2px;
+  }
+</style>

@@ -1,30 +1,30 @@
 ---
 title: "RSL Generation"
-description: "How the Exchange generates standards-compliant rsl.txt from the compiled catalog for providers who do not maintain their own."
+description: "How the Exchange generates a standards-compliant RSL license from the compiled catalog for providers who do not maintain their own."
 ---
 
 ## Exchange as RSL Producer
 
-The Exchange is both an RSL consumer (ingesting provider rsl.txt to build the catalog) and an RSL producer (generating rsl.txt for providers who don't have one). This enables a zero-configuration provider onboarding path: the Exchange operator sets tenant defaults, and the Exchange generates a standards-compliant rsl.txt that the provider publishes on its own origin.
+The Exchange is both an RSL consumer (ingesting a provider's RSL license to build the catalog) and an RSL producer (generating an RSL license for providers who don't have one). This enables a zero-configuration provider onboarding path: the Exchange operator sets tenant defaults, and the Exchange generates a standards-compliant RSL license that the provider publishes on its own origin.
 
 ```mermaid
 sequenceDiagram
     participant MP as Exchange
-    participant PUB as Provider's Origin (no rsl.txt yet)
+    participant PUB as Provider's Origin (no RSL license yet)
     participant EDGE as Edge Function
     participant AGENT as AI Agent
 
     Note over PUB,MP: Tenant onboarded with defaults
 
     MP->>MP: Build catalog from tenant defaults + sitemap
-    MP->>MP: Generate rsl.txt from catalog
+    MP->>MP: Generate RSL license from catalog
 
     MP-->>PUB: Generated RSL XML, handed over by the operator
     Note over PUB: Provider publishes it at /rsl.txt
 
     AGENT->>EDGE: GET /rsl.txt
     EDGE->>PUB: Forward the request
-    PUB-->>EDGE: rsl.txt
+    PUB-->>EDGE: RSL license
     EDGE-->>AGENT: The origin's answer, unchanged
 ```
 
@@ -139,7 +139,7 @@ For a tenant with defaults "flat, $0.05, permits ai-input + search, prohibits ai
 
 ## Serving the Generated RSL
 
-The provider publishes the generated document at the standard `/rsl.txt` path on its own origin, and replaces it when the catalog changes. The edge function [passes that address through](/components/edge-function/overview/#forajson-and-rsltxt-pass-through) for every client, so an agent reads the file the provider published.
+The provider publishes the generated document at `/rsl.txt` on its own origin, and replaces it when the catalog changes. The edge function [passes that address through](/components/edge-function/overview/#forajson-and-rsltxt-pass-through) for every client, so an agent reads the file the provider published.
 
 ## FORA Sitemap Namespace (XSD)
 
