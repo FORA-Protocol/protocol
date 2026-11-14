@@ -1,0 +1,71 @@
+---
+// A page's sources, in groups: each entry's title (linked), publisher and URL. A source with no public URL gives `where` instead.
+// Used on /resources/transparent-collective/.
+interface Source {
+  title: string;
+  publisher: string;
+  href?: string;
+  /** Where to find a source that has no public URL. */
+  where?: string;
+  /** ISO date the source was checked; kept in the data, not shown. */
+  checked?: string;
+}
+interface Props {
+  groups: { name: string; items: Source[] }[];
+  /** Titles and publishers only; the URL line shows only for a source with no link. */
+  compact?: boolean;
+}
+const { groups, compact = false } = Astro.props;
+const shown = (href: string) => (href.startsWith('/') ? `fora-protocol.org${href}` : href.replace(/^https?:\/\//, ''));
+---
+<div class:list={['src', { compact }]}>
+  {groups.map((g) => (
+    <section class="src-group">
+      <h3>{g.name}</h3>
+      <ol>
+        {g.items.map((s) => (
+          <li>
+            {s.href ? <a href={s.href}>{s.title}</a> : <b>{s.title}</b>}
+            <span class="src-meta">{s.publisher}</span>
+            {(!compact || !s.href) && <span class="src-url">{s.href ? shown(s.href) : s.where}</span>}
+          </li>
+        ))}
+      </ol>
+    </section>
+  ))}
+</div>
+
+<style>
+  .src { display: grid; gap: 2.5rem; margin-top: 2.5rem; }
+  h3 {
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--lp-label);
+    margin: 0 0 1rem;
+    padding-bottom: 0.625rem;
+    border-bottom: 1px solid var(--lp-rule);
+  }
+  ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+    gap: 1.25rem 2.5rem;
+    align-items: start;
+  }
+  li { display: grid; align-content: start; gap: 0.2rem; min-width: 0; line-height: 1.45; }
+  time { white-space: nowrap; }
+  a { color: var(--lp-link); font-weight: 600; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  li > b { color: var(--lp-heading); font-weight: 600; }
+  .src-meta { font-size: 0.875rem; color: var(--lp-text); }
+  .compact { gap: 2rem; margin-top: 2rem; }
+  .compact ol { gap: 0.875rem 2.5rem; }
+  .compact a, .compact li > b { font-size: 0.9375rem; }
+  .compact .src-meta { font-size: 0.8125rem; color: var(--lp-label); }
+  .src-url { font-family: var(--mono); font-size: 0.75rem; color: var(--lp-label); overflow-wrap: anywhere; }
+</style>
