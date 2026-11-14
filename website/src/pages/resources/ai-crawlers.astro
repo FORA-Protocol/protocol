@@ -5,6 +5,7 @@
 // bot table.
 import LandingLayout from '../../layouts/LandingLayout.astro';
 import AudienceHero from '../../components/landing/AudienceHero.astro';
+import { resourceUpdated } from '../../data/resources';
 import Band from '../../components/landing/Band.astro';
 import CardGrid from '../../components/landing/CardGrid.astro';
 import PointList from '../../components/landing/PointList.astro';
@@ -82,6 +83,7 @@ const FAQ = [
     badge="Resource · For publishers"
     title="What you can do about<br>AI crawlers. <em>Today.</em>"
     sub="Refuse AI training in the form each AI company honors. Stay in search and in the AI answers that cite you. Put a contract and a price on everything else."
+    updated={resourceUpdated('/resources/ai-crawlers/')}
   >
     <a href="#generator" class="btn btn-primary">Generate your rules</a>
     <a href="#bots" class="btn btn-ghost">See every bot</a>
