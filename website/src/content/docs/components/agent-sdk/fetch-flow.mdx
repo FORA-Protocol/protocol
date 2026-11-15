@@ -45,15 +45,17 @@ client.Fetch(ctx, "https://techcrunch.com/premium/article.html")
   |       - Collect ResourceResponses (respect deadline, drop slow responders)
   |       - Flatten all Offers into candidate list
   |
-  |  5. Select best offer
+  |  5. Choose an offer (the agent's own policy)
   |     SelectionEngine.Select(candidates, constraints)
   |       - Choose the Offer whose term's restrictions
   |         (function, geo, user-type) the agent can honour
   |       - Group by ResourceIdentity (deduplication)
-  |       - Rank: subscription offers first (rate=0)
+  |       - Apply the agent's selection policy, for example:
+  |              subscription offers first (rate=0)
   |              -> preferred Exchange offers second
   |              -> lowest unit_cost third
-  |       - Return winning Offer + its Exchange
+  |         The SDK runs inside the agent, so this choice is the agent's
+  |       - Return the chosen Offer + its Exchange
   |
   |  6. Budget check (exact amount)
   |     BudgetTracker.Check(offer.Pricing.Rate)
@@ -65,7 +67,7 @@ client.Fetch(ctx, "https://techcrunch.com/premium/article.html")
   |     TransactionExecutor.Execute(ctx, exchange, offer)
   |       - Build TransactionRequest embedding the full signed offer (reflected back)
   |       - Authenticate via RFC 9421 HTTP Message Signature in the HTTP headers
-  |       - Send ExecuteTransaction RPC to winning Exchange
+  |       - Send ExecuteTransaction RPC to the chosen offer's Exchange
   |       - On DenialReason: return typed error (see Error Handling below)
   |       - On success: extract signed URL from retrieval_endpoint, as issued.
   |         The SDK does not verify it; the delivery edge does, at step 9
@@ -118,7 +120,7 @@ client.Fetch(ctx, "https://techcrunch.com/premium/article.html")
 | Resolve Exchanges (cache miss) | 50ms | 200ms | HTTP fetch of fora.json |
 | Pre-flight budget check | &lt;1ms | &lt;1ms | In-memory arithmetic |
 | DiscoverResources RPC | 10ms | 50ms | Per NFR targets |
-| Select best offer | &lt;1ms | &lt;1ms | In-memory sort |
+| Choose an offer | &lt;1ms | &lt;1ms | In-memory sort |
 | Budget check (exact) | &lt;1ms | &lt;1ms | In-memory arithmetic |
 | ExecuteTransaction RPC | 20ms | 100ms | Per NFR targets |
 | Record spend | &lt;1ms | &lt;1ms | In-memory write |
@@ -148,9 +150,9 @@ client.FetchBatch(ctx, [url1, url2, url3])
   |       - Exchange returns OfferGroups (one per URI)
   |       - If an Exchange covers multiple domains, one query per domain
   |
-  |  5. Select best offer per URI
-  |     For each URI: merge offers from all Exchanges, select best
-  |       - Same ranking: subscription > preferred > lowest unit_cost
+  |  5. Choose an offer per URI (the agent's own policy)
+  |     For each URI: merge offers from all Exchanges, choose one
+  |       - Same agent policy as for a single URL
   |       - Deduplicate by ResourceIdentity across Exchanges
   |
   |  6. Budget check (total)
@@ -161,7 +163,7 @@ client.FetchBatch(ctx, [url1, url2, url3])
   |       - Individual MaxPerRequest checked per URI
   |
   |  7. Execute transactions (batch, grouped by Exchange)
-  |     Group selected offers by winning Exchange
+  |     Group the chosen offers by Exchange
   |     For each Exchange: send ONE batch TransactionRequest with items[]
   |       - Each item: the full signed offer (reflected back)
   |       - Exchange returns TransactionResultItem per offer
@@ -186,7 +188,7 @@ client.FetchBatch(ctx, [url1, url2, url3])
 ### Batch Optimizations
 
 - **One ResourceQuery per Exchange**: N URLs in one request instead of N separate requests. Reduces network round trips from N*M to M (where M = number of Exchanges).
-- **One TransactionRequest per winning Exchange**: batch items[] instead of individual transactions.
+- **One TransactionRequest per Exchange**: batch items[] instead of individual transactions.
 - **Parallel content fetch**: all signed URLs fetched concurrently after all transactions complete.
 - **Non-atomic**: individual URLs can fail while others succeed. Each FetchResult carries its own Err.
 

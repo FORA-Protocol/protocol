@@ -607,22 +607,15 @@ Step 2: SimHash cross-check (for non-news content without IPTC guids)
 ### Broker Selection Engine
 
 ```
-Step 3: Rank within content group
-  Priority order:
-  a) Subscription from preferred exchange
-     -> 4f155204-a53e-42aa-8471-154f87d7d3d5 ($0, SSP-Alpha, attested by gumgum.com) <- WINNER
-  b) Subscription from any exchange
-     -> none
-  c) Per-request from preferred exchange (rank by attestation trust, then unit_cost)
-     -> 2325749d-50d3-431a-ac34-900d443ee88e ($0.05, SSP-Alpha, attested by gumgum.com)
-  d) Per-request by unit_cost (all exchanges)
-     -> ecb6fef4-1d83-4751-ab92-b3bc7c2fee39 ($0.07, SSP-Beta, attested by gumgum.com)
+Step 3: Order within the content group
+  The Broker keeps all three offers, each as the full package its Exchange
+  signed, and puts them in its order of relevance. The agent named SSP-Alpha
+  in preferred_exchanges, so SSP-Alpha's offers come first:
+  1. 4f155204-a53e-42aa-8471-154f87d7d3d5 ($0, subscription, SSP-Alpha, attested by gumgum.com)
+  2. 2325749d-50d3-431a-ac34-900d443ee88e ($0.05, per-request, SSP-Alpha, attested by gumgum.com)
+  3. ecb6fef4-1d83-4751-ab92-b3bc7c2fee39 ($0.07, per-request, SSP-Beta, attested by gumgum.com)
 
-  Note: attestation claims enable selection beyond cheapest price.
-  Offers with third-party attestations (Level 2) are preferred over
-  self-attested (Level 1) or unattested (Level 0) content.
-
-  Selected: 4f155204-a53e-42aa-8471-154f87d7d3d5 (subscription, zero marginal cost, third-party attested)
+  Price is not part of the order. The agent compares the packages itself.
 
 Step 4: Budget filter (applied before the offers are returned)
   - Spend so far for scope "team:claude-rag", as this Broker counts it: $142.50
@@ -633,11 +626,15 @@ Step 4: Budget filter (applied before the offers are returned)
   - Subscription offer: cost = $0 -> fits any budget
 ```
 
+### The Agent Chooses
+
+The agent gets all three offers and decides by its own policy: use its subscription where it covers the content, and prefer third-party attested content. It chooses `4f155204-a53e-42aa-8471-154f87d7d3d5`, the subscription offer from SSP-Alpha, at zero marginal cost and attested by gumgum.com.
+
 ---
 
 ## Phase 3: Transaction (Requester + Request Signature, Subscription Skip, Quota Check)
 
-SDK or Broker commits to the subscription offer.
+The agent commits to the subscription offer, directly with the SDK or through the Broker.
 
 ### Direct (SDK) request -- single signature in the headers:
 
@@ -1095,7 +1092,7 @@ Three-tier resolution: Tier 1 automated (&lt;1s, auto-disputable claims like CDN
 
 **Without Broker (SDK only)**: the agent found the article via SSP-Alpha (from `fora.json`) and got the subscription deal. It never knew The Verge also had the article at $0.07 via SSP-Beta.
 
-**With Broker**: it queried both Exchanges, discovered the same article via iptc_guid match (confirmed by SimHash similarity), received attestation data from both sources, and still chose the subscription offer -- but now Anthropic has intelligence:
+**With Broker**: the Broker queried both Exchanges, matched the same article via iptc_guid (confirmed by SimHash similarity) and returned every offer with its attestation data. The agent still chose the subscription offer -- but now Anthropic has intelligence:
 
 ```
 "This article is available from two sources:
@@ -1110,4 +1107,4 @@ Both sources carry Level 2 (third-party) attestations from gumgum.com.
 TechCrunch original has higher word_count (2500 vs 2350) — more complete."
 ```
 
-This is the Broker's value: **not just cheapest price, but market intelligence for subscription negotiations and attestation-aware content selection.**
+This is the Broker's value: **every offer for the same content in one answer, each as its Exchange signed it, so the agent decides with the whole picture: market intelligence for subscription negotiations and attestation-aware content selection.**

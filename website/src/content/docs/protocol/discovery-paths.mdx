@@ -63,7 +63,7 @@ sequenceDiagram
 
 ## Path B: Broker-Mediated Multi-Exchange
 
-The agent hands discovery to a FORA Broker, which chooses the Exchanges, queries multiple Exchanges in parallel, compares offers, and selects the best deal.
+The agent hands discovery to a FORA Broker, which chooses the Exchanges, queries them in parallel, and returns their signed offers in its order of relevance. The agent decides which offer it buys.
 
 ```mermaid
 sequenceDiagram
@@ -83,13 +83,13 @@ sequenceDiagram
         MPB-->>Orch: ResourceResponse (offers)
     end
 
-    Note over Orch: Compare offers by unit_cost<br/>Deduplicate by ResourceIdentity<br/>Apply budget constraints<br/>Rank offers per URI
+    Note over Orch: Group by ResourceIdentity<br/>Apply the agent's constraints<br/>Order offers per URI by relevance
 
     Orch-->>Agent: DiscoveryResponse (offer_groups: signed offers per URI)
 
-    Note over Agent: Select best offer<br/>(each Offer carries Offer.exchange,<br/>the execute-routing target)
+    Note over Agent: Choose an offer<br/>(each Offer carries Offer.exchange,<br/>the execute-routing target)
 
-    Agent->>MPA: ExecuteTransaction (winning offer)
+    Agent->>MPA: ExecuteTransaction (chosen offer)
     MPA-->>Agent: TransactionResponse (signed URL + cost + billing_id)
 
     Agent->>CDN: GET signed URL
@@ -104,12 +104,12 @@ sequenceDiagram
 |---|---|---|
 | Agent to Broker | `DiscoveryRequest` with `RequestConstraints` | **FORA** (budget, authorized exchanges) |
 | Broker to Exchanges | `ResourceQuery` (parallel fanout) | **FORA** wrapping **FORA Requester** |
-| Offer comparison | `Offer.pricing.unit_cost` | **FORA** unit cost normalization |
+| Offer comparison, by the agent | `Offer.pricing.unit_cost` | **FORA** unit cost normalization |
 | Content dedup | `Offer.identity` (canonical_url, content_hash) | **FORA** ResourceIdentity extension |
 | Content attestations | `Offer.attestations` | **FORA** v1.0 `ResourceAttestation` |
 | Broker to Agent | `DiscoveryResponse` (offer_groups: signed offers per URI) | **FORA** -- discovery only, no delivery |
-| Execute winning offer | `ExecuteTransaction` / `TransactionResponse` (signed URL + cost + billing_id) | **FORA** (separate execute step, routed via `Offer.exchange`) |
-| Usage reporting | `UsageReport` to the winning Exchange | **FORA** |
+| Execute the chosen offer | `ExecuteTransaction` / `TransactionResponse` (signed URL + cost + billing_id) | **FORA** (separate execute step, routed via `Offer.exchange`) |
+| Usage reporting | `UsageReport` to the Exchange that issued the offer | **FORA** |
 
 ## Path C: Accidental Discovery via Edge Function (403)
 
@@ -240,7 +240,7 @@ sequenceDiagram
 
 ## Path E: Batch Multi-URL Acquisition
 
-The agent needs multiple resources in a single request (e.g., RAG grounding across several sources). The Broker sends all URIs in one `ResourceQuery` to each Exchange, receives `OfferGroups`, and returns the ranked signed offers per URI in a single `DiscoveryResponse`. Discovery stops there: the agent selects the best offer per URI and commits the selections itself via batch `ExecuteTransaction` calls (one per Exchange, routed by `Offer.exchange`), each returning a `TransactionResponse`.
+The agent needs multiple resources in a single request (e.g., RAG grounding across several sources). The Broker sends all URIs in one `ResourceQuery` to each Exchange, receives `OfferGroups`, and returns the signed offers per URI, in its order of relevance, in a single `DiscoveryResponse`. Discovery stops there: the agent chooses an offer per URI and commits the selections itself via batch `ExecuteTransaction` calls (one per Exchange, routed by `Offer.exchange`), each returning a `TransactionResponse`.
 
 ```mermaid
 sequenceDiagram
@@ -260,11 +260,11 @@ sequenceDiagram
         MPB-->>Orch: ResourceResponse (3 OfferGroups)
     end
 
-    Note over Orch: Per URI: merge offers across MPs,<br/>deduplicate, rank
+    Note over Orch: Per URI: merge offers across MPs,<br/>group, order by relevance
 
     Orch-->>Agent: DiscoveryResponse (offer_groups: signed offers per URI)
 
-    Note over Agent: Select best offer per URI<br/>Sum costs across URIs -> check budget<br/>Group selections by Offer.exchange
+    Note over Agent: Choose an offer per URI<br/>Sum costs across URIs -> check budget<br/>Group selections by Offer.exchange
 
     Agent->>MPA: ExecuteTransaction (batch: items[] with 2 offers)
     MPA-->>Agent: TransactionResponse (items[] + total_cost)
@@ -365,7 +365,7 @@ sequenceDiagram
 - **Subscription detection at query time**: The Exchange checks the requester's subscription status and includes offers with `subscription_id` and `rate=0`.
 - **Reporting is still mandatory**: Subscription offers carry `ReportingObligation.required = true`. Providers need consumption data for subscription renewals and content strategy.
 - **Quota enforcement**: The Exchange checks remaining quota before authorizing subscription transactions. If the subscription's token quota is exhausted, the subscription offer is not included.
-- **Broker preference**: The Broker's selection engine ranks subscription offers above all per-request offers (zero marginal cost). When `preferred_exchanges` is set and the agent has subscriptions there, those offers get top priority.
+- **Broker order**: The agent names the Exchanges it holds subscriptions with in `RequestConstraints.preferred_exchanges`, and the Broker SHOULD put their offers first when they have the resource. The subscription offer shows its zero marginal cost in its own pricing, and the agent decides whether to take it.
 - **Financial attribution**: The `subscription_unit_value` field carries the per-unit cost even though `cost.amount` is 0, enabling prepaid drawdown accounting.
 
 ## Next Steps

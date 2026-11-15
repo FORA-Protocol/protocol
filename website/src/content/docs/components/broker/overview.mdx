@@ -135,6 +135,8 @@ The Broker forwards `Requester.scopes` unchanged and in order, because the Excha
 ## What a Broker never does
 
 - **Charge.** `Resolve` never charges, and on a purchase each Exchange charges the agent's account.
+- **Choose for the agent.** It returns the offers in its order of relevance, and the agent decides which to buy.
+- **Buy or resell.** It never buys or resells under an account of its own.
 - **Hold the agent's keys.** The agent, or the [Identity Service](/components/identity/overview/) for an agent on MCP, signs the acceptances.
 - **Issue signed URLs.** The Exchange issues each delivery URL, and the Broker passes it on.
 - **See the content.** The Broker is not on the delivery path: the agent fetches the resource from the provider's CDN.

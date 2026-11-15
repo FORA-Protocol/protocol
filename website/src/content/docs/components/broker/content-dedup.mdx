@@ -1,11 +1,11 @@
 ---
 title: "Content Deduplication"
-description: "How the Broker deduplicates identical content offered by multiple Exchanges using ResourceIdentity matching, SimHash comparison, and canonical URL grouping."
+description: "How the Broker groups identical content offered by multiple Exchanges using ResourceIdentity matching, SimHash comparison, and canonical URL grouping."
 ---
 
 ## Purpose
 
-The same resource can appear on multiple Exchanges. An AP wire story might be available from Exchange A and Exchange B. A syndicated article might be offered by the original provider's Exchange and a resource aggregator. The Broker deduplicates these offers so the agent pays the lowest price for each unique resource.
+The same resource can appear on multiple Exchanges. An AP wire story might be available from Exchange A and Exchange B. A syndicated article might be offered by the original provider's Exchange and a resource aggregator. The Broker groups these offers, so that for each unique resource the agent sees every offer together, each as the full package its Exchange signed, and decides which one it buys.
 
 ## ResourceIdentity Matching
 
@@ -81,23 +81,24 @@ type contentGroup struct {
     Offers []rankedOffer
 }
 
-func deduplicateOffers(offers []rankedOffer) []rankedOffer {
-    groups := make(map[string][]rankedOffer)
+// groupOffers collects the offers for the same content into one group. It
+// keeps every offer: the agent sees all of them, in the Broker's order of
+// relevance, and chooses.
+func groupOffers(offers []rankedOffer) []contentGroup {
+    index := make(map[string]int)
+    var groups []contentGroup
 
     for _, o := range offers {
         key := contentIdentityKey(o.Offer.Identity)
-        groups[key] = append(groups[key], o)
+        i, ok := index[key]
+        if !ok {
+            i = len(groups)
+            index[key] = i
+            groups = append(groups, contentGroup{Key: key})
+        }
+        groups[i].Offers = append(groups[i].Offers, o)
     }
-
-    var deduped []rankedOffer
-    for _, group := range groups {
-        // Sort by unit_cost ascending within group
-        sort.Slice(group, func(i, j int) bool {
-            return unitCostOf(group[i]) < unitCostOf(group[j])
-        })
-        deduped = append(deduped, group[0]) // cheapest wins
-    }
-    return deduped
+    return groups
 }
 ```
 
@@ -105,9 +106,9 @@ func deduplicateOffers(offers []rankedOffer) []rankedOffer {
 
 1. **Collect offers** from all Exchange responses.
 2. **Compute identity key** for each offer using the priority-ordered fields.
-3. **Group offers** by identity key. Offers with the same key are considered duplicates.
-4. **Within each group**, sort by effective cost per unit (unit_cost) ascending.
-5. **Keep only the cheapest** offer from each group.
+3. **Group offers** by identity key. Offers with the same key are the same content.
+4. **Keep every offer** in its group. The [Selection Engine](/components/broker/selection-engine/) puts the offers in the Broker's order of relevance, and price is not part of that order.
+5. **The agent decides.** It sees which offers are the same content, compares the packages (terms, brand, attestations and price), and chooses the one it buys.
 
 ### Example
 
@@ -118,7 +119,7 @@ An agent requests content at `https://apnews.com/article/ai-regulation`. Two Exc
 | Exchange Alpha | offer-a1 | $0.0003/token | `iptc:urn:newsml:apnews.com:20260315:ai-reg` |
 | Exchange Beta | offer-b1 | $0.0005/token | `iptc:urn:newsml:apnews.com:20260315:ai-reg` |
 
-Both offers share the same `iptc_guid`. The deduplicator groups them and selects `offer-a1` (lower unit_cost). The agent pays $0.0003/unit instead of $0.0005/unit.
+Both offers share the same `iptc_guid`. The Broker groups them and returns both, in its order of relevance. The agent sees that they are the same story, compares the two packages and decides. An agent whose own policy is to pay less per unit buys `offer-a1` at $0.0003/token; that choice is the agent's, not the Broker's.
 
 ## Deduplication in Batch Queries
 
@@ -126,9 +127,9 @@ For batch (multi-URI) queries, deduplication runs per URI. Each URI's offers are
 
 1. For each URI in the batch, collect all offers from all Exchange responses that match that URI.
 2. Within each URI's offer set, run the standard deduplication pipeline.
-3. Select the best (cheapest) offer per URI after dedup.
+3. Return every offer per URI after grouping, in the Broker's order of relevance.
 
-Cross-URI deduplication (e.g., "the agent requested two URLs that happen to be the same article") is handled by the batch selection engine, which checks `ResourceIdentity` across URIs before executing transactions.
+Cross-URI grouping (e.g., "the agent requested two URLs that happen to be the same article") uses the same identity key. Each URI keeps its own `OfferGroup`, and the shared `ResourceIdentity` on the offers tells the agent that the two URLs are the same content, so it need not buy it twice.
 
 ## Deduplication Metrics
 
@@ -147,11 +148,11 @@ var (
 )
 ```
 
-The `SelectionRationale` returned with every selection decision includes `DeduplicatedSets` -- the count of content groups that had offers from multiple Exchanges. This provides visibility into how often deduplication produces savings.
+The `SelectionRationale` recorded with every answer includes `SameContentGroups` -- the count of content groups that had offers from multiple Exchanges. This shows how often the same content comes from more than one Exchange.
 
 ## Content Attestation Levels (v1.0)
 
-In v1.0, content attestation level replaces the former content verification concept. Attestation level is both a deduplication tiebreaker and a selection ranking factor:
+In v1.0, content attestation level replaces the former content verification concept. Attestation level is one of the signals in the Broker's order of relevance:
 
 | Level | Attestation | Guarantee |
 |---|---|---|
@@ -159,6 +160,6 @@ In v1.0, content attestation level replaces the former content verification conc
 | 1 | Self-attested (provider) | Provider signed claims with Ed25519. Agent can recompute content hash from delivered bytes. |
 | 2 | Third-party (verification vendor) | Independent verification. Vendor crawled and measured the content. Agent trusts the attestation without re-verifying. |
 
-Higher attestation levels rank higher in the [Selection Engine](/components/broker/selection-engine/) because they provide stronger guarantees. When two offers for the same content have different attestation levels, the higher level is preferred even at slightly higher cost, because it enables automated dispute resolution and reduces the risk of receiving content that does not match what was advertised.
+Higher attestation levels rank higher in the [Selection Engine](/components/broker/selection-engine/)'s order because they provide stronger guarantees: a higher level enables automated dispute resolution and reduces the risk of receiving content that does not match what was advertised. When two offers for the same content have different attestation levels, the Broker returns both, and the agent weighs the attestation against the price by its own policy.
 
 Content identifiers (DOI, ISBN, IPTC GUID) used for deduplication are orthogonal to attestation level. A Level 0 article may carry a DOI -- that identifies WHAT content it is but does NOT verify that the delivered bytes match the identified content.

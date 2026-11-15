@@ -1,21 +1,25 @@
 ---
 title: "Selection Engine"
-description: "How the Broker compares offers across Exchanges, deduplicates by content identity, ranks by cost, and selects the best deal."
+description: "How the Broker collects offers from Exchanges, narrows them to the agent's constraints, groups offers for the same content, and returns them in its order of relevance for the agent to choose from."
 ---
 
 ## Purpose
 
-The Selection Engine compares offers across Exchanges, deduplicates by content identity, ranks by cost, and applies constraints. This is the "auction logic" of the Broker -- it determines which Exchange wins a given content request.
+The Selection Engine turns the offers that Exchanges return into the answer the agent gets. It collects the offers, narrows them to the constraints the agent set, groups offers for the same content, and puts them in the Broker's order of relevance to the request.
+
+The Selection Engine does not choose for the agent. The agent decides what it buys, where and why. Each offer reaches the agent as a full package, with its terms, brand, attestations and price, exactly as its Exchange signed it, and the Broker can't change one. The Broker's rules for its order are public, so an agent can inspect why each offer is where it is.
+
+The Broker is a convenience layer. It never buys or resells under an account of its own: when the agent buys through it, each Exchange charges the agent's account.
 
 ### Discovery-Mode Agnostic
 
-The Selection Engine operates on offers, not on how those offers were discovered. Whether the agent sent specific URIs (`DiscoveryRequest.uris`), structured search filters (`DiscoveryRequest.search_filters`), or a natural-language query (`DiscoveryRequest.query`), the Broker resolves all three into a set of offers from Exchanges. The Selection Engine then applies the same pipeline -- filter, deduplicate, rank, verify -- to every offer identically.
+The Selection Engine operates on offers, not on how those offers were discovered. Whether the agent sent specific URIs (`DiscoveryRequest.uris`), structured search filters (`DiscoveryRequest.search_filters`), or a natural-language query (`DiscoveryRequest.query`), the Broker resolves all three into a set of offers from Exchanges. The Selection Engine then applies the same pipeline -- filter, group, order, verify -- to every offer identically.
 
-This means the selection logic does not need to know or care about discovery mode. An offer discovered via structured search competes on equal footing with an offer from a specific URI request. The `OfferGroup.discovery_method` field records how each offer was found (for transparency and logging), but it does not influence ranking.
+This means the selection logic does not need to know or care about discovery mode. An offer discovered via structured search is treated the same as an offer from a specific URI request. The `OfferGroup.discovery_method` field records how each offer was found (for transparency and logging), but it does not influence the order.
 
 ## Multi-Exchange Query Fanout
 
-The core value proposition of the Broker is parallel supply discovery. The Broker fans out `DiscoverResources` to N Exchanges concurrently, collecting offers for comparison.
+The core value proposition of the Broker is parallel supply discovery. The Broker fans out `DiscoverResources` to N Exchanges concurrently, collecting their offers for the agent.
 
 ### Concurrency Model
 
@@ -156,102 +160,106 @@ For single-URI queries, five stages are executed sequentially on the combined of
 
 ```mermaid
 graph LR
-    A[Collect all Offers<br/>from N Exchanges] --> B[One offer per term<br/>agent chooses an honourable offer]
+    A[Collect all Offers<br/>from N Exchanges] --> B[Narrow to the license<br/>kinds the agent asks for]
     B --> C[Filter by<br/>RequestConstraints]
-    C --> D[Deduplicate by<br/>ResourceIdentity]
-    D --> E[Rank by unit_cost<br/>lowest wins]
+    C --> D[Group by<br/>ResourceIdentity]
+    D --> E[Order by<br/>relevance]
     E --> F[Verify<br/>exchange_signature]
-    F --> G[Winner]
+    F --> G[Offers in order<br/>the agent chooses]
 ```
 
 ### Multi-URI Batch Pipeline
 
-For multi-URI batch queries, selection is 2-dimensional: the engine selects the best offer per URI, then checks whether the total cost across all URIs fits within budget.
+For multi-URI batch queries, the engine runs the same pipeline for each URI and returns the ordered offers for every URI. The agent chooses an offer per URI and checks the total against its own budget.
 
 ```mermaid
 graph LR
-    A[Collect OfferGroups<br/>from N Exchanges] --> B[For each URI:<br/>merge offers across MPs]
-    B --> C[Per-URI: filter,<br/>dedup, rank]
-    C --> D[Select best offer<br/>per URI]
-    D --> E[Sum costs across<br/>all URIs]
-    E --> F{Total within<br/>budget?}
-    F -->|Yes| G[Return one OfferGroup<br/>per URI]
-    F -->|No| H[Drop lowest-priority<br/>URIs until budget fits]
+    A[Collect OfferGroups<br/>from N Exchanges] --> B[For each URI:<br/>merge offers across Exchanges]
+    B --> C[Per URI: narrow,<br/>filter, group, order]
+    C --> D[Return one OfferGroup<br/>per URI, offers in order]
+    D --> E[Agent chooses per URI<br/>and checks its total]
 ```
 
-The batch selection algorithm:
+The batch algorithm:
 
 1. For each URI, collect offers from all Exchange responses (flatten OfferGroups with matching URI).
-2. Within each URI group, run the full single-URI pipeline (filter, dedup, rank).
-3. Select the best offer per URI.
-4. Sum costs across all selected offers to get the batch total.
-5. If the total exceeds budget, drop offers for the lowest-priority URIs (by position in the original request) until the total fits. A URI left with no offer is answered with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED` on its `OfferGroup`.
-6. Return one `OfferGroup` per URI. `Resolve` is discovery only: it charges nothing. The agent buys the selected offers in a separate call.
+2. Within each URI, run the single-URI pipeline (narrow, filter, group, order, verify).
+3. Return one `OfferGroup` per URI, with its offers in the Broker's order. A URI whose offers the budget drops entirely is answered with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED` on its `OfferGroup`.
+4. `Resolve` is discovery only: it charges nothing. The agent chooses the offers it buys and buys them in a separate call.
 
 ### Selection Interface
 
 ```go
 type SelectionEngine interface {
-    // Select handles single-URI queries. Returns one winning offer.
+    // Select handles single-URI queries. Returns the offers in this Broker's
+    // order of relevance. The agent chooses among them.
     Select(
         ctx context.Context,
         responses []FanOutResult,
-        constraints *forav1.RequestConstraints,
+        req *forav1.DiscoveryRequest,
         budget BudgetTracker,
     ) (*Selection, error)
 
-    // SelectBatch handles multi-URI queries. Returns one winning offer per URI,
-    // with total cost checked against budget.
+    // SelectBatch handles multi-URI queries. Returns the ordered offers for
+    // each URI, in request order.
     SelectBatch(
         ctx context.Context,
         responses []FanOutResult,
-        constraints *forav1.RequestConstraints,
+        req *forav1.DiscoveryRequest,
         budget BudgetTracker,
     ) (*BatchSelection, error)
 }
 
 type Selection struct {
+    URI       string
+    Offers    []OrderedOffer // most relevant first
+    Rationale SelectionRationale
+}
+
+type OrderedOffer struct {
     Exchange ExchangeEntry
-    Offer       *forav1.Offer
-    Rationale   SelectionRationale
+    Offer    *forav1.Offer // unchanged, as the Exchange signed it
+    Score    float64
 }
 
 type BatchSelection struct {
-    Selections []Selection
-    TotalCost  float64
-    Currency   string
+    Selections []Selection // one per URI, in request order
     Rationale  BatchSelectionRationale
 }
 
 type SelectionRationale struct {
     TotalOffers       int
-    WithHonourableTerm int // offers exposing a term whose restrictions the agent can honour
+    WithinAcceptable  int // offers inside the agent's acceptable_restrictions
     AfterConstraints  int
-    AfterDedup        int
-    WinningUnitCost   float64
-    RunnerUpUnitCost  float64  // 0 if no runner-up
-    DeduplicatedSets  int      // how many content groups had multiple offers
+    SameContentGroups int // content groups with offers from more than one Exchange
     RejectedReasons   map[string]int // reason -> count
 }
 ```
 
-## Stage 1: Surface Offer Restrictions (Agent Chooses an Offer)
+## Stage 1: Narrow to the License Kinds the Agent Asks For
 
-Restrictions ride on the offer, not on a broker-side filter. Each offer's single `terms[0]` entry is a `LicenseTerm` carrying `repeated Restriction` (with kinds like `RESTRICTION_KIND_FUNCTION`, `RESTRICTION_KIND_GEOGRAPHY`, `RESTRICTION_KIND_USER_TYPE`). The Broker does **not** match a requester's self-declared attributes (function, geography, user type) against these restrictions to drop offers. Instead it surfaces the restrictions carried on each offer's own term; the agent chooses the offer whose restrictions it can honour. Real enforcement happens downstream at accept -> report -> reconcile.
+Restrictions ride on the offer. Each offer's single `terms[0]` entry is a `LicenseTerm` carrying `repeated Restriction` (with kinds like `RESTRICTION_KIND_FUNCTION`, `RESTRICTION_KIND_GEOGRAPHY`, `RESTRICTION_KIND_USER_TYPE`). A resource licensed in two ways is two offers, one per term.
 
-The Broker may help the agent by annotating which term it can honour, but it does not silently remove offers whose terms carry restrictions. The function-token vocabulary is the hyphenated string form (`ai-train`, `ai-index`, `ai-input`, `crawl`, `search`, ...).
+The agent states the kinds of license it asks for in `DiscoveryRequest.acceptable_restrictions`, per restriction axis, and the Broker forwards them to each Exchange in `ResourceQuery.acceptable_restrictions`. As a convenience, an Exchange or a Broker MAY drop offers whose restrictions fall outside those limits (see [Term semantics](/protocol/licensing-terms/#term-semantics)). A URI left with no offer is answered with `OFFER_ABSENCE_REASON_RESTRICTION_FILTERED`, with the filtered axes in `OfferGroup.restriction_filters`. When the agent states no `acceptable_restrictions`, the Broker drops no offer on this ground.
+
+This narrowing is advisory, not enforcement. The Broker surfaces the restrictions carried on each offer's own term, and the agent chooses the offer whose restrictions it can honour and is responsible for complying with them. Real enforcement happens downstream at accept -> report -> reconcile. The function-token vocabulary is the hyphenated string form (`ai-train`, `ai-index`, `ai-input`, `crawl`, `search`, ...).
 
 ```go
-// honourableTerm returns the first LicenseTerm whose restrictions the agent
-// can honour, given its declared function. It does NOT drop the offer when no
-// term matches -- the offer is still surfaced; the agent decides.
-func honourableTerm(offer *forav1.Offer, declaredFunction string) *forav1.LicenseTerm {
-    for _, term := range offer.Terms {
-        if restrictionsHonoured(term.Restrictions, declaredFunction) {
-            return term
+// withinAcceptable reports whether an offer's term fits the functions the agent
+// stated in acceptable_restrictions. Only the FUNCTION axis is shown here. When
+// the agent stated no limits, every offer fits.
+func withinAcceptable(offer *forav1.Offer, acceptable []*forav1.AcceptableRestriction) bool {
+    for _, a := range acceptable {
+        if a.Axis != forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION {
+            continue // geography / user-type evaluated the same way, or left to the agent
+        }
+        for _, use := range a.Values {
+            if !restrictionsHonoured(offer.Terms[0].Restrictions, use) {
+                return false
+            }
         }
     }
-    return nil
+    return true
 }
 
 func restrictionsHonoured(restrictions []*forav1.Restriction, declaredFunction string) bool {
@@ -285,7 +293,7 @@ func restrictionsHonoured(restrictions []*forav1.Restriction, declaredFunction s
 
 ## Stage 2: Filter by RequestConstraints
 
-The agent's `DiscoveryRequest.constraints` specifies budget and preference limits.
+The agent's `DiscoveryRequest.constraints` specifies budget and preference limits. These are the agent's own limits: a price cap or a budget is a constraint the agent sets, and the Broker applies it as a filter, not as an order.
 
 ```go
 func filterByConstraints(offers []rankedOffer, c *forav1.RequestConstraints, budget BudgetTracker) []rankedOffer {
@@ -335,9 +343,9 @@ func filterByConstraints(offers []rankedOffer, c *forav1.RequestConstraints, bud
 
 When the budget drops every offer for a URI, that URI is answered with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`, a successful "no result". A budget is never reported as `OFFER_ABSENCE_REASON_NOT_AUTHORIZED`, and never as an error such as `RESOURCE_EXHAUSTED`.
 
-## Stage 3: Deduplicate by ResourceIdentity
+## Stage 3: Group by ResourceIdentity
 
-The same article may be offered by multiple Exchanges (e.g., an AP wire story available from Exchange A and Exchange B). The Broker groups offers by resource identity and keeps only the cheapest per group.
+The same article may be offered by multiple Exchanges (e.g., an AP wire story available from Exchange A and Exchange B). The Broker groups these offers by resource identity and keeps every one of them. The agent sees each offer as a full package, in the Broker's order of relevance, and decides which one it buys. The Broker never keeps one offer of a group and drops the others.
 
 ```go
 // contentIdentityKey produces a deduplication key from layered identity fields.
@@ -364,78 +372,57 @@ func contentIdentityKey(id *forav1.ResourceIdentity) string {
 
 For the full deduplication logic, see the [Content Deduplication](/components/broker/content-dedup/) page.
 
-## Stage 4: Multi-Factor Ranking
+## Stage 4: Order by Relevance
 
-After deduplication, remaining offers are ranked by a multi-factor scoring engine. "Lowest unit_cost wins" is the default policy but not the only option. The selection engine considers:
+After grouping, the Broker puts the offers for each URI in its order of relevance to the agent's request. Relevance is the Broker's judgement of how well an offer answers the request, and the Broker's rules for it are public. The default engine draws on these signals:
 
-1. **Subscription content (zero marginal cost).** Offers with `subscription_id` set rank above all per-request offers. The selection engine discovers subscriptions when Exchange responses include offers with `subscription_id` populated.
+1. **Match to the request.** How well the resource answers the agent's `uris`, `query` or `search_filters`. For a request in words, this is the search backend's order.
 
-2. **Agent's preferred Exchanges.** The agent declares `preferred_exchanges` in `RequestConstraints`. Ranking priority: (a) subscription offers from preferred Exchanges, (b) subscription offers from any Exchange, (c) per-request offers from preferred Exchanges, (d) per-request offers ranked by unit_cost.
+2. **The agent's preferred Exchanges.** The agent names the Exchanges it has relationships with, such as subscriptions or contracts, in `RequestConstraints.preferred_exchanges`. The Broker SHOULD put their offers first when they have the resource.
 
-3. **Provider reputation scores.** Exchanges that consistently deliver accurate, well-structured content rank higher.
+3. **Content attestation level (v1.0).** Level 2 (third-party attested) > Level 1 (self-attested) > Level 0 (no attestation). Offers with `ResourceAttestation` entries from trusted verification vendors carry independently verifiable claims about the content.
 
-4. **Content attestation level (v1.0).** Level 2 (third-party attested) > Level 1 (self-attested) > Level 0 (no attestation). Offers with `ResourceAttestation` entries from trusted verification vendors rank higher because they provide independently verifiable claims about the content.
+4. **Exchange track record.** Exchanges that consistently deliver accurate, well-structured content, and whose `estimated_quantity` values have proven accurate, rank higher.
 
-5. **Quantity estimation accuracy.** Exchanges with historically accurate estimated_quantity values rank higher.
-
-6. **Business relationships.** The agent declares known relationships via `RequestConstraints`.
+Price is not a signal. The agent compares prices itself: each offer carries its price, and `Pricing.unit_cost` normalizes it to a cost per unit, so an agent can compare offers across Exchanges and pricing models by its own policy.
 
 ```go
-func (e *defaultEngine) rankOffers(offers []rankedOffer, constraints *forav1.RequestConstraints) []rankedOffer {
+// rankOffers puts the offers for one URI in this Broker's order of relevance.
+// Price is not an input: the agent compares prices itself.
+func (e *defaultEngine) rankOffers(offers []rankedOffer, req *forav1.DiscoveryRequest) []rankedOffer {
     for i := range offers {
         score := 0.0
 
-        // Zero marginal cost: subscription offers always win.
-        if offers[i].Offer.SubscriptionId != nil && *offers[i].Offer.SubscriptionId != "" {
-            score += 10000.0 // effectively infinite preference
-            // Extra boost for subscription offers from preferred exchanges
-            if isPreferred(offers[i].Exchange.Domain, constraints.PreferredExchanges) {
-                score += 5000.0
-            }
-        }
+        // How well the resource answers the request: the search backend's
+        // score for a request in words, equal for every offer on a named URI.
+        score += e.matchScore(offers[i], req) * 1000.0
 
-        // unit_cost: lower is better (inverted for scoring)
-        uc := unitCostOf(offers[i])
-        if uc > 0 && uc < math.MaxFloat64 {
-            score += 1000.0 / uc
-        }
-
-        // Preferred exchange bonus
-        if isPreferred(offers[i].Exchange.Domain, constraints.PreferredExchanges) {
+        // Exchanges the agent named, such as those it holds subscriptions with.
+        if isPreferred(offers[i].Exchange.Domain, req.GetConstraints().GetPreferredExchanges()) {
             score += 500.0
         }
 
-        // Content attestation level bonus (v1.0)
+        // Content attestation level (v1.0)
         // Level 2 (third-party) > Level 1 (self-attested) > Level 0 (none)
         score += float64(attestationLevel(offers[i].Offer)) * 100.0
 
-        // Quantity estimation accuracy bonus (historical)
-        score += e.quantityAccuracy.Score(offers[i].Exchange.Domain) * 50.0
+        // Exchange track record: accurate content and estimated_quantity (historical)
+        score += e.exchangeRecord.Score(offers[i].Exchange.Domain) * 50.0
 
         offers[i].Score = score
     }
 
-    sort.Slice(offers, func(i, j int) bool {
-        return offers[i].Score > offers[j].Score // descending: highest score wins
+    // Stable sort: offers with equal scores keep the order the Exchanges returned.
+    sort.SliceStable(offers, func(i, j int) bool {
+        return offers[i].Score > offers[j].Score // descending: most relevant first
     })
     return offers
-}
-
-func unitCostOf(o rankedOffer) float64 {
-    if o.Offer.Pricing.UnitCost != nil {
-        return *o.Offer.Pricing.UnitCost
-    }
-    // Fallback: compute from rate and estimated_quantity
-    if o.Offer.Pricing.EstimatedQuantity != nil && *o.Offer.Pricing.EstimatedQuantity > 0 {
-        return o.Offer.Pricing.Rate / float64(*o.Offer.Pricing.EstimatedQuantity)
-    }
-    return math.MaxFloat64 // no unit_cost available, rank last
 }
 ```
 
 ## Stage 5: Verify exchange_signature
 
-The Broker SHOULD verify `exchange_signature` on the winning Offer before proceeding. This prevents an Exchange from tampering with its own offer fields after signing.
+The Broker SHOULD verify `exchange_signature` on every Offer before it returns it, and drops an offer whose signature fails. This prevents an Exchange from tampering with its own offer fields after signing.
 
 ```go
 func verifyOfferSignature(offer *forav1.Offer, exchange string, pubKeys map[string]ed25519.PublicKey) error {
@@ -454,26 +441,27 @@ func verifyOfferSignature(offer *forav1.Offer, exchange string, pubKeys map[stri
 
 ## Pluggable Selection Policies
 
-The default selection policy is "lowest unit_cost wins." Production deployments may want custom policies:
+The default policy orders offers by relevance, as described above. A Broker can plug in another policy for how it orders offers, and publishes its rules either way:
 
 ```go
 type SelectionPolicy interface {
-    // Rank orders offers by preference. Index 0 is the winner.
-    Rank(offers []rankedOffer, constraints *forav1.RequestConstraints) []rankedOffer
+    // Rank puts offers in this Broker's order of relevance. Index 0 is the
+    // offer it judges most relevant; the agent chooses among all of them.
+    Rank(offers []rankedOffer, req *forav1.DiscoveryRequest) []rankedOffer
 }
 
 // Built-in policies
-type LowestUnitCostPolicy struct{}       // Default: cheapest wins
-type PreferredExchangePolicy struct{} // Prefer specific Exchanges, then unit_cost
-type FreshnessWeightedPolicy struct{}    // Prefer newer content, weighted against unit_cost
-type QualityScorePolicy struct{}         // Use Exchange reputation scores
+type RelevancePolicy struct{}         // Default: match, preferred Exchanges, attestation, track record
+type PreferredExchangePolicy struct{} // The agent's preferred Exchanges first, then relevance
+type FreshnessWeightedPolicy struct{} // Newer content first, weighted against relevance
+type QualityScorePolicy struct{}      // Exchange reputation scores
 ```
 
-The policy is set at Broker construction time, not per-request. Per-request behavior is controlled through `RequestConstraints`.
+No policy orders offers by price. The policy is set at Broker construction time, not per-request. Per-request behavior is controlled through `acceptable_restrictions` and `RequestConstraints`.
 
 ## Exchange Authorization Verification
 
-Before executing a transaction, the Broker SHOULD verify that the Exchange is authorized by the provider whose content is being licensed. This is the FORA equivalent of ads.txt verification in programmatic advertising.
+Before it returns an offer, the Broker SHOULD verify that the Exchange is authorized by the provider whose content is being licensed. This is the FORA equivalent of ads.txt verification in programmatic advertising.
 
 ```go
 func (o *Broker) verifyExchangeAuthorization(
@@ -494,30 +482,37 @@ func (o *Broker) verifyExchangeAuthorization(
 }
 ```
 
-This check runs after offer selection, before `ExecuteTransaction`. If verification fails, the Broker falls back to the next-ranked offer.
+This check runs before the Broker returns the offers. The Broker drops an offer whose Exchange the provider has not authorized. It never puts another offer in place of one the agent chose, and can't: the agent's acceptance signs the offer it chose.
 
 ## Selection Rationale Logging
 
-Every selection decision is logged with full rationale for audit:
+Every answer is logged with the order the Broker returned and the reasons for it, for audit:
 
 ```go
 type SelectionLog struct {
     // Broker-internal audit key correlating this decision to the inbound request.
     // Request/response correlation rides the X-Request-ID HTTP header, not a message field.
-    FORARequestID       string              `json:"fora_request_id"`
-    Timestamp           time.Time           `json:"timestamp"`
-    ExchangesQueried []string            `json:"exchanges_queried"`
-    ExchangesResponded []string          `json:"exchanges_responded"`
-    TotalOffers         int                 `json:"total_offers"`
-    FilteredOffers      int                 `json:"filtered_offers"`
-    DeduplicatedSets    int                 `json:"deduplicated_sets"`
-    WinningExchange  string              `json:"winning_exchange"`
-    WinningOfferID      string              `json:"winning_offer_id"`
-    WinningUnitCost     float64             `json:"winning_unit_cost"`
-    RunnerUpUnitCost    float64             `json:"runner_up_unit_cost,omitempty"`
-    RejectionReasons    map[string]int      `json:"rejection_reasons"`
-    SelectionPolicy     string              `json:"selection_policy"`
-    LatencyMs           int64               `json:"latency_ms"`
+    FORARequestID      string         `json:"fora_request_id"`
+    Timestamp          time.Time      `json:"timestamp"`
+    ExchangesQueried   []string       `json:"exchanges_queried"`
+    ExchangesResponded []string       `json:"exchanges_responded"`
+    TotalOffers        int            `json:"total_offers"`
+    FilteredOffers     int            `json:"filtered_offers"`
+    SameContentGroups  int            `json:"same_content_groups"`
+    Order              []OrderEntry   `json:"order"`
+    RejectionReasons   map[string]int `json:"rejection_reasons"`
+    SelectionPolicy    string         `json:"selection_policy"`
+    LatencyMs          int64          `json:"latency_ms"`
+}
+
+// OrderEntry records one returned offer: where it stood and why.
+type OrderEntry struct {
+    URI      string             `json:"uri"`
+    OfferID  string             `json:"offer_id"`
+    Exchange string             `json:"exchange"`
+    Position int                `json:"position"`
+    Score    float64            `json:"score"`
+    Signals  map[string]float64 `json:"signals"` // each signal's share of the score
 }
 ```
 
@@ -550,5 +545,5 @@ sequenceDiagram
 For full auditability, the agent operator should:
 
 1. **Verify offer signatures** on every DiscoveryResponse
-2. **Retain selection logs** to prove the Broker selected the cheapest offer
-3. **Spot-check by going direct** -- query Exchanges directly to verify the Broker isn't hiding better offers
+2. **Retain selection logs**, which record the order the Broker returned and the signals behind it, and check them against the Broker's published rules
+3. **Spot-check by going direct** -- query Exchanges directly to verify the Broker isn't hiding offers

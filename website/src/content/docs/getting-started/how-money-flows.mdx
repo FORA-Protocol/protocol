@@ -75,7 +75,7 @@ For example:
 - Data at $0.002 per record (`unit: "records"`, `estimated_quantity: 500`): unit_cost = $0.002 per record, the rate itself
 - Video at $0.50 per minute (`unit: "minutes"`, `estimated_quantity: 45`): unit_cost = $0.50 / 60 = $0.0083 per second
 
-The Broker uses `unit_cost` to compare offers across Exchanges and pricing models, selecting the most cost-effective option regardless of how the provider originally priced it.
+`unit_cost` lets an agent compare offers across Exchanges and pricing models by its own policy, however the provider priced them. A Broker does not order offers by it: it returns them in its order of relevance, and the agent decides.
 
 Every `Offer` in a `ResourceResponse` includes both the native pricing and the computed `unit_cost` value. Here the article priced per access:
 

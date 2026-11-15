@@ -47,7 +47,7 @@ Total agent-perceived latency target: **< 200ms end-to-end** for the transaction
 |---|---|---|
 | Agent → Broker: DiscoveryRequest | **2ms** | **5ms** |
 | Broker → N Exchanges (parallel) | **15ms** | **60ms** |
-| Broker: Select best offer | **1ms** | **3ms** |
+| Broker: Order offers | **1ms** | **3ms** |
 | Broker → Exchange: ExecuteTransaction | **20ms** | **100ms** |
 | Total Broker overhead | **< 40ms** | **< 170ms** |
 
@@ -113,7 +113,7 @@ Total agent-perceived latency target: **< 200ms end-to-end** for the transaction
 | Exchange down | Agents can't discover or transact | Broker tries other Exchanges |
 | Billing Adapter down | Transactions fail | Policy decision: reject or defer |
 | Edge Function down | Bots aren't blocked | CDN continues serving; edge function is defense-in-depth |
-| Broker down | Agents lose multi-Exchange comparison | Agents query Exchanges directly |
+| Broker down | Agents lose multi-Exchange discovery | Agents query Exchanges directly |
 | Transaction log store down | **Critical** | Exchange must stop issuing signed URLs |
 
 ## Cost Model

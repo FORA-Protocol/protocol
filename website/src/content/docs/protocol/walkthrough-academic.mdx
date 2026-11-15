@@ -22,7 +22,7 @@ The agent carries a delegation JWT from the university, granting `academic:*` an
 **Seven-step flow:**
 
 ```
-Discovery → ResourceQuery (Broker-led) → ResourceResponse → Direct ResourceQuery with the delegation → Broker Selection → Batch ExecuteTransaction → ReportUsage
+Discovery → ResourceQuery (Broker-led) → ResourceResponse → Direct ResourceQuery with the delegation → Agent Selection → Batch ExecuteTransaction → ReportUsage
 ```
 
 ---
@@ -542,8 +542,8 @@ The Exchange classified each of the 50 DOIs into one of three categories based o
 
 Because the ResourceQuery declared `supported_profiles: ["fora-academic-v1"]`, every offer includes academic-specific metadata:
 
-- **`academic.oa_status`** — Open Access classification. Values: `gold` (fully OA), `green` (author self-archived), `hybrid` (OA in subscription journal), `bronze` (free-to-read but no license), `diamond` (no APC), `closed` (paywalled). The Broker uses this to prefer free sources.
-- **`academic.version`** — Article lifecycle stage. Values: `preprint` (author's original), `aam` (accepted author manuscript), `vor` (Version of Record, publisher-formatted). The Broker prefers VoR when available, falls back to preprint.
+- **`academic.oa_status`** — Open Access classification. Values: `gold` (fully OA), `green` (author self-archived), `hybrid` (OA in subscription journal), `bronze` (free-to-read but no license), `diamond` (no APC), `closed` (paywalled). The agent can use this to prefer free sources.
+- **`academic.version`** — Article lifecycle stage. Values: `preprint` (author's original), `aam` (accepted author manuscript), `vor` (Version of Record, publisher-formatted). The Broker puts VoR first when available, then the preprint.
 - **`academic.retraction_status`** — Publication integrity status. Values: `active` (valid), `retracted` (withdrawn), `expression_of_concern` (under investigation). When `retracted` appears in `ext_critical`, the consumer MUST understand retraction semantics or reject the offer.
 - **`academic.peer_review_status`** — Whether the paper has been peer-reviewed. Values: `peer_reviewed`, `not_peer_reviewed`. Useful for weighting evidence quality.
 
@@ -559,7 +559,7 @@ The retracted paper (DOI `10.1038/s41592-024-02467-x`) is immediately identifiab
 ### Content Identity and Dedup
 
 Every offer carries a `ResourceIdentity` with:
-- **`doi`** — The DOI serves as the universal dedup key. If the same paper were available from multiple Exchanges (e.g., via a different aggregator), the Broker groups offers by DOI to compare pricing.
+- **`doi`** — The DOI serves as the universal dedup key. If the same paper were available from multiple Exchanges (e.g., via a different aggregator), the Broker groups offers by DOI, so the agent sees every offer for the paper together.
 - **`content_hash`** — SHA-256 hash for post-delivery verification. Because `resource_mutability` is `RESOURCE_MUTABILITY_STATIC` for all academic papers (published articles do not change — corrections and retractions create new resources), the agent SHOULD verify the hash on delivery.
 - **`canonical_url`** — The publisher's authoritative URL. Different from the DOI URI but resolves to the same resource.
 
@@ -747,16 +747,16 @@ For the 20 Elsevier papers covered by Stanford's institutional subscription:
 
 ---
 
-## Step 5 — Broker Selection
+## Step 5 — Agent Selection
 
-The agent hands the direct answer from Step 4 to the Broker, which applies a cost-minimization strategy across all 50 OfferGroups, with the 20 subscription offers in place of the paid Elsevier offers for those DOIs:
+The agent chooses the offers it buys by its own policy, set by the research lab: spend as little as the review allows. It applies that policy across all 50 OfferGroups, with the 20 subscription offers from Step 4 in place of the paid Elsevier offers for those DOIs. The Broker returned the offers in its order of relevance; the choice below is the agent's:
 
 ### Selection Rules
 
 1. **Exclude retracted papers** — The retracted paper is flagged to the research agent. The agent decides whether to exclude it from the review or include it with a retraction annotation.
 2. **Prefer free OA** — 12 arXiv papers at $0.00 each.
 3. **Prefer subscription** — 20 Elsevier papers at $0.00 each (the subscription offers from Step 4).
-4. **Cheapest paid for the rest** — 17 papers at $1.50 each from Springer and Elsevier (no subscription coverage).
+4. **Lowest price for the rest, by the lab's policy** — 17 papers at $1.50 each from Springer and Elsevier (no subscription coverage).
 
 ### Cost Summary
 
@@ -768,11 +768,11 @@ The agent hands the direct answer from Step 4 to the Broker, which applies a cos
 | Retracted (excluded) | 1 | — | $0.00 |
 | **Total** | **49 acquired** | | **$25.50** |
 
-Without the institutional subscription, all 50 papers at $1.50 each would cost $75.00. The institutional subscription saved $30.00 (40%), and free OA saved another $18.00 (24%). The Broker reports the savings breakdown to the research agent.
+Without the institutional subscription, all 50 papers at $1.50 each would cost $75.00. The institutional subscription saved $30.00 (40%), and free OA saved another $18.00 (24%).
 
-The Broker also flags the retracted paper to the agent:
+The Broker flags the retracted paper to the agent:
 
-> **Warning:** DOI `10.1038/s41592-024-02467-x` ("Attention-Guided Pathology Detection via Self-Supervised Transformers") was retracted on 2026-02-15. Reason: data fabrication. This paper has been excluded from the batch transaction. Include it explicitly if needed for retraction analysis.
+> **Warning:** DOI `10.1038/s41592-024-02467-x` ("Attention-Guided Pathology Detection via Self-Supervised Transformers") was retracted on 2026-02-15. Reason: data fabrication. Leave it out of the batch transaction, or include it explicitly if needed for retraction analysis.
 
 ---
 
@@ -1031,7 +1031,7 @@ Response:
 | 2 | `DiscoverResources` (Broker-led) | `Requester` stating `academic:*` | Subscription term hidden: the delegation is not honored on the Broker's query | Same | Same |
 | 3 | -- | Offers at $0, `oa_status: "gold"` | Paid offers at $1.50 only | Offers at $1.50 | Offer with `retraction_status: "retracted"` in `ext_critical` |
 | 4 | `DiscoverResources` (direct, with the delegation) | -- | Delegation verified; offers at $0, `subscription_id` set | Unchanged, $1.50 | -- |
-| 5 | -- | Broker selects (free) | Broker selects (free via sub) | Broker selects (cheapest) | Broker flags and excludes |
+| 5 | -- | Agent selects (free) | Agent selects (free via sub) | Agent selects (its cost policy) | Broker flags; agent excludes |
 | 6 | `ExecuteTransaction` | Batch, cost $0 | Batch, cost $0, sub quota decremented | Batch, cost $1.50/ea | Not transacted |
 | 7 | `ReportUsage` | One report per transaction, in tokens | One report per transaction, in tokens | One report per transaction, 1 access each | No report |
 

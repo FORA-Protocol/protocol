@@ -258,7 +258,7 @@ The estimate a metered offer carries (`Pricing.estimated_quantity`) is the publi
 
 ## Unit Cost Normalization
 
-DiscoverResources includes `unit_cost` in each offer so AI agents and Brokers can compare offers across pricing models: the price of one purchase divided by the resource's size in the comparison unit of its content type (tokens for text, seconds for audio and video, pages for documents, records for data). See [unit_cost: Normalized Pricing](/getting-started/how-money-flows/#unit_cost-normalized-pricing). The size is computed from content metadata. It is a comparison input only: it is not `estimated_quantity`, which is the publisher's estimate in the price's own unit, and it never enters a charge.
+DiscoverResources includes `unit_cost` in each offer so AI agents can compare offers across pricing models: the price of one purchase divided by the resource's size in the comparison unit of its content type (tokens for text, seconds for audio and video, pages for documents, records for data). See [unit_cost: Normalized Pricing](/getting-started/how-money-flows/#unit_cost-normalized-pricing). The size is computed from content metadata. It is a comparison input only: it is not `estimated_quantity`, which is the publisher's estimate in the price's own unit, and it never enters a charge.
 
 ### Size Formula
 
