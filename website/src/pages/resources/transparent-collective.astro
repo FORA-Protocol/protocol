@@ -628,7 +628,7 @@ const SOURCES = [
   .scheme { padding: 1.75rem; border: 1px solid var(--lp-rule); border-radius: 12px; background: #fff; min-width: 0; }
   .scheme.wide, .scheme:last-child:nth-child(even) { grid-column: 1 / -1; }
   .scheme p { margin: 0; overflow-wrap: break-word; }
-  .scheme .scheme-tag { font: 500 0.875rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; line-height: 1.4; color: var(--lp-link); margin-bottom: 0.625rem; }
+  .scheme .scheme-tag { font: 500 0.875rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; line-height: 1.4; color: var(--lp-label); margin-bottom: 0.625rem; }
   .scheme.wide p:not(.scheme-tag), .scheme:last-child:nth-child(even) p:not(.scheme-tag) { max-width: 46rem; }
   .world { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; align-items: start; margin-top: 2.5rem; }
   .world-region { padding: 1.5rem 1.75rem; border: 1px solid var(--lp-rule); border-radius: 12px; background: #fff; min-width: 0; }
@@ -638,7 +638,7 @@ const SOURCES = [
   .world-region li { display: grid; gap: 0.25rem; color: var(--lp-text); font-size: 1.0625rem; line-height: 1.6; overflow-wrap: break-word; }
   .world-region b { color: var(--lp-strong); font-weight: 700; }
   .world-region :global(a) { color: var(--lp-link); }
-  .world-tag { font: 500 0.875rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--lp-link); }
+  .world-tag { font: 500 0.875rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--lp-label); }
   /* The same look as PointList, for lists whose text carries links. */
   .points { list-style: none; margin: 2rem 0 0; padding: 0; display: grid; gap: 1.25rem; max-width: 44rem; }
   .points li { display: grid; grid-template-columns: auto 1fr; gap: 0.75rem; color: var(--lp-text); font-size: 1.125rem; line-height: 1.7; }

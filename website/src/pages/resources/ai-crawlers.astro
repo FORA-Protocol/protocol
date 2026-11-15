@@ -99,7 +99,7 @@ const FAQ = [
     title="Each AI company reads its own refusal"
     lead="The AI companies treat their uses as allowed unless a site refuses them, and there is no single signal they all honor. So a refusal has to be said in each vendor's own form, in up to four places."
   >
-    <PointList items={CHANNELS} />
+    <PointList items={CHANNELS} tone="neutral" />
   </Band>
 
   <Band
@@ -126,7 +126,7 @@ const FAQ = [
     label="The limits"
     title="What robots.txt can't stop"
   >
-    <PointList items={CANT_STOP} />
+    <PointList items={CANT_STOP} tone="neutral" />
     <LinkRow links={[
       { href: '/components/edge-function/bot-detection/', text: 'How the edge function tells bots apart' },
       { href: '/getting-started/search-only-contract/', text: 'The search-only contract' },
