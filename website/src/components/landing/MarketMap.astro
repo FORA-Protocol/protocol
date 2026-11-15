@@ -7,9 +7,12 @@
 //
 // Wide, it is a table that runs a little wider than the band, up to 1320px,
 // and scrolls inside its own box if the window is narrower than the table's
-// minimum. Below 760px each row becomes a card titled with the player, its
-// fields labelled with the column heads in order, so the page never scrolls
-// sideways. Reads the band's variables.
+// minimum. Below 760px the table gives way to cards, one per player, so the
+// page never scrolls sideways: each card shows the first `phoneCols` columns
+// after the player (on the hub, "What's sold" and "Who pays today"), and the
+// rest fold behind a "More" disclosure on the player's line (<details>, so it works without JS and
+// from the keyboard). Only one of the two is displayed at a time, so a screen
+// reader reads the map once. Reads the band's variables.
 //
 //   <MarketMap columns={['Player', …]} fora={{ player: 'FORA', cells: […] }}
 //     groups={[{ name: '1. Bot paywalls at your CDN', rows: [{ player: 'TollBit', cells: […] }] }]} />
@@ -25,9 +28,12 @@ interface Props {
   groups: { name: string; rows: Row[] }[];
   /** The table's accessible name. */
   label: string;
+  /** On phones, how many columns after the player each card shows before "More". */
+  phoneCols?: number;
 }
-const { columns, fora, groups, label } = Astro.props;
+const { columns, fora, groups, label, phoneCols = 2 } = Astro.props;
 const heads = columns.slice(1);
+const fields = (r: Row) => r.cells.map((c, i) => ({ head: heads[i], html: c }));
 ---
 <div class="mm">
   <div class="mm-scroll">
@@ -57,6 +63,31 @@ const heads = columns.slice(1);
         ))}
       </tbody>
     </table>
+  </div>
+  <div class="mm-cards" role="group" aria-label={label}>
+    {[{ name: '', rows: [fora], fora: true }, ...groups.map((g) => ({ ...g, fora: false }))].map((g) => (
+      <>
+        {g.name && <p class="mm-grp">{g.name}</p>}
+        <ul class="mm-list">
+          {g.rows.map((r) => (
+            <li class:list={['mm-card', { fora: g.fora }]}>
+              <p class="mm-player">{r.player}</p>
+              <dl class="mm-fields">
+                {fields(r).slice(0, phoneCols).map((f) => <div><dt>{f.head}</dt><dd><span class="v" set:html={f.html} /></dd></div>)}
+              </dl>
+              {r.cells.length > phoneCols && (
+                <details class="mm-more">
+                  <summary>More<span class="sr-only"> on {r.player}</span></summary>
+                  <dl class="mm-fields">
+                    {fields(r).slice(phoneCols).map((f) => <div><dt>{f.head}</dt><dd><span class="v" set:html={f.html} /></dd></div>)}
+                  </dl>
+                </details>
+              )}
+            </li>
+          ))}
+        </ul>
+      </>
+    ))}
   </div>
 </div>
 
@@ -112,30 +143,58 @@ const heads = columns.slice(1);
   }
   tr.grp + tr > * { border-top: 0; }
 
+  /* Phones: cards instead of the table. */
+  .mm-cards { display: none; }
   @media (max-width: 760px) {
-    .mm-scroll { overflow: visible; border: 0; border-radius: 0; background: none; }
-    table { min-width: 0; }
-    table, tbody, tr, th, td { display: block; width: 100%; }
-    thead, colgroup { display: none; }
-    tbody tr { border: 1px solid var(--lp-rule); border-radius: 12px; background: var(--lp-surface); padding: 1rem 1.125rem; margin-bottom: 0.75rem; }
-    tbody tr.fora { border-color: var(--accent); }
-    tr.fora > * { background: none; }
-    tr.fora th { box-shadow: none; }
-    tbody tr.grp { border: 0; background: none; padding: 1.5rem 0 0.25rem; margin: 0; }
-    th, td, th:first-child, th:last-child, td:last-child { padding-left: 0; padding-right: 0; }
-    tbody th { border-top: 0; padding: 0 0 0.5rem; font-size: 1.0625rem; }
-    tr.grp th { padding: 0; font-size: 0.75rem; }
-    td { border-top: 1px solid var(--lp-rule); padding: 0.625rem 0 0.375rem; font-size: 0.9375rem; }
-    tr.grp + tr > td { border-top: 1px solid var(--lp-rule); }
-    td::before {
-      content: attr(data-col);
-      display: block;
-      font-family: var(--mono);
-      font-size: 0.6875rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--lp-label);
-      margin-bottom: 0.25rem;
-    }
+    .mm-scroll { display: none; }
+    .mm-cards { display: block; }
   }
+  .mm-grp {
+    margin: 1.5rem 0 0.5rem;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--lp-heading);
+  }
+  .mm-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+  /* The "More" toggle sits on the player's line, top right, so a closed card
+     is only the player and two fields. */
+  .mm-card { position: relative; border: 1px solid var(--lp-rule); border-radius: 12px; background: var(--lp-surface); padding: 0.75rem 1rem 0.5rem; min-width: 0; }
+  .mm-card.fora { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+  .mm-player { margin: 0 0 0.25rem; padding-right: 5.5rem; color: var(--lp-strong); font-weight: 600; font-size: 1.0625rem; line-height: 1.35; }
+  .mm-card.fora .mm-player { color: var(--lp-fora); }
+  .mm-fields { margin: 0; }
+  .mm-fields > div { border-top: 1px solid var(--lp-rule); padding: 0.375rem 0 0.3125rem; }
+  .mm-fields dt {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--lp-label);
+    margin-bottom: 0.125rem;
+  }
+  .mm-fields dd { margin: 0; color: var(--lp-text); font-size: 0.875rem; line-height: 1.45; }
+  .mm-more > summary {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.375rem;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: 2.75rem;
+    padding: 0 0.625rem;
+    cursor: pointer;
+    list-style: none;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--lp-link);
+  }
+  .mm-more > summary::-webkit-details-marker { display: none; }
+  .mm-more > summary::before { content: '\25B8'; transition: transform 0.15s; }
+  .mm-more[open] > summary::before { transform: rotate(90deg); }
+  .mm-more > summary:focus-visible { outline: 2px solid var(--lp-link); outline-offset: -2px; border-radius: 6px; }
 </style>
