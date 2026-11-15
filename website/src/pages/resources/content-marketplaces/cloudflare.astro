@@ -369,9 +369,9 @@ const SOURCES = [
 
   <Band id="ahead" label="Where Cloudflare is ahead" title="Where Cloudflare is ahead of FORA">
     <p class="prose"><b>In short:</b> Cloudflare can block a crawler that won't pay at the edge of any site it fronts, once the owner sets that crawler to Charge, and collects and pays out the money itself. FORA can do neither: its edge enforces only where it's installed, and money moves outside the protocol.</p>
-    <PointList items={AHEAD_FIRST} />
+    <PointList tone="neutral" items={AHEAD_FIRST} />
     <Callout kind="define" {...DEFINITIONS.edgeFunction} />
-    <PointList items={AHEAD_REST} />
+    <PointList tone="neutral" items={AHEAD_REST} />
   </Band>
 
   <Band tone="light" label="The differences" title="Eight questions a publisher asks of any licensing deal" lead="Cloudflare runs one company's exchange inside its network; FORA is a protocol that any company can run an Exchange on. On your site they sell the same page, side by side, and they work together on bot detection and hosting. The price and money rows compare different things: one number per fetch against a menu of terms, and a company that moves money against a protocol that doesn't.">

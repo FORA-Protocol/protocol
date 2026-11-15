@@ -315,7 +315,7 @@ const SOURCES = [
   </Band>
 
   <Band id="ahead" label="Where Perplexity is ahead" title="What Perplexity does that FORA doesn't">
-    <PointList items={AHEAD} />
+    <PointList tone="neutral" items={AHEAD} />
   </Band>
 
   <Band tone="light" label="The differences, question by question" title="Eight questions a publisher asks of any licensing deal" lead="Perplexity runs one buyer's licensing program, and FORA is a protocol for many buyers and sellers. The first four rows compare things Perplexity doesn't set out to do for other AI companies. On the last four, Perplexity is ahead on a set pool and a smaller documented ask of your site. FORA is ahead on setting your own price and on a signed record per sale.">
@@ -338,7 +338,7 @@ const SOURCES = [
   </Band>
 
   <Band tone="light" id="background" label="Background: Perplexity's programs and CNN's case" title="From an ad share in 2024 to a lawsuit in 2026" asideWidth="400px" asideAlign="start">
-    <PointList slot="intro" items={TIMELINE} />
+    <PointList slot="intro" tone="neutral" items={TIMELINE} />
     <Figure
       slot="aside"
       src={`${IMG}/perplexity-3.png`}

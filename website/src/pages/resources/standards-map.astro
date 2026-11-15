@@ -294,7 +294,7 @@ const SOURCES = [
 
   <Band title="Where each job stands, November 2026">
     <KeyFacts items={KEY_FACTS} />
-    <PointList items={STANDING} />
+    <PointList tone="neutral" items={STANDING} />
   </Band>
 
   <Band tone="near" title="What to do this quarter">
@@ -333,7 +333,7 @@ const SOURCES = [
 
   <Band title="Where the three license formats differ">
     <p class="prose" set:html={`RSL's <code>&lt;standard&gt;</code> element points at a legal text elsewhere, such as a Creative Commons license ${cite(14)}. FORA incorporates by reference too, with the document's digest beside its address, so the document can't be swapped after an offer is signed ${cite(28)}.`} />
-    <PointList items={DIFFER} />
+    <PointList tone="neutral" items={DIFFER} />
     <p class="prose explorer" set:html={`<b>See it clause by clause.</b> The ${a('/protocol/#licensing-core', 'Licensing Core explorer')} shows 12 licenses, each as a FORA term, an RSL file and a CoMP package.`} />
     <CardGrid items={EXPLORER} />
     <LinkRow links={[{ href: '/protocol/#licensing-core', text: 'Open the explorer' }]} />

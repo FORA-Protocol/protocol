@@ -821,13 +821,13 @@ const updated = resourceUpdated(HREF) ?? SERIES.find((p) => p.href === HREF)?.up
   </Band>
 
   <Band tone="light" id="ahead" label="Where they are ahead" title="What these channels do that FORA doesn't">
-    <PointList items={AHEAD} />
+    <PointList tone="neutral" items={AHEAD} />
   </Band>
 
   <Band label="The differences, question by question" title="Eight questions to ask of any channel" lead="The deep pages ask the same eight questions, in the same order, in their tables.">
-    <PointList items={QUESTIONS} />
+    <PointList tone="neutral" items={QUESTIONS} />
     <Callout kind="define" {...DEFINITIONS.broker} />
-    <PointList items={QUESTIONS_REST} />
+    <PointList tone="neutral" items={QUESTIONS_REST} />
   </Band>
 
   <Band tone="near" id="together" label="Running FORA beside the others" title="What changes on your CDN, beside TollBit and Cloudflare" lead="Your firewall and bot rules run first, and they must let signed requests and TollBit's fetcher through. Behind them, FORA's edge function decides.">

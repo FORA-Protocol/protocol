@@ -2,7 +2,9 @@
 // A pull quote: one sentence quoted verbatim, who said it, and a link to the
 // source. Used on /resources/transparent-collective/. The quote is plain text;
 // the curly quotation marks come from the stylesheet. `small` sets it at a
-// smaller size, for a quote inside a Callout.
+// smaller size, for a quote inside a Callout. A quote is always someone
+// else's words, so its edge is grey (the band's label colour), not blue:
+// blue means FORA.
 interface Props {
   quote: string;
   /** Who said it: a company, a regulator, a person. */
@@ -23,7 +25,7 @@ const { quote, who, source, href, small = false } = Astro.props;
   .pq {
     margin: 2.5rem 0;
     padding: 0.25rem 0 0.25rem 1.5rem;
-    border-left: 3px solid var(--lp-link);
+    border-left: 3px solid var(--lp-label);
     max-width: 46rem;
   }
   blockquote { margin: 0; }

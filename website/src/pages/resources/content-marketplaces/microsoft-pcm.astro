@@ -326,7 +326,7 @@ const SOURCES = [
     <Split>
       <div>
         <h3 class="sub-h col-h">PCM</h3>
-        <PointList items={SITE_PCM} />
+        <PointList tone="neutral" items={SITE_PCM} />
       </div>
       <div slot="aside">
         <h3 class="sub-h col-h">FORA</h3>
@@ -362,7 +362,7 @@ const SOURCES = [
   </Band>
 
   <Band id="ahead" label="Where PCM is ahead" title="What PCM does that FORA doesn't">
-    <PointList items={AHEAD} />
+    <PointList tone="neutral" items={AHEAD} />
     <Callout kind="define" {...DEFINITIONS.dealTerm} />
   </Band>
 
