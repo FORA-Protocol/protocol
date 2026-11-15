@@ -31,7 +31,7 @@ const V1_POST = 'https://lnkd.in/p/dxJURtKj';
 const WHAT = [
   {
     title: 'An open protocol',
-    text: 'How an agent finds a resource, reads its terms, buys it, receives it and proves what it got: Discover, Query, Transact, Deliver, Report and Dispute, in a public specification anyone can implement.',
+    text: 'A public specification anyone can implement. Six steps take an agent from finding a resource to proving what it got: Discover, Query, Transact, Deliver, Report and Dispute.',
   },
   {
     title: 'Free, open-source software',
@@ -39,7 +39,7 @@ const WHAT = [
   },
   {
     title: 'Federated, with no central registry',
-    text: 'Each marketplace, an Exchange, runs on its own and sets its own terms. An agent buys from any of them the same way, with the same SDK, and registers at each Exchange it buys from.',
+    text: 'Each marketplace, called an Exchange, runs on its own and sets its own terms. An agent registers at each Exchange it buys from, and uses the same SDK for all of them.',
   },
 ];
 
@@ -57,15 +57,11 @@ const OPEN = [
   },
   {
     title: 'A stable v1.',
-    text: 'FORA v1 was released on 10 September 2026. Within v1, fields and values can be added, and nothing already shipped is renamed, renumbered, retyped or removed. A check on every build enforces it.',
+    text: 'FORA v1 was released on 10 September 2026. Within v1, fields and values can be added, and nothing already shipped is renamed, renumbered, retyped or removed. Every build checks this.',
   },
   {
-    title: 'Apache 2.0.',
-    text: `The protocol specification and FORA Server are open source under Apache 2.0, and the documentation is CC BY-ND 4.0. Deploy it without asking anyone; the ${a('/brand/', 'brand guidelines')} cover the FORA name and logo.`,
-  },
-  {
-    title: 'No body to join.',
-    text: 'There is no central registry and no gatekeeper. Anyone can run an Exchange.',
+    title: 'Open licenses.',
+    text: `The protocol specification and FORA Server are open source under Apache 2.0, and the documentation is CC BY-ND 4.0. Deploy it without asking anyone. The ${a('/brand/', 'brand guidelines')} cover the FORA name and logo.`,
   },
   {
     title: 'Built on open work.',
@@ -75,7 +71,7 @@ const OPEN = [
 ---
 <LandingLayout
   title="About FORA"
-  description="Why FORA exists, what it is, the company and people who build it, and how the protocol is developed in the open."
+  description="Why FORA exists, who builds it, and how it is developed in the open."
 >
   <AudienceHero
     current="about"
@@ -92,7 +88,7 @@ const OPEN = [
     id="mission"
     label="Mission"
     title="Let every source say yes to AI agents, on its own terms"
-    lead="People are starting to search, research and buy through AI agents, and the agents read the sources for them. A source that can only block an agent gets nothing, and the agent's answer misses what it couldn't read. FORA gives the owner of a source a way to say yes: what an agent may do with the content, by use, by country and by quota, at a price the owner sets, free included. Each access leaves a signed record of the offer, the acceptance and the delivery."
+    lead="People are starting to search and buy through AI agents, and the agents read the sources for them. A source that can only block an agent gets nothing, and the agent answers without it. FORA lets the owner say yes: decide what an agent may do with the content, by use, country and quota, and what it costs, if anything. Every access leaves a signed record, from the offer to the delivery."
   >
     <PullQuote
       quote="I believe in the agentic economy. I also believe in free and independent media."
@@ -107,7 +103,6 @@ const OPEN = [
     id="what"
     label="What FORA is"
     title="Many marketplaces. One open protocol."
-    lead="Companies deploy FORA to run marketplaces of their own, and every one of them speaks the same protocol."
   >
     <CardGrid items={WHAT} />
     <p class="prose">Gutefrage runs the whole FORA stack itself, on its own servers, and has launched it on <a href="https://www.helpster.de/">helpster.de</a>. Its Broker searches the index Gutefrage already runs, and Gutefrage decides which fields are searched and how results rank.</p>
@@ -123,18 +118,18 @@ const OPEN = [
     tone="light"
     id="people"
     label="Who's behind FORA"
-    title="Postindustria builds FORA, and runs one FORA marketplace"
+    title="Postindustria develops FORA. Anyone can run it."
   >
     <div class="prose top">
-      <p>FORA is developed by <a href="https://postindustria.com/">Postindustria</a>, a technology company that builds digital products and delivers engineering services. Its team writes the protocol and FORA Server in the open, on GitHub.</p>
-      <p>Postindustria also runs the Exchange behind this site's <a href="/getting-started/publisher-onboarding/">publisher console</a>. It charges publishers no Exchange fee; only the payment system's transaction fees apply. Any other company can run FORA Server the same way, on its own terms.</p>
+      <p><a href="https://postindustria.com/">Postindustria</a>, a technology company that builds digital products and delivers engineering services, develops FORA: the protocol and FORA Server.</p>
+      <p>Anyone can run FORA's Exchange and publisher console: Gutefrage runs its own, and the code is open to clone. Postindustria offers a ready-made deployment with <a href="/getting-started/publisher-onboarding/">a publisher console</a>, so a publisher can try it and start selling. It charges publishers no fee beyond the payment system's transaction fees.</p>
     </div>
     <div class="people">
       <CardGrid items={PEOPLE} />
     </div>
     <div class="prose">
       <h3>Supporters</h3>
-      <p>Nepomuk Seiler, CPTO of Gutefrage.<br />Gutefrage runs the whole FORA stack itself on helpster.de.</p>
+      <p>Nepomuk Seiler, CPTO of Gutefrage.</p>
       <p>FORA is being actively discussed in Prebid's <a href="https://prebid.org/project-management-committees/">LLM &amp; Pub Monetization Task Force</a>.</p>
     </div>
   </Band>
@@ -146,7 +141,7 @@ const OPEN = [
     title="Developed in public, under Apache 2.0"
   >
     <PointList items={OPEN} />
-    <p class="prose">To propose a change to the protocol, FORA Server or these docs, open an issue or a pull request on GitHub.</p>
+    <p class="prose">To propose a change, open an issue or a pull request on GitHub.</p>
     <LinkRow links={[
       { href: REPO_URL, text: 'Protocol on GitHub' },
       { href: SERVER_URL, text: 'FORA Server on GitHub' },
@@ -163,7 +158,7 @@ const OPEN = [
   >
     <div class="involve">
       <div>
-        <p><strong>Publishers.</strong> Register at the publisher console and set your terms. Registering costs nothing.</p>
+        <p>Publishers register at the publisher console and set their terms. Registering costs nothing.</p>
         <LinkRow links={[
           { href: FORA_PUBLISHER_CONSOLE_URL, text: 'Publisher console' },
           { href: '/getting-started/publisher-onboarding/', text: 'Publisher onboarding' },
@@ -171,7 +166,7 @@ const OPEN = [
         ]} />
       </div>
       <div>
-        <p><strong>Marketplaces.</strong> Run FORA Server over your own catalog, on your own rules. Every FORA agent can buy from it.</p>
+        <p>A marketplace runs FORA Server over its own catalog, and every FORA agent can buy from it.</p>
         <LinkRow links={[
           { href: '/getting-started/existing-marketplace/', text: 'For content marketplaces' },
           { href: '/architecture/deployment-models/', text: 'Deployment models' },
@@ -179,14 +174,14 @@ const OPEN = [
         ]} />
       </div>
       <div>
-        <p><strong>Agent builders.</strong> Read the protocol, and buy from any FORA Exchange with the Go, TypeScript or Python SDK.</p>
+        <p>Agent builders buy from any FORA Exchange with the Go, TypeScript or Python SDK.</p>
         <LinkRow links={[
           { href: '/protocol/', text: 'The protocol' },
           { href: '/getting-started/live-demo-music/', text: 'Try the music demo' },
         ]} />
       </div>
       <div>
-        <p><strong>Questions.</strong> Open an issue on <a href={ISSUES_URL}>GitHub</a>, or write to <a href="mailto:publishers@fora-protocol.org">publishers@fora-protocol.org</a>.</p>
+        <p>For questions, open an issue on <a href={ISSUES_URL}>GitHub</a> or write to <a href="mailto:publishers@fora-protocol.org">publishers@fora-protocol.org</a>.</p>
       </div>
     </div>
   </Band>

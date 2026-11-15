@@ -46,8 +46,8 @@ export const ABOUT_FORA: { title: string; text: string }[] = [
     text: 'Gutefrage runs the whole FORA stack itself on helpster.de: its own Exchange, on its own terms.',
   },
   {
-    title: 'Who runs the console.',
-    text: 'Postindustria runs the Exchange behind <a href="/getting-started/publisher-onboarding/">FORA\'s publisher console</a> and charges publishers no fee beyond the payment system\'s transaction fees.',
+    title: 'Ready to try.',
+    text: 'Anyone can run FORA\'s Exchange and publisher console: Gutefrage runs its own, and the code is open to clone. Postindustria offers a ready-made deployment with <a href="/getting-started/publisher-onboarding/">a publisher console</a>, so a publisher can try it and start selling. It charges publishers no fee beyond the payment system\'s transaction fees.',
   },
   {
     title: 'Money and disputes.',
