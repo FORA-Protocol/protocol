@@ -52,7 +52,6 @@ const X = {
   dowJones: 'https://www.perplexity.ai/hub/blog/about-the-dow-jones-lawsuit',
   searchApi: 'https://www.perplexity.ai/hub/legal/perplexity-api-terms-of-service-search',
   plans: 'https://www.perplexity.ai/help-center/en/articles/11187416-which-perplexity-subscription-plan-is-right-for-you',
-  tos: 'https://www.perplexity.ai/hub/legal/terms-of-service',
   digiday: 'https://digiday.com/media/how-perplexity-new-revenue-model-works-according-to-its-head-of-publisher-partnerships/',
   gigazine: 'https://gigazine.net/gsc_news/en/20260219-perplexity-drops-ads-hurt-trust-ai',
   hurdles: 'https://digiday.com/media/media-briefing-here-are-the-hurdles-to-perplexitys-pitch-as-the-publisher-friendly-llm',
@@ -65,20 +64,20 @@ const a = (href: string, text: string) => `<a href="${href}">${text}</a>`;
 
 const GLANCE = glanceGroups({
   payer: [`Perplexity says it pays, from a pool of Comet Plus revenue, by its own counts. Schedule, threshold and currency: Not public ${cite(1)}.`, FORA_CELLS.payer],
-  fees: [`Perplexity keeps "a small portion" for compute; 20% in press reports ${cite(1, 13)}.`, FORA_CELLS.fees],
+  fees: [`Perplexity keeps "a small portion" for compute; 20% in press reports ${cite(1, 12)}.`, FORA_CELLS.fees],
   reporting: [
     `No Comet Plus statement format is published ${cite(1, 2)}. 2024 partners got analytics on how Perplexity cites them ${cite(3)}.`,
     `Each sale, in your operator's publisher console, with gross, the Exchange fee and net (${a('/getting-started/publisher-onboarding/', 'Publisher onboarding')}).`,
   ],
   contract: [
     `A private contract, after an email to Perplexity. No standard agreement is published ${cite(1)}.`,
-    `Your agreement with your Exchange operator; your terms go into each offer it signs ${cite(21)}.`,
+    `Your agreement with your Exchange operator; your terms go into each offer it signs ${cite(20)}.`,
   ],
   status: [
     `${statusTag('not-public')} Comet Plus isn't on Perplexity's ${a(X.pricing, 'pricing page')} as of 2026-11-15. Whether it still pays out isn't public.`,
     `${statusTag('live')} ${SEE_ABOUT}`,
   ],
-  dns: [`No change in Perplexity's docs ${cite(5)}.`, `No record to add ${cite(20)}.`],
+  dns: [`No change in Perplexity's docs ${cite(5)}.`, `No record to add ${cite(19)}.`],
   cdn: [
     `No code in Perplexity's docs ${cite(5)}.`,
     'FORA\'s edge function, a drop-in: about 10 minutes on a CDN, about 30 minutes with AWS Amplify. The rest depends on your own setup; FORA adds to what you run rather than replacing it.',
@@ -89,15 +88,15 @@ const GLANCE = glanceGroups({
   ],
   site: [
     `No feed, file or API. How your paywall lets a Comet Plus subscriber in: Not public ${cite(5, 6)}.`,
-    `One file that names your Exchanges, and a sitemap the operator imports your pages from ${cite(20)}.`,
+    `One file that names your Exchanges, and a sitemap the operator imports your pages from ${cite(19)}.`,
   ],
   search: [
     `PerplexityBot builds Perplexity's search index and follows robots.txt ${cite(5, 6)}.`,
-    `Googlebot, Bingbot and Applebot always pass ${cite(22)}. PerplexityBot is refused on licensed paths by default. See <a href="#search-traffic">Search traffic</a>, below.`,
+    `Googlebot, Bingbot and Applebot always pass ${cite(21)}. PerplexityBot is refused on licensed paths by default. See <a href="#search-traffic">Search traffic</a>, below.`,
   ],
   upkeep: [
     `A scheduled job to refresh Perplexity's IP ranges, which Perplexity updates regularly ${cite(5)}.`,
-    `Two breaking wire-format releases in October 2026 (${a('/reference/changelog/', 'Changelog')}). Editing your discovery file needs no redeploy ${cite(20)}.`,
+    `Two breaking wire-format releases in October 2026 (${a('/reference/changelog/', 'Changelog')}). Editing your discovery file needs no redeploy ${cite(19)}.`,
   ],
   leaving: ['Not public.', FORA_CELLS.leaving],
 });
@@ -121,8 +120,8 @@ const PAY_STEPS = [
 const KEY_FACTS = [
   { value: '$5', text: `Comet Plus on its own; Pro and Max subscribers get it included ${cite(1)}` },
   { value: '3', text: `Kinds of traffic Perplexity counts: human visits, search citations and agent actions ${cite(1)}` },
-  { value: '$42.5 million', text: `The pool Digiday reported; Perplexity's own pages don't give it ${cite(1, 13)}` },
-  { value: 'Not public', text: `The weight on each kind of traffic, per partner ${cite(13)}` },
+  { value: '$42.5 million', text: `The pool Digiday reported; Perplexity's own pages don't give it ${cite(1, 12)}` },
+  { value: 'Not public', text: `The weight on each kind of traffic, per partner ${cite(12)}` },
 ];
 
 const ENGINEERS = [
@@ -150,14 +149,14 @@ const AHEAD = [
 ];
 
 const COMPARE = compareRows([
-  [`In a private contract. Nothing on your site states the terms to anyone else ${cite(1)}.`, `Your <code>fora.json</code> names the Exchanges that sell your content; you set terms per resource in the Exchange operator's console ${cite(21)}.`],
-  [`No outside buyer does. PerplexityBot and third-party crawlers build Perplexity's own index ${cite(5, 6)}.`, `An agent asks your Exchange, or a Broker, which returns your signed offers unchanged (${a('/resources/content-marketplaces/#broker-order', 'how a Broker orders offers')}) ${cite(25)}.`],
-  [`Two crawlers, known by name and published IP ranges ${cite(5)}. Perplexity's crawler docs describe no request signatures, and its site serves no signing-key directory ${cite(5, 8)}. Comet Assistant is meant to be "indistinguishable from you" ${cite(7)}.`, `Each request carries a signature, checked against a key the buyer publishes on its own domain (Web Bot Auth, the IETF working group's -00 draft) ${cite(21, 26)}.`],
-  [`The contract. PerplexityBot follows robots.txt; Perplexity-User, which fetches pages for a user, "generally ignores robots.txt rules" ${cite(5, 6)}.`, `A signed offer the agent accepts and signs, and a signed link that expires, checked at your CDN ${cite(21)}.`],
-  [`Perplexity: the pool, its own cut ("a small portion"; 20% in press reports) and each partner's weights. You set no price ${cite(1, 13)}.`, `You: free, per unit (an access, or text tokens, about ¾ of a word each) or a flat fee, signed on each offer. A revenue share is a term priced at zero that only agents naming the deal see, with a reporting duty (${a('/protocol/licensing-terms/#revenue-share-arrangements', 'Revenue share')}).`],
+  [`In a private contract. Nothing on your site states the terms to anyone else ${cite(1)}.`, `Your <code>fora.json</code> names the Exchanges that sell your content; you set terms per resource in the Exchange operator's console ${cite(20)}.`],
+  [`No outside buyer does. PerplexityBot and third-party crawlers build Perplexity's own index ${cite(5, 6)}.`, `An agent asks your Exchange, or a Broker, which returns your signed offers unchanged (${a('/resources/content-marketplaces/#broker-order', 'how a Broker orders offers')}) ${cite(24)}.`],
+  [`Two crawlers, known by name and published IP ranges ${cite(5)}. Perplexity's crawler docs describe no request signatures, and its site serves no signing-key directory ${cite(5, 8)}. Comet Assistant is meant to be "indistinguishable from you" ${cite(7)}.`, `Each request carries a signature, checked against a key the buyer publishes on its own domain (Web Bot Auth, the IETF working group's -00 draft) ${cite(20, 25)}.`],
+  [`The contract. PerplexityBot follows robots.txt; Perplexity-User, which fetches pages for a user, "generally ignores robots.txt rules" ${cite(5, 6)}.`, `A signed offer the agent accepts and signs, and a signed link that expires, checked at your CDN ${cite(20)}.`],
+  [`Perplexity: the pool, its own cut ("a small portion"; 20% in press reports) and each partner's weights. You set no price ${cite(1, 12)}.`, `You: free, per unit (an access, or text tokens, about ¾ of a word each) or a flat fee, signed on each offer. A revenue share is a term priced at zero that only agents naming the deal see, with a reporting duty (${a('/protocol/licensing-terms/#revenue-share-arrangements', 'Revenue share')}).`],
   [`Perplexity pays from the pool, by its own account. Schedule, threshold and currency aren't published ${cite(1)}.`, FORA_CELLS.money],
-  [`2024 partners got analytics on how Perplexity cites them ${cite(3)}. No Comet Plus statement format is published ${cite(1, 2)}.`, `Each sale, with its signed offer and the agent's signed acceptance, in your Exchange operator's console (FORA Server's shows gross, fee and net). No protocol call returns your sales ${cite(20)}.`],
-  [`No dispute process is published. Publishers' disagreements with Perplexity have gone to court; see <a href="#legal">For legal</a> ${cite(9, 16, 17)}.`, FORA_CELLS.disputes],
+  [`2024 partners got analytics on how Perplexity cites them ${cite(3)}. No Comet Plus statement format is published ${cite(1, 2)}.`, `Each sale, with its signed offer and the agent's signed acceptance, in your Exchange operator's console (FORA Server's shows gross, fee and net). No protocol call returns your sales ${cite(19)}.`],
+  [`No dispute process is published. Publishers' disagreements with Perplexity have gone to court; see <a href="#legal">For legal</a> ${cite(9, 15, 16)}.`, FORA_CELLS.disputes],
 ]);
 
 const WORKS_TODAY = [
@@ -180,14 +179,14 @@ const LEGAL = [
   { title: 'No standard agreement.', text: 'Joining is an email and a private contract. Perplexity publishes no standard agreement.' },
   { title: 'Use in answers.', text: `CNN's complaint names "limits on Perplexity's use of CNN content in its answers to users" among the issues CNN and Perplexity couldn't agree on (${a(X.cnn, 'CNN\'s complaint')}, ¶47). Settle how Perplexity may use your content in answers.` },
   { title: 'Exclusivity.', text: 'Whether a Comet Plus contract limits licensing the same content to other AI companies isn\'t public. Check yours before you set FORA terms for the same uses.' },
-  { title: 'Disputes.', text: `Perplexity publishes no dispute process. Publishers' disagreements with Perplexity have gone to court as copyright suits: CNN, The New York Times and Dow Jones, among others, have sued it ${cite(9, 16, 17)}.` },
+  { title: 'Disputes.', text: `Perplexity publishes no dispute process. Publishers' disagreements with Perplexity have gone to court as copyright suits: CNN, The New York Times and Dow Jones, among others, have sued it ${cite(9, 15, 16)}.` },
 ];
 
 const TIMELINE = [
   { title: 'July 2024: an ad-revenue share.', text: `The Publishers' Program shared ad revenue "when Perplexity earns revenue from an interaction where a publisher's content is referenced" (${a(X.program, 'Publishers\' Program')}). Of that ad share, Chan told Digiday in August 2025: "we are not disclosing any of those numbers." Asked whether checks had gone out to publishers, she said: "Checks have gone out."` },
-  { title: 'From the end of 2025: no ads.', text: `The Financial Times reported, as Gigazine relayed, that Perplexity would phase out its ads from the end of 2025 ${cite(14)}.` },
-  { title: 'October 2025: CNN, a launch partner.', text: `CNN's deal began as a term sheet, "with an agreement to finalize the contract within sixty days" (¶46) ${cite(16)}. Perplexity's partner page listed CNN as a launch partner from 2025-10-02 until at least 2025-12-04 (${a(X.archive, 'Internet Archive, capture of 2025-12-04')}).` },
-  { title: 'November 2025: the term sheet ends.', text: `CNN's complaint says the term sheet never became a contract, over issues that include limits on use in answers (see <a href="#legal">For legal</a>). It says the two agreed to end the term sheet on 2025-11-24 (¶47) ${cite(16)}.` },
+  { title: 'From the end of 2025: no ads.', text: `The Financial Times reported, as Gigazine relayed, that Perplexity would phase out its ads from the end of 2025 ${cite(13)}.` },
+  { title: 'October 2025: CNN, a launch partner.', text: `CNN's deal began as a term sheet, "with an agreement to finalize the contract within sixty days" (¶46) ${cite(15)}. Perplexity's partner page listed CNN as a launch partner from 2025-10-02 until at least 2025-12-04 (${a(X.archive, 'Internet Archive, capture of 2025-12-04')}).` },
+  { title: 'November 2025: the term sheet ends.', text: `CNN's complaint says the term sheet never became a contract, over issues that include limits on use in answers (see <a href="#legal">For legal</a>). It says the two agreed to end the term sheet on 2025-11-24 (¶47) ${cite(15)}.` },
   { title: 'May 2026: CNN sues.', text: 'CNN sued Perplexity on 2026-05-28.' },
   { title: 'November 2026: off the pricing page.', text: `On 2026-11-15, Perplexity's ${a(X.pricing, 'pricing page')} and ${a(X.plans, 'plan guide')} don't list Comet Plus, and no announcement of its end was found.` },
 ];
@@ -209,7 +208,6 @@ const SOURCES = [
       { title: 'About the Dow Jones lawsuit', publisher: 'Perplexity', href: X.dowJones, checked: '2026-11-14' },
       { title: 'API Terms of Service - Search Service', publisher: 'Perplexity', href: X.searchApi, checked: '2026-11-14' },
       { title: 'Which Perplexity Subscription Plan is right for you?', publisher: 'Perplexity', href: X.plans, checked: '2026-11-15' },
-      { title: 'Terms of Service', publisher: 'Perplexity', href: X.tos, checked: '2026-11-14' },
     ],
   },
   {
