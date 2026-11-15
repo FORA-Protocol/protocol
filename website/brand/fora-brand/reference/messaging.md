@@ -6,32 +6,27 @@ anything version- or date-sensitive, read the site's changelog
 
 ## What FORA is
 
-Use the approved message as it is, then the line for the audience.
+Lead with what it does for the owner of the content, then how.
 
-**Tagline:** Many marketplaces. *One open protocol.*
+**Headline (the home page):** Every AI agent is a customer. FORA is your
+storefront.
 
-**In one sentence:** FORA, Federated Open Resource Access, is an open protocol
-and free, open-source software that any company can deploy to run its own
-content marketplace for AI agents, and every FORA marketplace works with every
-other.
+**Under the headline:** People are starting to search, research and buy through
+AI agents instead of websites. FORA lets any agent find your pages or tracks,
+read your license, pay, and get a signed receipt. You decide every term.
 
-**The idea behind it:** FORA is built in the open, for the open internet, and
-the goal is for as many people as possible to use it. We help everyone who tries
-it. Postindustria develops FORA and hosts one ready-made deployment, but anyone
-can run FORA, and we want everyone who builds on it to win.
-
-**For publishers and catalog owners:** Sell through any FORA marketplace, or run
-your own. FORA adds to what you already run. Set your terms once, and every page
-or track becomes a signed offer that any AI agent can find, buy and verify, with
-no deal to negotiate per buyer.
+**The outcome in one line:** FORA makes a website or a music catalog licensable
+to AI agents, instantly. Set your terms once, and FORA turns every page or track
+into a signed offer that any AI agent can find, buy and verify, with no deal to
+negotiate per buyer.
 
 **For engineers:** FORA is an open transaction protocol that lets AI agents
 discover, license, pay for and receive content on terms the rights holder sets,
 with every step signed.
 
-Everyone gets the tagline and the one sentence. Publishers, labels and other
-rights holders get the publisher line next. Developers and agent builders can get
-the protocol line next.
+Pick the line for the audience. Rights holders, publishers and labels get the
+headline, or the outcome line where there is room for only one sentence. Developers and agent builders can get the protocol
+line first.
 
 ### What "instantly" means
 
@@ -75,7 +70,8 @@ Dispute), as the home page and /music/ do.
 
 ### Taglines
 
-- Many marketplaces. *One open protocol.*
+- Every AI agent is a customer. *FORA is your storefront.*
+- One storefront. Every agent.
 - Make your website or music catalog licensable. *Instantly.*
 - Free is a price too. (Charging nothing still carries your terms: attribution,
   permitted uses, no AI training unless offered.)
@@ -84,9 +80,8 @@ Dispute), as the home page and /music/ do.
 
 ## Facts you may state
 
-- FORA stands for Federated Open Resource Access, and *fora* is also the plural
-  of *forum*. That's why the logo lays the plan of a Roman forum over a wax seal:
-  the forum anyone can enter, sealed the way a letter was before signatures.
+- FORA stands for Federated Open Resource Access, and *fora* is also the plural of *forum*:
+  the mark lays the plan of a Roman forum over a wax seal.
 - The protocol specification and the reference implementation are open source
   under Apache 2.0. The documentation is CC BY-ND 4.0.
 - SDKs exist for Go, TypeScript and Python. Agents can also use FORA through an
@@ -145,7 +140,7 @@ Dispute), as the home page and /music/ do.
 | "blockchain", "crypto", "tokens" | FORA uses signatures, not a chain | "signed", "cryptographically verifiable" |
 | "set up in minutes", "one click", "no setup" | Setup is one-time but real: a file and a CDN package, or a feed | "licensable instantly once connected", then name the setup |
 | "stop AI scrapers", "block bots" as the promise | FORA sells access; blocking is a side effect of the edge package | "agents are pointed to your offer, not just turned away" |
-| "Every AI agent is a storefront", "be on the agent's shelf" | In FORA the agent is the buyer: it reads the offer, pays and gets the receipt. The marketplace is the Exchange, never the agent | "Many marketplaces. One open protocol.", or "an agent finds your offer, reads your terms, pays and gets a signed receipt" |
+| "Every AI agent is a storefront", "be on the agent's shelf" | In FORA the agent is the buyer: it reads the offer, pays and gets the receipt. Casting it as the store makes it the middleman FORA removes | "Every AI agent is a customer. FORA is your storefront." |
 | "FORA brings you buyers" | FORA makes the content findable and buyable; it does not market it | "when an agent comes looking, it can find you, read your terms and pay" |
 | "walled gardens" about other marketplaces | Knocks people FORA works with | "a deal per buyer" / "one offer for every agent" |
 | "Fora", "F.O.R.A." | Wrong spelling | "FORA" |

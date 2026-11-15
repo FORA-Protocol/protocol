@@ -25,9 +25,9 @@ export type StatusKey = keyof typeof STATUS;
  * (messaging review, option A), word for word. The About page and the
  * content-marketplaces page both use them.
  */
-export const POSITIONING = 'FORA, Federated Open Resource Access, is an open protocol and free, open-source software that any company can deploy to run its own content marketplace for AI agents, and every FORA marketplace works with every other.';
+export const POSITIONING = 'FORA lets any AI agent find your content, read your license, pay and get a signed receipt, on the terms you set. It is an open protocol and free, open-source software, so any company can also run its own FORA marketplace.';
 /** The tagline; the <em> phrase is shown in blue. */
-export const TAGLINE = 'Many marketplaces. <em>One open protocol.</em>';
+export const TAGLINE = 'Every AI agent is a customer. <em>FORA is your storefront.</em>';
 
 /** "See About FORA.", linked to the page's About FORA card. */
 export const SEE_ABOUT = 'See <a href="#about">About FORA</a>.';
