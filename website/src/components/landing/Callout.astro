@@ -1,0 +1,183 @@
+---
+// A boxed aside whose tag says who it's for. The left edge says whose voice
+// it is: grey for an aside to one of your teams (engineers, legal, search),
+// blue for FORA speaking about itself (define, about, takeaway), amber for a
+// vendor's own warning (caution). Amber (#b07d2a) is the one colour the
+// editorial patterns add; text never uses it, and it holds at least 3.5:1
+// against every band. Reads the band's colour variables.
+//
+// Each kind has a default tag; `define` and `takeaway` need their own. The
+// body is, in order: the default slot, `text` (an HTML paragraph), `points`
+// (bold lead-in and text, as a list, or as two columns with `columns`), and
+// `links` (a row joined by " · "). `collapse` puts the body behind a
+// disclosure with that label on narrow screens (≤640px); wider, it is open
+// and the disclosure is hidden. Shared texts (About FORA, the definitions,
+// the search callout) come from src/data/content-marketplaces.ts.
+//
+//   <Callout kind="define" {...DEFINITIONS.broker} />
+//   <Callout kind="about" points={ABOUT_FORA} columns />
+//   <Callout kind="engineers" collapse="Show the five steps"><StepList items={…} /></Callout>
+type Kind = 'engineers' | 'legal' | 'search' | 'define' | 'about' | 'takeaway' | 'caution';
+interface Props {
+  kind: Kind;
+  tag?: string;
+  /** An HTML paragraph, after the slot. */
+  text?: string;
+  /** Bold lead-in and HTML text per point. */
+  points?: { title: string; text: string }[];
+  /** Lay `points` out in two columns (About FORA). */
+  columns?: boolean;
+  links?: { href: string; text: string }[];
+  /** On narrow screens, the summary of a disclosure that holds the body. */
+  collapse?: string;
+  id?: string;
+}
+const DEFAULT_TAG: Partial<Record<Kind, string>> = {
+  engineers: 'For your engineers',
+  legal: 'For legal',
+  search: 'Search traffic',
+  about: 'About FORA',
+  caution: 'What can go wrong',
+};
+const VOICE: Record<Kind, 'team' | 'fora' | 'vendor'> = {
+  engineers: 'team', legal: 'team', search: 'team',
+  define: 'fora', about: 'fora', takeaway: 'fora',
+  caution: 'vendor',
+};
+// 16px line icons, drawn in the tag's colour.
+const ICON: Record<Kind, string> = {
+  engineers: '<path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5M9 3 7 13"/>',
+  legal: '<path d="M8 2.5v11M5 13.5h6M3 4.5h10M3 4.5 1.5 9a1.6 1.6 0 0 0 3 0L3 4.5ZM13 4.5 11.5 9a1.6 1.6 0 0 0 3 0L13 4.5Z"/>',
+  search: '<circle cx="7" cy="7" r="4.25"/><path d="m10.25 10.25 3.75 3.75"/>',
+  define: '<path d="M5.75 6a2.25 2.25 0 1 1 3.4 1.95c-.7.4-1.15.9-1.15 1.7v.35"/><circle cx="8" cy="12.6" r=".55" fill="currentColor" stroke="none"/>',
+  about: '<circle cx="8" cy="8" r="6"/><path d="M8 7.25v4"/><circle cx="8" cy="5" r=".55" fill="currentColor" stroke="none"/>',
+  takeaway: '<path d="M8 1.75 9.6 6.4 14.25 8 9.6 9.6 8 14.25 6.4 9.6 1.75 8 6.4 6.4Z"/>',
+  caution: '<path d="M8 2 14.5 13.5h-13Z"/><path d="M8 6.5v3.25"/><circle cx="8" cy="11.75" r=".55" fill="currentColor" stroke="none"/>',
+};
+
+const { kind, tag = DEFAULT_TAG[kind], text, points, columns = false, links, collapse, id } = Astro.props;
+if (!tag) throw new Error(`Callout kind="${kind}" needs a tag`);
+const voice = VOICE[kind];
+const Wrap = collapse ? 'details' : 'div';
+---
+<aside class:list={['callout', `callout--${kind}`, `voice-${voice}`]} id={id}>
+  <div class="callout-tag">
+    <span class="icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" set:html={ICON[kind]} /></span>
+    {tag}
+  </div>
+  <Wrap class:list={{ collapse: !!collapse }} open={collapse ? true : undefined}>
+    {collapse && <summary>{collapse}</summary>}
+    <div class="body">
+      <slot />
+      {text && <p set:html={text} />}
+      {points && (columns
+        ? <dl class="cols">{points.map((p) => <div><dt>{p.title}</dt><dd set:html={p.text} /></div>)}</dl>
+        : <ul class="plain">{points.map((p) => <li><b>{p.title}</b> <Fragment set:html={p.text} /></li>)}</ul>)}
+      {links && <p class="links">{links.map((l, i) => <>{i > 0 && <span class="sep" aria-hidden="true">·</span>}<a href={l.href}>{l.text}</a></>)}</p>}
+    </div>
+  </Wrap>
+  {collapse && (
+    <script is:inline>
+      (function () {
+        var d = document.currentScript.previousElementSibling;
+        var m = window.matchMedia('(max-width: 640px)');
+        function sync() { d.open = !m.matches; }
+        sync();
+        m.addEventListener('change', sync);
+      })();
+    </script>
+  )}
+</aside>
+
+<style>
+  .callout {
+    --c-accent: var(--lp-label);
+    margin-top: 2.5rem;
+    background: var(--lp-surface);
+    border: 1px solid var(--lp-rule);
+    border-left: 3px solid var(--c-accent);
+    border-radius: 12px;
+    padding: 1.5rem 1.75rem 1.625rem;
+    min-width: 0;
+  }
+  .callout:first-child { margin-top: 0; }
+  .callout + .callout { margin-top: 1rem; }
+  .voice-fora { --c-accent: var(--accent); }
+  .voice-vendor { --c-accent: #b07d2a; }
+  .callout--define, .callout--takeaway { max-width: 44rem; }
+
+  .callout-tag {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin-bottom: 1rem;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--lp-heading);
+  }
+  .icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 1.625rem;
+    height: 1.625rem;
+    border: 1px solid var(--c-accent);
+    border-radius: 5px;
+    color: var(--lp-heading);
+  }
+  .voice-fora .icon { color: var(--lp-fora); }
+  .voice-vendor .icon { background: color-mix(in srgb, #b07d2a 18%, transparent); }
+  .icon svg { display: block; }
+
+  .body { min-width: 0; }
+  .body > :global(:first-child) { margin-top: 0; }
+  .body :global(p) { color: var(--lp-text); line-height: 1.6; }
+  .body > :global(* + p) { margin-top: 0.75rem; }
+  .callout--define .body :global(p), .callout--takeaway .body :global(p) { font-size: 1.0625rem; }
+  .body :global(a) { color: var(--lp-link); }
+  .body :global(b), .body :global(strong) { color: var(--lp-strong); font-weight: 600; }
+  .body :global(code) { font-family: var(--mono); font-size: 0.875em; color: var(--lp-heading); overflow-wrap: anywhere; }
+
+  ul.plain { list-style: none; display: grid; gap: 0.625rem; margin: 1rem 0 0; padding: 0; }
+  .body > ul.plain:first-child { margin-top: 0; }
+  ul.plain li { position: relative; padding-left: 1.125rem; color: var(--lp-text); line-height: 1.6; }
+  ul.plain li::before { content: ''; position: absolute; left: 0; top: 0.8em; width: 0.375rem; height: 1px; background: var(--lp-label); }
+
+  dl.cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.125rem 2.5rem; margin: 0.25rem 0 0; }
+  dl.cols dt { color: var(--lp-strong); font-weight: 600; line-height: 1.55; margin-bottom: 0.2rem; }
+  dl.cols dd { margin: 0; color: var(--lp-text); line-height: 1.55; }
+
+  .links { margin-top: 1.25rem; font-weight: 600; }
+  .links a { text-decoration: none; }
+  .sep { margin: 0 0.625rem; color: var(--lp-label); font-weight: 400; }
+  .links a:hover { text-decoration: underline; }
+
+  .callout { scroll-margin-top: 5rem; }
+  .callout :global(.collapse > summary) { display: none; }
+
+  @media (max-width: 760px) {
+    dl.cols { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .callout { padding: 1.25rem 1.125rem 1.375rem; }
+    .callout :global(.collapse > summary) {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+      list-style: none;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--lp-link);
+    }
+    .callout :global(.collapse > summary::-webkit-details-marker) { display: none; }
+    .callout :global(.collapse > summary::before) { content: '\25B8'; transition: transform 0.15s; }
+    .callout :global(.collapse[open] > summary::before) { transform: rotate(90deg); }
+    .callout :global(.collapse[open] > summary) { margin-bottom: 1rem; }
+  }
+</style>

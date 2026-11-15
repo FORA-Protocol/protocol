@@ -1,0 +1,26 @@
+---
+// Two columns inside a band, below its header: the default slot on the left,
+// the `aside` slot on the right (a figure beside a callout, two columns of
+// prose). Stacks below 900px, the aside under the main column. Band's own
+// `aside` slot puts the band's header in the left column; use Split when the
+// header should run full width above both.
+//
+//   <Split aside="380px"><Callout …/><Figure slot="aside" … /></Split>
+interface Props {
+  /** Width of the right column. */
+  aside?: string;
+}
+const { aside = '1fr' } = Astro.props;
+---
+<div class="split" style={`--aside: ${aside}`}>
+  <div><slot /></div>
+  <div><slot name="aside" /></div>
+</div>
+
+<style>
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, var(--aside)); gap: 3rem; align-items: start; margin-top: 2.5rem; }
+  .split > div > :global(:first-child) { margin-top: 0; }
+  @media (max-width: 900px) {
+    .split { grid-template-columns: 1fr; gap: 2rem; }
+  }
+</style>

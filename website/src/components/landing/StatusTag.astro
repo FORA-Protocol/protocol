@@ -1,0 +1,20 @@
+---
+// A status tag: how real a thing is (Live, Beta, Closed beta, Pilot, Design,
+// Roadmap, Not public; the meanings are in src/data/content-marketplaces.ts).
+// Used inline, in cards, in table cells and beside headings. Every design or
+// roadmap item carries one, so nothing designed reads as built.
+//
+// The markup comes from statusTag() in src/lib/resource-markup.ts, which an
+// HTML string (a GlanceCard cell) calls directly; the styles are global, in
+// styles/landing.css, so both look the same. Reads the band's variables.
+//
+//   <StatusTag status="design" />
+import { statusTag } from '../../lib/resource-markup';
+import type { StatusKey } from '../../data/content-marketplaces';
+
+interface Props {
+  status: StatusKey;
+}
+const { status } = Astro.props;
+---
+<Fragment set:html={statusTag(status)} />

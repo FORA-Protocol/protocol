@@ -1,0 +1,61 @@
+---
+// Key facts: three or four numbers drawn large, each with a line on what it
+// means and, optionally, a source line. At most one strip per page, only
+// numbers the page already sources and that aren't in its GlanceCard. The
+// numbers are in the heading colour, not blue: a vendor's number isn't
+// FORA's. `text` and `source` may hold inline HTML, such as a citation marker
+// (cite()) or a link.
+//
+// Four across; two by two in a narrower column; one column on a phone (a
+// container query, so it follows its own width). Reads the band's variables.
+//
+//   <KeyFacts items={[{ value: '5 minutes', text: `How long a pass lasts ${cite(2)}` }]} />
+interface Props {
+  items: { value: string; text: string; source?: string }[];
+}
+const { items } = Astro.props;
+---
+<div class="keyfacts">
+  <dl class="kf" style={`--n: ${items.length}`}>
+    {items.map((it) => (
+      <div>
+        <dt>{it.value}</dt>
+        <dd class="what" set:html={it.text} />
+        {it.source && <dd class="src" set:html={it.source} />}
+      </div>
+    ))}
+  </dl>
+</div>
+
+<style>
+  .keyfacts { container-type: inline-size; margin-top: 1.75rem; }
+  .kf { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); margin: 0; }
+  .kf > div { padding: 0.25rem 1.5rem; border-left: 1px solid var(--lp-rule); }
+  .kf > div:first-child { padding-left: 0; border-left: 0; }
+  dt {
+    font-size: clamp(1.875rem, 4.6cqi, 3rem);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.02;
+    color: var(--lp-heading);
+    min-height: 2.1em;
+    display: flex;
+    align-items: flex-end;
+  }
+  dd { margin: 0; }
+  .what { margin-top: 0.625rem; color: var(--lp-text); line-height: 1.45; font-size: 0.9375rem; }
+  .src { margin-top: 0.5rem; font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.04em; color: var(--lp-muted); line-height: 1.5; }
+  dd :global(a) { color: var(--lp-link); }
+
+  @container (max-width: 760px) {
+    .kf { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 1.75rem; }
+    .kf > div:nth-child(odd) { padding-left: 0; border-left: 0; }
+    dt { font-size: clamp(1.75rem, 8cqi, 2.5rem); }
+  }
+  @container (max-width: 400px) {
+    .kf { grid-template-columns: 1fr; row-gap: 0; }
+    .kf > div { padding: 1rem 0; border-left: 0; border-top: 1px solid var(--lp-rule); }
+    .kf > div:first-child { border-top: 0; padding-top: 0; }
+    dt { min-height: 0; font-size: 2.25rem; }
+  }
+</style>
