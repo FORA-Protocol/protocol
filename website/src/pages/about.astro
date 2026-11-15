@@ -84,6 +84,21 @@ const OPEN = [
   </AudienceHero>
 
   <Band
+    tone="near"
+    compact
+    id="talk"
+    label="Talking about FORA"
+    title="Write about FORA, present it, build on it"
+    lead="Link to it, use the logo, and tell us what you made. To say what FORA is in one sentence, use the line above. The brand kit has the logo, colors and naming rules, and the brand skill lets your AI agent apply them for you."
+  >
+    <div class="talk-buttons">
+      <a href="/brand/" class="btn btn-primary">Brand kit</a>
+      <a href="/brand/fora-logos.zip" class="btn btn-ghost" download>Logo pack (.zip)</a>
+      <a href="/brand/fora-brand.zip" class="btn btn-ghost" download>Brand skill (.zip)</a>
+    </div>
+  </Band>
+
+  <Band
     tone="light"
     id="mission"
     label="Mission"
@@ -216,6 +231,7 @@ const OPEN = [
   p.prose { margin: 2.5rem 0 0; }
   .prose a { color: var(--lp-link); }
   .prose strong, .involve strong { color: var(--lp-strong); font-weight: 600; }
+  .talk-buttons { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.75rem; }
   h3 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; color: var(--lp-heading); margin: 0 0 0.75rem; }
 
   /* Four people: four across on a wide screen, two on a tablet, one on a phone. */
