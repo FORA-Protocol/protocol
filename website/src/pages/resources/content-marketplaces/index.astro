@@ -36,7 +36,7 @@ import SeriesNav from '../../../components/landing/SeriesNav.astro';
 import ClosingCta from '../../../components/landing/ClosingCta.astro';
 import { RESOURCES, resourceUpdated } from '../../../data/resources';
 import {
-  ABOUT_FORA, DEFINITIONS, SEARCH_FORA, FORA_CELLS, SEE_ABOUT, GLANCE_GROUPS, SERIES, type GlanceKey,
+  ABOUT_FORA, DEFINITIONS, SEARCH_FORA, FORA_CELLS, SEE_ABOUT, GLANCE_GROUPS, SERIES, POSITIONING, TAGLINE, type GlanceKey,
 } from '../../../data/content-marketplaces';
 import { cite, statusTag } from '../../../lib/resource-markup';
 
@@ -751,7 +751,7 @@ const updated = resourceUpdated(HREF) ?? SERIES.find((p) => p.href === HREF)?.up
     current="resources"
     badge="Resources · Content marketplaces"
     title="Every marketplace has its own buyers, units and rules. <em>FORA is the open protocol anyone can run one on.</em>"
-    sub="You're pitched a new way to get paid for AI use every month: a bot paywall, a share of an answer engine's revenue, a Google pilot, a dataset deal, a collective. This page puts the ones running today side by side. It shows what each sells, who sets the price, who pays, how you're paid and what your engineers change. It also covers where each is ahead of FORA, and how FORA works next to them. FORA, Federated Open Resource Access, is an open protocol and free, open-source software that any company can deploy to run its own content marketplace for AI agents, and every FORA marketplace works with every other. You sell through one, several or your own, beside the deals you already have."
+    sub={`You're pitched a new way to get paid for AI use every month: a bot paywall, a share of an answer engine's revenue, a Google pilot, a dataset deal, a collective. This page puts the ones running today side by side. It shows what each sells, who sets the price, who pays, how you're paid and what your engineers change. It also covers where each is ahead of FORA, and how FORA works next to them. ${POSITIONING} You sell through one, several or your own, beside the deals you already have.`}
     updated={updated}
   >
     <a href="#map" class="btn btn-primary">See the map</a>
@@ -909,7 +909,7 @@ const updated = resourceUpdated(HREF) ?? SERIES.find((p) => p.href === HREF)?.up
   </Band>
 
   <ClosingCta
-    title="Many marketplaces. <em>One open protocol.</em>"
+    title={TAGLINE}
     text="Sell to AI agents on your terms, or run your own marketplace. Start with what FORA takes on your stack, then register your domain on the publisher console. If you run a marketplace already, it can run on FORA too."
   >
     <a href="/getting-started/what-is-fora/" class="btn btn-primary">What is FORA?</a>

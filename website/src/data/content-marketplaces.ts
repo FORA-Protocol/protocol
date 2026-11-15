@@ -20,6 +20,15 @@ export const STATUS = {
 } as const;
 export type StatusKey = keyof typeof STATUS;
 
+/**
+ * The positioning statement and the tagline the owner approved on 2026-11-15
+ * (messaging review, option A), word for word. The About page and the
+ * content-marketplaces page both use them.
+ */
+export const POSITIONING = 'FORA, Federated Open Resource Access, is an open protocol and free, open-source software that any company can deploy to run its own content marketplace for AI agents, and every FORA marketplace works with every other.';
+/** The tagline; the <em> phrase is shown in blue. */
+export const TAGLINE = 'Many marketplaces. <em>One open protocol.</em>';
+
 /** "See About FORA.", linked to the page's About FORA card. */
 export const SEE_ABOUT = 'See <a href="#about">About FORA</a>.';
 

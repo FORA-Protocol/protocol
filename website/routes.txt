@@ -5,6 +5,7 @@
 # this repository links to it, that link breaks. Retiring one therefore needs
 # a rule in redirects.json — see docs/retiring-a-url.md.
 /
+/about/
 /architecture/deployment-models/
 /architecture/nfr/
 /architecture/production-architecture/

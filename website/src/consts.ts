@@ -70,6 +70,7 @@ export const LANDING_PAGES = [
 	{ key: 'publishers', href: '/publishers/', label: 'For publishers' },
 	{ key: 'music', href: '/music/', label: 'For music' },
 	{ key: 'resources', href: '/resources/', label: 'Resources' },
+	{ key: 'about', href: '/about/', label: 'About' },
 ] as const;
 
 export type LandingPageKey = (typeof LANDING_PAGES)[number]['key'];
