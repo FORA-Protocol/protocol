@@ -930,8 +930,8 @@ message Offer {
   // licensing arrangement: each projected LicenseTerm yields its own offer, and
   // the Exchange moves that term's price here, so the term inside `terms`
   // carries no pricing of its own (the offer.terms.pricing_unset rule). This is
-  // the price execute charges, the price a Broker ranks and compares across
-  // Exchanges, and the price a metered purchase is charged at. A resource with
+  // the price execute charges, the price an agent compares across Exchanges,
+  // and the price a metered purchase is charged at. A resource with
   // multiple alternative terms (e.g. dual-licensed) produces multiple separate
   // offers, one per term — never one offer with a "headline" picked among them.
   //
@@ -1148,9 +1148,9 @@ message Offer {
   // rule instead. `ResourceEntry.terms` is the plural side, bounded at 32: a
   // resource carries many terms, an offer sells one of them.
   //
-  // The distinction is not cosmetic. `pricing` is what a Broker ranks on and
-  // what execute charges, so a term that is not on its own offer has no price
-  // a Broker can compare and no offer_id an agent can buy. Fusing several
+  // The distinction is not cosmetic. `pricing` is what an agent sees and what
+  // execute charges, so a term that is not on its own offer has no price an
+  // agent can see and no offer_id an agent can buy. Fusing several
   // terms onto one offer makes every term but the first unsellable — a
   // dual-licensed resource sells only under whichever arrangement the
   // publisher happened to store first.

@@ -96,7 +96,7 @@ The purchase charges estimate × rate = 1 × $0.05, and the charge is final. Its
 
 ## base_currency
 
-Each Exchange declares a `base_currency` in its manifest (ISO 4217 code, e.g., "USD", "EUR"). All `unit_cost` values in offers from that Exchange are denominated in this currency. This enables cross-exchange price comparison by the Broker without requiring currency conversion at query time.
+Each Exchange declares a `base_currency` in its manifest (ISO 4217 code, e.g., "USD", "EUR"). All `unit_cost` values in offers from that Exchange are denominated in this currency. An agent can then compare offers from different Exchanges without converting currencies at query time.
 
 ## Subscription vs. Per-Request Billing
 

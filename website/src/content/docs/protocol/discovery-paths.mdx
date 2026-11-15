@@ -34,7 +34,7 @@ sequenceDiagram
     Agent->>MP: DiscoverResources (ResourceQuery)
     MP-->>Agent: ResourceResponse (Offer[] with pricing)
 
-    Note over Agent: Select best offer<br/>Check budget constraints
+    Note over Agent: Choose an offer<br/>Check budget constraints
 
     Agent->>MP: ExecuteTransaction (TransactionRequest)
     MP-->>Agent: TransactionResponse (signed URL + billing_id)

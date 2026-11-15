@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+**A Broker orders offers by relevance, and the agent decides (docs and comments only; no wire
+change).** The docs no longer describe the Broker as choosing the cheapest offer or the best deal.
+A Broker returns every Exchange's signed offers in its order of relevance to the agent's request,
+optionally narrowed to the kinds of license the agent accepts (`acceptable_restrictions`). It
+groups offers for the same content without dropping any, and it never buys, resells or puts one
+offer in place of another. Price is not a signal: each offer carries its price and
+`Pricing.unit_cost`, and the agent compares them under its own policy. The Selection Engine page
+is rewritten on these lines, and the Content Deduplication, Discovery Paths, walkthrough, Agent
+SDK, money-flow and operator pages follow. Two comments in `fora.proto` (`Offer.pricing` and the
+one-term-per-offer note) now say an agent compares the price, not that a Broker ranks on it.
+
+**The edge function refuses AI search crawlers by default (docs only; no wire change).** Bot
+Detection now describes the lists FORA Server ships: AI search crawlers such as PerplexityBot
+get a `403` on licensed paths by default, and a provider changes the built-in lists with
+`BOT_UA_ALLOW_JSON` and `BOT_UA_DENY_JSON`. The `bot_detection.ai_search_policy` setting the page
+described doesn't exist and is gone. Googlebot, Bingbot and Applebot are never refused. The
+publishers page, the AI crawlers resource, the bot table and the rules generator say the same.
+
+**Publisher onboarding names the console's operator (docs only).** FORA is open-source software,
+not an operator. The publisher console on fora-protocol.org is run by Postindustria, which
+charges publishers no Exchange fee beyond the payment system's transaction fees.
+
 **The fora-music-v1 search filter keys are a published JSON Schema (docs and schema; no wire
 change).** The 23 keys of `DiscoveryRequest.search_filters` are one file,
 `schemas/music/v1/music-v1.search-filters.schema.json`, published at

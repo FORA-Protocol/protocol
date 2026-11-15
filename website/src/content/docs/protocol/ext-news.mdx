@@ -580,7 +580,7 @@ The Exchange returns an `OfferGroup` per URI. The Broker can then:
 1. Match offers across Exchanges by `news.iptc_guid` (if the Reuters and AP stories syndicated through wire)
 2. Filter out any offers where `news.pub_status` is not `"usable"`
 3. Prefer offers with higher `news.version` (latest correction)
-4. Compare `unit_cost` across Exchanges for the same underlying story
+4. Return every remaining offer for the same underlying story as one group, in its order of relevance; the agent chooses which to buy
 
 ---
 

@@ -234,7 +234,7 @@ As an Exchange operator, you are responsible for two additional capabilities:
 
 **Exchange Manifest** -- Your Exchange serves a machine-readable self-description at `/.well-known/fora.json` (`role=ROLE_EXCHANGE`). This tells Brokers and agents what your Exchange supports (pricing models, delivery methods, accepted verifiers, endpoints) without trial-and-error. Your offer-signing keys are published separately in your WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`), not in `fora.json`. The manifest includes:
 
-- **`base_currency`** (ISO 4217 code) -- the currency for all `unit_cost` values. Enables cross-exchange price comparison by the Broker. A legal exchange quoting in EUR and a media exchange quoting in USD can be compared when both declare their currency.
+- **`base_currency`** (ISO 4217 code) -- the currency for all `unit_cost` values. Lets an agent compare offers across Exchanges. A legal exchange quoting in EUR and a media exchange quoting in USD can be compared when both declare their currency.
 - **`supported_profiles`** -- domain extension profiles your Exchange conforms to.
 
 The manifest is generated from your configuration at startup and served as a static JSON document. See [Exchange Manifest](/protocol/exchange-manifest/).
@@ -276,7 +276,7 @@ AI agents can use a **Broker** to query multiple Exchanges at once. The Broker r
 - Competitive pressure keeps your margins honest
 - Premium content commands premium pricing (quality signals in offers)
 - Subscription deals give your providers an advantage (zero marginal cost for the requester)
-- `base_currency` in your manifest enables cross-exchange price comparison even across currencies
+- `base_currency` in your manifest lets agents compare offers across Exchanges, even across currencies
 
 ## Technical Integration
 
