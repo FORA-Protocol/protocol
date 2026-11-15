@@ -237,7 +237,7 @@ const GLANCE = GLANCE_GROUPS.map((g, i) => ({
 }));
 
 const SHORT_ANSWER = [
-  { title: 'Seven kinds of channel sell future use, and court settlements pay for the past.', text: 'Some charge bots at your CDN. Some hold a copy of your content and sell search over it. Some are the AI company itself, paying a share, a fee or by contribution. A settlement pays once, for past use.' },
+  { title: 'Seven kinds of channel sell future use, and court settlements pay for the past.', text: 'Some charge bots at your CDN, and some hold a copy of your content and sell search over it. Others are the AI company itself, paying a share, a fee or by contribution.' },
   { title: 'They differ on who sets the price.', text: 'At a bot paywall you set it per page. In an answer engine\'s pool or Google\'s pilots, the buyer decides your share. In Microsoft\'s marketplace the terms aren\'t public.' },
   { title: 'FORA lets anyone run a channel you price yourself.', text: 'It is an open protocol and free, open-source software, so any company can run a FORA marketplace, an Exchange. You sell through one, several or your own, and set terms and a price for each use of your pages. The operator bills the buyer and pays you. It runs beside your other deals.' },
 ];
@@ -405,7 +405,7 @@ const MAP = [
       ] },
       { player: 'Newstex, xpay', cells: [
         `Newstex: "one full licensed story body" per call ${cite(76)}. xpay: search over your feed ${cite(77)}`,
-        `Newstex's story route: 3 calls by 1 payer in 30 days (x402 Bazaar, 2026-11-15) ${cite(76)}. xpay names no buyer`,
+        `Newstex's story route: 3 calls by 1 payer in 30 days, by x402 Bazaar's count ${cite(76)}. xpay names no buyer`,
         `xpay keeps 5% ${cite(77)}`,
         'Newstex; at xpay, you',
         `Per call: Newstex $0.01 a search, $0.10 a story; xpay $0.01 to $1.00 a query ${cite(76, 77)}`,
@@ -428,7 +428,7 @@ const MAP = [
       ] },
       { player: 'Perplexity', cells: [
         'Use in Perplexity\'s products',
-        `Perplexity itself. Of Comet Plus, its head of publisher partnerships said "Real cash payments starting immediately" (Digiday, 2025) ${cite(82)}. Comet Plus is on no current pricing page`,
+        `Perplexity itself. Of Comet Plus, its head of publisher partnerships said "Real cash payments starting immediately" (Digiday, 2025) ${cite(82)}. Comet Plus is on none of Perplexity's pricing pages`,
         '—',
         'Perplexity',
         `Comet Plus: a subscription pool by visits, citations and agent actions ${cite(83)}`,
@@ -451,7 +451,7 @@ const MAP = [
     rows: [
       { player: 'Google', cells: [
         `News AI pilot: "enhanced content" for AI features ${cite(9)}. AI contribution pilot: content that "contributes significantly" to an AI answer ${cite(11)}. In the EU, previews (ENP) ${cite(12)}`,
-        `Google itself: "more than 400 publications" in the News AI pilot (Google, 2026-10-15); about 100 publishers in the contribution pilot (The Information, via TNW) ${cite(9, 13)}`,
+        `Google itself: "more than 400 publications" in the News AI pilot (Google); about 100 publishers in the contribution pilot (The Information, via TNW) ${cite(9, 13)}`,
         `Contribution pilot: Google decides the amount and shows one monthly number in Search Console ${cite(11)}`,
         'Google',
         'Not public',
@@ -515,7 +515,7 @@ const MAP = [
       ] },
       { player: 'CCC', cells: [
         `Rights only, no copy: annual licenses (a pool) and AI Summarization, one summary per order ${cite(22, 23)}`,
-        `Buyers pay CCC; no AI payment is public. One of nine titles probed sold AI Summarization, at 19.10 USD a summary (2026-11-14) ${cite(24)}`,
+        `Buyers pay CCC; no AI payment is public. One of nine titles probed sold AI Summarization, at 19.10 USD a summary ${cite(24)}`,
         '—',
         'CCC for annual licenses; you, per order',
         'Per organization a year; per summary',
@@ -596,7 +596,7 @@ const CAUTIONS = [
 // The seven sections after bot paywalls: a heading and HTML paragraphs.
 const KINDS = [
   {
-    title: 'Payment rails: money moves, terms don\'t',
+    title: 'Payment rails: one payment per request',
     paras: [
       `x402 and MPP carry a payment for one request. Skyfire's passes are charged after delivery, and settlement takes up to about 51 hours (${a(src(60), 'Skyfire')}). No rail carries a license. Supertab Connect adds an RSL license server and names no licensee.`,
     ],
@@ -610,14 +610,14 @@ const KINDS = [
   {
     title: 'Answer engines: the buyer measures and pays a share',
     paras: [
-      `ProRata pays a pool of 50% of its net revenue, split per answer by how much came from you (${a(src(80), 'MSA')}). Perplexity's Comet Plus pools subscription revenue by "human visits, search citations, and agent actions" (${a(src(83), 'Perplexity')}). In both, one company runs the product, counts the use and sets the payout.`,
+      `ProRata pays a pool of 50% of its net revenue, split per answer by how much came from you (${a(src(80), 'MSA')}). Perplexity's Comet Plus pools subscription revenue by "human visits, search citations, and agent actions" (${a(src(83), 'Perplexity')}).`,
       `Deep pages: ${a('/resources/content-marketplaces/prorata-gist/', 'ProRata and Gist')}, ${a('/resources/content-marketplaces/perplexity/', 'Perplexity')}.`,
     ],
   },
   {
     title: 'AI companies buying directly',
     paras: [
-      `Google's News AI pilot pays "more than 400 publications worldwide" for "enhanced content" (${a(src(9), 'Google')}, 2026-10-15). Its AI contribution pilot pays when content "contributes significantly" to an answer in Gemini, AI Overviews and AI Mode, by its help text as Search Engine Roundtable published it ${cite(11)}. Google decides the amount and shows one monthly number in Search Console. Microsoft says PCM publishers "will be paid on delivered value", with pricing, unit and fee not public ${cite(14)}. Direct deals are private contracts, and some end a lawsuit: Folha's deal with OpenAI, signed with UOL in May 2026, ended the suit Folha filed in 2025 ${cite(17, 18)}.`,
+      `In October 2026, Google said its News AI pilot pays "more than 400 publications worldwide" for "enhanced content" (${a(src(9), 'Google')}). Its AI contribution pilot pays when content "contributes significantly" to an answer in Gemini, AI Overviews and AI Mode, by Google's help text as Search Engine Roundtable published it ${cite(11)}. Google decides the amount and shows one monthly number in Search Console. Microsoft says PCM publishers "will be paid on delivered value", with pricing, unit and fee not public ${cite(14)}. Direct deals are private contracts, and some end a lawsuit: Folha's deal with OpenAI, signed with UOL in May 2026, ended the suit Folha filed in 2025 ${cite(17, 18)}.`,
       `Deep page: ${a('/resources/content-marketplaces/microsoft-pcm/', 'Microsoft PCM')}.`,
     ],
   },
@@ -630,24 +630,24 @@ const KINDS = [
   {
     title: 'Collectives and rights agencies: one license, many works',
     paras: [
-      `A collective licenses many members' content at once and splits the money by its own rule. ${a('/resources/transparent-collective/', 'A fair licensing collective')} compares eight schemes. CCC sells rights, not copies: "This is a rights-only license and does not provide access to or authorize scraping of content" (${a(src(22), 'CCC')}). Its AI Summarization sells one summary per order, at the rightsholder's price.`,
+      `A collective licenses many members' content at once and splits the money by its own rule. ${a('/resources/transparent-collective/', 'A fair licensing collective')} compares eight schemes. CCC sells rights only: "This is a rights-only license and does not provide access to or authorize scraping of content" (${a(src(22), 'CCC')}). Its AI Summarization sells one summary per order, at the rightsholder's price.`,
     ],
   },
   {
     title: 'Court settlements: paid once, for the past',
     paras: [
-      `In Bartz v. Anthropic, the court approved a $1.5 billion fund for 440,490 claimed books. Its "estimated per-work payment" is "approximately $3,000" (${a(src(93), 'final approval order')}, 2026-07-20). It sets no price for future use and grants no license.`,
+      `In Bartz v. Anthropic, the court approved a $1.5 billion fund for 440,490 claimed books on July 20, 2026. Its "estimated per-work payment" is "approximately $3,000" (${a(src(93), 'final approval order')}). It sets no price for future use and grants no license.`,
     ],
   },
 ];
 
 const AHEAD = [
   { title: 'The buyer comes with the contract.', text: 'Google buys in its pilots and Copilot in Microsoft\'s marketplace; at ProRata and Perplexity, the channel itself is the buyer. On FORA, any agent can buy under your terms.' },
-  { title: 'One integration reaches many sites.', text: `A TollBit buyer uses one key, one card and one search across the network. TollBit's homepage says "over 10,000 sites" (November 2026), up from the "nearly 7,000" its CEO cited in April (${a(src(56), 'TollBit')}, vendor's figures). A FORA agent opens an account at each Exchange it buys from (${a(src(4), 'What is FORA?')}).` },
+  { title: 'One integration reaches many sites.', text: `A TollBit buyer uses one key, one card and one search across the network. TollBit's homepage says "over 10,000 sites", up from the "nearly 7,000" its CEO cited in April 2026 (${a(src(56), 'TollBit')}, vendor's figures). A FORA agent opens an account at each Exchange it buys from (${a(src(4), 'What is FORA?')}).` },
   { title: 'Blocking bots on sites FORA isn\'t installed on.', text: `Cloudflare can refuse a crawler on any site it fronts, and says "More than 20% of the web sits behind Cloudflare’s network" (${a(src(36), 'Cloudflare')}). FORA's edge function refuses unlicensed AI bots on sites that install it, and nowhere else.` },
-  { title: 'Less to install.', text: `Google, CCC, Microsoft and Perplexity need no paywall on your CDN. They work through a contract, a portal or Search Console. Google and Perplexity need their crawlers left unblocked. TollBit changes nothing on your origin or CMS. FORA needs its edge function on your CDN and its file on your site (see ${a('#fora', 'What FORA takes')}).` },
+  { title: 'Less to install.', text: `Google, CCC, Microsoft and Perplexity work through a contract, a portal or Search Console, with no paywall on your CDN. Google and Perplexity need their crawlers left unblocked. TollBit changes nothing on your origin or CMS. FORA needs its edge function on your CDN and its file on your site (see ${a('#fora', 'What FORA takes')}).` },
   { title: 'Paying by how much your content shaped the answer.', text: `Google's contribution pilot pays when content "contributes significantly"; ProRata scores each source's share of an answer; Parallel says it pays by each source's estimated contribution ${cite(11, 80, 85)}. FORA cannot: the charge is fixed at the sale, and "a usage report never re-prices a purchase" (${a(src(5, '#metering-modes'), 'Licensing terms')}).` },
-  { title: 'Seeing which bots visit before you sell.', text: `TollBit and Cloudflare show which bots fetch what ${cite(31, 37)}. FORA Server records transactions, not bot traffic. It's open source, so an operator can log what agents search for and what its Exchange offers them. FORA Server doesn't report them today.` },
+  { title: 'Seeing which bots visit before you sell.', text: `TollBit and Cloudflare show which bots fetch what ${cite(31, 37)}. FORA Server records transactions and makes no bot-traffic report. It's open source, so an operator can add a log of what agents search for and what its Exchange offers them.` },
   { title: 'A warranty in the license.', text: `TollBit's ${a(src(26), 'standard license')} has you warrant "all rights necessary to provide the Site Content" and indemnify the buyer. FORA cannot state either as a term. A term's obligations are all the buyer's, so a warranty fits only in a license document the term points to (${a(src(5, '#obligations'), 'Licensing terms')}).` },
   { title: 'Payment and bot identity come from other standards.', text: `x402 and MPP settle per request, and Web Bot Auth was first drafted at Cloudflare ${cite(101)}. FORA defines no payment rail, by design, and its agents sign their requests with Web Bot Auth.` },
 ];
@@ -667,7 +667,7 @@ const QUESTIONS = [
 const QUESTIONS_REST = [
   { title: 'Who is the buyer, provably?', text: qa(
     `most use an account and an API key; TollBit and MonetizationOS also match user agents. Cloudflare, AWS and Akamai check Web Bot Auth signatures, and Parallel's crawlers sign with it ${cite(44, 57, 58, 86)}.`,
-    `a signature on every request, checked against a key on the buyer's own domain. Cloudflare "will fail to verify a message if" it uses the later drafts' header form, which FORA's SDKs send (${a(src(57), 'Cloudflare')}). So Cloudflare's bot verification doesn't recognize a FORA agent. FORA's edge function checks the signed link itself, and your Cloudflare rules must let signed requests through.`,
+    `a signature on every request, checked against a key on the buyer's own domain. Cloudflare's bot verification doesn't recognize a FORA agent: it "will fail to verify a message if" it uses the later drafts' header form, which FORA's SDKs send (${a(src(57), 'Cloudflare')}). FORA's edge function checks the signed link itself, and your Cloudflare rules must let signed requests through.`,
   ) },
   { title: 'What lets a given use happen?', text: qa(
     'a pass only TollBit can check; a signed price header Cloudflare checks; an x402 payment AWS verifies; an API key.',
@@ -717,7 +717,7 @@ const SELL_THROUGH = [
 ];
 
 const TODO = [
-  { title: 'Ask who has paid.', text: 'Ask each channel for named buyers and paid totals, not sites signed up.' },
+  { title: 'Ask who has paid.', text: 'Ask each channel for named buyers and the totals they paid.' },
   { title: 'Ask for the fee.', text: `TollBit's, Cloudflare's and Microsoft's aren't published. Ask what a buyer pays in total and what you keep. FORA itself is free, open-source software; for the fee at FORA\'s publisher console, see ${ABOUT}.` },
   { title: 'List what you hand over.', text: 'A subdomain, your logs with your readers\' requests in them, a copy of your archive, a CDN rule. Ask how many engineer-days each one takes.' },
   { title: 'Keep one price per page.', text: 'If a page is on sale in two places, know both prices.' },
@@ -751,7 +751,7 @@ const updated = resourceUpdated(HREF) ?? SERIES.find((p) => p.href === HREF)?.up
     current="resources"
     badge="Resources · Content marketplaces"
     title="Every marketplace has its own buyers, units and rules. <em>FORA is the open protocol anyone can run one on.</em>"
-    sub={`You're pitched a new way to get paid for AI use every month: a bot paywall, a share of an answer engine's revenue, a Google pilot, a dataset deal, a collective. This page puts the ones running today side by side. It shows what each sells, who sets the price, who pays, how you're paid and what your engineers change. It also covers where each is ahead of FORA, and how FORA works next to them. ${POSITIONING} You sell through one, several or your own, beside the deals you already have.`}
+    sub={`You're pitched a new way to get paid for AI use every month: a bot paywall, a share of an answer engine's revenue, a Google pilot, a dataset deal, a collective. This page puts the ones already running side by side: who pays, who sets the price, what your engineers change, and where each is ahead of FORA. ${POSITIONING} You sell through one, several or your own, beside the deals you already have.`}
     updated={updated}
   >
     <a href="#map" class="btn btn-primary">See the map</a>
@@ -766,7 +766,7 @@ const updated = resourceUpdated(HREF) ?? SERIES.find((p) => p.href === HREF)?.up
     </div>
   </Band>
 
-  <Band tone="near" id="fora" label="At a glance" title="What FORA takes, for your revenue team and on your stack" lead={`The facts a revenue team and an engineering lead act on, in one place. The setup steps are further down, in ${a('#together', 'What changes on your CDN')}.`}>
+  <Band tone="near" id="fora" label="At a glance" title="What FORA takes, for your revenue team and on your stack" lead={`The setup steps are further down, in ${a('#together', 'What changes on your CDN')}.`}>
     <ForaGlance cards={GLANCE} />
     <div class="defs">
       <div><Callout kind="define" {...DEFINITIONS.edgeFunction} /></div>
@@ -781,11 +781,11 @@ const updated = resourceUpdated(HREF) ?? SERIES.find((p) => p.href === HREF)?.up
 
   <Band id="map" label="The map" title="Who pays for AI use of your content, and on what terms">
     <MarketMap columns={MAP_COLUMNS} fora={MAP_FORA} groups={MAP} label="Who pays for AI use of your content, and on what terms" />
-    <p class="prose note-read"><b>Reading note.</b> The rows compare channels that set out to do different jobs: a rail carries no license, and a collective doesn't set your price. "Who pays today", "Who sets the price" and "What your engineers change" compare like for like. A dash means the channel has nothing to state there. Figures from a vendor are the vendor's own and directional.</p>
+    <p class="prose note-read"><b>Reading note.</b> The rows compare channels built for different jobs: a rail carries no license, and a collective doesn't set your price. "Who pays today", "Who sets the price" and "What your engineers change" compare like for like. A dash means the channel has nothing to state there. Figures from a vendor are the vendor's own and directional.</p>
     <CardGrid items={RELATIONS} />
     <p class="prose">Court settlements price no future use, so they fit none of the three.</p>
     <Callout kind="define" {...DEFINITIONS.dealTerm} />
-    <p class="prose" set:html={`<b>Announced, not running.</b> Next Net and Sundial's SAIL ledger (2026-07-14) names no buyer and publishes no specification ${cite(99)}. Amazon's AWS content marketplace, reported by The Information in February 2026, had no AWS announcement by 2026-11-15 ${cite(100)}.`} />
+    <p class="prose" set:html={`<b>Announced, not running.</b> Next Net and Sundial's SAIL ledger (2026-07-14) names no buyer and publishes no specification ${cite(99)}. AWS hasn't announced the content marketplace The Information reported in February 2026 ${cite(100)}.`} />
     <details class="more">
       <summary>What your engineers change, in full</summary>
       <ul class="more-list">
@@ -833,7 +833,7 @@ const updated = resourceUpdated(HREF) ?? SERIES.find((p) => p.href === HREF)?.up
   <Band tone="near" id="together" label="Running FORA beside the others" title="What changes on your CDN, beside TollBit and Cloudflare" lead="Your firewall and bot rules run first, and they must let signed requests and TollBit's fetcher through. Behind them, FORA's edge function decides.">
     <Split aside="460px">
       <p class="prose" set:html={`<b>Beside TollBit.</b> TollBit says another marketplace can run "in parallel" (${a(src(32), 'TollBit')}). Let TollBit's fetcher through FORA's edge, and keep TollBit's rule off requests that carry a FORA signed link. You write that order; FORA ships no combined rule.`} />
-      <p class="prose" set:html={`<b>Beside Cloudflare.</b> FORA's edge runs as a Worker after Cloudflare's own rules, which must let signed requests through.`} />
+      <p class="prose" set:html={`<b>Beside Cloudflare.</b> FORA's edge runs as a Worker after Cloudflare's own rules.`} />
       <Figure
         slot="aside"
         src={`${IMG}/hub-3.png`}
@@ -866,7 +866,7 @@ const updated = resourceUpdated(HREF) ?? SERIES.find((p) => p.href === HREF)?.up
     <p class="prose" set:html={`Each offer arrives as its Exchange signed it, so a Broker can't change a price or a term (${a(src(7, '#offers-and-absences'), 'Broker')}). How a Broker ranks search results for relevance is its operator's to disclose.`} />
 
     <h3 class="sub-h">Your TollBit rates, shown to FORA agents <StatusTag status="design" /></h3>
-    <p class="prose" set:html={`This is a design; it isn't in released FORA Server. TollBit lets a platform act for a buyer: "When your platform makes a request to the TollBit API, you can supply the developer's credentials" (${a(src(28), 'Platform overview')}, §4.3). A FORA Broker would use that path with each agent's own TollBit account. It never buys or resells under an account of its own. The agent would then be the buyer and the account holder, so the content would go to no one else, as TollBit's license requires. A bridge Exchange would sign each TollBit rate as a FORA offer, marked as TollBit's terms, and the agent would fetch from TollBit.`} />
+    <p class="prose" set:html={`TollBit lets a platform act for a buyer: "When your platform makes a request to the TollBit API, you can supply the developer's credentials" (${a(src(28), 'Platform overview')}, §4.3). A FORA Broker would use that path with each agent's own TollBit account, and never buy or resell under one of its own. The agent is then the buyer and the account holder, so the content goes to no one else, as TollBit's license requires. A bridge Exchange would sign each TollBit rate as a FORA offer, marked as TollBit's terms, and the agent would fetch from TollBit.`} />
 
     <h3 class="sub-h">How other channels can use FORA</h3>
     <PointList items={SELL_THROUGH} />

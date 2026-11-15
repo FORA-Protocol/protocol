@@ -113,7 +113,7 @@ const GLANCE = glanceGroups({
 const SHORT_ANSWER = [
   { title: 'PCM brings a buyer.', text: `Microsoft runs the marketplace and buys through Copilot, and says it is "beginning to onboard" Yahoo ${cite(1)}. You sign a contract and hand over your content. Microsoft documents no change to your site.` },
   { title: 'FORA brings an open interface.', text: 'Any agent finds your offers, signs for the terms it picks and gets an expiring link for that purchase. You serve one file and install the edge function on your CDN.' },
-  { title: 'They run side by side.', text: 'PCM publishes no API for outside software, so FORA can\'t connect to it without Microsoft. Both can run on one site today, if your PCM contract allows it.' },
+  { title: 'They run side by side.', text: 'PCM publishes no API for outside software, so FORA can\'t connect to it without Microsoft. Both can run on one site, if your PCM contract allows it.' },
 ];
 
 const PAID_STEPS = [
@@ -163,7 +163,7 @@ const CAUTIONS = [
 ];
 
 const AHEAD = [
-  { title: 'The buyer comes with the marketplace.', text: `PCM's operator is also its first buyer. Copilot comes in two versions, "the M365 copilot from the enterprise side, and the MAI copilot from the consumer side" ${cite(12)}. On FORA, the protocol is the interface, not a customer: any agent can buy.` },
+  { title: 'The buyer comes with the marketplace.', text: `PCM's operator is also its first buyer. Copilot comes in two versions, "the M365 copilot from the enterprise side, and the MAI copilot from the consumer side" ${cite(12)}. On FORA, any agent can buy.` },
   { title: 'No change to your site that Microsoft documents.', text: `PCM needs a contract and your content: "Instead of blocking bots or negotiating one-off deals, tap into a transparent marketplace" ${cite(2)}. FORA asks for a file and an edge function, as above.` },
   { title: 'A price set by what the answer needed.', text: `Kolar: "Sometimes, the value may be: ‘I just need to know the score.’" For a source that is "not substitutable", a buyer is "willing to pay a lot more" ${cite(12)}. PCM is designed to price a use by its worth in the answer. FORA can't: its price is fixed at the sale, and a usage report "never re-prices a purchase" (${a(D.metering, 'Licensing terms')}).` },
   { title: 'Reports from inside the AI product.', text: `Microsoft runs Copilot, so its reports can come from the answer itself. Kolar: "we wanted to build a feedback loop from the demand side on how the content was used" ${cite(12)}. FORA can't report that. It records each sale, and of the use in an answer it knows only what the agent reports (${a(D.howItWorks, 'What is FORA?')}, step 5).` },
@@ -217,7 +217,7 @@ const TODO = [
   { title: 'Ask for the unit and the price.', text: 'Microsoft hasn\'t published what it pays per use, or who sets the number. Ask both, in writing.' },
   { title: 'Ask how your content gets in.', text: 'Microsoft hasn\'t published the route: a feed, an API or a crawl. Ask what you send, how often, and who keeps it up to date.' },
   { title: 'Ask what the report shows.', text: `Microsoft promises insight into how content is "valued, cited, and used" ${cite(2)}. Ask for a sample report.` },
-  { title: 'Ask how Bing\'s settings affect your license.', text: 'If you refuse grounding in Bing, do you lose PCM money? If you\'re in PCM, can you still refuse it? Ask before you choose a setting. The dates are under Search traffic, above.' },
+  { title: 'Ask how Bing\'s settings affect your license.', text: 'If you refuse grounding in Bing, do you lose PCM money? If you\'re in PCM, can you still refuse it? Ask before you choose a setting.' },
   { title: 'Sell to other agents too.', text: `Name your FORA Exchanges in <code>fora.json</code> and put a grounding term with a citation duty on your articles. FORA itself is free, open-source software. For the publisher console's fees, ${SEE_ABOUT.replace('See', 'see')}` },
 ];
 
@@ -282,12 +282,11 @@ const SOURCES = [
     sub="Microsoft's Publisher Content Marketplace (PCM) licenses your content to AI products, mainly for grounding, where the AI uses your article to answer one question, and shows it as a cited link. Copilot is its first buyer. On FORA, an open protocol, any AI agent can buy each page on terms and at a price you set."
     updated={resourceUpdated(HREF)}
   >
-    <p class="hero-short"><b>In short:</b> PCM is a contract and a content handover. Microsoft documents no change to your site, and neither Microsoft nor a publisher has said a payment was made. FORA is one file on your site and an edge function on your CDN.</p>
     <a href="#ahead" class="btn btn-primary">Where PCM is ahead</a>
     <a href="#together" class="btn btn-ghost">Use both</a>
   </AudienceHero>
 
-  <Band tone="near" id="glance" label="At a glance" title="PCM and FORA, side by side" lead={`Microsoft has published one launch post, one product page and interviews about PCM. Where this page shows ${NP}, those documents don't say; it doesn't mean PCM lacks the function. So most of "What to do" is questions to ask Microsoft. Each fact is sourced further down the page.`}>
+  <Band tone="near" id="glance" label="At a glance" title="PCM and FORA, side by side" lead={`Microsoft has published one launch post, one product page and interviews about PCM. Where this page shows ${NP}, those documents don't say.`}>
     <GlanceCard vendor="Microsoft PCM" groups={GLANCE} />
   </Band>
 
@@ -297,7 +296,7 @@ const SOURCES = [
     <Callout kind="define" {...DEFINITIONS.edgeFunction} />
   </Band>
 
-  <Band tone="light" label="How you're paid" title={'Microsoft pays "on delivered value". The unit isn\'t published.'} lead={`For Copilot's use, Microsoft is the buyer. It says "publishers will be paid on delivered value" (${a(M.launch, 'launch post')}). The payable unit, who sets the price and when you're paid: ${NP} The six steps below run from an interest form to that payment.`} asideWidth="440px" asideAlign="start">
+  <Band tone="light" label="How you're paid" title={'Microsoft pays "on delivered value". The unit isn\'t published.'} lead={`For Copilot's use, Microsoft is the buyer. It says "publishers will be paid on delivered value" (${a(M.launch, 'launch post')}). The payable unit, who sets the price and when you're paid: ${NP}`} asideWidth="440px" asideAlign="start">
     <StepList slot="intro" items={PAID_STEPS} />
     <Figure
       slot="aside"
@@ -319,10 +318,10 @@ const SOURCES = [
       href={M.iac}
     />
     <p class="prose" set:html={`Microsoft names seven US co-design publishers, "among others": The Associated Press, Business Insider, Condé Nast, Hearst Magazines, People Inc, USA TODAY Co. and Vox Media ${cite(1)}. Four confirmed their deals in late 2025: Gannett, in its ${a(M.gannett, 'third-quarter results')}; People Inc, through its owner ${a(M.iac, 'IAC')}; the AP, to ${a(M.ap, 'Digiday')}; and Business Insider, in a ${a(M.bi, 'staff memo')}.`} />
-    <p class="prose">Microsoft publishes no count of publishers. As of November 14, 2026, neither Microsoft nor a publisher has said a payment was made.</p>
+    <p class="prose">Microsoft publishes no count of publishers. Neither Microsoft nor a publisher has said a payment was made.</p>
   </Band>
 
-  <Band tone="light" label="What it takes on your site" title="PCM documents nothing on your site. FORA is a file and an edge function." lead="PCM's column is what Microsoft documents. Microsoft Learn's search returns no page on PCM, and Microsoft's help and webmaster sites carry no publisher integration guide for it (searched 2026-11-15).">
+  <Band tone="light" label="What it takes on your site" title="PCM documents nothing on your site. FORA is a file and an edge function." lead="PCM's column is what Microsoft documents. Microsoft Learn's search returns no page on PCM, and Microsoft's help and webmaster sites carry no publisher integration guide for it.">
     <Split>
       <div>
         <h3 class="sub-h col-h">PCM</h3>
@@ -380,7 +379,7 @@ const SOURCES = [
     </figure>
     <p class="prose" set:html={`The difference is the price. PCM pays "on delivered value", by a unit Microsoft hasn't published ${cite(1)}. On FORA, the price is signed on the offer before the sale. An agent that isn't a PCM buyer finds this term through the file that names your Exchanges.`} />
     <h3 class="sub-h">Doesn't fit</h3>
-    <p class="prose" set:html={`<b>Paying FORA sales through PCM.</b> PCM is a marketplace with Microsoft as the payer, not a payment service. On FORA, the Exchange operator bills the buyer and pays you (${a(D.howItWorks, 'What is FORA?')}).`} />
+    <p class="prose" set:html={`<b>Paying FORA sales through PCM.</b> PCM is a marketplace with Microsoft as the payer, and no payment service for others. On FORA, the Exchange operator bills the buyer and pays you (${a(D.howItWorks, 'What is FORA?')}).`} />
     <p class="prose" set:html={`<b>Declaring PCM in a file.</b> Microsoft publishes no file or tag that says a site is in PCM. Asked whether RSL could work with PCM, Microsoft's spokesperson didn't have "anything specific to share today" (${a(M.verge, 'The Verge')}, February 3, 2026). Say it on your licensing page, in words.`} />
   </Band>
 
@@ -427,9 +426,6 @@ const SOURCES = [
   .end-label { font-size: 0.875rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--lp-label); margin: 0 0 0.75rem; }
   .note { max-width: 52rem; color: var(--lp-muted); font-size: 0.9375rem; line-height: 1.6; }
   .note code { font-family: var(--mono); font-size: 0.875em; color: var(--lp-heading); }
-  /* The hero's "In short", between the lead and the buttons. */
-  .hero-short { flex-basis: 100%; max-width: 640px; margin: 0 auto 1.5rem; color: var(--gray); font-size: 1rem; line-height: 1.6; }
-  .hero-short b { color: var(--white); font-weight: 600; }
   /* The code card and its caption under "Works today". */
   .term-card { margin: 2rem 0 0; max-width: 44rem; }
   /* Keep the wire format's spacing and line break. */

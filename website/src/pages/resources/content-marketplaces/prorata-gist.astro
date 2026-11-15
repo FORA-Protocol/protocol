@@ -94,7 +94,7 @@ const GLANCE = glanceGroups({
 });
 
 const SHORT_ANSWER = [
-  { title: 'ProRata measures the answer.', text: `Its engine splits each Gist answer into claims, finds the sources that support them, and divides a pool of half its net revenue by those shares. It pays above $1,000 ${cite(1)}, and since Gist Ads ended on 2026-09-01 it hasn't said what funds the pool ${cite(2)}.` },
+  { title: 'ProRata measures the answer.', text: `Its engine splits each Gist answer into claims, finds the sources that support them, and divides a pool of half its net revenue by those shares.` },
   { title: 'FORA prices the access.', text: 'You set the price, the unit and the terms for each resource, and your Exchange signs each offer. Any agent your terms allow can buy on them, and each purchase is a signed record.' },
   { title: 'They fit on one site.', text: 'ProRata\'s contract is non-exclusive, so you can sell through FORA on the same site. Gist needs its WordPress plugin or a script tag.' },
 ];
@@ -124,7 +124,7 @@ const ENGINEERS = [
   { title: 'Content.', text: 'By default ProRata takes posts only, through your public posts feed, <code>/wp-json/wp/v2/posts</code>. Pages and custom post types need a filter in code, and "Adding a post type with a filter is not retroactive".' },
   { title: 'Sending.', text: 'The plugin queues each post\'s address on save, and WordPress\'s scheduler sends the queue.' },
   { title: 'Cache.', text: 'The feed must honor its date filter, which "a page or edge cache rule, a security rule, or a plugin that changes REST queries" can break. The plugin "does not bypass or purge any cache", so after a correction you purge the post and the feed yourself.' },
-  { title: 'Bot protection.', text: 'Your bot protection has to let ProRata\'s crawler read the feed: a 401 or 403 "means the crawl of the feed fails". The crawler\'s user agent and IP ranges aren\'t published as of 2026-11-15, so an allow rule needs them from ProRata.' },
+  { title: 'Bot protection.', text: 'Your bot protection has to let ProRata\'s crawler read the feed: a 401 or 403 "means the crawl of the feed fails". The crawler\'s user agent and IP ranges aren\'t published, so an allow rule needs them from ProRata.' },
   { title: 'Widget and logs.', text: 'Readers\' browsers load the widget from Gist\'s own CDN. There is no log stream; the console shows per-article numbers and the MSA adds the monthly statement.' },
 ];
 
@@ -180,7 +180,7 @@ const LEGAL = [
   { title: 'Removal.', text: 'After written notice, ProRata stops using the content "within one (1) business day" (MSA §7). The plugin sends no removal signal, so the notice is yours to send.' },
   { title: 'Consent.', text: 'The widget has no consent setting (see <a href="#caution">What can go wrong</a>).' },
   { title: 'Venue.', text: '"The federal and state courts located in Los Angeles County will have sole and exclusive jurisdiction" (MSA §13).' },
-  { title: 'Version.', text: 'The MSA checked is the one "Last updated: October 27, 2026".' },
+  { title: 'Version.', text: 'The MSA quoted here is the one "Last updated: October 27, 2026".' },
 ];
 
 // The SourceList, numbered in order of first citation: an entry's position,
@@ -246,7 +246,7 @@ const SOURCES = [
     <Fragment slot="intro">
       <StepList items={PAID_STEPS} />
       <p class="prose" set:html={`Answers can also draw on sources outside the partner pool, such as Wikipedia (${a(P.guide, 'user guide')}). The contract doesn't say where their share goes (${a(P.msa, 'MSA §5')}).`} />
-      <p class="prose" set:html={`ProRata retired its Gist Ads network "on September 1, 2026" (${a(P.ads, 'Gist Ads')}). As of 2026-11-15, it hasn't said what funds the pool since. It offers its attribution engine to AI platforms "through direct engagement with the team" (${a(P.products, 'Products')}) and names no platform customer.`} />
+      <p class="prose" set:html={`ProRata retired its Gist Ads network "on September 1, 2026" (${a(P.ads, 'Gist Ads')}). It hasn't said what funds the pool since. It offers its attribution engine to AI platforms "through direct engagement with the team" (${a(P.products, 'Products')}) and names no platform customer.`} />
     </Fragment>
     <Figure
       slot="aside"
@@ -274,7 +274,7 @@ const SOURCES = [
     <p class="prose" set:html={`The Gist Answers page counts "150+" publishing partners and "1,600+" licensed titles (vendor's own data, ${a(P.answers, 'Gist Answers')}). No payout total is published.`} />
   </Band>
 
-  <Band tone="near" label="What Gist Answers needs from your site" title="The WordPress plugin or a script tag, an open feed, and an allow rule" lead="Readers and search crawlers reach your site as today. Gist needs no DNS change and no code on your CDN, but it touches your CMS, your cache rules and your bot protection. It runs through the WordPress plugin or one script tag; how Gist ingests a site that doesn't run WordPress isn't documented as of 2026-11-15, so ask ProRata.">
+  <Band tone="near" label="What Gist Answers needs from your site" title="The WordPress plugin or a script tag, an open feed, and an allow rule" lead="Readers and search crawlers reach your site as today. Gist needs no DNS change and no code on your CDN, but it touches your CMS, your cache rules and your bot protection. It runs through the WordPress plugin or one script tag; how Gist ingests a site that doesn't run WordPress isn't documented, so ask ProRata.">
     <Callout
       kind="engineers"
       collapse="Show the five points"
@@ -314,7 +314,7 @@ const SOURCES = [
       <h3 class="sub-h">On one site <StatusTag status="live" /></h3>
       <PointList items={ONE_SITE} />
       <h3 class="sub-h">Doesn't fit</h3>
-      <p class="prose" set:html={`<b>Gist answers as FORA offers.</b> Gist sells agents nothing: its terms forbid access by any "agent or other automatic device" (${a(P.terms, 'Terms of Use')}). A Gist answer is also written when someone asks, and FORA sells resources that exist before the sale (${a('/getting-started/what-is-fora/#scope', 'What is FORA?')}). ProRata offers no payment service to others either, as of 2026-11-14, so an Exchange can't settle through it.`} />
+      <p class="prose" set:html={`<b>Gist answers as FORA offers.</b> Gist sells agents nothing: its terms forbid access by any "agent or other automatic device" (${a(P.terms, 'Terms of Use')}). A Gist answer is also written when someone asks, and FORA sells resources that exist before the sale (${a('/getting-started/what-is-fora/#scope', 'What is FORA?')}). ProRata offers no payment service to others either, so an Exchange can't settle through it.`} />
     </Fragment>
     <Figure
       slot="aside"
