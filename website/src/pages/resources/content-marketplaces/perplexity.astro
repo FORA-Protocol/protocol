@@ -1,0 +1,389 @@
+---
+// Resource: Perplexity Comet Plus, and FORA, one of the deep pages of the
+// content-marketplaces series (hub: /resources/content-marketplaces/). Laid
+// out in the vendor page template, as the TollBit page is: hero, at a glance,
+// the short answer, how Comet Plus is meant to pay you, key facts, who has
+// been paid, what it takes on your site, what can go wrong, where Perplexity
+// is ahead, the eight questions, running both, what to do, the background,
+// the sources, and About FORA with the series navigation.
+//
+// Shared texts (About FORA, the definitions, the search callout, the table
+// questions, the GlanceCard rows and FORA's fixed cells) come from
+// src/data/content-marketplaces.ts. A claim cites its source inline, as a
+// link, or with cite(N), which links to entry N of the numbered SourceList;
+// SOURCES below is numbered in order of first citation, so an entry's
+// position is its number. Text with links is HTML and goes through set:html.
+import LandingLayout from '../../../layouts/LandingLayout.astro';
+import AudienceHero from '../../../components/landing/AudienceHero.astro';
+import Band from '../../../components/landing/Band.astro';
+import GlanceCard from '../../../components/landing/GlanceCard.astro';
+import CardGrid from '../../../components/landing/CardGrid.astro';
+import Callout from '../../../components/landing/Callout.astro';
+import StepList from '../../../components/landing/StepList.astro';
+import Figure from '../../../components/landing/Figure.astro';
+import KeyFacts from '../../../components/landing/KeyFacts.astro';
+import PullQuote from '../../../components/landing/PullQuote.astro';
+import Split from '../../../components/landing/Split.astro';
+import PointList from '../../../components/landing/PointList.astro';
+import CompareTable from '../../../components/landing/CompareTable.astro';
+import StatusTag from '../../../components/landing/StatusTag.astro';
+import SourceList from '../../../components/landing/SourceList.astro';
+import SeriesNav from '../../../components/landing/SeriesNav.astro';
+import ClosingCta from '../../../components/landing/ClosingCta.astro';
+import { resourceUpdated } from '../../../data/resources';
+import {
+  ABOUT_FORA, DEFINITIONS, SEARCH_FORA, FORA_CELLS, SEE_ABOUT, compareRows, glanceGroups,
+} from '../../../data/content-marketplaces';
+import { cite, statusTag } from '../../../lib/resource-markup';
+
+const HREF = '/resources/content-marketplaces/perplexity/';
+const IMG = '/resources/content-marketplaces/perplexity';
+
+// Every external source the page links.
+const X = {
+  comet: 'https://www.perplexity.ai/hub/blog/introducing-comet-plus',
+  partners: 'https://www.perplexity.ai/hub/blog/announcing-comet-plus-launch-partners',
+  program: 'https://www.perplexity.ai/hub/blog/introducing-the-perplexity-publishers-program',
+  pricing: 'https://www.perplexity.ai/hub/pricing',
+  crawlers: 'https://docs.perplexity.ai/docs/resources/perplexity-crawlers',
+  robots: 'https://www.perplexity.ai/help-center/en/articles/10354969-how-does-perplexity-follow-robots-txt',
+  bullying: 'https://www.perplexity.ai/hub/blog/bullying-is-not-innovation',
+  keys: 'https://www.perplexity.ai/.well-known/http-message-signatures-directory',
+  dowJones: 'https://www.perplexity.ai/hub/blog/about-the-dow-jones-lawsuit',
+  searchApi: 'https://www.perplexity.ai/hub/legal/perplexity-api-terms-of-service-search',
+  plans: 'https://www.perplexity.ai/help-center/en/articles/11187416-which-perplexity-subscription-plan-is-right-for-you',
+  tos: 'https://www.perplexity.ai/hub/legal/terms-of-service',
+  digiday: 'https://digiday.com/media/how-perplexity-new-revenue-model-works-according-to-its-head-of-publisher-partnerships/',
+  gigazine: 'https://gigazine.net/gsc_news/en/20260219-perplexity-drops-ads-hurt-trust-ai',
+  hurdles: 'https://digiday.com/media/media-briefing-here-are-the-hurdles-to-perplexitys-pitch-as-the-publisher-friendly-llm',
+  cnn: 'https://storage.courtlistener.com/recap/gov.uscourts.nysd.664916/gov.uscourts.nysd.664916.1.0_1.pdf',
+  nyt: 'https://www.sec.gov/Archives/edgar/data/71691/000007169126000041/nyt-20260930.htm',
+  pressGazette: 'https://pressgazette.co.uk/news/perplexity-launches-ai-subscription-revenue-share-scheme-for-publishers/',
+  archive: 'https://web.archive.org/web/20251204132150/https://www.perplexity.ai/hub/blog/announcing-comet-plus-launch-partners',
+};
+const a = (href: string, text: string) => `<a href="${href}">${text}</a>`;
+
+const GLANCE = glanceGroups({
+  payer: [`Perplexity says it pays, from a pool of Comet Plus revenue, by its own counts. Schedule, threshold and currency: Not public ${cite(1)}.`, FORA_CELLS.payer],
+  fees: [`Perplexity keeps "a small portion" for compute; 20% in press reports ${cite(1, 13)}.`, FORA_CELLS.fees],
+  reporting: [
+    `No Comet Plus statement format is published ${cite(1, 2)}. 2024 partners got analytics on how Perplexity cites them ${cite(3)}.`,
+    `Each sale, in your operator's publisher console, with gross, the Exchange fee and net (${a('/getting-started/publisher-onboarding/', 'Publisher onboarding')}).`,
+  ],
+  contract: [
+    `A private contract, after an email to Perplexity. No standard agreement is published ${cite(1)}.`,
+    `Your agreement with your Exchange operator; your terms go into each offer it signs ${cite(21)}.`,
+  ],
+  status: [
+    `${statusTag('not-public')} Comet Plus isn't on Perplexity's ${a(X.pricing, 'pricing page')} as of 2026-11-15. Whether it still pays out isn't public.`,
+    `${statusTag('live')} ${SEE_ABOUT}`,
+  ],
+  dns: [`No change in Perplexity's docs ${cite(5)}.`, `No record to add ${cite(20)}.`],
+  cdn: [
+    `No code in Perplexity's docs ${cite(5)}.`,
+    'FORA\'s edge function, a drop-in: about 10 minutes on a CDN, about 30 minutes with AWS Amplify. The rest depends on your own setup; FORA adds to what you run rather than replacing it.',
+  ],
+  firewall: [
+    `An allow rule that matches each Perplexity crawler to its own IP ranges ${cite(5)}.`,
+    `Keep your bot protection, and let AI agents that name themselves reach the edge function. Or let signed requests and your discovery file through (${a('/components/edge-function/bot-detection/', 'Bot detection')}).`,
+  ],
+  site: [
+    `No feed, file or API. How your paywall lets a Comet Plus subscriber in: Not public ${cite(5, 6)}.`,
+    `One file that names your Exchanges, and a sitemap the operator imports your pages from ${cite(20)}.`,
+  ],
+  search: [
+    `PerplexityBot builds Perplexity's search index and follows robots.txt ${cite(5, 6)}.`,
+    `Googlebot, Bingbot and Applebot always pass ${cite(22)}. PerplexityBot is refused on licensed paths by default. See <a href="#search-traffic">Search traffic</a>, below.`,
+  ],
+  upkeep: [
+    `A scheduled job to refresh Perplexity's IP ranges, which Perplexity updates regularly ${cite(5)}.`,
+    `Two breaking wire-format releases in October 2026 (${a('/reference/changelog/', 'Changelog')}). Editing your discovery file needs no redeploy ${cite(20)}.`,
+  ],
+  leaving: ['Not public.', FORA_CELLS.leaving],
+});
+
+const SHORT_ANSWER = [
+  { title: 'Perplexity is the buyer.', text: 'Comet Plus is meant to share Perplexity\'s own revenue with the publishers it signs, for use in its answer engine, its Comet browser and Comet Assistant. No other AI company buys publisher content through its programs.' },
+  { status: 'not-public' as const, title: 'Whether Comet Plus still pays isn\'t public.', text: 'On 2026-11-15 Comet Plus isn\'t on Perplexity\'s pricing page or plan guide. CNN, a launch partner, never got from its term sheet to a contract, its complaint says. CNN sued Perplexity on 2026-05-28.' },
+  { title: 'FORA prices the access, on the same site.', text: 'You set the price, the unit and the terms for each page. Any agent can buy, and each purchase is a signed record. You can let Perplexity\'s search crawler in and sell to other agents through FORA on one site today.' },
+];
+
+const PAY_STEPS = [
+  { title: 'You email and sign.', text: `"Publishers interested in participating can join the program by emailing us via publishers@perplexity.ai" (${a(X.comet, 'Introducing Comet Plus')}). No standard agreement is published.` },
+  { title: 'Subscribers pay Perplexity.', text: `"Comet Plus will be a $5 standalone subscription. Pro and Max subscribers get Comet Plus included in their memberships" ${cite(1)}.` },
+  { title: 'Subscribers reach your site.', text: `They get "direct access to the sites and content of participating publishers", and their assistants can "complete tasks on those sites" ${cite(1)}. How your paywall recognizes a subscriber isn't public.` },
+  { title: 'Perplexity counts three kinds of traffic.', text: `Comet Plus "allocates revenue to our partners based on three types of internet traffic: human visits, search citations, and agent actions" ${cite(1)}. Digiday describes the visits as "direct visits to publisher's sites by people browsing using Comet". It describes agent actions as content "used to complete tasks by Comet's AI assistant" (${a(X.digiday, 'Digiday')}, published 2025-08-26). Perplexity counts all three in its own products, with no independent count described.` },
+  { title: 'The revenue becomes a pool.', text: `"We're distributing all of that revenue to participating publishers, minus a small portion for Perplexity's compute costs" ${cite(1)}. Digiday reported that "Perplexity keeps 20% of it" and that Perplexity is "opening up a pool of $42.5 million to publishers". Perplexity's own pages give neither figure.` },
+  { title: 'The pool is split by weights you don\'t see.', text: 'Asked whether one kind of use weighs more, Jessica Chan, Perplexity\'s head of publisher partnerships, told Digiday: "The details will be very specific to our partners, but you are thinking about it correctly." The weights aren\'t published.' },
+  { title: 'Perplexity says it pays.', text: 'No schedule, threshold, currency or statement format is published. What Perplexity has said about payment is under "<a href="#paid-so-far">Who has been paid so far</a>".' },
+];
+
+const KEY_FACTS = [
+  { value: '$5', text: `Comet Plus on its own; Pro and Max subscribers get it included ${cite(1)}` },
+  { value: '3', text: `Kinds of traffic Perplexity counts: human visits, search citations and agent actions ${cite(1)}` },
+  { value: '$42.5 million', text: `The pool Digiday reported; Perplexity's own pages don't give it ${cite(1, 13)}` },
+  { value: 'Not public', text: `The weight on each kind of traffic, per partner ${cite(13)}` },
+];
+
+const ENGINEERS = [
+  { title: 'How your content reaches Perplexity.', text: 'PerplexityBot crawls your pages for Perplexity\'s search index, and "Perplexity partners with third-party crawlers to help build our search index". Perplexity-User fetches a page when a user\'s question needs it. You publish no feed, file or API.' },
+  { title: 'The allow rule.', text: 'If your firewall screens bots, Perplexity asks for an allow rule that matches each crawler\'s user agent to its own published IP ranges. It advises an automated job to keep them current, so budget for a scheduled job that refreshes the ranges.' },
+  { title: 'On Cloudflare.', text: 'A custom rule set to Skip, placed above the rules that block or challenge, lets both crawlers past them.' },
+  { title: 'With FORA on the same site.', text: `Apply Perplexity's IP-range rules in your CDN's firewall, which runs before FORA's edge function. The edge function knows both crawlers by the names they send, and a name can be copied (${a('/components/edge-function/bot-detection/', 'Bot detection')}).` },
+  { title: 'Nothing is metered at your site.', text: 'Perplexity\'s docs describe no payment response, no redirect and no signed link. It counts visits, citations and agent actions in its own products, and describes no log feed in either direction. Its one word on logs is to "Monitor your logs" to see that its crawlers get through.' },
+];
+
+const CAUTIONS = [
+  { title: 'A blocked page can still show.', text: `If robots.txt blocks a page, Perplexity "may still index the domain, headline, and a brief factual summary" ${cite(6)}.` },
+  { title: 'Changes take time.', text: `A robots.txt change "may take up to 24 hours" to apply ${cite(5)}.` },
+  { title: 'The ranges move.', text: `"These addresses are updated regularly", so an allow rule that isn't refreshed falls behind ${cite(5)}.` },
+  { title: 'Bot Fight Mode stays on.', text: `On Cloudflare, "Bot Fight Mode can't be skipped with WAF custom rules" ${cite(5)}.` },
+];
+
+const AHEAD = [
+  { title: 'You have a buyer from the day you sign.', text: `Perplexity is the buyer. The Financial Times reported "around $200 million in annual revenue" (via ${a(X.gigazine, 'Gigazine')}, published 2026-02-19). A Perplexity executive told it the service has "more than 100 million users", the vendor's own figure. On FORA, any agent your terms allow can buy from your Exchange.` },
+  { title: 'Joining asks only for crawler rules.', text: `Joining is an email and a contract, and the technical ask Perplexity documents is the crawler rules above. How a partner's paywall lets a subscriber in isn't documented. FORA asks you to publish a file that names your Exchanges, sign with an Exchange, set your terms in its console and install its edge function on your CDN (${a('/getting-started/what-is-fora/', 'What is FORA?')}). From then on, the edge function decides on each request whether an AI bot gets the page.` },
+  { title: 'It counts traffic FORA can\'t see.', text: `Two of Comet Plus's counts, human visits and agent actions, happen in the reader's browser, as Digiday describes them. Perplexity's position is that "Your AI assistant must be indistinguishable from you" (${a(X.bullying, 'Bullying is not innovation')}, published 2025-11-04). FORA's edge function knows AI bots by the names they send, and a request it doesn't recognize passes as a reader. It can't charge a browser that doesn't identify itself, and Comet Plus counts that traffic inside Perplexity.` },
+  { title: 'Its share counts citations.', text: `Search citations are one of its three counts. FORA fixes the charge when the agent buys, and a usage report "never re-prices a purchase" (${a('/protocol/licensing-terms/#metering-modes', 'Licensing terms')}). A FORA usage report can record that an answer cited you, but that doesn't change the charge, and no FORA pricing unit counts citations.` },
+  { title: 'It sends paying readers to your own site.', text: `Comet Plus "is specifically designed to allow publishers to own the direct relationship with their audience" ${cite(2)}. FORA has no reader product. It licenses machine access.` },
+  { title: 'The pool is a set sum, if it still pays.', text: `Publishing executives told Digiday the model "does seem more developed than the ad revenue share program … mostly because the company is setting aside a specific pool of money" (${a(X.hurdles, 'Digiday')}, published 2025-08-28). Whether Comet Plus still pays out isn't public. On FORA, your income is the sum of what agents buy, with no floor.` },
+];
+
+const COMPARE = compareRows([
+  [`In a private contract. Nothing on your site states the terms to anyone else ${cite(1)}.`, `Your <code>fora.json</code> names the Exchanges that sell your content; you set terms per resource in the Exchange operator's console ${cite(21)}.`],
+  [`No outside buyer does. PerplexityBot and third-party crawlers build Perplexity's own index ${cite(5, 6)}.`, `An agent asks your Exchange, or a Broker, which returns your signed offers unchanged (${a('/resources/content-marketplaces/#broker-order', 'how a Broker orders offers')}) ${cite(25)}.`],
+  [`Two crawlers, known by name and published IP ranges ${cite(5)}. Perplexity's crawler docs describe no request signatures, and its site serves no signing-key directory ${cite(5, 8)}. Comet Assistant is meant to be "indistinguishable from you" ${cite(7)}.`, `Each request carries a signature, checked against a key the buyer publishes on its own domain (Web Bot Auth, the IETF working group's -00 draft) ${cite(21, 26)}.`],
+  [`The contract. PerplexityBot follows robots.txt; Perplexity-User, which fetches pages for a user, "generally ignores robots.txt rules" ${cite(5, 6)}.`, `A signed offer the agent accepts and signs, and a signed link that expires, checked at your CDN ${cite(21)}.`],
+  [`Perplexity: the pool, its own cut ("a small portion"; 20% in press reports) and each partner's weights. You set no price ${cite(1, 13)}.`, `You: free, per unit (an access, or text tokens, about ¾ of a word each) or a flat fee, signed on each offer. A revenue share is a term priced at zero that only agents naming the deal see, with a reporting duty (${a('/protocol/licensing-terms/#revenue-share-arrangements', 'Revenue share')}).`],
+  [`Perplexity pays from the pool, by its own account. Schedule, threshold and currency aren't published ${cite(1)}.`, FORA_CELLS.money],
+  [`2024 partners got analytics on how Perplexity cites them ${cite(3)}. No Comet Plus statement format is published ${cite(1, 2)}.`, `Each sale, with its signed offer and the agent's signed acceptance, in your Exchange operator's console (FORA Server's shows gross, fee and net). No protocol call returns your sales ${cite(20)}.`],
+  [`No dispute process is published. Publishers' disagreements with Perplexity have gone to court; see <a href="#legal">For legal</a> ${cite(9, 16, 17)}.`, FORA_CELLS.disputes],
+]);
+
+const WORKS_TODAY = [
+  { title: 'Run both.', text: 'Your <code>fora.json</code> names your FORA Exchanges. Your Perplexity deal stays a private contract. Check it for exclusivity first; see <a href="#legal">For legal</a>.' },
+  { title: 'Choose which Perplexity crawler gets in.', text: `On the paths you license, FORA's edge function refuses Perplexity-User without a signed link, as it does every bot that fetches a page because a user asked (${a('/components/edge-function/bot-detection/', 'Bot detection')}). It refuses PerplexityBot there too by default. If Perplexity sends you readers, let PerplexityBot in; it then reads those pages free. How either choice changes your Comet Plus share isn't public.` },
+];
+
+const TODO = [
+  { title: 'Ask whether Comet Plus still pays.', text: 'It isn\'t on Perplexity\'s pricing page or plan guide as of 2026-11-15, and whether it still pays out isn\'t public. Ask before you plan on it.' },
+  { title: 'Ask how your share is computed.', text: 'Ask for your counts of human visits, search citations and agent actions each period, the weight on each, and the pool total. Without them you can\'t recompute your share.' },
+  { title: 'Ask what the pool holds.', text: `Digiday reported that Pro and Max revenue is pooled; Press Gazette reported "$5 from the more expensive Pro and Max subscriptions" (${a(X.pressGazette, 'Press Gazette')}, published 2025-10-02). Ask which.` },
+  { title: 'Ask how a subscriber gets past your paywall.', text: 'Perplexity doesn\'t document it, so ask before your team estimates the work.' },
+  { title: 'Ask how Comet\'s visits show in your numbers.', text: 'Perplexity doesn\'t document which user agent Comet sends. Ask whether its visits count as human pageviews in your analytics and ad reporting, and how to tell them apart. Ask your ad partners too.' },
+  { title: 'Read the contract for limits and exclusivity.', text: 'See <a href="#legal">For legal</a>.' },
+  { title: 'Set your crawler rules.', text: 'Decide whether PerplexityBot reads your licensed pages, which FORA\'s edge refuses by default (see <a href="#search-traffic">Search traffic</a>). Keep Perplexity\'s published IP ranges current in your firewall.' },
+  { title: 'Sell to other agents as well.', text: `Name your FORA Exchanges in <code>fora.json</code> and set your price per resource. For fees, see <a href="#about">About FORA</a>.` },
+];
+
+const LEGAL = [
+  { title: 'No standard agreement.', text: 'Joining is an email and a private contract. Perplexity publishes no standard agreement.' },
+  { title: 'Use in answers.', text: `CNN's complaint names "limits on Perplexity's use of CNN content in its answers to users" among the issues CNN and Perplexity couldn't agree on (${a(X.cnn, 'CNN\'s complaint')}, ¶47). Settle how Perplexity may use your content in answers.` },
+  { title: 'Exclusivity.', text: 'Whether a Comet Plus contract limits licensing the same content to other AI companies isn\'t public. Check yours before you set FORA terms for the same uses.' },
+  { title: 'Disputes.', text: `Perplexity publishes no dispute process. Publishers' disagreements with Perplexity have gone to court as copyright suits: CNN, The New York Times and Dow Jones, among others, have sued it ${cite(9, 16, 17)}.` },
+];
+
+const TIMELINE = [
+  { title: 'July 2024: an ad-revenue share.', text: `The Publishers' Program shared ad revenue "when Perplexity earns revenue from an interaction where a publisher's content is referenced" (${a(X.program, 'Publishers\' Program')}). Of that ad share, Chan told Digiday in August 2025: "we are not disclosing any of those numbers." Asked whether checks had gone out to publishers, she said: "Checks have gone out."` },
+  { title: 'From the end of 2025: no ads.', text: `The Financial Times reported, as Gigazine relayed, that Perplexity would phase out its ads from the end of 2025 ${cite(14)}.` },
+  { title: 'October 2025: CNN, a launch partner.', text: `CNN's deal began as a term sheet, "with an agreement to finalize the contract within sixty days" (¶46) ${cite(16)}. Perplexity's partner page listed CNN as a launch partner from 2025-10-02 until at least 2025-12-04 (${a(X.archive, 'Internet Archive, capture of 2025-12-04')}).` },
+  { title: 'November 2025: the term sheet ends.', text: `CNN's complaint says the term sheet never became a contract, over issues that include limits on use in answers (see <a href="#legal">For legal</a>). It says the two agreed to end the term sheet on 2025-11-24 (¶47) ${cite(16)}.` },
+  { title: 'May 2026: CNN sues.', text: 'CNN sued Perplexity on 2026-05-28.' },
+  { title: 'November 2026: off the pricing page.', text: `On 2026-11-15, Perplexity's ${a(X.pricing, 'pricing page')} and ${a(X.plans, 'plan guide')} don't list Comet Plus, and no announcement of its end was found.` },
+];
+
+// The SourceList, numbered in order of first citation: an entry's position,
+// counted across the groups, is the N in cite(N).
+const SOURCES = [
+  {
+    name: 'Perplexity',
+    items: [
+      { title: 'Introducing Comet Plus', publisher: 'Perplexity', href: X.comet, checked: '2026-11-15' },
+      { title: 'Announcing Comet Plus launch partners', publisher: 'Perplexity', href: X.partners, checked: '2026-11-14' },
+      { title: 'Introducing the Perplexity Publishers\' Program', publisher: 'Perplexity', href: X.program, checked: '2026-11-14' },
+      { title: 'Pricing', publisher: 'Perplexity', href: X.pricing, checked: '2026-11-15' },
+      { title: 'Perplexity Crawlers', publisher: 'Perplexity', href: X.crawlers, checked: '2026-11-15' },
+      { title: 'How does Perplexity follow robots.txt?', publisher: 'Perplexity', href: X.robots, checked: '2026-11-15' },
+      { title: 'Bullying is not innovation', publisher: 'Perplexity', href: X.bullying, checked: '2026-11-14' },
+      { title: 'Signing-key directory address (returns HTTP 404)', publisher: 'Perplexity', href: X.keys, checked: '2026-11-15' },
+      { title: 'About the Dow Jones lawsuit', publisher: 'Perplexity', href: X.dowJones, checked: '2026-11-14' },
+      { title: 'API Terms of Service - Search Service', publisher: 'Perplexity', href: X.searchApi, checked: '2026-11-14' },
+      { title: 'Which Perplexity Subscription Plan is right for you?', publisher: 'Perplexity', href: X.plans, checked: '2026-11-15' },
+      { title: 'Terms of Service', publisher: 'Perplexity', href: X.tos, checked: '2026-11-14' },
+    ],
+  },
+  {
+    name: 'Press, filings and others',
+    items: [
+      { title: 'How Perplexity\'s new revenue model works, according to its head of publisher partnerships', publisher: 'Digiday', href: X.digiday, checked: '2026-11-14' },
+      { title: 'Perplexity will phase out ads introduced in 2024 from the end of 2025', publisher: 'Gigazine', href: X.gigazine, checked: '2026-11-14' },
+      { title: 'Media Briefing: Here are the hurdles to Perplexity\'s pitch as the publisher-friendly LLM', publisher: 'Digiday', href: X.hurdles, checked: '2026-11-14' },
+      { title: 'Cable News Network, Inc. v. Perplexity AI, Inc., complaint', publisher: 'U.S. District Court for the Southern District of New York', href: X.cnn, checked: '2026-11-14' },
+      { title: 'Form 10-Q for the quarter ended September 30, 2026', publisher: 'The New York Times Company', href: X.nyt, checked: '2026-11-14' },
+      { title: 'Perplexity launches AI subscription revenue-share scheme for publishers', publisher: 'Press Gazette', href: X.pressGazette, checked: '2026-11-14' },
+      { title: 'Announcing Comet Plus launch partners, capture of 2025-12-04', publisher: 'Internet Archive', href: X.archive, checked: '2026-11-14' },
+    ],
+  },
+  {
+    name: 'FORA',
+    items: [
+      { title: 'Publisher onboarding', publisher: 'FORA documentation', href: '/getting-started/publisher-onboarding/', checked: '2026-11-15' },
+      { title: 'What is FORA?', publisher: 'FORA documentation', href: '/getting-started/what-is-fora/', checked: '2026-11-15' },
+      { title: 'Bot detection', publisher: 'FORA documentation', href: '/components/edge-function/bot-detection/', checked: '2026-11-15' },
+      { title: 'Changelog', publisher: 'FORA documentation', href: '/reference/changelog/', checked: '2026-11-15' },
+      { title: 'Licensing terms', publisher: 'FORA documentation', href: '/protocol/licensing-terms/', checked: '2026-11-15' },
+      { title: 'Broker', publisher: 'FORA documentation', href: '/components/broker/overview/', checked: '2026-11-15' },
+      { title: 'Authentication', publisher: 'FORA documentation', href: '/protocol/authentication/', checked: '2026-11-15' },
+    ],
+  },
+];
+---
+<LandingLayout
+  title="Perplexity Comet Plus, and FORA — FORA resources"
+  description="How Perplexity says Comet Plus pays publishers from its subscription revenue, where the program stands, what it asks of your site, where it is ahead of FORA, and how a publisher can run both on one site."
+>
+  <AudienceHero
+    current="resources"
+    badge={`Resources · ${a('/resources/content-marketplaces/', 'Content marketplaces')} · Perplexity`}
+    title="Perplexity says Comet Plus pays the publishers it signs. <em>With FORA, any AI company can buy at your price.</em>"
+    sub="Comet Plus is Perplexity's own program. It shares subscription revenue with the publishers Perplexity signs, by how Perplexity's products use their sites. FORA lets any AI agent buy each access at the price you set, and records each sale."
+    updated={resourceUpdated(HREF)}
+  >
+    <a href="#ahead" class="btn btn-primary">Where Perplexity is ahead</a>
+    <a href="#together" class="btn btn-ghost">Run both</a>
+  </AudienceHero>
+
+  <Band tone="near" id="glance" label="At a glance" title="Perplexity and FORA, side by side" lead="The facts a revenue team and an engineering lead act on.">
+    <GlanceCard vendor="Perplexity Comet Plus" groups={GLANCE} />
+  </Band>
+
+  <Band label="The short answer" title="Perplexity buys for itself. FORA lets any agent buy.">
+    <CardGrid items={SHORT_ANSWER} />
+    <Callout kind="define" {...DEFINITIONS.exchange} />
+  </Band>
+
+  <Band tone="light" label="How Comet Plus is meant to pay you" title="From a subscriber's payment to your share, in seven steps" lead="Comet is Perplexity's browser, and Comet Assistant is its AI helper. Comet Plus is the subscription whose revenue Perplexity shares with the publishers it signs. As Perplexity describes it:">
+    <Split aside="1.45fr">
+      <Figure
+        src={`${IMG}/perplexity-1.png`}
+        title="How Comet Plus is built to pay, as Perplexity describes it."
+        alt="Subscribers pay for Comet Plus ($5, or included in Pro and Max); the subscription revenue becomes a pool, minus a small portion for compute, which Perplexity splits, a share each, among the publishers it signs, by weights per partner that are not public, over human visits, search citations and agent actions counted in its own products. The statement format is not public."
+      />
+      <StepList slot="aside" items={PAY_STEPS} />
+    </Split>
+  </Band>
+
+  <Band tone="near" compact label="Comet Plus in four numbers">
+    <KeyFacts items={KEY_FACTS} />
+  </Band>
+
+  <Band id="paid-so-far" label="Who has been paid so far" title="Perplexity names its partners. No publisher has confirmed a Comet Plus payment.">
+    <PullQuote
+      quote="Real cash payments starting immediately, and obviously set to grow every month as our Pro and Max subscribers increase."
+      who="Jessica Chan, Perplexity, on Comet Plus, to Digiday in August 2025"
+      source="How Perplexity's new revenue model works, according to its head of publisher partnerships"
+      href={X.digiday}
+    />
+    <p class="prose" set:html={`Perplexity names its partners, from TIME and Der Spiegel in 2024 to Condé Nast, Le Monde and The Washington Post as Comet Plus launch partners (${a(X.partners, 'launch partners')}). No count of Comet Plus participants or subscribers is published. No publisher has confirmed a Comet Plus payment in any source found. The 2024 ad share is in the <a href="#background">background</a> at the end of the page.`} />
+  </Band>
+
+  <Band tone="light" label="What it takes on your site" title="Crawler rules, and an open question about your paywall" lead={`No partner integration guide was found as of 2026-11-15. Perplexity's technical guidance for site owners is its ${a(X.crawlers, 'crawler page')} and its ${a(X.robots, 'robots.txt help article')}. Perplexity's docs ask for no DNS change and no code on your CDN. Two things aren't documented: which user agent Comet sends, and how your paywall lets a Comet Plus subscriber in.`}>
+    <Split aside="380px">
+      <Callout kind="engineers" collapse="Show the five points" points={ENGINEERS} />
+      <Figure
+        slot="aside"
+        src={`${IMG}/perplexity-2.png`}
+        title="Three ways Perplexity reaches your pages, and where you decide."
+        alt="Your robots.txt stands apart from the request path: it is honored by the bot, not enforced. PerplexityBot, the search crawler, follows it (a change may take up to 24 hours), Perplexity-User generally ignores it, and Comet's user agent isn't documented. On the request path, your CDN firewall lets PerplexityBot in by an allow rule matching its user agent and IP ranges, and the FORA edge function refuses it by default, a list you can change; your firewall is where you stop Perplexity-User, and the edge refuses it without a signed link; Comet's user agent isn't documented, and it passes the edge as a reader."
+      />
+    </Split>
+    <Callout kind="define" {...DEFINITIONS.edgeFunction} />
+  </Band>
+
+  <Band tone="near" label="What can go wrong" title="In Perplexity's own docs">
+    <Callout kind="caution" points={CAUTIONS}>
+      <PullQuote
+        small
+        quote="[Perplexity-User] generally ignores robots.txt rules."
+        who="Perplexity, on the crawler that fetches for a user"
+        source="Perplexity Crawlers"
+        href={X.crawlers}
+      />
+    </Callout>
+    <Callout kind="search" id="search-traffic" text={SEARCH_FORA.text} links={SEARCH_FORA.links}>
+      <p>PerplexityBot builds Perplexity's search index, and it follows robots.txt. How refusing it changes your Comet Plus share isn't public.</p>
+    </Callout>
+  </Band>
+
+  <Band id="ahead" label="Where Perplexity is ahead" title="What Perplexity does that FORA doesn't">
+    <PointList items={AHEAD} />
+  </Band>
+
+  <Band tone="light" label="The differences, question by question" title="Eight questions a publisher asks of any licensing deal" lead="Perplexity runs one buyer's licensing program, and FORA is a protocol for many buyers and sellers. The first four rows compare things Perplexity doesn't set out to do for other AI companies. On the last four, Perplexity is ahead on a set pool and a smaller documented ask of your site. FORA is ahead on setting your own price and on a signed record per sale.">
+    <Callout kind="define" {...DEFINITIONS.broker} />
+    <div class="table-gap"><CompareTable vendor="Perplexity Comet Plus" rows={COMPARE} /></div>
+    <p class="prose">The two compete for how you license Perplexity's use of your content. They compose on your site, where you choose what each Perplexity crawler gets.</p>
+  </Band>
+
+  <Band tone="near" id="together" label="How FORA works with Perplexity" title="Both on one site today">
+    <h3 class="sub-h">Works today <StatusTag status="live" /></h3>
+    <PointList items={WORKS_TODAY} />
+    <h3 class="sub-h">Doesn't fit</h3>
+    <p class="prose" set:html={`<b>Comet Plus as a marketplace for FORA agents.</b> A FORA Broker presents offers that a seller signs. Perplexity licenses no partner's article to other AI companies. Its Search API sells results that its terms say are "sourced from the public internet", and the customer doesn't own them (${a(X.searchApi, 'Search API terms')}). There is no signed license offer to present.`} />
+    <p class="prose" set:html={'<b>Paying FORA sales through Comet Plus.</b> Perplexity offers no payment service to anyone else (none found as of 2026-11-14). It allocates the pool from its own traffic counts.'} />
+  </Band>
+
+  <Band label="What to do" title="If you're in Comet Plus, or weighing it">
+    <PointList numbered items={TODO} />
+    <Callout kind="legal" id="legal" points={LEGAL} />
+  </Band>
+
+  <Band tone="light" id="background" label="Background: Perplexity's programs and CNN's case" title="From an ad share in 2024 to a lawsuit in 2026" asideWidth="400px" asideAlign="start">
+    <PointList slot="intro" items={TIMELINE} />
+    <Figure
+      slot="aside"
+      src={`${IMG}/perplexity-3.png`}
+      title="Perplexity's programs and CNN's case, 2024 to today."
+      alt="Perplexity's Publishers' Program shared ad revenue from July 2024, Comet Plus ($5, or in Pro and Max) followed in 2025, the FT reported that ads would be phased out from the end of 2025, and in November 2026 Comet Plus is not on the pricing page. CNN was listed as a launch partner from October 2, 2025, the term sheet ended on November 24, 2025, and CNN sued Perplexity on May 28, 2026."
+    />
+  </Band>
+
+  <Band tone="near" compact id="sources" label="Sources">
+    <p class="note" set:html={`Claims about Perplexity checked 2026-11-14 against Perplexity's own pages, docs and terms, CNN's complaint, archived copies of Perplexity's partner page, and the trade press named in the text. Perplexity's crawler page, robots.txt help article, pricing page, plan guide, Comet Plus announcement and signing-key directory re-checked 2026-11-15. Perplexity can change its offerings "at any time" under its ${a(X.tos, 'terms of service')}.`} />
+    <SourceList groups={SOURCES} compact numbered />
+  </Band>
+
+  <Band id="about">
+    <Callout kind="about" points={ABOUT_FORA} columns />
+    <SeriesNav current={HREF} />
+  </Band>
+
+  <ClosingCta
+    title="Set your own price <em>for AI access</em>"
+    text="FORA is an open protocol: you set terms and a price per resource, and the Exchange signs each offer."
+  >
+    <a href="/getting-started/what-is-fora/" class="btn btn-primary">What is FORA?</a>
+    <a href="/protocol/licensing-terms/" class="btn btn-ghost">Licensing terms</a>
+    <a href="/resources/content-marketplaces/" class="btn btn-ghost">All content marketplaces</a>
+  </ClosingCta>
+</LandingLayout>
+
+<style>
+  /* Prose between components, and the sub-headings of "How FORA works with
+     Perplexity", which carry a StatusTag. The same few lines as on the
+     TollBit page. */
+  .prose { color: var(--lp-text); line-height: 1.65; max-width: 44rem; }
+  .prose + .prose { margin-top: 1rem; }
+  :global(*) + .prose { margin-top: 1.25rem; }
+  .prose :global(a) { color: var(--lp-link); }
+  .prose :global(b) { color: var(--lp-strong); font-weight: 600; }
+  .sub-h { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 3rem 0 0; color: var(--lp-heading); font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; }
+  .sub-h :global(.status-tag) { top: 0; }
+  .table-gap { margin-top: 2.5rem; }
+  .table-gap + .prose { margin-top: 2rem; }
+  .note { max-width: 52rem; color: var(--lp-muted); font-size: 0.9375rem; line-height: 1.6; }
+  .note :global(a) { color: var(--lp-link); }
+  /* Band's lead doesn't colour links; this page's leads hold two. */
+  :global(.band-lead a) { color: var(--lp-link); }
+  :global(#paid-so-far), :global(#background), :global(#sources) { scroll-margin-top: 5rem; }
+</style>
