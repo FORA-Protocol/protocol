@@ -84,13 +84,13 @@ const GLANCE = glanceGroups({
     `Your agreement with your Exchange operator. Your terms go into each offer the Exchange signs ${cite(26, 27)}. Disputes: see <a href="#about">About FORA</a>.`,
   ],
   status: [
-    `${statusTag('live')} A publisher reports revenue ${cite(37)}. No TollBit page names a big AI company as a buyer.`,
+    `${statusTag('live')} A publisher reports revenue ${cite(36)}. No TollBit page names a big AI company as a buyer.`,
     `${statusTag('live')} ${SEE_ABOUT}`,
   ],
   dns: [`A TXT record, and an NS record that hands a subdomain to TollBit ${cite(7)}.`, `No record to add ${cite(26)}.`],
   cdn: [
     `One forwarding rule for 69 AI user agents ${cite(8)}. Guides for 12 platforms ${cite(9)}.`,
-    'FORA\'s edge function, a drop-in: about 10 minutes on a CDN, about 30 minutes with AWS Amplify. The rest depends on your own setup; FORA adds to what you run rather than replacing it.',
+    'A drop-in edge function. The rest depends on your own setup; FORA adds to what you run rather than replacing it.',
   ],
   firewall: [
     `An allow rule for TollBit's fetcher in every layer ${cite(7)}.`,
@@ -106,7 +106,7 @@ const GLANCE = glanceGroups({
   ],
   upkeep: [
     `On most platforms, update the bot list by hand each quarter ${cite(10)}.`,
-    `Change your Exchanges by editing your FORA file, with nothing to redeploy ${cite(29)}. Two breaking wire-format releases in October 2026 ${cite(30)}.`,
+    `Change your Exchanges by editing your FORA file, with nothing to redeploy ${cite(29)}.`,
   ],
   leaving: [`No offboarding page. You can end the terms only with no active license ${cite(5)}.`, FORA_CELLS.leaving],
 });
@@ -129,7 +129,7 @@ const PAID_STEPS = [
 const KEY_FACTS = [
   { value: '1,000 pages', text: `The unit you set each rate in, per license type ${cite(3)}` },
   { value: '5 minutes', text: `How long a buyer's pass for one URL lasts. It works once ${cite(2)}` },
-  { value: 'Nearly 20%', text: `Of TollBit's nearly 7,000 sites had earned money by April 2026. The CEO's figure, unaudited ${cite(38)}` },
+  { value: 'Nearly 20%', text: `Of TollBit's nearly 7,000 sites had earned money by April 2026. The CEO's figure, unaudited ${cite(37)}` },
   { value: '37 million', text: `"content transactions" TollBit handled in Q2 2025, by its own count. It doesn't say how many were paid ${cite(13)}` },
 ];
 
@@ -159,24 +159,24 @@ const AHEAD = [
 
 const COMPARE = compareRows([
   [`Nowhere on your site. A forwarded bot gets a 402 by default; your rates live in TollBit's dashboard ${cite(3, 21)}.`, `Your <code>fora.json</code> names the Exchanges that sell your content, and you set terms with each ${cite(27)}.`],
-  [`TollBit's search, which covers sites across the web and flags its own network ${cite(11)}. How the index is built isn't documented.`, `From your file and your Exchange, or through a Broker ${cite(27, 32)}. No index spans the network.`],
-  [`Bots: by user agent, from a list of 69 ${cite(8)}. Buyers: a TollBit account, bound into each pass, which only TollBit can check ${cite(1, 2, 4)}.`, `A signature on each request, checked against the buyer's published key ${cite(33)}. The edge also matches the names bots send ${cite(28)}.`],
-  [`A pass for one URL, five minutes, one use, checked by TollBit alone ${cite(2, 4)}.`, `A signed link that expires and can be bound to the agent's key. Any edge with the Exchange's public key can check it ${cite(27, 34)}.`],
-  [`You: per 1,000 pages, per license type, by bot, page, keyword, time and directory. US dollars ${cite(2, 3)}.`, `You: free, per unit (pages, text tokens, seconds or your own) or flat, limited by use, country and buyer type, with caps. A currency per price ${cite(27, 31)}.`],
+  [`TollBit's search, which covers sites across the web and flags its own network ${cite(11)}. How the index is built isn't documented.`, `From your file and your Exchange, or through a Broker ${cite(27, 31)}. No index spans the network.`],
+  [`Bots: by user agent, from a list of 69 ${cite(8)}. Buyers: a TollBit account, bound into each pass, which only TollBit can check ${cite(1, 2, 4)}.`, `A signature on each request, checked against the buyer's published key ${cite(32)}. The edge also matches the names bots send ${cite(28)}.`],
+  [`A pass for one URL, five minutes, one use, checked by TollBit alone ${cite(2, 4)}.`, `A signed link that expires and can be bound to the agent's key. Any edge with the Exchange's public key can check it ${cite(27, 33)}.`],
+  [`You: per 1,000 pages, per license type, by bot, page, keyword, time and directory. US dollars ${cite(2, 3)}.`, `You: free, per unit (pages, text tokens, seconds or your own) or flat, limited by use, country and buyer type, with caps. A currency per price ${cite(27, 30)}.`],
   [`Through Stripe, monthly. You keep your full rate; the buyer pays an unpublished fee on top ${cite(1, 3)}.`, FORA_CELLS.money],
   [`Daily bot analytics, and each sale: agent, page, price ${cite(3, 4)}.`, `Each sale, in the publisher console your Exchange operator runs ${cite(26, 27)}. No protocol call returns your sales.`],
   [`No dispute call, and no charge without a delivered page ${cite(1)}. Then New York courts, or arbitration with TollBit ${cite(5, 6)}.`, FORA_CELLS.disputes],
 ]);
 
 const BOTH_STEPS = [
-  { title: 'FORA\'s buyers skip TollBit\'s rule.', text: `Your FORA file, and requests that carry a FORA signed link, skip TollBit's rule. Test for the link's signature and expiry (${a('/components/edge-function/signed-url-verification/', 'Signed URL verification')}). FORA's edge function then checks the link and serves the page from your origin.` },
+  { title: 'FORA\'s buyers skip TollBit\'s rule.', text: `Your FORA file, and requests that carry a FORA signed link, skip TollBit's rule. The rule looks for the link's signature and expiry (${a('/components/edge-function/signed-url-verification/', 'Signed URL verification')}). FORA's edge function then checks the link and serves the page from your origin.` },
   { title: 'TollBit\'s own fetcher goes to your origin.', text: `FORA's edge function refuses user agents with a word ending in "bot" on the paths you license, and <code>tollbot/1.0</code> is one. Add it to the edge function's allow list, beside your search crawlers (FORA Server's ${a(T.edgeConfig, 'edge configuration')}).` },
   { title: 'Other AI bots get FORA\'s refusal or TollBit\'s paywall,', text: 'path by path.' },
   { title: 'Readers go to your origin.', text: '' },
 ];
 
 const TODO = [
-  { title: 'Ask what a buyer pays.', text: 'You keep your full rate. The fee on top is TollBit\'s, and it isn\'t published, so ask what a buyer pays in total for a page at your rate.' },
+  { title: 'Ask what a buyer pays.', text: 'You keep your full rate. The fee on top is TollBit\'s, and it isn\'t published, so ask what a buyer pays in total for a page at your rate. FORA itself is free, open-source software.' },
   { title: 'Read the license you accept.', text: `Activating rates accepts TollBit's standard license, warranty included (${a(T.settingRates, 'Setting rates')}). Send the points below to legal.` },
   { title: 'Count what you hand over.', text: 'A subdomain under your name, and your HTTP logs, with your readers\' requests in them. On most platforms your engineers also update the bot list by hand each quarter.' },
   { title: 'Check your rule order.', text: 'Let TollBit\'s fetcher through, and keep its rule off FORA links.' },
@@ -234,7 +234,6 @@ const SOURCES = [
       { title: 'What is FORA?', publisher: 'FORA documentation', href: '/getting-started/what-is-fora/', checked: '2026-11-15' },
       { title: 'Bot detection', publisher: 'FORA documentation', href: '/components/edge-function/bot-detection/', checked: '2026-11-15' },
       { title: 'Edge function', publisher: 'FORA documentation', href: '/components/edge-function/overview/#forajson-and-rsltxt-pass-through', checked: '2026-11-15' },
-      { title: 'Changelog', publisher: 'FORA documentation', href: '/reference/changelog/', checked: '2026-11-15' },
       { title: 'Licensing terms', publisher: 'FORA documentation', href: '/protocol/licensing-terms/', checked: '2026-11-15' },
       { title: 'Broker', publisher: 'FORA documentation', href: '/components/broker/overview/', checked: '2026-11-15' },
       { title: 'Authentication', publisher: 'FORA documentation', href: '/protocol/authentication/', checked: '2026-11-15' },
@@ -345,7 +344,7 @@ const SOURCES = [
   <Band tone="near" id="together" label="Running both" title="Both on one site today. TollBit's rates behind a Broker, as a design." asideWidth="400px" asideAlign="start">
     <Fragment slot="intro">
       <h3 class="sub-h">On one site <StatusTag status="live" /></h3>
-      <p class="prose" set:html={`TollBit's docs ask "Can I use another AI marketplace like TollBit in parallel?" The answer: "Yes, this is dependent on how you set up your log exports and bot redirect policies" (${a(T.architecture, 'Platform architecture')}). Order your CDN rules like this. You write the order yourself; FORA ships no combined rule for TollBit.`} />
+      <p class="prose" set:html={`TollBit's docs ask "Can I use another AI marketplace like TollBit in parallel?" The answer: "Yes, this is dependent on how you set up your log exports and bot redirect policies" (${a(T.architecture, 'Platform architecture')}). Order your CDN rules like this.`} />
       <StepList items={BOTH_STEPS} />
       <p class="prose" set:html={`On Cloudflare Enterprise, "Snippets execute earlier in Cloudflare's traffic sequence than Worker routes", so TollBit's rule runs first. On other plans "CloudFlare only runs one Worker per route", so your engineers combine TollBit's rule and FORA's edge function in one Worker (${a(T.cloudflare, 'Cloudflare')}; ${a('/components/edge-function/composition/', 'Composition')}).`} />
       <Callout kind="define" {...DEFINITIONS.edgeFunction} />
@@ -381,9 +380,10 @@ const SOURCES = [
 
   <ClosingCta
     title="Set your own terms <em>for AI agents</em>"
-    text="FORA is an open protocol: you set terms and a price per resource, and the Exchange signs each offer."
+    text="FORA is an open protocol and free, open-source software. Sell through any FORA marketplace, several of them, or your own: you set terms and a price per resource, and each Exchange signs your offers."
   >
     <a href="/getting-started/what-is-fora/" class="btn btn-primary">What is FORA?</a>
+    <a href="/getting-started/existing-marketplace/" class="btn btn-ghost">Run your own marketplace</a>
     <a href="/resources/content-marketplaces/" class="btn btn-ghost">All content marketplaces</a>
     <a href="/protocol/licensing-terms/" class="btn btn-ghost">Licensing terms</a>
   </ClosingCta>

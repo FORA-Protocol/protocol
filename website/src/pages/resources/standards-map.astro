@@ -60,7 +60,7 @@ const STANDARDS = [
   { name: 'AIPREF', href: S.aipref, job: '<b>Declare terms:</b> a preference about AI training and AI use', status: `IETF working-group draft -08 (September 2026), without group consensus yet; the <code>robots.txt</code> training token is an individual draft ${cite(4, 5)}`, users: `Anthropic has recognized the training token since October 30, 2026; Microsoft from February 1, 2027; Google intends to in early 2027; OpenAI "will honor" it ${cite(6, 7, 8, 9)}` },
   { name: 'TDMRep', href: S.tdmrep, job: '<b>Declare terms:</b> reserve text-and-data-mining rights', status: `W3C Community Group final report (2024), "not a W3C Standard" ${cite(11)}`, users: `More than 50 adopters on the group's own list, among them Hachette Livre, Elsevier, Springer Nature, Wiley and Radio France ${cite(12)}` },
   { name: 'RSL', href: S.rsl, job: '<b>Declare terms</b> and <b>transact:</b> state license terms and prices; issue license tokens through a license server', status: `RSL 1.0, a Recommendation of RSL's Technical Steering Committee, December 2025 ${cite(14, 15)}`, users: `More than 3,000 supporters, says ILC (November 2026); one AI company licensed through ILC, Yahoo Scout ${cite(16)}` },
-  { name: 'IAB Tech Lab CoMP', href: S.comp, job: '<b>Declare terms:</b> describe content, its price and where its license is, for a marketplace API', status: `IAB Tech Lab, final V1, April 2026 ${cite(21)}`, users: `FORA maps it field for field ${cite(22)}` },
+  { name: 'IAB Tech Lab CoMP', href: S.comp, job: '<b>Declare terms:</b> describe content, its price and where its license is, for a marketplace API', status: `IAB Tech Lab, final V1, April 2026 ${cite(21)}`, users: `FORA carries CoMP: its fields travel whole on each FORA offer ${cite(22)}` },
   { name: 'llms.txt', href: S.llms, job: '<b>Help discovery:</b> a curated index for AI readers', status: `A proposal by Jeremy Howard, v2 August 2026; no standards body ${cite(31)}`, users: `"thousands of sites publish an llms.txt file", by its author's count ${cite(31)}` },
   { name: 'Web Bot Auth', href: S.wba, job: '<b>Identify the caller:</b> a signature on each agent request', status: `IETF working-group draft, October 2026 ${cite(32)}`, users: `ChatGPT Work's cloud browser signs with it ${cite(33)}. Cloudflare verifies, and FORA agents sign, under two different earlier drafts ${cite(23, 34)}` },
   { name: 'MCP', href: S.mcp, job: '<b>Connect:</b> how an agent calls a tool or a seller', status: `The Agentic AI Foundation, under the Linux Foundation; revision of July 28, 2026 ${cite(35, 36)}`, users: `Cashmere, AskNews and Newstex sell content through MCP servers; FORA's Identity Service is one ${cite(22, 37, 38, 39)}` },
@@ -95,14 +95,6 @@ const TODO = [
 const LEGAL = [
   { title: 'Formed by conduct.', text: `Under the contract, "agreement is formed through conduct, simply by accessing" the site ${cite(63)}.` },
   { title: 'Law.', text: `Under the law of England and Wales, the fee is "a contractual debt which becomes immediately due" ${cite(63)}. Whether it holds where you publish is a question for your lawyer.` },
-];
-
-const AHEAD = [
-  { title: 'Legal representations, in fields.', text: `RSL carries warranties as vocabulary of its own: ownership, authority, non-infringement, privacy consent, no malware. It carries disclaimers too, no liability and no indemnity among them ${cite(14)}. In a negotiated license these clauses sit in the contract's prose; RSL puts them where software can read them. FORA handles them the way RSL handles Creative Commons: by reference to a governing document, pinned by its digest, a fingerprint of the document ${cite(28)}. Each approach keeps something the other gives up. A field is machine-readable and narrow; a pinned document is complete and opaque. RSL can state a warranty of ownership in a field of its own; FORA can't.` },
-  { title: 'Terms inside the file, and terms that enforce themselves.', text: `RSL can embed the license in the file itself, in XMP, ID3 or EPUB metadata, so an EPUB carries its license into any hands, with no counterparty involved at all. Its encrypted-media option makes access possible "only for clients holding a valid License Token" ${cite(14)}. Misuse is then mechanically impossible, not something to argue under a contract. FORA enforces access at the edge, with a signed link, and the terms after delivery by reconciling the records of each sale ${cite(22)}.` },
-  { title: 'A sale without an Exchange.', text: `An RSL file can name a license server that issues a token for the license a client picks, and can name x402 as the way to pay ${cite(14)}. FORA leaves money to the Exchange operator, which bills the buyer, and its protocol names no payment rail ${cite(22)}.` },
-  { title: 'A description of the content.', text: `CoMP describes what is being sold: its category, its provenance, its word count, and whether a human, a model or both produced it ${cite(20)}. FORA's core has no field for any of it; it carries CoMP's fields whole on each offer ${cite(22)}. CoMP also splits AI use into sub-functions, among them RAG, grounding, agent view and agent actions, where FORA's use words stop at <code>ai-input</code> ${cite(20, 28)}.` },
-  { title: 'A file you write by hand.', text: `RSL's quickstart is one robots.txt line and an eleven-line XML file; a publisher can write it in a minute ${cite(17)}. FORA is a machine-validated schema that an Exchange operator implements, and the publisher sets its terms in a console.` },
 ];
 
 const DIFFER = [
@@ -339,10 +331,6 @@ const SOURCES = [
     <p class="prose" set:html={`On what you owe afterward they part. RSL's reporting rule: a client that "does not recognize or cannot comply with the profile MUST treat that activity as not licensed" ${cite(14)}. CoMP has a citation flag and a reporting address ${cite(20)}. FORA has obligations, credit and notices among them ${cite(28)}. An unknown RSL element "MUST render the document non-conformant", so one element a client doesn't know affects the whole file ${cite(14)}. A FORA agent that can't evaluate a term declines only that term ${cite(28)}.`} />
   </Band>
 
-  <Band tone="light" id="ahead" title="Where RSL and CoMP are ahead" lead="The comparison cuts both ways.">
-    <PointList items={AHEAD} />
-  </Band>
-
   <Band title="Where the three license formats differ">
     <p class="prose" set:html={`RSL's <code>&lt;standard&gt;</code> element points at a legal text elsewhere, such as a Creative Commons license ${cite(14)}. FORA incorporates by reference too, with the document's digest beside its address, so the document can't be swapped after an offer is signed ${cite(28)}.`} />
     <PointList items={DIFFER} />
@@ -410,7 +398,7 @@ const SOURCES = [
 
   <ClosingCta
     title="Declare what you sell. <em>Then make it purchasable.</em>"
-    text="Generate your robots.txt and headers, attach the search-only contract, and see what an agent would be offered for one of your pages."
+    text="Generate your robots.txt and headers, attach the search-only contract, and see what an agent would be offered for one of your pages through a FORA marketplace, which any company can run."
   >
     <a href="/resources/ai-crawlers/#generator" class="btn btn-primary">Generate your rules</a>
     <a href="/publishers/" class="btn btn-ghost">See your offers</a>

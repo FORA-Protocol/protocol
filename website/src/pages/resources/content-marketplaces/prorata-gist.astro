@@ -49,7 +49,6 @@ const P = {
   how: 'https://prorata.ai/how-it-works',
   paper: 'https://prorata.ai/resources/without-attribution-quality-content-cannot-survive',
   terms: 'https://gist.ai/terms-of-use',
-  worth: 'https://worth.com/who-pays-for-ais-inputs/',
   nma: 'https://www.newsmediaalliance.org/prorata-licensing-partnership/',
   dpcmo: 'https://dpcmo.dk/2025/12/10/prorata-partners-with-dpcmo-to-launch-the-first-decentralized-sovereign-ai-answer-engine/',
 };
@@ -73,7 +72,7 @@ const GLANCE = glanceGroups({
   dns: [`No change ${cite(3)}.`, `No record to add ${cite(9)}.`],
   cdn: [
     `No code. Cache rules must keep the feed working, and you purge the cache after a correction ${cite(3)}.`,
-    'FORA\'s edge function, a drop-in: about 10 minutes on a CDN, about 30 minutes with AWS Amplify. The rest depends on your own setup; FORA adds to what you run rather than replacing it.',
+    'A drop-in edge function. The rest depends on your own setup; FORA adds to what you run rather than replacing it.',
   ],
   firewall: [
     `An allow rule for ProRata's crawler. Its user agent and IP ranges aren't published: ask ProRata ${cite(3)}.`,
@@ -213,7 +212,6 @@ const SOURCES = [
   {
     name: 'Press, filings and others',
     items: [
-      { title: 'Who pays for AI\'s inputs?', publisher: 'Worth', href: P.worth, checked: '2026-11-14' },
       { title: 'ProRata licensing partnership', publisher: 'News/Media Alliance', href: P.nma, checked: '2026-11-14' },
       { title: 'ProRata partners with DPCMO', publisher: 'DPCMO', href: P.dpcmo, checked: '2026-11-14' },
     ],
@@ -274,7 +272,6 @@ const SOURCES = [
 
   <Band tone="light" label="Who has been paid so far" title="ProRata counts its partners and publishes no payout total">
     <p class="prose" set:html={`The Gist Answers page counts "150+" publishing partners and "1,600+" licensed titles (vendor's own data, ${a(P.answers, 'Gist Answers')}). No payout total is published.`} />
-    <p class="prose" set:html={`Worth reported on 2026-10-28 that at the FIPP Congress a ProRata representative "could not name a single publisher earning meaningful income from the system" (${a(P.worth, 'Worth')}). That is one representative at one event, in Worth's account.`} />
   </Band>
 
   <Band tone="near" label="What Gist Answers needs from your site" title="The WordPress plugin or a script tag, an open feed, and an allow rule" lead="Readers and search crawlers reach your site as today. Gist needs no DNS change and no code on your CDN, but it touches your CMS, your cache rules and your bot protection. It runs through the WordPress plugin or one script tag; how Gist ingests a site that doesn't run WordPress isn't documented as of 2026-11-15, so ask ProRata.">
@@ -345,9 +342,10 @@ const SOURCES = [
 
   <ClosingCta
     title="Set your own price <em>for AI access</em>"
-    text="FORA is an open protocol: you set terms and a price per resource, and the Exchange signs each offer."
+    text="FORA is an open protocol and free, open-source software. Sell through any FORA marketplace, several of them, or your own: you set terms and a price per resource, and each Exchange signs your offers."
   >
     <a href="/protocol/licensing-terms/" class="btn btn-primary">Licensing terms</a>
+    <a href="/getting-started/existing-marketplace/" class="btn btn-ghost">Run your own marketplace</a>
     <a href="/resources/content-marketplaces/" class="btn btn-ghost">All content marketplaces</a>
   </ClosingCta>
 </LandingLayout>

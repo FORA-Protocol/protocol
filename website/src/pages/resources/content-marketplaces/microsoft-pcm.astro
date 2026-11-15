@@ -76,7 +76,7 @@ const NP = statusTag('not-public');
 
 const GLANCE = glanceGroups({
   payer: [`Microsoft, for Copilot's use: "paid on delivered value" ${cite(1)}. When, and who pays for other buyers' use: ${NP}`, FORA_CELLS.payer],
-  fees: [NP, FORA_CELLS.fees],
+  fees: [`For Copilot's use, Microsoft is the buyer ${cite(1)}.`, FORA_CELLS.fees],
   reporting: [
     `"Usage-based reporting" ${cite(1)}. What a report contains: ${NP}`,
     `Each sale, with gross, the Exchange fee and net, in your operator's publisher console (${a(D.afterSetup, 'Publisher onboarding')}).`,
@@ -89,7 +89,7 @@ const GLANCE = glanceGroups({
   dns: [`No change documented ${cite(1, 2)}.`, `No record to add (${a(D.deployment, 'Deployment')}).`],
   cdn: [
     `No change documented ${cite(1, 2)}.`,
-    'FORA\'s edge function, a drop-in: about 10 minutes on a CDN, about 30 minutes with AWS Amplify. The rest depends on your own setup; FORA adds to what you run rather than replacing it.',
+    'A drop-in edge function. The rest depends on your own setup; FORA adds to what you run rather than replacing it.',
   ],
   firewall: [
     `No bot rule documented. What your CDN blocks stays your decision ${cite(1, 2)}.`,
@@ -218,7 +218,7 @@ const TODO = [
   { title: 'Ask how your content gets in.', text: 'Microsoft hasn\'t published the route: a feed, an API or a crawl. Ask what you send, how often, and who keeps it up to date.' },
   { title: 'Ask what the report shows.', text: `Microsoft promises insight into how content is "valued, cited, and used" ${cite(2)}. Ask for a sample report.` },
   { title: 'Ask how Bing\'s settings affect your license.', text: 'If you refuse grounding in Bing, do you lose PCM money? If you\'re in PCM, can you still refuse it? Ask before you choose a setting. The dates are under Search traffic, above.' },
-  { title: 'Sell to other agents too.', text: `Name your FORA Exchanges in <code>fora.json</code> and put a grounding term with a citation duty on your articles. For fees, ${SEE_ABOUT.replace('See', 'see')}` },
+  { title: 'Sell to other agents too.', text: `Name your FORA Exchanges in <code>fora.json</code> and put a grounding term with a citation duty on your articles. FORA itself is free, open-source software. For the publisher console's fees, ${SEE_ABOUT.replace('See', 'see')}` },
 ];
 
 const LEGAL = [
@@ -239,7 +239,7 @@ const SOURCES = [
     name: 'Microsoft',
     items: [
       { title: 'Building toward a sustainable content economy for the agentic web', publisher: 'Microsoft Advertising', href: M.launch, checked: '2026-11-14' },
-      { title: 'Publisher Content Marketplace', publisher: 'Microsoft Advertising', href: M.product, checked: '2026-11-15' },
+      { title: 'Publisher Content Marketplace', publisher: 'Microsoft Advertising, served on Microsoft\'s preview host (preview-about.ads.microsoft.com)', href: M.product, checked: '2026-11-15' },
       { title: 'Your content, your choice: clearer preferences for training and grounding', publisher: 'Bing', href: M.bing, checked: '2026-11-14' },
     ],
   },
@@ -297,7 +297,7 @@ const SOURCES = [
     <Callout kind="define" {...DEFINITIONS.edgeFunction} />
   </Band>
 
-  <Band tone="light" label="How you're paid" title={'Microsoft pays "on delivered value". The unit isn\'t published.'} lead={`For Copilot's use, Microsoft is the buyer. It says "publishers will be paid on delivered value" (${a(M.launch, 'launch post')}). The payable unit, who sets the price, the fee and when you're paid: ${NP} The six steps below run from an interest form to that payment.`} asideWidth="440px" asideAlign="start">
+  <Band tone="light" label="How you're paid" title={'Microsoft pays "on delivered value". The unit isn\'t published.'} lead={`For Copilot's use, Microsoft is the buyer. It says "publishers will be paid on delivered value" (${a(M.launch, 'launch post')}). The payable unit, who sets the price and when you're paid: ${NP} The six steps below run from an interest form to that payment.`} asideWidth="440px" asideAlign="start">
     <StepList slot="intro" items={PAID_STEPS} />
     <Figure
       slot="aside"
@@ -401,9 +401,10 @@ const SOURCES = [
 
   <ClosingCta
     title="Put a price any agent can read <em>on your content</em>"
-    text="FORA is an open protocol: you set terms and a price per resource, and the Exchange signs each offer."
+    text="FORA is an open protocol and free, open-source software. Sell through any FORA marketplace, several of them, or your own: you set terms and a price per resource, and each Exchange signs your offers."
   >
     <a href="/protocol/licensing-terms/" class="btn btn-primary">Licensing terms</a>
+    <a href="/getting-started/existing-marketplace/" class="btn btn-ghost">Run your own marketplace</a>
     <a href="/resources/content-marketplaces/" class="btn btn-ghost">All content marketplaces</a>
     <a href="/components/edge-function/deployment/" class="btn btn-ghost">What FORA takes on your CDN</a>
   </ClosingCta>

@@ -102,7 +102,7 @@ const GLANCE = glanceGroups({
   ],
   cdn: [
     `Cloudflare only ${cite(6)}.`,
-    `FORA's edge function, a drop-in: a Worker (code that runs on Cloudflare's network) or a function on CloudFront ${cite(33)}. About 10 minutes on a CDN, about 30 minutes with AWS Amplify. The rest depends on your own setup; FORA adds to what you run rather than replacing it.`,
+    'A drop-in edge function. The rest depends on your own setup; FORA adds to what you run rather than replacing it.',
   ],
   firewall: [
     `Your rules run first, so a crawler they block is never offered a price ${cite(10)}. Turn off Block AI Bots to join ${cite(11)}.`,
@@ -118,7 +118,7 @@ const GLANCE = glanceGroups({
   ],
   upkeep: [
     `Cloudflare keeps the list of crawlers you can charge ${cite(14)}. Logpush can't fill in the past, and logs are lost while a job fails ${cite(15)}.`,
-    `Two breaking wire-format releases in October 2026 ${cite(36)}. Editing your discovery file needs no redeploy ${cite(33)}.`,
+    `Change your Exchanges by editing your discovery file, with nothing to redeploy ${cite(33)}.`,
   ],
   leaving: ['The docs describe no step to turn Pay Per Crawl off, close its Stripe account or take a final payout.', FORA_CELLS.leaving],
 });
@@ -167,7 +167,7 @@ const AHEAD_FIRST = [
   { title: 'It enforces where FORA can\'t.', text: `"More than 20% of the web sits behind Cloudflare's network" (${a(C.smarter, 'Making AI search smarter')}, published 2026-07-01; vendor's own figure). A crawler you set to Charge with no billing relationship gets "the functional equivalent of a network level block" (${a(C.launch, 'launch post')}, published 2025-07-01). In July 2026, Cloudflare announced that on 2026-09-15 it would change the settings of every free customer that hadn't changed them (${a(C.press, 'press release')}). FORA's edge function refuses unlicensed AI bots only on the sites that install it.` },
 ];
 const AHEAD_REST = [
-  { title: 'It detects bots, and FORA relies on that.', text: `Cloudflare verifies a bot by its signature, a published IP list or reverse DNS (${a(C.verifiedBots, 'Verified bots')}). On your Cloudflare site, FORA's edge function trusts that verdict over its own user-agent lists, and runs after Cloudflare's protections.` },
+  { title: 'It detects bots, and FORA uses that.', text: `Cloudflare verifies a bot by its signature, a published IP list or reverse DNS (${a(C.verifiedBots, 'Verified bots')}). On your Cloudflare site, FORA's edge function gets both: Cloudflare's detection and FORA's own lists. How you deploy it is yours to decide.` },
   { title: 'It moves the money.', text: `Cloudflare is the merchant of record ${cite(1)}. In 2025 it said beta crawlers are "charged a single fee via a connected credit card or bank account at the end of each day" (${a(C.x402, 'x402 post')}, published 2025-09-23). FORA never moves money, by design. ${SEE_ABOUT}` },
   { title: 'The price travels in HTTP.', text: `A registered crawler reads the price from a 402 response and agrees to it with one signed header (${a(C.crawlPages, 'Crawl pages')}). A FORA purchase takes protocol calls, in practice through an SDK or FORA Server's Identity Service.` },
   { title: 'No code, on a site already on Cloudflare.', text: `There, one price for your site takes dashboard settings, admission to the beta, a review of your security rules and a new Stripe account. Pay Per Use needs "no origin change" ${cite(4)}. FORA needs a <code>fora.json</code> file, the edge function and an Exchange.` },
@@ -176,15 +176,15 @@ const AHEAD_REST = [
 const COMPARE = compareRows([
   [
     `Dashboard settings: allow, charge or block per listed crawler, one price, free paths ${cite(12, 13, 16)}. Preferences go in robots.txt as Content Signals, a line that states a preference with no price ${cite(30)}. Cloudflare's docs describe no license in the 402.`,
-    `A file on your site names your Exchanges ${cite(34)}. Each resource can carry several terms, up to 32: uses, buyers, places, caps, duties and a price ${cite(37)}.`,
+    `A file on your site names your Exchanges ${cite(34)}. Each resource can carry several terms, up to 32: uses, buyers, places, caps, duties and a price ${cite(36)}.`,
   ],
   [
     `A registered crawler asks Cloudflare for the domains that charge it, finds pages itself, and gets each page's price from a 402 ${cite(18, 20)}. Pay Per Use: the domains that accepted its offer ${cite(4)}.`,
-    `An agent asks your Exchange, or a Broker, which returns the signed offers whole (${a('/resources/content-marketplaces/#broker-order', 'how a Broker orders offers')}) ${cite(38)}.`,
+    `An agent asks your Exchange, or a Broker, which returns the signed offers whole (${a('/resources/content-marketplaces/#broker-order', 'how a Broker orders offers')}) ${cite(37)}.`,
   ],
   [
-    `A Web Bot Auth signature in an older draft's form, which deployed crawlers still send, plus a reviewed registration ${cite(18, 24, 41)}. On the free plan, the user agent ${cite(22)}.`,
-    `A Web Bot Auth signature in the form of the working group's first draft (-00), checked against a key on the buyer's domain ${cite(39)}.`,
+    `A Web Bot Auth signature in an older draft's form, which deployed crawlers still send, plus a reviewed registration ${cite(18, 24, 40)}. On the free plan, the user agent ${cite(22)}.`,
+    `A Web Bot Auth signature in the form of the working group's first draft (-00), checked against a key on the buyer's domain ${cite(38)}.`,
   ],
   [
     `Cloudflare's edge, per request: a verified crawler set to Charge, with a signed price ${cite(18)}. Use limits sit in robots.txt, or in each Pay Per Use program's terms ${cite(3, 4)}.`,
@@ -192,7 +192,7 @@ const COMPARE = compareRows([
   ],
   [
     `You: one price per fetch for every charged crawler, or a price per page ${cite(12, 16)}. Pay Per Use: the buyer sets a price per use; you accept or decline ${cite(4)}.`,
-    `You, per term: free, per unit (a fetch, an access, a token) or flat. One article can be free for research and paid for commercial use. No revenue-share price ${cite(37)}.`,
+    `You, per term: free, per unit (a fetch, an access, a token) or flat. One article can be free for research and paid for commercial use. No revenue-share price ${cite(36)}.`,
   ],
   [`Cloudflare charges the buyer through Stripe and pays you monthly ${cite(2)}. Its fee isn't published.`, FORA_CELLS.money],
   [
@@ -203,7 +203,7 @@ const COMPARE = compareRows([
 ]);
 
 const WORKS = [
-  { title: 'FORA\'s edge runs on Cloudflare.', text: `On Cloudflare, FORA's edge function is a Worker on a route that covers your hostname. It reads Cloudflare's verified-bot signal, and Cloudflare's protections, AI Crawl Control included, run first. So your rules must let through signed requests, your FORA and RSL files, and the Exchange's reads of your sitemap.<span class="pl-para">FORA's guide gives two setups: the edge function decides for every client on the paths you license, or your bot product stays in front and signed requests skip it (${a('/components/edge-function/bot-detection/#cloudflare', 'Bot detection')}). The edge function also runs on CloudFront, so FORA doesn't need Cloudflare's DNS.</span>` },
+  { title: 'FORA\'s edge runs on Cloudflare.', text: `On Cloudflare, FORA's edge function is a Worker on a route that covers your hostname. It gets both Cloudflare's detection, through its verified-bot signal, and FORA's own lists, and the deployment is yours. Cloudflare's protections, AI Crawl Control included, run first, so let signed requests, your FORA and RSL files, and the Exchange's reads of your sitemap through them.<span class="pl-para">FORA's guide gives two setups: the edge function decides for every client on the paths you license, or your bot product stays in front and signed requests skip it (${a('/components/edge-function/bot-detection/#cloudflare', 'Bot detection')}). The edge function also runs on CloudFront, so FORA doesn't need Cloudflare's DNS.</span>` },
   { title: 'Point every crawler at your license.', text: `Cloudflare documents a rule that adds a link to your terms or RSL license to its responses, "even when those crawlers are blocked" (${a(C.transform, 'Transform Rules')}).` },
   { title: 'Keep your signals and terms in step.', text: `Cloudflare's Markdown for Agents adds a signal allowing training when your origin sends none (${a(C.markdown, 'Markdown for Agents')}). If a FORA term forbids training, send a signal that says so.` },
 ];
@@ -211,7 +211,7 @@ const WORKS = [
 const TODO = [
   { title: 'Decide per crawler first.', text: `AI Crawl Control allows or blocks each crawler on every plan, with no beta to wait for (${a(C.getStarted, 'Get started')}).` },
   { title: 'Check your Cloudflare setup before you join.', text: `Every web hostname must run through Cloudflare's proxy. List the firewall and bot rules that would block a crawler you want to charge. Pay Per Crawl runs after Cloudflare's bot tools, so "you need to first turn off Block AI Bots" (${a(C.bots, 'AI Crawl Control with bots')}).` },
-  { title: 'Ask before you join Pay Per Crawl.', text: 'Ask for the fee, the payout threshold and which crawlers pay; none is published. Agree how often you\'ll get balance updates, and plan for a new Stripe account. For the terms and the exit, see For legal.' },
+  { title: 'Ask before you join Pay Per Crawl.', text: 'Ask for the fee, the payout threshold and which crawlers pay; none is published. FORA itself is free, open-source software. Agree how often you\'ll get balance updates, and plan for a new Stripe account. For the terms and the exit, see For legal.' },
   { title: 'Start your logs on day one.', text: 'Logpush can\'t fill in the past, so set it up before the first charge.' },
   { title: 'Sell to agents as well.', text: 'Name your FORA Exchanges in <code>fora.json</code>, set terms per resource, and run FORA\'s edge on the paths you license.' },
 ];
@@ -271,7 +271,6 @@ const SOURCES = [
       fora('Publisher onboarding', '/getting-started/publisher-onboarding/'),
       fora('What is FORA?', '/getting-started/what-is-fora/'),
       fora('Bot detection', '/components/edge-function/bot-detection/'),
-      fora('Changelog', '/reference/changelog/'),
       fora('Licensing terms', '/protocol/licensing-terms/'),
       fora('The Broker', '/components/broker/overview/'),
       fora('Authentication', '/protocol/authentication/'),
@@ -301,8 +300,8 @@ const SOURCES = [
     <a href="#together" class="btn btn-ghost">Run both</a>
   </AudienceHero>
 
-  <Band tone="near" id="glance" label="At a glance" title="Cloudflare and FORA, side by side" lead="The facts a revenue team and an engineering lead act on.">
-    <GlanceCard vendor="Cloudflare (Pay Per Crawl; Pay Per Use where it differs)" groups={GLANCE} />
+  <Band tone="near" id="glance" label="At a glance" title="Cloudflare and FORA, side by side" lead="The facts a revenue team and an engineering lead act on. Cloudflare's cells describe Pay Per Crawl, and Pay Per Use where it differs.">
+    <GlanceCard vendor="Cloudflare" groups={GLANCE} />
   </Band>
 
   <Band label="The short answer" title="Two ways to be paid for AI access">
@@ -375,10 +374,10 @@ const SOURCES = [
     <PointList items={AHEAD_REST} />
   </Band>
 
-  <Band tone="light" label="The differences" title="Eight questions a publisher asks of any licensing deal" lead="Cloudflare runs one company's exchange inside its network; FORA is a protocol for many Exchanges. The two compete as exchanges, and work together on bot detection and hosting. The price and money rows compare different things: one number per fetch against a menu of terms, and a company that moves money against a protocol that doesn't.">
+  <Band tone="light" label="The differences" title="Eight questions a publisher asks of any licensing deal" lead="Cloudflare runs one company's exchange inside its network; FORA is a protocol that any company can run an Exchange on. On your site they sell the same page, side by side, and they work together on bot detection and hosting. The price and money rows compare different things: one number per fetch against a menu of terms, and a company that moves money against a protocol that doesn't.">
     <Callout kind="define" {...DEFINITIONS.broker} />
-    <CompareTable vendor="Cloudflare (Pay Per Crawl; Pay Per Use where it differs)" rows={COMPARE} />
-    <p class="note table-foot" set:html={`FORA pins Web Bot Auth -00; the working group published -01 on 2026-10-29 ${cite(39, 41)}.`} />
+    <CompareTable vendor="Cloudflare" rows={COMPARE} />
+    <p class="note table-foot" set:html={`FORA pins Web Bot Auth -00; the working group published -01 on 2026-10-29 ${cite(38, 40)}.`} />
   </Band>
 
   <Band tone="near" id="together" label="Running both" title="Both on one site today">
@@ -406,9 +405,10 @@ const SOURCES = [
 
   <ClosingCta
     title="Set your own terms <em>for AI access</em>"
-    text="FORA is an open protocol: you set terms and a price per resource, and the Exchange signs each offer."
+    text="FORA is an open protocol and free, open-source software. Sell through any FORA marketplace, several of them, or your own: you set terms and a price per resource, and each Exchange signs your offers."
   >
     <a href="/getting-started/what-is-fora/" class="btn btn-primary">What is FORA?</a>
+    <a href="/getting-started/existing-marketplace/" class="btn btn-ghost">Run your own marketplace</a>
     <a href="/protocol/licensing-terms/" class="btn btn-ghost">Licensing terms</a>
     <a href="/resources/content-marketplaces/" class="btn btn-ghost">All content marketplaces</a>
   </ClosingCta>

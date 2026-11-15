@@ -23,11 +23,18 @@ export type StatusKey = keyof typeof STATUS;
 /** "See About FORA.", linked to the page's About FORA card. */
 export const SEE_ABOUT = 'See <a href="#about">About FORA</a>.';
 
-/** The About FORA card (Callout kind="about"): once per page, near the end. */
+/**
+ * The About FORA card (Callout kind="about"): once per page, near the end.
+ * The owner's text of the fifth round (2026-11-15), word for word.
+ */
 export const ABOUT_FORA: { title: string; text: string }[] = [
   {
-    title: 'Open source, not an operator.',
-    text: 'FORA is an open protocol and open-source software. Any company can run its own content marketplace on it as an Exchange operator, and adapt it to its own rules.',
+    title: 'Federated Open Resource Access.',
+    text: 'FORA is an open protocol and free, open-source software. Any company can run its own content marketplace on it, and every FORA marketplace works with every other.',
+  },
+  {
+    title: 'Where it runs.',
+    text: 'Gutefrage runs the whole FORA stack itself on helpster.de: its own Exchange, on its own terms.',
   },
   {
     title: 'Who runs the console.',
@@ -35,11 +42,7 @@ export const ABOUT_FORA: { title: string; text: string }[] = [
   },
   {
     title: 'Money and disputes.',
-    text: 'Money moves outside the protocol: your operator bills the buyer and pays you under its own rules. The protocol defines a dispute call, filed against a usage report, and each operator handles disputes under its own rules. FORA Server doesn\'t process disputes yet, so an operator adds that to its deployment.',
-  },
-  {
-    title: 'Where it runs.',
-    text: 'Gutefrage runs the whole FORA stack itself on helpster.de: its own Exchange, on its own terms.',
+    text: 'Money moves outside the protocol: your operator bills the buyer and pays you under its own rules. The protocol defines a dispute call, filed against a usage report, and each operator handles disputes under its own rules.',
   },
 ];
 
@@ -142,12 +145,14 @@ export function glanceGroups(cells: Record<GlanceKey, [string, string]>) {
   }));
 }
 
-/** FORA's cells that read the same on every page (settled 2026-11-15). */
+/** FORA's cells that read the same on every page (settled 2026-11-15; CDN, fifth round). */
 export const FORA_CELLS = {
   /** GlanceCard, "Who pays you, and when". */
   payer: `Your Exchange operator, under its own terms. ${SEE_ABOUT}`,
   /** GlanceCard, "Fees". */
   fees: `No Exchange fee at FORA's publisher console, beyond the payment system's. ${SEE_ABOUT}`,
+  /** GlanceCard, "CDN" (fifth round: a drop-in, no minutes). */
+  cdn: 'A drop-in edge function. The rest depends on your own setup; FORA adds to what you run rather than replacing it.',
   /** GlanceCard, "Leaving". */
   leaving: 'Delete the edge function from your CDN.',
   /** Comparison table, "How does money move?". */
@@ -183,7 +188,7 @@ export const SERIES: SeriesPage[] = [
   {
     href: '/resources/content-marketplaces/',
     title: 'Content marketplaces and FORA',
-    summary: 'Who pays publishers for AI use of their content today, how each channel works, what your engineers change for it, and how FORA works beside all of them.',
+    summary: 'Who pays publishers for AI use of their content today, how each channel works, what your engineers change for it, and how FORA, the open protocol any company can run a marketplace on, works beside all of them.',
     audience: 'Publishers',
     formats: ['Guide', 'Map'],
     updated: '2026-11-15',
@@ -227,7 +232,7 @@ export const SERIES: SeriesPage[] = [
   },
   {
     href: '/resources/content-marketplaces/perplexity/',
-    title: 'Perplexity Comet Plus, and FORA',
+    title: "Perplexity's Publishers' Program and Comet Plus, and FORA",
     summary: 'How Comet Plus is built to pay publishers from subscription revenue, what it asks of your site, and how to run both.',
     audience: 'Publishers',
     formats: ['Guide'],
