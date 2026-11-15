@@ -103,6 +103,7 @@ const hasHeader = Boolean(label || title || lead || hasAside || Astro.slots.has(
   }
   .band-lead { font-size: 1.125rem; line-height: 1.7; color: var(--lp-text); max-width: 44rem; }
   .band-lead :global(strong) { color: var(--lp-strong); font-weight: 600; }
+  .band-lead :global(a) { color: var(--lp-link); }
   .band :global(a:focus-visible) { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 
   @media (max-width: 900px) {

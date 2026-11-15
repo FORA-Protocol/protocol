@@ -187,7 +187,7 @@ export const SERIES: SeriesPage[] = [
     audience: 'Publishers',
     formats: ['Guide', 'Map'],
     updated: '2026-11-15',
-    built: false,
+    built: true,
   },
   {
     href: '/resources/content-marketplaces/tollbit/',
@@ -205,7 +205,7 @@ export const SERIES: SeriesPage[] = [
     audience: 'Publishers and engineers',
     formats: ['Guide'],
     updated: '2026-11-15',
-    built: false,
+    built: true,
   },
   {
     href: '/resources/content-marketplaces/microsoft-pcm/',
@@ -214,7 +214,7 @@ export const SERIES: SeriesPage[] = [
     audience: 'Publishers',
     formats: ['Guide'],
     updated: '2026-11-15',
-    built: false,
+    built: true,
   },
   {
     href: '/resources/content-marketplaces/prorata-gist/',
@@ -223,7 +223,7 @@ export const SERIES: SeriesPage[] = [
     audience: 'Publishers',
     formats: ['Guide'],
     updated: '2026-11-15',
-    built: false,
+    built: true,
   },
   {
     href: '/resources/content-marketplaces/perplexity/',
@@ -232,7 +232,7 @@ export const SERIES: SeriesPage[] = [
     audience: 'Publishers',
     formats: ['Guide'],
     updated: '2026-11-15',
-    built: false,
+    built: true,
   },
   {
     href: '/resources/standards-map/',
@@ -241,6 +241,6 @@ export const SERIES: SeriesPage[] = [
     audience: 'Publishers and engineers',
     formats: ['Guide', 'Table'],
     updated: '2026-11-15',
-    built: false,
+    built: true,
   },
 ];

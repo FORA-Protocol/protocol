@@ -93,8 +93,14 @@
 /reference/standards/
 /resources/
 /resources/ai-crawlers/
+/resources/content-marketplaces/
+/resources/content-marketplaces/cloudflare/
+/resources/content-marketplaces/microsoft-pcm/
+/resources/content-marketplaces/perplexity/
+/resources/content-marketplaces/prorata-gist/
 /resources/content-marketplaces/tollbit/
 /resources/music-dsp/
+/resources/standards-map/
 /resources/transparent-collective/
 /resources/transparent-collective/evidence/
 /security/threat-model/

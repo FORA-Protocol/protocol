@@ -15,7 +15,7 @@ const { items } = Astro.props;
   {items.map((it) => (
     <div class="card">
       {it.status && <div class="card-status"><StatusTag status={it.status} /></div>}
-      <b>{it.title}</b><p>{it.text}</p>
+      <b>{it.title}</b><p set:html={it.text} />
     </div>
   ))}
 </div>
