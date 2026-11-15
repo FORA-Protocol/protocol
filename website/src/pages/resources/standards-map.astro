@@ -1,0 +1,477 @@
+---
+// Resource: the standards map, the overview page of the content-marketplaces
+// series (/resources/content-marketplaces/ and its five vendor pages). Its
+// own order, not the vendor template: the key takeaway, the table of the
+// thirteen standards with the layer figure, key facts, what to do, the
+// search-only contract and proof of acceptance; then, below the section
+// divider, the comparisons for legal and product teams; then the questions,
+// About FORA, the sources (closed), the series navigation and the closing
+// call.
+//
+// Shared texts (About FORA, the definitions) come from
+// src/data/content-marketplaces.ts. A claim cites its source inline, as a
+// link, or with cite(N), which links to entry N of the numbered SourceList at
+// the foot; SOURCES below is numbered in order of first citation, so an
+// entry's position is its number. Text with links is HTML and goes through
+// set:html.
+import LandingLayout from '../../layouts/LandingLayout.astro';
+import AudienceHero from '../../components/landing/AudienceHero.astro';
+import Band from '../../components/landing/Band.astro';
+import Callout from '../../components/landing/Callout.astro';
+import Figure from '../../components/landing/Figure.astro';
+import KeyFacts from '../../components/landing/KeyFacts.astro';
+import Split from '../../components/landing/Split.astro';
+import PointList from '../../components/landing/PointList.astro';
+import CardGrid from '../../components/landing/CardGrid.astro';
+import LinkRow from '../../components/landing/LinkRow.astro';
+import FaqGrid from '../../components/landing/FaqGrid.astro';
+import SectionDivider from '../../components/landing/SectionDivider.astro';
+import StandardsMapTable from '../../components/landing/StandardsMapTable.astro';
+import SourceList from '../../components/landing/SourceList.astro';
+import SeriesNav from '../../components/landing/SeriesNav.astro';
+import ClosingCta from '../../components/landing/ClosingCta.astro';
+import { resourceUpdated } from '../../data/resources';
+import { ABOUT_FORA, DEFINITIONS } from '../../data/content-marketplaces';
+import { cite } from '../../lib/resource-markup';
+
+const HREF = '/resources/standards-map/';
+const IMG = '/resources/standards-map';
+const a = (href: string, text: string) => `<a href="${href}">${text}</a>`;
+
+// The standards' own pages, linked from the table's first column.
+const S = {
+  robots: 'https://www.rfc-editor.org/rfc/rfc9309',
+  aipref: 'https://datatracker.ietf.org/wg/aipref/about/',
+  tdmrep: 'https://www.w3.org/community/reports/tdmrep/CG-FINAL-tdmrep-20240510/',
+  rsl: 'https://rslstandard.org/rsl',
+  comp: 'https://github.com/IABTechLab/CoMP',
+  llms: 'https://llmstxt.org/',
+  wba: 'https://datatracker.ietf.org/doc/draft-ietf-webbotauth-httpsig-protocol/',
+  mcp: 'https://modelcontextprotocol.io/specification/2026-07-28',
+  c2pa: 'https://c2pa.org/',
+  x402: 'https://www.x402.org/',
+  mpp: 'https://mpp.dev/',
+  spur: 'https://github.com/SPUR-Coalition/telemetry',
+  socw: 'https://m4ow.uk/socw/',
+};
+
+const STANDARDS = [
+  { name: 'robots.txt', href: S.robots, job: '<b>Declare terms:</b> allow or block, per crawler', status: `IETF standard, RFC 9309 (2022). Its rules "are not a form of access authorization" ${cite(1)}`, users: `On sites using TollBit, 30% of AI bot scrapes in Q4 2025 ignored it (TollBit's own data) ${cite(2)}` },
+  { name: 'AIPREF', href: S.aipref, job: '<b>Declare terms:</b> a preference about AI training and AI use', status: `IETF working-group draft -08 (September 2026), without group consensus yet; the <code>robots.txt</code> training token is an individual draft ${cite(4, 5)}`, users: `Anthropic has recognized the training token since October 30, 2026; Microsoft from February 1, 2027; Google intends to in early 2027; OpenAI "will honor" it ${cite(6, 7, 8, 9)}` },
+  { name: 'TDMRep', href: S.tdmrep, job: '<b>Declare terms:</b> reserve text-and-data-mining rights', status: `W3C Community Group final report (2024), "not a W3C Standard" ${cite(11)}`, users: `More than 50 adopters on the group's own list, among them Hachette Livre, Elsevier, Springer Nature, Wiley and Radio France ${cite(12)}` },
+  { name: 'RSL', href: S.rsl, job: '<b>Declare terms</b> and <b>transact:</b> state license terms and prices; issue license tokens through a license server', status: `RSL 1.0, a Recommendation of RSL's Technical Steering Committee, December 2025 ${cite(14, 15)}`, users: `More than 3,000 supporters, says ILC (November 2026); one AI company licensed through ILC, Yahoo Scout ${cite(16)}` },
+  { name: 'IAB Tech Lab CoMP', href: S.comp, job: '<b>Declare terms:</b> describe content, its price and where its license is, for a marketplace API', status: `IAB Tech Lab, final V1, April 2026 ${cite(21)}`, users: `FORA maps it field for field ${cite(22)}` },
+  { name: 'llms.txt', href: S.llms, job: '<b>Help discovery:</b> a curated index for AI readers', status: `A proposal by Jeremy Howard, v2 August 2026; no standards body ${cite(31)}`, users: `"thousands of sites publish an llms.txt file", by its author's count ${cite(31)}` },
+  { name: 'Web Bot Auth', href: S.wba, job: '<b>Identify the caller:</b> a signature on each agent request', status: `IETF working-group draft, October 2026 ${cite(32)}`, users: `ChatGPT Work's cloud browser signs with it ${cite(33)}. Cloudflare verifies, and FORA agents sign, under two different earlier drafts ${cite(23, 34)}` },
+  { name: 'MCP', href: S.mcp, job: '<b>Connect:</b> how an agent calls a tool or a seller', status: `The Agentic AI Foundation, under the Linux Foundation; revision of July 28, 2026 ${cite(35, 36)}`, users: `Cashmere, AskNews and Newstex sell content through MCP servers; FORA's Identity Service is one ${cite(22, 37, 38, 39)}` },
+  { name: 'C2PA', href: S.c2pa, job: '<b>Prove origin:</b> who made this, and has it changed', status: `C2PA 2.5 (October 2026), a Linux Foundation project; ISO 22144 at committee draft ${cite(41, 42, 43)}`, users: `Steering-committee members include Adobe, BBC, Google, Meta, Microsoft and OpenAI ${cite(44)}` },
+  { name: 'FORA', fora: true, job: '<b>Declare terms, transact</b> and <b>report:</b> a signed offer per term, the buyer\'s signed acceptance, a signed link, and the buyer\'s usage report', status: `The open protocol this site describes. Apache-2.0, release v1.2.1, with FORA Server, an open-source implementation ${cite(22, 24)}`, users: 'Any company can run its own marketplace on it. See <a href="#about">About FORA</a>' },
+  { name: 'x402', href: S.x402, job: '<b>Settle,</b> which moves money: payment over HTTP 402', status: `x402 Foundation, under the Linux Foundation; 40 members by July 2026, Visa, Mastercard and American Express among them ${cite(48)}`, users: `In AWS WAF on CloudFront since June 2026; in Cloudflare's Monetization Gateway, a closed beta since September 30, 2026 ${cite(49, 50)}` },
+  { name: 'MPP', href: S.mpp, job: '<b>Settle,</b> which moves money: payment over HTTP 402, per charge, session or subscription', status: `Co-authored by Tempo and Stripe; its core scheme is an individual Internet-Draft ${cite(52, 53)}`, users: `Cloudflare's Agents SDK names it as one of its two payment protocols; AWS called MPP support "coming soon" in June 2026 ${cite(49, 54)}` },
+  { name: 'SPUR Content Telemetry', href: S.spur, job: '<b>Report:</b> what an AI system did with content after the fetch', status: `SPUR Coalition, 1.0, September 2026 ${cite(55)}`, users: `AskNews weights its publisher pool by its events (AskNews, November 2026) ${cite(56)}` },
+];
+
+const KEY_FACTS = [
+  { value: '30%', text: `of AI bot scrapes ignored robots.txt on sites using TollBit, in Q4 2025, by TollBit's own data ${cite(2)}` },
+  { value: '3,000+', text: `RSL supporters, by ILC's count ${cite(16)}` },
+  { value: '4', text: `AI companies committed to honor AIPREF's training refusal ${cite(6, 7, 8, 9)}` },
+  { value: '1', text: `AI company paying under an RSL-based license: Yahoo Scout ${cite(16)}` },
+];
+
+const STANDING = [
+  { title: 'Blocking is a request, and a growing share of AI bot scrapes ignore it.', text: `On sites using TollBit, the share that bypassed robots.txt rose from 3.3% in Q4 2024 to 12.9% in Q1 2025, then to 30% ${cite(2, 10)}. AIPREF says so of itself: a receiver "has a choice whether to follow those preferences" ${cite(4)}.` },
+  { title: 'Declaring has thousands of supporters, four committed AI companies and one buyer.', text: `The four commitments are a promise to stop, not to pay. Yahoo Scout pays under ILC's blanket license, announced on November 12, 2026 ${cite(16)}. None is known to pay under a publisher's own RSL terms.` },
+  { title: 'Transacting and settling are available in a few places.', text: `Supertab sells an RSL license server, x402 runs in AWS WAF and Cloudflare's closed beta, MPP in Cloudflare's Agents SDK, and FORA on every Exchange that runs it ${cite(25, 49, 50, 54, 57)}.` },
+];
+
+const TODO = [
+  { title: 'Write down what training, grounding and display are each worth to you.', text: 'Grounding means an AI answer uses your page as its source. No vocabulary here will tell you what each is worth.' },
+  { title: 'Generate your rules.', text: `The ${a('/resources/ai-crawlers/#generator', 'AI rules generator')} writes robots.txt groups for AI crawlers, AIPREF's training refusal, the line that attaches the search-only contract, and TDMRep's header and tag.` },
+  { title: 'Adopt the search-only contract, with your legal team.', text: `Set your fee in your site's terms and point robots.txt at the contract: ${a('/getting-started/search-only-contract/', 'the steps')}. What it says is in the <a href="#search-only">next section</a>.` },
+  { title: 'Publish RSL if you have license terms to state.', text: `Behind FORA's edge function, keep it at <code>/rsl.txt</code>, which the edge passes through to every client ${cite(27)}.` },
+  { title: 'See what an agent would be offered.', text: `Paste one of your pages on ${a('/publishers/', 'For Publishers')}. No account needed.` },
+];
+
+const LEGAL = [
+  { title: 'Formed by conduct.', text: `Under the contract, "agreement is formed through conduct, simply by accessing" the site ${cite(63)}.` },
+  { title: 'Law.', text: `Under the law of England and Wales, the fee is "a contractual debt which becomes immediately due" ${cite(63)}. Whether it holds where you publish is a question for your lawyer.` },
+];
+
+const AHEAD = [
+  { title: 'Legal representations, in fields.', text: `RSL carries warranties as vocabulary of its own: ownership, authority, non-infringement, privacy consent, no malware. It carries disclaimers too, no liability and no indemnity among them ${cite(14)}. In a negotiated license these clauses sit in the contract's prose; RSL puts them where software can read them. FORA handles them the way RSL handles Creative Commons: by reference to a governing document, pinned by its digest, a fingerprint of the document ${cite(28)}. Each approach keeps something the other gives up. A field is machine-readable and narrow; a pinned document is complete and opaque. RSL can state a warranty of ownership in a field of its own; FORA can't.` },
+  { title: 'Terms inside the file, and terms that enforce themselves.', text: `RSL can embed the license in the file itself, in XMP, ID3 or EPUB metadata, so an EPUB carries its license into any hands, with no counterparty involved at all. Its encrypted-media option makes access possible "only for clients holding a valid License Token" ${cite(14)}. Misuse is then mechanically impossible, not something to argue under a contract. FORA enforces access at the edge, with a signed link, and the terms after delivery by reconciling the records of each sale ${cite(22)}.` },
+  { title: 'A sale without an Exchange.', text: `An RSL file can name a license server that issues a token for the license a client picks, and can name x402 as the way to pay ${cite(14)}. FORA leaves money to the Exchange operator, which bills the buyer, and its protocol names no payment rail ${cite(22)}.` },
+  { title: 'A description of the content.', text: `CoMP describes what is being sold: its category, its provenance, its word count, and whether a human, a model or both produced it ${cite(20)}. FORA's core has no field for any of it; it carries CoMP's fields whole on each offer ${cite(22)}. CoMP also splits AI use into sub-functions, among them RAG, grounding, agent view and agent actions, where FORA's use words stop at <code>ai-input</code> ${cite(20, 28)}.` },
+  { title: 'A file you write by hand.', text: `RSL's quickstart is one robots.txt line and an eleven-line XML file; a publisher can write it in a minute ${cite(17)}. FORA is a machine-validated schema that an Exchange operator implements, and the publisher sets its terms in a console.` },
+];
+
+const DIFFER = [
+  { title: 'A price and a credit together.', text: `In RSL, a license asks for money or for credit, not both. Its schema (RSL 1.0, Appendix A) allows one payment element with one type, and <code>attribution</code> is one of the types ${cite(14)}. CoMP keeps citation in a field of its own, beside the price ${cite(20)}. A FORA term can charge per access and require credit ${cite(28)}.` },
+  { title: 'Caps.', text: `FORA states a cap as a metric, a limit and a window: ten seats a month, say. The buyer agrees to it; the Exchange doesn't meter it ${cite(28)}. RSL's schema has no cap element (Appendix A) ${cite(14)}. CoMP has a yes-or-no field that says a crawl limit exists ${cite(20)}.` },
+  { title: 'A menu for one asset.', text: `A FORA resource carries up to 32 terms, and each one a buyer may see is its own signed offer ${cite(28)}. RSL allows several licenses for the same content, but tells processors to "evaluate all applicable licensing terms together" ${cite(14)}. A CoMP response carries one package with one price, as of November 14, 2026 ${cite(20)}.` },
+  { title: 'Saying what you want first.', text: `CoMP lets an AI system state its intended use ${cite(20)}. FORA lets a buyer state the uses, places and kind of user it accepts, and an Exchange may return only the offers that fit ${cite(28)}.` },
+];
+
+const EXPLORER = [
+  { title: 'Price and credit.', text: 'Pick "AI answers, pay per crawl": RSL loses the credit, CoMP keeps it.' },
+  { title: 'Caps and reports.', text: 'Pick "Annual AI access deal": the cap is in neither file.' },
+  { title: 'A shared license.', text: 'Pick "Collective blanket license": neither RSL nor CoMP can pin the document\'s version.' },
+];
+
+const ENGINEERS = [
+  { title: 'Pairs that compose.', text: `RSL adds a <code>License:</code> line to robots.txt; AIPREF's training token is a robots.txt group ${cite(5, 14)}. x402's "exact" flows "map directly onto MPP's charge intent", and MPP can charge for MCP tool calls ${cite(52)}. MCP defines no price or license (July 2026 revision): each seller adds its own ${cite(35)}.` },
+];
+
+const FAQ = [
+  { q: 'Do I have to choose between RSL and FORA?', a: 'No. FORA doesn\'t replace RSL or CoMP. RSL publishes your terms in a file anyone can read. FORA sells under the terms you set in the publisher console, one signed offer at a time.' },
+  { q: 'Is TDMRep enough to reserve AI training in the EU?', a: `TDMRep is a machine-readable form of the reservation the EU's copyright directive recognizes. In the TDMRep report's summary of Article 4, mining is allowed unless "expressly reserved by their rightsholders in an appropriate manner, such as machine-readable means" ${cite(11)}. Whether yours meets the test is a question for your lawyer.` },
+  { q: 'What isn\'t on the map?', a: `IPTC's photo metadata has a data-mining property inside the image file ${cite(60)}. ODRL is the policy language TDMRep uses ${cite(11, 61)}. The European Commission's consultation lists Liccium's TDM·AI among opt-out protocols. No list of generally agreed ones from the Commission was found on November 15, 2026 ${cite(62)}.` },
+];
+
+// The SourceList, numbered in order of first citation: an entry's position,
+// counted across the groups, is the N in cite(N).
+const SOURCES = [
+  {
+    name: 'robots.txt and AIPREF',
+    items: [
+      { title: 'RFC 9309: Robots Exclusion Protocol', publisher: 'IETF', href: S.robots, checked: '2026-11-14' },
+      { title: 'State of the Bots, Q3–Q4 2025', publisher: 'TollBit', href: 'https://tollbit.com/state-of-the-bots/q3-q4-2025/', checked: '2026-11-14' },
+      { title: 'AI Preferences (aipref) working group', publisher: 'IETF', href: S.aipref, checked: '2026-11-15' },
+      { title: 'A Vocabulary For Expressing AI Usage Preferences, draft -08', publisher: 'IETF AIPREF working group', href: 'https://datatracker.ietf.org/doc/draft-ietf-aipref-vocab/', checked: '2026-11-15' },
+      { title: 'Machine-Readable Training Preference Signal', publisher: 'IETF, individual Internet-Draft', href: 'https://datatracker.ietf.org/doc/draft-kelley-aipref-training-preference-signal/', checked: '2026-11-15' },
+      { title: 'robots.txt controls', publisher: 'Anthropic', where: 'Anthropic help center, article 8896518 (no link)', checked: '2026-11-15' },
+      { title: 'Your content, your choice: clearer preferences for training and grounding', publisher: 'Microsoft, Bing blog', href: 'https://blogs.bing.com/search/2026/10/your-content-your-choice-clearer-preferences-for-training-and-grounding/', checked: '2026-11-15' },
+      { title: 'Google\'s common crawlers', publisher: 'Google for Developers', href: 'https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers', checked: '2026-11-15' },
+      { title: 'Helping websites express AI training preferences', publisher: 'OpenAI', href: 'https://openai.com/index/helping-websites-express-ai-training-preferences/', checked: '2026-11-14' },
+      { title: 'State of the Bots, Q1 2025', publisher: 'TollBit', href: 'https://tollbit.com/state-of-the-bots/q1-2025/', checked: '2026-11-14' },
+    ],
+  },
+  {
+    name: 'TDMRep',
+    items: [
+      { title: 'TDM Reservation Protocol (TDMRep), Final Community Group Report', publisher: 'W3C TDMRep Community Group', href: S.tdmrep, checked: '2026-11-14' },
+      { title: 'TDMRep adopters', publisher: 'W3C TDMRep Community Group, on GitHub', href: 'https://github.com/w3c/tdm-reservation-protocol/blob/main/docs/adopters.md', checked: '2026-11-14' },
+      { title: 'Text and Data Mining Reservation Protocol Community Group', publisher: 'W3C', href: 'https://www.w3.org/community/tdmrep/', checked: '2026-11-14' },
+    ],
+  },
+  {
+    name: 'RSL and ILC',
+    items: [
+      { title: 'Really Simple Licensing (RSL) 1.0 specification', publisher: 'RSL Technical Steering Committee', href: S.rsl, checked: '2026-11-14' },
+      { title: 'RSL AI Licensing 1.0 now an official industry standard', publisher: 'RSL, press release', href: 'https://rslstandard.org/press/rsl-1-specification-2025', checked: '2026-11-14' },
+      { title: 'The Internet Licensing Collective launches with Yahoo Scout as first commercial partner', publisher: 'Internet Licensing Collective, press release', href: 'https://internetcollective.org/press/ilc-launch-2026', checked: '2026-11-14' },
+      { title: 'RSL quickstart', publisher: 'RSL', href: 'https://rslstandard.org/', checked: '2026-11-14' },
+      { title: 'The ILC Platform', publisher: 'Internet Licensing Collective', href: 'https://internetcollective.org/platform', checked: '2026-11-13' },
+      { title: 'ILC\'s RSL file', publisher: 'Internet Licensing Collective', href: 'https://internetcollective.org/rsl.xml', checked: '2026-11-13' },
+    ],
+  },
+  {
+    name: 'CoMP',
+    items: [
+      { title: 'CoMP 1.0: Content Metadata Marketplace Supply Specification', publisher: 'IAB Tech Lab, on GitHub', href: S.comp, checked: '2026-11-14' },
+      { title: 'CoMP: Content Monetization Protocols initiative', publisher: 'IAB Tech Lab', href: 'https://iabtechlab.com/standards/comp-content-monetization-protocols-initiative/', checked: '2026-11-14' },
+    ],
+  },
+  {
+    name: 'FORA',
+    items: [
+      { title: 'What Is FORA?', publisher: 'FORA documentation', href: '/getting-started/what-is-fora/', checked: '2026-11-15' },
+      { title: 'Authentication', publisher: 'FORA documentation', href: '/protocol/authentication/', checked: '2026-11-15' },
+      { title: 'FORA protocol repository', publisher: 'FORA-Protocol on GitHub', href: 'https://github.com/FORA-Protocol/protocol', checked: '2026-11-15' },
+      { title: 'Broker', publisher: 'FORA documentation', href: '/components/broker/overview/', checked: '2026-11-15' },
+      { title: 'Search-Only Contract', publisher: 'FORA documentation', href: '/getting-started/search-only-contract/', checked: '2026-11-15' },
+      { title: 'FORA Server', publisher: 'FORA-Protocol on GitHub', href: 'https://github.com/FORA-Protocol/reference-implementation', checked: '2026-11-15' },
+      { title: 'Licensing Terms', publisher: 'FORA documentation', href: '/protocol/licensing-terms/', checked: '2026-11-15' },
+      { title: 'The licensing core explorer', publisher: 'FORA', href: '/protocol/#licensing-core', checked: '2026-11-15' },
+      { title: 'Publisher Onboarding', publisher: 'FORA documentation', href: '/getting-started/publisher-onboarding/', checked: '2026-11-15' },
+    ],
+  },
+  {
+    name: 'llms.txt',
+    items: [
+      { title: 'The /llms.txt file', publisher: 'Jeremy Howard, llmstxt.org', href: S.llms, checked: '2026-11-14' },
+    ],
+  },
+  {
+    name: 'Web Bot Auth',
+    items: [
+      { title: 'HTTP Message Signatures for automated traffic (draft-ietf-webbotauth-httpsig-protocol)', publisher: 'IETF webbotauth working group', href: S.wba, checked: '2026-11-14' },
+      { title: 'ChatGPT Work\'s cloud browser allowlisting', publisher: 'OpenAI Help Center', href: 'https://help.openai.com/en/articles/11845367', checked: '2026-11-14' },
+      { title: 'Web Bot Auth', publisher: 'Cloudflare docs', href: 'https://developers.cloudflare.com/bots/reference/bot-verification/web-bot-auth/', checked: '2026-11-14' },
+    ],
+  },
+  {
+    name: 'MCP',
+    items: [
+      { title: 'Model Context Protocol specification, revision 2026-07-28', publisher: 'Model Context Protocol', href: S.mcp, checked: '2026-11-15' },
+      { title: 'MCP joins the Agentic AI Foundation', publisher: 'Model Context Protocol blog', href: 'https://blog.modelcontextprotocol.io/posts/2025-12-09-mcp-joins-agentic-ai-foundation/', checked: '2026-11-15' },
+      { title: 'MCP server documentation', publisher: 'Cashmere', href: 'https://cashmere.io/docs/mcp', checked: '2026-11-14' },
+      { title: 'MCP server', publisher: 'AskNews docs', href: 'https://docs.asknews.app/en/mcp', checked: '2026-11-15' },
+      { title: 'Newstex MCP Server', publisher: 'Newstex', href: 'https://mcp.newstex.com/', checked: '2026-11-15' },
+    ],
+  },
+  {
+    name: 'C2PA',
+    items: [
+      { title: 'C2PA: Coalition for Content Provenance and Authenticity', publisher: 'C2PA', href: S.c2pa, checked: '2026-11-14' },
+      { title: 'C2PA Technical Specification 2.5', publisher: 'C2PA', href: 'https://spec.c2pa.org/specifications/specifications/2.5/specs/C2PA_Specification.html', checked: '2026-11-14' },
+      { title: 'About C2PA', publisher: 'C2PA', href: 'https://c2pa.org/about/', checked: '2026-11-14' },
+      { title: 'ISO/CD 22144, Authenticity of information: Content credentials', publisher: 'ISO', href: 'https://www.iso.org/standard/90726.html', checked: '2026-11-14' },
+      { title: 'Membership', publisher: 'C2PA', href: 'https://c2pa.org/membership/', checked: '2026-11-14' },
+      { title: 'C2PA founding press release', publisher: 'C2PA', href: 'https://c2pa.org/c2pa-founding-press-release/', checked: '2026-11-14' },
+      { title: 'Training and Data Mining Assertion 1.1', publisher: 'Creator Assertions Working Group', href: 'https://cawg.io/training-and-data-mining/1.1/', checked: '2026-11-14' },
+    ],
+  },
+  {
+    name: 'Payments: x402 and MPP',
+    items: [
+      { title: 'x402', publisher: 'x402 Foundation', href: S.x402, checked: '2026-11-14' },
+      { title: 'Linux Foundation announces operational launch of x402 Foundation', publisher: 'x402 Foundation', href: 'https://x402.org/linux-foundation-announces-operational-launch-of-x402-foundation-to-standardize-internet-native-payments-for-ai-agents-and-applications/', checked: '2026-11-14' },
+      { title: 'AWS WAF announces AI traffic monetization', publisher: 'AWS, What\'s New', href: 'https://aws.amazon.com/about-aws/whats-new/2026/06/aws-waf-ai-traffic-monetization/', checked: '2026-11-14' },
+      { title: 'Monetization Gateway beta: charge AI agents for consumption with HTTP 402', publisher: 'Cloudflare blog', href: 'https://blog.cloudflare.com/monetization-gateway-beta/', checked: '2026-11-14' },
+      { title: 'Machine Payments Protocol', publisher: 'MPP', href: S.mpp, checked: '2026-11-15' },
+      { title: 'Frequently asked questions', publisher: 'MPP', href: 'https://mpp.dev/faq', checked: '2026-11-15' },
+      { title: 'The "Payment" HTTP Authentication Scheme', publisher: 'IETF, individual Internet-Draft', href: 'https://datatracker.ietf.org/doc/draft-httpauth-payment/', checked: '2026-11-15' },
+      { title: 'Agentic Payments, Agents SDK', publisher: 'Cloudflare docs', href: 'https://developers.cloudflare.com/agents/tools/payments/', checked: '2026-11-14' },
+    ],
+  },
+  {
+    name: 'SPUR Content Telemetry',
+    items: [
+      { title: 'SPUR Content Telemetry 1.0', publisher: 'SPUR Coalition, on GitHub', href: S.spur, checked: '2026-11-14' },
+      { title: 'From Retrieval to Citation: How AskNews Makes Publisher Usage Traceable', publisher: 'AskNews blog', href: 'https://asknews.app/en/blog-articles/spur-telemetry-publisher-usage-and-revenue', checked: '2026-11-14' },
+    ],
+  },
+  {
+    name: 'Others mentioned',
+    items: [
+      { title: 'Supertab Connect', publisher: 'Supertab', href: 'https://www.supertab.co/', checked: '2026-11-13' },
+      { title: 'Tokens', publisher: 'TollBit docs', href: 'https://docs.tollbit.com/docs/tokens', checked: '2026-11-14' },
+      { title: 'Daily Kos\'s RSL file', publisher: 'Daily Kos', href: 'https://www.dailykos.com/license.xml', checked: '2026-11-13' },
+      { title: 'IPTC Photo Metadata Standard', publisher: 'IPTC', href: 'https://iptc.org/std/photometadata/specification/IPTC-PhotoMetadata', checked: '2026-11-15' },
+      { title: 'ODRL Information Model 2.2', publisher: 'W3C', href: 'https://www.w3.org/TR/odrl-model/', checked: '2026-11-15' },
+      { title: 'Stakeholder consultation on AI and copyright compliance', publisher: 'European Commission', href: 'https://digital-strategy.ec.europa.eu/en/faqs/stakeholder-consultation-ai-and-copyright-compliance', checked: '2026-11-15' },
+    ],
+  },
+  {
+    name: 'Contracts: the search-only contract',
+    items: [
+      { title: 'Search Only Terms Contract', publisher: 'Movement for an Open Web', href: S.socw, checked: '2026-11-14' },
+    ],
+  },
+];
+---
+<LandingLayout
+  title="The standards map — FORA resources"
+  description="Thirteen open standards tell a machine something about your content. What each one does, which two move money, how they stack, and where FORA sits among them."
+>
+  <AudienceHero
+    current="resources"
+    badge="Resources · Standards"
+    title="What each AI standard does. <em>Thirteen standards, eight jobs.</em>"
+    sub="Thirteen open standards tell AI systems something about your content: what it is, who may fetch it, what may be done with it, what it costs, and what happened after. In a vendor pitch they can sound interchangeable. They aren't. They do eight different jobs, and they stack. Two of them move money: x402 and MPP."
+    updated={resourceUpdated(HREF)}
+  >
+    <a href="#standards" class="btn btn-primary">See the thirteen</a>
+    <a href="/resources/ai-crawlers/#generator" class="btn btn-ghost">Generate your rules</a>
+  </AudienceHero>
+
+  <Band tone="near" title="Declaring is not the same as being paid">
+    <Callout kind="takeaway" tag="Key takeaway">
+      <p class="takeaway">A machine-readable declaration is a request, not a control. TDMRep reserves rights that bind in the EU and that no technical layer enforces. A declaration earns money when something stands behind it: a license server, an Exchange, or a contract that access triggers.</p>
+    </Callout>
+    <p class="prose ask"><b>Ask your vendors.</b> Put this to your CDN, bot-management vendor or marketplace, verbatim: <em>"Which of these standards do you read, which do you enforce at the door, and who is paying under any of them through you today?"</em></p>
+    <Callout kind="define" {...DEFINITIONS.exchange} />
+  </Band>
+
+  <Band tone="light" id="standards" title="Thirteen standards, eight jobs" lead={`A machine that buys content has to find it, identify itself, learn the terms, pay and report what it did. Each standard below does one or two of those jobs. The companies that sell access are on ${a('/resources/content-marketplaces/', 'Content marketplaces')}, which also explains ${a('/resources/content-marketplaces/#broker-order', 'how a Broker orders offers')} for agents.`}>
+    <Split aside="320px">
+      <StandardsMapTable rows={STANDARDS} label="Thirteen standards, eight jobs" />
+      <Figure
+        slot="aside"
+        src={`${IMG}/standards-1.png`}
+        title="Thirteen standards, eight jobs."
+        alt="Eight layers, each a different job: declare terms (robots.txt, AIPREF, TDMRep, RSL, CoMP, FORA), help discovery (llms.txt), identify the caller (Web Bot Auth), connect (MCP), prove origin (C2PA), transact (RSL's license server, FORA), settle, which moves money (x402, MPP), and report (SPUR Content Telemetry, FORA's usage reports)."
+      />
+    </Split>
+    <p class="prose"><b>How to read it.</b> Each row is a different job, so read across a row, not down a column: a road sign isn't worse than a till for not taking payment. The last column mixes kinds of adoption, and each cell says which.</p>
+    <p class="prose">Standards in different layers aren't alternatives. Transacting agrees one sale; settling moves the money. RSL spans two layers: it declares and, through its license server, transacts. FORA spans the terms, the transaction and the report, and leaves the money to your operator.</p>
+    <Callout kind="define" {...DEFINITIONS.operator} />
+    <Callout kind="define" {...DEFINITIONS.signedLink} />
+  </Band>
+
+  <Band title="Where each job stands, November 2026">
+    <KeyFacts items={KEY_FACTS} />
+    <PointList items={STANDING} />
+  </Band>
+
+  <Band tone="near" title="What to do this quarter">
+    <PointList numbered items={TODO} />
+    <Callout kind="define" {...DEFINITIONS.edgeFunction} />
+  </Band>
+
+  <Band tone="light" id="search-only" title="Charging through your site's terms: the search-only contract">
+    <Split aside="400px">
+      <div>
+        <p class="prose" set:html={`The Movement for an Open Web publishes the ${a(S.socw, 'Search Only Terms Contract')}, a legal text a publisher points to from robots.txt and incorporates into its site terms. Indexing for search and a person's own reading are free. A fee is owed for "scraping, bulk extraction, dataset creation, or any AI-related use", for each article, image, video or audio file, at the amount the publisher sets.`} />
+        <p class="prose" set:html={`A contract covers what the edge function can't see: your open pages, and crawlers that hide what they are. ${a('/getting-started/search-only-contract/', 'How to adopt the contract →')}`} />
+      </div>
+      <Callout slot="aside" kind="legal" points={LEGAL} />
+    </Split>
+  </Band>
+
+  <Band id="proof" title="Proof the buyer agreed to your terms">
+    <p class="prose" set:html={`FORA asks more of you than an RSL file, which a publisher can write in a minute ${cite(17)}. FORA spans the terms, the transaction and the report, which is why it needs an Exchange and keys. For a publisher choosing what to do this quarter, that difference may matter more than every comparison below the divider.`} />
+    <p class="prose" set:html={`What FORA gives back is proof. You set several terms for a page: free for search, a price per AI answer, a yearly deal for one licensee. The Exchange signs an offer for each term the buyer may see. The buyer signs the one it picked, with its own registered key. The Exchange issues a signed link against that acceptance, and both sides keep the record ${cite(23, 28)}.`} />
+    <p class="prose" set:html={`A buyer that says it didn't know the terms has its own signature on them. You can check it in the Exchange operator's publisher console, which verifies both signatures in your browser ${cite(27)}. None of the other license formats carries the buyer's own signature on the terms it accepted. How RSL's license server compares is <a href="#license-server">below</a>.`} />
+  </Band>
+
+  <div class="divider-band">
+    <div class="divider-wrap">
+      <SectionDivider label="For your legal and product teams" />
+      <p class="divider-note">The rest of the page compares the specifications clause by clause. Everything above reads without it.</p>
+    </div>
+  </div>
+
+  <Band tone="near" title="What a license file can say: uses, price, place and duties">
+    <p class="prose">Three of the thirteen are license formats: RSL 1.0, CoMP and FORA's licensing core. All three say what you may do, who may buy, where, at what price, and what you owe afterward. TDMRep and AIPREF say only the first.</p>
+    <p class="prose" set:html={`On uses they speak almost the same language. RSL defines six use words, from <code>all</code> to <code>search</code> ${cite(14)}. CoMP takes the same six names, four definitions word for word ${cite(20)}. FORA starts from RSL's use words and adds copyright uses such as reproduce and sync, 23 in all. It also accepts AIPREF's <code>train-ai</code> as a spelling of <code>ai-train</code> ${cite(28)}. RSL and FORA both scope a term by place and kind of user, and both can prohibit as well as permit ${cite(14, 28)}.`} />
+    <p class="prose" set:html={`On what you owe afterward they part. RSL's reporting rule: a client that "does not recognize or cannot comply with the profile MUST treat that activity as not licensed" ${cite(14)}. CoMP has a citation flag and a reporting address ${cite(20)}. FORA has obligations, credit and notices among them ${cite(28)}. An unknown RSL element "MUST render the document non-conformant", so one element a client doesn't know affects the whole file ${cite(14)}. A FORA agent that can't evaluate a term declines only that term ${cite(28)}.`} />
+  </Band>
+
+  <Band tone="light" id="ahead" title="Where RSL and CoMP are ahead" lead="The comparison cuts both ways.">
+    <PointList items={AHEAD} />
+  </Band>
+
+  <Band title="Where the three license formats differ">
+    <p class="prose" set:html={`RSL's <code>&lt;standard&gt;</code> element points at a legal text elsewhere, such as a Creative Commons license ${cite(14)}. FORA incorporates by reference too, with the document's digest beside its address, so the document can't be swapped after an offer is signed ${cite(28)}.`} />
+    <PointList items={DIFFER} />
+    <p class="prose explorer" set:html={`<b>See it clause by clause.</b> The ${a('/protocol/#licensing-core', 'Licensing Core explorer')} shows 12 licenses, each as a FORA term, an RSL file and a CoMP package.`} />
+    <CardGrid items={EXPLORER} />
+    <LinkRow links={[{ href: '/protocol/#licensing-core', text: 'Open the explorer' }]} />
+  </Band>
+
+  <Band tone="near" id="license-server" title="How RSL sells: a license server" asideWidth="400px" asideAlign="start">
+    <Fragment slot="intro">
+      <p class="prose" set:html={`RSL is more than a declaration. Its License Server "Implements the Open License Protocol (OLP) to issue license tokens and enforces payment requirements on behalf of Publishers". A license token is the pass that server issues; a site or CDN can ask which license and asset it covers ${cite(14)}.`} />
+      <p class="prose" set:html={`The difference that matters in a dispute is who signs. RSL's client doesn't sign the license its token covers, and <code>&lt;standard&gt;</code> takes an address with no digest (Appendix A) ${cite(14)}. TollBit's content tokens name a license type and a license ID, and TollBit signs them, not the buyer ${cite(58)}. CoMP records how a crawler plans to identify itself, which is not its assent ${cite(20)}.`} />
+      <p class="prose" set:html={`Supertab sells what it calls an "RSL-compliant license server", and Daily Kos's RSL file names it ${cite(57, 59)}.`} />
+      <p class="prose" set:html={`<b>What ILC does with it.</b> ILC, the collective that co-authored RSL, keeps the transaction out of the content path ${cite(16, 18)}. Its RSL file names no license server and points, through <code>&lt;standard&gt;</code>, at ILC's collective license ${cite(19)}. An AI company takes one blanket license, for a fee ILC doesn't publish, and reports its own use ${cite(18)}. Yahoo Scout, ILC's first licensee, pays under that contract ${cite(16)}. ${a('/resources/transparent-collective/', 'How ILC compares with other collectives →')}`} />
+    </Fragment>
+    <Figure
+      slot="aside"
+      src={`${IMG}/standards-3.png`}
+      title="Two ways to transact: RSL's license server and FORA's Exchange."
+      alt="Two sequences side by side. RSL license server: your RSL file names a license server; the client asks for one exact license; the server issues a License Token; the file can name x402 as the way to pay; the client doesn't sign the license its token covers. FORA Exchange: you set several terms for a page; the Exchange signs an offer for each; the buyer signs the one it picked (proof the buyer agreed to your terms); a signed link is issued against that acceptance; both sides keep the record. The operator bills the buyer, and FORA names no payment rail."
+    />
+  </Band>
+
+  <Band tone="light" title="Provenance is not licensing: where C2PA fits">
+    <p class="prose" set:html={`C2PA defines signed provenance metadata bound to a file: who made it, with what tool, and what has been done to it since. Content Credentials is the consumer name ${cite(40)}. Adobe, Arm, BBC, Intel, Microsoft and Truepic founded it in 2021 ${cite(45)}.`} />
+    <p class="prose" set:html={`Provenance proves where content came from; licensing governs what may be done with it. C2PA's core specification removed its training-and-mining assertion in version 2.0; the Creator Assertions Working Group's specification now carries that signal ${cite(41, 46)}. A publisher who adopts C2PA has licensed nothing. It has evidence: a signed manifest with a content hash shows what was delivered and whether it changed. FORA carries C2PA validation results as a signed attestation about a resource ${cite(22)}. Text has been in the specification since 2.3, but if text "is only partially copied", its manifest "may be truncated or absent" ${cite(41)}.`} />
+  </Band>
+
+  <Band title="How the standards plug into each other">
+    <Split aside="380px">
+      <div>
+        <Callout kind="engineers" collapse="Show the details" points={ENGINEERS} />
+        <p class="prose" set:html={`<b>Two pairs that can contradict each other.</b> RSL states which uses are permitted; CoMP leaves uses to the license it links, so the two can disagree unseen ${cite(14, 20)}. If you publish both, check that they say the same thing. robots.txt governs fetching by crawler name and TDMRep reserves a use. The TDMRep group calls them complementary, but "this complementarity is not specified in the TDMRep document and remains subject to interpretation" ${cite(13)}.`} />
+      </div>
+      <Figure
+        slot="aside"
+        src={`${IMG}/standards-5.png`}
+        title="Where FORA plugs into the other standards."
+        alt="Four standards feed into FORA: CoMP's fields travel on each offer, C2PA's results arrive as an attestation, an MCP assistant reaches FORA through the Identity Service, and FORA's request signatures are a profile of Web Bot Auth. An Exchange operator can collect over x402 or MPP; FORA Server ships no adapter for either (November 2026)."
+      />
+    </Split>
+  </Band>
+
+  <Band tone="near" title="What you can learn about use after delivery">
+    <p class="prose" set:html={`SPUR's Content Telemetry 1.0 specifies "a telemetry schema for tracking AI agent content usage from retrieval through user engagement". Your server or CDN can report retrieval "with no cooperation from the AI agent required"; only the AI company can report grounding, citation and presentation ${cite(55)}. RSL's reporting element can point at a profile like this one ${cite(14)}.`} />
+    <p class="prose" set:html={`In FORA, the buyer reports its usage to the Exchange that sold the item, and each report names the transaction it covers ${cite(22)}. For disputes and payouts, see <a href="#about">About FORA</a>.`} />
+  </Band>
+
+  <Band tone="light" title="Questions">
+    <FaqGrid items={FAQ} />
+  </Band>
+
+  <Band tone="near" id="about">
+    <Callout kind="about" points={ABOUT_FORA} columns />
+    <section class="sources" id="sources" aria-labelledby="sources-label">
+      <h2 class="end-label" id="sources-label">Sources</h2>
+      <details class="all-sources" id="all-sources">
+        <summary>All sources</summary>
+        <SourceList groups={SOURCES} compact numbered />
+      </details>
+      <p class="note">Claims about other standards and companies checked on November 14 and 15, 2026 against each one's own documents; ILC's RSL file and Supertab's pages on November 13, 2026. FORA v1.2.1 and FORA Server, checked November 15, 2026.</p>
+    </section>
+    <SeriesNav current={HREF} />
+  </Band>
+
+  <ClosingCta
+    title="Declare what you sell. <em>Then make it purchasable.</em>"
+    text="Generate your robots.txt and headers, attach the search-only contract, and see what an agent would be offered for one of your pages."
+  >
+    <a href="/resources/ai-crawlers/#generator" class="btn btn-primary">Generate your rules</a>
+    <a href="/publishers/" class="btn btn-ghost">See your offers</a>
+  </ClosingCta>
+</LandingLayout>
+
+<script is:inline>
+  // The sources sit in a closed <details>: a citation marker, or a link to
+  // #src-N, opens it before the browser scrolls to the entry.
+  (function () {
+    var box = document.getElementById('all-sources');
+    if (!box) return;
+    function open() {
+      if (/^#src-\d+$/.test(location.hash) && !box.open) {
+        box.open = true;
+        var el = document.getElementById(location.hash.slice(1));
+        if (el) el.scrollIntoView();
+      }
+    }
+    window.addEventListener('hashchange', open);
+    // A second click on the same marker fires no hashchange.
+    document.addEventListener('click', function (e) {
+      var link = e.target.closest && e.target.closest('a[href^="#src-"]');
+      if (link) box.open = true;
+    });
+    open();
+  })();
+</script>
+
+<style>
+  /* Prose between components. The same few lines as on the TollBit page. */
+  .prose { color: var(--lp-text); line-height: 1.65; max-width: 44rem; }
+  .prose + .prose { margin-top: 1rem; }
+  :global(*) + .prose { margin-top: 1.25rem; }
+  .prose :global(a) { color: var(--lp-link); }
+  .prose :global(b) { color: var(--lp-strong); font-weight: 600; }
+  .prose :global(code) { font-family: var(--mono); font-size: 0.875em; color: var(--lp-heading); }
+  .prose em { color: var(--lp-heading); }
+  .ask { margin-top: 2rem; }
+  /* Band's lead doesn't colour links; the table's lead holds two. */
+  :global(.band-lead a) { color: var(--lp-link); }
+  .explorer { margin-top: 2.5rem; }
+
+  /* The key takeaway, drawn large like a pull quote, in FORA's voice. */
+  .takeaway { font-size: clamp(1.25rem, 2.2vw, 1.5rem) !important; line-height: 1.45; color: var(--lp-heading); font-weight: 500; letter-spacing: -0.01em; }
+
+  /* The section divider sits between bands, on the page's own black. */
+  .divider-band {
+    --lp-rule: var(--mid);
+    --lp-label: var(--light-gray);
+    background: var(--black);
+    padding: 0 2rem 3.5rem;
+  }
+  .divider-wrap { max-width: 1100px; margin: 0 auto; }
+  .divider-note { margin: 0.75rem 0 0 3rem; color: var(--gray); font-size: 0.9375rem; line-height: 1.6; }
+
+  .sources { margin-top: 4rem; scroll-margin-top: 5rem; }
+  .end-label { font-size: 0.875rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--lp-label); margin: 0 0 0.75rem; }
+  .all-sources > summary { cursor: pointer; color: var(--lp-link); font-weight: 600; }
+  .note { max-width: 52rem; margin-top: 1.25rem; color: var(--lp-muted); font-size: 0.9375rem; line-height: 1.6; }
+  @media (max-width: 560px) {
+    .divider-band { padding: 0 1rem 2.75rem; }
+  }
+</style>
