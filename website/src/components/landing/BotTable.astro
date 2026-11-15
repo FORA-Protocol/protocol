@@ -6,7 +6,7 @@ import { AI_BOTS, CHECKED, type BotKind } from '../../data/ai-bots';
 const GROUPS: { kind: BotKind; title: string; rule: string }[] = [
   { kind: 'training', title: 'Training and datasets', rule: 'Refused in robots.txt across the site, and a 403 on the paths you sell.' },
   { kind: 'live-fetch', title: 'Live fetch', rule: 'A 403 on the paths you sell, where they can buy. Many don\'t follow robots.txt.' },
-  { kind: 'ai-search', title: 'AI search', rule: 'Your choice. Refusing one takes you out of that vendor\'s AI search.' },
+  { kind: 'ai-search', title: 'AI search', rule: 'Your choice in robots.txt: refusing one takes you out of that vendor\'s AI search. On the paths you sell, FORA\'s edge function refuses them unless you let them through.' },
   { kind: 'search', title: 'Search crawlers that also feed AI', rule: 'Never refused: they bring your search traffic. Their AI uses are refused with the tokens and page settings below.' },
   { kind: 'token', title: 'robots.txt tokens', rule: 'No crawler sends these names. They exist only to refuse a use in robots.txt.' },
 ];
