@@ -1,11 +1,17 @@
 ---
-// /resources/: one card per topic, from src/data/resources.ts.
+// /resources/: one card per topic, from src/data/resources.ts. Topics without
+// a section first, then one band per section, with its heading and intro.
 import LandingLayout from '../../layouts/LandingLayout.astro';
 import AudienceHero from '../../components/landing/AudienceHero.astro';
 import Band from '../../components/landing/Band.astro';
 import ResourceCards from '../../components/landing/ResourceCards.astro';
 import ClosingCta from '../../components/landing/ClosingCta.astro';
-import { RESOURCES } from '../../data/resources';
+import { RESOURCES, SECTIONS } from '../../data/resources';
+
+const loose = RESOURCES.filter((r) => !r.section);
+const sections = SECTIONS
+  .map((s) => ({ ...s, items: RESOURCES.filter((r) => r.section === s.name) }))
+  .filter((s) => s.items.length > 0);
 ---
 <LandingLayout
   title="FORA resources — guides, slides and demos for publishers and AI agents"
@@ -21,8 +27,14 @@ import { RESOURCES } from '../../data/resources';
   </AudienceHero>
 
   <Band label="Topics" title="Start here">
-    <ResourceCards items={RESOURCES} />
+    <ResourceCards items={loose} />
   </Band>
+
+  {sections.map((s) => (
+    <Band title={s.name} lead={s.intro}>
+      <ResourceCards items={s.items} />
+    </Band>
+  ))}
 
   <ClosingCta
     title="Every AI agent is a customer. <em>FORA is your storefront.</em>"

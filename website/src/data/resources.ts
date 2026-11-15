@@ -1,7 +1,11 @@
 // The Resources section (/resources/): one entry per topic, in the order the
 // index lists them. A topic has one page that holds its article and its
 // formats (slides, a generator, a video); `formats` names what that page has.
-// Topics that live elsewhere on the site link there.
+// Topics that live elsewhere on the site link there. A topic with a `section`
+// is listed under that section's heading (SECTIONS), after the topics
+// without one; a series of pages, such as the content marketplaces, is one
+// section.
+import { SERIES, SERIES_SECTION } from './content-marketplaces';
 
 export interface Resource {
   href: string;
@@ -11,7 +15,12 @@ export interface Resource {
   formats: string[];
   /** ISO date of the last substantive update. */
   updated: string;
+  /** The name of the section the index lists it under; one of SECTIONS. */
+  section?: string;
 }
+
+/** The index's sections, in order, each with a heading and an intro. */
+export const SECTIONS: { name: string; intro: string }[] = [SERIES_SECTION];
 
 export const RESOURCES: Resource[] = [
   {
@@ -70,6 +79,10 @@ export const RESOURCES: Resource[] = [
     formats: ['Walkthrough'],
     updated: '2026-11-10',
   },
+  // The content-marketplaces series, in its own order; a page is listed once it is built.
+  ...SERIES.filter((p) => p.built).map(({ href, title, summary, audience, formats, updated }) => ({
+    href, title, summary, audience, formats, updated, section: SERIES_SECTION.name,
+  })),
 ];
 
 /** The date a resource page shows in its hero: its entry's `updated`. */
