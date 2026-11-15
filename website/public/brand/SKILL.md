@@ -14,9 +14,10 @@ disagree, the page wins.
 
 ## 1. Logo
 
-The mark is a blue wax seal pressed with the open forum: an open square with no
-walls around one point. The seal is the signature anyone can check; the
-impression is the open market it seals. It comes in two drawings: the full seal
+FORA stands for Federated Open Resource Access, and *fora* is also the plural
+of *forum*. The mark lays the plan of a Roman forum over a blue wax seal: an
+open square with no walls around one point. The seal is the signature anyone can
+check; the forum is the open market it seals. It comes in two drawings: the full seal
 for 48 px and up, and a compact seal (smoother edge, heavier corners, the point
 cut through) that keeps the open square and point readable down to 16 px.
 
@@ -91,8 +92,7 @@ Rules:
 - Sentence case for headlines and buttons. No title case, no all-caps
   headlines.
 - The highlight pattern from the site: a two-line headline whose second line is
-  in blue text, e.g. "Every AI agent is a customer. *FORA is your
-  storefront.*"
+  in blue text, e.g. "Many marketplaces. *One open protocol.*"
 
 ## 4. Layout
 
@@ -107,15 +107,24 @@ Rules:
 
 Read `reference/messaging.md` before writing any copy. The short version:
 
-- **Lead with the owner's outcome:** "Every AI agent is a customer. FORA is your
-  storefront." The agent is the buyer, never the store. In one sentence: FORA
-  makes a website or a music catalog licensable to AI agents, instantly. Then the mechanism: set your terms
-  once, and every page or track becomes a signed offer any agent can find, buy
-  and verify, with no deal per buyer. "Instantly" means once connected, not zero
-  setup; never promise minutes or one click.
+- **Lead with the approved message, as it is.** The tagline: "Many
+  marketplaces. *One open protocol.*" In one sentence: "FORA, Federated Open
+  Resource Access, is an open protocol and free, open-source software that any
+  company can deploy to run its own content marketplace for AI agents, and every
+  FORA marketplace works with every other."
+- **The idea behind it:** FORA is built in the open, for the open internet, and
+  the goal is for as many people as possible to use it. We help everyone who
+  tries it. Postindustria develops FORA and hosts one ready-made deployment, but
+  anyone can run FORA, and we want everyone who builds on it to win.
+- **For publishers and catalog owners**, add one line: sell through any FORA
+  marketplace, or run your own; FORA adds to what you already run. The agent is
+  the buyer, never the store. Once connected, every page or track is on sale to
+  every compatible agent at once; that is not zero setup, so never promise
+  minutes or one click.
 - Write **FORA** in prose. "The FORA protocol" or "FORA Protocol" when you need
   the noun. The lowercase "fora protocol" exists only inside the logo.
-- It stands for **Federated Open Resource Access**. Spell it out once, if at all.
+- It stands for **Federated Open Resource Access**, and *fora* is also the
+  plural of *forum*. Spell it out once, if at all.
 - Never "Fora" or "F.O.R.A.".
 - FORA is an **open protocol**, not an "industry standard" and not adopted by any
   standards body.
@@ -134,8 +143,8 @@ Check every item:
 2. Only the palette above; blue used sparingly; text contrast as in section 2.
 3. Instrument Sans and DM Mono (or the stated fallbacks).
 4. "FORA" spelled right; "open protocol", not "standard".
-   Copy for rights holders leads with the owner's outcome (the storefront line,
-   or "licensable, instantly"), not with the protocol mechanics.
+   Copy leads with the approved message (the tagline or the one-sentence
+   description), not with the protocol mechanics.
 5. Every factual claim is in `reference/messaging.md` or on fora-protocol.org,
    or flagged to the user as unverified.
 6. A link to <https://fora-protocol.org> is present where the format allows.
