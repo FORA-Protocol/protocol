@@ -13,11 +13,7 @@
 /components/agent-sdk/budget-reporting/
 /components/agent-sdk/fetch-flow/
 /components/agent-sdk/overview/
-/components/broker/budget-enforcement/
-/components/broker/content-dedup/
-/components/broker/deployment/
 /components/broker/overview/
-/components/broker/selection-engine/
 /components/content-ingestion/catalog-compilation/
 /components/content-ingestion/normalization/
 /components/content-ingestion/overview/
