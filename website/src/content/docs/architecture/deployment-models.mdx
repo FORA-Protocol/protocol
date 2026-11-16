@@ -81,7 +81,7 @@ The provider deploys the edge function itself, with the [reference implementatio
 | CloudFront | Lambda@Edge | The `aws-cloudfront-edge` Terraform module | A JSON file built into the bundle |
 | Cloudflare | Workers | The `cloudflare-edge` Terraform module, or Wrangler | The Worker's variables |
 
-The edge function stores nothing of its own on either: it reads no KV store. The reference implementation also has a Fastly Compute entry point, `src/entries/fastly.ts`, which its tests run locally under Viceroy.
+The edge function stores nothing of its own on either: it reads no KV store. It also runs on Fastly Compute, through its `fastly.ts` adapter, which the reference implementation tests in Node and in its Docker-based E2E stack under Viceroy ([`README.md`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/src/edge/README.md)). Fastly has no row in the table: the reference implementation has no Terraform module, console package or build script for it.
 
 ### When to Use
 

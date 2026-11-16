@@ -4,7 +4,8 @@ export const CDN_INTEGRATIONS = {
 		name: 'Fastly',
 		scheme: 'Ed25519',
 		path: 'The FORA Edge package checks the Exchange’s signed URLs before allowing access to your licensed content.',
-		guidance: 'We’ll provide the package and guide you through connecting it to your Fastly service, choosing which paths to protect, and testing access before going live.',
+		guidance: 'The console sets up Cloudflare and CloudFront for you. For Fastly, write to us: we’ll provide the package and guide you through connecting it to your Fastly service, choosing which paths to protect, and testing access before going live.',
+		contact: true,
 	},
 	cloudflare: {
 		name: 'Cloudflare',
@@ -26,7 +27,8 @@ export function cdnName(provider) {
 
 /**
  * The label of the page's links to the publisher contact address: on the CDN
- * card when no network was identified, and in the note shown when no discovery
+ * card when no network was identified or the console does not set the network
+ * up (Fastly, Akamai), and in the note shown when no discovery
  * document could be generated. The page owns the address; this module owns the
  * words.
  */
@@ -46,21 +48,21 @@ export function cdnPresentation(provider) {
 		title: `Integration path: ${integration.scheme} signed URLs`,
 		description: integration.path,
 		guidance: integration.guidance ?? 'We’ll provide a CDN package and setup instructions tailored to your site. Setup includes choosing the content paths to license and checking that ordinary visitors can still browse normally.',
-		contact: '',
+		contact: integration.contact ? CONTACT_LABEL : '',
 	};
 	if (provider === 'akamai') return {
 		badge: 'Akamai detected', tone: 'ok',
 		evidenceIntro: 'We recognized Akamai-specific patterns:',
-		title: 'Integration path: Signed delivery URLs',
-		description: 'We’ll configure your Akamai integration to check the Exchange’s signed URLs before allowing access to your licensed content.',
-		guidance: 'We’ll provide the package and guide you through connecting it to your Akamai service, choosing which paths to protect, and testing access before going live.',
-		contact: '',
+		title: 'Akamai isn’t supported today',
+		description: 'The console sets up Cloudflare and CloudFront for you. FORA’s edge function doesn’t run on Akamai today, so write to us and we’ll help you find the right setup.',
+		guidance: '',
+		contact: CONTACT_LABEL,
 	};
 	return {
 		badge: 'We couldn’t identify your CDN', tone: 'none',
 		evidenceIntro: 'We found these network signals:',
 		title: 'We’ll help you connect your website',
-		description: 'CloudFront, Cloudflare, and Fastly are supported today. If you use another CDN — or no CDN — write to us and we’ll help you find the right setup.',
+		description: 'The console sets up CloudFront and Cloudflare for you, and we help Fastly sites connect. If you use another CDN — or no CDN — write to us and we’ll help you find the right setup.',
 		guidance: '',
 		contact: CONTACT_LABEL,
 	};
