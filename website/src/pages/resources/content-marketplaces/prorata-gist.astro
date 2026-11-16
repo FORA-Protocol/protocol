@@ -55,7 +55,7 @@ const P = {
 const a = (href: string, text: string) => `<a href="${href}">${text}</a>`;
 
 const GLANCE = glanceGroups({
-  payer: [`ProRata itself, monthly, by bank transfer once you're owed more than $1,000. Its Gist Ads network ended on 2026-09-01, and ProRata hasn't said what funds the pool since ${cite(1, 2)}.`, FORA_CELLS.payer],
+  payer: [`ProRata itself, monthly, by bank transfer once you're owed more than $1,000. Its Gist Ads network ended on 2026-09-01; Gist Answers still runs. ProRata hasn't said what funds the pool since ${cite(1, 2)}.`, FORA_CELLS.payer],
   fees: [`A share of a pool, not a rate: see <a href="#paid">How you're paid</a> ${cite(1)}.`, FORA_CELLS.fees],
   reporting: [
     `A monthly statement, and per article: answers it was used in, its average attribution, citation clicks. Not the month's total revenue or answer count ${cite(1, 3)}.`,
@@ -246,7 +246,7 @@ const SOURCES = [
     <Fragment slot="intro">
       <StepList items={PAID_STEPS} />
       <p class="prose" set:html={`Answers can also draw on sources outside the partner pool, such as Wikipedia (${a(P.guide, 'user guide')}). The contract doesn't say where their share goes (${a(P.msa, 'MSA §5')}).`} />
-      <p class="prose" set:html={`ProRata retired its Gist Ads network "on September 1, 2026" (${a(P.ads, 'Gist Ads')}). It hasn't said what funds the pool since. It offers its attribution engine to AI platforms "through direct engagement with the team" (${a(P.products, 'Products')}) and names no platform customer.`} />
+      <p class="prose" set:html={`ProRata retired its Gist Ads network "on September 1, 2026" (${a(P.ads, 'Gist Ads')}). Only the ad network ended: Gist Answers, the answer engine on publishers' sites, still runs (${a(P.answers, 'Gist Answers')}). ProRata hasn't said what funds the pool since. It offers its attribution engine to AI platforms "through direct engagement with the team" (${a(P.products, 'Products')}) and names no platform customer.`} />
     </Fragment>
     <Figure
       slot="aside"
