@@ -7,7 +7,9 @@
 //
 // It sizes by its own width (a container query): below 640px each row becomes
 // a closed <details>, its summary the row's heading and its first cell, so a
-// phone never scrolls sideways. Reads the band's colour variables.
+// phone never scrolls sideways. With `labelAll` (rows that are questions, with
+// a column per answer) the summary is the heading alone and every cell shows
+// under its column's name. Reads the band's colour variables.
 //
 //   <ResourceTable cols={['Who', 'What signs', 'How you can tell']}
 //     rows={[['OpenAI', 'ChatGPT agent signs', 'Its key directory answers']]} />
@@ -18,11 +20,13 @@ interface Props {
   rows: string[][];
   /** The table's accessible name. */
   label: string;
+  /** On phones, label every cell with its column, the first included. */
+  labelAll?: boolean;
 }
-const { cols, rows, label } = Astro.props;
+const { cols, rows, label, labelAll = false } = Astro.props;
 ---
 <div class="rt">
-  <table aria-label={label}>
+  <table aria-label={label} class={`cols-${cols.length}`}>
     <thead><tr>{cols.map((c) => <th scope="col">{c}</th>)}</tr></thead>
     <tbody>
       {rows.map(([head, ...cells]) => (
@@ -36,8 +40,9 @@ const { cols, rows, label } = Astro.props;
   <div class="cards">
     {rows.map(([head, first, ...rest]) => (
       <details>
-        <summary><span class="nm" set:html={head} /><span class="first" set:html={first} /></summary>
+        <summary><span class="nm" set:html={head} />{!labelAll && <span class="first" set:html={first} />}</summary>
         <dl>
+          {labelAll && <div><dt>{cols[1]}</dt><dd set:html={first} /></div>}
           {rest.map((c, i) => <div><dt>{cols[i + 2]}</dt><dd set:html={c} /></div>)}
         </dl>
       </details>
@@ -62,7 +67,8 @@ const { cols, rows, label } = Astro.props;
   }
   tbody th, tbody td { text-align: left; vertical-align: top; padding: 0.75rem 1rem 0.75rem 0; border-bottom: 1px solid var(--lp-rule); }
   tbody th { color: var(--lp-heading); font-weight: 600; width: 18%; overflow-wrap: anywhere; }
-  td:nth-child(2) { width: 44%; }
+  .cols-3 td:nth-child(2) { width: 44%; }
+  .cols-4 td { width: 27%; }
   /* A status tag in the row heading sits on its own line under the name. */
   tbody th :global(.status-tag) { display: flex; width: fit-content; margin-top: 0.375rem; top: 0; }
   .rt :global(a) { color: var(--lp-link); }
