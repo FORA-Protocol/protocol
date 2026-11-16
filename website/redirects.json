@@ -3,5 +3,10 @@
     "source": "https://www.fora-protocol.org",
     "status": "302",
     "target": "https://fora-protocol.org"
+  },
+  {
+    "source": "/security/threat-model/",
+    "target": "/protocol/authentication/",
+    "status": "301"
   }
 ]

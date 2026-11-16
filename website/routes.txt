@@ -96,4 +96,3 @@
 /resources/music-dsp/
 /resources/transparent-collective/
 /resources/transparent-collective/evidence/
-/security/threat-model/

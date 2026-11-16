@@ -82,7 +82,7 @@ ORDER BY total_spend DESC;
 
 ### Q2: Revenue Leakage Detection
 
-Identifies content accesses that appear in CDN logs but have no corresponding transaction. This detects signed URL leakage (T8), billing system failures, and Exchange bugs.
+Identifies content accesses that appear in CDN logs but have no corresponding transaction. This detects signed URL leakage, billing system failures, and Exchange bugs.
 
 This query is run by the provider, joining their CDN logs against the Exchange transaction log export.
 
