@@ -314,7 +314,7 @@ If something goes wrong -- delivery failure, content hash mismatch, token count 
 ```
 1. ReportUsage       -> get report_id
 2. DisputeTransaction -> reference transaction_id + report_id + evidence
-3. Exchange resolves automatically (< 1 second for routine disputes)
+3. Exchange resolves it under its dispute policy, automatically for routine cases (the recommended policy's goal: under a second)
 ```
 
 **What's auto-disputable at each attestation level:**

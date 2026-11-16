@@ -9,9 +9,9 @@ The Transaction Log is the append-only audit trail that enables three-sided reco
 
 If the log is compromised:
 - Billing disputes are unresolvable
-- Revenue skimming (T5) is undetectable
-- Phantom transactions (T4) cannot be disproven
-- Ghost billing (T9 -- systematic caching without payment) cannot be quantified
+- Under-reported sales are undetectable
+- Purchases nobody made cannot be disproven
+- Repeated fetches of one delivery URL cannot be quantified
 
 The system specifies:
 - What gets logged and the schema for each event type
@@ -121,7 +121,7 @@ Core reconciliation queries:
 
 **WAL-first.** No signed URL leaves the Exchange without a durable record on local disk. If the WAL write fails, the signed URL is never returned, even though billing was authorized. A "wasted" authorization is far safer than an "unbillable" delivery.
 
-**Append-only, verifiable.** Three layers of defense: storage-level immutability (S3 Object Lock, PostgreSQL triggers), cryptographic hash chains (SHA-256), and Ed25519-signed records. Three-sided reconciliation is the ultimate arbiter.
+**Append-only, verifiable.** Alteration is detectable even when the Exchange operator is the adversary: the agent holds the signed offer and its own acceptance, and the provider's edge keeps its own delivery log, so a changed record no longer matches theirs. Storage-level immutability (S3 Object Lock, PostgreSQL triggers), cryptographic hash chains (SHA-256) and Ed25519-signed records are defense in depth on top.
 
 **Tiered for cost.** The same WAL code and `DurableStore` interface serve both deployment tiers. Growth operators use PostgreSQL for ~$641/month. Scale operators get sub-second reconciliation queries on ClickHouse for ~$4,700/month. Both stay well under the $0.00005/transaction NFR ceiling.
 

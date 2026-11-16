@@ -513,7 +513,7 @@ type ReadinessCheck struct {
 
 All logs use `log/slog` with structured key-value pairs. No `log.Printf` or custom loggers. Every error path MUST log before returning.
 
-**Redaction rules** (per threat model):
+**Redaction rules**:
 - `billing_ref`: last 4 characters only (e.g., `****a1b2`)
 - Signing keys: never logged
 - Signed URLs: hash only, never full URL

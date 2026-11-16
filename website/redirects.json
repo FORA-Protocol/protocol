@@ -28,5 +28,10 @@
     "source": "/components/broker/deployment/",
     "target": "/components/broker/overview/",
     "status": "301"
+  },
+  {
+    "source": "/security/threat-model/",
+    "target": "/protocol/authentication/",
+    "status": "301"
   }
 ]

@@ -25,7 +25,7 @@ Known AI crawler User-Agents. This is the primary detection mechanism. The AI co
 
 A live fetch and a training crawl are what an agent buys a license for, so both get the `403` that points to the Exchange. An AI search crawler gets the same `403` by default. The vendors document that refusing one takes the site out of that vendor's AI search, so the provider decides: to keep its licensed paths in one vendor's AI search, it lets that vendor's crawler through (see [Changing the lists](#changing-the-lists)). Paths outside the licensed paths are not affected.
 
-<pre><code>{[
+<pre style={{ overflowX: 'auto' }}><code>{[
   '# Training and datasets: 403 on licensed paths',
   botLines('training'),
   '',
@@ -88,7 +88,7 @@ All major CDNs maintain their own bot classification databases:
 - **Fastly**: Signal Sciences WAF -- bot detection signals.
 - **CloudFront**: AWS WAF Bot Control -- managed rule group with bot categorization.
 
-These are available as request metadata without any computation cost at the edge. The edge function can check CDN-native bot signals as a second layer.
+These are available as request metadata without any computation cost at the edge. The edge function reads Cloudflare's verified-bot signal on Cloudflare, where it overrides User-Agent matching. On Fastly and CloudFront it reads none, so a crawler that claims a search crawler's User-Agent passes there.
 
 ### Layer 3: Behavioral Signals (0ms -- pattern matching)
 
@@ -100,7 +100,7 @@ Heuristic patterns that indicate automated access:
 - **Sequential path access**: Bots tend to walk paths sequentially (`/premium/1`, `/premium/2`, ...). Humans jump around.
 - **TLS fingerprint**: JA3/JA4 fingerprint mismatches (User-Agent claims to be Chrome but TLS fingerprint is Python `requests`).
 
-Layer 3 signals are supplementary. They can reduce false positives (bot with unknown User-Agent) but should not override a valid signed URL.
+Layer 3 signals are supplementary. They can reduce false positives (bot with unknown User-Agent) but should not override a valid signed URL. The edge function does not compute them; they are what the CDN's own bot product uses, which is why it stays on beside the edge function.
 
 ## Bot Classification Tiers
 
@@ -277,30 +277,26 @@ When a bot is detected on a protected path without a signed URL:
 ```http
 HTTP/1.1 403 Forbidden
 Content-Type: application/json
-X-Content-Rules: https://techcrunch.com/.well-known/fora.json
+X-Content-Rules: https://publisher.example/.well-known/fora.json
 X-FORA-Exchange: exchange.example
-Cache-Control: no-store
 ```
 
 ```json
 {
-  "error": "Licensed content. Negotiate access via the Exchange.",
-  "protocol": "FORA",
-  "version": "1.0",
-  "fora_json_url": "https://techcrunch.com/.well-known/fora.json"
+  "error": "Access denied. Negotiate access via the exchange.",
+  "reason": "ai_bot"
 }
 ```
 
 **Header semantics** (the FORA edge discovery headers; the normative rules are in [Discovery Paths](/protocol/discovery-paths/#edge-discovery-headers)):
 - `X-Content-Rules` -- the absolute URL of the provider's own manifest, `https://<provider domain>/.well-known/fora.json`. This is the key discovery mechanism for bots that did not check `fora.json`: the manifest carries the licensing terms and, in `exchanges[]`, the Exchanges that sell this content. It never points at an Exchange.
 - `X-FORA-Exchange` -- optional. The bare domain of one Exchange that sells this content directly, in the same form as `Offer.exchange` (no scheme, no path). An agent can start discovery there without fetching the manifest first, resolving the Exchange's endpoint from the Exchange's own `fora.json`. It is an optimisation, not authorization: the edge sends it only beside `X-Content-Rules` and only for an Exchange the manifest lists, and when the two disagree the manifest wins.
-- `Cache-Control: no-store` -- the 403 should not be cached. Content availability may change.
 
 **Body semantics**:
-- `error` -- human/machine readable explanation.
-- `protocol` -- identifies this as a FORA protocol response, not a generic 403.
-- `version` -- protocol version for forward compatibility.
-- `fora_json_url` -- same as the `X-Content-Rules` header, in the body for agents that parse JSON responses. The body is informative; the headers are the protocol.
+- `error` -- a human-readable explanation.
+- `reason` -- `ai_bot`, the same token the edge function's log record carries. Every edge refusal uses this `{error, reason}` shape.
+
+The body is informative; the headers are the protocol.
 
 ## Classification Algorithm
 

@@ -216,11 +216,11 @@ The edge resolves `kid` to a key from the Exchange's key directory at `/.well-kn
 
 **Directory keys carry no key identifier of their own.** The edge computes the map key locally as the RFC 7638 thumbprint of the key material. That is why `kid` on the URL is a thumbprint rather than an operator-chosen label: there is nothing a publisher could assert that the edge would have to trust.
 
-**The directory is not tenant-scoped, so pin the keys if you need it to be.** An
-Exchange publishes one directory for all its tenants, and the edge accepts any
-`kid` that resolves in it. A URL signed with another tenant's key therefore
-verifies on your edge, which matters when one Exchange serves publishers who do
-not trust each other. Pinning the keys you expect in `verifyKeys` closes it: a
+**Each tenant has its own directory.** A tenant of an Exchange operator is its
+own Exchange, with its own domain, key directory and keys, and it signs the
+delivery URLs of every publisher it represents with those keys. An edge resolves
+`kid` in its tenant's directory, so a URL signed by another tenant does not
+verify. Pinning the keys you expect in `verifyKeys` narrows trust further: a
 `kid` outside that set never resolves, and the fetch never happens.
 
 ```mermaid
@@ -274,48 +274,12 @@ Configure a trusted key group on the cache behaviour for the protected path and 
 
 Akamai is not a supported target. EdgeAuth is a symmetric token scheme built on a secret shared with the CDN, which is the model FORA deliberately does not use.
 
-## Single-Use URL Enforcement
+## Replay within a URL's lifetime
 
-:::caution
-Not implemented in the reference edge. This section describes the option and why it is not the primary defence.
-:::
+A delivery URL can be fetched more than once before it expires. What that allows is bounded by the binding, the window and the log:
 
-A provider wanting additional replay protection can enforce single-use URLs through edge KV, keyed on the URL's `sig`.
+1. **Agent identity binding.** The URL is bound to the purchasing agent's key, so a fetch by anyone else fails proof of possession ([Agent Identity Binding](#agent-identity-binding)).
+2. **A short window.** The URL's signed `exp` limits use to minutes, and nobody can extend it ([Expiry](#expiry)).
+3. **The delivery log.** The edge function writes one delivery record for each request it authorizes, carrying the SHA-256 of the URL, its `kid` and its `agent_id`. The Exchange records the same hash on the transaction, so joining the two logs shows every delivery against every sale, repeated fetches included.
 
-```mermaid
-sequenceDiagram
-    participant Agent as Fetcher
-    participant Edge as Edge Function
-    participant KV as Edge KV Store
-
-    Agent->>Edge: GET /premium/article.html?...&sig=k7Qm2xR9...
-
-    Note over Edge: Signature verified OK
-
-    Edge->>KV: PUT-IF-ABSENT<br/>key: "used:#lt;sig#gt;"<br/>value: timestamp<br/>TTL: URL lifetime + 60s
-
-    alt Key did not exist (first use)
-        KV-->>Edge: success (inserted)
-        Edge-->>Agent: 200 OK + content
-    else Key already exists (replay)
-        KV-->>Edge: conflict (already exists)
-        Edge-->>Agent: 403: URL already consumed
-    end
-```
-
-**It would be best-effort.** Edge KV stores are eventually consistent across locations, so two near-simultaneous fetches in different regions can both see an absent key.
-
-| Platform | KV Mechanism | Consistency Model | Propagation Delay |
-|---|---|---|---|
-| CloudFront | No native KV; Lambda@Edge + DynamoDB | Per-region, eventually consistent (DynamoDB Global Tables) | Seconds across regions |
-| Cloudflare Workers KV | Workers KV | Eventually consistent | ~60s propagation across PoPs |
-| Cloudflare Durable Objects | Durable Objects | Strong consistency | Single-location (latency tradeoff) |
-| Fastly KV Store | KV Store | Eventually consistent | Seconds across PoPs |
-
-**The primary replay defences are the ones already in the request path:**
-
-1. **Agent identity binding** — the URL is bound to one key, and a replay by anyone else fails proof of possession.
-2. **Short TTL** — five minutes in the reference deployment, which narrows the window.
-3. **Reconciliation** — the Exchange transaction log and the edge delivery log both record the signed-URL hash. Cross-referencing them detects replay after the fact.
-
-In real time the checks are best-effort; reconciliation is authoritative.
+Repeated fetches by the purchasing agent within the window are therefore served, attributable to one purchase, and auditable. This matches ad-tech's approach to impression deduplication: reconciliation is authoritative.

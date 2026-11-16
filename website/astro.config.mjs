@@ -178,10 +178,6 @@ export default defineConfig({
 					],
 				},
 				{
-					label: 'Security',
-					items: [{ label: 'Threat Model', slug: 'security/threat-model' }],
-				},
-				{
 					label: 'Resources',
 					items: [{ label: 'Brand & Media Kit', slug: 'brand' }],
 				},

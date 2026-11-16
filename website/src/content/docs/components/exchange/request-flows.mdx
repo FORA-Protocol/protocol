@@ -964,6 +964,6 @@ sequenceDiagram
 
 A `DisputeResponse` is only returned when the dispute is **accepted for processing**. A refusal to file (transaction unknown, no preceding usage report, window expired, duplicate, ineligible) is a non-OK transport error carrying a typed `ErrorDetail.dispute_failure` (`DisputeFailureReason`) — not a `DisputeResponse` with a rejection field.
 
-**Tier 1 resolution** completes in under 1 second using CDN access logs as the authoritative evidence source. CDN logs are infrastructure-level records that neither party controls, making them the most trustworthy evidence in the hierarchy.
+**Tier 1 resolution** uses CDN access logs as the authoritative evidence source, with a design goal of under a second. CDN logs are infrastructure-level records that neither party controls, making them the most trustworthy evidence in the hierarchy.
 
-See [Dispute Resolution](/protocol/dispute-resolution/) for the three-tier resolution system and abuse prevention.
+See [Dispute Resolution](/protocol/dispute-resolution/) for the recommended three-tier resolution policy and abuse prevention.

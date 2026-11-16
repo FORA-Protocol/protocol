@@ -778,7 +778,7 @@ Every Exchange implements `DisputeTransaction`; it is part of the core protocol,
 | `DISPUTE_FAILURE_REASON_INELIGIBLE` | The transaction's state admits no dispute under the Exchange's rules |
 | `DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION` | The filing's `ext_critical` names a key the Exchange does not understand. Refused with `invalid_argument` (see [Extension Profiles](/protocol/extension-profiles/)) |
 
-A dispute that is accepted and later found unsupported ends as `RESOLUTION_TYPE_REJECTED`; it is not a refusal to file. The Exchange resolves most accepted disputes automatically in under 1 second using CDN logs and cryptographic evidence. See [Dispute Resolution](/protocol/dispute-resolution/) for the three-tier resolution system, auto-credit rules, and the complete dispute lifecycle.
+A dispute that is accepted and later found unsupported ends as `RESOLUTION_TYPE_REJECTED`; it is not a refusal to file. How an Exchange resolves an accepted dispute is its own policy; the recommended policy's goal is to resolve most of them automatically in under a second. See [Dispute Resolution](/protocol/dispute-resolution/) for the recommended three-tier policy, its auto-credit rules, and the complete dispute lifecycle.
 
 ## Resource Previews
 

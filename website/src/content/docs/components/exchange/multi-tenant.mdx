@@ -25,10 +25,6 @@ type TenantConfig struct {
     RSLURLs         map[string]string // domain -> RSL URL (e.g., "style.example" -> "https://style.example/license.xml")
     RSLPollInterval time.Duration     // How often to re-fetch RSL (default: 5m)
 
-    // Pricing overrides (Exchange is the price authority — RSL pricing is a fallback hint)
-    // Private pricing from Exchange config overrides RSL-derived pricing.
-    PricingOverrides map[string]*forav1.Pricing // path pattern -> pricing
-
     // Content delivery
     ContentBaseURL string        // CDN base URL (e.g., "https://cdn.meridian.example")
     Scheme         SigningScheme // ED25519 or AWS_CLOUDFRONT_RSA
@@ -40,9 +36,6 @@ type TenantConfig struct {
 
     // Reporting policy
     ReportingPolicy *forav1.ReportingObligation
-
-    // Application-level abuse thresholds (volumetric rate limiting is at infra layer)
-    MinQueryToTxnRatio float64 // If query:txn ratio drops below this, return 429 (e.g., 0.01)
 
     // Revenue share (not protocol-relevant, but needed for billing)
     RevenueSharePct float64 // Provider's share (e.g., 0.85 = 85%)
@@ -67,13 +60,11 @@ type TenantConfig struct {
 │    - Transaction log writer (WAL)                    │
 │    - Billing adapter connection pool                 │
 │    - Metrics collector                               │
-│    - (Volumetric rate limiting at infra layer)       │
 │                                                      │
 │  Per-Tenant (isolated):                              │
 │    - Resource catalog (in CatalogSnapshot.Tenants)    │
 │    - Signing keys (in SigningEngine)                  │
 │    - RSL ingestion goroutine                         │
-│    - Abuse detection counters (query:txn ratio)      │
 │    - Reporting obligations                           │
 │    - Verifier trust configuration (v1.0)             │
 │    - Dispute thresholds (v1.0)                       │
@@ -90,7 +81,7 @@ type TenantConfig struct {
 ### Isolation Guarantees
 
 - **Data isolation**: No tenant can access another tenant's catalog, keys, or transaction records. Offer signatures are per-tenant (different Ed25519 key pairs). Transaction log records include tenant_id for filtering.
-- **Performance isolation**: Per-tenant rate limiting prevents a noisy tenant from consuming all capacity. Optional: per-tenant goroutine pools for RSL ingestion.
+- **Performance isolation**: The Exchange keeps no per-request state, so request volume is limited in front of it, per address or per verified identity, by the load balancer or API gateway. Optional: per-tenant goroutine pools for RSL ingestion.
 - **Failure isolation**: An RSL ingestion failure for tenant A does not affect tenant B's catalog. Each tenant's catalog is independently rebuildable.
 
 ---
@@ -161,7 +152,7 @@ For managed providers, the Exchange supports automatic rotation on a configurabl
 
 ## Public Key Exchange
 
-Brokers and agents fetch the Exchange's WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`) and read its `keys` to verify `exchange_signature` on Offers without manual key exchange. The Exchange's offer-signing Ed25519 public keys are inline in that directory as RFC 7517 JWKs, each identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`).
+Brokers and agents fetch the Exchange's WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`) and read its `keys` to verify `Offer.signature` without manual key exchange. The Exchange's offer-signing Ed25519 public keys are inline in that directory as RFC 7517 JWKs, each identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`).
 
 **Note:** The Exchange's WBA directory keys serve the Exchange's offer-signing keys. Agent keys are separate — they are fetched from the agent's own WBA directory (self-signup) or stored from enterprise registration (out-of-band key exchange).
 
@@ -197,7 +188,7 @@ Since the default offer signature algorithm is Ed25519, these are **public keys*
 
 - Returns current and previous keys (for rotation grace period); each key's validity window is half-open `[not_before, not_after)`
 - **No authentication required** — Ed25519 public keys are safe to expose (they can only verify, not sign)
-- Brokers SHOULD cache with 24-hour TTL
+- Brokers SHOULD cache with a TTL of minutes to hours, as the [Caching Contract](/protocol/authentication/#caching-contract) allows, and poll the directory's `revocation_url` every 300 seconds
 - On signature verification failure, refresh key cache before retrying
 - The `x` field contains the base64url-encoded Ed25519 public key (32 bytes)
 
