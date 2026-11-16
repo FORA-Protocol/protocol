@@ -32,6 +32,22 @@ export const RESOURCES: Resource[] = [
     updated: '2026-11-12',
   },
   {
+    href: '/resources/web-bot-auth/',
+    title: 'Web Bot Auth: how an AI agent proves who it is',
+    summary: 'How an AI agent signs its requests with a key on its own website, and how your site checks it. Who signs, how keys rotate and are revoked, what to ask your CDN, and how FORA uses it.',
+    audience: 'Publishers and engineers',
+    formats: ['Guide'],
+    updated: '2026-11-16',
+  },
+  {
+    href: '/resources/agent-identity/',
+    title: 'How AI agents prove who they are, and what they may do',
+    summary: 'Four questions about any AI agent: who it is, whom it acts for, what it may do, and who pays. Which standard answers each, from Web Bot Auth and OAuth to card networks, and what you need for what you sell.',
+    audience: 'Publishers and engineers',
+    formats: ['Guide'],
+    updated: '2026-11-16',
+  },
+  {
     href: '/resources/transparent-collective/',
     title: 'A fair licensing collective',
     summary: 'How a fair AI licensing collective works on FORA: published money, your own terms per URL, a signed record of every fetch. With a scorecard of the eight schemes running or announced today.',

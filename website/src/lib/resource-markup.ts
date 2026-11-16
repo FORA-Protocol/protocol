@@ -5,7 +5,7 @@
 // markup as statusTag(), so a tag in a component and a tag in a string match.
 import { STATUS, type StatusKey } from '../data/content-marketplaces';
 
-/** A status pill: Live, Beta, Closed beta, Pilot, Design, Roadmap, Not public. */
+/** A status pill: Live, Beta, Closed beta, Pilot, Preview, Experimental, Design, Roadmap, Not public. */
 export function statusTag(status: StatusKey): string {
   return `<span class="status-tag status-tag--${status}">${STATUS[status].label}</span>`;
 }

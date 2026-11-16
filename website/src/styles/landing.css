@@ -199,7 +199,8 @@
 
 /* Status tag: monochrome on purpose. The states differ by fill and line, so
    they read on every band and never compete with FORA's blue. Live is filled;
-   Beta, Closed beta and Pilot are outlined; Design and Roadmap are dashed;
+   Beta, Closed beta, Pilot and Preview are outlined; Experimental has a
+   dashed dot; Design and Roadmap are dashed;
    Not public is dotted and muted. Every icon box is the same size, so no
    pill drops below the text line. */
 .status-tag {
@@ -226,7 +227,9 @@
 .status-tag--live::before { background: var(--lp-bg); }
 .status-tag--beta::before,
 .status-tag--closed-beta::before { background: linear-gradient(90deg, var(--lp-heading) 50%, transparent 50%); border: 1px solid var(--lp-heading); }
-.status-tag--pilot::before { border: 1px solid var(--lp-heading); }
+.status-tag--pilot::before,
+.status-tag--preview::before { border: 1px solid var(--lp-heading); }
+.status-tag--experimental::before { border: 1px dashed var(--lp-heading); }
 .status-tag--design,
 .status-tag--roadmap { border-style: dashed; }
 .status-tag--design::before { border: 1px dashed var(--lp-heading); }
