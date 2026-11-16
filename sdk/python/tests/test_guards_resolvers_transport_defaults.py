@@ -4,9 +4,10 @@ Why this is a test and not a sentence
 -------------------------------------
 The rule is that a resolver's default follows its URL's PROVENANCE: a fixed,
 operator-chosen address takes the plain client, a host another party named takes the
-guarded one. That rule is written down in three places — the Go oracle's
-``WellKnownOptions.HTTP`` comment, ``docs/design-history.md``, and the published threat
-model, which states it per language in a table.
+guarded one. That rule is written down in the Go oracle's ``WellKnownOptions.HTTP``
+comment and ``docs/design-history.md``. The guards the guarded client applies are the
+SSRF guards that the ``License.uri`` comment in ``proto/fora/v1/fora.proto`` and
+Licensing Terms (``/protocol/licensing-terms/``) specify.
 
 It has now drifted from the code twice. The scheme guard was added to the dial and not
 walked back through its callers, so a doc sentence beginning "every fetch" stayed standing
@@ -14,16 +15,18 @@ after it stopped being true; and this port mirrored the oracle's options struct 
 mirroring the rule, then explained the result in a docstring that had also stopped being
 true. Prose cannot detect either. A socket can.
 
-SO: CHANGING ANY ROW BELOW OBLIGES AN EDIT TO THE PUBLISHED THREAT MODEL
-(``website/src/content/docs/security/threat-model.mdx``), which names these postures per
-language. That is the whole point of the gate — the failure is the reminder.
+SO: CHANGING ANY ROW BELOW OBLIGES A CHECK OF THE ``License.uri`` SSRF GUARDS in
+``proto/fora/v1/fora.proto`` and Licensing Terms
+(``website/src/content/docs/protocol/licensing-terms.mdx``), which say what a consumer
+must apply before it fetches a URL another party named. That is the whole point of the
+gate — the failure is the reminder.
 
 One row records a gap, not a decision
 -------------------------------------
 ``endpoint resolver`` REACHES here and REFUSES in Go. That is not a considered
 divergence: the host is an ``Offer.exchange`` domain, so by the rule above it belongs on
 the guarded transport in every language, and this port has not caught up. It is tracked
-separately, and the threat model names it. Do not read this row as endorsement — read it
+separately. Do not read this row as endorsement — read it
 as the thing that will fail, loudly and on purpose, in the change that fixes it.
 
 What is not here
@@ -171,6 +174,6 @@ def test_resolver_transport_defaults(
     verb = {True: "reached", False: "refused"}
     assert got == reaches, (
         f"default transport {verb[got]} the loopback origin, want {verb[reaches]} — {why}. "
-        "If this change is intended, the per-language table in the published threat model "
-        "has to change with it."
+        "If this change is intended, check it against the License.uri SSRF guards in "
+        "proto/fora/v1/fora.proto and /protocol/licensing-terms/."
     )
