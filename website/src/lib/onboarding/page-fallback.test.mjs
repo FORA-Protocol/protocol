@@ -63,14 +63,17 @@ test('absent, unexpected, prototype and hostile provider tokens share an honest 
   }
 });
 
-test('only an unidentified CDN offers the contact link, and the mapping carries no address', () => {
-  for (const provider of ['cloudfront', 'cloudflare', 'fastly', 'akamai']) {
+test('Fastly and an unidentified CDN offer the contact link, and the mapping carries no address', () => {
+  for (const provider of ['cloudfront', 'cloudflare', 'akamai']) {
     assert.equal(presentation(provider).contact, '', `${provider} needs no contact link`);
   }
+  const fastly = presentation('fastly');
   const unknown = presentation('none');
   assert.equal(integrations.CONTACT_LABEL, 'Write to us');
+  assert.equal(fastly.contact, integrations.CONTACT_LABEL, 'The console routes Fastly publishers to us');
+  assert.match(fastly.guidance, /sets up Cloudflare and CloudFront/);
   assert.equal(unknown.contact, integrations.CONTACT_LABEL, 'One label for every contact link on the page');
-  for (const value of Object.values(unknown)) {
+  for (const value of [...Object.values(fastly), ...Object.values(unknown)]) {
     assert.doesNotMatch(value, /mailto:|https?:\/\//, 'The page supplies the contact address, never the mapping');
   }
 });

@@ -90,10 +90,10 @@ const cdnCases = [
 	['Cloudflare', 'cloudflare', 'edge_package', 'cf-ray', /worker/i],
 	['Fastly', 'fastly', 'edge_package', 'x-served-by', /FORA Edge package/],
 	['Akamai', 'akamai', 'contact_us', 'akamai-grn', /signed.*URLs/i],
-	['unknown CDN', 'none', 'contact_us', null, /CloudFront, Cloudflare, and Fastly are supported today/],
+	['unknown CDN', 'none', 'contact_us', null, /The console sets up CloudFront and Cloudflare for you, and we help Fastly sites connect/],
 	// Controlled-origin scenario is test provenance, never a service assertion:
 	// the same none payload cannot distinguish direct origin from an unknown CDN.
-	['known direct origin', 'none', 'contact_us', null, /CloudFront, Cloudflare, and Fastly are supported today/],
+	['known direct origin', 'none', 'contact_us', null, /The console sets up CloudFront and Cloudflare for you, and we help Fastly sites connect/],
 ];
 function cdnResponse([, provider, integration, header], overrides = {}) {
 	const data = response(overrides);
