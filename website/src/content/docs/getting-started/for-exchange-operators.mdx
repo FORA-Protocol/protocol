@@ -11,15 +11,15 @@ Settlement stays outside the protocol: you bill the agents' account holders and 
 
 The same messages carry any catalog. What changes is the unit an offer is metered in and the domain profile its metadata follows:
 
-| Exchange over | What it holds | Who provides it | Who might run it |
-|---|---|---|---|
-| News | Articles, podcasts, video | Publishers | A news publisher group, a press agency |
-| Scholarly content | Journal articles, preprints | Publishers, repositories | A university press, a society publisher |
-| Legal records | Court filings, legislation, patents | Courts, patent offices | A legal-data company |
-| Financial data | Credit reports, market data | Data providers | A data vendor |
-| Medical data | Clinical data, imaging | Hospitals, research institutions | A research consortium |
-| Public records | Property records, business filings | Agencies | A public-records company |
-| Music | Recordings and the works they record | Labels, publishers, collectives | A licensing collective |
+| Exchange over | What it holds, and from whom | Who might run it |
+|---|---|---|
+| News | Articles, podcasts and video, from publishers | A news publisher group, a press agency |
+| Scholarly content | Journal articles and preprints, from publishers and repositories | A university press, a society publisher |
+| Legal records | Court filings, legislation and patents, from courts and patent offices | A legal-data company |
+| Financial data | Credit reports and market data, from data providers | A data vendor |
+| Medical data | Clinical data and imaging, from hospitals and research institutions | A research consortium |
+| Public records | Property records and business filings, from agencies | A public-records company |
+| Music | Recordings and the works they record, from labels, publishers and collectives | A licensing collective |
 
 An existing marketplace can run a FORA Exchange over its own catalog, beside the channels it already has. See [For Content Marketplaces](/getting-started/existing-marketplace/).
 
@@ -46,7 +46,8 @@ The Exchange answers these calls:
 | `ExchangeService.ExecuteTransaction` | Buys offers and returns a signed delivery URL for each paid item |
 | `ExchangeService.ReportUsage` | Takes the agent's usage report and returns its `report_id` |
 | `CatalogService.PushResources` | Takes catalog entries from a contributor the site's `fora.json` names |
-| `AdminService.SetTenantFeeRate`, `AdminService.SetReportingPolicy` | Set your fee and your reporting policy, on the admin listener only |
+| `AdminService.SetTenantFeeRate` | Sets your fee, on the admin listener only |
+| `AdminService.SetReportingPolicy` | Sets your reporting policy, on the admin listener only |
 
 It also serves `/.well-known/fora.json`, your key directory at `/.well-known/http-message-signatures-directory`, `/healthz` and `/readyz`.
 
