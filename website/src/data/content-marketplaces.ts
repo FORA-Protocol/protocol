@@ -77,7 +77,7 @@ export const DEFINITIONS = {
   },
   edgeFunction: {
     tag: 'What is the edge function?',
-    text: 'FORA\'s small program on your CDN, on Cloudflare or Amazon CloudFront. On the paths you license, it refuses AI bots that come without a signed link, and serves the agents that bring one. Readers and search crawlers pass as before.',
+    text: 'FORA\'s small program on your CDN, on Cloudflare, Fastly or Amazon CloudFront. On the paths you license, it refuses AI bots that come without a signed link, and serves the agents that bring one. Readers and search crawlers pass as before.',
   },
   signedLink: {
     tag: 'What is a signed link?',
