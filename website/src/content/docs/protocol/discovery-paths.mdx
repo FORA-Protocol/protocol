@@ -29,7 +29,7 @@ sequenceDiagram
     Agent->>PUB: GET /.well-known/fora.json
     PUB-->>Agent: WellKnownManifest (role=ROLE_PUBLISHER, exchange endpoints)
 
-    Note over Agent: Content at /premium/* requires<br/>licensed access via exchange.ssp.com
+    Note over Agent: Content at /premium/* requires<br/>licensed access via exchange.example
 
     Agent->>MP: DiscoverResources (ResourceQuery)
     MP-->>Agent: ResourceResponse (Offer[] with pricing)

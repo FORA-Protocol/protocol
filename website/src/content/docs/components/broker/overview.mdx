@@ -92,6 +92,16 @@ When at least one URL has an offer, every requested URL comes back as one `Offer
 
 When no URL has an offer, or no publisher's `fora.json` can be read, the response carries no groups and states the reason once, in `DiscoveryResponse.absence_reason`. "No offer" is a successful answer, not an error: `BrokerService.Resolve` returns OK with the reason.
 
+## Order, budget and fees
+
+**Order.** A Broker returns the offers in its own order of relevance to the agent's request. Price is not a signal of that order: each offer carries its price and `Pricing.unit_cost`, and the agent compares them under its own policy. An agent names the Exchanges it has a relationship with, such as a subscription, in `RequestConstraints.preferred_exchanges`, and a Broker SHOULD put their offers first when they have the resource.
+
+**Same content, several Exchanges.** When several Exchanges sell the same content, the agent gets each offer as a full package, and `Offer.identity` tells it that they are the same content. A Broker groups such offers and drops none of them, so the agent compares the packages and decides which to buy.
+
+**Budget.** The agent's budget is its own constraint. The limits it states in `DiscoveryRequest.constraints`, such as `max_price` or `period_budget` with `budget_period`, narrow which offers come back, and a Broker applies them as a filter, not as an order. A URL the budget leaves with no offer is answered with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`. The charge is the Exchange's, at purchase.
+
+**Fees.** An offer carries only the Exchange's price, which the Exchange signed. A Broker's fee has no field: it is disclosed out of band and added to that price, never folded into it.
+
 ## Buying through the Broker
 
 An agent commits to offers in a separate call, one of two ways. The execute target of each offer is `Offer.exchange`, which the Exchange signed, so a Broker cannot redirect a purchase.
@@ -146,9 +156,16 @@ The Broker forwards `Requester.scopes` unchanged and in order, because the Excha
 
 Anyone may run a Broker, with or without an Exchange of their own. It is a role of its own, with its own key and its own `fora.json`, and each Exchange decides which Brokers it admits. A search company, for example, can run only a Broker, behind its own search.
 
-FORA Server's Broker is a separate service. It needs PostgreSQL, Redis, a public hostname with TLS, and a registry that lists the Exchanges its operator trusts. The address of each Exchange always comes from that Exchange's own `fora.json`, never from the registry. The [deployment guide](https://github.com/FORA-Protocol/reference-implementation/blob/main/src/broker/DEPLOYMENT.md) is in the FORA Server repository.
+FORA Server's Broker is a separate service, published as the container image `ghcr.io/fora-protocol/broker`. Its operator deploys it with:
 
-As of November 2026, Gutefrage runs the whole FORA stack itself, on its own servers, and has launched it on [helpster.de](https://www.helpster.de/), one of its properties. Its Broker searches the Elasticsearch index Gutefrage already runs, with a search template in which Gutefrage decides which fields are searched, how results rank and which filters agents may use.
+- PostgreSQL, Redis, and a public hostname with TLS;
+- two Ed25519 keys: an identity key, whose public half the Broker publishes in its key directory, and a relay key, which signs the Broker's requests to Exchanges;
+- a registry file that lists the Exchanges it routes to, each with a `trust_level`: `DISCOVERED` Exchanges answer discovery and are never paid, `VERIFIED` and `PREFERRED` ones also take purchases, and `BLOCKED` ones take neither;
+- a withdrawn-keys file, which the Broker publishes. A FORA Server Exchange is configured with one Broker (`EXCHANGE_BROKER_WELLKNOWN_URL`) and rejects signed requests while it can't read that Broker's list, so the Broker goes up first.
+
+The address of each Exchange always comes from that Exchange's own `fora.json`, never from the registry. The [deployment guide](https://github.com/FORA-Protocol/reference-implementation/blob/main/src/broker/DEPLOYMENT.md) is in the FORA Server repository.
+
+Gutefrage runs the whole FORA stack itself, on its own servers, and has launched it on [helpster.de](https://www.helpster.de/), one of its properties. Its Broker searches the Elasticsearch index Gutefrage already runs, with a search template in which Gutefrage decides which fields are searched, how results rank and which filters agents may use.
 
 ## Related pages
 

@@ -1,6 +1,11 @@
 ---
 // A page's sources, in groups: each entry's title (linked), publisher and URL. A source with no public URL gives `where` instead.
-// Used on /resources/transparent-collective/.
+// Used on /resources/transparent-collective/ and /resources/music-dsp/.
+//
+// `numbered` numbers the entries continuously across groups, shows each
+// number, and gives each entry id="src-N", so a marker cite(N) in the copy
+// (src/lib/resource-markup.ts) links to it. Number the sources in order of
+// first citation on the page.
 interface Source {
   title: string;
   publisher: string;
@@ -14,17 +19,21 @@ interface Props {
   groups: { name: string; items: Source[] }[];
   /** Titles and publishers only; the URL line shows only for a source with no link. */
   compact?: boolean;
+  /** Number the entries across groups, each with id="src-N". */
+  numbered?: boolean;
 }
-const { groups, compact = false } = Astro.props;
+const { groups, compact = false, numbered = false } = Astro.props;
+// The number of each group's first entry.
+const starts = groups.map((_, i) => groups.slice(0, i).reduce((n, g) => n + g.items.length, 1));
 const shown = (href: string) => (href.startsWith('/') ? `fora-protocol.org${href}` : href.replace(/^https?:\/\//, ''));
 ---
-<div class:list={['src', { compact }]}>
-  {groups.map((g) => (
+<div class:list={['src', { compact, numbered }]}>
+  {groups.map((g, gi) => (
     <section class="src-group">
       <h3>{g.name}</h3>
-      <ol>
-        {g.items.map((s) => (
-          <li>
+      <ol start={numbered ? starts[gi] : undefined}>
+        {g.items.map((s, i) => (
+          <li id={numbered ? `src-${starts[gi] + i}` : undefined} data-n={numbered ? starts[gi] + i : undefined}>
             {s.href ? <a href={s.href}>{s.title}</a> : <b>{s.title}</b>}
             <span class="src-meta">{s.publisher}</span>
             {(!compact || !s.href) && <span class="src-url">{s.href ? shown(s.href) : s.where}</span>}
@@ -68,4 +77,16 @@ const shown = (href: string) => (href.startsWith('/') ? `fora-protocol.org${href
   .compact a, .compact li > b { font-size: 0.9375rem; }
   .compact .src-meta { font-size: 0.8125rem; color: var(--lp-label); }
   .src-url { font-family: var(--mono); font-size: 0.75rem; color: var(--lp-label); overflow-wrap: anywhere; }
+  .numbered li { position: relative; padding-left: 2.25rem; scroll-margin-top: 5rem; }
+  .numbered li::before {
+    content: attr(data-n);
+    position: absolute;
+    left: 0;
+    top: 0.1rem;
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    color: var(--lp-label);
+    font-variant-numeric: tabular-nums;
+  }
+  .numbered li:target { outline: 2px solid var(--lp-link); outline-offset: 0.375rem; border-radius: 2px; }
 </style>

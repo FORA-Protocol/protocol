@@ -25,13 +25,13 @@ The `fora.json` file is served at `/.well-known/fora.json` and carries a `WellKn
   ],
   "exchanges": [
     {
-      "domain": "exchange.ssp-alpha.com",
-      "endpoint": "https://exchange.ssp-alpha.com/v1",
+      "domain": "exchange.alpha.example",
+      "endpoint": "https://exchange.alpha.example/v1",
       "relationship": "DIRECT"
     },
     {
-      "domain": "exchange.ssp-beta.com",
-      "endpoint": "https://exchange.ssp-beta.com/v1",
+      "domain": "exchange.beta.example",
+      "endpoint": "https://exchange.beta.example/v1",
       "relationship": "RESELLER"
     }
   ]
@@ -99,7 +99,7 @@ The agent checks `/.well-known/fora.json` before attempting to access content:
 ```
 1. Agent wants content from techprovider.com
 2. GET https://techprovider.com/.well-known/fora.json
-3. Finds Exchange endpoint: exchange.ssp-alpha.com/v1
+3. Finds Exchange endpoint: exchange.alpha.example/v1
 4. Calls DiscoverResources → gets Offers with pricing
 5. Calls ExecuteTransaction → gets signed URL
 6. Fetches content from CDN
@@ -113,7 +113,7 @@ If the agent doesn't know about FORA and tries to crawl directly:
 1. Agent hits techprovider.com/premium/article
 2. Edge function returns 403 with two headers:
      X-Content-Rules: https://techprovider.com/.well-known/fora.json
-     X-FORA-Exchange: exchange.ssp-alpha.com
+     X-FORA-Exchange: exchange.alpha.example
 3. Agent discovers fora.json from X-Content-Rules (and, optionally, starts
    discovery at the X-FORA-Exchange domain, resolving its endpoint from
    that Exchange's own fora.json)
@@ -123,10 +123,10 @@ If the agent doesn't know about FORA and tries to crawl directly:
 
 ## Relationship Types
 
-| Relationship | Description | Ad-Tech Equivalent |
-|---|---|---|
-| `DIRECT` | Provider has a direct contract with this Exchange | ads.txt DIRECT |
-| `RESELLER` | Exchange resells content via another authorized party | ads.txt RESELLER |
+| Relationship | Description |
+|---|---|
+| `DIRECT` | Provider has a direct contract with this Exchange |
+| `RESELLER` | Exchange resells content via another authorized party |
 
 ## Provider Trust Model
 

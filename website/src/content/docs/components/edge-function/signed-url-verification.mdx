@@ -318,4 +318,4 @@ sequenceDiagram
 2. **Short TTL** — five minutes in the reference deployment, which narrows the window.
 3. **Reconciliation** — the Exchange transaction log and the edge delivery log both record the signed-URL hash. Cross-referencing them detects replay after the fact.
 
-This matches ad-tech's approach to impression deduplication: real time is best-effort, reconciliation is authoritative.
+In real time the checks are best-effort; reconciliation is authoritative.

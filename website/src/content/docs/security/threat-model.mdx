@@ -1,66 +1,60 @@
 ---
 title: "Threat Model"
-description: "FORA threat model with 41 attack vectors and countermeasures, informed by 20 years of ad-tech fraud history"
+description: "How each party in FORA could cheat, and how a third party could attack it: the attack, and the countermeasure the protocol and FORA Server provide."
 ---
 
-## Methodology
+## How This Page Is Organized
 
-Three independent adversarial analyses were conducted:
-1. **Ad-tech fraud history**: Every major fraud category from 20+ years of programmatic advertising, mapped to FORA equivalents
-2. **Content licensing abuse brainstorm**: 56 attack vectors from each party's perspective (dishonest exchange, agent, provider, broker, attacker)
-3. **STRIDE security threat model**: Formal threat modeling of the protocol's technical surface
+The threats are grouped by who attacks: a dishonest Exchange operator, agent, provider or Broker, a third party, and abuse of the system as a whole. Three sections cover attestations, delegation and the licensing layer. Each threat states the attack and its countermeasure, and says whether the protocol prevents it, reconciliation detects it, or only a contract can settle it.
 
-## Key Lesson from Ad-Tech History
+## The Rule Behind the Design
 
-> **Every self-reported field gets gamed.** Any claim that is not cryptographically attested by a trusted party will be falsified if there's economic incentive.
+> **A self-reported field gets falsified when falsifying it pays.** A claim that no party signs and answers for cannot be trusted.
 
-This single pattern accounts for most ad-tech fraud: domain spoofing (self-reported domain), geo spoofing (self-reported location), viewability fraud (self-reported measurement), and attribution fraud (self-reported conversion). FORA must learn from this.
+So FORA signs what it can. The Exchange signs each offer, the agent signs its acceptance of each offer it buys, and every sender signs its own request. What no signature can cover, such as what an agent does with content after it fetches it, is left to reconciliation and to contracts.
 
 ## 1. Supply-Side Threats (Dishonest Exchange Operator)
 
 ### T1: Hidden fee inflation
 **Attack**: Exchange charges agent $0.75 but tells provider the rate was $0.50, pocketing the spread.
-**Ad-tech parallel**: The "unknown delta" from ISBA study -- 15% of spend unaccounted for.
-**Countermeasure (protocol)**: Offers are cryptographically signed by the Exchange (Ed25519). Provider can verify prices weren't inflated beyond RSL terms.
+**Countermeasure (protocol)**: The price of an offer derives from exactly one catalog term, as the publisher declared it, and the Exchange signs the offer (Ed25519, `Offer.signature`). The transaction record holds the signed offer and the agent's signed acceptance of it, so the price the agent agreed to is on record under two signatures. In FORA Server's publisher console, the provider sees each sale with its gross, the Exchange fee and its net, and can check both signatures in the browser.
 **Countermeasure (reconciliation)**: Provider compares CDN access logs against Exchange-reported transaction volumes and revenue.
 
 ### T2: Dynamic price discrimination
 **Attack**: Exchange serves different prices to different requesters for identical content.
-**Countermeasure (protocol)**: Not directly preventable -- price discrimination is a business decision. If prices are derived from RSL (provider-set), the Exchange can't inflate beyond RSL terms without detection.
-**Countermeasure (reconciliation)**: Brokers querying from different identities can detect discrepancies.
+**Countermeasure (protocol)**: Not directly preventable -- price discrimination is a business decision. The offer's price derives from the publisher's own term, so an offer priced otherwise is signed evidence against the Exchange that issued it.
+**Countermeasure (reconciliation)**: An agent or a Broker that queries under different identities can compare the offers it gets.
 
 ### T3: Bait-and-switch content
 **Attack**: Offer describes "2026 Q4 Financial Report, 15,000 words" but signed URL delivers different content.
-**Ad-tech parallel**: Inventory misrepresentation (declaring premium placement, serving remnant).
-**Countermeasure (protocol)**: **Content hash in the Offer.** ResourceIdentity.content_hash commits to content at offer time. Agent verifies after fetch. Mismatch = dispute.
+**Countermeasure (protocol)**: **Content hash in the Offer.** `ResourceIdentity.content_hash` commits to the content at offer time. The agent verifies it after the fetch, and a mismatch on a static resource is grounds for a dispute.
 
 ### T4: Phantom transactions / ghost billing
 **Attack**: Exchange fabricates billing_ids that never corresponded to real agent requests.
-**Ad-tech parallel**: Impression inflation by exchanges.
-**Countermeasure (protocol)**: **Mutual transaction receipts.** Agent's idempotency key in TransactionRequest is agent's proof; Exchange's billing_id is Exchange's proof. Neither can forge the other's Ed25519 signature.
+**Countermeasure (protocol)**: **The agent signs each purchase.** Each item carries the agent's `AgentAcceptance`, an Ed25519 signature over the offer's signature, the requester and the idempotency key. FORA Server's Exchange verifies it against the agent's registered key and stores the signed offer with both signatures for every item it executes. An Exchange cannot produce an acceptance for a purchase the agent never made.
 
 ### T5: Provider revenue skimming
 **Attack**: Exchange tells provider 1,000 transactions occurred; actually processed 1,500.
 **Countermeasure (reconciliation)**: **Three-sided reconciliation.** Provider's CDN logs, Exchange's transaction log, and usage reports must all agree.
-**Countermeasure (protocol)**: Both sides record `signed_url_hash` — SHA-256 of the delivery URL verbatim. The Exchange stores it on the transaction and the delivery endpoint stores it on its delivery event, so the two logs join on a value neither side chooses.
+**Countermeasure (protocol)**: Both sides record the SHA-256 of the delivery URL verbatim. The Exchange stores it on the transaction as `signed_url_hash`, and FORA Server's edge function writes it into each delivery log record, so the two logs join on a value neither side chooses.
 
 ### T6: Overly long signed URL expiry
 **Attack**: Exchange issues 24-hour URLs instead of 5-minute, enabling reuse.
-**Countermeasure (protocol)**: The delivery endpoint refuses any URL whose `exp` has passed, and the Exchange issues short expiries -- five minutes in the reference flows. No verifier enforces a second, independent upper bound on the TTL: the only bound is the `exp` the Exchange signed, so a 24-hour URL is detected by reconciliation (T5), not refused at the edge. A provider who wants a hard ceiling has to add that check to its own edge function.
+**Countermeasure (protocol)**: The delivery endpoint refuses any URL whose `exp` has passed, and the Exchange issues short expiries: five minutes in FORA Server, and a seat can set a shorter one. No verifier enforces a second, independent upper bound on the TTL: the only bound is the `exp` the Exchange signed, so a 24-hour URL is detected by reconciliation (T5), not refused at the edge. A provider who wants a hard ceiling has to add that check to its own edge function.
 
 ### T7: Signing key leakage
 **Attack**: Exchange shares signing keys with a preferred requester, enabling URL forgery.
-**Countermeasure (protocol)**: **Asymmetric signing, with per-tenant key isolation.** The Exchange holds a separate private key per tenant, loaded from a key store at startup; the delivery endpoint verifies with the matching public key, published in the Exchange's key directory. This bounds the damage rather than preventing the act -- the attacker here is the Exchange, so no control the Exchange operates can stop it from exporting its own key. What the design gives you is that a leaked verification key forges nothing, a compromised edge cannot mint URLs, and a leaked tenant key forges URLs for that one tenant and no other. Detection is T5's job: forged fetches appear in the provider's delivery log and not in the Exchange's transaction log, and the two join on `signed_url_hash`.
+**Countermeasure (protocol)**: **Asymmetric signing.** The Exchange signs delivery URLs with its Ed25519 private key, and the delivery endpoint verifies them with the public key the Exchange publishes in its key directory. This bounds the damage rather than preventing the act -- the attacker here is the Exchange, so no control the Exchange operates can stop it from exporting its own key. What the design gives you is that a leaked verification key forges nothing and a compromised edge cannot mint URLs. Detection is T5's job: forged fetches appear in the provider's delivery log and not in the Exchange's transaction log, and the two join on `signed_url_hash`.
 
 ## 2. Demand-Side Threats (Dishonest Agent / Requester)
 
 ### T8: Signed URL sharing
 **Attack**: Agent A pays, shares signed URL with Agents B, C, D before expiry.
-**Countermeasure (protocol)**: **Agent-bound signed URLs.** Embed the agent's RFC 7638 JWK Thumbprint (`agent_identity_hash`) as the URL's `agent_id` parameter, covered by the URL's Ed25519 signature; a capable edge function requires the fetcher to present its public key + an RFC 9421 signature (proof-of-possession) and checks `thumbprint(presented key) == agent_identity_hash`. Implemented via `agent_identity_hash` on `TransactionResponse`.
+**Countermeasure (protocol)**: **Agent-bound signed URLs.** Embed the agent's RFC 7638 JWK Thumbprint (`agent_identity_hash`) as the URL's `agent_id` parameter, covered by the URL's Ed25519 signature; a capable edge function requires the fetcher to present its public key + an RFC 9421 signature (proof-of-possession) and checks `thumbprint(presented key) == agent_identity_hash`. The Exchange returns the value as `agent_identity_hash` on `TransactionResponse`. FORA Server's edge function enforces the binding by default. Behind CloudFront's own signed-URL check, which cannot run it, the URL works for whoever holds it until it expires, and T5's reconciliation applies.
 
 ### T9: Systematic caching / content mirroring
 **Attack**: Agent fetches every article once, caches locally forever, never pays again.
-**Countermeasure (protocol)**: **Single-use signed URLs.** Edge function marks URL as consumed after first fetch.
+**Countermeasure (protocol)**: **Short, bound URLs.** A signed URL works only until it expires and, when bound, only for the agent whose key it names (T8). It does not stop an agent from keeping what it fetched.
 **Countermeasure (legal)**: License terms prohibiting caching beyond session scope.
 
 ### T10: Usage underreporting (token count)
@@ -73,44 +67,43 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 
 ### T12: Offer metadata harvesting
 **Attack**: Agent calls DiscoverResources repeatedly, extracting metadata -- never transacting.
-**Ad-tech parallel**: Bid stream data harvesting.
-**Countermeasure (protocol)**: Rate limiting on DiscoverResources. Exchange tracks query-to-transaction ratio per agent.
+**Countermeasure (protocol + operational)**: Every query is signed, so the Exchange knows who asks, and it can limit each caller and report the limit in `ResourceResponse.rate_limit`. The operator can watch each caller's ratio of queries to purchases. FORA Server's Exchange leaves request rate limits to a proxy in front of it.
 
 ### T13: Credential sharing / proxy laundering
 **Attack**: One agent identity (signing key) shared across organizations.
-**Countermeasure (protocol + operational)**: Sharing a key cannot redirect costs: the request carries no self-supplied billing field, so every request signed with the shared key bills the one account of the key directory that publishes that key — the abuse lands on the sharer's own bill. Detection is behavioral, not cryptographic: the Exchange monitors usage patterns per verified identity (IP diversity, volume spikes, impossible concurrency) and can deactivate the account. The signature binding does not prevent sharing. It concentrates all shared usage under one identity so it can be seen and priced.
+**Countermeasure (protocol + operational)**: Sharing a key cannot redirect costs: the request carries no self-supplied billing field, so every request signed with the shared key bills the one account of the key directory that publishes that key — the abuse lands on the sharer's own bill. Detection is behavioral, not cryptographic: the operator watches usage per verified identity (IP diversity, volume spikes, impossible concurrency) and can deactivate the account, which is then refused paid purchases with `DENIAL_REASON_ACCOUNT_INACTIVE`. The signature binding does not prevent sharing. It concentrates all shared usage under one identity so it can be seen and priced.
 
 ## 3. Provider-Side Threats (Dishonest Provider)
 
 ### T14: Paywall-gated garbage
 **Attack**: Compelling headline, but behind the paywall: padding, filler, or unrelated content.
-**Countermeasure (protocol)**: Content integrity hash catches *changed* content. Exchange curation/reputation systems address quality.
+**Countermeasure (protocol)**: The content hash catches *changed* content. Quality is left to the Exchange's curation of its publishers and to the agent's choice of what to buy.
 
-### T15: Word count / token count inflation
-**Attack**: Provider pads content to inflate word count, affecting unit_cost calculations.
-**Countermeasure (protocol)**: Exchange independently verifies content length during RSL ingestion. Agent independently tokenizes after fetch.
+### T15: Quantity inflation
+**Attack**: Provider overstates `estimated_quantity`, or pads the content to justify it, so a metered purchase charges more.
+**Countermeasure (protocol)**: The estimate is the publisher's own statement, in the signed offer, and the charge (estimate × rate) is fixed before the agent buys. The agent counts what it fetched and disputes a resource that falls short (`DISPUTE_REASON_INCOMPLETE_CONTENT`), with the CDN's delivery log as corroboration.
 
 ### T16: Content versioning fraud
 **Attack**: Provider changes content at URL after Exchange has priced it.
-**Countermeasure (protocol)**: **Content integrity hash in the Offer.** SHA-256 of content at offer creation time. Agent verifies after fetch.
+**Countermeasure (protocol)**: **Content hash in the Offer.** `content_hash` records the content at offer time, as a SimHash (`simhash-v1`, Level 1) or a SHA-256 (`sha256`, Level 2). The agent verifies it after the fetch.
 
 ### T17: Double-selling with exclusivity claims
 **Attack**: Provider grants "exclusive" licensing to multiple Exchanges.
-**Countermeasure**: ResourceIdentity enables detection (same content_hash from different exchanges). Prevention requires legal contracts.
+**Countermeasure**: `ResourceIdentity` enables detection: the same content hash, DOI or IPTC GUID offered by different Exchanges. Prevention requires legal contracts.
 
 ### T18: Selective enforcement / preferential access
 **Attack**: Edge function blocks some agents but quietly allows others to scrape freely.
-**Countermeasure**: Not solvable at protocol level. Market dynamics address it.
+**Countermeasure**: Not solvable at protocol level. It is a contract matter between the provider and its Exchange.
 
 ## 4. Broker Threats
 
 ### T19: Hidden orchestration fee
 **Attack**: Broker adds markup to every offer relayed to the agent.
-**Countermeasure (protocol)**: **Exchange signs offers (Ed25519).** Broker passes through signed offers. Agent verifies the price was not tampered with.
+**Countermeasure (protocol)**: **Exchange signs offers (Ed25519).** The Broker passes the signed offers through unchanged, and the agent verifies that the price was not tampered with. A Broker's fee has no field: it is disclosed out of band and added to the offer price, never folded into it.
 
 ### T20: Kickback-driven offer selection
-**Attack**: Broker always routes to a specific Exchange regardless of pricing.
-**Countermeasure (protocol)**: Agent can bypass Broker and query and buy at Exchanges directly. A Broker signs every request it sends alone, with its own RFC 9421 HTTP Message Signature, so the Exchange knows which Broker sent it and the Broker cannot deny it. The agent's consent to a transaction is the `AgentAcceptance` it signed into the body, which a Broker cannot alter or forge, and `agent_request_acceptance` binds the full ordered set of offers the agent chose.
+**Attack**: Broker orders or leaves out offers to favor an Exchange that pays it, whatever their relevance to the request.
+**Countermeasure (protocol)**: A Broker's order is its own judgement, which is why an agent works with a Broker it trusts. The agent can bypass the Broker and query and buy at Exchanges directly. A Broker signs every request it sends alone, with its own RFC 9421 HTTP Message Signature, so the Exchange knows which Broker sent it and the Broker cannot deny it. The agent's consent to a transaction is the `AgentAcceptance` it signed into the body, which a Broker cannot alter or forge, and `agent_request_acceptance` binds the full ordered set of offers the agent chose.
 
 ### T21: Query intelligence harvesting
 **Attack**: Broker logs every DiscoverResources query, sells the data.
@@ -133,7 +126,7 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 
 ### T22: Exchange impersonation
 **Attack**: Attacker sets up fake Exchange, poisons fora.json via DNS hijack.
-**Countermeasure (protocol)**: fora.json served over HTTPS from provider's domain (TLS proves endorsement). Every Offer carries `exchange_signature` (Ed25519). Agent verifies against Exchange's public key.
+**Countermeasure (protocol)**: fora.json served over HTTPS from provider's domain (TLS proves endorsement). Every Offer carries the Exchange's Ed25519 signature (`Offer.signature`). The agent verifies it against the key in the Exchange's key directory.
 
 ### T23: Signed URL interception (MITM)
 **Attack**: Attacker intercepts TransactionResponse, steals signed URL.
@@ -141,15 +134,15 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 
 ### T24: Transaction replay
 **Attack**: Attacker captures valid TransactionRequest and replays it.
-**Countermeasure (protocol)**: **Idempotency keys.** Every state-mutating call carries a required `idempotency_key` — `TransactionRequest`, `UsageReport`, and `DisputeRequest`. Servers dedupe per agent and key, whatever the route — the agent the RFC 9421 signature authenticates on a direct request, the agent its acceptances authenticate on a relayed purchase — so a replay returns the original result instead of re-charging or re-filing, and a captured purchase replayed through another Broker is a replay too. The agent's authorization is verified before any stored result is created or returned. A key reused by the same agent with a different request (different items, or another order) is refused with `already_exists` and changes nothing; a key another agent used is never a collision. Broker `Resolve` (`DiscoveryRequest`) is pure discovery — it executes no transaction, has no replay exposure, and carries no key.
+**Countermeasure (protocol)**: **Idempotency keys.** Every state-mutating call carries a required `idempotency_key` — `TransactionRequest`, `UsageReport`, and `DisputeRequest`. Servers dedupe per agent and key, whatever the route — the agent the RFC 9421 signature authenticates on a direct request, the agent its acceptances authenticate on a relayed purchase — so a replay returns the original result instead of re-charging or re-filing, and a captured purchase replayed through another Broker is a replay too. The agent's authorization is verified before any stored result is created or returned. A key reused by the same agent with a different request (different items, or another order) is refused with `already_exists` and changes nothing, as FORA Server's Exchange does on `ExecuteTransaction`; a key another agent used is never a collision. Broker `Resolve` (`DiscoveryRequest`) is pure discovery — it executes no transaction, has no replay exposure, and carries no key.
 
 ### T25: Billing_id forgery in usage reports
 **Attack**: Attacker fabricates billing_ids in usage reports.
-**Countermeasure (protocol)**: Exchange validates billing_id exists in transaction log before accepting usage reports.
+**Countermeasure (protocol)**: The Exchange accepts a usage report only for a transaction it recorded, and checks the report's `billing_id` against that transaction.
 
 ### T26: DiscoverResources flooding (DoS)
 **Attack**: Flood DiscoverResources to exhaust Exchange resources.
-**Countermeasure (protocol)**: Per-partner rate limiting keyed on the **verified requester identity** (RFC 9421 request signature — domain/key). Anonymous queries rejected.
+**Countermeasure (protocol + operational)**: Anonymous queries are refused: every `ExchangeService` call must carry a valid RFC 9421 request signature, so a rate limit can key on the **verified requester identity**. FORA Server's Exchange limits agent registrations per IP address and leaves other request rate limits to a proxy in front of it.
 
 ### T-EP-1: Manifest-advertised endpoint redirection
 **Attack**: A party that answers for `{domain}/.well-known/fora.json` — the domain's operator, or anyone who can influence what a consumer reads there — advertises an `endpoint` on a host it controls, or on another port of the named host, or one carrying `user:password@` credentials. Every consumer that resolves that domain then sends signed calls (usage reports, disputes, execute) to the attacker's address, or stamps an `Authorization` header the SDK never chose. A dial-time SSRF guard raises no objection: the destination is an ordinary public host.
@@ -159,35 +152,35 @@ This single pattern accounts for most ad-tech fraud: domain spoofing (self-repor
 
 **Bounded, not eliminated.** The manifest fetch follows redirects, so the party that answers *for the document* may be one a redirect chose. What that party cannot do is change where the signed call lands: whatever the manifest says, the endpoint it advertises must still anchor to the domain the offer named.
 
-## 6. Systemic / Arbitrage Threats
+## 6. Systemic Threats
 
 ### T27: Content arbitrage (buy low, resell high)
 **Attack**: Entity buys from Exchange A at $0.04, resells via own Exchange at $0.05.
-**Countermeasure (protocol)**: ResourceIdentity enables detection. fora.json declares authorized providers.
+**Countermeasure (protocol)**: The provider's `fora.json` names the Exchanges that may sell its content, so an agent can check that the Exchange selling it is one of them. `ResourceIdentity` shows the same content offered elsewhere.
 
 ### T28: Free content laundering
 **Attack**: Scrape freely available content, package behind paywall as "premium."
-**Countermeasure**: Content fingerprinting against known free content databases.
+**Countermeasure**: Outside the protocol: the Exchange's review of its publishers. A listing goes live only when the site's own `fora.json` names the Exchange, and fingerprinting against known free content can flag the rest.
 
 ### T29: Synthetic content farming
 **Attack**: Generate AI content at near-zero cost, sell as human-authored.
-**Countermeasure**: CoMP's `Text.sourcetype` field. Future: C2PA content credentials.
+**Countermeasure**: Signed origin claims. CoMP V1 marks AI-generated text in `Text.sourcetype`, and the [fora-c2pa-v1](/protocol/ext-c2pa/) profile carries C2PA validation results, including who signed the content credentials and the declared source type, as attestation claims. A false claim with no credentials behind it is a contract matter.
 
 ### T30: License tier arbitrage
 **Attack**: Buy at grounding rate, use for training. Collapses pricing model at scale.
 **Countermeasure**: Black box problem. Legal/contractual enforcement only.
 
 ### T31: Absence-reason existence oracle
-**Attack**: An unauthorized caller probes for a resource and reads the `absence_reason`. Authorization-flavored values (`NOT_AUTHORIZED`, `NOT_IN_CATALOG`, `CONTENT_BLOCKED`) distinguish "no such resource" from "it exists but you may not have it" — confirming existence and the reason for refusal. Broker `Resolve` (`DiscoveryResponse.absence_reason`) exposes the same oracle at the broker that `DiscoverResources` (`OfferGroup.absence_reason`) does at the Exchange, so hiding it on one surface but not the other still leaks.
+**Attack**: An unauthorized caller probes for a resource and reads the `absence_reason`. Authorization-flavored values (`OFFER_ABSENCE_REASON_NOT_AUTHORIZED`, `OFFER_ABSENCE_REASON_NOT_IN_CATALOG`, `OFFER_ABSENCE_REASON_CONTENT_BLOCKED`) distinguish "no such resource" from "it exists but you may not have it" — confirming existence and the reason for refusal. Broker `Resolve` (`DiscoveryResponse.absence_reason`) exposes the same oracle at the broker that `DiscoverResources` (`OfferGroup.absence_reason`) does at the Exchange, so hiding it on one surface but not the other still leaks.
 **Countermeasure (protocol)**: A scope shortfall is never disclosed. When the requester's scopes leave no presentable offer for a resource, the Exchange answers with no offers and no absence reason, exactly as for any resource with nothing to offer, and a Broker adds no reason of its own (the existence-hiding rule on `Requester.scopes`). No absence or denial reason reports a scope shortfall. For the other reasons, the reason is a hint, not a guarantee: where existence itself must stay hidden, the Exchange/Broker **MAY omit** `absence_reason` (leave it unset) rather than reveal an authorization-flavored value, and this applies equally to `OfferGroup.absence_reason` and `DiscoveryResponse.absence_reason`. `ErrorDetail.message`/`metadata` are held to the same rule (T-LIC-adjacent leakage): servers SHOULD NOT restore the withheld detail there as free text.
 
 ## Prevention Taxonomy
 
 | Level | Threat IDs | What It Means |
 |---|---|---|
-| **Preventable at protocol level** | T3, T4, T5, T6, T7, T8, T9, T12, T16, T19, T22, T23, T24, T25, T26, T-BRK-1, T-ATT-1, T-ATT-2, T-ATT-3, T-ATT-5, T-DEL-1, T-DEL-2, T-DEL-3, T-DEL-4, T-DEL-6 | Protocol changes make the attack structurally impossible |
-| **Detectable via reconciliation** | T1, T2, T4, T5, T13, T14, T15, T17, T27, T-ATT-4, T-DEL-5 | Three-sided reconciliation catches it |
-| **Legal/contractual only** | T10, T11, T13, T17, T18, T20, T21, T28, T29, T30, T-DEL-5 | Can't enforce technically |
+| **Prevented by the protocol** | T3, T4, T8, T16, T19, T22, T23, T24, T25, T‑BRK‑1, T‑BRK‑2, T‑EP‑1, T‑ATT‑1, T‑ATT‑5, T‑DEL‑1, T‑DEL‑2, T‑DEL‑3, T‑DEL‑4, T‑DEL‑6, T31, T‑LIC‑1, T‑LIC‑2, T‑LIC‑3, T‑LIC‑4 | Signatures and checks make the attack fail |
+| **Detected by reconciliation or monitoring** | T1, T2, T5, T6, T7, T12, T13, T14, T15, T17, T26, T27, T‑BRK‑3, T‑ATT‑2, T‑ATT‑3, T‑ATT‑4, T‑DEL‑5 | The records disagree, or the operator sees the pattern |
+| **Left to contracts** | T9, T10, T11, T18, T20, T21, T28, T29, T30 | No technical control reaches it |
 
 ### The Three Lines of Defense
 
@@ -197,7 +190,7 @@ Line 1: Protocol-level prevention
   agent-signed request-set proof (request acceptance, verified before
   idempotency state), holder-bound JWT delegation chain (cnf),
   RFC 9421 request signatures from every sender (with chain verification
-  on unchanged forwarding), subscription-level quota tracking
+  on unchanged forwarding)
   Makes attacks structurally impossible
 
 Line 2: Three-sided reconciliation
@@ -214,29 +207,29 @@ Line 3: Legal/contractual enforcement
 ### T-ATT-1: Forged attestation injection
 
 **Attack**: Attacker crafts a fake `ResourceAttestation` with a fabricated `verifier` domain and pushes it via `CatalogService.PushResources`.
-**Countermeasure (protocol)**: Exchange verifies that the request's signer is the provider itself or listed in the provider's `catalog_contributors` (from `fora.json`). Exchange verifies the attestation `signature` against the verifier's public key in its WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`). FORA has no dedicated verifier role; a verifier publishes under its operator's role (`ROLE_PUBLISHER` for a self-attesting publisher, `ROLE_EXCHANGE` for a standalone vendor). Both checks must pass.
+**Countermeasure (protocol)**: The Exchange checks that the request's signer is the provider itself or listed in the provider's `catalog_contributors` (from `fora.json`), and the protocol has it verify the attestation `signature` against the verifier's public key in its WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`). An agent can verify the same signature itself, because every verifier publishes its attestation-signing keys there. FORA has no dedicated verifier role; a verifier publishes under its operator's role (`ROLE_PUBLISHER` for a self-attesting publisher, `ROLE_EXCHANGE` for a standalone vendor). Both checks must pass.
 
 ### T-ATT-2: Stale attestation exploitation
 
 **Attack**: Provider updates content (e.g., replaces article with filler) but the catalog retains the old attestation claiming 5000 tokens. Agent pays based on stale claims.
-**Countermeasure (protocol)**: `attested_at` timestamp enables agent freshness checks. Agents reject attestations older than their threshold for the content type (e.g., 4 hours for breaking news). Content hash mismatch (Level 1) triggers auto-credit via the dispute system.
-**Countermeasure (reconciliation)**: CDN response size corroborates discrepancies. 800 bytes for a 5000-token claim is auto-creditable regardless of hash match.
+**Countermeasure (protocol)**: `attested_at` timestamp enables agent freshness checks. An agent rejects attestations older than its own threshold for the content type (for example, 4 hours for breaking news). A content hash mismatch is grounds for a dispute (`DISPUTE_REASON_CONTENT_MISMATCH`).
+**Countermeasure (reconciliation)**: The CDN's response size corroborates the discrepancy: 800 bytes delivered for a 5,000-token claim is evidence whether or not the hash matches.
 
 ### T-ATT-3: Verification vendor compromise
 
 **Attack**: Attacker compromises a third-party verifier's Ed25519 private key and signs fraudulent attestations for arbitrary content.
-**Countermeasure (protocol)**: Key rotation via JWKS pattern -- keys have `not_before` / `not_after` windows. Exchange caches the verifier's WBA directory with TTL-based refresh (1 hour default). Compromised key can be revoked by removing it from the verifier's WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`).
-**Countermeasure (operational)**: Exchange monitors attestation patterns per verifier. Sudden changes in claim distributions trigger investigation.
+**Countermeasure (protocol)**: Key rotation via JWKS pattern -- keys have `not_before` / `not_after` windows. Directories are cached with a TTL and refreshed; FORA Server and the Go SDK default to one hour. Compromised key can be revoked by removing it from the verifier's WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`).
+**Countermeasure (operational)**: The operator watches attestation patterns per verifier and investigates a sudden change in what a verifier claims.
 
 ### T-ATT-4: Claims inflation attack
 
 **Attack**: Provider self-attests inflated `estimated_quantity: 10000` for a 500-word article, computes a valid content hash for the actual (short) content, and prices based on the inflated count.
-**Countermeasure (protocol)**: CDN response size is the corroboration signal. CDN log showing a 2KB response for a 10000-token claim is auto-creditable. Agent files dispute with `INCOMPLETE_CONTENT` reason; Tier 1 auto-resolution via CDN corroboration.
-**Countermeasure (pattern)**: Provider flagged for investigation when token discrepancy rate exceeds 2%. Graduated consequences apply.
+**Countermeasure (protocol)**: The agent files a dispute with `DISPUTE_REASON_INCOMPLETE_CONTENT`, and the CDN's response size corroborates it: a 2 KB response for a 10,000-token claim.
+**Countermeasure (operational)**: The operator watches each provider's disputes and the gap between its estimates and what agents report.
 
 ### T-ATT-5: Catalog contributor spoofing
 
-**Attack**: Unauthorized party registers a domain similar to a legitimate verifier (e.g., `doub1everify.com`) and pushes attestations claiming to be a trusted vendor.
+**Attack**: Unauthorized party registers a domain similar to a legitimate verifier (for example, `verif1er.example` for `verifier.example`) and pushes attestations claiming to be a trusted vendor.
 **Countermeasure (protocol)**: `catalog_contributors` in `fora.json` uses exact domain matching. The provider must explicitly list the contributor's domain. The Exchange fetches the WBA directory from the exact `verifier` domain in the attestation and verifies the signature against that domain's `keys` (the JWK Set at `/.well-known/http-message-signatures-directory`).
 
 ## 8. Delegation and Authorization Threats
@@ -254,7 +247,7 @@ Line 3: Legal/contractual enforcement
 ### T-DEL-3: Revocation bypass
 
 **Attack**: Principal revokes a delegation but cached or stored tokens continue to work until their `expires_at` timestamp.
-**Countermeasure (protocol)**: Short `exp` (2-4 hours for standard access) limits the window of continued access; the verifier allows 60 seconds of clock skew and no more. Trust is configured per subscription record, so removing the issuer's key from that record refuses every chain it signed at the next request. Per-token revocation through `revocation_uri` is not part of this profile.
+**Countermeasure (protocol)**: A short `exp` limits the window of continued access; the verifier allows 60 seconds of clock skew and no more. Trust is configured per subscription record, so removing the issuer's key from that record refuses every chain it signed at the next request. Per-token revocation through `revocation_uri` is not part of this profile.
 
 ### T-DEL-4: Signer impersonation and forged forwarding
 
@@ -266,25 +259,25 @@ FORA's Broker never forwards an agent's request unchanged: it originates discove
 ### T-DEL-5: Scope pollution
 
 **Attack**: Agent declares scopes it doesn't actually have, hoping the Exchange returns premium content.
-**Countermeasure (reconciliation + contractual)**: `Requester.scopes` is the requester's own statement, signed and attributable, and the Exchange does not verify it. The Exchange presents an offer for a term only when the stated scopes cover the term's `LicenseTerm.scopes`, which hides the term from a requester that does not state the scope but does not stop one that states it falsely, so a false statement is detected and settled rather than prevented. For every scoped term an account bought, the transaction record holds the Exchange-signed offer and the agent's acceptance of it, attributed to the signing key, its directory and its [account](/protocol/authentication/#accounts). Reconciling those purchases against what the term's issuer actually granted that account, such as a subscription roster, a revenue-share agreement or an enterprise grant, exposes a scope the agent never held, and the account relationship and the term's contract settle it. An Exchange that needs prevention MAY require a verified delegation that grants a term's scopes before it presents the term ([Delegation](/protocol/authentication/#delegation)), and answers a requester without one as if the term did not exist. Verifying stated scopes is deferred, not designed out.
+**Countermeasure (reconciliation + contractual)**: `Requester.scopes` is the requester's own statement, signed and attributable, and the Exchange does not verify it. The Exchange presents an offer for a term only when the stated scopes cover the term's `LicenseTerm.scopes`, which hides the term from a requester that does not state the scope but does not stop one that states it falsely, so a false statement is detected and settled rather than prevented. For every scoped term an account bought, the transaction record holds the Exchange-signed offer and the agent's acceptance of it, attributed to the signing key, its directory and its [account](/protocol/authentication/#accounts). Reconciling those purchases against what the term's issuer actually granted that account, such as a subscription roster, a revenue-share agreement or an enterprise grant, exposes a scope the agent never held, and the account relationship and the term's contract settle it. An Exchange that needs prevention MAY require a verified delegation that grants a term's scopes before it presents the term ([Delegation](/protocol/authentication/#delegation)), and answers a requester without one as if the term did not exist.
 
 ### T-DEL-6: Quota gaming via multiple tokens
 
 **Attack**: Agent obtains multiple delegation tokens for the same subscription (e.g., by requesting new delegations from different intermediaries) to exceed per-subscription quotas.
-**Countermeasure (protocol)**: **Exchange tracks quotas by `subscription_id`, not by delegation token.** All tokens referencing the same subscription share one counter. Multiple tokens for the same subscription do not multiply the quota. Rate limiting is applied at the subscription level regardless of how many delegation tokens reference it.
+**Countermeasure (protocol)**: **A quota belongs to the subscription, not to a token.** An Exchange meters a subscription on its subscription record and names it in `SubscriptionQuotaInfo.subscription_id`, so every token for one subscription draws on one count. A delegation chain cannot carry a cap of its own: the verifier refuses a chain with a cap claim.
 
 ## 9. Licensing-Layer Threats
 
 ### T-LIC-1: SSRF / phishing via `License.uri`
 
 **Attack**: A malicious publisher pushes a term whose `License.uri` points at an internal address — `http://169.254.169.254/latest/meta-data/…` (cloud metadata), `http://localhost:6379/`, or `file:///etc/passwd`. An agent platform that auto-fetches the document to "read the license before use" (REFERENCE_ONLY requires this) issues a server-side request into its own infrastructure — leaking cloud credentials, reaching internal services, or reading local files. A variant points `uri` at attacker-controlled HTTPS to harvest the fetcher's identity/IP or serve misleading terms.
-**Countermeasure (protocol)**: `License.uri` is deliberately never *rejected* at ingest (data-labels TDL identifiers use non-URL schemes) — but "do not reject" is not "blindly fetch." A consumer that resolves `uri` MUST: (a) allowlist schemes (`https` + known TDL schemes); (b) block loopback, link-local, private, and cloud-metadata IP ranges, resolving-then-checking to defeat DNS rebinding; (c) fetch client-side through an egress proxy, never from the Exchange's privileged network; (d) treat the fetched bytes as untrusted content. The Exchange applies the same rules when it fetches to pin `uri_digest` (T-LIC-4).
+**Countermeasure (protocol)**: `License.uri` is deliberately never *rejected* at ingest (data-labels TDL identifiers use non-URL schemes) — but "do not reject" is not "blindly fetch." A consumer that resolves `uri` MUST: (a) allowlist schemes (`https` + known TDL schemes); (b) block loopback, link-local, private, and cloud-metadata IP ranges, resolving-then-checking to defeat DNS rebinding; (c) fetch client-side through an egress proxy, never from the Exchange's privileged network; (d) treat the fetched bytes as untrusted content. The publisher supplies `uri_digest` with the `uri` (T-LIC-4), so the Exchange never fetches the document.
 
 **Same class — the SDK's directory fetch.** The same SSRF discipline applies to the WBA / well-known **directory fetches** the SDKs perform to resolve a signer's keys: the directory host is derived from a caller-supplied `Signature-Agent` and fetched **before** the ed25519 signature check, so an unauthenticated caller controls the fetch target (pre-auth SSRF). Defense is layered, and the layers have distinct owners:
 - **In-code (SDK, primary).** The SDKs ship a **safe-by-default** SSRF-guarded transport, and it is **two checks, not one**. The *address pin* is connection-level: it resolves-then-checks every candidate address against a shared reserved-range corpus and pins the checked IP to defeat rebinding, on a maintained HTTP client (`net/http` / `httpx` / `undici`). The *scheme allowlist* is http(s)-only on the initial URL and every redirect hop, and it is deliberately **not** part of the connector — by the time a connection-level hook runs, the URL has been reduced to a host and a port and the scheme is no longer visible. Go and Python wrap the transport, so one object carries both (`SSRFGuard` inside `NewGuardedTransport`, `ssrf_guard()` inside `guarded_client`). TypeScript composes `ssrfGuard()` as the undici connector and states the scheme rule beside it, in `requireScheme()`. Because both ship in the artifact, their correctness cannot depend on deployment — and a caller who replaces the dial replaces the address pin with it, so the scheme check sits **above** the dial in the client tier, where no injected transport can remove it.
-- **Egress boundary (operator, recommended defense-in-depth).** Operators SHOULD additionally run any role that resolves directories from request-supplied hosts behind **restricted egress** (an egress proxy or network policy that cannot route to RFC1918 / link-local / metadata) and **IMDSv2 with hop-limit 1**. This neutralizes the entire class regardless of any in-code gap — but it is *defense-in-depth, not a substitute* for the SDK guard, which remains the primary control for an OSS artifact that runs in deployments the maintainers do not control.
+- **Egress boundary (operator, recommended defense-in-depth).** Operators SHOULD additionally run any role that resolves directories from request-supplied hosts behind **restricted egress** (an egress proxy or network policy that cannot route to RFC1918 / link-local / metadata) and **IMDSv2 with hop-limit 1**. This neutralizes the entire class regardless of any in-code flaw — but it is *defense-in-depth, not a substitute* for the SDK guard, which remains the primary control for an OSS artifact that runs in deployments the maintainers do not control.
 
-**Which fetches this covers, and where it does not reach yet.** The rule is the URL's **provenance**, not what is being fetched. A **request-derived** host is one another party chose — it arrives in a header, or on a signed message — so it takes the guarded transport; with one exception, named below, that is a gap rather than a choice. A **fixed, operator-chosen** address takes the plain transport deliberately: the operator rather than an attacker picked it, and an on-prem directory may legitimately sit on a private address a guard would refuse. Where each fetch stands today:
+**Which fetches take the guarded transport.** The rule is the URL's **provenance**, not what is being fetched. A **request-derived** host is one another party chose — it arrives in a header, or on a signed message — so it belongs on the guarded transport. A **fixed, operator-chosen** address takes the plain transport deliberately: the operator rather than an attacker picked it, and an on-prem directory may legitimately sit on a private address a guard would refuse. Each SDK's default:
 
 | Fetch | URL comes from | Go | TypeScript | Python |
 |---|---|---|---|---|
@@ -293,9 +286,7 @@ FORA's Broker never forwards an agent's request unchanged: it originates discove
 | Exchange endpoint (`Offer.exchange`) | the request | guarded | **plain** | **plain** |
 | Well-known JWKS | operator configuration | plain | plain | plain |
 
-The last row is the deliberate one — nobody but the operator can point that URL. The **third row is a known gap, not a decision**: that host comes off a signed offer, so by the rule above it belongs on the guarded transport in every language, and the two ports have not caught up. It is tracked separately.
-
-**What to do about it today.** TypeScript and Python require the application to supply the endpoint resolver — neither client builds one for you — so the remedy sits at a construction site you already own: pass the guarded transport explicitly, `guardedFetchFromEnv()` in TypeScript or `guarded_client()` in Python, rather than letting that resolver take its default. Conversely, a deployment that needs the guarded posture on a configured URL, or the plain one on a request-derived host, injects its own transport or sets `SKIP_SSRF` / `ALLOW_INSECURE`.
+Nobody but the operator can point the well-known JWKS URL, so it takes the plain transport. The Exchange endpoint comes off a signed offer, so it belongs on the guarded transport in every language. TypeScript and Python require the application to supply the endpoint resolver — neither client builds one for you — so pass the guarded transport to it explicitly, `guardedFetchFromEnv()` in TypeScript or `guarded_client()` in Python, rather than letting it take its plain default. Conversely, a deployment that needs the guarded posture on a configured URL, or the plain one on a request-derived host, injects its own transport or sets `SKIP_SSRF` / `ALLOW_INSECURE`.
 
 ### T-LIC-2: Silent restriction downgrade
 
@@ -311,14 +302,3 @@ The last row is the deliberate one — nobody but the operator can point that UR
 
 **Attack**: A term carries a `License.uri`; the agent fetches and trusts the document. The publisher (or a MitM on the fetch) later changes the bytes at `uri` — which is just a URL — so the agent's understanding of the terms silently diverges from what was offered. `immutable: true` makes this worse (the agent caches and stops re-checking), but a mutable `uri` is swappable too.
 **Countermeasure (protocol)**: `License.uri_digest` pins the document as `method:hexdigest` and is **required whenever `uri` is present** — any semantics, mutable or not. The party that sets `uri` supplies the digest with it: the publisher, on a term it pushes. Because the entire Offer is signed, the digest is tamper-evident; the agent verifies the bytes it fetches against it and refuses on mismatch.
-
-## Comparison to Ad-Tech Fixes
-
-| Ad-Tech Fix | Year | FORA Equivalent | Status |
-|---|---|---|---|
-| ads.txt | 2017 | fora.json (authorized providers) | In proto |
-| sellers.json | 2019 | Exchange identity in ResourceResponse | In proto |
-| SupplyChain Object | 2019 | exchange_signature on Offer | In proto |
-| ads.cert | 2020 | exchange_signature + content_integrity_hash | In proto |
-| MRC Viewability Standard | 2014 | A metered charge fixed at purchase (estimate × rate), never re-measured | Design principle |
-| Open Measurement SDK | 2018 | Three-sided reconciliation | In protocol flow |

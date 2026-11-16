@@ -324,7 +324,9 @@ fi
 # does not contain it verbatim, and therefore scans its own file too (no
 # self-exclusion blind spot).
 old_org='postin''dustria'
-org_hits=$(git grep -nF "$old_org" -- . 2>/dev/null || true)
+# The company's own website, postindustria.com, is a link to the company, not a
+# stale org reference, so a match followed by ".com" is allowed.
+org_hits=$(git grep -nE "${old_org}([^.]|\.[^c]|\.c[^o]|\.co[^m]|$)" -- . 2>/dev/null || true)
 if [ -n "$org_hits" ]; then
   echo "::error::stale '${old_org}' org reference (the project is github.com/FORA-Protocol):"
   echo "$org_hits"

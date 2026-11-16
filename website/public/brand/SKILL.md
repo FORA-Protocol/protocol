@@ -116,6 +116,7 @@ Read `reference/messaging.md` before writing any copy. The short version:
 - Write **FORA** in prose. "The FORA protocol" or "FORA Protocol" when you need
   the noun. The lowercase "fora protocol" exists only inside the logo.
 - It stands for **Federated Open Resource Access**. Spell it out once, if at all.
+  *Fora* is also the plural of *forum*: the mark lays the plan of a Roman forum over a wax seal.
 - Never "Fora" or "F.O.R.A.".
 - FORA is an **open protocol**, not an "industry standard" and not adopted by any
   standards body.

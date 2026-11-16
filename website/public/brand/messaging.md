@@ -80,7 +80,8 @@ Dispute), as the home page and /music/ do.
 
 ## Facts you may state
 
-- FORA stands for Federated Open Resource Access.
+- FORA stands for Federated Open Resource Access, and *fora* is also the plural of *forum*:
+  the mark lays the plan of a Roman forum over a wax seal.
 - The protocol specification and the reference implementation are open source
   under Apache 2.0. The documentation is CC BY-ND 4.0.
 - SDKs exist for Go, TypeScript and Python. Agents can also use FORA through an

@@ -1,0 +1,369 @@
+---
+// Resource: ProRata.ai and Gist, and FORA, one of the deep pages of the
+// content-marketplaces series (hub: /resources/content-marketplaces/). Laid
+// out in the vendor page template, as the TollBit page is: hero, at a glance,
+// the short answer, how you're paid, key facts, how your articles get into
+// answers, who has been paid, what Gist Answers needs from your site, what can
+// go wrong, where ProRata is ahead, the eight questions, running both, what to
+// do, and About FORA with the sources and the series navigation.
+//
+// Shared texts (About FORA, the definitions, the search callout, the table
+// questions, the GlanceCard rows and FORA's fixed cells) come from
+// src/data/content-marketplaces.ts. A claim cites its source inline, as a
+// link, or with cite(N), which links to entry N of the numbered SourceList at
+// the foot; SOURCES below is numbered in order of first citation, so an
+// entry's position is its number. Text with links is HTML and goes through
+// set:html.
+import LandingLayout from '../../../layouts/LandingLayout.astro';
+import AudienceHero from '../../../components/landing/AudienceHero.astro';
+import Band from '../../../components/landing/Band.astro';
+import GlanceCard from '../../../components/landing/GlanceCard.astro';
+import CardGrid from '../../../components/landing/CardGrid.astro';
+import Callout from '../../../components/landing/Callout.astro';
+import StepList from '../../../components/landing/StepList.astro';
+import Figure from '../../../components/landing/Figure.astro';
+import KeyFacts from '../../../components/landing/KeyFacts.astro';
+import PullQuote from '../../../components/landing/PullQuote.astro';
+import PointList from '../../../components/landing/PointList.astro';
+import CompareTable from '../../../components/landing/CompareTable.astro';
+import StatusTag from '../../../components/landing/StatusTag.astro';
+import SourceList from '../../../components/landing/SourceList.astro';
+import SeriesNav from '../../../components/landing/SeriesNav.astro';
+import ClosingCta from '../../../components/landing/ClosingCta.astro';
+import { resourceUpdated } from '../../../data/resources';
+import {
+  ABOUT_FORA, DEFINITIONS, SEARCH_FORA, FORA_CELLS, SEE_ABOUT, compareRows, glanceGroups,
+} from '../../../data/content-marketplaces';
+import { cite, statusTag } from '../../../lib/resource-markup';
+
+const HREF = '/resources/content-marketplaces/prorata-gist/';
+const IMG = '/resources/content-marketplaces/prorata-gist';
+
+// Every external source the page links.
+const P = {
+  msa: 'https://gist.ai/support/ga/wpnewpartner',
+  ads: 'https://gist.ai/gist-ads-discontinued',
+  guide: 'https://gist.ai/support/ga/wpuserguide',
+  answers: 'https://gist.ai/products/gist-answers',
+  products: 'https://prorata.ai/products',
+  how: 'https://prorata.ai/how-it-works',
+  paper: 'https://prorata.ai/resources/without-attribution-quality-content-cannot-survive',
+  terms: 'https://gist.ai/terms-of-use',
+  nma: 'https://www.newsmediaalliance.org/prorata-licensing-partnership/',
+  dpcmo: 'https://dpcmo.dk/2025/12/10/prorata-partners-with-dpcmo-to-launch-the-first-decentralized-sovereign-ai-answer-engine/',
+};
+const a = (href: string, text: string) => `<a href="${href}">${text}</a>`;
+
+const GLANCE = glanceGroups({
+  payer: [`ProRata itself, monthly, by bank transfer once you're owed more than $1,000. Its Gist Ads network ended on 2026-09-01; Gist Answers still runs. ProRata hasn't said what funds the pool since ${cite(1, 2)}.`, FORA_CELLS.payer],
+  fees: [`A share of a pool, not a rate: see <a href="#paid">How you're paid</a> ${cite(1)}.`, FORA_CELLS.fees],
+  reporting: [
+    `A monthly statement, and per article: answers it was used in, its average attribution, citation clicks. Not the month's total revenue or answer count ${cite(1, 3)}.`,
+    `Each sale in your operator's console: gross, the Exchange fee and net, and a check of both signatures ${cite(9)}.`,
+  ],
+  contract: [
+    `ProRata's online MSA, accepted on a web form. Non-exclusive. ProRata can change it; if you object, you can only end it ${cite(1)}.`,
+    `Your agreement with your Exchange operator. Your terms go into each offer the Exchange signs ${cite(10)}.`,
+  ],
+  status: [
+    `${statusTag('live')} "150+" publishing partners, by ProRata's count. No payout total published ${cite(4)}.`,
+    `${statusTag('live')} ${SEE_ABOUT}`,
+  ],
+  dns: [`No change ${cite(3)}.`, `No record to add ${cite(9)}.`],
+  cdn: [
+    `No code. Cache rules must keep the feed working, and you purge the cache after a correction ${cite(3)}.`,
+    'A drop-in edge function. The rest depends on your own setup; FORA adds to what you run rather than replacing it.',
+  ],
+  firewall: [
+    `An allow rule for ProRata's crawler. Its user agent and IP ranges aren't published: ask ProRata ${cite(3)}.`,
+    `Leave your licensed paths and your discovery file to the edge function, or keep your bot product on and let signed requests and the file through ${cite(11)}.`,
+  ],
+  site: [
+    `The WordPress plugin or one script tag. Posts only, by default. How other CMSs get in isn't documented ${cite(3, 4)}.`,
+    `One discovery file on your site, and a sitemap the operator imports your pages from ${cite(9)}. No WordPress plugin.`,
+  ],
+  search: [
+    `Gist blocks no bot ${cite(3)}.`,
+    `Googlebot, Bingbot and Applebot always pass ${cite(11)}. See <a href="#search-traffic">Search traffic</a>, below.`,
+  ],
+  upkeep: [
+    `WordPress's scheduler must run, or nothing is sent. Removals go by email ${cite(3)}.`,
+    `The operator imports your pages on a schedule. Editing your discovery file needs no redeploy ${cite(9)}.`,
+  ],
+  leaving: [`End the MSA. Content already ingested stays until you email the URLs ${cite(1, 3)}.`, FORA_CELLS.leaving],
+});
+
+const SHORT_ANSWER = [
+  { title: 'ProRata measures the answer.', text: `Its engine splits each Gist answer into claims, finds the sources that support them, and divides a pool of half its net revenue by those shares.` },
+  { title: 'FORA prices the access.', text: 'You set the price, the unit and the terms for each resource, and your Exchange signs each offer. Any agent your terms allow can buy on them, and each purchase is a signed record.' },
+  { title: 'They fit on one site.', text: 'ProRata\'s contract is non-exclusive, so you can sell through FORA on the same site. Gist needs its WordPress plugin or a script tag.' },
+];
+
+const PAID_STEPS = [
+  { title: 'Half the month\'s revenue becomes a pool.', text: `Half of ProRata's net revenue from its answer products goes to "the pool of all content partners" (${a(P.msa, 'MSA §5')}). That revenue comes from "advertising, subscriptions, and sponsorships (if any)" in ProRata's own products.` },
+  { title: 'Every answer that month is worth the same.', text: 'Each valid answer, as ProRata counts them, carries the month\'s revenue divided by the month\'s valid answers. So what one answer earned ProRata doesn\'t change what it pays you.' },
+  { title: 'Your share depends on how much of the answer is yours.', text: `You get that amount, times 50%, times your attribution percent: the share of the answer's claims your content supplied (${a(P.msa, 'MSA §5')}).` },
+  { title: 'You\'re paid above $1,000.', text: `ProRata sends a monthly statement and pays by bank transfer "once the amount due to Partner exceeds one thousand dollars ($1,000)" (${a(P.msa, 'MSA §5')}). Until then, your earnings carry over.` },
+];
+
+const KEY_FACTS = [
+  { value: '50%', text: `of ProRata's net revenue from its answer products goes to the partner pool ${cite(1)}` },
+  { value: '50%', text: `of the widget's ad revenue on your site is yours ${cite(1)}` },
+  { value: '1 year', text: `ProRata keeps the records you can have inspected ${cite(1)}` },
+  { value: '7 days', text: `"from kickoff to live for a typical site, depending on your CMS and catalog size", by ProRata's count ${cite(4)}` },
+];
+
+const ARTICLE_STEPS = [
+  { title: 'You sign.', text: `You accept ProRata's Online Master Services Agreement (MSA) on a web form, and an API key follows "within 2 business days upon approval" (${a(P.msa, 'sign-up page and MSA')}).` },
+  { title: 'ProRata reads your site.', text: `You paste one script tag or install the WordPress plugin. The plugin registers your public posts feed and sends each post's address when the post is saved. ProRata's crawler, a program that fetches your pages, then reads the post through the feed: "Gist Answers sees only what an anonymous visitor sees" (${a(P.guide, 'WordPress user guide')}).` },
+  { title: 'Readers ask.', text: `The Gist widget on your pages, and ProRata's own answer site, ask.gist.ai, answer readers' questions. You choose the sources: your site, your whole organization, or the "Full Gist network" (${a(P.answers, 'Gist Answers')}).` },
+  { title: 'The engine measures each answer.', text: `It breaks the answer into claims, "atomic units of fact", and matches them to the sources. Then it computes "the proportion of the answer's total claims provided by each source and creator" (${a(P.how, 'How it works')}). The white paper names three weights, for originality, specificity and commonality, and gives no values for them (${a(P.paper, 'white paper')}).` },
+];
+
+const ENGINEERS = [
+  { title: 'Content.', text: 'By default ProRata takes posts only, through your public posts feed, <code>/wp-json/wp/v2/posts</code>. Pages and custom post types need a filter in code, and "Adding a post type with a filter is not retroactive".' },
+  { title: 'Sending.', text: 'The plugin queues each post\'s address on save, and WordPress\'s scheduler sends the queue.' },
+  { title: 'Cache.', text: 'The feed must honor its date filter, which "a page or edge cache rule, a security rule, or a plugin that changes REST queries" can break. The plugin "does not bypass or purge any cache", so after a correction you purge the post and the feed yourself.' },
+  { title: 'Bot protection.', text: 'Your bot protection has to let ProRata\'s crawler read the feed: a 401 or 403 "means the crawl of the feed fails". The crawler\'s user agent and IP ranges aren\'t published, so an allow rule needs them from ProRata.' },
+  { title: 'Widget and logs.', text: 'Readers\' browsers load the widget from Gist\'s own CDN. There is no log stream; the console shows per-article numbers and the MSA adds the monthly statement.' },
+];
+
+const CAUTIONS = [
+  { title: 'Paywalled text arrives empty.', text: 'A password-protected post, or text a paywall plugin hides, reaches Gist empty: "Gist Answers can answer from neither".' },
+  { title: 'A stopped scheduler stops everything.', text: 'Sending runs on WordPress\'s scheduler: "Without it, queued content is never sent."' },
+  { title: 'No consent control.', text: 'For consent banners, "There is no consent setting and no JavaScript API to load or unload the widget".' },
+];
+
+// Six points; the edge function's define callout follows the fourth, the
+// point that first names it.
+const AHEAD_1 = [
+  { title: 'It measures how much of an answer you supplied.', text: `ProRata returns "attribution scorecards at claim, article, publication, and publisher levels" (${a(P.how, 'How it works')}). ProRata can pay you by your share of each answer; FORA cannot. A FORA price is fixed when the agent buys, and a usage report, the buyer's later account of its use, "never re-prices a purchase" (${a('/protocol/licensing-terms/#metering-modes', 'Licensing terms')}).` },
+  { title: 'It publishes its payout rule.', text: `The pool, the split per answer and the $1,000 threshold are in a contract anyone can read (${a(P.msa, 'MSA §5')}). The console shows each article's "Average attribution", "the percentage of an answer that an article's content makes up" (${a(P.guide, 'user guide')}). The attribution itself is ProRata's to compute: the weights' values aren't published. FORA is software and sets no payout terms: each Exchange operator pays you under its own agreement (${a('/getting-started/what-is-fora/', 'What is FORA?')}).` },
+  { title: 'It pays you itself, and gives your readers a product.', text: `You don't wait for an AI company to buy: ProRata pays the pool from its own answer products. The widget answers readers on your pages at no AI cost to you, and the MSA gives you half of the widget's ad revenue on your site (${a(P.msa, 'MSA §5')}). ProRata says readers who use Gist Answers on one McClatchy site, Woman's World, stay about three times as long. That's its own data, with no period given (${a(P.answers, 'Gist Answers')}). On FORA, any agent your terms allow buys from your Exchange, and your operator pays you.` },
+  { title: 'It puts no code on your CDN.', text: `Gist needs one script tag or plugin on your pages, and its WordPress plugin "handles ingestion, configuration, management and reporting" (${a(P.answers, 'Gist Answers')}). Your work is the feed, your cache rules and an allow rule for the crawler, whose identity you get from ProRata. FORA asks more: you set your terms in an Exchange operator's console, serve one file that names your Exchanges, and add FORA's edge function to your CDN (${a('/getting-started/publisher-onboarding/', 'Publisher onboarding')}). A WordPress plugin for FORA is planned ${statusTag('roadmap')}.` },
+];
+const AHEAD_2 = [
+  { title: 'It gives you an audit right.', text: `If you dispute a payment, an independent third party can inspect ProRata's records, kept for a year after each payment (${a(P.msa, 'MSA §6')}). FORA's protocol gives a publisher no audit right. ${SEE_ABOUT}` },
+  { title: 'It reaches you through your trade association.', text: `The News/Media Alliance, which by its own count represents "more than 2,200" news, magazine and digital media organizations, lets its members opt into a license with ProRata (${a(P.nma, 'N/MA')}, announced 2025-03-26). Denmark's DPCMO offers its members "a pre-negotiated partnership agreement" (${a(P.dpcmo, 'DPCMO')}, announced 2025-12-10). With FORA, an association can run an Exchange for its members.` },
+];
+
+const COMPARE = compareRows([
+  [`You click to accept the MSA, which grants fixed uses: answers in ProRata's products, and attribution. Nothing on your site says so to anyone else ${cite(1)}.`, `Your <code>fora.json</code> names the Exchanges that sell your content; you set terms per resource in the Exchange operator's console ${cite(9, 10)}.`],
+  [`No outside buyer does. ProRata's engine picks sources from its own index of partner content and doesn't publish how it picks them. On your widget, "Answers come from your content first" ${cite(4)}.`, `From your Exchange, or through a Broker (${a('/resources/content-marketplaces/#broker-order', 'how a Broker orders offers')}) ${cite(13)}.`],
+  [`There is no outside buyer. ProRata's crawler publishes no user agent or IP ranges ${cite(3)}.`, `Each request carries a signature, checked against a key the buyer publishes on its own domain (Web Bot Auth, the IETF working group's -00 draft for signed bot requests) ${cite(10)}.`],
+  [`The MSA grant, for every answer ProRata generates during the contract ${cite(1)}.`, `An offer the Exchange signs and the agent accepts, and a signed link that expires, checked at your CDN ${cite(10)}.`],
+  [`ProRata: 50% of net revenue, split per valid answer by attribution. The online MSA sets the same split for every partner who accepts it. ProRata can change the terms ${cite(1)}.`, `You: free, per unit (pages, text tokens, seconds or your own) or a flat fee, signed on each offer. No revenue-share price, by design: a share is a free term shown to agents that state the deal's scope, with a reporting duty (${a('/protocol/licensing-terms/#revenue-share-arrangements', 'Revenue share')}).`],
+  [`ProRata pays by bank transfer, monthly, once you're owed more than $1,000 ${cite(1)}.`, FORA_CELLS.money],
+  [`A monthly statement per partner, publication and article (above a minimum number of answers): answers, average attribution, revenue. Not the month's total revenue or answer count ${cite(1)}.`, `The operator's console: each sale with gross, fee and net, and a check of both signatures. The console is each operator's own; no protocol call returns your sales ${cite(9)}.`],
+  [`An independent inspection of one year of records, then the courts of Los Angeles County ${cite(1)}.`, FORA_CELLS.disputes],
+]);
+
+const ONE_SITE = [
+  { title: 'Run both.', text: `ProRata's licenses "are nonexclusive" (${a(P.msa, 'MSA §13')}), and Gist Answers "fits alongside anything else in your AI strategy" (${a(P.answers, 'Gist Answers')}). Your FORA discovery file names your FORA Exchanges; the ProRata deal stays a private contract.` },
+  { title: 'Let ProRata\'s crawler through your bot product.', text: `On most CDNs the bot product runs before FORA's edge function, so it can block the crawler first (${a('/components/edge-function/bot-detection/', 'Bot detection')}). Allow the crawler there, with the user agent and IP ranges you get from ProRata. FORA's edge function recognizes AI bots mainly by the name they give, and ProRata's crawler isn't on its list, so the edge lets it through (${a('/getting-started/publisher-onboarding/', 'Publisher onboarding')}).` },
+  { title: 'If you license your articles at the edge, license the feed too.', text: `Your WordPress posts feed serves the same article text to any client. If only the article pages are licensed, an AI bot can read the text from the feed instead. So license the feed's path with your articles (${a('/getting-started/publisher-onboarding/', 'Publisher onboarding')}). Before you do, ask your engineers what else reads the feed, such as your mobile app or your AMP pages, and test them after the change.` },
+];
+
+const TODO = [
+  { title: 'Ask for the pool totals.', text: 'Your statement doesn\'t show the month\'s total revenue or total valid answers, so you can\'t recompute your share. Ask for both, which answers count as valid, and where the share of each answer that no partner gets goes.' },
+  { title: 'Ask what funds the pool.', text: 'Ask which products pay into the pool now that Gist Ads has ended, and whether the widget on your pages still carries ads, and whose.' },
+  { title: 'Check the feed as a stranger would.', text: 'Open your posts feed in a private browser window, with and without a date filter, as the user guide shows. Ask support@gist.ai for the crawler\'s user agent and IP ranges, and allow it at your CDN.' },
+  { title: 'Keep your own removal list.', text: `The plugin sends no removal signal, so content stays in Gist until you email the URLs (${a(P.guide, 'user guide')}). Ask what happens to the content already ingested if you end the MSA.` },
+  { title: 'Audit within the year.', text: `ProRata keeps its records for one year after each payment (${a(P.msa, 'MSA §6')}).` },
+  { title: 'Sell to agents as well.', text: `ProRata's contract is non-exclusive. Choose an Exchange operator (see <a href="#about">About FORA</a>), name your FORA Exchanges in <code>fora.json</code>, set your price per resource, and cover the posts feed at the edge.` },
+];
+
+const LEGAL = [
+  { title: 'ProRata can change the terms.', text: `It amends the MSA by posting a new version. "If you object to any such changes, your sole recourse will be to terminate this Agreement" (${a(P.msa, 'MSA §13')}).` },
+  { title: 'Non-exclusive.', text: '"The rights and licenses that each Party grants to the other Party under this Agreement are nonexclusive" (MSA §13).' },
+  { title: 'Audit.', text: 'A partner that "reasonably disputes Revenue Share paid" can have "an independent third party confidentially inspect the Records", kept for a year after each payment (MSA §6).' },
+  { title: 'Removal.', text: 'After written notice, ProRata stops using the content "within one (1) business day" (MSA §7). The plugin sends no removal signal, so the notice is yours to send.' },
+  { title: 'Consent.', text: 'The widget has no consent setting (see <a href="#caution">What can go wrong</a>).' },
+  { title: 'Venue.', text: '"The federal and state courts located in Los Angeles County will have sole and exclusive jurisdiction" (MSA §13).' },
+  { title: 'Version.', text: 'The MSA quoted here is the one "Last updated: October 27, 2026".' },
+];
+
+// The SourceList, numbered in order of first citation: an entry's position,
+// counted across the groups, is the N in cite(N).
+const SOURCES = [
+  {
+    name: 'ProRata.ai and Gist',
+    items: [
+      { title: 'ProRata Online Master Services Agreement (MSA)', publisher: 'ProRata.ai', href: P.msa, checked: '2026-11-15' },
+      { title: 'Gist Ads discontinued', publisher: 'ProRata.ai', href: P.ads, checked: '2026-11-14' },
+      { title: 'Gist Answers for WordPress: user guide', publisher: 'ProRata.ai', href: P.guide, checked: '2026-11-15' },
+      { title: 'Gist Answers', publisher: 'ProRata.ai', href: P.answers, checked: '2026-11-14' },
+      { title: 'Products', publisher: 'ProRata.ai', href: P.products, checked: '2026-11-14' },
+      { title: 'How it works', publisher: 'ProRata.ai', href: P.how, checked: '2026-11-14' },
+      { title: 'Without attribution, quality content cannot survive (white paper)', publisher: 'ProRata.ai', href: P.paper, checked: '2026-11-14' },
+      { title: 'Terms of Use', publisher: 'Gist', href: P.terms, checked: '2026-11-14' },
+    ],
+  },
+  {
+    name: 'FORA',
+    items: [
+      { title: 'Publisher onboarding', publisher: 'FORA documentation', href: '/getting-started/publisher-onboarding/', checked: '2026-11-15' },
+      { title: 'What is FORA?', publisher: 'FORA documentation', href: '/getting-started/what-is-fora/', checked: '2026-11-15' },
+      { title: 'Bot detection', publisher: 'FORA documentation', href: '/components/edge-function/bot-detection/', checked: '2026-11-15' },
+      { title: 'Licensing terms', publisher: 'FORA documentation', href: '/protocol/licensing-terms/', checked: '2026-11-15' },
+      { title: 'Broker', publisher: 'FORA documentation', href: '/components/broker/overview/', checked: '2026-11-15' },
+    ],
+  },
+  {
+    name: 'Press, filings and others',
+    items: [
+      { title: 'ProRata licensing partnership', publisher: 'News/Media Alliance', href: P.nma, checked: '2026-11-14' },
+      { title: 'ProRata partners with DPCMO', publisher: 'DPCMO', href: P.dpcmo, checked: '2026-11-14' },
+    ],
+  },
+];
+---
+<LandingLayout
+  title="ProRata.ai and Gist, and FORA — FORA resources"
+  description="How ProRata pays publishers a share of each Gist answer, what Gist Answers needs from your site, where ProRata is ahead of FORA, and how a publisher can run both on the same site."
+>
+  <AudienceHero
+    current="resources"
+    badge={`Resources · ${a('/resources/content-marketplaces/', 'Content marketplaces')} · ProRata.ai and Gist`}
+    title="ProRata pays you a share of each answer. <em>With FORA, you sell each access at your price.</em>"
+    sub="ProRata.ai licenses your articles into its own answer engine, Gist, and pays you from a pool by how much of each answer your content supplied. FORA lets AI agents, software that fetches content for an AI system or its user, buy each access at the terms and price you set."
+    updated={resourceUpdated(HREF)}
+  >
+    <a href="#ahead" class="btn btn-primary">Where ProRata is ahead</a>
+    <a href="#together" class="btn btn-ghost">Run both</a>
+  </AudienceHero>
+
+  <Band tone="near" id="glance" label="At a glance" title="ProRata and FORA, side by side">
+    <GlanceCard vendor="ProRata.ai and Gist" groups={GLANCE} />
+  </Band>
+
+  <Band label="The short answer" title="ProRata measures the answer. FORA prices the access.">
+    <CardGrid items={SHORT_ANSWER} />
+    <Callout kind="define" {...DEFINITIONS.exchange} />
+  </Band>
+
+  <Band tone="light" id="paid" label="How you're paid" title="ProRata pays you monthly, from a pool, by your share of each answer" asideWidth="440px" asideAlign="start">
+    <Fragment slot="intro">
+      <StepList items={PAID_STEPS} />
+      <p class="prose" set:html={`Answers can also draw on sources outside the partner pool, such as Wikipedia (${a(P.guide, 'user guide')}). The contract doesn't say where their share goes (${a(P.msa, 'MSA §5')}).`} />
+      <p class="prose" set:html={`ProRata retired its Gist Ads network "on September 1, 2026" (${a(P.ads, 'Gist Ads')}). Only the ad network ended: Gist Answers, the answer engine on publishers' sites, still runs (${a(P.answers, 'Gist Answers')}). ProRata hasn't said what funds the pool since. It offers its attribution engine to AI platforms "through direct engagement with the team" (${a(P.products, 'Products')}) and names no platform customer.`} />
+    </Fragment>
+    <Figure
+      slot="aside"
+      src={`${IMG}/prorata-2.png`}
+      title="Say a month brings ProRata $200,000 and 20 million valid answers: from its month to your payout."
+      alt="Say a month brings ProRata $200,000 in net revenue and 20 million valid answers: each answer carries $0.01, and neither total is on your statement. Your month is $0.01 × 50% partner share × 25% average attribution × 30,000 answers = $37.50, which carries over, since ProRata pays by bank transfer only once you're owed more than $1,000."
+    />
+  </Band>
+
+  <Band tone="near" compact label="ProRata in four numbers">
+    <KeyFacts items={KEY_FACTS} />
+  </Band>
+
+  <Band label="How your articles get into answers" title="From your article to an answer, in four steps" asideWidth="440px" asideAlign="start">
+    <StepList slot="intro" items={ARTICLE_STEPS} />
+    <Figure
+      slot="aside"
+      src={`${IMG}/prorata-1.png`}
+      title="From your article to your share of an answer."
+      alt={'The WordPress plugin registers your posts feed, /wp-json/wp/v2/posts, and sends each post\'s address on save; ProRata\'s crawler reads the feed into ProRata\'s index of partner content, and the answer engine picks sources for the Gist widget on your pages and for ask.gist.ai. Each answer is split into claims, "atomic units of fact", matched to their sources to give an attribution percent per source: another partner, your article, or Wikipedia, which is not a partner.'}
+    />
+  </Band>
+
+  <Band tone="light" label="Who has been paid so far" title="ProRata counts its partners and publishes no payout total">
+    <p class="prose" set:html={`The Gist Answers page counts "150+" publishing partners and "1,600+" licensed titles (vendor's own data, ${a(P.answers, 'Gist Answers')}). No payout total is published.`} />
+  </Band>
+
+  <Band tone="near" label="What Gist Answers needs from your site" title="The WordPress plugin or a script tag, an open feed, and an allow rule" lead="Readers and search crawlers reach your site as today. Gist needs no DNS change and no code on your CDN, but it touches your CMS, your cache rules and your bot protection. It runs through the WordPress plugin or one script tag; how Gist ingests a site that doesn't run WordPress isn't documented, so ask ProRata.">
+    <Callout
+      kind="engineers"
+      collapse="Show the five points"
+      text={`Every quote in this box is from Gist's ${a(P.guide, 'WordPress user guide')}, for plugin version 1.0.16.`}
+      points={ENGINEERS}
+    />
+  </Band>
+
+  <Band id="caution" label="What can go wrong" title="In Gist's own guide">
+    <Callout kind="caution" points={CAUTIONS}>
+      <PullQuote
+        small
+        quote="[Unpublishing or deleting a post sends nothing to Gist:] the plugin has no removal signal, so content already ingested stays there."
+        who="Gist"
+        source="WordPress user guide"
+        href={P.guide}
+      />
+    </Callout>
+    <Callout kind="search" id="search-traffic" text={SEARCH_FORA.text} links={SEARCH_FORA.links}>
+      <p>Gist doesn't block, meter, redirect or charge any bot, so every bot rule on your site stays yours, and search crawlers reach your site as today.</p>
+    </Callout>
+  </Band>
+
+  <Band tone="light" id="ahead" label="Where ProRata.ai and Gist is ahead" title="What ProRata does that FORA doesn't">
+    <PointList tone="neutral" items={AHEAD_1} />
+    <Callout kind="define" {...DEFINITIONS.edgeFunction} />
+    <PointList tone="neutral" items={AHEAD_2} />
+  </Band>
+
+  <Band tone="near" label="The differences, question by question" title="Eight questions a publisher asks of any licensing deal" lead="ProRata is ahead on reporting a share of each answer and on an audit right; FORA on setting your own price. The first four rows compare different jobs: ProRata doesn't set out to sell to outside AI companies.">
+    <Callout kind="define" {...DEFINITIONS.broker} />
+    <div class="table-gap"><CompareTable vendor="ProRata.ai and Gist" rows={COMPARE} /></div>
+  </Band>
+
+  <Band id="together" label="How FORA works with ProRata.ai and Gist" title="Both on one site today" asideWidth="400px" asideAlign="start">
+    <Fragment slot="intro">
+      <h3 class="sub-h">On one site <StatusTag status="live" /></h3>
+      <PointList items={ONE_SITE} />
+      <h3 class="sub-h">Doesn't fit</h3>
+      <p class="prose" set:html={`<b>Gist answers as FORA offers.</b> Gist sells agents nothing: its terms forbid access by any "agent or other automatic device" (${a(P.terms, 'Terms of Use')}). A Gist answer is also written when someone asks, and FORA sells resources that exist before the sale (${a('/getting-started/what-is-fora/#scope', 'What is FORA?')}). ProRata offers no payment service to others either, so an Exchange can't settle through it.`} />
+    </Fragment>
+    <Figure
+      slot="aside"
+      src={`${IMG}/prorata-4.png`}
+      title="Both on one site: three callers, two checks."
+      caption="For your engineers."
+      alt="Your CDN's bot product runs first and the FORA edge function second: ProRata's crawler gets through if you allow it at your CDN, because it is not on the edge's bot list; an AI agent with a signed link passes after the edge checks the link; and an AI bot without a signed link is refused at the edge."
+    />
+  </Band>
+
+  <Band tone="light" label="What to do" title="If you run Gist Answers, or are weighing it">
+    <PointList numbered items={TODO} />
+    <Callout kind="legal" points={LEGAL} />
+  </Band>
+
+  <Band tone="near" id="about">
+    <Callout kind="about" points={ABOUT_FORA} columns />
+    <section class="sources" id="sources" aria-labelledby="sources-label">
+      <h2 class="end-label" id="sources-label">Sources</h2>
+      <p class="note">Sources are checked on the date of publication.</p>
+      <SourceList groups={SOURCES} compact numbered />
+    </section>
+    <SeriesNav current={HREF} />
+  </Band>
+
+  <ClosingCta
+    title="Set your own price <em>for AI access</em>"
+    text="FORA is an open protocol and free, open-source software. Sell through any FORA marketplace, several of them, or your own: you set terms and a price per resource, and each Exchange signs your offers."
+  >
+    <a href="/protocol/licensing-terms/" class="btn btn-primary">Licensing terms</a>
+    <a href="/getting-started/existing-marketplace/" class="btn btn-ghost">Run your own marketplace</a>
+    <a href="/resources/content-marketplaces/" class="btn btn-ghost">All content marketplaces</a>
+  </ClosingCta>
+</LandingLayout>
+
+<style>
+  /* Prose between components, and the sub-headings of "How FORA works with
+     ProRata.ai and Gist", which carry a StatusTag. The same few lines as on
+     the TollBit page. */
+  .prose { color: var(--lp-text); line-height: 1.65; max-width: 44rem; }
+  .prose + .prose { margin-top: 1rem; }
+  :global(*) + .prose { margin-top: 1.25rem; }
+  .prose :global(a) { color: var(--lp-link); }
+  .prose :global(b) { color: var(--lp-strong); font-weight: 600; }
+  .sub-h { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 3rem 0 0; color: var(--lp-heading); font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; }
+  .sub-h:first-child { margin-top: 0; }
+  .sub-h :global(.status-tag) { top: 0; }
+  .table-gap { margin-top: 2.5rem; }
+  .sources { margin-top: 4rem; scroll-margin-top: 5rem; }
+  .end-label { font-size: 0.875rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--lp-label); margin: 0 0 0.75rem; }
+  .note { max-width: 52rem; color: var(--lp-muted); font-size: 0.9375rem; line-height: 1.6; }
+</style>

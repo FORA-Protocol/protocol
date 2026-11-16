@@ -108,6 +108,13 @@ const { current } = Astro.props;
   }
   .nav-links a:hover { color: var(--off-white); }
   .nav-links a.on { color: var(--off-white); }
+  .nav-links a { white-space: nowrap; }
+
+  /* Just above the menu breakpoint, the full row of links fits only with
+     tighter gaps. */
+  @media (min-width: 769px) and (max-width: 960px) {
+    .nav-links { gap: 1.25rem; }
+  }
 
   .menu-btn, .nav-spacer { display: none; }
 

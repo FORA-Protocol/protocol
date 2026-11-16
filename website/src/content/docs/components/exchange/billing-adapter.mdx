@@ -171,35 +171,35 @@ type DynamoDBBillingAdapter struct {
 
 ## Real Integration Example
 
-A Exchange operator (e.g., an existing ad-tech SSP adding resource access) would implement the interface against their existing billing system:
+An Exchange operator that already runs a billing system implements the interface against it:
 
 ```go
-// ExampleSSPBillingAdapter connects to SSP Corp's internal billing API.
-type ExampleSSPBillingAdapter struct {
+// ExampleBillingAdapter connects to the operator's internal billing API.
+type ExampleBillingAdapter struct {
     httpClient *http.Client
     baseURL    string
     apiKey     string
 }
 
-func (a *ExampleSSPBillingAdapter) Authorize(
+func (a *ExampleBillingAdapter) Authorize(
     ctx context.Context, req *BillingAuthorizeRequest,
 ) (*BillingAuthorizeResponse, error) {
-    // Call SSP Corp's internal billing API
-    sspReq := &ssp.AuthorizeRequest{
+    // Call the operator's internal billing API
+    billReq := &billing.AuthorizeRequest{
         AccountID: mapBillingRefToAccount(req.BillingRef),
         Amount:    req.Amount,
         Currency:  req.Currency,
         Product:   "content-licensing",
         Reference: req.OfferID,
     }
-    sspResp, err := a.ssp.Authorize(ctx, sspReq)
+    billResp, err := a.billing.Authorize(ctx, billReq)
     if err != nil {
-        return nil, fmt.Errorf("ssp billing: %w", err)
+        return nil, fmt.Errorf("billing: %w", err)
     }
     return &BillingAuthorizeResponse{
-        Approved:  sspResp.Status == "approved",
-        BillingID: sspResp.HoldID,
-        Reason:    sspResp.DeclineReason,
+        Approved:  billResp.Status == "approved",
+        BillingID: billResp.HoldID,
+        Reason:    billResp.DeclineReason,
     }, nil
 }
 ```

@@ -1,146 +1,87 @@
 ---
 title: "FORA for Exchange Operators"
-description: "How to operate a FORA Exchange — aggregate resource catalogs, handle transactions, earn a margin"
+description: "How to run a FORA Exchange on FORA Server: what you deploy, how publishers and agents join, the rules and fee you set, and the checks every Exchange runs."
 ---
 
-## The Opportunity
+An Exchange holds publishers' catalogs and terms, signs their offers, records each sale and takes usage reports. Anyone can run one. FORA Server, which is open source, includes the Exchange, and every FORA agent can buy from any FORA Exchange, because every Exchange speaks the same protocol. You set your own rules and your own fee.
 
-Resource providers need a transaction layer but don't want to build one. Courts don't want to run billing APIs. Publishers don't want to negotiate with every AI company. Hospitals don't want to handle metered access to imaging data. Patent offices don't want to build per-query pricing.
+Settlement stays outside the protocol: you bill the agents' account holders and pay your publishers through your own billing. FORA defines no payment rail.
 
-You solve this by running an **Exchange**: aggregate their catalogs, handle discovery, pricing, and transactions, and earn a margin on every access. This is the aggregator pattern — the same model that drives SSPs in ad-tech, clearinghouses in finance, and distributors in publishing.
+## Who runs an Exchange
 
-FORA was validated across **18 real-world scenarios** spanning 10 industries. The same protocol works for all of them:
+The same messages carry any catalog. What changes is the unit an offer is metered in and the domain profile its metadata follows:
 
-| Exchange Type | What You Aggregate | Providers | Example Operators |
-|---|---|---|---|
-| Media exchange | News articles, podcasts, video | Publishers | SSPs, media companies |
-| Academic exchange | Journal articles, preprints | Publishers, repositories | Elsevier, OpenAlex |
-| Legal exchange | Court filings, legislation, patents | Courts, patent offices | PACER aggregator, EUR-Lex |
-| Credit/financial exchange | Credit reports, market data | Data providers | D&B resellers, MarketData |
-| Medical data exchange | Clinical data, imaging | Hospitals, research institutions | TCIA, imaging exchanges |
-| Government data exchange | Property records, business filings | County/state agencies | CoreLogic, ATTOM |
-
-The value proposition is the same regardless of domain: providers get revenue from AI agents without building anything, agents get standardized access without bespoke integrations, and you keep a margin on every transaction.
-
-## What You Deploy
-
-You deploy an **Exchange Node** -- a Go service that handles three API calls:
-
-1. **DiscoverResources** -- AI agent asks "what's available at this URL and how much?" Your Exchange looks up the provider's catalog and returns offers with pricing.
-2. **ExecuteTransaction** -- AI agent says "I'll take it." Your Exchange checks the requester's balance, logs the transaction, and returns a signed URL.
-3. **ReportUsage** -- AI agent reports what it did with the content. Mandatory. You track compliance.
-
-That's the whole protocol. Three RPCs. Your billing adapter plugs in where `Authorize(requester, amount)` and `Record(transaction)` are called.
-
-## Unit-Agnostic Metering
-
-A media exchange meters in tokens. A legal exchange meters in pages. A medical exchange meters in studies. A geospatial exchange meters in sq_km. Same protocol, different units.
-
-FORA pricing states what is metered and at what price, with no assumption about the unit:
-
-- `unit`: what is metered.
-- `rate`: the price of one `unit`.
-- `estimated_quantity`: optional, the publisher's own estimate, in `unit`. A metered purchase charges the estimate × `rate`, or one unit's `rate` when the offer states no estimate, and that charge is final (see [Charging a metered purchase](/protocol/transaction-flow/#charging-a-metered-purchase)).
-- `unit_cost`: the comparison metric, the price of one purchase divided by the resource's size in the comparison unit of its content type. It never enters the charge.
-
-```
-Exchange Type       Metering Unit       Example rate
-──────────────────────────────────────────────────────────────
-Media                  tokens              $0.00003/token
-Legal                  pages               $0.50/page
-Academic               accesses            $0.05/access
-Medical imaging        studies             $2.00/study
-Credit/financial       records             $5.00/record
-Geospatial             sq_km               $0.10/sq_km
-Streaming (audio)      minutes             $0.02/minute
-Pharma                 interaction_pairs   $0.001/pair
-```
-
-Usage reporting follows the same pattern: `consumed_quantity` + `consumed_unit`, which matches the offer's `unit`. A report records the quantity consumed and is never refused for it. Your Exchange MUST support these fields on all offers and MUST NOT assume an offer is metered in tokens; only a usage report that omits `consumed_unit` is read as tokens.
-
-## Extension Profiles
-
-Your Exchange declares which domain profiles it supports in its manifest. This tells Brokers and agents what kind of resources you handle:
-
-```json
-// Media exchange
-{ "supported_profiles": ["fora-news-v1"] }
-
-// Academic exchange
-{ "supported_profiles": ["fora-academic-v1"] }
-
-// Legal exchange
-{ "supported_profiles": ["fora-legal-v1"] }
-
-// Multi-domain exchange
-{ "supported_profiles": ["fora-news-v1", "fora-academic-v1"] }
-```
-
-Agents declare which profiles they understand, and a Broker forwards that list to your Exchange unchanged; it does not route by profile. When an academic research agent declares `fora-academic-v1` and you declare that profile, your offers carry its fields.
-
-Profile conformance means your Exchange sets the required `ext` fields defined in the profile spec and validates them against the profile's JSON Schema:
-
-| Profile | Scope | What It Means for Your Exchange |
+| Exchange over | What it holds, and from whom | Who might run it |
 |---|---|---|
-| `fora-news-v1` | News, podcasts, broadcasting | Set IPTC subject codes, correction status, podcast metadata in offer ext fields |
-| `fora-academic-v1` | Scholarly articles, preprints | Set DOI, OA status, version lifecycle in offer ext fields |
-| `fora-legal-v1` | Legislation, case law, patents | Set jurisdiction, amendment chains, ELI/ECLI in offer ext fields |
+| News | Articles, podcasts and video, from publishers | A news publisher group, a press agency |
+| Scholarly content | Journal articles and preprints, from publishers and repositories | A university press, a society publisher |
+| Legal records | Court filings, legislation and patents, from courts and patent offices | A legal-data company |
+| Financial data | Credit reports and market data, from data providers | A data vendor |
+| Medical data | Clinical data and imaging, from hospitals and research institutions | A research consortium |
+| Public records | Property records and business filings, from agencies | A public-records company |
+| Music | Recordings and the works they record, from labels, publishers and collectives | A licensing collective |
 
-A Exchange MAY implement zero, one, or multiple profiles. You can start with one domain and expand.
+An existing marketplace can run a FORA Exchange over its own catalog, beside the channels it already has. See [For Content Marketplaces](/getting-started/existing-marketplace/).
 
-## If You're an SSP: How FORA Maps to Your Infrastructure
+## What you deploy
 
-If you operate an SSP or ad exchange, FORA maps directly to your existing concepts:
+FORA Server's Exchange is one Go binary in a container, `ghcr.io/fora-protocol/exchange`. It listens on two ports: the public Exchange listener, `8081` by default, and an internal admin listener, `8082`. To run it you provide:
 
-```
-Ad-Tech Concept          →  FORA Equivalent
-─────────────────────────────────────────────
-SSP / Exchange           →  Exchange Node
-Publisher                →  Resource Provider
-ads.txt                  →  fora.json (authorized providers)
-Bid Request              →  ResourceQuery
-Win Notification         →  TransactionRequest
-eCPM                     →  unit_cost (effective cost per unit)
-Impression               →  Content access (signed URL)
-Viewability Report       →  Usage Report
-```
+- **Two PostgreSQL databases**: one for the catalog, the transaction log and the audit log (`EXCHANGE_DSN`), and one for the account registry (`EXCHANGE_SOR_DSN`).
+- **Redis** (`REDIS_URL`), which stops a signed request from being replayed. Every instance of a scaled-out Exchange shares one.
+- **An Ed25519 private key**, which signs offers and delivery URLs. An RSA key is needed only for a publisher whose CDN is AWS CloudFront.
+- **A ledger.** `FORA_BILLING_ADAPTER` chooses it: `tigerbeetle` keeps a prepaid balance per agent account in TigerBeetle, in the currencies `EXCHANGE_BILLING_LEDGER` lists. The default, `free`, approves every charge and records none.
+- **The Broker's address** (`EXCHANGE_BROKER_WELLKNOWN_URL`). The Exchange reads the Broker's withdrawn-key list from there and refuses to start without the address. See [Broker](/components/broker/overview/#who-runs-a-broker).
+- **Your hostname** (`EXCHANGE_DOMAIN`), and one seat row for it, which holds your fee and your agent policy.
 
-**You already have:**
-- Provider relationships and contracts
-- Billing infrastructure (invoicing, prepaid, credit)
-- CDN access for provider domains
-- Revenue share agreements
+The catalog importer, `fora-import`, ships in the same image and runs as a job. The publisher console is a separate, optional service. You can deploy each component by hand, or with the Terraform modules in the FORA Server repository, which render a Docker Compose stack. The [Exchange deployment guide](https://github.com/FORA-Protocol/reference-implementation/blob/main/src/exchange/DEPLOYMENT.md) and the [runbook](https://github.com/FORA-Protocol/reference-implementation/blob/main/src/exchange/RUNBOOK.md) are in the FORA Server repository.
 
-**FORA adds:**
-- A Exchange service (Go binary, stateless, horizontally scalable)
-- An edge function deployed to provider CDNs (bot blocking + signed URL verification)
-- A resource catalog imported from provider sitemaps, with the terms each provider sets in the publisher console
+The Exchange answers these calls:
 
-## Provider Onboarding
+| Call | What it does |
+|---|---|
+| `ExchangeService.Register` | Opens an agent's account and returns its `billing_ref` |
+| `ExchangeService.GetAccountStatus` | Returns the state of the agent's account |
+| `ExchangeService.DiscoverResources` | Returns signed offers for the URLs in a `ResourceQuery` |
+| `ExchangeService.ExecuteTransaction` | Buys offers and returns a signed delivery URL for each paid item |
+| `ExchangeService.ReportUsage` | Takes the agent's usage report and returns its `report_id` |
+| `CatalogService.PushResources` | Takes catalog entries from a contributor the site's `fora.json` names |
+| `AdminService.SetTenantFeeRate` | Sets your fee, on the admin listener only |
+| `AdminService.SetReportingPolicy` | Sets your reporting policy, on the admin listener only |
 
-For each provider, you:
+It also serves `/.well-known/fora.json`, your key directory at `/.well-known/http-message-signatures-directory`, `/healthz` and `/readyz`.
 
-1. Generate their `fora.json` and have them publish it on their origin: the file they serve proves they control the domain and names your Exchange
-2. Import their pages from their sitemap into the catalog, with the terms they set in the publisher console, which fills them in from their RSL license when they publish one
-3. Configure their pricing tier
-4. Authorize `catalog_contributors` -- third-party verification vendors the provider permits to push attestations for their content
-5. If applicable, deploy the FORA edge function to their delivery endpoint (CDN, API gateway, PACS server) for signed URL verification
-6. Done. Their content is now available to AI requesters through your Exchange
+## Your rules and your fee
 
-Providers publish that one file and deploy nothing else in the managed model. You manage the rest. This is the [Exchange-Managed deployment model](/architecture/deployment-models/). Some providers (large publishers, data vendors) may prefer to manage their own delivery endpoint -- the protocol supports both.
+- **Your fee.** Your commission is `fee_rate_bps` on your seat, in basis points, set with `AdminService.SetTenantFeeRate` without a restart. 1500 is 15%. Each sale records the gross, your fee and the publisher's net.
+- **Which agents can buy.** `activate_new_agents_by_default` decides whether a newly registered agent can buy at once, or waits until you activate its account. A deactivated account is refused paid purchases with `DENIAL_REASON_ACCOUNT_INACTIVE`.
+- **A welcome credit.** `EXCHANGE_DEFAULT_AGENT_CREDIT` grants each new account a starting balance, for example `EUR=100`.
+- **Purchases through a Broker.** `allow_broker_relay` on your seat decides whether you accept purchases the Broker relays. A refused item is denied with `DENIAL_REASON_RELAY_NOT_ACCEPTED`, and the agent can buy that offer directly.
+- **How many signatures a request may carry.** `EXCHANGE_MAX_INTERMEDIARY_HOPS`, published as `max_intermediary_hops`, 4 by default.
+- **Reporting.** `AdminService.SetReportingPolicy` sets which fields a usage report must carry. A report is never refused for the quantity it states.
 
-## Requester Onboarding
+The publishers set the terms and prices of their own content. Your Exchange signs the offers it builds from them.
 
-AI companies register via your existing account management or a self-signup API:
+## Publishers
 
-- **Enterprise**: Out-of-band key exchange during contract signing. You register their Ed25519 public key.
-- **Self-signup**: AI agent registers via API with their public key manifest. Per-request billing only (no subscription).
+A publisher joins your Exchange through a publisher console:
 
-You don't need bilateral deals with every AI company. Any agent that speaks the FORA protocol can buy from your Exchange.
+1. It signs in and registers its business and its site.
+2. It sets its terms. The console fills them in from the site's RSL license when the site publishes one, and the publisher sets the price.
+3. The console generates the site's `fora.json`, which names your Exchange and lists your catalog contributor (`EXCHANGE_CATALOG_CONTRIBUTOR_HOST`) in `catalog_contributors`, and the edge function package for the site's CDN. The publisher serves the file and installs the package, usually in its own CDN account.
+4. The console checks both, and the listing goes live once the site proves it authorized your Exchange. `fora-import` then imports the pages of the site's sitemap into your catalog, with the publisher's terms, through `CatalogService.PushResources`.
 
-## Requester Verification
+From then on, the publisher sees its sales in the console. See [Publisher Onboarding](/getting-started/publisher-onboarding/) for the publisher's side.
 
-The `Requester` message carries no signature: it states who is asking, and the RFC 9421 HTTP Message Signature on the request proves who sent it. Your Exchange MUST verify every request before acting on it. The rules are on the [Authentication](/protocol/authentication/) page; apply them in this order, and reject a request that fails any of them, with no fallback and no degraded mode:
+## Agents
+
+An agent opens an account at your Exchange with `ExchangeService.Register`. The Exchange identifies the agent by the key that signed the request and returns a `billing_ref`, the opaque, long-lived handle of the agent's account at your Exchange. Registering again returns the same handle. A paid purchase without an account is denied with `DENIAL_REASON_ACCOUNT_NOT_REGISTERED`; free content needs none.
+
+You don't need a separate deal with each AI company. Any agent that speaks FORA can open an account and buy, under your agent policy. An agent on MCP registers through the [Identity Service](/components/identity/overview/).
+
+## Requester verification
+
+The `Requester` message carries no signature: it states who is asking, and the RFC 9421 HTTP Message Signature on the request proves who sent it. An Exchange MUST verify every request before acting on it, and FORA Server's Exchange does. The rules are on the [Authentication](/protocol/authentication/) page. An Exchange applies them in this order, and rejects a request that fails any of them, with no fallback and no degraded mode:
 
 1. **Count the signatures first.** Before you verify any, refuse a request carrying more signatures than your `WellKnownManifest.max_intermediary_hops` with `resource_exhausted` (HTTP 429) and no typed reason. Every signature counts, whether or not it covers another. See [Verification at the Exchange](/protocol/authentication/#verification-at-the-exchange).
 2. **Verify each signature under the Web Bot Auth profile.** Resolve its `keyid`, the key's RFC 7638 thumbprint, in the key directory its own covered `Signature-Agent` member names (`{origin}/.well-known/http-message-signatures-directory`), never from `Requester.domain`. Check the profile parameters, the four components a FORA RPC covers (`@method`, `@target-uri`, `content-digest`, `authorization`) and the `Content-Digest` of the body. Refuse a failure as `unauthenticated` with `request_auth_failure`: `SIGNATURE_MISSING` when no signature parses, `SIGNATURE_INVALID` when one does not verify, `SIGNATURE_STALE` outside its `created`/`expires` window. When a required component is missing, also answer with an `Accept-Signature` field listing the components you require, so the client can fix its request. See [Signature Verification](/protocol/authentication/#signature-verification) and [The Web Bot Auth Profile](/protocol/authentication/#the-web-bot-auth-profile).
@@ -152,9 +93,9 @@ The `Requester` message carries no signature: it states who is asking, and the R
 
 Cache directories and keys with a TTL and re-fetch them to pick up rotation, without a fetch per request (see [Caching Contract](/protocol/authentication/#caching-contract)).
 
-### Delegation Verification
+### Delegation verification
 
-When a request includes a `Delegation` message (nested inside `Requester`), run the chain through the profile's verifier (`helpers.VerifyDelegation` in the Go SDK). The procedure, the limits and the checks are stated once, in [Verification](/protocol/authentication/#verification). This page adds only what your Exchange supplies to the verifier and what it does with the result:
+When a request includes a `Delegation` message (nested inside `Requester`), the Exchange runs the chain through the profile's verifier (`helpers.VerifyDelegation` in the Go SDK). The procedure, the limits and the checks are stated once, in [Verification](/protocol/authentication/#verification). This page adds only what the Exchange supplies to the verifier and what it does with the result:
 
 1. **Trust comes from the subscription record.** Give the verifier the trusted root keys of the subscription record that owns the gated term, each with the issuer identity it belongs to. Trust is configured on that record, never fetched: not from `principal_domain`, not from `issuer`, not from a WBA directory, OIDC or JWKS. A key trusted on one record grants nothing on another. Withdraw trust by removing a key from the record's list; `revocation_uri` is not part of the profile.
 2. **The holder is the key the request proved.** Give the verifier the thumbprint of that key: on a direct request the key that signed it (RFC 9421), on a purchase a Broker relays the key that signed each item's `AgentAcceptance`. The verifier refuses a mismatch. This is mandatory: it is what makes a stolen token unusable, so a token possessed without its signing key grants nothing. On a query a Broker originated, which proves possession of no agent key, do not verify or honor the delegation: answer as if none were present.
@@ -163,7 +104,7 @@ When a request includes a `Delegation` message (nested inside `Requester`), run 
 
 This verification is entirely offline — no callback to the principal is required.
 
-### Scope-Based Catalog Filtering
+### Scope-based catalog filtering
 
 After verifying identity (and any delegation, as above), present the non-gated terms the requester's stated scopes cover; only those reach the `DiscoverResources` response. The scopes are the requester's own statement and you do not verify them. A gated term, a subscription term in the usual case, is different: present it only when the verified delegation's effective scopes cover it, ignore `requester.scopes` for that term, and answer a requester without a verified delegation as if the term did not exist. The matching rule is stated once, in [Scope Matching](/protocol/authentication/#scope-matching).
 
@@ -171,13 +112,13 @@ For a resource that exists but falls outside the requester's scopes, answer exac
 
 An offer you presented stays purchasable until it expires, so a purchase is never refused because the requester's scopes do not cover the resource.
 
-### Subscription Quota Signaling
+### Subscription quota signaling
 
-When the requester holds a subscription (identifiable via the requester's `delegation` and/or subscription scopes), populate `SubscriptionQuotaInfo` entries on offers and transaction responses. This proactive quota signaling lets agents track remaining allowance and avoid committing to transactions they cannot complete. Track `max_accesses` and `quota_period` from the `Delegation` message when present.
+When the requester holds a metered subscription, an Exchange can report the allowance left in `SubscriptionQuotaInfo` entries on offers and transaction responses, so the agent does not commit to a purchase it cannot complete. An Exchange meters a subscription on its subscription record, never per delegation token, and names the record in `SubscriptionQuotaInfo.subscription_id`.
 
-### New Denial Reasons to Implement
+### Denial reasons
 
-FORA defines identity- and entitlement-related denial reasons your Exchange MUST return when appropriate. The delegation reasons:
+FORA defines identity- and entitlement-related denial reasons an Exchange MUST return when they apply. The delegation reasons:
 
 | Denial Reason | When to Return |
 |---|---|
@@ -203,121 +144,53 @@ And the relay reason, for a provider that does not accept purchases a Broker rel
 
 This is the identity/entitlement subset with operator guidance; the complete, authoritative `DenialReason` enum is rendered from the proto on the [proto reference](/reference/proto-fora/). For the full identity model specification — Requester fields, the JWT chain, scope format, and key management — see [Authentication](/protocol/authentication/).
 
-## Attestation Verification
+## Units and profiles
 
-Your Exchange verifies `ResourceAttestation` signatures at catalog push time. When a provider or verification vendor pushes resource metadata via `CatalogService.PushResources`, your Exchange:
+An offer names what it is metered in, and a metered purchase charges the publisher's estimate times the rate:
 
-1. Fetches the signer's public key from their WBA directory (the JWK Set at `https://{verifier}/.well-known/http-message-signatures-directory`), identified by its RFC 7638 thumbprint (the RFC 9421 `keyid`)
-2. Verifies the Ed25519 signature over JCS-canonicalized claims
-3. Checks that the `verifier` is either the provider domain (Level 1 self-attestation) or a vendor listed in the provider's `catalog_contributors` (Level 2 third-party attestation)
-4. Rejects attestations from unauthorized contributors
-
-This prevents unauthorized parties from injecting false claims into your resource catalog.
-
-## Dispute Resolution
-
-Your Exchange handles `DisputeTransaction` RPCs from agents. The dispute system operates in three tiers:
-
-| Tier | Scope | Volume | Response Time |
-|---|---|---|---|
-| **Tier 1 -- Automated** | Delivery failures, content hash mismatches, signed URL expiry | ~99% of disputes | &lt; 1 second |
-| **Tier 2 -- Rule-Based** | Ambiguous evidence, delivery says 200 but content is suspect | ~0.9% of disputes | &lt; 24 hours |
-| **Tier 3 -- Investigation** | Aggregate fraud patterns, systematic abuse | ~0.1% of disputes | Case-by-case |
-
-**`report_id` generation**: When an agent calls `ReportUsage`, your Exchange returns a `report_id` in the `UsageReportResponse`. This `report_id` is required on every `DisputeRequest` -- it proves the agent fulfilled its reporting obligation before disputing. Your Exchange rejects disputes without a valid `report_id`.
-
-Delivery logs are the authoritative evidence source. They cannot be fabricated by the agent and provide independent verification of delivery status, response size, and timing.
-
-## Exchange Manifest and Health Checks
-
-As an Exchange operator, you are responsible for two additional capabilities:
-
-**Exchange Manifest** -- Your Exchange serves a machine-readable self-description at `/.well-known/fora.json` (`role=ROLE_EXCHANGE`). This tells Brokers and agents what your Exchange supports (pricing models, delivery methods, accepted verifiers, endpoints) without trial-and-error. Your offer-signing keys are published separately in your WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`), not in `fora.json`. The manifest includes:
-
-- **`base_currency`** (ISO 4217 code) -- the currency for all `unit_cost` values. Lets an agent compare offers across Exchanges. A legal exchange quoting in EUR and a media exchange quoting in USD can be compared when both declare their currency.
-- **`supported_profiles`** -- domain extension profiles your Exchange conforms to.
-
-The manifest is generated from your configuration at startup and served as a static JSON document. See [Exchange Manifest](/protocol/exchange-manifest/).
-
-**Health Checks** -- Your Exchange exposes three health layers: gRPC health (`grpc.health.v1.Health/Check`), HTTP liveness (`/healthz`), and HTTP readiness (`/readyz`). Brokers use gRPC health probing to make structured routing decisions -- they can distinguish an Exchange with a stale catalog from one with billing down. Kubernetes uses the HTTP endpoints for pod lifecycle management. See [Health Checks](/components/exchange/health-checks/).
-
-## Revenue Model
-
-Revenue depends on your exchange domain and the value of the resources you aggregate:
+- `unit`: what is metered.
+- `rate`: the price of one `unit`.
+- `estimated_quantity`: optional, the publisher's own estimate, in `unit`. A metered purchase charges the estimate × `rate`, or one unit's `rate` when the offer states no estimate, and that charge is final (see [Charging a metered purchase](/protocol/transaction-flow/#charging-a-metered-purchase)).
+- `unit_cost`: the price of one purchase divided by the resource's size in the comparison unit of its content type. It never enters the charge.
 
 ```
-Media exchange:
-  Provider sets price:  $0.05/article (tokens)
-  AI Agent pays:        $0.05/article
-  You keep:             Your standard rev-share margin
-
-Legal exchange:
-  Provider sets price:  $0.50/page (court filing)
-  AI Agent pays:        $0.50/page
-  You keep:             Your standard rev-share margin
-
-Credit exchange:
-  Provider sets price:  $5.00/record (credit report)
-  AI Agent pays:        $5.00/record
-  You keep:             Your standard rev-share margin
-
-Medical imaging exchange:
-  Provider sets price:  $2.00/study (MRI scan)
-  AI Agent pays:        $2.00/study
-  You keep:             Your standard rev-share margin
+Exchange over       Pricing.unit                Example rate
+──────────────────────────────────────────────────────────────
+News                tokens                      $0.00003/token
+Legal records       pages                       $0.50/page
+Scholarly content   accesses                    $0.05/access
+Medical imaging     images                      $2.00/image
+Financial data      records                     $5.00/record
+Geospatial          sq-km                       $0.10/sq-km
+Audio streams       minutes                     $0.02/minute
+Drug interactions   pharma:interaction_pairs    $0.001/pair
 ```
 
-Higher-value resources mean higher absolute margins per transaction. A credit exchange processing 2K reports/day at $5.00 average = $10K/day gross = **$3.6M/year**. A media exchange processing 10K articles/day at $0.05 average = $500/day gross = **$182K/year**. Infrastructure costs scale with RPS, not transaction value -- approximately **$40/day** at 10K RPS.
+A usage report states `consumed_quantity` and `consumed_unit`, in the offer's `unit`, and is never refused for the quantity it reports. An Exchange MUST NOT assume an offer is metered in tokens; only a usage report that omits `consumed_unit` is read as tokens.
 
-## Multi-Exchange Competition
+Your manifest's `supported_profiles` tells Brokers and agents which domain profiles your offers follow. FORA Server's Exchange declares `fora-news-v1`, `fora-comp-v1` and `fora-music-v1`. An agent declares the profiles it understands, and a Broker forwards that list to your Exchange unchanged. See [Extension Profiles](/protocol/extension-profiles/).
 
-AI agents can use a **Broker** to query multiple Exchanges at once. The Broker returns every Exchange's offers, each as a full package, in its order of relevance, and the agent compares them and decides. This means:
+## Exchange manifest and health
 
-- Competitive pressure keeps your margins honest
-- Premium content commands premium pricing (quality signals in offers)
-- Subscription deals give your providers an advantage (zero marginal cost for the requester)
-- `base_currency` in your manifest lets agents compare offers across Exchanges, even across currencies
+Your Exchange serves its manifest at `/.well-known/fora.json`, with `role` set to `ROLE_EXCHANGE`. It tells Brokers and agents what your Exchange offers: its endpoint, `base_currency`, `supported_profiles` and `max_intermediary_hops`. In FORA Server, `base_currency` is the first currency in `EXCHANGE_BILLING_LEDGER`, and the Exchange rebuilds the manifest from its configuration. Your offer-signing keys are in your key directory, not in `fora.json`. See [Exchange Manifest](/protocol/exchange-manifest/).
 
-## Technical Integration
+`/healthz` checks the catalog database, and `/readyz` also checks the ledger. FORA Server's Broker reads the health endpoint of each Exchange in its registry and routes only to an Exchange that answers `200`.
 
-**NFR targets**: 10K RPS, under 100ms p99 latency, under $0.00005/transaction infrastructure cost.
+## Attestations
 
-**Billing adapter interface** (your integration point):
-```go
-type BillingAdapter interface {
-    Authorize(ctx, billingRef, amount) → (ok, error)
-    Record(ctx, transaction) → error
-    CheckSubscription(ctx, billingRef, providerGroup) → (sub, error)
-}
-// billingRef is the account handle the Exchange minted at Register and
-// resolves on every call from what authenticates the agent: the request
-// signature on a direct request, the agent's acceptances on a purchase a
-// Broker relays. The account is the agent's, never the Broker's.
-```
+An attestation is a signed claim about a resource, by its publisher or by a verification vendor. When attestations arrive with `CatalogService.PushResources`, the protocol has the Exchange check that the signer is the provider itself or a contributor the provider's `catalog_contributors` lists, and verify the attestation's Ed25519 signature against the key in the signer's key directory. See [Resource Attestation](/protocol/content-attestation/).
 
-Implement these three methods against your existing billing system. The reference implementation uses DynamoDB; production deployments wire it to their real ledger.
+## Usage reports and disputes
 
-## Unit-Agnostic Pricing for Non-Text Resources
+`ExchangeService.ReportUsage` takes a report on a transaction your Exchange recorded and returns a `report_id`. An agent files a dispute with `ExchangeService.DisputeTransaction` at the Exchange that sold the item, and each `DisputeRequest` names the `report_id` of its usage report. The protocol standardizes the dispute's states and outcomes; how an Exchange decides a dispute is up to the Exchange. See [Dispute Resolution](/protocol/dispute-resolution/).
 
-FORA uses a single unit-agnostic pricing model, `PRICING_MODEL_PER_UNIT`, for all metered resources. `Pricing.unit` names what is metered, so non-text resources are priced through the same model:
+## Brokers
 
-| Model | Unit | Use Case |
-|---|---|---|
-| `PRICING_MODEL_PER_UNIT` | `pages` | Court filings, legal documents, PDFs |
-| `PRICING_MODEL_PER_UNIT` | `minutes` | Video, audio, streaming sessions |
-| `PRICING_MODEL_PER_UNIT` | `records` | Database records, credit reports, medical studies |
+An agent can buy from your Exchange directly or through a [Broker](/components/broker/overview/). A Broker sends your Exchange only the URLs it routes to you, never the agent's words, and returns your signed offers unchanged, each as a full package, in its own order of relevance. The agent decides which to buy. Your account holder is always the agent: a purchase through a Broker charges the agent's account at your Exchange, never the Broker's.
 
-Pricing is unit-agnostic: `unit_cost` replaces eCPT, `estimated_quantity` replaces `estimated_tokens`, and `Pricing.unit` specifies the metering unit. Your Exchange MUST support these fields on all offers.
+## Next steps
 
-## Streaming Delivery
-
-FORA supports `DELIVERY_METHOD_STREAMING` for real-time connections (WebSocket, SSE, HLS, Icecast). Your Exchange generates a signed URL pointing to a streaming endpoint. The agent connects and receives continuous data. Stream mechanics (heartbeat, reconnection, concurrent connection limits) are managed by the provider, not the protocol.
-
-Streaming transactions follow the same FORA flow, but the signed URL has a longer TTL (streaming sessions last minutes/hours) and usage is reported in time-based units (minutes, hours).
-
-## Next Steps
-
-1. Review the [Exchange design](/components/exchange/overview/) for architecture details
-2. See the [Billing Adapter](/components/exchange/billing-adapter/) for the integration interface
-3. Walk through the [Scenario Walkthrough](/protocol/scenario-walkthrough/) for a complete transaction trace
-4. Review the [Threat Model](/security/threat-model/) -- it was built from 20 years of ad-tech fraud patterns
+1. Read the [Exchange deployment guide](https://github.com/FORA-Protocol/reference-implementation/blob/main/src/exchange/DEPLOYMENT.md) in the FORA Server repository.
+2. See [Publisher Onboarding](/getting-started/publisher-onboarding/) for what your publishers do.
+3. See [How Money Flows](/getting-started/how-money-flows/) for the billing chain and settlement.
+4. Review the [Threat Model](/security/threat-model/).

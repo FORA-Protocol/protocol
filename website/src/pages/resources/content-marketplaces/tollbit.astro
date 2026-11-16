@@ -1,0 +1,406 @@
+---
+// Resource: TollBit and FORA, one of the deep pages of the content-marketplaces
+// series (hub: /resources/content-marketplaces/). Laid out in the vendor page
+// template: hero, at a glance, the short answer, how you're paid, key facts,
+// who has been paid, what it takes on your site, what can go wrong, where
+// TollBit is ahead, the eight questions, running both, what to do, and About
+// FORA with the sources and the series navigation.
+//
+// Shared texts (About FORA, the definitions, the search callout, the table
+// questions, the GlanceCard rows and FORA's fixed cells) come from
+// src/data/content-marketplaces.ts. A claim cites its source inline, as a
+// link, or with cite(N), which links to entry N of the numbered SourceList at
+// the foot; SOURCES below is numbered in order of first citation, so an
+// entry's position is its number. Text with links is HTML and goes through
+// set:html.
+import LandingLayout from '../../../layouts/LandingLayout.astro';
+import AudienceHero from '../../../components/landing/AudienceHero.astro';
+import Band from '../../../components/landing/Band.astro';
+import GlanceCard from '../../../components/landing/GlanceCard.astro';
+import CardGrid from '../../../components/landing/CardGrid.astro';
+import Callout from '../../../components/landing/Callout.astro';
+import StepList from '../../../components/landing/StepList.astro';
+import Figure from '../../../components/landing/Figure.astro';
+import KeyFacts from '../../../components/landing/KeyFacts.astro';
+import PullQuote from '../../../components/landing/PullQuote.astro';
+import Split from '../../../components/landing/Split.astro';
+import PointList from '../../../components/landing/PointList.astro';
+import CompareTable from '../../../components/landing/CompareTable.astro';
+import StatusTag from '../../../components/landing/StatusTag.astro';
+import SourceList from '../../../components/landing/SourceList.astro';
+import SeriesNav from '../../../components/landing/SeriesNav.astro';
+import ClosingCta from '../../../components/landing/ClosingCta.astro';
+import { resourceUpdated } from '../../../data/resources';
+import {
+  ABOUT_FORA, DEFINITIONS, SEARCH_FORA, FORA_CELLS, SEE_ABOUT, compareRows, glanceGroups,
+} from '../../../data/content-marketplaces';
+import { cite, statusTag } from '../../../lib/resource-markup';
+
+const HREF = '/resources/content-marketplaces/tollbit/';
+const IMG = '/resources/content-marketplaces/tollbit';
+
+// Every external source the page links.
+const T = {
+  overview: 'https://tollbit.com/docs/',
+  tokens: 'https://docs.tollbit.com/docs/tokens',
+  settingRates: 'https://docs.tollbit.com/docs/setting-rates',
+  security: 'https://docs.tollbit.com/docs/security',
+  terms: 'https://tollbit.com/legal/publisher-platform-agreement/',
+  license: 'https://gateway.tollbit.com/license/j4ikxb8qqsu2qu91q78a9e70/ON_DEMAND_LICENSE_ka02vqvjacoy2i5vs8z90hxm',
+  verifying: 'https://docs.tollbit.com/docs/verifying-a-property',
+  cloudflare: 'https://docs.tollbit.com/docs/cloudflare',
+  integrations: 'https://docs.tollbit.com/docs/integrations',
+  botManagement: 'https://docs.tollbit.com/docs/bot-management',
+  licensedSearch: 'https://docs.tollbit.com/docs/licensed-search',
+  rates: 'https://docs.tollbit.com/docs/rates',
+  akamai: 'https://tollbit.com/blog/akamai-partnership/',
+  seriesA: 'https://tollbit.com/blog/series-a/',
+  home: 'https://tollbit.com/',
+  staticIps: 'https://tollbit.com/static-ips.txt',
+  architecture: 'https://docs.tollbit.com/docs/platform-architecture',
+  other: 'https://docs.tollbit.com/docs/other',
+  configure: 'https://docs.tollbit.com/docs/step-3-configure-agent-site',
+  cache: 'https://docs.tollbit.com/docs/content-cache',
+  defaults: 'https://docs.tollbit.com/docs/content-formatting-1',
+  aws: 'https://docs.tollbit.com/docs/aws-s3-cloudfront-alb',
+  devOverview: 'https://docs.tollbit.com/docs/dev-overview',
+  analytics: 'https://docs.tollbit.com/docs/step-2-enable-analytics',
+  content: 'https://docs.tollbit.com/docs/content',
+  edgeConfig: 'https://github.com/FORA-Protocol/reference-implementation/blob/main/src/edge/CONFIGURATION.md',
+  tnl: 'https://www.prnewswire.com/news-releases/tnl-mediagene-announces-early-success-in-ai-content-licensing-revenue-model-via-tollbit-marketplace-integration-and-strategic-partnership-302647966.html',
+  digiday: 'https://digiday.com/media/the-washington-posts-arc-xp-adds-tollbit-to-help-publishers-make-money-from-ai-bot-traffic/',
+};
+const a = (href: string, text: string) => `<a href="${href}">${text}</a>`;
+
+const GLANCE = glanceGroups({
+  payer: [`TollBit, through Stripe, early each month, in US dollars ${cite(1, 2)}.`, FORA_CELLS.payer],
+  fees: [`You keep your full rate. The buyer pays a fee on top; its size isn't published ${cite(3)}.`, FORA_CELLS.fees],
+  reporting: [
+    `Daily bot analytics, and each sale: agent, page, price ${cite(3, 4)}.`,
+    `Each sale in your operator's publisher console, with totals and a daily CSV. No bot-traffic report ${cite(26)}.`,
+  ],
+  contract: [
+    `A license between you and each buyer; TollBit isn't a party ${cite(5)}. New York law ${cite(6)}. No dispute call.`,
+    `Your agreement with your Exchange operator. Your terms go into each offer the Exchange signs ${cite(26, 27)}. Disputes: see <a href="#about">About FORA</a>.`,
+  ],
+  status: [
+    `${statusTag('live')} A publisher reports revenue ${cite(36)}. No TollBit page names a big AI company as a buyer.`,
+    `${statusTag('live')} ${SEE_ABOUT}`,
+  ],
+  dns: [`A TXT record, and an NS record that hands a subdomain to TollBit ${cite(7)}.`, `No record to add ${cite(26)}.`],
+  cdn: [
+    `One forwarding rule for 69 AI user agents ${cite(8)}. Guides for 12 platforms ${cite(9)}.`,
+    'A drop-in edge function. The rest depends on your own setup; FORA adds to what you run rather than replacing it.',
+  ],
+  firewall: [
+    `An allow rule for TollBit's fetcher in every layer ${cite(7)}.`,
+    `On most CDNs they run first, so they must let signed requests and your two licensing files through. Keep them: the edge function knows AI agents mainly by the name they send ${cite(26, 28)}.`,
+  ],
+  site: [
+    `No change. TollBit fetches, cleans and serves the page. Your HTTP logs, readers' requests included, go to TollBit ${cite(1, 4)}.`,
+    `Serve one file, <code>fora.json</code>, from your site. The operator imports your pages from your sitemap ${cite(26)}.`,
+  ],
+  search: [
+    `Googlebot and Bingbot aren't on TollBit's list; they reach your site as today ${cite(8)}.`,
+    `Googlebot, Bingbot and Applebot always pass ${cite(28)}. See <a href="#search-traffic">Search traffic</a>, below.`,
+  ],
+  upkeep: [
+    `On most platforms, update the bot list by hand each quarter ${cite(10)}.`,
+    `Change your Exchanges by editing your FORA file, with nothing to redeploy ${cite(29)}.`,
+  ],
+  leaving: [`No offboarding page. You can end the terms only with no active license ${cite(5)}.`, FORA_CELLS.leaving],
+});
+
+const SHORT_ANSWER = [
+  { title: 'TollBit catches the bots that never asked.', text: 'Your CDN spots AI bots by the name they send and hands them to TollBit, which charges per page at your rate.' },
+  { title: 'FORA serves the agents that do ask.', text: 'An agent signs each request, buys under a signed offer, and fetches with a signed link, which your CDN checks. You price by use, country, buyer type and unit.' },
+  { status: 'design' as const, title: 'TollBit\'s rates behind a FORA Broker.', text: 'A Broker would call TollBit with each agent\'s own TollBit account and show TollBit\'s rates beside your FORA offers.' },
+];
+
+const PAID_STEPS = [
+  { title: 'You set rates per license, per 1,000 pages.', text: `Summarization covers "a summary, grounding, or citation with a single use license". Full Display lets a buyer "display the complete text of an article once". Custom is for a partner you have a deal with. Rates can differ by bot, page, keyword, time and directory (${a(T.settingRates, 'Setting rates')}).` },
+  { title: 'Buyers find you through TollBit and buy a pass for one URL.', text: `One API key searches TollBit's index, which covers sites "across the web" and flags TollBit's own. It shows each URL's licenses and prices (${a(T.licensedSearch, 'Licensed search')}, ${a(T.rates, 'Rates')}).` },
+  { title: 'The pass is short-lived.', text: `TollBit calls it a token: "Tokens expire 5 minutes after issuance." Each works once and names the buyer's agent, the license type and the most the buyer will pay (${a(T.tokens, 'Tokens')}).` },
+  { title: 'TollBit delivers the page.', text: `With a pass, TollBit fetches your page from your site, strips what you exclude, and returns Markdown or HTML (${a(T.security, 'Security')}; ${a(T.overview, 'Platform overview')}, §3.5).` },
+  { title: 'Billing waits for delivery.', text: `Nobody is billed "until the token is actually accepted and a 200 OK response is delivered" (${a(T.overview, 'Platform overview')}, §5.1).` },
+  { title: 'Your rate is your net.', text: `The buyer pays your rate plus "a small transaction fee on top of the rates you set" (${a(T.settingRates, 'Setting rates')}). TollBit doesn't publish the fee's size. You're paid through Stripe early each month, in US dollars (${a(T.overview, 'Platform overview')}, §1.4; ${a(T.tokens, 'Tokens')}).` },
+];
+
+const KEY_FACTS = [
+  { value: '1,000 pages', text: `The unit you set each rate in, per license type ${cite(3)}` },
+  { value: '5 minutes', text: `How long a buyer's pass for one URL lasts. It works once ${cite(2)}` },
+  { value: 'Nearly 20%', text: `Of TollBit's nearly 7,000 sites had earned money by April 2026. The CEO's figure, unaudited ${cite(37)}` },
+  { value: '37 million', text: `"content transactions" TollBit handled in Q2 2025, by its own count. It doesn't say how many were paid ${cite(13)}` },
+];
+
+const SETUP_STEPS = [
+  { title: 'Hand TollBit a subdomain.', text: `A TXT record proves you own the domain. An NS record delegates <code>tollbit.news.example.com</code> to TollBit's nameservers, so TollBit answers for that host under your name (${a(T.verifying, 'Verifying a property')}). TollBit's paywall for bots runs there, as your "Agent Site".` },
+  { title: 'Let TollBit\'s fetcher through.', text: `TollBit pulls your pages from your public site, through your CDN, and reads your sitemap from <code>robots.txt</code> when you add the site. The fetcher sends <code>tollbot/1.0</code> from two ${a(T.staticIps, 'published addresses')}. Every firewall, rate limit and bot shield in front of your origin has to let it in.` },
+  { title: 'Stream your logs.', text: `The Platform overview requires them: "Every site that onboards to TollBit is required to send us their HTTP logs" (${a(T.overview, 'Platform overview')}, §1.3). Your CDN streams them with a secret key, or TollBit reads a storage bucket, which "takes up to 24 hours" to verify (${a(T.architecture, 'Platform architecture')}). TollBit's Cloudflare guide says the paywall works without them (${a(T.cloudflare, 'Cloudflare')}).` },
+  { title: 'Add one forwarding rule at your CDN.', text: `It tests the <code>User-Agent</code> header, the name a bot sends, against 69 AI user agents (${a(T.cloudflare, 'Cloudflare')}). On Cloudflare and Fastly the rule proxies the request, so the bot gets TollBit's answer at your URL. On CloudFront it switches the origin. On Vercel, Imperva, Google Cloud and Azure it redirects, and TollBit advises "a 302 (temporary) redirect" (${a(T.other, 'Other')}). TollBit has guides for 12 platforms (${a(T.integrations, 'Integrations')}).` },
+  { title: 'Decide what each bot gets.', text: `Your copy of the list decides which bots are forwarded at all. On Fastly, DataDome and Netacea you can pick agents one by one in a console instead. In TollBit's dashboard you "define which agents are allowed in, which are blocked, and which are subject to your paywall" (${a(T.configure, 'Configure Agent Site')}). Open Access serves bots or paths you choose a cached copy for free (${a(T.cache, 'Content cache')}). By default, any other forwarded bot without a pass gets a short message with HTTP 402, "payment required", and no price in it (${a(T.defaults, 'Default settings')}).` },
+];
+
+const CAUTIONS = [
+  { title: 'A blocked fetcher breaks the paywall.', text: `"If our requests are blocked, challenged, or rate-limited, your Agent Site will not work correctly" (${a(T.verifying, 'Verifying a property')}).` },
+  { title: 'Readers\' requests change too.', text: `On the recommended CloudFront setup, "Your regular origin will receive requests with its own domain as the <code>Host</code> rather than your public domain" (${a(T.aws, 'AWS')}).` },
+  { title: 'No fallback, even when you leave.', text: `One CloudFront setup "cannot fall back to your origin" when the Agent Site is down, so visitors get an error (${a(T.aws, 'AWS')}). TollBit's docs have no offboarding page; see "Plan the exit", below.` },
+  { title: 'Bots that hide their name get through.', text: `"We primarily focus on the big, self-identified bots" (${a(T.botManagement, 'Bot management')}). A bot that isn't on the list, or sends a browser's name, reaches your origin.` },
+  { title: 'The bot list goes stale.', text: `TollBit updates it "every quarter", and "publishers would then manually update their edge configurations" on most platforms (${a(T.botManagement, 'Bot management')}).` },
+];
+
+const AHEAD = [
+  { title: 'A buyer integrates once.', text: `One account, one card and one search reach every TollBit site that shows that buyer a rate (${a(T.devOverview, 'Developer overview')}). A FORA agent signs with one identity everywhere, but opens an account at each Exchange it buys from (${a('/getting-started/what-is-fora/', 'What is FORA?')}).` },
+  { title: 'It runs on more of your platforms.', text: `TollBit has setup guides for 12 platforms: CDNs, clouds, hosts and bot-security vendors. On Arc XP, WordPress VIP, DataDome and Netacea, forwarding bots is a setting in that vendor's console (${a(T.integrations, 'Integrations')}). FORA's publisher console sets up two networks, Cloudflare and AWS CloudFront (${a('/getting-started/publisher-onboarding/', 'Publisher onboarding')}).` },
+  { title: 'You see the bots before any sale.', text: `TollBit's dashboard shows scrapes, visits and referrals by agent, from your logs (${a(T.analytics, 'Enable analytics')}). FORA Server records transactions, not bot traffic or searches. It's open source, so an operator can add logs of Broker queries and Exchange offers to see what agents look for.` },
+  { title: 'It prepares content for buyers.', text: `TollBit converts pages to Markdown, holds back wire copy and embargoed articles, and tells buyers about new pages by webhook (${a(T.overview, 'Platform overview')}, §3). FORA leaves delivery to your CDN by design, and has no change feed to agents.` },
+  { title: 'Its license carries a warranty and an indemnity.', text: `FORA cannot state either as a term. Its obligations are duties of the agent, so a warranty fits only as prose in a license document a term points to (${a('/protocol/licensing-terms/', 'Licensing terms')}).` },
+];
+
+const COMPARE = compareRows([
+  [`Nowhere on your site. A forwarded bot gets a 402 by default; your rates live in TollBit's dashboard ${cite(3, 21)}.`, `Your <code>fora.json</code> names the Exchanges that sell your content, and you set terms with each ${cite(27)}.`],
+  [`TollBit's search, which covers sites across the web and flags its own network ${cite(11)}. How the index is built isn't documented.`, `From your file and your Exchange, or through a Broker ${cite(27, 31)}. No index spans the network.`],
+  [`Bots: by user agent, from a list of 69 ${cite(8)}. Buyers: a TollBit account, bound into each pass, which only TollBit can check ${cite(1, 2, 4)}.`, `A signature on each request, checked against the buyer's published key ${cite(32)}. The edge also matches the names bots send ${cite(28)}.`],
+  [`A pass for one URL, five minutes, one use, checked by TollBit alone ${cite(2, 4)}.`, `A signed link that expires and can be bound to the agent's key. Any edge with the Exchange's public key can check it ${cite(27, 33)}.`],
+  [`You: per 1,000 pages, per license type, by bot, page, keyword, time and directory. US dollars ${cite(2, 3)}.`, `You: free, per unit (pages, text tokens, seconds or your own) or flat, limited by use, country and buyer type, with caps. A currency per price ${cite(27, 30)}.`],
+  [`Through Stripe, monthly. You keep your full rate; the buyer pays an unpublished fee on top ${cite(1, 3)}.`, FORA_CELLS.money],
+  [`Daily bot analytics, and each sale: agent, page, price ${cite(3, 4)}.`, `Each sale, in the publisher console your Exchange operator runs ${cite(26, 27)}. No protocol call returns your sales.`],
+  [`No dispute call, and no charge without a delivered page ${cite(1)}. Then New York courts, or arbitration with TollBit ${cite(5, 6)}.`, FORA_CELLS.disputes],
+]);
+
+const BOTH_STEPS = [
+  { title: 'FORA\'s buyers skip TollBit\'s rule.', text: `So do requests for your FORA file. TollBit's rule looks for the link's signature and expiry (${a('/components/edge-function/signed-url-verification/', 'Signed URL verification')}). FORA's edge function then checks the link and serves the page from your origin.` },
+  { title: 'TollBit\'s own fetcher goes to your origin.', text: `FORA's edge function refuses user agents with a word ending in "bot" on the paths you license, and <code>tollbot/1.0</code> is one. Add it to the edge function's allow list, beside your search crawlers (FORA Server's ${a(T.edgeConfig, 'edge configuration')}).` },
+  { title: 'Other AI bots get FORA\'s refusal or TollBit\'s paywall,', text: 'path by path.' },
+  { title: 'Readers go to your origin.', text: '' },
+];
+
+const TODO = [
+  { title: 'Ask what a buyer pays.', text: 'You keep your full rate, and TollBit\'s fee on top isn\'t published. Ask for the total a buyer pays for a page at your rate. FORA itself is free, open-source software.' },
+  { title: 'Read the license you accept.', text: `Activating rates accepts TollBit's standard license, warranty included (${a(T.settingRates, 'Setting rates')}). Send the points below to legal.` },
+  { title: 'Count what you hand over.', text: 'A subdomain under your name, and your HTTP logs, with your readers\' requests in them. On most platforms your engineers also update the bot list by hand each quarter.' },
+  { title: 'Check your rule order.', text: 'Let TollBit\'s fetcher through, and keep its rule off FORA links.' },
+  { title: 'Plan the exit.', text: 'Remove the forwarding rule before the DNS records, or setups without a fallback show visitors errors.' },
+  { title: 'Ask about Web Bot Auth.', text: `TollBit logs the signature headers that some AI agents send with each request (${a(T.cloudflare, 'Cloudflare')}). Ask whether it verifies them.` },
+  { title: 'Sell to agents as well.', text: `Name your FORA Exchanges in <code>fora.json</code>, with terms TollBit's rate card has no field for: a price by country or buyer type, or per text token (${a(T.rates, 'Rates')}).` },
+];
+
+const LEGAL = [
+  { title: 'TollBit isn\'t a party to the license.', text: `The license is a PDF contract between you and each buyer: "TollBit is not a party" (${a(T.terms, 'Publisher Terms')}).` },
+  { title: 'You give a warranty and an indemnity.', text: `You warrant that you have "all rights necessary to provide the Site Content". You indemnify the buyer against third-party claims that the content infringes a US copyright or trade secret. The license bars training, and passing content on without "express written consent". New York law (${a(T.license, 'standard license')}, §1.3, §6.2, §8.1, §9.4).` },
+  { title: 'Disputes.', text: `TollBit has no dispute call. Disputes with a buyer go to the courts of New York; disputes with TollBit go to arbitration (${a(T.terms, 'Publisher Terms')}).` },
+  { title: 'Your logs carry readers\' data.', text: `They cover "both bot and human requests". For sites that joined from Q4 2025 they include IP addresses, after TollBit revised its Data Processing Agreement (${a(T.overview, 'Platform overview')}, §1.3).` },
+  { title: 'Exit waits for active licenses.', text: `You can end the Publisher Terms only "if you are not a party to an active Content License Agreement" (${a(T.terms, 'Publisher Terms')}).` },
+  { title: 'Versions.', text: 'Publisher Terms updated October 29, 2025; standard license "Last Updated: September 23, 2024". TollBit can change both.' },
+];
+
+// The SourceList, numbered in order of first citation: an entry's position,
+// counted across the groups, is the N in cite(N).
+const SOURCES = [
+  {
+    name: 'TollBit',
+    items: [
+      { title: 'Platform overview', publisher: 'TollBit', href: T.overview, checked: '2026-11-14' },
+      { title: 'Tokens', publisher: 'TollBit docs', href: T.tokens, checked: '2026-11-14' },
+      { title: 'Setting rates', publisher: 'TollBit docs', href: T.settingRates, checked: '2026-11-15' },
+      { title: 'Security', publisher: 'TollBit docs', href: T.security, checked: '2026-11-15' },
+      { title: 'Publisher Terms of Service', publisher: 'TollBit', href: T.terms, checked: '2026-11-14' },
+      { title: 'Content License Agreement (standard license)', publisher: 'TollBit', href: T.license, checked: '2026-11-14' },
+      { title: 'Verifying a property', publisher: 'TollBit docs', href: T.verifying, checked: '2026-11-15' },
+      { title: 'Cloudflare', publisher: 'TollBit docs', href: T.cloudflare, checked: '2026-11-15' },
+      { title: 'Integrations', publisher: 'TollBit docs', href: T.integrations, checked: '2026-11-15' },
+      { title: 'Bot management', publisher: 'TollBit docs', href: T.botManagement, checked: '2026-11-15' },
+      { title: 'Licensed search', publisher: 'TollBit docs', href: T.licensedSearch, checked: '2026-11-14' },
+      { title: 'Rates', publisher: 'TollBit docs', href: T.rates, checked: '2026-11-14' },
+      { title: 'TollBit and Akamai partnership', publisher: 'TollBit blog', href: T.akamai, checked: '2026-11-14' },
+      { title: 'Announcing our Series A', publisher: 'TollBit blog', href: T.seriesA, checked: '2026-11-14' },
+      { title: 'TollBit homepage', publisher: 'TollBit', href: T.home, checked: '2026-11-14' },
+      { title: 'Static IPs', publisher: 'TollBit', href: T.staticIps, checked: '2026-11-14' },
+      { title: 'Platform architecture', publisher: 'TollBit docs', href: T.architecture, checked: '2026-11-15' },
+      { title: 'Other platforms', publisher: 'TollBit docs', href: T.other, checked: '2026-11-15' },
+      { title: 'Configure Agent Site', publisher: 'TollBit docs', href: T.configure, checked: '2026-11-15' },
+      { title: 'Content cache', publisher: 'TollBit docs', href: T.cache, checked: '2026-11-15' },
+      { title: 'Default settings', publisher: 'TollBit docs', href: T.defaults, checked: '2026-11-15' },
+      { title: 'AWS (S3, CloudFront, ALB)', publisher: 'TollBit docs', href: T.aws, checked: '2026-11-15' },
+      { title: 'Developer overview', publisher: 'TollBit docs', href: T.devOverview, checked: '2026-11-14' },
+      { title: 'Enable analytics', publisher: 'TollBit docs', href: T.analytics, checked: '2026-11-15' },
+      { title: 'Content (API)', publisher: 'TollBit docs', href: T.content, checked: '2026-11-14' },
+    ],
+  },
+  {
+    name: 'FORA',
+    items: [
+      { title: 'Publisher onboarding', publisher: 'FORA documentation', href: '/getting-started/publisher-onboarding/', checked: '2026-11-15' },
+      { title: 'What is FORA?', publisher: 'FORA documentation', href: '/getting-started/what-is-fora/', checked: '2026-11-15' },
+      { title: 'Bot detection', publisher: 'FORA documentation', href: '/components/edge-function/bot-detection/', checked: '2026-11-15' },
+      { title: 'Edge function', publisher: 'FORA documentation', href: '/components/edge-function/overview/#forajson-and-rsltxt-pass-through', checked: '2026-11-15' },
+      { title: 'Licensing terms', publisher: 'FORA documentation', href: '/protocol/licensing-terms/', checked: '2026-11-15' },
+      { title: 'Broker', publisher: 'FORA documentation', href: '/components/broker/overview/', checked: '2026-11-15' },
+      { title: 'Authentication', publisher: 'FORA documentation', href: '/protocol/authentication/', checked: '2026-11-15' },
+      { title: 'Composition', publisher: 'FORA documentation', href: '/components/edge-function/composition/', checked: '2026-11-15' },
+      { title: 'Signed URL verification', publisher: 'FORA documentation', href: '/components/edge-function/signed-url-verification/', checked: '2026-11-15' },
+      { title: 'FORA Server edge configuration', publisher: 'FORA-Protocol on GitHub', href: T.edgeConfig, checked: '2026-11-15' },
+    ],
+  },
+  {
+    name: 'Press, filings and others',
+    items: [
+      { title: 'TNL Mediagene announces early success in AI content licensing', publisher: 'PR Newswire', href: T.tnl, checked: '2026-11-14' },
+      { title: 'The Washington Post\'s Arc XP adds TollBit', publisher: 'Digiday', href: T.digiday, checked: '2026-11-14' },
+    ],
+  },
+];
+---
+<LandingLayout
+  title="TollBit and FORA — FORA resources"
+  description="How TollBit charges AI bots for your pages and pays you, what your engineers set up for it, where it is ahead of FORA, and how a publisher can run both on the same site."
+>
+  <AudienceHero
+    current="resources"
+    badge={`Resources · ${a('/resources/content-marketplaces/', 'Content marketplaces')} · TollBit`}
+    title="TollBit charges AI bots at your door. <em>FORA lets agents buy each page on your terms.</em>"
+    sub="TollBit runs a paywall for AI bots on a subdomain of your site, and your CDN sends known AI bots there. FORA lets an AI agent buy each page under an offer your Exchange signs, and fetch it from your own CDN."
+    updated={resourceUpdated(HREF)}
+  >
+    <a href="#ahead" class="btn btn-primary">Where TollBit is ahead</a>
+    <a href="#together" class="btn btn-ghost">Run both</a>
+  </AudienceHero>
+
+  <Band tone="near" id="glance" label="At a glance" title="TollBit and FORA, side by side" lead="The facts a revenue team and an engineering lead act on.">
+    <GlanceCard vendor="TollBit" groups={GLANCE} />
+  </Band>
+
+  <Band label="The short answer" title="Bots that never asked, and agents that do">
+    <CardGrid items={SHORT_ANSWER} />
+    <Callout kind="define" {...DEFINITIONS.exchange} />
+    <Callout kind="define" {...DEFINITIONS.broker} />
+  </Band>
+
+  <Band tone="light" label="How you're paid" title="TollBit bills the buyer on delivery and pays you monthly" asideWidth="440px" asideAlign="start">
+    <StepList slot="intro" items={PAID_STEPS} />
+    <Figure
+      slot="aside"
+      src={`${IMG}/tollbit-3.png`}
+      title="Where the money goes, and who signs the license."
+      caption="TollBit pays you; the license is between you and the buyer."
+      alt="The buyer asks TollBit for a pass for one URL; TollBit fetches your page and delivers it with 200 OK, and nobody is billed before that. The buyer then pays your rate plus TollBit's fee, whose size isn't published, and TollBit pays you your full rate monthly; the license is a contract between you and the buyer, and TollBit is not a party."
+    />
+  </Band>
+
+  <Band tone="near" compact label="TollBit in four numbers">
+    <KeyFacts items={KEY_FACTS} />
+  </Band>
+
+  <Band label="Who has been paid so far" title="Publishers report revenue. TollBit names no buyer.">
+    <PullQuote
+      quote="[TNL Mediagene] has begun generating initial revenue from AI buyers."
+      who="TNL Mediagene, 15 brands on TollBit, December 2025"
+      source="PR Newswire"
+      href={T.tnl}
+    />
+    <Split>
+      <p class="prose" set:html={`TollBit counts sites that use it, whether or not they have rates switched on. The count rose from "over 200 publisher sites" in October 2024 (${a(T.seriesA, 'Series A')}) to the CEO's nearly 7,000 in April 2026. The homepage says "Trusted by over 10,000 sites" (vendor's figure, ${a(T.home, 'TollBit')}).`} />
+      <p slot="aside" class="prose" set:html={`TollBit's 2024 funding post says it "has secured partnerships with the first AI companies", without naming them ${cite(14)}. No TollBit page or release names OpenAI, Google, Microsoft, Meta, Amazon, Anthropic or Perplexity as a buyer.`} />
+    </Split>
+  </Band>
+
+  <Band tone="light" label="What it takes on your site" title="Only bots on TollBit's list go to TollBit" lead="Readers and search crawlers reach your site as today. The setup is five steps on your DNS, CDN and security layers, and nothing in your CMS.">
+    <Split aside="380px">
+      <Callout kind="engineers" collapse="Show the five steps">
+        <StepList items={SETUP_STEPS} />
+      </Callout>
+      <Figure
+        slot="aside"
+        src={`${IMG}/tollbit-1.png`}
+        title="Who gets what when a request reaches your CDN."
+        alt="Readers, search crawlers, unlisted bots and listed AI bots all reach your CDN, where a forwarding rule sends only the bots on TollBit's list to TollBit's Agent Site; that site gives a free copy (Open Access), blocks the bot, or by default answers 402 without a pass, and everything not on the list reaches your origin. TollBit's fetcher (tollbot/1.0) then pulls the page for a buyer with a pass through your CDN to your origin, and it gets through your WAF and bot shield only by an allow rule for TollBit's fetcher."
+      />
+    </Split>
+  </Band>
+
+  <Band tone="near" label="What can go wrong" title="What TollBit's own guides warn about">
+    <Callout kind="caution" points={CAUTIONS}>
+      <PullQuote
+        small
+        quote="Agent Site responses can be cached and then served to human visitors."
+        who="TollBit, on CloudFront with the cache key in the wrong order"
+        source="AWS guide"
+        href={T.aws}
+      />
+    </Callout>
+    <Callout kind="search" id="search-traffic" text={SEARCH_FORA.text} links={SEARCH_FORA.links}>
+      <p>TollBit's rule forwards only the AI bots on its list. Googlebot and Bingbot aren't on it, so they reach your site as today.</p>
+    </Callout>
+  </Band>
+
+  <Band id="ahead" label="Where TollBit is ahead" title="What TollBit does that FORA doesn't">
+    <PointList tone="neutral" items={AHEAD} />
+  </Band>
+
+  <Band tone="light" label="The differences, question by question" title="Eight questions a publisher asks of any licensing deal" lead={'TollBit is ahead on what you see; FORA on how you can price and on who can check a pass. The first three rows compare different jobs. Both license your pages to AI buyers, and they can share your CDN.'}>
+    <CompareTable vendor="TollBit" rows={COMPARE} />
+  </Band>
+
+  <Band tone="near" id="together" label="Running both" title="Both on one site today. TollBit's rates behind a Broker, as a design." asideWidth="400px" asideAlign="start">
+    <Fragment slot="intro">
+      <h3 class="sub-h">On one site <StatusTag status="live" /></h3>
+      <p class="prose" set:html={`TollBit's docs ask "Can I use another AI marketplace like TollBit in parallel?" The answer: "Yes, this is dependent on how you set up your log exports and bot redirect policies" (${a(T.architecture, 'Platform architecture')}). Order your CDN rules like this.`} />
+      <StepList items={BOTH_STEPS} />
+      <p class="prose" set:html={`On Cloudflare Enterprise, "Snippets execute earlier in Cloudflare's traffic sequence than Worker routes", so TollBit's rule runs first. On other plans "CloudFlare only runs one Worker per route", so your engineers combine TollBit's rule and FORA's edge function in one Worker (${a(T.cloudflare, 'Cloudflare')}; ${a('/components/edge-function/composition/', 'Composition')}).`} />
+      <Callout kind="define" {...DEFINITIONS.edgeFunction} />
+      <Callout kind="define" {...DEFINITIONS.signedLink} />
+      <h3 class="sub-h">Behind a FORA Broker <StatusTag status="design" /></h3>
+      <p class="prose" set:html={`A Broker would call TollBit's API with each agent's own TollBit account, never one of its own, as TollBit lets a platform act for a buyer (${a(T.overview, 'Platform overview')}, §4.3). An Exchange would sign each TollBit rate as a FORA offer, so the agent sees both offers and decides. How a Broker orders offers is on the ${a('/resources/content-marketplaces/#broker-order', 'hub')}.`} />
+      <h3 class="sub-h">Doesn't fit</h3>
+      <p class="prose" set:html={`<b>Settling a FORA sale through TollBit.</b> TollBit's API bills the calling account at TollBit's own rates, even for usage the buyer reports itself. It has no call that bills a price another Exchange set (${a(T.content, 'Content')}).`} />
+    </Fragment>
+    <Figure
+      slot="aside"
+      src={`${IMG}/tollbit-4.png`}
+      title="Both on one site: the order of your CDN rules."
+      caption="For your engineers."
+      alt="Your CDN asks four questions in order: a request for your FORA file or with a FORA signed link skips TollBit's rule, and FORA's edge checks the link before your origin serves it; TollBit's fetcher goes to your origin; another AI bot gets FORA's refusal or TollBit's paywall, path by path; and readers go to your origin."
+    />
+  </Band>
+
+  <Band label="What to do" title="If you use TollBit, or are weighing it">
+    <PointList numbered items={TODO} />
+    <Callout kind="legal" points={LEGAL} />
+  </Band>
+
+  <Band tone="light" id="about">
+    <Callout kind="about" points={ABOUT_FORA} columns />
+    <section class="sources" id="sources" aria-labelledby="sources-label">
+      <h2 class="end-label" id="sources-label">Sources</h2>
+      <p class="note">Sources are checked on the date of publication.</p>
+      <SourceList groups={SOURCES} compact numbered />
+    </section>
+    <SeriesNav current={HREF} />
+  </Band>
+
+  <ClosingCta
+    title="Set your own terms <em>for AI agents</em>"
+    text="FORA is an open protocol and free, open-source software. Sell through any FORA marketplace, several of them, or your own: you set terms and a price per resource, and each Exchange signs your offers."
+  >
+    <a href="/getting-started/what-is-fora/" class="btn btn-primary">What is FORA?</a>
+    <a href="/getting-started/existing-marketplace/" class="btn btn-ghost">Run your own marketplace</a>
+    <a href="/resources/content-marketplaces/" class="btn btn-ghost">All content marketplaces</a>
+    <a href="/protocol/licensing-terms/" class="btn btn-ghost">Licensing terms</a>
+  </ClosingCta>
+</LandingLayout>
+
+<style>
+  /* Prose between components: running text, and the sub-headings of
+     "Running both", which carry a StatusTag. */
+  .prose { color: var(--lp-text); line-height: 1.65; max-width: 44rem; }
+  .prose + .prose { margin-top: 1rem; }
+  :global(*) + .prose { margin-top: 1.25rem; }
+  .prose :global(a) { color: var(--lp-link); }
+  .prose :global(b) { color: var(--lp-strong); font-weight: 600; }
+  .sub-h { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 3rem 0 0; color: var(--lp-heading); font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; }
+  .sub-h :global(.status-tag) { top: 0; }
+  .sources { margin-top: 4rem; scroll-margin-top: 5rem; }
+  .end-label { font-size: 0.875rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--lp-label); margin: 0 0 0.75rem; }
+  .note { max-width: 52rem; color: var(--lp-muted); font-size: 0.9375rem; line-height: 1.6; }
+  .note code { font-family: var(--mono); font-size: 0.875em; color: var(--lp-heading); }
+</style>

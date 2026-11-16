@@ -1,0 +1,250 @@
+---
+// About FORA: why FORA exists, what it is, the company and the people who
+// build it, and how the protocol is developed. Built from the landing
+// components (src/components/landing/), like /publishers/. The positioning
+// statement and the tagline are shared with the content-marketplaces page
+// through src/data/content-marketplaces.ts. remark-standards runs on .mdx
+// only, so the standards in "How FORA is developed" are linked here by hand:
+// from src/data/standards.mjs where it lists them, and otherwise to the pages
+// the standards map links (/resources/standards-map/).
+import LandingLayout from '../layouts/LandingLayout.astro';
+import AudienceHero from '../components/landing/AudienceHero.astro';
+import Band from '../components/landing/Band.astro';
+import CardGrid from '../components/landing/CardGrid.astro';
+import PointList from '../components/landing/PointList.astro';
+import PullQuote from '../components/landing/PullQuote.astro';
+import LinkRow from '../components/landing/LinkRow.astro';
+import ClosingCta from '../components/landing/ClosingCta.astro';
+import { FORA_PUBLISHER_CONSOLE_URL } from 'astro:env/client';
+import { POSITIONING, TAGLINE } from '../data/content-marketplaces';
+import { STANDARDS } from '../data/standards.mjs';
+import { REPO_URL, BUILD_LINKS } from '../consts';
+
+const SERVER_URL = BUILD_LINKS.find((l) => l.label === 'FORA Server')!.url;
+const ISSUES_URL = `${REPO_URL}/issues`;
+const a = (href: string, text: string) => `<a href="${href}">${text}</a>`;
+const std = (id: string, text: string) => a(STANDARDS.find((s) => s.id === id)!.url, text);
+
+// The v1 announcement on LinkedIn, 10 September 2026.
+const V1_POST = 'https://lnkd.in/p/dxJURtKj';
+
+const WHAT = [
+  {
+    title: 'An open protocol',
+    text: 'A public specification anyone can implement. Six steps take an agent from finding a resource to proving what it got: Discover, Query, Transact, Deliver, Report and Dispute.',
+  },
+  {
+    title: 'Free, open-source software',
+    text: 'FORA Server runs the whole stack: Exchange, Broker and search, identity and registration, content ingestion, an MCP endpoint and edge protection. Run all of it or one piece. SDKs for Go, TypeScript and Python.',
+  },
+  {
+    title: 'Federated, with no central registry',
+    text: 'Each marketplace, called an Exchange, runs on its own and sets its own terms. An agent registers at each Exchange it buys from, and uses the same SDK for all of them.',
+  },
+];
+
+const PEOPLE = [
+  { title: 'Constantine Mirin', text: 'CEO of Postindustria and co-author of the FORA protocol.' },
+  { title: 'Eugene Dymo', text: 'Technical Partner at Postindustria. He works on the FORA protocol and its documentation.' },
+  { title: 'Yaroslav Krasilchuk', text: 'Senior Agentic Engineer at Postindustria. He works on the FORA protocol and FORA Server.' },
+  { title: 'Serge Shtyk', text: 'Engineer. He works on FORA Server.' },
+];
+
+const OPEN = [
+  {
+    title: 'A public specification.',
+    text: `The protocol, its schemas and these docs live in one public repository, ${a(REPO_URL, 'FORA-Protocol/protocol')}. Changes land as pull requests anyone can read, and the ${a('/reference/changelog/', 'changelog')} lists every release.`,
+  },
+  {
+    title: 'A stable v1.',
+    text: 'FORA v1 was released on 10 September 2026. Within v1, fields and values can be added, and nothing already shipped is renamed, renumbered, retyped or removed. Every build checks this.',
+  },
+  {
+    title: 'Open licenses.',
+    text: `The protocol specification and FORA Server are open source under Apache 2.0, and the documentation is CC BY-ND 4.0. Deploy it without asking anyone. The ${a('/brand/', 'brand guidelines')} cover the FORA name and logo.`,
+  },
+  {
+    title: 'Built on open work.',
+    text: `FORA reads ${std('rsl', 'RSL')}, IAB Tech Lab's ${a('https://github.com/IABTechLab/CoMP', 'CoMP')}, ${a('https://www.w3.org/community/reports/tdmrep/CG-FINAL-tdmrep-20240510/', 'TDMRep')} and ${std('c2pa', 'C2PA')}, and identifies agents with ${std('webbotauth-httpsig-protocol-00', 'Web Bot Auth')}. It is the transaction layer between them.`,
+  },
+];
+---
+<LandingLayout
+  title="About FORA"
+  description="Why FORA exists, who builds it, and how it is developed in the open."
+>
+  <AudienceHero
+    current="about"
+    badge="About FORA · Built in the open"
+    title="An open, free way for AI agents to work with any source in the world, <em>honoring the terms and license its owner sets.</em>"
+    sub={POSITIONING}
+  >
+    <a href="/protocol/" class="btn btn-primary">Read the protocol</a>
+    <a href={REPO_URL} class="btn btn-ghost">Code on GitHub</a>
+  </AudienceHero>
+
+  <Band
+    tone="near"
+    compact
+    id="talk"
+    label="Talking about FORA"
+    title="Write about FORA, present it, build on it"
+    lead="Link to it, use the logo, and tell us what you made. To say what FORA is in one sentence, use the line above. The brand kit has the logo, colors and naming rules, and the brand skill lets your AI agent apply them for you."
+  >
+    <div class="talk-buttons">
+      <a href="/brand/" class="btn btn-primary">Brand kit</a>
+      <a href="/brand/fora-logos.zip" class="btn btn-ghost" download>Logo pack (.zip)</a>
+      <a href="/brand/fora-brand.zip" class="btn btn-ghost" download>Brand skill (.zip)</a>
+    </div>
+  </Band>
+
+  <Band
+    tone="light"
+    id="mission"
+    label="Mission"
+    title="Let every source say yes to AI agents, on its own terms"
+    lead="People are starting to search and buy through AI agents, and the agents read the sources for them. A source that can only block an agent gets nothing, and the agent answers without it. FORA lets the owner say yes: decide what an agent may do with the content, by use, country and quota, and what it costs, if anything. Every access leaves a signed record, from the offer to the delivery."
+  >
+    <PullQuote
+      quote="I believe in the agentic economy. I also believe in free and independent media."
+      who="Constantine Mirin, CEO of Postindustria, announcing FORA v1"
+      source="LinkedIn, 10 September 2026"
+      href={V1_POST}
+    />
+  </Band>
+
+  <Band
+    tone="near"
+    id="what"
+    label="What FORA is"
+    title="Your storefront for AI agents, on an open protocol"
+  >
+    <CardGrid items={WHAT} />
+    <p class="prose">Gutefrage runs the whole FORA stack itself, on its own servers, and has launched it on <a href="https://www.helpster.de/">helpster.de</a>. Its Broker searches the index Gutefrage already runs, and Gutefrage decides which fields are searched and how results rank.</p>
+    <LinkRow links={[
+      { href: '/getting-started/what-is-fora/', text: 'What is FORA?' },
+      { href: '/getting-started/existing-marketplace/', text: 'For content marketplaces' },
+      { href: '/architecture/deployment-models/', text: 'Deployment models' },
+      { href: '/components/broker/overview/', text: 'The Broker' },
+    ]} />
+  </Band>
+
+  <Band
+    tone="light"
+    id="people"
+    label="Who's behind FORA"
+    title="Built in the open, for the open internet"
+  >
+    <div class="prose top">
+      <p>The goal is for FORA to be used as widely as possible: by publishers, AI companies, marketplaces and anyone else who works with content. We help everyone who tries it, and we want everyone who builds on it to win.</p>
+      <p><a href="https://postindustria.com/">Postindustria</a> develops FORA, the protocol and FORA Server, and hosts a ready-made deployment with <a href="/getting-started/publisher-onboarding/">a publisher console</a>, so a publisher can try it and start selling. It charges publishers no fee beyond the payment system's transaction fees. Anyone else can run the same: Gutefrage runs its own, and the code is open to clone.</p>
+    </div>
+    <div class="people">
+      <CardGrid items={PEOPLE} />
+    </div>
+    <div class="prose">
+      <h3>Supporters</h3>
+      <p>Nepomuk Seiler, CPTO of Gutefrage.</p>
+      <p>FORA is being actively discussed in Prebid's <a href="https://prebid.org/project-management-committees/">LLM &amp; Pub Monetization Task Force</a>.</p>
+    </div>
+  </Band>
+
+  <Band
+    tone="near"
+    id="open"
+    label="In the open"
+    title="Developed in public, under Apache 2.0"
+  >
+    <PointList items={OPEN} />
+    <p class="prose">To propose a change, open an issue or a pull request on GitHub.</p>
+    <LinkRow links={[
+      { href: REPO_URL, text: 'Protocol on GitHub' },
+      { href: SERVER_URL, text: 'FORA Server on GitHub' },
+      { href: ISSUES_URL, text: 'Open an issue' },
+      { href: '/reference/changelog/', text: 'Changelog' },
+    ]} />
+  </Band>
+
+  <Band
+    tone="light"
+    id="contact"
+    label="Get involved"
+    title="Sell through FORA, run it, or build on it"
+  >
+    <div class="involve">
+      <div>
+        <p>Publishers register at the publisher console and set their terms. Registering costs nothing.</p>
+        <LinkRow links={[
+          { href: FORA_PUBLISHER_CONSOLE_URL, text: 'Publisher console' },
+          { href: '/getting-started/publisher-onboarding/', text: 'Publisher onboarding' },
+          { href: '/publishers/onboarding/', text: 'Check your website' },
+        ]} />
+      </div>
+      <div>
+        <p>A marketplace runs FORA Server over its own catalog, and every FORA agent can buy from it.</p>
+        <LinkRow links={[
+          { href: '/getting-started/existing-marketplace/', text: 'For content marketplaces' },
+          { href: '/architecture/deployment-models/', text: 'Deployment models' },
+          { href: SERVER_URL, text: 'FORA Server on GitHub' },
+        ]} />
+      </div>
+      <div>
+        <p>Agent builders buy from any FORA Exchange with the Go, TypeScript or Python SDK.</p>
+        <LinkRow links={[
+          { href: '/protocol/', text: 'The protocol' },
+          { href: '/getting-started/live-demo-music/', text: 'Try the music demo' },
+        ]} />
+      </div>
+      <div>
+        <p>For questions, open an issue on <a href={ISSUES_URL}>GitHub</a> or write to <a href="mailto:publishers@fora-protocol.org">publishers@fora-protocol.org</a>.</p>
+      </div>
+    </div>
+  </Band>
+
+  <Band
+    tone="near"
+    id="join"
+    label="Join in"
+    title="Help shape how AI agents license content"
+  >
+    <div class="prose top">
+      <p>FORA needs more than code. We want people who will use it, test it, argue with it and run it: publishers and the platforms that monetize them, AI companies building agents, content libraries and music distributors, legal and product teams, and researchers.</p>
+      <p>If you see a gap, a better way, or a use we haven't thought of, tell us.</p>
+    </div>
+  </Band>
+
+  <ClosingCta
+    title={TAGLINE}
+    text="Tell us who you are and what you'd change."
+  >
+    <a href="mailto:publishers@fora-protocol.org?subject=Joining%20FORA" class="btn btn-primary">Contact us</a>
+    <a href="/protocol/" class="btn btn-ghost">Read the protocol</a>
+  </ClosingCta>
+</LandingLayout>
+
+<style>
+  .prose { max-width: 46rem; margin-top: 2.5rem; }
+  .prose.top { margin-top: 0; }
+  .prose p, p.prose { color: var(--lp-text); font-size: 1.0625rem; line-height: 1.7; }
+  .prose p { margin: 0 0 1rem; }
+  .prose p:last-child { margin-bottom: 0; }
+  p.prose { margin: 2.5rem 0 0; }
+  .prose a { color: var(--lp-link); }
+  .prose strong, .involve strong { color: var(--lp-strong); font-weight: 600; }
+  .talk-buttons { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.75rem; }
+  h3 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; color: var(--lp-heading); margin: 0 0 0.75rem; }
+
+  /* Four people: four across on a wide screen, two on a tablet, one on a phone. */
+  .people > :global(div.card-grid) { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 2.5rem; }
+  @media (max-width: 1000px) {
+    .people > :global(div.card-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 560px) {
+    .people > :global(div.card-grid) { grid-template-columns: 1fr; }
+  }
+
+  .involve { display: grid; gap: 2rem; max-width: 46rem; }
+  .involve p { color: var(--lp-text); font-size: 1.0625rem; line-height: 1.7; margin: 0; }
+  .involve a { color: var(--lp-link); }
+  .involve :global(.links) { margin-top: 0.625rem; }
+</style>

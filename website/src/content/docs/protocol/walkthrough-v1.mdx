@@ -44,8 +44,8 @@ curl -s https://techcrunch.com/.well-known/fora.json | jq
   "contact": "licensing@techcrunch.com",
   "exchanges": [
     {
-      "domain": "exchange.ssp-alpha.com",
-      "endpoint": "https://exchange.ssp-alpha.com/fora/v1",
+      "domain": "exchange.alpha.example",
+      "endpoint": "https://exchange.alpha.example/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
@@ -59,13 +59,13 @@ The agent now knows which Exchange to query for TechCrunch content. The `support
 
 The agent sends a `ResourceQuery` to the Exchange with its identity in the `Requester` message. This is the v1.0 replacement for CoMP's `AISystem` — it carries identity, scopes, and optional delegation in a single envelope. The request is authenticated separately by an RFC 9421 HTTP Message Signature in the HTTP headers, not by a field in the message body.
 
-`POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
+`POST https://exchange.alpha.example/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
 {/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.ssp-alpha.com",
+  "exchange": "exchange.alpha.example",
   "uris": [
     "https://techcrunch.com/2026/03/19/ai-agents-commerce.html"
   ],
@@ -97,14 +97,14 @@ The Exchange looks up the article in its catalog and returns one offer for each 
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.ssp-alpha.com",
+  "exchange": "exchange.alpha.example",
   "offer_groups": [
     {
       "uri": "https://techcrunch.com/2026/03/19/ai-agents-commerce.html",
       "offers": [
         {
           "offer_id": "3a1cf96e-74b7-4c5d-abb0-925c3f83dfe3",
-          "exchange": "exchange.ssp-alpha.com",
+          "exchange": "exchange.alpha.example",
           "title": "AI Agents Are Rewriting Commerce",
           "ext": {
             "comp.package_id": "PKG-TC-AGENTS-COMMERCE",
@@ -179,7 +179,7 @@ The Exchange looks up the article in its catalog and returns one offer for each 
 
 The agent commits to the offer by sending the full signed `offer` back, reflected exactly as received at discovery:
 
-`POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
+`POST https://exchange.alpha.example/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
 {/* fora-validate: TransactionRequest */}
 ```json
@@ -190,7 +190,7 @@ The agent commits to the offer by sending the full signed `offer` back, reflecte
     {
       "offer": {
         "offer_id": "3a1cf96e-74b7-4c5d-abb0-925c3f83dfe3",
-        "exchange": "exchange.ssp-alpha.com",
+        "exchange": "exchange.alpha.example",
         "title": "AI Agents Are Rewriting Commerce",
         "pricing": {
           "model": "PRICING_MODEL_PER_UNIT",
@@ -288,13 +288,13 @@ The CDN edge function verifies:
 
 Usage reporting is mandatory. The agent reports actual consumption, in the unit of the offer's price (`accesses`):
 
-`POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/ReportUsage`
+`POST https://exchange.alpha.example/fora/v1/fora.v1.ExchangeService/ReportUsage`
 
 {/* fora-validate: UsageReport */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.ssp-alpha.com",
+  "exchange": "exchange.alpha.example",
   "idempotency_key": "ur-001",
   "transaction_id": "txn-tc-001",
   "billing_id": "bill-tc-001",

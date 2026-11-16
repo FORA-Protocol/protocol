@@ -4,8 +4,14 @@
 // in a column beside it (an offer card, a code card).
 //
 // The tone sets the colour variables that the components inside read
-// (--lp-heading, --lp-text, --lp-label, --lp-strong, --lp-link, --lp-rule), so
-// a component looks right on a dark or a light band without knowing which.
+// (--lp-heading, --lp-text, --lp-label, --lp-strong, --lp-link, --lp-rule,
+// --lp-muted, --lp-fora, --lp-bg, --lp-surface), so a component looks right on
+// a dark or a light band without knowing which. --lp-bg is the band itself;
+// --lp-surface is a card on it; --lp-muted is secondary text; --lp-fora is
+// FORA's blue, the one colour that means FORA.
+//
+// `compact` halves the vertical padding, for a strip (KeyFacts) that breaks
+// the page up rather than opening a section.
 interface Props {
   tone?: 'black' | 'near' | 'light';
   label?: string;
@@ -15,21 +21,28 @@ interface Props {
   id?: string;
   /** Width of the aside column, when there is one. */
   asideWidth?: string;
+  /** How the aside lines up with the text column: centred (the default) or at the top. */
+  asideAlign?: 'center' | 'start';
+  compact?: boolean;
 }
-const { tone = 'black', label, title, lead, id, asideWidth = '1fr' } = Astro.props;
+const { tone = 'black', label, title, lead, id, asideWidth = '1fr', asideAlign = 'center', compact = false } = Astro.props;
 const hasAside = Astro.slots.has('aside');
+// A band with no header (only components, such as the About FORA card) renders no empty header block.
+const hasHeader = Boolean(label || title || lead || hasAside || Astro.slots.has('intro'));
 ---
-<section class={`band band-${tone}`} id={id}>
+<section class:list={['band', `band-${tone}`, { 'band-compact': compact }]} id={id}>
   <div class="band-wrap">
-    <div class={hasAside ? 'band-pair' : undefined} style={hasAside ? `--aside: ${asideWidth}` : undefined}>
-      <div>
-        {label && <div class="band-label">{label}</div>}
-        {title && <h2>{title}</h2>}
-        {lead && <p class="band-lead" set:html={lead} />}
-        <slot name="intro" />
+    {hasHeader && (
+      <div class={hasAside ? `band-pair${asideAlign === 'start' ? ' band-pair-start' : ''}` : undefined} style={hasAside ? `--aside: ${asideWidth}` : undefined}>
+        <div>
+          {label && <div class="band-label">{label}</div>}
+          {title && <h2>{title}</h2>}
+          {lead && <p class="band-lead" set:html={lead} />}
+          <slot name="intro" />
+        </div>
+        {hasAside && <div><slot name="aside" /></div>}
       </div>
-      {hasAside && <div><slot name="aside" /></div>}
-    </div>
+    )}
     <slot />
   </div>
 </section>
@@ -43,9 +56,11 @@ const hasAside = Astro.slots.has('aside');
     --lp-strong: var(--white);
     --lp-link: var(--accent-text);
     --lp-rule: var(--mid);
+    --lp-muted: var(--gray);
+    --lp-fora: var(--accent-text);
   }
-  .band-black { background: var(--black); border-top: 1px solid var(--mid); }
-  .band-near { background: var(--near-black); }
+  .band-black { --lp-bg: var(--black); --lp-surface: var(--near-black); background: var(--black); border-top: 1px solid var(--mid); }
+  .band-near { --lp-bg: var(--near-black); --lp-surface: var(--black); background: var(--near-black); }
   .band-light {
     --lp-heading: var(--black);
     --lp-text: #444456;
@@ -53,6 +68,10 @@ const hasAside = Astro.slots.has('aside');
     --lp-strong: var(--black);
     --lp-link: var(--accent-dark);
     --lp-rule: #e4e4ec;
+    --lp-muted: #6b6b80;
+    --lp-fora: var(--accent-dark);
+    --lp-bg: var(--bg-light);
+    --lp-surface: #fff;
     background: var(--bg-light);
     color: var(--near-black);
   }
@@ -63,7 +82,9 @@ const hasAside = Astro.slots.has('aside');
     gap: 4rem;
     align-items: center;
   }
+  .band-pair-start { align-items: start; }
   .band-pair:not(:last-child) { margin-bottom: 3.5rem; }
+  .band.band-compact { padding-top: 3.5rem; padding-bottom: 3.5rem; }
   .band-label {
     font-size: 0.875rem;
     font-weight: 600;
@@ -82,6 +103,7 @@ const hasAside = Astro.slots.has('aside');
   }
   .band-lead { font-size: 1.125rem; line-height: 1.7; color: var(--lp-text); max-width: 44rem; }
   .band-lead :global(strong) { color: var(--lp-strong); font-weight: 600; }
+  .band-lead :global(a) { color: var(--lp-link); }
   .band :global(a:focus-visible) { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 
   @media (max-width: 900px) {
@@ -89,5 +111,6 @@ const hasAside = Astro.slots.has('aside');
   }
   @media (max-width: 560px) {
     .band { padding: 4rem 1rem; }
+    .band.band-compact { padding-top: 2.75rem; padding-bottom: 2.75rem; }
   }
 </style>
