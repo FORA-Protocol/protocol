@@ -144,16 +144,20 @@ message Package {
   optional string packager = 4;
 
   // URL for AI system to find the License(s) required to access content.
-  // SSRF/fetch sink: a consumer that dereferences this URL must apply the
-  // countermeasures specified for core License.uri (threat model T-LIC-1).
+  // SSRF/fetch sink: before dereferencing, apply the SSRF guards specified
+  // for core License.uri: scheme allowlist, block loopback/private/metadata
+  // addresses (resolve-then-check), fetch via an egress proxy, and treat the
+  // response as untrusted content.
   optional string licenseurl = 5;
 
   // Whether citation of the Content Owner is required. 0=no, 1=yes.
   optional int32 citation = 6;
 
   // URL for AI system to send usage reporting to the Content Owner or
-  // Marketplace. POST/exfil sink: apply the SSRF countermeasures specified
-  // for core License.uri (threat model T-LIC-1) before dereferencing.
+  // Marketplace. POST/exfil sink: before dereferencing, apply the SSRF
+  // guards specified for core License.uri: scheme allowlist, block
+  // loopback/private/metadata addresses (resolve-then-check), fetch via an
+  // egress proxy, and treat the response as untrusted content.
   optional string reporturl = 7;
 
   // Scope of content in this package.
@@ -391,8 +395,10 @@ message Retrieval {
   // Authorization type.
   optional RetrievalAuth auth = 1;
 
-  // Entry point / feed URI. SSRF/fetch sink: apply the countermeasures
-  // specified for core License.uri (threat model T-LIC-1) before fetching.
+  // Entry point / feed URI. SSRF/fetch sink: before fetching, apply the SSRF
+  // guards specified for core License.uri: scheme allowlist, block
+  // loopback/private/metadata addresses (resolve-then-check), fetch via an
+  // egress proxy, and treat the response as untrusted content.
   optional string endpoint = 2;
 
   // Endpoint type(s).

@@ -3592,11 +3592,11 @@ type License struct {
 	//	"https://news.example/licensing/ai-terms-2026"
 	//
 	// "MUST NOT URL-validate" means do not REJECT non-URL schemes — it does NOT
-	// mean fetch blindly. A consumer that dereferences this URI MUST apply the
-	// SSRF countermeasures in the security threat model (T-LIC-1): scheme
-	// allowlist, block loopback/private/metadata addresses (resolve-then-check),
-	// fetch via an egress proxy, and treat the response as untrusted content.
-	// Verify the fetched bytes against `uri_digest` before use.
+	// mean fetch blindly. A consumer that dereferences this URI MUST apply these
+	// SSRF guards: scheme allowlist, block loopback/private/metadata addresses
+	// (resolve-then-check), fetch via an egress proxy, and treat the response
+	// as untrusted content. Verify the fetched bytes against `uri_digest`
+	// before use.
 	Uri *string `protobuf:"bytes,1,opt,name=uri,proto3,oneof" json:"uri,omitempty"`
 	// Stable short identifier: SPDX short-id ("GPL-3.0-only"), TollBit cuid,
 	// or catalog doc-id. Used by agents and the vocab linter for known-license
@@ -8768,7 +8768,7 @@ type DiscoveryResponse struct {
 	// and why access was refused. Resolve surfaces the same oracle at the broker
 	// that OfferGroup.absence_reason does at the Exchange, so the same mitigation
 	// applies: where existence itself must stay hidden, the Broker MAY omit the
-	// reason (leave this unset) rather than reveal it. See the threat model.
+	// reason (leave this unset) rather than reveal it.
 	// A scope shortfall never reaches this field: the Exchange answers it with
 	// no absence reason, and the Broker MUST NOT supply one (the existence-hiding
 	// rule, stated on Requester.scopes).

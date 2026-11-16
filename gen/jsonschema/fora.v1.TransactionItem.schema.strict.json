@@ -38,7 +38,7 @@
           "type": "string"
         },
         "uri": {
-          "description": "\"MUST NOT URL-validate\" means do not REJECT non-URL schemes — it does NOT\n mean fetch blindly. A consumer that dereferences this URI MUST apply the\n SSRF countermeasures in the security threat model (T-LIC-1): scheme\n allowlist, block loopback/private/metadata addresses (resolve-then-check),\n fetch via an egress proxy, and treat the response as untrusted content.\n Verify the fetched bytes against `uri_digest` before use.",
+          "description": "\"MUST NOT URL-validate\" means do not REJECT non-URL schemes — it does NOT\n mean fetch blindly. A consumer that dereferences this URI MUST apply these\n SSRF guards: scheme allowlist, block loopback/private/metadata addresses\n (resolve-then-check), fetch via an egress proxy, and treat the response\n as untrusted content. Verify the fetched bytes against `uri_digest`\n before use.",
           "title": "Canonical identity of the license document (RFC 3986). MUST NOT be\n URL-validated — data-labels TDL identifiers use non-URL schemes.\n For REFERENCE_ONLY terms this is the authoritative specification.\n Examples:\n   \"https://creativecommons.org/licenses/by/4.0/\"\n   \"https://news.example/licensing/ai-terms-2026\"",
           "type": "string"
         },
