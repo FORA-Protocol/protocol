@@ -294,7 +294,7 @@ Providers get read-only access to all signed Offers issued for their content. Th
 
 ## Signing Keys (Per-Tenant)
 
-Each provider tenant brings their own CDN signing keys. The Exchange must store these securely and support rotation.
+Each tenant has its own signing keys, and the Exchange signs the delivery URLs of every publisher that tenant represents with them. For a publisher on CloudFront, the tenant's RSA key is the one registered in that publisher's trusted key group. The Exchange must store the keys securely and support rotation.
 
 ```go
 // TenantSigningConfig holds the signing configuration for a single tenant.

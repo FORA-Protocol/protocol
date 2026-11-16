@@ -35,21 +35,12 @@ interface EdgeContext {
   /** Provider configuration loaded from config source. */
   config: EdgeConfig;
 
-  /** Edge KV store (optional, for single-use enforcement). */
-  kv?: EdgeKV;
 }
 
 interface EdgeResponse {
   status: number;
   headers: Record<string, string>;
   body: string | ReadableStream | null;
-}
-
-interface EdgeKV {
-  /** Atomic put-if-absent. Returns true if key was inserted (first use). */
-  putIfAbsent(key: string, value: string, ttlSeconds: number): Promise<boolean>;
-  /** Read a key. */
-  get(key: string): Promise<string | null>;
 }
 
 interface EdgeConfig {
@@ -74,9 +65,6 @@ interface EdgeConfig {
 
   /** Optional pinned public keys; a covering `kid` skips the directory fetch. */
   verifyKeys?: JsonWebKey[];
-
-  /** Whether to enforce single-use URLs (best-effort). Requires kv. */
-  singleUseEnabled: boolean;
 
   /** Whether to enforce agent identity binding. Defaults to true. */
   enforceBinding: boolean;
@@ -110,17 +98,15 @@ graph LR
     end
 
     subgraph "Optional"
-        LAMBDA["Lambda@Edge<br/>(origin request)<br/>Single-use enforcement<br/>Agent identity binding"]
-        DDB["DynamoDB Global Table<br/>(single-use tracking)"]
+        LAMBDA["Lambda@Edge<br/>(origin request)<br/>Agent identity binding"]
     end
 
     CF_FUNC --> BEHAVIOR
     BEHAVIOR --> LAMBDA
-    LAMBDA --> DDB
 ```
 
 - **CloudFront Function** handles bot detection and signature passthrough, and hands `/.well-known/fora.json` and `/rsl.txt` back to CloudFront, which fetches them from the origin. CloudFront's `trusted_key_groups` on the cache behavior natively verifies RSA-signed URLs -- no custom code needed.
-- **Lambda@Edge** (optional) handles agent identity binding and single-use enforcement. These require network access (DynamoDB lookup) which CloudFront Functions cannot do.
+- **Lambda@Edge** (optional) handles agent identity binding, which needs an Ed25519 verification CloudFront Functions cannot run within their limits.
 
 **What CloudFront does natively that you do not reimplement**:
 - RSA signature verification on signed URLs via `trusted_key_groups` configured on the cache behavior. The CDN itself rejects invalid signatures before your function code runs.
@@ -131,7 +117,6 @@ graph LR
 - Bot detection (User-Agent check against `botPatterns`).
 - Handing `/.well-known/fora.json` and `/rsl.txt` to the origin, ahead of bot detection.
 - Custom parameters validation (agent_id binding).
-- Single-use enforcement (requires Lambda@Edge + DynamoDB, best-effort).
 - The 403 response body and the `X-Content-Rules` and `X-FORA-Exchange` headers.
 
 ```javascript
@@ -190,29 +175,25 @@ function handler(event) {
 | Memory | 128 MB |
 | Network access | Yes (fetch) |
 | KV access | Workers KV (eventually consistent, ~60s) |
-| Durable Objects | Yes (strongly consistent, for single-use) |
 | Native signed URL verification | No (no equivalent to CloudFront trusted_key_groups) |
 | Package size | 10 MB |
 | Languages | JavaScript, TypeScript, Rust (WASM) |
 
 **Key difference from CloudFront**: Cloudflare has no native signed URL verification. The Worker verifies the Ed25519 signature in code, using **only** the Exchange's public key. Nothing secret is deployed to the edge.
 
-**Recommended approach**: Single Worker with optional Durable Objects.
+**Recommended approach**: Single Worker.
 
 ```mermaid
 graph LR
     subgraph "Cloudflare Edge"
         WORKER["Cloudflare Worker<br/>Bot detection<br/>fora.json + rsl.txt passthrough<br/>Ed25519 signature verification<br/>Agent identity binding"]
         KV["Workers KV<br/>Config cache<br/>Bot pattern updates"]
-        DO["Durable Object<br/>(optional)<br/>Single-use enforcement<br/>Atomic check-and-consume"]
     end
 
     WORKER --> KV
-    WORKER --> DO
 ```
 
 - **Signature verification**: Must be done in Worker code. Use `crypto.subtle.verify` with the `Ed25519` algorithm and the imported public key. Workers support Ed25519 natively; Fastly does not, which is why the SDK's verifier accepts an injected implementation.
-- **Single-use enforcement**: Workers KV is eventually consistent (up to 60 seconds propagation). For strict single-use, use Durable Objects which provide transactional consistency. For soft single-use (acceptable eventual consistency), Workers KV with a short TTL is cheaper.
 - **Config**: Store `EdgeConfig` in Workers KV. Refresh on a timer or via Cron Trigger.
 
 ## Akamai
@@ -241,7 +222,6 @@ mean writing the Ed25519 verifier as an EdgeWorker, which the platform's 4 ms bu
 
 **Key advantages**:
 - No execution time limit (billed per request + compute duration). Complex verification logic is fine.
-- Fastly KV Store is strongly consistent within a POP, making single-use enforcement reliable without the eventual-consistency problems of Workers KV or EdgeKV.
 - Full WASM runtime means you can compile the same Rust/Go verification logic that runs in the Exchange.
 
 **With the TypeScript SDK**: Fastly's JavaScript runtime has no WebCrypto Ed25519 and no `AbortController`. Pass `verifyEd25519` to the SDK's verifiers and directory readers; its document reads need no `AbortController`, and still end at their 30-second deadline.
@@ -251,8 +231,8 @@ mean writing the Ed25519 verifier as an EdgeWorker, which the platform's 4 ms bu
 ```mermaid
 graph LR
     subgraph "Fastly Edge"
-        COMPUTE["Compute Service (WASM)<br/>Bot detection<br/>fora.json + rsl.txt passthrough<br/>Ed25519 signature verification<br/>Agent identity binding<br/>Single-use enforcement"]
-        KV_STORE["KV Store<br/>Config + single-use tracking<br/>(strongly consistent in-POP)"]
+        COMPUTE["Compute Service (WASM)<br/>Bot detection<br/>fora.json + rsl.txt passthrough<br/>Ed25519 signature verification<br/>Agent identity binding"]
+        KV_STORE["KV Store<br/>Config"]
         CONFIG_STORE["Config Store<br/>Signing keys, bot patterns"]
     end
 
@@ -268,8 +248,6 @@ graph LR
 | fora.json + rsl.txt passthrough | Yes | Yes | Yes | Yes |
 | Native signed URL verification | Yes (trusted_key_groups) | Yes (trusted_key_groups) | No (must implement) | No (must implement) |
 | Ed25519 signed-URL verification | No (1ms limit, no Ed25519) | Yes | Yes (native Web Crypto) | Yes (injected verifier) |
-| Agent identity binding | No (no network) | Yes | Yes | Yes |
-| Single-use enforcement | No (no KV write) | Yes (DynamoDB) | Yes (Durable Objects) | Yes (KV Store, strong) |
-| Consistency model | N/A | Strong (DynamoDB) | Strong (Durable Objects) | Strong (in-POP) |
+| Agent identity binding | No (no Ed25519) | Yes | Yes | Yes |
 | Latency overhead | &lt;0.1ms | 1-5ms | &lt;1ms | &lt;1ms |
-| Cost at 1M req/day | $0.10 | $0.70 + DDB | $0.50 | Usage-based |
+| Cost at 1M req/day | $0.10 | $0.70 | $0.50 | Usage-based |

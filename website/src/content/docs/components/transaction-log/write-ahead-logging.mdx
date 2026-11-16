@@ -16,7 +16,7 @@ The `ExecuteTransaction` flow has a critical ordering dependency:
 6. Return TransactionResponse (signed URL + billing_id)
 ```
 
-If the Exchange crashes between steps 4 and 5, the signed URL is live on the CDN -- the agent can fetch content -- but no billing record exists. This is an unbillable content access (revenue skimming).
+If the Exchange crashes between steps 4 and 5, the signed URL is live on the CDN -- the agent can fetch content -- but no billing record exists. This is an unbillable content access.
 
 WAL ensures step 5 completes durably before step 6 executes.
 
