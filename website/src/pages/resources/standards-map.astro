@@ -59,7 +59,7 @@ const STANDARDS = [
   { name: 'robots.txt', href: S.robots, job: '<b>Declare terms:</b> allow or block, per crawler', status: `IETF standard, RFC 9309 (2022). Its rules "are not a form of access authorization" ${cite(1)}`, users: `On sites using TollBit, 30% of AI bot scrapes in Q4 2025 ignored it (TollBit's own data) ${cite(2)}` },
   { name: 'AIPREF', href: S.aipref, job: '<b>Declare terms:</b> a preference about AI training and AI use', status: `IETF working-group draft -08 (September 2026), without group consensus yet; the <code>robots.txt</code> training token is an individual draft ${cite(4, 5)}`, users: `Anthropic has recognized the training token since October 30, 2026; Microsoft from February 1, 2027; Google intends to in early 2027; OpenAI "will honor" it ${cite(6, 7, 8, 9)}` },
   { name: 'TDMRep', href: S.tdmrep, job: '<b>Declare terms:</b> reserve text-and-data-mining rights', status: `W3C Community Group final report (2024), "not a W3C Standard" ${cite(11)}`, users: `More than 50 adopters on the group's own list, among them Hachette Livre, Elsevier, Springer Nature, Wiley and Radio France ${cite(12)}` },
-  { name: 'RSL', href: S.rsl, job: '<b>Declare terms</b> and <b>transact:</b> state license terms and prices; issue license tokens through a license server', status: `RSL 1.0, a Recommendation of RSL's Technical Steering Committee, December 2025 ${cite(14, 15)}`, users: `More than 3,000 supporters, says ILC; one AI company licensed through ILC, Yahoo Scout ${cite(16)}` },
+  { name: 'RSL', href: S.rsl, job: '<b>Declare terms:</b> state license terms and prices; it also specifies a license server (OLP)', status: `RSL 1.0, a Recommendation of RSL's Technical Steering Committee, December 2025 ${cite(14, 15)}`, users: `More than 3,000 supporters, says ILC; one AI company licensed through ILC, Yahoo Scout ${cite(16)}` },
   { name: 'IAB Tech Lab CoMP', href: S.comp, job: '<b>Declare terms:</b> describe content, its price and where its license is, for a marketplace API', status: `IAB Tech Lab, final V1, April 2026 ${cite(21)}`, users: `FORA carries CoMP: its fields travel whole on each FORA offer ${cite(22)}` },
   { name: 'llms.txt', href: S.llms, job: '<b>Help discovery:</b> a curated index for AI readers', status: `A proposal by Jeremy Howard, v2 August 2026; no standards body ${cite(31)}`, users: `"thousands of sites publish an llms.txt file", by its author's count ${cite(31)}` },
   { name: 'Web Bot Auth', href: S.wba, job: '<b>Identify the caller:</b> a signature on each agent request', status: `IETF working-group draft, October 2026 ${cite(32)}`, users: `ChatGPT Work's cloud browser signs with it ${cite(33)}. Cloudflare verifies, and FORA agents sign, under two different earlier drafts ${cite(23, 34)}` },
@@ -81,7 +81,7 @@ const KEY_FACTS = [
 const STANDING = [
   { title: 'Blocking is a request, and a growing share of AI bot scrapes ignore it.', text: `On sites using TollBit, the share that bypassed robots.txt rose from 3.3% in Q4 2024 to 12.9% in Q1 2025, then to 30% ${cite(2, 10)}. AIPREF says so of itself: a receiver "has a choice whether to follow those preferences" ${cite(4)}.` },
   { title: 'Declaring has thousands of supporters, four committed AI companies and one buyer.', text: `The four commitments promise to honor a refusal, and carry no payment. Yahoo Scout pays under ILC's blanket license, announced on November 12, 2026 ${cite(16)}. No AI company is known to pay under a publisher's own RSL terms.` },
-  { title: 'Transacting and settling are available in a few places.', text: `Supertab sells an RSL license server, x402 runs in AWS WAF and Cloudflare's closed beta, MPP in Cloudflare's Agents SDK, and FORA on every Exchange that runs it ${cite(25, 49, 50, 54, 57)}.` },
+  { title: 'Transacting and settling are available in a few places.', text: `FORA transacts on every Exchange that runs it. x402 settles in AWS WAF and Cloudflare's closed beta, MPP in Cloudflare's Agents SDK. Supertab sells an RSL license server, and no AI company is named as buying through it ${cite(25, 49, 50, 54, 57)}.` },
 ];
 
 const TODO = [
@@ -238,8 +238,8 @@ const SOURCES = [
     name: 'Others mentioned',
     items: [
       { title: 'Supertab Connect', publisher: 'Supertab', href: 'https://www.supertab.co/', checked: '2026-11-13' },
-      { title: 'Tokens', publisher: 'TollBit docs', href: 'https://docs.tollbit.com/docs/tokens', checked: '2026-11-14' },
       { title: 'Daily Kos\'s RSL file', publisher: 'Daily Kos', href: 'https://www.dailykos.com/license.xml', checked: '2026-11-13' },
+      { title: 'Tokens', publisher: 'TollBit docs', href: 'https://docs.tollbit.com/docs/tokens', checked: '2026-11-14' },
       { title: 'IPTC Photo Metadata Standard', publisher: 'IPTC', href: 'https://iptc.org/std/photometadata/specification/IPTC-PhotoMetadata', checked: '2026-11-15' },
       { title: 'ODRL Information Model 2.2', publisher: 'W3C', href: 'https://www.w3.org/TR/odrl-model/', checked: '2026-11-15' },
       { title: 'Stakeholder consultation on AI and copyright compliance', publisher: 'European Commission', href: 'https://digital-strategy.ec.europa.eu/en/faqs/stakeholder-consultation-ai-and-copyright-compliance', checked: '2026-11-15' },
@@ -283,11 +283,11 @@ const SOURCES = [
         slot="aside"
         src={`${IMG}/standards-1.png`}
         title="Thirteen standards, eight jobs."
-        alt="Eight layers, each a different job: declare terms (robots.txt, AIPREF, TDMRep, RSL, CoMP, FORA), help discovery (llms.txt), identify the caller (Web Bot Auth), connect (MCP), prove origin (C2PA), transact (RSL's license server, FORA), settle, which moves money (x402, MPP), and report (SPUR Content Telemetry, FORA's usage reports)."
+        alt="Eight layers, each a different job: declare terms (robots.txt, AIPREF, TDMRep, RSL, which specifies a license server, CoMP, FORA), help discovery (llms.txt), identify the caller (Web Bot Auth), connect (MCP), prove origin (C2PA), transact (FORA), settle, which moves money (x402, MPP), and report (SPUR Content Telemetry, FORA's usage reports)."
       />
     </Split>
     <p class="prose"><b>How to read it.</b> Each row does a different job, so the rows don't rank against each other: a road sign isn't worse than a till for not taking payment. The last column mixes kinds of adoption, and each cell says which.</p>
-    <p class="prose">Transacting agrees one sale; settling moves the money. RSL declares and, through its license server, transacts. FORA spans the terms, the transaction and the report, and leaves the money to your operator.</p>
+    <p class="prose">Transacting agrees one sale; settling moves the money. RSL declares terms, and its specification describes a <a href="#license-server">license server</a>. FORA spans the terms, the transaction and the report, and leaves the money to your operator.</p>
     <Callout kind="define" {...DEFINITIONS.operator} />
     <Callout kind="define" {...DEFINITIONS.signedLink} />
   </Band>
@@ -339,17 +339,17 @@ const SOURCES = [
     <LinkRow links={[{ href: '/protocol/#licensing-core', text: 'Open the explorer' }]} />
   </Band>
 
-  <Band tone="near" id="license-server" title="How RSL sells: a license server" asideWidth="400px" asideAlign="start">
+  <Band tone="near" id="license-server" title="RSL's license server, on paper" asideWidth="400px" asideAlign="start">
     <Fragment slot="intro">
-      <p class="prose" set:html={`RSL is more than a declaration. Its License Server "Implements the Open License Protocol (OLP) to issue license tokens and enforces payment requirements on behalf of Publishers". A license token is the pass that server issues; a site or CDN can ask which license and asset it covers ${cite(14)}.`} />
-      <p class="prose" set:html={`The difference that matters in a dispute is who signs. RSL's client doesn't sign the license its token covers, and <code>&lt;standard&gt;</code> takes an address with no digest (Appendix A) ${cite(14)}. TollBit's content tokens name a license type and a license ID, and TollBit signs them, not the buyer ${cite(58)}. CoMP records how a crawler plans to identify itself, which is not its assent ${cite(20)}.`} />
-      <p class="prose" set:html={`Supertab sells what it calls an "RSL-compliant license server", and Daily Kos's RSL file names it ${cite(57, 59)}.`} />
+      <p class="prose" set:html={`RSL specifies a license server ${cite(14)}. Supertab sells one, and Daily Kos's RSL file names it ${cite(57, 58)}. No AI company is named as a buyer.`} />
+      <p class="prose" set:html={`In RSL's words, the server "Implements the Open License Protocol (OLP) to issue license tokens and enforces payment requirements on behalf of Publishers". A license token is the pass it issues; a site or CDN can ask which license and asset it covers. The file can name x402 as the way to pay ${cite(14)}.`} />
+      <p class="prose" set:html={`The difference that matters in a dispute is who signs. RSL's client doesn't sign the license its token covers, and <code>&lt;standard&gt;</code> takes an address with no digest (Appendix A) ${cite(14)}. TollBit's content tokens name a license type and a license ID, and TollBit signs them, not the buyer ${cite(59)}. CoMP records how a crawler plans to identify itself, which is not its assent ${cite(20)}.`} />
       <p class="prose" set:html={`<b>What ILC does with it.</b> ILC, the collective that co-authored RSL, keeps the transaction out of the content path ${cite(16, 18)}. Its RSL file names no license server and points, through <code>&lt;standard&gt;</code>, at ILC's collective license ${cite(19)}. An AI company takes one blanket license, for a fee ILC doesn't publish, and reports its own use ${cite(18)}. Yahoo Scout, ILC's first licensee, pays under that contract ${cite(16)}. ${a('/resources/transparent-collective/', 'How ILC compares with other collectives →')}`} />
     </Fragment>
     <Figure
       slot="aside"
       src={`${IMG}/standards-3.png`}
-      title="Two ways to transact: RSL's license server and FORA's Exchange."
+      title="RSL's license server as the spec describes it, beside FORA's Exchange."
       alt="Two sequences side by side. RSL license server: your RSL file names a license server; the client asks for one exact license; the server issues a License Token; the file can name x402 as the way to pay; the client doesn't sign the license its token covers. FORA Exchange: you set several terms for a page; the Exchange signs an offer for each; the buyer signs the one it picked (proof the buyer agreed to your terms); a signed link is issued against that acceptance; both sides keep the record. The operator bills the buyer, and FORA names no payment rail."
     />
   </Band>
