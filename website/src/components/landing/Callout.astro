@@ -23,8 +23,8 @@ interface Props {
   tag?: string;
   /** An HTML paragraph, after the slot. */
   text?: string;
-  /** Bold lead-in and HTML text per point. */
-  points?: { title: string; text: string }[];
+  /** Bold lead-in and HTML text per point; a point may be text only. */
+  points?: { title?: string; text: string }[];
   /** Lay `points` out in two columns (About FORA). */
   columns?: boolean;
   links?: { href: string; text: string }[];
@@ -72,7 +72,7 @@ const Wrap = collapse ? 'details' : 'div';
       {text && <p set:html={text} />}
       {points && (columns
         ? <dl class="cols">{points.map((p) => <div><dt>{p.title}</dt><dd set:html={p.text} /></div>)}</dl>
-        : <ul class="plain">{points.map((p) => <li><b>{p.title}</b> <Fragment set:html={p.text} /></li>)}</ul>)}
+        : <ul class="plain">{points.map((p) => <li>{p.title && <><b>{p.title}</b> </>}<Fragment set:html={p.text} /></li>)}</ul>)}
       {links && <p class="links">{links.map((l, i) => <>{i > 0 && <span class="sep" aria-hidden="true">·</span>}<a href={l.href}>{l.text}</a></>)}</p>}
     </div>
   </Wrap>

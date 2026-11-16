@@ -16,6 +16,8 @@ export const STATUS = {
   pilot: { label: 'Pilot', means: 'The vendor\'s own word for a limited program, such as Microsoft\'s PCM.' },
   design: { label: 'Design', means: 'Designed, not in released software. Every FORA design item carries it.' },
   roadmap: { label: 'Roadmap', means: 'Planned, not designed in public.' },
+  experimental: { label: 'Experimental', means: 'The vendor\'s own word for a feature it is testing, such as Google\'s Web Bot Auth signing.' },
+  preview: { label: 'Preview', means: 'The vendor\'s own word for a released feature it hasn\'t made generally available, such as AWS\'s.' },
   'not-public': { label: 'Not public', means: 'The vendor doesn\'t say.' },
 } as const;
 export type StatusKey = keyof typeof STATUS;
