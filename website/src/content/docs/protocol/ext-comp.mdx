@@ -33,7 +33,7 @@ enum changes in the proto, update these tables in the same change.
 `comp.license_url`, `comp.report_url`, and `comp.retrieval_endpoint` are
 publisher-supplied URLs. A consumer that dereferences them (or POSTs usage to
 `comp.report_url`) MUST apply the SSRF countermeasures specified for the core
-`License.uri` in the [threat model (T-LIC-1)](/security/threat-model/#t-lic-1-ssrf--phishing-via-licenseuri):
+`License.uri` in [Licensing Terms](/protocol/licensing-terms/#term-semantics):
 scheme allowlist, block loopback/private/metadata addresses (resolve-then-check),
 fetch via an egress proxy, and treat the response as untrusted.
 :::

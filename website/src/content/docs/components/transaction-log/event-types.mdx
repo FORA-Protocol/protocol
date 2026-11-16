@@ -20,7 +20,7 @@ Every state transition in the transaction lifecycle produces a log event. There 
 
 ## ResourceQueryReceived
 
-Logged when a `DiscoverResources` RPC is received. Used for query-to-transaction ratio monitoring (threat T12: metadata harvesting) and demand analytics.
+Logged when a `DiscoverResources` RPC is received. Used for query-to-transaction ratio analysis and demand analytics.
 
 Loss is acceptable -- this is telemetry, not financial data.
 
@@ -40,7 +40,7 @@ Loss is acceptable -- this is telemetry, not financial data.
 
 ## OffersPresented
 
-Logged when the Exchange returns a `ResourceResponse`. Captures what was offered and at what price -- critical for post-hoc price discrimination analysis (T2).
+Logged when the Exchange returns a `ResourceResponse`. Captures what was offered and at what price -- critical for post-hoc price discrimination analysis.
 
 Rebuildable from supply query + catalog state.
 

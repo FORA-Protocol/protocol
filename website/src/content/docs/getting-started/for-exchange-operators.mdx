@@ -216,9 +216,9 @@ This prevents unauthorized parties from injecting false claims into your resourc
 
 ## Dispute Resolution
 
-Your Exchange handles `DisputeTransaction` RPCs from agents. The dispute system operates in three tiers:
+Your Exchange handles `DisputeTransaction` RPCs from agents. How it resolves an accepted dispute is your policy; the recommended policy has three tiers. The volume and time figures are design goals, not measurements:
 
-| Tier | Scope | Volume | Response Time |
+| Tier | Scope | Volume (goal) | Response time (goal) |
 |---|---|---|---|
 | **Tier 1 -- Automated** | Delivery failures, content hash mismatches, signed URL expiry | ~99% of disputes | &lt; 1 second |
 | **Tier 2 -- Rule-Based** | Ambiguous evidence, delivery says 200 but content is suspect | ~0.9% of disputes | &lt; 24 hours |
@@ -320,4 +320,4 @@ Streaming transactions follow the same FORA flow, but the signed URL has a longe
 1. Review the [Exchange design](/components/exchange/overview/) for architecture details
 2. See the [Billing Adapter](/components/exchange/billing-adapter/) for the integration interface
 3. Walk through the [Scenario Walkthrough](/protocol/scenario-walkthrough/) for a complete transaction trace
-4. Review the [Threat Model](/security/threat-model/) -- it was built from 20 years of ad-tech fraud patterns
+4. Review [Authentication](/protocol/authentication/) for the signatures and keys every request, offer and delivery URL depends on

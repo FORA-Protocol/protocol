@@ -82,7 +82,7 @@ ORDER BY total_spend DESC;
 
 ### Q2: Revenue Leakage Detection
 
-Identifies content accesses that appear in CDN logs but have no corresponding transaction. This detects signed URL leakage (T8), billing system failures, and Exchange bugs.
+Identifies content accesses that appear in CDN logs but have no corresponding transaction. This detects deliveries no sale backs, billing system failures, and Exchange bugs.
 
 This query is run by the provider, joining their CDN logs against the Exchange transaction log export.
 
@@ -101,7 +101,7 @@ WHERE mp.signed_url_hash IS NULL
   AND cdn.status_code = 200;
 ```
 
-For this to work, the `transaction_id` must be embedded in the signed URL parameters. The provider extracts it from their CDN logs and joins against the Exchange export.
+The join key is `signed_url_hash`, the SHA-256 of the delivery URL verbatim. The delivery URL carries no transaction ID: the provider hashes each signed URL in its CDN or edge delivery log and joins on that hash against the Exchange export.
 
 ## Dispute Detection
 
@@ -227,7 +227,7 @@ These are reference implementations. A full analytics product (anomaly detection
 
 ## Immutability Guarantees
 
-Three layers of defense make retroactive alteration detectable, even if the Exchange operator is the adversary.
+Retroactive alteration is detectable even when the Exchange operator is the adversary, because the evidence is held by separate parties. The agent holds the Exchange-signed offer and its own `AgentAcceptance` for every purchase, and the provider's edge keeps its own delivery log with the hash of every delivery URL it served. A record the operator changes, deletes or invents no longer matches what the agent and the edge hold, and three-sided reconciliation shows it. The three storage layers below are defense in depth on top of that.
 
 ### Layer 1: Storage-Level Immutability
 
@@ -288,7 +288,7 @@ Each Exchange instance maintains its own hash chain, identified by an instance G
 
 ### Layer 3: Signed Event Records
 
-Each event record is signed by the Exchange's Ed25519 private key. Providers and agents can independently verify that records were not altered.
+Each event record is signed by the Exchange's Ed25519 private key. Providers and agents can verify that a record was not altered after the Exchange signed it; the signature does not show that the Exchange recorded it truthfully.
 
 ```go
 func SignEvent(event *TransactionEvent, privateKey ed25519.PrivateKey) {
@@ -305,7 +305,7 @@ func SignEvent(event *TransactionEvent, privateKey ed25519.PrivateKey) {
 | Storage-level immutability | Record deletion/modification | -- | Doesn't prevent false record creation |
 | Cryptographic hash chain | -- | Modification, insertion, deletion after the fact | Single-instance chain |
 | Signed event records | -- | Modification by any party other than signing Exchange | Compromised key = forged records |
-| Three-sided reconciliation | -- | All of the above | Requires provider participation |
+| Separate parties' records | Purchases the agent did not accept | Any alteration by the operator: it no longer matches the agent's signed offer and acceptance or the edge's delivery log | Requires the agent's and the provider's records |
 
 ## Export Formats
 
