@@ -28,7 +28,7 @@ export function cdnName(provider) {
 /**
  * The label of the page's links to the publisher contact address: on the CDN
  * card when no network was identified or the console does not set the network
- * up (Fastly), and in the note shown when no discovery
+ * up (Fastly, Akamai), and in the note shown when no discovery
  * document could be generated. The page owns the address; this module owns the
  * words.
  */
@@ -53,10 +53,10 @@ export function cdnPresentation(provider) {
 	if (provider === 'akamai') return {
 		badge: 'Akamai detected', tone: 'ok',
 		evidenceIntro: 'We recognized Akamai-specific patterns:',
-		title: 'Integration path: Signed delivery URLs',
-		description: 'We’ll configure your Akamai integration to check the Exchange’s signed URLs before allowing access to your licensed content.',
-		guidance: 'We’ll provide the package and guide you through connecting it to your Akamai service, choosing which paths to protect, and testing access before going live.',
-		contact: '',
+		title: 'Akamai isn’t supported today',
+		description: 'The console sets up Cloudflare and CloudFront for you. FORA’s edge function doesn’t run on Akamai today, so write to us and we’ll help you find the right setup.',
+		guidance: '',
+		contact: CONTACT_LABEL,
 	};
 	return {
 		badge: 'We couldn’t identify your CDN', tone: 'none',

@@ -40,15 +40,17 @@ test('CloudFront preserves both verification choices without selecting a default
   assert.doesNotMatch(result.guidance, /default|recommend.*RSA|use RSA/i);
 });
 
-test('Akamai uses the same detected styling and promises setup guidance', () => {
+test('Akamai is named as detected, said to be unsupported, and promised no integration', () => {
   const result = presentation('akamai');
   assert.match(result.badge, /Akamai/);
   assert.equal(result.tone, 'ok');
-  assert.match(result.title, /^Integration path:/);
-  assert.match(result.guidance, /We’ll provide the package/);
-  assert.doesNotMatch(`${result.title} ${result.description}`, /not yet supported|no integration package/i);
+  assert.equal(result.title, 'Akamai isn’t supported today');
+  assert.match(result.description, /sets up Cloudflare and CloudFront/);
+  assert.match(result.description, /doesn’t run on Akamai today/);
+  assert.equal(result.guidance, '');
+  assert.doesNotMatch(`${result.title} ${result.description}`, /integration path|we’ll (?:provide|configure)|\bpackage\b/i);
   assert.notEqual(result.badge, presentation('none').badge);
-  assert.doesNotMatch(`${result.description} ${result.guidance}`, /\bdownload\b|\bdeploy\b|start registration/i);
+  assert.doesNotMatch(result.description, /\bdownload\b|\bdeploy\b|start registration/i);
 });
 
 test('absent, unexpected, prototype and hostile provider tokens share an honest unknown outcome', () => {
@@ -63,8 +65,8 @@ test('absent, unexpected, prototype and hostile provider tokens share an honest 
   }
 });
 
-test('Fastly and an unidentified CDN offer the contact link, and the mapping carries no address', () => {
-  for (const provider of ['cloudfront', 'cloudflare', 'akamai']) {
+test('Fastly, Akamai and an unidentified CDN offer the contact link, and the mapping carries no address', () => {
+  for (const provider of ['cloudfront', 'cloudflare']) {
     assert.equal(presentation(provider).contact, '', `${provider} needs no contact link`);
   }
   const fastly = presentation('fastly');
@@ -72,8 +74,10 @@ test('Fastly and an unidentified CDN offer the contact link, and the mapping car
   assert.equal(integrations.CONTACT_LABEL, 'Write to us');
   assert.equal(fastly.contact, integrations.CONTACT_LABEL, 'The console routes Fastly publishers to us');
   assert.match(fastly.guidance, /sets up Cloudflare and CloudFront/);
+  const akamai = presentation('akamai');
+  assert.equal(akamai.contact, integrations.CONTACT_LABEL, 'The console routes Akamai publishers to us');
   assert.equal(unknown.contact, integrations.CONTACT_LABEL, 'One label for every contact link on the page');
-  for (const value of [...Object.values(fastly), ...Object.values(unknown)]) {
+  for (const value of [...Object.values(fastly), ...Object.values(akamai), ...Object.values(unknown)]) {
     assert.doesNotMatch(value, /mailto:|https?:\/\//, 'The page supplies the contact address, never the mapping');
   }
 });
