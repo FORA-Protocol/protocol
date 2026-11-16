@@ -383,7 +383,8 @@ Agent SDK (planned layer)
   |     Parallel fanout to multiple Exchanges.
   |
   +-- SelectionEngine
-  |     Ranks offers: subscription > preferred MP > lowest unit_cost.
+  |     Applies the agent's own selection policy, for example:
+  |     subscription > preferred MP > lowest unit_cost.
   |     Deduplicates by ResourceIdentity across Exchanges.
   |     Chooses the Offer whose term the agent can honour (one offer per term).
   |
@@ -394,7 +395,7 @@ Agent SDK (planned layer)
   |     Checks budget BEFORE ExecuteTransaction, not after.
   |
   +-- TransactionExecutor
-  |     Sends ExecuteTransaction RPC to winning Exchange.
+  |     Sends ExecuteTransaction RPC to the chosen offer's Exchange.
   |     Stateless offer verification via exchange_signature.
   |     Idempotency key on every request.
   |
@@ -419,7 +420,7 @@ Agent SDK (planned layer)
 The SDK reuses the same Go interfaces defined for the standalone Broker:
 
 - `ExchangeRegistry` interface is identical
-- `SelectionEngine` interface is identical (same `SelectionPolicy` abstraction)
+- `SelectionEngine` interface is identical (same `SelectionPolicy` abstraction); the SDK plugs in the agent's own policy
 - `BudgetTracker` interface is identical
 
 The concrete implementations differ in persistence strategy (in-memory vs Redis), but the interfaces are shared. The SDK also has a `UsageReporter`, which files the agent's usage reports with each issuing Exchange. The standalone Broker has no counterpart, because an agent always files its own reports, for a purchase made through a Broker too.
@@ -463,7 +464,7 @@ The concrete implementations differ in persistence strategy (in-memory vs Redis)
 | Exchange trust | All configured = verified | Graduated trust model |
 | Process lifecycle | Tied to agent process | Independent process |
 
-**Same logic, different packaging.** The selection algorithm, unit_cost comparison, ResourceIdentity deduplication, subscription preference ranking, and budget arithmetic are identical.
+**Same logic, different packaging, one difference in who chooses.** ResourceIdentity deduplication and budget arithmetic are identical. The SDK runs inside the agent, so it applies the agent's own selection policy and buys the offer it chooses. The Broker returns the offers in its order of relevance, and the agent decides.
 
 ## Language Bindings
 

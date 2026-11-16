@@ -1,0 +1,79 @@
+---
+// How money reaches a publisher, one small tile per channel (the hub's hub-4):
+// who pays, who sits in the middle, who is paid, then three short lines. A
+// CSS grid of tiles rather than one drawing, so it reflows: three across,
+// then two, then one (a container query on its own width). The text is real
+// text, so it reads aloud and copies.
+//
+// Grey boxes and arrows for the other channels; the `fora` tile alone is
+// blue, because blue means FORA's path. The payee box carries a heavier
+// border. The first line of each tile is in the text colour, the rest muted.
+//
+//   <MoneyTiles label="…" tiles={[{ title: '1 · Bot paywalls', flow: ['AI bot', 'TollBit, Cloudflare', 'You'], lines: ['…', '…', '…'] }]} />
+interface Props {
+  /** The group's accessible name. */
+  label: string;
+  tiles: { title: string; flow: string[]; lines: string[]; fora?: boolean }[];
+}
+const { label, tiles } = Astro.props;
+const ARROW = '<svg viewBox="0 0 16 10" width="16" height="10" aria-hidden="true"><path d="M1 5h12M9.5 1.5 13.5 5l-4 3.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+---
+<div class="mt">
+  <ul class="mt-grid" aria-label={label}>
+    {tiles.map((t) => (
+      <li class:list={['tile', { fora: t.fora }]}>
+        <div class="tile-title">{t.title}</div>
+        <div class="flow" role="group" aria-label={t.flow.join(' to ')}>
+          {t.flow.map((b, i) => (
+            <>
+              {i > 0 && <span class="arrow" set:html={ARROW} />}
+              <span class:list={['box', { payee: i === t.flow.length - 1 }]}>{b}</span>
+            </>
+          ))}
+        </div>
+        <p class="lines">{t.lines.map((l, i) => <span class:list={['line', { first: i === 0 }]}>{l}</span>)}</p>
+      </li>
+    ))}
+  </ul>
+</div>
+
+<style>
+  .mt { container-type: inline-size; margin-top: 2.5rem; }
+  .mt-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
+  .tile { border: 1px solid var(--lp-rule); border-radius: 10px; background: var(--lp-surface); padding: 1rem 1rem 1.125rem; min-width: 0; }
+  .tile-title { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--lp-heading); margin-bottom: 0.875rem; }
+  .flow { display: flex; align-items: stretch; gap: 0.25rem; }
+  .box {
+    flex: 1 1 0;
+    min-width: 0;
+    display: grid;
+    place-items: center;
+    padding: 0.5rem 0.375rem;
+    border: 1px solid var(--lp-rule);
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.3;
+    text-align: center;
+    color: var(--lp-strong);
+    overflow-wrap: break-word;
+  }
+  .box.payee { border: 1.5px solid var(--lp-label); }
+  .arrow { flex: none; display: grid; place-items: center; color: var(--lp-label); }
+  .lines { margin: 0.875rem 0 0; font-size: 0.875rem; line-height: 1.45; color: var(--lp-muted); }
+  .line { display: block; }
+  .line.first { color: var(--lp-text); margin-bottom: 0.125rem; }
+
+  .tile.fora { border-color: var(--accent); }
+  .fora .tile-title { color: var(--lp-fora); }
+  .fora .box { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+  .fora .box.payee { border: 1.5px solid var(--accent); }
+  .fora .arrow { color: var(--accent); }
+
+  @container (max-width: 900px) {
+    .mt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @container (max-width: 520px) {
+    .mt-grid { grid-template-columns: 1fr; }
+  }
+</style>

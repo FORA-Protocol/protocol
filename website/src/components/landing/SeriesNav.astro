@@ -1,0 +1,32 @@
+---
+// "More in this series": the other pages of the content-marketplaces series,
+// in the series' order, with the current page left out. The same block ends
+// every page of the series, before the closing call. The list is SERIES in
+// src/data/content-marketplaces.ts. Reads the band's variables.
+//
+//   <SeriesNav current="/resources/content-marketplaces/tollbit/" />
+import LinkRow from './LinkRow.astro';
+import { SERIES } from '../../data/content-marketplaces';
+
+interface Props {
+  /** The href of the page this block sits on. */
+  current: string;
+}
+const { current } = Astro.props;
+const links = SERIES.filter((p) => p.href !== current).map((p) => ({ href: p.href, text: p.title }));
+---
+<nav class="series" aria-labelledby="series-nav-label">
+  <div class="series-label" id="series-nav-label">More in this series</div>
+  <LinkRow links={links} stacked />
+</nav>
+
+<style>
+  .series { margin-top: 4rem; }
+  .series-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--lp-label);
+  }
+</style>

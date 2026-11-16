@@ -191,6 +191,57 @@
   outline-offset: 5px;
 }
 
+/* ========= RESOURCE-PAGE ATOMS =========
+   Inline pieces that also land inside HTML strings (a GlanceCard cell, a
+   table cell, a step), so their styles can't be scoped to one component.
+   The markup comes from src/lib/resource-markup.ts. Both read the Band's
+   --lp-* variables, so they work on a black, near or light band. */
+
+/* Status tag: monochrome on purpose. The states differ by fill and line, so
+   they read on every band and never compete with FORA's blue. Live is filled;
+   Beta, Closed beta, Pilot and Preview are outlined; Experimental has a
+   dashed dot; Design and Roadmap are dashed;
+   Not public is dotted and muted. Every icon box is the same size, so no
+   pill drops below the text line. */
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  vertical-align: middle;
+  position: relative;
+  top: -0.08em;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 0.3rem 0.6rem 0.3rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--lp-heading);
+  color: var(--lp-heading);
+}
+.status-tag::before { content: ''; width: 0.5rem; height: 0.5rem; border-radius: 50%; flex: none; }
+.status-tag--live { background: var(--lp-heading); color: var(--lp-bg); }
+.status-tag--live::before { background: var(--lp-bg); }
+.status-tag--beta::before,
+.status-tag--closed-beta::before { background: linear-gradient(90deg, var(--lp-heading) 50%, transparent 50%); border: 1px solid var(--lp-heading); }
+.status-tag--pilot::before,
+.status-tag--preview::before { border: 1px solid var(--lp-heading); }
+.status-tag--experimental::before { border: 1px dashed var(--lp-heading); }
+.status-tag--design,
+.status-tag--roadmap { border-style: dashed; }
+.status-tag--design::before { border: 1px dashed var(--lp-heading); }
+.status-tag--roadmap::before { border-radius: 0; background: linear-gradient(var(--lp-heading), var(--lp-heading)) center / 100% 1px no-repeat, linear-gradient(var(--lp-heading), var(--lp-heading)) right center / 1px 100% no-repeat; }
+.status-tag--not-public { border-style: dotted; border-color: var(--lp-muted); color: var(--lp-text); }
+.status-tag--not-public::before { border-radius: 0; background: linear-gradient(var(--lp-muted), var(--lp-muted)) center / 100% 1px no-repeat; }
+
+/* Citation marker: "[1, 2]", each number a link to the page's SourceList. */
+.cite { white-space: nowrap; font-size: 0.8125em; color: var(--lp-muted); font-variant-numeric: tabular-nums; }
+.cite a { color: var(--lp-link); text-decoration: none; }
+.cite a:hover { text-decoration: underline; }
+
 
 @media (max-width: 768px) {
   .hero-content { padding: 3rem 1.5rem; }

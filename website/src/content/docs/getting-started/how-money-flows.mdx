@@ -5,7 +5,7 @@ description: "The FORA billing chain, pricing models, unit_cost normalization, a
 
 ## The Billing Chain
 
-FORA never touches money. It follows the OpenRTB model: the protocol handles authorization and logging, while actual settlement happens outside the protocol through existing billing infrastructure.
+FORA never touches money. The protocol handles authorization and logging, while actual settlement happens outside the protocol through existing billing infrastructure.
 
 The chain works like this:
 
@@ -75,7 +75,7 @@ For example:
 - Data at $0.002 per record (`unit: "records"`, `estimated_quantity: 500`): unit_cost = $0.002 per record, the rate itself
 - Video at $0.50 per minute (`unit: "minutes"`, `estimated_quantity: 45`): unit_cost = $0.50 / 60 = $0.0083 per second
 
-The Broker uses `unit_cost` to compare offers across Exchanges and pricing models, selecting the most cost-effective option regardless of how the provider originally priced it.
+`unit_cost` lets an agent compare offers across Exchanges and pricing models by its own policy, however the provider priced them. A Broker does not order offers by it: it returns them in its order of relevance, and the agent decides.
 
 Every `Offer` in a `ResourceResponse` includes both the native pricing and the computed `unit_cost` value. Here the article priced per access:
 
@@ -96,7 +96,7 @@ The purchase charges estimate × rate = 1 × $0.05, and the charge is final. Its
 
 ## base_currency
 
-Each Exchange declares a `base_currency` in its manifest (ISO 4217 code, e.g., "USD", "EUR"). All `unit_cost` values in offers from that Exchange are denominated in this currency. This enables cross-exchange price comparison by the Broker without requiring currency conversion at query time.
+Each Exchange declares a `base_currency` in its manifest (ISO 4217 code, e.g., "USD", "EUR"). All `unit_cost` values in offers from that Exchange are denominated in this currency. An agent can then compare offers from different Exchanges without converting currencies at query time.
 
 ## Subscription vs. Per-Request Billing
 
@@ -124,7 +124,7 @@ The AI company pays for a subscription off-protocol. On-protocol, a subscription
 
 ## Overspend Prevention
 
-Two enforcement layers prevent overspend, mirroring how OpenRTB prevents advertiser overspend:
+Two enforcement layers prevent overspend:
 
 - **Agent/Broker-side**: `RequestConstraints.max_unit_cost` -- the agent will not accept offers above this threshold. `BrokerService.Resolve` may filter out offers that would exceed the agent's budget (`max_price`, and `period_budget` for its `budget_scope`) and answers a URI left with none with `OFFER_ABSENCE_REASON_BUDGET_EXCEEDED`. How the budget is computed is the Broker's own behaviour, not part of the protocol. Resolve never charges.
 - **Exchange-side**: The Exchange operator's Billing Adapter checks the requester's balance or credit before authorizing each item. An item the requester cannot afford is denied in the response body (`DENIAL_REASON_INSUFFICIENT_BALANCE`), also when it is the only item.
@@ -137,27 +137,27 @@ Here is a concrete transaction with dollar amounts.
 
 **Setup:**
 - Provider: *The Daily Meridian*, a mid-size tech publisher
-- Exchange: SSP-Alpha, which sells The Daily Meridian's catalog
+- Exchange: Exchange Alpha, which sells The Daily Meridian's catalog
 - Article: "AI Regulation: What Providers Need to Know" (2,500 words, ~3,300 tokens)
 - The Daily Meridian's RSL license: $0.08 per crawl
-- SSP-Alpha's price for the article: $0.05
-- Requester: Acme AI, whose agent has a registered account at SSP-Alpha (account handle `RegisterResponse.billing_ref`, here `acct_7f3e21c9` — an opaque value minted by the Exchange at registration, meaningless on its own)
-- Acme AI has an annual subscription to The Daily Meridian through SSP-Alpha
+- Exchange Alpha's price for the article: $0.05
+- Requester: Acme AI, whose agent has a registered account at Exchange Alpha (account handle `RegisterResponse.billing_ref`, here `acct_7f3e21c9` — an opaque value minted by the Exchange at registration, meaningless on its own)
+- Acme AI has an annual subscription to The Daily Meridian through Exchange Alpha
 
 **What happens:**
 
 | Step | Action | Cost |
 |---|---|---|
-| 1 | Acme AI's agent queries SSP-Alpha via `DiscoverResources`, signed with its own key and carrying its delegation from Acme AI | $0 |
-| 2 | SSP-Alpha returns two offers: per-access ($0.05) and subscription ($0.00) | -- |
+| 1 | Acme AI's agent queries Exchange Alpha via `DiscoverResources`, signed with its own key and carrying its delegation from Acme AI | $0 |
+| 2 | Exchange Alpha returns two offers: per-access ($0.05) and subscription ($0.00) | -- |
 | 3 | The agent selects the subscription offer (zero marginal cost) | $0.00 |
-| 4 | `ExecuteTransaction` -- SSP-Alpha verifies the delegation chain; the price is zero, so no Billing Adapter call and no `billing_id` | $0.00 |
+| 4 | `ExecuteTransaction` -- Exchange Alpha verifies the delegation chain; the price is zero, so no Billing Adapter call and no `billing_id` | $0.00 |
 | 5 | Signed URL issued, the agent fetches the article from CDN | -- |
 | 6 | Usage report filed: 3,150 actual tokens consumed | -- |
 
 **Financial attribution:**
 - `cost.amount`: $0.00 (subscription)
-- The annual subscription fee is settled off-protocol between Acme AI and SSP-Alpha
+- The annual subscription fee is settled off-protocol between Acme AI and Exchange Alpha
 
 **Without the subscription**, the per-request path would have charged $0.05 for this article, with a `unit_cost` of $0.00001515 per token.
 
@@ -178,7 +178,7 @@ The protocol does not prescribe how credits are settled between Exchange operato
 
 ## Pricing Transparency
 
-A Broker's fee has no field. It is additive and disclosed out of band, never folded into the offer price the Exchange signed, so the agent sees what it pays for the resource and what it pays for brokerage (see [Selection Engine](/components/broker/selection-engine/)).
+A Broker's fee has no field. It is additive and disclosed out of band, never folded into the offer price the Exchange signed, so the agent sees what it pays for the resource and what it pays for brokerage (see [Broker: order, budget and fees](/components/broker/overview/#order-budget-and-fees)).
 
 ## Reconciliation
 
@@ -188,7 +188,7 @@ Three independent records ensure transaction integrity:
 2. **Exchange transaction log** (Exchange operator controls): every transaction with its `billing_id` (none for a zero-price item), unit cost and currency, the requester, the signed offer and the agent's signed acceptance, with the public keys their Ed25519 signatures verify under
 3. **Usage reports** (agent files): what the agent actually did with the resource (token count, function, citation)
 
-All three records must agree. Discrepancies are resolved offline, like ad-tech billing discrepancies.
+All three records must agree. Discrepancies are resolved offline, between the parties.
 
 A provider registered on the operator's publisher console sees its sales there. "Overview" totals transactions, gross, the Exchange fee and net for a period. "Transactions" lists each sale, filterable by domain and by usage-report status, and "Verify" checks the sale's two Ed25519 signatures in the browser. "Income" shows daily totals, with "Download CSV". The console is the operator's tool, not part of the protocol. See [After setup](/getting-started/publisher-onboarding/#after-setup) in Publisher Onboarding.
 

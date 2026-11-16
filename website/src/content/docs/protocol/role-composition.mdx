@@ -10,7 +10,7 @@ FORA defines four roles via the `Role` enum in `WellKnownManifest`:
 | Role | Responsibility |
 |---|---|
 | `ROLE_AGENT` | Issues `ResourceQuery` / `TransactionRequest` / `UsageReport`; signs requests with Ed25519 |
-| `ROLE_BROKER` | Fans out across Exchanges, compares offers, deduplicates by `ResourceIdentity`, enforces budget constraints |
+| `ROLE_BROKER` | Fans out across Exchanges, groups offers by `ResourceIdentity`, returns them in its order of relevance, applies the agent's budget constraints |
 | `ROLE_EXCHANGE` | Holds the resource catalog and pricing, authorises transactions, issues signed retrieval endpoints |
 | `ROLE_PUBLISHER` | Owns the content, declares RSL terms, optionally self-attests resources, serves delivery |
 
@@ -42,7 +42,7 @@ In other words: the protocol does not assume that distinct roles are run by dist
 
 ## Implications
 
-- An operator that runs both an Exchange and a Broker MUST NOT route every Broker request to its own Exchange when other Exchanges hold matching offers at lower `unit_cost`. The protocol does not enforce this behaviourally, but the Broker's offer comparison is auditable from its outbound signed `ResourceQuery` traffic and the resulting Offers — agents and regulators can verify routing fairness from the wire.
+- An operator that runs both an Exchange and a Broker MUST NOT route every Broker request to its own Exchange when other Exchanges hold matching offers. The agent gets the other Exchanges' offers too, in the Broker's order of relevance, and decides. The protocol does not enforce this behaviourally, but the Broker's routing is auditable from its outbound signed `ResourceQuery` traffic and the resulting Offers — agents and regulators can verify routing fairness from the wire.
 - An operator that runs both an Agent and an Exchange MUST sign the Agent's `TransactionRequest` with the Agent role's key, not the Exchange's. Mixing keys is an attestation forgery; the resulting offer trail will fail verification by anyone who pulls the relevant `WellKnownManifest` files.
 - An operator that runs a Publisher and an Exchange MAY self-attest resources at Level 1 (publisher signs its own `ResourceAttestation`). Agents that require Level 2 verification will discount or ignore Level 1 self-attestations from the same operator that runs the Exchange — see [Content Attestation](/protocol/content-attestation/#three-verification-levels) for trust-policy patterns.
 

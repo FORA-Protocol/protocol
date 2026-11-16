@@ -317,11 +317,16 @@ fi
 
 # --- 3. Wrong-org references -----------------------------------------------
 # The project lives at github.com/FORA-Protocol. The pre-rename org literal must not
-# appear anywhere — code, docs, config, copyright. The literal is built from two
-# pieces below so this script does not contain it verbatim, and therefore scans its
-# own file too (no self-exclusion blind spot).
+# appear anywhere — code, docs, config, copyright. The match is case-sensitive: an org,
+# a module path or a package name is written in lower case, while the company's name in
+# prose ("Postindustria runs the console on this site") is a fact about an operator,
+# not a stale reference. The literal is built from two pieces below so this script
+# does not contain it verbatim, and therefore scans its own file too (no
+# self-exclusion blind spot).
 old_org='postin''dustria'
-org_hits=$(git grep -niF "$old_org" -- . 2>/dev/null || true)
+# The company's own website, postindustria.com, is a link to the company, not a
+# stale org reference, so a match followed by ".com" is allowed.
+org_hits=$(git grep -nE "${old_org}([^.]|\.[^c]|\.c[^o]|\.co[^m]|$)" -- . 2>/dev/null || true)
 if [ -n "$org_hits" ]; then
   echo "::error::stale '${old_org}' org reference (the project is github.com/FORA-Protocol):"
   echo "$org_hits"

@@ -113,7 +113,7 @@ There is no in-message hop chain. Request authentication is carried in **RFC 942
 ::proto-message{name=Offer}
 
 :::note[An offer carries its price once]
-`Offer.pricing` is the offer's only price: the price execute charges, a Broker ranks, and a metered purchase is charged at. The one term the offer sells, in `Offer.terms`, carries no `pricing` (rule `offer.terms.pricing_unset`). Catalog terms (`ResourceEntry.terms`) still carry their pricing; each offer derives from exactly one of them, so the offer's price and its term's price cannot disagree.
+`Offer.pricing` is the offer's only price: the price execute charges, an agent compares, and a metered purchase is charged at. The one term the offer sells, in `Offer.terms`, carries no `pricing` (rule `offer.terms.pricing_unset`). Catalog terms (`ResourceEntry.terms`) still carry their pricing; each offer derives from exactly one of them, so the offer's price and its term's price cannot disagree.
 :::
 
 :::note[A metered offer may carry an estimate]

@@ -98,7 +98,7 @@ const FAQ = [
   },
   {
     q: 'Will I drop out of ChatGPT answers or AI Overviews?',
-    a: 'No. AI Overviews, Copilot and Siri draw on Googlebot, Bingbot and Applebot, the same crawlers as ordinary search, and FORA lets them through. ChatGPT, Claude, Perplexity and Meta AI each run a search crawler of their own, and FORA lets those through too unless you choose otherwise. On your protected paths, the 403 goes to training crawlers and to bots that load a page live to answer a question: that is where an agent buys. <a href="/components/edge-function/bot-detection/">Which bot is which</a>.',
+    a: 'Not out of AI Overviews, Copilot or Siri. They draw on Googlebot, Bingbot and Applebot, the same crawlers as ordinary search, and FORA lets them through. ChatGPT, Claude, Perplexity and Meta AI each run a search crawler of their own. On your protected paths, FORA refuses those by default, as it refuses training crawlers and bots that load a page live to answer a question, and you can let any of them through. The rest of your site stays open to them. <a href="/components/edge-function/bot-detection/">Which bot is which</a>.',
   },
   {
     q: 'What about AI training?',

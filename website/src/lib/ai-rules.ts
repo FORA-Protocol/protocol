@@ -64,7 +64,7 @@ export function buildRules({ visible, contract, eu, termsUrl }: RuleChoices): Ru
   if (contract) steps.push('Set your access fee in your terms page: paste the guide\'s wording (A), which incorporates the contract, and (B), which states your fee, and fill in the brackets. The contract itself stays unchanged: <a href="/getting-started/search-only-contract/#adopt-the-contract">the wording to paste</a>.');
   if (!visible) steps.push('In Google Search Console, use the "Search generative AI" setting to keep your site out of AI Overviews and AI Mode. No file can set it.');
   steps.push('Archive your robots.txt with the Internet Archive after each change, as dated evidence.');
-  steps.push('Put FORA\'s edge function on the paths you sell. Live fetchers that ignore robots.txt get a 403 that tells them where to buy.');
+  steps.push('Put FORA\'s edge function on the paths you sell. Live fetchers that ignore robots.txt get a 403 that tells them where to buy.' + (visible ? ' By default it refuses the AI search crawlers there too. To keep those paths in AI search, <a href="/components/edge-function/bot-detection/#changing-the-lists">let the crawlers through</a>.' : ''));
 
   return { robots: robots.join('\n'), headers: headers.join('\n'), html: html.join('\n'), steps };
 }
