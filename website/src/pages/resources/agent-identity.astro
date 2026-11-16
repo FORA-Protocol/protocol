@@ -55,7 +55,7 @@ const CREDENTIALS = [
   ['What it tells you', 'Who it is and what it may do', h('What it may do, for whom, and often who it is [8, 17]'), h('Which website it signs for [1]')],
   ['Who issues it', 'You, at sign-up', h('A sign-in server, which can be yours [7]'), h('The agent, itself [1]')],
   ['If it\'s stolen', h('The thief is the agent [18]'), h('The same, unless the token is bound to a key [20]'), h('The thief is the agent until the key is removed and each site\'s copy expires [1]')],
-  ['Before the first request', 'A sign-up', h('Registering the app, or an app ID that is a web address, and often a person\'s approval [7, 21]'), h('Nothing [1]')],
+  ['Before the first request', 'A sign-up', h('Registering the app, or an app ID that is a web address, and often a person\'s approval [7, 21]'), h('Nothing by the standard. Some verifiers, Cloudflare among them, ask an agent to register its keys first [1, 3]')],
   ['Rotation', 'Again at every site', h('At each sign-in server, or once if the app publishes its keys [21, 22]'), h('Once, in the agent\'s own key directory [1]')],
 ];
 
@@ -70,16 +70,16 @@ const MCP_STEPS = [
 const OTHER = [
   ['User agents and IP lists', h('Little: anyone can type a user agent, and cloud IP addresses belong to the platform [1]'), 'On every request', h('Yes, for crawlers that don\'t sign. Google still tells sites to use them [2]')],
   ['Okta Cross App Access, Microsoft Entra Agent ID', h('An agent acting for an employee, managed in the company\'s directory [9, 10]'), 'A corporate customer\'s agents using an API you run for it', 'If you sell data or APIs to companies'],
-  ['Client certificates (mTLS)', h('The client holds a certificate [29]'), h('Between known partners. A user without one gets "an inscrutable and unskippable error" [29]'), 'No'],
-  ['Decentralized identifiers (DIDs), did:web', h('The controller of an identifier controls it "without requiring permission from any other party" [30]. did:web keeps the keys on a website, as Web Bot Auth does [31]'), 'Identity and credential programs', 'Not for bot traffic'],
-  ['Verifiable credentials', h('Claims an issuer signs about someone, "such as a driver\'s license or an education certificate" [32]'), 'Credential programs; a registry could vouch for an agent\'s operator this way', 'Not for bot traffic'],
-  ['AAuth', h('Identity and permission together, on the same kind of signature [33]'), h('Individual IETF drafts, not adopted by a working group [33]'), 'Worth watching'],
+  ['Client certificates (mTLS)', h('The client holds a certificate [30]'), h('Between known partners. A user without one gets "an inscrutable and unskippable error" [30]'), 'No'],
+  ['Decentralized identifiers (DIDs), did:web', h('The controller of an identifier controls it "without requiring permission from any other party" [31]. did:web keeps the keys on a website, as Web Bot Auth does [32]'), 'Identity and credential programs', 'Not for bot traffic'],
+  ['Verifiable credentials', h('Claims an issuer signs about someone, "such as a driver\'s license or an education certificate" [33]'), 'Credential programs; a registry could vouch for an agent\'s operator this way', 'Not for bot traffic'],
+  ['AAuth', h('Identity and permission together, on the same kind of signature [34]'), h('Individual IETF drafts, not adopted by a working group [34]'), 'Worth watching'],
 ];
 
 const FORA_ANSWERS = [
   { title: 'Who it is.', text: h('Every FORA request is signed with Web Bot Auth, with a key the agent\'s own domain publishes [12].') },
-  { title: 'Whom it acts for.', text: h('The buyer is the agent\'s own account. An agent can label the end customer it buys for, but FORA never treats that label as identity [12].') },
-  { title: 'What it may do.', text: h('The license. The Exchange signs each offer, and its terms are those "the parties agree to when the agent accepts the offer" [11].') },
+  { title: 'Whom it acts for.', text: h('The buyer is the agent\'s own account. An agent can label the end customer it buys for, and FORA keeps the label for attribution only [12].') },
+  { title: 'What it may do.', text: h('The license. The Exchange signs each offer, and the agent signs the offer it accepts, with the same keys as its requests [12]. The terms are those "the parties agree to when the agent accepts the offer" [11].') },
   { title: 'Who pays.', text: 'The agent\'s account, billed by the Exchange\'s operator, which pays you under its own rules.' },
 ];
 
@@ -147,6 +147,7 @@ const SOURCES = [
     items: [
       src("ID tokens and identity", "World", "https://docs.world.org/agent-pass/id-tokens-and-identity"),
       src("Use World ID with your agent", "World", "https://docs.world.org/agent-pass/use-world-id-with-your-agent"),
+      src("Hosted Key Directories for Web Bot Auth, draft-singh-webbotauth-hosted-directories-00", "IETF, individual Internet-Draft", "https://datatracker.ietf.org/doc/draft-singh-webbotauth-hosted-directories/"),
       src("Anonymous credentials: rate-limiting bots and agents without compromising privacy", "Cloudflare blog", "https://blog.cloudflare.com/private-rate-limiting/"),
       src("Private Access Tokens challenge", "Apple Developer", "https://developer.apple.com/news/?id=huqjyh7k"),
       src("WebBotAuth Direction", "the working group's chairs, IETF web-bot-auth mailing list", "https://mailarchive.ietf.org/arch/msg/web-bot-auth/gxkMGMC75Sm1LO9WPvZbPKYhNAc/"),
@@ -205,7 +206,7 @@ const MORE = [
   <Band id="token" label="Signature and token" title="How a signature differs from an OAuth token">
     <Split aside="380px">
       <div>
-        <p class="prose" set:html={h('The agent signs each Web Bot Auth request itself, and the signature says which website it belongs to, nothing more [1]. An OAuth access token comes from a sign-in server and lists the scopes, what the agent may do. In its JWT form it also names the client, and the server signs it [8, 17].')} />
+        <p class="prose" set:html={h('The agent signs each Web Bot Auth request itself, and the signature names the website whose key made it [1]. An OAuth access token comes from a sign-in server and lists the scopes, what the agent may do. In its JWT form it also names the client, and the server signs it [8, 17].')} />
         <p class="prose" set:html={h('A plain token is a bearer token: whoever holds it can use it [18]. OAuth\'s security best practice asks servers to bind tokens to the client\'s key, with mutual TLS or DPoP [19].')} />
       </div>
       <Figure
@@ -250,8 +251,8 @@ const MORE = [
   </Band>
 
   <Band tone="near" id="anonymous" label="Anonymous credentials" title="Anonymous credentials">
-    <p class="prose" set:html={h('Web Bot Auth leaves one problem open: a hosted agent platform signs for all of its users, so its signature can\'t tell one user from the next. Cloudflare won\'t use Web Bot Auth to name each user, because that "would create an unacceptable privacy risk". With anonymous credentials, the AI platform vouches for its user, and a site can rate-limit that user without learning who it is [26]. Apple\'s Private Access Tokens do the same for devices: they "prove when HTTP requests are coming from legitimate devices without disclosing someone\'s identity" [27].')} />
-    <p class="prose" set:html={h('The Web Bot Auth working group decided in May 2026 to work on anonymous approaches alongside identity [28].')} />
+    <p class="prose" set:html={h('Web Bot Auth can name a platform or each agent on it. A platform can sign for all of its users under one name, or a registry can give each agent its own subdomain and key directory, so each agent is recognizable on its own [26]. Naming each person who uses a platform is where Cloudflare draws the line: extending Web Bot Auth "to identifying individual users of the platforms" "would create an unacceptable privacy risk for these users". With anonymous credentials, the AI platform vouches for its user, and a site can rate-limit that user without learning who it is [27]. Apple\'s Private Access Tokens do the same for devices: they "prove when HTTP requests are coming from legitimate devices without disclosing someone\'s identity" [28].')} />
+    <p class="prose" set:html={h('The Web Bot Auth working group decided in May 2026 to work on anonymous approaches alongside identity [29].')} />
   </Band>
 
   <Band tone="light" id="other" label="Other schemes" title="Other schemes you'll hear about">
