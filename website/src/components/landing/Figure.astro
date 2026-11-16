@@ -4,6 +4,9 @@
 // "Text version" disclosure that holds the alt text, so every reader can get
 // what the drawing says. Blue in a figure means FORA's path, and nothing else.
 // The images are square PNGs under public/resources/<topic>/<page>/.
+// Clicking a figure (or pressing Enter or Space on it) opens it full screen; a
+// click or Escape closes it. Ported from the zoom on mirin.pro
+// (cm-personal-blog, BaseHead.astro), with keyboard support added.
 //
 //   <Figure src="/resources/content-marketplaces/tollbit/tollbit-3.png"
 //     title="Where the money goes, and who signs the license."
@@ -23,13 +26,77 @@ interface Props {
 const { src, alt, title, caption, width = 1024, height = 1024 } = Astro.props;
 ---
 <figure class="fig">
-  <div class="fig-frame"><img src={src} alt={alt} width={width} height={height} loading="lazy" decoding="async" /></div>
+  <div class="fig-frame" data-lightbox><img src={src} alt={alt} width={width} height={height} loading="lazy" decoding="async" tabindex="0" role="button" aria-label={`Open full size: ${title}`} /></div>
   <figcaption><b>{title}</b>{caption && <> <Fragment set:html={caption} /></>}</figcaption>
   <details>
     <summary>Text version</summary>
     <p>{alt}</p>
   </details>
 </figure>
+
+<script>
+  // One overlay for the page, created on first use.
+  let overlay: HTMLDivElement | null = null;
+  let overlayImg: HTMLImageElement | null = null;
+  let opener: HTMLElement | null = null;
+
+  function close() {
+    if (!overlay) return;
+    overlay.classList.remove('active');
+    document.body.style.overflow = '';
+    opener?.focus();
+  }
+
+  function open(img: HTMLImageElement) {
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'image-zoom-overlay';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.tabIndex = -1;
+      overlayImg = document.createElement('img');
+      overlay.appendChild(overlayImg);
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', close);
+    }
+    opener = img;
+    overlayImg!.src = img.currentSrc || img.src;
+    overlayImg!.alt = img.alt;
+    overlay.setAttribute('aria-label', img.alt);
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    overlay.focus();
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') close();
+  });
+  document.querySelectorAll<HTMLImageElement>('[data-lightbox] img').forEach((img) => {
+    img.addEventListener('click', (e) => { e.preventDefault(); open(img); });
+    img.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(img); }
+    });
+  });
+</script>
+
+<style is:global>
+  [data-lightbox] img { cursor: zoom-in; }
+  .image-zoom-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.9);
+    cursor: zoom-out;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+  }
+  .image-zoom-overlay.active { opacity: 1; visibility: visible; }
+  .image-zoom-overlay img { max-width: 95vw; max-height: 95vh; object-fit: contain; cursor: zoom-out; background: #fff; border-radius: 6px; }
+</style>
 
 <style>
   .fig { margin: 0; min-width: 0; }
