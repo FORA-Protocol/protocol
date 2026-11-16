@@ -24,6 +24,14 @@ publishers page, the AI crawlers resource, the bot table and the rules generator
 not an operator. The publisher console on fora-protocol.org is run by Postindustria, which
 charges publishers no Exchange fee beyond the payment system's transaction fees.
 
+**Proto comments state the SSRF guards instead of citing the threat model (comments only; no
+wire change).** The `License.uri` comment and the CoMP comments on `Package.licenseurl`,
+`Package.reporturl` and `Retrieval.endpoint` cited threat ID T-LIC-1 in the threat model. They
+now state the guards themselves: a scheme allowlist, blocking loopback, private and metadata
+addresses (resolve-then-check), fetching through an egress proxy, and treating the response as
+untrusted content. The CoMP comments say these are the guards specified for `License.uri`. The
+`DiscoveryResponse.absence_reason` comment no longer ends "See the threat model."
+
 **The fora-music-v1 search filter keys are a published JSON Schema (docs and schema; no wire
 change).** The 23 keys of `DiscoveryRequest.search_filters` are one file,
 `schemas/music/v1/music-v1.search-filters.schema.json`, published at

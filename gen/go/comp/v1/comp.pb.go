@@ -809,14 +809,18 @@ type Package struct {
 	// Canonical domain of the packager, if different than the seller.
 	Packager *string `protobuf:"bytes,4,opt,name=packager,proto3,oneof" json:"packager,omitempty"`
 	// URL for AI system to find the License(s) required to access content.
-	// SSRF/fetch sink: a consumer that dereferences this URL must apply the
-	// countermeasures specified for core License.uri (threat model T-LIC-1).
+	// SSRF/fetch sink: before dereferencing, apply the SSRF guards specified
+	// for core License.uri: scheme allowlist, block loopback/private/metadata
+	// addresses (resolve-then-check), fetch via an egress proxy, and treat the
+	// response as untrusted content.
 	Licenseurl *string `protobuf:"bytes,5,opt,name=licenseurl,proto3,oneof" json:"licenseurl,omitempty"`
 	// Whether citation of the Content Owner is required. 0=no, 1=yes.
 	Citation *int32 `protobuf:"varint,6,opt,name=citation,proto3,oneof" json:"citation,omitempty"`
 	// URL for AI system to send usage reporting to the Content Owner or
-	// Marketplace. POST/exfil sink: apply the SSRF countermeasures specified
-	// for core License.uri (threat model T-LIC-1) before dereferencing.
+	// Marketplace. POST/exfil sink: before dereferencing, apply the SSRF
+	// guards specified for core License.uri: scheme allowlist, block
+	// loopback/private/metadata addresses (resolve-then-check), fetch via an
+	// egress proxy, and treat the response as untrusted content.
 	Reporturl *string `protobuf:"bytes,7,opt,name=reporturl,proto3,oneof" json:"reporturl,omitempty"`
 	// Scope of content in this package.
 	Scope *Scope `protobuf:"bytes,8,opt,name=scope,proto3,oneof" json:"scope,omitempty"`
@@ -1743,8 +1747,10 @@ type Retrieval struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Authorization type.
 	Auth *RetrievalAuth `protobuf:"varint,1,opt,name=auth,proto3,enum=comp.v1.RetrievalAuth,oneof" json:"auth,omitempty"`
-	// Entry point / feed URI. SSRF/fetch sink: apply the countermeasures
-	// specified for core License.uri (threat model T-LIC-1) before fetching.
+	// Entry point / feed URI. SSRF/fetch sink: before fetching, apply the SSRF
+	// guards specified for core License.uri: scheme allowlist, block
+	// loopback/private/metadata addresses (resolve-then-check), fetch via an
+	// egress proxy, and treat the response as untrusted content.
 	Endpoint *string `protobuf:"bytes,2,opt,name=endpoint,proto3,oneof" json:"endpoint,omitempty"`
 	// Endpoint type(s).
 	Type          []RetrievalType  `protobuf:"varint,3,rep,packed,name=type,proto3,enum=comp.v1.RetrievalType" json:"type,omitempty"`

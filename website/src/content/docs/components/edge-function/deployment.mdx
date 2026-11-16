@@ -45,7 +45,7 @@ The absolute minimum a provider needs to do:
 
 ## Distribution Formats
 
-The edge function is the edge worker in the reference implementation, [`src/edge`](https://github.com/FORA-Protocol/reference-implementation/tree/v1.1.0/src/edge). It runs on Cloudflare Workers and AWS Lambda@Edge. The reference implementation also has a Fastly Compute entry point, `src/entries/fastly.ts`, which its tests run locally under Viceroy. The edge worker reaches a provider's CDN in one of two formats.
+The edge function is the edge worker in the reference implementation, [`src/edge`](https://github.com/FORA-Protocol/reference-implementation/tree/v1.1.0/src/edge). It runs on Cloudflare Workers, Fastly Compute and AWS Lambda@Edge, each through its own adapter in `src/entries/`: `cloudflare.ts`, `fastly.ts` and `aws-lambda.ts` ([`README.md`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/src/edge/README.md)). Fastly's WebCrypto has no Ed25519, so `fastly.ts` checks signatures with `@noble/ed25519`. Fastly and Lambda@Edge are tested in Node harnesses, and both get a full Agent → Broker → Exchange → Edge → Origin run in the Docker-based E2E stack, where the Fastly build runs under Viceroy, Fastly's local runtime. The publisher console's automated setup covers Cloudflare and CloudFront, and so do the Terraform modules below. For Fastly, the reference implementation has no console package, no Terraform module and no build script. On Cloudflare and CloudFront, the edge worker reaches a provider's CDN in one of two formats.
 
 ### Format 1: Console Package
 
