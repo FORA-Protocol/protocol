@@ -188,7 +188,7 @@ const Q = {
   koPretraining: `This agreement is limited to regulating the National Library’s training of language models on the data governed by this agreement. It does not affect any pre-training that the base models used by the National Library may have undergone.`,
   offerSig: `REQUIRED. Hex-encoded detached Ed25519 signature over the canonical serialization of the ENTIRE Offer — every field, including \`pricing\`, \`terms\` (the full licensing payload), \`expires_at\`, and \`exchange\`.`,
   acceptance: `The agent's detached acceptance signature over this item's \`offer\`.`,
-  money: `FORA never touches money. It follows the OpenRTB model: the protocol handles authorization and logging, while actual settlement happens outside the protocol through existing billing infrastructure.`,
+  money: `FORA never touches money. The protocol handles authorization and logging, while actual settlement happens outside the protocol through existing billing infrastructure.`,
   manyTerms: `A resource carries zero or more \`LicenseTerm\` entries, at most 32. Each term is a complete, self-contained access arrangement, and a resource with several terms is the normal case.`,
   brokerSearch: `A Broker runs one catalog search, which its operator chooses per deployment. The search only proposes URIs: prices, license terms and signatures always come from the Exchange, so a search result cannot produce an offer the Exchange does not stand behind.`,
   ndpLicensed: `Members of NDP Nieuwsmedia are providing access to their archives, which include articles from over 30 national and regional news titles.`,

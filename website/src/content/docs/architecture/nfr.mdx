@@ -1,6 +1,6 @@
 ---
 title: "Non-Functional Requirements"
-description: "FORA performance, latency, throughput, durability, and cost targets modeled on ad-tech scale"
+description: "FORA performance, latency, throughput, durability and cost targets"
 ---
 
 ## Context: The Numbers That Drive Everything
@@ -15,15 +15,6 @@ description: "FORA performance, latency, throughput, durability, and cost target
 FORA targets the **inference/RAG segment** -- real-time, per-request resource access where an agent needs a specific article to answer a user query.
 
 **Inference traffic estimate**: 20% of 50B = ~10B requests/day = ~115K requests/second globally. A single large Exchange might handle 1-10% of this = **1K-10K RPS**.
-
-### Ad-Tech Benchmarks
-
-- OpenRTB exchanges: **100ms total latency budget**, broadcast to 50+ DSPs
-- Individual SSP bid request assembly: **2-5ms**
-- AWS RTB Fabric: sub-millisecond container-to-container communication
-- Production exchanges handle **millions of QPS**
-
-FORA doesn't need ad-tech scale day one, but the architecture must not preclude it.
 
 ## Latency Requirements
 

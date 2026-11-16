@@ -5,7 +5,7 @@ description: "FORA production architecture: components, roles, protocol flows, a
 
 ## What We're Building
 
-Open-source infrastructure components for metered resource access. Like Prebid.js -- the protocol and reference implementations are free; wiring them into an Exchange operator's billing or a provider's CMS is custom consulting work.
+Open-source infrastructure components for metered resource access. The protocol and FORA Server are free; an Exchange operator wires them into its own billing, and a provider into its own CMS.
 
 ### Components
 
@@ -16,19 +16,6 @@ Open-source infrastructure components for metered resource access. Like Prebid.j
 | **Agent SDK** | AI agent developers | Embedded in agent process; handles discovery, negotiation, resource fetch, budget, and usage reporting via one-liner `Fetch(url)` API |
 | **Edge Function** | Provider | Provider's CDN (CloudFront/Cloudflare/Fastly) |
 | **Client SDK** | AI agent developers | Low-level generated Connect client for direct Exchange RPC access (no orchestration logic) |
-
-### Role Mapping (Ad-Tech Analogy)
-
-```
-Ad Tech                    FORA / CoMP                PoC Equivalent
-─────────────────────────────────────────────────────────────────────
-Browser (user)          →  AI Agent                  →  MCP Tool
-DSP SDK (prebid.js)     →  Agent SDK (embedded)      →  (not built yet)
-DSP server              →  FORA Broker               →  (not built yet)
-SSP / Exchange          →  Exchange                  →  Gateway + Registry
-Provider               →  Resource Provider           →  demo.fora-protocol.org
-CDN / Ad Creative       →  Resource Delivery Endpoint  →  CloudFront + S3
-```
 
 ## Protocol Architecture
 
