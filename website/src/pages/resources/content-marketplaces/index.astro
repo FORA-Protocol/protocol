@@ -259,7 +259,7 @@ const MAP_FORA = {
     `FORA itself is free. Each sale in your operator's console ${cite(1)}. The console's fee and payout: see ${ABOUT}`,
     `You, per term, by use, country and buyer type ${cite(5)}`,
     `Free, flat, or per unit you name: text tokens (about ¾ of a word), pages, seconds or your own ${cite(4, 5)}`,
-    `An edge function and one file; Cloudflare or CloudFront only ${cite(1)}. See ${a('#fora', 'What FORA takes')}`,
+    `An edge function and one file; Cloudflare, Fastly or CloudFront only ${cite(1, 2)}. See ${a('#fora', 'What FORA takes')}`,
     '—',
   ],
 };
@@ -301,7 +301,7 @@ const MAP = [
         'The partner',
         'The partner\'s',
         'Bot management plus the partner\'s rule',
-        `FORA's edge ships for Cloudflare and CloudFront, not these two ${cite(1)}`,
+        `FORA's edge runs on Fastly, not on Akamai ${cite(1, 2)}`,
       ] },
       { player: 'MonetizationOS', cells: [
         `Access plans for readers and bots ${cite(47)}`,
@@ -722,7 +722,7 @@ const TODO = [
   { title: 'List what you hand over.', text: 'A subdomain, your logs with your readers\' requests in them, a copy of your archive, a CDN rule. Ask how many engineer-days each one takes.' },
   { title: 'Keep one price per page.', text: 'If a page is on sale in two places, know both prices.' },
   { title: 'Order your CDN rules.', text: 'Let each partner\'s fetcher and the search crawlers through, and keep each paywall\'s rule off the others\' paying buyers.' },
-  { title: 'Sell to agents as well.', text: 'Register with an Exchange operator, serve your FORA file and install the edge function on Cloudflare or CloudFront. Agents can then buy under your terms beside every channel above.' },
+  { title: 'Sell to agents as well.', text: 'Register with an Exchange operator, serve your FORA file and install the edge function on Cloudflare, Fastly or CloudFront. Agents can then buy under your terms beside every channel above.' },
 ];
 
 const LEGAL = [
