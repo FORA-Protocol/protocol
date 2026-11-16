@@ -88,6 +88,7 @@
 /reference/proto-fora/
 /reference/standards/
 /resources/
+/resources/agent-identity/
 /resources/ai-crawlers/
 /resources/content-marketplaces/
 /resources/content-marketplaces/cloudflare/
