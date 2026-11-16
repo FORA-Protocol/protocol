@@ -32,6 +32,14 @@ export const RESOURCES: Resource[] = [
     updated: '2026-11-12',
   },
   {
+    href: '/resources/web-bot-auth/',
+    title: 'Web Bot Auth: how an AI agent proves who it is',
+    summary: 'An AI agent can sign every request with a key its own domain publishes, and open an account with no email or password. Who signs, what changes in your stack, the argument over who gets in, and how FORA uses it.',
+    audience: 'Publishers and engineers',
+    formats: ['Guide'],
+    updated: '2026-11-16',
+  },
+  {
     href: '/resources/transparent-collective/',
     title: 'A fair licensing collective',
     summary: 'How a fair AI licensing collective works on FORA: published money, your own terms per URL, a signed record of every fetch. With a scorecard of the eight schemes running or announced today.',

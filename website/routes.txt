@@ -99,4 +99,5 @@
 /resources/standards-map/
 /resources/transparent-collective/
 /resources/transparent-collective/evidence/
+/resources/web-bot-auth/
 /security/threat-model/

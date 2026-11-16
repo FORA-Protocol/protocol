@@ -12,7 +12,8 @@
 //
 //   <PointList tone="neutral" items={AHEAD} />
 interface Props {
-  items: { title: string; text: string }[];
+  /** A point may be text only, with no bold lead-in. */
+  items: { title?: string; text: string }[];
   numbered?: boolean;
   tone?: 'fora' | 'neutral';
 }
@@ -21,7 +22,7 @@ const Tag = numbered ? 'ol' : 'ul';
 ---
 <Tag class:list={['points', { numbered, neutral: tone === 'neutral' }]}>
   {items.map((it) => (
-    <li><span><b>{it.title}</b> <Fragment set:html={it.text} /></span></li>
+    <li><span>{it.title && <><b>{it.title}</b> </>}<Fragment set:html={it.text} /></span></li>
   ))}
 </Tag>
 

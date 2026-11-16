@@ -1,0 +1,608 @@
+---
+// Resource: Web Bot Auth, how an AI agent proves who it is (RES-2). Its own
+// order: the key takeaway and the account without a password, who signs and
+// how much is signed, what changes in your stack, how it works, what a
+// signature proves, the allow list, the argument over who gets in, the other
+// ways to identify an agent, how FORA uses it, the detail for engineers, the
+// questions, and About FORA with the sources.
+//
+// Shared texts (About FORA, the definitions, the search callout, the tagline)
+// come from src/data/content-marketplaces.ts. A claim cites its source with
+// cite(N), which links to entry N of the numbered SourceList at the foot;
+// SOURCES below is numbered as the copy numbers it, so an entry's position is
+// its number. Text with links is HTML and goes through set:html.
+import LandingLayout from '../../layouts/LandingLayout.astro';
+import AudienceHero from '../../components/landing/AudienceHero.astro';
+import Band from '../../components/landing/Band.astro';
+import Callout from '../../components/landing/Callout.astro';
+import Figure from '../../components/landing/Figure.astro';
+import KeyFacts from '../../components/landing/KeyFacts.astro';
+import PullQuote from '../../components/landing/PullQuote.astro';
+import Split from '../../components/landing/Split.astro';
+import PointList from '../../components/landing/PointList.astro';
+import StepList from '../../components/landing/StepList.astro';
+import ResourceTable from '../../components/landing/ResourceTable.astro';
+import FaqGrid from '../../components/landing/FaqGrid.astro';
+import LinkRow from '../../components/landing/LinkRow.astro';
+import SourceList from '../../components/landing/SourceList.astro';
+import ClosingCta from '../../components/landing/ClosingCta.astro';
+import { resourceUpdated } from '../../data/resources';
+import { ABOUT_FORA, DEFINITIONS, SEARCH_FORA, TAGLINE } from '../../data/content-marketplaces';
+import { cite, statusTag } from '../../lib/resource-markup';
+
+const HREF = '/resources/web-bot-auth/';
+const IMG = '/resources/web-bot-auth';
+const a = (href: string, text: string) => `<a href="${href}">${text}</a>`;
+const c = (s: string) => `<code>${s}</code>`;
+
+// Every external source the page links, in SourceList order.
+const S = {
+  draft01: 'https://www.ietf.org/archive/id/draft-ietf-webbotauth-httpsig-protocol-01.txt',
+  rfc9421: 'https://www.rfc-editor.org/rfc/rfc9421',
+  draft00: 'https://www.ietf.org/archive/id/draft-ietf-webbotauth-httpsig-protocol-00.txt',
+  openaiAllow: 'https://help.openai.com/en/articles/11845367-chatgpt-works-cloud-browser-allowlisting',
+  google: 'https://developers.google.com/crawling/docs/crawlers-fetchers/web-bot-auth',
+  cfBrowserRun: 'https://developers.cloudflare.com/browser-run/reference/automatic-request-headers/',
+  radar: 'https://radar.cloudflare.com/bots/directory',
+  exa: 'https://crawler.exa.ai/',
+  browserbase: 'https://docs.browserbase.com/platform/identity/web-bot-auth',
+  agentcore: 'https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/browser-web-bot-auth.html',
+  openaiBots: 'https://developers.openai.com/api/docs/bots',
+  sail: 'https://datatracker.ietf.org/doc/draft-kelley-webbotauth-sail/',
+  perplexity: 'https://docs.perplexity.ai/docs/resources/perplexity-crawlers',
+  cfWba: 'https://developers.cloudflare.com/bots/reference/bot-verification/web-bot-auth/',
+  cfVerified: 'https://developers.cloudflare.com/bots/concepts/bot/verified-bots/',
+  arkose: 'https://www.arkoselabs.com/agentic-ai-trust-report-q3-2026',
+  cfVerifyCrawler: 'https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-ai-owner/verify-ai-crawler/',
+  awsWaf: 'https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-bot.html',
+  openaiAccess: 'https://developers.openai.com/commerce/agent-access',
+  datadome: 'https://docs.datadome.co/docs/bot-authentication',
+  shopify: 'https://shopify.dev/changelog/bots-and-agents-should-identify-themselves-via-web-bot-auth',
+  cfPolicies: 'https://developers.cloudflare.com/bots/additional-configurations/block-ai-bots/',
+  registry: 'https://www.ietf.org/archive/id/draft-meunier-webbotauth-registry-04.txt',
+  direction: 'https://mailarchive.ietf.org/arch/msg/web-bot-auth/gxkMGMC75Sm1LO9WPvZbPKYhNAc/',
+  minutes: 'https://datatracker.ietf.org/doc/minutes-126-webbotauth/',
+  adoption: 'https://mailarchive.ietf.org/arch/msg/web-bot-auth/IHIsC9v_WDK_fv2SalA4KeMl8GI/',
+  nottingham: 'https://mailarchive.ietf.org/arch/msg/web-bot-auth/5wm6ZdVbl-hb48_GE7XCnJaRICE/',
+  eff: 'https://www.eff.org/deeplinks/2026/06/free-and-open-web-under-attack-ietf',
+  kuehlewind: 'https://mailarchive.ietf.org/arch/msg/web-bot-auth/M7Gpx_Vow1pCJ65vt2MAvPsqtPI/',
+  cfPast: 'https://blog.cloudflare.com/past-bots-and-humans/',
+  bgov: 'https://news.bgov.com/bloomberg-government-news/new-york-becomes-first-state-to-ban-bots-that-scrape-news-sites',
+  nma: 'https://www.newsmediaalliance.org/ny-state-senate-stealth-crawler-bill-passage/',
+  effVeto: 'https://www.eff.org/deeplinks/2026/08/eff-joins-18-civil-rights-organizations-calling-governor-hochul-reject-stealth',
+  acp: 'https://github.com/agentic-commerce-protocol/agentic-commerce-protocol/blob/7fdd78df677a94dce04c770644b0fbbb1401272b/rfcs/rfc.agentic_checkout.md',
+  cfBlog: 'https://blog.cloudflare.com/web-bot-auth/',
+  mcpAuth: 'https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization',
+  mcpReg: 'https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/client-registration',
+  siwc: 'https://developers.openai.com/commerce/guides/integrate-sign-in-with-chatgpt',
+  world: 'https://docs.world.org/agent-pass/quickstart',
+  okta: 'https://developer.okta.com/docs/concepts/xaa/',
+  entra: 'https://learn.microsoft.com/en-us/entra/agent-id/what-is-microsoft-entra-agent-id',
+  visa: 'https://developer.visa.com/docs/trusted-agent-protocol/trusted-agent-protocol-specifications',
+  mastercard: 'https://developer.mastercard.com/merchant-cloud/documentation/tutorials-and-guides/agentic-commerce-guide/21/',
+  cfAnon: 'https://blog.cloudflare.com/private-rate-limiting/',
+  aauth: 'https://datatracker.ietf.org/doc/draft-hardt-oauth-aauth-protocol/',
+};
+
+const TAKEAWAY = 'Some agents that act for a user sign their requests, ChatGPT\'s cloud browser among them. The big training and search crawlers don\'t. Web Bot Auth helps you sell to the agents that want to be known. It doesn\'t help you block the ones that hide, because a bot that wants to hide won\'t sign.';
+
+const KEY_DIRECTORY = {
+  tag: 'What is a key directory?',
+  text: `A small file on the agent's domain, usually at ${c('/.well-known/http-message-signatures-directory')}, listing the public keys the agent signs with. Whoever controls the domain controls the file, so the domain stands behind the keys ${cite(1)}.`,
+};
+
+const SIGNERS = [
+  ['OpenAI', `ChatGPT Work's Cloud browser signs, as ${c('https://chatgpt.com')}`, `OpenAI's allowlisting guide; its key directory answers ${cite(4)}`],
+  [`Google ${statusTag('experimental')}`, `Some Google-Agent requests, as ${c('https://agent.bot.goog')}`, `"We don't sign every request of a particular agent" ${cite(5)}`],
+  ['Cloudflare', 'Its own fetchers sign, among them Browser Run, its crawler and AI Search', `Cloudflare's docs; Cloudflare Radar's bot directory ${cite(6, 7)}`],
+  ['Exa', 'ExaSearchBot and ExaUser sign', `"Every ExaSearchBot request is cryptographically signed"; ExaUser is listed on Radar ${cite(7, 8)}`],
+  [`Browserbase ${statusTag('closed-beta')}`, 'Hosted browsers sign, for accounts Browserbase enables', `"Contact Browserbase to enable Web Bot Auth for your account" ${cite(9)}`],
+  ['Shopify', 'Cloudsurf, its agent browser for Sidekick, signs', `Listed on Radar, with a key directory that answers ${cite(7)}`],
+  [`Amazon ${statusTag('preview')}`, 'Bedrock AgentCore Browser signs when the customer turns it on', `"The feature is disabled by default and must be explicitly enabled" ${cite(10)}`],
+  ['OpenAI', 'GPTBot, OAI-SearchBot and ChatGPT-User don\'t sign', `Published IP lists ${cite(11)}`],
+  ['Google', 'Googlebot doesn\'t sign', `Google tests it "with some AI agents"; no Google entry on Radar lists it ${cite(5, 7)}`],
+  ['Anthropic', 'ClaudeBot, Claude-User, Claude-SearchBot and the hosted browser Claude-Agent don\'t sign', `robots.txt for the crawlers; an IP list for Claude-Agent ${cite(12, 13, 14)}`],
+  ['Perplexity', 'Perplexity-User and PerplexityBot don\'t sign', `Published IP lists ${cite(15)}`],
+];
+
+const KEY_FACTS = [
+  { value: '2.3%', text: `Of the agent sessions Arkose Labs judged legitimate carried a verified signature, on protected actions such as login, registration and checkout, Q3 2026. Arkose's own data ${cite(18)}` },
+  { value: '78.4%', text: `Of ChatGPT agent's sessions were signed in the same report, "the only agent that signed at scale" ${cite(18)}` },
+  { value: '722', text: `Of the 1,492 bots in Cloudflare Radar's directory name Web Bot Auth as their verification method. That counts bots that can sign, one listing each, not their traffic ${cite(7)}` },
+  { value: '12 of 41', text: `Bots that Radar files as AI crawlers name it. Five are Cloudflare's own, and GPTBot, ClaudeBot, Amazonbot and Meta's crawlers aren't among them ${cite(7)}` },
+];
+
+const STACK = [
+  { text: `Cloudflare verifies signatures from bots that registered their key directory with it, and adds them to its list of verified bots ${cite(16)}. Its Pay Per Crawl asks crawlers to be verified ${cite(19)}.` },
+  { text: `AWS WAF Bot Control labels each signed request verified, invalid, expired or unknown, and a custom rule can act on the label ${cite(20)}.` },
+  { text: `Cloudflare, Akamai, HUMAN and Vercel verify the signatures of ChatGPT's cloud browser automatically, by OpenAI's guide for site owners ${cite(21)}. DataDome verifies signatures for bots that apply through its form ${cite(22)}.` },
+  { text: `Shopify throttles bots that don't sign: since May 30, 2026, they "are subject to the strictest limits" ${cite(23)}.` },
+  { text: `For bots that don't sign, such as GPTBot, ClaudeBot and PerplexityBot, the controls stay as they are: robots.txt, user agents and IP lists. ${a('/resources/ai-crawlers/', 'How to control which bots get in →')}` },
+  { text: `Cloudflare's verifier reads the header format of an earlier draft. FORA signs in a newer format, which it rejects, so Cloudflare's own check doesn't verify FORA's signatures ${cite(16)}.` },
+  { text: `FORA's edge function doesn't rely on that check. It's a drop-in that runs as code on Cloudflare Workers, Fastly Compute and Lambda@Edge. By default it checks that whoever fetches a signed link holds the buyer's key ${cite(24)}.` },
+  { text: `On CloudFront, the edge function runs as Lambda@Edge. CloudFront's own signed URLs, which an Exchange can issue instead, are a different thing. CloudFront checks only their signature and expiry, so whoever holds one can fetch the page until it expires ${cite(24)}.` },
+];
+
+const HOW = [
+  { text: 'The operator creates a key pair and puts the public key in the key directory on its domain.' },
+  { text: 'The agent signs each request. The signature covers at least the site\'s address and the header that names the directory, with the time it was made and the time it expires.' },
+  { text: `The site reads the directory's address from the first request and fetches it. It caches the directory and fetches it again when the cache expires ${cite(1)}.` },
+  { text: `The site checks the signature with the key the directory lists. What it ends up with is a pair: the directory's address and a key published there ${cite(1)}.` },
+  { text: `The site applies its own policy: allow, slow down, serve differently or refuse. In the draft's words, a valid signature "does not guarantee that the request will be accepted" ${cite(1)}.` },
+];
+
+const SIGNATURE_AGENT = {
+  tag: 'What is Signature-Agent?',
+  text: `The request header that names the agent's key directory. A site attaches no policy to it until it has resolved that directory and the signature checks out with a key from it. Until then, in the draft's words, it "is a claim rather than an identity" ${cite(1)}.`,
+};
+
+const CAUTIONS = [
+  { text: `A stolen key passes. Whoever holds the private key is the agent until the key leaves the directory and each site's cached copy expires ${cite(1)}.` },
+  { text: `A taken-over domain passes. Resolving the directory shows that "Whoever controls that URL says this key signs for it". The draft adds: "It does not say that the operator of that URL is honest" ${cite(1)}.` },
+  { text: `One domain can carry many users. A hosted agent platform signs for all of its customers, so trusting its domain trusts each of them. In Cloudflare's words, "you may trust the intermediary operator, but not necessarily every end user driving it" ${cite(17)}.` },
+];
+
+const LAYERS = [
+  { title: 'Network hints.', text: `User agents, published IP lists and reverse DNS cost nothing to check. Google calls them "the de facto standard" and tells sites to keep them as a fallback ${cite(5)}. They break on shared cloud addresses ${cite(1)}.` },
+  { title: 'Per-site secrets.', text: `API keys and OAuth client credentials work inside one site, after an account exists. OpenAI and Stripe's Agentic Commerce Protocol uses a bearer key per merchant ${cite(43)}. This is the sign-up Web Bot Auth replaces.` },
+  { title: 'Client certificates.', text: `With mTLS the client shows a certificate when it connects. Cloudflare looked at it for bots and noted that a client without one gets "an inscrutable and unskippable error" ${cite(44)}. HTTP signatures survive the CDNs and proxies in between, as long as those don't rewrite the signed parts ${cite(1)}.` },
+  { title: 'OAuth for agents.', text: `MCP, the protocol AI assistants use to call tools, deprecates Dynamic Client Registration, where a client registers with each server ${cite(45)}. It recommends a Client ID Metadata Document, an HTTPS address that serves as the client's ID, when client and server have no prior relationship ${cite(46)}. The registry draft says "An existing Client ID Metadata Document is therefore a valid Signature Agent Card" ${cite(32)}.` },
+  { title: 'The user.', text: `Sign in with ChatGPT links a customer's ChatGPT identity to an account at a shop ${cite(47)}. World ID's sign-in gives the person behind an agent an identifier of their own per site or group of sites ${cite(48)}.` },
+  { title: 'Enterprise identity.', text: `Okta's Cross App Access and Microsoft Entra Agent ID manage agents inside one company's directory ${cite(49, 50)}.` },
+  { title: 'Payment schemes.', text: `Visa's Trusted Agent Protocol and Mastercard Agent Pay use the same RFC 9421 signatures, with the keys held in the scheme's own registry. A valid Visa signature proves "the Agent's participation in the Payment Scheme specific program" ${cite(51, 52)}.` },
+  { title: 'Anonymous credentials.', text: `Privacy Pass tokens and Cloudflare's anonymous credentials prove that a trusted issuer vouched for a client without naming it. Cloudflare says naming each user of a platform "would create an unacceptable privacy risk" ${cite(53)}.` },
+  { title: 'A rival design.', text: `AAuth, with HTTP Signature Keys, uses the same signatures with a different header. It bundles a pseudonymous option and authorization into one family of drafts, where Web Bot Auth covers identity only ${cite(54)}.` },
+];
+
+const FORA_STEPS = [
+  { text: `The identity is the domain. An agent is the host that serves its key directory: "If you control the domain, you control the key." A subdomain is a different party ${cite(29)}.` },
+  { text: `Registration carries no password or API key, because the signature is the credential. The Exchange takes who is registering from the verified signature, never from what the request says ${cite(25)}.` },
+  { text: `Each signature covers more than the minimum: the method, the full address, a digest of the body and a one-time random value. It lives a few minutes. A request that fails the check is rejected, with "No fallback, no degraded mode" ${cite(29)}.` },
+  { text: `The account belongs to the domain, and a key rotation keeps it ${cite(29)}.` },
+  { text: `The signed link names the buyer's key. FORA's edge function, which runs as code on your CDN, checks that whoever fetches the link holds that key. A copied link fetches nothing without the private key ${cite(24)}.` },
+];
+
+// The engineers' detail: three groups, each a list.
+const ENG_SIGN = [
+  `Send ${c('Signature-Agent')} as a dictionary and cover your member: ${c('("@authority" "signature-agent";key="sig1")')}. Draft -01 says "Signers MUST send the dictionary form" ${cite(1)}.`,
+  `The member's value changed between drafts. In -00 it's an origin, and the verifier looks up the well-known path there. In -01 it's the URL of your key set, and a verifier "fetches that URL directly" ${cite(1, 3)}.`,
+  `Cloudflare's verifier accepts the earlier quoted-string form, ${c('"https://signature-agent.test"')}. It fails the dictionary form and the ${c('key')} component parameter ${cite(16)}. Draft -01 lets a verifier accept the string form but doesn't require it ${cite(1)}.`,
+  `Google sends ${c('g="https://agent.bot.goog"')}, a dictionary naming its origin, which is the form of draft -00. OpenAI sends the string ${c('"https://chatgpt.com"')} ${cite(3, 4, 5)}.`,
+  `Set ${c('tag="web-bot-auth"')}, ${c('created')} and ${c('expires')}, at most 24 hours apart by the draft's recommendation. Set ${c('keyid')} to the key's base64url JWK SHA-256 thumbprint (RFC 7638; RFC 8037 Appendix A.3 for Ed25519) ${cite(1)}.`,
+  `Cover ${c('@authority')} or ${c('@target-uri')}. A signature over ${c('@authority')} alone "verifies against any method, path, or body sent to that authority until it expires" ${cite(1)}.`,
+  `To narrow it, also cover ${c('@method')} and ${c('@path')} or ${c('@target-uri')}, and send and cover ${c('Content-Digest')} for a body. The draft sets no nonce rule. Cloudflare says "there is currently no nonce validation" and, of ${c('expires')}, "A minute is often sufficient" ${cite(1, 16)}.`,
+  `Algorithms should be registered in the HTTP Message Signatures algorithm registry, and the draft's test vectors use Ed25519 and RSA-PSS with SHA-512. Cloudflare "accepts all valid Ed25519 keys found in your key directory" ${cite(1, 16)}.`,
+  `Serve the directory over https as a JWK Set. At the well-known path its media type must be ${c('application/http-message-signatures-directory+json')} ${cite(1)}.`,
+  `Sign the response once per key over ${c('"@authority";req')} and ${c('content-digest')}. The draft recommends it, and Cloudflare requires it before it registers a directory ${cite(1, 16)}.`,
+  `Rotate in three steps: add the new key before you use it, keep the old one until it expires, then remove it, so "the directory's cache lifetime bounds how long a removed key keeps verifying". The draft "defines no revocation" ${cite(1)}.`,
+];
+
+const ENG_VERIFY = [
+  `Fetch the member's URL over https, accept only a 200 and follow no redirects. Guard the fetch against server-side request forgery. Attach no policy to the URL until a key from it verifies the signature ${cite(1)}.`,
+  `"Key lookup MUST be keyed on the (URL, key) pair, not on the key alone" ${cite(1)}.`,
+  `Cache the directory under normal HTTP caching rules and refresh it when it goes stale. A failed fetch "MUST NOT evict a cached entry", and failed lookups should stay cached five minutes at most ${cite(1)}.`,
+  `To ask for a signature, send ${c('Accept-Signature')}, usually with a 403. A signature or nonce used more often than your policy allows can get a 429. Whether to require nonces "is deployment policy" ${cite(1)}.`,
+];
+
+const ENG_FORA = [
+  `FORA signs the profile of draft -00, the one the working group adopted on September 1, 2026. A -00 verifier checks a FORA signature without knowing FORA, and ignores the members FORA adds to its directory ${cite(3, 29)}.`,
+  `Its ${c('Signature-Agent')} is a dictionary naming the signer's https origin, such as ${c('sig1="https://research.acme.com"')}, covered with the ${c('key')} parameter. Cloudflare's verifier rejects that form ${cite(16, 29)}.`,
+  `On every FORA call the signature also covers ${c('@method')}, ${c('@target-uri')}, ${c('content-digest')} and ${c('authorization')}, sent empty when there's no token. It carries a fresh 64-byte random ${c('nonce')} ${cite(29)}.`,
+  `The lifetime is "a few minutes", and the docs' example uses 300 seconds. A FORA verifier that keeps a replay store refuses a signature it has already accepted ${cite(29)}.`,
+  `A FORA directory must be signed. Each key is Ed25519 and carries ${c('not_before')} and ${c('not_after')}. A FORA verifier follows only members of -00's default ${c('directory')} type, so it ignores a ${c('jwks_uri')} or ${c('cimd')} member ${cite(29)}.`,
+  `A directory may name a ${c('revocation_url')}. FORA verifiers poll it every 300 seconds, with 10% jitter, and each list revokes only its own keys ${cite(29)}.`,
+  `In Web Bot Auth the identity is the directory's URL. FORA narrows it to the host, and a subdomain is a different party ${cite(29)}.`,
+  `A signed link names the thumbprint of the buyer's key. The buyer sends its public key with the fetch, so the edge function checks the link, the thumbprint and the signature without fetching the buyer's directory ${cite(24)}.`,
+  `An agent on its own domain holds its own key. On FORA's Identity Service, the service creates the key, "keeps the private key in its key store" and signs for the agent ${cite(30)}.`,
+  `The docs name the cost of custody: "a compromised registry could already impersonate every agent in its custody" ${cite(30)}.`,
+  `The Identity Service gives "One developer, one subdomain, one key". The subdomain is random and "leaks no identity", and it's the same at every Exchange, so Exchanges can link one developer's requests across them ${cite(1, 30)}.`,
+];
+
+// Quoted verbatim from draft -01, with its RFC 8792 line wrapping.
+const SIGNED_REQUEST = String.raw`NOTE: '\' line wrapping per RFC 8792
+
+Signature-Agent: sig2="https://signature-agent.test"
+Signature-Input: sig2=("@authority" "signature-agent";key="sig2")\
+ ;created=1735689600\
+ ;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U"\
+ ;alg="ed25519"\
+ ;expires=4889289600\
+ ;nonce="n9p433xm+NJ3ph3upfBIGmsuwHw387YV7Q/F+6BSpGCVjYCqQw6rznNA8PVVLySrAWsv0hQtFioQb6E1YsauiA=="\
+ ;tag="web-bot-auth"
+Signature: sig2=:CGokAoY/FrPpyuzTe1Fb2kLTAH9Idw6qSFd1+D77r1firsMRCxeuLu5e6O+ek3zQgDMAzjiXtLVfqE00xnABCQ==:`;
+
+const DIRECTORY = `GET /.well-known/http-message-signatures-directory HTTP/1.1
+Host: example.com
+Accept: application/http-message-signatures-directory+json
+
+HTTP/1.1 200 OK
+Content-Type: application/http-message-signatures-directory+json
+Cache-Control: max-age=86400
+{
+  "keys": [{
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "kid": "NFcWBst6DXG-N35nHdzMrioWntdzNZghQSkjHNMMSjw",
+    "x": "JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs",
+    "use": "sig",
+    "nbf": 1712793600,
+    "exp": 1715385600
+  }]
+}`;
+
+const FAQ = [
+  { q: 'Do I need Cloudflare, or any one vendor, to check signatures?', a: `No. The key directory sits on the agent's domain, and any site or vendor can check it by the draft's rules ${cite(1)}. Each verifier decides which agents it knows. Cloudflare's checks the directories registered with it ${cite(16)}.` },
+  { q: 'Does requiring signatures affect search?', a: `Googlebot doesn't sign, and Google tells sites to keep relying on IP addresses, reverse DNS and user agents alongside Web Bot Auth ${cite(5, 7)}. FORA's edge never refuses Googlebot, Bingbot or Applebot ${cite(28)}.` },
+  { q: 'Will a signature rule refuse agents I want?', a: `It can. Google signs only some Google-Agent requests and tells sites to fall back to the older checks ${cite(5)}. On Arkose's network, most legitimate agent sessions carried no verified signature ${cite(18)}.` },
+  { q: 'Does Web Bot Auth track my readers?', a: `No. It identifies agents, and a person reading your site signs nothing. One identifier links an agent's requests across sites, so the draft calls it unsuited to an identifier tied to one person ${cite(1)}.` },
+  { q: 'Does my agent need to register anywhere for its signature to count?', a: `Not by the draft, which asks for no prior relationship ${cite(1)}. Cloudflare counts signatures from bots that registered their key directory through its bot submission form ${cite(16)}. DataDome asks operators to apply through a form ${cite(22)}. AWS WAF checks the signature against the agent's key directory and labels the result ${cite(20)}. A FORA Exchange checks a signature from any key directory that meets FORA's rules, and an account takes one signed request ${cite(25, 29)}.` },
+];
+
+// The SourceList, numbered as the copy numbers it: an entry's position,
+// counted across the groups, is the N in cite(N).
+const CHECKED = '2026-11-16';
+const src = (title: string, publisher: string, href: string) => ({ title, publisher, href, checked: CHECKED });
+const fora = (title: string, href: string) => src(title, 'FORA documentation', href);
+const SOURCES = [
+  {
+    name: 'The draft and the standard',
+    items: [
+      src('HTTP Message Signatures for automated traffic, draft-ietf-webbotauth-httpsig-protocol-01', 'IETF webbotauth working group', S.draft01),
+      src('RFC 9421: HTTP Message Signatures', 'IETF', S.rfc9421),
+      src('HTTP Message Signatures for automated traffic, draft-ietf-webbotauth-httpsig-protocol-00', 'IETF webbotauth working group', S.draft00),
+    ],
+  },
+  {
+    name: 'Signers',
+    items: [
+      src('ChatGPT Work\'s Cloud browser allowlisting', 'OpenAI Help Center', S.openaiAllow),
+      src('Authenticate requests with Web Bot Auth (experimental)', 'Google for Developers', S.google),
+      src('Automatic request headers', 'Cloudflare Browser Run docs', S.cfBrowserRun),
+      src('Bots directory', 'Cloudflare Radar', S.radar),
+      src('Exa crawler', 'Exa', S.exa),
+      src('Web Bot Auth', 'Browserbase docs', S.browserbase),
+      src('Web Bot Auth for AgentCore Browser', 'AWS docs', S.agentcore),
+      src('Overview of OpenAI crawlers', 'OpenAI', S.openaiBots),
+      { title: 'Does Anthropic crawl data from the web, and how can site owners block the crawler?', publisher: 'Anthropic', where: 'Claude help center, article 8896518', checked: CHECKED },
+      { title: 'How do Anthropic-hosted browsers identify themselves?', publisher: 'Anthropic', where: 'Claude help center, article 18234133', checked: CHECKED },
+      src('SAIL, draft-kelley-webbotauth-sail-00', 'IETF, individual Internet-Draft', S.sail),
+      src('Perplexity crawlers', 'Perplexity docs', S.perplexity),
+      src('Web Bot Auth (bot verification)', 'Cloudflare docs', S.cfWba),
+      src('Verified bots', 'Cloudflare docs', S.cfVerified),
+    ],
+  },
+  {
+    name: 'Numbers and verifiers',
+    items: [
+      src('The State of Agentic AI Trust Report, Q3 2026', 'Arkose Labs', S.arkose),
+      src('Verify your AI crawler', 'Cloudflare docs', S.cfVerifyCrawler),
+      src('AWS WAF Bot Control rule group', 'AWS docs', S.awsWaf),
+      src('Help ensure cloud browser access to your site', 'OpenAI for developers', S.openaiAccess),
+      src('Bot authentication', 'DataDome docs', S.datadome),
+      src('Bots and agents should identify themselves via Web Bot Auth', 'Shopify developer changelog', S.shopify),
+    ],
+  },
+  {
+    name: 'FORA',
+    items: [
+      fora('Signed URL verification', '/components/edge-function/signed-url-verification/'),
+      fora('fora.proto reference: RegisterRequest, RegisterResponse', '/reference/proto-fora/'),
+      fora('Threat model', '/security/threat-model/'),
+      fora('Exchange manifest', '/protocol/exchange-manifest/'),
+      fora('Bot detection', '/components/edge-function/bot-detection/'),
+      fora('Authentication', '/protocol/authentication/'),
+      fora('Identity Service', '/components/identity/overview/'),
+    ],
+  },
+  {
+    name: 'Allow lists and registries',
+    items: [
+      src('AI Crawler and Agent access policies', 'Cloudflare docs', S.cfPolicies),
+      src('Signature Agent Card and registry, draft-meunier-webbotauth-registry-04', 'IETF, individual Internet-Draft', S.registry),
+    ],
+  },
+  {
+    name: 'The debate',
+    items: [
+      src('WebBotAuth Direction', 'The working group\'s chairs, IETF web-bot-auth mailing list', S.direction),
+      src('Minutes, IETF 126 webbotauth session', 'IETF', S.minutes),
+      src('Call for adoption of draft-meunier-webbotauth-httpsig-protocol, and the chairs\' decision', 'IETF web-bot-auth mailing list', S.adoption),
+      src('Re: Harms', 'Mark Nottingham, IETF web-bot-auth mailing list', S.nottingham),
+      src('The Free and Open Web Is Under Attack at the IETF', 'EFF', S.eff),
+      src('Re: Harms', 'Mirja Kühlewind, IETF web-bot-auth mailing list', S.kuehlewind),
+      src('Moving past bots vs. humans', 'Cloudflare blog', S.cfPast),
+      src('New York becomes first state to ban bots that scrape news sites', 'Bloomberg Government', S.bgov),
+      src('NY State Senate passes stealth crawler bill', 'News/Media Alliance', S.nma),
+      src('EFF joins 18 civil rights organizations calling on Governor Hochul to reject stealth crawler bill', 'EFF', S.effVeto),
+    ],
+  },
+  {
+    name: 'Other ways to identify an agent',
+    items: [
+      src('Agentic Checkout RFC', 'Agentic Commerce Protocol, on GitHub', S.acp),
+      src('Forget IPs: using cryptography to verify bot and agent traffic', 'Cloudflare blog', S.cfBlog),
+      src('Authorization, revision 2026-07-28', 'Model Context Protocol', S.mcpAuth),
+      src('Client registration, revision 2026-07-28', 'Model Context Protocol', S.mcpReg),
+      src('Integrate Sign in with ChatGPT', 'OpenAI for developers', S.siwc),
+      src('Agent Pass quickstart', 'World', S.world),
+      src('Cross App Access', 'Okta developer docs', S.okta),
+      src('What is Microsoft Entra Agent ID?', 'Microsoft Learn', S.entra),
+      src('Trusted Agent Protocol specifications', 'Visa Developer', S.visa),
+      src('Agentic commerce guide', 'Mastercard Developers', S.mastercard),
+      src('Anonymous credentials: rate-limiting bots and agents without compromising privacy', 'Cloudflare blog', S.cfAnon),
+      src('AAuth, draft-hardt-oauth-aauth-protocol', 'IETF, individual Internet-Draft', S.aauth),
+    ],
+  },
+];
+
+const MORE = [
+  { href: '/resources/standards-map/', text: 'The standards map' },
+  { href: '/resources/ai-crawlers/', text: 'How to control which bots get in' },
+  { href: '/resources/content-marketplaces/', text: 'Content marketplaces and FORA' },
+];
+---
+<LandingLayout
+  title="Web Bot Auth: how an AI agent proves who it is — FORA resources"
+  description="An AI agent can sign every request with a key its own domain publishes. Who signs, what it lets your site decide, what changes in your stack, and how FORA uses it."
+>
+  <AudienceHero
+    current="resources"
+    badge="Resources · Identity"
+    title="An AI agent can prove who it is. <em>No email, no password.</em>"
+    sub="With Web Bot Auth, an AI agent proves who it is on its first request to a site, with no sign-up form and no password. A site that checks the signature can open an account for it right away. The agent signs every request with a key its own domain publishes, so there's no shared secret to phish or leak. You decide which domains you deal with."
+    updated={resourceUpdated(HREF)}
+  >
+    <a href="#stack" class="btn btn-primary">What changes for your site</a>
+    <a href="#fora" class="btn btn-ghost">How FORA uses it</a>
+    <a href="#engineers" class="hero-eng">Building an agent? The detail for engineers &rarr;</a>
+  </AudienceHero>
+
+  <Band tone="near" title="Know which agent is asking, without a password">
+    <Callout kind="takeaway" tag="Key takeaway">
+      <p class="takeaway">{TAKEAWAY}</p>
+    </Callout>
+    <Split aside="400px">
+      <div>
+        <p class="prose" set:html={`An agent that needs an account at a site goes through what a person does. It fills in a sign-up form, gives an email address, clicks a confirmation link, sets a password, and often copies an API key into its configuration. Each site issues its own secret. Any of them can be phished, reused or leaked in a breach, and someone has to rotate it ${cite(1)}.`} />
+        <p class="prose" set:html={`Web Bot Auth takes the shared secret away. The agent creates a key pair, publishes the public half in a key directory on its own domain, and signs each request with the private half. The draft from the IETF, the internet's standards body, makes this one of its two constraints: "Require no pre-established relationship between the two" ${cite(1)}.`} />
+        <p class="prose" set:html={`A site that has never seen the agent reads the directory's address from the first request, fetches the key and checks the signature. It then knows which domain's key signed the request, and it can open an account right there. The site keeps only public keys, so a breach of its database gives nobody anything to sign with. Each signature carries its own expiry, and covering the method, path and body narrows it to one request ${cite(1)}.`} />
+      </div>
+      <Figure
+        slot="aside"
+        src={`${IMG}/wba-1.png`}
+        title="Two ways to open an account."
+        alt="Two ways for an agent to open an account at a site. With a password: a sign-up form, an email address, a confirmation link, a password and an API key, one after another. Each can be phished, reused or leaked, and someone has to rotate it. With Web Bot Auth: a key directory on the agent's domain holds its public key. A signed request goes to the site, which fetches the key from the directory and can open an account. To rotate, the agent publishes a new key beside the old one."
+      />
+    </Split>
+    <Callout kind="define" {...KEY_DIRECTORY} />
+  </Band>
+
+  <Band tone="light" id="signers" label="Who signs" title="Some agents sign. The big crawlers don't." lead="Agent browsers, hosted browsers and a long tail of small operators' bots sign. The large training and search crawlers identify themselves by user agent, reverse DNS and published IP lists.">
+    <ResourceTable label="Who signs with Web Bot Auth" cols={['Who', 'What signs, or doesn\'t', 'How you can tell']} rows={SIGNERS} />
+    <p class="prose" set:html={`Radar also lists signing bots and agents from DuckDuckGo, You.com and Spotify, each with a key directory that answers ${cite(7)}.`} />
+  </Band>
+
+  <Band label="How much is signed" title="Few agent sessions are signed. ChatGPT agent signs at scale.">
+    <KeyFacts items={KEY_FACTS} />
+    <p class="prose">Radar is Cloudflare's directory of the bots it knows, so it shows who can sign. Arkose's report measures signed traffic, on its own network.</p>
+  </Band>
+
+  <Band tone="near" id="stack" label="What changes in your stack" title="Your CDN or bot vendor checks the signature">
+    <p class="prose" set:html={`Your site signs nothing. It can check signatures itself or leave that to the CDN or proxy in front of it ${cite(1)}.`} />
+    <PointList tone="neutral" items={STACK} />
+    <Callout kind="define" {...DEFINITIONS.signedLink} />
+  </Band>
+
+  <Band tone="light" id="how" title="How it works: three headers and one file">
+    <p class="prose" set:html={`A signed request carries three extra headers. One names the agent's key directory. One lists the parts of the request the signature covers, when it was made and when it expires. The third is the signature. The format comes from RFC 9421, the IETF standard for HTTP message signatures. Web Bot Auth adds which parts a bot must sign and how a site finds the key ${cite(1, 2)}.`} />
+    <StepList items={HOW} />
+    <p class="prose" set:html={`The address is the identity, and the key is replaceable. An agent rotates by publishing a new key beside the old one, signing with it, and removing the old one once it expires. Its name stays with the address, and so do its accounts at sites that key accounts on it ${cite(1)}.`} />
+    <Callout kind="define" {...SIGNATURE_AGENT} />
+  </Band>
+
+  <Band id="proves" title="What a signature proves, and what stays with you">
+    <Split aside="400px">
+      <div>
+        <p class="prose" set:html={`A valid signature proves one thing: a key from this directory signed these parts of this request, inside this time window. The draft says what it leaves out. The signature "says nothing about who operates the Agent, whether the Agent is benign, or whether the request is authorized. Those are origin policy" ${cite(1)}. The draft calls the site the origin.`} />
+        <p class="prose" set:html={`The rest is the site's to answer. Which company runs the agent comes from a contract, a registry that reviews applicants, or the details a marketplace asks for at sign-up. The domain only shows who controls an address. A signed crawler can crawl too fast. The signature says which domain is asking, and your terms say what it may take. Inside its window, a signed request can be sent again unless the site remembers what it has seen ${cite(1)}.`} />
+      </div>
+      <Figure
+        slot="aside"
+        src={`${IMG}/wba-3.png`}
+        title="What a valid signature proves."
+        alt="What a valid Web Bot Auth signature proves, and what is left to the site. The signature proves that a key from this directory signed these parts of this request, inside this time window. The rest is the site's: which company runs the agent, whether the agent is benign, what it may take, and whether the request is sent again."
+      />
+    </Split>
+    <Callout kind="caution" points={CAUTIONS} />
+  </Band>
+
+  <Band tone="near" id="allow" label="If you know the bot, you choose whom you serve" title="Your allow list is the domains you want to deal with">
+    <Split aside="400px">
+      <div>
+        <p class="prose">Your readers and search crawlers reach your open pages as before. The allow list is only for the pages you sell access to.</p>
+        <p class="prose" set:html={`Once a domain is verified, anyone can base a decision on it. The draft says sites "can log, rate limit, allowlist, or block the URL the way they do IP addresses and User-Agent today" ${cite(1)}. Nobody can sign for the domain without one of its private keys. IP addresses are shared across cloud customers, and anyone can type a user agent ${cite(1)}.`} />
+        <p class="prose">So keep a list of the domains you want to sell to. A request whose signature fails gets nothing on those pages, and so does a domain your list doesn't name.</p>
+        <p class="prose" set:html={`You can keep the list yourself or start from a vendor's. In Cloudflare's dashboard you set an action for Search, Agent and Training traffic, and for "the top Personal Agents" ${cite(31)}. The bots come from Cloudflare's own reviewed registry ${cite(17)}. A registry draft from Cloudflare and Amazon also defines a shared list: plain text, one URL per line. Anyone can publish one, and a site "MAY manually add" its entries to its own ${cite(32)}.`} />
+      </div>
+      <Figure
+        slot="aside"
+        src={`${IMG}/wba-4.png`}
+        title="The approved accounts."
+        alt="An Exchange's accounts, each with a checkbox: one domain approved, one new domain held for approval. A signed request from the approved domain can buy. A request whose signature fails gets nothing. A signed request from the new domain can't buy until it's approved. Beside them, a deny list: domains are cheap. Readers and search crawlers reach your open pages as before."
+      />
+    </Split>
+    <p class="prose" set:html={`On FORA, the list is an Exchange's accounts, and each account belongs to a domain. The Exchange's operator can open new accounts at once or hold them for approval, and can switch any account off ${cite(25, 26)}. You choose the Exchanges that sell your pages and set your terms there. If you run your own Exchange, as Gutefrage does, the approval is yours.`} />
+    <Callout kind="define" {...DEFINITIONS.exchange} />
+    <p class="prose">A deny list is weaker: it stops one domain, and domains are cheap. The draft agrees:</p>
+    <PullQuote
+      quote="Nothing stops an Agent from abandoning a URL and standing up another one, and the protocol does not try to prevent this. It targets honest clients that want to be recognised across requests."
+      who="IETF webbotauth working group"
+      source="draft-ietf-webbotauth-httpsig-protocol-01, §4.1"
+      href={S.draft01}
+    />
+    <p class="prose" set:html={`An agent that registers again under the same domain gets back the same account, in the same state. A new domain is a new identity. Where the operator holds new accounts for approval, it can't buy anything until it's approved. The approval can ask for what a domain doesn't prove, such as a legal name and a VAT number ${cite(25, 27)}.`} />
+    <Callout kind="search" id="search-traffic" text={SEARCH_FORA.text} links={SEARCH_FORA.links} />
+  </Band>
+
+  <Band tone="light" id="debate" label="The argument over who gets in" title="Engineers agree on signing and argue about who gets in">
+    <p class="prose" set:html={`The working group has chosen its technical starting point. In May 2026 it decided to work on anonymous approaches in parallel with identity ${cite(33)}. At IETF 126 in July, the room backed the signing draft as the starting direction, 22 to 6 ${cite(34)}. The group adopted it on September 1, 2026 ${cite(35)}.`} />
+    <p class="prose" set:html={`The supporters are the companies that handle bot traffic at scale. Engineers from Google, Anthropic, Shopify, Amazon, Stytch and the BBC backed adoption on the list, and the draft's authors work at Cloudflare and Google ${cite(1, 35)}. Their case is cheap, certain checks and less blocking of innocent traffic by IP. Mark Nottingham, who wrote a use-cases draft for the group, says IP-based arrangements are opaque, and an authentication infrastructure can "put some daylight on those arrangements" ${cite(36)}.`} />
+    <p class="prose" set:html={`The critics are civil-society groups and the research and scraping side. They fear sites will pick whom to let in by name, whatever a bot does. The EFF wrote in June 2026 ${cite(37)}:`} />
+    <PullQuote
+      quote="If sites restrict crawling to a preapproved list of cryptographically authenticated bots, they could require licensing payments from those wishing to crawl their sites. This would close off the open web to researchers, archivists, and startups without the ability to pay for automated access."
+      who="EFF"
+      source="The Free and Open Web Is Under Attack at the IETF, June 2026"
+      href={S.eff}
+    />
+    <p class="prose" set:html={`Writing on the working group's list, Mirja Kühlewind warned that once enough sites block everything unsigned, "at some point there might not be a choice anymore" ${cite(38)}. A domain key is also a stable identifier: the draft says it lets sites correlate requests "including across origins" ${cite(1)}. Cloudflare, whose engineer is the draft's first author, wrote that "Infrastructure for proving properties can become infrastructure for requiring properties" ${cite(39)}.`} />
+    <p class="prose" set:html={`Signing can't name a bot that won't sign, so publishers who want hidden crawlers named are turning to law. New York's legislature passed a Stealth Crawler Prohibition Act in June 2026 with the News/Media Alliance's support ${cite(40, 41)}. In August, the EFF and 18 groups asked the governor to veto it ${cite(42)}.`} />
+    <p class="prose" set:html={`On FORA, an agent signs when it uses FORA to find or buy licensed content ${cite(29)}. Reading and search stay open, and nobody signs to read a public page. A buying agent is recognizable at every Exchange it uses ${cite(1)}.`} />
+  </Band>
+
+  <Band id="layers" label="Other ways to identify an agent, and where Web Bot Auth fits" title="Other schemes answer the other questions">
+    <Split aside="400px">
+      <div>
+        <p class="prose">Web Bot Auth answers one question: which domain's key signed this request? An agent that buys also has to show whom it acts for, what it may do and who pays. Some sites ask whether a real person stands behind it. Different schemes answer each, and they stack.</p>
+        <details class="more">
+          <summary>Nine other schemes</summary>
+          <PointList tone="neutral" items={LAYERS} />
+        </details>
+        <p class="prose">Web Bot Auth fits at the bottom: one identity per key directory, on the operator's own domain, that anyone can check.</p>
+      </div>
+      <Figure
+        slot="aside"
+        src={`${IMG}/wba-5.png`}
+        title="The identity layers."
+        alt="Five layers of agent identity, bottom to top. Network hints: user agents, IP lists and reverse DNS, drawn dashed. Which domain's key signed it: Web Bot Auth, drawn heaviest, with Client ID Metadata Document, and also mTLS and AAuth. Whom it acts for, and whether a real person stands behind it: Sign in with ChatGPT, World ID. What it may do: MCP, Okta Cross App Access, Entra Agent ID. Who pays: Visa Trusted Agent Protocol and Mastercard Agent Pay, on the same signatures as Web Bot Auth. Anonymous credentials sit beside the identity and real-person layers."
+      />
+    </Split>
+  </Band>
+
+  <Band tone="near" id="fora" label="How FORA uses Web Bot Auth" title="Every FORA request is signed. An agent's domain is its account.">
+    <Split aside="400px">
+      <div>
+        <p class="prose" set:html={`Every party in FORA signs its requests with a key its own domain publishes ${cite(29)}. For an agent that buys content:`} />
+        <StepList fora items={FORA_STEPS} />
+      </div>
+      <Figure
+        slot="aside"
+        src={`${IMG}/wba-6.png`}
+        title="How a FORA agent registers and buys."
+        alt="How a FORA agent registers and buys, across the key directory on the agent's domain, the agent, the Exchange, FORA's edge function on your CDN (Workers, Fastly Compute or Lambda@Edge) and your site. The agent sends a signed registration to the Exchange, which fetches the key from the key directory; the account belongs to the domain. The agent sends a signed purchase, and the Exchange returns a signed link that names the buyer's key. The agent sends the signed link and its public key to the edge function, which checks that it holds that key, and your site serves the page. A copied link fetches nothing."
+      />
+    </Split>
+    <p class="prose" set:html={`The draft defines no revocation, so FORA adds a revocation list. A directory can name one, FORA verifiers check it every five minutes, and each party's list revokes only its own keys ${cite(29)}.`} />
+    <p class="prose" set:html={`An agent without a domain of its own can use FORA's Identity Service. It gives the agent its own subdomain, publishes the agent's key directory, keeps the private key and signs for the agent ${cite(30)}.`} />
+  </Band>
+
+  <Band tone="light" id="engineers" title="The detail, for engineers">
+    <Callout kind="engineers" collapse="Show the detail">
+      <div class="eng">
+        <h3>If you sign</h3>
+        <ul>{ENG_SIGN.map((t) => <li set:html={t} />)}</ul>
+        <p set:html={`A signed request, from draft -01's Ed25519 test vector (Appendix E.2.1) ${cite(1)}:`} />
+        <pre><code>{SIGNED_REQUEST}</code></pre>
+        <p set:html={`A directory request and response, from draft -01, Section 5.5.1 ${cite(1)}:`} />
+        <pre><code>{DIRECTORY}</code></pre>
+        <h3>If you verify</h3>
+        <ul>{ENG_VERIFY.map((t) => <li set:html={t} />)}</ul>
+        <h3>What FORA signs</h3>
+        <ul>{ENG_FORA.map((t) => <li set:html={t} />)}</ul>
+      </div>
+    </Callout>
+  </Band>
+
+  <Band title="Questions">
+    <FaqGrid items={FAQ} />
+  </Band>
+
+  <Band tone="near" id="about">
+    <Callout kind="about" points={ABOUT_FORA} columns />
+    <section class="sources" id="sources" aria-labelledby="sources-label">
+      <h2 class="end-label" id="sources-label">Sources</h2>
+      <details class="all-sources" id="all-sources">
+        <summary>All sources</summary>
+        <SourceList groups={SOURCES} compact numbered />
+      </details>
+      <p class="note">Sources are checked on the date of publication.</p>
+    </section>
+    <section class="more-in" aria-labelledby="more-label">
+      <h2 class="end-label" id="more-label">More in Resources</h2>
+      <LinkRow links={MORE} stacked />
+    </section>
+  </Band>
+
+  <ClosingCta
+    title={TAGLINE}
+    text="See what an agent would be offered for one of your pages through a FORA marketplace, which any company can run, or read how FORA agents sign."
+  >
+    <a href="/publishers/" class="btn btn-primary">See your offers</a>
+    <a href="/protocol/authentication/" class="btn btn-ghost">How FORA agents sign</a>
+  </ClosingCta>
+</LandingLayout>
+
+<script is:inline>
+  // The sources sit in a closed <details>: a citation marker, or a link to
+  // #src-N, opens it before the browser scrolls to the entry. The same script
+  // as the standards map's.
+  (function () {
+    var box = document.getElementById('all-sources');
+    if (!box) return;
+    function open() {
+      if (/^#src-\d+$/.test(location.hash) && !box.open) {
+        box.open = true;
+        var el = document.getElementById(location.hash.slice(1));
+        if (el) el.scrollIntoView();
+      }
+    }
+    window.addEventListener('hashchange', open);
+    // A second click on the same marker fires no hashchange.
+    document.addEventListener('click', function (e) {
+      var link = e.target.closest && e.target.closest('a[href^="#src-"]');
+      if (link) box.open = true;
+    });
+    open();
+  })();
+</script>
+
+<style>
+  /* Prose between components. The same few lines as on the TollBit page. */
+  .prose { color: var(--lp-text); line-height: 1.65; max-width: 44rem; }
+  .prose + .prose { margin-top: 1rem; }
+  :global(*) + .prose { margin-top: 1.25rem; }
+  .prose :global(a) { color: var(--lp-link); }
+  .prose :global(b) { color: var(--lp-strong); font-weight: 600; }
+  .prose :global(code) { font-family: var(--mono); font-size: 0.875em; color: var(--lp-heading); }
+
+  /* The hero's text link to the engineers' band, on its own line under the buttons. */
+  .hero-eng { flex-basis: 100%; text-align: center; margin-top: 0.25rem; color: var(--light-gray, #c8c8d4); font-size: 0.9375rem; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  .hero-eng:hover { color: var(--white, #fff); }
+
+  /* The key takeaway, drawn large like a pull quote, in FORA's voice. */
+  .takeaway { font-size: clamp(1.25rem, 2.2vw, 1.5rem) !important; line-height: 1.45; color: var(--lp-heading); font-weight: 500; letter-spacing: -0.01em; }
+
+  /* "Nine other schemes": closed, so the band reads as the figure and two paragraphs. */
+  .more { margin-top: 1.5rem; }
+  .more > summary { cursor: pointer; color: var(--lp-link); font-weight: 600; }
+  /* On phones the layers figure comes before the prose and its disclosure. */
+  @media (max-width: 900px) {
+    :global(#layers .split > div:last-child) { order: -1; }
+  }
+
+  /* The engineers' detail: three groups inside the callout, two code blocks. */
+  .eng h3 { margin: 2rem 0 0.75rem; color: var(--lp-heading); font-size: 1.0625rem; font-weight: 600; }
+  .eng h3:first-child { margin-top: 0; }
+  .eng ul { display: grid; gap: 0.5rem; margin: 0; padding-left: 1.25rem; }
+  .eng li, .eng p { color: var(--lp-text); line-height: 1.6; }
+  .eng p { margin: 1.25rem 0 0.5rem; }
+  .eng :global(code) { font-family: var(--mono); font-size: 0.8125em; color: var(--lp-heading); overflow-wrap: anywhere; }
+  .eng pre { margin: 0; padding: 1rem; overflow-x: auto; border: 1px solid var(--lp-rule); border-radius: 6px; background: var(--lp-bg); font-size: 0.8125rem; line-height: 1.5; }
+  .eng pre code { overflow-wrap: normal; white-space: pre; font-size: inherit; }
+  .eng :global(a) { color: var(--lp-link); }
+
+  .sources { margin-top: 4rem; scroll-margin-top: 5rem; }
+  .more-in { margin-top: 3rem; }
+  .end-label { font-size: 0.875rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--lp-label); margin: 0 0 0.75rem; }
+  .all-sources > summary { cursor: pointer; color: var(--lp-link); font-weight: 600; }
+  .note { max-width: 52rem; margin-top: 1.25rem; color: var(--lp-muted); font-size: 0.9375rem; line-height: 1.6; }
+</style>
