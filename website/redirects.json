@@ -3,5 +3,10 @@
     "source": "https://www.fora-protocol.org",
     "status": "302",
     "target": "https://fora-protocol.org"
+  },
+  {
+    "source": "/getting-started/industry-landscape/",
+    "target": "/resources/standards-map/",
+    "status": "301"
   }
 ]

@@ -51,7 +51,6 @@
 /getting-started/for-providers/
 /getting-started/for-verification-vendors/
 /getting-started/how-money-flows/
-/getting-started/industry-landscape/
 /getting-started/live-demo-music/
 /getting-started/poc-walkthrough/
 /getting-started/publisher-onboarding/
